@@ -43,6 +43,8 @@
 #include "librashader/d3d11_bridge.h"
 #include "librashader/frame_conversion.h"
 #include "librashader/librashader_loader.h"
+#include "imgui.h"
+#include "imgui_impl_dx11.h"
 
 struct VAEG_D3D11_STATE {
 	HWND hwnd;
@@ -66,6 +68,8 @@ struct VAEG_D3D11_STATE {
 	libra_d3d11_filter_chain_t filter_chain;
 	bool filter_enabled;
 	bool filter_first_frame;
+	bool gui_ready;
+	D3D11_VIEWPORT output_viewport;
 };
 
 template <typename T>
@@ -91,6 +95,10 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	if (state == nullptr) {
 		return;
 	}
+	if (state->gui_ready && ImGui::GetCurrentContext()) {
+		ImGui_ImplDX11_Shutdown();
+	}
+	if (state->context) state->context->ClearState();
 	if ((state->filter_chain != nullptr) &&
 	    (state->librashader.d3d11_filter_chain_free != nullptr)) {
 		(void)state->librashader.d3d11_filter_chain_free(&state->filter_chain);
@@ -102,6 +110,7 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	vaeg_d3d11_release(&state->pixel_shader);
 	vaeg_d3d11_release(&state->vertex_shader);
 	vaeg_d3d11_release(&state->swap_chain);
+	if (state->context) state->context->Flush();
 	vaeg_d3d11_release(&state->context);
 	vaeg_d3d11_release(&state->device);
 	free(state->upload_buffer);
@@ -272,6 +281,10 @@ static int vaeg_d3d11_ensure_source(VAEG_D3D11_STATE *state, uint32_t width, uin
 
 static void vaeg_d3d11_viewport(const VAEG_D3D11_STATE *state, const VAEG_FRAME_INPUT *frame,
                                 D3D11_VIEWPORT *viewport) {
+	if (state->output_viewport.Width > 0 && state->output_viewport.Height > 0) {
+		*viewport = state->output_viewport;
+		return;
+	}
 	double output_aspect = static_cast<double>(state->drawable_width) /
 	                       static_cast<double>(state->drawable_height);
 	double source_aspect = static_cast<double>(frame->source_aspect_width) /
@@ -389,6 +402,8 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_drawable_size(
 	    (state->render_target != nullptr)) {
 		return VAEG_D3D11_BRIDGE_OK;
 	}
+	// Unbind the old back buffer before ResizeBuffers releases its references.
+	state->context->OMSetRenderTargets(0, nullptr, nullptr);
 	vaeg_d3d11_release(&state->render_target);
 	result = state->swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 	if (FAILED(result)) {
@@ -516,7 +531,7 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 		filter_options.frametime_delta =
 			static_cast<uint32_t>(frame->frame_time_delta_ns / 1000000U);
 		libra_error_t error = state->librashader.d3d11_filter_chain_frame(
-			&state->filter_chain, state->context, 1, state->source_view, render_target,
+			&state->filter_chain, state->context, frame->frame_number, state->source_view, render_target,
 			&libra_viewport, nullptr, &filter_options);
 		if (error != nullptr) {
 			vaeg_d3d11_report_librashader_error(state, error, "frame rendering");
@@ -524,6 +539,11 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 		}
 		state->filter_first_frame = false;
 	} else {
+		state->context->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+		state->context->OMSetDepthStencilState(nullptr, 0);
+		state->context->RSSetState(nullptr);
+		state->context->IASetInputLayout(nullptr);
+		state->context->GSSetShader(nullptr, nullptr, 0);
 		state->context->VSSetShader(state->vertex_shader, nullptr, 0);
 		state->context->PSSetShader(state->pixel_shader, nullptr, 0);
 		state->context->PSSetShaderResources(0, 1, &state->source_view);
@@ -531,7 +551,12 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 		state->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		state->context->Draw(4, 0);
 	}
-	state->context->PSSetShaderResources(0, 0, nullptr);
+	ID3D11ShaderResourceView *no_source = nullptr;
+	state->context->PSSetShaderResources(0, 1, &no_source);
+	if (state->gui_ready && ImGui::GetCurrentContext() && ImGui::GetDrawData()) {
+		state->context->OMSetRenderTargets(1, &render_target, nullptr);
+		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+	}
 	result = state->swap_chain->Present(1, 0);
 	if (result == DXGI_STATUS_OCCLUDED) {
 		return VAEG_D3D11_BRIDGE_NO_OUTPUT;
@@ -551,4 +576,34 @@ extern "C" void vaeg_d3d11_bridge_shutdown(VAEG_D3D11_BRIDGE *bridge) {
 	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
 	bridge->state = nullptr;
 	vaeg_d3d11_release_state(state);
+}
+
+extern "C" int vaeg_d3d11_bridge_gui_prepare(VAEG_D3D11_BRIDGE *bridge) {
+	if (!bridge || !bridge->state || !ImGui::GetCurrentContext()) return 0;
+	auto *state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if (!state->gui_ready) {
+		if (!ImGui_ImplDX11_Init(state->device, state->context)) return 0;
+		if (!ImGui_ImplDX11_CreateDeviceObjects()) {
+			ImGui_ImplDX11_Shutdown();
+			return 0;
+		}
+		state->gui_ready = true;
+	}
+	ImGui_ImplDX11_NewFrame();
+	return 1;
+}
+
+extern "C" void vaeg_d3d11_bridge_gui_shutdown(VAEG_D3D11_BRIDGE *bridge) {
+	if (!bridge || !bridge->state) return;
+	auto *state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if (state->gui_ready && ImGui::GetCurrentContext()) ImGui_ImplDX11_Shutdown();
+	state->gui_ready = false;
+}
+
+extern "C" void vaeg_d3d11_bridge_set_output_viewport(VAEG_D3D11_BRIDGE *bridge,
+                                                      int x, int y, int width, int height) {
+	if (!bridge || !bridge->state) return;
+	auto *state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	state->output_viewport = {static_cast<float>(x), static_cast<float>(y),
+	                         static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f};
 }

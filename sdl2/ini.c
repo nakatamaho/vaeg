@@ -423,6 +423,7 @@ static const INITBL iniitem[] = {
     {"fscrn_cy", INITYPE_UINT16, &np2oscfg.fscrn_cy, 0},
     {"fscrnmod", INITYPE_HEX8, &np2oscfg.fscrnmod, 0},
     {"NativeCRT", INITYPE_BOOL, &np2oscfg.gui_native_crt, 0},
+    {"GUI_ui_scale", INITYPE_UINT16, &np2oscfg.gui_ui_scale, 0},
     {"NativeCRTPreset", INITYPE_STR, np2oscfg.gui_shader_preset,
      sizeof(np2oscfg.gui_shader_preset)},
 };

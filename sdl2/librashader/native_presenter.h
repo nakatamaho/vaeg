@@ -93,6 +93,10 @@ class NativePresenter {
 	virtual PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept = 0;
 	virtual PresenterResult recover() noexcept = 0;
 	virtual void shutdown() noexcept = 0;
+	// Presentation-thread GUI lifecycle; GPU objects stay inside each backend.
+	virtual bool gui_prepare() noexcept { return false; }
+	virtual void gui_shutdown() noexcept {}
+	virtual void set_output_viewport(int, int, int, int) noexcept {}
 
 	std::size_t filter_parameter_count() const noexcept;
 	const ShaderParameterInfo *filter_parameter(std::size_t index) const noexcept;

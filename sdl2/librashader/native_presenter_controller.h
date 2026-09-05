@@ -52,6 +52,13 @@ void vaeg_native_presenter_destroy(VAEG_NATIVE_PRESENTER *presenter);
 const char *vaeg_native_presenter_backend(const VAEG_NATIVE_PRESENTER *presenter);
 const char *vaeg_native_presenter_state(const VAEG_NATIVE_PRESENTER *presenter);
 const char *vaeg_native_presenter_error(const VAEG_NATIVE_PRESENTER *presenter);
+int vaeg_native_presenter_gui_prepare(VAEG_NATIVE_PRESENTER *presenter);
+void vaeg_native_presenter_gui_shutdown(VAEG_NATIVE_PRESENTER *presenter);
+void vaeg_native_presenter_set_output_viewport(VAEG_NATIVE_PRESENTER *presenter,
+                                               int x, int y, int width, int height);
+int vaeg_native_presenter_set_filter(VAEG_NATIVE_PRESENTER *presenter, int enabled);
+int vaeg_native_presenter_set_parameter(VAEG_NATIVE_PRESENTER *presenter,
+                                         const char *name, float value);
 
 #ifdef __cplusplus
 }

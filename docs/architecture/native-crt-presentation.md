@@ -137,11 +137,19 @@ The exact package and license rules are in
 [`ADR-0014`](../agents/DECISIONS/ADR-0014-librashader-crt.md) and the
 [CRT user guide](../modernization/native-crt-user-guide.md).
 
-## Known boundary
+## GUI composition and remaining boundary
 
-The current ImGui menu is attached to the SDL renderer. When Native CRT owns
-the window, the GUI is deferred until a native failure triggers SDL fallback.
-Native CRT enablement and preset changes are consequently saved for the next
-restart; live shader parameter controls are available when the SDL GUI is
-active. This is a deliberate ownership boundary, not a second renderer hidden
-inside the common contract.
+On Windows, M99z6 attaches the official same-version ImGui D3D11 renderer to
+the native presenter's device. SDL2 still handles GUI input; ImGui draw data
+is composed after filtering and before DXGI Present. The common presenter
+contract only exposes GUI lifecycle calls and a pixel viewport. SDL and native
+Windows output use the same viewport calculator and logical menu inset.
+Toggle calls retain the D3D11 device and filter chain. Preset reload is queued
+until the current GUI frame finishes, then tears down GUI GPU objects before
+replacing presentation resources. Device recovery recreates GUI resources on
+the next frame; a total native failure detaches the native GUI before creating
+the SDL renderer and its GUI. About textures use ImGui's managed texture data.
+
+macOS/Metal and Linux/OpenGL still defer the GUI during native presentation.
+Those platform GUI integrations and their physical GPU gates remain pending;
+the Windows correction does not establish cross-platform UI completion.

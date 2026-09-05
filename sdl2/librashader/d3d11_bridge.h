@@ -57,6 +57,10 @@ VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_parameter(VAEG_D3D11_BRIDG
 VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(VAEG_D3D11_BRIDGE *bridge,
                                                     const VAEG_FRAME_INPUT *frame);
 void vaeg_d3d11_bridge_shutdown(VAEG_D3D11_BRIDGE *bridge);
+int vaeg_d3d11_bridge_gui_prepare(VAEG_D3D11_BRIDGE *bridge);
+void vaeg_d3d11_bridge_gui_shutdown(VAEG_D3D11_BRIDGE *bridge);
+void vaeg_d3d11_bridge_set_output_viewport(VAEG_D3D11_BRIDGE *bridge,
+                                           int x, int y, int width, int height);
 
 #ifdef __cplusplus
 }

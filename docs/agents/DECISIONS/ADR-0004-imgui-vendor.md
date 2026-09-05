@@ -65,6 +65,17 @@ FreeType integration, and examples are intentionally not vendored.
 
 ## Consequences
 
+M99z6 adds the unmodified D3D11 backend from the same pinned commit
+`8936b58fe26e8c3da834b8f60b06511d537b4c63`. This is an expansion of the
+vendored file subset, not an ImGui version change. It renders the Windows
+menu after CRT processing on the presenter's own D3D11 device and context.
+The MIT license remains unchanged.
+
+| Added file under `external/imgui/backends/` | SHA-256 |
+| --- | --- |
+| `imgui_impl_dx11.cpp` | `1c0c3af25b45dceb4c45de7da591244f4935718154e7149d0e90858958c6f19d` |
+| `imgui_impl_dx11.h` | `fb8a314a6a2904dcc5bfeb938a169389e170f233ad367d33f1ce5c7bde586a7c` |
+
 - Vendored files under `external/imgui` are third-party code and should
   not be hand-edited.
 - Upgrading Dear ImGui requires replacing the vendored files from a new

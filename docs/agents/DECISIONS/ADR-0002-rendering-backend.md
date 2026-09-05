@@ -55,6 +55,14 @@ OpenGL backend and no OpenGL loader dependency are introduced in M10.
 
 ## Consequences
 
+M99z6 extends this decision for Windows native CRT presentation: the SDL2
+platform backend continues to own input, while the same-version official
+ImGui D3D11 backend draws the UI on the native presenter's device after the
+guest filter and before Present. SDLRenderer2 remains the feature-off and
+SDL fallback UI backend. Common presenter interfaces expose lifecycle and
+pixel viewport operations, never native GPU objects. Logical font size remains
+16 pixels, and drawable scaling and the menu inset match the SDL path.
+
 - M10 implementation must expose or route the existing SDL window and
   renderer to the GUI layer without replacing the guest texture pipeline.
 - MinGW and macOS builds avoid GL loader selection and driver-specific GL

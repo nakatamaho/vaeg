@@ -159,7 +159,8 @@ NP2OSCFG np2oscfg = {0,
                      0,
                      "",
                      0,
-                     VAEG_DEFAULT_SHADER_PRESET};
+                     VAEG_DEFAULT_SHADER_PRESET,
+                     0};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -1518,13 +1519,13 @@ static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 
 static BOOL initialize_gui_after_native_fallback(void) {
 	if (!scrnmng_take_native_fallback()) {
-		return SUCCESS;
+		return scrnmng_apply_native_crt_request();
 	}
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), NULL) != SUCCESS) {
 		fprintf(stderr, "Error: failed to initialize SDL GUI after Native CRT fallback\n");
 		return FAILURE;
 	}
-	return SUCCESS;
+	return scrnmng_apply_native_crt_request();
 }
 
 static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
@@ -1951,6 +1952,9 @@ int main(int argc, char **argv) {
 	np2_debug = options.debug;
 
 	SDL_SetMainReady();
+#if defined(_WIN32)
+	SDL_SetHintWithPriority(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2", SDL_HINT_DEFAULT);
+#endif
 	if (SDL_Init(0) < 0) {
 		fprintf(stderr, "Error: SDL_Init: %s\n", SDL_GetError());
 		return (FAILURE);
@@ -2135,13 +2139,23 @@ int main(int argc, char **argv) {
 		goto np2main_err2;
 	}
 	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
-	if (!scrnmng_native_active()) {
+#if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
+	if (!scrnmng_native_active())
+#endif
+	{
 		if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-			goto np2main_err3;
+			if (!scrnmng_native_active() || scrnmng_fallback_to_sdl() != SUCCESS ||
+			    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+				goto np2main_err3;
+			}
+			(void)scrnmng_take_native_fallback();
 		}
-	} else {
+	}
+#if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
+	else {
 		SDL_Log("Native CRT owns presentation; SDL GUI renderer is deferred until fallback");
 	}
+#endif
 	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
 	    (scrnmng_set_display_mode(np2oscfg.gui_display_mode, np2oscfg.gui_monitor,
 	                              np2oscfg.fscrn_cx, np2oscfg.fscrn_cy,

@@ -25,6 +25,7 @@
 #include "sdlapi.h"
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_sdlrenderer2.h"
 
@@ -166,10 +167,15 @@ struct GuiState {
 	bool initialized = false;
 	bool text_input_active = false;
 	SDL_Renderer *renderer = nullptr;
+	SDL_Window *window = nullptr;
+	bool native_renderer = false;
 	SDL_Texture *about_texture = nullptr;
+	ImTextureData *native_about_texture = nullptr;
 	int about_texture_width = 0;
 	int about_texture_height = 0;
 	float menu_font_size = kGuiFontSize;
+	ImGuiStyle base_style;
+	float ui_scale = 0.0f;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
 	bool fdd_browser_open = false;
@@ -520,6 +526,31 @@ static SDL_Texture *load_about_texture(SDL_Renderer *renderer, int *width, int *
 	}
 	SDL_FreeSurface(surface);
 	return texture;
+}
+
+static void load_native_about_texture(void) {
+	SDL_RWops *stream = SDL_RWFromConstMem(vaeg_splash_bmp, static_cast<int>(vaeg_splash_bmp_size));
+	if (!stream)
+		return;
+	SDL_Surface *source = SDL_LoadBMP_RW(stream, 1);
+	if (!source)
+		return;
+	SDL_Surface *rgba = SDL_ConvertSurfaceFormat(source, SDL_PIXELFORMAT_RGBA32, 0);
+	SDL_FreeSurface(source);
+	if (!rgba)
+		return;
+	auto *texture = IM_NEW(ImTextureData)();
+	texture->Create(ImTextureFormat_RGBA32, rgba->w, rgba->h);
+	for (int row = 0; row < rgba->h; ++row) {
+		std::memcpy(texture->GetPixelsAt(0, row),
+		            static_cast<const unsigned char *>(rgba->pixels) + row * rgba->pitch,
+		            texture->GetPitch());
+	}
+	g_gui.about_texture_width = rgba->w;
+	g_gui.about_texture_height = rgba->h;
+	SDL_FreeSurface(rgba);
+	ImGui::RegisterUserTexture(texture);
+	g_gui.native_about_texture = texture;
 }
 
 static std::string join_path(const std::string &base, const char *leaf) {
@@ -2510,7 +2541,7 @@ static void load_native_crt_preset(void) {
 		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
 		            sizeof(np2oscfg.gui_shader_preset));
 	}
-	if (!g_gui.native_crt_preset.load(np2oscfg.gui_shader_preset, &error)) {
+	if (!g_gui.native_crt_preset.load(scrnmng_native_preset_path(), &error)) {
 		g_gui.native_crt_loaded_path.clear();
 		g_gui.native_crt_status = "Preset load failed: ";
 		g_gui.native_crt_status += error;
@@ -2528,15 +2559,22 @@ static void draw_native_crt_menu(void) {
 	if (!ImGui::BeginMenu("Native CRT (librashader)")) {
 		return;
 	}
-	bool enabled = np2oscfg.gui_native_crt != 0;
+	ImGui::TextWrapped("%s", scrnmng_native_status());
+	bool enabled = scrnmng_native_active()
+	                   ? std::strcmp(scrnmng_native_status(), "Native CRT ON") == 0
+	                   : np2oscfg.gui_native_crt != 0;
 	if (ImGui::MenuItem("Enable", nullptr, enabled)) {
 		enabled = !enabled;
-		np2oscfg.gui_native_crt = enabled ? 1 : 0;
+		scrnmng_request_native_crt(enabled ? TRUE : FALSE, FALSE);
 		sysmng_update(SYS_UPDATEOSCFG);
-		g_gui.native_crt_status = enabled ? "Native CRT saved; restart to apply"
-		                                 : "Native CRT disabled on next restart";
+#if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
+		g_gui.native_crt_status = "Applying CRT selection";
+#else
+		g_gui.native_crt_status =
+		    enabled ? "Native CRT saved; restart to apply" : "Native CRT disabled on next restart";
+#endif
 	}
-	ImGui::TextDisabled("Native presentation owns the window after restart");
+	ImGui::TextDisabled("DLL presence alone does not enable CRT");
 	ImGui::Separator();
 	if (ImGui::InputText("Preset path", np2oscfg.gui_shader_preset,
 	                     sizeof(np2oscfg.gui_shader_preset))) {
@@ -2545,6 +2583,8 @@ static void draw_native_crt_menu(void) {
 	}
 	if (ImGui::Button("Reload preset")) {
 		load_native_crt_preset();
+		if (scrnmng_native_active())
+			scrnmng_request_native_crt(enabled, TRUE);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Clear status")) {
@@ -2565,7 +2605,11 @@ static void draw_native_crt_menu(void) {
 			if (ImGui::SliderFloat(parameter->name.c_str(), &value, parameter->minimum,
 			                       parameter->maximum, "%.3f")) {
 				(void)parameters.set_value_at(i, value, nullptr);
-				if (!parameters.save_values(kNativeCrtParameterState)) {
+				if (scrnmng_native_active() &&
+				    scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value) !=
+				        SUCCESS) {
+					g_gui.native_crt_status = "Live parameter update failed";
+				} else if (!parameters.save_values(kNativeCrtParameterState)) {
 					g_gui.native_crt_status = "Parameter save failed";
 				} else {
 					g_gui.native_crt_status = "Parameter updated";
@@ -2578,6 +2622,12 @@ static void draw_native_crt_menu(void) {
 		}
 		if (ImGui::Button("Reset parameters")) {
 			parameters.reset();
+			if (scrnmng_native_active()) {
+				for (std::size_t i = 0; i < parameters.size(); ++i) {
+					const auto *parameter = parameters.at(i);
+					(void)scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value);
+				}
+			}
 			if (!parameters.save_values(kNativeCrtParameterState)) {
 				g_gui.native_crt_status = "Parameter reset save failed";
 			} else {
@@ -2930,6 +2980,17 @@ static void load_default_va_font(void) {
 
 static void draw_screen_menu(void) {
 	if (ImGui::BeginMenu("画面")) {
+		if (ImGui::BeginMenu("UI size")) {
+			static const int values[] = {0, 100, 125, 150, 200, 250, 300};
+			static const char *labels[] = {"Automatic (DPI)", "100%", "125%", "150%", "200%", "250%", "300%"};
+			for (unsigned i = 0; i < sizeof(values) / sizeof(values[0]); ++i) {
+				if (ImGui::MenuItem(labels[i], nullptr, np2oscfg.gui_ui_scale == values[i])) {
+					np2oscfg.gui_ui_scale = values[i];
+					sysmng_update(SYS_UPDATEOSCFG);
+				}
+			}
+			ImGui::EndMenu();
+		}
 		const char *screenshot_shortcut =
 		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
 		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
@@ -3353,13 +3414,14 @@ static void draw_about_dialog(void) {
 	ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
 	if (ImGui::BeginPopupModal("About...##vaeg", &g_gui.about_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
-		if (g_gui.about_texture != nullptr) {
+		if (g_gui.about_texture != nullptr || g_gui.native_about_texture != nullptr) {
 			const float available = ImGui::GetContentRegionAvail().x;
 			const float image_width = static_cast<float>(g_gui.about_texture_width);
 			const float image_height = static_cast<float>(g_gui.about_texture_height);
 			const float scale = (std::min)(1.0f, available / image_width);
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (available - image_width * scale) * 0.5f);
-			ImGui::Image(ImTextureRef(g_gui.about_texture),
+			ImGui::Image(g_gui.native_about_texture ? g_gui.native_about_texture->GetTexRef()
+			                                        : ImTextureRef(g_gui.about_texture),
 			             ImVec2(image_width * scale, image_height * scale));
 		} else {
 			ImGui::TextUnformatted("88VA Eternal Grafx");
@@ -3571,7 +3633,7 @@ extern "C" BOOL gui_save_screenshot(void) {
 
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	(void)argv0;
-	if ((window == nullptr) || (renderer == nullptr)) {
+	if ((window == nullptr) || ((renderer == nullptr) && !scrnmng_native_active())) {
 		return FAILURE;
 	}
 
@@ -3588,11 +3650,32 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	    kGuiFontSize, &font_config, io.Fonts->GetGlyphRangesJapanese());
 	if (font == nullptr) {
 		std::fprintf(stderr, "Error: failed to load embedded GUI font\n");
+		ImGui::DestroyContext();
 		return FAILURE;
 	}
 
 	ImGui::StyleColorsDark();
+	g_gui.base_style = ImGui::GetStyle();
+	g_gui.ui_scale = 0.0f;
 	scrnmng_set_menu_height(menu_bar_height());
+	g_gui.window = static_cast<SDL_Window *>(window);
+	g_gui.native_renderer = renderer == nullptr;
+	if (g_gui.native_renderer) {
+		if (!ImGui_ImplSDL2_InitForOther(g_gui.window)) {
+			ImGui::DestroyContext();
+			return FAILURE;
+		}
+		if (scrnmng_native_gui_prepare() != SUCCESS) {
+			ImGui_ImplSDL2_Shutdown();
+			ImGui::DestroyContext();
+			return FAILURE;
+		}
+		g_gui.initialized = true;
+		load_native_about_texture();
+		load_native_crt_preset();
+		SDL_Log("GUI renderer: native; base font=16 pixels, DPI-scaled");
+		return SUCCESS;
+	}
 	if (!ImGui_ImplSDL2_InitForSDLRenderer(static_cast<SDL_Window *>(window),
 	                                       static_cast<SDL_Renderer *>(renderer))) {
 		return FAILURE;
@@ -3624,7 +3707,14 @@ void gui_shutdown(void) {
 		SDL_DestroyTexture(g_gui.about_texture);
 		g_gui.about_texture = nullptr;
 	}
-	ImGui_ImplSDLRenderer2_Shutdown();
+	if (g_gui.native_renderer)
+		scrnmng_native_gui_shutdown();
+	else
+		ImGui_ImplSDLRenderer2_Shutdown();
+	if (g_gui.native_about_texture) {
+		ImGui::UnregisterUserTexture(g_gui.native_about_texture);
+		IM_DELETE(g_gui.native_about_texture);
+	}
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
 	g_gui = GuiState{};
@@ -3718,8 +3808,49 @@ void gui_new_frame(void) {
 	if (!g_gui.initialized) {
 		return;
 	}
-	ImGui_ImplSDLRenderer2_NewFrame();
+	if (g_gui.native_renderer) {
+		if (scrnmng_native_gui_prepare() != SUCCESS) {
+			if (scrnmng_fallback_to_sdl() != SUCCESS ||
+			    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), nullptr) != SUCCESS) {
+				taskmng_exit();
+				return;
+			}
+			(void)scrnmng_take_native_fallback();
+		}
+	} else {
+		ImGui_ImplSDLRenderer2_NewFrame();
+	}
 	ImGui_ImplSDL2_NewFrame();
+	if (g_gui.native_renderer) {
+		int width, height, pixels_width, pixels_height;
+		SDL_GetWindowSize(g_gui.window, &width, &height);
+		SDL_GetWindowSizeInPixels(g_gui.window, &pixels_width, &pixels_height);
+		if (width > 0 && height > 0) {
+			ImGui::GetIO().DisplayFramebufferScale =
+			    ImVec2(static_cast<float>(pixels_width) / width,
+			           static_cast<float>(pixels_height) / height);
+		}
+	}
+	float ui_scale = 1.0f;
+#if defined(_WIN32)
+	const float pixel_scale = ImGui::GetIO().DisplayFramebufferScale.x;
+	ui_scale = ImGui_ImplSDL2_GetContentScaleForWindow(g_gui.window) /
+	           (pixel_scale > 0.0f ? pixel_scale : 1.0f);
+#endif
+	if (np2oscfg.gui_ui_scale >= 100 && np2oscfg.gui_ui_scale <= 300) {
+		ui_scale = np2oscfg.gui_ui_scale / 100.0f;
+	}
+	ui_scale = (std::max)(1.0f, (std::min)(4.0f, ui_scale));
+	if (std::fabs(ui_scale - g_gui.ui_scale) > 0.001f) {
+		ImGuiStyle &style = ImGui::GetStyle();
+		style = g_gui.base_style;
+		style.ScaleAllSizes(ui_scale);
+		style.FontScaleDpi = ui_scale;
+		g_gui.menu_font_size = kGuiFontSize * ui_scale;
+		g_gui.ui_scale = ui_scale;
+		SDL_Log("GUI scale: %.2f; font=%.1f; mode=%s", ui_scale, g_gui.menu_font_size,
+		        np2oscfg.gui_ui_scale == 0 ? "automatic DPI" : "manual");
+	}
 	ImGui::NewFrame();
 	scrnmng_set_menu_height(static_cast<int>(std::ceil(ImGui::GetFrameHeight())));
 }
@@ -3793,5 +3924,6 @@ void gui_render(void) {
 	}
 	ImGui::Render();
 	update_text_input_state();
-	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_gui.renderer);
+	if (!g_gui.native_renderer)
+		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_gui.renderer);
 }

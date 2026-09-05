@@ -70,6 +70,29 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Windows native CRT excluded the GUI and hid activation state
+
+- **Status:** corrected in M99z6; physical CRT retest pending.
+- **Symptom/scope:** the MinGW package displayed the guest with no apparent
+  CRT effect; enabling native presentation also made the menu unavailable.
+- **Demonstrated cause:** DLL presence did not enable the default-off setting,
+  startup explicitly skipped GUI initialization for native presentation, and
+  the native present call did not compose GUI draw data. The maintainer's DLL
+  load result was not captured and is not inferred from appearance alone.
+- **Correction:** compose the pinned ImGui D3D11 backend after the shader,
+  share the SDL viewport/menu sizing, enable and toggle from the live menu,
+  expose runtime state, resolve bundled assets beside the executable, and
+  provide an explicit CRT launcher/log. Preserve native pass-through on filter
+  errors and release GUI resources before native device/SDL transitions.
+  Request Windows per-monitor DPI awareness and scale fonts and style from a
+  baseline, with a persistent UI-size override. The previous fixed 16-pixel
+  font did not account for effective Windows DPI; physical sizing is pending.
+- **Verification:** MinGW build, macOS feature-on/off builds and 10/10 focused
+  tests each; Debug assertion-enabled suite 8/8. Controller/presenter doubles
+  cover repeated toggles and recovery, not physical GPU output.
+- **Task/evidence:** [M99z6 report](../agents/reports/m99z6_windows_crt_gui.md).
+- **Commit:** recorded in the linked report after the implementation commit.
+
 ### SDL resource creation success was treated as failure
 
 - **Status:** fixed in M99z; real GPU presentation remains separately gated.
@@ -92,7 +115,8 @@ separate parity correction or move it to Open Defects.
 
 ### Drawable-size success was treated as failure
 
-- **Status:** fixed in M99z1; physical Windows confirmation remains pending.
+- **Status:** fixed in M99z1; maintainer confirmed Windows guest display during
+  the M99z6 follow-up, but clarified that menu sizing remains too small.
 - **Symptom:** the Windows MinGW frontend showed its menu and continued to
   produce emulated audio and floppy-drive sounds, but the guest display stayed
   black. Startup and scale-change diagnostics reported a zero-sized guest
@@ -112,7 +136,8 @@ separate parity correction or move it to Open Defects.
   invalid guest rectangle to `guest=0,22 640x400`; 90 executed CTests passed
   and the external SSTS case was separately skipped. MinGW
   SDL-only and librashader-enabled console builds both linked successfully.
-  Real Windows display and native D3D11/CRT confirmation are not claimed yet.
+  The maintainer subsequently confirmed Windows guest display. Native D3D11
+  shader output remains subject to the M99z6 retest.
 - **Evidence:** [M99 final report](../agents/reports/m99-final-report.md).
 - **Milestone/task:** M99z1 follow-up to the M99 librashader CRT pipeline.
 - **Commit:** [fa2a3d78](https://github.com/nakatamaho/vaeg/commit/fa2a3d78749d84fc08d90ee749bc32f10b2f08fa).

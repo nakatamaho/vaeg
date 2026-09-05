@@ -90,6 +90,7 @@ typedef struct {
 	char hostfat_dir[MAX_PATH];
 	BYTE gui_native_crt;
 	char gui_shader_preset[NP2OSCFG_SHADER_PRESET_PATH_SIZE];
+	UINT16 gui_ui_scale;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

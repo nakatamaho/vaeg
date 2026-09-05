@@ -65,6 +65,16 @@ static VAEG_NATIVE_PRESENTER_RESULT present_once(
 	if (result == PresenterResult::Disabled) {
 		return VAEG_NATIVE_PRESENTER_NO_OUTPUT;
 	}
+	if (result == PresenterResult::Recovered) {
+		// A filter failure recovered to native pass-through. Draw that frame now.
+		result = presenter->implementation->present(*frame);
+		if (result == PresenterResult::Presented) {
+			return VAEG_NATIVE_PRESENTER_PRESENTED;
+		}
+		if (result == PresenterResult::Disabled) {
+			return VAEG_NATIVE_PRESENTER_NO_OUTPUT;
+		}
+	}
 	if (result == PresenterResult::Fallback) {
 		const PresenterResult recovered = presenter->implementation->recover();
 		if (recovered == PresenterResult::Recovered) {
@@ -206,4 +216,32 @@ extern "C" const char *vaeg_native_presenter_error(
 		return "platform_unavailable";
 	}
 	return vaeg::librashader::presenter_error_name(presenter->implementation->last_error());
+}
+
+extern "C" int vaeg_native_presenter_gui_prepare(VAEG_NATIVE_PRESENTER *presenter) {
+	return presenter && presenter->implementation && presenter->implementation->gui_prepare();
+}
+
+extern "C" void vaeg_native_presenter_gui_shutdown(VAEG_NATIVE_PRESENTER *presenter) {
+	if (presenter && presenter->implementation) presenter->implementation->gui_shutdown();
+}
+
+extern "C" void vaeg_native_presenter_set_output_viewport(VAEG_NATIVE_PRESENTER *presenter,
+                                                           int x, int y, int width, int height) {
+	if (presenter && presenter->implementation)
+		presenter->implementation->set_output_viewport(x, y, width, height);
+}
+
+extern "C" int vaeg_native_presenter_set_filter(VAEG_NATIVE_PRESENTER *presenter, int enabled) {
+	if (!presenter || !presenter->implementation) return 0;
+	const auto result = presenter->implementation->set_filter_enabled(enabled != 0);
+	return result == vaeg::librashader::PresenterResult::Recovered ||
+	       result == vaeg::librashader::PresenterResult::Disabled;
+}
+
+extern "C" int vaeg_native_presenter_set_parameter(VAEG_NATIVE_PRESENTER *presenter,
+                                                    const char *name, float value) {
+	return presenter && presenter->implementation &&
+	       presenter->implementation->set_filter_parameter(name, value) ==
+	           vaeg::librashader::PresenterResult::Recovered;
 }

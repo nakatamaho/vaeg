@@ -38,6 +38,7 @@
 #include "appicon.h"
 #include "framedisp.h"
 #include "librashader/native_presenter_controller.h"
+#include "gui/gui.h"
 
 typedef struct {
 	BOOL enable;
@@ -72,6 +73,9 @@ typedef struct {
 	BOOL native_fallback_pending;
 	UINT64 native_frame_number;
 	BOOL native_capture_warning;
+	BOOL native_change_pending;
+	BOOL native_reload_pending;
+	char native_status[256];
 } SCRNMNG;
 
 typedef struct {
@@ -107,10 +111,32 @@ static BOOL scrnmng_native_fallback(void);
 
 static const char scrnmng_native_parameter_state[] = "vaeg-crt-parameters.cfg";
 
+const char *scrnmng_native_preset_path(void) {
+	static char bundled_path[4096];
+	const char *configured = np2oscfg.gui_shader_preset;
+	SDL_RWops *file;
+	char *base;
+	if (configured[0] && strcmp(configured, VAEG_DEFAULT_SHADER_PRESET) != 0)
+		return configured;
+	// Shipped assets follow the executable, independently of the launch directory.
+	base = SDL_GetBasePath();
+	if (base) {
+		snprintf(bundled_path, sizeof(bundled_path), "%s%s", base, VAEG_DEFAULT_SHADER_PRESET);
+		SDL_free(base);
+		file = SDL_RWFromFile(bundled_path, "rb");
+		if (file) {
+			SDL_RWclose(file);
+			return bundled_path;
+		}
+	}
+	return VAEG_DEFAULT_SHADER_PRESET;
+}
+
 static BOOL scrnmng_native_requested(void) {
 	const char *video_driver;
 
-	if (!np2oscfg.gui_native_crt) {
+	const char *override = SDL_getenv("VAEG_NATIVE_CRT");
+	if (override ? strcmp(override, "1") != 0 : !np2oscfg.gui_native_crt) {
 		return FALSE;
 	}
 	video_driver = SDL_GetCurrentVideoDriver();
@@ -513,7 +539,7 @@ static void scrnmng_update_title(void) {
 	}
 	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
 	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
-	length = snprintf(title, sizeof(title), "%s", app_name);
+	length = snprintf(title, sizeof(title), "%s [%s]", app_name, scrnmng_native_status());
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0) {
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);
@@ -1149,6 +1175,9 @@ static BOOL scrnmng_native_fallback(void) {
 	if (!scrnmng.native_active || (scrnmng.native_presenter == NULL)) {
 		return FAILURE;
 	}
+	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "CRT fallback: %s",
+	         vaeg_native_presenter_error(scrnmng.native_presenter));
+	gui_shutdown();
 	vaeg_native_presenter_destroy(scrnmng.native_presenter);
 	scrnmng.native_presenter = NULL;
 	scrnmng.native_active = FALSE;
@@ -1157,7 +1186,7 @@ static BOOL scrnmng_native_fallback(void) {
 		fprintf(stderr, "Error: SDL fallback renderer creation failed: %s\n", SDL_GetError());
 		return FAILURE;
 	}
-	scrnmng_clear_shadow();
+	(void)scrnmng_upload_shadow();
 	scrnmng_update_title();
 	fprintf(stderr, "Native CRT disabled after failure; SDL presentation restored\n");
 	return SUCCESS;
@@ -1203,18 +1232,19 @@ BOOL scrnmng_create(int width, int height) {
 		return (FAILURE);
 	}
 	scrnmng.enable = TRUE;
+	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "SDL / CRT off");
 	if (scrnmng_native_requested()) {
-		preset_path = (np2oscfg.gui_shader_preset[0] != '\0')
-		                  ? np2oscfg.gui_shader_preset
-		                  : VAEG_DEFAULT_SHADER_PRESET;
-		scrnmng.native_presenter = vaeg_native_presenter_create(
-		    scrnmng.window, 0, 0, preset_path, scrnmng_native_parameter_state);
+		preset_path = scrnmng_native_preset_path();
+		scrnmng.native_presenter = vaeg_native_presenter_create(scrnmng.window, 0, 0, preset_path,
+		                                                        scrnmng_native_parameter_state);
 		if (scrnmng.native_presenter != NULL) {
 			scrnmng.native_active = TRUE;
 			scrnmng.renderer_backend[0] = '\0';
 			fprintf(stderr, "Native CRT selected: backend=%s preset=%s\n",
 			        vaeg_native_presenter_backend(scrnmng.native_presenter), preset_path);
 		} else {
+			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+			         "SDL fallback: CRT runtime, preset or GPU unavailable");
 			fprintf(stderr, "Native CRT selected but unavailable; using SDL fallback\n");
 		}
 	}
@@ -1273,6 +1303,94 @@ void *scrnmng_get_window(void) {
 
 void *scrnmng_get_renderer(void) {
 	return (scrnmng.renderer);
+}
+
+BOOL scrnmng_native_gui_prepare(void) {
+	return vaeg_native_presenter_gui_prepare(scrnmng.native_presenter) ? SUCCESS : FAILURE;
+}
+
+BOOL scrnmng_fallback_to_sdl(void) {
+	return scrnmng_native_fallback();
+}
+
+void scrnmng_native_gui_shutdown(void) {
+	vaeg_native_presenter_gui_shutdown(scrnmng.native_presenter);
+}
+
+const char *scrnmng_native_status(void) {
+	if (scrnmng.native_active) {
+		const char *error = vaeg_native_presenter_error(scrnmng.native_presenter);
+		if (strcmp(error, "none") != 0) {
+			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+			         "CRT unavailable: %s / native pass-through", error);
+			return scrnmng.native_status;
+		}
+		return strcmp(vaeg_native_presenter_state(scrnmng.native_presenter), "filtered") == 0
+		           ? "Native CRT ON"
+		           : "Native CRT OFF / pass-through";
+	}
+	return scrnmng.native_status;
+}
+
+BOOL scrnmng_native_set_parameter(const char *name, float value) {
+	return vaeg_native_presenter_set_parameter(scrnmng.native_presenter, name, value) ? SUCCESS
+	                                                                                  : FAILURE;
+}
+
+void scrnmng_request_native_crt(BOOL enabled, BOOL reload) {
+	np2oscfg.gui_native_crt = enabled ? 1 : 0;
+	scrnmng.native_change_pending = TRUE;
+	scrnmng.native_reload_pending = reload;
+}
+
+BOOL scrnmng_apply_native_crt_request(void) {
+#if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
+	const char *preset;
+	if (!scrnmng.native_change_pending)
+		return SUCCESS;
+	scrnmng.native_change_pending = FALSE;
+	if (scrnmng.native_active && !scrnmng.native_reload_pending) {
+		if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, np2oscfg.gui_native_crt)) {
+			fprintf(stderr, "Native CRT toggle failed\n");
+		}
+		scrnmng_update_title();
+		return SUCCESS;
+	}
+	if (!scrnmng.native_active && !np2oscfg.gui_native_crt)
+		return SUCCESS;
+	// Called between ImGui frames on the presentation thread.
+	gui_shutdown();
+	vaeg_native_presenter_destroy(scrnmng.native_presenter);
+	scrnmng.native_presenter = NULL;
+	scrnmng.native_active = FALSE;
+	if (scrnmng.texture)
+		SDL_DestroyTexture(scrnmng.texture);
+	scrnmng.texture = NULL;
+	if (scrnmng.renderer)
+		SDL_DestroyRenderer(scrnmng.renderer);
+	scrnmng.renderer = NULL;
+	preset = scrnmng_native_preset_path();
+	scrnmng.native_presenter =
+	    vaeg_native_presenter_create(scrnmng.window, 0, 0, preset, scrnmng_native_parameter_state);
+	scrnmng.native_active = scrnmng.native_presenter != NULL;
+	if (scrnmng.native_active && !np2oscfg.gui_native_crt)
+		(void)vaeg_native_presenter_set_filter(scrnmng.native_presenter, 0);
+	if (!scrnmng.native_active) {
+		snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+		         "SDL fallback: CRT runtime, preset or GPU unavailable");
+		if (scrnmng_create_sdl_resources() != SUCCESS)
+			return FAILURE;
+		(void)scrnmng_upload_shadow();
+	}
+	scrnmng_update_title();
+	if (gui_initialize(scrnmng.window, scrnmng.renderer, NULL) == SUCCESS) return SUCCESS;
+	if (!scrnmng.native_active || scrnmng_native_fallback() != SUCCESS) return FAILURE;
+	(void)scrnmng_take_native_fallback();
+	return gui_initialize(scrnmng.window, scrnmng.renderer, NULL);
+#else
+	scrnmng.native_change_pending = FALSE;
+	return SUCCESS;
+#endif
 }
 
 const char *scrnmng_get_renderer_backend(void) {
@@ -1695,6 +1813,11 @@ void scrnmng_present_end(void) {
 		if (native_result == VAEG_NATIVE_PRESENTER_FALLBACK) {
 			(void)scrnmng_native_fallback();
 		} else {
+			if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
+				vaeg_native_presenter_set_output_viewport(scrnmng.native_presenter, viewport.x,
+				                                          viewport.y, viewport.width,
+				                                          viewport.height);
+			}
 			vaeg_frame_input_initialize(
 			    &frame, scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2), scrnmng.width,
 			    scrnmng.height, (UINT32)scrnmng.shadow_pitch, VAEG_FRAME_PIXEL_RGB565,

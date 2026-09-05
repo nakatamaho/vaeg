@@ -360,7 +360,8 @@ endif()
 if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/d3d11_bridge.cpp
-        sdl2/librashader/d3d11_presenter.cpp)
+        sdl2/librashader/d3d11_presenter.cpp
+        external/imgui/backends/imgui_impl_dx11.cpp)
 endif()
 if(UNIX AND NOT APPLE AND NOT WIN32 AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
@@ -1482,6 +1483,36 @@ if(VAEG_ENABLE_TESTS)
     if(VAEG_WERROR)
         target_compile_options(vaeg_librashader_shader_parameters_test PRIVATE -Werror)
     endif()
+
+    add_executable(vaeg_librashader_controller_test
+        sdl2/librashader/native_presenter_controller.cpp
+        sdl2/librashader/native_presenter.cpp
+        sdl2/librashader/shader_parameters.cpp
+        sdl2/librashader/shader_preset.cpp
+        tests/frontend/librashader/test_controller.cpp)
+    target_include_directories(vaeg_librashader_controller_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+    target_compile_features(vaeg_librashader_controller_test PRIVATE cxx_std_17)
+    target_link_libraries(vaeg_librashader_controller_test PRIVATE ${CMAKE_DL_LIBS})
+    add_test(NAME vaeg_librashader_controller COMMAND vaeg_librashader_controller_test)
+    set_tests_properties(vaeg_librashader_controller PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+
+    add_executable(vaeg_librashader_d3d11_lifecycle_test
+        sdl2/librashader/d3d11_presenter.cpp
+        sdl2/librashader/native_presenter.cpp
+        sdl2/librashader/shader_parameters.cpp
+        sdl2/librashader/shader_preset.cpp
+        tests/frontend/librashader/test_d3d11_lifecycle.cpp)
+    target_include_directories(vaeg_librashader_d3d11_lifecycle_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+    target_compile_features(vaeg_librashader_d3d11_lifecycle_test PRIVATE cxx_std_17)
+    target_link_libraries(vaeg_librashader_d3d11_lifecycle_test PRIVATE ${CMAKE_DL_LIBS})
+    add_test(NAME vaeg_librashader_d3d11_lifecycle COMMAND vaeg_librashader_d3d11_lifecycle_test)
+    set_tests_properties(vaeg_librashader_d3d11_lifecycle PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
 
     add_executable(vaeg_librashader_fallback_test
         sdl2/librashader/frame_input.cpp

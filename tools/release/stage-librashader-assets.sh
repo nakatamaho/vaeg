@@ -152,3 +152,8 @@ else
 fi
 
 printf 'Staged librashader CRT assets for %s in %s\n' "$platform" "$output"
+install -m 644 "$repo_root/docs/modernization/native-crt-user-guide.md" "$output/README-native-crt.md"
+if [[ ${platform} == windows ]]; then
+	install -m 644 "$script_dir/start-native-crt.cmd" "$output/start-native-crt.cmd"
+	install -m 644 "$repo_root/external/imgui/LICENSE.txt" "$output/licenses/imgui-MIT.txt"
+fi

@@ -24,6 +24,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Status: BLOCKED
 
+Windows follow-up: the maintainer confirmed guest display recovery, but
+clarified that menus remain tiny and reported no CRT effect. [M99z6](m99z6_windows_crt_gui.md)
+corrects the Windows native GUI/activation path and records new local QA.
+Its physical CRT and lifecycle retest remains pending; previous UI-completion
+claims do not establish native GUI coverage on Metal/OpenGL.
+
 M99a through M99z were executed on `topic/m99-native-crt-rebuild`. The
 optional native CRT implementation, licensing boundary, package checks,
 fallback path, and environment-independent QA are complete. The required

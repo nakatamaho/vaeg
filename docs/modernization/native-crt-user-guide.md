@@ -28,6 +28,12 @@ emulated machine or the deterministic guest-frame capture path.
 
 ## Build and enable
 
+Windows menus follow the monitor DPI automatically. To override the size,
+choose Screen (画面) > UI size > 200% (or another percentage). If menus are
+too small to operate, set `GUI_ui_scale=200` in `vaeg.cfg` before startup;
+`GUI_ui_scale=0` restores automatic sizing. This scales the GUI, not the raw
+guest framebuffer, and works with both SDL and native CRT rendering.
+
 Build with the optional feature enabled (it is enabled by default):
 
 ```sh
@@ -35,16 +41,32 @@ cmake --preset linux-debug -DVAEG_ENABLE_LIBRASHADER=ON
 cmake --build build/linux-debug --target vaeg_sdl2
 ```
 
-In VAEG, open the `Native CRT (librashader)` menu, enable it, and restart the
-emulator. The setting is stored as `NativeCRT` in `vaeg.cfg`. The default
+On Windows, open `Screen > Native CRT (librashader) > Enable`. It takes
+effect immediately; disabling it selects native pass-through without replacing
+the device. The menu remains visible and is drawn after the CRT effect at the
+same logical font size as the SDL version. Preset reload and parameter sliders
+also apply to the active filter. On macOS/Linux, enablement still requires a
+restart and native GUI integration remains pending.
+
+DLL presence alone does not enable CRT. The Windows package includes
+`start-native-crt.cmd` to request CRT for that run even if `vaeg.cfg` has it
+disabled. The launcher starts in the package directory and writes diagnostics
+to `native-crt.log`. It sets the session-only `VAEG_NATIVE_CRT=1` environment
+override; `VAEG_NATIVE_CRT=0` requests SDL at startup instead. The title and CRT
+menu show `Native CRT ON`, pass-through, or the fallback status. A missing
+runtime/preset or failed shader preserves the Windows native pass-through
+image; failure of the native device returns to SDL.
+
+The setting is stored as `NativeCRT` in `vaeg.cfg`. The default
 preset is:
 
 ```text
 assets/shaders/crt/vaeg_crt_default.slangp
 ```
 
-The preset path is resolved from the process working directory unless an
-absolute path is entered. A custom preset is used only when it is supplied by
+The bundled default is found beside the executable, with a working-directory
+fallback for development builds. Custom relative preset paths are resolved
+from the working directory. A custom preset is used only when it is supplied by
 the user; it is not copied into or downloaded by VAEG.
 
 ## Release package layout
@@ -88,11 +110,12 @@ instead of labeling a filtered GPU image as a deterministic capture.
 
 ## Disable or customize
 
-Disable Native CRT in the menu and restart. For a one-run fallback diagnostic,
-run with `--no-cfg`, or set `NativeCRT=0` in the current `vaeg.cfg` before
+Disable Native CRT in the Windows menu to compare pass-through immediately.
+For a one-run SDL fallback diagnostic, use `VAEG_NATIVE_CRT=0`,
+or set `NativeCRT=0` in the current `vaeg.cfg` before
 starting. To use another preset, set `NativeCRTPreset` in the configuration or
-enter its path in the menu, then reload the preset and restart if ownership
-must change.
+enter its path in the menu, then reload the preset. The Windows renderer applies
+the reload between frames; macOS/Linux still require a restart.
 
 The default preset is a single audited Unlicense/public-domain shader. Other
 shader files remain user-provided and are outside the VAEG release payload.
