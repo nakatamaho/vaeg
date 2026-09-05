@@ -2583,8 +2583,6 @@ static void set_display_effect(int effect) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static constexpr const char kNativeCrtParameterState[] = "vaeg-crt-parameters.cfg";
-
 static void load_native_crt_preset(void) {
 	std::string error;
 
@@ -2599,7 +2597,7 @@ static void load_native_crt_preset(void) {
 		return;
 	}
 	g_gui.native_crt_loaded_path = np2oscfg.gui_shader_preset;
-	if (!g_gui.native_crt_preset.parameters().load_values(kNativeCrtParameterState)) {
+	if (!g_gui.native_crt_preset.parameters().load_config()) {
 		g_gui.native_crt_status = "Preset loaded; parameter state is invalid";
 	} else {
 		g_gui.native_crt_status = "Preset loaded";
@@ -2685,10 +2683,11 @@ static void draw_native_crt_settings(void) {
 				    scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value) !=
 				        SUCCESS) {
 					g_gui.native_crt_status = "Live parameter update failed";
-				} else if (!parameters.save_values(kNativeCrtParameterState)) {
+				} else if (!parameters.save_config()) {
 					g_gui.native_crt_status = "Parameter save failed";
 				} else {
 					g_gui.native_crt_status = "Parameter updated";
+					sysmng_update(SYS_UPDATEOSCFG);
 				}
 			}
 			if (!parameter->description.empty()) {
@@ -2704,10 +2703,11 @@ static void draw_native_crt_settings(void) {
 					(void)scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value);
 				}
 			}
-			if (!parameters.save_values(kNativeCrtParameterState)) {
+			if (!parameters.save_config()) {
 				g_gui.native_crt_status = "Parameter reset save failed";
 			} else {
 				g_gui.native_crt_status = "Parameters reset";
+				sysmng_update(SYS_UPDATEOSCFG);
 			}
 		}
 	}

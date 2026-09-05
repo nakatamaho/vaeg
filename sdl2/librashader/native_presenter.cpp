@@ -134,8 +134,9 @@ bool NativePresenter::prepare_filter_parameters(const char *preset_path, bool en
 			}
 			return false;
 		}
-		if (!parameter_state_path_.empty() &&
-		    !preset_.parameters().load_values(parameter_state_path_.c_str())) {
+		if (!(parameter_state_path_.empty()
+		          ? preset_.parameters().load_config()
+		          : preset_.parameters().load_values(parameter_state_path_.c_str()))) {
 			std::fprintf(stderr, "VAEG shader parameter state is invalid; using preset defaults\n");
 		}
 		return true;
@@ -171,8 +172,9 @@ PresenterResult NativePresenter::set_filter_parameter(const char *name, float va
 				preset_.parameters().restore_value(i, old_value);
 				return PresenterResult::Fallback;
 			}
-			if (!parameter_state_path_.empty() &&
-			    !preset_.parameters().save_values(parameter_state_path_.c_str())) {
+			if (!(parameter_state_path_.empty()
+			          ? preset_.parameters().save_config()
+			          : preset_.parameters().save_values(parameter_state_path_.c_str()))) {
 				return PresenterResult::Failed;
 			}
 			return PresenterResult::Recovered;
@@ -189,8 +191,9 @@ PresenterResult NativePresenter::reset_filter_parameters() noexcept {
 	if (!apply_filter_parameters()) {
 		return PresenterResult::Fallback;
 	}
-	if (!parameter_state_path_.empty() &&
-	    !preset_.parameters().save_values(parameter_state_path_.c_str())) {
+	if (!(parameter_state_path_.empty()
+	          ? preset_.parameters().save_config()
+	          : preset_.parameters().save_values(parameter_state_path_.c_str()))) {
 		return PresenterResult::Failed;
 	}
 	return PresenterResult::Recovered;

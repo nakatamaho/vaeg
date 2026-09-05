@@ -54,6 +54,12 @@ window also reports the current filter status.
 The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
 `CRT設定…`: 80–120%, initially 96.50%, with 0.01% steps. Its default `CURVATURE`
 is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
+CRT parameter values live in `NativeCRTParameters` in the active `vaeg.cfg`
+(or the file selected with `--cfg`). Changes and reset are saved on normal exit,
+along with other frontend settings. The old `vaeg-crt-parameters.cfg` is neither
+read nor written; no migration is performed. With no integrated values, preset
+defaults apply. `--no-cfg` disables loading and disk saving,
+while live adjustments remain available for the session.
 At 80%, the image is centered with black
 borders; above 100%, the image is enlarged and cropped. This display-only pass
 runs before the existing CRT shader, so curvature may reshape the borders.

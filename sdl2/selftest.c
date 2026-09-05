@@ -1346,6 +1346,9 @@ static int test_profile_ini(void) {
 }
 
 static int test_persistence_controls(void) {
+	char saved_crt[sizeof(np2oscfg.gui_shader_parameters)];
+	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
+	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
 	char backup_path[MAX_PATH];
 	char missing_backup_path[MAX_PATH];
@@ -1365,10 +1368,19 @@ static int test_persistence_controls(void) {
 
 	initsetpath(config_path);
 	initsetenabled(TRUE);
+	milstr_ncpy(saved_crt, np2oscfg.gui_shader_parameters, sizeof(saved_crt));
+	milstr_ncpy(np2oscfg.gui_shader_parameters,
+	            "VAEG_SHADER_PARAMETERS 1;SCREEN_SIZE=96.5;CURVATURE=0.0299999993;",
+	            sizeof(np2oscfg.gui_shader_parameters));
 	initsave();
 	if (file_attr(config_path) < 0) {
 		detail = "explicit configuration path was not written";
 	}
+	ini_read(config_path, "NekoProjectII", crt_table, NELEMENTS(crt_table));
+	if (strcmp(read_crt, np2oscfg.gui_shader_parameters) != 0) {
+		detail = "CRT parameters did not round-trip through the main config";
+	}
+	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
 	initsave();

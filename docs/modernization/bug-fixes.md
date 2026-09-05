@@ -35,6 +35,20 @@ land.
 
 ## Maintenance Rules
 
+### M99z22 — CRT settings bypassed main configuration controls
+
+- **Symptom/scope:** CRT parameter changes used a hard-coded standalone file,
+  separately from the `--cfg` destination and `--no-cfg` persistence policy.
+- **Cause:** both the GUI and presenter unconditionally supplied the separate
+  parameter-state filename to the file writer, outside `ini.c`'s controls.
+- **Correction:** bind a session buffer stored as `NativeCRTParameters` in the
+  main configuration and use the existing save policy. Old state is ignored,
+  with no import or deletion as requested by the maintainer.
+- **Verification:** bounded transactional codec tests, main-ini round-trip,
+  disabled persistence tests and local feature-on/off plus MinGW builds.
+- **Task/evidence:** [M99z22 report](../agents/reports/m99z10_renderer_settings.md#m99z22--crt-parameters-in-the-main-configuration).
+  Commit identity is recorded in the report's handoff.
+
 ### M99z20 — Default CRT preset failed parameter enumeration
 
 - **Symptom/scope:** the M99z18 bundled two-pass CRT preset stopped working

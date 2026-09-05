@@ -24,11 +24,14 @@
 #include "librashader/shader_parameters.h"
 
 #include <cmath>
+#include <algorithm>
+#include <cstring>
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <utility>
+#include "librashader/shader_config.h"
 
 namespace vaeg::librashader {
 
@@ -38,6 +41,53 @@ constexpr const char kStateHeader[] = "VAEG_SHADER_PARAMETERS 1";
 constexpr std::size_t kMaximumNameLength = 256;
 constexpr std::size_t kMaximumDescriptionLength = 512;
 constexpr std::size_t kMaximumStateLineLength = 1024;
+char *config_buffer = nullptr;
+std::size_t config_capacity = 0;
+using ParameterValues = std::vector<std::pair<std::string, float>>;
+
+static bool read_parameter_values(std::istream &input, ParameterValues &pending) {
+	std::string line;
+	if (!std::getline(input, line) || line != kStateHeader)
+		return false;
+	while (std::getline(input, line)) {
+		if (line.empty())
+			continue;
+		if (line.size() > kMaximumStateLineLength ||
+		    pending.size() >= ShaderParameterSet::kMaximumParameters)
+			return false;
+		const auto equals = line.find('=');
+		if (equals == std::string::npos || equals == 0 || equals > kMaximumNameLength)
+			return false;
+		const std::string name = line.substr(0, equals);
+		if (name.find_first_of(";\r\n\"") != std::string::npos)
+			return false;
+		std::istringstream value_stream(line.substr(equals + 1));
+		float value;
+		char trailing;
+		if (!(value_stream >> value) || (value_stream >> trailing) || !std::isfinite(value))
+			return false;
+		pending.emplace_back(name, value);
+	}
+	return !input.bad();
+}
+
+static bool store_config_values(const ParameterValues &values) {
+	if (config_buffer == nullptr)
+		return true;
+	std::ostringstream output;
+	output << kStateHeader << ';' << std::setprecision(9);
+	for (const auto &entry : values) {
+		if (entry.first.find_first_of(";=\r\n\"") != std::string::npos ||
+		    !std::isfinite(entry.second))
+			return false;
+		output << entry.first << '=' << entry.second << ';';
+	}
+	const std::string text = output.str();
+	if (text.size() >= config_capacity)
+		return false;
+	std::memcpy(config_buffer, text.c_str(), text.size() + 1);
+	return true;
+}
 
 static bool valid_range(float initial, float minimum, float maximum, float step) noexcept {
 	return std::isfinite(initial) && std::isfinite(minimum) && std::isfinite(maximum) &&
@@ -157,39 +207,34 @@ bool ShaderParameterSet::load_values(const char *path) {
 	if (!input.is_open()) {
 		return true;
 	}
-	std::string line;
-	if (!std::getline(input, line) || (line != kStateHeader)) {
+	ParameterValues pending;
+	if (!read_parameter_values(input, pending))
 		return false;
-	}
-	std::vector<std::pair<std::string, float>> pending;
-	while (std::getline(input, line)) {
-		if (line.size() > kMaximumStateLineLength) {
-			return false;
-		}
-		if (line.empty()) {
-			continue;
-		}
-		const std::size_t equals = line.find('=');
-		if ((equals == std::string::npos) || (equals == 0) ||
-		    (equals > kMaximumNameLength)) {
-			return false;
-		}
-		std::string name = line.substr(0, equals);
-		std::istringstream value_stream(line.substr(equals + 1));
-		float value;
-		char trailing;
-		if (!(value_stream >> value) || (value_stream >> trailing) || !std::isfinite(value)) {
-			return false;
-		}
-		pending.emplace_back(std::move(name), value);
-	}
-	if (input.bad()) {
-		return false;
-	}
 	for (const auto &entry : pending) {
 		(void)set_value(entry.first.c_str(), entry.second, nullptr);
 	}
 	return true;
+}
+
+bool ShaderParameterSet::load_config() {
+	if (config_buffer == nullptr || config_buffer[0] == '\0')
+		return true;
+	std::string text(config_buffer);
+	std::replace(text.begin(), text.end(), ';', '\n');
+	std::istringstream input(text);
+	ParameterValues pending;
+	if (!read_parameter_values(input, pending))
+		return false;
+	for (const auto &entry : pending)
+		(void)set_value(entry.first.c_str(), entry.second, nullptr);
+	return true;
+}
+
+bool ShaderParameterSet::save_config() const {
+	ParameterValues values;
+	for (const auto &parameter : parameters_)
+		values.emplace_back(parameter.name, parameter.value);
+	return store_config_values(values);
 }
 
 bool ShaderParameterSet::save_values(const char *path) const {
@@ -222,3 +267,17 @@ bool ShaderParameterSet::save_values(const char *path) const {
 }
 
 } // namespace vaeg::librashader
+
+extern "C" int vaeg_shader_config_bind(char *buffer, size_t capacity) {
+	using namespace vaeg::librashader;
+	config_buffer = buffer;
+	config_capacity = capacity;
+	if (buffer == nullptr)
+		return 1;
+	if (capacity == 0 || std::memchr(buffer, '\0', capacity) == nullptr) {
+		config_buffer = nullptr;
+		config_capacity = 0;
+		return 0;
+	}
+	return 1;
+}

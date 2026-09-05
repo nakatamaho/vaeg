@@ -29,6 +29,7 @@
 #include "np2.h"
 #include "dosio.h"
 #include "ini.h"
+#include "librashader/shader_config.h"
 #include "machine/pccore.h"
 #include "sound.h"
 #include "soundopts.h"
@@ -305,6 +306,11 @@ static const char config_file[] = "vaeg.cfg";
 static char active_config_path[MAX_PATH];
 static char configured_config_path[MAX_PATH];
 static BOOL config_enabled = TRUE;
+static char loaded_crt_parameters[sizeof(np2oscfg.gui_shader_parameters)];
+
+BOOL initcrtchanged(void) {
+	return config_enabled && strcmp(loaded_crt_parameters, np2oscfg.gui_shader_parameters) != 0;
+}
 
 void initsetpath(const char *path) {
 	file_cpyname(configured_config_path, (path != NULL) ? path : "",
@@ -426,6 +432,8 @@ static const INITBL iniitem[] = {
     {"GUI_ui_scale", INITYPE_UINT16, &np2oscfg.gui_ui_scale, 0},
     {"NativeCRTPreset", INITYPE_STR, np2oscfg.gui_shader_preset,
      sizeof(np2oscfg.gui_shader_preset)},
+    {"NativeCRTParameters", INITYPE_STR, np2oscfg.gui_shader_parameters,
+     sizeof(np2oscfg.gui_shader_parameters)},
 };
 
 #define INIITEMS (sizeof(iniitem) / sizeof(INITBL))
@@ -441,6 +449,16 @@ void initload(void) {
 		ini_read(path, ini_title, iniitem, INIITEMS);
 	} else if (np2_debug) {
 		SDL_Log("Config persistence disabled");
+	}
+	if (!config_enabled) {
+		np2oscfg.gui_shader_parameters[0] = '\0';
+	}
+	milstr_ncpy(loaded_crt_parameters, np2oscfg.gui_shader_parameters,
+	            sizeof(loaded_crt_parameters));
+	if (!vaeg_shader_config_bind(np2oscfg.gui_shader_parameters,
+	                             sizeof(np2oscfg.gui_shader_parameters))) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+		            "CRT parameter config storage is invalid");
 	}
 	if (np2oscfg.pacing_ms > VAEG_PACING_MS_MAX) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid PacingMs=%u; using %u",

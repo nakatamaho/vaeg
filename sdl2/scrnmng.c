@@ -112,7 +112,8 @@ static BOOL scrnmng_get_drawable_size(int *width, int *height);
 static BOOL scrnmng_create_sdl_resources(void);
 static BOOL scrnmng_native_fallback(void);
 
-static const char scrnmng_native_parameter_state[] = "vaeg-crt-parameters.cfg";
+/* NULL selects the session's vaeg.cfg-backed CRT parameter store. */
+static const char *const scrnmng_native_parameter_state = NULL;
 
 const char *scrnmng_native_preset_path(void) {
 	static char bundled_path[4096];

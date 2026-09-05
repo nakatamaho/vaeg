@@ -58,6 +58,7 @@ void ini_read(const char *path, const char *title, const INITBL *tbl, UINT count
 void ini_write(const char *path, const char *title, const INITBL *tbl, UINT count);
 
 void initload(void);
+BOOL initcrtchanged(void);
 void initsave(void);
 void initsetpath(const char *path);
 void initsetenabled(BOOL enabled);

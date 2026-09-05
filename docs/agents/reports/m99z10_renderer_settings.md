@@ -338,3 +338,29 @@ SCREEN_SIZE 96.5/80/120/0.01 and CURVATURE initial 0.030 (float32 precision).
 The runtime negative test for MissingVersionHeader also PASS. Package hashes
 are updated. No guest/capture changes or physical Windows GPU claims.
 Focused ctest: 11/11 PASS (7.95 s). Encoding/EOL/case: zero; diff check clean.
+
+## M99z22 — CRT parameters in the main configuration
+
+Starting commit: `e95fdd1681ebece3108d51e2dd53292608ef28d6`.
+Per the maintainer's clarification, no backward compatibility or import.
+The old `vaeg-crt-parameters.cfg` is not referenced by production startup/UI
+and is neither read, overwritten nor removed.
+
+`NativeCRTParameters` is a bounded 8192-byte string in NP2OSCFG, serialized by
+the existing ini reader/writer under the main config section. The C binding
+shares only a buffer pointer/capacity with the frontend C++ parameter codec.
+GUI and native presenters use that session store, including recreation and
+reset. Normal exit saves CRT changes even if no other settings changed;
+`--cfg` selects the destination and `--no-cfg` leaves only session memory.
+No per-frame work or shader/capture math changes. The prior explicit-file
+helper remains for isolated presenter tests, but no production caller supplies
+the old filename. Invalid/oversized state fails without partial application.
+
+Tests cover main ini round-trip using the real `initsave`/`ini_read` path,
+disabled disk saving, session rebind/reset, transactional malformed-value
+rejection and capacity overflow. Parameter tests now keep assertions enabled
+in Release builds. Commands: the M99z20 focused ctest command plus the three
+M99z18 local build commands. MinGW, macOS feature-on and feature-off builds
+PASS. Feature-on focused suite: 11/11 PASS (8.00 s). Repository checks zero.
+Physical Windows GUI restart/parameter persistence remains manual evidence.
+Feature-off focused suite: 11/11 PASS (6.66 s).

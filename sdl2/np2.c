@@ -2208,7 +2208,8 @@ int main(int argc, char **argv) {
 	headless_input_script_clear(&input_script);
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
-	if ((!options.smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
+	if ((!options.smoke) &&
+	    ((sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG)) || initcrtchanged())) {
 		initsave();
 	}
 	bkupmemva_save();

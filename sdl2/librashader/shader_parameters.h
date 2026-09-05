@@ -61,6 +61,8 @@ class ShaderParameterSet {
 	/* Missing state files are valid; malformed files leave this set unchanged. */
 	bool load_values(const char *path);
 	bool save_values(const char *path) const;
+	bool load_config();
+	bool save_config() const;
 
   private:
 	std::vector<ShaderParameterInfo> parameters_;
