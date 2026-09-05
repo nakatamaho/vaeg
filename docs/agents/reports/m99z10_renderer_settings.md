@@ -66,3 +66,13 @@ Windows menu interaction/visual verification is deferred to the maintainer;
 local cross-compilation and mock tests are not physical GPU evidence.
 macOS/Linux native GUI integration remains outside this follow-up.
 
+## Handoff
+
+Implementation: [11bafaf5](https://github.com/nakatamaho/vaeg/commit/11bafaf5ede49c4bae1df7fc8316e754eb85e571).
+Reconfigured/rebuilt MinGW after committing to embed that build identity.
+Package: `build/mingw-cross/vaeg-m99z10-windows-x86_64.zip`, including the
+unchanged runtime DLL, shaders, licenses and updated user guide.
+Directory and ZIP package validators PASS; staged EXE matches the build via `cmp`.
+ZIP SHA-256: `e469c2327c281cb7bf8c9e394b62ea87eca7c1eee95a292c38642c9668594fad`.
+Final feature-on/off focused tests passed 10/10 each (8.49 s / 7.70 s).
+Removed an extra report EOF blank line detected by the staged diff checker.
