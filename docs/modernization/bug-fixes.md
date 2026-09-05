@@ -51,7 +51,7 @@ land.
   exact MissingVersionHeader error. Focused local builds/tests pass; physical
   Windows GPU revalidation remains pending.
 - **Task/evidence:** [M99z20 report](../agents/reports/m99z10_renderer_settings.md#m99z20--librashader-version-header-regression).
-  Fix commit identity is recorded with the package handoff in that report.
+  Fix: [0730d507](https://github.com/nakatamaho/vaeg/commit/0730d507e44a4e5fc4eb4d827763b5b93cbdabcf).
 
 For every new entry, record:
 

@@ -311,3 +311,12 @@ Builds PASS; focused suite 11/11 PASS (7.31 s), runtime positive/negative checks
 PASS, repository encoding/EOL/case checks zero and diff check clean.
 Test runtime dylib SHA-256:
 `1dbecea0c165fd0fddc2407ed4b8872f9f73f4fd2c3689a80ffc24c87e3fda2a`.
+
+Fix: [0730d507](https://github.com/nakatamaho/vaeg/commit/0730d507e44a4e5fc4eb4d827763b5b93cbdabcf).
+FDD resizing: [74644d99](https://github.com/nakatamaho/vaeg/commit/74644d996045fd60192e0b6058c4fa95d3cc8835).
+Reconfigured and rebuilt MinGW with the committed fix identity. Handoff:
+`build/mingw-cross/vaeg-m99z20-windows-x86_64.zip`. Both directory and ZIP pass
+the package validator; copied EXE matches the build artifact using `cmp`.
+EXE SHA-256: `15fdbc2e1c0a1578ad3eef8fcd8c789b658d06b331e56adbac161502e380c82a`.
+Replace the package assets as well as the EXE: the shader file fixes CRT,
+while the executable contains the FDD layout and improved error diagnostic.
