@@ -51,6 +51,7 @@ land.
   cannot load the pinned DLL because `bcryptprimitives.dll` is absent.
   Corrected physical D3D11 playback is still a maintainer check, not a PASS.
 - **Task/evidence/commit:** [M99z27 report](../agents/reports/m99z10_renderer_settings.md#m99z27--d3d11-mask-compilation-and-pass-through).
+  Fix: [c3efc946](https://github.com/nakatamaho/vaeg/commit/c3efc946799a33e00f6ac739b240711bf8b626f5).
 
 ### M99z26 — CRT scanlines alias into broad horizontal bands
 

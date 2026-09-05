@@ -1480,6 +1480,21 @@ void scrnmng_request_native_crt(BOOL enabled, BOOL reload) {
 	scrnmng.native_reload_pending = reload;
 }
 
+BOOL scrnmng_native_filter_enabled(void) {
+	return scrnmng.native_active &&
+	       strcmp(vaeg_native_presenter_state(scrnmng.native_presenter), "filtered") == 0;
+}
+
+BOOL scrnmng_set_native_filter(BOOL enabled) {
+	// Presentation-thread operation: keep the device, GUI and preset intact.
+	if (!scrnmng.native_active ||
+	    !vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
+		return FAILURE;
+	}
+	scrnmng_update_title();
+	return SUCCESS;
+}
+
 BOOL scrnmng_apply_native_crt_request(void) {
 #if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
 	const char *preset;

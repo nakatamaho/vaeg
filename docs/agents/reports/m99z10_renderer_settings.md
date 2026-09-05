@@ -695,3 +695,35 @@ Prior hosted run inspected before publication:
 9 jobs PASS; macOS FetchContent fails the pre-existing
 `vaeg_upd9002_trace_equivalence`. Its exact failed log was retrieved; CPU
 and trace code are unchanged and no unrelated repair is included here.
+
+Shader correction commit:
+[c3efc946](https://github.com/nakatamaho/vaeg/commit/c3efc946799a33e00f6ac739b240711bf8b626f5).
+
+### Native comparison menu
+
+Add `画面 > Pass-through（加工なし）` only while the native presenter is
+active. Its check reflects actual filter state, including automatic fallback.
+It calls the existing presentation-thread filter toggle, without renderer
+ownership changes, GUI destruction, preset parsing or guest reset. Uncheck
+to restore the current filter. A failed chain cannot be re-enabled; its
+failure remains visible and `CRT設定… > Reload preset` retries creation.
+This is a session-only comparison control, not a new saved configuration
+field: reload/restart re-enables the configured CRT. Preset parameters are
+retained. SDL selection is unchanged and still lives under `描画方式`.
+
+The existing 100-toggle controller / 50-pair D3D11 mock lifecycle tests pass.
+The extended real-metadata + fake-presenter integration explicitly shows
+padding bypass in pass-through, restored padding on CRT resume and unchanged
+device creation count. Command (exit 0, `controller checks: PASS`):
+
+```sh
+DYLD_LIBRARY_PATH=build/m99z20-runtime-check build/macos-ci/vaeg_librashader_controller_test assets/shaders/crt/vaeg_crt_default.slangp
+```
+
+The ON/OFF 13-test results above include this menu-controller candidate.
+No raw framebuffer or overlay-capture semantics are changed. Physical mouse
+interaction on Windows remains a maintainer check. Code formatting was
+restricted to the changed regions; pre-existing unrelated formatting was
+preserved. MinGW Release and the optional CMake probe target both build.
+The staged Windows directory passes the package validator with all shader
+pins, notices, the unchanged 0.12.0 runtime, and the optional probe.

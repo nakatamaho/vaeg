@@ -2635,8 +2635,16 @@ static void draw_renderer_selection(void) {
 		ImGui::TextWrapped("librashader requested; restart required (if supported by this build)");
 	}
 #endif
-	if (enabled && ImGui::MenuItem("CRT設定…")) {
-		g_gui.native_crt_settings_open = true;
+	if (enabled) {
+		const bool filtered = scrnmng_native_filter_enabled() != FALSE;
+		if (ImGui::MenuItem("Pass-through（加工なし）", nullptr, !filtered)) {
+			g_gui.native_crt_status = scrnmng_set_native_filter(!filtered)
+			                              ? (filtered ? "Native pass-through" : "CRT enabled")
+			                              : "CRT unavailable; reload preset to retry";
+		}
+		if (ImGui::MenuItem("CRT設定…")) {
+			g_gui.native_crt_settings_open = true;
+		}
 	}
 }
 

@@ -168,6 +168,15 @@ int main(int argc, char **argv) {
         check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
               observed_width == 6 && observed_height == 6 && observed_pixels != grid,
               "controller supplies padded input");
+        const int initial_creates = initialize_count;
+        check(vaeg_native_presenter_set_filter(p, 0), "menu pass-through");
+        check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+              observed_width == 4 && observed_height == 4 && observed_pixels == grid,
+              "menu pass-through bypasses CRT padding");
+        check(vaeg_native_presenter_set_filter(p, 1), "menu CRT resume");
+        check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+              observed_width == 6 && observed_height == 6 && initialize_count == initial_creates,
+              "menu resume retains preset parameters and device");
         fail_filter = true;
         check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
               observed_width == 4 && observed_pixels == grid,

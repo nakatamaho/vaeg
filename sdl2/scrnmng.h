@@ -107,6 +107,8 @@ BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);
 void scrnmng_native_gui_shutdown(void);
 void scrnmng_request_native_crt(BOOL enabled, BOOL reload);
+BOOL scrnmng_native_filter_enabled(void);
+BOOL scrnmng_set_native_filter(BOOL enabled);
 BOOL scrnmng_apply_native_crt_request(void);
 const char *scrnmng_native_status(void);
 const char *scrnmng_native_preset_path(void);

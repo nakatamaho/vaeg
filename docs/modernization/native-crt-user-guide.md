@@ -56,6 +56,14 @@ may be constrained by the desktop/window manager and increase GPU memory use.
 The selection marks actual renderer ownership. Normal menu status text is
 hidden; failures and native pass-through remain visible. The CRT settings
 window also reports the current filter status.
+While native rendering is active, `画面 > Pass-through（加工なし）` toggles
+CRT processing without recreating the device or GUI. Checked means the raw
+image is presented without CRT or SCREEN_SIZE padding; uncheck to resume the
+same preset and parameter values. This comparison toggle is session-only;
+restarting or reloading the preset enables CRT again. A failed filter remains
+in pass-through with its failure status; use `CRT設定… > Reload preset` to
+retry after correcting the preset. Displayed screenshots still include any
+enabled information overlays; canonical raw QA is unchanged.
 The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
 `CRT設定…`: 80–120%, initially 98.00%, with 0.01% steps. Its default `CURVATURE`
 is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
