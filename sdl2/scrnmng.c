@@ -1349,7 +1349,7 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	if (!scrnmng.native_change_pending)
 		return SUCCESS;
 	scrnmng.native_change_pending = FALSE;
-	if (scrnmng.native_active && !scrnmng.native_reload_pending) {
+	if (scrnmng.native_active && np2oscfg.gui_native_crt && !scrnmng.native_reload_pending) {
 		if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, np2oscfg.gui_native_crt)) {
 			fprintf(stderr, "Native CRT toggle failed\n");
 		}
@@ -1370,14 +1370,14 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		SDL_DestroyRenderer(scrnmng.renderer);
 	scrnmng.renderer = NULL;
 	preset = scrnmng_native_preset_path();
-	scrnmng.native_presenter =
-	    vaeg_native_presenter_create(scrnmng.window, 0, 0, preset, scrnmng_native_parameter_state);
+	if (np2oscfg.gui_native_crt) {
+		scrnmng.native_presenter =
+		    vaeg_native_presenter_create(scrnmng.window, 0, 0, preset, scrnmng_native_parameter_state);
+	}
 	scrnmng.native_active = scrnmng.native_presenter != NULL;
-	if (scrnmng.native_active && !np2oscfg.gui_native_crt)
-		(void)vaeg_native_presenter_set_filter(scrnmng.native_presenter, 0);
 	if (!scrnmng.native_active) {
 		snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
-		         "SDL fallback: CRT runtime, preset or GPU unavailable");
+		         "%s", np2oscfg.gui_native_crt ? "SDL fallback: CRT runtime, preset or GPU unavailable" : "SDL");
 		if (scrnmng_create_sdl_resources() != SUCCESS)
 			return FAILURE;
 		(void)scrnmng_upload_shadow();

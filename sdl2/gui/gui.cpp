@@ -2556,25 +2556,25 @@ static void load_native_crt_preset(void) {
 }
 
 static void draw_native_crt_menu(void) {
-	if (!ImGui::BeginMenu("Native CRT (librashader)")) {
+	if (!ImGui::BeginMenu("CRT shader")) {
 		return;
 	}
 	ImGui::TextWrapped("%s", scrnmng_native_status());
-	bool enabled = scrnmng_native_active()
-	                   ? std::strcmp(scrnmng_native_status(), "Native CRT ON") == 0
-	                   : np2oscfg.gui_native_crt != 0;
-	if (ImGui::MenuItem("Enable", nullptr, enabled)) {
-		enabled = !enabled;
-		scrnmng_request_native_crt(enabled ? TRUE : FALSE, FALSE);
+	bool enabled = scrnmng_native_active() != FALSE;
+	if (ImGui::MenuItem("SDL", nullptr, !enabled)) {
+		scrnmng_request_native_crt(FALSE, TRUE);
+		sysmng_update(SYS_UPDATEOSCFG);
+		g_gui.native_crt_status = "SDL selected";
+	}
+	if (ImGui::MenuItem("librashader", nullptr, enabled)) {
+		scrnmng_request_native_crt(TRUE, TRUE);
 		sysmng_update(SYS_UPDATEOSCFG);
 #if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
 		g_gui.native_crt_status = "Applying CRT selection";
 #else
-		g_gui.native_crt_status =
-		    enabled ? "Native CRT saved; restart to apply" : "Native CRT disabled on next restart";
+		g_gui.native_crt_status = "librashader selected; restart to apply";
 #endif
 	}
-	ImGui::TextDisabled("DLL presence alone does not enable CRT");
 	ImGui::Separator();
 	if (ImGui::InputText("Preset path", np2oscfg.gui_shader_preset,
 	                     sizeof(np2oscfg.gui_shader_preset))) {
@@ -2980,17 +2980,6 @@ static void load_default_va_font(void) {
 
 static void draw_screen_menu(void) {
 	if (ImGui::BeginMenu("画面")) {
-		if (ImGui::BeginMenu("UI size")) {
-			static const int values[] = {0, 100, 125, 150, 200, 250, 300};
-			static const char *labels[] = {"Automatic (DPI)", "100%", "125%", "150%", "200%", "250%", "300%"};
-			for (unsigned i = 0; i < sizeof(values) / sizeof(values[0]); ++i) {
-				if (ImGui::MenuItem(labels[i], nullptr, np2oscfg.gui_ui_scale == values[i])) {
-					np2oscfg.gui_ui_scale = values[i];
-					sysmng_update(SYS_UPDATEOSCFG);
-				}
-			}
-			ImGui::EndMenu();
-		}
 		const char *screenshot_shortcut =
 		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
 		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
