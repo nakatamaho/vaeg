@@ -502,7 +502,7 @@ void initload(void) {
 		np2cfg.delayms = (UINT16)delayms;
 	}
 	np2oscfg.DISPCLK &= VAEG_DISPINFO_MASK;
-	if (np2oscfg.gui_scale > 3) {
+	if (np2oscfg.gui_scale > VAEG_WINDOW_SCALE_MAX) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;

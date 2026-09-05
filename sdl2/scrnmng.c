@@ -1591,8 +1591,8 @@ void scrnmng_set_menu_height(int height) {
 void scrnmng_set_display(int scale, BOOL aspect) {
 	if (scale < 1) {
 		scale = 1;
-	} else if (scale > 3) {
-		scale = 3;
+	} else if (scale > VAEG_WINDOW_SCALE_MAX) {
+		scale = VAEG_WINDOW_SCALE_MAX;
 	}
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
@@ -2078,6 +2078,25 @@ BOOL scrnmng_display_capture_selftest(void) {
 			SDL_FreeSurface(raw);
 			for (other = 0; other < mode; ++other)
 				if (hashes[mode] == hashes[other]) goto cleanup;
+		}
+	}
+	{
+		const int requested[] = {1, 4, 5, VAEG_WINDOW_SCALE_MAX, VAEG_WINDOW_SCALE_MAX + 1, 0};
+		const int expected[] = {1, 4, 5, VAEG_WINDOW_SCALE_MAX, VAEG_WINDOW_SCALE_MAX, 1};
+		unsigned i;
+		/* Small synthetic source avoids allocating enormous test windows. */
+		scrnmng.width = 32;
+		scrnmng.height = 20;
+		scrnmng.display_mode = VAEG_DISPLAY_WINDOWED;
+		for (i = 0; i < sizeof(requested) / sizeof(requested[0]); ++i) {
+			int width, height;
+			scrnmng_set_display(requested[i], TRUE);
+			SDL_GetWindowSize(scrnmng.window, &width, &height);
+			if (scrnmng_get_display_scale() != expected[i] ||
+			    width != 32 * expected[i] || height != 20 * expected[i] + scrnmng.menu_height) {
+				fprintf(stderr, "selftest: WINDOW_MULTIPLIER_MISMATCH\n");
+				goto cleanup;
+			}
 		}
 	}
 	ok = SUCCESS;

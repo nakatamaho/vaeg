@@ -370,3 +370,20 @@ MinGW rebuilt with committed identity; EXE-only handoff at
 `build/mingw-cross/vaeg-m99z22-windows-x86_64/vaeg.exe`, verified by `cmp`.
 SHA-256: `80ab874e0a5affbfdb74a3ae0f058187535dd032819d02d1fcc35178466e1e64`.
 Existing M99z21 shader assets and DLL are unchanged and can be retained.
+
+## M99z23 — x4 and custom integer window sizes
+
+Starting commit: `d729113cacaac58139fe13eff704f74302d5cffd`.
+Add x4 to Window size and an integer multiplier mode (1–16) to Custom.
+Preserve the existing explicit-pixel mode. Both use the existing windowed
+presentation sizing path; the guest area is multiplied and menu height added
+separately. The shared maximum replaces the former x3 cap in the renderer and
+config loader, so selected custom multipliers survive config reload. GUI_scale
+remains byte-sized; zero still identifies explicit pixel sizing. No core,
+raw-capture or shader changes. Oversized windows may be constrained by the OS.
+
+MinGW and macOS feature-on builds PASS using the previous build commands.
+Focused ctest suite: 11/11 PASS (6.05 s). Added ROM-less SDL window sizing
+checks use a small synthetic source at x1, x4, x5, x16, plus upper/lower clamp
+cases, and verify actual window dimensions including menu height. This is not
+physical Windows/native GPU evidence. Encoding/EOL/case checks zero; diff clean.

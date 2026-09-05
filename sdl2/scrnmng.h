@@ -39,6 +39,8 @@ enum {
 	SCRNMNG_SURFACE_GUARD_LEFT = 1
 };
 
+enum { VAEG_WINDOW_SCALE_MAX = 16 };
+
 typedef struct {
 	BYTE *ptr;
 	int xalign;

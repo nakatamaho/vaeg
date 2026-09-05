@@ -48,6 +48,11 @@ same logical font size as the SDL version. SDL exposes `エフェクト`; libras
 exposes `CRT設定…`, a separate window for preset paths, reload,
 parameter sliders and reset. Scaling, window size and aspect correction remain
 shared. Switching renderers retains the SDL effect and saved shader settings.
+`Window size` offers Native, x2, x3 and x4. `Custom...` accepts an integer
+multiplier from 1 to 16, or explicit pixel dimensions. The multiplier applies
+to the guest display area; the menu height is added separately. It is saved as
+`GUI_scale` and works with both SDL and native CRT presentation. Large sizes
+may be constrained by the desktop/window manager and increase GPU memory use.
 The selection marks actual renderer ownership. Normal menu status text is
 hidden; failures and native pass-through remain visible. The CRT settings
 window also reports the current filter status.

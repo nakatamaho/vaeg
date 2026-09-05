@@ -288,6 +288,8 @@ struct GuiState {
 	int pending_ems_megabytes = EMSIO_DEFAULT_MEGABYTES;
 	bool custom_size_open = false;
 	bool custom_size_request = false;
+	bool custom_size_integer = true;
+	int pending_window_scale = 4;
 	int pending_window_width = 640;
 	int pending_window_height = 422;
 	bool sound_buffer_open = false;
@@ -2750,6 +2752,8 @@ static void set_display_mode(int mode) {
 }
 
 static void open_custom_size_dialog(void) {
+	g_gui.custom_size_integer = true;
+	g_gui.pending_window_scale = np2oscfg.gui_scale ? np2oscfg.gui_scale : 1;
 	g_gui.pending_window_width = np2oscfg.gui_window_width;
 	g_gui.pending_window_height = np2oscfg.gui_window_height;
 	g_gui.custom_size_request = true;
@@ -2764,24 +2768,46 @@ static void draw_custom_size_dialog(void) {
 	if (!g_gui.custom_size_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(340.0f, 150.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(380.0f, 200.0f), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Custom window size##display", &g_gui.custom_size_open,
 	                           ImGuiWindowFlags_NoResize)) {
-		ImGui::InputInt("Logical width", &g_gui.pending_window_width);
-		ImGui::InputInt("Logical height", &g_gui.pending_window_height);
+		if (ImGui::RadioButton("Integer multiplier", g_gui.custom_size_integer)) {
+			g_gui.custom_size_integer = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Pixels", !g_gui.custom_size_integer)) {
+			g_gui.custom_size_integer = false;
+		}
+		if (g_gui.custom_size_integer) {
+			ImGui::InputInt("Multiplier (x)", &g_gui.pending_window_scale);
+		} else {
+			ImGui::InputInt("Logical width", &g_gui.pending_window_width);
+			ImGui::InputInt("Logical height", &g_gui.pending_window_height);
+		}
 		const bool valid =
-		    (g_gui.pending_window_width >= 320) && (g_gui.pending_window_width <= 7680) &&
-		    (g_gui.pending_window_height >= 240) && (g_gui.pending_window_height <= 4320);
+		    g_gui.custom_size_integer
+		        ? (g_gui.pending_window_scale >= 1 &&
+		           g_gui.pending_window_scale <= VAEG_WINDOW_SCALE_MAX)
+		        : ((g_gui.pending_window_width >= 320) && (g_gui.pending_window_width <= 7680) &&
+		           (g_gui.pending_window_height >= 240) && (g_gui.pending_window_height <= 4320));
 		if (!valid) {
-			ImGui::TextUnformatted("Size must be between 320x240 and 7680x4320.");
+			if (g_gui.custom_size_integer) {
+				ImGui::Text("Multiplier must be 1-%d.", VAEG_WINDOW_SCALE_MAX);
+			} else {
+				ImGui::TextUnformatted("Size must be between 320x240 and 7680x4320.");
+			}
 		}
 		ImGui::BeginDisabled(!valid || (scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED));
 		if (ImGui::Button("Apply")) {
-			SDL_SetWindowSize(static_cast<SDL_Window *>(scrnmng_get_window()),
-			                  g_gui.pending_window_width, g_gui.pending_window_height);
-			np2oscfg.gui_window_width = static_cast<UINT16>(g_gui.pending_window_width);
-			np2oscfg.gui_window_height = static_cast<UINT16>(g_gui.pending_window_height);
-			np2oscfg.gui_scale = 0;
+			if (g_gui.custom_size_integer) {
+				set_display_scale(g_gui.pending_window_scale);
+			} else {
+				SDL_SetWindowSize(static_cast<SDL_Window *>(scrnmng_get_window()),
+				                  g_gui.pending_window_width, g_gui.pending_window_height);
+				np2oscfg.gui_window_width = static_cast<UINT16>(g_gui.pending_window_width);
+				np2oscfg.gui_window_height = static_cast<UINT16>(g_gui.pending_window_height);
+				np2oscfg.gui_scale = 0;
+			}
 			sysmng_update(SYS_UPDATEOSCFG);
 			g_gui.custom_size_open = false;
 			ImGui::CloseCurrentPopup();
@@ -3099,8 +3125,12 @@ static void draw_screen_menu(void) {
 			if (ImGui::MenuItem("x3", nullptr, np2oscfg.gui_scale == 3)) {
 				set_display_scale(3);
 			}
+			if (ImGui::MenuItem("x4", nullptr, np2oscfg.gui_scale == 4)) {
+				set_display_scale(4);
+			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Custom...", nullptr, false,
+			if (ImGui::MenuItem("Custom...", nullptr,
+			                    np2oscfg.gui_scale == 0 || np2oscfg.gui_scale > 4,
 			                    scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
 				open_custom_size_dialog();
 			}
