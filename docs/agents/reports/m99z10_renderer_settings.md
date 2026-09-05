@@ -124,3 +124,9 @@ SDL/CRT screenshot checks remain deferred to the maintainer.
 
 Results: MinGW and macOS feature-on/off builds PASS; focused suites 10/10
 PASS each (6.27 s / 5.69 s). Encoding/EOL/case checks zero; diff check clean.
+
+Implementation: [8fa87aea](https://github.com/nakatamaho/vaeg/commit/8fa87aea2711f91b2889cf8e5dac1243291ae3ba).
+MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
+Package: `build/mingw-cross/vaeg-m99z14-windows-x86_64.zip` (DLL/assets/notices
+included); package validator PASS.
+ZIP SHA-256: `608c9f2df23adb13e6c33916dcf3b811be0b8c10b7b902f67fa2dbe4dfb3cfa0`.
