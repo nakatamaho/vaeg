@@ -72,6 +72,9 @@ void scrnmng_show(void);
 void scrnmng_destroy(void);
 void *scrnmng_get_window(void);
 void *scrnmng_get_renderer(void);
+BOOL scrnmng_get_output_size(int *width, int *height);
+BOOL scrnmng_present_startup_image(const void *pixels, int width, int height, int pitch,
+                                    int x, int y, int output_width, int output_height);
 const char *scrnmng_get_renderer_backend(void);
 void scrnmng_set_menu_height(int height);
 void scrnmng_set_display(int scale, BOOL aspect);

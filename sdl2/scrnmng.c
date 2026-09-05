@@ -1408,6 +1408,35 @@ void *scrnmng_get_window(void) {
 	return (scrnmng.window);
 }
 
+BOOL scrnmng_get_output_size(int *width, int *height) {
+	return scrnmng_get_drawable_size(width, height);
+}
+
+BOOL scrnmng_present_startup_image(const void *pixels, int width, int height, int pitch,
+                                    int x, int y, int output_width, int output_height) {
+	VAEG_FRAME_INPUT frame;
+	VAEG_VIEWPORT viewport;
+	int drawable_width, drawable_height;
+	BOOL filtered;
+	VAEG_NATIVE_PRESENTER_RESULT result;
+	if (!scrnmng.native_active || !pixels || width <= 0 || height <= 0 || pitch <= 0 ||
+	    scrnmng_get_drawable_size(&drawable_width, &drawable_height) != SUCCESS) return FAILURE;
+	if (vaeg_native_presenter_resize(scrnmng.native_presenter, drawable_width, drawable_height)
+	    != VAEG_NATIVE_PRESENTER_PRESENTED) return FAILURE;
+	filtered = strcmp(vaeg_native_presenter_state(scrnmng.native_presenter), "filtered") == 0;
+	if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, 0)) return FAILURE;
+	vaeg_native_presenter_set_output_viewport(scrnmng.native_presenter, x, y, output_width, output_height);
+	vaeg_frame_input_initialize(&frame, pixels, width, height, pitch, VAEG_FRAME_PIXEL_ARGB8888,
+	    VAEG_FRAME_ROWS_TOP_DOWN, width, height, 60, 1, 0, 16666667U);
+	result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
+	/* The startup image is not guest VRAM and must not seed CRT history. */
+	if (filtered) (void)vaeg_native_presenter_set_filter(scrnmng.native_presenter, 1);
+	if (scrnmng_calculate_viewport(&viewport) == SUCCESS)
+		vaeg_native_presenter_set_output_viewport(scrnmng.native_presenter, viewport.x,
+		    viewport.y, viewport.width, viewport.height);
+	return result == VAEG_NATIVE_PRESENTER_PRESENTED ? SUCCESS : FAILURE;
+}
+
 void *scrnmng_get_renderer(void) {
 	return (scrnmng.renderer);
 }

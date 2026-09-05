@@ -170,3 +170,20 @@ Verification: `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` and
 passes 2/2 (5.08 s), including new fit geometry checks for 640x422, 1280x844,
 1920x1080, downscaling and zero output rejection. Encoding/EOL/case checks
 zero; diff check clean. Physical Windows splash appearance remains untested.
+
+## M99z17 — Two-thirds splash and native presentation
+
+Starting commit: `8301422e62b38733b372a1d5e0acd61d7081416d`.
+Fit the splash inside a centered box occupying two thirds of each drawable
+dimension, preserving aspect ratio. Native startup previously returned early
+because `splash_show` required an SDL renderer. It now converts the embedded
+bitmap to ARGB8888 and submits it through the active native presenter with a
+temporary splash viewport and filter disabled, then restores the filter and
+guest viewport. The guest shadow and raw capture paths are not used or changed.
+No vendor/backend code or bitmap payload is modified.
+
+MinGW and macOS feature-on builds PASS using the commands above. The focused
+macOS ctest suite passes 10/10 (6.33 s), including updated two-thirds geometry
+checks and existing controller/filter/viewport tests. Encoding/EOL/case checks
+zero; diff check clean. Actual native splash visibility remains untested locally;
+the geometry and controller tests are not physical GPU evidence.

@@ -34,12 +34,14 @@ static BOOL splash_fit_rect(int image_width, int image_height, int output_width,
                             int output_height, SDL_Rect *dst) {
 	if (!dst || image_width <= 0 || image_height <= 0 || output_width <= 0 || output_height <= 0)
 		return FAILURE;
-	if ((SINT64)output_width * image_height <= (SINT64)output_height * image_width) {
-		dst->w = output_width;
-		dst->h = max(1, (int)((SINT64)image_height * output_width / image_width));
+	const int fit_width = max(1, (int)((SINT64)output_width * 2 / 3));
+	const int fit_height = max(1, (int)((SINT64)output_height * 2 / 3));
+	if ((SINT64)fit_width * image_height <= (SINT64)fit_height * image_width) {
+		dst->w = fit_width;
+		dst->h = max(1, (int)((SINT64)image_height * fit_width / image_width));
 	} else {
-		dst->h = output_height;
-		dst->w = max(1, (int)((SINT64)image_width * output_height / image_height));
+		dst->h = fit_height;
+		dst->w = max(1, (int)((SINT64)image_width * fit_height / image_height));
 	}
 	dst->x = (output_width - dst->w) / 2;
 	dst->y = (output_height - dst->h) / 2;
@@ -49,10 +51,10 @@ static BOOL splash_fit_rect(int image_width, int image_height, int output_width,
 BOOL splash_selftest(void) {
 	SDL_Rect dst;
 	const int cases[][6] = {
-	    {640, 422, 0, 11, 640, 400},
-	    {1280, 844, 0, 22, 1280, 800},
-	    {1920, 1080, 96, 0, 1728, 1080},
-	    {300, 200, 0, 6, 300, 187},
+	    {640, 422, 107, 78, 426, 266},
+	    {1280, 844, 213, 155, 853, 533},
+	    {1920, 1080, 384, 180, 1152, 720},
+	    {300, 200, 50, 37, 200, 125},
 	};
 	for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
 		if (splash_fit_rect(640, 400, cases[i][0], cases[i][1], &dst) != SUCCESS ||
@@ -72,7 +74,7 @@ BOOL splash_show(void) {
 	int output_height;
 
 	renderer = (SDL_Renderer *)scrnmng_get_renderer();
-	if (renderer == NULL) {
+	if (renderer == NULL && !scrnmng_native_active()) {
 		return (FAILURE);
 	}
 	stream = SDL_RWFromConstMem(vaeg_splash_bmp, (int)vaeg_splash_bmp_size);
@@ -85,6 +87,24 @@ BOOL splash_show(void) {
 		fprintf(stderr, "Warning: embedded startup splash failed: %s\n", SDL_GetError());
 		return (FAILURE);
 	}
+	if (scrnmng_get_output_size(&output_width, &output_height) != SUCCESS ||
+	    splash_fit_rect(surface->w, surface->h, output_width, output_height, &dst) != SUCCESS) {
+		SDL_FreeSurface(surface);
+		return FAILURE;
+	}
+	if (scrnmng_native_active()) {
+		SDL_Surface *converted = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+		BOOL result = FAILURE;
+		if (converted) {
+			result = scrnmng_present_startup_image(converted->pixels, converted->w, converted->h,
+			    converted->pitch, dst.x, dst.y, dst.w, dst.h);
+			SDL_FreeSurface(converted);
+		}
+		SDL_FreeSurface(surface);
+		if (result == SUCCESS) SDL_Log("Startup splash: native output=%dx%d image=%dx%d",
+		    output_width, output_height, dst.w, dst.h);
+		return result;
+	}
 	texture = SDL_CreateTextureFromSurface(renderer, surface);
 	if (texture == NULL) {
 		fprintf(stderr, "Warning: startup splash texture failed: %s\n", SDL_GetError());
@@ -92,14 +112,6 @@ BOOL splash_show(void) {
 		return (FAILURE);
 	}
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
-	output_width = 0;
-	output_height = 0;
-	if (SDL_GetRendererOutputSize(renderer, &output_width, &output_height) != 0 ||
-	    splash_fit_rect(surface->w, surface->h, output_width, output_height, &dst) != SUCCESS) {
-		SDL_DestroyTexture(texture);
-		SDL_FreeSurface(surface);
-		return FAILURE;
-	}
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, &dst);

@@ -70,6 +70,17 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Startup splash omitted with native CRT presentation
+
+- **Status:** corrected in M99z17; native GPU visual retest pending.
+- **Cause:** `splash_show` returned immediately without an SDL renderer, even
+  when a valid native presenter owned the window.
+- **Correction:** submit the bitmap through native pass-through presentation
+  and restore the guest viewport/filter afterward; share SDL/native sizing.
+- **Verification:** [M99z17 report](../agents/reports/m99z10_renderer_settings.md#m99z17--two-thirds-splash-and-native-presentation).
+  MinGW/macOS builds and focused tests pass; no physical GPU result claimed.
+- **Commit:** recorded with the handoff in the linked report.
+
 ### Normal screenshots omitted display effects and information overlays
 
 - **Status/scope:** corrected in M99z11 for SDL and Windows native D3D11;
