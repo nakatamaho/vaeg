@@ -83,6 +83,10 @@ separate parity correction or move it to Open Defects.
   including actual SDL software-renderer effect/overlay readback tests and
   controller target lifetime tests. Native Metal/OpenGL readback is unsupported.
 - **Commit:** [5699d96e](https://github.com/nakatamaho/vaeg/commit/5699d96e471ac72b07203e26182ec62a5a210a06).
+- **M99z12 follow-up:** the unprocessed GUI screenshot previously included
+  both analysis sections unconditionally. It now follows the independent
+  Video/Framebuffer visibility flags. The linked report records four-state
+  surface tests, including byte-identical output when both flags are off.
 
 ### Information overlays omitted by native CRT presentation
 

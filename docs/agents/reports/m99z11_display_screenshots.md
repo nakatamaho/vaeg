@@ -90,3 +90,21 @@ Package: `build/mingw-cross/vaeg-m99z11-windows-x86_64.zip`, including the
 unchanged runtime DLL, shader assets, notices and updated user guide.
 Staged directory and ZIP validators PASS; staged EXE matches its build via `cmp`.
 ZIP SHA-256: `ae643f6938e905e1884349a7d0f4c16c55b814c4ed70daadb22894fa06cb5516`.
+
+## M99z12 — Unprocessed screenshot overlay selection
+
+Starting commit: `bf008214f283583edf0c0d986fdc7fa22bb12417`.
+Rename the second menu entry to `スクリーンショットを保存（加工前）`.
+The former raw-analysis formatter always generated both panels. It now
+independently honors `VAEG_DISPINFO_VIDEO` and `VAEG_DISPINFO_FRAMEBUFFER`,
+returning without any panel allocation or pixel change when both are off.
+Normal composed screenshots already honor those toggles and are unchanged.
+Deterministic CLI raw captures remain independent of GUI display flags.
+
+The production surface formatter is exercised with all four toggle combinations;
+all produce distinct images and both-off is byte-identical to the input surface.
+Validation uses the same build/test/check commands listed above. Windows visual
+verification remains deferred; this follow-up changes no native GPU code.
+
+Results: MinGW and macOS feature-on/off builds PASS. Both focused suites
+10/10 PASS (6.06 s / 5.90 s); encoding/EOL/case checks zero, diff check clean.

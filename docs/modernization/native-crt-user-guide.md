@@ -140,8 +140,11 @@ briefly stall presentation. Failure is reported rather than substituting raw
 pixels. Native Metal/OpenGL output readback is not yet supported by this path;
 their native GUI integration also remains pending.
 
-`加工前フレームを保存 (graphics分析あり)` remains an explicitly separate
-raw-analysis operation, not a screenshot of the displayed effects.
+`スクリーンショットを保存（加工前）` saves the guest-resolution image without
+display effects or scaling. Video info and Framebuffer info are included
+independently only when their respective display toggles are on, just as for
+normal screenshots. With both off, no analysis panel is added. Deterministic
+CLI raw capture remains separate and does not inherit these display toggles.
 
 Use `--screenshot FRAME:PATH` or `--screen-tvram-dump PATH` for deterministic
 guest-frame evidence. `--screen-dump` captures the SDL rendered target and is

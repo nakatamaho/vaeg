@@ -493,9 +493,7 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 		g_gui.screenshot_status += SDL_GetError();
 		return (FAILURE);
 	}
-	g_gui.screenshot_status = with_graphics_analysis
-	                              ? "分析付きスクリーンショットを保存しました: "
-	                              : "スクリーンショットを保存しました: ";
+	g_gui.screenshot_status = "スクリーンショット（加工前）を保存しました: ";
 	g_gui.screenshot_status += path;
 	std::fprintf(stderr, "screenshot saved path=%s\n", path);
 	return (SUCCESS);
@@ -3011,7 +3009,7 @@ static void draw_screen_menu(void) {
 		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
 			save_screenshot(FALSE);
 		}
-		if (ImGui::MenuItem("加工前フレームを保存 (graphics分析あり)")) {
+		if (ImGui::MenuItem("スクリーンショットを保存（加工前）")) {
 			save_screenshot(TRUE);
 		}
 		if (!g_gui.screenshot_status.empty()) {

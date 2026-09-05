@@ -728,7 +728,8 @@ static void scrnmng_draw_text_glyphs_surface(SDL_Surface *surface, int x, int y,
 static BOOL scrnmng_draw_graphics_analysis(SDL_Surface *surface) {
 	char video_lines[4][96];
 	char framebuffer_lines[VIDEOVA_FRAMEBUFFERS * 3][48];
-	const int video_count = scrnmng_format_video_info_lines(video_lines);
+	const int video_count = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO)
+	                            ? scrnmng_format_video_info_lines(video_lines) : 0;
 	const int line_height = 8;
 	const int padding = 4;
 	const SDL_Color text_color = {255, 255, 192, 255};
@@ -745,13 +746,14 @@ static BOOL scrnmng_draw_graphics_analysis(SDL_Surface *surface) {
 	if ((surface == NULL) || (surface->w <= 0) || (surface->h <= 0)) {
 		return FAILURE;
 	}
-	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+	for (i = 0; (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) && i < VIDEOVA_FRAMEBUFFERS; i++) {
 		const int bpp = (i & 1) ? scrnmng_video_bpp(videova.grres >> 8)
 		                       : scrnmng_video_bpp(videova.grres);
 		framebuffer_count += scrnmng_format_framebuffer_lines(&framebuffer_lines[framebuffer_count], i,
 	                                                     bpp, &videova.framebuffer[i]);
 	}
 	line_count = video_count + framebuffer_count;
+	if (line_count == 0) return SUCCESS;
 	for (i = 0; i < video_count; i++) {
 		const int length = (int)strlen(video_lines[i]);
 		if (length > width) {
@@ -2011,6 +2013,29 @@ BOOL scrnmng_display_capture_selftest(void) {
 	if (scrnmng_request_display_capture("test.png") != SUCCESS ||
 	    scrnmng.display_capture_ready || !scrnmng_prepare_display_capture()) goto cleanup;
 	if (scrnmng_request_display_capture("second.png") != FAILURE) goto cleanup;
+	{
+		const UINT8 flags[] = {0, VAEG_DISPINFO_VIDEO, VAEG_DISPINFO_FRAMEBUFFER,
+		                       VAEG_DISPINFO_VIDEO | VAEG_DISPINFO_FRAMEBUFFER};
+		UINT32 hashes[4] = {0};
+		int mode, other;
+		for (mode = 0; mode < 4; ++mode) {
+			SDL_Surface *raw = SDL_ConvertSurface(white, white->format, 0);
+			size_t byte;
+			if (!raw) goto cleanup;
+			np2oscfg.DISPCLK = flags[mode];
+			if (scrnmng_draw_graphics_analysis(raw) != SUCCESS) {
+				SDL_FreeSurface(raw); goto cleanup;
+			}
+			if (mode == 0 && memcmp(raw->pixels, white->pixels, raw->pitch * raw->h) != 0) {
+				SDL_FreeSurface(raw); goto cleanup;
+			}
+			for (byte = 0; byte < (size_t)raw->pitch * raw->h; ++byte)
+				hashes[mode] = hashes[mode] * 33U + ((BYTE *)raw->pixels)[byte];
+			SDL_FreeSurface(raw);
+			for (other = 0; other < mode; ++other)
+				if (hashes[mode] == hashes[other]) goto cleanup;
+		}
+	}
 	ok = SUCCESS;
 cleanup:
 	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
