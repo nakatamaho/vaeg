@@ -767,3 +767,130 @@ EXE and assets together, restart, confirm CRT creation and the menu's
 pass-through/CRT comparison on Windows. Physical D3D11 execution and GPU
 performance remain unverified locally. No overall M99 hardware gate is
 advanced by these software-only results.
+
+## M99z28 — Raster-anchored RGB mask
+
+Start: `81dfbdd7f9027f6abdda805f37d24314aae87c7e`, clean
+`topic/m99-native-crt-rebuild`. The maintainer confirmed M99z27 substantially
+restored Windows CRT rendering, then reported vertical bands. No private
+screenshot, path or identity is published. This follow-up only changes the
+owned default shader's mask coordinates, tests, package pins and documentation.
+
+### Cause and correction
+
+The D3D11 bridge supplies an inset `libra_viewport_t` while the output RTV is
+the whole window target. In the pinned runtime,
+[`filter_pass.rs`](https://github.com/SnowflakePowered/librashader/blob/87e8a97b50516d997defeaa168173dcd185d4022/librashader-runtime-d3d11/src/filter_pass.rs)
+derives output-size semantics from the output texture. The old mask's
+`vTexCoord * params.OutputSize.xy` therefore advances more than one mask
+pixel per raster pixel when the viewport is smaller than the target.
+This is a VAeg shader assumption error, not a changed runtime ABI.
+
+Use `gl_FragCoord.xy` for the mask only. SPIRV-Cross translates its fragment
+input to `SV_Position` in SM5 HLSL; the compilation test verifies that semantic.
+The RGB mask remains anchored to render-target pixels, including when the
+viewport moves. Guest coordinates, curve, SCREEN_SIZE padding, image taps,
+scanline AA and all parameter defaults remain unchanged. The M99z27 constant
+component writes remain in place. No new per-frame allocation or filter pass.
+
+### Reproduction and focused tests
+
+The optional EGL test now draws real sub-viewports into larger targets, not
+just full-target quads. Neutral fixtures use targets/viewports:
+
+- 1000x650 / (180,55) 640x400;
+- 1280x800 / (323,101) 640x400;
+- 1001x701 / (37,49) 641x401.
+
+All four masks pass 3px (or 6px for mask 3) period checks: maximum float RGB
+residual `1.1920929e-7`, tolerance `1e-5`. The first fixture compresses the
+old 3px period to 1.92px and produces a 24px alias. Its rendered mean-RGB
+24px Fourier amplitude drops from `.00642442084` to `1.9690132e-9`.
+The passing fixture receives exactly one old-coordinate mutation and must
+fail `M99_MASK_GPU_PIXEL_PERIOD`, not an unrelated check. This establishes
+the defect in a ROM-less software raster, without claiming a Windows run.
+
+With MASK=0, random-image A/B outputs have exactly equal float RGB values in the inset
+viewport: no image blur or geometry change. Full-target color/kernel parity
+against the audited original still passes all masks and curvature values,
+worst float RGB difference .000546. Previous scanline tests still suppress
+small-output 40px bands to at most 1.6e-8, with 1600px residual below .000620.
+
+Commands (exit 0):
+
+```sh
+docker start vaeg-m99z26-shader-check
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_scanline_aa_gpu.py
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_screen_size.py --glslang /usr/bin/glslangValidator --spirv-cross /usr/bin/spirv-cross
+python3 tests/frontend/librashader/test_screen_size.py --runtime build/m99z20-runtime-check/librashader.dylib
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+ctest --test-dir build/macos-macports --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+python3 tools/repo/check_encoding.py
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+git diff --check
+```
+
+macOS ON/OFF: 13/13 each, 6.09 / 6.13s. Static suite: 5 tests PASS;
+runtime metadata: nine parameters, SCREEN_SIZE 98 and CURVATURE .030, plus
+the version-header negative regression. GLSL and HLSL stages compile and
+SM5 fragment position semantic is present. These are not D3DCompile or Metal
+filter-chain execution claims. The already-recorded Wine 8 missing
+`bcryptprimitives.dll` prevents testing the unchanged Windows runtime locally;
+do not repeat that unchanged failed setup or substitute an unpinned DLL.
+
+Software performance only (Mesa 22.3.6 / llvmpipe LLVM 15 / ModernGL 5.7.4,
+20 timed frames per case, `ctx.finish()` per frame), median/p95 milliseconds:
+640x400 old AA coordinates 17.28/33.80, fixed 11.47/21.51;
+640x1600 old AA coordinates 38.62/50.20, fixed 37.18/88.55.
+The noisy p95 is reported, not a hardware speedup or 60Hz acceptance claim.
+
+### Build reuse, licensing and handoff
+
+No compiled C/C++ or build configuration changes relative to the starting
+commit. Reuse the M99z27 verified builds rather than rebuilding unchanged
+emulator code for a runtime-loaded asset fix. Verified hashes:
+
+- MinGW EXE, built at `601ce5f1e565b93eeafd0897c49f0cf101e457da`:
+  `b4632b6616a45bc89aa87207a2bf42fb0dc634be7430078b0fc0d0c8849307e4`.
+- macOS ON executable:
+  `920e1fb5fda61d6f884d21b028a1850c9281631e951d27662cfc9d211723a6f9`.
+- Evaluated controller binary:
+  `5bce43c9c6f1edc4ef542b8aa4b0c96277fac2f78da2e0a0f48981c753c045f8`.
+
+The sole changed production asset SHA-256 is
+`7cef376e3f8d4c76112842b155cf642b8a32eb4b89921dd026ba55f07390b9ee`.
+It remains VAeg-owned BSD-2-Clause. Original Lottes/Unlicense file,
+dependencies, notices and closure are unchanged. librashader remains dynamic
+MPL-2.0 v0.12.0 / commit `87e8a97b50516d997defeaa168173dcd185d4022`, API 5,
+ABI 2; no GPL/unknown shader or vendor modification is introduced.
+
+Stage the complete M99z28 Windows package from M99z27, retaining the exact
+EXE, DLL, optional diagnostic and licenses, then replace the validated assets
+and user guide. Both package pins are updated. Already-installed M99z27 only
+needs the new assets and preset reload/restart; no EXE or DLL replacement is
+required for this correction. Full ZIP is provided for a consistent handoff.
+
+Prior CI [33957628012](https://github.com/nakatamaho/vaeg/actions/runs/33957628012)
+has 9 passing jobs; the exact failed macOS FetchContent log was retrieved:
+`vaeg_upd9002_trace_equivalence`, 17 vs 18 checkpoints at
+`tests/upd9002/run_trace_equivalence.cmake:74`. This unchanged unrelated
+failure is neither repaired nor counted as PASS. No physical platform gate
+is advanced. Remaining manual check: Windows CRT and pass-through, resize,
+letterboxing and fullscreen, with the new assets.
+
+Package: `build/mingw-cross/vaeg-m99z28-windows-x86_64.zip`, SHA-256
+`773e08e0db5afc44128b0eff7b616d9b17b60ceba14f8e910e13202164992879`.
+Directory and ZIP package validation PASS; EXE `cmp` against M99z27 PASS.
+Commands (exit 0):
+
+```sh
+cmake -E copy_directory build/mingw-cross/vaeg-m99z27-windows-x86_64 build/mingw-cross/vaeg-m99z28-windows-x86_64
+bash tools/release/stage-librashader-assets.sh --output build/mingw-cross/vaeg-m99z28-windows-x86_64 --platform windows --runtime build/mingw-cross/vaeg-m99z27-windows-x86_64/librashader.dll
+cmp build/mingw-cross/vaeg-m99z27-windows-x86_64/vaeg.exe build/mingw-cross/vaeg-m99z28-windows-x86_64/vaeg.exe
+python3 tools/release/check-librashader-package.py --input build/mingw-cross/vaeg-m99z28-windows-x86_64 --platform windows
+# From build/mingw-cross:
+cmake -E tar cf vaeg-m99z28-windows-x86_64.zip --format=zip vaeg-m99z28-windows-x86_64
+# From repository root:
+python3 tools/release/check-librashader-package.py --input build/mingw-cross/vaeg-m99z28-windows-x86_64.zip --platform windows
+```

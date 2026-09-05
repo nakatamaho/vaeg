@@ -89,7 +89,10 @@ vec3 vaeg_mask(vec2 pixel, float dark) {
 }
 
 void main() {
-    vec2 pixel = vTexCoord * params.OutputSize.xy;
+    // OutputSize can describe the whole render target, not the inset viewport.
+    // Anchor the mask to raster pixel centers (SV_Position on D3D11) so that
+    // letterboxing/resize cannot compress its stripes into a beating pattern.
+    vec2 pixel = gl_FragCoord.xy;
     vec2 screen = vTexCoord * 2.0 - 1.0;
     vec2 warp = vec2(params.CURVATURE * (1.0 - params.TRINITRON_CURVE),
                      params.CURVATURE * 0.75);

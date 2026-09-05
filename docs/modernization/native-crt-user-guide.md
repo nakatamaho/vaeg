@@ -80,8 +80,12 @@ The default now averages only scanline brightness over each output pixel.
 At four or more output pixels per source row, thin scanlines remain visible;
 between four and two their contrast fades, and at two or fewer the periodic
 dark gaps disappear. This suppresses low-resolution moire without adding a
-whole-image blur. The RGB mask is unchanged; some mask/content interference
-can still occur. Curvature is included in the local sampling-width estimate.
+whole-image blur. RGB mask stripes are anchored to actual render-target pixel
+centers, independently of the inset viewport and window dimensions. This
+prevents letterboxing from compressing the stripe pattern into vertical bands;
+the image is not blurred. Mask/content interference can still occur with
+particular guest patterns or scaling applied outside VAeg. Curvature is
+included in the local sampling-width estimate.
 Canvas dimensions preserve aspect ratio and symmetric integer margins, so
 the effective size changes in discrete steps despite the fine slider steps.
 For 640x400 input, 98.00% uses a 656x410 canvas (effective 97.56%, margins

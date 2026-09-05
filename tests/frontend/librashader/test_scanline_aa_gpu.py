@@ -42,7 +42,7 @@ void main() {
 """
 
 
-def fragment(name, point_only=False):
+def fragment(name, point_only=False, legacy_mask=False):
     source = (SHADERS / name).read_text()
     source = source.replace('#include "vaeg-scanline-aa.inc"',
                             (SHADERS / "vaeg-scanline-aa.inc").read_text())
@@ -58,6 +58,12 @@ def fragment(name, point_only=False):
         if source.count(line) != 1:
             raise RuntimeError("M99_SCAN_GPU_POINT_FIXTURE")
         source = source.replace(line, "float brightness = vaeg_scan_point(phase, thin);")
+    if legacy_mask:
+        # One controlled mutation: reproduce the pre-fix coordinate coupling.
+        line = "vec2 pixel = gl_FragCoord.xy;"
+        if source.count(line) != 1:
+            raise RuntimeError("M99_MASK_GPU_LEGACY_FIXTURE")
+        source = source.replace(line, "vec2 pixel = vTexCoord * params.OutputSize.xy;")
     return source
 
 
@@ -72,6 +78,8 @@ programs = [ctx.program(vertex_shader=VERTEX, fragment_shader=fragment(name, cou
             for name, counterfactual in (("crt-lottes-fast.slang", False),
                                           ("vaeg-crt-aa.slang", False),
                                           ("vaeg-crt-aa.slang", True))]
+programs.append(ctx.program(vertex_shader=VERTEX,
+                           fragment_shader=fragment("vaeg-crt-aa.slang", legacy_mask=True)))
 vaos = [ctx.vertex_array(p, []) for p in programs]
 source = ctx.texture((656, 410), 3, dtype="f4")
 source.filter = (moderngl.LINEAR, moderngl.LINEAR)
@@ -91,10 +99,12 @@ def configure(index, width, height, values):
             programs[index][name].value = value
 
 
-def draw(index, width, height, **values):
+def draw(index, width, height, viewport=None, **values):
     configure(index, width, height, values)
     fbo = ctx.simple_framebuffer((width, height), components=4, dtype="f4")
     fbo.use()
+    if viewport is not None:
+        ctx.viewport = viewport
     vaos[index].render(vertices=3)
     pixels = np.frombuffer(fbo.read(components=3, dtype="f4"), np.float32).reshape(height, width, 3).copy()
     fbo.release()
@@ -125,6 +135,53 @@ def amplitude(rows, frequency):
     return float(2 * abs(np.sum(rows * np.exp(1j * phase))) / len(rows))
 
 
+# Inset viewports on larger targets previously compressed a 3px mask to
+# 1.92px, creating a 24px beat. Test actual raster viewports, not just uniforms.
+source.write(np.broadcast_to(np.array((.6, .9, .9), np.float32), (410, 656, 3)).copy().tobytes())
+def mask_period_error(pixels, viewport, period):
+    x, y, _, _ = viewport
+    interior = pixels[y + 120:y + 124, x + 64:x + 544]
+    return float(np.abs(interior[:, period:] - interior[:, :-period]).max())
+
+
+def require_mask_period(pixels, viewport, period):
+    check(mask_period_error(pixels, viewport, period) < .00001,
+          "M99_MASK_GPU_PIXEL_PERIOD")
+
+
+for width, height, viewport in ((1000, 650, (180, 55, 640, 400)),
+                                (1280, 800, (323, 101, 640, 400)),
+                                (1001, 701, (37, 49, 641, 401))):
+    for mask in range(4):
+        settings = dict(MASK=float(mask), CURVATURE=0., CORNER=0.)
+        fixed = draw(1, width, height, viewport=viewport, **settings)
+        require_mask_period(fixed, viewport, 6 if mask == 3 else 3)
+        print("mask pixel period", width, height, viewport, mask,
+              mask_period_error(fixed, viewport, 6 if mask == 3 else 3), flush=True)
+        if width == 1000 and mask == 1:
+            bad = draw(3, width, height, viewport=viewport, **settings)
+            try:
+                require_mask_period(bad, viewport, 3)
+            except RuntimeError as error:
+                check(str(error) == "M99_MASK_GPU_PIXEL_PERIOD", "M99_MASK_GPU_WRONG_FAILURE")
+            else:
+                raise RuntimeError("M99_MASK_GPU_NEGATIVE_NOT_REJECTED")
+            x, y, _, _ = viewport
+            bands = [amplitude(p[y+120:y+124, x+64:x+544].mean(axis=(0, 2)), 1/24)
+                     for p in (bad, fixed)]
+            print("mask 24px band before/after", bands, flush=True)
+            check(bands[0] > .005 and bands[1] < .00001, "M99_MASK_GPU_24PX_BAND")
+
+# A pixel-exact no-mask A/B also guards against fixing the band by blurring
+# or changing image geometry. The sole mutation is the unused mask coordinate.
+source.write(rng.random((410, 656, 3), dtype=np.float32).tobytes())
+viewport = (180, 55, 640, 400)
+fixed = draw(1, 1000, 650, viewport=viewport, MASK=0.)
+bad = draw(3, 1000, 650, viewport=viewport, MASK=0.)
+check(np.array_equal(fixed[55:455, 180:820], bad[55:455, 180:820]),
+      "M99_MASK_GPU_UNMASKED_IMAGE_CHANGED")
+
+
 for flat in ((.4, .4, .4), (.6, .9, .9), (.9, .1, .1)):
     source.write(np.broadcast_to(np.array(flat, np.float32), (410, 656, 3)).copy().tobytes())
     for height in (400, 800, 1600):
@@ -150,7 +207,7 @@ for thin in (0., .5, 1.):
 for height in (400, 1600):
     fbo = ctx.simple_framebuffer((640, height), components=4, dtype="f4")
     fbo.use()
-    for index in (0, 1):
+    for index in (0, 3, 1):
         configure(index, 640, height, {})
         vaos[index].render(vertices=3)
         ctx.finish()
@@ -160,7 +217,8 @@ for height in (400, 1600):
             vaos[index].render(vertices=3)
             ctx.finish()
             times.append((time.perf_counter() - start) * 1000)
-        print("raster ms", height, "AA" if index else "original", "median/p95",
+        label = {0: "original", 3: "AA old mask coordinates", 1: "AA raster coordinates"}[index]
+        print("raster ms", height, label, "median/p95",
               np.percentile(times, [50, 95]).tolist(), flush=True)
     fbo.release()
 print("M99_SCAN_GPU_PASS", flush=True)

@@ -35,6 +35,22 @@ land.
 
 ## Maintenance Rules
 
+### M99z28 — Inset CRT viewports produce vertical mask bands
+
+- **Symptom/scope:** the default CRT shows broad vertical bands when the guest
+  viewport occupies only part of the native output target.
+- **Demonstrated cause:** `vTexCoord * OutputSize` incorrectly treats the
+  target dimensions as the viewport dimensions. This compresses the nominal
+  pixel mask. A 640px viewport in a 1000px target reproduces a 24px beat.
+- **Correction:** derive mask coordinates from `gl_FragCoord.xy` (D3D11
+  `SV_Position`). Image sampling, curve, padding, scanline AA and raw capture
+  are unchanged; the correction does not blur the guest image.
+- **Verification:** actual inset-viewport EGL raster tests for all four masks,
+  controlled old-coordinate negative test, exact unmasked-image A/B,
+  GLSL/HLSL compilation, metadata and macOS ON/OFF tests. Corrected physical
+  D3D11 display remains a maintainer check; software rendering is not that gate.
+- **Task/evidence/commit:** [M99z28 report](../agents/reports/m99z10_renderer_settings.md#m99z28--raster-anchored-rgb-mask).
+
 ### M99z27 — CRT AA mask compilation fails on D3D11
 
 - **Symptom/scope:** the M99z26 default preset fails filter-chain creation on

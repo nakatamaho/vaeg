@@ -74,6 +74,13 @@ class ScreenSizeTests(unittest.TestCase):
         for component in "rgb":
             self.assertIn(f"mask.{component} = selected;", shader)
 
+    def test_crt_mask_uses_raster_coordinates(self):
+        shader = (CRT / "shaders/vaeg-crt-aa.slang").read_text()
+        self.assertIn("vec2 pixel = gl_FragCoord.xy;", shader)
+        self.assertNotIn("vTexCoord * params.OutputSize.xy", shader)
+        # Guest sampling/curvature still use normalized image coordinates.
+        self.assertIn("vec2 screen = vTexCoord * 2.0 - 1.0;", shader)
+
 
 def compile_stages(compiler, spirv_cross=None):
     for name in ("vaeg-screen-size.slang", "vaeg-crt-aa.slang"):
@@ -95,6 +102,9 @@ def compile_stages(compiler, spirv_cross=None):
                     subprocess.run([spirv_cross, str(Path(directory) / (suffix + ".spv")),
                                     "--hlsl", "--shader-model", "50", "--output", str(hlsl)],
                                    check=True)
+                    if name == "vaeg-crt-aa.slang" and suffix == "frag":
+                        if "SV_Position" not in hlsl.read_text():
+                            raise RuntimeError("M99_MASK_HLSL_POSITION_MISSING")
                     subprocess.run([compiler, "-D", "-V", "-S", suffix, "-e", "main",
                                     str(hlsl), "-o", str(Path(directory) / "hlsl.spv")],
                                    check=True)
