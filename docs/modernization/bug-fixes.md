@@ -47,7 +47,7 @@ land.
 - **Verification:** bounded transactional codec tests, main-ini round-trip,
   disabled persistence tests and local feature-on/off plus MinGW builds.
 - **Task/evidence:** [M99z22 report](../agents/reports/m99z10_renderer_settings.md#m99z22--crt-parameters-in-the-main-configuration).
-  Commit identity is recorded in the report's handoff.
+  Fix: [d8105e3c](https://github.com/nakatamaho/vaeg/commit/d8105e3c8da3d10f958756b9e1b35a4b2a404eb1).
 
 ### M99z20 — Default CRT preset failed parameter enumeration
 

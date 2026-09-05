@@ -364,3 +364,9 @@ M99z18 local build commands. MinGW, macOS feature-on and feature-off builds
 PASS. Feature-on focused suite: 11/11 PASS (8.00 s). Repository checks zero.
 Physical Windows GUI restart/parameter persistence remains manual evidence.
 Feature-off focused suite: 11/11 PASS (6.66 s).
+
+Implementation: [d8105e3c](https://github.com/nakatamaho/vaeg/commit/d8105e3c8da3d10f958756b9e1b35a4b2a404eb1).
+MinGW rebuilt with committed identity; EXE-only handoff at
+`build/mingw-cross/vaeg-m99z22-windows-x86_64/vaeg.exe`, verified by `cmp`.
+SHA-256: `80ab874e0a5affbfdb74a3ae0f058187535dd032819d02d1fcc35178466e1e64`.
+Existing M99z21 shader assets and DLL are unchanged and can be retained.
