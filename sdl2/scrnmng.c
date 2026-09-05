@@ -1334,7 +1334,7 @@ BOOL scrnmng_create(int width, int height) {
 		return (FAILURE);
 	}
 	scrnmng.enable = TRUE;
-	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "SDL / CRT off");
+	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "SDL");
 	if (scrnmng_native_requested()) {
 		preset_path = scrnmng_native_preset_path();
 		scrnmng.native_presenter = vaeg_native_presenter_create(scrnmng.window, 0, 0, preset_path,
@@ -1346,7 +1346,7 @@ BOOL scrnmng_create(int width, int height) {
 			        vaeg_native_presenter_backend(scrnmng.native_presenter), preset_path);
 		} else {
 			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
-			         "SDL fallback: CRT runtime, preset or GPU unavailable");
+			         "SDL fallback: %s", vaeg_native_presenter_creation_error());
 			fprintf(stderr, "Native CRT selected but unavailable; using SDL fallback\n");
 		}
 	}
@@ -1484,8 +1484,12 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	if (!scrnmng.native_active) {
 		if (was_native && scrnmng_detach_native_window() != SUCCESS) return FAILURE;
 		SDL_Log("Renderer switch: creating SDL renderer");
-		snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
-		         "%s", np2oscfg.gui_native_crt ? "SDL fallback: CRT runtime, preset or GPU unavailable" : "SDL");
+		if (np2oscfg.gui_native_crt) {
+			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+			         "SDL fallback: %s", vaeg_native_presenter_creation_error());
+		} else {
+			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "SDL");
+		}
 		if (scrnmng_create_sdl_resources() != SUCCESS)
 			return FAILURE;
 		(void)scrnmng_upload_shadow();

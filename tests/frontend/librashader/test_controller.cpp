@@ -30,7 +30,7 @@
 using namespace vaeg::librashader;
 namespace {
 int initialize_count, recover_count, draw_count, gui_count, shutdown_count;
-bool fail_filter, fail_device, fail_recovery;
+bool fail_filter, fail_device, fail_recovery, fail_initialize;
 int viewport_values[4];
 const void *observed_pixels;
 const char *diagnostic = "";
@@ -41,6 +41,7 @@ public:
     PresenterError last_error() const noexcept override { return PresenterError::None; }
     const char *error_detail() const noexcept override { return diagnostic; }
     PresenterResult initialize(const NativePresenterCreateInfo &) noexcept override {
+        if (fail_initialize) return PresenterResult::Fallback;
         ++initialize_count; state_ = PresenterState::Filtered; return PresenterResult::Recovered;
     }
     PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
@@ -124,6 +125,18 @@ int main() {
     check(gui_count == 0 && shutdown_count == 1, "GUI detaches before teardown");
     check(!vaeg_native_presenter_gui_prepare(nullptr) &&
           !vaeg_native_presenter_set_filter(nullptr, 1), "null lifecycle");
+    fail_initialize = true;
+    diagnostic = "test GPU initialization failure";
+    check(!vaeg_native_presenter_create(&window, 640, 422, "test", nullptr),
+          "failed creation returns null");
+    check(std::strcmp(vaeg_native_presenter_creation_error(), diagnostic) == 0,
+          "creation detail survives failed presenter destruction");
+    fail_initialize = false;
+    diagnostic = "";
+    p = vaeg_native_presenter_create(&window, 640, 422, "test", nullptr);
+    check(p && std::strcmp(vaeg_native_presenter_creation_error(), "none") == 0,
+          "successful retry clears creation failure");
+    vaeg_native_presenter_destroy(p);
     std::printf("controller checks: %s\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;
 }

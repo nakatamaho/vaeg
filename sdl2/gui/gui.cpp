@@ -188,6 +188,7 @@ struct GuiState {
 	vaeg::librashader::ShaderPreset native_crt_preset;
 	std::string native_crt_loaded_path;
 	std::string native_crt_status;
+	bool native_crt_settings_open = false;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
 	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
@@ -2555,10 +2556,7 @@ static void load_native_crt_preset(void) {
 	}
 }
 
-static void draw_native_crt_menu(void) {
-	if (!ImGui::BeginMenu("CRT shader")) {
-		return;
-	}
+static void draw_renderer_selection(void) {
 	bool enabled = scrnmng_native_active() != FALSE;
 	if (ImGui::MenuItem("SDL", nullptr, !enabled)) {
 		scrnmng_request_native_crt(FALSE, TRUE);
@@ -2574,6 +2572,27 @@ static void draw_native_crt_menu(void) {
 		g_gui.native_crt_status = "librashader selected; restart to apply";
 #endif
 	}
+	ImGui::TextWrapped("Active: %s", scrnmng_native_status());
+#if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
+	if (np2oscfg.gui_native_crt && !enabled) {
+		ImGui::TextWrapped("librashader requested; restart required (if supported by this build)");
+	}
+#endif
+	if (enabled && ImGui::MenuItem("Shader settings...")) {
+		g_gui.native_crt_settings_open = true;
+	}
+}
+
+static void draw_native_crt_settings(void) {
+	if (!g_gui.native_crt_settings_open || !scrnmng_native_active()) {
+		return;
+	}
+	ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Shader settings", &g_gui.native_crt_settings_open)) {
+		ImGui::End();
+		return;
+	}
+	ImGui::TextWrapped("Active: %s", scrnmng_native_status());
 	ImGui::Separator();
 	if (ImGui::InputText("Preset path", np2oscfg.gui_shader_preset,
 	                     sizeof(np2oscfg.gui_shader_preset))) {
@@ -2583,7 +2602,7 @@ static void draw_native_crt_menu(void) {
 	if (ImGui::Button("Reload preset")) {
 		load_native_crt_preset();
 		if (scrnmng_native_active())
-			scrnmng_request_native_crt(enabled, TRUE);
+			scrnmng_request_native_crt(TRUE, TRUE);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("Clear status")) {
@@ -2637,7 +2656,7 @@ static void draw_native_crt_menu(void) {
 	if (!g_gui.native_crt_status.empty()) {
 		ImGui::TextDisabled("%s", g_gui.native_crt_status.c_str());
 	}
-	ImGui::EndMenu();
+	ImGui::End();
 }
 
 static void set_display_mode(int mode) {
@@ -2979,6 +2998,17 @@ static void load_default_va_font(void) {
 
 static void draw_screen_menu(void) {
 	if (ImGui::BeginMenu("画面")) {
+		draw_renderer_selection();
+		if (!scrnmng_native_active() && ImGui::BeginMenu("Effect")) {
+			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
+			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
+				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_effect == value)) {
+					set_display_effect(value);
+				}
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::Separator();
 		const char *screenshot_shortcut =
 		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
 		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
@@ -2991,16 +3021,6 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
-		draw_native_crt_menu();
-		if (ImGui::BeginMenu("Effect")) {
-			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
-			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
-				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_effect == value)) {
-					set_display_effect(value);
-				}
-			}
-			ImGui::EndMenu();
-		}
 		if (ImGui::BeginMenu("Scaling")) {
 			static const char *labels[] = {"Native", "Fit", "Fit 8-dot", "Integer", "Stretch"};
 			for (int value = 0; value < VAEG_SCALING_COUNT; value++) {
@@ -3905,6 +3925,7 @@ void gui_draw(void) {
 	draw_bms_config_dialog();
 	draw_ems_config_dialog();
 	draw_custom_size_dialog();
+	draw_native_crt_settings();
 	draw_sound_buffer_dialog();
 	draw_about_dialog();
 }

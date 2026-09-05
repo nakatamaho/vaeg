@@ -41,6 +41,7 @@ extern "C" {
 #endif
 
 int vaeg_native_presenter_is_headless_video_driver(const char *video_driver);
+const char *vaeg_native_presenter_creation_error(void);
 VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 	void *host_window, uint32_t drawable_width, uint32_t drawable_height,
 	const char *preset_path, const char *parameter_state_path);

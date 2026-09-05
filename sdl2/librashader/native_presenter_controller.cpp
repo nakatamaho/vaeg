@@ -37,6 +37,9 @@ struct VAEG_NATIVE_PRESENTER {
 
 namespace {
 
+// Presentation-thread diagnostic survives destruction of a failed presenter.
+char creation_error[256] = "none";
+
 static const char *native_backend_name() noexcept {
 #if defined(_WIN32)
 	return "D3D11";
@@ -109,7 +112,9 @@ extern "C" VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 	NativePresenterCreateInfo info{};
 	PresenterResult result;
 
+	snprintf(creation_error, sizeof(creation_error), "none");
 	if (host_window == nullptr) {
+		snprintf(creation_error, sizeof(creation_error), "invalid host window");
 		return nullptr;
 	}
 	try {
@@ -117,6 +122,7 @@ extern "C" VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 		presenter->backend = native_backend_name();
 		presenter->implementation = create_native_presenter(PresenterBackend::Automatic);
 		if (presenter->implementation == nullptr) {
+			snprintf(creation_error, sizeof(creation_error), "platform_unavailable");
 			return nullptr;
 		}
 		info.host_window = host_window;
@@ -128,6 +134,8 @@ extern "C" VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 		info.parameter_state_path = parameter_state_path;
 		result = presenter->implementation->initialize(info);
 		if (result != PresenterResult::Recovered) {
+			snprintf(creation_error, sizeof(creation_error), "%s",
+			         vaeg_native_presenter_error(presenter.get()));
 			fprintf(stderr, "Native CRT unavailable: backend=%s state=%s error=%s\n",
 			        presenter->backend,
 			        presenter_state_name(presenter->implementation->state()),
@@ -138,9 +146,14 @@ extern "C" VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 		        presenter_state_name(presenter->implementation->state()));
 		return presenter.release();
 	} catch (...) {
+		snprintf(creation_error, sizeof(creation_error), "presenter initialization exception");
 		fprintf(stderr, "Native CRT unavailable: presenter initialization exception\n");
 		return nullptr;
 	}
+}
+
+extern "C" const char *vaeg_native_presenter_creation_error(void) {
+	return creation_error;
 }
 
 extern "C" VAEG_NATIVE_PRESENTER_RESULT vaeg_native_presenter_resize(
