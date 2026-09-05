@@ -46,6 +46,13 @@ and hashes are recorded beside the shader under
 `slang-shaders` repository and GPL or unidentified shader families are not
 distributed.
 
+The active default uses VAeg's BSD-2-Clause `vaeg-crt-aa.slang` and
+`vaeg-scanline-aa.inc`, implementing the referenced public-domain Lottes
+display equations with pixel-footprint scanline-brightness antialiasing.
+The original shader is retained unchanged. VAeg's new code does not alter
+the original dedication or attribution; the complete active dependency
+closure and both licensing boundaries are recorded in the same provenance.
+
 ## Other bundled assets
 
 The general VAEG asset notice, including the MIT-licensed suzukiplan Z80

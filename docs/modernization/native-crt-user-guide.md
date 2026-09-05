@@ -68,6 +68,12 @@ while live adjustments remain available for the session.
 Below 100%, the frontend centers the original pixels in a larger black canvas,
 without resizing or blending them. The copy pass uses exact texel fetches;
 the subsequent CRT shader retains its own filtering and curvature.
+The default now averages only scanline brightness over each output pixel.
+At four or more output pixels per source row, thin scanlines remain visible;
+between four and two their contrast fades, and at two or fewer the periodic
+dark gaps disappear. This suppresses low-resolution moire without adding a
+whole-image blur. The RGB mask is unchanged; some mask/content interference
+can still occur. Curvature is included in the local sampling-width estimate.
 Canvas dimensions preserve aspect ratio and symmetric integer margins, so
 the effective size changes in discrete steps despite the fine slider steps.
 For 640x400 input, 98.00% uses a 656x410 canvas (effective 97.56%, margins

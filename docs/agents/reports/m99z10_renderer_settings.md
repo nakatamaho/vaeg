@@ -491,3 +491,108 @@ The shader SHA-256 is
 `9a521d7ecf3ead998a5039d33d144903c5764793eba5415dc98ac4ae7ec5c361`.
 The Windows M99z25 handoff reuses the M99z24 EXE/DLL and restages the updated
 assets; package validation passes. No new physical GPU testing claimed.
+
+## M99z26 — Scanline brightness antialiasing
+
+Starting commit: `9aa4035daff2e3149c2ac00ea5e5b41daad8b9bf`.
+Scope: the maintainer approved averaging scanline brightness, retaining thin
+lines at large sizes and fading them at small sizes, without a whole-image
+blur. Private supplied screenshots were inspected locally only; no private
+image, identity or image-derived payload is tracked. Synthetic uniform-color
+fixtures reproduce the approximately 40px beat at 410 source rows / 400 output
+pixels, including curvature=0. Point-sampled beam modulation is the demonstrated
+defect; other mask/content interference is not claimed resolved.
+
+The audited third-party `crt-lottes-fast.slang` remains byte-identical.
+New BSD-2-Clause `vaeg-crt-aa.slang` expresses the public-domain Lottes
+color/kernel/warp/mask/tone model with an owned AA helper. The preset selects
+this pass after the unchanged size/copy pass. All nine parameter names,
+defaults, persistence and raw-capture boundaries remain. No core, native
+presenter, texture-upload, frame-allocation or runtime-loader changes.
+Active dependency closure is two owned shaders plus one owned include and
+the preset. Notices/provenance/package pins record the reference and new
+code separately; no GPL or unknown-license dependencies are introduced.
+
+`vaeg-scanline-aa.inc` analytically integrates the sum of the two periodic
+cosine beam envelopes. `fwidth(position.y)` supplies a local, curvature-aware
+source-row footprint. Existing normalized row-color weights and four-tap
+horizontal reconstruction are retained (eight image fetches, no added taps).
+Only their common brightness multiplier changes. At exact zero beam weights,
+use the symmetric limiting row blend to avoid division by zero. Fade contrast
+between footprints .25 and .5 (four to two output pixels/row); at .5 and above
+use mean brightness. A later fade initially left gamma/tone-generated aliases
+at 800px height; final raster tests motivated fading before Nyquist instead.
+SCREEN_SIZE=98, black padding, curvature control and raw QA are unchanged.
+
+Evidence and commands (exit 0):
+
+```sh
+CCACHE_DISABLE=1 cmake --build build/macos-ci -j4
+CCACHE_DISABLE=1 cmake --build build/macos-macports -j4
+CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+ctest --test-dir build/macos-macports --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+build/macos-ci/vaeg_librashader_scanline_aa_test
+python3 tests/frontend/librashader/test_screen_size.py --runtime build/m99z20-runtime-check/librashader.dylib
+python3 tools/repo/check_encoding.py --expect utf8
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+git diff --check
+```
+
+macOS feature-on/off Release: 13/13 PASS (7.21 / 7.40 s). Runtime 0.12.0
+enumerates all nine parameters, including includes; MissingVersionHeader
+negative regression passes. Existing linker/dependency warnings remain.
+The C++ test executes the same float functions used in GLSL and compares to
+independent double-precision numerical integration across period boundaries,
+thinness endpoints and minification. Linear-light 40px band amplitude:
+400px `.35442824 -> 0`; 800px `.02255468 -> 0`; 1600px `.00251115 -> .00006107`.
+At 1600px the fundamental scanline contrast retains 89.38%.
+
+Optional software-raster/compile reproduction (task-local Docker container,
+read-only source mount; dependencies only inside the container):
+
+```sh
+docker run -d --name vaeg-m99z26-shader-check --mount type=bind,source="$PWD",target=/src,readonly debian:bookworm-slim sleep 3600
+docker exec vaeg-m99z26-shader-check sh -c 'apt-get update -qq && apt-get install -y -qq python3 python3-moderngl python3-numpy glslang-tools libegl1-mesa libgl1-mesa-dri libgl1 libgl1-mesa-dev'
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_screen_size.py --glslang /usr/bin/glslangValidator
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_scanline_aa_gpu.py
+```
+
+glslang 12.0.0 compiles both stages of both active shaders. Raster tests use
+ModernGL 5.7.4, NumPy 1.24.2, EGL llvmpipe LLVM 15.0.6 (128 bits), Mesa 22.3.6
+GL 4.5. This is NOT librashader-chain, D3D11, Metal or physical GPU evidence.
+The test translates descriptor syntax only; test-local point-brightness
+substitution isolates color/kernel parity against the unchanged reference.
+All masks and curvature 0/.03/.25 pass, worst float RGB difference .000546
+(less than one 8bit code). Constant modulation also passes edge parity.
+Uniform grey/cyan/red rendered through tone/gamma demonstrate small-output
+40px bands reduced to at most 1.6e-8, versus original .073-.149 at 400px and
+.013-.027 at 800px. At 1600px residual amplitude is at most .000620, below
+half an 8bit code. Some already sub-LSB original bands are smaller than the
+new residual; this is not an across-the-board relative improvement claim.
+The raster criterion is 85% attenuation OR a half-code absolute ceiling.
+Complete-period windows avoid Fourier-bin leakage from cropped scanlines.
+Mean exposure shift stays below .04 on [0,1]. Extreme thinness/curvature and
+small viewports produce finite output. No new image-blur kernel is used.
+
+Performance: CPU helper benchmark, one million float evaluations, point
+8.19 ns versus AA 9.38 ns (not GPU cost). Final 20-frame software-raster
+median/p95 at 640x400: original 19.96/31.79 ms, AA 30.35/35.11 ms;
+640x1600: original 48.76/66.26 ms, AA 51.16/65.56 ms. An earlier small-output
+run had the opposite ordering (26.28 vs 21.98 ms median), indicating host
+variance. Report the measured small-output regression, not a speedup or
+60Hz hardware claim. Real GPU performance and Windows visual acceptance
+remain deferred. No per-frame allocations, extra passes or image taps added.
+
+Package pins cover the new shader, helper, preset and provenance. Runtime
+0.12.0 DLL, loader and dependency versions are unchanged. Windows package
+staging/validation uses the M99z25 bundle plus the updated assets. Update all
+of `assets/shaders/crt/` and restart; do not copy only the preset or omit its
+new include. Existing saved settings remain explicit user choices.
+
+Pre-existing hosted failure inspected before push:
+[33953017511](https://github.com/nakatamaho/vaeg/actions/runs/33953017511),
+macOS FetchContent `vaeg_upd9002_trace_equivalence`, checkpoint counts 17 vs 18
+at `tests/upd9002/run_trace_equivalence.cmake:74`. M99z26 changes no CPU/trace
+code; this unrelated failure is not repaired or represented as passed here.

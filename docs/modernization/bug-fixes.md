@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M99z26 — CRT scanlines alias into broad horizontal bands
+
+- **Symptom/scope:** at small/non-integer display sizes the default CRT
+  produced broad horizontal bands, even with curvature disabled.
+- **Demonstrated cause:** point-sampled periodic beam brightness aliases when
+  the source-row/output-pixel ratio cannot resolve the scanlines. A neutral
+  410-row synthetic input rendered to 400 pixels reproduces a 40px beat.
+- **Correction:** the VAeg CRT AA pass integrates the brightness envelope
+  over the local pixel footprint and fades unresolved contrast at 2-4 pixels
+  per source row. Original color weights/kernel, padding and raw QA remain.
+  The audited external shader is retained unchanged.
+- **Verification:** production float-math integral/oracle tests, EGL/llvmpipe
+  raster comparisons, actual runtime metadata, shader compilation, macOS
+  ON/OFF and MinGW builds. No physical Windows GPU success claimed.
+- **Task/evidence:** [M99z26 report](../agents/reports/m99z10_renderer_settings.md#m99z26--scanline-brightness-antialiasing).
+  Fix commit is recorded with the final handoff in that report.
+
 ### M99z24 — Pre-CRT size adjustment blurred source dots
 
 - **Symptom/scope:** SCREEN_SIZE below 100 softened the image before CRT;

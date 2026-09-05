@@ -45,7 +45,7 @@ class ScreenSizeTests(unittest.TestCase):
                       if " = " in line)
         self.assertEqual(preset["shaders"], "2")
         self.assertEqual(preset["shader0"], "shaders/vaeg-screen-size.slang")
-        self.assertEqual(preset["shader1"], "shaders/crt-lottes-fast.slang")
+        self.assertEqual(preset["shader1"], "shaders/vaeg-crt-aa.slang")
         self.assertEqual(preset["filter_linear0"], "false")
         self.assertEqual(preset["scale_type0"], "source")
         self.assertEqual(preset["scale0"], "1.0")
@@ -68,16 +68,20 @@ class ScreenSizeTests(unittest.TestCase):
 
 
 def compile_stages(compiler):
-    common, stages = SOURCE.split("#pragma stage vertex", 1)
-    vertex, fragment = stages.split("#pragma stage fragment", 1)
-    common = "\n".join(line for line in common.splitlines()
-                       if not line.startswith("#pragma parameter")) + "\n"
-    with tempfile.TemporaryDirectory(prefix="vaeg-screen-size-") as directory:
-        for suffix, stage in (("vert", vertex), ("frag", fragment)):
-            source = Path(directory) / ("screen." + suffix)
-            source.write_text(common + stage)
-            subprocess.run([compiler, "-V", str(source), "-o",
-                            str(Path(directory) / (suffix + ".spv"))], check=True)
+    for name in ("vaeg-screen-size.slang", "vaeg-crt-aa.slang"):
+        shader = (CRT / "shaders" / name).read_text()
+        shader = shader.replace('#include "vaeg-scanline-aa.inc"',
+                                (CRT / "shaders/vaeg-scanline-aa.inc").read_text())
+        common, stages = shader.split("#pragma stage vertex", 1)
+        vertex, fragment = stages.split("#pragma stage fragment", 1)
+        common = "\n".join(line for line in common.splitlines()
+                           if not line.startswith("#pragma parameter")) + "\n"
+        with tempfile.TemporaryDirectory(prefix="vaeg-screen-size-") as directory:
+            for suffix, stage in (("vert", vertex), ("frag", fragment)):
+                source = Path(directory) / (name + "." + suffix)
+                source.write_text(common + stage)
+                subprocess.run([compiler, "-V", str(source), "-o",
+                                str(Path(directory) / (suffix + ".spv"))], check=True)
 
 
 def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):

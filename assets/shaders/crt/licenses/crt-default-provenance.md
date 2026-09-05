@@ -22,17 +22,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # Default CRT shader provenance
 
-The bundled default is a two-pass preset: the independently authored VAeg
-BSD-2-Clause `vaeg-screen-size.slang` followed by the unchanged audited
-`crt-lottes-fast.slang` from the official `libretro/slang-shaders` repository.
-The new pass has no includes or external textures. Its complete BSD notice is
+The bundled default is a two-pass preset: the VAeg BSD-2-Clause
+`vaeg-screen-size.slang` followed by `vaeg-crt-aa.slang`. The latter is a
+VAeg implementation of the public-domain CRTS/Lottes display equations,
+with newly authored scanline-brightness antialiasing. It references the
+audited `crt-lottes-fast.slang` from `libretro/slang-shaders`; that original
+is retained byte-for-byte, with its attribution and Unlicense notice intact.
+The VAeg additions are BSD-2-Clause, not a relicensing of the original.
+
+The size/copy pass has no includes or external textures. Its BSD notice is
 embedded in the shader. It exposes SCREEN_SIZE metadata and copies texels
 without interpolation. VAeg's frontend applies integer black padding below
 100 percent, or centered cropping above 100 percent, before GPU upload.
-No upstream shader code was copied into this pass. The preset is VAeg-authored
-configuration; the upstream identities
-below describe the original CRT pass and its original preset, not the new
-two-pass configuration.
+No upstream shader code was copied into the size/copy pass.
+The CRT AA pass includes only the VAeg-owned `vaeg-scanline-aa.inc`, which
+analytically integrates the periodic beam envelope over an output pixel and
+fades unresolved modulation before Nyquist. Its row-color proportions,
+four-tap horizontal kernel, mask, curvature, gamma and tone equations retain
+the Lottes model; the integration does not add image samples or widen the
+image reconstruction kernel. Source attribution is also in the new shader.
+Both new files carry complete BSD notices. The complete default dependency
+closure is one VAeg preset, two VAeg shaders and one VAeg include: no LUTs,
+external textures or further includes. The original remains bundled as an
+audited reference, not an active pass. These upstream identities describe
+that original shader/preset, not the current VAeg default:
 
 - Repository: https://github.com/libretro/slang-shaders
 - Audited commit: `4812a82f6c9a11cc8b5a7447040a98c9fc80c00e`
