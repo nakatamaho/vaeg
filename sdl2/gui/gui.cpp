@@ -2564,27 +2564,34 @@ static void load_native_crt_preset(void) {
 
 static void draw_renderer_selection(void) {
 	bool enabled = scrnmng_native_active() != FALSE;
-	if (ImGui::MenuItem("SDL", nullptr, !enabled)) {
-		scrnmng_request_native_crt(FALSE, TRUE);
-		sysmng_update(SYS_UPDATEOSCFG);
-		g_gui.native_crt_status = "SDL selected";
-	}
-	if (ImGui::MenuItem("librashader", nullptr, enabled)) {
-		scrnmng_request_native_crt(TRUE, TRUE);
-		sysmng_update(SYS_UPDATEOSCFG);
+	if (ImGui::BeginMenu("描画方式")) {
+		if (ImGui::MenuItem("標準（SDL）", nullptr, !enabled)) {
+			scrnmng_request_native_crt(FALSE, TRUE);
+			sysmng_update(SYS_UPDATEOSCFG);
+			g_gui.native_crt_status = "SDL selected";
+		}
+		if (ImGui::MenuItem("CRT効果（librashader）", nullptr, enabled)) {
+			scrnmng_request_native_crt(TRUE, TRUE);
+			sysmng_update(SYS_UPDATEOSCFG);
 #if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
-		g_gui.native_crt_status = "Applying CRT selection";
+			g_gui.native_crt_status = "Applying CRT selection";
 #else
-		g_gui.native_crt_status = "librashader selected; restart to apply";
+			g_gui.native_crt_status = "librashader selected; restart to apply";
 #endif
+		}
+		ImGui::EndMenu();
 	}
-	ImGui::TextWrapped("Active: %s", scrnmng_native_status());
+	const char *renderer_status = scrnmng_native_status();
+	if (std::strcmp(renderer_status, "SDL") != 0 &&
+	    std::strcmp(renderer_status, "Native CRT ON") != 0) {
+		ImGui::TextWrapped("描画状態: %s", renderer_status);
+	}
 #if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
 	if (np2oscfg.gui_native_crt && !enabled) {
 		ImGui::TextWrapped("librashader requested; restart required (if supported by this build)");
 	}
 #endif
-	if (enabled && ImGui::MenuItem("Shader settings...")) {
+	if (enabled && ImGui::MenuItem("CRT設定…")) {
 		g_gui.native_crt_settings_open = true;
 	}
 }
@@ -2594,7 +2601,7 @@ static void draw_native_crt_settings(void) {
 		return;
 	}
 	ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Shader settings", &g_gui.native_crt_settings_open)) {
+	if (!ImGui::Begin("CRT設定###Shader settings", &g_gui.native_crt_settings_open)) {
 		ImGui::End();
 		return;
 	}
@@ -3017,7 +3024,7 @@ static void draw_screen_menu(void) {
 		}
 		ImGui::Separator();
 		draw_renderer_selection();
-		if (!scrnmng_native_active() && ImGui::BeginMenu("Effect")) {
+		if (!scrnmng_native_active() && ImGui::BeginMenu("エフェクト")) {
 			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
 			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_effect == value)) {

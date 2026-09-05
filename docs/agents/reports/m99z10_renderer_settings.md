@@ -76,3 +76,19 @@ Directory and ZIP package validators PASS; staged EXE matches the build via `cmp
 ZIP SHA-256: `e469c2327c281cb7bf8c9e394b62ea87eca7c1eee95a292c38642c9668594fad`.
 Final feature-on/off focused tests passed 10/10 each (8.49 s / 7.70 s).
 Removed an extra report EOF blank line detected by the staged diff checker.
+
+## M99z13 — Purpose-oriented renderer menu
+
+Starting commit: `076e9eb4aa7b3b3d73e545de447992ec121b1301`.
+The maintainer approved `画面 > 描画方式 > 標準（SDL） / CRT効果（librashader）`.
+SDL shows `エフェクト` directly beneath the renderer group; native CRT shows
+`CRT設定…`. The settings window keeps its existing ImGui identity. Hide normal
+SDL/filtered status text in the menu, but retain failures, native pass-through
+and restart-required notices. Screenshots remain the first two menu entries.
+No configuration, renderer lifecycle, capture, shader or guest behavior changes.
+
+Validation: the MinGW and macOS feature-on build commands listed above PASS;
+the macOS feature-on focused ctest command passes 10/10 (6.07 s). Encoding,
+EOL and case checks report zero; diff check clean. Formatting was limited to
+the changed renderer-selection block. Windows manual menu verification is
+deferred; no new physical GPU evidence is claimed.

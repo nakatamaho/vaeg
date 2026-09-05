@@ -40,15 +40,17 @@ cmake --preset linux-debug -DVAEG_ENABLE_LIBRASHADER=ON
 cmake --build build/linux-debug --target vaeg_sdl2
 ```
 
-On Windows, choose `画面 > SDL` or `画面 > librashader`. This switches
+On Windows, open `画面 > 描画方式` and select `標準（SDL）` or
+`CRT効果（librashader）`. This switches
 the renderer immediately, including a real return to SDL. Selecting librashader
 again retries initialization. The menu remains visible and is drawn after the CRT effect at the
-same logical font size as the SDL version. SDL exposes `Effect`; librashader
-exposes `Shader settings...`, a separate window for preset paths, reload,
+same logical font size as the SDL version. SDL exposes `エフェクト`; librashader
+exposes `CRT設定…`, a separate window for preset paths, reload,
 parameter sliders and reset. Scaling, window size and aspect correction remain
 shared. Switching renderers retains the SDL effect and saved shader settings.
-The selection marks actual renderer ownership; `Active` reports filter state
-and failure details, including native pass-through or SDL fallback.
+The selection marks actual renderer ownership. Normal menu status text is
+hidden; failures and native pass-through remain visible. The CRT settings
+window also reports the current filter status.
 Preset reload and parameter sliders
 also apply to the active filter. On macOS/Linux, enablement still requires a
 restart and native GUI integration remains pending.
@@ -157,7 +159,7 @@ Disable Native CRT in the Windows menu to compare pass-through immediately.
 For a one-run SDL fallback diagnostic, use `VAEG_NATIVE_CRT=0`,
 or set `NativeCRT=0` in the current `vaeg.cfg` before
 starting. To use another preset, set `NativeCRTPreset` in the configuration or
-enter its path in `Shader settings...`, then reload the preset. The Windows renderer applies
+enter its path in `CRT設定…`, then reload the preset. The Windows renderer applies
 the reload between frames; macOS/Linux still require a restart.
 
 The default preset is a single audited Unlicense/public-domain shader. Other
