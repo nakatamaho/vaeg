@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M99z20 — Default CRT preset failed parameter enumeration
+
+- **Symptom/scope:** the M99z18 bundled two-pass CRT preset stopped working
+  with "shader parameter enumeration failed". The shared librashader 0.12.0
+  preprocessor is affected; reproduced locally using its official macOS runtime.
+- **Demonstrated cause:** the VAeg size shader began with its BSD comment,
+  rather than `#version 450`. The actual C API returned
+  `PreprocessError(MissingVersionHeader)`; standalone glslang had accepted it.
+- **Correction:** put the required version directive first without changing
+  the license notice or shader math. Refresh distribution hashes and expose
+  runtime error details in the GUI instead of hiding them behind a generic error.
+- **Verification:** actual C API enumerates all nine parameters after the fix;
+  adding just a leading comment to a passing temporary fixture reproduces the
+  exact MissingVersionHeader error. Focused local builds/tests pass; physical
+  Windows GPU revalidation remains pending.
+- **Task/evidence:** [M99z20 report](../agents/reports/m99z10_renderer_settings.md#m99z20--librashader-version-header-regression).
+  Fix commit identity is recorded with the package handoff in that report.
+
 For every new entry, record:
 
 - observed symptom and affected model/platform;

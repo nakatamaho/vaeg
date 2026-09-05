@@ -37,7 +37,7 @@ EXPECTED = {
     "assets/shaders/crt/vaeg_crt_default.slangp":
         "2043c1fbd17993d9398515160867bfc2567acd54a35c9ebbab9215648002ffd4",
     "assets/shaders/crt/shaders/vaeg-screen-size.slang":
-        "91040fc199af4ed9755ac7eee855db6e06e6a71a80011ab6851d23f8c1f1b27e",
+        "50cef048d8455fd40f5482b2b10243bd3cfadf795aef994d78120031f7218c0c",
     "assets/shaders/crt/shaders/crt-lottes-fast.slang":
         "576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482",
     "assets/shaders/crt/licenses/crt-default-license.txt":

@@ -277,3 +277,37 @@ GUI lines were formatted with `clang-format-mp-22`. These tests do not exercise
 physical mouse dragging. Manual check: drag a side/corner of "Mount FDD image
 or archive", verify the list expands, and confirm Mount/Cancel remain usable
 at normal and high DPI. Windows interaction evidence remains deferred.
+
+## M99z20 — librashader version header regression
+
+The maintainer reported "shader parameter enumeration failed" after M99z18.
+Reproduced against official librashader 0.12.0 macOS arm64, without a GPU:
+`PreprocessError(MissingVersionHeader)`. The new shader's BSD comment preceded
+its version directive. Moving `#version 450` to the first line resolves actual
+runtime enumeration: nine parameters, including size metadata 100/80/120/1.
+The license notice is unchanged; its position follows the required directive.
+The standalone glslang test used in M99z18 did not enforce this librashader
+preprocessor requirement and was insufficient. The new optional runtime test
+checks both the working preset and a passing temporary fixture mutated only
+by prepending a comment, asserting the exact MissingVersionHeader category.
+The GUI now retains the runtime's detailed error string for future failures.
+
+```sh
+python3 tests/frontend/librashader/test_screen_size.py --runtime build/m99z20-runtime-check/librashader.dylib
+CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4
+CCACHE_DISABLE=1 cmake --build build/macos-ci -j4
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+```
+
+Official release archive `librashader-aarch64-macos-v0.12.0-optimized.zip`
+SHA-256: `49808004a4904f6a99e0231092dcfdfe52b7b61f68430a4c9f1e165749c4c90e`.
+Downloaded with `gh release download librashader-v0.12.0 --repo
+SnowflakePowered/librashader --pattern librashader-aarch64-macos-v0.12.0-optimized.zip
+--dir build/m99z20-runtime-check`, and verified against the release asset digest.
+No dependency version, shader math, or emulation/capture boundary changes.
+Windows GPU appearance and mouse dragging remain unverified locally. The
+handoff also includes the separate M99z19 FDD list resize commit.
+Builds PASS; focused suite 11/11 PASS (7.31 s), runtime positive/negative checks
+PASS, repository encoding/EOL/case checks zero and diff check clean.
+Test runtime dylib SHA-256:
+`1dbecea0c165fd0fddc2407ed4b8872f9f73f4fd2c3689a80ffc24c87e3fda2a`.

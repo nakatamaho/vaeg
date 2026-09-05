@@ -25,9 +25,11 @@
 Optionally compile both stages with --glslang /path/to/glslangValidator.
 """
 import argparse
+import ctypes as ct
 from fractions import Fraction
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -55,7 +57,7 @@ class ScreenSizeTests(unittest.TestCase):
         self.assertIn("greaterThanEqual(uv, vec2(1.0))", SOURCE)
         self.assertIn("vec4(0.0, 0.0, 0.0, 1.0)", SOURCE)
         self.assertNotIn("#include", SOURCE)
-        self.assertLess(SOURCE.index("*/"), SOURCE.index("#version"))
+        self.assertTrue(SOURCE.startswith("#version 450\n"))
 
     def test_reference_pixel_centers(self):
         # Exact rational oracle for the shader equation before CRT distortion.
@@ -86,10 +88,81 @@ def compile_stages(compiler):
                             str(Path(directory) / (suffix + ".spv"))], check=True)
 
 
+def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
+    """Exercise the pinned public C API without creating a GPU device."""
+    class Parameter(ct.Structure):
+        _fields_ = [("name", ct.c_char_p), ("description", ct.c_char_p),
+                    ("initial", ct.c_float), ("minimum", ct.c_float),
+                    ("maximum", ct.c_float), ("step", ct.c_float)]
+
+    class Parameters(ct.Structure):
+        _fields_ = [("parameters", ct.POINTER(Parameter)), ("length", ct.c_uint64)]
+
+    runtime = ct.CDLL(str(Path(path).resolve()))
+    pointer = ct.c_void_p
+    signatures = {
+        "libra_preset_create": ([ct.c_char_p, ct.POINTER(pointer)], pointer),
+        "libra_preset_get_runtime_params": ([ct.POINTER(pointer), ct.POINTER(Parameters)], pointer),
+        "libra_preset_free_runtime_params": ([Parameters], pointer),
+        "libra_preset_free": ([ct.POINTER(pointer)], pointer),
+        "libra_error_write": ([pointer, ct.POINTER(ct.c_char_p)], ct.c_int32),
+        "libra_error_free_string": ([ct.POINTER(ct.c_char_p)], ct.c_int32),
+        "libra_error_free": ([ct.POINTER(pointer)], ct.c_int32),
+    }
+    for name, (arguments, result) in signatures.items():
+        function = getattr(runtime, name)
+        function.argtypes, function.restype = arguments, result
+
+    def checked(error):
+        if error:
+            detail = ct.c_char_p()
+            runtime.libra_error_write(error, ct.byref(detail))
+            message = detail.value.decode("utf-8", errors="replace") if detail.value else "unknown error"
+            runtime.libra_error_free_string(ct.byref(detail))
+            owned = pointer(error)
+            runtime.libra_error_free(ct.byref(owned))
+            raise RuntimeError(message)
+
+    preset = pointer()
+    checked(runtime.libra_preset_create(str(preset_file).encode(), ct.byref(preset)))
+    try:
+        params = Parameters()
+        checked(runtime.libra_preset_get_runtime_params(ct.byref(preset), ct.byref(params)))
+        try:
+            values = {params.parameters[i].name.decode():
+                      (params.parameters[i].initial, params.parameters[i].minimum,
+                       params.parameters[i].maximum, params.parameters[i].step)
+                      for i in range(params.length)}
+            if values.get("VAEG_SCREEN_SIZE") != (100.0, 80.0, 120.0, 1.0):
+                raise RuntimeError("M99_SCREEN_SIZE_METADATA_MISMATCH")
+            print("Runtime parameter enumeration PASS:", values)
+        finally:
+            checked(runtime.libra_preset_free_runtime_params(params))
+    finally:
+        checked(runtime.libra_preset_free(ct.byref(preset)))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--glslang")
+    parser.add_argument("--runtime")
     args = parser.parse_args()
     if args.glslang:
         compile_stages(args.glslang)
+    if args.runtime:
+        check_runtime(args.runtime)
+        with tempfile.TemporaryDirectory(prefix="vaeg-version-header-") as directory:
+            fixture = Path(directory) / "crt"
+            shutil.copytree(CRT, fixture)
+            check_runtime(args.runtime, fixture / "vaeg_crt_default.slangp")
+            shader = fixture / "shaders/vaeg-screen-size.slang"
+            shader.write_text("/* header before version */\n" + shader.read_text())
+            try:
+                check_runtime(args.runtime, fixture / "vaeg_crt_default.slangp")
+            except RuntimeError as error:
+                if not str(error).startswith("PreprocessError(MissingVersionHeader):"):
+                    raise
+                print("MissingVersionHeader negative regression PASS")
+            else:
+                raise RuntimeError("M99_MISSING_VERSION_NOT_REJECTED")
     unittest.main(argv=[__file__])

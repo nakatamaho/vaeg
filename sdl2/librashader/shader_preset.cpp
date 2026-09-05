@@ -88,9 +88,16 @@ bool ShaderPreset::load(const char *path, std::string *error_message) {
 		}
 		error = instance.preset_get_runtime_params(&preset, &list);
 		if (error != nullptr) {
+			char *detail = nullptr;
+			if (instance.error_write != nullptr && instance.error_free_string != nullptr) {
+				(void)instance.error_write(error, &detail);
+			}
+			set_error(error_message, detail ? detail : "shader parameter enumeration failed");
+			if (detail != nullptr) {
+				(void)instance.error_free_string(&detail);
+			}
 			release_error(instance, error);
 			(void)instance.preset_free(&preset);
-			set_error(error_message, "shader parameter enumeration failed");
 			return false;
 		}
 		if ((list.length > 0) && (list.parameters == nullptr)) {

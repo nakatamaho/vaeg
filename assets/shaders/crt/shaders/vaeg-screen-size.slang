@@ -1,3 +1,5 @@
+#version 450
+
 /*
  * Copyright (c) 2026 Nakata Maho
  *
@@ -22,7 +24,6 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#version 450
 
 #pragma parameter VAEG_SCREEN_SIZE "Screen size (%)" 100.0 80.0 120.0 1.0
 layout(push_constant) uniform Push {
