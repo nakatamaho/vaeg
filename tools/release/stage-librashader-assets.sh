@@ -122,7 +122,7 @@ copy_checked "$crt_root/vaeg_crt_default.slangp" \
 	a705decc9008b81a033e4864d3be7c16a2f06d8ec241e741a6cf56cf246a1fc9
 copy_checked "$crt_root/shaders/vaeg-screen-size.slang" \
 	"$output/assets/shaders/crt/shaders/vaeg-screen-size.slang" \
-	d60de82a497cf15be02c07b06dcfc05f539d1558035159b736d3b3319b60acf5
+	9a521d7ecf3ead998a5039d33d144903c5764793eba5415dc98ac4ae7ec5c361
 copy_checked "$crt_root/shaders/crt-lottes-fast.slang" \
 	"$output/assets/shaders/crt/shaders/crt-lottes-fast.slang" \
 	576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482

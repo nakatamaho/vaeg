@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma parameter SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01
+#pragma parameter SCREEN_SIZE "Screen size (%)" 98.00 80.0 120.0 0.01
 layout(push_constant) uniform Push {
     float SCREEN_SIZE;
 } params;

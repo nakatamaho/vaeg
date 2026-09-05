@@ -53,7 +53,7 @@ class ScreenSizeTests(unittest.TestCase):
         self.assertEqual(preset["CURVATURE"], '"0.030"')
 
     def test_shader_contract(self):
-        self.assertIn('SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01', SOURCE)
+        self.assertIn('SCREEN_SIZE "Screen size (%)" 98.00 80.0 120.0 0.01', SOURCE)
         self.assertIn("texelFetch(Source, pixel, 0)", SOURCE)
         self.assertNotIn("texture(Source,", SOURCE)
         self.assertNotIn("#include", SOURCE)
@@ -126,7 +126,7 @@ def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
                       (params.parameters[i].initial, params.parameters[i].minimum,
                        params.parameters[i].maximum, params.parameters[i].step)
                       for i in range(params.length)}
-            if values.get("SCREEN_SIZE") != (96.5, 80.0, 120.0, ct.c_float(0.01).value):
+            if values.get("SCREEN_SIZE") != (98.0, 80.0, 120.0, ct.c_float(0.01).value):
                 raise RuntimeError("M99_SCREEN_SIZE_METADATA_MISMATCH")
             if values["CURVATURE"][0] != ct.c_float(0.030).value:
                 raise RuntimeError("M99_CURVATURE_DEFAULT_MISMATCH")

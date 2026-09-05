@@ -57,7 +57,7 @@ The selection marks actual renderer ownership. Normal menu status text is
 hidden; failures and native pass-through remain visible. The CRT settings
 window also reports the current filter status.
 The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
-`CRT設定…`: 80–120%, initially 96.50%, with 0.01% steps. Its default `CURVATURE`
+`CRT設定…`: 80–120%, initially 98.00%, with 0.01% steps. Its default `CURVATURE`
 is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
 CRT parameter values live in `NativeCRTParameters` in the active `vaeg.cfg`
 (or the file selected with `--cfg`). Changes and reset are saved on normal exit,
@@ -70,8 +70,8 @@ without resizing or blending them. The copy pass uses exact texel fetches;
 the subsequent CRT shader retains its own filtering and curvature.
 Canvas dimensions preserve aspect ratio and symmetric integer margins, so
 the effective size changes in discrete steps despite the fine slider steps.
-For 640x400 input, 96.50% uses a 672x420 canvas (effective 95.24%, margins
-16x10); 80% uses 800x500 (margins 80x50). At 100% the original buffer is
+For 640x400 input, 98.00% uses a 656x410 canvas (effective 97.56%, margins
+8x5); 80% uses 800x500 (margins 80x50). At 100% the original buffer is
 borrowed unchanged. Above 100%, centered integer cropping enlarges the image.
 This operates only on the presentation input, before the existing CRT shader,
 so curvature may reshape the borders. It does not guarantee integer-scaled

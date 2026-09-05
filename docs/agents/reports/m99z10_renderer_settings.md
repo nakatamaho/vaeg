@@ -469,3 +469,25 @@ on the existing freely distributable M99z21 bundle, restaged with
 `tools/release/stage-librashader-assets.sh` and checked with
 `tools/release/check-librashader-package.py --input <directory> --platform windows`.
 No private media or binaries are committed.
+
+## M99z25 — Default SCREEN_SIZE to 98 percent
+
+Starting commit: `51b0371549401e7f81ef581887a5a53a0b05a136`.
+Change only the owned shader's SCREEN_SIZE default from 96.50 to 98.00,
+matching runtime/static tests, package hash pins and the current user guide.
+Saved values still take precedence; Reset applies the new default. CURVATURE,
+padding math, shader code and raw QA are unchanged. The maintainer reported
+the preceding padding version as "much better"; this is a preference change,
+not a new correctness fix or a full platform gate claim.
+
+Verification: `python3 tests/frontend/librashader/test_screen_size.py --runtime
+build/m99z20-runtime-check/librashader.dylib` passes three tests and the actual
+0.12.0 C API reports SCREEN_SIZE initial 98.0. The MissingVersionHeader negative
+test passes. `ctest --test-dir build/macos-ci --output-on-failure -R
+'^vaeg_librashader_(screen_size|shader_parameters|frame_padding)$'`: 3/3 PASS.
+`CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4`: no work to do;
+no C/C++ build inputs changed. Prior binary test evidence remains applicable.
+The shader SHA-256 is
+`9a521d7ecf3ead998a5039d33d144903c5764793eba5415dc98ac4ae7ec5c361`.
+The Windows M99z25 handoff reuses the M99z24 EXE/DLL and restages the updated
+assets; package validation passes. No new physical GPU testing claimed.
