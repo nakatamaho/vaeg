@@ -163,7 +163,32 @@ struct BrowserEntry {
 	bool is_dir = false;
 };
 
+struct FullscreenMenuState {
+	bool exclusive = false;
+	bool visible = false;
+	Uint32 last_activity = 0;
+};
+
+static bool update_fullscreen_menu(FullscreenMenuState &state, bool exclusive,
+                                   bool at_top, bool over_bar, bool interacting, Uint32 now) {
+	if (!exclusive) {
+		state = FullscreenMenuState{};
+		return true;
+	}
+	if (!state.exclusive) {
+		state = FullscreenMenuState{};
+		state.exclusive = true;
+	}
+	if (at_top) state.visible = true;
+	if (state.visible) {
+		if (at_top || over_bar || interacting) state.last_activity = now;
+		else if (static_cast<Uint32>(now - state.last_activity) >= 500U) state.visible = false;
+	}
+	return state.visible;
+}
+
 struct GuiState {
+	FullscreenMenuState fullscreen_menu;
 	bool initialized = false;
 	bool text_input_active = false;
 	SDL_Renderer *renderer = nullptr;
@@ -2700,6 +2725,7 @@ static void set_display_mode(int mode) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Display mode change failed: %s", SDL_GetError());
 		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
 	}
+	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE ? 0 : menu_bar_height());
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
@@ -3678,7 +3704,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	ImGui::StyleColorsDark();
 	g_gui.base_style = ImGui::GetStyle();
 	g_gui.ui_scale = 0.0f;
-	scrnmng_set_menu_height(menu_bar_height());
+	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE ? 0 : menu_bar_height());
 	g_gui.window = static_cast<SDL_Window *>(window);
 	g_gui.native_renderer = renderer == nullptr;
 	if (g_gui.native_renderer) {
@@ -3744,6 +3770,17 @@ void gui_shutdown(void) {
 	g_gui = GuiState{};
 }
 
+static bool fullscreen_menu_mouse_zone(void) {
+	if (scrnmng_get_display_mode() != VAEG_DISPLAY_EXCLUSIVE ||
+	    SDL_GetRelativeMouseMode() || SDL_GetMouseFocus() != g_gui.window) return false;
+	int x, y, width, height;
+	SDL_GetMouseState(&x, &y);
+	SDL_GetWindowSize(g_gui.window, &width, &height);
+	const float limit = g_gui.fullscreen_menu.visible ?
+	    static_cast<float>(menu_bar_height()) : 3.0f * g_gui.ui_scale;
+	return x >= 0 && x < width && y >= 0 && y < limit;
+}
+
 BOOL gui_process_event(const void *event) {
 	if ((!g_gui.initialized) || (event == nullptr)) {
 		return FALSE;
@@ -3787,7 +3824,7 @@ BOOL gui_process_event(const void *event) {
 	case SDL_MOUSEBUTTONUP:
 	case SDL_MOUSEMOTION:
 	case SDL_MOUSEWHEEL:
-		return io.WantCaptureMouse ? TRUE : FALSE;
+		return (io.WantCaptureMouse || fullscreen_menu_mouse_zone()) ? TRUE : FALSE;
 
 	default:
 		return FALSE;
@@ -3816,7 +3853,7 @@ BOOL gui_guest_mouse_blocked(void) {
 		return FALSE;
 	}
 	ImGuiIO &io = ImGui::GetIO();
-	if (io.WantCaptureMouse || (g_gui.capture_binding >= 0)) {
+	if (io.WantCaptureMouse || fullscreen_menu_mouse_zone() || (g_gui.capture_binding >= 0)) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
@@ -3876,7 +3913,8 @@ void gui_new_frame(void) {
 		        np2oscfg.gui_ui_scale == 0 ? "automatic DPI" : "manual");
 	}
 	ImGui::NewFrame();
-	scrnmng_set_menu_height(static_cast<int>(std::ceil(ImGui::GetFrameHeight())));
+	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE
+	                            ? 0 : static_cast<int>(std::ceil(ImGui::GetFrameHeight())));
 }
 
 void gui_draw(void) {
@@ -3913,7 +3951,19 @@ void gui_draw(void) {
 		g_gui.configure_open = true;
 		g_gui.configure_request = true;
 	}
-	if (ImGui::BeginMainMenuBar()) {
+	const ImGuiIO &io = ImGui::GetIO();
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float mouse_y = io.MousePos.y - viewport->Pos.y;
+	const bool mouse_in_window = SDL_GetMouseFocus() == g_gui.window &&
+	    !SDL_GetRelativeMouseMode() && io.MousePos.x >= viewport->Pos.x &&
+	    io.MousePos.x < viewport->Pos.x + viewport->Size.x && mouse_y >= 0;
+	const bool show_menu = update_fullscreen_menu(
+	    g_gui.fullscreen_menu, scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE,
+	    mouse_in_window && mouse_y < 3.0f * g_gui.ui_scale,
+	    mouse_in_window && mouse_y < ImGui::GetFrameHeight(),
+	    ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
+	        ImGui::IsAnyItemActive(), SDL_GetTicks());
+	if (show_menu && ImGui::BeginMainMenuBar()) {
 		const bool paused = taskmng_ispaused() ? true : false;
 		if (ImGui::Button(paused ? "Resume" : "Pause")) {
 			taskmng_toggle_pause();
@@ -3953,8 +4003,10 @@ void gui_render(void) {
 	if (g_gui.native_renderer) scrnmng_draw_native_overlays();
 	ImGui::Render();
 	update_text_input_state();
-	if (!g_gui.native_renderer)
+	if (!g_gui.native_renderer) {
+		scrnmng_draw_sdl_overlays();
 		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_gui.renderer);
+	}
 }
 
 void gui_display_capture_result(const char *path, BOOL success) {
@@ -3984,6 +4036,26 @@ void gui_overlay_rect(int x, int y, int width, int height,
 }
 
 BOOL gui_overlay_selftest(void) {
+	FullscreenMenuState menu;
+	if (!update_fullscreen_menu(menu, false, false, false, false, 0) ||
+	    update_fullscreen_menu(menu, true, false, false, false, 1) ||
+	    !update_fullscreen_menu(menu, true, true, false, false, 10) ||
+	    !update_fullscreen_menu(menu, true, false, false, false, 509) ||
+	    update_fullscreen_menu(menu, true, false, false, false, 510) ||
+	    !update_fullscreen_menu(menu, true, true, false, false, 600) ||
+	    !update_fullscreen_menu(menu, true, false, false, true, 2000) ||
+	    !update_fullscreen_menu(menu, true, false, true, false, 3000) ||
+	    update_fullscreen_menu(menu, true, false, false, false, 3500) ||
+	    !update_fullscreen_menu(menu, false, false, false, false, 3501) ||
+	    update_fullscreen_menu(menu, true, false, false, false, 3502)) {
+		std::fprintf(stderr, "selftest: FULLSCREEN_MENU_POLICY_MISMATCH\n");
+		return FAILURE;
+	}
+	update_fullscreen_menu(menu, true, true, false, false, 0xffffff00U);
+	if (update_fullscreen_menu(menu, true, false, false, false, 0x00000100U)) {
+		std::fprintf(stderr, "selftest: FULLSCREEN_MENU_TIMER_WRAP\n");
+		return FAILURE;
+	}
 	ImGuiContext *saved = ImGui::GetCurrentContext();
 	ImGuiContext *context = ImGui::CreateContext();
 	ImGui::SetCurrentContext(context);

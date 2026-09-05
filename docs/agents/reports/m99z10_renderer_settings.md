@@ -98,3 +98,29 @@ MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
 Package: `build/mingw-cross/vaeg-m99z13-windows-x86_64.zip` (DLL/assets/notices
 included); package validator PASS.
 ZIP SHA-256: `027f74e5e0cb75932530967c511f3516433c9d979ca04af13b4db894658daccd`.
+
+## M99z14 — Exclusive fullscreen auto-hide menu
+
+Starting commit: `c84c5491d95571bbdbe45930a4bc634f25b33d10`.
+Exclusive fullscreen starts with a hidden menu. A 3-DPI-scaled-logical-pixel
+top-edge hover reveals it; pointer-over-bar or popup/item interaction retains
+it, otherwise it hides after 500 ms. Windowed mode remains always visible.
+Relative guest mouse capture must first be released with the existing toggle.
+The reveal area blocks guest mouse input to avoid click-through.
+
+Fullscreen reserves zero menu inset regardless of visibility. SDL and native
+CRT share this viewport policy, so menu visibility cannot resize or shift the
+guest image. SDL information overlays now draw before ImGui (at most once per
+frame), with a present-end fallback for non-GUI callers. This keeps a revealed
+menu above information panels, matching native CRT composition. Screenshot
+capture still omits GUI and now retains the entire fullscreen drawable area.
+
+Focused tests exercise hidden entry, reveal, 499/500 ms timeout boundary,
+popup/item retention, bar hover, mode exit/reentry, tick wrap, zero-inset crop,
+and idempotent SDL overlay composition. The builds and focused ctest commands
+listed above are reused. No GPU code, guest timing, raw golden capture or
+configuration format changes. Real Windows exclusive-mode hover/input and
+SDL/CRT screenshot checks remain deferred to the maintainer.
+
+Results: MinGW and macOS feature-on/off builds PASS; focused suites 10/10
+PASS each (6.27 s / 5.69 s). Encoding/EOL/case checks zero; diff check clean.

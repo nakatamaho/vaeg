@@ -78,6 +78,7 @@ typedef struct {
 	char native_status[256];
 	char display_capture_path[MAX_PATH];
 	BOOL display_capture_ready;
+	BOOL sdl_overlays_drawn;
 } SCRNMNG;
 
 typedef struct {
@@ -1828,6 +1829,7 @@ void scrnmng_present_begin(void) {
 	SDL_Rect dst;
 	int row;
 	int x;
+	scrnmng.sdl_overlays_drawn = FALSE;
 
 	if (!scrnmng.enable) {
 		return;
@@ -1996,13 +1998,25 @@ BOOL scrnmng_display_capture_selftest(void) {
 	info = scrnmng_crop_display_capture(baseline);
 	if (!info || info->w != 640 || info->h != 400 || ((BYTE *)info->pixels)[0] != 255) goto cleanup;
 	SDL_FreeSurface(info); info = NULL;
+	scrnmng.menu_height = 0;
+	info = scrnmng_crop_display_capture(baseline);
+	if (!info || info->h != 422 || info->pixels != baseline->pixels) goto cleanup;
+	SDL_FreeSurface(info); info = NULL;
+	scrnmng.menu_height = 22;
 	if (((BYTE *)baseline->pixels)[23 * baseline->pitch] != 255 ||
 	    ((BYTE *)filtered->pixels)[23 * filtered->pitch] >= 255) goto cleanup;
 	np2oscfg.DISPCLK = VAEG_DISPINFO_VIDEO | VAEG_DISPINFO_FRAMEBUFFER;
-	scrnmng_draw_video_info_overlay(&viewport);
-	scrnmng_draw_framebuffer_info_overlay(&viewport);
+	scrnmng_draw_sdl_overlays();
 	info = scrnmng_read_sdl_output();
 	if (!info || memcmp(info->pixels, filtered->pixels, info->pitch * info->h) == 0) goto cleanup;
+	{
+		SDL_Surface *twice;
+		scrnmng_draw_sdl_overlays();
+		twice = scrnmng_read_sdl_output();
+		const BOOL matches = twice && memcmp(twice->pixels, info->pixels, info->pitch * info->h) == 0;
+		SDL_FreeSurface(twice);
+		if (!matches) goto cleanup;
+	}
 	SDL_FreeSurface(info); info = NULL;
 	np2oscfg.DISPCLK = 0;
 	scrnmng_present_begin();
@@ -2048,6 +2062,16 @@ cleanup:
 	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	if (ok != SUCCESS) fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
 	return ok;
+}
+
+void scrnmng_draw_sdl_overlays(void) {
+	VAEG_VIEWPORT viewport;
+	if (scrnmng.native_active || !scrnmng.renderer || scrnmng.sdl_overlays_drawn) return;
+	if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
+		scrnmng_draw_video_info_overlay(&viewport);
+		scrnmng_draw_framebuffer_info_overlay(&viewport);
+	}
+	scrnmng.sdl_overlays_drawn = TRUE;
 }
 
 void scrnmng_present_end(void) {
@@ -2121,10 +2145,7 @@ void scrnmng_present_end(void) {
 	if (scrnmng.renderer == NULL) {
 		return;
 	}
-	if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
-		scrnmng_draw_video_info_overlay(&viewport);
-		scrnmng_draw_framebuffer_info_overlay(&viewport);
-	}
+	scrnmng_draw_sdl_overlays();
 	if (scrnmng.rendered_capture_enabled) {
 		scrnmng_capture_rendered_frame();
 	}

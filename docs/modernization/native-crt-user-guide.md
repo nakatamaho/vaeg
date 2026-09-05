@@ -132,6 +132,16 @@ DLL search rules. Do not rename a runtime across platforms or architectures.
 
 ## Captures
 
+In Exclusive fullscreen, the menu normally hides. Move the mouse to the top
+edge (3 DPI-scaled logical pixels) to reveal it over the image. It stays visible
+while the pointer is over the bar or a popup/item is being operated, and hides
+after 0.5 seconds away. Windowed mode keeps the bar visible. Fullscreen never
+reserves a menu strip, so revealing the bar does not resize or shift the guest
+viewport. Information overlays remain beneath the menus. If guest relative
+mouse capture is enabled, release it with the existing capture toggle first.
+Fullscreen screenshots retain the full drawable image without a menu-strip
+crop, but still omit menus and dialogs.
+
 `画面 > スクリーンショットを保存` (the first menu entry), PrintScreen and
 the configured F12 screenshot binding save the next composed display frame:
 SDL effects or Windows D3D11 librashader output, scaling/aspect correction,
