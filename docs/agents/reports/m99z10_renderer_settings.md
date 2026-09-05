@@ -894,3 +894,9 @@ cmake -E tar cf vaeg-m99z28-windows-x86_64.zip --format=zip vaeg-m99z28-windows-
 # From repository root:
 python3 tools/release/check-librashader-package.py --input build/mingw-cross/vaeg-m99z28-windows-x86_64.zip --platform windows
 ```
+
+Correction commit:
+[dadbd38f](https://github.com/nakatamaho/vaeg/commit/dadbd38fafcac017685239513a0cfe34b0d6e4ff).
+The following evidence-link commit changes only these reports/ledger, so
+the evaluated shader, tests and packaged payload remain identical. The
+task-local software-render container is stopped and retained for reuse.

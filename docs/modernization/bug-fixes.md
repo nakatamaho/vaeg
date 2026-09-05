@@ -50,6 +50,7 @@ land.
   GLSL/HLSL compilation, metadata and macOS ON/OFF tests. Corrected physical
   D3D11 display remains a maintainer check; software rendering is not that gate.
 - **Task/evidence/commit:** [M99z28 report](../agents/reports/m99z10_renderer_settings.md#m99z28--raster-anchored-rgb-mask).
+  Fix: [dadbd38f](https://github.com/nakatamaho/vaeg/commit/dadbd38fafcac017685239513a0cfe34b0d6e4ff).
 
 ### M99z27 — CRT AA mask compilation fails on D3D11
 
