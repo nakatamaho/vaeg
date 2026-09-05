@@ -130,3 +130,21 @@ MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
 Package: `build/mingw-cross/vaeg-m99z14-windows-x86_64.zip` (DLL/assets/notices
 included); package validator PASS.
 ZIP SHA-256: `608c9f2df23adb13e6c33916dcf3b811be0b8c10b7b902f67fa2dbe4dfb3cfa0`.
+
+## M99z15 — Discoverable fullscreen toggle
+
+Starting commit: `711bfc183880f246a3c7aa760a5162dec471279f`.
+The maintainer confirmed Windowed restoration works; the provisional exit-path
+changes were withdrawn without committing. This follow-up changes only GUI
+discoverability: replace Windowed/Exclusive fullscreen with one checked
+`全画面表示` item; show `画面上端でメニュー表示` for up to three seconds on
+entry while the menu is hidden; widen the reveal zone from 3 to 12 DPI-scaled
+logical pixels. No return button or Esc shortcut is added. The hint takes no
+input and is skipped by the existing screenshot GUI-suppression path.
+
+The existing menu-policy selftest additionally verifies the hint's 2999/3000 ms
+boundary and immediate disappearance on leaving fullscreen. The previous
+build/test/check commands apply. Windows physical UI verification is deferred.
+
+Results: MinGW and macOS feature-on/off builds PASS; focused suites 10/10
+PASS each (6.17 s / 5.84 s). Encoding/EOL/case checks zero; diff check clean.

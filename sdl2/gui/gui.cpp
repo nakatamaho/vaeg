@@ -167,7 +167,14 @@ struct FullscreenMenuState {
 	bool exclusive = false;
 	bool visible = false;
 	Uint32 last_activity = 0;
+	Uint32 entered_at = 0;
 };
+
+static constexpr float kFullscreenRevealHeight = 12.0f;
+
+static bool fullscreen_hint_visible(const FullscreenMenuState &state, Uint32 now) {
+	return state.exclusive && static_cast<Uint32>(now - state.entered_at) < 3000U;
+}
 
 static bool update_fullscreen_menu(FullscreenMenuState &state, bool exclusive,
                                    bool at_top, bool over_bar, bool interacting, Uint32 now) {
@@ -178,6 +185,7 @@ static bool update_fullscreen_menu(FullscreenMenuState &state, bool exclusive,
 	if (!state.exclusive) {
 		state = FullscreenMenuState{};
 		state.exclusive = true;
+		state.entered_at = now;
 	}
 	if (at_top) state.visible = true;
 	if (state.visible) {
@@ -3090,13 +3098,9 @@ static void draw_screen_menu(void) {
 		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
 			set_display_aspect(!aspect);
 		}
-		if (ImGui::MenuItem("Windowed", nullptr,
-		                    scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
-			set_display_mode(VAEG_DISPLAY_WINDOWED);
-		}
-		if (ImGui::MenuItem("Exclusive fullscreen", nullptr,
-		                    scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE)) {
-			set_display_mode(VAEG_DISPLAY_EXCLUSIVE);
+		const bool fullscreen = scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED;
+		if (ImGui::MenuItem("全画面表示", nullptr, fullscreen)) {
+			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
 		bool nowait = np2oscfg.NOWAIT != 0;
@@ -3777,7 +3781,7 @@ static bool fullscreen_menu_mouse_zone(void) {
 	SDL_GetMouseState(&x, &y);
 	SDL_GetWindowSize(g_gui.window, &width, &height);
 	const float limit = g_gui.fullscreen_menu.visible ?
-	    static_cast<float>(menu_bar_height()) : 3.0f * g_gui.ui_scale;
+	    static_cast<float>(menu_bar_height()) : kFullscreenRevealHeight * g_gui.ui_scale;
 	return x >= 0 && x < width && y >= 0 && y < limit;
 }
 
@@ -3959,7 +3963,7 @@ void gui_draw(void) {
 	    io.MousePos.x < viewport->Pos.x + viewport->Size.x && mouse_y >= 0;
 	const bool show_menu = update_fullscreen_menu(
 	    g_gui.fullscreen_menu, scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE,
-	    mouse_in_window && mouse_y < 3.0f * g_gui.ui_scale,
+	    mouse_in_window && mouse_y < kFullscreenRevealHeight * g_gui.ui_scale,
 	    mouse_in_window && mouse_y < ImGui::GetFrameHeight(),
 	    ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
 	        ImGui::IsAnyItemActive(), SDL_GetTicks());
@@ -3978,6 +3982,20 @@ void gui_draw(void) {
 		draw_state_menu();
 		draw_info_menu();
 		ImGui::EndMainMenuBar();
+	}
+	if (!show_menu && fullscreen_hint_visible(g_gui.fullscreen_menu, SDL_GetTicks())) {
+		ImGui::SetNextWindowPos(
+		    ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f,
+		           viewport->Pos.y + ImGui::GetFrameHeight() + 8.0f * g_gui.ui_scale),
+		    ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+		ImGui::SetNextWindowBgAlpha(0.85f);
+		if (ImGui::Begin("##fullscreen_hint", nullptr,
+		                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+		                 ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings |
+		                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
+			ImGui::TextUnformatted("画面上端でメニュー表示");
+		}
+		ImGui::End();
 	}
 	draw_state_error_dialog();
 	draw_fdd_browser();
@@ -4037,6 +4055,13 @@ void gui_overlay_rect(int x, int y, int width, int height,
 
 BOOL gui_overlay_selftest(void) {
 	FullscreenMenuState menu;
+	update_fullscreen_menu(menu, true, false, false, false, 100);
+	if (!fullscreen_hint_visible(menu, 3099) || fullscreen_hint_visible(menu, 3100)) {
+		std::fprintf(stderr, "selftest: FULLSCREEN_HINT_DURATION\n");
+		return FAILURE;
+	}
+	update_fullscreen_menu(menu, false, false, false, false, 200);
+	if (fullscreen_hint_visible(menu, 201)) return FAILURE;
 	if (!update_fullscreen_menu(menu, false, false, false, false, 0) ||
 	    update_fullscreen_menu(menu, true, false, false, false, 1) ||
 	    !update_fullscreen_menu(menu, true, true, false, false, 10) ||

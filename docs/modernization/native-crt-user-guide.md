@@ -132,8 +132,14 @@ DLL search rules. Do not rename a runtime across platforms or architectures.
 
 ## Captures
 
+`画面 > 全画面表示` is a single checked toggle: check it to enter Exclusive
+fullscreen, uncheck it to return to the window. No return button is added to
+the menu bar, and Esc remains available to the guest.
+On entry, `画面上端でメニュー表示` appears for up to three seconds while the
+menu is hidden. This non-interactive hint is excluded from screenshots.
+
 In Exclusive fullscreen, the menu normally hides. Move the mouse to the top
-edge (3 DPI-scaled logical pixels) to reveal it over the image. It stays visible
+edge (12 DPI-scaled logical pixels) to reveal it over the image. It stays visible
 while the pointer is over the bar or a popup/item is being operated, and hides
 after 0.5 seconds away. Windowed mode keeps the bar visible. Fullscreen never
 reserves a menu strip, so revealing the bar does not resize or shift the guest
