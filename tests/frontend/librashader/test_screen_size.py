@@ -66,8 +66,16 @@ class ScreenSizeTests(unittest.TestCase):
                 coordinate = Fraction(2 * x + 1, 2 * extent)
                 self.assertEqual(int(coordinate * extent), x)
 
+    def test_crt_mask_d3d11_lvalues(self):
+        # X3500 regression: glslang accepts dynamic vector writes but the
+        # runtime's D3DCompile does not. Raster parity covers all four masks.
+        shader = (CRT / "shaders/vaeg-crt-aa.slang").read_text()
+        self.assertNotRegex(shader, r"mask\s*\[[^\]]+\]\s*=")
+        for component in "rgb":
+            self.assertIn(f"mask.{component} = selected;", shader)
 
-def compile_stages(compiler):
+
+def compile_stages(compiler, spirv_cross=None):
     for name in ("vaeg-screen-size.slang", "vaeg-crt-aa.slang"):
         shader = (CRT / "shaders" / name).read_text()
         shader = shader.replace('#include "vaeg-scanline-aa.inc"',
@@ -82,6 +90,14 @@ def compile_stages(compiler):
                 source.write_text(common + stage)
                 subprocess.run([compiler, "-V", str(source), "-o",
                                 str(Path(directory) / (suffix + ".spv"))], check=True)
+                if spirv_cross:
+                    hlsl = Path(directory) / (suffix + ".hlsl")
+                    subprocess.run([spirv_cross, str(Path(directory) / (suffix + ".spv")),
+                                    "--hlsl", "--shader-model", "50", "--output", str(hlsl)],
+                                   check=True)
+                    subprocess.run([compiler, "-D", "-V", "-S", suffix, "-e", "main",
+                                    str(hlsl), "-o", str(Path(directory) / "hlsl.spv")],
+                                   check=True)
 
 
 def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
@@ -150,10 +166,11 @@ def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--glslang")
+    parser.add_argument("--spirv-cross")
     parser.add_argument("--runtime")
     args = parser.parse_args()
     if args.glslang:
-        compile_stages(args.glslang)
+        compile_stages(args.glslang, args.spirv_cross)
     if args.runtime:
         check_runtime(args.runtime)
         with tempfile.TemporaryDirectory(prefix="vaeg-version-header-") as directory:

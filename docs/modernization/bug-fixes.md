@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M99z27 — CRT AA mask compilation fails on D3D11
+
+- **Symptom/scope:** the M99z26 default preset fails filter-chain creation on
+  Windows; native pass-through remains active.
+- **Demonstrated cause:** the maintainer's D3DCompile diagnostic is X3500,
+  `array reference cannot be used as an l-value; not natively addressable`.
+  The AA mask used a dynamically indexed vector write, `mask[channel]`.
+  GLSL validation alone did not detect this D3D11 compilation restriction.
+- **Correction:** replace that write with constant RGB component assignments;
+  leave scanline AA, color equations, texture taps and raw capture unchanged.
+- **Verification:** mask/source regression, GLSL and HLSL round-trip compilation,
+  all-mask software-raster parity, runtime metadata, macOS ON/OFF tests and
+  MinGW compilation. A real-runtime WARP probe is provided; local Wine 8
+  cannot load the pinned DLL because `bcryptprimitives.dll` is absent.
+  Corrected physical D3D11 playback is still a maintainer check, not a PASS.
+- **Task/evidence/commit:** [M99z27 report](../agents/reports/m99z10_renderer_settings.md#m99z27--d3d11-mask-compilation-and-pass-through).
+
 ### M99z26 — CRT scanlines alias into broad horizontal bands
 
 - **Symptom/scope:** at small/non-integer display sizes the default CRT

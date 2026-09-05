@@ -606,3 +606,92 @@ pass with the new closed dependency hashes. No generated binaries or private
 inputs are committed. The test container is retained, stopped, for reuse;
 base image digest is
 `debian@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171`.
+
+## M99z27 — D3D11 mask compilation and pass-through
+
+Starting commit: `6a6a61cd9e87260fcde2edb3ed9b7b2dd1968e6b`, clean
+`topic/m99-native-crt-rebuild`. Scope: the reported default-preset X3500
+regression and a native pass-through menu comparison control. The main
+checkout and private integration data are untouched.
+
+The maintainer supplied a real D3D11 compiler diagnostic: X3500, array
+reference cannot be used as an l-value / not natively addressable. The AA
+shader assigned `mask[channel]` using a computed vector index. Replace it
+with equivalent `.r`, `.g`, `.b` writes. No scanline math, taps, curve,
+SCREEN_SIZE default or core behavior changes. The new static regression
+rejects the old mask write. GLSL and a glslang HLSL round-trip both accept
+the old version, so neither substitutes for the actual D3DCompile test.
+
+Dependency/provenance: librashader remains dynamic MPL-2.0 release 0.12.0,
+commit `87e8a97b50516d997defeaa168173dcd185d4022`, API 5 / ABI 2.
+No runtime/loader changes. The only changed shader is VAeg-owned BSD-2-Clause;
+the audited Unlicense original and dependency/license closure are unchanged.
+New shader SHA-256:
+`9d329990e19d26722a8acfd6b5c20699564220d8bb7e7ef9fc604eb90f379a4b`.
+Both staging and package-check pins are updated.
+
+Local candidate verification (exit 0 unless stated):
+
+```sh
+CCACHE_DISABLE=1 cmake --build build/macos-ci -j4
+CCACHE_DISABLE=1 cmake --build build/macos-macports -j4
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+ctest --test-dir build/macos-macports --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+python3 tests/frontend/librashader/test_screen_size.py --runtime build/m99z20-runtime-check/librashader.dylib
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_screen_size.py --glslang /usr/bin/glslangValidator --spirv-cross /usr/bin/spirv-cross
+docker exec vaeg-m99z26-shader-check python3 /src/tests/frontend/librashader/test_scanline_aa_gpu.py
+python3 tools/repo/check_encoding.py
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+git diff --check
+```
+
+ON/OFF: 13/13 PASS, 6.71 / 6.48 seconds. Metadata: all nine parameters,
+including SCREEN_SIZE 98 and CURVATURE .030; version-header negative passes.
+Static suite: 4 tests PASS. glslang 12 / SPIRV-Cross 1.3.239 compile both
+stages of both owned shaders and generated SM5 HLSL. Software EGL raster
+uses the retained Mesa 22.3.6 / llvmpipe LLVM 15 environment, no private
+screenshots. All masks and curves preserve reference color/kernel behavior,
+worst float RGB difference .000546. Small-output 40px band amplitudes still
+at most 1.6e-8; 1600px residual at most .000620. The scanline AA fix remains.
+Software timing median/p95 (ms): 640x400 original 14.67/28.05, AA 26.85/35.28;
+640x1600 original 48.29/57.98, AA 54.53/138.44. Concurrent cross-build and
+emulated Wine bootstrap make these timings noisy, not GPU performance proof.
+No added frame allocations or texture taps. Real GPU timing remains deferred.
+
+Optional `test_d3d11_filter.cpp` creates a real WARP device and filter chain
+through the pinned C API with shader caching disabled. It is an explicitly
+invoked test, not an unconditional CTest requiring the optional runtime.
+Build/run on Windows beside the pinned DLL:
+
+```sh
+cmake --build build/mingw-release --target vaeg_librashader_d3d11_filter_test
+# Run from the staged package directory:
+diagnostics/vaeg-d3d11-filter-test.exe assets/shaders/crt/vaeg_crt_default.slangp
+```
+
+Local cross-build commands:
+
+```sh
+cmake --preset mingw-cross -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON
+CCACHE_DISABLE=1 cmake --build build/mingw-cross --target vaeg_librashader_d3d11_filter_test -j4
+cmake --preset mingw-cross -DVAEG_ENABLE_TESTS=OFF -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=OFF
+CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4
+```
+
+An initial tests-ON configure without integration trace was correctly
+rejected by the existing CMake guard. The corrected test build uses both
+flags; the release executable retains tests/trace OFF. Existing upstream
+CMake, linker, and unrelated text-mode precedence warnings are not changed.
+The optional probe was also built with static MinGW C++17 and `-ld3d11`.
+Local Wine 8 / Debian amd64 / Xvfb attempt returned exit 2:
+`D3D11_RUNTIME_UNAVAILABLE`, loader error 126. Loader tracing identifies
+absent `bcryptprimitives.dll` in Wine, not the maintainer's Windows machine.
+No replacement DLL or unpinned runtime was used. This is NOT a successful
+D3D11 filter-chain run. Windows visual/physical-GPU validation remains open.
+
+Prior hosted run inspected before publication:
+[33956386947](https://github.com/nakatamaho/vaeg/actions/runs/33956386947),
+9 jobs PASS; macOS FetchContent fails the pre-existing
+`vaeg_upd9002_trace_equivalence`. Its exact failed log was retrieved; CPU
+and trace code are unchanged and no unrelated repair is included here.

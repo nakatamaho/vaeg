@@ -79,8 +79,12 @@ vec3 vaeg_mask(vec2 pixel, float dark) {
     vec3 mask = params.MASK == 1.0 ? vec3(1.0) : vec3(dark);
     float stripe = params.MASK == 3.0
         ? fract((pixel.x + pixel.y * 2.9999) / 6.0) : fract(pixel.x / 3.0);
-    int channel = stripe < 1.0 / 3.0 ? 0 : (stripe < 2.0 / 3.0 ? 1 : 2);
-    mask[channel] = params.MASK == 1.0 ? dark : 1.0;
+    // D3DCompile rejects a dynamically indexed vector l-value after HLSL
+    // translation (X3500). Constant component writes are equivalent and portable.
+    float selected = params.MASK == 1.0 ? dark : 1.0;
+    if (stripe < 1.0 / 3.0) mask.r = selected;
+    else if (stripe < 2.0 / 3.0) mask.g = selected;
+    else mask.b = selected;
     return mask;
 }
 

@@ -41,7 +41,7 @@ EXPECTED = {
     "assets/shaders/crt/shaders/crt-lottes-fast.slang":
         "576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482",
     "assets/shaders/crt/shaders/vaeg-crt-aa.slang":
-        "f945587c20f556786ac625dacffcb5e9f91271537385d0585ea59ba66b0e7745",
+        "9d329990e19d26722a8acfd6b5c20699564220d8bb7e7ef9fc604eb90f379a4b",
     "assets/shaders/crt/shaders/vaeg-scanline-aa.inc":
         "6461786e3d74abd56a4be789018224bd41ff834d0d9a40c3d4f67e2bf471c408",
     "assets/shaders/crt/licenses/crt-default-license.txt":

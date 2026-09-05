@@ -1506,6 +1506,15 @@ if(VAEG_ENABLE_TESTS)
     endif()
 
     if(WIN32)
+        # Explicit optional smoke command: requires the pinned runtime DLL and WARP.
+        # Not an unconditional CTest, since runtime-absent builds remain supported.
+        add_executable(vaeg_librashader_d3d11_filter_test
+            tests/frontend/librashader/test_d3d11_filter.cpp)
+        target_include_directories(vaeg_librashader_d3d11_filter_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+        target_compile_features(vaeg_librashader_d3d11_filter_test PRIVATE cxx_std_17)
+        target_link_libraries(vaeg_librashader_d3d11_filter_test PRIVATE d3d11)
         add_executable(vaeg_librashader_d3d11_raster_test
             tests/frontend/librashader/test_d3d11_raster.cpp)
         target_include_directories(vaeg_librashader_d3d11_raster_test PRIVATE
