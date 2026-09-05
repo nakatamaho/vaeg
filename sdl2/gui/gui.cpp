@@ -2015,7 +2015,18 @@ static void draw_fdd_browser(void) {
 			g_gui.fdd_browser_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("fdd-browser-list", ImVec2(0, 230.0f), ImGuiChildFlags_Borders)) {
+		const ImGuiStyle &style = ImGui::GetStyle();
+		float footer_height = 2.0f * ImGui::GetFrameHeightWithSpacing();
+		if (!g_gui.fdd_status.empty()) {
+			footer_height += ImGui::CalcTextSize(g_gui.fdd_status.c_str(), nullptr, false,
+			                                     ImGui::GetContentRegionAvail().x)
+			                     .y +
+			                 2.0f * style.ItemSpacing.y + 1.0f;
+		}
+		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
+		                                     ImGui::GetContentRegionAvail().y - footer_height);
+		if (ImGui::BeginChild("fdd-browser-list", ImVec2(0, list_height),
+		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.fdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
 				label += entry.name;

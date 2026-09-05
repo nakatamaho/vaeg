@@ -257,3 +257,23 @@ PASS with `python3 tools/release/check-librashader-package.py --input <path>
 --platform windows`; copied EXE matches the build with `cmp`.
 EXE SHA-256: `10565bd5b1ba90a87397a588071bd04e3c426dc4470789efe49cd3622619bf48`.
 DLL SHA-256: `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc`.
+
+## M99z19 — Expand the FDD browser list with its window
+
+Starting commit: `810fc808e900072109fc86bd533c3667e0a643cd`.
+`draw_fdd_browser()` already uses a resizable ImGui window with first-use-only
+initial dimensions. Vendored ImGui enables edge resizing by default and the
+SDL platform backend advertises mouse cursor support. The inner list, however,
+was fixed at 230 pixels high. It now consumes the available vertical space,
+reserving the path field, Mount/Cancel row and wrapped status text using the
+current font/style metrics. Small windows retain a three-row minimum and the
+existing parent scrolling. No HDD browser or disk mounting code is changed.
+
+MinGW and macOS feature-on builds PASS with the M99z18 commands above.
+The initial build caught the repository's `max` macro; using `(std::max)`
+resolved that collision before the successful builds. The same focused macOS
+suite passes 11/11; encoding/EOL/case and diff checks are clean. Only the edited
+GUI lines were formatted with `clang-format-mp-22`. These tests do not exercise
+physical mouse dragging. Manual check: drag a side/corner of "Mount FDD image
+or archive", verify the list expands, and confirm Mount/Cancel remain usable
+at normal and high DPI. Windows interaction evidence remains deferred.
