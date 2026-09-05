@@ -82,7 +82,7 @@ separate parity correction or move it to Open Defects.
 - **Verification:** [M99z11 report](../agents/reports/m99z11_display_screenshots.md),
   including actual SDL software-renderer effect/overlay readback tests and
   controller target lifetime tests. Native Metal/OpenGL readback is unsupported.
-- **Commit:** fixing SHA recorded in the report after the implementation commit.
+- **Commit:** [5699d96e](https://github.com/nakatamaho/vaeg/commit/5699d96e471ac72b07203e26182ec62a5a210a06).
 
 ### Information overlays omitted by native CRT presentation
 

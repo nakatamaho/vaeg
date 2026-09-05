@@ -81,3 +81,12 @@ Results: MinGW and macOS feature-on/off builds PASS; both focused suites
 check clean. Existing logical-not, unused-variable and Apple linker warnings
 remain unchanged. No Windows execution or native GPU readback was possible
 locally, so output equivalence on that backend is not claimed as tested.
+
+## Handoff
+
+Implementation: [5699d96e](https://github.com/nakatamaho/vaeg/commit/5699d96e471ac72b07203e26182ec62a5a210a06).
+MinGW was reconfigured/rebuilt after committing to embed that build identity.
+Package: `build/mingw-cross/vaeg-m99z11-windows-x86_64.zip`, including the
+unchanged runtime DLL, shader assets, notices and updated user guide.
+Staged directory and ZIP validators PASS; staged EXE matches its build via `cmp`.
+ZIP SHA-256: `ae643f6938e905e1884349a7d0f4c16c55b814c4ed70daadb22894fa06cb5516`.
