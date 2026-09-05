@@ -28,11 +28,13 @@
 #include <memory>
 
 #include "librashader/native_presenter.h"
+#include "librashader/frame_padding.h"
 #include "librashader/presenter_factory.h"
 
 struct VAEG_NATIVE_PRESENTER {
 	std::unique_ptr<vaeg::librashader::NativePresenter> implementation;
 	const char *backend;
+	vaeg::librashader::FramePadding padding;
 };
 
 namespace {
@@ -53,7 +55,7 @@ static const char *native_backend_name() noexcept {
 }
 
 static VAEG_NATIVE_PRESENTER_RESULT present_once(
-	VAEG_NATIVE_PRESENTER *presenter, const VAEG_FRAME_INPUT *frame) noexcept {
+	VAEG_NATIVE_PRESENTER *presenter, const VAEG_FRAME_INPUT *frame) {
 	using vaeg::librashader::PresenterError;
 	using vaeg::librashader::PresenterResult;
 	PresenterResult result;
@@ -61,7 +63,22 @@ static VAEG_NATIVE_PRESENTER_RESULT present_once(
 	if ((presenter == nullptr) || (presenter->implementation == nullptr) || (frame == nullptr)) {
 		return VAEG_NATIVE_PRESENTER_FALLBACK;
 	}
-	result = presenter->implementation->present(*frame);
+	// Re-evaluate on every retry: a failed filter must fall back to the raw input.
+	const auto draw = [&]() {
+		VAEG_FRAME_INPUT display = *frame;
+		if (presenter->implementation->state() == vaeg::librashader::PresenterState::Filtered) {
+			for (size_t i = 0; i < presenter->implementation->filter_parameter_count(); ++i) {
+				const auto *parameter = presenter->implementation->filter_parameter(i);
+				if (parameter && parameter->name == "SCREEN_SIZE") {
+					if (!presenter->padding.prepare(*frame, parameter->value, display))
+						return PresenterResult::Failed;
+					break;
+				}
+			}
+		}
+		return presenter->implementation->present(display);
+	};
+	result = draw();
 	if (result == PresenterResult::Presented) {
 		return VAEG_NATIVE_PRESENTER_PRESENTED;
 	}
@@ -70,7 +87,7 @@ static VAEG_NATIVE_PRESENTER_RESULT present_once(
 	}
 	if (result == PresenterResult::Recovered) {
 		// A filter failure recovered to native pass-through. Draw that frame now.
-		result = presenter->implementation->present(*frame);
+		result = draw();
 		if (result == PresenterResult::Presented) {
 			return VAEG_NATIVE_PRESENTER_PRESENTED;
 		}
@@ -81,7 +98,7 @@ static VAEG_NATIVE_PRESENTER_RESULT present_once(
 	if (result == PresenterResult::Fallback) {
 		const PresenterResult recovered = presenter->implementation->recover();
 		if (recovered == PresenterResult::Recovered) {
-			result = presenter->implementation->present(*frame);
+			result = draw();
 			if (result == PresenterResult::Presented) {
 				return VAEG_NATIVE_PRESENTER_PRESENTED;
 			}

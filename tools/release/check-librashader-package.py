@@ -35,15 +35,15 @@ import zipfile
 
 EXPECTED = {
     "assets/shaders/crt/vaeg_crt_default.slangp":
-        "5f32199109d6dd0fb9d9b3b7aaee69f67bc1cc8a0d8d06ff6db16b62e46e9f71",
+        "a705decc9008b81a033e4864d3be7c16a2f06d8ec241e741a6cf56cf246a1fc9",
     "assets/shaders/crt/shaders/vaeg-screen-size.slang":
-        "53f1371a7b46c079fd9f181739417437a02fa68a0fdd911463e976e86b5eed05",
+        "d60de82a497cf15be02c07b06dcfc05f539d1558035159b736d3b3319b60acf5",
     "assets/shaders/crt/shaders/crt-lottes-fast.slang":
         "576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482",
     "assets/shaders/crt/licenses/crt-default-license.txt":
         "6b36a9fe4618402e929fb3403d4724d1b707934f2d1db8483fbf0ebfbccb26bc",
     "assets/shaders/crt/licenses/crt-default-provenance.md":
-        "f6fa0e68d0f13f9bfdb9b9804621568ad083da4dc7229a052d256af94c877ff9",
+        "279eec5c80c88bfb7e123a5440db35a80487fab331877af1753f19df4748b57e",
     "licenses/librashader-MPL-2.0.txt":
         "69c15395f33bc9ce8e1d8b6cef42b7e49cdec4c6f5233d4b9cfc4bfa335f97f9",
     "licenses/librashader-headers-MIT.txt":

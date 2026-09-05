@@ -35,6 +35,21 @@ land.
 
 ## Maintenance Rules
 
+### M99z24 — Pre-CRT size adjustment blurred source dots
+
+- **Symptom/scope:** SCREEN_SIZE below 100 softened the image before CRT;
+  the maintainer confirmed that 100 restored sharpness.
+- **Cause:** the owned size pass linearly sampled a scaled image into a
+  source-sized target, blending original neighboring pixels before CRT.
+- **Correction:** integer black padding with 1:1 row copies, then a texel-copy
+  shader and the unchanged CRT pass. Preserve aspect and symmetric margins;
+  sizing is quantized. Raw QA and unprocessed capture remain unchanged.
+- **Verification:** byte-exact source/border tests in both formats/origins,
+  runtime metadata + fake-presenter retry integration, shader compilation,
+  macOS ON/OFF and MinGW builds. Physical Windows visual confirmation pending.
+- **Task/evidence:** [M99z24 report](../agents/reports/m99z10_renderer_settings.md#m99z24--pixel-preserving-padding-before-crt).
+  Implementation commit is recorded with the handoff below that report.
+
 ### M99z22 — CRT settings bypassed main configuration controls
 
 - **Symptom/scope:** CRT parameter changes used a hard-coded standalone file,

@@ -327,6 +327,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/scrnmng.c
     sdl2/librashader/frame_input.cpp
     sdl2/librashader/frame_conversion.cpp
+    sdl2/librashader/frame_padding.cpp
     sdl2/librashader/native_presenter.cpp
     sdl2/librashader/native_presenter_controller.cpp
     sdl2/librashader/presenter_factory.cpp
@@ -1472,6 +1473,17 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_librashader_pass_through_test PRIVATE -Werror)
     endif()
 
+    add_executable(vaeg_librashader_frame_padding_test
+        sdl2/librashader/frame_input.cpp
+        sdl2/librashader/frame_padding.cpp
+        tests/frontend/librashader/test_frame_padding.cpp)
+    target_include_directories(vaeg_librashader_frame_padding_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_librashader_frame_padding_test PRIVATE cxx_std_17)
+    add_test(NAME vaeg_librashader_frame_padding COMMAND vaeg_librashader_frame_padding_test)
+    set_tests_properties(vaeg_librashader_frame_padding PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+
     add_executable(vaeg_librashader_shader_parameters_test
         sdl2/librashader/shader_parameters.cpp
         tests/frontend/librashader/test_shader_parameters.cpp)
@@ -1497,6 +1509,8 @@ if(VAEG_ENABLE_TESTS)
     endif()
 
     add_executable(vaeg_librashader_controller_test
+        sdl2/librashader/frame_input.cpp
+        sdl2/librashader/frame_padding.cpp
         sdl2/librashader/native_presenter_controller.cpp
         sdl2/librashader/native_presenter.cpp
         sdl2/librashader/shader_parameters.cpp
@@ -1527,6 +1541,7 @@ if(VAEG_ENABLE_TESTS)
         LABELS "romless;frontend;librashader" TIMEOUT 30)
 
     add_executable(vaeg_librashader_fallback_test
+        sdl2/librashader/frame_padding.cpp
         sdl2/librashader/frame_input.cpp
         sdl2/librashader/native_presenter.cpp
         sdl2/librashader/native_presenter_controller.cpp

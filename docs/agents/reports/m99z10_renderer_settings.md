@@ -387,3 +387,75 @@ Focused ctest suite: 11/11 PASS (6.05 s). Added ROM-less SDL window sizing
 checks use a small synthetic source at x1, x4, x5, x16, plus upper/lower clamp
 cases, and verify actual window dimensions including menu height. This is not
 physical Windows/native GPU evidence. Encoding/EOL/case checks zero; diff clean.
+
+## M99z24 — Pixel-preserving padding before CRT
+
+Starting commit: `223bedb25a6c1aca62e706c55789e876036b4770`.
+The maintainer's SCREEN_SIZE=100 comparison removed the observed softness.
+The old owned size pass used linear texture sampling to shrink the image into
+a source-sized target, blending neighboring dots before CRT processing.
+Replace that with a shared frontend FramePadding stage: copy original rows
+1:1 onto an opaque black canvas, then upload and run the existing CRT chain.
+The owned shader keeps SCREEN_SIZE metadata but only performs texelFetch;
+its preset disables linear sampling on this copy pass. The audited Lottes
+shader, CRT filtering, raw framebuffer, capture boundary and core are unchanged.
+
+Symmetric integer margins preserve exact source aspect. At 640x400, requested
+96.50% becomes 672x420 (effective 95.24%); 80% becomes 800x500. Quantization is
+deliberate, toward more border, so small slider changes can share a size.
+100% borrows the original frame. Above 100%, integer central cropping preserves
+the former enlargement intent. This does not promise integer physical pixels
+after CRT distortion or final scaling. Modes with small dimension GCDs have
+coarser steps. SCREEN_SIZE is now reserved for frontend sizing; presets without
+that parameter retain their previous path.
+
+Storage is reused between frames, reinitialized on source/canvas/format changes,
+and capped at 128 MiB (temporarily two buffers during replacement). Allocation
+failure requests the existing SDL fallback. Failed CRT retries use the original
+unmodified input. Normal screenshots include padded CRT output and enabled
+overlays; unprocessed screenshots and raw QA do not. Splash/pass-through is
+not padded. Distribution requires updating both EXE and assets together.
+
+Local verification (all exit 0 unless otherwise stated):
+
+```sh
+CCACHE_DISABLE=1 cmake --build build/macos-ci -j4
+CCACHE_DISABLE=1 cmake --build build/macos-macports -j4
+CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+ctest --test-dir build/macos-macports --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+python3 tests/frontend/librashader/test_screen_size.py --runtime build/m99z20-runtime-check/librashader.dylib
+DYLD_LIBRARY_PATH="$PWD/build/m99z20-runtime-check" build/macos-ci/vaeg_librashader_controller_test assets/shaders/crt/vaeg_crt_default.slangp
+build/macos-ci/vaeg_librashader_frame_padding_test
+python3 tools/repo/check_encoding.py --expect utf8
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+git diff --check
+```
+
+Feature-on/off macOS Release suites: 12/12 PASS, respectively 6.90 and 5.90 s.
+The optional controller extension was rebuilt and rerun after those suites:
+real runtime metadata plus fake GPU verifies padded input, unpadded retry on
+filter failure and 100% bypass. This is not GPU evidence. The copy test checks
+every source byte in RGB565/ARGB8888 with padded row pitch, both row origins,
+all 256000 pixels retained below 100%, black borders, cropping, unchanged
+source, buffer reuse, NaN and allocation bounds. CPU-only 10000-frame copy
+benchmark: 20.442 us/frame, 1128960-byte buffer (640x400 to 672x420).
+GPU resource/presentation cost and physical Windows sharpness remain unmeasured.
+Existing unrelated compiler/linker warnings remain; no new build errors.
+
+Both owned shader stages compile with glslangValidator 12.0.0 in an ephemeral
+Debian bookworm container (python3 + glslang-tools); command:
+
+```sh
+docker run --rm --mount type=bind,source="$PWD",target=/src,readonly debian:bookworm-slim sh -c 'apt-get update -qq && apt-get install -y -qq python3 glslang-tools && python3 /src/tests/frontend/librashader/test_screen_size.py --glslang /usr/bin/glslangValidator'
+```
+
+Actual librashader 0.12.0 C API still enumerates nine parameters, SCREEN_SIZE
+96.50 and CURVATURE .030; MissingVersionHeader negative regression passes.
+No dependency upgrades or license changes. Updated owned shader SHA-256:
+`d60de82a497cf15be02c07b06dcfc05f539d1558035159b736d3b3319b60acf5`.
+Preset: `a705decc9008b81a033e4864d3be7c16a2f06d8ec241e741a6cf56cf246a1fc9`.
+Audited upstream CRT shader and runtime DLL remain unchanged. Package validators
+pin the new owned assets and revised provenance. Windows GPU/manual acceptance
+remains deferred to the maintainer's updated EXE + assets test.

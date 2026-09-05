@@ -1,5 +1,3 @@
-#version 450
-
 /*
  * Copyright (c) 2026 Nakata Maho
  *
@@ -25,31 +23,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma parameter SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01
-layout(push_constant) uniform Push {
-    float SCREEN_SIZE;
-} params;
-layout(std140, set = 0, binding = 0) uniform UBO {
-    mat4 MVP;
-} global;
+#ifndef VAEG_FRAME_PADDING_H
+#define VAEG_FRAME_PADDING_H
+#include <cstddef>
+#include <vector>
+#include "librashader/frame_input.h"
 
-#pragma stage vertex
-layout(location = 0) in vec4 Position;
-layout(location = 1) in vec2 TexCoord;
-layout(location = 0) out vec2 vTexCoord;
-void main() {
-    gl_Position = global.MVP * Position;
-    vTexCoord = TexCoord;
+namespace vaeg::librashader {
+/* Display-only integer padding/cropping. Source pixels are never resampled.
+ * Storage is reused until source format or canvas geometry changes. */
+class FramePadding {
+  public:
+    bool prepare(const VAEG_FRAME_INPUT &source, float percent, VAEG_FRAME_INPUT &output);
+    std::size_t storage_bytes() const { return pixels_.size(); }
+  private:
+    std::vector<unsigned char> pixels_;
+    uint32_t source_width_ = 0, source_height_ = 0, width_ = 0, height_ = 0;
+    VAEG_FRAME_PIXEL_FORMAT format_ = VAEG_FRAME_PIXEL_RGB565;
+};
 }
-
-#pragma stage fragment
-layout(location = 0) in vec2 vTexCoord;
-layout(location = 0) out vec4 FragColor;
-layout(set = 0, binding = 2) uniform sampler2D Source;
-void main() {
-    // SCREEN_SIZE is applied by VAeg as integer padding before this pass.
-    // Keep its metadata here for the common parameter UI and persistence.
-    ivec2 size = textureSize(Source, 0);
-    ivec2 pixel = clamp(ivec2(vTexCoord * vec2(size)), ivec2(0), size - ivec2(1));
-    FragColor = texelFetch(Source, pixel, 0);
-}
+#endif

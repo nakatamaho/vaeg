@@ -46,6 +46,7 @@ class ScreenSizeTests(unittest.TestCase):
         self.assertEqual(preset["shaders"], "2")
         self.assertEqual(preset["shader0"], "shaders/vaeg-screen-size.slang")
         self.assertEqual(preset["shader1"], "shaders/crt-lottes-fast.slang")
+        self.assertEqual(preset["filter_linear0"], "false")
         self.assertEqual(preset["scale_type0"], "source")
         self.assertEqual(preset["scale0"], "1.0")
         self.assertEqual(preset["scale_type1"], "viewport")
@@ -53,27 +54,17 @@ class ScreenSizeTests(unittest.TestCase):
 
     def test_shader_contract(self):
         self.assertIn('SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01', SOURCE)
-        self.assertIn("(vTexCoord - vec2(0.5)) / scale + vec2(0.5)", SOURCE)
-        self.assertIn("lessThan(uv, vec2(0.0))", SOURCE)
-        self.assertIn("greaterThanEqual(uv, vec2(1.0))", SOURCE)
-        self.assertIn("vec4(0.0, 0.0, 0.0, 1.0)", SOURCE)
+        self.assertIn("texelFetch(Source, pixel, 0)", SOURCE)
+        self.assertNotIn("texture(Source,", SOURCE)
         self.assertNotIn("#include", SOURCE)
         self.assertTrue(SOURCE.startswith("#version 450\n"))
 
-    def test_reference_pixel_centers(self):
-        # Exact rational oracle for the shader equation before CRT distortion.
-        for extent in (640, 400, 1920, 1080):
-            for percent in (80, 100, 120):
-                scale = Fraction(percent, 100)
-                mapped = [((Fraction(2 * x + 1, 2 * extent) - Fraction(1, 2))
-                           / scale + Fraction(1, 2)) for x in range(extent)]
-                visible = [x for x, uv in enumerate(mapped) if 0 <= uv < 1]
-                self.assertEqual(len(visible), extent * min(percent, 100) // 100)
-                self.assertEqual(visible[0], extent - 1 - visible[-1])
-                if percent == 100:
-                    self.assertEqual(mapped[0], Fraction(1, 2 * extent))
-                if percent == 80:
-                    self.assertEqual(visible[0], extent // 10)
+    def test_copy_pixel_centers(self):
+        # The GPU pass must address the same texel at every output pixel center.
+        for extent in (640, 400, 672, 420, 800, 500):
+            for x in range(extent):
+                coordinate = Fraction(2 * x + 1, 2 * extent)
+                self.assertEqual(int(coordinate * extent), x)
 
 
 def compile_stages(compiler):

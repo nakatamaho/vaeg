@@ -65,13 +65,23 @@ along with other frontend settings. The old `vaeg-crt-parameters.cfg` is neither
 read nor written; no migration is performed. With no integrated values, preset
 defaults apply. `--no-cfg` disables loading and disk saving,
 while live adjustments remain available for the session.
-At 80%, the image is centered with black
-borders; above 100%, the image is enlarged and cropped. This display-only pass
-runs before the existing CRT shader, so curvature may reshape the borders.
+Below 100%, the frontend centers the original pixels in a larger black canvas,
+without resizing or blending them. The copy pass uses exact texel fetches;
+the subsequent CRT shader retains its own filtering and curvature.
+Canvas dimensions preserve aspect ratio and symmetric integer margins, so
+the effective size changes in discrete steps despite the fine slider steps.
+For 640x400 input, 96.50% uses a 672x420 canvas (effective 95.24%, margins
+16x10); 80% uses 800x500 (margins 80x50). At 100% the original buffer is
+borrowed unchanged. Above 100%, centered integer cropping enlarges the image.
+This operates only on the presentation input, before the existing CRT shader,
+so curvature may reshape the borders. It does not guarantee integer-scaled
+physical display pixels after CRT distortion and final output scaling.
 Normal displayed screenshots include this result and enabled information
 overlays. Unprocessed screenshots and canonical raw QA captures are unaffected
-by this control. Custom presets are unchanged. Update the package's `assets/`
-directory as well as the executable; the control is defined in the new shader.
+by this control. Custom presets without SCREEN_SIZE are unchanged; that name
+now identifies this frontend padding control. Update the package's `assets/`
+directory and executable together: mixing old and new versions can apply
+sizing twice or omit it entirely.
 
 Preset reload and parameter sliders
 also apply to the active filter. On macOS/Linux, enablement still requires a

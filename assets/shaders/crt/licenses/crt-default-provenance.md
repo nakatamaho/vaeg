@@ -26,9 +26,11 @@ The bundled default is a two-pass preset: the independently authored VAeg
 BSD-2-Clause `vaeg-screen-size.slang` followed by the unchanged audited
 `crt-lottes-fast.slang` from the official `libretro/slang-shaders` repository.
 The new pass has no includes or external textures. Its complete BSD notice is
-embedded in the shader. It maps centered texture coordinates at 80-120 percent,
-with explicit black outside the image. No upstream shader code was copied into
-this pass. The preset is VAeg-authored configuration; the upstream identities
+embedded in the shader. It exposes SCREEN_SIZE metadata and copies texels
+without interpolation. VAeg's frontend applies integer black padding below
+100 percent, or centered cropping above 100 percent, before GPU upload.
+No upstream shader code was copied into this pass. The preset is VAeg-authored
+configuration; the upstream identities
 below describe the original CRT pass and its original preset, not the new
 two-pass configuration.
 

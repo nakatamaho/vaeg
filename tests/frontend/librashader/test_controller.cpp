@@ -33,6 +33,8 @@ int initialize_count, recover_count, draw_count, gui_count, shutdown_count;
 bool fail_filter, fail_device, fail_recovery, fail_initialize;
 int viewport_values[4];
 const void *observed_pixels;
+uint32_t observed_width, observed_height;
+const char *runtime_preset;
 const char *diagnostic = "";
 VAEG_OUTPUT_CAPTURE *capture_target;
 class FakePresenter final : public NativePresenter {
@@ -43,10 +45,13 @@ public:
     const char *error_detail() const noexcept override { return diagnostic; }
     PresenterResult initialize(const NativePresenterCreateInfo &) noexcept override {
         if (fail_initialize) return PresenterResult::Fallback;
+        if (runtime_preset && !prepare_filter_parameters(runtime_preset, true, nullptr))
+            return PresenterResult::Fallback;
         ++initialize_count; state_ = PresenterState::Filtered; return PresenterResult::Recovered;
     }
     PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
         ++draw_count; observed_pixels = frame.pixels;
+        observed_width = frame.width; observed_height = frame.height;
         if (capture_target) capture_target->complete = 1;
         if (fail_device) { fail_device = false; return PresenterResult::Fallback; }
         if (fail_filter) {
@@ -89,7 +94,7 @@ std::unique_ptr<NativePresenter> create_native_presenter(PresenterBackend) {
     return std::make_unique<FakePresenter>();
 }
 }
-int main() {
+int main(int argc, char **argv) {
     int window = 0;
     const unsigned char pixels[] = {0x00, 0xf8, 0xe0, 0x07};
     VAEG_FRAME_INPUT frame{};
@@ -150,6 +155,29 @@ int main() {
     check(p && std::strcmp(vaeg_native_presenter_creation_error(), "none") == 0,
           "successful retry clears creation failure");
     vaeg_native_presenter_destroy(p);
+    if (argc == 2) {
+        // Optional real-runtime metadata + fake GPU integration, no physical rendering.
+        runtime_preset = argv[1];
+        fail_recovery = false;
+        unsigned char grid[32]{};
+        frame = {grid, 4, 4, 8, VAEG_FRAME_PIXEL_RGB565, VAEG_FRAME_ROWS_TOP_DOWN,
+                 1, 1, 60, 1, 1, 16666667};
+        p = vaeg_native_presenter_create(&window, 640, 422, "test", nullptr);
+        check(p != nullptr, "real runtime preset metadata");
+        check(vaeg_native_presenter_set_parameter(p, "SCREEN_SIZE", 80), "padding control");
+        check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+              observed_width == 6 && observed_height == 6 && observed_pixels != grid,
+              "controller supplies padded input");
+        fail_filter = true;
+        check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+              observed_width == 4 && observed_pixels == grid,
+              "failed filter retries unpadded input");
+        check(vaeg_native_presenter_set_filter(p, 1), "reenable filter");
+        check(vaeg_native_presenter_set_parameter(p, "SCREEN_SIZE", 100), "100 control");
+        check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+              observed_width == 4 && observed_pixels == grid, "100 bypass after padding");
+        vaeg_native_presenter_destroy(p);
+    }
     std::printf("controller checks: %s\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;
 }
