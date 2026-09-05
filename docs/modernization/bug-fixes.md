@@ -79,7 +79,7 @@ separate parity correction or move it to Open Defects.
   and restore the guest viewport/filter afterward; share SDL/native sizing.
 - **Verification:** [M99z17 report](../agents/reports/m99z10_renderer_settings.md#m99z17--two-thirds-splash-and-native-presentation).
   MinGW/macOS builds and focused tests pass; no physical GPU result claimed.
-- **Commit:** recorded with the handoff in the linked report.
+- **Commit:** [74e32878](https://github.com/nakatamaho/vaeg/commit/74e32878f70cb8809ab6306dd676927ad6225a8a).
 
 ### Normal screenshots omitted display effects and information overlays
 

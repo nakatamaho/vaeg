@@ -187,3 +187,7 @@ macOS ctest suite passes 10/10 (6.33 s), including updated two-thirds geometry
 checks and existing controller/filter/viewport tests. Encoding/EOL/case checks
 zero; diff check clean. Actual native splash visibility remains untested locally;
 the geometry and controller tests are not physical GPU evidence.
+
+Implementation: [74e32878](https://github.com/nakatamaho/vaeg/commit/74e32878f70cb8809ab6306dd676927ad6225a8a).
+MinGW rebuilt with committed identity; EXE-only handoff at
+`build/mingw-cross/vaeg-m99z17-windows-x86_64/vaeg.exe` matches the build via `cmp`.
