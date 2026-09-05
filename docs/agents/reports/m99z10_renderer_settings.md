@@ -148,3 +148,9 @@ build/test/check commands apply. Windows physical UI verification is deferred.
 
 Results: MinGW and macOS feature-on/off builds PASS; focused suites 10/10
 PASS each (6.17 s / 5.84 s). Encoding/EOL/case checks zero; diff check clean.
+
+Implementation: [db8c2a57](https://github.com/nakatamaho/vaeg/commit/db8c2a57b319369f8fe2a9edca7de250d2a94131).
+MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
+Package: `build/mingw-cross/vaeg-m99z15-windows-x86_64.zip` (DLL/assets/notices
+included); package validator PASS.
+ZIP SHA-256: `5ea7f01ea36a1f6ae6c0e3a43c21edb4f788f6e2ac8656661ee91da77b549251`.
