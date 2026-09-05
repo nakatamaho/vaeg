@@ -77,3 +77,15 @@ No Windows/Wine execution is available locally. Physical menu switching and
 fullscreen/focus behavior must be retested. No GPU/performance success claimed.
 Main checkout and its unrelated changes are untouched. No dependency/version
 or shader payload changes; the existing runtime prerequisites still apply.
+
+## Handoff
+
+Implementation: [1773322b](https://github.com/nakatamaho/vaeg/commit/1773322beb0093855be9c2bf652ded9283f7cf4a).
+Reconfigured/rebuilt after committing to embed that identity.
+Local package: `build/mingw-cross/vaeg-m99z8-windows-x86_64.zip`.
+ZIP SHA-256: `07a7b7e721b1baac208012168f70b8ea49aab549608440fc9ffe1ecf7109122c`.
+EXE SHA-256: `8e4264eeb7bb0f5bb339fe1f41b09ef46c851ee740e0e894c211b577f10a7b76`.
+Directory/ZIP package validators passed; the packaged EXE matched the build.
+Includes unchanged optional DLL, assets, licenses, launcher and prerequisites
+guide. No private media. Run `start-native-crt.cmd`, select librashader then SDL;
+if the frontend stalls again, preserve the final `Renderer switch:` log stage.

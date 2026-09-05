@@ -1763,7 +1763,7 @@ separate parity correction or move it to Open Defects.
   Preserve guest state and framebuffer; do not reset CPU or host pacing.
 - **Evidence:** [M99z8 report](../agents/reports/m99z8_windows_renderer_switch.md)
   records the ten-cycle SDL window/render/readback test and platform limits.
-- **Commit:** recorded in the linked report after committing the candidate.
+- **Commit:** [1773322b](https://github.com/nakatamaho/vaeg/commit/1773322beb0093855be9c2bf652ded9283f7cf4a).
 
 ### Windows librashader unavailable and black fallback after M99z6
 
