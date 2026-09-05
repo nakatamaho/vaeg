@@ -727,3 +727,43 @@ restricted to the changed regions; pre-existing unrelated formatting was
 preserved. MinGW Release and the optional CMake probe target both build.
 The staged Windows directory passes the package validator with all shader
 pins, notices, the unchanged 0.12.0 runtime, and the optional probe.
+
+### Handoff identities and evidence boundary
+
+Menu implementation / rebuilt release identity:
+[601ce5f1](https://github.com/nakatamaho/vaeg/commit/601ce5f1e565b93eeafd0897c49f0cf101e457da).
+The final follow-up report commit changes documentation only; it does not
+justify repeating the unchanged emulator tests. Evaluated controller binary
+SHA-256: `5bce43c9c6f1edc4ef542b8aa4b0c96277fac2f78da2e0a0f48981c753c045f8`.
+
+Local deliverables (not committed):
+
+- `build/mingw-cross/vaeg-m99z27-windows-x86_64.zip`:
+  `8c21e56218512b997f3a4e78b80d3d67288b195d31e220e7426e9d70e9fc8578`.
+- Same-named staging directory, EXE:
+  `b4632b6616a45bc89aa87207a2bf42fb0dc634be7430078b0fc0d0c8849307e4`.
+- Optional static diagnostic `diagnostics/vaeg-d3d11-filter-test.exe`:
+  `e51a1daa9fee0c62526456e366cf751bb43555ddcdd91979299e928f56191dda`.
+- Unchanged runtime DLL:
+  `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc`.
+
+`cmp` verifies the staged EXE against its build output. Both directory and
+ZIP package checks pass. The test containers are stopped and retained for
+reuse; no broad cleanup or private-data changes occurred.
+
+```sh
+cmake -E copy build/mingw-cross/sdl2/vaeg.exe build/mingw-cross/vaeg-m99z27-windows-x86_64/vaeg.exe
+cmp build/mingw-cross/sdl2/vaeg.exe build/mingw-cross/vaeg-m99z27-windows-x86_64/vaeg.exe
+bash tools/release/stage-librashader-assets.sh --output build/mingw-cross/vaeg-m99z27-windows-x86_64 --platform windows --runtime build/mingw-cross/vaeg-m99z26-windows-x86_64/librashader.dll
+python3 tools/release/check-librashader-package.py --input build/mingw-cross/vaeg-m99z27-windows-x86_64 --platform windows
+# From build/mingw-cross:
+cmake -E tar cf vaeg-m99z27-windows-x86_64.zip --format=zip vaeg-m99z27-windows-x86_64
+# From repository root:
+python3 tools/release/check-librashader-package.py --input build/mingw-cross/vaeg-m99z27-windows-x86_64.zip --platform windows
+```
+
+Local builds/tests/package checks PASS. Required human follow-up: update
+EXE and assets together, restart, confirm CRT creation and the menu's
+pass-through/CRT comparison on Windows. Physical D3D11 execution and GPU
+performance remain unverified locally. No overall M99 hardware gate is
+advanced by these software-only results.
