@@ -130,6 +130,19 @@ DLL search rules. Do not rename a runtime across platforms or architectures.
 
 ## Captures
 
+`画面 > スクリーンショットを保存` (the first menu entry), PrintScreen and
+the configured F12 screenshot binding save the next composed display frame:
+SDL effects or Windows D3D11 librashader output, scaling/aspect correction,
+and Video info / Framebuffer info exactly as enabled. Menus, dialogs and the
+top menu strip are excluded; the remaining drawable area, including letterbox
+margins, is retained. Readback and PNG encoding occur only on request and may
+briefly stall presentation. Failure is reported rather than substituting raw
+pixels. Native Metal/OpenGL output readback is not yet supported by this path;
+their native GUI integration also remains pending.
+
+`加工前フレームを保存 (graphics分析あり)` remains an explicitly separate
+raw-analysis operation, not a screenshot of the displayed effects.
+
 Use `--screenshot FRAME:PATH` or `--screen-tvram-dump PATH` for deterministic
 guest-frame evidence. `--screen-dump` captures the SDL rendered target and is
 not available while Native CRT owns the output; VAEG reports that limitation

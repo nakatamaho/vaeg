@@ -88,6 +88,9 @@ BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height, UI
 int scrnmng_get_display_mode(void);
 BOOL scrnmng_isfullscreen(void);
 BOOL scrnmng_capture_window_size(int *width, int *height);
+BOOL scrnmng_request_display_capture(const char *path);
+BOOL scrnmng_prepare_display_capture(void);
+BOOL scrnmng_display_capture_selftest(void);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 BOOL scrnmng_native_active(void);

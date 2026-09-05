@@ -479,8 +479,16 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 		g_gui.screenshot_status = "スクリーンショット名を確保できません。";
 		return (FAILURE);
 	}
-	if ((with_graphics_analysis ? scrnmng_save_guest_frame_with_analysis(path)
-	                            : scrnmng_save_guest_frame(path)) != SUCCESS) {
+	if (!with_graphics_analysis) {
+		if (scrnmng_request_display_capture(path) != SUCCESS) {
+			g_gui.screenshot_status = "Screenshot request failed: ";
+			g_gui.screenshot_status += SDL_GetError();
+			return FAILURE;
+		}
+		g_gui.screenshot_status = "Screenshot queued";
+		return SUCCESS;
+	}
+	if (scrnmng_save_guest_frame_with_analysis(path) != SUCCESS) {
 		g_gui.screenshot_status = "スクリーンショット保存に失敗しました: ";
 		g_gui.screenshot_status += SDL_GetError();
 		return (FAILURE);
@@ -2998,6 +3006,18 @@ static void load_default_va_font(void) {
 
 static void draw_screen_menu(void) {
 	if (ImGui::BeginMenu("画面")) {
+		const char *screenshot_shortcut =
+		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
+		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
+			save_screenshot(FALSE);
+		}
+		if (ImGui::MenuItem("加工前フレームを保存 (graphics分析あり)")) {
+			save_screenshot(TRUE);
+		}
+		if (!g_gui.screenshot_status.empty()) {
+			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
+		}
+		ImGui::Separator();
 		draw_renderer_selection();
 		if (!scrnmng_native_active() && ImGui::BeginMenu("Effect")) {
 			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
@@ -3007,18 +3027,6 @@ static void draw_screen_menu(void) {
 				}
 			}
 			ImGui::EndMenu();
-		}
-		ImGui::Separator();
-		const char *screenshot_shortcut =
-		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
-		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
-			save_screenshot(FALSE);
-		}
-		if (ImGui::MenuItem("スクリーンショットを保存 (graphics分析あり)")) {
-			save_screenshot(TRUE);
-		}
-		if (!g_gui.screenshot_status.empty()) {
-			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
 		if (ImGui::BeginMenu("Scaling")) {
@@ -3870,6 +3878,9 @@ void gui_draw(void) {
 	if (!g_gui.initialized) {
 		return;
 	}
+	// Capture on a fresh frame without menus/dialogs; information overlays
+	// are still emitted by gui_render/scrnmng_present_end.
+	if (scrnmng_prepare_display_capture()) return;
 	const UINT hostfat_event = hostfat_manager_poll();
 	if (hostfat_event == HOSTFAT_MANAGER_EVENT_MOUNTED) {
 		HOSTFAT_MANAGER_STATUS status{};
@@ -3939,6 +3950,16 @@ void gui_render(void) {
 	update_text_input_state();
 	if (!g_gui.native_renderer)
 		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_gui.renderer);
+}
+
+void gui_display_capture_result(const char *path, BOOL success) {
+	g_gui.screenshot_status = success == SUCCESS ? "Screenshot saved: " : "Screenshot failed: ";
+	g_gui.screenshot_status += path;
+	if (success != SUCCESS) {
+		g_gui.screenshot_status += " / ";
+		g_gui.screenshot_status += SDL_GetError();
+	}
+	SDL_Log("%s", g_gui.screenshot_status.c_str());
 }
 
 static void draw_overlay_rect(ImDrawList *list, ImVec2 scale, ImVec2 origin,

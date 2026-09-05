@@ -97,6 +97,7 @@ class NativePresenter {
 	// Presentation-thread GUI lifecycle; GPU objects stay inside each backend.
 	virtual bool gui_prepare() noexcept { return false; }
 	virtual void gui_shutdown() noexcept {}
+	virtual void set_output_capture(VAEG_OUTPUT_CAPTURE *) noexcept {}
 	virtual void set_output_viewport(int, int, int, int) noexcept {}
 
 	std::size_t filter_parameter_count() const noexcept;

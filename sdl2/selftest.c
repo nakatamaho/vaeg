@@ -1775,6 +1775,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 }
 
 static int test_viewport(void) {
+	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;

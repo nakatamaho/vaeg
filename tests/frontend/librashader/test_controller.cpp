@@ -34,6 +34,7 @@ bool fail_filter, fail_device, fail_recovery, fail_initialize;
 int viewport_values[4];
 const void *observed_pixels;
 const char *diagnostic = "";
+VAEG_OUTPUT_CAPTURE *capture_target;
 class FakePresenter final : public NativePresenter {
     PresenterState state_ = PresenterState::Unavailable;
 public:
@@ -46,6 +47,7 @@ public:
     }
     PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
         ++draw_count; observed_pixels = frame.pixels;
+        if (capture_target) capture_target->complete = 1;
         if (fail_device) { fail_device = false; return PresenterResult::Fallback; }
         if (fail_filter) {
             fail_filter = false; state_ = PresenterState::PassThrough;
@@ -67,6 +69,9 @@ public:
     void shutdown() noexcept override { ++shutdown_count; }
     bool gui_prepare() noexcept override { ++gui_count; return true; }
     void gui_shutdown() noexcept override { --gui_count; }
+    void set_output_capture(VAEG_OUTPUT_CAPTURE *capture) noexcept override {
+        capture_target = capture;
+    }
     void set_output_viewport(int x, int y, int w, int h) noexcept override {
         viewport_values[0] = x; viewport_values[1] = y;
         viewport_values[2] = w; viewport_values[3] = h;
@@ -91,6 +96,14 @@ int main() {
     frame.pixels = pixels;
     auto *p = vaeg_native_presenter_create(&window, 640, 422, "test", nullptr);
     check(p && initialize_count == 1, "initialization");
+    VAEG_OUTPUT_CAPTURE capture{};
+    vaeg_native_presenter_set_output_capture(p, &capture);
+    check(capture_target == &capture, "output capture target forwarded");
+    check(vaeg_native_presenter_present(p, &frame) == VAEG_NATIVE_PRESENTER_PRESENTED &&
+          capture.complete == 1, "capture completes during presentation");
+    vaeg_native_presenter_set_output_capture(p, nullptr);
+    check(capture_target == nullptr, "one-shot readback target detached");
+    draw_count = 0;
     diagnostic = "Missing/unloadable D3DX9_43.dll";
     check(std::strcmp(vaeg_native_presenter_error(p), diagnostic) == 0,
           "runtime dependency detail reaches frontend");

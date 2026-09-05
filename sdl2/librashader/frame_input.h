@@ -68,6 +68,13 @@ typedef struct {
 	uint64_t frame_time_delta_ns;
 } VAEG_FRAME_INPUT;
 
+/* Optional one-shot output readback, RGBA bytes, top-down. Not a raw frame. */
+typedef struct {
+	void *pixels;
+	uint32_t width, height, pitch_bytes;
+	int complete;
+} VAEG_OUTPUT_CAPTURE;
+
 void vaeg_frame_input_initialize(VAEG_FRAME_INPUT *input, const void *pixels, uint32_t width,
                                  uint32_t height, uint32_t pitch_bytes,
                                  VAEG_FRAME_PIXEL_FORMAT pixel_format,

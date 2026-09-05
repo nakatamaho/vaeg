@@ -70,6 +70,20 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Normal screenshots omitted display effects and information overlays
+
+- **Status/scope:** corrected in M99z11 for SDL and Windows native D3D11;
+  physical Windows screenshot comparison pending.
+- **Cause:** the GUI normal-save handler called `scrnmng_save_guest_frame`,
+  which encodes the raw guest shadow before effects, scaling and overlays.
+- **Correction:** queue a one-shot composed-output readback before presentation;
+  retain enabled information overlays while excluding menus/dialogs. Preserve
+  separate deterministic and raw-analysis capture paths.
+- **Verification:** [M99z11 report](../agents/reports/m99z11_display_screenshots.md),
+  including actual SDL software-renderer effect/overlay readback tests and
+  controller target lifetime tests. Native Metal/OpenGL readback is unsupported.
+- **Commit:** fixing SHA recorded in the report after the implementation commit.
+
 ### Information overlays omitted by native CRT presentation
 
 - **Status:** corrected in M99z9; Windows visual retest pending.

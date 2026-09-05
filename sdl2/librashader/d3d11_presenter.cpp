@@ -106,6 +106,10 @@ class D3D11Presenter final : public NativePresenter {
 		return PresenterResult::Recovered;
 	}
 
+	void set_output_capture(VAEG_OUTPUT_CAPTURE *capture) noexcept override {
+		bridge_.capture = capture;
+	}
+
 	PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
 		VAEG_D3D11_BRIDGE_RESULT result;
 

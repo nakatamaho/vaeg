@@ -560,6 +560,39 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 		state->context->OMSetRenderTargets(1, &render_target, nullptr);
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 	}
+	if (bridge->capture) {
+		VAEG_OUTPUT_CAPTURE *capture = bridge->capture;
+		ID3D11Texture2D *back = nullptr, *staging = nullptr;
+		D3D11_TEXTURE2D_DESC desc{};
+		D3D11_MAPPED_SUBRESOURCE mapped{};
+		if (SUCCEEDED(state->swap_chain->GetBuffer(0, IID_PPV_ARGS(&back)))) {
+			back->GetDesc(&desc);
+			if (capture->pixels && capture->width == desc.Width && capture->height == desc.Height &&
+			    capture->pitch_bytes >= desc.Width * 4 && desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM) {
+				desc.Usage = D3D11_USAGE_STAGING;
+				desc.BindFlags = 0;
+				desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+				desc.MiscFlags = 0;
+				if (SUCCEEDED(state->device->CreateTexture2D(&desc, nullptr, &staging))) {
+					state->context->CopyResource(staging, back);
+					if (SUCCEEDED(state->context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped))) {
+						for (UINT y = 0; y < desc.Height; ++y) {
+							const auto *src = static_cast<const unsigned char *>(mapped.pData) + y * mapped.RowPitch;
+							auto *dst = static_cast<unsigned char *>(capture->pixels) + y * capture->pitch_bytes;
+							for (UINT x = 0; x < desc.Width; ++x) {
+								dst[4*x] = src[4*x+2]; dst[4*x+1] = src[4*x+1];
+								dst[4*x+2] = src[4*x]; dst[4*x+3] = 255;
+							}
+						}
+						state->context->Unmap(staging, 0);
+						capture->complete = 1;
+					}
+					staging->Release();
+				}
+			}
+			back->Release();
+		}
+	}
 	result = state->swap_chain->Present(1, 0);
 	if (result == DXGI_STATUS_OCCLUDED) {
 		return VAEG_D3D11_BRIDGE_NO_OUTPUT;

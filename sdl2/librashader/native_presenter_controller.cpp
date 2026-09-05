@@ -104,6 +104,12 @@ extern "C" int vaeg_native_presenter_is_headless_video_driver(const char *video_
 	return (video_driver != nullptr) && (strcmp(video_driver, "dummy") == 0);
 }
 
+extern "C" void vaeg_native_presenter_set_output_capture(
+    VAEG_NATIVE_PRESENTER *presenter, VAEG_OUTPUT_CAPTURE *capture) {
+	if (presenter && presenter->implementation)
+		presenter->implementation->set_output_capture(capture);
+}
+
 extern "C" VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
 	void *host_window, uint32_t drawable_width, uint32_t drawable_height,
 	const char *preset_path, const char *parameter_state_path) {

@@ -76,6 +76,8 @@ typedef struct {
 	BOOL native_change_pending;
 	BOOL native_reload_pending;
 	char native_status[256];
+	char display_capture_path[MAX_PATH];
+	BOOL display_capture_ready;
 } SCRNMNG;
 
 typedef struct {
@@ -1901,6 +1903,128 @@ void scrnmng_present_begin(void) {
 	scrnmng.dirty = FALSE;
 }
 
+BOOL scrnmng_request_display_capture(const char *path) {
+	if (!path || !path[0] || strlen(path) >= sizeof(scrnmng.display_capture_path) ||
+	    scrnmng.display_capture_path[0]) {
+		SDL_SetError("Invalid or already pending screenshot request");
+		return FAILURE;
+	}
+	milstr_ncpy(scrnmng.display_capture_path, path, sizeof(scrnmng.display_capture_path));
+	return SUCCESS;
+}
+
+BOOL scrnmng_prepare_display_capture(void) {
+	scrnmng.display_capture_ready = scrnmng.display_capture_path[0] != '\0';
+	return scrnmng.display_capture_ready;
+}
+
+static SDL_Surface *scrnmng_crop_display_capture(SDL_Surface *surface) {
+	int window_width, window_height;
+	if (surface) {
+		SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
+		const int inset = window_height > 0 ?
+		    (int)(((SINT64)scrnmng.menu_height * surface->h + window_height / 2) / window_height) : 0;
+		if (inset >= 0 && inset < surface->h) {
+			return SDL_CreateRGBSurfaceWithFormatFrom(
+			    (UINT8 *)surface->pixels + inset * surface->pitch, surface->w,
+			    surface->h - inset, 32, surface->pitch, SDL_PIXELFORMAT_RGBA32);
+		}
+	}
+	return NULL;
+}
+
+static void scrnmng_finish_display_capture(SDL_Surface *surface, BOOL captured) {
+	BOOL saved = FAILURE;
+	SDL_Surface *cropped = NULL;
+	if (captured == SUCCESS && surface) {
+		cropped = scrnmng_crop_display_capture(surface);
+		if (cropped) saved = scrnmng_png_save_surface(cropped, scrnmng.display_capture_path);
+	} else {
+		SDL_SetError("Display readback failed or is unsupported by this native backend");
+	}
+	gui_display_capture_result(scrnmng.display_capture_path, saved);
+	SDL_FreeSurface(cropped);
+	SDL_FreeSurface(surface);
+	scrnmng.display_capture_path[0] = '\0';
+	scrnmng.display_capture_ready = FALSE;
+}
+
+static SDL_Surface *scrnmng_read_sdl_output(void) {
+	int width, height;
+	SDL_Surface *surface;
+	if (SDL_GetRendererOutputSize(scrnmng.renderer, &width, &height) != 0) return NULL;
+	surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+	if (surface && SDL_RenderReadPixels(scrnmng.renderer, NULL, SDL_PIXELFORMAT_RGBA32,
+	                                   surface->pixels, surface->pitch) != 0) {
+		SDL_FreeSurface(surface);
+		return NULL;
+	}
+	return surface;
+}
+
+BOOL scrnmng_display_capture_selftest(void) {
+	const SCRNMNG saved = scrnmng;
+	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const BOOL video_active = SDL_WasInit(SDL_INIT_VIDEO) != 0;
+	SDL_Surface *white = NULL, *baseline = NULL, *filtered = NULL, *info = NULL;
+	VAEG_VIEWPORT viewport;
+	BOOL ok = FAILURE;
+	if (!video_active && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) return FAILURE;
+	ZeroMemory(&scrnmng, sizeof(scrnmng));
+	scrnmng.window = SDL_CreateWindow("display capture test", 0, 0, 640, 422, SDL_WINDOW_HIDDEN);
+	if (!scrnmng.window) goto cleanup;
+	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
+	if (!scrnmng.renderer) goto cleanup;
+	white = SDL_CreateRGBSurfaceWithFormat(0, 640, 400, 32, SDL_PIXELFORMAT_RGBA32);
+	if (!white) goto cleanup;
+	SDL_FillRect(white, NULL, SDL_MapRGBA(white->format, 255, 255, 255, 255));
+	scrnmng.texture = SDL_CreateTextureFromSurface(scrnmng.renderer, white);
+	if (!scrnmng.texture) goto cleanup;
+	scrnmng.enable = TRUE;
+	scrnmng.width = 640; scrnmng.height = 400;
+	scrnmng.menu_height = 22; scrnmng.scale = 1;
+	scrnmng.scaling = VAEG_SCALING_FIT;
+	np2oscfg.DISPCLK = 0;
+	scrnmng_present_begin();
+	baseline = scrnmng_read_sdl_output();
+	scrnmng.effect = VAEG_EFFECT_SCANLINE;
+	scrnmng_present_begin();
+	filtered = scrnmng_read_sdl_output();
+	if (!baseline || !filtered || scrnmng_calculate_viewport(&viewport) != SUCCESS) goto cleanup;
+	info = scrnmng_crop_display_capture(baseline);
+	if (!info || info->w != 640 || info->h != 400 || ((BYTE *)info->pixels)[0] != 255) goto cleanup;
+	SDL_FreeSurface(info); info = NULL;
+	if (((BYTE *)baseline->pixels)[23 * baseline->pitch] != 255 ||
+	    ((BYTE *)filtered->pixels)[23 * filtered->pitch] >= 255) goto cleanup;
+	np2oscfg.DISPCLK = VAEG_DISPINFO_VIDEO | VAEG_DISPINFO_FRAMEBUFFER;
+	scrnmng_draw_video_info_overlay(&viewport);
+	scrnmng_draw_framebuffer_info_overlay(&viewport);
+	info = scrnmng_read_sdl_output();
+	if (!info || memcmp(info->pixels, filtered->pixels, info->pitch * info->h) == 0) goto cleanup;
+	SDL_FreeSurface(info); info = NULL;
+	np2oscfg.DISPCLK = 0;
+	scrnmng_present_begin();
+	scrnmng_draw_video_info_overlay(&viewport);
+	scrnmng_draw_framebuffer_info_overlay(&viewport);
+	info = scrnmng_read_sdl_output();
+	if (!info || memcmp(info->pixels, filtered->pixels, info->pitch * info->h) != 0) goto cleanup;
+	if (scrnmng_request_display_capture("test.png") != SUCCESS ||
+	    scrnmng.display_capture_ready || !scrnmng_prepare_display_capture()) goto cleanup;
+	if (scrnmng_request_display_capture("second.png") != FAILURE) goto cleanup;
+	ok = SUCCESS;
+cleanup:
+	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
+	SDL_FreeSurface(white);
+	SDL_DestroyTexture(scrnmng.texture);
+	SDL_DestroyRenderer(scrnmng.renderer);
+	SDL_DestroyWindow(scrnmng.window);
+	scrnmng = saved;
+	np2oscfg.DISPCLK = saved_info;
+	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
+	if (ok != SUCCESS) fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
+	return ok;
+}
+
 void scrnmng_present_end(void) {
 	VAEG_VIEWPORT viewport;
 	VAEG_FRAME_INPUT frame;
@@ -1940,7 +2064,22 @@ void scrnmng_present_end(void) {
 			    VAEG_FRAME_ROWS_TOP_DOWN, scrnmng.aspect ? 4U : (UINT32)scrnmng.width,
 			    scrnmng.aspect ? 3U : (UINT32)scrnmng.height, vaeg_nominal_frame_rate, 1U,
 			    scrnmng.native_frame_number++, 16666667U);
-			native_result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
+			if (scrnmng.display_capture_ready) {
+				SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(
+				    0, drawable_width, drawable_height, 32, SDL_PIXELFORMAT_RGBA32);
+				VAEG_OUTPUT_CAPTURE capture = {0};
+				if (surface) {
+					capture.pixels = surface->pixels;
+					capture.width = surface->w; capture.height = surface->h;
+					capture.pitch_bytes = surface->pitch;
+				}
+				vaeg_native_presenter_set_output_capture(scrnmng.native_presenter, &capture);
+				native_result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
+				vaeg_native_presenter_set_output_capture(scrnmng.native_presenter, NULL);
+				scrnmng_finish_display_capture(surface, capture.complete ? SUCCESS : FAILURE);
+			} else {
+				native_result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
+			}
 			if (native_result == VAEG_NATIVE_PRESENTER_NO_OUTPUT) {
 				return;
 			}
@@ -1963,6 +2102,10 @@ void scrnmng_present_end(void) {
 	}
 	if (scrnmng.rendered_capture_enabled) {
 		scrnmng_capture_rendered_frame();
+	}
+	if (scrnmng.display_capture_ready) {
+		SDL_Surface *surface = scrnmng_read_sdl_output();
+		scrnmng_finish_display_capture(surface, surface ? SUCCESS : FAILURE);
 	}
 	SDL_RenderPresent(scrnmng.renderer);
 }
