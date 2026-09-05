@@ -248,3 +248,12 @@ This does not prove librashader reflection, D3D11 compilation, or physical GPU
 appearance. Windows visual/screenshot checks at 80/100/120%, parameter reload,
 and GPU performance remain deferred. The added source-sized intermediate pass
 has not been GPU-benchmarked; no performance gate is claimed.
+
+Implementation: [fc470537](https://github.com/nakatamaho/vaeg/commit/fc470537f0bb018c6d8d0d5ec5a92b17ea65dcab).
+MinGW was reconfigured and rebuilt after this commit to embed its identity.
+Handoff: `build/mingw-cross/vaeg-m99z18-windows-x86_64.zip`, containing the EXE,
+unchanged optional DLL, updated assets and notices. Directory and ZIP validation
+PASS with `python3 tools/release/check-librashader-package.py --input <path>
+--platform windows`; copied EXE matches the build with `cmp`.
+EXE SHA-256: `10565bd5b1ba90a87397a588071bd04e3c426dc4470789efe49cd3622619bf48`.
+DLL SHA-256: `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc`.
