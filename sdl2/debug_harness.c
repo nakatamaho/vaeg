@@ -29,6 +29,7 @@
 #include "fdd/diskdrv.h"
 #include "g75_screen.h"
 #include "gvramva.h"
+#include "kbdinject.h"
 #include "kbdpaste.h"
 #include "sdlapi.h"
 
@@ -60,6 +61,8 @@ typedef enum {
 	DEBUG_ACTION_WAIT_FRAME,
 	DEBUG_ACTION_INPUT_LINE,
 	DEBUG_ACTION_ENTER,
+	DEBUG_ACTION_KEY_DOWN,
+	DEBUG_ACTION_KEY_UP,
 	DEBUG_ACTION_MOUNT_FDD,
 	DEBUG_ACTION_WAIT_PC,
 	DEBUG_ACTION_TRACE,
@@ -371,6 +374,19 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		if ((first == NULL) || (debug_next_token(&cursor) != NULL) ||
 		    (debug_parse_uint32(first, &number) != SUCCESS) ||
 		    (debug_add_action(DEBUG_ACTION_WAIT_FRAME, &action) != SUCCESS)) {
+			goto invalid;
+		}
+		action->value = number;
+		*event_context = FALSE;
+		return SUCCESS;
+	}
+	if (!strcmp(command, "key-down") || !strcmp(command, "key-up")) {
+		first = debug_next_token(&cursor);
+		if ((first == NULL) || (debug_next_token(&cursor) != NULL) ||
+		    (debug_parse_uint32(first, &number) != SUCCESS) || (number > 0x7f) ||
+		    (debug_add_action(!strcmp(command, "key-down") ? DEBUG_ACTION_KEY_DOWN
+		                                                   : DEBUG_ACTION_KEY_UP,
+		                      &action) != SUCCESS)) {
 			goto invalid;
 		}
 		action->value = number;
@@ -748,6 +764,17 @@ BOOL debug_harness_active(void) {
 	return harness.loaded;
 }
 
+BOOL debug_harness_has_instruction_trace(void) {
+	UINT index;
+
+	for (index = 0; index < harness.action_count; index++) {
+		if (harness.actions[index].type == DEBUG_ACTION_TRACE) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static BOOL debug_execute_ready(UINT32 frames) {
 	DEBUG_ACTION *action;
 	DEBUG_RESOURCE *resource;
@@ -765,6 +792,23 @@ static BOOL debug_execute_ready(UINT32 frames) {
 				return SUCCESS;
 			}
 			debug_log("frame", frames, NULL, action->value);
+			harness.action_index++;
+			break;
+		case DEBUG_ACTION_KEY_DOWN:
+		case DEBUG_ACTION_KEY_UP:
+			/* Explicit transitions use the same make/break seam as physical input.
+			 * Reject overlap with host-paced paste rather than delay the event. */
+			if (kbdpaste_active()) {
+				fprintf(stderr, "Error: debug key transition overlaps active paste\n");
+				return FAILURE;
+			}
+			if (action->type == DEBUG_ACTION_KEY_DOWN) {
+				kbdinject_keydown((BYTE)action->value);
+				debug_log("key-down", frames, NULL, action->value);
+			} else {
+				kbdinject_keyup((BYTE)action->value);
+				debug_log("key-up", frames, NULL, action->value);
+			}
 			harness.action_index++;
 			break;
 		case DEBUG_ACTION_INPUT_LINE:
@@ -891,6 +935,13 @@ BOOL debug_harness_selftest(void) {
 	                              "capture bad registers\n";
 	static const char missing_limit[] = "debug-script 1\n"
 	                                    "exit\n";
+	static const char *key_cases[] = {"key-down 0\nkey-up 0\nkey-down 127\nkey-up 127\n",
+	                                  "key-down 128\n",
+	                                  "key-up -1\n",
+	                                  "key-down\n",
+	                                  "key-up 2 extra\n",
+	                                  "key-down 1x\n",
+	                                  "key-up 4294967296\n"};
 	char extended[8192];
 	char *buffer;
 	size_t extended_size;
@@ -905,7 +956,8 @@ BOOL debug_harness_selftest(void) {
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
 	         (harness.resource_count == 1) && (harness.counter_count == 1) &&
 	         (harness.action_count == 7) && (harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 15);
+	         (harness.actions[4].type == DEBUG_ACTION_TRACE) &&
+	         (harness.actions[5].argument == 15) && debug_harness_has_instruction_trace();
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);
@@ -922,6 +974,22 @@ BOOL debug_harness_selftest(void) {
 	passed = passed && (debug_parse_buffer(buffer, sizeof(missing_limit)) == FAILURE);
 	free(buffer);
 	debug_harness_clear();
+	for (index = 0; index < sizeof(key_cases) / sizeof(key_cases[0]); index++) {
+		extended_size =
+		    (size_t)snprintf(extended, sizeof(extended),
+		                     "debug-script 1\nlimit-frame 1000\n%sexit\n", key_cases[index]);
+		if (index == 0) {
+			passed = passed && (debug_parse_buffer(extended, (UINT)extended_size + 1) == SUCCESS) &&
+			         (harness.action_count == 5) &&
+			         (harness.actions[0].type == DEBUG_ACTION_KEY_DOWN) &&
+			         (harness.actions[1].type == DEBUG_ACTION_KEY_UP) &&
+			         (harness.actions[2].value == 127);
+			passed = passed && !debug_harness_has_instruction_trace();
+		} else {
+			passed = passed && (debug_parse_buffer(extended, (UINT)extended_size + 1) == FAILURE);
+		}
+		debug_harness_clear();
+	}
 	extended_size =
 	    (size_t)snprintf(extended, sizeof(extended), "debug-script 1\nlimit-frame 1000\n");
 	for (index = 0; index < 300; index++) {

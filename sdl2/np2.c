@@ -1973,14 +1973,9 @@ int main(int argc, char **argv) {
 	}
 	if (((options.debug_script == NULL) != (options.debug_output_dir == NULL)) ||
 	    ((options.debug_script != NULL) &&
-	     ((options.trace_cpu != 0)
-#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
-	      || (options.causal_trace_output != NULL)
-#endif
-	      ||
-	      (options.headless_input_script != NULL)))) {
+	     ((options.trace_cpu != 0) || (options.headless_input_script != NULL)))) {
 		fprintf(stderr, "Error: --debug-script requires --debug-output-dir and cannot be "
-		                "combined with tracing or --headless-input-script\n");
+		                "combined with --trace-cpu or --headless-input-script\n");
 		return (FAILURE);
 	}
 	if ((options.headless_input_script != NULL) || (options.debug_script != NULL)
@@ -2075,6 +2070,16 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return (FAILURE);
 	}
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if ((options.causal_trace_output != NULL) && debug_harness_has_instruction_trace()) {
+		fprintf(stderr, "Error: causal tracing cannot be combined with debug trace commands\n");
+		debug_harness_clear();
+		headless_input_script_clear(&input_script);
+		SDL_Quit();
+		dosio_term();
+		return (FAILURE);
+	}
+#endif
 	if (hostfat_manager_initialize() != SUCCESS) {
 		fprintf(stderr, "Error: cannot initialize HOSTFAT manager: %s\n", SDL_GetError());
 		debug_harness_clear();

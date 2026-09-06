@@ -34,6 +34,7 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir);
 void debug_harness_clear(void);
 BOOL debug_harness_initialize(void);
 BOOL debug_harness_active(void);
+BOOL debug_harness_has_instruction_trace(void);
 BOOL debug_harness_after_frame(UINT32 frames);
 BOOL debug_harness_handle_pc_event(UINT32 frames);
 BOOL debug_harness_exit_requested(void);

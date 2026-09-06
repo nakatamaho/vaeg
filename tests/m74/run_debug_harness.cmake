@@ -152,3 +152,62 @@ file(REMOVE_RECURSE "${work}")
 message(STATUS
     "M74 ROM-less debug harness event, trace, capture, frame-limit, input, "
     "and FDD schemas passed")
+
+# Explicit transitions have no host-clock pacing. Compare complete event logs.
+foreach(trial IN ITEMS 1 2)
+    set(causal_arguments)
+    set(key_work "${CMAKE_CURRENT_BINARY_DIR}/debug-key-events-${trial}")
+    file(MAKE_DIRECTORY "${key_work}/output")
+    file(WRITE "${key_work}/case.debug"
+        "debug-script 1\nlimit-frame 12\n"
+        "wait-frame 1\nkey-down 29\nkey-up 29\n"
+        "key-down 112\nkey-down 29\nkey-up 29\nkey-up 112\nexit\n")
+    if(trial EQUAL 2)
+        set(causal_arguments --causal-trace-output "${key_work}/causal.jsonl"
+            --causal-trace-limit 100 --causal-trace-event instruction_fetch_watch
+            --causal-trace-fetch 1048560)
+    endif()
+    execute_process(
+        COMMAND "${VAEG_EXECUTABLE}" --smoke --model va --no-cfg --no-bkupmem
+            --debug-script "${key_work}/case.debug"
+            --debug-output-dir "${key_work}/output"
+            ${causal_arguments}
+        WORKING_DIRECTORY "${key_work}"
+        RESULT_VARIABLE key_result OUTPUT_VARIABLE key_stdout ERROR_VARIABLE key_stderr
+        TIMEOUT 30)
+    if(NOT key_result EQUAL 0)
+        message(FATAL_ERROR "DEBUG_KEY_EXECUTION: ${key_result}\n${key_stdout}\n${key_stderr}")
+    endif()
+    file(READ "${key_work}/output/events.tsv" key_events)
+    foreach(pattern IN ITEMS
+            "key-down${tab}1${tab}-${tab}29" "key-up${tab}1${tab}-${tab}29"
+            "key-down${tab}1${tab}-${tab}112"
+            "key-up${tab}1${tab}-${tab}112" "exit${tab}1${tab}-${tab}0")
+        if(NOT key_events MATCHES "${pattern}")
+            message(FATAL_ERROR "DEBUG_KEY_EVENT: missing ${pattern}")
+        endif()
+    endforeach()
+    if(trial EQUAL 1)
+        set(first_key_events "${key_events}")
+    elseif(NOT first_key_events STREQUAL key_events)
+        message(FATAL_ERROR "DEBUG_KEY_PAIR_MISMATCH")
+    endif()
+endforeach()
+file(READ "${key_work}/causal.jsonl" causal_events)
+if(NOT causal_events MATCHES "instruction_fetch_watch")
+    message(FATAL_ERROR "DEBUG_KEY_CAUSAL_OBSERVER_MISSING")
+endif()
+file(WRITE "${key_work}/conflict.debug"
+    "debug-script 1\nlimit-frame 2\nwait-pc f000:fff0 1\ntrace conflict 1\nexit\n")
+execute_process(
+    COMMAND "${VAEG_EXECUTABLE}" --smoke --model va --no-cfg --no-bkupmem
+        --debug-script "${key_work}/conflict.debug" --debug-output-dir "${key_work}/output"
+        --causal-trace-output "${key_work}/conflict.jsonl" --causal-trace-limit 100
+    WORKING_DIRECTORY "${key_work}"
+    RESULT_VARIABLE conflict_result OUTPUT_VARIABLE conflict_stdout ERROR_VARIABLE conflict_stderr
+    TIMEOUT 30)
+if(conflict_result EQUAL 0 OR NOT conflict_stderr MATCHES
+        "causal tracing cannot be combined with debug trace commands")
+    message(FATAL_ERROR "DEBUG_TRACE_CONFLICT_NOT_REJECTED")
+endif()
+message(STATUS "Explicit make/break guest-frame event pairs passed")
