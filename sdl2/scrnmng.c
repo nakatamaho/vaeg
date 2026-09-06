@@ -551,7 +551,7 @@ static void scrnmng_update_title(void) {
 	}
 	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
 	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
-	length = snprintf(title, sizeof(title), "%s [%s]", app_name, scrnmng_native_status());
+	length = snprintf(title, sizeof(title), "%s", app_name);
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0) {
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);
