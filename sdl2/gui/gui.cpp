@@ -25,6 +25,7 @@
 #include "sdlapi.h"
 
 #include "imgui.h"
+#include "vaeg_licenses.h"
 #include "imgui_internal.h"
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_sdlrenderer2.h"
@@ -3499,6 +3500,41 @@ static void draw_info_menu(void) {
 	}
 }
 
+static void draw_third_party_licenses(void) {
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float unit = ImGui::GetFontSize();
+	ImGui::SetNextWindowSize(ImVec2((std::min)(54.0f * unit, viewport->WorkSize.x * 0.95f),
+	                                (std::min)(36.0f * unit, viewport->WorkSize.y * 0.95f)),
+	                         ImGuiCond_Appearing);
+	bool open = true;
+	if (ImGui::BeginPopupModal("Third-party licenses", &open)) {
+		static int selected = 0;
+		ImGui::TextWrapped("Licenses and source references are embedded in this executable. "
+		                   "Optional runtime notices do not indicate that a runtime is loaded.");
+		ImGui::Text("Dear ImGui %s; SDL headers %d.%d.%d", IMGUI_VERSION, SDL_MAJOR_VERSION,
+		            SDL_MINOR_VERSION, SDL_PATCHLEVEL);
+		if (ImGui::BeginCombo("Component", vaeg_licenses[selected].name)) {
+			for (int i = 0; i < IM_ARRAYSIZE(vaeg_licenses); ++i) {
+				if (ImGui::Selectable(vaeg_licenses[i].name, selected == i))
+					selected = i;
+			}
+			ImGui::EndCombo();
+		}
+		if (ImGui::Button("Copy text"))
+			ImGui::SetClipboardText(vaeg_licenses[selected].text);
+		ImGui::SameLine();
+		if (ImGui::Button("Close"))
+			ImGui::CloseCurrentPopup();
+		if (ImGui::BeginChild("license-text", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
+			ImGui::PushTextWrapPos(0.0f);
+			ImGui::TextUnformatted(vaeg_licenses[selected].text);
+			ImGui::PopTextWrapPos();
+		}
+		ImGui::EndChild();
+		ImGui::EndPopup();
+	}
+}
+
 static void draw_about_dialog(void) {
 	if (g_gui.about_request) {
 		g_gui.about_request = false;
@@ -3508,9 +3544,11 @@ static void draw_about_dialog(void) {
 		return;
 	}
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	const float width = (std::min)(g_gui.about_more ? 620.0f : 360.0f, viewport->WorkSize.x * 0.9f);
+	const float ui_scale = ImGui::GetFontSize() / 16.0f;
+	const float width =
+	    (std::min)((g_gui.about_more ? 620.0f : 360.0f) * ui_scale, viewport->WorkSize.x * 0.9f);
 	const float height =
-	    g_gui.about_more ? (std::min)(700.0f, viewport->WorkSize.y * 0.9f) : 310.0f;
+	    (std::min)((g_gui.about_more ? 700.0f : 350.0f) * ui_scale, viewport->WorkSize.y * 0.9f);
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
 	if (ImGui::BeginPopupModal("About...##vaeg", &g_gui.about_open,
@@ -3550,13 +3588,17 @@ static void draw_about_dialog(void) {
 			ImGui::EndTable();
 		}
 
+		if (ImGui::Button("Third-party licenses..."))
+			ImGui::OpenPopup("Third-party licenses");
+		draw_third_party_licenses();
+
 		if (g_gui.about_more) {
 			ImGui::SeparatorText("Running VA configuration");
 			ImGui::InputTextMultiline("##runtime-info", g_gui.about_info, sizeof(g_gui.about_info),
 			                          ImVec2(-1.0f, -1.0f), ImGuiInputTextFlags_ReadOnly);
 		}
 
-		if (close_about || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+		if (close_about || (ImGui::IsWindowFocused() && ImGui::IsKeyPressed(ImGuiKey_Escape))) {
 			g_gui.about_open = false;
 			ImGui::CloseCurrentPopup();
 		}

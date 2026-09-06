@@ -758,6 +758,8 @@ if(VAEG_ENABLE_ARCHIVE_DROP)
 else()
     message(STATUS "Archive disk-image drop: disabled by VAEG_ENABLE_ARCHIVE_DROP")
 endif()
+include(cmake/third_party_licenses.cmake)
+
 if(MINGW)
     target_link_options(vaeg_sdl2 PRIVATE -static -static-libgcc -static-libstdc++)
     target_link_libraries(vaeg_sdl2 PRIVATE winpthread)
@@ -779,6 +781,9 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_third_party_licenses
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
 
