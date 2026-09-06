@@ -3525,10 +3525,14 @@ static void draw_third_party_licenses(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Close"))
 			ImGui::CloseCurrentPopup();
-		if (ImGui::BeginChild("license-text", ImVec2(0, 0), ImGuiChildFlags_Borders)) {
-			ImGui::PushTextWrapPos(0.0f);
+		const bool long_notice = std::strlen(vaeg_licenses[selected].text) > 65536;
+		if (ImGui::BeginChild("license-text", ImVec2(0, 0), ImGuiChildFlags_Borders,
+		                      long_notice ? ImGuiWindowFlags_HorizontalScrollbar : 0)) {
+			if (!long_notice)
+				ImGui::PushTextWrapPos(0.0f);
 			ImGui::TextUnformatted(vaeg_licenses[selected].text);
-			ImGui::PopTextWrapPos();
+			if (!long_notice)
+				ImGui::PopTextWrapPos();
 		}
 		ImGui::EndChild();
 		ImGui::EndPopup();

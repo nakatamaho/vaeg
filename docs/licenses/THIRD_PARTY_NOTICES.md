@@ -25,16 +25,18 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## librashader
 
-VAEG optionally loads the official librashader v0.12.0 implementation at
-runtime through its C API and dynamic-loader header. The implementation is
+VAEG uses the official librashader v0.12.0 implementation through its C API,
+either statically linked or optionally loaded at runtime. The implementation is
 under the Mozilla Public License 2.0. The complete license is distributed as
 `licenses/librashader-MPL-2.0.txt`; the upstream source and pin are recorded
 in `docs/agents/DECISIONS/ADR-0014-librashader-crt.md` in the source tree.
 
 The vendored C headers and loader are under the MIT license as stated by the
 upstream `include/README.md`. The corresponding notice is distributed as
-`licenses/librashader-headers-MIT.txt`. No librashader implementation code is
-linked into VAEG.
+`licenses/librashader-headers-MIT.txt`. Static builds preserve the MPL-2.0
+license of librashader and embed its license and corresponding-source reference
+in About > Third-party licenses. The corresponding upstream source is
+https://github.com/SnowflakePowered/librashader/tree/87e8a97b50516d997defeaa168173dcd185d4022.
 
 ## Default CRT shader
 

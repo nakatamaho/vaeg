@@ -29,9 +29,12 @@ Status: Accepted for M99
 
 ## Decision
 
-M99 consumes the official librashader C API through the official
-`librashader_ld.h` dynamic loader. The implementation is never statically
-linked into VAEG. The vendored files are placed under `external/librashader`
+M99 consumes the official librashader C API. By maintainer amendment, it may
+be statically linked for single-executable distribution, or loaded through
+the official `librashader_ld.h` dynamic loader. Static builds bind the same
+C API function table at link time, with platform-specific runtime features.
+The MPL implementation stays separately licensed; notices and corresponding
+source references must accompany the binary. The vendored files are placed under `external/librashader`
 because this repository's convention requires third-party material under
 `external/`, rather than the task proposal's `third_party/` path.
 
@@ -51,7 +54,7 @@ The pin is the official `librashader-v0.12.0` release:
 | `librashader_ld.h` SHA-256 | `bcffcbc854afb287c9f935c1a0e3b569f5e6775ef85914bd7f7025ad1f6bde33` |
 | `LICENSE.md` SHA-256 | `69c15395f33bc9ce8e1d8b6cef42b7e49cdec4c6f5233d4b9cfc4bfa335f97f9` |
 
-The release binaries are runtime inputs, not linked source dependencies. The
+The following audit describes the original dynamic-runtime inputs. The
 official release assets audited so far are:
 
 | Artifact | SHA-256 |
@@ -64,7 +67,8 @@ official release assets audited so far are:
 
 The macOS archives contain `librashader.dylib` and the Windows archives
 contain `librashader.dll`; the archives also contain upstream static-library
-files, but M99 does not consume those files. No Linux binary is published in
+files; MinGW static builds require a compatible GNU-target build rather than
+assuming that the MSVC archive is compatible. No Linux binary is published in
 the audited release assets. The Linux OpenGL runtime must therefore be built
 from this exact source pin in the Linux packaging/CI stage, with its resulting
 artifact hash recorded before G99-6.
@@ -114,8 +118,8 @@ the existing fail-closed renderer path.
 
 ## Consequences
 
-- VAEG remains BSD-2-Clause; the MPL-2.0 implementation is a separately
-  loaded runtime with its required license notice.
+- VAEG-owned sources remain BSD-2-Clause; the MPL-2.0 implementation retains
+  its license and corresponding-source obligations with either linkage mode.
 - A missing library, unsupported runtime, ABI mismatch, or shader failure can
   disable the optional filter without changing the existing SDL renderer.
 - Platform runtime hashes and the Linux source-built hash remain release-gate

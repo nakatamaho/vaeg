@@ -30,6 +30,10 @@ option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
 option(VAEG_STATIC_SDL2 "Link SDL2 statically" OFF)
 option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
+option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" OFF)
+set(VAEG_LIBRASHADER_STATIC_LIBRARY "" CACHE FILEPATH "Target-compatible librashader static archive")
+set(VAEG_LIBRASHADER_NATIVE_LIBS "" CACHE STRING "Native link libraries reported by rustc")
+set(VAEG_LIBRASHADER_STATIC_NOTICES "" CACHE FILEPATH "Generated static dependency notices")
 option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
@@ -608,6 +612,35 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
 if(VAEG_ENABLE_LIBRASHADER)
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_LIBRASHADER=1)
+    if(VAEG_STATIC_LIBRASHADER)
+        include(cmake/builtin_shaders.cmake)
+        target_sources(vaeg_sdl2 PRIVATE sdl2/librashader/builtin_shaders.cpp)
+        if(MINGW)
+            target_sources(vaeg_sdl2 PRIVATE sdl2/librashader/optional_dxc.cpp)
+        endif()
+        if(NOT EXISTS "${VAEG_LIBRASHADER_STATIC_LIBRARY}")
+            message(FATAL_ERROR "Static librashader requires VAEG_LIBRASHADER_STATIC_LIBRARY")
+        endif()
+        if(NOT EXISTS "${VAEG_LIBRASHADER_STATIC_NOTICES}")
+            message(FATAL_ERROR "Static librashader requires generated dependency notices")
+        endif()
+        get_filename_component(libra_audit_dir "${VAEG_LIBRASHADER_STATIC_NOTICES}" DIRECTORY)
+        file(READ "${libra_audit_dir}/static-build.json" libra_audit)
+        string(JSON libra_pin GET "${libra_audit}" source_revision)
+        string(JSON libra_expected GET "${libra_audit}" archive_sha256)
+        string(JSON libra_notice_expected GET "${libra_audit}" notices_sha256)
+        string(JSON libra_unresolved LENGTH "${libra_audit}" unresolved_notices)
+        file(SHA256 "${VAEG_LIBRASHADER_STATIC_LIBRARY}" libra_actual)
+        file(SHA256 "${VAEG_LIBRASHADER_STATIC_NOTICES}" libra_notice_actual)
+        if(NOT libra_pin STREQUAL "87e8a97b50516d997defeaa168173dcd185d4022" OR
+           NOT libra_expected STREQUAL libra_actual OR
+           NOT libra_notice_expected STREQUAL libra_notice_actual OR libra_unresolved)
+            message(FATAL_ERROR "Static librashader source/archive/license audit mismatch")
+        endif()
+        target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_STATIC_LIBRASHADER=1)
+        target_link_libraries(vaeg_sdl2 PRIVATE
+            "${VAEG_LIBRASHADER_STATIC_LIBRARY}" ${VAEG_LIBRASHADER_NATIVE_LIBS})
+    endif()
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
@@ -784,6 +817,31 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
+    if(VAEG_STATIC_LIBRASHADER AND VAEG_ENABLE_LIBRASHADER)
+        add_executable(vaeg_static_preset
+            tests/frontend/librashader/test_static_preset.cpp
+            sdl2/librashader/builtin_shaders.cpp)
+        if(MINGW)
+            target_sources(vaeg_static_preset PRIVATE sdl2/librashader/optional_dxc.cpp)
+        endif()
+        target_compile_definitions(vaeg_static_preset PRIVATE VAEG_STATIC_LIBRASHADER=1)
+        target_include_directories(vaeg_static_preset PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated")
+        target_link_libraries(vaeg_static_preset PRIVATE
+            "${VAEG_LIBRASHADER_STATIC_LIBRARY}" ${VAEG_LIBRASHADER_NATIVE_LIBS})
+        file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/static-preset-test")
+        add_test(NAME vaeg_static_preset COMMAND vaeg_static_preset)
+        if(NOT CMAKE_CROSSCOMPILING)
+            add_test(NAME vaeg_static_cache
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/librashader/test_static_cache.py"
+                    "$<TARGET_FILE:vaeg_static_preset>")
+        endif()
+        set_tests_properties(vaeg_static_preset PROPERTIES
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/static-preset-test")
+    endif()
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
 

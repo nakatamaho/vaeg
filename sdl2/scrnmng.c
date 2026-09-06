@@ -38,6 +38,7 @@
 #include "appicon.h"
 #include "framedisp.h"
 #include "librashader/native_presenter_controller.h"
+#include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
 
 typedef struct {
@@ -116,6 +117,12 @@ static BOOL scrnmng_native_fallback(void);
 static const char *const scrnmng_native_parameter_state = NULL;
 
 const char *scrnmng_native_preset_path(void) {
+#if defined(VAEG_STATIC_LIBRASHADER)
+	const char *configured = np2oscfg.gui_shader_preset;
+	if (configured[0] && strcmp(configured, VAEG_DEFAULT_SHADER_PRESET) != 0)
+		return configured;
+	return vaeg_builtin_shader_preset();
+#else
 	static char bundled_path[4096];
 	const char *configured = np2oscfg.gui_shader_preset;
 	SDL_RWops *file;
@@ -134,6 +141,7 @@ const char *scrnmng_native_preset_path(void) {
 		}
 	}
 	return VAEG_DEFAULT_SHADER_PRESET;
+#endif
 }
 
 static BOOL scrnmng_native_requested(void) {

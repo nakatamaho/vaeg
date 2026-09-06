@@ -45,6 +45,44 @@
 /* Initialization-only diagnostic wrapper; keep the audited loader unchanged. */
 static inline libra_instance_t vaeg_librashader_load_instance(char *error, size_t capacity) {
 	if (capacity) error[0] = '\0';
+#if defined(VAEG_STATIC_LIBRASHADER)
+	libra_instance_t instance = __librashader_make_null_instance();
+#define VAEG_BIND_LIBRA(name) instance.name = &libra_##name
+	VAEG_BIND_LIBRA(instance_api_version);
+	VAEG_BIND_LIBRA(instance_abi_version);
+	VAEG_BIND_LIBRA(error_print);
+	VAEG_BIND_LIBRA(error_write);
+	VAEG_BIND_LIBRA(error_free);
+	VAEG_BIND_LIBRA(error_free_string);
+	VAEG_BIND_LIBRA(preset_create);
+	VAEG_BIND_LIBRA(preset_free);
+	VAEG_BIND_LIBRA(preset_get_runtime_params);
+	VAEG_BIND_LIBRA(preset_free_runtime_params);
+#if defined(LIBRA_RUNTIME_D3D11)
+	VAEG_BIND_LIBRA(d3d11_filter_chain_create);
+	VAEG_BIND_LIBRA(d3d11_filter_chain_frame);
+	VAEG_BIND_LIBRA(d3d11_filter_chain_free);
+	VAEG_BIND_LIBRA(d3d11_filter_chain_set_param);
+#elif defined(LIBRA_RUNTIME_OPENGL)
+	VAEG_BIND_LIBRA(gl_filter_chain_create);
+	VAEG_BIND_LIBRA(gl_filter_chain_frame);
+	VAEG_BIND_LIBRA(gl_filter_chain_free);
+	VAEG_BIND_LIBRA(gl_filter_chain_set_param);
+#elif defined(LIBRA_RUNTIME_METAL)
+	VAEG_BIND_LIBRA(mtl_filter_chain_create);
+	VAEG_BIND_LIBRA(mtl_filter_chain_frame);
+	VAEG_BIND_LIBRA(mtl_filter_chain_free);
+	VAEG_BIND_LIBRA(mtl_filter_chain_set_param);
+#endif
+#undef VAEG_BIND_LIBRA
+	instance.instance_loaded = instance.instance_abi_version() == LIBRASHADER_CURRENT_ABI &&
+	                           instance.instance_api_version() >= LIBRASHADER_CURRENT_VERSION;
+	if (!instance.instance_loaded)
+		std::snprintf(error, capacity, "Static librashader API/ABI mismatch");
+	std::fprintf(stderr, "librashader: static; API=%zu ABI=%zu\n",
+	             instance.instance_api_version(), instance.instance_abi_version());
+	return instance;
+#else
 #if defined(_WIN32)
 	HMODULE module = LoadLibraryW(L"librashader.dll");
 	if (!module) {
@@ -96,6 +134,7 @@ static inline libra_instance_t vaeg_librashader_load_instance(char *error, size_
 		return __librashader_make_null_instance();
 	}
 	return instance;
+#endif
 }
 
 #endif

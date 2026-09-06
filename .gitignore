@@ -1,5 +1,6 @@
 /bin/
 /build/
+/vaeg-cache/
 /obj/
 /tools/qa/__pycache__/
 

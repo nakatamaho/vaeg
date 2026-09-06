@@ -221,12 +221,18 @@ thread. Backend resources must not cross API boundaries.
 
 ## 5. librashader and licensing policy
 
-- Use the official C API and the official dynamic-loader header.
-- Dynamically load an exact, tested stable release. Record version, commit,
+- Maintainer amendment: static linking through the official C API is allowed
+  for single-executable distributions. The dynamic build remains supported.
+- Use an exact, tested stable release. Record version, commit,
   C API, ABI, binary hashes, upstream URL, and platform artifact names.
 - Select librashader under MPL-2.0. VAeg remains BSD-2-Clause.
-- Do not statically link or copy librashader implementation code into VAeg.
-- Validate symbols and API/ABI compatibility before filter-chain creation.
+- Keep upstream implementation sources separate from VAeg-owned BSD files.
+- For static builds, record the target toolchain, selected runtime features,
+  dependency licenses and corresponding-source access; embed required notices.
+- Validate API/ABI compatibility before filter-chain creation. Static builds
+  resolve required symbols at link time; dynamic builds validate them at load.
+- Standard shader assets may be embedded and extracted to a content-addressed
+  cache under the working directory. User parameters remain in vaeg.cfg.
 - Treat a missing library, unsupported GPU API, compile error, invalid preset,
   or runtime failure as an optional-feature failure, never an emulator crash.
 - Do not inherit the previous M99 version pin or audit result without repeating
@@ -324,6 +330,12 @@ Platform binaries belong in generated build and release staging directories,
 not architecture-specific source directories. Release archives must include
 the exact runtime license, source offer/reference, shader notice, provenance,
 and third-party notices.
+
+For a static single-executable package these notices may be embedded in About
+instead of distributed as separate files. Keep the archive/source/notice audit
+manifest as build evidence. Static builds must start without librashader DLLs
+or external standard shader assets; system graphics components may remain
+external. The dynamic-runtime absence tests apply to the dynamic build.
 
 ## 8. Small sub-milestones
 
