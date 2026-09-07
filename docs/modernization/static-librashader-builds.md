@@ -24,10 +24,11 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Static librashader builds (M99z30)
 
-The maintainer permits static C API linkage under MPL-2.0. VAEG-owned code
-remains BSD-2-Clause. Dynamic builds remain available and are the default
-development/CI configuration. This does not require statically linking OS
-frameworks or components whose license or toolchain makes that inappropriate.
+M99 QA and release builds require static C API linkage under MPL-2.0. VAEG-owned
+code remains BSD-2-Clause. Dynamic builds remain available only as an explicit
+non-release developer/diagnostic configuration. This does not require
+statically linking OS frameworks or components whose license or toolchain makes
+that inappropriate.
 
 ## Build
 

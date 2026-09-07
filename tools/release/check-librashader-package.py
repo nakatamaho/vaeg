@@ -94,8 +94,13 @@ def read_input(path: pathlib.Path) -> dict[str, bytes]:
             return {name.rstrip("/").split("/", 1)[-1]: archive.read(name)
                     for name in archive.namelist()
                     if not name.endswith("/") and "/" in name}
-    if path.name.endswith((".tar.gz", ".tgz", ".tar")):
-        mode = "r:gz" if path.name.endswith((".tar.gz", ".tgz")) else "r:"
+    if path.name.endswith((".tar.gz", ".tgz", ".tar.xz", ".tar")):
+        if path.name.endswith((".tar.gz", ".tgz")):
+            mode = "r:gz"
+        elif path.name.endswith(".tar.xz"):
+            mode = "r:xz"
+        else:
+            mode = "r:"
         with tarfile.open(path, mode) as archive:
             return {member.name.split("/", 1)[-1]: archive.extractfile(member).read()
                     for member in archive.getmembers()

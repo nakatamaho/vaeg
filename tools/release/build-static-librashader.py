@@ -154,8 +154,11 @@ def main():
                          "notice_sha256": hashlib.sha256(section.encode()).hexdigest()})
     rust_version = run(["rustc", "--version"], source).strip()
     sysroot = pathlib.Path(run(["rustc", "--print", "sysroot"], source).strip())
-    rust_notice = sysroot / "share/doc/rust/COPYRIGHT-library.html"
-    if not rust_notice.exists():
+    rust_notice = next((candidate for candidate in (
+        sysroot / "share/doc/rust/COPYRIGHT-library.html",
+        sysroot / "share/doc/rustc/COPYRIGHT-library.html",
+    ) if candidate.exists()), None)
+    if rust_notice is None:
         raise SystemExit("LIBRA_RUST_LIBRARY_NOTICE_MISSING")
     notices.append(rust_version + "\nRust standard library: https://github.com/rust-lang/rust\n" +
                    html.unescape(re.sub(r"<[^>]*>", "", rust_notice.read_text())))

@@ -29,12 +29,14 @@ Status: Accepted for M99
 
 ## Decision
 
-M99 consumes the official librashader C API. By maintainer amendment, it may
-be statically linked for single-executable distribution, or loaded through
-the official `librashader_ld.h` dynamic loader. Static builds bind the same
-C API function table at link time, with platform-specific runtime features.
-The MPL implementation stays separately licensed; notices and corresponding
-source references must accompany the binary. The vendored files are placed under `external/librashader`
+M99 consumes the official librashader C API. By maintainer amendment, M99 QA
+and release builds statically link the pinned C API archive with the required
+platform feature. The official `librashader_ld.h` dynamic loader remains
+available only for an explicitly non-release developer diagnostic build. Static
+builds bind the C API at link time and must not require a librashader shared
+library at startup. The MPL implementation stays separately licensed; notices
+and corresponding source references must accompany the binary. The vendored
+files are placed under `external/librashader`
 because this repository's convention requires third-party material under
 `external/`, rather than the task proposal's `third_party/` path.
 
@@ -73,7 +75,8 @@ the audited release assets. The Linux OpenGL runtime must therefore be built
 from this exact source pin in the Linux packaging/CI stage, with its resulting
 artifact hash recorded before G99-6.
 
-The runtime files used in the M99x optional-runtime package-shape checks are:
+The following shared-runtime files are historical developer-package inputs;
+they are not required or shipped by M99 static QA/release packages:
 
 | Platform | File | SHA-256 |
 | --- | --- | --- |
@@ -107,14 +110,12 @@ sources; only the preset filename is local.
 
 `tools/release/stage-librashader-assets.sh` copies the exact preset, shader,
 license, provenance, and third-party notice closure into a platform package.
-It accepts an optional exact-basename runtime (`librashader.so`,
-`librashader.dylib`, or `librashader.dll`) and records that supplied file's
-SHA-256 beside the package licenses. The runtime is deliberately not a source
-tree payload. `tools/release/check-librashader-package.py` validates staged
-directories and tar/zip archives, including required hashes and prohibited
-shader-family names. Release CI invokes both checks for Linux, Windows, and
-macOS packages. A package without the optional runtime remains valid and uses
-the existing fail-closed renderer path.
+Static package creation additionally embeds the audited shader closure and
+generated dependency notices in the executable. `librashader.so`,
+`librashader.dylib`, and `librashader.dll` are not M99 package payloads.
+`tools/release/check-librashader-package.py` validates the staged shader and
+notice closure; the static-build manifest and CMake hash checks validate the
+linked archive and dependency audit before linking.
 
 ## Consequences
 

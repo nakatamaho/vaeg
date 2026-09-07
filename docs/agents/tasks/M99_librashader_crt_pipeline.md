@@ -50,11 +50,11 @@ any old M99 source, tests, build logic, assets, reports, or completion evidence.
 
 Rebuild the optional CRT presentation path with these fixed native backends:
 
-| Platform | Required graphics API | Required librashader runtime |
+| Platform | Required graphics API | Required librashader linkage |
 | --- | --- | --- |
-| Windows | Direct3D 11 | D3D11 |
-| Linux | OpenGL 3.3+ core | OpenGL |
-| macOS | Metal | Metal |
+| Windows | Direct3D 11 | Static C API linkage with D3D11 features |
+| Linux | OpenGL 3.3+ core | Static C API linkage with OpenGL features |
+| macOS | Metal | Static C API linkage with Metal features |
 
 The emulation core and canonical framebuffer remain renderer-independent. SDL2
 continues to own windows, events, and input; the selected native presentation
@@ -221,16 +221,18 @@ thread. Backend resources must not cross API boundaries.
 
 ## 5. librashader and licensing policy
 
-- Maintainer amendment: static linking through the official C API is allowed
-  for single-executable distributions. The dynamic build remains supported.
+- Maintainer amendment: static linking through the official C API is required
+  for every M99 QA and release build. Dynamic loading remains available only
+  as an explicitly non-release developer diagnostic configuration.
 - Use an exact, tested stable release. Record version, commit,
   C API, ABI, binary hashes, upstream URL, and platform artifact names.
 - Select librashader under MPL-2.0. VAeg remains BSD-2-Clause.
 - Keep upstream implementation sources separate from VAeg-owned BSD files.
 - For static builds, record the target toolchain, selected runtime features,
   dependency licenses and corresponding-source access; embed required notices.
-- Validate API/ABI compatibility before filter-chain creation. Static builds
-  resolve required symbols at link time; dynamic builds validate them at load.
+- Validate the pinned C API and ABI at the static-build audit boundary. Static
+  builds resolve required symbols at link time and must not require a
+  `librashader.dll`, `librashader.so`, or `librashader.dylib` at startup.
 - Standard shader assets may be embedded and extracted to a content-addressed
   cache under the working directory. User parameters remain in vaeg.cfg.
 - Treat a missing library, unsupported GPU API, compile error, invalid preset,
@@ -333,9 +335,10 @@ and third-party notices.
 
 For a static single-executable package these notices may be embedded in About
 instead of distributed as separate files. Keep the archive/source/notice audit
-manifest as build evidence. Static builds must start without librashader DLLs
-or external standard shader assets; system graphics components may remain
-external. The dynamic-runtime absence tests apply to the dynamic build.
+manifest as build evidence. M99 packages must start without a librashader
+shared library or external standard shader assets; system graphics components
+may remain external. Dynamic-runtime absence tests are not an M99 release
+acceptance condition because dynamic loading is not a release configuration.
 
 ## 8. Small sub-milestones
 
@@ -461,9 +464,11 @@ Write architecture, user, troubleshooting, provenance, and final goal reports.
 ### G99-6 — Licensing and packaging complete
 
 - VAeg remains BSD-2-Clause and librashader is consumed under MPL-2.0.
-- The loader, runtime, preset, shader closure, hashes, and notices are recorded.
+- The static archive, source/license audit, preset, shader closure, hashes, and
+  notices are recorded.
 - No GPL or unknown-license shader is tracked or shipped.
-- Clean-machine staged archives start with and without the optional runtime.
+- A clean-machine staged static archive starts without any librashader shared
+  library and without external standard shader assets.
 
 ### G99-7 — Performance and release readiness
 
