@@ -126,16 +126,28 @@ static void vaeg_metal_report_librashader_error(VAEG_METAL_STATE *state, libra_e
 	}
 }
 
+static void vaeg_metal_report_initialization_failure(const char *stage, NSError *error) {
+	const char *detail = nullptr;
+
+	if (error != nil) {
+		detail = [[error localizedDescription] UTF8String];
+	}
+	fprintf(stderr, "librashader Metal initialization failed: %s%s%s\n", stage,
+	        (detail != nullptr) ? ": " : "", (detail != nullptr) ? detail : "");
+}
+
 static int vaeg_metal_create_filter_chain(VAEG_METAL_STATE *state, const char *preset_path) {
 	libra_shader_preset_t preset;
 	filter_chain_mtl_opt_t options;
 	libra_error_t error;
 
 	if ((preset_path == nullptr) || (preset_path[0] == '\0')) {
+		fprintf(stderr, "librashader Metal filter-chain skipped: preset path is empty\n");
 		return 0;
 	}
 	state->librashader = librashader_load_instance();
 	if (!state->librashader.instance_loaded) {
+		fprintf(stderr, "librashader Metal filter-chain skipped: static API unavailable\n");
 		return 0;
 	}
 	preset = nullptr;
@@ -249,12 +261,19 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *prese
 	}
 	state->view = SDL_Metal_CreateView(static_cast<SDL_Window *>(host_window));
 	if (state->view == nullptr) {
+		vaeg_metal_report_initialization_failure("SDL_Metal_CreateView", nil);
 		vaeg_metal_release_state(state);
 		return 0;
 	}
 	state->layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(state->view);
 	state->device = MTLCreateSystemDefaultDevice();
-	if ((state->layer == nil) || (state->device == nil)) {
+	if (state->layer == nil) {
+		vaeg_metal_report_initialization_failure("SDL_Metal_GetLayer", nil);
+		vaeg_metal_release_state(state);
+		return 0;
+	}
+	if (state->device == nil) {
+		vaeg_metal_report_initialization_failure("MTLCreateSystemDefaultDevice", nil);
 		vaeg_metal_release_state(state);
 		return 0;
 	}
@@ -263,6 +282,7 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *prese
 	state->layer.framebufferOnly = NO;
 	state->queue = [state->device newCommandQueue];
 	if (state->queue == nil) {
+		vaeg_metal_report_initialization_failure("MTLDevice.newCommandQueue", nil);
 		vaeg_metal_release_state(state);
 		return 0;
 	}
@@ -270,11 +290,20 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *prese
 	library = [state->device newLibraryWithSource:[NSString stringWithUTF8String:vaeg_metal_passthrough_shader]
 	                                         options:nil error:&error];
 	if (library == nil) {
+		vaeg_metal_report_initialization_failure("MTLDevice.newLibraryWithSource", error);
 		vaeg_metal_release_state(state);
 		return 0;
 	}
 	vertex_function = [library newFunctionWithName:@"vaeg_metal_vertex"];
 	fragment_function = [library newFunctionWithName:@"vaeg_metal_fragment"];
+	if ((vertex_function == nil) || (fragment_function == nil)) {
+		vaeg_metal_report_initialization_failure("MTLLibrary.newFunctionWithName", nil);
+		[fragment_function release];
+		[vertex_function release];
+		[library release];
+		vaeg_metal_release_state(state);
+		return 0;
+	}
 	descriptor = [[MTLRenderPipelineDescriptor alloc] init];
 	descriptor.vertexFunction = vertex_function;
 	descriptor.fragmentFunction = fragment_function;
@@ -285,6 +314,7 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *prese
 	[vertex_function release];
 	[library release];
 	if (state->pipeline == nil) {
+		vaeg_metal_report_initialization_failure("MTLDevice.newRenderPipelineStateWithDescriptor", error);
 		vaeg_metal_release_state(state);
 		return 0;
 	}
