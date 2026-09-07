@@ -106,9 +106,9 @@ static const char vaeg_metal_imgui_shader[] = R"metal(
 using namespace metal;
 
 struct VAEGImGuiVertex {
-    float2 position;
-    float2 uv;
-    float4 color;
+    float2 position [[attribute(0)]];
+    float2 uv [[attribute(1)]];
+    float4 color [[attribute(2)]];
 };
 
 struct VAEGImGuiUniforms {
