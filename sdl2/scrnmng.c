@@ -1355,13 +1355,27 @@ BOOL scrnmng_create(int width, int height) {
 		                                                        scrnmng_native_parameter_state);
 		if (scrnmng.native_presenter != NULL) {
 			scrnmng.native_active = TRUE;
+			if (!np2oscfg.gui_native_filter &&
+			    !vaeg_native_presenter_set_filter(scrnmng.native_presenter, 0)) {
+				vaeg_native_presenter_destroy(scrnmng.native_presenter);
+				scrnmng.native_presenter = NULL;
+				scrnmng.native_active = FALSE;
+				snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+				         "SDL fallback: native unfiltered mode unavailable");
+			}
+		}
+		if (scrnmng.native_active) {
 			scrnmng.renderer_backend[0] = '\0';
-			fprintf(stderr, "Native CRT selected: backend=%s preset=%s\n",
-			        vaeg_native_presenter_backend(scrnmng.native_presenter), preset_path);
+			fprintf(stderr, "Native librashader selected: backend=%s mode=%s preset=%s\n",
+			        vaeg_native_presenter_backend(scrnmng.native_presenter),
+			        np2oscfg.gui_native_filter ? "CRT" : "unfiltered", preset_path);
 		} else {
-			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
-			         "SDL fallback: %s", vaeg_native_presenter_creation_error());
-			fprintf(stderr, "Native CRT selected but unavailable; using SDL fallback\n");
+			if (scrnmng.native_status[0] == '\0' ||
+			    strncmp(scrnmng.native_status, "SDL fallback:", 13) != 0) {
+				snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
+				         "SDL fallback: %s", vaeg_native_presenter_creation_error());
+			}
+			fprintf(stderr, "Native librashader selected but unavailable; using SDL fallback\n");
 		}
 	}
 	if (!scrnmng.native_active && (scrnmng_create_sdl_resources() != SUCCESS)) {
@@ -1467,12 +1481,12 @@ const char *scrnmng_native_status(void) {
 		const char *error = vaeg_native_presenter_error(scrnmng.native_presenter);
 		if (strcmp(error, "none") != 0) {
 			snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
-			         "CRT unavailable: %s / native pass-through", error);
+			         "CRT unavailable: %s / native unfiltered", error);
 			return scrnmng.native_status;
 		}
 		return strcmp(vaeg_native_presenter_state(scrnmng.native_presenter), "filtered") == 0
 		           ? "Native CRT ON"
-		           : "Native CRT OFF / pass-through";
+		           : "Native librashader / unfiltered";
 	}
 	return scrnmng.native_status;
 }
@@ -1511,7 +1525,8 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		return SUCCESS;
 	scrnmng.native_change_pending = FALSE;
 	if (scrnmng.native_active && np2oscfg.gui_native_crt && !scrnmng.native_reload_pending) {
-		if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, np2oscfg.gui_native_crt)) {
+		if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter,
+		                                      np2oscfg.gui_native_filter)) {
 			fprintf(stderr, "Native CRT toggle failed\n");
 		}
 		scrnmng_update_title();

@@ -2607,22 +2607,47 @@ static void load_native_crt_preset(void) {
 	}
 }
 
+static void set_native_crt_mode(bool filtered) {
+	if (scrnmng_native_active()) {
+		if (!scrnmng_set_native_filter(filtered ? TRUE : FALSE)) {
+			g_gui.native_crt_status = filtered ? "CRT unavailable; reload preset to retry"
+			                                   : "Unfiltered librashader mode unavailable";
+			return;
+		}
+		np2oscfg.gui_native_crt = 1;
+		np2oscfg.gui_native_filter = filtered ? 1 : 0;
+		g_gui.native_crt_settings_open = false;
+		g_gui.native_crt_status = filtered ? "CRT enabled" : "Librashader unfiltered";
+	} else {
+		np2oscfg.gui_native_crt = 1;
+		np2oscfg.gui_native_filter = filtered ? 1 : 0;
+		scrnmng_request_native_crt(TRUE, TRUE);
+#if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
+		g_gui.native_crt_status =
+		    filtered ? "Applying CRT selection" : "Applying unfiltered selection";
+#else
+		g_gui.native_crt_status = filtered ? "librashader selected; restart to apply"
+		                                   : "unfiltered librashader selected; restart to apply";
+#endif
+	}
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static void draw_renderer_selection(void) {
 	bool enabled = scrnmng_native_active() != FALSE;
+	bool filtered = enabled && scrnmng_native_filter_enabled() != FALSE;
 	if (ImGui::BeginMenu("描画方式")) {
 		if (ImGui::MenuItem("標準（SDL）", nullptr, !enabled)) {
+			np2oscfg.gui_native_filter = 1;
 			scrnmng_request_native_crt(FALSE, TRUE);
 			sysmng_update(SYS_UPDATEOSCFG);
 			g_gui.native_crt_status = "SDL selected";
 		}
-		if (ImGui::MenuItem("CRT効果（librashader）", nullptr, enabled)) {
-			scrnmng_request_native_crt(TRUE, TRUE);
-			sysmng_update(SYS_UPDATEOSCFG);
-#if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
-			g_gui.native_crt_status = "Applying CRT selection";
-#else
-			g_gui.native_crt_status = "librashader selected; restart to apply";
-#endif
+		if (ImGui::MenuItem("CRT効果（librashader）", nullptr, filtered)) {
+			set_native_crt_mode(true);
+		}
+		if (ImGui::MenuItem("加工なし（librashader）", nullptr, enabled && !filtered)) {
+			set_native_crt_mode(false);
 		}
 		ImGui::EndMenu();
 	}
@@ -2636,13 +2661,7 @@ static void draw_renderer_selection(void) {
 		ImGui::TextWrapped("librashader requested; restart required (if supported by this build)");
 	}
 #endif
-	if (enabled) {
-		const bool filtered = scrnmng_native_filter_enabled() != FALSE;
-		if (ImGui::MenuItem("Pass-through（加工なし）", nullptr, !filtered)) {
-			g_gui.native_crt_status = scrnmng_set_native_filter(!filtered)
-			                              ? (filtered ? "Native pass-through" : "CRT enabled")
-			                              : "CRT unavailable; reload preset to retry";
-		}
+	if (enabled && filtered) {
 		if (ImGui::MenuItem("CRT設定…")) {
 			g_gui.native_crt_settings_open = true;
 		}
@@ -2650,7 +2669,7 @@ static void draw_renderer_selection(void) {
 }
 
 static void draw_native_crt_settings(void) {
-	if (!g_gui.native_crt_settings_open || !scrnmng_native_active()) {
+	if (!g_gui.native_crt_settings_open || !scrnmng_native_filter_enabled()) {
 		return;
 	}
 	ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_FirstUseEver);

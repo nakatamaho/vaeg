@@ -89,6 +89,7 @@ typedef struct {
 	BYTE hostfat_enabled;
 	char hostfat_dir[MAX_PATH];
 	BYTE gui_native_crt;
+	BYTE gui_native_filter;
 	char gui_shader_preset[NP2OSCFG_SHADER_PRESET_PATH_SIZE];
 	UINT16 gui_ui_scale;
 	char gui_shader_parameters[8192];

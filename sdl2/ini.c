@@ -429,6 +429,7 @@ static const INITBL iniitem[] = {
     {"fscrn_cy", INITYPE_UINT16, &np2oscfg.fscrn_cy, 0},
     {"fscrnmod", INITYPE_HEX8, &np2oscfg.fscrnmod, 0},
     {"NativeCRT", INITYPE_BOOL, &np2oscfg.gui_native_crt, 0},
+    {"NativeCRTFilter", INITYPE_BOOL, &np2oscfg.gui_native_filter, 0},
     {"GUI_ui_scale", INITYPE_UINT16, &np2oscfg.gui_ui_scale, 0},
     {"NativeCRTPreset", INITYPE_STR, np2oscfg.gui_shader_preset,
      sizeof(np2oscfg.gui_shader_preset)},
@@ -507,6 +508,7 @@ void initload(void) {
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;
+	np2oscfg.gui_native_filter = np2oscfg.gui_native_filter ? 1 : 0;
 	if (np2oscfg.gui_shader_preset[0] == '\0') {
 		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
 		            sizeof(np2oscfg.gui_shader_preset));

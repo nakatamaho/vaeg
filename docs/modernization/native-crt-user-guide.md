@@ -40,8 +40,8 @@ cmake --preset linux-debug -DVAEG_ENABLE_LIBRASHADER=ON
 cmake --build build/linux-debug --target vaeg_sdl2
 ```
 
-On Windows, open `画面 > 描画方式` and select `標準（SDL）` or
-`CRT効果（librashader）`. This switches
+On Windows, open `画面 > 描画方式` and select `標準（SDL）`,
+`CRT効果（librashader）`, or `加工なし（librashader）`. This switches
 the renderer immediately, including a real return to SDL. Selecting librashader
 again retries initialization. The menu remains visible and is drawn after the CRT effect at the
 same logical font size as the SDL version. SDL exposes `エフェクト`; librashader
@@ -54,16 +54,12 @@ to the guest display area; the menu height is added separately. It is saved as
 `GUI_scale` and works with both SDL and native CRT presentation. Large sizes
 may be constrained by the desktop/window manager and increase GPU memory use.
 The selection marks actual renderer ownership. Normal menu status text is
-hidden; failures and native pass-through remain visible. The CRT settings
-window also reports the current filter status.
-While native rendering is active, `画面 > Pass-through（加工なし）` toggles
-CRT processing without recreating the device or GUI. Checked means the raw
-image is presented without CRT or SCREEN_SIZE padding; uncheck to resume the
-same preset and parameter values. This comparison toggle is session-only;
-restarting or reloading the preset enables CRT again. A failed filter remains
-in pass-through with its failure status; use `CRT設定… > Reload preset` to
-retry after correcting the preset. Displayed screenshots still include any
-enabled information overlays; canonical raw QA is unchanged.
+hidden; failures and the unfiltered librashader state remain visible. The CRT
+settings window also reports the current filter status. `加工なし（librashader）`
+presents the raw image through the native presenter without CRT or SCREEN_SIZE
+padding, while retaining the same preset and parameter values. Displayed
+screenshots still include any enabled information overlays; canonical raw QA is
+unchanged.
 The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
 `CRT設定…`: 80–120%, initially 98.00%, with 0.01% steps. Its default `CURVATURE`
 is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
@@ -110,9 +106,9 @@ DLL presence alone does not enable CRT. The Windows package includes
 disabled. The launcher starts in the package directory and writes diagnostics
 to `native-crt.log`. It sets the session-only `VAEG_NATIVE_CRT=1` environment
 override; `VAEG_NATIVE_CRT=0` requests SDL at startup instead. The window title
-shows `Native CRT ON`, pass-through, or the fallback status. A missing
-runtime/preset or failed shader preserves the Windows native pass-through
-image; failure of the native device returns to SDL.
+shows `Native CRT ON`, unfiltered librashader, or the fallback status. A
+missing runtime/preset or failed shader preserves the native unfiltered image;
+failure of the native device returns to SDL.
 
 On Windows, Video info and Framebuffer info overlays also work in CRT mode.
 They are drawn after filtering, behind GUI menus, without changing raw captures.
@@ -136,8 +132,11 @@ automatically download or install these prerequisites. `native-crt.log` records
 the Windows loader error and unavailable dependency names; the menu also shows
 preset and filter-chain errors instead of only a generic unavailable label.
 
-The setting is stored as `NativeCRT` in `vaeg.cfg`. The default
-preset is:
+The rendering mode is stored in `vaeg.cfg`: `NativeCRT=0` selects standard
+SDL rendering, while `NativeCRT=1` selects the native librashader presenter.
+When the native presenter is selected, `NativeCRTFilter=1` enables the CRT
+effect and `NativeCRTFilter=0` selects unfiltered librashader output. The
+default preset is:
 
 ```text
 assets/shaders/crt/vaeg_crt_default.slangp
@@ -221,7 +220,7 @@ instead of labeling a filtered GPU image as a deterministic capture.
 
 ## Disable or customize
 
-Disable Native CRT in the Windows menu to compare pass-through immediately.
+Select `標準（SDL）` in the rendering-mode menu to return to SDL immediately.
 For a one-run SDL fallback diagnostic, use `VAEG_NATIVE_CRT=0`,
 or set `NativeCRT=0` in the current `vaeg.cfg` before
 starting. To use another preset, set `NativeCRTPreset` in the configuration or

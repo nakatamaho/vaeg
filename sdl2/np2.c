@@ -159,6 +159,7 @@ NP2OSCFG np2oscfg = {0,
                      0,
                      "",
                      0,
+                     1,
                      VAEG_DEFAULT_SHADER_PRESET,
                      0};
 BOOL np2_debug = FALSE;
