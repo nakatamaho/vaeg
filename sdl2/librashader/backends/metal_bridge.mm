@@ -52,11 +52,15 @@ struct VAEG_METAL_STATE {
 	size_t gui_vertex_capacity;
 	size_t gui_index_capacity;
 	id<MTLTexture> source_texture;
+	id<MTLTexture> filter_output_texture;
 	uint8_t *upload_buffer;
 	size_t upload_capacity;
 	uint32_t source_width;
 	uint32_t source_height;
 	uint32_t upload_pitch;
+	NSUInteger filter_output_width;
+	NSUInteger filter_output_height;
+	MTLPixelFormat filter_output_pixel_format;
 	libra_instance_t librashader;
 	libra_mtl_filter_chain_t filter_chain;
 	bool filter_enabled;
@@ -145,6 +149,9 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	}
 	if (state->source_texture != nil) {
 		[state->source_texture release];
+	}
+	if (state->filter_output_texture != nil) {
+		[state->filter_output_texture release];
 	}
 	if ((state->filter_chain != nullptr) &&
 	    (state->librashader.mtl_filter_chain_free != nullptr)) {
@@ -476,6 +483,41 @@ static int vaeg_metal_ensure_source_texture(VAEG_METAL_STATE *state, uint32_t wi
 	state->source_width = width;
 	state->source_height = height;
 	state->upload_pitch = width * 4U;
+	return 1;
+}
+
+static int vaeg_metal_ensure_filter_output_texture(VAEG_METAL_STATE *state, NSUInteger width,
+                                                    NSUInteger height, MTLPixelFormat pixel_format) {
+	MTLTextureDescriptor *descriptor;
+
+	if ((width == 0) || (height == 0) || (pixel_format == MTLPixelFormatInvalid)) {
+		return 0;
+	}
+	if ((state->filter_output_texture != nil) &&
+	    (state->filter_output_width == width) &&
+	    (state->filter_output_height == height) &&
+	    (state->filter_output_pixel_format == pixel_format)) {
+		return 1;
+	}
+	if (state->filter_output_texture != nil) {
+		[state->filter_output_texture release];
+		state->filter_output_texture = nil;
+	}
+	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixel_format
+	                                                                    width:width
+	                                                                   height:height
+	                                                                mipmapped:NO];
+	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite |
+	                   MTLTextureUsageRenderTarget | MTLTextureUsagePixelFormatView;
+	descriptor.storageMode = MTLStorageModePrivate;
+	state->filter_output_texture = [state->device newTextureWithDescriptor:descriptor];
+	[descriptor release];
+	if (state->filter_output_texture == nil) {
+		return 0;
+	}
+	state->filter_output_width = width;
+	state->filter_output_height = height;
+	state->filter_output_pixel_format = pixel_format;
 	return 1;
 }
 
@@ -850,6 +892,12 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 		return VAEG_METAL_BRIDGE_NO_DRAWABLE;
 	}
 	if (state->filter_enabled) {
+		if (!vaeg_metal_ensure_filter_output_texture(state, drawable.texture.width,
+		                                             drawable.texture.height,
+		                                             drawable.texture.pixelFormat)) {
+			fprintf(stderr, "librashader Metal filter output texture unavailable\n");
+			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
+		}
 		libra_viewport.x = static_cast<float>(viewport.originX);
 		libra_viewport.y = static_cast<float>(viewport.originY);
 		libra_viewport.width = static_cast<uint32_t>(viewport.width);
@@ -868,12 +916,45 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 			static_cast<float>(frame->source_frame_rate_denominator);
 		filter_options.frametime_delta = static_cast<uint32_t>(frame->frame_time_delta_ns / 1000000U);
 		error = state->librashader.mtl_filter_chain_frame(
-			&state->filter_chain, command_buffer, 1, state->source_texture, drawable.texture,
+			&state->filter_chain, command_buffer, 1, state->source_texture,
+			state->filter_output_texture,
 			&libra_viewport, nullptr, &filter_options);
 		if (error != nullptr) {
 			vaeg_metal_report_librashader_error(state, error, "frame rendering");
 			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
 		}
+		/* librashader deliberately terminates at a caller-owned surface. Clear the
+		 * drawable first, then copy only the filtered viewport to preserve the
+		 * letterbox border before the native ImGui pass is encoded. */
+		pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+		pass_descriptor.colorAttachments[0].texture = drawable.texture;
+		pass_descriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+		pass_descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+		pass_descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+		encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_descriptor];
+		if (encoder == nil) {
+			fprintf(stderr, "librashader Metal drawable clear encoder unavailable\n");
+			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
+		}
+		[encoder endEncoding];
+		id<MTLBlitCommandEncoder> blit_encoder = [command_buffer blitCommandEncoder];
+		if (blit_encoder == nil) {
+			fprintf(stderr, "librashader Metal drawable blit encoder unavailable\n");
+			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
+		}
+		[blit_encoder copyFromTexture:state->filter_output_texture
+		                 sourceSlice:0
+		                 sourceLevel:0
+		                sourceOrigin:(MTLOrigin){(NSUInteger)libra_viewport.x,
+		                                       (NSUInteger)libra_viewport.y, 0}
+		                  sourceSize:(MTLSize){(NSUInteger)libra_viewport.width,
+		                                     (NSUInteger)libra_viewport.height, 1}
+		                   toTexture:drawable.texture
+		            destinationSlice:0
+		            destinationLevel:0
+		           destinationOrigin:(MTLOrigin){(NSUInteger)libra_viewport.x,
+		                                          (NSUInteger)libra_viewport.y, 0}];
+		[blit_encoder endEncoding];
 		state->filter_first_frame = false;
 	} else {
 		pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
