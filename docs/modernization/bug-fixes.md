@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M99z40 — Small CRT windows overemphasize RGB-mask interference
+
+- **Symptom/scope:** x1 and x2 CRT presentation could show conspicuous
+  vertical RGB-mask interference and moire, even though the source pixels and
+  scanline treatment were otherwise sharp.
+- **Demonstrated cause:** the mask is a three-column raster pattern. At small
+  output scales its contrast is not sufficiently resolved by the available
+  output pixels, so the mask pattern beats with the displayed content.
+- **Correction:** apply an automatic mask-intensity profile of 0.15 at x1,
+  0.20 at x2, and 0.30 at x3 or larger. The profile changes mask contrast
+  only; source padding, texel copies, scanline averaging and raw capture are
+  unchanged. Manual mask control remains available in CRT settings.
+- **Verification:** macOS arm64 build, focused librashader tests, ROM-less
+  selftest, encoding/EOL/case checks and diff validation pass. Physical visual
+  comparison at x1/x2/x3 remains a maintainer check.
+- **Task/evidence/commit:** [M99z40 report](../agents/reports/m99z40_crt_mask_profile.md).
+  Fix: [6cf059bb](https://github.com/nakatamaho/vaeg/commit/6cf059bb3c57a4bb0726ae37a6ae31d5d0faac94).
+
 ### M99z28 — Inset CRT viewports produce vertical mask bands
 
 - **Symptom/scope:** the default CRT shows broad vertical bands when the guest
