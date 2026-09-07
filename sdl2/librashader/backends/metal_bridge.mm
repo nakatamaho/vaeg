@@ -28,8 +28,12 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <cstddef>
+#include <cstdint>
 
 #include <SDL_metal.h>
+
+#include "imgui.h"
 
 #include "librashader/frame_conversion.h"
 #include "librashader/librashader_loader.h"
@@ -41,6 +45,12 @@ struct VAEG_METAL_STATE {
 	id<MTLDevice> device;
 	id<MTLCommandQueue> queue;
 	id<MTLRenderPipelineState> pipeline;
+	id<MTLRenderPipelineState> gui_pipeline;
+	id<MTLSamplerState> gui_sampler;
+	id<MTLBuffer> gui_vertex_buffer;
+	id<MTLBuffer> gui_index_buffer;
+	size_t gui_vertex_capacity;
+	size_t gui_index_capacity;
 	id<MTLTexture> source_texture;
 	uint8_t *upload_buffer;
 	size_t upload_capacity;
@@ -51,6 +61,12 @@ struct VAEG_METAL_STATE {
 	libra_mtl_filter_chain_t filter_chain;
 	bool filter_enabled;
 	bool filter_first_frame;
+	MTLViewport output_viewport;
+	bool output_viewport_valid;
+};
+
+struct VAEG_METAL_GUI_TEXTURE {
+	id<MTLTexture> texture;
 };
 
 static const char vaeg_metal_passthrough_shader[] = R"metal(
@@ -85,6 +101,44 @@ fragment float4 vaeg_metal_fragment(
 }
 )metal";
 
+static const char vaeg_metal_imgui_shader[] = R"metal(
+#include <metal_stdlib>
+using namespace metal;
+
+struct VAEGImGuiVertex {
+    float2 position;
+    float2 uv;
+    float4 color;
+};
+
+struct VAEGImGuiUniforms {
+    float4x4 projection;
+};
+
+struct VAEGImGuiVertexOut {
+    float4 position [[position]];
+    float2 uv;
+    float4 color;
+};
+
+vertex VAEGImGuiVertexOut vaeg_imgui_vertex(
+    VAEGImGuiVertex input [[stage_in]],
+    constant VAEGImGuiUniforms &uniforms [[buffer(1)]]) {
+    VAEGImGuiVertexOut output;
+    output.position = uniforms.projection * float4(input.position, 0.0, 1.0);
+    output.uv = input.uv;
+    output.color = input.color;
+    return output;
+}
+
+fragment float4 vaeg_imgui_fragment(
+    VAEGImGuiVertexOut input [[stage_in]],
+    texture2d<float, access::sample> texture [[texture(0)]],
+    sampler texture_sampler [[sampler(0)]]) {
+    return input.color * texture.sample(texture_sampler, input.uv);
+}
+)metal";
+
 static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	if (state == nullptr) {
 		return;
@@ -99,6 +153,18 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	if (state->pipeline != nil) {
 		[state->pipeline release];
 	}
+	if (state->gui_pipeline != nil) {
+		[state->gui_pipeline release];
+	}
+	if (state->gui_sampler != nil) {
+		[state->gui_sampler release];
+	}
+	if (state->gui_vertex_buffer != nil) {
+		[state->gui_vertex_buffer release];
+	}
+	if (state->gui_index_buffer != nil) {
+		[state->gui_index_buffer release];
+	}
 	if (state->queue != nil) {
 		[state->queue release];
 	}
@@ -110,6 +176,96 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	}
 	free(state->upload_buffer);
 	free(state);
+}
+
+static void vaeg_metal_report_initialization_failure(const char *stage, NSError *error);
+
+static void vaeg_metal_release_gui_texture(ImTextureData *texture) {
+	VAEG_METAL_GUI_TEXTURE *backend_texture;
+
+	if ((texture == nullptr) || (texture->BackendUserData == nullptr)) {
+		return;
+	}
+	backend_texture = static_cast<VAEG_METAL_GUI_TEXTURE *>(texture->BackendUserData);
+	if (backend_texture->texture != nil) {
+		[backend_texture->texture release];
+	}
+	delete backend_texture;
+	texture->BackendUserData = nullptr;
+	texture->SetTexID(ImTextureID_Invalid);
+}
+
+static int vaeg_metal_create_gui_pipeline(VAEG_METAL_STATE *state) {
+	MTLRenderPipelineDescriptor *descriptor;
+	MTLVertexDescriptor *vertex_descriptor;
+	MTLSamplerDescriptor *sampler_descriptor;
+	id<MTLLibrary> library;
+	id<MTLFunction> vertex_function;
+	id<MTLFunction> fragment_function;
+	NSError *error = nil;
+
+	if (state->gui_pipeline != nil) {
+		return 1;
+	}
+	library = [state->device newLibraryWithSource:
+	                                      [NSString stringWithUTF8String:vaeg_metal_imgui_shader]
+	                                         options:nil error:&error];
+	if (library == nil) {
+		vaeg_metal_report_initialization_failure("ImGui Metal shader", error);
+		return 0;
+	}
+	vertex_function = [library newFunctionWithName:@"vaeg_imgui_vertex"];
+	fragment_function = [library newFunctionWithName:@"vaeg_imgui_fragment"];
+	if ((vertex_function == nil) || (fragment_function == nil)) {
+		fprintf(stderr, "librashader Metal ImGui shader functions unavailable\n");
+		[fragment_function release];
+		[vertex_function release];
+		[library release];
+		return 0;
+	}
+	vertex_descriptor = [[MTLVertexDescriptor alloc] init];
+	vertex_descriptor.attributes[0].format = MTLVertexFormatFloat2;
+	vertex_descriptor.attributes[0].offset = offsetof(ImDrawVert, pos);
+	vertex_descriptor.attributes[0].bufferIndex = 0;
+	vertex_descriptor.attributes[1].format = MTLVertexFormatFloat2;
+	vertex_descriptor.attributes[1].offset = offsetof(ImDrawVert, uv);
+	vertex_descriptor.attributes[1].bufferIndex = 0;
+	vertex_descriptor.attributes[2].format = MTLVertexFormatUChar4Normalized;
+	vertex_descriptor.attributes[2].offset = offsetof(ImDrawVert, col);
+	vertex_descriptor.attributes[2].bufferIndex = 0;
+	vertex_descriptor.layouts[0].stride = sizeof(ImDrawVert);
+	vertex_descriptor.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
+	vertex_descriptor.layouts[0].stepRate = 1;
+	descriptor = [[MTLRenderPipelineDescriptor alloc] init];
+	descriptor.vertexFunction = vertex_function;
+	descriptor.fragmentFunction = fragment_function;
+	descriptor.vertexDescriptor = vertex_descriptor;
+	descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+	descriptor.colorAttachments[0].blendingEnabled = YES;
+	descriptor.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+	descriptor.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+	descriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
+	descriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+	descriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorSourceAlpha;
+	descriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+	state->gui_pipeline = [state->device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+	sampler_descriptor = [[MTLSamplerDescriptor alloc] init];
+	sampler_descriptor.minFilter = MTLSamplerMinMagFilterLinear;
+	sampler_descriptor.magFilter = MTLSamplerMinMagFilterLinear;
+	sampler_descriptor.sAddressMode = MTLSamplerAddressModeClampToEdge;
+	sampler_descriptor.tAddressMode = MTLSamplerAddressModeClampToEdge;
+	state->gui_sampler = [state->device newSamplerStateWithDescriptor:sampler_descriptor];
+	[sampler_descriptor release];
+	[descriptor release];
+	[vertex_descriptor release];
+	[fragment_function release];
+	[vertex_function release];
+	[library release];
+	if ((state->gui_pipeline == nil) || (state->gui_sampler == nil)) {
+		vaeg_metal_report_initialization_failure("ImGui Metal pipeline", error);
+		return 0;
+	}
+	return 1;
 }
 
 static void vaeg_metal_report_librashader_error(VAEG_METAL_STATE *state, libra_error_t error,
@@ -134,6 +290,82 @@ static void vaeg_metal_report_initialization_failure(const char *stage, NSError 
 	}
 	fprintf(stderr, "librashader Metal initialization failed: %s%s%s\n", stage,
 	        (detail != nullptr) ? ": " : "", (detail != nullptr) ? detail : "");
+}
+
+static int vaeg_metal_upload_gui_texture(VAEG_METAL_STATE *state, ImTextureData *data) {
+	MTLTextureDescriptor *descriptor;
+	id<MTLTexture> texture;
+	VAEG_METAL_GUI_TEXTURE *backend_texture;
+	unsigned char *converted = nullptr;
+	const void *pixels;
+
+	if ((data == nullptr) || (data->Width <= 0) || (data->Height <= 0) ||
+	    ((data->Format != ImTextureFormat_RGBA32) && (data->Format != ImTextureFormat_Alpha8))) {
+		return 0;
+	}
+	descriptor = [[MTLTextureDescriptor alloc] init];
+	descriptor.textureType = MTLTextureType2D;
+	descriptor.pixelFormat = MTLPixelFormatRGBA8Unorm;
+	descriptor.width = data->Width;
+	descriptor.height = data->Height;
+	descriptor.mipmapLevelCount = 1;
+	descriptor.usage = MTLTextureUsageShaderRead;
+	descriptor.storageMode = MTLStorageModeShared;
+	texture = [state->device newTextureWithDescriptor:descriptor];
+	[descriptor release];
+	if (texture == nil) {
+		return 0;
+	}
+	pixels = data->GetPixels();
+	if (data->Format == ImTextureFormat_Alpha8) {
+		const size_t pixel_count = static_cast<size_t>(data->Width) * data->Height;
+		converted = static_cast<unsigned char *>(malloc(pixel_count * 4U));
+		if (converted == nullptr) {
+			[texture release];
+			return 0;
+		}
+		for (size_t i = 0; i < pixel_count; ++i) {
+			converted[i * 4U + 0] = 255;
+			converted[i * 4U + 1] = 255;
+			converted[i * 4U + 2] = 255;
+			converted[i * 4U + 3] = static_cast<const unsigned char *>(pixels)[i];
+		}
+		pixels = converted;
+	}
+	[texture replaceRegion:MTLRegionMake2D(0, 0, data->Width, data->Height)
+	          mipmapLevel:0 withBytes:pixels bytesPerRow:data->Width * 4U];
+	free(converted);
+	backend_texture = new VAEG_METAL_GUI_TEXTURE();
+	backend_texture->texture = texture;
+	data->BackendUserData = backend_texture;
+	data->SetTexID(static_cast<ImTextureID>(reinterpret_cast<uintptr_t>(backend_texture)));
+	data->SetStatus(ImTextureStatus_OK);
+	return 1;
+}
+
+static int vaeg_metal_update_gui_textures(VAEG_METAL_STATE *state) {
+	if (!ImGui::GetCurrentContext()) {
+		return 1;
+	}
+	for (ImTextureData *data : ImGui::GetPlatformIO().Textures) {
+		if (data->Status == ImTextureStatus_WantCreate ||
+		    ((data->Status == ImTextureStatus_OK) && (data->TexID == ImTextureID_Invalid))) {
+			if (!vaeg_metal_upload_gui_texture(state, data)) {
+				return 0;
+			}
+		} else if (data->Status == ImTextureStatus_WantUpdates) {
+			/* Re-uploading is bounded and rare: ImGui queues updates only for new glyph blocks. */
+			vaeg_metal_release_gui_texture(data);
+			data->SetStatus(ImTextureStatus_WantCreate);
+			if (!vaeg_metal_upload_gui_texture(state, data)) {
+				return 0;
+			}
+		} else if (data->Status == ImTextureStatus_WantDestroy) {
+			vaeg_metal_release_gui_texture(data);
+			data->SetStatus(ImTextureStatus_Destroyed);
+		}
+	}
+	return 1;
 }
 
 static int vaeg_metal_create_filter_chain(VAEG_METAL_STATE *state, const char *preset_path) {
@@ -183,6 +415,9 @@ static MTLViewport vaeg_metal_viewport(const VAEG_METAL_STATE *state,
 	viewport.height = state->layer.drawableSize.height;
 	viewport.znear = 0.0;
 	viewport.zfar = 1.0;
+	if (state->output_viewport_valid) {
+		return state->output_viewport;
+	}
 	if ((viewport.width <= 0.0) || (viewport.height <= 0.0)) {
 		return viewport;
 	}
@@ -381,6 +616,197 @@ extern "C" void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bri
 	}
 }
 
+extern "C" void vaeg_metal_bridge_set_output_viewport(VAEG_METAL_BRIDGE *bridge, int x, int y,
+                                                        int width, int height) {
+	VAEG_METAL_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return;
+	}
+	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	if ((width <= 0) || (height <= 0)) {
+		state->output_viewport_valid = false;
+		return;
+	}
+	state->output_viewport.originX = static_cast<double>(x);
+	state->output_viewport.originY = static_cast<double>(y);
+	state->output_viewport.width = static_cast<double>(width);
+	state->output_viewport.height = static_cast<double>(height);
+	state->output_viewport.znear = 0.0;
+	state->output_viewport.zfar = 1.0;
+	state->output_viewport_valid = true;
+}
+
+extern "C" int vaeg_metal_bridge_gui_prepare(VAEG_METAL_BRIDGE *bridge) {
+	VAEG_METAL_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || !ImGui::GetCurrentContext()) {
+		return 0;
+	}
+	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	if (!vaeg_metal_create_gui_pipeline(state) || !vaeg_metal_update_gui_textures(state)) {
+		return 0;
+	}
+	ImGuiIO &io = ImGui::GetIO();
+	io.BackendRendererName = "vaeg_metal";
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+	return 1;
+}
+
+extern "C" void vaeg_metal_bridge_gui_shutdown(VAEG_METAL_BRIDGE *bridge) {
+	VAEG_METAL_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || !ImGui::GetCurrentContext()) {
+		return;
+	}
+	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	for (ImTextureData *data : ImGui::GetPlatformIO().Textures) {
+		vaeg_metal_release_gui_texture(data);
+	}
+	if (state->gui_pipeline != nil) {
+		[state->gui_pipeline release];
+		state->gui_pipeline = nil;
+	}
+	if (state->gui_sampler != nil) {
+		[state->gui_sampler release];
+		state->gui_sampler = nil;
+	}
+	if (state->gui_vertex_buffer != nil) {
+		[state->gui_vertex_buffer release];
+		state->gui_vertex_buffer = nil;
+		state->gui_vertex_capacity = 0;
+	}
+	if (state->gui_index_buffer != nil) {
+		[state->gui_index_buffer release];
+		state->gui_index_buffer = nil;
+		state->gui_index_capacity = 0;
+	}
+}
+
+static int vaeg_metal_render_gui(VAEG_METAL_STATE *state, id<MTLCommandBuffer> command_buffer,
+                                 id<MTLTexture> target) {
+	const ImDrawData *draw_data;
+	MTLRenderPassDescriptor *pass_descriptor;
+	id<MTLRenderCommandEncoder> encoder;
+	struct VAEG_METAL_IMGUI_UNIFORMS {
+		float projection[16];
+	} uniforms;
+	ImVec2 framebuffer_scale;
+	float display_width;
+	float display_height;
+	size_t vertex_offset = 0;
+	size_t index_offset = 0;
+
+	if (!ImGui::GetCurrentContext() || (state->gui_pipeline == nil) ||
+	    (state->gui_sampler == nil) || (target == nil)) {
+		return 1;
+	}
+	draw_data = ImGui::GetDrawData();
+	if ((draw_data == nullptr) || (draw_data->TotalVtxCount <= 0) ||
+	    (draw_data->TotalIdxCount <= 0) || (draw_data->DisplaySize.x <= 0.0f) ||
+	    (draw_data->DisplaySize.y <= 0.0f)) {
+		return 1;
+	}
+	if (draw_data->FramebufferScale.x > 0.0f && draw_data->FramebufferScale.y > 0.0f) {
+		framebuffer_scale = draw_data->FramebufferScale;
+	} else {
+		framebuffer_scale = ImVec2(1.0f, 1.0f);
+	}
+	display_width = draw_data->DisplaySize.x * framebuffer_scale.x;
+	display_height = draw_data->DisplaySize.y * framebuffer_scale.y;
+	if ((state->gui_vertex_buffer == nil) ||
+	    (state->gui_vertex_capacity < static_cast<size_t>(draw_data->TotalVtxCount) *
+                                        sizeof(ImDrawVert))) {
+		const size_t capacity = static_cast<size_t>(draw_data->TotalVtxCount) * sizeof(ImDrawVert);
+		if (state->gui_vertex_buffer != nil) [state->gui_vertex_buffer release];
+		state->gui_vertex_buffer = [state->device newBufferWithLength:capacity
+		                                                        options:MTLResourceStorageModeShared];
+		state->gui_vertex_capacity = state->gui_vertex_buffer ? capacity : 0;
+	}
+	if ((state->gui_index_buffer == nil) ||
+	    (state->gui_index_capacity < static_cast<size_t>(draw_data->TotalIdxCount) *
+                                       sizeof(ImDrawIdx))) {
+		const size_t capacity = static_cast<size_t>(draw_data->TotalIdxCount) * sizeof(ImDrawIdx);
+		if (state->gui_index_buffer != nil) [state->gui_index_buffer release];
+		state->gui_index_buffer = [state->device newBufferWithLength:capacity
+	                                                       options:MTLResourceStorageModeShared];
+		state->gui_index_capacity = state->gui_index_buffer ? capacity : 0;
+	}
+	if ((state->gui_vertex_buffer == nil) || (state->gui_index_buffer == nil)) {
+		return 0;
+	}
+	for (int list_index = 0; list_index < draw_data->CmdListsCount; ++list_index) {
+		const ImDrawList *draw_list = draw_data->CmdLists[list_index];
+		memcpy(static_cast<unsigned char *>(state->gui_vertex_buffer.contents) + vertex_offset,
+		       draw_list->VtxBuffer.Data, draw_list->VtxBuffer.Size * sizeof(ImDrawVert));
+		memcpy(static_cast<unsigned char *>(state->gui_index_buffer.contents) + index_offset,
+		       draw_list->IdxBuffer.Data, draw_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+		vertex_offset += draw_list->VtxBuffer.Size * sizeof(ImDrawVert);
+		index_offset += draw_list->IdxBuffer.Size * sizeof(ImDrawIdx);
+	}
+	memset(&uniforms, 0, sizeof(uniforms));
+	uniforms.projection[0] = 2.0f / display_width;
+	uniforms.projection[5] = -2.0f / display_height;
+	uniforms.projection[10] = 1.0f;
+	uniforms.projection[12] = -1.0f - draw_data->DisplayPos.x * 2.0f / display_width;
+	uniforms.projection[13] = 1.0f + draw_data->DisplayPos.y * 2.0f / display_height;
+	uniforms.projection[15] = 1.0f;
+	pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+	pass_descriptor.colorAttachments[0].texture = target;
+	pass_descriptor.colorAttachments[0].loadAction = MTLLoadActionLoad;
+	pass_descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+	encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_descriptor];
+	if (encoder == nil) {
+		return 0;
+	}
+	[encoder setViewport:(MTLViewport){0.0, 0.0, (double)target.width, (double)target.height, 0.0, 1.0}];
+	[encoder setRenderPipelineState:state->gui_pipeline];
+	[encoder setVertexBuffer:state->gui_vertex_buffer offset:0 atIndex:0];
+	[encoder setVertexBytes:&uniforms length:sizeof(uniforms) atIndex:1];
+	[encoder setFragmentSamplerState:state->gui_sampler atIndex:0];
+	vertex_offset = 0;
+	index_offset = 0;
+	for (int list_index = 0; list_index < draw_data->CmdListsCount; ++list_index) {
+		const ImDrawList *draw_list = draw_data->CmdLists[list_index];
+		for (const ImDrawCmd &command : draw_list->CmdBuffer) {
+			if (command.UserCallback != nullptr) {
+				continue;
+			}
+			const ImVec4 clip = command.ClipRect;
+			int left = static_cast<int>((clip.x - draw_data->DisplayPos.x) * framebuffer_scale.x);
+			int top = static_cast<int>((clip.y - draw_data->DisplayPos.y) * framebuffer_scale.y);
+			int right = static_cast<int>((clip.z - draw_data->DisplayPos.x) * framebuffer_scale.x);
+			int bottom = static_cast<int>((clip.w - draw_data->DisplayPos.y) * framebuffer_scale.y);
+			if (left < 0) left = 0;
+			if (top < 0) top = 0;
+			if (right > static_cast<int>(target.width)) right = target.width;
+			if (bottom > static_cast<int>(target.height)) bottom = target.height;
+			if ((right <= left) || (bottom <= top)) continue;
+			VAEG_METAL_GUI_TEXTURE *texture = reinterpret_cast<VAEG_METAL_GUI_TEXTURE *>(
+			    static_cast<uintptr_t>(command.GetTexID()));
+			if ((texture == nullptr) || (texture->texture == nil)) continue;
+			[encoder setScissorRect:(MTLScissorRect){(NSUInteger)left, (NSUInteger)top,
+			                                      (NSUInteger)(right - left),
+			                                      (NSUInteger)(bottom - top)}];
+			[encoder setFragmentTexture:texture->texture atIndex:0];
+			[encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+			                    indexCount:command.ElemCount
+			                      indexType:(sizeof(ImDrawIdx) == 2 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32)
+			                    indexBuffer:state->gui_index_buffer
+			              indexBufferOffset:index_offset + command.IdxOffset * sizeof(ImDrawIdx)
+			                  instanceCount:1
+			                     baseVertex:(NSInteger)(vertex_offset / sizeof(ImDrawVert)) +
+			                                command.VtxOffset
+			                   baseInstance:0];
+		}
+		vertex_offset += draw_list->VtxBuffer.Size * sizeof(ImDrawVert);
+		index_offset += draw_list->IdxBuffer.Size * sizeof(ImDrawIdx);
+	}
+	[encoder endEncoding];
+	return 1;
+}
+
 extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 	VAEG_METAL_BRIDGE *bridge, const VAEG_FRAME_INPUT *frame) {
 	VAEG_METAL_STATE *state;
@@ -449,24 +875,25 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
 		}
 		state->filter_first_frame = false;
-		[command_buffer presentDrawable:drawable];
-		[command_buffer commit];
-		return VAEG_METAL_BRIDGE_OK;
+	} else {
+		pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+		pass_descriptor.colorAttachments[0].texture = drawable.texture;
+		pass_descriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+		pass_descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+		pass_descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+		encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_descriptor];
+		if (encoder == nil) {
+			return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+		}
+		[encoder setViewport:viewport];
+		[encoder setRenderPipelineState:state->pipeline];
+		[encoder setFragmentTexture:state->source_texture atIndex:0];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+		[encoder endEncoding];
 	}
-	pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-	pass_descriptor.colorAttachments[0].texture = drawable.texture;
-	pass_descriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
-	pass_descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
-	pass_descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
-	encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_descriptor];
-	if (encoder == nil) {
-		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	if (ImGui::GetCurrentContext() && !vaeg_metal_render_gui(state, command_buffer, drawable.texture)) {
+		fprintf(stderr, "librashader Metal ImGui frame rendering failed\n");
 	}
-	[encoder setViewport:viewport];
-	[encoder setRenderPipelineState:state->pipeline];
-	[encoder setFragmentTexture:state->source_texture atIndex:0];
-	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
-	[encoder endEncoding];
 	[command_buffer presentDrawable:drawable];
 	[command_buffer commit];
 	return VAEG_METAL_BRIDGE_OK;

@@ -177,6 +177,12 @@ class MetalPresenter final : public NativePresenter {
 	}
 
   private:
+	bool gui_prepare() noexcept override { return vaeg_metal_bridge_gui_prepare(&bridge_) != 0; }
+	void gui_shutdown() noexcept override { vaeg_metal_bridge_gui_shutdown(&bridge_); }
+	void set_output_viewport(int x, int y, int width, int height) noexcept override {
+		vaeg_metal_bridge_set_output_viewport(&bridge_, x, y, width, height);
+	}
+
 	bool apply_backend_filter_parameter(const char *name, float value) noexcept override {
 		return vaeg_metal_bridge_set_filter_parameter(&bridge_, name, value) ==
 		       VAEG_METAL_BRIDGE_OK;

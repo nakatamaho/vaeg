@@ -2139,7 +2139,9 @@ int main(int argc, char **argv) {
 		goto np2main_err2;
 	}
 	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
-#if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
+#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
+	if (TRUE)
+#else
 	if (!scrnmng_native_active())
 #endif
 	{
@@ -2151,7 +2153,9 @@ int main(int argc, char **argv) {
 			(void)scrnmng_take_native_fallback();
 		}
 	}
-#if !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
+#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
+	/* Metal owns the drawable, but also provides the native ImGui pass. */
+#elif !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
 	else {
 		SDL_Log("Native CRT owns presentation; SDL GUI renderer is deferred until fallback");
 	}

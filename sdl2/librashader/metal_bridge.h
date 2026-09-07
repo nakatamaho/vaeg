@@ -49,6 +49,10 @@ int vaeg_metal_bridge_initialize(void *host_window, const char *preset_path, int
                                  VAEG_METAL_BRIDGE *bridge);
 void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge, uint32_t width,
                                          uint32_t height);
+void vaeg_metal_bridge_set_output_viewport(VAEG_METAL_BRIDGE *bridge, int x, int y, int width,
+                                           int height);
+int vaeg_metal_bridge_gui_prepare(VAEG_METAL_BRIDGE *bridge);
+void vaeg_metal_bridge_gui_shutdown(VAEG_METAL_BRIDGE *bridge);
 VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_enabled(VAEG_METAL_BRIDGE *bridge,
                                                                int enabled);
 VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_parameter(VAEG_METAL_BRIDGE *bridge,
