@@ -169,6 +169,28 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Native Metal CRT presentation omitted the ImGui menu
+
+- **Status:** corrected in M99z35; physical Apple GPU visual confirmation
+  remains a maintainer check.
+- **Symptom/scope:** macOS native CRT presentation showed the guest output but
+  the SDL/ImGui menu disappeared because the native presenter owned the
+  drawable and no longer used the SDL renderer backend.
+- **Demonstrated cause:** the macOS startup path deferred GUI initialization
+  while the Metal presenter had no GUI render pass. Its drawable also ignored
+  the SDL-calculated output viewport.
+- **Correction:** initialize the existing SDL2 ImGui platform layer on macOS
+  even when Metal owns presentation, upload its textures to Metal, and render
+  the ImGui draw lists after the guest/filter pass on the same drawable. Pass
+  the calculated guest viewport to the Metal bridge while leaving the SDL
+  fallback path unchanged.
+- **Verification:** macOS static `vaeg_sdl2` build and the focused 16-test
+  librashader/ROM-less/viewport suite passed. A physical menu screenshot and
+  the observed Metal filter-chain command-buffer failure remain separate
+  maintainer checks.
+- **Task/evidence/commit:** [M99z35 report](../agents/reports/m99z35_metal_imgui_menu.md).
+  Fix: [8855991b](https://github.com/nakatamaho/vaeg/commit/8855991bc0441e717a3037de2c600a2e181d61f0).
+
 ### Startup splash omitted with native CRT presentation
 
 - **Status:** corrected in M99z17; native GPU visual retest pending.
