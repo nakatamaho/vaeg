@@ -30,6 +30,7 @@
 
 typedef struct {
 	void *state;
+	VAEG_OUTPUT_CAPTURE *capture;
 } VAEG_METAL_BRIDGE;
 
 typedef enum {

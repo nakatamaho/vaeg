@@ -38,6 +38,7 @@ class MetalPresenter final : public NativePresenter {
 	      drawable_width_(0), drawable_height_(0), backend_(PresenterBackend::Metal),
 	      filter_enabled_(false) {
 		bridge_.state = nullptr;
+		bridge_.capture = nullptr;
 		preset_path_[0] = '\0';
 	}
 
@@ -177,6 +178,10 @@ class MetalPresenter final : public NativePresenter {
 	}
 
   private:
+	void set_output_capture(VAEG_OUTPUT_CAPTURE *capture) noexcept override {
+		bridge_.capture = capture;
+	}
+
 	bool gui_prepare() noexcept override { return vaeg_metal_bridge_gui_prepare(&bridge_) != 0; }
 	void gui_shutdown() noexcept override { vaeg_metal_bridge_gui_shutdown(&bridge_); }
 	void set_output_viewport(int x, int y, int width, int height) noexcept override {

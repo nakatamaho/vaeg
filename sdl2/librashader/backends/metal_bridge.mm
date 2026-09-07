@@ -53,6 +53,7 @@ struct VAEG_METAL_STATE {
 	size_t gui_index_capacity;
 	id<MTLTexture> source_texture;
 	id<MTLTexture> filter_output_texture;
+	id<MTLTexture> capture_texture;
 	uint8_t *upload_buffer;
 	size_t upload_capacity;
 	uint32_t source_width;
@@ -61,6 +62,9 @@ struct VAEG_METAL_STATE {
 	NSUInteger filter_output_width;
 	NSUInteger filter_output_height;
 	MTLPixelFormat filter_output_pixel_format;
+	NSUInteger capture_width;
+	NSUInteger capture_height;
+	MTLPixelFormat capture_pixel_format;
 	libra_instance_t librashader;
 	libra_mtl_filter_chain_t filter_chain;
 	bool filter_enabled;
@@ -152,6 +156,9 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	}
 	if (state->filter_output_texture != nil) {
 		[state->filter_output_texture release];
+	}
+	if (state->capture_texture != nil) {
+		[state->capture_texture release];
 	}
 	if ((state->filter_chain != nullptr) &&
 	    (state->librashader.mtl_filter_chain_free != nullptr)) {
@@ -521,6 +528,97 @@ static int vaeg_metal_ensure_filter_output_texture(VAEG_METAL_STATE *state, NSUI
 	return 1;
 }
 
+static int vaeg_metal_ensure_capture_texture(VAEG_METAL_STATE *state, NSUInteger width,
+                                              NSUInteger height, MTLPixelFormat pixel_format) {
+	MTLTextureDescriptor *descriptor;
+
+	if ((width == 0) || (height == 0) || (pixel_format != MTLPixelFormatBGRA8Unorm)) {
+		return 0;
+	}
+	if ((state->capture_texture != nil) && (state->capture_width == width) &&
+	    (state->capture_height == height) && (state->capture_pixel_format == pixel_format)) {
+		return 1;
+	}
+	if (state->capture_texture != nil) {
+		[state->capture_texture release];
+		state->capture_texture = nil;
+	}
+	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixel_format
+	                                                                    width:width
+	                                                                   height:height
+	                                                                mipmapped:NO];
+	descriptor.usage = MTLTextureUsageShaderRead;
+	descriptor.storageMode = MTLStorageModeShared;
+	state->capture_texture = [state->device newTextureWithDescriptor:descriptor];
+	[descriptor release];
+	if (state->capture_texture == nil) {
+		return 0;
+	}
+	state->capture_width = width;
+	state->capture_height = height;
+	state->capture_pixel_format = pixel_format;
+	return 1;
+}
+
+static int vaeg_metal_capture_drawable(VAEG_METAL_STATE *state,
+                                        id<MTLCommandBuffer> command_buffer,
+                                        id<MTLTexture> drawable,
+                                        VAEG_OUTPUT_CAPTURE *capture) {
+	id<MTLBlitCommandEncoder> blit_encoder;
+
+	if (capture != nullptr) {
+		capture->complete = 0;
+	}
+	if ((capture == nullptr) || (capture->pixels == nullptr) ||
+	    (capture->width != drawable.width) || (capture->height != drawable.height) ||
+	    (capture->pitch_bytes < drawable.width * 4U) ||
+	    !vaeg_metal_ensure_capture_texture(state, drawable.width, drawable.height,
+	                                        drawable.pixelFormat)) {
+		return 0;
+	}
+	blit_encoder = [command_buffer blitCommandEncoder];
+	if (blit_encoder == nil) {
+		return 0;
+	}
+	[blit_encoder copyFromTexture:drawable
+                  sourceSlice:0
+                  sourceLevel:0
+                 sourceOrigin:(MTLOrigin){0, 0, 0}
+                   sourceSize:(MTLSize){drawable.width, drawable.height, 1}
+                    toTexture:state->capture_texture
+             destinationSlice:0
+             destinationLevel:0
+            destinationOrigin:(MTLOrigin){0, 0, 0}];
+	[blit_encoder endEncoding];
+	return 1;
+}
+
+static int vaeg_metal_finish_capture(VAEG_METAL_STATE *state, id<MTLCommandBuffer> command_buffer,
+                                      VAEG_OUTPUT_CAPTURE *capture) {
+	NSUInteger row;
+
+	if ((capture == nullptr) || (state->capture_texture == nil) ||
+	    ([command_buffer status] != MTLCommandBufferStatusCompleted)) {
+		return 0;
+	}
+	[state->capture_texture getBytes:capture->pixels
+	                     bytesPerRow:capture->pitch_bytes
+	                      fromRegion:MTLRegionMake2D(0, 0, capture->width, capture->height)
+                     mipmapLevel:0];
+	for (row = 0; row < capture->height; ++row) {
+		unsigned char *pixels = static_cast<unsigned char *>(capture->pixels) +
+		                         row * capture->pitch_bytes;
+		for (NSUInteger column = 0; column < capture->width; ++column) {
+			unsigned char blue = pixels[column * 4U];
+			pixels[column * 4U] = pixels[column * 4U + 2U];
+			pixels[column * 4U + 2U] = blue;
+			pixels[column * 4U + 3U] = 255;
+		}
+	}
+	capture->complete = 1;
+	return 1;
+}
+
 extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *preset_path,
                                                int enable_filter, VAEG_METAL_BRIDGE *bridge) {
 	VAEG_METAL_STATE *state;
@@ -602,6 +700,7 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *prese
 		return 0;
 	}
 	bridge->state = state;
+	bridge->capture = nullptr;
 	return 1;
 }
 
@@ -860,6 +959,8 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 	libra_viewport_t libra_viewport;
 	frame_mtl_opt_t filter_options;
 	libra_error_t error;
+	VAEG_OUTPUT_CAPTURE *capture;
+	int capture_submitted;
 
 	if ((bridge == nullptr) || (bridge->state == nullptr) || (frame == nullptr)) {
 		return VAEG_METAL_BRIDGE_INVALID_ARGUMENT;
@@ -868,6 +969,8 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 		return VAEG_METAL_BRIDGE_INVALID_FRAME;
 	}
 	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	capture = bridge->capture;
+	capture_submitted = 0;
 	if (!vaeg_metal_ensure_source_texture(state, frame->width, frame->height)) {
 		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
 	}
@@ -978,15 +1081,27 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 	if (ImGui::GetCurrentContext() && !vaeg_metal_render_gui(state, command_buffer, drawable.texture)) {
 		fprintf(stderr, "librashader Metal ImGui frame rendering failed\n");
 	}
+	if (capture != nullptr) {
+		capture_submitted =
+		    vaeg_metal_capture_drawable(state, command_buffer, drawable.texture, capture);
+	}
 	[command_buffer presentDrawable:drawable];
 	[command_buffer commit];
+	if (capture_submitted) {
+		[command_buffer waitUntilCompleted];
+		(void)vaeg_metal_finish_capture(state, command_buffer, capture);
+	}
 	return VAEG_METAL_BRIDGE_OK;
 }
 
 extern "C" void vaeg_metal_bridge_shutdown(VAEG_METAL_BRIDGE *bridge) {
 	VAEG_METAL_STATE *state;
 
-	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+	if (bridge == nullptr) {
+		return;
+	}
+	bridge->capture = nullptr;
+	if (bridge->state == nullptr) {
 		return;
 	}
 	state = static_cast<VAEG_METAL_STATE *>(bridge->state);

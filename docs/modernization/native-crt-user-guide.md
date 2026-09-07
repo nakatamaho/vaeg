@@ -204,8 +204,9 @@ and Video info / Framebuffer info exactly as enabled. Menus, dialogs and the
 top menu strip are excluded; the remaining drawable area, including letterbox
 margins, is retained. Readback and PNG encoding occur only on request and may
 briefly stall presentation. Failure is reported rather than substituting raw
-pixels. Native Metal/OpenGL output readback is not yet supported by this path;
-their native GUI integration also remains pending.
+pixels. Native Metal output readback is supported; native OpenGL output
+readback is not yet supported by this path. Native GUI integration remains
+platform-specific.
 
 `スクリーンショットを保存（加工前）` saves the guest-resolution image without
 display effects or scaling. Video info and Framebuffer info are included
