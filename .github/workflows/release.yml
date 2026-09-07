@@ -53,8 +53,29 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libarchive-dev gcc g++ nasm
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: Acquire pinned librashader source
+        run: |
+          mkdir -p build/m99-static
+          git clone https://github.com/SnowflakePowered/librashader.git \
+            build/m99-static/librashader-git
+          git -C build/m99-static/librashader-git checkout --detach \
+            87e8a97b50516d997defeaa168173dcd185d4022
+      - name: Build static librashader
+        run: |
+          python3 tools/release/build-static-librashader.py \
+            --source build/m99-static/librashader-git \
+            --target x86_64-unknown-linux-gnu \
+            --output build/m99-static/linux-audit
       - name: Configure
-        run: cmake --preset linux-ci-gcc
+        run: >-
+          cmake --preset linux-ci-gcc
+          -DVAEG_STATIC_LIBRASHADER=ON
+          -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/x86_64-unknown-linux-gnu/release/liblibrashader_capi.a
+          -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/linux-audit/third-party-notices.txt
+          '-DVAEG_LIBRASHADER_NATIVE_LIBS=stdc++;gcc_s;util;rt;pthread;m;dl;c'
       - name: Build
         run: cmake --build --preset linux-ci-gcc
       - name: Smoke
@@ -154,9 +175,35 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkgconf
+            python
             nasm
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: x86_64-pc-windows-gnu
+      - name: Acquire pinned librashader source
+        run: |
+          mkdir -p build/m99-static
+          git clone https://github.com/SnowflakePowered/librashader.git \
+            build/m99-static/librashader-git
+          git -C build/m99-static/librashader-git checkout --detach \
+            87e8a97b50516d997defeaa168173dcd185d4022
+      - name: Build static librashader
+        run: |
+          export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+          export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
+          export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
+          export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+          python3 tools/release/build-static-librashader.py \
+            --source build/m99-static/librashader-git \
+            --target x86_64-pc-windows-gnu \
+            --output build/m99-static/windows-audit
       - name: Configure
-        run: cmake --preset mingw-ci
+        run: >-
+          cmake --preset mingw-ci
+          -DVAEG_STATIC_LIBRASHADER=ON
+          -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a
+          -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/windows-audit/third-party-notices.txt
+          '-DVAEG_LIBRASHADER_NATIVE_LIBS=advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp'
       - name: Build
         run: cmake --build --preset mingw-ci
       - name: Smoke
@@ -277,8 +324,29 @@ jobs:
           fetch-depth: 0
       - name: Install build tools
         run: brew install cmake ninja nasm
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: aarch64-apple-darwin
+      - name: Acquire pinned librashader source
+        run: |
+          mkdir -p build/m99-static
+          git clone https://github.com/SnowflakePowered/librashader.git \
+            build/m99-static/librashader-git
+          git -C build/m99-static/librashader-git checkout --detach \
+            87e8a97b50516d997defeaa168173dcd185d4022
+      - name: Build static librashader
+        run: |
+          python3 tools/release/build-static-librashader.py \
+            --source build/m99-static/librashader-git \
+            --target aarch64-apple-darwin \
+            --output build/m99-static/macos-audit
       - name: Configure
-        run: cmake --preset macos-ci
+        run: >-
+          cmake --preset macos-ci
+          -DVAEG_STATIC_LIBRASHADER=ON
+          -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/aarch64-apple-darwin/release/liblibrashader_capi.a
+          -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/macos-audit/third-party-notices.txt
+          '-DVAEG_LIBRASHADER_NATIVE_LIBS=c++;-framework Metal;-framework Foundation;-framework CoreFoundation;iconv;objc'
       - name: Build
         run: cmake --build --preset macos-ci
       - name: Smoke

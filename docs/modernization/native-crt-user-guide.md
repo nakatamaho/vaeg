@@ -158,19 +158,17 @@ Start VAEG from the package directory so the default relative asset path is
 available:
 
 ```text
-vaeg                         (or vaeg.exe)
+vaeg                         (or vaeg.exe; static librashader API embedded)
 assets/shaders/crt/vaeg_crt_default.slangp
 assets/shaders/crt/shaders/crt-lottes-fast.slang
 licenses/...
-librashader.so               (Linux, optional)
-librashader.dylib            (macOS, optional)
-librashader.dll              (Windows, optional)
 ```
 
-The runtime is optional. A package without it remains a valid VAEG package;
-Native CRT fails closed to the normal SDL renderer. The release staging
-helper accepts only the runtime name for the selected platform and checks the
-shader, preset, license, and provenance hashes before packaging.
+M99 release binaries statically link the pinned librashader C API and do not
+require `librashader.so`, `librashader.dylib`, or `librashader.dll`. The
+release staging helper checks the shader, preset, license, and provenance
+hashes before packaging. Shared runtimes remain supported only for explicit
+non-release developer builds.
 
 On Linux or macOS, if a development environment does not search the package
 directory for a neighboring dynamic library, add that directory to the

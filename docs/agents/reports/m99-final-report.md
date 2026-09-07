@@ -128,8 +128,9 @@ and TVRAM capture remain the QA path.
 The pinned dependency is official `librashader-v0.12.0`, peeled commit
 `87e8a97b50516d997defeaa168173dcd185d4022`, source archive SHA-256
 `4bf8cf2489d00848dcabbf2163204093776082da4217d5a5db45e4cbf335cedf`.
-The C API is 5 and C ABI is 2. VAEG uses the official C API and dynamic loader;
-it does not statically link librashader.
+The C API is 5 and C ABI is 2. M99 QA and release builds statically link the
+official C API archive. The dynamic loader remains available only for explicit
+non-release developer diagnostics and is not required by release binaries.
 
 The tracked header SHA-256 values are:
 

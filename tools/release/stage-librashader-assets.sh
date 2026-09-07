@@ -157,7 +157,7 @@ if [[ -n ${runtime} ]]; then
 		> "$output/licenses/librashader-runtime.sha256"
 	printf 'Staged optional librashader runtime: %s\n' "$runtime_name"
 else
-	printf 'No optional librashader runtime staged; native CRT will fail closed.\n'
+	printf 'No shared librashader runtime staged; static builds use the embedded API, dynamic builds fail closed.\n'
 fi
 
 printf 'Staged librashader CRT assets for %s in %s\n' "$platform" "$output"
