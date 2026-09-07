@@ -435,6 +435,7 @@ static const INITBL iniitem[] = {
      sizeof(np2oscfg.gui_shader_preset)},
     {"NativeCRTParameters", INITYPE_STR, np2oscfg.gui_shader_parameters,
      sizeof(np2oscfg.gui_shader_parameters)},
+    {"NativeCRTAutoMask", INITYPE_BOOL, &np2oscfg.gui_native_mask_auto, 0},
 };
 
 #define INIITEMS (sizeof(iniitem) / sizeof(INITBL))
@@ -509,6 +510,7 @@ void initload(void) {
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;
 	np2oscfg.gui_native_filter = np2oscfg.gui_native_filter ? 1 : 0;
+	np2oscfg.gui_native_mask_auto = np2oscfg.gui_native_mask_auto ? 1 : 0;
 	if (np2oscfg.gui_shader_preset[0] == '\0') {
 		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
 		            sizeof(np2oscfg.gui_shader_preset));

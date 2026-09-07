@@ -63,6 +63,11 @@ unchanged.
 The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
 `CRT設定…`: 80–120%, initially 98.00%, with 0.01% steps. Its default `CURVATURE`
 is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
+The RGB mask has an automatic low-resolution profile enabled by default:
+`MASK_INTENSITY` is 0.15 at x1, 0.20 at x2, and 0.30 at x3 or larger. This
+reduces RGB-mask aliasing at small window sizes without blurring the framebuffer.
+The CRT settings window can disable automatic adjustment for manual control;
+that choice is saved as `NativeCRTAutoMask` in `vaeg.cfg`.
 CRT parameter values live in `NativeCRTParameters` in the active `vaeg.cfg`
 (or the file selected with `--cfg`). Changes and reset are saved on normal exit,
 along with other frontend settings. The old `vaeg-crt-parameters.cfg` is neither

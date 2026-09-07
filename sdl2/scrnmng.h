@@ -113,6 +113,8 @@ BOOL scrnmng_apply_native_crt_request(void);
 const char *scrnmng_native_status(void);
 const char *scrnmng_native_preset_path(void);
 BOOL scrnmng_native_set_parameter(const char *name, float value);
+float scrnmng_native_mask_intensity(void);
+void scrnmng_apply_native_mask_profile(void);
 void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
 BOOL scrnmng_save_rendered_frame(const char *path);

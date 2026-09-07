@@ -2698,6 +2698,34 @@ static void draw_native_crt_settings(void) {
 	} else {
 		vaeg::librashader::ShaderParameterSet &parameters =
 		    g_gui.native_crt_preset.parameters();
+		vaeg::librashader::ShaderParameterInfo *mask_parameter = nullptr;
+		for (std::size_t i = 0; i < parameters.size(); ++i) {
+			vaeg::librashader::ShaderParameterInfo *parameter = parameters.at(i);
+			if ((parameter != nullptr) && (parameter->name == "MASK_INTENSITY")) {
+				mask_parameter = parameter;
+				break;
+			}
+		}
+		if (mask_parameter != nullptr) {
+			if (np2oscfg.gui_native_mask_auto) {
+				mask_parameter->value = scrnmng_native_mask_intensity();
+			}
+			bool auto_mask = np2oscfg.gui_native_mask_auto != 0;
+			if (ImGui::Checkbox("RGB mask: Auto by window scale", &auto_mask)) {
+				np2oscfg.gui_native_mask_auto = auto_mask ? 1 : 0;
+				if (auto_mask) {
+					mask_parameter->value = scrnmng_native_mask_intensity();
+				}
+				scrnmng_apply_native_mask_profile();
+				if (!parameters.save_config()) {
+					g_gui.native_crt_status = "RGB mask mode save failed";
+				} else {
+					g_gui.native_crt_status = auto_mask ? "RGB mask automatic"
+					                                  : "RGB mask manual";
+					sysmng_update(SYS_UPDATEOSCFG);
+				}
+			}
+		}
 		for (std::size_t i = 0; i < parameters.size(); ++i) {
 			vaeg::librashader::ShaderParameterInfo *parameter = parameters.at(i);
 			if (parameter == nullptr) {
@@ -2709,6 +2737,9 @@ static void draw_native_crt_settings(void) {
 			if (ImGui::SliderFloat(parameter->name.c_str(), &value, parameter->minimum,
 			                       parameter->maximum, format)) {
 				(void)parameters.set_value_at(i, value, nullptr);
+				if (parameter->name == "MASK_INTENSITY") {
+					np2oscfg.gui_native_mask_auto = 0;
+				}
 				if (scrnmng_native_active() &&
 				    scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value) !=
 				        SUCCESS) {
@@ -2726,7 +2757,11 @@ static void draw_native_crt_settings(void) {
 			ImGui::PopID();
 		}
 		if (ImGui::Button("Reset parameters")) {
+			np2oscfg.gui_native_mask_auto = 1;
 			parameters.reset();
+			if (mask_parameter != nullptr) {
+				mask_parameter->value = scrnmng_native_mask_intensity();
+			}
 			if (scrnmng_native_active()) {
 				for (std::size_t i = 0; i < parameters.size(); ++i) {
 					const auto *parameter = parameters.at(i);

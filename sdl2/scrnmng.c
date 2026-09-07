@@ -1378,6 +1378,9 @@ BOOL scrnmng_create(int width, int height) {
 			fprintf(stderr, "Native librashader selected but unavailable; using SDL fallback\n");
 		}
 	}
+	if (scrnmng.native_active) {
+		scrnmng_apply_native_mask_profile();
+	}
 	if (!scrnmng.native_active && (scrnmng_create_sdl_resources() != SUCCESS)) {
 		scrnmng_destroy();
 		return (FAILURE);
@@ -1513,8 +1516,29 @@ BOOL scrnmng_set_native_filter(BOOL enabled) {
 	    !vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
 		return FAILURE;
 	}
+	if (enabled) {
+		scrnmng_apply_native_mask_profile();
+	}
 	scrnmng_update_title();
 	return SUCCESS;
+}
+
+float scrnmng_native_mask_intensity(void) {
+	if (scrnmng.scale <= 1) {
+		return 0.15f;
+	}
+	if (scrnmng.scale == 2) {
+		return 0.20f;
+	}
+	return 0.30f;
+}
+
+void scrnmng_apply_native_mask_profile(void) {
+	if (!np2oscfg.gui_native_mask_auto || !scrnmng.native_active ||
+	    !scrnmng_native_filter_enabled()) {
+		return;
+	}
+	(void)scrnmng_native_set_parameter("MASK_INTENSITY", scrnmng_native_mask_intensity());
 }
 
 BOOL scrnmng_apply_native_crt_request(void) {
@@ -1528,6 +1552,9 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter,
 		                                      np2oscfg.gui_native_filter)) {
 			fprintf(stderr, "Native CRT toggle failed\n");
+		}
+		if (np2oscfg.gui_native_filter) {
+			scrnmng_apply_native_mask_profile();
 		}
 		scrnmng_update_title();
 		return SUCCESS;
@@ -1554,6 +1581,9 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		    vaeg_native_presenter_create(scrnmng.window, 0, 0, preset, scrnmng_native_parameter_state);
 	}
 	scrnmng.native_active = scrnmng.native_presenter != NULL;
+	if (scrnmng.native_active) {
+		scrnmng_apply_native_mask_profile();
+	}
 	if (!scrnmng.native_active) {
 		if (was_native && scrnmng_detach_native_window() != SUCCESS) return FAILURE;
 		SDL_Log("Renderer switch: creating SDL renderer");
@@ -1635,6 +1665,7 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
 	scrnmng_update_window_size();
+	scrnmng_apply_native_mask_profile();
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("scale-change");
 	}
