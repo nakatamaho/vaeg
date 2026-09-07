@@ -140,14 +140,16 @@ static int vaeg_metal_create_filter_chain(VAEG_METAL_STATE *state, const char *p
 	libra_shader_preset_t preset;
 	filter_chain_mtl_opt_t options;
 	libra_error_t error;
+	char load_error[512];
 
 	if ((preset_path == nullptr) || (preset_path[0] == '\0')) {
 		fprintf(stderr, "librashader Metal filter-chain skipped: preset path is empty\n");
 		return 0;
 	}
-	state->librashader = librashader_load_instance();
+	state->librashader = vaeg_librashader_load_instance(load_error, sizeof(load_error));
 	if (!state->librashader.instance_loaded) {
-		fprintf(stderr, "librashader Metal filter-chain skipped: static API unavailable\n");
+		fprintf(stderr, "librashader Metal filter-chain skipped: %s\n",
+		        load_error[0] ? load_error : "API unavailable");
 		return 0;
 	}
 	preset = nullptr;

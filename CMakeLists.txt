@@ -841,6 +841,18 @@ if(VAEG_ENABLE_TESTS)
         endif()
         set_tests_properties(vaeg_static_preset PROPERTIES
             WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/static-preset-test")
+        if(APPLE)
+            add_executable(vaeg_static_metal_loader
+                tests/frontend/librashader/test_static_metal_loader.mm)
+            target_compile_definitions(vaeg_static_metal_loader PRIVATE
+                VAEG_STATIC_LIBRASHADER=1)
+            target_include_directories(vaeg_static_metal_loader PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+                "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+            target_link_libraries(vaeg_static_metal_loader PRIVATE
+                "${VAEG_LIBRASHADER_STATIC_LIBRARY}" ${VAEG_LIBRASHADER_NATIVE_LIBS})
+            add_test(NAME vaeg_static_metal_loader COMMAND vaeg_static_metal_loader)
+        endif()
     endif()
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
