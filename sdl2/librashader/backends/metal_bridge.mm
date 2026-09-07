@@ -904,7 +904,10 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 		libra_viewport.height = static_cast<uint32_t>(viewport.height);
 		memset(&filter_options, 0, sizeof(filter_options));
 		filter_options.version = LIBRASHADER_CURRENT_VERSION;
-		filter_options.clear_history = state->filter_first_frame;
+		/* The bundled VAeg CRT preset has no OriginalHistory inputs. The pinned
+		 * Metal runtime attempts to encode an empty render pass when clear_history
+		 * is true for such a preset, and reports that as a command-buffer error. */
+		filter_options.clear_history = false;
 		filter_options.frame_direction = 1;
 		filter_options.rotation = 0;
 		filter_options.total_subframes = 1;
