@@ -169,6 +169,27 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Native Metal CRT wrote the filter chain directly to the drawable
+
+- **Status:** corrected in M99z36; physical Apple GPU filter execution remains
+  a maintainer check.
+- **Symptom/scope:** after native Metal and the ImGui menu were restored, every
+  filtered frame reported `MetalFilterError(FailedToCreateCommandBuffer)` and
+  fell back to pass-through. Audio and the SDL fallback path were unaffected.
+- **Demonstrated cause:** `sdl2/librashader/backends/metal_bridge.mm` passed the
+  `CAMetalLayer` drawable directly as librashader's output surface. The pinned
+  librashader contract requires a caller-provided filter surface followed by a
+  caller-owned copy to the backbuffer.
+- **Correction:** render the filter chain into a reusable drawable-sized,
+  drawable-format intermediate texture, clear the drawable, blit the filtered
+  guest viewport into it, and then retain the native Metal ImGui pass.
+  Recreate the intermediate when the drawable changes size or format.
+- **Verification:** macOS static build passed; the focused librashader,
+  ROM-less, and viewport suite passed 16/16; no physical Metal display was
+  available to this agent process.
+- **Task/evidence/commit:** [M99z36 report](../agents/reports/m99z36_metal_filter_output.md).
+  Fix: [b76d635d](https://github.com/nakatamaho/vaeg/commit/b76d635d1246899507afb02c6bc595e323fe1dab).
+
 ### Native Metal CRT presentation omitted the ImGui menu
 
 - **Status:** corrected in M99z35; physical Apple GPU visual confirmation
