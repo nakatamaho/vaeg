@@ -189,7 +189,8 @@ separate parity correction or move it to Open Defects.
   the observed Metal filter-chain command-buffer failure remain separate
   maintainer checks.
 - **Task/evidence/commit:** [M99z35 report](../agents/reports/m99z35_metal_imgui_menu.md).
-  Fix: [8855991b](https://github.com/nakatamaho/vaeg/commit/8855991bc0441e717a3037de2c600a2e181d61f0).
+  Main fix: [8855991b](https://github.com/nakatamaho/vaeg/commit/8855991bc0441e717a3037de2c600a2e181d61f0).
+  Metal shader correction: [6c163c5f](https://github.com/nakatamaho/vaeg/commit/6c163c5ff5afa8f2df687280f2556bbb45c39a41).
 
 ### Startup splash omitted with native CRT presentation
 

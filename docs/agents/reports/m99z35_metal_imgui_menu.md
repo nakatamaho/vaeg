@@ -65,4 +65,9 @@ must confirm that the menu is visible and that menu interaction remains
 usable. The separately observed `FailedToCreateCommandBuffer` filter-chain
 diagnostic is not claimed fixed by this menu restoration.
 
-Fixing commit: [8855991b](https://github.com/nakatamaho/vaeg/commit/8855991bc0441e717a3037de2c600a2e181d61f0).
+Fixing commits:
+
+- [8855991b](https://github.com/nakatamaho/vaeg/commit/8855991bc0441e717a3037de2c600a2e181d61f0)
+  adds the native Metal ImGui pass.
+- [6c163c5f](https://github.com/nakatamaho/vaeg/commit/6c163c5ff5afa8f2df687280f2556bbb45c39a41)
+  supplies the Metal vertex attribute annotations required by `stage_in`.
