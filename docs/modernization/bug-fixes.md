@@ -171,24 +171,45 @@ separate parity correction or move it to Open Defects.
 
 ### Native Metal CRT wrote the filter chain directly to the drawable
 
-- **Status:** corrected in M99z36; physical Apple GPU filter execution remains
-  a maintainer check.
+- **Status:** intermediate-surface correction landed in M99z36; it was
+  necessary but not sufficient for the reported frame error. The actual
+  first-frame failure is corrected in M99z37.
 - **Symptom/scope:** after native Metal and the ImGui menu were restored, every
   filtered frame reported `MetalFilterError(FailedToCreateCommandBuffer)` and
   fell back to pass-through. Audio and the SDL fallback path were unaffected.
-- **Demonstrated cause:** `sdl2/librashader/backends/metal_bridge.mm` passed the
-  `CAMetalLayer` drawable directly as librashader's output surface. The pinned
-  librashader contract requires a caller-provided filter surface followed by a
-  caller-owned copy to the backbuffer.
+- **Demonstrated contract issue:** `sdl2/librashader/backends/metal_bridge.mm`
+  passed the `CAMetalLayer` drawable directly as librashader's output surface.
+  The pinned librashader contract requires a caller-provided filter surface
+  followed by a caller-owned copy to the backbuffer. This was a real issue, but
+  the maintainer reproduced the frame error after this correction.
 - **Correction:** render the filter chain into a reusable drawable-sized,
   drawable-format intermediate texture, clear the drawable, blit the filtered
   guest viewport into it, and then retain the native Metal ImGui pass.
   Recreate the intermediate when the drawable changes size or format.
 - **Verification:** macOS static build passed; the focused librashader,
-  ROM-less, and viewport suite passed 16/16; no physical Metal display was
-  available to this agent process.
+  ROM-less, and viewport suite passed 16/16. Physical Metal confirmation is
+  deferred; the follow-up diagnosis is in [M99z37 report](../agents/reports/m99z37_metal_history_clear.md).
 - **Task/evidence/commit:** [M99z36 report](../agents/reports/m99z36_metal_filter_output.md).
   Fix: [b76d635d](https://github.com/nakatamaho/vaeg/commit/b76d635d1246899507afb02c6bc595e323fe1dab).
+
+### Native Metal CRT requested an empty first-frame history pass
+
+- **Status:** corrected in M99z37; physical Apple GPU confirmation remains a
+  maintainer check.
+- **Symptom/scope:** the default history-free CRT preset initialized and the
+  menu rendered, but every filtered frame returned
+  `MetalFilterError(FailedToCreateCommandBuffer)` and fell back to pass-through.
+- **Demonstrated cause:** the pinned Metal runtime creates a render encoder
+  whenever `clear_history` is true, even when the filter chain has no history
+  attachments. The empty descriptor is rejected by Metal and is reported using
+  the generic command-buffer error.
+- **Correction:** the Metal bridge no longer requests a first-frame history
+  clear for the bundled preset, which has no `OriginalHistory` resources. The
+  M99z36 intermediate output surface and ImGui composition remain unchanged.
+- **Verification:** macOS static build and the focused 16-test suite passed;
+  no Metal device/display was available to this agent process.
+- **Task/evidence/commit:** [M99z37 report](../agents/reports/m99z37_metal_history_clear.md).
+  Fix: [583eb8a9](https://github.com/nakatamaho/vaeg/commit/583eb8a97a32dc4444c054ec124d71722b7fe96a).
 
 ### Native Metal CRT presentation omitted the ImGui menu
 

@@ -23,8 +23,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M99z36 — Metal filter output surface
 
-Status: PASS for the source/build/test evidence; physical Apple GPU filter
-execution remains a maintainer check.
+Status: partial correction; the intermediate output surface remains required by
+the librashader contract, but it was not sufficient to resolve the reported
+Metal frame error. The follow-up is recorded in M99z37.
 
 ## Symptom and cause
 
@@ -40,7 +41,9 @@ The VAEG bridge passed the `CAMetalLayer` drawable directly as librashader's
 filter output. The pinned librashader revision documents that a filter chain
 terminates at a caller-provided output surface and that the caller copies that
 surface to the backbuffer. The drawable was therefore being used in a role
-that is not the intended output-surface boundary.
+that is not the intended output-surface boundary. This was a real API-contract
+violation, but the maintainer reproduced the same frame error after the
+intermediate surface was added; it was not the sole cause of that error.
 
 ## Correction
 
@@ -72,8 +75,7 @@ Results:
 - `git diff --check`: PASS.
 - A physical Metal frame could not be executed in this agent environment:
   SDL reported `The video driver did not add any displays`. The maintainer
-  should rerun the existing `VAEG_NATIVE_CRT=1 ./vaeg --no-cfg` smoke test and
-  confirm that filtered frames no longer fall back and that the menu remains
-  visible.
+  subsequently reran the binary and observed the same filter failure, leading
+  to the M99z37 correction. Filtered-frame success is not claimed here.
 
 Fixing commit: [b76d635d](https://github.com/nakatamaho/vaeg/commit/b76d635d1246899507afb02c6bc595e323fe1dab).
