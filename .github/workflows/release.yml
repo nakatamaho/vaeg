@@ -264,7 +264,7 @@ jobs:
           while IFS= read -r dll; do
             lower="$(printf '%s' "${dll}" | tr '[:upper:]' '[:lower:]')"
             case "${lower}" in
-              kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|crypt32.dll|comdlg32.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|api-ms-win-*.dll|ext-ms-*.dll)
+              kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|bcryptprimitives.dll|crypt32.dll|comdlg32.dll|combase.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|d3d11.dll|d3d12.dll|d3dcompiler_47.dll|dxgi.dll|ntdll.dll|userenv.dll|api-ms-win-*.dll|ext-ms-*.dll)
                 ;;
               *)
                 echo "unexpected non-system DLL import: ${dll}" >&2
