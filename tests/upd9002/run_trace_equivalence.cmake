@@ -56,6 +56,13 @@ function(run_trace output_variable)
         "vaeg-selftest-[0-9]+"
         "vaeg-selftest-PID"
         checkpoint_text "${checkpoint_text}")
+    # macOS SDL startup logs include wall-clock time and process/thread IDs.
+    # They are host diagnostics, not part of the CPU checkpoint contract, so
+    # remove only the known renderer-switch records before comparing runs.
+    string(REGEX REPLACE
+        "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
+        ""
+        checkpoint_text "${checkpoint_text}")
     set(${output_variable}_checkpoints "${checkpoint_text}" PARENT_SCOPE)
 endfunction()
 
@@ -133,6 +140,10 @@ string(REPLACE "\r" "" untraced_error "${untraced_error}")
 string(REGEX REPLACE
     "vaeg-selftest-[0-9]+"
     "vaeg-selftest-PID"
+    untraced_error "${untraced_error}")
+string(REGEX REPLACE
+    "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
+    ""
     untraced_error "${untraced_error}")
 if(NOT first_checkpoints STREQUAL untraced_error)
     message(FATAL_ERROR
