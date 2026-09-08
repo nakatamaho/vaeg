@@ -67,10 +67,10 @@ scales, the RGB mask and scanline sampling can produce visible moiré; use a
 larger integer scale or standard SDL presentation when necessary.
 
 <div align="center">
-<table>
+<table align="center" width="100%">
 <tr>
-<td><img width="49%" src="docs/images/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
-<td><img width="49%" src="docs/images/vaeg-20260908-111712-screenshot.png" alt="CRT settings"></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20260908-111712-screenshot.png" alt="CRT settings"></td>
 </tr>
 </table>
 </div>
