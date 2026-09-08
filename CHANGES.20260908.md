@@ -23,28 +23,53 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # 88VA Eternal Grafx Rel.20260908
 
-This release integrates the optional CRT presentation pipeline for the
+This release records the changes from Rel.20260830 through Rel.20260908.
+The main addition is an optional CRT shader presentation path for the
 portable SDL2 frontend on Windows, Linux, and macOS.
 
-## Highlights
+<table>
+<tr>
+<td><img src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
+<td><img src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111712-screenshot.png" alt="VAEG screenshot"></td>
+</tr>
+</table>
 
-- Standard SDL presentation remains available as the default fallback.
-- Optional CRT presentation and unprocessed librashader pass-through can be
-  selected from the display menu.
-- The audited CRT preset and shader closure are embedded in static release
-  binaries; no `librashader.dll`, `librashader.so`, or
-  `librashader.dylib` is required.
-- Native display screenshots preserve the displayed output where the backend
-  supports readback; deterministic guest-frame screenshots remain available
-  for QA.
-- CRT screen size, curvature, scanline, and RGB-mask controls are stored in
-  `vaeg.cfg`.
-- If the native graphics backend or filter chain is unavailable, VAEG falls
-  back to the existing SDL renderer.
+## CRT shader presentation
 
-## Notes
+- Native CRT presentation is available through the audited librashader C API.
+  Standard SDL presentation remains available as the fallback, and an
+  unprocessed librashader pass-through mode is available for comparison.
+- The CRT path preserves the source pixels with padding before filtering,
+  supports screen-size and curvature controls, and keeps scanline and RGB-mask
+  processing in the display stage.
+- The recommended setup is a 4K display with an integer scale of x3 or
+  larger. At lower resolutions or x1/x2 scales, the RGB mask and scanline
+  sampling can produce visible moiré; use a larger integer scale or standard
+  SDL presentation when that is undesirable.
+- Native display screenshots capture the displayed result, including enabled
+  display information overlays. Deterministic guest-frame capture remains
+  available for QA.
+- CRT settings are stored in `vaeg.cfg`. If the host graphics backend or
+  filter chain is unavailable, VAEG falls back to SDL without changing guest
+  emulation timing.
 
-ROM images, fonts, disk images, and other private integration media are not
-included. Supply the model-specific PC-88VA ROM files separately. Native CRT
-output depends on the host graphics driver; SDL fallback is intentional and
-does not affect emulation or deterministic guest-frame capture.
+## Frontend and platform work
+
+- Window scaling now supports x1 through x4 and custom integer sizes, with
+  clearer fullscreen and renderer choices.
+- Startup splash sizing, menu visibility, native Metal presentation, and
+  renderer switching were stabilized across SDL, D3D11, OpenGL, and Metal.
+- Static release builds embed the audited CRT preset and shader closure. No
+  `librashader.dll`, `librashader.so`, or `librashader.dylib` is required.
+  Windows system graphics libraries remain normal OS dependencies.
+- The release packages are built for Linux x86_64, Windows x86_64, and macOS
+  arm64, with SDL fallback retained for unsupported native filter paths.
+
+## Existing emulator and QA changes retained from Rel.20260830
+
+- The native PC-88VA path, SGP rendering and visual/contract tests, and the
+  PC-9801-55-compatible SCSI work remain included.
+- Screenshot, media handling, frontend menu, archive-drop, and PC-Engine
+  compatibility improvements from Rel.20260830 remain available.
+- ROM images, fonts, disk images, and other private integration media are not
+  included. Supply the model-specific PC-88VA ROM files separately.
