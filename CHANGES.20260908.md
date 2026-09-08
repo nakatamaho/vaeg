@@ -31,10 +31,10 @@ portable SDL2 frontend on Windows, Linux, and macOS.
 <table align="center" width="100%">
 <tr>
 <td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111655-0000093767-000.png" alt="CRT effect on"><br><em>CRT effect on</em></td>
-<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111712-screenshot.png" alt="CRT effect setting"><br><em>CRT effect setting</em></td>
+<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-135639-0000032205-000.png" alt="CRT effect off"><br><em>CRT effect off</em></td>
 </tr>
 <tr>
-<td colspan="2" align="center"><img width="50%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-135639-0000032205-000.png" alt="CRT effect off"><br><em>CRT effect off</em></td>
+<td colspan="2" align="center"><img width="50%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111712-screenshot.png" alt="CRT effect setting"><br><em>CRT effect setting</em></td>
 </tr>
 </table>
 </div>
