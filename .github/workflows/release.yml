@@ -203,12 +203,13 @@ jobs:
             --target x86_64-pc-windows-gnu \
             --output build/m99-static/windows-audit
       - name: Configure
-        run: >-
-          cmake --preset mingw-ci
-          -DVAEG_STATIC_LIBRASHADER=ON
-          -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a
-          -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/windows-audit/third-party-notices.txt
-          '-DVAEG_LIBRASHADER_NATIVE_LIBS=advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp'
+        run: |
+          workspace="$(cygpath -u "${GITHUB_WORKSPACE}")"
+          cmake --preset mingw-ci \
+            -DVAEG_STATIC_LIBRASHADER=ON \
+            "-DVAEG_LIBRASHADER_STATIC_LIBRARY=${workspace}/build/m99-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a" \
+            "-DVAEG_LIBRASHADER_STATIC_NOTICES=${workspace}/build/m99-static/windows-audit/third-party-notices.txt" \
+            '-DVAEG_LIBRASHADER_NATIVE_LIBS=advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp'
       - name: Build
         run: cmake --build --preset mingw-ci
       - name: Smoke
