@@ -67,7 +67,7 @@ class LicenseEmbeddingTest(unittest.TestCase):
             expected = (ROOT / relative).read_text(encoding="utf-8")
             self.assertIn(expected, [text for _, text in entries], relative)
         for component in ("rectpack", "textedit", "truetype"):
-            original = (ROOT / f"external/imgui/imstb_{component}.h").read_text()
+            original = (ROOT / f"external/imgui/imstb_{component}.h").read_text(encoding="utf-8")
             expected = original[original.index("ALTERNATIVE A - MIT License"):].split("*/", 1)[0]
             self.assertIn(expected, [text for _, text in entries])
         self.assertNotIn('{"LibArchive', generated)
@@ -81,10 +81,10 @@ class LicenseEmbeddingTest(unittest.TestCase):
     def test_feature_on(self):
         generated = self.generate(True)
         self.check_common(generated)
-        self.assertIn((ROOT / "external/librashader/LICENSE.md").read_text(), generated)
-        original = (ROOT / "external/librashader/include/librashader_ld.h").read_text()
+        self.assertIn((ROOT / "external/librashader/LICENSE.md").read_text(encoding="utf-8"), generated)
+        original = (ROOT / "external/librashader/include/librashader_ld.h").read_text(encoding="utf-8")
         self.assertIn(original[2:original.index("*/")], generated)
-        self.assertIn((ROOT / "assets/shaders/crt/licenses/crt-default-license.txt").read_text(), generated)
+        self.assertIn((ROOT / "assets/shaders/crt/licenses/crt-default-license.txt").read_text(encoding="utf-8"), generated)
 
 
 if __name__ == "__main__":
