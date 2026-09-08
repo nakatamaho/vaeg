@@ -50,11 +50,32 @@ remains a useful historical reference.
   the former Z80 core with unclear licensing is no longer part of the active
   tree, and `BRKEM2` is not yet supported;
 - optional on-screen graphics and text-sprite diagnostics;
-- simple CRT screen effects;
+- CRT screen effects via librashader (disabled by default);
 - substantially reorganized and simplified code;
 - a greatly reduced PC-98-only codebase.
 
 ## News
+
+### 2026-09-08 - Rel.20260908
+
+[Rel.20260908](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260908)
+adds optional CRT screen effects through librashader. The effect is disabled
+by default; enable it from the display settings when you want the CRT look.
+On Windows, native CRT presentation requires DirectX. A 4K display with an
+integer scale of x3 or larger is recommended. At lower resolutions or x1/x2
+scales, the RGB mask and scanline sampling can produce visible moiré; use a
+larger integer scale or standard SDL presentation when necessary.
+
+<div align="center">
+<table>
+<tr>
+<td><img width="49%" src="docs/images/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
+<td><img width="49%" src="docs/images/vaeg-20260908-111712-screenshot.png" alt="CRT settings"></td>
+</tr>
+</table>
+</div>
+
+See [Rel.20260908 changes](CHANGES.20260908.md) for the complete notes.
 
 ### 2026-08-30 - Rel.20260830
 
