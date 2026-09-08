@@ -111,12 +111,11 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
-          runtime_args=()
+          stage_args=(--output "dist-package/${package}" --platform linux)
           if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
-            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+            stage_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
           fi
-          tools/release/stage-librashader-assets.sh \
-            --output "dist-package/${package}" --platform linux "${runtime_args[@]}"
+          tools/release/stage-librashader-assets.sh "${stage_args[@]}"
           python3 tools/release/check-librashader-package.py \
             --input "dist-package/${package}" --platform linux
           tar -C dist-package -czf "${asset}" "${package}"
@@ -189,6 +188,9 @@ jobs:
             87e8a97b50516d997defeaa168173dcd185d4022
       - name: Build static librashader
         run: |
+          export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
+          command -v cargo
+          cargo --version
           export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
           export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
           export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
@@ -284,12 +286,11 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           cp "${release_notes}" "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
-          runtime_args=()
+          stage_args=(--output "dist-package/${package}" --platform windows)
           if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
-            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+            stage_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
           fi
-          tools/release/stage-librashader-assets.sh \
-            --output "dist-package/${package}" --platform windows "${runtime_args[@]}"
+          tools/release/stage-librashader-assets.sh "${stage_args[@]}"
           python3 tools/release/check-librashader-package.py \
             --input "dist-package/${package}" --platform windows
           find "dist-package/${package}" -type f | sort
@@ -383,12 +384,11 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
-          runtime_args=()
+          stage_args=(--output "dist-package/${package}" --platform macos)
           if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
-            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+            stage_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
           fi
-          tools/release/stage-librashader-assets.sh \
-            --output "dist-package/${package}" --platform macos "${runtime_args[@]}"
+          tools/release/stage-librashader-assets.sh "${stage_args[@]}"
           python3 tools/release/check-librashader-package.py \
             --input "dist-package/${package}" --platform macos
 
