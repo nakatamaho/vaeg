@@ -27,12 +27,17 @@ This release records the changes from Rel.20260830 through Rel.20260908.
 The main addition is an optional CRT shader presentation path for the
 portable SDL2 frontend on Windows, Linux, and macOS.
 
-<table>
+<div align="center">
+<table align="center" width="100%">
 <tr>
-<td><img width="49%" src="https://raw.githubusercontent.com/nakatamaho/vaeg/rel-20260908/docs/images/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
-<td><img width="49%" src="https://raw.githubusercontent.com/nakatamaho/vaeg/rel-20260908/docs/images/vaeg-20260908-111712-screenshot.png" alt="CRT settings"></td>
+<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111655-0000093767-000.png" alt="CRT effect on"><br><em>CRT effect on</em></td>
+<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111712-screenshot.png" alt="CRT effect setting"><br><em>CRT effect setting</em></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img width="50%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-135639-0000032205-000.png" alt="CRT effect off"><br><em>CRT effect off</em></td>
 </tr>
 </table>
+</div>
 
 ## CRT shader presentation
 
