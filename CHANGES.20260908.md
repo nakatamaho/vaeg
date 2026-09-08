@@ -29,8 +29,8 @@ portable SDL2 frontend on Windows, Linux, and macOS.
 
 <table>
 <tr>
-<td><img src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
-<td><img src="https://github.com/nakatamaho/vaeg/releases/download/rel-20260908/vaeg-20260908-111712-screenshot.png" alt="VAEG screenshot"></td>
+<td><img width="49%" src="https://raw.githubusercontent.com/nakatamaho/vaeg/rel-20260908/docs/images/vaeg-20260908-111655-0000093767-000.png" alt="CRT shader output"></td>
+<td><img width="49%" src="https://raw.githubusercontent.com/nakatamaho/vaeg/rel-20260908/docs/images/vaeg-20260908-111712-screenshot.png" alt="CRT settings"></td>
 </tr>
 </table>
 
