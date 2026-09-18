@@ -25,6 +25,7 @@ cmake_minimum_required(VERSION 3.20)
 project(vaeg LANGUAGES C CXX)
 
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
+option(VAEG_ENABLE_RECORDING "Enable the optional recording facade" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
@@ -348,6 +349,8 @@ set(VAEG_SDL2_SOURCES
     sdl2/hostfat_manager.cpp
     sdl2/romcheck.c
     sdl2/selftest.c
+    sdl2/recording/recording.c
+    sdl2/recording/recording_contracts.cpp
     sdl2/soundmng.c
     sdl2/soundopts.c
     sdl2/ymfmbridge.cpp
@@ -610,6 +613,11 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+if(VAEG_ENABLE_RECORDING)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_RECORDING=1)
+else()
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_RECORDING=0)
+endif()
 if(VAEG_ENABLE_LIBRASHADER)
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_LIBRASHADER=1)
     if(VAEG_STATIC_LIBRASHADER)
@@ -814,6 +822,44 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(vaeg_recording_c_contract_test
+        tests/frontend/recording/test_recording_c.c
+        sdl2/recording/recording.c)
+    target_include_directories(vaeg_recording_c_contract_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_definitions(vaeg_recording_c_contract_test PRIVATE
+        VAEG_ENABLE_RECORDING=0)
+    target_compile_options(vaeg_recording_c_contract_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_c_contract_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_c_contracts
+        COMMAND vaeg_recording_c_contract_test)
+    set_tests_properties(vaeg_recording_c_contracts PROPERTIES
+        LABELS "romless;recording;contracts")
+
+    add_executable(vaeg_recording_contract_test
+        tests/frontend/recording/test_recording_contracts.cpp
+        sdl2/recording/recording.c
+        sdl2/recording/recording_contracts.cpp)
+    target_include_directories(vaeg_recording_contract_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_recording_contract_test PRIVATE cxx_std_17)
+    target_compile_definitions(vaeg_recording_contract_test PRIVATE
+        VAEG_ENABLE_RECORDING=0)
+    target_compile_options(vaeg_recording_contract_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_contract_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_contracts
+        COMMAND vaeg_recording_contract_test)
+    set_tests_properties(vaeg_recording_contracts PROPERTIES
+        LABELS "romless;recording;contracts")
+
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
