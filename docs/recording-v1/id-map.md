@@ -1,14 +1,15 @@
 # Feature-to-repository milestone map
 
-Allocation state: RESERVED_PENDING_HUMAN. REC00 uses the first legal,
-collision-free lettered namespace after the current M99 sequence. The current
-roadmap, task files, reports and repository references contain no M100 or M101
-assignment. The milestone validator accepts M100r1 through M100r28.
+Allocation state: REC01 COMPLETE; REC00 accepted on 2026-09-19. REC00 uses the
+first legal, collision-free lettered namespace after the current M99 sequence.
+The current roadmap, task files, reports and repository references contain no
+M100 or M101 assignment. The milestone validator accepts M100r1 through
+M100r28.
 
 | Feature ID | Legal repository M ID | Assigned task-wrapper path |
 |---|---|---|
 | REC00 | M100r1 | docs/agents/tasks/M100r1_recording_v1_rec00.md |
-| REC01 | M100r2 | Reserved; wrapper not created |
+| REC01 | M100r2 | docs/agents/tasks/M100r2_recording_v1_rec01.md |
 | REC02 | M100r3 | Reserved; wrapper not created |
 | REC03 | M100r4 | Reserved; wrapper not created |
 | REC04 | M100r5 | Reserved; wrapper not created |
@@ -36,10 +37,11 @@ assignment. The milestone validator accepts M100r1 through M100r28.
 | REC26 | M100r27 | Reserved; wrapper not created |
 | REC27 | M100r28 | Reserved; wrapper not created |
 
-The reservation is documentation-only and does not register future roadmap
-milestones or authorize future implementation. REC00 creates only its wrapper
-and report. A later milestone may use its reserved ID only after REC00 is
-explicitly accepted and the later task is eligible under workflow.md.
+The reservation is documentation-only for unfinished milestones and does not
+register future roadmap milestones or authorize future implementation. REC00
+was explicitly accepted on 2026-09-19. REC01 uses M100r2 and is complete at its
+machine gate; later milestones remain reserved until their dependencies and
+gates are satisfied under workflow.md.
 
 Allocation evidence:
 
@@ -49,4 +51,5 @@ Allocation evidence:
 * The legal parser form permits the lowercase letter and nonzero decimal
   suffix used above.
 
-Maintainer acceptance of REC00: pending.
+Maintainer acceptance of REC00: explicitly accepted on 2026-09-19 with
+authorization to proceed to REC01.

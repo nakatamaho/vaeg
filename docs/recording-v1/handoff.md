@@ -1,41 +1,50 @@
 # Recording v1 handoff
 
-Current state: WAITING_HUMAN. Completed task: REC00, mapped to legal repository
-ID M100r1. Assigned branch: topic/rec00-recording-audit.
+Current state: REC01 machine gate PASS. Completed tasks: REC00/M100r1,
+explicitly accepted by the maintainer on 2026-09-19, and REC01/M100r2.
+Assigned branch: topic/m100r2-recording-contracts.
 
-## REC00 completion
+## REC01 completion
 
-* Source audit and integration map are recorded in audit.md.
-* The complete REC00 report is
-  docs/agents/reports/recording-v1/rec00-report.md.
-* The legal REC00-REC27 mapping is recorded in id-map.md as M100r1-M100r28.
-* platform-matrix.md records the actual macOS baseline and keeps unavailable
-  recording/backend evidence NOT_RUN.
-* file-layout.md records the files created by this audit.
-* No production source, C core interface, audio path, presenter, screenshot
-  path, or existing QA path was changed.
-* Existing unrelated untracked work was preserved and excluded.
+* The production frontend now includes a small recording contract facade under
+  sdl2/recording/, with a C99 boundary and a private C++17 ownership layer.
+* VAEG_ENABLE_RECORDING defaults OFF and is supplied as a target-scoped
+  definition. Both OFF and ON configurations compile without a recording
+  backend.
+* The OFF facade reports disabled; the ON facade reports that the backend is
+  unavailable. No FFmpeg/libav headers, types, libraries or subprocesses were
+  added.
+* Deterministic validation covers the two source values, dimensions, pixel
+  formats, stride and checked storage-size arithmetic, PCM S16LE stereo
+  descriptors, and stable error names.
+* OwnedVideoFrame copies caller data into private storage. The C++ facade does
+  not expose STL types through the C boundary.
+* Focused C99 and C++17 tests are registered under the recording/contracts
+  labels.
+* No live video/audio tap, queue, encoder, worker, CLI command, UI command or
+  screenshot/QA path was added.
 
-## Checks and evidence boundary
+## Evidence
 
-The macos-macports configure/build, ROM-less self-test and smoke command,
-milestone ID audit, case check, UTF-8 check and EOL check all completed
-successfully. This is documentation/build baseline evidence only. It does not
-prove FFV1/MKV output, PCM accounting, A/V sync, Native or Displayed readback,
-VLC seekability, or Windows/Linux/native GPU behavior.
+Evaluated source commit:
+f838d15c7c676bf70a6d19d41f7f8fe5da57c813.
 
-The unresolved REC00 risks are the existing audio callback look-ahead and
-device-format ownership, presenter-specific final-client readback, safe-stop
-descriptor changes, and bounded cancellation/backpressure. They are recorded
-in audit.md and must be resolved by the corresponding later milestones.
+The macOS OFF test build and the ON compile check passed. The focused contract
+tests, existing ROM-less self-test, startup viewport test and milestone ID
+self-test passed. The OFF and ON CMake build files contain no FFmpeg/libav
+references. Existing unrelated untracked work was preserved and excluded.
 
-## Human gate
+REC01 is host-independent. Windows D3D11, Linux OpenGL and macOS Metal
+recording runtime evidence remains NOT_RUN because those are later Displayed
+milestones, not REC01 acceptance evidence.
 
-REC00 remains pending the maintainer's explicit acceptance. Do not start REC01
-or create its wrapper until that acceptance is recorded. The next eligible
-task is REC01, mapped to M100r2, and it requires the exact goals/rec01.md
-prompt plus a new milestone report and gate evidence.
+## Gate and next task
 
-At every later boundary retain exact source/evaluated/evidence commit identity,
-commands and outcomes, public-safe evidence locations, private neutral case
-IDs, unresolved risks and the actual human acceptance statement.
+Machine gate: PASS. The required REC01 checks were run on macOS arm64 with
+AppleClang 21, CMake 3.31.12, MacPorts SDL2 2.32.10 and Ninja.
+
+Human gate: NOT_REQUIRED for REC01. REC00 human acceptance is recorded above.
+
+The next dependency-ready task is REC02/M100r3. Do not start REC02 in this
+session. Later tasks must preserve the two-source OSD-inclusive contract and
+must add no FFmpeg dependency until their own milestone requires it.

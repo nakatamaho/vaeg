@@ -151,6 +151,23 @@ kept in its documented location. Future M100r2-M100r28 wrappers, reports,
 recording sources, tests and tools were not created. No production source or
 binary payload was changed by REC00.
 
+## REC01 actual placement
+
+REC01 added the following production and test files:
+
+    sdl2/recording/recording.h
+    sdl2/recording/recording.c
+    sdl2/recording/recording_contracts.hpp
+    sdl2/recording/recording_contracts.cpp
+    tests/frontend/recording/test_recording_c.c
+    tests/frontend/recording/test_recording_contracts.cpp
+    docs/agents/tasks/M100r2_recording_v1_rec01.md
+    docs/agents/reports/recording-v1/rec01-report.md
+
+REC01 does not create FFmpeg backend files, live taps, queues, workers,
+encoders, UI commands or GPU readback paths. The existing canonical QA and
+screenshot paths remain outside this module.
+
 ## Planned implementation responsibilities
 
 The following is a proposed small module layout, **not existing implemented

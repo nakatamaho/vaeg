@@ -1,13 +1,12 @@
 # Recording v1 status
 
-No recording implementation has been performed. REC00 audit and documentation
-work is complete; the current state is WAITING_HUMAN. No human acceptance has
-been recorded, so REC01 is not eligible.
+REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2
+is complete at its machine gate. No REC02 work has started.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
-| REC00 | WAITING_HUMAN | PASS for audit/build/selftest/validators; no recording feature test applies | PENDING | 1544a1b8e19cc324c203a94c4e055361abb57d8b / rec00-report.md |
-| REC01 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC00 | PASS | PASS for audit/build/selftest/validators; no recording feature test applies | ACCEPTED 2026-09-19 | 5f43757448ecad160733a73e9c119c476af3de33 / rec00-report.md |
+| REC01 | PASS | OFF/ON configure and build, C99/C++17 contract tests, overflow/descriptor/ownership checks, existing ROM-less tests | NOT_REQUIRED | f838d15c7c676bf70a6d19d41f7f8fe5da57c813 / rec01-report.md |
 | REC02 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC03 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC04 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
