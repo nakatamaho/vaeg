@@ -56,6 +56,12 @@ remains a useful historical reference.
 
 ## News
 
+### 2026-09-21 - 8087 support
+
+8087 support will be available in the upcoming release.
+
+![VA2/VA3 with 8087 Mandelbrot demo](docs/images/vaeg-20260921-1154.png)
+
 ### 2026-09-08 - Rel.20260908
 
 [Rel.20260908](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260908)
