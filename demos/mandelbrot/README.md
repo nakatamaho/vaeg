@@ -47,6 +47,18 @@ LOAD "MANDELBROT.BAS",A
 RUN
 ```
 
+### Paste from the web
+
+The ASCII source can also be entered without first copying it to the guest
+disk. Open the raw `mandelbrot.bas` file in a web browser, press `Ctrl+A` and
+`Ctrl+C`, then boot BASIC with `/87` in VAEG. In VAEG, choose **編集 → 貼り付け**
+(**Edit → Paste**) to input the copied program automatically. When the paste
+has finished, enter:
+
+```text
+RUN
+```
+
 The full image uses 32 iterations per pixel and can take a while in BASIC.
 For a quick smoke run, edit line 240 from `MI=32` to `MI=16`.
 
