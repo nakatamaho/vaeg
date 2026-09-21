@@ -24,6 +24,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(vaeg LANGUAGES C CXX)
 
+find_package(Threads REQUIRED)
+
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_ENABLE_RECORDING "Enable the optional recording facade" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
@@ -352,6 +354,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/recording/recording.c
     sdl2/recording/recording_contracts.cpp
     sdl2/recording/recording_clock.cpp
+    sdl2/recording/recording_queue.cpp
     sdl2/soundmng.c
     sdl2/soundopts.c
     sdl2/ymfmbridge.cpp
@@ -652,7 +655,7 @@ if(VAEG_ENABLE_LIBRASHADER)
     endif()
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
-    vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+    vaeg_core vaeg_va Threads::Threads ${VAEG_SDL2_LIBS})
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     target_link_libraries(vaeg_sdl2 PRIVATE
         "-framework Foundation"
@@ -876,6 +879,24 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_recording_clock_test)
     set_tests_properties(vaeg_recording_clock PROPERTIES
         LABELS "romless;recording;clock")
+
+    add_executable(vaeg_recording_queue_test
+        tests/frontend/recording/test_recording_queue.cpp
+        sdl2/recording/recording.c
+        sdl2/recording/recording_queue.cpp)
+    target_include_directories(vaeg_recording_queue_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_recording_queue_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_recording_queue_test PRIVATE -Wall -fsigned-char)
+    target_link_libraries(vaeg_recording_queue_test PRIVATE Threads::Threads)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_queue_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_queue
+        COMMAND vaeg_recording_queue_test)
+    set_tests_properties(vaeg_recording_queue PROPERTIES
+        LABELS "romless;recording;queue")
 
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
