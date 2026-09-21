@@ -6,6 +6,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "sound.h"
+#include "sound_generation.h"
 #include "sndcsec.h"
 #include "beep.h"
 #include "getsnd.h"
@@ -14,10 +15,7 @@ SOUNDCFG soundcfg;
 
 #define STREAM_CBMAX 16
 
-typedef struct {
-	void *hdl;
-	SOUNDCB cbfn;
-} CBTBL;
+typedef VAEG_SOUND_GENERATOR_SLOT CBTBL;
 
 typedef struct {
 	SINT32 *buffer;
@@ -25,6 +23,9 @@ typedef struct {
 	UINT samples;
 	UINT reserve;
 	UINT remain;
+	UINT64 generated_sample_count;
+	UINT32 generation_epoch;
+	BOOL accounting_overflow;
 #if defined(SUPPORT_WAVEREC)
 	WAVEWR rec;
 #endif
@@ -38,22 +39,31 @@ static void streamreset(void) {
 	SNDCSEC_ENTER;
 	sndstream.ptr = sndstream.buffer;
 	sndstream.remain = sndstream.samples + sndstream.reserve;
+	sndstream.generated_sample_count = 0;
+	sndstream.accounting_overflow = FALSE;
+	sndstream.generation_epoch++;
 	sndstream.cbreg = sndstream.cb;
 	SNDCSEC_LEAVE;
 }
 
+static void sound_account_generated(UINT count) {
+	if (UINT64_MAX - sndstream.generated_sample_count < count) {
+		sndstream.generated_sample_count = UINT64_MAX;
+		sndstream.accounting_overflow = TRUE;
+	} else {
+		sndstream.generated_sample_count += count;
+	}
+}
+
 static void streamprepare(UINT samples) {
-	CBTBL *cb;
 	UINT count;
 
 	count = min(sndstream.remain, samples);
 	if (count) {
-		ZeroMemory(sndstream.ptr, count * 2 * sizeof(SINT32));
-		cb = sndstream.cb;
-		while (cb < sndstream.cbreg) {
-			cb->cbfn(cb->hdl, sndstream.ptr, count);
-			cb++;
-		}
+		count = vaeg_sound_generate_s32_stereo(
+			sndstream.ptr, count, count, sndstream.cb,
+			(UINT)(sndstream.cbreg - sndstream.cb));
+		sound_account_generated(count);
 		sndstream.ptr += count * 2;
 		sndstream.remain -= count;
 	}
@@ -86,7 +96,6 @@ void sound_recstop(void) {
 }
 
 static void streamfilewrite(UINT samples) {
-	CBTBL *cb;
 	UINT count;
 	SINT32 buf32[2 * 512];
 	BYTE buf[2 * 2 * 512];
@@ -96,12 +105,10 @@ static void streamfilewrite(UINT samples) {
 
 	while (samples) {
 		count = min(samples, 512);
-		ZeroMemory(buf32, count * 2 * sizeof(SINT32));
-		cb = sndstream.cb;
-		while (cb < sndstream.cbreg) {
-			cb->cbfn(cb->hdl, buf32, count);
-			cb++;
-		}
+		count = vaeg_sound_generate_s32_stereo(
+			buf32, count, count, sndstream.cb,
+			(UINT)(sndstream.cbreg - sndstream.cb));
+		sound_account_generated(count);
 		r = min(sndstream.remain, count);
 		if (r) {
 			CopyMemory(sndstream.ptr, buf32, r * 2 * sizeof(SINT32));
@@ -314,7 +321,8 @@ const SINT32 *sound_pcmlock(void) {
 			} else
 #endif
 			{
-				streamprepare(sndstream.remain - sndstream.reserve);
+				streamprepare(vaeg_sound_lookahead_frames(sndstream.remain,
+				                                           sndstream.reserve));
 				soundcfg.lastclock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 				beep_eventreset();
 			}
@@ -339,6 +347,35 @@ void sound_pcmunlock(const SINT32 *hdl) {
 		SNDCSEC_LEAVE;
 		locks--;
 	}
+}
+
+BOOL sound_get_stream_state(SOUNDSTREAMSTATE *state) {
+	UINT capacity;
+
+	if (state == NULL) {
+		return (FAILURE);
+	}
+	ZeroMemory(state, sizeof(*state));
+	if (sndstream.buffer == NULL) {
+		return (FAILURE);
+	}
+	SNDCSEC_ENTER;
+	state->rate = soundcfg.rate;
+	state->buffer_samples = sndstream.samples;
+	state->reserve_samples = sndstream.reserve;
+	state->remain_samples = sndstream.remain;
+	capacity = sndstream.samples;
+	if (sndstream.reserve <= (UINT_MAX - capacity)) {
+		capacity += sndstream.reserve;
+		state->pending_samples = capacity - sndstream.remain;
+	}
+	state->generated_sample_count = sndstream.generated_sample_count;
+	state->lastclock = soundcfg.lastclock;
+	state->generation_epoch = sndstream.generation_epoch;
+	state->pcm_locked = (locks != 0) ? TRUE : FALSE;
+	state->accounting_overflow = sndstream.accounting_overflow;
+	SNDCSEC_LEAVE;
+	return (SUCCESS);
 }
 
 // ---- pcmmix

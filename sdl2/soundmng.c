@@ -24,10 +24,10 @@
  */
 #include "compiler.h"
 #include "sdlapi.h"
-#include "parts.h"
 #include "soundmng.h"
 #include "soundopts.h"
 #include "sound.h"
+#include "sound_generation.h"
 #if defined(VERMOUTH_LIB)
 #include "commng.h"
 #include "cmver.h"
@@ -54,11 +54,10 @@ static void sound_play_cb(void *userdata, Uint8 *stream, int len) {
 	length = min(len, (int)(soundmng.samples * 2 * sizeof(SINT16)));
 	dst = soundmng.buf[soundmng.nsndbuf];
 	src = sound_pcmlock();
+	(void)vaeg_sound_pack_s16_or_silence(
+		dst, (UINT)length, src, soundmng.samples * 2u);
 	if (src) {
-		satuation_s16(dst, src, length);
 		sound_pcmunlock(src);
-	} else {
-		ZeroMemory(dst, length);
 	}
 	ZeroMemory(stream, len);
 	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length, SDL_MIX_MAXVOLUME);

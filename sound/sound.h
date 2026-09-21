@@ -14,6 +14,19 @@ typedef struct {
 	UINT writecount;
 } SOUNDCFG;
 
+typedef struct {
+	UINT rate;
+	UINT buffer_samples;
+	UINT reserve_samples;
+	UINT remain_samples;
+	UINT pending_samples;
+	UINT64 generated_sample_count;
+	UINT32 lastclock;
+	UINT32 generation_epoch;
+	BOOL pcm_locked;
+	BOOL accounting_overflow;
+} SOUNDSTREAMSTATE;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,6 +44,7 @@ void sound_sync(void);
 
 const SINT32 *sound_pcmlock(void);
 void sound_pcmunlock(const SINT32 *hdl);
+BOOL sound_get_stream_state(SOUNDSTREAMSTATE *state);
 
 #if defined(SUPPORT_WAVEREC)
 BOOL sound_recstart(const char *filename);
