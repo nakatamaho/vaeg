@@ -76,8 +76,8 @@ whitespace and milestone-ID checks passed.
 No real guest OS/media demonstration with enabled OSD and sound, Displayed
 final-client capture, Windows/Linux runtime, VLC playback, or maintainer human
 acceptance is claimed. REC14 remains `IMPLEMENTED_UNVERIFIED` with its human
-gate pending. Under the current authorized recording-v1 progression exception,
-REC15/M100r16 is the next dependency-ready task.
+gate pending. REC15/M100r16 has since been implemented, but its real SDL
+renderer evidence is unavailable; REC16/M100r17 is not dependency-ready.
 
 ## REC13 completion
 
