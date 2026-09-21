@@ -231,6 +231,26 @@ separate parity correction or move it to Open Defects.
 - **Task/evidence/commit:** local MinGW menu regression; fix in
   [17b0bc68](https://github.com/nakatamaho/vaeg/commit/17b0bc68539abccd8e11d4c39d7297e45333c564).
 
+### 8087 default clock did not match the VA2 8 MHz field measurement
+
+- **Status:** fixed and integrated on `main`.
+- **Symptom/scope:** the emulator selected 10,000,000 Hz when a new optional
+  8087 was configured without an explicit frequency, while the VA2 field
+  report measured 8 MHz at the 8087 socket clock pin.
+- **Demonstrated root cause:** `UPD8087_DEFAULT_CLOCK_HZ` and its default
+  configuration test were hard-coded to 10,000,000 Hz; the reset and service
+  paths correctly consumed that constant, so the wrong default also affected
+  emulated NDP service time.
+- **Correction:** set the default to 8,000,000 Hz, retain 5/8/10 MHz and
+  custom-frequency selection, and document the hardware evidence and the
+  unresolved physical BUSY/INT boundary in
+  [8087 implementation notes](8087.md).
+- **Verification:** `vaeg_8087_tests`, P04 gate, production selftest,
+  Linux rebuild, and MinGW rebuild passed. Existing 10 MHz BASIC evidence is
+  retained as explicit custom-frequency evidence.
+- **Task/evidence/commit:** VA2 clock-policy correction; fix in
+  [a4ec8dbc](https://github.com/nakatamaho/vaeg/commit/a4ec8dbcef807de6c557a6af7a1d3ac77e8d4c45).
+
 ### Native Metal CRT wrote the filter chain directly to the drawable
 
 - **Status:** intermediate-surface correction landed in M99z36; it was
