@@ -189,8 +189,7 @@ separate parity correction or move it to Open Defects.
 
 ### 8087 DC/DE register arithmetic passed operation direction incorrectly
 
-- **Status:** fixed in the current local v7 working tree; repository
-  integration commit remains pending at the no-push/no-merge boundary.
+- **Status:** fixed and integrated on `main`.
 - **Symptom/scope:** VA2 N88 BASIC `/87` converted `A=1.5` and `B=2.25` to
   values scaled by the packed-BCD integer magnitude, so `PRINT A+B` produced
   `3.75E+17` instead of `3.75`. The affected scope was 8087 `DC`/`DE`
@@ -207,8 +206,8 @@ separate parity correction or move it to Open Defects.
   external SST skip), and the VA2 `/87` FAC/BASIC workload pass. Evidence:
   [v7 progress record](../8087/v7/records/progress.md) and
   [VA2 BASIC issue record](../8087/v7/records/issue-basic87-va2-int-route.md).
-- **Task/evidence/commit:** v7 8087 local QA; no commit was created during
-  this run, so no commit link is claimed.
+- **Task/evidence/commit:** v7 8087 local QA; integrated in
+  [6af71282](https://github.com/nakatamaho/vaeg/commit/6af7128276c0e03f496fc63ab10847f3ef94f366).
 
 ### Native Metal CRT wrote the filter chain directly to the drawable
 

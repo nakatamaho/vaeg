@@ -2142,27 +2142,16 @@ int main(int argc, char **argv) {
 		goto np2main_err2;
 	}
 	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
-#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
-	if (TRUE)
-#else
-	if (!scrnmng_native_active())
-#endif
-	{
-		if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-			if (!scrnmng_native_active() || scrnmng_fallback_to_sdl() != SUCCESS ||
-			    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-				goto np2main_err3;
-			}
-			(void)scrnmng_take_native_fallback();
+	/* Dear ImGui has a native-presenter backend as well as the SDL renderer
+	 * backend. Initialize it for every presentation path; otherwise a Windows
+	 * NativeCRT session has no menu even when --windowed is used. */
+	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+		if (!scrnmng_native_active() || scrnmng_fallback_to_sdl() != SUCCESS ||
+		    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+			goto np2main_err3;
 		}
+		(void)scrnmng_take_native_fallback();
 	}
-#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
-	/* Metal owns the drawable, but also provides the native ImGui pass. */
-#elif !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
-	else {
-		SDL_Log("Native CRT owns presentation; SDL GUI renderer is deferred until fallback");
-	}
-#endif
 	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
 	    (scrnmng_set_display_mode(np2oscfg.gui_display_mode, np2oscfg.gui_monitor,
 	                              np2oscfg.fscrn_cx, np2oscfg.fscrn_cy,
