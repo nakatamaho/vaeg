@@ -1,12 +1,48 @@
 # Recording v1 handoff
 
-Current state: REC14 is implemented at its machine gate; final human
-validation is pending. Completed tasks: REC00/M100r1,
+Current state: REC15 is implemented with its deterministic machine checks, but
+real SDL renderer runtime evidence is pending. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
 REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12,
-REC12/M100r13, REC13/M100r14 and REC14/M100r15. Assigned branch:
+REC12/M100r13, REC13/M100r14, REC14/M100r15 and REC15/M100r16. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC15 completion
+
+* `sdl2/recording/recording_displayed_capture.c` validates the fixed SDL
+  RGBA32/top-down descriptor and normalizes the borrowed readback to owned
+  RGB24 bytes.
+* `sdl2/scrnmng.c` reads the actual SDL renderer drawable immediately before
+  `SDL_RenderPresent`, after GUI and enabled guest-area OSD composition. The
+  capture has one bounded reusable buffer, a renderer generation and a
+  `drawcount` token; unchanged tokens do not create duplicate UI-only frames.
+  Geometry, presenter, dummy-driver, readback, callback and allocation failures
+  are explicit and fail closed.
+* Existing guest-only screenshots and QA captures remain on their original
+  paths. REC16 still owns connecting this seam to the Displayed recording
+  session and MKV writer.
+
+## REC15 evidence
+
+Evaluated source commit: `84c1b85a` (`M100r16: add Displayed SDL readback seam`).
+The recording-enabled and disabled frontend builds passed. The focused
+contract test passed in both builds, under Werror and under ASan/UBSan. The
+affected ON/OFF recording regression sets passed 8/8 and 7/7. The ROM-less
+dummy SDL selftest passed, including the labelled final-client fixture with
+guest, menu, OSD and status regions, exact normalized-byte comparison, token
+suppression, geometry stop and dummy rejection.
+
+The real macOS SDL selftest could not complete because the host UI service
+connection became invalid. This is not treated as real-renderer evidence;
+REC15 remains `IMPLEMENTED_UNVERIFIED`. The Werror full frontend is still
+affected by the unrelated existing `io/np2sysp.c` unused `str_pentium`
+warning. No Displayed MKV, Windows/Linux presenter, GPU backend, human or
+release validation is claimed.
+
+Under the authorized progression exception, the next implementation candidate
+is REC16/M100r17, but its REC15 dependency is not technically ready until a
+usable real SDL renderer runtime is available.
 
 ## REC14 completion
 
