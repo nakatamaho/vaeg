@@ -248,6 +248,7 @@ set(VAEG_CORE_SOURCES
     bios/sxsibios.c
     sound/sound.c
     sound/sound_generation.c
+    sound/sound_capture.c
     sound/sndcsec.c
     sound/fmboard.c
     sound/fmtimer.c
@@ -921,6 +922,24 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_sound_generation_test)
     set_tests_properties(vaeg_sound_generation PROPERTIES
         LABELS "romless;recording;sound")
+
+    add_executable(vaeg_sound_capture_test
+        tests/frontend/recording/test_sound_capture.c
+        sound/sound_capture.c)
+    target_include_directories(vaeg_sound_capture_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+    target_compile_options(vaeg_sound_capture_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_sound_capture_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_sound_capture
+        COMMAND vaeg_sound_capture_test)
+    set_tests_properties(vaeg_sound_capture PROPERTIES
+        LABELS "romless;recording;sound;audio")
 
     add_executable(vaeg_recording_contract_test
         tests/frontend/recording/test_recording_contracts.cpp
