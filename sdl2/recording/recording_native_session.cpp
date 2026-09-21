@@ -194,13 +194,14 @@ class NativeRecordingSink final : public SliceSink {
 			std::vector<EncodedVideoPacket> video_packets;
 			std::vector<EncodedPcmPacket> audio_packets;
 			const VAEG_RECORDING_VIDEO_DESCRIPTOR &video = slice.video_descriptor();
-			if (slice.end_ticks() > static_cast<std::uint64_t>(INT64_MAX)) {
+			if (slice.begin_ticks() > static_cast<std::uint64_t>(INT64_MAX) ||
+			    slice.end_ticks() > static_cast<std::uint64_t>(INT64_MAX)) {
 				last_error_ = "video_time_overflow";
 				return QueueError::SinkFailure;
 			}
 			const VideoEncoderFrame video_frame{
 			    video, slice.video_bytes().data(), slice.video_bytes().size(), slice.sequence(),
-			    static_cast<std::int64_t>(slice.end_ticks())};
+			    static_cast<std::int64_t>(slice.begin_ticks())};
 			if (video_encoder_->encode(video_frame, &video_packets) !=
 			    FfmpegVideoEncoderError::None) {
 				last_error_ = "video_encode_failure";
