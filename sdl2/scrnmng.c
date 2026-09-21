@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <string.h>
+#include <stdlib.h>
 #include "compiler.h"
 #include "sdlapi.h"
 #include "scrnmng.h"
@@ -81,6 +82,20 @@ typedef struct {
 	char native_status[256];
 	char display_capture_path[MAX_PATH];
 	BOOL display_capture_ready;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK displayed_capture_callback;
+	void *displayed_capture_context;
+	BYTE *displayed_capture_pixels;
+	UINT64 displayed_capture_size_bytes;
+	UINT32 displayed_capture_pitch_bytes;
+	UINT32 displayed_capture_width;
+	UINT32 displayed_capture_height;
+	UINT32 displayed_capture_generation;
+	UINT32 displayed_capture_expected_generation;
+	UINT64 displayed_capture_last_token;
+	BOOL displayed_capture_have_token;
+	BOOL displayed_capture_active;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR displayed_capture_error;
+	UINT32 sdl_renderer_generation;
 	BOOL sdl_overlays_drawn;
 	VAEG_RECORDING_OSD_SNAPSHOT osd_snapshot;
 	BOOL osd_snapshot_valid;
@@ -118,6 +133,9 @@ static BOOL scrnmng_get_drawable_size(int *width, int *height);
 static BOOL scrnmng_create_sdl_resources(void);
 static BOOL scrnmng_native_fallback(void);
 static BOOL scrnmng_ensure_osd_snapshot(const VAEG_VIEWPORT *viewport);
+static void scrnmng_displayed_capture_fail(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error);
+static BOOL scrnmng_capture_displayed_recording_frame(void);
 
 /* NULL selects the session's vaeg.cfg-backed CRT parameter store. */
 static const char *const scrnmng_native_parameter_state = NULL;
@@ -1316,6 +1334,161 @@ static BOOL scrnmng_get_drawable_size(int *width, int *height) {
 	return SUCCESS;
 }
 
+static void scrnmng_displayed_capture_release(void) {
+	free(scrnmng.displayed_capture_pixels);
+	scrnmng.displayed_capture_pixels = NULL;
+	scrnmng.displayed_capture_size_bytes = 0u;
+	scrnmng.displayed_capture_pitch_bytes = 0u;
+	scrnmng.displayed_capture_width = 0u;
+	scrnmng.displayed_capture_height = 0u;
+	scrnmng.displayed_capture_generation = 0u;
+	scrnmng.displayed_capture_expected_generation = 0u;
+	scrnmng.displayed_capture_last_token = 0u;
+	scrnmng.displayed_capture_have_token = FALSE;
+	scrnmng.displayed_capture_active = FALSE;
+	scrnmng.displayed_capture_callback = NULL;
+	scrnmng.displayed_capture_context = NULL;
+}
+
+static void scrnmng_displayed_capture_fail(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error) {
+	scrnmng.displayed_capture_error = error;
+	scrnmng_displayed_capture_release();
+}
+
+BOOL scrnmng_start_displayed_recording_capture(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK callback, void *context) {
+	int width;
+	int height;
+	UINT64 pitch;
+	UINT64 size;
+
+	if (callback == NULL) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_NULL_INPUT;
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_active) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_BUSY;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	if (!scrnmng.enable || (scrnmng.renderer == NULL) || scrnmng.native_active) {
+		scrnmng.displayed_capture_error = scrnmng.native_active
+		                                       ? VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED
+		                                       : VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+		return FAILURE;
+	}
+	if ((SDL_GetCurrentVideoDriver() != NULL) &&
+	    !strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_DUMMY_DRIVER;
+		return FAILURE;
+	}
+	if ((scrnmng_get_drawable_size(&width, &height) != SUCCESS) || (width <= 0) ||
+	    (height <= 0) || (scrnmng.sdl_renderer_generation == 0u)) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+		return FAILURE;
+	}
+	pitch = (UINT64)(UINT32)width * 4u;
+	if ((UINT64)(UINT32)height > (UINT64_MAX / pitch)) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_SIZE_OVERFLOW;
+		return FAILURE;
+	}
+	size = pitch * (UINT32)height;
+	if (size > VAEG_RECORDING_DISPLAYED_FRAME_MAX_BYTES) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_TOO_LARGE;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_pixels = (BYTE *)malloc((size_t)size);
+	if (scrnmng.displayed_capture_pixels == NULL) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_ALLOCATION_FAILED;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_callback = callback;
+	scrnmng.displayed_capture_context = context;
+	scrnmng.displayed_capture_size_bytes = size;
+	scrnmng.displayed_capture_pitch_bytes = (UINT32)pitch;
+	scrnmng.displayed_capture_width = (UINT32)width;
+	scrnmng.displayed_capture_height = (UINT32)height;
+	scrnmng.displayed_capture_generation = scrnmng.sdl_renderer_generation;
+	scrnmng.displayed_capture_expected_generation = scrnmng.sdl_renderer_generation;
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	scrnmng.displayed_capture_active = TRUE;
+	return SUCCESS;
+}
+
+void scrnmng_stop_displayed_recording_capture(void) {
+	scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	scrnmng_displayed_capture_release();
+}
+
+BOOL scrnmng_displayed_recording_capture_active(void) {
+	return scrnmng.displayed_capture_active;
+}
+
+VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error(void) {
+	return scrnmng.displayed_capture_error;
+}
+
+static BOOL scrnmng_capture_displayed_recording_frame(void) {
+	VAEG_RECORDING_DISPLAYED_FRAME capture;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+	int width;
+	int height;
+
+	if (!scrnmng.displayed_capture_active) {
+		return SUCCESS;
+	}
+	if (scrnmng.native_active || (scrnmng.renderer == NULL)) {
+		scrnmng_displayed_capture_fail(
+		    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		return FAILURE;
+	}
+	if ((scrnmng_get_drawable_size(&width, &height) != SUCCESS) ||
+	    ((UINT32)width != scrnmng.displayed_capture_width) ||
+	    ((UINT32)height != scrnmng.displayed_capture_height)) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED);
+		return FAILURE;
+	}
+	if (scrnmng.sdl_renderer_generation != scrnmng.displayed_capture_expected_generation) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_have_token &&
+	    (scrnmng.displayed_capture_last_token == (UINT64)drawcount)) {
+		return SUCCESS;
+	}
+	if (SDL_RenderReadPixels(scrnmng.renderer, NULL, SDL_PIXELFORMAT_RGBA32,
+	                         scrnmng.displayed_capture_pixels,
+	                         (int)scrnmng.displayed_capture_pitch_bytes) != 0) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_READBACK_FAILED);
+		return FAILURE;
+	}
+	ZeroMemory(&capture, sizeof(capture));
+	capture.pixels = scrnmng.displayed_capture_pixels;
+	capture.width = scrnmng.displayed_capture_width;
+	capture.height = scrnmng.displayed_capture_height;
+	capture.pitch_bytes = scrnmng.displayed_capture_pitch_bytes;
+	capture.size_bytes = scrnmng.displayed_capture_size_bytes;
+	capture.pixel_format = VAEG_RECORDING_DISPLAYED_PIXEL_RGBA32;
+	capture.row_origin = VAEG_RECORDING_DISPLAYED_ROWS_TOP_DOWN;
+	capture.frame_token = (UINT64)drawcount;
+	capture.descriptor_generation = scrnmng.displayed_capture_generation;
+	error = vaeg_recording_displayed_capture_validate(&capture);
+	if (error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK) {
+		scrnmng_displayed_capture_fail(error);
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_callback(scrnmng.displayed_capture_context, &capture) == 0) {
+		scrnmng_displayed_capture_fail(
+		    VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK_REJECTED);
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	return SUCCESS;
+}
+
 BOOL scrnmng_texture_uniform(BOOL *uniform) {
 	const BYTE *base;
 	BYTE first0;
@@ -1373,6 +1546,9 @@ void scrnmng_initialize(void) {
 }
 
 static BOOL scrnmng_create_sdl_resources(void) {
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+	}
 	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_ACCELERATED);
 	if (scrnmng.renderer == NULL) {
 		scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
@@ -1395,6 +1571,9 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	SDL_SetTextureScaleMode(scrnmng.texture, (scrnmng.effect == VAEG_EFFECT_UNFILTERED)
 	                                             ? SDL_ScaleModeNearest
 	                                             : SDL_ScaleModeLinear);
+	if (++scrnmng.sdl_renderer_generation == 0u) {
+		scrnmng.sdl_renderer_generation = 1u;
+	}
 	return SUCCESS;
 }
 
@@ -1442,6 +1621,9 @@ static BOOL scrnmng_detach_native_window(void) {
 static BOOL scrnmng_native_fallback(void) {
 	if (!scrnmng.native_active || (scrnmng.native_presenter == NULL)) {
 		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
 	}
 	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "CRT fallback: %s",
 	         vaeg_native_presenter_error(scrnmng.native_presenter));
@@ -1590,6 +1772,11 @@ void scrnmng_show(void) {
 }
 
 void scrnmng_destroy(void) {
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE);
+	} else {
+		scrnmng_displayed_capture_release();
+	}
 	scrnmng.enable = FALSE;
 	scrnmng.visible = FALSE;
 	if (scrnmng.native_presenter != NULL) {
@@ -1753,6 +1940,9 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	if (!scrnmng.native_active && !np2oscfg.gui_native_crt)
 		return SUCCESS;
 	// Called between ImGui frames on the presentation thread.
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+	}
 	was_native = scrnmng.native_active;
 	SDL_Log("Renderer switch: releasing GUI");
 	gui_shutdown();
@@ -2257,13 +2447,68 @@ static SDL_Surface *scrnmng_read_sdl_output(void) {
 	return surface;
 }
 
+typedef struct {
+	BYTE *rgb;
+	UINT32 count;
+	UINT64 frame_token;
+	UINT32 descriptor_generation;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+} SCRNMNG_DISPLAYED_CAPTURE_FIXTURE;
+
+static void scrnmng_displayed_fixture_fill(BYTE *pixels, UINT32 width, UINT32 height,
+	                                           UINT32 pitch, int x, int y, int w, int h,
+	                                           BYTE red, BYTE green, BYTE blue) {
+	int row;
+	int column;
+
+	for (row = y; row < y + h; ++row) {
+		if ((row < 0) || ((UINT32)row >= height)) {
+			continue;
+		}
+		for (column = x; column < x + w; ++column) {
+			BYTE *pixel;
+			if ((column < 0) || ((UINT32)column >= width)) {
+				continue;
+			}
+			pixel = pixels + (size_t)row * pitch + (size_t)column * 3u;
+			pixel[0] = red;
+			pixel[1] = green;
+			pixel[2] = blue;
+		}
+	}
+}
+
+static int scrnmng_displayed_fixture_callback(
+	void *context, const VAEG_RECORDING_DISPLAYED_FRAME *capture) {
+	SCRNMNG_DISPLAYED_CAPTURE_FIXTURE *fixture =
+		(SCRNMNG_DISPLAYED_CAPTURE_FIXTURE *)context;
+
+	if ((fixture == NULL) || (capture == NULL)) {
+		return 0;
+	}
+	fixture->error = vaeg_recording_displayed_capture_to_rgb24(
+		capture, fixture->rgb, capture->width * 3u,
+		(UINT64)capture->width * capture->height * 3u);
+	if (fixture->error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK) {
+		return 0;
+	}
+	fixture->count++;
+	fixture->frame_token = capture->frame_token;
+	fixture->descriptor_generation = capture->descriptor_generation;
+	return 1;
+}
+
 BOOL scrnmng_display_capture_selftest(void) {
 	const SCRNMNG saved = scrnmng;
 	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const UINT saved_drawcount = drawcount;
 	const BOOL video_active = SDL_WasInit(SDL_INIT_VIDEO) != 0;
 	SDL_Surface *white = NULL, *baseline = NULL, *filtered = NULL, *info = NULL;
+	BYTE *displayed_expected = NULL;
+	SCRNMNG_DISPLAYED_CAPTURE_FIXTURE displayed_fixture;
 	VAEG_VIEWPORT viewport;
 	BOOL ok = FAILURE;
+	ZeroMemory(&displayed_fixture, sizeof(displayed_fixture));
 	if (!video_active && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) return FAILURE;
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
 	scrnmng.window = SDL_CreateWindow("display capture test", 0, 0, 640, 422, SDL_WINDOW_HIDDEN);
@@ -2360,8 +2605,127 @@ BOOL scrnmng_display_capture_selftest(void) {
 			}
 		}
 	}
+	/*
+	 * Fixture-only final-client target: the public start function rejects the
+	 * dummy driver, so arm the internal seam directly after constructing a
+	 * real SDL software render target. This exercises acquisition and ownership
+	 * without presenting the dummy driver as platform evidence.
+	 */
+	scrnmng.width = 640;
+	scrnmng.height = 400;
+	scrnmng.menu_height = 22;
+	scrnmng.display_mode = VAEG_DISPLAY_WINDOWED;
+	scrnmng.scale = 1;
+	scrnmng_set_display(1, FALSE);
+	scrnmng.effect = VAEG_EFFECT_UNFILTERED;
+	np2oscfg.DISPCLK = 0;
+	scrnmng_present_begin();
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 255, 255, 255, 255);
+	{
+		SDL_Rect guest = {0, 22, 640, 400};
+		SDL_RenderFillRect(scrnmng.renderer, &guest);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 17, 34, 51, 255);
+	{
+		SDL_Rect menu = {0, 0, 640, 22};
+		SDL_RenderFillRect(scrnmng.renderer, &menu);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 170, 16, 32, 255);
+	{
+		SDL_Rect osd = {8, 30, 96, 16};
+		SDL_RenderFillRect(scrnmng.renderer, &osd);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 32, 204, 64, 255);
+	{
+		SDL_Rect status = {500, 390, 120, 20};
+		SDL_RenderFillRect(scrnmng.renderer, &status);
+	}
+	displayed_expected = (BYTE *)malloc((size_t)640u * 422u * 3u);
+	displayed_fixture.rgb = (BYTE *)malloc((size_t)640u * 422u * 3u);
+	if ((displayed_expected == NULL) || (displayed_fixture.rgb == NULL)) goto cleanup;
+	memset(displayed_expected, 0, (size_t)640u * 422u * 3u);
+	for (int row = 22; row < 422; ++row) {
+		memset(displayed_expected + (size_t)row * 640u * 3u, 255, 640u * 3u);
+	}
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                0, 0, 640, 22, 17, 34, 51);
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                8, 30, 96, 16, 170, 16, 32);
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                500, 390, 120, 20, 32, 204, 64);
+	displayed_fixture.error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	scrnmng.sdl_renderer_generation = 1u;
+	scrnmng.displayed_capture_callback = scrnmng_displayed_fixture_callback;
+	scrnmng.displayed_capture_context = &displayed_fixture;
+	scrnmng.displayed_capture_pixels = (BYTE *)malloc((size_t)640u * 422u * 4u);
+	if (scrnmng.displayed_capture_pixels == NULL) goto cleanup;
+	scrnmng.displayed_capture_size_bytes = (UINT64)640u * 422u * 4u;
+	scrnmng.displayed_capture_pitch_bytes = 640u * 4u;
+	scrnmng.displayed_capture_width = 640u;
+	scrnmng.displayed_capture_height = 422u;
+	scrnmng.displayed_capture_generation = 1u;
+	scrnmng.displayed_capture_expected_generation = 1u;
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	scrnmng.displayed_capture_active = TRUE;
+	drawcount++;
+	scrnmng_present_end();
+	if (!scrnmng.displayed_capture_active || (displayed_fixture.count != 1u) ||
+	    (displayed_fixture.frame_token != (UINT64)drawcount) ||
+	    (displayed_fixture.descriptor_generation != 1u)) {
+		fprintf(stderr, "selftest: DISPLAYED_CAPTURE_METADATA_MISMATCH active=%d count=%u "
+		                "token=%llu expected=%u generation=%u error=%s\n",
+		        scrnmng.displayed_capture_active, displayed_fixture.count,
+		        (unsigned long long)displayed_fixture.frame_token, drawcount,
+		        displayed_fixture.descriptor_generation,
+		        vaeg_recording_displayed_capture_error_name(displayed_fixture.error));
+		goto cleanup;
+	}
+	if (memcmp(displayed_fixture.rgb, displayed_expected, (size_t)640u * 422u * 3u) != 0) {
+		size_t byte;
+		for (byte = 0; byte < (size_t)640u * 422u * 3u; ++byte) {
+			if (displayed_fixture.rgb[byte] != displayed_expected[byte]) {
+				fprintf(stderr, "selftest: DISPLAYED_CAPTURE_PIXEL_MISMATCH byte=%zu got=%u expected=%u\n",
+				        byte, displayed_fixture.rgb[byte], displayed_expected[byte]);
+				break;
+			}
+		}
+		goto cleanup;
+	}
+	/* A host-only redraw with the same guest token must not create a frame. */
+	scrnmng_present_begin();
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 99, 88, 77, 255);
+	{
+		SDL_Rect menu = {0, 0, 640, 22};
+		SDL_RenderFillRect(scrnmng.renderer, &menu);
+	}
+	scrnmng_present_end();
+	if (scrnmng.displayed_capture_active && (displayed_fixture.count != 1u)) goto cleanup;
+	/* A changed final-client geometry ends the fixed-descriptor capture. */
+	SDL_SetWindowSize(scrnmng.window, 800, 500);
+	drawcount++;
+	scrnmng_present_begin();
+	scrnmng_present_end();
+	if (scrnmng.displayed_capture_active ||
+	    (scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED)) {
+		goto cleanup;
+	}
+	if ((SDL_GetCurrentVideoDriver() != NULL) &&
+	    !strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
+		displayed_fixture.error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+		if (scrnmng_start_displayed_recording_capture(scrnmng_displayed_fixture_callback,
+		                                               &displayed_fixture) != FAILURE ||
+		    scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_DUMMY_DRIVER) {
+			goto cleanup;
+		}
+	}
 	ok = SUCCESS;
 cleanup:
+	scrnmng_displayed_capture_release();
+	free(displayed_fixture.rgb);
+	free(displayed_expected);
 	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
 	SDL_FreeSurface(white);
 	SDL_DestroyTexture(scrnmng.texture);
@@ -2369,6 +2733,7 @@ cleanup:
 	SDL_DestroyWindow(scrnmng.window);
 	scrnmng = saved;
 	np2oscfg.DISPCLK = saved_info;
+	drawcount = saved_drawcount;
 	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	if (ok != SUCCESS) fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
 	return ok;
@@ -2395,6 +2760,10 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	if (scrnmng.native_active) {
+		if (scrnmng.displayed_capture_active) {
+			scrnmng_displayed_capture_fail(
+			    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		}
 		if (scrnmng.rendered_capture_enabled && !scrnmng.native_capture_warning) {
 			fprintf(stderr,
 			        "Warning: rendered capture is unavailable while Native CRT owns the output; "
@@ -2453,6 +2822,10 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	if (scrnmng.renderer == NULL) {
+		if (scrnmng.displayed_capture_active) {
+			scrnmng_displayed_capture_fail(
+			    VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE);
+		}
 		return;
 	}
 	scrnmng_draw_sdl_overlays();
@@ -2463,6 +2836,7 @@ void scrnmng_present_end(void) {
 		SDL_Surface *surface = scrnmng_read_sdl_output();
 		scrnmng_finish_display_capture(surface, surface ? SUCCESS : FAILURE);
 	}
+	(void)scrnmng_capture_displayed_recording_frame();
 	SDL_RenderPresent(scrnmng.renderer);
 }
 

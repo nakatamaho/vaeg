@@ -27,6 +27,7 @@
 
 #include "viewport.h"
 #include "recording/recording.h"
+#include "recording/recording_displayed_capture.h"
 #include "recording/recording_native_composition.h"
 #include "recording/recording_osd_snapshot.h"
 
@@ -99,6 +100,11 @@ BOOL scrnmng_capture_window_size(int *width, int *height);
 BOOL scrnmng_request_display_capture(const char *path);
 BOOL scrnmng_prepare_display_capture(void);
 BOOL scrnmng_display_capture_selftest(void);
+BOOL scrnmng_start_displayed_recording_capture(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK callback, void *context);
+void scrnmng_stop_displayed_recording_capture(void);
+BOOL scrnmng_displayed_recording_capture_active(void);
+VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error(void);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 BOOL scrnmng_native_active(void);

@@ -366,6 +366,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/recording/recording.c
+    sdl2/recording/recording_displayed_capture.c
     sdl2/recording/recording_native_composition.c
     sdl2/recording/recording_osd_snapshot.c
     sdl2/recording/recording_native_tap.c
@@ -907,6 +908,22 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_recording_osd_snapshot_test)
     set_tests_properties(vaeg_recording_osd_snapshot PROPERTIES
         LABELS "romless;recording;osd")
+
+    add_executable(vaeg_recording_displayed_capture_test
+        tests/frontend/recording/test_recording_displayed_capture.c
+        sdl2/recording/recording_displayed_capture.c)
+    target_include_directories(vaeg_recording_displayed_capture_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_displayed_capture_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_displayed_capture_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_displayed_capture
+        COMMAND vaeg_recording_displayed_capture_test)
+    set_tests_properties(vaeg_recording_displayed_capture PROPERTIES
+        LABELS "romless;recording;displayed;readback")
 
     add_executable(vaeg_recording_native_composition_test
         tests/frontend/recording/test_recording_native_composition.c
