@@ -144,6 +144,18 @@ else()
     endif()
 endif()
 
+set(VAEG_FFMPEG_TARGETS)
+if(VAEG_ENABLE_RECORDING)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FFMPEG_AVUTIL REQUIRED IMPORTED_TARGET libavutil)
+    pkg_check_modules(FFMPEG_AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
+    pkg_check_modules(FFMPEG_AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
+    list(APPEND VAEG_FFMPEG_TARGETS
+        PkgConfig::FFMPEG_AVUTIL
+        PkgConfig::FFMPEG_AVCODEC
+        PkgConfig::FFMPEG_AVFORMAT)
+endif()
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -364,6 +376,10 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+if(VAEG_ENABLE_RECORDING)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/recording/recording_ffmpeg_capabilities.cpp)
+endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/metal_bridge.mm
@@ -656,6 +672,10 @@ if(VAEG_ENABLE_LIBRASHADER)
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va Threads::Threads ${VAEG_SDL2_LIBS})
+if(VAEG_ENABLE_RECORDING)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_RECORDING_FFMPEG=1)
+    target_link_libraries(vaeg_sdl2 PRIVATE ${VAEG_FFMPEG_TARGETS})
+endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     target_link_libraries(vaeg_sdl2 PRIVATE
         "-framework Foundation"
@@ -897,6 +917,30 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_recording_queue_test)
     set_tests_properties(vaeg_recording_queue PROPERTIES
         LABELS "romless;recording;queue")
+
+    if(VAEG_ENABLE_RECORDING)
+        add_executable(vaeg_recording_ffmpeg_capabilities_test
+            tests/frontend/recording/test_recording_ffmpeg_capabilities.cpp
+            sdl2/recording/recording_ffmpeg_capabilities.cpp)
+        target_include_directories(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_ffmpeg_capabilities_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1)
+        target_compile_options(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            Threads::Threads ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_ffmpeg_capabilities_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_ffmpeg_capabilities
+            COMMAND vaeg_recording_ffmpeg_capabilities_test)
+        set_tests_properties(vaeg_recording_ffmpeg_capabilities PROPERTIES
+            LABELS "romless;recording;ffmpeg")
+    endif()
 
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
