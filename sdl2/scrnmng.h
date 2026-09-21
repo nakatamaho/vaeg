@@ -26,6 +26,7 @@
 #define VAEG_SDL2_SCRNMNG_H
 
 #include "viewport.h"
+#include "recording/recording_osd_snapshot.h"
 
 enum {
 	VAEG_EFFECT_UNFILTERED = 0,
@@ -103,6 +104,7 @@ BOOL scrnmng_take_native_fallback(void);
 BOOL scrnmng_window_rebind_selftest(void);
 void scrnmng_draw_native_overlays(void);
 void scrnmng_draw_sdl_overlays(void);
+BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
 BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);
 void scrnmng_native_gui_shutdown(void);
