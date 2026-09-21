@@ -1,8 +1,43 @@
 # Recording v1 handoff
 
-Current state: REC03 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC04 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
-REC02/M100r3 and REC03/M100r4. Assigned branch: topic/m100r3-recording-clock.
+REC02/M100r3, REC03/M100r4 and REC04/M100r5. Assigned branch:
+topic/m100r3-recording-clock.
+
+## REC04 completion
+
+* `VAEG_ENABLE_RECORDING` remains OFF by default. When enabled, CMake discovers
+  target-scoped libavutil, libavcodec and libavformat imported targets; when
+  disabled, the frontend does not include or link the FFmpeg capability source.
+* The private C++ capability adapter reports stable structured failures for
+  unsupported versions, missing FFV1/PCM encoders, missing Matroska muxing,
+  unsupported BGR0/S16 formats, missing FFV1 slice CRC/version 3 and muxer
+  incompatibility. It uses the current supported-config API with a private
+  compatibility branch for older headers.
+* The actual development libraries passed the FFV1, PCM S16LE, Matroska, BGR0,
+  packed S16, slice CRC and FFV1 v3 checks. The test mutates each capability
+  independently so failure reasons cannot mask one another.
+* No C99 interface contains an FFmpeg type. No recorder, subprocess, swscale,
+  resampler, live tap, file output or UI was added.
+
+## REC04 evidence
+
+Evaluated source commit:
+2258aa0a73533691305d7b48d44f924b6303ec51.
+
+On macOS arm64, AppleClang 21, CMake 3.31.12 and Ninja 1.13.2, the enabled
+frontend and capability test built and all five recording tests passed. The
+disabled frontend built without generated FFmpeg references and all four
+recording-OFF tests passed. A deliberately empty target pkg-config environment
+stopped enabled configuration with a specific missing `libavutil` diagnostic.
+ROM-less self-test and smoke, milestone-ID, case, UTF-8 and EOL validators also
+passed. The local development FFmpeg is a GPL/nonfree-enabled MacPorts build;
+it is not release-package compliance evidence.
+
+REC04 remains a capability boundary only. Actual encoding, MKV lifecycle,
+guest-time audio/video production, presenter readback, platform runtime and
+release dependency audits remain later tasks.
 
 ## REC02 completion
 
