@@ -1,6 +1,6 @@
 # M100r10 - REC09 recording-v1 native composition
 
-Status: IN_PROGRESS
+Status: MACHINE_GATE_PASS
 Feature: REC09
 Scope: owned canonical raster copy and native-resolution guest-area OSD composition
 

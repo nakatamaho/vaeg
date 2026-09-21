@@ -144,6 +144,29 @@ native OS decorations and screenshot-only graphics analysis remain outside this
 guest-area snapshot. Existing drawing consumes the copied snapshot without
 changing its order, geometry or alpha convention.
 
+### REC09 native composition result
+
+`scrnmng_capture_native_recording_frame` is the frontend boundary for the
+Native source. It reads `scrnmng.shadow` after the one-pixel RGB565 left guard,
+validates the active pitch and source extent, and copies only the canonical
+guest width/height into a bounded owned RGB24 frame. The conversion reuses the
+existing integer RGB565 expansion rule and declares sample aspect ratio 1:1.
+The source buffer is never modified.
+
+The helper then consumes the REC08 value snapshot and renders the enabled
+Video information layer followed by the enabled Framebuffer information layer
+at native scale 1 and the top-right anchor. It uses the existing 8x8 font,
+black background/text alpha conventions and clips every write to the owned
+frame. The live output-space `visible` bit is not used to omit an enabled
+native layer: it only reflects whether the current window could display that
+layer. CRT, scaling, letterbox, host title/menu strips, ImGui and native OS
+decoration are not part of this frame.
+
+The deterministic REC09 fixture passed in both recording ON and OFF builds,
+including source guard/padding isolation, no-OSD byte identity, alpha, order,
+clipping and malformed-input rejection. This helper is not yet called by live
+recording; video-clock and audio ownership work remain later milestones.
+
 ## Video clocks and ownership
 
 The machine master clock is selected by machine/pccore.c from the model base

@@ -2,8 +2,8 @@
 
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7,
-REC07/M100r8 and REC08/M100r9 are complete at their machine gates. No human or
-release validation is implied.
+REC07/M100r8, REC08/M100r9 and REC09/M100r10 are complete at their machine
+gates. No human or release validation is implied.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@ release validation is implied.
 | REC06 | PASS | PCM S16LE stereo; reused final saturation; exact 11-frame partition-invariant decode with indices/PTS/durations/origin; failure paths; ON 7/7, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 2c990ffa618c05e1a7acaf69bd23bfb9c708628b / rec06-report.md |
 | REC07 | PASS | Seekable Matroska with one FFV1 video and one PCM audio stream; exact synthetic RGB/PCM decode, post-header timebases, packet ordering, exclusive partial lifecycle and injected I/O/publication failures; ON 8/8, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 2a3c78583767624aea239c37cb8b9c1beb5a9f7c / rec07-report.md |
 | REC08 | PASS | C99 snapshot ownership/validation tests: ON 9/9 and OFF 5/5 recording suites; Werror focused test; ASan/UBSan focused test; existing ROM-less selftest/smoke and repository audit | NOT_REQUIRED | e4766a4173c4a9c69e483eb0e7bdb3887da02382 / rec08-report.md |
-| REC09 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC09 | PASS | Native owned RGB24 copy, native OSD composition, ON 10/10 and OFF 6/6 recording suites, Werror/sanitizer, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 1aa9f6f78dd968bdabfa068c24e32b4fa24403ca / rec09-report.md |
 | REC10 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC11 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC12 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |

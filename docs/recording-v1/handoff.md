@@ -1,10 +1,39 @@
 # Recording v1 handoff
 
-Current state: REC08 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC09 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8 and REC08/M100r9. Assigned branch:
+REC07/M100r8, REC08/M100r9 and REC09/M100r10. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC09 completion
+
+* `scrnmng_capture_native_recording_frame` copies the completed canonical
+  640-by-400 RGB565 guest raster after its left guard into bounded, owned RGB24
+  storage with the existing channel expansion and 1:1 sample aspect ratio.
+* The helper consumes the REC08 immutable snapshot and composes enabled
+  `VIDEO_INFO` then `FRAMEBUFFER_INFO` at native scale 1, top-right anchor,
+  native clipping and established alpha/text conventions. It never writes back
+  to the guest surface and never includes CRT, scaling, host strips or GUI.
+* Focused ON/OFF tests cover both OSD classes, source guards and mutation
+  isolation, no-OSD byte identity, alpha, clipping and validation failures.
+  Live recording is not connected until the guest video-clock task.
+
+## REC09 evidence
+
+Evaluated source commit:
+1aa9f6f78dd968bdabfa068c24e32b4fa24403ca.
+
+On macOS arm64 with AppleClang 21.0.0.21000101, CMake 3.31.12, Ninja 1.13.2
+and MacPorts SDL2 2.32.10, the native composition fixture passed in ON and OFF
+builds, with Werror and ASan/UBSan. The enabled recording suite passed 10/10
+and the disabled suite passed 6/6. Both frontend builds, ROM-less selftest and
+smoke runs passed. Case, UTF-8, EOL, whitespace and milestone-ID validators
+passed. No Windows/Linux runtime, presenter readback, live movie, audio
+integration, VLC, human or release validation is claimed.
+
+REC09 is the native composition checkpoint only. The next dependency-ready
+task is REC10/M100r11.
 
 ## REC08 completion
 
@@ -36,7 +65,8 @@ rendering path. Repository ID discovery/audit also passed.
 REC08 is an OSD semantic/extraction checkpoint only. It does not establish
 Native recording-owned raster composition, Displayed final-client readback,
 guest-time audio production, UI lifecycle, platform presenter behavior, VLC
-playback or release validation. The next dependency-ready task is REC09/M100r10.
+playback or release validation. REC09/M100r10 is now complete at its machine
+gate.
 
 ## REC07 completion
 
