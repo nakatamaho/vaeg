@@ -10,7 +10,7 @@ not a recording result and does not remove any requested backend from scope.
 | Windows / native D3D11 | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN |
 | Linux / SDL fallback | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN |
 | Linux / native OpenGL | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN |
-| macOS / SDL fallback | PASS (baseline only) | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN |
+| macOS / SDL fallback | PASS (REC13 build) | NOT_RUN | IMPLEMENTED_UNVERIFIED (Native source integration; required guest OSD demo pending) | NOT_RUN | IMPLEMENTED_UNVERIFIED (private four-interval MKV decode; physical device/VLC pending) | NOT_RUN | NOT_RUN |
 | macOS / native Metal | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN | NOT_RUN |
 | Recording OFF / supported builds | PASS (baseline only) | NOT_APPLICABLE | NOT_APPLICABLE | NOT_APPLICABLE | Existing audio not run | NOT_APPLICABLE | NOT_RUN |
 
@@ -32,6 +32,18 @@ For SDL fallback, the CRT column means only effects actually implemented in
 that path; it must not be used to claim native CRT support. Native capture is
 renderer-independent in architecture, but integration tests must prove that
 enabling a presenter does not move its tap.
+
+## REC13 host evidence
+
+The macOS arm64 host built both recording-enabled and recording-disabled
+frontends. The enabled recording suite passed 14/14; the disabled suite passed
+9/9. A private ROM-only run through the SDL software fallback and deterministic
+host audio produced four Native intervals, which independently decoded as
+FFV1/BGR0 640x400 video and PCM S16LE stereo 22050Hz audio. This is labelled
+IMPLEMENTED_UNVERIFIED because it did not exercise a guest OS/media workload
+with enabled OSD, a physical audio device, final Displayed composition, or VLC.
+The macOS Metal, Windows D3D11, Linux OpenGL and other runtime rows remain
+unverified.
 
 Record the exact evaluated commit, OS/toolchain, architecture, backend,
 device/driver, FFmpeg library configuration, VLC version and public synthetic

@@ -1,11 +1,54 @@
 # Recording v1 handoff
 
-Current state: REC12 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC13 is implemented at its machine gate; final human
+validation is pending. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12
-and REC12/M100r13. Assigned branch:
+REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12,
+REC12/M100r13 and REC13/M100r14. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC13 completion
+
+* The private Native session controller starts from a maintainer-only
+  environment hook, obtains the canonical Native RGB24 descriptor and the
+  current indexed audio FIFO, and derives one guest-clock/sample epoch.
+* Each guest display boundary is copied into a recording-owned staged frame
+  with its REC08 OSD snapshot. A later boundary closes the interval, selects
+  the exact audio sample range, and submits one owned complete slice through a
+  bounded cancellable queue. No callback timestamp or host frame pacing is
+  used.
+* The worker writes FFV1 v3 BGR0 video and PCM S16LE stereo to a seekable MKV
+  partial file and publishes only after trailer/flush success. Video PTS is
+  the slice begin tick and duration is the full guest interval; this is
+  required because the VA guest clock is much finer than a millisecond.
+* Reset, state-load, audio epoch/clock changes, descriptor invalidation, queue
+  failure and normal/error shutdown stop or cancel the session. Existing
+  screenshots, QA captures, Displayed video and recording-OFF paths remain
+  unchanged.
+
+## REC13 evidence
+
+Evaluated source commits:
+`7b530d79` (`M100r14: connect Native recording session`) and
+`595d6ed2d575dcc3b3d36aa5dc5c554d4c4f8b79`
+(`M100r14: align Native video interval timestamps`).
+
+The macOS recording-enabled suite passed 14/14 and the disabled suite passed
+9/9. The focused Werror and ASan/UBSan queue/session tests passed 2/2 each;
+both frontend builds and ROM-less selftest/smoke runs passed. A private
+ROM-only dummy-device run produced and decoded four Native intervals as one
+FFV1/BGR0 640x400 stream plus one PCM S16LE stereo 22050Hz stream. No private
+input identity is recorded here.
+
+The live run is engineering source-integration evidence only. It did not
+include a guest OS/media demonstration with motion, sound and enabled OSD;
+Displayed video, physical audio, VLC, Windows/Linux presenters and the human
+gate remain pending. VLC was unavailable on the evaluated host.
+
+REC13 is implemented at its machine gate. Under the current authorized
+recording-v1 progression exception, REC14/M100r15 may proceed without treating
+this pending human gate as approval or release validation.
 
 ## REC12 completion
 
@@ -33,8 +76,8 @@ The changed production C units compiled with generated Werror commands. No
 live MKV, public UI, Displayed/GPU backend, Windows/Linux runtime, VLC, human
 or release validation is claimed.
 
-REC12 is complete at its machine gate. The next dependency-ready task is
-REC13/M100r14.
+REC12 is complete at its machine gate. REC13/M100r14 is now implemented at its
+machine gate; see the REC13 section above for the remaining validation limits.
 
 ## REC11 completion
 

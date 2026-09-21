@@ -3,8 +3,10 @@
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7,
 REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12 and
-REC12/M100r13 are complete at their machine gates. No human or release
-validation is implied.
+REC12/M100r13 are complete at their machine gates. REC13/M100r14 is
+implemented at its machine gate, but its guest demonstration and human/release
+validation remain pending. No human or release validation is implied by the
+machine results.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
@@ -21,7 +23,7 @@ validation is implied.
 | REC10 | PASS | C99 generation/packing seam, state observation, ON 11/11 and OFF 7/7 recording suites, Werror/sanitizer, frontend builds, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 5e2823a437b4082b5b41f5f7d89e7a1073e738bd / rec10-report.md |
 | REC11 | PASS | Guest-time single producer, indexed bounded S16 FIFO, playback-only callback, mute/no-device handling, ON 12/12 and OFF 8/8 recording suites, sanitizer, builds and ROM-less no-audio selftest | NOT_REQUIRED | 4165d9fd677ac0a9ff3ed954c0100d0a988dcfc / rec11-report.md |
 | REC12 | PASS | Guest-boundary Native RGB24 tap with OSD snapshot, forced composition under draw-skip, exact guest-clock intervals, descriptor/sequence failures, ON 13/13 and OFF 9/9 recording suites, Werror/sanitizer and ROM-less selftest | NOT_REQUIRED | 415ca5f114b27990daa04ce157f4f27616ac98b2 / rec12-report.md |
-| REC13 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |
+| REC13 | IMPLEMENTED_UNVERIFIED | ON 14/14 and OFF 9/9 recording suites; focused Werror and ASan/UBSan 2/2; ON/OFF builds and ROM-less selftests/smoke; private ROM-only Native MKV decoded by ffprobe/ffmpeg | PENDING | 595d6ed2d575dcc3b3d36aa5dc5c554d4c4f8b79 / rec13-report.md |
 | REC14 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |
 | REC15 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC16 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |

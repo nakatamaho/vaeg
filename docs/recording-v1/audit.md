@@ -328,6 +328,54 @@ complete for the seam scope at evaluated source commit
 at evaluated source commit
 `4165d9fda677ac0a9ff3ed954c0100d0a988dcfc`; REC12 machine evidence is
 complete at evaluated source commit
-`415ca5f114b27990daa04ce157f4f27616ac98b2`. REC13 is the next
-dependency-ready task. These statements are engineering evidence only, not
-human or release validation.
+`415ca5f114b27990daa04ce157f4f27616ac98b2`. REC13 is now implemented at its
+machine gate; these statements are engineering evidence only, not human or
+release validation.
+
+## REC13 integrated Native session result
+
+REC13 connects the REC12 Native tap and REC11 audio FIFO in
+`sdl2/recording/recording_native_session.cpp`. The private controller starts
+after `pccore_reset` from `sdl2/np2.c`, reads the Native descriptor from
+`sdl2/scrnmng.c`, observes `SOUNDSTREAMSTATE` and `SOUNDRECORDINGSTATE`, and
+starts `sound_recording_start` before the tap. `run_guest_frame` calls the
+session after `pccore_exec`; the tap itself is still emitted only from the
+completed `screendispva` guest boundary in `machine/pccore.c`.
+
+The first accepted Native frame is staged. At the next guest boundary the
+coordinator closes `[previous_end_ticks, current_end_ticks)`, selects the
+exact rational sample range from the REC10/REC11 grid, copies the RGB24 frame,
+audio and REC08 snapshot into a `CaptureSlice`, and admits it through
+`RecordingSession::wait_submit`. The queue's wait is outside the core/audio
+lock and is canceled by sink failure, reset, state-load or epoch change.
+The worker owns `FfmpegVideoEncoder`, `FfmpegPcmEncoder` and
+`FfmpegMatroskaWriter`; the final path is published only after a successful
+trailer, flush and close. Video PTS is the slice begin tick and packet
+duration is the complete guest interval, rather than the encoder's default
+one-tick duration.
+
+The actual OSD layers remain the two REC08 guest-area diagnostic classes:
+Video information and Framebuffer information. REC13 carries the matching
+snapshot produced by `scrnmng_capture_native_recording_frame_with_snapshot`
+on the Native recording-owned copy; it does not add an OSD recording option,
+omit enabled guest OSD, include host title text or include ImGui. Displayed
+video and final-client presenter capture are unchanged and remain later
+milestones.
+
+The private controller accepts a maintainer-provided output path and optional
+positive frame limit through environment variables. This temporary control is
+not public UI and does not publish private media identities. A live
+ROM-only/deterministic-device run produced four Native intervals. Independent
+ffprobe/ffmpeg checks found one FFV1 v3-compatible BGR0 640x400 stream and one
+PCM S16LE stereo 22050Hz stream, four packets/decoded frames in each stream,
+video PTS beginning at zero, and 1563 stereo PCM frames. This is source and
+writer integration evidence only: no guest OS/media motion run with enabled
+OSD, physical device, Displayed capture, VLC playback or human gate was
+performed.
+
+The evaluated implementation commits are
+`7b530d79` and
+`595d6ed2d575dcc3b3d36aa5dc5c554d4c4f8b79`. The enabled recording suite
+passed 14/14 and the disabled suite passed 9/9, with focused Werror and
+ASan/UBSan queue/session tests passing 2/2 each. REC13 is therefore
+IMPLEMENTED_UNVERIFIED rather than human-approved or release-complete.
