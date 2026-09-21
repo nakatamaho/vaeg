@@ -1,8 +1,43 @@
 # Recording v1 handoff
 
-Current state: REC01 machine gate PASS. Completed tasks: REC00/M100r1,
-explicitly accepted by the maintainer on 2026-09-19, and REC01/M100r2.
-Assigned branch: topic/m100r2-recording-contracts.
+Current state: REC02 machine gate PASS. Completed tasks: REC00/M100r1,
+explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2 and
+REC02/M100r3. Assigned branch: topic/m100r3-recording-clock.
+
+## REC02 completion
+
+* `vaeg::recording::SampleGrid` computes exact sample-grid boundaries from
+  guest ticks, integer rates and a bounded rational origin offset.
+* Interval sample ranges are formed from absolute endpoint boundaries, so
+  arbitrary producer partitioning telescopes to the same count as one whole
+  interval. No nominal frame rate, host clock or floating-point accumulator is
+  involved.
+* Checked 128-bit intermediate arithmetic rejects zero denominators, invalid
+  ranges and representable-result overflow. `WrapExtender` converts an
+  audited modulo counter to monotonic guest ticks and rejects ambiguous
+  backward movement.
+* Explicit floor/ceil timestamp rescaling keeps codec-time and muxer-time
+  units separate without linking FFmpeg. The helper is frontend-only and does
+  not change the guest scheduler or audio producer.
+* Focused tests cover a three-hour 48,000/1,001 synthetic schedule, changing
+  17-tick partitions, origin offsets, wrap extension, invalid inputs and
+  timestamp rescaling.
+
+## REC02 evidence
+
+Evaluated source commit:
+8c40626f682d569668ba4ef574249f05498f8882.
+
+The macOS arm64 AppleClang build and focused recording tests passed. The
+existing ROM-less self-test and smoke run passed; smoke reported only the
+expected missing-ROM warning. Repository case, UTF-8, EOL and milestone-ID
+validators passed. The REC02 synthetic rate is a fixture only. The actual VA
+clock mapping remains the audited TSP/pccore mapping in `audit.md`; no hardware
+timing claim is inferred from 48,000/1,001.
+
+REC02 does not add a recorder, FFmpeg backend, video/audio tap, queue, UI or
+runtime capture. Audio look-ahead reconciliation and source integration remain
+the subjects of REC10/REC11.
 
 ## REC01 completion
 

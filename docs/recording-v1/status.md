@@ -1,13 +1,14 @@
 # Recording v1 status
 
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2
-is complete at its machine gate. No REC02 work has started.
+and REC02/M100r3 are complete at their machine gates. REC03 is the next
+dependency-ready milestone; no human or release validation is implied.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
 | REC00 | PASS | PASS for audit/build/selftest/validators; no recording feature test applies | ACCEPTED 2026-09-19 | 5f43757448ecad160733a73e9c119c476af3de33 / rec00-report.md |
 | REC01 | PASS | OFF/ON configure and build, C99/C++17 contract tests, overflow/descriptor/ownership checks, existing ROM-less tests | NOT_REQUIRED | f838d15c7c676bf70a6d19d41f7f8fe5da57c813 / rec01-report.md |
-| REC02 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC02 | PASS | Exact rational clock/sample-grid tests, wrap/overflow/invalid-input tests, recording contract regression tests, full macOS frontend build, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 8c40626f682d569668ba4ef574249f05498f8882 / rec02-report.md |
 | REC03 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC04 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC05 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
