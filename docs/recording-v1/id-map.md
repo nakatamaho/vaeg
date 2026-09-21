@@ -1,6 +1,6 @@
 # Feature-to-repository milestone map
 
-Allocation state: REC13 is implemented at its machine gate with final human
+Allocation state: REC14 is implemented at its machine gate with final human
 validation pending; REC00 was accepted on 2026-09-19. The recording-v1 family
 uses the collision-free M100r1 through M100r28 namespace. M101 remains
 unassigned for unrelated future work. The milestone validator accepts this
@@ -22,7 +22,7 @@ legal repository form.
 | REC11 | M100r12 | docs/agents/tasks/M100r12_recording_v1_rec11.md |
 | REC12 | M100r13 | docs/agents/tasks/M100r13_recording_v1_rec12.md |
 | REC13 | M100r14 | docs/agents/tasks/M100r14_recording_v1_rec13.md |
-| REC14 | M100r15 | Reserved; wrapper not created |
+| REC14 | M100r15 | docs/agents/tasks/M100r15_recording_v1_rec14.md |
 | REC15 | M100r16 | Reserved; wrapper not created |
 | REC16 | M100r17 | Reserved; wrapper not created |
 | REC17 | M100r18 | Reserved; wrapper not created |
@@ -50,7 +50,8 @@ REC08 uses M100r9 and is complete at its machine gate. REC09 uses M100r10 and
 is complete at its machine gate. REC10 uses M100r11, REC11 uses M100r12 and
 REC12 uses M100r13; all three are complete at their machine gates. REC13 uses
 M100r14 and is implemented at its machine gate with final human validation
-pending.
+pending. REC14 uses M100r15 and is implemented at its machine gate with final
+human validation pending.
 
 Allocation evidence:
 

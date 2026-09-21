@@ -1,12 +1,46 @@
 # Recording v1 handoff
 
-Current state: REC13 is implemented at its machine gate; final human
+Current state: REC14 is implemented at its machine gate; final human
 validation is pending. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
 REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12,
-REC12/M100r13 and REC13/M100r14. Assigned branch:
+REC12/M100r13, REC13/M100r14 and REC14/M100r15. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC14 completion
+
+* `--record FILE.mkv` now starts the same Native session used by the GUI;
+  `--record-source native|displayed` has exactly the two specified source
+  values, Native is the default, and `--record-frames N` requires a positive
+  count. Invalid extensions, existing targets and unavailable sources fail
+  before output creation.
+* The GUI Recording menu and dialog use the exact `Native video` and
+  `Displayed video` labels. Displayed is visibly disabled with its current
+  unavailability reason; no third source or OSD recording filter was added.
+* Stop Recording is available from the active menu, including host-only redraws
+  while the guest is paused. The UI reports guest elapsed time, accepted frame
+  intervals and finalizing/success/error state. Output validation and the
+  session controller remain outside the C core and use the existing bounded
+  Native A/V session.
+
+## REC14 evidence
+
+Evaluated source commit: `ec966b9b61d487014aabd8cc3184bc3ef0c55a06` (`M100r15: implement Native recording controls`).
+
+The macOS recording-enabled suite passed 15/15 and the disabled suite passed
+10/10. Both frontend builds passed, both ROM-less selftests and smoke runs
+passed, and the CLI parser, invalid/off-build and unavailable-Displayed paths
+were exercised. The focused session fixture covers invalid extension, existing
+target, Unicode path, double start, finite interval count, complete manual
+stop and Displayed-source rejection. Repository case, encoding, EOL,
+whitespace and milestone-ID checks passed.
+
+No real guest OS/media demonstration with enabled OSD and sound, Displayed
+final-client capture, Windows/Linux runtime, VLC playback, or maintainer human
+acceptance is claimed. REC14 remains `IMPLEMENTED_UNVERIFIED` with its human
+gate pending. Under the current authorized recording-v1 progression exception,
+REC15/M100r16 is the next dependency-ready task.
 
 ## REC13 completion
 
