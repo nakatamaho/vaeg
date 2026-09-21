@@ -2691,6 +2691,10 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	if (SDL_getenv("VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY") != NULL) {
+		/* Keep the SDL final-client probe independent of unrelated full-suite teardown. */
+		return scrnmng_display_capture_selftest();
+	}
 #if defined(VAEG_UPD9002_M44_TESTING)
 	if (upd9002_state_scenario_requested()) {
 		return (test_statsave() == SUCCESS ? SUCCESS : FAILURE);

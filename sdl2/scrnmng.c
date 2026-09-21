@@ -2723,6 +2723,10 @@ BOOL scrnmng_display_capture_selftest(void) {
 	}
 	ok = SUCCESS;
 cleanup:
+	if (ok == SUCCESS) {
+		fprintf(stderr, "selftest: displayed capture fixture ok (video=%s)\n",
+		        SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "unknown");
+	}
 	scrnmng_displayed_capture_release();
 	free(displayed_fixture.rgb);
 	free(displayed_expected);
@@ -2735,7 +2739,9 @@ cleanup:
 	np2oscfg.DISPCLK = saved_info;
 	drawcount = saved_drawcount;
 	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
-	if (ok != SUCCESS) fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
+	if (ok != SUCCESS) {
+		fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
+	}
 	return ok;
 }
 
