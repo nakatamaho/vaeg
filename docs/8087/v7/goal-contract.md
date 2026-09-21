@@ -11,7 +11,7 @@
 | Coprocessor | Intel 8087 only |
 | Maximum installed | one |
 | Default enabled | false unless current VAEG policy requires otherwise |
-| Default clock | `10000000` Hz |
+| Default clock | `8000000` Hz |
 | Clock configuration | persisted integer Hz, independent of CPU frequency |
 | Apply point | machine reset |
 | Emulator policy range | 1,000,000 through 20,000,000 Hz inclusive |
@@ -23,8 +23,11 @@
 | Arithmetic substrate | exact upstream SoftFloat Release 3e from S03 |
 | Runtime host FP | prohibited in new 8087 runtime |
 
-The 10 MHz default is a user-selected emulator configuration requirement. It is
-not a claim that every PC-88VA board drove an 8087 at 10 MHz.
+The default was amended to 8 MHz after the VA2 field measurement documented in
+[`docs/modernization/8087.md`](../../modernization/8087.md). The 5 MHz and
+10 MHz values remain selectable custom/preset values; this default is a
+hardware-informed VAEG policy, not a claim that every PC-88VA board has the
+same clock route.
 
 ## Completion
 
@@ -34,7 +37,7 @@ not a claim that every PC-88VA board drove an 8087 at 10 MHz.
 2. every documented 8087 form has a production handler and executed semantic test;
 3. all 2048 D8-DF ModR/M decoder slots are classified exactly once;
 4. no documented form reaches a stub, generic later-x87 fallback, or untested path;
-5. the one-device limit and 10 MHz default/configuration lifecycle pass;
+5. the one-device limit and 8 MHz default/configuration lifecycle pass;
 6. configured clock changes alter emulated NDP service time without changing
    non-time-dependent arithmetic results;
 7. CPU-side FPO1/FPO2/POLL and no-device bus behavior are tested;

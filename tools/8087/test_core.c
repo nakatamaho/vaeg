@@ -182,7 +182,7 @@ static int test_config_and_timing(void) {
 
 	upd8087_config_default(&config);
 	CHECK(!config.enabled, "default 8087 is disabled");
-	CHECK(config.clock_hz == 10000000U, "default 8087 clock is 10 MHz");
+	CHECK(config.clock_hz == 8000000U, "default 8087 clock is 8 MHz");
 	CHECK(upd8087_clock_valid(1000000U), "minimum clock accepted");
 	CHECK(upd8087_clock_valid(20000000U), "maximum clock accepted");
 	CHECK(!upd8087_clock_valid(999999U), "below-minimum clock rejected");

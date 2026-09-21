@@ -8,7 +8,7 @@ This is an implementation ladder, not a request to create another plan.
 | P01 | [Independent source and opcode inventory](packages/p01-independent-source-and-opcode-inventory.md) | P00 | PASS (local) |
 | P02 | [SoftFloat 3e vendoring and backend validation](packages/p02-softfloat-3e-vendoring-and-backend-validation.md) | P00 | PASS (local) |
 | P03 | [Singleton state and raw80 barrier](packages/p03-singleton-state-and-raw80-barrier.md) | P01, P02 | PASS (local) |
-| P04 | [10 MHz clock and serial timing foundation](packages/p04-10-mhz-clock-and-serial-timing-foundation.md) | P00, P03 | PASS (local) |
+| P04 | [8087 clock and serial timing foundation](packages/p04-10-mhz-clock-and-serial-timing-foundation.md) | P00, P03 | PASS (local) |
 | P05 | [Production CPU, bus, FPO1/FPO2](packages/p05-production-cpu,-bus,-fpo1-fpo2.md) | P01, P03, P04 | PASS (local) |
 | P06 | [Exception transaction and WAIT/FN framework](packages/p06-exception-transaction-and-wait-fn-framework.md) | P01, P03, P04, P05 | PASS (local) |
 | P07 | [Production vertical slice](packages/p07-production-vertical-slice.md) | P02-P06 | PASS (local) |

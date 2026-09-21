@@ -12,7 +12,8 @@ P02 must use that exact archive rather than silently downloading a different cop
 All v6 architectural decisions retained by v7 remain binding:
 
 - one optional 8087 maximum
-- default 10 MHz independently configurable clock
+- default 8 MHz independently configurable clock (amended from the original
+  10 MHz software policy after the VA2 field measurement)
 - no 8087 on FPO2
 - full documented 8087 instruction/form coverage
 - `SERIAL_TIMED_V1`

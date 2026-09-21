@@ -11,7 +11,7 @@ configuration, savestate, and interrupt paths.
 ## Fixed user requirements
 
 - maximum installed 8087 devices per emulated machine: **one**
-- default active 8087 clock: **10,000,000 Hz**
+- default active 8087 clock: **8,000,000 Hz**
 - clock: configurable and persisted independently from CPU frequency
 - clock changes: applied at machine reset
 - FPO2: never connected to the sole 8087 and never used for a second 8087

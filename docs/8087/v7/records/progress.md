@@ -260,7 +260,7 @@ P17/P19 classification: the physical route evidence remains unavailable.
 
 ## Scope and evidence boundary
 
-The implementation covers the single optional 8087, exact 10 MHz default,
+The implementation covers the single optional 8087, exact 8 MHz default,
 independent persisted clock with reset-time application, serial integer NDP
 service timing, native/8080 decode separation, FPO1-only attachment, all
 documented inventory forms, packed BCD, environment/save/restore, control and

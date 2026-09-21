@@ -2,7 +2,7 @@
 
 ## Configuration
 
-- default active clock: `10000000` Hz
+- default active clock: `8000000` Hz
 - accepted emulator setting: integer `1000000..20000000` Hz
 - presets: 5, 8, 10 MHz
 - requested changes apply on machine reset
@@ -28,6 +28,7 @@ Do not accumulate independently rounded per-instruction durations.
 Reference conversion checks:
 
 ```text
+100 NDP clocks at  8 MHz = 12.5 microseconds
 100 NDP clocks at 10 MHz = 10 microseconds
 100 NDP clocks at  5 MHz = 20 microseconds
 ```
