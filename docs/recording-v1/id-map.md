@@ -1,6 +1,6 @@
 # Feature-to-repository milestone map
 
-Allocation state: REC10 COMPLETE; REC00 accepted on 2026-09-19. REC00 uses the
+Allocation state: REC11 COMPLETE; REC00 accepted on 2026-09-19. REC00 uses the
 first legal, collision-free lettered namespace after the current M99 sequence.
 The current roadmap, task files, reports and repository references contain no
 M100 or M101 assignment. The milestone validator accepts M100r1 through
@@ -19,7 +19,7 @@ M100r28.
 | REC08 | M100r9 | docs/agents/tasks/M100r9_recording_v1_rec08.md |
 | REC09 | M100r10 | docs/agents/tasks/M100r10_recording_v1_rec09.md |
 | REC10 | M100r11 | docs/agents/tasks/M100r11_recording_v1_rec10.md |
-| REC11 | M100r12 | Reserved; wrapper not created |
+| REC11 | M100r12 | docs/agents/tasks/M100r12_recording_v1_rec11.md |
 | REC12 | M100r13 | Reserved; wrapper not created |
 | REC13 | M100r14 | Reserved; wrapper not created |
 | REC14 | M100r15 | Reserved; wrapper not created |
@@ -47,8 +47,8 @@ M100r5 and is complete at its machine gate. REC05 uses M100r6 and is complete
 at its machine gate. REC06 uses M100r7 and is complete at its machine gate.
 REC07 uses M100r8 and is complete at its machine gate.
 REC08 uses M100r9 and is complete at its machine gate. REC09 uses M100r10 and
-is complete at its machine gate. REC10 uses M100r11 and is complete at its
-machine gate.
+is complete at its machine gate. REC10 uses M100r11 and REC11 uses M100r12;
+both are complete at their machine gates.
 
 Allocation evidence:
 

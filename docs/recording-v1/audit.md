@@ -200,11 +200,12 @@ The current audio path is:
    pccore.realclock / 25 and the output sample grid from rate / 25.
 4. sound/sound.c:sound_sync converts elapsed guest clock into generated samples
    and calls streamprepare.
-5. sdl2/soundmng.c:sound_play_cb calls sound_pcmlock, converts/clips to
-   AUDIO_S16SYS, and supplies stereo samples to SDL. The SDL request is stereo
-   S16 at the configured rate, but the current SDL_AudioSpec have value is not
-   retained, so the actual obtained device format is not yet an explicit
-   recording descriptor.
+5. When recording is inactive, sdl2/soundmng.c:sound_play_cb calls
+   sound_pcmlock, converts/clips to AUDIO_S16SYS, and supplies stereo samples
+   to SDL. When recording is active, the callback consumes the separate
+   playback buffer only. `soundmng_getspec` retains the requested and obtained
+   rate, format, channels and buffer size as a plain `SOUNDMNGSPEC` for the
+   future recorder owner; it does not expose SDL types through the core.
 
 The ymfm bridge is in sdl2/ymfmbridge.cpp. The local YM2203 clock is 3,993,552
 Hz and the YM2608 clock is 7,987,104 Hz. In the vendored
@@ -224,14 +225,16 @@ recording sample grid.
 
 ### Look-ahead finding
 
-sound_pcmlock can call streamprepare(remain - reserve) from the audio callback
-when the remaining stream is beyond the reserve, then updates lastclock from
-the guest clock. sound_sync also generates based on guest elapsed clock. REC00
-does not claim these paths are already a recording-safe single owner. REC10 and
-REC11 must inventory generated samples, reserve contents, generator cursor and
-callback ownership, then establish one guest-time producer without duplicate or
-silently discarded samples. Device absence and mute must not change the
-recording timeline.
+Before REC11, sound_pcmlock could call streamprepare(remain - reserve) from the
+audio callback when the remaining stream was beyond the reserve, while
+sound_sync also generated based on guest elapsed clock. REC11 now establishes a
+recording-active single producer: sound_sync generates the interval once,
+copies final S16 samples into the indexed bounded recording FIFO, and the SDL
+callback consumes playback data only. Arming copies the already-generated
+pending tail into that FIFO, and a full recording FIFO fails the recording
+session before synthesis rather than dropping a claimed sample or waiting
+under the core/audio lock. Device absence and mute remain counted timeline
+conditions.
 
 The required v1 common epoch is a guest-clock/sample-grid relation. Audio
 samples are selected by exact rational grid positions for each completed guest
@@ -256,11 +259,13 @@ device and reconcile generated, reserved and pending data outside the audio
 callback/core lock; the observation API is not a callback-safe recursive
 handover protocol and does not provide a reset-to-zero shortcut.
 
-REC10 adds no recording feed. REC11 remains responsible for establishing one
-guest-time audio producer, retaining the actual obtained device format and
-reconciling the legacy look-ahead before recording samples are accepted. The
-source-NULL helper test only verifies the existing silence path; it does not
-establish recording semantics for device absence or application mute.
+REC10 adds no recording feed. REC11 establishes the recording-active producer,
+the bounded indexed S16 FIFO and playback-only callback boundary. It also
+retains the obtained device description and reconciles the pending look-ahead
+at arming. The source-NULL and mute handling preserve counted silence, while
+the missing-device path keeps the sound core usable. The recorder coordinator
+still must consume this API and connect it to the REC07 MKV writer at a safe
+guest-time boundary.
 
 ## Validation, risks and human gate
 
@@ -272,8 +277,10 @@ generated because REC00 forbids implementation.
 
 Open implementation risks are:
 
-* the audio callback look-ahead must be reconciled before any recording tap;
-* the obtained SDL device format and conversion state need an explicit owner;
+* the recorder coordinator must drain the bounded audio FIFO at safe guest-time
+  boundaries and fail cleanly if it cannot keep up;
+* the obtained SDL device format and any later conversion state need an
+  explicit recorder owner;
 * each native presenter needs a final-client capture proof, including Metal
   completion/storage and D3D11 row-pitch/format handling;
 * geometry, clock, audio-format and presenter changes need a safe-stop boundary;
@@ -284,5 +291,7 @@ Open implementation risks are:
 
 REC00 machine evidence was accepted on 2026-09-19. REC10 machine evidence is
 complete for the seam scope at evaluated source commit
-`5e2823a437b4082b5b41f5f7d89e7a1073e738bd`; REC11 is the next dependency-ready
-audio-ownership task. Neither statement is human or release validation.
+`5e2823a437b4082b5b41f5f7d89e7a1073e738bd`; REC11 machine evidence is complete
+at evaluated source commit
+`4165d9fda677ac0a9ff3ed954c0100d0a988dcfc`. REC12 is the next
+dependency-ready task. Neither statement is human or release validation.

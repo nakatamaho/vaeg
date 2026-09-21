@@ -1,10 +1,47 @@
 # Recording v1 handoff
 
-Current state: REC10 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC11 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8, REC08/M100r9, REC09/M100r10 and REC10/M100r11. Assigned branch:
+REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11 and REC11/M100r12.
+Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC11 completion
+
+* Recording-active `sound_sync` is now the sole synthesis producer. It emits
+  one guest-time S32 block through the REC10 seam, converts it to final S16
+  stereo and appends it to an owned bounded FIFO with sample indices and epoch.
+* The SDL callback consumes a separate playback buffer only while recording;
+  it does not synthesize, encode, wait for recording capacity or allocate.
+  Mute and missing-device operation preserve the recording timeline as counted
+  silence.
+* Recording arming reconciles already-generated pending playback samples into
+  the recording FIFO. Reset and clock changes invalidate the retained session
+  with an epoch error. A full recording FIFO fails closed rather than dropping
+  a claimed recording sample or blocking under the core/audio lock.
+* `SOUNDMNGSPEC` records the requested and obtained SDL device description for
+  the later recorder owner. The recorder coordinator and MKV connection remain
+  future work.
+
+## REC11 evidence
+
+Evaluated source commit:
+4165d9fda677ac0a9ff3ed954c0100d0a988dcfc.
+
+On macOS arm64 with AppleClang 21.0.0.21000101, CMake 3.31.12, Ninja 1.13.2
+and MacPorts SDL2 2.32.10, the focused FIFO test passed in ON, OFF, Werror and
+ASan/UBSan builds. The enabled recording suite passed 12/12 and the disabled
+suite passed 8/8. Both frontend builds and the ROM-less no-audio selftest
+passed. The changed production C units also compiled with the generated Werror
+commands. The complete Werror frontend target remains affected by unrelated
+pre-existing warnings in `io/np2sysp.c` and `sound/vermouth/midinst.c`.
+Repository validators passed for the evidence update. No live MKV, presenter,
+Windows/Linux runtime, physical audio, VLC, human or release validation is
+claimed.
+
+REC11 is complete at its machine gate. The next dependency-ready task is
+REC12/M100r13.
 
 ## REC10 completion
 
@@ -34,8 +71,8 @@ case, UTF-8, EOL, whitespace and milestone-ID validators passed. No live
 recording, host-device-format handover, Windows/Linux runtime, VLC, human or
 release validation is claimed.
 
-REC10 is complete at its machine gate. The next dependency-ready task is
-REC11/M100r12.
+REC10 is complete at its machine gate. REC11/M100r12 is now complete at its
+machine gate; the next dependency-ready task is REC12/M100r13.
 
 ## REC09 completion
 
@@ -63,8 +100,9 @@ smoke runs passed. Case, UTF-8, EOL, whitespace and milestone-ID validators
 passed. No Windows/Linux runtime, presenter readback, live movie, audio
 integration, VLC, human or release validation is claimed.
 
-REC09 is the native composition checkpoint only. REC10/M100r11 is now complete
-at its machine gate; the next dependency-ready task is REC11/M100r12.
+REC09 is the native composition checkpoint only. REC10/M100r11 and
+REC11/M100r12 are now complete at their machine gates; the next
+dependency-ready task is REC12/M100r13.
 
 ## REC08 completion
 
