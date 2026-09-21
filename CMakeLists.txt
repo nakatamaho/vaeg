@@ -368,6 +368,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/recording/recording.c
     sdl2/recording/recording_native_composition.c
     sdl2/recording/recording_osd_snapshot.c
+    sdl2/recording/recording_native_tap.c
     sdl2/recording/recording_contracts.cpp
     sdl2/recording/recording_clock.cpp
     sdl2/recording/recording_queue.cpp
@@ -903,6 +904,22 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_recording_native_composition_test)
     set_tests_properties(vaeg_recording_native_composition PROPERTIES
         LABELS "romless;recording;native;osd")
+
+    add_executable(vaeg_recording_native_tap_test
+        tests/frontend/recording/test_recording_native_tap.c
+        sdl2/recording/recording_native_tap.c)
+    target_include_directories(vaeg_recording_native_tap_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_native_tap_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_native_tap_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_native_tap
+        COMMAND vaeg_recording_native_tap_test)
+    set_tests_properties(vaeg_recording_native_tap PROPERTIES
+        LABELS "romless;recording;native;video;timing")
 
     add_executable(vaeg_sound_generation_test
         tests/frontend/recording/test_sound_generation.c

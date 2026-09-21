@@ -36,6 +36,7 @@
 #include "../vram/makegrphva.h"
 #include "scrnmng.h"
 #include "../vram/scrndrawva.h"
+#include "recording/recording_native_tap.h"
 #include "memoryva.h"
 #include "tsp.h"
 #include "sgp.h"
@@ -135,6 +136,9 @@ BOOL drawframe;
 UINT drawcount = 0;
 BOOL hardwarereset = FALSE;
 static BOOL pccore_debug_resume = FALSE;
+static UINT64 pccore_guest_clock_high = 0;
+static UINT32 pccore_guest_clock_last = 0;
+static BOOL pccore_guest_clock_valid = FALSE;
 
 // ---------------------------------------------------------------------------
 
@@ -323,10 +327,29 @@ void pccore_cfgupdate(void) {
 	}
 }
 
+UINT64 pccore_guest_clock(void) {
+	UINT32 current;
+
+	current = CPU_CLOCK + (UINT32)(CPU_BASECLOCK - CPU_REMCLOCK);
+	if (!pccore_guest_clock_valid) {
+		pccore_guest_clock_valid = TRUE;
+		pccore_guest_clock_last = current;
+		return (UINT64)current;
+	}
+	if (current < pccore_guest_clock_last) {
+		pccore_guest_clock_high += (UINT64)UINT32_MAX + 1u;
+	}
+	pccore_guest_clock_last = current;
+	return pccore_guest_clock_high + (UINT64)current;
+}
+
 void pccore_reset(void) {
 	int i;
 
 	pccore_debug_resume = FALSE;
+	pccore_guest_clock_high = 0;
+	pccore_guest_clock_last = 0;
+	pccore_guest_clock_valid = FALSE;
 	drawcount = 0;
 	scrnmng_reset_metrics();
 	soundmng_stop();
@@ -398,7 +421,7 @@ void pccore_reset(void) {
 	soundmng_play();
 }
 
-static void drawscreenva(void) {
+static void drawscreenva(BOOL guest_boundary) {
 	int y;
 	BOOL text200;
 	BOOL grph200;
@@ -409,7 +432,7 @@ static void drawscreenva(void) {
 	tsp_updateclock();
 	//	}
 
-	if (!drawframe) {
+	if (!vaeg_recording_native_tap_requires_guest_composition(drawframe)) {
 		return;
 	}
 
@@ -558,6 +581,27 @@ static void drawscreenva(void) {
 	if (screenupdate) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
 		drawcount++;
+		if (guest_boundary && vaeg_recording_native_tap_is_active()) {
+			VAEG_RECORDING_NATIVE_FRAME frame;
+			VAEG_RECORDING_OSD_SNAPSHOT snapshot;
+			VAEG_RECORDING_NATIVE_TAP_ERROR error;
+
+			vaeg_recording_native_frame_initialize(&frame);
+			if (scrnmng_capture_native_recording_frame_with_snapshot(&frame, &snapshot) !=
+			    SUCCESS) {
+				vaeg_recording_native_tap_fail(
+				    VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
+			} else {
+				error = vaeg_recording_native_tap_submit_frame(
+				    (UINT64)drawcount, pccore_guest_clock(),
+				    scrnmng_native_recording_descriptor_generation(), &frame, &snapshot);
+				if (error != VAEG_RECORDING_NATIVE_TAP_OK) {
+					fprintf(stderr, "Native recording tap failed: %s\n",
+					        vaeg_recording_native_tap_error_name(error));
+				}
+			}
+			vaeg_recording_native_frame_destroy(&frame);
+		}
 	}
 }
 
@@ -575,7 +619,7 @@ void screendispva(NEVENTITEM item) {
 	/*	Moved to sysp4vsyncstart.
 	screendispflag = 0;
 */
-	drawscreenva();
+	drawscreenva(TRUE);
 	/*
 	pi = &pic.pi[0];
 	if (pi->irr & PIC_CRTV) {
@@ -797,6 +841,6 @@ void pccore_redraw(void) {
 
 	saved_drawframe = drawframe;
 	drawframe = TRUE;
-	drawscreenva();
+	drawscreenva(FALSE);
 	drawframe = saved_drawframe;
 }

@@ -1117,15 +1117,21 @@ BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
 }
 
 BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) {
+	VAEG_RECORDING_OSD_SNAPSHOT snapshot;
+	return scrnmng_capture_native_recording_frame_with_snapshot(frame, &snapshot);
+}
+
+BOOL scrnmng_capture_native_recording_frame_with_snapshot(
+	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
 	VAEG_RECORDING_NATIVE_RGB565_SOURCE source;
 	VAEG_RECORDING_NATIVE_FRAME_ERROR error;
-	VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 
 	if ((frame == NULL) || (scrnmng.shadow == NULL) || !scrnmng.enable ||
-	    (scrnmng.width <= 0) || (scrnmng.height <= 0) || (scrnmng.shadow_pitch <= 0)) {
+	    (snapshot == NULL) || (scrnmng.width <= 0) || (scrnmng.height <= 0) ||
+	    (scrnmng.shadow_pitch <= 0)) {
 		return FAILURE;
 	}
-	if (scrnmng_get_osd_snapshot(&snapshot) != SUCCESS) {
+	if (scrnmng_get_osd_snapshot(snapshot) != SUCCESS) {
 		return FAILURE;
 	}
 	source.pixels = scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2);
@@ -1140,7 +1146,7 @@ BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) 
 		        vaeg_recording_native_frame_error_name(error));
 		return FAILURE;
 	}
-	error = vaeg_recording_native_frame_apply_osd(frame, &snapshot, fontdata_8);
+	error = vaeg_recording_native_frame_apply_osd(frame, snapshot, fontdata_8);
 	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
 		fprintf(stderr, "Native recording OSD composition failed: %s\n",
 		        vaeg_recording_native_frame_error_name(error));
@@ -1148,6 +1154,21 @@ BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) 
 		return FAILURE;
 	}
 	return SUCCESS;
+}
+
+UINT32 scrnmng_native_recording_descriptor_generation(void) {
+	UINT32 generation;
+
+	if ((scrnmng.width <= 0) || (scrnmng.height <= 0) || (scrnmng.shadow_pitch <= 0)) {
+		return 0u;
+	}
+	/* The native coded descriptor is fixed by the owned canonical RGB24 frame. */
+	generation = 2166136261u;
+	generation = (generation ^ (UINT32)scrnmng.width) * 16777619u;
+	generation = (generation ^ (UINT32)scrnmng.height) * 16777619u;
+	generation = (generation ^ (UINT32)scrnmng.shadow_pitch) * 16777619u;
+	generation = (generation ^ 1u) * 16777619u;
+	return generation;
 }
 
 static void scrnmng_log_renderer(void) {
