@@ -29,6 +29,13 @@
 
 #if !VAEG_ENABLE_RECORDING
 
+int vaeg_recording_session_start(const char *path, uint32_t source, uint64_t frame_limit) {
+	(void)path;
+	(void)source;
+	(void)frame_limit;
+	return 0;
+}
+
 int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) {
 	(void)path;
 	(void)frame_limit;
@@ -51,6 +58,26 @@ int vaeg_recording_native_session_should_stop(void) {
 	return 0;
 }
 
+int vaeg_recording_native_session_request_stop(void) {
+	return 0;
+}
+
+int vaeg_recording_native_session_poll_stop(void) {
+	return 1;
+}
+
+int vaeg_recording_native_session_is_finalizing(void) {
+	return 0;
+}
+
+uint64_t vaeg_recording_native_session_elapsed_ticks(void) {
+	return 0u;
+}
+
+uint64_t vaeg_recording_native_session_accepted_frames(void) {
+	return 0u;
+}
+
 int vaeg_recording_native_session_stop(void) {
 	return 1;
 }
@@ -69,6 +96,7 @@ const char *vaeg_recording_native_session_last_error(void) {
 
 #include "compiler.h"
 #include "machine/pccore.h"
+#include "recording/recording.h"
 #include "recording/recording_clock.hpp"
 #include "recording/recording_ffmpeg_matroska.hpp"
 #include "recording/recording_ffmpeg_pcm_encoder.hpp"
@@ -83,10 +111,12 @@ const char *vaeg_recording_native_session_last_error(void) {
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <new>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -94,6 +124,7 @@ namespace vaeg::recording {
 namespace {
 
 using Wide = unsigned __int128;
+namespace fs = std::filesystem;
 
 std::uint64_t gcd_u64(std::uint64_t left, std::uint64_t right) noexcept {
 	while (right != 0u) {
@@ -357,8 +388,9 @@ class NativeRecordingSession {
 	NativeRecordingSession(const std::string &path, std::uint64_t frame_limit) noexcept
 	    : path_(path), frame_limit_(frame_limit), descriptor_generation_(0u),
 	      audio_epoch_(0u), audio_rate_(0u), sound_started_(false), writer_started_(false),
-	      failed_(false), stop_requested_(false), audio_primed_(false), accepted_intervals_(0u),
-	      movie_start_ticks_(0u), next_audio_sample_(0u), last_error_() {
+	      failed_(false), stop_requested_(false), manual_stop_requested_(false),
+	      audio_primed_(false), accepted_intervals_(0u), movie_start_ticks_(0u),
+	      last_end_ticks_(0u), next_audio_sample_(0u), last_error_() {
 		std::memset(&video_descriptor_, 0, sizeof(video_descriptor_));
 		std::memset(&audio_descriptor_, 0, sizeof(audio_descriptor_));
 		std::memset(&grid_, 0, sizeof(grid_));
@@ -373,8 +405,10 @@ class NativeRecordingSession {
 		SOUNDRECORDINGSTATE recording{};
 		std::uint64_t capacity;
 		const std::uint64_t start_ticks = pccore_guest_clock();
-		if (path_.empty() ||
-		    scrnmng_get_native_recording_video_descriptor(&video_descriptor_) != SUCCESS) {
+		if (!validate_output_path()) {
+			return false;
+		}
+		if (scrnmng_get_native_recording_video_descriptor(&video_descriptor_) != SUCCESS) {
 			last_error_ = "native_descriptor_unavailable";
 			return false;
 		}
@@ -466,6 +500,7 @@ class NativeRecordingSession {
 			sound_recording_stop();
 		}
 		if (!writer_started_) {
+			last_error_ = "recording_no_intervals";
 			if (sound_started_) {
 				sound_recording_release();
 				sound_started_ = false;
@@ -517,11 +552,77 @@ class NativeRecordingSession {
 		return stop_requested_;
 	}
 
+	bool request_stop() noexcept {
+		if (failed_) {
+			return false;
+		}
+		manual_stop_requested_ = true;
+		return true;
+	}
+
+	bool manual_stop_requested() const noexcept {
+		return manual_stop_requested_;
+	}
+
+	std::uint64_t elapsed_ticks() const noexcept {
+		if (!audio_primed_ || last_end_ticks_ < movie_start_ticks_) {
+			return 0u;
+		}
+		return last_end_ticks_ - movie_start_ticks_;
+	}
+
+	std::uint64_t accepted_intervals() const noexcept {
+		return accepted_intervals_;
+	}
+
 	const std::string &last_error() const noexcept {
 		return last_error_;
 	}
 
   private:
+	bool validate_output_path() noexcept {
+		std::error_code error;
+		fs::path output;
+
+		if (path_.empty()) {
+			last_error_ = "recording_path_empty";
+			return false;
+		}
+		if (path_.find("://") != std::string::npos) {
+			last_error_ = "recording_path_not_local";
+			return false;
+		}
+		try {
+			output = fs::u8path(path_);
+		} catch (const fs::filesystem_error &) {
+			last_error_ = "recording_path_invalid";
+			return false;
+		}
+		if (output.empty() || output.filename() == fs::path()) {
+			last_error_ = "recording_path_invalid";
+			return false;
+		}
+		if (output.extension().u8string() != ".mkv") {
+			last_error_ = "recording_extension_invalid";
+			return false;
+		}
+		if (fs::exists(output, error)) {
+			last_error_ = "recording_target_exists";
+			return false;
+		}
+		if (error) {
+			last_error_ = "recording_path_invalid";
+			return false;
+		}
+		const fs::path parent = output.parent_path().empty() ? fs::path(".")
+		                                                   : output.parent_path();
+		if (!fs::is_directory(parent, error) || error) {
+			last_error_ = "recording_parent_unavailable";
+			return false;
+		}
+		return true;
+	}
+
 	static int tap_callback(void *context, const VAEG_RECORDING_NATIVE_CAPTURE *capture) {
 		return static_cast<NativeRecordingSession *>(context)->accept_capture(capture) ? 1 : 0;
 	}
@@ -736,6 +837,7 @@ class NativeRecordingSession {
 		}
 		next_audio_sample_ = range.end;
 		++accepted_intervals_;
+		last_end_ticks_ = end_ticks;
 		return true;
 	}
 
@@ -748,9 +850,11 @@ class NativeRecordingSession {
 	bool writer_started_;
 	bool failed_;
 	bool stop_requested_;
+	bool manual_stop_requested_;
 	bool audio_primed_;
 	std::uint64_t accepted_intervals_;
 	std::uint64_t movie_start_ticks_;
+	std::uint64_t last_end_ticks_;
 	std::uint64_t next_audio_sample_;
 	std::uint64_t origin_offset_numerator_ = 0u;
 	std::uint64_t origin_offset_denominator_ = 1u;
@@ -787,6 +891,15 @@ bool parse_frame_limit(const char *value, std::uint64_t *limit) noexcept {
 
 } // namespace
 } // namespace vaeg::recording
+
+extern "C" int vaeg_recording_session_start(const char *path, uint32_t source,
+                                             uint64_t frame_limit) {
+	if (source != VAEG_RECORDING_SOURCE_NATIVE) {
+		vaeg::recording::last_session_error = "displayed_source_unavailable";
+		return 0;
+	}
+	return vaeg_recording_native_session_start(path, frame_limit);
+}
 
 extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) {
 	using vaeg::recording::NativeRecordingSession;
@@ -849,6 +962,49 @@ extern "C" int vaeg_recording_native_session_should_stop(void) {
 	        vaeg::recording::active_session->should_stop())
 	           ? 1
 	           : 0;
+}
+
+extern "C" int vaeg_recording_native_session_request_stop(void) {
+	if (vaeg::recording::active_session == nullptr) {
+		vaeg::recording::last_session_error = "recording_not_active";
+		return 0;
+	}
+	if (!vaeg::recording::active_session->request_stop()) {
+		vaeg::recording::last_session_error =
+		    vaeg::recording::active_session->last_error();
+		return 0;
+	}
+	return 1;
+}
+
+extern "C" int vaeg_recording_native_session_poll_stop(void) {
+	if (vaeg::recording::active_session == nullptr ||
+	    !vaeg::recording::active_session->manual_stop_requested()) {
+		return 1;
+	}
+	const bool result = vaeg::recording::active_session->stop();
+	vaeg::recording::last_session_error = vaeg::recording::active_session->last_error();
+	vaeg::recording::active_session.reset();
+	return result ? 1 : 0;
+}
+
+extern "C" int vaeg_recording_native_session_is_finalizing(void) {
+	return (vaeg::recording::active_session != nullptr &&
+	        vaeg::recording::active_session->manual_stop_requested())
+	           ? 1
+	           : 0;
+}
+
+extern "C" uint64_t vaeg_recording_native_session_elapsed_ticks(void) {
+	return vaeg::recording::active_session != nullptr
+	           ? vaeg::recording::active_session->elapsed_ticks()
+	           : 0u;
+}
+
+extern "C" uint64_t vaeg_recording_native_session_accepted_frames(void) {
+	return vaeg::recording::active_session != nullptr
+	           ? vaeg::recording::active_session->accepted_intervals()
+	           : 0u;
 }
 
 extern "C" int vaeg_recording_native_session_stop(void) {

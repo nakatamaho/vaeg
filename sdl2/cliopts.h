@@ -26,6 +26,7 @@
 #define VAEG_SDL2_CLIOPTS_H
 
 #include "compiler.h"
+#include "recording/recording.h"
 #include "screenshot.h"
 
 enum {
@@ -164,6 +165,11 @@ typedef struct {
 	const char *debug_output_dir;
 	const char *screen_dump_path;
 	const char *screen_tvram_dump_path;
+	BOOL record;
+	BOOL record_source_set;
+	UINT record_source;
+	uint64_t record_frame_limit;
+	const char *record_path;
 	VAEG_SCREENSHOT_REQUEST screenshot_requests[VAEG_SCREENSHOT_MAX_REQUESTS];
 	UINT screenshot_count;
 } VAEG_CLI_OPTIONS;

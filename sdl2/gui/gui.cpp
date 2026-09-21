@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -75,6 +76,8 @@
 #include "opngen.h"
 #include "psggen.h"
 #include "rhythm.h"
+#include "recording/recording.h"
+#include "recording/recording_native_session.h"
 #include "scrndrawva.h"
 #include "scrnmng.h"
 #include "scrndraw.h"
@@ -219,6 +222,11 @@ struct GuiState {
 	std::string fdd_status;
 	std::string font_status;
 	std::string screenshot_status;
+	bool recording_open = false;
+	int recording_source = VAEG_RECORDING_SOURCE_NATIVE;
+	char recording_path[1024] = {};
+	char recording_frame_limit[32] = {};
+	std::string recording_status;
 	vaeg::librashader::ShaderPreset native_crt_preset;
 	std::string native_crt_loaded_path;
 	std::string native_crt_status;
@@ -533,6 +541,154 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 	g_gui.screenshot_status += path;
 	std::fprintf(stderr, "screenshot saved path=%s\n", path);
 	return (SUCCESS);
+}
+
+static void open_recording_dialog(void) {
+	if (g_gui.recording_path[0] == '\0') {
+		std::snprintf(g_gui.recording_path, sizeof(g_gui.recording_path), "vaeg-recording.mkv");
+	}
+	g_gui.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
+	g_gui.recording_frame_limit[0] = '\0';
+	g_gui.recording_open = true;
+}
+
+static bool parse_recording_frame_limit(const char *value, uint64_t *limit) {
+	char *end;
+	unsigned long long parsed;
+
+	if (limit == nullptr) {
+		return false;
+	}
+	*limit = 0u;
+	if (value == nullptr || value[0] == '\0') {
+		return true;
+	}
+	errno = 0;
+	end = nullptr;
+	parsed = std::strtoull(value, &end, 10);
+	if (errno != 0 || end == value || *end != '\0' || parsed == 0u) {
+		return false;
+	}
+	*limit = static_cast<uint64_t>(parsed);
+	return true;
+}
+
+static void start_recording_from_dialog(void) {
+	VAEG_RECORDING_CAPABILITIES capabilities{};
+	uint64_t frame_limit = 0u;
+
+	vaeg_recording_get_capabilities(&capabilities);
+	if (!capabilities.backend_available) {
+		g_gui.recording_status = "Recording unavailable: this build has no FFmpeg backend.";
+		return;
+	}
+	if (g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+		g_gui.recording_status =
+		    "Displayed video unavailable: final-client capture is not implemented yet.";
+		return;
+	}
+	if (!parse_recording_frame_limit(g_gui.recording_frame_limit, &frame_limit)) {
+		g_gui.recording_status = "Recording start failed: frame limit must be a positive integer.";
+		return;
+	}
+	if (!vaeg_recording_session_start(g_gui.recording_path,
+	                                  static_cast<uint32_t>(g_gui.recording_source), frame_limit)) {
+		g_gui.recording_status = "Recording start failed: ";
+		g_gui.recording_status += vaeg_recording_native_session_last_error();
+		return;
+	}
+	g_gui.recording_open = false;
+	g_gui.recording_status = "Recording started: Native video";
+}
+
+static void draw_recording_menu(void) {
+	VAEG_RECORDING_CAPABILITIES capabilities{};
+	const bool active = vaeg_recording_native_session_is_active() != 0;
+
+	vaeg_recording_get_capabilities(&capabilities);
+	if (!active && g_gui.recording_status == "Finalizing...") {
+		const char *error = vaeg_recording_native_session_last_error();
+		if ((error == nullptr) || (error[0] == '\0') || (std::strcmp(error, "none") == 0)) {
+			g_gui.recording_status = "Recording saved.";
+		} else if (!vaeg_recording_native_session_is_finalizing()) {
+			g_gui.recording_status = "Recording failed: ";
+			g_gui.recording_status += error;
+		}
+	}
+	if (ImGui::BeginMenu("Recording")) {
+		if (active) {
+			if (vaeg_recording_native_session_is_finalizing()) {
+				ImGui::MenuItem("Finalizing...", nullptr, false, false);
+			} else if (ImGui::MenuItem("Stop Recording")) {
+				if (vaeg_recording_native_session_request_stop()) {
+					g_gui.recording_status = "Finalizing...";
+				} else {
+					g_gui.recording_status = "Recording stop failed: ";
+					g_gui.recording_status += vaeg_recording_native_session_last_error();
+				}
+			}
+			const uint64_t ticks = vaeg_recording_native_session_elapsed_ticks();
+			const uint64_t clock = pccore.realclock;
+			const unsigned long long elapsed_ms =
+			    (clock != 0u && ticks <= UINT64_MAX / 1000u)
+			        ? static_cast<unsigned long long>((ticks * 1000u) / clock)
+			        : 0u;
+			ImGui::Text("Native video: guest %llums, %llu frames",
+			            elapsed_ms,
+			            static_cast<unsigned long long>(
+			                vaeg_recording_native_session_accepted_frames()));
+		} else {
+			const bool can_start = capabilities.backend_available != 0u;
+			if (ImGui::MenuItem("Start Recording...", nullptr, false, can_start)) {
+				open_recording_dialog();
+			}
+			if (!can_start) {
+				ImGui::TextDisabled("Unavailable: build without FFmpeg recording support");
+			}
+		}
+		if (!g_gui.recording_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
+		}
+		ImGui::EndMenu();
+	}
+}
+
+static void draw_recording_dialog(void) {
+	if (!g_gui.recording_open) {
+		return;
+	}
+	VAEG_RECORDING_CAPABILITIES capabilities{};
+	vaeg_recording_get_capabilities(&capabilities);
+	ImGui::SetNextWindowSize(ImVec2(560, 250), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("Start Recording", &g_gui.recording_open)) {
+		ImGui::End();
+		return;
+	}
+	ImGui::TextUnformatted("Source");
+	ImGui::RadioButton("Native video", &g_gui.recording_source,
+	                   VAEG_RECORDING_SOURCE_NATIVE);
+	ImGui::SameLine();
+	ImGui::BeginDisabled();
+	ImGui::RadioButton("Displayed video", &g_gui.recording_source,
+	                   VAEG_RECORDING_SOURCE_DISPLAYED);
+	ImGui::EndDisabled();
+	ImGui::TextDisabled("Displayed video unavailable: final-client capture is not implemented yet.");
+	ImGui::InputText("File (.mkv)", g_gui.recording_path, sizeof(g_gui.recording_path));
+	ImGui::InputText("Frame limit (optional)", g_gui.recording_frame_limit,
+	                 sizeof(g_gui.recording_frame_limit), ImGuiInputTextFlags_CharsDecimal);
+	if (ImGui::Button("Start", ImVec2(110, 0)) && capabilities.backend_available) {
+		start_recording_from_dialog();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel", ImVec2(110, 0))) {
+		g_gui.recording_open = false;
+	}
+	if (!g_gui.recording_status.empty()) {
+		ImGui::Separator();
+		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
+	}
+	ImGui::End();
 }
 
 static void update_text_input_state(void) {
@@ -3996,7 +4152,8 @@ BOOL gui_guest_keyboard_blocked(void) {
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
 	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
 	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.state_error_open || g_gui.hostfat_error_open ||
+	        g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open ||
 	        g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
@@ -4013,7 +4170,8 @@ BOOL gui_guest_mouse_blocked(void) {
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
 	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
 	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.state_error_open || g_gui.hostfat_error_open ||
+	        g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open ||
 	        g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
@@ -4124,6 +4282,7 @@ void gui_draw(void) {
 		}
 		ImGui::Separator();
 		draw_emulate_menu();
+		draw_recording_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
 		draw_edit_menu();
@@ -4153,6 +4312,7 @@ void gui_draw(void) {
 	draw_new_fdd_dialog();
 	draw_new_sasi_dialog();
 	draw_new_scsi_dialog();
+	draw_recording_dialog();
 	draw_keyboard_config();
 	draw_configure_dialog();
 	draw_hostfat_error_dialog();

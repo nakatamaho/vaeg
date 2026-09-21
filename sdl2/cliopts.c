@@ -97,6 +97,33 @@ static BOOL parse_uint(const char *value, UINT *result) {
 	return (SUCCESS);
 }
 
+static BOOL parse_uint64_positive(const char *value, uint64_t *result) {
+	char *end;
+	unsigned long long parsed;
+
+	if ((value == NULL) || (value[0] == '\0') || (value[0] == '-')) {
+		return (FAILURE);
+	}
+	errno = 0;
+	end = NULL;
+	parsed = strtoull(value, &end, 10);
+	if ((errno != 0) || (end == value) || (*end != '\0') || (parsed == 0)) {
+		return (FAILURE);
+	}
+	*result = (uint64_t)parsed;
+	return (SUCCESS);
+}
+
+static BOOL is_mkv_path(const char *value) {
+	size_t length;
+
+	if (value == NULL) {
+		return (FALSE);
+	}
+	length = strlen(value);
+	return (length >= 4) && !strcmp(value + length - 4, ".mkv");
+}
+
 static BOOL parse_screenshot(const char *value, VAEG_SCREENSHOT_REQUEST *request,
                              char *error, UINT error_size) {
 	char *end;
@@ -159,6 +186,7 @@ static BOOL parse_media(const char *option, const char *value, UINT *mode, const
 void vaeg_cli_options_init(VAEG_CLI_OPTIONS *options) {
 	if (options != NULL) {
 		ZeroMemory(options, sizeof(*options));
+		options->record_source = VAEG_RECORDING_SOURCE_NATIVE;
 	}
 }
 
@@ -290,6 +318,37 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				return (set_error(error, error_size, "--screen-tvram-dump requires a path", value));
 			}
 			options->screen_tvram_dump_path = value;
+		} else if (!strcmp(argument, "--record")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size, "--record requires a non-empty .mkv path", value));
+			}
+			if (!is_mkv_path(value)) {
+				return (set_error(error, error_size, "--record supports only .mkv paths", value));
+			}
+			options->record = TRUE;
+			options->record_path = value;
+		} else if (!strcmp(argument, "--record-source")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL) {
+				return (FAILURE);
+			}
+			options->record_source_set = TRUE;
+			if (name_equal(value, "native")) {
+				options->record_source = VAEG_RECORDING_SOURCE_NATIVE;
+			} else if (name_equal(value, "displayed")) {
+				options->record_source = VAEG_RECORDING_SOURCE_DISPLAYED;
+			} else {
+				return (set_error(error, error_size,
+				                  "--record-source accepts native or displayed", value));
+			}
+		} else if (!strcmp(argument, "--record-frames")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) ||
+			    (parse_uint64_positive(value, &options->record_frame_limit) != SUCCESS)) {
+				return (set_error(error, error_size,
+				                  "--record-frames requires a positive decimal count", value));
+			}
 		} else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;
 		} else if (!strcmp(argument, "--mute")) {
@@ -561,6 +620,12 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 	if (options->no_bkupmem && (options->bkupmem_path != NULL)) {
 		return (
 		    set_error(error, error_size, "--bkupmem cannot be combined with --no-bkupmem", NULL));
+	}
+	if ((options->record_frame_limit != 0u) && !options->record) {
+		return (set_error(error, error_size, "--record-frames requires --record", NULL));
+	}
+	if (options->record_source_set && !options->record) {
+		return (set_error(error, error_size, "--record-source requires --record", NULL));
 	}
 	return (SUCCESS);
 }

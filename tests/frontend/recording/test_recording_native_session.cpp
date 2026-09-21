@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "compiler.h"
@@ -148,6 +149,89 @@ void test_epoch_change_cancels_without_publish() {
 	assert(!fs::exists(path));
 }
 
+void test_start_rejects_invalid_and_existing_targets() {
+	const fs::path invalid = fs::temp_directory_path() / "vaeg-rec14-invalid.avi";
+	const fs::path existing = fs::temp_directory_path() / "vaeg-rec14-existing.mkv";
+	const fs::path displayed = fs::temp_directory_path() / "vaeg-rec14-displayed.mkv";
+	std::error_code error;
+	fs::remove(invalid, error);
+	fs::remove(existing, error);
+	fs::remove(displayed, error);
+	reset_fake_audio();
+	assert(!vaeg_recording_session_start(displayed.u8string().c_str(),
+	                                     VAEG_RECORDING_SOURCE_DISPLAYED, 0u));
+	assert(std::string(vaeg_recording_native_session_last_error()) ==
+	       "displayed_source_unavailable");
+	assert(!fs::exists(displayed));
+	assert(!vaeg_recording_native_session_start(invalid.u8string().c_str(), 0u));
+	assert(std::string(vaeg_recording_native_session_last_error()) ==
+	       "recording_extension_invalid");
+	assert(!fake_recording_active);
+	assert(!fs::exists(invalid));
+	{
+		std::ofstream output(existing, std::ios::binary);
+		assert(output.good());
+		output << "existing";
+	}
+	reset_fake_audio();
+	assert(!vaeg_recording_native_session_start(existing.u8string().c_str(), 0u));
+	assert(std::string(vaeg_recording_native_session_last_error()) ==
+	       "recording_target_exists");
+	assert(!fake_recording_active);
+	fs::remove(existing, error);
+}
+
+void test_manual_stop_finalizes_complete_movie() {
+	const fs::path path = fs::temp_directory_path() / "vaeg-rec14-manual-stop.mkv";
+	std::error_code error;
+	fs::remove(path, error);
+	reset_fake_audio();
+	assert(vaeg_recording_native_session_start(path.u8string().c_str(), 0u));
+	fake_clock = 10u;
+	submit_frame(1u, fake_clock, 0x10u);
+	assert(vaeg_recording_native_session_after_guest_exec());
+	fake_clock = 20u;
+	submit_frame(2u, fake_clock, 0x20u);
+	assert(vaeg_recording_native_session_after_guest_exec());
+	assert(vaeg_recording_native_session_accepted_frames() == 1u);
+	assert(vaeg_recording_native_session_elapsed_ticks() == 10u);
+	assert(vaeg_recording_native_session_request_stop());
+	assert(vaeg_recording_native_session_is_finalizing());
+	assert(vaeg_recording_native_session_poll_stop());
+	assert(!vaeg_recording_native_session_is_active());
+	assert(fs::exists(path));
+	fs::remove(path, error);
+}
+
+void test_double_start_and_unicode_path() {
+	const fs::path first = fs::temp_directory_path() / "vaeg-rec14-first.mkv";
+	const fs::path second = fs::temp_directory_path() / "vaeg-rec14-second.mkv";
+	const fs::path unicode = fs::temp_directory_path() / u8"vaeg-rec14-録画 test.mkv";
+	std::error_code error;
+	fs::remove(first, error);
+	fs::remove(second, error);
+	fs::remove(unicode, error);
+	reset_fake_audio();
+	assert(vaeg_recording_native_session_start(first.u8string().c_str(), 0u));
+	assert(!vaeg_recording_native_session_start(second.u8string().c_str(), 0u));
+	assert(std::string(vaeg_recording_native_session_last_error()) == "recording_busy");
+	vaeg_recording_native_session_cancel();
+	assert(!fs::exists(first));
+
+	reset_fake_audio();
+	assert(vaeg_recording_native_session_start(unicode.u8string().c_str(), 1u));
+	fake_clock = 10u;
+	submit_frame(1u, fake_clock, 0x30u);
+	assert(vaeg_recording_native_session_after_guest_exec());
+	fake_clock = 20u;
+	submit_frame(2u, fake_clock, 0x40u);
+	assert(vaeg_recording_native_session_after_guest_exec());
+	assert(vaeg_recording_native_session_should_stop());
+	assert(vaeg_recording_native_session_stop());
+	assert(fs::exists(unicode));
+	fs::remove(unicode, error);
+}
+
 } // namespace
 
 extern "C" UINT64 pccore_guest_clock(void) {
@@ -227,5 +311,8 @@ extern "C" BOOL sound_recording_get_state(SOUNDRECORDINGSTATE *state) {
 int main() {
 	test_native_session_writes_complete_intervals();
 	test_epoch_change_cancels_without_publish();
+	test_start_rejects_invalid_and_existing_targets();
+	test_manual_stop_finalizes_complete_movie();
+	test_double_start_and_unicode_path();
 	return 0;
 }

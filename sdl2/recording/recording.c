@@ -112,7 +112,7 @@ void vaeg_recording_get_capabilities(VAEG_RECORDING_CAPABILITIES *capabilities) 
 		return;
 	}
 	capabilities->build_enabled = VAEG_ENABLE_RECORDING ? 1u : 0u;
-	capabilities->backend_available = 0u;
+	capabilities->backend_available = VAEG_ENABLE_RECORDING ? 1u : 0u;
 	capabilities->source_count = VAEG_RECORDING_SOURCE_COUNT;
 	capabilities->contract_version = VAEG_RECORDING_CONTRACT_VERSION;
 }

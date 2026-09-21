@@ -66,6 +66,7 @@
 #include "g75_screen.h"
 #include "headless_input.h"
 #include "debug_harness.h"
+#include "recording/recording.h"
 #include "recording/recording_native_session.h"
 #include <stdlib.h>
 #include "opngen.h"
@@ -343,6 +344,8 @@ static void usage(const char *progname) {
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
 	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
 	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
+	printf("Recording (recording-enabled builds only):\n");
+	printf("\t--record FILE.mkv [--record-source native|displayed] [--record-frames N]\n");
 	printf("\t--version --help [-h]\n");
 	printf("Create image (no SDL session):\n");
 	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
@@ -1575,6 +1578,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		scrnmng_present_begin();
 		gui_render();
 		scrnmng_present_end();
+		(void)vaeg_recording_native_session_poll_stop();
 		if (initialize_gui_after_native_fallback() != SUCCESS) {
 			taskmng_exit();
 			return FAILURE;
@@ -1606,6 +1610,7 @@ static void render_host_ui_only(void) {
 	scrnmng_present_begin();
 	gui_render();
 	scrnmng_present_end();
+	(void)vaeg_recording_native_session_poll_stop();
 	if (initialize_gui_after_native_fallback() != SUCCESS) {
 		taskmng_exit();
 	}
@@ -1940,6 +1945,23 @@ int main(int argc, char **argv) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
 		return (SUCCESS);
 	}
+	if (options.record) {
+		VAEG_RECORDING_CAPABILITIES recording_capabilities;
+
+		vaeg_recording_get_capabilities(&recording_capabilities);
+		if (options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+			fprintf(stderr,
+			        "Error: Displayed video recording is unavailable; final-client capture "
+			        "is not implemented yet\n");
+			return (FAILURE);
+		}
+		if (!recording_capabilities.backend_available) {
+			fprintf(stderr,
+			        "Error: recording is unavailable in this build; enable FFmpeg recording "
+			        "support\n");
+			return (FAILURE);
+		}
+	}
 	if (options.screenshot_count != 0) {
 		vaeg_screenshot_scheduler_init(&screenshots, options.screenshot_requests,
 		                               options.screenshot_count);
@@ -2205,7 +2227,15 @@ int main(int argc, char **argv) {
 
 	if (taskmng_isavail()) {
 		pccore_reset();
-		if (!vaeg_recording_native_session_start_from_environment()) {
+		if (options.record) {
+			if (!vaeg_recording_session_start(options.record_path, options.record_source,
+			                                  options.record_frame_limit)) {
+				fprintf(stderr, "Error: recording start failed: %s\n",
+				        vaeg_recording_native_session_last_error());
+				run_ok = FAILURE;
+				taskmng_exit();
+			}
+		} else if (!vaeg_recording_native_session_start_from_environment()) {
 			fprintf(stderr, "Error: native recording start failed: %s\n",
 			        vaeg_recording_native_session_last_error());
 			run_ok = FAILURE;

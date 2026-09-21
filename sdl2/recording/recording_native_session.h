@@ -30,12 +30,18 @@
 extern "C" {
 #endif
 
-/* REC13's controller is private until the public recording UI/CLI milestone. */
+/* REC14 exposes the frontend-neutral session controls without FFmpeg types. */
+int vaeg_recording_session_start(const char *path, uint32_t source, uint64_t frame_limit);
 int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit);
 int vaeg_recording_native_session_start_from_environment(void);
 int vaeg_recording_native_session_after_guest_exec(void);
 int vaeg_recording_native_session_is_active(void);
 int vaeg_recording_native_session_should_stop(void);
+int vaeg_recording_native_session_request_stop(void);
+int vaeg_recording_native_session_poll_stop(void);
+int vaeg_recording_native_session_is_finalizing(void);
+uint64_t vaeg_recording_native_session_elapsed_ticks(void);
+uint64_t vaeg_recording_native_session_accepted_frames(void);
 int vaeg_recording_native_session_stop(void);
 void vaeg_recording_native_session_cancel(void);
 void vaeg_recording_native_session_epoch_change(void);
