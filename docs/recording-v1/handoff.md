@@ -1,9 +1,39 @@
 # Recording v1 handoff
 
-Current state: REC04 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC05 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
-REC02/M100r3, REC03/M100r4 and REC04/M100r5. Assigned branch:
+REC02/M100r3, REC03/M100r4, REC04/M100r5 and REC05/M100r6. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC05 completion
+
+* `FfmpegVideoEncoder` is a private C++17 RAII component using the optional
+  FFmpeg targets. It emits packed BGR0 FFV1 level/version 3 with GOP 1 and
+  slice CRC enabled; it does not invoke an external process.
+* RGB24 and little-endian RGB565 input are copied into owned encoder frames
+  with explicit stride handling and initialized padding. Packet bytes are
+  copied into owned vectors and associated with the submitted sequence and PTS.
+* The focused decoder test covers nonblack corners, varied seeded pixels,
+  padding, odd/small dimensions, exact normalized RGB24 comparison and
+  allocation/open/send/receive/flush failures.
+
+## REC05 evidence
+
+Evaluated source commit:
+9c462a968a45f8559734710f7aeb1f1348628dae.
+
+On macOS arm64 with AppleClang 21, CMake 3.31.12, Ninja 1.13.2, MacPorts SDL2
+2.32.10 and FFmpeg 8.1.2, the enabled build and all six recording tests
+passed. The disabled build and all four recording-OFF tests passed, and its
+generated build files had no FFmpeg references. The FFV1 test passed under
+AddressSanitizer and UndefinedBehaviorSanitizer with macOS leak detection
+disabled. Existing ROM-less self-test and smoke passed with the expected
+missing-ROM warning.
+
+REC05 is synthetic backend evidence only. No MKV file, audio path, live guest
+tap, OSD composition, presenter readback, VLC playback, Windows/Linux runtime
+or release dependency audit is claimed. The next dependency-ready task is
+REC06/M100r7.
 
 ## REC04 completion
 

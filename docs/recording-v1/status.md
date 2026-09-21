@@ -1,7 +1,7 @@
 # Recording v1 status
 
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
-REC02/M100r3, REC03/M100r4 and REC04/M100r5 are complete at their machine
+REC02/M100r3, REC03/M100r4, REC04/M100r5 and REC05/M100r6 are complete at their machine
 gates. No human or release validation is implied.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
@@ -11,7 +11,7 @@ gates. No human or release validation is implied.
 | REC02 | PASS | Exact rational clock/sample-grid tests, wrap/overflow/invalid-input tests, recording contract regression tests, full macOS frontend build, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 8c40626f682d569668ba4ef574249f05498f8882 / rec02-report.md |
 | REC03 | PASS | Owned-slice mutation, bounded byte/count queue, reserved active/readback capacity, descriptor/sequence/interval/audio-gap checks, worker failure/cancel wakeups, lifecycle tests, ASan/UBSan queue test, full macOS frontend build and ROM-less regression | NOT_REQUIRED | e7f53b3e1f245dd9f546ba8cf16e46ccaf30469b / rec03-report.md |
 | REC04 | PASS | ON probe/build and five recording tests; OFF build has no FFmpeg references and four recording tests pass; missing-package configure fails specifically; ROM-less and repository checks pass | NOT_REQUIRED | 2258aa0a73533691305d7b48d44f924b6303ec51 / rec04-report.md |
-| REC05 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC05 | PASS | FFV1 BGR0/v3/GOP1/slice-CRC encoder; exact RGB24/RGB565 decoder round trips; allocation/open/send/receive/flush failures; ON 6/6, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 9c462a968a45f8559734710f7aeb1f1348628dae / rec05-report.md |
 | REC06 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC07 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC08 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
