@@ -2,7 +2,7 @@
 
 Dependencies: **REC19, REC13**, all at their required passed gates.
 Execution platform: Linux with native VAEG OpenGL presenter and usable CRT runtime.
-Gate: **HUMAN**. Exactly one milestone per session.
+Gate: **HUMAN**. The normal workflow is one milestone per session; the current authorized recording-v1 run may proceed automatically after this milestone's required checks.
 Repository M ID: resolve from `../id-map.md`; never invent or reuse a reserved ID.
 
 ## Read first
@@ -58,4 +58,7 @@ legal M prefix for commits and the assigned topic branch under repository policy
 A machine gate requires actual successful tests. A human gate stays
 `WAITING_HUMAN` until the maintainer explicitly accepts it. Unavailable required
 platform/runtime evidence is `IMPLEMENTED_UNVERIFIED` or `BLOCKED`, not PASS.
-Stop here. Do not start another REC task in this session.
+In the normal workflow, stop here. During the current authorized recording-v1 run,
+after recording this report, status and handoff while preserving the gate state,
+continue to the next dependency-ready milestone. Do not treat this exception as
+human approval or release validation.

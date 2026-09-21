@@ -33,18 +33,35 @@ legal M ID in commits, with the REC label in the subject/body for navigation.
 
 ## W3. One milestone per session
 
-Start from `status.md` and the requested `milestones/recNN-*.md`. Check dependencies
-and available execution platform. Summarize the narrow scope, then implement only
-that milestone. Do not start the next one after finishing, even if it looks easy.
-Stop at its declared gate with evidence and a handoff. Do not execute old M99 tasks,
-8087 work, ROM changes, unrelated cleanup, or repository-history reconstruction.
+The normal workflow starts from `status.md` and the requested
+`milestones/recNN-*.md`, checks dependencies and the available execution
+platform, implements only that milestone, and stops at its declared gate with
+evidence and a handoff. Do not execute old M99 tasks, 8087 work, ROM changes,
+unrelated cleanup, or repository-history reconstruction.
 
-For a generic next-goal, choose the first dependency-satisfied unfinished task that
-can actually run on the current host. Explain skips of platform-specific blocked
-tasks. GPU branches depend on the shared contract, not on one another, so a Linux
-session may make OpenGL progress while D3D11/Metal runtime evidence is pending.
-Never turn unavailable tests into PASS or start a dependent task whose required
-gate has not passed.
+For a generic next-goal, choose the first dependency-satisfied unfinished task
+that can actually run on the current host. Explain skips of platform-specific
+blocked tasks. GPU branches depend on the shared contract, not on one another,
+so a Linux session may make OpenGL progress while D3D11/Metal runtime evidence
+is pending. Never turn unavailable tests into PASS or start a dependent task
+whose required gate has not passed.
+
+### Authorized recording-v1 progression exception
+
+For the current maintainer-authorized recording-v1 goal run only, REC00's
+acceptance and the existing REC01 machine result permit sequential engineering
+progression through REC01--REC27 without waiting for routine intermediate
+approval. After each eligible milestone, run its substantive checks, update its
+report, `status.md` and `handoff.md`, and continue to the next dependency-ready
+milestone. This exception does not waive any implementation requirement, test,
+privacy rule, platform check, human demonstration, or release validation.
+
+Engineering readiness and final validation remain separate: a human-gated task
+may be implemented and recorded as `WAITING_HUMAN` or
+`IMPLEMENTED_UNVERIFIED`, but must not be reported as human-approved or
+release-complete until the required evidence exists. Missing prerequisite
+technical evidence still blocks dependent implementation. This run does not
+push, merge, publish, rewrite history, or modify root/global instructions.
 
 ## W4. Milestone loop
 
