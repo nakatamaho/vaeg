@@ -237,6 +237,31 @@ The required v1 common epoch is a guest-clock/sample-grid relation. Audio
 samples are selected by exact rational grid positions for each completed guest
 interval; callback arrival is not a timestamp source.
 
+### REC10 seam and handover observation
+
+REC10 extracted `vaeg_sound_generate_s32_stereo`,
+`vaeg_sound_lookahead_frames` and `vaeg_sound_pack_s16_or_silence` as small
+C99 operations. They own no chip state or clock, allocate no memory and take
+no locks. `sound_sync` remains the guest-time generation path, while
+`sound_pcmlock` can still generate callback look-ahead beyond the reserved
+tail. The seam preserves the existing callback order, zeroing, generated
+lengths, S16 saturation and source-NULL silence behavior.
+
+`SOUNDSTREAMSTATE` is a value observation containing the configured rate,
+buffer/reserve/remain/pending counts, cumulative generated samples since the
+last reset, a reset epoch, `lastclock`, lock state and checked accounting
+overflow. `SNDCSEC` remains the core stream lock and the existing `locks` guard
+prevents nested PCM-lock ownership. A future handover must stop or pause the
+device and reconcile generated, reserved and pending data outside the audio
+callback/core lock; the observation API is not a callback-safe recursive
+handover protocol and does not provide a reset-to-zero shortcut.
+
+REC10 adds no recording feed. REC11 remains responsible for establishing one
+guest-time audio producer, retaining the actual obtained device format and
+reconciling the legacy look-ahead before recording samples are accepted. The
+source-NULL helper test only verifies the existing silence path; it does not
+establish recording semantics for device absence or application mute.
+
 ## Validation, risks and human gate
 
 The baseline build and ROM-less self-tests above establish that the audit
@@ -257,5 +282,7 @@ Open implementation risks are:
 * native and displayed OSD must remain distinct without changing existing
   screenshots or QA captures.
 
-REC00 machine evidence is complete for the documentation/audit scope. The
-maintainer must explicitly accept this report before REC01 is eligible.
+REC00 machine evidence was accepted on 2026-09-19. REC10 machine evidence is
+complete for the seam scope at evaluated source commit
+`5e2823a437b4082b5b41f5f7d89e7a1073e738bd`; REC11 is the next dependency-ready
+audio-ownership task. Neither statement is human or release validation.

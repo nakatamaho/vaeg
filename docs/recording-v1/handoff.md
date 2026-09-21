@@ -1,10 +1,41 @@
 # Recording v1 handoff
 
-Current state: REC09 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC10 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8, REC08/M100r9 and REC09/M100r10. Assigned branch:
+REC07/M100r8, REC08/M100r9, REC09/M100r10 and REC10/M100r11. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC10 completion
+
+* The legacy stereo S32 generator dispatch, reserved-tail look-ahead
+  calculation and S16/silence packing now share small C99 operations without
+  changing callback order, generated lengths, saturation, chip state or SDL
+  callback byte accounting.
+* `SOUNDSTREAMSTATE` observes rate, buffer/reserve/remain/pending counts,
+  cumulative generated samples, reset epoch, `lastclock`, lock state and
+  checked accounting overflow. It is an observation for a later handover, not
+  a recording cursor reset or a callback timestamp.
+* Existing guest-time `sound_sync` and callback look-ahead are intentionally
+  still both present. REC11 must reconcile already-generated and reserved
+  data, pending PCM and lock ownership before adding one recording producer.
+
+## REC10 evidence
+
+Evaluated source commit:
+5e2823a437b4082b5b41f5f7d89e7a1073e738bd.
+
+On macOS arm64 with AppleClang 21.0.0.21000101, CMake 3.31.12, Ninja 1.13.2
+and MacPorts SDL2 2.32.10, the focused generator test passed in ON, OFF,
+Werror and ASan/UBSan builds. The enabled recording suite passed 11/11 and the
+disabled suite passed 7/7. Both frontend builds and ROM-less selftest/smoke
+passed, and the disabled build contained no FFmpeg references. Repository
+case, UTF-8, EOL, whitespace and milestone-ID validators passed. No live
+recording, host-device-format handover, Windows/Linux runtime, VLC, human or
+release validation is claimed.
+
+REC10 is complete at its machine gate. The next dependency-ready task is
+REC11/M100r12.
 
 ## REC09 completion
 
@@ -32,8 +63,8 @@ smoke runs passed. Case, UTF-8, EOL, whitespace and milestone-ID validators
 passed. No Windows/Linux runtime, presenter readback, live movie, audio
 integration, VLC, human or release validation is claimed.
 
-REC09 is the native composition checkpoint only. The next dependency-ready
-task is REC10/M100r11.
+REC09 is the native composition checkpoint only. REC10/M100r11 is now complete
+at its machine gate; the next dependency-ready task is REC11/M100r12.
 
 ## REC08 completion
 

@@ -1,6 +1,6 @@
 # M100r11 - REC10 recording-v1 audio production seam
 
-Status: IN_PROGRESS
+Status: MACHINE_GATE_PASS
 Feature: REC10
 Scope: legacy-preserving sound generation, look-ahead and PCM packing seam
 
