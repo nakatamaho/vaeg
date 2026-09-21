@@ -1,9 +1,40 @@
 # Recording v1 handoff
 
-Current state: REC05 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC06 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
-REC02/M100r3, REC03/M100r4, REC04/M100r5 and REC05/M100r6. Assigned branch:
+REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6 and REC06/M100r7. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC06 completion
+
+* `FfmpegPcmEncoder` is a private C++17 PCM S16LE stereo component at the
+  caller's effective output rate. It accepts variable frame blocks with a
+  cumulative first sample index and declared origin offset.
+* The existing `satuation_s16` final-mix clamp is reused, then each sample is
+  explicitly packed little-endian. Packet PTS, first index, duration and owned
+  bytes preserve the sample ledger.
+* The focused decoder test covers independent channel patterns, silence,
+  impulses, clipping boundaries, irregular blocks, a final short block, an
+  equivalent whole-block partition and allocation/open/send/receive/flush
+  failures.
+
+## REC06 evidence
+
+Evaluated source commit:
+2c990ffa618c05e1a7acaf69bd23bfb9c708628b.
+
+On macOS arm64 with AppleClang 21, CMake 3.31.12, Ninja 1.13.2, MacPorts SDL2
+2.32.10 and FFmpeg 8.1.2, the enabled build and all seven recording tests
+passed. The disabled build and all four recording-OFF tests passed, and its
+generated build files had no FFmpeg references. The PCM test passed under
+AddressSanitizer and UndefinedBehaviorSanitizer with macOS leak detection
+disabled. Existing ROM-less self-test and smoke passed with the expected
+missing-ROM warning.
+
+REC06 is synthetic encoder evidence only. It does not establish live sound
+ownership or callback independence, MKV output, A/V alignment, platform
+runtime or release dependency compliance. The next dependency-ready task is
+REC07/M100r8.
 
 ## REC05 completion
 
