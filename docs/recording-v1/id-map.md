@@ -1,6 +1,6 @@
 # Feature-to-repository milestone map
 
-Allocation state: REC07 COMPLETE; REC00 accepted on 2026-09-19. REC00 uses the
+Allocation state: REC08 COMPLETE; REC00 accepted on 2026-09-19. REC00 uses the
 first legal, collision-free lettered namespace after the current M99 sequence.
 The current roadmap, task files, reports and repository references contain no
 M100 or M101 assignment. The milestone validator accepts M100r1 through
@@ -16,7 +16,7 @@ M100r28.
 | REC05 | M100r6 | docs/agents/tasks/M100r6_recording_v1_rec05.md |
 | REC06 | M100r7 | docs/agents/tasks/M100r7_recording_v1_rec06.md |
 | REC07 | M100r8 | docs/agents/tasks/M100r8_recording_v1_rec07.md |
-| REC08 | M100r9 | Reserved; wrapper not created |
+| REC08 | M100r9 | docs/agents/tasks/M100r9_recording_v1_rec08.md |
 | REC09 | M100r10 | Reserved; wrapper not created |
 | REC10 | M100r11 | Reserved; wrapper not created |
 | REC11 | M100r12 | Reserved; wrapper not created |
@@ -46,6 +46,7 @@ until their dependencies and gates are satisfied under workflow.md. REC04 uses
 M100r5 and is complete at its machine gate. REC05 uses M100r6 and is complete
 at its machine gate. REC06 uses M100r7 and is complete at its machine gate.
 REC07 uses M100r8 and is complete at its machine gate.
+REC08 uses M100r9 and is complete at its machine gate.
 
 Allocation evidence:
 

@@ -1,6 +1,6 @@
 # M100r9 - REC08 recording-v1 OSD snapshot
 
-Status: IN_PROGRESS
+Status: MACHINE_GATE_PASS
 Feature: REC08
 Scope: true guest-area OSD inventory and immutable semantic snapshot extraction
 

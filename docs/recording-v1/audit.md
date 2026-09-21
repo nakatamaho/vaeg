@@ -124,6 +124,26 @@ render it on an owned copy. It must not implement a live ImGui software
 renderer or insert host menu/status strips. Displayed acquisition belongs after
 the final in-client overlay/GUI pass and before Present/swap.
 
+### REC08 snapshot extraction result
+
+The current frontend has two true guest-area diagnostic OSD classes: Video
+information and Framebuffer information. `sdl2/scrnmng.c` now builds one
+`VAEG_RECORDING_OSD_SNAPSHOT` for the current `drawcount` before either the
+native or SDL overlay path draws. The snapshot contains fixed owned copies of
+all formatted lines, enabled/visible state, output-space rectangle, clipping
+rectangle, top-right anchor, integer scale and background/text alpha. The
+public getter copies the complete value object for later Native/Displayed
+recording producers; no pointer into GUI draw data or a transient formatter
+buffer escapes.
+
+Disabled classes remain represented with `enabled=0` and no borrowed text. A
+class that is enabled but cannot fit the current output retains its semantic
+content with `visible=0`, matching the existing renderer's no-draw boundary.
+The title-bar FDD/FPS/CPU/SGP/frame text, ImGui menus/dialogs/fullscreen hint,
+native OS decorations and screenshot-only graphics analysis remain outside this
+guest-area snapshot. Existing drawing consumes the copied snapshot without
+changing its order, geometry or alpha convention.
+
 ## Video clocks and ownership
 
 The machine master clock is selected by machine/pccore.c from the model base

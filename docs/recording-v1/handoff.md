@@ -1,10 +1,42 @@
 # Recording v1 handoff
 
-Current state: REC07 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC08 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8. Assigned branch:
+REC07/M100r8 and REC08/M100r9. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC08 completion
+
+* The two actual guest-area diagnostic OSD classes are represented by one
+  fixed-size `VAEG_RECORDING_OSD_SNAPSHOT` associated with the current guest
+  `drawcount`: Video information and Framebuffer information.
+* The snapshot copies formatted strings, enabled/visible flags, output-space
+  rectangles, clipping rectangles, top-right anchors, scale and background/text
+  alpha. Disabled or too-small layers remain represented without borrowed
+  pointers. Host title text, ImGui UI, native decorations and screenshot-only
+  analysis remain excluded according to the audit.
+* Existing native and SDL overlay functions consume the snapshot while keeping
+  their previous order, geometry, alpha and no-draw boundaries. The public
+  getter returns a complete value copy for later recording producers.
+
+## REC08 evidence
+
+Evaluated source commit:
+e4766a4173c4a9c69e483eb0e7bdb3887da02382.
+
+On macOS arm64 with AppleClang 21.0.0.21000101, CMake 3.31.12, Ninja 1.13.2
+and MacPorts SDL2 2.32.10, the focused snapshot test passed with Werror and
+under ASan/UBSan (macOS leak detection disabled). The enabled recording suite
+passed 9/9 and the recording-disabled suite passed 5/5; the existing frontend
+builds passed in both configurations. ROM-less selftest and smoke passed, and
+the existing display-capture selftest exercised the unchanged SDL overlay
+rendering path. Repository ID discovery/audit also passed.
+
+REC08 is an OSD semantic/extraction checkpoint only. It does not establish
+Native recording-owned raster composition, Displayed final-client readback,
+guest-time audio production, UI lifecycle, platform presenter behavior, VLC
+playback or release validation. The next dependency-ready task is REC09/M100r10.
 
 ## REC07 completion
 
@@ -39,8 +71,8 @@ REC07 is synthetic backend evidence only. It does not establish live guest-time
 production, OSD composition, presenter readback, UI lifecycle, VLC playback,
 Windows/Linux runtime or release dependency compliance. Read-only filesystem,
 multi-gigabyte sparse-file and platform-specific handle validation remain
-explicit later fault/platform work. The next dependency-ready task is
-REC08/M100r9.
+explicit later fault/platform work. REC08/M100r9 is now complete at its machine
+gate.
 
 ## REC06 completion
 

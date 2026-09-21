@@ -1,9 +1,9 @@
 # Recording v1 status
 
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
-REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8 are complete at their machine gates. No human or release
-validation is implied.
+REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7,
+REC07/M100r8 and REC08/M100r9 are complete at their machine gates. No human or
+release validation is implied.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ validation is implied.
 | REC05 | PASS | FFV1 BGR0/v3/GOP1/slice-CRC encoder; exact RGB24/RGB565 decoder round trips; allocation/open/send/receive/flush failures; ON 6/6, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 9c462a968a45f8559734710f7aeb1f1348628dae / rec05-report.md |
 | REC06 | PASS | PCM S16LE stereo; reused final saturation; exact 11-frame partition-invariant decode with indices/PTS/durations/origin; failure paths; ON 7/7, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 2c990ffa618c05e1a7acaf69bd23bfb9c708628b / rec06-report.md |
 | REC07 | PASS | Seekable Matroska with one FFV1 video and one PCM audio stream; exact synthetic RGB/PCM decode, post-header timebases, packet ordering, exclusive partial lifecycle and injected I/O/publication failures; ON 8/8, OFF 4/4, sanitizer 1/1 | NOT_REQUIRED | 2a3c78583767624aea239c37cb8b9c1beb5a9f7c / rec07-report.md |
-| REC08 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC08 | PASS | C99 snapshot ownership/validation tests: ON 9/9 and OFF 5/5 recording suites; Werror focused test; ASan/UBSan focused test; existing ROM-less selftest/smoke and repository audit | NOT_REQUIRED | e4766a4173c4a9c69e483eb0e7bdb3887da02382 / rec08-report.md |
 | REC09 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC10 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC11 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
