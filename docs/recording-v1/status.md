@@ -28,7 +28,7 @@ machine results.
 | REC12 | PASS | Guest-boundary Native RGB24 tap with OSD snapshot, forced composition under draw-skip, exact guest-clock intervals, descriptor/sequence failures, ON 13/13 and OFF 9/9 recording suites, Werror/sanitizer and ROM-less selftest | NOT_REQUIRED | 415ca5f114b27990daa04ce157f4f27616ac98b2 / rec12-report.md |
 | REC13 | IMPLEMENTED_UNVERIFIED | ON 14/14 and OFF 9/9 recording suites; focused Werror and ASan/UBSan 2/2; ON/OFF builds and ROM-less selftests/smoke; private ROM-only Native MKV decoded by ffprobe/ffmpeg | PENDING | 595d6ed2d575dcc3b3d36aa5dc5c554d4c4f8b79 / rec13-report.md |
 | REC14 | IMPLEMENTED_UNVERIFIED | ON 15/15 and OFF 10/10 recording suites; ON/OFF builds, ROM-less selftests/smoke and CLI/UI boundary checks pass | PENDING | ec966b9b61d487014aabd8cc3184bc3ef0c55a06 / rec14-report.md |
-| REC15 | IMPLEMENTED_UNVERIFIED | ON/OFF builds; focused contract, recording regression, Werror and ASan/UBSan tests; dummy-labelled final-client fixture passes; real macOS SDL UI-service run unavailable | NOT_REQUIRED | 84c1b85a / rec15-report.md |
+| REC15 | IMPLEMENTED_UNVERIFIED | ON/OFF builds; focused contract, recording regression, Werror and ASan/UBSan tests; isolated dummy fixture passes; isolated Cocoa SDL probe unavailable at window setup | NOT_REQUIRED | 0d804a59 / rec15-report.md |
 | REC16 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |
 | REC17 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
 | REC18 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |

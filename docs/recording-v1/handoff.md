@@ -25,7 +25,8 @@ topic/m100r3-recording-clock.
 
 ## REC15 evidence
 
-Evaluated source commit: `84c1b85a` (`M100r16: add Displayed SDL readback seam`).
+Evaluated source commit: `0d804a59` (`M100r16: isolate SDL readback selftest`),
+following `84c1b85a` (`M100r16: add Displayed SDL readback seam`).
 The recording-enabled and disabled frontend builds passed. The focused
 contract test passed in both builds, under Werror and under ASan/UBSan. The
 affected ON/OFF recording regression sets passed 8/8 and 7/7. The ROM-less
@@ -33,8 +34,8 @@ dummy SDL selftest passed, including the labelled final-client fixture with
 guest, menu, OSD and status regions, exact normalized-byte comparison, token
 suppression, geometry stop and dummy rejection.
 
-The real macOS SDL selftest could not complete because the host UI service
-connection became invalid. This is not treated as real-renderer evidence;
+The isolated Displayed probe also could not complete: Cocoa window setup lost
+the host UI-service connection. This is not treated as real-renderer evidence;
 REC15 remains `IMPLEMENTED_UNVERIFIED`. The Werror full frontend is still
 affected by the unrelated existing `io/np2sysp.c` unused `str_pentium`
 warning. No Displayed MKV, Windows/Linux presenter, GPU backend, human or

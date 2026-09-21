@@ -5,7 +5,7 @@ Status: IMPLEMENTED_UNVERIFIED
 Feature ID and mapped legal M ID: REC15 / M100r16
 Assigned branch: `topic/m100r3-recording-clock`
 Base SHA: `5fcdbc23` (REC14 documentation checkpoint)
-Evaluated source SHA: `84c1b85a`
+Evaluated source SHA: `0d804a598c0b46dd09ef05d16e5333a9fc6685d5`
 Evaluated binary/toolchain identity: macOS arm64, AppleClang, CMake, MacPorts
 SDL2; recording-enabled and recording-disabled build trees
 Evidence-only SHA, if applicable: Documentation commit immediately following
@@ -34,6 +34,8 @@ Changed files:
 * `tests/frontend/recording/test_recording_displayed_capture.c` covers source
   pitch/size/origin validation and exact RGBA32-to-RGB24 conversion including
   row padding.
+* `sdl2/selftest.c` provides an environment-gated isolated probe so SDL
+  readback evidence is not masked by unrelated full-suite teardown.
 * `scrnmng_display_capture_selftest` contains a labelled fixture-only SDL
   render target with distinct guest, menu, OSD and status regions. It checks
   normalized bytes against an independently populated expectation, one frame
@@ -88,8 +90,8 @@ acceptance.
 | REC15-REGRESSION-OFF | `ctest --test-dir build/macos-rec13-off --output-on-failure -R 'vaeg_recording_displayed_capture|vaeg_recording_(c_contracts|osd_snapshot|native_composition|native_tap|clock|queue)'` | 0 / 7 of 7 pass | Recording-OFF and prior contracts |
 | REC15-WERROR | `cmake --build build/macos-rec13-werror -j4 --target vaeg_recording_displayed_capture_test`; focused CTest | 0 / pass | New and test C units compile with Werror |
 | REC15-SANITIZER | `cmake -S . -B build/macos-rec13-sanitize`; build the focused target; focused CTest | 0 / pass | ASan/UBSan contract fixture |
-| REC15-FIXTURE | `SDL_VIDEODRIVER=dummy build/macos-rec13-on/sdl2/vaeg --selftest --no-cfg --no-bkupmem` | 0 / pass | Synthetic SDL target, token and fixed-descriptor checks; dummy status is explicit |
-| REC15-REAL-SDL | `build/macos-rec13-on/sdl2/vaeg --selftest --no-cfg --no-bkupmem` without a forced video driver | 1 / unavailable | macOS UI-service connection became invalid before the run completed; no real-host Displayed evidence is claimed |
+| REC15-FIXTURE | `SDL_VIDEODRIVER=dummy VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY=1 build/macos-rec13-on/sdl2/vaeg --selftest --no-cfg --no-bkupmem` | 0 / pass; `displayed capture fixture ok (video=dummy)` | Isolated synthetic SDL target, token and fixed-descriptor checks; dummy status is explicit |
+| REC15-REAL-SDL | `VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY=1 build/macos-rec13-on/sdl2/vaeg --selftest --no-cfg --no-bkupmem` without a forced video driver | 1 / unavailable | Cocoa SDL window setup lost its macOS UI-service connection before the isolated fixture completed; no real-host Displayed evidence is claimed |
 | REC15-REPO | `git diff --check` plus repository case/UTF-8/EOL and milestone-ID validators | 0 / pass for the evaluated source/docs changes | No source or public-document hygiene findings |
 
 The existing full recording suites were also rerun through the focused ON/OFF
@@ -117,9 +119,11 @@ borrowed source and is responsible for copying; the current fixture copies to
 RGB24 immediately. No second render pass, OS capture API, guest-texture crop or
 timed frame source was introduced.
 
-The missing real macOS SDL host run is a concrete evidence gap, not a passing
-platform result. REC15 is therefore `IMPLEMENTED_UNVERIFIED`, despite the
-contract, focused tests, SDL fixture and build checks passing. REC16 and the
+The isolated probe separates the missing macOS SDL host from unrelated full
+selftest teardown, but Cocoa window setup still fails before the fixture in
+this environment. This is a concrete evidence gap, not a passing platform
+result. REC15 is therefore `IMPLEMENTED_UNVERIFIED`, despite the contract,
+focused tests, SDL fixture and build checks passing. REC16 and the
 other Displayed integrations remain blocked on a host with usable real SDL
 renderer output unless an equivalent authorized platform evidence source is
 provided.
