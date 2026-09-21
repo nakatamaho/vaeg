@@ -2,8 +2,9 @@
 
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7,
-REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11 and REC11/M100r12
-are complete at their machine gates. No human or release validation is implied.
+REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12 and
+REC12/M100r13 are complete at their machine gates. No human or release
+validation is implied.
 
 | ID | Status | Machine evidence | Human gate | Evaluated commit / report |
 |---|---|---|---|---|
@@ -19,7 +20,7 @@ are complete at their machine gates. No human or release validation is implied.
 | REC09 | PASS | Native owned RGB24 copy, native OSD composition, ON 10/10 and OFF 6/6 recording suites, Werror/sanitizer, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 1aa9f6f78dd968bdabfa068c24e32b4fa24403ca / rec09-report.md |
 | REC10 | PASS | C99 generation/packing seam, state observation, ON 11/11 and OFF 7/7 recording suites, Werror/sanitizer, frontend builds, ROM-less selftest/smoke and repository validators | NOT_REQUIRED | 5e2823a437b4082b5b41f5f7d89e7a1073e738bd / rec10-report.md |
 | REC11 | PASS | Guest-time single producer, indexed bounded S16 FIFO, playback-only callback, mute/no-device handling, ON 12/12 and OFF 8/8 recording suites, sanitizer, builds and ROM-less no-audio selftest | NOT_REQUIRED | 4165d9fd677ac0a9ff3ed954c0100d0a988dcfc / rec11-report.md |
-| REC12 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |
+| REC12 | PASS | Guest-boundary Native RGB24 tap with OSD snapshot, forced composition under draw-skip, exact guest-clock intervals, descriptor/sequence failures, ON 13/13 and OFF 9/9 recording suites, Werror/sanitizer and ROM-less selftest | NOT_REQUIRED | 415ca5f114b27990daa04ce157f4f27616ac98b2 / rec12-report.md |
 | REC13 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |
 | REC14 | NOT_STARTED | NOT_RUN | PENDING | Not evaluated |
 | REC15 | NOT_STARTED | NOT_RUN | NOT_REQUIRED | Not evaluated |

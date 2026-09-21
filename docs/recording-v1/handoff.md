@@ -1,11 +1,40 @@
 # Recording v1 handoff
 
-Current state: REC11 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC12 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
-REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11 and REC11/M100r12.
-Assigned branch:
+REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12
+and REC12/M100r13. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC12 completion
+
+* The `screendispva` completed guest-display event now marks the Native tap
+  boundary. The tap requests canonical composition even when normal host draw
+  skipping would omit it; `pccore_redraw` is explicitly not a timed boundary.
+* Each accepted capture carries the owned RGB24 Native frame, matching REC08
+  OSD snapshot, `drawcount` sequence, exact extended guest-clock interval and
+  canonical descriptor generation. The tap rejects descriptor, sequence, time,
+  frame and callback failures closed.
+* Existing screenshot/QA and presentation paths remain unchanged. REC13 still
+  owns the integrated audio/common-epoch coordinator, MKV writer connection,
+  lifecycle and public Start/Stop control.
+
+## REC12 evidence
+
+Evaluated source commit:
+415ca5f114b27990daa04ce157f4f27616ac98b2.
+
+On macOS arm64 with AppleClang 21.0.0.21000101, CMake 3.31.12, Ninja 1.13.2
+and MacPorts SDL2 2.32.10, the Native tap passed focused ON/OFF, Werror and
+ASan/UBSan tests. The enabled recording suite passed 13/13 and the disabled
+suite passed 9/9. Both frontend builds and ROM-less no-audio selftests passed.
+The changed production C units compiled with generated Werror commands. No
+live MKV, public UI, Displayed/GPU backend, Windows/Linux runtime, VLC, human
+or release validation is claimed.
+
+REC12 is complete at its machine gate. The next dependency-ready task is
+REC13/M100r14.
 
 ## REC11 completion
 
@@ -40,8 +69,8 @@ Repository validators passed for the evidence update. No live MKV, presenter,
 Windows/Linux runtime, physical audio, VLC, human or release validation is
 claimed.
 
-REC11 is complete at its machine gate. The next dependency-ready task is
-REC12/M100r13.
+REC11 is complete at its machine gate. REC12/M100r13 is now complete at its
+machine gate; the next dependency-ready task is REC13/M100r14.
 
 ## REC10 completion
 
@@ -100,9 +129,9 @@ smoke runs passed. Case, UTF-8, EOL, whitespace and milestone-ID validators
 passed. No Windows/Linux runtime, presenter readback, live movie, audio
 integration, VLC, human or release validation is claimed.
 
-REC09 is the native composition checkpoint only. REC10/M100r11 and
-REC11/M100r12 are now complete at their machine gates; the next
-dependency-ready task is REC12/M100r13.
+REC09 is the native composition checkpoint only. REC10/M100r11,
+REC11/M100r12 and REC12/M100r13 are now complete at their machine gates; the
+next dependency-ready task is REC13/M100r14.
 
 ## REC08 completion
 
