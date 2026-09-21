@@ -33,6 +33,9 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value);
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 /* Flat-memory scope for CPU-only tests; absent from production builds. */
 void upd9002_test_flat_memory_set(BOOL active);
+void upd9002_test_flat_memory_reset_counters(void);
+UINT32 upd9002_test_flat_memory_read_count(void);
+UINT32 upd9002_test_flat_memory_write_count(void);
 #endif
 
 REG8 MEMCALL upd9002_memoryread(UINT32 address);

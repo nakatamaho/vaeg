@@ -342,6 +342,8 @@ static const INITBL iniitem[] = {
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
+    {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
+    {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
     {"ITF_WORK", INITYPE_BOOL, &np2cfg.ITF_WORK, 0},
     {"Use_BMS_", INITYPE_BOOL, &bmsiocfg.enabled, 0},
     {"BMS_Port", INITYPE_HEX16, &bmsiocfg.port, 0},
@@ -478,6 +480,12 @@ void initload(void) {
 		            np2cfg.main_ram);
 		np2cfg.main_ram = 640;
 	}
+	if (!upd8087_clock_valid(np2cfg.upd8087_clock_hz)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid NDP8087Hz=%u; using %u",
+		            np2cfg.upd8087_clock_hz, UPD8087_DEFAULT_CLOCK_HZ);
+		np2cfg.upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ;
+	}
+	np2cfg.upd8087_enable = np2cfg.upd8087_enable ? 1 : 0;
 
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
 	if ((bmsiocfg.port != BMSIO_PORT_DEFAULT) && (bmsiocfg.port != BMSIO_PORT_COMPAT)) {

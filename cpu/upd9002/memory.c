@@ -12,9 +12,24 @@ BYTE mem[0x200000];
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 static BOOL upd9002_test_flat_memory;
+static UINT32 upd9002_test_flat_memory_reads;
+static UINT32 upd9002_test_flat_memory_writes;
 
 void upd9002_test_flat_memory_set(BOOL active) {
 	upd9002_test_flat_memory = active;
+}
+
+void upd9002_test_flat_memory_reset_counters(void) {
+	upd9002_test_flat_memory_reads = 0;
+	upd9002_test_flat_memory_writes = 0;
+}
+
+UINT32 upd9002_test_flat_memory_read_count(void) {
+	return upd9002_test_flat_memory_reads;
+}
+
+UINT32 upd9002_test_flat_memory_write_count(void) {
+	return upd9002_test_flat_memory_writes;
 }
 
 static BOOL upd9002_test_flat_memory_active(void) {
@@ -77,6 +92,7 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
 REG8 MEMCALL upd9002_memoryread(UINT32 address) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_reads++;
 		return mem[address & 0xfffff];
 	}
 #endif
@@ -86,6 +102,7 @@ REG8 MEMCALL upd9002_memoryread(UINT32 address) {
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_reads += 2;
 		return (REG16)(mem[address & 0xfffff] | (mem[(address + 1) & 0xfffff] << 8));
 	}
 #endif
@@ -95,6 +112,7 @@ REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_writes++;
 		mem[address & 0xfffff] = (BYTE)value;
 		return;
 	}
@@ -107,6 +125,7 @@ void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_writes += 2;
 		mem[address & 0xfffff] = (BYTE)value;
 		mem[(address + 1) & 0xfffff] = (BYTE)(value >> 8);
 		return;

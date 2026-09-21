@@ -43,7 +43,8 @@ enum {
 	IRQ_INT41 = 0x0a,
 	IRQ_INT42 = 0x0b,
 	IRQ_INT5 = 0x0c,
-	IRQ_INT6 = 0x0d
+	IRQ_INT6 = 0x0d,
+	IRQ_NDP = 0x0e
 };
 
 #define PICEXISTINTR ((pic.pi[0].irr & (~pic.pi[0].imr)) || (pic.pi[1].irr & (~pic.pi[1].imr)))
@@ -54,6 +55,10 @@ extern "C" {
 
 void pic_irq(void);
 void pic_setirq(REG8 irq);
+/* Drive a device interrupt as a level-aware input.  Edge-triggered PICs
+ * latch only the low-to-high transition; level-triggered PICs re-expose the
+ * request while the input remains asserted. */
+void pic_setirq_level(REG8 irq, BOOL asserted);
 void pic_resetirq(REG8 irq);
 
 void picmask(NEVENTITEM item);

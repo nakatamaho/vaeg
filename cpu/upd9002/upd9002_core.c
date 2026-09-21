@@ -16,6 +16,7 @@
 Upd9002CoreContext upd9002_core_context;
 UINT16 upd9002_step_start_cs;
 UINT16 upd9002_step_start_ip;
+UINT8 upd9002_current_opcode;
 static Upd9002CompatHooks upd9002_compat_hooks;
 /*
  * A native CALLN can be interrupted before its final IRET.  Keep the
@@ -173,6 +174,7 @@ void upd9002_core_step(void) {
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
 	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	upd9002_current_opcode = (UINT8)opcode;
 	upd9002_perf_record_step(CS_BASE, UPD9002_IP, (UINT8)opcode,
 	                         mem[(CS_BASE + (UINT16)(UPD9002_IP + 1)) & UPD9002_ADRSMASK]);
 	preserve_state = (opcode == 0x26) || (opcode == 0x2e) || (opcode == 0x36) || (opcode == 0x3e) ||

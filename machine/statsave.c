@@ -79,6 +79,7 @@ enum {
 	STATFLAG_BMS,
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
+	STATFLAG_UPD8087,
 };
 
 typedef struct {
@@ -357,6 +358,40 @@ void statflag_seterr(STFLAGH sfh, const char *str) {
 
 static int flagsave_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return (statflag_write(sfh, tbl->arg1, tbl->arg2));
+}
+
+static int flagsave_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+
+	if (!upd8087_store_machine_state(&upd8087, payload, sizeof(payload))) {
+		return (STATFLAG_FAILURE);
+	}
+	return (statflag_write(sfh, payload, tbl->arg2));
+}
+
+static int flagcheck_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+	UPD8087_STATE decoded;
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) ||
+	    !upd8087_load_machine_state(&decoded, payload, sizeof(payload))) {
+		statflag_seterr(sfh, "8087 state payload is invalid or truncated");
+		return (STATFLAG_FAILURE);
+	}
+	return (STATFLAG_SUCCESS);
+}
+
+static int flagload_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) ||
+	    !upd8087_load_machine_state(&upd8087, payload, sizeof(payload))) {
+		statflag_seterr(sfh, "8087 state payload is invalid or truncated");
+		return (STATFLAG_FAILURE);
+	}
+	return (STATFLAG_SUCCESS);
 }
 
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
@@ -1298,6 +1333,10 @@ int statsave_save(const char *filename) {
 			ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_UPD8087:
+			ret |= flagsave_upd8087(&sffh->sfh, tbl);
+			break;
+
 		case STATFLAG_COM:
 			ret |= flagsave_com(&sffh->sfh, tbl);
 			break;
@@ -1393,6 +1432,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
 				break;
 
+				case STATFLAG_UPD8087:
+					ret |= flagcheck_upd8087(&sffh->sfh, tbl);
+					break;
+
 			case STATFLAG_HOSTFAT:
 				hostfat_seen = TRUE;
 				ret |= flagcheck_hostfat(&sffh->sfh, tbl, allow_hostfat_mismatch);
@@ -1484,6 +1527,17 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	sxsi_trash();
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
+	{
+		UPD8087_CONFIG config;
+
+		/* Older save files have no device section.  Start from the current
+		 * configuration so an omitted section cannot inherit a previous
+		 * machine's live NDP state; a current UPD8087 section overwrites this
+		 * baseline below. */
+		config.enabled = np2cfg.upd8087_enable != 0;
+		config.clock_hz = np2cfg.upd8087_clock_hz;
+		upd8087_initialize(&upd8087, &config);
+	}
 	pccore_clockrestore();
 	sgp_configure_speed();
 
@@ -1523,6 +1577,10 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 			case STATFLAG_UPD9002_COMPAT:
 				ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_UPD8087:
+				ret |= flagload_upd8087(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_TERM:
@@ -1582,6 +1640,13 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 		}
 	}
 	statflag_close(sffh);
+	if (ret != STATFLAG_FAILURE) {
+		/* The PIC section is restored before this point.  Rebind the
+		 * source-backed NDP input after the complete state image is present;
+		 * this does not acknowledge or clear the 8087 exception. */
+		pic_setirq_level(IRQ_NDP,
+		                 upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
+	}
 
 	// Rebuild the native VA I/O map after restoring device state.
 	upd9002_memorymap_va();

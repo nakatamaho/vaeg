@@ -2,6 +2,7 @@
 #include "machine/nevent.h"
 #include "machine/statsave.h"
 #include "machine/clockscale.h"
+#include "upd8087/upd8087.h"
 
 enum {
 	PCBASECLOCK40 = 3993600,
@@ -46,6 +47,8 @@ typedef struct {
 
 	UINT8 calendar;
 	UINT8 usefd144;
+	UINT8 upd8087_enable;
+	UINT32 upd8087_clock_hz;
 	// Configuration values used during reset and infrequently thereafter.
 	OEMCHAR model[8];
 	UINT baseclock;
@@ -129,6 +132,7 @@ extern const OEMCHAR np2version[];
 extern NP2CFG np2cfg;
 extern PCCORE pccore;
 extern CLOCKSCALE pccore_cpu_scale;
+extern UPD8087_STATE upd8087;
 extern UINT8 screenupdate;
 extern int soundrenewal;
 extern BOOL drawframe;

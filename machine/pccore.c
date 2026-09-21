@@ -55,6 +55,8 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .MOUSERAPID = 0,
                  .calendar = 0,
                  .usefd144 = 0,
+                 .upd8087_enable = 0,
+                 .upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ,
                  .model = OEMTEXT("88VA2"),
                  .baseclock = PCBASECLOCK40,
                  .multiple = 2,
@@ -105,6 +107,7 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
+UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
 
 static UINT16 pccore_normalize_mainram(UINT16 value) {
@@ -259,6 +262,11 @@ static void sound_term(void) {
 }
 
 void pccore_init(void) {
+	UPD8087_CONFIG upd8087_config;
+
+	upd8087_config.enabled = np2cfg.upd8087_enable != 0;
+	upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
+	upd8087_initialize(&upd8087, &upd8087_config);
 	CPU_INITIALIZE();
 
 	// VA rendering owns its palette and raster conversion.
@@ -344,6 +352,14 @@ void pccore_reset(void) {
 	}
 
 	pccore_set();
+	{
+		UPD8087_CONFIG upd8087_config;
+
+		/* Configuration is intentionally applied only at machine reset. */
+		upd8087_config.enabled = np2cfg.upd8087_enable != 0;
+		upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
+		upd8087_apply_config(&upd8087, &upd8087_config);
+	}
 	sgp_configure_speed();
 	bmsio_set();
 	keystat_setlockedkey(np2cfg.lockedkey);

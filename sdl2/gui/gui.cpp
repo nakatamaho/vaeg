@@ -107,6 +107,7 @@ constexpr int kSasiImageCount = 6;
 constexpr int kScsiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
+constexpr int kNdp8087Presets[] = {5000000, 8000000, 10000000};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr UINT kV98FontRomSize = 0x46800;
 constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
@@ -263,6 +264,8 @@ struct GuiState {
 	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
+	bool pending_ndp8087_enabled = false;
+	int pending_ndp8087_clock_hz = static_cast<int>(UPD8087_DEFAULT_CLOCK_HZ);
 	int pending_pacing_ms = 0;
 	bool pending_hostfat_enabled = false;
 	char pending_hostfat_dir[MAX_PATH] = {};
@@ -634,6 +637,8 @@ static void open_configure_dialog(void) {
 	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
 	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
+	g_gui.pending_ndp8087_enabled = np2cfg.upd8087_enable != 0;
+	g_gui.pending_ndp8087_clock_hz = static_cast<int>(np2cfg.upd8087_clock_hz);
 	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
 	g_gui.pending_hostfat_enabled = np2oscfg.hostfat_enabled != 0;
 	milstr_ncpy(g_gui.pending_hostfat_dir, np2oscfg.hostfat_dir, sizeof(g_gui.pending_hostfat_dir));
@@ -665,6 +670,27 @@ static void draw_multiplier_input(const char *label, int *value, const int *pres
 	ImGui::PopID();
 }
 
+static void draw_ndp8087_clock_input(int *value) {
+	ImGui::PushID("NDP8087 clock");
+	ImGui::TextUnformatted("Clock (Hz)");
+	ImGui::SameLine(145.0f);
+	ImGui::SetNextItemWidth(125.0f);
+	ImGui::InputInt("##value", value, 100000, 1000000);
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(110.0f);
+	if (ImGui::BeginCombo("##presets", "Preset")) {
+		for (int i = 0; i < static_cast<int>(std::size(kNdp8087Presets)); i++) {
+			char item[32];
+			std::snprintf(item, sizeof(item), "%d MHz", kNdp8087Presets[i] / 1000000);
+			if (ImGui::Selectable(item, *value == kNdp8087Presets[i])) {
+				*value = kNdp8087Presets[i];
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::PopID();
+}
+
 static void apply_configure_dialog(void) {
 	const bool clock_changed =
 	    (np2cfg.baseclock != PCBASECLOCK40) ||
@@ -672,6 +698,9 @@ static void apply_configure_dialog(void) {
 	    (np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
 	    (np2cfg.sgp_multiplier != static_cast<UINT8>(g_gui.pending_sgp_multiplier)) ||
 	    (np2oscfg.pacing_ms != static_cast<UINT16>(g_gui.pending_pacing_ms));
+	const bool ndp8087_changed =
+	    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
+	    (np2cfg.upd8087_clock_hz != static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
 	const bool hostfat_changed =
 	    ((np2oscfg.hostfat_enabled != 0) != g_gui.pending_hostfat_enabled) ||
 	    (std::strcmp(np2oscfg.hostfat_dir, g_gui.pending_hostfat_dir) != 0);
@@ -686,6 +715,15 @@ static void apply_configure_dialog(void) {
 		sysmng_update(SYS_UPDATECFG | SYS_UPDATEOSCFG | SYS_UPDATECLOCK);
 		reset_guest();
 		reset_done = true;
+	}
+	if (ndp8087_changed) {
+		np2cfg.upd8087_enable = g_gui.pending_ndp8087_enabled ? 1 : 0;
+		np2cfg.upd8087_clock_hz = static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz);
+		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
+		if (!reset_done) {
+			reset_guest();
+			reset_done = true;
+		}
 	}
 	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
 		char error[256]{};
@@ -734,7 +772,7 @@ static void draw_configure_dialog(void) {
 	}
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(560.0f, 650.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(560.0f, 800.0f), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Configure##clock-config", &g_gui.configure_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool cpu_valid =
@@ -743,13 +781,18 @@ static void draw_configure_dialog(void) {
 		const bool sgp_multiplier_valid =
 		    (g_gui.pending_sgp_mode != SGP_SPEED_CUSTOM) ||
 		    sgp_speed_multiplier_valid(static_cast<UINT>(g_gui.pending_sgp_multiplier));
+		const bool ndp8087_clock_valid =
+		    (g_gui.pending_ndp8087_clock_hz >= static_cast<int>(UPD8087_MIN_CLOCK_HZ)) &&
+		    (g_gui.pending_ndp8087_clock_hz <= static_cast<int>(UPD8087_MAX_CLOCK_HZ)) &&
+		    upd8087_clock_valid(static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
 		const bool hostfat_valid =
 		    !g_gui.pending_hostfat_enabled || is_directory(g_gui.pending_hostfat_dir);
 		HOSTFAT_MANAGER_STATUS hostfat_manager_status{};
 		hostfat_manager_get_status(&hostfat_manager_status);
 		const bool hostfat_idle = hostfat_manager_status.state != HOSTFAT_MANAGER_BUILDING;
 		const bool valid =
-		    cpu_valid && sgp_mode_valid && sgp_multiplier_valid && hostfat_valid && hostfat_idle;
+		    cpu_valid && sgp_mode_valid && sgp_multiplier_valid && ndp8087_clock_valid &&
+		    hostfat_valid && hostfat_idle;
 		const bool hostfat_action_error =
 		    (g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
 		    (g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
@@ -769,6 +812,27 @@ static void draw_configure_dialog(void) {
 			ImGui::Text("Effective CPU clock: %.4f MHz",
 			            3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
 			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 155.0f), true,
+		                      ImGuiWindowFlags_NoScrollbar)) {
+			const bool requested_changed =
+			    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
+			    (np2cfg.upd8087_clock_hz != static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
+			ImGui::TextUnformatted("Intel 8087 (NDP)");
+			ImGui::Separator();
+			ImGui::Checkbox("Enable 8087", &g_gui.pending_ndp8087_enabled);
+			draw_ndp8087_clock_input(&g_gui.pending_ndp8087_clock_hz);
+			ImGui::Text("Active: %s, %u Hz", upd8087.enabled ? "enabled" : "disabled",
+			            static_cast<unsigned int>(upd8087.clock_hz));
+			if (requested_changed) {
+				ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f),
+				                   "Requested values apply on guest reset.");
+			} else {
+				ImGui::TextDisabled("Requested values are active.");
+			}
+			ImGui::TextDisabled("One 8087 maximum; FPO2 is never connected.");
 		}
 		ImGui::EndChild();
 
@@ -864,6 +928,8 @@ static void draw_configure_dialog(void) {
 			ImGui::TextUnformatted("Select a valid SGP speed mode.");
 		} else if (!sgp_multiplier_valid) {
 			ImGui::TextUnformatted("SGP multiplier must be between 1 and 16.");
+		} else if (!ndp8087_clock_valid) {
+			ImGui::TextUnformatted("8087 clock must be between 1000000 and 20000000 Hz.");
 		} else if (!hostfat_valid) {
 			ImGui::TextUnformatted("Select an existing HOSTFAT directory.");
 		} else if (!hostfat_idle) {
@@ -1116,14 +1182,16 @@ static void select_sound_buffer(UINT delayms) {
 	reset_guest();
 }
 
-static void select_boot_model(const char *model) {
+static void select_boot_model(const char *model, bool enable_8087) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
+	const bool old_8087 = np2cfg.upd8087_enable != 0;
 
 	np2_select_boot_model(model);
+	np2cfg.upd8087_enable = enable_8087 ? 1 : 0;
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
-	sysmng_update(SYS_UPDATECFG);
+	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
 	reset_guest();
 }
 
@@ -2384,10 +2452,17 @@ static void draw_emulate_menu(void) {
 		ImGui::Separator();
 		if (ImGui::BeginMenu("起動機種")) {
 			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
-				select_boot_model(str_VA1);
+				select_boot_model(str_VA1, false);
 			}
-			if (ImGui::MenuItem("VA2/VA3", nullptr, milstr_cmp(np2cfg.model, str_VA2) == 0)) {
-				select_boot_model(str_VA2);
+			if (ImGui::MenuItem("VA2/VA3", nullptr,
+			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
+			                        (np2cfg.upd8087_enable == 0))) {
+				select_boot_model(str_VA2, false);
+			}
+			if (ImGui::MenuItem("VA2/VA3 + 8087", nullptr,
+			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
+			                        (np2cfg.upd8087_enable != 0))) {
+				select_boot_model(str_VA2, true);
 			}
 			ImGui::EndMenu();
 		}

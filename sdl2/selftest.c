@@ -1265,6 +1265,10 @@ static int test_profile_ini(void) {
 	UINT16 read_window_width;
 	UINT16 pacing_ms;
 	UINT16 read_pacing_ms;
+	UINT8 ndp8087_enable;
+	UINT8 read_ndp8087_enable;
+	UINT32 ndp8087_clock_hz;
+	UINT32 read_ndp8087_clock_hz;
 	_BMSIOCFG write_bms;
 	UINT8 ems_megabytes;
 	UINT8 read_ems_megabytes;
@@ -1286,13 +1290,17 @@ static int test_profile_ini(void) {
 	                          {"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0},
 	                          {"ExMemory", INITYPE_UINT8, &ems_megabytes, 0},
 	                          {"Main_RAM", INITYPE_UINT16, &main_ram, 0},
-	                          {"PacingMs", INITYPE_UINT16, &pacing_ms, 0}};
+	                          {"PacingMs", INITYPE_UINT16, &pacing_ms, 0},
+	                          {"NDP8087", INITYPE_BOOL, &ndp8087_enable, 0},
+	                          {"NDP8087Hz", INITYPE_UINT32, &ndp8087_clock_hz, 0}};
 	INITBL read_bms_tbl[] = {{"Use_BMS_", INITYPE_BOOL, &read_bms.enabled, 0},
 	                         {"BMS_Port", INITYPE_HEX16, &read_bms.port, 0},
 	                         {"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0},
 	                         {"ExMemory", INITYPE_UINT8, &read_ems_megabytes, 0},
 	                         {"Main_RAM", INITYPE_UINT16, &read_main_ram, 0},
-	                         {"PacingMs", INITYPE_UINT16, &read_pacing_ms, 0}};
+	                         {"PacingMs", INITYPE_UINT16, &read_pacing_ms, 0},
+	                         {"NDP8087", INITYPE_BOOL, &read_ndp8087_enable, 0},
+	                         {"NDP8087Hz", INITYPE_UINT32, &read_ndp8087_clock_hz, 0}};
 
 	SPRINTF(path, "vaeg-selftest-%lu.ini", (unsigned long)getpid());
 	file_delete(path);
@@ -1320,6 +1328,10 @@ static int test_profile_ini(void) {
 	write_bms.port = BMSIO_PORT_COMPAT;
 	write_bms.portmask = BMSIO_PORT_MASK;
 	write_bms.numbanks = 32;
+	ndp8087_enable = 1;
+	ndp8087_clock_hz = 12345678U;
+	read_ndp8087_enable = 0;
+	read_ndp8087_clock_hz = 0;
 	ZeroMemory(&read_bms, sizeof(read_bms));
 
 	profile_iniwrite(path, "selftest", write_tbl, NELEMENTS(write_tbl), NULL);
@@ -1338,7 +1350,9 @@ static int test_profile_ini(void) {
 	}
 	if ((read_bms.enabled != TRUE) || (read_bms.port != BMSIO_PORT_COMPAT) ||
 	    (read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms) ||
-	    (read_ems_megabytes != ems_megabytes) || (read_main_ram != main_ram)) {
+	    (read_ems_megabytes != ems_megabytes) || (read_main_ram != main_ram) ||
+	    (read_ndp8087_enable != ndp8087_enable) ||
+	    (read_ndp8087_clock_hz != ndp8087_clock_hz)) {
 		return (fail("ini", "BMS/EMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
@@ -2101,6 +2115,607 @@ cmp_done:
 	return (ret);
 }
 
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+static BOOL test_8087_documented_slot(unsigned opcode, unsigned modrm) {
+	unsigned reg = (modrm >> 3) & 7;
+	unsigned rm = modrm & 7;
+
+	/* Keep this membership predicate independent from upd8087_classify().
+	 * It is the production-CPU coverage side of the frozen P01 inventory. */
+#define MEMORY_FORM(op, r) \
+	(((op) == 0xd8) || ((op) == 0xda) || ((op) == 0xdc) || \
+	 ((op) == 0xde) || \
+	 (((op) == 0xd9) && ((r) != 1)) || \
+	 (((op) == 0xdb) && ((r) == 0 || (r) == 2 || (r) == 3 || \
+	                    (r) == 5 || (r) == 7)) || \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3 || \
+	                    (r) == 4 || (r) == 6 || (r) == 7)) || \
+	 (((op) == 0xdf) && ((r) != 1)))
+#define REGISTER_FORM(op, r, m) \
+	(((op) == 0xd8) || \
+	 (((op) == 0xd9) && \
+	  (((r) == 0) || ((r) == 1) || ((r) == 2 && (m) == 0) || \
+	   ((r) == 4 && ((m) == 0 || (m) == 1 || (m) == 4 || (m) == 5)) || \
+	   ((r) == 5 && (m) <= 6) || \
+	   ((r) == 6 && ((m) <= 4 || (m) >= 6)) || \
+	   ((r) == 7 && ((m) == 0 || (m) == 1 || (m) == 2 || \
+	                (m) == 4 || (m) == 5)))) || \
+	 (((op) == 0xdb) && (r) == 4 && (m) <= 3) || \
+	 (((op) == 0xdc) && ((r) == 0 || (r) == 1 || (r) == 4 || \
+	                    (r) == 5 || (r) == 6 || (r) == 7)) || \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3)) || \
+	 (((op) == 0xde) && ((r) == 0 || (r) == 1 || (r) == 4 || \
+	                    (r) == 5 || (r) == 6 || (r) == 7 || \
+	                    ((r) == 3 && (m) == 1))))
+
+	BOOL result = ((modrm & 0xc0) != 0xc0) ?
+		MEMORY_FORM(opcode, reg) : REGISTER_FORM(opcode, reg, rm);
+
+#undef MEMORY_FORM
+#undef REGISTER_FORM
+	return result;
+}
+
+static int test_8087_production_inventory(void) {
+	NP2CFG saved_config;
+	unsigned opcode;
+	unsigned modrm;
+	unsigned executed = 0;
+
+	saved_config = np2cfg;
+	upd9002_test_flat_memory_set(TRUE);
+	np2cfg.upd8087_enable = 1;
+	np2cfg.upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ;
+	pccore_reset();
+
+	for (opcode = 0xd8; opcode <= 0xdf; opcode++) {
+		for (modrm = 0; modrm <= 0xff; modrm++) {
+			BOOL memory_form;
+			BOOL rewrites_saved_opcode;
+			unsigned expected_ip;
+
+			if (!test_8087_documented_slot(opcode, modrm)) {
+				continue;
+			}
+			memory_form = (modrm & 0xc0) != 0xc0;
+			rewrites_saved_opcode =
+				(memory_form && (((opcode == 0xd9) || (opcode == 0xdd)) &&
+				                 (((modrm >> 3) & 7) == 4))) ||
+				(memory_form && (opcode == 0xdd) &&
+				                 (((modrm >> 3) & 7) == 6)) ||
+				((opcode == 0xdb) && (((modrm >> 3) & 7) == 4) &&
+				 (((modrm & 7) == 3)));
+			if (!memory_form) {
+				expected_ip = 2U;
+			} else {
+				switch (modrm & 0xc0) {
+				case 0x00:
+					expected_ip = ((modrm & 7) == 6) ? 4U : 2U;
+					break;
+				case 0x40:
+					expected_ip = 3U;
+					break;
+				default:
+					expected_ip = 4U;
+					break;
+				}
+			}
+
+			/* Reset only the CPU/device architectural state between cases.
+			 * The flat test bus remains the production memory callback used by
+			 * _esc; no direct upd8087_execute call is made here. */
+			CPU_RESET();
+			upd8087_reset(&upd8087);
+			CPU_CS = 0;
+			CPU_DS = 0;
+			CPU_SS = 0;
+			/* Keep every effective address away from the instruction bytes.  In
+			 * particular FLDENV/FRSTOR legitimately replace the saved opcode
+			 * from their memory image. */
+			CPU_BX = 0x0100;
+			CPU_BP = 0x0100;
+			CPU_SI = 0x0100;
+			CPU_DI = 0x0100;
+			CS_BASE = 0;
+			DS_BASE = 0;
+			SS_BASE = 0;
+			CPU_IP = 0;
+			CPU_REMCLOCK = 1000000;
+			memset(mem, 0, 0x1000);
+			mem[0] = (BYTE)opcode;
+			mem[1] = (BYTE)modrm;
+			/* Safe displacement for mod=00/rm=110 and for mod=10. */
+			mem[2] = 0x00;
+			mem[3] = 0x03;
+			upd9002_core_step();
+			executed++;
+			if ((CPU_IP != expected_ip) ||
+			    (!rewrites_saved_opcode &&
+			     (upd8087.opcode != (UINT16)(((opcode & 7U) << 8) | modrm))) ||
+			    (upd8087.last_ndp_cycles == 0)) {
+				fprintf(stderr,
+				        "selftest: 8087 production inventory failed at %02x:%02x "
+				        "ip=%u/%u op=%03x/%03x ndp=%u cpuclk=%u rem=%d\n",
+				        opcode, modrm, (unsigned)CPU_IP, expected_ip,
+				        (unsigned)upd8087.opcode,
+				        (unsigned)(((opcode & 7U) << 8) | modrm),
+				        (unsigned)upd8087.last_ndp_cycles,
+				        (unsigned)pccore_cpu_clock(), (int)CPU_REMCLOCK);
+				upd9002_test_flat_memory_set(FALSE);
+				np2cfg = saved_config;
+				pccore_reset();
+				return fail("8087 production inventory",
+				            "documented slot did not traverse native CPU/8087 seam");
+			}
+		}
+	}
+
+	upd9002_test_flat_memory_set(FALSE);
+	np2cfg = saved_config;
+	pccore_reset();
+	if (executed != 1597U) {
+		return fail("8087 production inventory", "documented slot count changed");
+	}
+	fprintf(stderr, "selftest: 8087 production inventory ok (%u slots)\n", executed);
+	return SUCCESS;
+}
+
+static int test_8087_production_path(void) {
+	static const BYTE program[] = {
+		0xd9, 0xe8,             /* FLD1 */
+		0xd9, 0xe8,             /* FLD1 */
+		0xd8, 0xc1,             /* FADD ST(0),ST(1) */
+		0x2e, 0xd9, 0x1e, 0x00, 0x03 /* CS:FSTP dword ptr [0300h] */
+	};
+	NP2CFG saved_config;
+	UINT32 ticks_at_5mhz;
+	UINT32 ticks_at_10mhz;
+	const unsigned program_steps = 4U;
+	unsigned index;
+
+	saved_config = np2cfg;
+	upd9002_test_flat_memory_set(TRUE);
+	np2cfg.upd8087_enable = 1;
+	np2cfg.upd8087_clock_hz = 5000000U;
+	pccore_reset();
+	np2cfg.upd8087_clock_hz = 10000000U;
+	if (upd8087.clock_hz != 5000000U) {
+		upd9002_test_flat_memory_set(FALSE);
+		np2cfg = saved_config;
+		pccore_reset();
+		return fail("8087 production path", "requested clock changed before reset");
+	}
+	pccore_reset();
+	if (upd8087.clock_hz != 10000000U) {
+		upd9002_test_flat_memory_set(FALSE);
+		np2cfg = saved_config;
+		pccore_reset();
+		return fail("8087 production path", "reset did not apply requested clock");
+	}
+	np2cfg.upd8087_clock_hz = 5000000U;
+	pccore_reset();
+	CopyMemory(mem, program, sizeof(program));
+	CPU_IP = 0;
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	CPU_REMCLOCK = 1000000;
+	for (index = 0; index < program_steps; index++) {
+		upd9002_core_step();
+	}
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
+	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+		upd9002_test_flat_memory_set(FALSE);
+		np2cfg = saved_config;
+		pccore_reset();
+		return fail("8087 production path", "native fetch did not store 2.0");
+	}
+	ticks_at_5mhz = upd8087.last_cpu_ticks;
+
+	np2cfg.upd8087_clock_hz = 10000000U;
+	pccore_reset();
+	CopyMemory(mem, program, sizeof(program));
+	CPU_IP = 0;
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	CPU_REMCLOCK = 1000000;
+	for (index = 0; index < program_steps; index++) {
+		upd9002_core_step();
+	}
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
+	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+		upd9002_test_flat_memory_set(FALSE);
+		np2cfg = saved_config;
+		pccore_reset();
+		return fail("8087 production path", "10 MHz native fetch did not store 2.0");
+	}
+	ticks_at_10mhz = upd8087.last_cpu_ticks;
+
+	upd9002_test_flat_memory_set(FALSE);
+	np2cfg = saved_config;
+	pccore_reset();
+	if ((ticks_at_5mhz <= ticks_at_10mhz) || (ticks_at_10mhz == 0)) {
+		return fail("8087 production path", "configured frequency did not affect service time");
+	}
+	fprintf(stderr, "selftest: 8087 production path ok\n");
+	return SUCCESS;
+}
+
+static int test_8087_cpu_decode_seams(void) {
+	NP2CFG saved_config;
+	UINT64 saved_remainder;
+	UINT32 saved_cycles;
+	int result = SUCCESS;
+
+	saved_config = np2cfg;
+	upd9002_test_flat_memory_set(TRUE);
+	np2cfg.upd8087_enable = 0;
+	np2cfg.upd8087_clock_hz = 10000000U;
+	pccore_reset();
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	CPU_IP = 0;
+	CPU_REMCLOCK = 1000000;
+
+	/* A disabled FPO1 register form must consume only its native bytes and
+	 * must not call the NDP or read an operand bus. */
+	mem[0] = 0xd9;
+	mem[1] = 0xe8;             /* FLD1 */
+	upd9002_test_flat_memory_reset_counters();
+	upd8087.last_ndp_cycles = 0;
+	upd8087.service_remainder = 0;
+	upd9002_core_step();
+	if (upd8087.enabled || (CPU_IP != 2) || upd8087.last_ndp_cycles != 0 ||
+	    upd8087.service_remainder != 0 ||
+	    upd9002_test_flat_memory_read_count() != 2 ||
+	    upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams", "disabled native FPO1 form reached the NDP");
+		goto cleanup;
+	}
+
+	/* A disabled memory form still advances through the native EA decoder, but
+	 * it must not perform the NDP first-word latch or a device-bus read. */
+	mem[0] = 0xd9;
+	mem[1] = 0x06;             /* direct disp16 ModR/M */
+	mem[2] = 0x34;
+	mem[3] = 0x12;
+	upd9002_test_flat_memory_reset_counters();
+	CPU_IP = 0;
+	upd9002_core_step();
+	if ((CPU_IP != 4) || upd8087.last_ndp_cycles != 0 ||
+	    upd9002_test_flat_memory_read_count() != 4 ||
+	    upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams", "disabled memory FPO1 form performed an NDP bus access");
+		goto cleanup;
+	}
+
+	/* 9Bh is the native CPU FWAIT/POLL seam.  With no device present, a
+	 * POLL/FWAIT must consume its CPU instruction cost but must not wait on a
+	 * nonexistent 8087 BUSY source. */
+	mem[0] = 0x9b;
+	upd9002_test_flat_memory_reset_counters();
+	CPU_IP = 0;
+	CPU_REMCLOCK = 1000;
+	upd9002_core_step();
+	if ((CPU_IP != 1) || (CPU_REMCLOCK <= 0) || upd8087_wait_blocked(&upd8087) ||
+	    upd9002_test_flat_memory_read_count() != 1 ||
+	    upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams", "absent-device POLL/FWAIT waited on a nonexistent BUSY source");
+		goto cleanup;
+	}
+
+	/* 0x66 is a native reserved/FPO2 byte, not an ESC prefix.  It must remain
+	 * outside the sole optional 8087 even when that device is enabled. */
+	np2cfg.upd8087_enable = 1;
+	pccore_reset();
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	CPU_IP = 0;
+	CPU_REMCLOCK = 1000000;
+	mem[0] = 0x66;
+	mem[1] = 0xc0;
+	upd9002_test_flat_memory_reset_counters();
+	upd8087.last_ndp_cycles = 0;
+	upd8087.service_remainder = 0;
+	upd9002_core_step();
+	if (!upd8087.enabled || (CPU_IP != 1) || upd8087.last_ndp_cycles != 0 ||
+	    upd8087.service_remainder != 0 ||
+	    upd9002_test_flat_memory_read_count() != 1 ||
+	    upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams", "native FPO2 byte reached the 8087");
+		goto cleanup;
+	}
+
+	/* An unmasked ESC exception keeps the CPU-side POLL/FWAIT seam blocked
+	 * until the guest recovery path clears the 8087 condition. */
+	mem[0] = 0xd9;
+	mem[1] = 0xc0;             /* FLD ST(0): unmasked empty-stack fault */
+	CPU_IP = 0;
+	CPU_REMCLOCK = 1000;
+	upd8087_set_control(&upd8087,
+	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd9002_core_step();
+	if (!upd8087_interrupt_pending(&upd8087) || !upd8087_wait_blocked(&upd8087)) {
+		result = fail("8087 CPU decode seams", "unmasked ESC exception did not arm the POLL/FWAIT seam");
+		goto cleanup;
+	}
+	mem[0] = 0x9b;             /* POLL/FWAIT */
+	CPU_IP = 0;
+	CPU_REMCLOCK = 1000;
+	upd9002_core_step();
+	if ((CPU_IP != 1) || (CPU_REMCLOCK != 0)) {
+		result = fail("8087 CPU decode seams", "POLL/FWAIT did not yield to the pending 8087 condition");
+		goto cleanup;
+	}
+
+	/* Enter the existing uPD70008 compatibility dispatch and execute an
+	 * overlapping byte.  The compatibility path owns the step; no native ESC
+	 * callback may be generated for it. */
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+	CPU_IP = 0;
+	mem[0] = 0xd8;
+	saved_remainder = upd8087.service_remainder;
+	saved_cycles = upd8087.last_ndp_cycles;
+	upd9002_test_flat_memory_reset_counters();
+	upd9002_core_step();
+	if (upd8087.service_remainder != saved_remainder ||
+	    upd8087.last_ndp_cycles != saved_cycles) {
+		result = fail("8087 CPU decode seams", "8080-compatible path reached the 8087");
+		goto cleanup;
+	}
+
+	fprintf(stderr, "selftest: 8087 CPU decode seams ok\n");
+
+cleanup:
+	upd9002_test_flat_memory_set(FALSE);
+	np2cfg = saved_config;
+	pccore_reset();
+	return result;
+}
+
+static int test_8087_guest_interrupt_route(void) {
+	static const BYTE handler[] = {
+		0xdb, 0xe2,             /* FCLEX */
+		0xb0, 0x20,             /* MOV AL,20H */
+		0xba, 0x84, 0x01,       /* MOV DX,0184H */
+		0xee,                   /* OUT DX,AL: slave EOI */
+		0xba, 0x88, 0x01,       /* MOV DX,0188H */
+		0xee,                   /* OUT DX,AL: master EOI */
+		0xcf                    /* IRET */
+	};
+	NP2CFG saved_config;
+	unsigned index;
+	int result = SUCCESS;
+
+	saved_config = np2cfg;
+	upd9002_test_flat_memory_set(TRUE);
+	np2cfg.upd8087_enable = 1;
+	np2cfg.upd8087_clock_hz = 10000000U;
+	pccore_reset();
+	CPU_IP = 0x0100;
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CPU_SS = 0;
+	CPU_SP = 0x8000;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	SS_BASE = 0;
+	CPU_FLAG |= I_FLAG;
+	CPU_REMCLOCK = 1000000;
+	upd8087_set_control(&upd8087,
+	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	if (((pic.pi[1].icw[1] & 0xf8) != 0x10) ||
+	    ((pic.pi[1].icw[2] & 7) != 7) || !(pic.pi[0].icw[2] & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route", "default VA PIC cascade is not PIC2 IR6 through PIC1 IR7");
+		goto cleanup;
+	}
+
+	/* The default VA PIC maps slave IRQ6 (IRQ14) to vector 16H. */
+	mem[0x0100] = 0xd9;
+	mem[0x0101] = 0xc0;       /* FLD ST(0): masked-off empty-stack fault */
+	mem[0x0016 * 4 + 0] = 0x00;
+	mem[0x0016 * 4 + 1] = 0x02;
+	mem[0x0016 * 4 + 2] = 0x00;
+	mem[0x0016 * 4 + 3] = 0x00;
+	CopyMemory(mem + 0x0200, handler, sizeof(handler));
+	/* Expose the NDP line on the VA slave PIC while retaining other masks. */
+	iocore_out8(0x0186, (REG8)(pic.pi[1].imr & (REG8)~PIC_NDP));
+
+	upd9002_core_step();
+	if (!upd8087_interrupt_pending(&upd8087) || !PICEXISTINTR ||
+	    !(pic.pi[1].irr & PIC_NDP)) {
+		result = fail("8087 guest interrupt route", "NDP exception did not reach the PIC");
+		goto cleanup;
+	}
+	/* The controller request is level-pending, but CPU IF still masks its
+	 * delivery.  pic_irq() must leave both the guest PC and the request
+	 * untouched until the native CPU enables maskable interrupts. */
+	CPU_FLAG &= (UINT16)~I_FLAG;
+	pic_irq();
+	if ((CPU_IP != 0x0102) || !PICEXISTINTR) {
+		result = fail("8087 guest interrupt route", "CPU interrupt masking did not defer the NDP request");
+		goto cleanup;
+	}
+	CPU_FLAG |= I_FLAG;
+	pic_irq();
+	if ((CPU_CS != 0) || (CPU_IP != 0x0200) || CPU_isEI) {
+		result = fail("8087 guest interrupt route", "PIC did not vector the guest handler");
+		goto cleanup;
+	}
+	if ((pic.pi[1].irr & PIC_NDP) || !(pic.pi[1].isr & PIC_NDP) ||
+	    !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route", "PIC acknowledgement did not separate IRR from ISR");
+		goto cleanup;
+	}
+	/* FCLEX releases the source input, but it is not a PIC EOI. */
+	upd9002_core_step();
+	if (upd8087_interrupt_pending(&upd8087) || (pic.pi[1].irr & PIC_NDP) ||
+	    !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route", "FCLEX incorrectly acknowledged the PIC");
+		goto cleanup;
+	}
+	/* Run the remaining handler instructions; the two EOI writes are part of
+	 * the production guest path, not a direct test-side PIC mutation. */
+	for (index = 1; index < 7; index++) {
+		upd9002_core_step();
+	}
+	if ((CPU_CS != 0) || (CPU_IP != 0x0102) || !CPU_isEI ||
+	    PICEXISTINTR || upd8087_interrupt_pending(&upd8087) ||
+	    upd8087_wait_blocked(&upd8087)) {
+		result = fail("8087 guest interrupt route", "guest handler did not clear and return from NDP IRQ");
+		goto cleanup;
+	}
+	/* Edge-triggered PIC2 must not redeliver the held-high source after EOI. */
+	CPU_FLAG |= I_FLAG;
+	pic_irq();
+	if ((CPU_IP != 0x0102) || (pic.pi[1].isr & PIC_NDP) ||
+	    (pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route", "held NDP INT generated a spurious edge redelivery");
+		goto cleanup;
+	}
+	fprintf(stderr, "selftest: 8087 guest interrupt route ok\n");
+
+cleanup:
+	upd9002_test_flat_memory_set(FALSE);
+	np2cfg = saved_config;
+	pccore_reset();
+	return result;
+}
+
+static int test_8087_pic_input_modes(void) {
+	NP2CFG saved_config;
+	int result = SUCCESS;
+
+	saved_config = np2cfg;
+	upd9002_test_flat_memory_set(TRUE);
+	np2cfg.upd8087_enable = 1;
+	np2cfg.upd8087_clock_hz = 10000000U;
+	pccore_reset();
+
+	/* Rebase PIC2 through the guest-visible ICW path.  A direct vector
+	 * injection would incorrectly continue to use vector 16H; the cascade
+	 * must instead select base 40H + slave IR6 = vector 46H. */
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CPU_SS = 0;
+	CPU_SP = 0x8000;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	SS_BASE = 0;
+	CPU_FLAG |= I_FLAG;
+	CPU_REMCLOCK = 1000000;
+	upd8087_set_control(&upd8087,
+	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	mem[0x0100] = 0xd9;
+	mem[0x0101] = 0xc0;         /* FLD ST(0): unmasked empty-stack fault */
+	mem[0x16 * 4 + 0] = 0x00;
+	mem[0x16 * 4 + 1] = 0x04;  /* Distinguish an illegal direct 16H route. */
+	mem[0x46 * 4 + 0] = 0x00;
+	mem[0x46 * 4 + 1] = 0x03;
+	CPU_IP = 0x0100;
+	iocore_out8(0x0184, 0x11);
+	iocore_out8(0x0186, 0x40);
+	iocore_out8(0x0186, 0x07);
+	iocore_out8(0x0186, 0x09);
+	iocore_out8(0x0186, 0x00);
+	upd9002_core_step();
+	if (!upd8087_interrupt_pending(&upd8087) || !(pic.pi[1].irr & PIC_NDP)) {
+		result = fail("8087 PIC input modes", "rebased NDP source did not reach PIC2");
+		goto cleanup;
+	}
+	CPU_FLAG |= I_FLAG;
+	pic_irq();
+	if ((CPU_IP != 0x0300) ||
+	    !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 PIC input modes", "PIC2 base 40H did not produce vector 46H");
+		goto cleanup;
+	}
+	/* Source clear is separate from PIC acknowledgement, even after the
+	 * vector has been rebased. */
+	mem[0x0300] = 0xdb;
+	mem[0x0301] = 0xe2;         /* FCLEX */
+	upd9002_core_step();
+	if (upd8087_interrupt_pending(&upd8087) || !(pic.pi[1].isr & PIC_NDP) ||
+	    !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 PIC input modes", "FCLEX acknowledged the rebased PIC request");
+		goto cleanup;
+	}
+	iocore_out8(0x0184, 0x20);
+	iocore_out8(0x0188, 0x20);
+
+	/* Reinitialize PIC2 in level-triggered mode and hold the logical NDP input
+	 * asserted across both EOIs.  The source must be presented again only by
+	 * PIC arbitration, not by a second direct CPU vector call. */
+	pccore_reset();
+	CPU_CS = 0;
+	CPU_DS = 0;
+	CPU_SS = 0;
+	CPU_SP = 0x8000;
+	CS_BASE = 0;
+	DS_BASE = 0;
+	SS_BASE = 0;
+	CPU_FLAG |= I_FLAG;
+	CPU_REMCLOCK = 1000000;
+	mem[0x16 * 4 + 0] = 0x00;
+	mem[0x16 * 4 + 1] = 0x03;
+	CPU_IP = 0x0300;
+	iocore_out8(0x0184, 0x19);   /* ICW1 + LTIM + ICW4 */
+	iocore_out8(0x0186, 0x10);
+	iocore_out8(0x0186, 0x07);
+	iocore_out8(0x0186, 0x09);
+	iocore_out8(0x0186, 0x00);
+	pic_setirq_level(IRQ_NDP, TRUE);
+	CPU_FLAG |= I_FLAG;
+	pic_irq();
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
+	    !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 PIC input modes", "level-triggered NDP input did not vector");
+		goto cleanup;
+	}
+	iocore_out8(0x0184, 0x20);
+	iocore_out8(0x0188, 0x20);
+	if (!(pic.pi[1].irr & PIC_NDP) || !PICEXISTINTR) {
+		result = fail("8087 PIC input modes", "held level did not reappear after PIC EOI");
+		goto cleanup;
+	}
+	CPU_FLAG |= I_FLAG;
+	CPU_IP = 0x0300;
+	pic_irq();
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
+	    !(pic.pi[0].isr & PIC_SLAVE)) {
+		result = fail("8087 PIC input modes", "held level was not redelivered by PIC arbitration");
+		goto cleanup;
+	}
+	pic_setirq_level(IRQ_NDP, FALSE);
+	if (pic.pi[1].irr & PIC_NDP) {
+		result = fail("8087 PIC input modes", "deasserted level remained in slave IRR");
+		goto cleanup;
+	}
+	iocore_out8(0x0184, 0x20);
+	iocore_out8(0x0188, 0x20);
+	CPU_FLAG |= I_FLAG;
+	pic_irq();
+	if (PICEXISTINTR) {
+		result = fail("8087 PIC input modes", "deasserted level remained deliverable");
+		goto cleanup;
+	}
+	fprintf(stderr, "selftest: 8087 PIC input modes ok\n");
+
+cleanup:
+	upd9002_test_flat_memory_set(FALSE);
+	np2cfg = saved_config;
+	pccore_reset();
+	return result;
+}
+#endif
+
 static int test_statsave(void) {
 	char path1[MAX_PATH];
 	char path2[MAX_PATH];
@@ -2109,6 +2724,10 @@ static int test_statsave(void) {
 	BYTE *hostfat_image;
 	UINT16 identity_ip;
 	BYTE identity_memory;
+	UINT8 saved_8087_enable;
+	UINT32 saved_8087_config_clock;
+	UINT32 expected_8087_clock;
+	UINT64 expected_8087_remainder;
 	int ret;
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	static const UINT8 f4_program[] = {0xaf, 0x3e, 0x5a, 0xd3, 0xf4, 0x00};
@@ -2122,11 +2741,37 @@ static int test_statsave(void) {
 	file_delete(path2);
 	file_delete(pathbad);
 	hostfat_image = NULL;
+	saved_8087_enable = np2cfg.upd8087_enable;
+	saved_8087_config_clock = np2cfg.upd8087_clock_hz;
 
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	/* Exercise the actual state-save section with a nonzero clock residue and
+	 * a pending unmasked exception, rather than only testing the codec directly. */
+	np2cfg.upd8087_enable = 1;
+	np2cfg.upd8087_clock_hz = 8000000U;
+	pccore_reset();
+	if (!upd8087.enabled || (upd8087.clock_hz != 8000000U)) {
+		pccore_term();
+		soundmng_deinitialize();
+		return fail("8087 statsave", "reset did not apply enabled 8 MHz configuration");
+	}
+	upd8087.service_remainder = 1234567;
+	upd8087.status |= UPD8087_STATUS_IE;
+	upd8087_set_control(&upd8087,
+	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	if (!upd8087.busy || !upd8087.pending_interrupt ||
+	    (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
+	    (UPD8087_STATUS_IR | UPD8087_STATUS_B)) {
+		pccore_term();
+		soundmng_deinitialize();
+		return fail("8087 statsave", "pending exception was not armed");
+	}
+	pic_setirq(IRQ_NDP);
+	expected_8087_clock = upd8087.clock_hz;
+	expected_8087_remainder = upd8087.service_remainder;
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
 		pccore_term();
@@ -2262,7 +2907,20 @@ static int test_statsave(void) {
 		ret = STATFLAG_FAILURE;
 	}
 	if (ret == STATFLAG_SUCCESS) {
+		/* Force the loader to initialize a different baseline before the saved
+		 * UPD8087 section is applied. */
+		np2cfg.upd8087_enable = 0;
+		np2cfg.upd8087_clock_hz = 5000000U;
 		ret = statsave_load(path1);
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+	    (!upd8087.enabled || upd8087.clock_hz != expected_8087_clock ||
+	     upd8087.service_remainder != expected_8087_remainder ||
+	     !upd8087.busy || !upd8087.pending_interrupt ||
+	     (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
+	     (UPD8087_STATUS_IR | UPD8087_STATUS_B) ||
+	     !(pic.pi[1].irr & PIC_NDP))) {
+		ret = STATFLAG_FAILURE;
 	}
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if ((ret == STATFLAG_SUCCESS) && (upd9002_dispatch_normalization_verify_live() != SUCCESS)) {
@@ -2282,6 +2940,30 @@ static int test_statsave(void) {
 		soundmng_stop();
 		ret = statsave_save(path2);
 	}
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	/* Keep the legacy trace selftest's first eight CPU steps stable: the
+	 * existing M42/M60a trace contract runs before these additional 8087
+	 * production fixtures.  The fixtures still use the real machine path and
+	 * run while the machine is live; by this point the bounded trace window has
+	 * already completed. */
+	if (ret == STATFLAG_SUCCESS && test_8087_production_path() != SUCCESS) {
+		ret = STATFLAG_FAILURE;
+	}
+	if (ret == STATFLAG_SUCCESS && test_8087_production_inventory() != SUCCESS) {
+		ret = STATFLAG_FAILURE;
+	}
+	if (ret == STATFLAG_SUCCESS && test_8087_cpu_decode_seams() != SUCCESS) {
+		ret = STATFLAG_FAILURE;
+	}
+	if (ret == STATFLAG_SUCCESS && test_8087_guest_interrupt_route() != SUCCESS) {
+		ret = STATFLAG_FAILURE;
+	}
+	if (ret == STATFLAG_SUCCESS && test_8087_pic_input_modes() != SUCCESS) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
+	np2cfg.upd8087_enable = saved_8087_enable;
+	np2cfg.upd8087_clock_hz = saved_8087_config_clock;
 	pccore_term();
 	soundmng_deinitialize();
 	hostfat_unmount();

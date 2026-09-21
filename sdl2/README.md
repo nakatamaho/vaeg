@@ -522,9 +522,10 @@ old `biospath` INI key is ignored by SDL2 and is no longer written.
 runtime.
 
 Use `Emulate -> Boot model -> VA` for `pc_model=88VA1` and unsuffixed files.
-Use `VA2/VA3` for `pc_model=88VA2` and the five `*_va2.rom` files. Changing
-the selection performs the existing reset flow and retains configured FDD
-and SASI media.
+Use `VA2/VA3` for `pc_model=88VA2` with the optional 8087 disabled, or
+`VA2/VA3 + 8087` for the same ROM set with the single optional 8087 enabled.
+Changing the selection performs the existing reset flow and retains configured
+FDD and SASI media.
 
 ## Configuration
 

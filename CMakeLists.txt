@@ -192,6 +192,7 @@ set(VAEG_COMMON_SOURCES
     generic/np2info.c)
 
 set(VAEG_CORE_SOURCES
+    cpu/upd8087/upd8087.c
     cpu/upd9002/upd9002_core.c
 	cpu/upd9002/upd9002_diagnostic.c
 	diagnostics/upd9002_debug.c
@@ -538,6 +539,25 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
 endif()
 
+# Berkeley SoftFloat Release 3e is vendored byte-for-byte under external/.
+# Build the exact 8086-SSE specialization selected by the supplied upstream
+# makefile; the emulator wrapper remains outside the vendored subtree.
+include(cmake/softfloat_sources.cmake)
+add_library(vaeg_softfloat STATIC
+    ${VAEG_SOFTFLOAT_GENERIC_SOURCES}
+    ${VAEG_SOFTFLOAT_SPECIALIZED_SOURCES})
+target_include_directories(vaeg_softfloat PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/source/8086-SSE"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/source/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/build/Linux-x86_64-GCC")
+target_compile_definitions(vaeg_softfloat PUBLIC
+    SOFTFLOAT_FAST_INT64
+    SOFTFLOAT_ROUND_ODD
+    INLINE_LEVEL=5
+    SOFTFLOAT_FAST_DIV32TO16
+    SOFTFLOAT_FAST_DIV64TO32)
+target_compile_options(vaeg_softfloat PRIVATE -O2)
+
 if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
 endif()
@@ -547,7 +567,7 @@ endif()
 
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
-target_link_libraries(vaeg_core PUBLIC vaeg_common)
+target_link_libraries(vaeg_core PUBLIC vaeg_common vaeg_softfloat)
 target_compile_definitions(vaeg_core PUBLIC
     SUPPORT_V30ORIGINAL)
 if(VAEG_ENABLE_TESTS)
@@ -567,6 +587,14 @@ endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
+endif()
+
+add_executable(vaeg_8087_tests tools/8087/test_core.c)
+target_include_directories(vaeg_8087_tests PRIVATE ${VAEG_INCLUDE_DIRS})
+target_link_libraries(vaeg_8087_tests PRIVATE vaeg_core vaeg_softfloat)
+target_compile_options(vaeg_8087_tests PRIVATE -Wall -fsigned-char)
+if(VAEG_WERROR)
+    target_compile_options(vaeg_8087_tests PRIVATE -Werror)
 endif()
 
 add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
@@ -814,6 +842,7 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_8087_core COMMAND vaeg_8087_tests)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")

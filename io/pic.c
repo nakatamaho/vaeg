@@ -23,6 +23,21 @@ static const _PICITEM def_master = {{0x11, 0x08, 0x80, 0x1d}, 0x7d, 0, 0, 0, 0, 
 
 static const _PICITEM def_slave = {{0x11, 0x10, 0x07, 0x09}, 0x71, 0, 0, 0, 0, 0};
 
+/* The historical PIC state image stores the controller registers verbatim.
+ * Keep the external input levels separate so adding level-aware NDP routing
+ * does not change that compatibility image. */
+static REG8 pic_level_state[2];
+
+static void pic_apply_level_requests(void) {
+	unsigned controller;
+
+	for (controller = 0; controller < 2; controller++) {
+		if (pic.pi[controller].icw[0] & 0x08) {
+			pic.pi[controller].irr |= pic_level_state[controller];
+		}
+	}
+}
+
 // ----
 
 #if 0 // Disabled implementation: slave arbitration is incorrect.
@@ -110,6 +125,7 @@ void pic_irq(void) { // ver0.78
 #endif
 
 	p = &pic;
+	pic_apply_level_requests();
 
 	sir = p->pi[1].irr & (~p->pi[1].imr);
 	slave = 1 << (p->pi[1].icw[2] & 7);
@@ -213,11 +229,47 @@ void pic_setirq(REG8 irq) {
 	scsiio_trace_pic_irq(irq, TRUE);
 }
 
+void pic_setirq_level(REG8 irq, BOOL asserted) {
+	PICITEM pi;
+	REG8 bit;
+	REG8 previous;
+	REG8 controller;
+
+	controller = (REG8)((irq >> 3) & 1);
+	pi = pic.pi + controller;
+	bit = (REG8)(1U << (irq & 7));
+	previous = pic_level_state[controller] & bit;
+	if (asserted) {
+		pic_level_state[controller] |= bit;
+		/* LTIM=0 is the VA observed edge mode.  A held NDP INT must
+		 * not manufacture another edge on every CPU instruction. */
+		if ((pi->icw[0] & 0x08) || !previous) {
+			pi->irr |= bit;
+		}
+	} else {
+		pic_level_state[controller] &= (REG8)~bit;
+		/* In level mode IRR follows the deasserted input.  In edge mode
+		 * a request already latched in IRR belongs to the controller and
+		 * is intentionally left for normal PIC acknowledgement/EOI. */
+		if (pi->icw[0] & 0x08) {
+			pi->irr &= (REG8)~bit;
+		}
+	}
+	if (asserted != (previous != 0)) {
+		scsiio_trace_pic_irq(irq, asserted);
+	}
+}
+
 void pic_resetirq(REG8 irq) {
 	PICITEM pi;
+	REG8 controller;
+	REG8 bit;
 
-	pi = pic.pi + ((irq >> 3) & 1);
-	pi->irr &= ~(1 << (irq & 7));
+	controller = (REG8)((irq >> 3) & 1);
+	pi = pic.pi + controller;
+	bit = (REG8)(1U << (irq & 7));
+	pic_level_state[controller] &= (REG8)~bit;
+	pi->irr &= (REG8)~bit;
 }
 
 // ---- I/O
@@ -249,6 +301,7 @@ static void IOOUTCALL pic_o00(UINT port, REG8 dat) {
 		if (dat & PIC_OCW2_EOI) {
 			picp->isr &= ~(1 << level);
 			scsiio_trace_pic_irq((REG8)(((port >> 3) & 1) * 8 + level), FALSE);
+			pic_apply_level_requests();
 		}
 		nevent_forceexit(); // mainloop exit
 		break;
@@ -303,6 +356,7 @@ static void IOOUTCALL pic_o02(UINT port, REG8 dat) {
 		if (picp->writeicw >= (3 + (picp->icw[0] & 1))) {
 			picp->writeicw = 0;
 		}
+		pic_apply_level_requests();
 	}
 	nevent_forceexit();
 }
@@ -358,6 +412,7 @@ static REG8 IOINPCALL picva_i18a(UINT port) {
 void pic_reset(void) {
 	pic.pi[0] = def_master;
 	pic.pi[1] = def_slave;
+	ZeroMemory(pic_level_state, sizeof(pic_level_state));
 }
 
 void pic_bind(void) {

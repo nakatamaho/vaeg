@@ -187,6 +187,29 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### 8087 DC/DE register arithmetic passed operation direction incorrectly
+
+- **Status:** fixed in the current local v7 working tree; repository
+  integration commit remains pending at the no-push/no-merge boundary.
+- **Symptom/scope:** VA2 N88 BASIC `/87` converted `A=1.5` and `B=2.25` to
+  values scaled by the packed-BCD integer magnitude, so `PRINT A+B` produced
+  `3.75E+17` instead of `3.75`. The affected scope was 8087 `DC`/`DE`
+  register-form arithmetic, including the ROM's `DC F9` conversion loop.
+- **Demonstrated root cause:** `execute_register_instruction()` passed the
+  `binary_stack_operation()` `operation` and `reverse` parameters in the
+  opposite order for the `DC` and `DE` register forms. `DC F9` therefore
+  selected the add operation instead of the documented `FDIV ST(1),ST(0)`
+  operation.
+- **Correction:** pass the operation selector and operand-reversal flag in
+  the declared order, with the documented `DC` and `DE` direction tables.
+- **Verification:** focused `DC F9`/`DC F1` and `DE F9`/`DE E1` tests pass;
+  `vaeg_8087_tests`, production selftest, full CTest (`98/98`, one existing
+  external SST skip), and the VA2 `/87` FAC/BASIC workload pass. Evidence:
+  [v7 progress record](../8087/v7/records/progress.md) and
+  [VA2 BASIC issue record](../8087/v7/records/issue-basic87-va2-int-route.md).
+- **Task/evidence/commit:** v7 8087 local QA; no commit was created during
+  this run, so no commit link is claimed.
+
 ### Native Metal CRT wrote the filter chain directly to the drawable
 
 - **Status:** intermediate-surface correction landed in M99z36; it was

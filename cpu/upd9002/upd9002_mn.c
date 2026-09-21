@@ -6,6 +6,7 @@
 #include "upd9002_trace.h"
 #include "upd9002_perf.h"
 #include "upd9002_diagnostic.h"
+#include "upd8087/upd8087.h"
 #include "dmap.h"
 #include "upd9002_ops.mcr"
 #if defined(VAEG_UPD9002_M46_TESTING)
@@ -37,6 +38,29 @@ static void _ea8_write(UINT op, UINT32 madr, UINT8 value);
 static UINT16 _ea16_read(UINT op, UINT32 *madr);
 static void _ea16_write(UINT op, UINT32 madr, UINT16 value);
 static void _adjust_flags(UINT8 value, BOOL adjust_low, BOOL adjust_high, UINT overflow);
+
+static UINT8 upd9002_8087_read8(void *opaque, UINT32 address) {
+	(void)opaque;
+	return (UINT8)upd9002_memoryread(address);
+}
+
+static void upd9002_8087_write8(void *opaque, UINT32 address, UINT8 value) {
+	(void)opaque;
+	upd9002_memorywrite(address, value);
+}
+
+static UINT8 upd9002_8087_primary_opcode(void) {
+	UINT16 ip = upd9002_step_start_ip;
+	UINT8 opcode;
+
+	opcode = (UINT8)upd9002_memoryread(CS_BASE + ip);
+	while ((opcode == 0x26) || (opcode == 0x2e) || (opcode == 0x36) ||
+	       (opcode == 0x3e) || (opcode == 0xf2) || (opcode == 0xf3)) {
+		ip++;
+		opcode = (UINT8)upd9002_memoryread(CS_BASE + ip);
+	}
+	return opcode;
+}
 
 // ----
 
@@ -1811,6 +1835,12 @@ UPD9002FN _call_far(void) { // 9A:	call far
 UPD9002FN _wait(void) { // 9B:	wait
 
 	UPD9002_WORKCLOCK(2);
+	if (upd8087_wait_blocked(&upd8087)) {
+		/* Let machine events and PIC arbitration run before the native
+		 * decoder fetches another instruction.  The 8087 request is sticky
+		 * and is cleared only by guest recovery such as FCLEX. */
+		UPD9002_REMCLOCK = 0;
+	}
 }
 
 UPD9002FN _pushf(void) { // 9C:	pushf
@@ -2527,12 +2557,48 @@ UPD9002FN _xlat(void) { // D6:	xlat
 UPD9002FN _esc(void) { // D8:	esc
 
 	UINT op;
+	UINT8 opcode;
+	UINT32 segment;
+	UINT offset;
+	UINT32 service_ticks;
+	UPD8087_OPERAND operand;
 
 	UPD9002_WORKCLOCK(2);
 	GET_PCBYTE(op)
-	if (op < 0xc0) {
-		CALC_LEA(op);
+	if (!upd8087.enabled) {
+		/* The disabled-device path must release the logical input without
+		 * manufacturing a vector or touching the guest PIC registers. */
+		pic_setirq_level(IRQ_NDP, FALSE);
+		if (op < 0xc0) {
+			CALC_LEA(op);
+		}
+		return;
 	}
+	opcode = upd9002_8087_primary_opcode();
+
+	/* The native CPU decoder owns ModR/M, displacement, segment selection,
+	 * effective address, and the first operand-word bus cycle. */
+	ZeroMemory(&operand, sizeof(operand));
+	operand.bus.read8 = upd9002_8087_read8;
+	operand.bus.write8 = upd9002_8087_write8;
+	if (op < 0xc0) {
+		offset = GET_EA(op, &segment);
+		operand.address = (segment + offset) & 0x000fffff;
+		operand.first_word = upd9002_memoryread_seg_w(segment, offset);
+		operand.first_word_valid = TRUE;
+		upd8087.data_address = operand.address;
+	}
+	upd8087.instruction_address = (CS_BASE + upd9002_step_start_ip) & 0x000fffff;
+	(void)upd8087_execute(&upd8087, opcode, (UINT8)op,
+	                      (op < 0xc0) ? &operand : NULL);
+	service_ticks = upd8087_service_ticks(&upd8087,
+		upd8087_instruction_cycles(opcode, (UINT8)op),
+		pccore_cpu_clock());
+	UPD9002_REMCLOCK -= (SINT32)service_ticks;
+	/* Proposed VA logical route: the sole 8087 drives slave PIC IR6
+	 * (logical IRQ14), and the existing PIC cascade chooses the guest vector
+	 * from its programmed ICW2.  Do not inject vector 16H here. */
+	pic_setirq_level(IRQ_NDP, upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
 }
 
 UPD9002FN _loopnz(void) { // E0:	loopnz
