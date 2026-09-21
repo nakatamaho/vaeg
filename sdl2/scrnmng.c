@@ -40,6 +40,7 @@
 #include "librashader/native_presenter_controller.h"
 #include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
+#include "recording/recording_native_composition.h"
 #include "recording/recording_osd_snapshot.h"
 
 typedef struct {
@@ -1112,6 +1113,40 @@ BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
 		return FAILURE;
 	}
 	memcpy(snapshot, &scrnmng.osd_snapshot, sizeof(*snapshot));
+	return SUCCESS;
+}
+
+BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) {
+	VAEG_RECORDING_NATIVE_RGB565_SOURCE source;
+	VAEG_RECORDING_NATIVE_FRAME_ERROR error;
+	VAEG_RECORDING_OSD_SNAPSHOT snapshot;
+
+	if ((frame == NULL) || (scrnmng.shadow == NULL) || !scrnmng.enable ||
+	    (scrnmng.width <= 0) || (scrnmng.height <= 0) || (scrnmng.shadow_pitch <= 0)) {
+		return FAILURE;
+	}
+	if (scrnmng_get_osd_snapshot(&snapshot) != SUCCESS) {
+		return FAILURE;
+	}
+	source.pixels = scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2);
+	source.width = (UINT32)scrnmng.width;
+	source.height = (UINT32)scrnmng.height;
+	source.pitch_bytes = (UINT32)scrnmng.shadow_pitch;
+	source.source_size_bytes = (UINT64)scrnmng.shadow_pitch * (UINT32)scrnmng.height -
+	                           (SCRNMNG_SURFACE_GUARD_LEFT * 2);
+	error = vaeg_recording_native_frame_copy_rgb565(&source, frame);
+	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+		fprintf(stderr, "Native recording frame copy failed: %s\n",
+		        vaeg_recording_native_frame_error_name(error));
+		return FAILURE;
+	}
+	error = vaeg_recording_native_frame_apply_osd(frame, &snapshot, fontdata_8);
+	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+		fprintf(stderr, "Native recording OSD composition failed: %s\n",
+		        vaeg_recording_native_frame_error_name(error));
+		vaeg_recording_native_frame_destroy(frame);
+		return FAILURE;
+	}
 	return SUCCESS;
 }
 
