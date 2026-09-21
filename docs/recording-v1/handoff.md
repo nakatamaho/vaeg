@@ -1,8 +1,8 @@
 # Recording v1 handoff
 
-Current state: REC02 machine gate PASS. Completed tasks: REC00/M100r1,
-explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2 and
-REC02/M100r3. Assigned branch: topic/m100r3-recording-clock.
+Current state: REC03 machine gate PASS. Completed tasks: REC00/M100r1,
+explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
+REC02/M100r3 and REC03/M100r4. Assigned branch: topic/m100r3-recording-clock.
 
 ## REC02 completion
 
@@ -38,6 +38,41 @@ timing claim is inferred from 48,000/1,001.
 REC02 does not add a recorder, FFmpeg backend, video/audio tap, queue, UI or
 runtime capture. Audio look-ahead reconciliation and source integration remain
 the subjects of REC10/REC11.
+
+## REC03 completion
+
+* `CaptureSlice` copies the complete video storage and interleaved stereo S16
+  payload into private vectors before admission. Producer buffer mutation or
+  destruction cannot affect the queued item.
+* `BoundedSliceQueue` has checked slice-count and byte budgets. The configured
+  active-interval and readback-staging reservations are charged before any
+  queued bytes, and admission returns `WouldBlock` without waiting.
+* Admission requires contiguous sequence IDs, guest endpoints, audio sample
+  ranges, descriptor values and descriptor-generation identity. Invalid
+  sequence, descriptor, interval and audio gaps have distinct errors.
+* `SliceWorker` owns its sink and drains a close, propagates sink failure,
+  never detaches, and uses condition-variable predicates for data, capacity,
+  cancellation and failure wakeups. No FFmpeg, file I/O, SDL or audio callback
+  is involved.
+* `RecordingSession` exposes Preparing, Armed, Recording, Finalizing, Failed
+  and Canceled behavior with idempotent Stop and explicit terminal
+  acknowledgement. Queue admission remains nonblocking.
+
+## REC03 evidence
+
+Evaluated source commit:
+e7f53b3e1f245dd9f546ba8cf16e46ccaf30469b.
+
+The macOS arm64 AppleClang build, four focused recording tests, full frontend
+build, ROM-less self-test and smoke run passed. The queue test also passed under
+AddressSanitizer and UndefinedBehaviorSanitizer; macOS does not support
+`ASAN_OPTIONS=detect_leaks=1`, so the focused rerun used `detect_leaks=0` and
+is not a leak-detection claim. The expected ROM-less missing-ROM warning was
+unchanged. Repository validators passed.
+
+REC03 remains synthetic. It does not connect live guest video, audio production,
+OSD, presenters, FFmpeg, or user-facing lifecycle controls. Those integrations
+remain later milestones.
 
 ## REC01 completion
 
@@ -80,6 +115,7 @@ AppleClang 21, CMake 3.31.12, MacPorts SDL2 2.32.10 and Ninja.
 
 Human gate: NOT_REQUIRED for REC01. REC00 human acceptance is recorded above.
 
-The next dependency-ready task is REC02/M100r3. Do not start REC02 in this
-session. Later tasks must preserve the two-source OSD-inclusive contract and
+The next dependency-ready task is REC04/M100r5. Under the current
+recording-v1 authorization, continue automatically after the REC03 report is
+recorded; later tasks must preserve the two-source OSD-inclusive contract and
 must add no FFmpeg dependency until their own milestone requires it.
