@@ -1,6 +1,6 @@
 # M100r8 - REC07 recording-v1 Matroska writer
 
-Status: IN_PROGRESS
+Status: MACHINE_GATE_PASS
 Feature: REC07
 Scope: exclusive local seekable Matroska output and combined FFV1/PCM fixture
 

@@ -1,9 +1,46 @@
 # Recording v1 handoff
 
-Current state: REC06 machine gate PASS. Completed tasks: REC00/M100r1,
+Current state: REC07 machine gate PASS. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,
-REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6 and REC06/M100r7. Assigned branch:
+REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7 and
+REC07/M100r8. Assigned branch:
 topic/m100r3-recording-clock.
+
+## REC07 completion
+
+* `FfmpegMatroskaWriter` creates one FFV1 video stream and one PCM S16LE
+  stereo stream in an explicit Matroska context. It reads the actual stream
+  timebases after the header and converts complete encoded intervals once from
+  their codec/sample epochs.
+* A custom seekable AVIO uses an exclusive sibling partial file and a
+  non-replacing final publication. Existing targets and partials survive
+  failures; public-safe source/OSD/format/build tags are written into the
+  container.
+* The synthetic fixture decodes exact RGB and PCM bytes, checks seekability,
+  metadata, packet ordering and boundary counts, and exercises lifecycle and
+  I/O/publication failure injection. `tools/recording/verify_movie.py` provides
+  an independent ffprobe/ffmpeg verification path.
+
+## REC07 evidence
+
+Evaluated source commit:
+2a3c78583767624aea239c37cb8b9c1beb5a9f7c.
+
+On macOS arm64 with AppleClang 21, CMake 3.31.12, Ninja 1.13.2, MacPorts SDL2
+2.32.10 and FFmpeg 8.1.2, the enabled recording suite passed 8/8, the disabled
+suite passed 4/4 with no generated FFmpeg references, and the combined fixture
+passed under ASan/UBSan with macOS leak detection disabled. The fixture was
+independently inspected with ffprobe and `verify_movie.py`; it contained exactly
+one FFV1 stream, one PCM S16LE stream, three decoded 5x3 frames and 4800 exact
+stereo samples. Unicode/space paths and non-replacing partial ownership were
+tested. ROM-less self-test and smoke passed for both ON and OFF builds.
+
+REC07 is synthetic backend evidence only. It does not establish live guest-time
+production, OSD composition, presenter readback, UI lifecycle, VLC playback,
+Windows/Linux runtime or release dependency compliance. Read-only filesystem,
+multi-gigabyte sparse-file and platform-specific handle validation remain
+explicit later fault/platform work. The next dependency-ready task is
+REC08/M100r9.
 
 ## REC06 completion
 
