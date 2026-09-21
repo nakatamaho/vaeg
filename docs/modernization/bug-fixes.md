@@ -209,6 +209,28 @@ separate parity correction or move it to Open Defects.
 - **Task/evidence/commit:** v7 8087 local QA; integrated in
   [6af71282](https://github.com/nakatamaho/vaeg/commit/6af7128276c0e03f496fc63ab10847f3ef94f366).
 
+### Windows native CRT skipped the Dear ImGui menu
+
+- **Status:** fixed in the MinGW native-presenter startup path.
+- **Symptom/scope:** Windows sessions with `NativeCRT=1` showed no main menu,
+  including when started with `--windowed`; the 8087 boot-profile menu was
+  therefore unreachable even though it was present in the executable.
+- **Demonstrated root cause:** `np2.c` only called `gui_initialize()` when
+  `scrnmng_native_active()` was false on Windows. The native D3D11 presenter
+  owns presentation, but `gui_initialize()` already has a native-presenter
+  backend; skipping it left `g_gui.initialized` false and `gui_draw()` returned
+  immediately.
+- **Correction:** initialize Dear ImGui for both SDL and native presenter
+  paths, retaining native-to-SDL fallback if native GUI preparation fails.
+  `--windowed` remains a display-mode override and no longer depends on
+  disabling NativeCRT to expose menus.
+- **Verification:** Linux 8087 core tests and production selftest passed;
+  MinGW cross build produced a PE32+ executable containing the 8087 profile
+  menu strings. Physical Windows runtime remains unverified because Wine is
+  unavailable in the local environment.
+- **Task/evidence/commit:** local MinGW menu regression; fix in
+  [17b0bc68](https://github.com/nakatamaho/vaeg/commit/17b0bc68539abccd8e11d4c39d7297e45333c564).
+
 ### Native Metal CRT wrote the filter chain directly to the drawable
 
 - **Status:** intermediate-surface correction landed in M99z36; it was
