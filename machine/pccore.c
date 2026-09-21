@@ -37,6 +37,7 @@
 #include "scrnmng.h"
 #include "../vram/scrndrawva.h"
 #include "recording/recording_native_tap.h"
+#include "recording/recording_native_session.h"
 #include "memoryva.h"
 #include "tsp.h"
 #include "sgp.h"
@@ -346,6 +347,7 @@ UINT64 pccore_guest_clock(void) {
 void pccore_reset(void) {
 	int i;
 
+	vaeg_recording_native_session_epoch_change();
 	pccore_debug_resume = FALSE;
 	pccore_guest_clock_high = 0;
 	pccore_guest_clock_last = 0;

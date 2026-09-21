@@ -140,6 +140,7 @@ class BoundedSliceQueue {
 	BoundedSliceQueue &operator=(const BoundedSliceQueue &) = delete;
 
 	QueueError try_push(std::unique_ptr<CaptureSlice> &slice) noexcept;
+	QueueError wait_push(std::unique_ptr<CaptureSlice> &slice) noexcept;
 	QueueError wait_pop(std::unique_ptr<CaptureSlice> *slice) noexcept;
 	void close_producer() noexcept;
 	void cancel() noexcept;
@@ -190,6 +191,14 @@ class SliceSink {
   public:
 	virtual ~SliceSink() = default;
 	virtual QueueError write(const CaptureSlice &slice) noexcept = 0;
+	virtual const char *error_name() const noexcept {
+		return nullptr;
+	}
+	virtual QueueError finish() noexcept {
+		return QueueError::None;
+	}
+	virtual void cancel() noexcept {
+	}
 };
 
 class SliceWorker {
@@ -205,6 +214,7 @@ class SliceWorker {
 	bool joinable() const noexcept;
 	QueueError result() const noexcept;
 	std::uint64_t written_slices() const noexcept;
+	const char *sink_error_name() const noexcept;
 
   private:
 	void run() noexcept;
@@ -240,12 +250,14 @@ class RecordingSession {
 	QueueError arm(std::unique_ptr<SliceSink> sink) noexcept;
 	QueueError begin() noexcept;
 	QueueError try_submit(std::unique_ptr<CaptureSlice> &slice) noexcept;
+	QueueError wait_submit(std::unique_ptr<CaptureSlice> &slice) noexcept;
 	QueueError stop() noexcept;
 	QueueError cancel() noexcept;
 	QueueError acknowledge_terminal() noexcept;
 
 	SessionState state() const noexcept;
 	QueueError last_error() const noexcept;
+	const char *sink_error_name() const noexcept;
 	std::uint64_t accepted_slices() const noexcept;
 	std::uint64_t written_slices() const noexcept;
 

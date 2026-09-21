@@ -369,6 +369,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/recording/recording_native_composition.c
     sdl2/recording/recording_osd_snapshot.c
     sdl2/recording/recording_native_tap.c
+    sdl2/recording/recording_native_session.cpp
     sdl2/recording/recording_contracts.cpp
     sdl2/recording/recording_clock.cpp
     sdl2/recording/recording_queue.cpp
@@ -1013,6 +1014,40 @@ if(VAEG_ENABLE_TESTS)
         LABELS "romless;recording;queue")
 
     if(VAEG_ENABLE_RECORDING)
+        add_executable(vaeg_recording_native_session_test
+            tests/frontend/recording/test_recording_native_session.cpp
+            sdl2/recording/recording_native_session.cpp
+            sdl2/recording/recording_native_tap.c
+            sdl2/recording/recording_queue.cpp
+            sdl2/recording/recording.c
+            sdl2/recording/recording_contracts.cpp
+            sdl2/recording/recording_clock.cpp
+            sdl2/recording/recording_ffmpeg_video_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_native_session_test PRIVATE
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+        target_compile_features(vaeg_recording_native_session_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_native_session_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1)
+        target_compile_options(vaeg_recording_native_session_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_native_session_test PRIVATE
+            Threads::Threads ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_native_session_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_native_session
+            COMMAND vaeg_recording_native_session_test)
+        set_tests_properties(vaeg_recording_native_session PROPERTIES
+            LABELS "romless;recording;native;video;audio;integration")
+
         add_executable(vaeg_recording_ffmpeg_capabilities_test
             tests/frontend/recording/test_recording_ffmpeg_capabilities.cpp
             sdl2/recording/recording_ffmpeg_capabilities.cpp)

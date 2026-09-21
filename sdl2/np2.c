@@ -66,6 +66,7 @@
 #include "g75_screen.h"
 #include "headless_input.h"
 #include "debug_harness.h"
+#include "recording/recording_native_session.h"
 #include <stdlib.h>
 #include "opngen.h"
 #include "ymfmbridge.h"
@@ -1539,6 +1540,15 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
+		if (!vaeg_recording_native_session_after_guest_exec()) {
+			fprintf(stderr, "Error: native recording failed: %s\n",
+			        vaeg_recording_native_session_last_error());
+			taskmng_exit();
+			return FAILURE;
+		}
+		if (vaeg_recording_native_session_should_stop()) {
+			taskmng_exit();
+		}
 		if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
 			fprintf(stderr,
 			        "Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
@@ -2195,24 +2205,39 @@ int main(int argc, char **argv) {
 
 	if (taskmng_isavail()) {
 		pccore_reset();
-		sdlkbd_reset_state();
-		scrndrawva_redraw();
-		mount_configured_fdd_images();
-		dropmedia_prune_storage();
-		if ((debug_harness_initialize() != SUCCESS) || (debug_harness_after_frame(0) != SUCCESS)) {
-			fprintf(stderr, "Error: debug initialization action failed\n");
+		if (!vaeg_recording_native_session_start_from_environment()) {
+			fprintf(stderr, "Error: native recording start failed: %s\n",
+			        vaeg_recording_native_session_last_error());
 			run_ok = FAILURE;
 			taskmng_exit();
-		} else {
-			run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
-			                 options.headless_input_script != NULL, &input_script,
-			                 (options.screenshot_count != 0) ? &screenshots : NULL);
+		}
+		if (run_ok == SUCCESS) {
+			sdlkbd_reset_state();
+			scrndrawva_redraw();
+			mount_configured_fdd_images();
+			dropmedia_prune_storage();
+			if ((debug_harness_initialize() != SUCCESS) ||
+			    (debug_harness_after_frame(0) != SUCCESS)) {
+				fprintf(stderr, "Error: debug initialization action failed\n");
+				run_ok = FAILURE;
+				taskmng_exit();
+			} else {
+				run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
+				                 options.headless_input_script != NULL, &input_script,
+				                 (options.screenshot_count != 0) ? &screenshots : NULL);
+			}
 		}
 		g75_screen_capture();
 	}
 
 	debug_harness_clear();
 	headless_input_script_clear(&input_script);
+	if (vaeg_recording_native_session_is_active() &&
+	    !vaeg_recording_native_session_stop()) {
+		fprintf(stderr, "Error: native recording stop failed: %s\n",
+		        vaeg_recording_native_session_last_error());
+		run_ok = FAILURE;
+	}
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
 	if ((!options.smoke) &&
@@ -2237,6 +2262,7 @@ int main(int argc, char **argv) {
 	return (run_ok);
 
 np2main_err3:
+	vaeg_recording_native_session_cancel();
 	gui_shutdown();
 	scrnmng_destroy();
 

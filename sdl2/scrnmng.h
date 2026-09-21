@@ -26,6 +26,7 @@
 #define VAEG_SDL2_SCRNMNG_H
 
 #include "viewport.h"
+#include "recording/recording.h"
 #include "recording/recording_native_composition.h"
 #include "recording/recording_osd_snapshot.h"
 
@@ -109,6 +110,7 @@ BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
 BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame);
 BOOL scrnmng_capture_native_recording_frame_with_snapshot(
 	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
+BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor);
 UINT32 scrnmng_native_recording_descriptor_generation(void);
 BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);

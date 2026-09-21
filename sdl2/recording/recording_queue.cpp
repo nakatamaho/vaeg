@@ -291,6 +291,58 @@ QueueError BoundedSliceQueue::try_push(std::unique_ptr<CaptureSlice> &slice) noe
 	return QueueError::None;
 }
 
+QueueError BoundedSliceQueue::wait_push(std::unique_ptr<CaptureSlice> &slice) noexcept {
+	std::uint64_t new_bytes;
+	QueueError validation;
+	if (slice == nullptr) {
+		return QueueError::InvalidSlice;
+	}
+	std::unique_lock<std::mutex> lock(mutex_);
+	for (;;) {
+		if (failure_ != QueueError::None) {
+			return QueueError::Failed;
+		}
+		if (canceled_) {
+			return QueueError::Canceled;
+		}
+		if (producer_closed_) {
+			return QueueError::Closed;
+		}
+		validation = validate_admission(*slice);
+		if (validation != QueueError::None) {
+			return validation;
+		}
+		if (queue_.size() < config_.budget.max_slices &&
+		    checked_add(queued_bytes_, slice->resident_bytes(), &new_bytes) &&
+		    new_bytes <= config_.budget.max_bytes - reserved_bytes_) {
+			break;
+		}
+		space_available_.wait(lock, [this, &slice] {
+			if (failure_ != QueueError::None || canceled_ || producer_closed_) {
+				return true;
+			}
+			std::uint64_t candidate_bytes;
+			return queue_.size() < config_.budget.max_slices &&
+			       checked_add(queued_bytes_, slice->resident_bytes(), &candidate_bytes) &&
+			       candidate_bytes <= config_.budget.max_bytes - reserved_bytes_;
+		});
+	}
+	std::uint64_t next_audio_sample;
+	if (!checked_add(slice->audio_sample_begin(), slice->audio_frame_count(), &next_audio_sample)) {
+		return QueueError::InvalidSlice;
+	}
+	queued_bytes_ = new_bytes;
+	high_water_bytes_ = std::max(high_water_bytes_, queued_bytes_);
+	++admitted_slices_;
+	++next_sequence_;
+	next_begin_ticks_ = slice->end_ticks();
+	next_audio_sample_ = next_audio_sample;
+	queue_.push_back(std::move(slice));
+	lock.unlock();
+	data_available_.notify_one();
+	return QueueError::None;
+}
+
 QueueError BoundedSliceQueue::wait_pop(std::unique_ptr<CaptureSlice> *slice) noexcept {
 	if (slice == nullptr) {
 		return QueueError::InvalidSlice;
@@ -432,14 +484,28 @@ std::uint64_t SliceWorker::written_slices() const noexcept {
 	return written_slices_;
 }
 
+const char *SliceWorker::sink_error_name() const noexcept {
+	return sink_ != nullptr ? sink_->error_name() : nullptr;
+}
+
 void SliceWorker::run() noexcept {
 	for (;;) {
 		std::unique_ptr<CaptureSlice> slice;
 		const QueueError pop_result = queue_->wait_pop(&slice);
-		if (pop_result == QueueError::Closed || pop_result == QueueError::Canceled ||
-		    pop_result == QueueError::Failed) {
+		if (pop_result == QueueError::Closed) {
+			const QueueError finish_result = sink_->finish();
 			std::lock_guard<std::mutex> lock(mutex_);
-			result_ = (pop_result == QueueError::Closed) ? QueueError::None : pop_result;
+			result_ = (finish_result == QueueError::None) ? QueueError::None
+			                                             : QueueError::SinkFailure;
+			if (finish_result != QueueError::None) {
+				queue_->fail(QueueError::SinkFailure);
+			}
+			return;
+		}
+		if (pop_result == QueueError::Canceled || pop_result == QueueError::Failed) {
+			sink_->cancel();
+			std::lock_guard<std::mutex> lock(mutex_);
+			result_ = pop_result;
 			return;
 		}
 		if (pop_result != QueueError::None || slice == nullptr) {
@@ -450,6 +516,7 @@ void SliceWorker::run() noexcept {
 		}
 		const QueueError sink_result = sink_->write(*slice);
 		if (sink_result != QueueError::None) {
+			sink_->cancel();
 			std::lock_guard<std::mutex> lock(mutex_);
 			result_ = QueueError::SinkFailure;
 			queue_->fail(QueueError::SinkFailure);
@@ -556,6 +623,27 @@ QueueError RecordingSession::try_submit(std::unique_ptr<CaptureSlice> &slice) no
 	return result;
 }
 
+QueueError RecordingSession::wait_submit(std::unique_ptr<CaptureSlice> &slice) noexcept {
+	BoundedSliceQueue *queue;
+	{
+		std::unique_lock<std::mutex> lock(mutex_);
+		refresh_worker_failure();
+		if (state_ != SessionState::Recording || queue_ == nullptr) {
+			return (state_ == SessionState::Failed) ? QueueError::Failed : QueueError::InvalidState;
+		}
+		queue = queue_.get();
+	}
+	const QueueError result = queue->wait_push(slice);
+	std::unique_lock<std::mutex> lock(mutex_);
+	if (result == QueueError::None) {
+		++accepted_slices_;
+	} else if (result == QueueError::Failed) {
+		last_error_ = worker_ != nullptr ? worker_->result() : QueueError::Failed;
+		state_ = SessionState::Failed;
+	}
+	return result;
+}
+
 void RecordingSession::finish_worker(QueueError terminal_error) noexcept {
 	if (queue_ != nullptr) {
 		if (terminal_error == QueueError::Canceled) {
@@ -652,6 +740,11 @@ SessionState RecordingSession::state() const noexcept {
 QueueError RecordingSession::last_error() const noexcept {
 	std::lock_guard<std::mutex> lock(mutex_);
 	return last_error_;
+}
+
+const char *RecordingSession::sink_error_name() const noexcept {
+	std::lock_guard<std::mutex> lock(mutex_);
+	return worker_ != nullptr ? worker_->sink_error_name() : nullptr;
 }
 
 std::uint64_t RecordingSession::accepted_slices() const noexcept {

@@ -25,6 +25,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -175,6 +176,29 @@ static void test_cancel_wakes_waiter() {
 	assert(static_cast<QueueError>(result.load()) == QueueError::Canceled);
 }
 
+static void test_wait_push_blocks_until_space() {
+	const QueueConfig config = make_config(1u, 128u);
+	const auto created = BoundedSliceQueue::create(config);
+	std::unique_ptr<CaptureSlice> first = make_slice(config, 0u, 0u, 10u, 0u).slice;
+	std::unique_ptr<CaptureSlice> second = make_slice(config, 1u, 10u, 20u, 1u).slice;
+	assert(created.queue->try_push(first) == QueueError::None);
+	std::atomic<int> result{static_cast<int>(QueueError::WouldBlock)};
+	std::thread producer([&] {
+		result.store(static_cast<int>(created.queue->wait_push(second)));
+	});
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	assert(second != nullptr);
+	std::unique_ptr<CaptureSlice> popped;
+	assert(created.queue->wait_pop(&popped) == QueueError::None);
+	producer.join();
+	assert(static_cast<QueueError>(result.load()) == QueueError::None);
+	assert(second == nullptr);
+	assert(created.queue->wait_pop(&popped) == QueueError::None);
+	assert(popped != nullptr && popped->sequence() == 1u);
+	created.queue->close_producer();
+	assert(created.queue->wait_pop(&popped) == QueueError::Closed);
+}
+
 struct SinkState {
 	std::mutex mutex;
 	std::condition_variable condition;
@@ -201,6 +225,10 @@ class TestSink final : public SliceSink {
 			});
 		}
 		return fail_ ? QueueError::SinkFailure : QueueError::None;
+	}
+
+	const char *error_name() const noexcept override {
+		return fail_ ? "test_sink_failure" : nullptr;
 	}
 
   private:
@@ -253,6 +281,8 @@ static void test_session_lifecycle_and_worker() {
 	assert(failing.stop() == QueueError::Failed);
 	assert(failing.state() == SessionState::Failed);
 	assert(failing.last_error() == QueueError::SinkFailure);
+	assert(failing.sink_error_name() != nullptr);
+	assert(std::strcmp(failing.sink_error_name(), "test_sink_failure") == 0);
 	assert(failing.acknowledge_terminal() == QueueError::None);
 	assert(failing.state() == SessionState::Idle);
 }
@@ -305,6 +335,7 @@ int main() {
 	test_owned_slice();
 	test_queue_validation_and_bound();
 	test_cancel_wakes_waiter();
+	test_wait_push_blocks_until_space();
 	test_session_lifecycle_and_worker();
 	test_finalizing_state_and_cancel();
 	return 0;

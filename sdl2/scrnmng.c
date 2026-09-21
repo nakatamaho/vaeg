@@ -1156,6 +1156,20 @@ BOOL scrnmng_capture_native_recording_frame_with_snapshot(
 	return SUCCESS;
 }
 
+BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor) {
+	if ((descriptor == NULL) || (scrnmng.width <= 0) || (scrnmng.height <= 0)) {
+		return FAILURE;
+	}
+	ZeroMemory(descriptor, sizeof(*descriptor));
+	descriptor->width = (UINT32)scrnmng.width;
+	descriptor->height = (UINT32)scrnmng.height;
+	descriptor->stride_bytes = (UINT64)scrnmng.width * 3u;
+	descriptor->pixel_format = VAEG_RECORDING_PIXEL_RGB24;
+	return vaeg_recording_validate_video_descriptor(descriptor) == VAEG_RECORDING_ERROR_OK
+	           ? SUCCESS
+	           : FAILURE;
+}
+
 UINT32 scrnmng_native_recording_descriptor_generation(void) {
 	UINT32 generation;
 
