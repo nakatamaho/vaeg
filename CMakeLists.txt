@@ -379,7 +379,8 @@ set(VAEG_SDL2_SOURCES
 if(VAEG_ENABLE_RECORDING)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/recording/recording_ffmpeg_capabilities.cpp
-        sdl2/recording/recording_ffmpeg_video_encoder.cpp)
+        sdl2/recording/recording_ffmpeg_video_encoder.cpp
+        sdl2/recording/recording_ffmpeg_pcm_encoder.cpp)
 endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
@@ -965,6 +966,31 @@ if(VAEG_ENABLE_TESTS)
             COMMAND vaeg_recording_ffv1_test)
         set_tests_properties(vaeg_recording_ffv1 PROPERTIES
             LABELS "romless;recording;ffmpeg;ffv1")
+
+        add_executable(vaeg_recording_pcm_test
+            tests/frontend/recording/test_recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_pcm_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_pcm_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_pcm_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1
+            VAEG_RECORDING_FFMPEG_TESTING=1)
+        target_compile_options(vaeg_recording_pcm_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_pcm_test PRIVATE
+            ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_pcm_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_pcm
+            COMMAND vaeg_recording_pcm_test)
+        set_tests_properties(vaeg_recording_pcm PROPERTIES
+            LABELS "romless;recording;ffmpeg;pcm")
     endif()
 
     add_test(NAME vaeg_third_party_licenses
