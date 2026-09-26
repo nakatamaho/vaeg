@@ -168,6 +168,96 @@ static BOOL headless_input_script_add_wait(HEADLESS_INPUT_SCRIPT *script, UINT w
 	return SUCCESS;
 }
 
+static BOOL headless_input_script_add_hold(HEADLESS_INPUT_SCRIPT *script, const char *line,
+                                           UINT length) {
+	static const KBDMAP_ROLE letters[] = {
+	    KBDROLE_A, KBDROLE_B, KBDROLE_C, KBDROLE_D, KBDROLE_E, KBDROLE_F, KBDROLE_G,
+	    KBDROLE_H, KBDROLE_I, KBDROLE_J, KBDROLE_K, KBDROLE_L, KBDROLE_M, KBDROLE_N,
+	    KBDROLE_O, KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S, KBDROLE_T, KBDROLE_U,
+	    KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y, KBDROLE_Z};
+	static const KBDMAP_ROLE digits[] = {KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3, KBDROLE_4,
+	                                     KBDROLE_5, KBDROLE_6, KBDROLE_7, KBDROLE_8, KBDROLE_9};
+	static const struct {
+		const char *name;
+		KBDMAP_ROLE role;
+	} editing_keys[] = {{"backspace", KBDROLE_BS}, {"up", KBDROLE_UP}, {"down", KBDROLE_DOWN},
+	                    {"left", KBDROLE_LEFT}, {"right", KBDROLE_RIGHT}};
+	const char *argument;
+	const char *separator;
+	const char *frame_text;
+	KBDMAP_ROLE role;
+	UINT key_length;
+	UINT frame_length;
+	UINT index;
+	char frame_buffer[16];
+	char *end;
+	unsigned long hold_frames;
+	HEADLESS_INPUT_COMMAND *command;
+	enum { HEADLESS_INPUT_HOLD_MAX_FRAMES = 1000000 };
+
+	if ((length < 8) || (memcmp(line, "@hold ", 6) != 0)) {
+		fprintf(stderr, "Error: headless input @hold needs a key and frame count\n");
+		return FAILURE;
+	}
+	argument = line + 6;
+	separator = (const char *)memchr(argument, ' ', length - 6);
+	if ((separator == NULL) || (separator == argument)) {
+		fprintf(stderr, "Error: headless input @hold needs a key and frame count\n");
+		return FAILURE;
+	}
+	key_length = (UINT)(separator - argument);
+	frame_text = separator + 1;
+	while (*frame_text == ' ') {
+		frame_text++;
+	}
+	frame_length = length - (UINT)(frame_text - line);
+	if ((frame_length == 0) || (frame_length >= sizeof(frame_buffer))) {
+		fprintf(stderr, "Error: headless input @hold frame count is invalid\n");
+		return FAILURE;
+	}
+	CopyMemory(frame_buffer, frame_text, frame_length);
+	frame_buffer[frame_length] = '\0';
+	errno = 0;
+	end = NULL;
+	hold_frames = strtoul(frame_buffer, &end, 10);
+	if ((errno != 0) || (end == frame_buffer) || (*end != '\0') || (hold_frames == 0) ||
+	    (hold_frames > HEADLESS_INPUT_HOLD_MAX_FRAMES)) {
+		fprintf(stderr, "Error: headless input @hold frames must be from 1 to %u\n",
+		        HEADLESS_INPUT_HOLD_MAX_FRAMES);
+		return FAILURE;
+	}
+
+	role = KBDROLE_STOP;
+	if ((key_length == 1) && (argument[0] >= 'a') && (argument[0] <= 'z')) {
+		role = letters[argument[0] - 'a'];
+	} else if ((key_length == 1) && (argument[0] >= '0') && (argument[0] <= '9')) {
+		role = digits[argument[0] - '0'];
+	} else {
+		for (index = 0; index < sizeof(editing_keys) / sizeof(editing_keys[0]); index++) {
+			if ((key_length == strlen(editing_keys[index].name)) &&
+			    (memcmp(argument, editing_keys[index].name, key_length) == 0)) {
+				role = editing_keys[index].role;
+				break;
+			}
+		}
+	}
+	if (role == KBDROLE_STOP) {
+		fprintf(stderr, "Error: headless input @hold key is not repeat-eligible\n");
+		return FAILURE;
+	}
+	if ((script->command_count >= HEADLESS_INPUT_COMMAND_MAX) ||
+	    (headless_input_script_reserve(script) != SUCCESS)) {
+		return FAILURE;
+	}
+	command = &script->commands[script->command_count++];
+	command->key_press = TRUE;
+	command->key_hold = TRUE;
+	command->key_role = role;
+	command->modifier_role = KBDROLE_STOP;
+	command->wait_frames = (UINT)hold_frames;
+	return SUCCESS;
+}
+
 static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const char *line,
                                            UINT length) {
 	char *value;
@@ -218,6 +308,9 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const 
 	UINT key;
 	if (length >= 6 && memcmp(line, "@text ", 6) == 0) {
 		return headless_input_script_add_text(script, line + 6, length - 6, FALSE);
+	}
+	if ((length >= 6) && (memcmp(line, "@hold ", 6) == 0)) {
+		return headless_input_script_add_hold(script, line, length);
 	}
 
 	if ((length == 4 && memcmp(line, "@key", 4) == 0) ||
@@ -381,6 +474,10 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script, UINT frame
 			kbdinject_keyup(script->held_key);
 			script->key_down = FALSE;
 			script->key_phase = script->modifier_down ? 3 : 0;
+		} else if (script->key_phase == 4) {
+			kbdinject_keyup(script->held_key);
+			script->key_down = FALSE;
+			script->key_phase = 0;
 		} else {
 			headless_input_release_keys(script);
 		}
@@ -415,6 +512,14 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script, UINT frame
 		} else {
 			kbdinject_keydown(script->held_key);
 			script->key_down = TRUE;
+			if (command->key_hold) {
+				script->key_phase = 4;
+				script->next_frame = frames + command->wait_frames;
+				fprintf(stderr,
+				        "headless-input-script held key command=%u frame=%u duration=%u\n",
+				        script->command_index, frames, command->wait_frames);
+				return SUCCESS;
+			}
 			script->key_phase = 2;
 		}
 		script->next_frame = frames + HEADLESS_INPUT_KEY_PHASE_FRAMES;

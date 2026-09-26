@@ -33,6 +33,7 @@ typedef struct {
 	BOOL wait;
 	BOOL disk_swap;
 	BOOL key_press;
+	BOOL key_hold;
 	UINT key_role;
 	UINT modifier_role;
 } HEADLESS_INPUT_COMMAND;

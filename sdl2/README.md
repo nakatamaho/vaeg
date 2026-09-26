@@ -83,7 +83,12 @@ nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
-drive. `@text TEXT` submits text without Return. `@key NAME` sends a mapped
+drive. `@text TEXT` submits text without Return. `@hold KEY N` holds one
+unmodified repeat-eligible key for N guest frames before releasing it. It accepts
+lowercase letters, digits, Backspace, and the four cursor keys. The command
+injects one make and one release; it does not synthesize repeats, so the guest
+keyboard path under test remains responsible for repeating input. `@key NAME`
+sends a mapped
 guest make/break pair. Names include `ctrl-c`, `ctrl-z`, `ctrl-left`,
 `ctrl-right`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `home`,
 `help`, `insert`, `delete`, `f1` through `f10`, `shift-f1` through `shift-f10`,
