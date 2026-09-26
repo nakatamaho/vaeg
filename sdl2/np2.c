@@ -338,7 +338,9 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--headless-input-script path\n");
-	printf("\t\t@text TEXT; @key ctrl-c|ctrl-z|backspace|escape|f1; @enter; @wait N\n");
+	printf("\t\t@text TEXT; @key ctrl-c|ctrl-z|ctrl-left|ctrl-right|backspace|escape\n");
+	printf("\t\tup|down|left|right|home|help|insert|delete|f1..f10|shift-f1..f10\n");
+	printf("\t\tshift-up|shift-down|shift-left|shift-right; @enter; @wait N\n");
 	printf("\t--debug-script path --debug-output-dir directory\n");
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
 	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
