@@ -65,43 +65,62 @@ dtfd_err1:
 	return (FAILURE);
 }
 
-static BOOL d88trk_read(D88TRK trk, FDDFILE fdd, UINT track, UINT type) {
+static BOOL d88trk_maptrack(FDDFILE fdd, UINT *track, UINT type) {
 	UINT8 rpm;
+
+	if (*track >= 164) {
+		return (FAILURE);
+	}
+	rpm = fdc.rpm[fdc.us];
+	switch (fdd->inf.d88.fdtype_major) {
+	case DISKTYPE_2D:
+		if ((rpm) || (type != DISKTYPE_2DD)) {
+			return (FAILURE);
+		}
+		switch (fdc.trackdensity[fdc.us]) {
+		case FDC_TRACKDENSITY_48TPI:
+			break;
+
+		case FDC_TRACKDENSITY_96TPI:
+			if (*track & 2) {
+				return (FAILURE);
+			}
+			*track = ((*track >> 1) & 0xfe) | (*track & 1);
+			break;
+
+		default:
+			return (FAILURE);
+		}
+		break;
+
+	case DISKTYPE_2DD:
+		if ((rpm) || (type != DISKTYPE_2DD)) {
+			return (FAILURE);
+		}
+		break;
+
+	case DISKTYPE_2HD:
+		if (type != DISKTYPE_2HD) {
+			return (FAILURE);
+		}
+		if ((fdd->inf.d88.fdtype_minor == 0) && (rpm)) {
+			return (FAILURE);
+		}
+		break;
+
+	default:
+		return (FAILURE);
+	}
+	return (SUCCESS);
+}
+
+static BOOL d88trk_read(D88TRK trk, FDDFILE fdd, UINT track, UINT type) {
 	FILEH fh;
 	UINT32 fptr;
 	UINT32 size;
 
 	d88trk_flushdata(trk);
 	if (track >= 164) {
-		goto dtrd_err1;
-	}
-
-	rpm = fdc.rpm[fdc.us];
-	switch (fdd->inf.d88.fdtype_major) {
-	case DISKTYPE_2D:
-		TRACEOUT(("DISKTYPE_2D"));
-		if ((rpm) || (type != DISKTYPE_2DD) || (track & 2)) {
-			goto dtrd_err1;
-		}
-		track = ((track >> 1) & 0xfe) | (track & 1);
-		break;
-
-	case DISKTYPE_2DD:
-		if ((rpm) || (type != DISKTYPE_2DD)) {
-			goto dtrd_err1;
-		}
-		break;
-
-	case DISKTYPE_2HD:
-		if (type != DISKTYPE_2HD) {
-			goto dtrd_err1;
-		}
-		if ((fdd->inf.d88.fdtype_minor == 0) && (rpm)) {
-			goto dtrd_err1;
-		}
-		break;
-
-	default:
 		goto dtrd_err1;
 	}
 
@@ -184,12 +203,17 @@ static void drvflush(FDDFILE fdd) {
 static BOOL trkseek(FDDFILE fdd, UINT track) {
 	D88TRK trk;
 	BOOL r;
+	UINT type;
 
 	trk = &d88trk;
-	if ((trk->fdd == fdd) && (trk->track == track) && (trk->type == CTRL_FDMEDIA[fdc.us])) {
+	type = CTRL_FDMEDIA[fdc.us];
+	if (d88trk_maptrack(fdd, &track, type) != SUCCESS) {
+		return (FAILURE);
+	}
+	if ((trk->fdd == fdd) && (trk->track == track) && (trk->type == type)) {
 		r = SUCCESS;
 	} else {
-		r = d88trk_read(trk, fdd, track, CTRL_FDMEDIA[fdc.us]);
+		r = d88trk_read(trk, fdd, track, type);
 	}
 	return (r);
 }

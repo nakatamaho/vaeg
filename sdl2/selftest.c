@@ -1179,6 +1179,553 @@ static int test_new_fdd_image(void) {
 	return (result);
 }
 
+typedef struct {
+	const char *name;
+	UINT8 d88_type;
+	UINT8 cylinders;
+	UINT8 sectors;
+	UINT16 sector_size;
+	UINT8 sector_n;
+	UINT8 dskctl_2hd;
+	UINT8 density_96;
+	UINT8 clock_8mhz;
+} SELFTESTFDDPROFILE;
+
+static const SELFTESTFDDPROFILE selftest_fdd_profiles[] = {
+    {"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0},
+    {"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0},
+    {"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0},
+    {"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0},
+    {"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0},
+    {"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1},
+    {"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1}};
+
+static SINT32 selftest_fdc_profile_interval(const SELFTESTFDDPROFILE *profile) {
+	const int data = profile->sector_size;
+	const int gap3 = profile->dskctl_2hd ? 116 : 84;
+	const int gap4 = profile->dskctl_2hd ? 654 : 182;
+	const int sync = 12;
+	const int sector_length = sync + 4 + 4 + 2 + 22 + sync + 4 + data + 2 + gap3;
+	const int track_length = 80 + sync + 4 + 50 + sector_length * profile->sectors + gap4;
+
+	return (SINT32)((UINT64)pccore.realclock * 60 / 360 / track_length * sector_length / data);
+}
+
+static BYTE selftest_fdd_profile_byte(UINT track, UINT sector, UINT offset) {
+	return (BYTE)(0x5b + track * 31 + sector * 17 + offset * 13);
+}
+
+static BOOL selftest_fdd_create_profile(const char *path, const SELFTESTFDDPROFILE *profile) {
+	_D88HEAD header;
+	_D88SEC sector_header;
+	BYTE data[1024];
+	FILEH fh;
+	UINT32 offset;
+	UINT track;
+	UINT sector;
+	UINT index;
+	UINT track_count;
+
+	ZeroMemory(&header, sizeof(header));
+	CopyMemory(header.fd_name, "VAEG test FDD", 13);
+	header.fd_type = profile->d88_type;
+	track_count = profile->cylinders * 2;
+	offset = sizeof(header);
+	for (track = 0; track < track_count; track++) {
+		STOREINTELDWORD(header.trackp[track], offset);
+		offset += profile->sectors * (sizeof(sector_header) + profile->sector_size);
+	}
+	STOREINTELDWORD(header.fd_size, offset);
+
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return (FAILURE);
+	}
+	if (file_write(fh, &header, sizeof(header)) != sizeof(header)) {
+		file_close(fh);
+		return (FAILURE);
+	}
+	for (track = 0; track < track_count; track++) {
+		for (sector = 1; sector <= profile->sectors; sector++) {
+			ZeroMemory(&sector_header, sizeof(sector_header));
+			sector_header.c = (BYTE)(track >> 1);
+			sector_header.h = (BYTE)(track & 1);
+			sector_header.r = (BYTE)sector;
+			sector_header.n = profile->sector_n;
+			STOREINTELWORD(sector_header.sectors, profile->sectors);
+			/* Match the controller's MFM lookup convention used by newdisk.c. */
+			sector_header.mfm_flg = 0x00;
+			STOREINTELWORD(sector_header.size, profile->sector_size);
+			if (file_write(fh, &sector_header, sizeof(sector_header)) != sizeof(sector_header)) {
+				file_close(fh);
+				return (FAILURE);
+			}
+			for (index = 0; index < profile->sector_size; index++) {
+				data[index] = selftest_fdd_profile_byte(track, sector, index);
+			}
+			if (file_write(fh, data, profile->sector_size) != profile->sector_size) {
+				file_close(fh);
+				return (FAILURE);
+			}
+		}
+	}
+	file_close(fh);
+	return (SUCCESS);
+}
+
+static BYTE selftest_fdc_mode(const SELFTESTFDDPROFILE *profile, UINT drive, UINT density_96) {
+	return (BYTE)((profile->dskctl_2hd ? (1 << drive) : 0) |
+	              (density_96 ? (4 << drive) : 0) | (profile->clock_8mhz ? 0x20 : 0));
+}
+
+static BOOL selftest_fdd_profile_read(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
+	                                  UINT head, UINT sector, UINT physical_cylinder,
+	                                  UINT density_96, BOOL changed_data) {
+	UINT index;
+	UINT track;
+	BYTE expected;
+
+	fdc.us = (UINT8)drive;
+	fdc.hd = (UINT8)head;
+	fdc.ncn = (UINT8)physical_cylinder;
+	fdc.C = (UINT8)cylinder;
+	fdc.H = (UINT8)head;
+	fdc.R = (UINT8)sector;
+	fdc.N = profile->sector_n;
+	fdc.mf = 0x40;
+	fdc.rpm[drive] = 0;
+	fdcsubsys_o_dskctl(selftest_fdc_mode(profile, drive, density_96));
+	if (fdd_diskaccess() != SUCCESS) {
+		fprintf(stderr, "selftest: %s media access rejected: CHS=%u/%u/%u\n", profile->name,
+		        cylinder, head, sector);
+		return (FAILURE);
+	}
+	if (fdd_seek() != SUCCESS) {
+		fprintf(stderr,
+		        "selftest: %s seek failed: CHS=%u/%u/%u physical=%u TPI=%u\n", profile->name,
+		        cylinder, head, sector, physical_cylinder, density_96 ? 96 : 48);
+		return (FAILURE);
+	}
+	if ((fdd_read() != SUCCESS) || (fdc.bufcnt != profile->sector_size)) {
+		fprintf(stderr,
+		        "selftest: %s read failed: spt=%u CHS=%u/%u/%u physical=%u TPI=%u\n",
+		        profile->name, profile->sectors, cylinder, head, sector, physical_cylinder,
+		        density_96 ? 96 : 48);
+		return (FAILURE);
+	}
+	track = cylinder * 2 + head;
+	for (index = 0; index < profile->sector_size; index++) {
+		expected = changed_data ? (BYTE)(0x69 ^ (index * 7)) :
+		                          selftest_fdd_profile_byte(track, sector, index);
+		if (fdc.buf[index] != expected) {
+			return (FAILURE);
+		}
+	}
+	return (SUCCESS);
+}
+
+static void selftest_fdc_send_command(const BYTE *command, UINT length) {
+	UINT index;
+
+	for (index = 0; index < length; index++) {
+		fdc_datawrite(command[index]);
+	}
+}
+
+static BOOL selftest_fdc_wait_rqm(void) {
+	UINT attempt;
+
+	for (attempt = 0; attempt < 64; attempt++) {
+		if (fdc.status & FDCSTAT_RQM) {
+			return (SUCCESS);
+		}
+		if (fdc.rqminterval <= 0) {
+			return (FAILURE);
+		}
+		fdc.rqmlastclock = CPU_CLOCK - fdc.rqminterval;
+		fdc_statewatch(NULL);
+	}
+	return (FAILURE);
+}
+
+static BOOL selftest_fdc_take_result(BYTE expected_st0, BYTE expected_st1) {
+	BYTE result[7];
+	UINT index;
+
+	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) != (FDCSTAT_RQM | FDCSTAT_DIO)) {
+		return (FAILURE);
+	}
+	for (index = 0; index < NELEMENTS(result); index++) {
+		result[index] = fdc_dataread();
+	}
+	if (result[1] != expected_st1 || (!expected_st1 &&
+	                                  ((result[0] != expected_st0) || (result[2] != 0)))) {
+		fprintf(stderr, "selftest: unexpected FDC result ST0=%02x ST1=%02x ST2=%02x expected ST1=%02x\n",
+		        result[0], result[1], result[2], expected_st1);
+		return (FAILURE);
+	}
+	return (SUCCESS);
+}
+
+
+static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, UINT head,
+	                            UINT physical_cylinder, UINT density_96) {
+	const BYTE specify[] = {0x03, 0xdf, 0x01};
+	BYTE seek[] = {0x0f, (BYTE)((head << 2) | drive), (BYTE)physical_cylinder};
+
+	fdc.event = 0;
+	fdc.status = FDCSTAT_RQM;
+	fdc.rqm = FALSE;
+	fdc.tcreserved = FALSE;
+	fdc.cmdp = 0;
+	fdc.cmdcnt = 0;
+	fdc.bufp = 0;
+	fdc.bufcnt = 0;
+	fdc.intreq = 0;
+	fdc.stat[0] = 0;
+	fdc.ctrlreg = 0;
+	fdc.equip |= (UINT8)(1 << drive);
+	fdcsubsys_o_dskctl(selftest_fdc_mode(profile, drive, density_96));
+	selftest_fdc_send_command(specify, NELEMENTS(specify));
+	selftest_fdc_send_command(seek, NELEMENTS(seek));
+}
+
+static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
+	                                 UINT head, UINT sector, UINT physical_cylinder,
+	                                 UINT density_96, BYTE *data, BYTE expected_st1) {
+	BYTE command[9];
+	UINT index;
+
+	selftest_fdc_prepare(profile, drive, head, physical_cylinder, density_96);
+	command[0] = 0x46;
+	command[1] = (BYTE)((head << 2) | drive);
+	command[2] = (BYTE)cylinder;
+	command[3] = (BYTE)head;
+	command[4] = (BYTE)sector;
+	command[5] = profile->sector_n;
+	command[6] = profile->sectors;
+	command[7] = 0x2a;
+	command[8] = 0xff;
+	selftest_fdc_send_command(command, NELEMENTS(command));
+	if (fdc.rqminterval != selftest_fdc_profile_interval(profile)) {
+		fprintf(stderr, "selftest: %s FDC read interval=%d expected=%d\n", profile->name,
+		        fdc.rqminterval, selftest_fdc_profile_interval(profile));
+		return (FAILURE);
+	}
+	if (selftest_fdc_wait_rqm() != SUCCESS) {
+		fprintf(stderr, "selftest: %s FDC read request wait failed status=%02x event=%d count=%d\n",
+		        profile->name,
+		        fdc.status, fdc.event, fdc.bufcnt);
+		return (FAILURE);
+	}
+	if (fdc.bufcnt == 7) {
+		if (!expected_st1 ||
+		    (selftest_fdc_take_result((BYTE)((head << 2) | drive), expected_st1) != SUCCESS)) {
+			fprintf(stderr, "selftest: %s FDC read returned unexpected result ST0=%02x\n",
+			        profile->name, fdc.buf[0]);
+			return (FAILURE);
+		}
+		return (SUCCESS);
+	}
+	if (expected_st1 || (fdc.bufcnt != profile->sector_size)) {
+		fprintf(stderr, "selftest: %s FDC read got count=%d expected=%u ST=%02x\n", profile->name,
+		        fdc.bufcnt, profile->sector_size, fdc.status);
+		return (FAILURE);
+	}
+	for (index = 0; index < profile->sector_size; index++) {
+		if (selftest_fdc_wait_rqm() != SUCCESS) {
+			fprintf(stderr, "%s FDC read byte wait failed index=%u status=%02x event=%d\n",
+			        profile->name, index, fdc.status, fdc.event);
+			return (FAILURE);
+		}
+		data[index] = fdc_dataread();
+	}
+	fdcsubsys_o_tc();
+	if (selftest_fdc_take_result((BYTE)((head << 2) | drive), 0) != SUCCESS) {
+		fprintf(stderr, "selftest: %s FDC read result invalid status=%02x event=%d count=%d\n",
+		        profile->name, fdc.status, fdc.event, fdc.bufcnt);
+		return (FAILURE);
+	}
+	return (SUCCESS);
+}
+
+static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive,
+	                                  UINT cylinder, UINT head, UINT sector,
+	                                  UINT physical_cylinder, UINT density_96, const BYTE *data,
+	                                  BYTE expected_st1) {
+	BYTE command[9];
+	UINT index;
+
+	selftest_fdc_prepare(profile, drive, head, physical_cylinder, density_96);
+	command[0] = 0x45;
+	command[1] = (BYTE)((head << 2) | drive);
+	command[2] = (BYTE)cylinder;
+	command[3] = (BYTE)head;
+	command[4] = (BYTE)sector;
+	command[5] = profile->sector_n;
+	command[6] = profile->sectors;
+	command[7] = 0x2a;
+	command[8] = 0xff;
+	selftest_fdc_send_command(command, NELEMENTS(command));
+	if (fdc.rqminterval != selftest_fdc_profile_interval(profile)) {
+		fprintf(stderr, "selftest: %s FDC write interval=%d expected=%d\n", profile->name,
+		        fdc.rqminterval, selftest_fdc_profile_interval(profile));
+		return (FAILURE);
+	}
+	if (selftest_fdc_wait_rqm() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (fdc.bufcnt == 7) {
+		if (!expected_st1) {
+			return (FAILURE);
+		}
+		return (selftest_fdc_take_result((BYTE)((head << 2) | drive), expected_st1));
+	}
+	if (expected_st1 || (fdc.bufcnt != profile->sector_size)) {
+		return (FAILURE);
+	}
+	for (index = 0; index < profile->sector_size; index++) {
+		if (selftest_fdc_wait_rqm() != SUCCESS) {
+			return (FAILURE);
+		}
+		fdc_datawrite(data[index]);
+	}
+	fdcsubsys_o_tc();
+	return (selftest_fdc_take_result((BYTE)((head << 2) | drive), 0));
+}
+
+static int test_fdd_d88_production_path(void) {
+	const SELFTESTFDDPROFILE *profile;
+	_FDC saved_fdc;
+	_DMAC saved_dmac;
+	_PIC saved_pic;
+	_NEVENT saved_nevent;
+	_FDDFILE saved_drives[2];
+	BYTE saved_error;
+	BYTE fdc_data[1024];
+	UINT index;
+	BYTE data[1024];
+	char path[MAX_PATH];
+	char path_b[MAX_PATH];
+	UINT cylinder;
+	UINT head;
+	UINT sector;
+	UINT profile_index;
+	int result;
+
+	saved_fdc = fdc;
+	saved_dmac = dmac;
+	saved_pic = pic;
+	saved_nevent = nevent;
+	saved_drives[0] = fddfile[0];
+	saved_drives[1] = fddfile[1];
+	saved_error = fddlasterror;
+	path[0] = '\0';
+	path_b[0] = '\0';
+	result = SUCCESS;
+	(void)fdd_eject(0);
+	(void)fdd_eject(1);
+	for (profile_index = 0; profile_index < NELEMENTS(selftest_fdd_profiles); profile_index++) {
+		profile = selftest_fdd_profiles + profile_index;
+		const UINT density = profile->density_96;
+		const UINT write_cylinder = 2;
+		const UINT write_sector = 5;
+
+		SPRINTF(path, "vaeg-selftest-%lu-%s.d88", (unsigned long)getpid(), profile->name);
+		file_delete(path);
+		if (selftest_fdd_create_profile(path, profile) != SUCCESS) {
+			result = fail("fdd-media", "synthetic D88 creation failed");
+			goto fdd_2d_cleanup;
+		}
+		if (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) {
+			result = fail("fdd-media", "production D88 loader rejected synthetic media");
+			goto fdd_2d_cleanup;
+		}
+
+		if ((selftest_fdd_profile_read(profile, 0, 0, 0, 1, 0, density, FALSE) != SUCCESS) ||
+		    (selftest_fdd_profile_read(profile, 0, profile->cylinders - 1, 1, profile->sectors,
+		                               profile->cylinders - 1, density, FALSE) != SUCCESS)) {
+			result = fail("fdd-media", "first/last cylinder or head/sector boundary read failed");
+			goto fdd_2d_cleanup;
+		}
+
+		if (profile->d88_type == 0x00) {
+			/* 2D at 96 TPI reaches the recorded cylinder by stepping twice. */
+			if (selftest_fdd_profile_read(profile, 0, 1, 1, profile->sectors, 2, 1, FALSE) !=
+			    SUCCESS) {
+				result = fail("fdd-2d", "96-TPI double-step 2D read failed");
+				goto fdd_2d_cleanup;
+			}
+		}
+		cylinder = (profile->d88_type == 0x00) ? write_cylinder : profile->cylinders - 1;
+		head = (profile->d88_type == 0x00) ? 0 : 1;
+		sector = (profile->d88_type == 0x00) ? write_sector : profile->sectors;
+		if (selftest_fdc_read_profile(profile, 0, cylinder, head, sector, cylinder, density,
+		                              fdc_data, 0) != SUCCESS) {
+			result = fail("fdd-media", "FDC READ DATA command path rejected the profile");
+			goto fdd_2d_cleanup;
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			if (fdc_data[index] != selftest_fdd_profile_byte(cylinder * 2 + head, sector, index)) {
+				result = fail("fdd-media", "FDC READ DATA returned incorrect bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		if ((selftest_fdc_read_profile(profile, 0, profile->cylinders - 1, 1,
+		                               profile->sectors, profile->cylinders - 1, density,
+		                               fdc_data, 0) != SUCCESS)) {
+			result = fail("fdd-media", "FDC READ DATA rejected the last track/head/sector");
+			goto fdd_2d_cleanup;
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			if (fdc_data[index] != selftest_fdd_profile_byte(profile->cylinders * 2 - 1,
+			                                               profile->sectors, index)) {
+				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		if (profile->d88_type == 0x00) {
+			if (selftest_fdc_read_profile(profile, 0, 0, 0, 1, 1, 1, fdc_data, 0x04) != SUCCESS) {
+				result = fail("fdd-2d", "FDC did not report an invalid 96-TPI half-track");
+				goto fdd_2d_cleanup;
+			}
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			data[index] = (BYTE)(0xa5 ^ index);
+		}
+		fddfile[0].protect = TRUE;
+		if (selftest_fdc_write_profile(profile, 0, 0, 0, 1, 0, density, data, 0x02) != SUCCESS) {
+			fddfile[0].protect = FALSE;
+			result = fail("fdd-media", "FDC WRITE DATA did not report write protection");
+			goto fdd_2d_cleanup;
+		}
+		fddfile[0].protect = FALSE;
+		if (selftest_fdc_read_profile(profile, 0, 0, 0, 1, 0, density, fdc_data, 0) != SUCCESS) {
+			result = fail("fdd-media", "protected FDC write damaged the source sector");
+			goto fdd_2d_cleanup;
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			if (fdc_data[index] != selftest_fdd_profile_byte(0, 1, index)) {
+				result = fail("fdd-media", "protected FDC write changed source bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			data[index] = (BYTE)(0x69 ^ (index * 7));
+		}
+		if ((selftest_fdc_write_profile(profile, 0, write_cylinder, 0, write_sector,
+		                                write_cylinder, density, data, 0) != SUCCESS) ||
+		    (fdd_eject(0) != SUCCESS) || (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
+		    (selftest_fdc_read_profile(profile, 0, write_cylinder, 0, write_sector,
+		                               write_cylinder, density, fdc_data, 0) != SUCCESS)) {
+			result = fail("fdd-media", "FDC write did not persist after eject and reopen");
+			goto fdd_2d_cleanup;
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			if (fdc_data[index] != data[index]) {
+				result = fail("fdd-media", "FDC writeback did not preserve bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		if (fdd_eject(0) != SUCCESS) {
+			result = fail("fdd-media", "synthetic media could not be cleanly ejected");
+			goto fdd_2d_cleanup;
+		}
+		file_delete(path);
+		path[0] = '\0';
+	}
+
+	/* Exercise every requested format on FDD2 while a different format remains on FDD1. */
+	{
+		const UINT profile_b_indices[] = {0, 2, 3, 4, 5};
+		UINT pair_index;
+		for (pair_index = 0; pair_index < NELEMENTS(profile_b_indices); pair_index++) {
+			const SELFTESTFDDPROFILE *profile_b =
+			    selftest_fdd_profiles + profile_b_indices[pair_index];
+			const SELFTESTFDDPROFILE *profile_a =
+			    selftest_fdd_profiles + ((profile_b_indices[pair_index] == 0) ? 2 : 0);
+			const UINT cylinder_a = 1;
+			const UINT cylinder_b = profile_b->cylinders - 1;
+			const UINT head_b = 1;
+			const UINT sector_b = profile_b->sectors;
+			SPRINTF(path, "vaeg-selftest-%lu-drive-a-%s.d88", (unsigned long)getpid(),
+			        profile_b->name);
+			SPRINTF(path_b, "vaeg-selftest-%lu-drive-b-%s.d88", (unsigned long)getpid(),
+			        profile_b->name);
+			file_delete(path);
+			file_delete(path_b);
+			if ((selftest_fdd_create_profile(path, profile_a) != SUCCESS) ||
+			    (selftest_fdd_create_profile(path_b, profile_b) != SUCCESS) ||
+			    (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
+			    (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS)) {
+				result = fail("fdd-drives", "different-format synthetic media could not be mounted");
+				goto fdd_2d_cleanup;
+			}
+			if ((selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
+			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0)) ||
+			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
+			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
+			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
+			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0))) {
+				result = fail("fdd-drives", "alternating FDC selection mixed independent media");
+				goto fdd_2d_cleanup;
+			}
+			for (index = 0; index < profile_b->sector_size; index++) {
+				data[index] = (BYTE)(0x36 + index * 9);
+			}
+			if ((selftest_fdc_write_profile(profile_b, 1, cylinder_b, head_b, sector_b,
+			                                cylinder_b, profile_b->density_96, data, 0) != SUCCESS) ||
+			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
+			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
+			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
+			    (fdd_eject(1) != SUCCESS) || (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS) ||
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
+			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS)) {
+				result = fail("fdd-drives", "FDD2 writeback or non-target preservation failed");
+				goto fdd_2d_cleanup;
+			}
+			for (index = 0; index < profile_b->sector_size; index++) {
+				if (fdc_data[index] != data[index]) {
+					result = fail("fdd-drives", "FDD2 write did not persist after reopen");
+					goto fdd_2d_cleanup;
+				}
+			}
+			if ((fdd_eject(0) != SUCCESS) || (fdd_eject(1) != SUCCESS)) {
+				result = fail("fdd-drives", "concurrent FDD media could not be ejected");
+				goto fdd_2d_cleanup;
+			}
+			file_delete(path);
+			file_delete(path_b);
+			path[0] = '\0';
+			path_b[0] = '\0';
+		}
+	}
+
+fdd_2d_cleanup:
+	(void)fdd_eject(0);
+	(void)fdd_eject(1);
+	if (path[0]) {
+		file_delete(path);
+	}
+	if (path_b[0]) {
+		file_delete(path_b);
+	}
+	fddfile[0] = saved_drives[0];
+	fddfile[1] = saved_drives[1];
+	fdc = saved_fdc;
+	dmac = saved_dmac;
+	pic = saved_pic;
+	nevent = saved_nevent;
+	fddlasterror = saved_error;
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: floppy D88 production paths ok\n");
+	}
+	return (result);
+}
+
 static int test_sasi_image_validation(void) {
 	char valid_path[MAX_PATH];
 	char invalid_path[MAX_PATH];
@@ -3433,6 +3980,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_d88_production_path() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_sasi_image_validation() != SUCCESS) {
