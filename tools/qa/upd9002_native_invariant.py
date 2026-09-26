@@ -71,6 +71,7 @@ EXPECTED_PRESETS = {
     "mingw-release",
     "mingw-cross",
     "mingw-ci",
+    "mingw-static-dependencies",
     "macos-release",
     "macos-macports",
     "macos-asan",
