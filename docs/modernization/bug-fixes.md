@@ -2113,15 +2113,28 @@ separate parity correction or move it to Open Defects.
   [build and runtime notes](BUILD.md), and
   [M30 BMS investigation result](../agents/tasks/M30_va_bms_window.md).
 
-### 2D floppy compatibility is not established
+### 2D floppy track mapping is corrected; guest acceptance is pending
 
-- **Status:** open; failed workaround reverted from the exposed feature.
-- **Symptom:** generated 2D images produced sector-not-found errors in the VA
-  FDD path although older VAEG reportedly read 2D media.
-- **Current decision:** blank-image creation exposes only tested 2HD and 2DD
-  formats. A double-step adjustment did not pass the human gate and is not
-  treated as a completed fix.
-- **Evidence:** [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
+- **Status:** corrected and host-qualified in M16; FreeDOS guest acceptance is
+  pending.
+- **Symptom:** native 2D D88 tracks were rejected or mapped to the wrong
+  recorded cylinder by the VA FDD path.
+- **Demonstrated root cause:** D88 access always applied the 96-TPI double-step
+  translation, even when the configured 1D/2D subsystem mode selects 48 TPI.
+  The subsystem mode path also left track density at its reset default.
+- **Correction:** select track density from the configured subsystem mode and
+  map 48-TPI 2D cylinders directly. Keep double stepping for 96-TPI access and
+  reject an odd physical half-track. FDC byte pacing now uses the command's
+  sector size and sectors-per-track values.
+- **Verification:** the ROM-free production-path selftest reads and writes
+  synthetic 2D 320/360, 2DD 640/720, 2HC 1.2 MB, and native 2HD regression
+  profiles through D88/FDC paths, checks boundary sectors, protection,
+  persistence, and concurrent drives. Linux CI build and selftest passed;
+  CTest reported 98 passed, one external-input skip, zero failures.
+- **Evidence:** [M16 D88/FDC selftests](https://github.com/nakatamaho/vaeg/blob/ce9e7b25a28fbac83f517ef6c0f20f593eed6dc1/sdl2/selftest.c)
+  and [fixing commit](https://github.com/nakatamaho/vaeg/commit/ce9e7b25a28fbac83f517ef6c0f20f593eed6dc1).
+  The earlier investigation remains at the
+  [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
 
 
 ### PCPLUS bus-free completion was left pending after MESSAGE IN
