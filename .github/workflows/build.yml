@@ -254,7 +254,9 @@ jobs:
         with:
           targets: x86_64-pc-windows-gnu
       - name: Build pinned static librashader
-        run: tools/release/build-mingw-static-librashader.sh
+        run: |
+          export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
+          tools/release/build-mingw-static-librashader.sh
       - name: Configure
         run: cmake --preset mingw-ci
       - name: Build
@@ -335,7 +337,9 @@ jobs:
         with:
           targets: x86_64-pc-windows-gnu
       - name: Build pinned static librashader
-        run: tools/release/build-mingw-static-librashader.sh
+        run: |
+          export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
+          tools/release/build-mingw-static-librashader.sh
       - name: Configure
         run: cmake --preset mingw-release
       - name: Build
