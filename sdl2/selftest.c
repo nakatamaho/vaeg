@@ -1189,16 +1189,18 @@ typedef struct {
 	UINT8 dskctl_2hd;
 	UINT8 density_96;
 	UINT8 clock_8mhz;
+	UINT8 d88_track_stride;
 } SELFTESTFDDPROFILE;
 
 static const SELFTESTFDDPROFILE selftest_fdd_profiles[] = {
-    {"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0},
-    {"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0},
-    {"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0},
-    {"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0},
-    {"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0},
-    {"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1},
-    {"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1}};
+	{"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0, 2},
+	{"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0, 2},
+	{"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0, 2},
+	{"2d-360-double-step", 0x00, 40, 9, 512, 2, 0, 0, 0, 4},
+	{"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0, 2},
+	{"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0, 2},
+	{"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1, 2},
+	{"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1, 2}};
 
 static SINT32 selftest_fdc_profile_interval(const SELFTESTFDDPROFILE *profile) {
 	const int data = profile->sector_size;
@@ -1232,7 +1234,8 @@ static BOOL selftest_fdd_create_profile(const char *path, const SELFTESTFDDPROFI
 	track_count = profile->cylinders * 2;
 	offset = sizeof(header);
 	for (track = 0; track < track_count; track++) {
-		STOREINTELDWORD(header.trackp[track], offset);
+		const UINT table_track = ((track >> 1) * profile->d88_track_stride) | (track & 1);
+		STOREINTELDWORD(header.trackp[table_track], offset);
 		offset += profile->sectors * (sizeof(sector_header) + profile->sector_size);
 	}
 	STOREINTELDWORD(header.fd_size, offset);

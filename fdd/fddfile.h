@@ -32,6 +32,11 @@ enum {
 	DISKTYPE_2HD
 };
 
+enum {
+	D88TRACK_LAYOUT_CONTIGUOUS = 0,
+	D88TRACK_LAYOUT_DOUBLE_STEP
+};
+
 typedef struct {
 	UINT32 headersize;
 	UINT8 tracks;
@@ -44,6 +49,7 @@ typedef struct {
 typedef struct {
 	UINT fdtype_major;
 	UINT fdtype_minor;
+	UINT8 track_layout;
 	UINT32 fd_size;
 	UINT32 ptr[164];
 	_D88HEAD head;

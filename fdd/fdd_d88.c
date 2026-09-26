@@ -79,13 +79,18 @@ static BOOL d88trk_maptrack(FDDFILE fdd, UINT *track, UINT type) {
 		}
 		switch (fdc.trackdensity[fdc.us]) {
 		case FDC_TRACKDENSITY_48TPI:
+			if (fdd->inf.d88.track_layout == D88TRACK_LAYOUT_DOUBLE_STEP) {
+				*track = ((*track >> 1) << 2) | (*track & 1);
+			}
 			break;
 
 		case FDC_TRACKDENSITY_96TPI:
 			if (*track & 2) {
 				return (FAILURE);
 			}
-			*track = ((*track >> 1) & 0xfe) | (*track & 1);
+			if (fdd->inf.d88.track_layout != D88TRACK_LAYOUT_DOUBLE_STEP) {
+				*track = ((*track >> 1) & 0xfe) | (*track & 1);
+			}
 			break;
 
 		default:
@@ -268,6 +273,8 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	short attr;
 	FILEH fh;
 	UINT rsize;
+	_D88SEC sector;
+	UINT track;
 	int i;
 
 	fddd88_eject(fdd);
@@ -289,9 +296,31 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	fdd->protect = ((attr & 1) || (fdd->inf.d88.head.protect & 0x10) || (ro)) ? TRUE : FALSE;
 	fdd->inf.d88.fdtype_major = fdd->inf.d88.head.fd_type >> 4;
 	fdd->inf.d88.fdtype_minor = fdd->inf.d88.head.fd_type & 0x0f;
+	fdd->inf.d88.track_layout = D88TRACK_LAYOUT_CONTIGUOUS;
 	fdd->inf.d88.fd_size = LOADINTELDWORD(fdd->inf.d88.head.fd_size);
 	for (i = 0; i < 164; i++) {
 		fdd->inf.d88.ptr[i] = LOADINTELDWORD(fdd->inf.d88.head.trackp[i]);
+	}
+	if (fdd->inf.d88.fdtype_major == DISKTYPE_2D) {
+		fh = file_open(fname);
+		if (fh != FILEH_INVALID) {
+			for (track = 2; track < 164; track++) {
+				UINT32 offset = fdd->inf.d88.ptr[track];
+				if (!offset || (file_seek(fh, offset, FSEEK_SET) != offset) ||
+				    (file_read(fh, &sector, sizeof(sector)) != sizeof(sector)) ||
+				    (sector.h != (track & 1))) {
+					continue;
+				}
+				if ((track >= 4) && (sector.c == (track >> 2))) {
+					fdd->inf.d88.track_layout = D88TRACK_LAYOUT_DOUBLE_STEP;
+					break;
+				}
+				if (sector.c == (track >> 1)) {
+					break;
+				}
+			}
+			file_close(fh);
+		}
 	}
 	return (SUCCESS);
 
@@ -303,6 +332,7 @@ BOOL fddd88_eject(FDDFILE fdd) {
 	drvflush(fdd);
 	fdd->fname[0] = '\0';
 	fdd->type = DISKTYPE_NOTREADY;
+	fdd->inf.d88.track_layout = D88TRACK_LAYOUT_CONTIGUOUS;
 	ZeroMemory(&fdd->inf.d88.head, sizeof(fdd->inf.d88.head));
 	return (SUCCESS);
 }
