@@ -32,6 +32,9 @@ typedef struct {
 	UINT disk_drive;
 	BOOL wait;
 	BOOL disk_swap;
+	BOOL key_press;
+	BOOL control;
+	UINT key_role;
 } HEADLESS_INPUT_COMMAND;
 
 typedef struct {
@@ -39,6 +42,11 @@ typedef struct {
 	UINT command_count;
 	UINT32 next_frame;
 	BOOL completed;
+	UINT key_phase;
+	BYTE held_key;
+	BYTE held_control;
+	BOOL key_down;
+	BOOL control_down;
 	HEADLESS_INPUT_COMMAND *commands;
 } HEADLESS_INPUT_SCRIPT;
 

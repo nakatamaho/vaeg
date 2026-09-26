@@ -83,7 +83,14 @@ nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
-drive. The option does not terminate the emulator; combine it with
+drive. `@text TEXT` submits text without Return. The named-key forms
+`@key ctrl-c`, `@key ctrl-z`, `@key backspace`, `@key escape`, and `@key f1`
+send mapped guest key events. Control chords press the modifier before the key;
+each make/break transition is separated by three guest frames. An active text
+paste completes before the next key command. Unknown names and unavailable key
+mappings fail without injecting input, and held keys are released when the
+script is reset or cleared. These commands automate frontend input only; they
+do not emulate guest behavior. The option does not terminate the emulator; combine it with
 `VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_TVRAM_DUMP` for a bounded TVRAM capture
 run.
 
