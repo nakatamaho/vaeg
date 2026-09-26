@@ -149,7 +149,7 @@ static void exec_curdef(void) {
 
 	tsp.curn = tsp.parambuf[0] >> 3;
 	tsp.be = tsp.parambuf[0] & 0x01;
-	sprsw(tsp.curn, tsp.parambuf[0] & 0x02);
+	tsp.ce = (tsp.parambuf[0] & 0x02) != 0;
 
 	tsp.status &= ~STATUS_BUSY;
 }

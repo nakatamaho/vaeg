@@ -70,6 +70,7 @@
 #include "scrndraw.h"
 #include "scrndrawva.h"
 #include "sdrawva.h"
+#include "makesprva.h"
 #include "soundmng.h"
 #include "soundopts.h"
 #include "strres.h"
@@ -2097,6 +2098,71 @@ static int test_va_layer_display(void) {
 	return (SUCCESS);
 }
 
+static int test_va_cursor_sprite_enable(void) {
+	_TSP saved_tsp;
+	BYTE saved_sprites[0x100];
+	BYTE saved_pattern[4];
+	BYTE saved_raster[0x400];
+	BOOL saved_textmem_dirty;
+	const UINT16 sprite_table = 0x4000;
+	const UINT16 descriptor = sprite_table + 31 * 8;
+	const UINT16 pattern = 0x2000;
+	int result;
+
+	saved_tsp = tsp;
+	CopyMemory(saved_sprites, textmem + sprite_table, sizeof(saved_sprites));
+	CopyMemory(saved_pattern, textmem + pattern, sizeof(saved_pattern));
+	CopyMemory(saved_raster, sprraster, sizeof(saved_raster));
+	saved_textmem_dirty = textmem_dirty;
+	ZeroMemory(textmem + sprite_table, sizeof(saved_sprites));
+	ZeroMemory(textmem + pattern, sizeof(saved_pattern));
+	textmem[pattern] = 0x40;
+	STOREINTELWORD(textmem + descriptor + 4, pattern / 2);
+
+	ZeroMemory(&tsp, sizeof(tsp));
+	tsp.spron = TRUE;
+	tsp.sprtable = sprite_table;
+	tsp.curn = 31;
+	tsp.ce = TRUE;
+	makesprva_blankraster();
+	makesprva_begin();
+	makesprva_raster();
+	result = sprraster[0] == 4 ? SUCCESS
+	                         : fail("VA cursor sprite", "CURDEF.CE did not enable the selected sprite");
+
+	if (result == SUCCESS) {
+		tsp.ce = FALSE;
+		makesprva_blankraster();
+		makesprva_begin();
+		makesprva_raster();
+		if (sprraster[0] != 0) {
+			result = fail("VA cursor sprite", "disabled cursor remained visible with descriptor SW clear");
+		}
+	}
+
+	if (result == SUCCESS) {
+		STOREINTELWORD(textmem + descriptor, 0x0200);
+		tsp.be = TRUE;
+		tsp.blinkcnt2 = 0x08;
+		makesprva_blankraster();
+		makesprva_begin();
+		makesprva_raster();
+		if (sprraster[0] != 4) {
+			result = fail("VA cursor sprite", "cursor blink state changed an ordinary enabled sprite");
+		}
+	}
+
+	tsp = saved_tsp;
+	CopyMemory(textmem + sprite_table, saved_sprites, sizeof(saved_sprites));
+	CopyMemory(textmem + pattern, saved_pattern, sizeof(saved_pattern));
+	CopyMemory(sprraster, saved_raster, sizeof(saved_raster));
+	textmem_dirty = saved_textmem_dirty;
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: VA cursor sprite enable ok\n");
+	}
+	return (result);
+}
+
 static int test_framedisp(void) {
 	VAEG_FRAMEDISP state;
 
@@ -3977,6 +4043,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_va_layer_display() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_va_cursor_sprite_enable() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_framedisp() != SUCCESS) {

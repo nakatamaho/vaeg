@@ -69,7 +69,8 @@ typedef struct {
 	// paramfunc_sprdef 用
 	BYTE sprdef_offset;
 
-	BYTE dmy2[128];
+	UINT8 ce; // CURDEF cursor enable; stored in the existing reserved state byte.
+	BYTE dmy2[127];
 } _TSP, *TSP;
 
 #ifdef __cplusplus
