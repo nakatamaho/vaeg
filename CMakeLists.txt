@@ -846,6 +846,14 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
+    if(NOT CMAKE_CROSSCOMPILING AND NOT MSVC)
+        add_test(NAME vaeg_headless_keys
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_headless_keys.py")
+        set_tests_properties(vaeg_headless_keys PROPERTIES
+            ENVIRONMENT "CC=${CMAKE_C_COMPILER};VAEG_TEST_SYSROOT=${CMAKE_OSX_SYSROOT}"
+            LABELS "romless;frontend")
+    endif()
     if(VAEG_STATIC_LIBRASHADER AND VAEG_ENABLE_LIBRASHADER)
         add_executable(vaeg_static_preset
             tests/frontend/librashader/test_static_preset.cpp
