@@ -83,10 +83,13 @@ nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
-drive. `@text TEXT` submits text without Return. The named-key forms
-`@key ctrl-c`, `@key ctrl-z`, `@key backspace`, `@key escape`, and `@key f1`
-send mapped guest key events. Control chords press the modifier before the key;
-each make/break transition is separated by three guest frames. An active text
+drive. `@text TEXT` submits text without Return. `@key NAME` sends a mapped
+guest make/break pair. Names include `ctrl-c`, `ctrl-z`, `ctrl-left`,
+`ctrl-right`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `home`,
+`help`, `insert`, `delete`, `f1` through `f10`, `shift-f1` through `shift-f10`,
+and `shift-up`, `shift-down`, `shift-left`, or `shift-right`. Chords press the
+modifier before the key and release it after the key; each make/break transition
+is separated by three guest frames. An active text
 paste completes before the next key command. Unknown names and unavailable key
 mappings fail without injecting input, and held keys are released when the
 script is reset or cleared. These commands automate frontend input only; they
