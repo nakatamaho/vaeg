@@ -7,6 +7,19 @@
   },
   "configurePresets": [
     {
+      "name": "mingw-static-dependencies",
+      "hidden": true,
+      "cacheVariables": {
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
+        "VAEG_STATIC_LIBRASHADER": "ON",
+        "VAEG_LIBRASHADER_STATIC_LIBRARY": "${sourceDir}/build/mingw-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a",
+        "VAEG_LIBRASHADER_STATIC_NOTICES": "${sourceDir}/build/mingw-static/windows-audit/third-party-notices.txt",
+        "VAEG_LIBRASHADER_NATIVE_LIBS": "advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp"
+      }
+    },
+    {
       "name": "linux-debug",
       "displayName": "Linux Debug",
       "generator": "Ninja",
@@ -84,6 +97,7 @@
     {
       "name": "mingw-release",
       "displayName": "Windows MinGW Release (MSYS2 native)",
+      "inherits": "mingw-static-dependencies",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/mingw-release",
       "cacheVariables": {
@@ -98,6 +112,7 @@
     {
       "name": "mingw-cross",
       "displayName": "Windows MinGW-w64 Cross Release",
+      "inherits": "mingw-static-dependencies",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/mingw-cross",
       "toolchainFile": "${sourceDir}/cmake/mingw-w64-x86_64.cmake",
@@ -113,6 +128,7 @@
     {
       "name": "mingw-ci",
       "displayName": "Windows MinGW CI Release (MSYS2 native)",
+      "inherits": "mingw-static-dependencies",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/mingw-ci",
       "cacheVariables": {

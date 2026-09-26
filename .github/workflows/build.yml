@@ -249,6 +249,12 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkgconf
+            python
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: x86_64-pc-windows-gnu
+      - name: Build pinned static librashader
+        run: tools/release/build-mingw-static-librashader.sh
       - name: Configure
         run: cmake --preset mingw-ci
       - name: Build
@@ -278,12 +284,7 @@ jobs:
           fi
           exit "${status}"
       - name: Verify Windows runtime imports
-        run: |
-          objdump -p build/mingw-ci/sdl2/vaeg.exe | grep 'DLL Name'
-          if objdump -p build/mingw-ci/sdl2/vaeg.exe | grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll'; then
-            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
-            exit 1
-          fi
+        run: python3 tools/release/check-static-windows-imports.py --binary build/mingw-ci/sdl2/vaeg.exe
       - name: Download PC-88VA guest drivers
         uses: actions/download-artifact@v4
         with:
@@ -329,6 +330,12 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkgconf
+            python
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: x86_64-pc-windows-gnu
+      - name: Build pinned static librashader
+        run: tools/release/build-mingw-static-librashader.sh
       - name: Configure
         run: cmake --preset mingw-release
       - name: Build
@@ -336,12 +343,7 @@ jobs:
       - name: Smoke
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-release/sdl2/vaeg.exe --smoke
       - name: Verify Windows runtime imports
-        run: |
-          objdump -p build/mingw-release/sdl2/vaeg.exe | grep 'DLL Name'
-          if objdump -p build/mingw-release/sdl2/vaeg.exe | grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll'; then
-            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
-            exit 1
-          fi
+        run: python3 tools/release/check-static-windows-imports.py --binary build/mingw-release/sdl2/vaeg.exe
       - name: Download PC-88VA guest drivers
         uses: actions/download-artifact@v4
         with:

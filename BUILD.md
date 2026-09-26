@@ -64,7 +64,17 @@ Use the MSYS2 MinGW64 shell. Install:
 
 ```sh
 pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
-  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf python git
+```
+
+Install Rust 1.88.0 with the GNU Windows target, then prepare the pinned
+static librashader library and its third-party notices:
+
+```sh
+rustup toolchain install 1.88.0 --profile minimal \
+  --target x86_64-pc-windows-gnu
+rustup default 1.88.0
+tools/release/build-mingw-static-librashader.sh
 ```
 
 Build:
@@ -74,8 +84,10 @@ cmake --preset mingw-release
 cmake --build --preset mingw-release
 ```
 
-`mingw-release` builds a GUI subsystem executable. For a console debug
-build, configure manually with `-DVAEG_WINDOWS_CONSOLE=ON`.
+`mingw-release` builds a GUI subsystem executable and statically links SDL2,
+LibArchive, zlib, lzma, librashader, and the MinGW GCC/C++/pthread runtimes.
+Only Windows system DLLs remain as runtime imports. For a console debug build,
+configure manually with `-DVAEG_WINDOWS_CONSOLE=ON`.
 
 Linux cross-checks use:
 
@@ -85,8 +97,15 @@ cmake --build --preset mingw-cross
 ```
 
 The MinGW presets download the pinned SDL2 release recorded in ADR-0006
-and link it statically. Windows release artifacts therefore require only
-`vaeg.exe` at runtime. MinGW ASan is not enabled in this tree;
+and build static third-party libraries. Windows release artifacts therefore
+require only `vaeg.exe` at runtime. The import audit is:
+
+```sh
+python3 tools/release/check-static-windows-imports.py \
+  --binary build/mingw-release/sdl2/vaeg.exe
+```
+
+MinGW ASan is not enabled in this tree;
 sanitizer availability depends on the MinGW runtime/package set, so G11
 keeps sanitizer acceptance on Linux and macOS.
 
