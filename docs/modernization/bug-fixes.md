@@ -2041,6 +2041,20 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M100g — Configuration save failures were silently ignored
+
+- **Status:** implementation candidate; runtime failure-injection verification pending.
+- **Scope:** SDL2 configuration persistence, including the main-RAM menu.
+- **Source finding:** ini_write ignored write results and file_close always
+  returned success, preventing the frontend from reporting failed persistence.
+- **Correction:** check writes and close, replace configuration atomically,
+  and preserve the previous menu settings on failure. Do not report a saved
+  setting when --no-cfg disables persistence.
+- **Verification:** Linux compilation completed; runtime tests NOT RUN.
+- **Task/evidence:** [M100g report](../agents/reports/m100g_main_ram_sync.md).
+- **Commit:** [fccc71f6](https://github.com/nakatamaho/vaeg/commit/fccc71f63310755b89f367cd4119cc8b1d8aba22).
+
+
 ### Windows native-to-SDL switch stalls the frontend
 
 - **Status:** M99z8 candidate; affected-machine verification pending.
