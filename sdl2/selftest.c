@@ -1459,9 +1459,11 @@ static int test_main_ram_configuration(void) {
 	for (i = 0; i < NELEMENTS(capacities); i++) {
 		capacity = capacities[i];
 		np2cfg.main_ram = capacity;
+		pccore_mainram_reset();
 		limit = pccore_mainram_limit();
 		if ((pccore_mainram_kb() != capacity) || (limit != (UINT32)capacity * 1024)) {
 			np2cfg.main_ram = saved_main_ram;
+			pccore_mainram_reset();
 			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 			return (fail("Main_RAM", "capacity normalization failed"));
 		}
@@ -1488,6 +1490,7 @@ static int test_main_ram_configuration(void) {
 		    backupmem[0x1fc8] != 0x4b || backupmem[0x1fc9] != 0x5a || backupmem[0x1fca] != 0x4d ||
 		    backupmem[0x1fcd] != checksum) {
 			np2cfg.main_ram = saved_main_ram;
+			pccore_mainram_reset();
 			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 			return (fail("Main_RAM", "backup-memory capacity record failed"));
 		}
@@ -1496,6 +1499,7 @@ static int test_main_ram_configuration(void) {
 		upd9002_mainram_write(limit - 1, 0x5a);
 		if (upd9002_mainram_read(limit - 1) != 0x5a) {
 			np2cfg.main_ram = saved_main_ram;
+			pccore_mainram_reset();
 			mem[limit - 1] = saved_below;
 			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 			return (fail("Main_RAM", "last installed byte was not writable"));
@@ -1506,6 +1510,7 @@ static int test_main_ram_configuration(void) {
 			upd9002_mainram_write(limit, 0xa5);
 			if (upd9002_mainram_read(limit) != 0xff) {
 				np2cfg.main_ram = saved_main_ram;
+				pccore_mainram_reset();
 				mem[limit] = saved_above;
 				CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 				return (fail("Main_RAM", "uninstalled byte was accessible"));
@@ -1514,6 +1519,7 @@ static int test_main_ram_configuration(void) {
 		}
 	}
 	np2cfg.main_ram = saved_main_ram;
+	pccore_mainram_reset();
 	CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 	fprintf(stderr, "selftest: Main_RAM physical ceiling ok\n");
 	return (SUCCESS);

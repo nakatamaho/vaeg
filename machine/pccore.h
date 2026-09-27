@@ -59,6 +59,7 @@ typedef struct {
 	UINT8 memsw[8];
 	/* Installed conventional RAM ceiling; BIOS MEMswtch remains independent. */
 	UINT16 main_ram;
+	UINT8 main_ram_auto;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;
@@ -154,6 +155,8 @@ UINT pccore_cpu_multiple(void);
 UINT32 pccore_cpu_clock(void);
 UINT16 pccore_mainram_kb(void);
 UINT32 pccore_mainram_limit(void);
+/* Apply pending RAM settings only while the CPU is stopped for reset. */
+void pccore_mainram_reset(void);
 
 void pccore_init(void);
 void pccore_term(void);

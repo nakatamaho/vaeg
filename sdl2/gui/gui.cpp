@@ -65,6 +65,7 @@
 #include "beep.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "ini.h"
 #include "machine/pccore.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
@@ -1034,6 +1035,23 @@ static void draw_bms_config_dialog(void) {
 		}
 		ImGui::EndPopup();
 	}
+}
+
+static void save_main_ram_settings(UINT16 capacity, bool automatic) {
+	const UINT16 previous_capacity = np2cfg.main_ram;
+	const UINT8 previous_auto = np2cfg.main_ram_auto;
+	np2cfg.main_ram = capacity;
+	np2cfg.main_ram_auto = automatic ? 1 : 0;
+	if (initsave_checked() != SUCCESS) {
+		np2cfg.main_ram = previous_capacity;
+		np2cfg.main_ram_auto = previous_auto;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Configuration not saved",
+		                        "Could not save the active configuration file. Check write "
+		                        "permissions and whether --no-cfg is enabled. Settings were not changed.",
+		                        nullptr);
+		return;
+	}
+	sysmng_update(SYS_UPDATECFG);
 }
 
 static void open_ems_config_dialog(void) {
@@ -3507,6 +3525,24 @@ static void draw_device_menu(void) {
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
 			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("メインメモリ容量")) {
+			const UINT16 capacities[] = {256, 384, 512, 640};
+			for (UINT16 capacity : capacities) {
+				char label[16];
+				std::snprintf(label, sizeof(label), "%u KB", capacity);
+				if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
+					save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
+				}
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr,
+			                    np2cfg.main_ram_auto != 0)) {
+				save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
+			}
+			ImGui::TextDisabled("変更は次のリセットで反映");
+			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
 			ImGui::EndMenu();
 		}
 		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {

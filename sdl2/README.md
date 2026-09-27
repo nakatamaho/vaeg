@@ -552,20 +552,39 @@ Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
 disable both backup-memory reads and writes. These two options are mutually
 exclusive. No implicit migration or fallback reads old user-state copies.
 
-For VA models, `Main_RAM` describes the installed conventional-RAM ceiling,
-independently of the BIOS memory-switch selection in `MEMswtch`:
+For VA/VA2 models, `Main_RAM` is the installed conventional-RAM capacity.
+Menu -> デバイス -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
+whether to synchronize the BIOS backup-memory capacity at startup/reset:
 
 ```ini
+[NekoProjectII]
 Main_RAM=640
+Main_RAM_Auto=true
 ```
 
-Supported physical capacities are 256, 384, 512, and 640 KB. Addresses above
-the configured capacity are unavailable to the guest CPU, so the VA BIOS
-memory check cannot retain a `MEMswtch` selection beyond the installed limit.
-`Use_BMS_`, `BMS_Port`, and `BMS_Size` describe the separate bank-memory
-device and do not increase this conventional-RAM ceiling. When a model-specific
-backup-memory file is missing or truncated, the frontend seeds the BIOS
-memory-selection record from `Main_RAM`; an existing backup image is preserved.
+Defaults are 640 KB and automatic synchronization ON. Existing valid Main_RAM
+values are preserved; a missing Main_RAM_Auto key defaults to ON. Unsupported
+capacities produce a warning and use 640 KB. Menu changes are saved immediately
+to the active vaeg.cfg (including a --cfg override), but installed RAM and
+backup-memory synchronization change together at the next reset. The menu shows
+the currently applied capacity. Failed configuration writes leave the previous
+file/settings intact and display an error; --no-cfg prevents menu persistence.
+
+With automatic synchronization ON, startup/reset updates only the capacity bits
+and their checksum in an existing backup image, preserving other BIOS settings.
+A missing or truncated image receives the existing initial BIOS record when ON;
+when OFF, it starts cleared without seeding a capacity record. With OFF, the
+emulator performs no capacity correction, including the former missing-file
+initialization; the guest BIOS remains free to modify backup memory. This allows
+intentional discrepancies for diagnostics. No continuous correction runs while
+the guest is executing. Normal backup-file saving persists the resulting state;
+--no-bkupmem still disables backup-file I/O, not the in-memory synchronization.
+
+Addresses above the applied capacity are unavailable to the guest CPU. BMS/EMS
+and MEMswtch do not define or increase installed conventional memory. Automatic
+synchronization is an emulator convenience, not a replacement for guest RAM
+measurement. Only resetting applies pending changes; save-state loading does
+not itself synchronize the backup-memory record.
 
 Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read. Fixed GUI
 save-state slots and keyboard sidecars remain in the user state directory.
