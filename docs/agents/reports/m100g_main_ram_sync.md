@@ -55,8 +55,21 @@ Implementation: [fccc71f63310755b89f367cd4119cc8b1d8aba22](https://github.com/na
 - Existing main-RAM selftest setup now explicitly applies the reset boundary.
   No new tests were added; selftests, guest boot, GUI interaction and failure
   injection were NOT RUN. No runtime PASS is claimed.
-- macOS and MinGW builds are NOT RUN. No release binaries were copied elsewhere.
+- macOS build is NOT RUN. MinGW build completed as recorded below.
 - Standard V3/demo/OS human gate remains NOT RUN. No later milestone was started.
 
 See [memory policy](../../modernization/pc88va-main-ram-options.md) and
 [frontend configuration](../../../sdl2/README.md#configuration).
+
+## MinGW handoff
+
+- Source: `7e18026ac4d8648debe78a44c99030e8780e9fe0`.
+- Ubuntu 24.04 container, MinGW-w64 x86-64 POSIX compiler, Release build via
+  `mingw-cross`, tests disabled. SDL2, archive support and the audited pinned
+  librashader C API archive were linked statically.
+- Artifact: `build/mingw-cross/sdl2/vaeg.exe`.
+- Executable SHA-256: `b271bd49b8635db134304d0b4ee59c3275f14cb90b0bda8b2f0c3ce31e8a755a`.
+- PE import inspection found Windows system DLLs only; no separate SDL2,
+  librashader, libgcc, libstdc++ or winpthread runtime DLL is imported.
+- Bundle: `build/vaeg-mainram-windows-x64.zip`, with notices and no ROM/media.
+- Windows execution, GUI interaction and tests are NOT RUN.
