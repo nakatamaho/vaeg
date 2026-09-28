@@ -563,8 +563,11 @@ For `BR=1..31`, attribute blink is bright for `BR*24` fields and dark for
 ### 10.4 Cursor, active screen, and light pen
 
 `CURDEF` (`15h`) accepts one byte: cursor sprite number in bits 7:3, cursor
-enable in bit 1, and blink enable in bit 0. The cursor is a selected hardware
-sprite, so the descriptor and `SPRON` state must also be valid.
+enable in bit 1, and blink enable in bit 0. `CE` is retained as cursor state;
+it is independent of the descriptor's ordinary sprite switch (`SW`). When
+enabled, the selected descriptor supplies the cursor image and position even
+if its `SW` bit is clear. `SPRON` and the descriptor contents must still be
+valid.
 
 `ACTSCR` (`16h`) accepts the split number in bits 6:5 (equivalently
 `split * 32`) and selects the virtual coordinate space used by `CURS` and
@@ -1184,7 +1187,7 @@ uses the CPU TVRAM map instead of the generic host-transfer interface.
 | `DSPON (12h)` | Screen-table base plus backdrop color | 3 bytes; VA table uses the high address byte and zero reserved bytes | Enables text and stores only the first address byte; backdrop and wider address profiles are not modeled | Partial |
 | `DSPOFF (13h)` | Stop display and sprite controller | Stops text and sprites | Disables text and sprites | Basic VA match |
 | `DSPDEF (14h)` | Attribute offset, pitch, MRA, HRA, blink | Six-byte screen-format definition | Basic offset/height/line/blink handling; `PITCH`, full field masks, and wider offsets are incomplete | Partial |
-| `CURDEF (15h)` | Cursor sprite, CE, BE | Cursor sprite, cursor enable, blink enable | Selects cursor sprite and updates its enable bit | Basic VA match |
+| `CURDEF (15h)` | Cursor sprite, CE, BE | Cursor sprite, cursor enable, blink enable | Retains CURN, CE, and BE separately from descriptor SW | Basic VA match |
 | `ACTSCR (16h)` | Select active split | Select cursor split screen | Unknown command path | Missing |
 | `CURS (1Eh)` | Set virtual Y/X and update cursor address | Set cursor Y then X | Unknown command path | Missing |
 | `LPNR (1Ah)` | Read light-pen position | VA material marks light pen unavailable | Not implemented | Intentional VA omission pending evidence |

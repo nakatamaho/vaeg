@@ -29,6 +29,7 @@ import html
 import json
 import pathlib
 import re
+import shutil
 import subprocess
 import urllib.error
 import urllib.request
@@ -48,6 +49,34 @@ def read_notice(path):
 
 def run(args, cwd):
     return subprocess.check_output(args, cwd=cwd, text=True)
+
+
+def mingw_gcc_release(source):
+    compiler = "x86_64-w64-mingw32-g++"
+    reported = run([compiler, "-dumpfullversion"], source).strip()
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+){0,2})(?:-(?:posix|win32))?", reported)
+    version = match.group(1) if match else ""
+    if len(version.split(".")) == 3:
+        return version
+
+    # Debian's MinGW wrappers report only "<major>-posix". Use the exact
+    # installed compiler package version so the corresponding GCC notices
+    # still come from a release source tree, rather than guessing a patch.
+    if reported.endswith("-posix") or reported.endswith("-win32"):
+        suffix = reported.rsplit("-", 1)[1]
+        package = "g++-mingw-w64-x86-64-" + suffix
+        dpkg_query = shutil.which("dpkg-query")
+        if dpkg_query:
+            try:
+                package_version = subprocess.check_output(
+                    [dpkg_query, "-W", "-f=${Version}", package],
+                    cwd=source, text=True, stderr=subprocess.DEVNULL).strip()
+            except subprocess.CalledProcessError:
+                package_version = ""
+            match = re.match(r"([0-9]+\.[0-9]+\.[0-9]+)", package_version)
+            if match and match.group(1).split(".", 1)[0] == reported.split("-", 1)[0]:
+                return match.group(1)
+    raise SystemExit("LIBRA_GCC_VERSION_UNRECOGNIZED: " + reported)
 
 
 def main():
@@ -163,9 +192,7 @@ def main():
     notices.append(rust_version + "\nRust standard library: https://github.com/rust-lang/rust\n" +
                    html.unescape(re.sub(r"<[^>]*>", "", rust_notice.read_text())))
     if args.target == "x86_64-pc-windows-gnu":
-        gcc_version = run(["x86_64-w64-mingw32-g++", "-dumpfullversion"], source).strip()
-        if not re.fullmatch(r"[0-9.]+", gcc_version):
-            raise SystemExit("LIBRA_GCC_VERSION_UNRECOGNIZED")
+        gcc_version = mingw_gcc_release(source)
         for name in ("COPYING3", "COPYING.RUNTIME"):
             url = "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-" + gcc_version + "/" + name
             cached = output / "upstream-notices" / ("gcc-" + gcc_version + "-" + name)

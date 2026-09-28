@@ -32,19 +32,24 @@ covered here.
 
 This is the supported Windows runtime configuration. Build and run the
 native Windows binary from an MSYS2 MINGW64 environment, then distribute
-`vaeg.exe`. The executable statically links SDL2 and the MinGW gcc,
-libstdc++, and winpthread runtimes.
+`vaeg.exe`. The executable statically links SDL2, LibArchive, zlib, lzma,
+librashader, and the MinGW gcc, libstdc++, and winpthread runtimes.
 
 Open the MSYS2 MINGW64 shell, then install the build prerequisites:
 
 ```sh
 pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
-  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf python git
 ```
 
-Configure and build:
+Install Rust 1.88.0 with the GNU Windows target. Prepare librashader's
+static archive and dependency notices, then configure and build:
 
 ```sh
+rustup toolchain install 1.88.0 --profile minimal \
+  --target x86_64-pc-windows-gnu
+rustup default 1.88.0
+tools/release/build-mingw-static-librashader.sh
 cmake --preset mingw-release
 cmake --build --preset mingw-release
 ```
@@ -93,18 +98,23 @@ G11; no app bundle is required.
 
 ## Linux To Windows Cross Check
 
-The agent-side MinGW cross check uses the pinned SDL2 FetchContent path
-from ADR-0006:
+The agent-side MinGW cross check uses the same fully static dependency stack:
 
 ```sh
+rustup toolchain install 1.88.0 --profile minimal \
+  --target x86_64-pc-windows-gnu
+rustup default 1.88.0
+tools/release/build-mingw-static-librashader.sh
 cmake --preset mingw-cross
 cmake --build --preset mingw-cross
+python3 tools/release/check-static-windows-imports.py \
+  --binary build/mingw-cross/sdl2/vaeg.exe
 ```
 
-The staged output is `build/mingw-cross/sdl2/vaeg.exe`. SDL2 and the
-MinGW runtimes are static, so the executable has only Windows system DLL
-imports. This preset remains a link-check tier; Windows release artifacts
-should be produced from the supported MSYS2 MINGW64 native configuration.
+The staged output is `build/mingw-cross/sdl2/vaeg.exe`. Its import audit
+allows only Windows system DLLs. This preset remains a link-check tier;
+Windows release artifacts should be produced from the supported MSYS2
+MINGW64 native configuration.
 
 Linux executables also contain the same icon data and set it through SDL for
 window-manager and task-switcher use. The project does not currently install

@@ -30,8 +30,6 @@ enum {
 	FDD_MOTOR_STARTING = 1,
 	FDD_MOTOR_STABLE = 2,
 
-	FDD_48TPI = 0,
-	FDD_96TPI = 1,
 };
 
 static const UINT8 FDCCMD_TABLE[32] = {0, 0, 8, 2, 1, 8, 8, 1, 0, 8, 1, 0, 8, 5, 0, 2,
@@ -1063,12 +1061,10 @@ static void start_executionphase(void) {
 		sync = 12;
 		gap1 = 50;
 		gap2 = 22;
-		data = 512;  // Approximate with the DOS F9H 2DD 720 KiB format.
+		data = (fdc.N < 8) ? (128 << fdc.N) : (128 << 8);
 		gap3 = 84;   // Same representative format.
 		gap4 = 182;  // Same representative format.
-		sectors = 9; // Same representative format.
-		// This approximation completes 640 KiB 2DD and 320 KiB 2D tracks
-		// faster than real hardware because their sector layouts differ.
+		sectors = fdc.eot;
 
 		break;
 	case DISKTYPE_2HD: // 2HD
@@ -1077,11 +1073,17 @@ static void start_executionphase(void) {
 		sync = 12;
 		gap1 = 50;
 		gap2 = 22;
-		data = 1024; // Approximate with the DOS FEH 2HD format.
+		data = (fdc.N < 8) ? (128 << fdc.N) : (128 << 8);
 		gap3 = 116;  // Same representative format.
 		gap4 = 654;  // Same representative format.
-		sectors = 8; // Same representative format.
+		sectors = fdc.eot;
 		break;
+	}
+	if ((fdc.cmd & 0x1f) == 0x0d) {
+		sectors = fdc.sc;
+	}
+	if (sectors <= 0) {
+		sectors = 1;
 	}
 	seclen = sync + idam + chrn + crc + gap2 + sync + ddam + data + crc + gap3;
 	tracklen = gap0 + sync + iam + gap1 + seclen * sectors + gap4;
@@ -1415,9 +1417,9 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 	}
 	for (i = 0; i < 2; i++) {
 		if (dat & (4 << i)) {
-			fdc.trackdensity[i] = FDD_96TPI;
+			fdc.trackdensity[i] = FDC_TRACKDENSITY_96TPI;
 		} else {
-			fdc.trackdensity[i] = FDD_48TPI;
+			fdc.trackdensity[i] = FDC_TRACKDENSITY_48TPI;
 		}
 	}
 	if (dat & 0x20) {
@@ -1523,7 +1525,7 @@ void fdc_reset(void) {
 	dmac_attach(DMADEV_2DD, FDC_DMACH2DD);
 	{
 		const UINT8 ctrlfd = DISKTYPE_2DD;
-		const UINT8 trackdensity = FDD_48TPI;
+		const UINT8 trackdensity = FDC_TRACKDENSITY_48TPI;
 		CTRL_FDMEDIA[0] = CTRL_FDMEDIA[1] = CTRL_FDMEDIA[2] = CTRL_FDMEDIA[3] = ctrlfd;
 		fdc.trackdensity[0] = fdc.trackdensity[1] = fdc.trackdensity[2] = fdc.trackdensity[3] =
 		    trackdensity;

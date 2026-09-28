@@ -51,12 +51,23 @@ typedef FILE *FILEH;
 #define SDL_calloc calloc
 #define SDL_free free
 #define KBDMAP_NC 255
-typedef enum { KBDROLE_CTRL=1, KBDROLE_C, KBDROLE_Z, KBDROLE_BS, KBDROLE_ESC, KBDROLE_F1 } KBDMAP_ROLE;
-static int events[32], count, mapping_missing, paste_busy, pasted;
+typedef enum {
+    KBDROLE_STOP=0, KBDROLE_CTRL, KBDROLE_C, KBDROLE_Z, KBDROLE_BS, KBDROLE_ESC,
+    KBDROLE_UP, KBDROLE_DOWN, KBDROLE_LEFT, KBDROLE_RIGHT, KBDROLE_HOME,
+    KBDROLE_HELP, KBDROLE_INS, KBDROLE_DEL, KBDROLE_F1, KBDROLE_F2, KBDROLE_F3,
+    KBDROLE_F4, KBDROLE_F5, KBDROLE_F6, KBDROLE_F7, KBDROLE_F8, KBDROLE_F9,
+    KBDROLE_F10, KBDROLE_SHIFTL, KBDROLE_A, KBDROLE_B, KBDROLE_D, KBDROLE_E,
+    KBDROLE_F, KBDROLE_G, KBDROLE_H, KBDROLE_I, KBDROLE_J, KBDROLE_K, KBDROLE_L,
+    KBDROLE_M, KBDROLE_N, KBDROLE_O, KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S,
+    KBDROLE_T, KBDROLE_U, KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y,
+    KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3, KBDROLE_4, KBDROLE_5, KBDROLE_6,
+    KBDROLE_7, KBDROLE_8, KBDROLE_9
+} KBDMAP_ROLE;
+static int events[256], count, mapping_missing, paste_busy, pasted;
 static char text[64];
 BYTE kbdmap_guest_code(KBDMAP_ROLE role) { return mapping_missing ? KBDMAP_NC : (BYTE)role; }
-void kbdinject_keydown(BYTE code) { assert(count < 32); events[count++]=code; }
-void kbdinject_keyup(BYTE code) { assert(count < 32); events[count++]=-code; }
+void kbdinject_keydown(BYTE code) { assert(count < 256); events[count++]=code; }
+void kbdinject_keyup(BYTE code) { assert(count < 256); events[count++]=-code; }
 BOOL kbdpaste_active(void) { return paste_busy; }
 BOOL kbdpaste_start_text(const char *s) { assert(strlen(s)<sizeof(text)); strcpy(text,s); pasted++; return TRUE; }
 void diskdrv_setfdd(REG8 drive, const char *path, int kind) { (void)drive; (void)path; (void)kind; }
@@ -104,16 +115,68 @@ int main(int argc, char **argv) {
         frame(&s,843); assert(!strcmp(text,"D")); frame(&s,963); assert(!strcmp(text,"\r"));
         frame(&s,1083); assert(s.completed && pasted==3);
     } else if (!strcmp(argv[1],"function")) {
-        add(&s,"@key f1"); headless_input_script_initialize(&s);
-        frame(&s,600); frame(&s,603);
-        assert(count==2 && events[0]==KBDROLE_F1 && events[1]==-KBDROLE_F1);
-        assert(pasted==0);
+        static const char *names[]={"f1","f2","f3","f4","f5","f6","f7","f8","f9","f10"};
+        int i;
+        for (i=0;i<10;i++) { char line[16]; snprintf(line,sizeof(line),"@key %s",names[i]); add(&s,line); }
+        headless_input_script_initialize(&s);
+        for (i=0;i<10;i++) {
+            UINT start=600+(UINT)i*123;
+            frame(&s,start); assert(count==i*2+1 && events[count-1]==KBDROLE_F1+i);
+            frame(&s,start+3); assert(count==i*2+2 && events[count-1]==-(KBDROLE_F1+i));
+        }
+        frame(&s,1830); assert(s.completed && pasted==0);
+    } else if (!strcmp(argv[1],"roles")) {
+        static const char *names[]={"up","down","left","right","home","help","insert","delete"};
+        static const int roles[]={KBDROLE_UP,KBDROLE_DOWN,KBDROLE_LEFT,KBDROLE_RIGHT,
+            KBDROLE_HOME,KBDROLE_HELP,KBDROLE_INS,KBDROLE_DEL};
+        int i;
+        for (i=0;i<8;i++) { char line[24]; snprintf(line,sizeof(line),"@key %s",names[i]); add(&s,line); }
+        headless_input_script_initialize(&s);
+        for (i=0;i<8;i++) {
+            UINT start=600+(UINT)i*123;
+            frame(&s,start); assert(count==i*2+1 && events[count-1]==roles[i]);
+            frame(&s,start+3); assert(count==i*2+2 && events[count-1]==-roles[i]);
+        }
+    } else if (!strcmp(argv[1],"modifiers")) {
+        add(&s,"@key ctrl-left"); add(&s,"@key shift-f10"); add(&s,"@key shift-up");
+        headless_input_script_initialize(&s);
+        frame(&s,600); assert(count==1 && events[0]==KBDROLE_CTRL);
+        frame(&s,603); assert(count==2 && events[1]==KBDROLE_LEFT);
+        frame(&s,606); assert(count==3 && events[2]==-KBDROLE_LEFT);
+        frame(&s,609); assert(count==4 && events[3]==-KBDROLE_CTRL);
+        frame(&s,729); assert(count==5 && events[4]==KBDROLE_SHIFTL);
+        frame(&s,732); assert(count==6 && events[5]==KBDROLE_F10);
+        frame(&s,735); assert(count==7 && events[6]==-KBDROLE_F10);
+        frame(&s,738); assert(count==8 && events[7]==-KBDROLE_SHIFTL);
+        frame(&s,858); assert(count==9 && events[8]==KBDROLE_SHIFTL);
+        frame(&s,861); assert(count==10 && events[9]==KBDROLE_UP);
+        frame(&s,864); assert(count==11 && events[10]==-KBDROLE_UP);
+        frame(&s,867); assert(count==12 && events[11]==-KBDROLE_SHIFTL);
     } else if (!strcmp(argv[1],"reject")) {
         assert(headless_input_script_add_line(&s,"@key",4)==FAILURE);
         assert(headless_input_script_add_line(&s,"@key magic",10)==FAILURE);
+        assert(headless_input_script_add_line(&s,"@hold a",7)==FAILURE);
+        assert(headless_input_script_add_line(&s,"@hold a 0",9)==FAILURE);
+        assert(headless_input_script_add_line(&s,"@hold shift-up 60",17)==FAILURE);
+        assert(headless_input_script_add_line(&s,"@hold a 1000001",15)==FAILURE);
+        assert(headless_input_script_add_line(&s,"@hold a nope",12)==FAILURE);
         assert(s.command_count==0);
         add(&s,"@key escape"); mapping_missing=1; headless_input_script_initialize(&s);
         assert(headless_input_script_after_frame(&s,600)==FAILURE && count==0);
+    } else if (!strcmp(argv[1],"hold")) {
+        add(&s,"@hold a 60"); add(&s,"@hold up 40");
+        headless_input_script_initialize(&s);
+        frame(&s,599); assert(count==0);
+        frame(&s,600);
+        assert(count==1 && events[0]==KBDROLE_A && s.key_phase==4 && s.key_down);
+        frame(&s,659); assert(count==1 && s.key_down);
+        frame(&s,660);
+        assert(count==2 && events[1]==-KBDROLE_A && s.key_phase==0 && !s.key_down);
+        frame(&s,779); assert(count==2);
+        frame(&s,780);
+        assert(count==3 && events[2]==KBDROLE_UP && s.key_phase==4);
+        headless_input_script_clear(&s);
+        assert(count==4 && events[3]==-KBDROLE_UP && s.key_phase==0);
     } else if (!strcmp(argv[1],"legacy")) {
         add(&s,"@wait 2"); add(&s,"DIR"); add(&s,"@enter");
         headless_input_script_initialize(&s); frame(&s,600); assert(!pasted);
@@ -152,8 +215,11 @@ class HeadlessKeyTests(unittest.TestCase):
     def test_paced_control_chord(self): self.run_case('chord')
     def test_release_on_clear_and_reinitialize(self): self.run_case('cancel')
     def test_partial_text_and_edit_key(self): self.run_case('edit')
-    def test_function_key_uses_normal_make_and_break(self): self.run_case('function')
+    def test_all_function_keys_use_normal_make_and_break(self): self.run_case('function')
+    def test_navigation_keys_use_normal_make_and_break(self): self.run_case('roles')
+    def test_control_and_shift_chords_are_paced(self): self.run_case('modifiers')
     def test_unknown_and_unmapped_keys_fail_without_input(self): self.run_case('reject')
+    def test_repeat_probe_holds_one_native_make_until_release(self): self.run_case('hold')
     def test_existing_text_wait_and_enter(self): self.run_case('legacy')
     def run_case(self,name):
         result=subprocess.run([str(self.binary),name],capture_output=True,text=True)

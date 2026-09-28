@@ -47,11 +47,11 @@ static void headless_input_release_keys(HEADLESS_INPUT_SCRIPT *script) {
 	if (script->key_down) {
 		kbdinject_keyup(script->held_key);
 	}
-	if (script->control_down) {
-		kbdinject_keyup(script->held_control);
+	if (script->modifier_down) {
+		kbdinject_keyup(script->held_modifier);
 	}
 	script->key_down = FALSE;
-	script->control_down = FALSE;
+	script->modifier_down = FALSE;
 	script->key_phase = 0;
 }
 
@@ -168,6 +168,96 @@ static BOOL headless_input_script_add_wait(HEADLESS_INPUT_SCRIPT *script, UINT w
 	return SUCCESS;
 }
 
+static BOOL headless_input_script_add_hold(HEADLESS_INPUT_SCRIPT *script, const char *line,
+                                           UINT length) {
+	static const KBDMAP_ROLE letters[] = {
+	    KBDROLE_A, KBDROLE_B, KBDROLE_C, KBDROLE_D, KBDROLE_E, KBDROLE_F, KBDROLE_G,
+	    KBDROLE_H, KBDROLE_I, KBDROLE_J, KBDROLE_K, KBDROLE_L, KBDROLE_M, KBDROLE_N,
+	    KBDROLE_O, KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S, KBDROLE_T, KBDROLE_U,
+	    KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y, KBDROLE_Z};
+	static const KBDMAP_ROLE digits[] = {KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3, KBDROLE_4,
+	                                     KBDROLE_5, KBDROLE_6, KBDROLE_7, KBDROLE_8, KBDROLE_9};
+	static const struct {
+		const char *name;
+		KBDMAP_ROLE role;
+	} editing_keys[] = {{"backspace", KBDROLE_BS}, {"up", KBDROLE_UP}, {"down", KBDROLE_DOWN},
+	                    {"left", KBDROLE_LEFT}, {"right", KBDROLE_RIGHT}};
+	const char *argument;
+	const char *separator;
+	const char *frame_text;
+	KBDMAP_ROLE role;
+	UINT key_length;
+	UINT frame_length;
+	UINT index;
+	char frame_buffer[16];
+	char *end;
+	unsigned long hold_frames;
+	HEADLESS_INPUT_COMMAND *command;
+	enum { HEADLESS_INPUT_HOLD_MAX_FRAMES = 1000000 };
+
+	if ((length < 8) || (memcmp(line, "@hold ", 6) != 0)) {
+		fprintf(stderr, "Error: headless input @hold needs a key and frame count\n");
+		return FAILURE;
+	}
+	argument = line + 6;
+	separator = (const char *)memchr(argument, ' ', length - 6);
+	if ((separator == NULL) || (separator == argument)) {
+		fprintf(stderr, "Error: headless input @hold needs a key and frame count\n");
+		return FAILURE;
+	}
+	key_length = (UINT)(separator - argument);
+	frame_text = separator + 1;
+	while (*frame_text == ' ') {
+		frame_text++;
+	}
+	frame_length = length - (UINT)(frame_text - line);
+	if ((frame_length == 0) || (frame_length >= sizeof(frame_buffer))) {
+		fprintf(stderr, "Error: headless input @hold frame count is invalid\n");
+		return FAILURE;
+	}
+	CopyMemory(frame_buffer, frame_text, frame_length);
+	frame_buffer[frame_length] = '\0';
+	errno = 0;
+	end = NULL;
+	hold_frames = strtoul(frame_buffer, &end, 10);
+	if ((errno != 0) || (end == frame_buffer) || (*end != '\0') || (hold_frames == 0) ||
+	    (hold_frames > HEADLESS_INPUT_HOLD_MAX_FRAMES)) {
+		fprintf(stderr, "Error: headless input @hold frames must be from 1 to %u\n",
+		        HEADLESS_INPUT_HOLD_MAX_FRAMES);
+		return FAILURE;
+	}
+
+	role = KBDROLE_STOP;
+	if ((key_length == 1) && (argument[0] >= 'a') && (argument[0] <= 'z')) {
+		role = letters[argument[0] - 'a'];
+	} else if ((key_length == 1) && (argument[0] >= '0') && (argument[0] <= '9')) {
+		role = digits[argument[0] - '0'];
+	} else {
+		for (index = 0; index < sizeof(editing_keys) / sizeof(editing_keys[0]); index++) {
+			if ((key_length == strlen(editing_keys[index].name)) &&
+			    (memcmp(argument, editing_keys[index].name, key_length) == 0)) {
+				role = editing_keys[index].role;
+				break;
+			}
+		}
+	}
+	if (role == KBDROLE_STOP) {
+		fprintf(stderr, "Error: headless input @hold key is not repeat-eligible\n");
+		return FAILURE;
+	}
+	if ((script->command_count >= HEADLESS_INPUT_COMMAND_MAX) ||
+	    (headless_input_script_reserve(script) != SUCCESS)) {
+		return FAILURE;
+	}
+	command = &script->commands[script->command_count++];
+	command->key_press = TRUE;
+	command->key_hold = TRUE;
+	command->key_role = role;
+	command->modifier_role = KBDROLE_STOP;
+	command->wait_frames = (UINT)hold_frames;
+	return SUCCESS;
+}
+
 static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const char *line,
                                            UINT length) {
 	char *value;
@@ -176,15 +266,51 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const 
 	static const struct {
 		const char *name;
 		KBDMAP_ROLE role;
-		BOOL control;
-	} keys[] = {{"ctrl-c", KBDROLE_C, TRUE},
-	            {"ctrl-z", KBDROLE_Z, TRUE},
-	            {"backspace", KBDROLE_BS, FALSE},
-	            {"escape", KBDROLE_ESC, FALSE},
-	            {"f1", KBDROLE_F1, FALSE}};
+		KBDMAP_ROLE modifier;
+	} keys[] = {{"ctrl-c", KBDROLE_C, KBDROLE_CTRL},
+	            {"ctrl-z", KBDROLE_Z, KBDROLE_CTRL},
+	            {"ctrl-left", KBDROLE_LEFT, KBDROLE_CTRL},
+	            {"ctrl-right", KBDROLE_RIGHT, KBDROLE_CTRL},
+	            {"backspace", KBDROLE_BS, KBDROLE_STOP},
+	            {"escape", KBDROLE_ESC, KBDROLE_STOP},
+	            {"up", KBDROLE_UP, KBDROLE_STOP},
+	            {"down", KBDROLE_DOWN, KBDROLE_STOP},
+	            {"left", KBDROLE_LEFT, KBDROLE_STOP},
+	            {"right", KBDROLE_RIGHT, KBDROLE_STOP},
+	            {"home", KBDROLE_HOME, KBDROLE_STOP},
+	            {"help", KBDROLE_HELP, KBDROLE_STOP},
+	            {"insert", KBDROLE_INS, KBDROLE_STOP},
+	            {"delete", KBDROLE_DEL, KBDROLE_STOP},
+	            {"f1", KBDROLE_F1, KBDROLE_STOP},
+	            {"f2", KBDROLE_F2, KBDROLE_STOP},
+	            {"f3", KBDROLE_F3, KBDROLE_STOP},
+	            {"f4", KBDROLE_F4, KBDROLE_STOP},
+	            {"f5", KBDROLE_F5, KBDROLE_STOP},
+	            {"f6", KBDROLE_F6, KBDROLE_STOP},
+	            {"f7", KBDROLE_F7, KBDROLE_STOP},
+	            {"f8", KBDROLE_F8, KBDROLE_STOP},
+	            {"f9", KBDROLE_F9, KBDROLE_STOP},
+	            {"f10", KBDROLE_F10, KBDROLE_STOP},
+	            {"shift-f1", KBDROLE_F1, KBDROLE_SHIFTL},
+	            {"shift-f2", KBDROLE_F2, KBDROLE_SHIFTL},
+	            {"shift-f3", KBDROLE_F3, KBDROLE_SHIFTL},
+	            {"shift-f4", KBDROLE_F4, KBDROLE_SHIFTL},
+	            {"shift-f5", KBDROLE_F5, KBDROLE_SHIFTL},
+	            {"shift-f6", KBDROLE_F6, KBDROLE_SHIFTL},
+	            {"shift-f7", KBDROLE_F7, KBDROLE_SHIFTL},
+	            {"shift-f8", KBDROLE_F8, KBDROLE_SHIFTL},
+	            {"shift-f9", KBDROLE_F9, KBDROLE_SHIFTL},
+	            {"shift-f10", KBDROLE_F10, KBDROLE_SHIFTL},
+	            {"shift-up", KBDROLE_UP, KBDROLE_SHIFTL},
+	            {"shift-down", KBDROLE_DOWN, KBDROLE_SHIFTL},
+	            {"shift-left", KBDROLE_LEFT, KBDROLE_SHIFTL},
+	            {"shift-right", KBDROLE_RIGHT, KBDROLE_SHIFTL}};
 	UINT key;
 	if (length >= 6 && memcmp(line, "@text ", 6) == 0) {
 		return headless_input_script_add_text(script, line + 6, length - 6, FALSE);
+	}
+	if ((length >= 6) && (memcmp(line, "@hold ", 6) == 0)) {
+		return headless_input_script_add_hold(script, line, length);
 	}
 
 	if ((length == 4 && memcmp(line, "@key", 4) == 0) ||
@@ -200,12 +326,11 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const 
 				command = &script->commands[script->command_count++];
 				command->key_press = TRUE;
 				command->key_role = keys[key].role;
-				command->control = keys[key].control;
+				command->modifier_role = keys[key].modifier;
 				return SUCCESS;
 			}
 		}
-		fprintf(stderr,
-		        "Error: headless input @key needs ctrl-c, ctrl-z, backspace, escape or f1\n");
+		fprintf(stderr, "Error: headless input @key has an unknown key name\n");
 		return FAILURE;
 	}
 
@@ -348,7 +473,11 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script, UINT frame
 		} else if (script->key_phase == 2) {
 			kbdinject_keyup(script->held_key);
 			script->key_down = FALSE;
-			script->key_phase = script->control_down ? 3 : 0;
+			script->key_phase = script->modifier_down ? 3 : 0;
+		} else if (script->key_phase == 4) {
+			kbdinject_keyup(script->held_key);
+			script->key_down = FALSE;
+			script->key_phase = 0;
 		} else {
 			headless_input_release_keys(script);
 		}
@@ -367,19 +496,30 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script, UINT frame
 	command = &script->commands[script->command_index++];
 	if (command->key_press) {
 		script->held_key = kbdmap_guest_code((KBDMAP_ROLE)command->key_role);
-		script->held_control = kbdmap_guest_code(KBDROLE_CTRL);
+		script->held_modifier = (command->modifier_role == KBDROLE_STOP)
+		                            ? KBDMAP_NC
+		                            : kbdmap_guest_code((KBDMAP_ROLE)command->modifier_role);
 		if (script->held_key == KBDMAP_NC ||
-		    (command->control && script->held_control == KBDMAP_NC)) {
+		    ((command->modifier_role != KBDROLE_STOP) &&
+		     (script->held_modifier == KBDMAP_NC))) {
 			fprintf(stderr, "Error: requested headless key has no guest mapping\n");
 			return FAILURE;
 		}
-		if (command->control) {
-			kbdinject_keydown(script->held_control);
-			script->control_down = TRUE;
+		if (command->modifier_role != KBDROLE_STOP) {
+			kbdinject_keydown(script->held_modifier);
+			script->modifier_down = TRUE;
 			script->key_phase = 1;
 		} else {
 			kbdinject_keydown(script->held_key);
 			script->key_down = TRUE;
+			if (command->key_hold) {
+				script->key_phase = 4;
+				script->next_frame = frames + command->wait_frames;
+				fprintf(stderr,
+				        "headless-input-script held key command=%u frame=%u duration=%u\n",
+				        script->command_index, frames, command->wait_frames);
+				return SUCCESS;
+			}
 			script->key_phase = 2;
 		}
 		script->next_frame = frames + HEADLESS_INPUT_KEY_PHASE_FRAMES;
