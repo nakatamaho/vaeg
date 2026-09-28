@@ -214,21 +214,24 @@ static void iniwrsetarg8(char *work, int size, const BYTE *ptr, int arg) {
 	}
 }
 
-void ini_write(const char *path, const char *title, const INITBL *tbl, UINT count) {
+int ini_write(const char *path, const char *title, const INITBL *tbl, UINT count) {
 	FILEH fh;
 	const INITBL *p;
 	const INITBL *pterm;
 	BOOL set;
+	int result = SUCCESS;
 	char work[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE + 512];
 
 	fh = file_create(path);
 	if (fh == FILEH_INVALID) {
-		return;
+		return FAILURE;
 	}
 	milstr_ncpy(work, "[", sizeof(work));
 	milstr_ncat(work, title, sizeof(work));
 	milstr_ncat(work, "]\r\n", sizeof(work));
-	file_write(fh, work, strlen(work));
+	if (file_write(fh, work, strlen(work)) != strlen(work)) {
+		result = FAILURE;
+	}
 
 	p = tbl;
 	pterm = tbl + count;
@@ -289,14 +292,25 @@ void ini_write(const char *path, const char *title, const INITBL *tbl, UINT coun
 			break;
 		}
 		if (set == SUCCESS) {
-			file_write(fh, p->item, strlen(p->item));
-			file_write(fh, "=", 1);
-			file_write(fh, work, strlen(work));
-			file_write(fh, "\r\n", 2);
+			if (file_write(fh, p->item, strlen(p->item)) != strlen(p->item)) {
+				result = FAILURE;
+			}
+			if (file_write(fh, "=", 1) != 1) {
+				result = FAILURE;
+			}
+			if (file_write(fh, work, strlen(work)) != strlen(work)) {
+				result = FAILURE;
+			}
+			if (file_write(fh, "\r\n", 2) != 2) {
+				result = FAILURE;
+			}
 		}
 		p++;
 	}
-	file_close(fh);
+	if (file_close(fh) != 0) {
+		result = FAILURE;
+	}
+	return result;
 }
 
 // ----
@@ -341,6 +355,7 @@ static const INITBL iniitem[] = {
     {"DIPswtch", INITYPE_BYTEARG, np2cfg.dipsw, 3},
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
+    {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
     {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
@@ -589,12 +604,30 @@ void initload(void) {
 	            sizeof(np2oscfg.ymfm_fidelity));
 }
 
-void initsave(void) {
+int initsave_checked(void) {
+	char temporary[MAX_PATH];
 	if (!config_enabled) {
-		return;
+		return FAILURE;
 	}
 	if (active_config_path[0] == '\0') {
 		select_config_path(active_config_path, sizeof(active_config_path));
 	}
-	ini_write(active_config_path, ini_title, iniitem, INIITEMS);
+	if (strlen(active_config_path) + sizeof(".tmp") > sizeof(temporary)) {
+		return FAILURE;
+	}
+	strcpy(temporary, active_config_path);
+	strcat(temporary, ".tmp");
+	if (ini_write(temporary, ini_title, iniitem, INIITEMS) != SUCCESS ||
+	    file_rename_atomic(temporary, active_config_path, TRUE) != 0) {
+		file_delete(temporary);
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+void initsave(void) {
+	if (config_enabled && initsave_checked() != SUCCESS) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not save configuration: %s",
+		             active_config_path);
+	}
 }

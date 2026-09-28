@@ -30,6 +30,7 @@
 
 #include "bmsio.h"
 #include "emsio.h"
+#include "bkupmemva.h"
 
 #include "../vram/maketextva.h"
 #include "../vram/makesprva.h"
@@ -64,6 +65,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .sgp_multiplier = 1,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
+                 .main_ram_auto = 1,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -110,6 +112,8 @@ CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPL
 UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
 
+static UINT16 active_main_ram = 640;
+
 static UINT16 pccore_normalize_mainram(UINT16 value) {
 	switch (value) {
 	case 256:
@@ -127,7 +131,13 @@ UINT16 pccore_mainram_kb(void) {
 }
 
 UINT32 pccore_mainram_limit(void) {
-	return (UINT32)pccore_mainram_kb() * 1024;
+	/* Menu changes are pending until the next machine reset. */
+	return (UINT32)active_main_ram * 1024;
+}
+
+void pccore_mainram_reset(void) {
+	active_main_ram = pccore_normalize_mainram(np2cfg.main_ram);
+	bkupmemva_sync_mainram();
 }
 
 UINT8 screenupdate = 3; // Bit 0 requests a partial redraw.
@@ -335,6 +345,7 @@ void pccore_reset(void) {
 	int i;
 
 	pccore_debug_resume = FALSE;
+	pccore_mainram_reset();
 	drawcount = 0;
 	scrnmng_reset_metrics();
 	soundmng_stop();

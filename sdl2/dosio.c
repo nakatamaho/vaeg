@@ -293,8 +293,7 @@ short file_setsize(FILEH handle, UINT64 size) {
 }
 
 short file_close(FILEH handle) {
-	fclose(handle);
-	return (0);
+	return (short)fclose(handle);
 }
 
 UINT file_getsize(FILEH handle) {
