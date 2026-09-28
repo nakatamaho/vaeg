@@ -21,7 +21,9 @@ import sys
 
 ALLOW = {
     "AGENTS.md",
+    "INSTALL.md",
     "MANIFEST.sha256.json",
+    "MANIFEST.json",
 }
 ALLOW_PREFIXES = ("docs/", ".git", "external/", "LICENSES/")
 # Tool-mandated basenames that cannot be made lowercase.
