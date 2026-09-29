@@ -124,6 +124,17 @@ class AssemblerTest(unittest.TestCase):
                 binary = zexbuild.build_stock(name, assembler)
                 self.assertEqual(zexbuild.sha256_bytes(binary), zexbuild.STOCK_SHA256[name])
 
+    def test_program_set(self):
+        programs = zexbuild.build_programs(find_assembler())
+        self.assertEqual(
+            sorted(programs),
+            sorted(["ZEXDOC.COM", "ZEXALL.COM", "ZEXDOCF.COM", "ZEXALLF.COM",
+                    "ZEX13S.COM", "FLAGPRB.COM", "DAADUMP.COM"]),
+        )
+        for name, data in programs.items():
+            with self.subTest(name=name):
+                self.assertLess(len(data), 0xC000)
+
     def test_fileout_keeps_test_state(self):
         assembler = find_assembler()
         for name in ("zexdoc", "zexall"):

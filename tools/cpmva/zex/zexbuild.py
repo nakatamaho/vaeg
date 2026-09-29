@@ -263,6 +263,33 @@ def build_fileout(name: str, assembler: str) -> bytes:
     return binary
 
 
+def zex13s_source() -> str:
+    """ZEXDOC with file output and the <daa,cpl,scf,ccf> split test table."""
+    source = read_zex_source("zexdoc")
+    for patch_name in ("zexdoc-fileout.patch", "zex13s.patch"):
+        patch_path = TOOL_DIR / patch_name
+        source = apply_unified_patch(source, patch_path.read_text(encoding="ascii"), patch_name)
+    return source
+
+
+def build_zex13s(assembler: str) -> bytes:
+    stock = build_stock("zexdoc", assembler)
+    binary, symbols = assemble_with_symbols(translate_zmac(zex13s_source()), assembler, "zex13s")
+    if symbols.get("msbt") != STOCK_MSBT:
+        raise BuildError("ZEX_MSBT_MOVED", f"zex13s: msbt is not at {STOCK_MSBT:04X}h")
+    start = symbols.get("start")
+    if start is None or binary[: start - 0x100] != stock[: start - 0x100]:
+        raise BuildError("ZEX_PREFIX_CHANGED", "zex13s: code before start differs from stock")
+    return binary
+
+
+def build_probe(name: str, assembler: str) -> bytes:
+    """Build an independent vaeg probe program with the shared CP/M I/O code."""
+    source = (TOOL_DIR / f"{name}.asm").read_text(encoding="ascii")
+    common = (TOOL_DIR / "cpmio.asm").read_text(encoding="ascii")
+    return assemble(source + "\n" + common, assembler, name)
+
+
 def build_programs(assembler: str) -> dict[str, bytes]:
     """Return CP/M file name -> program image."""
     check_assembler(assembler)
@@ -271,6 +298,9 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "ZEXALL.COM": build_stock("zexall", assembler),
         "ZEXDOCF.COM": build_fileout("zexdoc", assembler),
         "ZEXALLF.COM": build_fileout("zexall", assembler),
+        "ZEX13S.COM": build_zex13s(assembler),
+        "FLAGPRB.COM": build_probe("flagprb", assembler),
+        "DAADUMP.COM": build_probe("daadump", assembler),
     }
 
 
