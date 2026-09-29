@@ -12,8 +12,13 @@ distribution. The installer does not relicense CP/M, CPMVA, the games, or BDS C.
 ## Prerequisites
 
 - Python 3.10 or newer.
-- `z80asm` 1.8, available in `PATH`, supplied with `--assembler`, or selected
-  through `VAEG_Z80ASM`.
+- `z80asm` 1.8, supplied with `--assembler`, selected through `VAEG_Z80ASM`,
+  or available in `PATH`. Otherwise the installer downloads the locked
+  `z80asm_1.8.orig.tar.gz` (`assembler` in `sources.lock.json`), verifies its
+  size and SHA-256, and compiles it with the host C compiler (`$CC`, `cc`,
+  `gcc` or `clang`) into `<cache>/tools/`. A program named `z80asm` that is
+  not version 1.8, such as the z88dk assembler, is ignored. `--download-only`
+  caches the source for later `--offline` runs.
 - `lha` or `unar` for extracting the CPMVA `.LZH` archive.
 - The repository-native PC-Engine D88/FAT tool is used by the default `native`
   backend. `imgtool` is optional for `--image-backend imgtool`.
@@ -191,7 +196,12 @@ a recoverable backup, preserves line endings, and appends a marked
   archive override and a cached permission text.
 - `ARCHIVE_TOOL`: install `lha` or `unar`; archives are never executed.
 - `BOOT_SPACE`: use a writable PC-Engine FAT D88 with enough free clusters.
-- `ASSEMBLER_MISSING`: install approved `z80asm` 1.8 or use `--assembler`.
+- `ASSEMBLER_MISSING`, `ASSEMBLER_VERSION`: the supplied `z80asm` cannot run
+  or is not version 1.8; fix `--assembler`/`VAEG_Z80ASM` or unset them.
+- `ASSEMBLER_COMPILER`: install a C compiler, or supply `z80asm` 1.8 with
+  `--assembler`.
+- `ASSEMBLER_BUILD`, `ASSEMBLER_SOURCE`: the automatic z80asm build failed;
+  the message contains the compiler output.
 - `ZEX_STOCK_MISMATCH`, `ZEX_MSBT_MOVED`, `ZEX_PREFIX_CHANGED`: the rebuilt
   exercisers do not match the stock layout; do not use the generated disk.
 - Existing output files require `--force`; the input disk is always protected.

@@ -33,7 +33,10 @@ CP/M tools disk that reaches the CP/M `A>` prompt.
 - A user-owned, FAT-formatted PC-Engine boot D88. The input image must be
   obtained lawfully; VAEG does not redistribute PC-Engine ROMs or guest disks.
 - Python 3.10 or newer.
-- `z80asm` 1.8 in `PATH` or selected with `VAEG_Z80ASM`.
+- `z80asm` 1.8. If none is supplied with `--assembler` or `VAEG_Z80ASM` and
+  none is in `PATH`, the installer downloads the locked z80asm 1.8 source,
+  verifies its SHA-256, and builds it once into its cache. This needs a C
+  compiler (`cc`, `gcc`, `clang`, or `$CC`).
 - `lha` or `unar` for the CPMVA archive.
 
 The installer downloads and verifies the locked CPMVA, CP/M, game, and BDS C
@@ -159,7 +162,8 @@ python3 tools/cpmva/zex/compare.py /path/to/real-outputs --ref /tmp/m101-host/re
 
 `host_reference.py` writes `programs/MANIFEST.TXT` with the SHA-256 of every
 program and checks the host acceptance criteria for the uPD780 and uPD9002
-profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs.
+profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs. It obtains
+z80asm 1.8 the same way as the installer.
 
 ## Troubleshooting
 
