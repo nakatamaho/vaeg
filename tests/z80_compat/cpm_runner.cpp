@@ -29,6 +29,7 @@
 // warm boot (JP 0) ends the run. Supported BDOS functions: 2, 9, 13, 14, 15,
 // 16, 19, 21, 22 and 26. Files are mapped by their 8.3 FCB name into one host
 // directory. Any other function stops the run with an error.
+// --profile selects the core flag profile (upd780 by default, or upd9002).
 
 #include "z80.hpp"
 
@@ -278,7 +279,8 @@ struct Machine {
 
 void Usage(const char *program) {
 	std::cerr << "usage: " << program
-	          << " [--dir host_directory] [--console file] [--max-clocks n] program.com\n";
+	          << " [--profile upd780|upd9002] [--dir host_directory] [--console file]"
+	             " [--max-clocks n] program.com\n";
 }
 
 } // namespace
@@ -288,9 +290,20 @@ int main(int argc, char **argv) {
 	std::string console_path;
 	std::string directory = ".";
 	std::uint64_t max_clocks = kDefaultMaxClocks;
+	Z80::FlagProfile profile = Z80::FlagProfile::Upd780;
 	for (int i = 1; i < argc; ++i) {
 		const std::string argument = argv[i];
-		if (argument == "--dir" && i + 1 < argc) {
+		if (argument == "--profile" && i + 1 < argc) {
+			const std::string value = argv[++i];
+			if (value == "upd780") {
+				profile = Z80::FlagProfile::Upd780;
+			} else if (value == "upd9002") {
+				profile = Z80::FlagProfile::Upd9002;
+			} else {
+				Usage(argv[0]);
+				return 2;
+			}
+		} else if (argument == "--dir" && i + 1 < argc) {
 			directory = argv[++i];
 		} else if (argument == "--console" && i + 1 < argc) {
 			console_path = argv[++i];
@@ -315,6 +328,7 @@ int main(int argc, char **argv) {
 	}
 	Z80 cpu(&Machine::Read, &Machine::Write, &Machine::Input, &Machine::Output, &machine);
 	machine.cpu = &cpu;
+	cpu.setFlagProfile(profile);
 	cpu.reg.PC = kLoadAddress;
 	cpu.reg.SP = kBdosAddress;
 	std::uint64_t clocks = 0;
