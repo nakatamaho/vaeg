@@ -157,6 +157,16 @@ layout, and rejects gaps before reconstructing a file. This is required for
 large programs such as `BACKGMMN.COM` and `CC2.COM`; changing the BIOS or
 emulator is not a substitute for matching its DPB.
 
+## Test programs (M101)
+
+`zex/zexbuild.py` rebuilds the stock ZEXDOC/ZEXALL from `external/zex` and
+must reproduce the stock binary hashes. It also builds the file-output
+variants (`zex/*-fileout.patch`), ZEX13S (`zex/zex13s.patch`), and the
+independent probes `zex/flagprb.asm` and `zex/daadump.asm` (with
+`zex/cpmio.asm`). The installer adds all of them to `cpmva-tools.d88` and
+records them under `test_programs` in the manifest. See
+[`docs/cpmva-setup.md`](../../docs/cpmva-setup.md) for use and comparison.
+
 ## VAEG procedure
 
 1. Boot `pcengine-boot-cpmva.d88` as the PC-Engine boot disk.
@@ -180,6 +190,8 @@ a recoverable backup, preserves line endings, and appends a marked
 - `ARCHIVE_TOOL`: install `lha` or `unar`; archives are never executed.
 - `BOOT_SPACE`: use a writable PC-Engine FAT D88 with enough free clusters.
 - `ASSEMBLER_MISSING`: install approved `z80asm` 1.8 or use `--assembler`.
+- `ZEX_STOCK_MISMATCH`, `ZEX_MSBT_MOVED`, `ZEX_PREFIX_CHANGED`: the rebuilt
+  exercisers do not match the stock layout; do not use the generated disk.
 - Existing output files require `--force`; the input disk is always protected.
 - `--vaeg-binary` records a supplied emulator digest for provenance only. It
   does not prove CP/M reaches `A>` because CPMVA still requires an FD1 swap.

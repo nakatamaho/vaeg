@@ -125,6 +125,38 @@ Pass the script with `--headless-input-script /path/to/script.txt`. This is
 useful for repeatable smoke tests, but it does not replace the interactive
 instruction to change FD1 in a normal session.
 
+## Z80 exercisers and uPD9002 flag probes
+
+The installer also assembles the following CP/M programs with z80asm 1.8 and
+puts them on `cpmva-tools.d88` (M101). They exist only on the disk you
+generate; VAEG does not distribute them.
+
+| Program | Output | Purpose |
+| --- | --- | --- |
+| `ZEXDOC.COM`, `ZEXALL.COM` | console | Stock exercisers, rebuilt byte-identically from `external/zex` |
+| `ZEXDOCF.COM`, `ZEXALLF.COM` | `ZEXDOC.TXT`, `ZEXALL.TXT` | Stock exercisers that also write the console output to a file |
+| `ZEX13S.COM` | `ZEX13S.TXT` | ZEXDOC with `<daa,cpl,scf,ccf>` split into single-opcode groups |
+| `FLAGPRB.COM` | `FLAGPRB.TXT` | Direct flag probes P0–P7 for rules R1–R7 |
+| `DAADUMP.COM` | `DAA.BIN`, `CPL.BIN`, `SCF.BIN`, `CCF.BIN`, `DAADUMP.TXT` | Exhaustive DAA/CPL/SCF/CCF dump |
+
+The ZEX-derived programs are GPL-2.0-or-later; see
+`external/zex/provenance.txt` and ADR-0015. Output files are written to the
+current CP/M drive. `DAADUMP` needs about 130 KiB of free space, so run it
+from a drive that has room. The ZEX runs take hours on a real PC-88VA.
+
+To produce host references and compare real-machine outputs:
+
+```sh
+cmake --build --preset linux-ci-gcc --target vaeg_cpm_runner
+python3 tools/cpmva/zex/host_reference.py \
+    --runner build/linux-ci-gcc/vaeg_cpm_runner --output /tmp/m101-host
+python3 tools/cpmva/zex/compare.py /path/to/real-outputs --ref /tmp/m101-host/ref
+```
+
+`host_reference.py` writes `programs/MANIFEST.TXT` with the SHA-256 of every
+program and checks the host acceptance criteria for the uPD780 and uPD9002
+profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs.
+
 ## Troubleshooting
 
 - If CP/M stops before `A>`, confirm that the boot disk is the generated
