@@ -161,7 +161,7 @@ python3 tools/cpmva/zex/compare.py /path/to/real-outputs --ref /tmp/m101-host/re
 ```
 
 `host_reference.py` writes `programs/MANIFEST.TXT` with the SHA-256 of every
-program and checks the host acceptance criteria for the uPD780 and uPD9002
+program and checks the host acceptance criteria for the Zilog and uPD9002
 profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs. It obtains
 z80asm 1.8 the same way as the installer.
 

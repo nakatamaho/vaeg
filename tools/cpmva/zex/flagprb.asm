@@ -22,7 +22,7 @@
 ; M101 FLAGPRB: real-machine flag probes for the uPD9002 Z80 emulation mode.
 ; Writes FLAGPRB.TXT and echoes it to the console. One line per probe:
 ;   <id> IN A=xx F=xx BC=xxxx DE=xxxx HL=xxxx OUT A=xx F=xx BC=xxxx DE=xxxx HL=xxxx [MEM=xx]
-; followed by '#' lines with the expected uPD780 and uPD9002 values.
+; followed by '#' lines with the expected Zilog and uPD9002 values.
 ;
 ; Rules for every probe (no exceptions):
 ; - no self-modifying code; each probe has its own code path;
@@ -476,20 +476,20 @@ d_p7d:	dw	id_p7d
 	dw	0ffffh,0000h,0000h
 	db	0
 expect:
-	db	'# P0 XOR A (control): UPD780 A=00 F=44; UPD9002 A=00 F=44',13,10
-	db	'# P1 AND 0Fh: UPD780 A=0F F=1C; UPD9002 A=0F F=04',13,10
-	db	'# P2 BIT 0,A: UPD780 F=10; UPD9002 F=00',13,10
-	db	'# P3 RLCA: UPD780 A=01 F=C5; UPD9002 A=01 F=D7',13,10
-	db	'# P4a LDI, BC=0001h: UPD780 F=C1 BC=0000; UPD9002 F=D3 BC=0000',13,10
-	db	'# P4b LDI, BC=0002h: UPD780 F=C5 BC=0001; UPD9002 F=D7 BC=0001',13,10
-	db	'# P5a ADD HL,BC: UPD780 HL=1000 F=10; UPD9002 HL=1000 F=00',13,10
-	db	'# P5b ADD HL,BC: UPD780 HL=0002 F=00; UPD9002 HL=0002 F=10',13,10
-	db	'# P6a ADC HL,BC: UPD780 HL=0010 F=00; UPD9002 HL=0010 F=10',13,10
-	db	'# P6b SBC HL,BC: UPD780 HL=000F F=02; UPD9002 HL=000F F=12',13,10
-	db	'# P7a PUSH BC/POP AF/PUSH AF/POP BC: UPD780 C=FF; UPD9002 C=D7',13,10
-	db	'# P7b PUSH BC/POP AF/EX AF,AF',39,' x2/PUSH AF/POP BC: UPD780 C=FF; UPD9002 C=D7',13,10
-	db	'# P7c PUSH BC/POP AF/PUSH AF/POP BC: UPD780 C=28; UPD9002 C=00',13,10
-	db	'# P7d PUSH BC/POP AF/INC DE/PUSH AF/POP BC: UPD780 C=FF; UPD9002 C=D7',13,10
+	db	'# P0 XOR A (control): ZILOG A=00 F=44; UPD9002 A=00 F=44',13,10
+	db	'# P1 AND 0Fh: ZILOG A=0F F=1C; UPD9002 A=0F F=04',13,10
+	db	'# P2 BIT 0,A: ZILOG F=10; UPD9002 F=00',13,10
+	db	'# P3 RLCA: ZILOG A=01 F=C5; UPD9002 A=01 F=D7',13,10
+	db	'# P4a LDI, BC=0001h: ZILOG F=C1 BC=0000; UPD9002 F=D3 BC=0000',13,10
+	db	'# P4b LDI, BC=0002h: ZILOG F=C5 BC=0001; UPD9002 F=D7 BC=0001',13,10
+	db	'# P5a ADD HL,BC: ZILOG HL=1000 F=10; UPD9002 HL=1000 F=00',13,10
+	db	'# P5b ADD HL,BC: ZILOG HL=0002 F=00; UPD9002 HL=0002 F=10',13,10
+	db	'# P6a ADC HL,BC: ZILOG HL=0010 F=00; UPD9002 HL=0010 F=10',13,10
+	db	'# P6b SBC HL,BC: ZILOG HL=000F F=02; UPD9002 HL=000F F=12',13,10
+	db	'# P7a PUSH BC/POP AF/PUSH AF/POP BC: ZILOG C=FF; UPD9002 C=D7',13,10
+	db	'# P7b PUSH BC/POP AF/EX AF,AF',39,' x2/PUSH AF/POP BC: ZILOG C=FF; UPD9002 C=D7',13,10
+	db	'# P7c PUSH BC/POP AF/PUSH AF/POP BC: ZILOG C=28; UPD9002 C=00',13,10
+	db	'# P7d PUSH BC/POP AF/INC DE/PUSH AF/POP BC: ZILOG C=FF; UPD9002 C=D7',13,10
 	db	'$'
 
 fcbout:	db	0,'FLAGPRB TXT'

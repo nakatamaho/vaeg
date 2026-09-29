@@ -24,7 +24,7 @@
 
 Writes, under --output:
   programs/*.COM and programs/MANIFEST.TXT (SHA-256 of every program);
-  ref/upd780/* and ref/upd9002/* (outputs of each program per profile).
+  ref/zilog/* and ref/upd9002/* (outputs of each program per profile).
 Then checks the stage D acceptance criteria and exits nonzero on failure.
 """
 
@@ -119,8 +119,8 @@ def check_zex13s(directory: Path, profile: str, failures: list) -> None:
     if len(groups) != 10:
         failures.append(f"ZEX13S_COUNT {profile} {len(groups)}")
         return
-    if profile == "upd780" and not all(group.ok for group in groups):
-        failures.append("ZEX13S_UPD780_NOT_OK")
+    if profile == "zilog" and not all(group.ok for group in groups):
+        failures.append("ZEX13S_ZILOG_NOT_OK")
     for group, expected in zip(groups, pr.ZEX13S_EXPECTED):
         if not group.ok and group.expected != expected:
             failures.append(f"ZEX13S_EXPECTED_TABLE {group.name} {group.expected}")
@@ -140,9 +140,9 @@ def check_daadump(directory: Path, profile: str, failures: list) -> None:
 def check_zex(directory: Path, profile: str, program: str, failures: list) -> None:
     groups = pr.parse_zex(pr.read_text(directory, ZEX_TXT[program]))
     signatures = [pr.group_signature(group) for group in groups]
-    if profile == "upd780":
+    if profile == "zilog":
         if len(groups) != 67 or not all(group.ok for group in groups):
-            failures.append(f"ZEX_UPD780 {program}")
+            failures.append(f"ZEX_ZILOG {program}")
     elif signatures != pr.load_expectation_file(EXPECTATION_FILES[program]):
         failures.append(f"ZEX_UPD9002 {program}")
 

@@ -801,16 +801,16 @@ struct TestCase {
 } // namespace
 
 // M101: the uPD9002 profile never holds F bits 5/3 (R1, storage variant),
-// including values written by the adapter outside the core. The uPD780
+// including values written by the adapter outside the core. The Zilog
 // profile keeps them.
 void TestFlagProfileStorage() {
 	for (const bool upd9002 : {false, true}) {
 		const std::uint8_t kept = upd9002 ? 0xd7 : 0xff;
-		const char *name = upd9002 ? "upd9002" : "upd780";
+		const char *name = upd9002 ? "upd9002" : "zilog";
 
 		Harness import;
 		import.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
-		                                  : Z80CompatFlagProfile::kUpd780);
+		                                  : Z80CompatFlagProfile::kZilog);
 		Z80CompatReg reg{};
 		reg.af = 0x12ff;
 		reg.r_af = 0x34ff;
@@ -827,7 +827,7 @@ void TestFlagProfileStorage() {
 		state.registers.r_af = 0x00ff;
 		Harness load;
 		load.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
-		                                : Z80CompatFlagProfile::kUpd780);
+		                                : Z80CompatFlagProfile::kZilog);
 		load.Load(Encode(state));
 		Require((load.cpu.GetReg()->af & 0xff) == kept && (load.cpu.GetReg()->r_af & 0xff) == kept,
 		        std::string("LoadStatus F storage mismatch: ") + name);
@@ -835,7 +835,7 @@ void TestFlagProfileStorage() {
 		// LD A,I with I = 28h: the adapter materializes F from I.
 		Harness materialize;
 		materialize.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
-		                                       : Z80CompatFlagProfile::kUpd780);
+		                                       : Z80CompatFlagProfile::kZilog);
 		materialize.Install(0, {0x3e, 0x28, 0xed, 0x47, 0xed, 0x57});
 		materialize.Advance(7 + 9 + 9);
 		Require(A(materialize) == 0x28 && materialize.cpu.GetPC() == 6,
@@ -846,7 +846,7 @@ void TestFlagProfileStorage() {
 		// POP AF through the core.
 		Harness pop;
 		pop.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
-		                               : Z80CompatFlagProfile::kUpd780);
+		                               : Z80CompatFlagProfile::kZilog);
 		pop.Install(0, {0x31, 0x00, 0x80, 0x01, 0xff, 0xff, 0xc5, 0xf1});
 		pop.Advance(10 + 10 + 11 + 10);
 		Require(pop.cpu.GetPC() == 8 && (Af(pop) & 0xff) == kept,

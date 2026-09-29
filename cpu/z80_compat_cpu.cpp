@@ -128,7 +128,7 @@ Z80CompatCpu::Z80CompatCpu()
       instruction_fetch_started_(false), prefix_fetch_pending_(false), first_opcode_(0),
       prefixed_opcode_(0), restore_iff1_after_instruction_(false),
       materialize_i_flags_after_instruction_(false), materialize_r_flags_after_instruction_(false),
-      code_base_(0), data_base_(0), flag_profile_(Z80CompatFlagProfile::kUpd780),
+      code_base_(0), data_base_(0), flag_profile_(Z80CompatFlagProfile::kZilog),
       public_registers_{} {
 }
 
@@ -361,7 +361,7 @@ void Z80CompatCpu::ApplyFlagProfile() {
 	}
 	impl_->cpu.setFlagProfile(flag_profile_ == Z80CompatFlagProfile::kUpd9002
 	                              ? Z80::FlagProfile::Upd9002
-	                              : Z80::FlagProfile::Upd780);
+	                              : Z80::FlagProfile::Zilog);
 }
 
 const Z80CompatReg *Z80CompatCpu::GetReg() {

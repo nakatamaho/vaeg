@@ -26,7 +26,7 @@
 // M101 core tests for Z80::FlagProfile and the ADC/SBC HL carry fix.
 //
 // The probe table is the M101 FLAGPRB table: every expected value was
-// derived by hand from the Z80 flag definitions (Upd780) and rules R1-R7
+// derived by hand from the Z80 flag definitions (Zilog) and rules R1-R7
 // (Upd9002). The ADC/SBC checks compare the core with an independent
 // arithmetic model over operands that exercise the carry chain.
 
@@ -126,8 +126,8 @@ struct Probe {
 	std::uint16_t bc;
 	std::uint16_t hl;
 	std::vector<std::uint8_t> body;
-	int a_upd780;
-	std::uint8_t f_upd780;
+	int a_zilog;
+	std::uint8_t f_zilog;
 	std::uint8_t f_upd9002;
 	int bc_expected;
 	int hl_expected;
@@ -148,13 +148,13 @@ void RunProbeTable() {
 	    {"P6b SBC HL,BC", 0x0000, 0x0001, 0x0010, {0xed, 0x42}, 0x00, 0x02, 0x12, 0x0001, 0x000f},
 	};
 	for (const Probe &probe : probes) {
-		for (const Profile profile : {Profile::Upd780, Profile::Upd9002}) {
+		for (const Profile profile : {Profile::Zilog, Profile::Upd9002}) {
 			const Result result = Run(profile, probe.af, probe.bc, probe.hl, probe.body);
-			const bool upd780 = profile == Profile::Upd780;
+			const bool zilog = profile == Profile::Zilog;
 			char name[64];
-			std::snprintf(name, sizeof(name), "%s [%s]", probe.name, upd780 ? "upd780" : "upd9002");
-			Expect(name, "A", result.a, static_cast<unsigned>(probe.a_upd780));
-			Expect(name, "F", result.f, upd780 ? probe.f_upd780 : probe.f_upd9002);
+			std::snprintf(name, sizeof(name), "%s [%s]", probe.name, zilog ? "zilog" : "upd9002");
+			Expect(name, "A", result.a, static_cast<unsigned>(probe.a_zilog));
+			Expect(name, "F", result.f, zilog ? probe.f_zilog : probe.f_upd9002);
 			if (probe.bc_expected >= 0) {
 				Expect(name, "BC", result.bc, static_cast<unsigned>(probe.bc_expected));
 			}
@@ -170,7 +170,7 @@ void RunProbeTable() {
 		const char *name;
 		std::uint16_t bc;
 		std::vector<std::uint8_t> body;
-		std::uint8_t c_upd780;
+		std::uint8_t c_zilog;
 		std::uint8_t c_upd9002;
 	};
 	const std::vector<StorageProbe> storage = {
@@ -180,12 +180,12 @@ void RunProbeTable() {
 	    {"P7d INC DE", 0xffff, {0xc5, 0xf1, 0x13, 0xf5, 0xc1}, 0xff, 0xd7},
 	};
 	for (const StorageProbe &probe : storage) {
-		for (const Profile profile : {Profile::Upd780, Profile::Upd9002}) {
+		for (const Profile profile : {Profile::Zilog, Profile::Upd9002}) {
 			const Result result = Run(profile, 0x0000, probe.bc, 0, probe.body, true);
-			const bool upd780 = profile == Profile::Upd780;
+			const bool zilog = profile == Profile::Zilog;
 			char name[64];
-			std::snprintf(name, sizeof(name), "%s [%s]", probe.name, upd780 ? "upd780" : "upd9002");
-			Expect(name, "C", result.bc & 0xff, upd780 ? probe.c_upd780 : probe.c_upd9002);
+			std::snprintf(name, sizeof(name), "%s [%s]", probe.name, zilog ? "zilog" : "upd9002");
+			Expect(name, "C", result.bc & 0xff, zilog ? probe.c_zilog : probe.c_upd9002);
 		}
 	}
 }
@@ -204,7 +204,7 @@ std::uint8_t ModelFlags(bool subtract, std::uint16_t hl, std::uint16_t rr, int c
 	f |= (signed_result > 32767 || signed_result < -32768) ? 0x04 : 0;
 	f |= subtract ? 0x02 : 0;
 	f |= (result < 0 || result > 0xffff) ? 0x01 : 0;
-	if (profile == Profile::Upd780) {
+	if (profile == Profile::Zilog) {
 		const int half = subtract ? (hl & 0x0fff) - (rr & 0x0fff) - carry
 		                          : (hl & 0x0fff) + (rr & 0x0fff) + carry;
 		f |= (half < 0 || half > 0x0fff) ? 0x10 : 0;
@@ -221,7 +221,7 @@ void RunAdcSbc() {
 	const std::uint16_t values[] = {0x0000, 0x0001, 0x000f, 0x0010, 0x00ff, 0x0100, 0x0fff,
 	                                0x1000, 0x3fff, 0x7ffe, 0x7fff, 0x8000, 0x8001, 0xefff,
 	                                0xf000, 0xfffe, 0xffff, 0x1234, 0xa5a5, 0x5a5a};
-	for (const Profile profile : {Profile::Upd780, Profile::Upd9002}) {
+	for (const Profile profile : {Profile::Zilog, Profile::Upd9002}) {
 		for (const bool subtract : {false, true}) {
 			for (const std::uint16_t hl : values) {
 				for (const std::uint16_t rr : values) {
@@ -235,7 +235,7 @@ void RunAdcSbc() {
 						char name[96];
 						std::snprintf(name, sizeof(name), "%s HL=%04x BC=%04x C=%d [%s]",
 						              subtract ? "SBC" : "ADC", hl, rr, carry,
-						              profile == Profile::Upd780 ? "upd780" : "upd9002");
+						              profile == Profile::Zilog ? "zilog" : "upd9002");
 						Expect(name, "HL", result.hl, expected_hl);
 						Expect(name, "F", result.f, ModelFlags(subtract, hl, rr, carry, profile));
 					}

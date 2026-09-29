@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Compare real-machine M101 outputs with the host uPD780/uPD9002 references.
+"""Compare real-machine M101 outputs with the host Zilog/uPD9002 references.
 
 usage: compare.py <real_dir> [--ref <host_reference_output>/ref]
 
@@ -54,7 +54,7 @@ def verdict(match780: bool, match9002: bool) -> str:
     if match780 and match9002:
         return "BOTH"
     if match780:
-        return "UPD780"
+        return "ZILOG"
     if match9002:
         return "UPD9002"
     return "NEITHER"
@@ -91,7 +91,7 @@ def compare_flagprb(real: Path, refs: dict[str, Path]) -> None:
                         else:
                             diffs.append(f"{field}={value} ref {ref_value}")
                 notes.append(f"{profile}: " + " ".join(diffs))
-        print(f"{probe.ident:4} {verdict(matches['upd780'], matches['upd9002']):8} "
+        print(f"{probe.ident:4} {verdict(matches['zilog'], matches['upd9002']):8} "
               + "; ".join(notes))
 
 
@@ -154,7 +154,7 @@ def compare_dumps(real: Path, refs: dict[str, Path]) -> None:
             ref = pr.dump_records(pr.find_file(refs[profile], f"{name}.BIN").read_bytes())
             mismatches = [(r, o) for r, o in zip(records, ref) if r[2:] != o[2:]]
             print(f"   vs {profile}: {len(mismatches)} mismatching records of {len(records)}")
-            if profile != "upd780" or not mismatches:
+            if profile != "zilog" or not mismatches:
                 continue
             fields = Counter()
             classes = Counter()
@@ -174,7 +174,7 @@ def compare_dumps(real: Path, refs: dict[str, Path]) -> None:
             print("   by A:     " + ", ".join(f"{k}={v}" for k, v in sorted(nibbles.items())))
             for (fi, a, ra, rf), (_, _, oa, of) in mismatches[:20]:
                 print(f"   fi={fi:2d} F_in={pr.f_in(fi):02X} A_in={a:02X}: real A={ra:02X} "
-                      f"F={rf:02X} upd780 A={oa:02X} F={of:02X} dF={flag_bits(rf ^ of)}")
+                      f"F={rf:02X} zilog A={oa:02X} F={of:02X} dF={flag_bits(rf ^ of)}")
 
 
 def main() -> int:

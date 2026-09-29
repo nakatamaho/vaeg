@@ -213,7 +213,7 @@ void DumpFailure(Machine *machine, const std::string &reason) {
 
 void Usage(const char *program) {
 	std::cerr << "usage: " << program
-	          << " [--max-clocks count] [--max-seconds seconds] [--profile upd780|upd9002]"
+	          << " [--max-clocks count] [--max-seconds seconds] [--profile zilog|upd9002]"
 	             " [--expect file] file.cim\n";
 }
 
@@ -270,13 +270,13 @@ int main(int argc, char **argv) {
 	std::uint64_t max_seconds = kDefaultMaxSeconds;
 	std::string artifact;
 	std::string expect_path;
-	Z80CompatFlagProfile profile = Z80CompatFlagProfile::kUpd780;
+	Z80CompatFlagProfile profile = Z80CompatFlagProfile::kZilog;
 	for (int index = 1; index < argc; ++index) {
 		const std::string argument = argv[index];
 		if (argument == "--profile" && index + 1 < argc) {
 			const std::string value = argv[++index];
-			if (value == "upd780") {
-				profile = Z80CompatFlagProfile::kUpd780;
+			if (value == "zilog") {
+				profile = Z80CompatFlagProfile::kZilog;
 			} else if (value == "upd9002") {
 				profile = Z80CompatFlagProfile::kUpd9002;
 			} else {

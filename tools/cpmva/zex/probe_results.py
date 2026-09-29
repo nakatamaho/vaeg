@@ -28,7 +28,7 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
-PROFILES = ("upd780", "upd9002")
+PROFILES = ("zilog", "upd9002")
 DUMP_NAMES = ("DAA", "CPL", "SCF", "CCF")
 DUMP_SIZE = 32768
 F_BITS = (("S", 0x80), ("Z", 0x40), ("Y", 0x20), ("H", 0x10), ("X", 0x08),
@@ -64,7 +64,7 @@ _PROBE = re.compile(
     r"^(P\w+) IN A=(\w\w) F=(\w\w) BC=(\w{4}) DE=(\w{4}) HL=(\w{4}) "
     r"OUT A=(\w\w) F=(\w\w) BC=(\w{4}) DE=(\w{4}) HL=(\w{4})(?: MEM=(\w\w))?$"
 )
-_EXPECT = re.compile(r"^# (P\w+) .*: UPD780 (.*); UPD9002 (.*)$")
+_EXPECT = re.compile(r"^# (P\w+) .*: ZILOG (.*); UPD9002 (.*)$")
 
 
 @dataclass
@@ -90,7 +90,7 @@ def parse_flagprb(text: str) -> tuple[list[Probe], dict]:
         match = _EXPECT.match(line)
         if match:
             expected[match.group(1)] = {
-                "upd780": dict(item.split("=") for item in match.group(2).split()),
+                "zilog": dict(item.split("=") for item in match.group(2).split()),
                 "upd9002": dict(item.split("=") for item in match.group(3).split()),
             }
             continue
@@ -136,7 +136,7 @@ def parse_zex(text: str) -> list[Group]:
 
 
 # Expected CRCs of the ZEX13S groups in table order: the two stock ZEXDOC
-# controls, then the uPD780 host values recorded in zex13s.patch.
+# controls, then the Zilog-profile host values recorded in zex13s.patch.
 ZEX13S_EXPECTED = (
     "48799360", "9b4ba675",
     "a4611558", "3551c326", "a2215a02", "7e08aada",

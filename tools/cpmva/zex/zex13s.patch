@@ -4,7 +4,7 @@ into single-opcode groups (ZEX13S.COM writes ZEX13S.TXT).
 This patch modifies ZEX and is distributed under the GPL-2.0-or-later terms
 stated in external/zex/zexdoc.src. tools/cpmva/zex/zexbuild.py applies it
 after zexdoc-fileout.patch. msbt and the original descriptors are unchanged.
-The expected CRCs of the eight new groups are those of the uPD780 profile.
+The expected CRCs of the eight new groups are those of the Zilog profile.
 
 --- a/external/zex/zexdoc.src
 +++ b/external/zex/zexdoc.src

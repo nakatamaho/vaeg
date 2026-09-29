@@ -34,8 +34,8 @@ import probe_results as pr  # noqa: E402
 FLAGPRB = (
     "P1 IN A=FF F=00 BC=0000 DE=0000 HL=0000 OUT A=0F F=04 BC=0000 DE=0000 HL=0000\r\n"
     "P7a IN A=00 F=00 BC=FFFF DE=0000 HL=0000 OUT A=FF F=D7 BC=FFD7 DE=0000 HL=0000\r\n"
-    "# P1 AND 0Fh: UPD780 A=0F F=1C; UPD9002 A=0F F=04\r\n"
-    "# P7a PUSH BC/POP AF/PUSH AF/POP BC: UPD780 C=FF; UPD9002 C=D7\r\n"
+    "# P1 AND 0Fh: ZILOG A=0F F=1C; UPD9002 A=0F F=04\r\n"
+    "# P7a PUSH BC/POP AF/PUSH AF/POP BC: ZILOG C=FF; UPD9002 C=D7\r\n"
 )
 ZEX = (
     "Z80doc instruction exerciser\r\n"

@@ -32,13 +32,14 @@
 #include <cstdint>
 
 // Flag behaviour of the emulated instruction set.
-// - kUpd780: documented and undocumented Zilog Z80 flags, as in the NEC
-//   uPD780C second source. The default; used by the FDC CPU.
+// - kZilog: documented and undocumented Zilog Z80 flags. The default; used
+//   by the FDC CPU. Whether its NEC uPD780C matches is unverified (SCF/CCF
+//   X/Y are reported to differ on NEC NMOS parts).
 // - kUpd9002: the Z80 emulation mode of the NEC uPD9002 (PC-88VA V1/V2
 //   mode), rules R1-R7 of docs/modernization/uPD9002-zex-results.md. F bits
 //   5 and 3 are never held.
 enum class Z80CompatFlagProfile {
-	kUpd780,
+	kZilog,
 	kUpd9002
 };
 
