@@ -36,6 +36,7 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -51,6 +52,25 @@ EXPECTATION_FILES = {
     "ZEXALLF": ROOT / "tests" / "z80_compat" / "upd9002_zexall_expected.txt",
 }
 CONTROL_UPD9002_ALUOP = "12967d59"
+
+
+def load_installer():
+    path = HERE.parent / "install_cpmva.py"
+    spec = importlib.util.spec_from_file_location("cpmva_installer", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def provision_assembler(explicit: str | None, cache_dir: Path) -> str:
+    """Use the installer's z80asm 1.8 selection, building it if needed."""
+    installer = load_installer()
+    lock = installer.load_lock(HERE.parent / "sources.lock.json")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="vaeg-z80asm-") as work:
+        path, _ = installer.ensure_assembler(explicit, lock, cache_dir, False, Path(work))
+    return path
 
 
 def load_zexbuild():
@@ -130,7 +150,9 @@ def check_zex(directory: Path, profile: str, program: str, failures: list) -> No
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runner", required=True, type=Path, help="vaeg_cpm_runner")
-    parser.add_argument("--assembler", default="z80asm", help="z80asm 1.8")
+    parser.add_argument("--assembler", help="z80asm 1.8 (default: VAEG_Z80ASM, PATH, "
+                        "or built from the locked source into the cache)")
+    parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache" / "vaeg" / "cpmva")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--skip-zex", action="store_true",
                         help="skip the full ZEXDOCF/ZEXALLF runs (minutes each)")
@@ -138,7 +160,12 @@ def main() -> int:
 
     zexbuild = load_zexbuild()
     try:
-        programs = zexbuild.build_programs(args.assembler)
+        assembler = provision_assembler(args.assembler, args.cache_dir)
+    except Exception as error:  # InstallerError from the installer module
+        print(f"FAIL {error}", file=sys.stderr)
+        return 1
+    try:
+        programs = zexbuild.build_programs(assembler)
     except zexbuild.BuildError as error:
         print(f"FAIL {error}", file=sys.stderr)
         return 1
