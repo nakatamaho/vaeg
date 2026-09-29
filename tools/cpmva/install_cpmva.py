@@ -229,6 +229,10 @@ def load_lock(path: Path) -> dict:
     assembler = lock.get("assembler")
     if not isinstance(assembler, dict) or assembler.get("version") != "1.8":
         fail("LOCK_ASSEMBLER", "z80asm 1.8 must be pinned")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(assembler.get("source_sha256"))) or not (
+        isinstance(assembler.get("source_size"), int) and assembler["source_size"] > 0
+    ):
+        fail("LOCK_ASSEMBLER", "z80asm 1.8 source digest and size must be pinned")
     return lock
 
 
@@ -483,7 +487,9 @@ def fetch_locked_source(
     lock: dict,
     offline: bool,
 ) -> tuple[Path, str, bool]:
-    extension = {"lzh": ".lzh", "zip": ".zip"}.get(spec.get("archive_type"), ".bin")
+    extension = {"lzh": ".lzh", "zip": ".zip", "tar.gz": ".tar.gz"}.get(
+        spec.get("archive_type"), ".bin"
+    )
     destination = cache_dir / "sources" / f"{key}-{spec['sha256']}{extension}"
     if override is not None:
         verify_file(override, spec)
@@ -577,6 +583,114 @@ def fetch_locked_text(
     if last_error:
         raise last_error
     fail("NETWORK", f"cannot download license {key}")
+
+
+ASSEMBLER_SOURCES = ("z80asm.c", "expressions.c", "gnulib/getopt.c", "gnulib/getopt1.c")
+
+
+def assembler_source_spec(lock: dict) -> dict:
+    assembler = lock["assembler"]
+    return {
+        "resolved_url": assembler["source_url"],
+        "sha256": assembler["source_sha256"],
+        "size": assembler["source_size"],
+        "archive_type": "tar.gz",
+    }
+
+
+def fetch_assembler_source(lock: dict, cache_dir: Path, offline: bool) -> Path:
+    path, _, _ = fetch_locked_source(
+        "z80asm", assembler_source_spec(lock), None, cache_dir, lock, offline
+    )
+    return path
+
+
+def assembler_version_ok(assembler: str, version: str) -> bool:
+    try:
+        result = subprocess.run(
+            [assembler, "--version"], capture_output=True, text=True, check=False, timeout=20
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and f"version {version}" in result.stdout
+
+
+def build_assembler(archive: Path, work: Path, output: Path, version: str) -> Path:
+    """Compile z80asm from its locked source tarball with the host C compiler."""
+    import tarfile
+
+    source_root = work / "z80asm-source"
+    wanted = {f"z80asm-{version}/{name}" for name in ASSEMBLER_SOURCES}
+    wanted |= {f"z80asm-{version}/z80asm.h", f"z80asm-{version}/gnulib/getopt.h",
+               f"z80asm-{version}/gnulib/gettext.h"}
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            for member in tar.getmembers():
+                if member.name not in wanted:
+                    continue
+                if not member.isfile():
+                    fail("ASSEMBLER_SOURCE", f"not a regular file: {member.name}")
+                name = validate_member_name(member.name)
+                extracted = tar.extractfile(member)
+                if extracted is None:
+                    fail("ASSEMBLER_SOURCE", f"cannot read {member.name}")
+                target = source_root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(extracted.read())
+    except (OSError, tarfile.TarError) as error:
+        fail("ASSEMBLER_SOURCE", f"cannot read {archive}: {error}")
+    base = source_root / f"z80asm-{version}"
+    missing = [name for name in wanted if not (source_root / name).is_file()]
+    if missing:
+        fail("ASSEMBLER_SOURCE", f"missing source members: {', '.join(sorted(missing))}")
+    compiler = os.environ.get("CC") or next(
+        (found for found in (shutil.which(name) for name in ("cc", "gcc", "clang")) if found), None
+    )
+    if not compiler:
+        fail("ASSEMBLER_COMPILER", "a C compiler (cc, gcc or clang, or $CC) is required to build z80asm")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_name(output.name + ".tmp")
+    command = [
+        compiler, "-O2", "-I", str(base / "gnulib"), f'-DVERSION="{version}"',
+        *[str(base / name) for name in ASSEMBLER_SOURCES], "-o", str(temporary),
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as error:
+        fail("ASSEMBLER_BUILD", f"cannot run {compiler}: {error}")
+    built = temporary if temporary.is_file() else temporary.with_name(temporary.name + ".exe")
+    if result.returncode != 0 or not built.is_file():
+        fail("ASSEMBLER_BUILD", (result.stdout + result.stderr)[-4000:])
+    os.replace(built, output)
+    if not assembler_version_ok(str(output), version):
+        fail("ASSEMBLER_VERSION", f"the built {output.name} does not report version {version}")
+    return output
+
+
+def ensure_assembler(
+    explicit: str | None, lock: dict, cache_dir: Path, offline: bool, work: Path
+) -> tuple[str, dict]:
+    """Return a z80asm 1.8 executable and how it was obtained.
+
+    An explicit --assembler or VAEG_Z80ASM is used as given. Otherwise a
+    z80asm 1.8 in PATH is used; if there is none (another program named
+    z80asm does not count), the locked source is downloaded, verified, and
+    compiled once into the cache.
+    """
+    version = lock["assembler"]["version"]
+    chosen = explicit or os.environ.get("VAEG_Z80ASM")
+    if chosen:
+        return chosen, {"origin": "explicit"}
+    in_path = shutil.which("z80asm")
+    if in_path and assembler_version_ok(in_path, version):
+        return in_path, {"origin": "path"}
+    digest = lock["assembler"]["source_sha256"]
+    suffix = ".exe" if os.name == "nt" else ""
+    output = cache_dir / "tools" / f"z80asm-{version}-{digest[:12]}" / f"z80asm{suffix}"
+    if not (output.is_file() and assembler_version_ok(str(output), version)):
+        archive = fetch_assembler_source(lock, cache_dir, offline)
+        build_assembler(archive, work, output, version)
+    return str(output), {"origin": "built from locked source", "source_sha256": digest}
 
 
 def apply_unified_patch(source: bytes, patch: bytes) -> bytes:
@@ -1294,8 +1408,9 @@ def main() -> int:
         if args.dry_run:
             print(f"Would validate input boot disk: {args.boot_disk}")
             print(
-                "Would fetch and verify locked CPMVA, CP/M, vt100-games, and BDS C "
-                f"sources into: {args.cache_dir or '~/.cache/vaeg/cpmva'}"
+                "Would fetch and verify locked CPMVA, CP/M, vt100-games, BDS C, and "
+                "(unless one is supplied or in PATH) z80asm 1.8 sources into: "
+                f"{args.cache_dir or '~/.cache/vaeg/cpmva'}"
             )
             print(
                 f"Would build {BOOT_OUTPUT_NAME}, {TOOLS_OUTPUT_NAME}, "
@@ -1322,6 +1437,10 @@ def main() -> int:
         license_data, license_url = fetch_locked_text(
             "cpm_license", lock["sources"]["cpm_license"], cache_dir, lock, args.offline
         )
+        if not (args.assembler or os.environ.get("VAEG_Z80ASM")):
+            # Cache the assembler source with the other inputs so that a later
+            # --offline run can build it.
+            fetch_assembler_source(lock, cache_dir, args.offline)
         work_root = cache_dir / "work"
         work_root.mkdir(parents=True, exist_ok=True)
         if args.keep_work:
@@ -1362,11 +1481,11 @@ def main() -> int:
             if args.download_only:
                 print("Sources downloaded, digests verified, and expected members validated.")
                 return 0
-            assembler_path = args.assembler or os.environ.get("VAEG_Z80ASM") or shutil.which("z80asm")
             if args.vaeg_binary is not None and not args.vaeg_binary.is_file():
                 fail("VAEG_BINARY", f"VAEG binary does not exist: {args.vaeg_binary}")
-            if not assembler_path:
-                fail("ASSEMBLER_MISSING", "z80asm 1.8 is required; install it or set VAEG_Z80ASM")
+            assembler_path, assembler_origin = ensure_assembler(
+                args.assembler, lock, cache_dir, args.offline, work
+            )
             ccp_bdos, symbols, assembler_diagnostic = assemble_cpm22(
                 cpm22_source,
                 (Path(__file__).parent / "patches" / "cpm22-64k.patch").read_bytes(),
@@ -1497,6 +1616,7 @@ def main() -> int:
                     "name": lock["assembler"]["name"],
                     "version": lock["assembler"]["version"],
                     "path_basename": Path(assembler_path).name,
+                    "origin": assembler_origin,
                 },
                 "test_programs": {
                     "sources": "external/zex (GPL-2.0-or-later) and tools/cpmva/zex",

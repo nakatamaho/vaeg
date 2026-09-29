@@ -126,6 +126,7 @@
     "version": "1.8",
     "source_url": "https://deb.debian.org/debian/pool/main/z/z80asm/z80asm_1.8.orig.tar.gz",
     "source_sha256": "67fba9940582cddfa70113235818fb52d81e5be3db483dfb0816acb330515f64",
+    "source_size": 57269,
     "license": "GPL-3.0-or-later"
   },
   "limits": {

@@ -24,6 +24,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
+import shutil
+from unittest import mock
 from pathlib import Path
 import struct
 import subprocess
@@ -242,6 +245,83 @@ class InstallerTests(unittest.TestCase):
                     source, patch, "/no/such/z80asm", "1.8", Path(directory)
                 )
             self.assertEqual(raised.exception.code, "ASSEMBLER_FAILED")
+
+    def make_fake_assembler_archive(self, directory, version_text, omit=None):
+        import io
+        import tarfile
+
+        sources = {
+            "z80asm.c": (
+                "#include <stdio.h>\nint helper(void);\n"
+                "int main(void) { printf(\"Z80 assembler version \" "
+                + version_text + " \"\\n\"); return helper(); }\n"
+            ),
+            "expressions.c": "int helper(void) { return 0; }\n",
+            "gnulib/getopt.c": "int getopt_unused;\n",
+            "gnulib/getopt1.c": "int getopt1_unused;\n",
+            "z80asm.h": "",
+            "gnulib/getopt.h": "",
+            "gnulib/gettext.h": "",
+        }
+        archive = Path(directory) / "z80asm.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            for name, text in sources.items():
+                if name == omit:
+                    continue
+                data = text.encode()
+                info = tarfile.TarInfo(f"z80asm-1.8/{name}")
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        return archive
+
+    @unittest.skipUnless(
+        any(shutil.which(name) for name in ("cc", "gcc", "clang")), "no C compiler"
+    )
+    def test_assembler_is_built_from_source_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "VERSION")
+            output = Path(directory) / "bin" / "z80asm"
+            built = self.installer.build_assembler(archive, Path(directory) / "work", output, "1.8")
+            self.assertTrue(self.installer.assembler_version_ok(str(built), "1.8"))
+
+    @unittest.skipUnless(
+        any(shutil.which(name) for name in ("cc", "gcc", "clang")), "no C compiler"
+    )
+    def test_assembler_build_rejects_wrong_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "\"9.9\"")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.build_assembler(
+                    archive, Path(directory) / "work", Path(directory) / "z80asm", "1.8"
+                )
+            self.assertEqual(raised.exception.code, "ASSEMBLER_VERSION")
+
+    def test_assembler_build_rejects_missing_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "VERSION", omit="expressions.c")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.build_assembler(
+                    archive, Path(directory) / "work", Path(directory) / "z80asm", "1.8"
+                )
+            self.assertEqual(raised.exception.code, "ASSEMBLER_SOURCE")
+
+    def test_explicit_assembler_is_not_replaced(self):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory:
+            path, origin = self.installer.ensure_assembler(
+                "/opt/z80asm", lock, Path(directory), True, Path(directory)
+            )
+        self.assertEqual((path, origin["origin"]), ("/opt/z80asm", "explicit"))
+
+    def test_offline_without_cached_assembler_source_fails(self):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(
+            os.environ, {"PATH": directory}, clear=False
+        ):
+            os.environ.pop("VAEG_Z80ASM", None)
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.ensure_assembler(None, lock, Path(directory), True, Path(directory))
+        self.assertEqual(raised.exception.code, "OFFLINE_MISS")
 
     def test_test_disk_leaves_room_for_probe_outputs(self):
         # Program sizes as built in M101; DAADUMP writes 4 x 32 KiB plus a
