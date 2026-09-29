@@ -117,12 +117,15 @@ class Z80
     }
 
   public: // Flag profile
-    // Upd780: documented and undocumented Zilog Z80 flag behaviour, as in the
-    // NEC uPD780C second source. This is the default.
+    // Zilog: documented and undocumented Zilog Z80 flag behaviour. This is the
+    // default and the existing behaviour.
     // Upd9002: NEC uPD9002 Z80 emulation mode (PC-88VA V1/V2 mode). Rules
     // R1-R7 are reproduced from ZEXDOC/ZEXALL runs on a real PC-88VA2;
-    // DAA/CPL/SCF/CCF are unresolved and keep Upd780 behaviour.
-    enum class FlagProfile { Upd780, Upd9002 };
+    // DAA/CPL/SCF/CCF are unresolved and keep Zilog behaviour.
+    enum class FlagProfile {
+        Zilog,
+        Upd9002
+    };
     void setFlagProfile(FlagProfile profile)
     {
         flagProfile = profile;
@@ -131,7 +134,7 @@ class Z80
     FlagProfile getFlagProfile() const { return flagProfile; }
 
   private: // Internal functions & variables
-    FlagProfile flagProfile = FlagProfile::Upd780;
+    FlagProfile flagProfile = FlagProfile::Zilog;
     inline bool isUpd9002() const { return flagProfile == FlagProfile::Upd9002; }
     // R1 (storage variant): F bits 5/3 are never held. Whether POP AF can
     // store them on real hardware is untested (probe P7).
@@ -147,9 +150,15 @@ class Z80
     // flag setter
     inline void setFlagS() { reg.pair.F |= flagS(); }
     inline void setFlagZ() { reg.pair.F |= flagZ(); }
-    inline void setFlagY() { if (!isUpd9002()) reg.pair.F |= flagY(); } // R1
+    inline void setFlagY()
+    {
+        if (!isUpd9002()) reg.pair.F |= flagY(); // R1
+    }
     inline void setFlagH() { reg.pair.F |= flagH(); }
-    inline void setFlagX() { if (!isUpd9002()) reg.pair.F |= flagX(); } // R1
+    inline void setFlagX()
+    {
+        if (!isUpd9002()) reg.pair.F |= flagX(); // R1
+    }
     inline void setFlagPV() { reg.pair.F |= flagPV(); }
     inline void setFlagN() { reg.pair.F |= flagN(); }
     inline void setFlagC() { reg.pair.F |= flagC(); }
