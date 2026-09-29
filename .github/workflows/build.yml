@@ -184,6 +184,7 @@ jobs:
           vaeg_z80_compat_header_release
           vaeg_z80_compat_interrupt_default
           vaeg_z80_compat_interrupt_no_functional
+          vaeg_z80_compat_flag_profile
           vaeg_z80_compat_zex_runner
           vaeg_z80_compat_wrapper_default
           vaeg_z80_compat_wrapper_no_functional_test
@@ -194,7 +195,7 @@ jobs:
       - name: Run standalone conformance
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_z80_compat_(header|interrupt|wrapper|zex|regression)'
+          -R '^vaeg_z80_compat_(header|interrupt|flag_profile|wrapper|zex|regression)'
       - name: Verify source archive contains only recorded ZEX sources
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD

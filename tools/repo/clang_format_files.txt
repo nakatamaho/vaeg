@@ -376,6 +376,7 @@ tests/z80_compat/differential/trace_backend.h
 tests/z80_compat/differential/trace_common.cpp
 tests/z80_compat/differential/trace_common.h
 tests/z80_compat/differential/trace_compare.cpp
+tests/z80_compat/flag_profile.cpp
 tests/z80_compat/header_compile.cpp
 tests/z80_compat/legacy_contract.cpp
 tests/z80_compat/wrapper.cpp

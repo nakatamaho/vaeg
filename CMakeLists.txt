@@ -1720,6 +1720,13 @@ if(VAEG_ENABLE_TESTS)
         Z80_NO_FUNCTIONAL
         Z80_UNSUPPORT_16BIT_PORT)
 
+    add_executable(vaeg_z80_compat_flag_profile tests/z80_compat/flag_profile.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_flag_profile)
+    target_compile_definitions(vaeg_z80_compat_flag_profile PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL)
+
     add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
     target_compile_definitions(vaeg_cpm_runner PRIVATE
@@ -1786,6 +1793,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_compat_header_debug_default)
     add_test(NAME vaeg_z80_compat_header_release
         COMMAND vaeg_z80_compat_header_release)
+    add_test(NAME vaeg_z80_compat_flag_profile
+        COMMAND vaeg_z80_compat_flag_profile)
     add_test(NAME vaeg_z80_compat_interrupt_default
         COMMAND vaeg_z80_compat_interrupt_default)
     add_test(NAME vaeg_z80_compat_interrupt_no_functional
