@@ -1720,6 +1720,13 @@ if(VAEG_ENABLE_TESTS)
         Z80_NO_FUNCTIONAL
         Z80_UNSUPPORT_16BIT_PORT)
 
+    add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
+    target_compile_definitions(vaeg_cpm_runner PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL)
+
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
     target_link_libraries(vaeg_z80_compat_legacy_contract PRIVATE

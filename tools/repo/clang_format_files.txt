@@ -369,6 +369,7 @@ tests/upd9002/state_scenario.c
 tests/upd9002/state_scenario.h
 tests/upd9002/statsave_boundary.c
 tests/upd9002/statsave_boundary.h
+tests/z80_compat/cpm_runner.cpp
 tests/z80_compat/differential/new_trace.cpp
 tests/z80_compat/differential/reference_trace.cpp
 tests/z80_compat/differential/trace_backend.h
