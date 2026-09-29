@@ -39,6 +39,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 ZEX_DIR = ROOT / "external" / "zex"
+TOOL_DIR = Path(__file__).resolve().parent
 ASSEMBLER_VERSION = "1.8"
 
 # Stock binaries from ADR-0011; the rebuilt programs must match them.
@@ -199,13 +200,18 @@ def check_assembler(assembler: str) -> None:
 
 def assemble(source: str, assembler: str, name: str) -> bytes:
     """Assemble z80asm source; any error or warning fails the build."""
+    return assemble_with_symbols(source, assembler, name)[0]
+
+
+def assemble_with_symbols(source: str, assembler: str, name: str) -> tuple[bytes, dict[str, int]]:
+    """Assemble z80asm source and return the image and its label values."""
     with tempfile.TemporaryDirectory(prefix="vaeg-zex-") as directory:
         work = Path(directory)
         source_path = work / f"{name}.asm"
         binary_path = work / f"{name}.bin"
         source_path.write_text(source, encoding="ascii")
         result = subprocess.run(
-            [assembler, "-o", str(binary_path), str(source_path)],
+            [assembler, "-L", "-o", str(binary_path), str(source_path)],
             capture_output=True,
             text=True,
             check=False,
@@ -216,7 +222,15 @@ def assemble(source: str, assembler: str, name: str) -> bytes:
             raise BuildError("ASSEMBLER_FAILED", f"{name}: {diagnostic.strip()[-4000:]}")
         if not binary_path.is_file():
             raise BuildError("ASSEMBLER_OUTPUT", f"{name}: no binary")
-        return binary_path.read_bytes()
+        symbols = {}
+        for line in diagnostic.splitlines():
+            match = re.match(r"([A-Za-z_?][\w?]*):\s+equ\s+\$([0-9a-f]+)$", line, re.I)
+            if match:
+                symbols[match.group(1).lower()] = int(match.group(2), 16)
+        return binary_path.read_bytes(), symbols
+
+
+STOCK_MSBT = 0x0103
 
 
 def build_stock(name: str, assembler: str) -> bytes:
@@ -229,12 +243,34 @@ def build_stock(name: str, assembler: str) -> bytes:
     return binary
 
 
+def build_fileout(name: str, assembler: str) -> bytes:
+    """Build the file-output variant of a stock exerciser.
+
+    The test state must stay where the stock program has it: msbt and the
+    whole region before the patched start-up code must be byte-identical.
+    """
+    stock = build_stock(name, assembler)
+    patch_path = TOOL_DIR / f"{name}-fileout.patch"
+    source = apply_unified_patch(
+        read_zex_source(name), patch_path.read_text(encoding="ascii"), patch_path.name
+    )
+    binary, symbols = assemble_with_symbols(translate_zmac(source), assembler, f"{name}f")
+    if symbols.get("msbt") != STOCK_MSBT:
+        raise BuildError("ZEX_MSBT_MOVED", f"{name}: msbt is not at {STOCK_MSBT:04X}h")
+    start = symbols.get("start")
+    if start is None or binary[: start - 0x100] != stock[: start - 0x100]:
+        raise BuildError("ZEX_PREFIX_CHANGED", f"{name}: code before start differs from stock")
+    return binary
+
+
 def build_programs(assembler: str) -> dict[str, bytes]:
     """Return CP/M file name -> program image."""
     check_assembler(assembler)
     return {
         "ZEXDOC.COM": build_stock("zexdoc", assembler),
         "ZEXALL.COM": build_stock("zexall", assembler),
+        "ZEXDOCF.COM": build_fileout("zexdoc", assembler),
+        "ZEXALLF.COM": build_fileout("zexall", assembler),
     }
 
 

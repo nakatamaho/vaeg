@@ -124,6 +124,16 @@ class AssemblerTest(unittest.TestCase):
                 binary = zexbuild.build_stock(name, assembler)
                 self.assertEqual(zexbuild.sha256_bytes(binary), zexbuild.STOCK_SHA256[name])
 
+    def test_fileout_keeps_test_state(self):
+        assembler = find_assembler()
+        for name in ("zexdoc", "zexall"):
+            with self.subTest(name=name):
+                stock = zexbuild.build_stock(name, assembler)
+                binary = zexbuild.build_fileout(name, assembler)
+                self.assertNotEqual(binary, stock)
+                self.assertEqual(binary[:0x13], stock[:0x13])
+                self.assertIn(f"{name.upper()}TXT".encode(), binary.replace(b" ", b""))
+
 
 if __name__ == "__main__":
     unittest.main()

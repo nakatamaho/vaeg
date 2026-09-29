@@ -84,6 +84,8 @@ MODE_SOURCE = "source"
 APPROVED_PATCHES = {
     "docs/agents/reports/m35_suzukiplan_irq_extension.patch",
     "tools/cpmva/patches/cpm22-64k.patch",
+    "tools/cpmva/zex/zexall-fileout.patch",
+    "tools/cpmva/zex/zexdoc-fileout.patch",
 }
 
 
