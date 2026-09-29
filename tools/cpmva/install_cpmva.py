@@ -46,6 +46,7 @@ BOOT_OUTPUT_NAME = "pcengine-boot-cpmva.d88"
 TOOLS_OUTPUT_NAME = "cpmva-tools.d88"
 SOURCE_OUTPUT_NAME = "cpmva-source.d88"
 DEVELOPMENT_OUTPUT_NAME = "cpmva-dev.d88"
+TEST_OUTPUT_NAME = "cpmva-test.d88"
 MANIFEST_OUTPUT_NAME = "cpmva-build-manifest.json"
 REPORT_OUTPUT_NAME = "cpmva-install-report.txt"
 USER_AGENT = f"VAEG-CPMVA-installer/{SCRIPT_VERSION}"
@@ -1282,6 +1283,7 @@ def main() -> int:
             args.output_dir / TOOLS_OUTPUT_NAME,
             args.output_dir / SOURCE_OUTPUT_NAME,
             args.output_dir / DEVELOPMENT_OUTPUT_NAME,
+            args.output_dir / TEST_OUTPUT_NAME,
             args.output_dir / MANIFEST_OUTPUT_NAME,
             args.output_dir / REPORT_OUTPUT_NAME,
         )
@@ -1297,7 +1299,8 @@ def main() -> int:
             )
             print(
                 f"Would build {BOOT_OUTPUT_NAME}, {TOOLS_OUTPUT_NAME}, "
-                f"{SOURCE_OUTPUT_NAME}, {DEVELOPMENT_OUTPUT_NAME}, and the manifest"
+                f"{SOURCE_OUTPUT_NAME}, {DEVELOPMENT_OUTPUT_NAME}, {TEST_OUTPUT_NAME}, "
+                "and the manifest"
             )
             print(f"Would use image backend: {backend}")
             return 0
@@ -1389,6 +1392,9 @@ def main() -> int:
             tools_disk_files = pad_cpm_records(tools_files, b"\x00")
             source_disk_files = pad_cpm_records(game_source_files, b"\x1a")
             development_disk_files = pad_cpm_records(bdsc_files, b"\x00")
+            # The test disk holds only the M101 programs, leaving room for
+            # their output files (DAADUMP writes about 130 KiB).
+            test_disk_files = pad_cpm_records(test_programs, b"\x00")
             if args.verify_only:
                 print("Input disk and all locked CPMVA, CP/M, game, and BDS C sources verified.")
                 return 0
@@ -1405,12 +1411,14 @@ def main() -> int:
             tools_data = build_tools_disk(tools_disk_files)
             source_data = build_tools_disk(source_disk_files)
             development_data = build_tools_disk(development_disk_files)
+            test_data = build_tools_disk(test_disk_files)
             output_dir = args.output_dir
             output_dir.mkdir(parents=True, exist_ok=True)
             boot_output = output_dir / BOOT_OUTPUT_NAME
             tools_output = output_dir / TOOLS_OUTPUT_NAME
             source_output = output_dir / SOURCE_OUTPUT_NAME
             development_output = output_dir / DEVELOPMENT_OUTPUT_NAME
+            test_output = output_dir / TEST_OUTPUT_NAME
             manifest_output = output_dir / MANIFEST_OUTPUT_NAME
             report_output = output_dir / REPORT_OUTPUT_NAME
             for path, data in (
@@ -1418,6 +1426,7 @@ def main() -> int:
                 (tools_output, tools_data),
                 (source_output, source_data),
                 (development_output, development_data),
+                (test_output, test_data),
             ):
                 if path.exists() and not args.force:
                     fail("OUTPUT_EXISTS", f"output exists: {path}")
@@ -1572,6 +1581,21 @@ def main() -> int:
                         for name in sorted(game_source_files)
                     },
                 },
+                "test_disk": {
+                    "name": TEST_OUTPUT_NAME,
+                    "size": len(test_data),
+                    "sha256": sha256_bytes(test_data),
+                    "raw_size": CPM_RAW_SIZE,
+                    "directory_offset": CPM_DIRECTORY_OFFSET,
+                    "files": {
+                        name: {
+                            "size": len(test_programs[name]),
+                            "stored_size": len(test_disk_files[name]),
+                            "sha256": sha256_bytes(test_programs[name]),
+                        }
+                        for name in sorted(test_programs)
+                    },
+                },
                 "development_disk": {
                     "name": DEVELOPMENT_OUTPUT_NAME,
                     "size": len(development_data),
@@ -1603,6 +1627,7 @@ def main() -> int:
             print(f"Created {tools_output}")
             print(f"Created {source_output}")
             print(f"Created {development_output}")
+            print(f"Created {test_output}")
             print(f"Created {manifest_output}")
             print(f"Created {report_output}")
             return 0
