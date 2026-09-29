@@ -1887,6 +1887,16 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_compat_wrapper_zexall
             COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        foreach(suite zexdoc zexall)
+            add_test(NAME vaeg_z80_compat_wrapper_upd9002_${suite}
+                COMMAND vaeg_z80_compat_wrapper_zex_runner
+                    --profile upd9002
+                    --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd9002_${suite}_expected.txt"
+                    "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
+            set_tests_properties(vaeg_z80_compat_wrapper_upd9002_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;wrapper;upd9002"
+                TIMEOUT 900)
+        endforeach()
         set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
