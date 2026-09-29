@@ -31,9 +31,24 @@ license=MIT
 license_file=LICENSE.txt
 vendored_milestone=M36
 vendored_date=2026-07-15
+m101_patches=docs/agents/reports/m101_suzukiplan_adc_sbc_carry.patch docs/agents/reports/m101_suzukiplan_flag_profile.patch
+m101_patch_sha256_adc_sbc_carry=233360c8763db8473604d699dbc30f5887659c84aeaf4ca3107e72e7059bd4d7
+m101_patch_sha256_flag_profile=b4ab48f78c152ea271935a961211566a6fe604917c4c9fbbae799a6b634a4b4b
+m101_resulting_commit=ad25296ffdf79798d46f303bd5ca217f940f9f31
+m101_resulting_tree=8a7b3ecc1edf88e703a0c2f80649889ffeea311a
+m101_z80_hpp_sha256=0b15b83530270a5d7df88cc106f10ce5dd78f22a3fa1f7fe54914e7fc53577eb
+m101_updated_date=2026-09-29
 
 The vaeg-required downstream extension adds an inspectable and restorable
 level-sensitive IRQ line, an acknowledge callback invoked at actual maskable
 interrupt acceptance, and raw first-opcode execution for IM0. The vendored
 third-party files were reproduced from the approved base and patch; they were
 not manually edited.
+
+M101 applies two further downstream patches on top of the M35 commit, in
+order, with `git am --committer-date-is-author-date` and committer
+"Nakata Maho <maho.nakata@gmail.com>": the ADC/SBC HL,rr carry fix and the
+per-instance FlagProfile (Upd780 default, Upd9002 for the NEC uPD9002 Z80
+emulation mode). The result reproduces m101_resulting_commit and
+m101_resulting_tree exactly. z80.hpp was copied from that tree; LICENSE.txt
+and test/test-interrupt-extension.cpp are unchanged.
