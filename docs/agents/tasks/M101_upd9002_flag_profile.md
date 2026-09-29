@@ -66,13 +66,21 @@ with them.
 
 - **Profile names.** The suzukiplan core gains a per-instance
   `Z80::FlagProfile` with exactly two values:
-  - `Upd780`: the default. Documented and undocumented Zilog Z80 behaviour,
-    as implemented by NEC's µPD780C second source. This is the existing
-    behaviour and is used by the FDC CPU (`UPD780C`).
+  - `Zilog`: the default. Documented and undocumented Zilog Z80 behaviour.
+    This is the existing behaviour and is used by the FDC CPU (`UPD780C`).
   - `Upd9002`: the R1–R7 profile of the µPD9002 Z80 emulation mode. It uses
-    the storage variant of R1 and keeps µPD780 behaviour for DAA/CPL/SCF/CCF
+    the storage variant of R1 and keeps Zilog behaviour for DAA/CPL/SCF/CCF
     until U1 is resolved. It is used by the uPD70008-compatible main-CPU
     adapter.
+
+  The default was first named `Upd780` and renamed on 2026-09-29 after
+  upstream review: NEC documentation calls the µPD9002 Z80 mode itself
+  "µPD780 mode", and nothing shows that the FDC's µPD780C matches the Zilog
+  behaviour. MAME 0.250 (`src/devices/cpu/z80/z80.cpp`) records SCF/CCF X/Y
+  as `(F|A) & 28h` on SGS/Sharp/Zilog NMOS parts and `F & A & 28h` on NEC
+  NMOS parts, and calls the exact NEC behaviour unknown. Running the FDC
+  µPD780C with the Zilog profile is therefore an unverified assumption; the
+  impact is probably small.
 - **Core patches.** The two reviewed patches are applied to the vendored
   suzukiplan tree through the M36 provenance procedure, never by hand:
   1. `0001-fix-adc-sbc-hl-carry.patch`: ADC/SBC HL,rr folded the carry into
@@ -80,8 +88,11 @@ with them.
      `rr & 0FFFh = 0FFFh` and C = 1, P/V whenever `rr & 7FFFh = 7FFFh` and
      C = 1, and C as well when rr = FFFFh. The carry is now passed
      separately.
-  2. `0002-add-upd9002-flag-profile.patch`, with the reference profile named
-     `Upd780` instead of `Zilog`.
+  2. `0002-add-upd9002-flag-profile.patch`.
+
+  Upstream pull requests: suzukiplan/z80
+  [#60](https://github.com/suzukiplan/z80/pull/60) (carry fix and its test)
+  and [#61](https://github.com/suzukiplan/z80/pull/61) (flag profile).
 - **ZEX sources are imported** under `external/zex/` (GPL-2.0-or-later
   sources with the upstream bundled license). They are never compiled into,
   linked into, or packaged with a vaeg executable or release archive. They
@@ -119,7 +130,7 @@ with them.
   `DI ... EI` per probe, not for the whole run.
 - Output files must be byte-identical in format between the host run and the
   real-machine run.
-- Do not change the µPD780 profile behaviour of the core.
+- Do not change the Zilog profile behaviour of the core.
 - Do not guess hardware behaviour. When something is ambiguous, stop and
   report.
 
@@ -148,10 +159,10 @@ outputs.
    128-byte records, final record padded with 1Ah). `msbt` must not move.
    The test table, descriptors, and CRC code are unchanged.
 2. A host CP/M runner built on the vendored core: BDOS 2, 9, 13–16, 19, 21,
-   22 and 26 mapped to a host directory, plus `--profile upd780|upd9002`
+   22 and 26 mapped to a host directory, plus `--profile zilog|upd9002`
    once stage C is in place.
 3. Host acceptance: the file content equals the console output, and the
-   stock expected CRCs pass 67/67 under µPD780.
+   stock expected CRCs pass 67/67 under Zilog.
 4. `tools/cpmva/install_cpmva.py` puts the stock `ZEXDOC.COM` and
    `ZEXALL.COM`, the file-output variants, and the stage D programs on
    `cpmva-tools.d88`, building them from `external/zex/` and in-tree probe
@@ -167,10 +178,10 @@ outputs.
    patches, and update `external/suzukiplan-z80/provenance.txt` and
    ADR-0011.
 2. Add the profile to `Z80CompatCpu`. The uPD70008 adapter selects
-   `Upd9002`; `UPD780C` keeps `Upd780`. Adapter paths that write F outside
+   `Upd9002`; `UPD780C` keeps `Zilog`. Adapter paths that write F outside
    the core (LD A,I / LD A,R materialization, register import, `SetReg`,
    `SetMainReg`) must honour R1.
-3. Regression: the stock suites pass 67/67 under `Upd780`, and under
+3. Regression: the stock suites pass 67/67 under `Zilog`, and under
    `Upd9002` every group except #13 matches the real-machine outcome and
    found CRC in the evidence document.
 4. Record the ADC/SBC HL defect and the µPD9002 flag correction in
@@ -190,7 +201,7 @@ For LDI, `MEM` is the destination byte. After the probe lines, write the
 machine-independent expected values as comment lines starting with `#`.
 Echo everything to the console as well.
 
-| id | Setup | Instruction(s) under test | µPD780 | µPD9002 |
+| id | Setup | Instruction(s) under test | Zilog | µPD9002 |
 | --- | --- | --- | --- | --- |
 | P0 | A=5Ah, F=00h | `XOR A` (control) | A 00h F 44h | A 00h F 44h |
 | P1 | A=FFh, F=00h | `AND 0Fh` | A 0Fh F 1Ch | A 0Fh F 04h |
@@ -208,7 +219,7 @@ Echo everything to the console as well.
 | P7d | BC=FFFFh | `PUSH BC / POP AF / INC DE / PUSH AF / POP BC` | C FFh | C D7h |
 
 - The µPD9002 values for P7 are the prediction of the R1 storage variant.
-  The alternative, the computation variant, predicts the µPD780 values. P7
+  The alternative, the computation variant, predicts the Zilog values. P7
   decides which variant is correct.
 - The table values were derived by hand. The host runs of both profiles must
   reproduce them exactly. If they do not, stop and report the discrepancy;
@@ -229,13 +240,13 @@ Derived from the file-output ZEXDOC. Test table, in this order:
    - Set the instruction-byte counter mask to 00h.
    - Keep every other base, counter and shifter field unchanged.
    - Messages, for example: `daa (d7)`, `daa (ff)`, `cpl (d7)`, …
-   - Expected CRCs are those of the µPD780 profile, computed on the host.
+   - Expected CRCs are those of the Zilog profile, computed on the host.
 
 Layout requirements:
 
 - Do not move `msbt`. Keep the file-output routine unchanged.
 - Verify on the host that the two control groups give their stock ZEXDOC
-  expected CRCs under µPD780: `aluop a,nn` → `48799360`,
+  expected CRCs under Zilog: `aluop a,nn` → `48799360`,
   `<daa,cpl,scf,ccf>` → `9b4ba675`.
 - Verify under µPD9002 that `aluop a,nn` gives `12967d59`.
 
@@ -263,18 +274,18 @@ diagnosis.
 
 1. Build all CP/M programs and record their SHA-256 in `MANIFEST.TXT`.
 2. Run each program under both profiles. Store the outputs as
-   `ref/upd780/*` and `ref/upd9002/*`.
+   `ref/zilog/*` and `ref/upd9002/*`.
 3. Write `compare.py <real_dir>`. It compares the real-machine outputs with
    both references and prints the following.
-   - `FLAGPRB`: per probe, the verdict UPD780, UPD9002, BOTH or NEITHER, plus
+   - `FLAGPRB`: per probe, the verdict ZILOG, UPD9002, BOTH or NEITHER, plus
      the differing bits.
-   - `ZEX13S`: per group, the found CRC and whether it equals the µPD780
+   - `ZEX13S`: per group, the found CRC and whether it equals the Zilog
      expected value, the µPD9002 host value, or neither. For the two control
      groups, whether the real machine reproduced `12967d59` and `6096b6aa`.
    - `ZEXDOC.TXT` / `ZEXALL.TXT`: per group, whether the real result equals
      the µPD9002 host result and the first-run evidence.
    - Dumps, per instruction:
-     - the number of mismatching records against µPD780;
+     - the number of mismatching records against Zilog;
      - a breakdown by output field (A, and each F bit S, Z, Y, H, X, P/V, N,
        C);
      - a breakdown by input class (H_in, N_in, C_in) and by A nibble range;
@@ -282,9 +293,9 @@ diagnosis.
    - A check that the real `DAADUMP.TXT` CRC-32 values match the real `.BIN`
      files, to detect disk or transfer corruption.
 4. Acceptance before handing the programs over for the real-machine run:
-   - The host µPD780 run of `FLAGPRB` matches the µPD780 column exactly, and
+   - The host Zilog run of `FLAGPRB` matches the Zilog column exactly, and
      the host µPD9002 run matches the µPD9002 column exactly.
-   - `ZEX13S` under µPD780 reports OK for all ten groups.
+   - `ZEX13S` under Zilog reports OK for all ten groups.
    - All ZEXDOC and ZEXALL regressions that already pass still pass.
 
 ### Stage E: real-machine results (only after the maintainer supplies them)
@@ -292,7 +303,7 @@ diagnosis.
 1. Run `compare.py` and report the results verbatim.
 2. R1 variant.
    - If P7 matches µPD9002, keep the storage variant.
-   - If it matches µPD780, switch R1 to the computation variant: remove the
+   - If it matches Zilog, switch R1 to the computation variant: remove the
      masking at POP AF, `setAF`/`setAF2` and reset, and keep `setFlagX`/
      `setFlagY` disabled.
    - Then re-run everything.
@@ -305,7 +316,7 @@ diagnosis.
        ZEXDOC and stock ZEXALL.
      - Full stock ZEXDOC and ZEXALL under µPD9002 match the real machine in
        all 67 groups.
-     - The µPD780 profile still passes 67/67 in both suites.
+     - The Zilog profile still passes 67/67 in both suites.
    - If the dumps do not determine a rule unambiguously, stop and report
      rather than choosing one.
 4. Update `docs/modernization/uPD9002-zex-results.md`.

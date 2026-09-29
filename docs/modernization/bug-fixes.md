@@ -194,7 +194,9 @@ separate parity correction or move it to Open Defects.
 - **Symptom/scope:** in V1/V2 mode the main CPU produced Zilog Z80 flags. A
   real PC-88VA2 differs: stock ZEXDOC reports 12 and ZEXALL 32 failing
   groups, all of which the emulator passed. Only the uPD70008-compatible
-  main-CPU mode is affected; the FDC `UPD780C` is a Zilog-compatible part.
+  main-CPU mode is changed. The FDC `UPD780C` keeps the Zilog profile;
+  whether the real µPD780C matches it is unverified (MAME 0.250 reports NEC
+  NMOS SCF/CCF X/Y as `F & A & 28h`, unlike Zilog's `(F|A) & 28h`).
 - **Demonstrated root cause:** the main-CPU adapter used the Zilog behaviour
   of the shared core. The real-machine found CRCs are reproduced exactly by
   rules R1-R7 of [the ZEX results](uPD9002-zex-results.md) (F bits 5/3 never
@@ -204,10 +206,10 @@ separate parity correction or move it to Open Defects.
   ([patch](../agents/reports/m101_suzukiplan_flag_profile.patch));
   `Z80CompatCpu` exposes it, applies R1 to every F value the adapter writes
   (register import, state load, LD A,I/LD A,R), and the uPD70008 adapter
-  selects `kUpd9002`. The FDC keeps `kUpd780`.
+  selects `kUpd9002`. The FDC keeps `kZilog`.
 - **Verification:** under `kUpd9002`, stock ZEXDOC and ZEXALL through the
   wrapper match the real machine in 66 of 67 groups each, found CRCs
-  included; group 13 (U1) is the only difference. Under `kUpd780` both suites
+  included; group 13 (U1) is the only difference. Under `kZilog` both suites
   still pass 67/67. `vaeg_z80_compat_flag_profile` and the wrapper
   flag-profile storage test cover the probe table and adapter paths.
 - **Task/evidence/commit:** [M101 task](../agents/tasks/M101_upd9002_flag_profile.md);
