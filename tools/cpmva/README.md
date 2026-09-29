@@ -19,7 +19,10 @@ distribution. The installer does not relicense CP/M, CPMVA, the games, or BDS C.
   `gcc` or `clang`) into `<cache>/tools/`. A program named `z80asm` that is
   not version 1.8, such as the z88dk assembler, is ignored. `--download-only`
   caches the source for later `--offline` runs.
-- `lha` or `unar` for extracting the CPMVA `.LZH` archive.
+- `lha` or `unar` for extracting the CPMVA `.LZH` archive. Both lha-1.14i
+  and lhasa (the Debian/Ubuntu `lhasa` package, as `lha` or `lhasa`) work;
+  the installer detects lhasa, uses its `xw=DIR` syntax, and restores the
+  upper-case member names that lhasa lower-cases.
 - The repository-native PC-Engine D88/FAT tool is used by the default `native`
   backend. `imgtool` is optional for `--image-backend imgtool`.
 
@@ -194,7 +197,7 @@ a recoverable backup, preserves line endings, and appends a marked
   bytes; do not update the digest silently.
 - `OFFLINE_MISS`: run once online with the same cache or supply every local
   archive override and a cached permission text.
-- `ARCHIVE_TOOL`: install `lha` or `unar`; archives are never executed.
+- `ARCHIVE_TOOL`: install `lha`, `lhasa` or `unar`; archives are never executed.
 - `BOOT_SPACE`: use a writable PC-Engine FAT D88 with enough free clusters.
 - `ASSEMBLER_MISSING`, `ASSEMBLER_VERSION`: the supplied `z80asm` cannot run
   or is not version 1.8; fix `--assembler`/`VAEG_Z80ASM` or unset them.

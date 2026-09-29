@@ -37,7 +37,8 @@ CP/M tools disk that reaches the CP/M `A>` prompt.
   none is in `PATH`, the installer downloads the locked z80asm 1.8 source,
   verifies its SHA-256, and builds it once into its cache. This needs a C
   compiler (`cc`, `gcc`, `clang`, or `$CC`).
-- `lha` or `unar` for the CPMVA archive.
+- `lha` (lha-1.14i or lhasa, e.g. the Debian/Ubuntu `lhasa` package) or
+  `unar` for the CPMVA archive.
 
 The installer downloads and verifies the locked CPMVA, CP/M, game, and BDS C
 sources. It does not execute downloaded DOS or CP/M programs on the host.
