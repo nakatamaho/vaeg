@@ -323,6 +323,61 @@ class InstallerTests(unittest.TestCase):
                 self.installer.ensure_assembler(None, lock, Path(directory), True, Path(directory))
         self.assertEqual(raised.exception.code, "OFFLINE_MISS")
 
+    def write_fake_lha(self, directory, name, banner):
+        # Each fake accepts only its own extraction syntax: lhasa "xw=DIR"
+        # (lower-cased names), lha-1.14i "x -w=DIR" (names as stored).
+        lhasa = "Lhasa" in banner
+        extract = (
+            "xw=*) d=\"${1#xw=}\"; printf hello > \"$d/readme.doc\";"
+            " printf exe > \"$d/cpmva.exe\"; exit 0;;\n"
+            if lhasa
+            else "x) d=\"${2#-w=}\"; printf hello > \"$d/README.DOC\";"
+            " printf exe > \"$d/CPMVA.EXE\"; exit 0;;\n"
+        )
+        script = Path(directory) / name
+        script.write_text(
+            "#!/bin/sh\n"
+            f"if [ $# -eq 0 ]; then echo '{banner}'; exit 0; fi\n"
+            "case \"$1\" in\n"
+            "l) echo '[generic]  5 100.0% Jan  1  1989 readme.doc';"
+            "   echo '[generic]  3 100.0% Jan  1  1989 cpmva.exe'; exit 0;;\n"
+            + extract
+            + "esac\necho 'unsupported syntax' >&2; exit 1\n"
+        )
+        script.chmod(0o755)
+        return script
+
+    def extract_with_fake_lha(self, name, banner):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory:
+            tools = Path(directory) / "bin"
+            tools.mkdir()
+            self.write_fake_lha(tools, name, banner)
+            archive = Path(directory) / "CPMVA.LZH"
+            archive.write_bytes(b"not a real archive")
+            with mock.patch.dict(os.environ, {"PATH": str(tools)}):
+                return self.installer.safe_extract_archive(archive, Path(directory) / "work", lock)
+
+    def test_lhasa_is_detected_and_names_restored(self):
+        members = self.extract_with_fake_lha("lha", "Lhasa v0.4.0 command line LHA tool")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_lhasa_found_under_its_own_name(self):
+        members = self.extract_with_fake_lha("lhasa", "Lhasa v0.4.0 command line LHA tool")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_classic_lha_keeps_its_syntax(self):
+        members = self.extract_with_fake_lha("lha", "LHa for UNIX version 1.14i")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_upper_case_restore_rejects_collisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "a.txt").write_text("1")
+            (Path(directory) / "A.TXT").write_text("2")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.restore_upper_case_names(Path(directory))
+        self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
+
     def test_test_disk_leaves_room_for_probe_outputs(self):
         # Program sizes as built in M101; DAADUMP writes 4 x 32 KiB plus a
         # one-record text file, and the other programs about 12 KiB of text.

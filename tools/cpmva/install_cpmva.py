@@ -275,6 +275,35 @@ def validate_extracted_tree(root: Path, max_members: int, max_bytes: int) -> dic
     return result
 
 
+def lha_is_lhasa(executable: str) -> bool:
+    """Tell lhasa (Debian/Ubuntu "lhasa", often installed as "lha") from lha-1.14i."""
+    try:
+        probe = subprocess.run(
+            [executable], capture_output=True, text=True, errors="replace", check=False, timeout=20
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "lhasa" in (probe.stdout + probe.stderr).lower()
+
+
+def restore_upper_case_names(root: Path) -> None:
+    """Undo lhasa's lower-casing of MS-DOS member names.
+
+    lhasa lower-cases names stored by MS-DOS archivers, while lha-1.14i and
+    unar keep them as stored (upper case for CPMVA.LZH).
+    """
+    for current, directories, files in os.walk(root, topdown=False):
+        for name in files + directories:
+            upper = name.upper()
+            if upper == name:
+                continue
+            source = Path(current) / name
+            target = Path(current) / upper
+            if target.exists():
+                fail("ARCHIVE_DUPLICATE", f"case-folded member collides: {upper}")
+            source.rename(target)
+
+
 def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]:
     import tarfile
     import zipfile
@@ -337,8 +366,9 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
         except tarfile.TarError as error:
             fail("ARCHIVE_FORMAT", f"invalid TAR archive: {error}")
     elif suffix.endswith(".lzh"):
-        executable = shutil.which("lha")
+        executable = shutil.which("lha") or shutil.which("lhasa")
         if executable:
+            lhasa = lha_is_lhasa(executable)
             listing = subprocess.run(
                 [executable, "l", str(path)],
                 check=False,
@@ -368,8 +398,14 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
                     fail("ARCHIVE_MEMBER_SIZE", f"member is too large: {name}")
             if len(names) > limits["max_archive_members"]:
                 fail("ARCHIVE_MEMBER_COUNT", "LZH contains too many members")
+            # lha-1.14i takes "x -w=DIR"; lhasa only accepts "xw=DIR".
+            command = (
+                [executable, f"xw={destination}", str(path)]
+                if lhasa
+                else [executable, "x", f"-w={destination}", str(path)]
+            )
             extracted = subprocess.run(
-                [executable, "x", f"-w={destination}", str(path)],
+                command,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -378,6 +414,8 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
             )
             if extracted.returncode != 0:
                 fail("ARCHIVE_FORMAT", extracted.stderr.strip() or "lha extraction failed")
+            if lhasa:
+                restore_upper_case_names(destination)
         else:
             executable = shutil.which("unar")
             if not executable:
