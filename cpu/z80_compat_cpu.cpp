@@ -128,7 +128,8 @@ Z80CompatCpu::Z80CompatCpu()
       instruction_fetch_started_(false), prefix_fetch_pending_(false), first_opcode_(0),
       prefixed_opcode_(0), restore_iff1_after_instruction_(false),
       materialize_i_flags_after_instruction_(false), materialize_r_flags_after_instruction_(false),
-      code_base_(0), data_base_(0), public_registers_{} {
+      code_base_(0), data_base_(0), flag_profile_(Z80CompatFlagProfile::kUpd780),
+      public_registers_{} {
 }
 
 Z80CompatCpu::~Z80CompatCpu() {
@@ -153,6 +154,7 @@ bool Z80CompatCpu::Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
 		return false;
 	}
 	Reset();
+	ApplyFlagProfile();
 	return true;
 }
 
@@ -281,6 +283,7 @@ bool IFCALL Z80CompatCpu::LoadStatus(const std::uint8_t *status) {
 	}
 
 	ImportRegisters(state.registers, state.halted, state.ei_inhibited, &impl_->cpu.reg);
+	ApplyFlagProfile();
 	external_wait_ = state.external_wait;
 	irq_asserted_ = state.irq_asserted;
 	impl_->cpu.setIRQLine(irq_asserted_);
@@ -308,6 +311,7 @@ void Z80CompatCpu::SetReg(const Z80CompatReg &source) {
 		return;
 	}
 	ImportRegisters(source, false, false, &impl_->cpu.reg);
+	ApplyFlagProfile();
 	impl_->cpu.setIRQLine(irq_asserted_);
 	SynchronizePublicMirror();
 }
@@ -329,12 +333,35 @@ void Z80CompatCpu::SetMainReg(const Z80CompatReg &source) {
 	impl_->cpu.reg.IFF = static_cast<std::uint8_t>(
 	    (impl_->cpu.reg.IFF & kIffHalt) | (source.iff1 ? kIff1 : 0) | (source.iff2 ? kIff2 : 0));
 	impl_->cpu.reg.interrupt = source.intmode & 0x03;
+	ApplyFlagProfile();
 	SynchronizePublicMirror();
 }
 
 void Z80CompatCpu::SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base) {
 	code_base_ = code_base;
 	data_base_ = data_base;
+}
+
+void Z80CompatCpu::SetFlagProfile(Z80CompatFlagProfile profile) {
+	flag_profile_ = profile;
+	ApplyFlagProfile();
+	SynchronizePublicMirror();
+}
+
+Z80CompatFlagProfile Z80CompatCpu::GetFlagProfile() const {
+	return flag_profile_;
+}
+
+// Select the core profile. Setting the profile also applies the R1 storage
+// rule to F and F' for kUpd9002, so every path that writes F from outside the
+// core calls this afterwards.
+void Z80CompatCpu::ApplyFlagProfile() {
+	if (impl_ == nullptr) {
+		return;
+	}
+	impl_->cpu.setFlagProfile(flag_profile_ == Z80CompatFlagProfile::kUpd9002
+	                              ? Z80::FlagProfile::Upd9002
+	                              : Z80::FlagProfile::Upd780);
 }
 
 const Z80CompatReg *Z80CompatCpu::GetReg() {
@@ -456,6 +483,7 @@ void Z80CompatCpu::ApplyInstructionCorrections() {
 	reg.pair.F = static_cast<std::uint8_t>(
 	    (reg.pair.F & kCarry) | (value & (kSign | kFlag5 | kFlag3)) | (value == 0 ? kZero : 0) |
 	    ((reg.IFF & kIff2) != 0 ? kParityOverflow : 0));
+	ApplyFlagProfile();
 }
 
 void Z80CompatCpu::SynchronizePublicMirror() {

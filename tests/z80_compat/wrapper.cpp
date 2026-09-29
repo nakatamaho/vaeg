@@ -800,6 +800,60 @@ struct TestCase {
 
 } // namespace
 
+// M101: the uPD9002 profile never holds F bits 5/3 (R1, storage variant),
+// including values written by the adapter outside the core. The uPD780
+// profile keeps them.
+void TestFlagProfileStorage() {
+	for (const bool upd9002 : {false, true}) {
+		const std::uint8_t kept = upd9002 ? 0xd7 : 0xff;
+		const char *name = upd9002 ? "upd9002" : "upd780";
+
+		Harness import;
+		import.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                  : Z80CompatFlagProfile::kUpd780);
+		Z80CompatReg reg{};
+		reg.af = 0x12ff;
+		reg.r_af = 0x34ff;
+		import.cpu.SetReg(reg);
+		Require((import.cpu.GetReg()->af & 0xff) == kept &&
+		            (import.cpu.GetReg()->r_af & 0xff) == kept,
+		        std::string("SetReg F storage mismatch: ") + name);
+		import.cpu.SetMainReg(reg);
+		Require((import.cpu.GetReg()->af & 0xff) == kept,
+		        std::string("SetMainReg F storage mismatch: ") + name);
+
+		vaeg::z80_compat::LegacyState state = BasicState();
+		state.registers.af = 0x00ff;
+		state.registers.r_af = 0x00ff;
+		Harness load;
+		load.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                : Z80CompatFlagProfile::kUpd780);
+		load.Load(Encode(state));
+		Require((load.cpu.GetReg()->af & 0xff) == kept && (load.cpu.GetReg()->r_af & 0xff) == kept,
+		        std::string("LoadStatus F storage mismatch: ") + name);
+
+		// LD A,I with I = 28h: the adapter materializes F from I.
+		Harness materialize;
+		materialize.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                       : Z80CompatFlagProfile::kUpd780);
+		materialize.Install(0, {0x3e, 0x28, 0xed, 0x47, 0xed, 0x57});
+		materialize.Advance(7 + 9 + 9);
+		Require(A(materialize) == 0x28 && materialize.cpu.GetPC() == 6,
+		        std::string("LD A,I sequence did not run: ") + name);
+		Require((Af(materialize) & 0x28) == (upd9002 ? 0x00 : 0x28),
+		        std::string("LD A,I F bits 5/3 mismatch: ") + name);
+
+		// POP AF through the core.
+		Harness pop;
+		pop.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                               : Z80CompatFlagProfile::kUpd780);
+		pop.Install(0, {0x31, 0x00, 0x80, 0x01, 0xff, 0xff, 0xc5, 0xf1});
+		pop.Advance(10 + 10 + 11 + 10);
+		Require(pop.cpu.GetPC() == 8 && (Af(pop) & 0xff) == kept,
+		        std::string("POP AF F storage mismatch: ") + name);
+	}
+}
+
 int main() {
 	const TestCase tests[] = {
 	    {"reset and deterministic save", TestResetAndDeterministicSave},
@@ -812,6 +866,7 @@ int main() {
 	    {"IM1, IM2, HALT, NMI, R", TestIm1Im2HaltAndNmi},
 	    {"revision-1 fixtures and codec", TestRetainedFixturesAndCodec},
 	    {"EI save boundary", TestEiSaveBoundary},
+	    {"flag profile storage", TestFlagProfileStorage},
 	};
 	for (const TestCase &test : tests) {
 		test.run();
