@@ -195,10 +195,10 @@ jobs:
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
           -R '^vaeg_z80_compat_(header|interrupt|wrapper|zex|regression)'
-      - name: Verify source archive excludes external ZEX inputs
+      - name: Verify source archive contains only recorded ZEX sources
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD
-          python3 tests/z80_compat/check_zex_archive.py /tmp/vaeg-source.tar.gz
+          python3 tests/z80_compat/check_zex_archive.py --mode source /tmp/vaeg-source.tar.gz
 
   linux-asan:
     name: ubuntu asan compatibility
