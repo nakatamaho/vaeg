@@ -515,6 +515,10 @@ compatibility tests.
 
 ## ZEX acquisition
 
+Amended by [ADR-0015](ADR-0015-zex-sources-for-cpmva.md) in M101: the
+upstream `.src` files and bundled license are tracked under `external/zex/`
+for user-built CP/MVA disks. Release archives remain free of ZEX material.
+
 Use the candidate commit's `test-ex` artifacts only in dedicated conformance
 CI or from an offline user cache. Fetch by immutable raw GitHub URL, verify
 SHA-256, and never put the fetched artifacts in source or release archives.
