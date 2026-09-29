@@ -156,6 +156,9 @@ outputs.
    `ZEXALL.COM`, the file-output variants, and the stage D programs on
    `cpmva-tools.d88`, building them from `external/zex/` and in-tree probe
    sources with the pinned z80asm. The build manifest records their SHA-256.
+   Because the tools disk has too little free space for the DAADUMP output,
+   the installer also writes `cpmva-test.d88`, which holds only these
+   programs (maintainer decision, 2026-09-29).
 
 ### Stage C: core profile and emulator integration
 
@@ -327,6 +330,7 @@ G101 is a human gate:
 1. The standard gate: build from a clean checkout, boot in V3 mode, run the
    bundled VA demo, boot an OS and perform simple operations.
 2. Generate the CP/MVA disks with the installer, boot CP/MVA, and confirm
-   that the new programs are listed by `DIR` on `cpmva-tools.d88`.
+   that the new programs are listed by `DIR` on `cpmva-tools.d88` and
+   `cpmva-test.d88`.
 3. Real-machine runs of `ZEXDOCF`, `ZEXALLF`, `FLAGPRB`, `ZEX13S` and
    `DAADUMP` on a PC-88VA2 in V2 mode, followed by stage E.
