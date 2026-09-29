@@ -187,6 +187,31 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Z80 ADC/SBC HL,rr flags were wrong when the carry was set
+
+- **Status:** fixed on `topic/m101-upd9002-flag-profile`.
+- **Symptom/scope:** with C = 1, `ADC HL,rr` and `SBC HL,rr` produced a wrong
+  H flag whenever `rr & 0FFFh = 0FFFh`, a wrong P/V flag whenever
+  `rr & 7FFFh = 7FFFh`, and also lost C when `rr = FFFFh`. HL itself was
+  correct. Both Z80-compatible CPUs were affected: the FDC `UPD780C` and the
+  uPD70008-compatible main-CPU mode.
+- **Demonstrated root cause:** the vendored suzukiplan core passed `c + nn`
+  as one 16-bit operand to `setFlagByAdc16`/`setFlagBySbc16`. Folding the
+  carry into the operand inverts the carry chain at each bit where `nn` has a
+  run of ones, and truncates `FFFFh + 1` to `0000h`.
+- **Correction:** pass the carry separately and compute the flags from
+  `before + nn + c` (or `before - nn - c`), through the recorded downstream
+  patch [m101_suzukiplan_adc_sbc_carry.patch](../agents/reports/m101_suzukiplan_adc_sbc_carry.patch)
+  applied by the M36 provenance procedure.
+- **Verification:** `vaeg_z80_compat_flag_profile` compares 1,600 ADC/SBC
+  cases per profile with an independent arithmetic model. The pre-fix header
+  fails 200 of them (all with C = 1, F only); the fixed header passes all.
+  Stock ZEXDOC and ZEXALL still pass 67/67 on the raw core and through the
+  wrapper.
+- **Task/evidence/commit:** [M101 task](../agents/tasks/M101_upd9002_flag_profile.md);
+  fix [5c2a6c10](https://github.com/nakatamaho/vaeg/commit/5c2a6c10bfb86a7bc55a01de5ab195c052bc1bb6),
+  test [6410c90e](https://github.com/nakatamaho/vaeg/commit/6410c90e0b9b3172f4c493c4a5e27202e533cbc5).
+
 ### 8087 DC/DE register arithmetic passed operation direction incorrectly
 
 - **Status:** fixed and integrated on `main`.
