@@ -243,6 +243,11 @@ class InstallerTests(unittest.TestCase):
                 )
             self.assertEqual(raised.exception.code, "ASSEMBLER_FAILED")
 
+    def test_test_program_build_failure_is_propagated(self):
+        with self.assertRaises(self.installer.InstallerError) as raised:
+            self.installer.build_test_programs("/no/such/z80asm")
+        self.assertEqual(raised.exception.code, "ASSEMBLER_MISSING")
+
     def test_cpm_sys_sizes_signature_and_composition(self):
         ccp_bdos = bytes(range(256)) * 22
         bios = bytes(0x5FE) + b"VA"

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -1137,6 +1138,25 @@ def write_manifest(path: Path, manifest: dict) -> None:
     atomic_write(path, data.encode("utf-8"))
 
 
+def load_zexbuild():
+    path = Path(__file__).parent / "zex" / "zexbuild.py"
+    spec = importlib.util.spec_from_file_location("vaeg_cpmva_zexbuild", path)
+    if spec is None or spec.loader is None:
+        fail("TEST_PROGRAMS", f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def build_test_programs(assembler: str) -> dict[str, bytes]:
+    """Build the ZEX exercisers and M101 probe programs for the tools disk."""
+    zexbuild = load_zexbuild()
+    try:
+        return zexbuild.build_programs(assembler)
+    except zexbuild.BuildError as error:
+        fail(error.code, str(error))
+
+
 def make_report(manifest: dict) -> str:
     lines = [
         "VAEG CP/MVA installation report",
@@ -1149,6 +1169,9 @@ def make_report(manifest: dict) -> str:
     for key, source in manifest["sources"].items():
         lines.append(f"- {key}: {source['resolved_url']}")
         lines.append(f"  size={source['size']} sha256={source['sha256']}")
+    lines.extend(["", "Test programs on the tools disk:"])
+    for name, item in manifest.get("test_programs", {}).get("files", {}).items():
+        lines.append(f"- {name}: {item['size']} bytes sha256={item['sha256']}")
     lines.extend(["", "Generated files:"])
     for name, item in manifest["generated_files"].items():
         lines.append(f"- {name}: {item['size']} bytes sha256={item['sha256']}")
@@ -1352,6 +1375,7 @@ def main() -> int:
                 ccp_bdos, members["CPMBIOS.COM"], members["MKSYS.BAS"]
             )
             generated = make_generated_files(members, cpm_sys)
+            test_programs = build_test_programs(assembler_path)
             tools_files = {
                 **{name: members[name] for name in ("EXIT.COM", "FCONV.COM", "DO.COM") if name in members},
                 **games_files,
@@ -1359,6 +1383,9 @@ def main() -> int:
             }
             if set(tools_files) != {"EXIT.COM", "FCONV.COM", "DO.COM", *GAME_BINARY_MAPPING, *MESCC_BINARY_MAPPING}:
                 fail("CPM_TOOLS", "CP/M tools or game members are incomplete")
+            if set(tools_files) & set(test_programs):
+                fail("TEST_PROGRAMS", "test program names collide with tools disk members")
+            tools_files.update(test_programs)
             tools_disk_files = pad_cpm_records(tools_files, b"\x00")
             source_disk_files = pad_cpm_records(game_source_files, b"\x1a")
             development_disk_files = pad_cpm_records(bdsc_files, b"\x00")
@@ -1461,6 +1488,14 @@ def main() -> int:
                     "name": lock["assembler"]["name"],
                     "version": lock["assembler"]["version"],
                     "path_basename": Path(assembler_path).name,
+                },
+                "test_programs": {
+                    "sources": "external/zex (GPL-2.0-or-later) and tools/cpmva/zex",
+                    "license_note": "ZEX-derived programs are GPL-2.0-or-later; they exist only on this locally generated disk.",
+                    "files": {
+                        name: {"size": len(data), "sha256": sha256_bytes(data)}
+                        for name, data in sorted(test_programs.items())
+                    },
                 },
                 "patches": [{
                     "path": "tools/cpmva/patches/cpm22-64k.patch",
