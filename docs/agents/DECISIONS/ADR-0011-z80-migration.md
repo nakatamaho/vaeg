@@ -483,7 +483,7 @@ propagate codec failure.
 
 ## M101 downstream patches
 
-M101 extends the vendored tree with three further downstream patches applied
+M101 extends the vendored tree with four further downstream patches applied
 on top of the M35 commit, following the same reproduce-then-copy procedure.
 They are the commits of upstream pull requests
 [#60](https://github.com/suzukiplan/z80/pull/60) and
@@ -495,11 +495,12 @@ conflict against M35 resolved:
 | [ADC/SBC HL carry fix](../reports/m101_suzukiplan_adc_sbc_carry.patch) | `233360c8763db8473604d699dbc30f5887659c84aeaf4ca3107e72e7059bd4d7` |
 | [ADC/SBC HL flag test](../reports/m101_suzukiplan_adc_sbc_test.patch) | `f3829e5acce1d6e0faa22f102a8b6aa783ae793cbd39ee64da448cf3721bc67a` |
 | [Flag profile](../reports/m101_suzukiplan_flag_profile.patch) | `4d5bedbb5f556b758debe95b2319323153db3c113b31bc74bca1fb103bbf3844` |
+| [DAA/CPL/SCF/CCF rules](../reports/m101_suzukiplan_daa_cpl_scf_ccf.patch) | `73510c321e4dce29975298619fb34bcdd8d3e93a342888b5ec7b64a430589e83` |
 
 `git am --committer-date-is-author-date` from
 `b4a0a5a238fecc280781e6fe5719faf0eafcd667` reproduces commit
-`f9d25f270f04b9a8a93bf18dea4409e945d22fca`, tree
-`21afdd39ffa3b16cfd4e84293b2d8979e5020801`. An earlier M101 revision named
+`6f34be621ae67a66d74485beca9f424f6ac314fd`, tree
+`5ec540547bf9736baabe09e51d18542650d19714`. An earlier M101 revision named
 the default profile `Upd780`; it was renamed because the NEC documentation
 calls the uPD9002 Z80 mode itself "uPD780 mode", and because the uPD780C's
 own undocumented flags are not known to match the Zilog behaviour.
@@ -509,13 +510,15 @@ own undocumented flags are not known to match the Zilog behaviour.
   `rr & 0FFFh = 0FFFh` and C = 1, P/V whenever `rr & 7FFFh = 7FFFh` and
   C = 1, and C as well when rr = FFFFh.
 - `Z80::FlagProfile` is per instance. `Zilog`, the default, keeps the
-  existing Zilog behaviour and is used by the FDC CPU. Whether the FDC's
-  NEC uPD780C matches it is unverified: the MAME 0.250 Z80 core
+  existing Zilog behaviour and is used by the FDC CPU. Whether the FDC's NEC
+  uPD780C matches it is unverified: the MAME 0.250 Z80 core
   (`src/devices/cpu/z80/z80.cpp`) notes that SCF/CCF take X/Y from
   `(F|A) & 28h` on SGS/Sharp/Zilog NMOS parts but from `F & A & 28h` on NEC
-  NMOS parts, and that the exact NEC behaviour is still unknown. `Upd9002` implements
-  rules R1–R7 of `docs/modernization/uPD9002-zex-results.md` and is used by
-  the uPD70008-compatible main-CPU mode.
+  NMOS parts, and that the exact NEC behaviour is still unknown.
+- `Upd9002` implements rules R1–R11 of
+  `docs/modernization/uPD9002-zex-results.md`, all measured on a real
+  PC-88VA2 (see `docs/agents/reports/m101_zexall_qa/`), and is used by the
+  uPD70008-compatible main-CPU mode.
 
 ## Frame-boundary revision-1 state
 

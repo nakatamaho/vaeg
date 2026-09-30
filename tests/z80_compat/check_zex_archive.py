@@ -86,6 +86,7 @@ APPROVED_PATCHES = {
     "docs/agents/reports/m101_suzukiplan_adc_sbc_carry.patch",
     "docs/agents/reports/m101_suzukiplan_adc_sbc_test.patch",
     "docs/agents/reports/m101_suzukiplan_flag_profile.patch",
+    "docs/agents/reports/m101_suzukiplan_daa_cpl_scf_ccf.patch",
     "tools/cpmva/patches/cpm22-64k.patch",
     "tools/cpmva/zex/zexall-fileout.patch",
     "tools/cpmva/zex/zex13s.patch",
