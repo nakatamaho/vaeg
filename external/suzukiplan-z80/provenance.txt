@@ -41,12 +41,13 @@ m101_resulting_tree=5ec540547bf9736baabe09e51d18542650d19714
 m101_z80_hpp_sha256=74ac94d34c0afbcb21e6cf3335f30a3c0198238cfa8df000deebc7535aeeef56
 m101_upstream_pull_requests=https://github.com/suzukiplan/z80/pull/60 https://github.com/suzukiplan/z80/pull/61
 m101_updated_date=2026-09-29
-m102_patch=docs/agents/reports/m102_suzukiplan_undefined_opcodes.patch
-m102_patch_sha256=d25676fee49329f8159b20ee6840b368f041971fd68b599a7222edd6a34489aa
-m102_resulting_commit=c16de42ba0cef5fb354c79a7e0a332651ed28290
-m102_resulting_tree=a4e4442f960f39e881647912219a79dfd20fac01
-m102_z80_hpp_sha256=c7e97850c0e1166d1c8a338a6d43774b31f184bc0cf86b12cd32bcda3b19e38c
-m102_upstream_pull_request=https://github.com/suzukiplan/z80/pull/63
+m102_patches=docs/agents/reports/m102_suzukiplan_undefined_opcodes.patch docs/agents/reports/m102_suzukiplan_ddcb_register_forms.patch
+m102_patch_sha256_undefined_opcodes=d25676fee49329f8159b20ee6840b368f041971fd68b599a7222edd6a34489aa
+m102_patch_sha256_ddcb_register_forms=2f68c16a32405d0eb71a8697ced7ebff7ff6d5c5b5fc1289be9c4376cfb99a70
+m102_resulting_commit=60b725f129979c4179fa6e08b6385d20fd69f85e
+m102_resulting_tree=37e3d5e6130ca12d5dbf41904bd65d567817bff0
+m102_z80_hpp_sha256=cef7096e0801623108da35d995ac36cdba84f383ea36b7b18b50fd7fc6e983f8
+m102_upstream_pull_requests=https://github.com/suzukiplan/z80/pull/63 https://github.com/suzukiplan/z80/pull/61
 m102_updated_date=2026-09-30
 
 The vaeg-required downstream extension adds an inspectable and restorable
@@ -62,8 +63,9 @@ test, the per-instance FlagProfile (Zilog default, Upd9002 for the NEC
 uPD9002 Z80 emulation mode), and the Upd9002 DAA/CPL/SCF/CCF rules. M102
 applies one more patch on that result, from upstream pull request #63 (with
 the test/Makefile conflict resolved): with Z80_NO_EXCEPTION, opcodes without
-a handler execute as on a Zilog Z80 instead of calling a null handler. The
-result reproduces m102_resulting_commit and m102_resulting_tree. They are the commits of upstream pull requests
+a handler execute as on a Zilog Z80 instead of calling a null handler; then
+the Upd9002 DD/FD CB register-form rules R12/R13 from upstream pull request
+#61. The result reproduces m102_resulting_commit and m102_resulting_tree. They are the commits of upstream pull requests
 #60 and #61, with the test/Makefile conflict against M35 resolved. The result reproduces m101_resulting_commit and
 m101_resulting_tree exactly. z80.hpp was copied from that tree; LICENSE.txt
 and test/test-interrupt-extension.cpp are unchanged.

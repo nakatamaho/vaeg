@@ -531,10 +531,17 @@ upstream pull request [#63](https://github.com/suzukiplan/z80/pull/63)) on
 top of the M101 result. With `Z80_NO_EXCEPTION` an undefined ED opcode is a
 two-byte NOP, the NEG/RETN/IM duplicates act as the base instruction, and a
 DD/FD prefix before an opcode without an index form is ignored. The default
-configuration still throws. `git am --committer-date-is-author-date` from
-`b4a0a5a238fecc280781e6fe5719faf0eafcd667` with all M101 patches and this
-patch reproduces commit `c16de42ba0cef5fb354c79a7e0a332651ed28290`, tree
-`a4e4442f960f39e881647912219a79dfd20fac01`.
+configuration still throws.
+
+M102 then adds R12/R13 of the `Upd9002` profile,
+[m102_suzukiplan_ddcb_register_forms.patch](../reports/m102_suzukiplan_ddcb_register_forms.patch)
+(SHA-256 `2f68c16a32405d0eb71a8697ced7ebff7ff6d5c5b5fc1289be9c4376cfb99a70`,
+part of upstream pull request #61): DD/FD CB d xx BIT/RES/SET forms with a
+register operand act on that register only, as measured on a real PC-88VA2.
+`git am --committer-date-is-author-date` from
+`b4a0a5a238fecc280781e6fe5719faf0eafcd667` with all M101 patches and both
+M102 patches reproduces commit `60b725f129979c4179fa6e08b6385d20fd69f85e`,
+tree `37e3d5e6130ca12d5dbf41904bd65d567817bff0`.
 
 ## Frame-boundary revision-1 state
 
