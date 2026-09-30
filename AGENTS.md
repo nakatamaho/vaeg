@@ -106,12 +106,14 @@ Release notes may summarize the ledger but do not replace it.
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM images, fonts, icons,
   cursors, or wave data.  A narrowly scoped distribution exception permits
-  committing a reproducibly generated, non-bootable `.d88.xz` only when its
-  directory has an explicit allow-list, the image listing proves that every
-  stored file is a source-built and freely distributable payload, and the
-  compressed image round-trips byte-for-byte to its generated raw D88.  The
-  raw D88, bootable validation disks, PC-Engine system files, private media,
-  ROMs, and source templates remain untracked and must never be committed.
+  committing a reproducibly generated `.d88.xz` only when its directory has
+  an explicit allow-list, the image listing proves that every stored file is
+  a source-built and freely distributable payload, and the compressed image
+  round-trips byte-for-byte to its generated raw D88.  A disk may be bootable
+  if it meets these conditions; a disk that needs PC-Engine, NEC system files,
+  or other non-redistributable payloads to boot does not.  The raw D88,
+  PC-Engine system files, private media, ROMs, and source templates remain
+  untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
