@@ -322,6 +322,8 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "ZEXIY.COM": build_derived("zexiy", assembler),
         "ZEXUND.COM": build_derived("zexund", assembler),
         "ZEXED.COM": build_derived("zexed", assembler),
+        "EDPRB.COM": build_probe("edprb", assembler),
+        "CBPRB.COM": build_probe("cbprb", assembler),
         "FLAGPRB.COM": build_probe("flagprb", assembler),
         "DAADUMP.COM": build_probe("daadump", assembler),
     }
