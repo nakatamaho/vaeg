@@ -171,7 +171,10 @@ G102 is a human gate:
 ### G102 progress
 
 - 2026-09-30, emulator run (supplementary): the maintainer ran `ZEXIY`,
-  `ZEXUND` and `ZEXED` in vaeg from the generated `cpmva-zexall-test.d88`
+  `ZEXUND` and `ZEXED` in vaeg (the fully static MinGW `vaeg.exe` built
+  from `5f100c92c0855c06e90771cf0cf821044e13f0d8`, SHA-256
+  `03dea3f0469cf13c43f13d3790e45ad3e9f9bf3b32f31bf260692bd21f3a07c6`)
+  from the generated `cpmva-zexall-test.d88`
   (disk after the run:
   `144e0a8f957359f7908a2b3638cd84cad8a08607ec8e7171eef1e1dae6e0ee62`).
   All three output files are byte-identical to the host uPD9002 reference
