@@ -360,4 +360,11 @@ G101 is a human gate:
     `DIR` on `cpmva-test.d88` listed all seven M101 programs. Stray
     characters from the PC-Engine function-key line afterwards were judged
     harmless by the maintainer.
+- 2026-09-29, emulator run (supplementary to item 2): the maintainer ran
+  `FLAGPRB`, `ZEX13S`, `DAADUMP`, `ZEXDOCF` and `ZEXALLF` from
+  `cpmva-test.d88` in the same `vaeg.exe`. All nine output files
+  (`FLAGPRB.TXT`, `ZEX13S.TXT`, `DAA.BIN`, `CPL.BIN`, `SCF.BIN`, `CCF.BIN`,
+  `DAADUMP.TXT`, `ZEXDOC.TXT`, `ZEXALL.TXT`) are byte-identical to the host
+  `host_reference.py` uPD9002 outputs of the same programs, so the main CPU
+  runs the uPD9002 profile end to end.
 - Item 3 (real-machine runs) and stage E remain.
