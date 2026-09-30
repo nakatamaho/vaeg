@@ -1737,14 +1737,18 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_z80_compat_flag_profile PRIVATE
         Z80_DISABLE_DEBUG
         Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION
         Z80_NO_FUNCTIONAL
         "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\"")
 
     add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
+    # Same core configuration as production (Z80_NO_EXCEPTION), so that
+    # undefined opcodes behave as in vaeg.
     target_compile_definitions(vaeg_cpm_runner PRIVATE
         Z80_DISABLE_DEBUG
         Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION
         Z80_NO_FUNCTIONAL)
 
     add_executable(vaeg_z80_compat_legacy_contract
