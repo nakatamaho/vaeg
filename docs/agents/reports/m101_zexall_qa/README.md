@@ -75,8 +75,9 @@ Each directory holds:
 
 - Machine: NEC PC-88VA2 in V3 mode, run by the maintainer under CP/MVA,
   which enters the µPD9002 Z80 emulation mode with BRKEM. The disk was
-  written and read back with the HxC Floppy Emulator; the returned image has
-  the header name `HxCFE`, media type 00h and another track order, with all
+  written and read back with a KryoFlux and converted to D88 with the HxC
+  Floppy Emulator software; the returned image has the header name `HxCFE`,
+  media type 00h and another track order, with all
   1,280 sectors present and error-free.
 - Disk after the run (kept outside Git by the maintainer):
   `c7a7f2ee8dfe8e4b048f6cebda6c29028cc7cdcf7c368b8edf2b9f564fa5554b`.
@@ -94,7 +95,8 @@ Each directory holds:
 - Extraction:
   `tools/cpmva/zex/extract_d88.py <disk> <dir>/raw --lowercase --skip-com`
   (`eb57b6bb`), which places sectors by C/H/R and reads both the installer
-  layout and the HxC layout.
+  layout and the layout of D88 files converted by the HxC Floppy Emulator
+  software.
 - Host reference: `tools/cpmva/zex/host_reference.py` at
   `2254651be3080245201181e35f8d8677c9adb7df` with `vaeg_cpm_runner`
   SHA-256 `2dd458a7550294e2aad3285137a6188ca4fbf3cf9f6b469de8da8fc09bb0e5da`

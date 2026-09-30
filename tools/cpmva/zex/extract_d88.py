@@ -25,7 +25,8 @@
 usage: extract_d88.py IMAGE OUTPUT_DIR [--lowercase] [--skip-com]
 
 Unlike the installer's strict reader, this reads any D88 container (for
-example one imaged by the HxC Floppy Emulator, with another header name,
+example one read with a KryoFlux and converted by the HxC Floppy Emulator
+software, with another header name,
 media type and track order). Each sector is placed by its C/H/R address. The
 CP/MVA geometry must be complete: 40 cylinders x 2 heads x 16 sectors of 256
 bytes, no duplicates and no sector errors. Files are written with their
