@@ -31,9 +31,28 @@ license=MIT
 license_file=LICENSE.txt
 vendored_milestone=M36
 vendored_date=2026-07-15
+m101_patches=docs/agents/reports/m101_suzukiplan_adc_sbc_carry.patch docs/agents/reports/m101_suzukiplan_adc_sbc_test.patch docs/agents/reports/m101_suzukiplan_flag_profile.patch docs/agents/reports/m101_suzukiplan_daa_cpl_scf_ccf.patch
+m101_patch_sha256_adc_sbc_carry=233360c8763db8473604d699dbc30f5887659c84aeaf4ca3107e72e7059bd4d7
+m101_patch_sha256_adc_sbc_test=f3829e5acce1d6e0faa22f102a8b6aa783ae793cbd39ee64da448cf3721bc67a
+m101_patch_sha256_flag_profile=4d5bedbb5f556b758debe95b2319323153db3c113b31bc74bca1fb103bbf3844
+m101_patch_sha256_daa_cpl_scf_ccf=73510c321e4dce29975298619fb34bcdd8d3e93a342888b5ec7b64a430589e83
+m101_resulting_commit=6f34be621ae67a66d74485beca9f424f6ac314fd
+m101_resulting_tree=5ec540547bf9736baabe09e51d18542650d19714
+m101_z80_hpp_sha256=74ac94d34c0afbcb21e6cf3335f30a3c0198238cfa8df000deebc7535aeeef56
+m101_upstream_pull_requests=https://github.com/suzukiplan/z80/pull/60 https://github.com/suzukiplan/z80/pull/61
+m101_updated_date=2026-09-29
 
 The vaeg-required downstream extension adds an inspectable and restorable
 level-sensitive IRQ line, an acknowledge callback invoked at actual maskable
 interrupt acceptance, and raw first-opcode execution for IM0. The vendored
 third-party files were reproduced from the approved base and patch; they were
 not manually edited.
+
+M101 applies four further downstream patches on top of the M35 commit, in
+order, with `git am --committer-date-is-author-date` and committer
+"Nakata Maho <maho.nakata@gmail.com>": the ADC/SBC HL,rr carry fix, its
+test, the per-instance FlagProfile (Zilog default, Upd9002 for the NEC
+uPD9002 Z80 emulation mode), and the Upd9002 DAA/CPL/SCF/CCF rules. They are the commits of upstream pull requests
+#60 and #61, with the test/Makefile conflict against M35 resolved. The result reproduces m101_resulting_commit and
+m101_resulting_tree exactly. z80.hpp was copied from that tree; LICENSE.txt
+and test/test-interrupt-extension.cpp are unchanged.

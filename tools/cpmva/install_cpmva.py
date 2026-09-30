@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -45,6 +46,7 @@ BOOT_OUTPUT_NAME = "pcengine-boot-cpmva.d88"
 TOOLS_OUTPUT_NAME = "cpmva-tools.d88"
 SOURCE_OUTPUT_NAME = "cpmva-source.d88"
 DEVELOPMENT_OUTPUT_NAME = "cpmva-dev.d88"
+TEST_OUTPUT_NAME = "cpmva-zexall-test.d88"
 MANIFEST_OUTPUT_NAME = "cpmva-build-manifest.json"
 REPORT_OUTPUT_NAME = "cpmva-install-report.txt"
 USER_AGENT = f"VAEG-CPMVA-installer/{SCRIPT_VERSION}"
@@ -227,6 +229,10 @@ def load_lock(path: Path) -> dict:
     assembler = lock.get("assembler")
     if not isinstance(assembler, dict) or assembler.get("version") != "1.8":
         fail("LOCK_ASSEMBLER", "z80asm 1.8 must be pinned")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(assembler.get("source_sha256"))) or not (
+        isinstance(assembler.get("source_size"), int) and assembler["source_size"] > 0
+    ):
+        fail("LOCK_ASSEMBLER", "z80asm 1.8 source digest and size must be pinned")
     return lock
 
 
@@ -267,6 +273,35 @@ def validate_extracted_tree(root: Path, max_members: int, max_bytes: int) -> dic
             fail("ARCHIVE_DUPLICATE", f"duplicate normalized member {relative}")
         result[relative] = path.read_bytes()
     return result
+
+
+def lha_is_lhasa(executable: str) -> bool:
+    """Tell lhasa (Debian/Ubuntu "lhasa", often installed as "lha") from lha-1.14i."""
+    try:
+        probe = subprocess.run(
+            [executable], capture_output=True, text=True, errors="replace", check=False, timeout=20
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "lhasa" in (probe.stdout + probe.stderr).lower()
+
+
+def restore_upper_case_names(root: Path) -> None:
+    """Undo lhasa's lower-casing of MS-DOS member names.
+
+    lhasa lower-cases names stored by MS-DOS archivers, while lha-1.14i and
+    unar keep them as stored (upper case for CPMVA.LZH).
+    """
+    for current, directories, files in os.walk(root, topdown=False):
+        for name in files + directories:
+            upper = name.upper()
+            if upper == name:
+                continue
+            source = Path(current) / name
+            target = Path(current) / upper
+            if target.exists():
+                fail("ARCHIVE_DUPLICATE", f"case-folded member collides: {upper}")
+            source.rename(target)
 
 
 def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]:
@@ -331,8 +366,9 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
         except tarfile.TarError as error:
             fail("ARCHIVE_FORMAT", f"invalid TAR archive: {error}")
     elif suffix.endswith(".lzh"):
-        executable = shutil.which("lha")
+        executable = shutil.which("lha") or shutil.which("lhasa")
         if executable:
+            lhasa = lha_is_lhasa(executable)
             listing = subprocess.run(
                 [executable, "l", str(path)],
                 check=False,
@@ -362,8 +398,14 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
                     fail("ARCHIVE_MEMBER_SIZE", f"member is too large: {name}")
             if len(names) > limits["max_archive_members"]:
                 fail("ARCHIVE_MEMBER_COUNT", "LZH contains too many members")
+            # lha-1.14i takes "x -w=DIR"; lhasa only accepts "xw=DIR".
+            command = (
+                [executable, f"xw={destination}", str(path)]
+                if lhasa
+                else [executable, "x", f"-w={destination}", str(path)]
+            )
             extracted = subprocess.run(
-                [executable, "x", f"-w={destination}", str(path)],
+                command,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -372,6 +414,8 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
             )
             if extracted.returncode != 0:
                 fail("ARCHIVE_FORMAT", extracted.stderr.strip() or "lha extraction failed")
+            if lhasa:
+                restore_upper_case_names(destination)
         else:
             executable = shutil.which("unar")
             if not executable:
@@ -481,7 +525,9 @@ def fetch_locked_source(
     lock: dict,
     offline: bool,
 ) -> tuple[Path, str, bool]:
-    extension = {"lzh": ".lzh", "zip": ".zip"}.get(spec.get("archive_type"), ".bin")
+    extension = {"lzh": ".lzh", "zip": ".zip", "tar.gz": ".tar.gz"}.get(
+        spec.get("archive_type"), ".bin"
+    )
     destination = cache_dir / "sources" / f"{key}-{spec['sha256']}{extension}"
     if override is not None:
         verify_file(override, spec)
@@ -575,6 +621,114 @@ def fetch_locked_text(
     if last_error:
         raise last_error
     fail("NETWORK", f"cannot download license {key}")
+
+
+ASSEMBLER_SOURCES = ("z80asm.c", "expressions.c", "gnulib/getopt.c", "gnulib/getopt1.c")
+
+
+def assembler_source_spec(lock: dict) -> dict:
+    assembler = lock["assembler"]
+    return {
+        "resolved_url": assembler["source_url"],
+        "sha256": assembler["source_sha256"],
+        "size": assembler["source_size"],
+        "archive_type": "tar.gz",
+    }
+
+
+def fetch_assembler_source(lock: dict, cache_dir: Path, offline: bool) -> Path:
+    path, _, _ = fetch_locked_source(
+        "z80asm", assembler_source_spec(lock), None, cache_dir, lock, offline
+    )
+    return path
+
+
+def assembler_version_ok(assembler: str, version: str) -> bool:
+    try:
+        result = subprocess.run(
+            [assembler, "--version"], capture_output=True, text=True, check=False, timeout=20
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and f"version {version}" in result.stdout
+
+
+def build_assembler(archive: Path, work: Path, output: Path, version: str) -> Path:
+    """Compile z80asm from its locked source tarball with the host C compiler."""
+    import tarfile
+
+    source_root = work / "z80asm-source"
+    wanted = {f"z80asm-{version}/{name}" for name in ASSEMBLER_SOURCES}
+    wanted |= {f"z80asm-{version}/z80asm.h", f"z80asm-{version}/gnulib/getopt.h",
+               f"z80asm-{version}/gnulib/gettext.h"}
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            for member in tar.getmembers():
+                if member.name not in wanted:
+                    continue
+                if not member.isfile():
+                    fail("ASSEMBLER_SOURCE", f"not a regular file: {member.name}")
+                name = validate_member_name(member.name)
+                extracted = tar.extractfile(member)
+                if extracted is None:
+                    fail("ASSEMBLER_SOURCE", f"cannot read {member.name}")
+                target = source_root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(extracted.read())
+    except (OSError, tarfile.TarError) as error:
+        fail("ASSEMBLER_SOURCE", f"cannot read {archive}: {error}")
+    base = source_root / f"z80asm-{version}"
+    missing = [name for name in wanted if not (source_root / name).is_file()]
+    if missing:
+        fail("ASSEMBLER_SOURCE", f"missing source members: {', '.join(sorted(missing))}")
+    compiler = os.environ.get("CC") or next(
+        (found for found in (shutil.which(name) for name in ("cc", "gcc", "clang")) if found), None
+    )
+    if not compiler:
+        fail("ASSEMBLER_COMPILER", "a C compiler (cc, gcc or clang, or $CC) is required to build z80asm")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_name(output.name + ".tmp")
+    command = [
+        compiler, "-O2", "-I", str(base / "gnulib"), f'-DVERSION="{version}"',
+        *[str(base / name) for name in ASSEMBLER_SOURCES], "-o", str(temporary),
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as error:
+        fail("ASSEMBLER_BUILD", f"cannot run {compiler}: {error}")
+    built = temporary if temporary.is_file() else temporary.with_name(temporary.name + ".exe")
+    if result.returncode != 0 or not built.is_file():
+        fail("ASSEMBLER_BUILD", (result.stdout + result.stderr)[-4000:])
+    os.replace(built, output)
+    if not assembler_version_ok(str(output), version):
+        fail("ASSEMBLER_VERSION", f"the built {output.name} does not report version {version}")
+    return output
+
+
+def ensure_assembler(
+    explicit: str | None, lock: dict, cache_dir: Path, offline: bool, work: Path
+) -> tuple[str, dict]:
+    """Return a z80asm 1.8 executable and how it was obtained.
+
+    An explicit --assembler or VAEG_Z80ASM is used as given. Otherwise a
+    z80asm 1.8 in PATH is used; if there is none (another program named
+    z80asm does not count), the locked source is downloaded, verified, and
+    compiled once into the cache.
+    """
+    version = lock["assembler"]["version"]
+    chosen = explicit or os.environ.get("VAEG_Z80ASM")
+    if chosen:
+        return chosen, {"origin": "explicit"}
+    in_path = shutil.which("z80asm")
+    if in_path and assembler_version_ok(in_path, version):
+        return in_path, {"origin": "path"}
+    digest = lock["assembler"]["source_sha256"]
+    suffix = ".exe" if os.name == "nt" else ""
+    output = cache_dir / "tools" / f"z80asm-{version}-{digest[:12]}" / f"z80asm{suffix}"
+    if not (output.is_file() and assembler_version_ok(str(output), version)):
+        archive = fetch_assembler_source(lock, cache_dir, offline)
+        build_assembler(archive, work, output, version)
+    return str(output), {"origin": "built from locked source", "source_sha256": digest}
 
 
 def apply_unified_patch(source: bytes, patch: bytes) -> bytes:
@@ -1137,6 +1291,25 @@ def write_manifest(path: Path, manifest: dict) -> None:
     atomic_write(path, data.encode("utf-8"))
 
 
+def load_zexbuild():
+    path = Path(__file__).parent / "zex" / "zexbuild.py"
+    spec = importlib.util.spec_from_file_location("vaeg_cpmva_zexbuild", path)
+    if spec is None or spec.loader is None:
+        fail("TEST_PROGRAMS", f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def build_test_programs(assembler: str) -> dict[str, bytes]:
+    """Build the ZEX exercisers and M101 probe programs for the tools disk."""
+    zexbuild = load_zexbuild()
+    try:
+        return zexbuild.build_programs(assembler)
+    except zexbuild.BuildError as error:
+        fail(error.code, str(error))
+
+
 def make_report(manifest: dict) -> str:
     lines = [
         "VAEG CP/MVA installation report",
@@ -1149,6 +1322,9 @@ def make_report(manifest: dict) -> str:
     for key, source in manifest["sources"].items():
         lines.append(f"- {key}: {source['resolved_url']}")
         lines.append(f"  size={source['size']} sha256={source['sha256']}")
+    lines.extend(["", "Test programs on the tools disk:"])
+    for name, item in manifest.get("test_programs", {}).get("files", {}).items():
+        lines.append(f"- {name}: {item['size']} bytes sha256={item['sha256']}")
     lines.extend(["", "Generated files:"])
     for name, item in manifest["generated_files"].items():
         lines.append(f"- {name}: {item['size']} bytes sha256={item['sha256']}")
@@ -1259,6 +1435,7 @@ def main() -> int:
             args.output_dir / TOOLS_OUTPUT_NAME,
             args.output_dir / SOURCE_OUTPUT_NAME,
             args.output_dir / DEVELOPMENT_OUTPUT_NAME,
+            args.output_dir / TEST_OUTPUT_NAME,
             args.output_dir / MANIFEST_OUTPUT_NAME,
             args.output_dir / REPORT_OUTPUT_NAME,
         )
@@ -1269,12 +1446,14 @@ def main() -> int:
         if args.dry_run:
             print(f"Would validate input boot disk: {args.boot_disk}")
             print(
-                "Would fetch and verify locked CPMVA, CP/M, vt100-games, and BDS C "
-                f"sources into: {args.cache_dir or '~/.cache/vaeg/cpmva'}"
+                "Would fetch and verify locked CPMVA, CP/M, vt100-games, BDS C, and "
+                "(unless one is supplied or in PATH) z80asm 1.8 sources into: "
+                f"{args.cache_dir or '~/.cache/vaeg/cpmva'}"
             )
             print(
                 f"Would build {BOOT_OUTPUT_NAME}, {TOOLS_OUTPUT_NAME}, "
-                f"{SOURCE_OUTPUT_NAME}, {DEVELOPMENT_OUTPUT_NAME}, and the manifest"
+                f"{SOURCE_OUTPUT_NAME}, {DEVELOPMENT_OUTPUT_NAME}, {TEST_OUTPUT_NAME}, "
+                "and the manifest"
             )
             print(f"Would use image backend: {backend}")
             return 0
@@ -1296,6 +1475,10 @@ def main() -> int:
         license_data, license_url = fetch_locked_text(
             "cpm_license", lock["sources"]["cpm_license"], cache_dir, lock, args.offline
         )
+        if not (args.assembler or os.environ.get("VAEG_Z80ASM")):
+            # Cache the assembler source with the other inputs so that a later
+            # --offline run can build it.
+            fetch_assembler_source(lock, cache_dir, args.offline)
         work_root = cache_dir / "work"
         work_root.mkdir(parents=True, exist_ok=True)
         if args.keep_work:
@@ -1336,11 +1519,11 @@ def main() -> int:
             if args.download_only:
                 print("Sources downloaded, digests verified, and expected members validated.")
                 return 0
-            assembler_path = args.assembler or os.environ.get("VAEG_Z80ASM") or shutil.which("z80asm")
             if args.vaeg_binary is not None and not args.vaeg_binary.is_file():
                 fail("VAEG_BINARY", f"VAEG binary does not exist: {args.vaeg_binary}")
-            if not assembler_path:
-                fail("ASSEMBLER_MISSING", "z80asm 1.8 is required; install it or set VAEG_Z80ASM")
+            assembler_path, assembler_origin = ensure_assembler(
+                args.assembler, lock, cache_dir, args.offline, work
+            )
             ccp_bdos, symbols, assembler_diagnostic = assemble_cpm22(
                 cpm22_source,
                 (Path(__file__).parent / "patches" / "cpm22-64k.patch").read_bytes(),
@@ -1352,6 +1535,7 @@ def main() -> int:
                 ccp_bdos, members["CPMBIOS.COM"], members["MKSYS.BAS"]
             )
             generated = make_generated_files(members, cpm_sys)
+            test_programs = build_test_programs(assembler_path)
             tools_files = {
                 **{name: members[name] for name in ("EXIT.COM", "FCONV.COM", "DO.COM") if name in members},
                 **games_files,
@@ -1359,9 +1543,15 @@ def main() -> int:
             }
             if set(tools_files) != {"EXIT.COM", "FCONV.COM", "DO.COM", *GAME_BINARY_MAPPING, *MESCC_BINARY_MAPPING}:
                 fail("CPM_TOOLS", "CP/M tools or game members are incomplete")
+            if set(tools_files) & set(test_programs):
+                fail("TEST_PROGRAMS", "test program names collide with tools disk members")
+            tools_files.update(test_programs)
             tools_disk_files = pad_cpm_records(tools_files, b"\x00")
             source_disk_files = pad_cpm_records(game_source_files, b"\x1a")
             development_disk_files = pad_cpm_records(bdsc_files, b"\x00")
+            # The test disk holds only the M101 programs, leaving room for
+            # their output files (DAADUMP writes about 130 KiB).
+            test_disk_files = pad_cpm_records(test_programs, b"\x00")
             if args.verify_only:
                 print("Input disk and all locked CPMVA, CP/M, game, and BDS C sources verified.")
                 return 0
@@ -1378,12 +1568,14 @@ def main() -> int:
             tools_data = build_tools_disk(tools_disk_files)
             source_data = build_tools_disk(source_disk_files)
             development_data = build_tools_disk(development_disk_files)
+            test_data = build_tools_disk(test_disk_files)
             output_dir = args.output_dir
             output_dir.mkdir(parents=True, exist_ok=True)
             boot_output = output_dir / BOOT_OUTPUT_NAME
             tools_output = output_dir / TOOLS_OUTPUT_NAME
             source_output = output_dir / SOURCE_OUTPUT_NAME
             development_output = output_dir / DEVELOPMENT_OUTPUT_NAME
+            test_output = output_dir / TEST_OUTPUT_NAME
             manifest_output = output_dir / MANIFEST_OUTPUT_NAME
             report_output = output_dir / REPORT_OUTPUT_NAME
             for path, data in (
@@ -1391,6 +1583,7 @@ def main() -> int:
                 (tools_output, tools_data),
                 (source_output, source_data),
                 (development_output, development_data),
+                (test_output, test_data),
             ):
                 if path.exists() and not args.force:
                     fail("OUTPUT_EXISTS", f"output exists: {path}")
@@ -1461,6 +1654,15 @@ def main() -> int:
                     "name": lock["assembler"]["name"],
                     "version": lock["assembler"]["version"],
                     "path_basename": Path(assembler_path).name,
+                    "origin": assembler_origin,
+                },
+                "test_programs": {
+                    "sources": "external/zex (GPL-2.0-or-later) and tools/cpmva/zex",
+                    "license_note": "ZEX-derived programs are GPL-2.0-or-later; they exist only on this locally generated disk.",
+                    "files": {
+                        name: {"size": len(data), "sha256": sha256_bytes(data)}
+                        for name, data in sorted(test_programs.items())
+                    },
                 },
                 "patches": [{
                     "path": "tools/cpmva/patches/cpm22-64k.patch",
@@ -1537,6 +1739,21 @@ def main() -> int:
                         for name in sorted(game_source_files)
                     },
                 },
+                "test_disk": {
+                    "name": TEST_OUTPUT_NAME,
+                    "size": len(test_data),
+                    "sha256": sha256_bytes(test_data),
+                    "raw_size": CPM_RAW_SIZE,
+                    "directory_offset": CPM_DIRECTORY_OFFSET,
+                    "files": {
+                        name: {
+                            "size": len(test_programs[name]),
+                            "stored_size": len(test_disk_files[name]),
+                            "sha256": sha256_bytes(test_programs[name]),
+                        }
+                        for name in sorted(test_programs)
+                    },
+                },
                 "development_disk": {
                     "name": DEVELOPMENT_OUTPUT_NAME,
                     "size": len(development_data),
@@ -1568,6 +1785,7 @@ def main() -> int:
             print(f"Created {tools_output}")
             print(f"Created {source_output}")
             print(f"Created {development_output}")
+            print(f"Created {test_output}")
             print(f"Created {manifest_output}")
             print(f"Created {report_output}")
             return 0

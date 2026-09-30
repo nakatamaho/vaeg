@@ -67,46 +67,75 @@ PRIVATE_ASSET_SUFFIXES = {
     ".nhd", ".rom", ".sav",
 }
 APPROVED_EXTERNAL_ROOTS = {
-    "imgui", "librashader", "softfloat", "suzukiplan-z80", "ymfm"
+    "imgui", "librashader", "softfloat", "suzukiplan-z80", "ymfm", "zex"
 }
+# ADR-0015: the source archive may carry exactly these upstream ZEX files at
+# exactly these paths. Release archives never may.
+SOURCE_ARCHIVE_ZEX_FILES = {
+    "external/zex/zexdoc.src":
+        "0e2e7d05e5dd27c932de64d4c3711351f53388ed02d2e99e2e706ef6216ca9b3",
+    "external/zex/zexall.src":
+        "a263efc67ed6f890268c6f9e00f7911d9376a6bc6ddaec5ce04e33a5f483733c",
+    "external/zex/LICENSE.txt":
+        "e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052",
+}
+MODE_RELEASE = "release"
+MODE_SOURCE = "source"
 APPROVED_PATCHES = {
     "docs/agents/reports/m35_suzukiplan_irq_extension.patch",
+    "docs/agents/reports/m101_suzukiplan_adc_sbc_carry.patch",
+    "docs/agents/reports/m101_suzukiplan_adc_sbc_test.patch",
+    "docs/agents/reports/m101_suzukiplan_flag_profile.patch",
+    "docs/agents/reports/m101_suzukiplan_daa_cpl_scf_ccf.patch",
     "tools/cpmva/patches/cpm22-64k.patch",
+    "tools/cpmva/zex/zexall-fileout.patch",
+    "tools/cpmva/zex/zex13s.patch",
+    "tools/cpmva/zex/zexdoc-fileout.patch",
 }
 
 
-def inspect_member(name: str, data: bytes, violations: List[str]) -> None:
+def is_recorded_source_zex(normalized: str, digest: str) -> bool:
+    for recorded_path, recorded_digest in SOURCE_ARCHIVE_ZEX_FILES.items():
+        if normalized == recorded_path or normalized.endswith("/" + recorded_path):
+            return digest == recorded_digest
+    return False
+
+
+def inspect_member(
+    name: str, data: bytes, violations: List[str], mode: str = MODE_RELEASE
+) -> None:
     normalized = name.replace("\\", "/").lstrip("./")
     path = PurePosixPath(normalized)
     basename = path.name.lower()
     digest = hashlib.sha256(data).hexdigest()
-    if basename in PROHIBITED_NAMES:
-        violations.append(f"prohibited ZEX artifact name: {name}")
-    if digest in PROHIBITED_HASHES:
-        violations.append(f"prohibited ZEX artifact content: {name} ({digest})")
+    recorded_zex = mode == MODE_SOURCE and is_recorded_source_zex(normalized, digest)
+    if basename in PROHIBITED_NAMES and not recorded_zex:
+        violations.append(f"ZEX_NAME prohibited ZEX artifact name: {name}")
+    if digest in PROHIBITED_HASHES and not recorded_zex:
+        violations.append(f"ZEX_CONTENT prohibited ZEX artifact content: {name} ({digest})")
     for legacy_path in DELETED_LEGACY_PATHS:
         if normalized == legacy_path or normalized.endswith("/" + legacy_path):
-            violations.append(f"deleted legacy Z80 path: {name}")
+            violations.append(f"LEGACY_PATH deleted legacy Z80 path: {name}")
     if digest in DELETED_LEGACY_HASHES:
-        violations.append(f"copied legacy Z80 content: {name} ({digest})")
+        violations.append(f"LEGACY_CONTENT copied legacy Z80 content: {name} ({digest})")
     if path.suffix.lower() in PRIVATE_ASSET_SUFFIXES:
-        violations.append(f"private-media filename class: {name}")
+        violations.append(f"PRIVATE_MEDIA private-media filename class: {name}")
     parts = path.parts
     if "external" in parts:
         index = parts.index("external")
         if index + 1 >= len(parts) or parts[index + 1] not in APPROVED_EXTERNAL_ROOTS:
-            violations.append(f"unrecorded external source root: {name}")
+            violations.append(f"EXTERNAL_ROOT unrecorded external source root: {name}")
     if basename.endswith((".orig", ".rej")):
-        violations.append(f"patch-work artifact: {name}")
+        violations.append(f"PATCH_WORK patch-work artifact: {name}")
     if basename.endswith(".patch") and not any(
         normalized == approved_patch
         or normalized.endswith("/" + approved_patch)
         for approved_patch in APPROVED_PATCHES
     ):
-        violations.append(f"unapproved patch artifact: {name}")
+        violations.append(f"PATCH_UNAPPROVED unapproved patch artifact: {name}")
 
 
-def inspect_tar(path: Path) -> Tuple[int, List[str]]:
+def inspect_tar(path: Path, mode: str = MODE_RELEASE) -> Tuple[int, List[str]]:
     count = 0
     violations: List[str] = []
     with tarfile.open(path, "r:*") as archive:
@@ -116,19 +145,19 @@ def inspect_tar(path: Path) -> Tuple[int, List[str]]:
             extracted = archive.extractfile(member)
             if extracted is None:
                 continue
-            inspect_member(member.name, extracted.read(), violations)
+            inspect_member(member.name, extracted.read(), violations, mode)
             count += 1
     return count, violations
 
 
-def inspect_zip(path: Path) -> Tuple[int, List[str]]:
+def inspect_zip(path: Path, mode: str = MODE_RELEASE) -> Tuple[int, List[str]]:
     count = 0
     violations: List[str] = []
     with zipfile.ZipFile(path) as archive:
         for member in archive.infolist():
             if member.is_dir():
                 continue
-            inspect_member(member.filename, archive.read(member), violations)
+            inspect_member(member.filename, archive.read(member), violations, mode)
             count += 1
     return count, violations
 
@@ -137,6 +166,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Reject deleted legacy, fetched ZEX, and private artifacts"
     )
+    parser.add_argument(
+        "--mode",
+        choices=(MODE_RELEASE, MODE_SOURCE),
+        default=MODE_RELEASE,
+        help="release (default) rejects all ZEX material; source accepts only "
+        "the ADR-0015 recorded external/zex files",
+    )
     parser.add_argument("archives", type=Path, nargs="+")
     args = parser.parse_args()
 
@@ -144,9 +180,9 @@ def main() -> int:
     for path in args.archives:
         try:
             if zipfile.is_zipfile(path):
-                count, violations = inspect_zip(path)
+                count, violations = inspect_zip(path, args.mode)
             elif tarfile.is_tarfile(path):
-                count, violations = inspect_tar(path)
+                count, violations = inspect_tar(path, args.mode)
             else:
                 raise ValueError("not a supported tar or zip archive")
         except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile) as error:
@@ -159,7 +195,7 @@ def main() -> int:
                 print(f"  {violation}")
             failed = True
         else:
-            print(f"PASS {path}: checked {count} files; no forbidden artifacts")
+            print(f"PASS {path} ({args.mode}): checked {count} files; no forbidden artifacts")
     return 1 if failed else 0
 
 

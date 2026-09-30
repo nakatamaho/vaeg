@@ -24,6 +24,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
+import shutil
+from unittest import mock
 from pathlib import Path
 import struct
 import subprocess
@@ -242,6 +245,157 @@ class InstallerTests(unittest.TestCase):
                     source, patch, "/no/such/z80asm", "1.8", Path(directory)
                 )
             self.assertEqual(raised.exception.code, "ASSEMBLER_FAILED")
+
+    def make_fake_assembler_archive(self, directory, version_text, omit=None):
+        import io
+        import tarfile
+
+        sources = {
+            "z80asm.c": (
+                "#include <stdio.h>\nint helper(void);\n"
+                "int main(void) { printf(\"Z80 assembler version \" "
+                + version_text + " \"\\n\"); return helper(); }\n"
+            ),
+            "expressions.c": "int helper(void) { return 0; }\n",
+            "gnulib/getopt.c": "int getopt_unused;\n",
+            "gnulib/getopt1.c": "int getopt1_unused;\n",
+            "z80asm.h": "",
+            "gnulib/getopt.h": "",
+            "gnulib/gettext.h": "",
+        }
+        archive = Path(directory) / "z80asm.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            for name, text in sources.items():
+                if name == omit:
+                    continue
+                data = text.encode()
+                info = tarfile.TarInfo(f"z80asm-1.8/{name}")
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        return archive
+
+    @unittest.skipUnless(
+        any(shutil.which(name) for name in ("cc", "gcc", "clang")), "no C compiler"
+    )
+    def test_assembler_is_built_from_source_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "VERSION")
+            output = Path(directory) / "bin" / "z80asm"
+            built = self.installer.build_assembler(archive, Path(directory) / "work", output, "1.8")
+            self.assertTrue(self.installer.assembler_version_ok(str(built), "1.8"))
+
+    @unittest.skipUnless(
+        any(shutil.which(name) for name in ("cc", "gcc", "clang")), "no C compiler"
+    )
+    def test_assembler_build_rejects_wrong_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "\"9.9\"")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.build_assembler(
+                    archive, Path(directory) / "work", Path(directory) / "z80asm", "1.8"
+                )
+            self.assertEqual(raised.exception.code, "ASSEMBLER_VERSION")
+
+    def test_assembler_build_rejects_missing_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = self.make_fake_assembler_archive(directory, "VERSION", omit="expressions.c")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.build_assembler(
+                    archive, Path(directory) / "work", Path(directory) / "z80asm", "1.8"
+                )
+            self.assertEqual(raised.exception.code, "ASSEMBLER_SOURCE")
+
+    def test_explicit_assembler_is_not_replaced(self):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory:
+            path, origin = self.installer.ensure_assembler(
+                "/opt/z80asm", lock, Path(directory), True, Path(directory)
+            )
+        self.assertEqual((path, origin["origin"]), ("/opt/z80asm", "explicit"))
+
+    def test_offline_without_cached_assembler_source_fails(self):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(
+            os.environ, {"PATH": directory}, clear=False
+        ):
+            os.environ.pop("VAEG_Z80ASM", None)
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.ensure_assembler(None, lock, Path(directory), True, Path(directory))
+        self.assertEqual(raised.exception.code, "OFFLINE_MISS")
+
+    def write_fake_lha(self, directory, name, banner):
+        # Each fake accepts only its own extraction syntax: lhasa "xw=DIR"
+        # (lower-cased names), lha-1.14i "x -w=DIR" (names as stored).
+        lhasa = "Lhasa" in banner
+        extract = (
+            "xw=*) d=\"${1#xw=}\"; printf hello > \"$d/readme.doc\";"
+            " printf exe > \"$d/cpmva.exe\"; exit 0;;\n"
+            if lhasa
+            else "x) d=\"${2#-w=}\"; printf hello > \"$d/README.DOC\";"
+            " printf exe > \"$d/CPMVA.EXE\"; exit 0;;\n"
+        )
+        script = Path(directory) / name
+        script.write_text(
+            "#!/bin/sh\n"
+            f"if [ $# -eq 0 ]; then echo '{banner}'; exit 0; fi\n"
+            "case \"$1\" in\n"
+            "l) echo '[generic]  5 100.0% Jan  1  1989 readme.doc';"
+            "   echo '[generic]  3 100.0% Jan  1  1989 cpmva.exe'; exit 0;;\n"
+            + extract
+            + "esac\necho 'unsupported syntax' >&2; exit 1\n"
+        )
+        script.chmod(0o755)
+        return script
+
+    def extract_with_fake_lha(self, name, banner):
+        lock = self.installer.load_lock(LOCK_PATH)
+        with tempfile.TemporaryDirectory() as directory:
+            tools = Path(directory) / "bin"
+            tools.mkdir()
+            self.write_fake_lha(tools, name, banner)
+            archive = Path(directory) / "CPMVA.LZH"
+            archive.write_bytes(b"not a real archive")
+            with mock.patch.dict(os.environ, {"PATH": str(tools)}):
+                return self.installer.safe_extract_archive(archive, Path(directory) / "work", lock)
+
+    def test_lhasa_is_detected_and_names_restored(self):
+        members = self.extract_with_fake_lha("lha", "Lhasa v0.4.0 command line LHA tool")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_lhasa_found_under_its_own_name(self):
+        members = self.extract_with_fake_lha("lhasa", "Lhasa v0.4.0 command line LHA tool")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_classic_lha_keeps_its_syntax(self):
+        members = self.extract_with_fake_lha("lha", "LHa for UNIX version 1.14i")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_upper_case_restore_rejects_collisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "a.txt").write_text("1")
+            (Path(directory) / "A.TXT").write_text("2")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.installer.restore_upper_case_names(Path(directory))
+        self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
+
+    def test_test_disk_leaves_room_for_probe_outputs(self):
+        # Program sizes as built in M101; DAADUMP writes 4 x 32 KiB plus a
+        # one-record text file, and the other programs about 12 KiB of text.
+        sizes = {
+            "ZEXDOC.COM": 8590, "ZEXALL.COM": 8590, "ZEXDOCF.COM": 8997,
+            "ZEXALLF.COM": 8997, "ZEX13S.COM": 9799, "FLAGPRB.COM": 2614,
+            "DAADUMP.COM": 2615,
+        }
+        files = self.installer.pad_cpm_records({n: b"\x00" * v for n, v in sizes.items()}, b"\x00")
+        _, info = self.installer.build_cpm_raw(files)
+        free_blocks = self.installer.CPM_MAX_BLOCK + 1 - 2 - len(info["allocated_blocks"])
+        needed = 4 * (32768 // self.installer.CPM_BLOCK_SIZE) + 1 + 6
+        self.assertGreaterEqual(free_blocks, needed)
+
+    def test_test_program_build_failure_is_propagated(self):
+        with self.assertRaises(self.installer.InstallerError) as raised:
+            self.installer.build_test_programs("/no/such/z80asm")
+        self.assertEqual(raised.exception.code, "ASSEMBLER_MISSING")
 
     def test_cpm_sys_sizes_signature_and_composition(self):
         ccp_bdos = bytes(range(256)) * 22

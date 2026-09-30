@@ -49,6 +49,8 @@ Do exactly ONE milestone task per session. Every milestone ends at a
 HUMAN GATE unless the task file states the gate is machine-verifiable.
 The standard human gate is: build from clean checkout, boot in V3 mode,
 run the bundled VA demo, boot an OS and perform simple operations.
+The clean-checkout build is the fully static MinGW build described under
+"Clean-build handoff"; give the maintainer the absolute path of `vaeg.exe`.
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
@@ -104,12 +106,14 @@ Release notes may summarize the ledger but do not replace it.
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM images, fonts, icons,
   cursors, or wave data.  A narrowly scoped distribution exception permits
-  committing a reproducibly generated, non-bootable `.d88.xz` only when its
-  directory has an explicit allow-list, the image listing proves that every
-  stored file is a source-built and freely distributable payload, and the
-  compressed image round-trips byte-for-byte to its generated raw D88.  The
-  raw D88, bootable validation disks, PC-Engine system files, private media,
-  ROMs, and source templates remain untracked and must never be committed.
+  committing a reproducibly generated `.d88.xz` only when its directory has
+  an explicit allow-list, the image listing proves that every stored file is
+  a source-built and freely distributable payload, and the compressed image
+  round-trips byte-for-byte to its generated raw D88.  A disk may be bootable
+  if it meets these conditions; a disk that needs PC-Engine, NEC system files,
+  or other non-redistributable payloads to boot does not.  The raw D88,
+  PC-Engine system files, private media, ROMs, and source templates remain
+  untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
@@ -188,6 +192,25 @@ function instead.
 - Archived reference: the former VS2017 v141/Win32 tree is available only at
   tag `archive/frozen-win9x-i286x-g56`; it is not a current build target and
   has no CI or compile-guarantee coverage.
+
+### Clean-build handoff
+
+Whenever a clean build is needed, including the "build from clean
+checkout" step of a human gate, produce a fully static MinGW-w64 build of
+the pushed commit with:
+
+```sh
+tools/release/build-mingw-static-container.sh --commit <full-sha>
+```
+
+The script clones the commit into a new `../vaeg-mingw-<short-sha>/`
+directory, builds in a pinned Ubuntu 24.04 container with the `mingw-cross`
+preset (static SDL2, LibArchive, zlib, xz, librashader, and MinGW runtimes),
+verifies that the commit and date are embedded, and audits the PE imports
+down to Windows system DLLs. Never reuse an existing build tree for this.
+Hand the maintainer the absolute path of the resulting `vaeg.exe`, its
+SHA-256, and the absolute path of `BUILD-REPORT.md` in the same `output/`
+directory.
 
 ### Maintainer release handoff
 

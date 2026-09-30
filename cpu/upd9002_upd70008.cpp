@@ -119,6 +119,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	void Enter() {
 		if (!initialized_) {
+			upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
 			initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
 			if (!initialized_) {
 				return;
@@ -230,6 +231,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return FAILURE;
 		}
 		if (!initialized_) {
+			upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
 			initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
 			if (!initialized_) {
 				return FAILURE;

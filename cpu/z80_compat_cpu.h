@@ -31,6 +31,18 @@
 
 #include <cstdint>
 
+// Flag behaviour of the emulated instruction set.
+// - kZilog: documented and undocumented Zilog Z80 flags. The default; used
+//   by the FDC CPU. Whether its NEC uPD780C matches is unverified (SCF/CCF
+//   X/Y are reported to differ on NEC NMOS parts).
+// - kUpd9002: the Z80 emulation mode of the NEC uPD9002 (PC-88VA V1/V2
+//   mode), rules R1-R7 of docs/modernization/uPD9002-zex-results.md. F bits
+//   5 and 3 are never held.
+enum class Z80CompatFlagProfile {
+	kZilog,
+	kUpd9002
+};
+
 class Z80CompatCpu {
   public:
 	Z80CompatCpu();
@@ -55,6 +67,8 @@ class Z80CompatCpu {
 	void SetReg(const Z80CompatReg &reg);
 	void SetMainReg(const Z80CompatReg &reg);
 	void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
+	void SetFlagProfile(Z80CompatFlagProfile profile);
+	Z80CompatFlagProfile GetFlagProfile() const;
 	const Z80CompatReg *GetReg();
 
   private:
@@ -68,6 +82,7 @@ class Z80CompatCpu {
 	static std::uint8_t Acknowledge(void *opaque);
 
 	void SynchronizePublicMirror();
+	void ApplyFlagProfile();
 	void ApplyInstructionCorrections();
 	void ExecuteOne();
 	std::uint32_t TranslateCodeAddress(std::uint16_t address) const;
@@ -94,6 +109,7 @@ class Z80CompatCpu {
 	bool materialize_r_flags_after_instruction_;
 	std::uint32_t code_base_;
 	std::uint32_t data_base_;
+	Z80CompatFlagProfile flag_profile_;
 	Z80CompatReg public_registers_;
 };
 

@@ -33,8 +33,12 @@ CP/M tools disk that reaches the CP/M `A>` prompt.
 - A user-owned, FAT-formatted PC-Engine boot D88. The input image must be
   obtained lawfully; VAEG does not redistribute PC-Engine ROMs or guest disks.
 - Python 3.10 or newer.
-- `z80asm` 1.8 in `PATH` or selected with `VAEG_Z80ASM`.
-- `lha` or `unar` for the CPMVA archive.
+- `z80asm` 1.8. If none is supplied with `--assembler` or `VAEG_Z80ASM` and
+  none is in `PATH`, the installer downloads the locked z80asm 1.8 source,
+  verifies its SHA-256, and builds it once into its cache. This needs a C
+  compiler (`cc`, `gcc`, `clang`, or `$CC`).
+- `lha` (lha-1.14i or lhasa, e.g. the Debian/Ubuntu `lhasa` package) or
+  `unar` for the CPMVA archive.
 
 The installer downloads and verifies the locked CPMVA, CP/M, game, and BDS C
 sources. It does not execute downloaded DOS or CP/M programs on the host.
@@ -60,6 +64,7 @@ pcengine-boot-cpmva.d88  PC-Engine boot disk copy with CPMVA files
 cpmva-tools.d88         CP/M tools and games disk
 cpmva-source.d88        source and documentation disk
 cpmva-dev.d88           BDS C development disk
+cpmva-zexall-test.d88   Z80 exercisers and uPD9002 flag probes only
 cpmva-build-manifest.json
 cpmva-install-report.txt
 ```
@@ -124,6 +129,42 @@ EXIT
 Pass the script with `--headless-input-script /path/to/script.txt`. This is
 useful for repeatable smoke tests, but it does not replace the interactive
 instruction to change FD1 in a normal session.
+
+## Z80 exercisers and uPD9002 flag probes
+
+The installer also assembles the following CP/M programs with z80asm 1.8 and
+puts them on both `cpmva-tools.d88` and `cpmva-zexall-test.d88` (M101). They exist
+only on the disks you generate; VAEG does not distribute them.
+
+| Program | Output | Purpose |
+| --- | --- | --- |
+| `ZEXDOC.COM`, `ZEXALL.COM` | console | Stock exercisers, rebuilt byte-identically from `external/zex` |
+| `ZEXDOCF.COM`, `ZEXALLF.COM` | `ZEXDOC.TXT`, `ZEXALL.TXT` | Stock exercisers that also write the console output to a file |
+| `ZEX13S.COM` | `ZEX13S.TXT` | ZEXDOC with `<daa,cpl,scf,ccf>` split into single-opcode groups |
+| `FLAGPRB.COM` | `FLAGPRB.TXT` | Direct flag probes P0–P7 for rules R1–R7 |
+| `DAADUMP.COM` | `DAA.BIN`, `CPL.BIN`, `SCF.BIN`, `CCF.BIN`, `DAADUMP.TXT` | Exhaustive DAA/CPL/SCF/CCF dump |
+
+The ZEX-derived programs are GPL-2.0-or-later; see
+`external/zex/provenance.txt` and ADR-0015. Output files are written to the
+current CP/M drive. `DAADUMP` needs about 130 KiB of free space, which the
+tools disk does not have. For real-machine runs, swap FD1 to `cpmva-zexall-test.d88`
+after CP/M has started, press Ctrl-C to log in the new disk, and run the
+programs from it; it holds only these programs and has room for all of their
+outputs. The ZEX runs take hours on a real PC-88VA.
+
+To produce host references and compare real-machine outputs:
+
+```sh
+cmake --build --preset linux-ci-gcc --target vaeg_cpm_runner
+python3 tools/cpmva/zex/host_reference.py \
+    --runner build/linux-ci-gcc/vaeg_cpm_runner --output /tmp/m101-host
+python3 tools/cpmva/zex/compare.py /path/to/real-outputs --ref /tmp/m101-host/ref
+```
+
+`host_reference.py` writes `programs/MANIFEST.TXT` with the SHA-256 of every
+program and checks the host acceptance criteria for the Zilog and uPD9002
+profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs. It obtains
+z80asm 1.8 the same way as the installer.
 
 ## Troubleshooting
 

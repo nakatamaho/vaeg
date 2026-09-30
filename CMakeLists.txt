@@ -862,6 +862,24 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
+    add_test(NAME vaeg_repo_check_eol
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_eol.py")
+    add_test(NAME vaeg_zex_archive_audit
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
+    add_test(NAME vaeg_cpmva_zexbuild
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_zexbuild.py")
+    add_test(NAME vaeg_cpmva_probe_results
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_probe_results.py")
+    add_test(NAME vaeg_cpmva_extract_d88
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_extract_d88.py")
+    add_test(NAME vaeg_cpmva_m101_evidence
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_m101_evidence.py")
     if(NOT CMAKE_CROSSCOMPILING AND NOT MSVC)
         add_test(NAME vaeg_headless_keys
             COMMAND "${Python3_EXECUTABLE}"
@@ -1714,6 +1732,21 @@ if(VAEG_ENABLE_TESTS)
         Z80_NO_FUNCTIONAL
         Z80_UNSUPPORT_16BIT_PORT)
 
+    add_executable(vaeg_z80_compat_flag_profile tests/z80_compat/flag_profile.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_flag_profile)
+    target_compile_definitions(vaeg_z80_compat_flag_profile PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL
+        "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\"")
+
+    add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
+    target_compile_definitions(vaeg_cpm_runner PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL)
+
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
     target_link_libraries(vaeg_z80_compat_legacy_contract PRIVATE
@@ -1773,6 +1806,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_compat_header_debug_default)
     add_test(NAME vaeg_z80_compat_header_release
         COMMAND vaeg_z80_compat_header_release)
+    add_test(NAME vaeg_z80_compat_flag_profile
+        COMMAND vaeg_z80_compat_flag_profile)
     add_test(NAME vaeg_z80_compat_interrupt_default
         COMMAND vaeg_z80_compat_interrupt_default)
     add_test(NAME vaeg_z80_compat_interrupt_no_functional
@@ -1865,6 +1900,16 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_compat_wrapper_zexall
             COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        foreach(suite zexdoc zexall)
+            add_test(NAME vaeg_z80_compat_wrapper_upd9002_${suite}
+                COMMAND vaeg_z80_compat_wrapper_zex_runner
+                    --profile upd9002
+                    --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd9002_${suite}_expected.txt"
+                    "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
+            set_tests_properties(vaeg_z80_compat_wrapper_upd9002_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;wrapper;upd9002"
+                TIMEOUT 900)
+        endforeach()
         set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
