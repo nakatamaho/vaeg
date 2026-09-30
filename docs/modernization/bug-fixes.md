@@ -189,8 +189,8 @@ separate parity correction or move it to Open Defects.
 
 ### uPD9002 Z80-emulation-mode flags followed the Zilog Z80
 
-- **Status:** fixed on `topic/m101-upd9002-flag-profile`; DAA/CPL/SCF/CCF
-  (U1) remain open, and the direct real-machine probes of stage D are pending.
+- **Status:** fixed on `topic/m101-upd9002-flag-profile`, including
+  DAA/CPL/SCF/CCF; every rule is directly observed on a real PC-88VA2.
 - **Symptom/scope:** in V1/V2 mode the main CPU produced Zilog Z80 flags. A
   real PC-88VA2 differs: stock ZEXDOC reports 12 and ZEXALL 32 failing
   groups, all of which the emulator passed. Only the uPD70008-compatible
@@ -198,24 +198,29 @@ separate parity correction or move it to Open Defects.
   whether the real µPD780C matches it is unverified (MAME 0.250 reports NEC
   NMOS SCF/CCF X/Y as `F & A & 28h`, unlike Zilog's `(F|A) & 28h`).
 - **Demonstrated root cause:** the main-CPU adapter used the Zilog behaviour
-  of the shared core. The real-machine found CRCs are reproduced exactly by
-  rules R1-R7 of [the ZEX results](uPD9002-zex-results.md) (F bits 5/3 never
-  held; AND and BIT clear H; accumulator rotates and block loads keep H and
-  N; ADD rr keeps H; ADC/SBC HL take H from bit 3).
+  of the shared core. The real machine follows rules R1-R11 of
+  [the ZEX results](uPD9002-zex-results.md): F bits 5/3 never held; AND and
+  BIT clear H; accumulator rotates and block loads keep H and N; ADD rr keeps
+  H; ADC/SBC HL take H from bit 3; CPL/SCF/CCF change only A or C; DAA uses
+  an H-dependent high threshold and sets P/V to the signed overflow.
 - **Correction:** the vendored core gained a per-instance flag profile
-  ([patch](../agents/reports/m101_suzukiplan_flag_profile.patch));
+  ([patch](../agents/reports/m101_suzukiplan_flag_profile.patch), with
+  R8-R11 in [a second patch](../agents/reports/m101_suzukiplan_daa_cpl_scf_ccf.patch));
   `Z80CompatCpu` exposes it, applies R1 to every F value the adapter writes
   (register import, state load, LD A,I/LD A,R), and the uPD70008 adapter
   selects `kUpd9002`. The FDC keeps `kZilog`.
 - **Verification:** under `kUpd9002`, stock ZEXDOC and ZEXALL through the
-  wrapper match the real machine in 66 of 67 groups each, found CRCs
-  included; group 13 (U1) is the only difference. Under `kZilog` both suites
-  still pass 67/67. `vaeg_z80_compat_flag_profile` and the wrapper
-  flag-profile storage test cover the probe table and adapter paths.
+  wrapper match the real machine in all 67 groups each, found CRCs included.
+  The host reference reproduces all nine M101 real-machine output files byte
+  for byte ([QA outputs](../agents/reports/m101_zexall_qa/README.md)), and
+  `vaeg_z80_compat_flag_profile` checks every record of the real DAA/CPL/
+  SCF/CCF dumps. Under `kZilog` both suites still pass 67/67.
 - **Task/evidence/commit:** [M101 task](../agents/tasks/M101_upd9002_flag_profile.md);
   core [5c2a6c10](https://github.com/nakatamaho/vaeg/commit/5c2a6c10bfb86a7bc55a01de5ab195c052bc1bb6),
   adapter [b8b462e7](https://github.com/nakatamaho/vaeg/commit/b8b462e73743924199bece033dae3c519b8bc3b6),
-  ZEX expectations [0133ff2d](https://github.com/nakatamaho/vaeg/commit/0133ff2de28f1dddc5811d078e3d3b3becf58cdb).
+  ZEX expectations [0133ff2d](https://github.com/nakatamaho/vaeg/commit/0133ff2de28f1dddc5811d078e3d3b3becf58cdb),
+  R8-R11 [7a05e388](https://github.com/nakatamaho/vaeg/commit/7a05e3888739dccfbb912f9605dbd458f002135b),
+  real-machine tests [485a4044](https://github.com/nakatamaho/vaeg/commit/485a4044350447eba65755071853b29fb5603bda).
 
 ### Z80 ADC/SBC HL,rr flags were wrong when the carry was set
 
