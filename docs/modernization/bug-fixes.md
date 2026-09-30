@@ -187,6 +187,34 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Undefined Z80 opcodes crashed the emulator
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** executing an undefined ED opcode (for example ED 00 or
+  ED A4), a NEG/RETN/IM duplicate (for example ED 4C), or a DD/FD prefix
+  before an opcode without an index form (for example DD 00) crashed vaeg
+  with a segmentation fault. Both Z80-compatible CPUs were affected: the
+  uPD70008-compatible main-CPU mode and the FDC `UPD780C`.
+- **Demonstrated root cause:** the vendored suzukiplan core leaves 196 ED,
+  90 DD and 90 FD opcode-table entries empty. vaeg builds the core with
+  `Z80_NO_EXCEPTION`, which compiles out the unknown-opcode check, so the
+  empty entry was called as a null function pointer.
+- **Correction:** with `Z80_NO_EXCEPTION`, opcodes without a handler now run
+  as on a Zilog Z80: undefined ED opcodes are two-byte NOPs, the NEG/RETN/IM
+  duplicates act as the base instruction, and a DD/FD prefix before a
+  non-index opcode is ignored
+  ([patch](../agents/reports/m102_suzukiplan_undefined_opcodes.patch),
+  upstream [#63](https://github.com/suzukiplan/z80/pull/63)). Real µPD9002
+  behavior for these opcodes is measured separately in M102.
+- **Verification:** the wrapper test executes all 256 ED, DD and FD
+  opcodes under both flag profiles and checks NOP, NEG-duplicate and
+  ignored-prefix semantics; with the previous core the same test crashes
+  with SIGSEGV. The upstream test `test-undefined-opcodes` passes 38/38, and
+  ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [3876ac80](https://github.com/nakatamaho/vaeg/commit/3876ac8037ff1164b7cd3e20ab02522511a12622),
+  test [de48a275](https://github.com/nakatamaho/vaeg/commit/de48a27572fcb6dc3c718b70baa5e35562d5a302).
+
 ### uPD9002 Z80-emulation-mode flags followed the Zilog Z80
 
 - **Status:** fixed on `topic/m101-upd9002-flag-profile`, including
