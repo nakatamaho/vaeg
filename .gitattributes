@@ -32,3 +32,6 @@ LICENSES/legacy-vaeg.txt whitespace=-blank-at-eol
 
 # M101 byte-exact CP/M output evidence (CRLF, 1Ah padding); never convert
 docs/agents/reports/m101_zexall_qa/*/raw/** binary
+
+# M102 byte-exact CP/M output evidence
+docs/agents/reports/m102_zexund_qa/*/raw/** binary
