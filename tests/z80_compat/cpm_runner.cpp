@@ -185,8 +185,9 @@ struct Machine {
 			return 0;
 		}
 		case 16:
-			open_files.erase(de);
-			return 0;
+			// Close updates the directory only; CP/M 2.2 allows further
+			// sequential writes through the same FCB (used as a checkpoint).
+			return open_files.count(de) != 0 ? 0 : 0xff;
 		case 19: {
 			const std::string path = HostPath(de);
 			if (path.empty()) {
@@ -252,6 +253,16 @@ struct Machine {
 		machine->Fail("unexpected output port");
 	}
 
+	// Command tail at 0080h, as the CCP stores it (length, then text).
+	void SetTail(const std::string &tail) {
+		const std::size_t length = tail.size() < 126 ? tail.size() : 126;
+		memory[0x80] = static_cast<std::uint8_t>(length);
+		for (std::size_t i = 0; i < length; ++i) {
+			memory[0x81 + i] = static_cast<std::uint8_t>(tail[i]);
+		}
+		memory[0x81 + length] = 0;
+	}
+
 	bool Load(const std::string &path) {
 		std::ifstream file(path, std::ios::binary | std::ios::ate);
 		if (!file) {
@@ -280,6 +291,7 @@ struct Machine {
 void Usage(const char *program) {
 	std::cerr << "usage: " << program
 	          << " [--profile zilog|upd9002] [--dir host_directory] [--console file]"
+	             " [--tail text]"
 	             " [--max-clocks n] program.com\n";
 }
 
@@ -290,6 +302,7 @@ int main(int argc, char **argv) {
 	std::string console_path;
 	std::string directory = ".";
 	std::uint64_t max_clocks = kDefaultMaxClocks;
+	std::string tail;
 	Z80::FlagProfile profile = Z80::FlagProfile::Zilog;
 	for (int i = 1; i < argc; ++i) {
 		const std::string argument = argv[i];
@@ -307,6 +320,8 @@ int main(int argc, char **argv) {
 			directory = argv[++i];
 		} else if (argument == "--console" && i + 1 < argc) {
 			console_path = argv[++i];
+		} else if (argument == "--tail" && i + 1 < argc) {
+			tail = argv[++i];
 		} else if (argument == "--max-clocks" && i + 1 < argc) {
 			max_clocks = std::strtoull(argv[++i], nullptr, 10);
 		} else if (!argument.empty() && argument[0] != '-' && program.empty()) {
@@ -326,6 +341,7 @@ int main(int argc, char **argv) {
 	if (!machine.Load(program)) {
 		return 1;
 	}
+	machine.SetTail(tail);
 	Z80 cpu(&Machine::Read, &Machine::Write, &Machine::Input, &Machine::Output, &machine);
 	machine.cpu = &cpu;
 	cpu.setFlagProfile(profile);
