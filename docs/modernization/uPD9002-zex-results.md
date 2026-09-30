@@ -26,16 +26,19 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 - Both suites were run on a real PC-88VA2 in V2 mode.
 - ZEXDOC: 55 OK, 12 ERROR. ZEXALL: 35 OK, 32 ERROR.
-- A reference Z80 core modified by seven flag rules (R1–R7, §4) reproduces
-  42 of the 44 reported found CRCs exactly: ZEXDOC 11/12, ZEXALL 31/32.
-  The only group not reproduced is `<daa,cpl,scf,ccf>` (#13), in both suites.
-- ZEXDOC failures are documented-flag deviations (H, N), not only
+- A reference Z80 core modified by eleven flag rules (R1–R11, §4)
+  reproduces every reported found CRC exactly: ZEXDOC 12/12 and ZEXALL
+  32/32 failing groups, and all passing groups.
+- ZEXDOC failures are documented-flag deviations (H, N, P/V), not only
   undocumented-bit differences.
-- All rules are CRC-reproduced, not directly observed (§4, O6).
+- M101 re-ran both suites from recorded exerciser sources, together with
+  direct flag probes and exhaustive DAA/CPL/SCF/CCF dumps (§2, §9). Every
+  rule is now directly observed, and the vaeg uPD9002 profile reproduces all
+  of these outputs byte for byte.
 
 | Pattern | Groups | Explained by |
 | --- | ---: | --- |
-| ZEXDOC ERROR, ZEXALL ERROR | 12 | 11 by documented-flag rules R2–R5; #13 unresolved (U1) |
+| ZEXDOC ERROR, ZEXALL ERROR | 12 | 11 by documented-flag rules R2–R5; #13 by R8–R11 |
 | ZEXDOC OK, ZEXALL ERROR | 20 | 16 by R1 alone; #1–#4 need R1 plus H deviations R6/R7 |
 | ZEXDOC OK, ZEXALL OK | 35 | agreement within the exercised space only; #29–#31 are degenerate (§6 C2) |
 
@@ -52,6 +55,9 @@ see it because its mask for these groups (C7h) excludes H (§6 C1).
 | Source of record | `ZEXDOC.TXT`, written by the exerciser | `ZEXALL.TXT`, written by the exerciser |
 | Executable | Modified build: output also written to a file; source and hash not recorded | same |
 | Result | 55 OK / 12 ERROR | 35 OK / 32 ERROR |
+
+The table describes the first run. M101 repeated both suites from recorded
+exerciser sources, with identical results in every group (§9).
 
 Both exercisers were modified so that the console output is also written to
 a file, and the two `.TXT` files are that output. The results are therefore
@@ -94,7 +100,7 @@ The two runs are mutually consistent:
 | 10 | `bit n,<b,c,d,e,h,l,(hl),a>` | ERROR | ERROR | R3 |
 | 11 | `cpd<r>` | OK | ERROR | R1 |
 | 12 | `cpi<r>` | OK | ERROR | R1 |
-| 13 | `<daa,cpl,scf,ccf>` | ERROR | ERROR | U1 (unresolved) |
+| 13 | `<daa,cpl,scf,ccf>` | ERROR | ERROR | R8–R11 |
 | 14 | `<inc,dec> a` | OK | ERROR | R1 |
 | 15 | `<inc,dec> b` | OK | ERROR | R1 |
 | 16 | `<inc,dec> bc` | OK | OK | — |
@@ -150,18 +156,21 @@ The two runs are mutually consistent:
 | 66 | `ld (<ix,iy>+1),a` | OK | OK | — |
 | 67 | `ld (<bc,de>),a` | OK | OK | — |
 
-## 4. Reproduced behavior model
+## 4. Behavior model
 
-Evidence status of every rule: **CRC-reproduced**.
+Evidence status of every rule: **directly observed** (M101, §9).
 
-- Each rule was accepted only if it reproduced the reported found CRC exactly
-  (32 bits), and each was the unique match among the candidates tried (§8).
+- R1–R7 were first accepted because each reproduced the reported found CRC
+  exactly (32 bits) and was the unique match among the candidates tried
+  (§8). The M101 probes (`FLAGPRB`) then observed each of them as individual
+  A/F values.
+- R8–R11 were derived from exhaustive dumps: every combination of S, Z, H,
+  P/V, N, C (bits 5/3 clear) times every value of A, for each of DAA, CPL,
+  SCF and CCF (16,384 records each). The rules reproduce all records.
 - A group CRC covers A, F, BC, DE, HL, IX, IY, SP and the memory operand. A
   match therefore also shows that all non-flag results (transferred data,
   pointer and counter updates, repeat termination) agree with the Z80 over the
   exercised state space.
-- No rule has yet been observed as an individual A/F value. O6 lists the
-  probes that would promote each rule to directly observed.
 
 The rules:
 
@@ -169,7 +178,8 @@ The rules:
   - On a Z80 these bits are copies of result bits or of internal values.
   - R1 alone reproduces 16 ZEXALL groups: #11, #12, #14, #15, #17, #18,
     #20, #21, #25, #26, #28, #32, #57, #58, #60, #61.
-  - Whether F can store bits 5/3 at all is not exercised (§6 C4, O6 P7).
+  - F cannot store bits 5/3: they read as 0 after `POP AF`, after
+    `EX AF,AF'` twice and after a flag-neutral `INC DE` (probes P7a–P7d).
 - **R2.** AND (all operand forms, including IXH/IXL and (IX+d)): H = 0.
   - Z80: H = 1.
   - ADD/ADC/SUB/SBC/CP/OR/XOR set their documented flags as on the Z80:
@@ -189,22 +199,44 @@ The rules:
 - **R7.** ADC HL,rr / SBC HL,rr: H = carry/borrow out of bit 3 of the low byte.
   - Z80: out of bit 11.
   - S, Z, P/V, N and C behave as on the Z80.
-- **U1.** `<daa,cpl,scf,ccf>` (#13): unresolved.
-  - The group CRC covers all four instructions, so it is unknown which of
-    them deviate. The search in §8 included the Z80 behavior of each
-    instruction as a candidate.
-  - The only established constraint is that outputs have Y/X = 0, because
-    the found CRC is identical in both suites.
+- **R8.** CPL: A = NOT A; no flag changes.
+  - Z80: H = N = 1, Y/X from A.
+- **R9.** SCF: C = 1; no other flag changes.
+  - Z80: H = N = 0, Y/X from A.
+- **R10.** CCF: C = NOT C; no other flag changes.
+  - Z80: H = old C, N = 0, Y/X from A.
+- **R11.** DAA, with the original A:
+  - low step (±06h) when H = 1 or the low nibble is above 9;
+  - high step (±60h) when C = 1, or A > 99h with H = 0, or A > 9Fh with
+    H = 1;
+  - N selects add (N = 0) or subtract (N = 1);
+  - S and Z from the result; H = 1 when the low step ran; P/V = signed
+    overflow of A ± the adjustment; C = 1 when the high step ran; N
+    unchanged.
+  - Z80: the high threshold is 99h regardless of H, and P/V is parity. For
+    A = 9Ah–9Fh with H = 1 and C = 0 the result A differs (for example,
+    A = 9Ah, F = 10h gives A0h here, 00h on a Z80).
+- **U1** (the former unresolved `<daa,cpl,scf,ccf>` group) is resolved by
+  R8–R11; the combined rules reproduce its found CRC `6096b6aa` in both
+  suites.
 
-Interpretation (hypothesis, not established):
+Correspondence with other flag models (observation, not an explanation):
 
-- R1 matches the V20/V30 PSW layout, where bits 5 and 3 are fixed 0.
-- R2, R3 and R7 match x86 AF semantics: AF is cleared by logical/test
-  operations, and word ADC/SBB take AF from bit 3.
-- R4 and R6 match 8080 semantics, where RLC/RRC/RAL/RAR/DAD write CY only.
-- N handling is per instruction rather than uniform. ADD HL clears N (the
-  ZEXDOC mask C7h includes N and the group passes), whereas the accumulator
-  rotates and block loads leave N unchanged.
+| Rule | Consistent with | Not consistent with |
+| --- | --- | --- |
+| R1 | V20/V30 PSW, where bits 5 and 3 are fixed 0 | |
+| R2 | x86 AND as observed on x86 parts (AF = 0) | 8080 ANA (AC = OR of bit 3 of both operands) |
+| R3 | x86 TEST as observed (AF = 0) | |
+| R4 | 8080 RLC/RRC/RAL/RAR (only CY written) | |
+| R6 | 8080 DAD (only CY written) | x86 16-bit ADD (AF from bit 3) |
+| R7 | x86 16-bit ADC/SBB (AF from bit 3) | |
+| R8–R10 | 8080 CMA/STC/CMC (only CY written) | |
+| R11 | x86 DAA/DAS selected by N, with P/V as x86 OF | Zilog Z80 |
+
+Intel documents AF as undefined after AND/TEST; the R2/R3 entries refer to
+observed x86 behavior only. N handling is per instruction rather than
+uniform: ADD HL clears N, whereas the accumulator rotates, block loads,
+SCF/CCF and DAA leave N unchanged.
 
 ## 5. Error CRCs
 
@@ -222,7 +254,7 @@ Interpretation (hypothesis, not established):
 | 10 | `7b55e6c8` | `9ae7950f` | `5e020e98` | `30717c8b` | R3 | yes / yes |
 | 11 | OK | OK | `134b622d` | `a87e6cfa` | R1 | yes |
 | 12 | OK | OK | `2da42d19` | `06deb356` | R1 | yes |
-| 13 | `9b4ba675` | `6096b6aa` | `6d2dd213` | `6096b6aa` | U1 | no / no |
+| 13 | `9b4ba675` | `6096b6aa` | `6d2dd213` | `6096b6aa` | R8–R11 | yes / yes |
 | 14 | OK | OK | `81fa8100` | `d18815a4` | R1 | yes |
 | 15 | OK | OK | `77f35a73` | `5f682264` | R1 | yes |
 | 17 | OK | OK | `1af612a7` | `c284554c` | R1 | yes |
@@ -259,7 +291,8 @@ Interpretation (hypothesis, not established):
   - The groups labelled `iyh`/`iyl` execute DD-prefixed opcodes
     (DD 24/25, DD 2C/2D), i.e. IXH/IXL.
   - INC/DEC IYH/IYL (FD 24/25/2C/2D) is exercised by neither suite.
-- **C4. Storage of F bits 5/3 is not exercised.**
+- **C4. Storage of F bits 5/3 is not exercised by ZEX** (resolved by the
+  M101 probes P7a–P7d, §4 R1).
   - In the test vectors checked (#1–#57), the base F value has bits 5/3
     clear and the F counter/shifter masks are D7h (53h for BIT).
   - F therefore never enters these groups with Y/X set.
@@ -276,18 +309,21 @@ Interpretation (hypothesis, not established):
 
 ## 7. Open items and minimal real-machine tests
 
-- **O1. Resolve U1.** Run a ZEXDOC variant in which the `<daa,cpl,scf,ccf>`
-  descriptor is split into four single-opcode groups (opcode counter mask
-  00h). This gives one CRC per instruction, and each can then be solved
-  independently. A direct dump of DAA over A = 00h–FFh × (H, N, C) is the
-  fully determining alternative.
+Status after M101: O1, O4, O5, O6 and O7 are closed (§9). O3 remains open.
+
+- **O1. Resolve U1.** Closed: `ZEX13S` split the group into single-opcode
+  groups, and `DAADUMP` dumped DAA/CPL/SCF/CCF exhaustively; R8–R11.
 - **O3. INC/DEC IYH/IYL.** Not covered by either suite (C3).
-- **O4. Full-suite regression.** The combined model R1–R7 has been checked
-  per group only; a full-suite run is still to be done.
-- **O5. Executable identity.** Commit the modified exerciser source (or its
-  diff against the stock source), and record the hashes of the `ZEXDOC.COM`
-  and `ZEXALL.COM` that were run and the boot environment.
-- **O6. Direct confirmation probes.**
+- **O4. Full-suite regression.** Closed: the full stock ZEXDOC and ZEXALL
+  under the vaeg uPD9002 profile are byte-identical to the M101 real-machine
+  outputs (67/67 groups each).
+- **O5. Executable identity.** Closed for the M101 re-run: the file-output
+  exercisers are built from `external/zex/` plus recorded patches, with the
+  hashes in §9. The executables of the first run remain unrecorded, but the
+  re-run reproduced every group of that run.
+- **O6. Direct confirmation probes.** Closed: `FLAGPRB` ran P0–P7d; every
+  probe matched the model prediction below, including P7 (bits 5/3 are not
+  storable).
   - Purpose: promote R1–R7 from CRC-reproduced to directly observed.
   - Set F through `PUSH`/`POP AF`, always with bits 5/3 clear, so that the
     inputs do not depend on C4.
@@ -312,13 +348,10 @@ Interpretation (hypothesis, not established):
   - P5a and P5b together separate R6 from both the Z80 rule and a bit-3-carry
     rule.
   - P7 should be repeated through `EX AF,AF'`.
-- **O7. Emulator policy.**
-  - Implement R1–R7 as a separable Z80-mode divergence profile, tagged
-    CRC-reproduced, with the Zilog reference behavior still selectable.
-  - Promote each rule to directly observed when the corresponding O6 probe
-    confirms it.
-  - Use the 42 reproduced found CRCs, not only the 55 OK / 12 ERROR pattern,
-    as the regression gate.
+- **O7. Emulator policy.** Closed: vaeg implements R1–R11 as the
+  `Upd9002` flag profile of the vendored core, used by the uPD70008-
+  compatible main-CPU mode; the Zilog behavior remains the default profile.
+  The regression gate is the full set of real-machine outputs (§9).
 
 ## 8. Reproduction method
 
@@ -359,4 +392,28 @@ Interpretation (hypothesis, not established):
     C kept or cleared.
   - SCF variants: H/N as Z80, keep or set.
   - CCF variants: H as old C, keep, 0, 1 or new C; N as Z80, keep or set.
-  - No combination matched.
+  - No combination matched. The measured DAA (R11) uses a high threshold
+    that depends on H (99h with H = 0, 9Fh with H = 1), which was not among
+    the candidates; §9 resolved the group from direct dumps instead.
+
+## 9. M101 real-machine re-run
+
+- Programs: `ZEXDOCF`/`ZEXALLF` (stock exercisers plus file output),
+  `ZEX13S`, `FLAGPRB` and `DAADUMP`, built from `external/zex/` and
+  `tools/cpmva/zex/` with z80asm 1.8 and run from one generated CP/M disk
+  under CP/MVA on a real PC-88VA2.
+- Evidence: byte-exact outputs, manifests, program and disk hashes, and the
+  comparison with the host references are in
+  [`docs/agents/reports/m101_zexall_qa/`](../agents/reports/m101_zexall_qa/README.md).
+- Results:
+  - `ZEXDOC.TXT` and `ZEXALL.TXT` equal the first run in every group,
+    including every found CRC.
+  - `FLAGPRB`: every probe matches the uPD9002 prediction (R1–R7, P7).
+  - `ZEX13S`: controls `aluop a,nn` = `12967d59` and `<daa,cpl,scf,ccf>` =
+    `6096b6aa`; the single-opcode groups gave `c5f0d7a8` (DAA), `a34147ce`
+    (CPL), `b9e9525a` (SCF) and `a5000c57` (CCF), identical with flag masks
+    D7h and FFh.
+  - `DAADUMP`: the four dumps determine R8–R11.
+- With R1–R11 the vaeg uPD9002 profile reproduces all nine output files byte
+  for byte, on the host (`tools/cpmva/zex/host_reference.py`) and in the
+  test `vaeg_z80_compat_flag_profile`, which checks every dump record.
