@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M101 - µPD9002 Z80-emulation-mode flag profile and real-machine probes
 
-Status: **stages A–E complete; G101 items 1–3 done, awaiting the maintainer's gate decision**
+Status: **G101 human gate passed on 2026-09-30; M101 complete**
 
 Predecessor: `main` at `6fcb2992593ae8da287fa92fd77f62dec4d67d1b`
 (M100 ZEX report).
@@ -374,6 +374,12 @@ G101 is a human gate:
   (µPD9002 Z80 emulation mode entered with BRKEM) and returned the
   disk through the HxC Floppy Emulator. Outputs, hashes and comparisons are
   in `docs/agents/reports/m101_zexall_qa/`.
+
+- 2026-09-30, gate decision: G101 passed (maintainer), confirmed with the
+  fully static MinGW `vaeg.exe` built from a clean clone of
+  `e3f63d7d4c4a86558f9292a938a7a62fbb85853b` (SHA-256
+  `e0159b28ed9b207105f702fc1ca24f13e1816fb6e3d114a01a7950bc4fd96b7f`).
+  Later branch commits change documentation only.
 
 ### Stage E results
 
