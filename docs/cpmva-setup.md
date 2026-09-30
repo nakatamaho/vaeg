@@ -143,6 +143,9 @@ only on the disks you generate; VAEG does not distribute them.
 | `ZEX13S.COM` | `ZEX13S.TXT` | ZEXDOC with `<daa,cpl,scf,ccf>` split into single-opcode groups |
 | `FLAGPRB.COM` | `FLAGPRB.TXT` | Direct flag probes P0–P7 for rules R1–R7 |
 | `DAADUMP.COM` | `DAA.BIN`, `CPL.BIN`, `SCF.BIN`, `CCF.BIN`, `DAADUMP.TXT` | Exhaustive DAA/CPL/SCF/CCF dump |
+| `ZEXIY.COM` | `ZEXIY.TXT` | INC/DEC IXH/IXL/IYH/IYL, correcting the stock ZEX iyh/iyl groups (M102) |
+| `ZEXUND.COM` | `ZEXUND.TXT` | Undocumented DDCB/FDCB forms, NEG duplicates and redundant DD/FD prefixes (M102) |
+| `ZEXED.COM` | `ZEXED.TXT` | Undefined ED opcodes, expected to be NOPs (M102); run last |
 
 The ZEX-derived programs are GPL-2.0-or-later; see
 `external/zex/provenance.txt` and ADR-0015. Output files are written to the
