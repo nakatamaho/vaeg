@@ -854,6 +854,59 @@ void TestFlagProfileStorage() {
 	}
 }
 
+// M102: opcodes without a handler in the vendored core (undefined ED, NEG/
+// RETN/IM duplicates, DD/FD before a non-index opcode) used to call a null
+// handler under Z80_NO_EXCEPTION. They must execute as on a Zilog Z80 under
+// both profiles.
+void TestUndefinedOpcodes() {
+	for (const bool upd9002 : {false, true}) {
+		const Z80CompatFlagProfile profile =
+		    upd9002 ? Z80CompatFlagProfile::kUpd9002 : Z80CompatFlagProfile::kZilog;
+		for (const std::uint8_t prefix : {0xed, 0xdd, 0xfd}) {
+			for (int op = 0; op < 256; ++op) {
+				Harness harness;
+				harness.cpu.SetFlagProfile(profile);
+				Z80CompatReg reg{};
+				reg.sp = 0x8000;
+				reg.pc = 0x0100;
+				harness.cpu.SetReg(reg);
+				harness.Install(0x0100, {prefix, static_cast<std::uint8_t>(op), 0x00, 0x00});
+				harness.Advance(1);
+			}
+		}
+		const std::uint8_t nops[] = {0x00, 0x3f, 0x77, 0x7f, 0x80, 0xa4, 0xbf, 0xc0, 0xff};
+		for (const std::uint8_t op : nops) {
+			Harness harness;
+			harness.cpu.SetFlagProfile(profile);
+			Z80CompatReg reg{};
+			reg.af = 0x1200;
+			reg.sp = 0x8000;
+			reg.pc = 0x0100;
+			harness.cpu.SetReg(reg);
+			harness.Install(0x0100, {0xed, op});
+			harness.Advance(8);
+			Require(harness.cpu.GetPC() == 0x0102 && harness.cpu.GetReg()->af == 0x1200 &&
+			            harness.consumed == 8,
+			        "undefined ED opcode is not a two-byte NOP");
+		}
+		Harness neg;
+		neg.cpu.SetFlagProfile(profile);
+		Z80CompatReg reg{};
+		reg.af = 0x0100;
+		reg.pc = 0x0100;
+		neg.cpu.SetReg(reg);
+		neg.Install(0x0100, {0xed, 0x4c});
+		neg.Advance(8);
+		Require(A(neg) == 0xff && neg.cpu.GetPC() == 0x0102, "ED 4C is not NEG");
+		Harness prefixed;
+		prefixed.cpu.SetFlagProfile(profile);
+		prefixed.cpu.SetReg(reg);
+		prefixed.Install(0x0100, {0xfd, 0x3c});
+		prefixed.Advance(8);
+		Require(A(prefixed) == 0x02 && prefixed.cpu.GetPC() == 0x0102, "FD 3C is not INC A");
+	}
+}
+
 int main() {
 	const TestCase tests[] = {
 	    {"reset and deterministic save", TestResetAndDeterministicSave},
@@ -867,6 +920,7 @@ int main() {
 	    {"revision-1 fixtures and codec", TestRetainedFixturesAndCodec},
 	    {"EI save boundary", TestEiSaveBoundary},
 	    {"flag profile storage", TestFlagProfileStorage},
+	    {"undefined opcodes", TestUndefinedOpcodes},
 	};
 	for (const TestCase &test : tests) {
 		test.run();
