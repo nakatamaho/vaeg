@@ -520,6 +520,22 @@ own undocumented flags are not known to match the Zilog behaviour.
   PC-88VA2 (see `docs/agents/reports/m101_zexall_qa/`), and is used by the
   uPD70008-compatible main-CPU mode.
 
+## M102 undefined-opcode patch
+
+The vendored core left 196 ED, 90 DD and 90 FD opcode-table entries empty.
+vaeg builds it with `Z80_NO_EXCEPTION`, where executing such an opcode called
+a null handler and crashed the emulator. M102 applies
+[m102_suzukiplan_undefined_opcodes.patch](../reports/m102_suzukiplan_undefined_opcodes.patch)
+(SHA-256 `d25676fee49329f8159b20ee6840b368f041971fd68b599a7222edd6a34489aa`,
+upstream pull request [#63](https://github.com/suzukiplan/z80/pull/63)) on
+top of the M101 result. With `Z80_NO_EXCEPTION` an undefined ED opcode is a
+two-byte NOP, the NEG/RETN/IM duplicates act as the base instruction, and a
+DD/FD prefix before an opcode without an index form is ignored. The default
+configuration still throws. `git am --committer-date-is-author-date` from
+`b4a0a5a238fecc280781e6fe5719faf0eafcd667` with all M101 patches and this
+patch reproduces commit `c16de42ba0cef5fb354c79a7e0a332651ed28290`, tree
+`a4e4442f960f39e881647912219a79dfd20fac01`.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.
