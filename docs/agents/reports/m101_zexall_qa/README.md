@@ -29,7 +29,7 @@ Byte-exact outputs of the M101 CP/M programs (`ZEXDOCF`, `ZEXALLF`,
 | Directory | Machine |
 | --- | --- |
 | [`vaeg/`](vaeg/) | vaeg, uPD9002 profile before the U1 rules |
-| [`pc88va2/`](pc88va2/) | real NEC PC-88VA2 |
+| [`pc88va2/`](pc88va2/) | real NEC PC-88VA2, V3 mode, Z80 emulation mode entered with BRKEM |
 
 Each directory holds:
 
@@ -73,7 +73,8 @@ Each directory holds:
 
 ### `pc88va2/`
 
-- Machine: NEC PC-88VA2, CP/MVA, run by the maintainer. The disk was
+- Machine: NEC PC-88VA2 in V3 mode, run by the maintainer under CP/MVA,
+  which enters the µPD9002 Z80 emulation mode with BRKEM. The disk was
   written and read back with the HxC Floppy Emulator; the returned image has
   the header name `HxCFE`, media type 00h and another track order, with all
   1,280 sectors present and error-free.

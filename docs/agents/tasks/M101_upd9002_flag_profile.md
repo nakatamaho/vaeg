@@ -370,7 +370,8 @@ G101 is a human gate:
   `host_reference.py` uPD9002 outputs of the same programs, so the main CPU
   runs the uPD9002 profile end to end.
 - 2026-09-30, item 3: the maintainer ran the five programs from
-  `cpmva-zexall-test.d88` on a real PC-88VA2 under CP/MVA and returned the
+  `cpmva-zexall-test.d88` on a real PC-88VA2 in V3 mode under CP/MVA
+  (µPD9002 Z80 emulation mode entered with BRKEM) and returned the
   disk through the HxC Floppy Emulator. Outputs, hashes and comparisons are
   in `docs/agents/reports/m101_zexall_qa/`.
 

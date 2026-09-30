@@ -401,7 +401,9 @@ Status after M101: O1, O4, O5, O6 and O7 are closed (§9). O3 remains open.
 - Programs: `ZEXDOCF`/`ZEXALLF` (stock exercisers plus file output),
   `ZEX13S`, `FLAGPRB` and `DAADUMP`, built from `external/zex/` and
   `tools/cpmva/zex/` with z80asm 1.8 and run from one generated CP/M disk
-  under CP/MVA on a real PC-88VA2.
+  under CP/MVA on a real PC-88VA2 in V3 mode. CP/MVA enters the µPD9002 Z80
+  emulation mode with BRKEM, so the measured mode is the same Z80 emulation
+  mode that V1/V2 mode uses.
 - Evidence: byte-exact outputs, manifests, program and disk hashes, and the
   comparison with the host references are in
   [`docs/agents/reports/m101_zexall_qa/`](../agents/reports/m101_zexall_qa/README.md).
