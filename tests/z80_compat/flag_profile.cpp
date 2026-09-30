@@ -35,6 +35,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 namespace {
@@ -146,6 +147,14 @@ void RunProbeTable() {
 	    {"P5b ADD HL,BC", 0x0010, 0x0001, 0x0001, {0x09}, 0x00, 0x00, 0x10, 0x0001, 0x0002},
 	    {"P6a ADC HL,BC", 0x0000, 0x0001, 0x000f, {0xed, 0x4a}, 0x00, 0x00, 0x10, 0x0001, 0x0010},
 	    {"P6b SBC HL,BC", 0x0000, 0x0001, 0x0010, {0xed, 0x42}, 0x00, 0x02, 0x12, 0x0001, 0x000f},
+	    // R8-R11 (DAA/CPL/SCF/CCF); expected values derived by hand.
+	    {"R8 CPL", 0x0000, 0, 0, {0x2f}, 0xff, 0x3a, 0x00, -1, -1},
+	    {"R8 CPL F=D7h", 0x00d7, 0, 0, {0x2f}, 0xff, 0xff, 0xd7, -1, -1},
+	    {"R9 SCF H,N", 0x0012, 0, 0, {0x37}, 0x00, 0x01, 0x13, -1, -1},
+	    {"R10 CCF C", 0x0013, 0, 0, {0x3f}, 0x00, 0x10, 0x12, -1, -1},
+	    {"R10 CCF", 0x0012, 0, 0, {0x3f}, 0x00, 0x01, 0x13, -1, -1},
+	    {"R11 DAA 00h", 0x0000, 0, 0, {0x27}, 0x00, 0x44, 0x40, -1, -1},
+	    {"R11 DAA 7Ah", 0x7a00, 0, 0, {0x27}, 0x80, 0x90, 0x94, -1, -1},
 	};
 	for (const Probe &probe : probes) {
 		for (const Profile profile : {Profile::Zilog, Profile::Upd9002}) {
@@ -245,10 +254,88 @@ void RunAdcSbc() {
 	}
 }
 
+// R11: with H=1 the high step needs A > 9Fh (Zilog: A > 99h), so A itself
+// differs for A = 9Ah-9Fh.
+void RunDaaHighStep() {
+	struct Case {
+		const char *name;
+		std::uint16_t af;
+		std::uint8_t a_zilog, f_zilog, a_upd9002, f_upd9002;
+	};
+	const Case cases[] = {
+	    {"R11 DAA 9Ah H", 0x9a10, 0x00, 0x55, 0xa0, 0x90},
+	    {"R11 DAA 9Ah H N", 0x9a12, 0x34, 0x23, 0x94, 0x92},
+	};
+	for (const Case &item : cases) {
+		for (const Profile profile : {Profile::Zilog, Profile::Upd9002}) {
+			const Result result = Run(profile, item.af, 0, 0, {0x27});
+			const bool zilog = profile == Profile::Zilog;
+			char name[64];
+			std::snprintf(name, sizeof(name), "%s [%s]", item.name, zilog ? "zilog" : "upd9002");
+			Expect(name, "A", result.a, zilog ? item.a_zilog : item.a_upd9002);
+			Expect(name, "F", result.f, zilog ? item.f_zilog : item.f_upd9002);
+		}
+	}
+}
+
+#if defined(VAEG_M101_QA_DIR)
+// Every record of the real PC-88VA2 DAA/CPL/SCF/CCF dumps: A = a,
+// F = fi spread over S, Z, H, P/V, N, C; output A, F.
+void RunRealMachineDumps() {
+	const struct {
+		const char *file;
+		std::uint8_t opcode;
+	} dumps[] = {{"daa.bin", 0x27}, {"cpl.bin", 0x2f}, {"scf.bin", 0x37}, {"ccf.bin", 0x3f}};
+	const std::uint8_t spread[6] = {0x01, 0x02, 0x04, 0x10, 0x40, 0x80};
+	for (const auto &dump : dumps) {
+		const std::string path = std::string(VAEG_M101_QA_DIR) + "/" + dump.file;
+		std::FILE *file = std::fopen(path.c_str(), "rb");
+		std::vector<std::uint8_t> data(32768);
+		const bool read =
+		    file != nullptr && std::fread(data.data(), 1, data.size(), file) == data.size();
+		if (file != nullptr) {
+			std::fclose(file);
+		}
+		if (!read) {
+			std::printf("FAIL cannot read %s\n", path.c_str());
+			++failures;
+			continue;
+		}
+		int mismatches = 0;
+		for (int fi = 0; fi < 64; ++fi) {
+			std::uint8_t f = 0;
+			for (int bit = 0; bit < 6; ++bit) {
+				if ((fi >> bit) & 1) {
+					f = static_cast<std::uint8_t>(f | spread[bit]);
+				}
+			}
+			for (int a = 0; a < 256; ++a) {
+				const Result result =
+				    Run(Profile::Upd9002, static_cast<std::uint16_t>((a << 8) | f), 0, 0,
+				        {dump.opcode});
+				const std::size_t offset = static_cast<std::size_t>((fi * 256 + a) * 2);
+				if (result.a != data[offset] || result.f != data[offset + 1]) {
+					if (mismatches++ < 5) {
+						std::printf("FAIL %s fi=%d A=%02x: got %02x/%02x real %02x/%02x\n",
+						            dump.file, fi, a, result.a, result.f, data[offset],
+						            data[offset + 1]);
+					}
+				}
+			}
+		}
+		failures += mismatches;
+	}
+}
+#endif
+
 } // namespace
 
 int main() {
 	RunProbeTable();
+	RunDaaHighStep();
+#if defined(VAEG_M101_QA_DIR)
+	RunRealMachineDumps();
+#endif
 	RunAdcSbc();
 	if (failures != 0) {
 		std::printf("flag-profile: %d failure(s)\n", failures);

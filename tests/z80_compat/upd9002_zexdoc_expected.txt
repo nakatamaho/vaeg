@@ -21,10 +21,9 @@
 #
 # Expected stock ZEXDOC group results under the uPD9002 flag profile.
 # Format: <group> OK | <group> ERROR <expected-crc> <found-crc>
-# Every line equals the PC-88VA2 V2-mode result in
-# docs/modernization/uPD9002-zex-results.md, except group 13
-# (<daa,cpl,scf,ccf>), which is unresolved (U1). The real machine reports
-# ERROR 9b4ba675 6096b6aa; the line below is the profile's current value.
+# Every line equals the real PC-88VA2 result: the first run recorded in
+# docs/modernization/uPD9002-zex-results.md and the M101 re-run in
+# docs/agents/reports/m101_zexall_qa/pc88va2/, which agree group for group.
 1 OK
 2 OK
 3 OK
@@ -37,7 +36,7 @@
 10 ERROR 7b55e6c8 9ae7950f
 11 OK
 12 OK
-13 OK
+13 ERROR 9b4ba675 6096b6aa
 14 OK
 15 OK
 16 OK

@@ -877,6 +877,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_cpmva_extract_d88
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_extract_d88.py")
+    add_test(NAME vaeg_cpmva_m101_evidence
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_m101_evidence.py")
     if(NOT CMAKE_CROSSCOMPILING AND NOT MSVC)
         add_test(NAME vaeg_headless_keys
             COMMAND "${Python3_EXECUTABLE}"
@@ -1734,7 +1737,8 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_z80_compat_flag_profile PRIVATE
         Z80_DISABLE_DEBUG
         Z80_DISABLE_NESTCHECK
-        Z80_NO_FUNCTIONAL)
+        Z80_NO_FUNCTIONAL
+        "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\"")
 
     add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)

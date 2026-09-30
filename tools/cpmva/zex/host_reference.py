@@ -52,6 +52,7 @@ EXPECTATION_FILES = {
     "ZEXALLF": ROOT / "tests" / "z80_compat" / "upd9002_zexall_expected.txt",
 }
 CONTROL_UPD9002_ALUOP = "12967d59"
+CONTROL_UPD9002_DAA = "6096b6aa"  # real PC-88VA2, reproduced by R8-R11
 
 
 def load_installer():
@@ -126,6 +127,8 @@ def check_zex13s(directory: Path, profile: str, failures: list) -> None:
             failures.append(f"ZEX13S_EXPECTED_TABLE {group.name} {group.expected}")
     if profile == "upd9002" and groups[0].found != CONTROL_UPD9002_ALUOP:
         failures.append(f"ZEX13S_UPD9002_ALUOP {groups[0].found}")
+    if profile == "upd9002" and groups[1].found != CONTROL_UPD9002_DAA:
+        failures.append(f"ZEX13S_UPD9002_DAA {groups[1].found}")
 
 
 def check_daadump(directory: Path, profile: str, failures: list) -> None:

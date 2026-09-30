@@ -21,10 +21,9 @@
 #
 # Expected stock ZEXALL group results under the uPD9002 flag profile.
 # Format: <group> OK | <group> ERROR <expected-crc> <found-crc>
-# Every line equals the PC-88VA2 V2-mode result in
-# docs/modernization/uPD9002-zex-results.md, except group 13
-# (<daa,cpl,scf,ccf>), which is unresolved (U1). The real machine reports
-# ERROR 6d2dd213 6096b6aa; the line below is the profile's current value.
+# Every line equals the real PC-88VA2 result: the first run recorded in
+# docs/modernization/uPD9002-zex-results.md and the M101 re-run in
+# docs/agents/reports/m101_zexall_qa/pc88va2/, which agree group for group.
 1 ERROR d48ad519 38bd187c
 2 ERROR d9a4ca05 e5cb0e49
 3 ERROR b1df8ec0 433479fc
@@ -37,7 +36,7 @@
 10 ERROR 5e020e98 30717c8b
 11 ERROR 134b622d a87e6cfa
 12 ERROR 2da42d19 06deb356
-13 ERROR 6d2dd213 9b4ba675
+13 ERROR 6d2dd213 6096b6aa
 14 ERROR 81fa8100 d18815a4
 15 ERROR 77f35a73 5f682264
 16 OK
