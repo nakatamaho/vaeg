@@ -167,3 +167,14 @@ G102 is a human gate:
 
 1. The standard gate with a fully static MinGW build of the candidate.
 2. The real-machine run of step 5 and the resulting step 6 outcome.
+
+### G102 progress
+
+- 2026-09-30, emulator run (supplementary): the maintainer ran `ZEXIY`,
+  `ZEXUND` and `ZEXED` in vaeg from the generated `cpmva-zexall-test.d88`
+  (disk after the run:
+  `144e0a8f957359f7908a2b3638cd84cad8a08607ec8e7171eef1e1dae6e0ee62`).
+  All three output files are byte-identical to the host uPD9002 reference
+  of the same programs, and the emulator no longer stops on the undefined
+  ED opcodes, the NEG duplicates or the redundant prefixes.
+- Real-machine run (item 2) pending.
