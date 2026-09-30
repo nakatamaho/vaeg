@@ -146,6 +146,13 @@ only on the disks you generate; VAEG does not distribute them.
 | `ZEXIY.COM` | `ZEXIY.TXT` | INC/DEC IXH/IXL/IYH/IYL, correcting the stock ZEX iyh/iyl groups (M102) |
 | `ZEXUND.COM` | `ZEXUND.TXT` | Undocumented DDCB/FDCB forms, NEG duplicates and redundant DD/FD prefixes (M102) |
 | `ZEXED.COM` | `ZEXED.TXT` | Undefined ED opcodes, expected to be NOPs (M102); run last |
+| `EDPRB.COM` | `EDxx.TXT` | One-by-one probe of undefined ED opcodes and the NEG/RETN duplicates (M102) |
+| `CBPRB.COM` | `CBPRB.TXT` | One-by-one probe of every DD/FD CB opcode with two input sets (M102) |
+
+`EDPRB` prints `ED xx` before each opcode and closes its output file after
+every record, so a run that hangs keeps all earlier results. After a reset,
+continue with the next opcode, for example `EDPRB A5`; that run writes
+`EDA5.TXT`, and `compare.py` merges all `ED??.TXT` files.
 
 The ZEX-derived programs are GPL-2.0-or-later; see
 `external/zex/provenance.txt` and ADR-0015. Output files are written to the

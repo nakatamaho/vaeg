@@ -168,6 +168,33 @@ G102 is a human gate:
 1. The standard gate with a fully static MinGW build of the candidate.
 2. The real-machine run of step 5 and the resulting step 6 outcome.
 
+### First real-machine run and the one-by-one probes
+
+The first real-machine run (2026-09-30) gave `ZEXIY.TXT` byte-identical to
+the uPD9002 host prediction (O3 resolved). `ZEXUND` returned to the CP/M
+prompt by itself in the NEG-duplicate group, and `ZEXED` hung in the ED
+A4–BF group, so neither closed its output file; their completed lines were
+read from the screen. The CRCs showed that the BIT and RES/SET DDCB forms
+and the undefined ED opcodes behave differently from both profiles, but CRCs
+cannot say how. M102 therefore adds two one-by-one probes (maintainer
+approval, 2026-09-30):
+
+- `EDPRB.COM` → `EDxx.TXT`: each undefined ED opcode and each NEG/RETN
+  duplicate (plus ED 44 and ED 45 as controls) once, with fixed registers, a
+  sandbox stack and sandbox memory. It records the exit path (fall-through
+  or a pop of the sandbox return address), all registers, SP, and the
+  sandbox bytes. Every result is one 128-byte record and the file is closed
+  after each record; `ED xx` is printed first, so a hang identifies the
+  opcode, and `EDPRB xx` restarts at opcode xx into `EDxx.TXT`. The IM
+  duplicates stay excluded.
+- `CBPRB.COM` → `CBPRB.TXT`: every DD CB 02 xx and FD CB 02 xx opcode with
+  two input sets (flags 00h/D7h, probed byte 81h/7Eh), recording all
+  registers and the probed byte.
+
+The host CP/M runner keeps a file writable after BDOS 16 and passes a
+command tail (`--tail`), and `compare.py` compares both formats record by
+record.
+
 ### G102 progress
 
 - 2026-09-30, emulator run (supplementary): the maintainer ran `ZEXIY`,
