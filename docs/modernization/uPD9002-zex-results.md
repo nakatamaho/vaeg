@@ -409,7 +409,9 @@ Status after M101: O1, O4, O5, O6 and O7 are closed (§9). O3 remains open.
   [`docs/agents/reports/m101_zexall_qa/`](../agents/reports/m101_zexall_qa/README.md).
 - Results:
   - `ZEXDOC.TXT` and `ZEXALL.TXT` equal the first run in every group,
-    including every found CRC.
+    including every found CRC. The first run was made in V2 mode and this
+    one in V3 mode through BRKEM, so both ways of entering the µPD9002 Z80
+    emulation mode give the same flag behavior over the exercised space.
   - `FLAGPRB`: every probe matches the uPD9002 prediction (R1–R7, P7).
   - `ZEX13S`: controls `aluop a,nn` = `12967d59` and `<daa,cpl,scf,ccf>` =
     `6096b6aa`; the single-opcode groups gave `c5f0d7a8` (DAA), `a34147ce`
