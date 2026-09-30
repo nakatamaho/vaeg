@@ -187,6 +187,31 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### uPD9002 DDCB/FDCB register forms followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undocumented DD/FD CB d xx forms with a register operand (low three bits
+  not 6) behaved as on a Zilog Z80: BIT tested the memory byte, and RES/SET
+  modified memory and copied the result to the register. A real PC-88VA2
+  tests and modifies the register only.
+- **Demonstrated root cause:** the `Upd9002` flag profile had no rule for
+  these forms, so the core used its Zilog implementation. The M102 probe
+  `CBPRB` recorded all 512 opcodes with two input sets on the real machine.
+- **Correction:** R12 (BIT n,(i+d),r tests r) and R13 (RES/SET n,(i+d),r
+  modify r only; memory is not written) in the `Upd9002` profile
+  ([patch](../agents/reports/m102_suzukiplan_ddcb_register_forms.patch),
+  upstream [#61](https://github.com/suzukiplan/z80/pull/61)). The rotate
+  forms keep the Zilog behavior, which the probe confirmed.
+- **Verification:** `vaeg_z80_compat_flag_profile` re-executes all 1,024
+  real CBPRB records (560 fail without R12/R13); the host `CBPRB` output is
+  byte-identical to the real one, and the `rot`, `bit` and `res,set` ZEX CRCs
+  of `ZEXUND` equal the values read from the real screen
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md)).
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [732bdf7f](https://github.com/nakatamaho/vaeg/commit/732bdf7f1c5d951341952ee61aa6bc58262f550b),
+  test [378c69da](https://github.com/nakatamaho/vaeg/commit/378c69da89232b0faec29973251dc0775ffd70bf).
+
 ### Undefined Z80 opcodes crashed the emulator
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
