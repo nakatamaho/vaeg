@@ -44,7 +44,10 @@ sys.path.insert(0, str(HERE))
 
 import probe_results as pr  # noqa: E402
 
-PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED")
+PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED", "EDPRB",
+                  "CBPRB")
+EDPRB_RECORDS = 191
+CBPRB_LINES = 1024
 # M102 exercisers: every group must report OK under the Zilog profile.
 UNDOCUMENTED_PROGRAMS = ("ZEXIY", "ZEXUND", "ZEXED")
 ZEX_PROGRAMS = ("ZEXDOCF", "ZEXALLF")
@@ -121,6 +124,14 @@ def check_undocumented(directory: Path, profile: str, program: str, failures: li
     groups = pr.parse_zex(pr.read_text(directory, f"{program}.TXT"))
     if profile == "zilog" and not all(group.ok for group in groups):
         failures.append(f"{program}_ZILOG_NOT_OK")
+
+
+def check_probes(directory: Path, profile: str, program: str, failures: list) -> None:
+    if program == "EDPRB":
+        if len(pr.load_edprb(directory)) != EDPRB_RECORDS:
+            failures.append(f"EDPRB_COUNT {profile}")
+    elif len(pr.parse_cbprb(pr.read_text(directory, "CBPRB.TXT"))) != CBPRB_LINES:
+        failures.append(f"CBPRB_COUNT {profile}")
 
 
 def check_zex13s(directory: Path, profile: str, failures: list) -> None:
@@ -224,6 +235,8 @@ def main() -> int:
             if program == "FLAGPRB":
                 check_console_matches_file(console, directory, "FLAGPRB.TXT", failures)
                 check_flagprb(directory, profile, failures)
+            elif program in ("EDPRB", "CBPRB"):
+                check_probes(directory, profile, program, failures)
             elif program in UNDOCUMENTED_PROGRAMS:
                 check_console_matches_file(console, directory, f"{program}.TXT", failures)
                 check_undocumented(directory, profile, program, failures)

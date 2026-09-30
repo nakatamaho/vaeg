@@ -129,6 +129,39 @@ def compare_undocumented(real: Path, refs: dict[str, Path], name: str) -> None:
         print(f"group count {len(groups)} differs from the host run ({len(host)})")
 
 
+def compare_records(title: str, real: dict, refs: dict[str, dict], label) -> None:
+    """Record-by-record verdicts for EDPRB/CBPRB; print every record that is
+    not identical to both references, and the counts."""
+    print(f"== {title}")
+    counts = Counter()
+    for key in sorted(set(refs["zilog"]) | set(real)):
+        line = real.get(key)
+        if line is None:
+            counts["MISSING"] += 1
+            print(f"{label(key)} MISSING (not run or the run stopped before it)")
+            continue
+        result = verdict(line == refs["zilog"].get(key), line == refs["upd9002"].get(key))
+        counts[result] += 1
+        if result != "BOTH":
+            print(f"{result:8} {line}")
+            for profile in pr.PROFILES:
+                if refs[profile].get(key) != line:
+                    print(f"  {profile:8} {refs[profile].get(key)}")
+    print("counts: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+
+
+def compare_edprb(real: Path, refs: dict[str, Path]) -> None:
+    compare_records("EDPRB", pr.load_edprb(real),
+                    {p: pr.load_edprb(refs[p]) for p in pr.PROFILES},
+                    lambda op: f"ED {op:02X}")
+
+
+def compare_cbprb(real: Path, refs: dict[str, Path]) -> None:
+    compare_records("CBPRB", pr.parse_cbprb(pr.read_text(real, "CBPRB.TXT")),
+                    {p: pr.parse_cbprb(pr.read_text(refs[p], "CBPRB.TXT")) for p in pr.PROFILES},
+                    lambda key: f"{key[0]} CB 02 {key[1]:02X} {key[2]}")
+
+
 def compare_zex_report(real: Path, refs: dict[str, Path], name: str, expectation: str) -> None:
     print(f"== {name}")
     groups = pr.parse_zex(pr.read_text(real, name))
@@ -205,6 +238,8 @@ def main() -> int:
         lambda: compare_zex13s(args.real_dir, refs),
         *[(lambda n=n: compare_undocumented(args.real_dir, refs, n))
           for n in ("ZEXIY.TXT", "ZEXUND.TXT", "ZEXED.TXT")],
+        lambda: compare_edprb(args.real_dir, refs),
+        lambda: compare_cbprb(args.real_dir, refs),
         *[(lambda n=n, e=e: compare_zex_report(args.real_dir, refs, n, e))
           for n, e in ZEX_REPORTS],
         lambda: compare_dumps(args.real_dir, refs),

@@ -95,5 +95,41 @@ class ParserTest(unittest.TestCase):
                              FLAGPRB.replace("\r\n", "\n"))
 
 
+ED_LINE = ("ED 4C NEXT A=A6 F=93 BC=0B0C DE=0D0E HL=2AD8 IX=2ADC IY=2AE0 SP=2B04 "
+           "M=11223344 X=11223344 Y=11223344 S=A1A2D75AE127A7A8")
+CB_LINE = "DD CB 02 40 1 A=0A F=45 BC=0B0C DE=0D0E HL=4455 IX=5178 IY=5178 M=7E"
+
+
+def ed_record(line):
+    return (line.ljust(126) + "\r\n").encode("ascii")
+
+
+class ProbeParserTest(unittest.TestCase):
+    def test_edprb_records_and_partial_file(self):
+        data = ed_record(ED_LINE) + ed_record(ED_LINE.replace("ED 4C", "ED 4D")) + b"\x1a" * 128
+        records = pr.parse_edprb(data)
+        self.assertEqual(sorted(records), [0x4C, 0x4D])
+        self.assertEqual(records[0x4C], ED_LINE)
+
+    def test_edprb_bad_record(self):
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb(ed_record("garbage"))
+        self.assertEqual(context.exception.code, "EDPRB_FORMAT")
+
+    def test_edprb_restart_files_merge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "ED00.TXT").write_bytes(ed_record(ED_LINE))
+            later = ED_LINE.replace("NEXT", "RET ")
+            Path(directory, "ED4C.TXT").write_bytes(ed_record(later))
+            self.assertEqual(pr.load_edprb(Path(directory)), {0x4C: later})
+
+    def test_cbprb(self):
+        lines = pr.parse_cbprb(CB_LINE + "\n")
+        self.assertEqual(lines, {("DD", 0x40, 1): CB_LINE})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_cbprb("DD CB 02 40 1 nonsense\n")
+        self.assertEqual(context.exception.code, "CBPRB_FORMAT")
+
+
 if __name__ == "__main__":
     unittest.main()
