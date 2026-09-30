@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M101 - µPD9002 Z80-emulation-mode flag profile and real-machine probes
 
-Status: **in progress; G101 items 1 and 2 passed, item 3 pending**
+Status: **stages A–E complete; G101 items 1–3 done, awaiting the maintainer's gate decision**
 
 Predecessor: `main` at `6fcb2992593ae8da287fa92fd77f62dec4d67d1b`
 (M100 ZEX report).
@@ -369,4 +369,27 @@ G101 is a human gate:
   `DAADUMP.TXT`, `ZEXDOC.TXT`, `ZEXALL.TXT`) are byte-identical to the host
   `host_reference.py` uPD9002 outputs of the same programs, so the main CPU
   runs the uPD9002 profile end to end.
-- Item 3 (real-machine runs) and stage E remain.
+- 2026-09-30, item 3: the maintainer ran the five programs from
+  `cpmva-zexall-test.d88` on a real PC-88VA2 under CP/MVA and returned the
+  disk through the HxC Floppy Emulator. Outputs, hashes and comparisons are
+  in `docs/agents/reports/m101_zexall_qa/`.
+
+### Stage E results
+
+1. `compare.py` (report in `docs/agents/reports/m101_zexall_qa/pc88va2/compare.txt`):
+   `FLAGPRB` matches uPD9002 in every probe; `ZEXDOC.TXT`/`ZEXALL.TXT` match
+   the uPD9002 expectation in every group except #13; both `ZEX13S` controls
+   reproduced; the DAA/CPL/SCF/CCF dumps matched neither profile.
+2. R1: P7a–P7d match uPD9002, so the storage variant stays.
+3. U1: the dumps determine R8 (CPL), R9 (SCF), R10 (CCF) and R11 (DAA)
+   unambiguously; each rule reproduces all 16,384 records of its dump.
+   Implemented in the vendored core (`m101_suzukiplan_daa_cpl_scf_ccf.patch`,
+   also added to upstream PR #61). Acceptance:
+   - the four host dumps are byte-identical to the real dumps;
+   - `<daa,cpl,scf,ccf>` gives `6096b6aa` in stock ZEXDOC and ZEXALL;
+   - full ZEXDOC and ZEXALL under uPD9002 are byte-identical to the real
+     outputs (67/67 groups each);
+   - the Zilog profile still passes 67/67 in both suites.
+4. `docs/modernization/uPD9002-zex-results.md` records R1–R11 as directly
+   observed, resolves U1 and P7, and closes O1, O4, O5, O6 and O7; O3
+   (INC/DEC IYH/IYL) stays open.
