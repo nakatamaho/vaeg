@@ -328,6 +328,92 @@ void RunRealMachineDumps() {
 }
 #endif
 
+#if defined(VAEG_M102_QA_DIR)
+// R12/R13: every record of the real PC-88VA2 CBPRB run (DD/FD CB 02 xx, two
+// input sets). IX/IY hold program addresses in the real run, so only A, F,
+// BC, DE, HL and the probed byte are compared.
+void RunRealMachineCbprb() {
+	const std::string path = std::string(VAEG_M102_QA_DIR) + "/cbprb.txt";
+	std::FILE *file = std::fopen(path.c_str(), "rb");
+	if (file == nullptr) {
+		std::printf("FAIL cannot read %s\n", path.c_str());
+		++failures;
+		return;
+	}
+	char line[128];
+	int records = 0;
+	int mismatches = 0;
+	while (std::fgets(line, sizeof(line), file) != nullptr) {
+		unsigned prefix, op, set, a, f, bc, de, hl, ix, iy, m;
+		if (std::sscanf(line,
+		                "%2x CB 02 %2x %u A=%2x F=%2x BC=%4x DE=%4x HL=%4x IX=%4x IY=%4x M=%2x",
+		                &prefix, &op, &set, &a, &f, &bc, &de, &hl, &ix, &iy, &m) != 11) {
+			continue;
+		}
+		++records;
+		Bus bus;
+		Z80 cpu(ReadMemory, WriteMemory, Input, Output, &bus);
+		cpu.setFlagProfile(Profile::Upd9002);
+		const std::uint16_t probe = 0x6000;
+		bus.memory[probe] = set == 0 ? 0x81 : 0x7e;
+		const std::uint8_t code[] = {0x01,
+		                             static_cast<std::uint8_t>(set == 0 ? 0x00 : 0xd7),
+		                             0x0a, // LD BC,AF
+		                             0xc5,
+		                             0xf1, // PUSH BC, POP AF
+		                             0x01,
+		                             0x0c,
+		                             0x0b,
+		                             0x11,
+		                             0x0e,
+		                             0x0d,
+		                             0x21,
+		                             0x55,
+		                             0x44, // BC, DE, HL
+		                             0xdd,
+		                             0x21,
+		                             (probe - 2) & 0xff,
+		                             (probe - 2) >> 8, // LD IX
+		                             0xfd,
+		                             0x21,
+		                             (probe - 2) & 0xff,
+		                             (probe - 2) >> 8, // LD IY
+		                             static_cast<std::uint8_t>(prefix),
+		                             0xcb,
+		                             0x02,
+		                             static_cast<std::uint8_t>(op),
+		                             0xf5,
+		                             0xe1}; // PUSH AF, POP HL -> F in L
+		for (std::size_t i = 0; i < sizeof(code); ++i) {
+			bus.memory[kCode + i] = code[i];
+		}
+		cpu.reg.PC = kCode;
+		cpu.reg.SP = 0xf000;
+		const std::uint16_t end = static_cast<std::uint16_t>(kCode + sizeof(code) - 2);
+		while (cpu.reg.PC != end) {
+			cpu.execute(1);
+		}
+		const unsigned got_a = cpu.reg.pair.A;
+		const unsigned got_f = cpu.reg.pair.F;
+		const unsigned got_bc = static_cast<unsigned>((cpu.reg.pair.B << 8) | cpu.reg.pair.C);
+		const unsigned got_de = static_cast<unsigned>((cpu.reg.pair.D << 8) | cpu.reg.pair.E);
+		const unsigned got_hl = static_cast<unsigned>((cpu.reg.pair.H << 8) | cpu.reg.pair.L);
+		if (got_a != a || got_f != f || got_bc != bc || got_de != de || got_hl != hl ||
+		    bus.memory[probe] != m) {
+			if (mismatches++ < 5) {
+				std::printf("FAIL cbprb %02X CB 02 %02X set %u\n", prefix, op, set);
+			}
+		}
+	}
+	std::fclose(file);
+	if (records != 1024) {
+		std::printf("FAIL cbprb: %d records, expected 1024\n", records);
+		++failures;
+	}
+	failures += mismatches;
+}
+#endif
+
 } // namespace
 
 int main() {
@@ -335,6 +421,9 @@ int main() {
 	RunDaaHighStep();
 #if defined(VAEG_M101_QA_DIR)
 	RunRealMachineDumps();
+#endif
+#if defined(VAEG_M102_QA_DIR)
+	RunRealMachineCbprb();
 #endif
 	RunAdcSbc();
 	if (failures != 0) {

@@ -1739,7 +1739,8 @@ if(VAEG_ENABLE_TESTS)
         Z80_DISABLE_NESTCHECK
         Z80_NO_EXCEPTION
         Z80_NO_FUNCTIONAL
-        "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\"")
+        "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\""
+        "VAEG_M102_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw\"")
 
     add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
