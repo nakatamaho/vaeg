@@ -172,7 +172,7 @@ must reproduce the stock binary hashes. It also builds the file-output
 variants (`zex/*-fileout.patch`), ZEX13S (`zex/zex13s.patch`), and the
 independent probes `zex/flagprb.asm` and `zex/daadump.asm` (with
 `zex/cpmio.asm`). The installer adds all of them to `cpmva-tools.d88`, and
-also writes them alone to `cpmva-test.d88`, which leaves room for their
+also writes them alone to `cpmva-zexall-test.d88`, which leaves room for their
 output files. The manifest records them under `test_programs` and
 `test_disk`. See
 [`docs/cpmva-setup.md`](../../docs/cpmva-setup.md) for use and comparison.

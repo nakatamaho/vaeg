@@ -64,7 +64,7 @@ pcengine-boot-cpmva.d88  PC-Engine boot disk copy with CPMVA files
 cpmva-tools.d88         CP/M tools and games disk
 cpmva-source.d88        source and documentation disk
 cpmva-dev.d88           BDS C development disk
-cpmva-test.d88          Z80 exercisers and uPD9002 flag probes only
+cpmva-zexall-test.d88   Z80 exercisers and uPD9002 flag probes only
 cpmva-build-manifest.json
 cpmva-install-report.txt
 ```
@@ -133,7 +133,7 @@ instruction to change FD1 in a normal session.
 ## Z80 exercisers and uPD9002 flag probes
 
 The installer also assembles the following CP/M programs with z80asm 1.8 and
-puts them on both `cpmva-tools.d88` and `cpmva-test.d88` (M101). They exist
+puts them on both `cpmva-tools.d88` and `cpmva-zexall-test.d88` (M101). They exist
 only on the disks you generate; VAEG does not distribute them.
 
 | Program | Output | Purpose |
@@ -147,7 +147,7 @@ only on the disks you generate; VAEG does not distribute them.
 The ZEX-derived programs are GPL-2.0-or-later; see
 `external/zex/provenance.txt` and ADR-0015. Output files are written to the
 current CP/M drive. `DAADUMP` needs about 130 KiB of free space, which the
-tools disk does not have. For real-machine runs, swap FD1 to `cpmva-test.d88`
+tools disk does not have. For real-machine runs, swap FD1 to `cpmva-zexall-test.d88`
 after CP/M has started, press Ctrl-C to log in the new disk, and run the
 programs from it; it holds only these programs and has room for all of their
 outputs. The ZEX runs take hours on a real PC-88VA.
