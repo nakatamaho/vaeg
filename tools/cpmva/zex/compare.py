@@ -113,6 +113,22 @@ def compare_zex13s(real: Path, refs: dict[str, Path]) -> None:
         print(f"control {name}: {found_value} ({value} {status})")
 
 
+def compare_undocumented(real: Path, refs: dict[str, Path], name: str) -> None:
+    """M102 exercisers: OK means the Zilog expected CRC; otherwise compare the
+    found CRC with the uPD9002 host run."""
+    print(f"== {name}")
+    groups = pr.parse_zex(pr.read_text(real, name))
+    host = pr.parse_zex(pr.read_text(refs["upd9002"], name))
+    for index, group in enumerate(groups):
+        signature = pr.group_signature(group)
+        host_signature = pr.group_signature(host[index]) if index < len(host) else None
+        label = verdict(group.ok, signature == host_signature)
+        found = "OK" if group.ok else f"found {group.found}"
+        print(f"{group.name:30} {found:16} {label}")
+    if len(groups) != len(host):
+        print(f"group count {len(groups)} differs from the host run ({len(host)})")
+
+
 def compare_zex_report(real: Path, refs: dict[str, Path], name: str, expectation: str) -> None:
     print(f"== {name}")
     groups = pr.parse_zex(pr.read_text(real, name))
@@ -187,6 +203,8 @@ def main() -> int:
     sections = [
         lambda: compare_flagprb(args.real_dir, refs),
         lambda: compare_zex13s(args.real_dir, refs),
+        *[(lambda n=n: compare_undocumented(args.real_dir, refs, n))
+          for n in ("ZEXIY.TXT", "ZEXUND.TXT", "ZEXED.TXT")],
         *[(lambda n=n, e=e: compare_zex_report(args.real_dir, refs, n, e))
           for n, e in ZEX_REPORTS],
         lambda: compare_dumps(args.real_dir, refs),

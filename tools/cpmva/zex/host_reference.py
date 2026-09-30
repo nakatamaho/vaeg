@@ -44,7 +44,9 @@ sys.path.insert(0, str(HERE))
 
 import probe_results as pr  # noqa: E402
 
-PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP")
+PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED")
+# M102 exercisers: every group must report OK under the Zilog profile.
+UNDOCUMENTED_PROGRAMS = ("ZEXIY", "ZEXUND", "ZEXED")
 ZEX_PROGRAMS = ("ZEXDOCF", "ZEXALLF")
 ZEX_TXT = {"ZEXDOCF": "ZEXDOC.TXT", "ZEXALLF": "ZEXALL.TXT"}
 EXPECTATION_FILES = {
@@ -113,6 +115,12 @@ def check_flagprb(directory: Path, profile: str, failures: list) -> None:
                 failures.append(
                     f"FLAGPRB_VALUE {profile} {probe.ident} {field}={actual} expected {value}"
                 )
+
+
+def check_undocumented(directory: Path, profile: str, program: str, failures: list) -> None:
+    groups = pr.parse_zex(pr.read_text(directory, f"{program}.TXT"))
+    if profile == "zilog" and not all(group.ok for group in groups):
+        failures.append(f"{program}_ZILOG_NOT_OK")
 
 
 def check_zex13s(directory: Path, profile: str, failures: list) -> None:
@@ -216,6 +224,9 @@ def main() -> int:
             if program == "FLAGPRB":
                 check_console_matches_file(console, directory, "FLAGPRB.TXT", failures)
                 check_flagprb(directory, profile, failures)
+            elif program in UNDOCUMENTED_PROGRAMS:
+                check_console_matches_file(console, directory, f"{program}.TXT", failures)
+                check_undocumented(directory, profile, program, failures)
             elif program == "ZEX13S":
                 check_console_matches_file(console, directory, "ZEX13S.TXT", failures)
                 check_zex13s(directory, profile, failures)
