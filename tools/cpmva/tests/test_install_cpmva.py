@@ -379,17 +379,18 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
 
     def test_test_disk_leaves_room_for_probe_outputs(self):
-        # Program sizes as built in M101; DAADUMP writes 4 x 32 KiB plus a
-        # one-record text file, and the other programs about 12 KiB of text.
+        # Program sizes as built in M101/M102; DAADUMP writes 4 x 32 KiB plus
+        # a one-record text file, and the other programs about 16 KiB of text.
         sizes = {
             "ZEXDOC.COM": 8590, "ZEXALL.COM": 8590, "ZEXDOCF.COM": 8997,
             "ZEXALLF.COM": 8997, "ZEX13S.COM": 9799, "FLAGPRB.COM": 2614,
-            "DAADUMP.COM": 2615,
+            "DAADUMP.COM": 2615, "ZEXIY.COM": 9792, "ZEXUND.COM": 10192,
+            "ZEXED.COM": 11356,
         }
         files = self.installer.pad_cpm_records({n: b"\x00" * v for n, v in sizes.items()}, b"\x00")
         _, info = self.installer.build_cpm_raw(files)
         free_blocks = self.installer.CPM_MAX_BLOCK + 1 - 2 - len(info["allocated_blocks"])
-        needed = 4 * (32768 // self.installer.CPM_BLOCK_SIZE) + 1 + 6
+        needed = 4 * (32768 // self.installer.CPM_BLOCK_SIZE) + 1 + 8
         self.assertGreaterEqual(free_blocks, needed)
 
     def test_test_program_build_failure_is_propagated(self):

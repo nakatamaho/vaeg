@@ -91,6 +91,9 @@ APPROVED_PATCHES = {
     "tools/cpmva/patches/cpm22-64k.patch",
     "tools/cpmva/zex/zexall-fileout.patch",
     "tools/cpmva/zex/zex13s.patch",
+    "tools/cpmva/zex/zexed.patch",
+    "tools/cpmva/zex/zexiy.patch",
+    "tools/cpmva/zex/zexund.patch",
     "tools/cpmva/zex/zexdoc-fileout.patch",
 }
 

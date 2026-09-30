@@ -263,24 +263,44 @@ def build_fileout(name: str, assembler: str) -> bytes:
     return binary
 
 
-def zex13s_source() -> str:
-    """ZEXDOC with file output and the <daa,cpl,scf,ccf> split test table."""
-    source = read_zex_source("zexdoc")
-    for patch_name in ("zexdoc-fileout.patch", "zex13s.patch"):
+# Derived exercisers: name -> (stock exerciser, patch applied after its
+# file-output patch).
+DERIVED = {
+    "zex13s": ("zexdoc", "zex13s.patch"),
+    "zexiy": ("zexall", "zexiy.patch"),
+    "zexund": ("zexall", "zexund.patch"),
+    "zexed": ("zexall", "zexed.patch"),
+}
+
+
+def derived_source(name: str) -> str:
+    """A stock exerciser with file output and a replaced test table."""
+    stock, patch = DERIVED[name]
+    source = read_zex_source(stock)
+    for patch_name in (f"{stock}-fileout.patch", patch):
         patch_path = TOOL_DIR / patch_name
         source = apply_unified_patch(source, patch_path.read_text(encoding="ascii"), patch_name)
     return source
 
 
-def build_zex13s(assembler: str) -> bytes:
-    stock = build_stock("zexdoc", assembler)
-    binary, symbols = assemble_with_symbols(translate_zmac(zex13s_source()), assembler, "zex13s")
+def zex13s_source() -> str:
+    """ZEXDOC with file output and the <daa,cpl,scf,ccf> split test table."""
+    return derived_source("zex13s")
+
+
+def build_derived(name: str, assembler: str) -> bytes:
+    stock = build_stock(DERIVED[name][0], assembler)
+    binary, symbols = assemble_with_symbols(translate_zmac(derived_source(name)), assembler, name)
     if symbols.get("msbt") != STOCK_MSBT:
-        raise BuildError("ZEX_MSBT_MOVED", f"zex13s: msbt is not at {STOCK_MSBT:04X}h")
+        raise BuildError("ZEX_MSBT_MOVED", f"{name}: msbt is not at {STOCK_MSBT:04X}h")
     start = symbols.get("start")
     if start is None or binary[: start - 0x100] != stock[: start - 0x100]:
-        raise BuildError("ZEX_PREFIX_CHANGED", "zex13s: code before start differs from stock")
+        raise BuildError("ZEX_PREFIX_CHANGED", f"{name}: code before start differs from stock")
     return binary
+
+
+def build_zex13s(assembler: str) -> bytes:
+    return build_derived("zex13s", assembler)
 
 
 def build_probe(name: str, assembler: str) -> bytes:
@@ -299,6 +319,9 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "ZEXDOCF.COM": build_fileout("zexdoc", assembler),
         "ZEXALLF.COM": build_fileout("zexall", assembler),
         "ZEX13S.COM": build_zex13s(assembler),
+        "ZEXIY.COM": build_derived("zexiy", assembler),
+        "ZEXUND.COM": build_derived("zexund", assembler),
+        "ZEXED.COM": build_derived("zexed", assembler),
         "FLAGPRB.COM": build_probe("flagprb", assembler),
         "DAADUMP.COM": build_probe("daadump", assembler),
     }
