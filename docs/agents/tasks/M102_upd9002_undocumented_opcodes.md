@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M102 - µPD9002 undocumented-opcode coverage
 
-Status: **draft; awaiting maintainer approval**
+Status: **in progress (scope A approved on 2026-09-30)**
 
 Predecessor: G101 passed; M101 merged to `main` at
 `a651ae761fb08619d0ade5cf596c356c0a1b34c7`.
@@ -46,9 +46,25 @@ ZEX also leaves several other undocumented Z80 instructions untested. The
 real-machine run costs the maintainer a disk round trip, so M102 covers O3
 and those instructions in one run.
 
+Two defects found while preparing M102 are part of its scope (maintainer
+decision A, 2026-09-30):
+
+- **ZEX descriptor bug.** Besides the DD/FD mix-up, the stock
+  `<inc,dec> ixh/ixl/iyh/iyl` counters vary the wrong field: the IX groups
+  vary IY and the IY groups vary the memory operand. All four groups
+  therefore increment and decrement one fixed value, which explains
+  `uPD9002-zex-results.md` §6 C2.
+- **Null opcode handlers in the vendored core.** suzukiplan/z80 leaves 196
+  ED entries and 90 DD and 90 FD entries of its opcode tables empty. With
+  exceptions it throws; vaeg builds with `Z80_NO_EXCEPTION`, where executing
+  such an opcode calls a null function pointer and crashes the emulator
+  (verified for ED 00, ED 4C and ED A4). A Zilog Z80 treats undefined ED
+  opcodes as two-byte NOPs, the NEG/RETN/IM duplicates as the base
+  instruction, and a DD/FD prefix before a non-index instruction as ignored.
+
 ## Scope
 
-Two ZEX-derived CP/M programs, built like `ZEX13S` (file-output ZEX,
+Three ZEX-derived CP/M programs, built like `ZEX13S` (file-output ZEX,
 separate test table, `msbt` unchanged, descriptors copied from the stock
 ones with only the named fields changed). Every group runs twice, with flag
 mask D7h and FFh. Expected CRCs are those of the Zilog profile, computed on
@@ -58,10 +74,10 @@ the host.
 
 | Group | Opcodes | Derived from | Change |
 | --- | --- | --- | --- |
-| `inc,dec ixh` | DD 24/25 | `incxh` | none |
-| `inc,dec ixl` | DD 2C/2D | `incxl` | none |
-| `inc,dec iyh` | FD 24/25 | `incyh` | prefix DDh → FDh |
-| `inc,dec iyl` | FD 2C/2D | `incyl` | prefix DDh → FDh |
+| `inc,dec ixh` | DD 24/25 | `incxh` | counter on IX (stock: IY) |
+| `inc,dec ixl` | DD 2C/2D | `incxl` | counter on IX (stock: IY) |
+| `inc,dec iyh` | FD 24/25 | `incyh` | prefix DDh → FDh; counter on IY (stock: memory operand) |
+| `inc,dec iyl` | FD 2C/2D | `incyl` | prefix DDh → FDh; counter on IY (stock: memory operand) |
 
 The IX groups are the reference for the IY groups under both masks.
 
@@ -73,6 +89,14 @@ The IX groups are the reference for the IY groups under both masks.
 | `bit n,(ix,iy+d) all` | DD/FD CB d 40–7F | `bitx` | fourth-byte counter covers all low bits |
 | `res/set (ix,iy+d) -> r` | DD/FD CB d 80–FF | `srzx` | fourth-byte counter covers all 128 opcodes |
 | `neg (all encodings)` | ED 44/4C/54/5C/64/6C/74/7C | `negop` | second-byte counter 38h |
+| `dd/fd inc,dec r` | DD/FD 04/05/0C/0D/14/15/1C/1D/3C/3D | `inca` etc. | redundant prefix before INC/DEC B, C, D, E, A |
+
+### `ZEXED.COM` → `ZEXED.TXT` (undefined ED opcodes)
+
+Groups of undefined ED opcodes, each expected to act as a two-byte NOP on a
+Zilog Z80: ED 00–3F, ED 77/7F, ED 80–9F, ED A4–A7/AC–AF/B4–B7/BC–BF and
+ED C0–FF without ED ED (CALLN) and ED FD (RETEM). This program runs last;
+an opcode that traps on the µPD9002 would stop it.
 
 The DDCB/FDCB groups include the register-copy forms (the result is also
 written to B, C, D, E, H, L or A); the ZEX machine state covers those
@@ -84,30 +108,40 @@ registers.
   PC-88VA ports, which can have side effects and do not give repeatable
   input values.
 - `ED ED` (CALLN) and `ED FD` (RETEM): µPD9002 mode-switch instructions.
-- Other undefined ED opcodes and redundant DD/FD prefixes: not needed for
-  O3, and an undefined opcode that traps would stop the run.
+- RETN and IM duplicates (ED 55/5D/65/6D/75/7D, ED 4E/66/6E/76/7E): they
+  change the return address or the interrupt mode, which the ZEX harness
+  cannot contain.
 - `LD A,R`: R is not reproducible.
 
 ### Hang protection
 
 An undocumented opcode that the µPD9002 does not implement could hang the
-program before it closes its output file. The two programs are therefore
-separate, `ZEXIY` is run first, and every result line is also shown on the
-console so that a partial run can still be read from the screen.
+program before it closes its output file. The programs are therefore
+separate and run in order `ZEXIY`, `ZEXUND`, `ZEXED`, and every result line
+is also shown on the console so that a partial run can still be read from
+the screen.
 
 ## Work
 
-1. Add `zexiy.patch` and `zexund.patch` (GPL-2.0-or-later, like
-   `zex13s.patch`) and build `ZEXIY.COM` and `ZEXUND.COM` in `zexbuild.py`
-   with the same `msbt` and prefix checks.
+0. Core fix, as a downstream patch applied through the provenance procedure
+   and offered upstream as a separate pull request: fill every empty ED, DD
+   and FD entry with the Zilog behavior (undefined ED = two-byte NOP;
+   NEG/RETN/IM duplicates = base instruction; DD/FD before a non-index
+   opcode = prefix ignored, which also covers repeated prefixes). Test all
+   256 opcodes of each table in the production configuration, and record
+   the crash in `docs/modernization/bug-fixes.md`. Until real-machine data
+   exists, the `Upd9002` profile uses the same behavior.
+1. Add `zexiy.patch`, `zexund.patch` and `zexed.patch` (GPL-2.0-or-later,
+   like `zex13s.patch`) and build `ZEXIY.COM`, `ZEXUND.COM` and `ZEXED.COM`
+   in `zexbuild.py` with the same `msbt` and prefix checks.
 2. Compute the Zilog expected CRCs on the host and record them in the
    patches. Acceptance: under the Zilog profile both programs report OK for
    every group.
 3. Record the uPD9002 host predictions. Extend `host_reference.py`,
-   `compare.py` and the parsers with the two programs.
+   `compare.py` and the parsers with the three programs.
 4. Add both programs to `cpmva-tools.d88` and `cpmva-zexall-test.d88`, and
    update `docs/cpmva-setup.md`.
-5. Real-machine run (maintainer): `ZEXIY` then `ZEXUND` from a regenerated
+5. Real-machine run (maintainer): `ZEXIY`, `ZEXUND`, then `ZEXED` from a regenerated
    `cpmva-zexall-test.d88` on a PC-88VA2, V3 mode through BRKEM as in M101.
 6. After the real outputs arrive:
    - commit them under `docs/agents/reports/m102_zexund_qa/` in the M101
