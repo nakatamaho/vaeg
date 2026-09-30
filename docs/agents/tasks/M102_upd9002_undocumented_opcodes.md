@@ -207,4 +207,18 @@ record.
   All three output files are byte-identical to the host uPD9002 reference
   of the same programs, and the emulator no longer stops on the undefined
   ED opcodes, the NEG duplicates or the redundant prefixes.
-- Real-machine run (item 2) pending.
+- 2026-09-30, real-machine run 1 (`ZEXIY`, `ZEXUND`, `ZEXED`): see
+  `docs/agents/reports/m102_zexund_qa/`. `ZEXIY.TXT` equals the uPD9002 host
+  output (O3 resolved); `ZEXUND` returned to CP/M in the NEG-duplicate group
+  and `ZEXED` hung in the ED A4–BF group (screen transcribed).
+- 2026-09-30, real-machine run 2 (`CBPRB`, `EDPRB`): `CBPRB.TXT` complete
+  and fully explained by R12/R13, which are implemented and reproduce every
+  record. `EDPRB` recorded ED 44, 45, 00–3F and 4C; ED 54 made CP/MVA exit
+  to PC-Engine ("Unknown error is detect").
+  - ED 00–3F: fall through, F = 00h, and the register pair selected by bits
+    5–4 (BC, DE, HL, SP) is loaded with 2329h in this run. The source of the
+    value is not determined yet.
+  - ED 4C: behaves as RETN.
+- Remaining real-machine work: continue `EDPRB` from ED 55 (`EDPRB 55`,
+  restarting after every opcode that stops the program), then derive the ED
+  rules. Standard gate pending.
