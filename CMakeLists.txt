@@ -874,6 +874,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_cpmva_probe_results
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_probe_results.py")
+    add_test(NAME vaeg_cpmva_extract_d88
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_extract_d88.py")
     if(NOT CMAKE_CROSSCOMPILING AND NOT MSVC)
         add_test(NAME vaeg_headless_keys
             COMMAND "${Python3_EXECUTABLE}"
