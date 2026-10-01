@@ -414,11 +414,58 @@ void RunRealMachineCbprb() {
 }
 #endif
 
+// Upstream 1.11.0 sets WZ to the effective address before an IX/IY-prefixed
+// CB instruction, so Zilog BIT n,(i+d) takes X/Y from the high byte of
+// i+d. Under Upd9002 bits 5/3 stay 0 (R1) and H is 0 (R3).
+void RunIndexedBitWz() {
+	struct Case {
+		std::uint8_t prefix;
+		std::uint8_t op;
+		std::uint8_t zilog_f;
+		std::uint8_t upd9002_f;
+	};
+	// (i+d) = 28FFh holds 80h; bit 0 is clear and bit 7 is set. 28h has
+	// bits 5 and 3 set, so the Zilog results carry 28h.
+	const Case cases[] = {
+	    {0xdd, 0x46, 0x7c, 0x44}, // BIT 0,(IX+d): Z, H, P/V, X/Y
+	    {0xdd, 0x7e, 0xb8, 0x80}, // BIT 7,(IX+d): S, H, X/Y
+	    {0xfd, 0x46, 0x7c, 0x44},
+	    {0xfd, 0x7e, 0xb8, 0x80},
+	};
+	for (const Case &c : cases) {
+		for (Profile profile : {Profile::Zilog, Profile::Upd9002}) {
+			Bus bus;
+			Z80 cpu(ReadMemory, WriteMemory, Input, Output, &bus);
+			cpu.setFlagProfile(profile);
+			bus.memory[0x28ff] = 0x80;
+			const std::uint8_t code[] = {c.prefix, 0xcb, 0x7f, c.op}; // (i+7Fh)
+			for (std::size_t i = 0; i < sizeof(code); ++i) {
+				bus.memory[kCode + i] = code[i];
+			}
+			cpu.reg.PC = kCode;
+			cpu.reg.IX = 0x2880;
+			cpu.reg.IY = 0x2880;
+			cpu.reg.WZ = 0x0000; // a stale WZ would give X/Y = 0
+			cpu.reg.pair.F = 0x00;
+			cpu.execute(1);
+			const std::uint8_t expected = profile == Profile::Zilog ? c.zilog_f : c.upd9002_f;
+			if (cpu.reg.pair.F != expected || cpu.reg.WZ != 0x28ff) {
+				std::printf("FAIL indexed BIT %02X CB 7F %02X %s: F=%02X WZ=%04X "
+				            "(expected F=%02X WZ=28FF)\n",
+				            c.prefix, c.op, profile == Profile::Zilog ? "Zilog" : "Upd9002",
+				            cpu.reg.pair.F, cpu.reg.WZ, expected);
+				++failures;
+			}
+		}
+	}
+}
+
 } // namespace
 
 int main() {
 	RunProbeTable();
 	RunDaaHighStep();
+	RunIndexedBitWz();
 #if defined(VAEG_M101_QA_DIR)
 	RunRealMachineDumps();
 #endif
