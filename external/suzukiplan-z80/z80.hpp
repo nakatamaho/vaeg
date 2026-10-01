@@ -806,6 +806,7 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIX4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IX + op3);
         if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
             // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
             // unprefixed CB opcode; memory is not modified
@@ -822,6 +823,7 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIY4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IY + op3);
         if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
             // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
             // unprefixed CB opcode; memory is not modified
