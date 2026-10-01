@@ -219,6 +219,14 @@ record.
     5–4 (BC, DE, HL, SP) is loaded with 2329h in this run. The source of the
     value is not determined yet.
   - ED 4C: behaves as RETN.
+- 2026-09-30, upstream: suzukiplan/z80 merged #60 and #61 and added #62
+  (CHANGELOG 1.11.0, master `ab97d3fa9eedc4914f82f3d9bc2abf33984d984d`).
+  #61 was merged at its first commit (R1–R7), so R8–R11 and R12/R13 are
+  offered again as [#64](https://github.com/suzukiplan/z80/pull/64); #63
+  was rebased onto the new master. The vendored core was rebased onto
+  `ab97d3f` (ADR-0011, `provenance.txt`). The only resulting code change is
+  upstream's WZ update for IX/IY-prefixed CB instructions, which changes
+  Zilog-profile `BIT n,(i+d)` X/Y; all uPD9002 host outputs are unchanged.
 - Remaining real-machine work: continue `EDPRB` from ED 55 (`EDPRB 55`,
   restarting after every opcode that stops the program), then derive the ED
   rules. Standard gate pending.
