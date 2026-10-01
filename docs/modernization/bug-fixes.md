@@ -187,6 +187,29 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Zilog BIT n,(IX+d)/(IY+d) took X/Y from a stale WZ
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** under the Zilog flag profile, `BIT n,(IX+d)` and
+  `BIT n,(IY+d)` set F bits 5 and 3 from whatever WZ (MEMPTR) held before the
+  instruction instead of from the effective address, as a Zilog Z80 does.
+  Affected: the FDC `UPD780C`, which uses the Zilog profile. The uPD9002
+  profile is not affected because R1 keeps bits 5/3 at 0.
+- **Demonstrated root cause:** the vendored core's `OP_IX4`/`OP_IY4` did not
+  update WZ before dispatching the IX/IY-prefixed CB instruction; the BIT
+  handlers read WZ for X/Y.
+- **Correction:** the vendored core was rebased onto upstream master
+  `ab97d3f` (1.11.0), which sets WZ = IX/IY + d in `OP_IX4`/`OP_IY4`
+  ([ADR-0011](../agents/DECISIONS/ADR-0011-z80-migration.md#m102-rebase-on-upstream-1110)).
+- **Verification:** `vaeg_z80_compat_flag_profile` checks F and WZ for
+  `BIT 0/7,(IX/IY+d)` under both profiles (8 failures with the previous
+  core); the host `CBPRB` Zilog output now has X/Y from the effective
+  address in the BIT rows, and the uPD9002 host outputs are byte-identical
+  to the previous reference. ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
+  test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
+
 ### uPD9002 DDCB/FDCB register forms followed the Zilog Z80
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
@@ -201,7 +224,7 @@ separate parity correction or move it to Open Defects.
 - **Correction:** R12 (BIT n,(i+d),r tests r) and R13 (RES/SET n,(i+d),r
   modify r only; memory is not written) in the `Upd9002` profile
   ([patch](../agents/reports/m102_suzukiplan_ddcb_register_forms.patch),
-  upstream [#61](https://github.com/suzukiplan/z80/pull/61)). The rotate
+  upstream [#64](https://github.com/suzukiplan/z80/pull/64)). The rotate
   forms keep the Zilog behavior, which the probe confirmed.
 - **Verification:** `vaeg_z80_compat_flag_profile` re-executes all 1,024
   real CBPRB records (560 fail without R12/R13); the host `CBPRB` output is
