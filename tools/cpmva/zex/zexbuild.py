@@ -310,6 +310,19 @@ def build_probe(name: str, assembler: str) -> bytes:
     return assemble(source + "\n" + common, assembler, name)
 
 
+def build_edprb2(name: str, assembler: str) -> bytes:
+    """Build EDPRB2 or EDPRB2S from the generated source and check that the
+    image stays clear of the sandbox and of the 2000h-2FFFh guard range."""
+    sys.path.insert(0, str(TOOL_DIR))
+    import edprb2  # noqa: E402
+
+    common = (TOOL_DIR / "cpmio.asm").read_text(encoding="ascii")
+    image = assemble(edprb2.source(name) + "\n" + common, assembler, name.lower())
+    if 0x100 + len(image) > edprb2.CODE_LIMIT:
+        raise BuildError("EDPRB2_LAYOUT", f"{name} image ends at {0x100 + len(image):#x}")
+    return image
+
+
 def build_programs(assembler: str) -> dict[str, bytes]:
     """Return CP/M file name -> program image."""
     check_assembler(assembler)
@@ -324,6 +337,8 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "ZEXED.COM": build_derived("zexed", assembler),
         "EDPRB.COM": build_probe("edprb", assembler),
         "CBPRB.COM": build_probe("cbprb", assembler),
+        "EDPRB2.COM": build_edprb2("EDPRB2", assembler),
+        "EDPRB2S.COM": build_edprb2("EDPRB2S", assembler),
         "FLAGPRB.COM": build_probe("flagprb", assembler),
         "DAADUMP.COM": build_probe("daadump", assembler),
     }

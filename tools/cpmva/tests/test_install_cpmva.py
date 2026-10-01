@@ -388,6 +388,7 @@ class InstallerTests(unittest.TestCase):
             "ZEXALLF.COM": 8997, "ZEX13S.COM": 9799, "FLAGPRB.COM": 2614,
             "DAADUMP.COM": 2615, "ZEXIY.COM": 9792, "ZEXUND.COM": 10192,
             "ZEXED.COM": 11356, "EDPRB.COM": 10679, "CBPRB.COM": 21246,
+            "EDPRB2.COM": 7464, "EDPRB2S.COM": 2625,
         }
         files = self.installer.pad_cpm_records({n: b"\x00" * v for n, v in sizes.items()}, b"\x00")
         _, info = self.installer.build_cpm_raw(files)
@@ -395,7 +396,10 @@ class InstallerTests(unittest.TestCase):
         block = self.installer.CPM_BLOCK_SIZE
         daadump = 4 * (32768 // block) + 1
         m102 = -(-73728 // block) + 2 * -(-24448 // block) + 8
-        needed = max(daadump, m102)
+        # EDPRB2: 173 opcodes x 3 sets x 256 bytes without '+', plus a few
+        # restarted files, and EDPRB2S (9 x 3 x 256).
+        edprb2 = -(-(173 * 3 * 256) // block) + 4 + -(-(9 * 3 * 256) // block)
+        needed = max(daadump, m102, edprb2)
         self.assertGreaterEqual(free_blocks, needed)
 
     def test_test_program_build_failure_is_propagated(self):

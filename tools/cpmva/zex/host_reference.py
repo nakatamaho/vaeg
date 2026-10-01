@@ -42,10 +42,14 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 
+import edprb2  # noqa: E402
 import probe_results as pr  # noqa: E402
 
 PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED", "EDPRB",
-                  "CBPRB")
+                  "CBPRB", "EDPRB2", "EDPRB2S")
+# Command tails: the host also runs the opcodes that leave the emulation mode.
+PROGRAM_TAILS = {"EDPRB2": "00+", "EDPRB2S": "00+"}
+EDPRB2_PREFIX = {"EDPRB2": "E2", "EDPRB2S": "S2"}
 EDPRB_RECORDS = 191
 CBPRB_LINES = 1024
 # M102 exercisers: every group must report OK under the Zilog profile.
@@ -90,9 +94,10 @@ def load_zexbuild():
 def run_program(runner: Path, profile: str, program: Path, directory: Path) -> str:
     directory.mkdir(parents=True, exist_ok=True)
     console = directory / f"{program.stem}.console"
+    tail = PROGRAM_TAILS.get(program.stem)
     result = subprocess.run(
         [str(runner), "--profile", profile, "--dir", str(directory),
-         "--console", str(console), str(program)],
+         "--console", str(console), *(["--tail", tail] if tail else []), str(program)],
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False,
     )
     if result.returncode != 0:
@@ -130,6 +135,10 @@ def check_probes(directory: Path, profile: str, program: str, failures: list) ->
     if program == "EDPRB":
         if len(pr.load_edprb(directory)) != EDPRB_RECORDS:
             failures.append(f"EDPRB_COUNT {profile}")
+    elif program in EDPRB2_PREFIX:
+        records = pr.load_edprb2(directory, EDPRB2_PREFIX[program])
+        if len(records) != edprb2.record_count(program):
+            failures.append(f"{program}_COUNT {profile}")
     elif len(pr.parse_cbprb(pr.read_text(directory, "CBPRB.TXT"))) != CBPRB_LINES:
         failures.append(f"CBPRB_COUNT {profile}")
 
@@ -235,7 +244,7 @@ def main() -> int:
             if program == "FLAGPRB":
                 check_console_matches_file(console, directory, "FLAGPRB.TXT", failures)
                 check_flagprb(directory, profile, failures)
-            elif program in ("EDPRB", "CBPRB"):
+            elif program in ("EDPRB", "CBPRB", *EDPRB2_PREFIX):
                 check_probes(directory, profile, program, failures)
             elif program in UNDOCUMENTED_PROGRAMS:
                 check_console_matches_file(console, directory, f"{program}.TXT", failures)

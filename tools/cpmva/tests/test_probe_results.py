@@ -97,6 +97,9 @@ class ParserTest(unittest.TestCase):
 
 ED_LINE = ("ED 4C NEXT A=A6 F=93 BC=0B0C DE=0D0E HL=2AD8 IX=2ADC IY=2AE0 SP=2B04 "
            "M=11223344 X=11223344 Y=11223344 S=A1A2D75AE127A7A8")
+E2_LINE = ("ED 64 1 RST  R=0331 L=0000 A=5B F=13 BC=0150 DE=3404 HL=3C04 IX=4404 "
+           "IY=4C04 SP=5404 B=88898A8B8C8D8E8F D=98999A9B9C9D9E9F H=A8A9AAABACADAEAF "
+           "X=B8B9BABBBCBDBEBF Y=C8C9CACBCCCDCECF S=D8D931037917DEDF O=CFCFCFCFCFCFCFCF")
 CB_LINE = "DD CB 02 40 1 A=0A F=45 BC=0B0C DE=0D0E HL=4455 IX=5178 IY=5178 M=7E"
 
 
@@ -122,6 +125,24 @@ class ProbeParserTest(unittest.TestCase):
             later = ED_LINE.replace("NEXT", "RET ")
             Path(directory, "ED4C.TXT").write_bytes(ed_record(later))
             self.assertEqual(pr.load_edprb(Path(directory)), {0x4C: later})
+
+    def test_edprb2_records_merge_by_opcode_and_set(self):
+        def record(line):
+            return (line.ljust(254) + "\r\n").encode("ascii")
+
+        other = E2_LINE.replace("ED 64 1", "ED 64 2")
+        data = record(E2_LINE) + record(other) + b"\x1a" * 128
+        self.assertEqual(sorted(pr.parse_edprb2(data)), [(0x64, 1), (0x64, 2)])
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "E200.TXT").write_bytes(record(E2_LINE))
+            later = E2_LINE.replace("RST ", "FALL")
+            Path(directory, "E264.TXT").write_bytes(record(later))
+            Path(directory, "S200.TXT").write_bytes(record(other))
+            self.assertEqual(pr.load_edprb2(Path(directory), "E2"), {(0x64, 1): later})
+            self.assertEqual(pr.load_edprb2(Path(directory), "S2"), {(0x64, 2): other})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb2(record("ED 64 1 garbage"))
+        self.assertEqual(context.exception.code, "EDPRB2_FORMAT")
 
     def test_cbprb(self):
         lines = pr.parse_cbprb(CB_LINE + "\n")

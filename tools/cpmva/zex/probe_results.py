@@ -198,6 +198,40 @@ def load_edprb(directory: Path) -> dict[int, str]:
     return merged
 
 
+EDPRB2_RECORD = 256
+_EDPRB2 = re.compile(
+    r"^ED ([0-9A-F]{2}) ([0-2]) (FALL|RET |RST ) R=[0-9A-F]{4} L=[0-9A-F]{4} "
+    r"A=[0-9A-F]{2} F=[0-9A-F]{2} .* O=[0-9A-F]{16}$")
+
+
+def parse_edprb2(data: bytes) -> dict[tuple[int, int], str]:
+    """E2xx.TXT / S2xx.TXT: one 256-byte record per opcode and input set ->
+    {(opcode, set): line}."""
+    records = {}
+    usable = len(data) - len(data) % EDPRB2_RECORD
+    for offset in range(0, usable, EDPRB2_RECORD):
+        record = data[offset : offset + EDPRB2_RECORD]
+        if record.strip(b"\x1a") == b"":
+            break
+        line = record.decode("ascii").rstrip("\r\n ")
+        match = _EDPRB2.match(line)
+        if not match:
+            raise ResultError("EDPRB2_FORMAT", f"bad record at {offset}: {line[:40]}")
+        records[(int(match.group(1), 16), int(match.group(2)))] = line
+    return records
+
+
+def load_edprb2(directory: Path, prefix: str) -> dict[tuple[int, int], str]:
+    """Merge every <prefix>??.TXT in a directory (restarted runs); later start wins."""
+    merged = {}
+    pattern = re.compile(prefix + r"[0-9A-F]{2}\.TXT")
+    for path in sorted(p for p in directory.iterdir() if pattern.fullmatch(p.name.upper())):
+        merged.update(parse_edprb2(path.read_bytes()))
+    if not merged:
+        raise ResultError("FILE_MISSING", f"no {prefix}??.TXT in {directory}")
+    return merged
+
+
 def parse_cbprb(text: str) -> dict[tuple[str, int, int], str]:
     """CBPRB.TXT -> {(prefix, opcode, set): line}."""
     lines = {}
