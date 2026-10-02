@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M103b — FDD interface fast transfer read garbage from port FDh
+
+- **Symptom/scope:** a PC-8801-style disk loader using the 8255 fast
+  protocol (main ports A and B both input) read header words `FF00h`
+  and then waited forever. Affects any guest code that reads main port
+  FDh or writes main port FCh; V3 transfers were unaffected.
+- **Demonstrated cause:** of the four cross-wired 8255 data paths only
+  main B→sub A and sub B→main A were connected; the main side also had no
+  `IN FDh`/`OUT FCh` handlers, so sub port A output never reached the main.
+- **Correction:** connect sub A→main B and main A→sub B through the
+  existing callbacks and attach the missing main handlers. Saved `_I8255`
+  layouts are unchanged.
+- **Verification:** a production-seam test exchanging distinct bytes on
+  all four paths fails without the fix and passes with it (`vaeg
+  --selftest`); full local CTest has no failures (106 entries, one external
+  SST skipped). Integration BASIC then receives a valid header and
+  completes the transfer; BASIC boot completion is not yet established.
+- **Task/evidence/commit:** [M103b FDD fast-transfer data path](../agents/tasks/M103b_v1v2_mode_plumbing.md#fdd-fast-transfer-data-path).
+  Fix: [331e6759](https://github.com/nakatamaho/vaeg/commit/331e6759a20de2a04b98554d98238a8f8c605001).
+
 ### M103b — Memory-mode control readback ignored guest writes
 
 - **Symptom/scope:** port `153h` bit 6 always read as V3 even after the
