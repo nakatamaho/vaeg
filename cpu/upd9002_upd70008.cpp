@@ -378,7 +378,7 @@ extern "C" void upd9002_upd70008_register(void) {
 }
 
 #if defined(VAEG_UPD9002_M76_TESTING)
-extern "C" int upd9002_upd70008_compat_selftest(void) {
+static int compat_entry_selftest(UINT8 entry_opcode) {
 	const UINT16 code_segment = 0x2000;
 	const UINT16 native_stack_segment = 0x3000;
 	const UINT16 code_offset = 0x0100;
@@ -421,7 +421,7 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	mem[(0x00e2U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
 
 	mem[code_base + code_offset + 0] = 0x0f;
-	mem[code_base + code_offset + 1] = 0xff;
+	mem[code_base + code_offset + 1] = entry_opcode;
 	mem[code_base + code_offset + 2] = 0xe1;
 	mem[code_base + compatible_offset + 0] = 0x3e;
 	mem[code_base + compatible_offset + 1] = 0x42;
@@ -451,7 +451,11 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 
 	upd9002_core_step();
 	if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_CS != code_segment) ||
-	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa)) {
+	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa) ||
+	    (CPU_DS != code_segment) || (CPU_SS != native_stack_segment) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fa) != code_offset + 3) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fc) != code_segment) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fe) != 0xf202)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
@@ -536,6 +540,17 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	}
 	upd9002_core_deinitialize();
 	return passed ? SUCCESS : FAILURE;
+}
+
+extern "C" int upd9002_upd70008_compat_selftest(void) {
+	const UINT8 encodings[] = {0xff, 0xfe};
+	for (UINT8 encoding : encodings) {
+		if (compat_entry_selftest(encoding) != SUCCESS) {
+			std::fprintf(stderr, "compatible entry selftest failed: 0F %02X\n", encoding);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
 }
 
 // M103a: alternate register storage and the load-before-enter vector reader.

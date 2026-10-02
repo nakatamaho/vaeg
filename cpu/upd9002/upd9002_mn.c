@@ -3646,10 +3646,13 @@ UPD9002FN _ope0x0f(void) { // 0F:
 
 	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	upd9002_perf_record_0f((UINT8)op);
-	if (op == 0xff) {
+	if (op == 0xff || op == 0xfe) {
+		/* BRKEM and BRKEM2 share the compatible-mode entry policy.
+		 * The system memory mode is selected independently by port 153h. */
 		UPD9002_IP++;
 		vector = upd9002_memoryread(CS_BASE + UPD9002_IP);
 		UPD9002_IP++;
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
 		upd9002_core_brkem(vector);
 		return;
 	}

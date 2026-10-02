@@ -39,7 +39,7 @@ int upd9002_brkem_upd70008_main(void) {
 		return FAILURE;
 	}
 	fprintf(stderr,
-	        "upd9002-brkem-upd70008: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
+	        "upd9002-brkem-upd70008: BRKEM/BRKEM2, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage, state authority and "
 	                "load-before-enter vector reader passed\n");
 	return SUCCESS;

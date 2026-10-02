@@ -2505,16 +2505,22 @@ compatible-mode entry, so it is not a drop-in answer.
   `SS:SP` transition frame. Compatible `SP` maps to native `BP`, `IX`/`IY`
   map to native `SI`/`DI`, and the compatible Z80 state is saved in a
   versioned 68-byte `UPD9Z80` section.
-- `0F FE imm8` (`BRKEM2`), full VA I/O-trap semantics, and silicon-specific
-  interrupt/timing behavior remain outside this Stage 1 implementation.
+- M103b adds `0F FE imm8` (`BRKEM2`) using the same transition helper as
+  `BRKEM`. Both encodings pass the ROM-less round-trip test, including
+  the saved native return frame. This is implementation policy, not
+  silicon validation of the unknown frame/latch differences in §15.2.
+  The `compat-entry` trace event records opcode byte FE/FF in `address`
+  and vector in `value`; port `153H` is not changed by either instruction.
+- Full VA I/O-trap semantics and silicon-specific interrupt/timing
+  behavior remain outside this implementation.
 - `BRKEM`/`BRKEM2` are modelled as mode-changing control transfers, not
   ordinary software interrupts.
 
 ### 14.1 Stage 1 implementation boundary
 
 The production-path ROMless regression
-`vaeg_upd9002_brkem_upd70008` executes a native `BRKEM`, Z80 `JR`, `IX` and `IY`
-loads, `CALLN` into native code, native `IRET`, `LD HL`, and `RETEM`. The
+`vaeg_upd9002_brkem_upd70008` executes both native entry encodings
+(`BRKEM` and, since M103b, `BRKEM2`), Z80 `JR`, `IX` and `IY` loads, `CALLN` into native code, native `IRET`, `LD HL`, and `RETEM`. The
 transition test uses the same C dispatch path as the main CPU and the same
 Z80 wrapper used by the FDD, but owns an independent instance and state
 section.

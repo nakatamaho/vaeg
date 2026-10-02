@@ -41,8 +41,8 @@ by firmware (§9). Everything else — the 8801 I/O ports, the text and
 graphics display, the FDD sub-system — is **VA hardware operating in a
 compatibility configuration** that the firmware programs in V3 mode
 before the handoff. vaeg has the compatible instruction adapter
-(M76–M103a), but not the `BRKEM2` entry encoding. The rest of this page
-covers that missing entry and the machine side.
+(M76–M103a); M103b now decodes `BRKEM2` using the existing entry routine.
+The rest of this page covers the machine side still needed to boot.
 
 ## 2. Memory: the 88-mode window
 
@@ -178,7 +178,7 @@ PC key unpressed observed this VA2 ROM sequence (emulator observation,
 | `13A8h`–`13AFh` | set DS to `1000h` and ES to zero |
 | `13B1h` | execute `0F FE 90`, the unsupported `BRKEM2 90h` entry |
 
-The diagnostic reports `reserved 0f fe` at `13B2h`, the position of the
+The pre-implementation diagnostic reports `reserved 0f fe` at `13B2h`, the position of the
 second opcode byte, not the instruction start. It does **not** establish
 successful compatible-mode entry or BASIC execution. The temporary SW7
 force and diagnostic prints are not production changes. A boot option
@@ -190,7 +190,7 @@ forcing `000Dh` bit 2 alone is insufficient.
 | Piece | Status |
 |---|---|
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
-| `BRKEM2` (`0F FE nn`) | missing; `BRKEM` exists |
+| `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | ignored (`io/memctrlva.c` reads back `0x40` always) |
 | 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | missing |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |

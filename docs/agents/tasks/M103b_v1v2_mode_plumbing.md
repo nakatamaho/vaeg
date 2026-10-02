@@ -39,8 +39,10 @@ Make the VA2 boot ROM take its own V1/V2 path end to end: boot selection,
 display/memory setup in V3, `153H` bit 6 ← 0, I/O trap on, `BRKEM2 90h`,
 and N88-BASIC running from `1000:0000` inside the 88-mode window until it
 waits for the keyboard. No display or keyboard work in this milestone; the
-gate is trace-based. Every new path is behind the configuration flag
-`v1v2_boot` (off by default), so V3 behaviour is unchanged.
+gate is trace-based. New boot selection is behind the configuration flag
+`v1v2_boot` (off by default). The BRKEM2 decoder is available independently,
+just as BRKEM is; it does not select the memory map or force a boot path.
+Verify the unchanged default V3 boot at the human gate.
 
 ## Scope
 
@@ -48,10 +50,11 @@ gate is trace-based. Every new path is behind the configuration flag
    uPD70008-compatible mode through vector `nn` exactly as `BRKEM` does
    (ADR/CPU document §2.2.2: no architectural difference has been found;
    the machine-level switch is the `153H` write four instructions earlier).
-   Keep one implementation with a flag recording which encoding entered,
-   for the trace and for `brkem2-target` (§15.2) should a difference
-   appear later. Opcode-table and disassembler entries; self-test in the
-   M76 harness.
+   Keep one implementation and record the entry encoding in a trace
+   event for `brkem2-target` (§15.2) should a difference appear later.
+   Decode in the existing `0F` dispatcher; self-test in the M76 harness.
+   There is no native instruction disassembler in the active tree (the
+   uPD780 disassembler is unrelated); no disassembler entry is added.
 2. **Boot selection.** Preserve the existing active-low PC-key input
    (`000Dh` bit 2) in `io/serial.c`. Port `40h` bit 3 is SW7: zero tries
    intelligent-FDD boot; one skips it. The diagnostic trace with SW7=1
@@ -123,6 +126,20 @@ with `v1v2_boot` off**, plus, with `v1v2_boot` on and the VA2 ROM set:
   keyboard-scan loop on ports `00h`–`0Eh` (which read as no key);
 - no trap fires outside `50h`–`5Bh`/`60h`–`6Fh`, and every trap that
   fires returns through the ROM handler with the IP advanced.
+
+## Implementation progress
+
+- `0F FE imm8` now shares the existing `BRKEM` entry routine; this is an
+  implementation policy, not a measured proof of complete architectural
+  equivalence. No memory-mode bit is changed by the instruction.
+- `compat-entry` CPU trace events record the second opcode byte in
+  `address` (`FE` or `FF`) and the vector in `value`. No persistent CPU
+  field or save-state format change is needed for this diagnostic.
+- The production-adapter test runs both entry encodings, checks the
+  six-byte native return frame and preserved DS/SS, then exercises
+  compatible instructions, CALLN, nested native interrupt/IRET, RETEM,
+  and compatible-state restore. This is ROM-less testing, not G103b.
+- SW7 configuration, memory mapping and I/O trapping remain pending.
 
 ## Research notes for the implementer
 
