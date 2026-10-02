@@ -32,6 +32,9 @@
 
 #include "compiler.h"
 #include "io/subsystem.h"
+#include "machine/pccore.h"
+#include "io/iocore.h"
+#include "io/subsystemif.h"
 
 namespace {
 
@@ -363,6 +366,33 @@ void TestEiStateBoundary() {
 	        "restored EI boundary changed following instruction or IRQ timing");
 }
 
+// The fast transfer protocol reads both data ports on each side, so all
+// four cross-wired data paths must carry values in both directions.
+void TestCrossWiredDataPorts() {
+	Reset();
+	iocore_create();
+	Require(iocore_build() == SUCCESS, "main I/O map was not built");
+	subsystemif_initialize();
+	subsystemif_reset();
+	subsystemif_bind();
+	iocore_out8(0xff, 0x93); // Main: ports A and B input.
+	Install(0x0000, {0x3e, 0x80, 0xd3, 0xff, 0x3e, 0x5a, 0xd3, 0xfc, 0x3e, 0xa5, 0xd3, 0xfd,
+	                 0x3e, 0x92, 0xd3, 0xff, 0xdb, 0xfd, 0x47, 0xdb, 0xfc});
+	subsystem_upd780_test_set_pc(0x0000);
+	ExecAt(54); // Sub: ports A and B output, A=5Ah, B=A5h.
+	Require(iocore_inp8(0xfd) == 0x5a && iocore_inp8(0xfc) == 0xa5,
+	        "sub-to-main data ports are not cross-wired");
+	ExecAt(72); // Sub: ports A and B input.
+	iocore_out8(0xff, 0x80);
+	iocore_out8(0xfc, 0x3c);
+	iocore_out8(0xfd, 0xc3);
+	ExecAt(98); // Sub: B <- IN FDh, A <- IN FCh.
+	const VAEG_UPD780_INTEGRATION_CPU_STATE state = State();
+	Require((state.bc >> 8) == 0x3c && (state.af >> 8) == 0xc3 && state.live_pc == 0x0015,
+	        "main-to-sub data ports are not cross-wired");
+	iocore_destroy();
+}
+
 } // namespace
 
 extern "C" int vaeg_upd780_subsystem_integration_test(void) {
@@ -376,6 +406,7 @@ extern "C" int vaeg_upd780_subsystem_integration_test(void) {
 	TestEiBeforeSleepHypothesis();
 	TestFddBoundary();
 	TestEiStateBoundary();
+	TestCrossWiredDataPorts();
 	std::fprintf(stderr, "subsystem-integration[%s]: all tests passed\n", kCoreName);
 	return SUCCESS;
 }

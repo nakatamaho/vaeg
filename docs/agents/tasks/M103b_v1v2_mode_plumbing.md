@@ -214,6 +214,28 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   capture exits 0 but proves neither boot completion nor the suspected
   cause of initialization repeating (plan §2.2).
 
+### FDD fast-transfer data path
+
+- After the GVRAM plane mapping, integration BASIC no longer restarted
+  within the traced range and reached its RAM-resident disk loader. The
+  loader uses the fast protocol: main writes `93h` to port FFh (8255
+  ports A and B input) and reads two bytes per handshake from FCh and FDh.
+  The first two header words read as `FF00h`, then the loader waited
+  forever for more data (sub CPU side had stopped).
+- Demonstrated cause: only main B→sub A and sub B→main A were wired;
+  sub A→main B and main A→sub B were absent, and the main side had no
+  `IN FDh` or `OUT FCh` handler. V3 transfers use only the wired paths.
+- Correction: complete the cross-wiring (main A↔sub B, main B↔sub A)
+  through the existing `busout`/`businport` callbacks and attach main
+  `IN FDh`/`OUT FCh`. The saved `_I8255` structures are unchanged.
+- Verification: a new production-seam test in the uPD780 integration
+  suite exchanges distinct bytes over all four data paths. It failed
+  without the correction (`sub-to-main data ports are not cross-wired`)
+  and passes with it inside `vaeg --selftest`. With the correction the
+  BASIC loader receives header `8800h`/`1600h`, completes its transfer
+  (BC reaches zero) and proceeds to a delay loop. Boot completion is not
+  claimed. The selftest entry is not itself a CTest case.
+
 ### I/O trap register stage
 
 - `FFE0h`–`FFE7h` and `FFEFh` writes now latch in a separate
