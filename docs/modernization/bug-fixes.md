@@ -210,6 +210,39 @@ separate parity correction or move it to Open Defects.
   fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
   test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
 
+### uPD9002 undefined ED opcodes followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undefined ED opcodes executed as two-byte NOPs or Zilog NEG/RETN
+  duplicates. On a real µPD9002 they are a large, visible instruction set:
+  loads from the native-side interrupt vector table, RRD/RLD variants,
+  word block transfers and three-byte no-operations. Guest software
+  running in V1/V2/V3 Z80 emulation observed wrong register, flag and
+  memory results for all of them.
+- **Demonstrated root cause:** the vendored core had no measured µPD9002
+  behavior for these encodings; eight real-machine probe runs
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md), runs 2–8)
+  established rules R14–R19, including the reduction of the ED 00–3F value
+  to a C-indexed read of the x86 IVT page (EDPRB3 isolation, INPRB
+  refutation of the I/O hypothesis, EDPRB4 full sweep).
+- **Correction:** R14–R19 in the `Upd9002` profile of the vendored core
+  ([patch](../agents/reports/m102_upd9002_undefined_ed_semantics.patch)),
+  with the native page read wired through
+  `Z80CompatCpu::SetNativeVectorRead` to `upd9002_memoryread` so V3-mode
+  guests read the live IVT. Unmeasurable mode exits (ED 54/55/AC/EE–FC),
+  the ED 5C hang and the ED 5D fault keep the Zilog fallback.
+- **Verification:** the uPD9002 host references reproduce all 911
+  real-machine probe records byte for byte (EDPRB2 513, EDPRB2S 27,
+  EDPRB3 28, EDPRB4 256, run-2 EDPRB 67) with the run-8 IVT fixture in the
+  CP/M runner; the wrapper contract test asserts the new semantics; the
+  upstream suite and ctest (112/112) pass; Zilog profile outputs are
+  unchanged.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [d90a6cd9](https://github.com/nakatamaho/vaeg/commit/d90a6cd997086269f297e56e09e20aafee7c408f),
+  wiring [2125b159](https://github.com/nakatamaho/vaeg/commit/2125b159c2b0a0235601083e0046513246cca453),
+  runner [97f04efe](https://github.com/nakatamaho/vaeg/commit/97f04efe53ed070834aed42f14142fb47712591f).
+
 ### uPD9002 DDCB/FDCB register forms followed the Zilog Z80
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.

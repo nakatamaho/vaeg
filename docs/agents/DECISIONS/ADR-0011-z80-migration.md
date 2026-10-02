@@ -565,6 +565,7 @@ extension rebased onto the base (its `test/Makefile` conflict resolved):
 | [R12/R13](../reports/m102_upstream_upd9002_ddcb_register_forms.patch) | `8eb861d3f79508af85e8b21d5993cb065ec295b561ae6da993dd5a36188ed9dd` |
 | [Undefined opcodes (#63)](../reports/m102_upstream_undefined_opcodes.patch) | `4d622e1cd327e58e45b7614e8cfd2ecd95ab01a876c2562b9ea1392cadc54ab9` |
 | [M35 IRQ extension on 1.11](../reports/m102_m35_irq_extension_on_1_11.patch) | `76e50ec777c1f6117f95faa2455d5625046329e778f183f4786c0d362a7b9ce8` |
+| [uPD9002 undefined ED semantics](../reports/m102_upd9002_undefined_ed_semantics.patch) | `678746bb8a7ae69f0d92cb959776839f6016bbcc70fff53d2a9dc91bc88c01cb` |
 
 `git am --committer-date-is-author-date` from `ab97d3f` reproduces commit
 `3ce76465df732e38aab5b3f31642a3a5a7351872`, tree

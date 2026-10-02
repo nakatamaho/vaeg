@@ -227,6 +227,27 @@ record.
   `ab97d3f` (ADR-0011, `provenance.txt`). The only resulting code change is
   upstream's WZ update for IX/IY-prefixed CB instructions, which changes
   Zilog-profile `BIT n,(i+d)` X/Y; all uPD9002 host outputs are unchanged.
-- Remaining real-machine work: continue `EDPRB` from ED 55 (`EDPRB 55`,
-  restarting after every opcode that stops the program), then derive the ED
-  rules. Standard gate pending.
+- 2026-10-01/02, real-machine runs 3–8 (see
+  `docs/agents/reports/m102_zexund_qa/`): run 3 continued `EDPRB` with
+  restarts (termination notes transcribed; the probe's unsandboxed BC/DE
+  proved to corrupt the program). `EDPRB2`/`EDPRB2S` (runs 4–5) re-measured
+  every opcode with sandboxed pointers, three input sets and an RST-sled
+  length detector; `EDPRB3` (run 7) reduced the ED 00–3F value to a
+  function of C alone; `INPRB` (run 6) refuted the I/O-read hypothesis;
+  `EDPRB4` (run 8) swept all 256 C values and reconstructed the hidden
+  page as the live x86 interrupt vector table. Rules R14–R19 are recorded
+  in `docs/modernization/uPD9002-zex-results.md` §10.
+- Implementation: vendor patch
+  `m102_upd9002_undefined_ed_semantics.patch` adds R14–R19 to
+  `FlagProfile::Upd9002` with the `upd9002VectorRead` callback;
+  `Z80CompatCpu::SetNativeVectorRead` wires it, and the uPD9002 adapter
+  feeds `upd9002_memoryread` (live guest IVT). The CP/M runner carries the
+  run-8 page as a fixture; the uPD9002 host references reproduce all 911
+  real-machine probe records byte for byte. `ZEXED`, `ZEXUND` and `EDPRB`
+  are partial under the uPD9002 profile by design, matching the real
+  machine. The installer also emits `cpmva-zexall-test.2d.d88` (2D media
+  byte) for real-disk writing, and `extract_d88.py --drop-entry` recovers
+  a disk with one corrupted directory entry.
+- Remaining: static MinGW build and the standard human gate (G102),
+  including running `EDPRB3`/`EDPRB4` under CP/MVA inside vaeg to confirm
+  the live-IVT wiring end to end.
