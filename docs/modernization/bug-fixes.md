@@ -210,6 +210,27 @@ separate parity correction or move it to Open Defects.
   fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
   test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
 
+### Undefined ED vector page read as zeros after loading a state
+
+- **Status:** fixed on `topic/m103a-alt-registers`.
+- **Symptom/scope:** when a state saved in the uPD70008-compatible mode was
+  loaded into a fresh vaeg process (no mode entry since start), the
+  undefined ED 00–3F/74/75/77 returned 0000h instead of the guest's IVT
+  words until the next BRKEM, so guest code resumed from such a state saw
+  different values than before the save.
+- **Demonstrated root cause:** `StateLoad()` initialised the compat core
+  with `SetFlagProfile` and `Init` but, unlike `Enter()`, never installed
+  the `SetNativeVectorRead` callback added in M102; the core's default
+  reader returns 0x00.
+- **Correction:** `Enter()` and `StateLoad()` share `InitializeCore()`,
+  which installs the reader.
+- **Verification:** `upd9002_upd70008_alt_regs_selftest` (test
+  `vaeg_upd9002_brkem_upd70008`) loads a compat blob before any entry and
+  executes `ED 20` with the IVT word 2800h at bytes 30h/31h; it fails with
+  0000h without the fix.
+- **Task/evidence/commit:** [M103a task](../agents/tasks/M103a_alternate_register_storage.md);
+  fix [b441a558](https://github.com/nakatamaho/vaeg/commit/456fd39c555a2761e986c1012de4863d).
+
 ### uPD9002 undefined ED opcodes followed the Zilog Z80
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
