@@ -188,8 +188,8 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   remains pending. No undocumented register readback is added.
 - The production I/O test compares the ROM's descending byte writes
   with ascending word writes, checks reset, and checks that disabling
-  the control preserves ranges. Range matching and actual instruction
-  interception are not enabled by this register-only stage.
+  the control preserves ranges. The subsequent compatible interception
+  stage below now consumes this register state.
 - ROM inspection establishes a compatible-specific handler: VA2 vectors
   7Ch/7Dh both point to `F000:1944`. It saves eight words before assigning
   BP, reads the saved far instruction address at `[BP+10h]`, and decodes
@@ -198,6 +198,27 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   restores registers and executes IRET. This supports trapping before
   executing a two-byte compatible I/O instruction; prefix and block-I/O
   details still need explicit tests rather than assumptions.
+
+### Compatible I/O interception stage
+
+- Immediate `DB`/`D3` and ordinary ED IN/OUT forms (`40/41` through
+  `78/79`, including `70/71`) are checked before execution. Enabled
+  directions match the low-byte inclusive ranges. A match transfers to
+  native vector 7Ch/7Dh, saving the original instruction IP and disabling
+  interrupts/tracing flags after saving the frame. No device I/O occurs.
+  The existing pending-return mechanism resumes through native IRET.
+- The adapter test exercises all 18 encodings under both BRKEM entries,
+  using spy ports to assert zero device callbacks and checking the saved
+  IP, stack depth, interrupt disable, unchanged accumulator and IRET
+  restoration. The synthetic handler intentionally retries the same IP
+  to test successive forms. Real-ROM traces separately demonstrate IP+2:
+  BASIC `1000:3BD3` (`D3 53`) → `F000:1944` → `1000:3BD5`.
+- A 600-frame automatic-FDD BASIC run exits 0 and captures trap/return
+  events; this does not establish a BASIC prompt. Raw logs stay outside
+  Git. Native x86 interception, FFEF bit-4 native port matching, block
+  I/O, redundant DD/FD prefixes, and accurate trap timing remain pending.
+  Compatible interception currently uses the low port byte and shared
+  CALLN transition timing as an explicit partial implementation policy.
 
 ## Research notes for the implementer
 
