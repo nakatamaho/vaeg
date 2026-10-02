@@ -117,18 +117,24 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		counter_.SetRemainclock(0);
 	}
 
+	// Shared by Enter() and StateLoad() so that a state loaded before the
+	// first mode entry also gets the native vector reader (M102 fix).
+	bool InitializeCore() {
+		upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
+		// Undefined ED 00-3F/74/75/77 read the native-side physical
+		// page 0 (the x86 IVT); measured on a real PC-88VA2 (M102).
+		upd70008_.SetNativeVectorRead(
+		    [](void *, std::uint8_t index) -> std::uint8_t {
+			    return static_cast<std::uint8_t>(upd9002_memoryread(index));
+		    },
+		    nullptr);
+		initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
+		return initialized_;
+	}
+
 	void Enter() {
 		if (!initialized_) {
-			upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
-			// Undefined ED 00-3F/74/75/77 read the native-side physical
-			// page 0 (the x86 IVT); measured on a real PC-88VA2 (M102).
-			upd70008_.SetNativeVectorRead(
-			    [](void *, std::uint8_t index) -> std::uint8_t {
-				    return static_cast<std::uint8_t>(upd9002_memoryread(index));
-			    },
-			    nullptr);
-			initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
-			if (!initialized_) {
+			if (!InitializeCore()) {
 				return;
 			}
 		}
@@ -260,9 +266,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return FAILURE;
 		}
 		if (!initialized_) {
-			upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
-			initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
-			if (!initialized_) {
+			if (!InitializeCore()) {
 				return FAILURE;
 			}
 		}
@@ -532,5 +536,162 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	}
 	upd9002_core_deinitialize();
 	return passed ? SUCCESS : FAILURE;
+}
+
+// M103a: alternate register storage and the load-before-enter vector reader.
+extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
+	const UINT16 code_segment = 0x2000;
+	const UINT16 native_stack_segment = 0x3000;
+	const UINT16 code_offset = 0x0100;
+	const UINT16 compatible_offset = 0x1000;
+	const UINT16 native_offset = 0x3000;
+	const UINT32 code_base = static_cast<UINT32>(code_segment) << 4;
+	const UINT32 native_stack_base = static_cast<UINT32>(native_stack_segment) << 4;
+
+	upd9002_core_initialize();
+	ZeroMemory(mem, 0x100000);
+	upd9002_upd70008_register();
+	upd9002_core_reset();
+
+	CPU_CS = code_segment;
+	CPU_DS = code_segment;
+	CPU_SS = native_stack_segment;
+	CPU_IP = code_offset;
+	CPU_SP = 0x0100;
+	CPU_BP = 0x0200;
+	CPU_FLAG = 0xf202;
+	CS_BASE = code_base;
+	DS_BASE = code_base;
+	SS_BASE = native_stack_base;
+	CPU_REMCLOCK = 100000;
+	CPU_BASECLOCK = 100000;
+	CPU_CLOCK = 0;
+
+	// IVT: vector E1 = BRKEM target, E0 = CALLN target; bytes 30h/31h are
+	// the word the undefined ED 20 reads with C = 30h.
+	mem[(0x00e1U * 4) + 0] = static_cast<UINT8>(compatible_offset);
+	mem[(0x00e1U * 4) + 1] = static_cast<UINT8>(compatible_offset >> 8);
+	mem[(0x00e1U * 4) + 2] = static_cast<UINT8>(code_segment);
+	mem[(0x00e1U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
+	mem[(0x00e0U * 4) + 0] = static_cast<UINT8>(native_offset);
+	mem[(0x00e0U * 4) + 1] = static_cast<UINT8>(native_offset >> 8);
+	mem[(0x00e0U * 4) + 2] = static_cast<UINT8>(code_segment);
+	mem[(0x00e0U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
+	mem[0x30] = 0x00;
+	mem[0x31] = 0x28;
+
+	mem[code_base + code_offset + 0] = 0x0f; // BRKEM E1h
+	mem[code_base + code_offset + 1] = 0xff;
+	mem[code_base + code_offset + 2] = 0xe1;
+	static const UINT8 program[] = {
+	    0x01, 0x11, 0x11, // LD BC,1111h
+	    0xd9,             // EXX
+	    0x01, 0x22, 0x22, // LD BC,2222h
+	    0xd9,             // EXX              BC=1111h, BC'=2222h
+	    0xed, 0xed, 0xe0, // CALLN E0h
+	    0xd9,             // EXX              BC = storage value
+	    0x0e, 0x30,       // LD C,30h
+	    0xed, 0x20,       // undefined: HL = IVT word at 30h
+	    0xed, 0xfd,       // RETEM
+	};
+	for (size_t i = 0; i < sizeof(program); ++i) {
+		mem[code_base + compatible_offset + i] = program[i];
+	}
+	mem[code_base + native_offset] = 0xcf; // IRET
+
+	auto fail = [](int line) {
+		fprintf(
+		    stderr,
+		    "alt-regs selftest failed at line %d: mode=%d CX=%04X BX=%04X alt.bc=%04X IP=%04X\n",
+		    line, (int)CPU_COMPAT_MODE, CPU_CX, CPU_BX, upd9002_alt_regs.bc, CPU_IP);
+		upd9002_core_deinitialize();
+		return FAILURE;
+	};
+
+	upd9002_core_step(); // BRKEM
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008)
+		return fail(__LINE__);
+	upd9002_core_step(); // LD BC,1111h
+	if (CPU_CX != 0x1111)
+		return fail(__LINE__);
+	upd9002_core_step(); // EXX
+	if (CPU_CX != 0x0000 || upd9002_alt_regs.bc != 0x1111)
+		return fail(__LINE__);
+	upd9002_core_step(); // LD BC,2222h
+	upd9002_core_step(); // EXX
+	if (CPU_CX != 0x1111 || upd9002_alt_regs.bc != 0x2222)
+		return fail(__LINE__);
+
+	UINT8 blob[UPD9002_COMPAT_STATE_SIZE];
+	if (upd9002_core_compat_state_save(blob, sizeof(blob)) != SUCCESS)
+		return fail(__LINE__);
+
+	upd9002_core_step(); // CALLN -> native
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
+		return fail(__LINE__);
+	// Native code cannot address the alternate set, but the machine-owned
+	// storage is the authority: a change there is what the compat core sees
+	// when it resumes.
+	upd9002_alt_regs.bc = 0x3333;
+	upd9002_core_step(); // IRET -> resumes compatible mode
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008)
+		return fail(__LINE__);
+	upd9002_core_step(); // EXX
+	if (CPU_CX != 0x3333 || upd9002_alt_regs.bc != 0x1111)
+		return fail(__LINE__);
+	upd9002_core_step(); // LD C,30h
+	upd9002_core_step(); // ED 20
+	if (CPU_BX != 0x2800)
+		return fail(__LINE__);
+	upd9002_core_step(); // RETEM
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
+		return fail(__LINE__);
+
+	// Hardware reset clears the storage.
+	upd9002_core_reset();
+	if (upd9002_alt_regs.bc != 0 || upd9002_alt_regs_loaded)
+		return fail(__LINE__);
+
+	// Old state file: compat blob without a UPD9ALT section. The blob's
+	// alternate set (BC' = 2222h) becomes the storage.
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+	if (upd9002_core_compat_state_load(blob, sizeof(blob)) != SUCCESS)
+		return fail(__LINE__);
+	if (upd9002_alt_regs.bc != 0x2222)
+		return fail(__LINE__);
+
+	// New state file: UPD9ALT loaded first, then the blob. The storage wins
+	// and the load-before-enter path still reads the IVT (reader installed).
+	upd9002_core_reset();
+	upd9002_upd70008_register();
+	CPU_CS = code_segment;
+	CPU_DS = code_segment;
+	CPU_SS = native_stack_segment;
+	CS_BASE = code_base;
+	DS_BASE = code_base;
+	SS_BASE = native_stack_base;
+	CPU_REMCLOCK = 100000;
+	CPU_BASECLOCK = 100000;
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+	upd9002_alt_regs.bc = 0x4444;
+	upd9002_alt_regs_loaded = TRUE;
+	if (upd9002_core_compat_state_load(blob, sizeof(blob)) != SUCCESS)
+		return fail(__LINE__);
+	// The blob's PC points at the CALLN; replace that code with EXX / LD C /
+	// ED 20 / RETEM for this check.
+	static const UINT8 tail[] = {0xd9, 0x0e, 0x30, 0xed, 0x20, 0xed, 0xfd};
+	for (size_t i = 0; i < sizeof(tail); ++i) {
+		mem[code_base + compatible_offset + 8 + i] = tail[i];
+	}
+	upd9002_core_step(); // EXX
+	if (CPU_CX != 0x4444)
+		return fail(__LINE__);
+	upd9002_core_step(); // LD C,30h
+	upd9002_core_step(); // ED 20 -- zero without the StateLoad reader fix
+	if (CPU_BX != 0x2800)
+		return fail(__LINE__);
+
+	upd9002_core_deinitialize();
+	return SUCCESS;
 }
 #endif

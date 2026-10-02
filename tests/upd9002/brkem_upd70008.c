@@ -34,8 +34,14 @@ int upd9002_brkem_upd70008_main(void) {
 		fprintf(stderr, "upd9002-brkem-upd70008: production uPD70008-compatible bridge failed\n");
 		return FAILURE;
 	}
+	if (upd9002_upd70008_alt_regs_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
+		return FAILURE;
+	}
 	fprintf(stderr,
 	        "upd9002-brkem-upd70008: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
+	fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage, state authority and "
+	                "load-before-enter vector reader passed\n");
 	return SUCCESS;
 #else
 	return FAILURE;

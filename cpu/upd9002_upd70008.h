@@ -30,6 +30,7 @@ extern "C" {
 void upd9002_upd70008_register(void);
 #if defined(VAEG_UPD9002_M76_TESTING)
 int upd9002_upd70008_compat_selftest(void);
+int upd9002_upd70008_alt_regs_selftest(void);
 #endif
 #ifdef __cplusplus
 }
