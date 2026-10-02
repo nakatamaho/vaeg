@@ -40,6 +40,7 @@ extern _MEMORYVA memoryva;
 /* Independent of CPU execution mode: zero = V3, one = 88-mode request. */
 extern UINT8 memoryva_88_mode;
 extern UINT8 memoryva_88_port31;
+extern UINT8 memoryva_88_xerom; /* 71h bit 0: one disables extension ROM. */
 extern BOOL textmem_dirty;
 
 void MEMCALL upd9002_memorymap_va(void);

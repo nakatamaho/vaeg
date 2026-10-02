@@ -33,6 +33,7 @@
 #include "va91.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "io/sysportva.h"
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value);
 void MEMCALL gvramw_wt(UINT32 address, REG16 value);
@@ -64,6 +65,7 @@ BYTE va91dicmem[0x80000];
 _MEMORYVA memoryva;
 UINT8 memoryva_88_mode;
 UINT8 memoryva_88_port31;
+UINT8 memoryva_88_xerom = 1;
 BOOL textmem_dirty;
 
 _VA91 va91;
@@ -758,7 +760,7 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 	}
 }
 
-/* Initial N88 ROM overlay only. Extension banks and monitor ROM are pending.
+/* N88 ROM overlay and extension banks. Monitor ROM is pending.
  * RAM writes still use the existing physical main-RAM backing. */
 static BOOL n88_rom_selected(UINT32 address) {
 	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) &&
@@ -767,6 +769,9 @@ static BOOL n88_rom_selected(UINT32 address) {
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 	if (n88_rom_selected(address)) {
+		if (address >= 0x16000 && !memoryva_88_xerom) {
+			return rom1mem[0x18000 + ((sysportva.port032 & 3) << 13) + (address & 0x1fff)];
+		}
 		return rom1mem[address]; /* N88 payload begins at ROM-image offset 10000h. */
 	}
 	return (membyte_read[top_index(address)](address));

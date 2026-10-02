@@ -165,8 +165,8 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   `10000h`–`17FFFh`, selected by the mode latch and port 31h bits 1/2.
   Optional `MEM88SYS` saves the port 31h latch. Synthetic tests cover
   both word boundaries, MMODE switching, and RAM writes under ROM.
-  Physical RAM backing is provisional; monitor ROM, extension banks,
-  text windows, ERAM and video mappings remain pending (plan §2.0).
+  Physical RAM backing is provisional; monitor ROM, text windows, ERAM
+  and video mappings remain pending (plan §2.0).
   An automatic-FDD BASIC run now executes the ROM entry instructions,
   including `LD SP,E1A0h` and `JP 3BE5h`; 600-frame capture exits 0 but
   does not establish a BASIC prompt. Full state-file testing is pending.
@@ -177,6 +177,17 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
 - Local build and all 106 CTest entries complete without failures (one
   external SST skipped). Human boot acceptance is not inferred from
   these tests. The original named stash remains as a recovery copy.
+
+### Extension-ROM stage
+
+- Port 71h XEROM and existing port 32h bits 1–0 now select four 8KiB
+  extension banks at compatible 6000h–7FFFh. XEROM reads as FEh/FFh and
+  resets to disabled; `MEM88EXT` version 0 preserves the new bit.
+- Synthetic tests cover all banks and word reads crossing both edges.
+  Integration BASIC executes `OUT 71h,FEh` and reads extension pointer
+  `6045h` → `6B55h`. An 1800-frame run completes (exit 0), but no BASIC
+  boot completion is claimed. Earlier short trace limits ended in delay
+  loops and were not evidence that those loops were stuck.
 
 ### I/O trap register stage
 

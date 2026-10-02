@@ -29,6 +29,7 @@
 #include "io/iocore.h"
 #include "io/memctrlva.h"
 #include "io/upd9002_regs.h"
+#include "io/sysportva.h"
 #include "memoryva/memoryva.h"
 
 #include <stdio.h>
@@ -118,6 +119,40 @@ static int memory_mode_selftest(void) {
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22);
 		rom1mem[0x10000] = saved_first;
 		rom1mem[0x17fff] = saved_last;
+	}
+	{
+		BYTE saved[8];
+		const BYTE saved_edge = rom1mem[0x15fff];
+		const BYTE saved_bank = sysportva.port032;
+		UINT bank;
+		systemportva_bind();
+		iocore_out8(0x153, 0x01);
+		rom1mem[0x15fff] = 0xb0;
+		passed = passed && iocore_inp8(0x71) == 0xff;
+		for (bank = 0; bank < 4; bank++) {
+			UINT offset = 0x18000 + bank * 0x2000;
+			saved[bank * 2] = rom1mem[offset];
+			saved[bank * 2 + 1] = rom1mem[offset + 0x1fff];
+			rom1mem[offset] = 0xa0 + bank;
+			rom1mem[offset + 0x1fff] = 0xc0 + bank;
+		}
+		iocore_out8(0x71, 0xfe);
+		passed = passed && iocore_inp8(0x71) == 0xfe;
+		for (bank = 0; bank < 4; bank++) {
+			iocore_out8(0x32, (saved_bank & ~3) | bank);
+			passed = passed && upd9002_memoryread_va(0x16000) == 0xa0 + bank &&
+			         upd9002_memoryread_va_w(0x15fff) == (0xa0 + bank) * 256 + 0xb0 &&
+			         upd9002_memoryread_va_w(0x17fff) == 0x6600 + 0xc0 + bank;
+		}
+		iocore_out8(0x71, 0xff);
+		passed = passed && upd9002_memoryread_va(0x17fff) == rom1mem[0x17fff];
+		for (bank = 0; bank < 4; bank++) {
+			UINT offset = 0x18000 + bank * 0x2000;
+			rom1mem[offset] = saved[bank * 2];
+			rom1mem[offset + 0x1fff] = saved[bank * 2 + 1];
+		}
+		rom1mem[0x15fff] = saved_edge;
+		iocore_out8(0x32, saved_bank);
 	}
 	iocore_out8(0x153, 0x01);
 	memctrlva_reset();

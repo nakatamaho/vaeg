@@ -93,8 +93,23 @@ This is an initial decoder, **not the complete hardware map**. Writes
 retain the existing physical main-RAM backing, including under ROM;
 that backing choice is provisional until firmware RAM use is audited.
 RMODE=1 also removes this overlay but does not yet supply the monitor
-ROM. Extension-ROM selection at 6000h–7FFFh, text-window banking, ERAM,
-and TVRAM/GVRAM mappings remain unimplemented. No new decoder is added
+ROM. Text-window banking, ERAM, and TVRAM/GVRAM mappings remain
+unimplemented.
+
+Extension-ROM selection is now implemented: port `71h` bit 0 is XEROM
+(1=disabled, 0=enabled; readback upper bits are ones). When enabled with
+N88 ROM selected, physical `16000h`–`17FFFh` reads use
+`rom1mem[18000h + (port32 & 3)*2000h + offset]`. The four 8KiB banks use
+the existing port 32h latch and its saved state; new `MEM88EXT` version 0
+stores XEROM. Reset/old-state default is disabled. MMODE/RMODE still take
+precedence. Register meanings come from the manual's 0032h/0071h tables;
+the ROM payload layout is documented in the CPU document Appendix C.
+
+Synthetic tests cover all four banks, readback, disable, and word reads
+across both extension boundaries. The automatic-FDD integration trace
+writes `FEh` to 71h at compatible `456Fh`, then reads the pointer at
+`6045h` as `6B55h` through the selected extension bank. The 1800-frame
+capture exits 0; it does not establish successful BASIC disk boot. No new decoder is added
 to the CPU adapter: byte/word reads go through the common VA decoder,
 including split reads at both ROM edges.
 
@@ -287,7 +302,7 @@ in the maintainer-local task directory outside Git.
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
-| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | initial N88 32KiB read overlay and port 31h latch; remaining banking pending (§2.0) |
+| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch and four extension banks; remaining banking pending (§2.0) |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | register state plus plain compatible IN/OUT interception implemented; native, block and prefixed forms pending |
