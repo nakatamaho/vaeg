@@ -399,7 +399,7 @@ class InstallerTests(unittest.TestCase):
             "DAADUMP.COM": 2615, "ZEXIY.COM": 9792, "ZEXUND.COM": 10192,
             "ZEXED.COM": 11356, "EDPRB.COM": 10679, "CBPRB.COM": 21246,
             "EDPRB2.COM": 7464, "EDPRB2S.COM": 2625,
-            "INPRB.COM": 1091, "EDPRB3.COM": 4218,
+            "INPRB.COM": 1091, "EDPRB3.COM": 4218, "EDPRB4.COM": 825,
         }
         files = self.installer.pad_cpm_records({n: b"\x00" * v for n, v in sizes.items()}, b"\x00")
         _, info = self.installer.build_cpm_raw(files)

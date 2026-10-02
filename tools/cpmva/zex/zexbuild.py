@@ -348,6 +348,7 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "CBPRB.COM": build_probe("cbprb", assembler),
         "INPRB.COM": build_probe("inprb", assembler),
         "EDPRB3.COM": build_edprb3(assembler),
+        "EDPRB4.COM": build_probe("edprb4", assembler),
         "EDPRB2.COM": build_edprb2("EDPRB2", assembler),
         "EDPRB2S.COM": build_edprb2("EDPRB2S", assembler),
         "FLAGPRB.COM": build_probe("flagprb", assembler),
