@@ -158,7 +158,7 @@ key reads as one. The VA2 ROM then takes the candidate V1/V2 path at
 
 The next decision is **SW7**, port `0040h` bit 3. The manual defines
 zero as boot from the intelligent FDD, and one as do not boot from it.
-`io/sysportva.c::sysp_i040()` currently returns zero for this bit. With
+`io/sysportva.c::sysp_i040()` defaults to zero for this bit. With
 zero the ROM calls `1F90h` to try the FDD boot path; with one it skips
 that call. Successful IPL loading and subsequent disk-dependent paths
 must not be conflated with a direct CPU-mode switch.
@@ -185,6 +185,20 @@ force and diagnostic prints are not production changes. A boot option
 must preserve the existing PC-key matrix and default SW7=0 behavior;
 forcing `000Dh` bit 2 alone is insufficient.
 
+M103b now exposes SW7 through `v1v2_boot = true` in the `[NekoProjectII]`
+INI section and the experimental GUI boot menu. It is off by default
+and changes only SW7, not the PC key. The DIP input is live host
+configuration, not part of a guest save-state section; rerun boot by
+resetting after changing it. It skips intelligent-FDD boot, so it is
+not yet the policy for booting a V2 BASIC disk.
+
+With this setting and the new BRKEM2 decoder, a local VA2 emulator run
+enters `1000:0000` with saved native frame `13B4/F000/F044`. It then reads
+`00h` instructions instead of BASIC ROM because the 88-mode window is
+still missing. The 600-frame smoke check fails with a uniform screen;
+this is not a successful BASIC boot. The same smoke check with default
+configuration exits successfully without a compatible-mode entry.
+
 ## 6. What vaeg has and lacks
 
 | Piece | Status |
@@ -198,7 +212,7 @@ forcing `000Dh` bit 2 alone is insufficient.
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | missing |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
 | 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |
-| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 fixed at zero; configurable boot policy missing |
+| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; experimental INI/GUI SW7 option added, default zero |
 | FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present |
 
 ## 7. Milestones (ADR-0016; V2 first)

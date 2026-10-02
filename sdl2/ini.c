@@ -353,6 +353,7 @@ static const INITBL iniitem[] = {
     {"sgp_mult", INITYPE_UINT8, &np2cfg.sgp_multiplier, 0},
 
     {"DIPswtch", INITYPE_BYTEARG, np2cfg.dipsw, 3},
+    {"v1v2_boot", INITYPE_BOOL, &np2cfg.v1v2_boot, 0},
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},

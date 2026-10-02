@@ -97,6 +97,8 @@ typedef struct {
 	OEMCHAR scsihdd[7][MAX_PATH];
 	OEMCHAR fontfile[MAX_PATH];
 	OEMCHAR biospath[MAX_PATH];
+	/* Host SW7 input: nonzero skips intelligent-FDD boot; experimental. */
+	UINT8 v1v2_boot;
 } NP2CFG;
 
 typedef struct {

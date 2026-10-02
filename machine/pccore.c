@@ -95,7 +95,8 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .scsihdd = {OEMTEXT(""), OEMTEXT(""), OEMTEXT(""), OEMTEXT(""), OEMTEXT(""),
                              OEMTEXT(""), OEMTEXT("")},
                  .fontfile = OEMTEXT(""),
-                 .biospath = OEMTEXT("")};
+                 .biospath = OEMTEXT(""),
+                 .v1v2_boot = 0};
 
 PCCORE pccore = {PCBASECLOCK25,
                  PCBASEMULTIPLE,

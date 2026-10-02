@@ -25,8 +25,44 @@
 #include "compiler.h"
 #include "tests/upd9002/brkem_upd70008.h"
 #include "cpu/upd9002_upd70008.h"
+#include "machine/pccore.h"
+#include "io/iocore.h"
+#include "io/sysportva.h"
 
 #include <stdio.h>
+
+#if defined(VAEG_UPD9002_M76_TESTING)
+static int boot_inputs_selftest(void) {
+	const UINT8 saved_boot = np2cfg.v1v2_boot;
+	const UINT8 saved_row = keybrd.keymap[0x0d];
+	REG8 baseline, selected, released, pressed;
+	int passed;
+
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return FAILURE;
+	}
+	systemportva_bind();
+	keyboard_bind();
+	np2cfg.v1v2_boot = 0;
+	baseline = iocore_inp8(0x40);
+	np2cfg.v1v2_boot = 1;
+	selected = iocore_inp8(0x40);
+	keybrd.keymap[0x0d] = 0xff;
+	released = iocore_inp8(0x0d);
+	keybrd.keymap[0x0d] = 0xfb;
+	pressed = iocore_inp8(0x0d);
+	passed = !(baseline & 0x08) && ((baseline ^ selected) == 0x08) &&
+	         (released == 0xff) && (pressed == 0xfb);
+	np2cfg.v1v2_boot = 0;
+	passed = passed && (iocore_inp8(0x40) == baseline) && (iocore_inp8(0x0d) == 0xfb);
+	np2cfg.v1v2_boot = saved_boot;
+	keybrd.keymap[0x0d] = saved_row;
+	iocore_destroy();
+	return passed ? SUCCESS : FAILURE;
+}
+#endif
 
 int upd9002_brkem_upd70008_main(void) {
 #if defined(VAEG_UPD9002_M76_TESTING)
@@ -38,6 +74,11 @@ int upd9002_brkem_upd70008_main(void) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
 		return FAILURE;
 	}
+	if (boot_inputs_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: SW7/PC-key input isolation failed\n");
+		return FAILURE;
+	}
+	fprintf(stderr, "upd9002-brkem-upd70008: SW7/PC-key input isolation passed\n");
 	fprintf(stderr,
 	        "upd9002-brkem-upd70008: BRKEM/BRKEM2, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage, state authority and "

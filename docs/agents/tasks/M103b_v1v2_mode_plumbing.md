@@ -139,7 +139,24 @@ with `v1v2_boot` off**, plus, with `v1v2_boot` on and the VA2 ROM set:
   six-byte native return frame and preserved DS/SS, then exercises
   compatible instructions, CALLN, nested native interrupt/IRET, RETEM,
   and compatible-state restore. This is ROM-less testing, not G103b.
-- SW7 configuration, memory mapping and I/O trapping remain pending.
+- SW7 configuration is now exposed as INI `v1v2_boot` (boolean, default
+  false) and the experimental GUI boot menu. It drives only port `40h`
+  bit 3; the existing PC-key row is unchanged. This is a live host DIP
+  input, not a saved guest latch. Loading a state uses the current host
+  setting; reset is needed to rerun the ROM's boot decision. This option
+  skips intelligent-FDD boot and is not yet a disk-BASIC boot policy.
+- The production I/O test checks that changing the setting toggles only
+  bit 3, that turning it off restores the original port value, and that
+  pressed/released PC-key rows remain independent of it.
+- A local VA2 ROM run with INI `v1v2_boot = true` enters `1000:0000`
+  through BRKEM2; the saved frame is `13B4/F000/F044`. Initial instruction
+  bytes are `00/00`, not BASIC ROM. The smoke run exits 1 with a uniform
+  screen after 600 frames; this is a partial handoff observation, not a
+  passing boot gate. A default-setting smoke run exits 0 with no
+  compatible-entry trace. Both use dummy SDL video/audio, `--smoke`,
+  `--nowait`, `--no-bkupmem`, VA2, and `VAEG_UPD70008_TRACE=4`.
+- Full CTest: zero failures in 106 tests, one external SST skipped.
+  Memory mapping and I/O trapping remain pending.
 
 ## Research notes for the implementer
 
