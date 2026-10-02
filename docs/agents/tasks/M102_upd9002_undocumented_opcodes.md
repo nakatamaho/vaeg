@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M102 - µPD9002 undocumented-opcode coverage
 
-Status: **in progress (scope A approved on 2026-09-30)**
+Status: **complete — G102 passed on 2026-10-02; merged to `main` at `659a01e16f5e0c7b79e314b5cbdc0a3e12cddcca`**
 
 Predecessor: G101 passed; M101 merged to `main` at
 `a651ae761fb08619d0ade5cf596c356c0a1b34c7`.
