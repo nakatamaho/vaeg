@@ -62,6 +62,7 @@ BYTE va91rom1mem[0x20000];
 BYTE va91dicmem[0x80000];
 
 _MEMORYVA memoryva;
+UINT8 memoryva_88_mode;
 BOOL textmem_dirty;
 
 _VA91 va91;

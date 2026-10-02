@@ -28,6 +28,7 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	if ((dat & 0x0f) == 0x0f)
 		TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	memoryva.sysm_bank = dat & 0x0f;
+	memoryva_88_mode = (dat & 0x40) ? 0 : 1;
 	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x", port, dat, memoryva.sysm_bank);
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
 		// Reset access state when GMSP changes between multi- and single-plane modes.
@@ -52,7 +53,7 @@ static REG8 IOINPCALL memctrlva_i152(UINT port) {
 
 static REG8 IOINPCALL memctrlva_i153(UINT port) {
 	(void)port;
-	return (memoryva.sysm_bank & 0x0f) | gactrlva.gmsp | 0x40;
+	return (memoryva.sysm_bank & 0x0f) | gactrlva.gmsp | (memoryva_88_mode ? 0 : 0x40);
 }
 
 static REG8 IOINPCALL memctrlva_i156(UINT port) {

@@ -37,6 +37,8 @@ extern BYTE rom0mem[0xa0000];
 extern BYTE rom1mem[0x20000];
 
 extern _MEMORYVA memoryva;
+/* Independent of CPU execution mode: zero = V3, one = 88-mode request. */
+extern UINT8 memoryva_88_mode;
 extern BOOL textmem_dirty;
 
 void MEMCALL upd9002_memorymap_va(void);

@@ -25,8 +25,41 @@
 #include "compiler.h"
 #include "tests/upd9002/brkem_upd70008.h"
 #include "cpu/upd9002_upd70008.h"
+#include "machine/pccore.h"
+#include "io/iocore.h"
+#include "io/memctrlva.h"
+#include "memoryva/memoryva.h"
 
 #include <stdio.h>
+
+#if defined(VAEG_UPD9002_M76_TESTING)
+static int memory_mode_selftest(void) {
+	int passed;
+
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return FAILURE;
+	}
+	memctrlva_reset();
+	memctrlva_bind();
+	passed = (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);
+	iocore_out8(0x153, 0x03);
+	passed = passed && (memoryva_88_mode == 1) && (iocore_inp8(0x153) == 0x03);
+	iocore_out8(0x153, 0x43);
+	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x43);
+	/* The ROM switches modes with a word access starting at port 152h. */
+	iocore_out16(0x152, 0x0100);
+	passed = passed && (memoryva_88_mode == 1) && (iocore_inp16(0x152) == 0x0100);
+	iocore_out16(0x152, 0x4100);
+	passed = passed && (memoryva_88_mode == 0) && (iocore_inp16(0x152) == 0x4100);
+	iocore_out8(0x153, 0x01);
+	memctrlva_reset();
+	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);
+	iocore_destroy();
+	return passed ? SUCCESS : FAILURE;
+}
+#endif
 
 int upd9002_brkem_upd70008_main(void) {
 #if defined(VAEG_UPD9002_M76_TESTING)
@@ -38,6 +71,11 @@ int upd9002_brkem_upd70008_main(void) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
 		return FAILURE;
 	}
+	if (memory_mode_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: memory-mode latch failed\n");
+		return FAILURE;
+	}
+	fprintf(stderr, "upd9002-brkem-upd70008: memory-mode byte/word I/O and reset passed\n");
 	fprintf(stderr,
 	        "upd9002-brkem-upd70008: BRKEM/BRKEM2, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage, state authority and "

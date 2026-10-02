@@ -260,7 +260,7 @@ in the maintainer-local task directory outside Git.
 |---|---|
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
-| `153H` bit 6 memory mode | ignored (`io/memctrlva.c` reads back `0x40` always) |
+| `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; address decoding not yet switched |
 | 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | missing |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |

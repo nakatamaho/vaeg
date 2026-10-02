@@ -149,9 +149,24 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   bytes instead of BASIC ROM. All instrumented runs timed out after
   capturing this prefix; G103b has not passed. The next implementation
   target is the 88-mode memory decoder, not a boot-selection override.
-- Uncommitted memory-mode latch work is retained in a named Git stash
-  (`M103b: pending memory-mode latch before boot-policy correction`), not
-  included in this boot-policy correction.
+- The memory-mode latch has now been recovered from the saved work,
+  without the withdrawn SW7 override. Port `153h` bit 6 latches and reads
+  back; reset selects V3 (`41h`). The production I/O regression covers
+  byte writes, the ROM's word read/write at `152h`, and reset after an
+  88-mode request. This changes the latch only, not address decoding.
+- New optional binary state section `MEM88MODE`, version 0, stores one
+  byte (0=V3, 1=88-mode request). The old `MEMORYVA` structure and its
+  reserved bytes remain untouched. State loading calls `iocore_reset`
+  before section loading, so an old state without `MEM88MODE` keeps V3.
+  Complete old/new state-file round trips remain unverified; current
+  tests cover the I/O/reset path, not the full loader.
+- Normal CPU/DMA accesses already pass through the byte/word VA decoder
+  in `memoryva/memoryva.c`; only the isolated SST flat-memory seam
+  bypasses it. Add the window there, including word-boundary handling,
+  rather than introducing a second decoder in the compatible adapter.
+- Local build and all 106 CTest entries complete without failures (one
+  external SST skipped). Human boot acceptance is not inferred from
+  these tests. The original named stash remains as a recovery copy.
 
 ## Research notes for the implementer
 
