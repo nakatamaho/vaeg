@@ -28,11 +28,49 @@
 #include "machine/pccore.h"
 #include "io/iocore.h"
 #include "io/memctrlva.h"
+#include "io/upd9002_regs.h"
 #include "memoryva/memoryva.h"
 
 #include <stdio.h>
 
 #if defined(VAEG_UPD9002_M76_TESTING)
+static int iotrap_register_selftest(void) {
+	static const BYTE ranges[8] = {0x50, 0, 0x5b, 0, 0x60, 0, 0x6f, 0};
+	UPD9002_IOTRAP byte_state;
+	int passed;
+	UINT i;
+
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return FAILURE;
+	}
+	upd9002_regs_reset();
+	upd9002_regs_bind();
+	/* The firmware installs ranges as descending byte writes. */
+	for (i = 8; i > 0; i--) {
+		iocore_out8(0xffe0 + i - 1, ranges[i - 1]);
+	}
+	passed = !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
+	         upd9002_iotrap.control == 0;
+	iocore_out8(0xffef, 3);
+	byte_state = upd9002_iotrap;
+	upd9002_regs_reset();
+	passed = passed && upd9002_iotrap.control == 0;
+	for (i = 0; i < 8; i++) passed = passed && upd9002_iotrap.ranges[i] == 0;
+	for (i = 0; i < 8; i += 2) {
+		iocore_out16(0xffe0 + i, ranges[i]);
+	}
+	iocore_out8(0xffef, 3);
+	passed = passed && !memcmp(&byte_state, &upd9002_iotrap, sizeof(byte_state));
+	iocore_out8(0xffef, 0);
+	passed = passed && upd9002_iotrap.control == 0 &&
+	         !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges));
+	upd9002_regs_reset();
+	iocore_destroy();
+	return passed ? SUCCESS : FAILURE;
+}
+
 static int memory_mode_selftest(void) {
 	int passed;
 
@@ -97,6 +135,10 @@ int upd9002_brkem_upd70008_main(void) {
 	}
 	if (upd9002_upd70008_alt_regs_selftest() != SUCCESS) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
+		return FAILURE;
+	}
+	if (iotrap_register_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: I/O trap register byte/word writes failed\n");
 		return FAILURE;
 	}
 	if (memory_mode_selftest() != SUCCESS) {

@@ -290,7 +290,7 @@ in the maintainer-local task directory outside Git.
 | 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | initial N88 32KiB read overlay and port 31h latch; remaining banking pending (§2.0) |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |
-| I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | missing |
+| I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | register writes/reset/save section implemented; instruction interception pending |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
 | 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |
 | boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection must be traced, no GUI mode override |

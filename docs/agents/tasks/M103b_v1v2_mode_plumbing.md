@@ -178,6 +178,27 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   external SST skipped). Human boot acceptance is not inferred from
   these tests. The original named stash remains as a recovery copy.
 
+### I/O trap register stage
+
+- `FFE0h`–`FFE7h` and `FFEFh` writes now latch in a separate
+  `UPD9002_IOTRAP` object. Optional state section `UPD9TRAP`, version 0,
+  preserves these nine bytes without altering the legacy `UPD9002`
+  section. Reset disables traps and clears ranges; missing old-state
+  sections therefore retain disabled defaults. Full state-file testing
+  remains pending. No undocumented register readback is added.
+- The production I/O test compares the ROM's descending byte writes
+  with ascending word writes, checks reset, and checks that disabling
+  the control preserves ranges. Range matching and actual instruction
+  interception are not enabled by this register-only stage.
+- ROM inspection establishes a compatible-specific handler: VA2 vectors
+  7Ch/7Dh both point to `F000:1944`. It saves eight words before assigning
+  BP, reads the saved far instruction address at `[BP+10h]`, and decodes
+  the compatible opcode (including `DBh` and ED forms), not native x86
+  IN/OUT opcodes. At `1958h`/`195Bh` it increments saved IP twice, then
+  restores registers and executes IRET. This supports trapping before
+  executing a two-byte compatible I/O instruction; prefix and block-I/O
+  details still need explicit tests rather than assumptions.
+
 ## Research notes for the implementer
 
 - Hardware-versus-trap port table and the TVRAM/GVRAM mapping: plan §2–§3
