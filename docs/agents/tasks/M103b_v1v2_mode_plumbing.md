@@ -23,11 +23,14 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103b - V1/V2 mode plumbing: BRKEM2, boot select, 88-mode window, I/O trap
 
-Status: **ready (planned on 2026-10-02; starts after M103a is on `main`)**
+Status: **research in progress; G103b pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103b-v1v2-plumbing` off the
-integration branch `topic/v1v2-mode` (created from `main` once M103a is
-merged). Commit prefix `M103b:`. Plan and hardware model:
+integration branch `topic/v1v2-mode`. Following the maintainer's M103b
+request, these branches were created at `33f268cc5487e4feffdde75bcb495c4657cdcf94`
+on top of the pending M103a branch, not `main`. This does not mark G103a
+passed or authorize a main merge; reconcile the dependency before merging.
+Commit prefix `M103b:`. Plan and hardware model:
 [`docs/modernization/v1v2-mode-plan.md`](../../modernization/v1v2-mode-plan.md).
 
 ## Goal
@@ -49,17 +52,20 @@ gate is trace-based. Every new path is behind the configuration flag
    for the trace and for `brkem2-target` (§15.2) should a difference
    appear later. Opcode-table and disassembler entries; self-test in the
    M76 harness.
-2. **Boot selection.** Port `000Dh` bit 2 (`[ROM]` §8, `bootsel-000d`):
-   expose it as the `v1v2_boot` configuration/GUI option ("PC key" /
-   SW7 semantics per the manual flowchart), default V3. Record in the
-   CPU document which line drives it once the ROM path is traced.
+2. **Boot selection.** Preserve the existing active-low PC-key input
+   (`000Dh` bit 2) in `io/serial.c`. Port `40h` bit 3 is SW7: zero tries
+   intelligent-FDD boot; one skips it. The diagnostic trace with SW7=1
+   and the PC key unpressed reaches `BRKEM2` (plan §5). Design the
+   `v1v2_boot` configuration/GUI policy around these distinct inputs,
+   retaining SW7=0 by default; do not replace the keyboard row with a
+   synthetic mode bit. Record the policy and its disk-boot limitations.
 3. **`153H` bit 6 — system memory mode.** `io/memctrlva.c`: store the bit,
    read it back, and switch `memoryva` between the V3 map and the 88-mode
    map for physical `10000h`–`1FFFFh` (and `20000h`–`3FFFFh` as ERAM
    pages). Save state.
 4. **88-mode window.** In `memoryva/`, a window model for `10000h`–`1FFFFh`
-   driven by the hardware banking ports, all newly attached for V1/V2
-   mode: `31H` OUT (`MMODE`, `RMODE`, `VW1`, `GDENO`, `PM00`), `32H`
+   driven by the hardware banking ports (audit and extend existing
+   handlers rather than attaching over them): `31H` OUT (`MMODE`, `RMODE`, `VW1`, `GDENO`, `PM00`), `32H`
    (`ROMSL`, `TMODE`, `GVAM`, `PMODE`, `AVC`), `5CH`–`5FH` (plane select
    into `C000h`–`FFFFh`), `70H`/`71H`/`78H`, `E2H`/`E3H`, with N88-BASIC
    and its extension banks taken from the existing VA ROM images
@@ -99,15 +105,17 @@ delivery into Z80 code (M103c), FDD under V1/V2 (M103d), V1 mode.
   against the derived table, ROM-driven boot trace test behind
   `v1v2_boot` (romful, skipped without the private ROMs like the existing
   SST jobs).
-- Ledger entries only if a V3-visible defect is corrected on the way.
+- Ledger entries for concrete defect corrections under AGENTS.md, including
+  V1/V2 defects; feature-only additions do not require entries.
 
 ## Gate G103b (human)
 
 Standard gate for V3 (clean build, V3 boot, VA demo, OS boot) **unchanged
 with `v1v2_boot` off**, plus, with `v1v2_boot` on and the VA2 ROM set:
 
-- the trace shows the ROM reading `000Dh`, taking the `0x136C` path,
-  programming `FFE0h`–`FFE7h`, writing `FFEFh ← 03h`, clearing `153H`
+- the trace shows the ROM reading `000Dh` with the PC key unpressed,
+  taking the `0x136C` path, reading SW7=1 at `40h` and skipping the FDD
+  boot call; it also shows the reset/handoff sequence programming `FFE0h`–`FFE7h`, writing `FFEFh ← 03h`, clearing `153H`
   bit 6, executing `BRKEM2 90h`, and Z80 execution starting at
   `1000:0000`;
 - N88-BASIC's initialisation runs inside the window (ROM-bank switching

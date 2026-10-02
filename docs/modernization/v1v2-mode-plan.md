@@ -40,8 +40,9 @@ enabled around the session so that a small set of 8801 ports is emulated
 by firmware (§9). Everything else — the 8801 I/O ports, the text and
 graphics display, the FDD sub-system — is **VA hardware operating in a
 compatibility configuration** that the firmware programs in V3 mode
-before the handoff. vaeg already has the CPU side (M76–M103a). The rest
-of this page is the machine side.
+before the handoff. vaeg has the compatible instruction adapter
+(M76–M103a), but not the `BRKEM2` entry encoding. The rest of this page
+covers that missing entry and the machine side.
 
 ## 2. Memory: the 88-mode window
 
@@ -50,8 +51,10 @@ of this page is the machine side.
 `PS = DS0 = 1000h`. The window maps "part of the V3-mode main RAM, VRAM
 and ROM" so that the 88M/F memory map appears there. `20000h`–`3FFFFh`
 is addressable as PC-8801-02N-compatible extension RAM (ERAM pages).
-Everything outside the window, and the whole map in native mode, stays
-as in V3.
+CPU execution mode does not itself select the memory map: `153H` bit 6
+is a separate control, written by native firmware before `BRKEM2`.
+Mappings outside the window and native trap-handler accesses need to be
+checked against the manual rather than inferred from CPU mode.
 
 Inside the window the 8801's own banking applies, through ports the VA
 implements **in hardware** (`[VA-TM]` port table, "V1/V2 モード専用"):
@@ -116,11 +119,11 @@ else in the 8801 port space is hardware:
 
 | 8801 ports | Device | In vaeg today |
 |---|---|---|
-| `00h`–`0Eh` | keyboard matrix scan (88M/F compatible interface) | **missing** |
+| `00h`–`0Eh` | keyboard matrix scan (88M/F compatible interface) | present (`io/serial.c`); V1/V2 guest input remains to be verified |
 | `10h` | calendar/printer strobe | present |
 | `20h`, `21h` | µPD8251 serial | present |
 | `30h`, `31h` IN | DIP switches / system port | present (31h IN only) |
-| `31h` OUT, `32h`, `34h`, `35h` | memory mode, extension ROM, GVRAM control | **missing** |
+| `31h` OUT, `32h`, `34h`, `35h` | memory mode, extension ROM, GVRAM control | compatibility banking missing; existing port handlers require individual audit |
 | `40h` | system port: strobe, VRTC, CMT, beep | present |
 | `44h`–`47h` | YM2203/2608 OPN | present |
 | `50h`–`53h`, `60h`–`68h`, `6Eh`, `6Fh` | trapped (firmware) | **trap hardware missing** |
@@ -147,11 +150,40 @@ first task of M103c; it is ROM analysis, not hardware measurement.
 
 ## 5. Boot path
 
-`[ROM]`/`[VA-TM]` §8: after installing vectors the ROM reads port
-`000Dh` bit 2; set → V1/V2 path (trap on, memory/display setup, `153H`
-bit 6 ← 0, `BRKEM2 90h` → `1000:0000`); clear → V3 IPL path. The
-manual's flowchart ties the choice to the `PC` key and `SW7`. vaeg has
-no V1/V2 boot selection and no `BRKEM2`.
+`[ROM]`/`[VA-TM]` §8: `000Dh` bit 2 is the active-low **PC key**, not
+an independent memory-mode switch. `io/serial.c` already binds keyboard
+rows `00h`–`0Eh`; scan code `7Ah` maps to row `0Dh`, bit 2. An unpressed
+key reads as one. The VA2 ROM then takes the candidate V1/V2 path at
+`F000:136Ch`, but that alone does not guarantee reaching `BRKEM2`.
+
+The next decision is **SW7**, port `0040h` bit 3. The manual defines
+zero as boot from the intelligent FDD, and one as do not boot from it.
+`io/sysportva.c::sysp_i040()` currently returns zero for this bit. With
+zero the ROM calls `1F90h` to try the FDD boot path; with one it skips
+that call. Successful IPL loading and subsequent disk-dependent paths
+must not be conflated with a direct CPU-mode switch.
+
+A local vaeg diagnostic run with SW7 temporarily forced to one and the
+PC key unpressed observed this VA2 ROM sequence (emulator observation,
+**not real-machine measurement**):
+
+| Address in segment F000h | Action |
+|---|---|
+| `13EAh` | keyboard read returns `FFh` at port `000Dh` |
+| `136Ah`–`1375h` | PC-key branch and SW7 branch skip the FDD call |
+| `1375h` → `18E7h` | write `03h` to `FFEFh`, enabling the I/O trap |
+| `1378h`–`138Ch` | probe RAM at physical `80000h`; conditionally write `15Ah` |
+| `138Dh`–`139Dh` | clear bit 1 at offsets `0121h`, `0129h`, `0131h` in segment A000h |
+| `13A0h`–`13A7h` | read word at port `152h`, clear bit 14, write it back (153h bit 6) |
+| `13A8h`–`13AFh` | set DS to `1000h` and ES to zero |
+| `13B1h` | execute `0F FE 90`, the unsupported `BRKEM2 90h` entry |
+
+The diagnostic reports `reserved 0f fe` at `13B2h`, the position of the
+second opcode byte, not the instruction start. It does **not** establish
+successful compatible-mode entry or BASIC execution. The temporary SW7
+force and diagnostic prints are not production changes. A boot option
+must preserve the existing PC-key matrix and default SW7=0 behavior;
+forcing `000Dh` bit 2 alone is insufficient.
 
 ## 6. What vaeg has and lacks
 
@@ -164,9 +196,9 @@ no V1/V2 boot selection and no `BRKEM2`.
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | missing |
-| keyboard matrix interface `00h`–`0Eh` | missing |
+| keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
 | 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |
-| boot select `000Dh` bit 2 / `PC` key | missing |
+| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 fixed at zero; configurable boot policy missing |
 | FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present |
 
 ## 7. Milestones (ADR-0016; V2 first)
