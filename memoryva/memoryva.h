@@ -41,6 +41,7 @@ extern _MEMORYVA memoryva;
 extern UINT8 memoryva_88_mode;
 extern UINT8 memoryva_88_port31;
 extern UINT8 memoryva_88_xerom; /* 71h bit 0: one disables extension ROM. */
+extern UINT8 memoryva_88_window; /* 70h: high byte of the 1KiB RAM-window origin. */
 extern BOOL textmem_dirty;
 
 void MEMCALL upd9002_memorymap_va(void);

@@ -93,8 +93,7 @@ This is an initial decoder, **not the complete hardware map**. Writes
 retain the existing physical main-RAM backing, including under ROM;
 that backing choice is provisional until firmware RAM use is audited.
 RMODE=1 also removes this overlay but does not yet supply the monitor
-ROM. Text-window banking, ERAM, and TVRAM/GVRAM mappings remain
-unimplemented.
+ROM. ERAM and TVRAM/GVRAM mappings remain unimplemented.
 
 Extension-ROM selection is now implemented: port `71h` bit 0 is XEROM
 (1=disabled, 0=enabled; readback upper bits are ones). When enabled with
@@ -119,6 +118,27 @@ MMODE switching, restoration of V3 reads, and words crossing physical
 integration-basic now executes `DI; LD SP,E1A0h; JP 3BE5h; IN A,(30h)`
 instead of zero bytes. The 600-frame capture completes with exit 0;
 this is execution-prefix evidence, not proof of a BASIC prompt or G103b.
+
+### 2.0.1 RAM access window (provisional backing)
+
+Port 70h now holds the high byte of the N88 RAM-window origin; OUT 78h
+increments it modulo 256 irrespective of the output value. In N88
+ROM/RAM mode, compatible 8000h–83FFh accesses map to the 1KiB RAM window
+starting at `port70 * 100h`, wrapping the RAM offset at 64KiB. The default
+origin is 8000h. All-RAM mode and V3 bypass this window.
+
+The 1KiB window and default origin are implementation policy for the
+8801-compatible model; the VA manual's port table names the offset and
+increment but does not establish the full physical backing. The current
+backing remains physical 10000h–1FFFFh as in §2.0. Accesses deliberately
+bypass ROM overlays when addressing RAM through this window. This is not
+the separate TVRAM mapping in §2.1, nor real-machine validation of VA RAM
+aliasing. `MEM88WIN` version 0 stores the offset; reset and missing old
+sections use 80h. Full state-file round trips remain pending.
+
+Tests cover offset readback, value-independent increment, FFh→00h wrap,
+RAM reads behind ROM, boundary word read/write, all-RAM bypass and V3
+bypass. No claim of BASIC boot completion follows from these tests.
 
 ### 2.1 TVRAM in 88 mode
 

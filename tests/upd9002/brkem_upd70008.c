@@ -155,7 +155,31 @@ static int memory_mode_selftest(void) {
 		iocore_out8(0x32, saved_bank);
 	}
 	iocore_out8(0x153, 0x01);
+	iocore_out8(0x31, 2); /* Fill the RAM behind the ROM/window. */
+	upd9002_memorywrite_va(0x1ff00, 0x91);
+	upd9002_memorywrite_va(0x10000, 0x92);
+	upd9002_memorywrite_va(0x102ff, 0x93);
+	upd9002_memorywrite_va(0x18400, 0x94);
+	iocore_out8(0x70, 0xff);
+	iocore_out8(0x31, 0);
+	passed = passed && iocore_inp8(0x70) == 0xff &&
+	         upd9002_memoryread_va(0x18000) == 0x91 &&
+	         upd9002_memoryread_va(0x18100) == 0x92 &&
+	         upd9002_memoryread_va_w(0x183ff) == 0x9493;
+	upd9002_memorywrite_va_w(0x183ff, 0xa2a1);
+	iocore_out8(0x31, 2);
+	passed = passed && upd9002_memoryread_va(0x102ff) == 0xa1 &&
+	         upd9002_memoryread_va(0x18400) == 0xa2;
+	iocore_out8(0x31, 0);
+	iocore_out8(0x78, 0x55); /* Value ignored; FF wraps to 00. */
+	passed = passed && iocore_inp8(0x70) == 0 &&
+	         upd9002_memoryread_va(0x18000) == 0x92;
+	iocore_out8(0x78, 0xaa);
+	passed = passed && iocore_inp8(0x70) == 1;
+	iocore_out8(0x153, 0x41);
+	passed = passed && upd9002_memoryread_va(0x18000) == 0x66;
 	memctrlva_reset();
+	passed = passed && iocore_inp8(0x70) == 0x80;
 	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);
 	iocore_destroy();
 	return passed ? SUCCESS : FAILURE;

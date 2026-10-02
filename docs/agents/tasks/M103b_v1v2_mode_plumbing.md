@@ -165,8 +165,8 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   `10000h`–`17FFFh`, selected by the mode latch and port 31h bits 1/2.
   Optional `MEM88SYS` saves the port 31h latch. Synthetic tests cover
   both word boundaries, MMODE switching, and RAM writes under ROM.
-  Physical RAM backing is provisional; monitor ROM, text windows, ERAM
-  and video mappings remain pending (plan §2.0).
+  Physical RAM backing is provisional; monitor ROM, ERAM and video
+  mappings remain pending (plan §2.0).
   An automatic-FDD BASIC run now executes the ROM entry instructions,
   including `LD SP,E1A0h` and `JP 3BE5h`; 600-frame capture exits 0 but
   does not establish a BASIC prompt. Full state-file testing is pending.
@@ -188,6 +188,17 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   `6045h` → `6B55h`. An 1800-frame run completes (exit 0), but no BASIC
   boot completion is claimed. Earlier short trace limits ended in delay
   loops and were not evidence that those loops were stuck.
+
+### RAM-window stage
+
+- Port 70h offset and value-independent port 78h increment drive the
+  1KiB window at compatible 8000h–83FFh in N88 ROM/RAM mode. RAM offsets
+  wrap at 64KiB and bypass ROM overlays; V3/all-RAM mode bypass the
+  window. Physical backing and reset origin 80h remain implementation
+  policy, not established VA hardware equivalence (plan §2.0.1).
+- Optional `MEM88WIN` version 0 stores the offset. Production tests cover
+  register readback, increment wrap, RAM behind ROM, boundary word reads
+  and writes, mode bypass, and reset. Full file round trips are pending.
 
 ### I/O trap register stage
 
