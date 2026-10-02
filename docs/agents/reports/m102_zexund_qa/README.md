@@ -186,8 +186,11 @@ probe crashed; extraction used `--drop-entry 37`. `cbprb.txt` and
 - Besides the new files the disk carries byte-identical copies of files from
   earlier runs (`ed00.txt` = run 2; `ed5e.txt`, `edae.txt`, `edaf.txt`,
   `edb0.txt`, `edb5.txt` = run 3; `e200.txt`, `s200.txt` = run 4; `edad.txt`
-  is empty here but had records in run 3). How the medium was prepared from
-  the earlier disks has not yet been recorded by the maintainer.
+  is empty here but had records in run 3). The maintainer does not remember
+  how the medium was prepared from the earlier disks, and before `EDPRB2 64`
+  he mistakenly ran the old `EDPRB` again with starts around 5C–AE and
+  B0–B5, which recreated those `ed??.txt` files (`edb5.txt` closed one
+  record again; `edad.txt` stayed empty).
 - `e25d.txt` is empty: a run started at ED 5D wrote no record, consistent
   with the run-3 `Bdos Err On A: R/O` stop at 5D.
 - `e264.txt` is complete: `EDPRB2 64` ran every remaining probed opcode,
