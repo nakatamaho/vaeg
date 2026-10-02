@@ -93,6 +93,7 @@ APPROVED_PATCHES = {
     "docs/agents/reports/m102_upstream_upd9002_ddcb_register_forms.patch",
     "docs/agents/reports/m102_upstream_undefined_opcodes.patch",
     "docs/agents/reports/m102_m35_irq_extension_on_1_11.patch",
+    "docs/agents/reports/m102_upd9002_undefined_ed_semantics.patch",
     "tools/cpmva/patches/cpm22-64k.patch",
     "tools/cpmva/zex/zexall-fileout.patch",
     "tools/cpmva/zex/zex13s.patch",
