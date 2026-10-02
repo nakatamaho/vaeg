@@ -79,6 +79,32 @@ sources in hand; it is what M103b must derive from the ROM's own window
 setup (the handoff block §8, the shared initialiser `0x2210`) and from
 8801 behaviour, and verify by running the ROM.
 
+### 2.0 Initial decoder implementation (partial)
+
+M103b now overlays physical `10000h`–`17FFFh` reads with the N88-BASIC
+payload at `rom1mem[10000h..17FFFh]` when 153h bit 6 is clear and port
+31h MMODE/RMODE (bits 1/2) are both clear. The payload location is backed
+by the byte comparison in the CPU document Appendix C. Port 31h OUT is
+latched independently of its existing IN handler. MMODE=1 removes this
+ROM overlay. Reset clears the new latch; optional state section
+`MEM88SYS`, version 0, preserves it without changing `MEMORYVA`.
+
+This is an initial decoder, **not the complete hardware map**. Writes
+retain the existing physical main-RAM backing, including under ROM;
+that backing choice is provisional until firmware RAM use is audited.
+RMODE=1 also removes this overlay but does not yet supply the monitor
+ROM. Extension-ROM selection at 6000h–7FFFh, text-window banking, ERAM,
+and TVRAM/GVRAM mappings remain unimplemented. No new decoder is added
+to the CPU adapter: byte/word reads go through the common VA decoder,
+including split reads at both ROM edges.
+
+Synthetic tests verify ROM read selection, RAM under the overlay,
+MMODE switching, restoration of V3 reads, and words crossing physical
+0FFFFh/10000h and 17FFFh/18000h. A local automatic-FDD run with
+integration-basic now executes `DI; LD SP,E1A0h; JP 3BE5h; IN A,(30h)`
+instead of zero bytes. The 600-frame capture completes with exit 0;
+this is execution-prefix evidence, not proof of a BASIC prompt or G103b.
+
 ### 2.1 TVRAM in 88 mode
 
 `[VA-TM]` ch. 8.2.1. 4 KiB of the V3 TVRAM — `A6000h`–`A6FFEh` — is
@@ -260,8 +286,8 @@ in the maintainer-local task directory outside Git.
 |---|---|
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
-| `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; address decoding not yet switched |
-| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | missing |
+| `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
+| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | initial N88 32KiB read overlay and port 31h latch; remaining banking pending (§2.0) |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | missing |

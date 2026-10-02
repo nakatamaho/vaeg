@@ -13,6 +13,12 @@
 
 // ---- I/O
 
+static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
+	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
+	memoryva_88_port31 = (UINT8)dat;
+	(void)port;
+}
+
 static void IOOUTCALL memctrlva_o152(UINT port, REG8 dat) {
 	if (pccore.model_va == PCMODEL_VA1) {
 		memoryva.rom0_bank = (dat & 0x0f);
@@ -92,12 +98,14 @@ static REG8 IOINPCALL memctrlva_i031(UINT port) {
 // ---- I/F
 
 void memctrlva_reset(void) {
+	memoryva_88_port31 = 0;
 	memctrlva_o152(0, 0);
 	memctrlva_o153(0, 0x41);
 	memctrlva_o198(0, 0);
 }
 
 void memctrlva_bind(void) {
+	iocore_attachout(0x031, memctrlva_o031);
 	iocore_attachout(0x152, memctrlva_o152);
 	iocore_attachout(0x153, memctrlva_o153);
 	iocore_attachout(0x180, memctrlva_o180);

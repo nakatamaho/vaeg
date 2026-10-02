@@ -153,13 +153,23 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   without the withdrawn SW7 override. Port `153h` bit 6 latches and reads
   back; reset selects V3 (`41h`). The production I/O regression covers
   byte writes, the ROM's word read/write at `152h`, and reset after an
-  88-mode request. This changes the latch only, not address decoding.
+  88-mode request. The initial latch-only step is now extended with the
+  partial ROM overlay described below.
 - New optional binary state section `MEM88MODE`, version 0, stores one
   byte (0=V3, 1=88-mode request). The old `MEMORYVA` structure and its
   reserved bytes remain untouched. State loading calls `iocore_reset`
   before section loading, so an old state without `MEM88MODE` keeps V3.
   Complete old/new state-file round trips remain unverified; current
   tests cover the I/O/reset path, not the full loader.
+- Initial N88 ROM overlay is implemented for reads at physical
+  `10000h`–`17FFFh`, selected by the mode latch and port 31h bits 1/2.
+  Optional `MEM88SYS` saves the port 31h latch. Synthetic tests cover
+  both word boundaries, MMODE switching, and RAM writes under ROM.
+  Physical RAM backing is provisional; monitor ROM, extension banks,
+  text windows, ERAM and video mappings remain pending (plan §2.0).
+  An automatic-FDD BASIC run now executes the ROM entry instructions,
+  including `LD SP,E1A0h` and `JP 3BE5h`; 600-frame capture exits 0 but
+  does not establish a BASIC prompt. Full state-file testing is pending.
 - Normal CPU/DMA accesses already pass through the byte/word VA decoder
   in `memoryva/memoryva.c`; only the isolated SST flat-memory seam
   bypasses it. Add the window there, including word-boundary handling,

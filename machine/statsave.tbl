@@ -112,6 +112,7 @@ static const SFENTRY np2tbl[] = {
 	{"BKUPMEMVA",	0,	STATFLAG_BIN,	backupmem,		sizeof(backupmem)},
 	{"MEMORYVA",	0,	STATFLAG_BIN,	&memoryva,		sizeof(memoryva)},
 	{"MEM88MODE",	0,	STATFLAG_BIN,	&memoryva_88_mode,	sizeof(memoryva_88_mode)},
+	{"MEM88SYS",	0,	STATFLAG_BIN,	&memoryva_88_port31,	sizeof(memoryva_88_port31)},
 
 	{"SYSPORTVA",	0,	STATFLAG_BIN,	&sysportva,		sizeof(sysportva)},
 	{"VIDEOVA",		0,	STATFLAG_BIN,	&videova,		sizeof(videova)},

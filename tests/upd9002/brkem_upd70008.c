@@ -53,6 +53,34 @@ static int memory_mode_selftest(void) {
 	passed = passed && (memoryva_88_mode == 1) && (iocore_inp16(0x152) == 0x0100);
 	iocore_out16(0x152, 0x4100);
 	passed = passed && (memoryva_88_mode == 0) && (iocore_inp16(0x152) == 0x4100);
+	/* Synthetic ROM/RAM sentinels test both edges and RAM under the ROM. */
+	{
+		const BYTE saved_first = rom1mem[0x10000];
+		const BYTE saved_last = rom1mem[0x17fff];
+		rom1mem[0x10000] = 0xa5;
+		rom1mem[0x17fff] = 0x5a;
+		upd9002_memorywrite_va(0x0ffff, 0x11);
+		upd9002_memorywrite_va(0x10000, 0x22);
+		upd9002_memorywrite_va(0x17fff, 0x33);
+		upd9002_memorywrite_va(0x18000, 0x44);
+		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22);
+		iocore_out8(0x153, 0x01);
+		passed = passed && (upd9002_memoryread_va(0x10000) == 0xa5) &&
+		         (upd9002_memoryread_va_w(0x0ffff) == 0xa511) &&
+		         (upd9002_memoryread_va_w(0x17fff) == 0x445a);
+		upd9002_memorywrite_va_w(0x17fff, 0x6677);
+		passed = passed && (upd9002_memoryread_va_w(0x17fff) == 0x665a) &&
+		         (rom1mem[0x17fff] == 0x5a);
+		iocore_out8(0x031, 0x02); /* MMODE: all RAM. */
+		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22) &&
+		         (upd9002_memoryread_va_w(0x17fff) == 0x6677);
+		iocore_out8(0x031, 0x00);
+		passed = passed && (upd9002_memoryread_va(0x10000) == 0xa5);
+		iocore_out8(0x153, 0x41);
+		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22);
+		rom1mem[0x10000] = saved_first;
+		rom1mem[0x17fff] = saved_last;
+	}
 	iocore_out8(0x153, 0x01);
 	memctrlva_reset();
 	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);

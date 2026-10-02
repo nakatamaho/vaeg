@@ -63,6 +63,7 @@ BYTE va91dicmem[0x80000];
 
 _MEMORYVA memoryva;
 UINT8 memoryva_88_mode;
+UINT8 memoryva_88_port31;
 BOOL textmem_dirty;
 
 _VA91 va91;
@@ -757,7 +758,17 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 	}
 }
 
+/* Initial N88 ROM overlay only. Extension banks and monitor ROM are pending.
+ * RAM writes still use the existing physical main-RAM backing. */
+static BOOL n88_rom_selected(UINT32 address) {
+	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) &&
+	       address >= 0x10000 && address < 0x18000;
+}
+
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
+	if (n88_rom_selected(address)) {
+		return rom1mem[address]; /* N88 payload begins at ROM-image offset 10000h. */
+	}
 	return (membyte_read[top_index(address)](address));
 }
 
@@ -767,6 +778,11 @@ REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 	REG8 hi;
 
 	next = address + 1;
+	if (n88_rom_selected(address) || n88_rom_selected(next)) {
+		lo = upd9002_memoryread_va(address);
+		hi = upd9002_memoryread_va(next);
+		return (REG16)lo | ((REG16)hi << 8);
+	}
 	if (next) {
 		return (memword_read[top_index(next)](address));
 	}
