@@ -154,6 +154,7 @@ only on the disks you generate; VAEG does not distribute them.
 | `INPRB.COM` | `INPRB.TXT` | Documented `IN` reads of the ports named by C in the ED probes (M102); real machine only, the host runner rejects I/O |
 | `EDPRB3.COM` | `EDPRB3.TXT` | One-input-at-a-time isolation of the undefined ED 00–3F value (M102) |
 | `EDPRB4.COM` | `EDPRB4.TXT` | Full C sweep (00h–FFh) of the undefined ED 20 value (M102) |
+| `ALTPRB.COM` | `ALTPRB.TXT` | Alternate register set and flags across a `CALLN 91h` round trip (M103a); real machine only |
 
 `EDPRB` prints `ED xx` before each opcode and closes its output file after
 every record, so a run that hangs keeps all earlier results. After a reset,

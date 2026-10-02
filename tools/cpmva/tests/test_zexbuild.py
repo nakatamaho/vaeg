@@ -132,7 +132,7 @@ class AssemblerTest(unittest.TestCase):
                     "ZEX13S.COM", "FLAGPRB.COM", "DAADUMP.COM",
                     "ZEXIY.COM", "ZEXUND.COM", "ZEXED.COM", "EDPRB.COM",
                     "CBPRB.COM", "EDPRB2.COM", "EDPRB2S.COM", "INPRB.COM",
-                    "EDPRB3.COM", "EDPRB4.COM"]),
+                    "EDPRB3.COM", "EDPRB4.COM", "ALTPRB.COM"]),
         )
         for name, data in programs.items():
             with self.subTest(name=name):

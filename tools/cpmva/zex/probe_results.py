@@ -288,6 +288,26 @@ def parse_edprb4(data: bytes) -> dict[int, str]:
     return records
 
 
+ALTPRB_RECORD = 128
+_ALTPRB = re.compile(r"^X([0-9A-F]) ([IO])( (AF|BC|DE|HL|IX|IY|SP|AF'|BC'|DE'|HL')=[0-9A-F]{4}){11}$")
+
+
+def parse_altprb(data: bytes) -> dict[tuple[int, str], str]:
+    """ALTPRB.TXT -> {(case, 'I'|'O'): line}."""
+    records = {}
+    usable = len(data) - len(data) % ALTPRB_RECORD
+    for offset in range(0, usable, ALTPRB_RECORD):
+        record = data[offset : offset + ALTPRB_RECORD]
+        if record.strip(b"\x1a") == b"":
+            break
+        line = record.decode("ascii").rstrip("\r\n ")
+        match = _ALTPRB.match(line)
+        if not match:
+            raise ResultError("ALTPRB_FORMAT", f"bad record at {offset}: {line[:40]}")
+        records[(int(match.group(1), 16), match.group(2))] = line
+    return records
+
+
 _INPRB = re.compile(r"^(P[0-9A-F]{2}( [0-9A-F]{2}){4}|C[0-9A-F]{4}( [0-9A-F]{2}){2})$")
 
 
