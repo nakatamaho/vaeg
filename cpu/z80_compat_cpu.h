@@ -69,6 +69,12 @@ class Z80CompatCpu {
 	void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
 	void SetFlagProfile(Z80CompatFlagProfile profile);
 	Z80CompatFlagProfile GetFlagProfile() const;
+
+	// uPD9002 only: reader for the first page of the CPU's native-side
+	// physical memory (the x86-style IVT), used by the measured undefined
+	// ED 00-3F/74/75/77. Unset readers make the page read as 0x00.
+	typedef std::uint8_t (*NativeVectorRead)(void *opaque, std::uint8_t index);
+	void SetNativeVectorRead(NativeVectorRead reader, void *opaque);
 	const Z80CompatReg *GetReg();
 
   private:
@@ -80,6 +86,7 @@ class Z80CompatCpu {
 	static void Output(void *opaque, std::uint16_t port, std::uint8_t data);
 	static void ConsumeClock(void *opaque, int clocks);
 	static std::uint8_t Acknowledge(void *opaque);
+	static unsigned char NativeVector(void *opaque, unsigned char index);
 
 	void SynchronizePublicMirror();
 	void ApplyFlagProfile();
@@ -98,6 +105,8 @@ class Z80CompatCpu {
 	IClockCounter *clockcounter_;
 	std::int32_t lastclock_;
 	std::int32_t acknowledge_port_;
+	NativeVectorRead native_vector_read_ = nullptr;
+	void *native_vector_opaque_ = nullptr;
 	bool external_wait_;
 	bool irq_asserted_;
 	bool instruction_fetch_started_;

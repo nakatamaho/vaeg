@@ -120,6 +120,13 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	void Enter() {
 		if (!initialized_) {
 			upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
+			// Undefined ED 00-3F/74/75/77 read the native-side physical
+			// page 0 (the x86 IVT); measured on a real PC-88VA2 (M102).
+			upd70008_.SetNativeVectorRead(
+			    [](void *, std::uint8_t index) -> std::uint8_t {
+				    return static_cast<std::uint8_t>(upd9002_memoryread(index));
+			    },
+			    nullptr);
 			initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
 			if (!initialized_) {
 				return;
