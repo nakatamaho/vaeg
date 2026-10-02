@@ -211,10 +211,48 @@ path. A forced-SW7 handoff is decoder diagnostics, not a boot gate.
   far-jumps to `3000:0000` at `20BDh`. Other loader branches also reach
   that native target; entering `1F90h` alone proves neither outcome.
 
-These are static control-flow findings, not a successful disk boot trace.
-Next capture the command/status sequence with neutral V3 and V2 test-media
-identifiers, and inspect the FDC firmware/response semantics. Keep private
-media and raw traces outside Git.
+The control-flow findings above were initially static. The following
+bounded emulator traces now connect the responses to the branch targets;
+none is a successful OS boot. Private media and raw traces remain outside
+Git.
+
+### 5.2 Bounded automatic-selection traces
+
+The manual's disk-mode table identifies `01h` as 1D/2D with 256-byte
+sectors, `02h` as 1D/2D with 512-byte sectors, `29h` as 1HDs/2HDs, and
+`23h` as 1HD/2HD with 1024-byte sectors. The maintainer also confirmed
+these meanings. Runtime tests below cover only `01h` and `02h`.
+
+A local worker based on `756e10cde7da58aea198e55015c9953bc2389316`
+used temporary, bounded native CS:IP/register prints at the ROM branch
+points, plus the existing FDD and compatible-mode traces. No mode override
+or ROM modification was used. The FDC used the normal uPD780 firmware
+backend, not the `fdsubsys` mock. Two generated, write-protected, zero-filled
+2D D88 images had 40 cylinders and two heads: one with 16 sectors of 256
+bytes per track, the other with eight sectors of 512 bytes. A working copy
+of maintainer-supplied BASIC media was the third input.
+
+| Neutral input | Status AH before `20F1h` shift | Observed branch path |
+|---|---|---|
+| synthetic-256 | `C0h` on first trial | `2033h` CF=0 → `2075h` → `2093h` → `1375h` → `13B1h` → compatible `1000:0000` |
+| synthetic-512 | `81h` on first trial, `C0h` on second | `2033h` CF=1; `203Dh` CF=0 → `2094h` → `20BDh` (far jump to native `3000:0000`) |
+| integration-basic | `C0h` on first trial | same branch path as synthetic-256, including compatible `1000:0000` |
+
+At `20F1h`, the ROM shifts AH right once; the branch tests its original
+bit 0 through carry, not whether the whole status is zero. `C0h` must
+therefore not be described as an error merely because it is nonzero.
+
+Both compatible entries have saved native frame `13B4/F000/F044` and
+initial instruction bytes `00/00`. Thus automatic FDD selection reaches
+the adapter, but the absent 88-mode ROM mapping prevents BASIC execution.
+The temporary native trace code was removed after capture.
+
+All three instrumented runs used a 600-frame screenshot target and a
+35-second wall timeout and ended with exit 124. They establish the listed
+prefix of execution only; they do not establish full boot, timing, or a
+hang cause. Earlier 1800-frame attempts likewise are not acceptance
+results. Worker/patch/log identities and raw diagnostic output are kept
+in the maintainer-local task directory outside Git.
 
 ## 6. What vaeg has and lacks
 

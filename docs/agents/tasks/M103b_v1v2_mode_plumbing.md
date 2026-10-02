@@ -143,6 +143,12 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   is withdrawn following maintainer clarification: normal hardware selects
   V1/V2 automatically from the FDD. The forced-SW7 trace only isolated
   entry decoding. Memory mapping and I/O trapping remain pending.
+- Bounded traces now confirm automatic FDD selection for synthetic 256-
+  and 512-byte-sector 2D media and maintainer-provided BASIC media (plan
+  §5.2). BASIC reaches BRKEM2 without SW7 changes, but then fetches zero
+  bytes instead of BASIC ROM. All instrumented runs timed out after
+  capturing this prefix; G103b has not passed. The next implementation
+  target is the 88-mode memory decoder, not a boot-selection override.
 - Uncommitted memory-mode latch work is retained in a named Git stash
   (`M103b: pending memory-mode latch before boot-policy correction`), not
   included in this boot-policy correction.
