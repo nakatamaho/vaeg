@@ -68,6 +68,7 @@ enum {
 	STATFLAG_BIN = 0,
 	STATFLAG_UPD9002_CPU,
 	STATFLAG_UPD9002_COMPAT,
+	STATFLAG_UPD9002_ALT,
 	STATFLAG_TERM,
 	STATFLAG_COM,
 	STATFLAG_DISK,
@@ -482,6 +483,18 @@ static int flagload_legacy_cpu_state(STFLAGH sfh) {
 }
 
 // ---- memory
+
+static int flagload_upd9002_alt(STFLAGH sfh, const SFENTRY *tbl) {
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, &upd9002_alt_regs, sizeof(upd9002_alt_regs)) != STATFLAG_SUCCESS)) {
+		statflag_seterr(sfh, "uPD9002 alternate-register payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	/* The section precedes the compat blob; its loader must let the
+	 * machine-owned storage win over the blob's working copy. */
+	upd9002_alt_regs_loaded = TRUE;
+	return STATFLAG_SUCCESS;
+}
 
 static int flagsave_mem(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
@@ -1333,6 +1346,10 @@ int statsave_save(const char *filename) {
 			ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_UPD9002_ALT:
+			ret |= flagsave_common(&sffh->sfh, tbl);
+			break;
+
 		case STATFLAG_UPD8087:
 			ret |= flagsave_upd8087(&sffh->sfh, tbl);
 			break;
@@ -1429,6 +1446,7 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				break;
 
 			case STATFLAG_UPD9002_COMPAT:
+			case STATFLAG_UPD9002_ALT:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
 				break;
 
@@ -1577,6 +1595,10 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 			case STATFLAG_UPD9002_COMPAT:
 				ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_UPD9002_ALT:
+				ret |= flagload_upd9002_alt(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_UPD8087:

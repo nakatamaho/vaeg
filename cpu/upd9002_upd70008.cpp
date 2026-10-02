@@ -151,6 +151,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			upd70008_.SetReg(state);
 			have_compatible_state_ = true;
 		}
+		LoadAltFromNative();
 		counter_.SetRemainclock(CPU_REMCLOCK);
 		const std::uint32_t trace_slot = compat_trace_slot();
 		compat_trace("enter", trace_slot, 0, 0);
@@ -195,6 +196,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	void SyncToNative() {
 		const UPD70008Reg *state = upd70008_.GetReg();
+		StoreAltToNative();
 		CPU_AL = static_cast<UINT8>(state->af >> 8);
 		CPU_FLAG = static_cast<UINT16>((CPU_FLAG & 0xfc00) | (state->af & 0xff) |
 		                               (state->iff1 ? I_FLAG : 0));
@@ -222,7 +224,27 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		state.iff1 = (CPU_FLAG & I_FLAG) != 0;
 		state.iff2 = state.iff1;
 		upd70008_.SetMainReg(state);
+		LoadAltFromNative();
 		counter_.SetRemainclock(CPU_REMCLOCK);
+	}
+
+	// M103a: the alternate set lives in machine-owned storage
+	// (upd9002_alt_regs); the compat core holds a working copy.
+	void LoadAltFromNative() {
+		UPD70008Reg state = *upd70008_.GetReg();
+		state.r_af = upd9002_alt_regs.af;
+		state.r_bc = upd9002_alt_regs.bc;
+		state.r_de = upd9002_alt_regs.de;
+		state.r_hl = upd9002_alt_regs.hl;
+		upd70008_.SetAltReg(state);
+	}
+
+	void StoreAltToNative() {
+		const UPD70008Reg *state = upd70008_.GetReg();
+		upd9002_alt_regs.af = state->r_af;
+		upd9002_alt_regs.bc = state->r_bc;
+		upd9002_alt_regs.de = state->r_de;
+		upd9002_alt_regs.hl = state->r_hl;
 	}
 
 	int StateSave(UINT8 *buffer, UINT size) {
@@ -249,6 +271,15 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		}
 		SetMemoryBases();
 		have_compatible_state_ = true;
+		// The UPD9ALT section precedes this blob in a state file and marks
+		// upd9002_alt_regs_loaded; then the machine-owned storage is the
+		// authority. A file written before M103a has no such section, so
+		// the blob's working copy becomes the storage.
+		if (upd9002_alt_regs_loaded) {
+			LoadAltFromNative();
+		} else {
+			StoreAltToNative();
+		}
 		CPU_REMCLOCK = counter_.GetRemainclock();
 		return SUCCESS;
 	}

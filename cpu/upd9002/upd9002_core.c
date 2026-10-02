@@ -14,6 +14,8 @@
 #include "upd9002_ops.mcr"
 
 Upd9002CoreContext upd9002_core_context;
+Upd9002AltRegs upd9002_alt_regs;
+BOOL upd9002_alt_regs_loaded;
 UINT16 upd9002_step_start_cs;
 UINT16 upd9002_step_start_ip;
 UINT8 upd9002_current_opcode;
@@ -221,6 +223,8 @@ void upd9002_core_reset(void) {
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
 	upd9002_state_reset();
+	ZeroMemory(&upd9002_alt_regs, sizeof(upd9002_alt_regs));
+	upd9002_alt_regs_loaded = FALSE;
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
 	upd9002_compat_return_sp = 0;

@@ -246,6 +246,32 @@ enum {
 #define UPD9002_COMPAT_STATE_SIZE 68
 #define UPD9002_COMPAT_STATE_SECTION "UPD9Z80"
 
+/*
+ * M103a: the Z80 emulation mode's alternate register set (AF', BC', DE',
+ * HL'). Native mode cannot address these eight bytes (see
+ * docs/modernization/upd9002-upd70008-mode.md 3.1 and 11-4), so they are
+ * machine-owned storage beside the native register file rather than part
+ * of it. The uPD70008-compatible adapter copies them in on mode entry and
+ * resume and out after every compatible-mode step, exactly like the main
+ * set aliases. Cleared only by the hardware reset path (upd9002_core_reset);
+ * CALLN round trips, RETEM/BRKEM re-entry and adapter resets preserve them.
+ * Saved as the "UPD9ALT" state section, which precedes the compat blob;
+ * its loader sets upd9002_alt_regs_loaded so that the adapter's StateLoad
+ * lets the storage win over the blob's working copy. A state file written
+ * before M103a has no such section and keeps the blob's values.
+ */
+typedef struct {
+	UINT16 af;
+	UINT16 bc;
+	UINT16 de;
+	UINT16 hl;
+} Upd9002AltRegs;
+
+#define UPD9002_ALT_STATE_SECTION "UPD9ALT"
+
+extern Upd9002AltRegs upd9002_alt_regs;
+extern BOOL upd9002_alt_regs_loaded;
+
 void upd9002_core_initialize(void);
 void upd9002_core_deinitialize(void);
 void upd9002_core_reset(void);

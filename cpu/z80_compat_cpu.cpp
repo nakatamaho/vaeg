@@ -343,6 +343,18 @@ void Z80CompatCpu::SetMemoryBases(std::uint32_t code_base, std::uint32_t data_ba
 	data_base_ = data_base;
 }
 
+void Z80CompatCpu::SetAltReg(const Z80CompatReg &source) {
+	if (impl_ == nullptr) {
+		return;
+	}
+	SplitWord(source.r_af, &impl_->cpu.reg.back.A, &impl_->cpu.reg.back.F);
+	SplitWord(source.r_hl, &impl_->cpu.reg.back.H, &impl_->cpu.reg.back.L);
+	SplitWord(source.r_de, &impl_->cpu.reg.back.D, &impl_->cpu.reg.back.E);
+	SplitWord(source.r_bc, &impl_->cpu.reg.back.B, &impl_->cpu.reg.back.C);
+	ApplyFlagProfile();
+	SynchronizePublicMirror();
+}
+
 void Z80CompatCpu::SetFlagProfile(Z80CompatFlagProfile profile) {
 	flag_profile_ = profile;
 	ApplyFlagProfile();
