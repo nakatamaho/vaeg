@@ -62,6 +62,7 @@ levels, and every error found so far lived on exactly that boundary.
 | `[ROM]` | Extracted from PC-88VA ROM images: opcode tables, string pools, and disassembly. | Reliable for what the firmware *does*. A disassembler table is **not** proof that silicon executes something. |
 | `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992), and the MS-DOS CP/M emulator v0.8 `.cpv` V30 path audited in M76. | Reliable for the path each program actually executes. |
 | `[DERIVED]` | Logically forced by the above; the derivation is stated inline. | Implement with a citing comment. |
+| `[MEAS]` | Measured on a real PC-88VA2 by this project (the M101/M102 QA campaigns): CP/M probe programs run under CP/MVA in V3 mode, entering compatible mode through `BRKEM`. Byte-exact records, program and disk hashes are archived in [`m101_zexall_qa`](../agents/reports/m101_zexall_qa/README.md) and [`m102_zexund_qa`](../agents/reports/m102_zexund_qa/README.md). | Implement as specified; the records are the regression gate. Valid for what the probes exercised, nothing more. |
 | `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §15. |
 
 **Sources.** Every source this document rests on, what it licenses, and
@@ -641,9 +642,12 @@ undefined instructions, plus `CALLN` and `RETEM`.
 
 `[ROM]` `LDIR` (`ED B0`) appears in live V1/V2-mode code (§4.4).
 
-`[UNKNOWN]` The undocumented `DD`/`FD` half-index-register opcodes
-(`IXH`/`IXL`/`IYH`/`IYL`) and the rest of the undocumented space. Neither
-Debug 8800 nor N88-BASIC has any reason to use them.
+`[MEAS]` The undocumented `DD`/`FD` half-index registers exist and behave
+as on a Zilog Z80 (plus the flag rules of `uPD9002-zex-results.md`), the
+`DD CB`/`FD CB` space departs from the Zilog pattern in a systematic way,
+and the *undefined* `ED` space turned out to be a sizeable, perfectly
+repeatable instruction set of its own, including loads that read the
+native side's interrupt vector table. §4.7 presents the full map.
 
 `[ROM]` The **V3-mode PC-Engine monitor** carries no Z80 mnemonics in
 either ROM image; its assembler and disassembler are NEC-native only.
@@ -862,6 +866,162 @@ monitor.
 
 `[ROM]` `disk.rom` differs between the two machines as well, but it is the
 FDD sub-CPU's ROM and out of scope (§0).
+
+### 4.7 The undocumented and undefined opcode space, measured
+
+`[MEAS]` The M102 campaign measured the whole space on a real PC-88VA2
+over eight disk runs — per-opcode probes with sandboxed pointers, three
+input sets, an `RST`-sled instruction-length detector, one-variable-at-a-
+time isolation and a full parameter sweep
+([evidence](../agents/reports/m102_zexund_qa/README.md); rules R12–R19 in
+[`uPD9002-zex-results.md`](uPD9002-zex-results.md) §4, §10). Everything
+below is deterministic: repeated runs, shifted code layouts and varied
+inputs reproduce the records byte for byte. The flag rules R1–R11 from
+M101 apply throughout.
+
+#### 4.7.1 `DD`/`FD`: half-index registers, and the `DD CB` surprise
+
+`[MEAS]` `IXH`/`IXL`/`IYH`/`IYL` exist, for `INC`/`DEC` and the ALU forms,
+with Zilog results (`ZEXIY`, `ZEXUND`). Redundant `DD`/`FD` prefix chains
+behave as on a Zilog Z80. But the `DD CB`/`FD CB` four-byte space with a
+register operand (bits 2–0 ≠ 6) is **not** Zilog:
+
+- `BIT n,(IX+d),r` tests **the register `r`**, not the memory operand;
+- `RES`/`SET n,(IX+d),r` modify **only `r`**; memory is untouched;
+- the rotate/shift forms keep the Zilog behaviour (operate on
+  `(IX+d)`, copy the result to `r`).
+
+`[DERIVED]` The displacement byte is still fetched and consumed in all
+forms; only its *use* disappears for BIT/RES/SET. All 1,024 encodings
+were measured individually (`CBPRB`, two input sets each).
+
+#### 4.7.2 The undefined `ED` map
+
+`[MEAS]` Outside the documented μPD780 set and `CALLN`/`RETEM`
+(§2.2.3–2.2.4), the `ED` page decodes as follows. "IVT word load" and the
+other behaviours are defined in §4.7.3–§4.7.5.
+
+| Second byte | Behaviour | Length |
+|---|---|---|
+| `00`–`3F` | IVT word load into `BC`/`DE`/`HL`/`SP` by bits 5–4 | 2 |
+| `4C` | `RETN` (duplicate of `ED 45`) | 2 |
+| `54`, `55` | leaves compatible mode; the OS reports an error | 2 |
+| `5C` | hangs the machine (one observation) | — |
+| `5D` | fault; corrupted the file system once (one observation) | — |
+| `64`, `65` | `RRD` variant that also writes `(HL+1)` | 2 |
+| `6C`, `6D` | `RLD` variant that also writes `(HL+1)` | 2 |
+| `74`, `75`, `77` | IVT word load into `SP` | 2 |
+| `7C`, `7D`, `7F`, `80`–`9F`, `A4`–`A7` | word block transfer, one step | 2 |
+| `AC` | leaves compatible mode (noted "exit"; screen not recorded) | — |
+| `AD`–`AF`, `B4`–`B7` | word block transfer repeated until `BC` = 0 | 2 |
+| `BC`–`EC` | consumes **one operand byte**, no visible effect | 3 |
+| `EE`–`FC` | leaves compatible mode for the native OS | — |
+| `FE`, `FF` | no visible effect | 2 |
+
+Lengths come from the `RST`-sled detector: the 3-byte forms resumed one
+byte late, every other surviving form resumed at the next byte. The
+mode-exit rows and `5C`/`5D` are observations of the *symptom* only; no
+record of machine state across the exit exists, and vaeg does not emulate
+them. `4E`/`66`/`6E`/`76`/`7E` (`IM` duplicates) and `LD A,R` were
+excluded from the probes by design.
+
+#### 4.7.3 `ED 00`–`3F`: reading the native IVT from Z80 code
+
+`[MEAS]` The most consequential find. Each of these opcodes loads the
+register pair selected by bits 5–4 (`00`–`0F`: `BC`; `10`–`1F`: `DE`;
+`20`–`2F`: `HL`; `30`–`3F`: `SP`; `74`/`75`/`77`: `SP` again) with the
+little-endian word at **bytes `C` and `(C+1) mod 256` of the native
+side's physical page 0** — the x86-style interrupt vector table that §6
+describes. F becomes: S = bit 7 of the high byte, Z = (word = 0), P =
+parity of the low byte; H, N, C and the R1 bits are cleared. Nothing else
+matters: A, F, B, the pointer registers and all Z80-visible memory were
+varied one at a time without any effect on the value, and relocating the
+probe by 100h bytes changes nothing. The index wraps within the page
+(`C = FFh` reads bytes `FFh` and `00h`).
+
+Worked example from the real machine, which also decodes the table: with
+`C = 30h` the load returns `2800h` — IVT bytes `30h`–`31h`, the offset of
+`INT 0Ch` — and with `C = 31h` it returns `0028h`, the same bytes shifted
+by one.
+
+`[ROM]` Independent corroboration from the VA2 boot ROM. The vector
+installer at `0x13ED` (§6) begins:
+
+```
+13ED  33 C0      xor  ax,ax
+13EF  8E C0      mov  es,ax        ; ES = 0000 — the IVT
+13F1  8B F8      mov  di,ax
+13F3  B8 29 23   mov  ax,2329h     ; default handler offset
+13F6  8C CB      mov  bx,cs        ;   segment F000h
+13F8  B9 00 01   mov  cx,0100h     ; all 256 vectors
+13FB  E8 3A 00   call fill
+13FE  B8 1F 23   mov  ax,231Fh     ; INT 08h-0Fh
+1401  B9 08 00   mov  cx,8
+1404  BF 20 00   mov  di,0020h
+1407  E8 2E 00   call fill
+140A  B8 2A 23   mov  ax,232Ah     ; INT 10h-17h
+140D  B9 08 00   mov  cx,8
+1410  E8 25 00   call fill
+1413  BE 5E 0F   mov  si,0F5Eh     ; then the override table
+```
+
+The constants `2329h`, `231Fh`, `232Ah` and segment `F000h` are exactly
+the values the Z80-side probes read back out of the hidden page on the
+real VA2, vector by vector, including the per-vector overrides. The page
+the undefined opcodes read *is* the live IVT.
+
+`[MEAS]` Cross-check in the opposite direction: running the same probes
+inside vaeg — whose implementation reads the guest's physical page 0 —
+reproduces the real VA2 records except for exactly three vectors that the
+guest OS had hooked into RAM at the time (runs 9–10), and on a VA1-ROM
+guest returns the VA1 BIOS's different handler addresses with the same
+flag rule. The value tracks the machine's actual IVT, not any constant.
+
+#### 4.7.4 `ED 64`/`65`, `6C`/`6D`: three-nibble `RRD`/`RLD`
+
+`[MEAS]` `A` and `(HL)` change exactly as in documented `RRD` (for
+`64`/`65`) and `RLD` (for `6C`/`6D`) — and `(HL+1)` changes too:
+
+- `64`/`65`: low nibble of `(HL+1)` ← old low nibble of `(HL)`; high
+  nibble preserved.
+- `6C`/`6D`: `(HL+1)` ← old `A` low nibble : old `(HL)` high nibble
+  (both nibbles replaced).
+
+F = parity of the new `A`; every other flag reads 0. Example
+(`A = 5Ah`, `(HL) = 34h`, `(HL+1) = 35h`): `ED 64` gives `A = 54h`,
+`(HL) = A3h`, `(HL+1) = 34h` — documented `RRD` plus one extra nibble.
+
+#### 4.7.5 `ED 80`-family: word block transfers
+
+`[MEAS]` `7C`/`7D`/`7F`, `80`–`9F` and `A4`–`A7` all perform the same
+single step: the word at `(HL)` is copied to `(DE)`; then `HL += 2`,
+`DE += 2`, `BC -= 1`; F is unchanged — an `LDI` that moves words and
+counts words. `AD`–`AF` and `B4`–`B7` repeat the step until `BC` = 0, a
+word `LDIR`. (`BC` = 0 on entry was not measured; vaeg mirrors `LDIR`
+and copies 65,536 words.)
+
+`[DERIVED]` These forms are why the first-generation probe destroyed
+itself: with `BC` and `DE` pointing into the probe's own code, every
+execution of `7C`–`A7` silently overwrote the program. The crash map of
+the early runs (returns to CP/M, hangs, a corrupted directory entry) is
+fully reproduced by vaeg running the same unsandboxed probe — a useful
+negative control for the whole model.
+
+#### 4.7.6 Reading the shape `[DERIVED]`
+
+A speculative but consistent reading, stated once and not implemented
+beyond the measured facts: compatible mode is microcode on a V-series
+core whose emulation machinery already contains IVT access (`BRKEM`,
+`CALLN`, native interrupts all read or push through page 0, §2.2). The
+undefined `ED` rows look like fragments of that machinery reached
+without their usual setup — IVT reads indexed by whatever `C` holds,
+block moves, and three-byte encodings in `BC`–`EC` that consume an
+operand the way `CALLN imm8` (`ED ED imm8`) does, sitting in the same
+region of the map. The rows that leave compatible mode (`54`/`55`,
+`AC`, `EE`–`FC`) bracket `RETEM` (`ED FD`) and behave like exits taken
+with inconsistent state, which the OS then reports as an error. None of
+this is verified beyond the guest-visible records; it is recorded as a
+shape, not as a mechanism.
 
 ## 5. On-chip peripherals
 
@@ -2375,10 +2535,10 @@ not used as the compatible decoder.
 | `brkem2-target` | What mode/state does `0F FE imm8` establish? | trap and halt | §17.4 |
 | `bootsel-000d` | What drives port `000Dh` bit 2. The `3000h` shared between the `0x13D2` branch and the manual's IPL path reads it as the V1/V2-versus-V3-IPL selector rather than the `PC` key (§8) | V1/V2-boot versus V3-IPL-boot selector; the `PC` key tested elsewhere | §17.1, Tier 1 — a boot matrix over `PC` key / `SW7` / V3-IPL disk. No instrument |
 | `ix-iy-share` | `IX` shares `SI` — confirmed on hardware (§17.2). Open only for `IY`/`DI` | shared | §17.5.2, which now has a predicted value to check |
-| `ed-block` | Do `LDIR`/`CPIR`/`INIR`/`OTIR` exist? | probably yes (§4.4) | §17.3 |
-| `cb-dd-fd` | `CB`/`DD`/`FD` prefix spaces; half-index registers | `DD`/`FD` probably yes; `CB` and half-index unknown | §17.3, §17.5.3 |
-| `ir-regs` | Do `I`/`R` exist? What does `LD A,R` return? | unknown | §17.5.4 |
-| `undoc-flags` | Do `F3`/`F5` behave as on a real Z80? | unknown | §17.5.5 |
+| `ed-block` | ~~Do `LDIR`/`CPIR`/`INIR`/`OTIR` exist?~~ **Resolved** `[MEAS]`: ZEXDOC/ZEXALL exercise them and pass (R5 flags) | — | §4.7 |
+| `cb-dd-fd` | ~~`CB`/`DD`/`FD` prefix spaces; half-index registers~~ **Resolved** `[MEAS]`: half-index Zilog; `DD CB`/`FD CB` register forms diverge (R12/R13); undefined `ED` mapped | — | §4.7 |
+| `ir-regs` | Do `I`/`R` exist? What does `LD A,R` return? `LD A,R` was deliberately excluded from the M102 probes | unknown | §17.5.4 |
+| `undoc-flags` | ~~Do `F3`/`F5` behave as on a real Z80?~~ **Resolved** `[MEAS]`: they read 0 and cannot be stored (R1) | — | `uPD9002-zex-results.md` |
 | `flag-callback` | Are flags set by a `CALLN`-invoked native routine visible after `RETI`? | no (plain PSW restore) | §17.6 |
 | `z80-int-model` | Does the superset add `IM 0/1/2`, `I`, `IFF1/2`, `RETN`? | V30 behaviour only (§3.5) | hardware |
 | `io-port-map` | How do Z80 `IN`/`OUT` ports reach the V30 I/O space? | direct | hardware |
