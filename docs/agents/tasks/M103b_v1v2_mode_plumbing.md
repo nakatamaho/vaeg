@@ -238,7 +238,8 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   and passes with it inside `vaeg --selftest`. With the correction the
   BASIC loader receives header `8800h`/`1600h`, completes its transfer
   (BC reaches zero) and proceeds to a delay loop. Boot completion is not
-  claimed. The selftest entry is not itself a CTest case.
+  claimed. `vaeg --selftest` runs in CTest as `vaeg_romless_tests` (an
+  earlier note here wrongly said it was not a CTest case).
 
 ### I/O trap register stage
 
@@ -307,6 +308,20 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
 - V3 smoke without media still passes. The automatic-FDD BASIC path is
   unchanged through the loader transfer (67 compatible trap events in
   the first million compatible instructions).
+
+### Full state-file round trip of the new sections
+
+- `vaeg_romless_tests` now saves a complete state with nondefault values
+  in all six optional sections (`MEM88MODE`, `MEM88SYS`, `MEM88EXT`,
+  `MEM88WIN`, `MEM88GFX`, `UPD9TRAP`), resets, loads it through
+  `statsave_load`, and checks every value through the production I/O
+  paths. It then removes those six sections from the file to emulate an
+  older build's state and verifies that loading it over nondefault
+  values yields the V3 defaults. Removing `MEM88WIN` from the state
+  table makes the test fail (`new sections did not round-trip`).
+- This closes the previously pending full state-file check for these
+  sections. It does not save or resume a live compatible-mode BASIC
+  session; that remains a G103b human-gate item.
 
 ### Disk BASIC reaches its first input prompt
 
