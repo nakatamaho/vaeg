@@ -378,6 +378,16 @@ class InstallerTests(unittest.TestCase):
                 self.installer.restore_upper_case_names(Path(directory))
         self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
 
+    def test_media_2d_copy_changes_only_the_media_byte(self):
+        image = self.installer.build_tools_disk(
+            self.installer.pad_cpm_records({"A.TXT": b"x" * 128}, b"\x00"))
+        copy = self.installer.media_2d_copy(image)
+        self.assertEqual(image[0x1B], 0x10)
+        self.assertEqual(copy[0x1B], 0x00)
+        diffs = [i for i, (a, b) in enumerate(zip(image, copy)) if a != b]
+        self.assertEqual(diffs, [0x1B])
+        self.assertEqual(len(image), len(copy))
+
     def test_test_disk_leaves_room_for_probe_outputs(self):
         # Program sizes as built in M101/M102. A real-machine session needs
         # either the DAADUMP outputs (4 x 32 KiB plus one record) or the

@@ -47,6 +47,7 @@ TOOLS_OUTPUT_NAME = "cpmva-tools.d88"
 SOURCE_OUTPUT_NAME = "cpmva-source.d88"
 DEVELOPMENT_OUTPUT_NAME = "cpmva-dev.d88"
 TEST_OUTPUT_NAME = "cpmva-zexall-test.d88"
+TEST_2D_OUTPUT_NAME = "cpmva-zexall-test.2d.d88"
 MANIFEST_OUTPUT_NAME = "cpmva-build-manifest.json"
 REPORT_OUTPUT_NAME = "cpmva-install-report.txt"
 USER_AGENT = f"VAEG-CPMVA-installer/{SCRIPT_VERSION}"
@@ -1185,6 +1186,17 @@ def wrap_cpm_d88(raw: bytes) -> bytes:
     return bytes(image)
 
 
+def media_2d_copy(image: bytes) -> bytes:
+    """Copy of an emulator-container D88 with the media byte set to 2D (0x00).
+
+    The 2DD media byte of wrap_cpm_d88 confuses real-disk writing tools,
+    which expect 0x00 for the 2D-320 geometry; only that byte differs.
+    """
+    copy = bytearray(image)
+    copy[0x1B] = 0x00
+    return bytes(copy)
+
+
 def unwrap_cpm_d88(image: bytes) -> bytes:
     validate_d88_structure(image, expected_type=0x10)
     offsets = struct.unpack_from("<164I", image, 0x20)
@@ -1436,6 +1448,7 @@ def main() -> int:
             args.output_dir / SOURCE_OUTPUT_NAME,
             args.output_dir / DEVELOPMENT_OUTPUT_NAME,
             args.output_dir / TEST_OUTPUT_NAME,
+            args.output_dir / TEST_2D_OUTPUT_NAME,
             args.output_dir / MANIFEST_OUTPUT_NAME,
             args.output_dir / REPORT_OUTPUT_NAME,
         )
@@ -1576,6 +1589,8 @@ def main() -> int:
             source_output = output_dir / SOURCE_OUTPUT_NAME
             development_output = output_dir / DEVELOPMENT_OUTPUT_NAME
             test_output = output_dir / TEST_OUTPUT_NAME
+            test_2d_output = output_dir / TEST_2D_OUTPUT_NAME
+            test_2d_data = media_2d_copy(test_data)  # for real-disk writing
             manifest_output = output_dir / MANIFEST_OUTPUT_NAME
             report_output = output_dir / REPORT_OUTPUT_NAME
             for path, data in (
@@ -1584,6 +1599,7 @@ def main() -> int:
                 (source_output, source_data),
                 (development_output, development_data),
                 (test_output, test_data),
+                (test_2d_output, test_2d_data),
             ):
                 if path.exists() and not args.force:
                     fail("OUTPUT_EXISTS", f"output exists: {path}")
@@ -1741,6 +1757,10 @@ def main() -> int:
                 },
                 "test_disk": {
                     "name": TEST_OUTPUT_NAME,
+                    "media_2d_copy": {
+                        "name": TEST_2D_OUTPUT_NAME,
+                        "sha256": sha256_bytes(test_2d_data),
+                    },
                     "size": len(test_data),
                     "sha256": sha256_bytes(test_data),
                     "raw_size": CPM_RAW_SIZE,
@@ -1786,6 +1806,7 @@ def main() -> int:
             print(f"Created {source_output}")
             print(f"Created {development_output}")
             print(f"Created {test_output}")
+            print(f"Created {test_2d_output}")
             print(f"Created {manifest_output}")
             print(f"Created {report_output}")
             return 0

@@ -65,6 +65,7 @@ cpmva-tools.d88         CP/M tools and games disk
 cpmva-source.d88        source and documentation disk
 cpmva-dev.d88           BDS C development disk
 cpmva-zexall-test.d88   Z80 exercisers and uPD9002 flag probes only
+cpmva-zexall-test.2d.d88  the same disk with the 2D (00h) media byte
 cpmva-build-manifest.json
 cpmva-install-report.txt
 ```
@@ -169,7 +170,11 @@ on a freshly generated `cpmva-zexall-test.d88`.
 The ZEX-derived programs are GPL-2.0-or-later; see
 `external/zex/provenance.txt` and ADR-0015. Output files are written to the
 current CP/M drive. `DAADUMP` needs about 130 KiB of free space, which the
-tools disk does not have. For real-machine runs, swap FD1 to `cpmva-zexall-test.d88`
+tools disk does not have. For real-machine runs, write `cpmva-zexall-test.2d.d88` to the medium: it
+differs from `cpmva-zexall-test.d88` only in the media byte at offset 1Bh
+(00h instead of the 10h that vaeg needs; see the `wrap_cpm_d88` comment),
+which real-disk writing tools expect for the 2D-320 geometry. In vaeg, swap
+FD1 to `cpmva-zexall-test.d88`
 after CP/M has started, press Ctrl-C to log in the new disk, and run the
 programs from it; it holds only these programs and has room for all of their
 outputs. The ZEX runs take hours on a real PC-88VA.
