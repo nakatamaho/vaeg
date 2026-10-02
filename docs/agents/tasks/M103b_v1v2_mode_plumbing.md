@@ -39,10 +39,10 @@ Make the VA2 boot ROM take its own V1/V2 path end to end: boot selection,
 display/memory setup in V3, `153H` bit 6 ← 0, I/O trap on, `BRKEM2 90h`,
 and N88-BASIC running from `1000:0000` inside the 88-mode window until it
 waits for the keyboard. No display or keyboard work in this milestone; the
-gate is trace-based. New boot selection is behind the configuration flag
-`v1v2_boot` (off by default). The BRKEM2 decoder is available independently,
-just as BRKEM is; it does not select the memory map or force a boot path.
-Verify the unchanged default V3 boot at the human gate.
+gate is trace-based. Follow the real machine's automatic FDD selection;
+there is no user-facing V1/V2 boot override. The BRKEM2 decoder does not
+select the memory map or force a boot path. Verify unchanged V3 disk
+boot and automatic selection of a compatible disk at the human gate.
 
 ## Scope
 
@@ -58,10 +58,10 @@ Verify the unchanged default V3 boot at the human gate.
 2. **Boot selection.** Preserve the existing active-low PC-key input
    (`000Dh` bit 2) in `io/serial.c`. Port `40h` bit 3 is SW7: zero tries
    intelligent-FDD boot; one skips it. The diagnostic trace with SW7=1
-   and the PC key unpressed reaches `BRKEM2` (plan §5). Design the
-   `v1v2_boot` configuration/GUI policy around these distinct inputs,
-   retaining SW7=0 by default; do not replace the keyboard row with a
-   synthetic mode bit. Record the policy and its disk-boot limitations.
+   and the PC key unpressed reaches `BRKEM2` (plan §5), but bypasses the
+   disk-identification path and is not an acceptance test. Keep SW7=0
+   and trace the FDD command/result branches through `1F90h`. Do not
+   replace automatic media selection with a GUI/INI mode selector.
 3. **`153H` bit 6 — system memory mode.** `io/memctrlva.c`: store the bit,
    read it back, and switch `memoryva` between the V3 map and the 88-mode
    map for physical `10000h`–`1FFFFh` (and `20000h`–`3FFFFh` as ERAM
@@ -105,20 +105,20 @@ delivery into Z80 code (M103c), FDD under V1/V2 (M103d), V1 mode.
   ROM; CPU document §15.2 `bootsel-000d` and `brkem2-target` updated with
   what the trace shows.
 - Tests: `BRKEM2` self-test, trap unit/self-tests, window-map unit tests
-  against the derived table, ROM-driven boot trace test behind
-  `v1v2_boot` (romful, skipped without the private ROMs like the existing
-  SST jobs).
+  against the derived table, ROM-driven automatic disk-selection trace
+  test (romful, skipped without the private ROMs and media).
 - Ledger entries for concrete defect corrections under AGENTS.md, including
   V1/V2 defects; feature-only additions do not require entries.
 
 ## Gate G103b (human)
 
-Standard gate for V3 (clean build, V3 boot, VA demo, OS boot) **unchanged
-with `v1v2_boot` off**, plus, with `v1v2_boot` on and the VA2 ROM set:
+Standard gate for V3 (clean build, V3 boot, VA demo, OS boot) unchanged,
+plus, with the VA2 ROM set and compatible boot media, without overrides:
 
 - the trace shows the ROM reading `000Dh` with the PC key unpressed,
-  taking the `0x136C` path, reading SW7=1 at `40h` and skipping the FDD
-  boot call; it also shows the reset/handoff sequence programming `FFE0h`–`FFE7h`, writing `FFEFh ← 03h`, clearing `153H`
+  taking the `0x136C` path, reading SW7=0 at `40h` and executing the FDD
+  boot call; record the media-dependent branch and return to the handoff.
+  The reset/handoff sequence must show programming `FFE0h`–`FFE7h`, writing `FFEFh ← 03h`, clearing `153H`
   bit 6, executing `BRKEM2 90h`, and Z80 execution starting at
   `1000:0000`;
 - N88-BASIC's initialisation runs inside the window (ROM-bank switching
@@ -139,24 +139,13 @@ with `v1v2_boot` off**, plus, with `v1v2_boot` on and the VA2 ROM set:
   six-byte native return frame and preserved DS/SS, then exercises
   compatible instructions, CALLN, nested native interrupt/IRET, RETEM,
   and compatible-state restore. This is ROM-less testing, not G103b.
-- SW7 configuration is now exposed as INI `v1v2_boot` (boolean, default
-  false) and the experimental GUI boot menu. It drives only port `40h`
-  bit 3; the existing PC-key row is unchanged. This is a live host DIP
-  input, not a saved guest latch. Loading a state uses the current host
-  setting; reset is needed to rerun the ROM's boot decision. This option
-  skips intelligent-FDD boot and is not yet a disk-BASIC boot policy.
-- The production I/O test checks that changing the setting toggles only
-  bit 3, that turning it off restores the original port value, and that
-  pressed/released PC-key rows remain independent of it.
-- A local VA2 ROM run with INI `v1v2_boot = true` enters `1000:0000`
-  through BRKEM2; the saved frame is `13B4/F000/F044`. Initial instruction
-  bytes are `00/00`, not BASIC ROM. The smoke run exits 1 with a uniform
-  screen after 600 frames; this is a partial handoff observation, not a
-  passing boot gate. A default-setting smoke run exits 0 with no
-  compatible-entry trace. Both use dummy SDL video/audio, `--smoke`,
-  `--nowait`, `--no-bkupmem`, VA2, and `VAEG_UPD70008_TRACE=4`.
-- Full CTest: zero failures in 106 tests, one external SST skipped.
-  Memory mapping and I/O trapping remain pending.
+- The SW7 GUI/INI option from `a4d85e64835ab0274731682c92332bb0bab4d368`
+  is withdrawn following maintainer clarification: normal hardware selects
+  V1/V2 automatically from the FDD. The forced-SW7 trace only isolated
+  entry decoding. Memory mapping and I/O trapping remain pending.
+- Uncommitted memory-mode latch work is retained in a named Git stash
+  (`M103b: pending memory-mode latch before boot-policy correction`), not
+  included in this boot-policy correction.
 
 ## Research notes for the implementer
 

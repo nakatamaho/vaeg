@@ -97,7 +97,6 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	      //(tsp.vsync & 0x20) |			// Direct VRTC source, retained for comparison.
 	      (tsp.sysp4vsync & 0x20) |      // VRTC as latched for system port 4.
 	      ((uPD4990.cdat & 0x01) << 4) | // CDI: calendar serial data input.
-	      (np2cfg.v1v2_boot ? 0x08 : 0) | // SW7: one skips intelligent-FDD boot.
 	      ((videova_hsyncmode() == VIDEOVA_24_8KHZ) ? 0 : 0x02) |
 	      // SW1: 0 for 24.8 kHz, 1 for 15.7 kHz.
 	      0x01; // PBSY: printer not busy in the current model.

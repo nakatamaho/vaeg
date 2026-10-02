@@ -3545,16 +3545,6 @@ static void draw_device_menu(void) {
 			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("V1/V2 boot (experimental)")) {
-			if (ImGui::MenuItem("Skip intelligent-FDD boot (SW7=1)", nullptr,
-			                    np2cfg.v1v2_boot != 0)) {
-				np2cfg.v1v2_boot = np2cfg.v1v2_boot ? 0 : 1;
-				sysmng_update(SYS_UPDATECFG);
-			}
-			ImGui::TextDisabled("Reset to rerun boot selection; leave PC key released.");
-			ImGui::TextDisabled("BASIC boot is not yet supported.");
-			ImGui::EndMenu();
-		}
 		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
 			open_bms_config_dialog();
 		}

@@ -158,7 +158,7 @@ key reads as one. The VA2 ROM then takes the candidate V1/V2 path at
 
 The next decision is **SW7**, port `0040h` bit 3. The manual defines
 zero as boot from the intelligent FDD, and one as do not boot from it.
-`io/sysportva.c::sysp_i040()` defaults to zero for this bit. With
+`io/sysportva.c::sysp_i040()` currently returns zero for this bit. With
 zero the ROM calls `1F90h` to try the FDD boot path; with one it skips
 that call. Successful IPL loading and subsequent disk-dependent paths
 must not be conflated with a direct CPU-mode switch.
@@ -181,23 +181,40 @@ PC key unpressed observed this VA2 ROM sequence (emulator observation,
 The pre-implementation diagnostic reports `reserved 0f fe` at `13B2h`, the position of the
 second opcode byte, not the instruction start. It does **not** establish
 successful compatible-mode entry or BASIC execution. The temporary SW7
-force and diagnostic prints are not production changes. A boot option
-must preserve the existing PC-key matrix and default SW7=0 behavior;
-forcing `000Dh` bit 2 alone is insufficient.
+force and diagnostic prints are not production changes. This bypass
+must not be presented as normal V1/V2 disk selection.
 
-M103b now exposes SW7 through `v1v2_boot = true` in the `[NekoProjectII]`
-INI section and the experimental GUI boot menu. It is off by default
-and changes only SW7, not the PC key. The DIP input is live host
-configuration, not part of a guest save-state section; rerun boot by
-resetting after changing it. It skips intelligent-FDD boot, so it is
-not yet the policy for booting a V2 BASIC disk.
+### 5.1 Automatic FDD selection, not a mode selector
 
-With this setting and the new BRKEM2 decoder, a local VA2 emulator run
-enters `1000:0000` with saved native frame `13B4/F000/F044`. It then reads
-`00h` instructions instead of BASIC ROM because the 88-mode window is
-still missing. The 600-frame smoke check fails with a uniform screen;
-this is not a successful BASIC boot. The same smoke check with default
-configuration exits successfully without a compatible-mode entry.
+The maintainer confirms that the real machine automatically selects
+V1/V2 from the FDD. The experimental `v1v2_boot` GUI/INI setting added
+in `a4d85e64835ab0274731682c92332bb0bab4d368` is therefore withdrawn.
+Keep the existing PC-key input and SW7=0, and follow the firmware's disk
+path. A forced-SW7 handoff is decoder diagnostics, not a boot gate.
+
+`[ROM]` Static inspection of the VA2 firmware shows why describing
+`1F90h` as only a V3 IPL loader was incorrect:
+
+- `1372h` calls `1F90h`; `1FA3h` calls `1FA7h`, with a `RET` at `1FA6h`.
+- After the drive-ready exchange, `2011h` starts further FDD commands.
+  The helper `20D0h` sends disk-mode command `1Fh`, a read command `02h`,
+  and status command `06h`; it shifts returned AH bit 0 into carry.
+- Calls with BX=`0001h` (`202Dh`) and BX=`0029h` (`203Fh`) branch on
+  carry clear to `2075h`. Calls with BX=`0002h` and BX=`0023h` instead
+  branch to `2094h`. Which actual media produce these responses is
+  still to be traced; do not label them solely from these constants.
+- `2075h` exchanges commands `20h` and `1Fh`, then calls `20F4h` with
+  DH=`09h`. `2093h` returns through `1FA6h` to `1375h`, the trap-enable
+  and BRKEM2 setup. Thus the FDD path itself can return to the compatible
+  handoff without forcing SW7.
+- `2094h` instead receives bytes into `3000:0000`, calls `2210h`, then
+  far-jumps to `3000:0000` at `20BDh`. Other loader branches also reach
+  that native target; entering `1F90h` alone proves neither outcome.
+
+These are static control-flow findings, not a successful disk boot trace.
+Next capture the command/status sequence with neutral V3 and V2 test-media
+identifiers, and inspect the FDC firmware/response semantics. Keep private
+media and raw traces outside Git.
 
 ## 6. What vaeg has and lacks
 
@@ -212,7 +229,7 @@ configuration exits successfully without a compatible-mode entry.
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | missing |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
 | 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |
-| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; experimental INI/GUI SW7 option added, default zero |
+| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection must be traced, no GUI mode override |
 | FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present |
 
 ## 7. Milestones (ADR-0016; V2 first)
