@@ -144,6 +144,15 @@ class ProbeParserTest(unittest.TestCase):
             pr.parse_edprb2(record("ED 64 1 garbage"))
         self.assertEqual(context.exception.code, "EDPRB2_FORMAT")
 
+    def test_edprb3(self):
+        line = ("X00 5AD7 0130 3404 3C04 5404 2524 3534 6564 20 -> 2800 04")
+        record = (line.ljust(126) + "\r\n").encode("ascii")
+        records = pr.parse_edprb3(record + b"\x1a" * 128)
+        self.assertEqual(records, {0: line})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb3(("X00 garbage".ljust(126) + "\r\n").encode("ascii"))
+        self.assertEqual(context.exception.code, "EDPRB3_FORMAT")
+
     def test_inprb(self):
         text = "# INPRB M102\r\nP0C 12 34 56 78\r\nC0B0C 12 34\r\n\x1a"
         lines = pr.parse_inprb(text)

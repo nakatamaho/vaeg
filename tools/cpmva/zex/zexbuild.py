@@ -323,6 +323,15 @@ def build_edprb2(name: str, assembler: str) -> bytes:
     return image
 
 
+def build_edprb3(assembler: str) -> bytes:
+    """Build EDPRB3 from the generated source."""
+    sys.path.insert(0, str(TOOL_DIR))
+    import edprb3  # noqa: E402
+
+    common = (TOOL_DIR / "cpmio.asm").read_text(encoding="ascii")
+    return assemble(edprb3.source() + "\n" + common, assembler, "edprb3")
+
+
 def build_programs(assembler: str) -> dict[str, bytes]:
     """Return CP/M file name -> program image."""
     check_assembler(assembler)
@@ -338,6 +347,7 @@ def build_programs(assembler: str) -> dict[str, bytes]:
         "EDPRB.COM": build_probe("edprb", assembler),
         "CBPRB.COM": build_probe("cbprb", assembler),
         "INPRB.COM": build_probe("inprb", assembler),
+        "EDPRB3.COM": build_edprb3(assembler),
         "EDPRB2.COM": build_edprb2("EDPRB2", assembler),
         "EDPRB2S.COM": build_edprb2("EDPRB2S", assembler),
         "FLAGPRB.COM": build_probe("flagprb", assembler),

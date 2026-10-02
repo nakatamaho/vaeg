@@ -247,6 +247,27 @@ def parse_cbprb(text: str) -> dict[tuple[str, int, int], str]:
 
 # ---- DAADUMP
 
+EDPRB3_RECORD = 128
+_EDPRB3 = re.compile(r"^X([0-9A-F]{2}) ([0-9A-F]{4} ){8}[0-9A-F]{2} -> "
+                     r"([0-9A-F]{4}) ([0-9A-F]{2})$")
+
+
+def parse_edprb3(data: bytes) -> dict[int, str]:
+    """EDPRB3.TXT -> {case index: line}."""
+    records = {}
+    usable = len(data) - len(data) % EDPRB3_RECORD
+    for offset in range(0, usable, EDPRB3_RECORD):
+        record = data[offset : offset + EDPRB3_RECORD]
+        if record.strip(b"\x1a") == b"":
+            break
+        line = record.decode("ascii").rstrip("\r\n ")
+        match = _EDPRB3.match(line)
+        if not match:
+            raise ResultError("EDPRB3_FORMAT", f"bad record at {offset}: {line[:40]}")
+        records[int(match.group(1), 16)] = line
+    return records
+
+
 _INPRB = re.compile(r"^(P[0-9A-F]{2}( [0-9A-F]{2}){4}|C[0-9A-F]{4}( [0-9A-F]{2}){2})$")
 
 

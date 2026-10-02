@@ -43,10 +43,11 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 
 import edprb2  # noqa: E402
+import edprb3  # noqa: E402
 import probe_results as pr  # noqa: E402
 
 PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED", "EDPRB",
-                  "CBPRB", "EDPRB2", "EDPRB2S")
+                  "CBPRB", "EDPRB2", "EDPRB2S", "EDPRB3")
 # INPRB is real-machine-only: the strict CP/M runner rejects I/O reads.
 # Command tails: the host also runs the opcodes that leave the emulation mode.
 PROGRAM_TAILS = {"EDPRB2": "00+", "EDPRB2S": "00+"}
@@ -140,6 +141,10 @@ def check_probes(directory: Path, profile: str, program: str, failures: list) ->
         records = pr.load_edprb2(directory, EDPRB2_PREFIX[program])
         if len(records) != edprb2.record_count(program):
             failures.append(f"{program}_COUNT {profile}")
+    elif program == "EDPRB3":
+        records = pr.parse_edprb3((directory / "EDPRB3.TXT").read_bytes())
+        if len(records) != len(edprb3.cases()):
+            failures.append(f"EDPRB3_COUNT {profile}")
     elif len(pr.parse_cbprb(pr.read_text(directory, "CBPRB.TXT"))) != CBPRB_LINES:
         failures.append(f"CBPRB_COUNT {profile}")
 
@@ -245,7 +250,7 @@ def main() -> int:
             if program == "FLAGPRB":
                 check_console_matches_file(console, directory, "FLAGPRB.TXT", failures)
                 check_flagprb(directory, profile, failures)
-            elif program in ("EDPRB", "CBPRB", *EDPRB2_PREFIX):
+            elif program in ("EDPRB", "CBPRB", "EDPRB3", *EDPRB2_PREFIX):
                 check_probes(directory, profile, program, failures)
             elif program in UNDOCUMENTED_PROGRAMS:
                 check_console_matches_file(console, directory, f"{program}.TXT", failures)

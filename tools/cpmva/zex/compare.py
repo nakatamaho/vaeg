@@ -162,6 +162,13 @@ def compare_edprb2(real: Path, refs: dict[str, Path], prefix: str) -> None:
                     lambda key: f"ED {key[0]:02X} {key[1]}")
 
 
+def compare_edprb3(real: Path, refs: dict[str, Path]) -> None:
+    compare_records("EDPRB3", pr.parse_edprb3(pr.find_file(real, "EDPRB3.TXT").read_bytes()),
+                    {p: pr.parse_edprb3(pr.find_file(refs[p], "EDPRB3.TXT").read_bytes())
+                     for p in pr.PROFILES},
+                    lambda key: f"X{key:02X}")
+
+
 def compare_inprb(real: Path, refs: dict[str, Path]) -> None:
     compare_records("INPRB", pr.parse_inprb(pr.read_text(real, "INPRB.TXT")),
                     {p: pr.parse_inprb(pr.read_text(refs[p], "INPRB.TXT")) for p in pr.PROFILES},
@@ -255,6 +262,7 @@ def main() -> int:
         lambda: compare_edprb2(args.real_dir, refs, "E2"),
         lambda: compare_edprb2(args.real_dir, refs, "S2"),
         lambda: compare_inprb(args.real_dir, refs),
+        lambda: compare_edprb3(args.real_dir, refs),
         *[(lambda n=n, e=e: compare_zex_report(args.real_dir, refs, n, e))
           for n, e in ZEX_REPORTS],
         lambda: compare_dumps(args.real_dir, refs),
