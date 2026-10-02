@@ -247,6 +247,22 @@ def parse_cbprb(text: str) -> dict[tuple[str, int, int], str]:
 
 # ---- DAADUMP
 
+_INPRB = re.compile(r"^(P[0-9A-F]{2}( [0-9A-F]{2}){4}|C[0-9A-F]{4}( [0-9A-F]{2}){2})$")
+
+
+def parse_inprb(text: str) -> dict[str, str]:
+    """INPRB.TXT -> {port label: line}."""
+    lines = {}
+    for line in text.replace("\r\n", "\n").split("\n"):
+        line = line.rstrip("\x1a")
+        if not line or line.startswith("#"):
+            continue
+        if not _INPRB.match(line):
+            raise ResultError("INPRB_FORMAT", f"bad line: {line[:40]}")
+        lines[line.split()[0]] = line
+    return lines
+
+
 def dump_records(data: bytes) -> list[tuple[int, int, int, int]]:
     """Return (fi, a, A_out, F_out) per record."""
     if len(data) != DUMP_SIZE:

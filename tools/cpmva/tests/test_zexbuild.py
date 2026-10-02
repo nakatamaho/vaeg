@@ -131,7 +131,7 @@ class AssemblerTest(unittest.TestCase):
             sorted(["ZEXDOC.COM", "ZEXALL.COM", "ZEXDOCF.COM", "ZEXALLF.COM",
                     "ZEX13S.COM", "FLAGPRB.COM", "DAADUMP.COM",
                     "ZEXIY.COM", "ZEXUND.COM", "ZEXED.COM", "EDPRB.COM",
-                    "CBPRB.COM", "EDPRB2.COM", "EDPRB2S.COM"]),
+                    "CBPRB.COM", "EDPRB2.COM", "EDPRB2S.COM", "INPRB.COM"]),
         )
         for name, data in programs.items():
             with self.subTest(name=name):

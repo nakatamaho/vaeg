@@ -150,6 +150,7 @@ only on the disks you generate; VAEG does not distribute them.
 | `CBPRB.COM` | `CBPRB.TXT` | One-by-one probe of every DD/FD CB opcode with two input sets (M102) |
 | `EDPRB2.COM` | `E2xx.TXT` | Second ED probe: sandboxed pointers, instruction length, three input sets (M102) |
 | `EDPRB2S.COM` | `S2xx.TXT` | `EDPRB2` for nine opcodes with the code moved by 100h bytes (M102) |
+| `INPRB.COM` | `INPRB.TXT` | Documented `IN` reads of the ports named by C in the ED probes (M102); real machine only, the host runner rejects I/O |
 
 `EDPRB` prints `ED xx` before each opcode and closes its output file after
 every record, so a run that hangs keeps all earlier results. After a reset,

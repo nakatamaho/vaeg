@@ -144,6 +144,14 @@ class ProbeParserTest(unittest.TestCase):
             pr.parse_edprb2(record("ED 64 1 garbage"))
         self.assertEqual(context.exception.code, "EDPRB2_FORMAT")
 
+    def test_inprb(self):
+        text = "# INPRB M102\r\nP0C 12 34 56 78\r\nC0B0C 12 34\r\n\x1a"
+        lines = pr.parse_inprb(text)
+        self.assertEqual(sorted(lines), ["C0B0C", "P0C"])
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_inprb("P0C garbage")
+        self.assertEqual(context.exception.code, "INPRB_FORMAT")
+
     def test_cbprb(self):
         lines = pr.parse_cbprb(CB_LINE + "\n")
         self.assertEqual(lines, {("DD", 0x40, 1): CB_LINE})

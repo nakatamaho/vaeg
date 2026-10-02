@@ -47,6 +47,7 @@ import probe_results as pr  # noqa: E402
 
 PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED", "EDPRB",
                   "CBPRB", "EDPRB2", "EDPRB2S")
+# INPRB is real-machine-only: the strict CP/M runner rejects I/O reads.
 # Command tails: the host also runs the opcodes that leave the emulation mode.
 PROGRAM_TAILS = {"EDPRB2": "00+", "EDPRB2S": "00+"}
 EDPRB2_PREFIX = {"EDPRB2": "E2", "EDPRB2S": "S2"}
