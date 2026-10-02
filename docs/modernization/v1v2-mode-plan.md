@@ -93,7 +93,8 @@ This is an initial decoder, **not the complete hardware map**. Writes
 retain the existing physical main-RAM backing, including under ROM;
 that backing choice is provisional until firmware RAM use is audited.
 RMODE=1 also removes this overlay but does not yet supply the monitor
-ROM. ERAM and TVRAM/GVRAM mappings remain unimplemented.
+ROM. ERAM and TVRAM mappings remain unimplemented; independent GVRAM
+plane access is described in §2.2.
 
 Extension-ROM selection is now implemented: port `71h` bit 0 is XEROM
 (1=disabled, 0=enabled; readback upper bits are ones). When enabled with
@@ -168,6 +169,26 @@ direct table; **M/F-format palette writes and the background-colour
 register are emulated by the I/O trap** because the register formats
 differ (ch. 8.4.2). Composition: backdrop (mode 0), graphics screen 0,
 text; sprites unused but not disabled by hardware.
+
+M103b now implements the independent-plane memory path: OUT 5Ch/5Dh/5Eh
+selects planes 0/1/2, OUT 5Fh disables selection, and IN 5Ch returns
+`F8h | (1 << plane)` or F8h when disabled, per the manual's port table.
+In 88 memory mode, physical 1C000h–1FFFFh maps to the existing GVRAM
+storage at `plane * 10000h + 4000h + offset`. The path uses direct byte
+storage, not compatible ALU operations or an asserted hardware wait-state
+model. V3 bypasses it; deselection restores the previous RAM path.
+
+`MEM88GFX` version 0 saves the selected plane (3=disabled); reset and
+missing old sections disable it. Existing GVRAM storage remains in its
+existing saved region. Synthetic tests verify all three planes are
+independent, RAM underneath survives, and word operations cross both
+window boundaries correctly. Full state-file tests remain pending.
+
+An 1800-frame integration BASIC capture completes with exit 0, but neither
+BASIC boot nor a correction of the earlier repeated-initialization symptom
+is established. The possible RAM corruption from formerly ignored plane
+selection was a hypothesis, not a demonstrated cause of that symptom.
+Rendering, compatible ALU and timing validation remain future work.
 
 ## 3. I/O: hardware versus trap
 
@@ -324,7 +345,7 @@ in the maintainer-local task directory outside Git.
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
 | 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch and four extension banks; remaining banking pending (§2.0) |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
-| GVRAM plane select `5Ch`–`5Fh` into `1C000h` | missing |
+| GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent-plane storage mapping implemented; ALU/timing/rendering pending |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | register state plus plain compatible IN/OUT interception implemented; native, block and prefixed forms pending |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
 | 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |

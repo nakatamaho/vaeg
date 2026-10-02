@@ -200,6 +200,20 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   register readback, increment wrap, RAM behind ROM, boundary word reads
   and writes, mode bypass, and reset. Full file round trips are pending.
 
+### Independent GVRAM plane mapping
+
+- Ports 5Ch–5Fh select one of three 16KiB planes or disable access;
+  IN 5Ch reports selection bits. The 88-mode C000h–FFFFh window now uses
+  existing GVRAM storage (plane offset 4000h), without modifying underlying
+  RAM. Byte splitting preserves both word boundaries. V3 bypasses it.
+- `MEM88GFX` version 0 saves the plane latch; reset/missing old sections
+  disable access. Full state-file checks remain pending. Synthetic tests
+  cover plane isolation, status, RAM preservation, word edges and reset.
+- This is independent storage access only. Compatible ALU, rendering and
+  hardware timing remain out of scope for this step. An 1800-frame BASIC
+  capture exits 0 but proves neither boot completion nor the suspected
+  cause of initialization repeating (plan §2.2).
+
 ### I/O trap register stage
 
 - `FFE0h`–`FFE7h` and `FFEFh` writes now latch in a separate

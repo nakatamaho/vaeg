@@ -180,6 +180,35 @@ static int memory_mode_selftest(void) {
 	passed = passed && upd9002_memoryread_va(0x18000) == 0x66;
 	memctrlva_reset();
 	passed = passed && iocore_inp8(0x70) == 0x80;
+	{
+		UINT plane;
+		upd9002_memorywrite_va(0x1bfff, 0x11);
+		upd9002_memorywrite_va(0x1c000, 0x22);
+		upd9002_memorywrite_va(0x1ffff, 0x33);
+		upd9002_memorywrite_va(0x20000, 0x44);
+		passed = passed && iocore_inp8(0x5c) == 0xf8;
+		iocore_out8(0x153, 0x01);
+		for (plane = 0; plane < 3; plane++) {
+			iocore_out8(0x5c + plane, 0xff);
+			upd9002_memorywrite_va(0x1c000, 0x80 + plane);
+			upd9002_memorywrite_va_w(0x1ffff, 0x4460 + plane);
+		}
+		for (plane = 0; plane < 3; plane++) {
+			iocore_out8(0x5c + plane, 0);
+			passed = passed && iocore_inp8(0x5c) == (0xf8 | (1 << plane)) &&
+			         upd9002_memoryread_va_w(0x1bfff) == ((0x80 + plane) << 8 | 0x11) &&
+			         upd9002_memoryread_va_w(0x1ffff) == 0x4460 + plane;
+		}
+		iocore_out8(0x5f, 0);
+		passed = passed && iocore_inp8(0x5c) == 0xf8 &&
+		         upd9002_memoryread_va(0x1c000) == 0x22 &&
+		         upd9002_memoryread_va(0x1ffff) == 0x33;
+		iocore_out8(0x5c, 0);
+		iocore_out8(0x153, 0x41);
+		passed = passed && upd9002_memoryread_va(0x1c000) == 0x22;
+		memctrlva_reset();
+		passed = passed && iocore_inp8(0x5c) == 0xf8;
+	}
 	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);
 	iocore_destroy();
 	return passed ? SUCCESS : FAILURE;

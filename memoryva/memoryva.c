@@ -67,6 +67,7 @@ UINT8 memoryva_88_mode;
 UINT8 memoryva_88_port31;
 UINT8 memoryva_88_xerom = 1;
 UINT8 memoryva_88_window = 0x80;
+UINT8 memoryva_88_plane = 3;
 BOOL textmem_dirty;
 
 _VA91 va91;
@@ -743,6 +744,16 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address) {
 	return (LOADINTELWORD(va91rom1mem + offset));
 }
 
+/* Independent-plane access only; compatible ALU modes remain pending. */
+static BOOL n88_gvram_selected(UINT32 address) {
+	return memoryva_88_mode && memoryva_88_plane < 3 &&
+	       address >= 0x1c000 && address < 0x20000;
+}
+
+static UINT32 n88_gvram_address(UINT32 address) {
+	return ((UINT32)memoryva_88_plane << 16) + 0x4000 + (address & 0x3fff);
+}
+
 /* Provisional 88-mode RAM backing remains physical 10000h..1FFFFh. */
 static BOOL n88_ram_window_selected(UINT32 address) {
 	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) &&
@@ -755,6 +766,10 @@ static UINT32 n88_ram_window_address(UINT32 address) {
 
 void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value) {
 	pccore_debugmem(0, address, value);
+	if (n88_gvram_selected(address)) {
+		grphmem[n88_gvram_address(address)] = (BYTE)value;
+		return;
+	}
 	if (n88_ram_window_selected(address)) {
 		upd9002_mainram_write(n88_ram_window_address(address), value);
 		return;
@@ -767,7 +782,8 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 
 	pccore_debugmem(1, address, value);
 	next = address + 1;
-	if (n88_ram_window_selected(address) || n88_ram_window_selected(next)) {
+	if (n88_ram_window_selected(address) || n88_ram_window_selected(next) ||
+	    n88_gvram_selected(address) || n88_gvram_selected(next)) {
 		upd9002_memorywrite_va(address, (REG8)value);
 		upd9002_memorywrite_va(next, (REG8)(value >> 8));
 		return;
@@ -788,6 +804,9 @@ static BOOL n88_rom_selected(UINT32 address) {
 }
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
+	if (n88_gvram_selected(address)) {
+		return grphmem[n88_gvram_address(address)];
+	}
 	if (n88_ram_window_selected(address)) {
 		return upd9002_mainram_read(n88_ram_window_address(address));
 	}
@@ -807,7 +826,8 @@ REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 
 	next = address + 1;
 	if (n88_rom_selected(address) || n88_rom_selected(next) ||
-	    n88_ram_window_selected(address) || n88_ram_window_selected(next)) {
+	    n88_ram_window_selected(address) || n88_ram_window_selected(next) ||
+	    n88_gvram_selected(address) || n88_gvram_selected(next)) {
 		lo = upd9002_memoryread_va(address);
 		hi = upd9002_memoryread_va(next);
 		return (REG16)lo | ((REG16)hi << 8);
