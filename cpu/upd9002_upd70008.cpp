@@ -179,8 +179,10 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		bool input = op0 == 0xdb;
 		bool plain_io = input || op0 == 0xd3;
 		UINT8 port = op1;
-		if (op0 == 0xed && ((op1 & 0xc6) == 0x40)) {
-			plain_io = true; // ED 40/41 through 78/79: IN r,(C) / OUT (C),r.
+		// ED 40/41..78/79: IN r,(C) / OUT (C),r. ED A2/A3/AA/AB/B2/B3/BA/BB:
+		// block I/O, which the VA2 ROM trap handler decodes and repeats itself.
+		if (op0 == 0xed && (((op1 & 0xc6) == 0x40) || ((op1 & 0xe6) == 0xa2))) {
+			plain_io = true;
 			input = (op1 & 1) == 0;
 			port = static_cast<UINT8>(upd70008_.GetReg()->bc);
 		}
@@ -512,7 +514,8 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 	upd9002_iotrap.ranges[2] = 0x50;
 	upd9002_iotrap.control = 3;
 	test_io_accesses = 0;
-	for (unsigned form = 0; form < 18; form++) {
+	static const UINT8 block_io[8] = {0xa2, 0xa3, 0xaa, 0xab, 0xb2, 0xb3, 0xba, 0xbb};
+	for (unsigned form = 0; form < 26; form++) {
 		const bool output = (form & 1) != 0;
 		const unsigned vector = output ? 0x7d : 0x7c;
 		upd9002_iotrap.ranges[0] = form < 2 ? 0x50 : 0x00;
@@ -521,7 +524,9 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 		upd9002_memorywrite_w(vector * 4 + 2, code_segment);
 		mem[code_base + compatible_offset + 2] = form < 2 ? (output ? 0xd3 : 0xdb) : 0xed;
 		mem[code_base + compatible_offset + 3] =
-		    form < 2 ? 0x50 : static_cast<UINT8>(0x40 + ((form - 2) / 2) * 8 + (form & 1));
+		    form < 2    ? 0x50
+		    : form < 18 ? static_cast<UINT8>(0x40 + ((form - 2) / 2) * 8 + (form & 1))
+		                : block_io[form - 18];
 		upd9002_core_step();
 		bool ok = CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && CPU_IP == native_offset &&
 		          CPU_SP == 0x00f4 && !(CPU_FLAG & I_FLAG) && test_io_accesses == 0 &&

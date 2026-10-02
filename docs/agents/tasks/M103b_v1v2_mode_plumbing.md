@@ -122,8 +122,12 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   bit 6, executing `BRKEM2 90h`, and Z80 execution starting at
   `1000:0000`;
 - N88-BASIC's initialisation runs inside the window (ROM-bank switching
-  through `31H`/`32H`/`71H` visible in the trace) and reaches a stable
-  keyboard-scan loop on ports `00h`–`0Eh` (which read as no key);
+  through `31H`/`32H`/`71H` visible in the trace), disk BASIC loads from
+  the media, and execution reaches the stable key-input wait loop. That
+  loop polls the interrupt-filled key buffer, not ports `00h`–`0Eh`;
+  keyboard scanning runs in the interrupt path delivered in M103c. The
+  text RAM must hold the disk BASIC banner and first input prompt
+  (display itself is M103c);
 - no trap fires outside `50h`–`5Bh`/`60h`–`6Fh`, and every trap that
   fires returns through the ROM handler with the IP advanced.
 
@@ -273,10 +277,52 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   BASIC `1000:3BD3` (`D3 53`) → `F000:1944` → `1000:3BD5`.
 - A 600-frame automatic-FDD BASIC run exits 0 and captures trap/return
   events; this does not establish a BASIC prompt. Raw logs stay outside
-  Git. Native x86 interception, FFEF bit-4 native port matching, block
-  I/O, redundant DD/FD prefixes, and accurate trap timing remain pending.
+  Git. Native interception and block I/O are added in the next stage;
+  redundant DD/FD prefixes and accurate trap timing remain pending.
   Compatible interception currently uses the low port byte and shared
   CALLN transition timing as an explicit partial implementation policy.
+
+### Native interception and compatible block I/O
+
+- Native `E4`–`E7` and `EC`–`EF` check the trap before any access. A match
+  raises vector 7Ch/7Dh through the core interrupt path with the saved IP
+  at the instruction start (`upd9002_step_start_ip`, the core's fault
+  restart point, so a redundant segment prefix is included) and IF/TF
+  cleared. FFEFh bit 4 clear compares the full 16-bit port with the
+  16-bit ranges; bit 4 set compares the low byte only (§9.3). Ports
+  FFE0h–FFFFh never trap. The byte/word-port reading follows the CPU
+  document's interpretation of CoBit's source, not a measurement.
+- Compatible ED block I/O (`A2/A3/AA/AB/B2/B3/BA/BB`) now traps on the
+  low byte of BC. The VA2 ROM handler's jump table at `F000:1996`
+  decodes exactly these eight forms and repeats the R forms itself.
+  Redundant DD/FD-prefixed compatible I/O stays untrapped: the ROM
+  handler would misdecode a prefix byte, and hardware behaviour is
+  unknown.
+- Tests: the native test covers all eight encodings at both range edges
+  with no device callback, a prefixed form, an out-of-range port, a
+  disabled direction, the byte-mode 16-bit miss, word-mode low-byte
+  matches, and an `OUT FFEFh` that executes even when the range covers
+  it. The compatible test now covers 26 encodings. Each test fails when
+  its interception is removed and passes when restored.
+- V3 smoke without media still passes. The automatic-FDD BASIC path is
+  unchanged through the loader transfer (67 compatible trap events in
+  the first million compatible instructions).
+
+### Disk BASIC reaches its first input prompt
+
+- With the corrections above, a local diagnostic run (temporary trace
+  skip and RAM dump, removed before commit) shows that after the loader
+  BASIC settles from about three million compatible instructions onward
+  into a stable 38-instruction loop: `DI`, a key-buffer head/tail compare
+  at `45F8h`, `EI`, a branch back when empty, plus the cursor routine at
+  `7780h`. No I/O is performed in this loop.
+- A dump of compatible 0000h–FFFFh at that point shows the text area at
+  `F3C8h` holding the disk BASIC version banner, the first input prompt
+  (number of files) and the function-key line. Nothing is displayed
+  because 88-mode TVRAM mapping and TSP rendering belong to M103c.
+- This is emulator evidence from maintainer-provided media; the raw dump
+  stays outside Git. Keyboard input cannot be exercised until interrupt
+  delivery (M103c).
 
 ## Research notes for the implementer
 

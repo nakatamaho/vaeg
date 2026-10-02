@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
+#include "cpucore.h"
 #include "tests/upd9002/brkem_upd70008.h"
 #include "cpu/upd9002_upd70008.h"
 #include "machine/pccore.h"
@@ -35,6 +36,123 @@
 #include <stdio.h>
 
 #if defined(VAEG_UPD9002_M76_TESTING)
+static unsigned native_spy_accesses;
+
+static REG8 IOINPCALL native_spy_in(UINT port) {
+	(void)port;
+	native_spy_accesses++;
+	return 0x99;
+}
+
+static void IOOUTCALL native_spy_out(UINT port, REG8 dat) {
+	(void)port;
+	(void)dat;
+	native_spy_accesses++;
+}
+
+/* Run one native I/O instruction at 2000:0100; return 1 if it trapped. */
+static int native_io_case(const BYTE *code, UINT length, BYTE control, UINT16 dx, UINT vector,
+                          UINT16 *saved_ip) {
+	UINT i;
+
+	for (i = 0; i < length; i++) {
+		mem[0x20100 + i] = code[i];
+	}
+	upd9002_iotrap.control = control;
+	CPU_CS = 0x2000;
+	CS_BASE = 0x20000;
+	CPU_SS = 0x3000;
+	SS_BASE = 0x30000;
+	CPU_SP = 0x0100;
+	CPU_IP = 0x0100;
+	CPU_DX = dx;
+	CPU_AX = 0;
+	CPU_FLAG = 0xf202;
+	CPU_REMCLOCK = 100000;
+	upd9002_core_step();
+	*saved_ip = (UINT16)(mem[0x300fa] | (mem[0x300fb] << 8));
+	return CPU_CS == 0x2000 && CPU_IP == (vector == 0x7c ? 0x3000 : 0x3100) &&
+	       CPU_SP == 0x00fa && !(CPU_FLAG & I_FLAG);
+}
+
+static int native_iotrap_selftest(void) {
+	static const BYTE in_imm[] = {0xe4, 0x50};
+	static const BYTE in_imm_w[] = {0xe5, 0x5b};
+	static const BYTE out_imm[] = {0xe6, 0x60};
+	static const BYTE out_imm_w[] = {0xe7, 0x6f};
+	static const BYTE in_imm_miss[] = {0xe4, 0x5c};
+	static const BYTE in_dx[] = {0xec};
+	static const BYTE in_dx_w[] = {0xed};
+	static const BYTE out_dx[] = {0xee};
+	static const BYTE out_dx_w[] = {0xef};
+	static const BYTE prefixed[] = {0x2e, 0xe4, 0x50};
+	static const BYTE ranges[8] = {0x50, 0, 0x5b, 0, 0x60, 0, 0x6f, 0};
+	UINT16 saved;
+	int passed;
+
+	upd9002_core_initialize();
+	ZeroMemory(mem, 0x100000);
+	upd9002_core_reset();
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		upd9002_core_deinitialize();
+		return FAILURE;
+	}
+	upd9002_regs_bind();
+	iocore_attachinp(0x0050, native_spy_in);
+	iocore_attachinp(0x005b, native_spy_in);
+	iocore_attachinp(0x005c, native_spy_in);
+	iocore_attachout(0x0060, native_spy_out);
+	iocore_attachout(0x006f, native_spy_out);
+	iocore_attachinp(0x1050, native_spy_in);
+	iocore_attachout(0x1050, native_spy_out);
+	mem[0x7c * 4 + 0] = 0x00;
+	mem[0x7c * 4 + 1] = 0x30;
+	mem[0x7c * 4 + 2] = 0x00;
+	mem[0x7c * 4 + 3] = 0x20;
+	mem[0x7d * 4 + 0] = 0x00;
+	mem[0x7d * 4 + 1] = 0x31;
+	mem[0x7d * 4 + 2] = 0x00;
+	mem[0x7d * 4 + 3] = 0x20;
+	CopyMemory(upd9002_iotrap.ranges, ranges, sizeof(ranges));
+	native_spy_accesses = 0;
+
+	/* All eight encodings trap at both range edges with no device access. */
+	passed = native_io_case(in_imm, 2, 1, 0, 0x7c, &saved) && saved == 0x0100;
+	passed = passed && native_io_case(in_imm_w, 2, 1, 0, 0x7c, &saved) && saved == 0x0100;
+	passed = passed && native_io_case(out_imm, 2, 2, 0, 0x7d, &saved) && saved == 0x0100;
+	passed = passed && native_io_case(out_imm_w, 2, 2, 0, 0x7d, &saved) && saved == 0x0100;
+	passed = passed && native_io_case(in_dx, 1, 1, 0x0050, 0x7c, &saved) && saved == 0x0100;
+	passed = passed && native_io_case(in_dx_w, 1, 1, 0x0050, 0x7c, &saved);
+	passed = passed && native_io_case(out_dx, 1, 2, 0x006f, 0x7d, &saved);
+	passed = passed && native_io_case(out_dx_w, 1, 2, 0x0060, 0x7d, &saved);
+	/* A redundant segment prefix is saved like the core's fault restart. */
+	passed = passed && native_io_case(prefixed, 3, 1, 0, 0x7c, &saved) && saved == 0x0100;
+	passed = passed && native_spy_accesses == 0;
+
+	/* Outside the range, direction disabled, and byte-port 16-bit compare. */
+	passed = passed && !native_io_case(in_imm_miss, 2, 3, 0, 0x7c, &saved) &&
+	         CPU_AL == 0x99 && native_spy_accesses == 1;
+	passed = passed && !native_io_case(in_imm, 2, 2, 0, 0x7c, &saved) &&
+	         native_spy_accesses == 2;
+	passed = passed && !native_io_case(in_dx, 1, 1, 0x1050, 0x7c, &saved) &&
+	         native_spy_accesses == 3;
+	/* Word-port mode (bit 4) matches the low byte only. */
+	passed = passed && native_io_case(in_dx, 1, 0x11, 0x1050, 0x7c, &saved) &&
+	         native_io_case(out_dx, 1, 0x12, 0x1050, 0x7d, &saved) &&
+	         native_spy_accesses == 3;
+	/* FFE0h-FFFFh never trap: a full-range trap still lets OUT FFEFh disable it. */
+	upd9002_iotrap.ranges[2] = 0xff;
+	upd9002_iotrap.ranges[3] = 0xff;
+	passed = passed && !native_io_case(out_dx, 1, 3, 0xffef, 0x7d, &saved) &&
+	         upd9002_iotrap.control == 0;
+
+	ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+	iocore_destroy();
+	upd9002_core_deinitialize();
+	return passed ? SUCCESS : FAILURE;
+}
+
 static int iotrap_register_selftest(void) {
 	static const BYTE ranges[8] = {0x50, 0, 0x5b, 0, 0x60, 0, 0x6f, 0};
 	UPD9002_IOTRAP byte_state;
@@ -225,6 +343,11 @@ int upd9002_brkem_upd70008_main(void) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
 		return FAILURE;
 	}
+	if (native_iotrap_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: native I/O trap failed\n");
+		return FAILURE;
+	}
+	fprintf(stderr, "upd9002-brkem-upd70008: native I/O trap forms, ranges and exemption passed\n");
 	if (iotrap_register_selftest() != SUCCESS) {
 		fprintf(stderr, "upd9002-brkem-upd70008: I/O trap register byte/word writes failed\n");
 		return FAILURE;
