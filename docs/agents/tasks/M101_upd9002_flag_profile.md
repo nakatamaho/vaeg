@@ -372,7 +372,8 @@ G101 is a human gate:
 - 2026-09-30, item 3: the maintainer ran the five programs from
   `cpmva-zexall-test.d88` on a real PC-88VA2 in V3 mode under CP/MVA
   (µPD9002 Z80 emulation mode entered with BRKEM) and returned the
-  disk through the HxC Floppy Emulator. Outputs, hashes and comparisons are
+  disk read back with a KryoFlux (D88 converted with the HxC Floppy
+  Emulator software). Outputs, hashes and comparisons are
   in `docs/agents/reports/m101_zexall_qa/`.
 
 - 2026-09-30, gate decision: G101 passed (maintainer), confirmed with the

@@ -520,6 +520,59 @@ own undocumented flags are not known to match the Zilog behaviour.
   PC-88VA2 (see `docs/agents/reports/m101_zexall_qa/`), and is used by the
   uPD70008-compatible main-CPU mode.
 
+## M102 undefined-opcode patch
+
+The vendored core left 196 ED, 90 DD and 90 FD opcode-table entries empty.
+vaeg builds it with `Z80_NO_EXCEPTION`, where executing such an opcode called
+a null handler and crashed the emulator. M102 applies
+[m102_suzukiplan_undefined_opcodes.patch](../reports/m102_suzukiplan_undefined_opcodes.patch)
+(SHA-256 `d25676fee49329f8159b20ee6840b368f041971fd68b599a7222edd6a34489aa`,
+upstream pull request [#63](https://github.com/suzukiplan/z80/pull/63)) on
+top of the M101 result. With `Z80_NO_EXCEPTION` an undefined ED opcode is a
+two-byte NOP, the NEG/RETN/IM duplicates act as the base instruction, and a
+DD/FD prefix before an opcode without an index form is ignored. The default
+configuration still throws.
+
+M102 then adds R12/R13 of the `Upd9002` profile,
+[m102_suzukiplan_ddcb_register_forms.patch](../reports/m102_suzukiplan_ddcb_register_forms.patch)
+(SHA-256 `2f68c16a32405d0eb71a8697ced7ebff7ff6d5c5b5fc1289be9c4376cfb99a70`,
+part of upstream pull request #61): DD/FD CB d xx BIT/RES/SET forms with a
+register operand act on that register only, as measured on a real PC-88VA2.
+`git am --committer-date-is-author-date` from
+`b4a0a5a238fecc280781e6fe5719faf0eafcd667` with all M101 patches and both
+M102 patches reproduces commit `60b725f129979c4179fa6e08b6385d20fd69f85e`,
+tree `37e3d5e6130ca12d5dbf41904bd65d567817bff0`.
+
+## M102 rebase on upstream 1.11.0
+
+Upstream merged pull requests #60 and #61 and added its own changes (#62;
+CHANGELOG version 1.11.0, master
+`ab97d3fa9eedc4914f82f3d9bc2abf33984d984d`). #61 was merged at its first
+commit (R1–R7) because GitHub did not pick up two later pushes, so R8–R11
+and R12/R13 are offered again as
+[#64](https://github.com/suzukiplan/z80/pull/64); #63 (undefined opcodes)
+was rebased and remains open. The upstream changes include a WZ update in
+`OP_IX4`/`OP_IY4`, so `BIT n,(IX+d)` and `BIT n,(IY+d)` take X/Y from the
+effective address under the Zilog profile.
+
+The approved base therefore moves to `ab97d3f`. The vendored tree is that
+base plus, in order, the two #64 commits, the #63 commit and the M35 IRQ
+extension rebased onto the base (its `test/Makefile` conflict resolved):
+
+| Patch | SHA-256 |
+|---|---|
+| [R8–R11](../reports/m102_upstream_upd9002_daa_cpl_scf_ccf.patch) | `0731306a6a0b6df14777f070f0194ecba345d929f2e37e06db00422db62beb07` |
+| [R12/R13](../reports/m102_upstream_upd9002_ddcb_register_forms.patch) | `8eb861d3f79508af85e8b21d5993cb065ec295b561ae6da993dd5a36188ed9dd` |
+| [Undefined opcodes (#63)](../reports/m102_upstream_undefined_opcodes.patch) | `4d622e1cd327e58e45b7614e8cfd2ecd95ab01a876c2562b9ea1392cadc54ab9` |
+| [M35 IRQ extension on 1.11](../reports/m102_m35_irq_extension_on_1_11.patch) | `76e50ec777c1f6117f95faa2455d5625046329e778f183f4786c0d362a7b9ce8` |
+| [uPD9002 undefined ED semantics](../reports/m102_upd9002_undefined_ed_semantics.patch) | `678746bb8a7ae69f0d92cb959776839f6016bbcc70fff53d2a9dc91bc88c01cb` |
+
+`git am --committer-date-is-author-date` from `ab97d3f` reproduces commit
+`3ce76465df732e38aab5b3f31642a3a5a7351872`, tree
+`b0eaa360c215f6a7ab64ad0d757a57c5339ffdc7`. Compared with the previous
+vendored `z80.hpp`, the only change is the upstream WZ update. The M35 IRQ
+extension stays downstream.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.

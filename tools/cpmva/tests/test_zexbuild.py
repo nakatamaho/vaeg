@@ -129,7 +129,10 @@ class AssemblerTest(unittest.TestCase):
         self.assertEqual(
             sorted(programs),
             sorted(["ZEXDOC.COM", "ZEXALL.COM", "ZEXDOCF.COM", "ZEXALLF.COM",
-                    "ZEX13S.COM", "FLAGPRB.COM", "DAADUMP.COM"]),
+                    "ZEX13S.COM", "FLAGPRB.COM", "DAADUMP.COM",
+                    "ZEXIY.COM", "ZEXUND.COM", "ZEXED.COM", "EDPRB.COM",
+                    "CBPRB.COM", "EDPRB2.COM", "EDPRB2S.COM", "INPRB.COM",
+                    "EDPRB3.COM", "EDPRB4.COM"]),
         )
         for name, data in programs.items():
             with self.subTest(name=name):

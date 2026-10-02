@@ -120,8 +120,8 @@ class Z80
     // Zilog: documented and undocumented Zilog Z80 flag behaviour. This is the
     // default and the existing behaviour.
     // Upd9002: NEC uPD9002 Z80 emulation mode (PC-88VA V1/V2 mode). Rules
-    // R1-R11 were measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag
-    // probes and exhaustive DAA/CPL/SCF/CCF dumps).
+    // R1-R13 were measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag
+    // probes and exhaustive DAA/CPL/SCF/CCF and DDCB/FDCB probes).
     enum class FlagProfile {
         Zilog,
         Upd9002
@@ -132,6 +132,19 @@ class Z80
         maskUndocumentedFlags();
     }
     FlagProfile getFlagProfile() const { return flagProfile; }
+
+    // Upd9002 only: reader for the first page of the CPU's native-side
+    // physical memory (the x86-style interrupt vector table of the uPD9002's
+    // emulation host). The undefined ED 00-3F/74/75/77 opcodes load a
+    // register pair with a little-endian word from this page, indexed by C
+    // with modulo-256 wrap (measured on a real PC-88VA2; see the vaeg report
+    // docs/agents/reports/m102_zexund_qa, runs 7 and 8). When unset the page
+    // reads as 0x00.
+#ifdef Z80_NO_FUNCTIONAL
+    unsigned char (*upd9002VectorRead)(void*, unsigned char) = nullptr;
+#else
+    std::function<unsigned char(void*, unsigned char)> upd9002VectorRead;
+#endif
 
   private: // Internal functions & variables
     FlagProfile flagProfile = FlagProfile::Zilog;
@@ -691,16 +704,178 @@ class Z80
         ctx->opSetCB[operandNumber](ctx);
     }
 
+#ifdef Z80_NO_EXCEPTION
+    inline unsigned char upd9002VectorByte(unsigned char index)
+    {
+        return upd9002VectorRead ? upd9002VectorRead(CB.arg, index) : 0x00;
+    }
+
+    // Undefined ED 00-3F, 74, 75, 77 on the uPD9002: the pair selected by
+    // bits 5-4 (74/75/77: SP) is loaded with the little-endian word at bytes
+    // C and (C+1) mod 256 of the native-side physical page 0; F becomes the
+    // sign of the high byte, zero of the whole word and the parity of the
+    // low byte, all other flags cleared (PC-88VA2 measurements,
+    // EDPRB2-EDPRB4).
+    inline void upd9002VectorLoad(unsigned char rpIndex)
+    {
+        unsigned char lo = upd9002VectorByte(reg.pair.C);
+        unsigned char hi = upd9002VectorByte((reg.pair.C + 1) & 0xFF);
+        unsigned short value = make16BitsFromLE(lo, hi);
+        switch (rpIndex) {
+            case 0: setBC(value); break;
+            case 1: setDE(value); break;
+            case 2: setHL(value); break;
+            default: reg.SP = value;
+        }
+        reg.pair.F = (hi & flagS()) | (value ? 0 : flagZ()) | (isEvenNumberBits(lo) ? flagPV() : 0);
+        consumeClock(8);
+    }
+
+    // Undefined ED 64/65 (RRD-like) and 6C/6D (RLD-like) on the uPD9002:
+    // A and (HL) change exactly as in RRD/RLD, and (HL+1) also changes:
+    // 64/65 replace its low nibble with the old low nibble of (HL); 6C/6D
+    // replace it with old-A-low:old-(HL)-high. F becomes the parity of the
+    // new A, all other flags cleared.
+    inline void upd9002RRD2(bool left)
+    {
+        unsigned short hl = getHL();
+        unsigned char n = readByte(hl);
+        unsigned char n2 = readByte((unsigned short)(hl + 1));
+        unsigned char aL = reg.pair.A & 0b00001111;
+        if (left) {
+            reg.pair.A = (reg.pair.A & 0b11110000) | (n >> 4);
+            writeByte(hl, (unsigned char)((n << 4) | aL));
+            writeByte((unsigned short)(hl + 1), (unsigned char)((aL << 4) | (n >> 4)));
+        } else {
+            reg.pair.A = (reg.pair.A & 0b11110000) | (n & 0b00001111);
+            writeByte(hl, (unsigned char)((aL << 4) | (n >> 4)));
+            writeByte((unsigned short)(hl + 1), (unsigned char)((n2 & 0b11110000) | (n & 0b00001111)));
+        }
+        reg.pair.F = isEvenNumberBits(reg.pair.A) ? flagPV() : 0;
+        consumeClock(2);
+    }
+
+    // Undefined ED 7C/7D/7F, 80-9F and A4-A7 on the uPD9002: one word is
+    // copied from (HL) to (DE); BC-1, DE+2, HL+2; F is unchanged. AD-AF and
+    // B4-B7 repeat this until BC is zero. The behaviour of the repeated form
+    // with BC=0000h on entry is unmeasured and mirrors LDIR (65536 words).
+    inline void upd9002WordLDI()
+    {
+        unsigned short hl = getHL();
+        unsigned short de = getDE();
+        writeByte(de, readByte(hl));
+        writeByte((unsigned short)(de + 1), readByte((unsigned short)(hl + 1)));
+        setHL((unsigned short)(hl + 2));
+        setDE((unsigned short)(de + 2));
+        setBC((unsigned short)(getBC() - 1));
+    }
+
+    inline void upd9002WordLDIR()
+    {
+        do {
+            upd9002WordLDI();
+        } while (getBC() != 0);
+    }
+
+    // Dispatch the measured uPD9002 behaviour of an undefined ED opcode;
+    // returns false for the opcodes whose behaviour is not emulated (the
+    // emulation-mode exits 54/55/AC/EE-FC, the 5C hang and the 5D fault
+    // observed on the real machine) so that they keep the Zilog fallback.
+    inline bool upd9002UndefinedED(unsigned char op)
+    {
+        if (op < 0x40) {
+            upd9002VectorLoad((op >> 4) & 3);
+            return true;
+        }
+        switch (op) {
+            case 0x4C: RETN(); return true; // duplicate of ED 45
+            case 0x64: case 0x65: upd9002RRD2(false); return true;
+            case 0x6C: case 0x6D: upd9002RRD2(true); return true;
+            case 0x74: case 0x75: case 0x77: upd9002VectorLoad(3); return true;
+            case 0x7C: case 0x7D: case 0x7F: upd9002WordLDI(); return true;
+        }
+        if (0x80 <= op && op <= 0x9F) {
+            upd9002WordLDI();
+            return true;
+        }
+        if (0xA4 <= op && op <= 0xA7) {
+            upd9002WordLDI();
+            return true;
+        }
+        if ((0xAD <= op && op <= 0xAF) || (0xB4 <= op && op <= 0xB7)) {
+            upd9002WordLDIR();
+            return true;
+        }
+        if (0xBC <= op && op <= 0xEC) {
+            fetch(4); // consumes one operand byte without any visible effect
+            return true;
+        }
+        if (op == 0xFE || op == 0xFF) {
+            return true; // two-byte NOP
+        }
+        return false;
+    }
+
+    // Without exceptions, an opcode that has no handler is executed as on a
+    // Zilog Z80 instead of calling a null handler: NEG, RETN and IM
+    // duplicates behave as the base instruction, and every other undefined
+    // ED opcode is a two-byte NOP (8 clocks, consumed by the two fetches).
+    // FlagProfile::Upd9002 first applies the behaviour measured on a real
+    // PC-88VA2 (vaeg report m102_zexund_qa, runs 2-8).
+    inline void undefinedED(unsigned char operandNumber)
+    {
+        if (isUpd9002() && upd9002UndefinedED(operandNumber)) return;
+        switch (operandNumber) {
+            case 0x4C:
+            case 0x54:
+            case 0x5C:
+            case 0x64:
+            case 0x6C:
+            case 0x74:
+            case 0x7C:
+                NEG();
+                return;
+            case 0x55:
+            case 0x5D:
+            case 0x65:
+            case 0x6D:
+            case 0x75:
+            case 0x7D:
+                RETN();
+                return;
+            case 0x4E:
+            case 0x66:
+            case 0x6E:
+                IM(0);
+                return;
+            case 0x76:
+                IM(1);
+                return;
+            case 0x7E:
+                IM(2);
+                return;
+            default:
+#ifndef Z80_DISABLE_DEBUG
+                if (isDebug()) log("[%04X] NOP (ED,%02X)", reg.PC - 2, operandNumber);
+#endif
+                return;
+        }
+    }
+#endif
+
     static inline void OP_ED(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetED[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (ED,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            ctx->undefinedED(operandNumber);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandED(operandNumber);
 #endif
@@ -710,13 +885,19 @@ class Z80
     static inline void OP_IX(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetIX[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (DD,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            // Without exceptions: DD before an opcode that does not use HL
+            // is ignored, as on a Zilog Z80 (this also covers repeated
+            // prefixes and DD ED)
+            ctx->opSet1[operandNumber](ctx);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIX(operandNumber);
 #endif
@@ -726,13 +907,19 @@ class Z80
     static inline void OP_IY(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetIY[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (FD,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            // Without exceptions: FD before an opcode that does not use HL
+            // is ignored, as on a Zilog Z80 (this also covers repeated
+            // prefixes and FD ED)
+            ctx->opSet1[operandNumber](ctx);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIY(operandNumber);
 #endif
@@ -746,6 +933,13 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIX4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IX + op3);
+        if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
+            // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
+            // unprefixed CB opcode; memory is not modified
+            ctx->opSetCB[op4](ctx);
+            return;
+        }
         ctx->opSetIX4[op4](ctx, op3);
     }
 
@@ -756,6 +950,13 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIY4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IY + op3);
+        if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
+            // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
+            // unprefixed CB opcode; memory is not modified
+            ctx->opSetCB[op4](ctx);
+            return;
+        }
         ctx->opSetIY4[op4](ctx, op3);
     }
 

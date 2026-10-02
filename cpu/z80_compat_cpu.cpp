@@ -117,6 +117,7 @@ struct Z80CompatCpu::Impl {
 	          &Z80CompatCpu::Output, owner, false) {
 		cpu.setConsumeClockCallback(&Z80CompatCpu::ConsumeClock);
 		cpu.setInterruptAcknowledgeCallback(&Z80CompatCpu::Acknowledge);
+		cpu.upd9002VectorRead = &Z80CompatCpu::NativeVector;
 	}
 
 	Z80 cpu;
@@ -350,6 +351,19 @@ void Z80CompatCpu::SetFlagProfile(Z80CompatFlagProfile profile) {
 
 Z80CompatFlagProfile Z80CompatCpu::GetFlagProfile() const {
 	return flag_profile_;
+}
+
+void Z80CompatCpu::SetNativeVectorRead(NativeVectorRead reader, void *opaque) {
+	native_vector_read_ = reader;
+	native_vector_opaque_ = opaque;
+}
+
+unsigned char Z80CompatCpu::NativeVector(void *opaque, unsigned char index) {
+	Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
+	if (cpu->native_vector_read_ == nullptr) {
+		return 0x00;
+	}
+	return cpu->native_vector_read_(cpu->native_vector_opaque_, index);
 }
 
 // Select the core profile. Setting the profile also applies the R1 storage

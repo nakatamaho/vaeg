@@ -187,6 +187,115 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Zilog BIT n,(IX+d)/(IY+d) took X/Y from a stale WZ
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** under the Zilog flag profile, `BIT n,(IX+d)` and
+  `BIT n,(IY+d)` set F bits 5 and 3 from whatever WZ (MEMPTR) held before the
+  instruction instead of from the effective address, as a Zilog Z80 does.
+  Affected: the FDC `UPD780C`, which uses the Zilog profile. The uPD9002
+  profile is not affected because R1 keeps bits 5/3 at 0.
+- **Demonstrated root cause:** the vendored core's `OP_IX4`/`OP_IY4` did not
+  update WZ before dispatching the IX/IY-prefixed CB instruction; the BIT
+  handlers read WZ for X/Y.
+- **Correction:** the vendored core was rebased onto upstream master
+  `ab97d3f` (1.11.0), which sets WZ = IX/IY + d in `OP_IX4`/`OP_IY4`
+  ([ADR-0011](../agents/DECISIONS/ADR-0011-z80-migration.md#m102-rebase-on-upstream-1110)).
+- **Verification:** `vaeg_z80_compat_flag_profile` checks F and WZ for
+  `BIT 0/7,(IX/IY+d)` under both profiles (8 failures with the previous
+  core); the host `CBPRB` Zilog output now has X/Y from the effective
+  address in the BIT rows, and the uPD9002 host outputs are byte-identical
+  to the previous reference. ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
+  test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
+
+### uPD9002 undefined ED opcodes followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undefined ED opcodes executed as two-byte NOPs or Zilog NEG/RETN
+  duplicates. On a real µPD9002 they are a large, visible instruction set:
+  loads from the native-side interrupt vector table, RRD/RLD variants,
+  word block transfers and three-byte no-operations. Guest software
+  running in V1/V2/V3 Z80 emulation observed wrong register, flag and
+  memory results for all of them.
+- **Demonstrated root cause:** the vendored core had no measured µPD9002
+  behavior for these encodings; eight real-machine probe runs
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md), runs 2–8)
+  established rules R14–R19, including the reduction of the ED 00–3F value
+  to a C-indexed read of the x86 IVT page (EDPRB3 isolation, INPRB
+  refutation of the I/O hypothesis, EDPRB4 full sweep).
+- **Correction:** R14–R19 in the `Upd9002` profile of the vendored core
+  ([patch](../agents/reports/m102_upd9002_undefined_ed_semantics.patch)),
+  with the native page read wired through
+  `Z80CompatCpu::SetNativeVectorRead` to `upd9002_memoryread` so V3-mode
+  guests read the live IVT. Unmeasurable mode exits (ED 54/55/AC/EE–FC),
+  the ED 5C hang and the ED 5D fault keep the Zilog fallback.
+- **Verification:** the uPD9002 host references reproduce all 911
+  real-machine probe records byte for byte (EDPRB2 513, EDPRB2S 27,
+  EDPRB3 28, EDPRB4 256, run-2 EDPRB 67) with the run-8 IVT fixture in the
+  CP/M runner; the wrapper contract test asserts the new semantics; the
+  upstream suite and ctest (112/112) pass; Zilog profile outputs are
+  unchanged.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [d90a6cd9](https://github.com/nakatamaho/vaeg/commit/d90a6cd997086269f297e56e09e20aafee7c408f),
+  wiring [2125b159](https://github.com/nakatamaho/vaeg/commit/2125b159c2b0a0235601083e0046513246cca453),
+  runner [97f04efe](https://github.com/nakatamaho/vaeg/commit/97f04efe53ed070834aed42f14142fb47712591f).
+
+### uPD9002 DDCB/FDCB register forms followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undocumented DD/FD CB d xx forms with a register operand (low three bits
+  not 6) behaved as on a Zilog Z80: BIT tested the memory byte, and RES/SET
+  modified memory and copied the result to the register. A real PC-88VA2
+  tests and modifies the register only.
+- **Demonstrated root cause:** the `Upd9002` flag profile had no rule for
+  these forms, so the core used its Zilog implementation. The M102 probe
+  `CBPRB` recorded all 512 opcodes with two input sets on the real machine.
+- **Correction:** R12 (BIT n,(i+d),r tests r) and R13 (RES/SET n,(i+d),r
+  modify r only; memory is not written) in the `Upd9002` profile
+  ([patch](../agents/reports/m102_suzukiplan_ddcb_register_forms.patch),
+  upstream [#64](https://github.com/suzukiplan/z80/pull/64)). The rotate
+  forms keep the Zilog behavior, which the probe confirmed.
+- **Verification:** `vaeg_z80_compat_flag_profile` re-executes all 1,024
+  real CBPRB records (560 fail without R12/R13); the host `CBPRB` output is
+  byte-identical to the real one, and the `rot`, `bit` and `res,set` ZEX CRCs
+  of `ZEXUND` equal the values read from the real screen
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md)).
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [732bdf7f](https://github.com/nakatamaho/vaeg/commit/732bdf7f1c5d951341952ee61aa6bc58262f550b),
+  test [378c69da](https://github.com/nakatamaho/vaeg/commit/378c69da89232b0faec29973251dc0775ffd70bf).
+
+### Undefined Z80 opcodes crashed the emulator
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** executing an undefined ED opcode (for example ED 00 or
+  ED A4), a NEG/RETN/IM duplicate (for example ED 4C), or a DD/FD prefix
+  before an opcode without an index form (for example DD 00) crashed vaeg
+  with a segmentation fault. Both Z80-compatible CPUs were affected: the
+  uPD70008-compatible main-CPU mode and the FDC `UPD780C`.
+- **Demonstrated root cause:** the vendored suzukiplan core leaves 196 ED,
+  90 DD and 90 FD opcode-table entries empty. vaeg builds the core with
+  `Z80_NO_EXCEPTION`, which compiles out the unknown-opcode check, so the
+  empty entry was called as a null function pointer.
+- **Correction:** with `Z80_NO_EXCEPTION`, opcodes without a handler now run
+  as on a Zilog Z80: undefined ED opcodes are two-byte NOPs, the NEG/RETN/IM
+  duplicates act as the base instruction, and a DD/FD prefix before a
+  non-index opcode is ignored
+  ([patch](../agents/reports/m102_suzukiplan_undefined_opcodes.patch),
+  upstream [#63](https://github.com/suzukiplan/z80/pull/63)). Real µPD9002
+  behavior for these opcodes is measured separately in M102.
+- **Verification:** the wrapper test executes all 256 ED, DD and FD
+  opcodes under both flag profiles and checks NOP, NEG-duplicate and
+  ignored-prefix semantics; with the previous core the same test crashes
+  with SIGSEGV. The upstream test `test-undefined-opcodes` passes 38/38, and
+  ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [3876ac80](https://github.com/nakatamaho/vaeg/commit/3876ac8037ff1164b7cd3e20ab02522511a12622),
+  test [de48a275](https://github.com/nakatamaho/vaeg/commit/de48a27572fcb6dc3c718b70baa5e35562d5a302).
+
 ### uPD9002 Z80-emulation-mode flags followed the Zilog Z80
 
 - **Status:** fixed on `topic/m101-upd9002-flag-profile`, including

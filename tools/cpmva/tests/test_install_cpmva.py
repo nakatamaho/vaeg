@@ -378,18 +378,39 @@ class InstallerTests(unittest.TestCase):
                 self.installer.restore_upper_case_names(Path(directory))
         self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
 
+    def test_media_2d_copy_changes_only_the_media_byte(self):
+        image = self.installer.build_tools_disk(
+            self.installer.pad_cpm_records({"A.TXT": b"x" * 128}, b"\x00"))
+        copy = self.installer.media_2d_copy(image)
+        self.assertEqual(image[0x1B], 0x10)
+        self.assertEqual(copy[0x1B], 0x00)
+        diffs = [i for i, (a, b) in enumerate(zip(image, copy)) if a != b]
+        self.assertEqual(diffs, [0x1B])
+        self.assertEqual(len(image), len(copy))
+
     def test_test_disk_leaves_room_for_probe_outputs(self):
-        # Program sizes as built in M101; DAADUMP writes 4 x 32 KiB plus a
-        # one-record text file, and the other programs about 12 KiB of text.
+        # Program sizes as built in M101/M102. A real-machine session needs
+        # either the DAADUMP outputs (4 x 32 KiB plus one record) or the
+        # M102 probe outputs (CBPRB about 72 KiB, EDPRB up to 2 x 24 KiB,
+        # the ZEX reports a few KiB); the larger of the two must fit.
         sizes = {
             "ZEXDOC.COM": 8590, "ZEXALL.COM": 8590, "ZEXDOCF.COM": 8997,
             "ZEXALLF.COM": 8997, "ZEX13S.COM": 9799, "FLAGPRB.COM": 2614,
-            "DAADUMP.COM": 2615,
+            "DAADUMP.COM": 2615, "ZEXIY.COM": 9792, "ZEXUND.COM": 10192,
+            "ZEXED.COM": 11356, "EDPRB.COM": 10679, "CBPRB.COM": 21246,
+            "EDPRB2.COM": 7464, "EDPRB2S.COM": 2625,
+            "INPRB.COM": 1091, "EDPRB3.COM": 4218, "EDPRB4.COM": 825,
         }
         files = self.installer.pad_cpm_records({n: b"\x00" * v for n, v in sizes.items()}, b"\x00")
         _, info = self.installer.build_cpm_raw(files)
         free_blocks = self.installer.CPM_MAX_BLOCK + 1 - 2 - len(info["allocated_blocks"])
-        needed = 4 * (32768 // self.installer.CPM_BLOCK_SIZE) + 1 + 6
+        block = self.installer.CPM_BLOCK_SIZE
+        daadump = 4 * (32768 // block) + 1
+        m102 = -(-73728 // block) + 2 * -(-24448 // block) + 8
+        # EDPRB2: 173 opcodes x 3 sets x 256 bytes without '+', plus a few
+        # restarted files, and EDPRB2S (9 x 3 x 256).
+        edprb2 = -(-(173 * 3 * 256) // block) + 4 + -(-(9 * 3 * 256) // block)
+        needed = max(daadump, m102, edprb2)
         self.assertGreaterEqual(free_blocks, needed)
 
     def test_test_program_build_failure_is_propagated(self):

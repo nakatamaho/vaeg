@@ -42,9 +42,20 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE))
 
+import edprb2  # noqa: E402
+import edprb3  # noqa: E402
 import probe_results as pr  # noqa: E402
 
-PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP")
+PROBE_PROGRAMS = ("FLAGPRB", "ZEX13S", "DAADUMP", "ZEXIY", "ZEXUND", "ZEXED", "EDPRB",
+                  "CBPRB", "EDPRB2", "EDPRB2S", "EDPRB3", "EDPRB4")
+# INPRB is real-machine-only: the strict CP/M runner rejects I/O reads.
+# Command tails: the host also runs the opcodes that leave the emulation mode.
+PROGRAM_TAILS = {"EDPRB2": "00+", "EDPRB2S": "00+"}
+EDPRB2_PREFIX = {"EDPRB2": "E2", "EDPRB2S": "S2"}
+EDPRB_RECORDS = 191
+CBPRB_LINES = 1024
+# M102 exercisers: every group must report OK under the Zilog profile.
+UNDOCUMENTED_PROGRAMS = ("ZEXIY", "ZEXUND", "ZEXED")
 ZEX_PROGRAMS = ("ZEXDOCF", "ZEXALLF")
 ZEX_TXT = {"ZEXDOCF": "ZEXDOC.TXT", "ZEXALLF": "ZEXALL.TXT"}
 EXPECTATION_FILES = {
@@ -85,13 +96,22 @@ def load_zexbuild():
 def run_program(runner: Path, profile: str, program: Path, directory: Path) -> str:
     directory.mkdir(parents=True, exist_ok=True)
     console = directory / f"{program.stem}.console"
+    tail = PROGRAM_TAILS.get(program.stem)
     result = subprocess.run(
         [str(runner), "--profile", profile, "--dir", str(directory),
-         "--console", str(console), str(program)],
+         "--console", str(console), *(["--tail", tail] if tail else []), str(program)],
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, check=False,
     )
     if result.returncode != 0:
-        raise pr.ResultError("RUNNER_FAILED", f"{program.name} [{profile}]: {result.stderr}")
+        if program.stem in ("ZEXED", "ZEXUND", "EDPRB") and profile == "upd9002":
+            # Matches the real PC-88VA2: with the measured undefined-ED
+            # semantics ZEXED hangs in the ed a4-bf group, ZEXUND's ED 4C
+            # behaves as RETN, and EDPRB's unsandboxed BC/DE let the word
+            # transfers corrupt the program. The partial output is kept.
+            pass
+        else:
+            raise pr.ResultError("RUNNER_FAILED",
+                                 f"{program.name} [{profile}]: {result.stderr}")
     return console.read_bytes().decode("ascii").replace("\r\n", "\n")
 
 
@@ -113,6 +133,31 @@ def check_flagprb(directory: Path, profile: str, failures: list) -> None:
                 failures.append(
                     f"FLAGPRB_VALUE {profile} {probe.ident} {field}={actual} expected {value}"
                 )
+
+
+def check_undocumented(directory: Path, profile: str, program: str, failures: list) -> None:
+    groups = pr.parse_zex(pr.read_text(directory, f"{program}.TXT"))
+    if profile == "zilog" and not all(group.ok for group in groups):
+        failures.append(f"{program}_ZILOG_NOT_OK")
+
+
+def check_probes(directory: Path, profile: str, program: str, failures: list) -> None:
+    if program == "EDPRB":
+        if profile != "upd9002" and len(pr.load_edprb(directory)) != EDPRB_RECORDS:
+            failures.append(f"EDPRB_COUNT {profile}")
+    elif program in EDPRB2_PREFIX:
+        records = pr.load_edprb2(directory, EDPRB2_PREFIX[program])
+        if len(records) != edprb2.record_count(program):
+            failures.append(f"{program}_COUNT {profile}")
+    elif program == "EDPRB3":
+        records = pr.parse_edprb3((directory / "EDPRB3.TXT").read_bytes())
+        if len(records) != len(edprb3.cases()):
+            failures.append(f"EDPRB3_COUNT {profile}")
+    elif program == "EDPRB4":
+        if len(pr.parse_edprb4((directory / "EDPRB4.TXT").read_bytes())) != 256:
+            failures.append(f"EDPRB4_COUNT {profile}")
+    elif len(pr.parse_cbprb(pr.read_text(directory, "CBPRB.TXT"))) != CBPRB_LINES:
+        failures.append(f"CBPRB_COUNT {profile}")
 
 
 def check_zex13s(directory: Path, profile: str, failures: list) -> None:
@@ -216,6 +261,13 @@ def main() -> int:
             if program == "FLAGPRB":
                 check_console_matches_file(console, directory, "FLAGPRB.TXT", failures)
                 check_flagprb(directory, profile, failures)
+            elif program in ("EDPRB", "CBPRB", "EDPRB3", "EDPRB4", *EDPRB2_PREFIX):
+                check_probes(directory, profile, program, failures)
+            elif program in ("ZEXED", "ZEXUND") and profile == "upd9002":
+                pass  # partial by design; see run_program
+            elif program in UNDOCUMENTED_PROGRAMS:
+                check_console_matches_file(console, directory, f"{program}.TXT", failures)
+                check_undocumented(directory, profile, program, failures)
             elif program == "ZEX13S":
                 check_console_matches_file(console, directory, "ZEX13S.TXT", failures)
                 check_zex13s(directory, profile, failures)

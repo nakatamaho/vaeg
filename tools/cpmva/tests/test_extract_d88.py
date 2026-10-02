@@ -95,6 +95,73 @@ class ExtractTest(unittest.TestCase):
             extractor.extract(bytes(image))
         self.assertEqual(context.exception.code, "D88_STATUS")
 
+    def mark_sector_error(self, image, cylinder, head, record):
+        image = bytearray(image)
+        offsets = struct.unpack_from("<164I", image, 0x20)
+        for offset in offsets:
+            if not offset:
+                continue
+            cursor = offset
+            for _ in range(struct.unpack_from("<H", image, offset + 4)[0]):
+                if tuple(image[cursor : cursor + 3]) == (cylinder, head, record):
+                    image[cursor + 8] = 0xB0
+                    return bytes(image)
+                cursor += 16 + struct.unpack_from("<H", image, cursor + 14)[0]
+        raise AssertionError("sector not found")
+
+    def test_unused_sector_error_allowed_only_on_request(self):
+        image = self.mark_sector_error(make_image(), 36, 0, 6)  # far past the two files
+        with self.assertRaises(extractor.ExtractError) as context:
+            extractor.extract(image)
+        self.assertEqual(context.exception.code, "D88_STATUS")
+        self.assertEqual(extractor.extract(image, allow_unused_errors=True), FILES)
+
+    def test_allocated_sector_error_is_rejected(self):
+        image = self.mark_sector_error(make_image(), 2, 1, 1)  # block 2 holds HELLO.COM
+        with self.assertRaises(extractor.ExtractError) as context:
+            extractor.extract(image, allow_unused_errors=True)
+        self.assertEqual(context.exception.code, "D88_STATUS")
+
+    def test_directory_sector_error_is_rejected(self):
+        image = self.mark_sector_error(make_image(), 2, 0, 1)  # first directory sector
+        with self.assertRaises(extractor.ExtractError) as context:
+            extractor.extract(image, allow_unused_errors=True)
+        self.assertEqual(context.exception.code, "D88_STATUS")
+
+    def patch_directory_entry(self, image, index, entry):
+        image = bytearray(image)
+        offsets = struct.unpack_from("<164I", image, 0x20)
+        for offset in offsets:
+            if not offset:
+                continue
+            cursor = offset
+            for _ in range(struct.unpack_from("<H", image, offset + 4)[0]):
+                if tuple(image[cursor : cursor + 3]) == (2, 0, 1):  # first directory sector
+                    start = cursor + 16 + index * 32
+                    image[start : start + 32] = entry
+                    return bytes(image)
+                cursor += 16 + struct.unpack_from("<H", image, cursor + 14)[0]
+        raise AssertionError("sector not found")
+
+    def test_corrupted_entry_dropped_only_on_request(self):
+        garbage = bytes([7, 0x10, 0x00, 0x74, 0x07, 0x8B, 0x5F, 0x02, 0x0B, 0xDB, 0x74, 0x12,
+                         0x8B, 0, 0x42, 0]) + bytes(16)
+        image = self.patch_directory_entry(make_image(), 2, garbage)
+        # The extractor loads its own copy of the installer, so match the code.
+        with self.assertRaises(Exception) as context:
+            extractor.extract(image)
+        self.assertEqual(getattr(context.exception, "code", None), "CPM_USER")
+        self.assertEqual(extractor.extract(image, drop=[2]), FILES)
+
+    def test_drop_entry_refuses_a_valid_or_unused_entry(self):
+        image = make_image()
+        for index, code in ((0, "DROP_ENTRY_VALID"), (5, "DROP_ENTRY_UNUSED"),
+                            (128, "DROP_ENTRY_RANGE")):
+            with self.subTest(index=index):
+                with self.assertRaises(extractor.ExtractError) as context:
+                    extractor.extract(image, drop=[index])
+                self.assertEqual(context.exception.code, code)
+
     def test_duplicate_sector(self):
         image = bytearray(make_image())
         struct.pack_into("<I", image, 0x20 + 1 * 4, struct.unpack_from("<I", image, 0x20)[0])

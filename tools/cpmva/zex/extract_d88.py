@@ -22,14 +22,21 @@
 
 """Extract the files of a CP/MVA disk image written by vaeg or a real machine.
 
-usage: extract_d88.py IMAGE OUTPUT_DIR [--lowercase] [--skip-com]
+usage: extract_d88.py IMAGE OUTPUT_DIR [--lowercase] [--skip-com] [--allow-unused-errors]
+                      [--drop-entry N ...]
 
 Unlike the installer's strict reader, this reads any D88 container (for
-example one imaged by the HxC Floppy Emulator, with another header name,
+example one read with a KryoFlux and converted by the HxC Floppy Emulator
+software, with another header name,
 media type and track order). Each sector is placed by its C/H/R address. The
 CP/MVA geometry must be complete: 40 cylinders x 2 heads x 16 sectors of 256
-bytes, no duplicates and no sector errors. Files are written with their
-128-byte record length, as CP/M stores them.
+bytes, no duplicates and no sector errors. With --allow-unused-errors, sectors
+with an error status are accepted only if they lie outside the directory and
+outside every block that a directory entry allocates. Files are written with
+their 128-byte record length, as CP/M stores them. --drop-entry N treats the
+directory entry with index N (0-127) as unused; it is refused unless the
+entry's name is not a printable 8.3 name, so that only a corrupted entry (for
+example one written while a probe crashed) can be dropped.
 """
 
 from __future__ import annotations
@@ -64,8 +71,17 @@ def load_installer():
     return module
 
 
-def raw_from_d88(image: bytes) -> bytes:
-    """Rebuild the linear CP/M image from sector C/H/R addresses."""
+DIRECTORY_OFFSET = 0x4000
+DIRECTORY_SIZE = 0x1000
+BLOCK_SIZE = 2048
+
+
+def raw_from_d88(image: bytes, errors: list | None = None) -> bytes:
+    """Rebuild the linear CP/M image from sector C/H/R addresses.
+
+    Sectors with an error status raise D88_STATUS unless ``errors`` is a
+    list, in which case their raw offsets are appended to it.
+    """
     if len(image) < HEADER_SIZE:
         raise ExtractError("D88_SIZE", "image is shorter than a D88 header")
     raw = bytearray(CYLINDERS * HEADS * SECTORS * SECTOR_SIZE)
@@ -85,7 +101,7 @@ def raw_from_d88(image: bytes) -> bytes:
             status = image[cursor + 8]
             size = struct.unpack_from("<H", image, cursor + 14)[0]
             data = image[cursor + 16 : cursor + 16 + size]
-            if status != 0:
+            if status != 0 and errors is None:
                 raise ExtractError("D88_STATUS", f"sector C{c} H{h} R{r} has status {status:#x}")
             if size != SECTOR_SIZE or len(data) != SECTOR_SIZE:
                 raise ExtractError("D88_GEOMETRY", f"sector C{c} H{h} R{r} is {size} bytes")
@@ -96,6 +112,8 @@ def raw_from_d88(image: bytes) -> bytes:
             seen.add((c, h, r))
             start = ((c * HEADS + h) * SECTORS + (r - 1)) * SECTOR_SIZE
             raw[start : start + SECTOR_SIZE] = data
+            if status != 0:
+                errors.append(start)
             cursor += 16 + size
     missing = CYLINDERS * HEADS * SECTORS - len(seen)
     if missing:
@@ -103,9 +121,51 @@ def raw_from_d88(image: bytes) -> bytes:
     return bytes(raw)
 
 
-def extract(image: bytes) -> dict[str, bytes]:
+def allocated_blocks(raw: bytes) -> set[int]:
+    blocks = set()
+    for index in range(DIRECTORY_SIZE // 32):
+        entry = raw[DIRECTORY_OFFSET + index * 32 : DIRECTORY_OFFSET + index * 32 + 32]
+        if entry[0] != 0xE5:
+            blocks.update(b for b in entry[16:32] if b)
+    return blocks
+
+
+def printable_name(entry: bytes) -> bool:
+    return all(0x20 <= (byte & 0x7F) < 0x7F for byte in entry[1:12])
+
+
+def drop_entries(raw: bytes, indices: list[int]) -> bytes:
+    """Mark the given corrupted directory entries as unused."""
+    data = bytearray(raw)
+    for index in indices:
+        if not 0 <= index < DIRECTORY_SIZE // 32:
+            raise ExtractError("DROP_ENTRY_RANGE", f"directory entry {index} does not exist")
+        offset = DIRECTORY_OFFSET + index * 32
+        entry = bytes(data[offset : offset + 32])
+        if entry[0] == 0xE5:
+            raise ExtractError("DROP_ENTRY_UNUSED", f"directory entry {index} is already unused")
+        if printable_name(entry):
+            raise ExtractError("DROP_ENTRY_VALID", f"directory entry {index} has a valid name")
+        print(f"note: dropped directory entry {index}: {entry.hex()}", file=sys.stderr)
+        data[offset] = 0xE5
+    return bytes(data)
+
+
+def extract(image: bytes, allow_unused_errors: bool = False,
+            drop: list[int] | None = None) -> dict[str, bytes]:
     installer = load_installer()
-    return installer.parse_cpm_raw(raw_from_d88(image))
+    errors: list[int] | None = [] if allow_unused_errors else None
+    raw = drop_entries(raw_from_d88(image, errors), drop or [])
+    if errors:
+        used = allocated_blocks(raw)
+        for start in errors:
+            if DIRECTORY_OFFSET <= start < DIRECTORY_OFFSET + DIRECTORY_SIZE:
+                raise ExtractError("D88_STATUS", f"sector error in the directory at {start:#x}")
+            block = (start - DIRECTORY_OFFSET) // BLOCK_SIZE
+            if start < DIRECTORY_OFFSET or block in used:
+                raise ExtractError("D88_STATUS", f"sector error in allocated block {block}")
+            print(f"note: sector error in unallocated block {block} ignored", file=sys.stderr)
+    return installer.parse_cpm_raw(raw)
 
 
 def main() -> int:
@@ -114,9 +174,13 @@ def main() -> int:
     parser.add_argument("output", type=Path)
     parser.add_argument("--lowercase", action="store_true", help="write lower-case file names")
     parser.add_argument("--skip-com", action="store_true", help="do not write .COM programs")
+    parser.add_argument("--allow-unused-errors", action="store_true",
+                        help="accept sector errors outside the directory and allocated blocks")
+    parser.add_argument("--drop-entry", type=int, action="append", default=[], metavar="N",
+                        help="treat the corrupted directory entry N as unused")
     args = parser.parse_args()
     try:
-        files = extract(args.image.read_bytes())
+        files = extract(args.image.read_bytes(), args.allow_unused_errors, args.drop_entry)
     except ExtractError as error:
         print(f"FAIL {error}", file=sys.stderr)
         return 1

@@ -95,5 +95,86 @@ class ParserTest(unittest.TestCase):
                              FLAGPRB.replace("\r\n", "\n"))
 
 
+ED_LINE = ("ED 4C NEXT A=A6 F=93 BC=0B0C DE=0D0E HL=2AD8 IX=2ADC IY=2AE0 SP=2B04 "
+           "M=11223344 X=11223344 Y=11223344 S=A1A2D75AE127A7A8")
+E2_LINE = ("ED 64 1 RST  R=0331 L=0000 A=5B F=13 BC=0150 DE=3404 HL=3C04 IX=4404 "
+           "IY=4C04 SP=5404 B=88898A8B8C8D8E8F D=98999A9B9C9D9E9F H=A8A9AAABACADAEAF "
+           "X=B8B9BABBBCBDBEBF Y=C8C9CACBCCCDCECF S=D8D931037917DEDF O=CFCFCFCFCFCFCFCF")
+CB_LINE = "DD CB 02 40 1 A=0A F=45 BC=0B0C DE=0D0E HL=4455 IX=5178 IY=5178 M=7E"
+
+
+def ed_record(line):
+    return (line.ljust(126) + "\r\n").encode("ascii")
+
+
+class ProbeParserTest(unittest.TestCase):
+    def test_edprb_records_and_partial_file(self):
+        data = ed_record(ED_LINE) + ed_record(ED_LINE.replace("ED 4C", "ED 4D")) + b"\x1a" * 128
+        records = pr.parse_edprb(data)
+        self.assertEqual(sorted(records), [0x4C, 0x4D])
+        self.assertEqual(records[0x4C], ED_LINE)
+
+    def test_edprb_bad_record(self):
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb(ed_record("garbage"))
+        self.assertEqual(context.exception.code, "EDPRB_FORMAT")
+
+    def test_edprb_restart_files_merge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "ED00.TXT").write_bytes(ed_record(ED_LINE))
+            later = ED_LINE.replace("NEXT", "RET ")
+            Path(directory, "ED4C.TXT").write_bytes(ed_record(later))
+            self.assertEqual(pr.load_edprb(Path(directory)), {0x4C: later})
+
+    def test_edprb2_records_merge_by_opcode_and_set(self):
+        def record(line):
+            return (line.ljust(254) + "\r\n").encode("ascii")
+
+        other = E2_LINE.replace("ED 64 1", "ED 64 2")
+        data = record(E2_LINE) + record(other) + b"\x1a" * 128
+        self.assertEqual(sorted(pr.parse_edprb2(data)), [(0x64, 1), (0x64, 2)])
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "E200.TXT").write_bytes(record(E2_LINE))
+            later = E2_LINE.replace("RST ", "FALL")
+            Path(directory, "E264.TXT").write_bytes(record(later))
+            Path(directory, "S200.TXT").write_bytes(record(other))
+            self.assertEqual(pr.load_edprb2(Path(directory), "E2"), {(0x64, 1): later})
+            self.assertEqual(pr.load_edprb2(Path(directory), "S2"), {(0x64, 2): other})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb2(record("ED 64 1 garbage"))
+        self.assertEqual(context.exception.code, "EDPRB2_FORMAT")
+
+    def test_edprb3(self):
+        line = ("X00 5AD7 0130 3404 3C04 5404 2524 3534 6564 20 -> 2800 04")
+        record = (line.ljust(126) + "\r\n").encode("ascii")
+        records = pr.parse_edprb3(record + b"\x1a" * 128)
+        self.assertEqual(records, {0: line})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb3(("X00 garbage".ljust(126) + "\r\n").encode("ascii"))
+        self.assertEqual(context.exception.code, "EDPRB3_FORMAT")
+
+    def test_edprb4(self):
+        record = ("Y00 2329 00".ljust(14) + "\r\n").encode("ascii")
+        self.assertEqual(pr.parse_edprb4(record + b"\x1a" * 16), {0: "Y00 2329 00"})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_edprb4(("Y00 bad".ljust(14) + "\r\n").encode("ascii"))
+        self.assertEqual(context.exception.code, "EDPRB4_FORMAT")
+
+    def test_inprb(self):
+        text = "# INPRB M102\r\nP0C 12 34 56 78\r\nC0B0C 12 34\r\n\x1a"
+        lines = pr.parse_inprb(text)
+        self.assertEqual(sorted(lines), ["C0B0C", "P0C"])
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_inprb("P0C garbage")
+        self.assertEqual(context.exception.code, "INPRB_FORMAT")
+
+    def test_cbprb(self):
+        lines = pr.parse_cbprb(CB_LINE + "\n")
+        self.assertEqual(lines, {("DD", 0x40, 1): CB_LINE})
+        with self.assertRaises(pr.ResultError) as context:
+            pr.parse_cbprb("DD CB 02 40 1 nonsense\n")
+        self.assertEqual(context.exception.code, "CBPRB_FORMAT")
+
+
 if __name__ == "__main__":
     unittest.main()

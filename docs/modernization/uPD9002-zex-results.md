@@ -220,6 +220,41 @@ The rules:
   R8–R11; the combined rules reproduce its found CRC `6096b6aa` in both
   suites.
 
+The M102 campaign (§10) added rules for the remaining undocumented and
+undefined opcodes, each directly observed on the real machine:
+
+- **R12.** DD/FD CB BIT with a register operand (bits 2–0 ≠ 6) tests the
+  register, not (IX/IY+d). **R13.** DD/FD CB RES/SET register forms modify
+  only the register. (Zilog: both act on (IX/IY+d), and the rotate/shift
+  register forms also copy the result to the register, which the µPD9002
+  does as well.)
+- **R14.** Undefined ED 00–3Fh, 74h, 75h, 77h: the register pair selected by
+  bits 5–4 (74h/75h/77h: SP) is loaded with the little-endian word at bytes
+  C and (C+1) mod 256 of the CPU's native-side physical page 0 — the
+  x86-style interrupt vector table of the µPD9002's host side. F = sign of
+  the high byte, zero of the word, parity of the low byte; H = N = C = 0.
+  A, F, B, the pointers and Z80-visible memory do not affect the value.
+- **R15.** ED 4Ch duplicates RETN (not NEG as on a Zilog Z80).
+- **R16.** ED 64h/65h: RRD on A/(HL), and the low nibble of (HL+1) is also
+  replaced by the old low nibble of (HL). ED 6Ch/6Dh: RLD on A/(HL), and
+  (HL+1) is replaced by old-A-low:old-(HL)-high. F = parity of the new A,
+  all other flags cleared.
+- **R17.** ED 7Ch/7Dh/7Fh, 80h–9Fh, A4h–A7h: one word is copied from (HL)
+  to (DE); BC−1, DE+2, HL+2; F unchanged.
+- **R18.** ED ADh–AFh, B4h–B7h: R17 repeated until BC = 0 (the BC = 0000h
+  entry case is unmeasured and mirrors LDIR).
+- **R19.** ED BCh–ECh consume one operand byte with no visible effect
+  (only operand CFh was exercised); ED FEh/FFh are two-byte NOPs.
+- Not emulated (observed effect on the real machine only): ED 54h, 55h,
+  ACh and EEh–FCh leave the Z80 emulation mode for the native OS with an
+  error message, ED 5Ch hangs the machine, and ED 5Dh corrupted the file
+  system once. vaeg keeps the Zilog `Z80_NO_EXCEPTION` fallback for these.
+
+R14 fits the µPD9002's architecture (a V50-family core whose Z80 emulation
+mode shares the machine with a native x86 side): the undefined encodings
+evidently reach IVT-access microcode. This is an observation about the
+read value only; the mechanism is not otherwise verified.
+
 Correspondence with other flag models (observation, not an explanation):
 
 | Rule | Consistent with | Not consistent with |
@@ -287,7 +322,9 @@ SCF/CCF and DAA leave N unchanged.
   - The results (C5h/C7h, D3h/D5h, 90h/92h) have bits 5/3 = 0, so the
     expected CRCs are identical in ZEXDOC and ZEXALL.
   - #32 (operand 9Eh → 9Dh/9Fh, bit 3 = 1) fails, as R1 predicts.
-- **C3. IY-half INC/DEC is not exercised.**
+- **C3. IY-half INC/DEC is not exercised** (resolved in M102: `ZEXIY`
+  exercises the real FD-prefixed forms; the real output is byte-identical
+  to the uPD9002 host reference, §10).
   - The groups labelled `iyh`/`iyl` execute DD-prefixed opcodes
     (DD 24/25, DD 2C/2D), i.e. IXH/IXL.
   - INC/DEC IYH/IYL (FD 24/25/2C/2D) is exercised by neither suite.
@@ -309,11 +346,14 @@ SCF/CCF and DAA leave N unchanged.
 
 ## 7. Open items and minimal real-machine tests
 
-Status after M101: O1, O4, O5, O6 and O7 are closed (§9). O3 remains open.
+Status after M102: every item is closed (O3 by `ZEXIY`, §10).
 
 - **O1. Resolve U1.** Closed: `ZEX13S` split the group into single-opcode
   groups, and `DAADUMP` dumped DAA/CPL/SCF/CCF exhaustively; R8–R11.
-- **O3. INC/DEC IYH/IYL.** Not covered by either suite (C3).
+- **O3. INC/DEC IYH/IYL.** Closed: `ZEXIY` (M102) runs corrected
+  single-opcode groups for INC/DEC IXH/IXL/IYH/IYL; the real-machine output
+  is byte-identical to the uPD9002 host reference. IYH/IYL behave like
+  IXH/IXL (Zilog results plus R1).
 - **O4. Full-suite regression.** Closed: the full stock ZEXDOC and ZEXALL
   under the vaeg uPD9002 profile are byte-identical to the M101 real-machine
   outputs (67/67 groups each).
@@ -421,3 +461,38 @@ Status after M101: O1, O4, O5, O6 and O7 are closed (§9). O3 remains open.
 - With R1–R11 the vaeg uPD9002 profile reproduces all nine output files byte
   for byte, on the host (`tools/cpmva/zex/host_reference.py`) and in the
   test `vaeg_z80_compat_flag_profile`, which checks every dump record.
+
+## 10. M102: undocumented opcodes and undefined ED semantics
+
+- Programs: `ZEXIY`, `ZEXUND`, `ZEXED` (derived exercisers) and the probes
+  `EDPRB`, `CBPRB`, `EDPRB2`/`EDPRB2S`, `EDPRB3`, `EDPRB4` and `INPRB`,
+  run on a real PC-88VA2 in V3 mode under CP/MVA (µPD9002 Z80 emulation
+  mode through BRKEM) over eight disk runs.
+- Evidence: byte-exact outputs, disk and program hashes, crash notes and
+  comparisons are in
+  [`docs/agents/reports/m102_zexund_qa/`](../agents/reports/m102_zexund_qa/README.md).
+- Method: `CBPRB` measured every DD/FD CB opcode with two input sets
+  (R12/R13). The undefined ED opcodes resisted the exerciser approach —
+  `ZEXED` hung and `EDPRB`'s unsandboxed pointers let the unknown word
+  transfers corrupt the probe itself — so `EDPRB2` re-measured every
+  opcode with sandboxed pointers, three input sets and an RST-sled length
+  detector; `EDPRB3` varied one input at a time, which reduced the
+  ED 00–3F value to a function of C alone; `INPRB` refuted an I/O-read
+  explanation with documented IN instructions; and `EDPRB4` swept all 256
+  C values, reconstructing the hidden page consistently from 512
+  overlapping byte observations as the live x86 interrupt vector table
+  (R14). The RRD/RLD variants, the word transfers and the three-byte
+  no-operation forms (R15–R19) come from the same records.
+- Emulation: the vendored core implements R12–R19 under
+  `FlagProfile::Upd9002`; the undefined-ED vector read reaches the guest's
+  physical page 0 through `Z80CompatCpu::SetNativeVectorRead`, wired by
+  the uPD70008-compatible main-CPU adapter. The CP/M runner carries the
+  run-8 IVT page as a fixture, and the uPD9002 host references reproduce
+  all 911 real-machine probe records byte for byte (EDPRB2: 513,
+  EDPRB2S: 27, EDPRB3: 28, EDPRB4: 256, EDPRB run 2: 67).
+- Acceptance notes: under the uPD9002 profile `ZEXED`, `ZEXUND` and
+  `EDPRB` are partial by design, in the same way and for the same reasons
+  as on the real machine (word transfers make `ZEXED` effectively
+  unfinishable, R15 makes `ZEXUND`'s NEG-duplicate group return to CP/M,
+  and `EDPRB` corrupts itself); `ZEXIY` and `CBPRB` complete and match
+  byte for byte.
