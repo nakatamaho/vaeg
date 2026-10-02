@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M103b — Memory-mode control readback ignored guest writes
+
+- **Symptom/scope:** port `153h` bit 6 always read as V3 even after the
+  firmware cleared it before BRKEM2, including word I/O at port `152h`.
+- **Demonstrated cause:** `memctrlva_o153` discarded bit 6 and
+  `memctrlva_i153` unconditionally ORed `40h` into the result.
+- **Correction:** latch the inverted mode request independently of CPU
+  execution mode, return it on reads, and clear the request on reset.
+  A separate optional `MEM88MODE` state section avoids changing the old
+  `MEMORYVA` layout. This fixes readback only: the 88-mode address decoder
+  and successful BASIC execution remain pending.
+- **Verification:** production byte/word I/O and reset regression passes;
+  full local CTest has no failures (106 entries, one external SST skipped).
+  Full state-file round trips remain unverified.
+- **Task/evidence/commit:** [M103b implementation progress](../agents/tasks/M103b_v1v2_mode_plumbing.md#implementation-progress),
+  [automatic handoff traces](v1v2-mode-plan.md#52-bounded-automatic-selection-traces).
+  Fix: [cd7d16e4](https://github.com/nakatamaho/vaeg/commit/cd7d16e4c92ee8ff4c0ef8017cb4db93100f3b95).
+
 ### M103a — CALLN round trip set the compatible N flag
 
 - **Symptom/scope:** after a native handler entered by `CALLN` (or by an
