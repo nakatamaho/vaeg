@@ -229,7 +229,7 @@ separate parity correction or move it to Open Defects.
   executes `ED 20` with the IVT word 2800h at bytes 30h/31h; it fails with
   0000h without the fix.
 - **Task/evidence/commit:** [M103a task](../agents/tasks/M103a_alternate_register_storage.md);
-  fix [b441a558](https://github.com/nakatamaho/vaeg/commit/456fd39c555a2761e986c1012de4863d).
+  fix [b441a558](https://github.com/nakatamaho/vaeg/commit/b441a558456fd39c555a2761e986c1012de4863d).
 
 ### uPD9002 undefined ED opcodes followed the Zilog Z80
 
