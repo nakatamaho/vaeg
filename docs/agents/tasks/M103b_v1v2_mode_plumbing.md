@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103b - V1/V2 mode plumbing: BRKEM2, boot select, 88-mode window, I/O trap
 
-Status: **research in progress; G103b pending**
+Status: **implementation complete for the gate scope; G103b pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103b-v1v2-plumbing` off the
 integration branch `topic/v1v2-mode`. Following the maintainer's M103b
@@ -89,11 +89,16 @@ boot and automatic selection of a compatible disk at the human gate.
    adapter's `In`/`Out` must route through the same check before
    `iocore_inp8`/`iocore_out8`. Unit test with a tiny native handler that
    advances the saved IP; adapter self-test with a Z80 `OUT (50h),A`.
-6. **8214 (`E4H`/`E6H`) and kanji ROM (`E8H`–`EDH`) ports**: attach as
-   state-holding stubs so the ROM's initialisation does not fault; their
-   semantics belong to M103c.
+6. **8214 (`E4H`/`E6H`) and kanji ROM (`E8H`–`EDH`) ports**: no stubs were
+   needed. BASIC's writes to `E4h`/`E6h` reach the default handler, which
+   ignores them without fault, and the traced path reads no kanji port.
+   Their semantics belong to M103c/M103d; adding state-only stubs now
+   would only create save-state fields to migrate later.
 7. **Trace.** Extend the compat trace with the mode-entry encoding, the
    `153H` state and trap events, so the gate can be checked from a log.
+   Done: `compat-entry` CPU events, `io-trap-in`/`io-trap-out` compat
+   events, the existing `banktrace` line for `153h`, and the
+   `VAEG_UPD70008_TRACE_SKIP` window offset.
 
 Out of scope: text/graphics rendering, keyboard matrix, interrupt
 delivery into Z80 code (M103c), FDD under V1/V2 (M103d), V1 mode.
@@ -130,6 +135,25 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   (display itself is M103c);
 - no trap fires outside `50h`–`5Bh`/`60h`–`6Fh`, and every trap that
   fires returns through the ROM handler with the IP advanced.
+
+## Summary for G103b
+
+Machine-verifiable parts (local, `linux-ci-gcc`): full CTest has no
+failures (108 entries; the external SST and, without private paths
+configured, `vaeg_m103b_basic_boot` are skipped); V3 `--smoke` with the
+VA2 ROM set passes; `tools/qa/m103b_basic_boot.py run` passes with the
+VA2 ROMs and V2 BASIC media and fails closed for media that takes the
+native IPL branch. Human-gate items that remain: the standard V3 gate
+(VA demo, OS boot and operation), saving and resuming a live
+compatible-mode session, and acceptance of the documented implementation
+policies (shared BRKEM/BRKEM2 entry, provisional 88-mode RAM backing,
+1KiB window, byte/word-port trap matching, low-byte compatible matching).
+M103b is stacked on M103a, whose G103a is still pending; neither is
+merged.
+
+Deferred beyond M103b: monitor ROM (RMODE=1), ERAM (`E2h`/`E3h`), 88-mode
+TVRAM/TSP and interrupt delivery (M103c), compatible GVRAM ALU and
+rendering (M103d), DD/FD-prefixed compatible I/O traps and trap timing.
 
 ## Implementation progress
 

@@ -343,20 +343,20 @@ in the maintainer-local task directory outside Git.
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
-| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch and four extension banks; remaining banking pending (§2.0) |
+| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window; monitor ROM and ERAM (`E2h`/`E3h`) pending (§2.0) |
 | TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent-plane storage mapping implemented; ALU/timing/rendering pending |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | registers, native IN/OUT and compatible plain/block IN/OUT interception implemented; DD/FD-prefixed compatible forms and timing pending |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
-| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing |
-| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection must be traced, no GUI mode override |
-| FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present |
+| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing; BASIC's writes to `E4h`/`E6h` are currently ignored by the default handler without fault (M103c) |
+| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection traced (§5.2); no mode override |
+| FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present; the sub-CPU interface 8255 is now fully cross-wired for the fast transfer protocol (M103b) |
 
 ## 7. Milestones (ADR-0016; V2 first)
 
 | Milestone | Scope | Observable step |
 |---|---|---|
-| M103b | `BRKEM2`; boot selection; `153H` bit 6 and the 88-mode window with the hardware banking ports; I/O trap hardware; ROM-driven derivation of the window map | the VA2 ROM takes the V1/V2 path, hands off with `BRKEM2 90h`, N88-BASIC initialises and reaches its keyboard wait (trace-verified; no display yet) |
+| M103b | `BRKEM2`; boot selection; `153H` bit 6 and the 88-mode window with the hardware banking ports; I/O trap hardware; ROM-driven derivation of the window map | the VA2 ROM takes the V1/V2 path, hands off with `BRKEM2 90h`, disk BASIC loads and reaches its key-input wait (trace-verified, automated in `vaeg_m103b_basic_boot`; no display yet) |
 | M103c | interrupt delivery into Z80 code (ROM analysis), keyboard matrix, TVRAM 88-mode mapping and TSP emulation-mode text rendering | `Ok` prompt displayed, typed characters echoed |
 | M103d | GVRAM plane mapping and 88-mode graphics (palette modes, 200/400 lines, backdrop), FDD path under V1/V2, remaining ports (`E8h`–`EDh`, `34h`/`35h`) | **N88-DISK BASIC V2** boots from a disk image and operates; graphics statements draw |
 | M103e | timing and compatibility work against the **PC-8801mkIISR DEMO**; sound; V1 mode | the DEMO runs; series gate |
