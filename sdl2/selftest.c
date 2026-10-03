@@ -89,6 +89,7 @@
 #endif
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 #include "io/subsystem.h"
+#include "io/upd9002_regs.h"
 #include "tests/upd780/subsystem_integration.h"
 #endif
 
@@ -3757,6 +3758,157 @@ static int test_statsave(void) {
 	return (SUCCESS);
 }
 
+/* Drop every section named in names[] to emulate a state from an older build. */
+static int make_statsave_without_sections(const char *source, const char *destination,
+                                          const char *const *names, UINT count) {
+	BYTE *data;
+	UINT size;
+	UINT pos;
+	UINT out;
+	UINT removed;
+	FILEH fh;
+	int ret;
+
+	data = NULL;
+	if (read_whole_file(source, &data, &size) != SUCCESS) {
+		return (FAILURE);
+	}
+	removed = 0;
+	pos = 0x30;
+	out = 0x30;
+	while ((pos + 16) <= size) {
+		UINT body_size;
+		UINT padded;
+		UINT i;
+		BOOL drop;
+
+		body_size = LOADINTELDWORD(data + pos + 12);
+		padded = (body_size + 15) & ~15U;
+		if ((pos + 16 + padded) > size) {
+			break;
+		}
+		drop = FALSE;
+		for (i = 0; i < count; i++) {
+			const UINT length = (UINT)strlen(names[i]);
+			if (!memcmp(data + pos, names[i], length) &&
+			    ((length >= 10) || (data[pos + length] == '\0'))) {
+				drop = TRUE;
+			}
+		}
+		if (drop) {
+			removed++;
+		} else {
+			memmove(data + out, data + pos, 16 + padded);
+			out += 16 + padded;
+		}
+		pos += 16 + padded;
+	}
+	ret = FAILURE;
+	fh = file_create(destination);
+	if ((removed == count) && (pos == size) && (fh != FILEH_INVALID) &&
+	    (file_write(fh, data, out) == out)) {
+		ret = SUCCESS;
+	}
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	_MFREE(data);
+	return (ret);
+}
+
+static void v1v2_state_set_nondefault(void) {
+	static const BYTE ranges[8] = {0x50, 0x00, 0x5b, 0x00, 0x60, 0x00, 0x6f, 0x00};
+	UINT i;
+
+	iocore_out8(0x153, 0x01);
+	iocore_out8(0x031, 0x02);
+	iocore_out8(0x071, 0xfe);
+	iocore_out8(0x070, 0x37);
+	iocore_out8(0x05d, 0x00);
+	for (i = 0; i < 8; i++) {
+		iocore_out8(0xffe0 + i, ranges[i]);
+	}
+	iocore_out8(0xffef, 0x13);
+}
+
+static BOOL v1v2_state_is_nondefault(void) {
+	static const BYTE ranges[8] = {0x50, 0x00, 0x5b, 0x00, 0x60, 0x00, 0x6f, 0x00};
+
+	return memoryva_88_mode == 1 && !(iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0x02 &&
+	       iocore_inp8(0x071) == 0xfe && iocore_inp8(0x070) == 0x37 && iocore_inp8(0x05c) == 0xfa &&
+	       !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) && upd9002_iotrap.control == 0x13;
+}
+
+static BOOL v1v2_state_is_default(void) {
+	static const BYTE zero[8] = {0};
+
+	return memoryva_88_mode == 0 && (iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0 &&
+	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 && iocore_inp8(0x05c) == 0xf8 &&
+	       !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) && upd9002_iotrap.control == 0;
+}
+
+/* M103b: V1/V2 machine state survives a full save/load, and old files without
+ * the optional sections load with V3 defaults. */
+static int test_v1v2_state_sections(void) {
+	static const char *const sections[] = {"MEM88MODE", "MEM88SYS", "MEM88EXT",
+	                                       "MEM88WIN",  "MEM88GFX", "UPD9TRAP"};
+	char path[MAX_PATH];
+	char oldpath[MAX_PATH];
+	const char *problem;
+
+	SPRINTF(path, "vaeg-selftest-%lu-v1v2.sts", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-v1v2-old.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(oldpath);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	if (!v1v2_state_is_default()) {
+		problem = "reset did not select V3 defaults";
+	}
+	if (problem == NULL) {
+		v1v2_state_set_nondefault();
+		if (!v1v2_state_is_nondefault()) {
+			problem = "nondefault fixture was not applied";
+		}
+	}
+	if (problem == NULL) {
+		soundmng_stop();
+		if (statsave_save(path) != STATFLAG_SUCCESS) {
+			problem = "save failed";
+		}
+	}
+	if (problem == NULL) {
+		pccore_reset();
+		if (!v1v2_state_is_default() || (statsave_load(path) != STATFLAG_SUCCESS) ||
+		    !v1v2_state_is_nondefault()) {
+			problem = "new sections did not round-trip";
+		}
+	}
+	if ((problem == NULL) &&
+	    (make_statsave_without_sections(path, oldpath, sections,
+	                                    sizeof(sections) / sizeof(sections[0])) != SUCCESS)) {
+		problem = "could not build an old-format state";
+	}
+	if (problem == NULL) {
+		v1v2_state_set_nondefault();
+		if ((statsave_load(oldpath) != STATFLAG_SUCCESS) || !v1v2_state_is_default()) {
+			problem = "old-format state did not load with V3 defaults";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(oldpath);
+	if (problem != NULL) {
+		return (fail("V1/V2 state sections", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 state sections ok\n");
+	return (SUCCESS);
+}
+
 typedef struct {
 	char text[256];
 } TOKENBUF;
@@ -4249,6 +4401,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_state_sections() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

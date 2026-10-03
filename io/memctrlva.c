@@ -13,6 +13,48 @@
 
 // ---- I/O
 
+static void IOOUTCALL memctrlva_o05c(UINT port, REG8 dat) {
+	memoryva_88_plane = (UINT8)(port - 0x5c);
+	(void)dat;
+}
+
+static REG8 IOINPCALL memctrlva_i05c(UINT port) {
+	(void)port;
+	return 0xf8 | (memoryva_88_plane < 3 ? (1 << memoryva_88_plane) : 0);
+}
+
+static void IOOUTCALL memctrlva_o070(UINT port, REG8 dat) {
+	memoryva_88_window = (UINT8)dat;
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i070(UINT port) {
+	(void)port;
+	return memoryva_88_window;
+}
+
+static void IOOUTCALL memctrlva_o078(UINT port, REG8 dat) {
+	memoryva_88_window++;
+	(void)port;
+	(void)dat;
+}
+
+static void IOOUTCALL memctrlva_o071(UINT port, REG8 dat) {
+	memoryva_88_xerom = dat & 1;
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i071(UINT port) {
+	(void)port;
+	return 0xfe | memoryva_88_xerom;
+}
+
+static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
+	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
+	memoryva_88_port31 = (UINT8)dat;
+	(void)port;
+}
+
 static void IOOUTCALL memctrlva_o152(UINT port, REG8 dat) {
 	if (pccore.model_va == PCMODEL_VA1) {
 		memoryva.rom0_bank = (dat & 0x0f);
@@ -28,6 +70,7 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	if ((dat & 0x0f) == 0x0f)
 		TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	memoryva.sysm_bank = dat & 0x0f;
+	memoryva_88_mode = (dat & 0x40) ? 0 : 1;
 	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x", port, dat, memoryva.sysm_bank);
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
 		// Reset access state when GMSP changes between multi- and single-plane modes.
@@ -52,7 +95,7 @@ static REG8 IOINPCALL memctrlva_i152(UINT port) {
 
 static REG8 IOINPCALL memctrlva_i153(UINT port) {
 	(void)port;
-	return (memoryva.sysm_bank & 0x0f) | gactrlva.gmsp | 0x40;
+	return (memoryva.sysm_bank & 0x0f) | gactrlva.gmsp | (memoryva_88_mode ? 0 : 0x40);
 }
 
 static REG8 IOINPCALL memctrlva_i156(UINT port) {
@@ -91,12 +134,27 @@ static REG8 IOINPCALL memctrlva_i031(UINT port) {
 // ---- I/F
 
 void memctrlva_reset(void) {
+	memoryva_88_port31 = 0;
+	memoryva_88_xerom = 1;
+	memoryva_88_window = 0x80;
+	memoryva_88_plane = 3;
 	memctrlva_o152(0, 0);
 	memctrlva_o153(0, 0x41);
 	memctrlva_o198(0, 0);
 }
 
 void memctrlva_bind(void) {
+	iocore_attachout(0x031, memctrlva_o031);
+	iocore_attachout(0x05c, memctrlva_o05c);
+	iocore_attachout(0x05d, memctrlva_o05c);
+	iocore_attachout(0x05e, memctrlva_o05c);
+	iocore_attachout(0x05f, memctrlva_o05c);
+	iocore_attachinp(0x05c, memctrlva_i05c);
+	iocore_attachout(0x070, memctrlva_o070);
+	iocore_attachinp(0x070, memctrlva_i070);
+	iocore_attachout(0x078, memctrlva_o078);
+	iocore_attachout(0x071, memctrlva_o071);
+	iocore_attachinp(0x071, memctrlva_i071);
 	iocore_attachout(0x152, memctrlva_o152);
 	iocore_attachout(0x153, memctrlva_o153);
 	iocore_attachout(0x180, memctrlva_o180);

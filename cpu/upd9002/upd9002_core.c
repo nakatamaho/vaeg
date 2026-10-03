@@ -381,6 +381,15 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	UPD9002_WORKCLOCK(20);
 }
 
+void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip) {
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) {
+		return;
+	}
+	upd9002_core_compat_calln(vect, instruction_ip);
+	UPD9002_FLAG &= ~(I_FLAG | T_FLAG);
+	UPD9002_TRAP = 0;
+}
+
 BOOL CPUCALL upd9002_core_compat_iret_is_return(void) {
 	return (CPU_COMPAT_RETURN_PENDING != 0) && (UPD9002_SP == upd9002_compat_return_sp);
 }

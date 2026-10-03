@@ -111,6 +111,11 @@ static const SFENTRY np2tbl[] = {
 	{"GVRAMVA",		0,	STATFLAG_BIN,	grphmem,		sizeof(grphmem)},
 	{"BKUPMEMVA",	0,	STATFLAG_BIN,	backupmem,		sizeof(backupmem)},
 	{"MEMORYVA",	0,	STATFLAG_BIN,	&memoryva,		sizeof(memoryva)},
+	{"MEM88MODE",	0,	STATFLAG_BIN,	&memoryva_88_mode,	sizeof(memoryva_88_mode)},
+	{"MEM88SYS",	0,	STATFLAG_BIN,	&memoryva_88_port31,	sizeof(memoryva_88_port31)},
+	{"MEM88EXT",	0,	STATFLAG_BIN,	&memoryva_88_xerom,	sizeof(memoryva_88_xerom)},
+	{"MEM88WIN",	0,	STATFLAG_BIN,	&memoryva_88_window,	sizeof(memoryva_88_window)},
+	{"MEM88GFX",	0,	STATFLAG_BIN,	&memoryva_88_plane,	sizeof(memoryva_88_plane)},
 
 	{"SYSPORTVA",	0,	STATFLAG_BIN,	&sysportva,		sizeof(sysportva)},
 	{"VIDEOVA",		0,	STATFLAG_BIN,	&videova,		sizeof(videova)},
@@ -125,5 +130,6 @@ static const SFENTRY np2tbl[] = {
 	{"BOARDSB2",	0,	STATFLAG_BIN,	&boardsb2,		sizeof(boardsb2)},
 	{"VA91",		0,	STATFLAG_BIN,	&va91,			sizeof(va91)},
 	{"UPD9002",		0,	STATFLAG_BIN,	&upd9002_regs,	sizeof(upd9002_regs)},
+	{"UPD9TRAP",	0,	STATFLAG_BIN,	&upd9002_iotrap,	sizeof(upd9002_iotrap)},
 	{"HOSTFAT",		1,	STATFLAG_HOSTFAT,NULL,			36},
 	{"TERMINATE",	0,	STATFLAG_TERM,	NULL,			0}};

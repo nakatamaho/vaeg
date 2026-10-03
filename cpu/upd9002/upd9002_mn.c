@@ -8,6 +8,7 @@
 #include "upd9002_diagnostic.h"
 #include "upd8087/upd8087.h"
 #include "dmap.h"
+#include "upd9002_regs.h"
 #include "upd9002_ops.mcr"
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include <stdlib.h>
@@ -2635,12 +2636,41 @@ UPD9002FN _jcxz(void) { // E3:	jcxz
 		JMPNOP(4) else JMPSHORT(8)
 }
 
+/*
+ * Native I/O trap (FFE0h-FFEFh). A match performs no access and raises
+ * vector 7Ch (IN) or 7Dh (OUT) with the saved IP at the instruction start,
+ * the same restart point the core uses for faults. FFEFh bit 4 selects
+ * low-byte port matching; ports FFE0h-FFFFh never trap.
+ */
+static BOOL native_iotrap(UINT port, BOOL input) {
+	const BYTE *r = upd9002_iotrap.ranges;
+	const BYTE control = upd9002_iotrap.control;
+	UINT match;
+	UINT block;
+
+	if (!(control & (input ? 1 : 2)) || ((port & 0xffff) >= 0xffe0)) {
+		return FALSE;
+	}
+	match = (control & 0x10) ? (port & 0xff) : (port & 0xffff);
+	for (block = 0; block < 8; block += 4) {
+		if ((match >= (UINT)(r[block] | (r[block + 1] << 8))) &&
+		    (match <= (UINT)(r[block + 2] | (r[block + 3] << 8)))) {
+			upd9002_intnum(input ? 0x7c : 0x7d, upd9002_step_start_ip);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 UPD9002FN _in_al_data8(void) { // E4:	in		al, DATA8
 
 	UINT port;
 
 	UPD9002_WORKCLOCK(5);
 	GET_PCBYTE(port)
+	if (native_iotrap(port, TRUE)) {
+		return;
+	}
 	UPD9002_INPADRS = CS_BASE + UPD9002_IP;
 	UPD9002_AL = iocore_inp8(port);
 	UPD9002_INPADRS = 0;
@@ -2652,6 +2682,9 @@ UPD9002FN _in_ax_data8(void) { // E5:	in		ax, DATA8
 
 	UPD9002_WORKCLOCK(5);
 	GET_PCBYTE(port)
+	if (native_iotrap(port, TRUE)) {
+		return;
+	}
 	UPD9002_AX = iocore_inp16(port);
 }
 
@@ -2661,6 +2694,9 @@ UPD9002FN _out_data8_al(void) { // E6:	out		DATA8, al
 
 	UPD9002_WORKCLOCK(3);
 	GET_PCBYTE(port);
+	if (native_iotrap(port, FALSE)) {
+		return;
+	}
 	iocore_out8(port, UPD9002_AL);
 }
 
@@ -2670,6 +2706,9 @@ UPD9002FN _out_data8_ax(void) { // E7:	out		DATA8, ax
 
 	UPD9002_WORKCLOCK(3);
 	GET_PCBYTE(port);
+	if (native_iotrap(port, FALSE)) {
+		return;
+	}
 	iocore_out16(port, UPD9002_AX);
 }
 
@@ -2715,24 +2754,36 @@ UPD9002FN _jmp_short(void) { // EB:	jmp short
 UPD9002FN _in_al_dx(void) { // EC:	in		al, dx
 
 	UPD9002_WORKCLOCK(5);
+	if (native_iotrap(UPD9002_DX, TRUE)) {
+		return;
+	}
 	UPD9002_AL = iocore_inp8(UPD9002_DX);
 }
 
 UPD9002FN _in_ax_dx(void) { // ED:	in		ax, dx
 
 	UPD9002_WORKCLOCK(5);
+	if (native_iotrap(UPD9002_DX, TRUE)) {
+		return;
+	}
 	UPD9002_AX = iocore_inp16(UPD9002_DX);
 }
 
 UPD9002FN _out_dx_al(void) { // EE:	out		dx, al
 
 	UPD9002_WORKCLOCK(3);
+	if (native_iotrap(UPD9002_DX, FALSE)) {
+		return;
+	}
 	iocore_out8(UPD9002_DX, UPD9002_AL);
 }
 
 UPD9002FN _out_dx_ax(void) { // EF:	out		dx, ax
 
 	UPD9002_WORKCLOCK(3);
+	if (native_iotrap(UPD9002_DX, FALSE)) {
+		return;
+	}
 	iocore_out16(UPD9002_DX, UPD9002_AX);
 }
 
@@ -3646,10 +3697,13 @@ UPD9002FN _ope0x0f(void) { // 0F:
 
 	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	upd9002_perf_record_0f((UINT8)op);
-	if (op == 0xff) {
+	if (op == 0xff || op == 0xfe) {
+		/* BRKEM and BRKEM2 share the compatible-mode entry policy.
+		 * The system memory mode is selected independently by port 153h. */
 		UPD9002_IP++;
 		vector = upd9002_memoryread(CS_BASE + UPD9002_IP);
 		UPD9002_IP++;
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
 		upd9002_core_brkem(vector);
 		return;
 	}

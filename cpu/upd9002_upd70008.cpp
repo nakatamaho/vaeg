@@ -26,6 +26,7 @@
 #include "machine/pccore.h"
 #include "cpucore.h"
 #include "io/iocore.h"
+#include "io/upd9002_regs.h"
 #include "cpu/upd9002_upd70008.h"
 #include "cpu/z80_compat_cpu.h"
 
@@ -35,11 +36,23 @@
 
 namespace {
 
+// VAEG_UPD70008_TRACE=N records N compatible-mode events (default 4096);
+// VAEG_UPD70008_TRACE_SKIP=M first passes over M events, so a bounded window
+// can be placed late in a long run.
 static std::uint32_t compat_trace_slot() {
 	static bool initialized = false;
 	static std::uint32_t limit = 0;
 	static std::uint32_t count = 0;
+	static unsigned long long skip = 0;
 	if (!initialized) {
+		const char *skip_value = std::getenv("VAEG_UPD70008_TRACE_SKIP");
+		if (skip_value != nullptr && skip_value[0] != '\0') {
+			char *end = nullptr;
+			unsigned long long parsed = std::strtoull(skip_value, &end, 10);
+			if (end != skip_value && *end == '\0') {
+				skip = parsed;
+			}
+		}
 		const char *value = std::getenv("VAEG_UPD70008_TRACE");
 		if (value != nullptr && value[0] != '\0') {
 			char *end = nullptr;
@@ -53,6 +66,10 @@ static std::uint32_t compat_trace_slot() {
 		initialized = true;
 	}
 	if (count >= limit) {
+		return UINT32_MAX;
+	}
+	if (skip != 0) {
+		skip--;
 		return UINT32_MAX;
 	}
 	return count++;
@@ -174,6 +191,31 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		const std::uint8_t op1 = static_cast<std::uint8_t>(upd9002_memoryread(code_address + 1));
 		const std::uint32_t trace_slot = compat_trace_slot();
 		compat_trace("before", trace_slot, op0, op1);
+
+		bool input = op0 == 0xdb;
+		bool plain_io = input || op0 == 0xd3;
+		UINT8 port = op1;
+		// ED 40/41..78/79: IN r,(C) / OUT (C),r. ED A2/A3/AA/AB/B2/B3/BA/BB:
+		// block I/O, which the VA2 ROM trap handler decodes and repeats itself.
+		if (op0 == 0xed && (((op1 & 0xc6) == 0x40) || ((op1 & 0xe6) == 0xa2))) {
+			plain_io = true;
+			input = (op1 & 1) == 0;
+			port = static_cast<UINT8>(upd70008_.GetReg()->bc);
+		}
+		if (plain_io && (upd9002_iotrap.control & (input ? 1 : 2))) {
+			for (unsigned range = 0; range < 8; range += 4) {
+				// Compatible I/O uses the 8-bit port number. Native DX matching
+				// and FFEF bit 4 belong to the separate native interception path.
+				if (port >= upd9002_iotrap.ranges[range] &&
+				    port <= upd9002_iotrap.ranges[range + 2]) {
+					SyncToNative();
+					upd9002_core_compat_iotrap(input ? 0x7c : 0x7d, pc);
+					counter_.SetRemainclock(CPU_REMCLOCK);
+					compat_trace(input ? "io-trap-in" : "io-trap-out", trace_slot, op0, op1);
+					return;
+				}
+			}
+		}
 
 		if ((op0 == 0xed) && (op1 == 0xed)) {
 			const std::uint8_t vector =
@@ -378,7 +420,16 @@ extern "C" void upd9002_upd70008_register(void) {
 }
 
 #if defined(VAEG_UPD9002_M76_TESTING)
-extern "C" int upd9002_upd70008_compat_selftest(void) {
+static unsigned test_io_accesses;
+static REG8 IOINPCALL test_trapped_in(UINT) {
+	test_io_accesses++;
+	return 0x99;
+}
+static void IOOUTCALL test_trapped_out(UINT, REG8) {
+	test_io_accesses++;
+}
+
+static int compat_entry_selftest(UINT8 entry_opcode) {
 	const UINT16 code_segment = 0x2000;
 	const UINT16 native_stack_segment = 0x3000;
 	const UINT16 code_offset = 0x0100;
@@ -421,7 +472,7 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	mem[(0x00e2U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
 
 	mem[code_base + code_offset + 0] = 0x0f;
-	mem[code_base + code_offset + 1] = 0xff;
+	mem[code_base + code_offset + 1] = entry_opcode;
 	mem[code_base + code_offset + 2] = 0xe1;
 	mem[code_base + compatible_offset + 0] = 0x3e;
 	mem[code_base + compatible_offset + 1] = 0x42;
@@ -451,7 +502,11 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 
 	upd9002_core_step();
 	if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_CS != code_segment) ||
-	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa)) {
+	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa) || (CPU_DS != code_segment) ||
+	    (CPU_SS != native_stack_segment) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fa) != code_offset + 3) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fc) != code_segment) ||
+	    (upd9002_memoryread_w(native_stack_base + 0x00fe) != 0xf202)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
@@ -460,6 +515,56 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
+	// Trap immediate and ordinary ED I/O before any device side effect.
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		upd9002_core_deinitialize();
+		return FAILURE;
+	}
+	iocore_attachinp(0x50, test_trapped_in);
+	iocore_attachout(0x50, test_trapped_out);
+	iocore_attachinp(0x00, test_trapped_in);
+	iocore_attachout(0x00, test_trapped_out);
+	upd9002_iotrap = {};
+	upd9002_iotrap.ranges[0] = 0x50;
+	upd9002_iotrap.ranges[2] = 0x50;
+	upd9002_iotrap.control = 3;
+	test_io_accesses = 0;
+	static const UINT8 block_io[8] = {0xa2, 0xa3, 0xaa, 0xab, 0xb2, 0xb3, 0xba, 0xbb};
+	for (unsigned form = 0; form < 26; form++) {
+		const bool output = (form & 1) != 0;
+		const unsigned vector = output ? 0x7d : 0x7c;
+		upd9002_iotrap.ranges[0] = form < 2 ? 0x50 : 0x00;
+		upd9002_iotrap.ranges[2] = upd9002_iotrap.ranges[0];
+		upd9002_memorywrite_w(vector * 4, native_offset);
+		upd9002_memorywrite_w(vector * 4 + 2, code_segment);
+		mem[code_base + compatible_offset + 2] = form < 2 ? (output ? 0xd3 : 0xdb) : 0xed;
+		mem[code_base + compatible_offset + 3] =
+		    form < 2    ? 0x50
+		    : form < 18 ? static_cast<UINT8>(0x40 + ((form - 2) / 2) * 8 + (form & 1))
+		                : block_io[form - 18];
+		upd9002_core_step();
+		bool ok = CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && CPU_IP == native_offset &&
+		          CPU_SP == 0x00f4 && !(CPU_FLAG & I_FLAG) && test_io_accesses == 0 &&
+		          upd9002_memoryread_w(native_stack_base + 0xf4) == compatible_offset + 2;
+		// The synthetic IRET handler deliberately retries the same IP so the
+		// next I/O form and then the original JR can reuse this location.
+		if (ok) {
+			upd9002_core_step();
+		}
+		ok = ok && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 && CPU_IP == compatible_offset + 2 &&
+		     CPU_AL == 0x42 && CPU_SP == 0xfa;
+		if (!ok) {
+			upd9002_iotrap = {};
+			iocore_destroy();
+			upd9002_core_deinitialize();
+			return FAILURE;
+		}
+	}
+	upd9002_iotrap = {};
+	iocore_destroy();
+	mem[code_base + compatible_offset + 2] = 0x18;
+	mem[code_base + compatible_offset + 3] = 0x03;
 	upd9002_core_step();
 	if (CPU_IP != compatible_offset + 7) {
 		upd9002_core_deinitialize();
@@ -536,6 +641,17 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	}
 	upd9002_core_deinitialize();
 	return passed ? SUCCESS : FAILURE;
+}
+
+extern "C" int upd9002_upd70008_compat_selftest(void) {
+	const UINT8 encodings[] = {0xff, 0xfe};
+	for (UINT8 encoding : encodings) {
+		if (compat_entry_selftest(encoding) != SUCCESS) {
+			std::fprintf(stderr, "compatible entry selftest failed: 0F %02X\n", encoding);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
 }
 
 // M103a: alternate register storage and the load-before-enter vector reader.
