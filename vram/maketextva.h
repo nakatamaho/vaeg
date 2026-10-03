@@ -4,6 +4,7 @@ extern "C" {
 #endif
 
 extern BYTE textraster[];
+extern BYTE textcolorraster[];
 
 void maketextva_initialize(void);
 void maketextva(void);

@@ -672,6 +672,15 @@ int videova_palettemode(void) {
 	return mode[((sysportva.port032 & 0x20) ? 2 : 0) + ((memoryva_88_port31 & 0x10) ? 1 : 0)];
 }
 
+/*
+ * Multiplane 1 bit/pixel display (technical manual ch. 4 §2.1): the OR of
+ * the switched-on planes is merged into the text screen and decorated by
+ * the text attributes instead of forming a graphics screen of its own.
+ */
+BOOL videova_textmerge(void) {
+	return (videova.grmode & 0x8000) && !(videova.grmode & 0x0400) && !(videova.grres & 0x0003);
+}
+
 int videova_hsyncmode(void) {
 	int ret;
 

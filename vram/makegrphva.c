@@ -565,6 +565,41 @@ static void drawraster_s16(SCREEN screen) {
 	endraster(screen);
 }
 
+/*
+ * Multiplane 1 bit/pixel: each output pixel is the OR of the planes whose
+ * screen switch (110h GnSW) is on. The compositor merges it into the text.
+ */
+static void drawraster_m1(SCREEN screen) {
+	const UINT sw = videova.pagemsk & 0x0f;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
+	UINT xp;
+	UINT i;
+
+	addr = screen->lineaddr;
+	b = screen->rasterbuf;
+	ZeroMemory(b, sizeof(grph0_raster));
+	wrapcount = screen->framebuffer->fbw / 4 - screen->framebuffer->ofx / 4;
+	for (xp = 0; xp < SURFACE_WIDTH / 8; xp++) {
+		BYTE d = 0;
+
+		if (wrapcount-- == 0) {
+			addr = screen->wrappedaddr;
+		}
+		for (i = 0; i < 4; i++) {
+			if (sw & (1 << i)) {
+				d |= grphmem[addr + ((UINT32)i << 16)];
+			}
+		}
+		addr = addr18(screen, addr + 1);
+		for (i = 0; i < 8; i++) {
+			*b++ = (d & (0x80 >> i)) ? 1 : 0;
+		}
+	}
+	endraster_m(screen);
+}
+
 // マルチプレーン4bit/pixel
 static void drawraster_m4(SCREEN screen) {
 	//	UINT16		xp;
@@ -884,11 +919,9 @@ static void drawraster(SCREEN screen) {
 	} else {
 		// マルチプレーンモード
 		switch (screen->pixelmode) {
-		/*
-				case 0:
-					drawraster_m1(screen);
-					break;
-				*/
+		case 0:
+			drawraster_m1(screen);
+			break;
 		case 1:
 			drawraster_m4(screen);
 			break;
