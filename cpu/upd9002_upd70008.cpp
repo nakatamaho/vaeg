@@ -36,11 +36,23 @@
 
 namespace {
 
+// VAEG_UPD70008_TRACE=N records N compatible-mode events (default 4096);
+// VAEG_UPD70008_TRACE_SKIP=M first passes over M events, so a bounded window
+// can be placed late in a long run.
 static std::uint32_t compat_trace_slot() {
 	static bool initialized = false;
 	static std::uint32_t limit = 0;
 	static std::uint32_t count = 0;
+	static unsigned long long skip = 0;
 	if (!initialized) {
+		const char *skip_value = std::getenv("VAEG_UPD70008_TRACE_SKIP");
+		if (skip_value != nullptr && skip_value[0] != '\0') {
+			char *end = nullptr;
+			unsigned long long parsed = std::strtoull(skip_value, &end, 10);
+			if (end != skip_value && *end == '\0') {
+				skip = parsed;
+			}
+		}
 		const char *value = std::getenv("VAEG_UPD70008_TRACE");
 		if (value != nullptr && value[0] != '\0') {
 			char *end = nullptr;
@@ -54,6 +66,10 @@ static std::uint32_t compat_trace_slot() {
 		initialized = true;
 	}
 	if (count >= limit) {
+		return UINT32_MAX;
+	}
+	if (skip != 0) {
+		skip--;
 		return UINT32_MAX;
 	}
 	return count++;
