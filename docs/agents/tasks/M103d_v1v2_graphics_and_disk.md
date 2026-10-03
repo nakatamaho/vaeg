@@ -135,6 +135,18 @@ survives `SAVE`, `NEW`, `LOAD` and `RUN`.
 - `COLOR f,b` in colour mode: the ROM writes the backdrop colour, and
   graphics colour 0 stays opaque, so the background stays black as in
   `[X88000]`'s colour mode.
+- The palette mode follows 10Ch PLTM2: with it clear, 32h PMODE and 31h
+  PM00 select the mode as tabulated in the manual. Colour mode is then
+  palette mode 2 (text from palette set 1, graphics from set 0).
+- `SCREEN 1` selects 1 bit/pixel (31h PM00 = 0) with 110h G0SW–G2SW on.
+  vaeg drew nothing in multiplane 1 bit/pixel mode; the graphics raster now
+  holds the OR of the switched-on planes, the text renderer records each
+  cell's colour after the reverse attribute (before secret and blink), and
+  the compositor shows set dots in that colour instead of a separate
+  graphics screen. `LINE` and `CIRCLE` in `SCREEN 1` appear in the text
+  colour. Blank text frames are no longer skipped while this merge is
+  active. Not covered: 320-dot horizontal mode, and 400-line monochrome
+  (needs a 24.8 kHz configuration; not exercised yet).
 
 ### Disk BASIC (scope item 3)
 
@@ -142,3 +154,19 @@ survives `SAVE`, `NEW`, `LOAD` and `RUN`.
   `SAVE`, `NEW`, `LOAD`, `LIST` and `RUN` round-trip a program. The V2
   media itself carries the D88 write-protect flag, so `SAVE` on it
   reports `File write protected`, as it should.
+
+### Tests (scope item 4)
+
+- `vaeg_romless_tests`: `test_v1v2_graphics` covers independent and ALU
+  writes, the comparison read, the three latch-copy modes, 34h/35h read
+  back, GAM switching between GVRAM, RAM and the TVRAM window, port 31h
+  (88 mode only), the PLTM2-clear palette modes and the merge condition;
+  the V1/V2 state-section test covers `MEM88ALU`. Removing the 34h
+  read-back, the 31h alias, the PLTM2 rule or the comparison makes it fail.
+- `vaeg_m103b_basic_boot` (private ROMs and media): after `PRINT 1+1` it
+  draws `CIRCLE (320,100),60,2:PAINT (320,100),4,2` and counts red and
+  green pixels in the rendered BMP (measured about 600 and 11 000), then
+  `SAVE`, `NEW`, `LOAD` and `RUN` of a one-line program on the temporary
+  copy with its write-protect flag cleared. Stable codes
+  `M103D_NO_DISK_ROUNDTRIP`, `M103D_NO_SCREENSHOT`, `M103D_NO_GRAPHICS`
+  with one-mutation selftest cases. A run takes about 160 s.
