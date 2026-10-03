@@ -5315,6 +5315,10 @@ int vaeg_selftest_run(void) {
 	if (test_tsp_3301_emulation() != SUCCESS) {
 		return (FAILURE);
 	}
+	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
+	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800)) {
+		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
+	}
 	if (test_v1v2_graphics() != SUCCESS) {
 		return (FAILURE);
 	}
