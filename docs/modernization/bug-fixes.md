@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M103c — US-layout symbols were lost in matrix-scanning software
+
+- **Symptom/scope:** with the US 101 host layout, symbols that the layout
+  produces by synthetic taps or SHIFT chords (and Enter) did not reach V1/V2
+  N-88 BASIC; JIS typing and V3 software were unaffected. Any guest that
+  reads the key matrix (ports 00h–0Eh) once per frame is affected.
+- **Demonstrated cause:** `keyboard_send` updated the matrix immediately for
+  both the press and the release of a tap sent in one host event, so the key
+  was never down when the VRTC handler scanned the matrix.
+- **Correction:** a release becomes visible only after its key has been down
+  across two VRTC starts; following events keep their order behind it and
+  are applied at the start of VRTC. The keyboard controller FIFO is unchanged.
+- **Verification:** a local host-event run with the US layout typed
+  `@=':+*()"_` into BASIC with the fix and nothing without it; a
+  `vaeg_romless_tests` case fails when events are applied directly; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#us-layout-keys-in-v1v2-g103c-feedback).
+  Fix: [2d5e471b](https://github.com/nakatamaho/vaeg/commit/2d5e471be95ccd0eaca804d85a71fd2bb17f4e72).
+
 ### M103c — Builds without tests failed after the M103b merge
 
 - **Symptom/scope:** every configuration with `VAEG_ENABLE_TESTS=OFF`
