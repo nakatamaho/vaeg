@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103c - V1/V2 interrupts, keyboard and 88-mode text display
 
-Status: **implementation complete for the gate scope; G103c pending**
+Status: **complete; G103c passed on 2026-10-03**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103c-v1v2-text` off the
 integration branch `topic/v1v2-mode` at `main`
@@ -346,3 +346,20 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   one. Power-on versus warm reset and the `DE'`/`HL'` values remain
   unmeasured; the maintainer offered a real-machine check (cold power-on
   and warm reset, then V2 BASIC → `mon` → `x`).
+
+### G103c (passed 2026-10-03)
+
+- First Windows build `97375537`: standard V3 gate OK; BASIC prompt, typed
+  input, `PRINT 1+1` and FOR/NEXT programs with LIST/RUN OK; policies
+  approved. Reported: function keys not reversed, `mon` not available,
+  US 101 symbols lost (all fixed above).
+- Second Windows build `411e6c8802c298d01a6b344208238ac0c20eee9a`
+  (`vaeg.exe` SHA-256
+  `3dbccf3b0d5970f44188c22e3622b44ad7f1314f593bfd160903ae44d167abf3`): the
+  three fixes confirmed by the maintainer.
+- The alternate-register reset value (`13a3431a`) was decided afterwards
+  and verified locally (`mon` → `x` equals the real VA2 dump); the
+  maintainer passed G103c with it. Candidate:
+  `b12cd06f73dd698b600a6764b41798749c247893`.
+- The tests-off build fix `5c319d28` was cherry-picked to `main` as
+  `10d490c421d13b24d8bd8f46cbeb54075f1e3ca8` before the M103c merge.
