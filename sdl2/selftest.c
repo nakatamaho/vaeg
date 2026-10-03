@@ -53,6 +53,7 @@
 #include "kbdpaste.h"
 #include "memoryva.h"
 #include "gvramva.h"
+#include "makegrphva.h"
 #include "mousestate.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -4152,6 +4153,31 @@ static BYTE *v1v2_plane(UINT plane, UINT offset) {
 	return grphmem + ((UINT32)plane << 16) + 0x4000 + offset;
 }
 
+/* Render graphics rasters 0..y with the frame buffer the VA2 ROM sets up for
+ * V1/V2 mode, leaving raster y in grph0_raster. */
+static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	BOOL scrn200;
+	UINT i;
+
+	f->fsa = 0x10000;
+	f->fbw = 0x140;
+	f->fbl = 0x190;
+	f->dot = 0;
+	f->ofx = 0;
+	f->ofy = 0;
+	f->dsa = 0x10000;
+	f->dsh = 0xc8;
+	f->dsp = 0;
+	videova.grmode = grmode;
+	videova.grres = 0;
+	videova.pagemsk = pagemsk;
+	makegrphva_begin(&scrn200);
+	for (i = 0; i <= y; i++) {
+		makegrphva_raster();
+	}
+}
+
 /* M103d: V1/V2 extended GVRAM access, port 31h display bits, palette mode. */
 static int test_v1v2_graphics(void) {
 	const char *problem;
@@ -4285,6 +4311,35 @@ static int test_v1v2_graphics(void) {
 		videova.grres = 1;
 		if ((problem == NULL) && videova_textmerge()) {
 			problem = "4 bit/pixel multiplane merged";
+		}
+	}
+
+	/* Multiplane 1 bit/pixel ORs the switched-on planes; with 88MD and 400
+	 * lines plane 0 is the upper and plane 1 the lower 200 lines. */
+	if (problem == NULL) {
+		*v1v2_plane(0, 0) = 0x80;
+		*v1v2_plane(1, 0) = 0x40;
+		v1v2_render_to(0, 0x7f03, 0x8002);
+		if (grph0_noraster || (grph0_raster[0] != 1) || (grph0_raster[1] != 1) || grph0_raster[2]) {
+			problem = "1 bit/pixel plane OR";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(0, 0x7f43, 0x8000);
+		if (grph0_noraster || (grph0_raster[0] != 1) || grph0_raster[1]) {
+			problem = "400-line upper half is not plane 0";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(200, 0x7f43, 0x8000);
+		if (grph0_noraster || grph0_raster[0] || (grph0_raster[1] != 1)) {
+			problem = "400-line lower half is not plane 1";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(200, 0x7f03, 0x8000);
+		if (!grph0_noraster) {
+			problem = "200-line frame displayed past its height without 88MD";
 		}
 	}
 
