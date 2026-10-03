@@ -146,8 +146,10 @@ VA2 ROMs and V2 BASIC media and fails closed for media that takes the
 native IPL branch. Human-gate items that remain: the standard V3 gate
 (VA demo, OS boot and operation), saving and resuming a live
 compatible-mode session, and acceptance of the documented implementation
-policies (shared BRKEM/BRKEM2 entry, provisional 88-mode RAM backing,
-1KiB window, byte/word-port trap matching, low-byte compatible matching).
+policies (shared BRKEM/BRKEM2 entry, the RAM-window reset origin 80h,
+byte/word-port trap matching, low-byte compatible matching). The 88-mode
+RAM backing and the 1KiB window at 18000h–183FFh are now corroborated by
+`[NEC-GIHO]` Figures 3 and 4 (plan §2.3) rather than being policy.
 M103b is stacked on M103a, whose G103a is still pending; neither is
 merged.
 

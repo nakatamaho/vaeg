@@ -61,6 +61,7 @@ levels, and every error found so far lived on exactly that boundary.
 | `[VA-WIKI]` | *Inside PC-88VA* wiki, §1.5 CPU. Documents what the てくまに omits and carries its errata. Its I/O-trap section is CoBit's original 1992 post reproduced verbatim; its instruction-set section cites *Micom* Aug 1987. | Implement; note that CoBit's own caveat (ROM analysis plus experiment, possibly incomplete) applies to §9. |
 | `[ROM]` | Extracted from PC-88VA ROM images: opcode tables, string pools, and disassembly. | Reliable for what the firmware *does*. A disassembler table is **not** proof that silicon executes something. |
 | `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992), and the MS-DOS CP/M emulator v0.8 `.cpv` V30 path audited in M76. | Reliable for the path each program actually executes. |
+| `[NEC-GIHO]` | *NEC 技報* (NEC Technical Journal) Vol. 40 No. 3, 1987, article 「パーソナルコンピュータ PC-88VA」: the manufacturer's own system description — V1/V2 memory maps (its Figures 3 and 4), I/O map (Figure 5), interrupt modes, and the V1/V2 supervisor. Consulted through a maintainer-supplied OCR transcription of three page images. | Implement as specified for system structure; it is an overview, so bit-level register behaviour still needs `[VA-TM]` or `[ROM]`. |
 | `[DERIVED]` | Logically forced by the above; the derivation is stated inline. | Implement with a citing comment. |
 | `[MEAS]` | Measured on a real PC-88VA2 by this project (the M101/M102 QA campaigns): CP/M probe programs run under CP/MVA in V3 mode, entering compatible mode through `BRKEM`. Byte-exact records, program and disk hashes are archived in [`m101_zexall_qa`](../agents/reports/m101_zexall_qa/README.md) and [`m102_zexund_qa`](../agents/reports/m102_zexund_qa/README.md). | Implement as specified; the records are the regression gate. Valid for what the probes exercised, nothing more. |
 | `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §15. |
@@ -3509,6 +3510,7 @@ reasoning states rather than sources and have no entry here.
 | `[VA-WIKI]` | [7], reproducing [8] and citing [9] |
 | `[ROM]` | [10] [11] [12] [13] [14] [15] |
 | `[SRC]` | [16] [17] [18] [18a] |
+| `[NEC-GIHO]` | [25] |
 | *(no tag defined)* | [19] [20] — schematics and operator observation; see the tag note in Appendix D.3 |
 | *(not a source)* | [21] [22] [23] [24] |
 
@@ -3672,6 +3674,17 @@ compatible mode as an explicit future item (§14).
 **[24]** `upd9002-z80-emulation.md`, and the earlier provenance-tagged
 hardware reference. **Both superseded by this document**, which is their
 merge. Errors carried over from them are listed in Appendix A.
+
+## Manufacturer journal — `[NEC-GIHO]`
+
+**[25]** NEC Corporation. 「パーソナルコンピュータ PC-88VA」. *NEC 技報*
+Vol. 40 No. 3, 1987. — the N88V1/V2 memory map (Figure 3) and the
+88-mode area map (Figure 4), the I/O interface section with the 8214
+and 8259 interrupt modes, the I/O map (Figure 5), the 3301-compatible
+text mode, and §4.1 on the V1/V2 supervisor. *Consulted through a
+maintainer-supplied OCR transcription of three page images; the
+transcription and images are not in the tree.* Figure boundaries not
+written as numbers in the figures were not inferred by the transcriber.
 
 ## Not in hand
 

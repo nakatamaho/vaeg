@@ -90,8 +90,11 @@ ROM overlay. Reset clears the new latch; optional state section
 `MEM88SYS`, version 0, preserves it without changing `MEMORYVA`.
 
 This is an initial decoder, **not the complete hardware map**. Writes
-retain the existing physical main-RAM backing, including under ROM;
-that backing choice is provisional until firmware RAM use is audited.
+retain the existing physical main-RAM backing, including under ROM.
+`[NEC-GIHO]` Figures 3 and 4 label physical 10000h–1FFFFh as the 88-mode
+main RAM, with both 32KiB halves present as main RAM and the ROMs mapped
+over the lower half, so this backing matches the manufacturer's
+description (§2.3).
 RMODE=1 also removes this overlay but does not yet supply the monitor
 ROM. ERAM and TVRAM mappings remain unimplemented; independent GVRAM
 plane access is described in §2.2.
@@ -120,7 +123,7 @@ integration-basic now executes `DI; LD SP,E1A0h; JP 3BE5h; IN A,(30h)`
 instead of zero bytes. The 600-frame capture completes with exit 0;
 this is execution-prefix evidence, not proof of a BASIC prompt or G103b.
 
-### 2.0.1 RAM access window (provisional backing)
+### 2.0.1 RAM access window
 
 Port 70h now holds the high byte of the N88 RAM-window origin; OUT 78h
 increments it modulo 256 irrespective of the output value. In N88
@@ -128,10 +131,11 @@ ROM/RAM mode, compatible 8000h–83FFh accesses map to the 1KiB RAM window
 starting at `port70 * 100h`, wrapping the RAM offset at 64KiB. The default
 origin is 8000h. All-RAM mode and V3 bypass this window.
 
-The 1KiB window and default origin are implementation policy for the
-8801-compatible model; the VA manual's port table names the offset and
-increment but does not establish the full physical backing. The current
-backing remains physical 10000h–1FFFFh as in §2.0. Accesses deliberately
+`[NEC-GIHO]` Figure 4 places a 1KiB memory window at physical
+18000h–183FFh, i.e. compatible 8000h–83FFh, so the window size and
+position are no longer only policy. The reset origin 80h remains
+implementation policy: neither the VA manual's port table nor the
+journal states it. The backing is physical 10000h–1FFFFh as in §2.0. Accesses deliberately
 bypass ROM overlays when addressing RAM through this window. This is not
 the separate TVRAM mapping in §2.1, nor real-machine validation of VA RAM
 aliasing. `MEM88WIN` version 0 stores the offset; reset and missing old
@@ -140,6 +144,45 @@ sections use 80h. Full state-file round trips remain pending.
 Tests cover offset readback, value-independent increment, FFh→00h wrap,
 RAM reads behind ROM, boundary word read/write, all-RAM bypass and V3
 bypass. No claim of BASIC boot completion follows from these tests.
+
+### 2.3 Manufacturer description (`[NEC-GIHO]`)
+
+The 1987 NEC Technical Journal article on the PC-88VA (CPU document
+reference [25]) gives the system-level picture, consulted through a
+maintainer-supplied OCR transcription. Facts relevant to the series:
+
+- In V1/V2 mode, 0–FFFFh RAM and ROM areas 0/1 are as in V3; only
+  10000h–1FFFFh becomes the 88-mode area, equivalent to the 8801's 64KiB
+  space with the same memory-window and access conditions. Its TVRAM and
+  GVRAM are parts of the V3 TVRAM/GVRAM; its monitor ROM, N88-BASIC ROM
+  and EROM are parts of ROM areas 0/1. This matches §2.0–§2.2.
+- Figure 4 lists, for the 88-mode area: main RAM 32KiB in each half, the
+  1KiB window at 18000h–183FFh, TVRAM 4KiB at the top, GVRAM0–2 at 16KiB
+  each, monitor ROM 32KiB, N88-BASIC ROM 32KiB, EROM 8KiB×4 (bank
+  switched), ERAM 32KiB×12 (pages 0–2, banks 0–3) and option RAM 32KiB as
+  ERAM page 3. Boundaries the figure does not give numerically are not
+  inferred here.
+- **ERAM backing**: pages 0–2 use physical 20000h–7FFFFh (128KiB per
+  page, four 32KiB banks each), also directly addressable at those
+  addresses; 80000h–9FFFFh doubles as ERAM page 3. The standard machine is
+  therefore an 8801 with 384KiB of extension RAM. `[DERIVED]` The likely
+  bank address is `20000h + page*20000h + bank*8000h`; the bank order
+  inside a page and the `E2h`/`E3h` encoding still need `[VA-TM]` or
+  `[ROM]` confirmation before ERAM is implemented.
+- The V1/V2 supervisor is firmware in ROM area 1, entered through the I/O
+  trap when software executes I/O meant for the µPD3301/µPD8257; it
+  decodes and converts the instruction transparently. This matches the
+  VA2 handler at `F000:1944` (§3, task file).
+- The CPU runs in µPD70008-compatible mode (§4.1 of the article), the
+  name this project uses for the main-CPU compatible mode.
+- The V1/V2 I/O space is "system area 0" (0000h–00FFh); new VA ports sit
+  at 100h and above (Figure 5).
+- Keyboard: an intelligent keyboard sends serial data to the sub-CPU
+  (7811), which converts it to the 8801 software-sense I/O port data, so
+  ports 00h–0Eh are produced by hardware, as `io/serial.c` models.
+- Text: the TSP's 3301-compatible mode treats TVRAM as a byte image with
+  256 ANK characters and emulates the µPD3301 attributes; it is the V1/V2
+  text mode (M103c).
 
 ### 2.1 TVRAM in 88 mode
 
@@ -229,6 +272,15 @@ stack, set `PC` from the 8801 vector table). `[UNKNOWN]` How exactly the
 VA2 ROM does this — which native vectors, which table, how `E4h`/`E6h`
 feed the ICU — is the largest open research item of the series and the
 first task of M103c; it is ROM analysis, not hardware measurement.
+
+`[NEC-GIHO]` narrows it: the interrupt controller is the µPD9002's
+built-in ICU. In V1/V2 mode a µPD8214-compatible controller works as an
+ICU slave providing eight levels ("8214 mode"), with the ICU in the
+interrupt mode the transcription renders as "mode E"; V3 instead uses a
+µPD8259A slave with fifteen levels ("8259 mode"). The 8251 RS-232C
+interrupt is limited to RXRDY in 8214 mode. Which ICU register selects
+the mode, and how the firmware turns an 8214 level into a Z80 `IM 2`
+vector, still need ROM analysis.
 
 ## 5. Boot path
 
