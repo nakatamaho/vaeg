@@ -35,6 +35,62 @@ land.
 
 ## Maintenance Rules
 
+### M103c — Alternate registers started at zero instead of all ones
+
+- **Symptom/scope:** after a hardware reset, Z80 `AF'` and `BC'` (and
+  `DE'`/`HL'`) read `0000h` in compatible mode; a real PC-88VA2's Debug 8800
+  `x` command in V1/V2 mode shows `A'=FF`, `F'=MZ-H-ENC`, `B'=FFFF` on a path
+  where no code writes them. Visible to any compatible-mode code that reads
+  the alternate set before writing it.
+- **Demonstrated cause:** M103a chose zero for the hardware-reset value as an
+  unmeasured policy; the §17.2 real-machine dump disagrees, and vaeg running
+  the same ROM path reproduces every other field of that dump.
+- **Correction:** hardware reset sets all four pairs to `FFFFh`. Power-on
+  versus warm-reset behaviour and the `DE'`/`HL'` values are not measured.
+- **Verification:** vaeg's V1/V2 `mon` → `x` output now equals the real
+  dump in every field; the adapter self-test fails with the old value; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#alternate-register-reset-value-maintainer-decision),
+  [CPU document §17.2](upd9002-upd70008-mode.md).
+  Fix: [13a3431a](https://github.com/nakatamaho/vaeg/commit/13a3431a0502663258a0251841b8430f1ee561c7).
+
+### M103c — US-layout symbols were lost in matrix-scanning software
+
+- **Symptom/scope:** with the US 101 host layout, symbols that the layout
+  produces by synthetic taps or SHIFT chords (and Enter) did not reach V1/V2
+  N-88 BASIC; JIS typing and V3 software were unaffected. Any guest that
+  reads the key matrix (ports 00h–0Eh) once per frame is affected.
+- **Demonstrated cause:** `keyboard_send` updated the matrix immediately for
+  both the press and the release of a tap sent in one host event, so the key
+  was never down when the VRTC handler scanned the matrix.
+- **Correction:** a release becomes visible only after its key has been down
+  across two VRTC starts; following events keep their order behind it and
+  are applied at the start of VRTC. The keyboard controller FIFO is unchanged.
+- **Verification:** a local host-event run with the US layout typed
+  `@=':+*()"_` into BASIC with the fix and nothing without it; a
+  `vaeg_romless_tests` case fails when events are applied directly; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#us-layout-keys-in-v1v2-g103c-feedback).
+  Fix: [2d5e471b](https://github.com/nakatamaho/vaeg/commit/2d5e471be95ccd0eaca804d85a71fd2bb17f4e72).
+
+### M103c — Builds without tests failed after the M103b merge
+
+- **Symptom/scope:** every configuration with `VAEG_ENABLE_TESTS=OFF`
+  (`linux-release`, `mingw-release`, the static Windows container build)
+  failed to compile `sdl2/selftest.c` with `upd9002_iotrap` undeclared, on
+  `main` from the M103b merge until this fix. Test-enabled presets, which
+  all local and CTest runs used, were unaffected.
+- **Demonstrated cause:** the unconditional V1/V2 state-section test added in
+  M103b uses `upd9002_iotrap`, but its header was included only inside the
+  `VAEG_UPD780_INTEGRATION_TESTING` block.
+- **Correction:** include `io/upd9002_regs.h` unconditionally.
+- **Verification:** `linux-release` builds and its romless smoke passes; the
+  static Windows container build succeeds; full CTest on `linux-ci-gcc`
+  without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#builds-without-tests).
+  Introduced by [667dddd4](https://github.com/nakatamaho/vaeg/commit/667dddd4c8a75aae33144ed26a8ae74ec798ecc5);
+  fix: [5c319d28](https://github.com/nakatamaho/vaeg/commit/5c319d28c8da441b0bd82359803b9476eb62c8a0).
+
 ### M103b — FDD interface fast transfer read garbage from port FDh
 
 - **Symptom/scope:** a PC-8801-style disk loader using the 8255 fast

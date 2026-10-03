@@ -1639,6 +1639,9 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	fddmtrsnd_bind();
 
 	iocore_reset(); // Sound-board reset calls the native PIC interface.
+	/* A state without PIC8214 predates 8214 mode: those builds always
+	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
+	pic8214.mode8259 = 1;
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 

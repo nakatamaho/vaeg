@@ -19,6 +19,10 @@ enum {
 	PIC_OCW3_ESMM = 0x40
 };
 
+enum {
+	PIC_ICW4_AEOI = 0x02
+};
+
 static const _PICITEM def_master = {{0x11, 0x08, 0x80, 0x1d}, 0x7d, 0, 0, 0, 0, 0};
 
 static const _PICITEM def_slave = {{0x11, 0x10, 0x07, 0x09}, 0x71, 0, 0, 0, 0, 0};
@@ -36,6 +40,177 @@ static void pic_apply_level_requests(void) {
 			pic.pi[controller].irr |= pic_level_state[controller];
 		}
 	}
+}
+
+// ---- 8214 mode (V1/V2)
+
+_PIC8214 pic8214;
+
+/* E6h mask bits of the maskable levels 0-2 (BNN manual, port 00E6H). */
+static const REG8 pic8214_maskbit[3] = {0x04, 0x02, 0x01};
+
+/*
+ * Highest-priority request (lowest level) that the controller would offer,
+ * or -1. Intel uPD8214 rule, consistent with the VA manual's E4h
+ * description: after acceptance nothing is offered until E4h is written
+ * again; with XSGS clear a request must be above the current status.
+ */
+static int pic8214_select(void) {
+	int level;
+
+	if (!pic8214.inte || (pic8214.pending != PIC8214_NONE)) {
+		return -1;
+	}
+	for (level = 0; level < 8; level++) {
+		if (pic8214.irr & (1 << level)) {
+			if ((pic8214.status & 0x08) || (level < (pic8214.status & 0x07))) {
+				return level;
+			}
+			return -1;
+		}
+	}
+	return -1;
+}
+
+/* The 8214 INT output is the ICU master's IR7 request line. */
+static void pic8214_update(void) {
+	if (pic8214.mode8259) {
+		return;
+	}
+	if (pic8214_select() >= 0) {
+		pic.pi[0].irr |= PIC_SLAVE;
+	} else {
+		pic.pi[0].irr &= (REG8)~PIC_SLAVE;
+	}
+}
+
+static void pic8214_accept(int level) {
+	pic8214.irr &= (REG8) ~(1 << level);
+	pic8214.inte = 0;
+	pic8214_update();
+}
+
+void pic8214_request(REG8 level) {
+	if (pic8214.mode8259) {
+		return;
+	}
+	level &= 7;
+	if ((level <= 2) && !(pic8214.mask & pic8214_maskbit[level])) {
+		return;
+	}
+	pic8214.irr |= (REG8)(1 << level);
+	pic8214_update();
+}
+
+REG8 pic8214_acknowledge_compat(void) {
+	int level;
+
+	level = pic8214.pending;
+	if (level == PIC8214_NONE) {
+		return 0xff; /* no pending level: the idle data bus */
+	}
+	pic8214.pending = PIC8214_NONE;
+	pic8214_accept(level);
+	return (REG8)(level << 1);
+}
+
+/* 8259-mode IR numbers that are also 8214 levels (BNN manual 5.2.1/5.2.2). */
+static int pic8214_level_of(REG8 irq) {
+	switch (irq) {
+	case 0x02:
+		return PIC8214_VRTC;
+	case 0x03:
+		return 3; /* UINT0 */
+	case 0x05:
+		return 5; /* UINT1 */
+	case 0x08:
+		return PIC8214_SGP;
+	case 0x0c:
+		return PIC8214_SOUND;
+	case 0x0d:
+		return PIC8214_TIMER3;
+	default:
+		return -1;
+	}
+}
+
+/* Deliver the 8214 request offered on master IR7 (cascade line `bit`). */
+static void pic8214_deliver(REG8 bit) {
+	int level;
+
+	level = pic8214_select();
+	pic.pi[0].irr &= (REG8)~bit;
+	if (level < 0) {
+		return;
+	}
+	if (!(pic.pi[0].icw[3] & PIC_ICW4_AEOI)) {
+		pic.pi[0].isr |= bit;
+	}
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) {
+		/* uPD780 vector: offered now, taken by the compatible core's next
+		 * interrupt acknowledge (pic8214_acknowledge_compat). */
+		pic8214.pending = (UINT8)level;
+		upd9002_core_compat_irq(TRUE);
+	} else {
+		pic8214_accept(level);
+		CPU_INTERRUPT((REG8)(0x40 + level), 0);
+	}
+}
+
+static UINT32 pic8214_timer2_period(void) {
+	return pccore.realclock / 600;
+}
+
+/*
+ * The event runs only while E6h enables the level: the interrupt is not
+ * observable otherwise, and an idle timer must not perturb V3 scheduling.
+ * Only the phase of the first tick after enabling is a modelling choice.
+ */
+void pic8214_timer2(NEVENTITEM item) {
+	if (pic8214.mode8259 || !(pic8214.mask & pic8214_maskbit[PIC8214_TIMER2])) {
+		return;
+	}
+	if (item->flag & NEVENT_SETEVENT) {
+		pic8214_request(PIC8214_TIMER2);
+	}
+	nevent_set(NEVENT_GENTIMER2, (SINT32)pic8214_timer2_period(), pic8214_timer2, NEVENT_RELATIVE);
+}
+
+static void IOOUTCALL pic8214_oe4(UINT port, REG8 dat) {
+	pic8214.status = dat & 0x0f;
+	pic8214.inte = 1;
+	pic8214_update();
+	nevent_forceexit();
+	(void)port;
+}
+
+static void IOOUTCALL pic8214_oe6(UINT port, REG8 dat) {
+	pic8214.mask = dat & 0x07;
+	if (!pic8214.mode8259 && (pic8214.mask & pic8214_maskbit[PIC8214_TIMER2]) &&
+	    !nevent_iswork(NEVENT_GENTIMER2)) {
+		nevent_set(NEVENT_GENTIMER2, (SINT32)pic8214_timer2_period(), pic8214_timer2,
+		           NEVENT_ABSOLUTE);
+	}
+	(void)port;
+}
+
+void pic_select_8259_mode(void) {
+	if (!pic8214.mode8259) {
+		pic8214.mode8259 = 1;
+		pic8214.irr = 0;
+		pic8214.inte = 0;
+		pic8214.pending = PIC8214_NONE;
+		pic.pi[0].irr &= (REG8)~PIC_SLAVE;
+		if (nevent_iswork(NEVENT_GENTIMER2)) {
+			nevent_reset(NEVENT_GENTIMER2);
+		}
+	}
+}
+
+static void IOOUTCALL pic8214_o158(UINT port, REG8 dat) {
+	pic_select_8259_mode();
+	(void)port;
+	(void)dat;
 }
 
 // ----
@@ -127,7 +302,12 @@ void pic_irq(void) { // ver0.78
 	p = &pic;
 	pic_apply_level_requests();
 
-	sir = p->pi[1].irr & (~p->pi[1].imr);
+	if (!pic8214.mode8259) {
+		pic8214_update();
+		sir = 0; /* no uPD8259 slave in 8214 mode */
+	} else {
+		sir = p->pi[1].irr & (~p->pi[1].imr);
+	}
 	slave = 1 << (p->pi[1].icw[2] & 7);
 	mir = p->pi[0].irr;
 	if (sir) {
@@ -154,6 +334,10 @@ void pic_irq(void) { // ver0.78
 		bit = 1 << num;
 	}
 	if (p->pi[0].icw[2] & bit) { // Slave cascade.
+		if (!pic8214.mode8259) {
+			pic8214_deliver(bit);
+			return;
+		}
 		if (sir == 0) {
 			return;
 		}
@@ -167,15 +351,21 @@ void pic_irq(void) { // ver0.78
 			bit = 1 << num;
 		}
 		if (!(p->pi[1].isr & bit)) {
-			p->pi[0].isr |= slave;
+			if (!(p->pi[0].icw[3] & PIC_ICW4_AEOI)) {
+				p->pi[0].isr |= slave;
+			}
 			p->pi[0].irr &= ~slave;
-			p->pi[1].isr |= bit;
+			if (!(p->pi[1].icw[3] & PIC_ICW4_AEOI)) {
+				p->pi[1].isr |= bit;
+			}
 			p->pi[1].irr &= ~bit;
 			//			TRACEOUT(("pic: hardware-int %.2x: [%.4x:%.4x]", (p->pi[1].icw[1] & 0xf8) | num, CPU_CS, CPU_IP));
 			CPU_INTERRUPT((REG8)((p->pi[1].icw[1] & 0xf8) | num), 0);
 		}
 	} else if (!(p->pi[0].isr & bit)) { // Master request.
-		p->pi[0].isr |= bit;
+		if (!(p->pi[0].icw[3] & PIC_ICW4_AEOI)) {
+			p->pi[0].isr |= bit;
+		}
 		p->pi[0].irr &= ~bit;
 		if (num == 0) {
 			nevent_reset(NEVENT_PICMASK);
@@ -202,6 +392,16 @@ void pic_setirq(REG8 irq) {
 
 	pi = pic.pi;
 	bit = 1 << (irq & 7);
+	if (!pic8214.mode8259) {
+		const int level = pic8214_level_of(irq);
+		if (level >= 0) {
+			pic8214_request((REG8)level);
+		}
+		if (irq & 8) { /* the uPD8259 slave is absent in 8214 mode */
+			scsiio_trace_pic_irq(irq, TRUE);
+			return;
+		}
+	}
 	if (!(irq & 8)) {
 		pi[0].irr |= bit;
 		if (pi[0].imr & bit) {
@@ -413,6 +613,8 @@ void pic_reset(void) {
 	pic.pi[0] = def_master;
 	pic.pi[1] = def_slave;
 	ZeroMemory(pic_level_state, sizeof(pic_level_state));
+	ZeroMemory(&pic8214, sizeof(pic8214));
+	pic8214.pending = PIC8214_NONE;
 }
 
 void pic_bind(void) {
@@ -426,4 +628,8 @@ void pic_bind(void) {
 	iocore_attachout(0x18a, picva_o18a);
 	iocore_attachinp(0x188, picva_i188);
 	iocore_attachinp(0x18a, picva_i18a);
+	// 8214 mode and the mode switch
+	iocore_attachout(0x0e4, pic8214_oe4);
+	iocore_attachout(0x0e6, pic8214_oe6);
+	iocore_attachout(0x158, pic8214_o158);
 }

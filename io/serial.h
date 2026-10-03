@@ -47,6 +47,8 @@ void keyboard_bind(void);
 void keyboard_resetsignal(void);
 void keyboard_ctrl(REG8 data);
 void keyboard_send(REG8 data);
+/* Called at each VRTC start, before the VRTC interrupt (key-matrix pacing). */
+void keyboard_matrix_tick(void);
 
 void rs232c_construct(void);
 void rs232c_destruct(void);

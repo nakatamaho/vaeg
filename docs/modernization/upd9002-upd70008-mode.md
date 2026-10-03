@@ -2306,14 +2306,22 @@ implementation; it is not a design document.
    they alias `SI`/`DI`.
    **Lifetime (M103a, `[DERIVED]` policy):** the storage belongs to the
    machine, not to the Z80 executor: `upd9002_alt_regs` in `cpu/upd9002/`,
-   its own `UPD9ALT` state section. It is cleared only by the hardware
-   reset path and survives CALLN/IRET round trips, RETEM→BRKEM re-entry
-   and the adapter's own reset. The compatible-mode core holds a working
+   its own `UPD9ALT` state section. It is set to `FFFFh` in all four pairs
+   only by the hardware reset path (M103c; M103a cleared it) and survives
+   CALLN/IRET round trips, RETEM→BRKEM re-entry and the adapter's own
+   reset. The compatible-mode core holds a working
    copy, loaded on entry/resume and written back after every step, so
    native-side code (debugger, state save) always sees the current value.
    Whether the silicon preserves the set across a native round trip is
-   what `ALTPRB` measures (§17.6, task M103a); the reset case cannot be
-   isolated from BASIC's own `EXX` use and stays a policy.
+   what `ALTPRB` measures (§17.6, task M103a; the real VA2 keeps the set
+   across `CALLN 91h`). `[DERIVED]` The reset value comes from the §17.2
+   VA2 dump: vaeg, running the same ROM path to V1/V2 `MON`, reproduces
+   `D'=FF7B` and `H'=0911`, which software writes, while `A'F'` and
+   `B'C'` are never written on that path, and the real machine shows them
+   as `FF`/`MZ-H-ENC` and `FFFF`. With the reset value `FFFFh` vaeg's `x`
+   output matches the dump in every field. One third-party observation of
+   unknown boot history: whether this is the power-on state, a reset
+   state, or both, and the reset value of `DE'`/`HL'`, are not measured.
 5. **One flag byte.** Do not convert at transitions. Make flag
    *computation* mode-aware: bit 2 is `P` natively and `P/V` in
    compatible mode, and bits 1/3/5 carry `N`/`F3`/`F5` (§3.2).

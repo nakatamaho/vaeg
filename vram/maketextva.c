@@ -90,6 +90,9 @@ typedef struct {
 	SYNATTRFN synattr; // アトリビュート合成ルーチン
 	TEXTVAFRAME frame; // 現在参照している分割画面へのポインタ
 	_TEXTVAFRAME _frame[TEXTVA_FRAMES];
+	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
+	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
+	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
 } _TEXTVAWORK;
 
 static _TEXTVAWORK work;
@@ -269,6 +272,174 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 }
 
 /*
+ * uPD3301 emulation (TSP EMUL 8Ch, V1/V2 mode). The split screen is read in
+ * byte mode; each row holds `emul_chars` character bytes followed by
+ * `emul_attrs` (column, attribute) pairs. `v` is the fetched row, which
+ * starts two bytes before the logical row: the VA2 ROM programs the start
+ * address two bytes early and hides them with rxp, matching the TSP's
+ * rw/8 + 2 fetch. Attribute bytes follow the PC-8801 text format: bit 3 set
+ * is colour (bits 7-5 G, R, B; bit 4 semigraphics, not drawn yet), bit 3
+ * clear is decoration (bit 0 secret, 1 blink, 2 reverse, 4 upper line,
+ * 5 under line). The eight colours become colour codes 8-15 (BNN manual
+ * 8.2.1).
+ *
+ * Pair walk: X88000 1.5.3 (public domain), X88ScreenDrawer.cpp, transparent
+ * attribute mode. Pairs are consumed in memory order, at most one per
+ * character position. When the first pair's column is not zero, each
+ * attribute takes effect from the previous pair's column and the first
+ * attribute from column 0 (N-88 BASIC's function-key row relies on this).
+ * Colour, secret, blink and reverse carry to the next row and frame; upper
+ * and under lines start each row clear.
+ */
+enum {
+	EMU3301_SECRET = 0x01,
+	EMU3301_BLINK = 0x02,
+	EMU3301_REVERSE = 0x04,
+	EMU3301_UPPER = 0x10,
+	EMU3301_UNDER = 0x20,
+	EMU3301_CARRY = EMU3301_SECRET | EMU3301_BLINK | EMU3301_REVERSE,
+	EMU3301_MAXCHARS = 128,
+	EMU3301_MAXPAIRS = 32
+};
+
+static void makeline_3301(const BYTE *v, UINT16 rwchar) {
+	UINT8 color[EMU3301_MAXCHARS];
+	UINT8 deco[EMU3301_MAXCHARS];
+	const BYTE *row;
+	const BYTE *pairs;
+	UINT chars;
+	int npairs;
+	int n;
+	int idx;
+	int ofs;
+	BOOL shifted;
+	UINT i;
+	UINT col;
+	UINT run;
+	UINT8 curcolor;
+	UINT8 curdeco;
+	BYTE *b;
+
+	chars = tsp.emul_chars;
+	if (chars > EMU3301_MAXCHARS) {
+		chars = EMU3301_MAXCHARS;
+	}
+	npairs = tsp.emul_attrs;
+	if (npairs > EMU3301_MAXPAIRS) {
+		npairs = EMU3301_MAXPAIRS;
+	}
+	row = v + 2;
+	pairs = row + tsp.emul_chars;
+	shifted = (npairs > 0) && (pairs[0] != 0);
+	if (shifted) {
+		n = -1;
+		idx = -1;
+		ofs = -1;
+	} else {
+		n = 0;
+		idx = 0;
+		ofs = (npairs > 0) ? pairs[0] : 0x100;
+	}
+	if (!work.emu_active) {
+		/* White, no decoration (X88000 starts from attribute E0h). */
+		work.emu_color = 7;
+		work.emu_deco = 0;
+		work.emu_active = 1;
+	}
+	curcolor = work.emu_color;
+	curdeco = work.emu_deco & EMU3301_CARRY;
+	run = 0;
+	for (col = 0; col < chars; col++) {
+		int attr = -1;
+		if (shifted) {
+			if ((n < npairs - 1) && ((int)col >= ofs)) {
+				idx++;
+				n++;
+				attr = pairs[idx * 2 + 1];
+				ofs = pairs[idx * 2];
+			}
+		} else if ((n < npairs) && ((int)col >= ofs)) {
+			attr = pairs[idx * 2 + 1];
+			idx++;
+			n++;
+			ofs = (idx < npairs) ? pairs[idx * 2] : 0x100;
+		}
+		if (attr >= 0) {
+			for (; run < col; run++) { /* fill the run before this change */
+				color[run] = curcolor;
+				deco[run] = curdeco;
+			}
+			if (attr & 0x08) {
+				curcolor = (UINT8)(attr >> 5);
+			} else {
+				curdeco = (UINT8)attr;
+			}
+		}
+	}
+	for (; run < chars; run++) {
+		color[run] = curcolor;
+		deco[run] = curdeco;
+	}
+	work.emu_color = curcolor;
+	work.emu_deco = curdeco;
+
+	if (rwchar > TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH) {
+		rwchar = TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH;
+	}
+	ZeroMemory(linebitmap, sizeof(linebitmap));
+	b = linebitmap;
+	for (i = 0; i < rwchar; i++, b += TEXTVA_CHARWIDTH) {
+		const int c = (int)i - 2;
+		UINT8 fg;
+		UINT8 bg;
+		UINT8 d;
+		BYTE code;
+		const BYTE *font;
+		UINT fonth;
+		UINT r;
+		int x;
+
+		if ((c < 0) || ((UINT)c >= chars)) {
+			continue;
+		}
+		code = row[c];
+		d = deco[c];
+		fg = (UINT8)(8 + color[c]);
+		bg = work.frame->bg;
+		if (d & EMU3301_REVERSE) {
+			const UINT8 t = fg;
+			fg = bg;
+			bg = t;
+		}
+		if ((code == 0 || code == 0x20) && (bg == 0) && !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
+			continue;
+		}
+#if defined(SLEEP_HACK)
+		work.allzero = FALSE;
+#endif
+		{
+			const UINT8 linecolor = fg;
+			UINT8 glyphfg = fg;
+			if ((d & EMU3301_SECRET) || ((d & EMU3301_BLINK) && ((tsp.blinkcnt2 & 0x18) == 0x08))) {
+				glyphfg = bg;
+			}
+			font = cgromva_font(code);
+			fonth = (videova.txtmode & 0x04) ? 8 : 16;
+			for (r = 0; r < work.lineheight; r++) {
+				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
+				const BOOL line = ((d & EMU3301_UPPER) && (r == 0)) ||
+				                  ((d & EMU3301_UNDER) && (r == work.lineheight - 1));
+				BYTE fontdata = (r < fonth) ? font[r * cgromva_width(code)] : 0;
+				for (x = 0; x < TEXTVA_CHARWIDTH; x++) {
+					p[x] = line ? linecolor : ((fontdata & 0x80) ? glyphfg : bg);
+					fontdata <<= 1;
+				}
+			}
+		}
+	}
+}
+
+/*
 40桁に拡大する処理(linebitmapを加工)
 */
 static void conv40cm(UINT16 rwchar) {
@@ -387,6 +558,10 @@ void maketextva_begin(BOOL *scrn200) {
 
 	work.y = 0;
 	work.screeny = 0;
+	if (!tsp.emul) {
+		/* uPD3301 attributes carry across frames while emulating. */
+		work.emu_active = 0;
+	}
 
 	work.lineheight = tsp.lineheight;
 	if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
@@ -466,8 +641,20 @@ void maketextva_raster(void) {
 		f = work.frame;
 
 		if (!work.linebitmap_ready) {
-			v = textmem + f->rsa + f->vw * work.texty;
-			makeline(v, f->rwchar);
+			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
+				/* Byte mode: local byte 3000h is TVRAM byte 6000h and the
+				 * table's address and pitch are twice the byte values. */
+				if (work.texty < tsp.emul_rows) {
+					v = textmem + ((0x3000 + (f->rsa >> 1) + (f->vw >> 1) * work.texty) &
+					               (sizeof(textmem) - 1));
+					makeline_3301(v, f->rwchar);
+				} else {
+					ZeroMemory(linebitmap, sizeof(linebitmap));
+				}
+			} else {
+				v = textmem + f->rsa + f->vw * work.texty;
+				makeline(v, f->rwchar);
+			}
 			if (!videova.txtmode8 & 0x01) {
 				// 40桁モード
 				conv40cm(f->rwchar);

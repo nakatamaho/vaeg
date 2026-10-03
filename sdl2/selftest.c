@@ -49,6 +49,7 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "kbdmap.h"
+#include "machine/keystat.h"
 #include "kbdpaste.h"
 #include "memoryva.h"
 #include "mousestate.h"
@@ -69,6 +70,7 @@
 #include "gui/gui.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
+#include "maketextva.h"
 #include "sdrawva.h"
 #include "makesprva.h"
 #include "soundmng.h"
@@ -96,6 +98,14 @@
 static int fail(const char *name, const char *detail) {
 	fprintf(stderr, "selftest: %s failed: %s\n", name, detail);
 	return (FAILURE);
+}
+
+/* Reset selects 8214 mode; V3 software selects 8259 mode with port 158H
+ * before it relies on the uPD8259 slave, as these V3 fixtures do. The
+ * port handler's function is called directly so that the fixtures' CPU
+ * clock snapshots do not include an extra bus cycle. */
+static void selftest_select_8259_mode(void) {
+	pic_select_8259_mode();
 }
 
 static int test_codecnv(void) {
@@ -3122,6 +3132,7 @@ static int test_8087_guest_interrupt_route(void) {
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 10000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 	CPU_IP = 0x0100;
 	CPU_CS = 0;
 	CPU_DS = 0;
@@ -3209,6 +3220,7 @@ cleanup:
 	upd9002_test_flat_memory_set(FALSE);
 	np2cfg = saved_config;
 	pccore_reset();
+	selftest_select_8259_mode();
 	return result;
 }
 
@@ -3221,6 +3233,7 @@ static int test_8087_pic_input_modes(void) {
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 10000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 
 	/* Rebase PIC2 through the guest-visible ICW path.  A direct vector
 	 * injection would incorrectly continue to use vector 16H; the cascade
@@ -3277,6 +3290,7 @@ static int test_8087_pic_input_modes(void) {
 	 * asserted across both EOIs.  The source must be presented again only by
 	 * PIC arbitration, not by a second direct CPU vector call. */
 	pccore_reset();
+	selftest_select_8259_mode();
 	CPU_CS = 0;
 	CPU_DS = 0;
 	CPU_SS = 0;
@@ -3335,6 +3349,7 @@ cleanup:
 	upd9002_test_flat_memory_set(FALSE);
 	np2cfg = saved_config;
 	pccore_reset();
+	selftest_select_8259_mode();
 	return result;
 }
 #endif
@@ -3515,11 +3530,13 @@ static int test_statsave(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	selftest_select_8259_mode();
 	/* Exercise the actual state-save section with a nonzero clock residue and
 	 * a pending unmasked exception, rather than only testing the codec directly. */
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 8000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 	if (!upd8087.enabled || (upd8087.clock_hz != 8000000U)) {
 		pccore_term();
 		soundmng_deinitialize();
@@ -3906,6 +3923,529 @@ static int test_v1v2_state_sections(void) {
 		return (fail("V1/V2 state sections", problem));
 	}
 	fprintf(stderr, "selftest: V1/V2 state sections ok\n");
+	return (SUCCESS);
+}
+
+/* M103c: program the ICU as the VA ROM does for 8214 mode (F000:1317). */
+static void pic8214_test_icu_init(void) {
+	iocore_out8(0x188, 0x11);
+	iocore_out8(0x18a, 0x00);
+	iocore_out8(0x18a, 0x80);
+	iocore_out8(0x18a, 0x03);
+	iocore_out8(0x18a, 0x7f);
+}
+
+static BOOL pic8214_test_offered(void) {
+	return (pic.pi[0].irr & PIC_SLAVE) != 0;
+}
+
+/* M103c: 8214-mode interrupt controller (BNN manual 5.2.2). */
+static int test_pic8214_mode(void) {
+	static const BYTE z80_code[] = {
+	    0xed, 0x5e, /* IM 2 */
+	    0x3e, 0x30, /* LD A,30h */
+	    0xed, 0x47, /* LD I,A */
+	    0xfb,       /* EI */
+	    0x00,       /* NOP */
+	    0x18, 0xfe, /* JR $ (compatible 1008h) */
+	};
+	static const char *const sections[] = {"PIC8214"};
+	char path[MAX_PATH];
+	char oldpath[MAX_PATH];
+	_NEVENTITEM item;
+	_PIC8214 saved;
+	const char *problem;
+	UINT i;
+
+	SPRINTF(path, "vaeg-selftest-%lu-8214.sts", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-8214-old.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(oldpath);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* Reset: 8214 mode, nothing enabled, general timer 2 idle. */
+	if (pic8214.mode8259 || pic8214.inte || pic8214.mask || pic8214.irr ||
+	    (pic8214.pending != PIC8214_NONE) || nevent_iswork(NEVENT_GENTIMER2)) {
+		problem = "reset state is not idle 8214 mode";
+	}
+	pic8214_test_icu_init();
+	/* E6h masks levels 0-2 at the request input. */
+	if (problem == NULL) {
+		pic_setirq(0x02);
+		if (pic8214.irr != 0) {
+			problem = "masked VRTC was latched";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0xe6, 0x07);
+		pic_setirq(0x02);
+		if ((pic8214.irr != 0x02) || pic8214_test_offered()) {
+			problem = "VRTC was not latched or was offered before E4h";
+		}
+		if ((problem == NULL) && !nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "enabling level 2 did not start general timer 2";
+		}
+	}
+	/* E4h arms; with XSGS clear only levels below the status pass. */
+	if (problem == NULL) {
+		iocore_out8(0xe4, 0x01);
+		if (pic8214_test_offered()) {
+			problem = "level 1 was offered at current status 1";
+		}
+		iocore_out8(0xe4, 0x02);
+		if ((problem == NULL) && !pic8214_test_offered()) {
+			problem = "level 1 was not offered at current status 2";
+		}
+		iocore_out8(0xe4, 0x09);
+		if ((problem == NULL) && !pic8214_test_offered()) {
+			problem = "XSGS did not disable the status comparison";
+		}
+	}
+	/* Native delivery: V30 vector 40h + level, the lowest level first, AEOI. */
+	if (problem == NULL) {
+		pic_setirq(0x0c); /* sound: level 4 */
+		STOREINTELWORD(mem + 0x41 * 4, 0x3000);
+		STOREINTELWORD(mem + 0x41 * 4 + 2, 0x2000);
+		mem[0x20200] = 0xeb; /* JMP $ */
+		mem[0x20201] = 0xfe;
+		CPU_CS = 0x2000;
+		CS_BASE = 0x20000;
+		CPU_IP = 0x0200;
+		CPU_SS = 0x3000;
+		SS_BASE = 0x30000;
+		CPU_SP = 0x0100;
+		CPU_FLAG = 0xf202;
+		pic_irq();
+		if ((CPU_CS != 0x2000) || (CPU_IP != 0x3000) || (pic8214.irr != 0x10) || pic8214.inte ||
+		    (pic.pi[0].isr & PIC_SLAVE) || pic8214_test_offered()) {
+			problem = "native delivery did not take vector 41h with AEOI";
+		}
+	}
+	/* Nothing more until E4h is written again; then level 4 follows. */
+	if (problem == NULL) {
+		CPU_IP = 0x0200;
+		CPU_FLAG = 0xf202;
+		pic_irq();
+		if (CPU_IP != 0x0200) {
+			problem = "a second interrupt was accepted without re-arming";
+		}
+		iocore_out8(0xe4, 0x08);
+		STOREINTELWORD(mem + 0x44 * 4, 0x3100);
+		STOREINTELWORD(mem + 0x44 * 4 + 2, 0x2000);
+		pic_irq();
+		if ((problem == NULL) && ((CPU_IP != 0x3100) || pic8214.irr)) {
+			problem = "re-armed level 4 did not take vector 44h";
+		}
+	}
+	/* Compatible delivery: uPD780 vector 02h through Z80 IM 2. */
+	if (problem == NULL) {
+		STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+		STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+		mem[0x20100] = 0x0f; /* BRKEM E1h */
+		mem[0x20101] = 0xff;
+		mem[0x20102] = 0xe1;
+		for (i = 0; i < sizeof(z80_code); i++) {
+			mem[0x21000 + i] = z80_code[i];
+		}
+		mem[0x23002] = 0x00; /* IM 2 table entry (I=30h, vector 02h) */
+		mem[0x23003] = 0x20;
+		mem[0x22000] = 0x18; /* handler: JR $ */
+		mem[0x22001] = 0xfe;
+		/* The firmware gives compatible code CS = DS (VA2 ROM F000:13A8). */
+		CPU_DS = 0x2000;
+		DS_BASE = 0x20000;
+		CPU_IP = 0x0100;
+		CPU_SP = 0x0100;
+		CPU_BP = 0x0200;
+		CPU_FLAG = 0xf002;
+		for (i = 0; i < 6; i++) {
+			upd9002_core_step();
+		}
+		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1008)) {
+			problem = "compatible fixture did not reach its loop";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0xe4, 0x07);
+		pic_setirq(0x02);
+		pic_irq();
+		if ((pic8214.pending != PIC8214_VRTC) || pic8214_test_offered()) {
+			problem = "VRTC was not offered to compatible code";
+		}
+	}
+	if (problem == NULL) {
+		for (i = 0; (i < 4) && (CPU_IP != 0x2000); i++) {
+			upd9002_core_step();
+		}
+		if ((CPU_IP != 0x2000) || (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
+		    (pic8214.pending != PIC8214_NONE) || pic8214.irr || pic8214.inte ||
+		    (CPU_BP != 0x01fe) || (LOADINTELWORD(mem + 0x201fe) != 0x1008)) {
+			problem = "Z80 IM 2 did not take the uPD780 vector 02h";
+		}
+	}
+	/* General timer 2 raises level 2 when E6h bit 0 enables it. */
+	if (problem == NULL) {
+		ZeroMemory(&item, sizeof(item));
+		item.flag = NEVENT_SETEVENT;
+		pic8214_timer2(&item);
+		if ((pic8214.irr != 0x04) || !nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "general timer 2 did not raise level 2";
+		}
+	}
+	/* Save/load round trip, and an older file without PIC8214. */
+	if (problem == NULL) {
+		saved = pic8214;
+		soundmng_stop();
+		if (statsave_save(path) != STATFLAG_SUCCESS) {
+			problem = "save failed";
+		}
+	}
+	if (problem == NULL) {
+		pccore_reset();
+		if ((statsave_load(path) != STATFLAG_SUCCESS) || memcmp(&saved, &pic8214, sizeof(saved))) {
+			problem = "PIC8214 did not round-trip";
+		}
+	}
+	if ((problem == NULL) &&
+	    ((make_statsave_without_sections(path, oldpath, sections, 1) != SUCCESS) ||
+	     (statsave_load(oldpath) != STATFLAG_SUCCESS) || !pic8214.mode8259)) {
+		problem = "an older state did not load as 8259 mode";
+	}
+	/* Port 158H selects 8259 mode until reset; the slave works again. */
+	if (problem == NULL) {
+		pccore_reset();
+		iocore_out8(0x158, 0x00);
+		pic_setirq(0x08);
+		if (!pic8214.mode8259 || !(pic.pi[1].irr & PIC_SGP) || pic8214.irr ||
+		    nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "port 158H did not select 8259 mode";
+		}
+		iocore_out8(0xe4, 0x07);
+		pic_setirq(0x02);
+		if ((problem == NULL) && (pic8214.irr || pic8214_test_offered())) {
+			problem = "8214 registers acted in 8259 mode";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(oldpath);
+	if (problem != NULL) {
+		return (fail("8214 mode", problem));
+	}
+	fprintf(stderr, "selftest: 8214 mode ok\n");
+	return (SUCCESS);
+}
+
+/* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
+static int test_tsp_3301_emulation(void) {
+	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
+	static const BYTE tvwrite[] = {0x8e, 0x10, 0x00, 0x00, 0x8f, 0x01,
+	                               0x00, 0x00, 0x97, 0x8c, 0x67, 0x88};
+	const char *problem;
+	BOOL scrn200;
+	UINT i;
+	UINT r;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* EMUL keeps its geometry; EXIT and SYNC stop the emulation. */
+	iocore_out8(0x142, emul[0]);
+	for (i = 1; i < sizeof(emul); i++) {
+		iocore_out8(0x146, emul[i]);
+	}
+	if (!tsp.emul || (tsp.emul_frame != 0) || (tsp.emul_chars != 80) || (tsp.emul_attrs != 20) ||
+	    (tsp.emul_rows != 25)) {
+		problem = "EMUL parameters were not decoded";
+	}
+	/* 8Eh/97h write TVRAM bytes until the next command; EXIT ends it. */
+	if (problem == NULL) {
+		iocore_out8(0x142, tvwrite[0]);
+		for (i = 1; i < 4; i++) {
+			iocore_out8(0x146, tvwrite[i]);
+		}
+		iocore_out8(0x142, tvwrite[4]);
+		for (i = 5; i < 8; i++) {
+			iocore_out8(0x146, tvwrite[i]);
+		}
+		iocore_out8(0x142, tvwrite[8]);
+		iocore_out8(0x146, tvwrite[9]);
+		iocore_out8(0x146, tvwrite[10]);
+		iocore_out8(0x142, tvwrite[11]);
+		iocore_out8(0x146, 0x55); /* after EXIT: not written */
+		if ((textmem[0x10] != 0x8c) || (textmem[0x11] != 0x67) || (textmem[0x12] == 0x55) ||
+		    tsp.emul) {
+			problem = "8Eh/97h did not write TVRAM or EXIT did not stop emulation";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x142, emul[0]);
+		for (i = 1; i < sizeof(emul); i++) {
+			iocore_out8(0x146, emul[i]);
+		}
+		iocore_out8(0x142, 0x10); /* SYNC */
+		if (tsp.emul) {
+			problem = "SYNC did not stop emulation";
+		}
+	}
+
+	/* Render: frame 0 as the VA2 ROM programs it for N88-BASIC. */
+	if (problem == NULL) {
+		ZeroMemory(textmem, 0x8000);
+		STOREINTELWORD(textmem + 0x08, 240);    /* vw */
+		STOREINTELWORD(textmem + 0x0a, 0xf002); /* mode 2, fg 15, bg 0 */
+		STOREINTELWORD(textmem + 0x10, 0x678c); /* rsa: (33C8h - 2) * 2 */
+		STOREINTELWORD(textmem + 0x14, 400);    /* rh */
+		STOREINTELWORD(textmem + 0x16, 656);    /* rw: 84 fetched characters */
+		STOREINTELWORD(textmem + 0x1a, 1008);   /* rxp hides two characters */
+		/* Row 0: 'A' red, 'B' reverse red; the state carries to row 1. */
+		textmem[0x63c8] = 'A';
+		textmem[0x63c9] = 'B';
+		textmem[0x63c8 + 80] = 0x00;
+		textmem[0x63c8 + 81] = 0x48; /* colour 2 (red) */
+		textmem[0x63c8 + 82] = 0x01;
+		textmem[0x63c8 + 83] = 0x04; /* reverse */
+		for (i = 2; i < 20; i++) {
+			textmem[0x63c8 + 80 + i * 2] = 0x50; /* column 80: no effect */
+			textmem[0x63c8 + 81 + i * 2] = 0x04;
+		}
+		textmem[0x63c8 + 120] = 'C'; /* row 1, no effective pairs */
+		for (i = 0; i < 20; i++) {
+			textmem[0x63c8 + 200 + i * 2] = 0x50;
+			textmem[0x63c8 + 201 + i * 2] = 0x04;
+		}
+		/* Row 2, as N-88 BASIC's function-key row: the first column is not
+		 * zero, so each attribute applies from the previous pair's column
+		 * (X88000). Reverse covers 5-16, then reverse + under line from 19. */
+		{
+			static const BYTE fkey[] = {5, 0x00, 17, 0x04, 19, 0x00, 80, 0x24};
+			for (i = 0; i < 20; i++) {
+				textmem[0x63c8 + 320 + i * 2] = 80;
+				textmem[0x63c8 + 321 + i * 2] = 0x00;
+			}
+			for (i = 0; i < sizeof(fkey); i++) {
+				textmem[0x63c8 + 320 + i] = fkey[i];
+			}
+		}
+		/* Row 3: a colour attribute only; reverse carries, the under line
+		 * does not. */
+		for (i = 0; i < 20; i++) {
+			textmem[0x63c8 + 440 + i * 2] = 80;
+			textmem[0x63c8 + 441 + i * 2] = 0x48;
+		}
+		tsp.dspon = TRUE;
+		tsp.texttable = 0;
+		tsp.lineheight = 16;
+		tsp.emul = 1;
+		tsp.emul_frame = 0;
+		tsp.emul_chars = 80;
+		tsp.emul_attrs = 20;
+		tsp.emul_rows = 25;
+		videova.txtmode = 0;
+		videova.txtmode8 = 0x01; /* 80 columns */
+		/* A new emulation starts white: a reversed space in row 0 shows the
+		 * initial colour (8 + 7) before the real row 0 is restored. */
+		{
+			BYTE saved[120];
+			CopyMemory(saved, textmem + 0x63c8, sizeof(saved));
+			ZeroMemory(textmem + 0x63c8, sizeof(saved));
+			textmem[0x63c8 + 81] = 0x04;
+			for (i = 1; i < 20; i++) {
+				textmem[0x63c8 + 80 + i * 2] = 80;
+			}
+			tsp.emul = 0;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			tsp.emul = 1;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			maketextva_raster();
+			if (textraster[0] != 15) {
+				problem = "a new emulation did not start white";
+			}
+			CopyMemory(textmem + 0x63c8, saved, sizeof(saved));
+			tsp.emul = 0;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			tsp.emul = 1;
+		}
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		/* Reverse red fills column 1 with colour 8 + 2; column 0 stays bg. */
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && ((textraster[i] != 0) || (textraster[8 + i] != 10))) {
+				problem = "row 0 colours or the hidden two-character lead are wrong";
+			}
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		maketextva_raster(); /* row 1, raster 0 */
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "reverse red did not carry to the next row";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		maketextva_raster(); /* row 2, raster 0 */
+		if ((problem == NULL) && ((textraster[4 * 8] != 0) || (textraster[5 * 8] != 10) ||
+		                          (textraster[16 * 8] != 10) || (textraster[17 * 8] != 0) ||
+		                          (textraster[18 * 8] != 0) || (textraster[19 * 8] != 10))) {
+			problem = "a row whose first pair is not column 0 was not shifted";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		if ((problem == NULL) && ((textraster[19 * 8] != 0) || (textraster[5 * 8] != 10))) {
+			problem = "the under line was not drawn on the last raster";
+		}
+		maketextva_raster(); /* row 3, raster 0 */
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "reverse did not carry into a colour-only row";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "the under line carried to the next row";
+		}
+	}
+	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
+	if (problem == NULL) {
+		iocore_out8(0x153, 0x01); /* 88-mode memory */
+		iocore_out8(0x5f, 0x00);  /* no GVRAM plane */
+		iocore_out8(0x32, 0xa8);  /* TMODE 0 */
+		upd9002_memorywrite_va(0x1f3c8, 0x5a);
+		if ((textmem[0x63c8] != 0x5a) || (upd9002_memoryread_va(0x1f3c8) != 0x5a)) {
+			problem = "88-mode F3C8h did not reach TVRAM 63C8h";
+		}
+		iocore_out8(0x32, 0xb8); /* TMODE 1: main RAM */
+		upd9002_memorywrite_va(0x1f3c8, 0x11);
+		if ((problem == NULL) && (textmem[0x63c8] != 0x5a)) {
+			problem = "TMODE 1 still wrote TVRAM";
+		}
+		iocore_out8(0x32, 0xa8);
+		iocore_out8(0x5c, 0x00); /* GVRAM plane 0 takes precedence */
+		upd9002_memorywrite_va(0x1f3c8, 0x22);
+		if ((problem == NULL) && (textmem[0x63c8] != 0x5a)) {
+			problem = "a selected GVRAM plane did not take precedence over TVRAM";
+		}
+		iocore_out8(0x5f, 0x00);
+		iocore_out8(0x153, 0x41); /* V3 */
+		if ((problem == NULL) && (upd9002_memoryread_va(0x1f3c8) == 0x5a)) {
+			problem = "V3 mode still mapped TVRAM at 1F3C8h";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP 3301 emulation", problem));
+	}
+	fprintf(stderr, "selftest: TSP 3301 emulation ok\n");
+	return (SUCCESS);
+}
+
+/* M103c: key-matrix pacing for V1/V2 matrix scanning (io/serial.c). */
+static BOOL matrix_a_down(void) {
+	return (keybrd.keymap[0x02] & 0x02) == 0; /* VA code 1Dh, 'A' */
+}
+
+static BOOL matrix_shift_down(void) {
+	return (keybrd.keymap[0x08] & 0x40) == 0; /* derived SHIFT, 86h */
+}
+
+static int test_keyboard_matrix_pacing(void) {
+	const char *problem;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	keystat_initialize();   /* no host keys held, as main() starts */
+	keyboard_resetsignal(); /* all keys released, as after the firmware's RESET */
+	problem = NULL;
+	if (matrix_a_down() || matrix_shift_down()) {
+		problem = "the matrix did not start with all keys released";
+	}
+
+	/* A tap stays visible across two VRTC boundaries. */
+	keyboard_send(0x1d);
+	keyboard_send(0x9d);
+	if ((problem == NULL) && !matrix_a_down()) {
+		problem = "a tap was not visible before the next VRTC";
+	}
+	keyboard_matrix_tick();
+	if ((problem == NULL) && !matrix_a_down()) {
+		problem = "a tap was released after one VRTC";
+	}
+	keyboard_matrix_tick();
+	if ((problem == NULL) && matrix_a_down()) {
+		problem = "a tap was not released after two VRTCs";
+	}
+	/* A chord (SHIFT + key) keeps its order. */
+	if (problem == NULL) {
+		keyboard_send(0x70);
+		keyboard_send(0x1d);
+		keyboard_send(0x9d);
+		keyboard_send(0xf0);
+		if (!matrix_a_down() || !matrix_shift_down()) {
+			problem = "a chord was not visible as SHIFT + key";
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		if ((problem == NULL) && (matrix_a_down() || matrix_shift_down())) {
+			problem = "a chord was not released";
+		}
+	}
+	/* Host SHIFT held: SHIFT is lifted around an unshifted tap, then back. */
+	if (problem == NULL) {
+		keyboard_send(0x70);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		keyboard_send(0xf0);
+		keyboard_send(0x1d);
+		keyboard_send(0x9d);
+		keyboard_send(0x70);
+		if (!matrix_a_down() || matrix_shift_down()) {
+			problem = "an unshifted tap was visible with SHIFT";
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		if ((problem == NULL) && (matrix_a_down() || !matrix_shift_down())) {
+			problem = "SHIFT was not restored after the tap";
+		}
+		keyboard_matrix_tick(); /* the user lets go of SHIFT later */
+		keyboard_matrix_tick();
+		keyboard_send(0xf0);
+		if ((problem == NULL) && matrix_shift_down()) {
+			problem = "a long-held key was not released at once";
+		}
+	}
+	/* Real key timing is not delayed. */
+	if (problem == NULL) {
+		keyboard_send(0x1d);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		keyboard_send(0x9d);
+		if (matrix_a_down()) {
+			problem = "a release after two VRTCs was delayed";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("keyboard matrix pacing", problem));
+	}
+	fprintf(stderr, "selftest: keyboard matrix pacing ok\n");
 	return (SUCCESS);
 }
 
@@ -4404,6 +4944,15 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_state_sections() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pic8214_mode() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_3301_emulation() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_keyboard_matrix_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

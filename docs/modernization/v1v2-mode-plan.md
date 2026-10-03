@@ -263,24 +263,23 @@ it already for V3.
 
 ## 4. Interrupts in compatible mode
 
-`[V30-MAN]` An interrupt taken in Z80 emulation is serviced in native
-mode through the IVT and returns with `RETI` (§3.5). `[DERIVED]` 8801
-software expects Z80 `IM 2` vectors from the 8214 (`E4h`/`E6h`), so the
-firmware's native handlers must deliver the interrupt into the Z80 code
-by rewriting the saved frame (push the Z80 return address on the `BP`
-stack, set `PC` from the 8801 vector table). `[UNKNOWN]` How exactly the
-VA2 ROM does this — which native vectors, which table, how `E4h`/`E6h`
-feed the ICU — is the largest open research item of the series and the
-first task of M103c; it is ROM analysis, not hardware measurement.
+`[VA-TM]` BNN manual §5.2.2 settles this. At reset the interrupt system
+is in 8214 mode (port 158H switches to 8259 mode until reset). In 8214
+mode a µPD8214-compatible controller is the ICU's slave with eight
+levels — INT0 RS-232C receive, INT1 VRTC, INT2 general timer 2 (the
+8801-compatible 600 Hz timer, which has no 8259-mode line), INT3/INT5
+bus UINT0/UINT1, INT4 sound, INT6 general timer 3 (mouse timer), INT7
+SGP — and it selects the vector type from the CPU mode: compatible code
+receives a µPD780 vector (00h, 02h, … 0Eh, the Z80 `IM 2` low byte) and
+takes an ordinary Z80 interrupt; native code receives V30 vector
+40h–47h through the IVT. `E4h` is the current-status register (level in
+bits 2–0, bit 3 disables the comparison; initialised with `OUT E4H,7`)
+and `E6h` the mask (bit 0 general timer 2, bit 1 VRTC, bit 2 RXRDY,
+1 = enable).
 
-`[NEC-GIHO]` narrows it: the interrupt controller is the µPD9002's
-built-in ICU. In V1/V2 mode a µPD8214-compatible controller works as an
-ICU slave providing eight levels ("8214 mode"), with the ICU in the
-interrupt mode the transcription renders as "mode E"; V3 instead uses a
-µPD8259A slave with fifteen levels ("8259 mode"). The 8251 RS-232C
-interrupt is limited to RXRDY in 8214 mode. Which ICU register selects
-the mode, and how the firmware turns an 8214 level into a Z80 `IM 2`
-vector, still need ROM analysis.
+The earlier `[DERIVED]` assumption here — that firmware's native
+handlers rewrite the saved frame to deliver interrupts into Z80 code —
+was wrong and is withdrawn. Implementation is M103c.
 
 ## 5. Boot path
 
@@ -395,12 +394,12 @@ in the maintainer-local task directory outside Git.
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
-| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window; monitor ROM and ERAM (`E2h`/`E3h`) pending (§2.0) |
-| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
+| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window, Debug 8800 monitor bank under RMODE (M103c); ERAM (`E2h`/`E3h`) pending (§2.0) |
+| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | implemented (M103c): TMODE-selected window, EMUL/8Eh/97h, 3301 row rendering; semigraphics and 40-column pending |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent-plane storage mapping implemented; ALU/timing/rendering pending |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | registers, native IN/OUT and compatible plain/block IN/OUT interception implemented; DD/FD-prefixed compatible forms and timing pending |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
-| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing; BASIC's writes to `E4h`/`E6h` are currently ignored by the default handler without fault (M103c) |
+| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | 8214 mode implemented (M103c, §4); kanji ROM missing |
 | boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection traced (§5.2); no mode override |
 | FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present; the sub-CPU interface 8255 is now fully cross-wired for the fast transfer protocol (M103b) |
 

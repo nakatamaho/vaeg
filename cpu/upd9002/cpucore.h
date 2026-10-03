@@ -236,6 +236,7 @@ typedef struct {
 	void (*resume)(void);
 	int (*state_save)(UINT8 *buffer, UINT size);
 	int (*state_load)(const UINT8 *buffer, UINT size);
+	void (*irq)(BOOL asserted);
 } Upd9002CompatHooks;
 
 enum {
@@ -261,7 +262,8 @@ enum {
  * machine-owned storage beside the native register file rather than part
  * of it. The uPD70008-compatible adapter copies them in on mode entry and
  * resume and out after every compatible-mode step, exactly like the main
- * set aliases. Cleared only by the hardware reset path (upd9002_core_reset);
+ * set aliases. Set to FFFFh only by the hardware reset path (upd9002_core_reset;
+ * M103c, after a real PC-88VA2 register dump);
  * CALLN round trips, RETEM/BRKEM re-entry and adapter resets preserve them.
  * Saved as the "UPD9ALT" state section, which precedes the compat blob;
  * its loader sets upd9002_alt_regs_loaded so that the adapter's StateLoad
@@ -290,6 +292,8 @@ void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks);
 void CPUCALL upd9002_core_brkem(REG8 vect);
 void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip);
 void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip);
+/* 8214 mode: drive the compatible core's INT line (vector on acknowledge). */
+void CPUCALL upd9002_core_compat_irq(BOOL asserted);
 BOOL CPUCALL upd9002_core_compat_iret_is_return(void);
 void CPUCALL upd9002_core_compat_retem(void);
 void CPUCALL upd9002_core_compat_iret_resume(void);
