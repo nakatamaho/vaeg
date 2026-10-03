@@ -240,3 +240,37 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   called by the unconditional statsave test (this branch only). Both are
   fixed; `linux-release` now builds and its smoke passes. Building a
   tests-off preset belongs in the local checks before a release build.
+
+### 3301 attribute pairs: X88000 rule (G103c feedback)
+
+- Maintainer report from the G103c build: the N-88 BASIC function-key row
+  was not reversed. Its pairs are `(05,00) (11,04) (13,00) (1F,04) …`, the
+  other rows `(80,00)` × 20 (local TVRAM dump, not committed). The previous
+  renderer sorted pairs and applied each from its own column, so only the
+  gaps 11h–12h, 1Fh–20h, … were reversed.
+- The VA manual does not define the pair semantics and no µPD3301 data
+  sheet is in hand. `[X88000]` X88000 1.5.3 source
+  (`x88_1_5_3_src.tar.gz`, SHA-256
+  `66bc0b69d5a394e2195b5e277093eebcc045fbb3930c03637aa106394ae83cf3`,
+  <https://quagma.sakura.ne.jp/manuke/x88src.html>, declared Public Domain
+  Software by its author), `X88ScreenDrawer.cpp`, transparent attribute
+  mode: pairs are consumed in memory order, at most one per character
+  position; when the first pair's column is not zero, each attribute takes
+  effect from the previous pair's column and the first attribute from
+  column 0; colour, secret, blink and reverse carry to the next row and
+  frame, while upper/under lines start each row clear; the initial
+  attribute is E0h (white). vaeg's renderer now follows this rule
+  (re-implemented, no code copied). Behavioural reference only, as
+  ADR-0016 requires; µPD3301 colour versus monochrome attribute mode is not
+  modelled and colour mode is assumed.
+- Carrying the attributes across frames exposed an initialisation order
+  fault in the first attempt (colour started at 0, so all text was black on
+  black); the state is now initialised on first use of each emulation.
+- Tests: the TSP 3301 case adds a function-key-style row (reverse 5–16, not
+  the gaps), an under line that must not reach the next row, reverse that
+  must carry into a colour-only row, and a fresh emulation that starts
+  white. Disabling the shift, carrying the lines, or omitting the
+  initialisation each fails with its own message. A local screenshot shows
+  the function keys as reversed boxes. Full CTest without failures (108
+  entries, two skipped); the BASIC acceptance test and the `linux-release`
+  build pass.

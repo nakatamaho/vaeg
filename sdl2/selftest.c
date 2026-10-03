@@ -4221,6 +4221,25 @@ static int test_tsp_3301_emulation(void) {
 			textmem[0x63c8 + 200 + i * 2] = 0x50;
 			textmem[0x63c8 + 201 + i * 2] = 0x04;
 		}
+		/* Row 2, as N-88 BASIC's function-key row: the first column is not
+		 * zero, so each attribute applies from the previous pair's column
+		 * (X88000). Reverse covers 5-16, then reverse + under line from 19. */
+		{
+			static const BYTE fkey[] = {5, 0x00, 17, 0x04, 19, 0x00, 80, 0x24};
+			for (i = 0; i < 20; i++) {
+				textmem[0x63c8 + 320 + i * 2] = 80;
+				textmem[0x63c8 + 321 + i * 2] = 0x00;
+			}
+			for (i = 0; i < sizeof(fkey); i++) {
+				textmem[0x63c8 + 320 + i] = fkey[i];
+			}
+		}
+		/* Row 3: a colour attribute only; reverse carries, the under line
+		 * does not. */
+		for (i = 0; i < 20; i++) {
+			textmem[0x63c8 + 440 + i * 2] = 80;
+			textmem[0x63c8 + 441 + i * 2] = 0x48;
+		}
 		tsp.dspon = TRUE;
 		tsp.texttable = 0;
 		tsp.lineheight = 16;
@@ -4231,12 +4250,38 @@ static int test_tsp_3301_emulation(void) {
 		tsp.emul_rows = 25;
 		videova.txtmode = 0;
 		videova.txtmode8 = 0x01; /* 80 columns */
+		/* A new emulation starts white: a reversed space in row 0 shows the
+		 * initial colour (8 + 7) before the real row 0 is restored. */
+		{
+			BYTE saved[120];
+			CopyMemory(saved, textmem + 0x63c8, sizeof(saved));
+			ZeroMemory(textmem + 0x63c8, sizeof(saved));
+			textmem[0x63c8 + 81] = 0x04;
+			for (i = 1; i < 20; i++) {
+				textmem[0x63c8 + 80 + i * 2] = 80;
+			}
+			tsp.emul = 0;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			tsp.emul = 1;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			maketextva_raster();
+			if (textraster[0] != 15) {
+				problem = "a new emulation did not start white";
+			}
+			CopyMemory(textmem + 0x63c8, saved, sizeof(saved));
+			tsp.emul = 0;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			tsp.emul = 1;
+		}
 		tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
 		maketextva_raster();
 		/* Reverse red fills column 1 with colour 8 + 2; column 0 stays bg. */
 		for (i = 0; i < 8; i++) {
-			if ((textraster[i] != 0) || (textraster[8 + i] != 10)) {
+			if ((problem == NULL) && ((textraster[i] != 0) || (textraster[8 + i] != 10))) {
 				problem = "row 0 colours or the hidden two-character lead are wrong";
 			}
 		}
@@ -4246,6 +4291,31 @@ static int test_tsp_3301_emulation(void) {
 		maketextva_raster(); /* row 1, raster 0 */
 		if ((problem == NULL) && (textraster[0] != 10)) {
 			problem = "reverse red did not carry to the next row";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		maketextva_raster(); /* row 2, raster 0 */
+		if ((problem == NULL) && ((textraster[4 * 8] != 0) || (textraster[5 * 8] != 10) ||
+		                          (textraster[16 * 8] != 10) || (textraster[17 * 8] != 0) ||
+		                          (textraster[18 * 8] != 0) || (textraster[19 * 8] != 10))) {
+			problem = "a row whose first pair is not column 0 was not shifted";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		if ((problem == NULL) && ((textraster[19 * 8] != 0) || (textraster[5 * 8] != 10))) {
+			problem = "the under line was not drawn on the last raster";
+		}
+		maketextva_raster(); /* row 3, raster 0 */
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "reverse did not carry into a colour-only row";
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "the under line carried to the next row";
 		}
 	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */

@@ -90,8 +90,9 @@ typedef struct {
 	SYNATTRFN synattr; // アトリビュート合成ルーチン
 	TEXTVAFRAME frame; // 現在参照している分割画面へのポインタ
 	_TEXTVAFRAME _frame[TEXTVA_FRAMES];
-	UINT8 emu_color; // uPD3301 emulation: colour carried to the next row
-	UINT8 emu_deco;  // uPD3301 emulation: decoration carried to the next row
+	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
+	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
+	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
 } _TEXTVAWORK;
 
 static _TEXTVAWORK work;
@@ -280,7 +281,15 @@ static void makeline(BYTE *v, UINT16 rwchar) {
  * is colour (bits 7-5 G, R, B; bit 4 semigraphics, not drawn yet), bit 3
  * clear is decoration (bit 0 secret, 1 blink, 2 reverse, 4 upper line,
  * 5 under line). The eight colours become colour codes 8-15 (BNN manual
- * 8.2.1). The state carries across rows within the split screen.
+ * 8.2.1).
+ *
+ * Pair walk: X88000 1.5.3 (public domain), X88ScreenDrawer.cpp, transparent
+ * attribute mode. Pairs are consumed in memory order, at most one per
+ * character position. When the first pair's column is not zero, each
+ * attribute takes effect from the previous pair's column and the first
+ * attribute from column 0 (N-88 BASIC's function-key row relies on this).
+ * Colour, secret, blink and reverse carry to the next row and frame; upper
+ * and under lines start each row clear.
  */
 enum {
 	EMU3301_SECRET = 0x01,
@@ -288,6 +297,7 @@ enum {
 	EMU3301_REVERSE = 0x04,
 	EMU3301_UPPER = 0x10,
 	EMU3301_UNDER = 0x20,
+	EMU3301_CARRY = EMU3301_SECRET | EMU3301_BLINK | EMU3301_REVERSE,
 	EMU3301_MAXCHARS = 128,
 	EMU3301_MAXPAIRS = 32
 };
@@ -295,14 +305,17 @@ enum {
 static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	UINT8 color[EMU3301_MAXCHARS];
 	UINT8 deco[EMU3301_MAXCHARS];
-	UINT8 order[EMU3301_MAXPAIRS];
 	const BYTE *row;
 	const BYTE *pairs;
 	UINT chars;
-	UINT npairs;
+	int npairs;
+	int n;
+	int idx;
+	int ofs;
+	BOOL shifted;
 	UINT i;
-	UINT j;
 	UINT col;
+	UINT run;
 	UINT8 curcolor;
 	UINT8 curdeco;
 	BYTE *b;
@@ -317,33 +330,55 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	}
 	row = v + 2;
 	pairs = row + tsp.emul_chars;
-	for (i = 0; i < npairs; i++) { /* stable insertion sort by column */
-		UINT8 k = (UINT8)i;
-		for (j = i; (j > 0) && (pairs[order[j - 1] * 2] > pairs[k * 2]); j--) {
-			order[j] = order[j - 1];
-		}
-		order[j] = k;
+	shifted = (npairs > 0) && (pairs[0] != 0);
+	if (shifted) {
+		n = -1;
+		idx = -1;
+		ofs = -1;
+	} else {
+		n = 0;
+		idx = 0;
+		ofs = (npairs > 0) ? pairs[0] : 0x100;
+	}
+	if (!work.emu_active) {
+		/* White, no decoration (X88000 starts from attribute E0h). */
+		work.emu_color = 7;
+		work.emu_deco = 0;
+		work.emu_active = 1;
 	}
 	curcolor = work.emu_color;
-	curdeco = work.emu_deco;
-	col = 0;
-	for (i = 0; i <= npairs; i++) {
-		UINT end = (i < npairs) ? pairs[order[i] * 2] : chars;
-		if (end > chars) {
-			end = chars;
+	curdeco = work.emu_deco & EMU3301_CARRY;
+	run = 0;
+	for (col = 0; col < chars; col++) {
+		int attr = -1;
+		if (shifted) {
+			if ((n < npairs - 1) && ((int)col >= ofs)) {
+				idx++;
+				n++;
+				attr = pairs[idx * 2 + 1];
+				ofs = pairs[idx * 2];
+			}
+		} else if ((n < npairs) && ((int)col >= ofs)) {
+			attr = pairs[idx * 2 + 1];
+			idx++;
+			n++;
+			ofs = (idx < npairs) ? pairs[idx * 2] : 0x100;
 		}
-		for (; col < end; col++) {
-			color[col] = curcolor;
-			deco[col] = curdeco;
-		}
-		if (i < npairs) {
-			const BYTE attr = pairs[order[i] * 2 + 1];
+		if (attr >= 0) {
+			for (; run < col; run++) { /* fill the run before this change */
+				color[run] = curcolor;
+				deco[run] = curdeco;
+			}
 			if (attr & 0x08) {
-				curcolor = attr >> 5;
+				curcolor = (UINT8)(attr >> 5);
 			} else {
-				curdeco = attr;
+				curdeco = (UINT8)attr;
 			}
 		}
+	}
+	for (; run < chars; run++) {
+		color[run] = curcolor;
+		deco[run] = curdeco;
 	}
 	work.emu_color = curcolor;
 	work.emu_deco = curdeco;
@@ -502,8 +537,6 @@ static void selectframe(int no) {
 	}
 	work.texty = 0;
 	work.raster = work.frame->rasteroffset;
-	work.emu_color = 7;
-	work.emu_deco = 0;
 	work.linebitmap_ready = FALSE;
 	work.synattr = synattrtbl[work.frame->mode & 0x07];
 }
@@ -525,6 +558,10 @@ void maketextva_begin(BOOL *scrn200) {
 
 	work.y = 0;
 	work.screeny = 0;
+	if (!tsp.emul) {
+		/* uPD3301 attributes carry across frames while emulating. */
+		work.emu_active = 0;
+	}
 
 	work.lineheight = tsp.lineheight;
 	if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
