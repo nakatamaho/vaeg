@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M103a — States saved in compatible mode could not be resumed
+
+- **Symptom/scope:** loading a state saved while compatible code (for
+  example CP/MVA at `A>`) waited in a native handler entered by `CALLN`
+  or by an interrupt hung the guest and then crashed; the PC-Engine BIOS
+  reported a disk error. Present since M76 (reproduced at the M102 merge).
+  States saved in native mode were unaffected.
+- **Demonstrated cause:** UPD9CPU export/import skips the two padding bytes
+  that hold the execution mode and the return-pending flag, and the return
+  SP was a core static that was never saved. After loading, the flag was
+  clear, the UPD9Z80 blob was skipped, and the handler's IRET returned into
+  the Z80 code as native code.
+- **Correction:** a new optional `UPD9MODE` section (mode, flag, return SP)
+  between UPD9CPU and UPD9Z80. Older files without it whose UPD9Z80 payload
+  shows active compatible code are refused with an explicit message, since
+  the missing data cannot be reconstructed; native-mode older files load.
+- **Verification:** headless CP/MVA save/load at `A>` lists the directory
+  after loading in the same and in a fresh process; an end-to-end
+  `vaeg_romless_tests` case and the adapter self-test; full local CTest
+  without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a compatible-mode state save/load](../agents/tasks/M103a_alternate_register_storage.md#compatible-mode-state-saveload).
+  Fix: [777d385a](https://github.com/nakatamaho/vaeg/commit/777d385a698e4a15acb59ca1c9ef1bb869b855d6).
+
 ### M99z40 — Small CRT windows overemphasize RGB-mask interference
 
 - **Symptom/scope:** x1 and x2 CRT presentation could show conspicuous
