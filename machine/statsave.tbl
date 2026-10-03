@@ -120,6 +120,7 @@ static const SFENTRY np2tbl[] = {
 	{"MEM88WIN",	0,	STATFLAG_BIN,	&memoryva_88_window,	sizeof(memoryva_88_window)},
 	{"MEM88GFX",	0,	STATFLAG_BIN,	&memoryva_88_plane,	sizeof(memoryva_88_plane)},
 	{"MEM88ALU",	0,	STATFLAG_BIN,	&memoryva_88_alu,	sizeof(memoryva_88_alu)},
+	{"MEM88ERAM",	0,	STATFLAG_BIN,	&memoryva_88_eram,	sizeof(memoryva_88_eram)},
 
 	{"SYSPORTVA",	0,	STATFLAG_BIN,	&sysportva,		sizeof(sysportva)},
 	{"VIDEOVA",		0,	STATFLAG_BIN,	&videova,		sizeof(videova)},
