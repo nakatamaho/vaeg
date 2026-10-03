@@ -99,6 +99,14 @@ static int fail(const char *name, const char *detail) {
 	return (FAILURE);
 }
 
+/* Reset selects 8214 mode; V3 software selects 8259 mode with port 158H
+ * before it relies on the uPD8259 slave, as these V3 fixtures do. The
+ * port handler's function is called directly so that the fixtures' CPU
+ * clock snapshots do not include an extra bus cycle. */
+static void selftest_select_8259_mode(void) {
+	pic_select_8259_mode();
+}
+
 static int test_codecnv(void) {
 	const char sjis_wave[] = {(char)0x81, (char)0x60, '\0'};
 	UINT16 utf[4];
@@ -3102,14 +3110,6 @@ cleanup:
 	np2cfg = saved_config;
 	pccore_reset();
 	return result;
-}
-
-/* Reset selects 8214 mode; V3 software selects 8259 mode with port 158H
- * before it relies on the uPD8259 slave, as these V3 fixtures do. The
- * port handler's function is called directly so that the fixtures' CPU
- * clock snapshots do not include an extra bus cycle. */
-static void selftest_select_8259_mode(void) {
-	pic_select_8259_mode();
 }
 
 static int test_8087_guest_interrupt_route(void) {
