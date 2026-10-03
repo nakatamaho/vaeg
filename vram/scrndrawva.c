@@ -199,7 +199,7 @@ void scrndrawva_compose_raster(void) {
 		}
 	}
 
-	palmode = (videova.palmode >> 6) & 3;
+	palmode = videova_palettemode();
 	defaultflip = palmode == 1 ? 0x10 : 0x00;
 	palset1scrn = (videova.palmode >> 4) & 3;
 

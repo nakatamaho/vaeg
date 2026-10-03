@@ -75,6 +75,7 @@ void videova_reset(void);
 void videova_bind(void);
 
 int videova_hsyncmode(void);
+int videova_palettemode(void);
 
 #ifdef __cplusplus
 }
