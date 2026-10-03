@@ -245,6 +245,14 @@ enum {
 
 #define UPD9002_COMPAT_STATE_SIZE 68
 #define UPD9002_COMPAT_STATE_SECTION "UPD9Z80"
+/*
+ * Mode-transition state that UPD9CPU does not carry: execution mode, the
+ * CALLN/interrupt return-pending flag and the native SP that identifies the
+ * returning IRET. Without it, a state saved while compatible code waits in a
+ * native handler resumes that handler but never returns to compatible mode.
+ */
+#define UPD9002_MODE_STATE_SECTION "UPD9MODE"
+#define UPD9002_MODE_STATE_SIZE 4
 
 /*
  * M103a: the Z80 emulation mode's alternate register set (AF', BC', DE',
@@ -286,6 +294,9 @@ void CPUCALL upd9002_core_compat_retem(void);
 void CPUCALL upd9002_core_compat_iret_resume(void);
 int upd9002_core_compat_state_save(UINT8 *buffer, UINT size);
 int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size);
+void upd9002_core_mode_state_save(UINT8 *buffer);
+BOOL upd9002_core_mode_state_valid(const UINT8 *buffer);
+int upd9002_core_mode_state_load(const UINT8 *buffer);
 
 void CPUCALL upd9002_core_interrupt(REG8 vect);
 

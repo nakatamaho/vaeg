@@ -629,6 +629,23 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	upd9002_core_step(); // CALLN -> native
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
 		return fail(__LINE__);
+	// UPD9MODE: the return-pending SP is what lets IRET resume compatible
+	// mode. Losing it (as UPD9CPU import alone did) breaks the return.
+	UINT8 mode_state[UPD9002_MODE_STATE_SIZE];
+	upd9002_core_mode_state_save(mode_state);
+	static const UINT8 lost_sp[UPD9002_MODE_STATE_SIZE] = {0, 1, 0, 0};
+	static const UINT8 invalid[][UPD9002_MODE_STATE_SIZE] = {
+	    {2, 0, 0, 0}, {0, 2, 0, 0}, {1, 1, 0, 0}};
+	for (const auto &bad : invalid) {
+		if (upd9002_core_mode_state_valid(bad) || upd9002_core_mode_state_load(bad) == SUCCESS)
+			return fail(__LINE__);
+	}
+	if (mode_state[0] != UPD9002_COMPAT_NATIVE || mode_state[1] != 1 ||
+	    upd9002_core_mode_state_load(lost_sp) != SUCCESS || upd9002_core_compat_iret_is_return())
+		return fail(__LINE__);
+	if (upd9002_core_mode_state_load(mode_state) != SUCCESS ||
+	    !upd9002_core_compat_iret_is_return())
+		return fail(__LINE__);
 	// Native code cannot address the alternate set, but the machine-owned
 	// storage is the authority: a change there is what the compat core sees
 	// when it resumes.

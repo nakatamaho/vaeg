@@ -302,6 +302,29 @@ int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
 	return SUCCESS;
 }
 
+void upd9002_core_mode_state_save(UINT8 *buffer) {
+	buffer[0] = CPU_COMPAT_MODE;
+	buffer[1] = CPU_COMPAT_RETURN_PENDING;
+	STOREINTELWORD(buffer + 2, upd9002_compat_return_sp);
+}
+
+BOOL upd9002_core_mode_state_valid(const UINT8 *buffer) {
+	return ((buffer[0] == UPD9002_COMPAT_NATIVE) || (buffer[0] == UPD9002_COMPAT_UPD70008)) &&
+	       (buffer[1] <= 1) && !((buffer[0] == UPD9002_COMPAT_UPD70008) && buffer[1]);
+}
+
+/* Must follow UPD9CPU, whose import clears these fields, and precede UPD9Z80,
+ * whose loader runs only when compatible state is active. */
+int upd9002_core_mode_state_load(const UINT8 *buffer) {
+	if (!upd9002_core_mode_state_valid(buffer)) {
+		return FAILURE;
+	}
+	CPU_COMPAT_MODE = buffer[0];
+	CPU_COMPAT_RETURN_PENDING = buffer[1];
+	upd9002_compat_return_sp = LOADINTELWORD(buffer + 2);
+	return SUCCESS;
+}
+
 int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size) {
 	if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE)) {
 		return FAILURE;

@@ -138,3 +138,45 @@ operations) plus:
 ## Progress
 
 - 2026-10-02: task created (ADR-0016).
+- 2026-10-03: first G103a run by the maintainer with the static Windows
+  build of `33f268cc5487e4feffdde75bcb495c4657cdcf94` (`vaeg.exe` SHA-256
+  `999b702aa4095d517531bda007b23a9438884e6b17c4359c48986e87532c0b8e`):
+  standard gate passed; ALTPRB results returned from the real PC-88VA2 and
+  from vaeg; saving at the CP/MVA `A>` prompt and loading hung and then
+  crashed; loading a state saved by the M102 build failed with a disk
+  error and crashed.
+
+### Compatible-mode state save/load
+
+- Reproduced headless on Linux at `33f268cc` and also at the M102 merge
+  `659a01e16f5e0c7b79e314b5cbdc0a3e12cddcca`, so it predates M103a. A
+  local diagnostic (frame-triggered save/load using the GUI's sequence,
+  not committed) booted the PC-Engine 1.1 system disk with the CP/MVA
+  boot disk in FD2, ran CP/MVA from B:, saved at `A>` and loaded. Saving
+  and loading at the native PC-Engine prompt worked.
+- At `A>` the CPU is usually inside a native BIOS handler entered by
+  `CALLN`: native mode with the return-pending flag set (`F000:2B33` in
+  the reproduction). Demonstrated cause: the mode and return-pending
+  flag live in the two UPD9CPU padding bytes, which export/import
+  deliberately skip, and the return SP is a core static that was never
+  saved. After loading, the flag was clear, so the UPD9Z80 blob was not
+  loaded either and the handler's IRET returned into the Z80 code as
+  native code. A same-window comparison showed the handler IRET resuming
+  `1FC14h` before saving but `32D75h` after loading, followed by a jump
+  to `0000:108Fh` and an `OUT A2h`.
+- Correction: new optional section `UPD9MODE`, version 0, 4 bytes (mode,
+  return-pending flag, return SP), saved after UPD9CPU and before
+  UPD9ALT/UPD9Z80; invalid combinations are rejected. A file without it
+  whose UPD9Z80 payload is nonzero was saved while compatible code was
+  active and cannot be resumed: `statsave_check` now refuses it with
+  "saved in compatible mode by an older build; it cannot be resumed"
+  instead of loading it and running Z80 code as native code. Files saved
+  in native mode without the section load as before.
+- Verification: the CP/MVA reproduction now lists the directory after
+  loading, in the same process and in a fresh process; the M102-era state
+  is refused with the message; a native-mode state without UPD9MODE
+  loads. `vaeg_romless_tests` gains an end-to-end case (BRKEM, CALLN,
+  save in the handler, reset, load, IRET back to compatible mode; plus
+  the old-format refusal and the native old-format load), and the
+  adapter self-test checks the mode-state codec. Full CTest has no
+  failures (106 entries, one external SST skipped).
