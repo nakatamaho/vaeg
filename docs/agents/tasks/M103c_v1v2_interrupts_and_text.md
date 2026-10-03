@@ -163,3 +163,54 @@ characters echo, and a short BASIC line (`PRINT 1+1`) answers `2`.
   classifier in `vaeg_m103b_basic_boot` expects the interrupt-free
   key-wait loop and no longer matches; it is replaced by a content check
   once the text is visible (next stage).
+
+### 88-mode text display (scope item 6)
+
+- `[ROM]` TSP commands sent by the VA2 ROM for V1/V2 (local trace, not
+  committed): SYNC, DSPDEF `00 00 21 0F 00 18` (16-raster rows; 13h for
+  20 rows), ACTSCR, CURDEF, SPRON, `EMUL 8Ch 00 4E 13 18` (split screen 0,
+  80 characters, 20 attribute pairs, 25 rows; the 20-row variant ends in
+  13h), DSPON with the table at TVRAM 0000h. Each time BASIC reprograms the
+  trapped CRTC/DMAC the ROM sends EXIT, then 8Eh/8Fh/97h sequences, then
+  EMUL again. 8Eh/8Fh/97h are not in the VA manual's command list; they
+  write split-screen table fields while TVRAM is unreachable from the CPU.
+  `[DERIVED]` 8Eh sets a TVRAM byte address (the observed values 00h, 08h,
+  0Ah and 10h are the offsets of the frame's address, pitch, mode and start
+  fields), 97h writes the following parameter bytes from it until the next
+  command, and 8Fh takes three bytes whose meaning is unknown (always
+  `01 00 00`). BASIC's DMA start F3C8h becomes a start field of 678Ch.
+- `[VA-TM]` §8.2.1 and the TSP chapter: 88-mode F000h–FFFFh is the 4 KiB of
+  V3 TVRAM at A6000h; the TSP runs in byte-access mode and EMUL expands
+  uPD3301 attributes dynamically. vaeg now maps that window when no GVRAM
+  plane is selected and port 32h TMODE (bit 4) is clear (BASIC writes
+  A8h/A9h), records EMUL's geometry, stops emulation on EXIT and SYNC, and
+  implements 8Eh/97h as above (state in former reserved TSP bytes; the
+  state layout is unchanged).
+- `[DERIVED]` Byte-mode addressing: TSP local byte 3000h is TVRAM byte
+  6000h, and the table's start and pitch fields are twice the byte values
+  (pitch F0h = 120-byte rows). The ROM programs the start two characters
+  early and rxp = 1008 hides them, matching the TSP's rw/8 + 2 fetch. The
+  renderer reads the 3301 row (80 characters, then 20 column/attribute
+  pairs), applies pairs in column order with the state carried across
+  rows, uses PC-8801 attribute bits (colour: bits 7–5 G/R/B → colour code
+  8–15; decoration: secret, blink, reverse, upper line, under line), and
+  draws the ANK font. Not yet modelled: semigraphics, 40-column doubling,
+  CURS-positioned cursor (the cursor sprite the ROM manages is drawn by
+  the existing sprite path).
+- Tests: `vaeg_romless_tests` gains a TSP 3301 case (EMUL decoding, 8Eh/97h
+  writes ending at EXIT, SYNC stopping emulation; a synthetic frame shows
+  the hidden two-character lead, red reverse at column 1 and its carry to
+  the next row; the 88-mode window with TMODE, GVRAM precedence and V3).
+  Removing the window, the carry or the byte-mode addressing makes it
+  fail. The M103b RAM-window/GVRAM fixture now selects TMODE 1 because it
+  uses F000h–FFFFh as main RAM.
+- Acceptance: `tools/qa/m103b_basic_boot.py` now types `3` and
+  `PRINT 1+1` and checks the TVRAM dump written at exit: a row starting
+  `PRINT 1+1`, the next row ` 2`, and an `Ok` row in the 88-mode text area
+  (stable codes `M103B_NO_TVRAM_DUMP`, `M103B_NO_BASIC_PROMPT`,
+  `M103B_NO_ANSWER`, `M103B_WORKER_FAILED`). It passes in about 73 s with
+  the VA2 ROMs and V2 BASIC media and fails with `M103B_NO_BASIC_PROMPT` for
+  media that boots natively. A local screenshot shows the banner, `Ok`,
+  `PRINT 1+1`, ` 2`, the cursor and the reverse function-key row.
+- Full CTest without failures (108 entries, two skipped); V3 smoke passes;
+  the V3 PC-Engine screen with kanji is unchanged.

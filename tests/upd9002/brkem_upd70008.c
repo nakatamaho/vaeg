@@ -271,6 +271,9 @@ static int memory_mode_selftest(void) {
 		iocore_out8(0x32, saved_bank);
 	}
 	iocore_out8(0x153, 0x01);
+	/* TMODE 1: 88-mode F000h-FFFFh is main RAM rather than TVRAM, which
+	 * these RAM-window and GVRAM checks rely on (TVRAM: vaeg --selftest). */
+	iocore_out8(0x32, 0x10);
 	iocore_out8(0x31, 2); /* Fill the RAM behind the ROM/window. */
 	upd9002_memorywrite_va(0x1ff00, 0x91);
 	upd9002_memorywrite_va(0x10000, 0x92);

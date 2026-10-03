@@ -395,11 +395,11 @@ in the maintainer-local task directory outside Git.
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
 | 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window; monitor ROM and ERAM (`E2h`/`E3h`) pending (§2.0) |
-| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | missing |
+| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | implemented (M103c): TMODE-selected window, EMUL/8Eh/97h, 3301 row rendering; semigraphics and 40-column pending |
 | GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent-plane storage mapping implemented; ALU/timing/rendering pending |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | registers, native IN/OUT and compatible plain/block IN/OUT interception implemented; DD/FD-prefixed compatible forms and timing pending |
 | keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
-| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | missing; BASIC's writes to `E4h`/`E6h` are currently ignored by the default handler without fault (M103c) |
+| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | 8214 mode implemented (M103c, §4); kanji ROM missing |
 | boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection traced (§5.2); no mode override |
 | FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present; the sub-CPU interface 8255 is now fully cross-wired for the fast transfer protocol (M103b) |
 

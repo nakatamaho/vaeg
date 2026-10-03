@@ -70,7 +70,16 @@ typedef struct {
 	BYTE sprdef_offset;
 
 	UINT8 ce; // CURDEF cursor enable; stored in the existing reserved state byte.
-	BYTE dmy2[127];
+
+	/* uPD3301 emulation (EMUL 8Ch), held in former reserved bytes so the
+	 * state layout is unchanged; zero (old states) means not emulating. */
+	UINT8 emul;        // nonzero while emulating
+	UINT8 emul_frame;  // split screen number
+	UINT8 emul_chars;  // characters per row
+	UINT8 emul_attrs;  // attribute pairs per row
+	UINT8 emul_rows;   // rows
+	UINT8 tvw_addr[3]; // TVRAM byte address for the 97h data stream (8Eh)
+	BYTE dmy2[119];
 } _TSP, *TSP;
 
 #ifdef __cplusplus

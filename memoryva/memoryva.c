@@ -753,6 +753,19 @@ static UINT32 n88_gvram_address(UINT32 address) {
 	return ((UINT32)memoryva_88_plane << 16) + 0x4000 + (address & 0x3fff);
 }
 
+/*
+ * 88-mode TVRAM (BNN manual 8.2.1): with no GVRAM plane selected and port
+ * 32h TMODE (bit 4) clear, F000h-FFFFh is the 4 KiB of V3 TVRAM at A6000h.
+ */
+static BOOL n88_tvram_selected(UINT32 address) {
+	return memoryva_88_mode && memoryva_88_plane >= 3 && !(sysportva.port032 & 0x10) &&
+	       address >= 0x1f000 && address < 0x20000;
+}
+
+static UINT32 n88_tvram_offset(UINT32 address) {
+	return 0x6000 + (address & 0x0fff);
+}
+
 /* Provisional 88-mode RAM backing remains physical 10000h..1FFFFh. */
 static BOOL n88_ram_window_selected(UINT32 address) {
 	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) && address >= 0x18000 &&
@@ -765,6 +778,11 @@ static UINT32 n88_ram_window_address(UINT32 address) {
 
 void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value) {
 	pccore_debugmem(0, address, value);
+	if (n88_tvram_selected(address)) {
+		textmem[n88_tvram_offset(address)] = (BYTE)value;
+		textmem_dirty = TRUE;
+		return;
+	}
 	if (n88_gvram_selected(address)) {
 		grphmem[n88_gvram_address(address)] = (BYTE)value;
 		return;
@@ -782,7 +800,8 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 	pccore_debugmem(1, address, value);
 	next = address + 1;
 	if (n88_ram_window_selected(address) || n88_ram_window_selected(next) ||
-	    n88_gvram_selected(address) || n88_gvram_selected(next)) {
+	    n88_gvram_selected(address) || n88_gvram_selected(next) || n88_tvram_selected(address) ||
+	    n88_tvram_selected(next)) {
 		upd9002_memorywrite_va(address, (REG8)value);
 		upd9002_memorywrite_va(next, (REG8)(value >> 8));
 		return;
@@ -803,6 +822,9 @@ static BOOL n88_rom_selected(UINT32 address) {
 }
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
+	if (n88_tvram_selected(address)) {
+		return textmem[n88_tvram_offset(address)];
+	}
 	if (n88_gvram_selected(address)) {
 		return grphmem[n88_gvram_address(address)];
 	}
@@ -825,7 +847,8 @@ REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 
 	next = address + 1;
 	if (n88_rom_selected(address) || n88_rom_selected(next) || n88_ram_window_selected(address) ||
-	    n88_ram_window_selected(next) || n88_gvram_selected(address) || n88_gvram_selected(next)) {
+	    n88_ram_window_selected(next) || n88_gvram_selected(address) || n88_gvram_selected(next) ||
+	    n88_tvram_selected(address) || n88_tvram_selected(next)) {
 		lo = upd9002_memoryread_va(address);
 		hi = upd9002_memoryread_va(next);
 		return (REG16)lo | ((REG16)hi << 8);

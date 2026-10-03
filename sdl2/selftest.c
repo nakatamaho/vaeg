@@ -69,6 +69,7 @@
 #include "gui/gui.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
+#include "maketextva.h"
 #include "sdrawva.h"
 #include "makesprva.h"
 #include "soundmng.h"
@@ -4139,6 +4140,149 @@ static int test_pic8214_mode(void) {
 	return (SUCCESS);
 }
 
+/* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
+static int test_tsp_3301_emulation(void) {
+	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
+	static const BYTE tvwrite[] = {0x8e, 0x10, 0x00, 0x00, 0x8f, 0x01,
+	                               0x00, 0x00, 0x97, 0x8c, 0x67, 0x88};
+	const char *problem;
+	BOOL scrn200;
+	UINT i;
+	UINT r;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* EMUL keeps its geometry; EXIT and SYNC stop the emulation. */
+	iocore_out8(0x142, emul[0]);
+	for (i = 1; i < sizeof(emul); i++) {
+		iocore_out8(0x146, emul[i]);
+	}
+	if (!tsp.emul || (tsp.emul_frame != 0) || (tsp.emul_chars != 80) || (tsp.emul_attrs != 20) ||
+	    (tsp.emul_rows != 25)) {
+		problem = "EMUL parameters were not decoded";
+	}
+	/* 8Eh/97h write TVRAM bytes until the next command; EXIT ends it. */
+	if (problem == NULL) {
+		iocore_out8(0x142, tvwrite[0]);
+		for (i = 1; i < 4; i++) {
+			iocore_out8(0x146, tvwrite[i]);
+		}
+		iocore_out8(0x142, tvwrite[4]);
+		for (i = 5; i < 8; i++) {
+			iocore_out8(0x146, tvwrite[i]);
+		}
+		iocore_out8(0x142, tvwrite[8]);
+		iocore_out8(0x146, tvwrite[9]);
+		iocore_out8(0x146, tvwrite[10]);
+		iocore_out8(0x142, tvwrite[11]);
+		iocore_out8(0x146, 0x55); /* after EXIT: not written */
+		if ((textmem[0x10] != 0x8c) || (textmem[0x11] != 0x67) || (textmem[0x12] == 0x55) ||
+		    tsp.emul) {
+			problem = "8Eh/97h did not write TVRAM or EXIT did not stop emulation";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x142, emul[0]);
+		for (i = 1; i < sizeof(emul); i++) {
+			iocore_out8(0x146, emul[i]);
+		}
+		iocore_out8(0x142, 0x10); /* SYNC */
+		if (tsp.emul) {
+			problem = "SYNC did not stop emulation";
+		}
+	}
+
+	/* Render: frame 0 as the VA2 ROM programs it for N88-BASIC. */
+	if (problem == NULL) {
+		ZeroMemory(textmem, 0x8000);
+		STOREINTELWORD(textmem + 0x08, 240);    /* vw */
+		STOREINTELWORD(textmem + 0x0a, 0xf002); /* mode 2, fg 15, bg 0 */
+		STOREINTELWORD(textmem + 0x10, 0x678c); /* rsa: (33C8h - 2) * 2 */
+		STOREINTELWORD(textmem + 0x14, 400);    /* rh */
+		STOREINTELWORD(textmem + 0x16, 656);    /* rw: 84 fetched characters */
+		STOREINTELWORD(textmem + 0x1a, 1008);   /* rxp hides two characters */
+		/* Row 0: 'A' red, 'B' reverse red; the state carries to row 1. */
+		textmem[0x63c8] = 'A';
+		textmem[0x63c9] = 'B';
+		textmem[0x63c8 + 80] = 0x00;
+		textmem[0x63c8 + 81] = 0x48; /* colour 2 (red) */
+		textmem[0x63c8 + 82] = 0x01;
+		textmem[0x63c8 + 83] = 0x04; /* reverse */
+		for (i = 2; i < 20; i++) {
+			textmem[0x63c8 + 80 + i * 2] = 0x50; /* column 80: no effect */
+			textmem[0x63c8 + 81 + i * 2] = 0x04;
+		}
+		textmem[0x63c8 + 120] = 'C'; /* row 1, no effective pairs */
+		for (i = 0; i < 20; i++) {
+			textmem[0x63c8 + 200 + i * 2] = 0x50;
+			textmem[0x63c8 + 201 + i * 2] = 0x04;
+		}
+		tsp.dspon = TRUE;
+		tsp.texttable = 0;
+		tsp.lineheight = 16;
+		tsp.emul = 1;
+		tsp.emul_frame = 0;
+		tsp.emul_chars = 80;
+		tsp.emul_attrs = 20;
+		tsp.emul_rows = 25;
+		videova.txtmode = 0;
+		videova.txtmode8 = 0x01; /* 80 columns */
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		/* Reverse red fills column 1 with colour 8 + 2; column 0 stays bg. */
+		for (i = 0; i < 8; i++) {
+			if ((textraster[i] != 0) || (textraster[8 + i] != 10)) {
+				problem = "row 0 colours or the hidden two-character lead are wrong";
+			}
+		}
+		for (r = 1; r < 16; r++) {
+			maketextva_raster();
+		}
+		maketextva_raster(); /* row 1, raster 0 */
+		if ((problem == NULL) && (textraster[0] != 10)) {
+			problem = "reverse red did not carry to the next row";
+		}
+	}
+	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
+	if (problem == NULL) {
+		iocore_out8(0x153, 0x01); /* 88-mode memory */
+		iocore_out8(0x5f, 0x00);  /* no GVRAM plane */
+		iocore_out8(0x32, 0xa8);  /* TMODE 0 */
+		upd9002_memorywrite_va(0x1f3c8, 0x5a);
+		if ((textmem[0x63c8] != 0x5a) || (upd9002_memoryread_va(0x1f3c8) != 0x5a)) {
+			problem = "88-mode F3C8h did not reach TVRAM 63C8h";
+		}
+		iocore_out8(0x32, 0xb8); /* TMODE 1: main RAM */
+		upd9002_memorywrite_va(0x1f3c8, 0x11);
+		if ((problem == NULL) && (textmem[0x63c8] != 0x5a)) {
+			problem = "TMODE 1 still wrote TVRAM";
+		}
+		iocore_out8(0x32, 0xa8);
+		iocore_out8(0x5c, 0x00); /* GVRAM plane 0 takes precedence */
+		upd9002_memorywrite_va(0x1f3c8, 0x22);
+		if ((problem == NULL) && (textmem[0x63c8] != 0x5a)) {
+			problem = "a selected GVRAM plane did not take precedence over TVRAM";
+		}
+		iocore_out8(0x5f, 0x00);
+		iocore_out8(0x153, 0x41); /* V3 */
+		if ((problem == NULL) && (upd9002_memoryread_va(0x1f3c8) == 0x5a)) {
+			problem = "V3 mode still mapped TVRAM at 1F3C8h";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP 3301 emulation", problem));
+	}
+	fprintf(stderr, "selftest: TSP 3301 emulation ok\n");
+	return (SUCCESS);
+}
+
 typedef struct {
 	char text[256];
 } TOKENBUF;
@@ -4637,6 +4781,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pic8214_mode() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_3301_emulation() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {
