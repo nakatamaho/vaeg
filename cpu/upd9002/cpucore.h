@@ -262,7 +262,8 @@ enum {
  * machine-owned storage beside the native register file rather than part
  * of it. The uPD70008-compatible adapter copies them in on mode entry and
  * resume and out after every compatible-mode step, exactly like the main
- * set aliases. Cleared only by the hardware reset path (upd9002_core_reset);
+ * set aliases. Set to FFFFh only by the hardware reset path (upd9002_core_reset;
+ * M103c, after a real PC-88VA2 register dump);
  * CALLN round trips, RETEM/BRKEM re-entry and adapter resets preserve them.
  * Saved as the "UPD9ALT" state section, which precedes the compat blob;
  * its loader sets upd9002_alt_regs_loaded so that the adapter's StateLoad

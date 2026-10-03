@@ -752,8 +752,8 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	upd9002_core_step(); // LD BC,1111h
 	if (CPU_CX != 0x1111)
 		return fail(__LINE__);
-	upd9002_core_step(); // EXX
-	if (CPU_CX != 0x0000 || upd9002_alt_regs.bc != 0x1111)
+	upd9002_core_step(); // EXX: BC takes the reset value of BC'
+	if (CPU_CX != 0xffff || upd9002_alt_regs.bc != 0x1111)
 		return fail(__LINE__);
 	upd9002_core_step(); // LD BC,2222h
 	upd9002_core_step(); // EXX
@@ -802,9 +802,10 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
 		return fail(__LINE__);
 
-	// Hardware reset clears the storage.
+	// Hardware reset sets the storage to all ones (M103c).
 	upd9002_core_reset();
-	if (upd9002_alt_regs.bc != 0 || upd9002_alt_regs_loaded)
+	if (upd9002_alt_regs.af != 0xffff || upd9002_alt_regs.bc != 0xffff ||
+	    upd9002_alt_regs.de != 0xffff || upd9002_alt_regs.hl != 0xffff || upd9002_alt_regs_loaded)
 		return fail(__LINE__);
 
 	// Old state file: compat blob without a UPD9ALT section. The blob's

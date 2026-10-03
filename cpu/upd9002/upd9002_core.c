@@ -223,7 +223,12 @@ void upd9002_core_reset(void) {
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
 	upd9002_state_reset();
-	ZeroMemory(&upd9002_alt_regs, sizeof(upd9002_alt_regs));
+	/* All ones: a real PC-88VA2 shows AF' = BC' = FFFFh in V1/V2 MON after
+	 * firmware that never writes them (CPU document 17.2; M103c). */
+	upd9002_alt_regs.af = 0xffff;
+	upd9002_alt_regs.bc = 0xffff;
+	upd9002_alt_regs.de = 0xffff;
+	upd9002_alt_regs.hl = 0xffff;
 	upd9002_alt_regs_loaded = FALSE;
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;

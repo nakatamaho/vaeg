@@ -334,3 +334,15 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   events directly makes it fail. Full CTest without failures (108 entries,
   two skipped); BASIC acceptance, V3 smoke, a V3 PC-Engine session with the
   US layout and the `linux-release` build pass.
+
+### Alternate-register reset value (maintainer decision)
+
+- With MON working, vaeg's `x` matched the real VA2 dump in CPU document
+  §17.2 except `A'F'` and `B'C'`, which no code on the boot-to-MON path
+  writes: real `FF`/`MZ-H-ENC`/`FFFF`, vaeg zero (M103a reset policy).
+  The maintainer chose to set the alternate set to `FFFFh` at hardware
+  reset. vaeg's `x` output now matches the dump in every field (local
+  run). The adapter self-test checks the new value and fails with the old
+  one. Power-on versus warm reset and the `DE'`/`HL'` values remain
+  unmeasured; the maintainer offered a real-machine check (cold power-on
+  and warm reset, then V2 BASIC → `mon` → `x`).
