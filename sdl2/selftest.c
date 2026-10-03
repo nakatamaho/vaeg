@@ -3103,6 +3103,14 @@ cleanup:
 	return result;
 }
 
+/* Reset selects 8214 mode; V3 software selects 8259 mode with port 158H
+ * before it relies on the uPD8259 slave, as these V3 fixtures do. The
+ * port handler's function is called directly so that the fixtures' CPU
+ * clock snapshots do not include an extra bus cycle. */
+static void selftest_select_8259_mode(void) {
+	pic_select_8259_mode();
+}
+
 static int test_8087_guest_interrupt_route(void) {
 	static const BYTE handler[] = {
 		0xdb, 0xe2,             /* FCLEX */
@@ -3122,6 +3130,7 @@ static int test_8087_guest_interrupt_route(void) {
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 10000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 	CPU_IP = 0x0100;
 	CPU_CS = 0;
 	CPU_DS = 0;
@@ -3209,6 +3218,7 @@ cleanup:
 	upd9002_test_flat_memory_set(FALSE);
 	np2cfg = saved_config;
 	pccore_reset();
+	selftest_select_8259_mode();
 	return result;
 }
 
@@ -3221,6 +3231,7 @@ static int test_8087_pic_input_modes(void) {
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 10000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 
 	/* Rebase PIC2 through the guest-visible ICW path.  A direct vector
 	 * injection would incorrectly continue to use vector 16H; the cascade
@@ -3277,6 +3288,7 @@ static int test_8087_pic_input_modes(void) {
 	 * asserted across both EOIs.  The source must be presented again only by
 	 * PIC arbitration, not by a second direct CPU vector call. */
 	pccore_reset();
+	selftest_select_8259_mode();
 	CPU_CS = 0;
 	CPU_DS = 0;
 	CPU_SS = 0;
@@ -3335,6 +3347,7 @@ cleanup:
 	upd9002_test_flat_memory_set(FALSE);
 	np2cfg = saved_config;
 	pccore_reset();
+	selftest_select_8259_mode();
 	return result;
 }
 #endif
@@ -3515,11 +3528,13 @@ static int test_statsave(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	selftest_select_8259_mode();
 	/* Exercise the actual state-save section with a nonzero clock residue and
 	 * a pending unmasked exception, rather than only testing the codec directly. */
 	np2cfg.upd8087_enable = 1;
 	np2cfg.upd8087_clock_hz = 8000000U;
 	pccore_reset();
+	selftest_select_8259_mode();
 	if (!upd8087.enabled || (upd8087.clock_hz != 8000000U)) {
 		pccore_term();
 		soundmng_deinitialize();
@@ -3906,6 +3921,221 @@ static int test_v1v2_state_sections(void) {
 		return (fail("V1/V2 state sections", problem));
 	}
 	fprintf(stderr, "selftest: V1/V2 state sections ok\n");
+	return (SUCCESS);
+}
+
+/* M103c: program the ICU as the VA ROM does for 8214 mode (F000:1317). */
+static void pic8214_test_icu_init(void) {
+	iocore_out8(0x188, 0x11);
+	iocore_out8(0x18a, 0x00);
+	iocore_out8(0x18a, 0x80);
+	iocore_out8(0x18a, 0x03);
+	iocore_out8(0x18a, 0x7f);
+}
+
+static BOOL pic8214_test_offered(void) {
+	return (pic.pi[0].irr & PIC_SLAVE) != 0;
+}
+
+/* M103c: 8214-mode interrupt controller (BNN manual 5.2.2). */
+static int test_pic8214_mode(void) {
+	static const BYTE z80_code[] = {
+	    0xed, 0x5e, /* IM 2 */
+	    0x3e, 0x30, /* LD A,30h */
+	    0xed, 0x47, /* LD I,A */
+	    0xfb,       /* EI */
+	    0x00,       /* NOP */
+	    0x18, 0xfe, /* JR $ (compatible 1008h) */
+	};
+	static const char *const sections[] = {"PIC8214"};
+	char path[MAX_PATH];
+	char oldpath[MAX_PATH];
+	_NEVENTITEM item;
+	_PIC8214 saved;
+	const char *problem;
+	UINT i;
+
+	SPRINTF(path, "vaeg-selftest-%lu-8214.sts", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-8214-old.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(oldpath);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* Reset: 8214 mode, nothing enabled, general timer 2 idle. */
+	if (pic8214.mode8259 || pic8214.inte || pic8214.mask || pic8214.irr ||
+	    (pic8214.pending != PIC8214_NONE) || nevent_iswork(NEVENT_GENTIMER2)) {
+		problem = "reset state is not idle 8214 mode";
+	}
+	pic8214_test_icu_init();
+	/* E6h masks levels 0-2 at the request input. */
+	if (problem == NULL) {
+		pic_setirq(0x02);
+		if (pic8214.irr != 0) {
+			problem = "masked VRTC was latched";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0xe6, 0x07);
+		pic_setirq(0x02);
+		if ((pic8214.irr != 0x02) || pic8214_test_offered()) {
+			problem = "VRTC was not latched or was offered before E4h";
+		}
+		if ((problem == NULL) && !nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "enabling level 2 did not start general timer 2";
+		}
+	}
+	/* E4h arms; with XSGS clear only levels below the status pass. */
+	if (problem == NULL) {
+		iocore_out8(0xe4, 0x01);
+		if (pic8214_test_offered()) {
+			problem = "level 1 was offered at current status 1";
+		}
+		iocore_out8(0xe4, 0x02);
+		if ((problem == NULL) && !pic8214_test_offered()) {
+			problem = "level 1 was not offered at current status 2";
+		}
+		iocore_out8(0xe4, 0x09);
+		if ((problem == NULL) && !pic8214_test_offered()) {
+			problem = "XSGS did not disable the status comparison";
+		}
+	}
+	/* Native delivery: V30 vector 40h + level, the lowest level first, AEOI. */
+	if (problem == NULL) {
+		pic_setirq(0x0c); /* sound: level 4 */
+		STOREINTELWORD(mem + 0x41 * 4, 0x3000);
+		STOREINTELWORD(mem + 0x41 * 4 + 2, 0x2000);
+		mem[0x20200] = 0xeb; /* JMP $ */
+		mem[0x20201] = 0xfe;
+		CPU_CS = 0x2000;
+		CS_BASE = 0x20000;
+		CPU_IP = 0x0200;
+		CPU_SS = 0x3000;
+		SS_BASE = 0x30000;
+		CPU_SP = 0x0100;
+		CPU_FLAG = 0xf202;
+		pic_irq();
+		if ((CPU_CS != 0x2000) || (CPU_IP != 0x3000) || (pic8214.irr != 0x10) || pic8214.inte ||
+		    (pic.pi[0].isr & PIC_SLAVE) || pic8214_test_offered()) {
+			problem = "native delivery did not take vector 41h with AEOI";
+		}
+	}
+	/* Nothing more until E4h is written again; then level 4 follows. */
+	if (problem == NULL) {
+		CPU_IP = 0x0200;
+		CPU_FLAG = 0xf202;
+		pic_irq();
+		if (CPU_IP != 0x0200) {
+			problem = "a second interrupt was accepted without re-arming";
+		}
+		iocore_out8(0xe4, 0x08);
+		STOREINTELWORD(mem + 0x44 * 4, 0x3100);
+		STOREINTELWORD(mem + 0x44 * 4 + 2, 0x2000);
+		pic_irq();
+		if ((problem == NULL) && ((CPU_IP != 0x3100) || pic8214.irr)) {
+			problem = "re-armed level 4 did not take vector 44h";
+		}
+	}
+	/* Compatible delivery: uPD780 vector 02h through Z80 IM 2. */
+	if (problem == NULL) {
+		STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+		STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+		mem[0x20100] = 0x0f; /* BRKEM E1h */
+		mem[0x20101] = 0xff;
+		mem[0x20102] = 0xe1;
+		for (i = 0; i < sizeof(z80_code); i++) {
+			mem[0x21000 + i] = z80_code[i];
+		}
+		mem[0x23002] = 0x00; /* IM 2 table entry (I=30h, vector 02h) */
+		mem[0x23003] = 0x20;
+		mem[0x22000] = 0x18; /* handler: JR $ */
+		mem[0x22001] = 0xfe;
+		/* The firmware gives compatible code CS = DS (VA2 ROM F000:13A8). */
+		CPU_DS = 0x2000;
+		DS_BASE = 0x20000;
+		CPU_IP = 0x0100;
+		CPU_SP = 0x0100;
+		CPU_BP = 0x0200;
+		CPU_FLAG = 0xf002;
+		for (i = 0; i < 6; i++) {
+			upd9002_core_step();
+		}
+		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1008)) {
+			problem = "compatible fixture did not reach its loop";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0xe4, 0x07);
+		pic_setirq(0x02);
+		pic_irq();
+		if ((pic8214.pending != PIC8214_VRTC) || pic8214_test_offered()) {
+			problem = "VRTC was not offered to compatible code";
+		}
+	}
+	if (problem == NULL) {
+		for (i = 0; (i < 4) && (CPU_IP != 0x2000); i++) {
+			upd9002_core_step();
+		}
+		if ((CPU_IP != 0x2000) || (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
+		    (pic8214.pending != PIC8214_NONE) || pic8214.irr || pic8214.inte ||
+		    (CPU_BP != 0x01fe) || (LOADINTELWORD(mem + 0x201fe) != 0x1008)) {
+			problem = "Z80 IM 2 did not take the uPD780 vector 02h";
+		}
+	}
+	/* General timer 2 raises level 2 when E6h bit 0 enables it. */
+	if (problem == NULL) {
+		ZeroMemory(&item, sizeof(item));
+		item.flag = NEVENT_SETEVENT;
+		pic8214_timer2(&item);
+		if ((pic8214.irr != 0x04) || !nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "general timer 2 did not raise level 2";
+		}
+	}
+	/* Save/load round trip, and an older file without PIC8214. */
+	if (problem == NULL) {
+		saved = pic8214;
+		soundmng_stop();
+		if (statsave_save(path) != STATFLAG_SUCCESS) {
+			problem = "save failed";
+		}
+	}
+	if (problem == NULL) {
+		pccore_reset();
+		if ((statsave_load(path) != STATFLAG_SUCCESS) || memcmp(&saved, &pic8214, sizeof(saved))) {
+			problem = "PIC8214 did not round-trip";
+		}
+	}
+	if ((problem == NULL) &&
+	    ((make_statsave_without_sections(path, oldpath, sections, 1) != SUCCESS) ||
+	     (statsave_load(oldpath) != STATFLAG_SUCCESS) || !pic8214.mode8259)) {
+		problem = "an older state did not load as 8259 mode";
+	}
+	/* Port 158H selects 8259 mode until reset; the slave works again. */
+	if (problem == NULL) {
+		pccore_reset();
+		iocore_out8(0x158, 0x00);
+		pic_setirq(0x08);
+		if (!pic8214.mode8259 || !(pic.pi[1].irr & PIC_SGP) || pic8214.irr ||
+		    nevent_iswork(NEVENT_GENTIMER2)) {
+			problem = "port 158H did not select 8259 mode";
+		}
+		iocore_out8(0xe4, 0x07);
+		pic_setirq(0x02);
+		if ((problem == NULL) && (pic8214.irr || pic8214_test_offered())) {
+			problem = "8214 registers acted in 8259 mode";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(oldpath);
+	if (problem != NULL) {
+		return (fail("8214 mode", problem));
+	}
+	fprintf(stderr, "selftest: 8214 mode ok\n");
 	return (SUCCESS);
 }
 
@@ -4404,6 +4634,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_state_sections() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pic8214_mode() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

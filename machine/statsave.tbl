@@ -31,6 +31,7 @@ static const PROCTBL evtproc[] = {
 			{PROCID('e','s','v','e'), sysp4vsyncend},
 			{PROCID('e','s','v','i'), sysp4vsyncint},
 			{PROCID('e','f','s','t'), fdc_statewatch},
+			{PROCID('e','g','t','2'), pic8214_timer2},
 };
 
 static const ENUMTBL evtnum[] = {
@@ -51,6 +52,7 @@ static const ENUMTBL evtnum[] = {
 			{PROCID('s','c','s','i'), NEVENT_SCSIIO},
 			{PROCID('s','c','s','w'), NEVENT_SCSIWATCHDOG},
 			{PROCID('f','s','t','w'), NEVENT_FDCSTATE},
+			{PROCID('g','t','m','2'), NEVENT_GENTIMER2},
 			{PROCID('f','l','m','2'), NEVENT_FLAMES2},
 };
 
@@ -92,6 +94,7 @@ static const SFENTRY np2tbl[] = {
 	{"MOUSE",		0,	STATFLAG_BIN,	&mouseif,		sizeof(mouseif)},
 	{"NP2SYSPORT",	0,	STATFLAG_BIN,	&np2sysp,		sizeof(np2sysp)},
 	{"PIC",			0,	STATFLAG_BIN,	&pic,			sizeof(pic)},
+	{"PIC8214",		0,	STATFLAG_BIN,	&pic8214,		sizeof(pic8214)},
 	{"RS232C",		0,	STATFLAG_BIN,	&rs232c,		sizeof(rs232c)},
 	{"uPD4990",		0,	STATFLAG_BIN,	&uPD4990,		sizeof(uPD4990)},
 	{"EVENT",		0,	STATFLAG_EVT,	&nevent,		sizeof(nevent)},

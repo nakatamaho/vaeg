@@ -390,6 +390,12 @@ void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip) {
 	UPD9002_TRAP = 0;
 }
 
+void CPUCALL upd9002_core_compat_irq(BOOL asserted) {
+	if (upd9002_compat_hooks.irq != NULL) {
+		upd9002_compat_hooks.irq(asserted);
+	}
+}
+
 BOOL CPUCALL upd9002_core_compat_iret_is_return(void) {
 	return (CPU_COMPAT_RETURN_PENDING != 0) && (UPD9002_SP == upd9002_compat_return_sp);
 }

@@ -236,6 +236,7 @@ typedef struct {
 	void (*resume)(void);
 	int (*state_save)(UINT8 *buffer, UINT size);
 	int (*state_load)(const UINT8 *buffer, UINT size);
+	void (*irq)(BOOL asserted);
 } Upd9002CompatHooks;
 
 enum {
@@ -290,6 +291,8 @@ void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks);
 void CPUCALL upd9002_core_brkem(REG8 vect);
 void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip);
 void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip);
+/* 8214 mode: drive the compatible core's INT line (vector on acknowledge). */
+void CPUCALL upd9002_core_compat_irq(BOOL asserted);
 BOOL CPUCALL upd9002_core_compat_iret_is_return(void);
 void CPUCALL upd9002_core_compat_retem(void);
 void CPUCALL upd9002_core_compat_iret_resume(void);

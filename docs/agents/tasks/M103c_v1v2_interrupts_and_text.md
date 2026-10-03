@@ -109,3 +109,57 @@ V1/V2 beyond boot, sound, V1 mode, timing accuracy.
 Standard V3 gate unchanged, plus with the VA2 ROM set and V2 BASIC
 media: the disk BASIC banner and first prompt appear on screen, typed
 characters echo, and a short BASIC line (`PRINT 1+1`) answers `2`.
+
+## Implementation progress
+
+### 8214-mode interrupts (scope items 1–4)
+
+- Traces before implementation: a V3 boot to PC-Engine writes port 158H
+  (the VA2 ROM's shared initialiser `F000:2210` reprograms the ICU for
+  8259 mode, ICW4 1Dh/09h); the V1/V2 BASIC boot never writes 158H and
+  uses E4h/E6h. At reset the ROM programs the ICU exactly as the manual's
+  8214-mode table (`F000:1317`: ICW1 11h, ICW2 00h, ICW3 80h, ICW4 03h =
+  auto-EOI, OCW1 7Fh).
+- `io/pic.c` now has an 8214 controller as the ICU's IR7 slave in 8214
+  mode: E4h current status and XSGS, E6h masks applied at the request
+  input, request latches, acceptance only above the current status (or
+  any level with XSGS), and no further acceptance until E4h is written
+  again. The acceptance and re-arm rule follows the Intel 8214 behaviour
+  that 8801 software relies on; the VA manual documents only the
+  registers. Port 158H selects 8259 mode until reset.
+- Routing in 8214 mode: VRTC (IR2) → INT1, sound (IR12) → INT4, mouse
+  timer (IR13) → INT6, SGP (IR8) → INT7, bus UINT0/UINT1 → INT3/INT5,
+  RS-232C receive → INT0 (an explicit call; vaeg's IR4 also carries
+  transmit). Master IR lines keep their old behaviour (masked by the
+  ROM's OCW1); the uPD8259 slave is absent in 8214 mode.
+- Delivery: compatible mode takes a Z80 interrupt through a virtual
+  acknowledge port (0x10000) that returns the uPD780 vector `2*level`;
+  native mode takes V30 vector 40h+level. The 8259 model now honours ICW4
+  auto-EOI; only the ROM's 8214-mode setting uses it.
+- General timer 2: a 600 Hz event (`NEVENT_GENTIMER2`, saved as `gtm2`)
+  that runs only while E6h bit 0 enables it, so an idle timer cannot
+  perturb V3 scheduling; the phase of the first tick after enabling is a
+  modelling choice.
+- State: new section `PIC8214`, version 0. A file without it predates
+  8214 mode, and those builds always behaved as 8259 mode, so loading
+  keeps 8259 mode in that case.
+- Tests: `vaeg_romless_tests` gains an 8214 case (reset state, masks,
+  status comparison and XSGS, priority, native vector 41h/44h with AEOI,
+  re-arm, Z80 IM 2 taking vector 02h, timer 2, save/load, an older file
+  loading as 8259 mode, and port 158H). Removing compatible delivery or
+  auto-EOI makes it fail. The 8087 interrupt fixtures and the statsave
+  test were written for an always-8259 model; they now select 8259 mode
+  as V3 software does, through the same function as the port handler,
+  so the M42 reset-state fixture is unchanged. Compatible code reads
+  data and operands through DS, so the new fixture sets DS = CS as the
+  ROM does before BRKEM2.
+- Results: full CTest without failures (108 entries, two skipped); V3
+  smoke passes; a V3 PC-Engine boot accepts `dir` and its clock advances.
+  With V2 BASIC media, headless input `3`, Enter, `PRINT 1+1`, Enter
+  produced in the 88-mode text area (local memory dump, not committed):
+  the version line `NEC N-88 BASIC Version 2.4`, `Ok`, `PRINT 1+1`, ` 2`,
+  `Ok` — BASIC runs interactively; only the display is missing. The VRTC
+  handler scans keyboard rows 0Bh–00h with `IN A,(C)`. The M103b trace
+  classifier in `vaeg_m103b_basic_boot` expects the interrupt-free
+  key-wait loop and no longer matches; it is replaced by a content check
+  once the text is visible (next stage).

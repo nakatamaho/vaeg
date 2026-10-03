@@ -400,6 +400,8 @@ void rs232c_callback(void) {
 	interrupt = FALSE;
 	if ((cm_rs232c) && (cm_rs232c->read(cm_rs232c, &rs232c.data))) {
 		rs232c.result |= 2;
+		/* 8214 mode: RXRDY is level 0; E6h bit 2 masks it. */
+		pic8214_request(PIC8214_RXRDY);
 		if (sysportva.c & 1) {
 			interrupt = TRUE;
 		}

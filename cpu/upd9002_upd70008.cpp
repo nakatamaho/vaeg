@@ -36,6 +36,10 @@
 
 namespace {
 
+// Interrupt acknowledge cycles read this virtual port, outside the 16-bit
+// I/O space, so the 8214 vector never comes from a real port.
+constexpr std::uint32_t kInterruptAcknowledgePort = 0x10000;
+
 // VAEG_UPD70008_TRACE=N records N compatible-mode events (default 4096);
 // VAEG_UPD70008_TRACE_SKIP=M first passes over M events, so a bounded window
 // can be placed late in a long run.
@@ -145,7 +149,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			    return static_cast<std::uint8_t>(upd9002_memoryread(index));
 		    },
 		    nullptr);
-		initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
+		initialized_ = upd70008_.Init(this, this, &clock_, &counter_, kInterruptAcknowledgePort);
 		return initialized_;
 	}
 
@@ -295,6 +299,12 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		upd9002_alt_regs.hl = state->r_hl;
 	}
 
+	void Irq(bool asserted) {
+		if (initialized_) {
+			upd70008_.IRQ(0, asserted ? 1 : 0);
+		}
+	}
+
 	int StateSave(UINT8 *buffer, UINT size) {
 		if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE) || !initialized_) {
 			return FAILURE;
@@ -339,6 +349,10 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	}
 
 	std::uint32_t IFCALL In(std::uint32_t port) override {
+		if (port == kInterruptAcknowledgePort) {
+			upd70008_.IRQ(0, 0);
+			return pic8214_acknowledge_compat();
+		}
 		const SINT32 before = CPU_REMCLOCK;
 		const UINT8 value = iocore_inp8(static_cast<UINT>(port & 0xffff));
 		const SINT32 elapsed = before - CPU_REMCLOCK;
@@ -398,6 +412,9 @@ int compat_state_save(UINT8 *buffer, UINT size) {
 int compat_state_load(const UINT8 *buffer, UINT size) {
 	return compat.StateLoad(buffer, size);
 }
+void compat_irq(BOOL asserted) {
+	compat.Irq(asserted != FALSE);
+}
 
 } // namespace
 
@@ -415,6 +432,7 @@ extern "C" void upd9002_upd70008_register(void) {
 	hooks.resume = compat_resume;
 	hooks.state_save = compat_state_save;
 	hooks.state_load = compat_state_load;
+	hooks.irq = compat_irq;
 	upd9002_core_set_compat_hooks(&hooks);
 	registered = true;
 }
