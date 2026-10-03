@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103f - V1/V2 text addressing and multi-image media
 
-Status: **in progress**
+Status: **implementation complete; G103f human gate pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103f-v1v2-text-media` off
 `topic/m103e-v1v2-srdemo-sound` at `e4f16e577a6f09ab614aea0ea737ca976d950366`
@@ -71,3 +71,36 @@ MA2-DEMO and V2 BASIC text still display as at G103e.
   the start field to 1000h (local 0800h). The old rule read TVRAM 3800h,
   where the ROM keeps words 0080h/00E8h, and showed them as characters;
   the new rule reads TVRAM 0800h, which is clear.
+- Result: in GAME-A the grid is gone from the first 18 rows. The last two
+  rows of the 20-row screen cross local 1000h and read TVRAM 2070h onward,
+  where the V3 BIOS text-screen setup (`F000:2470`–`24AF`, run at every
+  boot) leaves words 0080h; they show as a dashed line. Local addresses
+  below 3000h are outside the documented byte-mode ranges, so what the real
+  TSP shows there is not known. Open.
+
+### Multi-image D88 (scope item 2)
+
+- The loader walks the images' `fd_size` fields to the chosen one and adds
+  its base to every track read and write; formatting is refused unless the
+  file holds a single image (growing a track would move later images).
+- `--fdd1-image N` / `--fdd2-image N` (from 1) choose the disk. GAME-A runs
+  from its original two-image file with `--fdd2-image 2`, with the same
+  screens as the split copies. Not stored in the configuration or in state
+  files (a state file reloads the drive's current choice); no GUI control.
+
+### Tests (scope item 3)
+
+- `vaeg_romless_tests`: the byte-mode address rule at 33C6h, 3FFFh, B000h
+  and 0800h; a two-image file (second image selected with its base, a
+  missing third image rejected) and the new options.
+- Full CTest without failures (108 entries, two skipped as before); the V2
+  BASIC acceptance test passes; the tests-off `linux-release` preset
+  builds; each code commit builds alone; with the release build SR-DEMO
+  shows its title, MA2-DEMO loads its demonstration, and V3 PC-Engine
+  lists its disk.
+
+## Summary for G103f
+
+Policies for approval: the byte-mode address rule (derived from the two
+ranges BNN 8.2.1 tabulates); refusing to format inside multi-image files.
+Open: the two dashed rows in GAME-A after a 3301 RESET; V1 mode (no media).
