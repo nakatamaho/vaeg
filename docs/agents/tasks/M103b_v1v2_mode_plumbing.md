@@ -339,6 +339,31 @@ plus, with the VA2 ROM set and compatible boot media, without overrides:
   stays outside Git. Keyboard input cannot be exercised until interrupt
   delivery (M103c).
 
+### Automated key-wait acceptance test
+
+- `VAEG_UPD70008_TRACE_SKIP=M` (new, with `VAEG_UPD70008_TRACE=N`) passes
+  over the first M compatible-mode trace events before recording N, so a
+  bounded window can sit late in a long run. It costs nothing when
+  `VAEG_UPD70008_TRACE` is unset.
+- `tools/qa/m103b_basic_boot.py run` copies the media to a temporary
+  directory, boots the VA2 ROM set without any override for 6000 frames,
+  records 20000 compatible instructions after skipping 30 million, and
+  requires: every record in segment 1000h, every saved native frame
+  `13B4/F000/...` (BRKEM2 at F000:13B1), and an address set inside the
+  observed 38-address key-wait loop containing its anchors. Stable error
+  codes: `M103B_NO_TRACE_WINDOW`, `M103B_ENTRY_FRAME_MISMATCH`,
+  `M103B_SEGMENT_MISMATCH`, `M103B_NOT_KEY_WAIT`, `M103B_WORKER_FAILED`.
+- CTest: `vaeg_m103b_basic_boot_selftest` (romless) checks one passing
+  fixture and six single-mutation fixtures, each against its exact code.
+  `vaeg_m103b_basic_boot` runs only when the cache variables
+  `VAEG_V1V2_ROM_DIR` and `VAEG_V1V2_BASIC_MEDIA` point at
+  maintainer-local files, and otherwise reports skipped (exit 77).
+- Local results: integration BASIC passes in about 70 s (20000 records,
+  38 addresses); the synthetic 512-byte-sector media, which takes the
+  native IPL branch, fails with `M103B_NO_TRACE_WINDOW`. The address set
+  is specific to this ROM/media pair and to the absence of interrupt
+  delivery; M103c is expected to change the test.
+
 ## Research notes for the implementer
 
 - Hardware-versus-trap port table and the TVRAM/GVRAM mapping: plan §2–§3

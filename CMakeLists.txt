@@ -1935,6 +1935,34 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "romless;frontend;viewport"
         TIMEOUT 30)
+    # M103b: V2 disk BASIC reaches its key-input wait through automatic FDD
+    # selection. Needs maintainer-local VA2 ROMs and V2 BASIC media.
+    set(VAEG_V1V2_ROM_DIR "" CACHE PATH "Maintainer-local VA2 ROM directory for M103b")
+    set(VAEG_V1V2_BASIC_MEDIA "" CACHE FILEPATH "Maintainer-local V2 BASIC D88 for M103b")
+    add_test(NAME vaeg_m103b_basic_boot_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" selftest)
+    set_tests_properties(vaeg_m103b_basic_boot_selftest PROPERTIES
+        LABELS "romless;v1v2;m103b")
+    if(VAEG_V1V2_ROM_DIR AND VAEG_V1V2_BASIC_MEDIA)
+        add_test(NAME vaeg_m103b_basic_boot
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" run
+                --worker "$<TARGET_FILE:vaeg_sdl2>"
+                --roms "${VAEG_V1V2_ROM_DIR}"
+                --media "${VAEG_V1V2_BASIC_MEDIA}")
+        set_tests_properties(vaeg_m103b_basic_boot PROPERTIES
+            LABELS "romful;v1v2;m103b;external"
+            TIMEOUT 900)
+    else()
+        add_test(NAME vaeg_m103b_basic_boot
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" skip
+                --reason "VAEG_V1V2_ROM_DIR and VAEG_V1V2_BASIC_MEDIA are not configured")
+        set_tests_properties(vaeg_m103b_basic_boot PROPERTIES
+            LABELS "v1v2;m103b;external"
+            SKIP_RETURN_CODE 77)
+    endif()
     add_test(NAME vaeg_m75_transfer_info_compiled COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_m75_transfer_info_compiled PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
