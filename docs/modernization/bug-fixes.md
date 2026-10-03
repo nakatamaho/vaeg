@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M103a — CALLN round trip set the compatible N flag
+
+- **Symptom/scope:** after a native handler entered by `CALLN` (or by an
+  interrupt taken in compatible mode) returned with `IRET`, compatible F
+  bit 1 (N) read as one and bits 3/5 as zero, whatever F held before. On a
+  real PC-88VA2, `CALLN 91h` returns F unchanged (00h stays 00h, C5h stays
+  C5h); vaeg returned 02h and C7h.
+- **Demonstrated cause:** the native `IRET` normalises every restored frame
+  with `(flag & 0FD7h) | F002h`, including frames that resume compatible
+  mode, whose low byte is the compatible F.
+- **Correction:** when the `IRET` resumes compatible mode, bits 1, 3 and 5
+  of the frame are kept; native returns are unchanged. Bits 3/5 are policy,
+  not measured.
+- **Verification:** the M103a ALTPRB real-machine run; the adapter self-test
+  (`XOR A`, `CALLN`, `IRET`, F=44h) fails with the old masking and passes;
+  full local CTest without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a ALTPRB results](../agents/tasks/M103a_alternate_register_storage.md#altprb-results-and-the-f-bit-1-correction),
+  [ALTPRB outputs](../agents/reports/m103a_altregs_qa/README.md).
+  Fix: [5ed797b2](https://github.com/nakatamaho/vaeg/commit/5ed797b28bb413af27e02ba458d4d8444e6ed982).
+
 ### M103a — States saved in compatible mode could not be resumed
 
 - **Symptom/scope:** loading a state saved while compatible code (for
