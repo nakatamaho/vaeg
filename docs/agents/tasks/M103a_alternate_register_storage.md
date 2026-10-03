@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103a - Machine-owned alternate register storage
 
-Status: **ready (approved on 2026-10-02)**
+Status: **complete; G103a passed on 2026-10-03**
 
 Series: V1/V2 mode (ADR-0016). First milestone of the series; it lands on
 `main` before `topic/v1v2-mode` is created, because the V3 series depends
@@ -200,3 +200,25 @@ operations) plus:
   `CALLN` and requires F=44h after the `IRET`; with the old masking it
   fails with F=46h. Full CTest has no failures (106 entries, one external
   SST skipped). Re-running ALTPRB in vaeg is part of the repeated G103a.
+
+### G103a (passed 2026-10-03)
+
+- Standard gate passed with the static Windows build of
+  `bb217138bb039fdec3f57d5bd48af69f0cd58f07` (`vaeg.exe` SHA-256
+  `9292aceaa71ed0eae7f397b132bf4e80ab2aa4e07257c5f9a5588d8f7a817aa2`):
+  V3 boot, VA demo, FreeDOS and a PC-Engine game checked by the maintainer.
+- ALTPRB in vaeg after the F correction is byte-identical to the real
+  PC-88VA2 run across all eight records (run 2 in
+  [`m103a_altregs_qa`](../reports/m103a_altregs_qa/README.md); both
+  `altprb.txt` SHA-256
+  `8a559139d5eaeedee8082a0855e4af5c35acb96c4cd6c5db717d80f9899de30a`).
+- Save/load at the CP/MVA `A>` prompt now works (step 4). A state saved by
+  the M102 build is no longer resumed into a crash (step 5): it fails
+  closed. Observation: for the maintainer's M102 save the GUI showed the
+  generic "state load failed" rather than the "saved in compatible mode by
+  an older build" text, so the tailored diagnostic can be masked by an
+  earlier fail-closed check for some real M102 files; the safety property
+  (no crash, load refused) holds. Not recorded as a root cause.
+- Gate candidate including the run-2 evidence:
+  `719f83950a5d3ce723f175dd3ac4babc9e24e759`. The behaviour-relevant source
+  is `bb217138`; `719f8395` adds the run-2 ALTPRB evidence only.
