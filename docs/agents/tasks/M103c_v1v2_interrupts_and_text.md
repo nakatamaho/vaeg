@@ -306,3 +306,31 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   extension ROM not winning, MMODE removing all ROM, and restoration.
   Removing the bank selection makes it fail. Full CTest without failures
   (108 entries, two skipped); BASIC acceptance and `linux-release` pass.
+
+### US-layout keys in V1/V2 (G103c feedback)
+
+- Maintainer report: with the US 101 host layout many characters could not
+  be typed in BASIC; the JIS layout seemed fine.
+- Demonstrated cause: the US layout produces symbols by synthetic VA key
+  taps and SHIFT chords (`sdl2/kbdmap.c` `tap_action`), sending press and
+  release in one host event. `keyboard_send` (`io/serial.c`) updated the
+  key matrix (ports 00h–0Eh) at once for each, so a tap was down and up
+  before the next VRTC. N-88 BASIC scans the matrix in its VRTC interrupt
+  and never saw it. V3 software reads the keyboard controller's FIFO, which
+  keeps every code, so the same taps worked there; JIS typing uses the
+  host's real key timing.
+- Correction: the matrix applies a key's release only after the key has
+  been visible across two VRTC starts; later events queue behind it in
+  order and are released at `sysp4vsyncstart`, before the VRTC interrupt.
+  Events that need no delay apply at once as before; the FIFO path is
+  unchanged. Two boundaries rather than one is a margin for handlers that
+  run late; it limits synthetic taps to about 30 per second.
+- Verification: a temporary host-event hook (not committed) typed
+  `@=':+*()"_` and Enter through `kbdmap_keydown/keyup` with the US layout:
+  without the change nothing reached BASIC, with it the line appeared
+  exactly and BASIC answered `Syntax error`. A new `vaeg_romless_tests`
+  case covers a tap, a SHIFT chord, an unshifted tap while host SHIFT is
+  held (SHIFT lifted and restored), and undelayed real timing; applying
+  events directly makes it fail. Full CTest without failures (108 entries,
+  two skipped); BASIC acceptance, V3 smoke, a V3 PC-Engine session with the
+  US layout and the `linux-release` build pass.

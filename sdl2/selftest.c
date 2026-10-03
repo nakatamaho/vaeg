@@ -49,6 +49,7 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "kbdmap.h"
+#include "machine/keystat.h"
 #include "kbdpaste.h"
 #include "memoryva.h"
 #include "mousestate.h"
@@ -4353,6 +4354,101 @@ static int test_tsp_3301_emulation(void) {
 	return (SUCCESS);
 }
 
+/* M103c: key-matrix pacing for V1/V2 matrix scanning (io/serial.c). */
+static BOOL matrix_a_down(void) {
+	return (keybrd.keymap[0x02] & 0x02) == 0; /* VA code 1Dh, 'A' */
+}
+
+static BOOL matrix_shift_down(void) {
+	return (keybrd.keymap[0x08] & 0x40) == 0; /* derived SHIFT, 86h */
+}
+
+static int test_keyboard_matrix_pacing(void) {
+	const char *problem;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	keystat_initialize();   /* no host keys held, as main() starts */
+	keyboard_resetsignal(); /* all keys released, as after the firmware's RESET */
+	problem = NULL;
+	if (matrix_a_down() || matrix_shift_down()) {
+		problem = "the matrix did not start with all keys released";
+	}
+
+	/* A tap stays visible across two VRTC boundaries. */
+	keyboard_send(0x1d);
+	keyboard_send(0x9d);
+	if ((problem == NULL) && !matrix_a_down()) {
+		problem = "a tap was not visible before the next VRTC";
+	}
+	keyboard_matrix_tick();
+	if ((problem == NULL) && !matrix_a_down()) {
+		problem = "a tap was released after one VRTC";
+	}
+	keyboard_matrix_tick();
+	if ((problem == NULL) && matrix_a_down()) {
+		problem = "a tap was not released after two VRTCs";
+	}
+	/* A chord (SHIFT + key) keeps its order. */
+	if (problem == NULL) {
+		keyboard_send(0x70);
+		keyboard_send(0x1d);
+		keyboard_send(0x9d);
+		keyboard_send(0xf0);
+		if (!matrix_a_down() || !matrix_shift_down()) {
+			problem = "a chord was not visible as SHIFT + key";
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		if ((problem == NULL) && (matrix_a_down() || matrix_shift_down())) {
+			problem = "a chord was not released";
+		}
+	}
+	/* Host SHIFT held: SHIFT is lifted around an unshifted tap, then back. */
+	if (problem == NULL) {
+		keyboard_send(0x70);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		keyboard_send(0xf0);
+		keyboard_send(0x1d);
+		keyboard_send(0x9d);
+		keyboard_send(0x70);
+		if (!matrix_a_down() || matrix_shift_down()) {
+			problem = "an unshifted tap was visible with SHIFT";
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		if ((problem == NULL) && (matrix_a_down() || !matrix_shift_down())) {
+			problem = "SHIFT was not restored after the tap";
+		}
+		keyboard_matrix_tick(); /* the user lets go of SHIFT later */
+		keyboard_matrix_tick();
+		keyboard_send(0xf0);
+		if ((problem == NULL) && matrix_shift_down()) {
+			problem = "a long-held key was not released at once";
+		}
+	}
+	/* Real key timing is not delayed. */
+	if (problem == NULL) {
+		keyboard_send(0x1d);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		keyboard_send(0x9d);
+		if (matrix_a_down()) {
+			problem = "a release after two VRTCs was delayed";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("keyboard matrix pacing", problem));
+	}
+	fprintf(stderr, "selftest: keyboard matrix pacing ok\n");
+	return (SUCCESS);
+}
+
 typedef struct {
 	char text[256];
 } TOKENBUF;
@@ -4854,6 +4950,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_3301_emulation() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_keyboard_matrix_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

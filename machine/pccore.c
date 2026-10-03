@@ -651,6 +651,7 @@ void sysp4vsyncint(NEVENTITEM item) {
 
 void sysp4vsyncstart(NEVENTITEM item) {
 	tsp.sysp4vsync = 0x20;
+	keyboard_matrix_tick();
 
 	// Delay the interrupt by six clocks.
 	// Software may observe VRTC at port 040H before the interrupt;
