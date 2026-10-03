@@ -75,6 +75,21 @@ static REG8 IOINPCALL memctrlva_i0e3(UINT port) {
 	return (REG8)(0xf0 | memoryva_88_eram.bank);
 }
 
+/*
+ * Dictionary ROM window. Not documented for the VA; a PC-8801MA2 loader
+ * selects bank 0 with F0h, maps it with F1h = 00h and checks for 44h 10h at
+ * C000h, which is how the VA2 dictionary ROM image begins.
+ */
+static void IOOUTCALL memctrlva_o0f0(UINT port, REG8 dat) {
+	memoryva_88_dic.bank = (UINT8)(dat & 0x1f);
+	(void)port;
+}
+
+static void IOOUTCALL memctrlva_o0f1(UINT port, REG8 dat) {
+	memoryva_88_dic.enable = (UINT8)(dat & 0x01);
+	(void)port;
+}
+
 static void IOOUTCALL memctrlva_o070(UINT port, REG8 dat) {
 	memoryva_88_window = (UINT8)dat;
 	(void)port;
@@ -202,6 +217,8 @@ void memctrlva_reset(void) {
 	memoryva_88_plane = 3;
 	ZeroMemory(&memoryva_88_alu, sizeof(memoryva_88_alu));
 	ZeroMemory(&memoryva_88_eram, sizeof(memoryva_88_eram));
+	memoryva_88_dic.bank = 0;
+	memoryva_88_dic.enable = 1;
 	memctrlva_o152(0, 0);
 	memctrlva_o153(0, 0x41);
 	memctrlva_o198(0, 0);
@@ -218,6 +235,8 @@ void memctrlva_bind(void) {
 	iocore_attachout(0x035, memctrlva_o035);
 	iocore_attachinp(0x034, memctrlva_i034);
 	iocore_attachinp(0x035, memctrlva_i035);
+	iocore_attachout(0x0f0, memctrlva_o0f0);
+	iocore_attachout(0x0f1, memctrlva_o0f1);
 	iocore_attachout(0x0e2, memctrlva_o0e2);
 	iocore_attachinp(0x0e2, memctrlva_i0e2);
 	iocore_attachout(0x0e3, memctrlva_o0e3);
