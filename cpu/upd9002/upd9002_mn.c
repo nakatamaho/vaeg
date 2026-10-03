@@ -2351,7 +2351,14 @@ UPD9002FN _iret(void) { // CF: iret
 		CPU_COMPAT_RETURN_PENDING = 0;
 	}
 	CS_BASE = UPD9002_CS << 4;
-	flag = (flag & 0x0fd7) | 0xf002;
+	if (return_compat) {
+		/* The frame holds the compatible F in its low byte. A real PC-88VA2
+		 * returns F unchanged from a CALLN 91h round trip, including bit 1
+		 * (N) = 0 (M103a ALTPRB); bits 3/5 are kept the same way. */
+		flag = (flag & 0x0fff) | 0xf000;
+	} else {
+		flag = (flag & 0x0fd7) | 0xf002;
+	}
 	UPD9002_OV = flag & O_FLAG;
 	UPD9002_FLAG = flag & (0xfff ^ O_FLAG);
 	UPD9002_TRAP = ((flag & T_FLAG) != 0);

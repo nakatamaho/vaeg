@@ -584,6 +584,7 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	mem[code_base + code_offset + 1] = 0xff;
 	mem[code_base + code_offset + 2] = 0xe1;
 	static const UINT8 program[] = {
+	    0xaf,             // XOR A            F = 44h: N (bit 1) clear
 	    0x01, 0x11, 0x11, // LD BC,1111h
 	    0xd9,             // EXX
 	    0x01, 0x22, 0x22, // LD BC,2222h
@@ -610,6 +611,9 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 
 	upd9002_core_step(); // BRKEM
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008)
+		return fail(__LINE__);
+	upd9002_core_step(); // XOR A
+	if ((CPU_FLAG & 0xff) != 0x44)
 		return fail(__LINE__);
 	upd9002_core_step(); // LD BC,1111h
 	if (CPU_CX != 0x1111)
@@ -651,7 +655,7 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	// when it resumes.
 	upd9002_alt_regs.bc = 0x3333;
 	upd9002_core_step(); // IRET -> resumes compatible mode
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008)
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || (CPU_FLAG & 0xff) != 0x44 || CPU_AL != 0)
 		return fail(__LINE__);
 	upd9002_core_step(); // EXX
 	if (CPU_CX != 0x3333 || upd9002_alt_regs.bc != 0x1111)
@@ -698,7 +702,7 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	// ED 20 / RETEM for this check.
 	static const UINT8 tail[] = {0xd9, 0x0e, 0x30, 0xed, 0x20, 0xed, 0xfd};
 	for (size_t i = 0; i < sizeof(tail); ++i) {
-		mem[code_base + compatible_offset + 8 + i] = tail[i];
+		mem[code_base + compatible_offset + 9 + i] = tail[i];
 	}
 	upd9002_core_step(); // EXX
 	if (CPU_CX != 0x4444)

@@ -180,3 +180,23 @@ operations) plus:
   the old-format refusal and the native old-format load), and the
   adapter self-test checks the mode-state codec. Full CTest has no
   failures (106 entries, one external SST skipped).
+
+### ALTPRB results and the F bit-1 correction
+
+- Run 1 outputs and the record-by-record comparison are archived in
+  [`m103a_altregs_qa`](../reports/m103a_altregs_qa/README.md). On the real
+  PC-88VA2 the alternate set, IX/IY/SP/DE/HL and F survive the `CALLN 91h`
+  round trip; BC returns 0033h. vaeg matched except F in X2 (00h→02h) and
+  X3 (C5h→C7h).
+- Demonstrated cause: the native `IRET` applies
+  `(flag & 0FD7h) | F002h` to every restored frame, forcing bit 1 to one
+  and clearing bits 3/5, also when the frame returns to compatible mode,
+  where its low byte is the compatible F.
+- Correction: when the `IRET` resumes compatible mode, keep bits 1, 3 and
+  5 of the frame (`(flag & 0FFFh) | F000h`); native returns are unchanged.
+  Bit 1 is measured; bits 3/5 follow the same rule but were zero in every
+  ALTPRB input, so they remain implementation policy.
+- Verification: the adapter self-test now runs `XOR A` (F=44h) before the
+  `CALLN` and requires F=44h after the `IRET`; with the old masking it
+  fails with F=46h. Full CTest has no failures (106 entries, one external
+  SST skipped). Re-running ALTPRB in vaeg is part of the repeated G103a.
