@@ -87,9 +87,9 @@
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include "tests/upd9002/dispatch_normalization.h"
 #endif
+#include "io/upd9002_regs.h"
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 #include "io/subsystem.h"
-#include "io/upd9002_regs.h"
 #include "tests/upd780/subsystem_integration.h"
 #endif
 
