@@ -1570,6 +1570,75 @@ static int test_fdd_d88_short_table(void) {
 	return (SUCCESS);
 }
 
+/* M103f: choose a disk inside a multi-image D88 file. */
+static int test_fdd_d88_multi_image(void) {
+	static BYTE file[0x10400 * 2];
+	char path[MAX_PATH];
+	char *pick_second[] = {"vaeg", "--fdd2-image", "2"};
+	char *pick_none[] = {"vaeg", "--fdd1-image", "0"};
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+	_FDDFILE parsed;
+	const char *problem;
+	FILEH fh;
+
+	problem = NULL;
+	SPRINTF(path, "vaeg-selftest-%lu-d88-multi.d88", (unsigned long)getpid());
+	if (!selftest_d88_table_image(path, 0x2a0, 0)) {
+		problem = "could not build an image";
+	} else {
+		fh = file_open_rb(path);
+		if ((fh == FILEH_INVALID) || (file_read(fh, file, 0x10400) != 0x10400)) {
+			problem = "could not read the image back";
+		}
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+	}
+	if (problem == NULL) {
+		CopyMemory(file + 0x10400, file, 0x10400);
+		file[0x10400] = 'B'; /* name of the second image */
+		fh = file_create(path);
+		if ((fh == FILEH_INVALID) || (file_write(fh, file, sizeof(file)) != sizeof(file))) {
+			problem = "could not write the two-image file";
+		}
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+	}
+	if (problem == NULL) {
+		ZeroMemory(&parsed, sizeof(parsed));
+		parsed.num = 1;
+		if ((fddd88_set(&parsed, path, 0) != SUCCESS) || (parsed.inf.d88.base != 0x10400) ||
+		    (parsed.inf.d88.head.fd_name[0] != 'B') || (parsed.inf.d88.ptr[1] != 0x8000)) {
+			problem = "second image not selected";
+		}
+		fddd88_eject(&parsed);
+	}
+	if (problem == NULL) {
+		ZeroMemory(&parsed, sizeof(parsed));
+		parsed.num = 2;
+		if (fddd88_set(&parsed, path, 0) != FAILURE) {
+			problem = "a missing third image was accepted";
+		}
+	}
+	file_delete(path);
+	if ((problem == NULL) && ((vaeg_cli_parse((int)NELEMENTS(pick_second), pick_second, &options,
+	                                          error, sizeof(error)) != SUCCESS) ||
+	                          (options.fdd_image[0] != 0) || (options.fdd_image[1] != 2))) {
+		problem = "--fdd2-image was not parsed";
+	}
+	if ((problem == NULL) && (vaeg_cli_parse((int)NELEMENTS(pick_none), pick_none, &options, error,
+	                                         sizeof(error)) != FAILURE)) {
+		problem = "--fdd1-image 0 was accepted";
+	}
+	if (problem != NULL) {
+		return (fail("D88 multi-image", problem));
+	}
+	fprintf(stderr, "selftest: D88 multi-image ok\n");
+	return (SUCCESS);
+}
+
 static int test_fdd_d88_production_path(void) {
 	const SELFTESTFDDPROFILE *profile;
 	_FDC saved_fdc;
@@ -5257,6 +5326,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_short_table() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_d88_multi_image() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_production_path() != SUCCESS) {
