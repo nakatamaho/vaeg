@@ -3834,20 +3834,17 @@ static void v1v2_state_set_nondefault(void) {
 static BOOL v1v2_state_is_nondefault(void) {
 	static const BYTE ranges[8] = {0x50, 0x00, 0x5b, 0x00, 0x60, 0x00, 0x6f, 0x00};
 
-	return memoryva_88_mode == 1 && !(iocore_inp8(0x153) & 0x40) &&
-	       memoryva_88_port31 == 0x02 && iocore_inp8(0x071) == 0xfe &&
-	       iocore_inp8(0x070) == 0x37 && iocore_inp8(0x05c) == 0xfa &&
-	       !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
-	       upd9002_iotrap.control == 0x13;
+	return memoryva_88_mode == 1 && !(iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0x02 &&
+	       iocore_inp8(0x071) == 0xfe && iocore_inp8(0x070) == 0x37 && iocore_inp8(0x05c) == 0xfa &&
+	       !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) && upd9002_iotrap.control == 0x13;
 }
 
 static BOOL v1v2_state_is_default(void) {
 	static const BYTE zero[8] = {0};
 
 	return memoryva_88_mode == 0 && (iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0 &&
-	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 &&
-	       iocore_inp8(0x05c) == 0xf8 && !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) &&
-	       upd9002_iotrap.control == 0;
+	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 && iocore_inp8(0x05c) == 0xf8 &&
+	       !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) && upd9002_iotrap.control == 0;
 }
 
 /* M103b: V1/V2 machine state survives a full save/load, and old files without

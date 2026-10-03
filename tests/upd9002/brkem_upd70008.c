@@ -71,8 +71,8 @@ static int native_io_case(const BYTE *code, UINT length, BYTE control, UINT16 dx
 	CPU_REMCLOCK = 100000;
 	upd9002_core_step();
 	*saved_ip = (UINT16)(mem[0x300fa] | (mem[0x300fb] << 8));
-	return CPU_CS == 0x2000 && CPU_IP == (vector == 0x7c ? 0x3000 : 0x3100) &&
-	       CPU_SP == 0x00fa && !(CPU_FLAG & I_FLAG);
+	return CPU_CS == 0x2000 && CPU_IP == (vector == 0x7c ? 0x3000 : 0x3100) && CPU_SP == 0x00fa &&
+	       !(CPU_FLAG & I_FLAG);
 }
 
 static int native_iotrap_selftest(void) {
@@ -131,16 +131,14 @@ static int native_iotrap_selftest(void) {
 	passed = passed && native_spy_accesses == 0;
 
 	/* Outside the range, direction disabled, and byte-port 16-bit compare. */
-	passed = passed && !native_io_case(in_imm_miss, 2, 3, 0, 0x7c, &saved) &&
-	         CPU_AL == 0x99 && native_spy_accesses == 1;
-	passed = passed && !native_io_case(in_imm, 2, 2, 0, 0x7c, &saved) &&
-	         native_spy_accesses == 2;
-	passed = passed && !native_io_case(in_dx, 1, 1, 0x1050, 0x7c, &saved) &&
-	         native_spy_accesses == 3;
+	passed = passed && !native_io_case(in_imm_miss, 2, 3, 0, 0x7c, &saved) && CPU_AL == 0x99 &&
+	         native_spy_accesses == 1;
+	passed = passed && !native_io_case(in_imm, 2, 2, 0, 0x7c, &saved) && native_spy_accesses == 2;
+	passed =
+	    passed && !native_io_case(in_dx, 1, 1, 0x1050, 0x7c, &saved) && native_spy_accesses == 3;
 	/* Word-port mode (bit 4) matches the low byte only. */
 	passed = passed && native_io_case(in_dx, 1, 0x11, 0x1050, 0x7c, &saved) &&
-	         native_io_case(out_dx, 1, 0x12, 0x1050, 0x7d, &saved) &&
-	         native_spy_accesses == 3;
+	         native_io_case(out_dx, 1, 0x12, 0x1050, 0x7d, &saved) && native_spy_accesses == 3;
 	/* FFE0h-FFFFh never trap: a full-range trap still lets OUT FFEFh disable it. */
 	upd9002_iotrap.ranges[2] = 0xff;
 	upd9002_iotrap.ranges[3] = 0xff;
@@ -170,13 +168,13 @@ static int iotrap_register_selftest(void) {
 	for (i = 8; i > 0; i--) {
 		iocore_out8(0xffe0 + i - 1, ranges[i - 1]);
 	}
-	passed = !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
-	         upd9002_iotrap.control == 0;
+	passed = !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) && upd9002_iotrap.control == 0;
 	iocore_out8(0xffef, 3);
 	byte_state = upd9002_iotrap;
 	upd9002_regs_reset();
 	passed = passed && upd9002_iotrap.control == 0;
-	for (i = 0; i < 8; i++) passed = passed && upd9002_iotrap.ranges[i] == 0;
+	for (i = 0; i < 8; i++)
+		passed = passed && upd9002_iotrap.ranges[i] == 0;
 	for (i = 0; i < 8; i += 2) {
 		iocore_out16(0xffe0 + i, ranges[i]);
 	}
@@ -226,8 +224,8 @@ static int memory_mode_selftest(void) {
 		         (upd9002_memoryread_va_w(0x0ffff) == 0xa511) &&
 		         (upd9002_memoryread_va_w(0x17fff) == 0x445a);
 		upd9002_memorywrite_va_w(0x17fff, 0x6677);
-		passed = passed && (upd9002_memoryread_va_w(0x17fff) == 0x665a) &&
-		         (rom1mem[0x17fff] == 0x5a);
+		passed =
+		    passed && (upd9002_memoryread_va_w(0x17fff) == 0x665a) && (rom1mem[0x17fff] == 0x5a);
 		iocore_out8(0x031, 0x02); /* MMODE: all RAM. */
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22) &&
 		         (upd9002_memoryread_va_w(0x17fff) == 0x6677);
@@ -280,18 +278,15 @@ static int memory_mode_selftest(void) {
 	upd9002_memorywrite_va(0x18400, 0x94);
 	iocore_out8(0x70, 0xff);
 	iocore_out8(0x31, 0);
-	passed = passed && iocore_inp8(0x70) == 0xff &&
-	         upd9002_memoryread_va(0x18000) == 0x91 &&
-	         upd9002_memoryread_va(0x18100) == 0x92 &&
-	         upd9002_memoryread_va_w(0x183ff) == 0x9493;
+	passed = passed && iocore_inp8(0x70) == 0xff && upd9002_memoryread_va(0x18000) == 0x91 &&
+	         upd9002_memoryread_va(0x18100) == 0x92 && upd9002_memoryread_va_w(0x183ff) == 0x9493;
 	upd9002_memorywrite_va_w(0x183ff, 0xa2a1);
 	iocore_out8(0x31, 2);
-	passed = passed && upd9002_memoryread_va(0x102ff) == 0xa1 &&
-	         upd9002_memoryread_va(0x18400) == 0xa2;
+	passed =
+	    passed && upd9002_memoryread_va(0x102ff) == 0xa1 && upd9002_memoryread_va(0x18400) == 0xa2;
 	iocore_out8(0x31, 0);
 	iocore_out8(0x78, 0x55); /* Value ignored; FF wraps to 00. */
-	passed = passed && iocore_inp8(0x70) == 0 &&
-	         upd9002_memoryread_va(0x18000) == 0x92;
+	passed = passed && iocore_inp8(0x70) == 0 && upd9002_memoryread_va(0x18000) == 0x92;
 	iocore_out8(0x78, 0xaa);
 	passed = passed && iocore_inp8(0x70) == 1;
 	iocore_out8(0x153, 0x41);
@@ -318,8 +313,7 @@ static int memory_mode_selftest(void) {
 			         upd9002_memoryread_va_w(0x1ffff) == 0x4460 + plane;
 		}
 		iocore_out8(0x5f, 0);
-		passed = passed && iocore_inp8(0x5c) == 0xf8 &&
-		         upd9002_memoryread_va(0x1c000) == 0x22 &&
+		passed = passed && iocore_inp8(0x5c) == 0xf8 && upd9002_memoryread_va(0x1c000) == 0x22 &&
 		         upd9002_memoryread_va(0x1ffff) == 0x33;
 		iocore_out8(0x5c, 0);
 		iocore_out8(0x153, 0x41);
@@ -357,8 +351,9 @@ int upd9002_brkem_upd70008_main(void) {
 		return FAILURE;
 	}
 	fprintf(stderr, "upd9002-brkem-upd70008: memory-mode byte/word I/O and reset passed\n");
-	fprintf(stderr,
-	        "upd9002-brkem-upd70008: BRKEM/BRKEM2, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
+	fprintf(
+	    stderr,
+	    "upd9002-brkem-upd70008: BRKEM/BRKEM2, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage, state authority and "
 	                "load-before-enter vector reader passed\n");
 	return SUCCESS;

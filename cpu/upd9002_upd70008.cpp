@@ -502,8 +502,8 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 
 	upd9002_core_step();
 	if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_CS != code_segment) ||
-	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa) ||
-	    (CPU_DS != code_segment) || (CPU_SS != native_stack_segment) ||
+	    (CPU_IP != compatible_offset) || (CPU_SP != 0x00fa) || (CPU_DS != code_segment) ||
+	    (CPU_SS != native_stack_segment) ||
 	    (upd9002_memoryread_w(native_stack_base + 0x00fa) != code_offset + 3) ||
 	    (upd9002_memoryread_w(native_stack_base + 0x00fc) != code_segment) ||
 	    (upd9002_memoryread_w(native_stack_base + 0x00fe) != 0xf202)) {
@@ -552,8 +552,8 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 		if (ok) {
 			upd9002_core_step();
 		}
-		ok = ok && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 &&
-		     CPU_IP == compatible_offset + 2 && CPU_AL == 0x42 && CPU_SP == 0xfa;
+		ok = ok && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 && CPU_IP == compatible_offset + 2 &&
+		     CPU_AL == 0x42 && CPU_SP == 0xfa;
 		if (!ok) {
 			upd9002_iotrap = {};
 			iocore_destroy();

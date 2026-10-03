@@ -40,8 +40,8 @@ extern _MEMORYVA memoryva;
 /* Independent of CPU execution mode: zero = V3, one = 88-mode request. */
 extern UINT8 memoryva_88_mode;
 extern UINT8 memoryva_88_port31;
-extern UINT8 memoryva_88_xerom; /* 71h bit 0: one disables extension ROM. */
-extern UINT8 memoryva_88_plane; /* 0..2 selected, 3 disables GVRAM access. */
+extern UINT8 memoryva_88_xerom;  /* 71h bit 0: one disables extension ROM. */
+extern UINT8 memoryva_88_plane;  /* 0..2 selected, 3 disables GVRAM access. */
 extern UINT8 memoryva_88_window; /* 70h: high byte of the 1KiB RAM-window origin. */
 extern BOOL textmem_dirty;
 

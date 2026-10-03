@@ -746,8 +746,7 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address) {
 
 /* Independent-plane access only; compatible ALU modes remain pending. */
 static BOOL n88_gvram_selected(UINT32 address) {
-	return memoryva_88_mode && memoryva_88_plane < 3 &&
-	       address >= 0x1c000 && address < 0x20000;
+	return memoryva_88_mode && memoryva_88_plane < 3 && address >= 0x1c000 && address < 0x20000;
 }
 
 static UINT32 n88_gvram_address(UINT32 address) {
@@ -756,8 +755,8 @@ static UINT32 n88_gvram_address(UINT32 address) {
 
 /* Provisional 88-mode RAM backing remains physical 10000h..1FFFFh. */
 static BOOL n88_ram_window_selected(UINT32 address) {
-	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) &&
-	       address >= 0x18000 && address < 0x18400;
+	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) && address >= 0x18000 &&
+	       address < 0x18400;
 }
 
 static UINT32 n88_ram_window_address(UINT32 address) {
@@ -799,8 +798,8 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 /* N88 ROM overlay and extension banks. Monitor ROM is pending.
  * RAM writes still use the existing physical main-RAM backing. */
 static BOOL n88_rom_selected(UINT32 address) {
-	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) &&
-	       address >= 0x10000 && address < 0x18000;
+	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) && address >= 0x10000 &&
+	       address < 0x18000;
 }
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
@@ -825,9 +824,8 @@ REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 	REG8 hi;
 
 	next = address + 1;
-	if (n88_rom_selected(address) || n88_rom_selected(next) ||
-	    n88_ram_window_selected(address) || n88_ram_window_selected(next) ||
-	    n88_gvram_selected(address) || n88_gvram_selected(next)) {
+	if (n88_rom_selected(address) || n88_rom_selected(next) || n88_ram_window_selected(address) ||
+	    n88_ram_window_selected(next) || n88_gvram_selected(address) || n88_gvram_selected(next)) {
 		lo = upd9002_memoryread_va(address);
 		hi = upd9002_memoryread_va(next);
 		return (REG16)lo | ((REG16)hi << 8);
