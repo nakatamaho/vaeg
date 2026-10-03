@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103b - V1/V2 mode plumbing: BRKEM2, boot select, 88-mode window, I/O trap
 
-Status: **implementation complete for the gate scope; G103b pending**
+Status: **complete; G103b passed on 2026-10-03**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103b-v1v2-plumbing` off the
 integration branch `topic/v1v2-mode`. Following the maintainer's M103b
@@ -150,8 +150,10 @@ policies (shared BRKEM/BRKEM2 entry, the RAM-window reset origin 80h,
 byte/word-port trap matching, low-byte compatible matching). The 88-mode
 RAM backing and the 1KiB window at 18000h–183FFh are now corroborated by
 `[NEC-GIHO]` Figures 3 and 4 (plan §2.3) rather than being policy.
-M103b is stacked on M103a, whose G103a is still pending; neither is
-merged.
+M103a passed G103a and was merged to `main` at
+[23dd911](https://github.com/nakatamaho/vaeg/commit/23dd911e7ca1b14d757444ae4db0be37b273de30);
+this branch was rebased onto that merge, so it includes the UPD9MODE
+compatible-mode state section and the IRET F-flag correction.
 
 Deferred beyond M103b: monitor ROM (RMODE=1), ERAM (`E2h`/`E3h`), 88-mode
 TVRAM/TSP and interrupt delivery (M103c), compatible GVRAM ALU and
@@ -399,3 +401,20 @@ rendering (M103d), DD/FD-prefixed compatible I/O traps and trap timing.
 - X88000 is the reference for what 8801 software expects from `31H`,
   `32H`, `5CH`–`5FH`, `70H`/`71H`, `E2H`/`E3H` (ADR-0016: behaviour only,
   derivations recorded).
+
+### G103b (passed 2026-10-03)
+
+- Maintainer results: (1) standard V3 gate OK; (3) the screen does not
+  change, which is the expected M103b result because 88-mode TVRAM/TSP
+  rendering belongs to M103c; (5) the implementation policies are
+  approved: shared BRKEM/BRKEM2 entry, RAM-window reset origin 80h,
+  byte/word-port native trap matching, low-byte compatible matching.
+- Items 2, 4 and the behavioural part of 3 are machine-verified on Linux
+  at `18599ef661a23888456741ad01f95d82e5429fc3` (the branch after the
+  rebase onto the M103a merge): full CTest 108 entries without failures
+  (external SST and the private-media `vaeg_m103b_basic_boot` skipped in
+  CTest); `tools/qa/m103b_basic_boot.py run` with the VA2 ROMs and the V2
+  BASIC media reaches the key-input wait; the earlier text-RAM dump shows
+  the disk BASIC banner and first prompt.
+- No separate Windows gate binary was built for G103b; the maintainer's
+  checks used builds already in hand.
