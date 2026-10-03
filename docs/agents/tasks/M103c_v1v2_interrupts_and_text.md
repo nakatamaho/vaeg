@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103c - V1/V2 interrupts, keyboard and 88-mode text display
 
-Status: **in progress; G103c pending**
+Status: **implementation complete for the gate scope; G103c pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103c-v1v2-text` off the
 integration branch `topic/v1v2-mode` at `main`
@@ -109,6 +109,21 @@ V1/V2 beyond boot, sound, V1 mode, timing accuracy.
 Standard V3 gate unchanged, plus with the VA2 ROM set and V2 BASIC
 media: the disk BASIC banner and first prompt appear on screen, typed
 characters echo, and a short BASIC line (`PRINT 1+1`) answers `2`.
+
+## Summary for G103c
+
+Machine-verifiable parts (local): full CTest without failures (108
+entries; the external SST and, without private paths configured,
+`vaeg_m103b_basic_boot` skipped); V3 smoke passes; with the VA2 ROMs and V2
+BASIC media `tools/qa/m103b_basic_boot.py run` shows ` 2` after
+`PRINT 1+1` on the 88-mode text screen. Human-gate items: the standard V3
+gate, the BASIC screen with typed characters echoing in an interactive
+session, and acceptance of the documented policies (8214 acceptance and
+re-arm rule, general-timer-2 start on enable, inferred 8Eh/97h semantics,
+3301 attribute carry across rows).
+
+Deferred: 3301 semigraphics, 40-column mode, kanji ROM ports, 88-mode
+graphics display (M103d), sound under V1/V2, FDD use beyond boot.
 
 ## Implementation progress
 
