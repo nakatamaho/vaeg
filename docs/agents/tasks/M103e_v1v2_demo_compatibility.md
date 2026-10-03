@@ -120,7 +120,20 @@ music; the state of MA2-DEMO and GAME-A is as recorded below.
 
 ### GAME-A
 
-- The disk boots its own loader, programs the display, and sends custom
-  commands (FEh with a file-name argument, then FCh) to the FDD
-  subsystem; shortly after, execution runs away (an `OUT 1Eh` at 000Eh).
-  The screen shows a static pattern from TVRAM. Open.
+- The image holds two disks (D88 multi-image file). With only the first
+  inserted, the game reads drive 2 (Not Ready) and then runs away. With
+  the two images split into separate files in drives 1 and 2 (local
+  copies only), it runs through its opening, the ship descriptions, a
+  demonstration flight and its title.
+- vaeg has no way to choose the second image of a multi-image D88; a
+  frontend selection is left for a later task.
+- Open: a grid of "▁♠" characters covers the screen. The game issues a
+  3301 RESET (`51h = 00h`) to stop the text display; `[ROM]` the VA2 ROM
+  answers with EXIT, writes start address 1000h to split screen 0 with
+  8Eh/97h, and restarts EMUL. vaeg's byte-mode address rule from M103c
+  (TVRAM byte = 3000h + start / 2, derived from BASIC's 678Ch ↔ 63C6h)
+  maps 1000h to 3800h, where the ROM itself stores words 0080h/00E8h
+  (`F000:2480`–`24A3` clears 3000h–3FFFh, then writes them with a 240-byte
+  stride); vaeg shows them as characters 80h and E8h. Whether the rule is
+  wrong for other start addresses or the real machine shows the same is
+  not known; hiding the text layer removes the grid.
