@@ -100,8 +100,9 @@ requires them); timing accuracy (GVRAM wait states).
 
 Standard V3 gate unchanged, plus with the VA2 ROM set and V2 BASIC
 media: `LINE`, `CIRCLE`, `PAINT` and `COLOR` draw in colour, `SCREEN 1`
-shows monochrome graphics, and on a writable copy of the media a program
-survives `SAVE`, `NEW`, `LOAD` and `RUN`.
+(640x200) and `SCREEN 2` (640x400) show monochrome graphics, and on a
+writable copy of the media a program survives `SAVE`, `NEW`, `LOAD` and
+`RUN`.
 
 ## Implementation progress
 
@@ -145,22 +146,31 @@ survives `SAVE`, `NEW`, `LOAD` and `RUN`.
   the compositor shows set dots in that colour instead of a separate
   graphics screen. `LINE` and `CIRCLE` in `SCREEN 1` appear in the text
   colour. Blank text frames are no longer skipped while this merge is
-  active. Not covered: 320-dot horizontal mode, and 400-line monochrome
-  (needs a 24.8 kHz configuration; not exercised yet).
+  active. Not covered: 320-dot horizontal mode.
+- `SCREEN 2` (vaeg's fixed DIP switch selects a 24.8 kHz monitor): BASIC
+  writes 31h = 08h (1 bit/pixel, 400 lines) and the ROM only switches on
+  planes 0 and 1 (110h = 7F43h); frame buffer 0 stays at 200 lines.
+  `[DERIVED]` With 88MD set the display circuit must show plane 0 as the
+  upper and plane 1 as the lower 200 lines (the PC-8801 640x400 format, as
+  in `[X88000]`); vaeg showed both planes ORed in the upper half and
+  nothing below. `LINE (0,0)-(639,399)` and a 150-dot circle now span the
+  full screen.
 
 ### Disk BASIC (scope item 3)
 
 - Without changes, `FILES` lists the media and, on a writable copy,
   `SAVE`, `NEW`, `LOAD`, `LIST` and `RUN` round-trip a program. The V2
   media itself carries the D88 write-protect flag, so `SAVE` on it
-  reports `File write protected`, as it should.
+  reports `File write protected`, as it should. `KILL` removes a saved
+  file (`LOAD` then reports `File not found`).
 
 ### Tests (scope item 4)
 
 - `vaeg_romless_tests`: `test_v1v2_graphics` covers independent and ALU
   writes, the comparison read, the three latch-copy modes, 34h/35h read
   back, GAM switching between GVRAM, RAM and the TVRAM window, port 31h
-  (88 mode only), the PLTM2-clear palette modes and the merge condition;
+  (88 mode only), the PLTM2-clear palette modes, the merge condition, the
+  1 bit/pixel plane OR and the 88MD 400-line plane layout;
   the V1/V2 state-section test covers `MEM88ALU`. Removing the 34h
   read-back, the 31h alias, the PLTM2 rule or the comparison makes it fail.
 - `vaeg_m103b_basic_boot` (private ROMs and media): after `PRINT 1+1` it
