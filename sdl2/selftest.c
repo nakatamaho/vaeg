@@ -1511,6 +1511,65 @@ static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT d
 	return (selftest_fdc_take_result((BYTE)((head << 2) | drive), 0));
 }
 
+/* Write a D88 whose first track starts at `first`, with tracks 0-2 at
+ * `first`, 8000h and 10200h, and track 0's first sector ID C0 H0 R1 N0. */
+static BOOL selftest_d88_table_image(const char *path, UINT32 first, UINT32 entry160) {
+	static BYTE image[0x10400];
+	FILEH fh;
+	BOOL ok;
+
+	ZeroMemory(image, sizeof(image));
+	image[0x1b] = 0x20; /* 2HD */
+	STOREINTELDWORD(image + 0x1c, sizeof(image));
+	STOREINTELDWORD(image + 0x20, first);
+	STOREINTELDWORD(image + 0x24, 0x8000);
+	STOREINTELDWORD(image + 0x28, 0x10200);
+	if (entry160) {
+		STOREINTELDWORD(image + 0x20 + 160 * 4, entry160);
+	}
+	image[first + 2] = 1; /* R of track 0's first sector; overlaps entry 160 at 2A0h */
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_write(fh, image, sizeof(image)) == sizeof(image));
+	file_close(fh);
+	return ok;
+}
+
+/* M103e: a 160-entry D88 table must not read track 0 data as pointers. */
+static int test_fdd_d88_short_table(void) {
+	_FDDFILE parsed;
+	char path[MAX_PATH];
+	const char *problem;
+
+	SPRINTF(path, "vaeg-selftest-%lu-d88-table.d88", (unsigned long)getpid());
+	problem = NULL;
+	ZeroMemory(&parsed, sizeof(parsed));
+	if (!selftest_d88_table_image(path, 0x2a0, 0) || (fddd88_set(&parsed, path, 0) != SUCCESS)) {
+		problem = "160-entry image did not load";
+	} else if ((parsed.inf.d88.ptr[0] != 0x2a0) || (parsed.inf.d88.ptr[1] != 0x8000) ||
+	           (parsed.inf.d88.ptr[2] != 0x10200) || (parsed.inf.d88.ptr[160] != 0) ||
+	           (LOADINTELDWORD(parsed.inf.d88.head.trackp[160]) != 0x10000)) {
+		problem = "track 0 data was used as a track pointer";
+	}
+	fddd88_eject(&parsed);
+	if (problem == NULL) {
+		ZeroMemory(&parsed, sizeof(parsed));
+		if (!selftest_d88_table_image(path, 0x2b0, 0x9000) ||
+		    (fddd88_set(&parsed, path, 0) != SUCCESS) || (parsed.inf.d88.ptr[160] != 0x9000)) {
+			problem = "164-entry table lost entry 160";
+		}
+		fddd88_eject(&parsed);
+	}
+	file_delete(path);
+	if (problem != NULL) {
+		return (fail("D88 track table", problem));
+	}
+	fprintf(stderr, "selftest: D88 track table ok\n");
+	return (SUCCESS);
+}
+
 static int test_fdd_d88_production_path(void) {
 	const SELFTESTFDDPROFILE *profile;
 	_FDC saved_fdc;
@@ -5114,6 +5173,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_d88_short_table() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_production_path() != SUCCESS) {
