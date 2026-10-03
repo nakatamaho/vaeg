@@ -609,6 +609,16 @@ void maketextva_begin(BOOL *scrn200) {
 	*scrn200 = (videova_hsyncmode() != VIDEOVA_24_8KHZ) && ((tsp.syncparam[0] & 0xc0) != 0x40);
 }
 
+/*
+ * TSP byte-access mode (V1/V2): BNN manual 8.2.1 maps the local word
+ * addresses 3000h-37FFh and B000h-B7FFh to the byte addresses 3000h-3FFFh
+ * and B000h-BFFFh, the 3000h range being TVRAM A6000h-A6FFFh. Keeping the
+ * low 12 bits and doubling the upper four fits both ranges.
+ */
+UINT32 maketextva_bytelocal(UINT32 local) {
+	return ((((local & 0xf000) << 1) | (local & 0x0fff)) & (sizeof(textmem) - 1));
+}
+
 void maketextva_blankraster(void) {
 	ZeroMemory(textraster, sizeof(textraster));
 	ZeroMemory(textcolorraster, sizeof(textcolorraster));
@@ -653,11 +663,10 @@ void maketextva_raster(void) {
 
 		if (!work.linebitmap_ready) {
 			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
-				/* Byte mode: local byte 3000h is TVRAM byte 6000h and the
-				 * table's address and pitch are twice the byte values. */
+				/* Byte mode: the table's address and pitch are twice the
+				 * local byte values; see maketextva_bytelocal(). */
 				if (work.texty < tsp.emul_rows) {
-					v = textmem + ((0x3000 + (f->rsa >> 1) + (f->vw >> 1) * work.texty) &
-					               (sizeof(textmem) - 1));
+					v = textmem + maketextva_bytelocal((f->rsa >> 1) + (f->vw >> 1) * work.texty);
 					makeline_3301(v, f->rwchar);
 				} else {
 					ZeroMemory(linebitmap, sizeof(linebitmap));
