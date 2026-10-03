@@ -77,6 +77,16 @@ static REG8 IOINPCALL memctrlva_i071(UINT port) {
 static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
 	memoryva_88_port31 = (UINT8)dat;
+	if (memoryva_88_mode) {
+		/*
+		 * BNN manual: port 31h bits PM00, GDEN0 and VW1 carry the names of
+		 * GrRes (102h) bit 0 and GrMode (100h) bits 15 and 1, and BASIC
+		 * writes them directly; treat them as aliases of those VA bits.
+		 */
+		videova.grmode = (WORD)((videova.grmode & ~0x8002) | ((dat & 0x08) ? 0x8000 : 0) |
+		                        ((dat & 0x01) ? 0x0002 : 0));
+		videova.grres = (WORD)((videova.grres & ~0x0001) | ((dat & 0x10) ? 0x0001 : 0));
+	}
 	(void)port;
 }
 
