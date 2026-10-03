@@ -231,6 +231,30 @@ static int memory_mode_selftest(void) {
 		         (upd9002_memoryread_va_w(0x17fff) == 0x6677);
 		iocore_out8(0x031, 0x00);
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0xa5);
+		/* RMODE: the Debug 8800 bank (varom00 1E000h) at 6000h-7FFFh, with
+		 * N88-BASIC kept below it; MMODE still removes all ROM. */
+		{
+			const BYTE saved_mon[2] = {rom0mem[0x1e000], rom0mem[0x1ffff]};
+			const BYTE saved_low = rom1mem[0x15fff];
+			rom0mem[0x1e000] = 0x44;
+			rom0mem[0x1ffff] = 0x99;
+			rom1mem[0x15fff] = 0x3c;
+			iocore_out8(0x071, 0xfe); /* the extension ROM must not win */
+			iocore_out8(0x031, 0x04);
+			passed = passed && (upd9002_memoryread_va(0x10000) == 0xa5) &&
+			         (upd9002_memoryread_va(0x16000) == 0x44) &&
+			         (upd9002_memoryread_va_w(0x15fff) == 0x443c) &&
+			         (upd9002_memoryread_va_w(0x17fff) == 0x6699);
+			iocore_out8(0x031, 0x06);
+			passed = passed && (upd9002_memoryread_va(0x16000) != 0x44) &&
+			         (upd9002_memoryread_va(0x10000) == 0x22);
+			iocore_out8(0x031, 0x00);
+			iocore_out8(0x071, 0xff);
+			passed = passed && (upd9002_memoryread_va(0x16000) == rom1mem[0x16000]);
+			rom0mem[0x1e000] = saved_mon[0];
+			rom0mem[0x1ffff] = saved_mon[1];
+			rom1mem[0x15fff] = saved_low;
+		}
 		iocore_out8(0x153, 0x41);
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22);
 		rom1mem[0x10000] = saved_first;

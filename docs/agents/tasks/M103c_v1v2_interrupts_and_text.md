@@ -274,3 +274,35 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   the function keys as reversed boxes. Full CTest without failures (108
   entries, two skipped); the BASIC acceptance test and the `linux-release`
   build pass.
+
+### MON: the Debug 8800 monitor bank (G103c feedback)
+
+- Maintainer report: `mon` answered `Feature not available`. `[ROM]` N-88
+  BASIC's MON (token CAh, handler at `02E4h`) sets port 31h RMODE (bit 2),
+  checks for the signature `DB` at 6000h–6001h, jumps to 6002h if present,
+  and otherwise restores RMODE and raises error 33 (`Feature not
+  available`, entry `4DC1h`). vaeg left 6000h–7FFFh unchanged under RMODE,
+  so the signature was absent.
+- Correction: with ROM/RAM mode selected (MMODE clear) and RMODE set,
+  6000h–7FFFh reads the Debug 8800 bank at varom00 offset 1E000h (CPU
+  document §4.4, Appendix C), ahead of the extension ROM. `[DERIVED]`
+  0000h–5FFFh stays N88-BASIC: MON keeps executing from 02ECh–02FCh after
+  setting RMODE, so on a real VA that range must still hold the BASIC code.
+  This contradicts the CPU document's reading of the VA `n80.rom` dump
+  (lower 24 KiB showing V3 code), which was already marked as inference;
+  the dump method is unknown. The 70h RAM window remains disabled under
+  RMODE, as before.
+- Result: `mon` reaches the `h]` prompt; `d0` shows `F3 31 A0 E1 C3 E5 3B`
+  (the N88-BASIC entry), and `x` shows `A:00 F:PZ---E-- B:0000 D:EDCC
+  H:0001 D':FF7B H':0911 IX:0F7C IY:0101 I:F3 PC:0000 SP:E5F9`, identical to
+  the real VA2 register dump in CPU document §17.2 in every field except
+  `A'F'` and `B'C'`, which the real machine shows as all ones (`FF`,
+  `MZ-H-ENC`, `FFFF`) and vaeg as zero. Software in this path does not
+  write those two pairs, so the difference is their reset value (M103a
+  policy: cleared at hardware reset, unmeasured); the real dump is one
+  third-party observation of unknown boot history. Not changed here.
+- Test: the production memory test checks the bank at 6000h, the N88
+  bytes below it, a word read across 5FFFh/6000h and 7FFFh/8000h, the
+  extension ROM not winning, MMODE removing all ROM, and restoration.
+  Removing the bank selection makes it fail. Full CTest without failures
+  (108 entries, two skipped); BASIC acceptance and `linux-release` pass.

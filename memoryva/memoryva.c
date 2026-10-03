@@ -816,9 +816,22 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 
 /* N88 ROM overlay and extension banks. Monitor ROM is pending.
  * RAM writes still use the existing physical main-RAM backing. */
+/* ROM/RAM mode (port 31h MMODE, bit 1, clear): ROM over 0000h-7FFFh. */
 static BOOL n88_rom_selected(UINT32 address) {
-	return memoryva_88_mode && !(memoryva_88_port31 & 0x06) && address >= 0x10000 &&
+	return memoryva_88_mode && !(memoryva_88_port31 & 0x02) && address >= 0x10000 &&
 	       address < 0x18000;
+}
+
+/*
+ * Port 31h RMODE (bit 2) selects the "monitor ROM" (BNN manual, port 31h).
+ * The VA has no N-BASIC; the monitor is the Debug 8800 bank at varom00
+ * offset 1E000h, appearing at 6000h-7FFFh (CPU document 4.4, Appendix C).
+ * `[DERIVED]` 0000h-5FFFh stays N88-BASIC: its MON statement (02E4h) sets
+ * RMODE and keeps executing there before checking the "DB" signature at
+ * 6000h and jumping to 6002h.
+ */
+static BOOL n88_monitor_selected(UINT32 address) {
+	return (memoryva_88_port31 & 0x04) && (address >= 0x16000);
 }
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
@@ -832,6 +845,9 @@ REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 		return upd9002_mainram_read(n88_ram_window_address(address));
 	}
 	if (n88_rom_selected(address)) {
+		if (n88_monitor_selected(address)) {
+			return rom0mem[0x1e000 + (address & 0x1fff)];
+		}
 		if (address >= 0x16000 && !memoryva_88_xerom) {
 			return rom1mem[0x18000 + ((sysportva.port032 & 3) << 13) + (address & 0x1fff)];
 		}
