@@ -263,24 +263,23 @@ it already for V3.
 
 ## 4. Interrupts in compatible mode
 
-`[V30-MAN]` An interrupt taken in Z80 emulation is serviced in native
-mode through the IVT and returns with `RETI` (§3.5). `[DERIVED]` 8801
-software expects Z80 `IM 2` vectors from the 8214 (`E4h`/`E6h`), so the
-firmware's native handlers must deliver the interrupt into the Z80 code
-by rewriting the saved frame (push the Z80 return address on the `BP`
-stack, set `PC` from the 8801 vector table). `[UNKNOWN]` How exactly the
-VA2 ROM does this — which native vectors, which table, how `E4h`/`E6h`
-feed the ICU — is the largest open research item of the series and the
-first task of M103c; it is ROM analysis, not hardware measurement.
+`[VA-TM]` BNN manual §5.2.2 settles this. At reset the interrupt system
+is in 8214 mode (port 158H switches to 8259 mode until reset). In 8214
+mode a µPD8214-compatible controller is the ICU's slave with eight
+levels — INT0 RS-232C receive, INT1 VRTC, INT2 general timer 2 (the
+8801-compatible 600 Hz timer, which has no 8259-mode line), INT3/INT5
+bus UINT0/UINT1, INT4 sound, INT6 general timer 3 (mouse timer), INT7
+SGP — and it selects the vector type from the CPU mode: compatible code
+receives a µPD780 vector (00h, 02h, … 0Eh, the Z80 `IM 2` low byte) and
+takes an ordinary Z80 interrupt; native code receives V30 vector
+40h–47h through the IVT. `E4h` is the current-status register (level in
+bits 2–0, bit 3 disables the comparison; initialised with `OUT E4H,7`)
+and `E6h` the mask (bit 0 general timer 2, bit 1 VRTC, bit 2 RXRDY,
+1 = enable).
 
-`[NEC-GIHO]` narrows it: the interrupt controller is the µPD9002's
-built-in ICU. In V1/V2 mode a µPD8214-compatible controller works as an
-ICU slave providing eight levels ("8214 mode"), with the ICU in the
-interrupt mode the transcription renders as "mode E"; V3 instead uses a
-µPD8259A slave with fifteen levels ("8259 mode"). The 8251 RS-232C
-interrupt is limited to RXRDY in 8214 mode. Which ICU register selects
-the mode, and how the firmware turns an 8214 level into a Z80 `IM 2`
-vector, still need ROM analysis.
+The earlier `[DERIVED]` assumption here — that firmware's native
+handlers rewrite the saved frame to deliver interrupts into Z80 code —
+was wrong and is withdrawn. Implementation is M103c.
 
 ## 5. Boot path
 

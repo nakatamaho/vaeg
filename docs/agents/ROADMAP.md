@@ -143,14 +143,13 @@ M36–M41 archive status.
 | M102 | tasks/M102_upd9002_undocumented_opcodes.md | Close O3 (INC/DEC IYH/IYL), fix the null undefined-opcode handlers of the vendored Z80 core, and test undocumented DDCB/FDCB, NEG, prefix and undefined ED opcodes of the µPD9002 Z80 emulation mode on a real PC-88VA2 | **G102 human gate passed on 2026-10-02 (gate build [077718b](https://github.com/nakatamaho/vaeg/commit/077718baab2b0e73c0db9a01f982e053bb7cb10c)); M102 complete; merged to `main` at [659a01e](https://github.com/nakatamaho/vaeg/commit/659a01e16f5e0c7b79e314b5cbdc0a3e12cddcca)** |
 | M103a | tasks/M103a_alternate_register_storage.md | **V1/V2 series (ADR-0016), shared prerequisite:** give the µPD9002 alternate register set (`AF'`/`BC'`/`DE'`/`HL'`) machine-owned storage in the native state image with a defined lifetime, measure its persistence across a CALLN round trip on the real PC-88VA2 (`ALTPRB`), and fix the `StateLoad` native-vector-reader omission | **G103a human gate passed on 2026-10-03 (gate build [bb21713](https://github.com/nakatamaho/vaeg/commit/bb217138bb039fdec3f57d5bd48af69f0cd58f07)); M103a complete; candidate [719f839](https://github.com/nakatamaho/vaeg/commit/719f83950a5d3ce723f175dd3ac4babc9e24e759); merged to `main` at [23dd911](https://github.com/nakatamaho/vaeg/commit/23dd911e7ca1b14d757444ae4db0be37b273de30)** |
 | M103b | tasks/M103b_v1v2_mode_plumbing.md | V1/V2 series: `BRKEM2`, boot inputs (PC key and SW7), `153H` bit 6 and the 88-mode window with the hardware banking ports, I/O trap hardware; ROM-derived window map; trace-verified automatic FDD selection and handoff into N88-BASIC without a mode override | **G103b human gate passed on 2026-10-03; M103b complete: disk BASIC reaches its key-input wait (trace-verified, romful test); merged to `main` at [a572079](https://github.com/nakatamaho/vaeg/commit/a572079c970a7776c2970844d9d9d29e197b2641)** |
+| M103c | tasks/M103c_v1v2_interrupts_and_text.md | V1/V2 series: 8214-mode interrupt controller with µPD780/V30 vector selection, 600 Hz general timer 2, keyboard reaching BASIC, 88-mode TVRAM and TSP 3301-compatible text display | **In progress; G103c human gate pending** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 documentation check** |
 
 Planned series (ADR-0016; rows are added when each task file exists;
 hardware model and milestone table in
 [`docs/modernization/v1v2-mode-plan.md`](../modernization/v1v2-mode-plan.md)):
-the V1/V2 series continues after `M103b` as `M103c` (interrupt delivery
-into Z80 code, keyboard matrix, 88-mode TVRAM and TSP text rendering →
-`Ok` prompt), `M103d` (88-mode GVRAM and palettes, FDD under V1/V2 →
+the V1/V2 series continues after `M103c` with `M103d` (88-mode GVRAM and palettes, FDD under V1/V2 →
 N88-DISK BASIC V2 operates) and `M103e` (PC-8801mkIISR DEMO, sound, V1);
 V2 first; the series is complete when N88-DISK BASIC V2 boots and operates
 and the PC-8801mkIISR DEMO runs. The V3 series starts at `M104` (SGP), run in a
