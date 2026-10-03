@@ -71,3 +71,13 @@ bug-fix ledger.
 Scope: one firmware service, which does not use the alternate set; the
 run does not establish alternate-set retention across `RETEM`/`BRKEM`
 or reset (implementation policy in the CPU document §3.1).
+
+## Run 2 (2026-10-03, vaeg after the correction)
+
+| Directory | Machine | Result disk SHA-256 |
+|---|---|---|
+| `run2_vaeg` | vaeg, static Windows build of `bb217138bb039fdec3f57d5bd48af69f0cd58f07` (`vaeg.exe` `9292aceaa71ed0eae7f397b132bf4e80ab2aa4e07257c5f9a5588d8f7a817aa2`), VA2 | `a05b78551e435766646d021c1dc088f7f57c5ce54d07f87af5760cb56a07191a` |
+
+`run2_vaeg/raw/altprb.txt` is byte-identical to `run1_pc88va2/raw/altprb.txt`
+(both SHA-256 `8a559139d5eaeedee8082a0855e4af5c35acb96c4cd6c5db717d80f9899de30a`):
+with the F correction vaeg reproduces all eight real-machine records.
