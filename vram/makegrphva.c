@@ -568,9 +568,19 @@ static void drawraster_s16(SCREEN screen) {
 /*
  * Multiplane 1 bit/pixel: each output pixel is the OR of the planes whose
  * screen switch (110h GnSW) is on. The compositor merges it into the text.
+ *
+ * With 110h 88MD set and 400 lines (V1/V2 640x400 monochrome), the VA2 ROM
+ * switches on planes 0 and 1 and leaves frame buffer 0 at 200 lines of
+ * 16 KiB per plane, so the PC-8801 layout must come from the display
+ * circuit: plane 0 shows the upper 200 lines and plane 1 the lower 200.
  */
+static BOOL n88_400lines(void) {
+	return (videova.pagemsk & 0x40) && !(videova.grmode & 0x0400) && !(videova.grres & 0x0003) &&
+	       !(videova.grmode & 0x0002);
+}
+
 static void drawraster_m1(SCREEN screen) {
-	const UINT sw = videova.pagemsk & 0x0f;
+	UINT sw = videova.pagemsk & 0x0f;
 	UINT16 wrapcount;
 	UINT32 addr;
 	WORD *b;
@@ -578,6 +588,14 @@ static void drawraster_m1(SCREEN screen) {
 	UINT i;
 
 	addr = screen->lineaddr;
+	if (n88_400lines()) {
+		if (screen->y < 200) {
+			sw &= 0x01;
+		} else {
+			sw &= 0x02;
+			addr = addr18(screen, addr - 200 * (screen->framebuffer->fbw / 4));
+		}
+	}
 	b = screen->rasterbuf;
 	ZeroMemory(b, sizeof(grph0_raster));
 	wrapcount = screen->framebuffer->fbw / 4 - screen->framebuffer->ofx / 4;
@@ -877,7 +895,10 @@ static void drawraster_m4(SCREEN screen) {
 static void drawraster(SCREEN screen) {
 	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
 	if (screen->framebuffer != NULL) {
-		if (screen->framebuffer->dsp + screen->framebuffer->dsh == screen->y) {
+		// The 88MD 400-line layout shows the 200-line frame from two planes.
+		const UINT dsh = screen->framebuffer->dsh * (n88_400lines() ? 2 : 1);
+
+		if (screen->framebuffer->dsp + dsh == screen->y) {
 			screen->framebuffer = NULL;
 		}
 	}
