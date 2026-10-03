@@ -4420,6 +4420,87 @@ static int test_v1v2_graphics(void) {
 	return (SUCCESS);
 }
 
+/* M103e: kanji ROM ports, extended RAM and the dictionary ROM window. */
+static int test_v1v2_rom_ports(void) {
+	const char *problem;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	iocore_out8(0x153, 0x01); /* 88 mode */
+
+	/* Level 1 kanji: JIS 323Ch is PC-8801 word address 65C0h + row (byte
+	 * CB80h); the VA font image keeps it at byte 8B80h (bit 14 inverted).
+	 * Non-kanji addresses below 4000h index the image directly. */
+	fontmem[0x8b80 + 2 * 3] = 0x5a;
+	fontmem[0x8b80 + 2 * 3 + 1] = 0xa5;
+	fontmem[0x0420] = 0x11;
+	fontmem[0x20000 + 0x8b80] = 0x77;
+	iocore_out8(0x0e8, 0xc3);
+	iocore_out8(0x0e9, 0x65);
+	if ((iocore_inp8(0x0e9) != 0x5a) || (iocore_inp8(0x0e8) != 0xa5)) {
+		problem = "level 1 kanji raster";
+	}
+	if (problem == NULL) {
+		iocore_out8(0x0e8, 0x10);
+		iocore_out8(0x0e9, 0x02);
+		if (iocore_inp8(0x0e9) != 0x11) {
+			problem = "non-kanji raster";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x0ec, 0xc0);
+		iocore_out8(0x0ed, 0x65);
+		if (iocore_inp8(0x0ed) != 0x77) {
+			problem = "level 2 raster";
+		}
+	}
+
+	/* Extended RAM: E3h page 1 bank 2, E2h WE then RE. */
+	if (problem == NULL) {
+		upd9002_mainram_write(0x20000 + 0x20000 + 2 * 0x8000 + 0x123, 0x00);
+		iocore_out8(0x0e3, 0x06);
+		iocore_out8(0x0e2, 0x10);
+		upd9002_memorywrite_va(0x10123, 0x3c);
+		iocore_out8(0x0e2, 0x00);
+		if ((upd9002_mainram_read(0x20000 + 0x20000 + 2 * 0x8000 + 0x123) != 0x3c) ||
+		    (upd9002_memoryread_va(0x10123) == 0x3c)) {
+			problem = "extended RAM write or unmapped read";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x0e2, 0x01);
+		if ((upd9002_memoryread_va(0x10123) != 0x3c) || (iocore_inp8(0x0e2) != 0xfe) ||
+		    (iocore_inp8(0x0e3) != 0xf6)) {
+			problem = "extended RAM read or port read back";
+		}
+		iocore_out8(0x0e2, 0x00);
+	}
+
+	/* Dictionary ROM: F0h bank, F1h bit 0 clear maps it at C000h. */
+	if (problem == NULL) {
+		dicmem[3 * 0x4000 + 0x10] = 0x99;
+		iocore_out8(0x0f0, 0x03);
+		iocore_out8(0x0f1, 0x00);
+		if (upd9002_memoryread_va(0x1c010) != 0x99) {
+			problem = "dictionary ROM bank";
+		}
+		iocore_out8(0x0f1, 0x01);
+		if ((problem == NULL) && (upd9002_memoryread_va(0x1c010) == 0x99)) {
+			problem = "dictionary ROM still mapped";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("V1/V2 ROM ports", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 ROM ports ok\n");
+	return (SUCCESS);
+}
+
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
@@ -5235,6 +5316,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_graphics() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_rom_ports() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
