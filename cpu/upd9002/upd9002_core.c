@@ -14,6 +14,8 @@
 #include "upd9002_ops.mcr"
 
 Upd9002CoreContext upd9002_core_context;
+Upd9002AltRegs upd9002_alt_regs;
+BOOL upd9002_alt_regs_loaded;
 UINT16 upd9002_step_start_cs;
 UINT16 upd9002_step_start_ip;
 UINT8 upd9002_current_opcode;
@@ -221,6 +223,8 @@ void upd9002_core_reset(void) {
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
 	upd9002_state_reset();
+	ZeroMemory(&upd9002_alt_regs, sizeof(upd9002_alt_regs));
+	upd9002_alt_regs_loaded = FALSE;
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
 	upd9002_compat_return_sp = 0;
@@ -295,6 +299,29 @@ int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
 	    (upd9002_compat_hooks.state_save != NULL)) {
 		return upd9002_compat_hooks.state_save(buffer, size);
 	}
+	return SUCCESS;
+}
+
+void upd9002_core_mode_state_save(UINT8 *buffer) {
+	buffer[0] = CPU_COMPAT_MODE;
+	buffer[1] = CPU_COMPAT_RETURN_PENDING;
+	STOREINTELWORD(buffer + 2, upd9002_compat_return_sp);
+}
+
+BOOL upd9002_core_mode_state_valid(const UINT8 *buffer) {
+	return ((buffer[0] == UPD9002_COMPAT_NATIVE) || (buffer[0] == UPD9002_COMPAT_UPD70008)) &&
+	       (buffer[1] <= 1) && !((buffer[0] == UPD9002_COMPAT_UPD70008) && buffer[1]);
+}
+
+/* Must follow UPD9CPU, whose import clears these fields, and precede UPD9Z80,
+ * whose loader runs only when compatible state is active. */
+int upd9002_core_mode_state_load(const UINT8 *buffer) {
+	if (!upd9002_core_mode_state_valid(buffer)) {
+		return FAILURE;
+	}
+	CPU_COMPAT_MODE = buffer[0];
+	CPU_COMPAT_RETURN_PENDING = buffer[1];
+	upd9002_compat_return_sp = LOADINTELWORD(buffer + 2);
 	return SUCCESS;
 }
 

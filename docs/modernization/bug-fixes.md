@@ -35,6 +35,49 @@ land.
 
 ## Maintenance Rules
 
+### M103a — CALLN round trip set the compatible N flag
+
+- **Symptom/scope:** after a native handler entered by `CALLN` (or by an
+  interrupt taken in compatible mode) returned with `IRET`, compatible F
+  bit 1 (N) read as one and bits 3/5 as zero, whatever F held before. On a
+  real PC-88VA2, `CALLN 91h` returns F unchanged (00h stays 00h, C5h stays
+  C5h); vaeg returned 02h and C7h.
+- **Demonstrated cause:** the native `IRET` normalises every restored frame
+  with `(flag & 0FD7h) | F002h`, including frames that resume compatible
+  mode, whose low byte is the compatible F.
+- **Correction:** when the `IRET` resumes compatible mode, bits 1, 3 and 5
+  of the frame are kept; native returns are unchanged. Bits 3/5 are policy,
+  not measured.
+- **Verification:** the M103a ALTPRB real-machine run; the adapter self-test
+  (`XOR A`, `CALLN`, `IRET`, F=44h) fails with the old masking and passes;
+  full local CTest without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a ALTPRB results](../agents/tasks/M103a_alternate_register_storage.md#altprb-results-and-the-f-bit-1-correction),
+  [ALTPRB outputs](../agents/reports/m103a_altregs_qa/README.md).
+  Fix: [5ed797b2](https://github.com/nakatamaho/vaeg/commit/5ed797b28bb413af27e02ba458d4d8444e6ed982).
+
+### M103a — States saved in compatible mode could not be resumed
+
+- **Symptom/scope:** loading a state saved while compatible code (for
+  example CP/MVA at `A>`) waited in a native handler entered by `CALLN`
+  or by an interrupt hung the guest and then crashed; the PC-Engine BIOS
+  reported a disk error. Present since M76 (reproduced at the M102 merge).
+  States saved in native mode were unaffected.
+- **Demonstrated cause:** UPD9CPU export/import skips the two padding bytes
+  that hold the execution mode and the return-pending flag, and the return
+  SP was a core static that was never saved. After loading, the flag was
+  clear, the UPD9Z80 blob was skipped, and the handler's IRET returned into
+  the Z80 code as native code.
+- **Correction:** a new optional `UPD9MODE` section (mode, flag, return SP)
+  between UPD9CPU and UPD9Z80. Older files without it whose UPD9Z80 payload
+  shows active compatible code are refused with an explicit message, since
+  the missing data cannot be reconstructed; native-mode older files load.
+- **Verification:** headless CP/MVA save/load at `A>` lists the directory
+  after loading in the same and in a fresh process; an end-to-end
+  `vaeg_romless_tests` case and the adapter self-test; full local CTest
+  without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a compatible-mode state save/load](../agents/tasks/M103a_alternate_register_storage.md#compatible-mode-state-saveload).
+  Fix: [777d385a](https://github.com/nakatamaho/vaeg/commit/777d385a698e4a15acb59ca1c9ef1bb869b855d6).
+
 ### M99z40 — Small CRT windows overemphasize RGB-mask interference
 
 - **Symptom/scope:** x1 and x2 CRT presentation could show conspicuous
@@ -209,6 +252,27 @@ separate parity correction or move it to Open Defects.
 - **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
   fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
   test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
+
+### Undefined ED vector page read as zeros after loading a state
+
+- **Status:** fixed on `topic/m103a-alt-registers`.
+- **Symptom/scope:** when a state saved in the uPD70008-compatible mode was
+  loaded into a fresh vaeg process (no mode entry since start), the
+  undefined ED 00–3F/74/75/77 returned 0000h instead of the guest's IVT
+  words until the next BRKEM, so guest code resumed from such a state saw
+  different values than before the save.
+- **Demonstrated root cause:** `StateLoad()` initialised the compat core
+  with `SetFlagProfile` and `Init` but, unlike `Enter()`, never installed
+  the `SetNativeVectorRead` callback added in M102; the core's default
+  reader returns 0x00.
+- **Correction:** `Enter()` and `StateLoad()` share `InitializeCore()`,
+  which installs the reader.
+- **Verification:** `upd9002_upd70008_alt_regs_selftest` (test
+  `vaeg_upd9002_brkem_upd70008`) loads a compat blob before any entry and
+  executes `ED 20` with the IVT word 2800h at bytes 30h/31h; it fails with
+  0000h without the fix.
+- **Task/evidence/commit:** [M103a task](../agents/tasks/M103a_alternate_register_storage.md);
+  fix [b441a558](https://github.com/nakatamaho/vaeg/commit/b441a558456fd39c555a2761e986c1012de4863d).
 
 ### uPD9002 undefined ED opcodes followed the Zilog Z80
 

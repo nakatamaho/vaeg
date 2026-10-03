@@ -66,6 +66,8 @@ class Z80CompatCpu {
 	void SetPC(std::uint32_t new_pc);
 	void SetReg(const Z80CompatReg &reg);
 	void SetMainReg(const Z80CompatReg &reg);
+	// Replace only the alternate set (r_af, r_hl, r_de, r_bc).
+	void SetAltReg(const Z80CompatReg &reg);
 	void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
 	void SetFlagProfile(Z80CompatFlagProfile profile);
 	Z80CompatFlagProfile GetFlagProfile() const;

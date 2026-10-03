@@ -3338,6 +3338,150 @@ cleanup:
 }
 #endif
 
+/* Copy a state file without one named section, as an older build wrote it. */
+static int strip_statsave_section(const char *source, const char *destination, const char *name) {
+	BYTE *data;
+	UINT size;
+	UINT pos;
+	UINT out;
+	BOOL removed;
+	FILEH fh;
+	int ret;
+
+	data = NULL;
+	if (read_whole_file(source, &data, &size) != SUCCESS) {
+		return (FAILURE);
+	}
+	removed = FALSE;
+	pos = 0x30;
+	out = 0x30;
+	while ((pos + 16) <= size) {
+		const UINT body = LOADINTELDWORD(data + pos + 12);
+		const UINT padded = (body + 15) & ~15U;
+
+		if ((pos + 16 + padded) > size) {
+			break;
+		}
+		if (!strncmp((const char *)data + pos, name, 10)) {
+			removed = TRUE;
+		} else {
+			memmove(data + out, data + pos, 16 + padded);
+			out += 16 + padded;
+		}
+		pos += 16 + padded;
+	}
+	ret = FAILURE;
+	fh = file_create(destination);
+	if (removed && (pos == size) && (fh != FILEH_INVALID) && (file_write(fh, data, out) == out)) {
+		ret = SUCCESS;
+	}
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	_MFREE(data);
+	return (ret);
+}
+
+/* M103a: a state saved while compatible code waits in a native CALLN handler
+ * resumes into compatible mode; older files saved that way are refused. */
+static int test_compat_mode_state(void) {
+	static const BYTE native_entry[] = {0x0f, 0xff, 0xe1}; /* BRKEM E1h */
+	static const BYTE compat_code[] = {0xed, 0xed, 0xe0};  /* CALLN E0h */
+	char path[MAX_PATH];
+	char oldpath[MAX_PATH];
+	char err[512];
+	const char *problem;
+	UINT i;
+
+	SPRINTF(path, "vaeg-selftest-%lu-mode.sts", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-mode-old.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(oldpath);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* Native state without a UPD9MODE section still loads. */
+	soundmng_stop();
+	if ((statsave_save(path) != STATFLAG_SUCCESS) ||
+	    (strip_statsave_section(path, oldpath, UPD9002_MODE_STATE_SECTION) != SUCCESS) ||
+	    (statsave_load(oldpath) != STATFLAG_SUCCESS)) {
+		problem = "native state without UPD9MODE did not load";
+	}
+
+	if (problem == NULL) {
+		STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+		STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+		STOREINTELWORD(mem + 0xe0 * 4, 0x3000);
+		STOREINTELWORD(mem + 0xe0 * 4 + 2, 0x2000);
+		for (i = 0; i < sizeof(native_entry); i++) {
+			mem[0x20100 + i] = native_entry[i];
+		}
+		for (i = 0; i < sizeof(compat_code); i++) {
+			mem[0x21000 + i] = compat_code[i];
+		}
+		mem[0x23000] = 0xeb; /* JMP $ */
+		mem[0x23001] = 0xfe;
+		CPU_CS = 0x2000;
+		CS_BASE = 0x20000;
+		CPU_IP = 0x0100;
+		CPU_SS = 0x3000;
+		SS_BASE = 0x30000;
+		CPU_SP = 0x0100;
+		CPU_BP = 0x0200;
+		CPU_FLAG = 0xf002;
+		upd9002_core_step(); /* BRKEM */
+		upd9002_core_step(); /* CALLN: native handler, return pending */
+		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) || !CPU_COMPAT_RETURN_PENDING ||
+		    (CPU_IP != 0x3000)) {
+			problem = "fixture did not reach the pending CALLN handler";
+		}
+	}
+	if (problem == NULL) {
+		soundmng_stop();
+		if (statsave_save(path) != STATFLAG_SUCCESS) {
+			problem = "save in the CALLN handler failed";
+		}
+	}
+	if (problem == NULL) {
+		pccore_reset();
+		if ((statsave_load(path) != STATFLAG_SUCCESS) || !CPU_COMPAT_RETURN_PENDING ||
+		    !upd9002_core_compat_iret_is_return()) {
+			problem = "pending CALLN return was not restored";
+		}
+	}
+	if (problem == NULL) {
+		mem[0x23000] = 0xcf; /* IRET */
+		upd9002_core_step();
+		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1003)) {
+			problem = "restored handler did not return to compatible mode";
+		}
+	}
+	if ((problem == NULL) &&
+	    (strip_statsave_section(path, oldpath, UPD9002_MODE_STATE_SECTION) != SUCCESS)) {
+		problem = "could not build an old-format compatible state";
+	}
+	if (problem == NULL) {
+		ZeroMemory(err, sizeof(err));
+		if ((statsave_check(oldpath, err, sizeof(err)) != STATFLAG_FAILURE) ||
+		    (strstr(err, "compatible mode by an older build") == NULL) ||
+		    (statsave_load(oldpath) != STATFLAG_FAILURE)) {
+			problem = "old-format compatible state was not refused";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(oldpath);
+	if (problem != NULL) {
+		return (fail("compatible mode state", problem));
+	}
+	fprintf(stderr, "selftest: compatible mode state ok\n");
+	return (SUCCESS);
+}
+
 static int test_statsave(void) {
 	char path1[MAX_PATH];
 	char path2[MAX_PATH];
@@ -4102,6 +4246,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_statsave() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_compat_mode_state() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

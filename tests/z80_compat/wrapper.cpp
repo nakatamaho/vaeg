@@ -1018,6 +1018,40 @@ void TestUndefinedOpcodes() {
 	}
 }
 
+// M103a: SetAltReg replaces only AF'/BC'/DE'/HL'; EXX / EX AF,AF' then
+// expose them, and SetMainReg leaves them alone.
+void TestAltRegSet() {
+	Harness harness;
+	Z80CompatReg reg{};
+	reg.af = 0x1100;
+	reg.bc = 0x2222;
+	reg.de = 0x3333;
+	reg.hl = 0x4444;
+	reg.sp = 0x8000;
+	reg.pc = 0x0100;
+	harness.cpu.SetReg(reg);
+	Z80CompatReg alt = *harness.cpu.GetReg();
+	alt.r_af = 0xaa00;
+	alt.r_bc = 0xbbbb;
+	alt.r_de = 0xcccc;
+	alt.r_hl = 0xdddd;
+	alt.bc = 0xffff; // must be ignored by SetAltReg
+	harness.cpu.SetAltReg(alt);
+	const Z80CompatReg *now = harness.cpu.GetReg();
+	Require(now->bc == 0x2222 && now->r_bc == 0xbbbb && now->r_af == 0xaa00,
+	        "SetAltReg touched the main set or missed the alternate set");
+	harness.cpu.SetMainReg(reg);
+	Require(harness.cpu.GetReg()->r_hl == 0xdddd, "SetMainReg disturbed the alternate set");
+	harness.Install(0x0100, {0xd9, 0x08}); // EXX ; EX AF,AF'
+	harness.Advance(8);
+	Require(harness.cpu.GetReg()->bc == 0xbbbb && harness.cpu.GetReg()->hl == 0xdddd &&
+	            harness.cpu.GetReg()->r_bc == 0x2222,
+	        "EXX did not expose the alternate set");
+	harness.Advance(4);
+	Require((harness.cpu.GetReg()->af >> 8) == 0xaa && (harness.cpu.GetReg()->r_af >> 8) == 0x11,
+	        "EX AF,AF' did not expose AF'");
+}
+
 int main() {
 	const TestCase tests[] = {
 	    {"reset and deterministic save", TestResetAndDeterministicSave},
@@ -1032,6 +1066,7 @@ int main() {
 	    {"EI save boundary", TestEiSaveBoundary},
 	    {"flag profile storage", TestFlagProfileStorage},
 	    {"undefined opcodes", TestUndefinedOpcodes},
+	    {"alternate register set", TestAltRegSet},
 	};
 	for (const TestCase &test : tests) {
 		test.run();

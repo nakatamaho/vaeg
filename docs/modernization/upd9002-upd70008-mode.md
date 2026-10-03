@@ -2303,6 +2303,16 @@ implementation; it is not a design document.
    `AF'/BC'/DE'/HL'` are distinct from the main set (§3.1, §17.2), and
    the V30 file has no room for them. `IX`/`IY` are *not* an exception —
    they alias `SI`/`DI`.
+   **Lifetime (M103a, `[DERIVED]` policy):** the storage belongs to the
+   machine, not to the Z80 executor: `upd9002_alt_regs` in `cpu/upd9002/`,
+   its own `UPD9ALT` state section. It is cleared only by the hardware
+   reset path and survives CALLN/IRET round trips, RETEM→BRKEM re-entry
+   and the adapter's own reset. The compatible-mode core holds a working
+   copy, loaded on entry/resume and written back after every step, so
+   native-side code (debugger, state save) always sees the current value.
+   Whether the silicon preserves the set across a native round trip is
+   what `ALTPRB` measures (§17.6, task M103a); the reset case cannot be
+   isolated from BASIC's own `EXX` use and stays a policy.
 5. **One flag byte.** Do not convert at transitions. Make flag
    *computation* mode-aware: bit 2 is `P` natively and `P/V` in
    compatible mode, and bits 1/3/5 carry `N`/`F3`/`F5` (§3.2).
