@@ -301,6 +301,30 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	for (i = 0; i < 164; i++) {
 		fdd->inf.d88.ptr[i] = LOADINTELDWORD(fdd->inf.d88.head.trackp[i]);
 	}
+	/*
+	 * Many images have a 160-entry table and start the first track at 2A0h,
+	 * inside the 164-entry table this structure reads. Entries from there on
+	 * are track data, not pointers: track 0's first sector ID C=0 H=0 R=1
+	 * N=0 reads as 10000h and cut short the track containing that offset.
+	 * The first track is the lowest entry 0-159 at or above 2A0h (these
+	 * always lie inside the table); later entries at or beyond it are ignored
+	 * in memory, and the header bytes are left untouched.
+	 */
+	{
+		UINT32 first = 0;
+
+		for (i = 0; i < 160; i++) {
+			const UINT32 cur = fdd->inf.d88.ptr[i];
+			if ((cur >= 0x2a0) && ((first == 0) || (cur < first))) {
+				first = cur;
+			}
+		}
+		for (i = 0; i < 164; i++) {
+			if ((first != 0) && ((UINT32)(0x20 + i * 4) >= first)) {
+				fdd->inf.d88.ptr[i] = 0;
+			}
+		}
+	}
 	if (fdd->inf.d88.fdtype_major == DISKTYPE_2D) {
 		fh = file_open(fname);
 		if (fh != FILEH_INVALID) {
