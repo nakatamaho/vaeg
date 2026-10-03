@@ -308,6 +308,7 @@ static void usage(const char *progname) {
 	printf("\t--mute\n");
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
+	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
 	printf("\t--scsi0 path|none   --scsi1 path|none\n");
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
@@ -884,6 +885,9 @@ static BOOL check_fdd_image(const char *path, const char *level) {
 	return (SUCCESS);
 }
 
+/* Disk within a multi-image D88 chosen on the command line, 0-based. */
+static UINT cli_fdd_image[2];
+
 static void mount_configured_fdd_images(void) {
 	int drive;
 
@@ -897,7 +901,7 @@ static void mount_configured_fdd_images(void) {
 		if (path[0] == '\0') {
 			continue;
 		}
-		diskdrv_setfdd((REG8)drive, path, 0);
+		diskdrv_setfddex((REG8)drive, path, 0, cli_fdd_image[drive]);
 	}
 }
 
@@ -1189,6 +1193,7 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 		            sizeof(np2oscfg.keyboard_host_layout));
 	}
 	for (drive = 0; drive < 2; drive++) {
+		cli_fdd_image[drive] = (options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0;
 		if (saved->fdd[drive]) {
 			if (options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) {
 				file_cpyname(np2oscfg.fdd_image[drive], options->fdd_path[drive],

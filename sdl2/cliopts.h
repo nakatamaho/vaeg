@@ -151,6 +151,7 @@ typedef struct {
 	UINT keyboard_layout;
 	UINT fdd_mode[2];
 	const char *fdd_path[2];
+	UINT fdd_image[2]; /* 1-based disk within a multi-image D88; 0 = unset */
 	UINT sasi_mode[2];
 	const char *sasi_path[2];
 	UINT scsi_mode[7];
