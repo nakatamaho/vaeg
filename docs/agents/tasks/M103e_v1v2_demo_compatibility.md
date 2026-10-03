@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103e - V1/V2 compatibility against PC-8801 demonstration software
 
-Status: **in progress**
+Status: **implementation complete; G103e human gate pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103e-v1v2-srdemo-sound` off
 `topic/m103d-v1v2-graphics-disk` at `05d5c4e88d3392ed430bb80be325002647c00977`
@@ -61,7 +61,28 @@ traces (local, not committed).
 
 Standard V3 gate unchanged, plus with the VA2 ROM set: SR-DEMO shows its
 title with kanji text, runs through its pictures after f・1 and plays
-music; the state of MA2-DEMO and GAME-A is as recorded below.
+music (listen: the headless runs cannot check audio); MA2-DEMO boots
+N88-日本語BASIC and its demonstration program runs; GAME-A, with its two
+images in drives 1 and 2, runs to its title (the text grid is a known open
+item).
+
+## Summary for G103e
+
+Machine-verifiable parts (local): full CTest without failures (108
+entries, two skipped as before), the V2 BASIC acceptance test passes, the
+tests-off `linux-release` preset builds, V3 PC-Engine boots and lists its
+disk. New romless tests: kanji ROM ports, extended RAM, dictionary ROM
+window, and D88 track tables that end inside the first track.
+
+Policies for approval: the kanji ROM address conversion (bit 14 inverted
+from byte offset 8000h, derived from the ROM's routine and the font
+image); E2h/E3h following the PC-8801 port numbering against the VA
+manuals' printed order; the F0h/F1h dictionary ROM window, which the VA
+manuals do not document.
+
+Moved to M103f: the text grid in GAME-A (3301 RESET and the byte-mode
+start-address rule), choosing an image of a multi-image D88, and V1 mode
+(no V1 media available here). Audible sound under V1/V2 is a gate item.
 
 ## Implementation progress
 
