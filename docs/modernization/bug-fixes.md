@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M103e — D88 tracks were cut short by track 0 data read as pointers
+
+- **Symptom/scope:** a PC-8801MA2 2HD disk hung while loading
+  N88-日本語BASIC: a 26-sector read of cylinder 4, head 1 ended after 17
+  sectors with "No Data", and the loader retried forever. Any D88 image
+  with a 160-entry track table, where one of entries 160–163 decodes to an
+  offset inside the image, is affected for the track containing that
+  offset, in every mode.
+- **Demonstrated cause:** the loader reads 164 track pointers, but such
+  images start track 0 at 2A0h. Entry 160 is track 0's first sector ID
+  (C=0 H=0 R=1 N=0), read as 10000h; `nexttrackptr` took it as the end of
+  the track starting at EE40h, so `d88trk_read` loaded only 4544 bytes and
+  sector 18 onward was not found (FDC trace and image table dump).
+- **Correction:** the first track is the lowest entry 0–159 at or above
+  2A0h; entries at or beyond it are ignored in memory. The header bytes
+  are not modified.
+- **Verification:** the disk now loads N88-日本語BASIC and runs its
+  demonstration; the romless self-test builds a 160-entry
+  image and fails without the fix, and a 164-entry image keeps entry 160.
+- **Task/evidence/commit:** [M103e task](../agents/tasks/M103e_v1v2_demo_compatibility.md#ma2-demo).
+  Fix: [4e1c7a0d](https://github.com/nakatamaho/vaeg/commit/4e1c7a0d372b283e80f71dbb1fc8f02eca4fc882).
+
 ### M103d — Graphics statements corrupted the text screen and restarted V2 BASIC
 
 - **Symptom/scope:** in V1/V2 N-88 BASIC, `LINE` drew its dots into the

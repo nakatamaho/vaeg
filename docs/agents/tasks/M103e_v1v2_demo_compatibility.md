@@ -107,9 +107,16 @@ music; the state of MA2-DEMO and GAME-A is as recorded below.
   not in the VA manuals and not in X88000 1.5.3. `[DERIVED]` vaeg maps a
   16 KiB bank of the dictionary ROM for reads at C000h–FFFFh while F1h
   bit 0 is clear (PC-8801MA behaviour).
-- Open: with both, N88-日本語BASIC starts with "How many files" and the
-  plain N88-BASIC banner without the disk version line, and `FILES` reports
-  `Feature not available`; the demonstration does not start.
+- The loader then hung reading cylinder 4, head 1 (the screen still showed
+  BASIC's earlier output). The FDC trace showed a 26-sector read ending
+  after 17 sectors with No Data. The image has a 160-entry track table, so
+  vaeg read track 0's first sector ID as a pointer (10000h) and cut that
+  track short (fixed in `fdd/fdd_d88.c`, ledger entry).
+- With that fix N88-日本語BASIC starts with its banner and free-memory
+  line, and running the demonstration program from the disk loads and runs
+  its title sequence (pictures and kanji text drawn by BASIC). The disk does not start
+  the demonstration by itself in vaeg; whether it does on the real machine
+  is not known.
 
 ### GAME-A
 
