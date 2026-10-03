@@ -229,3 +229,14 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   `PRINT 1+1`, ` 2`, the cursor and the reverse function-key row.
 - Full CTest without failures (108 entries, two skipped); V3 smoke passes;
   the V3 PC-Engine screen with kanji is unchanged.
+
+### Builds without tests
+
+- The G103c static Windows build exposed two compile/link failures in
+  configurations with `VAEG_ENABLE_TESTS=OFF`, which no local preset used:
+  M103b's state test needed `io/upd9002_regs.h` outside the
+  test-only include guard (on `main`; ledger entry), and this milestone's
+  `selftest_select_8259_mode()` was defined inside the 8087 test guard but
+  called by the unconditional statsave test (this branch only). Both are
+  fixed; `linux-release` now builds and its smoke passes. Building a
+  tests-off preset belongs in the local checks before a release build.

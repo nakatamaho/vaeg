@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M103c — Builds without tests failed after the M103b merge
+
+- **Symptom/scope:** every configuration with `VAEG_ENABLE_TESTS=OFF`
+  (`linux-release`, `mingw-release`, the static Windows container build)
+  failed to compile `sdl2/selftest.c` with `upd9002_iotrap` undeclared, on
+  `main` from the M103b merge until this fix. Test-enabled presets, which
+  all local and CTest runs used, were unaffected.
+- **Demonstrated cause:** the unconditional V1/V2 state-section test added in
+  M103b uses `upd9002_iotrap`, but its header was included only inside the
+  `VAEG_UPD780_INTEGRATION_TESTING` block.
+- **Correction:** include `io/upd9002_regs.h` unconditionally.
+- **Verification:** `linux-release` builds and its romless smoke passes; the
+  static Windows container build succeeds; full CTest on `linux-ci-gcc`
+  without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#builds-without-tests).
+  Introduced by [667dddd4](https://github.com/nakatamaho/vaeg/commit/667dddd4c8a75aae33144ed26a8ae74ec798ecc5);
+  fix: [5c319d28](https://github.com/nakatamaho/vaeg/commit/5c319d28c8da441b0bd82359803b9476eb62c8a0).
+
 ### M103b — FDD interface fast transfer read garbage from port FDh
 
 - **Symptom/scope:** a PC-8801-style disk loader using the 8255 fast
