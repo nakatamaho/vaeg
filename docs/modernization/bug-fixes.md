@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M103c — Alternate registers started at zero instead of all ones
+
+- **Symptom/scope:** after a hardware reset, Z80 `AF'` and `BC'` (and
+  `DE'`/`HL'`) read `0000h` in compatible mode; a real PC-88VA2's Debug 8800
+  `x` command in V1/V2 mode shows `A'=FF`, `F'=MZ-H-ENC`, `B'=FFFF` on a path
+  where no code writes them. Visible to any compatible-mode code that reads
+  the alternate set before writing it.
+- **Demonstrated cause:** M103a chose zero for the hardware-reset value as an
+  unmeasured policy; the §17.2 real-machine dump disagrees, and vaeg running
+  the same ROM path reproduces every other field of that dump.
+- **Correction:** hardware reset sets all four pairs to `FFFFh`. Power-on
+  versus warm-reset behaviour and the `DE'`/`HL'` values are not measured.
+- **Verification:** vaeg's V1/V2 `mon` → `x` output now equals the real
+  dump in every field; the adapter self-test fails with the old value; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#alternate-register-reset-value-maintainer-decision),
+  [CPU document §17.2](upd9002-upd70008-mode.md).
+  Fix: [13a3431a](https://github.com/nakatamaho/vaeg/commit/13a3431a0502663258a0251841b8430f1ee561c7).
+
 ### M103c — US-layout symbols were lost in matrix-scanning software
 
 - **Symptom/scope:** with the US 101 host layout, symbols that the layout
