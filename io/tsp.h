@@ -79,7 +79,8 @@ typedef struct {
 	UINT8 emul_attrs;  // attribute pairs per row
 	UINT8 emul_rows;   // rows
 	UINT8 tvw_addr[3]; // TVRAM byte address for the 97h data stream (8Eh)
-	BYTE dmy2[119];
+	UINT8 actscr;      // ACTSCR split screen number (0-3), from a reserved byte
+	BYTE dmy2[118];
 } _TSP, *TSP;
 
 #ifdef __cplusplus
