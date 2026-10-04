@@ -83,3 +83,30 @@ V1S, and runs a short program.
   and a V1 setting boots N-88 BASIC Version 1.9.
 - Romless test: V1/V2 selection with the ROM-rule checksum, and S clearing
   MS26 only in 88 mode; it fails without either change.
+
+### Maintainer check of the menu (Windows build `e6bfac36`)
+
+- Menu entries select and reset as intended.
+- V1 S showed a black screen or the previous mode's text: in standard
+  speed N-88 BASIC disables the fast TVRAM (port 32h TMODE set, 98h) and
+  keeps its text in main RAM F000h–FFFFh, which vaeg did not display (the
+  VA never runs that way). The 3301 rows of the TVRAM window are now read
+  from 88-mode main RAM while TMODE is set in 88 mode. A V2 → V1 S reset
+  with the PC-8801mkII system disk then shows N-88 BASIC 1.9 and its
+  output.
+
+### N-BASIC ROM and NEW ON 1 (scope items 2, 3)
+
+- An optional 32 KiB `n80.rom`/`N80.ROM` beside the VA ROMs is shown at
+  0000h–7FFFh under port 31h RMODE in 88 mode (ROM/RAM mode), as on a
+  PC-8801. Without it RMODE keeps the VA behaviour (decision M3). The
+  maintainer's MA2 N80 ROM is "NEC PC-8001 BASIC Ver 1.8"; its top 8 KiB
+  equals the VA's Debug 8800 bank, and N-88 BASIC's MON still works with it.
+- `[ROM]` NEW ON 1 builds `OUT 31h,A / JP (HL)` at 847Ah with RMODE set.
+  In V1 S it now starts N-BASIC: the banner appears and a one-line program
+  runs.
+- The earlier stop during N-BASIC's start was its disk boot: it reads
+  track 0 sector 1 from drive 1 and runs it; an N-88 system disk's IPL
+  then waits. With drive 1 empty it starts normally. Treated as the
+  expected PC-8801 behaviour, not a defect.
+- Remaining: a start-up option to boot directly into N-BASIC.
