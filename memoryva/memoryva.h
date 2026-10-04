@@ -59,6 +59,30 @@ typedef struct {
 } _MEMORYVA88ALU;
 
 extern _MEMORYVA88ALU memoryva_88_alu;
+
+/*
+ * V1/V2 extended RAM (PC-8801-02N compatible). E2h: bit 0 RE, bit 4 WE;
+ * E3h: bits 3-2 page, bits 1-0 bank. Page p, bank b appears at 0000h-7FFFh
+ * from VA main RAM 20000h + p * 20000h + b * 8000h.
+ */
+typedef struct {
+	UINT8 mode; /* E2h */
+	UINT8 bank; /* E3h */
+} _MEMORYVA88ERAM;
+
+extern _MEMORYVA88ERAM memoryva_88_eram;
+
+/*
+ * V1/V2 dictionary ROM window (PC-8801MA style, not in the VA manuals).
+ * F0h selects a 16 KiB bank of the VA dictionary ROM; F1h bit 0 clear maps
+ * it for reads at C000h-FFFFh.
+ */
+typedef struct {
+	UINT8 bank;   /* F0h */
+	UINT8 enable; /* F1h, bit 0 clear maps the window */
+} _MEMORYVA88DIC;
+
+extern _MEMORYVA88DIC memoryva_88_dic;
 extern UINT8 memoryva_88_window; /* 70h: high byte of the 1KiB RAM-window origin. */
 extern BOOL textmem_dirty;
 

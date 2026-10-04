@@ -48,6 +48,48 @@ static REG8 IOINPCALL memctrlva_i035(UINT port) {
 	return memoryva_88_alu.port035;
 }
 
+/*
+ * Extended RAM. The BNN manual and the technical manual print the page/bank
+ * layout under E2h and WE/RE under E3h; PC-8801 software (X88000, and a
+ * PC-8801MA2 loader traced here: E3h = 03h, then E2h = 11h) writes the bank
+ * to E3h and RE/WE to E2h, so the port numbers follow the PC-8801. The read
+ * of the RE/WE port is inverted, as both sources state.
+ */
+static void IOOUTCALL memctrlva_o0e2(UINT port, REG8 dat) {
+	memoryva_88_eram.mode = (UINT8)(dat & 0x11);
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i0e2(UINT port) {
+	(void)port;
+	return (REG8)(~memoryva_88_eram.mode);
+}
+
+static void IOOUTCALL memctrlva_o0e3(UINT port, REG8 dat) {
+	memoryva_88_eram.bank = (UINT8)(dat & 0x0f);
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i0e3(UINT port) {
+	(void)port;
+	return (REG8)(0xf0 | memoryva_88_eram.bank);
+}
+
+/*
+ * Dictionary ROM window. Not documented for the VA; a PC-8801MA2 loader
+ * selects bank 0 with F0h, maps it with F1h = 00h and checks for 44h 10h at
+ * C000h, which is how the VA2 dictionary ROM image begins.
+ */
+static void IOOUTCALL memctrlva_o0f0(UINT port, REG8 dat) {
+	memoryva_88_dic.bank = (UINT8)(dat & 0x1f);
+	(void)port;
+}
+
+static void IOOUTCALL memctrlva_o0f1(UINT port, REG8 dat) {
+	memoryva_88_dic.enable = (UINT8)(dat & 0x01);
+	(void)port;
+}
+
 static void IOOUTCALL memctrlva_o070(UINT port, REG8 dat) {
 	memoryva_88_window = (UINT8)dat;
 	(void)port;
@@ -174,6 +216,9 @@ void memctrlva_reset(void) {
 	memoryva_88_window = 0x80;
 	memoryva_88_plane = 3;
 	ZeroMemory(&memoryva_88_alu, sizeof(memoryva_88_alu));
+	ZeroMemory(&memoryva_88_eram, sizeof(memoryva_88_eram));
+	memoryva_88_dic.bank = 0;
+	memoryva_88_dic.enable = 1;
 	memctrlva_o152(0, 0);
 	memctrlva_o153(0, 0x41);
 	memctrlva_o198(0, 0);
@@ -190,6 +235,12 @@ void memctrlva_bind(void) {
 	iocore_attachout(0x035, memctrlva_o035);
 	iocore_attachinp(0x034, memctrlva_i034);
 	iocore_attachinp(0x035, memctrlva_i035);
+	iocore_attachout(0x0f0, memctrlva_o0f0);
+	iocore_attachout(0x0f1, memctrlva_o0f1);
+	iocore_attachout(0x0e2, memctrlva_o0e2);
+	iocore_attachinp(0x0e2, memctrlva_i0e2);
+	iocore_attachout(0x0e3, memctrlva_o0e3);
+	iocore_attachinp(0x0e3, memctrlva_i0e3);
 	iocore_attachout(0x070, memctrlva_o070);
 	iocore_attachinp(0x070, memctrlva_i070);
 	iocore_attachout(0x078, memctrlva_o078);

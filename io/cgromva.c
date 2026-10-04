@@ -18,6 +18,7 @@
 #define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
 
 _CGROMVA cgromva;
+_CGROM88 cgrom88;
 
 static BYTE tofu[32] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -209,10 +210,52 @@ static void IOOUTCALL cgromva_o14f(UINT port, REG8 dat) {
 	cgromva.cgrow = dat;
 }
 
+/*
+ * V1/V2 kanji font ports (BNN manual: E8h/E9h level 1, ECh/EDh level 2).
+ * OUT writes the low and high byte of a word address; IN of the even port
+ * returns the right and of the odd port the left half of that raster. The
+ * VA font image keeps level 1 at 00000h and level 2 at 20000h with two bytes
+ * per raster, left first. The VA2 extension ROM's BASIC computes the PC-8801
+ * address of a kanji as ((jis1 & 1Fh) | (jis2 & 60h)) << 9 |
+ * (jis2 & 1Fh) << 4, while the JIS decoder above selects the 3xxx/4xxx
+ * (5xxx/6xxx) block with the opposite sense of byte-offset bit 14. Below
+ * byte offset 8000h (non-kanji) both orders agree.
+ */
+static UINT32 cgrom88_offset(UINT port) {
+	const UINT level = (port >= 0xec) ? 1 : 0;
+	UINT32 offset = (UINT32)cgrom88.address[level] << 1;
+
+	if (offset >= 0x8000) {
+		offset ^= 0x4000;
+	}
+	return ((UINT32)level << 17) + offset;
+}
+
+static void IOOUTCALL cgrom88_o_low(UINT port, REG8 dat) {
+	const UINT level = (port >= 0xec) ? 1 : 0;
+
+	cgrom88.address[level] = (UINT16)((cgrom88.address[level] & 0xff00) | dat);
+}
+
+static void IOOUTCALL cgrom88_o_high(UINT port, REG8 dat) {
+	const UINT level = (port >= 0xec) ? 1 : 0;
+
+	cgrom88.address[level] = (UINT16)((cgrom88.address[level] & 0x00ff) | ((UINT16)dat << 8));
+}
+
+static REG8 IOINPCALL cgrom88_i_right(UINT port) {
+	return fontmem[cgrom88_offset(port) + 1];
+}
+
+static REG8 IOINPCALL cgrom88_i_left(UINT port) {
+	return fontmem[cgrom88_offset(port)];
+}
+
 // ---- I/F
 
 void cgromva_reset(void) {
 	ZeroMemory(&cgromva, sizeof(cgromva));
+	ZeroMemory(&cgrom88, sizeof(cgrom88));
 }
 
 void cgromva_bind(void) {
@@ -222,4 +265,13 @@ void cgromva_bind(void) {
 	iocore_attachout(0x14f, cgromva_o14f);
 
 	iocore_attachinp(0x14e, cgromva_i14e);
+
+	iocore_attachout(0x0e8, cgrom88_o_low);
+	iocore_attachout(0x0e9, cgrom88_o_high);
+	iocore_attachout(0x0ec, cgrom88_o_low);
+	iocore_attachout(0x0ed, cgrom88_o_high);
+	iocore_attachinp(0x0e8, cgrom88_i_right);
+	iocore_attachinp(0x0e9, cgrom88_i_left);
+	iocore_attachinp(0x0ec, cgrom88_i_right);
+	iocore_attachinp(0x0ed, cgrom88_i_left);
 }
