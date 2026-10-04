@@ -145,7 +145,6 @@ gate results (maintainer decision, 2026-10-04); no cause is established:
 - GAME-A's spoken title voice plays slightly low in pitch. Candidates to
   check: compatible-mode CPU speed against the real machine (sample
   playback driven by CPU loops) and the FM timer periods.
-- No floppy access sound in V1/V2 mode.
 - The SR-DEMO scene timing differs by a few hundred frames between runs.
 
 
