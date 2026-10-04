@@ -47,21 +47,35 @@ static void bkupmemva_statepath(char *path, int size) {
 	file_cpyname(path, VABKUPMEM, size);
 }
 
-void bkupmemva_sync_mainram(void) {
+/*
+ * Checksum of the memory-switch record B1FC0h-B1FC7h at B1FCDh, computed as
+ * the VA2 ROM checks it at reset (F000:23B7): the ROM first sets bit 7 of
+ * B1FC6h, which it later recomputes from the V1/V2 selection, so the sum
+ * uses B1FC6h with bit 7 set. A mismatch makes the ROM restore defaults.
+ */
+static void bkupmemva_update_checksum(void) {
 	UINT8 checksum = 0;
 	int i;
 
+	for (i = 0; i < 8; i++) {
+		checksum = (UINT8)(checksum + backupmem[0x1fc0 + i]);
+	}
+	if (!(backupmem[0x1fc6] & 0x80)) {
+		checksum = (UINT8)(checksum + 0x80);
+	}
+	backupmem[0x1fcd] = checksum;
+}
+
+void bkupmemva_sync_mainram(void) {
 	if (!np2cfg.main_ram_auto) {
 		return;
 	}
 	/* Only capacity bits and their checksum belong to automatic syncing. */
 	backupmem[0x1fc4] = (BYTE)((backupmem[0x1fc4] & 0xf8) |
 	                         ((pccore_mainram_kb() / 128) - 1));
-	for (i = 0; i < 8; i++) {
-		checksum = (UINT8)(checksum + backupmem[0x1fc0 + i]);
-	}
-	backupmem[0x1fcd] = checksum;
+	bkupmemva_update_checksum();
 }
+
 
 static void bkupmemva_initialize_mainram(void) {
 	ZeroMemory(backupmem, 0x04000);
