@@ -2456,6 +2456,14 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M103g — V1/V2 sound observations without a demonstrated cause
+
+- **Symptom/scope:** in V1/V2 mode, a PC-8801 game's spoken title voice
+  plays slightly low in pitch, and floppy access makes no drive sound
+  (maintainer report, G103g check, Windows build `1ae6cccf`).
+- **Status:** not investigated; no root cause is claimed. Tracked in
+  [`v1v2-mode-decisions.md`](v1v2-mode-decisions.md) §9.
+
 ### M100g — Configuration save failures were silently ignored
 
 - **Status:** implementation candidate; runtime failure-injection verification pending.
