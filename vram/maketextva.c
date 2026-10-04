@@ -619,6 +619,17 @@ UINT32 maketextva_bytelocal(UINT32 local) {
 	return ((((local & 0xf000) << 1) | (local & 0x0fff)) & (sizeof(textmem) - 1));
 }
 
+/*
+ * Only 3000h-3FFFh and B000h-BFFFh are usable in byte-access mode (BNN
+ * manual 8.2.1); rows starting elsewhere are not displayed. After a uPD3301
+ * RESET the VA2 ROM moves the emulated screen to local 0800h, so this also
+ * leaves the text blank while the 3301 display is stopped. `[DERIVED]`: the
+ * real TSP's output for these addresses is not documented.
+ */
+BOOL maketextva_bytelocal_usable(UINT32 local) {
+	return ((local >= 0x3000) && (local < 0x4000)) || ((local >= 0xb000) && (local < 0xc000));
+}
+
 void maketextva_blankraster(void) {
 	ZeroMemory(textraster, sizeof(textraster));
 	ZeroMemory(textcolorraster, sizeof(textcolorraster));
@@ -665,8 +676,10 @@ void maketextva_raster(void) {
 			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
 				/* Byte mode: the table's address and pitch are twice the
 				 * local byte values; see maketextva_bytelocal(). */
-				if (work.texty < tsp.emul_rows) {
-					v = textmem + maketextva_bytelocal((f->rsa >> 1) + (f->vw >> 1) * work.texty);
+				const UINT32 local = (f->rsa >> 1) + (f->vw >> 1) * work.texty;
+
+				if ((work.texty < tsp.emul_rows) && maketextva_bytelocal_usable(local)) {
+					v = textmem + maketextva_bytelocal(local);
 					makeline_3301(v, f->rwchar);
 				} else {
 					ZeroMemory(linebitmap, sizeof(linebitmap));
