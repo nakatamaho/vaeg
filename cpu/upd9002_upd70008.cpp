@@ -240,9 +240,18 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return;
 		}
 
+		const bool was_enabled = upd70008_.GetReg()->iff1 != 0;
 		upd70008_.ExecOne();
 		SyncToNative();
 		CPU_REMCLOCK = counter_.GetRemainclock();
+		// The machine arbitrates interrupts only between CPU time slices
+		// (pic_irq). As the native STI does, end the slice one instruction
+		// after EI (or a RETI/RETN restoring IFF1) when a request is waiting,
+		// so it is taken in the enabled window instead of the next slice.
+		if (!was_enabled && (upd70008_.GetReg()->iff1 != 0) && PICEXISTINTR && (CPU_REMCLOCK > 1)) {
+			CPU_BASECLOCK += 1 - CPU_REMCLOCK;
+			CPU_REMCLOCK = 1;
+		}
 		compat_trace("after", trace_slot, op0, op1);
 	}
 
