@@ -23,6 +23,7 @@ ToDo:
 #include "memoryva.h"
 #include "tsp.h"
 #include "videova.h"
+#include "sysportva.h"
 #include "maketextva.h"
 
 //#define	USETABLE					// 返って遅くなってしまうようだ。
@@ -596,7 +597,9 @@ void maketextva_begin(BOOL *scrn200) {
 	BYTE *fbinfo;
 
 #if defined(SLEEP_HACK)
-	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge()) {
+	/* Main-RAM text (see maketextva_3301_row) does not mark textmem dirty. */
+	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge() &&
+	    !(memoryva_88_mode && (sysportva.port032 & 0x10))) {
 		work.sleep = TRUE;
 	} else {
 		work.sleep = FALSE;
@@ -666,6 +669,29 @@ UINT32 maketextva_bytelocal(UINT32 local) {
  * leaves the text blank while the 3301 display is stopped. `[DERIVED]`: the
  * real TSP's output for these addresses is not documented.
  */
+/*
+ * Source of an emulated 3301 row at TVRAM byte `offset`. With port 32h TMODE
+ * set in 88 mode, PC-8801 software keeps its text in main RAM F000h-FFFFh
+ * (no fast TVRAM), as N-88 BASIC does in V1S mode. The VA always reports
+ * high speed and never runs that way; under the vaeg standard-speed
+ * extension the 4 KiB TVRAM window (6000h-6FFFh) is then read from the
+ * 88-mode main RAM instead, as the PC-8801's CRTC DMA would.
+ */
+static BYTE emul_row_ram[256];
+
+static const BYTE *maketextva_3301_row(UINT32 offset) {
+	UINT i;
+
+	if (!memoryva_88_mode || !(sysportva.port032 & 0x10) || (offset < 0x6000) ||
+	    (offset >= 0x7000)) {
+		return textmem + offset;
+	}
+	for (i = 0; i < sizeof(emul_row_ram); i++) {
+		emul_row_ram[i] = mem[0x1f000 + ((offset - 0x6000 + i) & 0x0fff)];
+	}
+	return emul_row_ram;
+}
+
 BOOL maketextva_bytelocal_usable(UINT32 local) {
 	return ((local >= 0x3000) && (local < 0x4000)) || ((local >= 0xb000) && (local < 0xc000));
 }
@@ -719,7 +745,7 @@ void maketextva_raster(void) {
 				const UINT32 local = (f->rsa >> 1) + (f->vw >> 1) * work.texty;
 
 				if ((work.texty < tsp.emul_rows) && maketextva_bytelocal_usable(local)) {
-					v = textmem + maketextva_bytelocal(local);
+					v = (BYTE *)maketextva_3301_row(maketextva_bytelocal(local));
 					makeline_3301(v, f->rwchar);
 					if (!(videova.txtmode8 & 0x01)) {
 						widen40_3301(f->rwchar);
