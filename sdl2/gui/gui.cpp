@@ -1224,6 +1224,7 @@ static void select_boot_model(const char *model, bool enable_8087) {
 static void select_v1v2_mode(bool v1, bool standard) {
 	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
 	np2cfg.v1v2_standard = standard ? 1 : 0;
+	np2cfg.v1v2_nmode = 0;
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
@@ -2510,12 +2511,20 @@ static void draw_emulate_menu(void) {
 			             {"V1 S", true, true}};
 			const bool v1 = bkupmemva_get_88v1() != FALSE;
 			const bool standard = np2cfg.v1v2_standard != 0;
+			const bool nmode = np2cfg.v1v2_nmode != 0;
 
 			for (const auto &mode : modes) {
 				if (ImGui::MenuItem(mode.label, nullptr,
-				                    (v1 == mode.v1) && (standard == mode.standard))) {
+				                    !nmode && (v1 == mode.v1) && (standard == mode.standard))) {
 					select_v1v2_mode(mode.v1, mode.standard);
 				}
+			}
+			ImGui::Separator();
+			// vaeg extension: start in N-BASIC; needs n80.rom (About: ROM(N80)).
+			if (ImGui::MenuItem("N (PC-8001)", nullptr, nmode, memoryva_n80_exist != FALSE)) {
+				np2cfg.v1v2_nmode = 1;
+				sysmng_update(SYS_UPDATECFG);
+				reset_guest();
 			}
 			ImGui::EndMenu();
 		}
