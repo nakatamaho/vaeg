@@ -30,6 +30,7 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "memctrlva.h"
 #include "np2info.h"
 #include "cliopts.h"
 #include "debug_harness.h"
@@ -4637,6 +4638,36 @@ static int test_v1v2_memory_switch(void) {
 				problem = "About did not report a missing N-BASIC ROM and V2 H";
 			}
 		}
+		/* N mode: RMODE at reset, port 40h bit 3, and the 8801 reset state of
+		 * the ROM's emulated port 53h (text on) at the first compat entry. */
+		memoryva_n80_exist = TRUE;
+		np2cfg.v1v2_nmode = 1;
+		memoryva_88_port31 = 0;
+		memctrlva_nmode_reset();
+		if ((problem == NULL) && ((memoryva_88_port31 != 0x04) || !memctrlva_nmode_active() ||
+		                          !(iocore_inp8(0x040) & 0x08))) {
+			problem = "N mode did not set RMODE or port 40h bit 3";
+		}
+		upd9002_mainram_write(0x4e8, 0x89);
+		iocore_out8(0x148, 0x89);
+		memctrlva_nmode_compat_entry();
+		if ((problem == NULL) &&
+		    ((upd9002_mainram_read(0x4e8) != 0x09) || (videova.txtmode & 0x80))) {
+			problem = "N mode did not turn the text on at the compat entry";
+		}
+		upd9002_mainram_write(0x4e8, 0x89);
+		iocore_out8(0x148, 0x89);
+		memctrlva_nmode_compat_entry();
+		if ((problem == NULL) && (upd9002_mainram_read(0x4e8) != 0x89)) {
+			problem = "N mode changed the text state more than once";
+		}
+		memoryva_n80_exist = FALSE;
+		memoryva_88_port31 = 0;
+		memctrlva_nmode_reset();
+		if ((problem == NULL) && ((memoryva_88_port31 != 0) || (iocore_inp8(0x040) & 0x08))) {
+			problem = "N mode acted without an N80 ROM";
+		}
+		np2cfg.v1v2_nmode = 0;
 		memoryva_n80_exist = saved_exist;
 		memoryva_n80[0x0000] = saved0;
 		memoryva_n80[0x5fff] = saved1;
