@@ -4283,7 +4283,13 @@ static BYTE *v1v2_plane(UINT plane, UINT offset) {
 
 /* Render graphics rasters 0..y with the frame buffer the VA2 ROM sets up for
  * V1/V2 mode, leaving raster y in grph0_raster. */
+static void v1v2_render_to_mode(UINT y, WORD pagemsk, WORD grmode, WORD grres);
+
 static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
+	v1v2_render_to_mode(y, pagemsk, grmode, 0);
+}
+
+static void v1v2_render_to_mode(UINT y, WORD pagemsk, WORD grmode, WORD grres) {
 	FRAMEBUFFER f = &videova.framebuffer[0];
 	BOOL scrn200;
 	UINT i;
@@ -4298,7 +4304,7 @@ static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
 	f->dsh = 0xc8;
 	f->dsp = 0;
 	videova.grmode = grmode;
-	videova.grres = 0;
+	videova.grres = grres;
 	videova.pagemsk = pagemsk;
 	makegrphva_begin(&scrn200);
 	for (i = 0; i <= y; i++) {
@@ -4440,6 +4446,25 @@ static int test_v1v2_graphics(void) {
 		if ((problem == NULL) && videova_textmerge()) {
 			problem = "4 bit/pixel multiplane merged";
 		}
+	}
+
+	/* Multiplane 4 bit/pixel: 110h G3MSK (bit 7) clear keeps plane 3 out of
+	 * the pixel, as the VA2 ROM sets it for V1/V2 (7F47h). */
+	if (problem == NULL) {
+		*v1v2_plane(0, 0) = 0x80;
+		*v1v2_plane(1, 0) = 0x00;
+		*v1v2_plane(3, 0) = 0x80;
+		v1v2_render_to_mode(0, 0x7f47, 0x8002, 1);
+		if (grph0_noraster || (grph0_raster[0] != 0x01)) {
+			problem = "plane 3 shown with G3MSK clear";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to_mode(0, 0x7fc7, 0x8002, 1);
+		if (grph0_noraster || (grph0_raster[0] != 0x09)) {
+			problem = "plane 3 hidden with G3MSK set";
+		}
+		*v1v2_plane(3, 0) = 0x00;
 	}
 
 	/* Multiplane 1 bit/pixel ORs the switched-on planes; with 88MD and 400
@@ -5388,7 +5413,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
-	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800)) {
+	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
+	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
+	    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
 		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
 	}
 	if (test_v1v2_graphics() != SUCCESS) {
