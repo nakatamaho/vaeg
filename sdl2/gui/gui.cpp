@@ -124,7 +124,9 @@ constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
                                             "ROM TYPE: %ROMTPVA%\n"
                                             "ROM(Main): %BIOSVA%\n"
                                             "ROM(VupB): %BIOS91%\n"
-                                            "ROM(Sub): %BIOSSUB%";
+                                            "ROM(Sub): %BIOSSUB%\n"
+                                            "ROM(N80): %BIOSN80%\n"
+                                            "Z80 MODE: %Z80MODE%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {

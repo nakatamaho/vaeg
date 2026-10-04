@@ -5,6 +5,7 @@
 #include "sound.h"
 #include "fmboard.h"
 #include "np2info.h"
+#include "bkupmemva.h"
 #include "np2ver.h"
 #include "sgp.h"
 
@@ -266,6 +267,21 @@ static void info_bios_88vasubsys(char *str, int maxlen, NP2INFOEX *ex) {
 	}
 }
 
+/* Optional user-supplied N-BASIC ROM (n80.rom), a vaeg extension. */
+static void info_bios_n80(char *str, int maxlen, NP2INFOEX *ex) {
+	if (memoryva_n80_exist) {
+		milstr_ncpy(str, str_exist, maxlen);
+	} else {
+		milstr_ncpy(str, str_notexist, maxlen);
+	}
+}
+
+/* V1/V2 (Z80) mode as stored for the next reset: V1/V2 and H/S. */
+static void info_z80mode(char *str, int maxlen, NP2INFOEX *ex) {
+	milstr_ncpy(str, bkupmemva_get_88v1() ? "V1" : "V2", maxlen);
+	milstr_ncat(str, np2cfg.v1v2_standard ? " S" : " H", maxlen);
+}
+
 static void info_rhythm(char *str, int maxlen, NP2INFOEX *ex) {
 	char rhythmstr[8];
 	UINT exist;
@@ -294,6 +310,8 @@ static const INFOPROC infoproc[] = {{"MODEL", info_model},
                                     {"BIOSVA", info_bios_88va},
                                     {"BIOS91", info_bios_88va91},
                                     {"BIOSSUB", info_bios_88vasubsys},
+                                    {"BIOSN80", info_bios_n80},
+                                    {"Z80MODE", info_z80mode},
                                     {"VER", info_ver},
                                     {"COMMIT", info_commit},
                                     {"CPUCLK", info_cpuclock},
