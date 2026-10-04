@@ -30,6 +30,7 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "np2info.h"
 #include "cliopts.h"
 #include "debug_harness.h"
 #include "dosio.h"
@@ -4559,6 +4560,20 @@ static int test_v1v2_memory_switch(void) {
 			problem = "V2 selection";
 		}
 	}
+	/* Port 150h starts from the selection at reset (the original VA's ROM
+	 * reads it without writing 1C6h). */
+	if (problem == NULL) {
+		bkupmemva_set_88v1(TRUE);
+		pccore_reset();
+		if (iocore_inp8(0x150) != 0xfe) {
+			problem = "port 150h did not report V1 after reset";
+		}
+		bkupmemva_set_88v1(FALSE);
+		pccore_reset();
+		if ((problem == NULL) && (iocore_inp8(0x150) != 0xfd)) {
+			problem = "port 150h did not report V2 after reset";
+		}
+	}
 	/* IN 31h: S clears MS26 only in 88 mode. */
 	if (problem == NULL) {
 		np2cfg.v1v2_standard = 1;
@@ -4603,6 +4618,24 @@ static int test_v1v2_memory_switch(void) {
 		iocore_out8(0x031, 0x06); /* RMODE with all-RAM mode */
 		if ((problem == NULL) && (upd9002_memoryread_va(0x15fff) == 0xa5)) {
 			problem = "N-BASIC ROM shown in all-RAM mode";
+		}
+		/* About shows whether the ROM was found and the stored Z80 mode. */
+		{
+			char info[64];
+
+			bkupmemva_set_88v1(TRUE);
+			np2cfg.v1v2_standard = 1;
+			np2info(info, "%BIOSN80%/%Z80MODE%", sizeof(info), NULL);
+			if ((problem == NULL) && strcmp(info, "exist/V1 S")) {
+				problem = "About did not report the N-BASIC ROM and V1 S";
+			}
+			memoryva_n80_exist = FALSE;
+			bkupmemva_set_88v1(FALSE);
+			np2cfg.v1v2_standard = 0;
+			np2info(info, "%BIOSN80%/%Z80MODE%", sizeof(info), NULL);
+			if ((problem == NULL) && strcmp(info, "not exist/V2 H")) {
+				problem = "About did not report a missing N-BASIC ROM and V2 H";
+			}
 		}
 		memoryva_n80_exist = saved_exist;
 		memoryva_n80[0x0000] = saved0;
