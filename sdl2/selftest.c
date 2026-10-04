@@ -4798,6 +4798,18 @@ static int test_tsp_3301_emulation(void) {
 				problem = "semigraphics drew a clear block";
 			}
 		}
+		/* 40 columns (port 30h 80CM clear): column 0 covers the cell of
+		 * column 1, whose reverse red no longer shows. */
+		videova.txtmode8 = 0x00;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && (textraster[8 + i] != 0)) {
+				problem = "40 columns did not widen column 0 over column 1";
+			}
+		}
+		videova.txtmode8 = 0x01;
 	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
 	if (problem == NULL) {
