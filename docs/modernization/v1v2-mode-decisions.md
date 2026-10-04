@@ -39,6 +39,8 @@ Basis tags:
 - `[VA-TM]` stated by the BNN technical manual or the electronic
   technical manual (`tekumani`).
 - `[NEC-GIHO]` NEC Giho article on the PC-88VA (summarised, not quoted).
+- `[UPD72022]` NEC µPD72022 data book (the generic part behind the VA
+  TSP), as reconstructed in [`upd72022-tsp.md`](upd72022-tsp.md).
 - `[ROM]` read from VA2 ROM code or traced while it runs.
 - `[X88000]` PC-8801 behaviour as implemented by X88000 1.5.3 (public
   domain), used as a behavioural reference and re-implemented.
@@ -97,7 +99,7 @@ Status:
 
 | ID | Decision | Basis | Status | Where | Real-machine check |
 |---|---|---|---|---|---|
-| X1 | TSP commands 8Eh (set table byte address), 97h (write bytes until the next command) and 8Fh (three bytes, ignored). | Not in the VA manual's command list; `[ROM]` traces `[DERIVED]` | Approved G103c | `io/tsp.c` | — |
+| X1 | The VA2 ROM writes split-screen table fields with the generic memory commands: 8Eh `DPLD` loads DPTR0 (19-bit byte address, three bytes), 8Fh `DPLD` loads DPTR1 (signed increment; the ROM sends `01 00 00`, +1), 97h `WDAT` with MOD = 11b writes each parameter and then adds DPTR1, until the next command. vaeg writes one byte per parameter at TVRAM byte DPTR0 and always advances by one; the DPTR1 value and `MASK` (89h) are not modelled. | `[UPD72022]` §10.6 (the commands are not in the BNN VA command list); `[ROM]` traces. M103c had inferred the 8Eh/97h roles and left 8Fh unexplained. One byte per parameter in byte-access mode is `[DERIVED]`. | Approved G103c (basis now documented) | `io/tsp.c` (its comment still calls 8Fh unknown) | — |
 | X2 | 3301 attribute pairs follow X88000's transparent-mode rule (memory order, shifted when the first column is non-zero, colour/secret/blink/reverse carry across rows, lines reset per row, start white). Colour attribute mode is assumed. | `[X88000]` | Approved G103c | `vram/maketextva.c` | — |
 | X3 | Byte-mode address: local L = start field / 2; TVRAM byte = `((L & F000h) << 1) | (L & 0FFFh)`. | `[VA-TM]` §8.2.1 tabulates 3000h–3FFFh and B000h–BFFFh; the rule fits both `[DERIVED]` (M103c used L + 3000h, which fits only the first) | Pending G103f | `vram/maketextva.c` | — |
 | X4 | Local addresses outside the documented ranges are read through X3 as well. After a 3301 RESET the ROM points the screen at local 0800h; rows reaching 1000h read V3 BIOS data and show as a dashed line in GAME-A. | Undocumented | Open | `vram/maketextva.c` | photograph GAME-A after its opening |

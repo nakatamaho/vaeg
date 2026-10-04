@@ -194,6 +194,14 @@ graphics display (M103d), sound under V1/V2, FDD use beyond boot.
   fields), 97h writes the following parameter bytes from it until the next
   command, and 8Fh takes three bytes whose meaning is unknown (always
   `01 00 00`). BASIC's DMA start F3C8h becomes a start field of 678Ch.
+- Later note (M103f): these are the µPD72022's generic display-memory
+  commands, documented in [`upd72022-tsp.md`](../../modernization/upd72022-tsp.md)
+  §10.6 from the NEC data book though absent from the BNN VA command list.
+  8Eh is `DPLD` into DPTR0 (19-bit byte address), 8Fh is `DPLD` into DPTR1
+  (a signed increment; `01 00 00` is +1), and 97h is `WDAT` with MOD = 11b,
+  which adds DPTR1 after each write. The inference above matches them;
+  vaeg still advances by one instead of using DPTR1. See
+  [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md) X1.
 - `[VA-TM]` §8.2.1 and the TSP chapter: 88-mode F000h–FFFFh is the 4 KiB of
   V3 TVRAM at A6000h; the TSP runs in byte-access mode and EMUL expands
   uPD3301 attributes dynamically. vaeg now maps that window when no GVRAM
