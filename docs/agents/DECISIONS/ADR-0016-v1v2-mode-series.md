@@ -95,7 +95,33 @@ PC-88VA in compatibility mode.
 
 ### Derivations
 
-None yet.
+Re-implemented from X88000 1.5.3 (public domain; source archive
+`x88_1_5_3_src.tar.gz`, SHA-256
+`66bc0b69d5a394e2195b5e277093eebcc045fbb3930c03637aa106394ae83cf3`,
+<https://quagma.sakura.ne.jp/manuke/x88src.html>); no code copied:
+
+| Milestone | vaeg code | X88000 source | What |
+|---|---|---|---|
+| M103c | `vram/maketextva.c` (`makeline_3301`) | `X88ScreenDrawer.cpp`, transparent attribute mode | µPD3301 attribute-pair walk and carry across rows |
+| M103d | `memoryva/memoryva.c` (`n88_gvram_ex_read`/`_write`) | `PC88Z80Main.cpp`, `ReadMemoryGVRamEx`, `WriteMemoryGVRamEx*` | GVRAM extended access: latch, comparison read, ALU and copy modes |
+| M103d | `vram/scrndrawva.c` (multiplane 1 bit/pixel merge) | `X88ScreenDrawer.cpp`, monochrome modes | Colour and reverse rule for graphics dots (the merge itself follows the VA technical manual) |
+| M103e | `io/memctrlva.c` (`E2h`/`E3h`) | `PC88Z80Main.cpp`, `ReadIO_E2`/`WriteIO_E2`/`ReadIO_E3`/`WriteIO_E3` | Port numbering and bit layout of extended RAM control |
+
+Each choice and its status is listed in
+[`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).
+
+## Notes on the implementation (2026-10-04)
+
+- **No feature flag.** M103b–M103f did not put the V1/V2 paths behind a
+  build or configuration flag. They run only when the VA ROM selects V1/V2
+  from the boot media; V3 software never enables them (port 153H bit 6 and
+  the I/O trap are set only on that path; the 8214 interrupt mode is the
+  reset default, which V3 software leaves by writing 158H), and each gate
+  rechecks V3 boot and the bundled demo. Whether a flag is still wanted is
+  a maintainer decision.
+- **Series gate.** N88-DISK BASIC V2 operates (M103d) and the
+  PC-8801mkIISR DEMO runs (M103e); both await G103d/G103e. V1 mode has not
+  been run (no V1 media).
 
 ## Consequences
 
