@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103f - V1/V2 text addressing and multi-image media
 
-Status: **implementation complete; G103f human gate pending**
+Status: **complete; G103f passed on 2026-10-04; merged to `main` at [8b446b1](https://github.com/nakatamaho/vaeg/commit/8b446b131413d6d71fa9a50ce69bd75f3523f942)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103f-v1v2-text-media` off
 `topic/m103e-v1v2-srdemo-sound` at `e4f16e577a6f09ab614aea0ea737ca976d950366`

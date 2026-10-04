@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103e - V1/V2 compatibility against PC-8801 demonstration software
 
-Status: **implementation complete; G103e human gate pending**
+Status: **complete; G103e passed on 2026-10-04; merged to `main` at [1520c42](https://github.com/nakatamaho/vaeg/commit/1520c42994ce43f81b3d96d58af6aaf6b151d7e7)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103e-v1v2-srdemo-sound` off
 `topic/m103d-v1v2-graphics-disk` at `05d5c4e88d3392ed430bb80be325002647c00977`

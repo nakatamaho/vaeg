@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103d - V1/V2 graphics and disk BASIC
 
-Status: **in progress**
+Status: **complete; G103d passed on 2026-10-04; merged to `main` at [98a2333](https://github.com/nakatamaho/vaeg/commit/98a233335fc66c9e03849b51fc42adf0e3d7170b)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103d-v1v2-graphics-disk`
 off the integration branch `topic/v1v2-mode` at `main`

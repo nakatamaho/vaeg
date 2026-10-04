@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103g - V1/V2 semigraphics, 40 columns and sound timing
 
-Status: **in progress**
+Status: **complete; G103g passed on 2026-10-04; merged to `main` at [375d96b](https://github.com/nakatamaho/vaeg/commit/375d96ba41819e13c504f429e9d575f6f16c1ba8)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103g-v1v2-semigraphics-sound`
 off `topic/m103f-v1v2-text-media` at `2853f652537f3ec82b179552301f34f9f8b93fc8`
