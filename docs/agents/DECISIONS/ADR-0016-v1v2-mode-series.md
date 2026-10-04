@@ -117,8 +117,8 @@ Each choice and its status is listed in
   from the boot media; V3 software never enables them (port 153H bit 6 and
   the I/O trap are set only on that path; the 8214 interrupt mode is the
   reset default, which V3 software leaves by writing 158H), and each gate
-  rechecks V3 boot and the bundled demo. Whether a flag is still wanted is
-  a maintainer decision.
+  rechecks V3 boot and the bundled demo. The maintainer accepted this
+  (no flag) on 2026-10-04.
 - **Series gate.** N88-DISK BASIC V2 operates (M103d) and the
   PC-8801mkIISR DEMO runs (M103e); both await G103d/G103e. V1 mode has not
   been run (no V1 media).

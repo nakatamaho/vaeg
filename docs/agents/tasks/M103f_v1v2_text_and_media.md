@@ -99,6 +99,23 @@ MA2-DEMO and V2 BASIC text still display as at G103e.
   shows its title, MA2-DEMO loads its demonstration, and V3 PC-Engine
   lists its disk.
 
+### Gate feedback (2026-10-04)
+
+- Maintainer check with the Windows build `4bdbb33c`: standard V3 gate,
+  V2 BASIC colour graphics with correct `POINT`, `SCREEN 1`/`2`, SR-DEMO
+  pictures and sound, MA2-DEMO (including sound board II) and GAME-A all
+  run. Policies approved: the byte-mode address rule, refusing to format
+  multi-image files, and no V1/V2 feature flag (ADR-0016).
+- Reported: stray graphics in V2 BASIC (after `PAINT`) and the SR demo
+  after running a V3 game and resetting. Cause: plane 3 drawn although
+  110h G3MSK was clear (fixed, ledger entry).
+- Reported: a dashed line under GAME-A's title (open item X4). The
+  maintainer chose to keep the text blank while the 3301 display is
+  stopped; rows starting outside the usable byte-mode ranges are now not
+  displayed, and the line is gone.
+- Moved to M103g: uPD3301 semigraphics (missing in the SR demo) and sound
+  timing (in the SR demo's winter scene the music starts late and briefly).
+
 ## Summary for G103f
 
 Policies for approval: the byte-mode address rule (derived from the two

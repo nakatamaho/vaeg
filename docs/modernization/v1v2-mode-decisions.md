@@ -101,8 +101,8 @@ Status:
 |---|---|---|---|---|---|
 | X1 | The VA2 ROM writes split-screen table fields with the generic memory commands: 8Eh `DPLD` loads DPTR0 (19-bit byte address, three bytes), 8Fh `DPLD` loads DPTR1 (signed increment; the ROM sends `01 00 00`, +1), 97h `WDAT` with MOD = 11b writes each parameter and then adds DPTR1, until the next command. vaeg writes one byte per parameter at TVRAM byte DPTR0 and always advances by one; the DPTR1 value and `MASK` (89h) are not modelled. | `[UPD72022]` §10.6 (the commands are not in the BNN VA command list); `[ROM]` traces. M103c had inferred the 8Eh/97h roles and left 8Fh unexplained. One byte per parameter in byte-access mode is `[DERIVED]`. | Approved G103c (basis now documented) | `io/tsp.c` (its comment still calls 8Fh unknown) | — |
 | X2 | 3301 attribute pairs follow X88000's transparent-mode rule (memory order, shifted when the first column is non-zero, colour/secret/blink/reverse carry across rows, lines reset per row, start white). Colour attribute mode is assumed. | `[X88000]` | Approved G103c | `vram/maketextva.c` | — |
-| X3 | Byte-mode address: local L = start field / 2; TVRAM byte = `((L & F000h) << 1) | (L & 0FFFh)`. | `[VA-TM]` §8.2.1 tabulates 3000h–3FFFh and B000h–BFFFh; the rule fits both `[DERIVED]` (M103c used L + 3000h, which fits only the first) | Pending G103f | `vram/maketextva.c` | — |
-| X4 | Local addresses outside the documented ranges are read through X3 as well. After a 3301 RESET the ROM points the screen at local 0800h; rows reaching 1000h read V3 BIOS data and show as a dashed line in GAME-A. | Undocumented | Open | `vram/maketextva.c` | photograph GAME-A after its opening |
+| X3 | Byte-mode address: local L = start field / 2; TVRAM byte = `((L & F000h) << 1) | (L & 0FFFh)`. | `[VA-TM]` §8.2.1 tabulates 3000h–3FFFh and B000h–BFFFh; the rule fits both `[DERIVED]` (M103c used L + 3000h, which fits only the first) | Approved by the maintainer (2026-10-04, G103f review) | `vram/maketextva.c` | — |
+| X4 | Rows of the emulated screen that start outside the usable byte-mode ranges are not displayed. After a 3301 RESET the ROM moves the screen to local 0800h, so the text stays blank while the 3301 display is stopped (GAME-A no longer shows a dashed line). | `[VA-TM]` §8.2.1 calls other ranges unusable; blanking them is `[POLICY]` (maintainer choice "a", 2026-10-04) | Pending G103f | `vram/maketextva.c` | photograph GAME-A after its opening |
 | X5 | Not modelled: semigraphics, 40-column doubling, monochrome attribute mode, CURS-positioned cursor. | — | Open | — | — |
 
 ## 6. Graphics
@@ -116,6 +116,7 @@ Status:
 | G5 | With 110h 88MD set and 400 lines, plane 0 shows the upper and plane 1 the lower 200 lines, over twice the frame-buffer height. | `[ROM]` SCREEN 2 leaves the frame buffer at 200 lines and switches on planes 0 and 1; PC-8801 640×400 format `[DERIVED]` | Pending G103d | `vram/makegrphva.c` | — |
 | G6 | In colour mode `COLOR f,b` leaves the background black: the ROM writes the backdrop, but graphics colour 0 is opaque. | `[ROM]` register values; matches `[X88000]` colour mode | Pending G103d | — | photograph `COLOR 7,4` in SCREEN 0 |
 | G7 | Not modelled: 320-dot mode in 1 bit/pixel, GVRAM wait states. | — | Open | — | — |
+| G8 | 110h bit 7 (G3MSK) clear keeps plane 3 out of 4 bit/pixel display. Bug fix, in the ledger. | `[VA-TM]` ch. 4 and §8.3.2 | Pending G103f | `vram/makegrphva.c` | — |
 
 ## 7. Character ROM
 
@@ -131,7 +132,7 @@ Status:
 |---|---|---|---|---|---|
 | D1 | D88 table entries at or beyond the first track (lowest entry 0–159 at or above 2A0h) are ignored. Bug fix, in the ledger. | Image format | Pending G103e | `fdd/fdd_d88.c` | — |
 | D2 | `--fdd1-image N` / `--fdd2-image N` choose a disk inside a multi-image D88. The choice is not stored in the configuration or in state files; no GUI control. | `[POLICY]` | Pending G103f | `fdd/`, `sdl2/` | — |
-| D3 | Formatting is refused unless the D88 file holds a single image. | `[POLICY]` (growing a track would move later images) | Pending G103f | `fdd/fdd_d88.c` | — |
+| D3 | Formatting is refused unless the D88 file holds a single image. | `[POLICY]` (growing a track would move later images) | Approved by the maintainer (2026-10-04, G103f review) | `fdd/fdd_d88.c` | — |
 
 ## 9. Not yet covered
 
@@ -145,6 +146,7 @@ Status:
 
 1. `INP(&H34)`, `INP(&H35)` after `OUT` in V2 BASIC (G1).
 2. GAME-A screen after its opening: are there stray text rows (X4)?
+   (vaeg now shows none.)
 3. `INP(&HE2)`, `INP(&HE3)` after writing E3h (M4).
 4. `mon` → `x` after cold power-on and after warm reset (C2).
 5. `COLOR 7,4` in SCREEN 0: black or green background (G6).
