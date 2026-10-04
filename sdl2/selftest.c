@@ -4575,6 +4575,40 @@ static int test_v1v2_memory_switch(void) {
 			problem = "H changed IN 31h";
 		}
 	}
+	/* N-BASIC ROM (vaeg extension): RMODE shows it at 0000h-7FFFh in 88
+	 * mode; without it RMODE keeps N-88 BASIC below 6000h. */
+	if (problem == NULL) {
+		const BOOL saved_exist = memoryva_n80_exist;
+		const BYTE saved0 = memoryva_n80[0x0000];
+		const BYTE saved1 = memoryva_n80[0x5fff];
+		const REG8 n88_0 = upd9002_memoryread_va(0x10000);
+
+		iocore_out8(0x153, 0x01);
+		iocore_out8(0x031, 0x04); /* RMODE, ROM/RAM mode */
+		memoryva_n80[0x0000] = (BYTE)(n88_0 ^ 0xff);
+		memoryva_n80[0x5fff] = 0xa5;
+		memoryva_n80_exist = FALSE;
+		if (upd9002_memoryread_va(0x10000) == memoryva_n80[0x0000]) {
+			problem = "RMODE showed N-BASIC without a ROM";
+		}
+		memoryva_n80_exist = TRUE;
+		if ((problem == NULL) && ((upd9002_memoryread_va(0x10000) != memoryva_n80[0x0000]) ||
+		                          (upd9002_memoryread_va(0x15fff) != 0xa5))) {
+			problem = "RMODE did not show the N-BASIC ROM";
+		}
+		iocore_out8(0x031, 0x00);
+		if ((problem == NULL) && (upd9002_memoryread_va(0x10000) == memoryva_n80[0x0000])) {
+			problem = "N-BASIC ROM shown with RMODE clear";
+		}
+		iocore_out8(0x031, 0x06); /* RMODE with all-RAM mode */
+		if ((problem == NULL) && (upd9002_memoryread_va(0x15fff) == 0xa5)) {
+			problem = "N-BASIC ROM shown in all-RAM mode";
+		}
+		memoryva_n80_exist = saved_exist;
+		memoryva_n80[0x0000] = saved0;
+		memoryva_n80[0x5fff] = saved1;
+		iocore_out8(0x031, 0x00);
+	}
 	pccore_term();
 	soundmng_deinitialize();
 	if (problem != NULL) {
