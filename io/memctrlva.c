@@ -23,6 +23,31 @@ static REG8 IOINPCALL memctrlva_i05c(UINT port) {
 	return 0xf8 | (memoryva_88_plane < 3 ? (1 << memoryva_88_plane) : 0);
 }
 
+static void IOOUTCALL memctrlva_o034(UINT port, REG8 dat) {
+	memoryva_88_alu.port034 = (UINT8)dat;
+	(void)port;
+}
+
+static void IOOUTCALL memctrlva_o035(UINT port, REG8 dat) {
+	memoryva_88_alu.port035 = (UINT8)dat;
+	(void)port;
+}
+
+/*
+ * The manuals list 34h/35h as output ports, but the VA ROM's text trap
+ * handler saves them with IN and restores them with OUT around its V3-mode
+ * work, so they must read back the last value written.
+ */
+static REG8 IOINPCALL memctrlva_i034(UINT port) {
+	(void)port;
+	return memoryva_88_alu.port034;
+}
+
+static REG8 IOINPCALL memctrlva_i035(UINT port) {
+	(void)port;
+	return memoryva_88_alu.port035;
+}
+
 static void IOOUTCALL memctrlva_o070(UINT port, REG8 dat) {
 	memoryva_88_window = (UINT8)dat;
 	(void)port;
@@ -52,6 +77,16 @@ static REG8 IOINPCALL memctrlva_i071(UINT port) {
 static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
 	memoryva_88_port31 = (UINT8)dat;
+	if (memoryva_88_mode) {
+		/*
+		 * BNN manual: port 31h bits PM00, GDEN0 and VW1 carry the names of
+		 * GrRes (102h) bit 0 and GrMode (100h) bits 15 and 1, and BASIC
+		 * writes them directly; treat them as aliases of those VA bits.
+		 */
+		videova.grmode = (WORD)((videova.grmode & ~0x8002) | ((dat & 0x08) ? 0x8000 : 0) |
+		                        ((dat & 0x01) ? 0x0002 : 0));
+		videova.grres = (WORD)((videova.grres & ~0x0001) | ((dat & 0x10) ? 0x0001 : 0));
+	}
 	(void)port;
 }
 
@@ -138,6 +173,7 @@ void memctrlva_reset(void) {
 	memoryva_88_xerom = 1;
 	memoryva_88_window = 0x80;
 	memoryva_88_plane = 3;
+	ZeroMemory(&memoryva_88_alu, sizeof(memoryva_88_alu));
 	memctrlva_o152(0, 0);
 	memctrlva_o153(0, 0x41);
 	memctrlva_o198(0, 0);
@@ -150,6 +186,10 @@ void memctrlva_bind(void) {
 	iocore_attachout(0x05e, memctrlva_o05c);
 	iocore_attachout(0x05f, memctrlva_o05c);
 	iocore_attachinp(0x05c, memctrlva_i05c);
+	iocore_attachout(0x034, memctrlva_o034);
+	iocore_attachout(0x035, memctrlva_o035);
+	iocore_attachinp(0x034, memctrlva_i034);
+	iocore_attachinp(0x035, memctrlva_i035);
 	iocore_attachout(0x070, memctrlva_o070);
 	iocore_attachinp(0x070, memctrlva_i070);
 	iocore_attachout(0x078, memctrlva_o078);

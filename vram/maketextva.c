@@ -103,6 +103,12 @@ static BYTE linebitmap[TEXTVA_SURFACE_WIDTH * TEXTVA_LINEHEIGHTMAX];
 BYTE textraster[SURFACE_WIDTH]; // 1ラスタ分のピクセルデータ
                                 // 各ピクセルはパレット番号(0～15)
 
+// Per-pixel colour of the character cell (after reverse, before secret and
+// blink) for the current text row and raster; multiplane 1 bit/pixel
+// graphics are drawn in this colour.
+static BYTE linecolor[TEXTVA_SURFACE_WIDTH];
+BYTE textcolorraster[SURFACE_WIDTH];
+
 #if defined(USETABLE)
 static DWORD font2bitmap[16][16][16]; // [fg][bg][4bit分のビットマップ]
 #endif
@@ -193,6 +199,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 	}
 
 	ZeroMemory(linebitmap, sizeof(linebitmap));
+	ZeroMemory(linecolor, sizeof(linecolor));
 	b = linebitmap;
 
 	for (x = 0; x < rwchar; x++) {
@@ -209,6 +216,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 			fg = charattr.fg;
 		}
 		ul = fg;
+		FillMemory(linecolor + x * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
 		if (charattr.attr & TEXTVA_ATR_ST) {
 			fg = bg;
 			// アンダーラインは表示される(シークレットにならない)
@@ -387,6 +395,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		rwchar = TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH;
 	}
 	ZeroMemory(linebitmap, sizeof(linebitmap));
+	ZeroMemory(linecolor, sizeof(linecolor));
 	b = linebitmap;
 	for (i = 0; i < rwchar; i++, b += TEXTVA_CHARWIDTH) {
 		const int c = (int)i - 2;
@@ -411,6 +420,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			fg = bg;
 			bg = t;
 		}
+		FillMemory(linecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
 		if ((code == 0 || code == 0x20) && (bg == 0) && !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
 			continue;
 		}
@@ -546,7 +556,7 @@ void maketextva_begin(BOOL *scrn200) {
 	BYTE *fbinfo;
 
 #if defined(SLEEP_HACK)
-	if (work.allzero && !textmem_dirty && !tsp_dirty) {
+	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge()) {
 		work.sleep = TRUE;
 	} else {
 		work.sleep = FALSE;
@@ -601,6 +611,7 @@ void maketextva_begin(BOOL *scrn200) {
 
 void maketextva_blankraster(void) {
 	ZeroMemory(textraster, sizeof(textraster));
+	ZeroMemory(textcolorraster, sizeof(textcolorraster));
 }
 
 void maketextva_raster(void) {
@@ -650,6 +661,7 @@ void maketextva_raster(void) {
 					makeline_3301(v, f->rwchar);
 				} else {
 					ZeroMemory(linebitmap, sizeof(linebitmap));
+					ZeroMemory(linecolor, sizeof(linecolor));
 				}
 			} else {
 				v = textmem + f->rsa + f->vw * work.texty;
@@ -682,6 +694,7 @@ void maketextva_raster(void) {
 		x = 0;
 		if (f->rxp < SURFACE_WIDTH) {
 			for (; x < f->rxp; x++) {
+				textcolorraster[x] = linecolor[lb - lbs];
 				*b = *lb;
 				b++;
 				lb++;
@@ -689,6 +702,7 @@ void maketextva_raster(void) {
 			lb = lbs;
 		}
 		for (; x < SURFACE_WIDTH; x++) {
+			textcolorraster[x] = linecolor[lb - lbs];
 			*b = *lb;
 			b++;
 			lb++;

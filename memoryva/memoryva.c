@@ -68,6 +68,7 @@ UINT8 memoryva_88_port31;
 UINT8 memoryva_88_xerom = 1;
 UINT8 memoryva_88_window = 0x80;
 UINT8 memoryva_88_plane = 3;
+_MEMORYVA88ALU memoryva_88_alu;
 BOOL textmem_dirty;
 
 _VA91 va91;
@@ -744,9 +745,72 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address) {
 	return (LOADINTELWORD(va91rom1mem + offset));
 }
 
-/* Independent-plane access only; compatible ALU modes remain pending. */
+/* Independent-plane access (port 32h GVAM clear), selected by ports 5Ch-5Fh. */
 static BOOL n88_gvram_selected(UINT32 address) {
-	return memoryva_88_mode && memoryva_88_plane < 3 && address >= 0x1c000 && address < 0x20000;
+	return memoryva_88_mode && !memoryva_88_alu.gvam && memoryva_88_plane < 3 &&
+	       address >= 0x1c000 && address < 0x20000;
+}
+
+/*
+ * Extended (ALU) access, after X88000 1.5.3 (public domain),
+ * PC88Z80Main.cpp ReadMemoryGVRamEx / WriteMemoryGVRamEx*. Re-implemented.
+ */
+static BOOL n88_gvram_ex_selected(UINT32 address) {
+	return memoryva_88_mode && memoryva_88_alu.gvam && (memoryva_88_alu.port035 & 0x80) &&
+	       address >= 0x1c000 && address < 0x20000;
+}
+
+static UINT32 n88_plane_offset(UINT plane, UINT32 address) {
+	return ((UINT32)plane << 16) + 0x4000 + (address & 0x3fff);
+}
+
+static REG8 n88_gvram_ex_read(UINT32 address) {
+	REG8 result = 0xff;
+	UINT plane;
+
+	for (plane = 0; plane < 3; plane++) {
+		const BYTE dat = grphmem[n88_plane_offset(plane, address)];
+		memoryva_88_alu.latch[plane] = dat;
+		result &= (REG8)(dat ^ ((memoryva_88_alu.port035 & (1 << plane)) ? 0x00 : 0xff));
+	}
+	return result;
+}
+
+static void n88_gvram_ex_write(UINT32 address, REG8 value) {
+	UINT plane;
+
+	switch ((memoryva_88_alu.port035 >> 4) & 3) {
+	case 0:
+		for (plane = 0; plane < 3; plane++) {
+			BYTE *p = grphmem + n88_plane_offset(plane, address);
+			const UINT op = ((memoryva_88_alu.port034 >> plane) & 1) |
+			                (((memoryva_88_alu.port034 >> (plane + 4)) & 1) << 1);
+
+			switch (op) {
+			case 0:
+				*p &= (BYTE)~value;
+				break;
+			case 1:
+				*p |= (BYTE)value;
+				break;
+			case 2:
+				*p ^= (BYTE)value;
+				break;
+			}
+		}
+		break;
+	case 1:
+		for (plane = 0; plane < 3; plane++) {
+			grphmem[n88_plane_offset(plane, address)] = memoryva_88_alu.latch[plane];
+		}
+		break;
+	case 2:
+		grphmem[n88_plane_offset(0, address)] = memoryva_88_alu.latch[1];
+		break;
+	case 3:
+		grphmem[n88_plane_offset(1, address)] = memoryva_88_alu.latch[0];
+		break;
+	}
 }
 
 static UINT32 n88_gvram_address(UINT32 address) {
@@ -758,8 +822,10 @@ static UINT32 n88_gvram_address(UINT32 address) {
  * 32h TMODE (bit 4) clear, F000h-FFFFh is the 4 KiB of V3 TVRAM at A6000h.
  */
 static BOOL n88_tvram_selected(UINT32 address) {
-	return memoryva_88_mode && memoryva_88_plane >= 3 && !(sysportva.port032 & 0x10) &&
-	       address >= 0x1f000 && address < 0x20000;
+	const BOOL gvram =
+	    memoryva_88_alu.gvam ? (memoryva_88_alu.port035 & 0x80) != 0 : (memoryva_88_plane < 3);
+	return memoryva_88_mode && !gvram && !(sysportva.port032 & 0x10) && address >= 0x1f000 &&
+	       address < 0x20000;
 }
 
 static UINT32 n88_tvram_offset(UINT32 address) {
@@ -778,6 +844,10 @@ static UINT32 n88_ram_window_address(UINT32 address) {
 
 void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value) {
 	pccore_debugmem(0, address, value);
+	if (n88_gvram_ex_selected(address)) {
+		n88_gvram_ex_write(address, value);
+		return;
+	}
 	if (n88_tvram_selected(address)) {
 		textmem[n88_tvram_offset(address)] = (BYTE)value;
 		textmem_dirty = TRUE;
@@ -801,7 +871,7 @@ void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 	next = address + 1;
 	if (n88_ram_window_selected(address) || n88_ram_window_selected(next) ||
 	    n88_gvram_selected(address) || n88_gvram_selected(next) || n88_tvram_selected(address) ||
-	    n88_tvram_selected(next)) {
+	    n88_tvram_selected(next) || n88_gvram_ex_selected(address) || n88_gvram_ex_selected(next)) {
 		upd9002_memorywrite_va(address, (REG8)value);
 		upd9002_memorywrite_va(next, (REG8)(value >> 8));
 		return;
@@ -835,6 +905,9 @@ static BOOL n88_monitor_selected(UINT32 address) {
 }
 
 REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
+	if (n88_gvram_ex_selected(address)) {
+		return n88_gvram_ex_read(address);
+	}
 	if (n88_tvram_selected(address)) {
 		return textmem[n88_tvram_offset(address)];
 	}
@@ -864,7 +937,8 @@ REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 	next = address + 1;
 	if (n88_rom_selected(address) || n88_rom_selected(next) || n88_ram_window_selected(address) ||
 	    n88_ram_window_selected(next) || n88_gvram_selected(address) || n88_gvram_selected(next) ||
-	    n88_tvram_selected(address) || n88_tvram_selected(next)) {
+	    n88_tvram_selected(address) || n88_tvram_selected(next) || n88_gvram_ex_selected(address) ||
+	    n88_gvram_ex_selected(next)) {
 		lo = upd9002_memoryread_va(address);
 		hi = upd9002_memoryread_va(next);
 		return (REG16)lo | ((REG16)hi << 8);

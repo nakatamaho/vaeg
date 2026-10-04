@@ -52,6 +52,8 @@
 #include "machine/keystat.h"
 #include "kbdpaste.h"
 #include "memoryva.h"
+#include "gvramva.h"
+#include "makegrphva.h"
 #include "mousestate.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -3842,6 +3844,9 @@ static void v1v2_state_set_nondefault(void) {
 	iocore_out8(0x071, 0xfe);
 	iocore_out8(0x070, 0x37);
 	iocore_out8(0x05d, 0x00);
+	iocore_out8(0x034, 0x41);
+	iocore_out8(0x035, 0x95);
+	iocore_out8(0x032, iocore_inp8(0x032) | 0x40);
 	for (i = 0; i < 8; i++) {
 		iocore_out8(0xffe0 + i, ranges[i]);
 	}
@@ -3853,7 +3858,9 @@ static BOOL v1v2_state_is_nondefault(void) {
 
 	return memoryva_88_mode == 1 && !(iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0x02 &&
 	       iocore_inp8(0x071) == 0xfe && iocore_inp8(0x070) == 0x37 && iocore_inp8(0x05c) == 0xfa &&
-	       !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) && upd9002_iotrap.control == 0x13;
+	       iocore_inp8(0x034) == 0x41 && iocore_inp8(0x035) == 0x95 &&
+	       (iocore_inp8(0x032) & 0x40) && !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
+	       upd9002_iotrap.control == 0x13;
 }
 
 static BOOL v1v2_state_is_default(void) {
@@ -3861,14 +3868,15 @@ static BOOL v1v2_state_is_default(void) {
 
 	return memoryva_88_mode == 0 && (iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0 &&
 	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 && iocore_inp8(0x05c) == 0xf8 &&
+	       iocore_inp8(0x034) == 0 && iocore_inp8(0x035) == 0 && !memoryva_88_alu.gvam &&
 	       !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) && upd9002_iotrap.control == 0;
 }
 
 /* M103b: V1/V2 machine state survives a full save/load, and old files without
  * the optional sections load with V3 defaults. */
 static int test_v1v2_state_sections(void) {
-	static const char *const sections[] = {"MEM88MODE", "MEM88SYS", "MEM88EXT",
-	                                       "MEM88WIN",  "MEM88GFX", "UPD9TRAP"};
+	static const char *const sections[] = {"MEM88MODE", "MEM88SYS", "MEM88EXT", "MEM88WIN",
+	                                       "MEM88GFX",  "MEM88ALU", "UPD9TRAP"};
 	char path[MAX_PATH];
 	char oldpath[MAX_PATH];
 	const char *problem;
@@ -4138,6 +4146,218 @@ static int test_pic8214_mode(void) {
 		return (fail("8214 mode", problem));
 	}
 	fprintf(stderr, "selftest: 8214 mode ok\n");
+	return (SUCCESS);
+}
+
+static BYTE *v1v2_plane(UINT plane, UINT offset) {
+	return grphmem + ((UINT32)plane << 16) + 0x4000 + offset;
+}
+
+/* Render graphics rasters 0..y with the frame buffer the VA2 ROM sets up for
+ * V1/V2 mode, leaving raster y in grph0_raster. */
+static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	BOOL scrn200;
+	UINT i;
+
+	f->fsa = 0x10000;
+	f->fbw = 0x140;
+	f->fbl = 0x190;
+	f->dot = 0;
+	f->ofx = 0;
+	f->ofy = 0;
+	f->dsa = 0x10000;
+	f->dsh = 0xc8;
+	f->dsp = 0;
+	videova.grmode = grmode;
+	videova.grres = 0;
+	videova.pagemsk = pagemsk;
+	makegrphva_begin(&scrn200);
+	for (i = 0; i <= y; i++) {
+		makegrphva_raster();
+	}
+}
+
+/* M103d: V1/V2 extended GVRAM access, port 31h display bits, palette mode. */
+static int test_v1v2_graphics(void) {
+	const char *problem;
+	BYTE before;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	iocore_out8(0x153, 0x01); /* 88 mode */
+
+	/* Independent access: 5Ch selects plane 0 at C000h. */
+	iocore_out8(0x05c, 0);
+	upd9002_memorywrite_va(0x1c010, 0xaa);
+	if (*v1v2_plane(0, 0x10) != 0xaa) {
+		problem = "independent plane write";
+	}
+	iocore_out8(0x05f, 0);
+
+	/* ALU: plane 0 set, plane 1 reset, plane 2 invert. */
+	if (problem == NULL) {
+		*v1v2_plane(0, 0x20) = 0x0f;
+		*v1v2_plane(1, 0x20) = 0xff;
+		*v1v2_plane(2, 0x20) = 0x3c;
+		iocore_out8(0x032, iocore_inp8(0x032) | 0x40);
+		iocore_out8(0x034, 0x41);
+		iocore_out8(0x035, 0x80);
+		upd9002_memorywrite_va(0x1c020, 0xf0);
+		if (!(iocore_inp8(0x032) & 0x40) || (*v1v2_plane(0, 0x20) != 0xff) ||
+		    (*v1v2_plane(1, 0x20) != 0x0f) || (*v1v2_plane(2, 0x20) != 0xcc)) {
+			problem = "ALU write";
+		}
+	}
+	/* Comparison read with colour 5 (planes 0 and 2), then latch copies. */
+	if (problem == NULL) {
+		iocore_out8(0x035, 0x85);
+		if (upd9002_memoryread_va(0x1c020) != 0xc0) {
+			problem = "comparison read";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x035, 0x90);
+		upd9002_memorywrite_va(0x1c030, 0x00);
+		iocore_out8(0x035, 0xa0);
+		upd9002_memorywrite_va(0x1c040, 0x00);
+		iocore_out8(0x035, 0xb0);
+		upd9002_memorywrite_va(0x1c050, 0x00);
+		if ((*v1v2_plane(0, 0x30) != 0xff) || (*v1v2_plane(1, 0x30) != 0x0f) ||
+		    (*v1v2_plane(2, 0x30) != 0xcc) || (*v1v2_plane(0, 0x40) != 0x0f) ||
+		    (*v1v2_plane(1, 0x40) != 0) || (*v1v2_plane(1, 0x50) != 0xff) ||
+		    (*v1v2_plane(0, 0x50) != 0)) {
+			problem = "GDM latch copies";
+		}
+	}
+	/* 34h/35h read back; GAM clear leaves C000h-FFFFh as RAM and TVRAM. */
+	if ((problem == NULL) && ((iocore_inp8(0x034) != 0x41) || (iocore_inp8(0x035) != 0xb0))) {
+		problem = "34h/35h read back";
+	}
+	if (problem == NULL) {
+		iocore_out8(0x035, 0x00);
+		before = *v1v2_plane(0, 0x60);
+		upd9002_memorywrite_va(0x1c060, 0x5a);
+		upd9002_memorywrite_va(0x1f000, 0x77);
+		if ((*v1v2_plane(0, 0x60) != before) || (upd9002_memoryread_va(0x1c060) != 0x5a) ||
+		    (textmem[0x6000] != 0x77)) {
+			problem = "GAM clear mapping";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x035, 0x80);
+		upd9002_memorywrite_va(0x1f000, 0x00);
+		if ((textmem[0x6000] != 0x77) || (*v1v2_plane(0, 0x3000) != 0x00)) {
+			problem = "GAM set did not map F000h to GVRAM";
+		}
+		iocore_out8(0x035, 0x00);
+		iocore_out8(0x032, iocore_inp8(0x032) & ~0x40);
+	}
+
+	/* Port 31h: PM00, GDEN0 and VW1 drive 102h bit 0 and 100h bits 15, 1. */
+	if (problem == NULL) {
+		videova.grmode = 0x3060;
+		videova.grres = 0;
+		iocore_out8(0x031, 0x19);
+		if ((videova.grmode != 0xb062) || (videova.grres != 0x0001)) {
+			problem = "31h did not set the display bits";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x031, 0x00);
+		if ((videova.grmode != 0x3060) || (videova.grres != 0)) {
+			problem = "31h did not clear the display bits";
+		}
+	}
+
+	/* Palette mode: PLTM2 set uses PLTM1-0, clear derives from PMODE/PM00. */
+	if (problem == NULL) {
+		videova.palmode = 0x01c0;
+		if (videova_palettemode() != 3) {
+			problem = "PLTM2 palette mode";
+		}
+	}
+	if (problem == NULL) {
+		videova.palmode = 0x00c0;
+		iocore_out8(0x032, iocore_inp8(0x032) & ~0x20);
+		iocore_out8(0x031, 0x00);
+		if (videova_palettemode() != 1) {
+			problem = "palette mode for digital monochrome";
+		}
+		iocore_out8(0x031, 0x10);
+		if ((problem == NULL) && (videova_palettemode() != 2)) {
+			problem = "palette mode for digital colour";
+		}
+		iocore_out8(0x032, iocore_inp8(0x032) | 0x20);
+		if ((problem == NULL) && (videova_palettemode() != 2)) {
+			problem = "palette mode for analogue colour";
+		}
+		iocore_out8(0x031, 0x00);
+		if ((problem == NULL) && (videova_palettemode() != 0)) {
+			problem = "palette mode for analogue monochrome";
+		}
+	}
+
+	/* Multiplane 1 bit/pixel merges into text; 4 bit/pixel does not. */
+	if (problem == NULL) {
+		videova.grmode = 0x8000;
+		videova.grres = 0;
+		if (!videova_textmerge()) {
+			problem = "1 bit/pixel multiplane not merged";
+		}
+		videova.grres = 1;
+		if ((problem == NULL) && videova_textmerge()) {
+			problem = "4 bit/pixel multiplane merged";
+		}
+	}
+
+	/* Multiplane 1 bit/pixel ORs the switched-on planes; with 88MD and 400
+	 * lines plane 0 is the upper and plane 1 the lower 200 lines. */
+	if (problem == NULL) {
+		*v1v2_plane(0, 0) = 0x80;
+		*v1v2_plane(1, 0) = 0x40;
+		v1v2_render_to(0, 0x7f03, 0x8002);
+		if (grph0_noraster || (grph0_raster[0] != 1) || (grph0_raster[1] != 1) || grph0_raster[2]) {
+			problem = "1 bit/pixel plane OR";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(0, 0x7f43, 0x8000);
+		if (grph0_noraster || (grph0_raster[0] != 1) || grph0_raster[1]) {
+			problem = "400-line upper half is not plane 0";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(200, 0x7f43, 0x8000);
+		if (grph0_noraster || grph0_raster[0] || (grph0_raster[1] != 1)) {
+			problem = "400-line lower half is not plane 1";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to(200, 0x7f03, 0x8000);
+		if (!grph0_noraster) {
+			problem = "200-line frame displayed past its height without 88MD";
+		}
+	}
+
+	/* 31h is V1/V2-only: in V3 mode it leaves the VA display alone. */
+	if (problem == NULL) {
+		iocore_out8(0x153, 0x41);
+		videova.grmode = 0x3060;
+		iocore_out8(0x031, 0x19);
+		if (videova.grmode != 0x3060) {
+			problem = "31h changed the display in V3 mode";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("V1/V2 graphics", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 graphics ok\n");
 	return (SUCCESS);
 }
 
@@ -4950,6 +5170,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_3301_emulation() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_graphics() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {

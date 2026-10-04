@@ -1935,8 +1935,10 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "romless;frontend;viewport"
         TIMEOUT 30)
-    # M103b: V2 disk BASIC reaches its key-input wait through automatic FDD
-    # selection. Needs maintainer-local VA2 ROMs and V2 BASIC media.
+    # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
+    # answers PRINT 1+1, draws a painted circle and round-trips a program
+    # through SAVE and LOAD. Needs maintainer-local VA2 ROMs and V2 BASIC
+    # media.
     set(VAEG_V1V2_ROM_DIR "" CACHE PATH "Maintainer-local VA2 ROM directory for M103b")
     set(VAEG_V1V2_BASIC_MEDIA "" CACHE FILEPATH "Maintainer-local V2 BASIC D88 for M103b")
     add_test(NAME vaeg_m103b_basic_boot_selftest

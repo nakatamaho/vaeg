@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M103d — Graphics statements corrupted the text screen and restarted V2 BASIC
+
+- **Symptom/scope:** in V1/V2 N-88 BASIC, `LINE` drew its dots into the
+  text screen as stray characters, and a following graphics statement such
+  as `CIRCLE` restarted BASIC at its `How many files` prompt. V1/V2 mode
+  only; V3 software never uses ports 34h/35h.
+- **Demonstrated cause:** BASIC's plotting code selects extended GVRAM
+  access (port 32h bit 6), which vaeg did not model, so its writes reached
+  main RAM and the 88-mode TVRAM window. In addition the VA2 ROM's text trap
+  handler saves ports 34h/35h with `IN` and restores them with `OUT`; vaeg
+  returned FFh, so the restore set 35h GAM and the next `LINE` mapped
+  C000h–FFFFh, including BASIC's stack at E5xxh, to GVRAM (trace and ROM
+  disassembly in the task).
+- **Correction:** extended access with the per-plane ALU, latch and
+  comparison reads, GAM mapping, and 34h/35h reading back the last value
+  written.
+- **Verification:** the drawn figures appear in GVRAM in the expected
+  colours and `POINT` returns them; the romless self-test fails when the
+  read-back or the comparison read is removed; the V2 BASIC acceptance test
+  draws and paints a circle and round-trips a program through the disk.
+- **Task/evidence/commit:** [M103d task](../agents/tasks/M103d_v1v2_graphics_and_disk.md#extended-access-scope-item-1).
+  Fix: [e3ef809c](https://github.com/nakatamaho/vaeg/commit/e3ef809c8a3fbb788f2a051d1da7580a7490af73).
+
 ### M103c — Alternate registers started at zero instead of all ones
 
 - **Symptom/scope:** after a hardware reset, Z80 `AF'` and `BC'` (and

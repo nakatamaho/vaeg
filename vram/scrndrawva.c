@@ -180,14 +180,18 @@ void scrndrawva_compose_raster(void) {
 	BYTE defaultflip;
 	WORD xparhigh;
 	int blinkfreq;
+	BOOL merge;
 
 	// テキストとスプライトの出力を重ね合わせ、
 	// テキスト/スプライト判別境界カラーで分離する
 	tscr = videova.pagemsk >> 12; // テキスト/スプライト判別境界カラー
+	merge = videova_textmerge() && layer_enabled[VAEG_VA_LAYER_GRAPHICS0] && !grph0_noraster;
 	for (x = 0; x < SURFACE_WIDTH; x++) {
 		palcode = sprraster[x];
-		if (palcode == 0)
-			palcode = textraster[x];
+		if (palcode == 0) {
+			// Multiplane 1 bit/pixel graphics take the colour of the text cell.
+			palcode = (merge && grph0_raster[x]) ? textcolorraster[x] : textraster[x];
+		}
 		if (palcode > tscr) {
 			// テキスト
 			tsptext_raster[x] = palcode;
@@ -199,7 +203,7 @@ void scrndrawva_compose_raster(void) {
 		}
 	}
 
-	palmode = (videova.palmode >> 6) & 3;
+	palmode = videova_palettemode();
 	defaultflip = palmode == 1 ? 0x10 : 0x00;
 	palset1scrn = (videova.palmode >> 4) & 3;
 
@@ -248,7 +252,10 @@ void scrndrawva_compose_raster(void) {
 				scrn->xpar = videova.xpar_txtspr | ((DWORD)videova.xpar_txtspr << 16);
 				break;
 			case VIDEOVA_GRAPHICSCREEN0:
-				if ((videova.grmode & 0x8000) && layer_enabled[VAEG_VA_LAYER_GRAPHICS0]) {
+				if (merge) {
+					// Drawn as part of the text screen.
+					scrn->raster = NULL;
+				} else if ((videova.grmode & 0x8000) && layer_enabled[VAEG_VA_LAYER_GRAPHICS0]) {
 					// GDEN0 = 1 (グラフィック表示イネーブル)
 					scrn->raster = (grph0_noraster) ? NULL : grph0_raster;
 					scrn->pixelmode = videova.grres & 0x0003;

@@ -14,6 +14,7 @@
 #include "fmboard.h"
 #include "beep.h"
 #include "sysmng.h"
+#include "memoryva.h"
 
 _SYSPORTVACFG sysportvacfg = {0xcd};
 
@@ -53,12 +54,14 @@ static void IOOUTCALL sysp_o010(UINT port, REG8 dat) {
 static void IOOUTCALL sysp_o032(UINT port, REG8 dat) {
 	//	TRACEOUT(("sysp_o032 - %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	sysportva.port032 = dat & 0xbf; // V3 forces legacy GVAM low; port 510H controls native access.
+	memoryva_88_alu.gvam = (dat & 0x40) ? 1 : 0; // used, and read back, only in 88 mode
 	fmboard_setintmask((BYTE)(dat & 0x80));
 }
 
 static REG8 IOINPCALL sysp_i032(UINT port) {
 	//	TRACEOUT(("sysp_i032 - %x %.4x:%.4x", port, CPU_CS, CPU_IP));
-	return (sysportva.port032 & 0x7f) | (fmboard_getintmask() & 0x80);
+	return (sysportva.port032 & 0x7f) | (fmboard_getintmask() & 0x80) |
+	       ((memoryva_88_mode && memoryva_88_alu.gvam) ? 0x40 : 0);
 }
 
 /*
