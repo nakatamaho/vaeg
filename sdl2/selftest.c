@@ -4880,6 +4880,28 @@ static int test_tsp_3301_emulation(void) {
 			}
 		}
 		videova.txtmode8 = 0x01;
+		/* M103h: with 32h TMODE set in 88 mode (V1S N-88 BASIC) the text
+		 * comes from 88-mode main RAM F000h-FFFFh, not TVRAM 6000h. */
+		CopyMemory(mem + 0x1f000, textmem + 0x6000, 0x1000);
+		ZeroMemory(textmem + 0x6000, 0x1000);
+		iocore_out8(0x153, 0x01);
+		iocore_out8(0x32, 0x18); /* TMODE 1 */
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && (textraster[8 + i] != 10)) {
+				problem = "TMODE 1 did not show the text in 88-mode main RAM";
+			}
+		}
+		iocore_out8(0x32, 0x08); /* TMODE 0: TVRAM, now blank */
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		if ((problem == NULL) && (textraster[8] != 0)) {
+			problem = "TMODE 0 still showed main RAM text";
+		}
+		iocore_out8(0x153, 0x41);
 	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
 	if (problem == NULL) {
