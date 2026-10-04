@@ -66,6 +66,14 @@ static BYTE byte2pixel[256][8]; // マルチプレーン
 #define addr18(scrn, x) ((x) & ((scrn)->addrmask) | ((scrn)->addrofs))
 #define issingleplane() (videova.grmode & 0x0400)
 
+/*
+ * 110h bit 7 (G3MSK) is the plane 3 screen switch of multiplane 4 bit/pixel
+ * mode: clear means 3 bits/pixel with plane 3 not displayed (technical
+ * manual ch. 4; BNN 8.3.2 requires it for V1/V2, and the VA2 ROM writes
+ * 7F47h there).
+ */
+#define plane3mask() ((BYTE)((videova.pagemsk & 0x0080) ? 0xff : 0x00))
+
 static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount, WORD *b, UINT count,
                           BOOL doublewidth) {
 	UINT xp;
@@ -84,7 +92,7 @@ static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount, WORD *b,
 		d0 = grphmem[addr + 0x00000];
 		d1 = grphmem[addr + 0x10000];
 		d2 = grphmem[addr + 0x20000];
-		d3 = grphmem[addr + 0x30000];
+		d3 = grphmem[addr + 0x30000] & plane3mask();
 		addr = addr18(screen, addr + 1);
 
 		for (i = 0; i < 8; i++) {
@@ -648,7 +656,7 @@ static void drawraster_m4(SCREEN screen) {
 			d0 = grphmem[addr];
 			d1 = grphmem[addr + 0x10000];
 			d2 = grphmem[addr + 0x20000];
-			d3 = grphmem[addr + 0x30000];
+			d3 = grphmem[addr + 0x30000] & plane3mask();
 			addr = addr18(screen, addr + 1);
 
 			d0 <<= i;
@@ -711,7 +719,7 @@ static void drawraster_m4(SCREEN screen) {
 			d0 = grphmem[addr];
 			d1 = grphmem[addr + 0x10000];
 			d2 = grphmem[addr + 0x20000];
-			d3 = grphmem[addr + 0x30000];
+			d3 = grphmem[addr + 0x30000] & plane3mask();
 			addr = addr18(screen, addr + 1);
 
 			d0 <<= i;

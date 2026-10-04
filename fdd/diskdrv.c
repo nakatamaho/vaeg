@@ -17,6 +17,7 @@
 int diskdrv_delay[4];
 int diskdrv_ro[4];
 char diskdrv_fname[4][MAX_PATH];
+static UINT8 diskdrv_image[4];
 
 void diskdrv_sethdd(REG8 drv, const char *fname) {
 	UINT num;
@@ -48,7 +49,13 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 }
 
 void diskdrv_setfdd(REG8 drv, const char *fname, int readonly) {
+	diskdrv_setfddex(drv, fname, readonly, 0);
+}
+
+/* `image` selects a disk inside a multi-image D88 file (0 = first). */
+void diskdrv_setfddex(REG8 drv, const char *fname, int readonly, UINT image) {
 	if ((drv < 4) && (fdc.equip & (1 << drv))) {
+		diskdrv_image[drv] = (UINT8)image;
 		fdd_eject(drv);
 		diskdrv_delay[drv] = 0;
 		diskdrv_fname[drv][0] = '\0';
@@ -74,6 +81,7 @@ void diskdrv_callback(void) {
 		if (diskdrv_delay[drv]) {
 			diskdrv_delay[drv]--;
 			if ((!diskdrv_delay[drv]) && (diskdrv_fname[drv][0])) {
+				fddfile[drv].num = diskdrv_image[drv];
 				fdd_set(drv, diskdrv_fname[drv], FTYPE_NONE, diskdrv_ro[drv]);
 				diskdrv_fname[drv][0] = '\0';
 				fdc.stat[drv] = FDCRLT_AI | drv;

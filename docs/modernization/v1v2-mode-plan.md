@@ -28,6 +28,10 @@ of §0 of the CPU document. This page answers one question: **what does
 the VA do, in hardware and in firmware, to run PC-8801 software — and
 which parts does vaeg still lack?**
 
+Every V1/V2 behaviour that rests on derivation or policy rather than a
+manual statement or a measurement, with its approval status, is listed in
+[`v1v2-mode-decisions.md`](v1v2-mode-decisions.md).
+
 ## 1. The model in one paragraph
 
 `[VA-TM]` V1/V2 mode is "a mode that emulates the 88M/F series: not only
@@ -389,19 +393,22 @@ in the maintainer-local task directory outside Git.
 
 ## 6. What vaeg has and lacks
 
+Status as of M103f (2026-10-04; G103d–G103f pending). Policies behind
+these rows are listed in [`v1v2-mode-decisions.md`](v1v2-mode-decisions.md).
+
 | Piece | Status |
 |---|---|
 | Z80 emulation mode (uPD70008-compatible adapter, R1–R19, CALLN/RETEM, live IVT, alternate set) | done (M76–M103a) |
 | `BRKEM2` (`0F FE nn`) | implemented with shared BRKEM entry policy; both encodings pass ROM-less round-trip tests; real-machine equivalence unmeasured |
 | `153H` bit 6 memory mode | latched/read back; reset selects V3; optional `MEM88MODE` save section; selects the partial N88 overlay |
-| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window, Debug 8800 monitor bank under RMODE (M103c); ERAM (`E2h`/`E3h`) pending (§2.0) |
-| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | implemented (M103c): TMODE-selected window, EMUL/8Eh/97h, 3301 row rendering; semigraphics and 40-column pending |
-| GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent-plane storage mapping implemented; ALU/timing/rendering pending |
+| 88-mode window at `10000h`–`1FFFFh` with 8801 banking ports | N88 32KiB overlay, port 31h latch, four extension banks, 70h/78h RAM window, Debug 8800 monitor bank under RMODE (M103c); extended RAM `E2h`/`E3h` and the dictionary ROM window `F0h`/`F1h` (M103e) |
+| TVRAM `1F000h` mapping, TSP byte mode and 3301 attribute conversion | implemented (M103c): TMODE-selected window, EMUL, 8Eh/8Fh/97h (`DPLD`/`WDAT`), 3301 row rendering; byte-mode address rule corrected (M103f); semigraphics, 40-column and text after a 3301 RESET beyond local 1000h pending |
+| GVRAM plane select `5Ch`–`5Fh` into `1C000h` | independent planes, extended access with ALU and comparison read (`32h`/`34h`/`35h`), display through port 31h, palette mode, colour and 1 bit/pixel display, 640×400 monochrome (M103d); GVRAM wait states pending |
 | I/O trap (`FFE0h`–`FFEFh`, vectors `7Ch`/`7Dh`, §9.2 semantics) | registers, native IN/OUT and compatible plain/block IN/OUT interception implemented; DD/FD-prefixed compatible forms and timing pending |
-| keyboard matrix interface `00h`–`0Eh` | present; V1/V2 guest validation pending |
-| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | 8214 mode implemented (M103c, §4); kanji ROM missing |
-| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 remains zero; automatic FDD selection traced (§5.2); no mode override |
-| FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present; the sub-CPU interface 8255 is now fully cross-wired for the fast transfer protocol (M103b) |
+| keyboard matrix interface `00h`–`0Eh` | validated with N-88 BASIC (M103c), including release pacing for synthetic host taps |
+| 8214 `E4h`/`E6h`, kanji ROM `E8h`–`EDh` | 8214 mode implemented (M103c, §4); kanji ROM ports implemented (M103e); level-2 rows 7xxxh not converted |
+| boot inputs: `000Dh` bit 2 / PC key, `40h` bit 3 / SW7 | PC key present; SW7 reads zero; making it configurable was withdrawn in M103b (V1/V2 is selected from the boot media); automatic FDD selection traced (§5.2); no mode override |
+| FDD sub-CPU, OPN, 8251, printer, system ports `30h`/`40h` | present; the sub-CPU interface 8255 is fully cross-wired for the fast transfer protocol (M103b); disk BASIC FILES/SAVE/LOAD/KILL work (M103d); 2HD media and multi-image D88 selection (M103e/M103f); sound under V1/V2 driven but not yet confirmed by ear |
 
 ## 7. Milestones (ADR-0016; V2 first)
 
@@ -410,7 +417,9 @@ in the maintainer-local task directory outside Git.
 | M103b | `BRKEM2`; boot selection; `153H` bit 6 and the 88-mode window with the hardware banking ports; I/O trap hardware; ROM-driven derivation of the window map | the VA2 ROM takes the V1/V2 path, hands off with `BRKEM2 90h`, disk BASIC loads and reaches its key-input wait (trace-verified, automated in `vaeg_m103b_basic_boot`; no display yet) |
 | M103c | interrupt delivery into Z80 code (ROM analysis), keyboard matrix, TVRAM 88-mode mapping and TSP emulation-mode text rendering | `Ok` prompt displayed, typed characters echoed |
 | M103d | GVRAM plane mapping and 88-mode graphics (palette modes, 200/400 lines, backdrop), FDD path under V1/V2, remaining ports (`E8h`–`EDh`, `34h`/`35h`) | **N88-DISK BASIC V2** boots from a disk image and operates; graphics statements draw |
-| M103e | timing and compatibility work against the **PC-8801mkIISR DEMO**; sound; V1 mode | the DEMO runs; series gate |
+| M103e | compatibility against the **PC-8801mkIISR DEMO** and further PC-8801 software: kanji ROM, extended RAM, dictionary ROM window, D88 track-table fix | the DEMO runs (implemented; G103e pending) |
+| M103f | TSP byte-mode address rule, multi-image D88 selection | (implemented; G103f pending) |
+| later | V1 mode (needs V1 media), open items in `v1v2-mode-decisions.md` | — |
 
 X88000 (public domain) is the behavioural reference for the 8801 side of
 each row — port semantics, µPD3301 and attribute behaviour, keyboard

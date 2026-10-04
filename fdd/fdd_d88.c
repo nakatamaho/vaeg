@@ -134,6 +134,7 @@ static BOOL d88trk_read(D88TRK trk, FDDFILE fdd, UINT track, UINT type) {
 		goto dtrd_err1;
 	}
 	size = nexttrackptr(fdd, fptr, fdd->inf.d88.fd_size) - fptr;
+	fptr += fdd->inf.d88.base;
 	if (size > D88BUFSIZE) {
 		size = D88BUFSIZE;
 	}
@@ -272,7 +273,9 @@ static D88SEC searchsector_d88(BOOL check) { // ver0.29
 BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	short attr;
 	FILEH fh;
-	UINT rsize;
+	UINT32 base;
+	UINT32 size;
+	UINT image;
 	_D88SEC sector;
 	UINT track;
 	int i;
@@ -286,11 +289,27 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	if (fh == FILEH_INVALID) {
 		goto fdst_err;
 	}
-	rsize = file_read(fh, &fdd->inf.d88.head, sizeof(fdd->inf.d88.head));
-	file_close(fh);
-	if (rsize != sizeof(fdd->inf.d88.head)) {
-		goto fdst_err;
+	/* A D88 file may hold several disks back to back; skip to image `num`. */
+	base = 0;
+	for (image = 0;; image++) {
+		if ((file_seek(fh, (long)base, FSEEK_SET) != (long)base) ||
+		    (file_read(fh, &fdd->inf.d88.head, sizeof(fdd->inf.d88.head)) !=
+		     sizeof(fdd->inf.d88.head))) {
+			file_close(fh);
+			goto fdst_err;
+		}
+		if (image >= fdd->num) {
+			break;
+		}
+		size = LOADINTELDWORD(fdd->inf.d88.head.fd_size);
+		if (size < sizeof(fdd->inf.d88.head)) {
+			file_close(fh);
+			goto fdst_err;
+		}
+		base += size;
 	}
+	file_close(fh);
+	fdd->inf.d88.base = base;
 	fdd->type = DISKTYPE_D88;
 	file_cpyname(fdd->fname, fname, sizeof(fdd->fname));
 	fdd->protect = ((attr & 1) || (fdd->inf.d88.head.protect & 0x10) || (ro)) ? TRUE : FALSE;
@@ -330,7 +349,11 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 		if (fh != FILEH_INVALID) {
 			for (track = 2; track < 164; track++) {
 				UINT32 offset = fdd->inf.d88.ptr[track];
-				if (!offset || (file_seek(fh, offset, FSEEK_SET) != offset) ||
+				if (!offset) {
+					continue;
+				}
+				offset += base;
+				if ((file_seek(fh, offset, FSEEK_SET) != offset) ||
 				    (file_read(fh, &sector, sizeof(sector)) != sizeof(sector)) ||
 				    (sector.h != (track & 1))) {
 					continue;
@@ -627,7 +650,30 @@ static void endoftrack(UINT fmtsize, BYTE sectors) {
 	//	TRACEOUT(("fmt %d %d", fpointer, fmtsize));
 }
 
+/*
+ * Formatting may grow a track and move the rest of the file; that is only
+ * done for a file holding a single image.
+ */
+static BOOL d88_single_image(FDDFILE fdd) {
+	FILEH fh;
+	long end;
+
+	if (fdd->inf.d88.base != 0) {
+		return (FALSE);
+	}
+	fh = file_open_rb(fdd->fname);
+	if (fh == FILEH_INVALID) {
+		return (FALSE);
+	}
+	end = file_seek(fh, 0, FSEEK_END);
+	file_close(fh);
+	return ((end >= 0) && ((UINT32)end <= fdd->inf.d88.fd_size));
+}
+
 BOOL fdd_formatinit_d88(void) {
+	if (!d88_single_image(fddfile + fdc.us)) {
+		return (FAILURE);
+	}
 	if (fdc.treg[fdc.us] < 82) {
 		formating = TRUE;
 		formatsec = 0;

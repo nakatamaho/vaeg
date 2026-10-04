@@ -489,6 +489,16 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				return (set_error(error, error_size, "--keyboard-layout accepts jis, us, or custom",
 				                  value));
 			}
+		} else if ((!strcmp(argument, "--fdd1-image")) || (!strcmp(argument, "--fdd2-image"))) {
+			const int drive = argument[5] - '1';
+
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) || (number < 1) ||
+			    (number > 255)) {
+				return (set_error(error, error_size,
+				                  "--fdd1-image and --fdd2-image accept 1 through 255", value));
+			}
+			options->fdd_image[drive] = number;
 		} else if ((!strcmp(argument, "--fdd1")) || (!strcmp(argument, "--fdd2")) ||
 		           (!strcmp(argument, "--sasi1")) || (!strcmp(argument, "--sasi2")) ||
 		           is_scsi_media_option(argument)) {

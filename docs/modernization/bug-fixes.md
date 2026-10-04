@@ -35,6 +35,27 @@ land.
 
 ## Maintenance Rules
 
+### M103f — V3 leftovers in GVRAM plane 3 showed through V1/V2 graphics
+
+- **Symptom/scope:** after running a V3 game and resetting into V1/V2
+  mode, V2 BASIC graphics (after `PAINT`) and the PC-8801mkIISR
+  demonstration showed stray dots (maintainer report, G103d/G103e check).
+  Multiplane 4 bit/pixel display, V1/V2 mode and any V3 software that
+  clears 110h bit 7.
+- **Demonstrated cause:** the multiplane 4 bit/pixel renderer always
+  included plane 3, ignoring 110h bit 7 (G3MSK, plane 3 screen switch).
+  The VA2 ROM sets 110h to 7F47h for V1/V2 (G3MSK clear, as BNN 8.3.2
+  requires), and 88-mode software cannot reach plane 3, so earlier V3
+  contents stayed visible. The self-test shows plane 3 data reaching the
+  pixel with G3MSK clear.
+- **Correction:** plane 3 is masked out of 4 bit/pixel pixels while G3MSK
+  is clear.
+- **Verification:** the romless self-test sets plane 3 data and checks the
+  pixel with G3MSK clear and set; it fails without the mask. The reported
+  V3 game was not run here; confirmation with it is part of the gate.
+- **Task/evidence/commit:** [M103f task](../agents/tasks/M103f_v1v2_text_and_media.md#gate-feedback).
+  Fix: [0a5cb5c9](https://github.com/nakatamaho/vaeg/commit/0a5cb5c98889b390b60b8f6df5bbaadfc8b1b041).
+
 ### M103e — D88 tracks were cut short by track 0 data read as pointers
 
 - **Symptom/scope:** a PC-8801MA2 2HD disk hung while loading

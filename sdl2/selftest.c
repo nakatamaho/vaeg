@@ -1570,6 +1570,75 @@ static int test_fdd_d88_short_table(void) {
 	return (SUCCESS);
 }
 
+/* M103f: choose a disk inside a multi-image D88 file. */
+static int test_fdd_d88_multi_image(void) {
+	static BYTE file[0x10400 * 2];
+	char path[MAX_PATH];
+	char *pick_second[] = {"vaeg", "--fdd2-image", "2"};
+	char *pick_none[] = {"vaeg", "--fdd1-image", "0"};
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+	_FDDFILE parsed;
+	const char *problem;
+	FILEH fh;
+
+	problem = NULL;
+	SPRINTF(path, "vaeg-selftest-%lu-d88-multi.d88", (unsigned long)getpid());
+	if (!selftest_d88_table_image(path, 0x2a0, 0)) {
+		problem = "could not build an image";
+	} else {
+		fh = file_open_rb(path);
+		if ((fh == FILEH_INVALID) || (file_read(fh, file, 0x10400) != 0x10400)) {
+			problem = "could not read the image back";
+		}
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+	}
+	if (problem == NULL) {
+		CopyMemory(file + 0x10400, file, 0x10400);
+		file[0x10400] = 'B'; /* name of the second image */
+		fh = file_create(path);
+		if ((fh == FILEH_INVALID) || (file_write(fh, file, sizeof(file)) != sizeof(file))) {
+			problem = "could not write the two-image file";
+		}
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+	}
+	if (problem == NULL) {
+		ZeroMemory(&parsed, sizeof(parsed));
+		parsed.num = 1;
+		if ((fddd88_set(&parsed, path, 0) != SUCCESS) || (parsed.inf.d88.base != 0x10400) ||
+		    (parsed.inf.d88.head.fd_name[0] != 'B') || (parsed.inf.d88.ptr[1] != 0x8000)) {
+			problem = "second image not selected";
+		}
+		fddd88_eject(&parsed);
+	}
+	if (problem == NULL) {
+		ZeroMemory(&parsed, sizeof(parsed));
+		parsed.num = 2;
+		if (fddd88_set(&parsed, path, 0) != FAILURE) {
+			problem = "a missing third image was accepted";
+		}
+	}
+	file_delete(path);
+	if ((problem == NULL) && ((vaeg_cli_parse((int)NELEMENTS(pick_second), pick_second, &options,
+	                                          error, sizeof(error)) != SUCCESS) ||
+	                          (options.fdd_image[0] != 0) || (options.fdd_image[1] != 2))) {
+		problem = "--fdd2-image was not parsed";
+	}
+	if ((problem == NULL) && (vaeg_cli_parse((int)NELEMENTS(pick_none), pick_none, &options, error,
+	                                         sizeof(error)) != FAILURE)) {
+		problem = "--fdd1-image 0 was accepted";
+	}
+	if (problem != NULL) {
+		return (fail("D88 multi-image", problem));
+	}
+	fprintf(stderr, "selftest: D88 multi-image ok\n");
+	return (SUCCESS);
+}
+
 static int test_fdd_d88_production_path(void) {
 	const SELFTESTFDDPROFILE *profile;
 	_FDC saved_fdc;
@@ -4214,7 +4283,13 @@ static BYTE *v1v2_plane(UINT plane, UINT offset) {
 
 /* Render graphics rasters 0..y with the frame buffer the VA2 ROM sets up for
  * V1/V2 mode, leaving raster y in grph0_raster. */
+static void v1v2_render_to_mode(UINT y, WORD pagemsk, WORD grmode, WORD grres);
+
 static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
+	v1v2_render_to_mode(y, pagemsk, grmode, 0);
+}
+
+static void v1v2_render_to_mode(UINT y, WORD pagemsk, WORD grmode, WORD grres) {
 	FRAMEBUFFER f = &videova.framebuffer[0];
 	BOOL scrn200;
 	UINT i;
@@ -4229,7 +4304,7 @@ static void v1v2_render_to(UINT y, WORD pagemsk, WORD grmode) {
 	f->dsh = 0xc8;
 	f->dsp = 0;
 	videova.grmode = grmode;
-	videova.grres = 0;
+	videova.grres = grres;
 	videova.pagemsk = pagemsk;
 	makegrphva_begin(&scrn200);
 	for (i = 0; i <= y; i++) {
@@ -4371,6 +4446,25 @@ static int test_v1v2_graphics(void) {
 		if ((problem == NULL) && videova_textmerge()) {
 			problem = "4 bit/pixel multiplane merged";
 		}
+	}
+
+	/* Multiplane 4 bit/pixel: 110h G3MSK (bit 7) clear keeps plane 3 out of
+	 * the pixel, as the VA2 ROM sets it for V1/V2 (7F47h). */
+	if (problem == NULL) {
+		*v1v2_plane(0, 0) = 0x80;
+		*v1v2_plane(1, 0) = 0x00;
+		*v1v2_plane(3, 0) = 0x80;
+		v1v2_render_to_mode(0, 0x7f47, 0x8002, 1);
+		if (grph0_noraster || (grph0_raster[0] != 0x01)) {
+			problem = "plane 3 shown with G3MSK clear";
+		}
+	}
+	if (problem == NULL) {
+		v1v2_render_to_mode(0, 0x7fc7, 0x8002, 1);
+		if (grph0_noraster || (grph0_raster[0] != 0x09)) {
+			problem = "plane 3 hidden with G3MSK set";
+		}
+		*v1v2_plane(3, 0) = 0x00;
 	}
 
 	/* Multiplane 1 bit/pixel ORs the switched-on planes; with 88MD and 400
@@ -5259,6 +5353,9 @@ int vaeg_selftest_run(void) {
 	if (test_fdd_d88_short_table() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_fdd_d88_multi_image() != SUCCESS) {
+		return (FAILURE);
+	}
 	if (test_fdd_d88_production_path() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -5314,6 +5411,12 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_tsp_3301_emulation() != SUCCESS) {
 		return (FAILURE);
+	}
+	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
+	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
+	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
+	    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
+		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
 	}
 	if (test_v1v2_graphics() != SUCCESS) {
 		return (FAILURE);
