@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M103h — Saved backup memory lost its memory switches at every boot
+
+- **Symptom/scope:** with a saved backup-memory file, the VA2 ROM restored
+  the default memory-switch record (B1FC0h–B1FC7h) at every boot, so
+  settings stored there did not survive a restart; the RAM-size byte
+  B1FC4h reverted from 64h to 63h. All modes, whenever backup memory is
+  saved.
+- **Demonstrated cause:** at reset the ROM sets bit 7 of B1FC6h, sums the
+  record and compares the sum with B1FCDh (F000:23B7); it recomputes bit 7
+  from the V1/V2 selection afterwards, leaving 79h after a V2 boot.
+  `bkupmemva_sync_mainram` summed the saved 79h, so the checksum differed
+  by 80h and the ROM's restore path (F000:23F9) ran (traced byte writes).
+- **Correction:** the checksum is computed with B1FC6h bit 7 set.
+- **Verification:** three boots in a row with one backup file keep the
+  record unchanged (before: restored on the second); the romless test fails
+  with the old rule.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#mode-selection-scope-item-1).
+  Fix: [d7257d77](https://github.com/nakatamaho/vaeg/commit/d7257d77122fa42f857c1ab8eec321bf3bae73cb).
+
 ### M103g — Interrupts were not delivered through short EI windows in V1/V2 mode
 
 - **Symptom/scope:** in the PC-8801mkIISR demonstration's winter scene the

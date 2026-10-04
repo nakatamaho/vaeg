@@ -63,7 +63,8 @@ Status:
 | C1 | The alternate set (`AF'`…`HL'`) lives in machine state, survives CALLN/RETI, RETEM→BRKEM and adapter reset. | `[MEAS]` ALTPRB for the CALLN round trip; `[POLICY]` for the rest | Approved G103a | `cpu/upd9002/`, `cpu/upd9002_upd70008.cpp` | — |
 | C2 | Hardware reset sets all alternate pairs to FFFFh. | `[MEAS]` third-party VA2 `mon` dump shows `A'F'`, `B'C'` all ones; `DE'`/`HL'` assumed the same | Approved G103c | same | cold power-on vs. warm reset, then V2 BASIC → `mon` → `x` |
 | C3 | `BRKEM2` (`0F FE nn`) uses the same entry as `BRKEM`. | `[POLICY]`; ROM-less tests of both encodings | Approved G103b | `cpu/upd9002/` | — |
-| C4 | No user-facing V1/V2 override; the ROM selects V1/V2 from the boot disk (SW7 option withdrawn). | `[ROM]` trace of the ROM's FDD selection | Approved G103b | — | — |
+| C4 | No boot override (SW7 option withdrawn); the ROM selects V1/V2 from the boot disk. V1 versus V2 follows the memory switch B1FC5h bit 0, which the Emulate > Z80 mode menu sets as the VA's setup would (M103h, maintainer request), with the ROM-rule checksum. | `[ROM]` F000:12E4 (B1FC5h → port 1C6h), F000:14BC (port 150h → MS27), F000:23B7 (checksum) | Approved G103b; menu pending G103h | `io/bkupmemva.c`, `sdl2/gui/gui.cpp` | — |
+| C6 | H/S: the VA always reports high speed (MS26 = 1). As a vaeg extension, S clears IN 31h bit 6 in 88 mode (`V1V2_Standard`); CPU timing is unchanged. `NEW ON 1` needs V1 S. | `[VA-TM]` MS26; `[X88000]` bit 6 = high speed; `[POLICY]` | Pending G103h | `io/memctrlva.c` | — |
 | C5 | IRET returning to compatible mode keeps F bits 1, 3, 5 as `(flag & 0FFFh) | F000h`. | `[MEAS]` probe results | Approved G103a | `cpu/upd9002/` | — |
 
 ## 2. Memory map and banking
