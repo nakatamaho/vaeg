@@ -48,16 +48,16 @@ implementation choice.
 - vaeg instead adds the PC-8801's N-mode ROM switch to its 88-mode memory
   map, so N-BASIC and N-88 BASIC run **unmodified**: no ROM byte is patched.
   The N-BASIC ROM is user-supplied and never part of the repository.
-- Status: `NEW ON 1` from V1 S N-88 BASIC starts N-BASIC (implemented,
-  G103h pending). Booting straight into N-BASIC needs one more decision
-  (§6).
+- Status: `NEW ON 1` from V1 S N-88 BASIC starts N-BASIC, and the N
+  setting boots straight into N-BASIC without a disk on both models
+  (implemented, G103h pending).
 
 ## 2. Files and settings
 
 | Item | Where | Notes |
 |---|---|---|
 | N-BASIC ROM | `n80.rom` or `N80.ROM`, 32 KiB, in the ROM directory | Optional; checked at every reset. About shows `ROM(N80): exist / not exist`. |
-| Z80 mode | Emulate > Z80 mode: V2 H, V2 S, V1 H, V1 S | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` in the configuration file. Selecting an entry resets. About shows `Z80 MODE`. |
+| Z80 mode | Emulate > Z80 mode: V2 H, V2 S, V1 H, V1 S, N (PC-8001) | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` and N is `V1V2_NMode` in the configuration file. N is available only with an N80 ROM. Selecting an entry resets. About shows `Z80 MODE`. |
 
 A PC-8801 N80 ROM is 32 KiB: N-BASIC at 0000h–5FFFh and the Debug 8800
 monitor bank at 6000h–7FFFh. `[ROM]` In the image tested (PC-8001 BASIC
@@ -149,40 +149,46 @@ Romless tests (`vaeg_romless_tests`): the memory-switch checksum and V1/V2
 selection, IN 31h under H/S, port 150h after reset, the N80 mapping with and
 without RMODE/MMODE, About's entries, and 3301 text from main RAM.
 
-## 6. Booting directly in N mode (under investigation)
+## 6. Booting directly in N mode (implemented, decision C9)
 
 On a PC-8801 the N/N-88 switch makes the machine start in N-BASIC without a
-disk. Experiments with temporary code (not committed) found three steps:
+disk. vaeg's N setting does the same with the unmodified VA ROMs:
 
-1. **RMODE at hand-off.** Setting port 31h RMODE when the ROMs are loaded
-   makes the VA ROM's `BRKEM2 90h` hand-off (to 1000:0000) start N-BASIC.
-   The reset order matters: `iocore_reset` runs before `romva_initialize`
-   loads the N80 ROM.
+1. **RMODE at hand-off.** RMODE is set right after `romva_initialize` loads
+   the ROMs (the I/O reset runs before the N80 ROM is known), so the VA ROM's
+   `BRKEM2 90h` hand-off to 1000:0000 starts N-BASIC.
 2. **Entering V1/V2 without a disk.** `[ROM]` The original VA falls back to
    V1/V2 after its V3 boot search fails, also with no disk. The VA2 shows
-   "insert the correct disk" instead; it enters V1/V2 without a disk when
-   port 40h bit 3 (the original VA's SW7 OFF, "skip the V3 search") reads 1.
-   M103b withdrew a user-facing SW7 setting; an N-mode setting would have to
-   report it.
+   "insert the correct disk" instead; with port 40h bit 3 reading 1 (the
+   original VA's SW7 OFF, "skip the V3 search") it enters V1/V2. vaeg reports
+   that bit only in N mode; M103b's withdrawn SW7 setting stays withdrawn.
 3. **Text display.** `[ROM]` Both VA ROMs start V1/V2 with port 148h bit 7
-   set (text off; shadow at 0040:00E8h, F000:14FE on VA2) and clear it only
-   when compatible code writes port 53h with bit 0 clear (trap handler
-   F000:1D9D on VA2, 1459h on VA). N-88 BASIC writes 53h; N-BASIC, written for
-   the PC-8001, never does. A PC-8801 resets port 53h to 0 (text on), so
-   N-BASIC there needs no write. Result: N-BASIC runs (it waits for VRTC with
-   its banner in TVRAM) but the screen stays black.
+   set (text off; shadow at 0040:00E8h, written at F000:14FE on VA2) and
+   clear it only when compatible code writes port 53h with bit 0 clear (trap
+   handler F000:1D9D on VA2, 1459h on VA). N-88 BASIC writes 53h; N-BASIC,
+   written for the PC-8001, never does, while a PC-8801 resets 53h to 0.
+   At the first compatible-mode entry vaeg clears bit 7 in both places once,
+   the PC-8801 reset state (maintainer-approved option A). No ROM code is
+   changed; the shadow address is the same in both ROMs.
 
-Step 3 has no clean equivalent: it needs either the 8801 reset state of the
-emulated port 53h written into the ROM's work area, or another route. The
-choice is open for the maintainer.
+Without the N80 ROM the setting has no effect. With a disk in drive 1,
+N-BASIC boots it, as on a PC-8801.
+
+| Change | Files | Commit |
+|---|---|---|
+| N-mode start | `io/memctrlva.*`, `io/sysportva.c`, `machine/pccore.*`, `cpu/upd9002_upd70008.cpp`, `sdl2/ini.c` | [c4827130](https://github.com/nakatamaho/vaeg/commit/c4827130c885ea3416c719734aa9e9d76e45377f) |
+| Menu and About | `sdl2/gui/gui.cpp`, `generic/np2info.c` | [cbc24e5a](https://github.com/nakatamaho/vaeg/commit/cbc24e5a02eadbfc08d7f5a276a4b7b27f29bb4e) |
+
+Related fixes found with N mode: the original VA's ROM positions the cursor
+with TSP CURS, which vaeg now implements (decision X8, ledger), and Copy
+screen text reads the 3301 text rows.
 
 ## 7. Open items
 
-- Direct N-mode boot (§6).
-- Maintainer report: a graphic character resembling "\" after `Ok` in
-  N-BASIC. Not reproduced (the FCh marker is blank in all fonts); a
-  screenshot is needed.
-- Maintainer report: on the original VA the cursor appears at the top of the
-  screen in all V1/V2 modes. Not reproduced headless.
-- Maintainer report: GUI text copy does not read the 88-mode text.
+- Maintainer report: a graphic character after `Ok` with an N-BASIC
+  Ver 1.2 ROM. Not reproduced with Ver 1.8 (its FCh marker is blank in all
+  fonts); the Ver 1.2 ROM is needed to check its marker code.
+- The function-key row shows control-code pictures (for example HT and CR);
+  the PC-8801 font has the same pictures at 01h–1Fh, so this is likely
+  correct, but unconfirmed.
 - N80SR (N80 V2: 320×200 colour graphics, its own port use) follows N-BASIC.

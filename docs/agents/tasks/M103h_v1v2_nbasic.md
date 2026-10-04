@@ -109,7 +109,6 @@ V1S, and runs a short program.
   track 0 sector 1 from drive 1 and runs it; an N-88 system disk's IPL
   then waits. With drive 1 empty it starts normally. Treated as the
   expected PC-8801 behaviour, not a defect.
-- Remaining: a start-up option to boot directly into N-BASIC.
 
 ### Second maintainer check
 
@@ -123,3 +122,16 @@ V1S, and runs a short program.
   blinked at the top. V1 is fixed (port 150h, ledger entry): V1 boots
   N-88 BASIC 1.9 on the original VA. The cursor report is open; not seen
   in the headless runs.
+
+### Third maintainer check
+
+- Confirmed: About entries, V1 on the original VA, `NEW ON 1` with drive 1
+  empty.
+- Reported and fixed: the cursor at the top left on the original VA (TSP
+  CURS, ledger entry); Copy screen text in V1/V2 mode.
+- Implemented: N mode (decision C9, maintainer option A), described in
+  [`v1v2-n-basic-mode.md`](../../modernization/v1v2-n-basic-mode.md); a
+  headless run boots N-BASIC without a disk on VA and VA2, and a program
+  runs.
+- Open: a graphic character after `Ok` with the maintainer's N-BASIC
+  Ver 1.2 ROM (not available here).
