@@ -76,6 +76,19 @@ void bkupmemva_sync_mainram(void) {
 	bkupmemva_update_checksum();
 }
 
+/*
+ * V1/V2 system mode: B1FC5h bit 0 (1 = V1), which the VA2 ROM writes to
+ * port 1C6h at reset (F000:12E4) and reflects in port 150h and in memory
+ * switch MS27 (IN 31h bit 7). Takes effect at the next reset.
+ */
+BOOL bkupmemva_get_88v1(void) {
+	return (backupmem[0x1fc5] & 0x01) ? TRUE : FALSE;
+}
+
+void bkupmemva_set_88v1(BOOL v1) {
+	backupmem[0x1fc5] = (BYTE)((backupmem[0x1fc5] & 0xfe) | (v1 ? 0x01 : 0x00));
+	bkupmemva_update_checksum();
+}
 
 static void bkupmemva_initialize_mainram(void) {
 	ZeroMemory(backupmem, 0x04000);

@@ -356,6 +356,7 @@ static const INITBL iniitem[] = {
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
+    {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
     {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},

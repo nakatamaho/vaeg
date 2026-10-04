@@ -45,6 +45,7 @@
 #include "gui/gui.h"
 #include "codecnv.h"
 #include "memoryva.h"
+#include "bkupmemva.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -1210,6 +1211,18 @@ static void select_boot_model(const char *model, bool enable_8087) {
 		soundrenewal = 1;
 	}
 	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
+	reset_guest();
+}
+
+/*
+ * V1/V2 ("Z80") mode: V1/V2 is the VA's memory switch B1FC5h bit 0, as its
+ * setup menu stores it; H/S is a vaeg extension (see memctrlva_i031). Both
+ * take effect at reset, as on the machine.
+ */
+static void select_v1v2_mode(bool v1, bool standard) {
+	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
+	np2cfg.v1v2_standard = standard ? 1 : 0;
+	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
 
@@ -2481,6 +2494,26 @@ static void draw_emulate_menu(void) {
 			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
 			                        (np2cfg.upd8087_enable != 0))) {
 				select_boot_model(str_VA2, true);
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Z80モード")) {
+			static const struct {
+				const char *label;
+				bool v1;
+				bool standard;
+			} modes[] = {{"V2 H", false, false},
+			             {"V2 S", false, true},
+			             {"V1 H", true, false},
+			             {"V1 S", true, true}};
+			const bool v1 = bkupmemva_get_88v1() != FALSE;
+			const bool standard = np2cfg.v1v2_standard != 0;
+
+			for (const auto &mode : modes) {
+				if (ImGui::MenuItem(mode.label, nullptr,
+				                    (v1 == mode.v1) && (standard == mode.standard))) {
+					select_v1v2_mode(mode.v1, mode.standard);
+				}
 			}
 			ImGui::EndMenu();
 		}
