@@ -10,6 +10,7 @@
 #include "memoryva.h"
 #include "sgp.h"
 #include "va91.h"
+#include "cpu/upd9002/memory.h"
 
 // ---- I/O
 
@@ -215,6 +216,44 @@ static REG8 IOINPCALL memctrlva_i031(UINT port) {
 		return (REG8)(backupmem[0x1fc6] & ~0x40);
 	}
 	return backupmem[0x1fc6];
+}
+
+/*
+ * N mode (vaeg extension; see docs/modernization/v1v2-n-basic-mode.md).
+ * With a user-supplied N-BASIC ROM and the N setting, the machine starts as
+ * a PC-8801 in N mode: RMODE is set before the VA ROM hands off to
+ * compatible code at 0000h, port 40h bit 3 lets the ROM enter V1/V2 without
+ * a disk, and at the first compatible-mode entry the VA ROM's emulated port
+ * 53h is put into the PC-8801 reset state (text on).
+ */
+static BOOL nmode_entry_pending;
+
+BOOL memctrlva_nmode_active(void) {
+	return (np2cfg.v1v2_nmode && memoryva_n80_exist) ? TRUE : FALSE;
+}
+
+/* Called after the ROMs are loaded (romva_initialize) at every reset. */
+void memctrlva_nmode_reset(void) {
+	nmode_entry_pending = memctrlva_nmode_active();
+	if (nmode_entry_pending) {
+		memoryva_88_port31 = 0x04; /* RMODE: N-BASIC at 0000h-7FFFh */
+	}
+}
+
+/*
+ * Both VA ROMs start V1/V2 with port 148h bit 7 set (text off), keep that
+ * value at 0040:00E8h, and clear bit 7 only when compatible code writes
+ * port 53h with bit 0 clear (VA2 F000:1D9D, VA F000:1459). N-88 BASIC does;
+ * N-BASIC, written for the PC-8001, never writes 53h, and a PC-8801 resets
+ * 53h to 0. Clear bit 7 in both places once, as that reset would.
+ */
+void memctrlva_nmode_compat_entry(void) {
+	if (!nmode_entry_pending) {
+		return;
+	}
+	nmode_entry_pending = FALSE;
+	upd9002_mainram_write(0x4e8, (REG8)(upd9002_mainram_read(0x4e8) & 0x7f));
+	iocore_out8(0x148, (REG8)(videova.txtmode & 0x7f));
 }
 
 // ---- I/F

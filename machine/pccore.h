@@ -62,6 +62,8 @@ typedef struct {
 	UINT8 main_ram_auto;
 	/* vaeg extension: report PC-8801 standard speed (S) in V1/V2 mode. */
 	UINT8 v1v2_standard;
+	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
+	UINT8 v1v2_nmode;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

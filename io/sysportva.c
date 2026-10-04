@@ -15,6 +15,7 @@
 #include "beep.h"
 #include "sysmng.h"
 #include "memoryva.h"
+#include "memctrlva.h"
 
 _SYSPORTVACFG sysportvacfg = {0xcd};
 
@@ -103,6 +104,11 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	      ((videova_hsyncmode() == VIDEOVA_24_8KHZ) ? 0 : 0x02) |
 	      // SW1: 0 for 24.8 kHz, 1 for 15.7 kHz.
 	      0x01; // PBSY: printer not busy in the current model.
+	// SW7 OFF (skip the V3 boot search, enter V1/V2): only for the vaeg N
+	// mode, which must start without a disk (memctrlva_nmode_active).
+	if (memctrlva_nmode_active()) {
+		ret |= 0x08;
+	}
 
 	return ret;
 }
