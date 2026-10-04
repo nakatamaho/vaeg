@@ -5001,6 +5001,33 @@ static int test_tsp_3301_emulation(void) {
 		}
 		iocore_out8(0x153, 0x41);
 	}
+	/* M103h: ACTSCR and CURS move the cursor sprite (original VA ROM). Split 1
+	 * with RXP 1008 (two hidden cells) and RYP 0, 20-raster rows, no sprite
+	 * doubling: row 4, cell 6 is dot (32, 80). */
+	if (problem == NULL) {
+		static const BYTE curs[] = {0x1e, 0x04, 0x00, 0x06, 0x00};
+		BYTE *frame1 = textmem + tsp.texttable + 32;
+		BYTE *spr;
+
+		STOREINTELWORD(frame1 + 0x18, 0);
+		STOREINTELWORD(frame1 + 0x1a, 1008);
+		tsp.sprtable = 0x100;
+		tsp.curn = 2;
+		tsp.lineheight = 20;
+		tsp.mg = FALSE;
+		spr = textmem + 0x100 + 2 * 8;
+		STOREINTELWORD(spr, 0xfe00);
+		STOREINTELWORD(spr + 2, 0xfc00);
+		iocore_out8(0x142, 0x16);
+		iocore_out8(0x146, 0x20); /* split 1 */
+		iocore_out8(0x142, curs[0]);
+		for (i = 1; i < sizeof(curs); i++) {
+			iocore_out8(0x146, curs[i]);
+		}
+		if ((LOADINTELWORD(spr) != (0xfe00 | 80)) || (LOADINTELWORD(spr + 2) != (0xfc00 | 32))) {
+			problem = "CURS did not move the cursor sprite";
+		}
+	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
 	if (problem == NULL) {
 		iocore_out8(0x153, 0x01); /* 88-mode memory */
