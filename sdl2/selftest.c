@@ -4695,6 +4695,18 @@ static int test_tsp_3301_emulation(void) {
 			textmem[0x63c8 + 440 + i * 2] = 80;
 			textmem[0x63c8 + 441 + i * 2] = 0x48;
 		}
+		/* Row 4 (M103g semigraphics): decoration cleared at column 0, cyan
+		 * semigraphics (B8h) from column 1, where code 11h sets the top
+		 * left (bit 0) and top right (bit 4) blocks. */
+		textmem[0x63c8 + 480 + 1] = 0x11;
+		textmem[0x63c8 + 560] = 0;
+		textmem[0x63c8 + 561] = 0x00;
+		textmem[0x63c8 + 562] = 1;
+		textmem[0x63c8 + 563] = 0xb8;
+		for (i = 2; i < 20; i++) {
+			textmem[0x63c8 + 560 + i * 2] = 80;
+			textmem[0x63c8 + 561 + i * 2] = 0xb8;
+		}
 		tsp.dspon = TRUE;
 		tsp.texttable = 0;
 		tsp.lineheight = 16;
@@ -4771,6 +4783,20 @@ static int test_tsp_3301_emulation(void) {
 		}
 		if ((problem == NULL) && (textraster[0] != 10)) {
 			problem = "the under line carried to the next row";
+		}
+		maketextva_raster(); /* row 4, raster 0: top blocks */
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && (textraster[8 + i] != 13)) {
+				problem = "semigraphics top blocks were not drawn in cyan";
+			}
+		}
+		for (r = 1; r < 5; r++) {
+			maketextva_raster(); /* raster 4: second block row, bits 1 and 5 clear */
+		}
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && (textraster[8 + i] != 0)) {
+				problem = "semigraphics drew a clear block";
+			}
 		}
 	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
