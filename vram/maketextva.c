@@ -460,6 +460,36 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 }
 
 /*
+ * PC-8801 40-column text (port 30h 80CM clear) under 3301 emulation: the
+ * characters stay at even byte columns of the 80-byte row and each is
+ * shown twice as wide, covering its odd neighbour (as X88000 skips odd
+ * columns). The two hidden lead cells keep even cells aligned with even
+ * logical columns, so each even cell is stretched over itself and the next.
+ */
+static void widen40_3301(UINT16 rwchar) {
+	UINT r;
+	UINT i;
+	int x;
+
+	if (rwchar > TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH) {
+		rwchar = TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH;
+	}
+	for (r = 0; r < work.lineheight; r++) {
+		BYTE *row = linebitmap + TEXTVA_SURFACE_WIDTH * r;
+		for (i = 0; i + 1 < rwchar; i += 2) {
+			BYTE *cell = row + i * TEXTVA_CHARWIDTH;
+			for (x = TEXTVA_CHARWIDTH * 2 - 1; x >= 0; x--) {
+				cell[x] = cell[x / 2];
+			}
+		}
+	}
+	for (i = 0; i + 1 < rwchar; i += 2) {
+		FillMemory(linecolor + (i + 1) * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH,
+		           linecolor[i * TEXTVA_CHARWIDTH]);
+	}
+}
+
+/*
 40桁に拡大する処理(linebitmapを加工)
 */
 static void conv40cm(UINT16 rwchar) {
@@ -691,6 +721,9 @@ void maketextva_raster(void) {
 				if ((work.texty < tsp.emul_rows) && maketextva_bytelocal_usable(local)) {
 					v = textmem + maketextva_bytelocal(local);
 					makeline_3301(v, f->rwchar);
+					if (!(videova.txtmode8 & 0x01)) {
+						widen40_3301(f->rwchar);
+					}
 				} else {
 					ZeroMemory(linebitmap, sizeof(linebitmap));
 					ZeroMemory(linecolor, sizeof(linecolor));
@@ -698,10 +731,10 @@ void maketextva_raster(void) {
 			} else {
 				v = textmem + f->rsa + f->vw * work.texty;
 				makeline(v, f->rwchar);
-			}
-			if (!videova.txtmode8 & 0x01) {
-				// 40桁モード
-				conv40cm(f->rwchar);
+				if (!videova.txtmode8 & 0x01) {
+					// 40桁モード
+					conv40cm(f->rwchar);
+				}
 			}
 
 			work.texty++;
