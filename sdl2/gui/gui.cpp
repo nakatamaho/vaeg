@@ -45,6 +45,7 @@
 #include "gui/gui.h"
 #include "codecnv.h"
 #include "memoryva.h"
+#include "maketextva.h"
 #include "bkupmemva.h"
 #include "diskdrv.h"
 #include "dosio.h"
@@ -401,6 +402,38 @@ static void copy_append_hccode(std::string *text, UINT16 hccode) {
 	}
 }
 
+/*
+ * V1/V2 text under the TSP's uPD3301 emulation: one byte per character in
+ * the 8801 format, read as it is displayed (byte-mode addresses, main RAM in
+ * standard speed). With port 30h 80CM clear (40 columns) only even byte
+ * columns hold characters. Semigraphics cells are copied as their codes.
+ */
+static void copy_3301_text(std::vector<std::string> *lines) {
+	const UINT step = (videova.txtmode8 & 0x01) ? 1 : 2;
+	UINT row;
+
+	for (row = 0;; row++) {
+		const BYTE *chars = maketextva_3301_text(row);
+		std::string line;
+		UINT column;
+
+		if (chars == nullptr) {
+			if (row >= tsp.emul_rows) {
+				break;
+			}
+			lines->push_back(line);
+			continue;
+		}
+		for (column = 0; column < tsp.emul_chars; column += step) {
+			copy_append_hccode(&line, chars[column]);
+		}
+		while (!line.empty() && (line.back() == ' ')) {
+			line.pop_back();
+		}
+		lines->push_back(line);
+	}
+}
+
 static BOOL copy_screen_text(void) {
 	std::vector<std::string> lines;
 	const UINT32 tvram_size = 0x40000;
@@ -411,6 +444,10 @@ static BOOL copy_screen_text(void) {
 	UINT32 raster_used = 0;
 	UINT frame_no;
 
+	if (memoryva_88_mode && tsp.emul) {
+		copy_3301_text(&lines);
+		raster_used = 0x1fe; /* the native frames below are not shown */
+	}
 	for (frame_no = 0; frame_no < frame_count && raster_used < 0x1fe; frame_no++) {
 		BYTE *entry = textmem + tsp.texttable + frame_no * 0x20;
 		CopyTextFrame frame;

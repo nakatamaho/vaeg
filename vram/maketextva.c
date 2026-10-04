@@ -692,6 +692,27 @@ static const BYTE *maketextva_3301_row(UINT32 offset) {
 	return emul_row_ram;
 }
 
+/*
+ * Characters of row `row` of the emulated uPD3301 screen, as displayed (for
+ * the GUI's text copy), or NULL past its last row or outside the usable
+ * byte-mode ranges. The two hidden lead cells are skipped; tsp.emul_chars
+ * bytes follow.
+ */
+const BYTE *maketextva_3301_text(UINT row) {
+	const BYTE *frame;
+	UINT32 local;
+
+	if (!tsp.emul || (row >= tsp.emul_rows)) {
+		return NULL;
+	}
+	frame = textmem + ((tsp.texttable + tsp.emul_frame * 32) & (sizeof(textmem) - 32));
+	local = (LOADINTELWORD(frame + 0x10) >> 1) + (LOADINTELWORD(frame + 0x08) >> 1) * row;
+	if (!maketextva_bytelocal_usable(local)) {
+		return NULL;
+	}
+	return maketextva_3301_row(maketextva_bytelocal(local)) + 2;
+}
+
 BOOL maketextva_bytelocal_usable(UINT32 local) {
 	return ((local >= 0x3000) && (local < 0x4000)) || ((local >= 0xb000) && (local < 0xc000));
 }
