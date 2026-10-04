@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M103g — Interrupts were not delivered through short EI windows in V1/V2 mode
+
+- **Symptom/scope:** in the PC-8801mkIISR demonstration's winter scene the
+  music did not start with the scene and played only briefly at its end
+  (maintainer report). Any V1/V2 software that keeps interrupts disabled
+  most of the time and enables them only briefly; native V3 code is not
+  affected.
+- **Demonstrated cause:** the scene scrolls GVRAM with `DI / LDDR / EI`
+  twenty times per frame. The machine arbitrates interrupts only between
+  CPU time slices (`pic_irq`) and only while interrupts are enabled; the
+  native `STI` ends the slice one instruction later when a request waits,
+  compatible-mode `EI` did not. A counter showed the sound timer raising
+  about 75 requests per second while none was delivered for about 14 s,
+  with the 8214 holding the request and the CPU sampled in the `LDDR`.
+- **Correction:** when compatible-mode code sets IFF1 and a request is
+  pending, the slice ends one instruction later, as for `STI`.
+- **Verification:** in the same scene every request is now accepted (the
+  counters match); the romless 8214 test fails without the change. Audible
+  confirmation is part of G103g.
+- **Task/evidence/commit:** [M103g task](../agents/tasks/M103g_v1v2_semigraphics_and_sound.md#sound-timing-scope-item-3).
+  Fix: [01381a9f](https://github.com/nakatamaho/vaeg/commit/01381a9f2b9102fd6533ae8fd0203652f4be2711).
+
 ### M103f — V3 leftovers in GVRAM plane 3 showed through V1/V2 graphics
 
 - **Symptom/scope:** after running a V3 game and resetting into V1/V2

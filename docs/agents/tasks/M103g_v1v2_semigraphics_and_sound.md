@@ -69,3 +69,32 @@ title) appear as large block letters; `WIDTH 40` in V2 BASIC shows
   symbols, now assembles from blocks into large letters. Romless test:
   a semigraphics cell draws its set blocks in the attribute colour and
   leaves clear blocks; it fails without the change.
+
+### 40-column text (scope item 2)
+
+- With `WIDTH 40` N-88 BASIC writes characters to the even byte columns
+  and clears port 30h 80CM (bit 0); vaeg drew them at normal width with
+  gaps. Under 3301 emulation each even cell is now stretched over the next
+  one (X88000 likewise skips the odd columns). The native V3 path is
+  unchanged; its existing 40-column condition tests `!txtmode8 & 0x01`,
+  an operator-precedence slip left alone here because V3 behaviour is out
+  of scope. Romless test: the reverse cell of column 1 disappears under
+  the widened column 0.
+
+### Sound timing (scope item 3)
+
+- Temporary counters (not committed) per second: sound timer requests,
+  8214 acceptances, SINTM and FDC reads. In the winter scene about 75
+  requests per second continued while none was accepted for about 14 s;
+  the 8214 had status 0Fh (all levels allowed) and held levels 1 and 4,
+  and the CPU was always sampled at the scene's `LDDR`.
+- `[ROM]` The scene scrolls GVRAM plane 2 with `DI / OUT 5Eh / LDDR (756
+  bytes) / OUT 5Fh / EI` twenty times, leaving three instructions between
+  `EI` and the next `DI`. vaeg delivers interrupts only between CPU time
+  slices; the native `STI` shortens the slice when a request waits, the
+  compatible `EI` did not (fixed, ledger entry).
+- After the fix every request in the scene is accepted; the 3D scene's
+  losses also fell. Requests that coincide are merged by the 8214 latch,
+  as on the hardware.
+- Observation: the demo's scene timing differs by a few hundred frames
+  between runs; not investigated.
