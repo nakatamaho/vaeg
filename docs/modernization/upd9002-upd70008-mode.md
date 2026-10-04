@@ -3325,6 +3325,16 @@ only because the VA1 and VA2 main ROMs differ and the VA1's is not in
 hand. `[DERIVED]` The dump tool read the N80 mode window, found nothing
 mapped, and captured whatever lay underneath.
 
+`[ROM]` Later finding (M103c, which contradicts the `[DERIVED]` reading
+above): N-88 BASIC's MON statement (handler `02E4h`) sets port 31h RMODE
+and keeps executing at `02ECh`–`02FCh` before checking for the `DB`
+signature at `6000h`. MON works on a real VA2 (the register dump in §17.2
+was taken with it), so with RMODE set
+`0000h`–`5FFFh` must still read N88-BASIC, not V3 code; vaeg maps it that
+way ([`v1v2-mode-decisions.md`](v1v2-mode-decisions.md) M3). The lower
+24 KiB of this dump cannot have been read in that state, and how the dump
+was made is unknown. The top-8 KiB Debug 8800 finding is unaffected.
+
 `[ROM]` The **top** 8 KiB of that file is a different matter and is
 genuine: it is the Debug 8800 bank, byte-identical to
 `varom00_va2.rom[0x1E000:0x20000]` (§4.5). The VA implements the
@@ -3349,7 +3359,8 @@ signature. 24 KiB is the PC-8001's ROM complement; `6000h`–`7FFF` is
 space the PC-8801 added on top of it. `[DERIVED]` That is why the VA's
 `n80.rom` divides exactly there: the VA has no PC-8001 ROM, so
 `0000h`–`5FFFh` reads through to whatever lies beneath, while
-`6000h`–`7FFF` is a bank window the VA does implement.
+`6000h`–`7FFF` is a bank window the VA does implement. (M103c showed that
+on a VA what lies beneath is N88-BASIC; see the note in C.5.)
 
 `[ROM]` The PC-8001 lineage is still visible inside: `JP 5C66h` occurs at
 `0x5D0F`, `0x5DAB` and `0x5DDB`, and `0x5C66` opens
