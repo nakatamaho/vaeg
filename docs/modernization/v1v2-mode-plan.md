@@ -30,7 +30,8 @@ which parts does vaeg still lack?**
 
 Every V1/V2 behaviour that rests on derivation or policy rather than a
 manual statement or a measurement, with its approval status, is listed in
-[`v1v2-mode-decisions.md`](v1v2-mode-decisions.md).
+[`v1v2-mode-decisions.md`](v1v2-mode-decisions.md). PC-8001 (N-BASIC) mode,
+a vaeg extension, is described in [`v1v2-n-basic-mode.md`](v1v2-n-basic-mode.md).
 
 ## 1. The model in one paragraph
 

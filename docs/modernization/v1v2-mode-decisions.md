@@ -56,6 +56,9 @@ Status:
 
 "Real-machine check" says what would settle the point.
 
+PC-8001 (N-BASIC) mode is described in full in
+[`v1v2-n-basic-mode.md`](v1v2-n-basic-mode.md).
+
 ## 1. CPU and mode entry
 
 | ID | Decision | Basis | Status | Where | Real-machine check |
