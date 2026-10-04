@@ -147,6 +147,7 @@ M36–M41 archive status.
 | M103d | tasks/M103d_v1v2_graphics_and_disk.md | V1/V2 series: extended GVRAM access (ALU, ports 32h/34h/35h), 88-mode graphics display (port 31h, palette mode, colour and monochrome), disk BASIC `FILES`/`SAVE`/`LOAD` → N88-DISK BASIC V2 usable with graphics statements | **In progress; G103d human gate pending** |
 | M103e | tasks/M103e_v1v2_demo_compatibility.md | V1/V2 series: compatibility against PC-8801 demonstration software (kanji ROM ports, extended RAM, dictionary ROM window, D88 track-table fix; SR-DEMO, MA2-DEMO and GAME-A run) | **Implementation complete; G103e human gate pending** |
 | M103f | tasks/M103f_v1v2_text_and_media.md | V1/V2 series: TSP byte-mode start addresses (text after a 3301 RESET), selecting an image of a multi-image D88 (`--fdd1-image`/`--fdd2-image`) | **Implementation complete; G103f human gate pending** |
+| M103g | tasks/M103g_v1v2_semigraphics_and_sound.md | V1/V2 series: µPD3301 semigraphics, 40-column text, SR-DEMO sound timing | **In progress; G103g human gate pending** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 documentation check** |
 
 Planned series (ADR-0016; rows are added when each task file exists;

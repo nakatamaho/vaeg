@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M103g — Interrupts were not delivered through short EI windows in V1/V2 mode
+
+- **Symptom/scope:** in the PC-8801mkIISR demonstration's winter scene the
+  music did not start with the scene and played only briefly at its end
+  (maintainer report). Any V1/V2 software that keeps interrupts disabled
+  most of the time and enables them only briefly; native V3 code is not
+  affected.
+- **Demonstrated cause:** the scene scrolls GVRAM with `DI / LDDR / EI`
+  twenty times per frame. The machine arbitrates interrupts only between
+  CPU time slices (`pic_irq`) and only while interrupts are enabled; the
+  native `STI` ends the slice one instruction later when a request waits,
+  compatible-mode `EI` did not. A counter showed the sound timer raising
+  about 75 requests per second while none was delivered for about 14 s,
+  with the 8214 holding the request and the CPU sampled in the `LDDR`.
+- **Correction:** when compatible-mode code sets IFF1 and a request is
+  pending, the slice ends one instruction later, as for `STI`.
+- **Verification:** in the same scene every request is now accepted (the
+  counters match); the romless 8214 test fails without the change. Audible
+  confirmation is part of G103g.
+- **Task/evidence/commit:** [M103g task](../agents/tasks/M103g_v1v2_semigraphics_and_sound.md#sound-timing-scope-item-3).
+  Fix: [01381a9f](https://github.com/nakatamaho/vaeg/commit/01381a9f2b9102fd6533ae8fd0203652f4be2711).
+
 ### M103f — V3 leftovers in GVRAM plane 3 showed through V1/V2 graphics
 
 - **Symptom/scope:** after running a V3 game and resetting into V1/V2
@@ -2433,6 +2455,15 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
 ## Open Defects
+
+### M103g — V1/V2 voice pitch observation without a demonstrated cause
+
+- **Symptom/scope:** in V1/V2 mode, a PC-8801 game's spoken title voice
+  plays slightly low in pitch (maintainer report, G103g check, Windows
+  build `1ae6cccf`). A reported missing floppy access sound was the
+  drive-sound setting being off, not a defect.
+- **Status:** not investigated; no root cause is claimed. Tracked in
+  [`v1v2-mode-decisions.md`](v1v2-mode-decisions.md) §9.
 
 ### M100g — Configuration save failures were silently ignored
 
