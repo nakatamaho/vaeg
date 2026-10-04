@@ -4914,6 +4914,17 @@ static int test_tsp_3301_emulation(void) {
 		tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
 		maketextva_raster();
+		/* M103h: text copy reads the emulated rows as displayed. */
+		{
+			const BYTE *chars = maketextva_3301_text(0);
+
+			if ((problem == NULL) &&
+			    ((chars == NULL) || (chars[0] != 'A') || (chars[1] != 'B') ||
+			     (maketextva_3301_text(1) == NULL) || (maketextva_3301_text(1)[0] != 'C') ||
+			     (maketextva_3301_text(25) != NULL))) {
+				problem = "3301 text rows for copying";
+			}
+		}
 		/* Reverse red fills column 1 with colour 8 + 2; column 0 stays bg. */
 		for (i = 0; i < 8; i++) {
 			if ((problem == NULL) && ((textraster[i] != 0) || (textraster[8 + i] != 10))) {
