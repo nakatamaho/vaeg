@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M103h — The V1/V2 cursor stayed at the top left on the original VA
+
+- **Symptom/scope:** on the original PC-88VA model the cursor was shown in
+  the top left corner in every V1/V2 mode (maintainer report). Original VA
+  only; any software positioning the cursor with TSP CURS.
+- **Demonstrated cause:** the TSP model ignored ACTSCR (16h) and CURS (1Eh).
+  The original VA's ROM moves the V1/V2 cursor with CURS (traced: row 4,
+  cells 2, 4, … while typing); the VA2 ROM writes the cursor sprite
+  descriptor itself, so it was unaffected.
+- **Correction:** ACTSCR records the split screen; CURS writes the dot
+  position of its row and column into the cursor sprite descriptor.
+- **Verification:** for the same cursor positions the original VA now gets
+  exactly the descriptor values the VA2 ROM writes (Y 40, X 0 and 32), and
+  the cursor follows typed text; V3 BASIC and PC-Engine cursors unchanged;
+  the romless test fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#third-maintainer-check).
+  Fix: [4613d9ec](https://github.com/nakatamaho/vaeg/commit/4613d9ec2775df0248d1ecd67689a3d51cff9337).
+
 ### M103h — The original VA ignored the V1/V2 selection
 
 - **Symptom/scope:** on the original PC-88VA model, selecting V1 (Emulate >
