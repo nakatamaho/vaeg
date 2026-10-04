@@ -4523,6 +4523,67 @@ static int test_v1v2_graphics(void) {
 	return (SUCCESS);
 }
 
+/* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
+static int test_v1v2_memory_switch(void) {
+	const char *problem;
+	UINT8 sum;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	/* Record as the ROM leaves it after a V2 boot: B1FC6h bit 7 clear. */
+	backupmem[0x1fc0] = 0x00;
+	backupmem[0x1fc1] = 0x00;
+	backupmem[0x1fc2] = 0xdb;
+	backupmem[0x1fc3] = 0x02;
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc5] = 0x04;
+	backupmem[0x1fc6] = 0x79;
+	backupmem[0x1fc7] = 0x0a;
+	bkupmemva_set_88v1(TRUE);
+	sum = 0;
+	for (i = 0; i < 8; i++) {
+		sum = (UINT8)(sum + backupmem[0x1fc0 + i]);
+	}
+	/* The ROM sums the record with B1FC6h bit 7 set (F000:23B7). */
+	if ((backupmem[0x1fc5] != 0x05) || !bkupmemva_get_88v1() ||
+	    (backupmem[0x1fcd] != (UINT8)(sum + 0x80))) {
+		problem = "V1 selection or the ROM-rule checksum";
+	}
+	if (problem == NULL) {
+		bkupmemva_set_88v1(FALSE);
+		if ((backupmem[0x1fc5] != 0x04) || bkupmemva_get_88v1()) {
+			problem = "V2 selection";
+		}
+	}
+	/* IN 31h: S clears MS26 only in 88 mode. */
+	if (problem == NULL) {
+		np2cfg.v1v2_standard = 1;
+		iocore_out8(0x153, 0x41);
+		if (iocore_inp8(0x031) != 0x79) {
+			problem = "S changed IN 31h in V3 mode";
+		}
+		iocore_out8(0x153, 0x01);
+		if ((problem == NULL) && (iocore_inp8(0x031) != 0x39)) {
+			problem = "S did not clear MS26 in 88 mode";
+		}
+		np2cfg.v1v2_standard = 0;
+		if ((problem == NULL) && (iocore_inp8(0x031) != 0x79)) {
+			problem = "H changed IN 31h";
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("V1/V2 memory switch", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 memory switch ok\n");
+	return (SUCCESS);
+}
+
 /* M103e: kanji ROM ports, extended RAM and the dictionary ROM window. */
 static int test_v1v2_rom_ports(void) {
 	const char *problem;
@@ -5469,6 +5530,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_rom_ports() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_memory_switch() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
