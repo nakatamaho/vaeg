@@ -28,6 +28,10 @@ of §0 of the CPU document. This page answers one question: **what does
 the VA do, in hardware and in firmware, to run PC-8801 software — and
 which parts does vaeg still lack?**
 
+Every V1/V2 behaviour that rests on derivation or policy rather than a
+manual statement or a measurement, with its approval status, is listed in
+[`v1v2-mode-decisions.md`](v1v2-mode-decisions.md).
+
 ## 1. The model in one paragraph
 
 `[VA-TM]` V1/V2 mode is "a mode that emulates the 88M/F series: not only
