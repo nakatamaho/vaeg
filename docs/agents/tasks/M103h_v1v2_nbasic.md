@@ -110,3 +110,16 @@ V1S, and runs a short program.
   then waits. With drive 1 empty it starts normally. Treated as the
   expected PC-8801 behaviour, not a defect.
 - Remaining: a start-up option to boot directly into N-BASIC.
+
+### Second maintainer check
+
+- Report: on VA2 in V1 S, `NEW ON 1` from disk BASIC resets the machine.
+  Not reproduced here: without `n80.rom` the screen stays black after
+  `NEW ON 1` (N-88 BASIC jumps into the absent N-BASIC); with it and a
+  disk in drive 1, N-BASIC starts (40-column function-key row) and then
+  boots that disk, whose IPL decides what follows. About now shows
+  ROM(N80) and the stored Z80 mode so the two cases can be told apart.
+- Report: on the original VA, V1 H/V1 S had no effect and the cursor
+  blinked at the top. V1 is fixed (port 150h, ledger entry): V1 boots
+  N-88 BASIC 1.9 on the original VA. The cursor report is open; not seen
+  in the headless runs.

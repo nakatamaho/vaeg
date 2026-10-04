@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M103h — The original VA ignored the V1/V2 selection
+
+- **Symptom/scope:** on the original PC-88VA model, selecting V1 (Emulate >
+  Z80 mode) still booted N-88 BASIC Version 2.x (maintainer report:
+  V1 H/V1 S had no effect on VA, unlike VA2). Original VA model only.
+- **Demonstrated cause:** port 150h (system mode, active low) was never
+  initialised. The VA2 ROM sets it through port 1C6h from memory switch
+  B1FC5h bit 0 (F000:12E4); the original VA's ROM reads 150h without
+  writing 1C6h (F000:0A77), so it saw an unset value and took V2.
+- **Correction:** reset starts port 150h from B1FC5h bit 0; the VA2 ROM
+  rewrites the same value. How the original VA hardware chooses the mode
+  is not documented (decision C8).
+- **Verification:** with V1 selected the original VA now boots N-88 BASIC
+  Version 1.9 (before: 2.4) and V2 still boots 2.4; the romless test reads
+  port 150h after reset and fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#second-maintainer-check).
+  Fix: [827a3a67](https://github.com/nakatamaho/vaeg/commit/827a3a6799a0868ad80a6a5fc3b844c750d0e9df).
+
 ### M103h — Saved backup memory lost its memory switches at every boot
 
 - **Symptom/scope:** with a saved backup-memory file, the VA2 ROM restored
