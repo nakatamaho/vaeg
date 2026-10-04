@@ -135,3 +135,9 @@ V1S, and runs a short program.
   runs.
 - Open: a graphic character after `Ok` with the maintainer's N-BASIC
   Ver 1.2 ROM (not available here).
+
+### Fourth maintainer check (Windows build `54723036`)
+
+- Confirmed: N mode starts N-BASIC without a disk on VA and VA2; the
+  original VA's V1/V2 cursor follows the input position; Copy screen text
+  copies the displayed V1/V2 text.
