@@ -26,6 +26,9 @@
 #define VAROM08ROM_VA2 "varom08_va2.rom"
 #define VAROM1ROM_VA2 "varom1_va2.rom"
 #define VASUBSYSROM "vasubsys.rom"
+/* Optional, user-supplied PC-8001/8801 N-BASIC ROM (vaeg extension). */
+#define N80ROM "n80.rom"
+#define N80ROM_UPPER "N80.ROM"
 
 #define VAFONTFILE_SIZE 0x50000
 #define V98FONTFILE_SIZE 0x46800
@@ -165,6 +168,26 @@ void romva_initialize(void) {
 		success = (file_read(fh, rom1mem, 0x20000) == 0x20000);
 		if (success)
 			memoryva.rom1exist |= 0x03; // bank 0,1
+		file_close(fh);
+	}
+
+	/*
+	 * The VA carries no N-BASIC. A 32 KiB N-BASIC ROM placed beside the VA
+	 * ROMs is shown at 0000h-7FFFh under port 31h RMODE in 88 mode, as on a
+	 * PC-8801 (see memoryva_n80).
+	 */
+	memoryva_n80_exist = FALSE;
+	getbiospath(path, N80ROM, sizeof(path));
+	fh = file_open_rb(path);
+	if (fh == FILEH_INVALID) {
+		getbiospath(path, N80ROM_UPPER, sizeof(path));
+		fh = file_open_rb(path);
+	}
+	if (fh != FILEH_INVALID) {
+		if ((file_getsize(fh) == sizeof(memoryva_n80)) &&
+		    (file_read(fh, memoryva_n80, sizeof(memoryva_n80)) == sizeof(memoryva_n80))) {
+			memoryva_n80_exist = TRUE;
+		}
 		file_close(fh);
 	}
 
