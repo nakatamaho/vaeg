@@ -4198,10 +4198,19 @@ static int test_pic8214_mode(void) {
 		CPU_SP = 0x0100;
 		CPU_BP = 0x0200;
 		CPU_FLAG = 0xf002;
+		/* M103g: with a request waiting, EI ends the CPU time slice one
+		 * instruction later so that pic_irq runs in the enabled window. */
+		iocore_out8(0xe4, 0x07);
+		pic_setirq(0x02);
+		CPU_REMCLOCK = 100000;
 		for (i = 0; i < 6; i++) {
 			upd9002_core_step();
+			if ((CPU_IP == 0x1007) && (CPU_REMCLOCK > 1)) {
+				problem = "EI with a waiting request did not end the time slice";
+			}
 		}
-		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1008)) {
+		if ((problem == NULL) &&
+		    ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1008))) {
 			problem = "compatible fixture did not reach its loop";
 		}
 	}
