@@ -77,6 +77,13 @@ Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
+V1/V2 mode: Emulate > Z80 mode selects V2 H, V2 S, V1 H or V1 S (the VA's
+memory switch for V1/V2; standard speed S is a vaeg extension) and resets.
+An optional 32 KiB PC-8001/8801 N-BASIC ROM named `n80.rom` (or `N80.ROM`)
+in the ROM directory, which the VA itself does not carry, is entered from
+V1 S N-88 BASIC with `NEW ON 1`; remove the disk from drive 1 first, since
+N-BASIC tries to boot it.
+
 `--headless-input-script path` starts the emulator with dummy SDL video/audio
 drivers and injects commands through the normal guest keyboard path. Each
 nonempty script line is submitted with Return appended; blank lines and lines
