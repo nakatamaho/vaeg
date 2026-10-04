@@ -286,10 +286,11 @@ static void makeline(BYTE *v, UINT16 rwchar) {
  * starts two bytes before the logical row: the VA2 ROM programs the start
  * address two bytes early and hides them with rxp, matching the TSP's
  * rw/8 + 2 fetch. Attribute bytes follow the PC-8801 text format: bit 3 set
- * is colour (bits 7-5 G, R, B; bit 4 semigraphics, not drawn yet), bit 3
- * clear is decoration (bit 0 secret, 1 blink, 2 reverse, 4 upper line,
- * 5 under line). The eight colours become colour codes 8-15 (BNN manual
- * 8.2.1).
+ * is colour (bits 7-5 G, R, B; bit 4 semigraphics), bit 3 clear is
+ * decoration (bit 0 secret, 1 blink, 2 reverse, 4 upper line, 5 under
+ * line). The eight colours become colour codes 8-15 (BNN manual 8.2.1).
+ * Semigraphics carries with the colour, as in X88000; the BNN manual does
+ * not list it among the 3301 functions the TSP leaves out (8.2.1).
  *
  * Pair walk: X88000 1.5.3 (public domain), X88ScreenDrawer.cpp, transparent
  * attribute mode. Pairs are consumed in memory order, at most one per
@@ -306,6 +307,7 @@ enum {
 	EMU3301_UPPER = 0x10,
 	EMU3301_UNDER = 0x20,
 	EMU3301_CARRY = EMU3301_SECRET | EMU3301_BLINK | EMU3301_REVERSE,
+	EMU3301_GRAPHIC = 0x08, /* in color[]: semigraphics, beside colour bits 2-0 */
 	EMU3301_MAXCHARS = 128,
 	EMU3301_MAXPAIRS = 32
 };
@@ -378,7 +380,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 				deco[run] = curdeco;
 			}
 			if (attr & 0x08) {
-				curcolor = (UINT8)(attr >> 5);
+				curcolor = (UINT8)((attr >> 5) | ((attr & 0x10) ? EMU3301_GRAPHIC : 0));
 			} else {
 				curdeco = (UINT8)attr;
 			}
@@ -413,7 +415,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		}
 		code = row[c];
 		d = deco[c];
-		fg = (UINT8)(8 + color[c]);
+		fg = (UINT8)(8 + (color[c] & 0x07));
 		bg = work.frame->bg;
 		if (d & EMU3301_REVERSE) {
 			const UINT8 t = fg;
@@ -421,7 +423,8 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			bg = t;
 		}
 		FillMemory(linecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
-		if ((code == 0 || code == 0x20) && (bg == 0) && !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
+		if ((code == 0 || ((code == 0x20) && !(color[c] & EMU3301_GRAPHIC))) && (bg == 0) &&
+		    !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
 			continue;
 		}
 #if defined(SLEEP_HACK)
@@ -440,6 +443,13 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 				const BOOL line = ((d & EMU3301_UPPER) && (r == 0)) ||
 				                  ((d & EMU3301_UNDER) && (r == work.lineheight - 1));
 				BYTE fontdata = (r < fonth) ? font[r * cgromva_width(code)] : 0;
+				if (color[c] & EMU3301_GRAPHIC) {
+					/* 2x4 blocks: bits 0-3 left column, 4-7 right, top first. */
+					const UINT block = (r < fonth) ? (r * 4) / fonth : 4;
+					fontdata = (block < 4) ? (BYTE)((((code >> block) & 1) ? 0xf0 : 0) |
+					                                (((code >> (block + 4)) & 1) ? 0x0f : 0))
+					                       : 0;
+				}
 				for (x = 0; x < TEXTVA_CHARWIDTH; x++) {
 					p[x] = line ? linecolor : ((fontdata & 0x80) ? glyphfg : bg);
 					fontdata <<= 1;
