@@ -149,3 +149,10 @@ recorded.
   neither 40h bit. Headless, the demonstration toggles bit 7 about
   106,000 times. Fixed (ledger); the port sound level is not saved in
   state files.
+- Maintainer check: silent at first because the master volume was below
+  21, which rounded the buzzer volume to 0 (fixed, ledger). With that,
+  `CMD SING` plays but "sounds completely different" from the real VA
+  (open). Measured: the demonstration toggles 40h bit 7 every about 2,070
+  CPU clocks in its first tone, a 1.93 kHz square wave at 7.9872 MHz;
+  vaeg outputs it as a 0/1 level, so held levels between notes add DC
+  steps (most of the captured energy is below 10 Hz).

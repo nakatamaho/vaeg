@@ -35,6 +35,22 @@ land.
 
 ## Maintenance Rules
 
+### M103i — BEEP and port sound silent at low master volume
+
+- **Symptom/scope:** with the master volume below about 21 (of 128) the
+  buzzer and the port sound were silent while FM sound still played
+  (maintainer report; found while checking the port 40h sound fix). All
+  modes, SDL frontend.
+- **Demonstrated cause:** the slider set the buzzer volume as
+  `round(volume × 3 / 128)`, a 0–3 value; every volume up to 21 gave 0.
+- **Correction:** the buzzer volume has 1/128 steps (`BEEP_level`), set
+  in proportion to the master volume; full scale equals the old maximum.
+- **Verification:** romless test (a low master volume keeps the buzzer
+  audible; fails with the old rounding); a real-time audio capture of
+  `BEEP` and `CMD SING` shows output at default volume.
+- **Task/evidence/commit:** [M103i task](../agents/tasks/M103i_v1_mode.md#port-40h-sound-maintainer-report).
+  Fix: [1f0d0c16](https://github.com/nakatamaho/vaeg/commit/1f0d0c16f1ad7bb766f270b7c3ac58f73b848de3).
+
 ### M103i — V1/V2 BEEP and port sound (CMD SING) were silent
 
 - **Symptom/scope:** in V1/V2 mode, sound made through port 40h was
