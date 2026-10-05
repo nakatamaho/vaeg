@@ -38,6 +38,7 @@ extern "C" {
 #endif
 
 extern _BEEP beep;
+extern _BEEP fbeep;
 
 void beep_initialize(UINT rate);
 void beep_deinitialize(void);
@@ -51,6 +52,7 @@ void beep_eventinit(void);
 void beep_eventreset(void);
 void beep_lheventset(int beep_low);
 void beep_oneventset(void);
+void beep_portsoundset(void);
 
 void SOUNDCALL beep_getpcm(BEEP bp, SINT32 *pcm, UINT count);
 

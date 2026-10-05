@@ -9,6 +9,9 @@
 #include "beep.h"
 
 _BEEP beep;
+/* Port sound: 40h bit 7 (FBEEP) drives the speaker directly (VA technical
+ * manual 5.10.4), mixed with the buzzer as its own one-shot level stream. */
+_BEEP fbeep;
 BEEPCFG beepcfg;
 
 // #define	BEEPLOG
@@ -64,6 +67,8 @@ void beep_reset(void) {
 	beep_changeclock();
 	ZeroMemory(&beep, sizeof(beep));
 	beep.mode = 1;
+	ZeroMemory(&fbeep, sizeof(fbeep));
+	fbeep.mode = 0;
 }
 
 void beep_hzset(UINT16 cnt, UINT beepclock) {
@@ -88,6 +93,26 @@ void beep_modeset(void) {
 		sound_sync();
 		beep.mode = newmode;
 		beep_eventinit();
+	}
+}
+
+static void beep_streamevent(BEEP bp, int enable) {
+	BPEVENT *evt;
+	SINT32 clock;
+
+	if (bp->enable != enable) {
+		if (bp->events >= (BEEPEVENT_MAX / 2)) {
+			sound_sync();
+		}
+		bp->enable = enable;
+		if (bp->events < BEEPEVENT_MAX) {
+			clock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
+			evt = bp->event + bp->events;
+			bp->events++;
+			evt->clock = (clock - bp->clock) * beepcfg.samplebase;
+			evt->enable = enable;
+			bp->clock = clock;
+		}
 	}
 }
 
@@ -138,6 +163,9 @@ void beep_eventreset(void) {
 	beep.lastenable = beep.enable;
 	beep.clock = soundcfg.lastclock;
 	beep.events = 0;
+	fbeep.lastenable = fbeep.enable;
+	fbeep.clock = soundcfg.lastclock;
+	fbeep.events = 0;
 }
 
 void beep_lheventset(int low) {
@@ -147,12 +175,21 @@ void beep_lheventset(int low) {
 	}
 }
 
+/*
+ * Buzzer on when either 1CDh bit 3 (XBEEP, active low) or 40h bit 5 (BEEP,
+ * the 88-mode control) is on (VA technical manual 5.10.3).
+ */
 void beep_oneventset(void) {
 	int buz;
 
-	buz = (sysportva.c & 8) ? 0 : 1;
+	buz = (!(sysportva.c & 8) || (sysportva.port040 & 0x20)) ? 1 : 0;
 	if (beep.buz != buz) {
 		beep.buz = buz;
 		beep_eventset();
 	}
+}
+
+/* Port sound output: 40h bit 7 (FBEEP), enabled by 190h bit 4 (FBEN). */
+void beep_portsoundset(void) {
+	beep_streamevent(&fbeep, ((sysportva.port040 & 0x80) && (sysportva.port190 & 0x10)) ? 1 : 0);
 }
