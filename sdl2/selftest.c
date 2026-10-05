@@ -1051,6 +1051,84 @@ static const SELFTESTFDDGEOMETRY selftest_fdd_geometry[] = {
     {NEWDISK_FDD_MSDOS_2HD, 0x20, 77, 2, 8, 3, 1024, 1, 0xfe, 192, 2},
     {NEWDISK_FDD_MSDOS_2DD, 0x10, 80, 2, 8, 2, 512, 2, 0xfb, 112, 2}};
 
+/* M103j: unformatted 2DD 720 KB and 2D 320/360 KB D88 images: geometry,
+ * E5h-filled sectors, no file system, accepted by the D88 loader; raw IMG
+ * output refused. */
+static int test_new_blank_fdd_images(void) {
+	static const struct {
+		UINT format;
+		UINT8 d88_type;
+		UINT cylinders;
+		UINT sectors;
+		UINT8 n;
+		UINT size;
+	} blank[] = {{NEWDISK_FDD_BLANK_2DD_720, 0x10, 80, 9, 2, 512},
+	             {NEWDISK_FDD_BLANK_2D_320, 0x00, 40, 16, 1, 256},
+	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512}};
+	_D88HEAD header;
+	_D88SEC sector_header;
+	_FDDFILE parsed;
+	BYTE sector[512];
+	char path[MAX_PATH];
+	const char *problem = NULL;
+	FILEH fh;
+	UINT i;
+	UINT tracks;
+	UINT32 expected;
+
+	for (i = 0; (problem == NULL) && (i < NELEMENTS(blank)); i++) {
+		SPRINTF(path, "vaeg-selftest-%lu-blank-%u.d88", (unsigned long)getpid(), blank[i].format);
+		file_delete(path);
+		tracks = blank[i].cylinders * 2;
+		expected =
+		    sizeof(header) + tracks * blank[i].sectors * (sizeof(sector_header) + blank[i].size);
+		if (newdisk_fdd_msdos(path, blank[i].format) != SUCCESS) {
+			problem = "blank D88 creation failed";
+			break;
+		}
+		ZeroMemory(&parsed, sizeof(parsed));
+		if ((fddd88_set(&parsed, path, 0) != SUCCESS) ||
+		    newdisk_fdd_has_filesystem(blank[i].format)) {
+			problem = "D88 loader rejected a blank image";
+		}
+		fh = file_open_rb(path);
+		if ((problem == NULL) && (fh == FILEH_INVALID)) {
+			problem = "blank D88 could not be opened";
+		}
+		if ((problem == NULL) &&
+		    ((file_getsize(fh) != expected) ||
+		     (file_read(fh, &header, sizeof(header)) != sizeof(header)) ||
+		     (header.fd_type != blank[i].d88_type) ||
+		     (LOADINTELDWORD(header.fd_size) != expected) ||
+		     (LOADINTELDWORD(header.trackp[tracks - 1]) == 0) ||
+		     (LOADINTELDWORD(header.trackp[tracks]) != 0) ||
+		     (file_read(fh, &sector_header, sizeof(sector_header)) != sizeof(sector_header)) ||
+		     (sector_header.r != 1) || (sector_header.n != blank[i].n) ||
+		     (LOADINTELWORD(sector_header.sectors) != blank[i].sectors) ||
+		     (LOADINTELWORD(sector_header.size) != blank[i].size) ||
+		     (file_read(fh, sector, blank[i].size) != blank[i].size) || (sector[0] != 0xe5) ||
+		     (sector[blank[i].size - 1] != 0xe5) || (sector[510 % blank[i].size] != 0xe5))) {
+			problem = "blank D88 geometry or fill";
+		}
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+		file_delete(path);
+		SPRINTF(path, "vaeg-selftest-%lu-blank-%u.img", (unsigned long)getpid(), blank[i].format);
+		file_delete(path);
+		if ((problem == NULL) &&
+		    (newdisk_fdd_msdos_ex(path, blank[i].format, NEWDISK_FDD_CONTAINER_RAW) != FAILURE)) {
+			problem = "raw blank image was created";
+		}
+		file_delete(path);
+	}
+	if (problem != NULL) {
+		return (fail("new blank fdd", problem));
+	}
+	fprintf(stderr, "selftest: new blank FDD images ok\n");
+	return (SUCCESS);
+}
+
 static int test_new_fdd_image(void) {
 	const SELFTESTFDDGEOMETRY *geometry;
 	_D88HEAD header;
@@ -5955,6 +6033,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_framedisp() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_new_blank_fdd_images() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {
