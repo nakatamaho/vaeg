@@ -68,6 +68,8 @@
 #include "np2.h"
 #include "pacing.h"
 #include "sound.h"
+#include "beep.h"
+extern BEEPCFG beepcfg;
 #include "opngen.h"
 #include "profile.h"
 #include "romcheck.h"
@@ -4564,6 +4566,120 @@ static void selftest_delete_rom(const char *dir, const char *name) {
 	file_delete(path);
 }
 
+/* M103i: the monitor setting is DIP switch SW1: sync frequency and port 40h
+ * bit 1 (1 = 15 kHz) follow it from reset. */
+static int test_monitor_switch(void) {
+	const UINT8 saved = np2cfg.monitor_15khz;
+	const char *problem = NULL;
+
+	np2cfg.monitor_15khz = 1;
+	videova_reset();
+	if ((videova_hsyncmode() != VIDEOVA_15_98KHZ) || !(iocore_inp8(0x040) & 0x02)) {
+		problem = "15 kHz monitor setting";
+	}
+	np2cfg.monitor_15khz = 0;
+	videova_reset();
+	if ((problem == NULL) &&
+	    ((videova_hsyncmode() != VIDEOVA_24_8KHZ) || (iocore_inp8(0x040) & 0x02))) {
+		problem = "24 kHz monitor setting";
+	}
+	np2cfg.monitor_15khz = saved;
+	videova_reset();
+	if (problem != NULL) {
+		return (fail("monitor switch", problem));
+	}
+	fprintf(stderr, "selftest: monitor switch ok\n");
+	return (SUCCESS);
+}
+
+/* M103i: the 88-mode buzzer (40h bit 5) and port sound (40h bit 7, FBEN). */
+static int test_port040_sound(void) {
+	const char *problem = NULL;
+	const UINT8 saved040 = sysportva.port040;
+	const UINT8 saved190 = sysportva.port190;
+	const UINT8 savedc = sysportva.c;
+
+	iocore_out8(0x1cf, 0x07); /* XBEEP off */
+	iocore_out8(0x190, 0x18); /* FBEN on */
+	iocore_out8(0x040, 0x20);
+	if (!beep.buz) {
+		problem = "40h bit 5 BEEP";
+	}
+	iocore_out8(0x040, 0x00);
+	if ((problem == NULL) && beep.buz) {
+		problem = "BEEP off";
+	}
+	iocore_out8(0x040, 0x80);
+	if ((problem == NULL) && !fbeep.enable) {
+		problem = "40h bit 7 FBEEP";
+	}
+	iocore_out8(0x190, 0x08); /* FBEN off masks the port sound */
+	if ((problem == NULL) && fbeep.enable) {
+		problem = "190h FBEN mask";
+	}
+	iocore_out8(0x190, saved190);
+	iocore_out8(0x040, saved040);
+	sysportva.c = savedc;
+	beep_oneventset();
+	if (problem != NULL) {
+		return (fail("port 40h sound", problem));
+	}
+	fprintf(stderr, "selftest: port 40h sound ok\n");
+	return (SUCCESS);
+}
+
+/* M103i: the buzzer volume follows the master volume finely. */
+static int test_beep_level(void) {
+	const UINT saved = beepcfg.vol;
+	const char *problem = NULL;
+
+	beep_setlevel(16);
+	if (beepcfg.vol == 0) {
+		problem = "low master volume silences the buzzer";
+	}
+	beep_setlevel(128);
+	if ((problem == NULL) && (beepcfg.vol != (3u << BEEPVOL_SHIFT))) {
+		problem = "full level differs from the legacy maximum";
+	}
+	beep_setvol(2);
+	if ((problem == NULL) && (beepcfg.vol != (2u << BEEPVOL_SHIFT))) {
+		problem = "legacy BEEP_vol";
+	}
+	beep_setlevel(0);
+	if ((problem == NULL) && (beepcfg.vol != 0)) {
+		problem = "level 0";
+	}
+	beepcfg.vol = saved;
+	if (problem != NULL) {
+		return (fail("beep level", problem));
+	}
+	fprintf(stderr, "selftest: beep level ok\n");
+	return (SUCCESS);
+}
+
+/* M103i: output levels for the analog and the digital RGB monitor. */
+static int test_monitor_output_levels(void) {
+	const char *problem = NULL;
+
+	if ((scrndrawva_outputlevel(0, 5, FALSE) != 0x00) ||
+	    (scrndrawva_outputlevel(31, 5, FALSE) != 0xff) ||
+	    (scrndrawva_outputlevel(16, 5, FALSE) != 0x87) ||
+	    (scrndrawva_outputlevel(63, 6, FALSE) != 0xff)) {
+		problem = "analog output levels";
+	} else if ((scrndrawva_outputlevel(7, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(8, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(15, 6, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(16, 6, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(0, 6, TRUE) != 0)) {
+		problem = "digital RGB thresholds";
+	}
+	if (problem != NULL) {
+		return (fail("monitor output levels", problem));
+	}
+	fprintf(stderr, "selftest: monitor output levels ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: N-BASIC ROM files: known dumps by SHA-1, the load order, the menu
  * choice, n80.rom as a catch-all, and size checking. */
 static int test_n80_rom_files(void) {
@@ -5811,6 +5927,18 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_n80_rom_files() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_monitor_switch() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_monitor_output_levels() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_port040_sound() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_beep_level() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {

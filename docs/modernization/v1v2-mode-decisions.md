@@ -128,6 +128,7 @@ PC-8001 (N-BASIC) mode is described in full in
 | G6 | In colour mode `COLOR f,b` leaves the background black: the ROM writes the backdrop, but graphics colour 0 is opaque. | `[ROM]` register values; matches `[X88000]` colour mode | Approved by the maintainer (2026-10-04, G103d review) | — | photograph `COLOR 7,4` in SCREEN 0 |
 | G7 | Not modelled: 320-dot mode in 1 bit/pixel, GVRAM wait states. | — | Open | — | — |
 | G8 | 110h bit 7 (G3MSK) clear keeps plane 3 out of 4 bit/pixel display. Bug fix, in the ledger. | `[VA-TM]` ch. 4 and §8.3.2 | Approved by the maintainer (2026-10-04, G103f review) | `vram/makegrphva.c` | — |
+| G9 | Monitor (Emulate > モニタ): SW1 selects 24 kHz or 15 kHz at reset; the digital RGB option thresholds each colour component at a quarter of full scale (8 colours), display only. | `[VA1]` schematic pp. 261, 263 (digital R/G/B = analog drive through 1 kΩ, no conversion logic); `[MEAS]` VA demo almost white on a digital monitor (maintainer); threshold `[POLICY]` | Pending G103i | `io/videova.c`, `vram/scrndrawva.c` | the digital monitor threshold |
 
 ## 7. Character ROM
 

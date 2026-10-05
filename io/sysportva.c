@@ -80,7 +80,9 @@ static void IOOUTCALL sysp_o040(UINT port, REG8 dat) {
 	sysportva.port040 = dat;
 	calendar_ondataset();
 	mouseifva_outstrobe((UINT8)((dat & 0x40) >> 6));
-	// FBEEP, BEEP, and printer-strobe outputs are not modeled here.
+	// Bit 5 BEEP and bit 7 FBEEP; the printer strobe is not modelled.
+	beep_oneventset();
+	beep_portsoundset();
 }
 
 /*
@@ -127,6 +129,7 @@ static void IOOUTCALL sysp_o190(UINT port, REG8 dat) {
 		TRACEOUT(("o190: unsupported bits are specified: 0x%.2x", dat));
 	}
 	sysportva.port190 = dat;
+	beep_portsoundset(); // bit 4 FBEN
 }
 
 static REG8 IOINPCALL sysp_i190(UINT port) {

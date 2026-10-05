@@ -359,6 +359,8 @@ static const INITBL iniitem[] = {
     {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
     {"V1V2_NMode", INITYPE_BOOL, &np2cfg.v1v2_nmode, 0},
     {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},
+    {"Monitor15kHz", INITYPE_BOOL, &np2cfg.monitor_15khz, 0},
+    {"MonitorDigital", INITYPE_BOOL, &np2cfg.monitor_digital, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
     {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
@@ -387,6 +389,7 @@ static const INITBL iniitem[] = {
     {"HOSTFATDIR", INITYPE_STR, np2oscfg.hostfat_dir, MAX_PATH},
     {"SNDboard", INITYPE_HEX16, &np2cfg.SOUND_SW, 0},
     {"BEEP_vol", INITYPE_UINT8, &np2cfg.BEEP_VOL, 0},
+    {"BEEP_level", INITYPE_UINT8, &np2cfg.beep_level, 0},
     {"xspeaker", INITYPE_BOOL, &np2cfg.snd_x, 0},
 
     {"SND14vol", INITYPE_BYTEARG, np2cfg.vol14, 6},

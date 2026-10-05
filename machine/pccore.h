@@ -66,6 +66,10 @@ typedef struct {
 	UINT8 v1v2_nmode;
 	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
 	OEMCHAR v1v2_n80rom[32];
+	/* DIP switch SW1, monitor type, read at reset: 0 = 24.8 kHz, 1 = 15 kHz. */
+	UINT8 monitor_15khz;
+	/* Display on the digital RGB output (8 colours); a display-side policy. */
+	UINT8 monitor_digital;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;
@@ -84,6 +88,8 @@ typedef struct {
 	UINT8 spb_x;
 
 	UINT8 BEEP_VOL;
+	/* Fine beeper volume 0-128 (master volume); above 128 BEEP_VOL applies. */
+	UINT8 beep_level;
 	UINT8 vol14[6];
 	UINT8 vol_fm;
 	UINT8 vol_ssg;

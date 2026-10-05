@@ -1175,7 +1175,6 @@ static UINT8 scale_master_volume(int volume, int max_value) {
 
 static void apply_master_volume(int volume) {
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
-	const UINT8 beep_volume = scale_master_volume(volume, 3);
 	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
@@ -1189,8 +1188,12 @@ static void apply_master_volume(int volume) {
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
 
-	np2cfg.BEEP_VOL = beep_volume;
-	beep_setvol(np2cfg.BEEP_VOL);
+	// The buzzer follows the master volume finely; BEEP_vol (0-3) keeps a
+	// value that is not 0 unless the master volume is 0, for older builds.
+	np2cfg.beep_level = static_cast<UINT8>(std::clamp(volume, 0, kMasterVolumeMax));
+	np2cfg.BEEP_VOL =
+	    static_cast<UINT8>((np2cfg.beep_level * 3 + kMasterVolumeMax - 1) / kMasterVolumeMax);
+	beep_setlevel(np2cfg.beep_level);
 
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
@@ -1263,6 +1266,15 @@ static void select_v1v2_mode(bool v1, bool standard) {
 	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
 	np2cfg.v1v2_standard = standard ? 1 : 0;
 	np2cfg.v1v2_nmode = 0;
+	sysmng_update(SYS_UPDATECFG);
+	reset_guest();
+}
+
+static void select_monitor(bool khz15) {
+	if ((np2cfg.monitor_15khz != 0) == khz15) {
+		return;
+	}
+	np2cfg.monitor_15khz = khz15 ? 1 : 0;
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
@@ -2539,6 +2551,23 @@ static void draw_emulate_menu(void) {
 			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
 			                        (np2cfg.upd8087_enable != 0))) {
 				select_boot_model(str_VA2, true);
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("モニタ")) {
+			// DIP switch SW1, read by the ROM at reset.
+			if (ImGui::MenuItem("24 kHz", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
 			}
 			ImGui::EndMenu();
 		}

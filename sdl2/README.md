@@ -77,6 +77,10 @@ Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
+Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
+where 200-line modes show with scanlines as on a 15 kHz monitor. It
+takes effect at the reset it triggers.
+
 V1/V2 mode: Emulate > Z80 mode selects V2 H, V2 S, V1 H or V1 S (the VA's
 memory switch for V1/V2; standard speed S is a vaeg extension) and resets.
 An optional 32 KiB PC-8001/8801 N-BASIC ROM in the ROM directory, which the
