@@ -76,13 +76,15 @@ static struct {
  * bits LSB first and one stop bit, a 0 as 1200 Hz and a 1 as 2400 Hz
  * (PC-8801 cassette FSK), and 2400 Hz between bytes while the motor runs.
  * Played at the real baud rate: with fast load, bytes that arrive while
- * one is still sounding are skipped, so the sound keeps its pitch and
- * rhythm. Display/sound only; it does not affect the data path.
+ * one is still sounding are skipped, and gaps while data flows are filled
+ * with data rather than carrier, so the sound keeps its pitch, rhythm and
+ * 1200/2400 Hz balance. Display/sound only; it does not affect the data path.
  */
 static struct {
 	UINT16 frame; /* bits still to play, LSB first */
 	UINT8 bits;   /* number of bits left in frame */
 	BOOL pending; /* a byte waits to be played */
+	UINT8 recent; /* frames to keep sounding data after the last byte */
 	UINT8 next;
 	UINT32 bitpos; /* 16.16 position within the current bit */
 	UINT32 phase;  /* 16.16 tone phase */
@@ -99,6 +101,7 @@ void cmt_setvol(UINT vol) {
 static void cmtsnd_push(REG8 dat) {
 	cmtsnd.next = (UINT8)dat;
 	cmtsnd.pending = TRUE;
+	cmtsnd.recent = 8;
 }
 
 static BOOL cmtsnd_carrier(void) {
@@ -136,6 +139,15 @@ void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count) {
 				cmtsnd.frame = (UINT16)(0x200 | ((UINT16)cmtsnd.next << 1));
 				cmtsnd.bits = 10;
 				cmtsnd.pending = FALSE;
+			} else if (np2cfg.cmt_fast && cmtsnd.recent) {
+				/* Fast load: between sampled bytes keep sounding data (the
+				 * tape at its current position) rather than the carrier,
+				 * whose 2400 Hz would otherwise dominate. */
+				const UINT8 dat = (cmt.pos < cmt.size) ? cmt.tape[cmt.pos] : cmtsnd.next;
+
+				cmtsnd.recent--;
+				cmtsnd.frame = (UINT16)(0x200 | ((UINT16)dat << 1));
+				cmtsnd.bits = 10;
 			} else if (cmtsnd_carrier()) {
 				cmtsnd.frame = 1;
 				cmtsnd.bits = 1;
