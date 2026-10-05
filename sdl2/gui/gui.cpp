@@ -48,6 +48,7 @@
 #include "maketextva.h"
 #include "bkupmemva.h"
 #include "n80rom.h"
+#include "cmt.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -240,6 +241,15 @@ struct GuiState {
 	int hdd_dialog_drive = -1;
 	char hdd_path[4][MAX_PATH] = {};
 	bool hdd_browser_open = false;
+	// Cassette tape (vaeg V1/V2 extension).
+	bool tape_browser_open = false;
+	bool tape_browser_refresh = false;
+	std::string tape_browser_dir;
+	std::vector<BrowserEntry> tape_entries;
+	char tape_path[MAX_PATH] = {};
+	std::string tape_loaded;
+	std::string tape_recording;
+	std::string tape_status;
 	bool hdd_browser_refresh = false;
 	std::string hdd_browser_dir;
 	std::vector<BrowserEntry> hdd_entries;
@@ -2746,6 +2756,182 @@ static void draw_fdd_menu(void) {
 	}
 }
 
+// ---- Cassette tape (vaeg extension for V1/V2 mode, M103j)
+
+static void refresh_tape_browser(void) {
+	std::error_code ec;
+
+	g_gui.tape_entries.clear();
+	if (!is_directory(g_gui.tape_browser_dir)) {
+		g_gui.tape_browser_dir = home_dir();
+	}
+	for (const auto &entry : fs::directory_iterator(fs::u8path(g_gui.tape_browser_dir), ec)) {
+		BrowserEntry item;
+		std::error_code st_ec;
+
+		if (ec) {
+			break;
+		}
+		item.is_dir = entry.is_directory(st_ec);
+		if ((!item.is_dir) && (!entry.is_regular_file(st_ec))) {
+			continue;
+		}
+		item.name = entry.path().filename().u8string();
+		item.path = entry.path().u8string();
+		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		g_gui.tape_entries.push_back(item);
+	}
+	std::sort(g_gui.tape_entries.begin(), g_gui.tape_entries.end(), browser_entry_less);
+	g_gui.tape_browser_refresh = false;
+}
+
+static void open_tape_dialog(void) {
+	std::string start_dir;
+
+	if (!g_gui.tape_loaded.empty()) {
+		start_dir = parent_dir(g_gui.tape_loaded);
+	} else if (!g_gui.tape_recording.empty()) {
+		start_dir = parent_dir(g_gui.tape_recording);
+	}
+	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
+	    is_directory(np2oscfg.gui_fdd_dir)) {
+		start_dir = np2oscfg.gui_fdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.tape_browser_dir = absolute_path(start_dir);
+	g_gui.tape_status.clear();
+	g_gui.tape_browser_open = true;
+	g_gui.tape_browser_refresh = true;
+}
+
+static void stop_tape_recording(void) {
+	if (cmt_saving()) {
+		g_gui.tape_status =
+		    (cmt_save_end() == SUCCESS) ? "Recording saved: " : "Recording could not be written: ";
+		g_gui.tape_status += g_gui.tape_recording;
+	}
+	g_gui.tape_recording.clear();
+}
+
+static void draw_tape_browser(void) {
+	if (!g_gui.tape_browser_open) {
+		return;
+	}
+	if (g_gui.tape_browser_refresh) {
+		refresh_tape_browser();
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Cassette tape image", &g_gui.tape_browser_open)) {
+		draw_host_drive_selector(g_gui.tape_browser_dir, g_gui.tape_browser_refresh, "tape-open");
+		ImGui::TextWrapped("%s", g_gui.tape_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.tape_browser_dir = home_dir();
+			g_gui.tape_browser_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.tape_browser_dir = parent_dir(g_gui.tape_browser_dir);
+			g_gui.tape_browser_refresh = true;
+		}
+		ImGui::Separator();
+		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
+		                                     ImGui::GetContentRegionAvail().y -
+		                                         3.0f * ImGui::GetFrameHeightWithSpacing());
+		if (ImGui::BeginChild("tape-browser-list", ImVec2(0, list_height),
+		                      ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.tape_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.tape_browser_dir = entry.path;
+						g_gui.tape_browser_refresh = true;
+					} else {
+						copy_path(g_gui.tape_path, sizeof(g_gui.tape_path), entry.path);
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##tape-path", g_gui.tape_path, sizeof(g_gui.tape_path));
+		if (ImGui::Button("Load tape (.cmt / .t88)")) {
+			if (cmt_open(g_gui.tape_path) == SUCCESS) {
+				g_gui.tape_loaded = g_gui.tape_path;
+				g_gui.tape_status = "Tape loaded.";
+				g_gui.tape_browser_open = false;
+			} else {
+				g_gui.tape_status = "Not a usable tape image.";
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Record to this file")) {
+			stop_tape_recording();
+			if ((g_gui.tape_path[0] != '\0') && (cmt_save_begin(g_gui.tape_path) == SUCCESS)) {
+				g_gui.tape_recording = g_gui.tape_path;
+				g_gui.tape_status = "Recording; written when stopped.";
+				g_gui.tape_browser_open = false;
+			} else {
+				g_gui.tape_status = "Enter a file name to record to.";
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.tape_browser_open = false;
+		}
+		if (!g_gui.tape_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
+		}
+	}
+	ImGui::End();
+}
+
+static void draw_tape_menu(void) {
+	if (ImGui::BeginMenu("Tape")) {
+		if (ImGui::MenuItem("Load / record...")) {
+			open_tape_dialog();
+		}
+		if (ImGui::MenuItem("Rewind", nullptr, false, cmt_inserted() != FALSE)) {
+			cmt_rewind();
+		}
+		if (ImGui::MenuItem("Eject", nullptr, false, cmt_inserted() != FALSE)) {
+			cmt_eject();
+			g_gui.tape_loaded.clear();
+		}
+		if (ImGui::MenuItem("Stop recording", nullptr, false, cmt_saving() != FALSE)) {
+			stop_tape_recording();
+		}
+		bool fast = np2cfg.cmt_fast != 0;
+		if (ImGui::MenuItem("Fast load", nullptr, fast)) {
+			np2cfg.cmt_fast = fast ? 0 : 1;
+			sysmng_update(SYS_UPDATECFG);
+		}
+		ImGui::Separator();
+		if (cmt_inserted()) {
+			const std::string name = display_file_name(g_gui.tape_loaded.c_str());
+			ImGui::Text("Tape: %s", name.c_str());
+			ImGui::Text("%u / %u bytes", static_cast<unsigned>(cmt_position()),
+			            static_cast<unsigned>(cmt_length()));
+		} else {
+			ImGui::TextDisabled("No tape");
+		}
+		if (cmt_saving()) {
+			const std::string name = display_file_name(g_gui.tape_recording.c_str());
+			ImGui::Text("Recording: %s (%u bytes)", name.c_str(),
+			            static_cast<unsigned>(cmt_saved_bytes()));
+		}
+		if (!g_gui.tape_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
+		}
+		ImGui::TextDisabled("V1/V2 BASIC (vaeg extension)");
+		ImGui::EndMenu();
+	}
+}
+
 static void draw_harddisk_menu(void) {
 	if (ImGui::BeginMenu("HardDisk")) {
 		if (ImGui::MenuItem("SASI-1 Open...")) {
@@ -4249,10 +4435,10 @@ BOOL gui_guest_keyboard_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
-	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
-	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.state_error_open || g_gui.hostfat_error_open ||
-	        g_gui.about_open)
+	        g_gui.tape_browser_open || g_gui.new_fdd_open || g_gui.new_sasi_open ||
+	        g_gui.new_scsi_open || g_gui.keyboard_config_open || g_gui.configure_open ||
+	        g_gui.bms_config_open || g_gui.custom_size_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open || g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
 }
@@ -4266,10 +4452,10 @@ BOOL gui_guest_mouse_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
-	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
-	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.state_error_open || g_gui.hostfat_error_open ||
-	        g_gui.about_open)
+	        g_gui.tape_browser_open || g_gui.new_fdd_open || g_gui.new_sasi_open ||
+	        g_gui.new_scsi_open || g_gui.keyboard_config_open || g_gui.configure_open ||
+	        g_gui.bms_config_open || g_gui.custom_size_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open || g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
 }
@@ -4381,6 +4567,7 @@ void gui_draw(void) {
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
+		draw_tape_menu();
 		draw_edit_menu();
 		draw_screen_menu();
 		draw_device_menu();
@@ -4405,6 +4592,7 @@ void gui_draw(void) {
 	draw_state_error_dialog();
 	draw_fdd_browser();
 	draw_hdd_browser();
+	draw_tape_browser();
 	draw_new_fdd_dialog();
 	draw_new_sasi_dialog();
 	draw_new_scsi_dialog();
