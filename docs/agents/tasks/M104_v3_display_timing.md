@@ -82,3 +82,9 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   Machine: PC-88VA2. Open: where the 240-line pictures lose their last
   line; the horizontal result of `N`.
 - Line ruler added to V480PAT for the second round.
+- `[MEAS]` Second round (2026-10-06):
+  [`pc88va-video-modes.md` 12.1](../../modernization/pc88va-video-modes.md#121-second-round-line-ruler),
+  with photographs. At 15.98 kHz graphics show `TBL + VAD - 37` lines; at
+  24.8 kHz with RSM = 01 graphics stop advancing after line 200; graphics
+  are not clipped by the TSP `HAD`. Open: `240 T` (640 dots) showed no
+  picture; whether 15 kHz graphics are shifted by `37 - TBL` against text.

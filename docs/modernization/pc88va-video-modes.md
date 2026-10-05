@@ -614,7 +614,7 @@ measured.
 | ROM 15 kHz 200-line screen | 37/200/15/8 | 260 | 61.5 Hz | displayed (monitor switch at 15 kHz) |
 | `V480PAT 240 T W` | 32/240/2/4 | 278 | 57.5 Hz | 320x240 displayed; the last line (239) not seen |
 | `V480PAT 240 U W` | 16/240/2/4 | 262 | 61.0 Hz | displayed; the last line (239) not seen |
-| `V480PAT 224 U W` | 16/224/18/4 | 262 | 61.0 Hz | displayed including the last line (223); a few lines of the previous run's 240-line pattern visible below it |
+| `V480PAT 224 U W` | 16/224/18/4 | 262 | 61.0 Hz | displayed; the white line seen with a little yellow below it was line 200 and lines 201-202 (second round), not line 223 |
 | `V480PAT 240 T W N` | as `240 T W`, `HAD` 127, `LBR`/`RBR` 16 | 278 | (57.5 Hz) | displayed; the lower band visible; horizontal result not yet recorded |
 
 Conclusions supported by these runs:
@@ -627,16 +627,64 @@ Conclusions supported by these runs:
 - This monitor's lower vertical limit at 24.8 kHz lies between 49.0 and
   50.2 Hz; a 480-raster frame cannot reach 50 Hz with the ROM's top
   blanking.
-- Graphics are still read for a few lines after `VAD` = 224 (the stale
-  lines). Whether the 240-line bottom line is cut by the monitor or by the
-  graphics fetch is open; the ruler added to V480PAT measures it.
+- Where the 240-line pictures lose their bottom lines is measured in the
+  second round below.
+
+### 12.1 Second round: line ruler
+
+`[MEAS]` 2026-10-06, PC-88VA2, same monitor, V480PAT with the line ruler
+and command label (binary built from
+[`290d976c`](https://github.com/nakatamaho/vaeg/commit/290d976c48f553b7256d82fa4e41edc61c0c5c9d)).
+"Last line" is read from the ruler (about plus or minus 1 line). Photographs
+(maintainer-authorised, metadata removed) are in
+[`m104-photos/`](m104-photos/).
+
+| Run | Clock | `SYNC` lines (top/active/bottom/sync) | Last graphics line seen | Photo |
+|---|---|---|---:|---|
+| `V480PAT 232 D` | 24.8 kHz | 25/464 rasters/2/4 | lines 0-200, then line 200 repeated to the end of the active area | [232 D](m104-photos/va2-232-d.jpg) |
+| `V480PAT 232 D N` | 24.8 kHz | as above, `HAD` 127 | as above | [232 D N](m104-photos/va2-232-d-n.jpg) |
+| `V480PAT 240 T W` | 15.98 kHz | 32/240/2/4 | 234 | [240 T W](m104-photos/va2-240-t-w.jpg) |
+| `V480PAT 240 U W` | 15.98 kHz | 16/240/2/4 | 218 | [240 U W](m104-photos/va2-240-u-w.jpg) |
+| `V480PAT 224 U W` | 15.98 kHz | 16/224/18/4 | 202 | [224 U W](m104-photos/va2-224-u-w.jpg) |
+| `V480PAT 224 T W N` | 15.98 kHz | 32/224/2/4, `HAD` 127 | 218 | [224 T W N](m104-photos/va2-224-t-w-n.jpg) |
+| `V480PAT 300 S` | 24.8 kHz | 25/300/7/8 (340, 73.0 Hz) | no picture | - |
+| `V480PAT 256 T W` | 15.98 kHz | 32/256/2/4 (294, 54.4 Hz) | no picture | - |
+| `V480PAT 240 T` | 15.98 kHz | 32/240/2/4, 640 dots | no picture | - |
+
+Findings:
+
+- **15 kHz vertical extent.** In all four 15 kHz runs the number of
+  graphics lines shown equals `TBL + VAD - 37`: 235, 219, 203 and 219,
+  against last lines 234, 218, 202 and 218 read off the ruler. 37 is the top blanking of the
+  ROM's own 15.98 kHz vector (`25h`). Line 0 is visible at the top in every
+  run. `[DERIVED]` A consistent model: the graphics display circuit
+  (D65101 side) starts graphics line 0 a fixed 37 lines after vertical sync,
+  independently of the TSP's `TBL`, and output ends with the TSP active
+  area. With the ROM's vector the two coincide. The equivalent count rule
+  holds whether the start is fixed (and the picture shifts by `37 - TBL`
+  lines against TSP text) or the count alone is short; the photos do not
+  separate them, because nothing TSP-drawn is in the measured area.
+- **24.8 kHz line doubling.** With port `0100h` 200-line mode and RSM = 01,
+  graphics lines 0-200 are shown doubled and line 200 is then repeated on
+  every remaining raster: the graphics line address stops advancing after
+  line 200 at 24.8 kHz. At 15.98 kHz, also in 200-line mode, it advances to
+  at least line 234.
+- **Horizontal (`N`).** With `HAD` reduced to 127 TCK and 16 TCK added to
+  each border, the whole 320-dot graphics line is still shown: both
+  window-edge marks (dots 32 and 286) appear inside the picture with
+  pattern outside them, at 15.98 and 24.8 kHz. Graphics are not clipped to
+  the TSP horizontal active period. The monitor rescaled the picture width,
+  so the photos do not show the line frequency.
+- No picture with a 340-line 24.8 kHz frame (73 Hz), a 294-line 15.98 kHz
+  frame (54.4 Hz), or `240 T` at 640 dots. The last shares its `SYNC`
+  vector with the displayed `240 T W`; why it showed nothing is open.
 
 ## 13. Change log
 
 ### Version 0.3 - 2026-10-06
 
 - Added the M104 measurements of non-native line counts and line doubling
-  (section 12).
+  (section 12) and the second round with the line ruler (12.1).
 
 ### Version 0.2 - 2026-07-16
 
