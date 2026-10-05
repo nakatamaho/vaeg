@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103i - V1 mode
 
-Status: **in progress**
+Status: **G103i passed on 2026-10-05 (maintainer); merge to `main` pending**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103i-v1-mode` off `main` at
 `093385e922f3bcc07b15ce5340310c61ba1d0841` (M103a–M103h merged). Commit
@@ -160,3 +160,8 @@ recorded.
   CPU clocks in its first tone, a 1.93 kHz square wave at 7.9872 MHz;
   vaeg outputs it as a 0/1 level, so held levels between notes add DC
   steps (most of the captured energy is below 10 Hz).
+
+### G103i
+
+- Passed on 2026-10-05 (maintainer). Fine pitch and tempo comparison of
+  the buzzer, port sound and V1-C is deferred.
