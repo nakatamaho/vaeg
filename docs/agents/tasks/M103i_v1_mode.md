@@ -96,3 +96,10 @@ recorded.
   its wait message, and later fails with `Disk I/O error` in its
   unpacking routine. Not investigated further; a real VA never gets
   there.
+
+### V1-C (single game)
+
+- Headless, V1 H, no configuration file: boots from the disk on VA and
+  VA2, shows its title, starts with SPACE and plays round 1 (score
+  counts, enemies move). Awaiting the real-machine comparison (speed,
+  sound, colours).
