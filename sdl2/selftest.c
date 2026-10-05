@@ -4633,6 +4633,38 @@ static int test_cassette_tape(void) {
 	if ((problem == NULL) && ((cmt_position() != 0) || cmt_selected())) {
 		problem = "rewind";
 	}
+	/* Tape sound: carrier while the motor runs, silence with it off or at
+	 * volume 0. */
+	if (problem == NULL) {
+		static SINT32 pcm[2 * 64];
+		const UINT saved_rate = soundcfg.rate;
+		BOOL heard;
+
+		soundcfg.rate = 22050;
+		cmt_setvol(64);
+		iocore_out8(0x030, 0x00);
+		cmt_getpcm(NULL, pcm, 1); /* motor off drops queued bytes */
+		iocore_out8(0x030, 0x08);
+		ZeroMemory(pcm, sizeof(pcm));
+		cmt_getpcm(NULL, pcm, 64);
+		heard = (pcm[0] != 0) || (pcm[20] != 0);
+		iocore_out8(0x030, 0x00);
+		ZeroMemory(pcm, sizeof(pcm));
+		cmt_getpcm(NULL, pcm, 64);
+		if (!heard || (pcm[0] != 0)) {
+			problem = "tape sound follows the motor";
+		}
+		iocore_out8(0x030, 0x08);
+		cmt_setvol(0);
+		ZeroMemory(pcm, sizeof(pcm));
+		cmt_getpcm(NULL, pcm, 64);
+		if ((problem == NULL) && (pcm[0] != 0)) {
+			problem = "tape volume 0";
+		}
+		iocore_out8(0x030, 0x00);
+		cmt_setvol(np2cfg.cmt_vol);
+		soundcfg.rate = saved_rate;
+	}
 	cmt_save_discard();
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
