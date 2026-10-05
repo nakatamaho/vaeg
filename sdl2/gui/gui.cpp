@@ -1267,6 +1267,15 @@ static void select_v1v2_mode(bool v1, bool standard) {
 	reset_guest();
 }
 
+static void select_monitor(bool khz15) {
+	if ((np2cfg.monitor_15khz != 0) == khz15) {
+		return;
+	}
+	np2cfg.monitor_15khz = khz15 ? 1 : 0;
+	sysmng_update(SYS_UPDATECFG);
+	reset_guest();
+}
+
 /* N-BASIC ROM files found when the Z80 mode menu was last opened. */
 static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
 static bool g_n80_scanned = false;
@@ -2539,6 +2548,16 @@ static void draw_emulate_menu(void) {
 			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
 			                        (np2cfg.upd8087_enable != 0))) {
 				select_boot_model(str_VA2, true);
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("モニタ")) {
+			// DIP switch SW1, read by the ROM at reset.
+			if (ImGui::MenuItem("24 kHz", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
 			}
 			ImGui::EndMenu();
 		}

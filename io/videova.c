@@ -528,7 +528,9 @@ void videova_reset(void) {
 
 	videova.xpar_txtspr = 0x0001;
 
-	videova.crtmode = sysportvacfg.dipsw & 1;
+	/* SW1 (monitor type) as set in the configuration; port 40h bit 1 and the
+	 * sync frequency follow it. */
+	videova.crtmode = np2cfg.monitor_15khz ? 0 : (sysportvacfg.dipsw & 1);
 
 	// TODO: establish documented power-on palette values.
 }
