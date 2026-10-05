@@ -23,6 +23,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
+#if defined(_WIN32)
+#include <direct.h>
+#else
+#include <unistd.h>
+#endif
 #include "selftest.h"
 #include "codecnv.h"
 #include "commng.h"
@@ -30,6 +35,8 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "romva.h"
+#include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
 #include "cliopts.h"
@@ -4525,6 +4532,115 @@ static int test_v1v2_graphics(void) {
 	return (SUCCESS);
 }
 
+/* Write `size` bytes of `fill` as `name` in directory `dir`. */
+static BOOL selftest_write_rom(const char *dir, const char *name, UINT size, BYTE fill) {
+	static BYTE data[0x8000];
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL ok;
+
+	if (size > sizeof(data)) {
+		return FALSE;
+	}
+	FillMemory(data, size, fill);
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_write(fh, data, size) == size);
+	file_close(fh);
+	return ok;
+}
+
+static void selftest_delete_rom(const char *dir, const char *name) {
+	char path[MAX_PATH];
+
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	file_delete(path);
+}
+
+/* M103h: N-BASIC ROM files: known dumps by SHA-1, the load order, the menu
+ * choice, n80.rom as a catch-all, and size checking. */
+static int test_n80_rom_files(void) {
+	char dir[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	N80ROMENTRY entries[ROMVA_N80_NAMES];
+	const char *problem;
+	UINT i;
+
+	problem = NULL;
+	if (strcmp(n80rom_identify_sha1("063609dd518c124a4fc9ba35d1bae35771666a34"), "N-BASIC 1.2") ||
+	    strcmp(n80rom_identify_sha1("06dae1db384aa29d81c5b6ed587877e7128fcb35"), "N-BASIC 1.8") ||
+	    strcmp(n80rom_identify_sha1("0000000000000000000000000000000000000000"), "unknown dump")) {
+		problem = "known N-BASIC SHA-1 identities";
+	}
+	SPRINTF(dir, "vaeg-selftest-%lu-n80", (unsigned long)getpid());
+	file_dircreate(dir);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, dir, sizeof(np2cfg.biospath));
+	np2cfg.v1v2_n80rom[0] = '\0';
+	if ((problem == NULL) && (!selftest_write_rom(dir, "n80.rom", 0x8000, 0x11) ||
+	                          !selftest_write_rom(dir, "n80.1.2.rom", 0x8000, 0x22) ||
+	                          !selftest_write_rom(dir, "n80.1.8.rom", 0x4000, 0x33))) {
+		problem = "could not write test ROM files";
+	}
+	/* n80.1.8.rom has the wrong size: skipped; n80.1.2.rom comes first. */
+	if (problem == NULL) {
+		romva_initialize();
+		if (!memoryva_n80_exist || strcmp(memoryva_n80_file, "n80.1.2.rom") ||
+		    (memoryva_n80[0] != 0x22)) {
+			problem = "N-BASIC ROM load order or size check";
+		}
+	}
+	/* The menu choice wins; n80.rom is accepted whatever it holds. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.v1v2_n80rom, "n80.rom", sizeof(np2cfg.v1v2_n80rom));
+		romva_initialize();
+		if (!memoryva_n80_exist || strcmp(memoryva_n80_file, "n80.rom") ||
+		    (memoryva_n80[0] != 0x11)) {
+			problem = "menu choice of the N-BASIC ROM";
+		}
+	}
+	if (problem == NULL) {
+		n80rom_scan(entries, ROMVA_N80_NAMES);
+		if (entries[0].present || !entries[1].present || strcmp(entries[1].label, "unknown dump") ||
+		    !entries[2].present) {
+			problem = "N-BASIC ROM scan for the menu";
+		}
+	}
+	/* Without any file N mode has no ROM. */
+	if (problem == NULL) {
+		for (i = 0; i < ROMVA_N80_NAMES; i++) {
+			selftest_delete_rom(dir, romva_n80_names[i]);
+		}
+		romva_initialize();
+		if (memoryva_n80_exist || (memoryva_n80_file[0] != '\0')) {
+			problem = "N-BASIC ROM reported without a file";
+		}
+	}
+	for (i = 0; i < ROMVA_N80_NAMES; i++) {
+		selftest_delete_rom(dir, romva_n80_names[i]);
+	}
+#if defined(_WIN32)
+	_rmdir(dir);
+#else
+	rmdir(dir);
+#endif
+	np2cfg.v1v2_n80rom[0] = '\0';
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_initialize();
+	if (problem != NULL) {
+		return (fail("N-BASIC ROM files", problem));
+	}
+	fprintf(stderr, "selftest: N-BASIC ROM files ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -4626,8 +4742,9 @@ static int test_v1v2_memory_switch(void) {
 
 			bkupmemva_set_88v1(TRUE);
 			np2cfg.v1v2_standard = 1;
+			milstr_ncpy(memoryva_n80_file, "n80.1.8.rom", sizeof(memoryva_n80_file));
 			np2info(info, "%BIOSN80%/%Z80MODE%", sizeof(info), NULL);
-			if ((problem == NULL) && strcmp(info, "exist/V1 S")) {
+			if ((problem == NULL) && strcmp(info, "n80.1.8.rom/V1 S")) {
 				problem = "About did not report the N-BASIC ROM and V1 S";
 			}
 			memoryva_n80_exist = FALSE;
@@ -5691,6 +5808,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_memory_switch() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_n80_rom_files() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
