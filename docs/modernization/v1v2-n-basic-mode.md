@@ -56,8 +56,16 @@ implementation choice.
 
 | Item | Where | Notes |
 |---|---|---|
-| N-BASIC ROM | `n80.rom` or `N80.ROM`, 32 KiB, in the ROM directory | Optional; checked at every reset. About shows `ROM(N80): exist / not exist`. |
-| Z80 mode | Emulate > Z80 mode: V2 H, V2 S, V1 H, V1 S, N (PC-8001) | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` and N is `V1V2_NMode` in the configuration file. N is available only with an N80 ROM. Selecting an entry resets. About shows `Z80 MODE`. |
+| N-BASIC ROM | `n80.1.8.rom`, `n80.1.2.rom`, `n80.rom` or `N80.ROM`, 32 KiB, in the ROM directory | Optional; loaded at every reset: the file chosen in the menu (`V1V2_N80ROM`), else the first found in that order. The versioned names are known dumps (below); `n80.rom` is accepted whatever it holds. About shows the loaded file and its identity. |
+| Z80 mode | Emulate > Z80 mode: V2 H, V2 S, V1 H, V1 S, and one N (PC-8001) entry per usable N-BASIC ROM file, labelled with its identity | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` and N is `V1V2_NMode` in the configuration file. N is available only with an N80 ROM. Selecting an entry resets. About shows `Z80 MODE`. |
+
+Known dumps, registered by SHA-1 at the maintainer's request
+(`sdl2/n80rom.c`; other files are shown as "unknown dump"):
+
+| Identity | SHA-1 |
+|---|---|
+| N-BASIC 1.2 | `063609dd518c124a4fc9ba35d1bae35771666a34` |
+| N-BASIC 1.8 | `06dae1db384aa29d81c5b6ed587877e7128fcb35` |
 
 A PC-8801 N80 ROM is 32 KiB: N-BASIC at 0000h–5FFFh and the Debug 8800
 monitor bank at 6000h–7FFFh. `[ROM]` In the image tested (PC-8001 BASIC
@@ -144,6 +152,8 @@ line (1EADh). In the VA, VA2 and PC-8801 fonts FCh is blank.
 | N80 ROM under RMODE | `bios/romva.c`, `memoryva/memoryva.*` | [81924227](https://github.com/nakatamaho/vaeg/commit/8192422754d36801919c267e4c598c1f68ab2d00) |
 | Port 150h at reset (original VA) | `io/sysportva.c` | [827a3a67](https://github.com/nakatamaho/vaeg/commit/827a3a6799a0868ad80a6a5fc3b844c750d0e9df) |
 | About: ROM(N80), Z80 MODE | `generic/np2info.c`, `sdl2/gui/gui.cpp` | [3d3eadef](https://github.com/nakatamaho/vaeg/commit/3d3eadefcce5190fdaa901ea8ab20e59956cecf9) |
+| Versioned ROM names, `n80.rom` fallback | `bios/romva.*`, `memoryva/memoryva.*`, `sdl2/ini.c` | [ff8901e0](https://github.com/nakatamaho/vaeg/commit/ff8901e0a2d37027c019ad1b226bc17ec91f37c5) |
+| SHA-1 identities, menu list | `sdl2/n80rom.*`, `sdl2/gui/gui.cpp`, `generic/np2info.c` | [0f8b0078](https://github.com/nakatamaho/vaeg/commit/0f8b0078a77fae621fd1956eb26c45492e0abb92) |
 
 Romless tests (`vaeg_romless_tests`): the memory-switch checksum and V1/V2
 selection, IN 31h under H/S, port 150h after reset, the N80 mapping with and
