@@ -69,6 +69,7 @@
 #include "pacing.h"
 #include "sound.h"
 #include "beep.h"
+#include "cmt.h"
 extern BEEPCFG beepcfg;
 #include "opngen.h"
 #include "profile.h"
@@ -4566,6 +4567,84 @@ static void selftest_delete_rom(const char *dir, const char *name) {
 	file_delete(path);
 }
 
+/* M103j: cassette tape through the 88-mode uPD8251: a T88 image's data
+ * blocks, carrier and RXRDY, the byte read through port 20h, transmit to the
+ * recording, and RS-232C selection leaving the tape alone. */
+static int test_cassette_tape(void) {
+	static const BYTE t88[] = {'P', 'C', '-', '8', '8', '0', '1', ' ', 'T', 'a', 'p', 'e', ' ', 'I',
+	                           'm', 'a', 'g', 'e', '(', 'T', '8', '8', ')', 0,
+	                           /* version tag */
+	                           0x01, 0x00, 0x02, 0x00, 0x00, 0x01,
+	                           /* blank tag */
+	                           0x00, 0x01, 0x08, 0x00, 0, 0, 0, 0, 0x10, 0, 0, 0,
+	                           /* data tag: begin, length, 2 bytes, type, then data */
+	                           0x01, 0x01, 0x0e, 0x00, 0, 0, 0, 0, 0x20, 0, 0, 0, 0x02, 0x00, 0xcc,
+	                           0x01, 0xd3, 0x42,
+	                           /* end */
+	                           0x00, 0x00, 0x00, 0x00};
+	const UINT8 saved_mode = memoryva_88_mode;
+	const char *problem = NULL;
+	int i;
+
+	memoryva_88_mode = 1;
+	cmt_reset();
+	if ((cmt_open_memory(t88, sizeof(t88)) != SUCCESS) || (cmt_length() != 2)) {
+		problem = "T88 data blocks";
+	}
+	iocore_out8(0x030, 0x08); /* motor on, cassette 600 baud */
+	if ((problem == NULL) && (!(iocore_inp8(0x040) & 0x04) || !cmt_selected())) {
+		problem = "cassette carrier";
+	}
+	iocore_out8(0x021, 0x00);
+	iocore_out8(0x021, 0x00);
+	iocore_out8(0x021, 0x00);
+	iocore_out8(0x021, 0x40); /* 8251 reset */
+	iocore_out8(0x021, 0x4e); /* mode */
+	iocore_out8(0x021, 0x14); /* command: RXE */
+	for (i = 0; (i < 64) && !(iocore_inp8(0x021) & 0x02); i++) {
+		cmt_event(NULL);
+	}
+	if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0xd3))) {
+		problem = "first tape byte through port 20h";
+	}
+	for (i = 0; (i < 64) && !(iocore_inp8(0x021) & 0x02); i++) {
+		cmt_event(NULL);
+	}
+	if ((problem == NULL) && (iocore_inp8(0x020) != 0x42)) {
+		problem = "second tape byte";
+	}
+	if ((problem == NULL) && (iocore_inp8(0x040) & 0x04)) {
+		problem = "carrier after the end of the tape";
+	}
+	cmt_save_begin("");
+	if ((problem == NULL) && (cmt_save_begin("vaeg-selftest-unused.cmt") != SUCCESS)) {
+		problem = "recording start";
+	}
+	iocore_out8(0x020, 0x5a);
+	if ((problem == NULL) && ((cmt_saved_bytes() != 1) || (cmt_saved_data()[0] != 0x5a))) {
+		problem = "transmitted byte recorded";
+	}
+	iocore_out8(0x030, 0x28); /* RS-232C selected */
+	iocore_out8(0x020, 0x11);
+	if ((problem == NULL) && (cmt_saved_bytes() != 1)) {
+		problem = "RS-232C output reached the tape";
+	}
+	cmt_rewind();
+	if ((problem == NULL) && ((cmt_position() != 0) || cmt_selected())) {
+		problem = "rewind";
+	}
+	cmt_save_discard();
+	cmt_eject();
+	iocore_out8(0x030, 0x00);
+	memoryva_88_mode = saved_mode;
+	cmt_reset();
+	if (problem != NULL) {
+		return (fail("cassette tape", problem));
+	}
+	fprintf(stderr, "selftest: cassette tape ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: the monitor setting is DIP switch SW1: sync frequency and port 40h
  * bit 1 (1 = 15 kHz) follow it from reset. */
 static int test_monitor_switch(void) {
@@ -5930,6 +6009,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_cassette_tape() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
