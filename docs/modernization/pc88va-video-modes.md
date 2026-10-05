@@ -593,7 +593,50 @@ The principal unresolved points are:
 7. exact direct-color layout of `PM=11b`; and
 8. model differences among VA, VA2, and VA3.
 
-## 12. Change log
+## 12. Measured non-native timings
+
+`[MEAS]` Real-hardware runs of
+[`V480PAT`](../../tools/pc88va/vtiming/README.md) (M104; binary SHA-256
+`3a1e5a03477c47dd2f8ac71337fcbb5bce941b6d66ddba49756fe653f82f7550`, before
+the line ruler) and VIEW480 under PC-Engine 1.1 on the maintainer's
+PC-88VA, 2026-10-05/06. The PC-88VA model is not yet recorded. Monitor:
+I-O DATA LCD-MF225XBR (LCD; 15, 24 and 31 kHz inputs). Frame totals and
+rates are derived from the `SYNC` bytes with vaeg's dot clocks, not
+measured.
+
+| Run | `SYNC` lines (top/active/bottom/sync) | Frame | Rate | Result |
+|---|---|---:|---:|---|
+| `V480PAT` (no switching) | ROM 400-line | 440 | 56.4 Hz | pattern drawn as designed: the GVRAM bank (`0153h` = 4) and CPU-data write mode (`0580h` = 10h) work on hardware |
+| `VIEW480` | 25/480/1/1 | 507 | 49.0 Hz | out of range on this monitor (one earlier look showed a vertically compressed picture with the 400-line edge visible; the repeat reported out of range) |
+| `V480PAT 200 D` | 25/400/7/8 | 440 | 56.4 Hz | 320x200 shown with every line on two rasters, no gaps: RSM = 01 doubles graphics lines |
+| `V480PAT 208 D` to `232 D` | 25/416-464/2/4 | 447-495 | 55.5-50.2 Hz | all displayed; with `232 D` the last line (231) was not seen |
+| `V480PAT 240 D` | 25/480/2/4 | 511 | 48.6 Hz | out of range |
+| ROM 15 kHz 200-line screen | 37/200/15/8 | 260 | 61.5 Hz | displayed (monitor switch at 15 kHz) |
+| `V480PAT 240 T W` | 32/240/2/4 | 278 | 57.5 Hz | 320x240 displayed; the last line (239) not seen |
+| `V480PAT 240 U W` | 16/240/2/4 | 262 | 61.0 Hz | displayed; the last line (239) not seen |
+| `V480PAT 224 U W` | 16/224/18/4 | 262 | 61.0 Hz | displayed including the last line (223); a few lines of the previous run's 240-line pattern visible below it |
+| `V480PAT 240 T W N` | as `240 T W`, `HAD` 127, `LBR`/`RBR` 16 | 278 | (57.5 Hz) | displayed; the lower band visible; horizontal result not yet recorded |
+
+Conclusions supported by these runs:
+
+- The TSP accepts a 15.98 kHz `VAD` of 224 and 240 lines (beyond the
+  documented 200/204) with 262- and 278-line frames, and 320-dot graphics
+  in 200-line mode then gives a 320x224 or 320x240 picture.
+- At 24.8 kHz, the RSM = 01 line doubling continues past 204 lines, to at
+  least 232 lines (464 rasters).
+- This monitor's lower vertical limit at 24.8 kHz lies between 49.0 and
+  50.2 Hz; a 480-raster frame cannot reach 50 Hz with the ROM's top
+  blanking.
+- Graphics are still read for a few lines after `VAD` = 224 (the stale
+  lines). Whether the 240-line bottom line is cut by the monitor or by the
+  graphics fetch is open; the ruler added to V480PAT measures it.
+
+## 13. Change log
+
+### Version 0.3 - 2026-10-06
+
+- Added the M104 measurements of non-native line counts and line doubling
+  (section 12).
 
 ### Version 0.2 - 2026-07-16
 

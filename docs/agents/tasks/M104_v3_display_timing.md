@@ -75,4 +75,10 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
 
 ## Implementation progress
 
-- Test program and builder committed; measurements below.
+- Test program and builder committed:
+  [`tools/pc88va/vtiming/README.md`](../../../tools/pc88va/vtiming/README.md).
+- `[MEAS]` First hardware round (2026-10-05/06): recorded in
+  [`pc88va-video-modes.md` section 12](../../modernization/pc88va-video-modes.md#12-measured-non-native-timings).
+  Open: the PC-88VA model used; where the 240-line pictures lose their last
+  line; the horizontal result of `N`.
+- Line ruler added to V480PAT for the second round.

@@ -1402,6 +1402,14 @@ address progression. Then test in this order:
 5. candidate 320x400 to test horizontal/vertical independence; and
 6. a 384x256 viewport while retaining 640x400 `SYNC`.
 
+`[MEAS]` M104 measured TSP frames outside the documented vectors on real
+hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)
+are displayed, 24.8 kHz frames of up to 495 lines (`VAD` 464) are displayed,
+and 507- and 511-line frames were out of range for the monitor used. Details
+are in
+[PC-88VA Video-Mode and Framebuffer Control](pc88va-video-modes.md#12-measured-non-native-timings);
+the test program is [`V480PAT`](../../tools/pc88va/vtiming/README.md).
+
 Do not begin with arbitrary `SYNC` values: out-of-range CRT timing is unsafe
 and combines too many unknowns. Hardware captures must identify model, monitor
 setting, clock source, probe point, and measurement uncertainty.
