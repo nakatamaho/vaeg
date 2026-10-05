@@ -80,7 +80,8 @@ Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
 loads a raw `.cmt` or `.t88` tape image or records to a raw image;
 `LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
-`--tape-save` do the same from the command line.
+`--tape-save` do the same from the command line. Loading and saving play
+the tape's FSK sound; Sound > Tape volume sets its level separately.
 
 Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
@@ -264,6 +265,10 @@ When a mounted image came from a ZIP, 7z, LZH, or single-image XZ stream, FDD1/F
 starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
 restored with persistent managed mounts after an application restart.
+
+New FDD image creates formatted MS-DOS 2HD and 2DD (640 KB) images, and
+unformatted D88 images (all sectors present, filled with E5h) of 2DD
+720 KB, 2D 320 KB (N88-BASIC layout) and 2D 360 KB.
 
 The FDD Open and New FDD dialogs provide a Windows host-drive selector
 above `Target Dir`; the HDD Open, New SASI, and New SCSI dialogs provide the

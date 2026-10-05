@@ -102,3 +102,24 @@ back; the maintainer's tape images load in V1/V2 BASIC.
 | `--tape`, `--tape-save` | [98249d13](https://github.com/nakatamaho/vaeg/commit/98249d13caebff91372395e8fa239fe20754ab77) |
 | Tape menu | [f5e0dd46](https://github.com/nakatamaho/vaeg/commit/f5e0dd4697cc36f162fb3301636885a8381a9711) |
 | Test | [f1e5be7d](https://github.com/nakatamaho/vaeg/commit/f1e5be7d8bb25053076a51040fe8c06fabfe176f) |
+
+### Tape sound (maintainer request)
+
+- Bytes read from or written to the tape sound as PC-8801 FSK (start bit,
+  eight data bits LSB first, stop bit; 0 = 1200 Hz, 1 = 2400 Hz) with the
+  2400 Hz carrier between bytes while the motor runs; motor off silences
+  it. The sound plays at the real baud rate; with fast load, bytes that
+  arrive while one is sounding are skipped. Separate volume: Sound > Tape
+  volume (`CMT_vol`, 0-128, default 48). A real-time capture of a load
+  shows the carrier, then mixed 1200/2400 Hz during the machine-code
+  block. Commits [f6f49f57](https://github.com/nakatamaho/vaeg/commit/f6f49f57d67a7c3813252b6f530a9015fbe26a86),
+  test [04a60f8c](https://github.com/nakatamaho/vaeg/commit/04a60f8c3fbc1544fe524fd137e4a78a88471727).
+
+### New FDD image sizes (maintainer request, outside the cassette scope)
+
+- FDD > New FDD image also creates unformatted D88 images: 2DD 720 KB
+  (80 x 2 x 9 x 512), 2D 320 KB (40 x 2 x 16 x 256, N88-BASIC layout) and
+  2D 360 KB (40 x 2 x 9 x 512), every sector present and filled with E5h,
+  no file system ("no need to format"). D88 only; the raw loader knows
+  none of these sizes. Commits [bc18620f](https://github.com/nakatamaho/vaeg/commit/bc18620f71d9cb24574f6fa3b958eef94ff361af),
+  test [a4def8aa](https://github.com/nakatamaho/vaeg/commit/a4def8aac8bea55d5f6b8ef3bea44eead90f218a).
