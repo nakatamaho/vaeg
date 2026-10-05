@@ -647,15 +647,16 @@ and command label (binary built from
 | `V480PAT 240 U W` | 15.98 kHz | 16/240/2/4 | 218 | [240 U W](m104-photos/va2-240-u-w.jpg) |
 | `V480PAT 224 U W` | 15.98 kHz | 16/224/18/4 | 202 | [224 U W](m104-photos/va2-224-u-w.jpg) |
 | `V480PAT 224 T W N` | 15.98 kHz | 32/224/2/4, `HAD` 127 | 218 | [224 T W N](m104-photos/va2-224-t-w-n.jpg) |
-| `V480PAT 300 S` | 24.8 kHz | 25/300/7/8 (340, 73.0 Hz) | no picture | - |
-| `V480PAT 256 T W` | 15.98 kHz | 32/256/2/4 (294, 54.4 Hz) | no picture | - |
-| `V480PAT 240 T` | 15.98 kHz | 32/240/2/4, 640 dots | no picture | - |
+| `V480PAT 240 T` | 15.98 kHz | 32/240/2/4, 640 dots | 234 | [240 T](m104-photos/va2-240-t.jpg), [repeat](m104-photos/va2-240-t-repeat.jpg) |
+| `V480PAT 300 S` | 24.8 kHz | 25/300/7/8 (340, 73.0 Hz) | monitor: unsupported signal | [out of range](m104-photos/va2-out-of-range.jpg) |
+| `V480PAT 256 T W` | 15.98 kHz | 32/256/2/4 (294, 54.4 Hz) | monitor: unsupported signal (same screen) | - |
 
 Findings:
 
 - **15 kHz vertical extent.** In all four 15 kHz runs the number of
   graphics lines shown equals `TBL + VAD - 37`: 235, 219, 203 and 219,
-  against last lines 234, 218, 202 and 218 read off the ruler. 37 is the top blanking of the
+  against last lines 234, 218, 202 and 218 read off the ruler; `240 T` at
+  640 dots also ends at 234. 37 is the top blanking of the
   ROM's own 15.98 kHz vector (`25h`). Line 0 is visible at the top in every
   run. `[DERIVED]` A consistent model: the graphics display circuit
   (D65101 side) starts graphics line 0 a fixed 37 lines after vertical sync,
@@ -675,9 +676,9 @@ Findings:
   pattern outside them, at 15.98 and 24.8 kHz. Graphics are not clipped to
   the TSP horizontal active period. The monitor rescaled the picture width,
   so the photos do not show the line frequency.
-- No picture with a 340-line 24.8 kHz frame (73 Hz), a 294-line 15.98 kHz
-  frame (54.4 Hz), or `240 T` at 640 dots. The last shares its `SYNC`
-  vector with the displayed `240 T W`; why it showed nothing is open.
+- The monitor reported an unsupported signal for a 340-line 24.8 kHz frame
+  (73 Hz) and a 294-line 15.98 kHz frame (54.4 Hz). These are monitor
+  limits, not VA results.
 
 ## 13. Change log
 

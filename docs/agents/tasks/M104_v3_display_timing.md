@@ -86,5 +86,6 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   [`pc88va-video-modes.md` 12.1](../../modernization/pc88va-video-modes.md#121-second-round-line-ruler),
   with photographs. At 15.98 kHz graphics show `TBL + VAD - 37` lines; at
   24.8 kHz with RSM = 01 graphics stop advancing after line 200; graphics
-  are not clipped by the TSP `HAD`. Open: `240 T` (640 dots) showed no
-  picture; whether 15 kHz graphics are shifted by `37 - TBL` against text.
+  are not clipped by the TSP `HAD`; `240 T` (640 dots) follows the same
+  rule. Open: whether 15 kHz graphics are shifted by `37 - TBL` against
+  text.
