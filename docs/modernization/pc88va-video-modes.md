@@ -680,12 +680,46 @@ Findings:
   (73 Hz) and a 294-line 15.98 kHz frame (54.4 Hz). These are monitor
   limits, not VA results.
 
+### 12.2 Feasible resolutions
+
+Combining the native modes with the 12.1 findings (15.98 kHz: graphics show
+`TBL + VAD - 37` lines; 24.8 kHz RSM = 01 doubling stops after line 200;
+widths only 640 or 320, not clipped by `HAD`) and the monitor limits seen
+in 12 and 12.1. Status: **native** = documented mode; **measured** = shown
+on the PC-88VA2 in 12/12.1; **derived** = follows from the rules, not yet
+run; **not possible** = excluded by a measured rule or a missing control.
+Rates use vaeg's line rates (15.98 kHz: 15.980 kHz, 24.8 kHz: 24.826 kHz).
+
+To show `N` full graphics lines at 15.98 kHz the frame needs at least
+`N + 37 + BBL + VS` lines (`N + 43` with the data-book minimums
+`BBL = 2`, `VS = 4`). `TBL = 37` (the ROM's value) also keeps graphics and
+TSP text aligned, which avoids the open shift question.
+
+| Resolution (W x graphics lines) | Clock | `SYNC` lines (top/active/bottom/sync) | Frame | Rate | Status |
+|---|---|---|---:|---:|---|
+| 640 x 400 | 24.8 kHz | 25/400/7/8 | 440 | 56.4 Hz | native |
+| 640/320 x 200, line-doubled (RSM = 01) or blank odd rasters (RSM = 00) | 24.8 kHz | 25/400/7/8 | 440 | 56.4 Hz | native; doubling measured (`200 D`) |
+| 640/320 x 200 | 15.98 kHz | 37/200/15/8 | 260 | 61.5 Hz | native |
+| 640/320 x 219 | 15.98 kHz | 16/240/2/4 | 262 | 61.0 Hz | measured (`240 U W`; lines 219-239 of the buffer not shown) |
+| 640/320 x 224 | 15.98 kHz | 37/224/2/4 | 267 | 59.9 Hz | derived |
+| 640/320 x 232 | 15.98 kHz | 37/232/2/4 | 275 | 58.1 Hz | derived |
+| 640/320 x 235 | 15.98 kHz | 32/240/2/4 | 278 | 57.5 Hz | measured (`240 T W`, `240 T`) |
+| 640/320 x 240 | 15.98 kHz | 37/240/2/4 | 283 | 56.5 Hz | derived; this monitor accepted 278 lines and rejected 294, so 283 is unverified |
+| 640/320 x 201-240, line-doubled | 24.8 kHz | 25/402-480/2/4 | 443-511 | 56.0-48.6 Hz | not possible: graphics stop advancing after line 200 |
+| 640 x 401-464, 400-line graphics mode | 24.8 kHz | 25/402-464/2/4 | 435-495 | up to 50.2 Hz | untested: the 24.8 kHz runs above 400 rasters used 200-line mode |
+| 640 x 480 (VIEW480) | 24.8 kHz | 25/480/1/1 | 507 | 49.0 Hz | out of range on this monitor; whether graphics past line 400 are shown is not established |
+| 256 (or any width other than 640/320) | any | `HAD` narrowed | - | - | not possible: graphics width is 640 or 320 and is not clipped by `HAD` |
+
+The 320 x 224 at about 60 Hz row is the closest to common console timing
+that the rules allow with this monitor; 320 x 240 needs a 283-line frame.
+
 ## 13. Change log
 
 ### Version 0.3 - 2026-10-06
 
 - Added the M104 measurements of non-native line counts and line doubling
-  (section 12) and the second round with the line ruler (12.1).
+  (section 12), the second round with the line ruler (12.1), and the
+  feasible-resolution table (12.2).
 
 ### Version 0.2 - 2026-07-16
 
