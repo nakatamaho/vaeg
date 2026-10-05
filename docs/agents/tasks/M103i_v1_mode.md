@@ -114,3 +114,4 @@ recorded.
   the 15 kHz timing themselves, and vaeg's existing 15.98 kHz path draws
   200 lines with blank odd rasters. Headless: V1-C on VA and VA2 and the
   VA2 V3 start screen show that layout.
+- Maintainer check (Windows build `d82c8680`, 2026-10-05): OK.
