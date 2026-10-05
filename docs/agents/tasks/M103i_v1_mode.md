@@ -105,3 +105,12 @@ recorded.
 - Maintainer check (vaeg, 2026-10-05): runs; "too high" (open
   observation, meaning to be confirmed: speed or sound pitch). Accepted
   for now.
+
+### Monitor switch (maintainer request)
+
+- `[VA-TM]` DIP switch SW1 selects the monitor (port 40h bit 1: 0 =
+  24.8 kHz, 1 = 15.7 kHz). vaeg fixed it at 24 kHz; Emulate > モニタ now
+  selects 24 kHz or 15 kHz (`Monitor15kHz`) and resets. The ROMs program
+  the 15 kHz timing themselves, and vaeg's existing 15.98 kHz path draws
+  200 lines with blank odd rasters. Headless: V1-C on VA and VA2 and the
+  VA2 V3 start screen show that layout.
