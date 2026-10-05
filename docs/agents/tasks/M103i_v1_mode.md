@@ -105,6 +105,10 @@ recorded.
 - Maintainer check (vaeg, 2026-10-05): runs; "too high" (open
   observation, meaning to be confirmed: speed or sound pitch). Accepted
   for now.
+- `[MEAS]` Real VA2 in V1 S: boots and runs, as in vaeg (maintainer,
+  2026-10-05; an earlier "does not boot" report was withdrawn). The
+  maintainer's VA2 has no working sound output, so sound cannot be
+  compared on it.
 
 ### Monitor switch (maintainer request)
 
