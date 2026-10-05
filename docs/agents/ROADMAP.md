@@ -150,7 +150,7 @@ M36–M41 archive status.
 | M103g | tasks/M103g_v1v2_semigraphics_and_sound.md | V1/V2 series: µPD3301 semigraphics, 40-column text, SR-DEMO sound timing | **G103g human gate passed on 2026-10-04; M103g complete: semigraphics titles, 40 columns, winter-scene music; merged to `main` at [375d96b](https://github.com/nakatamaho/vaeg/commit/375d96ba41819e13c504f429e9d575f6f16c1ba8)** |
 | M103h | tasks/M103h_v1v2_nbasic.md | V1/V2 series: Z80 mode menu (V1/V2, H/S), N-BASIC from a user-supplied ROM via a start-up option and `NEW ON 1` | **G103h human gate passed on 2026-10-05; M103h complete: Z80 mode menu, N mode boot of N-BASIC (known dumps by SHA-1), original-VA cursor (TSP CURS), V1/V2 text copy; merged to `main` at [0fecd39](https://github.com/nakatamaho/vaeg/commit/0fecd39f83973117cbec9466f9329f679bb151bc)** |
 | M103i | tasks/M103i_v1_mode.md | V1/V2 series: V1 mode with V1 media, compared with the real VA | **G103i human gate passed on 2026-10-05; M103i complete: V1 media checked against the real VA, monitor switches (15 kHz, digital RGB), port 40h buzzer and port sound, fine buzzer volume; merged to `main` at [a727a45](https://github.com/nakatamaho/vaeg/commit/a727a458a112d90c721d78f8db9d4580953c18b1)** |
-| M103j | tasks/M103j_cassette_tape.md | V1/V2 series, closing milestone: cassette tape images for V1/V2 BASIC (vaeg extension; the VA has no cassette interface) | **In progress; G103j human gate pending** |
+| M103j | tasks/M103j_cassette_tape.md | V1/V2 series, closing milestone: cassette tape images for V1/V2 BASIC (vaeg extension; the VA has no cassette interface) | **G103j human gate passed on 2026-10-05; M103j complete: cassette tape images in V1/V2 BASIC with tape sound (vaeg extension), unformatted 2DD 720 KB / 2D 320 KB / 2D 360 KB new FDD images; merged to `main` at [b1888e0](https://github.com/nakatamaho/vaeg/commit/b1888e04bc6a886b056dc2c9b467a5e66b77d402)** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 documentation check** |
 
 Planned series (ADR-0016; rows are added when each task file exists;
@@ -159,8 +159,8 @@ hardware model and milestone table in
 the V1/V2 series reached its ADR-0016 completion criteria with `M103d`
 (N88-DISK BASIC V2 operates) and `M103e` (the PC-8801mkIISR DEMO runs),
 followed by `M103f`, `M103g` and `M103h` (N-BASIC from a user-supplied
-ROM, entered by the N mode and by `NEW ON 1`); `M103i` (V1 mode) followed; the series closes with `M103j` (cassette
-tape, a vaeg extension). N80SR and the N80 mode are not pursued. The V3 series starts at `M104` (SGP), run in a
+ROM, entered by the N mode and by `NEW ON 1`); `M103i` (V1 mode) followed; the series closed with `M103j` (cassette
+tape, a vaeg extension) on 2026-10-05. N80SR and the N80 mode are not pursued. The V3 series starts at `M104` (SGP), run in a
 separate worktree in parallel.
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.

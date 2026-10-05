@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103j - Cassette tape (vaeg extension)
 
-Status: **in progress**
+Status: **complete; G103j passed on 2026-10-05; merged to `main` at [b1888e0](https://github.com/nakatamaho/vaeg/commit/b1888e04bc6a886b056dc2c9b467a5e66b77d402)**
 
 Series: V1/V2 mode (ADR-0016), closing milestone. Branch
 `topic/m103j-cassette` off `main` at
