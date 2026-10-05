@@ -70,4 +70,29 @@ recorded.
 
 ## Implementation progress
 
-- Task started; waiting for V1 media and real-machine observations.
+- Task started; V1 media supplied by the maintainer (V1-A: a PC-8801mkII
+  system disk; V1-B: a game collection; V1-C, V1-D: single games).
+
+### V1-A demonstration: `Disk I/O error` at its second BLOAD (real VA too)
+
+- Symptom: in V1, loading V1-A's demonstration program and running it
+  stops with `Disk I/O error` at its second `BLOAD`; an 8801 emulator
+  runs it. `[MEAS]` The real VA shows the same error at the same line
+  (maintainer, 2026-10-05), so vaeg matches the hardware. Not a defect.
+- `[ROM]` Cause: the program's first `BLOAD ...,R` installs a fast loader
+  that writes 34h bytes of its own code to the FDD subsystem at
+  7F60h–7F93h with subsystem command 0Ch (B,C = address, D,E = count;
+  0Ch at 053Bh in both ROMs), code that calls the sub-ROM's 06AFh
+  (identical in both ROMs). On a PC-8801 that area is free scratch. The
+  VA subsystem ROM differs from the PC-8801MA2 `DISK.ROM` in 865 bytes;
+  its additions use 7F67h/7F68h: 7F67h is set to FFh by VA-only command
+  25h (1607h) and cleared by 26h (1615h), and while it is nonzero the
+  disk commands fail (1600h returns carry; for example command 0Eh,
+  0D62h → 1465h → error) and the motor-on step is skipped (1741h,
+  1764h). The uploaded code puts 40h at 7F67h, so the next disk access
+  fails.
+- Experiment (not a real-machine configuration): with the PC-8801MA2
+  `DISK.ROM` as the subsystem ROM, the program passes that line, shows
+  its wait message, and later fails with `Disk I/O error` in its
+  unpacking routine. Not investigated further; a real VA never gets
+  there.
