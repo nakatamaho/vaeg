@@ -112,7 +112,10 @@ back; the maintainer's tape images load in V1/V2 BASIC.
   arrive while one is sounding are skipped. Separate volume: Sound > Tape
   volume (`CMT_vol`, 0-128, default 48). A real-time capture of a load
   shows the carrier, then mixed 1200/2400 Hz during the machine-code
-  block. Commits [f6f49f57](https://github.com/nakatamaho/vaeg/commit/f6f49f57d67a7c3813252b6f530a9015fbe26a86),
+  block. Maintainer check: sounds, but a little high; measured cause: with
+  fast load the gaps between sampled bytes were carrier (2400 Hz 74% of
+  the time); they now play data (1200 Hz 56%, the data's own ratio about
+  59%). Commits [f6f49f57](https://github.com/nakatamaho/vaeg/commit/f6f49f57d67a7c3813252b6f530a9015fbe26a86),
   test [04a60f8c](https://github.com/nakatamaho/vaeg/commit/04a60f8c3fbc1544fe524fd137e4a78a88471727).
 
 ### New FDD image sizes (maintainer request, outside the cassette scope)
