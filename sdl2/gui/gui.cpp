@@ -1851,6 +1851,16 @@ static void open_new_scsi_dialog(int drive) {
 }
 
 static const char *new_fdd_default_name(int format, int container) {
+	switch (format) {
+	case NEWDISK_FDD_BLANK_2DD_720:
+		return "newdisk-2dd720.d88";
+	case NEWDISK_FDD_BLANK_2D_320:
+		return "newdisk-2d320.d88";
+	case NEWDISK_FDD_BLANK_2D_360:
+		return "newdisk-2d360.d88";
+	default:
+		break;
+	}
 	if (container == NEWDISK_FDD_CONTAINER_RAW) {
 		if (format == NEWDISK_FDD_MSDOS_2DD) {
 			return "newdisk-2dd.img";
@@ -2522,6 +2532,18 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2HD);
 		ImGui::SameLine();
 		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2DD);
+		ImGui::TextDisabled("Unformatted (blank sectors, D88 only):");
+		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
+		ImGui::SameLine();
+		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
+		ImGui::SameLine();
+		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
+		if (!newdisk_fdd_has_filesystem(static_cast<UINT>(g_gui.new_fdd_format)) &&
+		    (g_gui.new_fdd_container != NEWDISK_FDD_CONTAINER_D88)) {
+			g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
+			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
+			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_D88));
+		}
 		ImGui::Text("Mount after create");
 		ImGui::RadioButton("FDD1##new-fdd", &g_gui.new_fdd_drive, 0);
 		ImGui::SameLine();
@@ -2749,6 +2771,17 @@ static void draw_fdd_menu(void) {
 			}
 			if (ImGui::MenuItem("2DD (640 KB)...")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
+			}
+			ImGui::Separator();
+			ImGui::TextDisabled("Unformatted");
+			if (ImGui::MenuItem("2DD (720 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
+			}
+			if (ImGui::MenuItem("2D (320 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
+			}
+			if (ImGui::MenuItem("2D (360 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
 			}
 			ImGui::EndMenu();
 		}
