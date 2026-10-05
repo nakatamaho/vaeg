@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103h - N-BASIC in V1/V2 mode
 
-Status: **in progress**
+Status: **complete; G103h passed on 2026-10-05; merged to `main` at [0fecd39](https://github.com/nakatamaho/vaeg/commit/0fecd39f83973117cbec9466f9329f679bb151bc)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103h-v1v2-nbasic` off
 `main` at `98ac7a89013871a067ab9d1b3f3a7c1015a2789a` (M103a–M103g merged).
