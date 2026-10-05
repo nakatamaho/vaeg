@@ -115,3 +115,16 @@ recorded.
   200 lines with blank odd rasters. Headless: V1-C on VA and VA2 and the
   VA2 V3 start screen show that layout.
 - Maintainer check (Windows build `d82c8680`, 2026-10-05): OK.
+
+### Digital RGB monitor (maintainer request)
+
+- `[VA1]` schematic p. 263: the DIGITAL connector carries R, G, B,
+  XHSDI, XVSDI and NCLK, no intensity line. p. 261: each digital colour
+  line is taken from the analog output stage's drive node through 1 kΩ
+  (R30 for red), so there is no conversion logic and the monitor's input
+  threshold decides each component. `[MEAS]` (maintainer) On a digital
+  monitor the VA demo looked almost white, which fits a low threshold.
+- Emulate > モニタ > デジタル RGB (`MonitorDigital`, display only, no
+  reset) shows each component full on from a quarter of full scale
+  (decision G9). 88 digital-palette software (V1-C) is unchanged by it,
+  as expected.
