@@ -64,6 +64,8 @@ typedef struct {
 	UINT8 v1v2_standard;
 	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
 	UINT8 v1v2_nmode;
+	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
+	OEMCHAR v1v2_n80rom[32];
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

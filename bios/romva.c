@@ -26,9 +26,36 @@
 #define VAROM08ROM_VA2 "varom08_va2.rom"
 #define VAROM1ROM_VA2 "varom1_va2.rom"
 #define VASUBSYSROM "vasubsys.rom"
-/* Optional, user-supplied PC-8001/8801 N-BASIC ROM (vaeg extension). */
-#define N80ROM "n80.rom"
-#define N80ROM_UPPER "N80.ROM"
+/*
+ * Optional, user-supplied PC-8001/8801 N-BASIC ROM (vaeg extension). The
+ * versioned names are known dumps (identified by SHA-1 in sdl2/n80rom.c);
+ * n80.rom is read whatever it holds. Without a menu choice the first file
+ * found in this order is used.
+ */
+const char *const romva_n80_names[ROMVA_N80_NAMES] = {"n80.1.8.rom", "n80.1.2.rom", "n80.rom",
+                                                      "N80.ROM"};
+
+static BOOL romva_load_n80(const char *name) {
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL ok;
+
+	if ((name == NULL) || (name[0] == '\0')) {
+		return FALSE;
+	}
+	getbiospath(path, name, sizeof(path));
+	fh = file_open_rb(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_getsize(fh) == sizeof(memoryva_n80)) &&
+	     (file_read(fh, memoryva_n80, sizeof(memoryva_n80)) == sizeof(memoryva_n80));
+	file_close(fh);
+	if (ok) {
+		milstr_ncpy(memoryva_n80_file, name, sizeof(memoryva_n80_file));
+	}
+	return ok;
+}
 
 #define VAFONTFILE_SIZE 0x50000
 #define V98FONTFILE_SIZE 0x46800
@@ -123,6 +150,7 @@ void romva_initialize(void) {
 	char path[MAX_PATH];
 	FILEH fh;
 	BOOL success;
+	int i;
 
 	memoryva.rom0exist = 0;
 	memoryva.rom1exist = 0;
@@ -176,19 +204,10 @@ void romva_initialize(void) {
 	 * ROMs is shown at 0000h-7FFFh under port 31h RMODE in 88 mode, as on a
 	 * PC-8801 (see memoryva_n80).
 	 */
-	memoryva_n80_exist = FALSE;
-	getbiospath(path, N80ROM, sizeof(path));
-	fh = file_open_rb(path);
-	if (fh == FILEH_INVALID) {
-		getbiospath(path, N80ROM_UPPER, sizeof(path));
-		fh = file_open_rb(path);
-	}
-	if (fh != FILEH_INVALID) {
-		if ((file_getsize(fh) == sizeof(memoryva_n80)) &&
-		    (file_read(fh, memoryva_n80, sizeof(memoryva_n80)) == sizeof(memoryva_n80))) {
-			memoryva_n80_exist = TRUE;
-		}
-		file_close(fh);
+	memoryva_n80_file[0] = '\0';
+	memoryva_n80_exist = romva_load_n80(np2cfg.v1v2_n80rom);
+	for (i = 0; !memoryva_n80_exist && (i < ROMVA_N80_NAMES); i++) {
+		memoryva_n80_exist = romva_load_n80(romva_n80_names[i]);
 	}
 
 	getbiospath(path, VASUBSYSROM, sizeof(path));

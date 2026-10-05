@@ -72,6 +72,7 @@ _MEMORYVA88ALU memoryva_88_alu;
 _MEMORYVA88ERAM memoryva_88_eram;
 BYTE memoryva_n80[0x8000];
 BOOL memoryva_n80_exist;
+char memoryva_n80_file[32];
 _MEMORYVA88DIC memoryva_88_dic = {0, 1};
 BOOL textmem_dirty;
 
