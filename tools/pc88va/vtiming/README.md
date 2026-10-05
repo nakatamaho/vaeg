@@ -43,6 +43,17 @@ builds `VIEW480.COM` from its public source archive (see
 > signal. Every switching option restores the previous timing on any key;
 > if the screen is lost, press a key or switch the machine off.
 
+## Binary
+
+[`bin/v480pat.com`](bin/v480pat.com) is the program run on real hardware
+for the second round of measurements, published as a proof of concept. It is
+assembled from [`v480pat.asm`](v480pat.asm) at commit
+[`290d976c`](https://github.com/nakatamaho/vaeg/commit/290d976c48f553b7256d82fa4e41edc61c0c5c9d)
+with NASM 2.16.01 (`nasm -f bin`) and is byte-identical to the CMake build of
+that source: 2,008 bytes, SHA-256
+`553ffd5fa87365be91980cadd310daa87425c5475541c1faf9dbaa417ca2f59c`. Copy it
+to a PC-Engine disk as `V480PAT.COM`. The same two-clause BSD terms apply.
+
 ## Building
 
 The CMake build assembles it with NASM to `build/<preset>/guest/v480pat.com`;
