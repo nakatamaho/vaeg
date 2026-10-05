@@ -101,5 +101,7 @@ recorded.
 
 - Headless, V1 H, no configuration file: boots from the disk on VA and
   VA2, shows its title, starts with SPACE and plays round 1 (score
-  counts, enemies move). Awaiting the real-machine comparison (speed,
-  sound, colours).
+  counts, enemies move).
+- Maintainer check (vaeg, 2026-10-05): runs; "too high" (open
+  observation, meaning to be confirmed: speed or sound pitch). Accepted
+  for now.
