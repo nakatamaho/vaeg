@@ -128,3 +128,5 @@ recorded.
   reset) shows each component full on from a quarter of full scale
   (decision G9). 88 digital-palette software (V1-C) is unchanged by it,
   as expected.
+- Maintainer check (Windows build `62e2f8e4`, 2026-10-05): "about like
+  this"; the quarter-scale threshold is kept.
