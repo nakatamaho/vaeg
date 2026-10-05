@@ -4564,6 +4564,32 @@ static void selftest_delete_rom(const char *dir, const char *name) {
 	file_delete(path);
 }
 
+/* M103i: the monitor setting is DIP switch SW1: sync frequency and port 40h
+ * bit 1 (1 = 15 kHz) follow it from reset. */
+static int test_monitor_switch(void) {
+	const UINT8 saved = np2cfg.monitor_15khz;
+	const char *problem = NULL;
+
+	np2cfg.monitor_15khz = 1;
+	videova_reset();
+	if ((videova_hsyncmode() != VIDEOVA_15_98KHZ) || !(iocore_inp8(0x040) & 0x02)) {
+		problem = "15 kHz monitor setting";
+	}
+	np2cfg.monitor_15khz = 0;
+	videova_reset();
+	if ((problem == NULL) &&
+	    ((videova_hsyncmode() != VIDEOVA_24_8KHZ) || (iocore_inp8(0x040) & 0x02))) {
+		problem = "24 kHz monitor setting";
+	}
+	np2cfg.monitor_15khz = saved;
+	videova_reset();
+	if (problem != NULL) {
+		return (fail("monitor switch", problem));
+	}
+	fprintf(stderr, "selftest: monitor switch ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: N-BASIC ROM files: known dumps by SHA-1, the load order, the menu
  * choice, n80.rom as a catch-all, and size checking. */
 static int test_n80_rom_files(void) {
@@ -5811,6 +5837,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_n80_rom_files() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_monitor_switch() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
