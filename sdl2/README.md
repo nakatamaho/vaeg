@@ -77,6 +77,11 @@ Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
+Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
+loads a raw `.cmt` or `.t88` tape image or records to a raw image;
+`LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
+`--tape-save` do the same from the command line.
+
 Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
 takes effect at the reset it triggers.

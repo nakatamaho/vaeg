@@ -74,4 +74,31 @@ back; the maintainer's tape images load in V1/V2 BASIC.
 
 ## Implementation progress
 
-- Task started.
+- Implemented (vaeg extension, decision C10): in 88 mode port 30h bits
+  5-4 select the cassette channel of the 8251 and bit 3 the motor;
+  received bytes raise RXRDY and the 8214 level 0 request; `[ROM]` BASIC
+  waits for port 40h bit 2 (carrier, 7EDFh) before reading, which vaeg
+  reports while the motor runs and the tape has data. Transmitted bytes
+  are recorded to a raw image. Tape images: raw byte streams and T88 data
+  blocks (blank, space and mark blocks are not timed). `CMT_Fast`
+  (default on) delivers bytes 16 times faster than the baud rate. Tape
+  contents and the recording are not part of state files.
+- Frontend: Emulate menu bar > Tape (load or record, rewind, eject, stop
+  recording, fast load, position); `--tape` and `--tape-save` for
+  headless runs.
+- Verified headless: a BASIC program saved with `SAVE "CAS:..."` is
+  byte-identical across runs and loads back with `LOAD "CAS:..."` and
+  runs; three maintainer tape images (two raw, one T88) load in the
+  original VA's ROM BASIC (no disk) and their machine-code parts start.
+  Disk BASIC loads the BASIC part of a tape, but programs that need the
+  memory disk BASIC occupies do not run there; use the ROM BASIC.
+- Romless test: T88 data extraction, carrier, two bytes through port
+  20h, recording of a transmitted byte, RS-232C selection leaving the
+  tape alone, rewind. It fails if port 20h does not read the tape.
+
+| Change | Commit |
+|---|---|
+| Cassette channel | [ada42eae](https://github.com/nakatamaho/vaeg/commit/ada42eae5572c1fad5895a8e881605626b07da8e) |
+| `--tape`, `--tape-save` | [98249d13](https://github.com/nakatamaho/vaeg/commit/98249d13caebff91372395e8fa239fe20754ab77) |
+| Tape menu | [f5e0dd46](https://github.com/nakatamaho/vaeg/commit/f5e0dd4697cc36f162fb3301636885a8381a9711) |
+| Test | [f1e5be7d](https://github.com/nakatamaho/vaeg/commit/f1e5be7d8bb25053076a51040fe8c06fabfe176f) |
