@@ -74,7 +74,7 @@ The system disk is private media; keep both images outside Git.
 ## Usage
 
 ```text
-V480PAT [lines] [S|T|U|R|D] [W] [N]
+V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
 ```
 
 | Argument | Effect |
@@ -88,6 +88,8 @@ V480PAT [lines] [S|T|U|R|D] [W] [N]
 | `D` | 24.8 kHz, 320 x `lines` (1-240) line-doubled: graphics in 200-line mode with port `0100h` RSM = 01 (non-interlaced mode 1), the TSP frame at 2 x `lines` rasters; above 400 rasters bottom blanking 2 and sync 4. |
 | `W` | Graphics screen 0 at 320 dots (`0102h` bit 4) with `S`, `T`, `U` or none; `D` is always 320. |
 | `N` | With `S`, `T`, `U` or `D`: TSP horizontal active `HAD` 159 -> 127 (128 TCK: 256 dots at 320, 512 at 640) and 16 TCK added to each of `LBR` and `RBR`, keeping the line length. Two white two-dot marks show the edges of that window. |
+
+| `K` | With `S` or `D`: top blanking 17 instead of the ROM's 25 (480 lines with `S`: 499-line frame, about 49.8 Hz). |
 
 Any key restores the timing (and RSM for `D`). The graphics mode chosen for
 the pattern is left in place, so after `D` or `T` the pattern stays in
@@ -105,6 +107,8 @@ measurements.
 | `VIEW480` | 25 / 480 / 1 / 1 | 507 | 49.0 Hz |
 | `V480PAT 240 S` | 25 / 240 / 7 / 8 | 280 | 88.7 Hz |
 | `V480PAT 232 D` | 25 / 464 rasters / 2 / 4 | 495 | 50.2 Hz |
+| `V480PAT 472 S` | 25 / 472 / 1 / 1 | 499 | 49.8 Hz |
+| `V480PAT 480 S K` | 17 / 480 / 1 / 1 | 499 | 49.8 Hz |
 | `V480PAT 240 D` | 25 / 480 rasters / 2 / 4 | 511 | 48.6 Hz |
 | normal 15 kHz 200-line screen | 37 / 200 / 15 / 8 | 260 | 61.5 Hz |
 | `V480PAT 240 T W` | 32 / 240 / 2 / 4 | 278 | 57.5 Hz |

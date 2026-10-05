@@ -25,7 +25,7 @@
 ; written for vaeg M104; see tools/pc88va/vtiming/README.md. Assemble with
 ; NASM (8086/80186 code only): nasm -f bin -o V480PAT.COM v480pat.asm
 ;
-;   V480PAT [lines] [S|T|U|R|D] [W] [N]
+;   V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
 ; lines: 1-480, default 480. Without S/T/U/D the pattern is left on the
 ; normal screen (400 lines visible), for VIEW480 or a capture.
 ; S: switch a 24.8 kHz display to N lines (VIEW480's SYNC; the frame grows
@@ -47,6 +47,8 @@
 ;    (HAD 159 -> 127; 256 dots at 320, 512 at 640) and add 16 TCK to each of
 ;    the left and right borders, keeping the line length. White marks show
 ;    the edges of that window (x = width/10 and width - width/10 - 1).
+; K: with S or D, top blanking 17 instead of the ROM's 25 (480 lines with
+;    S: 499-line frame, about 49.8 Hz).
 ; Any key restores the screen.
 ; Set up with the graphics BIOS (INT 8Fh); drawn directly into GVRAM with
 ; port 153h selecting GVRAM and port 580h in CPU-data write mode.
@@ -109,8 +111,12 @@ start:		mov	si,0081h
 		mov	byte [narrow],1
 		jmp	.skip
 .n:		cmp	al,'n'
-		jne	.skip
+		jne	.k
 		mov	byte [hnarrow],1
+		jmp	.skip
+.k:		cmp	al,'k'
+		jne	.skip
+		mov	byte [ktop],1
 		jmp	.skip
 .args:		or	bx,bx
 		jnz	.haven
@@ -554,8 +560,14 @@ set_lines:	mov	ax,0500h
 		mov	byte [syncprm+12],01h
 		mov	byte [syncprm+13],01h
 .porch:		mov	si,syncprm
+		call	ktop_si
 		call	hnarrow_si
 		jmp	sync
+; K: top blanking 17 in the 24.8 kHz SYNC vector at SI
+ktop_si:	cmp	byte [ktop],0
+		je	.r
+		mov	byte [si+8],17
+.r:		ret
 ; 24.8 kHz, N lines doubled: frame of 2N rasters, RSM = 01
 set_lines_dbl:	call	fb_lines
 		mov	dx,0100h
@@ -576,7 +588,8 @@ set_lines_dbl:	call	fb_lines
 		jbe	.porch
 		mov	byte [si+12],02h	; bottom 2, sync 4: data-book minimums
 		mov	byte [si+13],04h
-.porch:		call	hnarrow_si
+.porch:		call	ktop_si
+		call	hnarrow_si
 		jmp	sync
 ; 15.98 kHz: N lines in a 262-line frame
 set_lines_15k:	call	fb_lines
@@ -716,6 +729,7 @@ gmode		db	0
 narrow		db	0
 toplines	db	32
 hnarrow		db	0
+ktop		db	0
 ; ruler colours for y div 8 mod 8 = 0..7: white, red, yellow, green, cyan,
 ; blue, magenta, light grey in the default palette
 rcol		db	7, 2, 6, 4, 5, 1, 3, 15
