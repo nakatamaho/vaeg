@@ -47,6 +47,7 @@
 #include "memoryva.h"
 #include "maketextva.h"
 #include "bkupmemva.h"
+#include "n80rom.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -126,8 +127,8 @@ constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
                                             "ROM(Main): %BIOSVA%\n"
                                             "ROM(VupB): %BIOS91%\n"
                                             "ROM(Sub): %BIOSSUB%\n"
-                                            "ROM(N80): %BIOSN80%\n"
-                                            "Z80 MODE: %Z80MODE%";
+                                            "Z80 MODE: %Z80MODE%\n"
+                                            "ROM(N80): %BIOSN80%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -1265,6 +1266,10 @@ static void select_v1v2_mode(bool v1, bool standard) {
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
+
+/* N-BASIC ROM files found when the Z80 mode menu was last opened. */
+static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
+static bool g_n80_scanned = false;
 
 static void select_sound_hardware(UINT16 sound) {
 	if (np2cfg.SOUND_SW == sound) {
@@ -2557,13 +2562,35 @@ static void draw_emulate_menu(void) {
 				}
 			}
 			ImGui::Separator();
-			// vaeg extension: start in N-BASIC; needs n80.rom (About: ROM(N80)).
-			if (ImGui::MenuItem("N (PC-8001)", nullptr, nmode, memoryva_n80_exist != FALSE)) {
-				np2cfg.v1v2_nmode = 1;
-				sysmng_update(SYS_UPDATECFG);
-				reset_guest();
+			// vaeg extension: start in N-BASIC from a user-supplied ROM. The ROM
+			// directory is scanned (SHA-1) once each time the menu opens.
+			if (!g_n80_scanned) {
+				n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+				g_n80_scanned = true;
+			}
+			bool any_n80 = false;
+			for (const auto &entry : g_n80_entries) {
+				if (!entry.present) {
+					continue;
+				}
+				any_n80 = true;
+				const std::string label =
+				    std::string("N (PC-8001): ") + entry.name + " - " + entry.label;
+				const bool loaded =
+				    nmode && memoryva_n80_exist && (strcmp(memoryva_n80_file, entry.name) == 0);
+				if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+					np2cfg.v1v2_nmode = 1;
+					milstr_ncpy(np2cfg.v1v2_n80rom, entry.name, sizeof(np2cfg.v1v2_n80rom));
+					sysmng_update(SYS_UPDATECFG);
+					reset_guest();
+				}
+			}
+			if (!any_n80) {
+				ImGui::MenuItem("N (PC-8001): no N-BASIC ROM", nullptr, false, false);
 			}
 			ImGui::EndMenu();
+		} else {
+			g_n80_scanned = false;
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Configure...")) {
@@ -3832,6 +3859,13 @@ static void draw_about_dialog(void) {
 			ImGui::BeginDisabled(g_gui.about_more);
 			if (ImGui::Button("More >>", ImVec2(-1.0f, 0.0f))) {
 				np2info(g_gui.about_info, kAboutInfoTemplate, sizeof(g_gui.about_info), nullptr);
+				if (memoryva_n80_exist) {
+					const char *id = n80rom_label(memoryva_n80_file);
+					milstr_ncat(g_gui.about_info, " (", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, (id != nullptr) ? id : "unreadable",
+					            sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
+				}
 				g_gui.about_more = true;
 			}
 			ImGui::EndDisabled();

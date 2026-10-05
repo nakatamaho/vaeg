@@ -270,7 +270,7 @@ static void info_bios_88vasubsys(char *str, int maxlen, NP2INFOEX *ex) {
 /* Optional user-supplied N-BASIC ROM (n80.rom), a vaeg extension. */
 static void info_bios_n80(char *str, int maxlen, NP2INFOEX *ex) {
 	if (memoryva_n80_exist) {
-		milstr_ncpy(str, str_exist, maxlen);
+		milstr_ncpy(str, memoryva_n80_file, maxlen);
 	} else {
 		milstr_ncpy(str, str_notexist, maxlen);
 	}
