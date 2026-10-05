@@ -17,6 +17,8 @@ enum {
 	CMD_DSPOFF = 0x13,
 	CMD_DSPDEF = 0x14,
 	CMD_CURDEF = 0x15,
+	CMD_ACTSCR = 0x16,
+	CMD_CURS = 0x1e,
 	CMD_SPRON = 0x82,
 	CMD_SPROFF = 0x83,
 	CMD_SPRDEF = 0x84,
@@ -53,6 +55,9 @@ enum {
 	EXECFUNC_EMUL,
 	EXECFUNC_TVADDR,
 	EXECFUNC_NONE,
+	/* Appended: the values above are saved in state files. */
+	EXECFUNC_ACTSCR,
+	EXECFUNC_CURS,
 };
 
 _TSP tsp;
@@ -254,6 +259,49 @@ static void exec_emul(void) {
 	tsp.status &= ~STATUS_BUSY;
 }
 
+/*
+ACTSCR: select the split screen whose coordinates CURS uses (split x 32).
+*/
+static void exec_actscr(void) {
+	tsp.actscr = (UINT8)((tsp.parambuf[0] >> 5) & 0x03);
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+CURS: move the cursor to a row (Y) and column (X) of the active split screen
+(uPD72022 data book). The cursor is the sprite chosen by CURDEF, so its
+descriptor gets the matching dot position: X counts fetched character cells
+from the split's RXP origin, Y counts rows of `lineheight` rasters from its
+RYP; sprite rows are 200-line units when the sprites are doubled vertically.
+The original VA's ROM positions the V1/V2 cursor this way; the VA2 ROM
+writes the descriptor itself. Clamping to the virtual screen and DPTR0 are
+not modelled.
+*/
+static void exec_curs(void) {
+	const BYTE *frame;
+	BYTE *spr;
+	UINT32 x;
+	UINT32 y;
+	UINT16 w;
+	BOOL mg;
+
+	tsp.status &= ~STATUS_BUSY;
+	frame = textmem + ((tsp.texttable + tsp.actscr * 32) & (sizeof(textmem) - 32));
+	x = (UINT32)(tsp.parambuf[2] | (tsp.parambuf[3] << 8)) * 8 + LOADINTELWORD(frame + 0x1a);
+	y = (UINT32)(tsp.parambuf[0] | (tsp.parambuf[1] << 8)) * tsp.lineheight +
+	    LOADINTELWORD(frame + 0x18);
+	mg = tsp.mg && !((tsp.syncparam[0] & 0xc0) == 0x40);
+	if (mg) {
+		y >>= 1;
+	}
+	spr = textmem + ((tsp.sprtable + tsp.curn * 8) & (sizeof(textmem) - 8));
+	w = LOADINTELWORD(spr);
+	STOREINTELWORD(spr, (w & ~0x01ff) | (y & 0x01ff));
+	w = LOADINTELWORD(spr + 2);
+	STOREINTELWORD(spr + 2, (w & ~0x03ff) | (x & 0x03ff));
+	textmem_dirty = TRUE;
+}
+
 static void exec_tvaddr(void) {
 	tsp.tvw_addr[0] = tsp.parambuf[0];
 	tsp.tvw_addr[1] = tsp.parambuf[1];
@@ -340,6 +388,12 @@ static void paramfunc_generic(REG8 dat) {
 			case EXECFUNC_TVADDR:
 				exec_tvaddr();
 				break;
+			case EXECFUNC_ACTSCR:
+				exec_actscr();
+				break;
+			case EXECFUNC_CURS:
+				exec_curs();
+				break;
 			case EXECFUNC_NONE:
 			default:
 				tsp.status &= ~STATUS_BUSY;
@@ -414,6 +468,16 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.endparamfunc = exec_curdef;
 		tsp.execfunc = EXECFUNC_CURDEF;
 		//tsp.paramfunc = paramfunc_generic;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_ACTSCR:
+		tsp.recvdatacnt = 1;
+		tsp.execfunc = EXECFUNC_ACTSCR;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_CURS:
+		tsp.recvdatacnt = 4;
+		tsp.execfunc = EXECFUNC_CURS;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
 	case CMD_SPRON:

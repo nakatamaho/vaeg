@@ -70,6 +70,9 @@ UINT8 memoryva_88_window = 0x80;
 UINT8 memoryva_88_plane = 3;
 _MEMORYVA88ALU memoryva_88_alu;
 _MEMORYVA88ERAM memoryva_88_eram;
+BYTE memoryva_n80[0x8000];
+BOOL memoryva_n80_exist;
+char memoryva_n80_file[32];
 _MEMORYVA88DIC memoryva_88_dic = {0, 1};
 BOOL textmem_dirty;
 
@@ -950,6 +953,14 @@ REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 		return upd9002_mainram_read(n88_eram_address(address));
 	}
 	if (n88_rom_selected(address)) {
+		/*
+		 * vaeg extension: with an N-BASIC ROM supplied, RMODE selects it for
+		 * all of 0000h-7FFFh, as on a PC-8801 (N mode). Its top 8 KiB is the
+		 * same Debug 8800 bank the VA shows at 6000h-7FFFh under RMODE.
+		 */
+		if (memoryva_n80_exist && (memoryva_88_port31 & 0x04)) {
+			return memoryva_n80[address & 0x7fff];
+		}
 		if (n88_monitor_selected(address)) {
 			return rom0mem[0x1e000 + (address & 0x1fff)];
 		}

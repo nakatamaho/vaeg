@@ -45,6 +45,9 @@
 #include "gui/gui.h"
 #include "codecnv.h"
 #include "memoryva.h"
+#include "maketextva.h"
+#include "bkupmemva.h"
+#include "n80rom.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -123,7 +126,9 @@ constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
                                             "ROM TYPE: %ROMTPVA%\n"
                                             "ROM(Main): %BIOSVA%\n"
                                             "ROM(VupB): %BIOS91%\n"
-                                            "ROM(Sub): %BIOSSUB%";
+                                            "ROM(Sub): %BIOSSUB%\n"
+                                            "Z80 MODE: %Z80MODE%\n"
+                                            "ROM(N80): %BIOSN80%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -398,6 +403,38 @@ static void copy_append_hccode(std::string *text, UINT16 hccode) {
 	}
 }
 
+/*
+ * V1/V2 text under the TSP's uPD3301 emulation: one byte per character in
+ * the 8801 format, read as it is displayed (byte-mode addresses, main RAM in
+ * standard speed). With port 30h 80CM clear (40 columns) only even byte
+ * columns hold characters. Semigraphics cells are copied as their codes.
+ */
+static void copy_3301_text(std::vector<std::string> *lines) {
+	const UINT step = (videova.txtmode8 & 0x01) ? 1 : 2;
+	UINT row;
+
+	for (row = 0;; row++) {
+		const BYTE *chars = maketextva_3301_text(row);
+		std::string line;
+		UINT column;
+
+		if (chars == nullptr) {
+			if (row >= tsp.emul_rows) {
+				break;
+			}
+			lines->push_back(line);
+			continue;
+		}
+		for (column = 0; column < tsp.emul_chars; column += step) {
+			copy_append_hccode(&line, chars[column]);
+		}
+		while (!line.empty() && (line.back() == ' ')) {
+			line.pop_back();
+		}
+		lines->push_back(line);
+	}
+}
+
 static BOOL copy_screen_text(void) {
 	std::vector<std::string> lines;
 	const UINT32 tvram_size = 0x40000;
@@ -408,6 +445,10 @@ static BOOL copy_screen_text(void) {
 	UINT32 raster_used = 0;
 	UINT frame_no;
 
+	if (memoryva_88_mode && tsp.emul) {
+		copy_3301_text(&lines);
+		raster_used = 0x1fe; /* the native frames below are not shown */
+	}
 	for (frame_no = 0; frame_no < frame_count && raster_used < 0x1fe; frame_no++) {
 		BYTE *entry = textmem + tsp.texttable + frame_no * 0x20;
 		CopyTextFrame frame;
@@ -1212,6 +1253,23 @@ static void select_boot_model(const char *model, bool enable_8087) {
 	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
 	reset_guest();
 }
+
+/*
+ * V1/V2 ("Z80") mode: V1/V2 is the VA's memory switch B1FC5h bit 0, as its
+ * setup menu stores it; H/S is a vaeg extension (see memctrlva_i031). Both
+ * take effect at reset, as on the machine.
+ */
+static void select_v1v2_mode(bool v1, bool standard) {
+	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
+	np2cfg.v1v2_standard = standard ? 1 : 0;
+	np2cfg.v1v2_nmode = 0;
+	sysmng_update(SYS_UPDATECFG);
+	reset_guest();
+}
+
+/* N-BASIC ROM files found when the Z80 mode menu was last opened. */
+static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
+static bool g_n80_scanned = false;
 
 static void select_sound_hardware(UINT16 sound) {
 	if (np2cfg.SOUND_SW == sound) {
@@ -2484,6 +2542,56 @@ static void draw_emulate_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Z80モード")) {
+			static const struct {
+				const char *label;
+				bool v1;
+				bool standard;
+			} modes[] = {{"V2 H", false, false},
+			             {"V2 S", false, true},
+			             {"V1 H", true, false},
+			             {"V1 S", true, true}};
+			const bool v1 = bkupmemva_get_88v1() != FALSE;
+			const bool standard = np2cfg.v1v2_standard != 0;
+			const bool nmode = np2cfg.v1v2_nmode != 0;
+
+			for (const auto &mode : modes) {
+				if (ImGui::MenuItem(mode.label, nullptr,
+				                    !nmode && (v1 == mode.v1) && (standard == mode.standard))) {
+					select_v1v2_mode(mode.v1, mode.standard);
+				}
+			}
+			ImGui::Separator();
+			// vaeg extension: start in N-BASIC from a user-supplied ROM. The ROM
+			// directory is scanned (SHA-1) once each time the menu opens.
+			if (!g_n80_scanned) {
+				n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+				g_n80_scanned = true;
+			}
+			bool any_n80 = false;
+			for (const auto &entry : g_n80_entries) {
+				if (!entry.present) {
+					continue;
+				}
+				any_n80 = true;
+				const std::string label =
+				    std::string("N (PC-8001): ") + entry.name + " - " + entry.label;
+				const bool loaded =
+				    nmode && memoryva_n80_exist && (strcmp(memoryva_n80_file, entry.name) == 0);
+				if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+					np2cfg.v1v2_nmode = 1;
+					milstr_ncpy(np2cfg.v1v2_n80rom, entry.name, sizeof(np2cfg.v1v2_n80rom));
+					sysmng_update(SYS_UPDATECFG);
+					reset_guest();
+				}
+			}
+			if (!any_n80) {
+				ImGui::MenuItem("N (PC-8001): no N-BASIC ROM", nullptr, false, false);
+			}
+			ImGui::EndMenu();
+		} else {
+			g_n80_scanned = false;
+		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Configure...")) {
 			open_configure_dialog();
@@ -3751,6 +3859,13 @@ static void draw_about_dialog(void) {
 			ImGui::BeginDisabled(g_gui.about_more);
 			if (ImGui::Button("More >>", ImVec2(-1.0f, 0.0f))) {
 				np2info(g_gui.about_info, kAboutInfoTemplate, sizeof(g_gui.about_info), nullptr);
+				if (memoryva_n80_exist) {
+					const char *id = n80rom_label(memoryva_n80_file);
+					milstr_ncat(g_gui.about_info, " (", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, (id != nullptr) ? id : "unreadable",
+					            sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
+				}
 				g_gui.about_more = true;
 			}
 			ImGui::EndDisabled();

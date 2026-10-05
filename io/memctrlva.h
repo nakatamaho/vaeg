@@ -9,6 +9,9 @@ extern "C" {
 
 void memctrlva_reset(void);
 void memctrlva_bind(void);
+BOOL memctrlva_nmode_active(void);
+void memctrlva_nmode_reset(void);
+void memctrlva_nmode_compat_entry(void);
 
 #ifdef __cplusplus
 }

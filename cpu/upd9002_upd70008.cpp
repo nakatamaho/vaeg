@@ -27,6 +27,7 @@
 #include "cpucore.h"
 #include "io/iocore.h"
 #include "io/upd9002_regs.h"
+#include "io/memctrlva.h"
 #include "cpu/upd9002_upd70008.h"
 #include "cpu/z80_compat_cpu.h"
 
@@ -400,6 +401,7 @@ void compat_reset() {
 }
 void compat_enter() {
 	compat.Enter();
+	memctrlva_nmode_compat_entry();
 }
 void compat_step() {
 	compat.Step();

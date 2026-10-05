@@ -35,6 +35,61 @@ land.
 
 ## Maintenance Rules
 
+### M103h — The V1/V2 cursor stayed at the top left on the original VA
+
+- **Symptom/scope:** on the original PC-88VA model the cursor was shown in
+  the top left corner in every V1/V2 mode (maintainer report). Original VA
+  only; any software positioning the cursor with TSP CURS.
+- **Demonstrated cause:** the TSP model ignored ACTSCR (16h) and CURS (1Eh).
+  The original VA's ROM moves the V1/V2 cursor with CURS (traced: row 4,
+  cells 2, 4, … while typing); the VA2 ROM writes the cursor sprite
+  descriptor itself, so it was unaffected.
+- **Correction:** ACTSCR records the split screen; CURS writes the dot
+  position of its row and column into the cursor sprite descriptor.
+- **Verification:** for the same cursor positions the original VA now gets
+  exactly the descriptor values the VA2 ROM writes (Y 40, X 0 and 32), and
+  the cursor follows typed text; V3 BASIC and PC-Engine cursors unchanged;
+  the romless test fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#third-maintainer-check).
+  Fix: [4613d9ec](https://github.com/nakatamaho/vaeg/commit/4613d9ec2775df0248d1ecd67689a3d51cff9337).
+
+### M103h — The original VA ignored the V1/V2 selection
+
+- **Symptom/scope:** on the original PC-88VA model, selecting V1 (Emulate >
+  Z80 mode) still booted N-88 BASIC Version 2.x (maintainer report:
+  V1 H/V1 S had no effect on VA, unlike VA2). Original VA model only.
+- **Demonstrated cause:** port 150h (system mode, active low) was never
+  initialised. The VA2 ROM sets it through port 1C6h from memory switch
+  B1FC5h bit 0 (F000:12E4); the original VA's ROM reads 150h without
+  writing 1C6h (F000:0A77), so it saw an unset value and took V2.
+- **Correction:** reset starts port 150h from B1FC5h bit 0; the VA2 ROM
+  rewrites the same value. How the original VA hardware chooses the mode
+  is not documented (decision C8).
+- **Verification:** with V1 selected the original VA now boots N-88 BASIC
+  Version 1.9 (before: 2.4) and V2 still boots 2.4; the romless test reads
+  port 150h after reset and fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#second-maintainer-check).
+  Fix: [827a3a67](https://github.com/nakatamaho/vaeg/commit/827a3a6799a0868ad80a6a5fc3b844c750d0e9df).
+
+### M103h — Saved backup memory lost its memory switches at every boot
+
+- **Symptom/scope:** with a saved backup-memory file, the VA2 ROM restored
+  the default memory-switch record (B1FC0h–B1FC7h) at every boot, so
+  settings stored there did not survive a restart; the RAM-size byte
+  B1FC4h reverted from 64h to 63h. All modes, whenever backup memory is
+  saved.
+- **Demonstrated cause:** at reset the ROM sets bit 7 of B1FC6h, sums the
+  record and compares the sum with B1FCDh (F000:23B7); it recomputes bit 7
+  from the V1/V2 selection afterwards, leaving 79h after a V2 boot.
+  `bkupmemva_sync_mainram` summed the saved 79h, so the checksum differed
+  by 80h and the ROM's restore path (F000:23F9) ran (traced byte writes).
+- **Correction:** the checksum is computed with B1FC6h bit 7 set.
+- **Verification:** three boots in a row with one backup file keep the
+  record unchanged (before: restored on the second); the romless test fails
+  with the old rule.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#mode-selection-scope-item-1).
+  Fix: [d7257d77](https://github.com/nakatamaho/vaeg/commit/d7257d77122fa42f857c1ab8eec321bf3bae73cb).
+
 ### M103g — Interrupts were not delivered through short EI windows in V1/V2 mode
 
 - **Symptom/scope:** in the PC-8801mkIISR demonstration's winter scene the

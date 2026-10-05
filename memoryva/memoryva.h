@@ -72,6 +72,11 @@ typedef struct {
 
 extern _MEMORYVA88ERAM memoryva_88_eram;
 
+/* Optional user-supplied N-BASIC ROM (vaeg extension, bios/romva.c). */
+extern BYTE memoryva_n80[0x8000];
+extern BOOL memoryva_n80_exist;
+extern char memoryva_n80_file[32]; /* file loaded, empty without a ROM */
+
 /*
  * V1/V2 dictionary ROM window (PC-8801MA style, not in the VA manuals).
  * F0h selects a 16 KiB bank of the VA dictionary ROM; F1h bit 0 clear maps

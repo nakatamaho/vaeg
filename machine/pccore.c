@@ -7,6 +7,7 @@
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
 #include "romva.h"
@@ -66,6 +67,8 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
                  .main_ram_auto = 1,
+                 .v1v2_standard = 0,
+                 .v1v2_nmode = 0,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -413,6 +416,7 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	romva_initialize();
+	memctrlva_nmode_reset();
 	va91_initialize();
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;

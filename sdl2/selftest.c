@@ -23,6 +23,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
+#if defined(_WIN32)
+#include <direct.h>
+#else
+#include <unistd.h>
+#endif
 #include "selftest.h"
 #include "codecnv.h"
 #include "commng.h"
@@ -30,6 +35,10 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "romva.h"
+#include "n80rom.h"
+#include "memctrlva.h"
+#include "np2info.h"
 #include "cliopts.h"
 #include "debug_harness.h"
 #include "dosio.h"
@@ -4523,6 +4532,273 @@ static int test_v1v2_graphics(void) {
 	return (SUCCESS);
 }
 
+/* Write `size` bytes of `fill` as `name` in directory `dir`. */
+static BOOL selftest_write_rom(const char *dir, const char *name, UINT size, BYTE fill) {
+	static BYTE data[0x8000];
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL ok;
+
+	if (size > sizeof(data)) {
+		return FALSE;
+	}
+	FillMemory(data, size, fill);
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_write(fh, data, size) == size);
+	file_close(fh);
+	return ok;
+}
+
+static void selftest_delete_rom(const char *dir, const char *name) {
+	char path[MAX_PATH];
+
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	file_delete(path);
+}
+
+/* M103h: N-BASIC ROM files: known dumps by SHA-1, the load order, the menu
+ * choice, n80.rom as a catch-all, and size checking. */
+static int test_n80_rom_files(void) {
+	char dir[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	N80ROMENTRY entries[ROMVA_N80_NAMES];
+	const char *problem;
+	UINT i;
+
+	problem = NULL;
+	if (strcmp(n80rom_identify_sha1("063609dd518c124a4fc9ba35d1bae35771666a34"), "N-BASIC 1.2") ||
+	    strcmp(n80rom_identify_sha1("06dae1db384aa29d81c5b6ed587877e7128fcb35"), "N-BASIC 1.8") ||
+	    strcmp(n80rom_identify_sha1("0000000000000000000000000000000000000000"), "unknown dump")) {
+		problem = "known N-BASIC SHA-1 identities";
+	}
+	SPRINTF(dir, "vaeg-selftest-%lu-n80", (unsigned long)getpid());
+	file_dircreate(dir);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, dir, sizeof(np2cfg.biospath));
+	np2cfg.v1v2_n80rom[0] = '\0';
+	if ((problem == NULL) && (!selftest_write_rom(dir, "n80.rom", 0x8000, 0x11) ||
+	                          !selftest_write_rom(dir, "n80.1.2.rom", 0x8000, 0x22) ||
+	                          !selftest_write_rom(dir, "n80.1.8.rom", 0x4000, 0x33))) {
+		problem = "could not write test ROM files";
+	}
+	/* n80.1.8.rom has the wrong size: skipped; n80.1.2.rom comes first. */
+	if (problem == NULL) {
+		romva_initialize();
+		if (!memoryva_n80_exist || strcmp(memoryva_n80_file, "n80.1.2.rom") ||
+		    (memoryva_n80[0] != 0x22)) {
+			problem = "N-BASIC ROM load order or size check";
+		}
+	}
+	/* The menu choice wins; n80.rom is accepted whatever it holds. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.v1v2_n80rom, "n80.rom", sizeof(np2cfg.v1v2_n80rom));
+		romva_initialize();
+		if (!memoryva_n80_exist || strcmp(memoryva_n80_file, "n80.rom") ||
+		    (memoryva_n80[0] != 0x11)) {
+			problem = "menu choice of the N-BASIC ROM";
+		}
+	}
+	if (problem == NULL) {
+		n80rom_scan(entries, ROMVA_N80_NAMES);
+		if (entries[0].present || !entries[1].present || strcmp(entries[1].label, "unknown dump") ||
+		    !entries[2].present) {
+			problem = "N-BASIC ROM scan for the menu";
+		}
+	}
+	/* Without any file N mode has no ROM. */
+	if (problem == NULL) {
+		for (i = 0; i < ROMVA_N80_NAMES; i++) {
+			selftest_delete_rom(dir, romva_n80_names[i]);
+		}
+		romva_initialize();
+		if (memoryva_n80_exist || (memoryva_n80_file[0] != '\0')) {
+			problem = "N-BASIC ROM reported without a file";
+		}
+	}
+	for (i = 0; i < ROMVA_N80_NAMES; i++) {
+		selftest_delete_rom(dir, romva_n80_names[i]);
+	}
+#if defined(_WIN32)
+	_rmdir(dir);
+#else
+	rmdir(dir);
+#endif
+	np2cfg.v1v2_n80rom[0] = '\0';
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_initialize();
+	if (problem != NULL) {
+		return (fail("N-BASIC ROM files", problem));
+	}
+	fprintf(stderr, "selftest: N-BASIC ROM files ok\n");
+	return (SUCCESS);
+}
+
+/* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
+static int test_v1v2_memory_switch(void) {
+	const char *problem;
+	UINT8 sum;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	/* Record as the ROM leaves it after a V2 boot: B1FC6h bit 7 clear. */
+	backupmem[0x1fc0] = 0x00;
+	backupmem[0x1fc1] = 0x00;
+	backupmem[0x1fc2] = 0xdb;
+	backupmem[0x1fc3] = 0x02;
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc5] = 0x04;
+	backupmem[0x1fc6] = 0x79;
+	backupmem[0x1fc7] = 0x0a;
+	bkupmemva_set_88v1(TRUE);
+	sum = 0;
+	for (i = 0; i < 8; i++) {
+		sum = (UINT8)(sum + backupmem[0x1fc0 + i]);
+	}
+	/* The ROM sums the record with B1FC6h bit 7 set (F000:23B7). */
+	if ((backupmem[0x1fc5] != 0x05) || !bkupmemva_get_88v1() ||
+	    (backupmem[0x1fcd] != (UINT8)(sum + 0x80))) {
+		problem = "V1 selection or the ROM-rule checksum";
+	}
+	if (problem == NULL) {
+		bkupmemva_set_88v1(FALSE);
+		if ((backupmem[0x1fc5] != 0x04) || bkupmemva_get_88v1()) {
+			problem = "V2 selection";
+		}
+	}
+	/* Port 150h starts from the selection at reset (the original VA's ROM
+	 * reads it without writing 1C6h). */
+	if (problem == NULL) {
+		bkupmemva_set_88v1(TRUE);
+		pccore_reset();
+		if (iocore_inp8(0x150) != 0xfe) {
+			problem = "port 150h did not report V1 after reset";
+		}
+		bkupmemva_set_88v1(FALSE);
+		pccore_reset();
+		if ((problem == NULL) && (iocore_inp8(0x150) != 0xfd)) {
+			problem = "port 150h did not report V2 after reset";
+		}
+	}
+	/* IN 31h: S clears MS26 only in 88 mode. */
+	if (problem == NULL) {
+		np2cfg.v1v2_standard = 1;
+		iocore_out8(0x153, 0x41);
+		if (iocore_inp8(0x031) != 0x79) {
+			problem = "S changed IN 31h in V3 mode";
+		}
+		iocore_out8(0x153, 0x01);
+		if ((problem == NULL) && (iocore_inp8(0x031) != 0x39)) {
+			problem = "S did not clear MS26 in 88 mode";
+		}
+		np2cfg.v1v2_standard = 0;
+		if ((problem == NULL) && (iocore_inp8(0x031) != 0x79)) {
+			problem = "H changed IN 31h";
+		}
+	}
+	/* N-BASIC ROM (vaeg extension): RMODE shows it at 0000h-7FFFh in 88
+	 * mode; without it RMODE keeps N-88 BASIC below 6000h. */
+	if (problem == NULL) {
+		const BOOL saved_exist = memoryva_n80_exist;
+		const BYTE saved0 = memoryva_n80[0x0000];
+		const BYTE saved1 = memoryva_n80[0x5fff];
+		const REG8 n88_0 = upd9002_memoryread_va(0x10000);
+
+		iocore_out8(0x153, 0x01);
+		iocore_out8(0x031, 0x04); /* RMODE, ROM/RAM mode */
+		memoryva_n80[0x0000] = (BYTE)(n88_0 ^ 0xff);
+		memoryva_n80[0x5fff] = 0xa5;
+		memoryva_n80_exist = FALSE;
+		if (upd9002_memoryread_va(0x10000) == memoryva_n80[0x0000]) {
+			problem = "RMODE showed N-BASIC without a ROM";
+		}
+		memoryva_n80_exist = TRUE;
+		if ((problem == NULL) && ((upd9002_memoryread_va(0x10000) != memoryva_n80[0x0000]) ||
+		                          (upd9002_memoryread_va(0x15fff) != 0xa5))) {
+			problem = "RMODE did not show the N-BASIC ROM";
+		}
+		iocore_out8(0x031, 0x00);
+		if ((problem == NULL) && (upd9002_memoryread_va(0x10000) == memoryva_n80[0x0000])) {
+			problem = "N-BASIC ROM shown with RMODE clear";
+		}
+		iocore_out8(0x031, 0x06); /* RMODE with all-RAM mode */
+		if ((problem == NULL) && (upd9002_memoryread_va(0x15fff) == 0xa5)) {
+			problem = "N-BASIC ROM shown in all-RAM mode";
+		}
+		/* About shows whether the ROM was found and the stored Z80 mode. */
+		{
+			char info[64];
+
+			bkupmemva_set_88v1(TRUE);
+			np2cfg.v1v2_standard = 1;
+			milstr_ncpy(memoryva_n80_file, "n80.1.8.rom", sizeof(memoryva_n80_file));
+			np2info(info, "%BIOSN80%/%Z80MODE%", sizeof(info), NULL);
+			if ((problem == NULL) && strcmp(info, "n80.1.8.rom/V1 S")) {
+				problem = "About did not report the N-BASIC ROM and V1 S";
+			}
+			memoryva_n80_exist = FALSE;
+			bkupmemva_set_88v1(FALSE);
+			np2cfg.v1v2_standard = 0;
+			np2info(info, "%BIOSN80%/%Z80MODE%", sizeof(info), NULL);
+			if ((problem == NULL) && strcmp(info, "not exist/V2 H")) {
+				problem = "About did not report a missing N-BASIC ROM and V2 H";
+			}
+		}
+		/* N mode: RMODE at reset, port 40h bit 3, and the 8801 reset state of
+		 * the ROM's emulated port 53h (text on) at the first compat entry. */
+		memoryva_n80_exist = TRUE;
+		np2cfg.v1v2_nmode = 1;
+		memoryva_88_port31 = 0;
+		memctrlva_nmode_reset();
+		if ((problem == NULL) && ((memoryva_88_port31 != 0x04) || !memctrlva_nmode_active() ||
+		                          !(iocore_inp8(0x040) & 0x08))) {
+			problem = "N mode did not set RMODE or port 40h bit 3";
+		}
+		upd9002_mainram_write(0x4e8, 0x89);
+		iocore_out8(0x148, 0x89);
+		memctrlva_nmode_compat_entry();
+		if ((problem == NULL) &&
+		    ((upd9002_mainram_read(0x4e8) != 0x09) || (videova.txtmode & 0x80))) {
+			problem = "N mode did not turn the text on at the compat entry";
+		}
+		upd9002_mainram_write(0x4e8, 0x89);
+		iocore_out8(0x148, 0x89);
+		memctrlva_nmode_compat_entry();
+		if ((problem == NULL) && (upd9002_mainram_read(0x4e8) != 0x89)) {
+			problem = "N mode changed the text state more than once";
+		}
+		memoryva_n80_exist = FALSE;
+		memoryva_88_port31 = 0;
+		memctrlva_nmode_reset();
+		if ((problem == NULL) && ((memoryva_88_port31 != 0) || (iocore_inp8(0x040) & 0x08))) {
+			problem = "N mode acted without an N80 ROM";
+		}
+		np2cfg.v1v2_nmode = 0;
+		memoryva_n80_exist = saved_exist;
+		memoryva_n80[0x0000] = saved0;
+		memoryva_n80[0x5fff] = saved1;
+		iocore_out8(0x031, 0x00);
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("V1/V2 memory switch", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 memory switch ok\n");
+	return (SUCCESS);
+}
+
 /* M103e: kanji ROM ports, extended RAM and the dictionary ROM window. */
 static int test_v1v2_rom_ports(void) {
 	const char *problem;
@@ -4755,6 +5031,17 @@ static int test_tsp_3301_emulation(void) {
 		tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
 		maketextva_raster();
+		/* M103h: text copy reads the emulated rows as displayed. */
+		{
+			const BYTE *chars = maketextva_3301_text(0);
+
+			if ((problem == NULL) &&
+			    ((chars == NULL) || (chars[0] != 'A') || (chars[1] != 'B') ||
+			     (maketextva_3301_text(1) == NULL) || (maketextva_3301_text(1)[0] != 'C') ||
+			     (maketextva_3301_text(25) != NULL))) {
+				problem = "3301 text rows for copying";
+			}
+		}
 		/* Reverse red fills column 1 with colour 8 + 2; column 0 stays bg. */
 		for (i = 0; i < 8; i++) {
 			if ((problem == NULL) && ((textraster[i] != 0) || (textraster[8 + i] != 10))) {
@@ -4819,6 +5106,55 @@ static int test_tsp_3301_emulation(void) {
 			}
 		}
 		videova.txtmode8 = 0x01;
+		/* M103h: with 32h TMODE set in 88 mode (V1S N-88 BASIC) the text
+		 * comes from 88-mode main RAM F000h-FFFFh, not TVRAM 6000h. */
+		CopyMemory(mem + 0x1f000, textmem + 0x6000, 0x1000);
+		ZeroMemory(textmem + 0x6000, 0x1000);
+		iocore_out8(0x153, 0x01);
+		iocore_out8(0x32, 0x18); /* TMODE 1 */
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		for (i = 0; i < 8; i++) {
+			if ((problem == NULL) && (textraster[8 + i] != 10)) {
+				problem = "TMODE 1 did not show the text in 88-mode main RAM";
+			}
+		}
+		iocore_out8(0x32, 0x08); /* TMODE 0: TVRAM, now blank */
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		if ((problem == NULL) && (textraster[8] != 0)) {
+			problem = "TMODE 0 still showed main RAM text";
+		}
+		iocore_out8(0x153, 0x41);
+	}
+	/* M103h: ACTSCR and CURS move the cursor sprite (original VA ROM). Split 1
+	 * with RXP 1008 (two hidden cells) and RYP 0, 20-raster rows, no sprite
+	 * doubling: row 4, cell 6 is dot (32, 80). */
+	if (problem == NULL) {
+		static const BYTE curs[] = {0x1e, 0x04, 0x00, 0x06, 0x00};
+		BYTE *frame1 = textmem + tsp.texttable + 32;
+		BYTE *spr;
+
+		STOREINTELWORD(frame1 + 0x18, 0);
+		STOREINTELWORD(frame1 + 0x1a, 1008);
+		tsp.sprtable = 0x100;
+		tsp.curn = 2;
+		tsp.lineheight = 20;
+		tsp.mg = FALSE;
+		spr = textmem + 0x100 + 2 * 8;
+		STOREINTELWORD(spr, 0xfe00);
+		STOREINTELWORD(spr + 2, 0xfc00);
+		iocore_out8(0x142, 0x16);
+		iocore_out8(0x146, 0x20); /* split 1 */
+		iocore_out8(0x142, curs[0]);
+		for (i = 1; i < sizeof(curs); i++) {
+			iocore_out8(0x146, curs[i]);
+		}
+		if ((LOADINTELWORD(spr) != (0xfe00 | 80)) || (LOADINTELWORD(spr + 2) != (0xfc00 | 32))) {
+			problem = "CURS did not move the cursor sprite";
+		}
 	}
 	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
 	if (problem == NULL) {
@@ -5469,6 +5805,12 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_v1v2_rom_ports() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_memory_switch() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_n80_rom_files() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {

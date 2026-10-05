@@ -56,6 +56,9 @@ Status:
 
 "Real-machine check" says what would settle the point.
 
+PC-8001 (N-BASIC) mode is described in full in
+[`v1v2-n-basic-mode.md`](v1v2-n-basic-mode.md).
+
 ## 1. CPU and mode entry
 
 | ID | Decision | Basis | Status | Where | Real-machine check |
@@ -63,7 +66,11 @@ Status:
 | C1 | The alternate set (`AF'`…`HL'`) lives in machine state, survives CALLN/RETI, RETEM→BRKEM and adapter reset. | `[MEAS]` ALTPRB for the CALLN round trip; `[POLICY]` for the rest | Approved G103a | `cpu/upd9002/`, `cpu/upd9002_upd70008.cpp` | — |
 | C2 | Hardware reset sets all alternate pairs to FFFFh. | `[MEAS]` third-party VA2 `mon` dump shows `A'F'`, `B'C'` all ones; `DE'`/`HL'` assumed the same | Approved G103c | same | cold power-on vs. warm reset, then V2 BASIC → `mon` → `x` |
 | C3 | `BRKEM2` (`0F FE nn`) uses the same entry as `BRKEM`. | `[POLICY]`; ROM-less tests of both encodings | Approved G103b | `cpu/upd9002/` | — |
-| C4 | No user-facing V1/V2 override; the ROM selects V1/V2 from the boot disk (SW7 option withdrawn). | `[ROM]` trace of the ROM's FDD selection | Approved G103b | — | — |
+| C4 | No boot override (SW7 option withdrawn); the ROM selects V1/V2 from the boot disk. V1 versus V2 follows the memory switch B1FC5h bit 0, which the Emulate > Z80 mode menu sets as the VA's setup would (M103h, maintainer request), with the ROM-rule checksum. | `[ROM]` F000:12E4 (B1FC5h → port 1C6h), F000:14BC (port 150h → MS27), F000:23B7 (checksum) | Approved G103b; menu approved by the maintainer (2026-10-05, G103h review) | `io/bkupmemva.c`, `sdl2/gui/gui.cpp` | — |
+| C6 | H/S: the VA always reports high speed (MS26 = 1). As a vaeg extension, S clears IN 31h bit 6 in 88 mode (`V1V2_Standard`); CPU timing is unchanged. `NEW ON 1` needs V1 S. In S, N-88 BASIC sets port 32h TMODE and keeps its text in main RAM F000h–FFFFh, which the 3301 emulation then reads, as the PC-8801 CRTC DMA does. | `[VA-TM]` MS26; `[X88000]` bit 6 = high speed; `[POLICY]` | Approved by the maintainer (2026-10-05, G103h review) | `io/memctrlva.c`, `vram/maketextva.c` | — |
+| C8 | Port 150h starts from memory switch B1FC5h bit 0 at reset, so the original VA (whose ROM never writes 1C6h) follows the V1/V2 selection. Bug fix, in the ledger. | `[ROM]` VA F000:0A77, VA2 F000:12E4; original-VA hardware mode source `[POLICY]` | Approved by the maintainer (2026-10-05, G103h review) | `io/sysportva.c` | how a real original VA selects V1/V2 |
+| C9 | N mode (vaeg extension, maintainer option A): with `n80.rom` and `V1V2_NMode`, RMODE is set after the ROMs load, port 40h bit 3 (SW7 OFF) reads 1 so the VA2 enters V1/V2 without a disk, and at the first compatible-mode entry the ROM's emulated port 53h gets the PC-8801 reset state (0040:00E8h and port 148h bit 7 cleared, text on). | `[ROM]` both ROMs keep 148h at 0040:00E8h and enable text only on OUT 53h; `[POLICY]` | Approved by the maintainer (option A, 2026-10-05) | `io/memctrlva.c`, `io/sysportva.c` | — |
+| C7 | N-BASIC (vaeg extension): an optional user-supplied 32 KiB `n80.rom` is shown at 0000h–7FFFh under port 31h RMODE in 88 mode (ROM/RAM mode), as on a PC-8801; without it M3 applies. | PC-8801 N mode; `[ROM]` NEW ON 1 at 847Ah; `[MEAS]` (maintainer) N-BASIC runs on a VA from RAM | Approved by the maintainer (2026-10-05, G103h review) | `bios/romva.c`, `memoryva/memoryva.c` | — |
 | C5 | IRET returning to compatible mode keeps F bits 1, 3, 5 as `(flag & 0FFFh) | F000h`. | `[MEAS]` probe results | Approved G103a | `cpu/upd9002/` | — |
 
 ## 2. Memory map and banking
@@ -104,6 +111,7 @@ Status:
 | X2 | 3301 attribute pairs follow X88000's transparent-mode rule (memory order, shifted when the first column is non-zero, colour/secret/blink/reverse carry across rows, lines reset per row, start white). Colour attribute mode is assumed. | `[X88000]` | Approved G103c | `vram/maketextva.c` | — |
 | X3 | Byte-mode address: local L = start field / 2; TVRAM byte = `((L & F000h) << 1) | (L & 0FFFh)`. | `[VA-TM]` §8.2.1 tabulates 3000h–3FFFh and B000h–BFFFh; the rule fits both `[DERIVED]` (M103c used L + 3000h, which fits only the first) | Approved by the maintainer (2026-10-04, G103f review) | `vram/maketextva.c` | — |
 | X4 | Rows of the emulated screen that start outside the usable byte-mode ranges are not displayed. After a 3301 RESET the ROM moves the screen to local 0800h, so the text stays blank while the 3301 display is stopped (GAME-A no longer shows a dashed line). | `[VA-TM]` §8.2.1 calls other ranges unusable; blanking them is `[POLICY]` (maintainer choice "a", 2026-10-04) | Approved by the maintainer (2026-10-04, G103f review) | `vram/maketextva.c` | photograph GAME-A after its opening |
+| X8 | TSP ACTSCR records the split; CURS moves the CURDEF cursor sprite to the dot position of its row and column (X cells from RXP, Y rows of lineheight from RYP, halved with doubled sprites). Clamping and DPTR0 not modelled. Bug fix, in the ledger. | uPD72022 data book; `[ROM]` positions match the VA2 ROM's own descriptor writes | Approved by the maintainer (2026-10-05, G103h review) | `io/tsp.c` | — |
 | X5 | Not modelled: monochrome attribute mode, CURS-positioned cursor. | — | Open | — | — |
 | X6 | Semigraphics: colour attribute bit 4 (with bit 3) draws each code as 2×4 blocks, bits 0–3 the left column and bits 4–7 the right column from the top, in the attribute colour; the flag carries with the colour. | `[X88000]`; BNN §8.2.1 does not list semigraphics among the 3301 functions left out | Approved by the maintainer (2026-10-04, G103g review) | `vram/maketextva.c` | — |
 | X7 | 40 columns (port 30h 80CM clear) under 3301 emulation: each even byte column is shown twice as wide over the next one. | `[X88000]` skips odd columns; `[DERIVED]` | Approved by the maintainer (2026-10-04, G103g review) | `vram/maketextva.c` | — |
