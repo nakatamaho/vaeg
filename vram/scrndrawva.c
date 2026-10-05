@@ -43,6 +43,21 @@ static void scrndrawva_initialize(void) {
 	}
 }
 
+/*
+ * Output level (0-255) of a colour component `value` of `bits` bits (5 or 6).
+ * Digital RGB monitor: [VA1] schematic pp. 261 and 263, the digital R, G and
+ * B pins carry the analog colour drive through 1 kOhm, with no conversion
+ * logic, so the monitor's input threshold decides each component. [POLICY]
+ * (M103i) on from a quarter of full scale; on a real digital monitor the VA
+ * demo looked almost white (maintainer).
+ */
+BYTE scrndrawva_outputlevel(UINT value, UINT bits, BOOL digital) {
+	if (digital) {
+		return (value >= (1u << (bits - 2))) ? 0xff : 0;
+	}
+	return (BYTE)((value << (8 - bits)) | (value ? ((1u << (8 - bits)) - 1) : 0));
+}
+
 static void scrndrawva_makedrawcolor(void) {
 	BYTE colorlevel5[32]; // 出力レベル変換 5bit→8bit
 	BYTE colorlevel6[64]; // 出力レベル変換 6bit→8bit
@@ -50,10 +65,10 @@ static void scrndrawva_makedrawcolor(void) {
 	int c;
 
 	for (i = 0; i < 32; i++) {
-		colorlevel5[i] = (i << 3) | ((i) ? 0x07 : 0);
+		colorlevel5[i] = scrndrawva_outputlevel(i, 5, np2cfg.monitor_digital);
 	}
 	for (i = 0; i < 64; i++) {
-		colorlevel6[i] = (i << 2) | ((i) ? 0x03 : 0);
+		colorlevel6[i] = scrndrawva_outputlevel(i, 6, np2cfg.monitor_digital);
 	}
 
 	for (c = 0; c < COLORCODES; c++) {

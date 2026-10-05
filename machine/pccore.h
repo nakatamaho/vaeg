@@ -68,6 +68,8 @@ typedef struct {
 	OEMCHAR v1v2_n80rom[32];
 	/* DIP switch SW1, monitor type, read at reset: 0 = 24.8 kHz, 1 = 15 kHz. */
 	UINT8 monitor_15khz;
+	/* Display on the digital RGB output (8 colours); a display-side policy. */
+	UINT8 monitor_digital;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

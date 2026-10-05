@@ -2559,6 +2559,13 @@ static void draw_emulate_menu(void) {
 			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
 				select_monitor(true);
 			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Z80モード")) {
