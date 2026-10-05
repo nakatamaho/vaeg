@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M103i - V1 mode
 
-Status: **G103i passed on 2026-10-05 (maintainer); merge to `main` pending**
+Status: **complete; G103i passed on 2026-10-05; merged to `main` at [a727a45](https://github.com/nakatamaho/vaeg/commit/a727a458a112d90c721d78f8db9d4580953c18b1)**
 
 Series: V1/V2 mode (ADR-0016). Branch `topic/m103i-v1-mode` off `main` at
 `093385e922f3bcc07b15ce5340310c61ba1d0841` (M103a–M103h merged). Commit
