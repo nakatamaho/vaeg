@@ -35,10 +35,24 @@ typedef struct {
 	UINT8 media;
 	UINT16 root_entries;
 	UINT16 fat_sectors;
+	UINT8 filesystem; /* 0: blank sectors (E5h), D88 only */
 } NEWDISKFDDMSDOS;
 
 static const NEWDISKFDDMSDOS newdisk_fdd_msdos_geometry[] = {
-    {77, 2, 8, 3, 1024, 0x20, 1, 0xfe, 192, 2}, {80, 2, 8, 2, 512, 0x10, 2, 0xfb, 112, 2}};
+    {77, 2, 8, 3, 1024, 0x20, 1, 0xfe, 192, 2, 1},
+    {80, 2, 8, 2, 512, 0x10, 2, 0xfb, 112, 2, 1},
+    /* 2DD 720 KB: 80 cylinders, 9 x 512 */
+    {80, 2, 9, 2, 512, 0x10, 0, 0, 0, 0, 0},
+    /* 2D 320 KB: 40 cylinders, 16 x 256 (N88-BASIC) */
+    {40, 2, 16, 1, 256, 0x00, 0, 0, 0, 0, 0},
+    /* 2D 360 KB: 40 cylinders, 9 x 512 */
+    {40, 2, 9, 2, 512, 0x00, 0, 0, 0, 0, 0}};
+
+BOOL newdisk_fdd_has_filesystem(UINT format) {
+	return ((format < NEWDISK_FDD_MSDOS_COUNT) && newdisk_fdd_msdos_geometry[format].filesystem)
+	           ? TRUE
+	           : FALSE;
+}
 
 static void newdisk_fdd_msdos_boot(BYTE *sector, const NEWDISKFDDMSDOS *geometry) {
 	UINT16 total_sectors;
@@ -75,6 +89,10 @@ static BOOL newdisk_fdd_msdos_sector(FILEH fh, const NEWDISKFDDMSDOS *geometry,
                                      UINT32 logical_sector, BYTE *work) {
 	UINT32 second_fat;
 
+	if (!geometry->filesystem) {
+		FillMemory(work, geometry->sector_size, 0xe5);
+		return (file_write(fh, work, geometry->sector_size) == geometry->sector_size);
+	}
 	ZeroMemory(work, geometry->sector_size);
 	if (logical_sector == 0) {
 		newdisk_fdd_msdos_boot(work, geometry);
@@ -107,11 +125,16 @@ BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
 		return (FAILURE);
 	}
 	geometry = newdisk_fdd_msdos_geometry + format;
+	if (!geometry->filesystem && (container != NEWDISK_FDD_CONTAINER_D88)) {
+		return (FAILURE); /* the raw loader knows none of these sizes */
+	}
 	total_sectors = geometry->cylinders * geometry->heads * geometry->sectors;
 	track_size = geometry->sectors * (sizeof(_D88SEC) + geometry->sector_size);
 	file_offset = sizeof(d88head);
 	ZeroMemory(&d88head, sizeof(d88head));
-	CopyMemory(d88head.fd_name, "MS-DOS", 6);
+	if (geometry->filesystem) {
+		CopyMemory(d88head.fd_name, "MS-DOS", 6);
+	}
 	d88head.fd_type = geometry->d88_type;
 	for (track = 0; track < (UINT)(geometry->cylinders * geometry->heads); track++) {
 		STOREINTELDWORD(d88head.trackp[track], file_offset);

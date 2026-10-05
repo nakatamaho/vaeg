@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "sysportva.h"
+#include "cmt.h"
 #include "memoryva.h"
 #include "gvramva.h"
 #include "videova.h"

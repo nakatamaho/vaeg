@@ -13,6 +13,7 @@
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"
+#include "cmt.h"
 #include "sysmng.h"
 #include "memoryva.h"
 #include "memctrlva.h"
@@ -110,6 +111,10 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	// mode, which must start without a disk (memctrlva_nmode_active).
 	if (memctrlva_nmode_active()) {
 		ret |= 0x08;
+	}
+	// Bit 2: PC-8801 cassette carrier detect (vaeg cassette extension).
+	if (cmt_carrier()) {
+		ret |= 0x04;
 	}
 
 	return ret;

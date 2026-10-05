@@ -152,6 +152,8 @@ typedef struct {
 	UINT fdd_mode[2];
 	const char *fdd_path[2];
 	UINT fdd_image[2]; /* 1-based disk within a multi-image D88; 0 = unset */
+	const char *tape_path;      /* cassette tape image to load (V1/V2) */
+	const char *tape_save_path; /* raw image recording the saved tape */
 	UINT sasi_mode[2];
 	const char *sasi_path[2];
 	UINT scsi_mode[7];

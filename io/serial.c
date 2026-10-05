@@ -3,6 +3,7 @@
 #include "commng.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "cmt.h"
 #include "machine/keystat.h"
 
 #if defined(SUPPORT_OPRECORD)
@@ -512,6 +513,10 @@ void rs232c_midipanic(void) {
 // ----
 
 static void IOOUTCALL rs232c_o30(UINT port, REG8 dat) {
+	if (cmt_selected()) {
+		cmt_write(dat);
+		return;
+	}
 	if (cm_rs232c) {
 		cm_rs232c->write(cm_rs232c, (UINT8)dat);
 	}
@@ -574,6 +579,7 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 
 	case 0x02: // cmd
 		rs232c.cmd = dat;
+		cmt_command(dat);
 		if (cm_rs232c) {
 			cm_rs232c->msg(cm_rs232c, COMMSG_SETRSFLAG, dat & 0x22); /* RTS, DTR */
 		}
@@ -584,10 +590,16 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL rs232c_i30(UINT port) {
 	(void)port;
+	if (cmt_selected()) {
+		return cmt_read();
+	}
 	return (rs232c.data);
 }
 
 static REG8 IOINPCALL rs232c_i32(UINT port) {
+	if (cmt_selected()) {
+		return cmt_status(rs232c.cmd & 0x04);
+	}
 	if (!(rs232c_stat() & 0x20)) {
 		return (rs232c.result | 0x80);
 	} else {
