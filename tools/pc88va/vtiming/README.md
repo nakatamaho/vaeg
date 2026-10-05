@@ -46,7 +46,8 @@ builds `VIEW480.COM` from its public source archive (see
 ## Binary
 
 [`bin/v480pat.com`](bin/v480pat.com) is the program run on real hardware
-for the second round of measurements, published as a proof of concept. It is
+for the second round of measurements, published as a proof of concept; it
+predates the `R` option. It is
 assembled from [`v480pat.asm`](v480pat.asm) at commit
 [`290d976c`](https://github.com/nakatamaho/vaeg/commit/290d976c48f553b7256d82fa4e41edc61c0c5c9d)
 with NASM 2.16.01 (`nasm -f bin`) and is byte-identical to the CMake build of
@@ -73,7 +74,7 @@ The system disk is private media; keep both images outside Git.
 ## Usage
 
 ```text
-V480PAT [lines] [S|T|U|D] [W] [N]
+V480PAT [lines] [S|T|U|R|D] [W] [N]
 ```
 
 | Argument | Effect |
@@ -83,6 +84,7 @@ V480PAT [lines] [S|T|U|D] [W] [N]
 | `S` | 24.8 kHz: VIEW480's sequence with `VAD = lines`; above 400 lines the bottom blanking and sync become 1 and 1 (VIEW480's values), below that the ROM's 7 and 8 stay. The frame grows or shrinks with `lines`. |
 | `T` | 15.98 kHz, monitor switch at 15 kHz. Graphics in 200-line mode (one raster per line). `lines` 4-256, rounded down to even. Top blanking 32, sync 4, bottom blanking at least 2 and grown to keep a frame of at least 262 lines: the uPD72022 data-book minimums with sprites. |
 | `U` | As `T` with top blanking 16 (the data-book minimum without sprites). |
+| `R` | As `T` with top blanking 37, the ROM's 15.98 kHz value; by the measured rule graphics then show all `lines` (224: 267-line frame, 59.9 Hz; 240: 283 lines, 56.5 Hz). |
 | `D` | 24.8 kHz, 320 x `lines` (1-240) line-doubled: graphics in 200-line mode with port `0100h` RSM = 01 (non-interlaced mode 1), the TSP frame at 2 x `lines` rasters; above 400 rasters bottom blanking 2 and sync 4. |
 | `W` | Graphics screen 0 at 320 dots (`0102h` bit 4) with `S`, `T`, `U` or none; `D` is always 320. |
 | `N` | With `S`, `T`, `U` or `D`: TSP horizontal active `HAD` 159 -> 127 (128 TCK: 256 dots at 320, 512 at 640) and 16 TCK added to each of `LBR` and `RBR`, keeping the line length. Two white two-dot marks show the edges of that window. |
@@ -108,6 +110,9 @@ measurements.
 | `V480PAT 240 T W` | 32 / 240 / 2 / 4 | 278 | 57.5 Hz |
 | `V480PAT 240 U W` | 16 / 240 / 2 / 4 | 262 | 61.0 Hz |
 | `V480PAT 224 U W` | 16 / 224 / 18 / 4 | 262 | 61.0 Hz |
+| `V480PAT 224 R W` | 37 / 224 / 2 / 4 | 267 | 59.9 Hz |
+| `V480PAT 232 R W` | 37 / 232 / 2 / 4 | 275 | 58.1 Hz |
+| `V480PAT 240 R W` | 37 / 240 / 2 / 4 | 283 | 56.5 Hz |
 
 ## Reading the pattern
 

@@ -25,7 +25,7 @@
 ; written for vaeg M104; see tools/pc88va/vtiming/README.md. Assemble with
 ; NASM (8086/80186 code only): nasm -f bin -o V480PAT.COM v480pat.asm
 ;
-;   V480PAT [lines] [S|T|U|D] [W] [N]
+;   V480PAT [lines] [S|T|U|R|D] [W] [N]
 ; lines: 1-480, default 480. Without S/T/U/D the pattern is left on the
 ; normal screen (400 lines visible), for VIEW480 or a capture.
 ; S: switch a 24.8 kHz display to N lines (VIEW480's SYNC; the frame grows
@@ -35,6 +35,8 @@
 ;    keep a frame of at least 262 lines (240 lines: 278 lines, about
 ;    57.5 Hz). N 4-256, rounded down to even.
 ; U: as T without sprite headroom: top 16 (240 lines: 262 lines, 61 Hz).
+; R: as T with top 37, the ROM's 15.98 kHz value: graphics then show all
+;    lines (224 lines: 267-line frame, 59.9 Hz; 240: 283 lines, 56.5 Hz).
 ;    Run T and U with the monitor switch at 15 kHz.
 ; D: 320 x N (N 1-240) shown line-doubled on a 24.8 kHz display: graphics in
 ;    200-line mode with port 100h RSM = 01 (non-interlaced mode 1: each line
@@ -93,9 +95,14 @@ start:		mov	si,0081h
 		mov	bp,3
 		jmp	.skip
 .u:		cmp	al,'u'
-		jne	.w
+		jne	.r
 		mov	bp,2
 		mov	byte [toplines],16
+		jmp	.skip
+.r:		cmp	al,'r'
+		jne	.w
+		mov	bp,2
+		mov	byte [toplines],37
 		jmp	.skip
 .w:		cmp	al,'w'
 		jne	.n
