@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M103i — V1/V2 BEEP and port sound (CMD SING) were silent
+
+- **Symptom/scope:** in V1/V2 mode, sound made through port 40h was
+  silent: the buzzer switched by bit 5 (N-88 BASIC `BEEP`) and the port
+  sound driven by bit 7 (the PC-8801mkII `CMD SING` extension). The real
+  VA plays both (maintainer report). Both models.
+- **Demonstrated cause:** `sysp_o040` stored the latch but did not model
+  bits 5 and 7; the buzzer followed only 1CDh bit 3 (XBEEP). The VA
+  technical manual 5.10.3 has the buzzer on when either bit is on, and
+  5.10.4 has 40h bit 7 drive the speaker directly, enabled by 190h bit 4
+  (FBEN). A headless run of the maintainer's `CMD SING` demonstration
+  toggles bit 7 about 106,000 times.
+- **Correction:** the buzzer takes either bit; FBEEP feeds its own level
+  stream through the one-shot beep generator, gated by FBEN.
+- **Verification:** romless test of both bits and the FBEN mask (fails
+  without the change); maintainer listening check pending.
+- **Task/evidence/commit:** [M103i task](../agents/tasks/M103i_v1_mode.md#port-40h-sound-maintainer-report).
+  Fix: [fab15174](https://github.com/nakatamaho/vaeg/commit/fab15174b719f38e0c54c8076c7323b40eacf4f5).
+
 ### M103h — The V1/V2 cursor stayed at the top left on the original VA
 
 - **Symptom/scope:** on the original PC-88VA model the cursor was shown in

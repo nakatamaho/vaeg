@@ -130,3 +130,22 @@ recorded.
   as expected.
 - Maintainer check (Windows build `62e2f8e4`, 2026-10-05): "about like
   this"; the quarter-scale threshold is kept.
+
+### V1-D (single game)
+
+- Headless, V1 H, no configuration file, VA and VA2: title, high-score
+  disk question, key help and character pages loop as an attract mode;
+  RET on the key page starts the game (scene 1, scores, enemies), which
+  ends in GAME OVER and a replay prompt without input.
+
+### Port 40h sound (maintainer report)
+
+- Report: with V1-E (a user disk with its own DOS), after loading the
+  PC-8801mkII `CMD` extension and its demonstration, neither `BEEP` nor
+  `CMD SING` sounded; the real VA plays them.
+- `[VA-TM]` 5.10.3: the buzzer is on when 40h bit 5 or 1CDh bit 3 (XBEEP,
+  active low) is on; 5.10.4: 40h bit 7 (FBEEP) drives the speaker
+  directly, enabled by 190h bit 4 (FBEN, on at reset). vaeg modelled
+  neither 40h bit. Headless, the demonstration toggles bit 7 about
+  106,000 times. Fixed (ledger); the port sound level is not saved in
+  state files.
