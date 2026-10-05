@@ -33,7 +33,7 @@ static void beeplogflash(void) {
 
 void beep_initialize(UINT rate) {
 	beepcfg.rate = rate;
-	beepcfg.vol = 2;
+	beepcfg.vol = 2 << BEEPVOL_SHIFT;
 #if defined(BEEPLOG)
 	bplog.fh = file_create("beeplog");
 	bplog.events = 0;
@@ -50,8 +50,17 @@ void beep_deinitialize(void) {
 #endif
 }
 
+/* Legacy volume, 0-3 (configuration key BEEP_vol). */
 void beep_setvol(UINT vol) {
-	beepcfg.vol = vol & 3;
+	beepcfg.vol = (vol & 3) << BEEPVOL_SHIFT;
+}
+
+/* Fine volume, 0-128, where 128 is the legacy maximum 3. */
+void beep_setlevel(UINT level) {
+	if (level > 128) {
+		level = 128;
+	}
+	beepcfg.vol = (level * (3 << BEEPVOL_SHIFT) + 64) / 128;
 }
 
 void beep_changeclock(void) {

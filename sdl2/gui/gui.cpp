@@ -1175,7 +1175,6 @@ static UINT8 scale_master_volume(int volume, int max_value) {
 
 static void apply_master_volume(int volume) {
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
-	const UINT8 beep_volume = scale_master_volume(volume, 3);
 	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
@@ -1189,8 +1188,12 @@ static void apply_master_volume(int volume) {
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
 
-	np2cfg.BEEP_VOL = beep_volume;
-	beep_setvol(np2cfg.BEEP_VOL);
+	// The buzzer follows the master volume finely; BEEP_vol (0-3) keeps a
+	// value that is not 0 unless the master volume is 0, for older builds.
+	np2cfg.beep_level = static_cast<UINT8>(std::clamp(volume, 0, kMasterVolumeMax));
+	np2cfg.BEEP_VOL =
+	    static_cast<UINT8>((np2cfg.beep_level * 3 + kMasterVolumeMax - 1) / kMasterVolumeMax);
+	beep_setlevel(np2cfg.beep_level);
 
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);

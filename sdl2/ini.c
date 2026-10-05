@@ -389,6 +389,7 @@ static const INITBL iniitem[] = {
     {"HOSTFATDIR", INITYPE_STR, np2oscfg.hostfat_dir, MAX_PATH},
     {"SNDboard", INITYPE_HEX16, &np2cfg.SOUND_SW, 0},
     {"BEEP_vol", INITYPE_UINT8, &np2cfg.BEEP_VOL, 0},
+    {"BEEP_level", INITYPE_UINT8, &np2cfg.beep_level, 0},
     {"xspeaker", INITYPE_BOOL, &np2cfg.snd_x, 0},
 
     {"SND14vol", INITYPE_BYTEARG, np2cfg.vol14, 6},

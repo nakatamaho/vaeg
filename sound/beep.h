@@ -1,6 +1,8 @@
 
 
 enum {
+	/* beepcfg.vol is the legacy 0-3 volume in units of 1 << BEEPVOL_SHIFT. */
+	BEEPVOL_SHIFT = 7,
 	BEEPEVENT_MAXBIT = 8,
 	BEEPEVENT_MAX = (1 << BEEPEVENT_MAXBIT)
 };
@@ -43,6 +45,7 @@ extern _BEEP fbeep;
 void beep_initialize(UINT rate);
 void beep_deinitialize(void);
 void beep_setvol(UINT vol);
+void beep_setlevel(UINT level);
 void beep_changeclock(void);
 
 void beep_reset(void);

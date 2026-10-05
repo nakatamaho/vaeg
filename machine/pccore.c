@@ -83,6 +83,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .spb_vrl = 0,
                  .spb_x = 1,
                  .BEEP_VOL = 3,
+                 .beep_level = 0xff,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -255,7 +256,11 @@ static void sound_init(void) {
 	sound_create(rate, np2cfg.delayms);
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
-	beep_setvol(np2cfg.BEEP_VOL);
+	if (np2cfg.beep_level <= 128) {
+		beep_setlevel(np2cfg.beep_level);
+	} else {
+		beep_setvol(np2cfg.BEEP_VOL);
+	}
 	opngen_initialize(rate);
 	opngen_setvol(np2cfg.vol_fm);
 	psggen_initialize(rate);

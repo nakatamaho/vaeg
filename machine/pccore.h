@@ -88,6 +88,8 @@ typedef struct {
 	UINT8 spb_x;
 
 	UINT8 BEEP_VOL;
+	/* Fine beeper volume 0-128 (master volume); above 128 BEEP_VOL applies. */
+	UINT8 beep_level;
 	UINT8 vol14[6];
 	UINT8 vol_fm;
 	UINT8 vol_ssg;
