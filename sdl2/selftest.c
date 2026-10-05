@@ -68,6 +68,7 @@
 #include "np2.h"
 #include "pacing.h"
 #include "sound.h"
+#include "beep.h"
 #include "opngen.h"
 #include "profile.h"
 #include "romcheck.h"
@@ -4590,6 +4591,42 @@ static int test_monitor_switch(void) {
 	return (SUCCESS);
 }
 
+/* M103i: the 88-mode buzzer (40h bit 5) and port sound (40h bit 7, FBEN). */
+static int test_port040_sound(void) {
+	const char *problem = NULL;
+	const UINT8 saved040 = sysportva.port040;
+	const UINT8 saved190 = sysportva.port190;
+	const UINT8 savedc = sysportva.c;
+
+	iocore_out8(0x1cf, 0x07); /* XBEEP off */
+	iocore_out8(0x190, 0x18); /* FBEN on */
+	iocore_out8(0x040, 0x20);
+	if (!beep.buz) {
+		problem = "40h bit 5 BEEP";
+	}
+	iocore_out8(0x040, 0x00);
+	if ((problem == NULL) && beep.buz) {
+		problem = "BEEP off";
+	}
+	iocore_out8(0x040, 0x80);
+	if ((problem == NULL) && !fbeep.enable) {
+		problem = "40h bit 7 FBEEP";
+	}
+	iocore_out8(0x190, 0x08); /* FBEN off masks the port sound */
+	if ((problem == NULL) && fbeep.enable) {
+		problem = "190h FBEN mask";
+	}
+	iocore_out8(0x190, saved190);
+	iocore_out8(0x040, saved040);
+	sysportva.c = savedc;
+	beep_oneventset();
+	if (problem != NULL) {
+		return (fail("port 40h sound", problem));
+	}
+	fprintf(stderr, "selftest: port 40h sound ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
@@ -5866,6 +5903,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_port040_sound() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
