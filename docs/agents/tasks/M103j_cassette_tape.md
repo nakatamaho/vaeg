@@ -126,3 +126,8 @@ back; the maintainer's tape images load in V1/V2 BASIC.
   no file system ("no need to format"). D88 only; the raw loader knows
   none of these sizes. Commits [bc18620f](https://github.com/nakatamaho/vaeg/commit/bc18620f71d9cb24574f6fa3b958eef94ff361af),
   test [a4def8aa](https://github.com/nakatamaho/vaeg/commit/a4def8aac8bea55d5f6b8ef3bea44eead90f218a).
+
+### G103j
+
+- Passed on 2026-10-05 (maintainer): tape sound now close to the
+  maintainer's memory; decision C10 approved.
