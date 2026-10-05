@@ -599,7 +599,7 @@ The principal unresolved points are:
 [`V480PAT`](../../tools/pc88va/vtiming/README.md) (M104; binary SHA-256
 `3a1e5a03477c47dd2f8ac71337fcbb5bce941b6d66ddba49756fe653f82f7550`, before
 the line ruler) and VIEW480 under PC-Engine 1.1 on the maintainer's
-PC-88VA, 2026-10-05/06. The PC-88VA model is not yet recorded. Monitor:
+PC-88VA2, 2026-10-05/06. Monitor:
 I-O DATA LCD-MF225XBR (LCD; 15, 24 and 31 kHz inputs). Frame totals and
 rates are derived from the `SYNC` bytes with vaeg's dot clocks, not
 measured.
