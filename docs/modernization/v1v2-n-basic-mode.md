@@ -195,9 +195,11 @@ screen text reads the 3301 text rows.
 
 ## 7. Open items
 
-- Maintainer report: a graphic character after `Ok` with an N-BASIC
-  Ver 1.2 ROM. Not reproduced with Ver 1.8 (its FCh marker is blank in all
-  fonts); the Ver 1.2 ROM is needed to check its marker code.
+- Resolved: the maintainer's "\\" after `Ok` is N-BASIC's FCh marker drawn
+  with the PC-98 font (`98font.rom`), whose FCh glyph is a backslash. The VA
+  font, like the PC-8801 font, has a blank FCh. Reproduced headless with
+  that font setting; the maintainer confirmed the mark disappears with the
+  VA font. Not a defect.
 - The function-key row shows control-code pictures (for example HT and CR);
   the PC-8801 font has the same pictures at 01h–1Fh, so this is likely
   correct, but unconfirmed.

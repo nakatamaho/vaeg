@@ -141,3 +141,9 @@ V1S, and runs a short program.
 - Confirmed: N mode starts N-BASIC without a disk on VA and VA2; the
   original VA's V1/V2 cursor follows the input position; Copy screen text
   copies the displayed V1/V2 text.
+
+### Fifth maintainer check
+
+- The mark after `Ok` came from the PC-98 font setting: its FCh glyph is a
+  backslash, while the VA font's FCh is blank. Reproduced headless with
+  `98font.rom`; with the VA font the maintainer sees no mark. Not a defect.
