@@ -51,6 +51,11 @@
 ; Pattern: left half 40-line colour bands (1..14); right half sixteen
 ; colour bars (0..15); white lines every 100 lines; red lines at the
 ; 400-line edge (D: the 200-line edge); a white line at the last line.
+; Ruler: from y = 192 to the larger of the line count and 264, a bar at the
+; left edge whose length is (y mod 8 + 1) steps and whose colour gives
+; y div 8 (README.md has the table). It is drawn below the last line too,
+; and GVRAM is cleared that far, so the last line the display reads can be
+; read off the screen.
 		cpu	186
 		org	0100h
 start:		mov	si,0081h
@@ -126,6 +131,17 @@ start:		mov	si,0081h
 		mov	word [lnbytes],160
 .nmok3:		mov	[lines],bx
 		mov	[sflag],bp
+		mov	ax,bx			; clear and ruler depth: lines, at least 264
+		cmp	ax,264
+		jae	.cl
+		mov	ax,264
+.cl:		mov	[clearlines],ax
+		mov	[cliplim],ax
+		mov	ax,[scrw]		; ruler step: 8 dots at 640, 4 at 320
+		mov	bl,80
+		div	bl
+		xor	ah,ah
+		mov	[rstep],ax
 
 		mov	ah,00h			; screen mode: single plane, graphics on,
 		mov	bh,0a0h			; 640 dots
@@ -162,7 +178,7 @@ start:		mov	si,0081h
 .cpu:		mov	[base],ax		; linear address of the frame buffer
 		mov	[base+2],dx
 		; it must lie inside the A0000h-DFFFFh GVRAM window
-		mov	ax,[lines]
+		mov	ax,[clearlines]
 		mov	bx,[lnbytes]
 		mul	bx
 		add	ax,[base]
@@ -184,14 +200,16 @@ start:		mov	si,0081h
 		mov	[wmode],al
 		mov	al,10h
 		out	dx,al
-		mov	byte [colour],0		; clear
+		mov	byte [colour],0		; clear, below the last line too
 		xor	si,si
-		mov	ax,[lines]
+		mov	ax,[clearlines]
 		dec	ax
 		xor	cx,cx
 		mov	dx,[scrw]
 		dec	dx
 		call	box
+		mov	ax,[lines]
+		mov	[cliplim],ax
 		; left half: 40-line bands
 		xor	si,si			; y
 		mov	byte [colour],1
@@ -272,6 +290,38 @@ start:		mov	si,0081h
 		dec	ax
 		call	box
 .nomark:
+		; ruler, also below the last line
+		mov	ax,[clearlines]
+		mov	[cliplim],ax
+		mov	si,192
+.rl:		cmp	si,[clearlines]
+		jae	.rd
+		mov	byte [colour],0		; black background, 9 steps wide
+		mov	ax,[rstep]
+		mov	bx,9
+		mul	bx
+		mov	dx,ax
+		dec	dx
+		xor	cx,cx
+		mov	ax,si
+		call	box
+		mov	bx,si			; colour from y div 8
+		shr	bx,3
+		and	bx,7
+		mov	al,[rcol+bx]
+		mov	[colour],al
+		mov	ax,si			; length from y mod 8
+		and	ax,7
+		inc	ax
+		mul	word [rstep]
+		mov	dx,ax
+		dec	dx
+		xor	cx,cx
+		mov	ax,si
+		call	box
+		inc	si
+		jmp	.rl
+.rd:
 
 		mov	al,[wmode]
 		mov	dx,0580h
@@ -340,7 +390,7 @@ box:		push	si
 		mov	[fill],al
 .row:		cmp	si,[y1]
 		ja	.done
-		cmp	si,[lines]
+		cmp	si,[cliplim]
 		jae	.done
 		; linear = base + y * 320 + x0 / 2
 		mov	ax,si
@@ -558,8 +608,14 @@ gmode		db	0
 narrow		db	0
 toplines	db	32
 hnarrow		db	0
+; ruler colours for y div 8 mod 8 = 0..7: white, red, yellow, green, cyan,
+; blue, magenta, light grey in the default palette
+rcol		db	7, 2, 6, 4, 5, 1, 3, 15
 		align	2
 markx		dw	0
+clearlines	dw	264
+cliplim		dw	264
+rstep		dw	8
 		align	2
 scrw		dw	640
 lnbytes		dw	320
