@@ -70,6 +70,8 @@ typedef struct {
 	UINT8 monitor_15khz;
 	/* Display on the digital RGB output (8 colours); a display-side policy. */
 	UINT8 monitor_digital;
+	/* Cassette tape: deliver bytes 16 times faster than the baud rate. */
+	UINT8 cmt_fast;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

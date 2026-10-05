@@ -8,6 +8,7 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "memoryva.h"
+#include "cmt.h"
 
 #define SETLOWBYTE(x, y) (x) = ((x) & 0xff00 | (y))
 #define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
@@ -45,6 +46,10 @@ static void adjustpal(int palno) {
 // Text-control port 0.
 static void IOOUTCALL videova_o030(UINT port, REG8 dat) {
 	videova.txtmode8 = dat;
+	// 88 mode: the PC-8801 cassette motor and 8251 channel (vaeg extension).
+	if (memoryva_88_mode) {
+		cmt_port30(dat);
+	}
 }
 
 // Display-screen control register.

@@ -14,6 +14,7 @@
 #include "sgp.h"
 #include "subsystemmx.h"
 #include "va91.h"
+#include "cmt.h"
 #include "upd9002_regs.h"
 #include "upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -180,7 +181,7 @@ static const IOCBFN resetfn[] = {
     uPD4990_reset,      itimer_reset,    mouseif_reset,  np2sysp_reset, emsio_reset,
     memctrlva_reset,    tsp_reset,       sgp_reset,      videova_reset, subsystemmx_reset,
     systemportva_reset, mouseifva_reset, gactrlva_reset, cgromva_reset, va91_reset,
-    upd9002_regs_reset,
+    upd9002_regs_reset, cmt_reset,
 };
 
 static const IOCBFN bindfn[] = {

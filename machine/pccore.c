@@ -7,6 +7,7 @@
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "cmt.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -84,6 +85,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .spb_x = 1,
                  .BEEP_VOL = 3,
                  .beep_level = 0xff,
+                 .cmt_fast = 1,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -302,6 +304,7 @@ void pccore_init(void) {
 
 	rs232c_construct();
 	mpu98ii_construct();
+	cmt_initialize();
 
 	iocore_create();
 }
@@ -318,6 +321,7 @@ void pccore_term(void) {
 
 	mpu98ii_destruct();
 	rs232c_destruct();
+	cmt_deinitialize();
 
 	sxsi_trash();
 
