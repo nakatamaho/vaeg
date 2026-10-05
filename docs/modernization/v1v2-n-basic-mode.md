@@ -203,4 +203,56 @@ screen text reads the 3301 text rows.
 - The function-key row shows control-code pictures (for example HT and CR);
   the PC-8801 font has the same pictures at 01h–1Fh, so this is likely
   correct, but unconfirmed.
-- N80SR (N80 V2: 320×200 colour graphics, its own port use) follows N-BASIC.
+- N80SR and the N80 (PC-8001mkII) mode are not pursued (§8).
+
+## 8. N80SR and N80 modes: not pursued
+
+Maintainer decision (2026-10-05, M103i): vaeg does not add N80SR (N80 V2,
+PC-8001mkIISR) or the N80 (PC-8001mkII) mode, because neither display can
+be reached on a real VA, even with a custom I/O-trap handler. The study
+below is a desk study; nothing in it was run on hardware or in vaeg.
+Hiragana display was excluded from the start.
+
+Display models, from `[X88000]` 1.5.3 behaviour:
+
+- **N80SR 320×200**: two 8-colour pages in the B/R/G planes, page 0 at
+  plane addresses 0000h–1FFFh and page 1 at 2000h–3FFFh, 40 bytes a line.
+  Port 33h bit 2 selects the front page; colour 0 of the front page shows
+  the back page; port 53h bits 1 and 2 turn each page off.
+- **N80 320×200**: four colours in plane 0 alone, two adjacent bits per
+  dot. 640×200 is plane 0 at one bit per dot.
+- Both modes give port 31h their own meaning (320-dot mode, colour,
+  palette, and the extra 8 KiB ROM bank) and switch an 8 KiB ROM at
+  6000h–7FFFh with port 71h bit 0.
+
+What a custom trap handler on a real VA could do:
+
+- `[VA-WIKI]`/`[SRC]` Vectors 7Ch/7Dh are ordinary IVT entries and the
+  handler runs native code, so a loader can install its own handler,
+  chain unhandled ports to the ROM's (VA2 F000:1944), and program the VA's
+  own display registers. Compatible code can reach native code with
+  `CALLN`.
+- `[VA-WIKI]` The hardware has two trap ranges, both used by the ROM
+  (50h–5Bh, 60h–6Fh). Covering 31h, 33h and 71h as well means ranges such
+  as 31h–33h and 50h–71h; the second traps the GVRAM plane-select ports
+  5Ch–5Fh, and trapped I/O runs tens to hundreds of times slower.
+- The N80SR/N80 ROMs would run from RAM in all-RAM mode, as N-BASIC did
+  in the I/O 1987-11 article, with OUT 31h absorbed by the handler.
+  Switching the extra 8 KiB ROM would mean copying 8 KiB on each OUT 71h.
+
+What it could not do:
+
+- `[VA-TM]` §4.5.2: multiplane mode supports only graphics screen 0;
+  two graphics screens exist only in single-plane mode, whose pixel
+  format differs from the 88 planes. **N80SR's page overlay is therefore
+  impossible**; one page at a time could be shown as a 320-dot, 3-bit
+  multiplane screen (102h bit 4, 110h G3MSK) with its start address on
+  the selected page `[DERIVED]`, untested in 88 mode.
+- `[VA-TM]` The VA displays multiplane 1, 3 or 4 bits and single-plane
+  1, 4, 8 or 16 bits per pixel; **no format packs two bits per dot in one
+  plane**, so the N80 320×200 four-colour screen cannot be shown. Its
+  640×200 two-colour screen could be.
+- GVRAM writes are memory accesses and cannot be trapped, so neither
+  screen can be converted in software.
+
+Text and BASIC would likely run in both modes; the graphics would not.
