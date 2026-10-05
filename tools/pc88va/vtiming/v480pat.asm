@@ -51,6 +51,8 @@
 ; Pattern: left half 40-line colour bands (1..14); right half sixteen
 ; colour bars (0..15); white lines every 100 lines; red lines at the
 ; 400-line edge (D: the 200-line edge); a white line at the last line.
+; Label: the command line ("V480PAT" and its arguments, upper case) in white
+; at the top left, 2x2-dot pixels on black, so photographs identify the run.
 ; Ruler: from y = 192 to the larger of the line count and 264, a bar at the
 ; left edge whose length is (y mod 8 + 1) steps and whose colour gives
 ; y div 8 (README.md has the table). It is drawn below the last line too,
@@ -322,6 +324,7 @@ start:		mov	si,0081h
 		inc	si
 		jmp	.rl
 .rd:
+		call	label
 
 		mov	al,[wmode]
 		mov	dx,0580h
@@ -419,6 +422,104 @@ box:		push	si
 		pop	ax
 		pop	si
 		ret
+
+; label: "V480PAT" and the command tail at the top left
+label:		mov	ax,22			; clip to the drawn height
+		cmp	ax,[cliplim]
+		jbe	.c
+		mov	ax,[cliplim]
+.c:		push	word [cliplim]
+		mov	[cliplim],ax
+		mov	di,labtxt+7		; append the command tail, upper case
+		mov	si,0081h
+		xor	cx,cx
+		mov	cl,[0080h]
+		jcxz	.cpd
+		mov	byte [di],' '
+		inc	di
+.cp:		lodsb
+		cmp	al,0dh
+		je	.cpd
+		cmp	al,'a'
+		jb	.up
+		cmp	al,'z'
+		ja	.up
+		sub	al,20h
+.up:		cmp	al,' '			; skip the leading blank(s)
+		jne	.st
+		cmp	byte [di-1],' '
+		je	.nx
+.st:		cmp	di,labtxt+labmax
+		jae	.cpd
+		mov	[di],al
+		inc	di
+.nx:		loop	.cp
+.cpd:		mov	[labend],di
+		mov	byte [colour],0		; black background
+		mov	ax,di
+		sub	ax,labtxt
+		mov	bx,12
+		mul	bx
+		add	ax,7
+		or	ax,1
+		mov	dx,ax
+		xor	cx,cx
+		mov	si,2
+		mov	ax,21
+		call	box
+		mov	byte [colour],7		; white glyphs
+		mov	word [gx],4
+		mov	bx,labtxt
+.ch:		cmp	bx,[labend]
+		jae	.done
+		push	bx
+		mov	al,[bx]
+		call	glyph
+		add	word [gx],12
+		pop	bx
+		inc	bx
+		jmp	.ch
+.done:		pop	word [cliplim]
+		ret
+; glyph AL at x = [gx], y = 4 (2x2-dot pixels)
+glyph:		sub	al,'0'
+		cmp	al,9
+		jbe	.idx
+		sub	al,'A'-'0'
+		cmp	al,25
+		ja	.r
+		add	al,10
+.idx:		xor	ah,ah
+		mov	bx,7
+		mul	bx
+		add	ax,font5x7
+		mov	[gptr],ax
+		mov	word [gy],4
+		mov	byte [grow],7
+.row:		mov	bx,[gptr]
+		mov	al,[bx]
+		inc	word [gptr]
+		mov	[gbits],al
+		mov	cx,[gx]
+		mov	byte [gcol],5
+.col:		test	byte [gbits],10h
+		jz	.skip
+		push	cx
+		mov	dx,cx
+		inc	dx
+		mov	si,[gy]
+		mov	ax,si
+		inc	ax
+		call	box
+		pop	cx
+.skip:		shl	byte [gbits],1
+		add	cx,2
+		dec	byte [gcol]
+		jnz	.col
+		add	word [gy],2
+		dec	byte [grow]
+		jnz	.row
+.r:		ret
 
 ; switch the display to [lines] lines (VIEW480's sequence)
 set_lines:	mov	ax,0500h
@@ -616,6 +717,54 @@ markx		dw	0
 clearlines	dw	264
 cliplim		dw	264
 rstep		dw	8
+gx		dw	0
+gy		dw	0
+gptr		dw	0
+labend		dw	0
+grow		db	0
+gcol		db	0
+gbits		db	0
+labmax		equ	26
+labtxt		db	'V480PAT'
+		times	labmax-7 db 0
+; 5 x 7 font: digits then A-Z, one byte per row, bit 4 = leftmost dot
+font5x7:
+		db	00eh,011h,013h,015h,019h,011h,00eh	; 0
+		db	004h,00ch,004h,004h,004h,004h,00eh	; 1
+		db	00eh,011h,001h,002h,004h,008h,01fh	; 2
+		db	01fh,002h,004h,002h,001h,011h,00eh	; 3
+		db	002h,006h,00ah,012h,01fh,002h,002h	; 4
+		db	01fh,010h,01eh,001h,001h,011h,00eh	; 5
+		db	006h,008h,010h,01eh,011h,011h,00eh	; 6
+		db	01fh,001h,002h,004h,008h,008h,008h	; 7
+		db	00eh,011h,011h,00eh,011h,011h,00eh	; 8
+		db	00eh,011h,011h,00fh,001h,002h,00ch	; 9
+		db	00eh,011h,011h,01fh,011h,011h,011h	; A
+		db	01eh,011h,011h,01eh,011h,011h,01eh	; B
+		db	00eh,011h,010h,010h,010h,011h,00eh	; C
+		db	01ch,012h,011h,011h,011h,012h,01ch	; D
+		db	01fh,010h,010h,01eh,010h,010h,01fh	; E
+		db	01fh,010h,010h,01eh,010h,010h,010h	; F
+		db	00eh,011h,010h,017h,011h,011h,00fh	; G
+		db	011h,011h,011h,01fh,011h,011h,011h	; H
+		db	00eh,004h,004h,004h,004h,004h,00eh	; I
+		db	007h,002h,002h,002h,002h,012h,00ch	; J
+		db	011h,012h,014h,018h,014h,012h,011h	; K
+		db	010h,010h,010h,010h,010h,010h,01fh	; L
+		db	011h,01bh,015h,015h,011h,011h,011h	; M
+		db	011h,011h,019h,015h,013h,011h,011h	; N
+		db	00eh,011h,011h,011h,011h,011h,00eh	; O
+		db	01eh,011h,011h,01eh,010h,010h,010h	; P
+		db	00eh,011h,011h,011h,015h,012h,00dh	; Q
+		db	01eh,011h,011h,01eh,014h,012h,011h	; R
+		db	00fh,010h,010h,00eh,001h,001h,01eh	; S
+		db	01fh,004h,004h,004h,004h,004h,004h	; T
+		db	011h,011h,011h,011h,011h,011h,00eh	; U
+		db	011h,011h,011h,011h,011h,00ah,004h	; V
+		db	011h,011h,011h,015h,015h,015h,00ah	; W
+		db	011h,011h,00ah,004h,00ah,011h,011h	; X
+		db	011h,011h,011h,00ah,004h,004h,004h	; Y
+		db	01fh,001h,002h,004h,008h,010h,01fh	; Z
 		align	2
 scrw		dw	640
 lnbytes		dw	320

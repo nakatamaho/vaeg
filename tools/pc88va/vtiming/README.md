@@ -102,6 +102,9 @@ measurements.
 
 - Left half: 40-line colour bands (colours 1-14 repeating). Right half:
   sixteen vertical bars, colours 0-15.
+- Top left: the command line (`V480PAT` and its arguments, upper case) in
+  white on black, drawn into graphics with a built-in 5x7 font at 2x2 dots,
+  so photographs identify the run even when the TSP text is disturbed.
 - White full-width lines every 100 lines and on the last line; red lines at
   lines 399/400, or 199/200 at 320 dots.
 - Ruler: from line 192 down to the larger of `lines` and 264, a bar at the
