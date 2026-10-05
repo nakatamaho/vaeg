@@ -69,6 +69,7 @@
 #include "pacing.h"
 #include "sound.h"
 #include "beep.h"
+extern BEEPCFG beepcfg;
 #include "opngen.h"
 #include "profile.h"
 #include "romcheck.h"
@@ -4627,6 +4628,35 @@ static int test_port040_sound(void) {
 	return (SUCCESS);
 }
 
+/* M103i: the buzzer volume follows the master volume finely. */
+static int test_beep_level(void) {
+	const UINT saved = beepcfg.vol;
+	const char *problem = NULL;
+
+	beep_setlevel(16);
+	if (beepcfg.vol == 0) {
+		problem = "low master volume silences the buzzer";
+	}
+	beep_setlevel(128);
+	if ((problem == NULL) && (beepcfg.vol != (3u << BEEPVOL_SHIFT))) {
+		problem = "full level differs from the legacy maximum";
+	}
+	beep_setvol(2);
+	if ((problem == NULL) && (beepcfg.vol != (2u << BEEPVOL_SHIFT))) {
+		problem = "legacy BEEP_vol";
+	}
+	beep_setlevel(0);
+	if ((problem == NULL) && (beepcfg.vol != 0)) {
+		problem = "level 0";
+	}
+	beepcfg.vol = saved;
+	if (problem != NULL) {
+		return (fail("beep level", problem));
+	}
+	fprintf(stderr, "selftest: beep level ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
@@ -5906,6 +5936,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_beep_level() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
