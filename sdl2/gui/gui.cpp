@@ -3848,6 +3848,12 @@ static void draw_device_menu(void) {
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
 			}
+			int tape_volume = np2cfg.cmt_vol;
+			if (ImGui::SliderInt("Tape volume", &tape_volume, 0, 128)) {
+				np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
+				cmt_setvol(np2cfg.cmt_vol);
+				sysmng_update(SYS_UPDATECFG);
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("メインメモリ容量")) {

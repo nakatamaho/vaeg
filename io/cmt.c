@@ -43,6 +43,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "memoryva.h"
+#include "sound.h"
 #include "cmt.h"
 
 #include <string.h>
@@ -70,8 +71,100 @@ static struct {
 	BOOL rxe;
 } cmt;
 
+/*
+ * Tape sound (the loading "pi-gaa"): each byte as one start bit, eight data
+ * bits LSB first and one stop bit, a 0 as 1200 Hz and a 1 as 2400 Hz
+ * (PC-8801 cassette FSK), and 2400 Hz between bytes while the motor runs.
+ * Played at the real baud rate: with fast load, bytes that arrive while
+ * one is still sounding are skipped, so the sound keeps its pitch and
+ * rhythm. Display/sound only; it does not affect the data path.
+ */
+static struct {
+	UINT16 frame; /* bits still to play, LSB first */
+	UINT8 bits;   /* number of bits left in frame */
+	BOOL pending; /* a byte waits to be played */
+	UINT8 next;
+	UINT32 bitpos; /* 16.16 position within the current bit */
+	UINT32 phase;  /* 16.16 tone phase */
+	SINT32 level;  /* amplitude */
+} cmtsnd;
+
+void cmt_setvol(UINT vol) {
+	if (vol > 128) {
+		vol = 128;
+	}
+	cmtsnd.level = (SINT32)vol * 32;
+}
+
+static void cmtsnd_push(REG8 dat) {
+	cmtsnd.next = (UINT8)dat;
+	cmtsnd.pending = TRUE;
+}
+
+static BOOL cmtsnd_carrier(void) {
+	return (cmt_selected() && (cmt.control & 0x08) &&
+	        ((cmt.pos < cmt.size) || cmt.rxready || cmt.saving))
+	           ? TRUE
+	           : FALSE;
+}
+
+void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count) {
+	const UINT baud = (cmt.control & 0x10) ? 1200 : 600;
+	UINT32 bitstep;
+	UINT32 rate;
+
+	(void)hdl;
+	rate = soundcfg.rate;
+	if ((rate == 0) || (cmtsnd.level == 0)) {
+		cmtsnd.pending = FALSE;
+		return;
+	}
+	if (!cmt_selected() || !(cmt.control & 0x08)) {
+		/* Motor off: the tape stops, and so does its sound. */
+		cmtsnd.bits = 0;
+		cmtsnd.pending = FALSE;
+		return;
+	}
+	bitstep = (UINT32)(((UINT64)baud << 16) / rate);
+	while (count--) {
+		int bit;
+		UINT32 freq;
+		SINT32 samp;
+
+		if (cmtsnd.bits == 0) {
+			if (cmtsnd.pending) {
+				cmtsnd.frame = (UINT16)(0x200 | ((UINT16)cmtsnd.next << 1));
+				cmtsnd.bits = 10;
+				cmtsnd.pending = FALSE;
+			} else if (cmtsnd_carrier()) {
+				cmtsnd.frame = 1;
+				cmtsnd.bits = 1;
+			} else {
+				pcm += 2;
+				continue;
+			}
+			cmtsnd.bitpos = 0;
+		}
+		bit = cmtsnd.frame & 1;
+		freq = bit ? 2400 : 1200;
+		cmtsnd.phase += (UINT32)(((UINT64)freq << 16) / rate);
+		samp = (cmtsnd.phase & 0x8000) ? cmtsnd.level : -cmtsnd.level;
+		pcm[0] += samp;
+		pcm[1] += samp;
+		pcm += 2;
+		cmtsnd.bitpos += bitstep;
+		if (cmtsnd.bitpos >= 0x10000) {
+			cmtsnd.bitpos -= 0x10000;
+			cmtsnd.frame >>= 1;
+			cmtsnd.bits--;
+		}
+	}
+}
+
 void cmt_initialize(void) {
 	ZeroMemory(&cmt, sizeof(cmt));
+	ZeroMemory(&cmtsnd, sizeof(cmtsnd));
+	cmt_setvol(np2cfg.cmt_vol);
 }
 
 void cmt_deinitialize(void) {
@@ -84,6 +177,8 @@ void cmt_deinitialize(void) {
 }
 
 void cmt_reset(void) {
+	cmtsnd.bits = 0;
+	cmtsnd.pending = FALSE;
 	cmt.control = 0;
 	cmt.rxready = FALSE;
 	cmt.rxe = FALSE;
@@ -130,6 +225,7 @@ void cmt_event(NEVENTITEM item) {
 	if (!cmt.rxready && (cmt.pos < cmt.size)) {
 		cmt.data = cmt.tape[cmt.pos++];
 		cmt.rxready = TRUE;
+		cmtsnd_push(cmt.data);
 	}
 	if (cmt.rxready) {
 		pic8214_request(PIC8214_RXRDY);
@@ -190,6 +286,7 @@ void cmt_write(REG8 dat) {
 		cmt.outcap = cmt.outcap ? cmt.outcap * 2 : 0x4000;
 	}
 	cmt.out[cmt.outsize++] = (BYTE)dat;
+	cmtsnd_push(dat);
 }
 
 /* T88: 24-byte signature, then tags (type, length, body); data tags carry

@@ -8,6 +8,7 @@
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"
+#include "cmt.h"
 #include "machine/keystat.h"
 
 #include "boardsb2.h"
@@ -138,6 +139,7 @@ void fmboard_bind(void) {
 	}
 	sound_streamregist(&beep, (SOUNDCB)beep_getpcm);
 	sound_streamregist(&fbeep, (SOUNDCB)beep_getpcm);
+	sound_streamregist(NULL, (SOUNDCB)cmt_getpcm);
 }
 
 // ----

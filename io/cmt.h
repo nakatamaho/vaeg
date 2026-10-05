@@ -62,6 +62,8 @@ REG8 cmt_status(REG8 rxe);
 REG8 cmt_read(void);
 void cmt_write(REG8 dat);
 void cmt_command(REG8 cmd);
+void cmt_setvol(UINT vol); /* tape sound, 0-128 */
+void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count);
 void cmt_event(struct _neventitem *item); /* NEVENTCB */
 
 #ifdef __cplusplus
