@@ -4590,6 +4590,29 @@ static int test_monitor_switch(void) {
 	return (SUCCESS);
 }
 
+/* M103i: output levels for the analog and the digital RGB monitor. */
+static int test_monitor_output_levels(void) {
+	const char *problem = NULL;
+
+	if ((scrndrawva_outputlevel(0, 5, FALSE) != 0x00) ||
+	    (scrndrawva_outputlevel(31, 5, FALSE) != 0xff) ||
+	    (scrndrawva_outputlevel(16, 5, FALSE) != 0x87) ||
+	    (scrndrawva_outputlevel(63, 6, FALSE) != 0xff)) {
+		problem = "analog output levels";
+	} else if ((scrndrawva_outputlevel(7, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(8, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(15, 6, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(16, 6, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(0, 6, TRUE) != 0)) {
+		problem = "digital RGB thresholds";
+	}
+	if (problem != NULL) {
+		return (fail("monitor output levels", problem));
+	}
+	fprintf(stderr, "selftest: monitor output levels ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: N-BASIC ROM files: known dumps by SHA-1, the load order, the menu
  * choice, n80.rom as a catch-all, and size checking. */
 static int test_n80_rom_files(void) {
@@ -5840,6 +5863,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_monitor_output_levels() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
