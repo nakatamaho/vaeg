@@ -25,7 +25,7 @@
 
 # Build a PC-Engine 1.1 test disk for the M104 display-timing experiments:
 # a vanilla copy of the given PC-Engine 1.1 system disk with V480PAT.COM and
-# TSPMODE.COM (tools/pc88va/vtiming/, assembled here) and, optionally, a
+# TSPMODE.COM and G160.COM (tools/pc88va/vtiming/, assembled here) and, optionally, a
 # separately obtained VIEW480.COM. The source disk is private media and the
 # output must stay outside Git.
 
@@ -67,6 +67,7 @@ trap 'rm -rf -- "$work_dir"' EXIT
 mkdir -p "$work_dir/payload/root"
 nasm -f bin -o "$work_dir/payload/root/V480PAT.COM" "$script_dir/vtiming/v480pat.asm"
 nasm -f bin -o "$work_dir/payload/root/TSPMODE.COM" "$script_dir/vtiming/tspmode.asm"
+nasm -f bin -o "$work_dir/payload/root/G160.COM" "$script_dir/vtiming/g160.asm"
 if [[ -n $view480 ]]; then
 	cp -- "$view480" "$work_dir/payload/root/VIEW480.COM"
 fi
