@@ -88,7 +88,6 @@ V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
 | `D` | 24.8 kHz, 320 x `lines` (1-240) line-doubled: graphics in 200-line mode with port `0100h` RSM = 01 (non-interlaced mode 1), the TSP frame at 2 x `lines` rasters; above 400 rasters bottom blanking 2 and sync 4. |
 | `W` | Graphics screen 0 at 320 dots (`0102h` bit 4) with `S`, `T`, `U` or none; `D` is always 320. |
 | `N` | With `S`, `T`, `U` or `D`: TSP horizontal active `HAD` 159 -> 127 (128 TCK: 256 dots at 320, 512 at 640) and 16 TCK added to each of `LBR` and `RBR`, keeping the line length. Two white two-dot marks show the edges of that window. |
-
 | `K` | With `S` or `D`: top blanking 17 instead of the ROM's 25 (480 lines with `S`: 499-line frame, about 49.8 Hz). |
 
 Any key restores the timing (and RSM for `D`). The graphics mode chosen for
