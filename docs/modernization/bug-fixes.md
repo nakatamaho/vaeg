@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M104 — N mode from the menu did not boot a disk in drive 1
+
+- **Symptom/scope:** with Emulate > Z80 mode > N, N-BASIC started with
+  `Ok` even with a disk in drive 1, while `NEW ON 1` from V1 S booted the
+  same disk (maintainer report). Both models, N mode only.
+- **Demonstrated cause:** `[ROM]` N-BASIC reads port 40h bit 3 at start-up
+  (00CBh `IN A,(40h) / AND 8 / XOR 8`) and skips its disk boot when the
+  bit is 1. vaeg's N mode reported the bit as 1 (SW7 OFF) for the whole
+  session so that the VA2 ROM enters V1/V2 without a disk; `NEW ON 1` in
+  V1 S sees 0.
+- **Correction:** the bit is reported only from reset until the first
+  compatible-mode entry, i.e. during the VA ROM's boot search.
+- **Verification:** romless test (the bit is clear after the compat
+  entry; fails without the fix); headless N mode on VA and VA2 with a
+  disk whose boot sector writes text: before the fix N-BASIC `Ok`, after
+  it the boot sector's text; without a disk N-BASIC still starts.
+- **Task/evidence/commit:** [N-BASIC mode](v1v2-n-basic-mode.md#6-booting-directly-in-n-mode-implemented-decision-c9).
+  Fix: [39e9df39](https://github.com/nakatamaho/vaeg/commit/39e9df3919902cd378851f710506896067a18bce).
+
 ### M103i — BEEP and port sound silent at low master volume
 
 - **Symptom/scope:** with the master volume below about 21 (of 128) the

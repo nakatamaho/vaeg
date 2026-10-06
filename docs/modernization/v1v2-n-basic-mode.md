@@ -182,7 +182,11 @@ disk. vaeg's N setting does the same with the unmodified VA ROMs:
    changed; the shadow address is the same in both ROMs.
 
 Without the N80 ROM the setting has no effect. With a disk in drive 1,
-N-BASIC boots it, as on a PC-8801.
+N-BASIC boots it, as on a PC-8801. `[ROM]` N-BASIC reads port 40h bit 3 as
+"no disk unit" (00CBh) and then skips the disk boot, so vaeg reports the
+bit only until the first compatible-mode entry (fixed in M104,
+[39e9df39](https://github.com/nakatamaho/vaeg/commit/39e9df3919902cd378851f710506896067a18bce); before
+that, N mode never booted a disk).
 
 | Change | Files | Commit |
 |---|---|---|
