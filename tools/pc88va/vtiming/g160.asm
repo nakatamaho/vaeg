@@ -27,7 +27,7 @@
 ; tools/pc88va/vtiming/README.md. Assemble with NASM (8086/80186 only):
 ; nasm -f bin -o G160.COM g160.asm
 ;
-;   G160 [16|8|4]
+;   G160 [16|8|4|A]
 ;
 ; Graphics screen 0 becomes single-plane 320 x 200 with 16, 8 or 4 bits per
 ; pixel (default 16), 320-dot mode and 200-line mode, and port 0100h
@@ -46,6 +46,7 @@
 ; run for ten seconds or more for a usable rate. The values are shown raw
 ; because a computed elapsed time was wrong on the PC-88VA2. Colour formats as modelled in vaeg: 16 bits G6 R5 B5, 8 bits
 ; G3 R3 B2, 4 bits palette index.
+; A runs 16, 8 and 4 bits one after another (two keys each).
 		cpu	186
 		org	0100h
 start:		mov	si,0081h
@@ -53,6 +54,10 @@ start:		mov	si,0081h
 .arg:		lodsb
 		cmp	al,' '
 		je	.arg
+		mov	ah,al
+		or	ah,20h
+		cmp	ah,'a'
+		je	sweep
 		cmp	al,'0'
 		jb	.argd
 		cmp	al,'9'
@@ -173,9 +178,38 @@ start:		mov	si,0081h
 		out	dx,ax
 		mov	ax,0b00h		; graphics display off
 		int	8fh
+		cmp	word [sweepp],0
+		jne	sweep.next
 		mov	ax,4c00h
 		int	21h
 fail:		mov	ax,4c01h
+		int	21h
+
+; A: run 16, 8 and 4 bits in turn, each with fresh variables
+sweep:		push	cs
+		pop	es
+		cld
+		mov	si,datastart
+		mov	di,datasave
+		mov	cx,dataend-datastart
+		rep	movsb
+		mov	word [sweepp],depths
+.next:		mov	si,[sweepp]
+		lodsw
+		or	ax,ax
+		jz	.quit
+		mov	[sweepp],si
+		push	ax
+		push	cs
+		pop	es
+		cld
+		mov	si,datasave
+		mov	di,datastart
+		mov	cx,dataend-datastart
+		rep	movsb
+		pop	bx
+		jmp	start.argd
+.quit:		mov	ax,4c00h
 		int	21h
 
 ; draw the whole picture once
@@ -411,6 +445,9 @@ msg1		db	'G160 ',0
 msg2		db	'-bit ',0
 msg3		db	' redraws ',0
 		align	2
+sweepp		dw	0
+depths		dw	16, 8, 4, 0
+datastart:
 desc		dw	16, 320, 200
 bpp		dw	16
 dotbytes	dw	4
@@ -430,5 +467,7 @@ wmode		db	0
 		align	2
 rsa1		dw	0
 outend		dw	0
+dataend:
 outbuf		times	48 db 0
+datasave	times	dataend-datastart db 0
 savebuf:

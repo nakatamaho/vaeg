@@ -27,7 +27,7 @@
 ; tools/pc88va/vtiming/README.md. Assemble with NASM (8086/80186 only):
 ; nasm -f bin -o G256.COM g256.asm
 ;
-;   G256 [16|8|4]
+;   G256 [16|8|4|A]
 ;
 ; The VA has no 256-dot graphics mode and the TSP horizontal active period
 ; does not clip graphics (measured in M104), so a 256 x 192 picture is a
@@ -40,6 +40,7 @@
 ; a gradient elsewhere; line 1 carries one white dot per bit of depth
 ; (16, 8 or 4 dots at the left). Any key restores the screen; PC-Engine's
 ; INT 21h has no console output, so nothing is printed.
+; A shows 16, 8 and 4 bits one after another, a key each.
 		cpu	186
 		org	0100h
 start:		mov	si,0081h
@@ -47,6 +48,10 @@ start:		mov	si,0081h
 .arg:		lodsb
 		cmp	al,' '
 		je	.arg
+		mov	ah,al
+		or	ah,20h
+		cmp	ah,'a'
+		je	sweep
 		cmp	al,'0'
 		jb	.argd
 		cmp	al,'9'
@@ -145,9 +150,38 @@ start:		mov	si,0081h
 		out	dx,ax
 		mov	ax,0b00h		; graphics display off
 		int	8fh
+		cmp	word [sweepp],0
+		jne	sweep.next
 		mov	ax,4c00h
 		int	21h
 fail:		mov	ax,4c01h
+		int	21h
+
+; A: run 16, 8 and 4 bits in turn, each with fresh variables
+sweep:		push	cs
+		pop	es
+		cld
+		mov	si,datastart
+		mov	di,datasave
+		mov	cx,dataend-datastart
+		rep	movsb
+		mov	word [sweepp],depths
+.next:		mov	si,[sweepp]
+		lodsw
+		or	ax,ax
+		jz	.quit
+		mov	[sweepp],si
+		push	ax
+		push	cs
+		pop	es
+		cld
+		mov	si,datasave
+		mov	di,datastart
+		mov	cx,dataend-datastart
+		rep	movsb
+		pop	bx
+		jmp	start.argd
+.quit:		mov	ax,4c00h
 		int	21h
 
 ; draw the whole 320 x 200 screen, one GVRAM line at a time
@@ -338,6 +372,9 @@ dot:		mov	ax,si
 		ret
 
 		align	2
+sweepp		dw	0
+depths		dw	16, 8, 4, 0
+datastart:
 desc		dw	16, 320, 200
 bpp		dw	16
 base		dw	0, 0
@@ -347,3 +384,5 @@ grey		dw	08210h
 red		dw	03e0h
 bank		db	0
 wmode		db	0
+dataend:
+datasave:
