@@ -1402,6 +1402,32 @@ address progression. Then test in this order:
 5. candidate 320x400 to test horizontal/vertical independence; and
 6. a 384x256 viewport while retaining 640x400 `SYNC`.
 
+`[MEAS]` M104 also stepped the screen-table `MODE` field (word `0Ah` bits
+4:0) of the main split through undocumented values with
+[`TSPMODE`](../../tools/pc88va/vtiming/README.md#tspmode-undocumented-tsp-screen-modes)
+on a PC-88VA2 (2026-10-06). The test block held character codes 00h-FFh
+with attribute F0h. Values 0-5 behaved as the documented attribute modes
+(0: white background, 1: black, 2-3: nothing visible with F0h, 4-5: as 0
+with blinking). Undocumented values:
+
+| `MODE` | Observation |
+|---:|---|
+| 6 | as 4-5, the block grey instead of white |
+| 7 | as 6 without blinking |
+| 8, 9 | an unidentified pattern instead of characters |
+| 10, 11 | the same pattern, finer |
+| 12 | the pattern on the left, the right blank |
+| 13 | the pattern wavy |
+| 14 | the pattern yellow and wavy |
+| 15, 18, 19 | only one cursor visible, the rest black |
+| 16, 20 | broken characters split left and right, white background |
+| 17 | as 16 with the original black background |
+
+`[DERIVED]` Setting bit 3 replaces character display by a non-character
+pattern, which makes values 8-14 the candidates for the uPD72022's
+semigraphics or graphics static-picture modes; the low bits then change
+the dot size or format. Not yet identified; values 21-31 not yet reported.
+
 `[MEAS]` M104 measured TSP frames outside the documented vectors on real
 hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)
 are displayed, 24.8 kHz frames of up to 495 lines (`VAD` 464) are displayed,

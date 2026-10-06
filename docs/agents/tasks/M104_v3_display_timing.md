@@ -94,3 +94,8 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   G160 (160 x 100 with a colour per dot in graphics). `[MEAS]` G160 runs on
   the PC-88VA2 as in vaeg (checks and moving gradient visible); hardware
   redraw rates pending.
+- `[MEAS]` TSPMODE on the PC-88VA2: `MODE` 8-14 show non-character
+  patterns (candidates for the semigraphics/graphics static-picture
+  modes), 6-7 are attribute variants, 15-20 break the text; recorded in
+  [`upd72022-tsp.md`](../../modernization/upd72022-tsp.md) section 20.4.
+  Next: identify the format of 8-14 with known TVRAM data.
