@@ -5083,6 +5083,11 @@ static int test_v1v2_memory_switch(void) {
 		if ((problem == NULL) && (upd9002_mainram_read(0x4e8) != 0x89)) {
 			problem = "N mode changed the text state more than once";
 		}
+		/* N-BASIC reads bit 3 set as "no disk unit" and would skip booting
+		 * drive 1, so the bit is reported only during the VA ROM's boot. */
+		if ((problem == NULL) && (iocore_inp8(0x040) & 0x08)) {
+			problem = "N mode kept port 40h bit 3 after the compat entry";
+		}
 		memoryva_n80_exist = FALSE;
 		memoryva_88_port31 = 0;
 		memctrlva_nmode_reset();

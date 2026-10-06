@@ -108,8 +108,9 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	      // SW1: 0 for 24.8 kHz, 1 for 15.7 kHz.
 	      0x01; // PBSY: printer not busy in the current model.
 	// SW7 OFF (skip the V3 boot search, enter V1/V2): only for the vaeg N
-	// mode, which must start without a disk (memctrlva_nmode_active).
-	if (memctrlva_nmode_active()) {
+	// mode, which must start without a disk, and only until compatible code
+	// starts, so that N-BASIC still boots a disk in drive 1.
+	if (memctrlva_nmode_boot_search()) {
 		ret |= 0x08;
 	}
 	// Bit 2: PC-8801 cassette carrier detect (vaeg cassette extension).
