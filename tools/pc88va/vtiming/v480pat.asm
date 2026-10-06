@@ -26,6 +26,7 @@
 ; NASM (8086/80186 code only): nasm -f bin -o V480PAT.COM v480pat.asm
 ;
 ;   V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
+;   V480PAT A|B
 ; lines: 1-480, default 480. Without S/T/U/D the pattern is left on the
 ; normal screen (400 lines visible), for VIEW480 or a capture.
 ; S: switch a 24.8 kHz display to N lines (VIEW480's SYNC; the frame grows
@@ -50,6 +51,10 @@
 ; K: with S or D, top blanking 17 instead of the ROM's 25 (480 lines with
 ;    S: 499-line frame, about 49.8 Hz).
 ; Any key restores the screen.
+; A: sweep: run the 24.8 kHz list (sweep24 below) one entry at a time; B:
+;    the same with the 15.98 kHz list (sweep15). Each entry is run as if
+;    typed after V480PAT (its label shows it); any key goes on to the next
+;    entry, ESC stops.
 ; Set up with the graphics BIOS (INT 8Fh); drawn directly into GVRAM with
 ; port 153h selecting GVRAM and port 580h in CPU-data write mode.
 ; Pattern: left half 40-line colour bands (1..14); right half sixteen
@@ -65,6 +70,17 @@
 		cpu	186
 		org	0100h
 start:		mov	si,0081h
+.blank:		lodsb
+		cmp	al,' '
+		je	.blank
+		or	al,20h
+		mov	bx,sweep24
+		cmp	al,'a'
+		je	sweep
+		mov	bx,sweep15
+		cmp	al,'b'
+		je	sweep
+parse:		mov	si,0081h
 		xor	bx,bx
 		xor	bp,bp
 .skip:		lodsb
@@ -363,8 +379,11 @@ start:		mov	si,0081h
 		jmp	.wait
 .s:		call	set_lines
 .wait:
-		mov	ah,00h			; wait for a key
+		mov	ah,0ch			; drop pending keys, wait for one
 		int	82h
+		mov	ah,00h
+		int	82h
+		mov	[lastkey],ax
 		cmp	word [sflag],2
 		jne	.r24
 		call	restore_15k
@@ -375,9 +394,53 @@ start:		mov	si,0081h
 		mov	dx,0100h
 		out	dx,ax
 .r24b:		call	restore
-done:		mov	ax,4c00h
+done:		cmp	word [sweepp],0
+		jne	sweep.next
+		mov	ax,4c00h
 		int	21h
-fail:		mov	ax,4c01h
+fail:		cmp	word [sweepp],0
+		jne	sweep.next
+		mov	ax,4c01h
+		int	21h
+
+; sweep: BX = list of zero-terminated argument strings, ended by an empty one
+sweep:		mov	[sweepp],bx
+		push	cs
+		pop	es
+		cld
+		mov	si,datastart		; keep the initial variables
+		mov	di,datasave
+		mov	cx,dataend-datastart
+		rep	movsb
+		jmp	.run
+.next:		cmp	byte [lastkey],1bh	; ESC: stop
+		je	.quit
+.run:		mov	bx,[sweepp]
+		cmp	byte [bx],0
+		je	.quit
+		push	cs
+		pop	es
+		cld
+		mov	si,datasave		; fresh variables for each entry
+		mov	di,datastart
+		mov	cx,dataend-datastart
+		rep	movsb
+		mov	si,bx			; entry -> command tail at 0080h
+		mov	di,0082h
+		mov	byte [0081h],' '
+		mov	cl,1
+.cp:		lodsb
+		or	al,al
+		jz	.cpd
+		stosb
+		inc	cl
+		jmp	.cp
+.cpd:		mov	byte [di],0dh
+		mov	[0080h],cl
+		mov	[sweepp],si
+		mov	word [lastkey],0
+		jmp	parse
+.quit:		mov	ax,4c00h
 		int	21h
 
 ; horizontal white/colour line at y = SI, full width (skipped beyond N)
@@ -714,6 +777,20 @@ setprm:		mov	ah,al
 		ret
 
 		align	2
+sweepp		dw	0
+lastkey		dw	0
+; sweep lists: 24.8 kHz (monitor switch at 24 kHz) and 15.98 kHz
+sweep24		db	'400 S',0,'408 S',0,'416 S',0,'420 S',0,'424 S',0
+		db	'432 S',0,'440 S',0,'448 S',0,'456 S',0,'464 S',0
+		db	'472 S',0,'480 S',0,'440 S W',0,'440 S N',0
+		db	'480 S W',0,'464 S K',0,'472 S K',0,'480 S K',0
+		db	'200 D',0,'240 D',0,0
+sweep15		db	'200 R W',0,'208 R W',0,'216 R W',0,'224 R W',0
+		db	'232 R W',0,'236 R W',0,'240 R W',0,'244 R W',0
+		db	'248 R W',0,'224 R',0,'240 R',0,'240 R W N',0
+		db	'240 T W',0,'240 U W',0,0
+		align	2
+datastart:
 desc		dw	4, 640, 480
 base		dw	0, 0
 x0		dw	0
@@ -797,3 +874,5 @@ syncprm		db	0c1h, 57h, 10h, 00h, 9fh, 00h, 10h, 0fh, 19h, 00h, 90h, 40h, 07h, 08
 sync15		db	0c1h, 57h, 1ch, 00h, 9fh, 00h, 10h, 0fh, 25h, 00h, 0c8h, 00h, 0fh, 08h
 sync15def	db	0c1h, 57h, 1ch, 00h, 9fh, 00h, 10h, 0fh, 25h, 00h, 0c8h, 00h, 0fh, 08h
 syncdef		db	0c1h, 57h, 10h, 00h, 9fh, 00h, 10h, 0fh, 19h, 00h, 90h, 40h, 07h, 08h
+dataend:
+datasave:					; copy of datastart-dataend (not in the file)
