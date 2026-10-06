@@ -196,6 +196,12 @@ seconds), so run for ten seconds or more; the result is written to TVRAM.
 Under vaeg (2026-10-06, emulated time, `--nowait`) 16, 8 and 4 bits gave
 98 redraws in 34 s, 112 in 33 s and 138 in 33 s.
 
+`[MEAS]` On the PC-88VA2 (2026-10-06, 24.8 kHz monitor setting) `G160`
+shows the one-dot checks at the top left and a gradient moving slowly
+upwards, as in vaeg: single-plane graphics in 320-dot and 200-line mode
+with RSM = 01 show a 160 x 100 picture with a colour per dot. Rates on the
+hardware are not yet recorded.
+
 ## Results
 
 See [M104](../../../docs/agents/tasks/M104_v3_display_timing.md) and

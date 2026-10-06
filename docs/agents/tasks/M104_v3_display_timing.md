@@ -90,3 +90,7 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   are not clipped by the TSP `HAD`; `240 T` (640 dots) follows the same
   rule. Open: whether 15 kHz graphics are shifted by `37 - TBL` against
   text.
+- Added TSPMODE (probe of undocumented screen-table `MODE` values) and
+  G160 (160 x 100 with a colour per dot in graphics). `[MEAS]` G160 runs on
+  the PC-88VA2 as in vaeg (checks and moving gradient visible); hardware
+  redraw rates pending.
