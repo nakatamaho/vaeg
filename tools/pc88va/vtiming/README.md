@@ -75,6 +75,7 @@ The system disk is private media; keep both images outside Git.
 
 ```text
 V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
+V480PAT A|B
 ```
 
 | Argument | Effect |
@@ -93,6 +94,17 @@ V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
 Any key restores the timing (and RSM for `D`). The graphics mode chosen for
 the pattern is left in place, so after `D` or `T` the pattern stays in
 200-line mode.
+
+`A` and `B` run a fixed list of argument sets one after another, so a
+series needs no typing: each entry runs exactly as if typed after
+`V480PAT` (the label shows it), any key restores the timing and goes on to
+the next entry, and ESC stops. If the monitor shows nothing for an entry,
+a key still moves on; the entries are numbered below to keep count.
+
+| List | Monitor switch | Entries, in order |
+|---|---|---|
+| `A` | 24 kHz | 1 `400 S`, 2 `408 S`, 3 `416 S`, 4 `420 S`, 5 `424 S`, 6 `432 S`, 7 `440 S`, 8 `448 S`, 9 `456 S`, 10 `464 S`, 11 `472 S`, 12 `480 S`, 13 `440 S W`, 14 `440 S N`, 15 `480 S W`, 16 `464 S K`, 17 `472 S K`, 18 `480 S K`, 19 `200 D`, 20 `240 D` |
+| `B` | 15 kHz | 1 `200 R W`, 2 `208 R W`, 3 `216 R W`, 4 `224 R W`, 5 `232 R W`, 6 `236 R W`, 7 `240 R W`, 8 `244 R W`, 9 `248 R W`, 10 `224 R`, 11 `240 R`, 12 `240 R W N`, 13 `240 T W`, 14 `240 U W` |
 
 ## Timings
 
