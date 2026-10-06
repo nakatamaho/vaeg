@@ -27,7 +27,8 @@ Status: **in progress**
 
 Series: V3 series, first milestone (maintainer decision 2026-10-06: the
 display-timing work takes M104; SGP moves to a later milestone). Branch
-`topic/m104-v3-display-timing` off `main` at
+`topic/m104-undocumented-tsp-display-semigraphics` (renamed from
+`topic/m104-v3-display-timing` on 2026-10-06) off `main` at
 `9ff34397f24af238f239540d96c526b28871debb`. Commit prefix `M104:`.
 
 ## Goal
