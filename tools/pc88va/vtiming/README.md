@@ -143,6 +143,32 @@ measurements.
   visible line is the last bar's colour and length; for example a green bar
   four steps long is line 219.
 
+## TSPMODE: undocumented TSP screen modes
+
+[`tspmode.asm`](tspmode.asm) builds `TSPMODE.COM` (same terms), also put on
+the test disk by `build-vtiming-disk.sh`. The PC-88VA technical manual
+states that the TSP itself has text, sprite, semigraphics, graphics and
+uPD3301-emulation functions but that the VA uses only text, sprites and
+the emulation; it documents attribute `MODE` values 0-5 in bits 4:0 of
+word `0Ah` of each screen-table entry. The uPD72022 data sheet describes
+semigraphics (video memory read as pattern codes selecting pattern data
+with format and colour) and graphics (video memory shown directly as
+colour) static-picture modes, without the selection encoding in the
+material at hand.
+
+```text
+TSPMODE [first]
+```
+
+It writes character codes 00h-FFh as a 16 x 16 block (attribute F0h) into
+the main split, sets that split's `MODE` to `first` (default 0) and steps
+it up to 31 on each key; repeats of a held key are dropped, ESC stops. The
+current value is shown as `MODE nn` at the left of the function-key row.
+The display timing is not changed, and the TVRAM cells and `MODE` words it
+touched are restored on exit. Values 0-5 are the documented attribute
+modes; anything other than characters (patterns, colour fields, dots) at
+6-31 would point at an undocumented static-picture mode.
+
 ## Results
 
 See [M104](../../../docs/agents/tasks/M104_v3_display_timing.md) and
