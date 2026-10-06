@@ -477,6 +477,7 @@ set(VAEG_SGPSPRITE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpdemo.com")
 set(VAEG_SGPWIRE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpwire.com")
 set(VAEG_SGP256_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgp256.com")
 set(VAEG_V480PAT_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/v480pat.com")
+set(VAEG_TSPMODE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/tspmode.com")
 if(VAEG_NASM_EXECUTABLE)
     add_custom_command(
         OUTPUT "${VAEG_HOSTFAT_SYS}"
@@ -544,12 +545,24 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/v480pat.asm"
         VERBATIM)
     add_custom_target(v480pat_com ALL DEPENDS "${VAEG_V480PAT_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_TSPMODE_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_TSPMODE_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/tspmode.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/tspmode.asm"
+        VERBATIM)
+    add_custom_target(tspmode_com ALL DEPENDS "${VAEG_TSPMODE_COM}")
     message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "R2FPROBE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGPDEMO.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGPWIRE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGP256.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "V480PAT.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "TSPMODE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
 else()
     message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
     message(STATUS "R2FPROBE.COM: NASM not found; guest-probe target disabled")
@@ -557,6 +570,7 @@ else()
     message(STATUS "SGPWIRE.COM: NASM not found; guest-demo target disabled")
     message(STATUS "SGP256.COM: NASM not found; guest-demo target disabled")
     message(STATUS "V480PAT.COM: NASM not found; guest-test target disabled")
+    message(STATUS "TSPMODE.COM: NASM not found; guest-test target disabled")
 endif()
 
 if(WIN32)
