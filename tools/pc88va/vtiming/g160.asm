@@ -37,12 +37,14 @@
 ; The SGP is not used: its BitBlt copies blocks and cannot enlarge.
 ; The picture is redrawn completely every frame with a moving colour
 ; offset, as fast as the CPU allows, until a key is pressed; then the
-; number of redraws and the elapsed time are shown in the function-key row
+; number of redraws and the start and end clock values (hexadecimal bytes,
+; hh:mm:ss) are shown in the function-key row
 ; (written to TVRAM) until a second key, and the screen is restored.
 ; PC-Engine's INT 21h provides only file, memory and process functions
 ; (technical manual chapter 7), so the time comes from the calendar clock
 ; BIOS (INT 8Ch function 02h, whole seconds) and the text goes to TVRAM;
-; run for ten seconds or more for a usable rate. Colour formats as modelled in vaeg: 16 bits G6 R5 B5, 8 bits
+; run for ten seconds or more for a usable rate. The values are shown raw
+; because a computed elapsed time was wrong on the PC-88VA2. Colour formats as modelled in vaeg: 16 bits G6 R5 B5, 8 bits
 ; G3 R3 B2, 4 bits palette index.
 		cpu	186
 		org	0100h
@@ -297,52 +299,36 @@ report:		mov	di,outbuf
 		call	pdec
 		mov	si,msg3
 		call	puts
-		mov	al,[t1]			; minutes (t = CL min, CH hour, DL 0, DH s)
-		sub	al,[t0]
-		jns	.m
-		add	al,60
-.m:		xor	ah,ah
-		mov	cx,6000
-		mul	cx			; DX:AX = minutes * 6000
-		push	dx
-		push	ax
-		mov	al,[t1+3]		; seconds
-		xor	ah,ah
-		mov	cx,100
-		mul	cx
-		add	al,[t1+2]		; hundredths
-		adc	ah,0
-		mov	bx,ax
-		mov	al,[t0+3]
-		xor	ah,ah
-		mul	cx
-		add	al,[t0+2]
-		adc	ah,0
-		sub	bx,ax			; may be negative
-		pop	ax
-		pop	dx
-		add	ax,bx
-		adc	dx,0
-		test	bx,8000h
-		jz	.pos
-		dec	dx
-.pos:		mov	cx,100
-		div	cx			; AX = seconds, DX = hundredths
-		push	dx
-		call	pdec
-		mov	al,'.'
+		mov	si,t0			; raw start and end clock values,
+		call	ptime			; as returned by INT 8Ch function 02h
+		mov	al,'-'
 		stosb
-		pop	ax
-		cmp	ax,10
-		jae	.two
-		push	ax
-		mov	al,'0'
-		stosb
-		pop	ax
-.two:		call	pdec
-		mov	si,msg4
-		call	puts
+		mov	si,t1
+		call	ptime
 		mov	[outend],di
+		ret
+; "hh:mm:ss" from a saved CX:DX pair at SI (CH hour, CL minute, DH second),
+; each byte as two hexadecimal digits so that BCD and binary are both visible
+ptime:		mov	al,[si+1]
+		call	phex
+		mov	al,':'
+		stosb
+		mov	al,[si]
+		call	phex
+		mov	al,':'
+		stosb
+		mov	al,[si+3]
+		jmp	phex
+phex:		push	ax
+		shr	al,4
+		call	.n
+		pop	ax
+		and	al,0fh
+.n:		add	al,'0'
+		cmp	al,'9'
+		jbe	.s
+		add	al,7
+.s:		stosb
 		ret
 ; copy the zero-terminated string at SI to DI
 puts:		lodsb
@@ -424,7 +410,6 @@ show:		cli
 msg1		db	'G160 ',0
 msg2		db	'-bit ',0
 msg3		db	' redraws ',0
-msg4		db	' s',0
 		align	2
 desc		dw	16, 320, 200
 bpp		dw	16

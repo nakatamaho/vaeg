@@ -185,8 +185,9 @@ hardware enlarges 2 x 2 and the CPU writes each picture dot as 2 x 2
 pixels, so a dot is 4 x 4 screen dots. The SGP is not used: BitBlt copies
 blocks and has no enlargement. The picture (a moving gradient with a
 32 x 32 block of one-dot checks at the top left) is computed and redrawn
-in full until a key; then `G160 nn-bit N redraws S s` appears in the
-function-key row until a second key. The rate includes computing every
+in full until a key; then `G160 nn-bit N redraws hh:mm:ss-hh:mm:ss`
+(the start and end calendar-clock values, each byte as two hexadecimal
+digits) appears in the function-key row until a second key. The rate includes computing every
 dot's colour, so it is a lower bound for plain copying.
 
 PC-Engine's `INT 21h` provides only file, memory and process functions
@@ -200,7 +201,11 @@ Under vaeg (2026-10-06, emulated time, `--nowait`) 16, 8 and 4 bits gave
 shows the one-dot checks at the top left and a gradient moving slowly
 upwards, as in vaeg: single-plane graphics in 320-dot and 200-line mode
 with RSM = 01 show a 160 x 100 picture with a colour per dot. Rates on the
-hardware are not yet recorded.
+hardware: `G160 8` gave 91 redraws in 59 s (1.5 per second; vaeg 3.4), so
+vaeg runs this loop about 2.2 times faster than the PC-88VA2. A 16-bit run
+gave 189 redraws but an impossible computed time (3494 s), so the program
+now shows the raw clock values instead of a computed time. In vaeg the
+calendar BIOS returns binary, not BCD, values.
 
 ## Results
 
