@@ -709,9 +709,45 @@ TSP text aligned, which avoids the open shift question.
 | 640 x 401-464, 400-line graphics mode | 24.8 kHz | 25/402-464/2/4 | 435-495 | up to 50.2 Hz | untested: the 24.8 kHz runs above 400 rasters used 200-line mode |
 | 640 x 480 (VIEW480) | 24.8 kHz | 25/480/1/1 | 507 | 49.0 Hz | out of range on this monitor; whether graphics past line 400 are shown is not established |
 | 256 (or any width other than 640/320) | any | `HAD` narrowed | - | - | not possible: graphics width is 640 or 320 and is not clipped by `HAD` |
+| 256 x 192 window in 320 x 200 | 15.98 kHz / 24.8 kHz | ROM vectors | 260 / 440 | 61.5 / 56.4 Hz | measured (`G256`, 12.3) |
 
 The 320 x 224 at about 60 Hz row is the closest to common console timing
 that the rules allow with this monitor; 320 x 240 needs a 283-line frame.
+
+### 12.3 256 x 192 window (G256)
+
+`[MEAS]` 2026-10-06, PC-88VA2, same monitor,
+[`G256`](../../tools/pc88va/vtiming/README.md#g256-a-256-x-192-window)
+(built from
+[`a1363f4d`](https://github.com/nakatamaho/vaeg/commit/a1363f4d59df878dfe5f0c1f150f5bb69f2246c4)).
+The program keeps the ROM's 200-line vectors and draws a 256 x 192 window
+at GVRAM x 32-287, y 4-195 in single-plane 320 x 200 graphics, black
+outside; at 24.8 kHz port `0100h` RSM = 01 doubles each line. The line
+frequency of each photograph is identified from the PC-Engine text-row
+pitch (15.98 kHz rows are twice as tall, as in vaeg).
+
+| Run | Clock | Result | Photo |
+|---|---|---|---|
+| `G256` | 15.98 kHz | window shown, one-dot checks resolved, 16 depth dots | [15k 16](m104-photos/va2-g256-15k-16.jpg) |
+| `G256 8` | 15.98 kHz | as above, 8-bit gradient bands, 8 dots | [15k 8](m104-photos/va2-g256-15k-8.jpg) |
+| `G256 4` | 15.98 kHz | as above, 16-colour blocks, 4 dots | [15k 4](m104-photos/va2-g256-15k-4.jpg) |
+| `G256` | 24.8 kHz | as at 15.98 kHz, line-doubled | [24k 16](m104-photos/va2-g256-24k-16.jpg) |
+| `G256 8` | 24.8 kHz | as above | [24k 8](m104-photos/va2-g256-24k-8.jpg) |
+| `G256 4` | 24.8 kHz | as above | [24k 4](m104-photos/va2-g256-24k-4.jpg) |
+
+Findings:
+
+- The top, left and right white borders, the grey 32-dot grid, the
+  one-dot red/white checks and the depth dots on line 1 are visible in all
+  six runs, and the layout and colours match vaeg's screenshots of the same
+  program at each depth.
+- The window's bottom rows (lines about 192-195) lie under PC-Engine's
+  function-key row, which is TSP text drawn over graphics, so the bottom
+  border is hidden by text at both frequencies, as in vaeg. It is not a
+  timing loss.
+- `[DERIVED]` A 256 x 192 picture needs no `SYNC` change on the VA: it is
+  a letterboxed window in the native 320 x 200 mode, with 320-mode dots, at
+  61.5 Hz (15.98 kHz) or 56.4 Hz (24.8 kHz).
 
 ## 13. Change log
 
@@ -719,7 +755,7 @@ that the rules allow with this monitor; 320 x 240 needs a 283-line frame.
 
 - Added the M104 measurements of non-native line counts and line doubling
   (section 12), the second round with the line ruler (12.1), and the
-  feasible-resolution table (12.2).
+  feasible-resolution table (12.2), and the G256 256 x 192 window (12.3).
 
 ### Version 0.2 - 2026-07-16
 
