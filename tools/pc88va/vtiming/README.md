@@ -103,7 +103,7 @@ a key still moves on; the entries are numbered below to keep count.
 
 | List | Monitor switch | Entries, in order |
 |---|---|---|
-| `A` | 24 kHz | 1 `400 S`, 2 `408 S`, 3 `416 S`, 4 `420 S`, 5 `424 S`, 6 `432 S`, 7 `440 S`, 8 `448 S`, 9 `456 S`, 10 `464 S`, 11 `472 S`, 12 `480 S`, 13 `440 S W`, 14 `440 S N`, 15 `480 S W`, 16 `464 S K`, 17 `472 S K`, 18 `480 S K`, 19 `200 D`, 20 `240 D` |
+| `A` | 24 kHz | 1 `400 S`, 2 `408 S`, 3 `416 S`, 4 `420 S`, 5 `424 S`, 6 `432 S`, 7 `440 S`, 8 `448 S`, 9 `456 S`, 10 `464 S`, 11 `472 S`, 12 `476 S`, 13 `480 S`, 14 `440 S W`, 15 `440 S N`, 16 `480 S W`, 17 `464 S K`, 18 `472 S K`, 19 `480 S K`, 20 `200 D`, 21 `240 D`, 22 `232 D K`, 23 `240 D K` |
 | `B` | 15 kHz | 1 `200 R W`, 2 `208 R W`, 3 `216 R W`, 4 `224 R W`, 5 `232 R W`, 6 `236 R W`, 7 `240 R W`, 8 `244 R W`, 9 `248 R W`, 10 `224 R`, 11 `240 R`, 12 `240 R W N`, 13 `240 T W`, 14 `240 U W` |
 
 ## Timings
@@ -119,7 +119,9 @@ measurements.
 | `V480PAT 240 S` | 25 / 240 / 7 / 8 | 280 | 88.7 Hz |
 | `V480PAT 232 D` | 25 / 464 rasters / 2 / 4 | 495 | 50.2 Hz |
 | `V480PAT 472 S` | 25 / 472 / 1 / 1 | 499 | 49.8 Hz |
+| `V480PAT 476 S` | 25 / 476 / 1 / 1 | 503 | 49.4 Hz |
 | `V480PAT 480 S K` | 17 / 480 / 1 / 1 | 499 | 49.8 Hz |
+| `V480PAT 240 D K` | 17 / 480 rasters / 2 / 4 | 503 | 49.4 Hz |
 | `V480PAT 240 D` | 25 / 480 rasters / 2 / 4 | 511 | 48.6 Hz |
 | normal 15 kHz 200-line screen | 37 / 200 / 15 / 8 | 260 | 61.5 Hz |
 | `V480PAT 240 T W` | 32 / 240 / 2 / 4 | 278 | 57.5 Hz |
@@ -187,7 +189,7 @@ modes; anything other than characters (patterns, colour fields, dots) at
 disk.
 
 ```text
-G160 [16|8|4]
+G160 [16|8|4|A]
 ```
 
 Graphics screen 0 becomes single-plane 320 x 200 at 16, 8 or 4 bits per
@@ -219,13 +221,16 @@ gave 189 redraws but an impossible computed time (3494 s), so the program
 now shows the raw clock values instead of a computed time. In vaeg the
 calendar BIOS returns binary, not BCD, values.
 
+`A` runs 16, 8 and 4 bits one after another; each needs the usual two
+keys (stop drawing, then leave the result line).
+
 ## G256: a 256 x 192 window
 
 [`g256.asm`](g256.asm) builds `G256.COM` (same terms), also put on the test
 disk.
 
 ```text
-G256 [16|8|4]
+G256 [16|8|4|A]
 ```
 
 The VA has no 256-dot graphics mode, and the TSP horizontal active period
@@ -238,7 +243,8 @@ each line is one raster (about 61.5 Hz), at 24.8 kHz port `0100h` RSM = 01
 shows it on two rasters (56.4 Hz). The window has a white one-dot border,
 a grey grid every 32 dots, one-dot red/white checks in its top-left
 32 x 32 cell and a gradient; line 1 carries one white dot per bit of depth
-(16, 8 or 4 dots at the top left). Any key restores the screen.
+(16, 8 or 4 dots at the top left). Any key restores the screen. `A` shows
+16, 8 and 4 bits one after another, a key each.
 
 ## Results
 
