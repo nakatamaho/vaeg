@@ -169,6 +169,33 @@ touched are restored on exit. Values 0-5 are the documented attribute
 modes; anything other than characters (patterns, colour fields, dots) at
 6-31 would point at an undocumented static-picture mode.
 
+## G160: 160 x 100 with a colour per dot
+
+[`g160.asm`](g160.asm) builds `G160.COM` (same terms), also put on the test
+disk.
+
+```text
+G160 [16|8|4]
+```
+
+Graphics screen 0 becomes single-plane 320 x 200 at 16, 8 or 4 bits per
+pixel (default 16) in 320-dot and 200-line mode, with port `0100h` RSM = 01
+so that 24.8 kHz shows every line on two rasters (measured in M104). The
+hardware enlarges 2 x 2 and the CPU writes each picture dot as 2 x 2
+pixels, so a dot is 4 x 4 screen dots. The SGP is not used: BitBlt copies
+blocks and has no enlargement. The picture (a moving gradient with a
+32 x 32 block of one-dot checks at the top left) is computed and redrawn
+in full until a key; then `G160 nn-bit N redraws S s` appears in the
+function-key row until a second key. The rate includes computing every
+dot's colour, so it is a lower bound for plain copying.
+
+PC-Engine's `INT 21h` provides only file, memory and process functions
+(technical manual chapter 7): there is no console output or time call. The
+time comes from the calendar clock BIOS (`INT 8Ch` function 02h, whole
+seconds), so run for ten seconds or more; the result is written to TVRAM.
+Under vaeg (2026-10-06, emulated time, `--nowait`) 16, 8 and 4 bits gave
+98 redraws in 34 s, 112 in 33 s and 138 in 33 s.
+
 ## Results
 
 See [M104](../../../docs/agents/tasks/M104_v3_display_timing.md) and
