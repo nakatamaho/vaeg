@@ -207,6 +207,27 @@ gave 189 redraws but an impossible computed time (3494 s), so the program
 now shows the raw clock values instead of a computed time. In vaeg the
 calendar BIOS returns binary, not BCD, values.
 
+## G256: a 256 x 192 window
+
+[`g256.asm`](g256.asm) builds `G256.COM` (same terms), also put on the test
+disk.
+
+```text
+G256 [16|8|4]
+```
+
+The VA has no 256-dot graphics mode, and the TSP horizontal active period
+does not clip graphics, so 256 x 192 is shown as a window in single-plane
+320 x 200 graphics (320-dot and 200-line mode): GVRAM x 32-287, y 4-195,
+black outside, pixels 1:1 with GVRAM at 16, 8 or 4 bits (default 16). 192
+lines fit the native 200-line mode, so no `SYNC` change is made and the
+same program runs with the monitor switch at 15 or 24 kHz: at 15.98 kHz
+each line is one raster (about 61.5 Hz), at 24.8 kHz port `0100h` RSM = 01
+shows it on two rasters (56.4 Hz). The window has a white one-dot border,
+a grey grid every 32 dots, one-dot red/white checks in its top-left
+32 x 32 cell and a gradient; line 1 carries one white dot per bit of depth
+(16, 8 or 4 dots at the top left). Any key restores the screen.
+
 ## Results
 
 See [M104](../../../docs/agents/tasks/M104_v3_display_timing.md) and
