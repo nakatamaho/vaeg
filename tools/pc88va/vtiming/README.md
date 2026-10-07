@@ -200,6 +200,7 @@ the test disk.
 
 ```text
 TSPFILL [mode]
+TSPFILL A
 ```
 
 `MODE` 8-14 (and 24-30) replace the whole main split by a non-character
@@ -227,6 +228,12 @@ widths of `P4`-`P7` give the bytes per dot, per raster and per row. The
 filled range and the `MODE` word are saved in a 64 KiB block (INT 21h
 function 48h) and restored on exit; the timing is not changed. vaeg draws
 these modes as text, so its screen is not a reference.
+
+`A` runs unattended, for filming: `MODE` 8, 12, 14, 10 and 13 in turn,
+each with `P0`-`P7` held for about 3 seconds (170 frames after each fill,
+which itself takes a moment), then it restores TVRAM and exits by itself.
+Any key stops it early. The label may be unreadable in some modes; the
+order is fixed, so the step can be counted from the start of `P0`.
 
 ## G160: 160 x 100 with a colour per dot
 
