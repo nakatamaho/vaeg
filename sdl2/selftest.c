@@ -63,6 +63,7 @@
 #include "memoryva.h"
 #include "gvramva.h"
 #include "makegrphva.h"
+#include "machine/timing.h"
 #include "mousestate.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -5514,6 +5515,33 @@ static int test_tsp_short_sync(void) {
 	return (SUCCESS);
 }
 
+/* M105: the emulation speed scales the guest frames due per host second. */
+static int test_emulation_speed(void) {
+	static const struct {
+		UINT percent;
+		UINT frames; /* a 440-line 24.8 kHz frame is 56.42 Hz */
+	} cases[] = {{100, 56}, {50, 28}, {10, 5}, {400, 225}, {0, 56}, {5, 5}, {1000, 225}};
+	const char *problem = NULL;
+	UINT i;
+
+	for (i = 0; (problem == NULL) && (i < sizeof(cases) / sizeof(cases[0])); i++) {
+		timing_setrate(440, 24826);
+		timing_setspeed(cases[i].percent);
+		timing_reset();
+		timing_addspan(500);
+		if (timing_addspan(500) != cases[i].frames) {
+			problem = "frames due in one second do not follow the speed";
+		}
+	}
+	timing_setspeed(100);
+	timing_reset();
+	if (problem != NULL) {
+		return (fail("emulation speed", problem));
+	}
+	fprintf(stderr, "selftest: emulation speed ok\n");
+	return (SUCCESS);
+}
+
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
@@ -6436,6 +6464,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_short_sync() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_emulation_speed() != SUCCESS) {
 		return (FAILURE);
 	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
