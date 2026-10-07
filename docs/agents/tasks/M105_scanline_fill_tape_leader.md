@@ -66,7 +66,8 @@ scanline gaps and the default keeps them; loading a tape without fast load
 plays low then high before `Found`; with fast load it loads at once. The
 speed slider slows and speeds the guest and its right end runs at full
 speed. With "V1/V2 表示: PC-8801 風" V1/V2 text uses the 8x8 font and
-200-line graphics show scanline gaps at 24 kHz; the default is unchanged.
+200-line graphics show scanline gaps at 24 kHz; the default is unchanged. The CPU
+speed slider slows a program without changing its sound.
 
 ## Implementation progress
 
