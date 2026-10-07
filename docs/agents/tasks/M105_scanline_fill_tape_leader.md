@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M105 - 15 kHz scanline fill and the tape leader sound
 
-Status: **in progress**
+Status: **complete; G105 passed on 2026-10-07**
 
 Series: V3 series (scanline fill) with a V1/V2 cassette follow-up
 (maintainer decision 2026-10-07). Branch
@@ -130,3 +130,13 @@ speed slider slows a program without changing its sound.
   mismatch (maintainer report, 2026-10-07): `CMD SING` is not clean and V1/V2
   game sound is clearly off, also at 100 % speed; the plain `BEEP` seems
   fine. Recorded in the bug-fix ledger's open defects, not investigated.
+
+### G105
+
+- Passed on 2026-10-07 (maintainer), with the Linux build `c21fe71a...799d`
+  and the Windows build `d2e80734...92b6` (SHA-256) from
+  [b8206006](https://github.com/nakatamaho/vaeg/commit/b82060065aa0c53ceb76e58cc26bced3ce22a5a0);
+  decisions C11 and C12 approved.
+- Left open: the port 40h sound defect (bug-fix ledger, open defects;
+  predates M105), the V1/V2 H and S speed measurement (decision C6), and the
+  CPU speed gap found in M104.
