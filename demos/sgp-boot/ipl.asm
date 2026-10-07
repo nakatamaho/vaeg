@@ -23,18 +23,28 @@
 ; IPL.BIN: boot sector of the self-booting SGP demo disk (vaeg M106); see
 ; demos/sgp-boot/README.md. Assemble with NASM:
 ;   nasm -f bin -DLOADER_SECTORS=n -o IPL.BIN ipl.asm
+; (build-boot-d88.py also passes SECTORS, SECTOR_N and DISK_MODE)
 ;
 ; The PC-88VA ROM reads this first sector of drive 1 to 3000:0000 and jumps
 ; there with SS:SP near 3000:FFFE (technical manual 1.4). Like other
 ; self-booting VA software, it loads the rest itself with the ROM floppy
 ; disk BIOS (INT 80h): LOADER_SECTORS sectors from logical sector 1 (track 0
-; sector 2) to LOADER_SEG:0000, then jumps there. Disk: 2DD, 80 cylinders x
-; 2 heads x 9 sectors x 512 bytes; logical sector n is track n / 9 (cylinder
-; x 2 + head), sector n mod 9 + 1.
+; sector 2) to LOADER_SEG:0000, then jumps there. Logical sector n is track
+; n / SECTORS (cylinder x 2 + head), sector n mod SECTORS + 1; by default
+; the disk is 2HD, 77 cylinders x 2 heads x 8 sectors x 1024 bytes.
 		cpu	186
 		org	0
 LOADER_SEG	equ	2000h
-SECTORS		equ	9		; per track
+; Disk geometry from build-boot-d88.py (default: 2HD, 8 x 1024 bytes):
+%ifndef SECTORS
+SECTORS		equ	8		; per track
+%endif
+%ifndef SECTOR_N
+SECTOR_N	equ	3		; sector length 128 << N (3: 1024 bytes)
+%endif
+%ifndef DISK_MODE
+DISK_MODE	equ	23h		; INT 80h 0Ah: 2HD, 1024 bytes (2DD 512: 12h)
+%endif
 RETRIES		equ	4
 
 start:		cli
@@ -42,7 +52,7 @@ start:		cli
 		mov	ds,ax
 		sti
 		cld
-		mov	ax,0a12h		; disk mode of drive 1 (as other VA boot disks)
+		mov	ax,0a00h + DISK_MODE	; disk mode of drive 1
 		xor	cx,cx
 		int	80h
 		mov	ax,LOADER_SEG
@@ -70,7 +80,7 @@ start:		cli
 		mov	ah,01h			; read, with retry
 		xor	bx,bx			; BH/BL: ID cylinder/head if BIOSMODE asks
 		xor	ch,ch			; drive 1
-		mov	dl,02h			; MFM, 512 bytes
+		mov	dl,SECTOR_N		; MFM, sector length
 		int	80h
 		jnc	.ok
 		dec	byte [tries]
@@ -83,7 +93,7 @@ start:		cli
 		xor	bh,bh
 		add	si,bx
 		sub	di,bx
-		shl	bx,9
+		shl	bx,7 + SECTOR_N
 		add	bp,bx
 		jmp	.next
 .done:		jmp	LOADER_SEG:0000h

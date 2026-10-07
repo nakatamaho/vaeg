@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the self-booting SGP demo disk (2DD D88) from source.
+"""Build the self-booting SGP demo disk (2HD D88, or 2DD) from source.
 
 The disk needs no operating system: the PC-88VA ROM loads ipl.asm from the
 first sector, which loads loader.asm, which offers a menu of the SGP demos
@@ -41,10 +41,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-SECTOR = 512
-SECTORS_PER_TRACK = 9
-TRACKS = 160  # 80 cylinders x 2 heads
-LOADER_SECTORS_MAX = 16
+# name: (D88 media byte, tracks, sectors per track, N, INT 80h disk mode)
+FORMATS = {
+    "2hd": (0x20, 154, 8, 3, 0x23),  # 77 cylinders x 2 heads x 8 x 1024 bytes
+    "2dd": (0x10, 160, 9, 2, 0x12),  # 80 cylinders x 2 heads x 9 x 512 bytes
+}
+LOADER_BYTES_MAX = 8192
 COM_MAX = 0xFE00  # the image must fit DEMO_SEG:0100-FEFF below the stack
 
 # (menu label, build step, file produced in the work directory)
@@ -85,8 +87,18 @@ def nasm(env: dict[str, str], args: list[str]) -> None:
     subprocess.run([env.get("NASM", "nasm"), "-f", "bin", *args], check=True)
 
 
-def sectors(size: int) -> int:
-    return (size + SECTOR - 1) // SECTOR
+class Geometry:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.media, self.tracks, self.per_track, self.n, self.mode = FORMATS[name]
+        self.size = 128 << self.n
+
+    def sectors(self, size: int) -> int:
+        return (size + self.size - 1) // self.size
+
+    def defines(self) -> list[str]:
+        return [f"-DSECTORS={self.per_track}", f"-DSECTOR_N={self.n}",
+                f"-DDISK_MODE={self.mode:#x}"]
 
 
 def asm_string(text: str) -> str:
@@ -95,23 +107,23 @@ def asm_string(text: str) -> str:
     return f"'{text}', 0"
 
 
-def write_d88(path: Path, image: bytes, name: str) -> None:
-    """A 2DD D88: 160 tracks of 9 MFM sectors of 512 bytes (N = 2)."""
+def write_d88(path: Path, image: bytes, name: str, geo: Geometry) -> None:
+    """A D88 of geo.tracks tracks of geo.per_track MFM sectors."""
     header_size = 0x2B0
-    track_size = SECTORS_PER_TRACK * (16 + SECTOR)
-    total = header_size + TRACKS * track_size
+    track_size = geo.per_track * (16 + geo.size)
+    total = header_size + geo.tracks * track_size
     out = bytearray(header_size)
     out[0:len(name)] = name.encode("ascii")
-    out[0x1B] = 0x10  # 2DD
+    out[0x1B] = geo.media
     struct.pack_into("<I", out, 0x1C, total)
-    for track in range(TRACKS):
+    for track in range(geo.tracks):
         struct.pack_into("<I", out, 0x20 + track * 4, header_size + track * track_size)
-    for track in range(TRACKS):
-        for record in range(1, SECTORS_PER_TRACK + 1):
-            lba = track * SECTORS_PER_TRACK + record - 1
-            out += struct.pack("<BBBBHBBB5xH", track // 2, track % 2, record, 2,
-                               SECTORS_PER_TRACK, 0, 0, 0, SECTOR)
-            out += image[lba * SECTOR:(lba + 1) * SECTOR]
+    for track in range(geo.tracks):
+        for record in range(1, geo.per_track + 1):
+            lba = track * geo.per_track + record - 1
+            out += struct.pack("<BBBBHBBB5xH", track // 2, track % 2, record, geo.n,
+                               geo.per_track, 0, 0, 0, geo.size)
+            out += image[lba * geo.size:(lba + 1) * geo.size]
     path.write_bytes(bytes(out))
 
 
@@ -119,7 +131,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--output", required=True, type=Path,
                         help="raw D88 to write, outside the repository")
+    parser.add_argument("--format", choices=sorted(FORMATS), default="2hd",
+                        help="disk format (default 2hd)")
     args = parser.parse_args()
+    geo = Geometry(args.format)
 
     here = Path(__file__).resolve().parent
     repo = here.parent.parent
@@ -146,44 +161,47 @@ def main() -> int:
 
         # Layout: IPL at sector 0, the loader from sector 1, then each demo.
         loader_first = 1
-        first = loader_first + LOADER_SECTORS_MAX
+        loader_sectors_max = geo.sectors(LOADER_BYTES_MAX)
+        first = loader_first + loader_sectors_max
         lines = [f"catalog_count\tdw\t{len(payloads)}", "catalog:"]
         for index, (label, data, rel) in enumerate(payloads):
             if len(data) > COM_MAX:
                 print(f"error: {rel} is {len(data)} bytes, over {COM_MAX}", file=sys.stderr)
                 return 1
-            lines.append(f"\t\tdw\t{first}, {sectors(len(data))}, label{index}")
-            first += sectors(len(data))
+            lines.append(f"\t\tdw\t{first}, {geo.sectors(len(data))}, label{index}")
+            first += geo.sectors(len(data))
         lines.append("\t\tdw\t0")
         for index, (label, _, _) in enumerate(payloads):
             lines.append(f"label{index}\t\tdb\t{asm_string(label)}")
         (work / "catalog.inc").write_text("\n".join(lines) + "\n", encoding="ascii")
-        if first > TRACKS * SECTORS_PER_TRACK:
-            print("error: the demos do not fit a 2DD disk", file=sys.stderr)
+        if first > geo.tracks * geo.per_track:
+            print(f"error: the demos do not fit a {geo.name.upper()} disk", file=sys.stderr)
             return 1
 
-        nasm(env, ["-I", f"{work}/", "-o", str(work / "LOADER.BIN"), str(here / "loader.asm")])
+        nasm(env, [*geo.defines(), "-I", f"{work}/", "-o", str(work / "LOADER.BIN"),
+                   str(here / "loader.asm")])
         loader = (work / "LOADER.BIN").read_bytes()
-        if sectors(len(loader)) > LOADER_SECTORS_MAX:
+        if len(loader) > LOADER_BYTES_MAX:
             print("error: the loader is too large", file=sys.stderr)
             return 1
-        nasm(env, [f"-DLOADER_SECTORS={sectors(len(loader))}", "-o", str(work / "IPL.BIN"),
-                   str(here / "ipl.asm")])
+        nasm(env, [*geo.defines(), f"-DLOADER_SECTORS={geo.sectors(len(loader))}",
+                   "-o", str(work / "IPL.BIN"), str(here / "ipl.asm")])
         ipl = (work / "IPL.BIN").read_bytes()
-        if len(ipl) != SECTOR:
-            print("error: the IPL is not one sector", file=sys.stderr)
+        if len(ipl) > geo.size:
+            print("error: the IPL is larger than one sector", file=sys.stderr)
             return 1
 
-        image = bytearray(TRACKS * SECTORS_PER_TRACK * SECTOR)
-        image[0:SECTOR] = ipl
-        image[loader_first * SECTOR:loader_first * SECTOR + len(loader)] = loader
-        lba = loader_first + LOADER_SECTORS_MAX
+        size = geo.size
+        image = bytearray(geo.tracks * geo.per_track * size)
+        image[0:len(ipl)] = ipl
+        image[loader_first * size:loader_first * size + len(loader)] = loader
+        lba = loader_first + loader_sectors_max
         for _, data, _ in payloads:
-            image[lba * SECTOR:lba * SECTOR + len(data)] = data
-            lba += sectors(len(data))
-        write_d88(output, bytes(image), "SGPBOOT")
+            image[lba * size:lba * size + len(data)] = data
+            lba += geo.sectors(len(data))
+        write_d88(output, bytes(image), "SGPBOOT", geo)
 
-    print(f"Created self-booting SGP demo disk (2DD): {output}")
+    print(f"Created self-booting SGP demo disk ({geo.name.upper()}): {output}")
     for index, (label, data, rel) in enumerate(payloads):
         print(f"  {chr(ord('A') + index)}  {rel:20s} {len(data):6d} bytes  {label}")
     print(f"  loader {len(loader)} bytes; the disk must stay outside the repository")

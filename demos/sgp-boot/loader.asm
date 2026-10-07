@@ -36,7 +36,16 @@
 		org	0
 LOADER_SEG	equ	2000h
 DEMO_SEG	equ	4000h
-SECTORS		equ	9		; per track
+; Disk geometry from build-boot-d88.py (default: 2HD, 8 x 1024 bytes):
+%ifndef SECTORS
+SECTORS		equ	8		; per track
+%endif
+%ifndef SECTOR_N
+SECTOR_N	equ	3		; sector length 128 << N (3: 1024 bytes)
+%endif
+%ifndef DISK_MODE
+DISK_MODE	equ	23h		; INT 80h 0Ah: 2HD, 1024 bytes (2DD 512: 12h)
+%endif
 RETRIES		equ	4
 
 start:		cli
@@ -142,7 +151,7 @@ load:		mov	ax,DEMO_SEG		; PSP: INT 20h at 0, empty command tail
 		mov	ah,01h			; read, with retry
 		xor	bx,bx			; BH/BL: ID cylinder/head if BIOSMODE asks
 		xor	ch,ch			; drive 1
-		mov	dl,02h			; MFM, 512 bytes
+		mov	dl,SECTOR_N		; MFM, sector length
 		int	80h
 		jnc	.ok
 		dec	byte [cs:tries]
@@ -155,7 +164,7 @@ load:		mov	ax,DEMO_SEG		; PSP: INT 20h at 0, empty command tail
 		xor	bh,bh
 		add	si,bx
 		sub	di,bx
-		shl	bx,9
+		shl	bx,7 + SECTOR_N
 		add	bp,bx
 		jmp	.next
 .done:		clc
