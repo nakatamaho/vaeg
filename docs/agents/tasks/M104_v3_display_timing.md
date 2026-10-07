@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M104 - V3 display timing: non-native line counts and line doubling
 
-Status: **in progress**
+Status: **complete; G104 passed on 2026-10-07**
 
 Series: V3 series, first milestone (maintainer decision 2026-10-06: the
 display-timing work takes M104; SGP moves to a later milestone). Branch
@@ -123,3 +123,13 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   [631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077),
   [ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d),
   [2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99).
+
+### G104
+
+- Passed on 2026-10-07 (maintainer), with the Linux build
+  `5dbce92a...7c66` and the Windows build `d8dd4d09...1ccf` (SHA-256) from
+  [03e88ae9](https://github.com/nakatamaho/vaeg/commit/03e88ae93d69b560d58591a45ee4e64da83df716).
+- Left open: the CPU speed gap (bug-fix ledger, open defects), the
+  hypothesis that the undocumented TSP modes show ROM data, the frame
+  buffer wrap below the last line with a top over 37, and the 15.73 kHz
+  family.

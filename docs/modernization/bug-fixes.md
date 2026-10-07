@@ -2611,6 +2611,18 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M104 — V3 programs run about 2.2 times faster than on the PC-88VA2
+
+- **Symptom/scope:** the M104 test program G160 redraws its picture 3.0,
+  3.4 and 4.25 times per second at 16, 8 and 4 bits in vaeg against 1.4,
+  1.6 and 1.9 on a PC-88VA2, at 15.98 and 24.8 kHz alike
+  (`pc88va-video-modes.md` section 12.4). V3 mode; other code not measured.
+- **Status:** not investigated; no root cause is claimed. The CPU clock
+  (7.9872 MHz) matches the board; the ratio being the same at every depth,
+  with very different GVRAM write counts, points away from GVRAM waits
+  alone. Next step: a hardware benchmark per instruction class (register,
+  MUL/DIV, main RAM, TVRAM, GVRAM) compared with vaeg, in a later milestone.
+
 ### M103g — V1/V2 voice pitch observation without a demonstrated cause
 
 - **Symptom/scope:** in V1/V2 mode, a PC-8801 game's spoken title voice
