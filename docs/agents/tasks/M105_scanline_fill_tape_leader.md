@@ -47,12 +47,17 @@ speed gap found in M104 moves to M106.
    maintainer remembers a PC-8801 ("low, then high, then Found"). With
    fast load (`CMT_Fast`) there is no leader sound and no delay. Saving is
    unchanged. `[POLICY]` (maintainer memory; no document at hand).
+3. **Emulation speed** (maintainer request, 2026-10-07): a slider in the
+   Emulate menu from 10 % to 400 % of real time with No Wait (full speed)
+   at its right end; No Wait leaves the Screen menu.
 
 ## Gate G105 (human)
 
 Standard V3 gate unchanged, plus: at 15 kHz the new setting fills the
 scanline gaps and the default keeps them; loading a tape without fast load
-plays low then high before `Found`; with fast load it loads at once.
+plays low then high before `Found`; with fast load it loads at once. The
+speed slider slows and speeds the guest and its right end runs at full
+speed.
 
 ## Implementation progress
 
@@ -78,3 +83,10 @@ plays low then high before `Found`; with fast load it loads at once.
   320 x 197 doubled; 59.9 Hz for 224 lines at 15 kHz.
 - `VS` below 4 is now counted as written in the frame length (ledger):
   [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).
+- Emulation speed: `timing_setspeed` scales the frames due per host
+  millisecond (romless test: 10, 50, 100, 400 % and clamping; fails with the
+  speed ignored); the Emulate menu slider sets it and No Wait at its right
+  end. A release build ran the VA2 ROM screen at 28.20, 56.41, 112.81 fps
+  at 50, 100, 200 % and 572 fps with No Wait.
+  [087c0b07](https://github.com/nakatamaho/vaeg/commit/087c0b0715a01b87a84d76b98eecb5718a8f9892),
+  [cc7c95ac](https://github.com/nakatamaho/vaeg/commit/cc7c95ac5a23d6564107e88917250689faa496c2).

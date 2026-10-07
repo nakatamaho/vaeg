@@ -726,8 +726,11 @@ sgp_mult=1
 ```
 
 CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
-FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
-host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
+FDD timing, RTC, or normal one-to-one host pacing. The `Emulate` menu's speed
+slider paces guest frames at 10-400 % of real time in 10 % steps
+(`s_speed`); its right end is No Wait (`s_NOWAIT`), which removes host
+waiting. Sound follows the guest, so it breaks up below 100 %.
+`Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
 draw skip 16; releasing it, losing focus, resetting, loading a state, or
