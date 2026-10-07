@@ -5475,6 +5475,45 @@ static int test_tsp_sync_display(void) {
 	return (SUCCESS);
 }
 
+/* M105: the frame length counts a sync field under 4 lines as written. */
+static int test_tsp_short_sync(void) {
+	/* V480PAT 480 S K: top 17, 480 lines, bottom 1, sync 1 (499 lines) */
+	static const UINT8 sync1[14] = {0xc1, 0x57, 0x10, 0x00, 0x9f, 0x00, 0x10,
+	                                0x0f, 0x11, 0x00, 0xe0, 0x41, 0x01, 0x01};
+	UINT8 saved[14];
+	UINT32 frame1;
+	UINT32 frame4;
+	const char *problem = NULL;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	memcpy(saved, tsp.syncparam, sizeof(saved));
+	videova.crtmode = 1;
+	videova.grmode = 0;
+	memcpy(tsp.syncparam, sync1, sizeof(sync1));
+	tsp_updateclock();
+	frame1 = tsp.dispclock + tsp.vsyncclock;
+	tsp.syncparam[13] = 0x04; /* the same frame with a 4-line sync: 502 lines */
+	tsp_updateclock();
+	frame4 = tsp.dispclock + tsp.vsyncclock;
+	/* 499 / 502 within 0.1% */
+	if ((frame1 >= frame4) || ((UINT64)frame1 * 502 * 1000 < (UINT64)frame4 * 499 * 999) ||
+	    ((UINT64)frame1 * 502 * 1000 > (UINT64)frame4 * 499 * 1001)) {
+		problem = "a 1-line sync was counted as 4 lines";
+	}
+	memcpy(tsp.syncparam, saved, sizeof(saved));
+	tsp_updateclock();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP short sync", problem));
+	}
+	fprintf(stderr, "selftest: TSP short sync ok\n");
+	return (SUCCESS);
+}
+
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
@@ -6394,6 +6433,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_sync_display() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_short_sync() != SUCCESS) {
 		return (FAILURE);
 	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||

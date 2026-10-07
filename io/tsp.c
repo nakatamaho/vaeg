@@ -700,8 +700,11 @@ void tsp_updateclock(void) {
 		break;
 	}
 
-	if (vs < 4)
-		vs = 4;
+	// The data sheet asks for VS >= 4, but a PC-88VA2 monitor reads frames
+	// with VS = 1 at the rate of a 1-line sync (M104: 480 lines, top 17,
+	// bottom 1, sync 1 read as 49.7 Hz), so only an empty field is raised.
+	if (vs < 1)
+		vs = 1;
 	if (vad < 4)
 		vad = 4;
 	had |= 1;
