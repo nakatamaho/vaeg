@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M104 - V3 display timing: non-native line counts and line doubling
 
-Status: **complete; G104 passed on 2026-10-07**
+Status: **complete; G104 passed on 2026-10-07; merged to `main` at [2bec316](https://github.com/nakatamaho/vaeg/commit/2bec31628adb1b9cfcfd0b9bce623a5f2fb6fc00)**
 
 Series: V3 series, first milestone (maintainer decision 2026-10-06: the
 display-timing work takes M104; SGP moves to a later milestone). Branch
