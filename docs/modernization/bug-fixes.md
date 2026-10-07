@@ -2633,7 +2633,9 @@ separate parity correction or move it to Open Defects.
 
 - **Symptom/scope:** the BEEP (port 40h buzzer) sounds odd, as if its
   timing were off (maintainer report during G105 checks, 2026-10-07).
-  Conditions (speed and CPU speed settings, V1/V2 or V3) not yet narrowed.
+  It happens with the speed and the CPU speed both at 100 % (maintainer,
+  2026-10-07), so it is not only the speed-slider effect below. Mode (V1/V2
+  or V3) and whether earlier builds were affected not yet narrowed.
   Known separately: with the speed slider away from 100 % the BEEP is
   garbled because it is built from CPU-clock on/off events while the host
   consumes samples in real time (`sdl2/README.md`).
