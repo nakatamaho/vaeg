@@ -69,3 +69,8 @@ plays low then high before `Found`; with fast load it loads at once.
   `LOAD "CAS:"` without fast load prints `Found` 110 frames (1.95 s at
   56.4 Hz) later than without the leader.
   [ef85911c](https://github.com/nakatamaho/vaeg/commit/ef85911cabc4e92a6bb39eb35403b90abc02af41).
+- V480PAT `F` (640 dots), `G` (320 dots doubled, 24.8 kHz) and `J` (320
+  dots, 15 kHz) sweep frames near 60 Hz, with `Q` (bottom 1, sync 1) and `P`
+  (bottom 2, sync 4); hardware results pending.
+- `VS` below 4 is now counted as written in the frame length (ledger):
+  [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).

@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M105 — TSP frames with a sync shorter than 4 lines ran slow
+
+- **Symptom/scope:** frames that set the vertical sync field `VS` below 4
+  lines (VIEW480, V480PAT `S` above 400 lines and the `Q` option) ran at a
+  lower field rate in vaeg than on a PC-88VA2: `480 S K` (499 lines) ran
+  as 502 lines, 49.45 Hz, where the PC-88VA2's monitor read 49.7 Hz. V3
+  mode, any program that writes such a SYNC.
+- **Demonstrated cause:** `tsp_updateclock` raised `VS` to 4 (the
+  uPD72022 data-book minimum) when it computed the frame length; the
+  hardware read-outs (`pc88va-video-modes.md` section 12.4: 49.7 Hz for
+  499 lines, 53.3 Hz for 467) match the written value.
+- **Correction:** only an empty `VS` field is raised (to 1).
+- **Verification:** romless test (a 1-line sync gives a frame 499/502 of a
+  4-line one; fails with the old minimum).
+- **Task/evidence/commit:** [M105 task](../agents/tasks/M105_scanline_fill_tape_leader.md),
+  [measurements](pc88va-video-modes.md#124-third-round-sweeps-monitor-read-out-and-g160-rates).
+  Fix: [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).
+
 ### M104 — TSP text stayed visible after a SYNC without DSPON
 
 - **Symptom/scope:** after a program reprogrammed the TSP timing with SYNC
