@@ -117,6 +117,11 @@ BYTE *cgromva_font(UINT16 hccode) {
  *   bit 7 is zero.
  *   bits 6-0 contain the first JIS byte minus 20H.
  */
+/* The 8x8 ANK glyph of code (8 bytes from 41000H), whatever ANKM selects. */
+BYTE *cgromva_ank8(BYTE code) {
+	return fontmem + 0x41000 + ((UINT)code << 3);
+}
+
 int cgromva_width(UINT16 hccode) {
 	return (hccode & 0x7f00) == 0 ? 1 : 2;
 }

@@ -437,13 +437,16 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			if ((d & EMU3301_SECRET) || ((d & EMU3301_BLINK) && ((tsp.blinkcnt2 & 0x18) == 0x08))) {
 				glyphfg = bg;
 			}
-			font = cgromva_font(code);
-			fonth = (videova.txtmode & 0x04) ? 8 : 16;
+			const BOOL ank8 = videova_8801_display();
+			font = ank8 ? cgromva_ank8(code) : cgromva_font(code);
+			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
 				const BOOL line = ((d & EMU3301_UPPER) && (r == 0)) ||
 				                  ((d & EMU3301_UNDER) && (r == work.lineheight - 1));
-				BYTE fontdata = (r < fonth) ? font[r * cgromva_width(code)] : 0;
+				/* PC-8801 style: each 8x8 row on two rasters. */
+				const UINT fontrow = ank8 ? (r >> 1) : r;
+				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
 					/* 2x4 blocks: bits 0-3 left column, 4-7 right, top first. */
 					const UINT block = (r < fonth) ? (r * 4) / fonth : 4;

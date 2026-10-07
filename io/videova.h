@@ -85,6 +85,7 @@ typedef struct videova_graphics_window {
 void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam,
                              VIDEOVA_GRAPHICS_WINDOW *window);
 int videova_palettemode(void);
+BOOL videova_8801_display(void);
 BOOL videova_textmerge(void);
 
 #ifdef __cplusplus

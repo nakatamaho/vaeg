@@ -5085,6 +5085,124 @@ static int test_scanline_fill(void) {
 	return (SUCCESS);
 }
 
+/* M105: the PC-8801-style V1/V2 display at 24.8 kHz: 8x8 text with each row
+ * on two rasters, and 200-line graphics with the odd rasters blank. */
+static int test_8801_display(void) {
+	const UINT8 saved_flag = np2cfg.v1v2_8801_display;
+	const UINT8 saved_mode = memoryva_88_mode;
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	BYTE saved16[16];
+	BYTE saved8[8];
+	const char *problem = NULL;
+	BOOL scrn200;
+	UINT r;
+	UINT x;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	CopyMemory(saved16, fontmem + 0x40000 + 'A' * 16, sizeof(saved16));
+	CopyMemory(saved8, fontmem + 0x41000 + 'A' * 8, sizeof(saved8));
+	/* 'A': the 16-dot glyph has only row 1 set, the 8-dot glyph only row 1. */
+	ZeroMemory(fontmem + 0x40000 + 'A' * 16, 16);
+	ZeroMemory(fontmem + 0x41000 + 'A' * 8, 8);
+	fontmem[0x40000 + 'A' * 16 + 1] = 0x80;
+	fontmem[0x41000 + 'A' * 8 + 1] = 0x80;
+	memoryva_88_mode = 1;
+	videova.crtmode = 1; /* 24.8 kHz */
+	/* One emulated row with 'A' in column 0 (white). */
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002);
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	textmem[0x63c8] = 'A';
+	for (x = 0; x < 20; x++) {
+		textmem[0x63c8 + 80 + x * 2] = 80;
+	}
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.emul = 1;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode = 0;
+	videova.txtmode8 = 0x01;
+	for (x = 0; (problem == NULL) && (x < 2); x++) {
+		UINT lit = 0;
+
+		np2cfg.v1v2_8801_display = (UINT8)x;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		for (r = 0; r < 16; r++) {
+			maketextva_raster();
+			if (textraster[0] != 0) { /* column 0 (the two lead cells are hidden) */
+				lit |= 1u << r;
+			}
+		}
+		/* VA standard: 16-dot row 1 only; PC-8801 style: 8-dot row 1 on rasters 2-3. */
+		if (lit != (x ? 0x000cu : 0x0002u)) {
+			problem = x ? "8x8 text rows were not doubled" : "VA standard text changed";
+		}
+	}
+	tsp.emul = 0;
+	/* Graphics: 200-line, RSM = 01; odd rasters doubled, or blank (8801). */
+	ZeroMemory(f, sizeof(*f));
+	f->fbw = 320;
+	f->fbl = 0xffff;
+	f->dsh = 200;
+	for (x = 0; x < 320; x++) {
+		grphmem[x] = 0x11;
+	}
+	videova.palette[1] = 0x7fff;
+	videova.colcomp = 0x0008 | VIDEOVA_GRAPHICSCREEN0;
+	videova.xpar_g0 = 0;
+	videova.mskmode = 0;
+	videova.grmode = 0xb442;
+	videova.grres = 0x0001;
+	tsp.screenlines = 400; /* a 24.8 kHz 400-raster frame */
+	for (x = 0; (problem == NULL) && (x < 2); x++) {
+		np2cfg.v1v2_8801_display = (UINT8)x;
+		ZeroMemory(vabitmap, SURFACE_WIDTH * 2 * sizeof(vabitmap[0]));
+		pccore_redraw();
+		pccore_redraw();
+		if ((vabitmap[0] == 0) || ((vabitmap[SURFACE_WIDTH] == 0) != (x != 0))) {
+			problem = x ? "200-line graphics kept the odd raster" : "VA standard doubling changed";
+		}
+	}
+	/* Not at 15 kHz, and not in V3 mode. */
+	np2cfg.v1v2_8801_display = 1;
+	videova.crtmode = 0;
+	if ((problem == NULL) && videova_8801_display()) {
+		problem = "the PC-8801 style applied at 15 kHz";
+	}
+	videova.crtmode = 1;
+	memoryva_88_mode = 0;
+	if ((problem == NULL) && videova_8801_display()) {
+		problem = "the PC-8801 style applied in V3 mode";
+	}
+	np2cfg.v1v2_8801_display = saved_flag;
+	memoryva_88_mode = saved_mode;
+	CopyMemory(fontmem + 0x40000 + 'A' * 16, saved16, sizeof(saved16));
+	CopyMemory(fontmem + 0x41000 + 'A' * 8, saved8, sizeof(saved8));
+	ZeroMemory(grphmem, 320);
+	ZeroMemory(f, sizeof(*f));
+	videova.grmode = 0;
+	videova.grres = 0;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("PC-8801 display", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 display ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
@@ -6500,6 +6618,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_scanline_fill() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_8801_display() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {

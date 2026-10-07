@@ -545,8 +545,14 @@ static void drawscreenva(void) {
 			break;
 		}
 	} else {
-		// 24.8 kHz output.
-		switch (videova.grmode & 0x00c0) {
+		// 24.8 kHz output. The PC-8801-style V1/V2 display shows 200-line
+		// graphics as non-interlaced mode 0 (odd rasters blank).
+		WORD rsm = videova.grmode & 0x00c0;
+
+		if (videova_8801_display() && (rsm == 0x40)) {
+			rsm = 0x00;
+		}
+		switch (rsm) {
 		case 0x00: // Non-interlaced mode 0.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
 				// Even output raster.

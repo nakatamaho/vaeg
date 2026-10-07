@@ -2653,6 +2653,19 @@ static void draw_emulate_menu(void) {
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
 			}
+			ImGui::Separator();
+			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
+			// (8x8 text doubled, 200-line graphics with scanline gaps).
+			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Z80モード")) {
