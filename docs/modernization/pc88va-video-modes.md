@@ -706,7 +706,7 @@ TSP text aligned, which avoids the open shift question.
 | 640/320 x 235 | 15.98 kHz | 32/240/2/4 | 278 | 57.5 Hz | measured (`240 T W`, `240 T`) |
 | 640/320 x 236 | 15.98 kHz | 37/236/2/4 | 279 | 57.3 Hz | measured (`236 R W`) |
 | 640/320 x 240 | 15.98 kHz | 37/240/2/4 | 283 | 56.5 Hz | measured (`240 R W`, `240 R`, `240 R W N`; all 240 lines) |
-| 640/320 x 241-248 | 15.98 kHz | 37/244-248/2/4 | 287-291 | 55.7-54.9 Hz | frame accepted, but only lines 0-239 visible (`244 R W`, `248 R W`); whether the VA or the monitor stops at 240 is not established |
+| 640/320 x 241-248 | 15.98 kHz | 37/244-248/2/4 | 287-291 | 55.7-54.9 Hz (monitor: 55.7, 55.0) | frame accepted; this monitor showed it as 240 lines (1740 x 240), so lines 240-247 were not visible |
 | 640/320 x 201-240, line-doubled | 24.8 kHz | 25/402-480/2/4 | 443-511 | 56.0-48.6 Hz | not possible: graphics stop advancing after line 200 (again with top 17: `232 D K`, `240 D K`) |
 | 640 x 401-476, 400-line graphics mode | 24.8 kHz | 25/401-476/1/1 | 428-503 | 58.0-49.4 Hz | measured (`432 S`-`476 S`): graphics lines past 400 are shown; at 408-424 lines this monitor treated the input as 640 x 400 and showed only lines 0-399 |
 | 640 x 480, 400-line graphics mode | 24.8 kHz | 17/480/1/1 | 499 | 49.7 Hz (monitor: 49.7) | measured (`480 S K`): all 480 lines |
@@ -778,7 +778,7 @@ VA's. "Last line" is read from the ruler.
 | `240 D` | 25/480/2/4 (511, 48.6 Hz) | unsupported signal | - | - |
 | `232 D K`, `240 D K` | 17/2N/2/4 (487, 503) | `240 D K`: 640x480, 24.8 kHz, 49.3 Hz | 200, then line 200 repeated | [232 D K](m104-photos/va2-232-d-k.jpg), [240 D K](m104-photos/va2-240-d-k-osd.jpg) |
 | `200 R W`-`240 R W` (8 runs) | 37/N/2/4 (243-283) | - | N - 1 in every run | [240 R W](m104-photos/va2-240-r-w.jpg) |
-| `244 R W`, `248 R W` | 37/N/2/4 (287, 291) | - | 239 | [248 R W](m104-photos/va2-248-r-w.jpg) |
+| `244 R W`, `248 R W` | 37/N/2/4 (287, 291) | 1740x240, 16.0 kHz, 55.7 Hz and 55.0 Hz | 239 (the monitor's 240-line window) | [248 R W](m104-photos/va2-248-r-w.jpg), read-out [244](m104-photos/va2-244-r-w-osd.jpg), [248](m104-photos/va2-248-r-w-osd.jpg) |
 | `224 R`, `240 R` (640 dots) | 37/N/2/4 | - | 223, 239 | [240 R](m104-photos/va2-240-r.jpg) |
 | `240 R W N` | 37/240/2/4, `HAD` 127 | - | 239, both window marks inside the picture | [240 R W N](m104-photos/va2-240-r-w-n.jpg) |
 | `240 T W`, `240 U W` | 32 and 16 top | - | about 234 and 218, as in 12.1 | - |
@@ -793,8 +793,10 @@ Findings:
 - **15.98 kHz with the ROM's top blanking (37).** Every run from 200 to 240
   lines shows all lines, at 320 and 640 dots, which confirms the rule
   `TBL + VAD - 37` at `TBL = 37`. Above 240 (`244 R W`, `248 R W`) the
-  frame is accepted but nothing past line 239 is visible; this round does
-  not separate a VA limit from the monitor's picture window.
+  frame is accepted but nothing past line 239 is visible; the monitor
+  reported these inputs as 240-line pictures (1740 x 240), so the cut is
+  its picture window, as with `408 S`-`424 S` at 24.8 kHz. Whether the VA
+  outputs lines 240-247 needs a monitor that shows the whole frame.
 - **24.8 kHz line doubling** stops after line 200 also with top blanking
   17 (`232 D K`, `240 D K`), as in 12.1.
 - **Monitor limits** (this monitor only): 24.8 kHz frames of 503 lines
@@ -805,9 +807,14 @@ Findings:
 
 | Depth | 24.8 kHz | 15.98 kHz |
 |---|---|---|
-| 16 bits | 39 in 27 s (1.4/s) [photo](m104-photos/va2-g160-24k-16.jpg) | 104 in 68-83 s (end seconds hidden; 1.3-1.5/s) [photo](m104-photos/va2-g160-15k-16.jpg) |
-| 8 bits | 40 in 25 s (1.6/s) [photo](m104-photos/va2-g160-24k-8.jpg) | 40 in 26 s (1.5/s) [photo](m104-photos/va2-g160-15k-8.jpg) |
-| 4 bits | 246 in 127 s (1.9/s) [photo](m104-photos/va2-g160-24k-4.jpg) | 81 (end time hidden) [photo](m104-photos/va2-g160-15k-4.jpg) |
+| 16 bits | 39 in 27 s (1.4/s) [photo](m104-photos/va2-g160-24k-16.jpg) | 42 in 29 s (1.4/s) [photo](m104-photos/va2-g160-15k-16-r2.jpg) |
+| 8 bits | 40 in 25 s (1.6/s) [photo](m104-photos/va2-g160-24k-8.jpg) | 41 in 26 s (1.6/s) [photo](m104-photos/va2-g160-15k-8-r2.jpg) |
+| 4 bits | 246 in 127 s (1.9/s) [photo](m104-photos/va2-g160-24k-4.jpg) | 68 in 35 s (1.9/s) [photo](m104-photos/va2-g160-15k-4-r2.jpg) |
+
+  The 15.98 kHz column is a repeat run (2026-10-07, later the same
+  morning); the first 15.98 kHz run (104 redraws in 68-83 s, 40 in 26 s, 81)
+  had the end times partly hidden ([16](m104-photos/va2-g160-15k-16.jpg),
+  [8](m104-photos/va2-g160-15k-8.jpg), [4](m104-photos/va2-g160-15k-4.jpg)).
 
   vaeg ran the same program at 3.0, 3.4 and 4.25 redraws per second (16, 8
   and 4 bits), about 2.1-2.2 times the PC-88VA2 at every depth. The rate
