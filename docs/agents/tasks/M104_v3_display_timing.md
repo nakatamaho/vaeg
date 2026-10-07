@@ -101,6 +101,8 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   `TSPFILL A` (filmed) shows the modes are deterministic and data
   dependent, not a TSP crash, but give no usable picture format; the
   investigation stops there (`upd72022-tsp.md` section 20.4).
+- SYNC now stops the TSP text until DSPON, as the data sheet states and the
+  PC-88VA2 photographs show ([bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a)).
 - `[MEAS]` G256 on the PC-88VA2: a 256 x 192 window in native 320 x 200
   graphics is shown at 15.98 and 24.8 kHz and at 16, 8 and 4 bits, matching
   vaeg; recorded in

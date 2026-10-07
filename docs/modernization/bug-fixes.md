@@ -35,6 +35,27 @@ land.
 
 ## Maintenance Rules
 
+### M104 — TSP text stayed visible after a SYNC without DSPON
+
+- **Symptom/scope:** after a program reprogrammed the TSP timing with SYNC
+  and did not send DSPON (V480PAT's `S`, `T`, `U`, `R`, `D` runs; VIEW480
+  uses the same sequence), vaeg kept drawing PC-Engine's text over the
+  pattern, while the PC-88VA2 showed graphics only (M104 photographs, for
+  example `va2-240-r-w.jpg`). V3 mode, any program that issues SYNC.
+- **Demonstrated cause:** `[uPD72022]` "The SYNC command terminates display
+  controller operation"; DSPON starts it again. vaeg's `exec_sync` left
+  `tsp.dspon` set.
+- **Correction:** SYNC clears `tsp.dspon`; sprites stay as they are (the
+  data sheet stops the sprite controller only with DSPOFF).
+- **Verification:** romless test (SYNC stops the text, DSPON restarts it,
+  sprites untouched; fails without the fix); headless boots of the VA and
+  VA2 ROM screens, PC-Engine at 24.8 and 15.98 kHz, V2 N88-BASIC and N mode
+  still show their text; G256 keeps the text and V480PAT runs hide it, as
+  on the PC-88VA2.
+- **Task/evidence/commit:** [M104 task](../agents/tasks/M104_v3_display_timing.md),
+  [measurements](pc88va-video-modes.md#12-measured-non-native-timings).
+  Fix: [bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a).
+
 ### M104 — frames taller than 400 rasters and non-native graphics windows
 
 - **Symptom/scope:** V3 programs that reprogram the TSP frame (VIEW480,

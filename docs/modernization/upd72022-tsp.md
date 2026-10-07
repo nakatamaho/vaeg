@@ -1478,7 +1478,12 @@ these `MODE` values put the TSP into its semigraphics or graphics fetch
 (signalled on its DM pins), for which the VA board has no circuit, so the
 fetched data reach the text path unchanged; the per-raster address does
 not appear to advance (`P4` stripes are the same on every raster). M104
-stops here: the modes give no usable picture format.
+stops here: the modes give no usable picture format. A maintainer
+hypothesis to test later: in these modes the board may present font or
+other ROM data, not TVRAM, on the TSP's data path, which would explain the
+pattern that remains with an all-zero fill; it can be checked by rendering
+the font ROM as 4-bit dots in vaeg and comparing with the stills (the ROM
+contents themselves stay private).
 
 `[MEAS]` M104 measured TSP frames outside the documented vectors on real
 hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)

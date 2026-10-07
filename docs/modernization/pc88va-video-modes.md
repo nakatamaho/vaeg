@@ -839,6 +839,8 @@ vaeg implements the measured rules (M104,
   by 12.6: a longer top hides the top of the picture.
 - 24.8 kHz, 200-line graphics with RSM = 00: lines 0-200 are shown, the
   rest is blank (12.6) ([2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
+- The TSP text stops at SYNC until DSPON, which is why the V480PAT
+  photographs show no PC-Engine text ([bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a)).
 - Not modelled: the frame buffer's first lines that the PC-88VA2 shows
   below the last line when the top is over 37 and `VAD` is 224 or more
   (12.6; this may mean `DSH` does not end the picture), the 15.73 kHz family
