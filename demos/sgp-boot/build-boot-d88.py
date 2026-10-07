@@ -7,6 +7,10 @@ and runs each .COM image with a minimal INT 21h of its own.  Every byte is
 assembled here from the repository's sources.  The output is a local
 validation artifact: it is written outside the repository and must not be
 committed (AGENTS.md).
+
+With --pcengine-source, the same demos are instead installed on a copy of
+the user's own PC-Engine system disk (an ordinary PC-Engine bootable disk);
+that disk is private media and its output is likewise never committed.
 """
 
 # Copyright (c) 2026 Nakata Maho
@@ -127,12 +131,46 @@ def write_d88(path: Path, image: bytes, name: str, geo: Geometry) -> None:
     path.write_bytes(bytes(out))
 
 
+# PC-Engine disk directories (8.3 names); sprites and wireframes share them,
+# as in the existing distribution disks.
+PCENGINE_DIRS = {"16": "16", "256": "256", "65536": "65536",
+                 "w16": "16", "w256": "256", "w65536": "65536"}
+
+
+def build_pcengine(repo: Path, env: dict[str, str], source: Path, output: Path) -> int:
+    if not source.is_file():
+        print(f"error: PC-Engine system disk does not exist: {source}", file=sys.stderr)
+        return 1
+    tool = repo / "tools/pc88va/pcengine_disk.py"
+    with tempfile.TemporaryDirectory(prefix="sgp-pcengine-") as tmp:
+        work = Path(tmp) / "build"
+        payload = Path(tmp) / "payload"
+        build_demos(repo, work, env)
+        for _, _, rel in DEMOS:
+            folder, name = rel.split("/")
+            target = payload / PCENGINE_DIRS[folder] / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(work / rel, target)
+        subprocess.run([sys.executable, str(tool), "vanilla", "--source", str(source),
+                        "--output", str(output)], check=True)
+        subprocess.run([sys.executable, str(tool), "install", "--image", str(output),
+                        "--payload", str(payload)], check=True)
+    print(f"Created PC-Engine bootable SGP demo disk: {output}")
+    for _, _, rel in DEMOS:
+        folder, name = rel.split("/")
+        print(f"  {PCENGINE_DIRS[folder]}\\{name}")
+    print("  the disk holds PC-Engine system files: keep it outside the repository")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--output", required=True, type=Path,
                         help="raw D88 to write, outside the repository")
     parser.add_argument("--format", choices=sorted(FORMATS), default="2hd",
                         help="disk format (default 2hd)")
+    parser.add_argument("--pcengine-source", type=Path,
+                        help="make a PC-Engine bootable disk from this system disk instead")
     args = parser.parse_args()
     geo = Geometry(args.format)
 
@@ -153,6 +191,9 @@ def main() -> int:
     if shutil.which(env.get("NASM", "nasm")) is None:
         print("error: nasm is required (set NASM to its path)", file=sys.stderr)
         return 1
+
+    if args.pcengine_source is not None:
+        return build_pcengine(repo, env, args.pcengine_source, output)
 
     with tempfile.TemporaryDirectory(prefix="sgp-boot-") as tmp:
         work = Path(tmp)
