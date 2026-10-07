@@ -1450,6 +1450,36 @@ semigraphics or graphics static-picture modes; the low bits then change
 the dot size or format. The pattern's source and format are not yet
 identified; a test with known TVRAM contents is needed.
 
+`[MEAS]` M104 then ran
+[`TSPFILL A`](../../tools/pc88va/vtiming/README.md#tspfill-known-data-under-the-undocumented-modes)
+on the PC-88VA2 (2026-10-07, 24.8 kHz, filmed; built from
+[`e8652f69`](https://github.com/nakatamaho/vaeg/commit/e8652f696b5ffb3ad373c1af372665a205f38cc6)),
+which fills TVRAM from split 0's start to `7F00h` and the attribute area
+with known data under `MODE` 8, 12, 14, 10 and 13. Under `MODE` 8:
+
+| Fill | Result | Still |
+|---|---|---|
+| `P0` (00h), `P3` (characters 00h, attributes FFh) | the same multicoloured pattern as before the fill | [P0](m104-photos/va2-tspfill-08-p0.jpg) |
+| `P1` (FFh), `P2` (characters FFh, attributes 00h) | the whole split white | [P1](m104-photos/va2-tspfill-08-p1.jpg) |
+| `P4` (byte ramp) | vertical stripes stepping through the colours from left to right, identical on every raster, over the left third of the screen; black to the right | [P4](m104-photos/va2-tspfill-08-p4.jpg) |
+| `P5` (value changes every 16 bytes) | yellow vertical stripes, a white area at the left | [P5](m104-photos/va2-tspfill-08-p5.jpg) |
+| `P6`, `P7` | the `P0` pattern with parts changed | - |
+
+The other modes behaved alike (12: left part only; 14: yellow). The result
+depends on the character bytes, not visibly on the attribute bytes, but
+an all-zero fill still shows the original pattern, so part of the source
+lies outside the filled range.
+
+`[DERIVED]` The undocumented modes are not a TSP crash: the result is
+reproducible between runs and days, depends on the data, disappears in
+the next frame when `MODE` is restored, and the function-key split
+(`MODE` 1) of the same frame stays correct. The likely reading is that
+these `MODE` values put the TSP into its semigraphics or graphics fetch
+(signalled on its DM pins), for which the VA board has no circuit, so the
+fetched data reach the text path unchanged; the per-raster address does
+not appear to advance (`P4` stripes are the same on every raster). M104
+stops here: the modes give no usable picture format.
+
 `[MEAS]` M104 measured TSP frames outside the documented vectors on real
 hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)
 are displayed, 24.8 kHz frames of up to 495 lines (`VAD` 464) are displayed,

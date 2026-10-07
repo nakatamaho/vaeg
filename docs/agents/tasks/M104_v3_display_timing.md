@@ -98,7 +98,9 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   patterns (candidates for the semigraphics/graphics static-picture
   modes), 6-7 are attribute variants, 15-20 break the text; recorded in
   [`upd72022-tsp.md`](../../modernization/upd72022-tsp.md) section 20.4.
-  Next: identify the format of 8-14 with known TVRAM data.
+  `TSPFILL A` (filmed) shows the modes are deterministic and data
+  dependent, not a TSP crash, but give no usable picture format; the
+  investigation stops there (`upd72022-tsp.md` section 20.4).
 - `[MEAS]` G256 on the PC-88VA2: a 256 x 192 window in native 320 x 200
   graphics is shown at 15.98 and 24.8 kHz and at 16, 8 and 4 bits, matching
   vaeg; recorded in
