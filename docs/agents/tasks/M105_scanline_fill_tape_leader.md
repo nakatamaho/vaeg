@@ -90,3 +90,9 @@ speed.
   at 50, 100, 200 % and 572 fps with No Wait.
   [087c0b07](https://github.com/nakatamaho/vaeg/commit/087c0b0715a01b87a84d76b98eecb5718a8f9892),
   [cc7c95ac](https://github.com/nakatamaho/vaeg/commit/cc7c95ac5a23d6564107e88917250689faa496c2).
+- `[MEAS]` (maintainer, real VA, 2026-10-07) In V1/V2 mode at 24 kHz the VA
+  shows 200-line graphics without scanline gaps (each line on both rasters)
+  and the text in a clean 8 x 16 font, unlike a PC-8801's 24 kHz monitor,
+  where 640 x 200 graphics show gaps and text does not. vaeg matches the VA:
+  a V2 N-88 BASIC `LINE ...,BF` box is drawn without gaps and the text uses
+  the 16-raster font. No change needed.
