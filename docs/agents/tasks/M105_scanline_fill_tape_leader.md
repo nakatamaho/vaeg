@@ -56,3 +56,16 @@ plays low then high before `Found`; with fast load it loads at once.
 
 ## Implementation progress
 
+- 15 kHz scanline fill: Emulate > モニタ, "15 kHz 走査線: 隙間あり (CRT)"
+  (default) or "埋める (液晶)", saved as `Monitor15kHzFill`. Romless test
+  composes a 15.98 kHz frame and checks the odd raster (gap, or a copy of
+  the even raster); it fails with the fill disabled. Headless G256 at
+  15 kHz shows the gaps by default and none when filled.
+  [be71480c](https://github.com/nakatamaho/vaeg/commit/be71480cb438b9c368d8364c5d58f92bd416eb28).
+- Tape leader (decision C11): romless test checks that the data are held
+  back, the zero crossings of the first and the second second (1200 and
+  2400 Hz), the first byte after the leader, and no leader with fast load;
+  it fails with the leader or the tone change disabled. Headless V2 BASIC
+  `LOAD "CAS:"` without fast load prints `Found` 110 frames (1.95 s at
+  56.4 Hz) later than without the leader.
+  [ef85911c](https://github.com/nakatamaho/vaeg/commit/ef85911cabc4e92a6bb39eb35403b90abc02af41).

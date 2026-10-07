@@ -883,6 +883,16 @@ Findings:
   consistent with one rule (217 vs 199 lines with top 36 vs 37) and the
   monitor re-adjusted; not modelled.
 
+### 12.7 15 kHz scanline fill (M105)
+
+`[POLICY]` At 15 kHz (non-interlaced) vaeg draws each line on the even
+raster of a pair. The odd raster is a gap by default, as a CRT shows its
+scanlines; the monitor setting "15 kHz 走査線: 埋める (液晶)"
+(`Monitor15kHzFill`) repeats the line there instead, as the maintainer's
+LCD showed the M104 photographs. Interlaced modes and 24.8 kHz are
+unchanged. Implemented in
+[be71480c](https://github.com/nakatamaho/vaeg/commit/be71480cb438b9c368d8364c5d58f92bd416eb28).
+
 ## 13. Change log
 
 ### Version 0.3 - 2026-10-06
