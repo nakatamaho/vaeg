@@ -724,6 +724,19 @@ void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam,
 	}
 }
 
+/*
+ * PC-8801-style V1/V2 display (vaeg extension, decision C12): in 88 mode at
+ * 24.8 kHz, text is drawn from the 8x8 ANK font with each row doubled and
+ * 200-line graphics leave the odd rasters blank, as a PC-8801 on a 24 kHz
+ * monitor. The VA itself shows 8x16 text and doubled graphics.
+ */
+BOOL videova_8801_display(void) {
+	return (np2cfg.v1v2_8801_display && memoryva_88_mode &&
+	        (videova_hsyncmode() == VIDEOVA_24_8KHZ))
+	           ? TRUE
+	           : FALSE;
+}
+
 int videova_hsyncmode(void) {
 	int ret;
 

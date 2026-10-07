@@ -23,6 +23,7 @@ extern _CGROM88 cgrom88;
 
 BYTE *cgromva_font(UINT16 hccode);
 int cgromva_width(UINT16 hccode);
+BYTE *cgromva_ank8(BYTE code);
 
 void cgromva_reset(void);
 void cgromva_bind(void);

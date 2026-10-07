@@ -63,6 +63,7 @@
 #include "memoryva.h"
 #include "gvramva.h"
 #include "makegrphva.h"
+#include "machine/timing.h"
 #include "mousestate.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -2490,6 +2491,32 @@ static int test_clockscale(void) {
 			return (fail("clockscale", "CPU scaling changed machine time"));
 		}
 	}
+	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode. */
+	{
+		static const struct {
+			UINT multiple;
+			UINT percent;
+			UINT32 v30;    /* scaled cost of 100 cycles */
+			UINT32 compat; /* scaled cost of 100 cycles */
+		} speeds[] = {{2, 100, 100, 100}, {2, 50, 200, 200}, {2, 10, 1000, 1000},
+		              {4, 50, 100, 200},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
+		const UINT8 saved_speed = np2cfg.cpu_speed;
+
+		for (index = 0; index < NELEMENTS(speeds); index++) {
+			np2cfg.multiple = speeds[index].multiple;
+			np2cfg.cpu_speed = (UINT8)speeds[index].percent;
+			pccore_clockrestore();
+			if ((clockscale_apply(&pccore_cpu_scale, 100) != speeds[index].v30) ||
+			    (clockscale_apply(&pccore_compat_scale, 100) != speeds[index].compat)) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return (fail("clockscale", "CPU speed did not scale the cycle cost"));
+			}
+		}
+		np2cfg.cpu_speed = saved_speed;
+	}
 	np2cfg.multiple = saved_config_multiple;
 	pccore.baseclock = saved_baseclock;
 	pccore_clockrestore();
@@ -4863,7 +4890,68 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
+	/* M105 leader without fast load: one second low, one second high, and
+	 * no byte until it ends; none with fast load. */
 	cmt_save_discard();
+	if (problem == NULL) {
+		static SINT32 pcm[2 * 2205];
+		const UINT saved_rate = soundcfg.rate;
+		const UINT8 saved_fast = np2cfg.cmt_fast;
+		UINT edges[2];
+		UINT k;
+
+		soundcfg.rate = 22050;
+		cmt_setvol(64);
+		np2cfg.cmt_fast = 0;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		iocore_out8(0x021, 0x14); /* RXE */
+		if ((nevent_getremain(NEVENT_CMT) < (SINT32)pccore.realclock) ||
+		    (iocore_inp8(0x021) & 0x02)) {
+			problem = "tape leader did not hold the data back";
+		}
+		for (i = 0; i < 2; i++) {
+			/* zero crossings over 0.1 s: 1200 Hz gives 240, 2400 Hz 480 */
+			ZeroMemory(pcm, sizeof(pcm));
+			cmt_getpcm(NULL, pcm, 2205);
+			edges[i] = 0;
+			for (k = 1; k < 2205; k++) {
+				if ((pcm[k * 2] > 0) != (pcm[(k - 1) * 2] > 0)) {
+					edges[i]++;
+				}
+			}
+			if (i == 0) {
+				for (k = 0; k < 10; k++) { /* to 1.1 s */
+					cmt_getpcm(NULL, pcm, 2205);
+				}
+			}
+		}
+		if ((problem == NULL) &&
+		    ((edges[0] < 230) || (edges[0] > 250) || (edges[1] < 470) || (edges[1] > 490))) {
+			problem = "tape leader was not low then high";
+		}
+		cmt_event(NULL); /* the end of the leader */
+		if ((problem == NULL) && (iocore_inp8(0x021) & 0x02)) {
+			problem = "tape leader end delivered a byte";
+		}
+		cmt_event(NULL);
+		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0xd3))) {
+			problem = "first byte after the tape leader";
+		}
+		np2cfg.cmt_fast = 1;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		cmt_event(NULL);
+		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0xd3))) {
+			problem = "fast load played a tape leader";
+		}
+		iocore_out8(0x030, 0x00);
+		np2cfg.cmt_fast = saved_fast;
+		cmt_setvol(np2cfg.cmt_vol);
+		soundcfg.rate = saved_rate;
+	}
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
@@ -4963,6 +5051,181 @@ static int test_beep_level(void) {
 		return (fail("beep level", problem));
 	}
 	fprintf(stderr, "selftest: beep level ok\n");
+	return (SUCCESS);
+}
+
+/* M105: 15 kHz odd rasters are a scanline gap, or the line again when filled. */
+static int test_scanline_fill(void) {
+	static const UINT8 sync15[14] = {0xc1, 0x57, 0x1c, 0x00, 0x9f, 0x00, 0x10,
+	                                 0x0f, 0x25, 0x00, 0xc8, 0x00, 0x0f, 0x08};
+	const UINT8 saved_fill = np2cfg.monitor_15khz_fill;
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	const char *problem;
+	UINT x;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	/* 15.98 kHz, single-plane 4-bit graphics in 200-line mode, all colour 1. */
+	videova.crtmode = 0;
+	memcpy(tsp.syncparam, sync15, sizeof(sync15));
+	tsp.screenlines = 200;
+	ZeroMemory(f, sizeof(*f));
+	f->fbw = 320;
+	f->fbl = 0xffff;
+	f->dsh = 200;
+	for (x = 0; x < 320; x++) {
+		grphmem[x] = 0x11;
+	}
+	videova.palette[1] = 0x7fff;
+	videova.colcomp = 0x0008 | VIDEOVA_GRAPHICSCREEN0; /* graphics 0 only */
+	videova.xpar_g0 = 0;
+	videova.mskmode = 0;
+	videova.grmode = 0xb402; /* plus video output and sync enabled */
+	videova.grres = 0x0001;
+	np2cfg.monitor_15khz_fill = 0;
+	pccore_redraw(); /* the first frame after reset composes nothing */
+	pccore_redraw();
+	if ((vabitmap[0] == 0) || (vabitmap[SURFACE_WIDTH] != 0)) {
+		problem = "15 kHz odd raster was not a gap by default";
+	}
+	np2cfg.monitor_15khz_fill = 1;
+	pccore_redraw();
+	if ((problem == NULL) && ((vabitmap[0] == 0) || memcmp(vabitmap, vabitmap + SURFACE_WIDTH,
+	                                                       SURFACE_WIDTH * sizeof(vabitmap[0])))) {
+		problem = "filled 15 kHz odd raster did not repeat the line";
+	}
+	np2cfg.monitor_15khz_fill = saved_fill;
+	ZeroMemory(grphmem, 320);
+	ZeroMemory(f, sizeof(*f));
+	videova.grmode = 0;
+	videova.grres = 0;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("scanline fill", problem));
+	}
+	fprintf(stderr, "selftest: scanline fill ok\n");
+	return (SUCCESS);
+}
+
+/* M105: the PC-8801-style V1/V2 display at 24.8 kHz: 8x8 text with each row
+ * on two rasters, and 200-line graphics with the odd rasters blank. */
+static int test_8801_display(void) {
+	const UINT8 saved_flag = np2cfg.v1v2_8801_display;
+	const UINT8 saved_mode = memoryva_88_mode;
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	BYTE saved16[16];
+	BYTE saved8[8];
+	const char *problem = NULL;
+	BOOL scrn200;
+	UINT r;
+	UINT x;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	CopyMemory(saved16, fontmem + 0x40000 + 'A' * 16, sizeof(saved16));
+	CopyMemory(saved8, fontmem + 0x41000 + 'A' * 8, sizeof(saved8));
+	/* 'A': the 16-dot glyph has only row 1 set, the 8-dot glyph only row 1. */
+	ZeroMemory(fontmem + 0x40000 + 'A' * 16, 16);
+	ZeroMemory(fontmem + 0x41000 + 'A' * 8, 8);
+	fontmem[0x40000 + 'A' * 16 + 1] = 0x80;
+	fontmem[0x41000 + 'A' * 8 + 1] = 0x80;
+	memoryva_88_mode = 1;
+	videova.crtmode = 1; /* 24.8 kHz */
+	/* One emulated row with 'A' in column 0 (white). */
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002);
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	textmem[0x63c8] = 'A';
+	for (x = 0; x < 20; x++) {
+		textmem[0x63c8 + 80 + x * 2] = 80;
+	}
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.emul = 1;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode = 0;
+	videova.txtmode8 = 0x01;
+	for (x = 0; (problem == NULL) && (x < 2); x++) {
+		UINT lit = 0;
+
+		np2cfg.v1v2_8801_display = (UINT8)x;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		for (r = 0; r < 16; r++) {
+			maketextva_raster();
+			if (textraster[0] != 0) { /* column 0 (the two lead cells are hidden) */
+				lit |= 1u << r;
+			}
+		}
+		/* VA standard: 16-dot row 1 only; PC-8801 style: 8-dot row 1 on rasters 2-3. */
+		if (lit != (x ? 0x000cu : 0x0002u)) {
+			problem = x ? "8x8 text rows were not doubled" : "VA standard text changed";
+		}
+	}
+	tsp.emul = 0;
+	/* Graphics: 200-line, RSM = 01; odd rasters doubled, or blank (8801). */
+	ZeroMemory(f, sizeof(*f));
+	f->fbw = 320;
+	f->fbl = 0xffff;
+	f->dsh = 200;
+	for (x = 0; x < 320; x++) {
+		grphmem[x] = 0x11;
+	}
+	videova.palette[1] = 0x7fff;
+	videova.colcomp = 0x0008 | VIDEOVA_GRAPHICSCREEN0;
+	videova.xpar_g0 = 0;
+	videova.mskmode = 0;
+	videova.grmode = 0xb442;
+	videova.grres = 0x0001;
+	tsp.screenlines = 400; /* a 24.8 kHz 400-raster frame */
+	for (x = 0; (problem == NULL) && (x < 2); x++) {
+		np2cfg.v1v2_8801_display = (UINT8)x;
+		ZeroMemory(vabitmap, SURFACE_WIDTH * 2 * sizeof(vabitmap[0]));
+		pccore_redraw();
+		pccore_redraw();
+		if ((vabitmap[0] == 0) || ((vabitmap[SURFACE_WIDTH] == 0) != (x != 0))) {
+			problem = x ? "200-line graphics kept the odd raster" : "VA standard doubling changed";
+		}
+	}
+	/* Not at 15 kHz, and not in V3 mode. */
+	np2cfg.v1v2_8801_display = 1;
+	videova.crtmode = 0;
+	if ((problem == NULL) && videova_8801_display()) {
+		problem = "the PC-8801 style applied at 15 kHz";
+	}
+	videova.crtmode = 1;
+	memoryva_88_mode = 0;
+	if ((problem == NULL) && videova_8801_display()) {
+		problem = "the PC-8801 style applied in V3 mode";
+	}
+	np2cfg.v1v2_8801_display = saved_flag;
+	memoryva_88_mode = saved_mode;
+	CopyMemory(fontmem + 0x40000 + 'A' * 16, saved16, sizeof(saved16));
+	CopyMemory(fontmem + 0x41000 + 'A' * 8, saved8, sizeof(saved8));
+	ZeroMemory(grphmem, 320);
+	ZeroMemory(f, sizeof(*f));
+	videova.grmode = 0;
+	videova.grres = 0;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("PC-8801 display", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 display ok\n");
 	return (SUCCESS);
 }
 
@@ -5354,6 +5617,72 @@ static int test_tsp_sync_display(void) {
 		return (fail("TSP SYNC display", problem));
 	}
 	fprintf(stderr, "selftest: TSP SYNC display ok\n");
+	return (SUCCESS);
+}
+
+/* M105: the frame length counts a sync field under 4 lines as written. */
+static int test_tsp_short_sync(void) {
+	/* V480PAT 480 S K: top 17, 480 lines, bottom 1, sync 1 (499 lines) */
+	static const UINT8 sync1[14] = {0xc1, 0x57, 0x10, 0x00, 0x9f, 0x00, 0x10,
+	                                0x0f, 0x11, 0x00, 0xe0, 0x41, 0x01, 0x01};
+	UINT8 saved[14];
+	UINT32 frame1;
+	UINT32 frame4;
+	const char *problem = NULL;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	memcpy(saved, tsp.syncparam, sizeof(saved));
+	videova.crtmode = 1;
+	videova.grmode = 0;
+	memcpy(tsp.syncparam, sync1, sizeof(sync1));
+	tsp_updateclock();
+	frame1 = tsp.dispclock + tsp.vsyncclock;
+	tsp.syncparam[13] = 0x04; /* the same frame with a 4-line sync: 502 lines */
+	tsp_updateclock();
+	frame4 = tsp.dispclock + tsp.vsyncclock;
+	/* 499 / 502 within 0.1% */
+	if ((frame1 >= frame4) || ((UINT64)frame1 * 502 * 1000 < (UINT64)frame4 * 499 * 999) ||
+	    ((UINT64)frame1 * 502 * 1000 > (UINT64)frame4 * 499 * 1001)) {
+		problem = "a 1-line sync was counted as 4 lines";
+	}
+	memcpy(tsp.syncparam, saved, sizeof(saved));
+	tsp_updateclock();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP short sync", problem));
+	}
+	fprintf(stderr, "selftest: TSP short sync ok\n");
+	return (SUCCESS);
+}
+
+/* M105: the emulation speed scales the guest frames due per host second. */
+static int test_emulation_speed(void) {
+	static const struct {
+		UINT percent;
+		UINT frames; /* a 440-line 24.8 kHz frame is 56.42 Hz */
+	} cases[] = {{100, 56}, {50, 28}, {10, 5}, {400, 225}, {0, 56}, {5, 5}, {1000, 225}};
+	const char *problem = NULL;
+	UINT i;
+
+	for (i = 0; (problem == NULL) && (i < sizeof(cases) / sizeof(cases[0])); i++) {
+		timing_setrate(440, 24826);
+		timing_setspeed(cases[i].percent);
+		timing_reset();
+		timing_addspan(500);
+		if (timing_addspan(500) != cases[i].frames) {
+			problem = "frames due in one second do not follow the speed";
+		}
+	}
+	timing_setspeed(100);
+	timing_reset();
+	if (problem != NULL) {
+		return (fail("emulation speed", problem));
+	}
+	fprintf(stderr, "selftest: emulation speed ok\n");
 	return (SUCCESS);
 }
 
@@ -6278,6 +6607,12 @@ int vaeg_selftest_run(void) {
 	if (test_tsp_sync_display() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_tsp_short_sync() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_emulation_speed() != SUCCESS) {
+		return (FAILURE);
+	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
 	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
 	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
@@ -6306,6 +6641,12 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_scanline_fill() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_8801_display() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {

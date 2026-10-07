@@ -883,6 +883,61 @@ Findings:
   consistent with one rule (217 vs 199 lines with top 36 vs 37) and the
   monitor re-adjusted; not modelled.
 
+### 12.7 15 kHz scanline fill (M105)
+
+`[POLICY]` At 15 kHz (non-interlaced) vaeg draws each line on the even
+raster of a pair. The odd raster is a gap by default, as a CRT shows its
+scanlines; the monitor setting "15 kHz 走査線: 埋める (液晶)"
+(`Monitor15kHzFill`) repeats the line there instead, as the maintainer's
+LCD showed the M104 photographs. Interlaced modes and 24.8 kHz are
+unchanged. Implemented in
+[be71480c](https://github.com/nakatamaho/vaeg/commit/be71480cb438b9c368d8364c5d58f92bd416eb28).
+
+### 12.8 Frames near 60 Hz (M105)
+
+`[MEAS]` 2026-10-07, PC-88VA2, same monitor, V480PAT `F`, `G` and `J`
+built from
+[`336c449f`](https://github.com/nakatamaho/vaeg/commit/336c449fa6e982bd28258161b3aa586b10fbfabc).
+Every entry was displayed. The monitor's read-out is compared with the
+rate from the `SYNC` vector (vaeg line rates 24.826 and 15.980 kHz,
+`VS` counted as written). `K` = top 17, `Q` = bottom 1 / sync 1,
+`P` = bottom 2 / sync 4.
+
+| Run | Frame lines | Computed | Monitor | Photo |
+|---|---:|---:|---:|---|
+| `400 S` | 440 | 56.42 Hz | 56.6 Hz | - |
+| `400 S Q` | 427 | 58.14 | 58.1 | - |
+| `400 S K Q`, `400 S W K Q` | 419 | 59.25 | 59.2 | [400 S K Q](m104-photos/va2-400-s-k-q-osd.jpg) |
+| `400 S K P` | 423 | 58.69 | 58.6 | - |
+| `396 S K Q`, `392 S K P` | 415 | 59.82 | 60.0, 59.8 | - |
+| `394 S K Q` | 413 | 60.11 | 60.0 | [394 S K Q](m104-photos/va2-394-s-k-q-osd.jpg) |
+| `392 S K Q` | 411 | 60.40 | 60.3 | - |
+| `384 S K Q` | 403 | 61.60 | 61.5 | - |
+| `200 D` | 440 | 56.42 | 56.4 | - |
+| `200 D K Q` | 419 | 59.25 | 59.2 | [200 D K Q](m104-photos/va2-200-d-k-q-osd.jpg) |
+| `200 D K P` | 423 | 58.69 | 58.6 | - |
+| `198 D K Q` | 415 | 59.82 | 59.8 | - |
+| `197 D K Q` | 413 | 60.11 | 60.0 | [197 D K Q](m104-photos/va2-197-d-k-q-osd.jpg) |
+| `196 D K Q` | 411 | 60.40 | 60.3 | - |
+| `192 D K Q` | 403 | 61.60 | 61.5 | - |
+| `200 R W` | 262 | 60.99 | 61.1 | - |
+| `220 R W` | 263 | 60.76 | 60.8 | - |
+| `222 R W` | 265 | 60.30 | 60.4 | - |
+| `224 R W`, `224 R` | 267 | 59.85 | 59.9 | [224 R W](m104-photos/va2-224-r-w-osd.jpg) |
+| `224 H36 W` | 266 | 60.07 | 60.2 | [224 H36 W](m104-photos/va2-224-h36-w-osd.jpg) |
+
+Findings:
+
+- The read-outs agree with the computed rates within the monitor's
+  0.1-0.2 Hz rounding, with `VS = 1` counted as one line (a 4-line minimum
+  would give 58.83 Hz for `400 S K Q` against the 59.2 Hz read). This
+  confirms the M105 short-sync fix.
+- 60 Hz is within reach in every family: 640 x 394 or 320 x 197
+  line-doubled at 24.8 kHz (60.1 Hz), 640 x 400 / 320 x 200 doubled at
+  59.25 Hz with top 17, bottom 1, sync 1, and 320/640 x 224 at 15.98 kHz
+  (59.9 Hz). The 24.8 kHz runs were read by the monitor as 640 x 400 and
+  the 15.98 kHz runs as 1740 x 240.
+
 ## 13. Change log
 
 ### Version 0.3 - 2026-10-06
@@ -892,7 +947,8 @@ Findings:
   feasible-resolution table (12.2), the G256 256 x 192 window (12.3), and
   the third round with the sweeps, monitor read-out and G160 rates (12.4),
   the vaeg model of the measured rules (12.5), and the fourth round with
-  long top blanking, the 15.73 kHz family and RSM = 00 (12.6).
+  long top blanking, the 15.73 kHz family and RSM = 00 (12.6), the 15 kHz
+  scanline fill setting (12.7) and the frames near 60 Hz (12.8).
 
 ### Version 0.2 - 2026-07-16
 

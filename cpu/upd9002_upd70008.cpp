@@ -105,7 +105,9 @@ static void compat_trace(const char *event, std::uint32_t slot, std::uint8_t op0
 class CompatCounter final : public IClockCounter {
   public:
 	void IFCALL past(std::int32_t clocks) override {
-		remain_ -= clocks;
+		// CPU speed (machine/pccore.c): 100 / percent machine clocks a cycle.
+		remain_ -= static_cast<std::int32_t>(
+		    clockscale_apply(&pccore_compat_scale, static_cast<UINT32>(clocks)));
 	}
 
 	std::int32_t IFCALL GetRemainclock() override {
@@ -679,6 +681,59 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 			std::fprintf(stderr, "compatible entry selftest failed: 0F %02X\n", encoding);
 			return FAILURE;
 		}
+	}
+	return SUCCESS;
+}
+
+// M105: the CPU speed scales the compatible core's cycles (ten NOPs).
+static SINT32 compat_nop_clocks(UINT percent) {
+	const UINT16 code_segment = 0x2000;
+	const UINT32 code_base = static_cast<UINT32>(code_segment) << 4;
+	SINT32 before;
+
+	upd9002_core_initialize();
+	ZeroMemory(mem, 0x100000);
+	upd9002_upd70008_register();
+	upd9002_core_reset();
+	pccore_set_cpu_speed(percent);
+	CPU_CS = code_segment;
+	CPU_DS = code_segment;
+	CPU_SS = 0x3000;
+	CPU_IP = 0x0100;
+	CPU_SP = 0x0100;
+	CPU_FLAG = 0xf202;
+	CS_BASE = code_base;
+	DS_BASE = code_base;
+	SS_BASE = 0x30000;
+	CPU_REMCLOCK = 100000;
+	CPU_BASECLOCK = 100000;
+	CPU_CLOCK = 0;
+	mem[(0x00e1U * 4) + 0] = 0x00;
+	mem[(0x00e1U * 4) + 1] = 0x10;
+	mem[(0x00e1U * 4) + 2] = static_cast<UINT8>(code_segment);
+	mem[(0x00e1U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
+	mem[code_base + 0x0100] = 0x0f; // BRKEM E1h
+	mem[code_base + 0x0101] = 0xff;
+	mem[code_base + 0x0102] = 0xe1;
+	upd9002_core_step();
+	before = CPU_REMCLOCK;
+	for (int i = 0; i < 10; i++) {
+		upd9002_core_step(); // NOP (memory is zero)
+	}
+	before -= CPU_REMCLOCK;
+	pccore_set_cpu_speed(100);
+	upd9002_core_deinitialize();
+	return before;
+}
+
+extern "C" int upd9002_upd70008_cpu_speed_selftest(void) {
+	const SINT32 full = compat_nop_clocks(100);
+	const SINT32 half = compat_nop_clocks(50);
+
+	if ((full <= 0) || (half != full * 2)) {
+		std::fprintf(stderr, "compatible CPU speed selftest failed: 100%% %d, 50%% %d clocks\n",
+		             static_cast<int>(full), static_cast<int>(half));
+		return FAILURE;
 	}
 	return SUCCESS;
 }

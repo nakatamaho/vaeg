@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M105 — TSP frames with a sync shorter than 4 lines ran slow
+
+- **Symptom/scope:** frames that set the vertical sync field `VS` below 4
+  lines (VIEW480, V480PAT `S` above 400 lines and the `Q` option) ran at a
+  lower field rate in vaeg than on a PC-88VA2: `480 S K` (499 lines) ran
+  as 502 lines, 49.45 Hz, where the PC-88VA2's monitor read 49.7 Hz. V3
+  mode, any program that writes such a SYNC.
+- **Demonstrated cause:** `tsp_updateclock` raised `VS` to 4 (the
+  uPD72022 data-book minimum) when it computed the frame length; the
+  hardware read-outs (`pc88va-video-modes.md` section 12.4: 49.7 Hz for
+  499 lines, 53.3 Hz for 467) match the written value.
+- **Correction:** only an empty `VS` field is raised (to 1).
+- **Verification:** romless test (a 1-line sync gives a frame 499/502 of a
+  4-line one; fails with the old minimum).
+- **Task/evidence/commit:** [M105 task](../agents/tasks/M105_scanline_fill_tape_leader.md),
+  [measurements](pc88va-video-modes.md#124-third-round-sweeps-monitor-read-out-and-g160-rates).
+  Fix: [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).
+
 ### M104 — TSP text stayed visible after a SYNC without DSPON
 
 - **Symptom/scope:** after a program reprogrammed the TSP timing with SYNC
@@ -2610,6 +2628,23 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
 ## Open Defects
+
+### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
+
+- **Symptom/scope:** the sound made through port 40h sounds odd, as if its
+  timing were off (maintainer report during G105 checks, 2026-10-07). A
+  plain `BEEP` (bit 5, the 2400 Hz buzzer) seems fine. `CMD SING` (bit 7,
+  the port sound) is less clear than the maintainer remembers, and ordinary
+  V1/V2 game sound is clearly wrong. `CMD SING` changes pitch with the CPU
+  speed slider, which is expected for software-timed toggling of bit 7. The
+  M104 build (main at `2508ccf4`) sounds the same, so it predates M105.
+  It happens with the speed and the CPU speed both at 100 % (maintainer,
+  2026-10-07), so it is not only the speed-slider effect below.
+  Known separately: with the speed slider away from 100 % the BEEP is
+  garbled because it is built from CPU-clock on/off events while the host
+  consumes samples in real time (`sdl2/README.md`).
+- **Status:** not investigated; no root cause is claimed. Moved to a later
+  milestone by the maintainer.
 
 ### M104 — V3 programs run about 2.2 times faster than on the PC-88VA2
 

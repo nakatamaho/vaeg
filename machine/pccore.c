@@ -116,8 +116,11 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
+/* uPD70008-compatible mode: the CPU speed only (the multiplier is V30-only). */
+CLOCKSCALE pccore_compat_scale = {100, 100, 0};
 UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
+static UINT pccore_cpu_speed_value = 100;
 
 static UINT16 active_main_ram = 640;
 
@@ -174,7 +177,24 @@ void pccore_clockrestore(void) {
 	pccore.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore.realclock = pccore.baseclock * pccore.multiple;
 	pccore_cpu_multiple_value = multiple;
-	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE, multiple);
+	pccore_set_cpu_speed(np2cfg.cpu_speed);
+}
+
+/* CPU speed 10-100 % (0 selects 100): cycles cost 100 / percent. */
+void pccore_set_cpu_speed(UINT percent) {
+	if ((percent == 0) || (percent > 100)) {
+		percent = 100;
+	} else if (percent < 10) {
+		percent = 10;
+	}
+	pccore_cpu_speed_value = percent;
+	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
+	                     pccore_cpu_multiple_value * percent);
+	clockscale_configure(&pccore_compat_scale, 100, percent);
+}
+
+UINT pccore_cpu_speed(void) {
+	return (pccore_cpu_speed_value);
 }
 
 UINT pccore_cpu_multiple(void) {
@@ -489,10 +509,13 @@ static void drawscreenva(void) {
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// Odd output raster.
-				maketextva_blankraster();
-				makesprva_blankraster();
-				makegrphva_blankraster();
+				// Odd output raster: a scanline gap as on a CRT, or the line
+				// again as an LCD shows a 15 kHz signal (display setting).
+				if (!np2cfg.monitor_15khz_fill) {
+					maketextva_blankraster();
+					makesprva_blankraster();
+					makegrphva_blankraster();
+				}
 				scrndrawva_compose_raster();
 				y++;
 			}
@@ -542,8 +565,14 @@ static void drawscreenva(void) {
 			break;
 		}
 	} else {
-		// 24.8 kHz output.
-		switch (videova.grmode & 0x00c0) {
+		// 24.8 kHz output. The PC-8801-style V1/V2 display shows 200-line
+		// graphics as non-interlaced mode 0 (odd rasters blank).
+		WORD rsm = videova.grmode & 0x00c0;
+
+		if (videova_8801_display() && (rsm == 0x40)) {
+			rsm = 0x00;
+		}
+		switch (rsm) {
 		case 0x00: // Non-interlaced mode 0.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
 				// Even output raster.
