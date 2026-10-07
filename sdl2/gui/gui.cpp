@@ -2601,6 +2601,20 @@ static void draw_emulate_menu(void) {
 				sysmng_update(SYS_UPDATECFG);
 				scrndrawva_redraw();
 			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Z80モード")) {

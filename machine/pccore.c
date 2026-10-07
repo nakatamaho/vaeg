@@ -489,10 +489,13 @@ static void drawscreenva(void) {
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// Odd output raster.
-				maketextva_blankraster();
-				makesprva_blankraster();
-				makegrphva_blankraster();
+				// Odd output raster: a scanline gap as on a CRT, or the line
+				// again as an LCD shows a 15 kHz signal (display setting).
+				if (!np2cfg.monitor_15khz_fill) {
+					maketextva_blankraster();
+					makesprva_blankraster();
+					makegrphva_blankraster();
+				}
 				scrndrawva_compose_raster();
 				y++;
 			}

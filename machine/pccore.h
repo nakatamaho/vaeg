@@ -70,6 +70,8 @@ typedef struct {
 	UINT8 monitor_15khz;
 	/* Display on the digital RGB output (8 colours); a display-side policy. */
 	UINT8 monitor_digital;
+	/* 15 kHz scanlines: 0 = gaps (CRT), 1 = each line repeated (LCD). */
+	UINT8 monitor_15khz_fill;
 	/* Cassette tape: deliver bytes 16 times faster than the baud rate. */
 	UINT8 cmt_fast;
 	/* Cassette tape sound volume, 0-128 (independent of the master volume). */

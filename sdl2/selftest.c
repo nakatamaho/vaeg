@@ -4966,6 +4966,63 @@ static int test_beep_level(void) {
 	return (SUCCESS);
 }
 
+/* M105: 15 kHz odd rasters are a scanline gap, or the line again when filled. */
+static int test_scanline_fill(void) {
+	static const UINT8 sync15[14] = {0xc1, 0x57, 0x1c, 0x00, 0x9f, 0x00, 0x10,
+	                                 0x0f, 0x25, 0x00, 0xc8, 0x00, 0x0f, 0x08};
+	const UINT8 saved_fill = np2cfg.monitor_15khz_fill;
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	const char *problem;
+	UINT x;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	/* 15.98 kHz, single-plane 4-bit graphics in 200-line mode, all colour 1. */
+	videova.crtmode = 0;
+	memcpy(tsp.syncparam, sync15, sizeof(sync15));
+	tsp.screenlines = 200;
+	ZeroMemory(f, sizeof(*f));
+	f->fbw = 320;
+	f->fbl = 0xffff;
+	f->dsh = 200;
+	for (x = 0; x < 320; x++) {
+		grphmem[x] = 0x11;
+	}
+	videova.palette[1] = 0x7fff;
+	videova.colcomp = 0x0008 | VIDEOVA_GRAPHICSCREEN0; /* graphics 0 only */
+	videova.xpar_g0 = 0;
+	videova.mskmode = 0;
+	videova.grmode = 0xb402; /* plus video output and sync enabled */
+	videova.grres = 0x0001;
+	np2cfg.monitor_15khz_fill = 0;
+	pccore_redraw(); /* the first frame after reset composes nothing */
+	pccore_redraw();
+	if ((vabitmap[0] == 0) || (vabitmap[SURFACE_WIDTH] != 0)) {
+		problem = "15 kHz odd raster was not a gap by default";
+	}
+	np2cfg.monitor_15khz_fill = 1;
+	pccore_redraw();
+	if ((problem == NULL) && ((vabitmap[0] == 0) || memcmp(vabitmap, vabitmap + SURFACE_WIDTH,
+	                                                       SURFACE_WIDTH * sizeof(vabitmap[0])))) {
+		problem = "filled 15 kHz odd raster did not repeat the line";
+	}
+	np2cfg.monitor_15khz_fill = saved_fill;
+	ZeroMemory(grphmem, 320);
+	ZeroMemory(f, sizeof(*f));
+	videova.grmode = 0;
+	videova.grres = 0;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("scanline fill", problem));
+	}
+	fprintf(stderr, "selftest: scanline fill ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
@@ -6306,6 +6363,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_scanline_fill() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {
