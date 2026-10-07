@@ -72,3 +72,7 @@ recorded whatever they are).
   checked from the 2HD disk with the VA2 ROM, and spot checks with the VA
   ROM; on the VA model the M7a FPS counter glyphs are solid blocks, the same
   under PC-Engine.
+- PC-Engine bootable disk with the same eleven demos (maintainer request):
+  `--pcengine-source` installs them in `16\`, `256\` and `65536\` on a copy
+  of the user's system disk; checked in vaeg (VA2): PC-Engine boots and
+  `16\SGPD_7A`, `256\SGP256T` and `65536\SGPWIRE` run.
