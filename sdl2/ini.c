@@ -423,6 +423,7 @@ static const INITBL iniitem[] = {
 
     // OS依存～
     {"s_NOWAIT", INITYPE_BOOL, &np2oscfg.NOWAIT, 0},
+    {"s_speed", INITYPE_UINT16, &np2oscfg.speed_percent, 0},
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},

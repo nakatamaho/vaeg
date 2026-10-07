@@ -94,6 +94,8 @@ typedef struct {
 	UINT16 gui_ui_scale;
 	char gui_shader_parameters[8192];
 	BYTE gui_native_mask_auto;
+	/* Emulation speed in percent (10-400; 0 = 100); No Wait is the maximum. */
+	UINT16 speed_percent;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

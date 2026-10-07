@@ -71,6 +71,7 @@
 #include "emsio.h"
 #include "ini.h"
 #include "machine/pccore.h"
+#include "machine/timing.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
@@ -2564,11 +2565,48 @@ static void draw_new_fdd_dialog(void) {
 	ImGui::End();
 }
 
+/* Emulation speed: 10-400 % of real time in 10 % steps, and No Wait (full
+ * speed) at the right end of the slider. */
+static void draw_speed_control(void) {
+	enum {
+		SPEED_MIN = 10,
+		SPEED_MAX = 400,
+		SPEED_FULL = SPEED_MAX + 10
+	};
+	const int speed = (np2oscfg.speed_percent == 0) ? 100 : np2oscfg.speed_percent;
+	int value = np2oscfg.NOWAIT ? SPEED_FULL : speed;
+
+	ImGui::TextUnformatted("速度");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##speed", &value, SPEED_MIN, SPEED_FULL,
+	                     np2oscfg.NOWAIT ? "最大 (No Wait)" : "%d%%",
+	                     ImGuiSliderFlags_AlwaysClamp)) {
+		value = ((value + 5) / 10) * 10;
+		if (value > SPEED_MAX) {
+			np2oscfg.NOWAIT = 1;
+		} else {
+			np2oscfg.NOWAIT = 0;
+			np2oscfg.speed_percent = static_cast<UINT16>(value);
+			timing_setspeed(np2oscfg.speed_percent);
+		}
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::MenuItem("速度を 100% に戻す", nullptr, false,
+	                    (np2oscfg.NOWAIT != 0) || (speed != 100))) {
+		np2oscfg.NOWAIT = 0;
+		np2oscfg.speed_percent = 100;
+		timing_setspeed(100);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+}
+
 static void draw_emulate_menu(void) {
 	if (ImGui::BeginMenu("エミュレート")) {
 		if (ImGui::MenuItem("リセット")) {
 			reset_guest();
 		}
+		ImGui::Separator();
+		draw_speed_control();
 		ImGui::Separator();
 		if (ImGui::BeginMenu("起動機種")) {
 			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
@@ -3671,11 +3709,6 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
-		bool nowait = np2oscfg.NOWAIT != 0;
-		if (ImGui::MenuItem("No Wait", nullptr, nowait)) {
-			np2oscfg.NOWAIT = nowait ? 0 : 1;
-			sysmng_update(SYS_UPDATEOSCFG);
-		}
 		if (ImGui::BeginMenu("Frame skip")) {
 			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
 			                               "1/4 frame"};

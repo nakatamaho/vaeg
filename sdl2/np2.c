@@ -2005,6 +2005,7 @@ int main(int argc, char **argv) {
 		return (run_ok);
 	}
 	initload();
+	timing_setspeed(np2oscfg.speed_percent);
 	if (validate_cli_options(&options) != SUCCESS) {
 		SDL_Quit();
 		dosio_term();
