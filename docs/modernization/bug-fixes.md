@@ -2636,10 +2636,10 @@ separate parity correction or move it to Open Defects.
   plain `BEEP` (bit 5, the 2400 Hz buzzer) seems fine. `CMD SING` (bit 7,
   the port sound) is less clear than the maintainer remembers, and ordinary
   V1/V2 game sound is clearly wrong. `CMD SING` changes pitch with the CPU
-  speed slider, which is expected for software-timed toggling of bit 7.
+  speed slider, which is expected for software-timed toggling of bit 7. The
+  M104 build (main at `2508ccf4`) sounds the same, so it predates M105.
   It happens with the speed and the CPU speed both at 100 % (maintainer,
-  2026-10-07), so it is not only the speed-slider effect below. Mode (V1/V2
-  or V3) and whether earlier builds were affected not yet narrowed.
+  2026-10-07), so it is not only the speed-slider effect below.
   Known separately: with the speed slider away from 100 % the BEEP is
   garbled because it is built from CPU-clock on/off events while the host
   consumes samples in real time (`sdl2/README.md`).
