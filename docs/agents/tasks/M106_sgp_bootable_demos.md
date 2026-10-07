@@ -55,3 +55,15 @@ recorded whatever they are).
 
 ## Implementation progress
 
+- IPL, loader and builder: [76b60381](https://github.com/nakatamaho/vaeg/commit/76b6038119f6b3639f8750fddcfd5a0fcfbff887).
+  The builder assembles all eleven demo images with their own scripts and
+  writes a reproducible 2DD D88 (two runs give identical images).
+- Checked in vaeg (VA and VA2 ROMs): boot to the menu, each of the eleven
+  demos runs, ESC ends it, its summary prints through the loader's
+  `INT 21h` function `09h`, and a key returns to the menu.
+- Found while checking: the keyboard BIOS function `00h` waits on the
+  Japanese front end, which only an operating system installs, so without
+  one it never returns; the loader uses `09h` (the demos already do).
+- In vaeg, M7c/M7d show wrong colours and the 65536-colour pseudo-sprite
+  demo shows one ball, identically under PC-Engine: not caused by this disk;
+  not investigated here.
