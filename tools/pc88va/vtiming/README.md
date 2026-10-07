@@ -183,6 +183,41 @@ touched are restored on exit. Values 0-5 are the documented attribute
 modes; anything other than characters (patterns, colour fields, dots) at
 6-31 would point at an undocumented static-picture mode.
 
+## TSPFILL: known data under the undocumented modes
+
+[`tspfill.asm`](tspfill.asm) builds `TSPFILL.COM` (same terms), also put on
+the test disk.
+
+```text
+TSPFILL [mode]
+```
+
+`MODE` 8-14 (and 24-30) replace the whole main split by a non-character
+pattern on the PC-88VA2. TSPFILL sets split 0's `MODE` to `mode` (default
+8) and fills TVRAM from split 0's start address up to the screen table
+(`7F00h`), and the same range of the attribute area (`+8000h`), with known
+data; each key steps to the next fill, ESC stops, and `MODE nn Pn` is shown
+at the left of the function-key row. For a byte at TVRAM offset `o`
+(character and attribute areas alike unless noted):
+
+| Fill | Data |
+|---|---|
+| `P0` | 00h |
+| `P1` | FFh |
+| `P2` | characters FFh, attributes 00h |
+| `P3` | characters 00h, attributes FFh |
+| `P4` | `o and FFh` (byte ramp) |
+| `P5` | `(o shr 4) and FFh` (changes every 16 bytes) |
+| `P6` | `(o shr 8) and FFh` (changes every 256 bytes) |
+| `P7` | nibbles 0, 1, ..., F repeated, high nibble first |
+
+If the pattern follows the fills, the TSP reads this TVRAM in these modes:
+uniform screens for `P0`-`P3` tell which area it reads, the stripe and band
+widths of `P4`-`P7` give the bytes per dot, per raster and per row. The
+filled range and the `MODE` word are saved in a 64 KiB block (INT 21h
+function 48h) and restored on exit; the timing is not changed. vaeg draws
+these modes as text, so its screen is not a reference.
+
 ## G160: 160 x 100 with a colour per dot
 
 [`g160.asm`](g160.asm) builds `G160.COM` (same terms), also put on the test
