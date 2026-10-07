@@ -2598,6 +2598,22 @@ static void draw_speed_control(void) {
 		timing_setspeed(100);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
+	// CPU speed: only the CPU slows (V3 and V1/V2); frames, timers and sound
+	// keep real time.
+	int cpu = static_cast<int>(pccore_cpu_speed());
+	ImGui::TextUnformatted("CPU 速度");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+		cpu = ((cpu + 2) / 5) * 5;
+		np2cfg.cpu_speed = static_cast<UINT8>(cpu);
+		pccore_set_cpu_speed(np2cfg.cpu_speed);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	if (ImGui::MenuItem("CPU 速度を 100% に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
+		np2cfg.cpu_speed = 100;
+		pccore_set_cpu_speed(100);
+		sysmng_update(SYS_UPDATECFG);
+	}
 }
 
 static void draw_emulate_menu(void) {
