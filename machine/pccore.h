@@ -75,6 +75,10 @@ typedef struct {
 	/* V1/V2 at 24.8 kHz shown as a PC-8801 (vaeg extension): 8x8 text with
 	 * each row doubled and 200-line graphics with scanline gaps. */
 	UINT8 v1v2_8801_display;
+	/* CPU speed in percent of the configured clock (10-100; 0 = 100):
+	 * instruction cycles cost 100 / speed times as much, in V3 and in the
+	 * V1/V2 compatible mode; frames, timers and sound are unchanged. */
+	UINT8 cpu_speed;
 	/* Cassette tape: deliver bytes 16 times faster than the baud rate. */
 	UINT8 cmt_fast;
 	/* Cassette tape sound volume, 0-128 (independent of the master volume). */
@@ -154,6 +158,7 @@ extern const OEMCHAR np2version[];
 extern NP2CFG np2cfg;
 extern PCCORE pccore;
 extern CLOCKSCALE pccore_cpu_scale;
+extern CLOCKSCALE pccore_compat_scale;
 extern UPD8087_STATE upd8087;
 extern UINT8 screenupdate;
 extern int soundrenewal;
@@ -173,6 +178,8 @@ void pccore_cfgupdate(void);
 BOOL pccore_cpu_multiple_valid(UINT multiple);
 void pccore_clockrestore(void);
 UINT pccore_cpu_multiple(void);
+UINT pccore_cpu_speed(void);
+void pccore_set_cpu_speed(UINT percent);
 UINT32 pccore_cpu_clock(void);
 UINT16 pccore_mainram_kb(void);
 UINT32 pccore_mainram_limit(void);

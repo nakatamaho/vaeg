@@ -2491,6 +2491,32 @@ static int test_clockscale(void) {
 			return (fail("clockscale", "CPU scaling changed machine time"));
 		}
 	}
+	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode. */
+	{
+		static const struct {
+			UINT multiple;
+			UINT percent;
+			UINT32 v30;    /* scaled cost of 100 cycles */
+			UINT32 compat; /* scaled cost of 100 cycles */
+		} speeds[] = {{2, 100, 100, 100}, {2, 50, 200, 200}, {2, 10, 1000, 1000},
+		              {4, 50, 100, 200},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
+		const UINT8 saved_speed = np2cfg.cpu_speed;
+
+		for (index = 0; index < NELEMENTS(speeds); index++) {
+			np2cfg.multiple = speeds[index].multiple;
+			np2cfg.cpu_speed = (UINT8)speeds[index].percent;
+			pccore_clockrestore();
+			if ((clockscale_apply(&pccore_cpu_scale, 100) != speeds[index].v30) ||
+			    (clockscale_apply(&pccore_compat_scale, 100) != speeds[index].compat)) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return (fail("clockscale", "CPU speed did not scale the cycle cost"));
+			}
+		}
+		np2cfg.cpu_speed = saved_speed;
+	}
 	np2cfg.multiple = saved_config_multiple;
 	pccore.baseclock = saved_baseclock;
 	pccore_clockrestore();

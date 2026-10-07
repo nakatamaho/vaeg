@@ -364,6 +364,10 @@ int upd9002_brkem_upd70008_main(void) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
 		return FAILURE;
 	}
+	if (upd9002_upd70008_cpu_speed_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: CPU speed in compatible mode failed\n");
+		return FAILURE;
+	}
 	if (native_iotrap_selftest() != SUCCESS) {
 		fprintf(stderr, "upd9002-brkem-upd70008: native I/O trap failed\n");
 		return FAILURE;

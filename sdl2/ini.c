@@ -363,6 +363,7 @@ static const INITBL iniitem[] = {
     {"MonitorDigital", INITYPE_BOOL, &np2cfg.monitor_digital, 0},
     {"Monitor15kHzFill", INITYPE_BOOL, &np2cfg.monitor_15khz_fill, 0},
     {"V1V2_8801Display", INITYPE_BOOL, &np2cfg.v1v2_8801_display, 0},
+    {"CPU_Speed", INITYPE_UINT8, &np2cfg.cpu_speed, 0},
     {"CMT_Fast", INITYPE_BOOL, &np2cfg.cmt_fast, 0},
     {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},

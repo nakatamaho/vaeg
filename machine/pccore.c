@@ -116,8 +116,11 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
+/* uPD70008-compatible mode: the CPU speed only (the multiplier is V30-only). */
+CLOCKSCALE pccore_compat_scale = {100, 100, 0};
 UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
+static UINT pccore_cpu_speed_value = 100;
 
 static UINT16 active_main_ram = 640;
 
@@ -174,7 +177,24 @@ void pccore_clockrestore(void) {
 	pccore.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore.realclock = pccore.baseclock * pccore.multiple;
 	pccore_cpu_multiple_value = multiple;
-	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE, multiple);
+	pccore_set_cpu_speed(np2cfg.cpu_speed);
+}
+
+/* CPU speed 10-100 % (0 selects 100): cycles cost 100 / percent. */
+void pccore_set_cpu_speed(UINT percent) {
+	if ((percent == 0) || (percent > 100)) {
+		percent = 100;
+	} else if (percent < 10) {
+		percent = 10;
+	}
+	pccore_cpu_speed_value = percent;
+	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
+	                     pccore_cpu_multiple_value * percent);
+	clockscale_configure(&pccore_compat_scale, 100, percent);
+}
+
+UINT pccore_cpu_speed(void) {
+	return (pccore_cpu_speed_value);
 }
 
 UINT pccore_cpu_multiple(void) {
