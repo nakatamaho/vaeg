@@ -32,6 +32,8 @@ typedef struct {
 
 typedef struct {
 	UINT16 screeny; // 現在処理中のラスタ(画面共通の座標系で)
+	VIDEOVA_GRAPHICS_WINDOW window;
+	UINT16 linesread;
 	_SCREEN screen[GRPHVA_SCREENS];
 } _GRPHVAWORK;
 
@@ -1027,6 +1029,9 @@ void makegrphva_initialize(void) {
 
 void makegrphva_begin(BOOL *scrn200) {
 	work.screeny = 0;
+	ZeroMemory(&work.window, sizeof(work.window));
+	work.window.linelimit = 0xffff;
+	work.linesread = 0;
 
 	work.screen[0].pixelmode = videova.grres & 0x0003;
 	work.screen[1].pixelmode = (videova.grres >> 8) & 0x0003;
@@ -1077,7 +1082,12 @@ void makegrphva_blankraster(void) {
 	}
 }
 
-void makegrphva_raster(void) {
+/* Call after makegrphva_begin; see videova_graphics_window. */
+void makegrphva_setwindow(const struct videova_graphics_window *window) {
+	work.window = *window;
+}
+
+static void readline(void) {
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();
@@ -1089,6 +1099,30 @@ void makegrphva_raster(void) {
 		// マルチプレーンモード
 		drawraster(&work.screen[0]);
 	}
+}
 
+void makegrphva_raster(void) {
+	if (work.window.startdelay > 0) {
+		work.window.startdelay--;
+		makegrphva_blankraster();
+		work.screeny++;
+		return;
+	}
+	while (work.window.startskip > 0) {
+		// Read before the visible area: the lines are not shown.
+		work.window.startskip--;
+		readline();
+		work.linesread++;
+	}
+	if (work.linesread >= work.window.linelimit) {
+		// The line address no longer advances.
+		if (work.window.blankafterlimit) {
+			makegrphva_blankraster();
+		}
+		work.screeny++;
+		return;
+	}
+	work.linesread++;
+	readline();
 	work.screeny++;
 }

@@ -15,6 +15,8 @@ extern BOOL grph1_noraster;
 void makegrphva_initialize(void);
 
 void makegrphva_begin(BOOL *scrn200);
+struct videova_graphics_window;
+void makegrphva_setwindow(const struct videova_graphics_window *window);
 void makegrphva_raster(void);
 void makegrphva_blankraster(void);
 

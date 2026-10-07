@@ -35,6 +35,71 @@ land.
 
 ## Maintenance Rules
 
+### M104 — TSP text stayed visible after a SYNC without DSPON
+
+- **Symptom/scope:** after a program reprogrammed the TSP timing with SYNC
+  and did not send DSPON (V480PAT's `S`, `T`, `U`, `R`, `D` runs; VIEW480
+  uses the same sequence), vaeg kept drawing PC-Engine's text over the
+  pattern, while the PC-88VA2 showed graphics only (M104 photographs, for
+  example `va2-240-r-w.jpg`). V3 mode, any program that issues SYNC.
+- **Demonstrated cause:** `[uPD72022]` "The SYNC command terminates display
+  controller operation"; DSPON starts it again. vaeg's `exec_sync` left
+  `tsp.dspon` set.
+- **Correction:** SYNC clears `tsp.dspon`; sprites stay as they are (the
+  data sheet stops the sprite controller only with DSPOFF).
+- **Verification:** romless test (SYNC stops the text, DSPON restarts it,
+  sprites untouched; fails without the fix); headless boots of the VA and
+  VA2 ROM screens, PC-Engine at 24.8 and 15.98 kHz, V2 N88-BASIC and N mode
+  still show their text; G256 keeps the text and V480PAT runs hide it, as
+  on the PC-88VA2.
+- **Task/evidence/commit:** [M104 task](../agents/tasks/M104_v3_display_timing.md),
+  [measurements](pc88va-video-modes.md#12-measured-non-native-timings).
+  Fix: [bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a).
+
+### M104 — frames taller than 400 rasters and non-native graphics windows
+
+- **Symptom/scope:** V3 programs that reprogram the TSP frame (VIEW480,
+  480-line and 15 kHz 240-line experiments) showed at most 400 rasters, so
+  graphics lines past 400 were lost; 24.8 kHz line-doubled 200-line
+  graphics kept advancing past line 200; at 15.98 kHz a top blanking under
+  37 showed all graphics lines. The PC-88VA2 shows the frame buffer to
+  line 479, repeats line 200 when doubling, and loses `37 - TBL` lines.
+- **Demonstrated cause:** the SDL canvas, texture and shadow were fixed at
+  640 x 400 (`SCRNMNG_CANVAS_HEIGHT`), and the graphics renderer had no
+  model of the display circuit's own line window; both against the
+  M104 hardware measurements.
+- **Correction:** the canvas grows to 400-480 rows with the frame
+  ([631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077)); the
+  measured windows are applied per frame through
+  `videova_graphics_window` ([ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d);
+  follow-up for a top over 37 and RSM = 00:
+  [2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
+- **Verification:** romless test (window values, delayed start and line
+  repetition; fails with either rule disabled); headless V480PAT sweeps
+  `A` and `B` reproduce the last graphics lines photographed on the
+  PC-88VA2.
+- **Task/evidence/commit:** [measurements](pc88va-video-modes.md#12-measured-non-native-timings),
+  [M104 task](../agents/tasks/M104_v3_display_timing.md).
+
+### M104 — N mode from the menu did not boot a disk in drive 1
+
+- **Symptom/scope:** with Emulate > Z80 mode > N, N-BASIC started with
+  `Ok` even with a disk in drive 1, while `NEW ON 1` from V1 S booted the
+  same disk (maintainer report). Both models, N mode only.
+- **Demonstrated cause:** `[ROM]` N-BASIC reads port 40h bit 3 at start-up
+  (00CBh `IN A,(40h) / AND 8 / XOR 8`) and skips its disk boot when the
+  bit is 1. vaeg's N mode reported the bit as 1 (SW7 OFF) for the whole
+  session so that the VA2 ROM enters V1/V2 without a disk; `NEW ON 1` in
+  V1 S sees 0.
+- **Correction:** the bit is reported only from reset until the first
+  compatible-mode entry, i.e. during the VA ROM's boot search.
+- **Verification:** romless test (the bit is clear after the compat
+  entry; fails without the fix); headless N mode on VA and VA2 with a
+  disk whose boot sector writes text: before the fix N-BASIC `Ok`, after
+  it the boot sector's text; without a disk N-BASIC still starts.
+- **Task/evidence/commit:** [N-BASIC mode](v1v2-n-basic-mode.md#6-booting-directly-in-n-mode-implemented-decision-c9).
+  Fix: [39e9df39](https://github.com/nakatamaho/vaeg/commit/39e9df3919902cd378851f710506896067a18bce).
+
 ### M103i — BEEP and port sound silent at low master volume
 
 - **Symptom/scope:** with the master volume below about 21 (of 128) the
@@ -2545,6 +2610,18 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
 ## Open Defects
+
+### M104 — V3 programs run about 2.2 times faster than on the PC-88VA2
+
+- **Symptom/scope:** the M104 test program G160 redraws its picture 3.0,
+  3.4 and 4.25 times per second at 16, 8 and 4 bits in vaeg against 1.4,
+  1.6 and 1.9 on a PC-88VA2, at 15.98 and 24.8 kHz alike
+  (`pc88va-video-modes.md` section 12.4). V3 mode; other code not measured.
+- **Status:** not investigated; no root cause is claimed. The CPU clock
+  (7.9872 MHz) matches the board; the ratio being the same at every depth,
+  with very different GVRAM write counts, points away from GVRAM waits
+  alone. Next step: a hardware benchmark per instruction class (register,
+  MUL/DIV, main RAM, TVRAM, GVRAM) compared with vaeg, in a later milestone.
 
 ### M103g — V1/V2 voice pitch observation without a demonstrated cause
 

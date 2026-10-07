@@ -98,7 +98,9 @@ static const char app_name[] = "88VA Eternal Grafx " VAEGREL_CORE;
 static const UINT32 vaeg_nominal_frame_rate = 60;
 enum {
 	SCRNMNG_CANVAS_WIDTH = 640,
-	SCRNMNG_CANVAS_HEIGHT = 400
+	SCRNMNG_CANVAS_HEIGHT = 400,
+	/* Taller frames (up to 480 rasters, measured in M104) grow the canvas. */
+	SCRNMNG_CANVAS_MAX_HEIGHT = 480
 };
 
 static SCRNMNG scrnmng;
@@ -1013,7 +1015,13 @@ static BOOL scrnmng_upload_shadow(void) {
 	if ((scrnmng.texture == NULL) || (scrnmng.shadow == NULL)) {
 		return (FAILURE);
 	}
-	if (SDL_UpdateTexture(scrnmng.texture, NULL, scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
+	SDL_Rect rect;
+
+	rect.x = 0;
+	rect.y = 0;
+	rect.w = scrnmng.width;
+	rect.h = scrnmng.height;
+	if (SDL_UpdateTexture(scrnmng.texture, &rect, scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
 	                      scrnmng.shadow_pitch) != 0) {
 		fprintf(stderr, "Error: SDL_UpdateTexture: %s\n", SDL_GetError());
 		return (FAILURE);
@@ -1022,11 +1030,22 @@ static BOOL scrnmng_upload_shadow(void) {
 	return (SUCCESS);
 }
 
+/* Canvas rows for a guest frame of the given height: 400 to 480. */
+static int scrnmng_canvas_height(int height) {
+	if (height <= SCRNMNG_CANVAS_HEIGHT) {
+		return SCRNMNG_CANVAS_HEIGHT;
+	}
+	if (height > SCRNMNG_CANVAS_MAX_HEIGHT) {
+		return SCRNMNG_CANVAS_MAX_HEIGHT;
+	}
+	return height;
+}
+
 static void scrnmng_clear_shadow(void) {
 	if (scrnmng.shadow == NULL) {
 		return;
 	}
-	ZeroMemory(scrnmng.shadow, scrnmng.shadow_pitch * scrnmng.height);
+	ZeroMemory(scrnmng.shadow, scrnmng.shadow_pitch * SCRNMNG_CANVAS_MAX_HEIGHT);
 	(void)scrnmng_upload_shadow();
 }
 
@@ -1194,7 +1213,7 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture =
 	    SDL_CreateTexture(scrnmng.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STATIC,
-	                      SCRNMNG_CANVAS_WIDTH, SCRNMNG_CANVAS_HEIGHT);
+	                      SCRNMNG_CANVAS_WIDTH, SCRNMNG_CANVAS_MAX_HEIGHT);
 	if (scrnmng.texture == NULL) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
 		SDL_DestroyRenderer(scrnmng.renderer);
@@ -1333,9 +1352,9 @@ BOOL scrnmng_create(int width, int height) {
 	scrnmng.window_width = width;
 	scrnmng.window_height = height;
 	scrnmng.width = SCRNMNG_CANVAS_WIDTH;
-	scrnmng.height = SCRNMNG_CANVAS_HEIGHT;
+	scrnmng.height = scrnmng_canvas_height(scrnstat.height);
 	scrnmng.shadow_pitch = (SCRNMNG_CANVAS_WIDTH + SCRNMNG_SURFACE_GUARD_LEFT) * 2;
-	scrnmng.shadow = (BYTE *)calloc(SCRNMNG_CANVAS_HEIGHT, scrnmng.shadow_pitch);
+	scrnmng.shadow = (BYTE *)calloc(SCRNMNG_CANVAS_MAX_HEIGHT, scrnmng.shadow_pitch);
 	{
 		const char *rendered_path;
 
@@ -1895,6 +1914,9 @@ void scrnmng_setheight(int posy, int height) {
 		return;
 	}
 	scrnstat.height = height;
+	if (scrnmng.shadow != NULL) {
+		scrnmng.height = scrnmng_canvas_height(height);
+	}
 	scrnmng_clear_shadow();
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("mode-height");
@@ -1949,7 +1971,15 @@ void scrnmng_present_begin(void) {
 	dst.y = viewport.y;
 	dst.w = viewport.width;
 	dst.h = viewport.height;
-	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
+	{
+		SDL_Rect src;
+
+		src.x = 0;
+		src.y = 0;
+		src.w = scrnmng.width;
+		src.h = scrnmng.height;
+		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, &src, &dst);
+	}
 	SDL_RenderSetClipRect(scrnmng.renderer, &dst);
 	if (((scrnmng.effect == VAEG_EFFECT_SCANLINE) || (scrnmng.effect == VAEG_EFFECT_CRT_LITE)) &&
 	    (dst.h >= scrnmng.height)) {

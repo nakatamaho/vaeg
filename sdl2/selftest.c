@@ -4613,6 +4613,126 @@ static int test_v1v2_graphics(void) {
 	return (SUCCESS);
 }
 
+/* M104: graphics lines shown in non-native TSP frames (measured rules). */
+static int test_graphics_window(void) {
+	static const UINT8 sync15[14] = {0xc1, 0x57, 0x1c, 0x00, 0x9f, 0x00, 0x10,
+	                                 0x0f, 0x25, 0x00, 0xc8, 0x00, 0x0f, 0x08};
+	FRAMEBUFFER f = &videova.framebuffer[0];
+	VIDEOVA_GRAPHICS_WINDOW w;
+	UINT8 sync[14];
+	const char *problem;
+	BOOL scrn200;
+	UINT y;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+
+	/* 15.98 kHz: graphics line 0 is shown 37 lines after sync, whatever TBL. */
+	memcpy(sync, sync15, sizeof(sync));
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if (w.startdelay || w.startskip || (w.linelimit != 0xffff)) {
+		problem = "ROM 15.98 kHz vector changed the graphics window";
+	}
+	sync[8] = 32; /* V480PAT T: 235 of 240 lines shown */
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && ((w.startdelay != 5) || w.startskip)) {
+		problem = "15.98 kHz top 32 did not delay graphics by 5 lines";
+	}
+	sync[8] = 16; /* V480PAT U: 219 of 240 */
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && (w.startdelay != 21)) {
+		problem = "15.98 kHz top 16 did not delay graphics by 21 lines";
+	}
+	sync[8] = 45; /* V480PAT H45: the top 8 lines hidden */
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && (w.startdelay || (w.startskip != 8))) {
+		problem = "15.98 kHz top 45 did not hide 8 graphics lines";
+	}
+	videova_graphics_window(VIDEOVA_15_73KHZ, 0x8482, sync, &w);
+	if ((problem == NULL) && (w.startdelay || w.startskip || (w.linelimit != 0xffff))) {
+		problem = "unmodelled 15.73 kHz frame changed the graphics window";
+	}
+	/* 24.8 kHz, 200-line graphics: lines 0-200, then repeat (RSM 01) or blank. */
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8442, sync, &w);
+	if ((problem == NULL) && ((w.linelimit != 201) || w.blankafterlimit)) {
+		problem = "24.8 kHz RSM = 01 doubling did not stop after line 200";
+	}
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && ((w.linelimit != 201) || !w.blankafterlimit)) {
+		problem = "24.8 kHz RSM = 00 did not blank after line 200";
+	}
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8440, sync, &w);
+	if ((problem == NULL) && (w.linelimit != 0xffff)) {
+		problem = "24.8 kHz 400-line graphics were limited";
+	}
+
+	/* Rendering: single-plane 4 bits, graphics line n has colour n + 1. */
+	ZeroMemory(f, sizeof(*f));
+	f->fbw = 320;
+	f->fbl = 0xffff;
+	f->dsh = 480;
+	for (y = 0; y < 8; y++) {
+		grphmem[y * 320] = (BYTE)((y + 1) << 4);
+	}
+	videova.grmode = 0x8400;
+	videova.grres = 0x0001;
+	ZeroMemory(&w, sizeof(w));
+	w.linelimit = 0xffff;
+	w.startdelay = 2;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
+	makegrphva_raster();
+	if ((problem == NULL) && !grph0_noraster) {
+		problem = "delayed graphics drew before line 0";
+	}
+	makegrphva_raster();
+	makegrphva_raster();
+	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 1))) {
+		problem = "delayed graphics did not start with line 0";
+	}
+	w.startdelay = 0;
+	w.startskip = 3;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
+	makegrphva_raster();
+	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 4))) {
+		problem = "hidden graphics lines were shown";
+	}
+	w.startskip = 0;
+	w.linelimit = 3;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
+	for (y = 0; y < 5; y++) {
+		makegrphva_raster();
+	}
+	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 3))) {
+		problem = "graphics past the line limit did not repeat the last line";
+	}
+	w.blankafterlimit = TRUE;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
+	for (y = 0; y < 5; y++) {
+		makegrphva_raster();
+	}
+	if ((problem == NULL) && !grph0_noraster) {
+		problem = "graphics past the line limit were not blank with RSM = 00";
+	}
+	ZeroMemory(grphmem, 8 * 320);
+	ZeroMemory(f, sizeof(*f));
+	videova.grmode = 0;
+	videova.grres = 0;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("graphics window", problem));
+	}
+	fprintf(stderr, "selftest: graphics window ok\n");
+	return (SUCCESS);
+}
+
 /* Write `size` bytes of `fill` as `name` in directory `dir`. */
 static BOOL selftest_write_rom(const char *dir, const char *name, UINT size, BYTE fill) {
 	static BYTE data[0x8000];
@@ -5083,6 +5203,11 @@ static int test_v1v2_memory_switch(void) {
 		if ((problem == NULL) && (upd9002_mainram_read(0x4e8) != 0x89)) {
 			problem = "N mode changed the text state more than once";
 		}
+		/* N-BASIC reads bit 3 set as "no disk unit" and would skip booting
+		 * drive 1, so the bit is reported only during the VA ROM's boot. */
+		if ((problem == NULL) && (iocore_inp8(0x040) & 0x08)) {
+			problem = "N mode kept port 40h bit 3 after the compat entry";
+		}
 		memoryva_n80_exist = FALSE;
 		memoryva_88_port31 = 0;
 		memctrlva_nmode_reset();
@@ -5182,6 +5307,53 @@ static int test_v1v2_rom_ports(void) {
 		return (fail("V1/V2 ROM ports", problem));
 	}
 	fprintf(stderr, "selftest: V1/V2 ROM ports ok\n");
+	return (SUCCESS);
+}
+
+/* M104: SYNC stops the text display until DSPON (uPD72022 data sheet). */
+static int test_tsp_sync_display(void) {
+	static const BYTE sync[] = {0x10, 0xc1, 0x57, 0x10, 0x00, 0x9f, 0x00, 0x10,
+	                            0x0f, 0x19, 0x00, 0x90, 0x40, 0x07, 0x08};
+	static const BYTE dspon[] = {0x12, 0x7f, 0x00, 0x00};
+	const char *problem;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	iocore_out8(0x142, dspon[0]);
+	for (i = 1; i < sizeof(dspon); i++) {
+		iocore_out8(0x146, dspon[i]);
+	}
+	if (!tsp.dspon) {
+		problem = "DSPON did not start the display";
+	}
+	tsp.spron = TRUE;
+	iocore_out8(0x142, sync[0]);
+	for (i = 1; i < sizeof(sync); i++) {
+		iocore_out8(0x146, sync[i]);
+	}
+	if ((problem == NULL) && tsp.dspon) {
+		problem = "SYNC left the text display running";
+	}
+	if ((problem == NULL) && !tsp.spron) {
+		problem = "SYNC stopped the sprite controller";
+	}
+	iocore_out8(0x142, dspon[0]);
+	for (i = 1; i < sizeof(dspon); i++) {
+		iocore_out8(0x146, dspon[i]);
+	}
+	if ((problem == NULL) && !tsp.dspon) {
+		problem = "DSPON after SYNC did not restart the display";
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP SYNC display", problem));
+	}
+	fprintf(stderr, "selftest: TSP SYNC display ok\n");
 	return (SUCCESS);
 }
 
@@ -6103,6 +6275,9 @@ int vaeg_selftest_run(void) {
 	if (test_tsp_3301_emulation() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_tsp_sync_display() != SUCCESS) {
+		return (FAILURE);
+	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
 	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
 	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
@@ -6110,6 +6285,9 @@ int vaeg_selftest_run(void) {
 		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
 	}
 	if (test_v1v2_graphics() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_graphics_window() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_v1v2_rom_ports() != SUCCESS) {

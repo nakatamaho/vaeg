@@ -593,7 +593,306 @@ The principal unresolved points are:
 7. exact direct-color layout of `PM=11b`; and
 8. model differences among VA, VA2, and VA3.
 
-## 12. Change log
+## 12. Measured non-native timings
+
+`[MEAS]` Real-hardware runs of
+[`V480PAT`](../../tools/pc88va/vtiming/README.md) (M104; binary SHA-256
+`3a1e5a03477c47dd2f8ac71337fcbb5bce941b6d66ddba49756fe653f82f7550`, before
+the line ruler) and VIEW480 under PC-Engine 1.1 on the maintainer's
+PC-88VA2, 2026-10-05/06. Monitor:
+I-O DATA LCD-MF225XBR (LCD; 15, 24 and 31 kHz inputs). Frame totals and
+rates are derived from the `SYNC` bytes with vaeg's dot clocks, not
+measured.
+
+| Run | `SYNC` lines (top/active/bottom/sync) | Frame | Rate | Result |
+|---|---|---:|---:|---|
+| `V480PAT` (no switching) | ROM 400-line | 440 | 56.4 Hz | pattern drawn as designed: the GVRAM bank (`0153h` = 4) and CPU-data write mode (`0580h` = 10h) work on hardware |
+| `VIEW480` | 25/480/1/1 | 507 | 49.0 Hz | out of range on this monitor (one earlier look showed a vertically compressed picture with the 400-line edge visible; the repeat reported out of range) |
+| `V480PAT 200 D` | 25/400/7/8 | 440 | 56.4 Hz | 320x200 shown with every line on two rasters, no gaps: RSM = 01 doubles graphics lines |
+| `V480PAT 208 D` to `232 D` | 25/416-464/2/4 | 447-495 | 55.5-50.2 Hz | all displayed; with `232 D` the last line (231) was not seen |
+| `V480PAT 240 D` | 25/480/2/4 | 511 | 48.6 Hz | out of range |
+| ROM 15 kHz 200-line screen | 37/200/15/8 | 260 | 61.5 Hz | displayed (monitor switch at 15 kHz) |
+| `V480PAT 240 T W` | 32/240/2/4 | 278 | 57.5 Hz | 320x240 displayed; the last line (239) not seen |
+| `V480PAT 240 U W` | 16/240/2/4 | 262 | 61.0 Hz | displayed; the last line (239) not seen |
+| `V480PAT 224 U W` | 16/224/18/4 | 262 | 61.0 Hz | displayed; the white line seen with a little yellow below it was line 200 and lines 201-202 (second round), not line 223 |
+| `V480PAT 240 T W N` | as `240 T W`, `HAD` 127, `LBR`/`RBR` 16 | 278 | (57.5 Hz) | displayed; the lower band visible; horizontal result not yet recorded |
+
+Conclusions supported by these runs:
+
+- The TSP accepts a 15.98 kHz `VAD` of 224 and 240 lines (beyond the
+  documented 200/204) with 262- and 278-line frames, and 320-dot graphics
+  in 200-line mode then gives a 320x224 or 320x240 picture.
+- At 24.8 kHz, the RSM = 01 line doubling continues past 204 lines, to at
+  least 232 lines (464 rasters).
+- This monitor's lower vertical limit at 24.8 kHz lies between 49.0 and
+  50.2 Hz; a 480-raster frame cannot reach 50 Hz with the ROM's top
+  blanking.
+- Where the 240-line pictures lose their bottom lines is measured in the
+  second round below.
+
+### 12.1 Second round: line ruler
+
+`[MEAS]` 2026-10-06, PC-88VA2, same monitor, V480PAT with the line ruler
+and command label (binary built from
+[`290d976c`](https://github.com/nakatamaho/vaeg/commit/290d976c48f553b7256d82fa4e41edc61c0c5c9d)).
+"Last line" is read from the ruler (about plus or minus 1 line). Photographs
+(maintainer-authorised, metadata removed) are in
+[`m104-photos/`](m104-photos/).
+
+| Run | Clock | `SYNC` lines (top/active/bottom/sync) | Last graphics line seen | Photo |
+|---|---|---|---:|---|
+| `V480PAT 232 D` | 24.8 kHz | 25/464 rasters/2/4 | lines 0-200, then line 200 repeated to the end of the active area | [232 D](m104-photos/va2-232-d.jpg) |
+| `V480PAT 232 D N` | 24.8 kHz | as above, `HAD` 127 | as above | [232 D N](m104-photos/va2-232-d-n.jpg) |
+| `V480PAT 240 T W` | 15.98 kHz | 32/240/2/4 | 234 | [240 T W](m104-photos/va2-240-t-w.jpg) |
+| `V480PAT 240 U W` | 15.98 kHz | 16/240/2/4 | 218 | [240 U W](m104-photos/va2-240-u-w.jpg) |
+| `V480PAT 224 U W` | 15.98 kHz | 16/224/18/4 | 202 | [224 U W](m104-photos/va2-224-u-w.jpg) |
+| `V480PAT 224 T W N` | 15.98 kHz | 32/224/2/4, `HAD` 127 | 218 | [224 T W N](m104-photos/va2-224-t-w-n.jpg) |
+| `V480PAT 240 T` | 15.98 kHz | 32/240/2/4, 640 dots | 234 | [240 T](m104-photos/va2-240-t.jpg), [repeat](m104-photos/va2-240-t-repeat.jpg) |
+| `V480PAT 300 S` | 24.8 kHz | 25/300/7/8 (340, 73.0 Hz) | monitor: unsupported signal | [out of range](m104-photos/va2-out-of-range.jpg) |
+| `V480PAT 256 T W` | 15.98 kHz | 32/256/2/4 (294, 54.4 Hz) | monitor: unsupported signal (same screen) | - |
+
+Findings:
+
+- **15 kHz vertical extent.** In all four 15 kHz runs the number of
+  graphics lines shown equals `TBL + VAD - 37`: 235, 219, 203 and 219,
+  against last lines 234, 218, 202 and 218 read off the ruler; `240 T` at
+  640 dots also ends at 234. 37 is the top blanking of the
+  ROM's own 15.98 kHz vector (`25h`). Line 0 is visible at the top in every
+  run. `[DERIVED]` A consistent model: the graphics display circuit
+  (D65101 side) starts graphics line 0 a fixed 37 lines after vertical sync,
+  independently of the TSP's `TBL`, and output ends with the TSP active
+  area. With the ROM's vector the two coincide. The equivalent count rule
+  holds whether the start is fixed (and the picture shifts by `37 - TBL`
+  lines against TSP text) or the count alone is short; the photos do not
+  separate them, because nothing TSP-drawn is in the measured area.
+- **24.8 kHz line doubling.** With port `0100h` 200-line mode and RSM = 01,
+  graphics lines 0-200 are shown doubled and line 200 is then repeated on
+  every remaining raster: the graphics line address stops advancing after
+  line 200 at 24.8 kHz. At 15.98 kHz, also in 200-line mode, it advances to
+  at least line 234.
+- **Horizontal (`N`).** With `HAD` reduced to 127 TCK and 16 TCK added to
+  each border, the whole 320-dot graphics line is still shown: both
+  window-edge marks (dots 32 and 286) appear inside the picture with
+  pattern outside them, at 15.98 and 24.8 kHz. Graphics are not clipped to
+  the TSP horizontal active period. The monitor rescaled the picture width,
+  so the photos do not show the line frequency.
+- The monitor reported an unsupported signal for a 340-line 24.8 kHz frame
+  (73 Hz) and a 294-line 15.98 kHz frame (54.4 Hz). These are monitor
+  limits, not VA results.
+
+### 12.2 Feasible resolutions
+
+Combining the native modes with the 12.1 findings (15.98 kHz: graphics show
+`TBL + VAD - 37` lines; 24.8 kHz RSM = 01 doubling stops after line 200;
+widths only 640 or 320, not clipped by `HAD`) and the monitor limits seen
+in 12-12.4. Status: **native** = documented mode; **measured** = shown
+on the PC-88VA2 in 12-12.4; **derived** = follows from the rules, not yet
+run; **not possible** = excluded by a measured rule or a missing control.
+Rates use vaeg's line rates (15.98 kHz: 15.980 kHz, 24.8 kHz: 24.826 kHz).
+
+To show `N` full graphics lines at 15.98 kHz the frame needs at least
+`N + 37 + BBL + VS` lines (`N + 43` with the data-book minimums
+`BBL = 2`, `VS = 4`). `TBL = 37` (the ROM's value) also keeps graphics and
+TSP text aligned, which avoids the open shift question.
+
+| Resolution (W x graphics lines) | Clock | `SYNC` lines (top/active/bottom/sync) | Frame | Rate | Status |
+|---|---|---|---:|---:|---|
+| 640 x 400 | 24.8 kHz | 25/400/7/8 | 440 | 56.4 Hz | native |
+| 640/320 x 200, line-doubled (RSM = 01) or blank odd rasters (RSM = 00) | 24.8 kHz | 25/400/7/8 | 440 | 56.4 Hz | native; doubling measured (`200 D`) |
+| 640/320 x 200 | 15.98 kHz | 37/200/15/8 | 260 | 61.5 Hz | native |
+| 640/320 x 219 | 15.98 kHz | 16/240/2/4 | 262 | 61.0 Hz | measured (`240 U W`; lines 219-239 of the buffer not shown) |
+| 640/320 x 224 | 15.98 kHz | 37/224/2/4 | 267 | 59.9 Hz | measured (`224 R W`, `224 R`; 12.4) |
+| 640/320 x 232 | 15.98 kHz | 37/232/2/4 | 275 | 58.1 Hz | measured (`232 R W`) |
+| 640/320 x 235 | 15.98 kHz | 32/240/2/4 | 278 | 57.5 Hz | measured (`240 T W`, `240 T`) |
+| 640/320 x 236 | 15.98 kHz | 37/236/2/4 | 279 | 57.3 Hz | measured (`236 R W`) |
+| 640/320 x 240 | 15.98 kHz | 37/240/2/4 | 283 | 56.5 Hz | measured (`240 R W`, `240 R`, `240 R W N`; all 240 lines) |
+| 640/320 x 241-248 | 15.98 kHz | 37/244-248/2/4 | 287-291 | 55.7-54.9 Hz (monitor: 55.7, 55.0) | frame accepted; this monitor showed it as 240 lines (1740 x 240), so lines 240-247 were not visible |
+| 640/320 x 201-240, line-doubled | 24.8 kHz | 25/402-480/2/4 | 443-511 | 56.0-48.6 Hz | not possible: graphics stop advancing after line 200 (again with top 17: `232 D K`, `240 D K`) |
+| 640 x 401-476, 400-line graphics mode | 24.8 kHz | 25/401-476/1/1 | 428-503 | 58.0-49.4 Hz | measured (`432 S`-`476 S`): graphics lines past 400 are shown; at 408-424 lines this monitor treated the input as 640 x 400 and showed only lines 0-399 |
+| 640 x 480, 400-line graphics mode | 24.8 kHz | 17/480/1/1 | 499 | 49.7 Hz (monitor: 49.7) | measured (`480 S K`): all 480 lines |
+| 640 x 480 (VIEW480) | 24.8 kHz | 25/480/1/1 | 507 | 49.0 Hz | out of range on this monitor (`480 S`, `480 S W`) |
+| 256 (or any width other than 640/320) | any | `HAD` narrowed | - | - | not possible: graphics width is 640 or 320 and is not clipped by `HAD` |
+| 256 x 192 window in 320 x 200 | 15.98 kHz / 24.8 kHz | ROM vectors | 260 / 440 | 61.5 / 56.4 Hz | measured (`G256`, 12.3) |
+
+The 320 x 224 at about 60 Hz row is the closest to common console timing
+that the rules allow with this monitor; 320 x 240 at 56.5 Hz (283-line
+frame) is measured. This monitor accepted 24.8 kHz frames up to 503 lines
+(49.4 Hz) and 15.98 kHz frames up to 291 lines (54.9 Hz), and rejected 507
+and 294 lines.
+
+### 12.3 256 x 192 window (G256)
+
+`[MEAS]` 2026-10-06, PC-88VA2, same monitor,
+[`G256`](../../tools/pc88va/vtiming/README.md#g256-a-256-x-192-window)
+(built from
+[`a1363f4d`](https://github.com/nakatamaho/vaeg/commit/a1363f4d59df878dfe5f0c1f150f5bb69f2246c4)).
+The program keeps the ROM's 200-line vectors and draws a 256 x 192 window
+at GVRAM x 32-287, y 4-195 in single-plane 320 x 200 graphics, black
+outside; at 24.8 kHz port `0100h` RSM = 01 doubles each line. The line
+frequency of each photograph is identified from the PC-Engine text-row
+pitch (15.98 kHz rows are twice as tall, as in vaeg).
+
+| Run | Clock | Result | Photo |
+|---|---|---|---|
+| `G256` | 15.98 kHz | window shown, one-dot checks resolved, 16 depth dots | [15k 16](m104-photos/va2-g256-15k-16.jpg) |
+| `G256 8` | 15.98 kHz | as above, 8-bit gradient bands, 8 dots | [15k 8](m104-photos/va2-g256-15k-8.jpg) |
+| `G256 4` | 15.98 kHz | as above, 16-colour blocks, 4 dots | [15k 4](m104-photos/va2-g256-15k-4.jpg) |
+| `G256` | 24.8 kHz | as at 15.98 kHz, line-doubled | [24k 16](m104-photos/va2-g256-24k-16.jpg) |
+| `G256 8` | 24.8 kHz | as above | [24k 8](m104-photos/va2-g256-24k-8.jpg) |
+| `G256 4` | 24.8 kHz | as above | [24k 4](m104-photos/va2-g256-24k-4.jpg) |
+
+Findings:
+
+- The top, left and right white borders, the grey 32-dot grid, the
+  one-dot red/white checks and the depth dots on line 1 are visible in all
+  six runs, and the layout and colours match vaeg's screenshots of the same
+  program at each depth.
+- The window's bottom rows (lines about 192-195) lie under PC-Engine's
+  function-key row, which is TSP text drawn over graphics, so the bottom
+  border is hidden by text at both frequencies, as in vaeg. It is not a
+  timing loss.
+- `[DERIVED]` A 256 x 192 picture needs no `SYNC` change on the VA: it is
+  a letterboxed window in the native 320 x 200 mode, with 320-mode dots, at
+  61.5 Hz (15.98 kHz) or 56.4 Hz (24.8 kHz).
+
+### 12.4 Third round: sweeps, monitor read-out and G160 rates
+
+`[MEAS]` 2026-10-07, PC-88VA2, same monitor, the sweep lists of
+[`V480PAT`](../../tools/pc88va/vtiming/README.md#usage) (`A` at 24 kHz, `B`
+at 15 kHz), `G256 A`, `G160 A` and `TSPMODE`, all built from
+[`4119af16`](https://github.com/nakatamaho/vaeg/commit/4119af1672fd2f9593e5ca89f669b2b375ad8886).
+The monitor's input information (resolution, line and field rate) was
+photographed where it appeared; it is the monitor's measurement, not the
+VA's. "Last line" is read from the ruler.
+
+| Run | Frame (top/active/bottom/sync) | Monitor read-out | Last graphics line seen | Photo |
+|---|---|---|---:|---|
+| `400 S` | 25/400/7/8 (440) | - | 399 | - |
+| `408 S`-`424 S` | 25/N/1/1 (435-451) | `416 S`: 640x400, 24.8 kHz, 56.0 Hz | 399 (the monitor's 640 x 400 window) | [416 S](m104-photos/va2-416-s-osd.jpg) |
+| `432 S`-`472 S` | 25/N/1/1 (459-499) | `440 S`: 640x448, 24.9 kHz, 53.3 Hz | N - 1 | [440 S](m104-photos/va2-440-s-osd.jpg) |
+| `476 S` | 25/476/1/1 (503, 49.4 Hz) | - | 475 | [476 S](m104-photos/va2-476-s.jpg) |
+| `480 S`, `480 S W` | 25/480/1/1 (507, 49.0 Hz) | unsupported signal | - | [480 S](m104-photos/va2-480-s-out-of-range.jpg) |
+| `440 S W`, `440 S N` | as `440 S` | `440 S N`: 640x448, 24.8 kHz, 53.1 Hz | 439 | - |
+| `464 S K`-`480 S K` | 17/N/1/1 (483-499) | `480 S K`: 640x480, 24.8 kHz, 49.7 Hz | N - 1 | [480 S K](m104-photos/va2-480-s-k-osd.jpg) |
+| `200 D` | 25/400/7/8 (440) | 640x400, 24.8 kHz, 56.4 Hz | 199 | - |
+| `240 D` | 25/480/2/4 (511, 48.6 Hz) | unsupported signal | - | - |
+| `232 D K`, `240 D K` | 17/2N/2/4 (487, 503) | `240 D K`: 640x480, 24.8 kHz, 49.3 Hz | 200, then line 200 repeated | [232 D K](m104-photos/va2-232-d-k.jpg), [240 D K](m104-photos/va2-240-d-k-osd.jpg) |
+| `200 R W`-`240 R W` (8 runs) | 37/N/2/4 (243-283) | - | N - 1 in every run | [240 R W](m104-photos/va2-240-r-w.jpg) |
+| `244 R W`, `248 R W` | 37/N/2/4 (287, 291) | 1740x240, 16.0 kHz, 55.7 Hz and 55.0 Hz | 239 (the monitor's 240-line window) | [248 R W](m104-photos/va2-248-r-w.jpg), read-out [244](m104-photos/va2-244-r-w-osd.jpg), [248](m104-photos/va2-248-r-w-osd.jpg) |
+| `224 R`, `240 R` (640 dots) | 37/N/2/4 | - | 223, 239 | [240 R](m104-photos/va2-240-r.jpg) |
+| `240 R W N` | 37/240/2/4, `HAD` 127 | - | 239, both window marks inside the picture | [240 R W N](m104-photos/va2-240-r-w-n.jpg) |
+| `240 T W`, `240 U W` | 32 and 16 top | - | about 234 and 218, as in 12.1 | - |
+
+Findings:
+
+- **24.8 kHz, 400-line graphics mode past line 400.** With `S` the
+  graphics frame buffer is shown to its last line: lines 400-479 appear
+  below the red 400-line edge, up to 480 lines (`480 S K`). The monitor
+  read-outs agree with the frame totals computed from the `SYNC` vectors
+  (443 lines: 56.0 Hz; 467: 53.2 Hz; 499: 49.75 Hz; 503: 49.4 Hz).
+- **15.98 kHz with the ROM's top blanking (37).** Every run from 200 to 240
+  lines shows all lines, at 320 and 640 dots, which confirms the rule
+  `TBL + VAD - 37` at `TBL = 37`. Above 240 (`244 R W`, `248 R W`) the
+  frame is accepted but nothing past line 239 is visible; the monitor
+  reported these inputs as 240-line pictures (1740 x 240), so the cut is
+  its picture window, as with `408 S`-`424 S` at 24.8 kHz. Whether the VA
+  outputs lines 240-247 needs a monitor that shows the whole frame.
+- **24.8 kHz line doubling** stops after line 200 also with top blanking
+  17 (`232 D K`, `240 D K`), as in 12.1.
+- **Monitor limits** (this monitor only): 24.8 kHz frames of 503 lines
+  (49.4 Hz) accepted and of 507 and 511 lines rejected; at 15.98 kHz 291
+  lines (54.9 Hz) accepted and 294 rejected (12.1).
+- **G160 rates** (redraws over the calendar-clock interval; the values are
+  binary, the clock had not been set):
+
+| Depth | 24.8 kHz | 15.98 kHz |
+|---|---|---|
+| 16 bits | 39 in 27 s (1.4/s) [photo](m104-photos/va2-g160-24k-16.jpg) | 42 in 29 s (1.4/s) [photo](m104-photos/va2-g160-15k-16-r2.jpg) |
+| 8 bits | 40 in 25 s (1.6/s) [photo](m104-photos/va2-g160-24k-8.jpg) | 41 in 26 s (1.6/s) [photo](m104-photos/va2-g160-15k-8-r2.jpg) |
+| 4 bits | 246 in 127 s (1.9/s) [photo](m104-photos/va2-g160-24k-4.jpg) | 68 in 35 s (1.9/s) [photo](m104-photos/va2-g160-15k-4-r2.jpg) |
+
+  The 15.98 kHz column is a repeat run (2026-10-07, later the same
+  morning); the first 15.98 kHz run (104 redraws in 68-83 s, 40 in 26 s, 81)
+  had the end times partly hidden ([16](m104-photos/va2-g160-15k-16.jpg),
+  [8](m104-photos/va2-g160-15k-8.jpg), [4](m104-photos/va2-g160-15k-4.jpg)).
+
+  vaeg ran the same program at 3.0, 3.4 and 4.25 redraws per second (16, 8
+  and 4 bits), about 2.1-2.2 times the PC-88VA2 at every depth. The rate
+  does not depend on the line frequency on the hardware. `G256 A` matched
+  12.3 at both frequencies ([15 kHz](m104-photos/va2-g256-15k-16-r2.jpg)).
+
+### 12.5 vaeg model
+
+vaeg implements the measured rules (M104,
+[631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077),
+[ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d)):
+
+- The SDL canvas has as many rows as the frame's rasters, 400 to 480; the
+  frame buffer is shown to its last line (24.8 kHz `S` runs, `480 S K`).
+- 24.8 kHz, 200-line graphics with RSM = 01: graphics lines 0-200 are
+  read, then line 200 repeats (`D` runs).
+- 15.98 kHz: graphics line 0 is shown 37 lines after vertical sync. When
+  `TBL + TBR` is under 37 it is delayed by the difference, so
+  `TBL + VAD - 37` lines are shown; when it is over 37 that many lines at
+  the top are hidden (12.6). The fixed start, chosen as `[POLICY]` before
+  12.6 because 12.1 could not separate it from a short count, is supported
+  by 12.6: a longer top hides the top of the picture.
+- 24.8 kHz, 200-line graphics with RSM = 00: lines 0-200 are shown, the
+  rest is blank (12.6) ([2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
+- The TSP text stops at SYNC until DSPON, which is why the V480PAT
+  photographs show no PC-Engine text ([bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a)).
+- Not modelled: the frame buffer's first lines that the PC-88VA2 shows
+  below the last line when the top is over 37 and `VAD` is 224 or more
+  (12.6; this may mean `DSH` does not end the picture), the 15.73 kHz family
+  (12.6: inconsistent), and anything past line 239 at 15.98 kHz (12.4:
+  hidden by this monitor). The monitor's own limits are not emulated; vaeg
+  shows every frame.
+
+### 12.6 Fourth round: long top blanking, 15.73 kHz family, RSM = 00
+
+`[MEAS]` 2026-10-07, PC-88VA2, same monitor, `V480PAT C` (15 kHz) and
+`E` (24 kHz) built from
+[`c5ef4e9d`](https://github.com/nakatamaho/vaeg/commit/c5ef4e9d718faa9c7d2647c3b72c18f08efbca4b).
+
+| Run | Frame (top/active/bottom/sync) | Result | Photo |
+|---|---|---|---|
+| `200 D Z` | 25/400/7/8 | each line on the even raster, odd rasters blank; monitor 640x400, 56.4 Hz | [200 D Z](m104-photos/va2-200-d-z-osd.jpg) |
+| `232 D Z`, `240 D K Z` | 25/464/2/4, 17/480/2/4 | lines 0-199 as above, line 200 (red) once, then black to the end; monitor 640x480, 50.1 and 49.3 Hz | [232 D Z](m104-photos/va2-232-d-z-osd.jpg) |
+| `200 H37 W`-`200 H53 W` | 37-53/200/.../4 (262) | the label at the top loses about `TBL - 37` lines (H53: all but its last row); nothing below line 199 | [H45](m104-photos/va2-200-h45-w.jpg), [H53](m104-photos/va2-200-h53-w.jpg) |
+| `224 H45 W`, `240 H41 W`, `240 H45 W` | 45/224, 41/240, 45/240 | top cut as above; below the last line one dark line and then the frame buffer's first lines (the blue band and the top of the label), about `TBL - 37` lines in all | [224 H45](m104-photos/va2-224-h45-w.jpg), [240 H41](m104-photos/va2-240-h41-w.jpg), [240 H45](m104-photos/va2-240-h45-w.jpg) |
+| `200 I W` | 15.73 kHz vector, RSM = 10 | all 200 lines | [200 I W](m104-photos/va2-200-i-w.jpg) |
+| `224 I W` | as above, 224 | the monitor kept re-adjusting; the picture ghosted | [224 I W](m104-photos/va2-224-i-w.jpg) |
+| `240 I W`, `240 I` | top 36, 240 | to about line 217 | [240 I W](m104-photos/va2-240-i-w.jpg), [240 I](m104-photos/va2-240-i.jpg) |
+| `240 I W H37` | top 37, 240 | to about line 199 | [240 I W H37](m104-photos/va2-240-i-w-h37.jpg) |
+
+Findings:
+
+- **RSM = 00 past line 200** (24.8 kHz): the line address stops after
+  line 200 as with RSM = 01, but the rasters after it are blank instead of
+  repeating line 200. `[DERIVED]` Consistent with the doubling logic
+  treating every raster past the stop as an odd raster: repeated in mode 1,
+  blank in mode 0.
+- **Top blanking over 37** (15.98 kHz): the top of the picture is hidden by
+  about `TBL - 37` lines, so graphics line 0 is tied to vertical sync, not
+  to the TSP's active area. With `VAD` 224 or 240 the same number of lines
+  appear below the last line, wrapped to the frame buffer's start
+  (V480PAT sets `FBL = DSH = VAD`), so the display does not stop at `DSH`
+  there; with `VAD` 200 nothing appears below line 199. Not separated
+  further.
+- **15.73 kHz family** (external sync, interlaced RSM): results are not
+  consistent with one rule (217 vs 199 lines with top 36 vs 37) and the
+  monitor re-adjusted; not modelled.
+
+## 13. Change log
+
+### Version 0.3 - 2026-10-06
+
+- Added the M104 measurements of non-native line counts and line doubling
+  (section 12), the second round with the line ruler (12.1), and the
+  feasible-resolution table (12.2), the G256 256 x 192 window (12.3), and
+  the third round with the sweeps, monitor read-out and G160 rates (12.4),
+  the vaeg model of the measured rules (12.5), and the fourth round with
+  long top blanking, the 15.73 kHz family and RSM = 00 (12.6).
 
 ### Version 0.2 - 2026-07-16
 

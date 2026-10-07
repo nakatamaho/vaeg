@@ -1402,6 +1402,97 @@ address progression. Then test in this order:
 5. candidate 320x400 to test horizontal/vertical independence; and
 6. a 384x256 viewport while retaining 640x400 `SYNC`.
 
+`[MEAS]` M104 also stepped the screen-table `MODE` field (word `0Ah` bits
+4:0) of the main split through undocumented values with
+[`TSPMODE`](../../tools/pc88va/vtiming/README.md#tspmode-undocumented-tsp-screen-modes)
+on a PC-88VA2 (2026-10-06). The test block held character codes 00h-FFh
+with attribute F0h. Values 0-5 behaved as the documented attribute modes
+(0: white background, 1: black, 2-3: nothing visible with F0h, 4-5: as 0
+with blinking). Undocumented values:
+
+| `MODE` | Observation |
+|---:|---|
+| 6 | as 4-5, the block grey instead of white |
+| 7 | as 6 without blinking |
+| 8, 9 | an unidentified pattern instead of characters |
+| 10, 11 | the same pattern, finer |
+| 12 | the pattern on the left, the right blank |
+| 13 | the pattern wavy |
+| 14 | the pattern yellow and wavy |
+| 15, 18, 19 | only one cursor visible, the rest black |
+| 16, 20 | broken characters split left and right, white background |
+| 17 | as 16 with the original black background |
+| 21-23 | as 16-17: every other character of each row, the row shown twice side by side (`Ready` appears as `Ray`) |
+| 24-30 | as 8-14 respectively (28: pattern on the left only; 30: yellow) |
+| 31 | as 15 |
+
+`[MEAS]` A second complete pass (0-31) on 2026-10-07 at 24.8 kHz
+reproduced the first and filled in 21-31; photographs:
+[0](m104-photos/va2-tspmode-00.jpg),
+[7](m104-photos/va2-tspmode-07.jpg),
+[8](m104-photos/va2-tspmode-08.jpg),
+[10](m104-photos/va2-tspmode-10.jpg),
+[12](m104-photos/va2-tspmode-12.jpg),
+[13](m104-photos/va2-tspmode-13.jpg),
+[14](m104-photos/va2-tspmode-14.jpg),
+[15](m104-photos/va2-tspmode-15.jpg),
+[16](m104-photos/va2-tspmode-16.jpg),
+[17](m104-photos/va2-tspmode-17.jpg),
+[28](m104-photos/va2-tspmode-28.jpg). In 8-14 and 24-30
+the whole main split, not only the test block, becomes a fine
+multicoloured dot pattern with coarse colour regions; the function-key
+split (`MODE` 1) stays text.
+
+`[DERIVED]` Bit 4 repeats the effect of bits 3:0 with characters fetched
+at twice the stride; bit 3 replaces character display by a non-character
+pattern, which makes 8-14 (and 24-30) the candidates for the uPD72022's
+semigraphics or graphics static-picture modes; the low bits then change
+the dot size or format. The pattern's source and format are not yet
+identified; a test with known TVRAM contents is needed.
+
+`[MEAS]` M104 then ran
+[`TSPFILL A`](../../tools/pc88va/vtiming/README.md#tspfill-known-data-under-the-undocumented-modes)
+on the PC-88VA2 (2026-10-07, 24.8 kHz, filmed; built from
+[`e8652f69`](https://github.com/nakatamaho/vaeg/commit/e8652f696b5ffb3ad373c1af372665a205f38cc6)),
+which fills TVRAM from split 0's start to `7F00h` and the attribute area
+with known data under `MODE` 8, 12, 14, 10 and 13. Under `MODE` 8:
+
+| Fill | Result | Still |
+|---|---|---|
+| `P0` (00h), `P3` (characters 00h, attributes FFh) | the same multicoloured pattern as before the fill | [P0](m104-photos/va2-tspfill-08-p0.jpg) |
+| `P1` (FFh), `P2` (characters FFh, attributes 00h) | the whole split white | [P1](m104-photos/va2-tspfill-08-p1.jpg) |
+| `P4` (byte ramp) | vertical stripes stepping through the colours from left to right, identical on every raster, over the left third of the screen; black to the right | [P4](m104-photos/va2-tspfill-08-p4.jpg) |
+| `P5` (value changes every 16 bytes) | yellow vertical stripes, a white area at the left | [P5](m104-photos/va2-tspfill-08-p5.jpg) |
+| `P6`, `P7` | the `P0` pattern with parts changed | - |
+
+The other modes behaved alike (12: left part only; 14: yellow). The result
+depends on the character bytes, not visibly on the attribute bytes, but
+an all-zero fill still shows the original pattern, so part of the source
+lies outside the filled range.
+
+`[DERIVED]` The undocumented modes are not a TSP crash: the result is
+reproducible between runs and days, depends on the data, disappears in
+the next frame when `MODE` is restored, and the function-key split
+(`MODE` 1) of the same frame stays correct. The likely reading is that
+these `MODE` values put the TSP into its semigraphics or graphics fetch
+(signalled on its DM pins), for which the VA board has no circuit, so the
+fetched data reach the text path unchanged; the per-raster address does
+not appear to advance (`P4` stripes are the same on every raster). M104
+stops here: the modes give no usable picture format. A maintainer
+hypothesis to test later: in these modes the board may present font or
+other ROM data, not TVRAM, on the TSP's data path, which would explain the
+pattern that remains with an all-zero fill; it can be checked by rendering
+the font ROM as 4-bit dots in vaeg and comparing with the stills (the ROM
+contents themselves stay private).
+
+`[MEAS]` M104 measured TSP frames outside the documented vectors on real
+hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)
+are displayed, 24.8 kHz frames of up to 495 lines (`VAD` 464) are displayed,
+and 507- and 511-line frames were out of range for the monitor used. Details
+are in
+[PC-88VA Video-Mode and Framebuffer Control](pc88va-video-modes.md#12-measured-non-native-timings);
+the test program is [`V480PAT`](../../tools/pc88va/vtiming/README.md).
+
 Do not begin with arbitrary `SYNC` values: out-of-range CRT timing is unsafe
 and combines too many unknowns. Hardware captures must identify model, monitor
 setting, clock source, probe point, and measurement uncertainty.

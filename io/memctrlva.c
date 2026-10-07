@@ -232,6 +232,15 @@ BOOL memctrlva_nmode_active(void) {
 	return (np2cfg.v1v2_nmode && memoryva_n80_exist) ? TRUE : FALSE;
 }
 
+/*
+ * TRUE from reset until the first compatible-mode entry: the VA ROM's boot
+ * search, which port 40h bit 3 must skip. N-BASIC reads the same bit as
+ * "no disk unit" (00CBh) and then skips its disk boot, so it must read 0.
+ */
+BOOL memctrlva_nmode_boot_search(void) {
+	return nmode_entry_pending;
+}
+
 /* Called after the ROMs are loaded (romva_initialize) at every reset. */
 void memctrlva_nmode_reset(void) {
 	nmode_entry_pending = memctrlva_nmode_active();
