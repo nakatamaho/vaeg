@@ -67,3 +67,8 @@ recorded whatever they are).
 - In vaeg, M7c/M7d show wrong colours and the 65536-colour pseudo-sprite
   demo shows one ball, identically under PC-Engine: not caused by this disk;
   not investigated here.
+- 2HD by default (maintainer request): 77 x 2 x 8 x 1024 bytes, disk mode
+  23h; `--format 2dd` keeps the first layout byte for byte. All eleven demos
+  checked from the 2HD disk with the VA2 ROM, and spot checks with the VA
+  ROM; on the VA model the M7a FPS counter glyphs are solid blocks, the same
+  under PC-Engine.
