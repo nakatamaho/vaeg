@@ -821,6 +821,26 @@ Findings:
   does not depend on the line frequency on the hardware. `G256 A` matched
   12.3 at both frequencies ([15 kHz](m104-photos/va2-g256-15k-16-r2.jpg)).
 
+### 12.5 vaeg model
+
+vaeg implements the measured rules (M104,
+[631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077),
+[ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d)):
+
+- The SDL canvas has as many rows as the frame's rasters, 400 to 480; the
+  frame buffer is shown to its last line (24.8 kHz `S` runs, `480 S K`).
+- 24.8 kHz, 200-line graphics with RSM = 01: graphics lines 0-200 are
+  read, then line 200 repeats (`D` runs).
+- 15.98 kHz: when `TBL + TBR` is under 37, graphics line 0 is delayed by
+  the difference, so `TBL + VAD - 37` lines are shown. `[POLICY]` 12.1
+  could not tell a fixed graphics start (picture shifted against TSP text)
+  from a short count (aligned at the top); vaeg uses the fixed start, the
+  display-circuit model of 12.1. With the ROM's `TBL = 37` both agree.
+- Not modelled, because not measured: `TBL + TBR` above 37 at 15.98 kHz,
+  the 15.73 kHz family, RSM = 00 beyond 200 lines, and anything past line
+  239 at 15.98 kHz (12.4: hidden by this monitor). The monitor's own limits
+  (12.4) are not emulated; vaeg shows every frame.
+
 ## 13. Change log
 
 ### Version 0.3 - 2026-10-06
@@ -828,7 +848,8 @@ Findings:
 - Added the M104 measurements of non-native line counts and line doubling
   (section 12), the second round with the line ruler (12.1), and the
   feasible-resolution table (12.2), the G256 256 x 192 window (12.3), and
-  the third round with the sweeps, monitor read-out and G160 rates (12.4).
+  the third round with the sweeps, monitor read-out and G160 rates (12.4),
+  and the vaeg model of the measured rules (12.5).
 
 ### Version 0.2 - 2026-07-16
 

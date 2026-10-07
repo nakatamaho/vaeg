@@ -113,3 +113,7 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   [`pc88va-video-modes.md`](../../modernization/pc88va-video-modes.md)
   section 12.4,
   [`upd72022-tsp.md`](../../modernization/upd72022-tsp.md) section 20.4.
+- vaeg implements the rules (480-row canvas, 24.8 kHz doubling stop,
+  15.98 kHz start delay; `pc88va-video-modes.md` section 12.5):
+  [631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077),
+  [ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d).

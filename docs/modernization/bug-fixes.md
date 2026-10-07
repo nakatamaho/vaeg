@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M104 — frames taller than 400 rasters and non-native graphics windows
+
+- **Symptom/scope:** V3 programs that reprogram the TSP frame (VIEW480,
+  480-line and 15 kHz 240-line experiments) showed at most 400 rasters, so
+  graphics lines past 400 were lost; 24.8 kHz line-doubled 200-line
+  graphics kept advancing past line 200; at 15.98 kHz a top blanking under
+  37 showed all graphics lines. The PC-88VA2 shows the frame buffer to
+  line 479, repeats line 200 when doubling, and loses `37 - TBL` lines.
+- **Demonstrated cause:** the SDL canvas, texture and shadow were fixed at
+  640 x 400 (`SCRNMNG_CANVAS_HEIGHT`), and the graphics renderer had no
+  model of the display circuit's own line window; both against the
+  M104 hardware measurements.
+- **Correction:** the canvas grows to 400-480 rows with the frame
+  ([631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077)); the
+  measured windows are applied per frame through
+  `videova_graphics_window` ([ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d)).
+- **Verification:** romless test (window values, delayed start and line
+  repetition; fails with either rule disabled); headless V480PAT sweeps
+  `A` and `B` reproduce the last graphics lines photographed on the
+  PC-88VA2.
+- **Task/evidence/commit:** [measurements](pc88va-video-modes.md#12-measured-non-native-timings),
+  [M104 task](../agents/tasks/M104_v3_display_timing.md).
+
 ### M104 — N mode from the menu did not boot a disk in drive 1
 
 - **Symptom/scope:** with Emulate > Z80 mode > N, N-BASIC started with
