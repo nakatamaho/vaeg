@@ -831,15 +831,55 @@ vaeg implements the measured rules (M104,
   frame buffer is shown to its last line (24.8 kHz `S` runs, `480 S K`).
 - 24.8 kHz, 200-line graphics with RSM = 01: graphics lines 0-200 are
   read, then line 200 repeats (`D` runs).
-- 15.98 kHz: when `TBL + TBR` is under 37, graphics line 0 is delayed by
-  the difference, so `TBL + VAD - 37` lines are shown. `[POLICY]` 12.1
-  could not tell a fixed graphics start (picture shifted against TSP text)
-  from a short count (aligned at the top); vaeg uses the fixed start, the
-  display-circuit model of 12.1. With the ROM's `TBL = 37` both agree.
-- Not modelled, because not measured: `TBL + TBR` above 37 at 15.98 kHz,
-  the 15.73 kHz family, RSM = 00 beyond 200 lines, and anything past line
-  239 at 15.98 kHz (12.4: hidden by this monitor). The monitor's own limits
-  (12.4) are not emulated; vaeg shows every frame.
+- 15.98 kHz: graphics line 0 is shown 37 lines after vertical sync. When
+  `TBL + TBR` is under 37 it is delayed by the difference, so
+  `TBL + VAD - 37` lines are shown; when it is over 37 that many lines at
+  the top are hidden (12.6). The fixed start, chosen as `[POLICY]` before
+  12.6 because 12.1 could not separate it from a short count, is supported
+  by 12.6: a longer top hides the top of the picture.
+- 24.8 kHz, 200-line graphics with RSM = 00: lines 0-200 are shown, the
+  rest is blank (12.6) ([2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
+- Not modelled: the frame buffer's first lines that the PC-88VA2 shows
+  below the last line when the top is over 37 and `VAD` is 224 or more
+  (12.6; this may mean `DSH` does not end the picture), the 15.73 kHz family
+  (12.6: inconsistent), and anything past line 239 at 15.98 kHz (12.4:
+  hidden by this monitor). The monitor's own limits are not emulated; vaeg
+  shows every frame.
+
+### 12.6 Fourth round: long top blanking, 15.73 kHz family, RSM = 00
+
+`[MEAS]` 2026-10-07, PC-88VA2, same monitor, `V480PAT C` (15 kHz) and
+`E` (24 kHz) built from
+[`c5ef4e9d`](https://github.com/nakatamaho/vaeg/commit/c5ef4e9d718faa9c7d2647c3b72c18f08efbca4b).
+
+| Run | Frame (top/active/bottom/sync) | Result | Photo |
+|---|---|---|---|
+| `200 D Z` | 25/400/7/8 | each line on the even raster, odd rasters blank; monitor 640x400, 56.4 Hz | [200 D Z](m104-photos/va2-200-d-z-osd.jpg) |
+| `232 D Z`, `240 D K Z` | 25/464/2/4, 17/480/2/4 | lines 0-199 as above, line 200 (red) once, then black to the end; monitor 640x480, 50.1 and 49.3 Hz | [232 D Z](m104-photos/va2-232-d-z-osd.jpg) |
+| `200 H37 W`-`200 H53 W` | 37-53/200/.../4 (262) | the label at the top loses about `TBL - 37` lines (H53: all but its last row); nothing below line 199 | [H45](m104-photos/va2-200-h45-w.jpg), [H53](m104-photos/va2-200-h53-w.jpg) |
+| `224 H45 W`, `240 H41 W`, `240 H45 W` | 45/224, 41/240, 45/240 | top cut as above; below the last line one dark line and then the frame buffer's first lines (the blue band and the top of the label), about `TBL - 37` lines in all | [224 H45](m104-photos/va2-224-h45-w.jpg), [240 H41](m104-photos/va2-240-h41-w.jpg), [240 H45](m104-photos/va2-240-h45-w.jpg) |
+| `200 I W` | 15.73 kHz vector, RSM = 10 | all 200 lines | [200 I W](m104-photos/va2-200-i-w.jpg) |
+| `224 I W` | as above, 224 | the monitor kept re-adjusting; the picture ghosted | [224 I W](m104-photos/va2-224-i-w.jpg) |
+| `240 I W`, `240 I` | top 36, 240 | to about line 217 | [240 I W](m104-photos/va2-240-i-w.jpg), [240 I](m104-photos/va2-240-i.jpg) |
+| `240 I W H37` | top 37, 240 | to about line 199 | [240 I W H37](m104-photos/va2-240-i-w-h37.jpg) |
+
+Findings:
+
+- **RSM = 00 past line 200** (24.8 kHz): the line address stops after
+  line 200 as with RSM = 01, but the rasters after it are blank instead of
+  repeating line 200. `[DERIVED]` Consistent with the doubling logic
+  treating every raster past the stop as an odd raster: repeated in mode 1,
+  blank in mode 0.
+- **Top blanking over 37** (15.98 kHz): the top of the picture is hidden by
+  about `TBL - 37` lines, so graphics line 0 is tied to vertical sync, not
+  to the TSP's active area. With `VAD` 224 or 240 the same number of lines
+  appear below the last line, wrapped to the frame buffer's start
+  (V480PAT sets `FBL = DSH = VAD`), so the display does not stop at `DSH`
+  there; with `VAD` 200 nothing appears below line 199. Not separated
+  further.
+- **15.73 kHz family** (external sync, interlaced RSM): results are not
+  consistent with one rule (217 vs 199 lines with top 36 vs 37) and the
+  monitor re-adjusted; not modelled.
 
 ## 13. Change log
 
@@ -849,7 +889,8 @@ vaeg implements the measured rules (M104,
   (section 12), the second round with the line ruler (12.1), and the
   feasible-resolution table (12.2), the G256 256 x 192 window (12.3), and
   the third round with the sweeps, monitor read-out and G160 rates (12.4),
-  and the vaeg model of the measured rules (12.5).
+  the vaeg model of the measured rules (12.5), and the fourth round with
+  long top blanking, the 15.73 kHz family and RSM = 00 (12.6).
 
 ### Version 0.2 - 2026-07-16
 

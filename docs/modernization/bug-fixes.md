@@ -50,7 +50,9 @@ land.
 - **Correction:** the canvas grows to 400-480 rows with the frame
   ([631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077)); the
   measured windows are applied per frame through
-  `videova_graphics_window` ([ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d)).
+  `videova_graphics_window` ([ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d);
+  follow-up for a top over 37 and RSM = 00:
+  [2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
 - **Verification:** romless test (window values, delayed start and line
   repetition; fails with either rule disabled); headless V480PAT sweeps
   `A` and `B` reproduce the last graphics lines photographed on the
