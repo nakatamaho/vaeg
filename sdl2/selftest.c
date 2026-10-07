@@ -4618,9 +4618,8 @@ static int test_graphics_window(void) {
 	static const UINT8 sync15[14] = {0xc1, 0x57, 0x1c, 0x00, 0x9f, 0x00, 0x10,
 	                                 0x0f, 0x25, 0x00, 0xc8, 0x00, 0x0f, 0x08};
 	FRAMEBUFFER f = &videova.framebuffer[0];
+	VIDEOVA_GRAPHICS_WINDOW w;
 	UINT8 sync[14];
-	UINT16 delay;
-	UINT16 limit;
 	const char *problem;
 	BOOL scrn200;
 	UINT y;
@@ -4631,33 +4630,42 @@ static int test_graphics_window(void) {
 	pccore_reset();
 	problem = NULL;
 
-	/* 15.98 kHz: graphics start 37 lines after sync, whatever TBL says. */
+	/* 15.98 kHz: graphics line 0 is shown 37 lines after sync, whatever TBL. */
 	memcpy(sync, sync15, sizeof(sync));
-	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &delay, &limit);
-	if ((delay != 0) || (limit != 0xffff)) {
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if (w.startdelay || w.startskip || (w.linelimit != 0xffff)) {
 		problem = "ROM 15.98 kHz vector changed the graphics window";
 	}
 	sync[8] = 32; /* V480PAT T: 235 of 240 lines shown */
-	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &delay, &limit);
-	if ((problem == NULL) && (delay != 5)) {
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && ((w.startdelay != 5) || w.startskip)) {
 		problem = "15.98 kHz top 32 did not delay graphics by 5 lines";
 	}
 	sync[8] = 16; /* V480PAT U: 219 of 240 */
-	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &delay, &limit);
-	if ((problem == NULL) && (delay != 21)) {
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && (w.startdelay != 21)) {
 		problem = "15.98 kHz top 16 did not delay graphics by 21 lines";
 	}
-	videova_graphics_window(VIDEOVA_15_73KHZ, 0x8402, sync, &delay, &limit);
-	if ((problem == NULL) && ((delay != 0) || (limit != 0xffff))) {
-		problem = "unmeasured 15.73 kHz frame changed the graphics window";
+	sync[8] = 45; /* V480PAT H45: the top 8 lines hidden */
+	videova_graphics_window(VIDEOVA_15_98KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && (w.startdelay || (w.startskip != 8))) {
+		problem = "15.98 kHz top 45 did not hide 8 graphics lines";
 	}
-	/* 24.8 kHz, 200-line graphics doubled by RSM = 01: lines 0-200 only. */
-	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8442, sync, &delay, &limit);
-	if ((problem == NULL) && ((delay != 0) || (limit != 201))) {
+	videova_graphics_window(VIDEOVA_15_73KHZ, 0x8482, sync, &w);
+	if ((problem == NULL) && (w.startdelay || w.startskip || (w.linelimit != 0xffff))) {
+		problem = "unmodelled 15.73 kHz frame changed the graphics window";
+	}
+	/* 24.8 kHz, 200-line graphics: lines 0-200, then repeat (RSM 01) or blank. */
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8442, sync, &w);
+	if ((problem == NULL) && ((w.linelimit != 201) || w.blankafterlimit)) {
 		problem = "24.8 kHz RSM = 01 doubling did not stop after line 200";
 	}
-	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8440, sync, &delay, &limit);
-	if ((problem == NULL) && (limit != 0xffff)) {
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8402, sync, &w);
+	if ((problem == NULL) && ((w.linelimit != 201) || !w.blankafterlimit)) {
+		problem = "24.8 kHz RSM = 00 did not blank after line 200";
+	}
+	videova_graphics_window(VIDEOVA_24_8KHZ, 0x8440, sync, &w);
+	if ((problem == NULL) && (w.linelimit != 0xffff)) {
 		problem = "24.8 kHz 400-line graphics were limited";
 	}
 
@@ -4671,8 +4679,11 @@ static int test_graphics_window(void) {
 	}
 	videova.grmode = 0x8400;
 	videova.grres = 0x0001;
+	ZeroMemory(&w, sizeof(w));
+	w.linelimit = 0xffff;
+	w.startdelay = 2;
 	makegrphva_begin(&scrn200);
-	makegrphva_setwindow(2, 0xffff);
+	makegrphva_setwindow(&w);
 	makegrphva_raster();
 	if ((problem == NULL) && !grph0_noraster) {
 		problem = "delayed graphics drew before line 0";
@@ -4682,13 +4693,32 @@ static int test_graphics_window(void) {
 	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 1))) {
 		problem = "delayed graphics did not start with line 0";
 	}
+	w.startdelay = 0;
+	w.startskip = 3;
 	makegrphva_begin(&scrn200);
-	makegrphva_setwindow(0, 3);
+	makegrphva_setwindow(&w);
+	makegrphva_raster();
+	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 4))) {
+		problem = "hidden graphics lines were shown";
+	}
+	w.startskip = 0;
+	w.linelimit = 3;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
 	for (y = 0; y < 5; y++) {
 		makegrphva_raster();
 	}
 	if ((problem == NULL) && (grph0_noraster || (grph0_raster[0] != 3))) {
 		problem = "graphics past the line limit did not repeat the last line";
+	}
+	w.blankafterlimit = TRUE;
+	makegrphva_begin(&scrn200);
+	makegrphva_setwindow(&w);
+	for (y = 0; y < 5; y++) {
+		makegrphva_raster();
+	}
+	if ((problem == NULL) && !grph0_noraster) {
+		problem = "graphics past the line limit were not blank with RSM = 00";
 	}
 	ZeroMemory(grphmem, 8 * 320);
 	ZeroMemory(f, sizeof(*f));

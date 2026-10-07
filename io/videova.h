@@ -75,8 +75,15 @@ void videova_reset(void);
 void videova_bind(void);
 
 int videova_hsyncmode(void);
-void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam, UINT16 *startdelay,
-                             UINT16 *linelimit);
+typedef struct videova_graphics_window {
+	UINT16 startdelay;    // blank graphics lines before line 0
+	UINT16 startskip;     // graphics lines read but not shown at the top
+	UINT16 linelimit;     // graphics lines read; 0xffff for no limit
+	BOOL blankafterlimit; // TRUE: blank past the limit; FALSE: repeat the last line
+} VIDEOVA_GRAPHICS_WINDOW;
+
+void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam,
+                             VIDEOVA_GRAPHICS_WINDOW *window);
 int videova_palettemode(void);
 BOOL videova_textmerge(void);
 

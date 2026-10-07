@@ -691,32 +691,36 @@ BOOL videova_textmerge(void) {
 /*
  * Graphics lines the display circuit shows in a TSP frame, as measured on a
  * PC-88VA2 in M104 (docs/modernization/pc88va-video-modes.md section 12):
- * - 15.98 kHz: graphics show TBL + VAD - 37 lines. Graphics line 0 is taken
- *   to start a fixed 37 lines after vertical sync (the ROM's top blanking),
- *   so a shorter top (TBL + TBR) delays it by the difference.
- * - 24.8 kHz, 200-line graphics with RSM = 01: graphics lines 0-200 are
- *   shown doubled, then line 200 repeats on every remaining raster.
- * startdelay is in graphics lines; linelimit is the number of lines read,
- * 0xffff for no limit. syncparam is the 14-byte SYNC vector.
+ * - 15.98 kHz: graphics line 0 is shown a fixed 37 lines after vertical
+ *   sync (the ROM's top blanking), whatever the TSP's TBL + TBR: a shorter
+ *   top delays it by the difference, a longer top hides that many lines.
+ * - 24.8 kHz, 200-line graphics: lines 0-200 are read; with RSM = 01 line
+ *   200 then repeats on every remaining raster, with RSM = 00 the rest is
+ *   blank.
+ * syncparam is the 14-byte SYNC vector.
  */
-void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam, UINT16 *startdelay,
-                             UINT16 *linelimit) {
+void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam,
+                             VIDEOVA_GRAPHICS_WINDOW *window) {
 	enum {
 		GRAPHICS_TOP_15_98KHZ = 37,
 		DOUBLED_LINES_24_8KHZ = 201
 	};
 	UINT top;
 
-	*startdelay = 0;
-	*linelimit = 0xffff;
+	window->startdelay = 0;
+	window->startskip = 0;
+	window->linelimit = 0xffff;
+	window->blankafterlimit = FALSE;
 	if (hsyncmode == VIDEOVA_15_98KHZ) {
 		top = (syncparam[8] & 0x3f) + (syncparam[9] & 0x3f);
 		if (top < GRAPHICS_TOP_15_98KHZ) {
-			*startdelay = (UINT16)(GRAPHICS_TOP_15_98KHZ - top);
+			window->startdelay = (UINT16)(GRAPHICS_TOP_15_98KHZ - top);
+		} else {
+			window->startskip = (UINT16)(top - GRAPHICS_TOP_15_98KHZ);
 		}
-	} else if ((hsyncmode == VIDEOVA_24_8KHZ) && ((grmode & 0x00c0) == 0x0040) &&
-	           (grmode & 0x0002)) {
-		*linelimit = DOUBLED_LINES_24_8KHZ;
+	} else if ((hsyncmode == VIDEOVA_24_8KHZ) && (grmode & 0x0002) && !(grmode & 0x0080)) {
+		window->linelimit = DOUBLED_LINES_24_8KHZ;
+		window->blankafterlimit = !(grmode & 0x0040);
 	}
 }
 

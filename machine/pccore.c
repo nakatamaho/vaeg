@@ -470,12 +470,10 @@ static void drawscreenva(void) {
 	makesprva_begin();
 	makegrphva_begin(&grph200);
 	if (tsp.screenlines != 0) {
-		UINT16 startdelay;
-		UINT16 linelimit;
+		VIDEOVA_GRAPHICS_WINDOW window;
 
-		videova_graphics_window(videova_hsyncmode(), videova.grmode, tsp.syncparam, &startdelay,
-		                        &linelimit);
-		makegrphva_setwindow(startdelay, linelimit);
+		videova_graphics_window(videova_hsyncmode(), videova.grmode, tsp.syncparam, &window);
+		makegrphva_setwindow(&window);
 	}
 	scrndrawva_compose_begin();
 
