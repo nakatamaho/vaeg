@@ -25,8 +25,8 @@
 ; written for vaeg M104; see tools/pc88va/vtiming/README.md. Assemble with
 ; NASM (8086/80186 code only): nasm -f bin -o V480PAT.COM v480pat.asm
 ;
-;   V480PAT [lines] [S|T|U|R|D] [W] [N] [K]
-;   V480PAT A|B
+;   V480PAT [lines] [S|T|U|R|D|I] [Hnn] [W] [N] [K] [Z]
+;   V480PAT A|B|C|E
 ; lines: 1-480, default 480. Without S/T/U/D the pattern is left on the
 ; normal screen (400 lines visible), for VIEW480 or a capture.
 ; S: switch a 24.8 kHz display to N lines (VIEW480's SYNC; the frame grows
@@ -39,10 +39,15 @@
 ; R: as T with top 37, the ROM's 15.98 kHz value: graphics then show all
 ;    lines (224 lines: 267-line frame, 59.9 Hz; 240: 283 lines, 56.5 Hz).
 ;    Run T and U with the monitor switch at 15 kHz.
+; Hnn: as R with top blanking nn (1-63), to try values above 37.
+; I: as R with the ROM's 15.73 kHz vector (C1 47 1C 00 9F 00 12 11 24 ...,
+;    top 36, external sync) and port 100h RSM = 10 (interlaced mode 0),
+;    the pairing the ROM uses for that family; Hnn after I changes the top.
 ; D: 320 x N (N 1-240) shown line-doubled on a 24.8 kHz display: graphics in
 ;    200-line mode with port 100h RSM = 01 (non-interlaced mode 1: each line
 ;    on an even/odd raster pair), the frame set to 2N rasters; above 400
 ;    rasters bottom 2 and sync 4 (480 rasters: about 48.6 Hz).
+; Z: with D, RSM = 00 (non-interlaced mode 0: odd rasters blank) instead.
 ; W: 320 dots instead of 640 (with none, S, T or U; D is always 320).
 ; N: with S, T, U or D, narrow the TSP horizontal active period to 128 TCK
 ;    (HAD 159 -> 127; 256 dots at 320, 512 at 640) and add 16 TCK to each of
@@ -52,7 +57,9 @@
 ;    S: 499-line frame, about 49.8 Hz).
 ; Any key restores the screen.
 ; A: sweep: run the 24.8 kHz list (sweep24 below) one entry at a time; B:
-;    the same with the 15.98 kHz list (sweep15). Each entry is run as if
+;    the same with the 15.98 kHz list (sweep15); C: the 15 kHz list of top
+;    blankings above 37 and the 15.73 kHz family (sweepc); E: the 24.8 kHz
+;    list of RSM = 00 doubling (sweepe). Each entry is run as if
 ;    typed after V480PAT (its label shows it); any key goes on to the next
 ;    entry, ESC stops.
 ; Set up with the graphics BIOS (INT 8Fh); drawn directly into GVRAM with
@@ -79,6 +86,12 @@ start:		mov	si,0081h
 		je	sweep
 		mov	bx,sweep15
 		cmp	al,'b'
+		je	sweep
+		mov	bx,sweepc
+		cmp	al,'c'
+		je	sweep
+		mov	bx,sweepe
+		cmp	al,'e'
 		je	sweep
 parse:		mov	si,0081h
 		xor	bx,bx
@@ -131,8 +144,38 @@ parse:		mov	si,0081h
 		mov	byte [hnarrow],1
 		jmp	.skip
 .k:		cmp	al,'k'
-		jne	.skip
+		jne	.h
 		mov	byte [ktop],1
+		jmp	.skip
+.h:		cmp	al,'h'			; Hnn: 15 kHz top blanking nn
+		jne	.i
+		mov	bp,2
+		xor	cx,cx
+.hd:		lodsb
+		cmp	al,'0'
+		jb	.he
+		cmp	al,'9'
+		ja	.he
+		sub	al,'0'
+		xchg	ax,cx
+		mov	dl,10
+		mul	dl
+		add	al,cl
+		mov	cx,ax
+		jmp	.hd
+.he:		dec	si
+		and	cl,3fh
+		mov	[toplines],cl
+		jmp	.skip
+.i:		cmp	al,'i'			; 15.73 kHz family
+		jne	.z
+		mov	bp,2
+		mov	byte [interl],1
+		mov	byte [toplines],36
+		jmp	.skip
+.z:		cmp	al,'z'			; D with RSM = 00
+		jne	.skip
+		mov	byte [rsmzero],1
 		jmp	.skip
 .args:		or	bx,bx
 		jnz	.haven
@@ -386,7 +429,12 @@ parse:		mov	si,0081h
 		mov	[lastkey],ax
 		cmp	word [sflag],2
 		jne	.r24
-		call	restore_15k
+		cmp	byte [interl],0
+		je	.r15
+		mov	ax,[saved100]		; RSM back to its previous value
+		mov	dx,0100h
+		out	dx,ax
+.r15:		call	restore_15k
 		jmp	done
 .r24:		cmp	word [sflag],3
 		jne	.r24b
@@ -637,8 +685,10 @@ set_lines_dbl:	call	fb_lines
 		in	ax,dx
 		mov	[saved100],ax
 		and	al,3fh
+		cmp	byte [rsmzero],0
+		jne	.rsm
 		or	al,40h			; non-interlaced mode 1
-		out	dx,ax
+.rsm:		out	dx,ax
 		mov	ax,[lines]
 		shl	ax,1			; rasters
 		mov	si,syncprm
@@ -656,7 +706,22 @@ set_lines_dbl:	call	fb_lines
 		jmp	sync
 ; 15.98 kHz: N lines in a 262-line frame
 set_lines_15k:	call	fb_lines
-		mov	si,sync15
+		cmp	byte [interl],0
+		je	.v
+		mov	dx,0100h		; I: interlaced mode 0, 15.73 kHz vector
+		in	ax,dx
+		mov	[saved100],ax
+		and	al,3fh
+		or	al,80h
+		out	dx,ax
+		push	cs
+		pop	es
+		mov	si,sync1573
+		mov	di,sync15
+		mov	cx,14
+		cld
+		rep	movsb
+.v:		mov	si,sync15
 		mov	ax,[lines]
 		mov	[si+10],al
 		and	byte [si+11],0c0h	; BBR = 0
@@ -790,6 +855,13 @@ sweep15		db	'200 R W',0,'208 R W',0,'216 R W',0,'224 R W',0
 		db	'232 R W',0,'236 R W',0,'240 R W',0,'244 R W',0
 		db	'248 R W',0,'224 R',0,'240 R',0,'240 R W N',0
 		db	'240 T W',0,'240 U W',0,0
+; C (15 kHz): top above 37, then the 15.73 kHz family
+sweepc		db	'200 H37 W',0,'200 H41 W',0,'200 H45 W',0,'200 H53 W',0
+		db	'224 H45 W',0,'240 H41 W',0,'240 H45 W',0
+		db	'200 I W',0,'224 I W',0,'240 I W',0,'240 I W H37',0
+		db	'240 I',0,0
+; E (24 kHz): line doubling with RSM = 00
+sweepe		db	'200 D',0,'200 D Z',0,'232 D Z',0,'240 D K Z',0,0
 		align	2
 datastart:
 desc		dw	4, 640, 480
@@ -808,6 +880,8 @@ narrow		db	0
 toplines	db	32
 hnarrow		db	0
 ktop		db	0
+interl		db	0
+rsmzero		db	0
 ; ruler colours for y div 8 mod 8 = 0..7: white, red, yellow, green, cyan,
 ; blue, magenta, light grey in the default palette
 rcol		db	7, 2, 6, 4, 5, 1, 3, 15
@@ -875,5 +949,7 @@ syncprm		db	0c1h, 57h, 10h, 00h, 9fh, 00h, 10h, 0fh, 19h, 00h, 90h, 40h, 07h, 08
 sync15		db	0c1h, 57h, 1ch, 00h, 9fh, 00h, 10h, 0fh, 25h, 00h, 0c8h, 00h, 0fh, 08h
 sync15def	db	0c1h, 57h, 1ch, 00h, 9fh, 00h, 10h, 0fh, 25h, 00h, 0c8h, 00h, 0fh, 08h
 syncdef		db	0c1h, 57h, 10h, 00h, 9fh, 00h, 10h, 0fh, 19h, 00h, 90h, 40h, 07h, 08h
+; 15.73 kHz 200-line SYNC from the PC-88VA material (pc88va-video-modes.md 3.2)
+sync1573	db	0c1h, 47h, 1ch, 00h, 9fh, 00h, 12h, 11h, 24h, 00h, 0c8h, 00h, 17h, 04h
 dataend:
 datasave:					; copy of datastart-dataend (not in the file)
