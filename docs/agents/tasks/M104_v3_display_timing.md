@@ -104,3 +104,12 @@ Standard V3 gate unchanged, plus: in vaeg, `VIEW480`, `V480PAT 240 T W`,
   vaeg; recorded in
   [`pc88va-video-modes.md`](../../modernization/pc88va-video-modes.md)
   section 12.3.
+- `[MEAS]` Third round (2026-10-07, sweeps): 24.8 kHz 400-line graphics
+  are shown past line 400 up to 480 (`480 S K`, 49.7 Hz); 15.98 kHz with top
+  blanking 37 shows all of 200-240 lines (320 x 240 at 56.5 Hz works);
+  `244/248 R W` show only lines 0-239; monitor limits 503/507 lines at
+  24.8 kHz and 291/294 at 15.98 kHz; G160 runs 2.1-2.2 times faster in
+  vaeg than on the PC-88VA2 at every depth; TSPMODE 21-31 recorded.
+  [`pc88va-video-modes.md`](../../modernization/pc88va-video-modes.md)
+  section 12.4,
+  [`upd72022-tsp.md`](../../modernization/upd72022-tsp.md) section 20.4.

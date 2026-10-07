@@ -218,8 +218,11 @@ with RSM = 01 show a 160 x 100 picture with a colour per dot. Rates on the
 hardware: `G160 8` gave 91 redraws in 59 s (1.5 per second; vaeg 3.4), so
 vaeg runs this loop about 2.2 times faster than the PC-88VA2. A 16-bit run
 gave 189 redraws but an impossible computed time (3494 s), so the program
-now shows the raw clock values instead of a computed time. In vaeg the
-calendar BIOS returns binary, not BCD, values.
+now shows the raw clock values instead of a computed time. The calendar
+BIOS returns binary, not BCD, values, in vaeg and on the PC-88VA2. With
+the raw values the PC-88VA2 gave 1.4, 1.6 and 1.9 redraws per second at 16,
+8 and 4 bits (24.8 kHz; about the same at 15.98 kHz), against 3.0, 3.4 and
+4.25 in vaeg (`pc88va-video-modes.md` section 12.4).
 
 `A` runs 16, 8 and 4 bits one after another; each needs the usual two
 keys (stop drawing, then leave the result line).

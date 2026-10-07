@@ -1422,11 +1422,33 @@ with blinking). Undocumented values:
 | 15, 18, 19 | only one cursor visible, the rest black |
 | 16, 20 | broken characters split left and right, white background |
 | 17 | as 16 with the original black background |
+| 21-23 | as 16-17: every other character of each row, the row shown twice side by side (`Ready` appears as `Ray`) |
+| 24-30 | as 8-14 respectively (28: pattern on the left only; 30: yellow) |
+| 31 | as 15 |
 
-`[DERIVED]` Setting bit 3 replaces character display by a non-character
-pattern, which makes values 8-14 the candidates for the uPD72022's
+`[MEAS]` A second complete pass (0-31) on 2026-10-07 at 24.8 kHz
+reproduced the first and filled in 21-31; photographs:
+[0](m104-photos/va2-tspmode-00.jpg),
+[7](m104-photos/va2-tspmode-07.jpg),
+[8](m104-photos/va2-tspmode-08.jpg),
+[10](m104-photos/va2-tspmode-10.jpg),
+[12](m104-photos/va2-tspmode-12.jpg),
+[13](m104-photos/va2-tspmode-13.jpg),
+[14](m104-photos/va2-tspmode-14.jpg),
+[15](m104-photos/va2-tspmode-15.jpg),
+[16](m104-photos/va2-tspmode-16.jpg),
+[17](m104-photos/va2-tspmode-17.jpg),
+[28](m104-photos/va2-tspmode-28.jpg). In 8-14 and 24-30
+the whole main split, not only the test block, becomes a fine
+multicoloured dot pattern with coarse colour regions; the function-key
+split (`MODE` 1) stays text.
+
+`[DERIVED]` Bit 4 repeats the effect of bits 3:0 with characters fetched
+at twice the stride; bit 3 replaces character display by a non-character
+pattern, which makes 8-14 (and 24-30) the candidates for the uPD72022's
 semigraphics or graphics static-picture modes; the low bits then change
-the dot size or format. Not yet identified; values 21-31 not yet reported.
+the dot size or format. The pattern's source and format are not yet
+identified; a test with known TVRAM contents is needed.
 
 `[MEAS]` M104 measured TSP frames outside the documented vectors on real
 hardware: 15.98 kHz `VAD` of 224 and 240 lines (262- and 278-line frames)
