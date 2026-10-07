@@ -28,6 +28,7 @@
 ; (8086/80186 only): nasm -f bin -o TSPFILL.COM tspfill.asm
 ;
 ;   TSPFILL [mode]
+;   TSPFILL A
 ;
 ; MODE values 8-14 (and 24-30) show a non-character pattern over the whole
 ; main split (TSPMODE, M104). To find what the TSP reads in those modes,
@@ -46,6 +47,9 @@
 ;   P7 nibbles 0,1,2,...,F repeated (high nibble first)
 ; The whole filled range and the MODE word are saved in a 64 KiB block
 ; (INT 21h function 48h) and restored on exit. Timing is not changed.
+; A runs unattended for filming: MODE 8, 12, 14, 10 and 13 in turn, each
+; with P0-P7 held for about 3 seconds (170 frames), then restores and
+; exits by itself; any key stops it early.
 		cpu	186
 		org	0100h
 TABLE		equ	7f00h		; screen table (TVRAM offset, PC-Engine)
@@ -64,6 +68,14 @@ start:		mov	sp,0fffeh
 		int	21h
 .mem:		mov	[saveseg],ax
 		mov	si,0081h
+.blank:		lodsb
+		cmp	al,' '
+		je	.blank
+		or	al,20h
+		cmp	al,'a'
+		jne	.num
+		mov	byte [auto],1
+.num:		mov	si,0081h
 		xor	bx,bx
 		mov	cl,0
 .arg:		lodsb
@@ -105,7 +117,7 @@ start:		mov	sp,0fffeh
 		mov	[save0],ax
 		mov	cx,TABLE		; bytes to fill in each area
 		sub	cx,[rsa0]
-		jbe	.quit
+		jbe	restore_all.quit
 		mov	[len],cx
 
 		push	ds			; save characters, then attributes
@@ -125,6 +137,8 @@ start:		mov	sp,0fffeh
 		mov	ax,0a000h
 		mov	es,ax
 
+		cmp	byte [auto],0
+		jne	autorun
 		mov	ax,[save0]
 		and	al,0e0h
 		or	al,[mode]
@@ -143,7 +157,8 @@ start:		mov	sp,0fffeh
 		mov	byte [fill],0
 		jmp	.step
 
-.done:		mov	ax,[save0]
+.done:
+restore_all:	mov	ax,[save0]
 		mov	[es:TABLE+0ah],ax
 		push	ds			; restore both areas
 		mov	cx,[len]
@@ -168,6 +183,54 @@ start:		mov	sp,0fffeh
 		int	21h
 		mov	ax,4c00h
 		int	21h
+
+; A: every mode in automodes, P0-P7 each held for HOLD frames
+HOLD		equ	170
+autorun:	mov	si,automodes
+.m:		lodsb
+		or	al,al
+		jz	.end
+		mov	[mode],al
+		push	si
+		mov	ax,[save0]
+		and	al,0e0h
+		or	al,[mode]
+		mov	[es:TABLE+0ah],ax
+		mov	byte [fill],0
+.f:		call	dofill
+		call	label
+		mov	cx,HOLD
+		call	frames
+		jc	.stop
+		inc	byte [fill]
+		cmp	byte [fill],NFILL
+		jb	.f
+		pop	si
+		jmp	.m
+.stop:		pop	si
+.end:		mov	ah,0ch			; drop the key that stopped it
+		int	82h
+		jmp	restore_all
+
+; wait CX frames (VRTC rising edges); CY = 1 if a key was pressed
+frames:
+.f:		mov	dx,0040h
+.lo:		in	al,dx
+		test	al,20h
+		jnz	.lo
+.hi:		in	al,dx
+		test	al,20h
+		jz	.hi
+		push	cx
+		mov	ah,01h
+		int	82h
+		pop	cx
+		jnc	.key
+		loop	.f
+		clc
+		ret
+.key:		stc
+		ret
 
 ; fill both areas with pattern [fill]
 dofill:		mov	di,[rsa0]
@@ -271,6 +334,8 @@ mode		db	0
 bank		db	0
 fill		db	0
 attr		db	0
+auto		db	0
+automodes	db	8, 12, 14, 10, 13, 0
 		align	2
 rsa0		dw	0
 rsa1		dw	0
