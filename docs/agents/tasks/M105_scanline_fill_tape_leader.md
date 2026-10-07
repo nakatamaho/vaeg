@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M105 - 15 kHz scanline fill and the tape leader sound
 
-Status: **complete; G105 passed on 2026-10-07**
+Status: **complete; G105 passed on 2026-10-07; merged to `main` at [9b4f8ef](https://github.com/nakatamaho/vaeg/commit/9b4f8ef8b08084fec69a31315af20e28f4c77d9b)**
 
 Series: V3 series (scanline fill) with a V1/V2 cassette follow-up
 (maintainer decision 2026-10-07). Branch
