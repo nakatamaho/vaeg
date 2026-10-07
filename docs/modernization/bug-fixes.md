@@ -2629,6 +2629,17 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M105 — BEEP sounds wrong
+
+- **Symptom/scope:** the BEEP (port 40h buzzer) sounds odd, as if its
+  timing were off (maintainer report during G105 checks, 2026-10-07).
+  Conditions (speed and CPU speed settings, V1/V2 or V3) not yet narrowed.
+  Known separately: with the speed slider away from 100 % the BEEP is
+  garbled because it is built from CPU-clock on/off events while the host
+  consumes samples in real time (`sdl2/README.md`).
+- **Status:** not investigated; no root cause is claimed. Moved to a later
+  milestone by the maintainer.
+
 ### M104 — V3 programs run about 2.2 times faster than on the PC-88VA2
 
 - **Symptom/scope:** the M104 test program G160 redraws its picture 3.0,

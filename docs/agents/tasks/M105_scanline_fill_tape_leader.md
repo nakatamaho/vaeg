@@ -125,3 +125,7 @@ speed slider slows a program without changing its sound.
   [266a28c5](https://github.com/nakatamaho/vaeg/commit/266a28c50397ed11b890dd3df0062cc18e51bbb9).
 - Open (to measure on the real VA, later milestone): the V1/V2 H and S
   speeds. Decision C6 keeps S at the VA's full CPU speed until then.
+
+- Open (later milestone): the BEEP sounds wrong, possibly a timing mismatch
+  (maintainer report, 2026-10-07); recorded in the bug-fix ledger's open
+  defects, not investigated.
