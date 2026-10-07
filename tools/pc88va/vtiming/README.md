@@ -74,8 +74,8 @@ The system disk is private media; keep both images outside Git.
 ## Usage
 
 ```text
-V480PAT [lines] [S|T|U|R|D|I] [Hnn] [W] [N] [K] [Z]
-V480PAT A|B|C|E
+V480PAT [lines] [S|T|U|R|D|I] [Hnn] [W] [N] [K] [Z] [Q|P]
+V480PAT A|B|C|E|F
 ```
 
 | Argument | Effect |
@@ -91,6 +91,8 @@ V480PAT A|B|C|E
 | `D` | 24.8 kHz, 320 x `lines` (1-240) line-doubled: graphics in 200-line mode with port `0100h` RSM = 01 (non-interlaced mode 1), the TSP frame at 2 x `lines` rasters; above 400 rasters bottom blanking 2 and sync 4. |
 | `W` | Graphics screen 0 at 320 dots (`0102h` bit 4) with `S`, `T`, `U` or none; `D` is always 320. |
 | `N` | With `S`, `T`, `U` or `D`: TSP horizontal active `HAD` 159 -> 127 (128 TCK: 256 dots at 320, 512 at 640) and 16 TCK added to each of `LBR` and `RBR`, keeping the line length. Two white two-dot marks show the edges of that window. |
+| `Q` | With `S`: bottom blanking 1 and sync 1 at any line count (otherwise only above 400 lines). |
+| `P` | With `S`: bottom blanking 2 and sync 4 (the data-book minimums). With `K`, `Q` and `P` shorten the 24.8 kHz frame towards 60 Hz. |
 | `Z` | With `D`: RSM = 00 (non-interlaced mode 0, odd rasters blank) instead of 01. |
 | `K` | With `S` or `D`: top blanking 17 instead of the ROM's 25 (480 lines with `S`: 499-line frame, about 49.8 Hz). |
 
@@ -110,10 +112,12 @@ a key still moves on; the entries are numbered below to keep count.
 | `B` | 15 kHz | 1 `200 R W`, 2 `208 R W`, 3 `216 R W`, 4 `224 R W`, 5 `232 R W`, 6 `236 R W`, 7 `240 R W`, 8 `244 R W`, 9 `248 R W`, 10 `224 R`, 11 `240 R`, 12 `240 R W N`, 13 `240 T W`, 14 `240 U W` |
 | `C` | 15 kHz | 1 `200 H37 W`, 2 `200 H41 W`, 3 `200 H45 W`, 4 `200 H53 W`, 5 `224 H45 W`, 6 `240 H41 W`, 7 `240 H45 W`, 8 `200 I W`, 9 `224 I W`, 10 `240 I W`, 11 `240 I W H37`, 12 `240 I` |
 | `E` | 24 kHz | 1 `200 D`, 2 `200 D Z`, 3 `232 D Z`, 4 `240 D K Z` |
+| `F` | 24 kHz | 1 `400 S` (440 lines, 56.42 Hz), 2 `400 S Q` (427, 58.14), 3 `400 S K Q` (419, 59.25), 4 `400 S K P` (423, 58.69), 5 `400 S W K Q` (419, 59.25), 6 `396 S K Q` (415, 59.82), 7 `394 S K Q` (413, 60.11), 8 `392 S K Q` (411, 60.40), 9 `392 S K P` (415, 59.82), 10 `384 S K Q` (403, 61.60) |
 
 `C` measures top blankings above 37 at 15.98 kHz (the graphics window
 for `TBL > 37` is not modelled) and the 15.73 kHz family; `E` measures
-line doubling with RSM = 00. These conditions were not reached by `A` and
+line doubling with RSM = 00; `F` measures 640-dot frames near 60 Hz
+(vaeg's line rate; the rates are derived). These conditions were not reached by `A` and
 `B`, which is why vaeg does not model them yet.
 
 ## Timings
