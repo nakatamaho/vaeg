@@ -71,6 +71,10 @@ plays low then high before `Found`; with fast load it loads at once.
   [ef85911c](https://github.com/nakatamaho/vaeg/commit/ef85911cabc4e92a6bb39eb35403b90abc02af41).
 - V480PAT `F` (640 dots), `G` (320 dots doubled, 24.8 kHz) and `J` (320
   dots, 15 kHz) sweep frames near 60 Hz, with `Q` (bottom 1, sync 1) and `P`
-  (bottom 2, sync 4); hardware results pending.
+  (bottom 2, sync 4). `[MEAS]` On the PC-88VA2 every entry was displayed
+  and the monitor read-outs match the computed rates with `VS` as written
+  (`pc88va-video-modes.md` section 12.8): 59.25 Hz for 640 x 400 and 320 x
+  200 doubled with top 17, bottom 1, sync 1; 60.1 Hz for 640 x 394 and
+  320 x 197 doubled; 59.9 Hz for 224 lines at 15 kHz.
 - `VS` below 4 is now counted as written in the frame length (ledger):
   [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).
