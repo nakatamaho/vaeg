@@ -54,6 +54,10 @@ speed gap found in M104 moves to M106.
    decision C12): an option to show V1/V2 at 24 kHz as a PC-8801 does,
    8x8 text without gaps and 640 x 200 graphics with scanline gaps; the
    default stays the VA's own picture.
+5. **CPU speed** (maintainer request, 2026-10-07): a V1/V2 game ran too
+   fast, and the speed slider garbles the BEEP below 100 %. A second slider
+   slows only the CPU (10-100 %), in V3 and in the compatible mode; frames,
+   timers and sound keep real time. The speed slider stays as it is.
 
 ## Gate G105 (human)
 
@@ -108,3 +112,15 @@ speed. With "V1/V2 表示: PC-8801 風" V1/V2 text uses the 8x8 font and
   the 8x8 font doubled and a `LINE ...,BF` box alternates lit and blank
   rasters; with the default the box has no gaps.
   [33ecf84d](https://github.com/nakatamaho/vaeg/commit/33ecf84dda2bf26a0e5c79b8039edd1b487c1d5a).
+
+- CPU speed: `pccore_set_cpu_speed` scales the V30 cycle cost (with the
+  Configure multiplier, which never applied to the compatible core) and the
+  uPD70008-compatible counter. Tests: romless clockscale cases (10, 50, 100 %,
+  clamping, multiplier 4) and a compatible-mode run of ten NOPs (twice the
+  clocks at 50 %); each fails with its scaling removed. Headless G160 8-bit
+  over the same 32 guest seconds: 106 redraws at 100 %, 47 at 45 % (the
+  PC-88VA2 managed about 1.6 per second, 51 in 32 s).
+  [a09077a1](https://github.com/nakatamaho/vaeg/commit/a09077a19058be396793a3ef333bd4e67f8cd27f),
+  [266a28c5](https://github.com/nakatamaho/vaeg/commit/266a28c50397ed11b890dd3df0062cc18e51bbb9).
+- Open (to measure on the real VA, later milestone): the V1/V2 H and S
+  speeds. Decision C6 keeps S at the VA's full CPU speed until then.

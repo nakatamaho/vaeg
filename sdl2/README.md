@@ -729,7 +729,12 @@ CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
 FDD timing, RTC, or normal one-to-one host pacing. The `Emulate` menu's speed
 slider paces guest frames at 10-400 % of real time in 10 % steps
 (`s_speed`); its right end is No Wait (`s_NOWAIT`), which removes host
-waiting. Sound follows the guest, so it breaks up below 100 %.
+waiting. Sound follows the guest, so it breaks up below 100 % and above
+it (the BEEP worst, as it is built from CPU-timed on/off events). To slow
+only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
+in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
+V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
+while frames, timers, FM, BEEP and disk timing keep real time.
 `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
