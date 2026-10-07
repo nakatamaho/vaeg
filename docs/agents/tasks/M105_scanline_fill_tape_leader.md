@@ -126,6 +126,7 @@ speed slider slows a program without changing its sound.
 - Open (to measure on the real VA, later milestone): the V1/V2 H and S
   speeds. Decision C6 keeps S at the VA's full CPU speed until then.
 
-- Open (later milestone): the BEEP sounds wrong, possibly a timing mismatch
-  (maintainer report, 2026-10-07); recorded in the bug-fix ledger's open
-  defects, not investigated.
+- Open (later milestone): the port 40h sound is wrong, possibly a timing
+  mismatch (maintainer report, 2026-10-07): `CMD SING` is not clean and V1/V2
+  game sound is clearly off, also at 100 % speed; the plain `BEEP` seems
+  fine. Recorded in the bug-fix ledger's open defects, not investigated.

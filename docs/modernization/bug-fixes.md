@@ -2629,10 +2629,14 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
-### M105 — BEEP sounds wrong
+### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 
-- **Symptom/scope:** the BEEP (port 40h buzzer) sounds odd, as if its
-  timing were off (maintainer report during G105 checks, 2026-10-07).
+- **Symptom/scope:** the sound made through port 40h sounds odd, as if its
+  timing were off (maintainer report during G105 checks, 2026-10-07). A
+  plain `BEEP` (bit 5, the 2400 Hz buzzer) seems fine. `CMD SING` (bit 7,
+  the port sound) is less clear than the maintainer remembers, and ordinary
+  V1/V2 game sound is clearly wrong. `CMD SING` changes pitch with the CPU
+  speed slider, which is expected for software-timed toggling of bit 7.
   It happens with the speed and the CPU speed both at 100 % (maintainer,
   2026-10-07), so it is not only the speed-slider effect below. Mode (V1/V2
   or V3) and whether earlier builds were affected not yet narrowed.
