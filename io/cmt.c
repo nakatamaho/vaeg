@@ -51,7 +51,9 @@
 enum {
 	CMT_MAXSIZE = 0x400000,
 	/* Received bytes keep the request asserted, like the RXRDY level. */
-	CMT_REQUEST_HZ = 600
+	CMT_REQUEST_HZ = 600,
+	/* Leader before the data: 1200 Hz, then 2400 Hz, one second each. */
+	CMT_LEADER_SECONDS = 2
 };
 
 static const char t88_signature[] = "PC-8801 Tape Image(T88)";
@@ -69,6 +71,7 @@ static struct {
 	UINT8 data;
 	BOOL rxready;
 	BOOL rxe;
+	BOOL leader; /* leader sounding; no data until it ends */
 } cmt;
 
 /*
@@ -89,6 +92,7 @@ static struct {
 	UINT32 bitpos; /* 16.16 position within the current bit */
 	UINT32 phase;  /* 16.16 tone phase */
 	SINT32 level;  /* amplitude */
+	UINT32 leadsamples; /* samples of the leader played */
 } cmtsnd;
 
 void cmt_setvol(UINT vol) {
@@ -134,6 +138,18 @@ void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count) {
 		UINT32 freq;
 		SINT32 samp;
 
+		if (cmt.leader) {
+			/* Leader: low for the first second, then high. */
+			freq = (cmtsnd.leadsamples < rate) ? 1200 : 2400;
+			cmtsnd.leadsamples++;
+			cmtsnd.bits = 0;
+			cmtsnd.phase += (UINT32)(((UINT64)freq << 16) / rate);
+			samp = (cmtsnd.phase & 0x8000) ? cmtsnd.level : -cmtsnd.level;
+			pcm[0] += samp;
+			pcm[1] += samp;
+			pcm += 2;
+			continue;
+		}
 		if (cmtsnd.bits == 0) {
 			if (cmtsnd.pending) {
 				cmtsnd.frame = (UINT16)(0x200 | ((UINT16)cmtsnd.next << 1));
@@ -194,6 +210,7 @@ void cmt_reset(void) {
 	cmt.control = 0;
 	cmt.rxready = FALSE;
 	cmt.rxe = FALSE;
+	cmt.leader = FALSE;
 	nevent_reset(NEVENT_CMT);
 }
 
@@ -217,7 +234,31 @@ static SINT32 cmt_byteclock(void) {
 	return (clock > 0) ? clock : 1;
 }
 
+/*
+ * Tape leader (vaeg extension, maintainer's PC-8801 memory, [POLICY]): when
+ * the motor starts for reading, a low then a high tone sound for one second
+ * each before the data, and no byte is delivered until they end, so BASIC
+ * prints "Found" after them. Not with fast load, and not while recording.
+ */
+static void cmt_leader_start(void) {
+	cmt.leader = (cmt_selected() && !cmt.saving && !np2cfg.cmt_fast && (cmt.tape != NULL) &&
+	              (cmt.pos < cmt.size))
+	                 ? TRUE
+	                 : FALSE;
+	cmtsnd.leadsamples = 0;
+}
+
 static void cmt_schedule(void) {
+	if (cmt.leader) {
+		if (cmt_selected() && (cmt.control & 0x08)) {
+			if (!nevent_iswork(NEVENT_CMT)) {
+				nevent_set(NEVENT_CMT, (SINT32)(pccore.realclock * CMT_LEADER_SECONDS), cmt_event,
+				           NEVENT_RELATIVE);
+			}
+			return;
+		}
+		cmt.leader = FALSE;
+	}
 	if (cmt_running() && (cmt.rxready || (cmt.pos < cmt.size))) {
 		if (!nevent_iswork(NEVENT_CMT)) {
 			nevent_set(NEVENT_CMT,
@@ -231,6 +272,11 @@ static void cmt_schedule(void) {
 
 void cmt_event(NEVENTITEM item) {
 	(void)item;
+	if (cmt.leader) {
+		cmt.leader = FALSE;
+		cmt_schedule();
+		return;
+	}
 	if (!cmt_running()) {
 		return;
 	}
@@ -252,7 +298,12 @@ BOOL cmt_carrier(void) {
 }
 
 void cmt_port30(REG8 dat) {
+	const BOOL motor = (cmt.control & 0x08) ? TRUE : FALSE;
+
 	cmt.control = (UINT8)(dat & 0x3c);
+	if (!motor && (cmt.control & 0x08)) {
+		cmt_leader_start();
+	}
 	cmt_schedule();
 }
 
@@ -269,7 +320,7 @@ REG8 cmt_status(REG8 rxe) {
 
 REG8 cmt_read(void) {
 	cmt.rxready = FALSE;
-	if (nevent_iswork(NEVENT_CMT)) {
+	if (!cmt.leader && nevent_iswork(NEVENT_CMT)) {
 		nevent_reset(NEVENT_CMT);
 	}
 	cmt_schedule();
@@ -393,6 +444,7 @@ void cmt_eject(void) {
 	cmt.size = 0;
 	cmt.pos = 0;
 	cmt.rxready = FALSE;
+	cmt.leader = FALSE;
 	cmt_schedule();
 }
 

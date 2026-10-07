@@ -4863,7 +4863,68 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
+	/* M105 leader without fast load: one second low, one second high, and
+	 * no byte until it ends; none with fast load. */
 	cmt_save_discard();
+	if (problem == NULL) {
+		static SINT32 pcm[2 * 2205];
+		const UINT saved_rate = soundcfg.rate;
+		const UINT8 saved_fast = np2cfg.cmt_fast;
+		UINT edges[2];
+		UINT k;
+
+		soundcfg.rate = 22050;
+		cmt_setvol(64);
+		np2cfg.cmt_fast = 0;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		iocore_out8(0x021, 0x14); /* RXE */
+		if ((nevent_getremain(NEVENT_CMT) < (SINT32)pccore.realclock) ||
+		    (iocore_inp8(0x021) & 0x02)) {
+			problem = "tape leader did not hold the data back";
+		}
+		for (i = 0; i < 2; i++) {
+			/* zero crossings over 0.1 s: 1200 Hz gives 240, 2400 Hz 480 */
+			ZeroMemory(pcm, sizeof(pcm));
+			cmt_getpcm(NULL, pcm, 2205);
+			edges[i] = 0;
+			for (k = 1; k < 2205; k++) {
+				if ((pcm[k * 2] > 0) != (pcm[(k - 1) * 2] > 0)) {
+					edges[i]++;
+				}
+			}
+			if (i == 0) {
+				for (k = 0; k < 10; k++) { /* to 1.1 s */
+					cmt_getpcm(NULL, pcm, 2205);
+				}
+			}
+		}
+		if ((problem == NULL) &&
+		    ((edges[0] < 230) || (edges[0] > 250) || (edges[1] < 470) || (edges[1] > 490))) {
+			problem = "tape leader was not low then high";
+		}
+		cmt_event(NULL); /* the end of the leader */
+		if ((problem == NULL) && (iocore_inp8(0x021) & 0x02)) {
+			problem = "tape leader end delivered a byte";
+		}
+		cmt_event(NULL);
+		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0xd3))) {
+			problem = "first byte after the tape leader";
+		}
+		np2cfg.cmt_fast = 1;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		cmt_event(NULL);
+		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0xd3))) {
+			problem = "fast load played a tape leader";
+		}
+		iocore_out8(0x030, 0x00);
+		np2cfg.cmt_fast = saved_fast;
+		cmt_setvol(np2cfg.cmt_vol);
+		soundcfg.rate = saved_rate;
+	}
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
