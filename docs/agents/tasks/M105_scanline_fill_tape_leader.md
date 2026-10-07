@@ -61,7 +61,8 @@ Standard V3 gate unchanged, plus: at 15 kHz the new setting fills the
 scanline gaps and the default keeps them; loading a tape without fast load
 plays low then high before `Found`; with fast load it loads at once. The
 speed slider slows and speeds the guest and its right end runs at full
-speed.
+speed. With "V1/V2 表示: PC-8801 風" V1/V2 text uses the 8x8 font and
+200-line graphics show scanline gaps at 24 kHz; the default is unchanged.
 
 ## Implementation progress
 
@@ -100,7 +101,6 @@ speed.
   where 640 x 200 graphics show gaps and text does not. vaeg matches the VA:
   a V2 N-88 BASIC `LINE ...,BF` box is drawn without gaps and the text uses
   the 16-raster font. No change needed.
-
 - PC-8801-style V1/V2 display (C12): romless test checks the 8x8 glyph rows
   on raster pairs, the odd rasters of 200-line graphics, the unchanged VA
   standard, and no effect at 15 kHz or in V3 mode; it fails with either the
