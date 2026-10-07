@@ -15,6 +15,7 @@ extern BOOL grph1_noraster;
 void makegrphva_initialize(void);
 
 void makegrphva_begin(BOOL *scrn200);
+void makegrphva_setwindow(UINT16 startdelay, UINT16 linelimit);
 void makegrphva_raster(void);
 void makegrphva_blankraster(void);
 

@@ -32,6 +32,9 @@ typedef struct {
 
 typedef struct {
 	UINT16 screeny; // 現在処理中のラスタ(画面共通の座標系で)
+	UINT16 startdelay; // blank lines before graphics line 0
+	UINT16 linelimit;  // graphics lines read; later lines repeat the last
+	UINT16 linesread;
 	_SCREEN screen[GRPHVA_SCREENS];
 } _GRPHVAWORK;
 
@@ -1027,6 +1030,9 @@ void makegrphva_initialize(void) {
 
 void makegrphva_begin(BOOL *scrn200) {
 	work.screeny = 0;
+	work.startdelay = 0;
+	work.linelimit = 0xffff;
+	work.linesread = 0;
 
 	work.screen[0].pixelmode = videova.grres & 0x0003;
 	work.screen[1].pixelmode = (videova.grres >> 8) & 0x0003;
@@ -1077,7 +1083,25 @@ void makegrphva_blankraster(void) {
 	}
 }
 
+/* Call after makegrphva_begin; see videova_graphics_window. */
+void makegrphva_setwindow(UINT16 startdelay, UINT16 linelimit) {
+	work.startdelay = startdelay;
+	work.linelimit = linelimit;
+}
+
 void makegrphva_raster(void) {
+	if (work.startdelay > 0) {
+		work.startdelay--;
+		makegrphva_blankraster();
+		work.screeny++;
+		return;
+	}
+	if (work.linesread >= work.linelimit) {
+		// The line address no longer advances: the last raster is shown again.
+		work.screeny++;
+		return;
+	}
+	work.linesread++;
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();

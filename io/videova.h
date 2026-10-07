@@ -75,6 +75,8 @@ void videova_reset(void);
 void videova_bind(void);
 
 int videova_hsyncmode(void);
+void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam, UINT16 *startdelay,
+                             UINT16 *linelimit);
 int videova_palettemode(void);
 BOOL videova_textmerge(void);
 
