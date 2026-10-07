@@ -92,6 +92,9 @@ static void exec_sync(void) {
 	UINT16 newlines;
 	//BOOL newhsync15khz;
 
+	// uPD72022 data sheet: SYNC terminates display controller operation; the
+	// text stays off until DSPON (sprites are stopped only by DSPOFF).
+	tsp.dspon = FALSE;
 	for (i = 0; i < 14; i++)
 		tsp.syncparam[i] = tsp.parambuf[i];
 	tsp.textmg = (tsp.syncparam[0] & 0xc0) == 0x80;

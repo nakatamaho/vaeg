@@ -5310,6 +5310,53 @@ static int test_v1v2_rom_ports(void) {
 	return (SUCCESS);
 }
 
+/* M104: SYNC stops the text display until DSPON (uPD72022 data sheet). */
+static int test_tsp_sync_display(void) {
+	static const BYTE sync[] = {0x10, 0xc1, 0x57, 0x10, 0x00, 0x9f, 0x00, 0x10,
+	                            0x0f, 0x19, 0x00, 0x90, 0x40, 0x07, 0x08};
+	static const BYTE dspon[] = {0x12, 0x7f, 0x00, 0x00};
+	const char *problem;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	problem = NULL;
+	iocore_out8(0x142, dspon[0]);
+	for (i = 1; i < sizeof(dspon); i++) {
+		iocore_out8(0x146, dspon[i]);
+	}
+	if (!tsp.dspon) {
+		problem = "DSPON did not start the display";
+	}
+	tsp.spron = TRUE;
+	iocore_out8(0x142, sync[0]);
+	for (i = 1; i < sizeof(sync); i++) {
+		iocore_out8(0x146, sync[i]);
+	}
+	if ((problem == NULL) && tsp.dspon) {
+		problem = "SYNC left the text display running";
+	}
+	if ((problem == NULL) && !tsp.spron) {
+		problem = "SYNC stopped the sprite controller";
+	}
+	iocore_out8(0x142, dspon[0]);
+	for (i = 1; i < sizeof(dspon); i++) {
+		iocore_out8(0x146, dspon[i]);
+	}
+	if ((problem == NULL) && !tsp.dspon) {
+		problem = "DSPON after SYNC did not restart the display";
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP SYNC display", problem));
+	}
+	fprintf(stderr, "selftest: TSP SYNC display ok\n");
+	return (SUCCESS);
+}
+
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
@@ -6226,6 +6273,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_3301_emulation() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_sync_display() != SUCCESS) {
 		return (FAILURE);
 	}
 	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
