@@ -48,8 +48,9 @@
 ;    on an even/odd raster pair), the frame set to 2N rasters; above 400
 ;    rasters bottom 2 and sync 4 (480 rasters: about 48.6 Hz).
 ; Z: with D, RSM = 00 (non-interlaced mode 0: odd rasters blank) instead.
-; Q: with S, bottom blanking 1 and sync 1 at any line count (as above 400
-;    lines); P: with S, bottom blanking 2 and sync 4 (data-book minimums).
+; Q: with S or D, bottom blanking 1 and sync 1 at any line count (as above
+;    400 lines); P: with S or D, bottom blanking 2 and sync 4 (data-book
+;    minimums).
 ;    With K they shorten the 24.8 kHz frame towards 60 Hz.
 ; W: 320 dots instead of 640 (with none, S, T or U; D is always 320).
 ; N: with S, T, U or D, narrow the TSP horizontal active period to 128 TCK
@@ -63,7 +64,9 @@
 ;    the same with the 15.98 kHz list (sweep15); C: the 15 kHz list of top
 ;    blankings above 37 and the 15.73 kHz family (sweepc); E: the 24.8 kHz
 ;    list of RSM = 00 doubling (sweepe); F: the 24.8 kHz list of frames
-;    near 60 Hz (sweepf). Each entry is run as if
+;    near 60 Hz (sweepf); G: the 24.8 kHz list of line-doubled 320-dot
+;    frames near 60 Hz (sweepg); J: the 15 kHz list of 320-dot frames near
+;    60 Hz (sweepj). Each entry is run as if
 ;    typed after V480PAT (its label shows it); any key goes on to the next
 ;    entry, ESC stops.
 ; Set up with the graphics BIOS (INT 8Fh); drawn directly into GVRAM with
@@ -99,6 +102,12 @@ start:		mov	si,0081h
 		je	sweep
 		mov	bx,sweepf
 		cmp	al,'f'
+		je	sweep
+		mov	bx,sweepg
+		cmp	al,'g'
+		je	sweep
+		mov	bx,sweepj
+		cmp	al,'j'
 		je	sweep
 parse:		mov	si,0081h
 		xor	bx,bx
@@ -688,15 +697,18 @@ set_lines:	mov	ax,0500h
 .porch:		mov	si,syncprm
 		call	ktop_si
 		call	hnarrow_si
-		cmp	byte [shortv],0
-		je	sync
+		call	shortv_si
+		jmp	sync
+; Q, P: bottom blanking and sync in the 24.8 kHz SYNC vector at SI
+shortv_si:	cmp	byte [shortv],0
+		je	.r
 		mov	byte [si+12],01h	; Q: bottom 1, sync 1
 		mov	byte [si+13],01h
 		cmp	byte [shortv],1
-		je	sync
+		je	.r
 		mov	byte [si+12],02h	; P: bottom 2, sync 4
 		mov	byte [si+13],04h
-		jmp	sync
+.r:		ret
 ; K: top blanking 17 in the 24.8 kHz SYNC vector at SI
 ktop_si:	cmp	byte [ktop],0
 		je	.r
@@ -726,6 +738,7 @@ set_lines_dbl:	call	fb_lines
 		mov	byte [si+13],04h
 .porch:		call	ktop_si
 		call	hnarrow_si
+		call	shortv_si
 		jmp	sync
 ; 15.98 kHz: N lines in a 262-line frame
 set_lines_15k:	call	fb_lines
@@ -889,6 +902,12 @@ sweepe		db	'200 D',0,'200 D Z',0,'232 D Z',0,'240 D K Z',0,0
 sweepf		db	'400 S',0,'400 S Q',0,'400 S K Q',0,'400 S K P',0
 		db	'400 S W K Q',0,'396 S K Q',0,'394 S K Q',0
 		db	'392 S K Q',0,'392 S K P',0,'384 S K Q',0,0
+; G (24 kHz): 320 x N line-doubled near 60 Hz
+sweepg		db	'200 D',0,'200 D K Q',0,'200 D K P',0,'198 D K Q',0
+		db	'197 D K Q',0,'196 D K Q',0,'192 D K Q',0,0
+; J (15 kHz): 320 x N near 60 Hz
+sweepj		db	'200 R W',0,'220 R W',0,'222 R W',0,'224 R W',0
+		db	'224 H36 W',0,'224 R',0,0
 		align	2
 datastart:
 desc		dw	4, 640, 480
