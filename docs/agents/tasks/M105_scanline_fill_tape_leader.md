@@ -50,6 +50,10 @@ speed gap found in M104 moves to M106.
 3. **Emulation speed** (maintainer request, 2026-10-07): a slider in the
    Emulate menu from 10 % to 400 % of real time with No Wait (full speed)
    at its right end; No Wait leaves the Screen menu.
+4. **PC-8801-style V1/V2 display** (maintainer request, 2026-10-07,
+   decision C12): an option to show V1/V2 at 24 kHz as a PC-8801 does,
+   8x8 text without gaps and 640 x 200 graphics with scanline gaps; the
+   default stays the VA's own picture.
 
 ## Gate G105 (human)
 
@@ -96,3 +100,11 @@ speed.
   where 640 x 200 graphics show gaps and text does not. vaeg matches the VA:
   a V2 N-88 BASIC `LINE ...,BF` box is drawn without gaps and the text uses
   the 16-raster font. No change needed.
+
+- PC-8801-style V1/V2 display (C12): romless test checks the 8x8 glyph rows
+  on raster pairs, the odd rasters of 200-line graphics, the unchanged VA
+  standard, and no effect at 15 kHz or in V3 mode; it fails with either the
+  text or the graphics change removed. Headless V2 N-88 BASIC: the text uses
+  the 8x8 font doubled and a `LINE ...,BF` box alternates lit and blank
+  rasters; with the default the box has no gaps.
+  [33ecf84d](https://github.com/nakatamaho/vaeg/commit/33ecf84dda2bf26a0e5c79b8039edd1b487c1d5a).
