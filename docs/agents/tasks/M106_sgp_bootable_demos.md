@@ -82,9 +82,9 @@ mode lamp follows V1/V2/V3.
   of the user's system disk; checked in vaeg (VA2): PC-Engine boots and
   `16\SGPD_7A`, `256\SGP256T` and `65536\SGPWIRE` run.
 - Front panel: artwork, decoder and panel
-  [0f2924bc](https://github.com/nakatamaho/vaeg/commit/0f2924bcd3af8c90e6623980d2f381aaf261ee17),
-  [dd5bd730](https://github.com/nakatamaho/vaeg/commit/dd5bd730bf92b981b00592df147c6e2d10a8c5e4),
-  [73bc9aac](https://github.com/nakatamaho/vaeg/commit/73bc9aac618a3e2350358bd8a17de1e0f7e4ebe7).
+  [d6e6a15c](https://github.com/nakatamaho/vaeg/commit/d6e6a15c7bc161477d0ae27c48acc27fc0dc89fd),
+  [669fdb05](https://github.com/nakatamaho/vaeg/commit/669fdb058c289923eec8bacc60f6a2f41d6f649a),
+  [cb9d61a2](https://github.com/nakatamaho/vaeg/commit/cb9d61a2351fd72bf343eef7b9958423d6e537b8).
   PNG is not decodable by SDL2, so a small inflate/PNG decoder
   (`sdl2/pngdecode.c`) reads the embedded images. `[ROM]`-observed mode
   lamps: port 1CDh bit 4 = V1, 5 = V2, 6 = V3 (a V3 boot lights V3, a V2
@@ -100,7 +100,7 @@ mode lamp follows V1/V2/V3.
   640 dots), with the drawing kept as a menu choice. The romless test also
   renders the bar on a software renderer (drive 1 lit, V1 dark; fails with
   the mode lamps forced on).
-  [8d014f8a](https://github.com/nakatamaho/vaeg/commit/8d014f8a2b8648ce15d12a2a3b343503cb02bd46).
+  [dd7995b4](https://github.com/nakatamaho/vaeg/commit/dd7995b475c1868d67322a0d799186a235a2fbd3).
 - The drawing of the machine's front, added first and later drawn under the
   native CRT presenter too, was withdrawn by the maintainer (2026-10-08):
   its rights (trademarks and the appearance of the product) are unclear. The
