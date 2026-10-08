@@ -615,7 +615,7 @@ static void draw_recording_menu(void) {
 			g_gui.recording_status += error;
 		}
 	}
-	if (ImGui::BeginMenu("Recording")) {
+	if (ImGui::BeginMenu("録画")) {
 		if (active) {
 			if (vaeg_recording_native_session_is_finalizing()) {
 				ImGui::MenuItem("Finalizing...", nullptr, false, false);
@@ -4282,11 +4282,11 @@ void gui_draw(void) {
 		}
 		ImGui::Separator();
 		draw_emulate_menu();
-		draw_recording_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
 		draw_edit_menu();
 		draw_screen_menu();
+		draw_recording_menu();
 		draw_device_menu();
 		draw_state_menu();
 		draw_info_menu();
