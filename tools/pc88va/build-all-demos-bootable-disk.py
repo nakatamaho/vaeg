@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build one bootable PC-Engine D88 containing all demo distributions.
+"""Build one bootable D88 containing all demo distributions.
 
 The checked-in demo distributions are non-bootable data D88 images.  This
 builder extracts their files into collision-free profile directories, then
-installs that payload on a user-supplied PC-Engine system disk.  The source
-system image and the generated bootable D88 are local artifacts.
+installs that payload on a user-supplied PC-Engine 1.05/1.1 or PC-88VA
+MS-DOS system disk.  The source system image and the generated bootable D88
+are local artifacts.
 """
 
 # Copyright (c) 2026 Nakata Maho
@@ -192,10 +193,10 @@ def build(source, distribution_dir, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Build one bootable PC-Engine D88 containing all demo distributions")
+        description="Build one bootable D88 containing all demo distributions")
     parser.add_argument(
         "--source", required=True, type=Path,
-        help="user-supplied PC-Engine 1.05 or 1.1 boot D88")
+        help="user-supplied PC-Engine 1.05/1.1 or PC-88VA MS-DOS boot D88")
     parser.add_argument(
         "--distribution-dir", type=Path, default=DEFAULT_DISTRIBUTION_DIR,
         help="directory containing the checked-in demo .d88.xz distributions")
@@ -209,7 +210,7 @@ def main(argv=None):
                              args.output.resolve())
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
-    print("Created bootable all-demo PC-Engine D88")
+    print("Created bootable all-demo D88")
     print(f"output: {args.output.resolve()}")
     print(f"size: {size} bytes")
     print(f"SHA-256: {digest}")

@@ -48,23 +48,28 @@ The output is reproducible: the same sources give the same image. It is a
 bootable validation disk, so it must be written outside the repository and
 must not be committed (`AGENTS.md`); the builder refuses a path inside it.
 
-## PC-Engine bootable disk
+## PC-Engine or MS-DOS bootable disk
 
-For comparison, the same builder also makes an ordinary PC-Engine bootable
-disk with the same eleven demos, from the user's own PC-Engine 1.05/1.1
-system disk (private media):
+For comparison, the same builder also makes an ordinary bootable disk with
+the same eleven demos from a system disk: the user's own PC-Engine 1.05/1.1
+system disk (private media), or the PC-88VA MS-DOS 2.0 or 4.0 disk of the
+FreeDOS-88VA project (MIT-licensed; for example `msdos4-pc88va-2hd.d88` of
+release `msdos4-va.1` at <https://github.com/FreeDOS-88VA/MS-DOS/releases>):
 
 ```sh
 python3 demos/sgp-boot/build-boot-d88.py \
-  --pcengine-source /path/to/pcengine-1.1-system.d88 --output /tmp/sgp-pce.d88
+  --system-source /path/to/msdos4-pc88va-2hd.d88 --output /tmp/sgp-dos.d88
 ```
 
-It copies the system disk with `tools/pc88va/pcengine_disk.py vanilla` and
-installs `16\`, `256\` and `65536\` (the pseudo-sprite and wireframe
-programs of each colour depth, as on the distribution disks). At the
-PC-Engine prompt run, for example, `16\SGPD_7A` or `65536\SGPWIRE`. The disk
-holds PC-Engine system files, so it stays outside the repository; directory
-time stamps make two builds differ in a few bytes.
+(`--pcengine-source` is the former name of `--system-source`.) It copies the
+system disk with `tools/pc88va/pcengine_disk.py vanilla`, which keeps the
+PC-Engine system files, or MS-DOS's system files, `CONFIG.SYS`,
+`AUTOEXEC.BAT`, `LICENSE.TXT` and `README.TXT`, and installs `16\`, `256\`
+and `65536\` (the pseudo-sprite and wireframe programs of each colour depth,
+as on the distribution disks). At the prompt run, for example,
+`16\SGPD_7A` or `65536\SGPWIRE`. The disk holds the system's files, so it
+stays outside the repository; directory time stamps make two builds differ
+in a few bytes.
 
 ## Running
 

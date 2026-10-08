@@ -34,7 +34,10 @@ component distribution archives; it is not an input to the bootable builder.
 
 To make one local bootable disk containing every component distribution, use
 [`tools/pc88va/build-all-demos-bootable-disk.py`](../../tools/pc88va/build-all-demos-bootable-disk.py)
-with a user-supplied PC-Engine system disk:
+with a user-supplied PC-Engine 1.05/1.1 system disk or a PC-88VA MS-DOS 2.0
+or 4.0 system disk of the FreeDOS-88VA project
+(<https://github.com/FreeDOS-88VA/MS-DOS/releases>, for example
+`msdos4-pc88va-2hd.d88`):
 
 ```sh
 python3 tools/pc88va/build-all-demos-bootable-disk.py \
@@ -47,5 +50,7 @@ The builder extracts the six component `.d88.xz` images and installs them as
 `A:\SPRITE\16`, `A:\SPRITE\256`, `A:\SPRITE\65536`, `A:\WIRE\16`,
 `A:\WIRE\256`, `A:\WIRE\65536`, and `A:\ZUNDAMON`.
 The supplied system disk provides the IPL and boot files, so the result is a
-bootable PC-Engine D88. The source and raw output remain local artifacts and
-are not committed.
+bootable PC-Engine or MS-DOS D88; of an MS-DOS disk only the system files,
+`CONFIG.SYS`, `AUTOEXEC.BAT`, `LICENSE.TXT` and `README.TXT` are kept. The
+per-demo `build-bootable-d88.sh` scripts accept either kind of system disk as
+well. The source and raw output remain local artifacts and are not committed.
