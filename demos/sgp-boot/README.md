@@ -54,7 +54,7 @@ For comparison, the same builder also makes an ordinary bootable disk with
 the same eleven demos from a system disk: the user's own PC-Engine 1.05/1.1
 system disk (private media), or the PC-88VA MS-DOS 2.0 or 4.0 disk of the
 FreeDOS-88VA project (MIT-licensed; for example `msdos4-pc88va-2hd.d88` of
-release `msdos4-va.1` at <https://github.com/FreeDOS-88VA/MS-DOS/releases>):
+release `msdos4-va.2` at <https://github.com/FreeDOS-88VA/MS-DOS/releases>):
 
 ```sh
 python3 demos/sgp-boot/build-boot-d88.py \

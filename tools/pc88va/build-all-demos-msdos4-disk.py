@@ -2,7 +2,7 @@
 """Build the bootable MS-DOS 4.0 disk with every demo, and its .d88.xz.
 
 The system files come from the FreeDOS-88VA project's MIT-licensed MS-DOS 4.0
-for the PC-88VA (release msdos4-va.1, msdos4-pc88va-2hd.d88), checked by its
+for the PC-88VA (release msdos4-va.2, msdos4-pc88va-2hd.d88), checked by its
 published SHA-256.  The demos come from the checked-in distributions, as for
 build-all-demos-bootable-disk.py.  Directory entries get a fixed time stamp,
 so the same inputs give the same bytes.  The raw D88 is written outside the
@@ -45,14 +45,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 BOOTABLE_BUILDER = Path(__file__).with_name("build-all-demos-bootable-disk.py")
 DEFAULT_DISTRIBUTION_DIR = REPOSITORY_ROOT / "demos" / "disks"
 DEFAULT_COMPRESSED_OUTPUT = DEFAULT_DISTRIBUTION_DIR / "all-demos-msdos4.d88.xz"
-MSDOS4_RELEASE = "https://github.com/FreeDOS-88VA/MS-DOS/releases/tag/msdos4-va.1"
-MSDOS4_SHA256 = "9e4baf0e4098d2c6c2e3810fec0a524f1f7a2540ddc9e183241d1cd2941faa2e"
+MSDOS4_RELEASE = "https://github.com/FreeDOS-88VA/MS-DOS/releases/tag/msdos4-va.2"
+MSDOS4_SHA256 = "7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0"
 FIXED_FAT_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1  # 2026-01-01
 FIXED_FAT_TIME = 0
 # The release's boot sector and the files a vanilla copy keeps (SHA-256).
-MSDOS4_BOOT_SECTOR_SHA256 = "7520a5baf5ef4814c8fefa1436d92a8fd4aa10b72b6234914137e3a0818a77c6"
+MSDOS4_BOOT_SECTOR_SHA256 = "e6c98cc546962eb921363cf717b3309cdd544ba730a7eaadb69d2b8eac73e73f"
 MSDOS4_FILES_SHA256 = {
-    "IO.SYS": "41f85b8175d3497276bf2c63e142f6eb1a2c8f463d95af71288baefa26892b12",
+    "IO.SYS": "e5adc498428111807873a6a1a9855e40cf7937abbdcd5d2df99f21d264649647",
     "MSDOS.SYS": "573626782a3c45f0d9e5f00af1bd0f52a7de44bea96d2a2d3d660e9ae06158d5",
     "COMMAND.COM": "a0f53401e2faa8b4c94b3b644864faddfaaced85a45e1eda3ab206988d496a05",
     "AUTOEXEC.BAT": "a4fbf991785dc2e3fd03af3a6b9872114c0e19bceb86ad381b6c531013325e01",

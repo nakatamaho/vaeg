@@ -63,9 +63,9 @@ well. The source and raw output remain local artifacts and are not committed.
 `all-demos-msdos4.d88.xz` boots by itself: its system is the FreeDOS-88VA
 project's MS-DOS 4.0 for the PC-88VA, built from Microsoft's MIT-licensed
 MS-DOS source release (not supported by Microsoft or NEC; release
-<https://github.com/FreeDOS-88VA/MS-DOS/releases/tag/msdos4-va.1>, image
+<https://github.com/FreeDOS-88VA/MS-DOS/releases/tag/msdos4-va.2>, image
 `msdos4-pc88va-2hd.d88`, SHA-256
-`9e4baf0e4098d2c6c2e3810fec0a524f1f7a2540ddc9e183241d1cd2941faa2e`). The MIT
+`7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0`). The MIT
 licence is `A:\LICENSE.TXT` on the disk. Rebuild it with
 [`tools/pc88va/build-all-demos-msdos4-disk.py`](../../tools/pc88va/build-all-demos-msdos4-disk.py):
 
