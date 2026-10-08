@@ -24,8 +24,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # NEON3 PC-88VA port
 
 This directory is the P3 work tree for the `NEON3286` migration.  The source
-under `src/` includes the original NEON3 fixed-point geometry from
-`demos/neon3_1_5/98/` without modifying or copying that source.
+under `src/` includes the original NEON3 fixed-point geometry from the
+unmodified NEON RELAY 3 ver1.5 files in
+[`external/neon3-1.5/`](../../external/neon3-1.5/) (SimK, modified BSD
+licence; [ADR-0017](../../docs/agents/DECISIONS/ADR-0017-neon3-sources.md)).
 
 The current payload is the P3-B geometry/SGP harness.  It reuses the original
 PC-98 projection and nine-scene, 6144-frame timeline, while replacing the
