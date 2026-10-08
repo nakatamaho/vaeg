@@ -81,6 +81,11 @@ class SourceModeTest(unittest.TestCase):
         members.append(("external/zex/zexdoc.cim", b"\x00"))
         self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["ZEX_NAME"])
 
+    def test_neon3_external_root_is_recorded(self):
+        members = self.fixture()
+        members.append(("external/neon3-1.5/CONFIG3_286.INC", b"; data\n"))
+        self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), [])
+
     def test_unrecorded_external_root(self):
         members = self.fixture()
         members.append(("external/other/file.c", b"int x;\n"))
