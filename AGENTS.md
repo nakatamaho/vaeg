@@ -114,7 +114,7 @@ Release notes may summarize the ledger but do not replace it.
   or other non-redistributable payloads to boot does not.  A maintainer-
   approved exception (M106) admits the MIT-licensed MS-DOS 4.0 for the
   PC-88VA of the FreeDOS-88VA project as system files of a bootable demo
-  disk: only from the pinned release `msdos4-va.1` image (its published
+  disk: only from the pinned release `msdos4-va.2` image (its published
   SHA-256), only the files a `pcengine_disk.py vanilla` copy keeps, with the
   release's `LICENSE.TXT` on the disk and its boot sector and files checked
   by hash.  The raw D88, PC-Engine system files, private media, ROMs, and
