@@ -218,3 +218,20 @@ mode lamp follows V1/V2/V3.
   all-demos-msdos4.d88.xz SHA-256 is now
   `79676befbbbaf4a1c04424c06f5c10128dba64fd447655d26ca3d7525b768d85`.
   [417e3909](https://github.com/nakatamaho/vaeg/commit/417e39093f058a3feb2f3a9e85aed91b4bdd42fb), [eac394e3](https://github.com/nakatamaho/vaeg/commit/eac394e32474d241c4c6e0cbeea4a9f52ecacdaa).
+- Demo build check (HEAD `ec74cdf5`, clean worktree): GLASS, NEON3 (both
+  profiles), NEON4 (both), pseudo-sprite 16/256/65536 and the three
+  wireframes rebuild byte-identical to the committed distribution disks;
+  sgp-scan and the self-booting SGP disk build. ZUNDAORB cannot be rebuilt:
+  its PSD and private profile tables are not in the repository (tables
+  regenerated with the repository tools differ in 10659 bytes); pending a
+  maintainer decision.
+- `MANDEL.BAS` (`demos/mandelbrot/mandelbrot.bas`, CRLF) is on the
+  PC-Engine all-demos disks (distribution and bootable builders) but not on
+  the MS-DOS 4.0 disk, which has no BASIC (maintainer). In vaeg (VA2,
+  PC-Engine 1.1) `LOAD "MANDEL.BAS"` and `RUN` from the ROM BASIC draw the
+  set. On the rebuilt PC-Engine 1.1 all-demos disk all 17 programs start
+  and keep drawing in vaeg (VA2); on the MS-DOS 4.0 disk likewise except
+  GLASS and SGPD_7C, which stop after their second frame (deferred).
+- AGENTS.md now requires every milestone to keep the demos buildable and
+  run (maintainer request), with zundamon-orbit as a recorded exception.
+  [4b32c85c](https://github.com/nakatamaho/vaeg/commit/4b32c85c984d0fdb9b357c56eabc9453003b69f5), [0af3fcf2](https://github.com/nakatamaho/vaeg/commit/0af3fcf2cfeda2978b941b395c551470892dbc94), [483ec18c](https://github.com/nakatamaho/vaeg/commit/483ec18c85275ed688e8f7df8997d2802cd16fb1).
