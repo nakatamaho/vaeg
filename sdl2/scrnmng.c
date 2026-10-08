@@ -112,6 +112,7 @@ static VAEG_SPEEDMETER speedmeter;
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport);
+static void scrnmng_draw_front_panel(void);
 static BOOL scrnmng_get_drawable_size(int *width, int *height);
 static BOOL scrnmng_create_sdl_resources(void);
 static BOOL scrnmng_native_fallback(void);
@@ -148,21 +149,40 @@ const char *scrnmng_native_preset_path(void) {
 }
 
 /*
- * Front panel below the guest picture (sdl2/frontpanel.c): in a visible SDL
- * window only, not with the native CRT presenter, not in full screen and not
- * under a headless video driver, so captures and headless runs are unchanged.
+ * Front panel below the guest picture (sdl2/frontpanel.c): in a visible
+ * window only, not in full screen and not under a headless video driver, so
+ * captures and headless runs are unchanged. The native CRT presenter draws
+ * through the GUI overlay, which shows the simple bar in place of the drawing.
  */
+static BOOL scrnmng_front_panel_simple(void) {
+	return ((np2oscfg.front_panel != FRONTPANEL_ART) || scrnmng.native_active) ? TRUE : FALSE;
+}
+
 static int scrnmng_front_panel_height(int width) {
 	const char *video_driver;
 
-	if (scrnmng.native_active || (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+	if ((np2oscfg.front_panel == FRONTPANEL_OFF) ||
+	    (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
 		return 0;
 	}
 	video_driver = SDL_GetCurrentVideoDriver();
 	if ((video_driver == NULL) || vaeg_native_presenter_is_headless_video_driver(video_driver)) {
 		return 0;
 	}
+	if (scrnmng_front_panel_simple()) {
+		return 14 * frontpanel_simple_scale(width);
+	}
 	return frontpanel_height(width);
+}
+
+/* A filled rectangle on the SDL renderer, or the GUI overlay when native. */
+static void scrnmng_panel_fill(const SDL_Rect *r, Uint8 red, Uint8 green, Uint8 blue) {
+	if (scrnmng.native_active) {
+		gui_overlay_rect(r->x, r->y, r->w, r->h, red, green, blue, 255);
+	} else {
+		SDL_SetRenderDrawColor(scrnmng.renderer, red, green, blue, 255);
+		SDL_RenderFillRect(scrnmng.renderer, r);
+	}
 }
 
 static BOOL scrnmng_native_requested(void) {
@@ -1013,6 +1033,9 @@ void scrnmng_draw_native_overlays(void) {
 		scrnmng_draw_video_info_overlay(&viewport);
 		scrnmng_draw_framebuffer_info_overlay(&viewport);
 	}
+	if (scrnmng.native_active) {
+		scrnmng_draw_front_panel();
+	}
 }
 
 static void scrnmng_log_renderer(void) {
@@ -1696,15 +1719,15 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	int x = 8 * s;
 	int i;
 
-	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
-	SDL_SetRenderDrawColor(scrnmng.renderer, 34, 34, 36, 255);
-	SDL_RenderFillRect(scrnmng.renderer, bar);
+	if (!scrnmng.native_active) {
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	}
+	scrnmng_panel_fill(bar, 34, 34, 36);
 	r.x = bar->x;
 	r.y = bar->y;
 	r.w = bar->w;
 	r.h = s;
-	SDL_SetRenderDrawColor(scrnmng.renderer, 70, 70, 74, 255);
-	SDL_RenderFillRect(scrnmng.renderer, &r);
+	scrnmng_panel_fill(&r, 70, 70, 74);
 	for (i = 0; i < 5; i++) {
 		const BOOL drive = (i < 2) ? TRUE : FALSE;
 		char text[4];
@@ -1745,11 +1768,10 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		r.w = 12 * s;
 		r.h = 6 * s;
 		if (lit) {
-			SDL_SetRenderDrawColor(scrnmng.renderer, cr, cg, cb, 255);
+			scrnmng_panel_fill(&r, cr, cg, cb);
 		} else {
-			SDL_SetRenderDrawColor(scrnmng.renderer, 52, 60, 52, 255);
+			scrnmng_panel_fill(&r, 52, 60, 52);
 		}
-		SDL_RenderFillRect(scrnmng.renderer, &r);
 		x += r.w + 12 * s;
 	}
 }
@@ -1764,7 +1786,7 @@ static void scrnmng_draw_front_panel(void) {
 	int output_h;
 	SDL_Rect panel;
 
-	if ((scrnmng.window == NULL) || (scrnmng.renderer == NULL)) {
+	if ((scrnmng.window == NULL) || (!scrnmng.native_active && (scrnmng.renderer == NULL))) {
 		return;
 	}
 	SDL_GetWindowSize(scrnmng.window, &window_w, &window_h);
@@ -1782,10 +1804,10 @@ static void scrnmng_draw_front_panel(void) {
 	panel.x = 0;
 	panel.y = output_h - panel.h;
 	panel.w = output_w;
-	if (np2oscfg.front_panel == FRONTPANEL_ART) {
-		frontpanel_render(scrnmng.renderer, &panel);
-	} else {
+	if (scrnmng_front_panel_simple()) {
 		scrnmng_draw_simple_panel(&panel);
+	} else {
+		frontpanel_render(scrnmng.renderer, &panel);
 	}
 }
 

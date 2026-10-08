@@ -27,6 +27,7 @@
 #include "strres.h"
 #include "profile.h"
 #include "np2.h"
+#include "frontpanel.h"
 #include "dosio.h"
 #include "ini.h"
 #include "librashader/shader_config.h"
@@ -426,7 +427,7 @@ static const INITBL iniitem[] = {
     // OS依存～
     {"s_NOWAIT", INITYPE_BOOL, &np2oscfg.NOWAIT, 0},
     {"s_speed", INITYPE_UINT16, &np2oscfg.speed_percent, 0},
-    {"FrontPanel", INITYPE_UINT8, &np2oscfg.front_panel, 0},
+    {"FrontPanelMode", INITYPE_UINT8, &np2oscfg.front_panel, 0},
     {"FrontPanelVA3", INITYPE_BOOL, &np2oscfg.front_panel_va3, 0},
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
@@ -546,6 +547,9 @@ void initload(void) {
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;
+	if (np2oscfg.front_panel > FRONTPANEL_ART) {
+		np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	}
 	np2oscfg.gui_native_filter = np2oscfg.gui_native_filter ? 1 : 0;
 	np2oscfg.gui_native_mask_auto = np2oscfg.gui_native_mask_auto ? 1 : 0;
 	if (np2oscfg.gui_shader_preset[0] == '\0') {
