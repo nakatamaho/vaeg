@@ -7,6 +7,8 @@
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "cmt.h"
+#include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
 #include "romva.h"
@@ -30,6 +32,7 @@
 
 #include "bmsio.h"
 #include "emsio.h"
+#include "bkupmemva.h"
 
 #include "../vram/maketextva.h"
 #include "../vram/makesprva.h"
@@ -57,6 +60,8 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .MOUSERAPID = 0,
                  .calendar = 0,
                  .usefd144 = 0,
+                 .upd8087_enable = 0,
+                 .upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ,
                  .model = OEMTEXT("88VA2"),
                  .baseclock = PCBASECLOCK40,
                  .multiple = 2,
@@ -64,6 +69,9 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .sgp_multiplier = 1,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
+                 .main_ram_auto = 1,
+                 .v1v2_standard = 0,
+                 .v1v2_nmode = 0,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -78,6 +86,9 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .spb_vrl = 0,
                  .spb_x = 1,
                  .BEEP_VOL = 3,
+                 .beep_level = 0xff,
+                 .cmt_fast = 1,
+                 .cmt_vol = 48,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -107,7 +118,13 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
+/* uPD70008-compatible mode: the CPU speed only (the multiplier is V30-only). */
+CLOCKSCALE pccore_compat_scale = {100, 100, 0};
+UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
+static UINT pccore_cpu_speed_value = 100;
+
+static UINT16 active_main_ram = 640;
 
 static UINT16 pccore_normalize_mainram(UINT16 value) {
 	switch (value) {
@@ -126,7 +143,13 @@ UINT16 pccore_mainram_kb(void) {
 }
 
 UINT32 pccore_mainram_limit(void) {
-	return (UINT32)pccore_mainram_kb() * 1024;
+	/* Menu changes are pending until the next machine reset. */
+	return (UINT32)active_main_ram * 1024;
+}
+
+void pccore_mainram_reset(void) {
+	active_main_ram = pccore_normalize_mainram(np2cfg.main_ram);
+	bkupmemva_sync_mainram();
 }
 
 UINT8 screenupdate = 3; // Bit 0 requests a partial redraw.
@@ -159,7 +182,24 @@ void pccore_clockrestore(void) {
 	pccore.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore.realclock = pccore.baseclock * pccore.multiple;
 	pccore_cpu_multiple_value = multiple;
-	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE, multiple);
+	pccore_set_cpu_speed(np2cfg.cpu_speed);
+}
+
+/* CPU speed 10-100 % (0 selects 100): cycles cost 100 / percent. */
+void pccore_set_cpu_speed(UINT percent) {
+	if ((percent == 0) || (percent > 100)) {
+		percent = 100;
+	} else if (percent < 10) {
+		percent = 10;
+	}
+	pccore_cpu_speed_value = percent;
+	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
+	                     pccore_cpu_multiple_value * percent);
+	clockscale_configure(&pccore_compat_scale, 100, percent);
+}
+
+UINT pccore_cpu_speed(void) {
+	return (pccore_cpu_speed_value);
 }
 
 UINT pccore_cpu_multiple(void) {
@@ -244,7 +284,11 @@ static void sound_init(void) {
 	sound_create(rate, np2cfg.delayms);
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
-	beep_setvol(np2cfg.BEEP_VOL);
+	if (np2cfg.beep_level <= 128) {
+		beep_setlevel(np2cfg.beep_level);
+	} else {
+		beep_setvol(np2cfg.BEEP_VOL);
+	}
 	opngen_initialize(rate);
 	opngen_setvol(np2cfg.vol_fm);
 	psggen_initialize(rate);
@@ -264,6 +308,11 @@ static void sound_term(void) {
 }
 
 void pccore_init(void) {
+	UPD8087_CONFIG upd8087_config;
+
+	upd8087_config.enabled = np2cfg.upd8087_enable != 0;
+	upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
+	upd8087_initialize(&upd8087, &upd8087_config);
 	CPU_INITIALIZE();
 
 	// VA rendering owns its palette and raster conversion.
@@ -281,6 +330,7 @@ void pccore_init(void) {
 
 	rs232c_construct();
 	mpu98ii_construct();
+	cmt_initialize();
 
 	iocore_create();
 }
@@ -297,6 +347,7 @@ void pccore_term(void) {
 
 	mpu98ii_destruct();
 	rs232c_destruct();
+	cmt_deinitialize();
 
 	sxsi_trash();
 
@@ -352,6 +403,7 @@ void pccore_reset(void) {
 	pccore_guest_clock_high = 0;
 	pccore_guest_clock_last = 0;
 	pccore_guest_clock_valid = FALSE;
+	pccore_mainram_reset();
 	drawcount = 0;
 	scrnmng_reset_metrics();
 	soundmng_stop();
@@ -369,6 +421,14 @@ void pccore_reset(void) {
 	}
 
 	pccore_set();
+	{
+		UPD8087_CONFIG upd8087_config;
+
+		/* Configuration is intentionally applied only at machine reset. */
+		upd8087_config.enabled = np2cfg.upd8087_enable != 0;
+		upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
+		upd8087_apply_config(&upd8087, &upd8087_config);
+	}
 	sgp_configure_speed();
 	bmsio_set();
 	keystat_setlockedkey(np2cfg.lockedkey);
@@ -411,6 +471,7 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	romva_initialize();
+	memctrlva_nmode_reset();
 	va91_initialize();
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;
@@ -453,6 +514,12 @@ static void drawscreenva(BOOL guest_boundary) {
 	maketextva_begin(&text200);
 	makesprva_begin();
 	makegrphva_begin(&grph200);
+	if (tsp.screenlines != 0) {
+		VIDEOVA_GRAPHICS_WINDOW window;
+
+		videova_graphics_window(videova_hsyncmode(), videova.grmode, tsp.syncparam, &window);
+		makegrphva_setwindow(&window);
+	}
 	scrndrawva_compose_begin();
 
 	if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
@@ -467,10 +534,13 @@ static void drawscreenva(BOOL guest_boundary) {
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// Odd output raster.
-				maketextva_blankraster();
-				makesprva_blankraster();
-				makegrphva_blankraster();
+				// Odd output raster: a scanline gap as on a CRT, or the line
+				// again as an LCD shows a 15 kHz signal (display setting).
+				if (!np2cfg.monitor_15khz_fill) {
+					maketextva_blankraster();
+					makesprva_blankraster();
+					makegrphva_blankraster();
+				}
 				scrndrawva_compose_raster();
 				y++;
 			}
@@ -520,8 +590,14 @@ static void drawscreenva(BOOL guest_boundary) {
 			break;
 		}
 	} else {
-		// 24.8 kHz output.
-		switch (videova.grmode & 0x00c0) {
+		// 24.8 kHz output. The PC-8801-style V1/V2 display shows 200-line
+		// graphics as non-interlaced mode 0 (odd rasters blank).
+		WORD rsm = videova.grmode & 0x00c0;
+
+		if (videova_8801_display() && (rsm == 0x40)) {
+			rsm = 0x00;
+		}
+		switch (rsm) {
 		case 0x00: // Non-interlaced mode 0.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
 				// Even output raster.
@@ -670,6 +746,7 @@ void sysp4vsyncint(NEVENTITEM item) {
 
 void sysp4vsyncstart(NEVENTITEM item) {
 	tsp.sysp4vsync = 0x20;
+	keyboard_matrix_tick();
 
 	// Delay the interrupt by six clocks.
 	// Software may observe VRTC at port 040H before the interrupt;

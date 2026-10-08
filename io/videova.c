@@ -8,6 +8,7 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "memoryva.h"
+#include "cmt.h"
 
 #define SETLOWBYTE(x, y) (x) = ((x) & 0xff00 | (y))
 #define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
@@ -45,6 +46,10 @@ static void adjustpal(int palno) {
 // Text-control port 0.
 static void IOOUTCALL videova_o030(UINT port, REG8 dat) {
 	videova.txtmode8 = dat;
+	// 88 mode: the PC-8801 cassette motor and 8251 channel (vaeg extension).
+	if (memoryva_88_mode) {
+		cmt_port30(dat);
+	}
 }
 
 // Display-screen control register.
@@ -528,7 +533,9 @@ void videova_reset(void) {
 
 	videova.xpar_txtspr = 0x0001;
 
-	videova.crtmode = sysportvacfg.dipsw & 1;
+	/* SW1 (monitor type) as set in the configuration; port 40h bit 1 and the
+	 * sync frequency follow it. */
+	videova.crtmode = np2cfg.monitor_15khz ? 0 : (sysportvacfg.dipsw & 1);
 
 	// TODO: establish documented power-on palette values.
 }
@@ -656,6 +663,78 @@ void videova_bind(void) {
 		iocore_attachout(PORT_PALETTE + i, videova_o_palette_l);
 		iocore_attachout(PORT_PALETTE + i + 1, videova_o_palette_h);
 	}
+}
+
+/*
+ * Colour palette mode (10Ch). With PLTM2 set, PLTM1-0 select it; with
+ * PLTM2 clear the BNN manual derives it from port 32h PMODE and port 31h
+ * PM00, which is how the ROM sets up V1/V2 mode.
+ */
+int videova_palettemode(void) {
+	static const UINT8 mode[4] = {1, 2, 0, 2}; // index PMODE * 2 + PM00
+
+	if (videova.palmode & 0x0100) {
+		return (videova.palmode >> 6) & 3;
+	}
+	return mode[((sysportva.port032 & 0x20) ? 2 : 0) + ((memoryva_88_port31 & 0x10) ? 1 : 0)];
+}
+
+/*
+ * Multiplane 1 bit/pixel display (technical manual ch. 4 §2.1): the OR of
+ * the switched-on planes is merged into the text screen and decorated by
+ * the text attributes instead of forming a graphics screen of its own.
+ */
+BOOL videova_textmerge(void) {
+	return (videova.grmode & 0x8000) && !(videova.grmode & 0x0400) && !(videova.grres & 0x0003);
+}
+
+/*
+ * Graphics lines the display circuit shows in a TSP frame, as measured on a
+ * PC-88VA2 in M104 (docs/modernization/pc88va-video-modes.md section 12):
+ * - 15.98 kHz: graphics line 0 is shown a fixed 37 lines after vertical
+ *   sync (the ROM's top blanking), whatever the TSP's TBL + TBR: a shorter
+ *   top delays it by the difference, a longer top hides that many lines.
+ * - 24.8 kHz, 200-line graphics: lines 0-200 are read; with RSM = 01 line
+ *   200 then repeats on every remaining raster, with RSM = 00 the rest is
+ *   blank.
+ * syncparam is the 14-byte SYNC vector.
+ */
+void videova_graphics_window(int hsyncmode, WORD grmode, const UINT8 *syncparam,
+                             VIDEOVA_GRAPHICS_WINDOW *window) {
+	enum {
+		GRAPHICS_TOP_15_98KHZ = 37,
+		DOUBLED_LINES_24_8KHZ = 201
+	};
+	UINT top;
+
+	window->startdelay = 0;
+	window->startskip = 0;
+	window->linelimit = 0xffff;
+	window->blankafterlimit = FALSE;
+	if (hsyncmode == VIDEOVA_15_98KHZ) {
+		top = (syncparam[8] & 0x3f) + (syncparam[9] & 0x3f);
+		if (top < GRAPHICS_TOP_15_98KHZ) {
+			window->startdelay = (UINT16)(GRAPHICS_TOP_15_98KHZ - top);
+		} else {
+			window->startskip = (UINT16)(top - GRAPHICS_TOP_15_98KHZ);
+		}
+	} else if ((hsyncmode == VIDEOVA_24_8KHZ) && (grmode & 0x0002) && !(grmode & 0x0080)) {
+		window->linelimit = DOUBLED_LINES_24_8KHZ;
+		window->blankafterlimit = !(grmode & 0x0040);
+	}
+}
+
+/*
+ * PC-8801-style V1/V2 display (vaeg extension, decision C12): in 88 mode at
+ * 24.8 kHz, text is drawn from the 8x8 ANK font with each row doubled and
+ * 200-line graphics leave the odd rasters blank, as a PC-8801 on a 24 kHz
+ * monitor. The VA itself shows 8x16 text and doubled graphics.
+ */
+BOOL videova_8801_display(void) {
+	return (np2cfg.v1v2_8801_display && memoryva_88_mode &&
+	        (videova_hsyncmode() == VIDEOVA_24_8KHZ))
+	           ? TRUE
+	           : FALSE;
 }
 
 int videova_hsyncmode(void) {

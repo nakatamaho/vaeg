@@ -35,6 +35,404 @@ land.
 
 ## Maintenance Rules
 
+### M105 — TSP frames with a sync shorter than 4 lines ran slow
+
+- **Symptom/scope:** frames that set the vertical sync field `VS` below 4
+  lines (VIEW480, V480PAT `S` above 400 lines and the `Q` option) ran at a
+  lower field rate in vaeg than on a PC-88VA2: `480 S K` (499 lines) ran
+  as 502 lines, 49.45 Hz, where the PC-88VA2's monitor read 49.7 Hz. V3
+  mode, any program that writes such a SYNC.
+- **Demonstrated cause:** `tsp_updateclock` raised `VS` to 4 (the
+  uPD72022 data-book minimum) when it computed the frame length; the
+  hardware read-outs (`pc88va-video-modes.md` section 12.4: 49.7 Hz for
+  499 lines, 53.3 Hz for 467) match the written value.
+- **Correction:** only an empty `VS` field is raised (to 1).
+- **Verification:** romless test (a 1-line sync gives a frame 499/502 of a
+  4-line one; fails with the old minimum).
+- **Task/evidence/commit:** [M105 task](../agents/tasks/M105_scanline_fill_tape_leader.md),
+  [measurements](pc88va-video-modes.md#124-third-round-sweeps-monitor-read-out-and-g160-rates).
+  Fix: [62690c08](https://github.com/nakatamaho/vaeg/commit/62690c0883d8aba19e1da70b40b0678f60374ef6).
+
+### M104 — TSP text stayed visible after a SYNC without DSPON
+
+- **Symptom/scope:** after a program reprogrammed the TSP timing with SYNC
+  and did not send DSPON (V480PAT's `S`, `T`, `U`, `R`, `D` runs; VIEW480
+  uses the same sequence), vaeg kept drawing PC-Engine's text over the
+  pattern, while the PC-88VA2 showed graphics only (M104 photographs, for
+  example `va2-240-r-w.jpg`). V3 mode, any program that issues SYNC.
+- **Demonstrated cause:** `[uPD72022]` "The SYNC command terminates display
+  controller operation"; DSPON starts it again. vaeg's `exec_sync` left
+  `tsp.dspon` set.
+- **Correction:** SYNC clears `tsp.dspon`; sprites stay as they are (the
+  data sheet stops the sprite controller only with DSPOFF).
+- **Verification:** romless test (SYNC stops the text, DSPON restarts it,
+  sprites untouched; fails without the fix); headless boots of the VA and
+  VA2 ROM screens, PC-Engine at 24.8 and 15.98 kHz, V2 N88-BASIC and N mode
+  still show their text; G256 keeps the text and V480PAT runs hide it, as
+  on the PC-88VA2.
+- **Task/evidence/commit:** [M104 task](../agents/tasks/M104_v3_display_timing.md),
+  [measurements](pc88va-video-modes.md#12-measured-non-native-timings).
+  Fix: [bf55c229](https://github.com/nakatamaho/vaeg/commit/bf55c2292e40dda45b9ddb839bec84b118f0f74a).
+
+### M104 — frames taller than 400 rasters and non-native graphics windows
+
+- **Symptom/scope:** V3 programs that reprogram the TSP frame (VIEW480,
+  480-line and 15 kHz 240-line experiments) showed at most 400 rasters, so
+  graphics lines past 400 were lost; 24.8 kHz line-doubled 200-line
+  graphics kept advancing past line 200; at 15.98 kHz a top blanking under
+  37 showed all graphics lines. The PC-88VA2 shows the frame buffer to
+  line 479, repeats line 200 when doubling, and loses `37 - TBL` lines.
+- **Demonstrated cause:** the SDL canvas, texture and shadow were fixed at
+  640 x 400 (`SCRNMNG_CANVAS_HEIGHT`), and the graphics renderer had no
+  model of the display circuit's own line window; both against the
+  M104 hardware measurements.
+- **Correction:** the canvas grows to 400-480 rows with the frame
+  ([631e3e98](https://github.com/nakatamaho/vaeg/commit/631e3e980a3883cd7b7a950a612ad206b9a79077)); the
+  measured windows are applied per frame through
+  `videova_graphics_window` ([ee21db2a](https://github.com/nakatamaho/vaeg/commit/ee21db2a2c953c8319d5fb8c68290401eaf0905d);
+  follow-up for a top over 37 and RSM = 00:
+  [2cfa871a](https://github.com/nakatamaho/vaeg/commit/2cfa871ae32e0a6e35f56f2ba87279bdaf210e99)).
+- **Verification:** romless test (window values, delayed start and line
+  repetition; fails with either rule disabled); headless V480PAT sweeps
+  `A` and `B` reproduce the last graphics lines photographed on the
+  PC-88VA2.
+- **Task/evidence/commit:** [measurements](pc88va-video-modes.md#12-measured-non-native-timings),
+  [M104 task](../agents/tasks/M104_v3_display_timing.md).
+
+### M104 — N mode from the menu did not boot a disk in drive 1
+
+- **Symptom/scope:** with Emulate > Z80 mode > N, N-BASIC started with
+  `Ok` even with a disk in drive 1, while `NEW ON 1` from V1 S booted the
+  same disk (maintainer report). Both models, N mode only.
+- **Demonstrated cause:** `[ROM]` N-BASIC reads port 40h bit 3 at start-up
+  (00CBh `IN A,(40h) / AND 8 / XOR 8`) and skips its disk boot when the
+  bit is 1. vaeg's N mode reported the bit as 1 (SW7 OFF) for the whole
+  session so that the VA2 ROM enters V1/V2 without a disk; `NEW ON 1` in
+  V1 S sees 0.
+- **Correction:** the bit is reported only from reset until the first
+  compatible-mode entry, i.e. during the VA ROM's boot search.
+- **Verification:** romless test (the bit is clear after the compat
+  entry; fails without the fix); headless N mode on VA and VA2 with a
+  disk whose boot sector writes text: before the fix N-BASIC `Ok`, after
+  it the boot sector's text; without a disk N-BASIC still starts.
+- **Task/evidence/commit:** [N-BASIC mode](v1v2-n-basic-mode.md#6-booting-directly-in-n-mode-implemented-decision-c9).
+  Fix: [39e9df39](https://github.com/nakatamaho/vaeg/commit/39e9df3919902cd378851f710506896067a18bce).
+
+### M103i — BEEP and port sound silent at low master volume
+
+- **Symptom/scope:** with the master volume below about 21 (of 128) the
+  buzzer and the port sound were silent while FM sound still played
+  (maintainer report; found while checking the port 40h sound fix). All
+  modes, SDL frontend.
+- **Demonstrated cause:** the slider set the buzzer volume as
+  `round(volume × 3 / 128)`, a 0–3 value; every volume up to 21 gave 0.
+- **Correction:** the buzzer volume has 1/128 steps (`BEEP_level`), set
+  in proportion to the master volume; full scale equals the old maximum.
+- **Verification:** romless test (a low master volume keeps the buzzer
+  audible; fails with the old rounding); a real-time audio capture of
+  `BEEP` and `CMD SING` shows output at default volume.
+- **Task/evidence/commit:** [M103i task](../agents/tasks/M103i_v1_mode.md#port-40h-sound-maintainer-report).
+  Fix: [1f0d0c16](https://github.com/nakatamaho/vaeg/commit/1f0d0c16f1ad7bb766f270b7c3ac58f73b848de3).
+
+### M103i — V1/V2 BEEP and port sound (CMD SING) were silent
+
+- **Symptom/scope:** in V1/V2 mode, sound made through port 40h was
+  silent: the buzzer switched by bit 5 (N-88 BASIC `BEEP`) and the port
+  sound driven by bit 7 (the PC-8801mkII `CMD SING` extension). The real
+  VA plays both (maintainer report). Both models.
+- **Demonstrated cause:** `sysp_o040` stored the latch but did not model
+  bits 5 and 7; the buzzer followed only 1CDh bit 3 (XBEEP). The VA
+  technical manual 5.10.3 has the buzzer on when either bit is on, and
+  5.10.4 has 40h bit 7 drive the speaker directly, enabled by 190h bit 4
+  (FBEN). A headless run of the maintainer's `CMD SING` demonstration
+  toggles bit 7 about 106,000 times.
+- **Correction:** the buzzer takes either bit; FBEEP feeds its own level
+  stream through the one-shot beep generator, gated by FBEN.
+- **Verification:** romless test of both bits and the FBEN mask (fails
+  without the change); maintainer listening check pending.
+- **Task/evidence/commit:** [M103i task](../agents/tasks/M103i_v1_mode.md#port-40h-sound-maintainer-report).
+  Fix: [fab15174](https://github.com/nakatamaho/vaeg/commit/fab15174b719f38e0c54c8076c7323b40eacf4f5).
+
+### M103h — The V1/V2 cursor stayed at the top left on the original VA
+
+- **Symptom/scope:** on the original PC-88VA model the cursor was shown in
+  the top left corner in every V1/V2 mode (maintainer report). Original VA
+  only; any software positioning the cursor with TSP CURS.
+- **Demonstrated cause:** the TSP model ignored ACTSCR (16h) and CURS (1Eh).
+  The original VA's ROM moves the V1/V2 cursor with CURS (traced: row 4,
+  cells 2, 4, … while typing); the VA2 ROM writes the cursor sprite
+  descriptor itself, so it was unaffected.
+- **Correction:** ACTSCR records the split screen; CURS writes the dot
+  position of its row and column into the cursor sprite descriptor.
+- **Verification:** for the same cursor positions the original VA now gets
+  exactly the descriptor values the VA2 ROM writes (Y 40, X 0 and 32), and
+  the cursor follows typed text; V3 BASIC and PC-Engine cursors unchanged;
+  the romless test fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#third-maintainer-check).
+  Fix: [4613d9ec](https://github.com/nakatamaho/vaeg/commit/4613d9ec2775df0248d1ecd67689a3d51cff9337).
+
+### M103h — The original VA ignored the V1/V2 selection
+
+- **Symptom/scope:** on the original PC-88VA model, selecting V1 (Emulate >
+  Z80 mode) still booted N-88 BASIC Version 2.x (maintainer report:
+  V1 H/V1 S had no effect on VA, unlike VA2). Original VA model only.
+- **Demonstrated cause:** port 150h (system mode, active low) was never
+  initialised. The VA2 ROM sets it through port 1C6h from memory switch
+  B1FC5h bit 0 (F000:12E4); the original VA's ROM reads 150h without
+  writing 1C6h (F000:0A77), so it saw an unset value and took V2.
+- **Correction:** reset starts port 150h from B1FC5h bit 0; the VA2 ROM
+  rewrites the same value. How the original VA hardware chooses the mode
+  is not documented (decision C8).
+- **Verification:** with V1 selected the original VA now boots N-88 BASIC
+  Version 1.9 (before: 2.4) and V2 still boots 2.4; the romless test reads
+  port 150h after reset and fails without the change.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#second-maintainer-check).
+  Fix: [827a3a67](https://github.com/nakatamaho/vaeg/commit/827a3a6799a0868ad80a6a5fc3b844c750d0e9df).
+
+### M103h — Saved backup memory lost its memory switches at every boot
+
+- **Symptom/scope:** with a saved backup-memory file, the VA2 ROM restored
+  the default memory-switch record (B1FC0h–B1FC7h) at every boot, so
+  settings stored there did not survive a restart; the RAM-size byte
+  B1FC4h reverted from 64h to 63h. All modes, whenever backup memory is
+  saved.
+- **Demonstrated cause:** at reset the ROM sets bit 7 of B1FC6h, sums the
+  record and compares the sum with B1FCDh (F000:23B7); it recomputes bit 7
+  from the V1/V2 selection afterwards, leaving 79h after a V2 boot.
+  `bkupmemva_sync_mainram` summed the saved 79h, so the checksum differed
+  by 80h and the ROM's restore path (F000:23F9) ran (traced byte writes).
+- **Correction:** the checksum is computed with B1FC6h bit 7 set.
+- **Verification:** three boots in a row with one backup file keep the
+  record unchanged (before: restored on the second); the romless test fails
+  with the old rule.
+- **Task/evidence/commit:** [M103h task](../agents/tasks/M103h_v1v2_nbasic.md#mode-selection-scope-item-1).
+  Fix: [d7257d77](https://github.com/nakatamaho/vaeg/commit/d7257d77122fa42f857c1ab8eec321bf3bae73cb).
+
+### M103g — Interrupts were not delivered through short EI windows in V1/V2 mode
+
+- **Symptom/scope:** in the PC-8801mkIISR demonstration's winter scene the
+  music did not start with the scene and played only briefly at its end
+  (maintainer report). Any V1/V2 software that keeps interrupts disabled
+  most of the time and enables them only briefly; native V3 code is not
+  affected.
+- **Demonstrated cause:** the scene scrolls GVRAM with `DI / LDDR / EI`
+  twenty times per frame. The machine arbitrates interrupts only between
+  CPU time slices (`pic_irq`) and only while interrupts are enabled; the
+  native `STI` ends the slice one instruction later when a request waits,
+  compatible-mode `EI` did not. A counter showed the sound timer raising
+  about 75 requests per second while none was delivered for about 14 s,
+  with the 8214 holding the request and the CPU sampled in the `LDDR`.
+- **Correction:** when compatible-mode code sets IFF1 and a request is
+  pending, the slice ends one instruction later, as for `STI`.
+- **Verification:** in the same scene every request is now accepted (the
+  counters match); the romless 8214 test fails without the change. Audible
+  confirmation is part of G103g.
+- **Task/evidence/commit:** [M103g task](../agents/tasks/M103g_v1v2_semigraphics_and_sound.md#sound-timing-scope-item-3).
+  Fix: [01381a9f](https://github.com/nakatamaho/vaeg/commit/01381a9f2b9102fd6533ae8fd0203652f4be2711).
+
+### M103f — V3 leftovers in GVRAM plane 3 showed through V1/V2 graphics
+
+- **Symptom/scope:** after running a V3 game and resetting into V1/V2
+  mode, V2 BASIC graphics (after `PAINT`) and the PC-8801mkIISR
+  demonstration showed stray dots (maintainer report, G103d/G103e check).
+  Multiplane 4 bit/pixel display, V1/V2 mode and any V3 software that
+  clears 110h bit 7.
+- **Demonstrated cause:** the multiplane 4 bit/pixel renderer always
+  included plane 3, ignoring 110h bit 7 (G3MSK, plane 3 screen switch).
+  The VA2 ROM sets 110h to 7F47h for V1/V2 (G3MSK clear, as BNN 8.3.2
+  requires), and 88-mode software cannot reach plane 3, so earlier V3
+  contents stayed visible. The self-test shows plane 3 data reaching the
+  pixel with G3MSK clear.
+- **Correction:** plane 3 is masked out of 4 bit/pixel pixels while G3MSK
+  is clear.
+- **Verification:** the romless self-test sets plane 3 data and checks the
+  pixel with G3MSK clear and set; it fails without the mask. The reported
+  V3 game was not run here; confirmation with it is part of the gate.
+- **Task/evidence/commit:** [M103f task](../agents/tasks/M103f_v1v2_text_and_media.md#gate-feedback).
+  Fix: [0a5cb5c9](https://github.com/nakatamaho/vaeg/commit/0a5cb5c98889b390b60b8f6df5bbaadfc8b1b041).
+
+### M103e — D88 tracks were cut short by track 0 data read as pointers
+
+- **Symptom/scope:** a PC-8801MA2 2HD disk hung while loading
+  N88-日本語BASIC: a 26-sector read of cylinder 4, head 1 ended after 17
+  sectors with "No Data", and the loader retried forever. Any D88 image
+  with a 160-entry track table, where one of entries 160–163 decodes to an
+  offset inside the image, is affected for the track containing that
+  offset, in every mode.
+- **Demonstrated cause:** the loader reads 164 track pointers, but such
+  images start track 0 at 2A0h. Entry 160 is track 0's first sector ID
+  (C=0 H=0 R=1 N=0), read as 10000h; `nexttrackptr` took it as the end of
+  the track starting at EE40h, so `d88trk_read` loaded only 4544 bytes and
+  sector 18 onward was not found (FDC trace and image table dump).
+- **Correction:** the first track is the lowest entry 0–159 at or above
+  2A0h; entries at or beyond it are ignored in memory. The header bytes
+  are not modified.
+- **Verification:** the disk now loads N88-日本語BASIC and runs its
+  demonstration; the romless self-test builds a 160-entry
+  image and fails without the fix, and a 164-entry image keeps entry 160.
+- **Task/evidence/commit:** [M103e task](../agents/tasks/M103e_v1v2_demo_compatibility.md#ma2-demo).
+  Fix: [4e1c7a0d](https://github.com/nakatamaho/vaeg/commit/4e1c7a0d372b283e80f71dbb1fc8f02eca4fc882).
+
+### M103d — Graphics statements corrupted the text screen and restarted V2 BASIC
+
+- **Symptom/scope:** in V1/V2 N-88 BASIC, `LINE` drew its dots into the
+  text screen as stray characters, and a following graphics statement such
+  as `CIRCLE` restarted BASIC at its `How many files` prompt. V1/V2 mode
+  only; V3 software never uses ports 34h/35h.
+- **Demonstrated cause:** BASIC's plotting code selects extended GVRAM
+  access (port 32h bit 6), which vaeg did not model, so its writes reached
+  main RAM and the 88-mode TVRAM window. In addition the VA2 ROM's text trap
+  handler saves ports 34h/35h with `IN` and restores them with `OUT`; vaeg
+  returned FFh, so the restore set 35h GAM and the next `LINE` mapped
+  C000h–FFFFh, including BASIC's stack at E5xxh, to GVRAM (trace and ROM
+  disassembly in the task).
+- **Correction:** extended access with the per-plane ALU, latch and
+  comparison reads, GAM mapping, and 34h/35h reading back the last value
+  written.
+- **Verification:** the drawn figures appear in GVRAM in the expected
+  colours and `POINT` returns them; the romless self-test fails when the
+  read-back or the comparison read is removed; the V2 BASIC acceptance test
+  draws and paints a circle and round-trips a program through the disk.
+- **Task/evidence/commit:** [M103d task](../agents/tasks/M103d_v1v2_graphics_and_disk.md#extended-access-scope-item-1).
+  Fix: [e3ef809c](https://github.com/nakatamaho/vaeg/commit/e3ef809c8a3fbb788f2a051d1da7580a7490af73).
+
+### M103c — Alternate registers started at zero instead of all ones
+
+- **Symptom/scope:** after a hardware reset, Z80 `AF'` and `BC'` (and
+  `DE'`/`HL'`) read `0000h` in compatible mode; a real PC-88VA2's Debug 8800
+  `x` command in V1/V2 mode shows `A'=FF`, `F'=MZ-H-ENC`, `B'=FFFF` on a path
+  where no code writes them. Visible to any compatible-mode code that reads
+  the alternate set before writing it.
+- **Demonstrated cause:** M103a chose zero for the hardware-reset value as an
+  unmeasured policy; the §17.2 real-machine dump disagrees, and vaeg running
+  the same ROM path reproduces every other field of that dump.
+- **Correction:** hardware reset sets all four pairs to `FFFFh`. Power-on
+  versus warm-reset behaviour and the `DE'`/`HL'` values are not measured.
+- **Verification:** vaeg's V1/V2 `mon` → `x` output now equals the real
+  dump in every field; the adapter self-test fails with the old value; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#alternate-register-reset-value-maintainer-decision),
+  [CPU document §17.2](upd9002-upd70008-mode.md).
+  Fix: [13a3431a](https://github.com/nakatamaho/vaeg/commit/13a3431a0502663258a0251841b8430f1ee561c7).
+
+### M103c — US-layout symbols were lost in matrix-scanning software
+
+- **Symptom/scope:** with the US 101 host layout, symbols that the layout
+  produces by synthetic taps or SHIFT chords (and Enter) did not reach V1/V2
+  N-88 BASIC; JIS typing and V3 software were unaffected. Any guest that
+  reads the key matrix (ports 00h–0Eh) once per frame is affected.
+- **Demonstrated cause:** `keyboard_send` updated the matrix immediately for
+  both the press and the release of a tap sent in one host event, so the key
+  was never down when the VRTC handler scanned the matrix.
+- **Correction:** a release becomes visible only after its key has been down
+  across two VRTC starts; following events keep their order behind it and
+  are applied at the start of VRTC. The keyboard controller FIFO is unchanged.
+- **Verification:** a local host-event run with the US layout typed
+  `@=':+*()"_` into BASIC with the fix and nothing without it; a
+  `vaeg_romless_tests` case fails when events are applied directly; full
+  local CTest without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#us-layout-keys-in-v1v2-g103c-feedback).
+  Fix: [2d5e471b](https://github.com/nakatamaho/vaeg/commit/2d5e471be95ccd0eaca804d85a71fd2bb17f4e72).
+
+### M103c — Builds without tests failed after the M103b merge
+
+- **Symptom/scope:** every configuration with `VAEG_ENABLE_TESTS=OFF`
+  (`linux-release`, `mingw-release`, the static Windows container build)
+  failed to compile `sdl2/selftest.c` with `upd9002_iotrap` undeclared, on
+  `main` from the M103b merge until this fix. Test-enabled presets, which
+  all local and CTest runs used, were unaffected.
+- **Demonstrated cause:** the unconditional V1/V2 state-section test added in
+  M103b uses `upd9002_iotrap`, but its header was included only inside the
+  `VAEG_UPD780_INTEGRATION_TESTING` block.
+- **Correction:** include `io/upd9002_regs.h` unconditionally.
+- **Verification:** `linux-release` builds and its romless smoke passes; the
+  static Windows container build succeeds; full CTest on `linux-ci-gcc`
+  without failures (108 entries, two skipped).
+- **Task/evidence/commit:** [M103c task](../agents/tasks/M103c_v1v2_interrupts_and_text.md#builds-without-tests).
+  Introduced by [667dddd4](https://github.com/nakatamaho/vaeg/commit/667dddd4c8a75aae33144ed26a8ae74ec798ecc5);
+  fix: [5c319d28](https://github.com/nakatamaho/vaeg/commit/5c319d28c8da441b0bd82359803b9476eb62c8a0).
+
+### M103b — FDD interface fast transfer read garbage from port FDh
+
+- **Symptom/scope:** a PC-8801-style disk loader using the 8255 fast
+  protocol (main ports A and B both input) read header words `FF00h`
+  and then waited forever. Affects any guest code that reads main port
+  FDh or writes main port FCh; V3 transfers were unaffected.
+- **Demonstrated cause:** of the four cross-wired 8255 data paths only
+  main B→sub A and sub B→main A were connected; the main side also had no
+  `IN FDh`/`OUT FCh` handlers, so sub port A output never reached the main.
+- **Correction:** connect sub A→main B and main A→sub B through the
+  existing callbacks and attach the missing main handlers. Saved `_I8255`
+  layouts are unchanged.
+- **Verification:** a production-seam test exchanging distinct bytes on
+  all four paths fails without the fix and passes with it (`vaeg
+  --selftest`); full local CTest has no failures (106 entries, one external
+  SST skipped). Integration BASIC then receives a valid header and
+  completes the transfer; BASIC boot completion is not yet established.
+- **Task/evidence/commit:** [M103b FDD fast-transfer data path](../agents/tasks/M103b_v1v2_mode_plumbing.md#fdd-fast-transfer-data-path).
+  Fix: [331e6759](https://github.com/nakatamaho/vaeg/commit/331e6759a20de2a04b98554d98238a8f8c605001).
+
+### M103b — Memory-mode control readback ignored guest writes
+
+- **Symptom/scope:** port `153h` bit 6 always read as V3 even after the
+  firmware cleared it before BRKEM2, including word I/O at port `152h`.
+- **Demonstrated cause:** `memctrlva_o153` discarded bit 6 and
+  `memctrlva_i153` unconditionally ORed `40h` into the result.
+- **Correction:** latch the inverted mode request independently of CPU
+  execution mode, return it on reads, and clear the request on reset.
+  A separate optional `MEM88MODE` state section avoids changing the old
+  `MEMORYVA` layout. This fixes readback only: the 88-mode address decoder
+  and successful BASIC execution remain pending.
+- **Verification:** production byte/word I/O and reset regression passes;
+  full local CTest has no failures (106 entries, one external SST skipped).
+  Full state-file round trips remain unverified.
+- **Task/evidence/commit:** [M103b implementation progress](../agents/tasks/M103b_v1v2_mode_plumbing.md#implementation-progress),
+  [automatic handoff traces](v1v2-mode-plan.md#52-bounded-automatic-selection-traces).
+  Fix: [cd7d16e4](https://github.com/nakatamaho/vaeg/commit/cd7d16e4c92ee8ff4c0ef8017cb4db93100f3b95).
+
+### M103a — CALLN round trip set the compatible N flag
+
+- **Symptom/scope:** after a native handler entered by `CALLN` (or by an
+  interrupt taken in compatible mode) returned with `IRET`, compatible F
+  bit 1 (N) read as one and bits 3/5 as zero, whatever F held before. On a
+  real PC-88VA2, `CALLN 91h` returns F unchanged (00h stays 00h, C5h stays
+  C5h); vaeg returned 02h and C7h.
+- **Demonstrated cause:** the native `IRET` normalises every restored frame
+  with `(flag & 0FD7h) | F002h`, including frames that resume compatible
+  mode, whose low byte is the compatible F.
+- **Correction:** when the `IRET` resumes compatible mode, bits 1, 3 and 5
+  of the frame are kept; native returns are unchanged. Bits 3/5 are policy,
+  not measured.
+- **Verification:** the M103a ALTPRB real-machine run; the adapter self-test
+  (`XOR A`, `CALLN`, `IRET`, F=44h) fails with the old masking and passes;
+  full local CTest without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a ALTPRB results](../agents/tasks/M103a_alternate_register_storage.md#altprb-results-and-the-f-bit-1-correction),
+  [ALTPRB outputs](../agents/reports/m103a_altregs_qa/README.md).
+  Fix: [5ed797b2](https://github.com/nakatamaho/vaeg/commit/5ed797b28bb413af27e02ba458d4d8444e6ed982).
+
+### M103a — States saved in compatible mode could not be resumed
+
+- **Symptom/scope:** loading a state saved while compatible code (for
+  example CP/MVA at `A>`) waited in a native handler entered by `CALLN`
+  or by an interrupt hung the guest and then crashed; the PC-Engine BIOS
+  reported a disk error. Present since M76 (reproduced at the M102 merge).
+  States saved in native mode were unaffected.
+- **Demonstrated cause:** UPD9CPU export/import skips the two padding bytes
+  that hold the execution mode and the return-pending flag, and the return
+  SP was a core static that was never saved. After loading, the flag was
+  clear, the UPD9Z80 blob was skipped, and the handler's IRET returned into
+  the Z80 code as native code.
+- **Correction:** a new optional `UPD9MODE` section (mode, flag, return SP)
+  between UPD9CPU and UPD9Z80. Older files without it whose UPD9Z80 payload
+  shows active compatible code are refused with an explicit message, since
+  the missing data cannot be reconstructed; native-mode older files load.
+- **Verification:** headless CP/MVA save/load at `A>` lists the directory
+  after loading in the same and in a fresh process; an end-to-end
+  `vaeg_romless_tests` case and the adapter self-test; full local CTest
+  without failures (106 entries, one external SST skipped).
+- **Task/evidence/commit:** [M103a compatible-mode state save/load](../agents/tasks/M103a_alternate_register_storage.md#compatible-mode-state-saveload).
+  Fix: [777d385a](https://github.com/nakatamaho/vaeg/commit/777d385a698e4a15acb59ca1c9ef1bb869b855d6).
+
 ### M99z40 — Small CRT windows overemphasize RGB-mask interference
 
 - **Symptom/scope:** x1 and x2 CRT presentation could show conspicuous
@@ -186,6 +584,260 @@ found. If the human reproduction still fails, retain the finding as a
 separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
+
+### Zilog BIT n,(IX+d)/(IY+d) took X/Y from a stale WZ
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** under the Zilog flag profile, `BIT n,(IX+d)` and
+  `BIT n,(IY+d)` set F bits 5 and 3 from whatever WZ (MEMPTR) held before the
+  instruction instead of from the effective address, as a Zilog Z80 does.
+  Affected: the FDC `UPD780C`, which uses the Zilog profile. The uPD9002
+  profile is not affected because R1 keeps bits 5/3 at 0.
+- **Demonstrated root cause:** the vendored core's `OP_IX4`/`OP_IY4` did not
+  update WZ before dispatching the IX/IY-prefixed CB instruction; the BIT
+  handlers read WZ for X/Y.
+- **Correction:** the vendored core was rebased onto upstream master
+  `ab97d3f` (1.11.0), which sets WZ = IX/IY + d in `OP_IX4`/`OP_IY4`
+  ([ADR-0011](../agents/DECISIONS/ADR-0011-z80-migration.md#m102-rebase-on-upstream-1110)).
+- **Verification:** `vaeg_z80_compat_flag_profile` checks F and WZ for
+  `BIT 0/7,(IX/IY+d)` under both profiles (8 failures with the previous
+  core); the host `CBPRB` Zilog output now has X/Y from the effective
+  address in the BIT rows, and the uPD9002 host outputs are byte-identical
+  to the previous reference. ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [bc890bf8](https://github.com/nakatamaho/vaeg/commit/bc890bf810917824a336d3bdbbcf44d9e3408cb2),
+  test [17171b18](https://github.com/nakatamaho/vaeg/commit/17171b18a72d186c5bf7b05b6b90fa8de1c5340f).
+
+### Undefined ED vector page read as zeros after loading a state
+
+- **Status:** fixed on `topic/m103a-alt-registers`.
+- **Symptom/scope:** when a state saved in the uPD70008-compatible mode was
+  loaded into a fresh vaeg process (no mode entry since start), the
+  undefined ED 00–3F/74/75/77 returned 0000h instead of the guest's IVT
+  words until the next BRKEM, so guest code resumed from such a state saw
+  different values than before the save.
+- **Demonstrated root cause:** `StateLoad()` initialised the compat core
+  with `SetFlagProfile` and `Init` but, unlike `Enter()`, never installed
+  the `SetNativeVectorRead` callback added in M102; the core's default
+  reader returns 0x00.
+- **Correction:** `Enter()` and `StateLoad()` share `InitializeCore()`,
+  which installs the reader.
+- **Verification:** `upd9002_upd70008_alt_regs_selftest` (test
+  `vaeg_upd9002_brkem_upd70008`) loads a compat blob before any entry and
+  executes `ED 20` with the IVT word 2800h at bytes 30h/31h; it fails with
+  0000h without the fix.
+- **Task/evidence/commit:** [M103a task](../agents/tasks/M103a_alternate_register_storage.md);
+  fix [b441a558](https://github.com/nakatamaho/vaeg/commit/b441a558456fd39c555a2761e986c1012de4863d).
+
+### uPD9002 undefined ED opcodes followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undefined ED opcodes executed as two-byte NOPs or Zilog NEG/RETN
+  duplicates. On a real µPD9002 they are a large, visible instruction set:
+  loads from the native-side interrupt vector table, RRD/RLD variants,
+  word block transfers and three-byte no-operations. Guest software
+  running in V1/V2/V3 Z80 emulation observed wrong register, flag and
+  memory results for all of them.
+- **Demonstrated root cause:** the vendored core had no measured µPD9002
+  behavior for these encodings; eight real-machine probe runs
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md), runs 2–8)
+  established rules R14–R19, including the reduction of the ED 00–3F value
+  to a C-indexed read of the x86 IVT page (EDPRB3 isolation, INPRB
+  refutation of the I/O hypothesis, EDPRB4 full sweep).
+- **Correction:** R14–R19 in the `Upd9002` profile of the vendored core
+  ([patch](../agents/reports/m102_upd9002_undefined_ed_semantics.patch)),
+  with the native page read wired through
+  `Z80CompatCpu::SetNativeVectorRead` to `upd9002_memoryread` so V3-mode
+  guests read the live IVT. Unmeasurable mode exits (ED 54/55/AC/EE–FC),
+  the ED 5C hang and the ED 5D fault keep the Zilog fallback.
+- **Verification:** the uPD9002 host references reproduce all 911
+  real-machine probe records byte for byte (EDPRB2 513, EDPRB2S 27,
+  EDPRB3 28, EDPRB4 256, run-2 EDPRB 67) with the run-8 IVT fixture in the
+  CP/M runner; the wrapper contract test asserts the new semantics; the
+  upstream suite and ctest (112/112) pass; Zilog profile outputs are
+  unchanged.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [d90a6cd9](https://github.com/nakatamaho/vaeg/commit/d90a6cd997086269f297e56e09e20aafee7c408f),
+  wiring [2125b159](https://github.com/nakatamaho/vaeg/commit/2125b159c2b0a0235601083e0046513246cca453),
+  runner [97f04efe](https://github.com/nakatamaho/vaeg/commit/97f04efe53ed070834aed42f14142fb47712591f).
+
+### uPD9002 DDCB/FDCB register forms followed the Zilog Z80
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** in the uPD70008-compatible main-CPU mode, the
+  undocumented DD/FD CB d xx forms with a register operand (low three bits
+  not 6) behaved as on a Zilog Z80: BIT tested the memory byte, and RES/SET
+  modified memory and copied the result to the register. A real PC-88VA2
+  tests and modifies the register only.
+- **Demonstrated root cause:** the `Upd9002` flag profile had no rule for
+  these forms, so the core used its Zilog implementation. The M102 probe
+  `CBPRB` recorded all 512 opcodes with two input sets on the real machine.
+- **Correction:** R12 (BIT n,(i+d),r tests r) and R13 (RES/SET n,(i+d),r
+  modify r only; memory is not written) in the `Upd9002` profile
+  ([patch](../agents/reports/m102_suzukiplan_ddcb_register_forms.patch),
+  upstream [#64](https://github.com/suzukiplan/z80/pull/64)). The rotate
+  forms keep the Zilog behavior, which the probe confirmed.
+- **Verification:** `vaeg_z80_compat_flag_profile` re-executes all 1,024
+  real CBPRB records (560 fail without R12/R13); the host `CBPRB` output is
+  byte-identical to the real one, and the `rot`, `bit` and `res,set` ZEX CRCs
+  of `ZEXUND` equal the values read from the real screen
+  ([QA outputs](../agents/reports/m102_zexund_qa/README.md)).
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [732bdf7f](https://github.com/nakatamaho/vaeg/commit/732bdf7f1c5d951341952ee61aa6bc58262f550b),
+  test [378c69da](https://github.com/nakatamaho/vaeg/commit/378c69da89232b0faec29973251dc0775ffd70bf).
+
+### Undefined Z80 opcodes crashed the emulator
+
+- **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
+- **Symptom/scope:** executing an undefined ED opcode (for example ED 00 or
+  ED A4), a NEG/RETN/IM duplicate (for example ED 4C), or a DD/FD prefix
+  before an opcode without an index form (for example DD 00) crashed vaeg
+  with a segmentation fault. Both Z80-compatible CPUs were affected: the
+  uPD70008-compatible main-CPU mode and the FDC `UPD780C`.
+- **Demonstrated root cause:** the vendored suzukiplan core leaves 196 ED,
+  90 DD and 90 FD opcode-table entries empty. vaeg builds the core with
+  `Z80_NO_EXCEPTION`, which compiles out the unknown-opcode check, so the
+  empty entry was called as a null function pointer.
+- **Correction:** with `Z80_NO_EXCEPTION`, opcodes without a handler now run
+  as on a Zilog Z80: undefined ED opcodes are two-byte NOPs, the NEG/RETN/IM
+  duplicates act as the base instruction, and a DD/FD prefix before a
+  non-index opcode is ignored
+  ([patch](../agents/reports/m102_suzukiplan_undefined_opcodes.patch),
+  upstream [#63](https://github.com/suzukiplan/z80/pull/63)). Real µPD9002
+  behavior for these opcodes is measured separately in M102.
+- **Verification:** the wrapper test executes all 256 ED, DD and FD
+  opcodes under both flag profiles and checks NOP, NEG-duplicate and
+  ignored-prefix semantics; with the previous core the same test crashes
+  with SIGSEGV. The upstream test `test-undefined-opcodes` passes 38/38, and
+  ZEXDOC/ZEXALL still pass 67/67.
+- **Task/evidence/commit:** [M102 task](../agents/tasks/M102_upd9002_undocumented_opcodes.md);
+  fix [3876ac80](https://github.com/nakatamaho/vaeg/commit/3876ac8037ff1164b7cd3e20ab02522511a12622),
+  test [de48a275](https://github.com/nakatamaho/vaeg/commit/de48a27572fcb6dc3c718b70baa5e35562d5a302).
+
+### uPD9002 Z80-emulation-mode flags followed the Zilog Z80
+
+- **Status:** fixed on `topic/m101-upd9002-flag-profile`, including
+  DAA/CPL/SCF/CCF; every rule is directly observed on a real PC-88VA2.
+- **Symptom/scope:** in V1/V2 mode the main CPU produced Zilog Z80 flags. A
+  real PC-88VA2 differs: stock ZEXDOC reports 12 and ZEXALL 32 failing
+  groups, all of which the emulator passed. Only the uPD70008-compatible
+  main-CPU mode is changed. The FDC `UPD780C` keeps the Zilog profile;
+  whether the real µPD780C matches it is unverified (MAME 0.250 reports NEC
+  NMOS SCF/CCF X/Y as `F & A & 28h`, unlike Zilog's `(F|A) & 28h`).
+- **Demonstrated root cause:** the main-CPU adapter used the Zilog behaviour
+  of the shared core. The real machine follows rules R1-R11 of
+  [the ZEX results](uPD9002-zex-results.md): F bits 5/3 never held; AND and
+  BIT clear H; accumulator rotates and block loads keep H and N; ADD rr keeps
+  H; ADC/SBC HL take H from bit 3; CPL/SCF/CCF change only A or C; DAA uses
+  an H-dependent high threshold and sets P/V to the signed overflow.
+- **Correction:** the vendored core gained a per-instance flag profile
+  ([patch](../agents/reports/m101_suzukiplan_flag_profile.patch), with
+  R8-R11 in [a second patch](../agents/reports/m101_suzukiplan_daa_cpl_scf_ccf.patch));
+  `Z80CompatCpu` exposes it, applies R1 to every F value the adapter writes
+  (register import, state load, LD A,I/LD A,R), and the uPD70008 adapter
+  selects `kUpd9002`. The FDC keeps `kZilog`.
+- **Verification:** under `kUpd9002`, stock ZEXDOC and ZEXALL through the
+  wrapper match the real machine in all 67 groups each, found CRCs included.
+  The host reference reproduces all nine M101 real-machine output files byte
+  for byte ([QA outputs](../agents/reports/m101_zexall_qa/README.md)), and
+  `vaeg_z80_compat_flag_profile` checks every record of the real DAA/CPL/
+  SCF/CCF dumps. Under `kZilog` both suites still pass 67/67.
+- **Task/evidence/commit:** [M101 task](../agents/tasks/M101_upd9002_flag_profile.md);
+  core [5c2a6c10](https://github.com/nakatamaho/vaeg/commit/5c2a6c10bfb86a7bc55a01de5ab195c052bc1bb6),
+  adapter [b8b462e7](https://github.com/nakatamaho/vaeg/commit/b8b462e73743924199bece033dae3c519b8bc3b6),
+  ZEX expectations [0133ff2d](https://github.com/nakatamaho/vaeg/commit/0133ff2de28f1dddc5811d078e3d3b3becf58cdb),
+  R8-R11 [7a05e388](https://github.com/nakatamaho/vaeg/commit/7a05e3888739dccfbb912f9605dbd458f002135b),
+  real-machine tests [485a4044](https://github.com/nakatamaho/vaeg/commit/485a4044350447eba65755071853b29fb5603bda).
+
+### Z80 ADC/SBC HL,rr flags were wrong when the carry was set
+
+- **Status:** fixed on `topic/m101-upd9002-flag-profile`.
+- **Symptom/scope:** with C = 1, `ADC HL,rr` and `SBC HL,rr` produced a wrong
+  H flag whenever `rr & 0FFFh = 0FFFh`, a wrong P/V flag whenever
+  `rr & 7FFFh = 7FFFh`, and also lost C when `rr = FFFFh`. HL itself was
+  correct. Both Z80-compatible CPUs were affected: the FDC `UPD780C` and the
+  uPD70008-compatible main-CPU mode.
+- **Demonstrated root cause:** the vendored suzukiplan core passed `c + nn`
+  as one 16-bit operand to `setFlagByAdc16`/`setFlagBySbc16`. Folding the
+  carry into the operand inverts the carry chain at each bit where `nn` has a
+  run of ones, and truncates `FFFFh + 1` to `0000h`.
+- **Correction:** pass the carry separately and compute the flags from
+  `before + nn + c` (or `before - nn - c`), through the recorded downstream
+  patch [m101_suzukiplan_adc_sbc_carry.patch](../agents/reports/m101_suzukiplan_adc_sbc_carry.patch)
+  applied by the M36 provenance procedure.
+- **Verification:** `vaeg_z80_compat_flag_profile` compares 1,600 ADC/SBC
+  cases per profile with an independent arithmetic model. The pre-fix header
+  fails 200 of them (all with C = 1, F only); the fixed header passes all.
+  Stock ZEXDOC and ZEXALL still pass 67/67 on the raw core and through the
+  wrapper.
+- **Task/evidence/commit:** [M101 task](../agents/tasks/M101_upd9002_flag_profile.md);
+  fix [5c2a6c10](https://github.com/nakatamaho/vaeg/commit/5c2a6c10bfb86a7bc55a01de5ab195c052bc1bb6),
+  test [6410c90e](https://github.com/nakatamaho/vaeg/commit/6410c90e0b9b3172f4c493c4a5e27202e533cbc5).
+
+### 8087 DC/DE register arithmetic passed operation direction incorrectly
+
+- **Status:** fixed and integrated on `main`.
+- **Symptom/scope:** VA2 N88 BASIC `/87` converted `A=1.5` and `B=2.25` to
+  values scaled by the packed-BCD integer magnitude, so `PRINT A+B` produced
+  `3.75E+17` instead of `3.75`. The affected scope was 8087 `DC`/`DE`
+  register-form arithmetic, including the ROM's `DC F9` conversion loop.
+- **Demonstrated root cause:** `execute_register_instruction()` passed the
+  `binary_stack_operation()` `operation` and `reverse` parameters in the
+  opposite order for the `DC` and `DE` register forms. `DC F9` therefore
+  selected the add operation instead of the documented `FDIV ST(1),ST(0)`
+  operation.
+- **Correction:** pass the operation selector and operand-reversal flag in
+  the declared order, with the documented `DC` and `DE` direction tables.
+- **Verification:** focused `DC F9`/`DC F1` and `DE F9`/`DE E1` tests pass;
+  `vaeg_8087_tests`, production selftest, full CTest (`98/98`, one existing
+  external SST skip), and the VA2 `/87` FAC/BASIC workload pass. Evidence:
+  [v7 progress record](../8087/v7/records/progress.md) and
+  [VA2 BASIC issue record](../8087/v7/records/issue-basic87-va2-int-route.md).
+- **Task/evidence/commit:** v7 8087 local QA; integrated in
+  [6af71282](https://github.com/nakatamaho/vaeg/commit/6af7128276c0e03f496fc63ab10847f3ef94f366).
+
+### Windows native CRT skipped the Dear ImGui menu
+
+- **Status:** fixed in the MinGW native-presenter startup path.
+- **Symptom/scope:** Windows sessions with `NativeCRT=1` showed no main menu,
+  including when started with `--windowed`; the 8087 boot-profile menu was
+  therefore unreachable even though it was present in the executable.
+- **Demonstrated root cause:** `np2.c` only called `gui_initialize()` when
+  `scrnmng_native_active()` was false on Windows. The native D3D11 presenter
+  owns presentation, but `gui_initialize()` already has a native-presenter
+  backend; skipping it left `g_gui.initialized` false and `gui_draw()` returned
+  immediately.
+- **Correction:** initialize Dear ImGui for both SDL and native presenter
+  paths, retaining native-to-SDL fallback if native GUI preparation fails.
+  `--windowed` remains a display-mode override and no longer depends on
+  disabling NativeCRT to expose menus.
+- **Verification:** Linux 8087 core tests and production selftest passed;
+  MinGW cross build produced a PE32+ executable containing the 8087 profile
+  menu strings. Physical Windows runtime remains unverified because Wine is
+  unavailable in the local environment.
+- **Task/evidence/commit:** local MinGW menu regression; fix in
+  [17b0bc68](https://github.com/nakatamaho/vaeg/commit/17b0bc68539abccd8e11d4c39d7297e45333c564).
+
+### 8087 default clock did not match the VA2 8 MHz field measurement
+
+- **Status:** fixed and integrated on `main`.
+- **Symptom/scope:** the emulator selected 10,000,000 Hz when a new optional
+  8087 was configured without an explicit frequency, while the VA2 field
+  report measured 8 MHz at the 8087 socket clock pin.
+- **Demonstrated root cause:** `UPD8087_DEFAULT_CLOCK_HZ` and its default
+  configuration test were hard-coded to 10,000,000 Hz; the reset and service
+  paths correctly consumed that constant, so the wrong default also affected
+  emulated NDP service time.
+- **Correction:** set the default to 8,000,000 Hz, retain 5/8/10 MHz and
+  custom-frequency selection, and document the hardware evidence and the
+  unresolved physical BUSY/INT boundary in
+  [8087 implementation notes](8087.md).
+- **Verification:** `vaeg_8087_tests`, P04 gate, production selftest,
+  Linux rebuild, and MinGW rebuild passed. Existing 10 MHz BASIC evidence is
+  retained as explicit custom-frequency evidence.
+- **Task/evidence/commit:** VA2 clock-policy correction; fix in
+  [a4ec8dbc](https://github.com/nakatamaho/vaeg/commit/a4ec8dbcef807de6c557a6af7a1d3ac77e8d4c45).
 
 ### Native Metal CRT wrote the filter chain directly to the drawable
 
@@ -1977,6 +2629,58 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
+
+- **Symptom/scope:** the sound made through port 40h sounds odd, as if its
+  timing were off (maintainer report during G105 checks, 2026-10-07). A
+  plain `BEEP` (bit 5, the 2400 Hz buzzer) seems fine. `CMD SING` (bit 7,
+  the port sound) is less clear than the maintainer remembers, and ordinary
+  V1/V2 game sound is clearly wrong. `CMD SING` changes pitch with the CPU
+  speed slider, which is expected for software-timed toggling of bit 7. The
+  M104 build (main at `2508ccf4`) sounds the same, so it predates M105.
+  It happens with the speed and the CPU speed both at 100 % (maintainer,
+  2026-10-07), so it is not only the speed-slider effect below.
+  Known separately: with the speed slider away from 100 % the BEEP is
+  garbled because it is built from CPU-clock on/off events while the host
+  consumes samples in real time (`sdl2/README.md`).
+- **Status:** not investigated; no root cause is claimed. Moved to a later
+  milestone by the maintainer.
+
+### M104 — V3 programs run about 2.2 times faster than on the PC-88VA2
+
+- **Symptom/scope:** the M104 test program G160 redraws its picture 3.0,
+  3.4 and 4.25 times per second at 16, 8 and 4 bits in vaeg against 1.4,
+  1.6 and 1.9 on a PC-88VA2, at 15.98 and 24.8 kHz alike
+  (`pc88va-video-modes.md` section 12.4). V3 mode; other code not measured.
+- **Status:** not investigated; no root cause is claimed. The CPU clock
+  (7.9872 MHz) matches the board; the ratio being the same at every depth,
+  with very different GVRAM write counts, points away from GVRAM waits
+  alone. Next step: a hardware benchmark per instruction class (register,
+  MUL/DIV, main RAM, TVRAM, GVRAM) compared with vaeg, in a later milestone.
+
+### M103g — V1/V2 voice pitch observation without a demonstrated cause
+
+- **Symptom/scope:** in V1/V2 mode, a PC-8801 game's spoken title voice
+  plays slightly low in pitch (maintainer report, G103g check, Windows
+  build `1ae6cccf`). A reported missing floppy access sound was the
+  drive-sound setting being off, not a defect.
+- **Status:** not investigated; no root cause is claimed. Tracked in
+  [`v1v2-mode-decisions.md`](v1v2-mode-decisions.md) §9.
+
+### M100g — Configuration save failures were silently ignored
+
+- **Status:** implementation candidate; runtime failure-injection verification pending.
+- **Scope:** SDL2 configuration persistence, including the main-RAM menu.
+- **Source finding:** ini_write ignored write results and file_close always
+  returned success, preventing the frontend from reporting failed persistence.
+- **Correction:** check writes and close, replace configuration atomically,
+  and preserve the previous menu settings on failure. Do not report a saved
+  setting when --no-cfg disables persistence.
+- **Verification:** Linux compilation completed; runtime tests NOT RUN.
+- **Task/evidence:** [M100g report](../agents/reports/m100g_main_ram_sync.md).
+- **Commit:** [fccc71f6](https://github.com/nakatamaho/vaeg/commit/fccc71f63310755b89f367cd4119cc8b1d8aba22).
+
+
 ### Windows native-to-SDL switch stalls the frontend
 
 - **Status:** M99z8 candidate; affected-machine verification pending.
@@ -2049,15 +2753,28 @@ separate parity correction or move it to Open Defects.
   [build and runtime notes](BUILD.md), and
   [M30 BMS investigation result](../agents/tasks/M30_va_bms_window.md).
 
-### 2D floppy compatibility is not established
+### 2D floppy track mapping is corrected; guest acceptance is pending
 
-- **Status:** open; failed workaround reverted from the exposed feature.
-- **Symptom:** generated 2D images produced sector-not-found errors in the VA
-  FDD path although older VAEG reportedly read 2D media.
-- **Current decision:** blank-image creation exposes only tested 2HD and 2DD
-  formats. A double-step adjustment did not pass the human gate and is not
-  treated as a completed fix.
-- **Evidence:** [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
+- **Status:** corrected and host-qualified in M16; FreeDOS guest acceptance is
+  pending.
+- **Symptom:** native 2D D88 tracks were rejected or mapped to the wrong
+  recorded cylinder by the VA FDD path.
+- **Demonstrated root cause:** D88 access always applied the 96-TPI double-step
+  translation, even when the configured 1D/2D subsystem mode selects 48 TPI.
+  The subsystem mode path also left track density at its reset default.
+- **Correction:** select track density from the configured subsystem mode and
+  map 48-TPI 2D cylinders directly. Keep double stepping for 96-TPI access and
+  reject an odd physical half-track. FDC byte pacing now uses the command's
+  sector size and sectors-per-track values.
+- **Verification:** the ROM-free production-path selftest reads and writes
+  synthetic 2D 320/360, 2DD 640/720, 2HC 1.2 MB, and native 2HD regression
+  profiles through D88/FDC paths, checks boundary sectors, protection,
+  persistence, and concurrent drives. Linux CI build and selftest passed;
+  CTest reported 98 passed, one external-input skip, zero failures.
+- **Evidence:** [M16 D88/FDC selftests](https://github.com/nakatamaho/vaeg/blob/ce9e7b25a28fbac83f517ef6c0f20f593eed6dc1/sdl2/selftest.c)
+  and [fixing commit](https://github.com/nakatamaho/vaeg/commit/ce9e7b25a28fbac83f517ef6c0f20f593eed6dc1).
+  The earlier investigation remains at the
+  [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
 
 
 ### PCPLUS bus-free completion was left pending after MESSAGE IN

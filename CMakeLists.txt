@@ -30,23 +30,39 @@ option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_ENABLE_RECORDING "Enable the optional recording facade" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
-option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
-option(VAEG_STATIC_SDL2 "Link SDL2 statically" OFF)
+set(VAEG_MINGW_STATIC_DEFAULT OFF)
+if(MINGW)
+    set(VAEG_MINGW_STATIC_DEFAULT ON)
+endif()
+option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_MINGW_STATIC_DEFAULT})
+option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_MINGW_STATIC_DEFAULT})
 option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
-option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" OFF)
+option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_MINGW_STATIC_DEFAULT})
 set(VAEG_LIBRASHADER_STATIC_LIBRARY "" CACHE FILEPATH "Target-compatible librashader static archive")
 set(VAEG_LIBRASHADER_NATIVE_LIBS "" CACHE STRING "Native link libraries reported by rustc")
 set(VAEG_LIBRASHADER_STATIC_NOTICES "" CACHE FILEPATH "Generated static dependency notices")
 option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
-    "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
+    "Fetch pinned static archive dependencies instead of using system LibArchive" ${VAEG_MINGW_STATIC_DEFAULT})
 option(VAEG_Z80_COMPAT_INTEGRATION_TRACE
     "Compile deterministic subsystem compatibility/FDD integration tracing" OFF)
 option(VAEG_UPD9002_PERF_DIAGNOSTIC
     "Compile disabled-by-default uPD9002 runtime performance diagnostics" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
+
+if(MINGW)
+    if(NOT VAEG_FETCH_SDL2 OR NOT VAEG_STATIC_SDL2)
+        message(FATAL_ERROR "MinGW builds require fetched static SDL2")
+    endif()
+    if(VAEG_ENABLE_ARCHIVE_DROP AND NOT VAEG_FETCH_LIBARCHIVE)
+        message(FATAL_ERROR "MinGW archive drop requires the fetched static LibArchive stack")
+    endif()
+    if(VAEG_ENABLE_LIBRASHADER AND NOT VAEG_STATIC_LIBRASHADER)
+        message(FATAL_ERROR "MinGW builds require statically linked librashader")
+    endif()
+endif()
 
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     enable_language(OBJC)
@@ -207,6 +223,7 @@ set(VAEG_COMMON_SOURCES
     generic/np2info.c)
 
 set(VAEG_CORE_SOURCES
+    cpu/upd8087/upd8087.c
     cpu/upd9002/upd9002_core.c
 	cpu/upd9002/upd9002_diagnostic.c
 	diagnostics/upd9002_debug.c
@@ -230,6 +247,7 @@ set(VAEG_CORE_SOURCES
     io/np2sysp.c
     io/pic.c
     io/pit.c
+    io/cmt.c
     io/serial.c
     io/upd4990.c
     cbus/cbuscore.c
@@ -363,6 +381,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/dropmedia.cpp
     sdl2/hostfat_snapshot.cpp
     sdl2/hostfat_manager.cpp
+    sdl2/n80rom.c
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/recording/recording.c
@@ -490,6 +509,8 @@ set(VAEG_R2FPROBE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/r2fprobe.com")
 set(VAEG_SGPSPRITE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpdemo.com")
 set(VAEG_SGPWIRE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpwire.com")
 set(VAEG_SGP256_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgp256.com")
+set(VAEG_V480PAT_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/v480pat.com")
+set(VAEG_TSPMODE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/tspmode.com")
 if(VAEG_NASM_EXECUTABLE)
     add_custom_command(
         OUTPUT "${VAEG_HOSTFAT_SYS}"
@@ -546,17 +567,43 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe256.asm"
         VERBATIM)
     add_custom_target(sgp256_com ALL DEPENDS "${VAEG_SGP256_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_V480PAT_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_V480PAT_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/v480pat.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/v480pat.asm"
+        VERBATIM)
+    add_custom_target(v480pat_com ALL DEPENDS "${VAEG_V480PAT_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_TSPMODE_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_TSPMODE_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/tspmode.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/vtiming/tspmode.asm"
+        VERBATIM)
+    add_custom_target(tspmode_com ALL DEPENDS "${VAEG_TSPMODE_COM}")
     message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "R2FPROBE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGPDEMO.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGPWIRE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGP256.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "V480PAT.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "TSPMODE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
 else()
     message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
     message(STATUS "R2FPROBE.COM: NASM not found; guest-probe target disabled")
     message(STATUS "SGPDEMO.COM: NASM not found; guest-demo target disabled")
     message(STATUS "SGPWIRE.COM: NASM not found; guest-demo target disabled")
     message(STATUS "SGP256.COM: NASM not found; guest-demo target disabled")
+    message(STATUS "V480PAT.COM: NASM not found; guest-test target disabled")
+    message(STATUS "TSPMODE.COM: NASM not found; guest-test target disabled")
 endif()
 
 if(WIN32)
@@ -571,6 +618,25 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
 endif()
 
+# Berkeley SoftFloat Release 3e is vendored byte-for-byte under external/.
+# Build the exact 8086-SSE specialization selected by the supplied upstream
+# makefile; the emulator wrapper remains outside the vendored subtree.
+include(cmake/softfloat_sources.cmake)
+add_library(vaeg_softfloat STATIC
+    ${VAEG_SOFTFLOAT_GENERIC_SOURCES}
+    ${VAEG_SOFTFLOAT_SPECIALIZED_SOURCES})
+target_include_directories(vaeg_softfloat PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/source/8086-SSE"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/source/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/softfloat/SoftFloat-3e/build/Linux-x86_64-GCC")
+target_compile_definitions(vaeg_softfloat PUBLIC
+    SOFTFLOAT_FAST_INT64
+    SOFTFLOAT_ROUND_ODD
+    INLINE_LEVEL=5
+    SOFTFLOAT_FAST_DIV32TO16
+    SOFTFLOAT_FAST_DIV64TO32)
+target_compile_options(vaeg_softfloat PRIVATE -O2)
+
 if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
 endif()
@@ -580,7 +646,7 @@ endif()
 
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
-target_link_libraries(vaeg_core PUBLIC vaeg_common)
+target_link_libraries(vaeg_core PUBLIC vaeg_common vaeg_softfloat)
 target_compile_definitions(vaeg_core PUBLIC
     SUPPORT_V30ORIGINAL)
 if(VAEG_ENABLE_TESTS)
@@ -600,6 +666,14 @@ endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
+endif()
+
+add_executable(vaeg_8087_tests tools/8087/test_core.c)
+target_include_directories(vaeg_8087_tests PRIVATE ${VAEG_INCLUDE_DIRS})
+target_link_libraries(vaeg_8087_tests PRIVATE vaeg_core vaeg_softfloat)
+target_compile_options(vaeg_8087_tests PRIVATE -Wall -fsigned-char)
+if(VAEG_WERROR)
+    target_compile_options(vaeg_8087_tests PRIVATE -Werror)
 endif()
 
 add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
@@ -1184,9 +1258,36 @@ if(VAEG_ENABLE_TESTS)
             LABELS "romless;recording;ffmpeg;matroska")
     endif()
 
+    add_test(NAME vaeg_8087_core COMMAND vaeg_8087_tests)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_third_party_licenses.py")
+    add_test(NAME vaeg_repo_check_eol
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_eol.py")
+    add_test(NAME vaeg_zex_archive_audit
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
+    add_test(NAME vaeg_cpmva_zexbuild
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_zexbuild.py")
+    add_test(NAME vaeg_cpmva_probe_results
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_probe_results.py")
+    add_test(NAME vaeg_cpmva_extract_d88
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_extract_d88.py")
+    add_test(NAME vaeg_cpmva_m101_evidence
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_m101_evidence.py")
+    if(NOT CMAKE_CROSSCOMPILING AND NOT MSVC)
+        add_test(NAME vaeg_headless_keys
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_headless_keys.py")
+        set_tests_properties(vaeg_headless_keys PROPERTIES
+            ENVIRONMENT "CC=${CMAKE_C_COMPILER};VAEG_TEST_SYSROOT=${CMAKE_OSX_SYSROOT}"
+            LABELS "romless;frontend")
+    endif()
     if(VAEG_STATIC_LIBRASHADER AND VAEG_ENABLE_LIBRASHADER)
         add_executable(vaeg_static_preset
             tests/frontend/librashader/test_static_preset.cpp
@@ -2031,6 +2132,26 @@ if(VAEG_ENABLE_TESTS)
         Z80_NO_FUNCTIONAL
         Z80_UNSUPPORT_16BIT_PORT)
 
+    add_executable(vaeg_z80_compat_flag_profile tests/z80_compat/flag_profile.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_flag_profile)
+    target_compile_definitions(vaeg_z80_compat_flag_profile PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION
+        Z80_NO_FUNCTIONAL
+        "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\""
+        "VAEG_M102_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw\"")
+
+    add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
+    # Same core configuration as production (Z80_NO_EXCEPTION), so that
+    # undefined opcodes behave as in vaeg.
+    target_compile_definitions(vaeg_cpm_runner PRIVATE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION
+        Z80_NO_FUNCTIONAL)
+
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
     target_link_libraries(vaeg_z80_compat_legacy_contract PRIVATE
@@ -2090,6 +2211,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_compat_header_debug_default)
     add_test(NAME vaeg_z80_compat_header_release
         COMMAND vaeg_z80_compat_header_release)
+    add_test(NAME vaeg_z80_compat_flag_profile
+        COMMAND vaeg_z80_compat_flag_profile)
     add_test(NAME vaeg_z80_compat_interrupt_default
         COMMAND vaeg_z80_compat_interrupt_default)
     add_test(NAME vaeg_z80_compat_interrupt_no_functional
@@ -2182,6 +2305,16 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_compat_wrapper_zexall
             COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        foreach(suite zexdoc zexall)
+            add_test(NAME vaeg_z80_compat_wrapper_upd9002_${suite}
+                COMMAND vaeg_z80_compat_wrapper_zex_runner
+                    --profile upd9002
+                    --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd9002_${suite}_expected.txt"
+                    "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
+            set_tests_properties(vaeg_z80_compat_wrapper_upd9002_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;wrapper;upd9002"
+                TIMEOUT 900)
+        endforeach()
         set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
@@ -2202,6 +2335,36 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "romless;frontend;viewport"
         TIMEOUT 30)
+    # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
+    # answers PRINT 1+1, draws a painted circle and round-trips a program
+    # through SAVE and LOAD. Needs maintainer-local VA2 ROMs and V2 BASIC
+    # media.
+    set(VAEG_V1V2_ROM_DIR "" CACHE PATH "Maintainer-local VA2 ROM directory for M103b")
+    set(VAEG_V1V2_BASIC_MEDIA "" CACHE FILEPATH "Maintainer-local V2 BASIC D88 for M103b")
+    add_test(NAME vaeg_m103b_basic_boot_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" selftest)
+    set_tests_properties(vaeg_m103b_basic_boot_selftest PROPERTIES
+        LABELS "romless;v1v2;m103b")
+    if(VAEG_V1V2_ROM_DIR AND VAEG_V1V2_BASIC_MEDIA)
+        add_test(NAME vaeg_m103b_basic_boot
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" run
+                --worker "$<TARGET_FILE:vaeg_sdl2>"
+                --roms "${VAEG_V1V2_ROM_DIR}"
+                --media "${VAEG_V1V2_BASIC_MEDIA}")
+        set_tests_properties(vaeg_m103b_basic_boot PROPERTIES
+            LABELS "romful;v1v2;m103b;external"
+            TIMEOUT 900)
+    else()
+        add_test(NAME vaeg_m103b_basic_boot
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m103b_basic_boot.py" skip
+                --reason "VAEG_V1V2_ROM_DIR and VAEG_V1V2_BASIC_MEDIA are not configured")
+        set_tests_properties(vaeg_m103b_basic_boot PROPERTIES
+            LABELS "v1v2;m103b;external"
+            SKIP_RETURN_CODE 77)
+    endif()
     add_test(NAME vaeg_m75_transfer_info_compiled COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_m75_transfer_info_compiled PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"

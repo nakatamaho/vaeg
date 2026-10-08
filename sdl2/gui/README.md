@@ -165,12 +165,15 @@ check or stall software waiting for the FM timer.
 
 ## Boot Model Menu
 
-Emulate -> Boot model selects `VA` or `VA2/VA3`. `VA` writes
-`pc_model=88VA1` and selects the unsuffixed VA ROM names; `VA2/VA3` writes
-`pc_model=88VA2` and selects MAME-compatible `*_va2.rom` names. Both sets are
-read beside the executable. Selection immediately uses the existing
-guest-reset flow, including preservation of configured FDD and SASI media.
-Missing ROMs are reported with the selected model and expected root.
+Emulate -> Boot model selects `VA`, `VA2/VA3`, or `VA2/VA3 + 8087`. `VA` writes
+`pc_model=88VA1` and disables the optional 8087; `VA2/VA3` writes
+`pc_model=88VA2` with the 8087 disabled; `VA2/VA3 + 8087` writes the same
+model with the single machine-owned 8087 enabled. The VA selection uses the
+unsuffixed ROM names, while both VA2 choices use MAME-compatible `*_va2.rom`
+names. Both sets are read beside the executable. Selection immediately uses
+the existing guest-reset flow, including preservation of configured FDD and
+SASI media. Missing ROMs are reported with the selected model and expected
+root.
 
 ## Configure And Pacing
 
@@ -190,6 +193,15 @@ mounted snapshot available until the replacement is complete. Commit is an
 atomic pointer swap followed by a guest reset. A build error preserves the old
 mount. Disabling HOSTFAT explicitly unmounts it and resets the guest. Host
 folder changes are never reflected live inside a mounted FAT view.
+
+The Configure modal also contains the optional Intel 8087 (NDP) setting. The
+checkbox enables the single machine-owned 8087, and the integer clock field
+accepts 1,000,000 through 20,000,000 Hz. Presets are 5, 8, and 10 MHz; custom
+values remain persisted as integer Hz in `vaeg.cfg` under `NDP8087Hz`.
+Pending values are shown separately from the active oscillator and are marked
+as reset-required until the guest reset performed by OK. The modal reports the
+active clock, keeps the one-device policy visible, and does not expose an FPO2
+attachment control.
 
 State loads remain strict by default. A missing or different HOSTFAT identity
 opens a modal rejection instead of leaving its error hidden in the closed State

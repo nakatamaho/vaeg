@@ -116,15 +116,62 @@ class Z80
         consumeClock(clock);
     }
 
+  public: // Flag profile
+    // Zilog: documented and undocumented Zilog Z80 flag behaviour. This is the
+    // default and the existing behaviour.
+    // Upd9002: NEC uPD9002 Z80 emulation mode (PC-88VA V1/V2 mode). Rules
+    // R1-R13 were measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag
+    // probes and exhaustive DAA/CPL/SCF/CCF and DDCB/FDCB probes).
+    enum class FlagProfile {
+        Zilog,
+        Upd9002
+    };
+    void setFlagProfile(FlagProfile profile)
+    {
+        flagProfile = profile;
+        maskUndocumentedFlags();
+    }
+    FlagProfile getFlagProfile() const { return flagProfile; }
+
+    // Upd9002 only: reader for the first page of the CPU's native-side
+    // physical memory (the x86-style interrupt vector table of the uPD9002's
+    // emulation host). The undefined ED 00-3F/74/75/77 opcodes load a
+    // register pair with a little-endian word from this page, indexed by C
+    // with modulo-256 wrap (measured on a real PC-88VA2; see the vaeg report
+    // docs/agents/reports/m102_zexund_qa, runs 7 and 8). When unset the page
+    // reads as 0x00.
+#ifdef Z80_NO_FUNCTIONAL
+    unsigned char (*upd9002VectorRead)(void*, unsigned char) = nullptr;
+#else
+    std::function<unsigned char(void*, unsigned char)> upd9002VectorRead;
+#endif
+
   private: // Internal functions & variables
+    FlagProfile flagProfile = FlagProfile::Zilog;
+    inline bool isUpd9002() const { return flagProfile == FlagProfile::Upd9002; }
+    // R1 (storage variant): F bits 5/3 are never held. Whether POP AF can
+    // store them on real hardware is untested (probe P7).
+    inline void maskUndocumentedFlags()
+    {
+        if (isUpd9002()) {
+            reg.pair.F &= 0xD7;
+            reg.back.F &= 0xD7;
+        }
+    }
     // bit table
     const unsigned char bits[8] = {0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000, 0b10000000};
     // flag setter
     inline void setFlagS() { reg.pair.F |= flagS(); }
     inline void setFlagZ() { reg.pair.F |= flagZ(); }
-    inline void setFlagY() { reg.pair.F |= flagY(); }
+    inline void setFlagY()
+    {
+        if (!isUpd9002()) reg.pair.F |= flagY(); // R1
+    }
     inline void setFlagH() { reg.pair.F |= flagH(); }
-    inline void setFlagX() { reg.pair.F |= flagX(); }
+    inline void setFlagX()
+    {
+        if (!isUpd9002()) reg.pair.F |= flagX(); // R1
+    }
     inline void setFlagPV() { reg.pair.F |= flagPV(); }
     inline void setFlagN() { reg.pair.F |= flagN(); }
     inline void setFlagC() { reg.pair.F |= flagC(); }
@@ -418,8 +465,16 @@ class Z80
     inline unsigned short getHL() { return make16BitsFromLE(reg.pair.L, reg.pair.H); }
     inline unsigned short getHL2() { return make16BitsFromLE(reg.back.L, reg.back.H); }
 
-    inline void setAF(unsigned short value) { splitTo8BitsPair(value, &reg.pair.A, &reg.pair.F); }
-    inline void setAF2(unsigned short value) { splitTo8BitsPair(value, &reg.back.A, &reg.back.F); }
+    inline void setAF(unsigned short value)
+    {
+        splitTo8BitsPair(value, &reg.pair.A, &reg.pair.F);
+        maskUndocumentedFlags(); // R1
+    }
+    inline void setAF2(unsigned short value)
+    {
+        splitTo8BitsPair(value, &reg.back.A, &reg.back.F);
+        maskUndocumentedFlags(); // R1
+    }
     inline void setBC(unsigned short value) { splitTo8BitsPair(value, &reg.pair.B, &reg.pair.C); }
     inline void setBC2(unsigned short value) { splitTo8BitsPair(value, &reg.back.B, &reg.back.C); }
     inline void setDE(unsigned short value) { splitTo8BitsPair(value, &reg.pair.D, &reg.pair.E); }
@@ -649,16 +704,178 @@ class Z80
         ctx->opSetCB[operandNumber](ctx);
     }
 
+#ifdef Z80_NO_EXCEPTION
+    inline unsigned char upd9002VectorByte(unsigned char index)
+    {
+        return upd9002VectorRead ? upd9002VectorRead(CB.arg, index) : 0x00;
+    }
+
+    // Undefined ED 00-3F, 74, 75, 77 on the uPD9002: the pair selected by
+    // bits 5-4 (74/75/77: SP) is loaded with the little-endian word at bytes
+    // C and (C+1) mod 256 of the native-side physical page 0; F becomes the
+    // sign of the high byte, zero of the whole word and the parity of the
+    // low byte, all other flags cleared (PC-88VA2 measurements,
+    // EDPRB2-EDPRB4).
+    inline void upd9002VectorLoad(unsigned char rpIndex)
+    {
+        unsigned char lo = upd9002VectorByte(reg.pair.C);
+        unsigned char hi = upd9002VectorByte((reg.pair.C + 1) & 0xFF);
+        unsigned short value = make16BitsFromLE(lo, hi);
+        switch (rpIndex) {
+            case 0: setBC(value); break;
+            case 1: setDE(value); break;
+            case 2: setHL(value); break;
+            default: reg.SP = value;
+        }
+        reg.pair.F = (hi & flagS()) | (value ? 0 : flagZ()) | (isEvenNumberBits(lo) ? flagPV() : 0);
+        consumeClock(8);
+    }
+
+    // Undefined ED 64/65 (RRD-like) and 6C/6D (RLD-like) on the uPD9002:
+    // A and (HL) change exactly as in RRD/RLD, and (HL+1) also changes:
+    // 64/65 replace its low nibble with the old low nibble of (HL); 6C/6D
+    // replace it with old-A-low:old-(HL)-high. F becomes the parity of the
+    // new A, all other flags cleared.
+    inline void upd9002RRD2(bool left)
+    {
+        unsigned short hl = getHL();
+        unsigned char n = readByte(hl);
+        unsigned char n2 = readByte((unsigned short)(hl + 1));
+        unsigned char aL = reg.pair.A & 0b00001111;
+        if (left) {
+            reg.pair.A = (reg.pair.A & 0b11110000) | (n >> 4);
+            writeByte(hl, (unsigned char)((n << 4) | aL));
+            writeByte((unsigned short)(hl + 1), (unsigned char)((aL << 4) | (n >> 4)));
+        } else {
+            reg.pair.A = (reg.pair.A & 0b11110000) | (n & 0b00001111);
+            writeByte(hl, (unsigned char)((aL << 4) | (n >> 4)));
+            writeByte((unsigned short)(hl + 1), (unsigned char)((n2 & 0b11110000) | (n & 0b00001111)));
+        }
+        reg.pair.F = isEvenNumberBits(reg.pair.A) ? flagPV() : 0;
+        consumeClock(2);
+    }
+
+    // Undefined ED 7C/7D/7F, 80-9F and A4-A7 on the uPD9002: one word is
+    // copied from (HL) to (DE); BC-1, DE+2, HL+2; F is unchanged. AD-AF and
+    // B4-B7 repeat this until BC is zero. The behaviour of the repeated form
+    // with BC=0000h on entry is unmeasured and mirrors LDIR (65536 words).
+    inline void upd9002WordLDI()
+    {
+        unsigned short hl = getHL();
+        unsigned short de = getDE();
+        writeByte(de, readByte(hl));
+        writeByte((unsigned short)(de + 1), readByte((unsigned short)(hl + 1)));
+        setHL((unsigned short)(hl + 2));
+        setDE((unsigned short)(de + 2));
+        setBC((unsigned short)(getBC() - 1));
+    }
+
+    inline void upd9002WordLDIR()
+    {
+        do {
+            upd9002WordLDI();
+        } while (getBC() != 0);
+    }
+
+    // Dispatch the measured uPD9002 behaviour of an undefined ED opcode;
+    // returns false for the opcodes whose behaviour is not emulated (the
+    // emulation-mode exits 54/55/AC/EE-FC, the 5C hang and the 5D fault
+    // observed on the real machine) so that they keep the Zilog fallback.
+    inline bool upd9002UndefinedED(unsigned char op)
+    {
+        if (op < 0x40) {
+            upd9002VectorLoad((op >> 4) & 3);
+            return true;
+        }
+        switch (op) {
+            case 0x4C: RETN(); return true; // duplicate of ED 45
+            case 0x64: case 0x65: upd9002RRD2(false); return true;
+            case 0x6C: case 0x6D: upd9002RRD2(true); return true;
+            case 0x74: case 0x75: case 0x77: upd9002VectorLoad(3); return true;
+            case 0x7C: case 0x7D: case 0x7F: upd9002WordLDI(); return true;
+        }
+        if (0x80 <= op && op <= 0x9F) {
+            upd9002WordLDI();
+            return true;
+        }
+        if (0xA4 <= op && op <= 0xA7) {
+            upd9002WordLDI();
+            return true;
+        }
+        if ((0xAD <= op && op <= 0xAF) || (0xB4 <= op && op <= 0xB7)) {
+            upd9002WordLDIR();
+            return true;
+        }
+        if (0xBC <= op && op <= 0xEC) {
+            fetch(4); // consumes one operand byte without any visible effect
+            return true;
+        }
+        if (op == 0xFE || op == 0xFF) {
+            return true; // two-byte NOP
+        }
+        return false;
+    }
+
+    // Without exceptions, an opcode that has no handler is executed as on a
+    // Zilog Z80 instead of calling a null handler: NEG, RETN and IM
+    // duplicates behave as the base instruction, and every other undefined
+    // ED opcode is a two-byte NOP (8 clocks, consumed by the two fetches).
+    // FlagProfile::Upd9002 first applies the behaviour measured on a real
+    // PC-88VA2 (vaeg report m102_zexund_qa, runs 2-8).
+    inline void undefinedED(unsigned char operandNumber)
+    {
+        if (isUpd9002() && upd9002UndefinedED(operandNumber)) return;
+        switch (operandNumber) {
+            case 0x4C:
+            case 0x54:
+            case 0x5C:
+            case 0x64:
+            case 0x6C:
+            case 0x74:
+            case 0x7C:
+                NEG();
+                return;
+            case 0x55:
+            case 0x5D:
+            case 0x65:
+            case 0x6D:
+            case 0x75:
+            case 0x7D:
+                RETN();
+                return;
+            case 0x4E:
+            case 0x66:
+            case 0x6E:
+                IM(0);
+                return;
+            case 0x76:
+                IM(1);
+                return;
+            case 0x7E:
+                IM(2);
+                return;
+            default:
+#ifndef Z80_DISABLE_DEBUG
+                if (isDebug()) log("[%04X] NOP (ED,%02X)", reg.PC - 2, operandNumber);
+#endif
+                return;
+        }
+    }
+#endif
+
     static inline void OP_ED(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetED[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (ED,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            ctx->undefinedED(operandNumber);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandED(operandNumber);
 #endif
@@ -668,13 +885,19 @@ class Z80
     static inline void OP_IX(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetIX[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (DD,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            // Without exceptions: DD before an opcode that does not use HL
+            // is ignored, as on a Zilog Z80 (this also covers repeated
+            // prefixes and DD ED)
+            ctx->opSet1[operandNumber](ctx);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIX(operandNumber);
 #endif
@@ -684,13 +907,19 @@ class Z80
     static inline void OP_IY(Z80* ctx)
     {
         unsigned char operandNumber = ctx->fetch(4 + ctx->wtc.fetchM);
-#ifndef Z80_NO_EXCEPTION
         if (!ctx->opSetIY[operandNumber]) {
+#ifndef Z80_NO_EXCEPTION
             char buf[80];
             snprintf(buf, sizeof(buf), "detect an unknown operand (FD,%02X)", operandNumber);
             throw std::runtime_error(buf);
-        }
+#else
+            // Without exceptions: FD before an opcode that does not use HL
+            // is ignored, as on a Zilog Z80 (this also covers repeated
+            // prefixes and FD ED)
+            ctx->opSet1[operandNumber](ctx);
+            return;
 #endif
+        }
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIY(operandNumber);
 #endif
@@ -704,6 +933,13 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIX4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IX + op3);
+        if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
+            // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
+            // unprefixed CB opcode; memory is not modified
+            ctx->opSetCB[op4](ctx);
+            return;
+        }
         ctx->opSetIX4[op4](ctx, op3);
     }
 
@@ -714,6 +950,13 @@ class Z80
 #ifndef Z80_DISABLE_BREAKPOINT
         ctx->checkBreakOperandIY4(op4);
 #endif
+        ctx->reg.WZ = (unsigned short)(ctx->reg.IY + op3);
+        if (ctx->isUpd9002() && op4 >= 0x40 && (op4 & 0x07) != 0x06) {
+            // R12/R13: BIT/RES/SET n,(i+d),r act on register r only, like the
+            // unprefixed CB opcode; memory is not modified
+            ctx->opSetCB[op4](ctx);
+            return;
+        }
         ctx->opSetIY4[op4](ctx, op3);
     }
 
@@ -923,6 +1166,7 @@ class Z80
     {
         ctx->reg.pair.F = ctx->pop(3);
         ctx->reg.pair.A = ctx->pop(3);
+        ctx->maskUndocumentedFlags(); // R1
 #ifndef Z80_DISABLE_DEBUG
         if (ctx->isDebug()) ctx->log("[%04X] POP AF <SP:$%04X> = $%04X", ctx->reg.PC - 1, ctx->reg.SP - 2, ctx->getAF());
 #endif
@@ -1836,9 +2080,9 @@ class Z80
         setBC(bc);
         setDE(de);
         setHL(hl);
-        resetFlagH();
+        if (!isUpd9002()) resetFlagH(); // R5
         setFlagPV(bc != 0);
-        resetFlagN();
+        if (!isUpd9002()) resetFlagN(); // R5
         unsigned char an = reg.pair.A + n;
         setFlagY(an & 0b00000010);
         setFlagX(an & 0b00001000);
@@ -2022,8 +2266,10 @@ class Z80
     inline void setFlagByRotate(unsigned char n, bool carry, bool isA = false)
     {
         setFlagC(carry);
-        resetFlagH();
-        resetFlagN();
+        if (!(isA && isUpd9002())) { // R4
+            resetFlagH();
+            resetFlagN();
+        }
         setFlagXY(n);
         if (!isA) {
             setFlagS(n & 0x80);
@@ -3711,12 +3957,12 @@ class Z80
         resetFlagN();
         setFlagXY((result & 0xFF00) >> 8);
         setFlagC((carrybits & 0x10000) != 0);
-        setFlagH((carrybits & 0x1000) != 0);
+        if (!isUpd9002()) setFlagH((carrybits & 0x1000) != 0); // R6
     }
 
-    inline void setFlagByAdc16(unsigned short before, unsigned short addition)
+    inline void setFlagByAdc16(unsigned short before, unsigned short addition, unsigned char carry)
     {
-        int result = before + addition;
+        int result = before + addition + carry;
         int carrybits = before ^ addition ^ result;
         unsigned short finalResult = (unsigned short)(result);
         // same as ADD
@@ -3762,7 +4008,8 @@ class Z80
         unsigned short nn = getRP(rp);
         unsigned char c = isFlagC() ? 1 : 0;
         reg.WZ = hl + 1;
-        setFlagByAdc16(hl, c + nn);
+        setFlagByAdc16(hl, nn, c);
+        if (isUpd9002()) setFlagH(((hl & 0xF) + (nn & 0xF) + c) > 0xF); // R7
         setHL(hl + c + nn);
         consumeClock(7);
     }
@@ -3871,9 +4118,9 @@ class Z80
         consumeClock(2);
     }
 
-    inline void setFlagBySbc16(unsigned short before, unsigned short subtract)
+    inline void setFlagBySbc16(unsigned short before, unsigned short subtract, unsigned char carry)
     {
-        int result = before - subtract;
+        int result = before - subtract - carry;
         int carrybits = before ^ subtract ^ result;
         unsigned short finalResult = (unsigned short)result;
         setFlagN();
@@ -3899,7 +4146,8 @@ class Z80
         unsigned short nn = getRP(rp);
         unsigned char c = isFlagC() ? 1 : 0;
         reg.WZ = hl + 1;
-        setFlagBySbc16(hl, c + nn);
+        setFlagBySbc16(hl, nn, c);
+        if (isUpd9002()) setFlagH((hl & 0xF) < ((nn & 0xF) + c)); // R7
         setHL(hl - c - nn);
         consumeClock(7);
     }
@@ -3918,7 +4166,7 @@ class Z80
     {
         reg.pair.A &= n;
         setFlagByLogical();
-        setFlagH();
+        setFlagH(!isUpd9002()); // R2
     }
 
     inline void or8(unsigned char n)
@@ -4264,6 +4512,7 @@ class Z80
         if (ctx->isDebug()) ctx->log("[%04X] CPL %s", ctx->reg.PC - 1, ctx->registerDump(0b111));
 #endif
         ctx->reg.pair.A = ~ctx->reg.pair.A;
+        if (ctx->isUpd9002()) return; // R8: no flag changes
         ctx->setFlagH();
         ctx->setFlagN();
         ctx->setFlagXY(ctx->reg.pair.A);
@@ -4287,6 +4536,10 @@ class Z80
 #ifndef Z80_DISABLE_DEBUG
         if (ctx->isDebug()) ctx->log("[%04X] CCF <C:%s -> %s>", ctx->reg.PC - 1, ctx->isFlagC() ? "ON" : "OFF", !ctx->isFlagC() ? "ON" : "OFF");
 #endif
+        if (ctx->isUpd9002()) {
+            ctx->setFlagC(!ctx->isFlagC()); // R10: only C changes
+            return;
+        }
         ctx->setFlagH(ctx->isFlagC());
         ctx->resetFlagN();
         ctx->setFlagC(!ctx->isFlagC());
@@ -4299,6 +4552,10 @@ class Z80
 #ifndef Z80_DISABLE_DEBUG
         if (ctx->isDebug()) ctx->log("[%04X] SCF <C:%s -> ON>", ctx->reg.PC - 1, ctx->isFlagC() ? "ON" : "OFF");
 #endif
+        if (ctx->isUpd9002()) {
+            ctx->setFlagC(); // R9: only C changes
+            return;
+        }
         ctx->resetFlagH();
         ctx->resetFlagN();
         ctx->setFlagC();
@@ -4373,7 +4630,7 @@ class Z80
         setFlagZ(n ? false : true);
         setFlagPV(isFlagZ());
         setFlagS(!isFlagZ() && 7 == bit);
-        setFlagH();
+        setFlagH(!isUpd9002()); // R3
         resetFlagN();
         setFlagXY(*rp);
     }
@@ -4397,7 +4654,7 @@ class Z80
         setFlagZ(!n);
         setFlagPV(isFlagZ());
         setFlagS(!isFlagZ() && 7 == bit);
-        setFlagH();
+        setFlagH(!isUpd9002()); // R3
         resetFlagN();
         setFlagXY((reg.WZ & 0xFF00) >> 8);
     }
@@ -4421,7 +4678,7 @@ class Z80
         setFlagZ(!n);
         setFlagPV(isFlagZ());
         setFlagS(!isFlagZ() && 7 == bit);
-        setFlagH();
+        setFlagH(!isUpd9002()); // R3
         resetFlagN();
         setFlagXY((reg.WZ & 0xFF00) >> 8);
     }
@@ -4445,7 +4702,7 @@ class Z80
         setFlagZ(!n);
         setFlagPV(isFlagZ());
         setFlagS(!isFlagZ() && 7 == bit);
-        setFlagH();
+        setFlagH(!isUpd9002()); // R3
         resetFlagN();
         setFlagXY((reg.WZ & 0xFF00) >> 8);
     }
@@ -5617,6 +5874,10 @@ class Z80
     static inline void DAA(Z80* ctx) { ctx->daa(); }
     inline void daa()
     {
+        if (isUpd9002()) {
+            daaUpd9002();
+            return;
+        }
         int a = reg.pair.A;
         bool c = isFlagC();
         bool ac = reg.pair.A > 0x99;
@@ -5633,6 +5894,34 @@ class Z80
         if (isDebug()) log("[%04X] DAA ... A: $%02X -> $%02X", reg.PC - 1, reg.pair.A, a);
 #endif
         reg.pair.A = a;
+    }
+
+    // R11: uPD9002 DAA. The low step (+/-06h) runs when H=1 or the low nibble
+    // of A is above 9. The high step (+/-60h) runs when C=1 or A is above 99h
+    // (H=0) or above 9Fh (H=1); both tests use the original A. N selects add
+    // or subtract. S/Z come from the result, H is set when the low step ran,
+    // P/V is the signed overflow of A +/- the adjustment, C is set when the
+    // high step ran, and N is not changed.
+    inline void daaUpd9002()
+    {
+        int a = reg.pair.A;
+        bool h = isFlagH();
+        bool low = h || (a & 0x0F) > 9;
+        bool high = isFlagC() || a > (h ? 0x9F : 0x99);
+        int adjust = (low ? 0x06 : 0x00) + (high ? 0x60 : 0x00);
+        int signedA = a & 0x80 ? a - 0x100 : a;
+        int signedResult = isFlagN() ? signedA - adjust : signedA + adjust;
+        int result = (isFlagN() ? a - adjust : a + adjust) & 0xFF;
+        setFlagS(result & 0x80);
+        setFlagXY(result);
+        setFlagZ(0 == result);
+        setFlagH(low);
+        setFlagPV(signedResult < -128 || 127 < signedResult);
+        setFlagC(high);
+#ifndef Z80_DISABLE_DEBUG
+        if (isDebug()) log("[%04X] DAA ... A: $%02X -> $%02X", reg.PC - 1, reg.pair.A, result);
+#endif
+        reg.pair.A = (unsigned char)result;
     }
 
     // Rotate digit Left and right between Acc. and location (HL)
@@ -6170,6 +6459,7 @@ class Z80
         reg.pair.A = 0xff;
         reg.pair.F = 0xff;
         reg.SP = 0xffff;
+        maskUndocumentedFlags(); // R1
         memset(&wtc, 0, sizeof(wtc));
     }
 

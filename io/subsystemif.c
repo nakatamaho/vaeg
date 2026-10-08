@@ -77,6 +77,11 @@ static void subif_trace_set_portc(REG8 dat) {
 	}
 }
 
+static void IOOUTCALL subsystemif_o0fc(UINT port, REG8 dat) {
+	i8255_outporta(&i8255cfg, dat);
+	(void)port;
+}
+
 static void IOOUTCALL subsystemif_o0fd(UINT port, REG8 dat) {
 	subif_trace_portb = dat;
 	subif_trace_append_main(dat);
@@ -116,6 +121,12 @@ static REG8 IOINPCALL subsystemif_i0fc(UINT port) {
 	return ret;
 }
 
+/* Port B input is used by the fast transfer protocol. */
+static REG8 IOINPCALL subsystemif_i0fd(UINT port) {
+	(void)port;
+	return i8255_inportb(&i8255cfg);
+}
+
 static REG8 IOINPCALL subsystemif_i0fe(UINT port) {
 	return i8255_inportc(&i8255cfg);
 }
@@ -126,6 +137,10 @@ void subsystemif_businporta(BYTE dat) {
 	i8255_businporta(&i8255cfg, dat);
 }
 
+void subsystemif_businportb(BYTE dat) {
+	i8255_businportb(&i8255cfg, dat);
+}
+
 void subsystemif_businportc(BYTE dat) {
 	i8255_businportc(&i8255cfg, (BYTE)(dat >> 4));
 }
@@ -134,6 +149,8 @@ void subsystemif_businportc(BYTE dat) {
 
 void subsystemif_initialize(void) {
 	i8255_init(&i8255cfg, &subsystemif.i8255);
+	/* Cross-wired: main A <-> sub B, main B <-> sub A. */
+	i8255cfg.busoutporta = subsystem_businportb;
 	i8255cfg.busoutportb = subsystem_businporta;
 	i8255cfg.busoutportc = subsystem_businportc;
 }
@@ -149,10 +166,12 @@ void subsystemif_reset(void) {
 }
 
 void subsystemif_bind(void) {
+	iocore_attachout(0x0fc, subsystemif_o0fc);
 	iocore_attachout(0x0fd, subsystemif_o0fd);
 	iocore_attachout(0x0fe, subsystemif_o0fe);
 	iocore_attachout(0x0ff, subsystemif_o0ff);
 
 	iocore_attachinp(0x0fc, subsystemif_i0fc);
+	iocore_attachinp(0x0fd, subsystemif_i0fd);
 	iocore_attachinp(0x0fe, subsystemif_i0fe);
 }

@@ -40,6 +40,7 @@
 #include "ini.h"
 #include "machine/pccore.h"
 #include "sgp.h"
+#include "cmt.h"
 #include "diskdrv.h"
 #include "sxsi.h"
 #include "newdisk.h"
@@ -310,6 +311,8 @@ static void usage(const char *progname) {
 	printf("\t--mute\n");
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
+	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
+	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88 in, raw out)\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
 	printf("\t--scsi0 path|none   --scsi1 path|none\n");
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
@@ -340,6 +343,9 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--headless-input-script path\n");
+	printf("\t\t@text TEXT; @key ctrl-c|ctrl-z|ctrl-left|ctrl-right|backspace|escape\n");
+	printf("\t\tup|down|left|right|home|help|insert|delete|f1..f10|shift-f1..f10\n");
+	printf("\t\tshift-up|shift-down|shift-left|shift-right; @enter; @wait N\n");
 	printf("\t--debug-script path --debug-output-dir directory\n");
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
 	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
@@ -885,6 +891,9 @@ static BOOL check_fdd_image(const char *path, const char *level) {
 	return (SUCCESS);
 }
 
+/* Disk within a multi-image D88 chosen on the command line, 0-based. */
+static UINT cli_fdd_image[2];
+
 static void mount_configured_fdd_images(void) {
 	int drive;
 
@@ -898,7 +907,7 @@ static void mount_configured_fdd_images(void) {
 		if (path[0] == '\0') {
 			continue;
 		}
-		diskdrv_setfdd((REG8)drive, path, 0);
+		diskdrv_setfddex((REG8)drive, path, 0, cli_fdd_image[drive]);
 	}
 }
 
@@ -1190,6 +1199,7 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 		            sizeof(np2oscfg.keyboard_host_layout));
 	}
 	for (drive = 0; drive < 2; drive++) {
+		cli_fdd_image[drive] = (options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0;
 		if (saved->fdd[drive]) {
 			if (options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) {
 				file_cpyname(np2oscfg.fdd_image[drive], options->fdd_path[drive],
@@ -2027,6 +2037,7 @@ int main(int argc, char **argv) {
 		return (run_ok);
 	}
 	initload();
+	timing_setspeed(np2oscfg.speed_percent);
 	if (validate_cli_options(&options) != SUCCESS) {
 		SDL_Quit();
 		dosio_term();
@@ -2174,27 +2185,16 @@ int main(int argc, char **argv) {
 		goto np2main_err2;
 	}
 	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
-#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
-	if (TRUE)
-#else
-	if (!scrnmng_native_active())
-#endif
-	{
-		if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-			if (!scrnmng_native_active() || scrnmng_fallback_to_sdl() != SUCCESS ||
-			    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-				goto np2main_err3;
-			}
-			(void)scrnmng_take_native_fallback();
+	/* Dear ImGui has a native-presenter backend as well as the SDL renderer
+	 * backend. Initialize it for every presentation path; otherwise a Windows
+	 * NativeCRT session has no menu even when --windowed is used. */
+	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+		if (!scrnmng_native_active() || scrnmng_fallback_to_sdl() != SUCCESS ||
+		    gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+			goto np2main_err3;
 		}
+		(void)scrnmng_take_native_fallback();
 	}
-#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
-	/* Metal owns the drawable, but also provides the native ImGui pass. */
-#elif !defined(_WIN32) || !defined(VAEG_ENABLE_LIBRASHADER)
-	else {
-		SDL_Log("Native CRT owns presentation; SDL GUI renderer is deferred until fallback");
-	}
-#endif
 	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
 	    (scrnmng_set_display_mode(np2oscfg.gui_display_mode, np2oscfg.gui_monitor,
 	                              np2oscfg.fscrn_cx, np2oscfg.fscrn_cy,
@@ -2245,6 +2245,12 @@ int main(int argc, char **argv) {
 			sdlkbd_reset_state();
 			scrndrawva_redraw();
 			mount_configured_fdd_images();
+			if ((options.tape_path != NULL) && (cmt_open(options.tape_path) != SUCCESS)) {
+				fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+			}
+			if (options.tape_save_path != NULL) {
+				cmt_save_begin(options.tape_save_path);
+			}
 			dropmedia_prune_storage();
 			if ((debug_harness_initialize() != SUCCESS) ||
 			    (debug_harness_after_frame(0) != SUCCESS)) {

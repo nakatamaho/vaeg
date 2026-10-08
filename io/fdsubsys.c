@@ -420,14 +420,16 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 	fdc.rpm[drv] = 0; // The subsystem command set does not select 1.44 MB media here.
 	switch ((mode >> 4) & 0x03) {
 	case 0: // 1D/2D
-		// TODO: model the documented 48/96 TPI selection.
 		CTRL_FDMEDIA[drv] = DISKTYPE_2DD;
+		fdc.trackdensity[drv] = FDC_TRACKDENSITY_48TPI;
 		break;
 	case 1: // 1DD/2DD
 		CTRL_FDMEDIA[drv] = DISKTYPE_2DD;
+		fdc.trackdensity[drv] = FDC_TRACKDENSITY_96TPI;
 		break;
 	case 2: // 1HD/2HD
 		CTRL_FDMEDIA[drv] = DISKTYPE_2HD;
+		fdc.trackdensity[drv] = FDC_TRACKDENSITY_96TPI;
 		break;
 	}
 

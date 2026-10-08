@@ -95,6 +95,14 @@ const char *debugsub_regs(void) {
 	        CPU_DS, CPU_ES, CPU_SS, CPU_CS, CPU_IP);
 	milstr_ncat(work, debugsub_flags(CPU_FLAG), sizeof(work));
 	milstr_ncat(work, CRCONST, sizeof(work));
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) {
+		/* M103a: the Z80 emulation mode's alternate set lives in
+		 * machine-owned storage (read-only here). */
+		char alt[64];
+		SPRINTF(alt, "AF'=%.4x BC'=%.4x DE'=%.4x HL'=%.4x" CRLITERAL, upd9002_alt_regs.af,
+		        upd9002_alt_regs.bc, upd9002_alt_regs.de, upd9002_alt_regs.hl);
+		milstr_ncat(work, alt, sizeof(work));
+	}
 	return (work);
 }
 

@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "sysportva.h"
+#include "cmt.h"
 #include "memoryva.h"
 #include "gvramva.h"
 #include "videova.h"
@@ -69,6 +70,8 @@ enum {
 	STATFLAG_BIN = 0,
 	STATFLAG_UPD9002_CPU,
 	STATFLAG_UPD9002_COMPAT,
+	STATFLAG_UPD9002_ALT,
+	STATFLAG_UPD9002_MODE,
 	STATFLAG_TERM,
 	STATFLAG_COM,
 	STATFLAG_DISK,
@@ -80,6 +83,7 @@ enum {
 	STATFLAG_BMS,
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
+	STATFLAG_UPD8087,
 };
 
 typedef struct {
@@ -360,6 +364,40 @@ static int flagsave_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return (statflag_write(sfh, tbl->arg1, tbl->arg2));
 }
 
+static int flagsave_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+
+	if (!upd8087_store_machine_state(&upd8087, payload, sizeof(payload))) {
+		return (STATFLAG_FAILURE);
+	}
+	return (statflag_write(sfh, payload, tbl->arg2));
+}
+
+static int flagcheck_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+	UPD8087_STATE decoded;
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) ||
+	    !upd8087_load_machine_state(&decoded, payload, sizeof(payload))) {
+		statflag_seterr(sfh, "8087 state payload is invalid or truncated");
+		return (STATFLAG_FAILURE);
+	}
+	return (STATFLAG_SUCCESS);
+}
+
+static int flagload_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE payload[UPD8087_STATE_IMAGE_SIZE];
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) ||
+	    !upd8087_load_machine_state(&upd8087, payload, sizeof(payload))) {
+		statflag_seterr(sfh, "8087 state payload is invalid or truncated");
+		return (STATFLAG_FAILURE);
+	}
+	return (STATFLAG_SUCCESS);
+}
+
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return (statflag_read(sfh, tbl->arg1, tbl->arg2));
 }
@@ -442,12 +480,68 @@ static int flagload_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
 	                                                                       : STATFLAG_FAILURE;
 }
 
+static int flagsave_upd9002_mode(STFLAGH sfh, const SFENTRY *tbl) {
+	UINT8 state[UPD9002_MODE_STATE_SIZE];
+
+	upd9002_core_mode_state_save(state);
+	return statflag_write(sfh, state, tbl->arg2);
+}
+
+static int flagread_upd9002_mode(STFLAGH sfh, const SFENTRY *tbl, UINT8 *state) {
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, state, UPD9002_MODE_STATE_SIZE) != STATFLAG_SUCCESS) ||
+	    !upd9002_core_mode_state_valid(state)) {
+		statflag_seterr(sfh, "uPD9002 mode-transition payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static int flagload_upd9002_mode(STFLAGH sfh, const SFENTRY *tbl) {
+	UINT8 state[UPD9002_MODE_STATE_SIZE];
+
+	if (flagread_upd9002_mode(sfh, tbl, state) != STATFLAG_SUCCESS) {
+		return STATFLAG_FAILURE;
+	}
+	return upd9002_core_mode_state_load(state) == SUCCESS ? STATFLAG_SUCCESS : STATFLAG_FAILURE;
+}
+
+/* A nonzero UPD9Z80 payload is written only while compatible code is active. */
+static int flagcheck_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl, BOOL *active) {
+	UINT8 state[UPD9002_COMPAT_STATE_SIZE];
+	UINT i;
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, state, sizeof(state)) != STATFLAG_SUCCESS)) {
+		statflag_seterr(sfh, "uPD9002 uPD70008-compatible payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	for (i = 0; i < sizeof(state); i++) {
+		if (state[i] != 0) {
+			*active = TRUE;
+		}
+	}
+	return STATFLAG_SUCCESS;
+}
+
 static int flagload_legacy_cpu_state(STFLAGH sfh) {
 	return (flagload_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
 	                                     "obsolete processor state section is truncated"));
 }
 
 // ---- memory
+
+static int flagload_upd9002_alt(STFLAGH sfh, const SFENTRY *tbl) {
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+	    (statflag_read(sfh, &upd9002_alt_regs, sizeof(upd9002_alt_regs)) != STATFLAG_SUCCESS)) {
+		statflag_seterr(sfh, "uPD9002 alternate-register payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	/* The section precedes the compat blob; its loader must let the
+	 * machine-owned storage win over the blob's working copy. */
+	upd9002_alt_regs_loaded = TRUE;
+	return STATFLAG_SUCCESS;
+}
 
 static int flagsave_mem(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
@@ -1299,6 +1393,18 @@ int statsave_save(const char *filename) {
 			ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_UPD9002_ALT:
+			ret |= flagsave_common(&sffh->sfh, tbl);
+			break;
+
+		case STATFLAG_UPD9002_MODE:
+			ret |= flagsave_upd9002_mode(&sffh->sfh, tbl);
+			break;
+
+		case STATFLAG_UPD8087:
+			ret |= flagsave_upd8087(&sffh->sfh, tbl);
+			break;
+
 		case STATFLAG_COM:
 			ret |= flagsave_com(&sffh->sfh, tbl);
 			break;
@@ -1353,6 +1459,8 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	BOOL hostfat_seen;
 	BOOL legacy_cpu_state_seen;
 	BOOL upd9002_format_marker_seen;
+	BOOL compat_active_seen;
+	BOOL mode_state_seen;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
@@ -1365,6 +1473,8 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	hostfat_seen = FALSE;
 	legacy_cpu_state_seen = FALSE;
 	upd9002_format_marker_seen = FALSE;
+	compat_active_seen = FALSE;
+	mode_state_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
 	while ((!done) && (ret != STATFLAG_FAILURE)) {
 		ret |= statflag_readsection(sffh);
@@ -1391,8 +1501,23 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				break;
 
 			case STATFLAG_UPD9002_COMPAT:
+				ret |= flagcheck_upd9002_compat(&sffh->sfh, tbl, &compat_active_seen);
+				break;
+
+			case STATFLAG_UPD9002_MODE: {
+				UINT8 mode_state[UPD9002_MODE_STATE_SIZE];
+				ret |= flagread_upd9002_mode(&sffh->sfh, tbl, mode_state);
+				mode_state_seen = TRUE;
+				break;
+			}
+
+			case STATFLAG_UPD9002_ALT:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
 				break;
+
+				case STATFLAG_UPD8087:
+					ret |= flagcheck_upd8087(&sffh->sfh, tbl);
+					break;
 
 			case STATFLAG_HOSTFAT:
 				hostfat_seen = TRUE;
@@ -1435,6 +1560,13 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	}
 	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen && !upd9002_format_marker_seen) {
 		statflag_seterr(&sffh->sfh, UPD9002_STATE_ERROR_LEGACY_MARKER);
+		ret = STATFLAG_FAILURE;
+	}
+	/* Older files lack UPD9MODE; one saved while compatible code was active
+	 * cannot return to compatible mode and would run Z80 code as native. */
+	if ((ret != STATFLAG_FAILURE) && compat_active_seen && !mode_state_seen) {
+		statflag_seterr(&sffh->sfh, "saved in compatible mode by an older build; it cannot be "
+		                            "resumed");
 		ret = STATFLAG_FAILURE;
 	}
 	if ((ret != STATFLAG_FAILURE) && hostfat_is_mounted() && !hostfat_seen) {
@@ -1486,6 +1618,17 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	sxsi_trash();
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
+	{
+		UPD8087_CONFIG config;
+
+		/* Older save files have no device section.  Start from the current
+		 * configuration so an omitted section cannot inherit a previous
+		 * machine's live NDP state; a current UPD8087 section overwrites this
+		 * baseline below. */
+		config.enabled = np2cfg.upd8087_enable != 0;
+		config.clock_hz = np2cfg.upd8087_clock_hz;
+		upd8087_initialize(&upd8087, &config);
+	}
 	pccore_clockrestore();
 	sgp_configure_speed();
 
@@ -1499,6 +1642,9 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	fddmtrsnd_bind();
 
 	iocore_reset(); // Sound-board reset calls the native PIC interface.
+	/* A state without PIC8214 predates 8214 mode: those builds always
+	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
+	pic8214.mode8259 = 1;
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
@@ -1525,6 +1671,18 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 			case STATFLAG_UPD9002_COMPAT:
 				ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_UPD9002_ALT:
+				ret |= flagload_upd9002_alt(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_UPD9002_MODE:
+				ret |= flagload_upd9002_mode(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_UPD8087:
+				ret |= flagload_upd8087(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_TERM:
@@ -1584,6 +1742,13 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 		}
 	}
 	statflag_close(sffh);
+	if (ret != STATFLAG_FAILURE) {
+		/* The PIC section is restored before this point.  Rebind the
+		 * source-backed NDP input after the complete state image is present;
+		 * this does not acknowledge or clear the 8087 exception. */
+		pic_setirq_level(IRQ_NDP,
+		                 upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
+	}
 
 	// Rebuild the native VA I/O map after restoring device state.
 	upd9002_memorymap_va();

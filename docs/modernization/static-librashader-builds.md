@@ -55,31 +55,30 @@ Set MACOSX_DEPLOYMENT_TARGET consistently for Rust/native dependencies and
 CMake when producing builds for older macOS versions; the local QA build is
 not a claim of compatibility with older releases.
 
-For MinGW x86_64, install the Rust `x86_64-pc-windows-gnu` target and set:
+For MinGW x86_64, install the Rust `x86_64-pc-windows-gnu` target and run
+the wrapper. It checks out librashader at the pinned source revision, builds
+the archive, and writes the dependency notices to the path used by the MinGW
+CMake presets:
 
 ```sh
-export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
-export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
-export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
-export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
-python3 tools/release/build-static-librashader.py \
-  --source build/m99-static/librashader \
-  --target x86_64-pc-windows-gnu --output build/m99-static/windows-audit
-cmake --preset mingw-cross \
-  -DVAEG_STATIC_LIBRASHADER=ON \
-  -DVAEG_LIBRASHADER_STATIC_LIBRARY="$PWD/build/m99-static/librashader/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a" \
-  -DVAEG_LIBRASHADER_STATIC_NOTICES="$PWD/build/m99-static/windows-audit/third-party-notices.txt" \
-  '-DVAEG_LIBRASHADER_NATIVE_LIBS=advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp'
+rustup toolchain install 1.88.0 --profile minimal \
+  --target x86_64-pc-windows-gnu
+rustup default 1.88.0
+tools/release/build-mingw-static-librashader.sh
+cmake --preset mingw-cross
 cmake --build --preset mingw-cross -j6
+python3 tools/release/check-static-windows-imports.py \
+  --binary build/mingw-cross/sdl2/vaeg.exe
 ```
 
 The native libraries are taken from rustc's `--print native-static-libs`;
 the MinGW system-library equivalents satisfy Rust's winapi import archives.
-Inspect PE imports after linking. librashader.dll and SDL2.dll must not be
-mandatory imports. The D3D11 path uses the OS D3D compiler. The upstream shared
-D3D cache also references DXC; the first-party optional_dxc adapter resolves
-DxcCreateInstance only on demand and reports a normal HRESULT failure if absent.
-It does not implement or replace the DXC compiler.
+All MinGW presets require static SDL2, LibArchive, zlib, lzma, librashader,
+and MinGW runtimes. Their PE import audit permits only Windows system DLLs.
+The D3D11 path uses the OS D3D compiler. The upstream shared D3D cache also
+references DXC; the first-party optional_dxc adapter resolves DxcCreateInstance
+only on demand and reports a normal HRESULT failure if absent. It does not
+implement or replace the DXC compiler.
 
 The helper also accepts native Linux and Intel macOS targets, but those static
 configurations require their own build, native-link flags and runtime QA.

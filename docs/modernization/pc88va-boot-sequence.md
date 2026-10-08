@@ -316,6 +316,12 @@ configuration cannot currently be represented. The old PC-98-oriented
 `np2cfg.dipsw` fields must not be connected to this VA switch without a
 separate configuration decision and tests.
 
+Status (M103b, maintainer decision): an SW7 GUI/INI option was added and then
+withdrawn. vaeg offers no user-facing V1/V2 selection and follows the ROM's
+automatic selection from the boot media (traced for the VA2 in
+[`v1v2-mode-plan.md`](v1v2-mode-plan.md) §5.2). SW7 therefore stays zero; an
+original-VA SW7 OFF configuration would need a new decision.
+
 ### Original-VA Remaining Unknowns
 
 - Exact V3 IPL recognition bytes and checks performed by the FDD subsystem.
@@ -527,12 +533,13 @@ separate even when the emulator exposes a combined VA2/VA3 selection.
 
 ## Emulator Work Suggested By This Analysis
 
-1. Add a VA-specific SW7 representation and return it from port `40h` bit 3
-   without reusing PC-98 DIP semantics blindly.
+1. ~~Add a VA-specific SW7 representation and return it from port `40h`
+   bit 3.~~ Withdrawn in M103b: V1/V2 follows the automatic media selection
+   (see above).
 2. Add ROM-less tests for PC-key active-low matrix behavior across reset.
 3. Decode the original-VA FDD command sequence enough to identify the V3 IPL
    signature.
-4. Trace VA2 routine `1F90h` before implementing a VA2 media decision from
-   analogy.
+4. ~~Trace VA2 routine `1F90h` before implementing a VA2 media decision from
+   analogy.~~ Done in M103b ([`v1v2-mode-plan.md`](v1v2-mode-plan.md) §5.2).
 5. Keep VA and VA2/VA3 boot-policy code paths explicit; do not hide unknown
    VA2/VA3 behavior behind the now-understood original-VA path.

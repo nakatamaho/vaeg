@@ -36,6 +36,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -57,6 +58,8 @@ class Machine final : public IMemoryAccess, public IIOAccess, public IClock, pub
 	bool saw_error = false;
 	bool saw_completion = false;
 	bool unsupported_io = false;
+	// One entry per finished test group: "OK" or "ERROR <expected> <found>".
+	std::vector<std::string> results;
 
 	Machine() {
 		if (!cpu.Init(this, this, this, this, 0x102)) {
@@ -94,6 +97,7 @@ class Machine final : public IMemoryAccess, public IIOAccess, public IClock, pub
 			recent_output.erase(0, recent_output.size() - 2048);
 		}
 		if (character == '\n') {
+			RecordResult(line);
 			if (line.find("ERROR") != std::string::npos) {
 				saw_error = true;
 			}
@@ -103,6 +107,17 @@ class Machine final : public IMemoryAccess, public IIOAccess, public IClock, pub
 			line.clear();
 		} else if (character != '\r') {
 			line.push_back(character);
+		}
+	}
+
+	void RecordResult(const std::string &text) {
+		const std::string::size_type expected = text.find("expected:");
+		const std::string::size_type found = text.find("found:");
+		if (text.size() >= 4 && text.compare(text.size() - 4, 4, "  OK") == 0) {
+			results.push_back("OK");
+		} else if (expected != std::string::npos && found != std::string::npos) {
+			results.push_back("ERROR " + text.substr(expected + 9, 8) + " " +
+			                  text.substr(found + 6, 8));
 		}
 	}
 
@@ -197,7 +212,55 @@ void DumpFailure(Machine *machine, const std::string &reason) {
 }
 
 void Usage(const char *program) {
-	std::cerr << "usage: " << program << " [--max-clocks count] [--max-seconds seconds] file.cim\n";
+	std::cerr << "usage: " << program
+	          << " [--max-clocks count] [--max-seconds seconds] [--profile zilog|upd9002]"
+	             " [--expect file] file.cim\n";
+}
+
+// Read "<group> OK" or "<group> ERROR <expected> <found>" lines; '#' starts a
+// comment. Groups must be numbered 1..n in order.
+bool LoadExpectations(const std::string &path, std::vector<std::string> *expected) {
+	std::ifstream input(path);
+	if (!input) {
+		std::cerr << "zex-wrapper: cannot open expectation file: " << path << '\n';
+		return false;
+	}
+	std::string text;
+	while (std::getline(input, text)) {
+		const std::string::size_type comment = text.find('#');
+		if (comment != std::string::npos) {
+			text.erase(comment);
+		}
+		while (!text.empty() && (text.back() == ' ' || text.back() == '\r')) {
+			text.pop_back();
+		}
+		if (text.empty()) {
+			continue;
+		}
+		const std::string::size_type space = text.find(' ');
+		if (space == std::string::npos ||
+		    text.substr(0, space) != std::to_string(expected->size() + 1)) {
+			std::cerr << "zex-wrapper: malformed expectation line: " << text << '\n';
+			return false;
+		}
+		expected->push_back(text.substr(space + 1));
+	}
+	return !expected->empty();
+}
+
+bool CompareExpectations(const std::vector<std::string> &expected,
+                         const std::vector<std::string> &actual) {
+	bool match = expected.size() == actual.size();
+	for (std::size_t i = 0; i < expected.size() || i < actual.size(); ++i) {
+		const std::string want = i < expected.size() ? expected[i] : "(none)";
+		const std::string got = i < actual.size() ? actual[i] : "(none)";
+		if (want != got) {
+			std::cerr << "zex-wrapper: group " << (i + 1) << ": expected \"" << want << "\", got \""
+			          << got << "\"\n";
+			match = false;
+		}
+	}
+	return match;
 }
 
 } // namespace
@@ -206,9 +269,24 @@ int main(int argc, char **argv) {
 	std::uint64_t max_clocks = kDefaultMaxClocks;
 	std::uint64_t max_seconds = kDefaultMaxSeconds;
 	std::string artifact;
+	std::string expect_path;
+	Z80CompatFlagProfile profile = Z80CompatFlagProfile::kZilog;
 	for (int index = 1; index < argc; ++index) {
 		const std::string argument = argv[index];
-		if ((argument == "--max-clocks" || argument == "--max-seconds") && index + 1 < argc) {
+		if (argument == "--profile" && index + 1 < argc) {
+			const std::string value = argv[++index];
+			if (value == "zilog") {
+				profile = Z80CompatFlagProfile::kZilog;
+			} else if (value == "upd9002") {
+				profile = Z80CompatFlagProfile::kUpd9002;
+			} else {
+				Usage(argv[0]);
+				return 2;
+			}
+		} else if (argument == "--expect" && index + 1 < argc) {
+			expect_path = argv[++index];
+		} else if ((argument == "--max-clocks" || argument == "--max-seconds") &&
+		           index + 1 < argc) {
 			std::uint64_t parsed = 0;
 			if (!ParseUnsigned(argv[++index], &parsed) || parsed == 0) {
 				Usage(argv[0]);
@@ -234,7 +312,13 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 
+	std::vector<std::string> expectations;
+	if (!expect_path.empty() && !LoadExpectations(expect_path, &expectations)) {
+		return 1;
+	}
+
 	Machine machine;
+	machine.cpu.SetFlagProfile(profile);
 	if (!machine.LoadProgram(artifact)) {
 		return 1;
 	}
@@ -246,15 +330,25 @@ int main(int argc, char **argv) {
 		credited_clocks += credit;
 
 		if (machine.IsHalted()) {
-			if (machine.cpu.GetPC() == kExpectedHaltPc && machine.saw_completion &&
-			    !machine.saw_error && !machine.unsupported_io) {
+			const bool completed = machine.cpu.GetPC() == kExpectedHaltPc &&
+			                       machine.saw_completion && !machine.unsupported_io;
+			if (completed && !expectations.empty()) {
+				if (CompareExpectations(expectations, machine.results)) {
+					std::cout << "zex-wrapper: PASS expectations=" << expectations.size()
+					          << " clocks=" << machine.consumed_clocks << '\n';
+					return 0;
+				}
+				DumpFailure(&machine, "group results differ from the expectation file");
+				return 1;
+			}
+			if (completed && !machine.saw_error) {
 				std::cout << "zex-wrapper: PASS clocks=" << machine.consumed_clocks << '\n';
 				return 0;
 			}
 			DumpFailure(&machine, "halted before clean test completion");
 			return 1;
 		}
-		if (machine.saw_error || machine.unsupported_io) {
+		if ((machine.saw_error && expectations.empty()) || machine.unsupported_io) {
 			DumpFailure(&machine, "test reported an error");
 			return 1;
 		}

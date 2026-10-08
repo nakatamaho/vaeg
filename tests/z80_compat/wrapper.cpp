@@ -800,6 +800,258 @@ struct TestCase {
 
 } // namespace
 
+// M101: the uPD9002 profile never holds F bits 5/3 (R1, storage variant),
+// including values written by the adapter outside the core. The Zilog
+// profile keeps them.
+void TestFlagProfileStorage() {
+	for (const bool upd9002 : {false, true}) {
+		const std::uint8_t kept = upd9002 ? 0xd7 : 0xff;
+		const char *name = upd9002 ? "upd9002" : "zilog";
+
+		Harness import;
+		import.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                  : Z80CompatFlagProfile::kZilog);
+		Z80CompatReg reg{};
+		reg.af = 0x12ff;
+		reg.r_af = 0x34ff;
+		import.cpu.SetReg(reg);
+		Require((import.cpu.GetReg()->af & 0xff) == kept &&
+		            (import.cpu.GetReg()->r_af & 0xff) == kept,
+		        std::string("SetReg F storage mismatch: ") + name);
+		import.cpu.SetMainReg(reg);
+		Require((import.cpu.GetReg()->af & 0xff) == kept,
+		        std::string("SetMainReg F storage mismatch: ") + name);
+
+		vaeg::z80_compat::LegacyState state = BasicState();
+		state.registers.af = 0x00ff;
+		state.registers.r_af = 0x00ff;
+		Harness load;
+		load.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                : Z80CompatFlagProfile::kZilog);
+		load.Load(Encode(state));
+		Require((load.cpu.GetReg()->af & 0xff) == kept && (load.cpu.GetReg()->r_af & 0xff) == kept,
+		        std::string("LoadStatus F storage mismatch: ") + name);
+
+		// LD A,I with I = 28h: the adapter materializes F from I.
+		Harness materialize;
+		materialize.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                                       : Z80CompatFlagProfile::kZilog);
+		materialize.Install(0, {0x3e, 0x28, 0xed, 0x47, 0xed, 0x57});
+		materialize.Advance(7 + 9 + 9);
+		Require(A(materialize) == 0x28 && materialize.cpu.GetPC() == 6,
+		        std::string("LD A,I sequence did not run: ") + name);
+		Require((Af(materialize) & 0x28) == (upd9002 ? 0x00 : 0x28),
+		        std::string("LD A,I F bits 5/3 mismatch: ") + name);
+
+		// POP AF through the core.
+		Harness pop;
+		pop.cpu.SetFlagProfile(upd9002 ? Z80CompatFlagProfile::kUpd9002
+		                               : Z80CompatFlagProfile::kZilog);
+		pop.Install(0, {0x31, 0x00, 0x80, 0x01, 0xff, 0xff, 0xc5, 0xf1});
+		pop.Advance(10 + 10 + 11 + 10);
+		Require(pop.cpu.GetPC() == 8 && (Af(pop) & 0xff) == kept,
+		        std::string("POP AF F storage mismatch: ") + name);
+	}
+}
+
+// M102: opcodes without a handler in the vendored core (undefined ED, NEG/
+// RETN/IM duplicates, DD/FD before a non-index opcode) used to call a null
+// handler under Z80_NO_EXCEPTION. The Zilog profile executes them as on a
+// Zilog Z80; the uPD9002 profile applies the semantics measured on a real
+// PC-88VA2 (docs/agents/reports/m102_zexund_qa, runs 2-8).
+void TestUndefinedOpcodes() {
+	for (const bool upd9002 : {false, true}) {
+		const Z80CompatFlagProfile profile =
+		    upd9002 ? Z80CompatFlagProfile::kUpd9002 : Z80CompatFlagProfile::kZilog;
+		for (const std::uint8_t prefix : {0xed, 0xdd, 0xfd}) {
+			for (int op = 0; op < 256; ++op) {
+				Harness harness;
+				harness.cpu.SetFlagProfile(profile);
+				Z80CompatReg reg{};
+				reg.bc = 0x0001; // keep the uPD9002 word-LDIR forms short
+				reg.sp = 0x8000;
+				reg.pc = 0x0100;
+				harness.cpu.SetReg(reg);
+				harness.Install(0x0100, {prefix, static_cast<std::uint8_t>(op), 0x00, 0x00});
+				harness.Advance(1);
+			}
+		}
+		Harness neg;
+		Z80CompatReg reg{};
+		reg.af = 0x0100;
+		reg.pc = 0x0100;
+		if (upd9002) {
+			// ED FE/FF: two-byte NOPs.
+			for (const std::uint8_t op : {0xfe, 0xff}) {
+				Harness harness;
+				harness.cpu.SetFlagProfile(profile);
+				Z80CompatReg r{};
+				r.af = 0x1200;
+				r.sp = 0x8000;
+				r.pc = 0x0100;
+				harness.cpu.SetReg(r);
+				harness.Install(0x0100, {0xed, op});
+				harness.Advance(8);
+				Require(harness.cpu.GetPC() == 0x0102 && harness.cpu.GetReg()->af == 0x1200,
+				        "uPD9002 ED FE/FF is not a two-byte NOP");
+			}
+			// ED C0: consumes one operand byte without any visible effect.
+			Harness three;
+			three.cpu.SetFlagProfile(profile);
+			Z80CompatReg r{};
+			r.af = 0x1200;
+			r.sp = 0x8000;
+			r.pc = 0x0100;
+			three.cpu.SetReg(r);
+			three.Install(0x0100, {0xed, 0xc0, 0x55});
+			three.Advance(12);
+			Require(three.cpu.GetPC() == 0x0103 && three.cpu.GetReg()->af == 0x1200,
+			        "uPD9002 ED C0 is not a three-byte NOP");
+			// ED 00 without a native reader: BC = 0000, F = Z and parity.
+			Harness vec;
+			vec.cpu.SetFlagProfile(profile);
+			r = Z80CompatReg{};
+			r.af = 0x12d7;
+			r.bc = 0x0130;
+			r.pc = 0x0100;
+			vec.cpu.SetReg(r);
+			vec.Install(0x0100, {0xed, 0x00});
+			vec.Advance(16);
+			Require(vec.cpu.GetPC() == 0x0102 && vec.cpu.GetReg()->bc == 0x0000 &&
+			            (vec.cpu.GetReg()->af & 0xff) == 0x44,
+			        "uPD9002 ED 00 default vector page is not zero");
+			// ED 10 with a native reader: DE = IVT word at C/(C+1) mod 256,
+			// F = sign/zero/parity as measured (EDPRB2 set 0: C=30h -> 2800h).
+			Harness ivt;
+			ivt.cpu.SetFlagProfile(profile);
+			ivt.cpu.SetNativeVectorRead(
+			    [](void *, std::uint8_t index) -> std::uint8_t {
+				    switch (index) {
+					    case 0x30: return 0x00;
+					    case 0x31: return 0x28;
+					    default: return 0xee;
+				    }
+			    },
+			    nullptr);
+			r = Z80CompatReg{};
+			r.af = 0x12d7;
+			r.bc = 0x0130;
+			r.pc = 0x0100;
+			ivt.cpu.SetReg(r);
+			ivt.Install(0x0100, {0xed, 0x10});
+			ivt.Advance(16);
+			Require(ivt.cpu.GetPC() == 0x0102 && ivt.cpu.GetReg()->de == 0x2800 &&
+			            (ivt.cpu.GetReg()->af & 0xff) == 0x04,
+			        "uPD9002 ED 10 does not read the native vector page");
+			// ED 4C duplicates RETN on the uPD9002 (EDPRB run 2).
+			Harness retn;
+			retn.cpu.SetFlagProfile(profile);
+			r = Z80CompatReg{};
+			r.sp = 0x8000;
+			r.pc = 0x0100;
+			retn.cpu.SetReg(r);
+			retn.Install(0x0100, {0xed, 0x4c});
+			retn.Install(0x8000, {0x34, 0x12});
+			retn.Advance(14);
+			Require(retn.cpu.GetPC() == 0x1234 && retn.cpu.GetReg()->sp == 0x8002,
+			        "uPD9002 ED 4C is not RETN");
+			// ED 80: one word copied from (HL) to (DE), BC-1, F unchanged.
+			Harness ldi;
+			ldi.cpu.SetFlagProfile(profile);
+			r = Z80CompatReg{};
+			r.af = 0x00d7;
+			r.bc = 0x0130;
+			r.de = 0x4000;
+			r.hl = 0x5000;
+			r.pc = 0x0100;
+			ldi.cpu.SetReg(r);
+			ldi.Install(0x0100, {0xed, 0x80});
+			ldi.Install(0x5000, {0x34, 0x35});
+			ldi.Advance(24);
+			Require(ldi.cpu.GetPC() == 0x0102 && ldi.memory[0x4000] == 0x34 &&
+			            ldi.memory[0x4001] == 0x35 && ldi.cpu.GetReg()->bc == 0x012f &&
+			            ldi.cpu.GetReg()->de == 0x4002 && ldi.cpu.GetReg()->hl == 0x5002 &&
+			            (ldi.cpu.GetReg()->af & 0xff) == 0xd7,
+			        "uPD9002 ED 80 is not a word LDI");
+			// ED 64: RRD that also writes (HL+1) (EDPRB2 set 0).
+			Harness rrd;
+			rrd.cpu.SetFlagProfile(profile);
+			r = Z80CompatReg{};
+			r.af = 0x5ad7;
+			r.hl = 0x5000;
+			r.pc = 0x0100;
+			rrd.cpu.SetReg(r);
+			rrd.Install(0x0100, {0xed, 0x64});
+			rrd.Install(0x5000, {0x34, 0x35});
+			rrd.Advance(20);
+			Require((rrd.cpu.GetReg()->af >> 8) == 0x54 && rrd.memory[0x5000] == 0xa3 &&
+			            rrd.memory[0x5001] == 0x34 && (rrd.cpu.GetReg()->af & 0xff) == 0x00,
+			        "uPD9002 ED 64 is not the measured RRD variant");
+		} else {
+			const std::uint8_t znops[] = {0x00, 0x3f, 0x77, 0x7f, 0x80, 0xa4, 0xbf, 0xc0, 0xff};
+			for (const std::uint8_t op : znops) {
+				Harness harness;
+				harness.cpu.SetFlagProfile(profile);
+				Z80CompatReg r{};
+				r.af = 0x1200;
+				r.sp = 0x8000;
+				r.pc = 0x0100;
+				harness.cpu.SetReg(r);
+				harness.Install(0x0100, {0xed, op});
+				harness.Advance(8);
+				Require(harness.cpu.GetPC() == 0x0102 && harness.cpu.GetReg()->af == 0x1200 &&
+				            harness.consumed == 8,
+				        "undefined ED opcode is not a two-byte NOP");
+			}
+			neg.cpu.SetFlagProfile(profile);
+			neg.cpu.SetReg(reg);
+			neg.Install(0x0100, {0xed, 0x4c});
+			neg.Advance(8);
+			Require(A(neg) == 0xff && neg.cpu.GetPC() == 0x0102, "ED 4C is not NEG");
+		}
+		Harness prefixed;
+		prefixed.cpu.SetFlagProfile(profile);
+		prefixed.cpu.SetReg(reg);
+		prefixed.Install(0x0100, {0xfd, 0x3c});
+		prefixed.Advance(8);
+		Require(A(prefixed) == 0x02 && prefixed.cpu.GetPC() == 0x0102, "FD 3C is not INC A");
+	}
+}
+
+// M103a: SetAltReg replaces only AF'/BC'/DE'/HL'; EXX / EX AF,AF' then
+// expose them, and SetMainReg leaves them alone.
+void TestAltRegSet() {
+	Harness harness;
+	Z80CompatReg reg{};
+	reg.af = 0x1100;
+	reg.bc = 0x2222;
+	reg.de = 0x3333;
+	reg.hl = 0x4444;
+	reg.sp = 0x8000;
+	reg.pc = 0x0100;
+	harness.cpu.SetReg(reg);
+	Z80CompatReg alt = *harness.cpu.GetReg();
+	alt.r_af = 0xaa00;
+	alt.r_bc = 0xbbbb;
+	alt.r_de = 0xcccc;
+	alt.r_hl = 0xdddd;
+	alt.bc = 0xffff; // must be ignored by SetAltReg
+	harness.cpu.SetAltReg(alt);
+	const Z80CompatReg *now = harness.cpu.GetReg();
+	Require(now->bc == 0x2222 && now->r_bc == 0xbbbb && now->r_af == 0xaa00,
+	        "SetAltReg touched the main set or missed the alternate set");
+	harness.cpu.SetMainReg(reg);
+	Require(harness.cpu.GetReg()->r_hl == 0xdddd, "SetMainReg disturbed the alternate set");
+	harness.Install(0x0100, {0xd9, 0x08}); // EXX ; EX AF,AF'
+	harness.Advance(8);
+	Require(harness.cpu.GetReg()->bc == 0xbbbb && harness.cpu.GetReg()->hl == 0xdddd &&
+	            harness.cpu.GetReg()->r_bc == 0x2222,
+	        "EXX did not expose the alternate set");
+	harness.Advance(4);
+	Require((harness.cpu.GetReg()->af >> 8) == 0xaa && (harness.cpu.GetReg()->r_af >> 8) == 0x11,
+	        "EX AF,AF' did not expose AF'");
+}
+
 int main() {
 	const TestCase tests[] = {
 	    {"reset and deterministic save", TestResetAndDeterministicSave},
@@ -812,6 +1064,9 @@ int main() {
 	    {"IM1, IM2, HALT, NMI, R", TestIm1Im2HaltAndNmi},
 	    {"revision-1 fixtures and codec", TestRetainedFixturesAndCodec},
 	    {"EI save boundary", TestEiSaveBoundary},
+	    {"flag profile storage", TestFlagProfileStorage},
+	    {"undefined opcodes", TestUndefinedOpcodes},
+	    {"alternate register set", TestAltRegSet},
 	};
 	for (const TestCase &test : tests) {
 		test.run();

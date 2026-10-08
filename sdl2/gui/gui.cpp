@@ -46,6 +46,10 @@
 #include "gui/gui.h"
 #include "codecnv.h"
 #include "memoryva.h"
+#include "maketextva.h"
+#include "bkupmemva.h"
+#include "n80rom.h"
+#include "cmt.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -66,7 +70,9 @@
 #include "beep.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "ini.h"
 #include "machine/pccore.h"
+#include "machine/timing.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
@@ -110,6 +116,7 @@ constexpr int kSasiImageCount = 6;
 constexpr int kScsiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
+constexpr int kNdp8087Presets[] = {5000000, 8000000, 10000000};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr UINT kV98FontRomSize = 0x46800;
 constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
@@ -124,7 +131,9 @@ constexpr const char kAboutInfoTemplate[] = "CPU: %CPU% %CPUCLK%\n"
                                             "ROM TYPE: %ROMTPVA%\n"
                                             "ROM(Main): %BIOSVA%\n"
                                             "ROM(VupB): %BIOS91%\n"
-                                            "ROM(Sub): %BIOSSUB%";
+                                            "ROM(Sub): %BIOSSUB%\n"
+                                            "Z80 MODE: %Z80MODE%\n"
+                                            "ROM(N80): %BIOSN80%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -241,6 +250,15 @@ struct GuiState {
 	int hdd_dialog_drive = -1;
 	char hdd_path[4][MAX_PATH] = {};
 	bool hdd_browser_open = false;
+	// Cassette tape (vaeg V1/V2 extension).
+	bool tape_browser_open = false;
+	bool tape_browser_refresh = false;
+	std::string tape_browser_dir;
+	std::vector<BrowserEntry> tape_entries;
+	char tape_path[MAX_PATH] = {};
+	std::string tape_loaded;
+	std::string tape_recording;
+	std::string tape_status;
 	bool hdd_browser_refresh = false;
 	std::string hdd_browser_dir;
 	std::vector<BrowserEntry> hdd_entries;
@@ -271,6 +289,8 @@ struct GuiState {
 	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
+	bool pending_ndp8087_enabled = false;
+	int pending_ndp8087_clock_hz = static_cast<int>(UPD8087_DEFAULT_CLOCK_HZ);
 	int pending_pacing_ms = 0;
 	bool pending_hostfat_enabled = false;
 	char pending_hostfat_dir[MAX_PATH] = {};
@@ -402,6 +422,38 @@ static void copy_append_hccode(std::string *text, UINT16 hccode) {
 	}
 }
 
+/*
+ * V1/V2 text under the TSP's uPD3301 emulation: one byte per character in
+ * the 8801 format, read as it is displayed (byte-mode addresses, main RAM in
+ * standard speed). With port 30h 80CM clear (40 columns) only even byte
+ * columns hold characters. Semigraphics cells are copied as their codes.
+ */
+static void copy_3301_text(std::vector<std::string> *lines) {
+	const UINT step = (videova.txtmode8 & 0x01) ? 1 : 2;
+	UINT row;
+
+	for (row = 0;; row++) {
+		const BYTE *chars = maketextva_3301_text(row);
+		std::string line;
+		UINT column;
+
+		if (chars == nullptr) {
+			if (row >= tsp.emul_rows) {
+				break;
+			}
+			lines->push_back(line);
+			continue;
+		}
+		for (column = 0; column < tsp.emul_chars; column += step) {
+			copy_append_hccode(&line, chars[column]);
+		}
+		while (!line.empty() && (line.back() == ' ')) {
+			line.pop_back();
+		}
+		lines->push_back(line);
+	}
+}
+
 static BOOL copy_screen_text(void) {
 	std::vector<std::string> lines;
 	const UINT32 tvram_size = 0x40000;
@@ -412,6 +464,10 @@ static BOOL copy_screen_text(void) {
 	UINT32 raster_used = 0;
 	UINT frame_no;
 
+	if (memoryva_88_mode && tsp.emul) {
+		copy_3301_text(&lines);
+		raster_used = 0x1fe; /* the native frames below are not shown */
+	}
 	for (frame_no = 0; frame_no < frame_count && raster_used < 0x1fe; frame_no++) {
 		BYTE *entry = textmem + tsp.texttable + frame_no * 0x20;
 		CopyTextFrame frame;
@@ -790,6 +846,8 @@ static void open_configure_dialog(void) {
 	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
 	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
+	g_gui.pending_ndp8087_enabled = np2cfg.upd8087_enable != 0;
+	g_gui.pending_ndp8087_clock_hz = static_cast<int>(np2cfg.upd8087_clock_hz);
 	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
 	g_gui.pending_hostfat_enabled = np2oscfg.hostfat_enabled != 0;
 	milstr_ncpy(g_gui.pending_hostfat_dir, np2oscfg.hostfat_dir, sizeof(g_gui.pending_hostfat_dir));
@@ -821,6 +879,27 @@ static void draw_multiplier_input(const char *label, int *value, const int *pres
 	ImGui::PopID();
 }
 
+static void draw_ndp8087_clock_input(int *value) {
+	ImGui::PushID("NDP8087 clock");
+	ImGui::TextUnformatted("Clock (Hz)");
+	ImGui::SameLine(145.0f);
+	ImGui::SetNextItemWidth(125.0f);
+	ImGui::InputInt("##value", value, 100000, 1000000);
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(110.0f);
+	if (ImGui::BeginCombo("##presets", "Preset")) {
+		for (int i = 0; i < static_cast<int>(std::size(kNdp8087Presets)); i++) {
+			char item[32];
+			std::snprintf(item, sizeof(item), "%d MHz", kNdp8087Presets[i] / 1000000);
+			if (ImGui::Selectable(item, *value == kNdp8087Presets[i])) {
+				*value = kNdp8087Presets[i];
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::PopID();
+}
+
 static void apply_configure_dialog(void) {
 	const bool clock_changed =
 	    (np2cfg.baseclock != PCBASECLOCK40) ||
@@ -828,6 +907,9 @@ static void apply_configure_dialog(void) {
 	    (np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
 	    (np2cfg.sgp_multiplier != static_cast<UINT8>(g_gui.pending_sgp_multiplier)) ||
 	    (np2oscfg.pacing_ms != static_cast<UINT16>(g_gui.pending_pacing_ms));
+	const bool ndp8087_changed =
+	    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
+	    (np2cfg.upd8087_clock_hz != static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
 	const bool hostfat_changed =
 	    ((np2oscfg.hostfat_enabled != 0) != g_gui.pending_hostfat_enabled) ||
 	    (std::strcmp(np2oscfg.hostfat_dir, g_gui.pending_hostfat_dir) != 0);
@@ -842,6 +924,15 @@ static void apply_configure_dialog(void) {
 		sysmng_update(SYS_UPDATECFG | SYS_UPDATEOSCFG | SYS_UPDATECLOCK);
 		reset_guest();
 		reset_done = true;
+	}
+	if (ndp8087_changed) {
+		np2cfg.upd8087_enable = g_gui.pending_ndp8087_enabled ? 1 : 0;
+		np2cfg.upd8087_clock_hz = static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz);
+		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
+		if (!reset_done) {
+			reset_guest();
+			reset_done = true;
+		}
 	}
 	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
 		char error[256]{};
@@ -890,7 +981,7 @@ static void draw_configure_dialog(void) {
 	}
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(560.0f, 650.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(560.0f, 800.0f), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Configure##clock-config", &g_gui.configure_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool cpu_valid =
@@ -899,13 +990,18 @@ static void draw_configure_dialog(void) {
 		const bool sgp_multiplier_valid =
 		    (g_gui.pending_sgp_mode != SGP_SPEED_CUSTOM) ||
 		    sgp_speed_multiplier_valid(static_cast<UINT>(g_gui.pending_sgp_multiplier));
+		const bool ndp8087_clock_valid =
+		    (g_gui.pending_ndp8087_clock_hz >= static_cast<int>(UPD8087_MIN_CLOCK_HZ)) &&
+		    (g_gui.pending_ndp8087_clock_hz <= static_cast<int>(UPD8087_MAX_CLOCK_HZ)) &&
+		    upd8087_clock_valid(static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
 		const bool hostfat_valid =
 		    !g_gui.pending_hostfat_enabled || is_directory(g_gui.pending_hostfat_dir);
 		HOSTFAT_MANAGER_STATUS hostfat_manager_status{};
 		hostfat_manager_get_status(&hostfat_manager_status);
 		const bool hostfat_idle = hostfat_manager_status.state != HOSTFAT_MANAGER_BUILDING;
 		const bool valid =
-		    cpu_valid && sgp_mode_valid && sgp_multiplier_valid && hostfat_valid && hostfat_idle;
+		    cpu_valid && sgp_mode_valid && sgp_multiplier_valid && ndp8087_clock_valid &&
+		    hostfat_valid && hostfat_idle;
 		const bool hostfat_action_error =
 		    (g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
 		    (g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
@@ -925,6 +1021,27 @@ static void draw_configure_dialog(void) {
 			ImGui::Text("Effective CPU clock: %.4f MHz",
 			            3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
 			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 155.0f), true,
+		                      ImGuiWindowFlags_NoScrollbar)) {
+			const bool requested_changed =
+			    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
+			    (np2cfg.upd8087_clock_hz != static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz));
+			ImGui::TextUnformatted("Intel 8087 (NDP)");
+			ImGui::Separator();
+			ImGui::Checkbox("Enable 8087", &g_gui.pending_ndp8087_enabled);
+			draw_ndp8087_clock_input(&g_gui.pending_ndp8087_clock_hz);
+			ImGui::Text("Active: %s, %u Hz", upd8087.enabled ? "enabled" : "disabled",
+			            static_cast<unsigned int>(upd8087.clock_hz));
+			if (requested_changed) {
+				ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f),
+				                   "Requested values apply on guest reset.");
+			} else {
+				ImGui::TextDisabled("Requested values are active.");
+			}
+			ImGui::TextDisabled("One 8087 maximum; FPO2 is never connected.");
 		}
 		ImGui::EndChild();
 
@@ -1020,6 +1137,8 @@ static void draw_configure_dialog(void) {
 			ImGui::TextUnformatted("Select a valid SGP speed mode.");
 		} else if (!sgp_multiplier_valid) {
 			ImGui::TextUnformatted("SGP multiplier must be between 1 and 16.");
+		} else if (!ndp8087_clock_valid) {
+			ImGui::TextUnformatted("8087 clock must be between 1000000 and 20000000 Hz.");
 		} else if (!hostfat_valid) {
 			ImGui::TextUnformatted("Select an existing HOSTFAT directory.");
 		} else if (!hostfat_idle) {
@@ -1126,6 +1245,23 @@ static void draw_bms_config_dialog(void) {
 	}
 }
 
+static void save_main_ram_settings(UINT16 capacity, bool automatic) {
+	const UINT16 previous_capacity = np2cfg.main_ram;
+	const UINT8 previous_auto = np2cfg.main_ram_auto;
+	np2cfg.main_ram = capacity;
+	np2cfg.main_ram_auto = automatic ? 1 : 0;
+	if (initsave_checked() != SUCCESS) {
+		np2cfg.main_ram = previous_capacity;
+		np2cfg.main_ram_auto = previous_auto;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Configuration not saved",
+		                        "Could not save the active configuration file. Check write "
+		                        "permissions and whether --no-cfg is enabled. Settings were not changed.",
+		                        nullptr);
+		return;
+	}
+	sysmng_update(SYS_UPDATECFG);
+}
+
 static void open_ems_config_dialog(void) {
 	g_gui.pending_ems_enabled = np2cfg.EXTMEM != 0;
 	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ? np2cfg.EXTMEM : EMSIO_DEFAULT_MEGABYTES;
@@ -1206,7 +1342,6 @@ static UINT8 scale_master_volume(int volume, int max_value) {
 
 static void apply_master_volume(int volume) {
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
-	const UINT8 beep_volume = scale_master_volume(volume, 3);
 	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
@@ -1220,8 +1355,12 @@ static void apply_master_volume(int volume) {
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
 
-	np2cfg.BEEP_VOL = beep_volume;
-	beep_setvol(np2cfg.BEEP_VOL);
+	// The buzzer follows the master volume finely; BEEP_vol (0-3) keeps a
+	// value that is not 0 unless the master volume is 0, for older builds.
+	np2cfg.beep_level = static_cast<UINT8>(std::clamp(volume, 0, kMasterVolumeMax));
+	np2cfg.BEEP_VOL =
+	    static_cast<UINT8>((np2cfg.beep_level * 3 + kMasterVolumeMax - 1) / kMasterVolumeMax);
+	beep_setlevel(np2cfg.beep_level);
 
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
@@ -1272,16 +1411,44 @@ static void select_sound_buffer(UINT delayms) {
 	reset_guest();
 }
 
-static void select_boot_model(const char *model) {
+static void select_boot_model(const char *model, bool enable_8087) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
+	const bool old_8087 = np2cfg.upd8087_enable != 0;
 
 	np2_select_boot_model(model);
+	np2cfg.upd8087_enable = enable_8087 ? 1 : 0;
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
+	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
+	reset_guest();
+}
+
+/*
+ * V1/V2 ("Z80") mode: V1/V2 is the VA's memory switch B1FC5h bit 0, as its
+ * setup menu stores it; H/S is a vaeg extension (see memctrlva_i031). Both
+ * take effect at reset, as on the machine.
+ */
+static void select_v1v2_mode(bool v1, bool standard) {
+	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
+	np2cfg.v1v2_standard = standard ? 1 : 0;
+	np2cfg.v1v2_nmode = 0;
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
+
+static void select_monitor(bool khz15) {
+	if ((np2cfg.monitor_15khz != 0) == khz15) {
+		return;
+	}
+	np2cfg.monitor_15khz = khz15 ? 1 : 0;
+	sysmng_update(SYS_UPDATECFG);
+	reset_guest();
+}
+
+/* N-BASIC ROM files found when the Z80 mode menu was last opened. */
+static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
+static bool g_n80_scanned = false;
 
 static void select_sound_hardware(UINT16 sound) {
 	if (np2cfg.SOUND_SW == sound) {
@@ -1841,6 +2008,16 @@ static void open_new_scsi_dialog(int drive) {
 }
 
 static const char *new_fdd_default_name(int format, int container) {
+	switch (format) {
+	case NEWDISK_FDD_BLANK_2DD_720:
+		return "newdisk-2dd720.d88";
+	case NEWDISK_FDD_BLANK_2D_320:
+		return "newdisk-2d320.d88";
+	case NEWDISK_FDD_BLANK_2D_360:
+		return "newdisk-2d360.d88";
+	default:
+		break;
+	}
 	if (container == NEWDISK_FDD_CONTAINER_RAW) {
 		if (format == NEWDISK_FDD_MSDOS_2DD) {
 			return "newdisk-2dd.img";
@@ -2512,6 +2689,18 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2HD);
 		ImGui::SameLine();
 		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2DD);
+		ImGui::TextDisabled("Unformatted (blank sectors, D88 only):");
+		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
+		ImGui::SameLine();
+		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
+		ImGui::SameLine();
+		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
+		if (!newdisk_fdd_has_filesystem(static_cast<UINT>(g_gui.new_fdd_format)) &&
+		    (g_gui.new_fdd_container != NEWDISK_FDD_CONTAINER_D88)) {
+			g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
+			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
+			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_D88));
+		}
 		ImGui::Text("Mount after create");
 		ImGui::RadioButton("FDD1##new-fdd", &g_gui.new_fdd_drive, 0);
 		ImGui::SameLine();
@@ -2532,20 +2721,174 @@ static void draw_new_fdd_dialog(void) {
 	ImGui::End();
 }
 
+/* Emulation speed: 10-400 % of real time in 10 % steps, and No Wait (full
+ * speed) at the right end of the slider. */
+static void draw_speed_control(void) {
+	enum {
+		SPEED_MIN = 10,
+		SPEED_MAX = 400,
+		SPEED_FULL = SPEED_MAX + 10
+	};
+	const int speed = (np2oscfg.speed_percent == 0) ? 100 : np2oscfg.speed_percent;
+	int value = np2oscfg.NOWAIT ? SPEED_FULL : speed;
+
+	ImGui::TextUnformatted("速度");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##speed", &value, SPEED_MIN, SPEED_FULL,
+	                     np2oscfg.NOWAIT ? "最大 (No Wait)" : "%d%%",
+	                     ImGuiSliderFlags_AlwaysClamp)) {
+		value = ((value + 5) / 10) * 10;
+		if (value > SPEED_MAX) {
+			np2oscfg.NOWAIT = 1;
+		} else {
+			np2oscfg.NOWAIT = 0;
+			np2oscfg.speed_percent = static_cast<UINT16>(value);
+			timing_setspeed(np2oscfg.speed_percent);
+		}
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::MenuItem("速度を 100% に戻す", nullptr, false,
+	                    (np2oscfg.NOWAIT != 0) || (speed != 100))) {
+		np2oscfg.NOWAIT = 0;
+		np2oscfg.speed_percent = 100;
+		timing_setspeed(100);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	// CPU speed: only the CPU slows (V3 and V1/V2); frames, timers and sound
+	// keep real time.
+	int cpu = static_cast<int>(pccore_cpu_speed());
+	ImGui::TextUnformatted("CPU 速度");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+		cpu = ((cpu + 2) / 5) * 5;
+		np2cfg.cpu_speed = static_cast<UINT8>(cpu);
+		pccore_set_cpu_speed(np2cfg.cpu_speed);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	if (ImGui::MenuItem("CPU 速度を 100% に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
+		np2cfg.cpu_speed = 100;
+		pccore_set_cpu_speed(100);
+		sysmng_update(SYS_UPDATECFG);
+	}
+}
+
 static void draw_emulate_menu(void) {
 	if (ImGui::BeginMenu("エミュレート")) {
 		if (ImGui::MenuItem("リセット")) {
 			reset_guest();
 		}
 		ImGui::Separator();
+		draw_speed_control();
+		ImGui::Separator();
 		if (ImGui::BeginMenu("起動機種")) {
 			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
-				select_boot_model(str_VA1);
+				select_boot_model(str_VA1, false);
 			}
-			if (ImGui::MenuItem("VA2/VA3", nullptr, milstr_cmp(np2cfg.model, str_VA2) == 0)) {
-				select_boot_model(str_VA2);
+			if (ImGui::MenuItem("VA2/VA3", nullptr,
+			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
+			                        (np2cfg.upd8087_enable == 0))) {
+				select_boot_model(str_VA2, false);
+			}
+			if (ImGui::MenuItem("VA2/VA3 + 8087", nullptr,
+			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
+			                        (np2cfg.upd8087_enable != 0))) {
+				select_boot_model(str_VA2, true);
 			}
 			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("モニタ")) {
+			// DIP switch SW1, read by the ROM at reset.
+			if (ImGui::MenuItem("24 kHz", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::Separator();
+			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
+			// (8x8 text doubled, 200-line graphics with scanline gaps).
+			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Z80モード")) {
+			static const struct {
+				const char *label;
+				bool v1;
+				bool standard;
+			} modes[] = {{"V2 H", false, false},
+			             {"V2 S", false, true},
+			             {"V1 H", true, false},
+			             {"V1 S", true, true}};
+			const bool v1 = bkupmemva_get_88v1() != FALSE;
+			const bool standard = np2cfg.v1v2_standard != 0;
+			const bool nmode = np2cfg.v1v2_nmode != 0;
+
+			for (const auto &mode : modes) {
+				if (ImGui::MenuItem(mode.label, nullptr,
+				                    !nmode && (v1 == mode.v1) && (standard == mode.standard))) {
+					select_v1v2_mode(mode.v1, mode.standard);
+				}
+			}
+			ImGui::Separator();
+			// vaeg extension: start in N-BASIC from a user-supplied ROM. The ROM
+			// directory is scanned (SHA-1) once each time the menu opens.
+			if (!g_n80_scanned) {
+				n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+				g_n80_scanned = true;
+			}
+			bool any_n80 = false;
+			for (const auto &entry : g_n80_entries) {
+				if (!entry.present) {
+					continue;
+				}
+				any_n80 = true;
+				const std::string label =
+				    std::string("N (PC-8001): ") + entry.name + " - " + entry.label;
+				const bool loaded =
+				    nmode && memoryva_n80_exist && (strcmp(memoryva_n80_file, entry.name) == 0);
+				if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+					np2cfg.v1v2_nmode = 1;
+					milstr_ncpy(np2cfg.v1v2_n80rom, entry.name, sizeof(np2cfg.v1v2_n80rom));
+					sysmng_update(SYS_UPDATECFG);
+					reset_guest();
+				}
+			}
+			if (!any_n80) {
+				ImGui::MenuItem("N (PC-8001): no N-BASIC ROM", nullptr, false, false);
+			}
+			ImGui::EndMenu();
+		} else {
+			g_n80_scanned = false;
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Configure...")) {
@@ -2666,8 +3009,195 @@ static void draw_fdd_menu(void) {
 			if (ImGui::MenuItem("2DD (640 KB)...")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
 			}
+			ImGui::Separator();
+			ImGui::TextDisabled("Unformatted");
+			if (ImGui::MenuItem("2DD (720 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
+			}
+			if (ImGui::MenuItem("2D (320 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
+			}
+			if (ImGui::MenuItem("2D (360 KB)...")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
+			}
 			ImGui::EndMenu();
 		}
+		ImGui::EndMenu();
+	}
+}
+
+// ---- Cassette tape (vaeg extension for V1/V2 mode, M103j)
+
+static void refresh_tape_browser(void) {
+	std::error_code ec;
+
+	g_gui.tape_entries.clear();
+	if (!is_directory(g_gui.tape_browser_dir)) {
+		g_gui.tape_browser_dir = home_dir();
+	}
+	for (const auto &entry : fs::directory_iterator(fs::u8path(g_gui.tape_browser_dir), ec)) {
+		BrowserEntry item;
+		std::error_code st_ec;
+
+		if (ec) {
+			break;
+		}
+		item.is_dir = entry.is_directory(st_ec);
+		if ((!item.is_dir) && (!entry.is_regular_file(st_ec))) {
+			continue;
+		}
+		item.name = entry.path().filename().u8string();
+		item.path = entry.path().u8string();
+		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		g_gui.tape_entries.push_back(item);
+	}
+	std::sort(g_gui.tape_entries.begin(), g_gui.tape_entries.end(), browser_entry_less);
+	g_gui.tape_browser_refresh = false;
+}
+
+static void open_tape_dialog(void) {
+	std::string start_dir;
+
+	if (!g_gui.tape_loaded.empty()) {
+		start_dir = parent_dir(g_gui.tape_loaded);
+	} else if (!g_gui.tape_recording.empty()) {
+		start_dir = parent_dir(g_gui.tape_recording);
+	}
+	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
+	    is_directory(np2oscfg.gui_fdd_dir)) {
+		start_dir = np2oscfg.gui_fdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.tape_browser_dir = absolute_path(start_dir);
+	g_gui.tape_status.clear();
+	g_gui.tape_browser_open = true;
+	g_gui.tape_browser_refresh = true;
+}
+
+static void stop_tape_recording(void) {
+	if (cmt_saving()) {
+		g_gui.tape_status =
+		    (cmt_save_end() == SUCCESS) ? "Recording saved: " : "Recording could not be written: ";
+		g_gui.tape_status += g_gui.tape_recording;
+	}
+	g_gui.tape_recording.clear();
+}
+
+static void draw_tape_browser(void) {
+	if (!g_gui.tape_browser_open) {
+		return;
+	}
+	if (g_gui.tape_browser_refresh) {
+		refresh_tape_browser();
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Cassette tape image", &g_gui.tape_browser_open)) {
+		draw_host_drive_selector(g_gui.tape_browser_dir, g_gui.tape_browser_refresh, "tape-open");
+		ImGui::TextWrapped("%s", g_gui.tape_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.tape_browser_dir = home_dir();
+			g_gui.tape_browser_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.tape_browser_dir = parent_dir(g_gui.tape_browser_dir);
+			g_gui.tape_browser_refresh = true;
+		}
+		ImGui::Separator();
+		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
+		                                     ImGui::GetContentRegionAvail().y -
+		                                         3.0f * ImGui::GetFrameHeightWithSpacing());
+		if (ImGui::BeginChild("tape-browser-list", ImVec2(0, list_height),
+		                      ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.tape_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.tape_browser_dir = entry.path;
+						g_gui.tape_browser_refresh = true;
+					} else {
+						copy_path(g_gui.tape_path, sizeof(g_gui.tape_path), entry.path);
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##tape-path", g_gui.tape_path, sizeof(g_gui.tape_path));
+		if (ImGui::Button("Load tape (.cmt / .t88)")) {
+			if (cmt_open(g_gui.tape_path) == SUCCESS) {
+				g_gui.tape_loaded = g_gui.tape_path;
+				g_gui.tape_status = "Tape loaded.";
+				g_gui.tape_browser_open = false;
+			} else {
+				g_gui.tape_status = "Not a usable tape image.";
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Record to this file")) {
+			stop_tape_recording();
+			if ((g_gui.tape_path[0] != '\0') && (cmt_save_begin(g_gui.tape_path) == SUCCESS)) {
+				g_gui.tape_recording = g_gui.tape_path;
+				g_gui.tape_status = "Recording; written when stopped.";
+				g_gui.tape_browser_open = false;
+			} else {
+				g_gui.tape_status = "Enter a file name to record to.";
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.tape_browser_open = false;
+		}
+		if (!g_gui.tape_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
+		}
+	}
+	ImGui::End();
+}
+
+static void draw_tape_menu(void) {
+	if (ImGui::BeginMenu("Tape")) {
+		if (ImGui::MenuItem("Load / record...")) {
+			open_tape_dialog();
+		}
+		if (ImGui::MenuItem("Rewind", nullptr, false, cmt_inserted() != FALSE)) {
+			cmt_rewind();
+		}
+		if (ImGui::MenuItem("Eject", nullptr, false, cmt_inserted() != FALSE)) {
+			cmt_eject();
+			g_gui.tape_loaded.clear();
+		}
+		if (ImGui::MenuItem("Stop recording", nullptr, false, cmt_saving() != FALSE)) {
+			stop_tape_recording();
+		}
+		bool fast = np2cfg.cmt_fast != 0;
+		if (ImGui::MenuItem("Fast load", nullptr, fast)) {
+			np2cfg.cmt_fast = fast ? 0 : 1;
+			sysmng_update(SYS_UPDATECFG);
+		}
+		ImGui::Separator();
+		if (cmt_inserted()) {
+			const std::string name = display_file_name(g_gui.tape_loaded.c_str());
+			ImGui::Text("Tape: %s", name.c_str());
+			ImGui::Text("%u / %u bytes", static_cast<unsigned>(cmt_position()),
+			            static_cast<unsigned>(cmt_length()));
+		} else {
+			ImGui::TextDisabled("No tape");
+		}
+		if (cmt_saving()) {
+			const std::string name = display_file_name(g_gui.tape_recording.c_str());
+			ImGui::Text("Recording: %s (%u bytes)", name.c_str(),
+			            static_cast<unsigned>(cmt_saved_bytes()));
+		}
+		if (!g_gui.tape_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
+		}
+		ImGui::TextDisabled("V1/V2 BASIC (vaeg extension)");
 		ImGui::EndMenu();
 	}
 }
@@ -3364,11 +3894,6 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
-		bool nowait = np2oscfg.NOWAIT != 0;
-		if (ImGui::MenuItem("No Wait", nullptr, nowait)) {
-			np2oscfg.NOWAIT = nowait ? 0 : 1;
-			sysmng_update(SYS_UPDATEOSCFG);
-		}
 		if (ImGui::BeginMenu("Frame skip")) {
 			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
 			                               "1/4 frame"};
@@ -3588,6 +4113,30 @@ static void draw_device_menu(void) {
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
 			}
+			int tape_volume = np2cfg.cmt_vol;
+			if (ImGui::SliderInt("Tape volume", &tape_volume, 0, 128)) {
+				np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
+				cmt_setvol(np2cfg.cmt_vol);
+				sysmng_update(SYS_UPDATECFG);
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("メインメモリ容量")) {
+			const UINT16 capacities[] = {256, 384, 512, 640};
+			for (UINT16 capacity : capacities) {
+				char label[16];
+				std::snprintf(label, sizeof(label), "%u KB", capacity);
+				if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
+					save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
+				}
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr,
+			                    np2cfg.main_ram_auto != 0)) {
+				save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
+			}
+			ImGui::TextDisabled("変更は次のリセットで反映");
+			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
 			ImGui::EndMenu();
 		}
 		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
@@ -3796,6 +4345,13 @@ static void draw_about_dialog(void) {
 			ImGui::BeginDisabled(g_gui.about_more);
 			if (ImGui::Button("More >>", ImVec2(-1.0f, 0.0f))) {
 				np2info(g_gui.about_info, kAboutInfoTemplate, sizeof(g_gui.about_info), nullptr);
+				if (memoryva_n80_exist) {
+					const char *id = n80rom_label(memoryva_n80_file);
+					milstr_ncat(g_gui.about_info, " (", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, (id != nullptr) ? id : "unreadable",
+					            sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
+				}
 				g_gui.about_more = true;
 			}
 			ImGui::EndDisabled();
@@ -4150,11 +4706,10 @@ BOOL gui_guest_keyboard_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
-	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
-	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
-	        g_gui.hostfat_error_open ||
-	        g_gui.about_open)
+	        g_gui.tape_browser_open || g_gui.new_fdd_open || g_gui.new_sasi_open ||
+	        g_gui.new_scsi_open || g_gui.keyboard_config_open || g_gui.configure_open ||
+	        g_gui.bms_config_open || g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open || g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
 }
@@ -4168,11 +4723,10 @@ BOOL gui_guest_mouse_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open || g_gui.hostfat_browser_open ||
-	        g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
-	        g_gui.keyboard_config_open || g_gui.configure_open || g_gui.bms_config_open ||
-	        g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
-	        g_gui.hostfat_error_open ||
-	        g_gui.about_open)
+	        g_gui.tape_browser_open || g_gui.new_fdd_open || g_gui.new_sasi_open ||
+	        g_gui.new_scsi_open || g_gui.keyboard_config_open || g_gui.configure_open ||
+	        g_gui.bms_config_open || g_gui.custom_size_open || g_gui.recording_open || g_gui.state_error_open ||
+	        g_gui.hostfat_error_open || g_gui.about_open)
 	           ? TRUE
 	           : FALSE;
 }
@@ -4284,6 +4838,7 @@ void gui_draw(void) {
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
+		draw_tape_menu();
 		draw_edit_menu();
 		draw_screen_menu();
 		draw_recording_menu();
@@ -4309,6 +4864,7 @@ void gui_draw(void) {
 	draw_state_error_dialog();
 	draw_fdd_browser();
 	draw_hdd_browser();
+	draw_tape_browser();
 	draw_new_fdd_dialog();
 	draw_new_sasi_dialog();
 	draw_new_scsi_dialog();

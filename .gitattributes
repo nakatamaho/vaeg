@@ -20,6 +20,8 @@
 *.png binary
 *.ttf binary
 *.wav binary
+*.jpg binary
+*.com binary
 
 # Generated mail patch; embedded upstream context whitespace is patch data
 docs/agents/reports/m35_suzukiplan_irq_extension.patch -diff
@@ -29,3 +31,10 @@ tools/cpmva/patches/cpm22-64k.patch -diff
 
 # Byte-identical legal evidence retains its historical line whitespace
 LICENSES/legacy-vaeg.txt whitespace=-blank-at-eol
+
+# M101 byte-exact CP/M output evidence (CRLF, 1Ah padding); never convert
+docs/agents/reports/m101_zexall_qa/*/raw/** binary
+
+# M102 byte-exact CP/M output evidence
+docs/agents/reports/m102_zexund_qa/*/raw/** binary
+docs/agents/reports/m103a_altregs_qa/*/raw/** binary

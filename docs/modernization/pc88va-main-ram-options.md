@@ -84,16 +84,19 @@ If the configuration contains an unsupported value, VAEG normalizes it to
 640 KiB. The value controls the installed main-memory ceiling independently of
 the `MEMswtch` BIOS work-area bytes.
 
-When no saved VA backup-memory image exists, VAEG initializes the BIOS memory
-capacity record from `Main_RAM`. Consequently, a new 640-KiB configuration
-starts with a matching 640-KiB BIOS setting instead of silently retaining the
-old 512-KiB assumption. An existing backup-memory image remains persistent;
-this automatic initialization applies when that BIOS state has not yet been
-saved.
+`Main_RAM_Auto=true` is the default. At startup/reset, VAEG updates the capacity
+bits and checksum of the loaded backup-memory record without changing unrelated
+settings. Automatic synchronization can be disabled to retain a deliberately
+mismatched BIOS selection. With OFF, missing/truncated backup files start cleared
+rather than receiving a capacity record. Firmware writes remain permitted.
 
-This policy is intentional. It preserves the selectable 256/384/512-KiB
-configurations while making the common expanded configuration self-consistent,
-so enabling bank RAM does not require an easy-to-overlook second BIOS change.
+Menu -> デバイス -> メインメモリ容量 provides the four capacities and the automatic
+synchronization checkbox. Changes are persisted to the active configuration
+file and applied together at the next reset. The running memory limit is latched
+at reset so saving a menu choice cannot alter memory underneath a running guest.
+Defaults are 640 KiB and synchronization ON; existing valid capacity settings
+survive migration. See the [configuration policy](../../sdl2/README.md#configuration)
+for persistence, failure handling and command-line overrides.
 
 Implementation references:
 

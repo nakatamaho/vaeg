@@ -55,11 +55,12 @@ extern "C" {
 #endif
 
 void ini_read(const char *path, const char *title, const INITBL *tbl, UINT count);
-void ini_write(const char *path, const char *title, const INITBL *tbl, UINT count);
+int ini_write(const char *path, const char *title, const INITBL *tbl, UINT count);
 
 void initload(void);
 BOOL initcrtchanged(void);
 void initsave(void);
+int initsave_checked(void);
 void initsetpath(const char *path);
 void initsetenabled(BOOL enabled);
 

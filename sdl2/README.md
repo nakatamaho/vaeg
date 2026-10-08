@@ -67,7 +67,7 @@ the pinned SDL2 release recorded in ADR-0006.
 |------|---------|
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
-| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi0 path|none` through `--scsi6 path|none`, `--hostfat-dir path`, `--roms path` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--fdd1-image N`, `--fdd2-image N` (disk N, from 1, of a D88 file holding several disks), `--sasi1 path|none`, `--sasi2 path|none`, `--scsi0 path|none` through `--scsi6 path|none`, `--hostfat-dir path`, `--roms path` |
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
@@ -77,13 +77,46 @@ Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
+Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
+loads a raw `.cmt` or `.t88` tape image or records to a raw image;
+`LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
+`--tape-save` do the same from the command line. Loading and saving play
+the tape's FSK sound; Sound > Tape volume sets its level separately.
+
+Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
+where 200-line modes show with scanlines as on a 15 kHz monitor. It
+takes effect at the reset it triggers.
+
+V1/V2 mode: Emulate > Z80 mode selects V2 H, V2 S, V1 H or V1 S (the VA's
+memory switch for V1/V2; standard speed S is a vaeg extension) and resets.
+An optional 32 KiB PC-8001/8801 N-BASIC ROM in the ROM directory, which the
+VA itself does not carry, named `n80.1.8.rom` or `n80.1.2.rom` (known dumps,
+identified by SHA-1) or `n80.rom` (any content), enables N (PC-8001) entries, which starts in N-BASIC without a disk, and lets V1 S N-88
+BASIC enter N-BASIC with `NEW ON 1`. N-BASIC boots a disk left in drive 1.
+See `docs/modernization/v1v2-n-basic-mode.md`.
+
 `--headless-input-script path` starts the emulator with dummy SDL video/audio
 drivers and injects commands through the normal guest keyboard path. Each
 nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
-drive. The option does not terminate the emulator; combine it with
+drive. `@text TEXT` submits text without Return. `@hold KEY N` holds one
+unmodified repeat-eligible key for N guest frames before releasing it. It accepts
+lowercase letters, digits, Backspace, and the four cursor keys. The command
+injects one make and one release; it does not synthesize repeats, so the guest
+keyboard path under test remains responsible for repeating input. `@key NAME`
+sends a mapped
+guest make/break pair. Names include `ctrl-c`, `ctrl-z`, `ctrl-left`,
+`ctrl-right`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `home`,
+`help`, `insert`, `delete`, `f1` through `f10`, `shift-f1` through `shift-f10`,
+and `shift-up`, `shift-down`, `shift-left`, or `shift-right`. Chords press the
+modifier before the key and release it after the key; each make/break transition
+is separated by three guest frames. An active text
+paste completes before the next key command. Unknown names and unavailable key
+mappings fail without injecting input, and held keys are released when the
+script is reset or cleared. These commands automate frontend input only; they
+do not emulate guest behavior. The option does not terminate the emulator; combine it with
 `VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_TVRAM_DUMP` for a bounded TVRAM capture
 run.
 
@@ -232,6 +265,10 @@ When a mounted image came from a ZIP, 7z, LZH, or single-image XZ stream, FDD1/F
 starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
 restored with persistent managed mounts after an application restart.
+
+New FDD image creates formatted MS-DOS 2HD and 2DD (640 KB) images, and
+unformatted D88 images (all sectors present, filled with E5h) of 2DD
+720 KB, 2D 320 KB (N88-BASIC layout) and 2D 360 KB.
 
 The FDD Open and New FDD dialogs provide a Windows host-drive selector
 above `Target Dir`; the HDD Open, New SASI, and New SCSI dialogs provide the
@@ -522,9 +559,10 @@ old `biospath` INI key is ignored by SDL2 and is no longer written.
 runtime.
 
 Use `Emulate -> Boot model -> VA` for `pc_model=88VA1` and unsuffixed files.
-Use `VA2/VA3` for `pc_model=88VA2` and the five `*_va2.rom` files. Changing
-the selection performs the existing reset flow and retains configured FDD
-and SASI media.
+Use `VA2/VA3` for `pc_model=88VA2` with the optional 8087 disabled, or
+`VA2/VA3 + 8087` for the same ROM set with the single optional 8087 enabled.
+Changing the selection performs the existing reset flow and retains configured
+FDD and SASI media.
 
 ## Configuration
 
@@ -544,20 +582,39 @@ Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
 disable both backup-memory reads and writes. These two options are mutually
 exclusive. No implicit migration or fallback reads old user-state copies.
 
-For VA models, `Main_RAM` describes the installed conventional-RAM ceiling,
-independently of the BIOS memory-switch selection in `MEMswtch`:
+For VA/VA2 models, `Main_RAM` is the installed conventional-RAM capacity.
+Menu -> デバイス -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
+whether to synchronize the BIOS backup-memory capacity at startup/reset:
 
 ```ini
+[NekoProjectII]
 Main_RAM=640
+Main_RAM_Auto=true
 ```
 
-Supported physical capacities are 256, 384, 512, and 640 KB. Addresses above
-the configured capacity are unavailable to the guest CPU, so the VA BIOS
-memory check cannot retain a `MEMswtch` selection beyond the installed limit.
-`Use_BMS_`, `BMS_Port`, and `BMS_Size` describe the separate bank-memory
-device and do not increase this conventional-RAM ceiling. When a model-specific
-backup-memory file is missing or truncated, the frontend seeds the BIOS
-memory-selection record from `Main_RAM`; an existing backup image is preserved.
+Defaults are 640 KB and automatic synchronization ON. Existing valid Main_RAM
+values are preserved; a missing Main_RAM_Auto key defaults to ON. Unsupported
+capacities produce a warning and use 640 KB. Menu changes are saved immediately
+to the active vaeg.cfg (including a --cfg override), but installed RAM and
+backup-memory synchronization change together at the next reset. The menu shows
+the currently applied capacity. Failed configuration writes leave the previous
+file/settings intact and display an error; --no-cfg prevents menu persistence.
+
+With automatic synchronization ON, startup/reset updates only the capacity bits
+and their checksum in an existing backup image, preserving other BIOS settings.
+A missing or truncated image receives the existing initial BIOS record when ON;
+when OFF, it starts cleared without seeding a capacity record. With OFF, the
+emulator performs no capacity correction, including the former missing-file
+initialization; the guest BIOS remains free to modify backup memory. This allows
+intentional discrepancies for diagnostics. No continuous correction runs while
+the guest is executing. Normal backup-file saving persists the resulting state;
+--no-bkupmem still disables backup-file I/O, not the in-memory synchronization.
+
+Addresses above the applied capacity are unavailable to the guest CPU. BMS/EMS
+and MEMswtch do not define or increase installed conventional memory. Automatic
+synchronization is an emulator convenience, not a replacement for guest RAM
+measurement. Only resetting applies pending changes; save-state loading does
+not itself synchronize the backup-memory record.
 
 Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read. Fixed GUI
 save-state slots and keyboard sidecars remain in the user state directory.
@@ -669,8 +726,16 @@ sgp_mult=1
 ```
 
 CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
-FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
-host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
+FDD timing, RTC, or normal one-to-one host pacing. The `Emulate` menu's speed
+slider paces guest frames at 10-400 % of real time in 10 % steps
+(`s_speed`); its right end is No Wait (`s_NOWAIT`), which removes host
+waiting. Sound follows the guest, so it breaks up below 100 % and above
+it (the BEEP worst, as it is built from CPU-timed on/off events). To slow
+only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
+in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
+V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
+while frames, timers, FM, BEEP and disk timing keep real time.
+`Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
 draw skip 16; releasing it, losing focus, resetting, loading a state, or

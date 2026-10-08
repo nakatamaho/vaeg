@@ -189,6 +189,8 @@ void Subsystem::Initialize() {
 	//rom[0] = 0xf3;
 	//rom[1] = 0x76;
 	i8255_init(&i8255cfg, &subsystem.i8255);
+	/* Cross-wired: sub A <-> main B, sub B <-> main A. */
+	i8255cfg.busoutporta = subsystemif_businportb;
 	i8255cfg.busoutportb = subsystemif_businporta;
 	i8255cfg.busoutportc = subsystemif_businportc;
 }
@@ -499,6 +501,10 @@ Subsystem subsystemobj;
 
 void subsystem_businporta(BYTE dat) {
 	i8255_businporta(&i8255cfg, dat);
+}
+
+void subsystem_businportb(BYTE dat) {
+	i8255_businportb(&i8255cfg, dat);
 }
 
 void subsystem_businportc(BYTE dat) {

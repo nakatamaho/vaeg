@@ -69,11 +69,16 @@ enum {
 	FDCSTAT_RQM = 0x80
 };
 
+enum {
+	FDC_TRACKDENSITY_48TPI = 0,
+	FDC_TRACKDENSITY_96TPI = 1
+};
+
 typedef struct {
 	UINT8 equip;
 	UINT8 support144;
 	UINT8 ctrlfd[4];
-	UINT8 trackdensity[4]; // FDD_48TPI or FDD_96TPI
+	UINT8 trackdensity[4]; // FDC_TRACKDENSITY_48TPI or FDC_TRACKDENSITY_96TPI
 
 	UINT8 us, hd;
 	UINT8 mt, mf, sk;

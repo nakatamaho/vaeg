@@ -6,7 +6,9 @@
 #include "upd9002_trace.h"
 #include "upd9002_perf.h"
 #include "upd9002_diagnostic.h"
+#include "upd8087/upd8087.h"
 #include "dmap.h"
+#include "upd9002_regs.h"
 #include "upd9002_ops.mcr"
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include <stdlib.h>
@@ -37,6 +39,29 @@ static void _ea8_write(UINT op, UINT32 madr, UINT8 value);
 static UINT16 _ea16_read(UINT op, UINT32 *madr);
 static void _ea16_write(UINT op, UINT32 madr, UINT16 value);
 static void _adjust_flags(UINT8 value, BOOL adjust_low, BOOL adjust_high, UINT overflow);
+
+static UINT8 upd9002_8087_read8(void *opaque, UINT32 address) {
+	(void)opaque;
+	return (UINT8)upd9002_memoryread(address);
+}
+
+static void upd9002_8087_write8(void *opaque, UINT32 address, UINT8 value) {
+	(void)opaque;
+	upd9002_memorywrite(address, value);
+}
+
+static UINT8 upd9002_8087_primary_opcode(void) {
+	UINT16 ip = upd9002_step_start_ip;
+	UINT8 opcode;
+
+	opcode = (UINT8)upd9002_memoryread(CS_BASE + ip);
+	while ((opcode == 0x26) || (opcode == 0x2e) || (opcode == 0x36) ||
+	       (opcode == 0x3e) || (opcode == 0xf2) || (opcode == 0xf3)) {
+		ip++;
+		opcode = (UINT8)upd9002_memoryread(CS_BASE + ip);
+	}
+	return opcode;
+}
 
 // ----
 
@@ -1811,6 +1836,12 @@ UPD9002FN _call_far(void) { // 9A:	call far
 UPD9002FN _wait(void) { // 9B:	wait
 
 	UPD9002_WORKCLOCK(2);
+	if (upd8087_wait_blocked(&upd8087)) {
+		/* Let machine events and PIC arbitration run before the native
+		 * decoder fetches another instruction.  The 8087 request is sticky
+		 * and is cleared only by guest recovery such as FCLEX. */
+		UPD9002_REMCLOCK = 0;
+	}
 }
 
 UPD9002FN _pushf(void) { // 9C:	pushf
@@ -2321,7 +2352,14 @@ UPD9002FN _iret(void) { // CF: iret
 		CPU_COMPAT_RETURN_PENDING = 0;
 	}
 	CS_BASE = UPD9002_CS << 4;
-	flag = (flag & 0x0fd7) | 0xf002;
+	if (return_compat) {
+		/* The frame holds the compatible F in its low byte. A real PC-88VA2
+		 * returns F unchanged from a CALLN 91h round trip, including bit 1
+		 * (N) = 0 (M103a ALTPRB); bits 3/5 are kept the same way. */
+		flag = (flag & 0x0fff) | 0xf000;
+	} else {
+		flag = (flag & 0x0fd7) | 0xf002;
+	}
 	UPD9002_OV = flag & O_FLAG;
 	UPD9002_FLAG = flag & (0xfff ^ O_FLAG);
 	UPD9002_TRAP = ((flag & T_FLAG) != 0);
@@ -2527,12 +2565,48 @@ UPD9002FN _xlat(void) { // D6:	xlat
 UPD9002FN _esc(void) { // D8:	esc
 
 	UINT op;
+	UINT8 opcode;
+	UINT32 segment;
+	UINT offset;
+	UINT32 service_ticks;
+	UPD8087_OPERAND operand;
 
 	UPD9002_WORKCLOCK(2);
 	GET_PCBYTE(op)
-	if (op < 0xc0) {
-		CALC_LEA(op);
+	if (!upd8087.enabled) {
+		/* The disabled-device path must release the logical input without
+		 * manufacturing a vector or touching the guest PIC registers. */
+		pic_setirq_level(IRQ_NDP, FALSE);
+		if (op < 0xc0) {
+			CALC_LEA(op);
+		}
+		return;
 	}
+	opcode = upd9002_8087_primary_opcode();
+
+	/* The native CPU decoder owns ModR/M, displacement, segment selection,
+	 * effective address, and the first operand-word bus cycle. */
+	ZeroMemory(&operand, sizeof(operand));
+	operand.bus.read8 = upd9002_8087_read8;
+	operand.bus.write8 = upd9002_8087_write8;
+	if (op < 0xc0) {
+		offset = GET_EA(op, &segment);
+		operand.address = (segment + offset) & 0x000fffff;
+		operand.first_word = upd9002_memoryread_seg_w(segment, offset);
+		operand.first_word_valid = TRUE;
+		upd8087.data_address = operand.address;
+	}
+	upd8087.instruction_address = (CS_BASE + upd9002_step_start_ip) & 0x000fffff;
+	(void)upd8087_execute(&upd8087, opcode, (UINT8)op,
+	                      (op < 0xc0) ? &operand : NULL);
+	service_ticks = upd8087_service_ticks(&upd8087,
+		upd8087_instruction_cycles(opcode, (UINT8)op),
+		pccore_cpu_clock());
+	UPD9002_REMCLOCK -= (SINT32)service_ticks;
+	/* Proposed VA logical route: the sole 8087 drives slave PIC IR6
+	 * (logical IRQ14), and the existing PIC cascade chooses the guest vector
+	 * from its programmed ICW2.  Do not inject vector 16H here. */
+	pic_setirq_level(IRQ_NDP, upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
 }
 
 UPD9002FN _loopnz(void) { // E0:	loopnz
@@ -2562,12 +2636,41 @@ UPD9002FN _jcxz(void) { // E3:	jcxz
 		JMPNOP(4) else JMPSHORT(8)
 }
 
+/*
+ * Native I/O trap (FFE0h-FFEFh). A match performs no access and raises
+ * vector 7Ch (IN) or 7Dh (OUT) with the saved IP at the instruction start,
+ * the same restart point the core uses for faults. FFEFh bit 4 selects
+ * low-byte port matching; ports FFE0h-FFFFh never trap.
+ */
+static BOOL native_iotrap(UINT port, BOOL input) {
+	const BYTE *r = upd9002_iotrap.ranges;
+	const BYTE control = upd9002_iotrap.control;
+	UINT match;
+	UINT block;
+
+	if (!(control & (input ? 1 : 2)) || ((port & 0xffff) >= 0xffe0)) {
+		return FALSE;
+	}
+	match = (control & 0x10) ? (port & 0xff) : (port & 0xffff);
+	for (block = 0; block < 8; block += 4) {
+		if ((match >= (UINT)(r[block] | (r[block + 1] << 8))) &&
+		    (match <= (UINT)(r[block + 2] | (r[block + 3] << 8)))) {
+			upd9002_intnum(input ? 0x7c : 0x7d, upd9002_step_start_ip);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 UPD9002FN _in_al_data8(void) { // E4:	in		al, DATA8
 
 	UINT port;
 
 	UPD9002_WORKCLOCK(5);
 	GET_PCBYTE(port)
+	if (native_iotrap(port, TRUE)) {
+		return;
+	}
 	UPD9002_INPADRS = CS_BASE + UPD9002_IP;
 	UPD9002_AL = iocore_inp8(port);
 	UPD9002_INPADRS = 0;
@@ -2579,6 +2682,9 @@ UPD9002FN _in_ax_data8(void) { // E5:	in		ax, DATA8
 
 	UPD9002_WORKCLOCK(5);
 	GET_PCBYTE(port)
+	if (native_iotrap(port, TRUE)) {
+		return;
+	}
 	UPD9002_AX = iocore_inp16(port);
 }
 
@@ -2588,6 +2694,9 @@ UPD9002FN _out_data8_al(void) { // E6:	out		DATA8, al
 
 	UPD9002_WORKCLOCK(3);
 	GET_PCBYTE(port);
+	if (native_iotrap(port, FALSE)) {
+		return;
+	}
 	iocore_out8(port, UPD9002_AL);
 }
 
@@ -2597,6 +2706,9 @@ UPD9002FN _out_data8_ax(void) { // E7:	out		DATA8, ax
 
 	UPD9002_WORKCLOCK(3);
 	GET_PCBYTE(port);
+	if (native_iotrap(port, FALSE)) {
+		return;
+	}
 	iocore_out16(port, UPD9002_AX);
 }
 
@@ -2642,24 +2754,36 @@ UPD9002FN _jmp_short(void) { // EB:	jmp short
 UPD9002FN _in_al_dx(void) { // EC:	in		al, dx
 
 	UPD9002_WORKCLOCK(5);
+	if (native_iotrap(UPD9002_DX, TRUE)) {
+		return;
+	}
 	UPD9002_AL = iocore_inp8(UPD9002_DX);
 }
 
 UPD9002FN _in_ax_dx(void) { // ED:	in		ax, dx
 
 	UPD9002_WORKCLOCK(5);
+	if (native_iotrap(UPD9002_DX, TRUE)) {
+		return;
+	}
 	UPD9002_AX = iocore_inp16(UPD9002_DX);
 }
 
 UPD9002FN _out_dx_al(void) { // EE:	out		dx, al
 
 	UPD9002_WORKCLOCK(3);
+	if (native_iotrap(UPD9002_DX, FALSE)) {
+		return;
+	}
 	iocore_out8(UPD9002_DX, UPD9002_AL);
 }
 
 UPD9002FN _out_dx_ax(void) { // EF:	out		dx, ax
 
 	UPD9002_WORKCLOCK(3);
+	if (native_iotrap(UPD9002_DX, FALSE)) {
+		return;
+	}
 	iocore_out16(UPD9002_DX, UPD9002_AX);
 }
 
@@ -3573,10 +3697,13 @@ UPD9002FN _ope0x0f(void) { // 0F:
 
 	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	upd9002_perf_record_0f((UINT8)op);
-	if (op == 0xff) {
+	if (op == 0xff || op == 0xfe) {
+		/* BRKEM and BRKEM2 share the compatible-mode entry policy.
+		 * The system memory mode is selected independently by port 153h. */
 		UPD9002_IP++;
 		vector = upd9002_memoryread(CS_BASE + UPD9002_IP);
 		UPD9002_IP++;
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
 		upd9002_core_brkem(vector);
 		return;
 	}

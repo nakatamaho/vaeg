@@ -9,11 +9,18 @@ typedef struct {
 	BYTE dmy[15];
 } UPD9002_REGS;
 
+/* Separate state section: do not repurpose the legacy CPU-port padding. */
+typedef struct {
+	BYTE ranges[8]; /* FFE0h..FFE7h, low/high bytes of two inclusive ranges. */
+	BYTE control;   /* FFEFh: IN/OUT enables and port-matching mode. */
+} UPD9002_IOTRAP;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern UPD9002_REGS upd9002_regs;
+extern UPD9002_IOTRAP upd9002_iotrap;
 
 void upd9002_regs_reset(void);
 void upd9002_regs_bind(void);

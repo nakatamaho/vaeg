@@ -8,6 +8,10 @@ void newdisk_fdd(const char *fname, REG8 type, const char *label);
 enum {
 	NEWDISK_FDD_MSDOS_2HD = 0,
 	NEWDISK_FDD_MSDOS_2DD,
+	/* Physical layout only (sectors filled with E5h, no file system), D88. */
+	NEWDISK_FDD_BLANK_2DD_720,
+	NEWDISK_FDD_BLANK_2D_320,
+	NEWDISK_FDD_BLANK_2D_360,
 	NEWDISK_FDD_MSDOS_COUNT
 };
 
@@ -18,6 +22,7 @@ enum {
 };
 
 BOOL newdisk_fdd_msdos(const char *fname, UINT format);
+BOOL newdisk_fdd_has_filesystem(UINT format);
 BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container);
 
 void newdisk_thd(const char *fname, UINT hddsize);

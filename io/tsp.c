@@ -17,11 +17,22 @@ enum {
 	CMD_DSPOFF = 0x13,
 	CMD_DSPDEF = 0x14,
 	CMD_CURDEF = 0x15,
+	CMD_ACTSCR = 0x16,
+	CMD_CURS = 0x1e,
 	CMD_SPRON = 0x82,
 	CMD_SPROFF = 0x83,
 	CMD_SPRDEF = 0x84,
 	CMD_SPRSW = 0x85,
 	CMD_EXIT = 0x88,
+	CMD_EMUL = 0x8c,
+	/* 8Eh/8Fh/97h are not in the VA manual's command list. The VA2 ROM uses
+	 * them, while TVRAM is unreachable from the CPU in V1/V2 mode, to write
+	 * split-screen table fields: 8Eh sets a TVRAM byte address (three bytes),
+	 * 8Fh takes three bytes whose use is unknown, and 97h writes the
+	 * following parameter bytes from that address until the next command. */
+	CMD_TVADDR = 0x8e,
+	CMD_TV8F = 0x8f,
+	CMD_TVWRITE = 0x97,
 
 	// TSP status bits.
 	STATUS_BUSY = 0x04,
@@ -32,6 +43,7 @@ enum {
 	PARAMFUNC_GENERIC,
 	PARAMFUNC_SPRDEF_BEGIN,
 	PARAMFUNC_SPRDEF,
+	PARAMFUNC_TVWRITE,
 
 	// execfunc
 	EXECFUNC_SYNC = 0,
@@ -40,6 +52,12 @@ enum {
 	EXECFUNC_CURDEF,
 	EXECFUNC_SPRON,
 	EXECFUNC_SPRSW,
+	EXECFUNC_EMUL,
+	EXECFUNC_TVADDR,
+	EXECFUNC_NONE,
+	/* Appended: the values above are saved in state files. */
+	EXECFUNC_ACTSCR,
+	EXECFUNC_CURS,
 };
 
 _TSP tsp;
@@ -74,6 +92,9 @@ static void exec_sync(void) {
 	UINT16 newlines;
 	//BOOL newhsync15khz;
 
+	// uPD72022 data sheet: SYNC terminates display controller operation; the
+	// text stays off until DSPON (sprites are stopped only by DSPOFF).
+	tsp.dspon = FALSE;
 	for (i = 0; i < 14; i++)
 		tsp.syncparam[i] = tsp.parambuf[i];
 	tsp.textmg = (tsp.syncparam[0] & 0xc0) == 0x80;
@@ -149,7 +170,7 @@ static void exec_curdef(void) {
 
 	tsp.curn = tsp.parambuf[0] >> 3;
 	tsp.be = tsp.parambuf[0] & 0x01;
-	sprsw(tsp.curn, tsp.parambuf[0] & 0x02);
+	tsp.ce = (tsp.parambuf[0] & 0x02) != 0;
 
 	tsp.status &= ~STATUS_BUSY;
 }
@@ -218,12 +239,89 @@ static void paramfunc_sprdef_begin(REG8 dat) {
 }
 
 /*
-EXIT: abort command processing.
+EXIT: abort command processing; also stops uPD3301 emulation.
 */
 static void exec_exit(void) {
 	TRACEOUT(("tsp: exit"));
 
+	tsp.emul = 0;
 	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+EMUL: start uPD3301 emulation. Parameters are the split screen number x 32,
+characters per row - 2, attribute pairs - 1 and rows - 1 (the VA2 ROM sends
+00 4E 13 18 for 80 x 25 with 20 pairs, and 00 4E 13 13 for 20 rows).
+*/
+static void exec_emul(void) {
+	tsp.emul = 1;
+	tsp.emul_frame = (tsp.parambuf[0] >> 5) & 0x03;
+	tsp.emul_chars = (UINT8)(tsp.parambuf[1] + 2);
+	tsp.emul_attrs = (UINT8)(tsp.parambuf[2] + 1);
+	tsp.emul_rows = (UINT8)(tsp.parambuf[3] + 1);
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+ACTSCR: select the split screen whose coordinates CURS uses (split x 32).
+*/
+static void exec_actscr(void) {
+	tsp.actscr = (UINT8)((tsp.parambuf[0] >> 5) & 0x03);
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+CURS: move the cursor to a row (Y) and column (X) of the active split screen
+(uPD72022 data book). The cursor is the sprite chosen by CURDEF, so its
+descriptor gets the matching dot position: X counts fetched character cells
+from the split's RXP origin, Y counts rows of `lineheight` rasters from its
+RYP; sprite rows are 200-line units when the sprites are doubled vertically.
+The original VA's ROM positions the V1/V2 cursor this way; the VA2 ROM
+writes the descriptor itself. Clamping to the virtual screen and DPTR0 are
+not modelled.
+*/
+static void exec_curs(void) {
+	const BYTE *frame;
+	BYTE *spr;
+	UINT32 x;
+	UINT32 y;
+	UINT16 w;
+	BOOL mg;
+
+	tsp.status &= ~STATUS_BUSY;
+	frame = textmem + ((tsp.texttable + tsp.actscr * 32) & (sizeof(textmem) - 32));
+	x = (UINT32)(tsp.parambuf[2] | (tsp.parambuf[3] << 8)) * 8 + LOADINTELWORD(frame + 0x1a);
+	y = (UINT32)(tsp.parambuf[0] | (tsp.parambuf[1] << 8)) * tsp.lineheight +
+	    LOADINTELWORD(frame + 0x18);
+	mg = tsp.mg && !((tsp.syncparam[0] & 0xc0) == 0x40);
+	if (mg) {
+		y >>= 1;
+	}
+	spr = textmem + ((tsp.sprtable + tsp.curn * 8) & (sizeof(textmem) - 8));
+	w = LOADINTELWORD(spr);
+	STOREINTELWORD(spr, (w & ~0x01ff) | (y & 0x01ff));
+	w = LOADINTELWORD(spr + 2);
+	STOREINTELWORD(spr + 2, (w & ~0x03ff) | (x & 0x03ff));
+	textmem_dirty = TRUE;
+}
+
+static void exec_tvaddr(void) {
+	tsp.tvw_addr[0] = tsp.parambuf[0];
+	tsp.tvw_addr[1] = tsp.parambuf[1];
+	tsp.tvw_addr[2] = tsp.parambuf[2] & 0x03;
+	tsp.status &= ~STATUS_BUSY;
+}
+
+static void paramfunc_tvwrite(REG8 dat) {
+	UINT32 addr;
+
+	addr = tsp.tvw_addr[0] | ((UINT32)tsp.tvw_addr[1] << 8) | ((UINT32)tsp.tvw_addr[2] << 16);
+	textmem[addr & (sizeof(textmem) - 1)] = (BYTE)dat;
+	textmem_dirty = TRUE;
+	addr = (addr + 1) & 0x3ffff;
+	tsp.tvw_addr[0] = (UINT8)addr;
+	tsp.tvw_addr[1] = (UINT8)(addr >> 8);
+	tsp.tvw_addr[2] = (UINT8)(addr >> 16);
 }
 
 /*
@@ -287,6 +385,22 @@ static void paramfunc_generic(REG8 dat) {
 			case EXECFUNC_SPRSW:
 				exec_sprsw();
 				break;
+			case EXECFUNC_EMUL:
+				exec_emul();
+				break;
+			case EXECFUNC_TVADDR:
+				exec_tvaddr();
+				break;
+			case EXECFUNC_ACTSCR:
+				exec_actscr();
+				break;
+			case EXECFUNC_CURS:
+				exec_curs();
+				break;
+			case EXECFUNC_NONE:
+			default:
+				tsp.status &= ~STATUS_BUSY;
+				break;
 			}
 		}
 	}
@@ -328,6 +442,7 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 
 	switch (dat) {
 	case CMD_SYNC:
+		tsp.emul = 0;
 		tsp.recvdatacnt = 14;
 		tsp.execfunc = EXECFUNC_SYNC;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
@@ -358,6 +473,16 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.paramfunc = paramfunc_generic;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
+	case CMD_ACTSCR:
+		tsp.recvdatacnt = 1;
+		tsp.execfunc = EXECFUNC_ACTSCR;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_CURS:
+		tsp.recvdatacnt = 4;
+		tsp.execfunc = EXECFUNC_CURS;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
 	case CMD_SPRON:
 		tsp.recvdatacnt = 3;
 		//tsp.endparamfunc = exec_spron;
@@ -383,6 +508,25 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.paramfunc = paramfunc_nop;
 		tsp.paramfunc = PARAMFUNC_NOP;
 		exec_exit();
+		break;
+	case CMD_EMUL:
+		tsp.recvdatacnt = 4;
+		tsp.execfunc = EXECFUNC_EMUL;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_TVADDR:
+		tsp.recvdatacnt = 3;
+		tsp.execfunc = EXECFUNC_TVADDR;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_TV8F:
+		tsp.recvdatacnt = 3;
+		tsp.execfunc = EXECFUNC_NONE;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_TVWRITE:
+		tsp.paramfunc = PARAMFUNC_TVWRITE;
+		tsp.status &= ~STATUS_BUSY;
 		break;
 	default:
 		//tsp.paramfunc = paramfunc_nop;
@@ -416,6 +560,9 @@ static void IOOUTCALL tsp_o146(UINT port, REG8 dat) {
 		break;
 	case PARAMFUNC_SPRDEF:
 		paramfunc_sprdef(dat);
+		break;
+	case PARAMFUNC_TVWRITE:
+		paramfunc_tvwrite(dat);
 		break;
 	case PARAMFUNC_NOP:
 	default:
@@ -553,8 +700,11 @@ void tsp_updateclock(void) {
 		break;
 	}
 
-	if (vs < 4)
-		vs = 4;
+	// The data sheet asks for VS >= 4, but a PC-88VA2 monitor reads frames
+	// with VS = 1 at the rate of a 1-line sync (M104: 480 lines, top 17,
+	// bottom 1, sync 1 read as 49.7 Hz), so only an empty field is raised.
+	if (vs < 1)
+		vs = 1;
 	if (vad < 4)
 		vad = 4;
 	had |= 1;

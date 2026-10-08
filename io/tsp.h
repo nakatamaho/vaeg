@@ -69,7 +69,18 @@ typedef struct {
 	// paramfunc_sprdef 用
 	BYTE sprdef_offset;
 
-	BYTE dmy2[128];
+	UINT8 ce; // CURDEF cursor enable; stored in the existing reserved state byte.
+
+	/* uPD3301 emulation (EMUL 8Ch), held in former reserved bytes so the
+	 * state layout is unchanged; zero (old states) means not emulating. */
+	UINT8 emul;        // nonzero while emulating
+	UINT8 emul_frame;  // split screen number
+	UINT8 emul_chars;  // characters per row
+	UINT8 emul_attrs;  // attribute pairs per row
+	UINT8 emul_rows;   // rows
+	UINT8 tvw_addr[3]; // TVRAM byte address for the 97h data stream (8Eh)
+	UINT8 actscr;      // ACTSCR split screen number (0-3), from a reserved byte
+	BYTE dmy2[118];
 } _TSP, *TSP;
 
 #ifdef __cplusplus

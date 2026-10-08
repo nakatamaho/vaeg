@@ -46,7 +46,7 @@ static void oneshot(BEEP bp, SINT32 *pcm, UINT count) {
 			samp += remain;
 		}
 		samp *= vol;
-		samp >>= (16 - 10);
+		samp >>= (16 - 10) + BEEPVOL_SHIFT;
 		pcm[0] += samp;
 		pcm[1] += samp;
 		pcm += 2;
@@ -92,7 +92,7 @@ static void rategenerator(BEEP bp, SINT32 *pcm, UINT count) {
 					samp += (bp->cnt & 0x8000) ? 1 : -1;
 					bp->cnt += bp->hz;
 					samp *= vol;
-					samp <<= (10 - 2);
+					samp = (samp << (10 - 2)) >> BEEPVOL_SHIFT;
 					pcm[0] += samp;
 					pcm[1] += samp;
 					pcm += 2;
@@ -124,7 +124,7 @@ static void rategenerator(BEEP bp, SINT32 *pcm, UINT count) {
 				samp += remain;
 			}
 			samp *= vol;
-			samp >>= (16 - 10);
+			samp >>= (16 - 10) + BEEPVOL_SHIFT;
 			pcm[0] += samp;
 			pcm[1] += samp;
 			pcm += 2;

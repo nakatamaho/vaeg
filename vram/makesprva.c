@@ -187,6 +187,9 @@ void makesprva_begin(void) {
 		work._spr[i].sw = d & 0x0200;
 		work._spr[i].vlines = ((d >> 10) + 1) * 4;
 		work._spr[i].yp = d & 0x01ff;
+		if ((i == tsp.curn) && tsp.ce) {
+			work._spr[i].sw = TRUE;
+		}
 		d = LOADINTELWORD(sprinfo + 4);
 
 		// TSPアドレスをTVRAM先頭からの相対バイトアドレスに変換
@@ -197,7 +200,7 @@ void makesprva_begin(void) {
 		work._spr[i].spda = d;
 
 		// カーソルの点滅
-		if (i == tsp.curn && tsp.be && (tsp.blinkcnt2 & 0x08)) {
+		if ((i == tsp.curn) && tsp.ce && tsp.be && (tsp.blinkcnt2 & 0x08)) {
 			work._spr[i].sw = FALSE;
 		}
 

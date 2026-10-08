@@ -32,6 +32,8 @@ typedef struct {
 
 typedef struct {
 	UINT16 screeny; // 現在処理中のラスタ(画面共通の座標系で)
+	VIDEOVA_GRAPHICS_WINDOW window;
+	UINT16 linesread;
 	_SCREEN screen[GRPHVA_SCREENS];
 } _GRPHVAWORK;
 
@@ -66,6 +68,14 @@ static BYTE byte2pixel[256][8]; // マルチプレーン
 #define addr18(scrn, x) ((x) & ((scrn)->addrmask) | ((scrn)->addrofs))
 #define issingleplane() (videova.grmode & 0x0400)
 
+/*
+ * 110h bit 7 (G3MSK) is the plane 3 screen switch of multiplane 4 bit/pixel
+ * mode: clear means 3 bits/pixel with plane 3 not displayed (technical
+ * manual ch. 4; BNN 8.3.2 requires it for V1/V2, and the VA2 ROM writes
+ * 7F47h there).
+ */
+#define plane3mask() ((BYTE)((videova.pagemsk & 0x0080) ? 0xff : 0x00))
+
 static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount, WORD *b, UINT count,
                           BOOL doublewidth) {
 	UINT xp;
@@ -84,7 +94,7 @@ static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount, WORD *b,
 		d0 = grphmem[addr + 0x00000];
 		d1 = grphmem[addr + 0x10000];
 		d2 = grphmem[addr + 0x20000];
-		d3 = grphmem[addr + 0x30000];
+		d3 = grphmem[addr + 0x30000] & plane3mask();
 		addr = addr18(screen, addr + 1);
 
 		for (i = 0; i < 8; i++) {
@@ -565,6 +575,59 @@ static void drawraster_s16(SCREEN screen) {
 	endraster(screen);
 }
 
+/*
+ * Multiplane 1 bit/pixel: each output pixel is the OR of the planes whose
+ * screen switch (110h GnSW) is on. The compositor merges it into the text.
+ *
+ * With 110h 88MD set and 400 lines (V1/V2 640x400 monochrome), the VA2 ROM
+ * switches on planes 0 and 1 and leaves frame buffer 0 at 200 lines of
+ * 16 KiB per plane, so the PC-8801 layout must come from the display
+ * circuit: plane 0 shows the upper 200 lines and plane 1 the lower 200.
+ */
+static BOOL n88_400lines(void) {
+	return (videova.pagemsk & 0x40) && !(videova.grmode & 0x0400) && !(videova.grres & 0x0003) &&
+	       !(videova.grmode & 0x0002);
+}
+
+static void drawraster_m1(SCREEN screen) {
+	UINT sw = videova.pagemsk & 0x0f;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
+	UINT xp;
+	UINT i;
+
+	addr = screen->lineaddr;
+	if (n88_400lines()) {
+		if (screen->y < 200) {
+			sw &= 0x01;
+		} else {
+			sw &= 0x02;
+			addr = addr18(screen, addr - 200 * (screen->framebuffer->fbw / 4));
+		}
+	}
+	b = screen->rasterbuf;
+	ZeroMemory(b, sizeof(grph0_raster));
+	wrapcount = screen->framebuffer->fbw / 4 - screen->framebuffer->ofx / 4;
+	for (xp = 0; xp < SURFACE_WIDTH / 8; xp++) {
+		BYTE d = 0;
+
+		if (wrapcount-- == 0) {
+			addr = screen->wrappedaddr;
+		}
+		for (i = 0; i < 4; i++) {
+			if (sw & (1 << i)) {
+				d |= grphmem[addr + ((UINT32)i << 16)];
+			}
+		}
+		addr = addr18(screen, addr + 1);
+		for (i = 0; i < 8; i++) {
+			*b++ = (d & (0x80 >> i)) ? 1 : 0;
+		}
+	}
+	endraster_m(screen);
+}
+
 // マルチプレーン4bit/pixel
 static void drawraster_m4(SCREEN screen) {
 	//	UINT16		xp;
@@ -595,7 +658,7 @@ static void drawraster_m4(SCREEN screen) {
 			d0 = grphmem[addr];
 			d1 = grphmem[addr + 0x10000];
 			d2 = grphmem[addr + 0x20000];
-			d3 = grphmem[addr + 0x30000];
+			d3 = grphmem[addr + 0x30000] & plane3mask();
 			addr = addr18(screen, addr + 1);
 
 			d0 <<= i;
@@ -658,7 +721,7 @@ static void drawraster_m4(SCREEN screen) {
 			d0 = grphmem[addr];
 			d1 = grphmem[addr + 0x10000];
 			d2 = grphmem[addr + 0x20000];
-			d3 = grphmem[addr + 0x30000];
+			d3 = grphmem[addr + 0x30000] & plane3mask();
 			addr = addr18(screen, addr + 1);
 
 			d0 <<= i;
@@ -842,7 +905,10 @@ static void drawraster_m4(SCREEN screen) {
 static void drawraster(SCREEN screen) {
 	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
 	if (screen->framebuffer != NULL) {
-		if (screen->framebuffer->dsp + screen->framebuffer->dsh == screen->y) {
+		// The 88MD 400-line layout shows the 200-line frame from two planes.
+		const UINT dsh = screen->framebuffer->dsh * (n88_400lines() ? 2 : 1);
+
+		if (screen->framebuffer->dsp + dsh == screen->y) {
 			screen->framebuffer = NULL;
 		}
 	}
@@ -884,11 +950,9 @@ static void drawraster(SCREEN screen) {
 	} else {
 		// マルチプレーンモード
 		switch (screen->pixelmode) {
-		/*
-				case 0:
-					drawraster_m1(screen);
-					break;
-				*/
+		case 0:
+			drawraster_m1(screen);
+			break;
 		case 1:
 			drawraster_m4(screen);
 			break;
@@ -965,6 +1029,9 @@ void makegrphva_initialize(void) {
 
 void makegrphva_begin(BOOL *scrn200) {
 	work.screeny = 0;
+	ZeroMemory(&work.window, sizeof(work.window));
+	work.window.linelimit = 0xffff;
+	work.linesread = 0;
 
 	work.screen[0].pixelmode = videova.grres & 0x0003;
 	work.screen[1].pixelmode = (videova.grres >> 8) & 0x0003;
@@ -1015,7 +1082,12 @@ void makegrphva_blankraster(void) {
 	}
 }
 
-void makegrphva_raster(void) {
+/* Call after makegrphva_begin; see videova_graphics_window. */
+void makegrphva_setwindow(const struct videova_graphics_window *window) {
+	work.window = *window;
+}
+
+static void readline(void) {
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();
@@ -1027,6 +1099,30 @@ void makegrphva_raster(void) {
 		// マルチプレーンモード
 		drawraster(&work.screen[0]);
 	}
+}
 
+void makegrphva_raster(void) {
+	if (work.window.startdelay > 0) {
+		work.window.startdelay--;
+		makegrphva_blankraster();
+		work.screeny++;
+		return;
+	}
+	while (work.window.startskip > 0) {
+		// Read before the visible area: the lines are not shown.
+		work.window.startskip--;
+		readline();
+		work.linesread++;
+	}
+	if (work.linesread >= work.window.linelimit) {
+		// The line address no longer advances.
+		if (work.window.blankafterlimit) {
+			makegrphva_blankraster();
+		}
+		work.screeny++;
+		return;
+	}
+	work.linesread++;
+	readline();
 	work.screeny++;
 }

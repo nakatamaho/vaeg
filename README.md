@@ -56,6 +56,12 @@ remains a useful historical reference.
 
 ## News
 
+### 2026-09-21 - 8087 support
+
+8087 support will be available in the upcoming release.
+
+![VA2/VA3 with 8087 Mandelbrot demo](docs/images/vaeg-20260921-1154.png)
+
 ### 2026-09-08 - Rel.20260908
 
 [Rel.20260908](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260908)
@@ -459,6 +465,9 @@ cmake --build --preset linux-release
 
 ```sh
 # Windows, from an MSYS2 MINGW64 shell
+rustup toolchain install 1.88.0 --profile minimal --target x86_64-pc-windows-gnu
+rustup default 1.88.0
+tools/release/build-mingw-static-librashader.sh
 cmake --preset mingw-release
 cmake --build --preset mingw-release
 ```

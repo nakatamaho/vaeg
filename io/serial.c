@@ -3,6 +3,7 @@
 #include "commng.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "cmt.h"
 #include "machine/keystat.h"
 
 #if defined(SUPPORT_OPRECORD)
@@ -211,6 +212,82 @@ static void updatekeymap(UINT8 scancode) {
 	    (keybrd.keymap[0x09] & 0xc1) | ((keybrd.keymap[0x0c] << 1) & keybrd.keymap[0x0f] & 0x3e);
 }
 
+/*
+ * Key-matrix pacing. V1/V2 software reads the matrix (ports 00h-0Eh) once
+ * per VRTC, but the frontend can press and release a key within one host
+ * event (US-layout taps and chords). A release is therefore applied only
+ * after the key has been visible across KB_MATRIX_HOLD VRTC boundaries;
+ * later events wait behind it so the order is kept. Events that need no
+ * delay are applied at once, as before. The FIFO to the keyboard
+ * controller (V3) is not affected. Transient input state, not saved.
+ */
+enum {
+	KB_MATRIX_QUEUE = 64,
+	KB_MATRIX_HOLD = 2
+};
+
+static UINT8 matrix_queue[KB_MATRIX_QUEUE];
+static UINT matrix_queued;
+static UINT8 matrix_tick;
+static UINT8 matrix_made_tick[0x80];
+static UINT8 matrix_held[0x80 / 8];
+
+static BOOL matrix_release_waits(UINT8 data) {
+	const UINT code = data & 0x7f;
+	return (data & 0x80) && (matrix_held[code >> 3] & (1 << (code & 7))) &&
+	       ((UINT8)(matrix_tick - matrix_made_tick[code]) < KB_MATRIX_HOLD);
+}
+
+static void updatekeymap(UINT8 scancode);
+
+static void matrix_apply(UINT8 data) {
+	const UINT code = data & 0x7f;
+	if (data & 0x80) {
+		matrix_held[code >> 3] &= (UINT8) ~(1 << (code & 7));
+	} else {
+		matrix_held[code >> 3] |= (UINT8)(1 << (code & 7));
+		matrix_made_tick[code] = matrix_tick;
+	}
+	updatekeymap(data);
+}
+
+static void matrix_flush(void) {
+	UINT i;
+	for (i = 0; i < matrix_queued; i++) {
+		matrix_apply(matrix_queue[i]);
+	}
+	matrix_queued = 0;
+}
+
+static void matrix_send(UINT8 data) {
+	if ((matrix_queued == 0) && !matrix_release_waits(data)) {
+		matrix_apply(data);
+		return;
+	}
+	if (matrix_queued >= KB_MATRIX_QUEUE) {
+		matrix_flush(); /* never lose an event; give up pacing instead */
+		matrix_apply(data);
+		return;
+	}
+	matrix_queue[matrix_queued++] = data;
+}
+
+void keyboard_matrix_tick(void) {
+	UINT done;
+
+	matrix_tick++;
+	for (done = 0; done < matrix_queued; done++) {
+		if (matrix_release_waits(matrix_queue[done])) {
+			break;
+		}
+		matrix_apply(matrix_queue[done]);
+	}
+	if (done) {
+		memmove(matrix_queue, matrix_queue + done, matrix_queued - done);
+		matrix_queued -= done;
+	}
+}
+
 static REG8 convertmodeldependent(REG8 data) {
 	REG8 code;
 
@@ -292,6 +369,7 @@ void keyboard_reset(void) {
 	UINT8 mapbkup[KB_MAP];
 
 	// Preserve the host-maintained key matrix across a device reset.
+	matrix_flush();
 	CopyMemory(mapbkup, keybrd.keymap, sizeof(mapbkup));
 
 	ZeroMemory(&keybrd, sizeof(keybrd));
@@ -361,7 +439,7 @@ void keyboard_send(REG8 data) {
 	data = convertmodeldependent(data);
 	if (data == 0xff)
 		return;
-	updatekeymap(data);
+	matrix_send(data);
 
 	if (keybrd.buffers < KB_BUF) {
 		keybrd.buf[(keybrd.bufpos + keybrd.buffers) & KB_BUFMASK] = data;
@@ -400,6 +478,8 @@ void rs232c_callback(void) {
 	interrupt = FALSE;
 	if ((cm_rs232c) && (cm_rs232c->read(cm_rs232c, &rs232c.data))) {
 		rs232c.result |= 2;
+		/* 8214 mode: RXRDY is level 0; E6h bit 2 masks it. */
+		pic8214_request(PIC8214_RXRDY);
 		if (sysportva.c & 1) {
 			interrupt = TRUE;
 		}
@@ -433,6 +513,10 @@ void rs232c_midipanic(void) {
 // ----
 
 static void IOOUTCALL rs232c_o30(UINT port, REG8 dat) {
+	if (cmt_selected()) {
+		cmt_write(dat);
+		return;
+	}
 	if (cm_rs232c) {
 		cm_rs232c->write(cm_rs232c, (UINT8)dat);
 	}
@@ -495,6 +579,7 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 
 	case 0x02: // cmd
 		rs232c.cmd = dat;
+		cmt_command(dat);
 		if (cm_rs232c) {
 			cm_rs232c->msg(cm_rs232c, COMMSG_SETRSFLAG, dat & 0x22); /* RTS, DTR */
 		}
@@ -505,10 +590,16 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL rs232c_i30(UINT port) {
 	(void)port;
+	if (cmt_selected()) {
+		return cmt_read();
+	}
 	return (rs232c.data);
 }
 
 static REG8 IOINPCALL rs232c_i32(UINT port) {
+	if (cmt_selected()) {
+		return cmt_status(rs232c.cmd & 0x04);
+	}
 	if (!(rs232c_stat() & 0x20)) {
 		return (rs232c.result | 0x80);
 	} else {

@@ -43,6 +43,21 @@ static void scrndrawva_initialize(void) {
 	}
 }
 
+/*
+ * Output level (0-255) of a colour component `value` of `bits` bits (5 or 6).
+ * Digital RGB monitor: [VA1] schematic pp. 261 and 263, the digital R, G and
+ * B pins carry the analog colour drive through 1 kOhm, with no conversion
+ * logic, so the monitor's input threshold decides each component. [POLICY]
+ * (M103i) on from a quarter of full scale; on a real digital monitor the VA
+ * demo looked almost white (maintainer).
+ */
+BYTE scrndrawva_outputlevel(UINT value, UINT bits, BOOL digital) {
+	if (digital) {
+		return (value >= (1u << (bits - 2))) ? 0xff : 0;
+	}
+	return (BYTE)((value << (8 - bits)) | (value ? ((1u << (8 - bits)) - 1) : 0));
+}
+
 static void scrndrawva_makedrawcolor(void) {
 	BYTE colorlevel5[32]; // 出力レベル変換 5bit→8bit
 	BYTE colorlevel6[64]; // 出力レベル変換 6bit→8bit
@@ -50,10 +65,10 @@ static void scrndrawva_makedrawcolor(void) {
 	int c;
 
 	for (i = 0; i < 32; i++) {
-		colorlevel5[i] = (i << 3) | ((i) ? 0x07 : 0);
+		colorlevel5[i] = scrndrawva_outputlevel(i, 5, np2cfg.monitor_digital);
 	}
 	for (i = 0; i < 64; i++) {
-		colorlevel6[i] = (i << 2) | ((i) ? 0x03 : 0);
+		colorlevel6[i] = scrndrawva_outputlevel(i, 6, np2cfg.monitor_digital);
 	}
 
 	for (c = 0; c < COLORCODES; c++) {
@@ -180,14 +195,18 @@ void scrndrawva_compose_raster(void) {
 	BYTE defaultflip;
 	WORD xparhigh;
 	int blinkfreq;
+	BOOL merge;
 
 	// テキストとスプライトの出力を重ね合わせ、
 	// テキスト/スプライト判別境界カラーで分離する
 	tscr = videova.pagemsk >> 12; // テキスト/スプライト判別境界カラー
+	merge = videova_textmerge() && layer_enabled[VAEG_VA_LAYER_GRAPHICS0] && !grph0_noraster;
 	for (x = 0; x < SURFACE_WIDTH; x++) {
 		palcode = sprraster[x];
-		if (palcode == 0)
-			palcode = textraster[x];
+		if (palcode == 0) {
+			// Multiplane 1 bit/pixel graphics take the colour of the text cell.
+			palcode = (merge && grph0_raster[x]) ? textcolorraster[x] : textraster[x];
+		}
 		if (palcode > tscr) {
 			// テキスト
 			tsptext_raster[x] = palcode;
@@ -199,7 +218,7 @@ void scrndrawva_compose_raster(void) {
 		}
 	}
 
-	palmode = (videova.palmode >> 6) & 3;
+	palmode = videova_palettemode();
 	defaultflip = palmode == 1 ? 0x10 : 0x00;
 	palset1scrn = (videova.palmode >> 4) & 3;
 
@@ -248,7 +267,10 @@ void scrndrawva_compose_raster(void) {
 				scrn->xpar = videova.xpar_txtspr | ((DWORD)videova.xpar_txtspr << 16);
 				break;
 			case VIDEOVA_GRAPHICSCREEN0:
-				if ((videova.grmode & 0x8000) && layer_enabled[VAEG_VA_LAYER_GRAPHICS0]) {
+				if (merge) {
+					// Drawn as part of the text screen.
+					scrn->raster = NULL;
+				} else if ((videova.grmode & 0x8000) && layer_enabled[VAEG_VA_LAYER_GRAPHICS0]) {
 					// GDEN0 = 1 (グラフィック表示イネーブル)
 					scrn->raster = (grph0_noraster) ? NULL : grph0_raster;
 					scrn->pixelmode = videova.grres & 0x0003;

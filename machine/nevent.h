@@ -33,6 +33,8 @@ enum {
 	NEVENT_FDDMOTOR = 29,
 	NEVENT_SCSIWATCHDOG = 30,
 	NEVENT_FDCSTATE = 31,
+	NEVENT_GENTIMER2 = 32, /* 8214-mode 600 Hz general timer 2 */
+	NEVENT_CMT = 33,       /* cassette tape byte clock (vaeg extension) */
 
 	NEVENT_FLAMES2 = 47,
 	NEVENT_MAXEVENTS,

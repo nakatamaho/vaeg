@@ -15,6 +15,7 @@ extern "C" {
 extern _SUBSYSTEMIF subsystemif;
 
 void subsystemif_businporta(BYTE dat);
+void subsystemif_businportb(BYTE dat);
 void subsystemif_businportc(BYTE dat);
 
 void subsystemif_initialize(void);

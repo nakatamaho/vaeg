@@ -214,21 +214,24 @@ static void iniwrsetarg8(char *work, int size, const BYTE *ptr, int arg) {
 	}
 }
 
-void ini_write(const char *path, const char *title, const INITBL *tbl, UINT count) {
+int ini_write(const char *path, const char *title, const INITBL *tbl, UINT count) {
 	FILEH fh;
 	const INITBL *p;
 	const INITBL *pterm;
 	BOOL set;
+	int result = SUCCESS;
 	char work[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE + 512];
 
 	fh = file_create(path);
 	if (fh == FILEH_INVALID) {
-		return;
+		return FAILURE;
 	}
 	milstr_ncpy(work, "[", sizeof(work));
 	milstr_ncat(work, title, sizeof(work));
 	milstr_ncat(work, "]\r\n", sizeof(work));
-	file_write(fh, work, strlen(work));
+	if (file_write(fh, work, strlen(work)) != strlen(work)) {
+		result = FAILURE;
+	}
 
 	p = tbl;
 	pterm = tbl + count;
@@ -289,14 +292,25 @@ void ini_write(const char *path, const char *title, const INITBL *tbl, UINT coun
 			break;
 		}
 		if (set == SUCCESS) {
-			file_write(fh, p->item, strlen(p->item));
-			file_write(fh, "=", 1);
-			file_write(fh, work, strlen(work));
-			file_write(fh, "\r\n", 2);
+			if (file_write(fh, p->item, strlen(p->item)) != strlen(p->item)) {
+				result = FAILURE;
+			}
+			if (file_write(fh, "=", 1) != 1) {
+				result = FAILURE;
+			}
+			if (file_write(fh, work, strlen(work)) != strlen(work)) {
+				result = FAILURE;
+			}
+			if (file_write(fh, "\r\n", 2) != 2) {
+				result = FAILURE;
+			}
 		}
 		p++;
 	}
-	file_close(fh);
+	if (file_close(fh) != 0) {
+		result = FAILURE;
+	}
+	return result;
 }
 
 // ----
@@ -341,7 +355,20 @@ static const INITBL iniitem[] = {
     {"DIPswtch", INITYPE_BYTEARG, np2cfg.dipsw, 3},
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
+    {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
+    {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
+    {"V1V2_NMode", INITYPE_BOOL, &np2cfg.v1v2_nmode, 0},
+    {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},
+    {"Monitor15kHz", INITYPE_BOOL, &np2cfg.monitor_15khz, 0},
+    {"MonitorDigital", INITYPE_BOOL, &np2cfg.monitor_digital, 0},
+    {"Monitor15kHzFill", INITYPE_BOOL, &np2cfg.monitor_15khz_fill, 0},
+    {"V1V2_8801Display", INITYPE_BOOL, &np2cfg.v1v2_8801_display, 0},
+    {"CPU_Speed", INITYPE_UINT8, &np2cfg.cpu_speed, 0},
+    {"CMT_Fast", INITYPE_BOOL, &np2cfg.cmt_fast, 0},
+    {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
+    {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
+    {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
     {"ITF_WORK", INITYPE_BOOL, &np2cfg.ITF_WORK, 0},
     {"Use_BMS_", INITYPE_BOOL, &bmsiocfg.enabled, 0},
     {"BMS_Port", INITYPE_HEX16, &bmsiocfg.port, 0},
@@ -367,6 +394,7 @@ static const INITBL iniitem[] = {
     {"HOSTFATDIR", INITYPE_STR, np2oscfg.hostfat_dir, MAX_PATH},
     {"SNDboard", INITYPE_HEX16, &np2cfg.SOUND_SW, 0},
     {"BEEP_vol", INITYPE_UINT8, &np2cfg.BEEP_VOL, 0},
+    {"BEEP_level", INITYPE_UINT8, &np2cfg.beep_level, 0},
     {"xspeaker", INITYPE_BOOL, &np2cfg.snd_x, 0},
 
     {"SND14vol", INITYPE_BYTEARG, np2cfg.vol14, 6},
@@ -397,6 +425,7 @@ static const INITBL iniitem[] = {
 
     // OS依存～
     {"s_NOWAIT", INITYPE_BOOL, &np2oscfg.NOWAIT, 0},
+    {"s_speed", INITYPE_UINT16, &np2oscfg.speed_percent, 0},
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},
@@ -478,6 +507,12 @@ void initload(void) {
 		            np2cfg.main_ram);
 		np2cfg.main_ram = 640;
 	}
+	if (!upd8087_clock_valid(np2cfg.upd8087_clock_hz)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid NDP8087Hz=%u; using %u",
+		            np2cfg.upd8087_clock_hz, UPD8087_DEFAULT_CLOCK_HZ);
+		np2cfg.upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ;
+	}
+	np2cfg.upd8087_enable = np2cfg.upd8087_enable ? 1 : 0;
 
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
 	if ((bmsiocfg.port != BMSIO_PORT_DEFAULT) && (bmsiocfg.port != BMSIO_PORT_COMPAT)) {
@@ -581,12 +616,30 @@ void initload(void) {
 	            sizeof(np2oscfg.ymfm_fidelity));
 }
 
-void initsave(void) {
+int initsave_checked(void) {
+	char temporary[MAX_PATH];
 	if (!config_enabled) {
-		return;
+		return FAILURE;
 	}
 	if (active_config_path[0] == '\0') {
 		select_config_path(active_config_path, sizeof(active_config_path));
 	}
-	ini_write(active_config_path, ini_title, iniitem, INIITEMS);
+	if (strlen(active_config_path) + sizeof(".tmp") > sizeof(temporary)) {
+		return FAILURE;
+	}
+	strcpy(temporary, active_config_path);
+	strcat(temporary, ".tmp");
+	if (ini_write(temporary, ini_title, iniitem, INIITEMS) != SUCCESS ||
+	    file_rename_atomic(temporary, active_config_path, TRUE) != 0) {
+		file_delete(temporary);
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+void initsave(void) {
+	if (config_enabled && initsave_checked() != SUCCESS) {
+		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not save configuration: %s",
+		             active_config_path);
+	}
 }

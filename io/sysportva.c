@@ -13,7 +13,10 @@
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"
+#include "cmt.h"
 #include "sysmng.h"
+#include "memoryva.h"
+#include "memctrlva.h"
 
 _SYSPORTVACFG sysportvacfg = {0xcd};
 
@@ -53,12 +56,14 @@ static void IOOUTCALL sysp_o010(UINT port, REG8 dat) {
 static void IOOUTCALL sysp_o032(UINT port, REG8 dat) {
 	//	TRACEOUT(("sysp_o032 - %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	sysportva.port032 = dat & 0xbf; // V3 forces legacy GVAM low; port 510H controls native access.
+	memoryva_88_alu.gvam = (dat & 0x40) ? 1 : 0; // used, and read back, only in 88 mode
 	fmboard_setintmask((BYTE)(dat & 0x80));
 }
 
 static REG8 IOINPCALL sysp_i032(UINT port) {
 	//	TRACEOUT(("sysp_i032 - %x %.4x:%.4x", port, CPU_CS, CPU_IP));
-	return (sysportva.port032 & 0x7f) | (fmboard_getintmask() & 0x80);
+	return (sysportva.port032 & 0x7f) | (fmboard_getintmask() & 0x80) |
+	       ((memoryva_88_mode && memoryva_88_alu.gvam) ? 0x40 : 0);
 }
 
 /*
@@ -76,7 +81,9 @@ static void IOOUTCALL sysp_o040(UINT port, REG8 dat) {
 	sysportva.port040 = dat;
 	calendar_ondataset();
 	mouseifva_outstrobe((UINT8)((dat & 0x40) >> 6));
-	// FBEEP, BEEP, and printer-strobe outputs are not modeled here.
+	// Bit 5 BEEP and bit 7 FBEEP; the printer strobe is not modelled.
+	beep_oneventset();
+	beep_portsoundset();
 }
 
 /*
@@ -100,6 +107,16 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	      ((videova_hsyncmode() == VIDEOVA_24_8KHZ) ? 0 : 0x02) |
 	      // SW1: 0 for 24.8 kHz, 1 for 15.7 kHz.
 	      0x01; // PBSY: printer not busy in the current model.
+	// SW7 OFF (skip the V3 boot search, enter V1/V2): only for the vaeg N
+	// mode, which must start without a disk, and only until compatible code
+	// starts, so that N-BASIC still boots a disk in drive 1.
+	if (memctrlva_nmode_boot_search()) {
+		ret |= 0x08;
+	}
+	// Bit 2: PC-8801 cassette carrier detect (vaeg cassette extension).
+	if (cmt_carrier()) {
+		ret |= 0x04;
+	}
 
 	return ret;
 }
@@ -118,6 +135,7 @@ static void IOOUTCALL sysp_o190(UINT port, REG8 dat) {
 		TRACEOUT(("o190: unsupported bits are specified: 0x%.2x", dat));
 	}
 	sysportva.port190 = dat;
+	beep_portsoundset(); // bit 4 FBEN
 }
 
 static REG8 IOINPCALL sysp_i190(UINT port) {
@@ -194,6 +212,15 @@ static REG8 IOINPCALL sysp_i1cd(UINT port) {
 // ---- I/F
 
 void systemportva_reset(void) {
+	/*
+	 * Port 150h (system mode, active low: FFFEh V1, FFFDh V2). The VA2 ROM
+	 * sets it through port 1C6h from memory switch B1FC5h bit 0
+	 * (F000:12E4); the original VA's ROM reads 150h without writing 1C6h
+	 * (F000:0A77) and vaeg left it uninitialised, a reserved value. Start
+	 * from the same memory-switch bit, so both models follow the V1/V2
+	 * selection. How the original VA chooses the mode is not documented.
+	 */
+	sysportva.modesw = (backupmem[0x1fc5] & 0x01) ? 0xfffe : 0xfffd;
 	sysportva.a |= 0xc1;
 	sysportva.c = 0xf9;
 	sysportva.port010 = 0;

@@ -32,6 +32,11 @@ enum {
 	DISKTYPE_2HD
 };
 
+enum {
+	D88TRACK_LAYOUT_CONTIGUOUS = 0,
+	D88TRACK_LAYOUT_DOUBLE_STEP
+};
+
 typedef struct {
 	UINT32 headersize;
 	UINT8 tracks;
@@ -44,7 +49,9 @@ typedef struct {
 typedef struct {
 	UINT fdtype_major;
 	UINT fdtype_minor;
+	UINT8 track_layout;
 	UINT32 fd_size;
+	UINT32 base; /* file offset of the selected image (multi-image D88) */
 	UINT32 ptr[164];
 	_D88HEAD head;
 } _D88INFO, *D88INFO;
@@ -52,7 +59,7 @@ typedef struct {
 typedef struct {
 	char fname[MAX_PATH];
 	BYTE type;
-	BYTE num;
+	BYTE num; /* D88 image index within the file, 0 = first */
 	BYTE protect;
 	union {
 		_XDFINFO xdf;

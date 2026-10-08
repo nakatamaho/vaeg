@@ -179,37 +179,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: x86_64-pc-windows-gnu
-      - name: Acquire pinned librashader source
-        run: |
-          mkdir -p build/m99-static
-          git clone https://github.com/SnowflakePowered/librashader.git \
-            build/m99-static/librashader-git
-          git -C build/m99-static/librashader-git checkout --detach \
-            87e8a97b50516d997defeaa168173dcd185d4022
-      - name: Build static librashader
+      - name: Build pinned static librashader
         run: |
           export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
-          command -v cargo
-          cargo --version
-          export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
-          export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
-          export AR_x86_64_pc_windows_gnu=ar
-          export RANLIB_x86_64_pc_windows_gnu=ranlib
-          export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
-          command -v ar
-          command -v ranlib
-          python3 tools/release/build-static-librashader.py \
-            --source build/m99-static/librashader-git \
-            --target x86_64-pc-windows-gnu \
-            --output build/m99-static/windows-audit
+          tools/release/build-mingw-static-librashader.sh
       - name: Configure
-        run: |
-          workspace="$(cygpath -u "${GITHUB_WORKSPACE}")"
-          cmake --preset mingw-ci \
-            -DVAEG_STATIC_LIBRASHADER=ON \
-            "-DVAEG_LIBRASHADER_STATIC_LIBRARY=${workspace}/build/m99-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a" \
-            "-DVAEG_LIBRASHADER_STATIC_NOTICES=${workspace}/build/m99-static/windows-audit/third-party-notices.txt" \
-            '-DVAEG_LIBRASHADER_NATIVE_LIBS=advapi32;cfgmgr32;gdi32;kernel32;msimg32;ole32;opengl32;shell32;user32;winspool;stdc++;ntdll;userenv;ws2_32;dbghelp'
+        run: cmake --preset mingw-ci
       - name: Build
         run: cmake --build --preset mingw-ci
       - name: Smoke
@@ -252,27 +227,7 @@ jobs:
           cd build/pc88va-guest-drivers
           sha256sum --check SHA256SUMS
       - name: Verify Windows runtime imports
-        run: |
-          set -euo pipefail
-          objdump -p build/mingw-ci/sdl2/vaeg.exe |
-            awk '/DLL Name:/ {print $3}' | tee imports.txt
-          if grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' imports.txt; then
-            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
-            exit 1
-          fi
-          bad=0
-          while IFS= read -r dll; do
-            lower="$(printf '%s' "${dll}" | tr '[:upper:]' '[:lower:]')"
-            case "${lower}" in
-              kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|bcryptprimitives.dll|crypt32.dll|comdlg32.dll|combase.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|d3d11.dll|d3d12.dll|d3dcompiler_47.dll|dxgi.dll|ntdll.dll|userenv.dll|api-ms-win-*.dll|ext-ms-*.dll)
-                ;;
-              *)
-                echo "unexpected non-system DLL import: ${dll}" >&2
-                bad=1
-                ;;
-            esac
-          done < imports.txt
-          exit "${bad}"
+        run: python3 tools/release/check-static-windows-imports.py --binary build/mingw-ci/sdl2/vaeg.exe
       - name: Stage package
         run: |
           set -euo pipefail

@@ -8,6 +8,8 @@ void timing_setrate(UINT lines, UINT crthz);
 void timing_setcount(UINT value);
 void timing_hosttick(void);
 UINT timing_getcount(void);
+void timing_setspeed(UINT percent);
+UINT timing_addspan(UINT32 span);
 
 #ifdef __cplusplus
 }

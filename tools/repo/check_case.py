@@ -21,6 +21,8 @@ import sys
 
 ALLOW = {
     "AGENTS.md",
+    "INSTALL.md",
+    "MANIFEST.json",
     "MANIFEST.sha256.json",
 }
 ALLOW_PREFIXES = ("docs/", ".git", "external/", "LICENSES/")

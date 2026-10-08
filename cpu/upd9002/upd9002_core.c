@@ -14,8 +14,11 @@
 #include "upd9002_ops.mcr"
 
 Upd9002CoreContext upd9002_core_context;
+Upd9002AltRegs upd9002_alt_regs;
+BOOL upd9002_alt_regs_loaded;
 UINT16 upd9002_step_start_cs;
 UINT16 upd9002_step_start_ip;
+UINT8 upd9002_current_opcode;
 static Upd9002CompatHooks upd9002_compat_hooks;
 /*
  * A native CALLN can be interrupted before its final IRET.  Keep the
@@ -173,6 +176,7 @@ void upd9002_core_step(void) {
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
 	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	upd9002_current_opcode = (UINT8)opcode;
 	upd9002_perf_record_step(CS_BASE, UPD9002_IP, (UINT8)opcode,
 	                         mem[(CS_BASE + (UINT16)(UPD9002_IP + 1)) & UPD9002_ADRSMASK]);
 	preserve_state = (opcode == 0x26) || (opcode == 0x2e) || (opcode == 0x36) || (opcode == 0x3e) ||
@@ -219,6 +223,13 @@ void upd9002_core_reset(void) {
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
 	upd9002_state_reset();
+	/* All ones: a real PC-88VA2 shows AF' = BC' = FFFFh in V1/V2 MON after
+	 * firmware that never writes them (CPU document 17.2; M103c). */
+	upd9002_alt_regs.af = 0xffff;
+	upd9002_alt_regs.bc = 0xffff;
+	upd9002_alt_regs.de = 0xffff;
+	upd9002_alt_regs.hl = 0xffff;
+	upd9002_alt_regs_loaded = FALSE;
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
 	upd9002_compat_return_sp = 0;
@@ -296,6 +307,29 @@ int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
 	return SUCCESS;
 }
 
+void upd9002_core_mode_state_save(UINT8 *buffer) {
+	buffer[0] = CPU_COMPAT_MODE;
+	buffer[1] = CPU_COMPAT_RETURN_PENDING;
+	STOREINTELWORD(buffer + 2, upd9002_compat_return_sp);
+}
+
+BOOL upd9002_core_mode_state_valid(const UINT8 *buffer) {
+	return ((buffer[0] == UPD9002_COMPAT_NATIVE) || (buffer[0] == UPD9002_COMPAT_UPD70008)) &&
+	       (buffer[1] <= 1) && !((buffer[0] == UPD9002_COMPAT_UPD70008) && buffer[1]);
+}
+
+/* Must follow UPD9CPU, whose import clears these fields, and precede UPD9Z80,
+ * whose loader runs only when compatible state is active. */
+int upd9002_core_mode_state_load(const UINT8 *buffer) {
+	if (!upd9002_core_mode_state_valid(buffer)) {
+		return FAILURE;
+	}
+	CPU_COMPAT_MODE = buffer[0];
+	CPU_COMPAT_RETURN_PENDING = buffer[1];
+	upd9002_compat_return_sp = LOADINTELWORD(buffer + 2);
+	return SUCCESS;
+}
+
 int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size) {
 	if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE)) {
 		return FAILURE;
@@ -350,6 +384,21 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 1;
 	UPD9002_WORKCLOCK(20);
+}
+
+void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip) {
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) {
+		return;
+	}
+	upd9002_core_compat_calln(vect, instruction_ip);
+	UPD9002_FLAG &= ~(I_FLAG | T_FLAG);
+	UPD9002_TRAP = 0;
+}
+
+void CPUCALL upd9002_core_compat_irq(BOOL asserted) {
+	if (upd9002_compat_hooks.irq != NULL) {
+		upd9002_compat_hooks.irq(asserted);
+	}
 }
 
 BOOL CPUCALL upd9002_core_compat_iret_is_return(void) {

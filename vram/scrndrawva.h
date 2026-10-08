@@ -17,6 +17,7 @@ enum {
 
 BYTE scrndrawva_draw(BYTE redraw);
 void scrndrawva_redraw(void);
+BYTE scrndrawva_outputlevel(UINT value, UINT bits, BOOL digital);
 
 void scrndrawva_set_layer_enabled(UINT layer, BOOL enabled);
 BOOL scrndrawva_layer_enabled(UINT layer);
