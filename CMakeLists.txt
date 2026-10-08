@@ -896,6 +896,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_repo_check_eol
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_eol.py")
+    add_test(NAME vaeg_pcengine_disk_msdos
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_pcengine_disk_msdos.py")
     add_test(NAME vaeg_zex_archive_audit
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
