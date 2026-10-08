@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M106 — SGP LINE drew with its two direction bits exchanged
+
+- **Symptom/scope:** LINE commands went the wrong way whenever exactly one
+  direction bit was set. GLASS ORBIT under PC-Engine 1.1 shows on a
+  PC-88VA2 only the left half of the floor's fan, no right half, and four
+  cube edges running down to the floor; vaeg drew the scene the demo
+  intended, so vaeg did not match the hardware. V3 mode, every program that
+  uses SGP LINE (the bundled GLASS, NEON3, NEON4, wireframe, 65536-colour
+  pseudo-sprite and sgp-scan demos were written to the same wrong bits).
+- **Demonstrated cause:** M97b set LINE's horizontal direction to `0400h`
+  and vertical to `0800h` from the Technical Manual's table. The PC-88VA2
+  photo matches vaeg with the two bits exchanged (all three features) and
+  not with the manual's assignment (none of them).
+- **Correction:** `SGP_BLTMODE_LINE_HD` is `0800h` and
+  `SGP_BLTMODE_LINE_VD` `0400h` again. BITBLT and PATBLT are unchanged
+  (not measured).
+- **Verification:** the SGP selftest draws four 4bpp lines (no bit, `0800h`,
+  `0400h`, both) and checks their end points and extents; it fails with
+  the M97b assignment. 110 CTests pass.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md),
+  [photo](m106-photos/va2-pcengine-glass-line.jpg),
+  [SGP notes section 13](upd92017-sgp.md#13-line-0009h).
+
 ### M105 — TSP frames with a sync shorter than 4 lines ran slow
 
 - **Symptom/scope:** frames that set the vertical sync field `VS` below 4
@@ -1281,7 +1304,8 @@ separate parity correction or move it to Open Defects.
   unimplemented SCAN command handlers, and one unconditional VA2-style block
   decoder. The local PC-88VA Technical Manual defines common LINE/BLT
   direction bits, complete SCAN results, and the original-VA field widths.
-- **Correction:** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
+- **Correction (LINE part reverted in M106 after a hardware photo; see the
+  M106 entry):** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
   versus VA2 descriptor profiles explicitly, and execute SCAN RIGHT/LEFT
   incrementally with the documented SET COLOR boundary and destination
   updates. No SGP timing coefficient or save-state layout changed.
