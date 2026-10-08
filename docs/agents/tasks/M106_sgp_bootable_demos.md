@@ -46,17 +46,15 @@ exclude PC-Engine as a cause.
    minimal `INT 21h`/`INT 20h`), `build-boot-d88.py` (reproducible D88
    builder that writes outside the repository), `README.md`.
 2. No change to the demo sources; the bootable disk is never committed.
-3. Front panel below the screen (maintainer request, 2026-10-08): the
-   maintainer's drawings of the VA, VA2 and VA3 fronts (manufacturer logo
-   removed; BSD-2-Clause, `assets/NOTICE.md`), with FDD access lamps lit
-   while a drive is accessed (red 2D/2DD, green 2HD) and the V1/V2/V3 mode
-   lamps from port 1CDh.
+3. Front panel below the screen (maintainer request, 2026-10-08): a slim
+   bar of lamps, FDD access lamps lit while a drive is accessed (red 2D/2DD,
+   green 2HD) and the V1/V2/V3 mode lamps from port 1CDh.
 
 ## Gate G106 (human)
 
 Standard V3 gate unchanged, plus: the built disk boots to the menu in vaeg
 and on the PC-88VA2, and the demos run from it (results on hardware are
-recorded whatever they are). The front panel appears below the screen, the access
+recorded whatever they are). The lamp bar appears below the screen, the access
 lamp lights while a disk is read (red for 2D/2DD, green for 2HD) and the
 mode lamp follows V1/V2/V3.
 
@@ -103,3 +101,9 @@ mode lamp follows V1/V2/V3.
   renders the bar on a software renderer (drive 1 lit, V1 dark; fails with
   the mode lamps forced on).
   [8d014f8a](https://github.com/nakatamaho/vaeg/commit/8d014f8a2b8648ce15d12a2a3b343503cb02bd46).
+- The drawing of the machine's front, added first and later drawn under the
+  native CRT presenter too, was withdrawn by the maintainer (2026-10-08):
+  its rights (trademarks and the appearance of the product) are unclear. The
+  three images, the PNG decoder and the drawing mode are removed; only the
+  lamp bar remains (`FrontPanelMode`). The images stay in this branch's
+  history until the maintainer decides how to handle it.
