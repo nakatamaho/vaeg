@@ -69,6 +69,7 @@ class LatestImageMailbox {
 	std::vector<std::uint8_t> pixels_;
 	std::uint64_t slot_ = 0;
 	bool pending_ = false;
+	bool has_published_ = false;
 };
 
 } // namespace vaeg::recording

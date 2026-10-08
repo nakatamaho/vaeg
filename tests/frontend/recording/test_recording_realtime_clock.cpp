@@ -80,6 +80,8 @@ int main() {
 		      "OSR_BOUNDED_OVERLOAD");
 	}
 	check(mailbox.take(&output, &slot) && slot == 100002, "OSR_NEWEST_ONLY");
+	check(mailbox.publish(input.data(), input.size(), 100002) == LatestImageResult::Invalid,
+	      "OSR_STALE_AFTER_CONSUMPTION");
 	check(mailbox.publish(input.data(), 11, 100003) == LatestImageResult::Invalid,
 	      "OSR_SIZE_CHANGE");
 	bool rejected = false;

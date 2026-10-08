@@ -94,13 +94,14 @@ LatestImageResult LatestImageMailbox::publish(const std::uint8_t *pixels, std::s
 	if (!lock.owns_lock()) {
 		return LatestImageResult::Busy;
 	}
-	if (pending_ && slot <= slot_) {
+	if (has_published_ && slot <= slot_) {
 		return LatestImageResult::Invalid;
 	}
 	const auto result = pending_ ? LatestImageResult::Replaced : LatestImageResult::Accepted;
 	std::memcpy(pixels_.data(), pixels, bytes);
 	slot_ = slot;
 	pending_ = true;
+	has_published_ = true;
 	return result;
 }
 bool LatestImageMailbox::take(std::vector<std::uint8_t> *destination,
