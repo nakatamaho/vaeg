@@ -406,6 +406,7 @@ set(VAEG_SDL2_SOURCES
 if(VAEG_ENABLE_RECORDING)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/recording/recording_ffmpeg_capabilities.cpp
+        sdl2/recording/recording_h264_encoder.cpp
         sdl2/recording/recording_ffmpeg_video_encoder.cpp
         sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
         sdl2/recording/recording_ffmpeg_matroska.cpp)
@@ -1197,6 +1198,25 @@ if(VAEG_ENABLE_TESTS)
         set_tests_properties(vaeg_recording_ffmpeg_capabilities PROPERTIES
             LABELS "romless;recording;ffmpeg")
 
+        add_executable(vaeg_recording_h264_encoder_test
+            tests/frontend/recording/test_recording_h264_encoder.cpp
+            sdl2/recording/recording_h264_encoder.cpp)
+        target_include_directories(vaeg_recording_h264_encoder_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+        target_compile_features(vaeg_recording_h264_encoder_test PRIVATE cxx_std_17)
+        target_compile_options(vaeg_recording_h264_encoder_test PRIVATE -Wall)
+        target_link_libraries(vaeg_recording_h264_encoder_test PRIVATE ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_h264_encoder_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_h264_contracts
+            COMMAND vaeg_recording_h264_encoder_test --contracts)
+        add_test(NAME vaeg_recording_h264_hardware_probe
+            COMMAND vaeg_recording_h264_encoder_test)
+        set_tests_properties(vaeg_recording_h264_contracts PROPERTIES
+            LABELS "romless;recording;realtime;h264;contracts")
+        set_tests_properties(vaeg_recording_h264_hardware_probe PROPERTIES
+            LABELS "romless;recording;realtime;h264;hardware" SKIP_RETURN_CODE 77)
         add_executable(vaeg_recording_ffv1_test
             tests/frontend/recording/test_recording_ffmpeg_video_encoder.cpp
             sdl2/recording/recording.c
