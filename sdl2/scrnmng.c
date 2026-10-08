@@ -151,11 +151,11 @@ const char *scrnmng_native_preset_path(void) {
 /*
  * Front panel below the guest picture (sdl2/frontpanel.c): in a visible
  * window only, not in full screen and not under a headless video driver, so
- * captures and headless runs are unchanged. The native CRT presenter draws
- * through the GUI overlay, which shows the simple bar in place of the drawing.
+ * captures and headless runs are unchanged. With the native CRT presenter
+ * the panel (bar or drawing) is drawn through the GUI overlay.
  */
 static BOOL scrnmng_front_panel_simple(void) {
-	return ((np2oscfg.front_panel != FRONTPANEL_ART) || scrnmng.native_active) ? TRUE : FALSE;
+	return (np2oscfg.front_panel != FRONTPANEL_ART) ? TRUE : FALSE;
 }
 
 static int scrnmng_front_panel_height(int width) {
@@ -1806,6 +1806,8 @@ static void scrnmng_draw_front_panel(void) {
 	panel.w = output_w;
 	if (scrnmng_front_panel_simple()) {
 		scrnmng_draw_simple_panel(&panel);
+	} else if (scrnmng.native_active) {
+		frontpanel_render_overlay(&panel);
 	} else {
 		frontpanel_render(scrnmng.renderer, &panel);
 	}

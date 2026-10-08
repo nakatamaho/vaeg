@@ -50,6 +50,9 @@ int frontpanel_height(int width);
 /* Scale of the simple bar for a window width (1 at 640). */
 int frontpanel_simple_scale(int width);
 void frontpanel_render(struct SDL_Renderer *renderer, const struct SDL_Rect *dst);
+/* The same through the GUI overlay (native CRT presenter). */
+void frontpanel_render_overlay(const struct SDL_Rect *dst);
+BYTE *frontpanel_decode(int index, UINT *width, UINT *height);
 void frontpanel_release(void);
 BOOL frontpanel_selftest_decode(char *problem, size_t size);
 

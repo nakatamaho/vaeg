@@ -35,6 +35,7 @@
 #include "np2.h"
 #include "machine/pccore.h"
 #include "fdd/fddfile.h"
+#include "gui/gui.h"
 
 #include <SDL.h>
 #include <stdlib.h>
@@ -209,7 +210,15 @@ static SDL_Texture *frontpanel_texture(SDL_Renderer *renderer, int index) {
 	return texture;
 }
 
-static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst,
+/* Drawing back ends: the SDL renderer, or the GUI overlay of the native CRT
+ * presenter (sdl2/gui/gui.cpp). */
+typedef struct {
+	BOOL (*image)(void *ctx, int index, const SDL_Rect *dst);
+	void (*fill)(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a, BOOL glow);
+	void *ctx;
+} FRONTPANEL_OPS;
+
+static void frontpanel_lamp(const FRONTPANEL_OPS *ops, const SDL_Rect *dst,
                             const FRONTPANEL_DRAWING *art, const SDL_Rect *lamp, Uint8 r, Uint8 g,
                             Uint8 b) {
 	SDL_Rect rect;
@@ -220,7 +229,6 @@ static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst,
 	rect.w = max(1, (int)(((SINT64)lamp->w * dst->w) / art->width));
 	rect.h = max(1, (int)(((SINT64)lamp->h * dst->h) / art->height));
 	/* glow: widening translucent rectangles, then the lit lens */
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
 	for (k = 4; k >= 1; k--) {
 		SDL_Rect glow;
 		const int grow = max(1, (rect.h * k) / 4);
@@ -229,50 +237,102 @@ static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst,
 		glow.y = rect.y - grow;
 		glow.w = rect.w + grow * 2;
 		glow.h = rect.h + grow * 2;
-		SDL_SetRenderDrawColor(renderer, r, g, b, (Uint8)(18 + (4 - k) * 8));
-		SDL_RenderFillRect(renderer, &glow);
+		ops->fill(ops->ctx, &glow, r, g, b, (Uint8)(18 + (4 - k) * 8), TRUE);
 	}
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-	SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-	SDL_RenderFillRect(renderer, &rect);
+	ops->fill(ops->ctx, &rect, r, g, b, 255, FALSE);
 	rect.h = max(1, rect.h / 4);
 	rect.x += rect.w / 8;
 	rect.w -= rect.w / 4;
 	rect.y += 1;
-	SDL_SetRenderDrawColor(renderer, (Uint8)min(255, r + 110), (Uint8)min(255, g + 110),
-	                       (Uint8)min(255, b + 110), 255);
-	SDL_RenderFillRect(renderer, &rect);
+	ops->fill(ops->ctx, &rect, (Uint8)min(255, r + 110), (Uint8)min(255, g + 110),
+	          (Uint8)min(255, b + 110), 255, FALSE);
 }
 
-void frontpanel_render(SDL_Renderer *renderer, const SDL_Rect *dst) {
+static void frontpanel_draw(const FRONTPANEL_OPS *ops, const SDL_Rect *dst) {
 	const int index = frontpanel_art();
 	const FRONTPANEL_DRAWING *art = &arts[index];
-	SDL_Texture *texture;
 	const UINT32 now = SDL_GetTicks();
 	UINT i;
 
-	if ((renderer == NULL) || (dst == NULL) || (dst->w <= 0) || (dst->h <= 0)) {
+	if ((dst == NULL) || (dst->w <= 0) || (dst->h <= 0) || !ops->image(ops->ctx, index, dst)) {
 		return;
 	}
-	texture = frontpanel_texture(renderer, index);
-	if (texture == NULL) {
-		return;
-	}
-	SDL_RenderCopy(renderer, texture, NULL, dst);
 	for (i = 0; i < FRONTPANEL_DRIVES; i++) {
 		if (frontpanel_drive_lit(i, now)) {
 			if (frontpanel_drive_is_2hd(i)) {
-				frontpanel_lamp(renderer, dst, art, &art->drive[i], 60, 235, 80);
+				frontpanel_lamp(ops, dst, art, &art->drive[i], 60, 235, 80);
 			} else {
-				frontpanel_lamp(renderer, dst, art, &art->drive[i], 255, 45, 30);
+				frontpanel_lamp(ops, dst, art, &art->drive[i], 255, 45, 30);
 			}
 		}
 	}
 	for (i = 0; i < FRONTPANEL_MODES; i++) {
 		if (panel.mode_on[i]) {
-			frontpanel_lamp(renderer, dst, art, &art->mode[i], 120, 255, 130);
+			frontpanel_lamp(ops, dst, art, &art->mode[i], 120, 255, 130);
 		}
 	}
+}
+
+static BOOL frontpanel_sdl_image(void *ctx, int index, const SDL_Rect *dst) {
+	SDL_Renderer *renderer = (SDL_Renderer *)ctx;
+	SDL_Texture *texture = frontpanel_texture(renderer, index);
+
+	if (texture == NULL) {
+		return FALSE;
+	}
+	SDL_RenderCopy(renderer, texture, NULL, dst);
+	return TRUE;
+}
+
+static void frontpanel_sdl_fill(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a,
+                                BOOL glow) {
+	SDL_Renderer *renderer = (SDL_Renderer *)ctx;
+
+	SDL_SetRenderDrawBlendMode(renderer, glow ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(renderer, r, g, b, a);
+	SDL_RenderFillRect(renderer, rect);
+	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+void frontpanel_render(SDL_Renderer *renderer, const SDL_Rect *dst) {
+	FRONTPANEL_OPS ops;
+
+	if (renderer == NULL) {
+		return;
+	}
+	ops.image = frontpanel_sdl_image;
+	ops.fill = frontpanel_sdl_fill;
+	ops.ctx = renderer;
+	frontpanel_draw(&ops, dst);
+}
+
+static BOOL frontpanel_overlay_image(void *ctx, int index, const SDL_Rect *dst) {
+	(void)ctx;
+	return gui_overlay_front_panel(index, dst->x, dst->y, dst->w, dst->h);
+}
+
+static void frontpanel_overlay_fill(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b,
+                                    Uint8 a, BOOL glow) {
+	(void)ctx;
+	(void)glow; /* the overlay blends by alpha only */
+	gui_overlay_rect(rect->x, rect->y, rect->w, rect->h, r, g, b, glow ? (Uint8)(a * 2) : a);
+}
+
+void frontpanel_render_overlay(const SDL_Rect *dst) {
+	FRONTPANEL_OPS ops;
+
+	ops.image = frontpanel_overlay_image;
+	ops.fill = frontpanel_overlay_fill;
+	ops.ctx = NULL;
+	frontpanel_draw(&ops, dst);
+}
+
+/* The current drawing as malloc()ed RGBA for the GUI overlay (free() it). */
+BYTE *frontpanel_decode(int index, UINT *width, UINT *height) {
+	if ((index < 0) || (index >= FRONTPANEL_ARTS)) {
+		return NULL;
+	}
+	return vaeg_png_decode_rgba(arts[index].png, *arts[index].png_size, width, height);
 }
 
 BOOL frontpanel_selftest_decode(char *problem, size_t size) {
