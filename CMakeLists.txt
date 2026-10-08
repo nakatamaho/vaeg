@@ -1250,9 +1250,14 @@ if(VAEG_ENABLE_TESTS)
         endif()
         add_executable(vaeg_recording_h264_encoder_test
             tests/frontend/recording/test_recording_h264_encoder.cpp
-            sdl2/recording/recording_h264_encoder.cpp)
+            sdl2/recording/recording_h264_encoder.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            common/parts.c)
         target_include_directories(vaeg_recording_h264_encoder_test PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
         target_compile_features(vaeg_recording_h264_encoder_test PRIVATE cxx_std_17)
         target_compile_options(vaeg_recording_h264_encoder_test PRIVATE -Wall)
         target_link_libraries(vaeg_recording_h264_encoder_test PRIVATE ${VAEG_FFMPEG_TARGETS})

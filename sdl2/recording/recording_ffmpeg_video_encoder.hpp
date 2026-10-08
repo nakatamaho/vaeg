@@ -89,6 +89,7 @@ struct EncodedVideoPacket {
 	std::vector<std::uint8_t> data;
 };
 
+enum class RecordingVideoCodec { Ffv1, H264 };
 struct VideoEncoderInfo {
 	std::uint32_t width;
 	std::uint32_t height;
@@ -97,6 +98,7 @@ struct VideoEncoderInfo {
 	bool ffv1_version3;
 	bool slice_crc;
 	std::vector<std::uint8_t> codec_extradata;
+	RecordingVideoCodec codec = RecordingVideoCodec::Ffv1;
 };
 
 class FfmpegVideoEncoder;

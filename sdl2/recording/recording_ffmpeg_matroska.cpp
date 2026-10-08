@@ -451,6 +451,7 @@ class FfmpegMatroskaWriter::Impl {
 	bool has_video = false;
 	bool has_audio = false;
 	std::int64_t last_video_pts = 0;
+	std::int64_t last_video_dts = 0;
 	std::uint64_t next_audio_index = 0u;
 	std::uint64_t video_packets_written = 0u;
 	std::uint64_t audio_packets_written = 0u;
@@ -505,12 +506,18 @@ class FfmpegMatroskaWriter::Impl {
 #ifdef VAEG_RECORDING_FFMPEG_TESTING
 		test_fault = requested.test_fault;
 #endif
+		const bool archive = video.codec == RecordingVideoCodec::Ffv1;
+		const bool valid_video = archive
+		    ? (video.gop_size == 1u && video.bgr0 && video.ffv1_version3 && video.slice_crc)
+		    : (video.codec == RecordingVideoCodec::H264 && video.gop_size == 120u &&
+		       !video.bgr0 && !video.ffv1_version3 && !video.slice_crc &&
+		       !video.codec_extradata.empty() && !(video.width & 1u) && !(video.height & 1u) &&
+		       config.video_time_base_num == 1 && config.video_time_base_den == 60);
 		if (!valid_time_base(config.video_time_base_num, config.video_time_base_den) ||
 		    config.video_epoch_pts < 0 ||
 		    (config.source != "native" && config.source != "displayed") ||
 		    config.build_identity.empty() || !config.osd_included || video.width == 0u ||
-		    video.height == 0u || video.gop_size != 1u || !video.bgr0 || !video.ffv1_version3 ||
-		    !video.slice_crc || audio.sample_rate_hz == 0u || audio.channels != 2u ||
+		    video.height == 0u || !valid_video || audio.sample_rate_hz == 0u || audio.channels != 2u ||
 		    audio.sample_bits != 16u || !audio.s16le || audio.sample_rate_hz >
 		                                            static_cast<std::uint32_t>(std::numeric_limits<int>::max()) ||
 		    audio.origin_offset_denominator == 0u ||
@@ -568,10 +575,16 @@ class FfmpegMatroskaWriter::Impl {
 
 		AVCodecParameters *video_parameters = video_stream->codecpar;
 		video_parameters->codec_type = AVMEDIA_TYPE_VIDEO;
-		video_parameters->codec_id = AV_CODEC_ID_FFV1;
+		video_parameters->codec_id = archive ? AV_CODEC_ID_FFV1 : AV_CODEC_ID_H264;
 		video_parameters->width = static_cast<int>(video.width);
 		video_parameters->height = static_cast<int>(video.height);
-		video_parameters->format = AV_PIX_FMT_BGR0;
+		video_parameters->format = archive ? AV_PIX_FMT_BGR0 : AV_PIX_FMT_NV12;
+		if (!archive) {
+			video_parameters->color_range = AVCOL_RANGE_MPEG;
+			video_parameters->color_space = AVCOL_SPC_BT709;
+			video_parameters->color_primaries = AVCOL_PRI_BT709;
+			video_parameters->color_trc = AVCOL_TRC_BT709;
+		}
 		if (!copy_extradata(video_parameters, video.codec_extradata)) {
 			return FfmpegMatroskaWriterError::AllocationFailure;
 		}
@@ -590,7 +603,8 @@ class FfmpegMatroskaWriter::Impl {
 
 		if (av_dict_set(&format->metadata, "VAEG_RECORDING_SOURCE", config.source.c_str(), 0) < 0 ||
 		    av_dict_set(&format->metadata, "VAEG_RECORDING_OSD", "included", 0) < 0 ||
-		    av_dict_set(&format->metadata, "VAEG_RECORDING_FORMAT", "recording-v1", 0) < 0 ||
+		    av_dict_set(&format->metadata, "VAEG_RECORDING_FORMAT",
+		                archive ? "recording-v1" : "recording-realtime-v1", 0) < 0 ||
 		    av_dict_set(&format->metadata, "VAEG_BUILD_ID", config.build_identity.c_str(), 0) < 0) {
 			return FfmpegMatroskaWriterError::AllocationFailure;
 		}
@@ -741,11 +755,12 @@ class FfmpegMatroskaWriter::Impl {
 			items.reserve(video_packets.size() + audio_packets.size());
 			for (std::size_t index = 0u; index < video_packets.size(); ++index) {
 				const auto &packet = video_packets[index];
-				if (packet.data.empty() || packet.duration <= 0 || packet.pts < config.video_epoch_pts) {
+				if (packet.data.empty() || packet.duration <= 0 || packet.pts < config.video_epoch_pts ||
+				    packet.dts < config.video_epoch_pts || packet.dts > packet.pts) {
 					return FfmpegMatroskaWriterError::InvalidInput;
 				}
 				std::int64_t order_time = 0;
-				if (!rescale_timestamp(packet.pts - config.video_epoch_pts, video_codec_time_base,
+				if (!rescale_timestamp(packet.dts - config.video_epoch_pts, video_codec_time_base,
 				                       AV_TIME_BASE_Q, &order_time)) {
 					return FfmpegMatroskaWriterError::TimestampFailure;
 				}
@@ -778,7 +793,7 @@ class FfmpegMatroskaWriter::Impl {
 			for (const MuxItem &item : items) {
 				if (item.video) {
 					const auto &input = video_packets[item.index];
-					if (has_video && input.pts < last_video_pts) {
+					if (has_video && (input.pts < last_video_pts || input.dts < last_video_dts)) {
 						return FfmpegMatroskaWriterError::TimestampFailure;
 					}
 					std::int64_t timestamp = 0;
@@ -786,14 +801,20 @@ class FfmpegMatroskaWriter::Impl {
 					if (!video_timestamp(input, &timestamp, &end_timestamp)) {
 						return FfmpegMatroskaWriterError::TimestampFailure;
 					}
+					std::int64_t dts = 0;
+					if (!rescale_timestamp(input.dts - config.video_epoch_pts, video_codec_time_base,
+					                       video_stream->time_base, &dts)) {
+						return FfmpegMatroskaWriterError::TimestampFailure;
+					}
 					const std::int64_t duration = end_timestamp - timestamp;
 					const auto error = write_packet(input.data.data(), input.data.size(),
-					                               video_stream->index, timestamp, timestamp,
+					                               video_stream->index, timestamp, dts,
 					                               duration, input.keyframe);
 					if (error != FfmpegMatroskaWriterError::None) {
 						return error;
 					}
 					last_video_pts = input.pts;
+					last_video_dts = input.dts;
 					has_video = true;
 					if (video_packets_written == std::numeric_limits<std::uint64_t>::max()) {
 						return FfmpegMatroskaWriterError::TimestampFailure;

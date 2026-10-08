@@ -21,6 +21,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "recording/recording_h264_encoder.hpp"
+#include "recording/recording_ffmpeg_matroska.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -118,6 +119,36 @@ int main(int argc, char **argv) {
 	check(avcodec_send_packet(decoder, nullptr) == 0, "OSR_H264_DECODE_FLUSH"); receive();
 	check(count == 180 && keys >= 2 && keys < 10, "OSR_H264_DECODE_COUNT_GOP");
 	av_packet_free(&packet); av_frame_free(&frame); avcodec_free_context(&decoder);
+	if (argc == 3 && std::strcmp(argv[1], "--movie") == 0) {
+		const auto pcm = FfmpegPcmEncoder::create({48000, 0, 1});
+		check(static_cast<bool>(pcm), "OSR_H264_PCM_CREATE");
+		std::vector<std::int32_t> samples(144000 * 2);
+		for (unsigned i = 0; i < 144000; ++i) {
+			const int value = i % 48000 < 4800 ? (i / 55 % 2 ? 4000 : -4000) : 0;
+			samples[i * 2] = value; samples[i * 2 + 1] = -value;
+		}
+		std::vector<EncodedPcmPacket> audio;
+		for (unsigned i = 0; i < 180; ++i) {
+			check(pcm.encoder->encode({samples.data() + i * 1600, 800, 6400, i * 800}, &audio) ==
+			      FfmpegPcmEncoderError::None, "OSR_H264_PCM_ENCODE");
+		}
+		check(pcm.encoder->flush(&audio) == FfmpegPcmEncoderError::None, "OSR_H264_PCM_DRAIN");
+		VideoEncoderInfo video{640, 400, 120, false, false, false, encoder->info().extradata};
+		video.codec = RecordingVideoCodec::H264;
+		MatroskaWriterConfig config{};
+		config.final_path = argv[2]; config.video_time_base_num = 1; config.video_time_base_den = 60;
+		config.source = "native"; config.build_identity = "public-osr-h264-fixture";
+		const auto movie = FfmpegMatroskaWriter::create(config, video, pcm.encoder->info());
+		check(static_cast<bool>(movie), ffmpeg_matroska_writer_error_name(movie.error));
+		check(movie.writer->write_interval(packets, audio) == FfmpegMatroskaWriterError::None,
+		      "OSR_H264_MUX_PACKETS");
+		check(movie.writer->finish() == FfmpegMatroskaWriterError::None, "OSR_H264_MUX_FINISH");
+		std::printf("OSR_H264_PCM_MKV_PASS video_tb=%d/%d audio_tb=%d/%d\n",
+		            movie.writer->info().video_stream_time_base_num,
+		            movie.writer->info().video_stream_time_base_den,
+		            movie.writer->info().audio_stream_time_base_num,
+		            movie.writer->info().audio_stream_time_base_den);
+	}
 	std::printf("OSR_H264_HARDWARE_PROBE_PASS frames=%u bytes=%llu keyframes=%u\n", count,
 	            static_cast<unsigned long long>(bytes), keys);
 }
