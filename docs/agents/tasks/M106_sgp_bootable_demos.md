@@ -193,3 +193,18 @@ mode lamp follows V1/V2/V3.
   (VA and VA2) all 17 programs start and draw as under preview 1; GLASS and
   SGPD_7C still stop after their second frame under MS-DOS (deferred).
   [91f9362b](https://github.com/nakatamaho/vaeg/commit/91f9362be7582cb09607c534ea09810c9bd13500), [639c963d](https://github.com/nakatamaho/vaeg/commit/639c963d6c36b8a8d444888f3b8e113576561c11).
+- NEON3 rebuilt (maintainer: plan B; the private `neon3_1_5/98/` copy is
+  lost). The six NEON RELAY 3 ver1.5 files the port includes are tracked
+  unmodified in `external/neon3-1.5/` (SimK; modified BSD licence by the
+  author's statement on the np21w download page; ADR-0017). The public
+  ver1.5 matches every source line the port documents cite but differs from
+  the lost copy in parts of the city geometry and is 128 bytes larger, so
+  the port's unused diagnostic reserve shrank by 128 bytes; NEON200/NEON400
+  are 57405 bytes as before. `demos/neon3/build-d88.sh` now builds the
+  distribution disk. The rebuilt payloads also carry the M97 text repaint
+  and loop changes made after the old distribution (the `TOTAL FRAMES`
+  label has no value since then). In vaeg (VA2, PC-Engine 1.1 and MS-DOS
+  4.0) both profiles draw the city with correct lines. The NEON3 open defect
+  is closed. all-demos-msdos4.d88.xz SHA-256 is now
+  `1baf360b6c012d7655edb47fe41a3a96bbd60c435258c84bb9d3aa4c0840f8d6`.
+  [ed3e052c](https://github.com/nakatamaho/vaeg/commit/ed3e052c96e6fc92b30fffd7c5aca6bf2b6b5af3), [42d45dd7](https://github.com/nakatamaho/vaeg/commit/42d45dd771827a67cdc754916a1bccf88245233a), [a55238ff](https://github.com/nakatamaho/vaeg/commit/a55238ff454e63bb6130037913e37df26b16f7b5), [2e8ed22b](https://github.com/nakatamaho/vaeg/commit/2e8ed22b0b5980f81bac4ec01c1fb08d75425335).
