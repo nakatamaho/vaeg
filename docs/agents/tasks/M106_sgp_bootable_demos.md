@@ -133,3 +133,19 @@ mode lamp follows V1/V2/V3.
   excludes them, the custom window size likewise, and a scale change
   includes them. The bar stays on by default (`FrontPanelMode=1`).
   [e99c8c64](https://github.com/nakatamaho/vaeg/commit/e99c8c6493397f0cb78368ce19747be05e8d7dc5).
+- MS-DOS bootable demo disks (maintainer request): `pcengine_disk.py
+  vanilla` and `install` also accept the PC-88VA MS-DOS 2.0 and 4.0 system
+  disks of the FreeDOS-88VA project (MIT-licensed releases `msdos2-va.1` and
+  `msdos4-va.1`), recognised by their boot parameter block and IO.SYS at
+  cluster 2. A vanilla MS-DOS copy keeps the volume label, IO.SYS, MSDOS.SYS,
+  COMMAND.COM, CONFIG.SYS, AUTOEXEC.BAT, LICENSE.TXT and README.TXT in their
+  root order. PC-Engine output is unchanged (byte-identical vanilla disks
+  from 1.05 and 1.1). Every demo disk builder (all demos, the SGP disk via
+  `--system-source`, and the per-demo `build-bootable-d88.sh`) therefore
+  takes either system. In vaeg all 17 programs of the all-demos disk run
+  from MS-DOS 4.0 on the VA and the VA2 (the zundamon demo takes about 70 s
+  of emulated time to load its atlas), with the same known colour and
+  65536-colour faults as under PC-Engine; MS-DOS 2.0 was spot-checked.
+  Synthetic-disk tests: `tests/pc88va/test_pcengine_disk_msdos.py`.
+  [f86b201b](https://github.com/nakatamaho/vaeg/commit/f86b201bc8da888a584a6d9d0ca056c3e5e3c9e3),
+  [089f4579](https://github.com/nakatamaho/vaeg/commit/089f4579d1fede61b14f3727e2b09754a2ac989e).
