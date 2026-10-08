@@ -735,8 +735,11 @@ only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
 in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
 V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
 while frames, timers, FM, BEEP and disk timing keep real time.
-`Screen -> 前面パネル` (`FrontPanel`, on by default) shows the
-maintainer's drawing of the machine's front below the screen in a window:
+`Screen -> 前面パネル` (`FrontPanel`: 0 off, 1 simple, the default, 2
+drawing) shows a front panel below the screen in a window. The simple panel
+is a slim bar of lamps labelled FD1, FD2, V1, V2 and V3 (14 rows per 640
+dots); the drawing is the maintainer's drawing of the machine's front. In
+both:
 each FDD access lamp lights for 120 ms after a sector access, red for 2D/2DD
 media and green for 2HD, and the V1/V2/V3 mode lamps follow port 1CDh bits
 4-6. The VA model uses the VA drawing, the VA2/VA3 model the VA2 drawing or,

@@ -97,3 +97,9 @@ mode lamp follows V1/V2/V3.
   rendered panel with drive 1 red (2DD) / green (2HD), V2 lit and V1 dark;
   it fails with the 2HD colour forced off. Window drawing is checked by the
   maintainer (no display in the build environment).
+- The full drawing was too busy for everyday use (maintainer, 2026-10-08):
+  the default is now a simple bar of lamps (FD1, FD2, V1, V2, V3; 14 rows per
+  640 dots), with the drawing kept as a menu choice. The romless test also
+  renders the bar on a software renderer (drive 1 lit, V1 dark; fails with
+  the mode lamps forced on).
+  [8d014f8a](https://github.com/nakatamaho/vaeg/commit/8d014f8a2b8648ce15d12a2a3b343503cb02bd46).
