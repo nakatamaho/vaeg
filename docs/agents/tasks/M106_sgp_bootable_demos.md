@@ -150,3 +150,18 @@ mode lamp follows V1/V2/V3.
   Synthetic-disk tests: `tests/pc88va/test_pcengine_disk_msdos.py`.
   [f86b201b](https://github.com/nakatamaho/vaeg/commit/f86b201bc8da888a584a6d9d0ca056c3e5e3c9e3),
   [089f4579](https://github.com/nakatamaho/vaeg/commit/089f4579d1fede61b14f3727e2b09754a2ac989e).
+- Committed bootable MS-DOS 4.0 disk (maintainer-approved exception to the
+  bootable-disk rule, recorded in `AGENTS.md`): `demos/disks/all-demos-msdos4.d88.xz`
+  (144780 bytes, SHA-256
+  `db80607c4ca720399aee9fc473cf90897fbad3413b9b7aab0f930d4b7cc3d75e`; raw D88
+  SHA-256 `fecd48b65b2c0feea4e590657318c4cb8bed2909581c4058087c095ee3af8e53`).
+  Built by `tools/pc88va/build-all-demos-msdos4-disk.py` from the pinned
+  `msdos4-va.1` image with fixed directory time stamps; two builds give the
+  same bytes and the `.xz` round-trips. Its validator checks the release's
+  boot sector and kept files by hash and every demo file against the
+  distributions, with one error code per mutation
+  (`tests/pc88va/test_all_demos_msdos4_disk.py`). In vaeg the committed image
+  runs all 17 programs on the VA and the VA2.
+  [100825e8](https://github.com/nakatamaho/vaeg/commit/100825e83fa3e8b8dbf1ab3982c5a2b24acb056e),
+  [5dcff541](https://github.com/nakatamaho/vaeg/commit/5dcff541b18b97c0d450198e27a1fef0686e9ca1),
+  [1de95914](https://github.com/nakatamaho/vaeg/commit/1de95914bd3ad44ea972fd5e6be4fdc9cdcf992d).
