@@ -1,5 +1,16 @@
 # Recording v1 handoff
 
+## Current OS-assisted continuation
+
+The integrated recording extension now continues under the maintainer's
+recording-only sequential/LOCAL_ONLY authorization. Current source identities,
+implemented host schedule, VideoToolbox H.264/PCM/MKV and ScreenCaptureKit
+checkpoints, executable evidence and exact next steps are in
+[os-assisted-status.md](os-assisted-status.md) and
+[os-assisted-plan.md](os-assisted-plan.md). Real-time live A/V and platform
+validation are unfinished. The REC history below is preserved; its former
+next-task blocker is not a blanket stop on independent OS-assisted work.
+
 Current state: REC15 is implemented with its deterministic machine checks, but
 real SDL renderer runtime evidence is pending. Completed tasks: REC00/M100r1,
 explicitly accepted by the maintainer on 2026-09-19, REC01/M100r2,

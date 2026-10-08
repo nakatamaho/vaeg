@@ -27,11 +27,11 @@ Unused M100s suffixes are separate from reserved M100r1--M100r28.
 
 | Checkpoint | Feature units | Scope / status |
 |---|---|---|
-| M100s1 | OSR01, OSR02 partial | host schedule and bounded latest-owned image tests; IN_PROGRESS |
-| M100s2 | OSR04, OSR06 partial | separate direct-libav VideoToolbox H.264 encode/decode probe; NOT_STARTED |
+| M100s1 | OSR01, OSR02 partial | host schedule and bounded latest-owned image tests; implemented, host audio mapping pending |
+| M100s2 | OSR04, OSR06 partial | direct-libav VideoToolbox H.264/PCM/MKV public probe PASS; live recording pending |
 | M100s3 | OSR02, OSR03 | audited playback clock adapter and coordinator; NOT_STARTED |
 | M100s4 | OSR08 | Native/client real-time + existing UI/CLI integration; NOT_STARTED |
-| M100s5 | OSR10 | ScreenCaptureKit main-window stream; NOT_STARTED |
+| M100s5 | OSR10 | ScreenCaptureKit main-window adapter IMPLEMENTED_UNVERIFIED; consent blocks runtime |
 | M100s6 | OSR05, OSR09 | MinGW-compatible Windows providers/capture; NOT_STARTED |
 | M100s7 | OSR07, OSR11, OSR12 | Linux VA-API/NVENC, portal/PipeWire and X11; NOT_STARTED |
 | M100s8 | OSR13--OSR15 | lifecycle, stress, performance, packaging and validation; NOT_STARTED |
@@ -64,12 +64,16 @@ is NOT an approved redistributed dependency. OFF must retain no FFmpeg dependenc
 Existing baseline ON/OFF build and recording tests passed as recorded in audit.
 
 Before optimization freeze Release reference conditions and numeric budgets from
-measured recording-off/FFV1 workloads. No baseline measurements yet; no numeric
+measured recording-off/FFV1 workloads. No actual application baseline measurements yet; no numeric
 performance or file-size PASS, no budget relaxation, and no optimization claim.
 Required runs remain 60 host seconds per profile and 10 minutes A/V drift/resource
 stress, real guest markers, pause/mute/speed/overload/device-loss tests, real
 window decorations and consent/lifecycle tests. Keep per-platform evidence;
 VLC picture/sound/seek/EOF and clean deployment remain pending.
+
+Current execution evidence and precise next steps:
+[os-assisted-status.md](os-assisted-status.md). No full OSR unit completion is
+implied by the compiling sub-checkpoints above.
 
 ## Named checkpoint checks
 

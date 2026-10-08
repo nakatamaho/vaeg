@@ -1,5 +1,10 @@
 # Recording v1 status
 
+Current integrated OS-assisted extension status and resume instructions are in
+[os-assisted-status.md](os-assisted-status.md). The REC results below remain
+historical evidence, not blanket verification of the current checkout or the
+new Real-time profile. No existing REC milestone is renumbered or replayed.
+
 REC00 was explicitly accepted by the maintainer on 2026-09-19. REC01/M100r2,
 REC02/M100r3, REC03/M100r4, REC04/M100r5, REC05/M100r6, REC06/M100r7,
 REC07/M100r8, REC08/M100r9, REC09/M100r10, REC10/M100r11, REC11/M100r12 and
