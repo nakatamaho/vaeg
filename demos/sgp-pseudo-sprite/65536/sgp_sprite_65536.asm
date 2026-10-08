@@ -77,8 +77,10 @@ org 0x100
 %define SGP_COMMAND_CLS         0x000a
 %define SGP_BITBLT_COPY_XPAR    0x0105
 %define SGP_LINE_COPY           0x0005
-%define SGP_LINE_HD             0x0400
-%define SGP_LINE_VD             0x0800
+; LINE directions as measured on a PC-88VA2 (the Technical Manual's table has
+; them exchanged).
+%define SGP_LINE_HD             0x0800
+%define SGP_LINE_VD             0x0400
 %define SGP_BUSY                0x01
 
 %define SPRITE_MIN_COUNT        1

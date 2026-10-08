@@ -55,12 +55,12 @@
 %define NEON_SGP_LINE              0009h
 %define NEON_SGP_CLS               000ah
 %define NEON_SGP_LINE_COPY         0005h
-; SGP LINE direction bits.  The validated GLASS VA backend uses the
-; hardware BLTMODE meanings: HD=0400h and VD=0800h.  These are direction
-; flags, not axis selectors; swapping them produces slope-dependent line
-; corruption.
-%define NEON_SGP_LINE_HD           0400h
-%define NEON_SGP_LINE_VD           0800h
+; SGP LINE direction bits as measured on a PC-88VA2 (M106): HD=0800h and
+; VD=0400h; the Technical Manual's table has them exchanged.  These are
+; direction flags, not axis selectors; swapping them produces slope-dependent
+; line corruption.
+%define NEON_SGP_LINE_HD           0800h
+%define NEON_SGP_LINE_VD           0400h
 %define NEON_G0_PITCH_BYTES        320
 %define NEON_G0_WORDS_PER_LINE     160
 ; FB0/G0 uses two contiguous packed-4bpp pages.  These values are the
