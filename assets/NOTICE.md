@@ -85,3 +85,23 @@ native executable icon resource.
 
 - SHA-256:
   `a27533f679a31fdb8e2812c1d4906e705e544ba49b976154dde6794ce31a32f4`
+
+## Front panel artwork
+
+`front-panel-va.png`, `front-panel-va2.png` and `front-panel-va3.png` are
+drawings of the PC-88VA, PC-88VA2 and PC-88VA3 front panels made by the
+maintainer (Nakata Maho) for vaeg in 2026, and are distributed under the
+same two-clause BSD terms as the rest of the repository, Copyright (c) 2026
+Nakata Maho. The manufacturer's logo was removed from the drawings before
+they were added; product names remain only as descriptive labels of the
+hardware depicted. The images were cropped or padded to 1900x600 (VA) and
+1900x750 (VA2, VA3) without resampling. CMake embeds them in the SDL2
+executable, which decodes them with its own PNG decoder (`sdl2/pngdecode.c`)
+for the front panel shown below the screen (`sdl2/frontpanel.c`).
+
+- `front-panel-va.png` SHA-256:
+  `af56c28b3e55cfaee74c893e2b52f9921153aba9f010c468b5b492cb5fda4698`
+- `front-panel-va2.png` SHA-256:
+  `8bfda3cc98245f660528c50f18bb644a9cc8a72bc331dc8804053330b733f643`
+- `front-panel-va3.png` SHA-256:
+  `f9be10de942237e47b7253eb28d8a35160ab611eb5b9040bc4e9f945e89c6307`
