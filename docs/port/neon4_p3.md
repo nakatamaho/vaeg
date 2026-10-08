@@ -109,28 +109,19 @@ reference writer; the SGP build emits `SET_WORK`, `SET_COLOR`, one `CLS` span
 per row, six `LINE` commands, and `END`.  The SGP list reserves 4096 words,
 while the P4 diagnostic scene uses 661 words (1322 bytes) at its high-water
 point.  The 8bpp LINE descriptor uses screen mode `2`, dot `0` or `1` for the
-two pixels in a word, and the validated VA hardware direction bits
-(`HD=0400h`, `VD=0800h`).  Odd X addresses are aligned down to the containing
-even word.  `build_p4.sh` accepts `NEON4_SGP_REAL_DIRECTION=0` only for a
-VAEG comparison build, because the current emulator's legacy enum labels the
-two line direction bits in the opposite order.
+two pixels in a word, and the direction bits measured on a PC-88VA2 in M106
+(`HD=0800h`, `VD=0400h`; this text first recorded the Technical Manual's
+exchanged `HD=0400h`, `VD=0800h`, which a hardware photo disproved, see
+[`upd92017-sgp.md` section 13](../modernization/upd92017-sgp.md#13-line-0009h)).
+Odd X addresses are aligned down to the containing even word.
+`NEON4_SGP_REAL_DIRECTION=0` selects the manual's table for comparison only.
 
 The CPU line reference follows the SGP accumulator/tie convention rather than
 an independent Bresenham tie rule.  This makes the two writers compare at the
 logical-pixel level while keeping the CPU path verification-only.
 
-For VAEG-only regression, build the legacy emulator mapping explicitly:
-
-```sh
-NEON4_SGP_REAL_DIRECTION=0 demos/neon4/build_p4.sh sgp /tmp/N4P4SGP-VAEG.COM
-```
-
-The default `build_p4.sh sgp` output uses the validated VA hardware mapping.
-The two profiles are intentionally not interchangeable: VAEG's
-`LINE_VD`/`LINE_HD` enum names are reversed relative to the hardware bit
-meanings recorded by the validated NEON3/GLASS payload.  A VAEG comparison is
-therefore a functional emulator check, not evidence that the hardware profile
-uses the emulator's enum names.
+Since M106 vaeg draws LINE with the measured directions, and the default
+build is correct on both vaeg and the hardware.
 
 Build both variants with:
 
