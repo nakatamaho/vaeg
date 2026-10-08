@@ -702,10 +702,11 @@ neon_text_write_static_overlay:
         mov     dh, 3
         xor     dl, dl
         call    neon_status_bios_puts_at
+        ; The value is the length of one pass of the looping timeline.
         mov     si, neon_live_limit
+        mov     ax, NEON_FRAME_LIMIT
         mov     dh, 4
-        xor     dl, dl
-        call    neon_status_bios_puts_at
+        call    neon_status_bios_hex_at
         mov     si, neon_status_exit
         mov     dh, 14
         xor     dl, dl
