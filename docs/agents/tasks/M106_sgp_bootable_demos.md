@@ -105,5 +105,8 @@ mode lamp follows V1/V2/V3.
   native CRT presenter too, was withdrawn by the maintainer (2026-10-08):
   its rights (trademarks and the appearance of the product) are unclear. The
   three images, the PNG decoder and the drawing mode are removed; only the
-  lamp bar remains (`FrontPanelMode`). The images stay in this branch's
-  history until the maintainer decides how to handle it.
+  lamp bar remains (`FrontPanelMode`). With the maintainer's approval the
+  branch history was rewritten to drop the image files from every commit
+  and force-pushed (old head `e3763f13`, new head `f317986c`); the commit
+  messages and the removed NOTICE text remain. Commits of that range no
+  longer build on their own, as their CMake files name the missing images.
