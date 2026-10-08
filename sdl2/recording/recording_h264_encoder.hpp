@@ -45,7 +45,8 @@ struct H264Info {
 	std::string device;
 	std::string hardware_evidence;
 	std::uint32_t width = 0, height = 0;
-	std::int64_t requested_bitrate = 0, actual_bitrate = 0;
+	/* Configured codec context value, not measured output bitrate. */
+	std::int64_t requested_bitrate = 0, configured_bitrate = 0;
 	std::vector<std::uint8_t> extradata;
 };
 /* Worker-only direct libavcodec adapter; no processes, CPU fallback, guest

@@ -67,6 +67,11 @@ struct MatroskaWriterConfig {
 	std::string source;
 	std::string build_identity;
 	bool osd_included = true;
+	/* Required for H.264; empty archive defaults preserve existing metadata.
+	 * Public-safe provider/device labels only, never private filesystem paths. */
+	std::string encoder_provider;
+	std::string encoder_device;
+	std::string encoder_options;
 #ifdef VAEG_RECORDING_FFMPEG_TESTING
 	/* Test-only path injection exercises an existing partial-name collision. */
 	std::string partial_path_override;

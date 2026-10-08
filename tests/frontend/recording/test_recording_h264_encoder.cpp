@@ -56,11 +56,11 @@ int main(int argc, char **argv) {
 		return 77; // CTest SKIP, never a hardware PASS.
 	}
 	check(created == H264Error::None, h264_error_name(created));
-	std::printf("provider=%s\ndevice=%s\nevidence=%s\nrequested_bitrate=%lld actual_bitrate=%lld\n",
+	std::printf("provider=%s\ndevice=%s\nevidence=%s\nrequested_bitrate=%lld configured_bitrate=%lld\n",
 	            encoder->info().provider.c_str(), encoder->info().device.c_str(),
 	            encoder->info().hardware_evidence.c_str(),
 	            static_cast<long long>(encoder->info().requested_bitrate),
-	            static_cast<long long>(encoder->info().actual_bitrate));
+	            static_cast<long long>(encoder->info().configured_bitrate));
 	std::vector<std::uint8_t> y(640 * 400), uv(640 * 200, 128);
 	std::vector<EncodedVideoPacket> packets;
 	/* Public deterministic SDR fixture: dark top / light bottom (orientation),
@@ -138,6 +138,9 @@ int main(int argc, char **argv) {
 		MatroskaWriterConfig config{};
 		config.final_path = argv[2]; config.video_time_base_num = 1; config.video_time_base_den = 60;
 		config.source = "native"; config.build_identity = "public-osr-h264-fixture";
+		config.encoder_provider = encoder->info().provider;
+		config.encoder_device = encoder->info().device;
+		config.encoder_options = "allow_sw=0;require_sw=0;realtime=1;gop=120;bframes=0;bitrate_requested=8000000;bitrate_context=8000000";
 		const auto movie = FfmpegMatroskaWriter::create(config, video, pcm.encoder->info());
 		check(static_cast<bool>(movie), ffmpeg_matroska_writer_error_name(movie.error));
 		check(movie.writer->write_interval(packets, audio) == FfmpegMatroskaWriterError::None,

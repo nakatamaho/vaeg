@@ -512,7 +512,9 @@ class FfmpegMatroskaWriter::Impl {
 		    : (video.codec == RecordingVideoCodec::H264 && video.gop_size == 120u &&
 		       !video.bgr0 && !video.ffv1_version3 && !video.slice_crc &&
 		       !video.codec_extradata.empty() && !(video.width & 1u) && !(video.height & 1u) &&
-		       config.video_time_base_num == 1 && config.video_time_base_den == 60);
+		       config.video_time_base_num == 1 && config.video_time_base_den == 60 &&
+		       !config.encoder_provider.empty() && !config.encoder_device.empty() &&
+		       !config.encoder_options.empty());
 		if (!valid_time_base(config.video_time_base_num, config.video_time_base_den) ||
 		    config.video_epoch_pts < 0 ||
 		    (config.source != "native" && config.source != "displayed") ||
@@ -606,6 +608,13 @@ class FfmpegMatroskaWriter::Impl {
 		    av_dict_set(&format->metadata, "VAEG_RECORDING_FORMAT",
 		                archive ? "recording-v1" : "recording-realtime-v1", 0) < 0 ||
 		    av_dict_set(&format->metadata, "VAEG_BUILD_ID", config.build_identity.c_str(), 0) < 0) {
+			return FfmpegMatroskaWriterError::AllocationFailure;
+		}
+
+		if (!archive &&
+		    (av_dict_set(&format->metadata, "VAEG_ENCODER_PROVIDER", config.encoder_provider.c_str(), 0) < 0 ||
+		     av_dict_set(&format->metadata, "VAEG_ENCODER_DEVICE", config.encoder_device.c_str(), 0) < 0 ||
+		     av_dict_set(&format->metadata, "VAEG_ENCODER_OPTIONS", config.encoder_options.c_str(), 0) < 0)) {
 			return FfmpegMatroskaWriterError::AllocationFailure;
 		}
 
