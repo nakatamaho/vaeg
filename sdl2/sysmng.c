@@ -26,6 +26,7 @@
 #include "sysmng.h"
 #include "taskmng.h"
 #include "mousemng.h"
+#include "frontpanel.h"
 
 UINT sys_updates;
 
@@ -35,7 +36,12 @@ void sysmng_cpureset(void) {
 	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
 }
 
+/* Port 1CDh mode LEDs (io/sysportva.c): shown on the front panel. */
 void sysmng_modeled(BYTE num, BYTE sw) {
-	(void)num;
-	(void)sw;
+	frontpanel_set_modeled(num, sw ? TRUE : FALSE);
+}
+
+/* Each FDD sector access lights that drive's access lamp briefly. */
+void sysmng_fddaccess(REG8 drv) {
+	frontpanel_fdd_access(drv);
 }

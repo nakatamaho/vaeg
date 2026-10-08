@@ -3738,6 +3738,19 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
+		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
+		if (ImGui::MenuItem("前面パネル", nullptr, np2oscfg.front_panel != 0)) {
+			np2oscfg.front_panel = np2oscfg.front_panel ? 0 : 1;
+			sysmng_update(SYS_UPDATEOSCFG);
+			scrnmng_front_panel_changed();
+		}
+		if (ImGui::MenuItem("前面パネル: VA2 機種を VA3 の絵で表示", nullptr,
+		                    np2oscfg.front_panel_va3 != 0, np2oscfg.front_panel != 0)) {
+			np2oscfg.front_panel_va3 = np2oscfg.front_panel_va3 ? 0 : 1;
+			sysmng_update(SYS_UPDATEOSCFG);
+			scrnmng_front_panel_changed();
+		}
+		ImGui::Separator();
 		if (ImGui::BeginMenu("Frame skip")) {
 			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
 			                               "1/4 frame"};

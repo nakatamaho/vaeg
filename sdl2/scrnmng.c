@@ -40,6 +40,7 @@
 #include "librashader/native_presenter_controller.h"
 #include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
+#include "frontpanel.h"
 
 typedef struct {
 	BOOL enable;
@@ -144,6 +145,24 @@ const char *scrnmng_native_preset_path(void) {
 	}
 	return VAEG_DEFAULT_SHADER_PRESET;
 #endif
+}
+
+/*
+ * Front panel below the guest picture (sdl2/frontpanel.c): in a visible SDL
+ * window only, not with the native CRT presenter, not in full screen and not
+ * under a headless video driver, so captures and headless runs are unchanged.
+ */
+static int scrnmng_front_panel_height(int width) {
+	const char *video_driver;
+
+	if (scrnmng.native_active || (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+		return 0;
+	}
+	video_driver = SDL_GetCurrentVideoDriver();
+	if ((video_driver == NULL) || vaeg_native_presenter_is_headless_video_driver(video_driver)) {
+		return 0;
+	}
+	return frontpanel_height(width);
 }
 
 static BOOL scrnmng_native_requested(void) {
@@ -1070,6 +1089,7 @@ static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport) {
 	input.drawable_height = output_height;
 	input.menu_inset =
 	    (int)(((SINT64)scrnmng.menu_height * output_height + (window_height / 2)) / window_height);
+	input.bottom_inset = scrnmng_front_panel_height(output_width);
 	if (scrnmng.display_mode == VAEG_DISPLAY_WINDOWED) {
 		input.scaling = scrnmng.scaling;
 	} else {
@@ -1216,6 +1236,7 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	                      SCRNMNG_CANVAS_WIDTH, SCRNMNG_CANVAS_MAX_HEIGHT);
 	if (scrnmng.texture == NULL) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
+		frontpanel_release();
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
 		return FAILURE;
@@ -1439,6 +1460,7 @@ void scrnmng_destroy(void) {
 		scrnmng.rendered_frame = NULL;
 	}
 	if (scrnmng.renderer) {
+		frontpanel_release();
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
 	}
@@ -1592,7 +1614,8 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		SDL_DestroyTexture(scrnmng.texture);
 	scrnmng.texture = NULL;
 	if (scrnmng.renderer)
-		SDL_DestroyRenderer(scrnmng.renderer);
+		frontpanel_release();
+	    SDL_DestroyRenderer(scrnmng.renderer);
 	scrnmng.renderer = NULL;
 	preset = scrnmng_native_preset_path();
 	if (np2oscfg.gui_native_crt) {
@@ -1651,7 +1674,8 @@ static BOOL scrnmng_update_window_size(void) {
 		current_w = 0;
 		current_h = 0;
 		target_w = scrnmng.width * scrnmng.scale;
-		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale);
+		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale) +
+		           scrnmng_front_panel_height(target_w);
 		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
 		if ((current_w == target_w) && (current_h == target_h)) {
 			return (FALSE);
@@ -1660,6 +1684,41 @@ static BOOL scrnmng_update_window_size(void) {
 		return (TRUE);
 	}
 	return (FALSE);
+}
+
+/* Draw the front panel across the bottom of the drawable, and follow its
+ * height when the model or the setting changes it. */
+static void scrnmng_draw_front_panel(void) {
+	static int last_height = -1;
+	int window_w;
+	int window_h;
+	int output_w;
+	int output_h;
+	SDL_Rect panel;
+
+	if ((scrnmng.window == NULL) || (scrnmng.renderer == NULL)) {
+		return;
+	}
+	SDL_GetWindowSize(scrnmng.window, &window_w, &window_h);
+	if (scrnmng_front_panel_height(window_w) != last_height) {
+		last_height = scrnmng_front_panel_height(window_w);
+		scrnmng_update_window_size();
+	}
+	if ((scrnmng_get_drawable_size(&output_w, &output_h) != SUCCESS) || (output_w <= 0)) {
+		return;
+	}
+	panel.h = scrnmng_front_panel_height(output_w);
+	if (panel.h <= 0) {
+		return;
+	}
+	panel.x = 0;
+	panel.y = output_h - panel.h;
+	panel.w = output_w;
+	frontpanel_render(scrnmng.renderer, &panel);
+}
+
+void scrnmng_front_panel_changed(void) {
+	scrnmng_update_window_size();
 }
 
 void scrnmng_set_menu_height(int height) {
@@ -1980,6 +2039,7 @@ void scrnmng_present_begin(void) {
 		src.h = scrnmng.height;
 		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, &src, &dst);
 	}
+	scrnmng_draw_front_panel();
 	SDL_RenderSetClipRect(scrnmng.renderer, &dst);
 	if (((scrnmng.effect == VAEG_EFFECT_SCANLINE) || (scrnmng.effect == VAEG_EFFECT_CRT_LITE)) &&
 	    (dst.h >= scrnmng.height)) {
@@ -2203,6 +2263,7 @@ cleanup:
 	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
 	SDL_FreeSurface(white);
 	SDL_DestroyTexture(scrnmng.texture);
+	frontpanel_release();
 	SDL_DestroyRenderer(scrnmng.renderer);
 	SDL_DestroyWindow(scrnmng.window);
 	scrnmng = saved;

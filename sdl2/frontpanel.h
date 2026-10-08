@@ -21,49 +21,29 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_VIEWPORT_H
-#define VAEG_SDL2_VIEWPORT_H
 
-enum {
-	VAEG_SCALING_NATIVE = 0,
-	VAEG_SCALING_FIT,
-	VAEG_SCALING_FIT_8DOT,
-	VAEG_SCALING_INTEGER,
-	VAEG_SCALING_STRETCH,
-	VAEG_SCALING_COUNT
-};
+#ifndef VAEG_SDL2_FRONTPANEL_H
+#define VAEG_SDL2_FRONTPANEL_H
 
-typedef struct {
-	int guest_width;
-	int guest_height;
-	int drawable_width;
-	int drawable_height;
-	int menu_inset;
-	int scaling;
-	BOOL aspect;
-	int bottom_inset; /* front panel below the guest picture */
-} VAEG_VIEWPORT_INPUT;
-
-typedef struct {
-	int x;
-	int y;
-	int width;
-	int height;
-	double scale_x;
-	double scale_y;
-	BOOL valid;
-} VAEG_VIEWPORT;
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *viewport);
-BOOL vaeg_viewport_map_point(const VAEG_VIEWPORT *viewport, int guest_width, int guest_height,
-                             int drawable_x, int drawable_y, int *guest_x, int *guest_y);
-UINT8 vaeg_fscrnmod_sanitize(UINT value, BOOL *masked);
-void vaeg_fullscreen_size(UINT fscrn_cx, UINT fscrn_cy, UINT8 fscrnmod, int current_width,
-                          int current_height, int *width, int *height);
+struct SDL_Renderer;
+struct SDL_Rect;
+
+void frontpanel_set_modeled(UINT num, BOOL on);
+void frontpanel_fdd_access(UINT drv);
+BOOL frontpanel_mode_lit(UINT num);
+BOOL frontpanel_drive_lit(UINT drv, UINT32 now);
+BOOL frontpanel_drive_is_2hd(UINT drv);
+/* Height of the panel drawn across width pixels; 0 when it is turned off. */
+int frontpanel_height(int width);
+void frontpanel_render(struct SDL_Renderer *renderer, const struct SDL_Rect *dst);
+void frontpanel_release(void);
+BOOL frontpanel_selftest_decode(char *problem, size_t size);
 
 #ifdef __cplusplus
 }
