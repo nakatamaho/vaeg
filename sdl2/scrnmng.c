@@ -168,6 +168,33 @@ static int scrnmng_front_panel_height(int width) {
 	return frontpanel_height(width);
 }
 
+/* Rows of the window height taken by the panel now (windowed mode). The
+ * saved window size excludes them, and showing or hiding the panel adds or
+ * removes them from the current window instead of resetting its size. */
+static int scrnmng_panel_applied = 0;
+
+int scrnmng_front_panel_applied(void) {
+	return scrnmng_panel_applied;
+}
+
+static void scrnmng_fit_front_panel(void) {
+	int width;
+	int height;
+	int panel;
+
+	if ((scrnmng.window == NULL) || (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+		return;
+	}
+	SDL_GetWindowSize(scrnmng.window, &width, &height);
+	panel = scrnmng_front_panel_height(width);
+	if (panel == scrnmng_panel_applied) {
+		return;
+	}
+	height = max(240, height - scrnmng_panel_applied + panel);
+	scrnmng_panel_applied = panel;
+	SDL_SetWindowSize(scrnmng.window, width, height);
+}
+
 /* A filled rectangle on the SDL renderer, or the GUI overlay when native. */
 static void scrnmng_panel_fill(const SDL_Rect *r, Uint8 red, Uint8 green, Uint8 blue) {
 	if (scrnmng.native_active) {
@@ -1687,8 +1714,8 @@ static BOOL scrnmng_update_window_size(void) {
 		current_w = 0;
 		current_h = 0;
 		target_w = scrnmng.width * scrnmng.scale;
-		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale) +
-		           scrnmng_front_panel_height(target_w);
+		scrnmng_panel_applied = scrnmng_front_panel_height(target_w);
+		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale) + scrnmng_panel_applied;
 		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
 		if ((current_w == target_w) && (current_h == target_h)) {
 			return (FALSE);
@@ -1766,8 +1793,8 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	}
 }
 
-/* Draw the front panel across the bottom of the drawable, and follow its
- * height when the model or the setting changes it. */
+/* Draw the front panel across the bottom of the drawable, and fit the
+ * window when the setting, display mode or presenter changes. */
 static void scrnmng_draw_front_panel(void) {
 	static int last_layout = -1;
 	int layout;
@@ -1778,14 +1805,14 @@ static void scrnmng_draw_front_panel(void) {
 	if ((scrnmng.window == NULL) || (!scrnmng.native_active && (scrnmng.renderer == NULL))) {
 		return;
 	}
-	/* Fit the window to the panel only when the panel or the presenter
-	 * changes; the bar grows with the window width, so following its height
-	 * would pull a resized window back to the configured scale. */
+	/* Only on a change of the panel setting, display mode or presenter: the
+	 * bar grows with the window width, so following its height would fight a
+	 * window the user is resizing. */
 	layout =
 	    (np2oscfg.front_panel * 8) + (scrnmng.display_mode * 2) + (scrnmng.native_active ? 1 : 0);
 	if (layout != last_layout) {
 		last_layout = layout;
-		scrnmng_update_window_size();
+		scrnmng_fit_front_panel();
 	}
 	if ((scrnmng_get_drawable_size(&output_w, &output_h) != SUCCESS) || (output_w <= 0)) {
 		return;
@@ -1856,7 +1883,7 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 }
 
 void scrnmng_front_panel_changed(void) {
-	scrnmng_update_window_size();
+	scrnmng_fit_front_panel();
 }
 
 void scrnmng_set_menu_height(int height) {
@@ -2072,6 +2099,7 @@ BOOL scrnmng_capture_window_size(int *width, int *height) {
 		return (FAILURE);
 	}
 	SDL_GetWindowSize(scrnmng.window, width, height);
+	*height = max(240, *height - scrnmng_panel_applied); /* saved without the panel */
 	return (SUCCESS);
 }
 

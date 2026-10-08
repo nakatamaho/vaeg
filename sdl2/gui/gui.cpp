@@ -3396,8 +3396,10 @@ static void draw_custom_size_dialog(void) {
 			if (g_gui.custom_size_integer) {
 				set_display_scale(g_gui.pending_window_scale);
 			} else {
+				// The size excludes the front panel, which is added below it.
 				SDL_SetWindowSize(static_cast<SDL_Window *>(scrnmng_get_window()),
-				                  g_gui.pending_window_width, g_gui.pending_window_height);
+				                  g_gui.pending_window_width,
+				                  g_gui.pending_window_height + scrnmng_front_panel_applied());
 				np2oscfg.gui_window_width = static_cast<UINT16>(g_gui.pending_window_width);
 				np2oscfg.gui_window_height = static_cast<UINT16>(g_gui.pending_window_height);
 				np2oscfg.gui_scale = 0;
