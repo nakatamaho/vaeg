@@ -48,8 +48,12 @@ int main(int argc, char **argv) {
 		} else {
 			check(invalid.state() == MacCaptureState::RuntimeUnavailable, "OSR_MAC_OLD_RUNTIME");
 		}
+		const auto failed_state = invalid.state();
 		invalid.stop(); invalid.stop();
-		check(invalid.state() == MacCaptureState::Stopped, "OSR_MAC_IDEMPOTENT_STOP");
+		check(invalid.state() == failed_state, "OSR_MAC_STOP_PRESERVES_ERROR");
+		MacWindowCapture idle;
+		idle.stop(); idle.stop();
+		check(idle.state() == MacCaptureState::Stopped, "OSR_MAC_IDEMPOTENT_STOP");
 		MacWindowCapture hdr;
 		hdr.start(0, false);
 		check(hdr.state() == MacCaptureState::UnsupportedColor, "OSR_MAC_REJECT_UNVERIFIED_COLOR");

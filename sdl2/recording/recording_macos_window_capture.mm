@@ -257,7 +257,11 @@ void MacWindowCapture::stop() noexcept {
 		}
 		if (stream) [stream stopCaptureWithCompletionHandler:^(NSError *ignored) { (void)ignored; }];
 	}
-	storage->status.store(MacCaptureState::Stopped);
+	auto current = storage->status.load();
+	while (current == MacCaptureState::Idle || current == MacCaptureState::Preparing ||
+	       current == MacCaptureState::Running) {
+		if (storage->status.compare_exchange_weak(current, MacCaptureState::Stopped)) break;
+	}
 }
 bool MacWindowCapture::take_latest(MacCapturedImage *image) {
 	if (!image || state() != MacCaptureState::Running) return false;
