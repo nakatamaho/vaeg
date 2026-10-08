@@ -51,7 +51,10 @@ python3 tools/pc88va/build-all-demos-bootable-disk.py \
 The builder extracts the six component `.d88.xz` images and installs them as
 `A:\GLASS`, `A:\NEON3`, `A:\NEON4\16`, `A:\NEON4\65536`,
 `A:\SPRITE\16`, `A:\SPRITE\256`, `A:\SPRITE\65536`, `A:\WIRE\16`,
-`A:\WIRE\256`, `A:\WIRE\65536`, and `A:\ZUNDAMON`.
+`A:\WIRE\256`, `A:\WIRE\65536`, and `A:\ZUNDAMON`, plus
+`A:\MANDEL.BAS` (`demos/mandelbrot/mandelbrot.bas` with CRLF line ends; run
+it from the ROM's N88-BASIC with `LOAD "MANDEL.BAS"` and `RUN`). The MS-DOS
+4.0 disk below has no `MANDEL.BAS`, since MS-DOS has no BASIC.
 The supplied system disk provides the IPL and boot files, so the result is a
 bootable PC-Engine or MS-DOS D88; of an MS-DOS disk only the system files,
 `CONFIG.SYS`, `AUTOEXEC.BAT`, `LICENSE.TXT` and `README.TXT` are kept. The

@@ -52,6 +52,12 @@ DEFAULT_DISTRIBUTIONS = (
     ("sgp-wireframe.d88.xz", ("WIRE/16", "WIRE/256", "WIRE/65536")),
     ("zundamon-orbit.d88.xz", ("ZUNDAMON",)),
 )
+# N88-BASIC programs installed beside the distributions on PC-Engine disks,
+# whose ROM BASIC can load them (MS-DOS has no BASIC): (repository path, root
+# file name). Text gets CRLF line ends, as N88-BASIC expects.
+BASIC_ROOT_FILES = (
+    ("demos/mandelbrot/mandelbrot.bas", "MANDEL.BAS"),
+)
 
 
 class BuildError(Exception):
@@ -145,6 +151,23 @@ def extract_distribution(path, target_names, payload_root, module):
             output.write_bytes(read_file(disk, entry))
 
 
+def build_payload(distribution_dir, payload_root, module, basic=True):
+    """Write every demo of the all-demos disks below payload_root; with basic,
+    also the N88-BASIC programs."""
+    for filename, target_names in DEFAULT_DISTRIBUTIONS:
+        distribution = Path(distribution_dir) / filename
+        if not distribution.is_file():
+            raise BuildError(f"distribution is not readable: {distribution}")
+        extract_distribution(distribution, target_names, payload_root, module)
+    if not basic:
+        return
+    root = Path(payload_root) / "root"
+    root.mkdir(exist_ok=True)
+    for source, name in BASIC_ROOT_FILES:
+        text = (REPOSITORY_ROOT / source).read_bytes()
+        (root / name).write_bytes(text.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+
+
 def build(source, distribution_dir, output):
     module = load_pcengine_module()
     source = Path(source)
@@ -161,11 +184,7 @@ def build(source, distribution_dir, output):
         temporary_root = Path(temporary)
         payload_root = temporary_root / "payload"
         payload_root.mkdir()
-        for filename, target_names in DEFAULT_DISTRIBUTIONS:
-            distribution = distribution_dir / filename
-            if not distribution.is_file():
-                raise BuildError(f"distribution is not readable: {distribution}")
-            extract_distribution(distribution, target_names, payload_root, module)
+        build_payload(distribution_dir, payload_root, module)
 
         vanilla = temporary_root / "vanilla.d88"
         try:
@@ -216,7 +235,7 @@ def main(argv=None):
     print(f"SHA-256: {digest}")
     print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRITE/16 "
           "SPRITE/256 SPRITE/65536 WIRE/16 WIRE/256 WIRE/65536 "
-          "ZUNDAMON")
+          "ZUNDAMON; root file MANDEL.BAS")
     return 0
 
 

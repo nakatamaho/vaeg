@@ -106,12 +106,11 @@ def validate_image(image, distribution_dir):
     expected = {}
     with tempfile.TemporaryDirectory(prefix="vaeg-all-demos-msdos4-check-") as temporary:
         payload_root = Path(temporary)
-        for filename, target_names in helper.DEFAULT_DISTRIBUTIONS:
-            helper.extract_distribution(Path(distribution_dir) / filename, target_names,
-                                        payload_root, module)
+        helper.build_payload(distribution_dir, payload_root, module, basic=False)
         for path in payload_root.rglob("*"):
             if path.is_file():
-                expected[path.relative_to(payload_root).as_posix()] = path.read_bytes()
+                name = path.relative_to(payload_root).as_posix()
+                expected[name.removeprefix("root/")] = path.read_bytes()
     stored = disk_files(disk, module)
     system = {name: stored.pop(name, None) for name in MSDOS4_FILES_SHA256}
     if any(contents is None or hashlib.sha256(contents).hexdigest() != digest
@@ -134,11 +133,10 @@ def build_image(source, distribution_dir):
         temporary_root = Path(temporary)
         payload_root = temporary_root / "payload"
         payload_root.mkdir()
-        for filename, target_names in helper.DEFAULT_DISTRIBUTIONS:
-            distribution = Path(distribution_dir) / filename
-            if not distribution.is_file():
-                raise BuildError(f"distribution is not readable: {distribution}")
-            helper.extract_distribution(distribution, target_names, payload_root, module)
+        try:
+            helper.build_payload(distribution_dir, payload_root, module, basic=False)
+        except helper.BuildError as error:
+            raise BuildError(str(error)) from error
         disk = temporary_root / "msdos4.d88"
         try:
             module.create_vanilla(str(source), str(disk))

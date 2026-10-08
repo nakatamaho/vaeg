@@ -100,13 +100,10 @@ def build(source, distribution_dir, output, compressed_output):
         temporary_root = Path(temporary)
         payload_root = temporary_root / "payload"
         payload_root.mkdir()
-        for filename, target_names in helper.DEFAULT_DISTRIBUTIONS:
-            distribution = distribution_dir / filename
-            if not distribution.is_file():
-                raise BuildError(f"distribution is not readable: {distribution}")
-            helper.extract_distribution(
-                distribution, target_names, payload_root, module
-            )
+        try:
+            helper.build_payload(distribution_dir, payload_root, module)
+        except helper.BuildError as error:
+            raise BuildError(str(error)) from error
 
         data_disk = temporary_root / "data.d88"
         try:
