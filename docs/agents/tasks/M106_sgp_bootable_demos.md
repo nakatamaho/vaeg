@@ -202,8 +202,7 @@ mode lamp follows V1/V2/V3.
   the port's unused diagnostic reserve shrank by 128 bytes; NEON200/NEON400
   are 57405 bytes as before. `demos/neon3/build-d88.sh` now builds the
   distribution disk. The rebuilt payloads also carry the M97 text repaint
-  and loop changes made after the old distribution (the `TOTAL FRAMES`
-  label has no value since then). In vaeg (VA2, PC-Engine 1.1 and MS-DOS
+  and loop changes made after the old distribution. In vaeg (VA2, PC-Engine 1.1 and MS-DOS
   4.0) both profiles draw the city with correct lines. The NEON3 open defect
   is closed. all-demos-msdos4.d88.xz SHA-256 is now
   `1baf360b6c012d7655edb47fe41a3a96bbd60c435258c84bb9d3aa4c0840f8d6`.
@@ -212,3 +211,10 @@ mode lamp follows V1/V2/V3.
   the hosted conformance job) rejected the new `external/neon3-1.5/` root;
   it is now recorded there with ADR-0017, with a test.
   [91a46f4f](https://github.com/nakatamaho/vaeg/commit/91a46f4fbc5de0016dd191fd33c81eed68fb6399).
+- NEON3 `TOTAL FRAMES (HEX)` shows its value again (maintainer request): the
+  length of one pass of the looping timeline, 1800h; M97 had dropped the
+  value when it added the loop. The payloads stay 57405 bytes. The
+  maintainer confirmed `Copyright (c) SimK` in `external/neon3-1.5/LICENSE.txt`.
+  all-demos-msdos4.d88.xz SHA-256 is now
+  `79676befbbbaf4a1c04424c06f5c10128dba64fd447655d26ca3d7525b768d85`.
+  [417e3909](https://github.com/nakatamaho/vaeg/commit/417e39093f058a3feb2f3a9e85aed91b4bdd42fb), [eac394e3](https://github.com/nakatamaho/vaeg/commit/eac394e32474d241c4c6e0cbeea4a9f52ecacdaa).
