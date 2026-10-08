@@ -952,6 +952,7 @@ if(VAEG_ENABLE_TESTS)
         tests/frontend/recording/test_recording_cli.c
         sdl2/cliopts.c)
     target_include_directories(vaeg_recording_cli_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpu"
         "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
         "${CMAKE_CURRENT_SOURCE_DIR}/common"
         "${CMAKE_CURRENT_SOURCE_DIR}/io"
@@ -1137,6 +1138,7 @@ if(VAEG_ENABLE_TESTS)
             sdl2/recording/recording_ffmpeg_matroska.cpp
             common/parts.c)
         target_include_directories(vaeg_recording_native_session_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/cpu"
             "${CMAKE_CURRENT_BINARY_DIR}/generated"
             "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
             "${CMAKE_CURRENT_SOURCE_DIR}"
