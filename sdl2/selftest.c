@@ -5077,21 +5077,25 @@ static int test_front_panel(void) {
 		return (fail("front panel", problem_text));
 	}
 	/* height across the window width; 0 when turned off */
-	np2oscfg.front_panel = 1;
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
 	np2oscfg.front_panel_va3 = 0;
 	pccore.model_va = PCMODEL_VA1;
-	if (frontpanel_height(640) != 202) {
+	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
+		problem = "simple panel is not 14 rows per 640 dots";
+	}
+	np2oscfg.front_panel = FRONTPANEL_ART;
+	if ((problem == NULL) && (frontpanel_height(640) != 202)) {
 		problem = "VA panel is not 202 rows at 640";
 	}
 	pccore.model_va = PCMODEL_VA2;
 	if ((problem == NULL) && (frontpanel_height(640) != 253)) {
 		problem = "VA2 panel is not 253 rows at 640";
 	}
-	np2oscfg.front_panel = 0;
+	np2oscfg.front_panel = FRONTPANEL_OFF;
 	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
 		problem = "a turned-off panel took room";
 	}
-	np2oscfg.front_panel = 1;
+	np2oscfg.front_panel = FRONTPANEL_ART;
 	/* the guest picture keeps its size above the panel */
 	ZeroMemory(&input, sizeof(input));
 	input.guest_width = 640;
@@ -5155,6 +5159,12 @@ static int test_front_panel(void) {
 	}
 	if ((problem == NULL) && (renderer == NULL)) {
 		problem = "no software renderer";
+	}
+	/* the simple bar: drive 1 lit (set above), V2 lit, V1 dark */
+	if ((problem == NULL) &&
+	    (scrnmng_simple_panel_selftest(640, getenv("TMP_SIMPLE_BMP"), problem_text,
+	                                   sizeof(problem_text)) != SUCCESS)) {
+		problem = problem_text;
 	}
 	if (renderer != NULL) {
 		frontpanel_release();

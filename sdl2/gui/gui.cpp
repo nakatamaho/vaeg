@@ -72,6 +72,7 @@
 #include "ini.h"
 #include "machine/pccore.h"
 #include "machine/timing.h"
+#include "frontpanel.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
@@ -3739,13 +3740,25 @@ static void draw_screen_menu(void) {
 		}
 		ImGui::Separator();
 		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
-		if (ImGui::MenuItem("前面パネル", nullptr, np2oscfg.front_panel != 0)) {
-			np2oscfg.front_panel = np2oscfg.front_panel ? 0 : 1;
-			sysmng_update(SYS_UPDATEOSCFG);
-			scrnmng_front_panel_changed();
+		if (ImGui::BeginMenu("前面パネル")) {
+			static const struct {
+				const char *label;
+				BYTE mode;
+			} modes[] = {{"表示しない", FRONTPANEL_OFF},
+			             {"簡易表示 (ランプのみ)", FRONTPANEL_SIMPLE},
+			             {"本体の絵", FRONTPANEL_ART}};
+			for (const auto &mode : modes) {
+				if (ImGui::MenuItem(mode.label, nullptr, np2oscfg.front_panel == mode.mode)) {
+					np2oscfg.front_panel = mode.mode;
+					sysmng_update(SYS_UPDATEOSCFG);
+					scrnmng_front_panel_changed();
+				}
+			}
+			ImGui::EndMenu();
 		}
 		if (ImGui::MenuItem("前面パネル: VA2 機種を VA3 の絵で表示", nullptr,
-		                    np2oscfg.front_panel_va3 != 0, np2oscfg.front_panel != 0)) {
+		                    np2oscfg.front_panel_va3 != 0,
+		                    np2oscfg.front_panel == FRONTPANEL_ART)) {
 			np2oscfg.front_panel_va3 = np2oscfg.front_panel_va3 ? 0 : 1;
 			sysmng_update(SYS_UPDATEOSCFG);
 			scrnmng_front_panel_changed();

@@ -1686,6 +1686,74 @@ static BOOL scrnmng_update_window_size(void) {
 	return (FALSE);
 }
 
+/* The simple front panel: a dark bar with the drive and mode lamps. */
+static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
+	const int s = frontpanel_simple_scale(bar->w);
+	const UINT32 now = SDL_GetTicks();
+	SDL_Color label = {200, 196, 180, 255};
+	SDL_Rect r;
+	int x = 8 * s;
+	int i;
+
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 34, 34, 36, 255);
+	SDL_RenderFillRect(scrnmng.renderer, bar);
+	r.x = bar->x;
+	r.y = bar->y;
+	r.w = bar->w;
+	r.h = s;
+	SDL_SetRenderDrawColor(scrnmng.renderer, 70, 70, 74, 255);
+	SDL_RenderFillRect(scrnmng.renderer, &r);
+	for (i = 0; i < 5; i++) {
+		const BOOL drive = (i < 2) ? TRUE : FALSE;
+		char text[4];
+		BOOL lit;
+		Uint8 cr;
+		Uint8 cg;
+		Uint8 cb;
+
+		if (i == 2) {
+			x += 16 * s; /* gap between the drives and the mode lamps */
+		}
+		if (drive) {
+			text[0] = 'F';
+			text[1] = 'D';
+			text[2] = (char)('1' + i);
+			text[3] = '\0';
+			lit = frontpanel_drive_lit((UINT)i, now);
+			if (frontpanel_drive_is_2hd((UINT)i)) {
+				cr = 60;
+				cg = 235;
+				cb = 80;
+			} else {
+				cr = 255;
+				cg = 45;
+				cb = 30;
+			}
+		} else {
+			SDL_strlcpy(text, mode_labels[i - 2], sizeof(text));
+			lit = frontpanel_mode_lit((UINT)(i - 2));
+			cr = 120;
+			cg = 255;
+			cb = 130;
+		}
+		scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, text, label);
+		x += (int)SDL_strlen(text) * 8 * s + 4 * s;
+		r.x = x;
+		r.y = bar->y + 5 * s;
+		r.w = 12 * s;
+		r.h = 6 * s;
+		if (lit) {
+			SDL_SetRenderDrawColor(scrnmng.renderer, cr, cg, cb, 255);
+		} else {
+			SDL_SetRenderDrawColor(scrnmng.renderer, 52, 60, 52, 255);
+		}
+		SDL_RenderFillRect(scrnmng.renderer, &r);
+		x += r.w + 12 * s;
+	}
+}
+
 /* Draw the front panel across the bottom of the drawable, and follow its
  * height when the model or the setting changes it. */
 static void scrnmng_draw_front_panel(void) {
@@ -1714,7 +1782,66 @@ static void scrnmng_draw_front_panel(void) {
 	panel.x = 0;
 	panel.y = output_h - panel.h;
 	panel.w = output_w;
-	frontpanel_render(scrnmng.renderer, &panel);
+	if (np2oscfg.front_panel == FRONTPANEL_ART) {
+		frontpanel_render(scrnmng.renderer, &panel);
+	} else {
+		scrnmng_draw_simple_panel(&panel);
+	}
+}
+
+/* Selftest: the simple bar's lamps on a software renderer (drive 1 and V3
+ * lit by the caller); out_path, if set, receives the picture as BMP. */
+BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *problem, size_t size) {
+	SDL_Renderer *saved_renderer = scrnmng.renderer;
+	const BOOL saved_native = scrnmng.native_active;
+	SDL_Surface *surface;
+	SDL_Renderer *renderer;
+	SDL_Rect bar;
+	const Uint32 *px;
+	Uint8 r;
+	Uint8 g;
+	Uint8 b;
+	const int s = frontpanel_simple_scale(width);
+	BOOL ok = TRUE;
+
+	bar.x = 0;
+	bar.y = 0;
+	bar.w = width;
+	bar.h = 14 * s;
+	surface = SDL_CreateRGBSurfaceWithFormat(0, bar.w, bar.h, 32, SDL_PIXELFORMAT_ARGB8888);
+	renderer = (surface != NULL) ? SDL_CreateSoftwareRenderer(surface) : NULL;
+	if (renderer == NULL) {
+		SDL_snprintf(problem, size, "no software renderer");
+		if (surface != NULL) {
+			SDL_FreeSurface(surface);
+		}
+		return FAILURE;
+	}
+	scrnmng.renderer = renderer;
+	scrnmng.native_active = FALSE;
+	scrnmng_draw_simple_panel(&bar);
+	SDL_RenderPresent(renderer);
+	scrnmng.renderer = saved_renderer;
+	scrnmng.native_active = saved_native;
+	if (out_path != NULL) {
+		SDL_SaveBMP(surface, out_path);
+	}
+	px = (const Uint32 *)surface->pixels;
+	/* lamps start after their label: FD1 at 36, FD2 at 88, V1 at 148 (+16 gap) */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (8 + 24 + 4 + 6) * s], surface->format, &r, &g,
+	           &b);
+	if ((r + g + b) < 250) {
+		SDL_snprintf(problem, size, "simple panel drive 1 lamp is not lit");
+		ok = FALSE;
+	}
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (148 + 6) * s], surface->format, &r, &g, &b);
+	if (ok && ((r + g + b) > 250)) {
+		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
+		ok = FALSE;
+	}
+	SDL_DestroyRenderer(renderer);
+	SDL_FreeSurface(surface);
+	return ok ? SUCCESS : FAILURE;
 }
 
 void scrnmng_front_panel_changed(void) {

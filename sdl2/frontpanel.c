@@ -65,9 +65,9 @@ typedef struct {
 	/* lamp positions in artwork pixels: drive 1, drive 2, V1, V2, V3 */
 	SDL_Rect drive[FRONTPANEL_DRIVES];
 	SDL_Rect mode[FRONTPANEL_MODES];
-} FRONTPANEL_ART;
+} FRONTPANEL_DRAWING;
 
-static const FRONTPANEL_ART arts[FRONTPANEL_ARTS] = {
+static const FRONTPANEL_DRAWING arts[FRONTPANEL_ARTS] = {
     {vaeg_front_panel_va_png,
      &vaeg_front_panel_va_png_size,
      1900,
@@ -144,11 +144,20 @@ BOOL frontpanel_drive_is_2hd(UINT drv) {
 	return FALSE;
 }
 
-int frontpanel_height(int width) {
-	const FRONTPANEL_ART *art;
+int frontpanel_simple_scale(int width) {
+	const int scale = (width + 320) / 640;
 
-	if (!np2oscfg.front_panel || (width <= 0)) {
+	return (scale < 1) ? 1 : scale;
+}
+
+int frontpanel_height(int width) {
+	const FRONTPANEL_DRAWING *art;
+
+	if ((np2oscfg.front_panel == FRONTPANEL_OFF) || (width <= 0)) {
 		return 0;
+	}
+	if (np2oscfg.front_panel != FRONTPANEL_ART) {
+		return 14 * frontpanel_simple_scale(width);
 	}
 	art = &arts[frontpanel_art()];
 	return (int)(((SINT64)width * art->height + art->width / 2) / art->width);
@@ -168,7 +177,7 @@ void frontpanel_release(void) {
 }
 
 static SDL_Texture *frontpanel_texture(SDL_Renderer *renderer, int index) {
-	const FRONTPANEL_ART *art = &arts[index];
+	const FRONTPANEL_DRAWING *art = &arts[index];
 	BYTE *pixels;
 	UINT width;
 	UINT height;
@@ -200,8 +209,9 @@ static SDL_Texture *frontpanel_texture(SDL_Renderer *renderer, int index) {
 	return texture;
 }
 
-static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst, const FRONTPANEL_ART *art,
-                            const SDL_Rect *lamp, Uint8 r, Uint8 g, Uint8 b) {
+static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst,
+                            const FRONTPANEL_DRAWING *art, const SDL_Rect *lamp, Uint8 r, Uint8 g,
+                            Uint8 b) {
 	SDL_Rect rect;
 	int k;
 
@@ -236,7 +246,7 @@ static void frontpanel_lamp(SDL_Renderer *renderer, const SDL_Rect *dst, const F
 
 void frontpanel_render(SDL_Renderer *renderer, const SDL_Rect *dst) {
 	const int index = frontpanel_art();
-	const FRONTPANEL_ART *art = &arts[index];
+	const FRONTPANEL_DRAWING *art = &arts[index];
 	SDL_Texture *texture;
 	const UINT32 now = SDL_GetTicks();
 	UINT i;
@@ -269,7 +279,7 @@ BOOL frontpanel_selftest_decode(char *problem, size_t size) {
 	int i;
 
 	for (i = 0; i < FRONTPANEL_ARTS; i++) {
-		const FRONTPANEL_ART *art = &arts[i];
+		const FRONTPANEL_DRAWING *art = &arts[i];
 		UINT width;
 		UINT height;
 		BYTE *pixels = vaeg_png_decode_rgba(art->png, *art->png_size, &width, &height);

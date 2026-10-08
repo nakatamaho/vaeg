@@ -59,6 +59,7 @@ void scrnmng_setwidth(int posx, int width);
 #define scrnmng_setextend(e)
 void scrnmng_setheight(int posy, int height);
 void scrnmng_front_panel_changed(void);
+BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *problem, size_t size);
 const SCRNSURF *scrnmng_surflock(void);
 void scrnmng_surfunlock(const SCRNSURF *surf);
 
