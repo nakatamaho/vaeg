@@ -111,9 +111,14 @@ Release notes may summarize the ledger but do not replace it.
   a source-built and freely distributable payload, and the compressed image
   round-trips byte-for-byte to its generated raw D88.  A disk may be bootable
   if it meets these conditions; a disk that needs PC-Engine, NEC system files,
-  or other non-redistributable payloads to boot does not.  The raw D88,
-  PC-Engine system files, private media, ROMs, and source templates remain
-  untracked and must never be committed.
+  or other non-redistributable payloads to boot does not.  A maintainer-
+  approved exception (M106) admits the MIT-licensed MS-DOS 4.0 for the
+  PC-88VA of the FreeDOS-88VA project as system files of a bootable demo
+  disk: only from the pinned release `msdos4-va.1` image (its published
+  SHA-256), only the files a `pcengine_disk.py vanilla` copy keeps, with the
+  release's `LICENSE.TXT` on the disk and its boot sector and files checked
+  by hash.  The raw D88, PC-Engine system files, private media, ROMs, and
+  source templates remain untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
