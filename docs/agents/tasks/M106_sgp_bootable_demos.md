@@ -182,3 +182,14 @@ mode lamp follows V1/V2/V3.
   GLASS, NEON4 and zundamon do not run, with the old disks as well; not
   investigated. The MS-DOS 4.0 stall of GLASS and SGPD_7C is deferred.
   [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba), [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f), [a958fb1e](https://github.com/nakatamaho/vaeg/commit/a958fb1eae08c82e2fbc48de267fde7a16587f30).
+- MS-DOS 4.0 preview 2 (maintainer request): the exception and the builder
+  are pinned to release `msdos4-va.2` (image SHA-256
+  `7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0`; of
+  the kept files only the boot sector and IO.SYS differ from preview 1).
+  `demos/disks/all-demos-msdos4.d88.xz` is rebuilt (144620 bytes, SHA-256
+  `0b0f14433a5f2ec84d89ba7c8da405d5eba902bf874d4c9f9fc43185cb343b02`; raw
+  `29de3a2ae2e17e4125189a1bf8111aff1903f8b50ce7535249ada0e9eb5a8657`); two
+  builds give the same bytes and the preview 1 image is refused. In vaeg
+  (VA and VA2) all 17 programs start and draw as under preview 1; GLASS and
+  SGPD_7C still stop after their second frame under MS-DOS (deferred).
+  [91f9362b](https://github.com/nakatamaho/vaeg/commit/91f9362be7582cb09607c534ea09810c9bd13500), [639c963d](https://github.com/nakatamaho/vaeg/commit/639c963d6c36b8a8d444888f3b8e113576561c11).
