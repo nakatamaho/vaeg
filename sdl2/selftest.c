@@ -5057,127 +5057,70 @@ static int test_beep_level(void) {
 	return (SUCCESS);
 }
 
-/* M106: the front panel artwork, its lamps and the room it takes. */
+/* M106: the front panel lamp bar, its lamps and the room it takes. */
 static int test_front_panel(void) {
-	const UINT8 saved_model = pccore.model_va;
 	const BYTE saved_panel = np2oscfg.front_panel;
-	const BYTE saved_va3 = np2oscfg.front_panel_va3;
 	const _FDDFILE saved_fdd = fddfile[0];
 	char problem_text[96];
 	const char *problem = NULL;
-	SDL_Surface *surface;
-	SDL_Renderer *renderer;
-	SDL_Rect dst;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
 	UINT32 now;
-	int pass;
 
-	if (frontpanel_selftest_decode(problem_text, sizeof(problem_text)) != SUCCESS) {
-		return (fail("front panel", problem_text));
-	}
-	/* height across the window width; 0 when turned off */
 	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
-	np2oscfg.front_panel_va3 = 0;
-	pccore.model_va = PCMODEL_VA1;
 	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
-		problem = "simple panel is not 14 rows per 640 dots";
-	}
-	np2oscfg.front_panel = FRONTPANEL_ART;
-	if ((problem == NULL) && (frontpanel_height(640) != 202)) {
-		problem = "VA panel is not 202 rows at 640";
-	}
-	pccore.model_va = PCMODEL_VA2;
-	if ((problem == NULL) && (frontpanel_height(640) != 253)) {
-		problem = "VA2 panel is not 253 rows at 640";
+		problem = "lamp bar is not 14 rows per 640 dots";
 	}
 	np2oscfg.front_panel = FRONTPANEL_OFF;
 	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
 		problem = "a turned-off panel took room";
 	}
-	np2oscfg.front_panel = FRONTPANEL_ART;
-	/* the guest picture keeps its size above the panel */
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	/* the guest picture keeps its size above the bar */
 	ZeroMemory(&input, sizeof(input));
 	input.guest_width = 640;
 	input.guest_height = 400;
 	input.drawable_width = 640;
-	input.drawable_height = 22 + 400 + 253;
+	input.drawable_height = 22 + 400 + 14;
 	input.menu_inset = 22;
-	input.bottom_inset = 253;
+	input.bottom_inset = 14;
 	input.scaling = VAEG_SCALING_FIT;
 	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	                          (viewport.y != 22) || (viewport.height != 400))) {
 		problem = "the panel changed the guest picture";
 	}
-	/* lamps: drive 1 lit red (2D/2DD), green (2HD); V2 lit; others dark */
-	surface = SDL_CreateRGBSurfaceWithFormat(0, 1900, 750, 32, SDL_PIXELFORMAT_ARGB8888);
-	renderer = (surface != NULL) ? SDL_CreateSoftwareRenderer(surface) : NULL;
-	for (pass = 0; (problem == NULL) && (renderer != NULL) && (pass < 2); pass++) {
-		const Uint32 *px;
-		Uint8 r;
-		Uint8 g;
-		Uint8 b;
-
-		ZeroMemory(&fddfile[0], sizeof(fddfile[0]));
-		fddfile[0].type = DISKTYPE_D88;
-		fddfile[0].inf.d88.fdtype_major = pass ? DISKTYPE_2HD : DISKTYPE_2DD;
-		frontpanel_set_modeled(0, FALSE);
-		frontpanel_set_modeled(1, TRUE);
-		frontpanel_set_modeled(2, FALSE);
-		frontpanel_fdd_access(0);
-		now = SDL_GetTicks();
-		if (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
-		    frontpanel_drive_lit(0, now + 1000)) {
-			problem = "access lamp timing";
-			break;
-		}
-		dst.x = 0;
-		dst.y = 0;
-		dst.w = 1900;
-		dst.h = 750;
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-		SDL_RenderClear(renderer);
-		frontpanel_render(renderer, &dst);
-		SDL_RenderPresent(renderer);
-		px = (const Uint32 *)surface->pixels;
-		/* VA2 drive 1 lamp centre, V2 lamp centre, V1 lamp centre */
-		SDL_GetRGB(px[(131 + 8) * (surface->pitch / 4) + 1043 + 20], surface->format, &r, &g, &b);
-		if (pass ? !((g > 200) && (r < 150)) : !((r > 200) && (g < 150))) {
-			problem = pass ? "2HD access lamp is not green" : "2DD access lamp is not red";
-			break;
-		}
-		SDL_GetRGB(px[(195 + 7) * (surface->pitch / 4) + 1697 + 13], surface->format, &r, &g, &b);
-		if (!((g > 200) && (r > 80))) {
-			problem = "V2 lamp is not lit";
-			break;
-		}
-		SDL_GetRGB(px[(152 + 7) * (surface->pitch / 4) + 1697 + 13], surface->format, &r, &g, &b);
-		if ((r + g + b) > 300) {
-			problem = "V1 lamp is lit";
-			break;
-		}
+	/* lamp state: drive 1 accessed (2HD), V2 on */
+	ZeroMemory(&fddfile[0], sizeof(fddfile[0]));
+	fddfile[0].type = DISKTYPE_D88;
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2DD;
+	if ((problem == NULL) && frontpanel_drive_is_2hd(0)) {
+		problem = "2DD media reported as 2HD";
 	}
-	if ((problem == NULL) && (renderer == NULL)) {
-		problem = "no software renderer";
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2HD;
+	if ((problem == NULL) && !frontpanel_drive_is_2hd(0)) {
+		problem = "2HD media not reported as 2HD";
 	}
-	/* the simple bar: drive 1 lit (set above), V2 lit, V1 dark */
+	frontpanel_set_modeled(0, FALSE);
+	frontpanel_set_modeled(1, TRUE);
+	frontpanel_set_modeled(2, FALSE);
+	frontpanel_fdd_access(0);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
+	                          frontpanel_drive_lit(0, now + 1000))) {
+		problem = "access lamp timing";
+	}
 	if ((problem == NULL) &&
-	    (scrnmng_simple_panel_selftest(640, getenv("TMP_SIMPLE_BMP"), problem_text,
-	                                   sizeof(problem_text)) != SUCCESS)) {
+	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
+		problem = "mode lamp state";
+	}
+	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
+	if ((problem == NULL) &&
+	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {
 		problem = problem_text;
-	}
-	if (renderer != NULL) {
-		frontpanel_release();
-		SDL_DestroyRenderer(renderer);
-	}
-	if (surface != NULL) {
-		SDL_FreeSurface(surface);
 	}
 	frontpanel_set_modeled(1, FALSE);
 	fddfile[0] = saved_fdd;
-	pccore.model_va = saved_model;
 	np2oscfg.front_panel = saved_panel;
-	np2oscfg.front_panel_va3 = saved_va3;
 	if (problem != NULL) {
 		return (fail("front panel", problem));
 	}

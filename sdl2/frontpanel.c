@@ -23,87 +23,31 @@
  */
 
 /*
- * Front panel below the guest screen (vaeg M106): the maintainer's drawings
- * of the PC-88VA, VA2 and VA3 fronts (assets/front-panel-*.png), with the
- * FDD access lamps lit while a drive is accessed (red for 2D/2DD media,
- * green for 2HD) and the V1/V2/V3 mode lamps following port 1CDh.
+ * Front panel lamp state (vaeg M106): the FDD access lamps, lit while a
+ * drive is accessed (red for 2D/2DD media, green for 2HD), and the V1/V2/V3
+ * mode lamps following port 1CDh. sdl2/scrnmng.c draws them as a slim bar
+ * below the guest screen.
  */
 
 #include "compiler.h"
 #include "frontpanel.h"
-#include "pngdecode.h"
 #include "np2.h"
-#include "machine/pccore.h"
 #include "fdd/fddfile.h"
-#include "gui/gui.h"
 
 #include <SDL.h>
-#include <stdlib.h>
-
-extern const unsigned char vaeg_front_panel_va_png[];
-extern const unsigned int vaeg_front_panel_va_png_size;
-extern const unsigned char vaeg_front_panel_va2_png[];
-extern const unsigned int vaeg_front_panel_va2_png_size;
-extern const unsigned char vaeg_front_panel_va3_png[];
-extern const unsigned int vaeg_front_panel_va3_png_size;
 
 enum {
-	FRONTPANEL_ART_VA = 0,
-	FRONTPANEL_ART_VA2,
-	FRONTPANEL_ART_VA3,
-	FRONTPANEL_ARTS,
 	FRONTPANEL_DRIVES = 2,
 	FRONTPANEL_MODES = 3,
 	/* how long one sector access keeps the lamp lit */
 	FRONTPANEL_ACCESS_MS = 120
 };
 
-typedef struct {
-	const unsigned char *png;
-	const unsigned int *png_size;
-	int width;
-	int height;
-	/* lamp positions in artwork pixels: drive 1, drive 2, V1, V2, V3 */
-	SDL_Rect drive[FRONTPANEL_DRIVES];
-	SDL_Rect mode[FRONTPANEL_MODES];
-} FRONTPANEL_DRAWING;
-
-static const FRONTPANEL_DRAWING arts[FRONTPANEL_ARTS] = {
-    {vaeg_front_panel_va_png,
-     &vaeg_front_panel_va_png_size,
-     1900,
-     600,
-     {{1210, 61, 42, 17}, {1210, 292, 42, 17}},
-     {{591, 304, 33, 15}, {593, 347, 31, 16}, {592, 391, 32, 16}}},
-    {vaeg_front_panel_va2_png,
-     &vaeg_front_panel_va2_png_size,
-     1900,
-     750,
-     {{1043, 131, 40, 17}, {1044, 349, 39, 17}},
-     {{1697, 152, 27, 15}, {1697, 195, 27, 15}, {1697, 238, 27, 15}}},
-    {vaeg_front_panel_va3_png,
-     &vaeg_front_panel_va3_png_size,
-     1900,
-     750,
-     {{1044, 131, 42, 20}, {1044, 356, 42, 20}},
-     {{1698, 151, 28, 17}, {1698, 196, 28, 17}, {1698, 239, 28, 17}}},
-};
-
 static struct {
-	SDL_Renderer *renderer;
-	SDL_Texture *texture[FRONTPANEL_ARTS];
-	BOOL failed[FRONTPANEL_ARTS];
 	BOOL mode_on[FRONTPANEL_MODES];
 	UINT32 access_tick[FRONTPANEL_DRIVES];
 	BOOL accessed[FRONTPANEL_DRIVES];
 } panel;
-
-static int frontpanel_art(void) {
-	if (pccore.model_va == PCMODEL_VA1) {
-		return FRONTPANEL_ART_VA;
-	}
-	return np2oscfg.front_panel_va3 ? FRONTPANEL_ART_VA3 : FRONTPANEL_ART_VA2;
-}
 
 void frontpanel_set_modeled(UINT num, BOOL on) {
 	if (num < FRONTPANEL_MODES) {
@@ -152,225 +96,8 @@ int frontpanel_simple_scale(int width) {
 }
 
 int frontpanel_height(int width) {
-	const FRONTPANEL_DRAWING *art;
-
 	if ((np2oscfg.front_panel == FRONTPANEL_OFF) || (width <= 0)) {
 		return 0;
 	}
-	if (np2oscfg.front_panel != FRONTPANEL_ART) {
-		return 14 * frontpanel_simple_scale(width);
-	}
-	art = &arts[frontpanel_art()];
-	return (int)(((SINT64)width * art->height + art->width / 2) / art->width);
-}
-
-void frontpanel_release(void) {
-	int i;
-
-	for (i = 0; i < FRONTPANEL_ARTS; i++) {
-		if (panel.texture[i] != NULL) {
-			SDL_DestroyTexture(panel.texture[i]);
-			panel.texture[i] = NULL;
-		}
-		panel.failed[i] = FALSE;
-	}
-	panel.renderer = NULL;
-}
-
-static SDL_Texture *frontpanel_texture(SDL_Renderer *renderer, int index) {
-	const FRONTPANEL_DRAWING *art = &arts[index];
-	BYTE *pixels;
-	UINT width;
-	UINT height;
-	SDL_Texture *texture;
-
-	if (panel.renderer != renderer) {
-		frontpanel_release();
-		panel.renderer = renderer;
-	}
-	if ((panel.texture[index] != NULL) || panel.failed[index]) {
-		return panel.texture[index];
-	}
-	pixels = vaeg_png_decode_rgba(art->png, *art->png_size, &width, &height);
-	if ((pixels == NULL) || ((int)width != art->width) || ((int)height != art->height)) {
-		free(pixels);
-		panel.failed[index] = TRUE;
-		return NULL;
-	}
-	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC,
-	                            (int)width, (int)height);
-	if (texture != NULL) {
-		SDL_UpdateTexture(texture, NULL, pixels, (int)width * 4);
-		SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-		SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-	}
-	free(pixels);
-	panel.texture[index] = texture;
-	panel.failed[index] = (texture == NULL) ? TRUE : FALSE;
-	return texture;
-}
-
-/* Drawing back ends: the SDL renderer, or the GUI overlay of the native CRT
- * presenter (sdl2/gui/gui.cpp). */
-typedef struct {
-	BOOL (*image)(void *ctx, int index, const SDL_Rect *dst);
-	void (*fill)(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a, BOOL glow);
-	void *ctx;
-} FRONTPANEL_OPS;
-
-static void frontpanel_lamp(const FRONTPANEL_OPS *ops, const SDL_Rect *dst,
-                            const FRONTPANEL_DRAWING *art, const SDL_Rect *lamp, Uint8 r, Uint8 g,
-                            Uint8 b) {
-	SDL_Rect rect;
-	int k;
-
-	rect.x = dst->x + (int)(((SINT64)lamp->x * dst->w) / art->width);
-	rect.y = dst->y + (int)(((SINT64)lamp->y * dst->h) / art->height);
-	rect.w = max(1, (int)(((SINT64)lamp->w * dst->w) / art->width));
-	rect.h = max(1, (int)(((SINT64)lamp->h * dst->h) / art->height));
-	/* glow: widening translucent rectangles, then the lit lens */
-	for (k = 4; k >= 1; k--) {
-		SDL_Rect glow;
-		const int grow = max(1, (rect.h * k) / 4);
-
-		glow.x = rect.x - grow;
-		glow.y = rect.y - grow;
-		glow.w = rect.w + grow * 2;
-		glow.h = rect.h + grow * 2;
-		ops->fill(ops->ctx, &glow, r, g, b, (Uint8)(18 + (4 - k) * 8), TRUE);
-	}
-	ops->fill(ops->ctx, &rect, r, g, b, 255, FALSE);
-	rect.h = max(1, rect.h / 4);
-	rect.x += rect.w / 8;
-	rect.w -= rect.w / 4;
-	rect.y += 1;
-	ops->fill(ops->ctx, &rect, (Uint8)min(255, r + 110), (Uint8)min(255, g + 110),
-	          (Uint8)min(255, b + 110), 255, FALSE);
-}
-
-static void frontpanel_draw(const FRONTPANEL_OPS *ops, const SDL_Rect *dst) {
-	const int index = frontpanel_art();
-	const FRONTPANEL_DRAWING *art = &arts[index];
-	const UINT32 now = SDL_GetTicks();
-	UINT i;
-
-	if ((dst == NULL) || (dst->w <= 0) || (dst->h <= 0) || !ops->image(ops->ctx, index, dst)) {
-		return;
-	}
-	for (i = 0; i < FRONTPANEL_DRIVES; i++) {
-		if (frontpanel_drive_lit(i, now)) {
-			if (frontpanel_drive_is_2hd(i)) {
-				frontpanel_lamp(ops, dst, art, &art->drive[i], 60, 235, 80);
-			} else {
-				frontpanel_lamp(ops, dst, art, &art->drive[i], 255, 45, 30);
-			}
-		}
-	}
-	for (i = 0; i < FRONTPANEL_MODES; i++) {
-		if (panel.mode_on[i]) {
-			frontpanel_lamp(ops, dst, art, &art->mode[i], 120, 255, 130);
-		}
-	}
-}
-
-static BOOL frontpanel_sdl_image(void *ctx, int index, const SDL_Rect *dst) {
-	SDL_Renderer *renderer = (SDL_Renderer *)ctx;
-	SDL_Texture *texture = frontpanel_texture(renderer, index);
-
-	if (texture == NULL) {
-		return FALSE;
-	}
-	SDL_RenderCopy(renderer, texture, NULL, dst);
-	return TRUE;
-}
-
-static void frontpanel_sdl_fill(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a,
-                                BOOL glow) {
-	SDL_Renderer *renderer = (SDL_Renderer *)ctx;
-
-	SDL_SetRenderDrawBlendMode(renderer, glow ? SDL_BLENDMODE_ADD : SDL_BLENDMODE_NONE);
-	SDL_SetRenderDrawColor(renderer, r, g, b, a);
-	SDL_RenderFillRect(renderer, rect);
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-}
-
-void frontpanel_render(SDL_Renderer *renderer, const SDL_Rect *dst) {
-	FRONTPANEL_OPS ops;
-
-	if (renderer == NULL) {
-		return;
-	}
-	ops.image = frontpanel_sdl_image;
-	ops.fill = frontpanel_sdl_fill;
-	ops.ctx = renderer;
-	frontpanel_draw(&ops, dst);
-}
-
-static BOOL frontpanel_overlay_image(void *ctx, int index, const SDL_Rect *dst) {
-	(void)ctx;
-	return gui_overlay_front_panel(index, dst->x, dst->y, dst->w, dst->h);
-}
-
-static void frontpanel_overlay_fill(void *ctx, const SDL_Rect *rect, Uint8 r, Uint8 g, Uint8 b,
-                                    Uint8 a, BOOL glow) {
-	(void)ctx;
-	(void)glow; /* the overlay blends by alpha only */
-	gui_overlay_rect(rect->x, rect->y, rect->w, rect->h, r, g, b, glow ? (Uint8)(a * 2) : a);
-}
-
-void frontpanel_render_overlay(const SDL_Rect *dst) {
-	FRONTPANEL_OPS ops;
-
-	ops.image = frontpanel_overlay_image;
-	ops.fill = frontpanel_overlay_fill;
-	ops.ctx = NULL;
-	frontpanel_draw(&ops, dst);
-}
-
-/* The current drawing as malloc()ed RGBA for the GUI overlay (free() it). */
-BYTE *frontpanel_decode(int index, UINT *width, UINT *height) {
-	if ((index < 0) || (index >= FRONTPANEL_ARTS)) {
-		return NULL;
-	}
-	return vaeg_png_decode_rgba(arts[index].png, *arts[index].png_size, width, height);
-}
-
-BOOL frontpanel_selftest_decode(char *problem, size_t size) {
-	int i;
-
-	for (i = 0; i < FRONTPANEL_ARTS; i++) {
-		const FRONTPANEL_DRAWING *art = &arts[i];
-		UINT width;
-		UINT height;
-		BYTE *pixels = vaeg_png_decode_rgba(art->png, *art->png_size, &width, &height);
-		int k;
-
-		if ((pixels == NULL) || ((int)width != art->width) || ((int)height != art->height)) {
-			free(pixels);
-			SDL_snprintf(problem, size, "front panel %d did not decode at its size", i);
-			return FAILURE;
-		}
-		/* every lamp sits on an opaque, dark lens of the drawing */
-		for (k = 0; k < FRONTPANEL_DRIVES + FRONTPANEL_MODES; k++) {
-			const SDL_Rect *lamp =
-			    (k < FRONTPANEL_DRIVES) ? &art->drive[k] : &art->mode[k - FRONTPANEL_DRIVES];
-			const BYTE *p =
-			    pixels +
-			    (((size_t)(lamp->y + lamp->h / 2) * width) + (size_t)(lamp->x + lamp->w / 2)) * 4;
-
-			if ((p[3] < 0xf0) || ((p[0] + p[1] + p[2]) > 300)) { /* the art is ~253 */
-				free(pixels);
-				SDL_snprintf(problem, size, "front panel %d lamp %d is not on a lens", i, k);
-				return FAILURE;
-			}
-		}
-		/* the corners are transparent */
-		if (pixels[3] != 0) {
-			free(pixels);
-			SDL_snprintf(problem, size, "front panel %d corner is not transparent", i);
-			return FAILURE;
-		}
-		free(pixels);
-	}
-	return SUCCESS;
+	return 14 * frontpanel_simple_scale(width);
 }

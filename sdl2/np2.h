@@ -97,10 +97,8 @@ typedef struct {
 	/* Emulation speed in percent (10-400; 0 = 100); No Wait is the maximum. */
 	UINT16 speed_percent;
 	/* Front panel below the screen (FDD access and V1/V2/V3 mode lamps):
-	 * FRONTPANEL_OFF, FRONTPANEL_SIMPLE (lamp bar) or FRONTPANEL_ART. */
+	 * FRONTPANEL_OFF or FRONTPANEL_SIMPLE (lamp bar). */
 	BYTE front_panel;
-	/* Use the VA3 artwork for the VA2/VA3 model. */
-	BYTE front_panel_va3;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

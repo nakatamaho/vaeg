@@ -215,8 +215,6 @@ struct GuiState {
 	bool native_renderer = false;
 	SDL_Texture *about_texture = nullptr;
 	ImTextureData *native_about_texture = nullptr;
-	ImTextureData *native_front_panel[3] = {nullptr, nullptr, nullptr};
-	bool native_front_panel_failed[3] = {false, false, false};
 	int about_texture_width = 0;
 	int about_texture_height = 0;
 	float menu_font_size = kGuiFontSize;
@@ -3742,26 +3740,10 @@ static void draw_screen_menu(void) {
 		}
 		ImGui::Separator();
 		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
-		if (ImGui::BeginMenu("前面パネル")) {
-			static const struct {
-				const char *label;
-				BYTE mode;
-			} modes[] = {{"表示しない", FRONTPANEL_OFF},
-			             {"簡易表示 (ランプのみ)", FRONTPANEL_SIMPLE},
-			             {"本体の絵", FRONTPANEL_ART}};
-			for (const auto &mode : modes) {
-				if (ImGui::MenuItem(mode.label, nullptr, np2oscfg.front_panel == mode.mode)) {
-					np2oscfg.front_panel = mode.mode;
-					sysmng_update(SYS_UPDATEOSCFG);
-					scrnmng_front_panel_changed();
-				}
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::MenuItem("前面パネル: VA2 機種を VA3 の絵で表示", nullptr,
-		                    np2oscfg.front_panel_va3 != 0,
-		                    np2oscfg.front_panel == FRONTPANEL_ART)) {
-			np2oscfg.front_panel_va3 = np2oscfg.front_panel_va3 ? 0 : 1;
+		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
+		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
+			np2oscfg.front_panel =
+			    (np2oscfg.front_panel != FRONTPANEL_OFF) ? FRONTPANEL_OFF : FRONTPANEL_SIMPLE;
 			sysmng_update(SYS_UPDATEOSCFG);
 			scrnmng_front_panel_changed();
 		}
@@ -4499,14 +4481,6 @@ void gui_shutdown(void) {
 		scrnmng_native_gui_shutdown();
 	else
 		ImGui_ImplSDLRenderer2_Shutdown();
-	for (int i = 0; i < 3; i++) {
-		if (g_gui.native_front_panel[i]) {
-			ImGui::UnregisterUserTexture(g_gui.native_front_panel[i]);
-			IM_DELETE(g_gui.native_front_panel[i]);
-			g_gui.native_front_panel[i] = nullptr;
-		}
-		g_gui.native_front_panel_failed[i] = false;
-	}
 	if (g_gui.native_about_texture) {
 		ImGui::UnregisterUserTexture(g_gui.native_about_texture);
 		IM_DELETE(g_gui.native_about_texture);
@@ -4795,40 +4769,6 @@ void gui_overlay_rect(int x, int y, int width, int height,
 	if (!g_gui.initialized || !g_gui.native_renderer) return;
 	draw_overlay_rect(ImGui::GetBackgroundDrawList(), ImGui::GetIO().DisplayFramebufferScale,
 	                  ImGui::GetMainViewport()->Pos, x, y, width, height, IM_COL32(r, g, b, a));
-}
-
-BOOL gui_overlay_front_panel(int index, int x, int y, int width, int height) {
-	if (!g_gui.initialized || !g_gui.native_renderer || (index < 0) || (index >= 3)) {
-		return FALSE;
-	}
-	if ((g_gui.native_front_panel[index] == nullptr) && !g_gui.native_front_panel_failed[index]) {
-		UINT w = 0;
-		UINT h = 0;
-		BYTE *pixels = frontpanel_decode(index, &w, &h);
-		if (pixels == nullptr) {
-			g_gui.native_front_panel_failed[index] = true;
-			return FALSE;
-		}
-		auto *texture = IM_NEW(ImTextureData)();
-		texture->Create(ImTextureFormat_RGBA32, static_cast<int>(w), static_cast<int>(h));
-		for (UINT row = 0; row < h; ++row) {
-			std::memcpy(texture->GetPixelsAt(0, static_cast<int>(row)),
-			            pixels + static_cast<size_t>(row) * w * 4, texture->GetPitch());
-		}
-		std::free(pixels);
-		ImGui::RegisterUserTexture(texture);
-		g_gui.native_front_panel[index] = texture;
-	}
-	const ImVec2 scale = ImGui::GetIO().DisplayFramebufferScale;
-	const ImVec2 origin = ImGui::GetMainViewport()->Pos;
-	if ((scale.x <= 0) || (scale.y <= 0)) {
-		return FALSE;
-	}
-	ImGui::GetBackgroundDrawList()->AddImage(
-	    g_gui.native_front_panel[index]->GetTexRef(),
-	    ImVec2(origin.x + x / scale.x, origin.y + y / scale.y),
-	    ImVec2(origin.x + (x + width) / scale.x, origin.y + (y + height) / scale.y));
-	return TRUE;
 }
 
 BOOL gui_overlay_selftest(void) {

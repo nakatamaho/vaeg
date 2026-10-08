@@ -31,13 +31,9 @@
 extern "C" {
 #endif
 
-struct SDL_Renderer;
-struct SDL_Rect;
-
 enum {
 	FRONTPANEL_OFF = 0,
-	FRONTPANEL_SIMPLE = 1, /* a slim bar of lamps (default) */
-	FRONTPANEL_ART = 2     /* the drawing of the machine's front */
+	FRONTPANEL_SIMPLE = 1 /* a slim bar of lamps (default) */
 };
 
 void frontpanel_set_modeled(UINT num, BOOL on);
@@ -49,12 +45,6 @@ BOOL frontpanel_drive_is_2hd(UINT drv);
 int frontpanel_height(int width);
 /* Scale of the simple bar for a window width (1 at 640). */
 int frontpanel_simple_scale(int width);
-void frontpanel_render(struct SDL_Renderer *renderer, const struct SDL_Rect *dst);
-/* The same through the GUI overlay (native CRT presenter). */
-void frontpanel_render_overlay(const struct SDL_Rect *dst);
-BYTE *frontpanel_decode(int index, UINT *width, UINT *height);
-void frontpanel_release(void);
-BOOL frontpanel_selftest_decode(char *problem, size_t size);
 
 #ifdef __cplusplus
 }

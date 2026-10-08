@@ -341,7 +341,6 @@ set(VAEG_SDL2_SOURCES
     sdl2/pacing.c
     sdl2/framedisp.c
     sdl2/viewport.c
-    sdl2/pngdecode.c
     sdl2/frontpanel.c
     sdl2/appicon.c
     sdl2/splash.c
@@ -454,57 +453,6 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
     VERBATIM)
 list(APPEND VAEG_SDL2_SOURCES "${VAEG_GUI_FONT_DATA}")
-
-set(VAEG_FRONT_PANEL_VA_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_front_panel_va_data.c")
-add_custom_command(
-    OUTPUT "${VAEG_FRONT_PANEL_VA_DATA}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/generated"
-    COMMAND "${CMAKE_COMMAND}"
-        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va.png"
-        "-DOUTPUT=${VAEG_FRONT_PANEL_VA_DATA}"
-        "-DSYMBOL=vaeg_front_panel_va_png"
-        "-DSOURCE_LABEL=assets/front-panel-va.png"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va.png"
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    VERBATIM)
-list(APPEND VAEG_SDL2_SOURCES "${VAEG_FRONT_PANEL_VA_DATA}")
-
-set(VAEG_FRONT_PANEL_VA2_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_front_panel_va2_data.c")
-add_custom_command(
-    OUTPUT "${VAEG_FRONT_PANEL_VA2_DATA}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/generated"
-    COMMAND "${CMAKE_COMMAND}"
-        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va2.png"
-        "-DOUTPUT=${VAEG_FRONT_PANEL_VA2_DATA}"
-        "-DSYMBOL=vaeg_front_panel_va2_png"
-        "-DSOURCE_LABEL=assets/front-panel-va2.png"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va2.png"
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    VERBATIM)
-list(APPEND VAEG_SDL2_SOURCES "${VAEG_FRONT_PANEL_VA2_DATA}")
-
-set(VAEG_FRONT_PANEL_VA3_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_front_panel_va3_data.c")
-add_custom_command(
-    OUTPUT "${VAEG_FRONT_PANEL_VA3_DATA}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-        "${CMAKE_CURRENT_BINARY_DIR}/generated"
-    COMMAND "${CMAKE_COMMAND}"
-        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va3.png"
-        "-DOUTPUT=${VAEG_FRONT_PANEL_VA3_DATA}"
-        "-DSYMBOL=vaeg_front_panel_va3_png"
-        "-DSOURCE_LABEL=assets/front-panel-va3.png"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/assets/front-panel-va3.png"
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    VERBATIM)
-list(APPEND VAEG_SDL2_SOURCES "${VAEG_FRONT_PANEL_VA3_DATA}")
 
 set(VAEG_APP_ICON_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_app_icon_data.c")
 add_custom_command(

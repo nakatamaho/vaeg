@@ -149,15 +149,11 @@ const char *scrnmng_native_preset_path(void) {
 }
 
 /*
- * Front panel below the guest picture (sdl2/frontpanel.c): in a visible
+ * Front panel lamp bar below the guest picture (sdl2/frontpanel.c): in a visible
  * window only, not in full screen and not under a headless video driver, so
  * captures and headless runs are unchanged. With the native CRT presenter
- * the panel (bar or drawing) is drawn through the GUI overlay.
+ * the bar is drawn through the GUI overlay.
  */
-static BOOL scrnmng_front_panel_simple(void) {
-	return (np2oscfg.front_panel != FRONTPANEL_ART) ? TRUE : FALSE;
-}
-
 static int scrnmng_front_panel_height(int width) {
 	const char *video_driver;
 
@@ -168,9 +164,6 @@ static int scrnmng_front_panel_height(int width) {
 	video_driver = SDL_GetCurrentVideoDriver();
 	if ((video_driver == NULL) || vaeg_native_presenter_is_headless_video_driver(video_driver)) {
 		return 0;
-	}
-	if (scrnmng_front_panel_simple()) {
-		return 14 * frontpanel_simple_scale(width);
 	}
 	return frontpanel_height(width);
 }
@@ -1259,7 +1252,6 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	                      SCRNMNG_CANVAS_WIDTH, SCRNMNG_CANVAS_MAX_HEIGHT);
 	if (scrnmng.texture == NULL) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
-		frontpanel_release();
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
 		return FAILURE;
@@ -1483,7 +1475,6 @@ void scrnmng_destroy(void) {
 		scrnmng.rendered_frame = NULL;
 	}
 	if (scrnmng.renderer) {
-		frontpanel_release();
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
 	}
@@ -1637,8 +1628,7 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		SDL_DestroyTexture(scrnmng.texture);
 	scrnmng.texture = NULL;
 	if (scrnmng.renderer)
-		frontpanel_release();
-	    SDL_DestroyRenderer(scrnmng.renderer);
+		SDL_DestroyRenderer(scrnmng.renderer);
 	scrnmng.renderer = NULL;
 	preset = scrnmng_native_preset_path();
 	if (np2oscfg.gui_native_crt) {
@@ -1804,13 +1794,7 @@ static void scrnmng_draw_front_panel(void) {
 	panel.x = 0;
 	panel.y = output_h - panel.h;
 	panel.w = output_w;
-	if (scrnmng_front_panel_simple()) {
-		scrnmng_draw_simple_panel(&panel);
-	} else if (scrnmng.native_active) {
-		frontpanel_render_overlay(&panel);
-	} else {
-		frontpanel_render(scrnmng.renderer, &panel);
-	}
+	scrnmng_draw_simple_panel(&panel);
 }
 
 /* Selftest: the simple bar's lamps on a software renderer (drive 1 and V3
@@ -2414,7 +2398,6 @@ cleanup:
 	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
 	SDL_FreeSurface(white);
 	SDL_DestroyTexture(scrnmng.texture);
-	frontpanel_release();
 	SDL_DestroyRenderer(scrnmng.renderer);
 	SDL_DestroyWindow(scrnmng.window);
 	scrnmng = saved;
