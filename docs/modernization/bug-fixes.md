@@ -57,6 +57,8 @@ land.
 - **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md),
   [photo](m106-photos/va2-pcengine-glass-line.jpg),
   [SGP notes section 13](upd92017-sgp.md#13-line-0009h).
+  Fix: [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba); demos: [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f),
+  rebuilt disks [a958fb1e](https://github.com/nakatamaho/vaeg/commit/a958fb1eae08c82e2fbc48de267fde7a16587f30).
 
 ### M105 — TSP frames with a sync shorter than 4 lines ran slow
 
@@ -2652,6 +2654,19 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
 ## Open Defects
+
+### M106 — The NEON3 distribution still draws LINE with the exchanged bits
+
+- **Symptom/scope:** `NEON200.COM` and `NEON400.COM` on
+  `demos/disks/neon3-distribution.d88.xz` (and the all-demos disks built
+  from it) draw the city with misdirected lines, in vaeg since the M106 LINE
+  fix and on hardware.
+- **Cause:** the NEON3 source was corrected in M106, but its build includes
+  the original NEON3 sources under `demos/neon3_1_5/98/`, which are not in
+  the repository and not on the build host, so the payloads could not be
+  rebuilt.
+- **Next step:** rebuild NEON200/NEON400 where `demos/neon3_1_5/98/` exists,
+  then the NEON3 and all-demos disks.
 
 ### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 

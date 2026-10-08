@@ -165,3 +165,20 @@ mode lamp follows V1/V2/V3.
   [100825e8](https://github.com/nakatamaho/vaeg/commit/100825e83fa3e8b8dbf1ab3982c5a2b24acb056e),
   [5dcff541](https://github.com/nakatamaho/vaeg/commit/5dcff541b18b97c0d450198e27a1fef0686e9ca1),
   [1de95914](https://github.com/nakatamaho/vaeg/commit/1de95914bd3ad44ea972fd5e6be4fdc9cdcf992d).
+- SGP LINE directions (maintainer photo, PC-88VA2, PC-Engine 1.1, GLASS):
+  the hardware draws `0800h` right to left and `0400h` bottom to top, the
+  reverse of the Technical Manual's table that M97b had adopted. vaeg is
+  fixed and the demos are re-encoded: GLASS, NEON4, the three wireframes,
+  the 65536-colour pseudo-sprite and sgp-scan; each changed COM differs
+  from the old one only in the two direction immediates. The GLASS, NEON4,
+  pseudo-sprite, wireframe, all-demos and all-demos-msdos4 disks are
+  rebuilt (all-demos-msdos4.d88.xz now SHA-256
+  `ff06ce7d03ee5401b30a5a691fe1399347bb9de4cc16db17e730c88f3678d87d`, raw
+  `685fea156e753c511568cfc6a2b832d242bb885beb89bfd364484a425259e540`). On
+  a PC-Engine 1.1 all-demos disk in vaeg (VA2) every program draws as
+  intended except NEON3, whose payload could not be rebuilt here (ledger
+  open defect). Photo: `docs/modernization/m106-photos/va2-pcengine-glass-line.jpg`.
+  On the original VA model the ROM's PC-Engine 1.0 starts instead and
+  GLASS, NEON4 and zundamon do not run, with the old disks as well; not
+  investigated. The MS-DOS 4.0 stall of GLASS and SGPD_7C is deferred.
+  [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba), [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f), [a958fb1e](https://github.com/nakatamaho/vaeg/commit/a958fb1eae08c82e2fbc48de267fde7a16587f30).
