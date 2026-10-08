@@ -110,3 +110,20 @@ mode lamp follows V1/V2/V3.
   and force-pushed (old head `e3763f13`, new head `f317986c`); the commit
   messages and the removed NOTICE text remain. Commits of that range no
   longer build on their own, as their CMake files name the missing images.
+- Hosted CI had failed the ASan and Windows jobs on every push since
+  M103g, unnoticed. Causes, both in tests: the M103i/M103j selftests for the
+  monitor switch, the cassette and port 40h sound used the I/O tables after
+  the previous test's `pccore_term()` (ASan heap-use-after-free; a segfault
+  on Windows), and the EOL checker's own test wrote `.gitattributes` with
+  `write_text`, which writes CRLF on Windows. Each selftest now starts and
+  ends its own machine, and the attributes are written as bytes. Locally the
+  ASan build (with CI's `detect_leaks=0`) passes all 108 tests and reports
+  the use-after-free again with the selftest fix reverted.
+  [ded95a4b](https://github.com/nakatamaho/vaeg/commit/ded95a4b3b38f0b9e5b140f163e6badf8c87dc3d),
+  [6e30eb67](https://github.com/nakatamaho/vaeg/commit/6e30eb676b7d27c875094e513c17c1e1dd3d1eab).
+- With the native CRT presenter, enlarging the window did not enlarge the
+  picture (maintainer report): the lamp bar grows with the window width, and
+  each change of its height re-applied the configured window size, pulling
+  the window back. The window is now refitted only when the panel setting,
+  display mode or presenter changes.
+  [af505697](https://github.com/nakatamaho/vaeg/commit/af5056978f21f7826146028ec17b8b101726009a).
