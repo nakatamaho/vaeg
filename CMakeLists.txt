@@ -64,7 +64,7 @@ if(MINGW)
     endif()
 endif()
 
-if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+if(APPLE AND (VAEG_ENABLE_LIBRASHADER OR VAEG_ENABLE_RECORDING))
     enable_language(OBJC)
     enable_language(OBJCXX)
 endif()
@@ -410,6 +410,27 @@ if(VAEG_ENABLE_RECORDING)
         sdl2/recording/recording_ffmpeg_video_encoder.cpp
         sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
         sdl2/recording/recording_ffmpeg_matroska.cpp)
+endif()
+if(APPLE AND VAEG_ENABLE_RECORDING)
+    include(CheckSourceCompiles)
+    set(CMAKE_REQUIRED_LIBRARIES "-framework Cocoa" "-weak_framework ScreenCaptureKit")
+    check_source_compiles(OBJCXX "
+        #import <ScreenCaptureKit/ScreenCaptureKit.h>
+        int main() {
+            if (@available(macOS 14.0, *)) {
+                SCContentFilter *filter = nil;
+                return filter.pointPixelScale > 0;
+            }
+            return 0;
+        }" VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+    unset(CMAKE_REQUIRED_LIBRARIES)
+    if(VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+        list(APPEND VAEG_SDL2_SOURCES sdl2/recording/recording_macos_window_capture.mm)
+        set_source_files_properties(sdl2/recording/recording_macos_window_capture.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    else()
+        message(STATUS "Recording window capture: SDK lacks ScreenCaptureKit geometry API")
+    endif()
 endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
@@ -761,6 +782,11 @@ target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
 if(VAEG_ENABLE_RECORDING)
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_RECORDING_FFMPEG=1)
     target_link_libraries(vaeg_sdl2 PRIVATE ${VAEG_FFMPEG_TARGETS})
+    if(APPLE AND VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+        target_link_libraries(vaeg_sdl2 PRIVATE
+            "-framework Cocoa" "-framework CoreMedia" "-framework CoreVideo"
+            "-weak_framework ScreenCaptureKit")
+    endif()
 endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     target_link_libraries(vaeg_sdl2 PRIVATE
@@ -1198,6 +1224,30 @@ if(VAEG_ENABLE_TESTS)
         set_tests_properties(vaeg_recording_ffmpeg_capabilities PROPERTIES
             LABELS "romless;recording;ffmpeg")
 
+        if(APPLE AND VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+            add_executable(vaeg_recording_macos_window_capture_test
+                tests/frontend/recording/test_recording_macos_window_capture.mm
+                sdl2/recording/recording_macos_window_capture.mm)
+            target_include_directories(vaeg_recording_macos_window_capture_test PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+            set_target_properties(vaeg_recording_macos_window_capture_test PROPERTIES
+                OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
+            set_source_files_properties(tests/frontend/recording/test_recording_macos_window_capture.mm
+                PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            target_compile_options(vaeg_recording_macos_window_capture_test PRIVATE -Wall)
+            target_link_libraries(vaeg_recording_macos_window_capture_test PRIVATE
+                "-framework Cocoa" "-framework CoreMedia" "-framework CoreVideo"
+                "-weak_framework ScreenCaptureKit")
+            if(VAEG_WERROR)
+                target_compile_options(vaeg_recording_macos_window_capture_test PRIVATE -Werror)
+            endif()
+            add_test(NAME vaeg_recording_macos_capture_contracts
+                COMMAND vaeg_recording_macos_window_capture_test --contracts)
+            set_tests_properties(vaeg_recording_macos_capture_contracts PROPERTIES
+                LABELS "romless;recording;window;contracts")
+            # Interactive public-window runtime probe is opt-in, not part of
+            # unattended CTest and never prompts for Screen Recording consent.
+        endif()
         add_executable(vaeg_recording_h264_encoder_test
             tests/frontend/recording/test_recording_h264_encoder.cpp
             sdl2/recording/recording_h264_encoder.cpp)
