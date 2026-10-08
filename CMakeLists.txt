@@ -393,6 +393,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/recording/recording_contracts.cpp
     sdl2/recording/recording_clock.cpp
     sdl2/recording/recording_queue.cpp
+    sdl2/recording/recording_realtime_clock.cpp
     sdl2/soundmng.c
     sdl2/soundopts.c
     sdl2/ymfmbridge.cpp
@@ -930,6 +931,20 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(vaeg_recording_realtime_clock_test
+        tests/frontend/recording/test_recording_realtime_clock.cpp
+        sdl2/recording/recording_realtime_clock.cpp)
+    target_include_directories(vaeg_recording_realtime_clock_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_recording_realtime_clock_test PRIVATE cxx_std_17)
+    target_link_libraries(vaeg_recording_realtime_clock_test PRIVATE Threads::Threads)
+    target_compile_options(vaeg_recording_realtime_clock_test PRIVATE -Wall)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_realtime_clock_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_realtime_clock COMMAND vaeg_recording_realtime_clock_test)
+    set_tests_properties(vaeg_recording_realtime_clock PROPERTIES
+        LABELS "romless;recording;realtime;clock")
     add_executable(vaeg_recording_c_contract_test
         tests/frontend/recording/test_recording_c.c
         sdl2/recording/recording.c)
