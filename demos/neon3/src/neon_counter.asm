@@ -31,7 +31,7 @@
         bits    16
         org     0
 
-%include "../../neon3_1_5/98/CONFIG3_286.INC"
+%include "CONFIG3_286.INC"
 ; DATA3_286.INC is the original shared state block.  Its audio fields are
 ; dormant in this P3 counter payload, but retain their documented sentinel
 ; constants so the unmodified data include remains assembleable.  No OPL
@@ -1783,8 +1783,8 @@ clear_graphics_page:
 ; implementation is included under a private name so P3 can prove that the
 ; scene remains the original faithful geometry while the backend is replaced.
         %define city286f_fill_triangle neon_counter_triangle_impl
-%include "../../neon3_1_5/98/CITY3D286_CORE.INC"
-%include "../../neon3_1_5/98/CITY3D286_FAITHFUL.INC"
+%include "CITY3D286_CORE.INC"
+%include "CITY3D286_FAITHFUL.INC"
         %undef  city286f_fill_triangle
 
 city286f_fill_triangle:
@@ -1793,12 +1793,12 @@ city286f_fill_triangle:
         popa
         jmp     neon_counter_triangle_impl
 
-%include "../../neon3_1_5/98/SCENE3_256.INC"
+%include "SCENE3_256.INC"
 
 ; Keep the raw payload entry at offset zero.  The original mutable state is
 ; data, not an entry stub, so it must follow the code for the local loader's
 ; fixed 3000:0000 transfer contract.
-%include "../../neon3_1_5/98/DATA3_286.INC"
+%include "DATA3_286.INC"
 
 neon_counter_record_frame:
         pusha
@@ -1881,8 +1881,10 @@ neon_text_last_scene                db 0ffh
         align 2
 ; This legacy diagnostic reserve has no runtime references; keep a small
 ; alignment cushion without letting the status-row cleanup cross the loader
-; return reserve at E000h.
-neon_counter_stack                 times 224 dw 0
+; return reserve at E000h.  M106 shrank it from 224 words so that the public
+; NEON RELAY 3 ver1.5 sources (external/neon3-1.5), 128 bytes larger than the
+; earlier private copy, still fit.
+neon_counter_stack                 times 160 dw 0
 neon_counter_stack_top:
 
 align 2
