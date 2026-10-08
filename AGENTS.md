@@ -54,6 +54,25 @@ The clean-checkout build is the fully static MinGW build described under
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+## Demos stay buildable
+
+Every milestone must leave every bundled demo buildable from a clean
+checkout with the repository's own sources and tools. Before a milestone's
+gate:
+
+- build each demo under `demos/` (GLASS, NEON3, NEON4, the pseudo-sprite and
+  wireframe sets, sgp-scan, the self-booting SGP disk) and check that the
+  payloads on the committed `demos/disks/*.d88.xz` are byte-identical to the
+  fresh build; if a source change alters a payload, rebuild the affected
+  distribution, all-demos and all-demos-msdos4 disks in the same milestone;
+- start every program of the all-demos disk in vaeg (PC-Engine and MS-DOS
+  4.0) and confirm it draws, and run `MANDEL.BAS` from N88-BASIC;
+- record the result in the task file.
+
+Exception until resolved: `zundamon-orbit` needs a maintainer-supplied
+artwork source and private profile tables that are not in the repository;
+its committed disk is checked by running it, not by rebuilding it.
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI
