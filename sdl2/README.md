@@ -735,6 +735,14 @@ only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
 in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
 V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
 while frames, timers, FM, BEEP and disk timing keep real time.
+`Screen -> 前面パネル` (`FrontPanel`, on by default) shows the
+maintainer's drawing of the machine's front below the screen in a window:
+each FDD access lamp lights for 120 ms after a sector access, red for 2D/2DD
+media and green for 2HD, and the V1/V2/V3 mode lamps follow port 1CDh bits
+4-6. The VA model uses the VA drawing, the VA2/VA3 model the VA2 drawing or,
+with `FrontPanelVA3`, the VA3 drawing. The panel takes its own rows below
+the guest picture and is not shown in full screen, with the native CRT
+presenter or under a headless video driver.
 `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and

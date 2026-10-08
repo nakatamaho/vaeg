@@ -46,12 +46,19 @@ exclude PC-Engine as a cause.
    minimal `INT 21h`/`INT 20h`), `build-boot-d88.py` (reproducible D88
    builder that writes outside the repository), `README.md`.
 2. No change to the demo sources; the bootable disk is never committed.
+3. Front panel below the screen (maintainer request, 2026-10-08): the
+   maintainer's drawings of the VA, VA2 and VA3 fronts (manufacturer logo
+   removed; BSD-2-Clause, `assets/NOTICE.md`), with FDD access lamps lit
+   while a drive is accessed (red 2D/2DD, green 2HD) and the V1/V2/V3 mode
+   lamps from port 1CDh.
 
 ## Gate G106 (human)
 
 Standard V3 gate unchanged, plus: the built disk boots to the menu in vaeg
 and on the PC-88VA2, and the demos run from it (results on hardware are
-recorded whatever they are).
+recorded whatever they are). The front panel appears below the screen, the access
+lamp lights while a disk is read (red for 2D/2DD, green for 2HD) and the
+mode lamp follows V1/V2/V3.
 
 ## Implementation progress
 
@@ -76,3 +83,17 @@ recorded whatever they are).
   `--pcengine-source` installs them in `16\`, `256\` and `65536\` on a copy
   of the user's system disk; checked in vaeg (VA2): PC-Engine boots and
   `16\SGPD_7A`, `256\SGP256T` and `65536\SGPWIRE` run.
+- Front panel: artwork, decoder and panel
+  [0f2924bc](https://github.com/nakatamaho/vaeg/commit/0f2924bcd3af8c90e6623980d2f381aaf261ee17),
+  [dd5bd730](https://github.com/nakatamaho/vaeg/commit/dd5bd730bf92b981b00592df147c6e2d10a8c5e4),
+  [73bc9aac](https://github.com/nakatamaho/vaeg/commit/73bc9aac618a3e2350358bd8a17de1e0f7e4ebe7).
+  PNG is not decodable by SDL2, so a small inflate/PNG decoder
+  (`sdl2/pngdecode.c`) reads the embedded images. `[ROM]`-observed mode
+  lamps: port 1CDh bit 4 = V1, 5 = V2, 6 = V3 (a V3 boot lights V3, a V2
+  boot V2; while booting the ROM writes 111b, which the existing decode
+  shows as all three lit). Romless test: all three images decode at their
+  sizes with every lamp on a dark lens, panel heights (202/253 rows at
+  640), a guest picture unchanged by the reserved rows, and a software-
+  rendered panel with drive 1 red (2DD) / green (2HD), V2 lit and V1 dark;
+  it fails with the 2HD colour forced off. Window drawing is checked by the
+  maintainer (no display in the build environment).
