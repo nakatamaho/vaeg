@@ -39,7 +39,8 @@ class CheckEolTest(unittest.TestCase):
     def make_repo(self, directory, attributes):
         repo = Path(directory)
         git(repo, "init", "-q")
-        (repo / ".gitattributes").write_text(attributes)
+        # bytes: write_text would turn "\n" into "\r\n" on Windows
+        (repo / ".gitattributes").write_bytes(attributes.encode("ascii"))
         (repo / "plain.txt").write_bytes(b"lf only\n")
         (repo / "evidence").mkdir()
         (repo / "evidence" / "out.txt").write_bytes(b"from cp/m\r\n\x1a\x1a")
