@@ -143,8 +143,9 @@ mode lamp follows V1/V2/V3.
   from 1.05 and 1.1). Every demo disk builder (all demos, the SGP disk via
   `--system-source`, and the per-demo `build-bootable-d88.sh`) therefore
   takes either system. In vaeg all 17 programs of the all-demos disk run
-  from MS-DOS 4.0 on the VA and the VA2 (the zundamon demo takes about 70 s
-  of emulated time to load its atlas), with the same known colour and
+  from MS-DOS 4.0 on the VA and the VA2 (the zundamon demo shows its picture
+  within 6000 frames of being started, as under PC-Engine, while it loads
+  its atlas), with the same known colour and
   65536-colour faults as under PC-Engine; MS-DOS 2.0 was spot-checked.
   Synthetic-disk tests: `tests/pc88va/test_pcengine_disk_msdos.py`.
   [f86b201b](https://github.com/nakatamaho/vaeg/commit/f86b201bc8da888a584a6d9d0ca056c3e5e3c9e3),
