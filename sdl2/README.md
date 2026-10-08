@@ -739,8 +739,10 @@ while frames, timers, FM, BEEP and disk timing keep real time.
 off) shows a slim bar of lamps below the screen in a window (14 rows per 640
 dots): FD1 and FD2 light for 120 ms after each sector access, red for
 2D/2DD media and green for 2HD, and V1/V2/V3 follow port 1CDh bits 4-6.
-The bar takes its own rows below the guest picture and is not shown in full
-screen or under a headless video driver; with the native CRT presenter it
+The bar takes its own rows below the guest picture: turning it on or off
+adds or removes them from the current window, and the saved window size
+excludes them. It is not shown in full screen or under a headless video
+driver; with the native CRT presenter it
 is drawn through the GUI overlay.
 `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured

@@ -127,3 +127,9 @@ mode lamp follows V1/V2/V3.
   the window back. The window is now refitted only when the panel setting,
   display mode or presenter changes.
   [af505697](https://github.com/nakatamaho/vaeg/commit/af5056978f21f7826146028ec17b8b101726009a).
+- Turning the lamp bar on reset the window to the configured scale
+  (maintainer report). Showing or hiding it now adds or removes its rows from
+  the current window; the saved window size (`GUI_win_cx`/`GUI_win_cy`)
+  excludes them, the custom window size likewise, and a scale change
+  includes them. The bar stays on by default (`FrontPanelMode=1`).
+  [e99c8c64](https://github.com/nakatamaho/vaeg/commit/e99c8c6493397f0cb78368ce19747be05e8d7dc5).
