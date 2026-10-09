@@ -32,8 +32,6 @@ INT80H～83Hの詳細資料、6.5～6.20の33資料（数値演算17割り込み
 確定できなかった固定workは「未確定」とし、呼び出し側bufferを固定workの代わりに示していない。
 各機能の全register、全構造field、OSによる最終差し替え、実機での動作は追加検証が必要。
 
-詳細資料: [INT 80H](bios_int80h.md)、[INT 81H](bios_int81h.md)、[INT 82H](bios_int82h.md)、[INT 83H](bios_int83h.md)。
-
 | 割り込み・資料 | 検証状態 |
 |---|---|
 | [INT 33H / マウスBIOS](bios_int33h.md) | 静的初版・部分照合 |
