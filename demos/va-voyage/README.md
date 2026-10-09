@@ -124,7 +124,13 @@ clock remain; sky/sea palettes change on bar boundaries, reflection pulses
 on the existing percussion cues. List capacity is 8192 words only in this
 variant, with a conservative 6525-word bound and the same D000h payload limit.
 All tables and images are original/source-built; generated media stays private.
-The previous COM variants remain byte-identical. New human review is pending.
+The previous COM variants remain byte-identical. Five CLS commands fill the
+sky efficiently. Local native night/dawn, six-voice dispatch and Escape/relaunch
+checks pass; sampled two-cycle time is about 52.37 emulated seconds and geometry
+11.34 publications/second. Added rendering changes polled-clock observability
+and perceived tempo despite the unchanged score; no fixed BPM is promised.
+New human review is pending.
+[Validation report](../../docs/agents/reports/m107c_voyage_dawn_scene.md).
 See [M107c task](../../docs/agents/tasks/M107c_voyage_dawn_scene.md).
 
 ## Rendering and synchronization

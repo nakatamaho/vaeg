@@ -64,6 +64,24 @@ continued six-voice/SSG/ADPCM dispatch, command-list safety, Escape and relaunch
 Reuse completed unchanged profiles; no hosted CI/SST for unchanged emulator
 inputs. A documentation-only handoff edit does not rerun the guest.
 
+## Local result
+
+[Report](../reports/m107c_voyage_dawn_scene.md): 10 dawn tests plus the existing
+22 tests pass, repeat raw/COM builds agree, forced-silent build assembles and
+old COM variants are byte-identical. Command bound is 6525/8192 words; raw payload
+29560 bytes. Native default-ymfm captures reach night/dawn, show 565 six-voice
+note requests, 4096 uploaded bytes / 73 ADPCM starts and present=1/error=0;
+selected lists are 2672..3706 words with wait_failed=0. Escape and later visible
+relaunch/second-Escape pass. Worker/build inputs remain unchanged from M107b.
+Observed two-cycle interval is about 52.37 emulated seconds / 11.34 geometry
+publications per second; score is unchanged, but rendering changes polled-clock
+observability and perceived tempo. No fixed duration/BPM or audible accuracy.
+
+An unmerged BP/SS sky-table error was corrected with explicit DS addressing and
+an exact-code negative fixture. Five CLS sky bands reduce command/CPU setup.
+Initial/corrected/final evidence is privately retained; final documentation
+changes do not rerun unchanged guest behavior. No new SST/hosted CI.
+
 **HUMAN GATE:** view the new colours/sun/sea and check motion/music balance,
 Escape/relaunch. Real VA/VA2, audition accuracy, clean-checkout/full V3/demo/OS
 regression remain independent. Do not begin the next increment before approval.

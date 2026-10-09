@@ -50,8 +50,9 @@ land.
   mutated once to remove it and must produce `M107C_SKY_SEGMENT`. Corrected
   native night/dawn captures and remaining limitations are recorded in the
   [M107c task](../agents/tasks/M107c_voyage_dawn_scene.md).
-- **Milestone/task/commit:** M107c; the correcting commit is identified in the
-  forthcoming [M107c report](../agents/reports/m107c_voyage_dawn_scene.md).
+- **Milestone/task/commit:** M107c;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/872219b45c4e00c0ac7964ec9de8f459bdf3105a),
+  [M107c report](../agents/reports/m107c_voyage_dawn_scene.md).
 
 ### M107b — avoid retaining a demo-sized ADPCM wrap limit
 
