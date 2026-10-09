@@ -55,7 +55,10 @@ coverage, internal OS hooks, private TXT equivalents, and canonical public
 references with index links. The maintainer then requests detailed INT 90H
 V1/V2 supervisor analysis from disassembly and PC-Engine, including which
 instruction set applies. This authorizes one additional static reference and
-index entry, not changes to mode switching or emulator behavior. No emulator
+index entry, not changes to mode switching or emulator behavior. The next
+maintainer request authorizes the related INT 91H native memory/I/O reference,
+its eight selectors, register/frame contract, ROM/manual discrepancies and
+PC-Engine candidates, with index and INT90H cross-reference updates. No emulator
 changes or new milestone implementation are authorized.
 
 ## Deliverables
@@ -74,8 +77,11 @@ changes or new milestone implementation are authorized.
   native supervisor code; compare both six-vector tables, BRKEM2 boundary,
   native trap decoders/port tables, conventional-memory work and PC-Engine
   candidates. Retain unresolved CALLN/ABI/timing questions.
+- `docs/bios/bios_int91h.md`: CALLN contract, all eight native selectors per
+  model, saved-frame layout, byte/word results and internal CF meaning. Flag
+  the selector01 byte-store discrepancy without executing it or correcting ROMs.
 - `docs/bios/index.md` must link every published interrupt reference, including
-  20H/21H and 80H–83H, without claiming full interrupt-list coverage.
+  20H/21H, 80H–83H and 90H/91H, without claiming full interrupt-list coverage.
 - `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
   6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
@@ -158,3 +164,22 @@ are linked once in the index table. Intended scope: one new interrupt reference,
 index, task and roadmap only. Run repository invariant and staged-diff checks
 before push. No emulator build, runtime mode switch, hosted CI request,
 guest-visible bug fix, or archived-reference change is included.
+
+## INT 91H static follow-up
+
+Out-of-tree content checks passed for both IVT registrations, all 16 selector
+entries and complete helper byte sequences, both native entry bodies, 12 saved
+frame slots, address arithmetic, manual bit definitions, the existing ALTPRB
+expected ROM byte, and an OS immediate falsely matching raw CD91. The documented
+memory word-read selector01 executes a byte-store instruction in both examined
+ROMs; a second native decoder confirmed the opcode. Treat this as a static
+ROM/manual discrepancy, not a demonstrated cause or correction of an emulator
+regression. Do not execute selector01 as a read-only probe. Read results,
+byte high-register preservation, and internal versus returned CF are explained;
+existing M103a measurements are explicitly separate from this investigation.
+Generated Markdown was validated before placement; private TXT, disassembly,
+worker/input/output identities remain outside Git. All 41 interrupt references
+are linked once in the index table. Scope: one new reference, the INT90H cross
+reference, index, task and roadmap. Repeat repository invariant and staged-diff
+checks before push. No emulator build, guest probe, ROM edit, hosted CI request,
+new bug correction or archived-reference change is included.
