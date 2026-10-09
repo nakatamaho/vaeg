@@ -664,13 +664,20 @@ neon_va_leave:
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0300h              ; VA $Compose, text above G0
-        mov     cx, 0031h
+        ; Return to the caller's text screen (M106): graphics off, the
+        ; default palette back (the cursor and text use it), text only.
+        mov     ax, 0b00h              ; VA $ScnDsp, graphics off
         int     NEON_VIDEO_BIOS_INT
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0b01h              ; VA $ScnDsp, display on
+        mov     ax, 0a00h              ; VA $PalInit
+        int     NEON_VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; VA $Compose, text only
+        mov     cx, 0001h
         int     NEON_VIDEO_BIOS_INT
         cld
         push    cs

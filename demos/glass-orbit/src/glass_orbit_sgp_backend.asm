@@ -260,6 +260,8 @@ glass_p4_sgp_exit:
         jne     glass_p4_sgp_idle
         mov     ax, 0x0b00             ; $ScnDsp: graphics off.
         int     VIDEO_BIOS_INT
+        mov     ax, 0x0a00             ; $PalInit: the caller's text colours
+        int     VIDEO_BIOS_INT         ; (the cursor) use the palette (M106).
         mov     ax, 0x0300             ; $Compose: text only.
         mov     cx, 0x0001
         int     VIDEO_BIOS_INT
