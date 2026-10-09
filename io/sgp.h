@@ -69,8 +69,11 @@ enum {
 	SGP_BLTMODE_TP = 0x0300,
 	SGP_BLTMODE_OP = 0x000f,
 
-	SGP_BLTMODE_LINE_VD = SGP_BLTMODE_VD,
-	SGP_BLTMODE_LINE_HD = SGP_BLTMODE_HD,
+	/* LINE swaps the BLT direction bits: 0800h selects right-to-left and
+	 * 0400h bottom-to-top, as photographed on a PC-88VA2 (M106). The
+	 * Technical Manual's LINE table shows the BLT positions. */
+	SGP_BLTMODE_LINE_VD = SGP_BLTMODE_HD,
+	SGP_BLTMODE_LINE_HD = SGP_BLTMODE_VD,
 };
 
 #ifdef __cplusplus

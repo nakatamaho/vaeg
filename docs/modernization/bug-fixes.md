@@ -35,6 +35,53 @@ land.
 
 ## Maintenance Rules
 
+### M106a — I/O selftests accessed a destroyed machine
+
+- **Symptom/scope:** ASan aborted the ROM-less selftest with heap-use-after-free
+  in `iocore_inp8`; the affected monitor, cassette and port-40h fixtures also
+  risked platform-dependent crashes. Normal guest execution is not affected.
+- **Demonstrated cause:** an earlier V1/V2 fixture calls `pccore_term`, freeing
+  the I/O table; the subsequent fixtures used that table without initializing
+  their own machine. The local ASan stack identifies both allocation/free and
+  the monitor fixture's invalid read.
+- **Correction:** give each affected fixture its own initialized/reset machine
+  and terminate it on exit, including its sound-manager lifetime.
+- **Verification:** the uncorrected ASan worker fails at the monitor fixture;
+  all 106 applicable ASan/UBSan CTests pass after correction (two external
+  fixture skips). See the [M106a validation record](../agents/tasks/M106a_sgp_line_demofix.md#ci-prerequisite-fixtures-separate-commits).
+- **Milestone/task/commit:** M106a CI prerequisite;
+  [fix 179f6a10](https://github.com/nakatamaho/vaeg/commit/179f6a10ae3f3b1b2720af54ec4b2aa17fefd324),
+  backported from [ded95a4b](https://github.com/nakatamaho/vaeg/commit/ded95a4b3b38f0b9e5b140f163e6badf8c87dc3d).
+
+### M106a — SGP LINE drew with its two direction bits exchanged
+
+- **Symptom/scope:** LINE commands went the wrong way whenever exactly one
+  direction bit was set. GLASS ORBIT under PC-Engine 1.1 shows on a
+  PC-88VA2 only the left half of the floor's fan, no right half, and four
+  cube edges running down to the floor; vaeg drew the scene the demo
+  intended, so vaeg did not match the hardware. V3 mode, every program that
+  uses SGP LINE (the bundled GLASS, NEON3, NEON4, wireframe, 65536-colour
+  pseudo-sprite and sgp-scan demos were written to the same wrong bits).
+- **Demonstrated cause:** M97b set LINE's horizontal direction to `0400h`
+  and vertical to `0800h` from the Technical Manual's table. The PC-88VA2
+  photo matches vaeg with the two bits exchanged (all three features) and
+  not with the manual's assignment (none of them).
+- **Correction:** `SGP_BLTMODE_LINE_HD` is `0800h` and
+  `SGP_BLTMODE_LINE_VD` `0400h` again. BITBLT and PATBLT are unchanged
+  (not measured).
+- **Verification:** the SGP selftest draws four 4bpp lines (no bit, `0800h`,
+  `0400h`, both) and checks their end points and extents. The maintainer
+  previously confirmed GLASS and all three SGPWIRE variants on a PC-88VA2;
+  this backport's local checks and rebuilt-media results are recorded in the
+  [M106a task](../agents/tasks/M106a_sgp_line_demofix.md).
+- **Task/evidence/commit:** [M106a task](../agents/tasks/M106a_sgp_line_demofix.md),
+  [SGP notes section 13](upd92017-sgp.md#13-line-0009h).
+  Original fix: [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba);
+  demo correction: [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f);
+  hardware acceptance: [2ba2c8d1](https://github.com/nakatamaho/vaeg/commit/2ba2c8d1b9530f48b04aab1c3629863bb89369cf).
+  Main-based backport: [50614fbb](https://github.com/nakatamaho/vaeg/commit/50614fbb218174fc57ba369cfd799b073b2eb8e9);
+  rebuilt disks: [0f4b6f4e](https://github.com/nakatamaho/vaeg/commit/0f4b6f4e72015bc7a0ddf672f0ac232daf5eca62).
+
 ### M107 — VOYAGE packed pages showed through the restored console
 
 - **Symptom/scope:** Escape returned to a usable PC-Engine prompt, but the new
@@ -1299,7 +1346,8 @@ separate parity correction or move it to Open Defects.
   unimplemented SCAN command handlers, and one unconditional VA2-style block
   decoder. The local PC-88VA Technical Manual defines common LINE/BLT
   direction bits, complete SCAN results, and the original-VA field widths.
-- **Correction:** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
+- **Correction (LINE part reverted in M106a from the M106 hardware evidence;
+  see the M106a entry):** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
   versus VA2 descriptor profiles explicitly, and execute SCAN RIGHT/LEFT
   incrementally with the documented SET COLOR boundary and destination
   updates. No SGP timing coefficient or save-state layout changed.

@@ -679,18 +679,24 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[DOCUMENTED]** The manual-derived LINE mapping is `VD=0800h` and
-`HD=0400h`, like the documented BITBLT/PATBLT mapping.
-**[MAINTAINER HARDWARE REPORT]** The maintainer identifies the real-machine
-LINE mapping as **`HD=0800h` and `VD=0400h`**, the reverse. This is a
-maintainer-reported hardware finding, not a new measurement performed for this
-documentation PR; per-model raw vectors are not published here.
-**[IMPLEMENTATION]** Current `io/sgp.h` aliases LINE directions to the common
-`VD=0800h`/`HD=0400h` masks, so it disagrees with that report. The earlier
-statement about the current aliases already being swapped is stale.
+**[DOCUMENTED]** The Technical Manual's LINE table places `VD` at `0800h`
+and `HD` at `0400h`, the same direction-bit positions as BITBLT and PATBLT.
+
+**[MAINTAINER HARDWARE REPORT]** Previously recorded PC-88VA2 evidence
+establishes the opposite for LINE: `0800h` draws right to left and `0400h`
+bottom to top. GLASS ORBIT's misdirected floor fan and cube edges were
+reproduced by exchanging the two bits in vaeg. The maintainer subsequently
+confirmed corrected GLASS and all three SGPWIRE colour depths on that machine.
+This session claims no new measurement; per-model raw vectors and private
+captures are not published here. See the
+[M106a backport task](../agents/tasks/M106a_sgp_line_demofix.md) for original
+fix and hardware-acceptance commits.
+
+**[IMPLEMENTATION]** M106a restores `LINE_HD=0800h`, `LINE_VD=0400h` in
+`io/sgp.h`; the pre-M106a shared-mask mapping disagreed with the report.
+BITBLT/PATBLT are unchanged and their hardware directions remain unmeasured.
 [The comparison and raw-mode examples](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違)
-keep these three evidence layers separate. No emulator constants or behavior
-are changed by this documentation. Test asymmetric lines with one direction
+keep these evidence layers separate. Test asymmetric lines with one direction
 bit at a time; equal bits cannot discriminate the swap. Do not use a host
 graphics-library line routine.
 
@@ -811,7 +817,7 @@ A staged emulator strategy is:
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
 | `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
-| LINE | Manual-derived HD=0400h/VD=0800h; maintainer reports real-machine HD=0800h/VD=0400h | Implemented with the manual-derived shared masks | Preserve report/source distinction; hardware-backed correction remains separate |
+| LINE | Manual-derived HD=0400h/VD=0800h; maintainer reports real-machine HD=0800h/VD=0400h | Implemented with HD=0800h, VD=0400h (M106a) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
 | SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
 | Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |
