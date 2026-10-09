@@ -282,6 +282,9 @@ extract_archive() {
 
 	mkdir -p -- "$destination"
 	lha xfw="$destination" "$archive" >/dev/null
+	# lhasa, the documented extractor, lower-cases MS-DOS member names, so
+	# alias them before any caller reaches for the stored uppercase name.
+	add_uppercase_aliases "$destination"
 }
 
 add_uppercase_aliases() {

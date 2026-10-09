@@ -250,11 +250,28 @@ done
 	"$output_dir/UNIX/BIN" "$output_dir/UNIX/DOC" "$output_dir/UNIX/MAN"
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-stage-tools.XXXXXX")
 
+# lhasa, the documented extractor, lower-cases MS-DOS member names; alias
+# them so the callers can use the names the archives store.
+add_uppercase_aliases() {
+	local root=$1
+	local path
+	local name
+	local uppercase
+
+	while IFS= read -r -d '' path; do
+		name=${path##*/}
+		uppercase=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+		[[ ${name} != "${uppercase}" ]] || continue
+		[[ -e ${path%/*}/$uppercase ]] || ln -s -- "$name" "${path%/*}/$uppercase"
+	done < <(find "$root" -depth -mindepth 1 -print0)
+}
+
 extract_lha() {
 	local archive=$1
 	local destination=$2
 	mkdir -p -- "$destination"
 	lha xfw="$destination" "$archive" >/dev/null
+	add_uppercase_aliases "$destination"
 }
 
 extract_zip() {
