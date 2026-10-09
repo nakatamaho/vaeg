@@ -67,9 +67,11 @@ Raw private evidence is not imported into this PR.
 
 ## Local validation record
 
-Evaluated implementation commit:
-`387900c26f94ce6086b9459a5c810ed927934d29` (subsequent changes are generated
-media and documentation only). Restored Linux worker SHA-256:
+Initial evaluated LINE implementation commit:
+`387900c26f94ce6086b9459a5c810ed927934d29` (its subsequent media/documentation
+changes do not affect LINE). Later test-fixture corrections are evaluated
+separately below; emulator-core LINE inputs and generated demo payloads are
+unchanged. Restored Linux worker SHA-256:
 `3da151a42128d2e11cd4c4670776f1ae430865af9c71a638f257ec362bd27f41`.
 No instruction-corpus or target-policy change is part of this task.
 
@@ -152,3 +154,36 @@ No raw disk, private screenshot, ROM, OS payload or other unrelated binary is
 staged. Archived reference-tier behavior and provenance are unaffected.
 This session claims no new ROM/OS runtime or real-machine acceptance.
 Human visual acceptance of the PR remains pending.
+
+### CI prerequisite fixtures (separate commits)
+
+ASan before push reproduced a pre-existing heap-use-after-free at
+`iocore_inp8`, called by `test_monitor_switch` after `test_v1v2_memory_switch`
+freed the I/O table via `pccore_term`. The monitor, cassette and port-40h
+selftests now own live machine lifetimes. Backport:
+[179f6a10](https://github.com/nakatamaho/vaeg/commit/179f6a10ae3f3b1b2720af54ec4b2aa17fefd324).
+The EOL fixture now writes ASCII bytes to avoid Windows text-mode CRLF
+translation; two focused repository tests pass. Neither correction changes
+normal guest execution or the rebuilt media.
+
+Evaluated ASan fixture commit: `f80158d04e496542596f6e9a38284a55a4a30eca`.
+Worker SHA-256:
+`a775eb673516942b8f1df472abb2ebd76f1b1d08cf15f9237ae70af528f5e771`.
+
+```text
+cmake --preset linux-ci-asan
+cmake --build --preset linux-ci-asan -j 8
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build/linux-ci-asan --output-on-failure -j 8
+  106 completed: 104 passed, 2 skipped; tool deadline interrupted tests 46/108
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build/linux-ci-asan -R 'vaeg_upd9002_m60a_evidence_static|vaeg_m75_transfer_info_compiled' --output-on-failure
+  PASS, 2/2 (test 108 completed in this focused run)
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build/linux-ci-asan -I 46,46 --output-on-failure
+  PASS, trace equivalence 194.72 seconds (extended deadline)
+```
+
+Thus all 106 applicable ASan/UBSan CTests pass, with the same two
+external/private-fixture skips. Completed results were retained rather than
+rerunning the entire suite. The focused remaining-test command also ran the
+M60a evidence static check, which passed. No expensive SST campaign rerun or
+hosted CI debugging was requested. The unchanged disks retain their recorded
+generator/COM/manifest identities.

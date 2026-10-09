@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M106a — I/O selftests accessed a destroyed machine
+
+- **Symptom/scope:** ASan aborted the ROM-less selftest with heap-use-after-free
+  in `iocore_inp8`; the affected monitor, cassette and port-40h fixtures also
+  risked platform-dependent crashes. Normal guest execution is not affected.
+- **Demonstrated cause:** an earlier V1/V2 fixture calls `pccore_term`, freeing
+  the I/O table; the subsequent fixtures used that table without initializing
+  their own machine. The local ASan stack identifies both allocation/free and
+  the monitor fixture's invalid read.
+- **Correction:** give each affected fixture its own initialized/reset machine
+  and terminate it on exit, including its sound-manager lifetime.
+- **Verification:** the uncorrected ASan worker fails at the monitor fixture;
+  all 106 applicable ASan/UBSan CTests pass after correction (two external
+  fixture skips). See the [M106a validation record](../agents/tasks/M106a_sgp_line_demofix.md#ci-prerequisite-fixtures-separate-commits).
+- **Milestone/task/commit:** M106a CI prerequisite;
+  [fix 179f6a10](https://github.com/nakatamaho/vaeg/commit/179f6a10ae3f3b1b2720af54ec4b2aa17fefd324),
+  backported from [ded95a4b](https://github.com/nakatamaho/vaeg/commit/ded95a4b3b38f0b9e5b140f163e6badf8c87dc3d).
+
 ### M106a — SGP LINE drew with its two direction bits exchanged
 
 - **Symptom/scope:** LINE commands went the wrong way whenever exactly one
