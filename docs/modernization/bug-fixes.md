@@ -52,6 +52,7 @@ land.
 - **Verification:** both images build again; with a PC-Engine FDD boot in
   vaeg (VA and VA2) the image reads as drive C:.
 - **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [77b01b2b](https://github.com/nakatamaho/vaeg/commit/77b01b2b3a35a73b28f3cc28c4b22a37f03a5176).
 
 ### M106 — Disk builders placed PC-Engine files where PC-Engine cannot read
 
