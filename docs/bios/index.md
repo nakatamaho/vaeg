@@ -31,7 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 確定できなかった固定workは「未確定」とし、呼び出し側bufferを固定workの代わりに示していない。
 各機能の全register、全構造field、OSによる最終差し替え、実機での動作は追加検証が必要。
 
-既存の公開資料: [INT 80H](bios_int80h.md)。INT81H／82Hの作業中draftは今回のcommit範囲外。
+関連する詳細資料: [INT 80H](bios_int80h.md)、[INT 81H](bios_int81h.md)、[INT 82H](bios_int82h.md)。
 INT83Hの詳細版は今回の6.5～6.20追加範囲には含めない。
 
 | 割り込み・資料 | 検証状態 |

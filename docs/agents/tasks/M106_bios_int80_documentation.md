@@ -42,13 +42,18 @@ runtime verification or full implementation closure. Add a public index.
 Generate the requested `BIOS_XXH.TXT` equivalents outside Git; publish the
 independently authored Markdown under the canonical lowercase filenames.
 The pre-existing INT 81H / 82H drafts and unfinished INT 83H investigation
-remain outside this follow-up commit. No emulator changes or new milestone
-implementation are authorized.
+were excluded from the chapter 6.5–6.20 commit. The subsequent maintainer
+request to commit and push authorizes publication of the INT 81H / 82H drafts
+and their index links in a separate documentation-only commit. INT 83H remains
+unfinished and excluded. No emulator changes or new milestone implementation
+are authorized.
 
 ## Deliverables
 
 - `docs/bios/bios_int80h.md`: functions, ROM entry points, conventional-memory
   work layout, PC-Engine replacement path, and explicit verification limits.
+- `docs/bios/bios_int81h.md` and `bios_int82h.md`: detailed static HDD and
+  keyboard analyses, including work layouts and documented/ROM ABI differences.
 - `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
   6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
