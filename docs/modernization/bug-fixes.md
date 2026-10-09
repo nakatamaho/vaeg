@@ -61,6 +61,8 @@ land.
   Original fix: [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba);
   demo correction: [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f);
   hardware acceptance: [2ba2c8d1](https://github.com/nakatamaho/vaeg/commit/2ba2c8d1b9530f48b04aab1c3629863bb89369cf).
+  Main-based backport: [50614fbb](https://github.com/nakatamaho/vaeg/commit/50614fbb218174fc57ba369cfd799b073b2eb8e9);
+  rebuilt disks: [0f4b6f4e](https://github.com/nakatamaho/vaeg/commit/0f4b6f4e72015bc7a0ddf672f0ac232daf5eca62).
 
 ### M105 — TSP frames with a sync shorter than 4 lines ran slow
 
