@@ -67,6 +67,7 @@ mo_schd_archive=$mo_cache/schd155t.lzh
 mo_va128mo_archive=$mo_cache/va128mo.lzh
 mo_stest_archive=$mo_cache/stest115.lzh
 jwasm_archive=$softlib_cache/JWasm_v220_dos.zip
+extra_packages_dir=$softlib_cache/m106
 cpm_tools_d88=${HOME}/88VA/images/cpm/cpmva-tools.d88
 cpm_source_d88=${HOME}/88VA/images/cpm/cpmva-source.d88
 cpm_dev_d88=${HOME}/88VA/images/cpm/cpmva-dev.d88
@@ -571,6 +572,52 @@ ensure_cached_package "$va3ddemo_asm" \
 ensure_cached_package "$va3ddemo_doc" \
 	ff416a82b52062a9d818f46e28fbaf7e73923728a5a61387736acdb9bedaaed5 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=1&gnum=23&fname=VA3dDEMO.DOC'
+# M106 additions, staged by stage-development-tools.sh --extra-packages-dir.
+ensure_cached_package "$extra_packages_dir/PCP_7A.LZH" \
+	af72b57dcefae7a1385585dfbdd7d1e71dc6348e49efe7822ef45e606c75f8fe \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=294&fname=PCP_7A.LZH'
+ensure_cached_package "$extra_packages_dir/PCP_CA.LZH" \
+	1834320c5f8d3b334fdd1ded291b48a98e08ee9a78b099b7dee53eb5c52a8035 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=295&fname=PCP_CA.LZH'
+ensure_cached_package "$extra_packages_dir/FD98_232.LZH" \
+	9635233bd704cd7dc244af6c7825ad979a967afd16f3f1e73ba46217c9a38d85 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=334&fname=FD98_232.LZH'
+ensure_cached_package "$extra_packages_dir/FD_VA.LZH" \
+	5910282da2da573d672be0c2bf933060dadb3bf64d63efa4b96f64db398fde51 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=336&fname=FD_VA.LZH'
+ensure_cached_package "$extra_packages_dir/VASG100.LZH" \
+	a0830543fe70a75bd48ab501c8f63f78c180b09b019b26adbd65a075ddec0dfa \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=337&fname=VASG100.LZH'
+ensure_cached_package "$extra_packages_dir/NYANCO25.LZH" \
+	9d89c642a3a6970d33e9e2d6117cde1a8f5f9fd1f53e819dba56fbc827c6edc5 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=362&fname=NYANCO25.LZH'
+ensure_cached_package "$extra_packages_dir/NYANCO25.DOC" \
+	f43ae07be7139700e1b1994d1743313c4e86ebd261a86cef7d1f2fe374d4aa1b \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=362&fname=NYANCO25.DOC'
+ensure_cached_package "$extra_packages_dir/MARINVA.LZH" \
+	aceccdf77f564da3997fb4d00320edd872497838cc9231daa034728f1c1197aa \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=445&fname=MARINVA.LZH'
+ensure_cached_package "$extra_packages_dir/MARINVA.LZP" \
+	bc223d1977729125551dcb0ff4afb169605c5bbcfc5f184265321811f0f6fb80 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=445&fname=MARINVA.LZP'
+ensure_cached_package "$extra_packages_dir/MARINVA.DOC" \
+	1282db64d97e9c6eb71b0e1df000aba7817e0e61e29725bec8e71c29e6965c3c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=445&fname=MARINVA.DOC'
+ensure_cached_package "$extra_packages_dir/FATMAP11.LZH" \
+	9e25c73df9d589306ae24c3908fb3b8e4ee2b1c6f306a1b8eb07155a60e2e701 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=430&fname=FATMAP11.LZH'
+ensure_cached_package "$extra_packages_dir/FATMAP11.DOC" \
+	11deb463e6cfcb9ec425586a3fb008f76e04a4076bb34a46982c555b82c282ab \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=430&fname=FATMAP11.DOC'
+ensure_cached_package "$extra_packages_dir/FDFRMSRC.LZH" \
+	d81358cbcfc1d6175359059d9c01fb75e5585993c3bc3d3e1fc988d7aa7c3e5a \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=401&fname=FDFRMSRC.LZH'
+ensure_cached_package "$extra_packages_dir/BDIFF128.LZH" \
+	0ba491ee4829a6f292cfbcad25371a98c2161c1a92d028b0d2fd5dd9d9011153 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=328&fname=BDIFF128.LZH'
+ensure_cached_package "$extra_packages_dir/SCF124.LZH" \
+	a62183d66da90546d19d81f8adad32a2df2485d619badcaf2c167668b7603aad \
+	'http://www.pc88.gr.jp/forum/download.php?id=15'
 [[ -f $cpm_archive && -r $cpm_archive ]] ||
 	die "CP/M emulator archive is not readable: $cpm_archive (use --cpm-archive)"
 [[ -f $mo_schd_archive && -r $mo_schd_archive ]] ||
@@ -618,7 +665,8 @@ supplemental_manifest=$work_dir/supplemental.manifest.tsv
 	--rdems152-archive "$rdems152_archive" \
 	--gm1-archive "$gm1_archive" \
 	--clk-source "$clk_source" --clk-archive "$clk_archive" --clk-doc "$clk_doc" \
-	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc"
+	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc" \
+	--extra-packages-dir "$extra_packages_dir"
 
 mo_schd_tree=$work_dir/mo-schd
 mo_va128mo_tree=$work_dir/mo-va128mo
