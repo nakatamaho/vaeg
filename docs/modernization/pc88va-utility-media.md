@@ -885,6 +885,23 @@ limitation to this hotfix, but it is not a pass for BMSDRVA, TSCLVA, RDEMS,
 RDPCM, RESET-key execution, MSE utility execution, or K-Launcher. Those remain
 PC-88VA/vaeg human checks.
 
+### M106 changes to the boot floppy
+
+- VZ Editor 1.60 for the PC-88VA (release `pc88va-v1.60` of
+  nakatamaho/VZEditor, BSD 3-clause) is installed as `\BIN\VZVA.COM`,
+  `\BIN\VZVA.DEF`, `\BIN\VZFL.DEF`, `\DOC\VZVA.DOC` and `\DOC\VZLIC.TXT`
+  by [`extract-vz-editor.py`](../../tools/pc88va/extract-vz-editor.py).
+  `VZVA.DEF` is the release's `VZ.DEF` with `EM` changed to `EM0`: VZ reads
+  the `.DEF` named after itself in its own directory, and with the floppy's
+  EMS drivers loaded it stops before drawing its screen when it opens EMS.
+- To make room, `\ARCHIVE\2HCDRV.ZIP`, `\ARCHIVE\FDFRMSRC.LZH`,
+  `\ARCHIVE\ISHARC.COM` (its contents are in `\BIN` and `\DOC`),
+  `\DOC\SCHD.LOG` and `\DOC\SCFORM.LOG` are no longer on the floppy; the
+  SASI images keep all five.
+- PC-Engine reads only cylinders 0-76 of a 2HD disk, so
+  `pcengine_disk.py` no longer places files on cylinders 77-79; the floppy
+  then has 4,096 bytes free.
+
 ## 40 MB SASI Development HDI Builder
 
 For a hard-disk development environment, use
@@ -1047,6 +1064,18 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 These checks establish HDI geometry, header, FAT, and mount behavior. They do
 not replace a real PC-88VA/VA2 boot and driver-operation check.
+
+### M106 additions to the SASI images
+
+`stage-development-tools.sh` now stages the packages the wrapper has passed
+since M97z4 (ZIM_IMG, RDEMS15, RDEMS152, G&M1, CLK21, VA3DDEMO), the
+maintainer's additions (PCP_7A, PCP_CA, FD98_232 with FD_VA, VASG100,
+NYANCO25, MARINVA, FATMAP11) and VZ Editor 1.60. Original archives go to
+`\ARCHIVE`, programs to `\BIN`, manuals to `\DOC`; VASG is in `\VASG` and
+the sample VZ definitions in `\VZ`. `FD98.COM` is patched with FD_VA's
+`FD98.BDF` (BUPDATE under DOSBox, result checked by SHA-256). TFD12 was
+already on the images from the boot floppy. In vaeg, with the image as
+drive C: of a floppy-booted PC-Engine, VZ, FD and MARIN run (VA2).
 
 ## Supplemental Softlib Archive Disk
 
