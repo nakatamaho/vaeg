@@ -52,8 +52,11 @@ completes publication coverage for chapters 6.1–6.20, not full runtime ABI
 verification. The next maintainer request authorizes a static disassembly/manual
 investigation of INT 20H and INT 21H, including DOS registration, function
 coverage, internal OS hooks, private TXT equivalents, and canonical public
-references with index links. No emulator changes or new milestone implementation
-are authorized.
+references with index links. The maintainer then requests detailed INT 90H
+V1/V2 supervisor analysis from disassembly and PC-Engine, including which
+instruction set applies. This authorizes one additional static reference and
+index entry, not changes to mode switching or emulator behavior. No emulator
+changes or new milestone implementation are authorized.
 
 ## Deliverables
 
@@ -67,6 +70,10 @@ are authorized.
 - `docs/bios/bios_int20h.md` and `bios_int21h.md`: process termination,
   individual DOS registration, 40 documented AH values (41 specifications),
   both 256-slot ROM tables, DOS work ownership and VA/VA2 internal hook paths.
+- `docs/bios/bios_int90h.md`: separate compatible-mode vector90 entry from
+  native supervisor code; compare both six-vector tables, BRKEM2 boundary,
+  native trap decoders/port tables, conventional-memory work and PC-Engine
+  candidates. Retain unresolved CALLN/ABI/timing questions.
 - `docs/bios/index.md` must link every published interrupt reference, including
   20H/21H and 80H–83H, without claiming full interrupt-list coverage.
 - `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
@@ -135,3 +142,19 @@ The intended scope is exactly two new interrupt references, the index, this
 task, and the roadmap. Repository invariant and staged-diff checks must pass
 before push. No emulator build, runtime call, hosted CI request, guest-visible
 bug fix, or archived-reference change is included.
+
+## INT 90H static follow-up
+
+Out-of-tree content verification passed for six individual vector records per
+ROM, 128 IN/OUT port-table entries, 16 block-I/O entries, 13 conventional-memory
+address calculations, BRKEM2 boundaries, trap-range data, and both compatible
+entrypoints. A standalone offline instruction-set decoder was locally compiled
+and confirmed DI / LD SP,E1A0H / JP 3BE5H; it instantiates no emulator device.
+The PC-Engine AL=90H candidate was traced to sound-register output, not an INT90H
+hook. No OS vector90 replacement was established; this is not an exhaustive
+absence proof. Worker/input/output identities and disassembly remain private.
+Generated Markdown was validated before placement; all 40 interrupt references
+are linked once in the index table. Intended scope: one new interrupt reference,
+index, task and roadmap only. Run repository invariant and staged-diff checks
+before push. No emulator build, runtime mode switch, hosted CI request,
+guest-visible bug fix, or archived-reference change is included.
