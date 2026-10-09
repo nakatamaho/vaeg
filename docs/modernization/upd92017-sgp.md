@@ -689,8 +689,8 @@ edges running down from the cube to the floor. vaeg reproduces all three with
 the swapped meaning and none with the manual's. M97b had changed vaeg from
 the swapped meaning (inherited from upstream) to the manual's; M106 restores
 the swapped one (`SGP_BLTMODE_LINE_HD = 0800h`, `SGP_BLTMODE_LINE_VD = 0400h`).
-GLASS re-encoded with these bits draws correctly on the PC-88VA2 (maintainer,
-2026-10-09).
+GLASS and the 16-, 256- and 65536-colour SGPWIRE re-encoded with these bits
+draw correctly on the PC-88VA2 (maintainer, 2026-10-09).
 Whether BITBLT and PATBLT follow the manual is not measured. Implementations
 must test asymmetric lines in all four direction combinations. Do not use a
 host graphics-library line routine.

@@ -96,8 +96,9 @@ land.
   (not measured).
 - **Verification:** the SGP selftest draws four 4bpp lines (no bit, `0800h`,
   `0400h`, both) and checks their end points and extents; it fails with
-  the M97b assignment. 110 CTests pass. The re-encoded GLASS runs
-  correctly on the PC-88VA2 under PC-Engine 1.1 (maintainer, 2026-10-09;
+  the M97b assignment. 110 CTests pass. The re-encoded GLASS and the
+  16-, 256- and 65536-colour SGPWIRE run correctly on the PC-88VA2 under
+  PC-Engine 1.1 (maintainer, 2026-10-09;
   all-demos disk built from the distributions of commit
   [0af3fcf2](https://github.com/nakatamaho/vaeg/commit/0af3fcf2cfeda2978b941b395c551470892dbc94)).
 - **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md),
