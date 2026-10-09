@@ -51,6 +51,7 @@ start:
     call clear_surfaces
     jc exit_demo
     call audio_init
+    call discard_startup_keys
     mov dx, 0142h
     in al, dx
     and al, 40h
@@ -176,6 +177,30 @@ wait_next_blank:
 .done:
     pop cx
     pop bx
+    ret
+
+; The shell may leave command/previous-exit typeahead in the shared queue.
+; Own the scene only after bounded draining, not by treating another key as ESC.
+discard_startup_keys:
+    pusha
+    push ds
+    push es
+    mov cx, 32
+.poll:
+    push cx
+    mov ah, 0ah
+    int 82h
+    pop cx
+    jc .done
+    push cx
+    mov ah, 09h
+    int 82h
+    pop cx
+    loop .poll
+.done:
+    pop es
+    pop ds
+    popa
     ret
 
 keyboard_escape:
