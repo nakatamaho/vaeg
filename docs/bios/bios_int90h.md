@@ -25,7 +25,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 対象: VA / VA2 ROM、PC-Engine 1.1、テクマニ第2章、BNNのCPU/互換mode記述。
 静的解析の初版。新たな起動・I/O・モード切替試験は行っていない。
-[索引](index.md)、[既存V1/V2調査](../modernization/v1v2-mode-plan.md)、
+[索引](README.md)、[既存V1/V2調査](../modernization/v1v2-mode-plan.md)、
 [M103bの実装・検証記録](../agents/tasks/M103b_v1v2_mode_plumbing.md)も参照。
 既存のエミュレータ観測と、今回の静的ROM確認を区別する。
 

@@ -25,7 +25,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 対象: VA / VA2 ROM、PC-Engine 1.1、テクマニ第2・7章、BNN第7章。
 静的解析の初版。CPU例外00HとDOSのINT20Hを区別する。
-[索引](index.md)、[INT21H](bios_int21h.md)も参照。
+[索引](README.md)、[INT21H](bios_int21h.md)も参照。
 
 ## 1. 結論と資料の区分
 

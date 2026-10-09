@@ -25,7 +25,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 対象: VA / VA2 ROM、PC-Engine 1.1、テクマニ第7章、BNN第7章。
 静的解析の初版。起動後IVT/RAM、全入出力・error経路は未実測。
-[索引](index.md)、[INT20H](bios_int20h.md)、
+[索引](README.md)、[INT20H](bios_int20h.md)、
 [SETFCB](bios_int9eh.md)、[EXEC_COM](bios_int9fh.md)も参照。
 
 ## 1. 資料と実装の範囲

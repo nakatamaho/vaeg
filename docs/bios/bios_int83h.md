@@ -31,7 +31,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 604は資料の章番号、83Hが呼び出し割り込み番号。
 公開資料は **`docs/bios/bios_int83h.md`**。依頼されたテキスト版は
 `BIOS_83H.TXT` としてGit外の作業領域に生成する。
-[全BIOS資料の索引](index.md)、[キーボードBIOS](bios_int82h.md)、
+[全BIOS資料の索引](README.md)、[キーボードBIOS](bios_int82h.md)、
 [スクリーンエディタ](bios_int94h.md)も参照。
 
 - **文書仕様**: マニュアルの公開契約を独立して要約したもの。

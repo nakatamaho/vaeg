@@ -74,9 +74,9 @@ changes or new milestone implementation are authorized.
   native supervisor code; compare both six-vector tables, BRKEM2 boundary,
   native trap decoders/port tables, conventional-memory work and PC-Engine
   candidates. Retain unresolved CALLN/ABI/timing questions.
-- `docs/bios/index.md` must link every published interrupt reference, including
+- `docs/bios/README.md` must link every published interrupt reference, including
   20H/21H and 80H–83H, without claiming full interrupt-list coverage.
-- `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
+- `docs/bios/README.md` and 33 `bios_intXXh.md` references for chapters
   6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
 - A documentation-only milestone entry in the roadmap.
