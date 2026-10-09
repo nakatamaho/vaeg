@@ -235,3 +235,18 @@ mode lamp follows V1/V2/V3.
 - AGENTS.md now requires every milestone to keep the demos buildable and
   run (maintainer request), with zundamon-orbit as a recorded exception.
   [4b32c85c](https://github.com/nakatamaho/vaeg/commit/4b32c85c984d0fdb9b357c56eabc9453003b69f5), [0af3fcf2](https://github.com/nakatamaho/vaeg/commit/0af3fcf2cfeda2978b941b395c551470892dbc94), [483ec18c](https://github.com/nakatamaho/vaeg/commit/483ec18c85275ed688e8f7df8997d2802cd16fb1).
+- Utility media (maintainer request): VZ Editor 1.60 on the utility FDD and
+  both SASI images; CP/M and all other SASI content kept. FDD drops
+  2HCDRV.ZIP, FDFRMSRC.LZH, ISHARC.COM, SCHD.LOG and SCFORM.LOG (approved
+  one by one). Found and fixed on the way: the documented `lhasa` broke the
+  FDD build (lower-case names); `pcengine_disk.py` used cylinders 77-79,
+  which PC-Engine never reads (a fuller FDD lost its CONFIG.SYS drivers);
+  VZ stops on EMS when the EMS drivers are loaded (VZVA.DEF gets EM0); the
+  SASI wrapper had passed six packages the stager never accepted since
+  M97z4. The SASI images also gain the maintainer's Softlib list (PCP_7A,
+  PCP_CA, FD98_232+FD_VA, VASG100, NYANCO25, MARINVA, FATMAP11). In vaeg:
+  VZ runs from the FDD (VA, VA2) and VZ, FD and MARIN from the SASI image
+  as C: (VA2). A plain PC-Engine 1.1 disk with VZ (not committed) was
+  confirmed by the maintainer. The SASI images do not boot by themselves in
+  vaeg with `--no-bkupmem` (not investigated; earlier records only claim a
+  mount check). Commits: [38a2d0b4](https://github.com/nakatamaho/vaeg/commit/38a2d0b4f6db780d9693d91f051b3d5d92461816), [61309af7](https://github.com/nakatamaho/vaeg/commit/61309af765c16a61b4db7016d2fe76c2b0acfa6a), [0c307b84](https://github.com/nakatamaho/vaeg/commit/0c307b84872c6fa34d8ecc557b49dfd64bd3fbb2), [166f2ab2](https://github.com/nakatamaho/vaeg/commit/166f2ab2caf5320c00b9cbcfd45b43f77662f4a8), [5ad825a1](https://github.com/nakatamaho/vaeg/commit/5ad825a16076aa551e3ae8491698effc8c62b850), [77b01b2b](https://github.com/nakatamaho/vaeg/commit/77b01b2b3a35a73b28f3cc28c4b22a37f03a5176), [821e431e](https://github.com/nakatamaho/vaeg/commit/821e431e9bd87f0b51c76e8c6d1c46e33e45af91), [6830c7fa](https://github.com/nakatamaho/vaeg/commit/6830c7fa1151410369685db39319ee8b101a7d6c), [11960c68](https://github.com/nakatamaho/vaeg/commit/11960c68942b3c75626687c383b12ce2054880eb), [d78bea54](https://github.com/nakatamaho/vaeg/commit/d78bea546c95368d997f023aeb242fe8482c81c4).
