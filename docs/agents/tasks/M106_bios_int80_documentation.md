@@ -31,10 +31,26 @@ This task publishes independently written analysis only. It does not change
 emulator behavior, resolve a guest defect, or approve another implementation
 milestone.
 
+## Follow-up scope authorized by the maintainer
+
+Continue this documentation-only task with interrupt-based static references
+for manual chapters 6.5 through 6.20: 33 interrupt documents, including 17
+separate numerical-operation interrupts and separate INT 9EH / 9FH documents.
+Record verified conventional-memory references, caller-owned buffers, model
+and OS differences, and unresolved ABI/work-layout details without claiming
+runtime verification or full implementation closure. Add a public index.
+Generate the requested `BIOS_XXH.TXT` equivalents outside Git; publish the
+independently authored Markdown under the canonical lowercase filenames.
+The pre-existing INT 81H / 82H drafts and unfinished INT 83H investigation
+remain outside this follow-up commit. No emulator changes or new milestone
+implementation are authorized.
+
 ## Deliverables
 
 - `docs/bios/bios_int80h.md`: functions, ROM entry points, conventional-memory
   work layout, PC-Engine replacement path, and explicit verification limits.
+- `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
+  6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
 - A documentation-only milestone entry in the roadmap.
 
@@ -47,6 +63,27 @@ code offsets so the findings remain distinguishable from runtime evidence.
 Run `tools/repo/check_encoding.py`, `tools/repo/check_eol.py`,
 `tools/repo/check_case.py`, and `git diff --cached --check`.
 Review the staged scope and Markdown tables, and confirm that no private
-asset identities or payloads are staged. No build, boot, or hosted CI is
+asset identities or payloads are staged. Before placement, check generated
+output out of tree: the closed set of 33 interrupt files, chapter mapping,
+function counts, selected ROM bytes/entry routing, work-address arithmetic,
+local links, encoding/EOL, and absence of private identities. No build, boot, or hosted CI is
 needed: the commit must change documentation only. Push the review branch
 and report its exact commit SHA; do not claim a merge to `main`.
+
+## Follow-up local validation record
+
+- Out-of-tree content check: PASS; 33 interrupt documents, 244 function rows,
+  140 work-address calculations, 33 private TXT equivalents, local links,
+  privacy scan, UTF-8/LF, and selected ROM registration/GET BOOK bytes.
+- Correct screen-editor bank offsets checked separately: VA `8003H`,
+  VA2 `E403H`; do not reuse unadjusted `0003H` disassembly.
+- `python3 tools/repo/check_encoding.py --expect utf8`: `0 violation(s)`.
+- `python3 tools/repo/check_eol.py --enforce`: `0 violation(s)`.
+- `python3 tools/repo/check_case.py`: `0 finding(s)`.
+- `git diff --cached --check`: exit 0, no output.
+- Follow-up scope: 33 new interrupt references, one new index, this task file,
+  and the roadmap. INT 81H / 82H drafts and unrelated untracked items excluded.
+- No build/hosted CI: documentation only. No ROM/OS runtime execution,
+  destructive media tests, or changes to archived-reference behavior or
+  provenance. Full ABI/work-layout closure and runtime verification remain
+  open; passing documentation checks does not establish BIOS conformance.
