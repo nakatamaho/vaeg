@@ -98,6 +98,15 @@ class VoyageTests(unittest.TestCase):
         self.assertIn("mov cx, 0ffffh", instructions)
         self.assertIn("call clock_poll", instructions)
         self.assertIn("%if VOYAGE_AUDIO == 0", instructions)
+        self.assertIn("cmp ax, 001bh", instructions)
+        self.assertNotIn("cmp ah, 0", instructions)
+
+    def test_escape_internal_code_contract(self):
+        # Same passing scan-zero fixture, one changed internal-code field.
+        scan, internal = 0, 0x1b
+        self.assertEqual(voyage.key_result(scan, internal), "VOYAGE_KEY_ESCAPE")
+        internal = 0x0d  # command-confirming Return, not Escape
+        self.assertEqual(voyage.key_result(scan, internal), "VOYAGE_KEY_NOT_ESCAPE")
 
 
 if __name__ == "__main__":

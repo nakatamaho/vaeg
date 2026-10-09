@@ -186,9 +186,9 @@ keyboard_escape:
     jc .none
     mov ah, 09h
     int 82h
-    cmp al, 1bh
-    je .escape
-    cmp ah, 0
+    ; Require BOTH scan code 00h and BIOS internal code 1Bh. Return can
+    ; also have scan code zero; it must not dismiss a newly launched demo.
+    cmp ax, 001bh
     je .escape
 .none:
     clc

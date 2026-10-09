@@ -109,6 +109,11 @@ def project(tick, data):
     return points
 
 
+def key_result(scan, internal):
+    """Pure model of complete INT82h/AH09h ESC discrimination."""
+    return "VOYAGE_KEY_ESCAPE" if (scan, internal) == (0, 0x1b) else "VOYAGE_KEY_NOT_ESCAPE"
+
+
 def wait_sound(statuses, limit=0x4000):
     """Pure model of the payload's closed low-bank status-polling contract."""
     for count, status in enumerate(statuses):
