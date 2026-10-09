@@ -30,7 +30,8 @@ import json
 import math
 from pathlib import Path
 
-PERIOD = 1200
+# Prototype calibration for the default VA2/NP2 worker, not a universal clock.
+PERIOD = 900
 ROWS, COLS = 12, 9
 # Prefix: SET WORK, SET COLOR, CLS; worst colour changes, all LINEs, END.
 MAX_LINES = ROWS * (COLS - 1) + (ROWS - 1) * COLS + 14 + 9

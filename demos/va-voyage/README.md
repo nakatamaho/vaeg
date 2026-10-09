@@ -43,7 +43,16 @@ PYTHONDONTWRITEBYTECODE=1 python3 demos/va-voyage/test_voyage.py
 The build produces `VOYAGE.raw.bin`, `VOYAGE.COM`, the assembly listing,
 source-generated Q7 trigonometry and score tables, and their JSON source data.
 Install **the wrapped `VOYAGE.COM`, not the raw payload**, on a private writable
-copy of a PC-Engine 1.1 boot disk using `tools/pc88va/pcengine_disk.py`.
+copy of a PC-Engine 1.1 boot disk. The installer expects a directory containing
+`root/VOYAGE.COM`, not a COM filename:
+
+```sh
+mkdir -p "$out/payload/root"
+cp "$out/VOYAGE.COM" "$out/payload/root/"
+python3 tools/pc88va/pcengine_disk.py install \
+  --image /private/generated-validation.d88 --payload "$out/payload"
+```
+
 Boot V3, type `VOYAGE`, and press Escape to return. Never install on an original
 or commit a bootable disk, executable or private capture. There is no
 prebuilt/distribution disk in this increment.
@@ -56,21 +65,23 @@ successful absent-hardware testing.
 ## Rendering and synchronization
 
 - 320x200 packed 8bpp G1, two 64,000-byte pages within its 320x400 backing;
-  G0 supplies a dark background. The existing NEON4 default BIOS/FB1 setup
+  G0 supplies a black background. The existing NEON4 default BIOS/FB1 setup
   and NEON3 loader continuation are reused, not changed.
 - CPU signed fixed-point projection of a 12-by-9 travelling wave lattice;
   independent periodic forward, bank, heave and wave phases. SGP LINE/CLS
   rasterize it. No polygon mesh fill, texture sampler, TSP sprite, per-line
   scroll trick or claim about the historical demo's SGP usage.
-- RGB332 distance colours and beat brightness, not programmable-palette
+- Native 8-bit direct distance colours (G3:R3:B2) and beat brightness, not programmable-palette
   animation. Border vertices are clamped; accurate line clipping and a
   filled/textured sea are later aesthetic work, not promised here.
 - One **observed VBlank-edge** clock, also sampled during projection, SGP
-  waits and OPN BUSY waits. Music follows 128 events across 1200 ticks;
-  geometry targets an update every four ticks, hidden-page presentation at
-  VBlank. Eight bars are nominally 20 seconds / 96 BPM at 60Hz. A missed
-  entire blank pulse can slow this polling clock: real-hardware timing and
-  overruns require separate observation; no exact wall-clock claim.
+  waits and OPN BUSY waits. Music follows 128 events across 900 observed ticks;
+  geometry targets an update every three ticks, hidden-page presentation at
+  VBlank. The initial 1200/four-tick version ran longer than 20 seconds in the
+  default worker; this short prototype is calibrated toward 20 seconds there,
+  not to a universal 60Hz timebase. A missed entire blank pulse can slow this
+  polling clock: real-hardware timing and overruns require separate observation;
+  no exact wall-clock or portable BPM claim.
 - Three low-bank YM2203/YM2608 voices (ports 44h/45h) and SSG noise percussion;
   normal BIOS FM prescaling assumed. No OPNA-only upper-bank/ADPCM dependency.
   FFh status or a bounded BUSY timeout disables further sound accesses;

@@ -26,7 +26,7 @@ cpu 286
 bits 16
 org 0
 
-%define PERIOD 1200
+%define PERIOD 900
 %define ROWS 12
 %define COLS 9
 %define LIST_WORDS 4096
@@ -83,7 +83,7 @@ frame_ready:
     jns .delta
     add ax, PERIOD
 .delta:
-    cmp ax, 4
+    cmp ax, 3
     jae next_frame
     loop .pace
     mov byte [wait_failed], 1
@@ -374,7 +374,7 @@ end_list:
 ; Clear both G0 and G1 backing surfaces on entry, not just the first page.
 clear_surfaces:
     call begin_list
-    mov ax, 0101h
+    xor ax, ax
     call colour
     mov ax, 0ah
     stosw
@@ -435,7 +435,7 @@ build_frame:
     mov [forward_phase], ax
     call project_mesh
     call begin_list
-    mov ax, 0101h
+    xor ax, ax
     call colour
     ; Only the hidden 320x200 G1 page is cleared each frame.
     mov ax, 0ah

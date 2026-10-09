@@ -96,7 +96,7 @@ audio_init:
     ret
 %endif
 
-; Shared 1200-tick, eight-bar / 128-step timeline (~96 BPM at 60Hz).
+; Shared calibrated 900-tick, eight-bar / 128-step prototype timeline.
 ; This never calls itself: opn_ready only samples clock edges.
 music_service:
     pushf

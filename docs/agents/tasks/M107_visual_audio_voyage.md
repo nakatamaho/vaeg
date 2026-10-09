@@ -44,7 +44,9 @@ emulator, CPU, SGP, BIOS, sound-backend or private-media correctness milestone.
 - Common low-bank YM2203/YM2608 FM and SSG, original note sequence and bounded
   status polling; absent/failing sound leaves a silent visual demonstration.
 - One observed VBlank timeline for motion and musical events, polled also during
-  SGP waits. Nominal 1200 VBlanks per loop, geometry target every four ticks.
+  SGP waits. Calibrated 900 observed ticks per loop, geometry target every three
+  ticks. The initial 1200/four-tick candidate ran longer than 20 seconds under
+  the default VA2 worker; this is prototype calibration, not a portable timebase.
   Measure emulator cadence; do not claim real-hardware or exact wall-clock timing.
 - Escape exit, bounded hardware waits, audio shutdown and video/loader return.
   Audio is taken over exclusively; resuming another resident song is not promised.

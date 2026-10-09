@@ -73,7 +73,7 @@ class VoyageTests(unittest.TestCase):
         self.assertTrue(all(len(p) == 108 for p in poses))
         self.assertTrue(all(0 <= x < 320 and 0 <= y < 200
                             for pose in poses for x, y in pose))
-        self.assertEqual(poses[0], voyage.project(1200, self.data))
+        self.assertEqual(poses[0], voyage.project(voyage.PERIOD, self.data))
         self.assertNotEqual(poses[0], poses[300])
         self.assertLessEqual(voyage.MAX_WORDS, 4096)
         # Intermediate signed multiply bounds are part of the 286 contract.
@@ -82,10 +82,10 @@ class VoyageTests(unittest.TestCase):
         self.assertLess(180 * 16, 32768)
 
     def test_music_timeline(self):
-        steps = [t * 128 // 1200 for t in range(1200)]
+        steps = [t * 128 // voyage.PERIOD for t in range(voyage.PERIOD)]
         self.assertEqual(set(steps), set(range(128)))
-        self.assertTrue(all(steps.count(s) in (9, 10) for s in range(128)))
-        self.assertEqual(sum(steps.count(s) for s in range(128)), 1200)
+        self.assertTrue(all(steps.count(s) in (7, 8) for s in range(128)))
+        self.assertEqual(sum(steps.count(s) for s in range(128)), voyage.PERIOD)
         self.assertEqual(self.data["bass"].count(0xffff), 64)
 
     def test_guest_backend_boundary(self):
