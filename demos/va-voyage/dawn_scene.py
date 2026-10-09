@@ -30,7 +30,7 @@ BOUNDARY = (tuple(range(9)) + tuple(range(17, 108, 9)) +
             tuple(range(106, 98, -1)) + tuple(range(90, 0, -9)))
 WORD_LIMIT = 8192
 # SET WORK/CLS/END margin, every primitive changing colour: deliberately loose.
-MAX_WORDS = 20 + (voyage.MAX_LINES + 100 + 29 + 200 + 200) * 10
+MAX_WORDS = 20 + 5 * 7 + (voyage.MAX_LINES + 29 + 200 + 200) * 10
 
 
 class SceneError(ValueError):
@@ -181,6 +181,14 @@ class Tests(unittest.TestCase):
                 for y, x in edge_points(p, q):
                     exact = p[0] + (q[0]-p[0])*(y-p[1])/(q[1]-p[1])
                     self.assertLessEqual(abs(x - exact), 1.8)
+
+    def test_sky_bands(self):
+        # Five adjacent 20-row CLS bands, length in 16-bit words.
+        intervals = [(band * 6400, (band + 1) * 6400) for band in range(5)]
+        self.assertEqual(intervals[0][0], 0)
+        self.assertEqual(intervals[-1][1], 320 * 100)
+        self.assertTrue(all(end - start == 3200 * 2 for start, end in intervals))
+        self.assertLessEqual(intervals[-1][1], 64000)
 
     def test_sky_segment_negative(self):
         source = (Path(__file__).parent / "src/voyage_dawn.inc").read_text(encoding="utf-8")

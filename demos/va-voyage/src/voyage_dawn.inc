@@ -36,23 +36,34 @@ dawn_background:
     mov ax, [dawn_mix]
     mov bx, 5
     mul bx
+    add ax, [dawn_y]
     mov bp, ax
-    mov ax, [dawn_y]
-    xor dx, dx
-    mov bx, 20
-    div bx
-    add bp, ax
     mov al, [ds:dawn_sky_colours+bp] ; BP defaults to caller SS, not guest DS.
     mov ah, al
     call colour
-    mov word [x1], 0
-    mov word [x2], 319
-    mov ax, [dawn_y]
-    call dawn_span
+    ; One contiguous 20-row CLS band replaces twenty horizontal LINEs.
+    ; 320*20 bytes = 3200 words, always within the owned 64000-byte page.
+    mov ax, 0ah
+    stosw
+    call page_address
+    mov cx, [dawn_y]
+.band_offset:
+    jcxz .band_address
+    add ax, 6400
+    adc dx, 0
+    loop .band_offset
+.band_address:
+    stosw
+    mov ax, dx
+    stosw
+    mov ax, 3200
+    stosw
+    xor ax, ax
+    stosw
     inc word [dawn_y]
     call clock_poll
     call music_service
-    cmp word [dawn_y], 100
+    cmp word [dawn_y], 5
     jb .row
     test word [frame_loop], 1
     jz .done

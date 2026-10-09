@@ -122,7 +122,7 @@ computed by signed/Q8 CPU edge DDA and drawn by SGP horizontal LINE spans.
 It is not per-cell polygon triangulation. The wire grid, camera and shared
 clock remain; sky/sea palettes change on bar boundaries, reflection pulses
 on the existing percussion cues. List capacity is 8192 words only in this
-variant, with a conservative 7490-word bound and the same D000h payload limit.
+variant, with a conservative 6525-word bound and the same D000h payload limit.
 All tables and images are original/source-built; generated media stays private.
 The previous COM variants remain byte-identical. New human review is pending.
 See [M107c task](../../docs/agents/tasks/M107c_voyage_dawn_scene.md).
