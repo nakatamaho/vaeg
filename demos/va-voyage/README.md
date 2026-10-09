@@ -62,6 +62,26 @@ forced-silent diagnostic variant without initializing the chip. Only exact
 values `0` and `1` are accepted. This is not a validator bypass or a claim of
 successful absent-hardware testing.
 
+## OPNA ensemble preparation (M107a)
+
+The maintainer accepts the prototype and requests six FM voices, three SSG
+voices and ADPCM. `opna_score.py` prepares six independent FM lanes, three SSG
+pitch lanes, and original analytical kick/snare/sweep Delta-T samples:
+
+```sh
+out=$(mktemp -d)
+PYTHONDONTWRITEBYTECODE=1 python3 demos/va-voyage/opna_score.py "$out"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s demos/va-voyage -p opna_score.py
+```
+
+**This preparation module is not connected to `build.sh` or `VOYAGE.COM`.**
+The currently playable COM still has the accepted three-FM/noise soundtrack.
+OPNA high-bank setup, three-channel SSG envelopes, ADPCM DRAM upload/rate/
+playback and six-voice shutdown need the subsequent guest integration and
+listening gate. No new audio playback is claimed here. Generated samples and
+JSON stay outside Git. See [M107a task](../../docs/agents/tasks/M107a_voyage_opna_arrangement.md).
+
 ## Rendering and synchronization
 
 - 320x200 packed 8bpp G1, two 64,000-byte pages within its 320x400 backing;
