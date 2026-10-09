@@ -225,7 +225,8 @@ native SP/SSで積むframeと、compatible SPを同一のstackと解釈しない
 HL=segment、DE=offset/port、BC=値としてnativeアクセスを行う。
 CALLN 95Hの登録先1000:E000はユーザがnative命令を用意する領域。
 1000H segmentだから必ずZ80命令、という判断も誤りになる。
-91Hの全8分岐の完全ABI一致や95Hのユーザcodeを動的に検証したものではない。
+91Hの8分岐の詳細とword memory readの文書/ROM差は[INT91H](bios_int91h.md)を参照。
+95Hのユーザcodeや全CALLN境界条件の動的検証は行っていない。
 
 ## 6. PC-Engineから確認できたこと・未確認のこと
 
@@ -240,6 +241,6 @@ PC-EngineのVA/VA2用初期化、vector登録用INT21H呼び出し、直接のmo
 値90Hの検索結果をINT90H呼び出し・フックの証拠に使ってはいけない。
 また、全コード/全tableの不存在証明を単純なbyte検索で行うことはできない。
 
-次の独立課題は91H/95Hの詳細ABI、V1/V2 mode別の全supervisor変換、
+次の独立課題は91H/95Hの実行時ABI、V1/V2 mode別の全supervisor変換、
 最終IVT/制御port/RAMの実測、prefix/flag/timingの実機一致。
 本資料はROM内の構造を詳述するもので、通常アプリからINT90Hを試す手順ではない。
