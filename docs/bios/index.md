@@ -24,19 +24,23 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # BIOS解析資料 — 割り込み別索引
 
 公開資料は `docs/bios/bios_intXXh.md`。章番号で命名しない。
-今回の追加範囲はテクマニ6.5～6.20で、数値演算17割り込みとその他BIOSの2割り込みをそれぞれ独立ファイルにした**33資料**。
+テクマニ6.1～6.20相当の**全37割り込み資料**を以下の一覧から参照できる。
+INT80H～83Hの詳細資料、6.5～6.20の33資料（数値演算17割り込みとその他BIOSの2割り込みも個別ファイル）を含む。
 依頼された `BIOS_XXH.TXT` 形式の同内容も非公開作業領域に生成した。マニュアル原本のコピーではなく、この独立執筆資料のテキスト版。
 
 **これは全BIOS ABIが解明済みという報告ではない。** 公開機能の識別、初期ROM入口、確認済み／文書上のワーク配置が中心。
 確定できなかった固定workは「未確定」とし、呼び出し側bufferを固定workの代わりに示していない。
 各機能の全register、全構造field、OSによる最終差し替え、実機での動作は追加検証が必要。
 
-関連する詳細資料: [INT 80H](bios_int80h.md)、[INT 81H](bios_int81h.md)、[INT 82H](bios_int82h.md)。
-INT83Hの詳細版は今回の6.5～6.20追加範囲には含めない。
+詳細資料: [INT 80H](bios_int80h.md)、[INT 81H](bios_int81h.md)、[INT 82H](bios_int82h.md)、[INT 83H](bios_int83h.md)。
 
 | 割り込み・資料 | 検証状態 |
 |---|---|
 | [INT 33H / マウスBIOS](bios_int33h.md) | 静的初版・部分照合 |
+| [INT 80H / フロッピーディスクBIOS](bios_int80h.md) | 詳細静的初版・実行未検証 |
+| [INT 81H / ハードディスクBIOS](bios_int81h.md) | 詳細静的初版・実行未検証 |
+| [INT 82H / キーボードBIOS](bios_int82h.md) | 詳細静的初版・実行未検証 |
+| [INT 83H / テキストBIOS](bios_int83h.md) | 詳細静的初版・実行未検証 |
 | [INT 84H / スプライトBIOS](bios_int84h.md) | 静的初版・部分照合 |
 | [INT 86H / ADPCM BIOS](bios_int86h.md) | 静的初版・部分照合 |
 | [INT 87H / 拡張グラフィックスBIOS](bios_int87h.md) | 静的初版・部分照合 |
@@ -74,6 +78,10 @@ INT83Hの詳細版は今回の6.5～6.20追加範囲には含めない。
 
 | 機能 | 領域 | 根拠と限界 |
 |---|---|---|
+| FDD GetBook | 0040:0230 = 00630H | 両ROMの返却値確認 |
+| HDD GetBook | 0040:0370 = 00770H | 文書ES:BPに対し両ROMはES:DX |
+| Keyboard KyBook | 0040:06B0 = 00AB0H | 両ROMの返却値確認、00AB:0000と同位置 |
+| Text GetBook | 0040:0070 = 00470H | 両ROMの返却値確認、TVRAMではなく管理RAM |
 | グラフィック画面管理 | 0338:0000 = 03380H | 文書の管理table、両ROM全fieldの照合は未完了 |
 | スプライト管理 | 0040:1D82以降 | ROMの状態参照／実行tableの抜粋、全長未確定 |
 | アニメーション | 10A0:0000 = 10A00H | ROMの内部DS／hook初期化 |

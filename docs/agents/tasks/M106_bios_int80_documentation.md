@@ -44,9 +44,12 @@ independently authored Markdown under the canonical lowercase filenames.
 The pre-existing INT 81H / 82H drafts and unfinished INT 83H investigation
 were excluded from the chapter 6.5–6.20 commit. The subsequent maintainer
 request to commit and push authorizes publication of the INT 81H / 82H drafts
-and their index links in a separate documentation-only commit. INT 83H remains
-unfinished and excluded. No emulator changes or new milestone implementation
-are authorized.
+and their index links in a separate documentation-only commit.
+The maintainer subsequently authorizes the INT 83H detailed static reference,
+its conventional-memory work analysis, and a complete 37-interrupt index on a
+new branch from `origin/main`, with a separate PR targeting `main`. This
+completes publication coverage for chapters 6.1–6.20, not full runtime ABI
+verification. No emulator changes or new milestone implementation are authorized.
 
 ## Deliverables
 
@@ -54,6 +57,10 @@ are authorized.
   work layout, PC-Engine replacement path, and explicit verification limits.
 - `docs/bios/bios_int81h.md` and `bios_int82h.md`: detailed static HDD and
   keyboard analyses, including work layouts and documented/ROM ABI differences.
+- `docs/bios/bios_int83h.md`: 44 documented text functions, 51 ROM dispatch
+  slots, GET BOOK, conventional-memory descriptors and hooks, TVRAM separation,
+  manual discrepancies, and the VA PC-Engine wrapper with verification limits.
+- `docs/bios/index.md` must link every interrupt reference, including 80H–83H.
 - `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
   6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
@@ -92,3 +99,15 @@ and report its exact commit SHA; do not claim a merge to `main`.
   destructive media tests, or changes to archived-reference behavior or
   provenance. Full ABI/work-layout closure and runtime verification remain
   open; passing documentation checks does not establish BIOS conformance.
+
+## INT 83H / complete-index follow-up
+
+The new `main`-based PR changes only this task, the roadmap, the index, and
+`docs/bios/bios_int83h.md`. Local static content verification passed: 44
+published functions against both 51-slot ROM tables, IVT registration and
+GET BOOK bytes, selected initialization/ABI bytes, 24 work-address
+calculations, privacy and UTF-8/LF checks, and all 37 interrupt references
+uniquely reachable from the index. The requested TXT equivalents stay outside
+Git. Repeat the repository encoding/EOL/case and staged-diff checks before
+push. No build, hosted CI request, runtime probe, or archived-reference change
+is part of this documentation-only follow-up.
