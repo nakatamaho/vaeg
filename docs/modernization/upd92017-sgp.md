@@ -676,11 +676,20 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[DOCUMENTED]** LINE uses `VD=0800h` and `HD=0400h`, the same direction-bit
-positions as BITBLT and PATBLT. Current vaeg's separate
-`LINE_VD=0400h`/`LINE_HD=0800h` definitions are reversed. Implementations must
-test asymmetric lines in all four direction combinations. Do not use a host
-graphics-library line routine.
+**[DOCUMENTED]** The Technical Manual's LINE table places `VD` at `0800h`
+and `HD` at `0400h`, the same direction-bit positions as BITBLT and PATBLT.
+
+**[MEAS]** Previously recorded PC-88VA2 evidence establishes the opposite for
+LINE: `0800h` draws right to left and `0400h` bottom to top. GLASS ORBIT's
+misdirected floor fan and cube edges were reproduced by exchanging the two
+bits in vaeg. The maintainer subsequently confirmed corrected GLASS and all
+three SGPWIRE colour depths on that machine. See the
+[M106a backport task](../agents/tasks/M106a_sgp_line_demofix.md) for the original
+fix and hardware-acceptance commits. Raw private captures are not included.
+M106a restores `LINE_HD=0800h`, `LINE_VD=0400h`; BITBLT/PATBLT are unchanged
+and their hardware directions remain unmeasured. Test asymmetric lines in
+all four direction combinations. Do not use a host graphics-library line
+routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
 octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
@@ -799,7 +808,7 @@ A staged emulator strategy is:
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
 | `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
-| LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
+| LINE | Documented; directions measured | Implemented; HD=0800h, VD=0400h (M106a) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
 | SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
 | Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |

@@ -1603,6 +1603,67 @@ static BOOL finish_scan_selftest(BOOL left) {
 	return (FAILURE);
 }
 
+/* Draw one 4bpp LINE with raw direction bits into a cleared 32x8 main-RAM
+ * buffer (16-byte pitch, guard rows around it); return FALSE unless exactly
+ * the pixels inside the box (x0..x1, y0..y1) are lit, both corners
+ * (x_start, y_start) and (x_end, y_end) included. */
+#define SGP_LINE_TEST_BASE 0x002000
+#define SGP_LINE_TEST_PITCH 16
+#define SGP_LINE_TEST_GUARD 64
+static BOOL line_result_matches(UINT16 bltmode, int x_start, int y_start, UINT16 width,
+                                UINT16 height, int x_end, int y_end) {
+	const UINT32 base = SGP_LINE_TEST_BASE + SGP_LINE_TEST_GUARD;
+	const UINT32 param = SGP_LINE_TEST_BASE - 16;
+	const UINT32 address = base + (UINT32)(y_start * SGP_LINE_TEST_PITCH + (x_start / 4) * 2);
+	int x0 = min(x_start, x_end), x1 = max(x_start, x_end);
+	int y0 = min(y_start, y_end), y1 = max(y_start, y_end);
+	UINT count;
+	int offset;
+
+	ZeroMemory(mem + param, 16 + SGP_LINE_TEST_GUARD * 2 + SGP_LINE_TEST_PITCH * 8);
+	STOREINTELWORD(mem + param + 0, bltmode);
+	STOREINTELWORD(mem + param + 2, (UINT16)(((x_start & 3) << 4) | 1));
+	STOREINTELWORD(mem + param + 4, width);
+	STOREINTELWORD(mem + param + 6, height);
+	STOREINTELWORD(mem + param + 8, SGP_LINE_TEST_PITCH);
+	STOREINTELWORD(mem + param + 10, (UINT16)address);
+	STOREINTELWORD(mem + param + 12, (UINT16)(address >> 16));
+	sgp.color = 0xffff;
+	sgp.pc = param;
+	cmd_line();
+	for (count = 0; sgp.func != FUNC_FETCH_COMMAND; count++) {
+		if (count >= 256) {
+			return (FALSE);
+		}
+		if (sgp.func == FUNC_EXEC_LINE_X) {
+			exec_line_x();
+		} else if (sgp.func == FUNC_EXEC_LINE_Y) {
+			exec_line_y();
+		} else {
+			return (FALSE);
+		}
+	}
+	for (offset = -SGP_LINE_TEST_GUARD; offset < SGP_LINE_TEST_PITCH * 8 + SGP_LINE_TEST_GUARD;
+	     offset++) {
+		const BYTE value = mem[base + offset];
+		const int y = (offset >= 0) ? offset / SGP_LINE_TEST_PITCH : -1;
+		const int x = (offset % SGP_LINE_TEST_PITCH) * 2;
+		int half;
+
+		for (half = 0; half < 2; half++) {
+			const BOOL lit = ((half == 0) ? (value >> 4) : (value & 0x0f)) != 0;
+			const BOOL corner =
+			    ((x + half == x_start) && (y == y_start)) || ((x + half == x_end) && (y == y_end));
+			const BOOL inside = (offset >= 0) && (offset < SGP_LINE_TEST_PITCH * 8) &&
+			                    (x + half >= x0) && (x + half <= x1) && (y >= y0) && (y <= y1);
+			if ((lit && !inside) || (corner && !lit)) {
+				return (FALSE);
+			}
+		}
+	}
+	return (TRUE);
+}
+
 static BOOL scan_result_matches(BOOL left, UINT16 width, UINT32 address, int dot) {
 	if (finish_scan_selftest(left) != SUCCESS) {
 		return (FALSE);
@@ -1618,6 +1679,7 @@ BOOL sgp_manual_commands_selftest(void) {
 	const UINT32 destination_address = 0x001020;
 	BYTE saved_descriptor[12];
 	BYTE saved_destination[4];
+	BYTE saved_line[16 + SGP_LINE_TEST_GUARD * 2 + SGP_LINE_TEST_PITCH * 8];
 	_SGP saved_sgp;
 	_SGP_BLOCK block;
 	SINT32 saved_cpu_remclock;
@@ -1629,6 +1691,7 @@ BOOL sgp_manual_commands_selftest(void) {
 
 	CopyMemory(saved_descriptor, mem + descriptor_address, sizeof(saved_descriptor));
 	CopyMemory(saved_destination, mem + destination_address, sizeof(saved_destination));
+	CopyMemory(saved_line, mem + SGP_LINE_TEST_BASE - 16, sizeof(saved_line));
 	saved_sgp = sgp;
 	saved_cpu_remclock = CPU_REMCLOCK;
 	saved_model_va = pccore.model_va;
@@ -1687,7 +1750,11 @@ BOOL sgp_manual_commands_selftest(void) {
 		goto restore;
 	}
 
-	if ((SGP_BLTMODE_LINE_VD != SGP_BLTMODE_VD) || (SGP_BLTMODE_LINE_HD != SGP_BLTMODE_HD)) {
+	/* LINE directions as on hardware: 0800h right-to-left, 0400h upward. */
+	if (!line_result_matches(0x0005, 9, 2, 5, 3, 13, 4) ||
+	    !line_result_matches(0x0805, 10, 2, 4, 2, 7, 3) ||
+	    !line_result_matches(0x0405, 10, 5, 2, 4, 11, 2) ||
+	    !line_result_matches(0x0c05, 21, 6, 3, 5, 19, 2)) {
 		goto restore;
 	}
 
@@ -1784,6 +1851,7 @@ BOOL sgp_manual_commands_selftest(void) {
 restore:
 	CopyMemory(mem + descriptor_address, saved_descriptor, sizeof(saved_descriptor));
 	CopyMemory(mem + destination_address, saved_destination, sizeof(saved_destination));
+	CopyMemory(mem + SGP_LINE_TEST_BASE - 16, saved_line, sizeof(saved_line));
 	sgp = saved_sgp;
 	CPU_REMCLOCK = saved_cpu_remclock;
 	pccore.model_va = saved_model_va;
