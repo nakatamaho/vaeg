@@ -104,13 +104,15 @@ audio_init:
     call opna_write_high
     mov ax, 0003h
     call opna_write_high
-    mov ax, 7f04h          ; inclusive stop and limit: units 0..127.
+    mov ax, 7f04h          ; inclusive stop: units 0..127.
     call opna_write_high
     mov ax, 0005h
     call opna_write_high
-    mov ax, 7f0ch
+    ; Do not leave a 4KiB wrap limit that could constrain the next program.
+    ; Upload ownership is bounded by exact byte count and inclusive stop.
+    mov ax, 0ff0ch
     call opna_write_high
-    mov ax, 000dh
+    mov ax, 0ff0dh
     call opna_write_high
     mov ax, 6000h          ; CPU -> external sound DRAM, never recording.
     call opna_write_high

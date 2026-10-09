@@ -204,7 +204,9 @@ class Tests(unittest.TestCase):
         self.assertIn("mov ax, 6000h", source)
         self.assertIn("mov ax, 0a000h", source)
         self.assertIn("mov ax, 7f04h", source)
-        self.assertIn("mov ax, 7f0ch", source)
+        self.assertIn("mov ax, 0ff0ch", source)
+        self.assertIn("mov ax, 0ff0dh", source)
+        self.assertNotIn("mov ax, 7f0ch", source)
         stop = source.split("audio_stop:\n", 1)[1].split("voice_write:\n", 1)[0]
         self.assertIn("call mute_channels", stop)
         self.assertIn("mov ax, 0100h", stop)
