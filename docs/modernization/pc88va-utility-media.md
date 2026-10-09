@@ -196,6 +196,8 @@ MSE can be loaded either as a command-line resident program or as a
 `DEVICE=` line in `CONFIG.SYS`. The development disk passes `/A` to place
 the Alias data in BMS and `/B` to swap part of MSE's code data into BMS.
 It does not pass `/X`, because the disk does not install an XMS manager.
+See [MSE 3.52B disassembly notes](mse352b-disassembly.md) for the current
+static analysis of its resident hooks and BMS/XMS swap paths.
 
 Useful MSE-side tools in the archived package include:
 
