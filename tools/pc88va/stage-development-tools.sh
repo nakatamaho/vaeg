@@ -56,6 +56,7 @@ clk_doc=
 va3ddemo_asm=
 va3ddemo_doc=
 extra_packages_dir=
+vz_image=
 work_dir=
 
 usage() {
@@ -76,7 +77,7 @@ Usage: $program_name --output DIR --profile fdd|sasi \
 		       [--rdems152-archive FILE] [--gm1-archive FILE]
 		       [--clk-source FILE --clk-archive FILE --clk-doc FILE]
 		       [--va3ddemo-asm FILE --va3ddemo-doc FILE]
-		       [--extra-packages-dir DIR]
+		       [--extra-packages-dir DIR] [--vz-image FILE]
 
 Create the normalized development-tool tree consumed by both the FDD and
 SASI injectors.  The output contains BIN, DOC, ARCHIVE, and UNIX subtrees.
@@ -90,9 +91,9 @@ they are rejected for the compact FDD profile.
 
 The SASI-only --extra-packages-dir names a directory holding the PC-88VA
 Softlib packages added in M106 under their Softlib names (the caller checks
-their SHA-256).
+their SHA-256); --vz-image is VZ_VA.D88 of VZ Editor 1.60 for the PC-88VA.
 Original archives go to ARCHIVE, runnable programs to BIN, manuals to DOC;
-VASG goes to its own VASG directory.
+VASG goes to its own VASG directory and the sample VZ definitions to VZ.
 EOF
 }
 
@@ -227,6 +228,7 @@ while (($#)); do
 	--va3ddemo-asm) (($# >= 2)) || die "$1 requires a path"; va3ddemo_asm=$2; shift 2 ;;
 	--va3ddemo-doc) (($# >= 2)) || die "$1 requires a path"; va3ddemo_doc=$2; shift 2 ;;
 	--extra-packages-dir) (($# >= 2)) || die "$1 requires a path"; extra_packages_dir=$2; shift 2 ;;
+	--vz-image) (($# >= 2)) || die "$1 requires a path"; vz_image=$2; shift 2 ;;
 	-h|--help)
 		usage
 		exit 0
@@ -264,7 +266,7 @@ if [[ $profile == sasi ]]; then
 	done
 	for path in "$zim_img_archive" "$rdems15_archive" "$rdems152_archive" \
 		"$gm1_archive" "$clk_source" "$clk_archive" "$clk_doc" \
-		"$va3ddemo_asm" "$va3ddemo_doc"; do
+		"$va3ddemo_asm" "$va3ddemo_doc" "$vz_image"; do
 		[[ -z ${path} || ( -f ${path} && -r ${path} ) ]] ||
 			die "package is not readable: $path"
 	done
@@ -277,7 +279,8 @@ else
 		"$s88va250_archive" "$s88va250_doc" \
 		"$stest_source_archive" "$zim_img_archive" "$rdems15_archive" \
 		"$rdems152_archive" "$gm1_archive" "$clk_source" "$clk_archive" \
-		"$clk_doc" "$va3ddemo_asm" "$va3ddemo_doc" "$extra_packages_dir"; do
+		"$clk_doc" "$va3ddemo_asm" "$va3ddemo_doc" "$extra_packages_dir" \
+		"$vz_image"; do
 		[[ -z ${path} ]] || die 'new source/library packages are SASI-only'
 	done
 fi
@@ -549,6 +552,26 @@ if [[ $profile == sasi && -n ${extra_packages_dir} ]]; then
 	copy_required "$work_dir/marin/MARIN.COM" "$output_dir/BIN/MARIN.COM"
 	copy_required "$work_dir/marin/MARIN.PCM" "$output_dir/BIN/MARIN.PCM"
 	copy_required "$work_dir/marin/MARIN.DOC" "$output_dir/DOC/MARIN.DOC"
+fi
+
+if [[ $profile == sasi && -n ${vz_image} ]]; then
+	# VZ Editor 1.60 for the PC-88VA, as on the utility FDD, plus the PC-98
+	# manuals and the sample definition files (under VZ).
+	python3 -I "${0%/*}/extract-vz-editor.py" --profile sasi \
+		--image "$vz_image" --output "$work_dir/vz" >/dev/null
+	copy_required "$work_dir/vz/VZVA.COM" "$output_dir/BIN/VZVA.COM"
+	copy_required "$work_dir/vz/VZVA.DEF" "$output_dir/BIN/VZVA.DEF"
+	copy_required "$work_dir/vz/VZFL.DEF" "$output_dir/BIN/VZFL.DEF"
+	copy_required "$work_dir/vz/VZVA.DOC" "$output_dir/DOC/VZVA.DOC"
+	copy_required "$work_dir/vz/LICENSE.TXT" "$output_dir/DOC/VZLIC.TXT"
+	copy_required "$work_dir/vz/README.DOC" "$output_dir/DOC/VZREAD.DOC"
+	copy_required "$work_dir/vz/VZ16.DOC" "$output_dir/DOC/VZ16.DOC"
+	copy_required "$work_dir/vz/MAC16.DOC" "$output_dir/DOC/MAC16.DOC"
+	mkdir -p -- "$output_dir/VZ"
+	for name in VZ.DEF BLOCK.DEF CVTKEI.DEF GAME.DEF HELP.DEF KEISEN.DEF \
+		KEISEN_J.DEF TOOL.DEF VZ16.DEF ZENHAN.DEF; do
+		copy_required "$work_dir/vz/$name" "$output_dir/VZ/$name"
+	done
 fi
 
 write_manifest() {

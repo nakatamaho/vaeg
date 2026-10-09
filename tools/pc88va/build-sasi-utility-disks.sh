@@ -68,6 +68,7 @@ mo_va128mo_archive=$mo_cache/va128mo.lzh
 mo_stest_archive=$mo_cache/stest115.lzh
 jwasm_archive=$softlib_cache/JWasm_v220_dos.zip
 extra_packages_dir=$softlib_cache/m106
+vz_image=$softlib_cache/VZ_VA.D88
 cpm_tools_d88=${HOME}/88VA/images/cpm/cpmva-tools.d88
 cpm_source_d88=${HOME}/88VA/images/cpm/cpmva-source.d88
 cpm_dev_d88=${HOME}/88VA/images/cpm/cpmva-dev.d88
@@ -618,6 +619,9 @@ ensure_cached_package "$extra_packages_dir/BDIFF128.LZH" \
 ensure_cached_package "$extra_packages_dir/SCF124.LZH" \
 	a62183d66da90546d19d81f8adad32a2df2485d619badcaf2c167668b7603aad \
 	'http://www.pc88.gr.jp/forum/download.php?id=15'
+ensure_cached_package "$vz_image" \
+	c8435cc34f986f2e663d31aa8a081ebd501dc33d0931a640fa4696a10517da68 \
+	'https://github.com/nakatamaho/VZEditor/releases/download/pc88va-v1.60/VZ_VA.D88'
 [[ -f $cpm_archive && -r $cpm_archive ]] ||
 	die "CP/M emulator archive is not readable: $cpm_archive (use --cpm-archive)"
 [[ -f $mo_schd_archive && -r $mo_schd_archive ]] ||
@@ -666,7 +670,7 @@ supplemental_manifest=$work_dir/supplemental.manifest.tsv
 	--gm1-archive "$gm1_archive" \
 	--clk-source "$clk_source" --clk-archive "$clk_archive" --clk-doc "$clk_doc" \
 	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc" \
-	--extra-packages-dir "$extra_packages_dir"
+	--extra-packages-dir "$extra_packages_dir" --vz-image "$vz_image"
 
 mo_schd_tree=$work_dir/mo-schd
 mo_va128mo_tree=$work_dir/mo-va128mo
