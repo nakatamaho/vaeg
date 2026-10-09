@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M107 — VOYAGE packed pages showed through the restored console
+
+- **Symptom/scope:** Escape returned to a usable PC-Engine prompt, but the new
+  VOYAGE guest's VA title and wave mesh remained behind the text. This affected
+  the guest prototype's shutdown, not the historical demo or emulator backend.
+- **Demonstrated cause:** saved-mode restoration did not erase the owned 8bpp
+  page bytes. Normal console composition still included G0, which interpreted
+  those bytes in the restored graphics format.
+- **Correction:** clear all 256 KiB of owned GVRAM with bounded SGP CLS commands
+  before restoring the original mode/console composition; abort a failed clear
+  before relinquishing SGP ownership.
+- **Verification:** private bounded VA2 captures changed from ghost geometry
+  behind the prompt to a clean prompt; DIR, visible relaunch and second Escape
+  remained usable. Real-hardware review and G107 remain pending.
+- **Task/evidence:** [M107 task](../agents/tasks/M107_visual_audio_voyage.md),
+  [local verification report](../agents/reports/m107_visual_audio_voyage.md#demonstrated-guest-cleanup-defect).
+- **Commit:** [656c5769](https://github.com/nakatamaho/vaeg/commit/656c5769cc19eeebdff3fcd6e23161e8ee4222f1).
+
 ### M105 — TSP frames with a sync shorter than 4 lines ran slow
 
 - **Symptom/scope:** frames that set the vertical sync field `VS` below 4

@@ -92,8 +92,11 @@ It retains SSG I/O direction bits, but does **not** snapshot unreadable FM
 registers or resume a previous song. Exit keys off the three voices, mutes
 SSG, stops/acknowledges sound timers and aborts our SGP submission if necessary.
 An unresponsive chip cannot be guaranteed to mute. Saved video mode/pixel sizes
-and the normal console guide/composition are restored before loader return;
-prior graphics contents and arbitrary custom window definitions are not saved.
+and the normal console guide/composition are restored before loader return.
+Owned GVRAM is cleared before restoring the console, so packed-page geometry
+cannot show through its original format. Prior graphics contents and arbitrary
+custom window definitions are not saved. Startup drains at most 32 queued keys;
+Escape requires the complete BIOS result 001Bh, not scan code zero alone.
 
 The loader uses the established fixed `3000h` payload segment and caller stack,
 with its `E000h` continuation reserve. This is the repository's local PC-Engine
@@ -107,6 +110,12 @@ capacity and ready/absent/stuck sound **models** are checked independently of
 Git. The sound models are not execution of the guest polling code. NASM builds
 and bounded private ROMful captures supplement these tests; they do not prove
 real hardware, subjective audio quality or the full clean-checkout boot/OS gate.
+
+[Local verification report](../../docs/agents/reports/m107_visual_audio_voyage.md):
+VA2 native two-loop/Return/audio-dispatch observations, original-VA low-bank
+sound observation, and final VA2 clean Escape/DIR/relaunch/second-Escape captures.
+The measured steady VA2 cycle was about 22 seconds, not a portable timebase;
+audition and subjective synchronization remain unverified.
 
 Review at least two loops, sound, motion and colour, then Escape and relaunch.
 No longer presentation, textured sea, TSP logo or emulator changes should begin

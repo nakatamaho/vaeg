@@ -98,6 +98,10 @@ class VoyageTests(unittest.TestCase):
         self.assertIn("mov cx, 0ffffh", instructions)
         self.assertIn("call clock_poll", instructions)
         self.assertIn("%if VOYAGE_AUDIO == 0", instructions)
+        self.assertIn(f"%define PERIOD {voyage.PERIOD}", instructions)
+        self.assertIn("%define LIST_WORDS 4096", instructions)
+        self.assertIn("mov cx, 32", instructions)
+        self.assertIn("call discard_startup_keys", instructions)
         self.assertIn("cmp ax, 001bh", instructions)
         self.assertNotIn("cmp ah, 0", instructions)
 

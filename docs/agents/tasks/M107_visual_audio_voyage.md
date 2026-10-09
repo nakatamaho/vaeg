@@ -68,6 +68,17 @@ identities privately. Do not run SSTs or hosted CI for unchanged emulator code.
 Run repository encoding, LF, case and staged-diff checks; review exact scope and
 privacy before commit/push. Record applicable output in the PR.
 
+## Local handoff status
+
+Implementation and local checks completed; see the
+[verification report](../reports/m107_visual_audio_voyage.md). Twelve focused
+tests pass, out-of-tree NASM outputs reproduce, standard Linux debug build and
+smoke pass. VA2 native observations include two loops and 400 FM note dispatches;
+final Escape/DIR/relaunch/second-Escape captures show a clean console. Original
+VA has a separate one-loop/OPN observation. Pure sound models and dispatch counts
+do not replace audition. The optional trace-ON build has a pre-existing private
+`Clock::now()` access failure, documented rather than fixed in this task.
+
 ## G107 — HUMAN GATE (pending)
 
 Clean-checkout build; normal V3/VA demo/OS regression checklist, then launch
