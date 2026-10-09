@@ -75,11 +75,31 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
   -s demos/va-voyage -p opna_score.py
 ```
 
-**This preparation module is not connected to `build.sh` or `VOYAGE.COM`.**
+**The legacy `build.sh` / `VOYAGE.COM` does not use this module.**
+M107b now supplies a separate integration build:
+
+```sh
+out=$(mktemp -d)
+PYTHONDONTWRITEBYTECODE=1 bash demos/va-voyage/build-opna.sh "$out"
+# VA2/OPNA only: install "$out/VOYOPNA.COM", not the raw payload.
+```
+
+This variant owns six FM voices, three SSG tones and the first 4096 bytes of
+8-bit sound DRAM. It includes bounded BUSY/BRDY waits and six-voice/SSG/ADPCM
+shutdown. Only the new variant uses main's hardware-measured SGP LINE direction
+bits; the accepted legacy COM remains byte-identical, including its older
+LINE convention. It is not requalified for the changed SGP backend; use
+`VOYOPNA.COM` for this new integration gate. Audible quality and physical
+hardware equivalence are not established by assembly/content tests.
+Local VA2 observations cover 4KiB upload, six note lanes, three SSG volumes,
+NP2/ymfm dispatch and Escape/relaunch; the human listening gate remains pending.
+[Validation report](../../docs/agents/reports/m107b_voyage_opna_playback.md).
+See [M107b task](../../docs/agents/tasks/M107b_voyage_opna_playback.md).
 The currently playable COM still has the accepted three-FM/noise soundtrack.
 OPNA high-bank setup, three-channel SSG envelopes, ADPCM DRAM upload/rate/
-playback and six-voice shutdown need the subsequent guest integration and
-listening gate. No new audio playback is claimed here. Generated samples and
+playback and six-voice shutdown are implemented in the separate variant, with
+runtime evidence and the listening gate tracked in M107b. No audible-quality
+claim follows merely from this source-data generation. Generated samples and
 JSON stay outside Git. See [M107a task](../../docs/agents/tasks/M107a_voyage_opna_arrangement.md).
 
 ## Rendering and synchronization

@@ -90,7 +90,9 @@ class VoyageTests(unittest.TestCase):
 
     def test_guest_backend_boundary(self):
         root = Path(__file__).parent / "src"
-        asm = "\n".join(p.read_text(encoding="utf-8") for p in sorted(root.glob("*")))
+        # Closed legacy profile: the optional OPNA include is not selected.
+        asm = "\n".join((root / name).read_text(encoding="utf-8")
+                        for name in ("voyage.asm", "voyage_audio.inc"))
         instructions = "\n".join(line.split(";", 1)[0].strip() for line in asm.splitlines())
         for forbidden in ("int 21h", "int 91h", "mov dx, 46h", "mov dx, 47h"):
             self.assertNotIn(forbidden, instructions)

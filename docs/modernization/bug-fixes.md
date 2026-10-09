@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M107b — avoid retaining a demo-sized ADPCM wrap limit
+
+- **Symptom/scope:** the unmerged OPNA prototype set a 4KiB ADPCM address
+  wrap limit and retained it after Escape. This creates a sound-memory
+  overwrite/wrap risk for a subsequent program that does not reset the limit;
+  no private recording or media corruption is claimed to have occurred.
+- **Demonstrated cause:** the initial guest wrote `007FH` to high registers
+  `0CH/0DH`. `adpcm_setreg` computes `(limit + 1) << 5`, giving 4096; the
+  transfer/playback paths wrap their position at that limit. Sound-memory
+  ownership of the first 4096 bytes does not justify narrowing global limits
+  for later programs.
+- **Correction:** initialize the full `FFFFH` limit instead. The demo still
+  transfers exactly 4096 bytes and uses inclusive stop unit `007FH`; each
+  retrigger programs its own bounded start/end. No prior music/memory restore
+  guarantee is added.
+- **Verification:** source regression checks require both `FFH` limit bytes,
+  reject the former narrow-limit write, retain the 4096-byte sample/stop
+  contract, and check reset/mute shutdown. Native dispatch/return observations
+  and their limits are recorded in the
+  [M107b task](../agents/tasks/M107b_voyage_opna_playback.md).
+- **Milestone/task/commit:** M107b;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d408a3d2e309b292eba5b8ac36122b325175c423),
+  [M107b report](../agents/reports/m107b_voyage_opna_playback.md).
+
 ### M106a — I/O selftests accessed a destroyed machine
 
 - **Symptom/scope:** ASan aborted the ROM-less selftest with heap-use-after-free

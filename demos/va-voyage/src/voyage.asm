@@ -21,7 +21,21 @@
 
 ; Independent V3 prototype. No demonstration-disk code/data is used.
 ; Video setup follows the validated NEON4 8bpp G1/loader contract.
-; No DOS INT21, interrupt hooks, undocumented INT91 or sound high bank.
+; No DOS INT21, interrupt hooks or undocumented INT91.
+; VOYAGE_OPNA selects a separate six-FM/three-SSG/ADPCM guest variant.
+%ifndef VOYAGE_OPNA
+%define VOYAGE_OPNA 0
+%endif
+%if VOYAGE_OPNA != 0 && VOYAGE_OPNA != 1
+%error "VOYAGE_OPNA must be 0 or 1"
+%endif
+%if VOYAGE_OPNA
+%define VOYAGE_LINE_HD 0800h
+%define VOYAGE_LINE_VD 0400h
+%else
+%define VOYAGE_LINE_HD 0400h
+%define VOYAGE_LINE_VD 0800h
+%endif
 cpu 286
 bits 16
 org 0
@@ -72,6 +86,9 @@ next_frame:
     inc word [frames_drawn]
 frame_ready:
     nop                         ; stable local capture checkpoint
+%if VOYAGE_OPNA
+    call audio_observe          ; bounded, register-preserving guest diagnostics
+%endif
     call keyboard_escape
     jc exit_demo
 .await_frame:
@@ -729,7 +746,8 @@ colour:
 .done:
     ret
 
-; Documented SGP LINE descriptor: XY direction bits 0400h/0800h.
+; OPNA variant uses main's hardware-measured LINE HD=0800h/VD=0400h.
+; Legacy output preserves its original descriptor contract.
 ; All endpoints are within the backing/display rectangle. This prototype
 ; clamps projected vertices at the border rather than geometric line clipping.
 line:
@@ -744,7 +762,7 @@ line:
     sub ax, [x1]
     jns .positive_x
     neg ax
-    or bx, 0400h
+    or bx, VOYAGE_LINE_HD
 .positive_x:
     inc ax
     mov [line_width], ax
@@ -752,7 +770,7 @@ line:
     sub ax, [y1]
     jns .positive_y
     neg ax
-    or bx, 0800h
+    or bx, VOYAGE_LINE_VD
 .positive_y:
     inc ax
     mov cx, ax
@@ -868,7 +886,11 @@ wait_sgp:
     pop cx
     ret
 
+%if VOYAGE_OPNA
+%include "voyage_opna.inc"
+%else
 %include "voyage_audio.inc"
+%endif
 %include "voyage_tables.inc"
 
 align 2, db 0
