@@ -49,7 +49,11 @@ The maintainer subsequently authorizes the INT 83H detailed static reference,
 its conventional-memory work analysis, and a complete 37-interrupt index on a
 new branch from `origin/main`, with a separate PR targeting `main`. This
 completes publication coverage for chapters 6.1–6.20, not full runtime ABI
-verification. No emulator changes or new milestone implementation are authorized.
+verification. The next maintainer request authorizes a static disassembly/manual
+investigation of INT 20H and INT 21H, including DOS registration, function
+coverage, internal OS hooks, private TXT equivalents, and canonical public
+references with index links. No emulator changes or new milestone implementation
+are authorized.
 
 ## Deliverables
 
@@ -60,7 +64,11 @@ verification. No emulator changes or new milestone implementation are authorized
 - `docs/bios/bios_int83h.md`: 44 documented text functions, 51 ROM dispatch
   slots, GET BOOK, conventional-memory descriptors and hooks, TVRAM separation,
   manual discrepancies, and the VA PC-Engine wrapper with verification limits.
-- `docs/bios/index.md` must link every interrupt reference, including 80H–83H.
+- `docs/bios/bios_int20h.md` and `bios_int21h.md`: process termination,
+  individual DOS registration, 40 documented AH values (41 specifications),
+  both 256-slot ROM tables, DOS work ownership and VA/VA2 internal hook paths.
+- `docs/bios/index.md` must link every published interrupt reference, including
+  20H/21H and 80H–83H, without claiming full interrupt-list coverage.
 - `docs/bios/index.md` and 33 `bios_intXXh.md` references for chapters
   6.5–6.20; distinguish partial static evidence from documented contracts.
 - `AGENTS.md`: canonical directory and lowercase interrupt-based naming.
@@ -111,3 +119,19 @@ uniquely reachable from the index. The requested TXT equivalents stay outside
 Git. Repeat the repository encoding/EOL/case and staged-diff checks before
 push. No build, hosted CI request, runtime probe, or archived-reference change
 is part of this documentation-only follow-up.
+
+## INT 20H / 21H static follow-up
+
+Out-of-tree generation and content verification passed: two references,
+40 documented AH values / 41 individual specifications, 256 table slots per
+ROM, 50/55 nondefault VA/VA2 entries, individual DOS vector registration,
+INT20H's zero-code AH=4CH call, version/vector ABI bytes, the shared internal
+hook address alias, and 14/5 VA/VA2 OS patch-table pairs. Verified findings
+include the VA hook's AH=18H/47H selection, not a full DOS patch inventory.
+The generated Markdown was validated before placement and copied byte-for-byte;
+all 39 published interrupt references are linked from the index table. Raw
+inputs, disassembly, output manifest and TXT equivalents remain outside Git.
+The intended scope is exactly two new interrupt references, the index, this
+task, and the roadmap. Repository invariant and staged-diff checks must pass
+before push. No emulator build, runtime call, hosted CI request, guest-visible
+bug fix, or archived-reference change is included.
