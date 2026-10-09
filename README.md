@@ -25,6 +25,7 @@ remains a useful historical reference.
 | [Runtime Files and Saved State](#runtime-files-and-saved-state) | Configuration and saved-state paths |
 | [Quick Build](#quick-build) | Short build commands |
 | [PC-88VA Hardware Notes](#pc-88va-hardware-notes) | Emulated hardware summary |
+| [PC-88VA I/O Port Map](#pc-88va-io-port-map) | I/O address blocks |
 | [Text Encoding Policy](#text-encoding-policy) | Source encoding rules |
 | [Archived Reference Tier](#archived-reference-tier) | Historical source information |
 | [Documentation Map](#documentation-map) | Guides and modernization notes |
@@ -523,6 +524,25 @@ behavior.
   printer interface, mouse/joystick/tablet port, optional hard disk
   interface, two general PC-98-compatible expansion slots, and one
   dedicated video-board slot.
+
+### PC-88VA I/O Port Map
+
+PC-88VA の I/O アドレス空間は、以下のブロックに分かれています。
+アドレスはすべて16進数で、範囲の開始・終了アドレスを含みます。
+
+| I/O アドレス範囲 | ブロック名 | 備考 |
+| --- | --- | --- |
+| `0000H–00FFH` | システムエリア0 | PC-88MH/FH互換 |
+| `0100H–01FFH` | システムエリア1 | |
+| `0200H–02FFH` | フレームバッファー制御エリア | |
+| `0300H–04FFH` | カラーパレット制御エリア | |
+| `0500H–05FFH` | GVRAM制御エリア | |
+| `0600H–0FFFH` | システムエリア2 | リザーブ（予約領域） |
+| `1000H–FEFFH` | ユーザーエリア | |
+| `FF00H–FFFFH` | システムエリア3 | CPU内部使用 |
+
+個別のポート・ビット・コマンドの詳細：
+[TSP（テキスト／スプライトプロセッサ）](docs/io/io_tsp.md)。
 
 ## Text Encoding Policy
 
