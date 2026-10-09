@@ -42,7 +42,7 @@ dawn_background:
     mov bx, 20
     div bx
     add bp, ax
-    mov al, [dawn_sky_colours+bp]
+    mov al, [ds:dawn_sky_colours+bp] ; BP defaults to caller SS, not guest DS.
     mov ah, al
     call colour
     mov word [x1], 0

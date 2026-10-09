@@ -81,6 +81,13 @@ def validate(data):
         raise SceneError("M107C_COMMAND_CAPACITY")
 
 
+def validate_guest(source):
+    """Content-only guard for the stack-relative BP palette addressing hazard."""
+    instructions = [line.split(";", 1)[0].strip() for line in source.splitlines()]
+    if "mov al, [ds:dawn_sky_colours+bp]" not in instructions:
+        raise SceneError("M107C_SKY_SEGMENT")
+
+
 def trunc_div(a, b):
     return (abs(a) // abs(b)) * (-1 if (a < 0) != (b < 0) else 1)
 
@@ -175,6 +182,14 @@ class Tests(unittest.TestCase):
                     exact = p[0] + (q[0]-p[0])*(y-p[1])/(q[1]-p[1])
                     self.assertLessEqual(abs(x - exact), 1.8)
 
+    def test_sky_segment_negative(self):
+        source = (Path(__file__).parent / "src/voyage_dawn.inc").read_text(encoding="utf-8")
+        validate_guest(source)
+        mutated = source.replace("[ds:dawn_sky_colours+bp]", "[dawn_sky_colours+bp]", 1)
+        with self.assertRaises(SceneError) as caught:
+            validate_guest(mutated)
+        self.assertEqual(caught.exception.code, "M107C_SKY_SEGMENT")
+
     def test_staging(self):
         self.assertEqual([stage(899, i) for i in range(4)], [0,7,0,7])
         self.assertEqual({stage(t, 1) for t in range(900)}, set(range(8)))
@@ -191,6 +206,7 @@ def main():
         raise SceneError("M107C_OUTPUT_IN_TREE")
     data = make_scene()
     validate(data)
+    validate_guest((Path(__file__).parent / "src/voyage_dawn.inc").read_text(encoding="utf-8"))
     output.mkdir(parents=True, exist_ok=True)
     lines = ["; Source-generated original dawn tables."]
     for label, kind, values in (("dawn_boundary", "dw", [n*4 for n in BOUNDARY + BOUNDARY[:1]]),
