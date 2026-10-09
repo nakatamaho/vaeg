@@ -44,7 +44,7 @@ usage() {
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
 		'development tools, ISHVA/PKPAK, TENIM3, TFD, SCFORM, VIEW480,' \
 		'JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
-		'and K-Launcher.' \
+		'K-Launcher, and VZ Editor 1.60.' \
 		'The FDD uses the documented compact profile;' \
 		'EMACS/CPMVA/TDC/BENCH and other large collections are SASI-only.' \
 		'The source and generated D88 images are never added to the repository.'
@@ -252,9 +252,9 @@ fetch_package jfppat.zip \
 fetch_package 2hcdrv.zip \
 	1da4d799b1aaf3a2fc94f8872eb3fd2cf6eb788fb907e8ba8c85cc79b0487e39 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=306&fname=2HCDRV.ZIP'
-fetch_package fdfrmsrc.lzh \
-	d81358cbcfc1d6175359059d9c01fb75e5585993c3bc3d3e1fc988d7aa7c3e5a \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=401&fname=FDFRMSRC.LZH'
+fetch_package VZ_VA.D88 \
+	c8435cc34f986f2e663d31aa8a081ebd501dc33d0931a640fa4696a10517da68 \
+	'https://github.com/nakatamaho/VZEditor/releases/download/pc88va-v1.60/VZ_VA.D88'
 fetch_package isharc.com \
 	c51ffc66551f55872532b0ebde186ac7e9f76ef9c8287c731190f7e433bba61f \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=69&fname=ISHARC.COM'
@@ -344,7 +344,8 @@ mkdir -p -- "$work_dir/jfppat"
 unzip -q "$cache_dir/jfppat.zip" -d "$work_dir/jfppat"
 mkdir -p -- "$work_dir/2hcdrv"
 unzip -q "$cache_dir/2hcdrv.zip" -d "$work_dir/2hcdrv"
-extract_archive "$cache_dir/fdfrmsrc.lzh" "$work_dir/fdfrmsrc"
+python3 -I "$script_dir/extract-vz-editor.py" --profile fdd \
+	--image "$cache_dir/VZ_VA.D88" --output "$work_dir/vz" >/dev/null
 extract_archive "$cache_dir/tenim3.com" "$work_dir/tenim3"
 extract_archive "$cache_dir/tfd12.lzh" "$work_dir/tfd12"
 common_stage_dir=$work_dir/common-tools
@@ -363,7 +364,7 @@ manifest_contains() {
 
 for staged_path in \
 	BIN/ISHVA.COM BIN/PKPAK.EXE BIN/PKUNPAK.EXE \
-	DOC/ISHARC.DOC DOC/ISHVA.DOC ARCHIVE/ISHARC.COM; do
+	DOC/ISHARC.DOC DOC/ISHVA.DOC; do
 	manifest_contains "$staged_path" ||
 		die "common staging manifest is missing $staged_path"
 done
@@ -550,7 +551,6 @@ copy_payload "$work_dir/ramdisk/README" doc/RAMREAD.ME
 copy_payload "$work_dir/diet/DIET144.DOC" doc/DIET144.DOC
 copy_payload "$work_dir/diet/README.DOC" doc/DIETREAD.DOC
 copy_payload "$work_dir/schd/SCHD.DOC" doc/SCHD.DOC
-copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
 copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
 copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
 copy_payload "$work_dir/rdpcm/RDPCM.DOC" doc/RDPCM.DOC
@@ -567,7 +567,6 @@ copy_payload "$work_dir/x8map/X8MAP130.TXT" doc/X8MAP130.TXT
 copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC
 copy_payload "$work_dir/rdems/RDEMS152.MAN" doc/RDEMS152.MAN
 copy_payload "$work_dir/scform/SCFORM.DOC" doc/SCFORM.DOC
-copy_payload "$work_dir/scform/SCFORM.LOG" doc/SCFORM.LOG
 copy_payload "$common_stage_dir/DOC/ISHARC.DOC" doc/ISHARC.DOC
 copy_payload "$common_stage_dir/DOC/ISHVA.DOC" doc/ISHVA.DOC
 copy_payload "$cache_dir/tenim3.doc" doc/TENIM3.DOC
@@ -579,9 +578,18 @@ copy_payload "$work_dir/2hcdrv/2HCDRV.DOC" doc/2HCDRV.DOC
 copy_payload "$work_dir/2hcdrv/FDFORM.DOC" doc/FDFORM.DOC
 copy_payload "$cache_dir/v480src.lzh" archive/V480SRC.LZH
 copy_payload "$cache_dir/jfppat.zip" archive/JFPPAT.ZIP
-copy_payload "$cache_dir/2hcdrv.zip" archive/2HCDRV.ZIP
-copy_payload "$cache_dir/fdfrmsrc.lzh" archive/FDFRMSRC.LZH
-copy_payload "$common_stage_dir/ARCHIVE/ISHARC.COM" archive/ISHARC.COM
+# M106: VZ Editor 1.60 for the PC-88VA.  DIET leaves VZVA.COM as it is
+# (too big for its COM mode).  To make room within the 77 cylinders that
+# PC-Engine reads, 2HCDRV.ZIP, FDFRMSRC.LZH and ISHARC.COM are no longer kept
+# under ARCHIVE (ISHARC.COM's contents are installed above), and the SCHD.LOG
+# and SCFORM.LOG change histories are left out; the SASI images keep all five.
+copy_payload "$work_dir/vz/VZVA.COM" bin/VZVA.COM
+# VZVA.COM reads the definition file named after itself; the extractor's
+# VZVA.DEF is VZ.DEF with EMS turned off (EM0), see extract-vz-editor.py.
+copy_payload "$work_dir/vz/VZVA.DEF" bin/VZVA.DEF
+copy_payload "$work_dir/vz/VZFL.DEF" bin/VZFL.DEF
+copy_payload "$work_dir/vz/VZVA.DOC" doc/VZVA.DOC
+copy_payload "$work_dir/vz/LICENSE.TXT" doc/VZLIC.TXT
 copy_payload "$cache_dir/tenim3.com" archive/TENIM3.COM
 copy_payload "$cache_dir/tfd12.lzh" archive/TFD12.LZH
 
