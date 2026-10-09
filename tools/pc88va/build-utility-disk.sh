@@ -641,6 +641,12 @@ rm -- "$payload_dir/bin/DIETEXE.LOG" "$payload_dir/bin/DIETCOM.LOG"
 printf 'DIET processed %u executables and saved %u bytes\n' \
 	"$diet_processed" "$diet_saved"
 
+# Keep the source-built timing test byte-identical to the NASM output.
+copy_payload "$common_stage_dir/BIN/V480PAT.COM" bin/V480PAT.COM
+copy_payload "$common_stage_dir/DOC/VTIMING.TXT" doc/VTIMING.TXT
+mkdir -p -- "$payload_dir/src/vtiming"
+copy_payload "$common_stage_dir/SRC/VTIMING/V480PAT.ASM" src/vtiming/V480PAT.ASM
+
 printf '%s\r\n' \
 	'FILES   = 20' \
 	'BUFFERS = 30' \
