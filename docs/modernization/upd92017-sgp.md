@@ -572,9 +572,12 @@ The Technical Manual defines:
 | `TP` | `0300h` |
 | operation | `000Fh` |
 
-The current vaeg BITBLT/PATBLT definitions use the same masks. LINE uses the
-same documented bit positions, so a separate swapped LINE direction mapping is
-not supported by this source.
+The current vaeg BITBLT/PATBLT definitions use the same masks. This is the
+manual-derived mapping, not a hardware confirmation of LINE. The maintainer
+now reports the real-machine **LINE** masks as `HD=0800h` and `VD=0400h`,
+reversed relative to this table. See the
+[port-oriented SGP reference](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違).
+Do not infer a BITBLT/PATBLT mask change from the LINE result alone.
 
 `VD`/`HD` choose traversal direction and safe overlap order. The BNN definition
 of `SF` is explicit ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
@@ -679,17 +682,23 @@ hardware-visible.
 **[DOCUMENTED]** The Technical Manual's LINE table places `VD` at `0800h`
 and `HD` at `0400h`, the same direction-bit positions as BITBLT and PATBLT.
 
-**[MEAS]** Previously recorded PC-88VA2 evidence establishes the opposite for
-LINE: `0800h` draws right to left and `0400h` bottom to top. GLASS ORBIT's
-misdirected floor fan and cube edges were reproduced by exchanging the two
-bits in vaeg. The maintainer subsequently confirmed corrected GLASS and all
-three SGPWIRE colour depths on that machine. See the
-[M106a backport task](../agents/tasks/M106a_sgp_line_demofix.md) for the original
-fix and hardware-acceptance commits. Raw private captures are not included.
-M106a restores `LINE_HD=0800h`, `LINE_VD=0400h`; BITBLT/PATBLT are unchanged
-and their hardware directions remain unmeasured. Test asymmetric lines in
-all four direction combinations. Do not use a host graphics-library line
-routine.
+**[MAINTAINER HARDWARE REPORT]** Previously recorded PC-88VA2 evidence
+establishes the opposite for LINE: `0800h` draws right to left and `0400h`
+bottom to top. GLASS ORBIT's misdirected floor fan and cube edges were
+reproduced by exchanging the two bits in vaeg. The maintainer subsequently
+confirmed corrected GLASS and all three SGPWIRE colour depths on that machine.
+This session claims no new measurement; per-model raw vectors and private
+captures are not published here. See the
+[M106a backport task](../agents/tasks/M106a_sgp_line_demofix.md) for original
+fix and hardware-acceptance commits.
+
+**[IMPLEMENTATION]** M106a restores `LINE_HD=0800h`, `LINE_VD=0400h` in
+`io/sgp.h`; the pre-M106a shared-mask mapping disagreed with the report.
+BITBLT/PATBLT are unchanged and their hardware directions remain unmeasured.
+[The comparison and raw-mode examples](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違)
+keep these evidence layers separate. Test asymmetric lines with one direction
+bit at a time; equal bits cannot discriminate the swap. Do not use a host
+graphics-library line routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
 octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
@@ -808,7 +817,7 @@ A staged emulator strategy is:
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
 | `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
-| LINE | Documented; directions measured | Implemented; HD=0800h, VD=0400h (M106a) | Endpoint and tie-breaking hardware test |
+| LINE | Manual-derived HD=0400h/VD=0800h; maintainer reports real-machine HD=0800h/VD=0400h | Implemented with HD=0800h, VD=0400h (M106a) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
 | SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
 | Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |
@@ -1040,7 +1049,8 @@ errors.
 
 ### P0: functional correctness
 
-1. Resolve LINE `VD`/`HD`.
+1. Reconcile current LINE `VD`/`HD` aliases with the maintainer's reversed
+   real-machine masks; retain per-model raw-vector evidence before a behavior change.
 2. Recover exact SCAN parameters and results.
 3. Resolve thirteen stated commands versus twelve opcodes.
 4. Verify raw descriptor bit layout.
