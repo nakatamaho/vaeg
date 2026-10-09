@@ -36,6 +36,11 @@ SECTOR_SIZE = 1024
 DATA_START_LBA = 11
 DATA_CLUSTER_COUNT = 1269
 LAST_DATA_CLUSTER = DATA_CLUSTER_COUNT + 1
+# PC-Engine addresses only 77 cylinders of the 80 on the image, like PC-98
+# 2HD media: it reports 1221 data clusters free on a blank disk and never
+# reads the sectors of cylinders 77-79 (M106).  Files placed there cannot be
+# read.  MS-DOS disks declare all 1280 sectors in their parameter block.
+PCENGINE_LAST_DATA_CLUSTER = 77 * 2 * 8 - DATA_START_LBA + 1
 ROOT_START_LBA = 5
 ROOT_SECTORS = 6
 SYSTEM_LAYOUTS = {
@@ -177,6 +182,10 @@ class PcEngineDisk:
             raise DiskError("the two source FAT12 copies differ")
         if self.fat[:3] != b"\xfe\xff\xff":
             raise DiskError("source does not have the expected PC-Engine FAT12 header")
+        self.last_cluster = (
+            LAST_DATA_CLUSTER
+            if self.boot_sector[11:11 + len(MSDOS_BPB)] == MSDOS_BPB
+            else PCENGINE_LAST_DATA_CLUSTER)
         self.system = None
         if require_system_files:
             self.system = self.identify_system()
@@ -288,7 +297,7 @@ class PcEngineDisk:
     def allocate_clusters(self, count):
         free_clusters = [
             cluster
-            for cluster in range(2, LAST_DATA_CLUSTER + 1)
+            for cluster in range(2, self.last_cluster + 1)
             if self.fat_get(cluster) == 0
         ][:count]
         if len(free_clusters) != count:
@@ -339,7 +348,7 @@ class PcEngineDisk:
     def free_bytes(self):
         free_clusters = sum(
             self.fat_get(cluster) == 0
-            for cluster in range(2, LAST_DATA_CLUSTER + 1)
+            for cluster in range(2, self.last_cluster + 1)
         )
         return free_clusters * SECTOR_SIZE
 

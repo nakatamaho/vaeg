@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M106 — Disk builders placed PC-Engine files where PC-Engine cannot read
+
+- **Symptom/scope:** a PC-Engine disk built by `tools/pc88va/pcengine_disk.py`
+  that filled past cylinder 76 did not work: the utility FDD with VZ Editor
+  stopped while CONFIG.SYS loaded its drivers (vaeg, VA and VA2), because
+  SCHD.SYS, SQEMM98.SYS, TFD.SYS and TSCLVA.SYS had been pushed to cylinders
+  77-79. Every disk the tools build for PC-Engine (utility, demo and
+  validation disks); the committed demo disks and earlier utility disks all
+  ended below cylinder 77 and are unaffected. MS-DOS disks are not affected.
+- **Demonstrated cause:** the tool allocated all 80 cylinders of the 2HD
+  image (clusters up to 1270). PC-Engine uses 77: on a blank system disk its
+  `DIR` reports 1,166,336 bytes free, 48 clusters (cylinders 77-79) fewer
+  than the tool counted, and `TYPE` of a file placed on cylinder 77 or 79
+  never seeks past cylinder 5 and prints other data, while a file on
+  cylinder 76 reads correctly (vaeg, VA and VA2).
+- **Correction:** PC-Engine disks are allocated only up to cluster 1222
+  (cylinder 76); disks with the MS-DOS parameter block keep all 80
+  cylinders.
+- **Verification:** `tests/pc88va/test_pcengine_disk_capacity.py` (fails
+  with the old limit); the rebuilt utility FDD boots and runs VZ; the
+  committed demo disks rebuild with unchanged file placement.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+
 ### M106 — SGP LINE drew with its two direction bits exchanged
 
 - **Symptom/scope:** LINE commands went the wrong way whenever exactly one
