@@ -24,17 +24,26 @@ if [[ $# != 1 ]]; then
 fi
 source_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 audio=${VOYAGE_AUDIO:-1}
+dawn=${VOYAGE_DAWN:-0}
 case "$audio" in 0|1) ;; *) echo 'VOYAGE_AUDIO must be 0 or 1' >&2; exit 2 ;; esac
+case "$dawn" in 0|1) ;; *) echo 'VOYAGE_DAWN must be 0 or 1' >&2; exit 2 ;; esac
+name=VOYOPNA
+listing=voyopna
+if [[ "$dawn" == 1 ]]; then
+    name=VOYDAWN
+    listing=voydawn
+    PYTHONDONTWRITEBYTECODE=1 python3 "$source_dir/dawn_scene.py" "$1"
+fi
 PYTHONDONTWRITEBYTECODE=1 python3 "$source_dir/generate.py" "$1"
 PYTHONDONTWRITEBYTECODE=1 python3 "$source_dir/opna_score.py" "$1" --nasm
 output=$(CDPATH='' cd -- "$1" && pwd)
-"${NASM:-nasm}" -f bin -O2 -DVOYAGE_AUDIO="$audio" -DVOYAGE_OPNA=1 \
+"${NASM:-nasm}" -f bin -O2 -DVOYAGE_AUDIO="$audio" -DVOYAGE_OPNA=1 -DVOYAGE_DAWN="$dawn" \
     -I "$output/" -I "$source_dir/src/" \
-    -l "$output/voyopna.lst" "$source_dir/src/voyage.asm" \
-    -o "$output/VOYOPNA.raw.bin"
+    -l "$output/$listing.lst" "$source_dir/src/voyage.asm" \
+    -o "$output/$name.raw.bin"
 "${NASM:-nasm}" -f bin -O2 \
-    -DNEON_PAYLOAD_FILE=\""$output/VOYOPNA.raw.bin"\" \
+    -DNEON_PAYLOAD_FILE=\""$output/$name.raw.bin"\" \
     -I "$source_dir/../neon3/src/" \
     "$source_dir/../neon3/src/neon_payload_loader.asm" \
-    -o "$output/VOYOPNA.COM"
-sha256sum "$output/VOYOPNA.raw.bin" "$output/VOYOPNA.COM"
+    -o "$output/$name.COM"
+sha256sum "$output/$name.raw.bin" "$output/$name.COM"

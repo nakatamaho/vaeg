@@ -102,6 +102,31 @@ runtime evidence and the listening gate tracked in M107b. No audible-quality
 claim follows merely from this source-data generation. Generated samples and
 JSON stay outside Git. See [M107a task](../../docs/agents/tasks/M107a_voyage_opna_arrangement.md).
 
+## Filled sea / dawn continuation (M107c)
+
+The maintainer accepts the OPNA trial. A separate `VOYDAWN.COM` adds a dark
+filled sea followed by a colourful dawn sky, analytical rising sun and
+beat-reactive reflection. The same six-FM/three-SSG/ADPCM music repeats unchanged;
+visual staging spans two observed 900-tick music cycles, not fixed wall time.
+
+```sh
+out=$(mktemp -d)
+VOYAGE_DAWN=1 PYTHONDONTWRITEBYTECODE=1 \
+  bash demos/va-voyage/build-opna.sh "$out"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s demos/va-voyage -p dawn_scene.py
+```
+
+The fill is a min/max silhouette envelope of the projected mesh perimeter,
+computed by signed/Q8 CPU edge DDA and drawn by SGP horizontal LINE spans.
+It is not per-cell polygon triangulation. The wire grid, camera and shared
+clock remain; sky/sea palettes change on bar boundaries, reflection pulses
+on the existing percussion cues. List capacity is 8192 words only in this
+variant, with a conservative 7490-word bound and the same D000h payload limit.
+All tables and images are original/source-built; generated media stays private.
+The previous COM variants remain byte-identical. New human review is pending.
+See [M107c task](../../docs/agents/tasks/M107c_voyage_dawn_scene.md).
+
 ## Rendering and synchronization
 
 - 320x200 packed 8bpp G1, two 64,000-byte pages within its 320x400 backing;
