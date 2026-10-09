@@ -337,6 +337,10 @@ start:
         ; that has just finished rather than a frame that is still rendering.
         call    neon_counter_update_overlay
 %endif
+        ; The looping release never reaches the idle ESC poll below, so
+        ; poll once per completed frame (M106; the SGP list is idle here).
+        call    neon_escape_pressed
+        jc      neon_counter_exit
         inc     word [frame_counter]
         cmp     word [frame_counter], NEON_FRAME_LIMIT
         jb      .frame_loop
