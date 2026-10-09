@@ -100,6 +100,16 @@ exit_demo:
     out dx, al
 .audio:
     call audio_stop
+    cmp byte [sgp_owned], 0
+    je .video
+    call clear_exit_vram
+    ; If clearing timed out, abort again before changing video ownership.
+    mov dx, 0504h
+    mov al, 2
+    out dx, al
+    xor al, al
+    out dx, al
+.video:
     call video_leave
 returned:
     ; Same continuation as the source-built NEON payload loader.
@@ -396,6 +406,32 @@ clear_surfaces:
     stosw
     xor ax, ax
     stosw
+    call end_list
+    call run_sgp
+    ret
+
+; Restoring the console mode reinterprets 8bpp VRAM as its original format.
+; Compose 0031h includes G0: leaving our page data produces ghost geometry.
+; Clear all 256 KiB while our original packed setup still owns the SGP.
+clear_exit_vram:
+    call begin_list
+    xor ax, ax
+    call colour
+    mov bx, 20h
+.surface:
+    mov ax, 0ah
+    stosw
+    xor ax, ax
+    stosw
+    mov ax, bx
+    stosw
+    mov ax, 8000h
+    stosw
+    xor ax, ax
+    stosw
+    inc bx
+    cmp bx, 24h
+    jb .surface
     call end_list
     call run_sgp
     ret
