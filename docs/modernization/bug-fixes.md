@@ -57,6 +57,7 @@ land.
   with the old limit); the rebuilt utility FDD boots and runs VZ; the
   committed demo disks rebuild with unchanged file placement.
 - **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [61309af7](https://github.com/nakatamaho/vaeg/commit/61309af765c16a61b4db7016d2fe76c2b0acfa6a).
 
 ### M106 — SGP LINE drew with its two direction bits exchanged
 
