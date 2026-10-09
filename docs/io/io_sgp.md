@@ -36,9 +36,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 > [!IMPORTANT]
 > **LINEの方向ビットは、メンテナの実機確認では `HD=0800H`／`VD=0400H`。**
-> 既存のマニュアル由来の整理と現行vaegは逆の `HD=0400H`／`VD=0800H`。
-> 実機用LINEコマンドを作るときに現行エミュレータの定数を流用しない。
-> このPRは資料追加のみで、エミュレータのLINE処理は変更していない。
+> 既存のマニュアル由来の整理とM106a修正前のvaegは逆の `HD=0400H`／`VD=0800H`。
+> M106aでエミュレータとデモを実機確認のマスクへ修正した。
+> [修正と検証記録](../agents/tasks/M106a_sgp_line_demofix.md)を参照。資料初版は文書のみの変更だった。
 
 ## 根拠と読み方
 
@@ -310,14 +310,15 @@ LINEはopcodeに続けてmode wordと12バイトのdescriptorを持つ。
 | --- | --- | --- | --- |
 | 今回のメンテナ実機確認 | `0800H` | `0400H` | 実機用LINEの方向選択はこれを基準にする |
 | 既存のマニュアル由来の整理 | `0400H` | `0800H` | 記述との差を残す。実機結果の代わりにしない |
-| 現行 `io/sgp.h` のLINE aliases | `0400H` | `0800H` | BLTMODE_HD/VDと共通の定義。実機確認と不一致 |
+| M106a修正前の `io/sgp.h` のLINE aliases | `0400H` | `0800H` | BLTMODE_HD/VDと共通の定義。実機確認と不一致 |
+| M106a以後の `io/sgp.h` のLINE aliases | `0800H` | `0400H` | 実機確認と一致。BLTの方向maskは変更しない |
 | BITBLT/PATBLTの資料・現行実装 | `0400H` | `0800H` | LINEの確認結果だけでこちらも逆と断定しない |
 
-【実装】`SGP_BLTMODE_LINE_HD = SGP_BLTMODE_HD`、
-`SGP_BLTMODE_LINE_VD = SGP_BLTMODE_VD` となっている。
+【実装】M106a以後は `SGP_BLTMODE_LINE_HD = SGP_BLTMODE_VD`、
+`SGP_BLTMODE_LINE_VD = SGP_BLTMODE_HD`。修正前はそれぞれ同名の共通maskだった。
 `exec_line_x()` / `exec_line_y()` はそのmaskで横／縦の符号を選ぶ。
-このため「定数の名前だけが変」「今はもう実機と同じ」と説明しない。
-このPRは不一致を公開するもので、ソース修正や回帰ゲートは含まない。
+M106aのraw mode回帰試験は4組の方向を検証する。端点・tie rule・機種別の
+全挙動が実機一致したという主張ではない。
 
 通常の方向指定で0を増加、1を減少として、OP=5（色のcopy）、TP=0の
 mode wordを組み立てると次のようになる。
@@ -325,8 +326,8 @@ mode wordを組み立てると次のようになる。
 | 希望する向き | HD | VD | 実機用LINE mode | 現行vaegがそのraw modeで選ぶ向き |
 | --- | ---: | ---: | --- | --- |
 | 右・下 | 0 | 0 | `0005H` | 右・下 |
-| 左・下 | 1 | 0 | `0805H` | 右・上 |
-| 右・上 | 0 | 1 | `0405H` | 左・下 |
+| 左・下 | 1 | 0 | `0805H` | 左・下（M106a修正前は右・上） |
+| 右・上 | 0 | 1 | `0405H` | 右・上（M106a修正前は左・下） |
 | 左・上 | 1 | 1 | `0C05H` | 左・上 |
 
 つまり、両bitが0または両方1の例だけではswapを見分けられない。
@@ -395,7 +396,7 @@ SGPの各メモリアクセスにCPU側4clockを引く処理も実測サイク�
 
 未確定事項は以下。
 
-- 実機LINEの機種別raw記録・tie rule・端点・0extentと、現行実装の方向差の修正検証。
+- 実機LINEの機種別raw記録・tie rule・端点・0extent。M106aの方向修正・回帰試験と、追加の実機検証を区別する。
 - BITBLT/PATBLTの全方向・重なり・透明処理・異形式転送・境界mask。
 - VA2/VA3のdescriptor拡張、負pitch、TVRAM／Kanji overlayのdecode。
 - 58バイトワークの全構造、CPUからのSCAN結果取得、PC読戻し。

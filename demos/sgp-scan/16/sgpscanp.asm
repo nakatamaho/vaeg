@@ -424,7 +424,7 @@ emit_line:
     sub ax, [line_x1]
     jns .x_positive
     neg ax
-    or bx, 0x0400
+    or bx, 0x0800                ; HD as measured on a PC-88VA2
 .x_positive:
     inc ax
     mov [line_width], ax
@@ -432,7 +432,7 @@ emit_line:
     sub ax, [line_y1]
     jns .y_positive
     neg ax
-    or bx, 0x0800
+    or bx, 0x0400                ; VD as measured on a PC-88VA2
 .y_positive:
     inc ax
     mov [line_height], ax
