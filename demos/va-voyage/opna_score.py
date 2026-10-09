@@ -20,10 +20,11 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""M107a preparation: original six-FM/three-SSG score and Delta-T samples.
+"""Original six-FM/three-SSG score and analytical Delta-T samples.
 
-This generator is NOT wired into VOYAGE.COM yet. Hardware upload, playback,
-rate conversion and shutdown need separate guest-driver validation.
+JSON-only preparation is retained. --nasm supplies the separate VOYOPNA.COM
+integration; the legacy VOYAGE.COM soundtrack is unchanged. Guest playback
+and hardware equivalence require their own validation and listening gate.
 """
 import argparse
 import hashlib
@@ -173,6 +174,45 @@ class Tests(unittest.TestCase):
             encode(pcm)
         self.assertEqual(caught.exception.code, "M107A_PCM_RANGE")
 
+    def test_guest_channel_contract(self):
+        source = (Path(__file__).parent / "src/voyage_opna.inc").read_text(encoding="utf-8")
+        self.assertIn("fm_keys: db 0,1,2,4,5,6", source)
+        self.assertIn("mov ax, 8029h", source)
+        self.assertIn("cmp bx, 6", source)
+        self.assertIn("cmp bx, 3", source)
+        self.assertIn("or ah, 38h", source)
+        self.assertIn("or ah, 3fh", source)
+        self.assertIn("and al, 0c0h", source)
+        self.assertNotIn("int 91h", source)
+        self.assertNotIn("int 21h", source)
+
+    def test_guest_wait_contract(self):
+        source = (Path(__file__).parent / "src/voyage_opna.inc").read_text(encoding="utf-8")
+        writer = source.split("opna_bank_write:\n", 1)[1].split("opna_ready:\n", 1)[0]
+        self.assertEqual(writer.count("call opna_ready"), 2)
+        self.assertIn("je .disabled", writer)
+        for routine in ("opna_ready", "adpcm_ready"):
+            body = source.split(routine + ":\n", 1)[1]
+            self.assertIn("mov cx, 4000h", body)
+            self.assertIn("cmp al, 0ffh", body)
+            self.assertIn("mov byte [audio_present], 0", body)
+        self.assertIn("test al, 8", source)
+
+    def test_guest_sample_contract(self):
+        source = (Path(__file__).parent / "src/voyage_opna.inc").read_text(encoding="utf-8")
+        self.assertIn("mov ax, 0c201h", source)
+        self.assertIn("mov ax, 6000h", source)
+        self.assertIn("mov ax, 0a000h", source)
+        self.assertIn("mov ax, 7f04h", source)
+        self.assertIn("mov ax, 7f0ch", source)
+        stop = source.split("audio_stop:\n", 1)[1].split("voice_write:\n", 1)[0]
+        self.assertIn("call mute_channels", stop)
+        self.assertIn("mov ax, 0100h", stop)
+        self.assertIn("mov ax, 000bh", stop)
+        self.assertIn("mov ax, 1f10h", stop)
+        self.assertIn("mov ax, 3027h", stop)
+        self.assertEqual(sum(len(encode(p)) for p in percussion().values()), 4096)
+
     def test_alignment_negative(self):
         pcm = [0] * 64
         encode(pcm)
@@ -202,6 +242,7 @@ class Tests(unittest.TestCase):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--nasm", action="store_true", help="emit guest tables and incbin declarations")
     args = parser.parse_args()
     output = args.output.resolve()
     repo = Path(__file__).resolve().parents[2]
@@ -216,8 +257,36 @@ def main():
     for name, payload in payloads.items():
         (output / (name + ".adpcmb")).write_bytes(payload)
         data["samples"][name] = {"bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+    if args.nasm:
+        lines = ["; Generated original OPNA score; do not edit.",
+                 f"%define OPNA_DELTA_N {round(RATE * 65536 * 144 / 7987200)}"]
+        for kind in ("fm", "ssg"):
+            labels = [f"opna_{kind}_{i}" for i in range(len(data[kind]))]
+            lines += [f"opna_{kind}_lanes: dw " + ",".join(labels)]
+            for label, lane in zip(labels, data[kind]):
+                lines.append(label + ":")
+                for start in range(0, 128, 16):
+                    lines.append("    dw " + ",".join(str(n) for n in lane[start:start + 16]))
+        lines.append("opna_drum_score:")
+        drum_ids = {None: 0, "kick": 1, "snare": 2, "sweep": 3}
+        for start in range(0, 128, 16):
+            lines.append("    db " + ",".join(str(drum_ids[n]) for n in data["adpcm"][start:start + 16]))
+        lines.append("opna_sample_units:")
+        offset = 0
+        for payload in payloads.values():
+            lines.append(f"    dw {offset // 32},{(offset + len(payload)) // 32 - 1}")
+            offset += len(payload)
+        if offset != 4096:
+            raise ScoreError("M107B_SAMPLE_SPAN")
+        lines.append("opna_samples:")
+        for name in payloads:
+            lines.append(f'    incbin "{name}.adpcmb"')
+        lines += ["opna_samples_end:", "%if opna_samples_end-opna_samples != 4096",
+                  '%error "OPNA sample span must be 4096 bytes"', "%endif"]
+        (output / "opna_score.inc").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (output / "opna_score.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    print("M107A_SCORE_OK fm=6 ssg=3 events=128 adpcm_samples=3; preparation only")
+    prefix = "M107B" if args.nasm else "M107A"
+    print(f"{prefix}_SCORE_OK fm=6 ssg=3 events=128 adpcm_samples=3; generated data only")
 
 
 if __name__ == "__main__":
