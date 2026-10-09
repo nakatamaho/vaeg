@@ -73,7 +73,13 @@ Full-limit FFFFh replaces the initial narrow 4KiB wrap limit; byte ownership
 remains bounded by upload count and sample stops. Generated media and all
 identities/captures remain private. No hosted CI or unchanged SST rerun.
 
-**HUMAN GATE:** listen to the new soundtrack, check synchronization/smoothness,
+## Maintainer acceptance / continuation
+
+The maintainer accepts the provided OPNA trial as feeling good and requests
+continuation. This is the specific local-demo approval for M107c; it does not
+supply new physical-hardware, clean-checkout or full V3/demo/OS evidence.
+
+**HUMAN GATE scope:** listen to the new soundtrack, check synchronization/smoothness,
 Escape and relaunch; normal clean-checkout V3/demo/OS review and real hardware
 remain independent. No next milestone until approval. An implementation-only
 checkpoint is not a passed G107b or a runtime-ready handoff.

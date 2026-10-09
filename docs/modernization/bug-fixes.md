@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M107c — dawn sky palette indexed the caller's stack segment
+
+- **Symptom/scope:** the initial unmerged dawn guest showed an incorrect pale
+  sky in both stages and lost title contrast, rather than the source-built
+  RGB332 night/dawn colours. Sea spans and audio dispatch still progressed.
+- **Demonstrated cause:** the palette read used `[dawn_sky_colours+BP]` without
+  a segment override. BP-based addressing defaults to SS; captured SS was
+  `1FA8H`, while the guest's palette/DS was in `3000H`. The table read therefore
+  addressed caller-stack memory rather than the palette.
+- **Correction:** explicitly select DS for the BP-indexed table read. No
+  caller-stack, BIOS, emulator or audio change.
+- **Verification:** a passing source-content fixture with the DS override is
+  mutated once to remove it and must produce `M107C_SKY_SEGMENT`. Corrected
+  native night/dawn captures and remaining limitations are recorded in the
+  [M107c task](../agents/tasks/M107c_voyage_dawn_scene.md).
+- **Milestone/task/commit:** M107c;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/872219b45c4e00c0ac7964ec9de8f459bdf3105a),
+  [M107c report](../agents/reports/m107c_voyage_dawn_scene.md).
+
 ### M107b — avoid retaining a demo-sized ADPCM wrap limit
 
 - **Symptom/scope:** the unmerged OPNA prototype set a 4KiB ADPCM address

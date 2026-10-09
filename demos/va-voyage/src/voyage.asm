@@ -40,10 +40,23 @@ cpu 286
 bits 16
 org 0
 
+%ifndef VOYAGE_DAWN
+%define VOYAGE_DAWN 0
+%endif
+%if VOYAGE_DAWN != 0 && VOYAGE_DAWN != 1
+%error "VOYAGE_DAWN must be 0 or 1"
+%endif
+%if VOYAGE_DAWN && !VOYAGE_OPNA
+%error "VOYAGE_DAWN requires the OPNA profile"
+%endif
 %define PERIOD 900
 %define ROWS 12
 %define COLS 9
+%if VOYAGE_DAWN
+%define LIST_WORDS 8192
+%else
 %define LIST_WORDS 4096
+%endif
 %define VIDEO_SEG 0338h
 %define PAGE_BYTES 64000
 %define PAGE_BASE 0220000h
@@ -76,6 +89,10 @@ start:
 next_frame:
     mov ax, [tick]
     mov [frame_tick], ax
+%if VOYAGE_DAWN
+    mov ax, [loops_completed]
+    mov [frame_loop], ax
+%endif
     call build_frame
     call run_sgp
     jc exit_demo
@@ -86,6 +103,9 @@ next_frame:
     inc word [frames_drawn]
 frame_ready:
     nop                         ; stable local capture checkpoint
+%if VOYAGE_DAWN
+    call dawn_observe
+%endif
 %if VOYAGE_OPNA
     call audio_observe          ; bounded, register-preserving guest diagnostics
 %endif
@@ -526,7 +546,13 @@ build_frame:
     stosw
     xor ax, ax
     stosw
+%if VOYAGE_DAWN
+    call dawn_background
+%endif
     call emit_stars
+%if VOYAGE_DAWN
+    call dawn_surface
+%endif
     mov byte [row_index], 0
     mov si, mesh
 .row:
@@ -886,6 +912,9 @@ wait_sgp:
     pop cx
     ret
 
+%if VOYAGE_DAWN
+%include "voyage_dawn.inc"
+%endif
 %if VOYAGE_OPNA
 %include "voyage_opna.inc"
 %else
