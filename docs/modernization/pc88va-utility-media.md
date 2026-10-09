@@ -180,7 +180,9 @@ the HDD/FDD boot layout differs.
 article describes it as a PC-Engine bug-fix and function-extension layer.
 The PCEPAT documentation is more specific: it says to add
 `DEVICE=PCEPAT.SYS` to `CONFIG.SYS` and place it before the MSE driver.
-The example in that document uses:
+See [PCEPAT Rev.50916 disassembly notes](pcepat-disassembly.md) for the
+current static analysis of its PC-Engine work-area patches, resident hooks, and
+ROM-service dependencies. The example in that document uses:
 
 ```dos
 FILES   = 20
