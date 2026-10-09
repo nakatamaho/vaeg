@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M106 — The SASI utility HDD build had stopped at its first step
+
+- **Symptom/scope:** `tools/pc88va/build-sasi-utility-disks.sh` failed at
+  once with `unknown argument: --zim-img-archive`, so neither SASI utility
+  image could be rebuilt. Host-side media tooling only.
+- **Demonstrated cause:** since M97z4 (`10483d8c`) the wrapper downloads
+  ZIM_IMG, RDEMS15, RDEMS152, G&M1, CLK21 and VA3DDEMO and passes them to
+  `stage-development-tools.sh`, which at no commit in the history accepted
+  those options; where the earlier images placed these packages is not
+  recorded.
+- **Correction:** the stager accepts and stages them: original archives
+  under `\ARCHIVE`, IMG2ZIM/ZIM2IMG and CLK in `\BIN`, their manuals in
+  `\DOC` (G&M stays an archive: it needs EMI.COM and ANIPLAY.EXE, which
+  are not distributed; RDEMS 1.52 is already loaded from `\SYS`).
+- **Verification:** both images build again; with a PC-Engine FDD boot in
+  vaeg (VA and VA2) the image reads as drive C:.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+
 ### M106 — Disk builders placed PC-Engine files where PC-Engine cannot read
 
 - **Symptom/scope:** a PC-Engine disk built by `tools/pc88va/pcengine_disk.py`

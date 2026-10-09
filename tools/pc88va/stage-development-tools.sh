@@ -46,6 +46,15 @@ s88valsi_doc=
 s88va250_archive=
 s88va250_doc=
 stest_source_archive=
+zim_img_archive=
+rdems15_archive=
+rdems152_archive=
+gm1_archive=
+clk_source=
+clk_archive=
+clk_doc=
+va3ddemo_asm=
+va3ddemo_doc=
 work_dir=
 
 usage() {
@@ -62,6 +71,10 @@ Usage: $program_name --output DIR --profile fdd|sasi \
 		       [--s88valsi-archive FILE --s88valsi-doc FILE] \
 		       [--s88va250-archive FILE --s88va250-doc FILE]
 		       [--stest-source-archive FILE]
+		       [--zim-img-archive FILE] [--rdems15-archive FILE]
+		       [--rdems152-archive FILE] [--gm1-archive FILE]
+		       [--clk-source FILE --clk-archive FILE --clk-doc FILE]
+		       [--va3ddemo-asm FILE --va3ddemo-doc FILE]
 
 Create the normalized development-tool tree consumed by both the FDD and
 SASI injectors.  The output contains BIN, DOC, ARCHIVE, and UNIX subtrees.
@@ -72,6 +85,7 @@ directories.  The caller chooses which subtrees fit its target medium;
 extraction and destination naming are shared.  The additional source and
 library package archives are SASI-only and are retained without expansion;
 they are rejected for the compact FDD profile.
+
 EOF
 }
 
@@ -196,6 +210,15 @@ while (($#)); do
 		stest_source_archive=$2
 		shift 2
 		;;
+	--zim-img-archive) (($# >= 2)) || die "$1 requires a path"; zim_img_archive=$2; shift 2 ;;
+	--rdems15-archive) (($# >= 2)) || die "$1 requires a path"; rdems15_archive=$2; shift 2 ;;
+	--rdems152-archive) (($# >= 2)) || die "$1 requires a path"; rdems152_archive=$2; shift 2 ;;
+	--gm1-archive) (($# >= 2)) || die "$1 requires a path"; gm1_archive=$2; shift 2 ;;
+	--clk-source) (($# >= 2)) || die "$1 requires a path"; clk_source=$2; shift 2 ;;
+	--clk-archive) (($# >= 2)) || die "$1 requires a path"; clk_archive=$2; shift 2 ;;
+	--clk-doc) (($# >= 2)) || die "$1 requires a path"; clk_doc=$2; shift 2 ;;
+	--va3ddemo-asm) (($# >= 2)) || die "$1 requires a path"; va3ddemo_asm=$2; shift 2 ;;
+	--va3ddemo-doc) (($# >= 2)) || die "$1 requires a path"; va3ddemo_doc=$2; shift 2 ;;
 	-h|--help)
 		usage
 		exit 0
@@ -231,12 +254,20 @@ if [[ $profile == sasi ]]; then
 		[[ -n ${path} && -f ${path} && -r ${path} ]] ||
 			die "package is not readable: ${path:-<missing>}"
 	done
+	for path in "$zim_img_archive" "$rdems15_archive" "$rdems152_archive" \
+		"$gm1_archive" "$clk_source" "$clk_archive" "$clk_doc" \
+		"$va3ddemo_asm" "$va3ddemo_doc"; do
+		[[ -z ${path} || ( -f ${path} && -r ${path} ) ]] ||
+			die "package is not readable: $path"
+	done
 else
 	for path in "$two_hc_source_archive" "$two_hc_driver_archive" \
 		"$pcepat_source_archive" "$tsclv_source_archive" \
 		"$s88valsi_archive" "$s88valsi_doc" \
 		"$s88va250_archive" "$s88va250_doc" \
-		"$stest_source_archive"; do
+		"$stest_source_archive" "$zim_img_archive" "$rdems15_archive" \
+		"$rdems152_archive" "$gm1_archive" "$clk_source" "$clk_archive" \
+		"$clk_doc" "$va3ddemo_asm" "$va3ddemo_doc"; do
 		[[ -z ${path} ]] || die 'new source/library packages are SASI-only'
 	done
 fi
@@ -405,6 +436,44 @@ while IFS= read -r -d '' member; do
 	mkdir -p -- "${destination%/*}"
 	cp -p -- "$member" "$destination"
 done < <(find "$unix_root/man" "$unix_root/doc" -type f -print0 | sort -z)
+fi
+
+if [[ $profile == sasi ]]; then
+	# Softlib packages the SASI wrapper has passed since M97z4 (M106: they
+	# were never staged, which stopped the build).  RDEMS 1.52's driver and
+	# manual already come from the FDD payload; G&M needs EMI.COM and
+	# ANIPLAY.EXE, which are not distributed, so it is kept as an archive.
+	if [[ -n ${zim_img_archive} ]]; then
+		extract_lha "$zim_img_archive" "$work_dir/zim"
+		copy_required "$zim_img_archive" "$output_dir/ARCHIVE/ZIM_IMG.LZH"
+		copy_required "$work_dir/zim/IMG2ZIM.COM" "$output_dir/BIN/IMG2ZIM.COM"
+		copy_required "$work_dir/zim/ZIM2IMG.COM" "$output_dir/BIN/ZIM2IMG.COM"
+	fi
+	if [[ -n ${rdems15_archive} ]]; then
+		extract_lha "$rdems15_archive" "$work_dir/rdems15"
+		copy_required "$rdems15_archive" "$output_dir/ARCHIVE/RDEMS15.LZH"
+		copy_required "$work_dir/rdems15/RDEMS15.MAN" "$output_dir/DOC/RDEMS15.MAN"
+		copy_required "$work_dir/rdems15/RDMAIN15.MAN" "$output_dir/DOC/RDMAIN15.MAN"
+	fi
+	if [[ -n ${rdems152_archive} ]]; then
+		copy_required "$rdems152_archive" "$output_dir/ARCHIVE/RDEMS152.LZH"
+	fi
+	if [[ -n ${gm1_archive} ]]; then
+		extract_lha "$gm1_archive" "$work_dir/gm1"
+		copy_required "$gm1_archive" "$output_dir/ARCHIVE/G&M1.LZH"
+		copy_required "$work_dir/gm1/G&M.DOC" "$output_dir/DOC/G&M.DOC"
+	fi
+	if [[ -n ${clk_archive} ]]; then
+		extract_lha "$clk_archive" "$work_dir/clk"
+		copy_required "$clk_archive" "$output_dir/ARCHIVE/CLK21.LZH"
+		copy_required "$clk_source" "$output_dir/ARCHIVE/CLK21.SRC"
+		copy_required "$work_dir/clk/CLK.COM" "$output_dir/BIN/CLK.COM"
+		copy_required "$clk_doc" "$output_dir/DOC/CLK21.DOC"
+	fi
+	if [[ -n ${va3ddemo_asm} ]]; then
+		copy_required "$va3ddemo_asm" "$output_dir/ARCHIVE/VA3DDEMO.ASM"
+		copy_required "$va3ddemo_doc" "$output_dir/DOC/VA3DDEMO.DOC"
+	fi
 fi
 
 write_manifest() {
