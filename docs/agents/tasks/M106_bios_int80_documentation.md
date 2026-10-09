@@ -165,6 +165,32 @@ index, task and roadmap only. Run repository invariant and staged-diff checks
 before push. No emulator build, runtime mode switch, hosted CI request,
 guest-visible bug fix, or archived-reference change is included.
 
+## Port-reference documentation PR follow-up
+
+The maintainer requests a documentation PR, explicitly not a new M108
+milestone. Extend the publication work with `docs/io/README.md`, modeled on
+the BIOS index structure, and separate `io_tsp.md` / `io_sgp.md` references.
+Retain the requested top-level README I/O block map and link the new index.
+Update only the stale LINE-direction statements in the earlier SGP
+reconstruction to point to the new comparison. The closed PR scope is those
+five documentation paths plus this authorization record; it includes no new
+roadmap row or M108 task file.
+
+The maintainer reports real-machine LINE masks as HD=0800H / VD=0400H,
+reversed relative to the manual-derived and current emulator definitions.
+Publish this as a maintainer hardware report, not a new measurement performed
+by the documentation agent. Keep BITBLT/PATBLT masks separate. Do not modify
+SGP constants, rasterization, historical evidence, or prior gate claims.
+
+Before placement, validate out-of-tree Markdown tables, local links/anchors,
+the eight contiguous address blocks, TSP status masks and SYNC vectors,
+SGP opcode lengths, descriptor fields, register masks, and the hardware /
+manual / current-source LINE comparison. Then run the same repository
+encoding/EOL/case and staged-diff checks above. Confirm documentation-only
+scope against the PR base before pushing and creating the PR. No build,
+private runtime experiment, hosted CI, or bug-fix claim is part of this
+follow-up. Existing M108 branch artifacts are not in this PR's history.
+
 ## INT 91H static follow-up
 
 Out-of-tree content checks passed for both IVT registrations, all 16 selector

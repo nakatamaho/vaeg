@@ -572,9 +572,12 @@ The Technical Manual defines:
 | `TP` | `0300h` |
 | operation | `000Fh` |
 
-The current vaeg BITBLT/PATBLT definitions use the same masks. LINE uses the
-same documented bit positions, so a separate swapped LINE direction mapping is
-not supported by this source.
+The current vaeg BITBLT/PATBLT definitions use the same masks. This is the
+manual-derived mapping, not a hardware confirmation of LINE. The maintainer
+now reports the real-machine **LINE** masks as `HD=0800h` and `VD=0400h`,
+reversed relative to this table. See the
+[port-oriented SGP reference](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違).
+Do not infer a BITBLT/PATBLT mask change from the LINE result alone.
 
 `VD`/`HD` choose traversal direction and safe overlap order. The BNN definition
 of `SF` is explicit ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
@@ -676,10 +679,19 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[DOCUMENTED]** LINE uses `VD=0800h` and `HD=0400h`, the same direction-bit
-positions as BITBLT and PATBLT. Current vaeg's separate
-`LINE_VD=0400h`/`LINE_HD=0800h` definitions are reversed. Implementations must
-test asymmetric lines in all four direction combinations. Do not use a host
+**[DOCUMENTED]** The manual-derived LINE mapping is `VD=0800h` and
+`HD=0400h`, like the documented BITBLT/PATBLT mapping.
+**[MAINTAINER HARDWARE REPORT]** The maintainer identifies the real-machine
+LINE mapping as **`HD=0800h` and `VD=0400h`**, the reverse. This is a
+maintainer-reported hardware finding, not a new measurement performed for this
+documentation PR; per-model raw vectors are not published here.
+**[IMPLEMENTATION]** Current `io/sgp.h` aliases LINE directions to the common
+`VD=0800h`/`HD=0400h` masks, so it disagrees with that report. The earlier
+statement about the current aliases already being swapped is stale.
+[The comparison and raw-mode examples](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違)
+keep these three evidence layers separate. No emulator constants or behavior
+are changed by this documentation. Test asymmetric lines with one direction
+bit at a time; equal bits cannot discriminate the swap. Do not use a host
 graphics-library line routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
@@ -799,7 +811,7 @@ A staged emulator strategy is:
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
 | `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
-| LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
+| LINE | Manual-derived HD=0400h/VD=0800h; maintainer reports real-machine HD=0800h/VD=0400h | Implemented with the manual-derived shared masks | Preserve report/source distinction; hardware-backed correction remains separate |
 | CLS | Documented | Word-count fill | Verify count encoding |
 | SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
 | Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |
@@ -1031,7 +1043,8 @@ errors.
 
 ### P0: functional correctness
 
-1. Resolve LINE `VD`/`HD`.
+1. Reconcile current LINE `VD`/`HD` aliases with the maintainer's reversed
+   real-machine masks; retain per-model raw-vector evidence before a behavior change.
 2. Recover exact SCAN parameters and results.
 3. Resolve thirteen stated commands versus twelve opcodes.
 4. Verify raw descriptor bit layout.
