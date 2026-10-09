@@ -79,7 +79,12 @@ VA has a separate one-loop/OPN observation. Pure sound models and dispatch count
 do not replace audition. The optional trace-ON build has a pre-existing private
 `Clock::now()` access failure, documented rather than fixed in this task.
 
-## G107 — HUMAN GATE (pending)
+## G107 — maintainer prototype approval / continuation authorized
+
+The maintainer calls the prototype cute, accepts it and requests continuation
+using OPNA six FM voices, three SSG voices and ADPCM. M107a records that specific
+follow-up. This acceptance does not invent physical-hardware, clean-checkout or
+new full regression results; the checklist below remains the verification scope.
 
 Clean-checkout build; normal V3/VA demo/OS regression checklist, then launch
 VOYAGE, watch at least two loops, listen to FM/SSG and assess smooth undulation,
