@@ -212,7 +212,10 @@ patch. Group 2-451 describes the latter as a PCPLUS v1.08 bug fix, and the
 patched driver still identifies the overall package as v1.08. Its embedded
 `$INTTRG` service identifies itself as v1.09, while this patch advances the
 embedded `$SCSIBIOS` service from v1.07 to v1.08. The article treats PCPLUS
-as another PC-Engine extension layer.
+as another PC-Engine extension layer. See
+[PCPLUS 1.08 disassembly notes](pcplus-disassembly.md) for the current static
+analysis of its device-driver initialization, resident hooks, EMS use, and SCSI
+probe path.
 
 The development disk also installs the two commands supplied under
 `PCP108/BIN`: `SMSTAT.COM` reports Sound Memory Manager allocation, and
