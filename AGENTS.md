@@ -78,6 +78,22 @@ failure requires another attempt, preserve the prior results, make the
 smallest justified correction, rerun the affected local check, and avoid
 repeating unrelated jobs or profiles.
 
+## BIOS analysis documentation — canonical placement
+
+**Publish BIOS analysis documents under `docs/bios/`.** Do not place new
+interrupt/service reference documents under `docs/modernization/`, in the
+emulator-source `bios/` directory, or only in a private work directory.
+Use lowercase Markdown filenames based on the interrupt number, for example
+`docs/bios/bios_int80h.md`; keep AH subfunctions in that interrupt's document.
+Manual chapter numbers such as `601` are source references, not canonical
+filenames. Include conventional-memory work layouts when established, and
+clearly separate manual specifications, static ROM findings, and runtime
+verification or unresolved hypotheses.
+
+Publish independently written analysis only. Private source paths, asset
+filenames and hashes, raw disassemblies, manual copies, ROMs, disk images,
+and raw captures remain outside Git under the existing private-asset policy.
+
 ## Permanent bug-fix ledger
 
 `docs/modernization/bug-fixes.md` is the permanent correctness ledger for
