@@ -55,8 +55,9 @@ land.
   contract, and check reset/mute shutdown. Native dispatch/return observations
   and their limits are recorded in the
   [M107b task](../agents/tasks/M107b_voyage_opna_playback.md).
-- **Milestone/task/commit:** M107b; correcting commit is identified in the
-  forthcoming [M107b report](../agents/reports/m107b_voyage_opna_playback.md).
+- **Milestone/task/commit:** M107b;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d408a3d2e309b292eba5b8ac36122b325175c423),
+  [M107b report](../agents/reports/m107b_voyage_opna_playback.md).
 
 ### M106a — I/O selftests accessed a destroyed machine
 

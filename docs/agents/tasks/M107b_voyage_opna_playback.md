@@ -59,6 +59,20 @@ status and output digests privately. Do not rerun unchanged completed profiles.
 No hosted CI before local validation and final scope checks. Generated media,
 waveforms, listings and private captures remain outside Git.
 
+## Local result / handoff
+
+[Report](../reports/m107b_voyage_opna_playback.md): 10 OPNA content/codec/source
+checks and 12 existing VOYAGE tests pass; repeated COM/raw builds agree, the
+forced-silent COM assembles/runs with zero driver writes, and the legacy COM
+remains byte-identical. Linux Debug trace-OFF build and private-ROM smoke pass.
+Corrected production guest observed for two NP2 loops and one ymfm loop:
+4096 uploaded bytes, all six note-helper counters advance, three nonzero SSG
+volumes, present=1/error=0. Escape/clean-console/relaunch/second-Escape captures
+pass. DIR was submitted, but no visible directory listing was established.
+Full-limit FFFFh replaces the initial narrow 4KiB wrap limit; byte ownership
+remains bounded by upload count and sample stops. Generated media and all
+identities/captures remain private. No hosted CI or unchanged SST rerun.
+
 **HUMAN GATE:** listen to the new soundtrack, check synchronization/smoothness,
 Escape and relaunch; normal clean-checkout V3/demo/OS review and real hardware
 remain independent. No next milestone until approval. An implementation-only

@@ -87,8 +87,13 @@ PYTHONDONTWRITEBYTECODE=1 bash demos/va-voyage/build-opna.sh "$out"
 This variant owns six FM voices, three SSG tones and the first 4096 bytes of
 8-bit sound DRAM. It includes bounded BUSY/BRDY waits and six-voice/SSG/ADPCM
 shutdown. Only the new variant uses main's hardware-measured SGP LINE direction
-bits; the accepted legacy COM remains byte-identical. Audible quality and
-physical hardware equivalence are not established by assembly/content tests.
+bits; the accepted legacy COM remains byte-identical, including its older
+LINE convention. It is not requalified for the changed SGP backend; use
+`VOYOPNA.COM` for this new integration gate. Audible quality and physical
+hardware equivalence are not established by assembly/content tests.
+Local VA2 observations cover 4KiB upload, six note lanes, three SSG volumes,
+NP2/ymfm dispatch and Escape/relaunch; the human listening gate remains pending.
+[Validation report](../../docs/agents/reports/m107b_voyage_opna_playback.md).
 See [M107b task](../../docs/agents/tasks/M107b_voyage_opna_playback.md).
 The currently playable COM still has the accepted three-FM/noise soundtrack.
 OPNA high-bank setup, three-channel SSG envelopes, ADPCM DRAM upload/rate/
