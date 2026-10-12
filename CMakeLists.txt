@@ -1820,15 +1820,18 @@ if(VAEG_ENABLE_TESTS)
         "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\""
         "VAEG_M102_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw\"")
 
-    add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
-    vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
-    # Same core configuration as production (Z80_NO_EXCEPTION), so that
-    # undefined opcodes behave as in vaeg.
-    target_compile_definitions(vaeg_cpm_runner PRIVATE
-        Z80_DISABLE_DEBUG
-        Z80_DISABLE_NESTCHECK
-        Z80_NO_EXCEPTION
-        Z80_NO_FUNCTIONAL)
+    # The shared backend with the production compile definitions and each
+    # role's production core configuration, so that probe programs behave
+    # as in vaeg.
+    add_executable(vaeg_cpm_runner
+        tests/z80_compat/cpm_runner.cpp
+        cpu/upd780/upd780_core_config.cpp
+        cpu/upd9002_upd70008_core_config.cpp)
+    target_link_libraries(vaeg_cpm_runner PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_options(vaeg_cpm_runner PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
+    endif()
 
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
