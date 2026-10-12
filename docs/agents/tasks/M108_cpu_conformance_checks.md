@@ -56,9 +56,12 @@ Behaviour is unchanged: the uPD70008-compatible mode keeps the uPD9002 flag
 profile and the uPD780C keeps the Zilog profile.
 
 The hosted `upd9002-ssts` job runs the new V20 check instead of the G65m
-ratchet and the M60a-M60d evidence tests. Retiring the old ratchet, campaign
-data, and evidence validators from the tree needs a separately approved
-deletion list and is not part of M108.
+ratchet and the M60a-M60d evidence tests. Following the maintainer-approved
+deletion list, M108 then removes the G43-G70 SST history data under
+`tests/ssts`, the 29 validators that only served it, and
+`upd9002_m66_identity.py` with its g66b inventory (695 files); the removed
+state is commit `884b7dca97b6576007baa235b81a2597fa5f0c22`. The g70 dispatch
+tables stay because `upd9002_protected_deletion.py` reads them.
 
 ## Gate G108 (machine-verifiable)
 
