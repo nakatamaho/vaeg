@@ -1833,6 +1833,36 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
     endif()
 
+    # M101/M102 probe programs per role: built with z80asm 1.8 and run by
+    # vaeg_cpm_runner with each role's production core configuration.
+    find_program(VAEG_Z80ASM_EXECUTABLE z80asm)
+    add_test(NAME vaeg_z80_role_probes_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" selftest)
+    set_tests_properties(vaeg_z80_role_probes_selftest PROPERTIES
+        LABELS "romless;compatibility;role")
+    foreach(role upd70008 upd780)
+        if(VAEG_Z80ASM_EXECUTABLE)
+            add_test(NAME vaeg_${role}_probes
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" run
+                    --manifest "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/${role}_probes.json"
+                    --runner "$<TARGET_FILE:vaeg_cpm_runner>"
+                    --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+            set_tests_properties(vaeg_${role}_probes PROPERTIES
+                LABELS "romless;compatibility;role;${role}"
+                TIMEOUT 1200)
+        else()
+            add_test(NAME vaeg_${role}_probes
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                    --reason "z80asm 1.8 was not found at configure time")
+            set_tests_properties(vaeg_${role}_probes PROPERTIES
+                LABELS "romless;compatibility;role;${role}"
+                SKIP_RETURN_CODE 77)
+        endif()
+    endforeach()
+
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
     target_link_libraries(vaeg_z80_compat_legacy_contract PRIVATE

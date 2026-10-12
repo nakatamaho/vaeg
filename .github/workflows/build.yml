@@ -163,7 +163,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++ z80asm
       - name: Cache external ZEX inputs
         uses: actions/cache@v4
         with:
@@ -190,13 +190,14 @@ jobs:
           vaeg_z80_compat_wrapper_no_functional_test
           vaeg_z80_compat_wrapper_zex_runner
           vaeg_z80_compat_role_zex_runner
+          vaeg_cpm_runner
           vaeg_z80_compat_trace_reference
           vaeg_z80_compat_trace_repeat
           vaeg_z80_compat_trace_compare
       - name: Run standalone conformance
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure --parallel 4
-          -R '^vaeg_(z80_compat_(header|interrupt|flag_profile|wrapper|zex|regression)|upd70008_zex|upd780_zex)'
+          -R '^vaeg_(z80_compat_(header|interrupt|flag_profile|wrapper|zex|regression)|z80_role_probes_selftest|upd70008_(zex|probes)|upd780_(zex|probes))'
       - name: Verify source archive contains only recorded ZEX sources
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD

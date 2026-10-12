@@ -1,0 +1,150 @@
+{
+ "schema": "vaeg-z80-role-probes-v1",
+ "role": "upd70008",
+ "oracle": "real PC-88VA2 outputs in V3 mode under CP/MVA (M101, M102)",
+ "notes": [
+  "ED00.TXT and E200.TXT stopped early on the real machine; they must be prefixes of the output.",
+  "Not checked: the empty and restarted per-opcode EDxx/E2xx files of M102 runs 3 and 5 (written after the unsandboxed EDPRB corrupted the program), INPRB (real-machine I/O), and ZEXUND/ZEXED (no real-machine output file; screen photographs only).",
+  "ZEXDOC and ZEXALL are checked by vaeg_upd70008_zexdoc and vaeg_upd70008_zexall."
+ ],
+ "programs": {
+  "DAADUMP": {},
+  "FLAGPRB": {},
+  "ZEX13S": {},
+  "ZEXIY": {},
+  "CBPRB": {},
+  "EDPRB": {
+   "may_fail": true
+  },
+  "EDPRB2": {
+   "tail": "00+"
+  },
+  "EDPRB2S": {
+   "tail": "00+"
+  },
+  "EDPRB3": {},
+  "EDPRB4": {}
+ },
+ "checks": [
+  {
+   "program": "DAADUMP",
+   "output": "DAA.BIN",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/daa.bin"
+  },
+  {
+   "program": "DAADUMP",
+   "output": "CPL.BIN",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/cpl.bin"
+  },
+  {
+   "program": "DAADUMP",
+   "output": "SCF.BIN",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/scf.bin"
+  },
+  {
+   "program": "DAADUMP",
+   "output": "CCF.BIN",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/ccf.bin"
+  },
+  {
+   "program": "DAADUMP",
+   "output": "DAADUMP.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/daadump.txt"
+  },
+  {
+   "program": "FLAGPRB",
+   "output": "FLAGPRB.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/flagprb.txt"
+  },
+  {
+   "program": "ZEX13S",
+   "output": "ZEX13S.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m101_zexall_qa/pc88va2/raw/zex13s.txt"
+  },
+  {
+   "program": "ZEXIY",
+   "output": "ZEXIY.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run1_pc88va2/raw/zexiy.txt"
+  },
+  {
+   "program": "CBPRB",
+   "output": "CBPRB.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw/cbprb.txt"
+  },
+  {
+   "program": "CBPRB",
+   "output": "CBPRB.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run3_pc88va2/raw/cbprb.txt"
+  },
+  {
+   "program": "EDPRB",
+   "output": "ED00.TXT",
+   "mode": "prefix",
+   "reference": "docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw/ed00.txt"
+  },
+  {
+   "program": "EDPRB",
+   "output": "ED00.TXT",
+   "mode": "prefix",
+   "reference": "docs/agents/reports/m102_zexund_qa/run3_pc88va2/raw/ed00.txt"
+  },
+  {
+   "program": "EDPRB",
+   "output": "ED00.TXT",
+   "mode": "prefix",
+   "reference": "docs/agents/reports/m102_zexund_qa/run5_pc88va2/raw/ed00.txt"
+  },
+  {
+   "program": "EDPRB2",
+   "output": "E200.TXT",
+   "mode": "prefix",
+   "reference": "docs/agents/reports/m102_zexund_qa/run4_pc88va2/raw/e200.txt"
+  },
+  {
+   "program": "EDPRB2",
+   "output": "E200.TXT",
+   "mode": "prefix",
+   "reference": "docs/agents/reports/m102_zexund_qa/run5_pc88va2/raw/e200.txt"
+  },
+  {
+   "program": "EDPRB2S",
+   "output": "S200.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run4_pc88va2/raw/s200.txt"
+  },
+  {
+   "program": "EDPRB2S",
+   "output": "S200.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run5_pc88va2/raw/s200.txt"
+  },
+  {
+   "program": "EDPRB3",
+   "output": "EDPRB3.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run7_pc88va2/raw/edprb3.txt"
+  },
+  {
+   "program": "EDPRB3",
+   "output": "EDPRB3.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run8_pc88va2/raw/edprb3.txt"
+  },
+  {
+   "program": "EDPRB4",
+   "output": "EDPRB4.TXT",
+   "mode": "exact",
+   "reference": "docs/agents/reports/m102_zexund_qa/run8_pc88va2/raw/edprb4.txt"
+  }
+ ]
+}
