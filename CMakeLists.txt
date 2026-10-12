@@ -285,9 +285,11 @@ set(VAEG_CORE_SOURCES
     machine/debugsub.c)
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
+    cpu/upd780/upd780_core_config.cpp
     cpu/upd780/upd780_disasm.cpp
     cpu/z80_compat_cpu.cpp
     cpu/z80_compat_state.cpp
+    cpu/upd9002_upd70008_core_config.cpp
     cpu/upd9002_upd70008.cpp)
 message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility backend")
 
