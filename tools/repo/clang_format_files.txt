@@ -60,6 +60,8 @@ common/strres.h
 common/textfile.c
 common/textfile.h
 common/wavefile.h
+cpu/upd780/upd780_core_config.cpp
+cpu/upd780/upd780_core_config.h
 cpu/upd780/upd780_disasm.cpp
 cpu/upd780/upd780_disasm.h
 cpu/upd9002/cpucore.h
@@ -83,6 +85,8 @@ cpu/upd9002/upd9002_trace.c
 cpu/upd9002/upd9002_trace.h
 cpu/upd9002_upd70008.cpp
 cpu/upd9002_upd70008.h
+cpu/upd9002_upd70008_core_config.cpp
+cpu/upd9002_upd70008_core_config.h
 cpu/z80_compat_bus.h
 cpu/z80_compat_cpu.cpp
 cpu/z80_compat_cpu.h

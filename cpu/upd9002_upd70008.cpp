@@ -29,6 +29,7 @@
 #include "io/upd9002_regs.h"
 #include "io/memctrlva.h"
 #include "cpu/upd9002_upd70008.h"
+#include "cpu/upd9002_upd70008_core_config.h"
 #include "cpu/z80_compat_cpu.h"
 
 #include <cstdint>
@@ -144,10 +145,10 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	// Shared by Enter() and StateLoad() so that a state loaded before the
 	// first mode entry also gets the native vector reader (M102 fix).
 	bool InitializeCore() {
-		upd70008_.SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
 		// Undefined ED 00-3F/74/75/77 read the native-side physical
 		// page 0 (the x86 IVT); measured on a real PC-88VA2 (M102).
-		upd70008_.SetNativeVectorRead(
+		Upd9002Upd70008ConfigureCore(
+		    &upd70008_,
 		    [](void *, std::uint8_t index) -> std::uint8_t {
 			    return static_cast<std::uint8_t>(upd9002_memoryread(index));
 		    },

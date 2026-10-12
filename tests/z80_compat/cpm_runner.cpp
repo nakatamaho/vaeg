@@ -29,9 +29,14 @@
 // warm boot (JP 0) ends the run. Supported BDOS functions: 2, 9, 13, 14, 15,
 // 16, 19, 21, 22 and 26. Files are mapped by their 8.3 FCB name into one host
 // directory. Any other function stops the run with an error.
-// --profile selects the core flag profile (zilog by default, or upd9002).
+// The program runs on the shared Z80 compatibility backend (Z80CompatCpu).
+// --profile selects a bare flag profile (zilog by default, or upd9002);
+// --role applies the production core configuration of a hardware role
+// (upd70008: the uPD9002 uPD70008-compatible mode, upd780: the FDC uPD780C).
 
-#include "z80.hpp"
+#include "cpu/upd780/upd780_core_config.h"
+#include "cpu/upd9002_upd70008_core_config.h"
+#include "cpu/z80_compat_cpu.h"
 
 #include <array>
 #include <cstdint>
@@ -51,12 +56,14 @@ constexpr std::uint16_t kBdosAddress = 0xfe00;
 constexpr std::uint8_t kTrapPort = 0x00;
 constexpr std::uint8_t kExitPort = 0x01;
 constexpr int kRecordSize = 128;
-constexpr int kClockBatch = 1 << 24;
 constexpr std::uint64_t kDefaultMaxClocks = 200000000000ULL;
 
-struct Machine {
+struct Machine final : public IMemoryAccess, public IIOAccess, public IClock, public IClockCounter {
 	std::array<std::uint8_t, 65536> memory{};
-	Z80 *cpu = nullptr;
+	Z80CompatCpu cpu;
+	std::int32_t remaining_clock = 0;
+	std::uint64_t consumed_clocks = 0;
+	std::uint8_t bdos_result = 0;
 	std::string directory = ".";
 	std::string console;
 	std::uint16_t dma = 0x0080;
@@ -72,7 +79,6 @@ struct Machine {
 			failure = reason;
 		}
 		finished = true;
-		cpu->requestBreak();
 	}
 
 	std::string FcbName(std::uint16_t fcb) const {
@@ -156,12 +162,12 @@ struct Machine {
 	}
 
 	std::uint8_t Bdos() {
-		Z80::Register &reg = cpu->reg;
-		const std::uint8_t function = reg.pair.C;
-		const std::uint16_t de = static_cast<std::uint16_t>((reg.pair.D << 8) | reg.pair.E);
+		const Z80CompatReg *reg = cpu.GetReg();
+		const std::uint8_t function = static_cast<std::uint8_t>(reg->bc & 0xff);
+		const std::uint16_t de = reg->de;
 		switch (function) {
 		case 2:
-			Put(static_cast<char>(reg.pair.E));
+			Put(static_cast<char>(de & 0xff));
 			return 0;
 		case 9:
 			for (std::uint16_t address = de; memory[address] != '$';
@@ -221,36 +227,63 @@ struct Machine {
 		std::cout.put(c);
 	}
 
-	static unsigned char Read(void *opaque, unsigned short address) {
-		return static_cast<Machine *>(opaque)->memory[address];
+	std::uint32_t IFCALL Read8(std::uint32_t address) override {
+		return memory[static_cast<std::uint16_t>(address)];
 	}
 
-	static void Write(void *opaque, unsigned short address, unsigned char value) {
-		static_cast<Machine *>(opaque)->memory[address] = value;
+	void IFCALL Write8(std::uint32_t address, std::uint32_t value) override {
+		memory[static_cast<std::uint16_t>(address)] = static_cast<std::uint8_t>(value);
 	}
 
-	static unsigned char Input(void *opaque, unsigned short port) {
-		Machine *machine = static_cast<Machine *>(opaque);
+	// The BDOS entry IN A,(0) returns the result computed before it ran.
+	std::uint32_t IFCALL In(std::uint32_t port) override {
 		if ((port & 0xff) != kTrapPort) {
-			machine->Fail("unexpected input port");
+			Fail("unexpected input port");
 			return 0xff;
 		}
-		const std::uint8_t result = machine->Bdos();
-		// CP/M returns the result in A and in HL (L = A, H = B = 0).
-		machine->cpu->reg.pair.L = result;
-		machine->cpu->reg.pair.H = 0;
-		machine->cpu->reg.pair.B = 0;
-		return result;
+		return bdos_result;
 	}
 
-	static void Output(void *opaque, unsigned short port, unsigned char) {
-		Machine *machine = static_cast<Machine *>(opaque);
+	void IFCALL Out(std::uint32_t port, std::uint32_t) override {
 		if ((port & 0xff) == kExitPort) {
-			machine->finished = true;
-			machine->cpu->requestBreak();
+			finished = true;
 			return;
 		}
-		machine->Fail("unexpected output port");
+		Fail("unexpected output port");
+	}
+
+	std::uint32_t IFCALL now() override {
+		return 0;
+	}
+
+	void IFCALL past(std::int32_t clocks) override {
+		remaining_clock -= clocks;
+		consumed_clocks += static_cast<std::uint32_t>(clocks);
+	}
+
+	std::int32_t IFCALL GetRemainclock() override {
+		return remaining_clock;
+	}
+
+	void IFCALL SetRemainclock(std::int32_t clocks) override {
+		remaining_clock = clocks;
+	}
+
+	// One instruction. At the BDOS entry the function runs on the host before
+	// IN A,(0) executes; after it, CP/M's result registers are set (L = A,
+	// H = B = 0) before the RET, as the trap did on the bare core.
+	void Step() {
+		const std::uint32_t pc = cpu.GetPC();
+		if (pc == kBdosAddress) {
+			bdos_result = Bdos();
+		}
+		cpu.ExecOne();
+		if (pc == kBdosAddress && !failed) {
+			Z80CompatReg reg = *cpu.GetReg();
+			reg.hl = bdos_result;
+			reg.bc = static_cast<std::uint16_t>(reg.bc & 0x00ff);
+			cpu.SetMainReg(reg);
+		}
 	}
 
 	// Command tail at 0080h, as the CCP stores it (length, then text).
@@ -290,7 +323,8 @@ struct Machine {
 
 void Usage(const char *program) {
 	std::cerr << "usage: " << program
-	          << " [--profile zilog|upd9002] [--dir host_directory] [--console file]"
+	          << " [--profile zilog|upd9002 | --role upd70008|upd780] [--dir host_directory]"
+	             " [--console file]"
 	             " [--tail text]"
 	             " [--max-clocks n] program.com\n";
 }
@@ -299,7 +333,7 @@ void Usage(const char *program) {
 
 // Native-side physical page 0 (the x86 IVT) of a real PC-88VA2 running
 // CP/MVA in V3 mode, reconstructed from the EDPRB4 C sweep (run 8,
-// docs/agents/reports/m102_zexund_qa). Only FlagProfile::Upd9002 reads it,
+// docs/agents/reports/m102_zexund_qa). Only the uPD9002 profile reads it,
 // for the undefined ED 00-3F/74/75/77.
 static const unsigned char kUpd9002VectorPage[256] = {
 	0x29, 0x23, 0x00, 0xF0, 0x29, 0x23, 0x00, 0xF0, 0x29, 0x23, 0x00, 0xF0, 0x29, 0x23, 0x00, 0xF0,
@@ -326,16 +360,25 @@ int main(int argc, char **argv) {
 	std::string directory = ".";
 	std::uint64_t max_clocks = kDefaultMaxClocks;
 	std::string tail;
-	Z80::FlagProfile profile = Z80::FlagProfile::Zilog;
+	Z80CompatFlagProfile profile = Z80CompatFlagProfile::kZilog;
+	bool profile_given = false;
+	std::string role;
 	for (int i = 1; i < argc; ++i) {
 		const std::string argument = argv[i];
 		if (argument == "--profile" && i + 1 < argc) {
+			profile_given = true;
 			const std::string value = argv[++i];
 			if (value == "zilog") {
-				profile = Z80::FlagProfile::Zilog;
+				profile = Z80CompatFlagProfile::kZilog;
 			} else if (value == "upd9002") {
-				profile = Z80::FlagProfile::Upd9002;
+				profile = Z80CompatFlagProfile::kUpd9002;
 			} else {
+				Usage(argv[0]);
+				return 2;
+			}
+		} else if (argument == "--role" && i + 1 < argc) {
+			role = argv[++i];
+			if (role != "upd70008" && role != "upd780") {
 				Usage(argv[0]);
 				return 2;
 			}
@@ -354,7 +397,7 @@ int main(int argc, char **argv) {
 			return 2;
 		}
 	}
-	if (program.empty() || max_clocks == 0) {
+	if (program.empty() || max_clocks == 0 || (profile_given && !role.empty())) {
 		Usage(argv[0]);
 		return 2;
 	}
@@ -365,17 +408,27 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	machine.SetTail(tail);
-	Z80 cpu(&Machine::Read, &Machine::Write, &Machine::Input, &Machine::Output, &machine);
-	machine.cpu = &cpu;
-	cpu.setFlagProfile(profile);
-	cpu.upd9002VectorRead = [](void *, unsigned char index) -> unsigned char {
-		return kUpd9002VectorPage[index];
+	if (!machine.cpu.Init(&machine, &machine, &machine, &machine, -1)) {
+		std::cerr << "cpm-runner: Z80CompatCpu::Init failed\n";
+		return 1;
+	}
+	const Z80CompatCpu::NativeVectorRead vector_page = [](void *, std::uint8_t index) {
+		return static_cast<std::uint8_t>(kUpd9002VectorPage[index]);
 	};
-	cpu.reg.PC = kLoadAddress;
-	cpu.reg.SP = kBdosAddress;
-	std::uint64_t clocks = 0;
-	while (!machine.finished && clocks < max_clocks) {
-		clocks += static_cast<std::uint64_t>(cpu.execute(kClockBatch));
+	if (role == "upd70008") {
+		Upd9002Upd70008ConfigureCore(&machine.cpu, vector_page, nullptr);
+	} else if (role == "upd780") {
+		Upd780ConfigureCore(&machine.cpu);
+	} else {
+		machine.cpu.SetFlagProfile(profile);
+		machine.cpu.SetNativeVectorRead(vector_page, nullptr);
+	}
+	Z80CompatReg start = *machine.cpu.GetReg();
+	start.pc = kLoadAddress;
+	start.sp = kBdosAddress;
+	machine.cpu.SetMainReg(start);
+	while (!machine.finished && machine.consumed_clocks < max_clocks) {
+		machine.Step();
 	}
 	std::cout.flush();
 	if (!console_path.empty()) {

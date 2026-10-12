@@ -196,6 +196,13 @@ program and checks the host acceptance criteria for the Zilog and uPD9002
 profiles; `--skip-zex` omits the long ZEXDOCF/ZEXALLF runs. It obtains
 z80asm 1.8 the same way as the installer.
 
+`vaeg_cpm_runner` runs the programs on the shared Z80 compatibility backend
+with the production compile definitions. `--profile` selects a bare flag
+profile, as `host_reference.py` uses it; `--role upd70008` or `--role upd780`
+applies that role's production core configuration instead. The role checks
+`vaeg_upd70008_probes` and `vaeg_upd780_probes` use the role form; see
+`docs/modernization/cpu-conformance-checks.md`.
+
 ## Troubleshooting
 
 - If CP/M stops before `A>`, confirm that the boot disk is the generated
