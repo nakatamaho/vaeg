@@ -22,116 +22,108 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# QA of the uPD9002 native mode
+# uPD9002 ネイティブモードの QA
 
-The uPD9002 native mode runs a V30-family instruction set (`cpu/upd9002/`)
-with NEC changes: four V30 instructions are deleted, `BRKEM`/`BRKFEM` enter
-the uPD70008-compatible mode, and V50-style on-chip peripherals sit in the
-system I/O area (`docs/modernization/upd9002-upd70008-mode.md` §1, §4.1–4.2,
-§5). No uPD9002 single-instruction corpus exists, so the instruction-level
-oracle is the closest available reference CPU, the NEC V20 (uPD70108). See
-[the QA overview](README.md) for the three levels and the oracle order.
+uPD9002 のネイティブモードは V30 系の命令セット（`cpu/upd9002/`）に NEC の変更を加えたもので
+ある。V30 の4命令が削除され、`BRKEM`/`BRKFEM` で uPD70008 互換モードに入り、システム I/O
+領域に V50 風の内蔵周辺回路がある（`docs/modernization/upd9002-upd70008-mode.md` §1、
+§4.1〜4.2、§5）。uPD9002 の1命令単位のテストコーパスは存在しないので、命令単位の比較相手は
+最も近い参照 CPU である NEC V20（uPD70108）になる。3つのレベルと比較相手の優先順位は
+[QA の概要](README.md) を参照。
 
-## 1. What the V20 corpus can and cannot be
+## 1. V20 コーパスで分かることと分からないこと
 
-SingleStepTests V20 `v1_native` (pinned in
-`tests/ssts/v20_dataset_manifest.json`) records, per instruction, the CPU
-state before and after one instruction on a V20. It is a level-3 oracle:
+SingleStepTests V20 `v1_native`（`tests/ssts/v20_dataset_manifest.json` で固定）は、命令ごとに、
+V20 で1命令を実行する前後の CPU の状態を記録している。比較相手としてはレベル 3 である。
 
-- where the uPD9002 and the V20 share an instruction, agreement is strong
-  evidence;
-- where the uPD9002 differs, the V20 result is wrong for vaeg and must not be
-  counted as a pass or a failure;
-- where the uPD9002 has something the V20 lacks, the corpus is silent.
+- uPD9002 と V20 が共通に持つ命令では、一致は強い証拠になる。
+- uPD9002 が V20 と異なる命令では、V20 の結果は vaeg にとって誤りであり、合格にも不合格にも
+  数えてはならない。
+- uPD9002 にあって V20 にないものについては、コーパスは何も言わない。
 
-The target decisions below come from the ROM-read monitor tables (M60b),
-the semantics migration plan (`docs/agents/UPD9002_SEMANTICS_MIGRATION.md`)
-and the G67 divergence registry, which is kept at commit
-`884b7dca97b6576007baa235b81a2597fa5f0c22`
-(`tests/ssts/divergence/g67/registry.json`).
+以下の判断は、ROM から読んだモニタの表（M60b）、意味論の移行計画
+（`docs/agents/UPD9002_SEMANTICS_MIGRATION.md`）、G67 の相違登録簿に基づく。G67 の登録簿は
+commit `884b7dca97b6576007baa235b81a2597fa5f0c22` の
+`tests/ssts/divergence/g67/registry.json` に残っている。
 
-## 2. The external check
+## 2. 外部レベルの検査
 
-`vaeg_sst_v20_ci` (job `upd9002-ssts`, tool `tools/qa/sst_v20.py`, baseline
-`tests/ssts/v20/baseline_ci.json`):
+`vaeg_sst_v20_ci`（ジョブ `upd9002-ssts`、ツール `tools/qa/sst_v20.py`、基準ファイル
+`tests/ssts/v20/baseline_ci.json`）:
 
-| Item | Value |
+| 項目 | 内容 |
 |---|---|
-| Selection | records with an empty initial prefetch queue, ascending upstream hash, first 500 per form (`ci` profile) |
-| Executed by | `vaeg --upd9002-ssts-worker`, the production instruction core with a flat test memory and an I/O sink |
-| Compared | all registers; FLAGS under the corpus flags mask; every RAM byte the record names; I/O reads and writes; termination (normal, halt, type-0 exception) |
-| Judged | 170500 records in 341 forms, all passing |
-| `target_absent` (not judged) | 4500 records: `0F31`, `0F33`, `0F39`, `0F3B` (INS/EXT), `6C`–`6F` (INM/OUTM), `63` |
-| `excluded` (not judged) | 5000 records: `66`, `67`, `D8`–`DF` (upstream status `fpu`) |
-| Failure rule | a judged record that fails is a regression (`SST_V20_REGRESSION`); there is no tolerated failure |
+| 選び方 | 初期プリフェッチキューが空のレコードを、上流のハッシュの昇順に、形式ごとに先頭500件（`ci` プロファイル） |
+| 実行するもの | `vaeg --upd9002-ssts-worker`。本番の命令コアを、平坦なテスト用メモリと I/O の受け口で動かす |
+| 比較する項目 | 全レジスタ、コーパスのフラグマスクをかけた FLAGS、レコードが挙げる全 RAM バイト、I/O の読み書き、終了の仕方（通常、HALT、type-0 例外） |
+| 判定対象 | 341形式の170500レコード、すべて合格 |
+| `target_absent`（判定しない） | 4500レコード: `0F31`、`0F33`、`0F39`、`0F3B`（INS/EXT）、`6C`〜`6F`（INM/OUTM）、`63` |
+| `excluded`（判定しない） | 5000レコード: `66`、`67`、`D8`〜`DF`（上流の状態が `fpu`） |
+| 失敗の扱い | 判定対象のレコードが1件でも失敗すれば退行（`SST_V20_REGRESSION`）。許容する失敗はない |
 
-The full profile (all 1,562,502 empty-queue records) is supported by the tool
-but is not run in CI and has no committed baseline.
+全件プロファイル（空キューのレコード1,562,502件すべて）はツールが対応しているが、CI では
+実行しておらず、基準ファイルもコミットしていない。
 
-## 3. What the V20 check covers
+## 3. V20 検査が覆う範囲
 
-Every judged form is an instruction the uPD9002 is documented to have, with
-the V20 as oracle:
+判定対象の形式は、すべて uPD9002 が持つと記録されている命令で、比較相手は V20 である。
 
-- the 8086/80186 base set present on the V30, including the V30
-  `REPC`/`REPNC` (`64`/`65`) string forms that M70 implemented with explicit
-  authority (`A4`–`AF` with those prefixes);
-- the V30 extensions present in the uPD9002 monitor table: `TEST1`/`NOT1`/
-  `CLR1`/`SET1` (`0F10`–`0F1F`), `ADD4S`/`SUB4S`/`CMP4S` (`0F20`/`22`/`26`),
-  `ROL4`/`ROR4` (`0F28`/`2A`);
-- segment, `LOCK` and repeat prefixes inside those records;
-- software interrupts, `INTO`/`BOUND`/divide exceptions and `HLT` as far as one
-  instruction's termination shows them.
+- V30 にある 8086/80186 の基本命令。M70 が明示的な権限のもとで実装した V30 の
+  `REPC`/`REPNC`（`64`/`65`）付き文字列命令（それらのプレフィックス付きの `A4`〜`AF`）を含む。
+- uPD9002 のモニタの表にある V30 拡張命令: `TEST1`/`NOT1`/`CLR1`/`SET1`（`0F10`〜`0F1F`）、
+  `ADD4S`/`SUB4S`/`CMP4S`（`0F20`/`22`/`26`）、`ROL4`/`ROR4`（`0F28`/`2A`）。
+- それらのレコードに含まれるセグメント、`LOCK`、リピートのプレフィックス。
+- ソフトウェア割り込み、`INTO`/`BOUND`/除算の例外、`HLT`。いずれも1命令の終了の仕方から
+  分かる範囲に限る。
 
-## 4. What the V20 check cannot see
+## 4. V20 検査で見えないもの
 
-| Area | Reason | Covered elsewhere |
+| 対象 | 理由 | 検査されている場所 |
 |---|---|---|
-| Undefined FLAGS bits | the corpus mask excludes them; an all-16-bit comparison is a diagnostic only (G67 `fingerprint`) | nowhere against hardware |
-| Prefetch queue effects | half the corpus (1,562,498 records) starts with a non-empty queue; the worker cannot inject a queue | nowhere |
-| Cycle counts, bus timing, wait states | not compared by design | nowhere |
-| `0F31/33/39/3B`, `6C`–`6F`, `63` on the real uPD9002 | target-absent: the uPD9002 behaviour of these encodings is not recorded; vaeg still contains V20 `INS`/`OUTS` handlers for `6C`–`6F`, an open cleanup question (G67 `reserved_behavior.primary_6c_6f_cleanup`) | open |
-| `66`/`67` (FPO2) and `D8`–`DF` (ESC) | upstream `fpu`; whether the uPD9002 silicon implements FPO2 is underdetermined (G67) | 8087 core: `vaeg_8087_core` (unit tests in `tools/8087/test_core.c`), not instruction-level hardware evidence |
-| `BRKEM` (`0F FF imm8`), `BRKFEM`/`BRKEM2` (`0F FE imm8`) | no corpus records; BRKFEM semantics are not established (G67 zero-coverage records) | `vaeg_upd9002_brkem_upd70008` (synthetic) |
-| `RETEM`, `CALLN` and the MD flag | compatible-mode side | see [z80-family.md](z80-family.md) |
-| Prefix and restart behaviour after an interrupt or exception mid-instruction | one-instruction records cannot show it; hardware question in G67 | open |
-| Hardware interrupts, NMI, the interrupt controller, DMA, timers, refresh | V50-style peripherals, not instruction semantics | local levels; `docs/modernization/upd9002-upd70008-mode.md` §5 |
-| Memory mapping beyond the flat test memory (banks, VA memory control, segmented word access across mapped regions) | the worker uses flat memory | `vaeg_upd9002_m68_segmented_memory` (synthetic) |
-| I/O trap subsystem | machine feature (§9 of the mode document) | local level A |
-| Records past the first 500 per form | `ci` profile only | full profile, run locally on demand |
+| FLAGS の未定義ビット | コーパスのマスクが除外している。全16ビットの比較は診断用のみ（G67 の `fingerprint`） | 実機との照合なし |
+| プリフェッチキューの影響 | コーパスの半分（1,562,498件）はキューが空でない状態から始まるが、ワーカーはキューを注入できない | なし |
+| サイクル数、バスタイミング、ウェイト | 設計上比較しない | なし |
+| 実機 uPD9002 での `0F31/33/39/3B`、`6C`〜`6F`、`63` | 対象外の命令で、uPD9002 での挙動は記録されていない。vaeg には `6C`〜`6F` 用の V20 の `INS`/`OUTS` 処理がまだ残っており、整理は未解決の課題（G67 `reserved_behavior.primary_6c_6f_cleanup`） | 未解決 |
+| `66`/`67`（FPO2）と `D8`〜`DF`（ESC） | 上流の状態が `fpu`。uPD9002 のシリコンが FPO2 を実装しているかは確定していない（G67） | 8087 コア: `vaeg_8087_core`（`tools/8087/test_core.c` の単体テスト）。命令単位の実機の証拠ではない |
+| `BRKEM`（`0F FF imm8`）、`BRKFEM`/`BRKEM2`（`0F FE imm8`） | コーパスにレコードがない。BRKFEM の意味論は確定していない（G67 のカバレッジゼロの記録） | `vaeg_upd9002_brkem_upd70008`（合成データ） |
+| `RETEM`、`CALLN`、MD フラグ | 互換モード側の担当 | [z80-family.md](z80-family.md) を参照 |
+| 命令の途中で割り込みや例外が入った後のプレフィックスと再開の挙動 | 1命令のレコードでは表せない。G67 では実機に問うべき課題 | 未解決 |
+| ハードウェア割り込み、NMI、割り込みコントローラ、DMA、タイマ、リフレッシュ | V50 風の周辺回路で、命令の意味論ではない | ローカルレベル。`docs/modernization/upd9002-upd70008-mode.md` §5 |
+| 平坦なテスト用メモリを超えるメモリマップ（バンク、VA のメモリ制御、マップされた領域をまたぐセグメント付きワードアクセス） | ワーカーは平坦なメモリを使う | `vaeg_upd9002_m68_segmented_memory`（合成データ） |
+| I/O トラップ機構 | 機械の機能（モード文書の §9） | ローカルレベル A |
+| 形式ごとに501件目以降のレコード | `ci` プロファイルのみ | 全件プロファイルを必要に応じてローカルで実行 |
 
-## 5. Native checks inside vaeg
+## 5. vaeg 内部のネイティブ側テスト
 
-These run `vaeg` entry points with expectations written from the documented
-semantics, ROM evidence, and the milestone records. They are synthetic
-(level 2 or 4), not hardware measurements.
+これらは `vaeg` の入口を、記録された意味論、ROM の証拠、マイルストーンの記録から書いた
+期待値で実行する。合成データ（レベル 2 または 4）であり、実機の測定ではない。
 
-| CTest | Content |
+| CTest | 内容 |
 |---|---|
-| `vaeg_upd9002_flags_materialization` | FLAGS canonicalisation and guest-visible materialisation (M60a) |
-| `vaeg_upd9002_iret_restoration` | IRET restoration (M60e) |
-| `vaeg_upd9002_mov_imm_register` | C6/C7 register-form MOV immediate (M61) |
-| `vaeg_upd9002_semantics_bundle` | consolidated semantic corrections (M62) |
-| `vaeg_upd9002_m64_semantics` | DIV/IDIV and monitor-authorised `0F` support (M64) |
-| `vaeg_upd9002_m65a_ff7` … `m65e_tail10` | FF /7, BOUND, F7 /2 NOT, FF /6 and ten residual cases (M65a–M65e) |
-| `vaeg_upd9002_m68_segmented_memory` | mapped-memory dispatch for segmented word access (M68) |
-| `vaeg_upd9002_m70_prefix_string` | REPC/REPNC with string instructions (M70) |
-| `vaeg_upd9002_m96d_nop` | NOP handling (M96d) |
-| `vaeg_upd9002_rep0f_diagnostic_stop` | the REP + `0F` diagnostic stop |
-| `vaeg_upd9002_dispatch_normalization`, `_static`; `vaeg_upd9002_native_invariant`; `vaeg_upd9002_rep0f_transition_*`; `vaeg_upd9002_protected_deletion`; `vaeg_upd9002_rename` | dispatch-table structure and retired-code checks |
-| `vaeg_upd9002_abi`, `_state_boundary`, `_state_payload_probe`, `_m66a_state_verify`, `_trace_equivalence` | state format, save/load boundary, deterministic traces |
-| `vaeg_upd9002_ssts_worker_selftest` | the SST worker protocol itself |
+| `vaeg_upd9002_flags_materialization` | FLAGS の正規化とゲストから見える値の生成（M60a） |
+| `vaeg_upd9002_iret_restoration` | IRET での復元（M60e） |
+| `vaeg_upd9002_mov_imm_register` | C6/C7 のレジスタ形式の MOV 即値（M61） |
+| `vaeg_upd9002_semantics_bundle` | 意味論修正の統合（M62） |
+| `vaeg_upd9002_m64_semantics` | DIV/IDIV と、モニタが裏付ける `0F` 命令（M64） |
+| `vaeg_upd9002_m65a_ff7` … `m65e_tail10` | FF /7、BOUND、F7 /2 NOT、FF /6 と残り10ケース（M65a〜M65e） |
+| `vaeg_upd9002_m68_segmented_memory` | マップされたメモリでのセグメント付きワードアクセスの振り分け（M68） |
+| `vaeg_upd9002_m70_prefix_string` | REPC/REPNC 付きの文字列命令（M70） |
+| `vaeg_upd9002_m96d_nop` | NOP の扱い（M96d） |
+| `vaeg_upd9002_rep0f_diagnostic_stop` | REP + `0F` の診断停止 |
+| `vaeg_upd9002_dispatch_normalization`、`_static`、`vaeg_upd9002_native_invariant`、`vaeg_upd9002_rep0f_transition_*`、`vaeg_upd9002_protected_deletion`、`vaeg_upd9002_rename` | 振り分け表の構造と、退役したコードの検査 |
+| `vaeg_upd9002_abi`、`_state_boundary`、`_state_payload_probe`、`_m66a_state_verify`、`_trace_equivalence` | ステート形式、保存と読み込みの境界、決定的なトレース |
+| `vaeg_upd9002_ssts_worker_selftest` | SST ワーカーのプロトコルそのもの |
 
-## 6. Codes and baseline update
+## 6. コードと基準ファイルの更新
 
-| Code | Meaning | Action |
+| コード | 意味 | 対応 |
 |---|---|---|
-| `SST_V20_REGRESSION` | a judged record that passes in the baseline fails now | fix the emulator |
-| `SST_V20_BASELINE_STALE` | a record listed as failing now passes | run `update` and commit the baseline |
-| `SST_V20_IDENTITY_MISMATCH` | dataset, profile, or selection rule differs | regenerate the baseline deliberately |
-| `SST_V20_FORM_SET_MISMATCH` | a form is missing on one side | as above |
-| `SST_V20_SELECTION_MISMATCH` | a form's selected count or status (`executed`, `excluded`, `target_absent`) differs | as above |
-| `SST_V20_BASELINE_SCHEMA` | a document is malformed | fix the file |
+| `SST_V20_REGRESSION` | 基準で合格していた判定対象のレコードが失敗した | エミュレータを直す |
+| `SST_V20_BASELINE_STALE` | 失敗として記録されていたレコードが合格した | `update` を実行して基準ファイルをコミットする |
+| `SST_V20_IDENTITY_MISMATCH` | データセット、プロファイル、選び方の規則が異なる | 意図して基準ファイルを作り直す |
+| `SST_V20_FORM_SET_MISMATCH` | どちらか一方にしかない形式がある | 同上 |
+| `SST_V20_SELECTION_MISMATCH` | 形式ごとの選択件数か状態（`executed`、`excluded`、`target_absent`）が異なる | 同上 |
+| `SST_V20_BASELINE_SCHEMA` | 文書の形式が壊れている | ファイルを直す |
 
 ```sh
 python3 tools/qa/sst_v20.py ci --dataset-root "$V20" --worker build/linux-ci-gcc/sdl2/vaeg \
@@ -140,16 +132,15 @@ python3 tools/qa/sst_v20.py update --result /tmp/sst-v20-ci.json \
   --baseline tests/ssts/v20/baseline_ci.json
 ```
 
-The result file lists, per failing record, the outcome, mismatch kinds and
-instruction bytes; it is a diagnostic and is not committed.
+結果ファイルには、失敗したレコードごとに結果、不一致の種類、命令バイトが入る。診断用で、
+コミットはしない。
 
-## 7. Reading a result
+## 7. 結果の読み方
 
-- `vaeg_sst_v20_ci` passing means: on the selected records of every form the
-  uPD9002 is documented to share with the V20, the emulated native core
-  reproduces the V20's architectural result. It is not hardware validation of
-  the uPD9002.
-- A change in a `target_absent` form is invisible to this check by design;
-  deciding uPD9002 behaviour there needs real-machine evidence.
-- Regenerate the baseline only for an intended change (`sst_v20.py update`),
-  and only after explaining the change in the commit.
+- `vaeg_sst_v20_ci` の合格が意味するのは、uPD9002 が V20 と共通に持つと記録されている
+  すべての形式の選択レコードで、エミュレートしたネイティブコアが V20 と同じアーキテクチャ上の
+  結果を出す、ということである。uPD9002 の実機検証ではない。
+- `target_absent` の形式の変化は、設計上この検査には見えない。そこでの uPD9002 の挙動を決めるには
+  実機の証拠が要る。
+- 基準ファイルを作り直すのは意図した変更のときだけにし（`sst_v20.py update`）、コミットで
+  変更の理由を説明する。

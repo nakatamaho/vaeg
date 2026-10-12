@@ -22,134 +22,129 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# QA of the Z80-compatible CPUs
+# Z80 互換 CPU の QA
 
-Two hardware roles run the shared Z80 compatibility backend
-(`cpu/z80_compat_cpu.*` over the vendored suzukiplan core). They are
-different CPUs and are checked separately, so that a change for one role
-cannot pass because the other role's expectations still hold.
+2つのハードウェア上の役割が、共通の Z80 互換バックエンド（`cpu/z80_compat_cpu.*`、中身は
+同梱の suzukiplan コア）で動いている。両者は別の CPU なので別々に検査する。一方の役割への
+変更が、もう一方の期待値が保たれていることで見逃される、ということが起きないようにするためである。
 
-| Role | Hardware | Core configuration | Behaviour today |
+| 役割 | ハードウェア | コア設定 | 現在の挙動 |
 |---|---|---|---|
-| uPD70008-compatible mode | the uPD9002 main CPU after `BRKEM` (V1/V2 mode, CP/MVA) | `Upd9002Upd70008ConfigureCore` (`cpu/upd9002_upd70008_core_config.cpp`) | `kUpd9002` flag profile, measured undefined-opcode rules, IVT reader for the undefined `ED` loads |
-| FDC subsystem CPU | the NEC uPD780C running `vasubsys.rom` | `Upd780ConfigureCore` (`cpu/upd780/upd780_core_config.cpp`) | `kZilog` profile |
+| uPD70008 互換モード | `BRKEM` 後の uPD9002 メイン CPU（V1/V2 モード、CP/MVA） | `Upd9002Upd70008ConfigureCore`（`cpu/upd9002_upd70008_core_config.cpp`） | `kUpd9002` フラグプロファイル、実測した未定義命令の規則、未定義 `ED` ロード用の IVT 読み出し |
+| FDC サブシステムの CPU | `vasubsys.rom` を実行する NEC uPD780C | `Upd780ConfigureCore`（`cpu/upd780/upd780_core_config.cpp`） | `kZilog` プロファイル |
 
-Production and the role checks call the same configuration functions. See
-[the QA overview](README.md) for the three levels and the oracle order.
+本番のコードと役割ごとの検査は、同じ設定関数を呼ぶ。3つのレベルと比較相手の優先順位は
+[QA の概要](README.md) を参照。
 
-## 1. Oracles
+## 1. 比較相手
 
-| Role | Highest available oracle | Source |
+| 役割 | 利用できる最上位の比較相手 | 出どころ |
 |---|---|---|
-| uPD70008-compatible mode | real PC-88VA2 outputs (level 1) | M101 ZEXDOC/ZEXALL and probes (`docs/agents/reports/m101_zexall_qa/pc88va2/`), M102 probes (`docs/agents/reports/m102_zexund_qa/run*_pc88va2/`) |
-| uPD780C | none on real hardware; the Zilog Z80 (level 3) | ZEX's stock CRCs |
+| uPD70008 互換モード | 実機 PC-88VA2 の出力（レベル 1） | M101 の ZEXDOC/ZEXALL とプローブ（`docs/agents/reports/m101_zexall_qa/pc88va2/`）、M102 のプローブ（`docs/agents/reports/m102_zexund_qa/run*_pc88va2/`） |
+| uPD780C | 実機の記録なし。Zilog Z80（レベル 3） | ZEX が持つ標準 CRC |
 
-No real uPD780C has been measured. The FDC CPU's checks therefore prove
-Zilog conformance of the configured backend, not uPD780C conformance. NEC
-NMOS Z80 parts are reported to differ from Zilog in the undocumented X/Y
-bits of `SCF`/`CCF`; whether the uPD780C does is unverified
-(`cpu/z80_compat_cpu.h`).
+実機の uPD780C は一度も測定していない。したがって FDC 側 CPU の検査が示すのは、設定した
+バックエンドが Zilog と一致することであって、uPD780C と一致することではない。NEC の NMOS
+Z80 系は `SCF`/`CCF` の非公開ビット X/Y が Zilog と異なると報告されているが、uPD780C が
+そうであるかは未検証である（`cpu/z80_compat_cpu.h`）。
 
-## 2. External checks
+## 2. 外部レベルの検査
 
-| CTest | Role | Runs | Oracle | Judgement |
+| CTest | 役割 | 実行するもの | 比較相手 | 判定 |
 |---|---|---|---|---|
-| `vaeg_upd70008_zexdoc`, `vaeg_upd70008_zexall` | uPD70008 | stock ZEXDOC/ZEXALL, 67 groups each | real VA2 group CRCs (`tests/z80_compat/upd9002_zex*_expected.txt`) | every group equal |
-| `vaeg_upd70008_probes` | uPD70008 | M101/M102 probe programs | real VA2 output files | byte-exact, prefix, or per-record (below) |
-| `vaeg_upd780_zexdoc`, `vaeg_upd780_zexall` | uPD780C | stock ZEXDOC/ZEXALL | stock Zilog CRCs | every group OK |
-| `vaeg_upd780_probes` | uPD780C | ZEX13S, ZEXIY, ZEXUND, ZEXED | stock Zilog CRCs | every group OK |
-| `vaeg_upd9002_brkem_upd70008` | uPD70008 adapter | synthetic: production bridge, alternate-register storage, compatible-mode CPU speed | expectations written from documentation and M103a records | fixed cases |
-| `vaeg_romless_tests` (`vaeg --selftest`, uPD780 part) | uPD780C subsystem | synthetic: state bridge, clock and wait, HALT/IRQ state, IRQ acknowledge, sleep paths, FDD boundary, EI state, cross-wired 8255 ports | expectations written in `tests/upd780/subsystem_integration.cpp` | fixed cases |
-| `vaeg_z80_compat_*` | shared backend | wrapper contracts, legacy contract, state format, differential traces against the bare core, bare-core ZEX | the bare core and the backend's own earlier output (level 4) | consistency only |
+| `vaeg_upd70008_zexdoc`、`vaeg_upd70008_zexall` | uPD70008 | 標準の ZEXDOC/ZEXALL、各67グループ | 実機 VA2 のグループ CRC（`tests/z80_compat/upd9002_zex*_expected.txt`） | 全グループ一致 |
+| `vaeg_upd70008_probes` | uPD70008 | M101/M102 のプローブプログラム | 実機 VA2 の出力ファイル | バイト単位の一致、先頭一致、レコード単位の一致（後述） |
+| `vaeg_upd780_zexdoc`、`vaeg_upd780_zexall` | uPD780C | 標準の ZEXDOC/ZEXALL | Zilog の標準 CRC | 全グループ OK |
+| `vaeg_upd780_probes` | uPD780C | ZEX13S、ZEXIY、ZEXUND、ZEXED | Zilog の標準 CRC | 全グループ OK |
+| `vaeg_upd9002_brkem_upd70008` | uPD70008 のアダプタ | 合成データ: 本番のブリッジ、裏レジスタの保存、互換モードの CPU 速度 | 資料と M103a の記録から書いた期待値 | 固定ケース |
+| `vaeg_romless_tests`（`vaeg --selftest` の uPD780 部分） | uPD780C サブシステム | 合成データ: ステートの橋渡し、クロックとウェイト、HALT/IRQ の状態、IRQ アクノリッジ、スリープ経路、FDD 境界、EI の状態、交差配線した 8255 ポート | `tests/upd780/subsystem_integration.cpp` に書いた期待値 | 固定ケース |
+| `vaeg_z80_compat_*` | 共通バックエンド | ラッパーの約束事、旧インターフェースの約束事、ステート形式、素のコアとのトレース差分、素のコアでの ZEX | 素のコアと、バックエンド自身の過去の出力（レベル 4） | 一貫性のみ |
 
-The role checks run in the `compat-conformance` job. The probe programs are
-built with z80asm 1.8; without it the probe checks report a skip.
+役割ごとの検査は `compat-conformance` ジョブで動く。プローブプログラムは z80asm 1.8 で
+ビルドし、z80asm がなければプローブの検査はスキップを報告する。
 
-## 3. uPD70008-compatible mode: where it departs from Zilog, and what checks it
+## 3. uPD70008 互換モード: Zilog と異なる点と、その検査方法
 
-The mode is a Z80 superset (μPD780 instruction set plus `CALLN`/`RETEM`),
-not an 8080 mode (`docs/modernization/upd9002-upd70008-mode.md` §2.4), but
-its flag computation and undefined-opcode space differ from a Zilog Z80.
-Rules R1–R19 are defined in `docs/modernization/uPD9002-zex-results.md` §4.
+このモードは Z80 の上位互換（μPD780 の命令セットに `CALLN`/`RETEM` を加えたもの）であって
+8080 モードではない（`docs/modernization/upd9002-upd70008-mode.md` §2.4）。ただし、フラグの
+計算と未定義命令の領域が Zilog Z80 と異なる。規則 R1〜R19 の定義は
+`docs/modernization/uPD9002-zex-results.md` §4 にある。
 
-| Rule | Behaviour (summary) | Checked against real VA2 by |
+| 規則 | 挙動（要約） | 実機 VA2 との照合に使うもの |
 |---|---|---|
-| R1 | F bits 5/3 always read 0 and cannot be stored | ZEXALL CRCs; FLAGPRB P7 (exact) |
-| R2–R3 | AND and BIT clear H | ZEXALL CRCs; FLAGPRB P1/P2 |
-| R4 | RLCA/RRCA/RLA/RRA change only A and C | ZEXALL CRCs; FLAGPRB P3 |
-| R5 | LDI/LDD block flags | ZEXALL CRCs; FLAGPRB P4 |
-| R6–R7 | 16-bit ADD/ADC/SBC H rules | ZEXALL CRCs (ZEXDOC masks H in groups 1–4); FLAGPRB P5/P6 |
-| R8–R11 | CPL/SCF/CCF/DAA | DAA/CPL/SCF/CCF exhaustive dumps (4 × 16384 records, exact), DAADUMP, ZEX13S |
-| R12–R13 | `DD CB`/`FD CB` with a register operand: BIT tests the register, RES/SET modify only the register | CBPRB, all 1024 encodings × 2 input sets (runs 2 and 3, exact) |
-| R14 | undefined `ED 00`–`3F`, `74`/`75`/`77` load a word from the native page 0 | EDPRB3 (one variable at a time), EDPRB4 (all 256 `C` values), ED00/E200 prefixes, e264 records |
-| R15 | `ED 4C` duplicates `RETN` | ED00/E200 prefixes |
-| R16 | `ED 64`/`65`, `6C`/`6D` RRD/RLD also write `(HL+1)` | S200 (exact), e264 records |
-| R17–R18 | `ED 7C`–`A7` single and `AD`–`AF`/`B4`–`B7` repeated word transfers | S200, e264 records |
-| R19 | `ED BC`–`EC` consume one operand byte with no visible effect | e264 records |
-| IY halves | `FD 24/25/2C/2D` behave like the IX halves | ZEXIY (exact) |
+| R1 | F のビット5/3は常に0として読め、保存もできない | ZEXALL の CRC、FLAGPRB P7（完全一致） |
+| R2〜R3 | AND と BIT は H をクリアする | ZEXALL の CRC、FLAGPRB P1/P2 |
+| R4 | RLCA/RRCA/RLA/RRA は A と C だけを変える | ZEXALL の CRC、FLAGPRB P3 |
+| R5 | LDI/LDD のブロック転送のフラグ | ZEXALL の CRC、FLAGPRB P4 |
+| R6〜R7 | 16ビット ADD/ADC/SBC の H の規則 | ZEXALL の CRC（ZEXDOC はグループ1〜4で H を隠す）、FLAGPRB P5/P6 |
+| R8〜R11 | CPL/SCF/CCF/DAA | DAA/CPL/SCF/CCF の全入力ダンプ（4種 × 16384レコード、完全一致）、DAADUMP、ZEX13S |
+| R12〜R13 | レジスタオペランドの `DD CB`/`FD CB`: BIT はレジスタを調べ、RES/SET はレジスタだけを変える | CBPRB、全1024通り × 入力2組（run 2 と run 3、完全一致） |
+| R14 | 未定義 `ED 00`〜`3F`、`74`/`75`/`77` がネイティブ側のページ0からワードを読む | EDPRB3（1変数ずつ変化）、EDPRB4（`C` の全256値）、ED00/E200 の先頭一致、e264 のレコード |
+| R15 | `ED 4C` は `RETN` の重複 | ED00/E200 の先頭一致 |
+| R16 | `ED 64`/`65`、`6C`/`6D` の RRD/RLD は `(HL+1)` にも書く | S200（完全一致）、e264 のレコード |
+| R17〜R18 | `ED 7C`〜`A7` の1回分と、`AD`〜`AF`/`B4`〜`B7` の繰り返しのワード転送 | S200、e264 のレコード |
+| R19 | `ED BC`〜`EC` はオペランドを1バイト消費し、目に見える効果はない | e264 のレコード |
+| IY の半分 | `FD 24/25/2C/2D` は IX の半分と同じに振る舞う | ZEXIY（完全一致） |
 
-The R14 checks use the IVT page reconstructed from real run 8, which the CP/M
-runner passes to the role configuration. In the emulator the same opcodes
-read the guest's live page 0; the two agree only while the guest has not
-hooked those vectors (run 10 differed in three RAM-hooked vectors).
+R14 の検査では、実機 run 8 から再構成した IVT ページを CP/M ランナーが役割設定に渡す。
+エミュレータ上では同じ命令がゲストの実際のページ0を読むので、両者が一致するのは、ゲストが
+該当するベクタを書き換えていない間だけである（run 10 では RAM 上にフックされた3つのベクタが
+異なった）。
 
-### What ZEXDOC/ZEXALL alone cannot establish
+### ZEXDOC/ZEXALL だけでは確かめられないこと
 
-- A group CRC covers only the state space ZEX exercises; a match says nothing
-  outside it (`uPD9002-zex-results.md` C5).
-- ZEXDOC masks hide H in groups 1–4 and S, P/V in the BIT groups (C1).
-- Groups 29–31 are degenerate for Y/X (C2); F never enters with bits 5/3 set,
-  so storage of those bits is not exercised (C4).
-- The `iyh`/`iyl` groups execute `DD`-prefixed opcodes; the real IY halves
-  are not exercised (C3).
-- No undocumented `DD CB`/`FD CB` register forms and no undefined `ED`
-  opcodes are exercised.
+- グループ CRC が覆うのは ZEX が実行する状態空間だけで、その外については何も言えない
+  （`uPD9002-zex-results.md` C5）。
+- ZEXDOC のマスクは、グループ1〜4で H を、BIT のグループで S と P/V を隠す（C1）。
+- グループ29〜31は Y/X について縮退している（C2）。F がビット5/3を立てた状態で入ることが
+  ないので、これらのビットの保存は検査されない（C4）。
+- `iyh`/`iyl` のグループは実際には `DD` プレフィックスの命令を実行しており、本物の IY の
+  半分は検査されない（C3）。
+- 非公開のレジスタ形式の `DD CB`/`FD CB` も、未定義の `ED` 命令も実行しない。
 
-Each of these gaps is closed by a probe in the table above, against real
-VA2 output.
+これらの抜けは、上の表のプローブがそれぞれ実機 VA2 の出力に対して埋めている。
 
-## 4. uPD70008-compatible mode: not checked by the external level
+## 4. uPD70008 互換モード: 外部レベルで検査していないもの
 
-| Area | Why not | Where it is covered, if anywhere |
+| 対象 | 理由 | 検査されている場所 |
 |---|---|---|
-| Undefined `ED 54`/`55`, `AC`, `EE`–`FC` (leave compatible mode), `5C` (hang), `5D` (fault) | only symptoms were observed; vaeg does not emulate them | nowhere |
-| `ED` word transfer with `BC = 0` on entry | not measured; vaeg copies 65536 words like `LDIR` | nowhere |
-| `IM` duplicates (`ED 4E/66/6E/76/7E`) and `LD A,R` | excluded from the probes by design | nowhere against hardware |
-| `IN`/`OUT` family | the CP/M runner rejects I/O; INPRB is real-machine only | local level A only |
-| Mode transitions `BRKEM`/`BRKEM2`, `CALLN`, `RETEM`; native servicing of interrupts taken in compatible mode; `RETI` re-entry | adapter and native side, not the backend | `vaeg_upd9002_brkem_upd70008` (synthetic); local level A |
-| The `CALLN`/`RETI` carry question (`upd9002-upd70008-mode.md` §3.2) | unresolved on hardware | open |
-| HALT/standby rules across modes (§3.5) | needs interrupts from the machine | local level A |
-| Z80 interrupt modes `IM 0/1/2` in compatible mode | `[UNKNOWN]` on hardware (§3.5) | open |
-| Segment bases (code/data translation) and the live IVT | adapter glue | `vaeg_upd9002_brkem_upd70008`; local level A |
-| Cycle counts and bus timing | no hardware timing record | nowhere; `docs/modernization/z80-compat-cycle-deltas.md` records backend-versus-bare-core deltas only |
-| ZEXUND and ZEXED complete results | the real runs did not close their files (screen photographs only) | open |
+| 未定義 `ED 54`/`55`、`AC`、`EE`〜`FC`（互換モードを抜ける）、`5C`（停止）、`5D`（異常） | 症状しか観察されておらず、vaeg もエミュレートしていない | なし |
+| 入口で `BC = 0` のときの `ED` ワード転送 | 測定していない。vaeg は `LDIR` と同様に65536ワードを転送する | なし |
+| `IM` の重複（`ED 4E/66/6E/76/7E`）と `LD A,R` | 設計上プローブから外している | 実機との照合なし |
+| `IN`/`OUT` 系 | CP/M ランナーは I/O を拒否する。INPRB は実機専用 | ローカルレベル A のみ |
+| モード遷移の `BRKEM`/`BRKEM2`、`CALLN`、`RETEM`、互換モード中に受け付けた割り込みのネイティブ側での処理、`RETI` での復帰 | バックエンドではなく、アダプタとネイティブ側の担当 | `vaeg_upd9002_brkem_upd70008`（合成データ）、ローカルレベル A |
+| `CALLN`/`RETI` のキャリーの問題（`upd9002-upd70008-mode.md` §3.2） | 実機で未解決 | 未解決 |
+| モードをまたぐ HALT/スタンバイの規則（§3.5） | 機械からの割り込みが必要 | ローカルレベル A |
+| 互換モードでの Z80 割り込みモード `IM 0/1/2` | 実機で `[UNKNOWN]`（§3.5） | 未解決 |
+| セグメントベース（コード/データの変換）と実際の IVT | アダプタのつなぎ込み部分 | `vaeg_upd9002_brkem_upd70008`、ローカルレベル A |
+| サイクル数とバスタイミング | 実機のタイミング記録がない | なし。`docs/modernization/z80-compat-cycle-deltas.md` はバックエンドと素のコアの差分だけを記録している |
+| ZEXUND と ZEXED の完全な結果 | 実機での実行がファイルを閉じなかった（画面写真のみ） | 未解決 |
 
-## 5. uPD780C: checked and not checked
+## 5. uPD780C: 検査しているものと、していないもの
 
-Checked externally: Zilog conformance of the configured backend over ZEXDOC,
-ZEXALL, ZEX13S, ZEXIY, ZEXUND and ZEXED (every group OK), and synthetic
-subsystem integration through `vaeg --selftest`.
+外部レベルで検査しているもの: ZEXDOC、ZEXALL、ZEX13S、ZEXIY、ZEXUND、ZEXED での、設定した
+バックエンドの Zilog 準拠（全グループ OK）と、`vaeg --selftest` による合成データでの
+サブシステム結合テスト。
 
-Not checked externally, and why:
+外部レベルで検査していないものと、その理由:
 
-- Any real uPD780C behaviour: no measurement exists. Planned evidence would
-  run the same probe programs on the FDC CPU of a real VA, which needs a
-  harness in `vasubsys.rom`'s environment.
-- The FDC firmware itself (`vasubsys.rom`) and its traffic with the uPD765
-  and the main CPU: needs the NEC ROM, so local level A only.
-- Interrupt acceptance and timing on the real board, `HALT`/sleep paths
-  beyond the synthetic cases, and cycle counts.
+- 実際の uPD780C の挙動。測定がない。証拠を得るには、同じプローブプログラムを実機 VA の
+  FDC 側 CPU で動かす必要があり、`vasubsys.rom` の環境で動くハーネスが要る。
+- FDC ファームウェア（`vasubsys.rom`）そのものと、uPD765 やメイン CPU とのやりとり。NEC の
+  ROM が必要なので、ローカルレベル A のみ。
+- 実際のボード上での割り込み受け付けとタイミング、合成ケースを超える `HALT`/スリープ経路、
+  サイクル数。
 
-## 6. Reading a result
+## 6. 結果の読み方
 
-- `vaeg_upd70008_*` passing means: for every listed program and record, the
-  emulated uPD70008-compatible mode reproduces the real PC-88VA2 output. It
-  does not cover section 4.
-- `vaeg_upd780_*` passing means: the FDC CPU behaves as a Zilog Z80 on the
-  exercised state space. It does not mean the uPD780C was verified.
-- Swapping the two role manifests makes both probe checks fail, so the
-  checks do distinguish the roles.
+- `vaeg_upd70008_*` の合格が意味するのは、列挙したすべてのプログラムとレコードについて、
+  エミュレートした uPD70008 互換モードが実機 PC-88VA2 の出力を再現する、ということである。
+  第4節の内容は含まない。
+- `vaeg_upd780_*` の合格が意味するのは、実行した状態空間で FDC 側 CPU が Zilog Z80 として
+  振る舞う、ということである。uPD780C を検証したことにはならない。
+- 2つの役割の照合リストを入れ替えると両方のプローブ検査が失敗するので、検査は2つの役割を
+  区別できている。
 
-Update procedure and file formats: `tools/qa/z80_role_probes.py` (manifests
-`tests/z80_compat/upd70008_probes.json`, `upd780_probes.json`) and
-`tests/z80_compat/*_zex*_expected.txt`.
+更新手順とファイル形式: `tools/qa/z80_role_probes.py`（照合リスト
+`tests/z80_compat/upd70008_probes.json`、`upd780_probes.json`）と
+`tests/z80_compat/*_zex*_expected.txt`。
