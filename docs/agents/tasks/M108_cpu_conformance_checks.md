@@ -63,6 +63,13 @@ deletion list, M108 then removes the G43-G70 SST history data under
 state is commit `884b7dca97b6576007baa235b81a2597fa5f0c22`. The g70 dispatch
 tables stay because `upd9002_protected_deletion.py` reads them.
 
+The V20 check leaves the documented target-absent forms (0F31/33/39/3B,
+6C-6F, 63) unjudged; every judged record passes. The QA levels and the
+per-CPU boundaries of what the external checks do and do not establish are
+documented in `docs/modernization/qa/README.md`,
+`docs/modernization/qa/upd9002-native.md`, and
+`docs/modernization/qa/z80-family.md`.
+
 ## Gate G108 (machine-verifiable)
 
 ```sh

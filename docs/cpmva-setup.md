@@ -201,7 +201,7 @@ with the production compile definitions. `--profile` selects a bare flag
 profile, as `host_reference.py` uses it; `--role upd70008` or `--role upd780`
 applies that role's production core configuration instead. The role checks
 `vaeg_upd70008_probes` and `vaeg_upd780_probes` use the role form; see
-`docs/modernization/cpu-conformance-checks.md`.
+`docs/modernization/qa/z80-family.md`.
 
 ## Troubleshooting
 
