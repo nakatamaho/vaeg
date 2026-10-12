@@ -1439,6 +1439,39 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_worker_selftest PROPERTIES
         LABELS "romless;upd9002;ssts;harness" TIMEOUT 60)
 
+    # uPD9002 native-mode check against the SingleStepTests V20 corpus:
+    # regressions and stale entries against tests/ssts/v20/baseline_ci.json.
+    add_test(NAME vaeg_sst_v20_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" selftest)
+    add_test(NAME vaeg_sst_v20_baseline
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" validate
+            --baseline "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20/baseline_ci.json")
+    set_tests_properties(vaeg_sst_v20_selftest vaeg_sst_v20_baseline PROPERTIES
+        LABELS "romless;upd9002;ssts;sst-v20")
+    if(VAEG_SSTS_V20_ROOT)
+        add_test(NAME vaeg_sst_v20_ci
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" ci
+                --dataset-root "${VAEG_SSTS_V20_ROOT}"
+                --manifest "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20_dataset_manifest.json"
+                --worker "$<TARGET_FILE:vaeg_sdl2>"
+                --baseline "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20/baseline_ci.json"
+                --output "${CMAKE_CURRENT_BINARY_DIR}/sst-v20/ci_result.json")
+        set_tests_properties(vaeg_sst_v20_ci PROPERTIES
+            LABELS "romless;upd9002;ssts;sst-v20;external"
+            TIMEOUT 1800)
+    else()
+        add_test(NAME vaeg_sst_v20_ci
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" skip
+                --reason "VAEG_SSTS_V20_ROOT is not configured")
+        set_tests_properties(vaeg_sst_v20_ci PROPERTIES
+            LABELS "romless;upd9002;ssts;sst-v20;external"
+            SKIP_RETURN_CODE 77)
+    endif()
+
     foreach(profile ci full)
         add_test(NAME vaeg_upd9002_ssts_${profile}_baseline
             COMMAND "${Python3_EXECUTABLE}"

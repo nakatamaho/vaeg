@@ -77,7 +77,7 @@ jobs:
           path: build/pc88va-guest-drivers/
 
   upd9002-ssts:
-    name: uPD9002 architectural SST ratchet
+    name: uPD9002 native SST V20 check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -105,10 +105,10 @@ jobs:
           -DVAEG_SSTS_V20_ROOT=${{ github.workspace }}/build/ssts-v20-cache/singlesteptests-v20-9efbd02b8ec1a3aad347c2b59672ad25f3bcdb21
       - name: Build verified SST worker
         run: cmake --build --preset linux-ci-gcc --target vaeg_sdl2
-      - name: Enforce architectural CI ratchet
+      - name: Check uPD9002 native mode against the V20 baseline
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_upd9002_(ssts_(selftest|ratchet_selftest|ratchet_static|evidence_selftest|evidence_static|worker_selftest|ci_external)|m60a_evidence_(selftest|static)|m60b_authority_(selftest|static)|m60c_(erratum|audit)_(selftest|static)|m60d_frame_(selftest|static))$'
+          -R '^vaeg_(sst_v20_(selftest|baseline|ci)|upd9002_ssts_worker_selftest)$'
 
   linux:
     name: ubuntu ${{ matrix.compiler }} compatibility
