@@ -25,6 +25,8 @@
 
 #include "cpu/upd9002_upd70008_core_config.h"
 
-void Upd9002Upd70008ConfigureCore(Z80CompatCpu *cpu) {
+void Upd9002Upd70008ConfigureCore(Z80CompatCpu *cpu,
+                                  Z80CompatCpu::NativeVectorRead native_vector_read, void *opaque) {
 	cpu->SetFlagProfile(Z80CompatFlagProfile::kUpd9002);
+	cpu->SetNativeVectorRead(native_vector_read, opaque);
 }

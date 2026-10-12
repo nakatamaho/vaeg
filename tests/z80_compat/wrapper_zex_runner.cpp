@@ -333,7 +333,8 @@ int main(int argc, char **argv) {
 	// A role takes the production configuration of that CPU instead of a
 	// fixed profile, so the role checks follow role-specific changes.
 	if (role == "upd70008") {
-		Upd9002Upd70008ConfigureCore(&machine.cpu);
+		// ZEX never executes the undefined ED opcodes that read the IVT.
+		Upd9002Upd70008ConfigureCore(&machine.cpu, nullptr, nullptr);
 	} else if (role == "upd780") {
 		Upd780ConfigureCore(&machine.cpu);
 	} else {

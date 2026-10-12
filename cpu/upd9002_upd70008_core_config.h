@@ -31,6 +31,10 @@
 // Instruction-semantics configuration of the shared backend in the uPD9002
 // uPD70008-compatible mode. The production adapter and the role conformance
 // tests both call this, so the tests follow any role-specific change.
-void Upd9002Upd70008ConfigureCore(Z80CompatCpu *cpu);
+// native_vector_read supplies the native-side physical page 0 (the x86 IVT)
+// read by the undefined ED 00-3F/74/75/77; production passes the live page,
+// tests pass a recorded one, and nullptr reads the page as 0x00.
+void Upd9002Upd70008ConfigureCore(Z80CompatCpu *cpu,
+                                  Z80CompatCpu::NativeVectorRead native_vector_read, void *opaque);
 
 #endif
