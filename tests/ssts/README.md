@@ -22,6 +22,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # SingleStepTests V20 comparison data
 
+The current hosted check is `tools/qa/sst_v20.py` with the baseline
+`v20/baseline_ci.json`; see `docs/modernization/cpu-conformance-checks.md`.
+The scoreboards, campaigns, and evidence below are the earlier G43-G66b
+records and are no longer what hosted CI enforces.
+
 The uPD9002 comparison uses the MIT-licensed `v1_native` corpus from
 <https://github.com/SingleStepTests/v20> at the exact commit recorded in
 `v20_dataset_manifest.json`. The upstream corpus is external test data and is
