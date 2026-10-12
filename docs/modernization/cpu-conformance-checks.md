@@ -32,10 +32,14 @@ expectations of another.
 |---|---|---|---|---|
 | uPD9002 native mode | SingleStepTests V20 `v1_native`, one instruction per record | V20 hardware captures (upstream corpus) | `tests/ssts/v20/baseline_ci.json` | `vaeg_sst_v20_ci` |
 | uPD9002 uPD70008-compatible mode (BRKEM) | ZEXDOC and ZEXALL | real PC-88VA2 group CRCs | `tests/z80_compat/upd9002_zex{doc,all}_expected.txt` | `vaeg_upd70008_zexdoc`, `vaeg_upd70008_zexall` |
+| | M101/M102 probe programs | real PC-88VA2 output files | `tests/z80_compat/upd70008_probes.json` | `vaeg_upd70008_probes` |
 | FDC subsystem uPD780C | ZEXDOC and ZEXALL | stock Zilog Z80 CRCs carried by ZEX | `tests/z80_compat/upd780_zex{doc,all}_expected.txt` | `vaeg_upd780_zexdoc`, `vaeg_upd780_zexall` |
+| | ZEX13S, ZEXIY, ZEXUND, ZEXED | stock Zilog Z80 CRCs | `tests/z80_compat/upd780_probes.json` | `vaeg_upd780_probes` |
 
 All three are ROM-less and run in hosted CI: the V20 check in the
-`upd9002-ssts` job, the ZEX role checks in the `compat-conformance` job.
+`upd9002-ssts` job, the ZEX and probe role checks in the `compat-conformance`
+job, which installs z80asm 1.8 for the probe programs. Without z80asm the
+probe checks report a skip.
 
 ## uPD9002 native mode: SST V20
 
@@ -87,7 +91,9 @@ the new check therefore also guards the 1383 INS/OUTS records that pass.
 
 `vaeg_z80_compat_role_zex_runner` runs ZEX on the shared backend built with
 the production compile definitions. With `--role upd70008` it applies
-`Upd9002Upd70008ConfigureCore` (`cpu/upd9002_upd70008_core_config.cpp`); with
+`Upd9002Upd70008ConfigureCore` (`cpu/upd9002_upd70008_core_config.cpp`),
+which sets the uPD9002 flag profile and the reader of the native-side page 0
+(the x86 IVT) that the undefined ED 00-3F/74/75/77 read; with
 `--role upd780` it applies `Upd780ConfigureCore`
 (`cpu/upd780/upd780_core_config.cpp`). Production calls the same functions:
 the uPD9002 adapter when it initializes its core, and the subsystem when it
@@ -101,7 +107,58 @@ file holds the real PC-88VA2 results recorded in
 group to match the stock Z80 CRC; no real uPD780C result exists yet, so this
 records the configured Zilog behaviour, not verified hardware behaviour.
 
-The ROM-independent coverage limit: the role checks exercise instruction
-semantics through each role's core configuration. Adapter memory and I/O
-glue (segment bases, the native vector reader, subsystem ports) is covered by
-`vaeg_upd9002_brkem_upd70008` and by local ROM tiers, not by ZEX.
+## Probe programs per role
+
+`tools/qa/z80_role_probes.py` builds the M101/M102 CP/M programs from tracked
+sources with z80asm 1.8 and runs them with `vaeg_cpm_runner --role <role>`,
+which applies the same role configuration as production. Each manifest entry
+names a program, one output file, and a judgement:
+
+| Mode | Meaning |
+|---|---|
+| `exact` | the output equals a recorded file byte for byte |
+| `prefix` | a recorded file that stopped early is a prefix of the output |
+| `zex_all_ok` | a ZEX-style output completed with the given number of groups, all OK |
+
+Stable codes: `Z80_ROLE_EXACT_MISMATCH`, `Z80_ROLE_PREFIX_MISMATCH`,
+`Z80_ROLE_ZEX_GROUP`, `Z80_ROLE_OUTPUT_MISSING`, `Z80_ROLE_RUN_FAILED`,
+`Z80_ROLE_MANIFEST`.
+
+uPD70008-compatible mode, against real PC-88VA2 files from
+`docs/agents/reports/m101_zexall_qa` and `m102_zexund_qa`:
+
+| Program | Output | Judgement |
+|---|---|---|
+| `DAADUMP` | `DAA.BIN`, `CPL.BIN`, `SCF.BIN`, `CCF.BIN`, `DAADUMP.TXT` | exact |
+| `FLAGPRB` | `FLAGPRB.TXT` | exact |
+| `ZEX13S` | `ZEX13S.TXT` | exact |
+| `ZEXIY` | `ZEXIY.TXT` | exact |
+| `CBPRB` | `CBPRB.TXT` (runs 2 and 3) | exact |
+| `EDPRB2S` | `S200.TXT` (runs 4 and 5) | exact |
+| `EDPRB3` | `EDPRB3.TXT` (runs 7 and 8) | exact |
+| `EDPRB4` | `EDPRB4.TXT` (run 8; the 256-point IVT sweep) | exact |
+| `EDPRB` | `ED00.TXT` (runs 2, 3, 5) | prefix |
+| `EDPRB2` | `E200.TXT` (runs 4 and 5) | prefix |
+
+The runner supplies the native-side page reconstructed from run 8, so the
+undefined-ED results match the real machine. Not checked: the empty and
+restarted per-opcode files of runs 3 and 5 (written after the unsandboxed
+`EDPRB` had corrupted the program), `INPRB` (real-machine I/O), and
+`ZEXUND`/`ZEXED`, whose real-machine results exist only as screen
+photographs. `EDPRB` stops early on the host as it did on the real machine
+and is marked `may_fail`.
+
+FDC uPD780C: `ZEX13S` (10 groups), `ZEXIY` (8), `ZEXUND` (12), and `ZEXED`
+(24) must complete with every group OK, that is, the stock Zilog CRCs.
+
+Swapping the roles makes both checks fail, so the two manifests discriminate
+the roles.
+
+## Coverage limit
+
+The role checks exercise instruction semantics through each role's core
+configuration. Mode transitions (BRKEM, RETEM, CALLN), alternate-register
+storage across the modes (ALTPRB), 8214-mode interrupts, and the CPU speed in
+the compatible mode belong to the adapter. They are covered by the synthetic
+`vaeg_upd9002_brkem_upd70008` and by local ROM-tier runs, not by these
+checks.
