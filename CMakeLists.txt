@@ -1572,10 +1572,23 @@ if(VAEG_ENABLE_TESTS)
         -Wall -fsigned-char)
 
     add_executable(vaeg_z80_compat_wrapper_zex_runner
-        tests/z80_compat/wrapper_zex_runner.cpp)
+        tests/z80_compat/wrapper_zex_runner.cpp
+        cpu/upd780/upd780_core_config.cpp
+        cpu/upd9002_upd70008_core_config.cpp)
     target_link_libraries(vaeg_z80_compat_wrapper_zex_runner PRIVATE
         vaeg_z80_compat_wrapper_no_functional)
     target_compile_options(vaeg_z80_compat_wrapper_zex_runner PRIVATE
+        -Wall -fsigned-char)
+
+    # Role ZEX runner: the shared backend with the production compile
+    # definitions and each role's production core configuration.
+    add_executable(vaeg_z80_compat_role_zex_runner
+        tests/z80_compat/wrapper_zex_runner.cpp
+        cpu/upd780/upd780_core_config.cpp
+        cpu/upd9002_upd70008_core_config.cpp)
+    target_link_libraries(vaeg_z80_compat_role_zex_runner PRIVATE
+        vaeg_z80_compat_wrapper)
+    target_compile_options(vaeg_z80_compat_role_zex_runner PRIVATE
         -Wall -fsigned-char)
 
     add_executable(vaeg_upd780_disasm
@@ -1937,14 +1950,25 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_compat_wrapper_zexall
             COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        # Role checks: uPD9002 uPD70008-compatible mode against the real
+        # PC-88VA2 CRCs, FDC uPD780C against the stock Z80 CRCs. Each role
+        # has its own expectation file so the roles can diverge.
         foreach(suite zexdoc zexall)
-            add_test(NAME vaeg_z80_compat_wrapper_upd9002_${suite}
-                COMMAND vaeg_z80_compat_wrapper_zex_runner
-                    --profile upd9002
+            add_test(NAME vaeg_upd70008_${suite}
+                COMMAND vaeg_z80_compat_role_zex_runner
+                    --role upd70008
                     --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd9002_${suite}_expected.txt"
                     "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
-            set_tests_properties(vaeg_z80_compat_wrapper_upd9002_${suite} PROPERTIES
-                LABELS "romless;compatibility;zex;wrapper;upd9002"
+            set_tests_properties(vaeg_upd70008_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;role;upd70008;upd9002"
+                TIMEOUT 900)
+            add_test(NAME vaeg_upd780_${suite}
+                COMMAND vaeg_z80_compat_role_zex_runner
+                    --role upd780
+                    --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd780_${suite}_expected.txt"
+                    "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
+            set_tests_properties(vaeg_upd780_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;role;upd780"
                 TIMEOUT 900)
         endforeach()
         set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES

@@ -1,0 +1,92 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# Expected stock ZEXDOC group results for the FDC subsystem uPD780C role.
+# Format: <group> OK | <group> ERROR <expected-crc> <found-crc>
+# Every group equals the stock Zilog Z80 CRC that ZEX carries. This is the
+# configured Zilog flag behaviour; no real uPD780C result is recorded yet.
+1 OK
+2 OK
+3 OK
+4 OK
+5 OK
+6 OK
+7 OK
+8 OK
+9 OK
+10 OK
+11 OK
+12 OK
+13 OK
+14 OK
+15 OK
+16 OK
+17 OK
+18 OK
+19 OK
+20 OK
+21 OK
+22 OK
+23 OK
+24 OK
+25 OK
+26 OK
+27 OK
+28 OK
+29 OK
+30 OK
+31 OK
+32 OK
+33 OK
+34 OK
+35 OK
+36 OK
+37 OK
+38 OK
+39 OK
+40 OK
+41 OK
+42 OK
+43 OK
+44 OK
+45 OK
+46 OK
+47 OK
+48 OK
+49 OK
+50 OK
+51 OK
+52 OK
+53 OK
+54 OK
+55 OK
+56 OK
+57 OK
+58 OK
+59 OK
+60 OK
+61 OK
+62 OK
+63 OK
+64 OK
+65 OK
+66 OK
+67 OK

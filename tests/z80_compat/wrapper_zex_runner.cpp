@@ -23,6 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cpu/upd780/upd780_core_config.h"
+#include "cpu/upd9002_upd70008_core_config.h"
 #include "cpu/z80_compat_cpu.h"
 #include "cpu/z80_compat_state.h"
 
@@ -213,8 +215,8 @@ void DumpFailure(Machine *machine, const std::string &reason) {
 
 void Usage(const char *program) {
 	std::cerr << "usage: " << program
-	          << " [--max-clocks count] [--max-seconds seconds] [--profile zilog|upd9002]"
-	             " [--expect file] file.cim\n";
+	          << " [--max-clocks count] [--max-seconds seconds]"
+	             " [--profile zilog|upd9002 | --role upd70008|upd780] [--expect file] file.cim\n";
 }
 
 // Read "<group> OK" or "<group> ERROR <expected> <found>" lines; '#' starts a
@@ -271,15 +273,24 @@ int main(int argc, char **argv) {
 	std::string artifact;
 	std::string expect_path;
 	Z80CompatFlagProfile profile = Z80CompatFlagProfile::kZilog;
+	bool profile_given = false;
+	std::string role;
 	for (int index = 1; index < argc; ++index) {
 		const std::string argument = argv[index];
 		if (argument == "--profile" && index + 1 < argc) {
+			profile_given = true;
 			const std::string value = argv[++index];
 			if (value == "zilog") {
 				profile = Z80CompatFlagProfile::kZilog;
 			} else if (value == "upd9002") {
 				profile = Z80CompatFlagProfile::kUpd9002;
 			} else {
+				Usage(argv[0]);
+				return 2;
+			}
+		} else if (argument == "--role" && index + 1 < argc) {
+			role = argv[++index];
+			if (role != "upd70008" && role != "upd780") {
 				Usage(argv[0]);
 				return 2;
 			}
@@ -307,7 +318,8 @@ int main(int argc, char **argv) {
 			return 2;
 		}
 	}
-	if (artifact.empty() || max_seconds > std::numeric_limits<unsigned int>::max()) {
+	if (artifact.empty() || max_seconds > std::numeric_limits<unsigned int>::max() ||
+	    (profile_given && !role.empty())) {
 		Usage(argv[0]);
 		return 2;
 	}
@@ -318,7 +330,15 @@ int main(int argc, char **argv) {
 	}
 
 	Machine machine;
-	machine.cpu.SetFlagProfile(profile);
+	// A role takes the production configuration of that CPU instead of a
+	// fixed profile, so the role checks follow role-specific changes.
+	if (role == "upd70008") {
+		Upd9002Upd70008ConfigureCore(&machine.cpu);
+	} else if (role == "upd780") {
+		Upd780ConfigureCore(&machine.cpu);
+	} else {
+		machine.cpu.SetFlagProfile(profile);
+	}
 	if (!machine.LoadProgram(artifact)) {
 		return 1;
 	}
