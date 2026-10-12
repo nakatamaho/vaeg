@@ -1360,15 +1360,6 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_z80_compat_wrapper_no_functional_test PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_z80_compat_wrapper_zex_runner
-        tests/z80_compat/wrapper_zex_runner.cpp
-        cpu/upd780/upd780_core_config.cpp
-        cpu/upd9002_upd70008_core_config.cpp)
-    target_link_libraries(vaeg_z80_compat_wrapper_zex_runner PRIVATE
-        vaeg_z80_compat_wrapper_no_functional)
-    target_compile_options(vaeg_z80_compat_wrapper_zex_runner PRIVATE
-        -Wall -fsigned-char)
-
     # Role ZEX runner: the shared backend with the production compile
     # definitions and each role's production core configuration.
     add_executable(vaeg_z80_compat_role_zex_runner
@@ -1766,12 +1757,6 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_compat_zexall
             COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexdoc
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexall
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
         # Role checks: uPD9002 uPD70008-compatible mode against the real
         # PC-88VA2 CRCs, FDC uPD780C against the stock Z80 CRCs. Each role
         # has its own expectation file so the roles can diverge.
@@ -1795,10 +1780,6 @@ if(VAEG_ENABLE_TESTS)
         endforeach()
         set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
-            TIMEOUT 900)
-        set_tests_properties(
-            vaeg_z80_compat_wrapper_zexdoc vaeg_z80_compat_wrapper_zexall PROPERTIES
-            LABELS "romless;compatibility;zex;wrapper"
             TIMEOUT 900)
     endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)

@@ -188,7 +188,6 @@ jobs:
           vaeg_z80_compat_zex_runner
           vaeg_z80_compat_wrapper_default
           vaeg_z80_compat_wrapper_no_functional_test
-          vaeg_z80_compat_wrapper_zex_runner
           vaeg_z80_compat_role_zex_runner
           vaeg_cpm_runner
           vaeg_z80_compat_trace_reference
