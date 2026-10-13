@@ -336,6 +336,19 @@ mode lamp follows V1/V2/V3.
   PC-8801MA2 N88.ROM in 32669 of 32768 bytes) does not read tape on `O`
   (it uses `R`), so `RUN` stops with `?`; typing `mon`, `R`, `GE2A0`, `R`,
   `GA000` by hand runs it. Not an emulation fault as far as determined.
+  Rechecked in V1 (maintainer: these are V1 programs; on a real PC-8801
+  they loaded, provided the tape image is faithful). Two such tapes, V1 S
+  and V1 H on the VA: N-88 BASIC 1.9 loads the BASIC part; the auto-typed
+  `o0,0` returns at once without reading tape, as in V2. `[ROM]` `MON`
+  jumps through E826h, which switches port 31h to the N-BASIC ROM and
+  enters its monitor at 6002h; the monitor's command table (6000h-7FFFh)
+  and its `O` handler (port output: `OUT (C),L`) are identical in the
+  maintainer's 1981 PC-8801 ROM and in the VA and VA2 ROMs, and the RAM
+  pre-dispatch hook E66Fh is a bare `RET` in V1 and V2. `R` is the tape
+  read. So with these ROMs `o0,0` writes 00h to port 00h and cannot load
+  the machine-code blocks that follow the BASIC part on both tapes; the
+  tape images (or the monitor they were written for) differ from what
+  this ROM accepts. No vaeg defect found.
 - HDD boot (maintainer: on hardware the setup menu's 起動ディスク must be
   固定ディスク; in vaeg it can be always on, like Main_RAM): flipping each bit
   of the memory-switch record B1FC0h-B1FC7h in turn (vaeg, VA2 ROM, SASI
