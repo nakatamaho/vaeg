@@ -369,4 +369,8 @@ mode lamp follows V1/V2/V3.
   image (the VA starts N88-BASIC with no media again; the VA2 shows the
   disk message with no media, as it did before and as observed on
   hardware). Selftest covers set and clear (three mutations caught).
+  Wording corrected later: the VA with the bit set and no media hangs at a
+  bare cursor (no message), and the maintainer notes that state cannot
+  arise on hardware, where the setup cannot select a fixed disk without
+  one; clearing the bit keeps vaeg in a reachable state.
   [c4db4df9](https://github.com/nakatamaho/vaeg/commit/c4db4df93c7698e7589300a7b0414c87e3081f24).

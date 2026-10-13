@@ -591,9 +591,10 @@ makes the BIOS setup's 起動ディスク follow the attached media, so a SASI o
 hard disk boots without opening the setup menu with the PC key. At
 startup/reset vaeg sets bit 7 of B1FC4h (固定ディスク) when a hard disk is
 attached and clears it (フロッピーディスク) otherwise, in a backup-memory record
-that carries the BIOS signature, and corrects its checksum. Clearing matters:
-with the bit set and no hard disk, the original VA stops at its "insert the
-correct disk" message instead of starting N88-BASIC. A bootable floppy in
+that carries the BIOS signature, and corrects its checksum. Clearing keeps a
+state the hardware can reach: a real machine cannot select the fixed disk
+without one, and the original VA otherwise hangs instead of starting
+N88-BASIC. A bootable floppy in
 drive 1 still boots first. With `false` the record is left as the BIOS setup
 wrote it.
 
