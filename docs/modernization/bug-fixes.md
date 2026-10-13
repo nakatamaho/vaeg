@@ -60,6 +60,10 @@ land.
   change; all other SGP builds are byte-identical. The pseudo-sprite,
   all-demos and all-demos-msdos4 disks are rebuilt; only those four
   programs differ on them.
+- **Also resolved:** SGPD_7C stalling under MS-DOS 4.0 in vaeg (noted
+  during the M106 LINE work and deferred): the rebuilt program runs and
+  leaves on ESC to a working prompt; the old one now stops at its
+  `0F 85` (see below).
 - **Verification:** no `0F 8x` remains in any rebuilt program; SGPD_7C,
   SGPD_7D, SGP256S and SGP256T draw with correct colours in vaeg (VA2)
   from the rebuilt PC-Engine 1.1 and MS-DOS 4.0 disks, where the old
@@ -2788,6 +2792,31 @@ separate parity correction or move it to Open Defects.
 - **Next step:** reduce the program's exit path to the first divergent
   step on the hardware, then compare with vaeg.
 
+### M106 — GLASS, NEON3 and NEON4 do not run on the original VA model
+
+- **Symptom/scope:** in vaeg with the original VA ROM (`--model va`), the
+  ROM's PC-Engine 1.0 starts from the PC-Engine 1.1 all-demos disk; there
+  GLASS stops with nothing drawn (magenta cursor), NEON3 fills the screen
+  with garbled text and NEON4 shows nothing (2026-10-13, with the disks
+  rebuilt after the `0F 8x` fix; the same with the older disks). The SGP
+  pseudo-sprite and wireframe programs run. On the VA2 model all of them
+  run. Whether a real original VA behaves the same is not known (the
+  maintainer's hardware is a VA2).
+- **Cause:** not established; none of these programs contains `0F 8x`.
+- **Next step:** compare the PC-Engine 1.0 and 1.1 services these programs
+  call (graphics BIOS, SGP and text BIOS entry points).
+
+### M106 — SGPD_7A FPS digits are solid blocks on the original VA model
+
+- **Symptom/scope:** in vaeg with the original VA ROM, the FPS/count glyphs
+  of `SPRITE\16\SGPD_7A.COM` (drawn by SGP into graphics) show as a row of
+  solid blocks; the balls and background are correct. The same under
+  PC-Engine and from the self-booting SGP disk; on the VA2 model the digits
+  are readable. Real original-VA behaviour is not known.
+- **Cause:** not established.
+- **Next step:** compare the glyph source data and the SGP transfer of the
+  overlay between the VA and VA2 models.
+
 ### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 
 - **Symptom/scope:** the sound made through port 40h sounds odd, as if its
@@ -2802,6 +2831,8 @@ separate parity correction or move it to Open Defects.
   Known separately: with the speed slider away from 100 % the BEEP is
   garbled because it is built from CPU-clock on/off events while the host
   consumes samples in real time (`sdl2/README.md`).
+  Later report (maintainer, M106): the `BEEP` pitch is wrong too, so the
+  plain buzzer is not the reference it seemed to be above.
 - **Status:** not investigated; no root cause is claimed. Moved to a later
   milestone by the maintainer.
 
