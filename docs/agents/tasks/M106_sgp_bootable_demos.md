@@ -254,3 +254,14 @@ mode lamp follows V1/V2/V3.
   directions re-encoded) runs correctly on the PC-88VA2 (maintainer,
   2026-10-09), and so do the 16-, 256- and 65536-colour SGPWIRE. The other
   programs on that disk are not yet reported.
+- Hardware (PC-88VA2, PC-Engine 1.1, all-demos disk, maintainer
+  2026-10-09): GLASS, NEON3, NEON4 16/65536, SGPWIRE 16/256/65536 and
+  SGP655S run; SGP655S shows no FPS or count; SGP256S and SGP256T hang;
+  ZUNDAORB returns to Ready and hangs (ledger open defect). Two demo faults
+  seen on the hardware are fixed and reproduced in vaeg first: NEON3 did
+  not leave on ESC (the looping build never polled it), and GLASS left the
+  cursor magenta (its palette stayed set); GLASS, NEON3 and NEON4 now turn
+  graphics off, re-initialise the palette ($PalInit) and select text-only
+  composition on exit. In vaeg (VA2) all 17 programs of the rebuilt
+  PC-Engine disk leave on ESC with the grey cursor and no graphics left.
+  [8e3b97c5](https://github.com/nakatamaho/vaeg/commit/8e3b97c5d3cfb5d9df31ec88cd41f3e79f298b07), [cf48ab7f](https://github.com/nakatamaho/vaeg/commit/cf48ab7fb97e514e0d8281569d831cf4779317e8), [271cdec9](https://github.com/nakatamaho/vaeg/commit/271cdec953895678e05364c45eafca0a24b0d27c).

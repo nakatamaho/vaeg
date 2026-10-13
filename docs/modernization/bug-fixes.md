@@ -2705,6 +2705,21 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M106 — Demos that run in vaeg hang or misbehave on a PC-88VA2
+
+- **Symptom/scope:** on the maintainer's PC-88VA2 under PC-Engine 1.1
+  (all-demos disk, 2026-10-09): `SPRITE\256\SGP256S.COM` and `SGP256T.COM`
+  hang at once; `SPRITE\65536\SGP655S.COM` animates but shows no FPS and
+  no sprite count; `ZUNDAMON\ZUNDAORB.COM` returns to `Ready` and the
+  machine no longer responds. In vaeg (VA2) all four run and draw their
+  overlays. GLASS, NEON3, NEON4 (16 and 65536 colours) and the three
+  SGPWIRE profiles run correctly on the same machine.
+- **Cause:** not established. vaeg differs from the hardware in something
+  these programs depend on; no hypothesis has been tested.
+- **Next step:** reduce each program to the first divergent step on the
+  hardware (for example a marker written to text VRAM before each setup
+  stage), then compare with vaeg.
+
 ### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 
 - **Symptom/scope:** the sound made through port 40h sounds odd, as if its
