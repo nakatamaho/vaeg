@@ -785,17 +785,18 @@ neon_counter_update_overlay:
         popa
         ret
 
-; VA keyboard BIOS polling: AH=01h tests, AH=00h consumes one key.
+; VA keyboard BIOS polling, as in NEON4 and the SGP demos: AH=0Ah tests for
+; a pending key and AH=09h consumes it; scan code AH=00h is ESC.  AH=00h
+; waits on the Japanese front end, which MS-DOS does not install, so the
+; former AH=01h/00h pair stopped NEON3 under MS-DOS (M106).
 ; Return CF=1 only for the ESC key.
 neon_escape_pressed:
-        mov     ah, 01h
+        mov     ah, 0ah
         int     NEON_KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 00h
+        mov     ah, 09h
         int     NEON_KEYBOARD_BIOS_INT
-        cmp     bh, 0
-        jne     .none
-        cmp     bl, 1bh
+        cmp     ah, 00h
         je      .escape
 .none:
         clc

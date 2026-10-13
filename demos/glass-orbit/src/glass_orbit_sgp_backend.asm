@@ -238,15 +238,16 @@ glass_p4_sgp_idle:
         hlt
         jmp     glass_p4_sgp_idle
 
+; AH=0Ah tests for a pending key and AH=09h consumes it; scan code AH=00h is
+; ESC.  AH=00h waits on the Japanese front end, which MS-DOS does not
+; install, so the former AH=01h/00h pair stopped GLASS under MS-DOS (M106).
 glass_p4_sgp_escape_pressed:
-        mov     ah, 0x01
+        mov     ah, 0x0a
         int     KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 0x00
+        mov     ah, 0x09
         int     KEYBOARD_BIOS_INT
-        cmp     bh, 0
-        jne     .none
-        cmp     bl, 0x1b
+        cmp     ah, 0x00
         je      .escape
 .none:
         clc
