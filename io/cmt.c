@@ -99,6 +99,7 @@ static struct {
 	UINT8 tone;     /* block sounding; no data until it ends */
 	BOOL toneisraw; /* the block sounding is from cmt_raw_leader */
 	BOOL inevent;   /* inside cmt_event: time from its due clock */
+	SINT32 toneremain; /* CPU clocks left in the block sounding */
 } cmt;
 
 /*
@@ -272,13 +273,36 @@ static SINT32 cmt_byteclock(void) {
  * a T88 without such blocks) has no times, so when the motor starts for
  * reading it gets the leader of most recorded tapes, 1200 Hz for 1.5 s then
  * 2400 Hz for 0.5 s ([MEAS] the space and mark blocks before the first data
- * in 87 T88 images of commercial tapes). No byte is delivered while a block
- * sounds, and the carrier (port 40h bit 2) is up only during 2400 Hz, so
- * BASIC prints "Found" after them. All are skipped with fast load and while
- * recording. A block cut off by the motor stopping starts again with it.
+ * in 87 T88 images of commercial tapes). The carrier (port 40h bit 2) is up
+ * only during 2400 Hz, so BASIC prints "Found" after them. A T88 space
+ * block is a run of 0 bits, which the 8251 receives as 00h bytes at the
+ * baud rate: BASIC ends a load by reading one byte past its program, and on
+ * a tape that byte comes from the gap, not from the next block (M106). Mark
+ * and blank blocks deliver nothing, nor does the raw-image leader. With
+ * fast load T88 blocks are shortened like the bytes (1/16) and the raw
+ * leader is skipped; nothing plays while recording. A block cut off by the
+ * motor stopping starts again with it.
  */
 static void cmt_leader_start(void) {
 	cmt.leadpos = (cmt.ntones == 0) ? 0 : 2;
+}
+
+static SINT32 cmt_byteclock(void);
+
+/* T88 space blocks deliver 00h at the baud rate; other blocks run whole. */
+static BOOL cmt_tone_bytes(void) {
+	return ((cmt.tone == CMT_TONE_SPACE) && !cmt.toneisraw) ? TRUE : FALSE;
+}
+
+/* Schedule the next step of the block sounding. After a block or byte the
+ * next starts at its due time; from a port write (the motor starting) now. */
+static void cmt_tone_step(void) {
+	SINT32 step = cmt.toneremain;
+
+	if (cmt_tone_bytes() && (cmt_byteclock() < step)) {
+		step = cmt_byteclock();
+	}
+	nevent_set(NEVENT_CMT, step, cmt_event, cmt.inevent ? NEVENT_RELATIVE : NEVENT_ABSOLUTE);
 }
 
 static BOOL cmt_tone_start(void) {
@@ -288,14 +312,10 @@ static BOOL cmt_tone_start(void) {
 	    (cmt.pos >= cmt.size)) {
 		return FALSE;
 	}
+	if (np2cfg.cmt_fast) {
+		cmt.leadpos = 2;
+	}
 	for (;;) {
-		if (np2cfg.cmt_fast) {
-			cmt.leadpos = 2;
-			while ((cmt.tonepos < cmt.ntones) && (cmt.tones[cmt.tonepos].at <= cmt.pos)) {
-				cmt.tonepos++;
-			}
-			return FALSE;
-		}
 		if (cmt.leadpos < 2) {
 			t = &cmt_raw_leader[cmt.leadpos++];
 			cmt.toneisraw = TRUE;
@@ -310,11 +330,15 @@ static BOOL cmt_tone_start(void) {
 		}
 	}
 	cmt.tone = t->kind;
+	cmt.toneremain = (SINT32)(((UINT64)pccore.realclock * t->ticks) / CMT_TICKS_PER_SECOND);
+	if (np2cfg.cmt_fast) {
+		cmt.toneremain /= 16;
+	}
+	if (cmt.toneremain <= 0) {
+		cmt.toneremain = 1;
+	}
 	nevent_reset(NEVENT_CMT); /* a byte may have been scheduled */
-	/* After a block or byte the next starts at its due time; from a port
-	 * write (the motor starting) it starts now. */
-	nevent_set(NEVENT_CMT, (SINT32)(((UINT64)pccore.realclock * t->ticks) / CMT_TICKS_PER_SECOND),
-	           cmt_event, cmt.inevent ? NEVENT_RELATIVE : NEVENT_ABSOLUTE);
+	cmt_tone_step();
 	return TRUE;
 }
 
@@ -354,8 +378,25 @@ void cmt_event(NEVENTITEM item) {
 	(void)item;
 	cmt.inevent = TRUE;
 	if (cmt.tone != CMT_TONE_NONE) {
-		cmt.tone = CMT_TONE_NONE;
-		cmt_schedule();
+		SINT32 step = cmt.toneremain;
+
+		if (cmt_tone_bytes() && (cmt_byteclock() < step)) {
+			step = cmt_byteclock();
+		}
+		cmt.toneremain -= step;
+		if (cmt_tone_bytes() && cmt_running() && !cmt.rxready) {
+			cmt.data = 0x00; /* a byte of 0 bits from the space block */
+			cmt.rxready = TRUE;
+		}
+		if (cmt.rxready && cmt_running()) {
+			pic8214_request(PIC8214_RXRDY);
+		}
+		if (cmt.toneremain > 0) {
+			cmt_tone_step();
+		} else {
+			cmt.tone = CMT_TONE_NONE;
+			cmt_schedule();
+		}
 		cmt.inevent = FALSE;
 		return;
 	}

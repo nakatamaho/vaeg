@@ -4839,6 +4839,10 @@ static int test_cassette_tape(void) {
 		problem = "T88 data blocks";
 	}
 	iocore_out8(0x030, 0x08); /* motor on, cassette 600 baud */
+	if ((problem == NULL) && (iocore_inp8(0x040) & 0x04)) {
+		problem = "carrier during a T88 blank block";
+	}
+	cmt_event(NULL); /* the end of the short blank block before the data */
 	if ((problem == NULL) && (!(iocore_inp8(0x040) & 0x04) || !cmt_selected())) {
 		problem = "cassette carrier";
 	}
@@ -4986,59 +4990,53 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
-	/* M106 T88 blocks without data take their recorded time before the
-	 * data that follows them, with the carrier only during mark. */
+	/* M106 T88 blocks without data come before the data that follows them:
+	 * a space block delivers 00h at the baud rate (600 baud: 30 bytes in
+	 * 0.5 s, 12 in 0.2 s) with no carrier; a mark block delivers nothing
+	 * with the carrier up. Fast load shortens both like the bytes. */
 	if ((problem == NULL) &&
 	    ((cmt_open_memory(t88gaps, sizeof(t88gaps)) != SUCCESS) || (cmt_length() != 2))) {
 		problem = "T88 with timed blocks";
 	}
-	if (problem == NULL) {
-		static const struct {
-			SINT32 ticks;
-			BOOL carrier;
-		} expect[] = {{2400, FALSE}, {1200, TRUE}, {0, TRUE},
-		              {4800, TRUE},  {960, FALSE}, {0, TRUE}};
-		static const BYTE data[] = {0x11, 0x22};
-		const SINT32 second = (SINT32)pccore.realclock;
-		SINT32 previous = 0; /* remaining time of the block before, if any */
-		UINT n = 0;
+	for (i = 0; (i < 2) && (problem == NULL); i++) {
+		UINT zeros[2] = {0, 0};
+		UINT data = 0;
+		BOOL carrier_in_space = FALSE;
+		BOOL mark_seen = FALSE;
+		int k;
 
-		np2cfg.cmt_fast = 0;
+		np2cfg.cmt_fast = (UINT8)i;
 		cmt_rewind();
 		iocore_out8(0x030, 0x00);
 		iocore_out8(0x030, 0x08);
 		iocore_out8(0x021, 0x14); /* RXE */
-		for (i = 0; (i < (int)NELEMENTS(expect)) && (problem == NULL); i++) {
-			const SINT32 remain = nevent_getremain(NEVENT_CMT);
+		for (k = 0; (k < 400) && (data < 2); k++) {
 			const BOOL carrier = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
 
-			if (expect[i].ticks == 0) {
-				cmt_event(NULL);
-				if (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != data[n++])) {
-					problem = "T88 data after its timed blocks";
-				}
-				previous = 0;
-				continue;
-			}
-			const SINT32 want = previous + (SINT32)((SINT64)second * expect[i].ticks / 4800);
-			previous = remain;
-
-			if ((remain > want + second / 100) || (remain < want - second / 100)) {
-				problem = "T88 block time";
-			} else if (carrier != expect[i].carrier) {
-				problem = "T88 carrier during a block";
-			} else if (iocore_inp8(0x021) & 0x02) {
-				problem = "T88 byte during a block";
-			}
 			cmt_event(NULL);
+			if (iocore_inp8(0x021) & 0x02) {
+				const REG8 dat = iocore_inp8(0x020);
+
+				if (dat == 0x00) {
+					zeros[data]++;
+					carrier_in_space = carrier_in_space || carrier;
+				} else if (dat == (data ? 0x22 : 0x11)) {
+					data++;
+				} else {
+					problem = "T88 byte out of order";
+					break;
+				}
+			} else if (carrier) {
+				mark_seen = TRUE;
+			}
 		}
-		np2cfg.cmt_fast = 1;
-		cmt_rewind();
-		iocore_out8(0x030, 0x00);
-		iocore_out8(0x030, 0x08);
-		cmt_event(NULL);
-		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0x11))) {
-			problem = "fast load played T88 blocks";
+		if ((problem == NULL) && (data != 2)) {
+			problem = "T88 data after its timed blocks";
+		} else if ((problem == NULL) &&
+		           ((zeros[0] < 29) || (zeros[0] > 31) || (zeros[1] < 11) || (zeros[1] > 13))) {
+			problem = "T88 space blocks as 00h bytes";
+		} else if ((problem == NULL) && (carrier_in_space || !mark_seen)) {
+			problem = "T88 carrier during a block";
 		}
 		iocore_out8(0x030, 0x00);
 	}
