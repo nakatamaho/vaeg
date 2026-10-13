@@ -347,3 +347,13 @@ mode lamp follows V1/V2/V3.
   The utility SASI images now boot by themselves on the VA (PC-Engine 1.05)
   and the VA2 (1.1). Selftest added (three mutations caught). Not a defect
   fix; no ledger entry. [11e9fc33](https://github.com/nakatamaho/vaeg/commit/11e9fc330aa4c81e60217a663f045261aea51cf6).
+  Correction, found the same day while starting V2 BASIC for a tape check:
+  with the bit set and no media at all, the original VA stops at the
+  "insert the correct disk" message instead of starting N88-BASIC, so
+  "always on" was wrong. The bit now follows the media: set when a SASI or
+  SCSI hard disk is attached, cleared otherwise. Checked on the VA and VA2
+  with no media, the SASI image alone, and the SGP floppy plus the SASI
+  image (the VA starts N88-BASIC with no media again; the VA2 shows the
+  disk message with no media, as it did before and as observed on
+  hardware). Selftest covers set and clear (three mutations caught).
+  [c4db4df9](https://github.com/nakatamaho/vaeg/commit/c4db4df93c7698e7589300a7b0414c87e3081f24).
