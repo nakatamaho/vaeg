@@ -3,8 +3,8 @@
  "role": "upd70008",
  "oracle": "real PC-88VA2 outputs in V3 mode under CP/MVA (M101, M102)",
  "notes": [
-  "ED00.TXT and E200.TXT stopped early on the real machine; they must be prefixes of the output.",
-  "Not checked: the empty and restarted per-opcode EDxx/E2xx files of M102 runs 3 and 5 (written after the unsandboxed EDPRB corrupted the program), INPRB (real-machine I/O), and ZEXUND/ZEXED (no real-machine output file; screen photographs only).",
+  "ED00.TXT and E200.TXT stopped early on the real machine; they must be prefixes of the output. Run 5 restarted EDPRB2 at ED 64; every record of its e264.txt must appear in the output.",
+  "Not checked: the empty and restarted per-opcode EDxx files of M102 runs 3 and 5 (written after the unsandboxed EDPRB corrupted the program), INPRB (real-machine I/O), and ZEXUND/ZEXED (no real-machine output file; screen photographs only).",
   "ZEXDOC and ZEXALL are checked by vaeg_upd70008_zexdoc and vaeg_upd70008_zexall."
  ],
  "programs": {
@@ -115,6 +115,12 @@
    "output": "E200.TXT",
    "mode": "prefix",
    "reference": "docs/agents/reports/m102_zexund_qa/run5_pc88va2/raw/e200.txt"
+  },
+  {
+   "program": "EDPRB2",
+   "output": "E200.TXT",
+   "mode": "records",
+   "reference": "docs/agents/reports/m102_zexund_qa/run5_pc88va2/raw/e264.txt"
   },
   {
    "program": "EDPRB2S",

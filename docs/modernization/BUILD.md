@@ -203,8 +203,10 @@ consumer-facing declarations are under `cpu/`; third-party and STL types do
 not cross that interface. The corresponding `vaeg_z80_compat_wrapper_default` and
 `vaeg_z80_compat_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
 public-register mirror, and revision-1 state contracts. When a verified ZEX
-cache is configured, `vaeg_z80_compat_wrapper_zexdoc` and
-`vaeg_z80_compat_wrapper_zexall` run the same external inputs through the wrapper.
+cache is configured, `vaeg_upd780_zexall` runs the same external input through
+the wrapper with the production compile definitions; ZEXDOC is not run because
+its vectors equal ZEXALL's and its flag masks are a subset
+(see `docs/modernization/qa/z80-family.md`).
 The production `vaeg_va` target unconditionally compiles
 `cpu/z80_compat_cpu.cpp` and `cpu/z80_compat_state.cpp`.
 
@@ -354,7 +356,8 @@ repository; acquisition and digest verification are documented in
 Set `VAEG_SSTS_V20_ROOT` to the verified pinned checkout when configuring a
 test-bearing build. `vaeg_sst_v20_ci` then runs the `ci` profile with
 `tools/qa/sst_v20.py` and compares it with `tests/ssts/v20/baseline_ci.json`,
-the per-form list of records that fail today. A regression or a stale entry
+the per-form list of records that fail today (none at present; target-absent
+and excluded forms are listed but not judged). A regression or a stale entry
 fails the test. Without the setting the test reports a visible skip, while
 `vaeg_sst_v20_selftest` and `vaeg_sst_v20_baseline` always run:
 
@@ -364,7 +367,7 @@ python3 tools/qa/sst_v20.py validate --baseline tests/ssts/v20/baseline_ci.json
 python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
 ```
 
-See `docs/modernization/cpu-conformance-checks.md` for the comparison rule,
+See `docs/modernization/qa/upd9002-native.md` for the comparison rule,
 error codes, and the baseline update procedure. The worker entry point exists
 only when `VAEG_ENABLE_TESTS=ON`; production builds do not compile the
 adapter, deterministic flat-memory seam, or test I/O seam. V20 bus timing and

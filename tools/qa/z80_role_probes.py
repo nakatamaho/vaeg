@@ -30,6 +30,8 @@ to judge it:
 
 - `exact`: the output equals a recorded file byte for byte;
 - `prefix`: a recorded file that stopped early is a prefix of the output;
+- `records`: every record (line) of a recorded file appears in the output,
+  for a real run restarted part-way through the program;
 - `zex_all_ok`: a ZEX-style output completed with every group OK.
 
 For the uPD70008-compatible mode the recorded files are real PC-88VA2
@@ -56,7 +58,7 @@ import probe_results  # noqa: E402
 
 MANIFEST_SCHEMA = "vaeg-z80-role-probes-v1"
 ROLES = ("upd70008", "upd780")
-MODES = ("exact", "prefix", "zex_all_ok")
+MODES = ("exact", "prefix", "records", "zex_all_ok")
 SKIP_RETURN_CODE = 77
 MAX_CLOCKS = 200000000000
 
@@ -65,6 +67,7 @@ ERROR_RUN = "Z80_ROLE_RUN_FAILED"
 ERROR_MISSING = "Z80_ROLE_OUTPUT_MISSING"
 ERROR_EXACT = "Z80_ROLE_EXACT_MISMATCH"
 ERROR_PREFIX = "Z80_ROLE_PREFIX_MISMATCH"
+ERROR_RECORDS = "Z80_ROLE_RECORD_MISSING"
 ERROR_ZEX = "Z80_ROLE_ZEX_GROUP"
 
 
@@ -98,7 +101,7 @@ def validate_manifest(manifest: Any) -> list[tuple[str, str]]:
         if check.get("program") not in programs or not check.get("output"):
             findings.append((ERROR_MANIFEST, f"{where}: unknown program or no output"))
         mode = check["mode"]
-        if mode in ("exact", "prefix") and set(check) != {"program", "output", "mode", "reference"}:
+        if mode in ("exact", "prefix", "records") and set(check) != {"program", "output", "mode", "reference"}:
             findings.append((ERROR_MANIFEST, f"{where}: needs program, output, mode, reference"))
         if mode == "zex_all_ok" and (
             set(check) != {"program", "output", "mode", "groups"}
@@ -113,6 +116,12 @@ def strip_padding(data: bytes) -> bytes:
     """Drop the CP/M end-of-file and record padding of a short run."""
 
     return data.rstrip(b"\x1a\x00")
+
+
+def records(data: bytes) -> list[bytes]:
+    """Split a CP/M text output into its non-empty lines."""
+
+    return [line for line in strip_padding(data).split(b"\r\n") if line.strip()]
 
 
 def judge(
@@ -145,6 +154,15 @@ def judge(
         if mode == "exact":
             if data != references[check["reference"]]:
                 findings.append((ERROR_EXACT, f"{label} != {check['reference']}"))
+        elif mode == "records":
+            produced = set(records(data))
+            recorded = records(references[check["reference"]])
+            missing = [line for line in recorded if line not in produced]
+            if not recorded or missing:
+                findings.append(
+                    (ERROR_RECORDS, f"{check['reference']}: {len(missing)} of {len(recorded)} "
+                     f"records missing from {label}")
+                )
         elif mode == "prefix":
             recorded = strip_padding(references[check["reference"]])
             if not recorded or not data.startswith(recorded):
@@ -255,16 +273,18 @@ def synthetic() -> tuple[dict[str, Any], dict[tuple[str, str], bytes], dict[str,
     manifest = {
         "schema": MANIFEST_SCHEMA,
         "role": "upd70008",
-        "programs": {"A": {}, "B": {"may_fail": True}, "Z": {}},
+        "programs": {"A": {}, "B": {"may_fail": True}, "Z": {}, "R": {}},
         "checks": [
             {"program": "A", "output": "A.BIN", "mode": "exact", "reference": "ref/a.bin"},
             {"program": "B", "output": "B.TXT", "mode": "prefix", "reference": "ref/b.txt"},
             {"program": "Z", "output": "Z.TXT", "mode": "zex_all_ok", "groups": 2},
+            {"program": "R", "output": "R.TXT", "mode": "records", "reference": "ref/r.txt"},
         ],
     }
     outputs = {("A", "A.BIN"): b"\x01\x02", ("B", "B.TXT"): b"line1\r\nline2\r\n",
-               ("Z", "Z.TXT"): ZEX_OK}
-    references = {"ref/a.bin": b"\x01\x02", "ref/b.txt": b"line1\r\n\x1a\x1a"}
+               ("Z", "Z.TXT"): ZEX_OK, ("R", "R.TXT"): b"r1\r\nr2\r\nr3\r\n"}
+    references = {"ref/a.bin": b"\x01\x02", "ref/b.txt": b"line1\r\n\x1a\x1a",
+                  "ref/r.txt": b"r3\r\nr1\r\n\x1a"}
     return manifest, outputs, {"B": "stopped early"}, references
 
 
@@ -276,6 +296,8 @@ def selftest() -> None:
     cases = [
         ("exact-byte", ERROR_EXACT, lambda m, o, f, r: o.__setitem__(("A", "A.BIN"), b"\x01\x03")),
         ("prefix-byte", ERROR_PREFIX, lambda m, o, f, r: o.__setitem__(("B", "B.TXT"), b"line9\r\n")),
+        ("record-missing", ERROR_RECORDS,
+         lambda m, o, f, r: o.__setitem__(("R", "R.TXT"), b"r1\r\nr2\r\n")),
         ("missing-output", ERROR_MISSING, lambda m, o, f, r: o.pop(("A", "A.BIN"))),
         ("run-failed", ERROR_RUN, lambda m, o, f, r: f.__setitem__("A", "crash")),
         ("zex-error", ERROR_ZEX, lambda m, o, f, r: o.__setitem__(

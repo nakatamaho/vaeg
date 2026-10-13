@@ -25,9 +25,10 @@
 
 Every record with an empty initial prefetch queue in the selected profile is
 executed by `vaeg --upd9002-ssts-worker`, except forms whose upstream
-metadata status is `fpu` or `undefined`. A record passes when registers
-(FLAGS under the upstream flags mask), watched RAM, I/O, and termination
-match the corpus.
+metadata status is `fpu` or `undefined` (listed as `excluded`) and forms the
+uPD9002 does not have (listed as `target_absent`; their V20 results are not
+uPD9002 behaviour). A record passes when registers (FLAGS under the upstream
+flags mask), watched RAM, I/O, and termination match the corpus.
 
 The committed baseline lists, per form, the upstream hashes of the records
 that fail today. `check` fails on any record that passed in the baseline
@@ -55,6 +56,12 @@ import upd9002_ssts as ssts  # noqa: E402
 BASELINE_SCHEMA = "vaeg-sst-v20-baseline-v1"
 RESULT_SCHEMA = "vaeg-sst-v20-result-v1"
 EXCLUDED_STATUSES = ("fpu", "undefined")
+# Documented target absence (G67 divergence registry, M60b ROM authority):
+# NEC deleted INS/EXT (0F31/33/39/3B) and INM/OUTM (6C-6F) from the uPD9002,
+# and primary 63 is reserved. The V20 corpus records V20 behaviour for them,
+# which must not be counted as uPD9002 passes or failures.
+TARGET_ABSENT_FORMS = ("0F31", "0F33", "0F39", "0F3B", "63", "6C", "6D", "6E", "6F")
+NOT_JUDGED = ("excluded", "target_absent")
 PROFILES = {
     "ci": "empty initial queue; ascending upstream hash; first 500 per form",
     "full": "empty initial queue; all records",
@@ -103,9 +110,9 @@ def validate_document(document: Any, schema: str) -> list[tuple[str, str]]:
         if not isinstance(selected, int) or selected < 0:
             findings.append((ERROR_SCHEMA, f"{where}: invalid selected count"))
             continue
-        if entry.get("status") == "excluded":
+        if entry.get("status") in NOT_JUDGED:
             if set(entry) != {"status", "selected"}:
-                findings.append((ERROR_SCHEMA, f"{where}: excluded form has extra keys"))
+                findings.append((ERROR_SCHEMA, f"{where}: unjudged form has extra keys"))
             continue
         if entry.get("status") != "executed" or set(entry) != {
             "status", "selected", "fail"
@@ -146,7 +153,7 @@ def compare(result: dict[str, Any], baseline: dict[str, Any]) -> list[tuple[str,
         if now["selected"] != then["selected"] or now["status"] != then["status"]:
             findings.append((ERROR_SELECTION, f"form {form}: selection or status differs"))
             continue
-        if now["status"] == "excluded":
+        if now["status"] in NOT_JUDGED:
             continue
         now_fail = set(now["fail"])
         then_fail = set(then["fail"])
@@ -164,11 +171,12 @@ def baseline_from_result(result: dict[str, Any]) -> dict[str, Any]:
         "profile": result["profile"],
         "selection": result["selection"],
         "excluded_statuses": list(EXCLUDED_STATUSES),
+        "target_absent_forms": list(TARGET_ABSENT_FORMS),
         "forms": {},
     }
     for form, entry in sorted(result["forms"].items()):
-        if entry["status"] == "excluded":
-            baseline["forms"][form] = {"status": "excluded", "selected": entry["selected"]}
+        if entry["status"] in NOT_JUDGED:
+            baseline["forms"][form] = {"status": entry["status"], "selected": entry["selected"]}
         else:
             baseline["forms"][form] = {
                 "status": "executed",
@@ -199,6 +207,8 @@ def run_form(arguments: tuple[str, str, str, dict[str, Any]]) -> dict[str, Any]:
     _, _, status, _, flags_mask = ssts.metadata_for_form(metadata, form)
     if status in EXCLUDED_STATUSES:
         return {"form": form, "status": "excluded", "selected": len(selected)}
+    if form in TARGET_ABSENT_FORMS:
+        return {"form": form, "status": "target_absent", "selected": len(selected)}
     for record in selected:
         ssts.validate_record(record, f"{path.name}:{record.get('idx', '?')}")
     outcomes = ssts.run_worker_contained(pathlib.Path(worker_text), selected, WORKER_TIMEOUT)
@@ -287,14 +297,17 @@ def summary(document: dict[str, Any]) -> str:
     executed = [entry for entry in document["forms"].values() if entry["status"] == "executed"]
     selected = sum(entry["selected"] for entry in executed)
     failed = sum(len(entry["fail"]) for entry in executed)
-    excluded = sum(
-        entry["selected"] for entry in document["forms"].values()
-        if entry["status"] == "excluded"
-    )
+    def unjudged(status: str) -> int:
+        return sum(
+            entry["selected"] for entry in document["forms"].values()
+            if entry["status"] == status
+        )
+
     failing_forms = sum(1 for entry in executed if entry["fail"])
     return (
         f"forms={len(document['forms'])} executed={selected} pass={selected - failed} "
-        f"fail={failed} failing_forms={failing_forms} excluded={excluded}"
+        f"fail={failed} failing_forms={failing_forms} excluded={unjudged('excluded')} "
+        f"target_absent={unjudged('target_absent')}"
     )
 
 
@@ -341,6 +354,7 @@ def synthetic_pair() -> tuple[dict[str, Any], dict[str, Any]]:
             "00": {"status": "executed", "selected": 3, "fail": []},
             "6C": {"status": "executed", "selected": 3, "fail": ["aa", "bb"]},
             "D8": {"status": "excluded", "selected": 3},
+            "6E": {"status": "target_absent", "selected": 3},
         },
         "failure_details": {},
     }
@@ -378,6 +392,11 @@ def selftest() -> None:
          on_baseline(lambda b: b["forms"].pop("D8"))),
         ("selected-count", ERROR_SELECTION,
          on_result(lambda r: r["forms"]["00"].__setitem__("selected", 4))),
+        ("target-absent-judged", ERROR_SELECTION,
+         on_result(lambda r: r["forms"].__setitem__(
+             "6E", {"status": "executed", "selected": 3, "fail": []}))),
+        ("target-absent-extra-key", ERROR_SCHEMA,
+         on_baseline(lambda b: b["forms"]["6E"].__setitem__("fail", []))),
         ("status-flip", ERROR_SELECTION,
          on_baseline(lambda b: b["forms"].__setitem__(
              "D8", {"status": "executed", "selected": 3, "fail": []}))),

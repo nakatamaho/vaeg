@@ -1360,15 +1360,6 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_z80_compat_wrapper_no_functional_test PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_z80_compat_wrapper_zex_runner
-        tests/z80_compat/wrapper_zex_runner.cpp
-        cpu/upd780/upd780_core_config.cpp
-        cpu/upd9002_upd70008_core_config.cpp)
-    target_link_libraries(vaeg_z80_compat_wrapper_zex_runner PRIVATE
-        vaeg_z80_compat_wrapper_no_functional)
-    target_compile_options(vaeg_z80_compat_wrapper_zex_runner PRIVATE
-        -Wall -fsigned-char)
-
     # Role ZEX runner: the shared backend with the production compile
     # definitions and each role's production core configuration.
     add_executable(vaeg_z80_compat_role_zex_runner
@@ -1760,22 +1751,15 @@ if(VAEG_ENABLE_TESTS)
         vaeg_verify_zex_artifact(zex-license.txt
             e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
 
-        add_test(NAME vaeg_z80_compat_zexdoc
-            COMMAND vaeg_z80_compat_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
         add_test(NAME vaeg_z80_compat_zexall
             COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexdoc
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexall
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
         # Role checks: uPD9002 uPD70008-compatible mode against the real
         # PC-88VA2 CRCs, FDC uPD780C against the stock Z80 CRCs. Each role
-        # has its own expectation file so the roles can diverge.
-        foreach(suite zexdoc zexall)
+        # has its own expectation file so the roles can diverge. ZEXDOC is
+        # not run: its test vectors equal ZEXALL's and its flag masks are a
+        # subset of ZEXALL's all-ones masks, so a ZEXALL match implies it.
+        foreach(suite zexall)
             add_test(NAME vaeg_upd70008_${suite}
                 COMMAND vaeg_z80_compat_role_zex_runner
                     --role upd70008
@@ -1793,12 +1777,8 @@ if(VAEG_ENABLE_TESTS)
                 LABELS "romless;compatibility;zex;role;upd780"
                 TIMEOUT 900)
         endforeach()
-        set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
+        set_tests_properties(vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
-            TIMEOUT 900)
-        set_tests_properties(
-            vaeg_z80_compat_wrapper_zexdoc vaeg_z80_compat_wrapper_zexall PROPERTIES
-            LABELS "romless;compatibility;zex;wrapper"
             TIMEOUT 900)
     endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)

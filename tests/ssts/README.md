@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # SingleStepTests V20 comparison data
 
 The check is `tools/qa/sst_v20.py` with the baseline `v20/baseline_ci.json`;
-see `docs/modernization/cpu-conformance-checks.md`.
+see `docs/modernization/qa/upd9002-native.md`.
 
 The uPD9002 comparison uses the MIT-licensed `v1_native` corpus from
 <https://github.com/SingleStepTests/v20> at the exact commit recorded in
