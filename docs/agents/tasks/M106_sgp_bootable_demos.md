@@ -400,4 +400,15 @@ mode lamp follows V1/V2/V3.
   has no overlay); ZUNDAORB has no `0F 8x` and stays open. Hardware disks
   rebuilt in `~/work/pc88va/m106-hw/`: `sgp-boot.d88` (b2be40bf),
   `pce-all.d88` (ce586557), `msdos4-all.d88` (e110cbc7).
+- 386 near jump in vaeg (maintainer request): the uPD9002 now halts on
+  `0F 80h`-`8Fh` instead of treating `0Fh` as a one-byte reserved
+  operation (which had run the following bytes out of step: in the old
+  SGPD_7C, `85 A3 00 B8` became a TEST that swallowed the start of
+  `mov ax,0B00h`, so `INT 8Fh` was called with the wrong function and a
+  stray byte was written). It stops like `HLT` but never resumes, and the
+  first stop at each address is reported on stderr. [POLICY]: the real
+  CPU's behaviour is unknown beyond the hardware hang. In vaeg the old
+  SGPD_7C and SGP256S now stop at once; the rebuilt ones run. Test
+  `vaeg_upd9002_m106_near_jcc` added (three mutations caught); 113 tests
+  pass. [b5be04ff](https://github.com/nakatamaho/vaeg/commit/b5be04fff33316c035bb03e025f887612cf9b64e).
 

@@ -64,6 +64,17 @@ land.
   SGPD_7D, SGP256S and SGP256T draw with correct colours in vaeg (VA2)
   from the rebuilt PC-Engine 1.1 and MS-DOS 4.0 disks, where the old
   SGPD_7C/7D did not. Hardware confirmation of SGP256S/T pending.
+- **Emulator follow-up (maintainer request, [POLICY]):** vaeg no longer
+  decodes `0F 80h`-`8Fh` as a one-byte reserved operation; the uPD9002
+  stops on the `0Fh` byte as `HLT` does, without leaving it on an
+  interrupt, and reports the first stop at each address on stderr. What
+  the real uPD9002 does with these bytes is not known beyond the hang;
+  this makes such programs hang in vaeg too instead of running out of
+  step. The old SGPD_7C and SGP256S now stop at once in vaeg, at
+  `0238h` and `0173h`; the rebuilt ones run. Other reserved `0F` forms are
+  unchanged. Test `vaeg_upd9002_m106_near_jcc` (all sixteen second bytes,
+  staying stopped, `0F 90` unchanged; three mutations caught).
+  [b5be04ff](https://github.com/nakatamaho/vaeg/commit/b5be04fff33316c035bb03e025f887612cf9b64e).
 - **Milestone/task:** M106, [task file](../agents/tasks/M106_sgp_bootable_demos.md).
 - **Commits:** [eb953958](https://github.com/nakatamaho/vaeg/commit/eb953958c374fb2e1d47d46acb9896d1e9e3ba9e), [0a1076bb](https://github.com/nakatamaho/vaeg/commit/0a1076bb1308cc850b4910562f87e8501eb25e1f).
 
