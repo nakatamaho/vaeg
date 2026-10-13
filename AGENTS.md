@@ -146,8 +146,10 @@ Release notes may summarize the ledger but do not replace it.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
   read-only for agents. Never create, modify, or delete anything under it:
   no work directories, scratch output, builds, logs, screenshots, or
-  generated media. Put task work under a task-specific directory elsewhere
-  (for example `~/work/pc88va/m<id>-private/` or `/tmp/m<id>/`).
+  generated media. This includes audit or disassembly scratch
+  (`*-audit-*`) and milestone work trees (`m<id>-*`), which have been
+  found there and removed. Put task work under a task-specific directory
+  elsewhere (for example `~/work/pc88va/m<id>-private/` or `/tmp/m<id>/`).
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules
