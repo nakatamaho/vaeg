@@ -372,5 +372,12 @@ mode lamp follows V1/V2/V3.
   Wording corrected later: the VA with the bit set and no media hangs at a
   bare cursor (no message), and the maintainer notes that state cannot
   arise on hardware, where the setup cannot select a fixed disk without
-  one; clearing the bit keeps vaeg in a reachable state.
+  one; clearing the bit keeps vaeg in a reachable state. Maintainer
+  decision: by default vaeg keeps the backup memory in accord with the
+  configured machine (RAM size and hard-disk presence), and fixed-disk boot
+  without a hard disk is never allowed: the bit is now cleared without a
+  hard disk even with `Boot_FixedDisk=false`, which only stops vaeg from
+  setting it ([18c1b2cc](https://github.com/nakatamaho/vaeg/commit/18c1b2cc46cffb12c1352a0dbcf074b7d8cc334f); checked on the VA with the bit preset,
+  setting on and off, with and without the SASI image; selftest catches
+  three mutations).
   [c4db4df9](https://github.com/nakatamaho/vaeg/commit/c4db4df93c7698e7589300a7b0414c87e3081f24).
