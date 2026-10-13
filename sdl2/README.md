@@ -78,7 +78,8 @@ case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
 Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
-loads a raw `.cmt` or `.t88` tape image or records to a raw image;
+loads a raw `.cmt` or `.t88` tape image, or the first such image inside a
+ZIP, 7z or LZH archive (with LibArchive), or records to a raw image;
 `LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
 `--tape-save` do the same from the command line. Loading and saving play
 the tape's FSK sound; Sound > Tape volume sets its level separately.
@@ -277,6 +278,9 @@ the browser to that drive's root, and updates the New-image default filename
 there. Linux and macOS retain their normal filesystem-root navigation.
 
 FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
+The FDD and tape file lists show the usual types by default (FDD: `.d88`,
+`.88d`, `.zip`, `.7z`, `.lzh`; tape: `.cmt`, `.t88`, `.zip`, `.7z`,
+`.lzh`); the file-type list below the path switches to All files (`*.*`).
 Opening an archive from FDD1 mounts the first two basename-sorted images as
 FDD1/FDD2. Opening from FDD2 mounts only the first image as FDD2 and leaves
 FDD1 unchanged. The same extraction limits, traversal/link rejection,
