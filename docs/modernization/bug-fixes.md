@@ -51,9 +51,9 @@ land.
   instruction set, where `0F` introduces NEC extended instructions, not a
   near jump. vaeg decodes `0F 85` as a one-byte reserved operation, so the
   following bytes are decoded out of step (shown by the wrong colours,
-  which the rebuilt programs do not show). That the same encoding causes
-  the hardware hang is consistent with it but not yet confirmed on
-  hardware.
+  which the rebuilt programs do not show). The rebuilt SGP256S and
+  SGP256T run on the maintainer's PC-88VA2 (2026-10-14), so this encoding
+  was the hardware hang.
 - **Correction:** `cpu 186` in the nine SGP demo sources, as GLASS, NEON3,
   NEON4 and zundamon-orbit already declare a CPU; NASM now emits an
   inverted short jump around a near `JMP`. Only the five programs above
@@ -67,7 +67,8 @@ land.
 - **Verification:** no `0F 8x` remains in any rebuilt program; SGPD_7C,
   SGPD_7D, SGP256S and SGP256T draw with correct colours in vaeg (VA2)
   from the rebuilt PC-Engine 1.1 and MS-DOS 4.0 disks, where the old
-  SGPD_7C/7D did not. Hardware confirmation of SGP256S/T pending.
+  SGPD_7C/7D did not. On the PC-88VA2 the rebuilt SGP256S/T run
+  (maintainer, 2026-10-14).
 - **Emulator follow-up (maintainer request, [POLICY]):** vaeg no longer
   decodes `0F 80h`-`8Fh` as a one-byte reserved operation; the uPD9002
   stops on the `0Fh` byte as `HLT` does, without leaving it on an
