@@ -6392,6 +6392,21 @@ static int test_keyboard_mapping(void) {
 	    (kbdpaste_interval_ms() != 20)) {
 		return (fail("keyboard-paste", "UTF-8 skip or pacing failed"));
 	}
+	/* M106: a scripted paste runs even while the GUI holds the keyboard. */
+	if (kbdpaste_start_text("ab")) {
+		UINT32 now = SDL_GetTicks() + kbdpaste_interval_ms();
+
+		for (index = 0; (index < 16) && kbdpaste_active(); index++) {
+			kbdpaste_tick(now, TRUE);
+			now += kbdpaste_interval_ms();
+		}
+		if (kbdpaste_active()) {
+			kbdpaste_cancel();
+			return (fail("keyboard-paste", "scripted paste held by GUI keyboard focus"));
+		}
+	} else {
+		return (fail("keyboard-paste", "scripted paste did not start"));
+	}
 	fprintf(stderr, "selftest: keyboard paste mapping ok\n");
 	fprintf(stderr, "selftest: keyboard mapping ok\n");
 	return (SUCCESS);
