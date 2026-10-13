@@ -334,3 +334,14 @@ mode lamp follows V1/V2/V3.
   PC-8801MA2 N88.ROM in 32669 of 32768 bytes) does not read tape on `O`
   (it uses `R`), so `RUN` stops with `?`; typing `mon`, `R`, `GE2A0`, `R`,
   `GA000` by hand runs it. Not an emulation fault as far as determined.
+- HDD boot (maintainer: on hardware the setup menu's 起動ディスク must be
+  固定ディスク; in vaeg it can be always on, like Main_RAM): flipping each bit
+  of the memory-switch record B1FC0h-B1FC7h in turn (vaeg, VA2 ROM, SASI
+  only) showed that only B1FC4h bit 7 boots the SASI disk (bits B1FC2h.2 and
+  B1FC4h.4 only change the text layout). With it set, a bootable floppy in
+  drive 1 still boots first, and with no fixed disk the floppy boots.
+  `Boot_FixedDisk` (default on, menu デバイス > ハードディスクから起動) sets it
+  and the checksum at startup/reset on a record with the BIOS signature.
+  The utility SASI images now boot by themselves on the VA (PC-Engine 1.05)
+  and the VA2 (1.1). Selftest added (three mutations caught). Not a defect
+  fix; no ledger entry. [11e9fc33](https://github.com/nakatamaho/vaeg/commit/11e9fc330aa4c81e60217a663f045261aea51cf6).
