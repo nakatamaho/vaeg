@@ -357,6 +357,7 @@ static const INITBL iniitem[] = {
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
+    {"Boot_FixedDisk", INITYPE_BOOL, &np2cfg.boot_fixed_disk, 0},
     {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
     {"V1V2_NMode", INITYPE_BOOL, &np2cfg.v1v2_nmode, 0},
     {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},

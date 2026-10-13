@@ -2226,6 +2226,51 @@ static int test_persistence_controls(void) {
 	return (SUCCESS);
 }
 
+/* M106: the boot-disk bit B1FC4h bit 7 follows Boot_FixedDisk on a signed
+ * record, with a checksum the ROM accepts; other records are left alone. */
+static int test_boot_fixed_disk(void) {
+	static BYTE saved[0x04000];
+	const UINT8 saved_flag = np2cfg.boot_fixed_disk;
+	const char *problem = NULL;
+	BYTE sum;
+	int j;
+
+	CopyMemory(saved, backupmem, sizeof(saved));
+	ZeroMemory(backupmem, sizeof(backupmem));
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc6] = 0xf9;
+	backupmem[0x1fc8] = 0x4b;
+	backupmem[0x1fc9] = 0x5a;
+	backupmem[0x1fca] = 0x4d;
+	np2cfg.boot_fixed_disk = 0;
+	bkupmemva_sync_bootdisk();
+	if (backupmem[0x1fc4] != 0x64) {
+		problem = "changed with Boot_FixedDisk off";
+	}
+	np2cfg.boot_fixed_disk = 1;
+	bkupmemva_sync_bootdisk();
+	sum = 0;
+	for (j = 0; j < 8; j++) {
+		sum = (BYTE)(sum + backupmem[0x1fc0 + j]);
+	}
+	if ((problem == NULL) && ((backupmem[0x1fc4] != 0xe4) || (backupmem[0x1fcd] != sum))) {
+		problem = "bit 7 of B1FC4h or its checksum";
+	}
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc8] = 0x00;
+	bkupmemva_sync_bootdisk();
+	if ((problem == NULL) && (backupmem[0x1fc4] != 0x64)) {
+		problem = "an unsigned record was changed";
+	}
+	np2cfg.boot_fixed_disk = saved_flag;
+	CopyMemory(backupmem, saved, sizeof(saved));
+	if (problem != NULL) {
+		return (fail("boot fixed disk", problem));
+	}
+	fprintf(stderr, "selftest: boot fixed disk ok\n");
+	return (SUCCESS);
+}
+
 static int test_main_ram_configuration(void) {
 	static const UINT16 capacities[] = {256, 384, 512, 640};
 	BYTE saved_backup_memory[0x04000];
@@ -6713,6 +6758,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_persistence_controls() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_boot_fixed_disk() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_main_ram_configuration() != SUCCESS) {

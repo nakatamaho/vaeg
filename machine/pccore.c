@@ -68,6 +68,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
                  .main_ram_auto = 1,
+                 .boot_fixed_disk = 1,
                  .v1v2_standard = 0,
                  .v1v2_nmode = 0,
                  .ITF_WORK = 1,
@@ -148,6 +149,7 @@ UINT32 pccore_mainram_limit(void) {
 void pccore_mainram_reset(void) {
 	active_main_ram = pccore_normalize_mainram(np2cfg.main_ram);
 	bkupmemva_sync_mainram();
+	bkupmemva_sync_bootdisk();
 }
 
 UINT8 screenupdate = 3; // Bit 0 requests a partial redraw.

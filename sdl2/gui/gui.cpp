@@ -1092,6 +1092,23 @@ static void draw_bms_config_dialog(void) {
 	}
 }
 
+/* The BIOS boot-disk setting (B1FC4h bit 7) follows this at the next reset;
+ * a floppy in drive 1 still boots first. */
+static void save_boot_fixed_disk(bool enabled) {
+	const UINT8 previous = np2cfg.boot_fixed_disk;
+	np2cfg.boot_fixed_disk = enabled ? 1 : 0;
+	if (initsave_checked() != SUCCESS) {
+		np2cfg.boot_fixed_disk = previous;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Configuration not saved",
+		                         "Could not save the active configuration file. Check write "
+		                         "permissions and whether --no-cfg is enabled. Settings were not "
+		                         "changed.",
+		                         nullptr);
+		return;
+	}
+	sysmng_update(SYS_UPDATECFG);
+}
+
 static void save_main_ram_settings(UINT16 capacity, bool automatic) {
 	const UINT16 previous_capacity = np2cfg.main_ram;
 	const UINT8 previous_auto = np2cfg.main_ram_auto;
@@ -4063,6 +4080,10 @@ static void draw_device_menu(void) {
 			ImGui::TextDisabled("変更は次のリセットで反映");
 			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
 			ImGui::EndMenu();
+		}
+		if (ImGui::MenuItem("ハードディスクから起動 (バックアップメモリへ自動反映)", nullptr,
+		                    np2cfg.boot_fixed_disk != 0)) {
+			save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
 		}
 		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
 			open_bms_config_dialog();

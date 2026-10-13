@@ -60,6 +60,8 @@ typedef struct {
 	/* Installed conventional RAM ceiling; BIOS MEMswtch remains independent. */
 	UINT16 main_ram;
 	UINT8 main_ram_auto;
+	/* vaeg: keep the BIOS boot-disk setting on the fixed disk (M106). */
+	UINT8 boot_fixed_disk;
 	/* vaeg extension: report PC-8801 standard speed (S) in V1/V2 mode. */
 	UINT8 v1v2_standard;
 	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
