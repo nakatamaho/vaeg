@@ -316,3 +316,21 @@ mode lamp follows V1/V2/V3.
   instead of Y U I / H J K / N M , / . (keypad 7-9/4-6/1-3/0); the letter
   keys type letters again. ADR-0008 amended; selftest updated (fails with a
   letter key back in the table). [a55c447a](https://github.com/nakatamaho/vaeg/commit/a55c447ab833b83fc99018507ebaa0bdb5ab7769).
+- File browsers and tape archives (maintainer request): the FDD and tape
+  browsers list `.d88 .88d .zip .7z .lzh` and `.cmt .t88 .zip .7z .lzh` by
+  default, with an All files (`*.*`) choice below the path. The tape menu
+  and `--tape` accept a zip/7z/lzh archive and load its first `.cmt`/`.t88`
+  (by name), extracted into the managed archive storage. Dropmedia selftest
+  covers the tape extraction (fails when the tape filter takes disk images
+  or the extractor ignores it; run in a build with LibArchive, since this
+  host has no LibArchive development package and the default local presets
+  skip the archive tests). Checked with a PC-8801 tape zip through
+  `--tape`. The GUI browsers were not exercised (no display here).
+  [2b42fa71](https://github.com/nakatamaho/vaeg/commit/2b42fa7140e649510381ee6e4df3a63e6b68a0c9), [d6bc7370](https://github.com/nakatamaho/vaeg/commit/d6bc7370a88bce6498853114161d67260c5d3aae), [c915b1ec](https://github.com/nakatamaho/vaeg/commit/c915b1ec91ad4ad6e333e59c0ecaab9186467d48).
+- Tape checks (maintainer's PC-8801 tapes): one N88 tape (auto-load through
+  the monitor `R` and `G9F00`) loads and runs with `LOAD "CAS:"` and `RUN`,
+  fast load on and off. Another N88 tape's BASIC auto-types monitor command
+  `O0,0` to read the machine code; the VA's N88 monitor (identical to the
+  PC-8801MA2 N88.ROM in 32669 of 32768 bytes) does not read tape on `O`
+  (it uses `R`), so `RUN` stops with `?`; typing `mon`, `R`, `GE2A0`, `R`,
+  `GA000` by hand runs it. Not an emulation fault as far as determined.
