@@ -1,6 +1,24 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
+## Latest main refresh (explicit maintainer request)
+
+The maintainer subsequently requested another main merge. Starting HEAD was
+`8a3c18f780573433a6c7cb028edaeeb1c1b08977`; `git fetch origin refs/heads/main`
+succeeded and pinned `ecaacb4c604dc00ff3fbf72ddded57f549a28938` for this refresh.
+Normal merge commit: `9c2890906683f4fed840b110ad5d84e8cd2f003c`, on the same
+`topic/m100os-recording-resume` branch, with no conflicts. Its second parent is
+the fetched main tip; the main-ancestor check passed. Local main was not moved,
+and nothing was pushed. All three inherited dirty files remained byte-identical
+before/after merging and validation; none was staged or committed.
+
+Post-merge ON/OFF builds exited 0. Recording-label CTest with `--no-tests=error`
+passed 20/20 ON and 12/12 OFF. Encoding, EOL, case and whitespace checks passed.
+This validation includes the preserved dirty files, not a clean-release claim.
+New runtime/performance/platform acceptance is not implied. Resume from this
+merged tree. The original integration and checkpoint identities below remain
+historical evidence, rather than a reason to rewind or repeat their work.
+
 ## Overall state
 
 **IN_PROGRESS, not IMPLEMENTATION_COMPLETE and not RELEASE_VALIDATED.** This is
