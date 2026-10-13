@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M22 - SDL2 disk-image drag and drop
 
-Status: implementation complete; G22 pending
+Status: complete; G22 passed
 
 Branches: `topic/m22-disk-drop`, follow-up `topic/m22-fdd-archive-picker`
 
