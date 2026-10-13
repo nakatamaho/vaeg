@@ -144,7 +144,7 @@ git diff -- win9x i286x cpuxva/memoryva.x86 hlp
 - Confirm reset preserves mounted FDD and SASI images.
 - Complete the standard VA gate: V3 boot, VA demo, and OS boot/simple use.
 
-G28 remains pending until the user reports that this checklist passed.
+G28 passed: the user explicitly confirmed the human checks passed.
 
 ## Verification record
 
