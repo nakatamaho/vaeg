@@ -35,6 +35,31 @@ land.
 
 ## Maintenance Rules
 
+### M106 — Tapes whose loader chains a second block did not start
+
+- **Symptom/scope:** a PC-8801 tape (T88) whose BASIC part auto-types the
+  monitor's `mon`/`r` to load its machine-code part stopped on its
+  "loading" screen after `LOAD "CAS:"` and `RUN`, with and without fast
+  load; on a PC-8801 the game loads and starts. V1/V2 cassette, T88 images
+  with more than one data block.
+- **Demonstrated cause:** N-88 BASIC ends a cassette load by reading one
+  byte past its program. On the tape that byte comes from the 1200 Hz
+  (space) gap after the block, a run of 0 bits that the 8251 receives as
+  00h. vaeg dropped the T88's timed blocks and joined the data, so BASIC
+  took the first byte (3Ah, the monitor's record mark) of the machine-code
+  block, and the monitor stopped after 7 bytes (tape position 781 of 780
+  bytes of BASIC, then 788).
+- **Correction:** T88 blank, space and mark blocks take their recorded
+  time; space blocks deliver 00h at the baud rate; with fast load the
+  blocks are shortened by 16 instead of dropped (decision C11 revised).
+- **Verification:** the tape loads and the game starts in vaeg (original
+  VA ROM BASIC 2.4, no disk) with fast load off and on; the cassette
+  selftest checks the 00h count and carrier of space and mark blocks in
+  both modes and fails with the zero bytes removed or with blocks skipped
+  under fast load.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [07d35f7c](https://github.com/nakatamaho/vaeg/commit/07d35f7ccc8e60b937e304c8290c05b3d9975166).
+
 ### M106 — The SASI utility HDD build had stopped at its first step
 
 - **Symptom/scope:** `tools/pc88va/build-sasi-utility-disks.sh` failed at

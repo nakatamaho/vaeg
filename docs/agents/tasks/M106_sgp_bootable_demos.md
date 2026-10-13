@@ -284,6 +284,14 @@ mode lamp follows V1/V2/V3.
   1.5 s + 0.5 s leader, and fast load skips both. Selftest covers both
   (four mutations caught). Separately, one tape whose BASIC loader
   auto-types `mon`/`r` through the BASIC work area (F003h/F004h, E6CEh)
-  does not start its machine-code part in vaeg, before and after this
-  change (original VA ROM BASIC 2.4, no disk); not investigated further.
+  did not start its machine-code part in vaeg; fixed below.
   [a06d55d8](https://github.com/nakatamaho/vaeg/commit/a06d55d8dbab00de9e0d2c4b52089f3b92f2f25f).
+- Tape auto-load (maintainer: `LOAD "CAS:"` and `RUN` should load and
+  start the game): the auto-type through F003h/F004h/E6CEh works in vaeg
+  (checked with a one-line program; the VA ROM's keyboard interrupt at
+  30ACh/34EAh implements it). The failure was BASIC reading one byte past
+  its program: on tape that byte is a 00h from the following 1200 Hz gap,
+  in vaeg it was the next block's 3Ah. T88 space blocks now deliver 00h,
+  and fast load shortens blocks instead of dropping them; the game loads
+  and starts with fast load off (about 3.5 minutes of loading) and on.
+  Bug-fix ledger entry. [07d35f7c](https://github.com/nakatamaho/vaeg/commit/07d35f7ccc8e60b937e304c8290c05b3d9975166).
