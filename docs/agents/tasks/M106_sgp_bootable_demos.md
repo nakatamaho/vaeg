@@ -265,3 +265,11 @@ mode lamp follows V1/V2/V3.
   composition on exit. In vaeg (VA2) all 17 programs of the rebuilt
   PC-Engine disk leave on ESC with the grey cursor and no graphics left.
   [8e3b97c5](https://github.com/nakatamaho/vaeg/commit/8e3b97c5d3cfb5d9df31ec88cd41f3e79f298b07), [cf48ab7f](https://github.com/nakatamaho/vaeg/commit/cf48ab7fb97e514e0d8281569d831cf4779317e8), [271cdec9](https://github.com/nakatamaho/vaeg/commit/271cdec953895678e05364c45eafca0a24b0d27c).
+- ESC polling: the first NEON3 ESC fix stopped NEON3 under MS-DOS 4.0 (vaeg,
+  compared with the previous disk), because INT 82h AH=00h waits on the
+  Japanese front end, which MS-DOS does not install; GLASS stalled under
+  MS-DOS for the same reason. Both now poll with AH=0Ah/09h like NEON4 and
+  the SGP demos. In vaeg all 17 programs leave on ESC with a grey cursor and
+  no graphics left, from PC-Engine 1.1 and MS-DOS 4.0 (VA2 and VA), except
+  the known ones: SGPD_7C under MS-DOS, and GLASS/NEON3/NEON4 on the VA's
+  PC-Engine 1.0. [97a5808a](https://github.com/nakatamaho/vaeg/commit/97a5808afa03346cc00b633396ade5f49055d4a4), [7aa5d32f](https://github.com/nakatamaho/vaeg/commit/7aa5d32f2583c56427d1cde2c9aeb13fe48f9b81).
