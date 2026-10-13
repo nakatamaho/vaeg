@@ -4810,7 +4810,20 @@ static int test_cassette_tape(void) {
 	                           0x01, 0xd3, 0x42,
 	                           /* end */
 	                           0x00, 0x00, 0x00, 0x00};
+	/* M106: space 0.5 s, mark 0.25 s, data 11h, mark 1 s, space 0.2 s,
+	 * data 22h (T88 times are in 1/4800 s). */
+	static const BYTE t88gaps[] = {
+	    'P',  'C',  '-',  '8',  '8',  '0',  '1',  ' ',  'T',  'a',  'p',  'e',  ' ',  'I',
+	    'm',  'a',  'g',  'e',  '(',  'T',  '8',  '8',  ')',  0,    0x02, 0x01, 0x08, 0x00,
+	    0,    0,    0,    0,    0x60, 0x09, 0,    0,    0x03, 0x01, 0x08, 0x00, 0,    0,
+	    0,    0,    0xb0, 0x04, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,
+	    0x10, 0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x11, 0x03, 0x01, 0x08, 0x00, 0,
+	    0,    0,    0,    0xc0, 0x12, 0,    0,    0x02, 0x01, 0x08, 0x00, 0,    0,    0,
+	    0,    0xc0, 0x03, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,    0x10,
+	    0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x22, 0x00, 0x00, 0x00, 0x00};
+	static const BYTE raw[] = {0xd3, 0x42};
 	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_fast = np2cfg.cmt_fast;
 	const char *problem = NULL;
 	int i;
 
@@ -4820,6 +4833,7 @@ static int test_cassette_tape(void) {
 	pccore_init();
 	pccore_reset();
 	memoryva_88_mode = 1;
+	np2cfg.cmt_fast = 1;
 	cmt_reset();
 	if ((cmt_open_memory(t88, sizeof(t88)) != SUCCESS) || (cmt_length() != 2)) {
 		problem = "T88 data blocks";
@@ -4898,14 +4912,22 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
-	/* M105 leader without fast load: one second low, one second high, and
-	 * no byte until it ends; none with fast load. */
+	/* M106 leader of a raw image without fast load: 1200 Hz for 1.5 s with
+	 * no carrier, then 2400 Hz for 0.5 s with it, and no byte until both
+	 * end; none with fast load. Calling cmt_event directly leaves the event
+	 * pending, and the next block is timed from its due clock, so the
+	 * second remaining time includes the first. */
 	cmt_save_discard();
+	if ((problem == NULL) && (cmt_open_memory(raw, sizeof(raw)) != SUCCESS)) {
+		problem = "raw tape image";
+	}
 	if (problem == NULL) {
 		static SINT32 pcm[2 * 2205];
 		const UINT saved_rate = soundcfg.rate;
-		const UINT8 saved_fast = np2cfg.cmt_fast;
+		const SINT32 second = (SINT32)pccore.realclock;
 		UINT edges[2];
+		SINT32 remain[2];
+		BOOL carrier[2];
 		UINT k;
 
 		soundcfg.rate = 22050;
@@ -4915,11 +4937,9 @@ static int test_cassette_tape(void) {
 		iocore_out8(0x030, 0x00);
 		iocore_out8(0x030, 0x08);
 		iocore_out8(0x021, 0x14); /* RXE */
-		if ((nevent_getremain(NEVENT_CMT) < (SINT32)pccore.realclock) ||
-		    (iocore_inp8(0x021) & 0x02)) {
-			problem = "tape leader did not hold the data back";
-		}
 		for (i = 0; i < 2; i++) {
+			remain[i] = nevent_getremain(NEVENT_CMT);
+			carrier[i] = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
 			/* zero crossings over 0.1 s: 1200 Hz gives 240, 2400 Hz 480 */
 			ZeroMemory(pcm, sizeof(pcm));
 			cmt_getpcm(NULL, pcm, 2205);
@@ -4929,17 +4949,24 @@ static int test_cassette_tape(void) {
 					edges[i]++;
 				}
 			}
-			if (i == 0) {
-				for (k = 0; k < 10; k++) { /* to 1.1 s */
-					cmt_getpcm(NULL, pcm, 2205);
-				}
+			if (iocore_inp8(0x021) & 0x02) {
+				problem = "tape leader did not hold the data back";
 			}
+			cmt_event(NULL); /* the end of this part of the leader */
+		}
+		if ((problem == NULL) && ((remain[0] < second * 3 / 2 - second / 100) ||
+		                          (remain[0] > second * 3 / 2 + second / 100) ||
+		                          (remain[1] - remain[0] < second / 2 - second / 100) ||
+		                          (remain[1] - remain[0] > second / 2 + second / 100))) {
+			problem = "tape leader was not 1.5 s then 0.5 s";
 		}
 		if ((problem == NULL) &&
 		    ((edges[0] < 230) || (edges[0] > 250) || (edges[1] < 470) || (edges[1] > 490))) {
 			problem = "tape leader was not low then high";
 		}
-		cmt_event(NULL); /* the end of the leader */
+		if ((problem == NULL) && (carrier[0] || !carrier[1])) {
+			problem = "carrier during the tape leader";
+		}
 		if ((problem == NULL) && (iocore_inp8(0x021) & 0x02)) {
 			problem = "tape leader end delivered a byte";
 		}
@@ -4956,13 +4983,69 @@ static int test_cassette_tape(void) {
 			problem = "fast load played a tape leader";
 		}
 		iocore_out8(0x030, 0x00);
-		np2cfg.cmt_fast = saved_fast;
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
+	}
+	/* M106 T88 blocks without data take their recorded time before the
+	 * data that follows them, with the carrier only during mark. */
+	if ((problem == NULL) &&
+	    ((cmt_open_memory(t88gaps, sizeof(t88gaps)) != SUCCESS) || (cmt_length() != 2))) {
+		problem = "T88 with timed blocks";
+	}
+	if (problem == NULL) {
+		static const struct {
+			SINT32 ticks;
+			BOOL carrier;
+		} expect[] = {{2400, FALSE}, {1200, TRUE}, {0, TRUE},
+		              {4800, TRUE},  {960, FALSE}, {0, TRUE}};
+		static const BYTE data[] = {0x11, 0x22};
+		const SINT32 second = (SINT32)pccore.realclock;
+		SINT32 previous = 0; /* remaining time of the block before, if any */
+		UINT n = 0;
+
+		np2cfg.cmt_fast = 0;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		iocore_out8(0x021, 0x14); /* RXE */
+		for (i = 0; (i < (int)NELEMENTS(expect)) && (problem == NULL); i++) {
+			const SINT32 remain = nevent_getremain(NEVENT_CMT);
+			const BOOL carrier = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
+
+			if (expect[i].ticks == 0) {
+				cmt_event(NULL);
+				if (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != data[n++])) {
+					problem = "T88 data after its timed blocks";
+				}
+				previous = 0;
+				continue;
+			}
+			const SINT32 want = previous + (SINT32)((SINT64)second * expect[i].ticks / 4800);
+			previous = remain;
+
+			if ((remain > want + second / 100) || (remain < want - second / 100)) {
+				problem = "T88 block time";
+			} else if (carrier != expect[i].carrier) {
+				problem = "T88 carrier during a block";
+			} else if (iocore_inp8(0x021) & 0x02) {
+				problem = "T88 byte during a block";
+			}
+			cmt_event(NULL);
+		}
+		np2cfg.cmt_fast = 1;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		cmt_event(NULL);
+		if ((problem == NULL) && (!(iocore_inp8(0x021) & 0x02) || (iocore_inp8(0x020) != 0x11))) {
+			problem = "fast load played T88 blocks";
+		}
+		iocore_out8(0x030, 0x00);
 	}
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
+	np2cfg.cmt_fast = saved_fast;
 	cmt_reset();
 	pccore_term();
 	soundmng_deinitialize();
