@@ -2226,9 +2226,9 @@ static int test_persistence_controls(void) {
 	return (SUCCESS);
 }
 
-/* M106: on a signed record with Boot_FixedDisk on, the boot-disk bit
- * B1FC4h bit 7 follows whether a fixed disk is attached, with a checksum the
- * ROM accepts; other records, or the setting off, leave it alone. */
+/* M106: on a signed record the boot-disk bit B1FC4h bit 7 is always cleared
+ * without a fixed disk and, with Boot_FixedDisk on, set with one, with a
+ * checksum the ROM accepts; unsigned records are left alone. */
 static BYTE boot_fixed_disk_sum(void) {
 	BYTE sum = 0;
 	int j;
@@ -2254,7 +2254,13 @@ static int test_boot_fixed_disk(void) {
 	np2cfg.boot_fixed_disk = 0;
 	bkupmemva_sync_bootdisk(TRUE);
 	if (backupmem[0x1fc4] != 0x64) {
-		problem = "changed with Boot_FixedDisk off";
+		problem = "set with Boot_FixedDisk off";
+	}
+	backupmem[0x1fc4] = 0xe4;
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "left set without a fixed disk with Boot_FixedDisk off";
 	}
 	np2cfg.boot_fixed_disk = 1;
 	bkupmemva_sync_bootdisk(TRUE);

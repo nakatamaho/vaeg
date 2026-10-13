@@ -83,20 +83,21 @@ void bkupmemva_sync_mainram(void) {
  * floppy). A floppy in drive 1 still boots first with it set. The bit set
  * with no fixed disk cannot arise on hardware (maintainer), and in vaeg the
  * original VA then hangs at a bare cursor instead of starting N88-BASIC, so
- * vaeg follows the configuration, like the RAM size: set when a fixed disk
- * is attached, cleared otherwise. Only
+ * vaeg always clears it when no fixed disk is attached, and with
+ * Boot_FixedDisk on (the default) sets it when one is, like the RAM size.
+ * Only
  * a record carrying the BIOS signature ("KZM" at B1FC8h) is changed: a
  * cleared record is left for the ROM to fill with its defaults.
  */
 void bkupmemva_sync_bootdisk(BOOL fixed_disk) {
-	if (!np2cfg.boot_fixed_disk || (backupmem[0x1fc8] != 0x4b) || (backupmem[0x1fc9] != 0x5a) ||
-	    (backupmem[0x1fca] != 0x4d)) {
+	if ((backupmem[0x1fc8] != 0x4b) || (backupmem[0x1fc9] != 0x5a) || (backupmem[0x1fca] != 0x4d)) {
 		return;
 	}
-	if (fixed_disk) {
-		backupmem[0x1fc4] |= 0x80;
-	} else {
+	if (!fixed_disk) {
+		/* Never left set without a fixed disk, whatever the setting. */
 		backupmem[0x1fc4] &= 0x7f;
+	} else if (np2cfg.boot_fixed_disk) {
+		backupmem[0x1fc4] |= 0x80;
 	}
 	bkupmemva_update_checksum();
 }

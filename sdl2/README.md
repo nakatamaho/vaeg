@@ -595,8 +595,9 @@ that carries the BIOS signature, and corrects its checksum. Clearing keeps a
 state the hardware can reach: a real machine cannot select the fixed disk
 without one, and the original VA otherwise hangs instead of starting
 N88-BASIC. A bootable floppy in
-drive 1 still boots first. With `false` the record is left as the BIOS setup
-wrote it.
+drive 1 still boots first. With `false` vaeg does not set the bit, leaving
+the BIOS setup's choice while a hard disk is attached; without one the bit
+is cleared in either case.
 
 For VA/VA2 models, `Main_RAM` is the installed conventional-RAM capacity.
 Menu -> デバイス -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
