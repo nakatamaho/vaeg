@@ -408,6 +408,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/m65d_ff6.c
         tests/upd9002/m65e_tail10.c
         tests/upd9002/m96d_nop.c
+        tests/upd9002/m106_near_jcc.c
         tests/upd9002/m68_segmented_memory.c
         tests/upd9002/m70_prefix_string.c
         tests/upd9002/m64_semantics.c
@@ -747,6 +748,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M65D_TESTING=1
         VAEG_UPD9002_M65E_TESTING=1
         VAEG_UPD9002_M96D_TESTING=1
+        VAEG_UPD9002_M106_TESTING=1
         VAEG_UPD9002_M68_TESTING=1
         VAEG_UPD9002_M70_TESTING=1
         VAEG_IDP_M69_TESTING=1
@@ -1085,6 +1087,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m96d-nop)
     set_tests_properties(vaeg_upd9002_m96d_nop PROPERTIES
 		LABELS "romless;upd9002;m96d;semantics")
+
+    add_test(NAME vaeg_upd9002_m106_near_jcc
+		COMMAND vaeg_sdl2 --upd9002-m106-near-jcc)
+    set_tests_properties(vaeg_upd9002_m106_near_jcc PROPERTIES
+		LABELS "romless;upd9002;m106;semantics")
 
     add_test(NAME vaeg_upd9002_m68_segmented_memory
 		COMMAND vaeg_sdl2 --upd9002-m68-segmented-memory)

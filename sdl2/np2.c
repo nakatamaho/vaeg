@@ -112,6 +112,9 @@
 #if defined(VAEG_UPD9002_M96D_TESTING)
 #include "tests/upd9002/m96d_nop.h"
 #endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+#include "tests/upd9002/m106_near_jcc.h"
+#endif
 #if defined(VAEG_UPD9002_M68_TESTING)
 #include "tests/upd9002/m68_segmented_memory.h"
 #endif
@@ -1896,6 +1899,11 @@ int main(int argc, char **argv) {
 #if defined(VAEG_UPD9002_M96D_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m96d-nop")) {
 		return upd9002_m96d_nop_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m106-near-jcc")) {
+		return upd9002_m106_near_jcc_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_M68_TESTING)
