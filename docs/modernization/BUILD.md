@@ -203,8 +203,9 @@ consumer-facing declarations are under `cpu/`; third-party and STL types do
 not cross that interface. The corresponding `vaeg_z80_compat_wrapper_default` and
 `vaeg_z80_compat_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
 public-register mirror, and revision-1 state contracts. When a verified ZEX
-cache is configured, `vaeg_upd780_zexdoc` and `vaeg_upd780_zexall` run the same
-external inputs through the wrapper with the production compile definitions
+cache is configured, `vaeg_upd780_zexall` runs the same external input through
+the wrapper with the production compile definitions; ZEXDOC is not run because
+its vectors equal ZEXALL's and its flag masks are a subset
 (see `docs/modernization/qa/z80-family.md`).
 The production `vaeg_va` target unconditionally compiles
 `cpu/z80_compat_cpu.cpp` and `cpu/z80_compat_state.cpp`.

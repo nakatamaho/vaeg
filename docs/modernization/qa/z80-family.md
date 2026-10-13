@@ -52,13 +52,19 @@ Z80 系は `SCF`/`CCF` の非公開ビット X/Y が Zilog と異なると報告
 
 | CTest | 役割 | 実行するもの | 比較相手 | 判定 |
 |---|---|---|---|---|
-| `vaeg_upd70008_zexdoc`、`vaeg_upd70008_zexall` | uPD70008 | 標準の ZEXDOC/ZEXALL、各67グループ | 実機 VA2 のグループ CRC（`tests/z80_compat/upd9002_zex*_expected.txt`） | 全グループ一致 |
+| `vaeg_upd70008_zexall` | uPD70008 | 標準の ZEXALL、67グループ | 実機 VA2 のグループ CRC（`tests/z80_compat/upd9002_zexall_expected.txt`） | 全グループ一致 |
 | `vaeg_upd70008_probes` | uPD70008 | M101/M102 のプローブプログラム | 実機 VA2 の出力ファイル | バイト単位の一致、先頭一致、レコード単位の一致（後述） |
-| `vaeg_upd780_zexdoc`、`vaeg_upd780_zexall` | uPD780C | 標準の ZEXDOC/ZEXALL | Zilog の標準 CRC | 全グループ OK |
+| `vaeg_upd780_zexall` | uPD780C | 標準の ZEXALL | Zilog の標準 CRC | 全グループ OK |
 | `vaeg_upd780_probes` | uPD780C | ZEX13S、ZEXIY、ZEXUND、ZEXED | Zilog の標準 CRC | 全グループ OK |
 | `vaeg_upd9002_brkem_upd70008` | uPD70008 のアダプタ | 合成データ: 本番のブリッジ、裏レジスタの保存、互換モードの CPU 速度 | 資料と M103a の記録から書いた期待値 | 固定ケース |
 | `vaeg_romless_tests`（`vaeg --selftest` の uPD780 部分） | uPD780C サブシステム | 合成データ: ステートの橋渡し、クロックとウェイト、HALT/IRQ の状態、IRQ アクノリッジ、スリープ経路、FDD 境界、EI の状態、交差配線した 8255 ポート | `tests/upd780/subsystem_integration.cpp` に書いた期待値 | 固定ケース |
 | `vaeg_z80_compat_*` | 共通バックエンド | ラッパーの約束事、旧インターフェースの約束事、ステート形式、素のコアとのトレース差分、素のコアでの ZEX | 素のコアと、バックエンド自身の過去の出力（レベル 4） | 一貫性のみ |
+
+ZEXDOC は実行しない。ZEXDOC と ZEXALL のソース（`external/zex/`）の違いは、各グループの
+フラグマスク67箇所、期待 CRC、表題の文字列だけで、テストベクタは同一である。ZEXALL のマスクは
+すべて `0FFh` なので、ZEXALL のグループ CRC が一致すれば、マスクを狭めた ZEXDOC の CRC も
+（CRC の衝突を除いて）必ず一致する。実機の ZEXDOC 結果（`upd9002_zexdoc_expected.txt`）は
+記録として残す。
 
 役割ごとの検査は `compat-conformance` ジョブで動く。プローブプログラムは z80asm 1.8 で
 ビルドし、z80asm がなければプローブの検査はスキップを報告する。
@@ -122,7 +128,7 @@ R14 の検査では、実機 run 8 から再構成した IVT ページを CP/M �
 
 ## 5. uPD780C: 検査しているものと、していないもの
 
-外部レベルで検査しているもの: ZEXDOC、ZEXALL、ZEX13S、ZEXIY、ZEXUND、ZEXED での、設定した
+外部レベルで検査しているもの: ZEXALL（ZEXDOC を含意）、ZEX13S、ZEXIY、ZEXUND、ZEXED での、設定した
 バックエンドの Zilog 準拠（全グループ OK）と、`vaeg --selftest` による合成データでの
 サブシステム結合テスト。
 

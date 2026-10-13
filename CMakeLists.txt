@@ -1751,16 +1751,15 @@ if(VAEG_ENABLE_TESTS)
         vaeg_verify_zex_artifact(zex-license.txt
             e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
 
-        add_test(NAME vaeg_z80_compat_zexdoc
-            COMMAND vaeg_z80_compat_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
         add_test(NAME vaeg_z80_compat_zexall
             COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
         # Role checks: uPD9002 uPD70008-compatible mode against the real
         # PC-88VA2 CRCs, FDC uPD780C against the stock Z80 CRCs. Each role
-        # has its own expectation file so the roles can diverge.
-        foreach(suite zexdoc zexall)
+        # has its own expectation file so the roles can diverge. ZEXDOC is
+        # not run: its test vectors equal ZEXALL's and its flag masks are a
+        # subset of ZEXALL's all-ones masks, so a ZEXALL match implies it.
+        foreach(suite zexall)
             add_test(NAME vaeg_upd70008_${suite}
                 COMMAND vaeg_z80_compat_role_zex_runner
                     --role upd70008
@@ -1778,7 +1777,7 @@ if(VAEG_ENABLE_TESTS)
                 LABELS "romless;compatibility;zex;role;upd780"
                 TIMEOUT 900)
         endforeach()
-        set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
+        set_tests_properties(vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
     endif()
