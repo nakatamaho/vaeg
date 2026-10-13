@@ -438,4 +438,9 @@ mode lamp follows V1/V2/V3.
   requirement is now in the zundamon README; the open ledger entry is
   removed (its SGP256S/T part is fixed by the `0F 8x` entry, SGP655S was
   by design, ZUNDAORB is this requirement).
+- Hardware results, continued (maintainer, PC-88VA2, 2026-10-14): the
+  65536-colour pseudo-sprite, NEON4 and the wireframes run. The
+  maintainer has no real SASI drive, so the HDD images are checked in
+  vaeg only; the "HDD does not start" report was against an older vaeg
+  build (before the fixed-disk boot setting).
 
