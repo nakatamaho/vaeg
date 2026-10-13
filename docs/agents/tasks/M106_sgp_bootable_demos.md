@@ -69,9 +69,11 @@ mode lamp follows V1/V2/V3.
 - Found while checking: the keyboard BIOS function `00h` waits on the
   Japanese front end, which only an operating system installs, so without
   one it never returns; the loader uses `09h` (the demos already do).
-- In vaeg, M7c/M7d show wrong colours and the 65536-colour pseudo-sprite
-  demo shows one ball, identically under PC-Engine: not caused by this disk;
-  not investigated here.
+- In vaeg, M7c/M7d show wrong colours, identically under PC-Engine: not
+  caused by this disk; not investigated here. (The 65536-colour
+  pseudo-sprite demo showing one ball is by design: it starts with one
+  sphere and UP/DOWN changes the count from 1 to 128; checked in vaeg on
+  2026-10-13 after the maintainer pointed it out. Not a defect.)
 - 2HD by default (maintainer request): 77 x 2 x 8 x 1024 bytes, disk mode
   23h; `--format 2dd` keeps the first layout byte for byte. All eleven demos
   checked from the 2HD disk with the VA2 ROM, and spot checks with the VA
