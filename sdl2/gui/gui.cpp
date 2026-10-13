@@ -1092,8 +1092,9 @@ static void draw_bms_config_dialog(void) {
 	}
 }
 
-/* The BIOS boot-disk setting (B1FC4h bit 7) follows this at the next reset;
- * a floppy in drive 1 still boots first. */
+/* With this on, the BIOS boot-disk setting (B1FC4h bit 7) follows whether a
+ * hard disk is attached, at the next reset; a floppy in drive 1 still boots
+ * first. */
 static void save_boot_fixed_disk(bool enabled) {
 	const UINT8 previous = np2cfg.boot_fixed_disk;
 	np2cfg.boot_fixed_disk = enabled ? 1 : 0;

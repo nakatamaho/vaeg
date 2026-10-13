@@ -2226,14 +2226,23 @@ static int test_persistence_controls(void) {
 	return (SUCCESS);
 }
 
-/* M106: the boot-disk bit B1FC4h bit 7 follows Boot_FixedDisk on a signed
- * record, with a checksum the ROM accepts; other records are left alone. */
+/* M106: on a signed record with Boot_FixedDisk on, the boot-disk bit
+ * B1FC4h bit 7 follows whether a fixed disk is attached, with a checksum the
+ * ROM accepts; other records, or the setting off, leave it alone. */
+static BYTE boot_fixed_disk_sum(void) {
+	BYTE sum = 0;
+	int j;
+
+	for (j = 0; j < 8; j++) {
+		sum = (BYTE)(sum + backupmem[0x1fc0 + j]);
+	}
+	return (sum);
+}
+
 static int test_boot_fixed_disk(void) {
 	static BYTE saved[0x04000];
 	const UINT8 saved_flag = np2cfg.boot_fixed_disk;
 	const char *problem = NULL;
-	BYTE sum;
-	int j;
 
 	CopyMemory(saved, backupmem, sizeof(saved));
 	ZeroMemory(backupmem, sizeof(backupmem));
@@ -2243,22 +2252,23 @@ static int test_boot_fixed_disk(void) {
 	backupmem[0x1fc9] = 0x5a;
 	backupmem[0x1fca] = 0x4d;
 	np2cfg.boot_fixed_disk = 0;
-	bkupmemva_sync_bootdisk();
+	bkupmemva_sync_bootdisk(TRUE);
 	if (backupmem[0x1fc4] != 0x64) {
 		problem = "changed with Boot_FixedDisk off";
 	}
 	np2cfg.boot_fixed_disk = 1;
-	bkupmemva_sync_bootdisk();
-	sum = 0;
-	for (j = 0; j < 8; j++) {
-		sum = (BYTE)(sum + backupmem[0x1fc0 + j]);
+	bkupmemva_sync_bootdisk(TRUE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0xe4) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not set, or wrong checksum, with a fixed disk";
 	}
-	if ((problem == NULL) && ((backupmem[0x1fc4] != 0xe4) || (backupmem[0x1fcd] != sum))) {
-		problem = "bit 7 of B1FC4h or its checksum";
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not cleared, or wrong checksum, without a fixed disk";
 	}
-	backupmem[0x1fc4] = 0x64;
 	backupmem[0x1fc8] = 0x00;
-	bkupmemva_sync_bootdisk();
+	bkupmemva_sync_bootdisk(TRUE);
 	if ((problem == NULL) && (backupmem[0x1fc4] != 0x64)) {
 		problem = "an unsigned record was changed";
 	}

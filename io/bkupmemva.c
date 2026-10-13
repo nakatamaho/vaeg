@@ -80,17 +80,23 @@ void bkupmemva_sync_mainram(void) {
  * Boot disk (M106): B1FC4h bit 7 is the setup menu's 起動ディスク, 1 =
  * fixed disk, 0 = floppy ([MEAS] in vaeg with the VA and VA2 ROMs: each bit
  * of B1FC0h-B1FC7h flipped in turn, only this one boots a SASI disk with no
- * floppy). A floppy in drive 1 still boots first with it set, so vaeg sets
- * it by default, like the RAM size. Only a record carrying the BIOS
- * signature ("KZM" at B1FC8h) is changed: a cleared record is left for the
- * ROM to fill with its defaults.
+ * floppy). A floppy in drive 1 still boots first with it set, but with no
+ * fixed disk the ROM then stops at its "insert the correct disk" message
+ * instead of starting N88-BASIC, so vaeg follows the configuration, like
+ * the RAM size: set when a fixed disk is attached, cleared otherwise. Only
+ * a record carrying the BIOS signature ("KZM" at B1FC8h) is changed: a
+ * cleared record is left for the ROM to fill with its defaults.
  */
-void bkupmemva_sync_bootdisk(void) {
+void bkupmemva_sync_bootdisk(BOOL fixed_disk) {
 	if (!np2cfg.boot_fixed_disk || (backupmem[0x1fc8] != 0x4b) || (backupmem[0x1fc9] != 0x5a) ||
 	    (backupmem[0x1fca] != 0x4d)) {
 		return;
 	}
-	backupmem[0x1fc4] |= 0x80;
+	if (fixed_disk) {
+		backupmem[0x1fc4] |= 0x80;
+	} else {
+		backupmem[0x1fc4] &= 0x7f;
+	}
 	bkupmemva_update_checksum();
 }
 

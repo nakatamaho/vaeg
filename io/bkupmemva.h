@@ -8,7 +8,7 @@ extern "C" {
 
 void bkupmemva_load(void);
 void bkupmemva_sync_mainram(void);
-void bkupmemva_sync_bootdisk(void);
+void bkupmemva_sync_bootdisk(BOOL fixed_disk);
 void bkupmemva_save(void);
 void bkupmemva_setpath(const char *path);
 void bkupmemva_setenabled(BOOL enabled);

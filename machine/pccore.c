@@ -149,7 +149,6 @@ UINT32 pccore_mainram_limit(void) {
 void pccore_mainram_reset(void) {
 	active_main_ram = pccore_normalize_mainram(np2cfg.main_ram);
 	bkupmemva_sync_mainram();
-	bkupmemva_sync_bootdisk();
 }
 
 UINT8 screenupdate = 3; // Bit 0 requests a partial redraw.
@@ -376,6 +375,21 @@ void pccore_cfgupdate(void) {
 	}
 }
 
+/* A SASI or SCSI hard disk (not a CD-ROM or MO) is attached. */
+static BOOL pccore_fixed_disk_attached(void) {
+	static const REG8 drives[] = {0x00, 0x01, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26};
+	SXSIDEV sxsi;
+	int i;
+
+	for (i = 0; i < NELEMENTS(drives); i++) {
+		sxsi = sxsi_getptr(drives[i]);
+		if ((sxsi != NULL) && ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_HDD)) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
 void pccore_reset(void) {
 	int i;
 
@@ -426,6 +440,7 @@ void pccore_reset(void) {
 		pccore.hddif |= PCHDD_SCSI;
 		TRACEOUT(("supported SCSI"));
 	}
+	bkupmemva_sync_bootdisk(pccore_fixed_disk_attached());
 
 	sound_changeclock();
 	beep_changeclock();
