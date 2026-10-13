@@ -411,4 +411,18 @@ mode lamp follows V1/V2/V3.
   SGPD_7C and SGP256S now stop at once; the rebuilt ones run. Test
   `vaeg_upd9002_m106_near_jcc` added (three mutations caught); 113 tests
   pass. [b5be04ff](https://github.com/nakatamaho/vaeg/commit/b5be04fff33316c035bb03e025f887612cf9b64e).
+- Demo run check before the gate (AGENTS.md), HEAD `35dffb5f`, vaeg VA2:
+  all 17 programs of the rebuilt PC-Engine 1.1 bootable all-demos disk and
+  of the MS-DOS 4.0 all-demos disk start, draw (GLASS, NEON3 200/400,
+  NEON4 16/65536, SGPD_7A/7B/7C/7D/7S, SGP256S/T, SGP655S, SGPWIRE
+  16/256/65536, ZUNDAORB) and return to `Ready` or the DOS prompt on ESC;
+  no `0F 8x` halt. `MANDEL.BAS` loads in N88-日本語 BASIC v3.1 (`basic`
+  from PC-Engine, `LOAD "MANDEL.BAS"`, `RUN`) and draws the set from the
+  top (followed for about 30000 frames with `--nowait`; the interpreted
+  program takes long to finish). The SGPD_7C stall under MS-DOS, deferred
+  earlier, no longer occurs (it was the `0F 8x` in the old binary).
+  VA3DDEMO (JWasm, `.186`) contains no `0F 8x`; why it draws nothing in
+  vaeg stays open. Ledger: GLASS/NEON3/NEON4 on the VA model and the VA
+  model's SGPD_7A glyph blocks recorded as open defects, and the BEEP
+  pitch report added to the port 40h entry ([35dffb5f](https://github.com/nakatamaho/vaeg/commit/35dffb5fbfd6a4b1aa1cc3cbb424a1dab942d29e)).
 
