@@ -66,8 +66,10 @@ PRIVATE_ASSET_SUFFIXES = {
     ".d88", ".d77", ".fdi", ".xdf", ".hdm", ".hdi", ".thd",
     ".nhd", ".rom", ".sav",
 }
+# neon3-1.5: NEON RELAY 3 ver1.5 sources of the NEON3 demo port (ADR-0017).
 APPROVED_EXTERNAL_ROOTS = {
-    "imgui", "librashader", "softfloat", "suzukiplan-z80", "ymfm", "zex"
+    "imgui", "librashader", "neon3-1.5", "softfloat", "suzukiplan-z80", "ymfm",
+    "zex"
 }
 # ADR-0015: the source archive may carry exactly these upstream ZEX files at
 # exactly these paths. Release archives never may.

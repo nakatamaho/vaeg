@@ -1,0 +1,80 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+V480PAT - PC-88VA V3 display-timing test for PC-Engine
+
+Installed files:
+  \BIN\V480PAT.COM
+  \SRC\VTIMING\V480PAT.ASM
+  \DOC\VTIMING.TXT
+
+WARNING: This tool changes monitor timing. Use only a display known to
+accept the selected 15 or 24 kHz input and vertical rate. Do not try an
+arbitrary timing on a CRT. The examples below were displayed on a
+PC-88VA2 with an I-O DATA LCD-MF225XBR; other displays are not guaranteed.
+This is a test pattern, not a resident resolution-setting driver.
+
+Usage:
+  V480PAT [lines] [S|T|U|R|D|I] [Hnn] [W] [N] [K] [Z] [Q|P]
+  V480PAT A|B|C|E|F|G|J
+
+Choose the monitor scan family before launching the matching command.
+The program waits for a key after drawing, then restores the original
+timing and returns to DOS; the pattern's graphics mode stays in place.
+Sweeps wait for a key at each entry; ESC stops the sweep. If the screen
+is lost, press a key to restore timing. Do not put tests in AUTOEXEC.BAT.
+
+320-dot examples at 15.98 kHz:
+  V480PAT 224 R W     320 x 224, about 59.9 Hz, all 224 lines
+  V480PAT 240 R W     320 x 240, about 56.5 Hz, all 240 lines
+  R: top blanking 37, bottom blanking 2, vertical sync 4 (for these heights).
+  W: 320-dot graphics source; TSP horizontal active remains 640 dots.
+  T and U use shorter top blanking and can hide bottom graphics lines.
+
+320-dot, line-doubled examples at 24.8 kHz:
+  V480PAT 197 D K Q   320 x 197, about 60.11 Hz
+  V480PAT 198 D K Q   320 x 198, about 59.82 Hz
+  V480PAT 200 D K Q   320 x 200, about 59.25 Hz
+  D: 320-dot graphics, each source line on two rasters.
+  K: top blanking 17. Q: bottom blanking 1, vertical sync 1.
+  Heights above 200 do not yield additional usable doubled graphics lines.
+
+Other options and sweeps:
+  S: 24.8 kHz, 400-line graphics interpretation, requested active height.
+  T/U: 15.98 kHz with top blanking 32/16.
+  Hnn: 15.98 kHz with explicit top blanking (1-63).
+  I: experimental 15.73 kHz family; results are not consistent.
+  N: narrower TSP active window, with borders preserving the line period.
+  Z: D mode without line doubling (odd rasters blank).
+  P: bottom blanking 2, vertical sync 4 in S/D mode.
+  A/E/F: 24 kHz sweeps. B/C/J: 15 kHz sweeps. G: 320-dot doubled sweep.
+  F/G/J are the near-60-Hz sweeps. Read the full README before other tests.
+
+Build on the host with NASM (the guest assembler is not NASM):
+  nasm -f bin -o V480PAT.COM V480PAT.ASM
+The source is self-contained. HOSTFAT.SYS is optional for transferring
+host-built files; it is not required for this utility on FDD or HDD.
+
+Full instructions: tools/pc88va/vtiming/README.md in the vaeg repository.
+Hardware results: docs/modernization/pc88va-video-modes.md, sections 12.2
+and 12.8. Frame rates above are rounded calculations from those tests,
+not new measurements made when generating this utility disk.

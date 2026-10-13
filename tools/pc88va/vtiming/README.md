@@ -173,6 +173,27 @@ measurements.
   visible line is the last bar's colour and length; for example a green bar
   four steps long is line 219.
 
+## Utility FDD and HDD installation
+
+The utility floppy builder and both VA/VA2 SASI utility HDD variants also
+include the source-built V480PAT from this directory:
+
+- `\BIN\V480PAT.COM` (uncompressed NASM output);
+- `\SRC\VTIMING\V480PAT.ASM` (the same self-contained source);
+- `\DOC\VTIMING.TXT` (ASCII instructions, license and monitor warning).
+
+`stage-vtiming.sh --output DIR` creates just these three files in a new host
+directory. The common development-tool stager incorporates them into its
+manifest; the floppy builder copies the COM after its DIET pass. Existing
+media must be regenerated to acquire the files. No HOSTFAT driver is needed
+for running the installed utility; HOSTFAT can optionally transfer host-built
+files. Assemble the source with NASM on the host, not the guest's JWASM.
+
+The installed instructions include `V480PAT 224 R W` (320x224, about 59.9 Hz),
+`V480PAT 240 R W` (320x240, about 56.5 Hz) at 15.98 kHz, and
+`V480PAT 197 D K Q` (320x197 doubled, about 60.11 Hz) at 24.8 kHz. These reuse
+M104/M105 measurements; generating media is not a new hardware verification.
+
 ## TSPMODE: undocumented TSP screen modes
 
 [`tspmode.asm`](tspmode.asm) builds `TSPMODE.COM` (same terms), also put on

@@ -86,8 +86,10 @@ org 0
 %define SGP_COMMAND_LINE        0x0009
 %define SGP_COMMAND_CLS         0x000a
 %define SGP_LINE_COPY           0x0005
-%define SGP_LINE_HD             0x0400
-%define SGP_LINE_VD             0x0800
+; LINE directions as measured on a PC-88VA2 (the Technical Manual's table has
+; them exchanged).
+%define SGP_LINE_HD             0x0800
+%define SGP_LINE_VD             0x0400
 %define LOADER_RETURN_SS        0xe000
 %define LOADER_RETURN_SP        0xe002
 %define LOADER_RETURN_FLAGS     0xe004

@@ -1,0 +1,40 @@
+{
+ "schema": "vaeg-z80-role-probes-v1",
+ "role": "upd780",
+ "oracle": "stock Zilog Z80 CRCs carried by the exercisers; no real uPD780C record exists",
+ "notes": [
+  "ZEXDOC and ZEXALL are checked by vaeg_upd780_zexdoc and vaeg_upd780_zexall."
+ ],
+ "programs": {
+  "ZEX13S": {},
+  "ZEXIY": {},
+  "ZEXUND": {},
+  "ZEXED": {}
+ },
+ "checks": [
+  {
+   "program": "ZEX13S",
+   "output": "ZEX13S.TXT",
+   "mode": "zex_all_ok",
+   "groups": 10
+  },
+  {
+   "program": "ZEXIY",
+   "output": "ZEXIY.TXT",
+   "mode": "zex_all_ok",
+   "groups": 8
+  },
+  {
+   "program": "ZEXUND",
+   "output": "ZEXUND.TXT",
+   "mode": "zex_all_ok",
+   "groups": 12
+  },
+  {
+   "program": "ZEXED",
+   "output": "ZEXED.TXT",
+   "mode": "zex_all_ok",
+   "groups": 24
+  }
+ ]
+}

@@ -4811,6 +4811,11 @@ static int test_cassette_tape(void) {
 	const char *problem = NULL;
 	int i;
 
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	memoryva_88_mode = 1;
 	cmt_reset();
 	if ((cmt_open_memory(t88, sizeof(t88)) != SUCCESS) || (cmt_length() != 2)) {
@@ -4956,6 +4961,8 @@ static int test_cassette_tape(void) {
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
 	cmt_reset();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("cassette tape", problem));
 	}
@@ -4969,6 +4976,11 @@ static int test_monitor_switch(void) {
 	const UINT8 saved = np2cfg.monitor_15khz;
 	const char *problem = NULL;
 
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	np2cfg.monitor_15khz = 1;
 	videova_reset();
 	if ((videova_hsyncmode() != VIDEOVA_15_98KHZ) || !(iocore_inp8(0x040) & 0x02)) {
@@ -4982,6 +4994,8 @@ static int test_monitor_switch(void) {
 	}
 	np2cfg.monitor_15khz = saved;
 	videova_reset();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("monitor switch", problem));
 	}
@@ -4996,6 +5010,11 @@ static int test_port040_sound(void) {
 	const UINT8 saved190 = sysportva.port190;
 	const UINT8 savedc = sysportva.c;
 
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	iocore_out8(0x1cf, 0x07); /* XBEEP off */
 	iocore_out8(0x190, 0x18); /* FBEN on */
 	iocore_out8(0x040, 0x20);
@@ -5018,6 +5037,8 @@ static int test_port040_sound(void) {
 	iocore_out8(0x040, saved040);
 	sysportva.c = savedc;
 	beep_oneventset();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("port 40h sound", problem));
 	}

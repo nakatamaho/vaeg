@@ -24,6 +24,7 @@
 
 set -euo pipefail
 
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 program_name=${0##*/}
 output_dir=
 manifest_file=
@@ -64,7 +65,8 @@ Usage: $program_name --output DIR --profile fdd|sasi \
 		       [--stest-source-archive FILE]
 
 Create the normalized development-tool tree consumed by both the FDD and
-SASI injectors.  The output contains BIN, DOC, ARCHIVE, and UNIX subtrees.
+SASI injectors.  The output contains BIN, DOC, SRC, ARCHIVE, and UNIX subtrees.
+V480PAT is built with NASM and staged with its source and instructions.
 The FDD profile stages the compact ISH archive tools used by the established
 development floppy.  The SASI profile also stages the larger Info-ZIP,
 EMACSVA, CPMVA, TDC, BENCH, and UNIX-like collections below their respective
@@ -241,7 +243,7 @@ else
 	done
 fi
 
-for required_command in lha tar unzip; do
+for required_command in lha tar unzip nasm; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -412,6 +414,12 @@ write_manifest() {
 			sort -z -f)
 	} > "$manifest_file"
 }
+
+"$script_dir/stage-vtiming.sh" --output "$work_dir/vtiming"
+cp -- "$work_dir/vtiming/BIN/V480PAT.COM" "$output_dir/BIN/V480PAT.COM"
+cp -- "$work_dir/vtiming/DOC/VTIMING.TXT" "$output_dir/DOC/VTIMING.TXT"
+mkdir -p -- "$output_dir/SRC/VTIMING"
+cp -- "$work_dir/vtiming/SRC/VTIMING/V480PAT.ASM" "$output_dir/SRC/VTIMING/V480PAT.ASM"
 
 write_manifest
 printf 'Staged common development tools in %s\n' "$output_dir"

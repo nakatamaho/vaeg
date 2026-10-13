@@ -203,8 +203,10 @@ consumer-facing declarations are under `cpu/`; third-party and STL types do
 not cross that interface. The corresponding `vaeg_z80_compat_wrapper_default` and
 `vaeg_z80_compat_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
 public-register mirror, and revision-1 state contracts. When a verified ZEX
-cache is configured, `vaeg_z80_compat_wrapper_zexdoc` and
-`vaeg_z80_compat_wrapper_zexall` run the same external inputs through the wrapper.
+cache is configured, `vaeg_upd780_zexall` runs the same external input through
+the wrapper with the production compile definitions; ZEXDOC is not run because
+its vectors equal ZEXALL's and its flag masks are a subset
+(see `docs/modernization/qa/z80-family.md`).
 The production `vaeg_va` target unconditionally compiles
 `cpu/z80_compat_cpu.cpp` and `cpu/z80_compat_state.cpp`.
 
@@ -344,50 +346,36 @@ program, and RAM input structures and returns a fixed-width result without
 exposing emulator globals. The SingleStepTests V20 dataset is deliberately not
 downloaded or integrated in M42.
 
-## uPD9002 M43 external V20 baseline
+## uPD9002 SST V20 check
 
-M43 extends the direct harness with a test-only child-process adapter for the
-pinned MIT-licensed SingleStepTests V20 `v1_native` corpus. The corpus remains
-outside the repository. Acquisition, digest verification, deterministic CI and
-full commands, and baseline-report commands are documented in
+The uPD9002 native mode is compared with the pinned MIT-licensed
+SingleStepTests V20 `v1_native` corpus. The corpus remains outside the
+repository; acquisition and digest verification are documented in
 `tests/ssts/README.md`.
 
 Set `VAEG_SSTS_V20_ROOT` to the verified pinned checkout when configuring a
-test-bearing build. CTest then reproduces the CI profile and requires exact
-agreement with the committed result and failure signatures. When the setting
-is absent, ordinary hosted CI records a visible external-data skip while still
-running the synthetic fail-closed adapter test and checking both committed
-result summaries. An external-data skip never satisfies the M43 human gate or
-the corresponding comparison gate in M44--M49.
-
-The worker entry point exists only when `VAEG_ENABLE_TESTS=ON`; production
-builds do not compile the adapter, deterministic flat-memory seam, or test I/O
-seam. V20 bus timing and prefetch-cycle details are diagnostic rather than
-uPD9002 timing requirements.
-
-## uPD9002 M58 SST ratchet
-
-M58 preserves the M43 result files byte-for-byte and records their immutable
-content identities in `tests/ssts/epochs/g43/manifest.json`. The blocking
-architectural CI and full profiles use the metadata-defined FLAGS mask. The
-separate, non-blocking fingerprint full profile compares all 16 FLAGS bits.
-Neither contract includes cycles, prefetch, or bus timing.
-
-With `VAEG_SSTS_V20_ROOT` configured, CTest runs the architectural CI profile
-through `tools/qa/upd9002_ssts_ratchet.py ci-enforce`. The command requires
-the configured Git commit and compares it with the explicit approved G57 SHA,
-not with a mutable worktree result. When the corpus is unavailable, CTest
-reports the existing visible skip; that skip never satisfies G58.
-
-The always-available repository tests verify immutable M43 files, schema
-versions, deterministic JSON and gzip, closed classification registries,
-strict lettered milestone identifiers, and fail-closed negative cases:
+test-bearing build. `vaeg_sst_v20_ci` then runs the `ci` profile with
+`tools/qa/sst_v20.py` and compares it with `tests/ssts/v20/baseline_ci.json`,
+the per-form list of records that fail today (none at present; target-absent
+and excluded forms are listed but not judged). A regression or a stale entry
+fails the test. Without the setting the test reports a visible skip, while
+`vaeg_sst_v20_selftest` and `vaeg_sst_v20_baseline` always run:
 
 ```sh
-python3 tools/qa/upd9002_ssts_ratchet.py verify-static --root .
-python3 tools/qa/upd9002_ssts_ratchet.py selftest
+python3 tools/qa/sst_v20.py selftest
+python3 tools/qa/sst_v20.py validate --baseline tests/ssts/v20/baseline_ci.json
 python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
 ```
+
+See `docs/modernization/qa/upd9002-native.md` for the comparison rule,
+error codes, and the baseline update procedure. The worker entry point exists
+only when `VAEG_ENABLE_TESTS=ON`; production builds do not compile the
+adapter, deterministic flat-memory seam, or test I/O seam. V20 bus timing and
+prefetch-cycle details are not compared.
+
+The earlier M43-M70 result files, ratchet, and evidence validators were
+removed in M108; they remain available at commit
+[884b7dca](https://github.com/nakatamaho/vaeg/commit/884b7dca97b6576007baa235b81a2597fa5f0c22).
 
 ## uPD9002 M45 native execution invariant
 

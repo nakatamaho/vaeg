@@ -24,8 +24,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # NEON3 PC-88VA port
 
 This directory is the P3 work tree for the `NEON3286` migration.  The source
-under `src/` includes the original NEON3 fixed-point geometry from
-`demos/neon3_1_5/98/` without modifying or copying that source.
+under `src/` includes the original NEON3 fixed-point geometry from the
+unmodified NEON RELAY 3 ver1.5 files in
+[`external/neon3-1.5/`](../../external/neon3-1.5/) (SimK, modified BSD
+licence; [ADR-0017](../../docs/agents/DECISIONS/ADR-0017-neon3-sources.md)).
 
 The current payload is the P3-B geometry/SGP harness.  It reuses the original
 PC-98 projection and nine-scene, 6144-frame timeline, while replacing the
@@ -96,10 +98,16 @@ oversized payload.  It is incompatible with the optional
 non-bootable data disk.  Its root directory contains only the source-built
 `NEON200.COM` and `NEON400.COM` validation payloads; it contains no PC-Engine
 system files, ROMs, or private media.  The raw D88 is a local generation
-intermediate and is not distributed.  Rebuild the two wrapped payloads with
-the loader command above, create an empty data disk from a vanilla validation
-image with `tools/pc88va/pcengine_disk.py data`, install the two files with
-`pcengine_disk.py install`, and compress the resulting D88 with `xz -c -9`.
+intermediate and is not distributed.  Rebuild it with
+
+```sh
+NASM=nasm demos/neon3/build-d88.sh /path/to/2hd-template.d88 \
+  /absolute/path/neon3-distribution.d88
+```
+
+which builds both profiles, wraps them with the loader, installs them on an
+empty data disk made from the template's geometry, and writes the compressed
+companion to `demos/disks/neon3-distribution.d88.xz`.
 The checked-in `demos/disks/neon3-distribution.d88.xz` must pass an `xz`
 round-trip comparison before it is updated.
 

@@ -302,9 +302,11 @@ set(VAEG_CORE_SOURCES
     machine/debugsub.c)
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
+    cpu/upd780/upd780_core_config.cpp
     cpu/upd780/upd780_disasm.cpp
     cpu/z80_compat_cpu.cpp
     cpu/z80_compat_state.cpp
+    cpu/upd9002_upd70008_core_config.cpp
     cpu/upd9002_upd70008.cpp)
 message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility backend")
 
@@ -1687,202 +1689,6 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_selftest PROPERTIES
         LABELS "romless;upd9002;ssts")
 
-    add_test(NAME vaeg_upd9002_ssts_ratchet_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_ssts_ratchet_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;ratchet")
-
-    add_test(NAME vaeg_upd9002_ssts_ratchet_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_ssts_ratchet_static PROPERTIES
-        LABELS "romless;upd9002;ssts;ratchet;repository")
-
-    add_test(NAME vaeg_upd9002_m60a_evidence_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60a_evidence.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m60a_evidence_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;ratchet;flags")
-
-    add_test(NAME vaeg_upd9002_m60a_evidence_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60a_evidence.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}"
-            --predecessor-sha
-            "e7f2325bc81310532091a8ca82914030fdb8b6ba")
-    set_tests_properties(vaeg_upd9002_m60a_evidence_static PROPERTIES
-        LABELS "romless;upd9002;ssts;ratchet;flags;repository")
-
-    add_test(NAME vaeg_upd9002_m60b_authority_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
-            selftest
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m60b_authority_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;ratchet;authority;target-policy")
-
-    add_test(NAME vaeg_upd9002_m60b_authority_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}"
-            --protected-evidence-only)
-    set_tests_properties(vaeg_upd9002_m60b_authority_static PROPERTIES
-        LABELS
-            "romless;upd9002;ssts;ratchet;authority;target-policy;repository")
-
-    add_test(NAME vaeg_upd9002_m60c_erratum_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m60c_erratum_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;authority;documentation")
-
-    add_test(NAME vaeg_upd9002_m60c_erratum_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m60c_erratum_static PROPERTIES
-        LABELS "romless;upd9002;ssts;authority;documentation;repository")
-
-    add_test(NAME vaeg_upd9002_m60c_audit_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_audit.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m60c_audit_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;authority;fpu;target-policy")
-
-    add_test(NAME vaeg_upd9002_m60c_audit_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_audit.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}"
-            --protected-evidence-only)
-    set_tests_properties(vaeg_upd9002_m60c_audit_static PROPERTIES
-        LABELS
-            "romless;upd9002;ssts;authority;fpu;target-policy;repository")
-
-    add_test(NAME vaeg_upd9002_m60d_frame_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m60d_frame_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;interrupt-frame")
-
-    add_test(NAME vaeg_upd9002_m60d_frame_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}"
-            --protected-evidence-only)
-    set_tests_properties(vaeg_upd9002_m60d_frame_static PROPERTIES
-        LABELS
-            "romless;upd9002;ssts;evidence;interrupt-frame;repository")
-
-    add_test(NAME vaeg_upd9002_m60e_iret_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_iret.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m60e_iret_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;iret;flags")
-
-    add_test(NAME vaeg_upd9002_m60e_iret_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_iret.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}"
-            --protected-evidence-only)
-    set_tests_properties(vaeg_upd9002_m60e_iret_static PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;iret;flags;repository")
-
-    add_test(NAME vaeg_upd9002_m61_mov_imm_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m61_mov_imm.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m61_mov_imm_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;mov;semantics")
-
-    add_test(NAME vaeg_upd9002_m61_mov_imm_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m61_mov_imm.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m61_mov_imm_static PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;mov;semantics;repository")
-
-    add_test(NAME vaeg_upd9002_m62_bundle_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m62_bundle.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m62_bundle_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;m62;semantics")
-
-    add_test(NAME vaeg_upd9002_m62_bundle_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m62_bundle.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m62_bundle_static PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;m62;semantics;repository")
-
-    add_test(NAME vaeg_upd9002_m64_expanded_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m64_expanded.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_m64_expanded_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;m64;semantics;target-policy")
-
-    add_test(NAME vaeg_upd9002_m64_expanded_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m64_expanded.py"
-            verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m64_expanded_static PROPERTIES
-        LABELS
-            "romless;upd9002;ssts;evidence;m64;semantics;target-policy;repository")
-
-    add_test(NAME vaeg_upd9002_m70_prefix_string_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m70_prefix_string.py"
-            selftest
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m70_prefix_string_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence;m70;semantics;target-policy")
-
-    add_test(NAME vaeg_upd9002_m70_prefix_string_static
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m70_prefix_string.py"
-            verify
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_m70_prefix_string_static PROPERTIES
-        LABELS
-            "romless;upd9002;ssts;evidence;m70;semantics;target-policy;repository")
-
-    add_test(NAME vaeg_upd9002_ssts_evidence_selftest
-        COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
-            selftest)
-    set_tests_properties(vaeg_upd9002_ssts_evidence_selftest PROPERTIES
-        LABELS "romless;upd9002;ssts;evidence")
-
-    if(EXISTS
-            "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/evidence/g59/manifest.json")
-        add_test(NAME vaeg_upd9002_ssts_evidence_static
-            COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
-                verify-static
-                --root "${CMAKE_CURRENT_SOURCE_DIR}")
-        set_tests_properties(vaeg_upd9002_ssts_evidence_static PROPERTIES
-            LABELS "romless;upd9002;ssts;evidence;repository")
-    endif()
-
     add_test(NAME vaeg_milestone_id_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/milestone_ids.py"
@@ -1899,51 +1705,36 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_worker_selftest PROPERTIES
         LABELS "romless;upd9002;ssts;harness" TIMEOUT 60)
 
-    foreach(profile ci full)
-        add_test(NAME vaeg_upd9002_ssts_${profile}_baseline
-            COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
-                report
-                --summary
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_${profile}.json")
-        set_tests_properties(vaeg_upd9002_ssts_${profile}_baseline PROPERTIES
-            LABELS "romless;upd9002;ssts;baseline")
-    endforeach()
-
+    # uPD9002 native-mode check against the SingleStepTests V20 corpus:
+    # regressions and stale entries against tests/ssts/v20/baseline_ci.json.
+    add_test(NAME vaeg_sst_v20_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" selftest)
+    add_test(NAME vaeg_sst_v20_baseline
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" validate
+            --baseline "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20/baseline_ci.json")
+    set_tests_properties(vaeg_sst_v20_selftest vaeg_sst_v20_baseline PROPERTIES
+        LABELS "romless;upd9002;ssts;sst-v20")
     if(VAEG_SSTS_V20_ROOT)
-        execute_process(
-            COMMAND git rev-parse HEAD
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            RESULT_VARIABLE VAEG_SSTS_GIT_RESULT
-            OUTPUT_VARIABLE VAEG_SSTS_EVALUATED_SHA
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-        string(LENGTH "${VAEG_SSTS_EVALUATED_SHA}"
-            VAEG_SSTS_EVALUATED_SHA_LENGTH)
-        if(NOT VAEG_SSTS_GIT_RESULT EQUAL 0
-                OR NOT VAEG_SSTS_EVALUATED_SHA MATCHES "^[0-9a-f]+$"
-                OR NOT VAEG_SSTS_EVALUATED_SHA_LENGTH EQUAL 40)
-            message(FATAL_ERROR
-                "A precise Git HEAD is required for the SST ratchet")
-        endif()
-        add_test(NAME vaeg_upd9002_ssts_ci_external
+        add_test(NAME vaeg_sst_v20_ci
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_g65m_ci.py"
-                --root "${CMAKE_CURRENT_SOURCE_DIR}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" ci
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"
+                --manifest "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20_dataset_manifest.json"
                 --worker "$<TARGET_FILE:vaeg_sdl2>"
-                --evaluated-sha "${VAEG_SSTS_EVALUATED_SHA}"
-                --output-root "${CMAKE_CURRENT_BINARY_DIR}/ssts")
-        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
-            LABELS "romless;upd9002;ssts;external;ratchet"
+                --baseline "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20/baseline_ci.json"
+                --output "${CMAKE_CURRENT_BINARY_DIR}/sst-v20/ci_result.json")
+        set_tests_properties(vaeg_sst_v20_ci PROPERTIES
+            LABELS "romless;upd9002;ssts;sst-v20;external"
             TIMEOUT 1800)
     else()
-        add_test(NAME vaeg_upd9002_ssts_ci_external
+        add_test(NAME vaeg_sst_v20_ci
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
-                external-skip
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/sst_v20.py" skip
                 --reason "VAEG_SSTS_V20_ROOT is not configured")
-        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
-            LABELS "romless;upd9002;ssts;external"
+        set_tests_properties(vaeg_sst_v20_ci PROPERTIES
+            LABELS "romless;upd9002;ssts;sst-v20;external"
             SKIP_RETURN_CODE 77)
     endif()
 
@@ -2031,11 +1822,15 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_z80_compat_wrapper_no_functional_test PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_z80_compat_wrapper_zex_runner
-        tests/z80_compat/wrapper_zex_runner.cpp)
-    target_link_libraries(vaeg_z80_compat_wrapper_zex_runner PRIVATE
-        vaeg_z80_compat_wrapper_no_functional)
-    target_compile_options(vaeg_z80_compat_wrapper_zex_runner PRIVATE
+    # Role ZEX runner: the shared backend with the production compile
+    # definitions and each role's production core configuration.
+    add_executable(vaeg_z80_compat_role_zex_runner
+        tests/z80_compat/wrapper_zex_runner.cpp
+        cpu/upd780/upd780_core_config.cpp
+        cpu/upd9002_upd70008_core_config.cpp)
+    target_link_libraries(vaeg_z80_compat_role_zex_runner PRIVATE
+        vaeg_z80_compat_wrapper)
+    target_compile_options(vaeg_z80_compat_role_zex_runner PRIVATE
         -Wall -fsigned-char)
 
     add_executable(vaeg_upd780_disasm
@@ -2234,15 +2029,48 @@ if(VAEG_ENABLE_TESTS)
         "VAEG_M101_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m101_zexall_qa/pc88va2/raw\""
         "VAEG_M102_QA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/docs/agents/reports/m102_zexund_qa/run2_pc88va2/raw\"")
 
-    add_executable(vaeg_cpm_runner tests/z80_compat/cpm_runner.cpp)
-    vaeg_configure_z80_compat_standalone_target(vaeg_cpm_runner)
-    # Same core configuration as production (Z80_NO_EXCEPTION), so that
-    # undefined opcodes behave as in vaeg.
-    target_compile_definitions(vaeg_cpm_runner PRIVATE
-        Z80_DISABLE_DEBUG
-        Z80_DISABLE_NESTCHECK
-        Z80_NO_EXCEPTION
-        Z80_NO_FUNCTIONAL)
+    # The shared backend with the production compile definitions and each
+    # role's production core configuration, so that probe programs behave
+    # as in vaeg.
+    add_executable(vaeg_cpm_runner
+        tests/z80_compat/cpm_runner.cpp
+        cpu/upd780/upd780_core_config.cpp
+        cpu/upd9002_upd70008_core_config.cpp)
+    target_link_libraries(vaeg_cpm_runner PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_options(vaeg_cpm_runner PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
+    endif()
+
+    # M101/M102 probe programs per role: built with z80asm 1.8 and run by
+    # vaeg_cpm_runner with each role's production core configuration.
+    find_program(VAEG_Z80ASM_EXECUTABLE z80asm)
+    add_test(NAME vaeg_z80_role_probes_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" selftest)
+    set_tests_properties(vaeg_z80_role_probes_selftest PROPERTIES
+        LABELS "romless;compatibility;role")
+    foreach(role upd70008 upd780)
+        if(VAEG_Z80ASM_EXECUTABLE)
+            add_test(NAME vaeg_${role}_probes
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" run
+                    --manifest "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/${role}_probes.json"
+                    --runner "$<TARGET_FILE:vaeg_cpm_runner>"
+                    --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+            set_tests_properties(vaeg_${role}_probes PROPERTIES
+                LABELS "romless;compatibility;role;${role}"
+                TIMEOUT 1200)
+        else()
+            add_test(NAME vaeg_${role}_probes
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                    --reason "z80asm 1.8 was not found at configure time")
+            set_tests_properties(vaeg_${role}_probes PROPERTIES
+                LABELS "romless;compatibility;role;${role}"
+                SKIP_RETURN_CODE 77)
+        endif()
+    endforeach()
 
     add_executable(vaeg_z80_compat_legacy_contract
         tests/z80_compat/legacy_contract.cpp)
@@ -2385,34 +2213,34 @@ if(VAEG_ENABLE_TESTS)
         vaeg_verify_zex_artifact(zex-license.txt
             e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
 
-        add_test(NAME vaeg_z80_compat_zexdoc
-            COMMAND vaeg_z80_compat_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
         add_test(NAME vaeg_z80_compat_zexall
             COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexdoc
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
-        add_test(NAME vaeg_z80_compat_wrapper_zexall
-            COMMAND vaeg_z80_compat_wrapper_zex_runner
-                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        foreach(suite zexdoc zexall)
-            add_test(NAME vaeg_z80_compat_wrapper_upd9002_${suite}
-                COMMAND vaeg_z80_compat_wrapper_zex_runner
-                    --profile upd9002
+        # Role checks: uPD9002 uPD70008-compatible mode against the real
+        # PC-88VA2 CRCs, FDC uPD780C against the stock Z80 CRCs. Each role
+        # has its own expectation file so the roles can diverge. ZEXDOC is
+        # not run: its test vectors equal ZEXALL's and its flag masks are a
+        # subset of ZEXALL's all-ones masks, so a ZEXALL match implies it.
+        foreach(suite zexall)
+            add_test(NAME vaeg_upd70008_${suite}
+                COMMAND vaeg_z80_compat_role_zex_runner
+                    --role upd70008
                     --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd9002_${suite}_expected.txt"
                     "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
-            set_tests_properties(vaeg_z80_compat_wrapper_upd9002_${suite} PROPERTIES
-                LABELS "romless;compatibility;zex;wrapper;upd9002"
+            set_tests_properties(vaeg_upd70008_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;role;upd70008;upd9002"
+                TIMEOUT 900)
+            add_test(NAME vaeg_upd780_${suite}
+                COMMAND vaeg_z80_compat_role_zex_runner
+                    --role upd780
+                    --expect "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/upd780_${suite}_expected.txt"
+                    "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${suite}.cim")
+            set_tests_properties(vaeg_upd780_${suite} PROPERTIES
+                LABELS "romless;compatibility;zex;role;upd780"
                 TIMEOUT 900)
         endforeach()
-        set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
+        set_tests_properties(vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
-            TIMEOUT 900)
-        set_tests_properties(
-            vaeg_z80_compat_wrapper_zexdoc vaeg_z80_compat_wrapper_zexall PROPERTIES
-            LABELS "romless;compatibility;zex;wrapper"
             TIMEOUT 900)
     endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)

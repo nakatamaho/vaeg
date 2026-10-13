@@ -317,7 +317,8 @@ residual. M60e handles IRET separately.
 10. M67 — final divergence and hardware-question consolidation after approved
    G66b. M67 starts only from G66b at
    `97f760e8da573888edf089c2875c623895a3c2c9` and records the current
-   divergence-domain state in `tests/ssts/divergence/g67/registry.json`.
+   divergence-domain state in `tests/ssts/divergence/g67/registry.json` (removed in
+   M108; available at commit `884b7dca97b6576007baa235b81a2597fa5f0c22`).
    Compatibility views for approved target divergences, hardware-pending
    questions, evidence backlogs, zero-coverage items, fingerprint diagnostics,
    and state-compatibility exceptions are generated from that registry rather

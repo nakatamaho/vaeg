@@ -9,6 +9,7 @@
 
 #include <cstdint>
 
+#include "cpu/upd780/upd780_core_config.h"
 #include "cpu/upd780/upd780_disasm.h"
 #include "cpu/z80_compat_cpu.h"
 #include "i8255.h"
@@ -166,6 +167,7 @@ class Subsystem : public IMemoryAccess, public IIOAccess {
 
 Subsystem::Subsystem() {
 	upd780 = new UPD780C();
+	Upd780ConfigureCore(upd780);
 	clockcounter = new ClockCounter();
 	clock = new Clock();
 	waitactive = false;

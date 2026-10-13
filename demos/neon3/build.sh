@@ -81,7 +81,7 @@ if [ "$extra_define" ]; then
 fi
 set -- "$@" \
     -I "$script_dir/src/" \
-    -I "$script_dir/../neon3_1_5/98/" \
+    -I "$script_dir/../../external/neon3-1.5/" \
     "$script_dir/src/neon_counter.asm" -o "$output_path"
 
 "$assembler" "$@"

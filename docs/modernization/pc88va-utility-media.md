@@ -180,7 +180,9 @@ the HDD/FDD boot layout differs.
 article describes it as a PC-Engine bug-fix and function-extension layer.
 The PCEPAT documentation is more specific: it says to add
 `DEVICE=PCEPAT.SYS` to `CONFIG.SYS` and place it before the MSE driver.
-The example in that document uses:
+See [PCEPAT Rev.50916 disassembly notes](pcepat-disassembly.md) for the
+current static analysis of its PC-Engine work-area patches, resident hooks, and
+ROM-service dependencies. The example in that document uses:
 
 ```dos
 FILES   = 20
@@ -196,6 +198,8 @@ MSE can be loaded either as a command-line resident program or as a
 `DEVICE=` line in `CONFIG.SYS`. The development disk passes `/A` to place
 the Alias data in BMS and `/B` to swap part of MSE's code data into BMS.
 It does not pass `/X`, because the disk does not install an XMS manager.
+See [MSE 3.52B disassembly notes](mse352b-disassembly.md) for the current
+static analysis of its resident hooks and BMS/XMS swap paths.
 
 Useful MSE-side tools in the archived package include:
 
@@ -210,7 +214,10 @@ patch. Group 2-451 describes the latter as a PCPLUS v1.08 bug fix, and the
 patched driver still identifies the overall package as v1.08. Its embedded
 `$INTTRG` service identifies itself as v1.09, while this patch advances the
 embedded `$SCSIBIOS` service from v1.07 to v1.08. The article treats PCPLUS
-as another PC-Engine extension layer.
+as another PC-Engine extension layer. See
+[PCPLUS 1.08 disassembly notes](pcplus-disassembly.md) for the current static
+analysis of its device-driver initialization, resident hooks, EMS use, and SCSI
+probe path.
 
 The development disk also installs the two commands supplied under
 `PCP108/BIN`: `SMSTAT.COM` reports Sound Memory Manager allocation, and
@@ -529,6 +536,17 @@ and required `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
 [`tools/pc88va/build-utility-disk.sh`](../../tools/pc88va/build-utility-disk.sh)
 creates that vanilla disk in a temporary directory and installs the development
 environment on top of it.
+
+The utility floppy and both VA/VA2 SASI utility HDD variants include the
+repository's source-built timing test at `\BIN\V480PAT.COM`, its unchanged
+self-contained source at `\SRC\VTIMING\V480PAT.ASM`, and ASCII usage/license
+instructions at `\DOC\VTIMING.TXT`. Regenerate existing images to add them.
+The common development-tool manifest covers all three files; the floppy COM
+is copied after DIET so it remains the exact NASM output. HOSTFAT is optional
+for host-file transfers, not required for running V480PAT from the media.
+See [the timing tools README](../../tools/pc88va/vtiming/README.md#utility-fdd-and-hdd-installation)
+and [the measured display modes](pc88va-video-modes.md#128-frames-near-60-hz-m105).
+This tool changes monitor timing; read its monitor warning before running it.
 
 Neither script contains, copies into Git, or identifies the private source
 image. The common helper validates the public PC-Engine 1.1 filesystem layout

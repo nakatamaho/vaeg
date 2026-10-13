@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# This provenance file is vaeg-authored metadata. The six .INC files in this
+# directory are unmodified files of the upstream archive; LICENSE.txt records
+# the author's licence statement.
+
+name=neon3-1.5
+description=NEON RELAY 3 ver1.5, PC-98 graphics and sound demonstration (sources used by the NEON3 PC-88VA port)
+author=SimK (Neko Project 21/W developer); code written with ChatGPT, supervised by SimK
+upstream_page=https://simk98.github.io/np21w/download.html
+source_url=https://drive.google.com/file/d/1jVeGMzF_isgOFEfb9c2edDpEQbxSBEPg/view
+archive_sha256=1b4bb210449370049fca7d3fec388a2b39f1bae5bed52ec55f232b827906ff9a
+archive_directory=NEON3_1_5
+sha256_CONFIG3_286.INC=bcdcef0e3869aa182dc22d25b1cc6949a3638854f01e759021342e0fd8a6cd2a
+sha256_CITY3D286_CORE.INC=4964f75b40a39b27c7a4518aafd9fb9dda37e1bb8e4e3f9c4f90c4900b48928c
+sha256_CITY3D286_FAITHFUL.INC=f0fdd196a85165ee249167aaf7aeb6ff611185fd7d2d043f494417f9ed86f2d4
+sha256_SCENE3_256.INC=4100404dede77aac1b53e90471d2144faf05938a0a331cc9cf4e507c0a3a9725
+sha256_DATA3_286.INC=a199c17855abb89cfa541e42e1d78878d86166915de4d237d3f4983dc3ca74d3
+sha256_MUSIC_URBAN_D8.INC=03c91b95721b0c69f36c24c3990fc3655b331d62ce61e152e231496addf46223
+license=BSD-3-Clause (the author's statement; LICENSE.txt)
+imported_milestone=M106

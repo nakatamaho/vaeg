@@ -77,8 +77,8 @@ org 0x100
 %define SGP_COMMAND_SCAN_RIGHT  0x000b
 %define SGP_COMMAND_SCAN_LEFT   0x000c
 %define SGP_LINE_COPY           0x0005
-%define SGP_LINE_HD             0x0400
-%define SGP_LINE_VD             0x0800
+%define SGP_LINE_HD             0x0800
+%define SGP_LINE_VD             0x0400
 %define SGP_BUSY                0x01
 
 ; Direct-color demonstration words use the existing VAEG word convention.
@@ -696,7 +696,9 @@ emit_set_color:
     ret
 
 ; Emit one documented SGP LINE command. Direction is encoded with
-; VD=0800h and HD=0400h; width and height include both endpoints.
+; LINE directions as measured on a PC-88VA2: HD=0800h, VD=0400h (the
+; Technical Manual's table has them exchanged); width and height include
+; both endpoints.
 emit_line:
     push ax
     push bx
