@@ -62,13 +62,13 @@ M36–M41 archive status.
 | M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 passed** |
 | M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
 | M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, simplified fullscreen, and embedded historical application icon | **G21 passed** |
-| M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop plus FDD-picker archive open, with sorted assignment and bounded safe extraction | **G22 human** |
+| M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop plus FDD-picker archive open, with sorted assignment and bounded safe extraction | **G22 passed** |
 | M23 | tasks/M23_formatted_fdd_images.md | Create formatted blank FAT12 D88 images as Japanese MS-DOS 2HD (1.232 MB) or 2DD (640 KB), with optional persisted FDD1/FDD2 mounting | **G23 passed** |
 | M24 | tasks/M24_host_clipboard_paste.md | Paste host clipboard printable ASCII and line breaks through a paced guest keyboard make/break queue | **G24 passed** |
 | M25 | tasks/M25_fdd_raw_images.md | Create formatted FAT12 FDD images as D88 or mtools-compatible IMG raw containers | **G25 passed** |
-| M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 human** |
+| M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 passed** |
 | M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
-| M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 human** |
+| M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 passed** |
 | M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA1 bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 boot compatibility | **G29 focused human passed; VA2 regression corrected in M31** |
 | M30 | tasks/M30_va_bms_window.md | Restore the VA `80000H-9FFFFH` BMS window semantics lost in the portable C memory port | **G30 accepted** |
 | M31 | tasks/M31_cli_boot_model.md | Select the VA or VA2/VA3 boot model with a session-only command-line override | **G31 passed** |
