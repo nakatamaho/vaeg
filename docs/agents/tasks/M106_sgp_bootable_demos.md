@@ -273,3 +273,17 @@ mode lamp follows V1/V2/V3.
   no graphics left, from PC-Engine 1.1 and MS-DOS 4.0 (VA2 and VA), except
   the known ones: SGPD_7C under MS-DOS, and GLASS/NEON3/NEON4 on the VA's
   PC-Engine 1.0. [97a5808a](https://github.com/nakatamaho/vaeg/commit/97a5808afa03346cc00b633396ade5f49055d4a4), [7aa5d32f](https://github.com/nakatamaho/vaeg/commit/7aa5d32f2583c56427d1cde2c9aeb13fe48f9b81).
+
+- Tape (maintainer request, decision C11 revised): the 87 T88 images of
+  the maintainer's PC-8801 tape collection record 1200 Hz for typically
+  1.5 s and 2400 Hz for 0.5 s before the first data, and timed blank,
+  space and mark blocks between data blocks (one image has about 5 s
+  between its BASIC and machine-code parts). vaeg had dropped those blocks
+  and used one second each for its leader. T88 blocks now take their
+  recorded time (no data, carrier only during 2400 Hz), a raw image gets a
+  1.5 s + 0.5 s leader, and fast load skips both. Selftest covers both
+  (four mutations caught). Separately, one tape whose BASIC loader
+  auto-types `mon`/`r` through the BASIC work area (F003h/F004h, E6CEh)
+  does not start its machine-code part in vaeg, before and after this
+  change (original VA ROM BASIC 2.4, no disk); not investigated further.
+  [a06d55d8](https://github.com/nakatamaho/vaeg/commit/a06d55d8dbab00de9e0d2c4b52089f3b92f2f25f).
