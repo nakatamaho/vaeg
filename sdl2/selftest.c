@@ -2491,7 +2491,8 @@ static int test_clockscale(void) {
 			return (fail("clockscale", "CPU scaling changed machine time"));
 		}
 	}
-	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode. */
+	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode;
+	 * the CPU clock multiplier applies to both modes. */
 	{
 		static const struct {
 			UINT multiple;
@@ -2499,7 +2500,7 @@ static int test_clockscale(void) {
 			UINT32 v30;    /* scaled cost of 100 cycles */
 			UINT32 compat; /* scaled cost of 100 cycles */
 		} speeds[] = {{2, 100, 100, 100}, {2, 50, 200, 200}, {2, 10, 1000, 1000},
-		              {4, 50, 100, 200},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
+		              {4, 50, 100, 100},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
 		const UINT8 saved_speed = np2cfg.cpu_speed;
 
 		for (index = 0; index < NELEMENTS(speeds); index++) {
