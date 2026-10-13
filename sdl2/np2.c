@@ -311,7 +311,8 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
-	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88 in, raw out)\n");
+	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88, or zip/7z/lzh\n"
+	       "\t                    holding one, in; raw out)\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
 	printf("\t--scsi0 path|none   --scsi1 path|none\n");
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
@@ -2199,8 +2200,19 @@ int main(int argc, char **argv) {
 		sdlkbd_reset_state();
 		scrndrawva_redraw();
 		mount_configured_fdd_images();
-		if ((options.tape_path != NULL) && (cmt_open(options.tape_path) != SUCCESS)) {
-			fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+		if (options.tape_path != NULL) {
+			char extracted[MAX_PATH];
+			const char *tape = options.tape_path;
+
+			/* zip/7z/lzh: the first .cmt/.t88 inside (M106) */
+			if (dropmedia_path_is_tape_archive(tape)) {
+				tape =
+				    dropmedia_extract_tape(tape, extracted, sizeof(extracted)) ? extracted : NULL;
+				fprintf(stderr, "%s\n", dropmedia_status());
+			}
+			if ((tape == NULL) || (cmt_open(tape) != SUCCESS)) {
+				fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+			}
 		}
 		if (options.tape_save_path != NULL) {
 			cmt_save_begin(options.tape_save_path);
