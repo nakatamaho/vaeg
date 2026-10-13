@@ -849,7 +849,8 @@ Device / Keyboard in the ImGui menu exposes:
 
 - Host layout: JIS physical, US keytop, Custom
 - Kana input: JIS Kana, Roman Kana
-- Tenkey overlay: maps YUI/HJK/NM,. to guest keypad 789/456/123/0
+- Tenkey overlay: maps the cursor keys up/left/right/down to guest keypad
+  8/4/6/2
 - Full key binding table with capture-next-key
 
 JIS physical maps host scancode position to PC-88VA physical key

@@ -3866,7 +3866,8 @@ static void draw_device_menu(void) {
 			}
 			{
 				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
-				if (ImGui::MenuItem("Tenkey overlay (YUI/HJK/NM,.)", nullptr, tenkey_overlay)) {
+				if (ImGui::MenuItem("Tenkey overlay (cursor keys = 8/4/6/2)", nullptr,
+				                    tenkey_overlay)) {
 					set_tenkey_overlay(!tenkey_overlay);
 				}
 			}
