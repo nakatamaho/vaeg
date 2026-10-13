@@ -381,3 +381,23 @@ mode lamp follows V1/V2/V3.
   setting on and off, with and without the SASI image; selftest catches
   three mutations).
   [c4db4df9](https://github.com/nakatamaho/vaeg/commit/c4db4df93c7698e7589300a7b0414c87e3081f24).
+- Hardware hangs, first step (stage-marker diagnostics were planned): a
+  DIAG build of SGP256S that printed stage letters itself froze in vaeg,
+  which led to the cause. The pseudo-sprite, wireframe and sgp-scan
+  sources declared no CPU, so NASM emitted the 386 near conditional jump
+  `0F 8x` for long `Jcc`s: four each in SGPD_7C/7D, one each in
+  SGP256S/T (right after the first `INT 8Fh`), one in the sgp-scan bar
+  program. The uPD9002 runs the 80186 instruction set; vaeg decodes
+  `0F 85` as a one-byte reserved operation and runs out of step. Fixed
+  with `cpu 186` in the nine sources ([eb953958](https://github.com/nakatamaho/vaeg/commit/eb953958c374fb2e1d47d46acb9896d1e9e3ba9e)); only those five
+  programs change. The pseudo-sprite, all-demos and all-demos-msdos4
+  disks are rebuilt and differ only in SGPD_7C, SGPD_7D, SGP256S and
+  SGP256T ([0a1076bb](https://github.com/nakatamaho/vaeg/commit/0a1076bb1308cc850b4910562f87e8501eb25e1f)). In vaeg (VA2) the four draw from both
+  PC-Engine 1.1 and MS-DOS 4.0; this also fixes the M7c/M7d wrong colours
+  noted above (the old binaries show them, the new ones do not). Ledger
+  entry added; whether this was the hardware hang is to be confirmed on
+  the PC-88VA2. SGP655S showing no FPS or count is by design (the program
+  has no overlay); ZUNDAORB has no `0F 8x` and stays open. Hardware disks
+  rebuilt in `~/work/pc88va/m106-hw/`: `sgp-boot.d88` (b2be40bf),
+  `pce-all.d88` (ce586557), `msdos4-all.d88` (e110cbc7).
+

@@ -35,6 +35,38 @@ land.
 
 ## Maintenance Rules
 
+### M106 — SGP demos contained 386-only near conditional jumps
+
+- **Symptom/scope:** in vaeg, `SPRITE\16\SGPD_7C.COM` and `SGPD_7D.COM`
+  drew a cyan/yellow checkerboard and wrong ball colours (PC-Engine 1.1 and
+  MS-DOS 4.0, VA2). On the maintainer's PC-88VA2, `SPRITE\256\SGP256S.COM`
+  and `SGP256T.COM` hung at once (2026-10-09). Affects every disk carrying
+  these programs (pseudo-sprite distribution, all-demos, all-demos-msdos4,
+  the self-booting SGP disk) and the `sgp-scan` 16-colour build.
+- **Demonstrated root cause:** the pseudo-sprite, wireframe and sgp-scan
+  sources declared no CPU, so NASM encoded conditional jumps beyond the
+  short range as the 386 near form `0F 8x`. The distributed SGPD_7C/7D
+  contained four, SGP256S/T one each (a `jnz` right after the first
+  `INT 8Fh`), the sgp-scan bar program one. The uPD9002 executes the 80186
+  instruction set, where `0F` introduces NEC extended instructions, not a
+  near jump. vaeg decodes `0F 85` as a one-byte reserved operation, so the
+  following bytes are decoded out of step (shown by the wrong colours,
+  which the rebuilt programs do not show). That the same encoding causes
+  the hardware hang is consistent with it but not yet confirmed on
+  hardware.
+- **Correction:** `cpu 186` in the nine SGP demo sources, as GLASS, NEON3,
+  NEON4 and zundamon-orbit already declare a CPU; NASM now emits an
+  inverted short jump around a near `JMP`. Only the five programs above
+  change; all other SGP builds are byte-identical. The pseudo-sprite,
+  all-demos and all-demos-msdos4 disks are rebuilt; only those four
+  programs differ on them.
+- **Verification:** no `0F 8x` remains in any rebuilt program; SGPD_7C,
+  SGPD_7D, SGP256S and SGP256T draw with correct colours in vaeg (VA2)
+  from the rebuilt PC-Engine 1.1 and MS-DOS 4.0 disks, where the old
+  SGPD_7C/7D did not. Hardware confirmation of SGP256S/T pending.
+- **Milestone/task:** M106, [task file](../agents/tasks/M106_sgp_bootable_demos.md).
+- **Commits:** [eb953958](https://github.com/nakatamaho/vaeg/commit/eb953958c374fb2e1d47d46acb9896d1e9e3ba9e), [0a1076bb](https://github.com/nakatamaho/vaeg/commit/0a1076bb1308cc850b4910562f87e8501eb25e1f).
+
 ### M106 — Tapes whose loader chains a second block did not start
 
 - **Symptom/scope:** a PC-8801 tape (T88) whose BASIC part auto-types the
@@ -2733,17 +2765,17 @@ separate parity correction or move it to Open Defects.
 ### M106 — Demos that run in vaeg hang or misbehave on a PC-88VA2
 
 - **Symptom/scope:** on the maintainer's PC-88VA2 under PC-Engine 1.1
-  (all-demos disk, 2026-10-09): `SPRITE\256\SGP256S.COM` and `SGP256T.COM`
-  hang at once; `SPRITE\65536\SGP655S.COM` animates but shows no FPS and
-  no sprite count; `ZUNDAMON\ZUNDAORB.COM` returns to `Ready` and the
-  machine no longer responds. In vaeg (VA2) all four run and draw their
-  overlays. GLASS, NEON3, NEON4 (16 and 65536 colours) and the three
-  SGPWIRE profiles run correctly on the same machine.
-- **Cause:** not established. vaeg differs from the hardware in something
-  these programs depend on; no hypothesis has been tested.
-- **Next step:** reduce each program to the first divergent step on the
-  hardware (for example a marker written to text VRAM before each setup
-  stage), then compare with vaeg.
+  (all-demos disk, 2026-10-09): `ZUNDAMON\ZUNDAORB.COM` returns to `Ready`
+  and the machine no longer responds. In vaeg (VA2) it runs and leaves
+  normally. GLASS, NEON3, NEON4 (16 and 65536 colours) and the three
+  SGPWIRE profiles run correctly on the same machine. (Of the other
+  programs first listed here, SGP256S/T hanging is addressed by the 386
+  near-jump entry above, pending hardware confirmation, and SGP655S
+  showing no FPS or sprite count is by design: it has no such overlay.)
+- **Cause:** not established. ZUNDAORB contains no `0F 8x`; no hypothesis
+  has been tested.
+- **Next step:** reduce the program's exit path to the first divergent
+  step on the hardware, then compare with vaeg.
 
 ### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 
