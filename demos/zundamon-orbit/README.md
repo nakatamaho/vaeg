@@ -31,6 +31,13 @@ The source material permits redistribution, commercial use, and modification;
 credit and Niconico content-tree registration are optional. The PSD itself is
 omitted because of its size.
 
+Runtime requirement: an I/O bank memory board at port `1D0h` with 128 banks
+of 128 KiB (16 MiB), which vaeg provides by default (`Use_BMS_`). Without
+it the program reports `M98V_FAIL: predecessor BMS mapping probe failed.`
+and exits; under PC-Engine, which shows nothing for `INT 21h` function
+`09h`, it simply returns to `Ready`. A PC-88VA2 without such a board
+behaves this way (maintainer, 2026-10-14).
+
 ## Build
 
 Requirements: Python 3, ImageMagick `convert`, NASM, and a local private

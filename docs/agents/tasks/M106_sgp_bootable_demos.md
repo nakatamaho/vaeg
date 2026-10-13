@@ -425,4 +425,17 @@ mode lamp follows V1/V2/V3.
   vaeg stays open. Ledger: GLASS/NEON3/NEON4 on the VA model and the VA
   model's SGPD_7A glyph blocks recorded as open defects, and the BEEP
   pitch report added to the port 40h entry ([35dffb5f](https://github.com/nakatamaho/vaeg/commit/35dffb5fbfd6a4b1aa1cc3cbb424a1dab942d29e)).
+- Hardware results (maintainer, PC-88VA2, rebuilt `pce-all.d88`,
+  2026-10-14): SGP256S and SGP256T now run, so the `0F 8x` near jump was
+  the hang; the three SGPWIRE profiles run. ZUNDAORB returns to `Ready`
+  with nothing shown: not a defect. It requires a 16 MiB I/O bank memory
+  board (port `1D0h`, 128 banks of 128 KiB), which vaeg enables by default
+  and the maintainer's VA2 lacks; with `Use_BMS_=false` vaeg does the same
+  (PC-Engine: straight back to `Ready`; MS-DOS 4.0: `M98V_FAIL:
+  predecessor BMS mapping probe failed.`). PC-Engine 1.1 shows nothing for
+  `INT 21h` function `09h` (checked with a small COM; the ROM text BIOS
+  `INT 83h` does print), which is why no message appeared. The
+  requirement is now in the zundamon README; the open ledger entry is
+  removed (its SGP256S/T part is fixed by the `0F 8x` entry, SGP655S was
+  by design, ZUNDAORB is this requirement).
 

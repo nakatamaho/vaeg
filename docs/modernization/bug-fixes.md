@@ -2777,21 +2777,6 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
-### M106 — Demos that run in vaeg hang or misbehave on a PC-88VA2
-
-- **Symptom/scope:** on the maintainer's PC-88VA2 under PC-Engine 1.1
-  (all-demos disk, 2026-10-09): `ZUNDAMON\ZUNDAORB.COM` returns to `Ready`
-  and the machine no longer responds. In vaeg (VA2) it runs and leaves
-  normally. GLASS, NEON3, NEON4 (16 and 65536 colours) and the three
-  SGPWIRE profiles run correctly on the same machine. (Of the other
-  programs first listed here, SGP256S/T hanging is addressed by the 386
-  near-jump entry above, pending hardware confirmation, and SGP655S
-  showing no FPS or sprite count is by design: it has no such overlay.)
-- **Cause:** not established. ZUNDAORB contains no `0F 8x`; no hypothesis
-  has been tested.
-- **Next step:** reduce the program's exit path to the first divergent
-  step on the hardware, then compare with vaeg.
-
 ### M106 — GLASS, NEON3 and NEON4 do not run on the original VA model
 
 - **Symptom/scope:** in vaeg with the original VA ROM (`--model va`), the
