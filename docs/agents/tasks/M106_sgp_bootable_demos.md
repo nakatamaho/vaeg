@@ -295,3 +295,19 @@ mode lamp follows V1/V2/V3.
   and fast load shortens blocks instead of dropping them; the game loads
   and starts with fast load off (about 3.5 minutes of loading) and on.
   Bug-fix ledger entry. [07d35f7c](https://github.com/nakatamaho/vaeg/commit/07d35f7ccc8e60b937e304c8290c05b3d9975166).
+- Headless paste stall (found while checking a PC-8001 tape in N mode;
+  maintainer asked for a fix): a `--headless-input-script` text line
+  (and `@enter`) could stall for ever when a screenshot had been rendered
+  just before it. The GUI only draws a frame at screenshot frames under the
+  dummy video driver; such a frame could leave ImGui keyboard navigation on
+  the main menu bar, so `WantCaptureKeyboard` stayed set and
+  `gui_guest_keyboard_blocked()` paused the paste. Not specific to N mode
+  (first reported here as an N-mode problem, which was wrong). Pastes
+  started from scripts (`kbdpaste_start_text`, headless input and debug
+  harness) no longer wait on the GUI; the GUI clipboard paste is unchanged.
+  Selftest added (fails without the change); the stalling script now runs
+  three times out of three. Tool-only; no guest-visible change.
+  [ad2cacc8](https://github.com/nakatamaho/vaeg/commit/ad2cacc81e154651dbe7cfda9d45552afc50c206).
+- PC-8001 tape check (maintainer's question): one T88 is a monitor-format
+  machine-code tape (9000h-E8CCh, no BASIC header) for N-BASIC; in vaeg N
+  mode (VA2, user N80 ROM) `mon`, `L`, `G9000` load and start it.
