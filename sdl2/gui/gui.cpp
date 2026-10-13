@@ -226,6 +226,7 @@ struct GuiState {
 	bool fdd_browser_refresh = false;
 	std::string fdd_browser_dir;
 	std::vector<BrowserEntry> fdd_entries;
+	bool fdd_all_files = false; /* file type: All files (*.*) */
 	std::string fdd_status;
 	std::string font_status;
 	std::string screenshot_status;
@@ -248,6 +249,7 @@ struct GuiState {
 	bool tape_browser_refresh = false;
 	std::string tape_browser_dir;
 	std::vector<BrowserEntry> tape_entries;
+	bool tape_all_files = false; /* file type: All files (*.*) */
 	char tape_path[MAX_PATH] = {};
 	std::string tape_loaded;
 	std::string tape_recording;
@@ -1436,6 +1438,47 @@ static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
 	return a.name < b.name;
 }
 
+/* File types of the FDD and tape browsers (M106, maintainer request): the
+ * usual image and archive types by default, or every file, as in a Windows
+ * "Files of type" list. */
+static const char *const kFddFileTypes[] = {".d88", ".88d", ".zip", ".7z", ".lzh"};
+static const char *const kTapeFileTypes[] = {".cmt", ".t88", ".zip", ".7z", ".lzh"};
+static const char kFddFileTypeLabel[] = "Disk images (*.d88;*.88d;*.zip;*.7z;*.lzh)";
+static const char kTapeFileTypeLabel[] = "Tape images (*.cmt;*.t88;*.zip;*.7z;*.lzh)";
+
+static bool file_type_listed(const std::string &name, const char *const *types, size_t count) {
+	std::string extension = fs::u8path(name).extension().u8string();
+
+	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+		return static_cast<char>(std::tolower(c));
+	});
+	for (size_t i = 0; i < count; i++) {
+		if (extension == types[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* A "Files of type" combo; returns true when the choice changed. */
+static bool draw_file_type_combo(const char *id, const char *label, bool *all_files) {
+	bool changed = false;
+
+	ImGui::SetNextItemWidth(-1.0f);
+	if (ImGui::BeginCombo(id, *all_files ? "All files (*.*)" : label)) {
+		if (ImGui::Selectable(label, !*all_files) && *all_files) {
+			*all_files = false;
+			changed = true;
+		}
+		if (ImGui::Selectable("All files (*.*)", *all_files) && !*all_files) {
+			*all_files = true;
+			changed = true;
+		}
+		ImGui::EndCombo();
+	}
+	return changed;
+}
+
 static void refresh_fdd_browser(void) {
 	std::error_code ec;
 
@@ -1457,6 +1500,10 @@ static void refresh_fdd_browser(void) {
 		item.name = entry.path().filename().u8string();
 		item.path = entry.path().u8string();
 		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		if (!item.is_dir && !g_gui.fdd_all_files &&
+		    !file_type_listed(item.name, kFddFileTypes, std::size(kFddFileTypes))) {
 			continue;
 		}
 		g_gui.fdd_entries.push_back(item);
@@ -2197,7 +2244,7 @@ static void draw_fdd_browser(void) {
 		}
 		ImGui::Separator();
 		const ImGuiStyle &style = ImGui::GetStyle();
-		float footer_height = 2.0f * ImGui::GetFrameHeightWithSpacing();
+		float footer_height = 3.0f * ImGui::GetFrameHeightWithSpacing();
 		if (!g_gui.fdd_status.empty()) {
 			footer_height += ImGui::CalcTextSize(g_gui.fdd_status.c_str(), nullptr, false,
 			                                     ImGui::GetContentRegionAvail().x)
@@ -2224,6 +2271,9 @@ static void draw_fdd_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##fdd-path", g_gui.fdd_path[drive], sizeof(g_gui.fdd_path[drive]));
+		if (draw_file_type_combo("##fdd-file-type", kFddFileTypeLabel, &g_gui.fdd_all_files)) {
+			g_gui.fdd_browser_refresh = true;
+		}
 		if (ImGui::Button("Mount")) {
 			mount_fdd_from_dialog();
 		}
@@ -2896,6 +2946,10 @@ static void refresh_tape_browser(void) {
 		if (item.name.empty() || (item.name[0] == '.')) {
 			continue;
 		}
+		if (!item.is_dir && !g_gui.tape_all_files &&
+		    !file_type_listed(item.name, kTapeFileTypes, std::size(kTapeFileTypes))) {
+			continue;
+		}
 		g_gui.tape_entries.push_back(item);
 	}
 	std::sort(g_gui.tape_entries.begin(), g_gui.tape_entries.end(), browser_entry_less);
@@ -2955,7 +3009,7 @@ static void draw_tape_browser(void) {
 		ImGui::Separator();
 		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
 		                                     ImGui::GetContentRegionAvail().y -
-		                                         3.0f * ImGui::GetFrameHeightWithSpacing());
+		                                         4.0f * ImGui::GetFrameHeightWithSpacing());
 		if (ImGui::BeginChild("tape-browser-list", ImVec2(0, list_height),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.tape_entries) {
@@ -2974,8 +3028,22 @@ static void draw_tape_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##tape-path", g_gui.tape_path, sizeof(g_gui.tape_path));
-		if (ImGui::Button("Load tape (.cmt / .t88)")) {
-			if (cmt_open(g_gui.tape_path) == SUCCESS) {
+		if (draw_file_type_combo("##tape-file-type", kTapeFileTypeLabel, &g_gui.tape_all_files)) {
+			g_gui.tape_browser_refresh = true;
+		}
+		if (ImGui::Button("Load tape")) {
+			char extracted[MAX_PATH];
+			const char *source = g_gui.tape_path;
+
+			/* A zip/7z/lzh archive: its first .cmt/.t88 is loaded. */
+			if (dropmedia_path_is_tape_archive(g_gui.tape_path)) {
+				source = dropmedia_extract_tape(g_gui.tape_path, extracted, sizeof(extracted))
+				             ? extracted
+				             : nullptr;
+			}
+			if (source == nullptr) {
+				g_gui.tape_status = dropmedia_status();
+			} else if (cmt_open(source) == SUCCESS) {
 				g_gui.tape_loaded = g_gui.tape_path;
 				g_gui.tape_status = "Tape loaded.";
 				g_gui.tape_browser_open = false;
