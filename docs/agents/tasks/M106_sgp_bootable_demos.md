@@ -311,3 +311,8 @@ mode lamp follows V1/V2/V3.
 - PC-8001 tape check (maintainer's question): one T88 is a monitor-format
   machine-code tape (9000h-E8CCh, no BASIC header) for N-BASIC; in vaeg N
   mode (VA2, user N80 ROM) `mon`, `L`, `G9000` load and start it.
+- Tenkey overlay (maintainer request): Device > Keyboard > "Tenkey overlay"
+  now maps the cursor keys up/left/right/down to guest keypad 8/4/6/2
+  instead of Y U I / H J K / N M , / . (keypad 7-9/4-6/1-3/0); the letter
+  keys type letters again. ADR-0008 amended; selftest updated (fails with a
+  letter key back in the table). [a55c447a](https://github.com/nakatamaho/vaeg/commit/a55c447ab833b83fc99018507ebaa0bdb5ab7769).
