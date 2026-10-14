@@ -125,6 +125,22 @@ below was agreed item by item in the same session.
   later PCG. "Sound on/off" (SDL output paused,
   the guest unaffected, as `--mute`) becomes ミュート, checked when silent,
   placed right below 全体の音量; no F12 assignment for it.
+- [POLICY] History (maintainer, 2026-10-15; to be dropped again if it
+  proves a nuisance in use):
+  - File history per drive: FDD1 履歴 and FDD2 履歴 (10 each), SASI-1,
+    SASI-2 and each SCSI ID (5 each), Tape (10). An image is recorded when
+    it is inserted (menu or drag and drop), whether or not the guest is
+    reset; inserting it again moves it to the top. Missing files are shown
+    greyed; each list ends with 履歴を消す.
+  - 最近の起動 in 模擬 (10): recorded at a reset (リセット, a 起動 choice,
+    power-on), the media in FDD1, FDD2, the hard disks and the tape with
+    the machine and boot mode as one set; nothing is recorded with no
+    medium; the same set moves to the top. Choosing an entry inserts that
+    set, selects the machine and mode, and resets. Disks inserted after the
+    boot (a second disk during play) are not added to the set.
+  - File-selection windows list the 5 most recent directories.
+  - Media given on the command line or by headless scripts are not
+    recorded. Histories are stored in the configuration file.
 - Dialog windows fit the vaeg window (maintainer, 2026-10-15: the FDD
   file browser has to be enlarged by hand on some hosts, and at the default
   1x window it does not quite fit). Cause: the file browsers and other
@@ -160,6 +176,7 @@ below was agreed item by item in the same session.
  │   ├─ PC-8801MC    ▶   (same)                      (M112+)
  │   ├─ PC-8001mkII  ▶ N / N80                       (M112+)
  │   └─ PC-8001mkIISR▶ N / N80 / N80SR               (M112+)
+ ├─ 最近の起動 ▶  (10 sets: media, machine and boot mode; choosing one resets)
  ├─ 実行速度  [slider] 10-400 %, 最大 = No Wait
  ├─ 実行速度を 100% に戻す
  ├─ CPU クロック ▶ (current MHz)  ● 機種の既定 / PC-8801 標準速度相当 /
@@ -174,13 +191,14 @@ below was agreed item by item in the same session.
  ├─ 詳細設定…  (8087 on/off and clock, SGP speed, HOSTFAT)
  └─ 終了
 
-FDD           FDD1/FDD2 開く…/取り出し (with their contents),
+FDD           FDD1 開く…, FDD1 履歴 ▶, FDD1 取り出し (with its contents),
+              FDD2 開く…, FDD2 履歴 ▶, FDD2 取り出し (with its contents),
               新しい FDD イメージ ▶ 2HD / 2D (320 KB) / 2DD (640 KB) / ── /
               2D (360 KB) / 2DD (720 KB)
-HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
-              SCSI ▶ (heading shows how many are in use) ID 0-6 ▶ 開く…/外す
+HDD           SASI-1, SASI-2 開く…/履歴 ▶/外す (as today, with their contents),
+              SCSI ▶ (heading shows how many are in use) ID 0-6 ▶ 開く…/履歴 ▶/外す
               (each with its contents), 新しい SASI/SCSI イメージ… (VA only)
-Tape          読み込み・録音…, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
+Tape          読み込み・録音…, 履歴 ▶, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
 編集          画面の文字をコピー, 貼り付け, 貼り付けの取り消し
 画面          スクリーンショットを保存 (and 加工前), 録画 (future),
               モニタ ▶ 24 kHz / 15 kHz (リセット), デジタル RGB (8色),
