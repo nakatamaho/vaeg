@@ -110,6 +110,18 @@ below was agreed item by item in the same session.
   per-software and common slots: slots are always per software (`common`
   with no medium); another software's slots are reached with
   ファイルから読み込み… (maintainer, 2026-10-15).
+- [POLICY] Sound volume (maintainer, 2026-10-15): today's "Master
+  volume" only writes one value into the FM, SSG, ADPCM, rhythm, BEEP and
+  seek volumes, and the tape volume is separate, so it is not a master.
+  全体の音量 becomes a real master applied to the final mix (tape, seek and
+  PCG included), a new configuration key defaulting to 100 % so that the
+  current sound is unchanged. 個別の音量 keeps the balance: 音源 (FM, SSG,
+  ADPCM and rhythm together, as their ratio is fixed by the chip and the
+  board on hardware; no separate FM slider), BEEP, テープ, シーク音 and
+  later PCG, stored in the existing keys (`volume_F`/`S`/`A`/`R`,
+  `BEEP_vol`, `CMT_vol`, `Seek_Vol`). "Sound on/off" (SDL output paused,
+  the guest unaffected, as `--mute`) becomes ミュート, checked when silent,
+  placed right below 全体の音量; no F12 assignment for it.
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
   headless tests keep working.
@@ -162,9 +174,12 @@ FDD           FDD1/FDD2 開く…/取り出し (with their contents),
               テンキー代わり, ホストの配列 ▶, かな入力 ▶,
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
               マウスを捕捉, コントローラポート ▶, 連射ボタン
-音            音を出す, FM 音源ボード ▶ (OPN only on the VA) / OPNA,
-              FM の方式 ▶ ymfm (default, listed first) / NP2, ymfm の精度 ▶ (ymfm only), サンプリング周波数 ▶,
-              バッファ ▶, テープの音量, PCG 音源の音量 (M115+, PCG on only), シーク音
+音            全体の音量 [slider], ミュート,
+              個別の音量 ▶ 音源 (FM/SSG/ADPCM/リズム) / BEEP / テープ / シーク音 /
+                          PCG 音源 (M115+, PCG on only),
+              FM 音源ボード ▶ (OPN only on the VA) / OPNA,
+              FM の方式 ▶ ymfm (default, listed first) / NP2, ymfm の精度 ▶ (ymfm only),
+              サンプリング周波数 ▶, バッファ ▶, シーク音 (on/off)
 状態          保存 ▶, 読み込み ▶ (date, time and thumbnail per slot), 一覧…,
               名前を付けて保存…, ファイルから読み込み…
 情報          display toggles (FDD, FPS, CPU/SGP clock, frame, video and FB info),
