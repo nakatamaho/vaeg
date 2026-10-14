@@ -638,10 +638,14 @@ va_video_leave:
         mov     ax, VIDEO_DATA_SEG
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0300h
-        mov     cx, 0031h
+        ; Return to the caller's text screen (M106): graphics off, the
+        ; default palette back (the cursor and text use it), text only.
+        mov     ax, 0b00h              ; $ScnDsp: graphics off
         int     VIDEO_BIOS_INT
-        mov     ax, 0b01h
+        mov     ax, 0a00h              ; $PalInit
+        int     VIDEO_BIOS_INT
+        mov     ax, 0300h              ; $Compose: text only
+        mov     cx, 0001h
         int     VIDEO_BIOS_INT
         mov     dx, PORT_MEMORY_MAP
         mov     al, MEMORY_MAP_TVRAM

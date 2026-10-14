@@ -20,6 +20,9 @@
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bits 16
+; The uPD9002 executes the 80186 instruction set; this keeps NASM from
+; emitting 386-only forms such as the 0F 8x near conditional jump.
+cpu 186
 org 0x100
 
 %define VIDEO_BIOS_INT       0x8f

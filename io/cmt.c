@@ -32,9 +32,10 @@
  * baud, 1x = RS-232C); BASIC writes by polling TXRDY and reads through the
  * receive interrupt (8214 level 0). See docs/agents/tasks/M103j_*.md.
  *
- * Tape images are a raw byte stream, or T88 whose data blocks are played
- * back in order (blank, space and mark blocks are not timed). Saving
- * records the transmitted bytes as a raw image.
+ * Tape images are a raw byte stream, or T88. A T88's data blocks are played
+ * back in order, and its blank, space (1200 Hz) and mark (2400 Hz) blocks
+ * take their recorded time before the data that follows them (M106).
+ * Saving records the transmitted bytes as a raw image.
  */
 
 #include "compiler.h"
@@ -52,9 +53,29 @@ enum {
 	CMT_MAXSIZE = 0x400000,
 	/* Received bytes keep the request asserted, like the RXRDY level. */
 	CMT_REQUEST_HZ = 600,
-	/* Leader before the data: 1200 Hz, then 2400 Hz, one second each. */
-	CMT_LEADER_SECONDS = 2
+	/* T88 times are in 1/4800 s. */
+	CMT_TICKS_PER_SECOND = 4800,
+	/* Raw-image leader, as on most recorded tapes: 1200 Hz for 1.5 s, then
+	 * 2400 Hz for 0.5 s (M106). */
+	CMT_LEADER_SPACE_TICKS = 7200,
+	CMT_LEADER_MARK_TICKS = 2400
 };
+
+/* A timed tape block without data, before the data byte at offset at. */
+enum {
+	CMT_TONE_NONE = 0,
+	CMT_TONE_BLANK,
+	CMT_TONE_SPACE,
+	CMT_TONE_MARK
+};
+typedef struct {
+	UINT32 at;
+	UINT32 ticks;
+	UINT8 kind;
+} CMTTONE;
+
+static const CMTTONE cmt_raw_leader[2] = {{0, CMT_LEADER_SPACE_TICKS, CMT_TONE_SPACE},
+                                          {0, CMT_LEADER_MARK_TICKS, CMT_TONE_MARK}};
 
 static const char t88_signature[] = "PC-8801 Tape Image(T88)";
 
@@ -71,7 +92,14 @@ static struct {
 	UINT8 data;
 	BOOL rxready;
 	BOOL rxe;
-	BOOL leader; /* leader sounding; no data until it ends */
+	CMTTONE *tones; /* T88 blank/space/mark blocks, in tape order */
+	UINT32 ntones;
+	UINT32 tonepos; /* next T88 block */
+	UINT32 leadpos; /* next raw-image leader block; 2 = none pending */
+	UINT8 tone;     /* block sounding; no data until it ends */
+	BOOL toneisraw; /* the block sounding is from cmt_raw_leader */
+	BOOL inevent;   /* inside cmt_event: time from its due clock */
+	SINT32 toneremain; /* CPU clocks left in the block sounding */
 } cmt;
 
 /*
@@ -92,7 +120,6 @@ static struct {
 	UINT32 bitpos; /* 16.16 position within the current bit */
 	UINT32 phase;  /* 16.16 tone phase */
 	SINT32 level;  /* amplitude */
-	UINT32 leadsamples; /* samples of the leader played */
 } cmtsnd;
 
 void cmt_setvol(UINT vol) {
@@ -138,15 +165,16 @@ void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count) {
 		UINT32 freq;
 		SINT32 samp;
 
-		if (cmt.leader) {
-			/* Leader: low for the first second, then high. */
-			freq = (cmtsnd.leadsamples < rate) ? 1200 : 2400;
-			cmtsnd.leadsamples++;
+		if (cmt.tone != CMT_TONE_NONE) {
+			/* A block without data: 1200 Hz, 2400 Hz, or silence. */
 			cmtsnd.bits = 0;
-			cmtsnd.phase += (UINT32)(((UINT64)freq << 16) / rate);
-			samp = (cmtsnd.phase & 0x8000) ? cmtsnd.level : -cmtsnd.level;
-			pcm[0] += samp;
-			pcm[1] += samp;
+			if (cmt.tone != CMT_TONE_BLANK) {
+				freq = (cmt.tone == CMT_TONE_MARK) ? 2400 : 1200;
+				cmtsnd.phase += (UINT32)(((UINT64)freq << 16) / rate);
+				samp = (cmtsnd.phase & 0x8000) ? cmtsnd.level : -cmtsnd.level;
+				pcm[0] += samp;
+				pcm[1] += samp;
+			}
 			pcm += 2;
 			continue;
 		}
@@ -192,12 +220,16 @@ void cmt_getpcm(void *hdl, SINT32 *pcm, UINT count) {
 void cmt_initialize(void) {
 	ZeroMemory(&cmt, sizeof(cmt));
 	ZeroMemory(&cmtsnd, sizeof(cmtsnd));
+	cmt.leadpos = 2;
 	cmt_setvol(np2cfg.cmt_vol);
 }
 
 void cmt_deinitialize(void) {
 	cmt_save_end();
 	cmt_eject();
+	if (cmt.tones != NULL) {
+		_MFREE(cmt.tones);
+	}
 	if (cmt.out != NULL) {
 		_MFREE(cmt.out);
 	}
@@ -210,7 +242,8 @@ void cmt_reset(void) {
 	cmt.control = 0;
 	cmt.rxready = FALSE;
 	cmt.rxe = FALSE;
-	cmt.leader = FALSE;
+	cmt.tone = CMT_TONE_NONE;
+	cmt.leadpos = 2;
 	nevent_reset(NEVENT_CMT);
 }
 
@@ -235,29 +268,100 @@ static SINT32 cmt_byteclock(void) {
 }
 
 /*
- * Tape leader (vaeg extension, maintainer's PC-8801 memory, [POLICY]): when
- * the motor starts for reading, a low then a high tone sound for one second
- * each before the data, and no byte is delivered until they end, so BASIC
- * prints "Found" after them. Not with fast load, and not while recording.
+ * Blocks without data (decision C11): a T88's blank, space and mark blocks
+ * sound for their recorded time when the tape reaches them. A raw image (or
+ * a T88 without such blocks) has no times, so when the motor starts for
+ * reading it gets the leader of most recorded tapes, 1200 Hz for 1.5 s then
+ * 2400 Hz for 0.5 s ([MEAS] the space and mark blocks before the first data
+ * in 87 T88 images of commercial tapes). The carrier (port 40h bit 2) is up
+ * only during 2400 Hz, so BASIC prints "Found" after them. A T88 space
+ * block is a run of 0 bits, which the 8251 receives as 00h bytes at the
+ * baud rate: BASIC ends a load by reading one byte past its program, and on
+ * a tape that byte comes from the gap, not from the next block (M106). Mark
+ * and blank blocks deliver nothing, nor does the raw-image leader. With
+ * fast load T88 blocks are shortened like the bytes (1/16) and the raw
+ * leader is skipped; nothing plays while recording. A block cut off by the
+ * motor stopping starts again with it.
  */
 static void cmt_leader_start(void) {
-	cmt.leader = (cmt_selected() && !cmt.saving && !np2cfg.cmt_fast && (cmt.tape != NULL) &&
-	              (cmt.pos < cmt.size))
-	                 ? TRUE
-	                 : FALSE;
-	cmtsnd.leadsamples = 0;
+	cmt.leadpos = (cmt.ntones == 0) ? 0 : 2;
+}
+
+static SINT32 cmt_byteclock(void);
+
+/* T88 space blocks deliver 00h at the baud rate; other blocks run whole. */
+static BOOL cmt_tone_bytes(void) {
+	return ((cmt.tone == CMT_TONE_SPACE) && !cmt.toneisraw) ? TRUE : FALSE;
+}
+
+/* Schedule the next step of the block sounding. After a block or byte the
+ * next starts at its due time; from a port write (the motor starting) now. */
+static void cmt_tone_step(void) {
+	SINT32 step = cmt.toneremain;
+
+	if (cmt_tone_bytes() && (cmt_byteclock() < step)) {
+		step = cmt_byteclock();
+	}
+	nevent_set(NEVENT_CMT, step, cmt_event, cmt.inevent ? NEVENT_RELATIVE : NEVENT_ABSOLUTE);
+}
+
+static BOOL cmt_tone_start(void) {
+	const CMTTONE *t;
+
+	if (!cmt_selected() || !(cmt.control & 0x08) || cmt.saving || (cmt.tape == NULL) ||
+	    (cmt.pos >= cmt.size)) {
+		return FALSE;
+	}
+	if (np2cfg.cmt_fast) {
+		cmt.leadpos = 2;
+	}
+	for (;;) {
+		if (cmt.leadpos < 2) {
+			t = &cmt_raw_leader[cmt.leadpos++];
+			cmt.toneisraw = TRUE;
+		} else if ((cmt.tonepos < cmt.ntones) && (cmt.tones[cmt.tonepos].at <= cmt.pos)) {
+			t = &cmt.tones[cmt.tonepos++];
+			cmt.toneisraw = FALSE;
+		} else {
+			return FALSE;
+		}
+		if (t->ticks != 0) {
+			break;
+		}
+	}
+	cmt.tone = t->kind;
+	cmt.toneremain = (SINT32)(((UINT64)pccore.realclock * t->ticks) / CMT_TICKS_PER_SECOND);
+	if (np2cfg.cmt_fast) {
+		cmt.toneremain /= 16;
+	}
+	if (cmt.toneremain <= 0) {
+		cmt.toneremain = 1;
+	}
+	nevent_reset(NEVENT_CMT); /* a byte may have been scheduled */
+	cmt_tone_step();
+	return TRUE;
+}
+
+static void cmt_tone_stop(void) {
+	/* The motor stopped in the middle of a block: play it again later. */
+	if (cmt.toneisraw) {
+		cmt.leadpos--;
+	} else {
+		cmt.tonepos--;
+	}
+	cmt.tone = CMT_TONE_NONE;
+	nevent_reset(NEVENT_CMT);
 }
 
 static void cmt_schedule(void) {
-	if (cmt.leader) {
-		if (cmt_selected() && (cmt.control & 0x08)) {
-			if (!nevent_iswork(NEVENT_CMT)) {
-				nevent_set(NEVENT_CMT, (SINT32)(pccore.realclock * CMT_LEADER_SECONDS), cmt_event,
-				           NEVENT_RELATIVE);
-			}
-			return;
+	if (cmt.tone != CMT_TONE_NONE) {
+		if (!cmt_selected() || !(cmt.control & 0x08)) {
+			cmt_tone_stop();
 		}
-		cmt.leader = FALSE;
+		return;
+	}
+	if (!cmt.rxready && cmt_tone_start()) {
+		return;
 	}
 	if (cmt_running() && (cmt.rxready || (cmt.pos < cmt.size))) {
 		if (!nevent_iswork(NEVENT_CMT)) {
@@ -272,12 +376,32 @@ static void cmt_schedule(void) {
 
 void cmt_event(NEVENTITEM item) {
 	(void)item;
-	if (cmt.leader) {
-		cmt.leader = FALSE;
-		cmt_schedule();
+	cmt.inevent = TRUE;
+	if (cmt.tone != CMT_TONE_NONE) {
+		SINT32 step = cmt.toneremain;
+
+		if (cmt_tone_bytes() && (cmt_byteclock() < step)) {
+			step = cmt_byteclock();
+		}
+		cmt.toneremain -= step;
+		if (cmt_tone_bytes() && cmt_running() && !cmt.rxready) {
+			cmt.data = 0x00; /* a byte of 0 bits from the space block */
+			cmt.rxready = TRUE;
+		}
+		if (cmt.rxready && cmt_running()) {
+			pic8214_request(PIC8214_RXRDY);
+		}
+		if (cmt.toneremain > 0) {
+			cmt_tone_step();
+		} else {
+			cmt.tone = CMT_TONE_NONE;
+			cmt_schedule();
+		}
+		cmt.inevent = FALSE;
 		return;
 	}
 	if (!cmt_running()) {
+		cmt.inevent = FALSE;
 		return;
 	}
 	if (!cmt.rxready && (cmt.pos < cmt.size)) {
@@ -289,12 +413,16 @@ void cmt_event(NEVENTITEM item) {
 		pic8214_request(PIC8214_RXRDY);
 	}
 	cmt_schedule();
+	cmt.inevent = FALSE;
 }
 
 /* Carrier on the tape: [ROM] BASIC waits for port 40h bit 2 before it
- * starts reading (7EDFh). */
+ * starts reading (7EDFh). Inside a block without data it is the 2400 Hz. */
 BOOL cmt_carrier(void) {
-	return (cmt_selected() && (cmt.control & 0x08) && (cmt.pos < cmt.size)) ? TRUE : FALSE;
+	if (!cmt_selected() || !(cmt.control & 0x08) || (cmt.pos >= cmt.size)) {
+		return FALSE;
+	}
+	return (cmt.tone == CMT_TONE_NONE) || (cmt.tone == CMT_TONE_MARK);
 }
 
 void cmt_port30(REG8 dat) {
@@ -320,7 +448,7 @@ REG8 cmt_status(REG8 rxe) {
 
 REG8 cmt_read(void) {
 	cmt.rxready = FALSE;
-	if (!cmt.leader && nevent_iswork(NEVENT_CMT)) {
+	if ((cmt.tone == CMT_TONE_NONE) && nevent_iswork(NEVENT_CMT)) {
 		nevent_reset(NEVENT_CMT);
 	}
 	cmt_schedule();
@@ -350,6 +478,41 @@ void cmt_write(REG8 dat) {
 	}
 	cmt.out[cmt.outsize++] = (BYTE)dat;
 	cmtsnd_push(dat);
+}
+
+/* T88 blank (0100h), space (0102h) and mark (0103h) tags carry begin and
+ * length ticks; each is kept with the offset of the data that follows it.
+ * Returns the count; dst may be NULL. */
+static UINT32 cmt_t88_tones(const BYTE *src, UINT size, CMTTONE *dst) {
+	UINT32 p = sizeof(t88_signature);
+	UINT32 n = 0;
+	UINT32 at = 0;
+
+	while (p + 4 <= size) {
+		const UINT type = LOADINTELWORD(src + p);
+		const UINT len = LOADINTELWORD(src + p + 2);
+
+		p += 4;
+		if ((type == 0x0000) || (p + len > size)) {
+			break;
+		}
+		if ((type == 0x0101) && (len >= 12)) {
+			UINT bytes = LOADINTELWORD(src + p + 8);
+
+			at += (bytes > len - 12) ? len - 12 : bytes;
+		} else if (((type == 0x0100) || (type == 0x0102) || (type == 0x0103)) && (len >= 8)) {
+			if (dst != NULL) {
+				dst[n].at = at;
+				dst[n].ticks = LOADINTELDWORD(src + p + 4);
+				dst[n].kind = (type == 0x0100)   ? CMT_TONE_BLANK
+				              : (type == 0x0102) ? CMT_TONE_SPACE
+				                                 : CMT_TONE_MARK;
+			}
+			n++;
+		}
+		p += len;
+	}
+	return n;
 }
 
 /* T88: 24-byte signature, then tags (type, length, body); data tags carry
@@ -385,7 +548,9 @@ static UINT32 cmt_t88_data(const BYTE *src, UINT size, BYTE *dst) {
 BOOL cmt_open_memory(const BYTE *data, UINT size) {
 	BOOL t88;
 	UINT32 bytes;
+	UINT32 ntones;
 	BYTE *tape;
+	CMTTONE *tones = NULL;
 
 	t88 = (size >= sizeof(t88_signature)) &&
 	      (memcmp(data, t88_signature, sizeof(t88_signature)) == 0);
@@ -397,6 +562,15 @@ BOOL cmt_open_memory(const BYTE *data, UINT size) {
 	if (tape == NULL) {
 		return FAILURE;
 	}
+	ntones = t88 ? cmt_t88_tones(data, size, NULL) : 0;
+	if (ntones != 0) {
+		tones = (CMTTONE *)_MALLOC(ntones * sizeof(CMTTONE), "cmt-tones");
+		if (tones == NULL) {
+			_MFREE(tape);
+			return FAILURE;
+		}
+		cmt_t88_tones(data, size, tones);
+	}
 	if (t88) {
 		cmt_t88_data(data, size, tape);
 	} else {
@@ -406,6 +580,9 @@ BOOL cmt_open_memory(const BYTE *data, UINT size) {
 	cmt.tape = tape;
 	cmt.size = bytes;
 	cmt.pos = 0;
+	cmt.tones = tones;
+	cmt.ntones = ntones;
+	cmt.tonepos = 0;
 	cmt_schedule();
 	return SUCCESS;
 }
@@ -440,17 +617,29 @@ void cmt_eject(void) {
 	if (cmt.tape != NULL) {
 		_MFREE(cmt.tape);
 	}
+	if (cmt.tones != NULL) {
+		_MFREE(cmt.tones);
+	}
 	cmt.tape = NULL;
 	cmt.size = 0;
 	cmt.pos = 0;
+	cmt.tones = NULL;
+	cmt.ntones = 0;
+	cmt.tonepos = 0;
+	cmt.leadpos = 2;
 	cmt.rxready = FALSE;
-	cmt.leader = FALSE;
+	cmt.tone = CMT_TONE_NONE;
+	nevent_reset(NEVENT_CMT);
 	cmt_schedule();
 }
 
 void cmt_rewind(void) {
 	cmt.pos = 0;
+	cmt.tonepos = 0;
+	cmt.leadpos = 2;
 	cmt.rxready = FALSE;
+	cmt.tone = CMT_TONE_NONE;
+	nevent_reset(NEVENT_CMT);
 	cmt_schedule();
 }
 

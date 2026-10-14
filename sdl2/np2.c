@@ -112,6 +112,9 @@
 #if defined(VAEG_UPD9002_M96D_TESTING)
 #include "tests/upd9002/m96d_nop.h"
 #endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+#include "tests/upd9002/m106_near_jcc.h"
+#endif
 #if defined(VAEG_UPD9002_M68_TESTING)
 #include "tests/upd9002/m68_segmented_memory.h"
 #endif
@@ -127,8 +130,7 @@
 
 NP2OSCFG np2oscfg = {0,
                      0,
-                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK |
-                         VAEG_DISPINFO_FDD,
+                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FDD,
                      0,
                      0,
                      0,
@@ -164,6 +166,8 @@ NP2OSCFG np2oscfg = {0,
                      VAEG_DEFAULT_SHADER_PRESET,
                      0,
                      {0},
+                     1,
+                     100,
                      1};
 BOOL np2_debug = FALSE;
 
@@ -310,7 +314,8 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
-	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88 in, raw out)\n");
+	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88, or zip/7z/lzh\n"
+	       "\t                    holding one, in; raw out)\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
 	printf("\t--scsi0 path|none   --scsi1 path|none\n");
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
@@ -1896,6 +1901,11 @@ int main(int argc, char **argv) {
 		return upd9002_m96d_nop_main();
 	}
 #endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m106-near-jcc")) {
+		return upd9002_m106_near_jcc_main();
+	}
+#endif
 #if defined(VAEG_UPD9002_M68_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m68-segmented-memory")) {
 		return upd9002_m68_segmented_memory_main();
@@ -2198,8 +2208,19 @@ int main(int argc, char **argv) {
 		sdlkbd_reset_state();
 		scrndrawva_redraw();
 		mount_configured_fdd_images();
-		if ((options.tape_path != NULL) && (cmt_open(options.tape_path) != SUCCESS)) {
-			fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+		if (options.tape_path != NULL) {
+			char extracted[MAX_PATH];
+			const char *tape = options.tape_path;
+
+			/* zip/7z/lzh: the first .cmt/.t88 inside (M106) */
+			if (dropmedia_path_is_tape_archive(tape)) {
+				tape =
+				    dropmedia_extract_tape(tape, extracted, sizeof(extracted)) ? extracted : NULL;
+				fprintf(stderr, "%s\n", dropmedia_status());
+			}
+			if ((tape == NULL) || (cmt_open(tape) != SUCCESS)) {
+				fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+			}
 		}
 		if (options.tape_save_path != NULL) {
 			cmt_save_begin(options.tape_save_path);

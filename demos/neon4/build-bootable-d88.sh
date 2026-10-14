@@ -72,4 +72,4 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" install \
 printf 'Created local bootable NEON4 validation disk: %s\n' "$output_image"
 printf '  16/neon4.com       (640x400, 4bpp, 16 palette entries)\n'
 printf '  65536/neon4.com    (320x200, direct 16bpp)\n'
-printf '  PC-Engine system files are retained from the local template.\n'
+printf '  System files are retained from the local template.\n'

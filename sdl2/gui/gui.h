@@ -41,8 +41,8 @@ void gui_draw(void);
 void gui_render(void);
 BOOL gui_overlay_selftest(void);
 void gui_display_capture_result(const char *path, BOOL success);
-void gui_overlay_rect(int x, int y, int width, int height,
-                      unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+void gui_overlay_rect(int x, int y, int width, int height, unsigned char r, unsigned char g,
+                      unsigned char b, unsigned char a);
 
 #ifdef __cplusplus
 }

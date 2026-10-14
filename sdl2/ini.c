@@ -27,6 +27,7 @@
 #include "strres.h"
 #include "profile.h"
 #include "np2.h"
+#include "frontpanel.h"
 #include "dosio.h"
 #include "ini.h"
 #include "librashader/shader_config.h"
@@ -356,6 +357,7 @@ static const INITBL iniitem[] = {
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
     {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
+    {"Boot_FixedDisk", INITYPE_BOOL, &np2cfg.boot_fixed_disk, 0},
     {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
     {"V1V2_NMode", INITYPE_BOOL, &np2cfg.v1v2_nmode, 0},
     {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},
@@ -426,6 +428,7 @@ static const INITBL iniitem[] = {
     // OS依存～
     {"s_NOWAIT", INITYPE_BOOL, &np2oscfg.NOWAIT, 0},
     {"s_speed", INITYPE_UINT16, &np2oscfg.speed_percent, 0},
+    {"FrontPanelMode", INITYPE_UINT8, &np2oscfg.front_panel, 0},
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},
@@ -544,6 +547,9 @@ void initload(void) {
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;
+	if (np2oscfg.front_panel > FRONTPANEL_SIMPLE) {
+		np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	}
 	np2oscfg.gui_native_filter = np2oscfg.gui_native_filter ? 1 : 0;
 	np2oscfg.gui_native_mask_auto = np2oscfg.gui_native_mask_auto ? 1 : 0;
 	if (np2oscfg.gui_shader_preset[0] == '\0') {

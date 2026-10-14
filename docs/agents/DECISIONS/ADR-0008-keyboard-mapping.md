@@ -66,6 +66,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   `YUI/HJK/NM,.` to guest keypad `789/456/123/0`. It is independent of
   JIS/US/Custom host layout and still emits normal guest keypad
   make/break events.
+  Amended in M106 at the maintainer's request: the overlay now maps the
+  host cursor keys up/left/right/down to guest keypad `8/4/6/2` instead of
+  the letter keys.
 - Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
   tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
   guest input so host IME state and UTF-8 composition cannot leak into the

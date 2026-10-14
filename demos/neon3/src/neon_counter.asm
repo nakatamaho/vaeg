@@ -337,6 +337,10 @@ start:
         ; that has just finished rather than a frame that is still rendering.
         call    neon_counter_update_overlay
 %endif
+        ; The looping release never reaches the idle ESC poll below, so
+        ; poll once per completed frame (M106; the SGP list is idle here).
+        call    neon_escape_pressed
+        jc      neon_counter_exit
         inc     word [frame_counter]
         cmp     word [frame_counter], NEON_FRAME_LIMIT
         jb      .frame_loop
@@ -660,13 +664,20 @@ neon_va_leave:
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0300h              ; VA $Compose, text above G0
-        mov     cx, 0031h
+        ; Return to the caller's text screen (M106): graphics off, the
+        ; default palette back (the cursor and text use it), text only.
+        mov     ax, 0b00h              ; VA $ScnDsp, graphics off
         int     NEON_VIDEO_BIOS_INT
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0b01h              ; VA $ScnDsp, display on
+        mov     ax, 0a00h              ; VA $PalInit
+        int     NEON_VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; VA $Compose, text only
+        mov     cx, 0001h
         int     NEON_VIDEO_BIOS_INT
         cld
         push    cs
@@ -702,10 +713,11 @@ neon_text_write_static_overlay:
         mov     dh, 3
         xor     dl, dl
         call    neon_status_bios_puts_at
+        ; The value is the length of one pass of the looping timeline.
         mov     si, neon_live_limit
+        mov     ax, NEON_FRAME_LIMIT
         mov     dh, 4
-        xor     dl, dl
-        call    neon_status_bios_puts_at
+        call    neon_status_bios_hex_at
         mov     si, neon_status_exit
         mov     dh, 14
         xor     dl, dl
@@ -773,17 +785,18 @@ neon_counter_update_overlay:
         popa
         ret
 
-; VA keyboard BIOS polling: AH=01h tests, AH=00h consumes one key.
+; VA keyboard BIOS polling, as in NEON4 and the SGP demos: AH=0Ah tests for
+; a pending key and AH=09h consumes it; scan code AH=00h is ESC.  AH=00h
+; waits on the Japanese front end, which MS-DOS does not install, so the
+; former AH=01h/00h pair stopped NEON3 under MS-DOS (M106).
 ; Return CF=1 only for the ESC key.
 neon_escape_pressed:
-        mov     ah, 01h
+        mov     ah, 0ah
         int     NEON_KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 00h
+        mov     ah, 09h
         int     NEON_KEYBOARD_BIOS_INT
-        cmp     bh, 0
-        jne     .none
-        cmp     bl, 1bh
+        cmp     ah, 00h
         je      .escape
 .none:
         clc

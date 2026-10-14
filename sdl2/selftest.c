@@ -92,6 +92,7 @@ extern BEEPCFG beepcfg;
 #include "soundopts.h"
 #include "strres.h"
 #include "viewport.h"
+#include "frontpanel.h"
 #include "ymfmbridge.h"
 #if defined(VAEG_UPD9002_M42_TESTING)
 #include "tests/upd9002/direct_harness.h"
@@ -2225,6 +2226,67 @@ static int test_persistence_controls(void) {
 	return (SUCCESS);
 }
 
+/* M106: on a signed record the boot-disk bit B1FC4h bit 7 is always cleared
+ * without a fixed disk and, with Boot_FixedDisk on, set with one, with a
+ * checksum the ROM accepts; unsigned records are left alone. */
+static BYTE boot_fixed_disk_sum(void) {
+	BYTE sum = 0;
+	int j;
+
+	for (j = 0; j < 8; j++) {
+		sum = (BYTE)(sum + backupmem[0x1fc0 + j]);
+	}
+	return (sum);
+}
+
+static int test_boot_fixed_disk(void) {
+	static BYTE saved[0x04000];
+	const UINT8 saved_flag = np2cfg.boot_fixed_disk;
+	const char *problem = NULL;
+
+	CopyMemory(saved, backupmem, sizeof(saved));
+	ZeroMemory(backupmem, sizeof(backupmem));
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc6] = 0xf9;
+	backupmem[0x1fc8] = 0x4b;
+	backupmem[0x1fc9] = 0x5a;
+	backupmem[0x1fca] = 0x4d;
+	np2cfg.boot_fixed_disk = 0;
+	bkupmemva_sync_bootdisk(TRUE);
+	if (backupmem[0x1fc4] != 0x64) {
+		problem = "set with Boot_FixedDisk off";
+	}
+	backupmem[0x1fc4] = 0xe4;
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "left set without a fixed disk with Boot_FixedDisk off";
+	}
+	np2cfg.boot_fixed_disk = 1;
+	bkupmemva_sync_bootdisk(TRUE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0xe4) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not set, or wrong checksum, with a fixed disk";
+	}
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not cleared, or wrong checksum, without a fixed disk";
+	}
+	backupmem[0x1fc8] = 0x00;
+	bkupmemva_sync_bootdisk(TRUE);
+	if ((problem == NULL) && (backupmem[0x1fc4] != 0x64)) {
+		problem = "an unsigned record was changed";
+	}
+	np2cfg.boot_fixed_disk = saved_flag;
+	CopyMemory(backupmem, saved, sizeof(saved));
+	if (problem != NULL) {
+		return (fail("boot fixed disk", problem));
+	}
+	fprintf(stderr, "selftest: boot fixed disk ok\n");
+	return (SUCCESS);
+}
+
 static int test_main_ram_configuration(void) {
 	static const UINT16 capacities[] = {256, 384, 512, 640};
 	BYTE saved_backup_memory[0x04000];
@@ -2667,6 +2729,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	input.drawable_width = drawable_width;
 	input.drawable_height = drawable_height;
 	input.menu_inset = menu_inset;
+	input.bottom_inset = 0;
 	input.scaling = scaling;
 	input.aspect = aspect;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != x) ||
@@ -2716,6 +2779,7 @@ static int test_viewport(void) {
 	input.drawable_width = 800;
 	input.drawable_height = 600;
 	input.menu_inset = 0;
+	input.bottom_inset = 0;
 	input.scaling = VAEG_SCALING_FIT;
 	input.aspect = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
@@ -4807,7 +4871,20 @@ static int test_cassette_tape(void) {
 	                           0x01, 0xd3, 0x42,
 	                           /* end */
 	                           0x00, 0x00, 0x00, 0x00};
+	/* M106: space 0.5 s, mark 0.25 s, data 11h, mark 1 s, space 0.2 s,
+	 * data 22h (T88 times are in 1/4800 s). */
+	static const BYTE t88gaps[] = {
+	    'P',  'C',  '-',  '8',  '8',  '0',  '1',  ' ',  'T',  'a',  'p',  'e',  ' ',  'I',
+	    'm',  'a',  'g',  'e',  '(',  'T',  '8',  '8',  ')',  0,    0x02, 0x01, 0x08, 0x00,
+	    0,    0,    0,    0,    0x60, 0x09, 0,    0,    0x03, 0x01, 0x08, 0x00, 0,    0,
+	    0,    0,    0xb0, 0x04, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,
+	    0x10, 0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x11, 0x03, 0x01, 0x08, 0x00, 0,
+	    0,    0,    0,    0xc0, 0x12, 0,    0,    0x02, 0x01, 0x08, 0x00, 0,    0,    0,
+	    0,    0xc0, 0x03, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,    0x10,
+	    0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x22, 0x00, 0x00, 0x00, 0x00};
+	static const BYTE raw[] = {0xd3, 0x42};
 	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_fast = np2cfg.cmt_fast;
 	const char *problem = NULL;
 	int i;
 
@@ -4817,11 +4894,16 @@ static int test_cassette_tape(void) {
 	pccore_init();
 	pccore_reset();
 	memoryva_88_mode = 1;
+	np2cfg.cmt_fast = 1;
 	cmt_reset();
 	if ((cmt_open_memory(t88, sizeof(t88)) != SUCCESS) || (cmt_length() != 2)) {
 		problem = "T88 data blocks";
 	}
 	iocore_out8(0x030, 0x08); /* motor on, cassette 600 baud */
+	if ((problem == NULL) && (iocore_inp8(0x040) & 0x04)) {
+		problem = "carrier during a T88 blank block";
+	}
+	cmt_event(NULL); /* the end of the short blank block before the data */
 	if ((problem == NULL) && (!(iocore_inp8(0x040) & 0x04) || !cmt_selected())) {
 		problem = "cassette carrier";
 	}
@@ -4895,14 +4977,22 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
-	/* M105 leader without fast load: one second low, one second high, and
-	 * no byte until it ends; none with fast load. */
+	/* M106 leader of a raw image without fast load: 1200 Hz for 1.5 s with
+	 * no carrier, then 2400 Hz for 0.5 s with it, and no byte until both
+	 * end; none with fast load. Calling cmt_event directly leaves the event
+	 * pending, and the next block is timed from its due clock, so the
+	 * second remaining time includes the first. */
 	cmt_save_discard();
+	if ((problem == NULL) && (cmt_open_memory(raw, sizeof(raw)) != SUCCESS)) {
+		problem = "raw tape image";
+	}
 	if (problem == NULL) {
 		static SINT32 pcm[2 * 2205];
 		const UINT saved_rate = soundcfg.rate;
-		const UINT8 saved_fast = np2cfg.cmt_fast;
+		const SINT32 second = (SINT32)pccore.realclock;
 		UINT edges[2];
+		SINT32 remain[2];
+		BOOL carrier[2];
 		UINT k;
 
 		soundcfg.rate = 22050;
@@ -4912,11 +5002,9 @@ static int test_cassette_tape(void) {
 		iocore_out8(0x030, 0x00);
 		iocore_out8(0x030, 0x08);
 		iocore_out8(0x021, 0x14); /* RXE */
-		if ((nevent_getremain(NEVENT_CMT) < (SINT32)pccore.realclock) ||
-		    (iocore_inp8(0x021) & 0x02)) {
-			problem = "tape leader did not hold the data back";
-		}
 		for (i = 0; i < 2; i++) {
+			remain[i] = nevent_getremain(NEVENT_CMT);
+			carrier[i] = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
 			/* zero crossings over 0.1 s: 1200 Hz gives 240, 2400 Hz 480 */
 			ZeroMemory(pcm, sizeof(pcm));
 			cmt_getpcm(NULL, pcm, 2205);
@@ -4926,17 +5014,24 @@ static int test_cassette_tape(void) {
 					edges[i]++;
 				}
 			}
-			if (i == 0) {
-				for (k = 0; k < 10; k++) { /* to 1.1 s */
-					cmt_getpcm(NULL, pcm, 2205);
-				}
+			if (iocore_inp8(0x021) & 0x02) {
+				problem = "tape leader did not hold the data back";
 			}
+			cmt_event(NULL); /* the end of this part of the leader */
+		}
+		if ((problem == NULL) && ((remain[0] < second * 3 / 2 - second / 100) ||
+		                          (remain[0] > second * 3 / 2 + second / 100) ||
+		                          (remain[1] - remain[0] < second / 2 - second / 100) ||
+		                          (remain[1] - remain[0] > second / 2 + second / 100))) {
+			problem = "tape leader was not 1.5 s then 0.5 s";
 		}
 		if ((problem == NULL) &&
 		    ((edges[0] < 230) || (edges[0] > 250) || (edges[1] < 470) || (edges[1] > 490))) {
 			problem = "tape leader was not low then high";
 		}
-		cmt_event(NULL); /* the end of the leader */
+		if ((problem == NULL) && (carrier[0] || !carrier[1])) {
+			problem = "carrier during the tape leader";
+		}
 		if ((problem == NULL) && (iocore_inp8(0x021) & 0x02)) {
 			problem = "tape leader end delivered a byte";
 		}
@@ -4953,13 +5048,63 @@ static int test_cassette_tape(void) {
 			problem = "fast load played a tape leader";
 		}
 		iocore_out8(0x030, 0x00);
-		np2cfg.cmt_fast = saved_fast;
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
+	}
+	/* M106 T88 blocks without data come before the data that follows them:
+	 * a space block delivers 00h at the baud rate (600 baud: 30 bytes in
+	 * 0.5 s, 12 in 0.2 s) with no carrier; a mark block delivers nothing
+	 * with the carrier up. Fast load shortens both like the bytes. */
+	if ((problem == NULL) &&
+	    ((cmt_open_memory(t88gaps, sizeof(t88gaps)) != SUCCESS) || (cmt_length() != 2))) {
+		problem = "T88 with timed blocks";
+	}
+	for (i = 0; (i < 2) && (problem == NULL); i++) {
+		UINT zeros[2] = {0, 0};
+		UINT data = 0;
+		BOOL carrier_in_space = FALSE;
+		BOOL mark_seen = FALSE;
+		int k;
+
+		np2cfg.cmt_fast = (UINT8)i;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		iocore_out8(0x021, 0x14); /* RXE */
+		for (k = 0; (k < 400) && (data < 2); k++) {
+			const BOOL carrier = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
+
+			cmt_event(NULL);
+			if (iocore_inp8(0x021) & 0x02) {
+				const REG8 dat = iocore_inp8(0x020);
+
+				if (dat == 0x00) {
+					zeros[data]++;
+					carrier_in_space = carrier_in_space || carrier;
+				} else if (dat == (data ? 0x22 : 0x11)) {
+					data++;
+				} else {
+					problem = "T88 byte out of order";
+					break;
+				}
+			} else if (carrier) {
+				mark_seen = TRUE;
+			}
+		}
+		if ((problem == NULL) && (data != 2)) {
+			problem = "T88 data after its timed blocks";
+		} else if ((problem == NULL) &&
+		           ((zeros[0] < 29) || (zeros[0] > 31) || (zeros[1] < 11) || (zeros[1] > 13))) {
+			problem = "T88 space blocks as 00h bytes";
+		} else if ((problem == NULL) && (carrier_in_space || !mark_seen)) {
+			problem = "T88 carrier during a block";
+		}
+		iocore_out8(0x030, 0x00);
 	}
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
+	np2cfg.cmt_fast = saved_fast;
 	cmt_reset();
 	pccore_term();
 	soundmng_deinitialize();
@@ -5072,6 +5217,77 @@ static int test_beep_level(void) {
 		return (fail("beep level", problem));
 	}
 	fprintf(stderr, "selftest: beep level ok\n");
+	return (SUCCESS);
+}
+
+/* M106: the front panel lamp bar, its lamps and the room it takes. */
+static int test_front_panel(void) {
+	const BYTE saved_panel = np2oscfg.front_panel;
+	const _FDDFILE saved_fdd = fddfile[0];
+	char problem_text[96];
+	const char *problem = NULL;
+	VAEG_VIEWPORT_INPUT input;
+	VAEG_VIEWPORT viewport;
+	UINT32 now;
+
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
+		problem = "lamp bar is not 14 rows per 640 dots";
+	}
+	np2oscfg.front_panel = FRONTPANEL_OFF;
+	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
+		problem = "a turned-off panel took room";
+	}
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	/* the guest picture keeps its size above the bar */
+	ZeroMemory(&input, sizeof(input));
+	input.guest_width = 640;
+	input.guest_height = 400;
+	input.drawable_width = 640;
+	input.drawable_height = 22 + 400 + 14;
+	input.menu_inset = 22;
+	input.bottom_inset = 14;
+	input.scaling = VAEG_SCALING_FIT;
+	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+	                          (viewport.y != 22) || (viewport.height != 400))) {
+		problem = "the panel changed the guest picture";
+	}
+	/* lamp state: drive 1 accessed (2HD), V2 on */
+	ZeroMemory(&fddfile[0], sizeof(fddfile[0]));
+	fddfile[0].type = DISKTYPE_D88;
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2DD;
+	if ((problem == NULL) && frontpanel_drive_is_2hd(0)) {
+		problem = "2DD media reported as 2HD";
+	}
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2HD;
+	if ((problem == NULL) && !frontpanel_drive_is_2hd(0)) {
+		problem = "2HD media not reported as 2HD";
+	}
+	frontpanel_set_modeled(0, FALSE);
+	frontpanel_set_modeled(1, TRUE);
+	frontpanel_set_modeled(2, FALSE);
+	frontpanel_fdd_access(0);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
+	                          frontpanel_drive_lit(0, now + 1000))) {
+		problem = "access lamp timing";
+	}
+	if ((problem == NULL) &&
+	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
+		problem = "mode lamp state";
+	}
+	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
+	if ((problem == NULL) &&
+	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {
+		problem = problem_text;
+	}
+	frontpanel_set_modeled(1, FALSE);
+	fddfile[0] = saved_fdd;
+	np2oscfg.front_panel = saved_panel;
+	if (problem != NULL) {
+		return (fail("front panel", problem));
+	}
+	fprintf(stderr, "selftest: front panel ok\n");
 	return (SUCCESS);
 }
 
@@ -6237,6 +6453,21 @@ static int test_keyboard_mapping(void) {
 	    (kbdpaste_interval_ms() != 20)) {
 		return (fail("keyboard-paste", "UTF-8 skip or pacing failed"));
 	}
+	/* M106: a scripted paste runs even while the GUI holds the keyboard. */
+	if (kbdpaste_start_text("ab")) {
+		UINT32 now = SDL_GetTicks() + kbdpaste_interval_ms();
+
+		for (index = 0; (index < 16) && kbdpaste_active(); index++) {
+			kbdpaste_tick(now, TRUE);
+			now += kbdpaste_interval_ms();
+		}
+		if (kbdpaste_active()) {
+			kbdpaste_cancel();
+			return (fail("keyboard-paste", "scripted paste held by GUI keyboard focus"));
+		}
+	} else {
+		return (fail("keyboard-paste", "scripted paste did not start"));
+	}
 	fprintf(stderr, "selftest: keyboard paste mapping ok\n");
 	fprintf(stderr, "selftest: keyboard mapping ok\n");
 	return (SUCCESS);
@@ -6545,6 +6776,9 @@ int vaeg_selftest_run(void) {
 	if (test_persistence_controls() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_boot_fixed_disk() != SUCCESS) {
+		return (FAILURE);
+	}
 	if (test_main_ram_configuration() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -6665,6 +6899,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_scanline_fill() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_front_panel() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_8801_display() != SUCCESS) {

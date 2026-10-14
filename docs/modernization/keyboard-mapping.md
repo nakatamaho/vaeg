@@ -51,7 +51,7 @@ The archived Win32 tree is evidence only. It was not edited for M14.
 - `keyboard_auto_kana_lock`: accepted from old configs, but Roman-Kana
   ignores it. The assigned KANA key controls guest kana lock directly.
 - `keyboard_tenkey_overlay`: `0` or `1`; when enabled, a tenkeyless
-  game overlay maps `YUI/HJK/NM,.` to guest keypad digits.
+  game overlay maps the cursor keys to guest keypad 8/4/6/2.
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
   The sidecar file remains in the portable user-state directory even when
   `vaeg.cfg` is executable-local, and stores one `role=scancode-name`
@@ -156,21 +156,19 @@ as guest keypad make/break events:
 
 | Host scancode | Guest keypad role | Guest code |
 |---|---|---:|
-| Y | keypad 7 | 0x42 |
-| U | keypad 8 | 0x43 |
-| I | keypad 9 | 0x44 |
-| H | keypad 4 | 0x46 |
-| J | keypad 5 | 0x47 |
-| K | keypad 6 | 0x48 |
-| N | keypad 1 | 0x4a |
-| M | keypad 2 | 0x4b |
-| Comma | keypad 3 | 0x4c |
-| Period | keypad 0 | 0x4e |
+| Up | keypad 8 | 0x43 |
+| Left | keypad 4 | 0x46 |
+| Right | keypad 6 | 0x48 |
+| Down | keypad 2 | 0x4b |
+
+Until M106 the overlay used the letter keys Y U I / H J K / N M , / .
+for keypad 7 8 9 / 4 5 6 / 1 2 3 / 0; at the maintainer's request it now
+uses the cursor keys, and the letter keys type letters again.
 
 This overlay is intended for games on tenkeyless keyboards. It does not
 change the normal binding table and does not inject guest text. While it
-is enabled, these host keys are consumed before Roman-Kana or US keytop
-translation.
+is enabled, the cursor keys send the keypad keys instead of the guest
+cursor keys.
 
 ## Inventory
 

@@ -50,6 +50,7 @@ typedef struct {
 	KBDPASTE_PHASE phase;
 	BOOL shift_down;
 	BOOL key_down;
+	BOOL scripted; /* from a script: not held by GUI keyboard focus */
 	char status[KBDPASTE_STATUS_SIZE];
 } KBDPASTE_STATE;
 
@@ -318,7 +319,7 @@ void kbdpaste_shutdown(void) {
 	clear_queue();
 }
 
-BOOL kbdpaste_start_text(const char *text) {
+static BOOL kbdpaste_start(const char *text, BOOL scripted) {
 	size_t capacity;
 	size_t count;
 	UINT skipped;
@@ -349,6 +350,7 @@ BOOL kbdpaste_start_text(const char *text) {
 		return FALSE;
 	}
 	paste.actions = actions;
+	paste.scripted = scripted;
 	paste.count = count;
 	paste.skipped = skipped;
 	paste.phase = actions[0].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
@@ -373,9 +375,17 @@ BOOL kbdpaste_start_clipboard(void) {
 		snprintf(paste.status, sizeof(paste.status), "Paste failed: %s", SDL_GetError());
 		return FALSE;
 	}
-	started = kbdpaste_start_text(text);
+	started = kbdpaste_start(text, FALSE);
 	SDL_free(text);
 	return started;
+}
+
+/* Text from the headless input or debug scripts. Those do not use the GUI,
+ * whose keyboard capture is only refreshed when a frame is drawn: under the
+ * dummy video driver that is at screenshot frames, so a stale capture could
+ * hold a scripted paste for ever (M106). */
+BOOL kbdpaste_start_text(const char *text) {
+	return kbdpaste_start(text, TRUE);
 }
 
 void kbdpaste_tick(UINT32 now, BOOL paused) {
@@ -387,6 +397,9 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 	}
 	action = &paste.actions[paste.index];
 	cleanup_only = FALSE;
+	if (paste.scripted) {
+		paused = FALSE;
+	}
 	if (paused) {
 		if (paste.phase == KBDPASTE_PHASE_KEY_UP) {
 			kbdinject_keyup(action->guest_code);
