@@ -109,4 +109,16 @@ rebuilt and their payloads match a fresh build (AGENTS.md).
   the PC-Engine 1.1 bootable and the MS-DOS 4.0 all-demos disks draw and
   leave on ESC; on the self-booting disk A-N run and return to the menu.
   [f0ad4e47](https://github.com/nakatamaho/vaeg/commit/f0ad4e473d745ca48a4fffbe3be31b54ac257a63).
+- Digital 8-colour mode on hardware (item 7, maintainer, PC-88VA2 with a
+  digital RGB monitor, VA demo): the NEC logo is yellow with a red edge and
+  the background white, while vaeg showed it red (threshold a quarter of full
+  scale). Every nonzero component is now on, which matches the photograph
+  (`docs/modernization/m109-photos/va2-digital8-va-demo.jpg`, reduced, no
+  metadata); the conversion and the evidence are in
+  [`digital8colormode.md`](../../modernization/digital8colormode.md).
+  [80a6223a](https://github.com/nakatamaho/vaeg/commit/80a6223a9b2e23c0298e104ffb1333603eda73b7).
+- Also after the first hardware disks: KANA and CAPS lamps right-aligned;
+  tape fast load off by default (maintainer); TSPMODE and TSPFILL write
+  their mode label on the bottom row also on the self-booting disk (split 1
+  made from split 0's last row) and the self-booting disk was rebuilt.
 
