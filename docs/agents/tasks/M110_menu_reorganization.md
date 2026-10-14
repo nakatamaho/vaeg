@@ -53,11 +53,19 @@ below was agreed item by item in the same session.
   the original VA uses it, which the maintainer accepts); it is switched off
   in the settings window. The "VA2/VA3 + 8087" model entry goes. A saved
   `NDP8087=false` keeps precedence.
-- [POLICY] Speed: the menu keeps one control, 実行速度 (10-400 %, 最大 =
-  No Wait, and back to 100 %), which slows frames, timers and sound
-  together, as V1/V2 games need. The CPU-only speed (today's CPU 速度
-  10-100 %) and the CPU multiplier merge into one CPU-clock setting in the
-  settings window.
+- [POLICY] Speed has two controls in 模擬 that act differently:
+  実行速度 (10-400 %, 最大 = No Wait, back to 100 %) slows frames, timers
+  and sound together; CPU クロック changes the CPU alone, frames, timers and
+  music keeping real time, which is what matching a PC-8801's speed needs.
+  CPU クロック is a list of presets with the current MHz in its heading:
+  機種の既定 (from the machine and boot mode, the default), PC-8801
+  標準速度相当, PC-8801 高速相当, 2倍, 4倍, 8倍, and 任意… (a slider that
+  replaces today's CPU 速度 10-100 % and the settings window's CPU
+  multiplier). On the VA's V1/V2 mode the uPD9002 runs the Z80-compatible
+  instructions with its own cycle counts and waits, so the PC-8801 presets
+  are defined as "close to the machine" and calibrated from hardware
+  measurements later; on the PC-8801 machines (M113) they are 4 MHz and
+  8 MHz. A clock away from the default is shown by the CPU-clock display.
 - [POLICY] KEY_MODE becomes カーソルキーの使い方: 通常 / ジョイスティック
   (JoyKey-1) / マウス (Mouse key, kept only if it works when checked).
   JoyKey-2 is removed: it feeds the PC-98 FM board's second joystick
@@ -76,10 +84,15 @@ below was agreed item by item in the same session.
   current directory), next to the ROMs and `vaeg-cache/`; if that directory
   is not writable, the user directory (where `vaeg.cfg` lives) is used and
   the menu says so. The existing `np2sdl.S00`-`S09` slots are moved into
-  `states/` at first start. Under discussion: per-software subdirectories
-  (named from the FDD1 image, else SASI-1, else the tape, else a common
-  one), a thumbnail PNG per slot, a slot overview window, and whether
-  screenshots are also split per software. Headless `--screenshot` keeps
+  `states/` at first start. Each slot is saved with a thumbnail PNG of the
+  guest frame at that moment (unprocessed, about 320x200): `slotN.sav` and
+  `slotN.png`. The 保存/読み込み lists show each slot's date and time (空き
+  when unused) and its thumbnail on hover, and 一覧… opens a window of the
+  ten thumbnails, clicked to save or load. 名前を付けて保存… and
+  ファイルから読み込み… are added. Under discussion: per-software
+  subdirectories (named from the FDD1 image, else SASI-1, else the tape,
+  else a common one), a ソフトごと/共通 switch, and whether screenshots are
+  also split per software. Headless `--screenshot` keeps
   its explicit paths.
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
@@ -103,6 +116,8 @@ below was agreed item by item in the same session.
  │   └─ PC-8001mkIISR▶ N / N80 / N80SR               (M112+)
  ├─ 実行速度  [slider] 10-400 %, 最大 = No Wait
  ├─ 実行速度を 100% に戻す
+ ├─ CPU クロック ▶ (current MHz)  ● 機種の既定 / PC-8801 標準速度相当 /
+ │                 PC-8801 高速相当 / ── / 2倍 / 4倍 / 8倍 / 任意…
  ├─ 機種の構成 ▶
  │   ├─ メインメモリ容量 ▶
  │   ├─ バックアップメモリへ自動反映
@@ -110,7 +125,7 @@ below was agreed item by item in the same session.
  │   ├─ I/O バンクメモリ…
  │   ├─ EMS ボード…
  │   └─ PCG (PCG-8100 / PCG-8800)  (M115+, 8001/8801 only)
- ├─ 詳細設定…  (CPU clock, 8087 on/off and clock, SGP speed, HOSTFAT)
+ ├─ 詳細設定…  (8087 on/off and clock, SGP speed, HOSTFAT)
  └─ 終了
 
 FDD           FDD1/FDD2 開く…/取り出し (with their contents),
@@ -132,7 +147,8 @@ FDD           FDD1/FDD2 開く…/取り出し (with their contents),
 音            音を出す, FM 音源ボード ▶ (OPN only on the VA) / OPNA,
               FM の方式 ▶, ymfm の精度 ▶ (ymfm only), サンプリング周波数 ▶,
               バッファ ▶, テープの音量, PCG 音源の音量 (M115+, PCG on only), シーク音
-状態          保存 ▶, 読み込み ▶
+状態          保存 ▶, 読み込み ▶ (date, time and thumbnail per slot), 一覧…,
+              名前を付けて保存…, ファイルから読み込み…
 情報          display toggles (FDD, FPS, CPU/SGP clock, frame, video and FB info),
               layer toggles (text, sprite, graphics 0/1), About
 ```
