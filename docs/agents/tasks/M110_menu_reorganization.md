@@ -103,8 +103,10 @@ below was agreed item by item in the same session.
   elsewhere no longer scatters it (maintainer, 2026-10-15). Screenshots
   are not split per software: they all go into `screenshots/` with
   today's date-and-time names (maintainer, 2026-10-15); headless
-  `--screenshot` keeps its explicit paths. Under discussion: a
-  ソフトごと/共通 switch for the state slots.
+  `--screenshot` keeps its explicit paths. There is no switch between
+  per-software and common slots: slots are always per software (`common`
+  with no medium); another software's slots are reached with
+  ファイルから読み込み… (maintainer, 2026-10-15).
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
   headless tests keep working.
