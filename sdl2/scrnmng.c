@@ -25,6 +25,7 @@
 #include <string.h>
 #include "compiler.h"
 #include "sdlapi.h"
+#include "dosio.h"
 #include "scrnmng.h"
 #include "np2.h"
 #include "np2ver.h"
@@ -125,6 +126,11 @@ const char *scrnmng_native_preset_path(void) {
 	const char *configured = np2oscfg.gui_shader_preset;
 	if (configured[0] && strcmp(configured, VAEG_DEFAULT_SHADER_PRESET) != 0)
 		return configured;
+	{
+		char cache_dir[MAX_PATH];
+		(void)file_getappdir(cache_dir, sizeof(cache_dir), "vaeg-cache");
+		vaeg_builtin_shader_set_cache_root(cache_dir);
+	}
 	return vaeg_builtin_shader_preset();
 #else
 	static char bundled_path[4096];

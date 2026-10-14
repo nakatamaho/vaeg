@@ -77,6 +77,11 @@ Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
+Files vaeg writes go next to the executable (M110): 画面 >
+スクリーンショットを保存 into `screenshots/`, and the CRT-effect shader cache
+into `vaeg-cache/`, whatever the current directory. If that directory cannot
+be written, the user directory (where `vaeg.cfg` is) is used instead.
+
 Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
 loads a raw `.cmt` or `.t88` tape image, or the first such image inside a
 ZIP, 7z or LZH archive (with LibArchive), or records to a raw image;

@@ -5493,6 +5493,42 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
+/* M110: file_getappdir creates the named directory next to the executable
+ * (where the build directory is writable) and ends it with a separator. */
+static int test_app_directory(void) {
+	char path[MAX_PATH];
+	char *base;
+	const char *problem = NULL;
+	size_t length;
+
+	base = SDL_GetBasePath();
+	if (!file_getappdir(path, sizeof(path), "vaeg-selftest-appdir")) {
+		problem = "executable directory not used";
+	} else if ((base == NULL) || (strncmp(path, base, strlen(base)) != 0)) {
+		problem = "directory not below the executable";
+	} else {
+		length = strlen(path);
+		if ((length == 0) || ((path[length - 1] != '/') && (path[length - 1] != '\\'))) {
+			problem = "no trailing separator";
+		} else if (file_attr(path) < 0) {
+			problem = "directory not created";
+		}
+	}
+	if (base != NULL) {
+		SDL_free(base);
+	}
+#if defined(_WIN32)
+	_rmdir(path);
+#else
+	rmdir(path);
+#endif
+	if (problem != NULL) {
+		return (fail("application directory", problem));
+	}
+	fprintf(stderr, "selftest: application directory ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor; M109:
  * the digital monitor turns a component on above 1/31 of full scale. */
 static int test_monitor_output_levels(void) {
@@ -6933,6 +6969,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_app_directory() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_scanline_fill() != SUCCESS) {

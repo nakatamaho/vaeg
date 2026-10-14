@@ -563,10 +563,17 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 		g_gui.screenshot_status = "スクリーンショットの時刻取得に失敗しました。";
 		return (FAILURE);
 	}
+	// M110: screenshots/ next to the executable (one directory for all
+	// software), with today's date-and-time names.
+	char directory[MAX_PATH];
+	(void)file_getappdir(directory, sizeof(directory), "screenshots");
 	for (attempt = 0; attempt < 1000; attempt++) {
-		std::snprintf(path, sizeof(path), "vaeg-%04u%02u%02u-%02u%02u%02u-%010u-%03u.png",
+		char name[96];
+		std::snprintf(name, sizeof(name), "vaeg-%04u%02u%02u-%02u%02u%02u-%010u-%03u.png",
 		              systime.year, systime.month, systime.day, systime.hour, systime.minute,
 		              systime.second, static_cast<unsigned int>(ticks), attempt);
+		file_cpyname(path, directory, sizeof(path));
+		file_catname(path, name, sizeof(path));
 		if (file_attr(path) < 0) {
 			break;
 		}

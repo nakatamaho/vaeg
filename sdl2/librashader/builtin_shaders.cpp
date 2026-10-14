@@ -31,13 +31,22 @@
 
 #include "vaeg_builtin_shaders.h"
 
+// M110: the frontend points this at vaeg-cache next to the executable; a
+// relative "vaeg-cache" (the current directory) remains the default.
+static std::string vaeg_shader_cache_root = "vaeg-cache";
+
+extern "C" void vaeg_builtin_shader_set_cache_root(const char *directory) {
+	if (directory != nullptr && directory[0] != '\0')
+		vaeg_shader_cache_root = directory;
+}
+
 extern "C" const char *vaeg_builtin_shader_preset(void) {
     // Called at preset initialization, never in the per-frame draw path.
     static const std::string preset = []() -> std::string {
         try {
-            const auto root = std::filesystem::absolute(
-                std::filesystem::path("vaeg-cache") / "shaders" / vaeg_shader_digest);
-            for (const auto &asset : vaeg_builtin_shaders) {
+			const auto root = std::filesystem::absolute(
+			    std::filesystem::u8path(vaeg_shader_cache_root) / "shaders" / vaeg_shader_digest);
+			for (const auto &asset : vaeg_builtin_shaders) {
                 const auto path = root / asset.path;
                 std::filesystem::create_directories(path.parent_path());
                 if (std::filesystem::exists(path)) {
