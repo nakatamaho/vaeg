@@ -39,7 +39,7 @@ The 16-bit real-mode DOS `.COM` program keeps the verified 320x200, 16-color,
 
 - a static CPU word-filled checkerboard in Graphic 0;
 - two 32,000-byte Graphic 1 pages: one displayed and one rendered off-screen;
-- 1-256 independently moving records, initially 16 24x24 pre-rendered shaded
+- 1-1024 independently moving records, initially 16 24x24 pre-rendered shaded
   balls followed by 32 8x8 bullet records, transferred from main RAM by SGP
   BITBLT commands; and
 - an eleven-glyph `FPSnnn Cnnnn` counter at the upper right, also transferred
@@ -115,7 +115,7 @@ SET_COLOR
     0000h
 CLS
     hidden G1 draw page at 220000h or 227d00h, 00003e80h words
-repeat for the active 1-256 sprite records in painter order:
+repeat for the active 1-1024 sprite records in painter order:
     SET_SOURCE
         4 bpp, start dot 0, 24x24, pitch 12
         selected HSV shaded-ball main-RAM physical address
@@ -362,12 +362,12 @@ not expose palette readback.
 `demos/sgp-pseudo-sprite/65536/` contains `SGP655S.COM`, a separate direct-color
 track for the same SGP pseudo-sprite idea. It uses two 320x200 G0 pages from a
 320x400, 16-bpp source surface and exchanges the contiguous pages with
-the FB0 DSA registers. Each frame clears the hidden page and emits up to 128
+the FB0 DSA registers. Each frame clears the hidden page and emits up to 1024
 moving 24x24 transparent 16-bpp BITBLT spheres. The 16 source bitmaps cycle
 through HSV hue values; each bitmap remains monochromatic while using
 supersampled Phong-style shading. The deterministic records use sixteen
 velocity directions. SPACE toggles a SGP-drawn white 16-pixel square grid.
-UP/DOWN (or `+`/`-`) changes the active count from one to 128.
+UP/DOWN (or `+`/`-`) changes the active count from one to 1024.
 It does not use
 G1 or a CPU pixel loop. The wireframe track remains the reference for the
 larger contiguous 16-bpp geometry workload.
@@ -377,3 +377,18 @@ Build it with:
 ```sh
 NASM=/opt/local/bin/nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/SGP655S.COM
 ```
+
+## M109 changes
+
+- Up to 1024 balls in every pseudo-sprite demo (16-, 256- and 65536-colour).
+  The SGP command lists, and the M7d templates, are no longer part of the
+  `.COM` image: each has the 64-KiB segment after the program (CS + 1000h,
+  + 2000h, + 3000h), so M7d needs memory up to CS + 4000h and the others up
+  to CS + 2000h or + 3000h; a program given less memory says so and exits.
+  The dirty-rectangle list is capped at 513 entries; beyond that the frame
+  falls back to a full clear. Records 128 onwards of the 256- and
+  65536-colour demos are generated in the source.
+- On a 24.8 kHz display the 200-line pictures are shown with each line
+  doubled (port `100h` RSM = 01), with no scanline gaps.
+- M7d's FPS and count digits now change (they showed zeros since M7d).
+

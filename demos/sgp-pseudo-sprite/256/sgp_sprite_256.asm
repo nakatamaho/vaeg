@@ -90,7 +90,7 @@ org 0x100
 
 %define SPRITE_MIN_COUNT        1
 %define SPRITE_INITIAL_COUNT    16
-%define SPRITE_MAX_COUNT        128
+%define SPRITE_MAX_COUNT        1024
 %define SPRITE_WIDTH            24
 %define SPRITE_HEIGHT           24
 %define SPRITE_PITCH            24
@@ -113,6 +113,18 @@ start:
     push cs
     pop ds
     cld
+    ; M109: the SGP command list has the 64-KiB segment after the program.
+    mov ax, cs
+    add ax, 0x1000
+    mov [list_segment], ax
+    add ax, 0x1000
+    cmp [0x0002], ax
+    jae .memory_ready
+    mov dx, message_far_memory_failed
+    call print_string
+    mov ax, 0x4c03
+    int 0x21
+.memory_ready:
     call save_video_state
     mov dx, message_start
     call print_string
@@ -497,9 +509,8 @@ build_sprite_commands:
     push si
     push di
     push es
-    push ds
-    pop es
-    mov di, sgp_command_list
+    mov es, [list_segment]
+    xor di, di
 
     mov ax, SGP_COMMAND_SET_WORK
     stosw
@@ -539,8 +550,9 @@ build_sprite_commands:
     mov ax, SGP_COMMAND_END
     stosw
 
-    mov si, sgp_command_list
-    call physical_address_from_ds_si
+    mov ax, es
+    xor si, si
+    call physical_address_from_ax_si
     mov [sgp_command_address_low], ax
     mov [sgp_command_address_high], dx
     pop es
@@ -894,6 +906,8 @@ wait_sgp_idle:
 
 physical_address_from_ds_si:
     mov ax, ds
+; AX = segment.
+physical_address_from_ax_si:
     xor dx, dx
     mov cx, 4
 .shift:
@@ -988,22 +1002,29 @@ message_start:
 %if SCROLL_BACKGROUND
     db "SGP256T: 8-bpp pseudo-sprites with scrolling G0", 13, 10
     db "Three bands use 3/7/11 phases aligned to 16-dot checker tiles.", 13, 10
-    db "UP/DOWN changes the ball count (1-128), ESC exits.", 13, 10, "$"
+    db "UP/DOWN changes the ball count (1-1024), ESC exits.", 13, 10, "$"
 %else
     db "SGP 256-color double-buffered pseudo-sprite demo", 13, 10
     db "G0 VA 8-bpp direct GGGRRRBB ray-traced spheres; PATBLT checkerboard.", 13, 10
-    db "UP/DOWN: count 1-128. ESC exits. FPS/C shown at top right.", 13, 10, "$"
+    db "UP/DOWN: count 1-1024. ESC exits. FPS/C shown at top right.", 13, 10, "$"
 %endif
 message_done:
     db "Video state restored.", 13, 10, "$"
+message_far_memory_failed:
+    db "Not enough memory for the SGP command list.", 13, 10, "$"
 message_initialization_failed:
     db "Video or SGP initialization failed.", 13, 10, "$"
 message_animation_failed:
     db "SGP synchronization failed.", 13, 10, "$"
 
 align 2, db 0
-sgp_command_list:
-    times 4096 dw 0
+; M109: the command list (SGP_COMMAND_WORD_COUNT words) is at list_segment:0.
+%define SGP_COMMAND_WORD_COUNT  (512 + (SPRITE_MAX_COUNT + 64) * 16)
+%if SGP_COMMAND_WORD_COUNT * 2 > 0x10000
+%error "SGP command list exceeds its 64-KiB segment"
+%endif
+list_segment:
+    dw 0
 sgp_work_area:
     times 29 dw 0
 
@@ -1078,6 +1099,20 @@ sprite_records:
 %assign RECORD_INDEX RECORD_INDEX + 1
 %endmacro
 %include "../65536/sprite_records_128_random16.inc"
+; M109: records 128 to SPRITE_MAX_COUNT - 1, spread deterministically over
+; the screen with the same small velocities and the sixteen hues in turn.
+%assign EXTRA_RECORD 128
+%rep SPRITE_MAX_COUNT - 128
+%assign EXTRA_X ((EXTRA_RECORD * 197 + (EXTRA_RECORD / 16) * 23 + 61) % 297)
+%assign EXTRA_Y ((EXTRA_RECORD * 113 + 29) % 200)
+%assign EXTRA_DX ((EXTRA_RECORD * 7 + 3) % 5) - 2
+%assign EXTRA_DY ((EXTRA_RECORD * 11 + 1) % 5) - 2
+%if EXTRA_DX == 0 && EXTRA_DY == 0
+%assign EXTRA_DX 1
+%endif
+    SPRITE_RECORD EXTRA_X, EXTRA_Y, EXTRA_DX, EXTRA_DY, orb_hsv_00 + (EXTRA_RECORD % 16) * (orb_hsv_01 - orb_hsv_00)
+%assign EXTRA_RECORD EXTRA_RECORD + 1
+%endrep
 active_sprite_count:
     dw SPRITE_INITIAL_COUNT
 
