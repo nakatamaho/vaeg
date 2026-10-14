@@ -5532,6 +5532,35 @@ static int test_app_directory(void) {
 	return (SUCCESS);
 }
 
+/* M110: カーソル割り当て > マウス (KEY_MODE 3) moves the guest mouse that
+ * the VA's mouse interface reads, from the cursor keys. */
+static int test_cursor_keys_as_mouse(void) {
+	const UINT8 saved_mode = np2cfg.KEY_MODE;
+	SINT16 x0;
+	SINT16 x1;
+	int i;
+
+	np2cfg.KEY_MODE = 3;
+	keystat_resetjoykey();
+	mouseif_sync();
+	mouseif_sync();
+	x0 = mouseif.x;
+	keystat_keydown(0x3c); /* cursor right */
+	for (i = 0; i < 8; i++) {
+		mouseif_sync();
+	}
+	keystat_keyup(0x3c);
+	mouseif_sync();
+	x1 = mouseif.x;
+	np2cfg.KEY_MODE = saved_mode;
+	keystat_resetjoykey();
+	if (x1 <= x0) {
+		return (fail("cursor keys as mouse", "cursor right did not move the mouse"));
+	}
+	fprintf(stderr, "selftest: cursor keys as mouse ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor; M109:
  * the digital monitor turns a component on above 1/31 of full scale. */
 static int test_monitor_output_levels(void) {
@@ -6975,6 +7004,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_app_directory() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_cursor_keys_as_mouse() != SUCCESS) {
 		return (FAILURE);
 	}
 	{
