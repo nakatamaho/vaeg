@@ -502,6 +502,17 @@ which is required for overlapping copies.
 bits with comments identifying VA2 capability. This is not yet a verified
 original-VA rule and must be model-specific rather than generalized to VA3.
 
+**[DERIVED]** (M109a) A commercial game written for the original VA sends
+`FFF3h` as the source pitch of 12-byte lines read upwards (BITBLT 0905h,
+VD set), against the "low two bits zero" rule, and draws correctly in vaeg
+only when that decodes to -12: bit 0 dropped, and a negative pitch made two
+bytes shorter, the rule vaeg had used for the VA2. M97b's original-VA rule
+(low two bits dropped, -16) drew those sprites as stripes, so both models
+now use the VA2 rule. Other low-bit values (`FFF2h`, `FFF4h`, `FFF0h`,
+`000Dh`, `000Eh`) are not known from software; the SGPTEST tool
+([`tools/pc88va/sgptest`](../../tools/pc88va/sgptest/README.md)) measures them
+on hardware.
+
 Zero width/height semantics, exact original field widths, signed `FBW`, and
 overflow remain hardware-test targets.
 
@@ -765,7 +776,9 @@ because common software may implement flood fill on the CPU.
 13. Abort may leave a partially updated read-modify-write word.
 14. Unknown opcodes must remain visible in diagnostics.
 15. CPU, SGP, and display access to shared memory may contend.
-16. `FBW` is a byte pitch and its low two bits must be zero.
+16. `FBW` is a byte pitch and its low two bits must be zero (BNN); software
+    written for the original VA sends FFF3h, so hardware accepts other values
+    (M109a, see section 7).
 17. Cross-format transfer is restricted to documented 1-bpp-to-multi-bpp
     expansion; the documented direction/transparent-mode restrictions apply.
 18. `TP-MOD=3` is not defined by the BNN command table and remains unknown.
@@ -817,7 +830,7 @@ A staged emulator strategy is:
 | SET_COLOR lane expansion | Mode-dependent 1/4/8/16-bpp lane use is documented | Full color is retained, but lane-level conformance remains a test target | Add mode-specific raw vectors |
 | `SF` source alignment | `0=shift to destination dot`, `1=no shift` | Alignment path exists | Verify every start-dot and word-boundary combination |
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
-| `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
+| `FBW` | Byte pitch; low two bits zero | Same on both models (M109a): bit 0 dropped, a negative pitch two bytes shorter | SGPTEST T06-T12 on hardware |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented; directions measured (M106) | Implemented; hardware directions (0800h horizontal, 0400h vertical) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
