@@ -147,7 +147,9 @@ below was agreed item by item in the same session.
 FDD           FDD1/FDD2 開く…/取り出し (with their contents),
               新しい FDD イメージ ▶ 2HD / 2D (320 KB) / 2DD (640 KB) / ── /
               2D (360 KB) / 2DD (720 KB)
-ハードディスク SASI-1/2, SCSI IDs 開く…/外す, 新しい SASI/SCSI イメージ… (VA only)
+ハードディスク SASI-1, SASI-2 開く…/外す (as today, with their contents),
+              SCSI ▶ (heading shows how many are in use) ID 0-6 ▶ 開く…/外す
+              (each with its contents), 新しい SASI/SCSI イメージ… (VA only)
 テープ        読み込み・録音…, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
 編集          画面の文字をコピー, 貼り付け, 貼り付けの取り消し
 画面          スクリーンショットを保存 (and 加工前), 録画 (future),
