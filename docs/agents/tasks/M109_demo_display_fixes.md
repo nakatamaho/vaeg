@@ -121,4 +121,10 @@ rebuilt and their payloads match a fresh build (AGENTS.md).
   tape fast load off by default (maintainer); TSPMODE and TSPFILL write
   their mode label on the bottom row also on the self-booting disk (split 1
   made from split 0's last row) and the self-booting disk was rebuilt.
+- Digital 8-colour, second hardware check (maintainer, photographs of the
+  demo's schedule scenes): "nonzero is on" showed a hidden screen drawn in
+  R 1/31 (65536 colours) in bright red, black on the PC-88VA2. A component
+  is now on above 1/31 of full scale (R/B 2+, G 3+), the lowest threshold
+  that fits all photographs; in vaeg the hidden screen is black and the logo
+  scene unchanged. [e29cec80](https://github.com/nakatamaho/vaeg/commit/e29cec805d3a3a4360376f0d5df766eef5e89866).
 
