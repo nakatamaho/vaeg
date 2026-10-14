@@ -346,3 +346,15 @@ and is left as it was. All three are on the self-booting SGP disk
 ([`demos/sgp-boot`](../../../demos/sgp-boot/README.md)): `V480PAT A`,
 `TSPMODE` and `TSPFILL A`.
 
+
+## M109: the mode label on the bottom row
+
+TSPMODE and TSPFILL write their label (`MODE nn`, `MODE nn Pn`) on the
+bottom text row in split 1, which PC-Engine uses for the function keys.
+Without split 1 (descriptor height +34h is 0), as on the self-booting SGP
+disk, where the ROM text BIOS sets up split 0 alone, the label used to land
+on the first row of split 0 behind the menu. The tools now make split 1
+from the last 20-raster row of split 0 (a copy of split 0's descriptor, so
+the label keeps the normal character mode while split 0's mode changes),
+leave that row out of TSPFILL's fill so the label does not flicker, and put
+the table back on exit.

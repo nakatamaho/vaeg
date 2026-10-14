@@ -79,7 +79,7 @@ start:		mov	si,0081h
 		mov	ax,[es:TABLE+08h]
 		and	ax,03ffh
 		mov	[vw0],ax
-		mov	ax,[es:TABLE+30h]	; split 1
+		call	label_row		; split 1, or the last row of split 0
 		mov	[rsa1],ax
 		mov	ax,[es:TABLE+0ah]
 		mov	[save0],ax
@@ -160,6 +160,7 @@ start:		mov	si,0081h
 		add	di,4
 		add	si,2
 		loop	.rl
+		call	unsplit
 		cli
 		mov	al,[bank]
 		mov	dx,0153h
@@ -168,8 +169,6 @@ start:		mov	si,0081h
 		mov	ax,4c00h
 		int	21h
 
-; wait about 20 frames (VRTC rising edges, port 40h bit 5), then clear
-; the keyboard queue so a held key steps only once
 ; M109: wait for a key with the keyboard BIOS's primitive functions 0Ah
 ; (sense) and 09h (read); functions 00h/01h wait on the Japanese front end,
 ; which only an OS installs, so they hang on a self-booting disk and under
@@ -184,6 +183,8 @@ getkey:		mov	ah,0ah
 		mov	al,1bh
 .r:		ret
 
+; wait about 20 frames (VRTC rising edges, port 40h bit 5), then clear
+; the keyboard queue so a held key steps only once
 settle:		mov	cx,20
 .f:		mov	dx,0040h
 .lo:		in	al,dx
@@ -211,6 +212,67 @@ cell_addr:	push	ax
 		ret
 
 ; "MODE nn" in the function-key row, white, mode-1 attribute
+; M109: AX = the TVRAM address of the bottom row for the "MODE" label:
+; split 1 (PC-Engine's function-key row) when it is shown (height at +34h).
+; Otherwise, as on the self-booting SGP disk, where the ROM text BIOS sets
+; up split 0 alone, the last 20-raster row of split 0 is made into split 1
+; (a copy of split 0's descriptor, so the label keeps the normal character
+; mode while split 0's MODE changes); unsplit puts the table back.
+label_row:	mov	ax,[es:TABLE+30h]
+		cmp	word [es:TABLE+34h],0
+		jne	.r
+		push	bx
+		push	cx
+		push	dx
+		push	si
+		xor	si,si			; save split 1, copy split 0 to it
+.c:		mov	ax,[es:TABLE+20h+si]
+		mov	[splitsave+si],ax
+		mov	ax,[es:TABLE+si]
+		mov	[es:TABLE+20h+si],ax
+		add	si,2
+		cmp	si,20h
+		jb	.c
+		mov	ax,[es:TABLE+14h]	; split 0 height in rasters
+		mov	[rh0save],ax
+		and	ax,01feh
+		xor	dx,dx
+		mov	cx,20
+		div	cx
+		or	ax,ax
+		jz	.top
+		dec	ax
+.top:		mov	bx,[es:TABLE+08h]	; line width in bytes
+		and	bx,03ffh
+		mul	bx
+		add	ax,[es:TABLE+10h]
+		mov	[es:TABLE+30h],ax	; split 1: that row, 20 rasters
+		mov	word [es:TABLE+34h],20
+		sub	word [es:TABLE+14h],20
+		mov	byte [madesplit],1
+		pop	si
+		pop	dx
+		pop	cx
+		pop	bx
+.r:		ret
+
+unsplit:	cmp	byte [madesplit],0
+		je	.r
+		push	ax
+		push	si
+		xor	si,si
+.c:		mov	ax,[splitsave+si]
+		mov	[es:TABLE+20h+si],ax
+		add	si,2
+		cmp	si,20h
+		jb	.c
+		mov	ax,[rh0save]
+		mov	[es:TABLE+14h],ax
+		mov	byte [madesplit],0
+		pop	si
+		pop	ax
+.r:		ret
+
 label:		mov	al,[mode]
 		xor	ah,ah
 		mov	bl,10
@@ -236,6 +298,10 @@ bank		db	0
 		align	2
 rsa0		dw	0
 rsa1		dw	0
+rh0save		dw	0
+splitsave	times 16 dw 0
+madesplit	db	0
+		align	2
 vw0		dw	0
 save0		dw	0
 save1		dw	0
