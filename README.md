@@ -401,6 +401,8 @@ local bootable-disk workflow.
 - [SGP pseudo-sprite](demos/disks/sgp-pseudo-sprite.d88.xz)
 - [SGP wireframe](demos/disks/sgp-wireframe.d88.xz)
 - [Zundamon Orbit](demos/disks/zundamon-orbit.d88.xz)
+- [Self-booting SGP demos and display tests](demos/disks/sgp-boot.d88.xz)
+  (boots with no operating system; [details](demos/sgp-boot/README.md))
 
 ## Runtime Files and Saved State
 

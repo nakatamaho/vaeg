@@ -44,9 +44,15 @@ python3 demos/sgp-boot/build-boot-d88.py --output /tmp/sgpboot.d88
 This writes a 2HD image; `--format 2dd` writes a 2DD one with the same
 contents. NASM and Python 3 are required (`NASM=/path/to/nasm` selects
 another NASM).
-The output is reproducible: the same sources give the same image. It is a
-bootable validation disk, so it must be written outside the repository and
-must not be committed (`AGENTS.md`); the builder refuses a path inside it.
+The output is reproducible: the same sources give the same image. The raw
+D88 is written outside the repository (the builder refuses a path inside
+it); since M109 the builder also writes the distributable
+[`demos/disks/sgp-boot.d88.xz`](../disks/sgp-boot.d88.xz) for the 2HD disk
+(`--compressed-output PATH` or `none` overrides that), after checking that
+it round-trips. Everything on the disk is built from this repository's
+sources and it holds no system files, so it is freely distributable under
+the distribution exception of `AGENTS.md`. It is the maintainer's disk for
+hardware QA.
 
 ## PC-Engine or MS-DOS bootable disk
 
@@ -88,8 +94,13 @@ The menu lists:
 | F, G | pseudo-sprites, 256 colours, static and scrolling (`SGP256S`, `SGP256T`) |
 | H | pseudo-sprites, 65536 colours (`SGP655S`) |
 | I, J, K | wireframe, 16, 256 and 65536 colours (`SGPWIRE`) |
+| L | `V480PAT A`: the 24.8 kHz display-timing sweep ([vtiming](../../tools/pc88va/vtiming/README.md)) |
+| M | `TSPMODE`: undocumented TSP screen modes |
+| N | `TSPFILL A`: known data under those modes |
 
-ESC in a demo ends it; its summary is printed and a key returns to the menu.
+ESC in a demo ends it; its summary is printed and a key returns to the menu,
+which turns graphics off and restores the default palette first (M109).
+Up to 1024 balls in A-H (UP/DOWN or `+`/`-`).
 
 ## Disk layout and ROM interfaces
 
@@ -112,16 +123,18 @@ ESC in a demo ends it; its summary is printed and a key returns to the menu.
   system installs, so the loader does not use it.
 - `INT 21h` and `INT 20h` are provided by the loader for the demos, which
   are DOS `.COM` programs: `09h` prints a `$`-terminated string through the
-  text BIOS, `4Ch` and `INT 20h` return to the menu, and any other function
-  returns `CF = 1`, `AX = 1`. The demos call only `09h` and `4Ch`; for
-  everything else they use the ROM BIOS and the hardware directly.
+  text BIOS, `4Ch` and `INT 20h` return to the menu, `48h` gives the 64 KiB
+  after the program and `49h` succeeds (M109, for TSPFILL), and any other
+  function returns `CF = 1`, `AX = 1`. A catalog entry can carry a command
+  tail, written to the PSP at `80h` (M109). The demos call only `09h` and
+  `4Ch`; for everything else they use the ROM BIOS and the hardware
+  directly.
 
 ## Status
 
 Checked in vaeg, 2HD and 2DD, with the VA2 ROM (all eleven demos) and the VA
 ROM (spot checks): the disk boots to the menu, the demos run, ESC ends each
-one, and the menu returns. In vaeg the M7c and M7d variants show wrong
-colours, the 65536-colour pseudo-sprite demo shows one ball, and on the VA
-model the FPS counter glyphs are solid blocks; all look the same under
-PC-Engine, so they are properties of those demos in vaeg, not of this disk.
-Real PC-88VA hardware has not been tried yet.
+one, and the menu returns. On the VA
+model the FPS counter glyphs are solid blocks (also under PC-Engine; open).
+The disk boots and its demos run on the maintainer's PC-88VA2 (M106); the
+wrong M7c/M7d colours were the 386 near jumps fixed in M106.

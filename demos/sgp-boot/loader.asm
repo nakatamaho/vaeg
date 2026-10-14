@@ -30,8 +30,9 @@
 ; PSP below it) and runs it with CS = DS = ES = SS = DEMO_SEG, SP = FFFEh.
 ; Without DOS, INT 21h and INT 20h are provided here: function 09h prints a
 ; '$'-terminated string through the ROM text BIOS (INT 83h), function 4Ch
-; and INT 20h return to the menu, and other functions fail with CF = 1 and
-; AX = 1. The demos use only 09h and 4Ch with the ROM BIOS and the hardware.
+; and INT 20h return to the menu, functions 48h/49h give the program the
+; 64 KiB after its own (M109, for TSPFILL), and other functions fail with
+; CF = 1 and AX = 1. A catalog entry may carry a command tail (M109).
 		cpu	186
 		org	0
 LOADER_SEG	equ	2000h
@@ -65,6 +66,16 @@ start:		cli
 menu:		mov	ax,cs
 		mov	ds,ax
 		mov	es,ax
+		mov	ax,0b00h		; graphics BIOS: graphics off, the default
+		int	8fh			; palette, text only (M109: a test pattern
+		mov	ax,0a00h		; such as V480PAT's stays on after it ends)
+		int	8fh
+		mov	ax,0300h
+		mov	cx,0001h
+		int	8fh
+		mov	ax,cs
+		mov	ds,ax
+		mov	es,ax
 		mov	ah,2ah			; text BIOS: initialise the text screen
 		int	83h
 		mov	ax,1702h		; clear the whole split screen
@@ -91,7 +102,7 @@ menu:		mov	ax,cs
 		mov	si,crlf
 		call	puts
 		pop	si
-		add	si,6			; dw first sector, dw sectors, dw label
+		add	si,8			; dw first sector, sectors, label, tail
 		inc	bl
 		jmp	.item
 .prompt:	mov	si,prompt
@@ -105,8 +116,8 @@ menu:		mov	ax,cs
 		jae	.key
 		mov	bx,ax
 		shl	bx,1
-		add	bx,ax
-		shl	bx,1			; 6 bytes an entry
+		shl	bx,1
+		shl	bx,1			; 8 bytes an entry
 		lea	si,[catalog + bx]
 		call	load
 		jc	.failed
@@ -116,9 +127,9 @@ menu:		mov	ax,cs
 		call	wait_key
 		jmp	menu
 
-; load the catalog entry at SI (dw first logical sector, dw sectors) to
-; DEMO_SEG:0100; CF = 1 on a read error
-load:		mov	ax,DEMO_SEG		; PSP: INT 20h at 0, empty command tail
+; load the catalog entry at SI (dw first logical sector, dw sectors, dw
+; label, dw command tail or 0) to DEMO_SEG:0100; CF = 1 on a read error
+load:		mov	ax,DEMO_SEG		; PSP: INT 20h at 0, the command tail
 		mov	es,ax
 		xor	di,di
 		mov	cx,80h
@@ -127,6 +138,21 @@ load:		mov	ax,DEMO_SEG		; PSP: INT 20h at 0, empty command tail
 		mov	word [es:0000h],20cdh
 		mov	word [es:0002h],0a000h
 		mov	word [es:0080h],0d00h
+		mov	bx,[si + 6]		; tail: " ARGS", 0 (M109)
+		or	bx,bx
+		jz	.tail_done
+		mov	di,0081h
+.tail:		mov	al,[bx]
+		or	al,al
+		jz	.tail_end
+		stosb
+		inc	bx
+		jmp	.tail
+.tail_end:	mov	byte [es:di],0dh
+		mov	ax,di
+		sub	ax,0081h
+		mov	[es:0080h],al
+.tail_done:
 		mov	ax,[si]			; first logical sector
 		mov	di,[si + 2]		; sectors
 		mov	si,ax
@@ -209,10 +235,27 @@ int21:		cmp	ah,4ch
 		je	finished
 		cmp	ah,09h
 		je	.print
+		cmp	ah,48h
+		je	.alloc
+		cmp	ah,49h
+		je	.ok
 		mov	ax,1			; not provided: CF = 1, AX = 1
-		push	bp
+.fail:		push	bp
 		mov	bp,sp
 		or	byte [bp + 6],01h
+		pop	bp
+		iret
+; M109: one memory block, the 64 KiB after the program's (TSPFILL); free
+; always succeeds.
+.alloc:		cmp	bx,1000h
+		jbe	.give
+		mov	bx,1000h
+		mov	ax,8			; not enough memory, BX = largest
+		jmp	.fail
+.give:		mov	ax,DEMO_SEG + 1000h
+.ok:		push	bp
+		mov	bp,sp
+		and	byte [bp + 6],0feh
 		pop	bp
 		iret
 .print:		push	ax			; DS:DX: string ended by '$'
@@ -260,7 +303,7 @@ wait_key:	mov	ah,0ch
 		int	82h
 		ret
 
-title		db	'PC-88VA SGP demos (self-booting disk, vaeg M106)', 13, 10, 13, 10, 0
+title		db	'PC-88VA SGP demos (self-booting disk, vaeg M109)', 13, 10, 13, 10, 0
 prompt		db	13, 10, 'Press a letter to run a demo. ESC in a demo returns here.', 13, 10, 0
 read_error	db	13, 10, 'Disk read error. Press a key.', 13, 10, 0
 ended		db	13, 10, 'Demo ended. Press a key for the menu.', 13, 10, 0

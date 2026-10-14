@@ -15,6 +15,13 @@ zundamon-orbit.d88.xz
 all-demos.d88.xz
 ```
 
+plus the self-booting [`sgp-boot.d88.xz`](sgp-boot.d88.xz) (M109), built by
+[`demos/sgp-boot/build-boot-d88.py`](../sgp-boot/build-boot-d88.py) entirely
+from this repository's sources: its IPL, menu loader, the SGP pseudo-sprite
+and wireframe demos, and V480PAT, TSPMODE and TSPFILL. It holds no system
+files, the image round-trips, and the builder is reproducible, so it is
+bootable and distributable under the `AGENTS.md` exception.
+
 plus one bootable image, `all-demos-msdos4.d88.xz`, under the maintainer-
 approved MS-DOS 4.0 exception of `AGENTS.md` (below).
 
