@@ -163,7 +163,7 @@ FDD           FDD1/FDD2 開く…/取り出し (with their contents),
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
               マウスを捕捉, コントローラポート ▶, 連射ボタン
 音            音を出す, FM 音源ボード ▶ (OPN only on the VA) / OPNA,
-              FM の方式 ▶, ymfm の精度 ▶ (ymfm only), サンプリング周波数 ▶,
+              FM の方式 ▶ ymfm (default, listed first) / NP2, ymfm の精度 ▶ (ymfm only), サンプリング周波数 ▶,
               バッファ ▶, テープの音量, PCG 音源の音量 (M115+, PCG on only), シーク音
 状態          保存 ▶, 読み込み ▶ (date, time and thumbnail per slot), 一覧…,
               名前を付けて保存…, ファイルから読み込み…
