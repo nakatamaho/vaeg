@@ -443,4 +443,14 @@ mode lamp follows V1/V2/V3.
   maintainer has no real SASI drive, so the HDD images are checked in
   vaeg only; the "HDD does not start" report was against an older vaeg
   build (before the fixed-disk boot setting).
+- Hardware results with the MS-DOS 4.0 all-demos disk (maintainer,
+  PC-88VA2, 2026-10-14): SGPWIRE 16/256/65536 and the 16-, 256- and
+  65536-colour pseudo-sprites run. NEON3 and NEON4 draw, but text stays
+  visible on the right while they run, and after they exit the text
+  console is wrong: it scrolls only one line. In vaeg (same disk, VA2)
+  NEON3 leaves its status text on screen after ESC and the prompt
+  continues below it, but scrolling stays normal, so vaeg does not
+  reproduce the one-line scroll. Open; not investigated yet (NEON's text
+  console hides the system line with the Screen Editor `INT 94h` and
+  restores it on exit, which may not suit MS-DOS 4.0).
 
