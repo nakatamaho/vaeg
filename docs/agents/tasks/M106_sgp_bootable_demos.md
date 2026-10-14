@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M106 - Self-booting SGP demo disk
 
-Status: **in progress**
+Status: **complete; G106 passed on 2026-10-14**
 
 Series: V3 series (maintainer request, 2026-10-08). Branch
 `topic/m106-sgp-bootable-demos` off `main` at
@@ -484,4 +484,20 @@ mode lamp follows V1/V2/V3.
   24 kHz monitor setting, no scanlines for 640x200 and 320x200; the kana
   and Caps Lock indicators at the bottom; a hardware check of the digital
   8-colour mode.
+
+### G106
+
+- Passed on 2026-10-14 (maintainer), with the Linux build `b605cbb9...80e3`
+  and the Windows build `a9a62277...010d` (SHA-256) from
+  [db87de9b](https://github.com/nakatamaho/vaeg/commit/db87de9b9e663ecb83aa7a9bb808a44a863da927);
+  the self-booting SGP disk, the rebuilt PC-Engine and MS-DOS 4.0 demo
+  disks and the utility SASI image checked on the PC-88VA2 or in vaeg as
+  recorded above.
+- Left open (bug-fix ledger, open defects, or later milestones): NEON3 and
+  NEON4 breaking the MS-DOS text console, VA3DDEMO drawing nothing,
+  GLASS/NEON3/NEON4 and the SGPD_7A glyphs on the original VA model, the
+  port 40h sound and BEEP pitch, the speed gap (SGP demo A at 30 FPS on
+  hardware against 60 in vaeg), the 24 kHz scanlines for 200-line modes,
+  the kana and Caps Lock indicators, the digital 8-colour hardware check,
+  and the zundamon artwork and SGP LINE endpoint decisions.
 
