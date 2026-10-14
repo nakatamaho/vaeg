@@ -759,7 +759,7 @@ while frames, timers, FM, BEEP and disk timing keep real time.
 off) shows a slim bar of lamps below the screen in a window (14 rows per 640
 dots): FD1 and FD2 light for 120 ms after each sector access, red for
 2D/2DD media and green for 2HD, V1/V2/V3 follow port 1CDh bits 4-6, and
-KANA and CAPS (amber) show the guest's lock state: in V3 the BIOS shift-state
+KANA and CAPS (amber, at the right end of the bar) show the guest's lock state: in V3 the BIOS shift-state
 byte 0040:06B0h, in V1/V2 the locked key in the PC-8801 key matrix (port 08h
 bit 5, port 0Ah bit 7).
 The bar takes its own rows below the guest picture: turning it on or off

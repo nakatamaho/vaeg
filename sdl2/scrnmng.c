@@ -1754,8 +1754,12 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		Uint8 cg;
 		Uint8 cb;
 
-		if ((i == 2) || (i == 5)) {
-			x += 16 * s; /* gap before the mode and the lock lamps */
+		if (i == 2) {
+			x += 16 * s; /* gap between the drives and the mode lamps */
+		} else if (i == 5) {
+			/* the lock lamps are right-aligned: two of "KANA" + lamp, the
+			 * same 12-dot spacing between them, 8 dots from the right edge */
+			x = bar->x + bar->w - 8 * s - (2 * (4 * 8 * s + 4 * s + 12 * s) + 12 * s);
 		}
 		if (drive) {
 			text[0] = 'F';
@@ -1883,6 +1887,13 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (148 + 6) * s], surface->format, &r, &g, &b);
 	if (ok && ((r + g + b) > 250)) {
 		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
+		ok = FALSE;
+	}
+	/* M109: the CAPS lamp ends 8 dots from the right edge (lit or not, it
+	 * differs from the bar's background) */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 14 * s)], surface->format, &r, &g, &b);
+	if (ok && (r == 34) && (g == 34) && (b == 36)) {
+		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
 		ok = FALSE;
 	}
 	SDL_DestroyRenderer(renderer);
