@@ -91,7 +91,8 @@ below was agreed item by item in the same session.
   ten thumbnails, clicked to save or load. 名前を付けて保存… and
   ファイルから読み込み… are added. Slots are kept per software in
   `states/<software>/`, the name taken from the FDD1 image, else the SASI-1
-  image, else the tape, else 共通. The name is the image's file name made
+  image, else the tape, else `common`. Directory names vaeg chooses are
+  English (`states`, `screenshots`, `recordings`, `common`, `extra`). The name is the image's file name made
   safe for the host file system, followed by a short hash of its full path
   so that equal names from different directories stay apart. It is fixed
   when a state of that software is first saved, so a disk swap during play
