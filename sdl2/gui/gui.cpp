@@ -684,12 +684,6 @@ static std::string new_scsi_default_path(const std::string &directory, int drive
 	return join_path(directory, name.c_str());
 }
 
-static void menu_item_not_implemented(const char *label) {
-	ImGui::BeginDisabled();
-	ImGui::MenuItem(label);
-	ImGui::EndDisabled();
-}
-
 static void open_configure_dialog(void) {
 	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
@@ -858,12 +852,6 @@ static void draw_configure_dialog(void) {
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			ImGui::TextUnformatted("CPU");
 			ImGui::Separator();
-			ImGui::BeginDisabled();
-			if (ImGui::BeginCombo("Base clock", "3.9936 MHz")) {
-				ImGui::Selectable("3.9936 MHz", true);
-				ImGui::EndCombo();
-			}
-			ImGui::EndDisabled();
 			draw_multiplier_input("Multiplier", &g_gui.pending_cpu_multiplier, kCpuPresets,
 			                      static_cast<int>(std::size(kCpuPresets)));
 			ImGui::Text("Effective CPU clock: %.4f MHz",
@@ -1277,28 +1265,27 @@ static void select_sound_buffer(UINT delayms) {
 	reset_guest();
 }
 
-static void select_boot_model(const char *model, bool enable_8087) {
+/*
+ * 模擬 > 起動: select the machine and its V1/V2 or N mode in one step and
+ * reset. V1/V2 is the VA's memory switch B1FC5h bit 0, as its setup menu
+ * stores it; H/S and N are vaeg extensions (see memctrlva_i031). A V3 disk
+ * still boots V3 whatever is chosen here (M111 adds forced modes).
+ */
+static void select_boot(const char *model, bool v1, bool standard, const char *n80rom) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
-	const bool old_8087 = np2cfg.upd8087_enable != 0;
 
 	np2_select_boot_model(model);
-	np2cfg.upd8087_enable = enable_8087 ? 1 : 0;
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
-	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
-	reset_guest();
-}
-
-/*
- * V1/V2 ("Z80") mode: V1/V2 is the VA's memory switch B1FC5h bit 0, as its
- * setup menu stores it; H/S is a vaeg extension (see memctrlva_i031). Both
- * take effect at reset, as on the machine.
- */
-static void select_v1v2_mode(bool v1, bool standard) {
-	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
-	np2cfg.v1v2_standard = standard ? 1 : 0;
-	np2cfg.v1v2_nmode = 0;
+	if (n80rom != nullptr) {
+		np2cfg.v1v2_nmode = 1;
+		milstr_ncpy(np2cfg.v1v2_n80rom, n80rom, sizeof(np2cfg.v1v2_n80rom));
+	} else {
+		bkupmemva_set_88v1(v1 ? TRUE : FALSE);
+		np2cfg.v1v2_standard = standard ? 1 : 0;
+		np2cfg.v1v2_nmode = 0;
+	}
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
@@ -1312,7 +1299,7 @@ static void select_monitor(bool khz15) {
 	reset_guest();
 }
 
-/* N-BASIC ROM files found when the Z80 mode menu was last opened. */
+/* N-BASIC ROM files found when the 起動 menu was last opened. */
 static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
 static bool g_n80_scanned = false;
 
@@ -2651,6 +2638,8 @@ static void draw_new_fdd_dialog(void) {
 
 /* Emulation speed: 10-400 % of real time in 10 % steps, and No Wait (full
  * speed) at the right end of the slider. */
+/* 実行速度: 10-400 % of real time in 10 % steps, and No Wait (full speed) at
+ * the right end of the slider; frames, timers and sound follow. */
 static void draw_speed_control(void) {
 	enum {
 		SPEED_MIN = 10,
@@ -2660,7 +2649,7 @@ static void draw_speed_control(void) {
 	const int speed = (np2oscfg.speed_percent == 0) ? 100 : np2oscfg.speed_percent;
 	int value = np2oscfg.NOWAIT ? SPEED_FULL : speed;
 
-	ImGui::TextUnformatted("速度");
+	ImGui::TextUnformatted("実行速度");
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
 	if (ImGui::SliderInt("##speed", &value, SPEED_MIN, SPEED_FULL,
 	                     np2oscfg.NOWAIT ? "最大 (No Wait)" : "%d%%",
@@ -2675,159 +2664,147 @@ static void draw_speed_control(void) {
 		}
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	if (ImGui::MenuItem("速度を 100% に戻す", nullptr, false,
+	if (ImGui::MenuItem("実行速度を 100% に戻す", nullptr, false,
 	                    (np2oscfg.NOWAIT != 0) || (speed != 100))) {
 		np2oscfg.NOWAIT = 0;
 		np2oscfg.speed_percent = 100;
 		timing_setspeed(100);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	// CPU speed: only the CPU slows (V3 and V1/V2); frames, timers and sound
-	// keep real time.
-	int cpu = static_cast<int>(pccore_cpu_speed());
-	ImGui::TextUnformatted("CPU 速度");
-	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
-	if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
-		cpu = ((cpu + 2) / 5) * 5;
-		np2cfg.cpu_speed = static_cast<UINT8>(cpu);
-		pccore_set_cpu_speed(np2cfg.cpu_speed);
-		sysmng_update(SYS_UPDATECFG);
-	}
-	if (ImGui::MenuItem("CPU 速度を 100% に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
-		np2cfg.cpu_speed = 100;
-		pccore_set_cpu_speed(100);
-		sysmng_update(SYS_UPDATECFG);
-	}
 }
 
-static void draw_emulate_menu(void) {
-	if (ImGui::BeginMenu("エミュレート")) {
-		if (ImGui::MenuItem("リセット")) {
-			reset_guest();
-		}
-		ImGui::Separator();
-		draw_speed_control();
-		ImGui::Separator();
-		if (ImGui::BeginMenu("起動機種")) {
-			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
-				select_boot_model(str_VA1, false);
-			}
-			if (ImGui::MenuItem("VA2/VA3", nullptr,
-			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
-			                        (np2cfg.upd8087_enable == 0))) {
-				select_boot_model(str_VA2, false);
-			}
-			if (ImGui::MenuItem("VA2/VA3 + 8087", nullptr,
-			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
-			                        (np2cfg.upd8087_enable != 0))) {
-				select_boot_model(str_VA2, true);
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("モニタ")) {
-			// DIP switch SW1, read by the ROM at reset.
-			if (ImGui::MenuItem("24 kHz", nullptr, np2cfg.monitor_15khz == 0)) {
-				select_monitor(false);
-			}
-			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
-				select_monitor(true);
-			}
-			ImGui::Separator();
-			// Analog or digital RGB output; display only, no reset.
-			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
-				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
-				sysmng_update(SYS_UPDATECFG);
-				scrndrawva_redraw();
-			}
-			ImGui::Separator();
-			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
-			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
-			                    np2cfg.monitor_15khz_fill == 0)) {
-				np2cfg.monitor_15khz_fill = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
-			                    np2cfg.monitor_15khz_fill != 0)) {
-				np2cfg.monitor_15khz_fill = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::Separator();
-			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
-			// (8x8 text doubled, 200-line graphics with scanline gaps).
-			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
-				np2cfg.v1v2_8801_display = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
-				np2cfg.v1v2_8801_display = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Z80モード")) {
-			static const struct {
-				const char *label;
-				bool v1;
-				bool standard;
-			} modes[] = {{"V2 H", false, false},
-			             {"V2 S", false, true},
-			             {"V1 H", true, false},
-			             {"V1 S", true, true}};
-			const bool v1 = bkupmemva_get_88v1() != FALSE;
-			const bool standard = np2cfg.v1v2_standard != 0;
-			const bool nmode = np2cfg.v1v2_nmode != 0;
+/* CPU クロック: the CPU alone; frames, timers and sound keep real time. */
+static void draw_cpu_clock_menu(void) {
+	char heading[64];
+	const double mhz = static_cast<double>(pccore_cpu_clock()) *
+	                   static_cast<double>(pccore_cpu_speed()) / 100.0 / 1000000.0;
 
-			for (const auto &mode : modes) {
-				if (ImGui::MenuItem(mode.label, nullptr,
-				                    !nmode && (v1 == mode.v1) && (standard == mode.standard))) {
-					select_v1v2_mode(mode.v1, mode.standard);
-				}
-			}
-			ImGui::Separator();
-			// vaeg extension: start in N-BASIC from a user-supplied ROM. The ROM
-			// directory is scanned (SHA-1) once each time the menu opens.
-			if (!g_n80_scanned) {
-				n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
-				g_n80_scanned = true;
-			}
-			bool any_n80 = false;
-			for (const auto &entry : g_n80_entries) {
-				if (!entry.present) {
-					continue;
-				}
-				any_n80 = true;
-				const std::string label =
-				    std::string("N (PC-8001): ") + entry.name + " - " + entry.label;
-				const bool loaded =
-				    nmode && memoryva_n80_exist && (strcmp(memoryva_n80_file, entry.name) == 0);
-				if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
-					np2cfg.v1v2_nmode = 1;
-					milstr_ncpy(np2cfg.v1v2_n80rom, entry.name, sizeof(np2cfg.v1v2_n80rom));
-					sysmng_update(SYS_UPDATECFG);
-					reset_guest();
-				}
-			}
-			if (!any_n80) {
-				ImGui::MenuItem("N (PC-8001): no N-BASIC ROM", nullptr, false, false);
-			}
-			ImGui::EndMenu();
-		} else {
-			g_n80_scanned = false;
+	std::snprintf(heading, sizeof(heading), "CPU クロック (%.2f MHz)###cpu-clock", mhz);
+	if (ImGui::BeginMenu(heading)) {
+		int cpu = static_cast<int>(pccore_cpu_speed());
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+		if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+			cpu = ((cpu + 2) / 5) * 5;
+			np2cfg.cpu_speed = static_cast<UINT8>(cpu);
+			pccore_set_cpu_speed(np2cfg.cpu_speed);
+			sysmng_update(SYS_UPDATECFG);
 		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("Configure...")) {
-			open_configure_dialog();
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("終了")) {
-			taskmng_exit();
+		if (ImGui::MenuItem("機種の既定に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
+			np2cfg.cpu_speed = 100;
+			pccore_set_cpu_speed(100);
+			sysmng_update(SYS_UPDATECFG);
 		}
 		ImGui::EndMenu();
 	}
+}
+
+static void draw_boot_menu(void) {
+	static const struct {
+		const char *label;
+		bool v1;
+		bool standard;
+	} modes[] = {
+	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
+	static const struct {
+		const char *label;
+		const char *model;
+	} machines[] = {{"PC-88VA2/VA3", str_VA2}, {"PC-88VA", str_VA1}};
+
+	if (!ImGui::BeginMenu("起動")) {
+		g_n80_scanned = false;
+		return;
+	}
+	// The ROM directory is scanned (SHA-1) once each time the menu opens.
+	if (!g_n80_scanned) {
+		n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+		g_n80_scanned = true;
+	}
+	const bool v1 = bkupmemva_get_88v1() != FALSE;
+	const bool standard = np2cfg.v1v2_standard != 0;
+	const bool nmode = np2cfg.v1v2_nmode != 0;
+	for (const auto &machine : machines) {
+		const bool current = milstr_cmp(np2cfg.model, machine.model) == 0;
+		if (!ImGui::BeginMenu(machine.label)) {
+			continue;
+		}
+		for (const auto &mode : modes) {
+			if (ImGui::MenuItem(mode.label, nullptr,
+			                    current && !nmode && (v1 == mode.v1) &&
+			                        (standard == mode.standard))) {
+				select_boot(machine.model, mode.v1, mode.standard, nullptr);
+			}
+		}
+		// vaeg extension: N-BASIC from a user-supplied ROM.
+		for (const auto &entry : g_n80_entries) {
+			if (!entry.present) {
+				continue;
+			}
+			const std::string label = std::string("N (") + entry.label + ")##" + entry.name;
+			const bool loaded = current && nmode && memoryva_n80_exist &&
+			                    (strcmp(memoryva_n80_file, entry.name) == 0);
+			if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+				select_boot(machine.model, false, false, entry.name);
+			}
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_machine_config_menu(void) {
+	if (!ImGui::BeginMenu("機種の構成")) {
+		return;
+	}
+	if (ImGui::BeginMenu("メインメモリ容量")) {
+		const UINT16 capacities[] = {256, 384, 512, 640};
+		for (UINT16 capacity : capacities) {
+			char label[16];
+			std::snprintf(label, sizeof(label), "%u KB", capacity);
+			if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
+				save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
+			}
+		}
+		ImGui::TextDisabled("変更は次のリセットで反映");
+		ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr, np2cfg.main_ram_auto != 0)) {
+		save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
+	}
+	if (ImGui::MenuItem("HDD から起動", nullptr, np2cfg.boot_fixed_disk != 0)) {
+		save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
+	}
+	if (ImGui::MenuItem("I/O バンクメモリ…", nullptr, bmsiocfg.enabled != FALSE)) {
+		open_bms_config_dialog();
+	}
+	if (ImGui::MenuItem("EMS ボード…", nullptr, np2cfg.EXTMEM != 0)) {
+		open_ems_config_dialog();
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_emulate_menu(void) {
+	if (!ImGui::BeginMenu("模擬")) {
+		g_n80_scanned = false;
+		return;
+	}
+	if (ImGui::MenuItem("リセット")) {
+		reset_guest();
+	}
+	draw_boot_menu();
+	ImGui::Separator();
+	draw_speed_control();
+	draw_cpu_clock_menu();
+	ImGui::Separator();
+	draw_machine_config_menu();
+	if (ImGui::MenuItem("詳細設定…")) {
+		open_configure_dialog();
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("終了")) {
+		taskmng_exit();
+	}
+	ImGui::EndMenu();
 }
 
 static void draw_edit_menu(void) {
@@ -2839,13 +2816,14 @@ static void draw_edit_menu(void) {
 		const char *copy_shortcut = "Ctrl+Shift+C";
 		const char *shortcut = "Ctrl+V";
 #endif
-		if (ImGui::MenuItem("Copy screen text", copy_shortcut)) {
+		if (ImGui::MenuItem("画面の文字をコピー", copy_shortcut)) {
 			copy_screen_text();
 		}
 		if (ImGui::MenuItem("貼り付け", shortcut)) {
 			kbdpaste_start_clipboard();
 		}
-		if (ImGui::MenuItem("Cancel Paste", nullptr, false, kbdpaste_active() ? true : false)) {
+		if (ImGui::MenuItem("貼り付けの取り消し", nullptr, false,
+		                    kbdpaste_active() ? true : false)) {
 			kbdpaste_cancel();
 		}
 		if (kbdpaste_status()[0] != '\0') {
@@ -2867,12 +2845,12 @@ static void draw_fdd_mount_state(int drive) {
 		inserting = path[0] != '\0';
 	}
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("FDD%d: Empty", drive + 1);
+		ImGui::TextDisabled("FDD%d: なし", drive + 1);
 		return;
 	}
 	const std::string name = display_file_name(path);
 	if (inserting) {
-		ImGui::Text("FDD%d: %s (inserting)", drive + 1, name.c_str());
+		ImGui::Text("FDD%d: %s (挿入中)", drive + 1, name.c_str());
 	} else {
 		ImGui::Text("FDD%d: %s", drive + 1, name.c_str());
 	}
@@ -2893,7 +2871,7 @@ static void draw_hdd_mount_state(int drive) {
 		label += static_cast<char>('1' + hdd_slot(drive));
 	}
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("%s: Empty", label.c_str());
+		ImGui::TextDisabled("%s: なし", label.c_str());
 		return;
 	}
 	const std::string name = display_file_name(path);
@@ -2905,48 +2883,42 @@ static void draw_hdd_mount_state(int drive) {
 
 static void draw_fdd_menu(void) {
 	if (ImGui::BeginMenu("FDD")) {
-		if (ImGui::MenuItem("FDD1 Open...")) {
+		if (ImGui::MenuItem("FDD1 開く…")) {
 			open_fdd_dialog(0);
 		}
-		if (ImGui::MenuItem("FDD1 Eject")) {
+		if (ImGui::MenuItem("FDD1 取り出し")) {
 			eject_fdd(0);
 		}
 		draw_fdd_mount_state(0);
 		ImGui::Separator();
-		if (ImGui::MenuItem("FDD2 Open...")) {
+		if (ImGui::MenuItem("FDD2 開く…")) {
 			open_fdd_dialog(1);
 		}
-		if (ImGui::MenuItem("FDD2 Eject")) {
+		if (ImGui::MenuItem("FDD2 取り出し")) {
 			eject_fdd(1);
 		}
 		draw_fdd_mount_state(1);
-		ImGui::Separator();
-		menu_item_not_implemented("FDD3 Open... (not implemented)");
-		menu_item_not_implemented("FDD3 Eject (not implemented)");
-		menu_item_not_implemented("FDD4 Open... (not implemented)");
-		menu_item_not_implemented("FDD4 Eject (not implemented)");
 		if (dropmedia_status()[0] != '\0') {
 			ImGui::Separator();
 			ImGui::TextWrapped("%s", dropmedia_status());
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("New FDD image")) {
-			if (ImGui::MenuItem("2HD (1.2 MB)...")) {
+		if (ImGui::BeginMenu("新しい FDD イメージ")) {
+			if (ImGui::MenuItem("2HD (1.2 MB、MS-DOS)…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2HD);
 			}
-			if (ImGui::MenuItem("2DD (640 KB)...")) {
+			if (ImGui::MenuItem("2D (320 KB、未フォーマット)…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
+			}
+			if (ImGui::MenuItem("2DD (640 KB、MS-DOS)…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
 			}
 			ImGui::Separator();
-			ImGui::TextDisabled("Unformatted");
-			if (ImGui::MenuItem("2DD (720 KB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
-			}
-			if (ImGui::MenuItem("2D (320 KB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
-			}
-			if (ImGui::MenuItem("2D (360 KB)...")) {
+			if (ImGui::MenuItem("2D (360 KB、未フォーマット)…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
+			}
+			if (ImGui::MenuItem("2DD (720 KB、未フォーマット)…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
 			}
 			ImGui::EndMenu();
 		}
@@ -3108,17 +3080,17 @@ static void draw_tape_browser(void) {
 
 static void draw_tape_menu(void) {
 	if (ImGui::BeginMenu("Tape")) {
-		if (ImGui::MenuItem("Load / record...")) {
+		if (ImGui::MenuItem("読み込み・録音…")) {
 			open_tape_dialog();
 		}
-		if (ImGui::MenuItem("Rewind", nullptr, false, cmt_inserted() != FALSE)) {
+		if (ImGui::MenuItem("巻き戻し", nullptr, false, cmt_inserted() != FALSE)) {
 			cmt_rewind();
 		}
-		if (ImGui::MenuItem("Eject", nullptr, false, cmt_inserted() != FALSE)) {
+		if (ImGui::MenuItem("取り出し", nullptr, false, cmt_inserted() != FALSE)) {
 			cmt_eject();
 			g_gui.tape_loaded.clear();
 		}
-		if (ImGui::MenuItem("Stop recording", nullptr, false, cmt_saving() != FALSE)) {
+		if (ImGui::MenuItem("録音を止める", nullptr, false, cmt_saving() != FALSE)) {
 			stop_tape_recording();
 		}
 		bool fast = np2cfg.cmt_fast != 0;
@@ -3129,69 +3101,74 @@ static void draw_tape_menu(void) {
 		ImGui::Separator();
 		if (cmt_inserted()) {
 			const std::string name = display_file_name(g_gui.tape_loaded.c_str());
-			ImGui::Text("Tape: %s", name.c_str());
-			ImGui::Text("%u / %u bytes", static_cast<unsigned>(cmt_position()),
+			ImGui::Text("テープ: %s", name.c_str());
+			ImGui::Text("%u / %u バイト", static_cast<unsigned>(cmt_position()),
 			            static_cast<unsigned>(cmt_length()));
 		} else {
-			ImGui::TextDisabled("No tape");
+			ImGui::TextDisabled("テープなし");
 		}
 		if (cmt_saving()) {
 			const std::string name = display_file_name(g_gui.tape_recording.c_str());
-			ImGui::Text("Recording: %s (%u bytes)", name.c_str(),
+			ImGui::Text("録音中: %s (%u バイト)", name.c_str(),
 			            static_cast<unsigned>(cmt_saved_bytes()));
 		}
 		if (!g_gui.tape_status.empty()) {
 			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
 		}
-		ImGui::TextDisabled("V1/V2 BASIC (vaeg extension)");
+		ImGui::TextDisabled("V1/V2 BASIC 用 (vaeg 独自)");
 		ImGui::EndMenu();
 	}
 }
 
 static void draw_harddisk_menu(void) {
-	if (ImGui::BeginMenu("HardDisk")) {
-		if (ImGui::MenuItem("SASI-1 Open...")) {
-			open_hdd_dialog(0);
+	if (!ImGui::BeginMenu("HDD")) {
+		return;
+	}
+	for (int drive = 0; drive < 2; drive++) {
+		const std::string name = std::string("SASI-") + static_cast<char>('1' + drive);
+		if (ImGui::MenuItem((name + " 開く…").c_str())) {
+			open_hdd_dialog(drive);
 		}
-		if (ImGui::MenuItem("SASI-1 Remove")) {
-			remove_hdd(0);
+		if (ImGui::MenuItem((name + " 外す").c_str())) {
+			remove_hdd(drive);
 		}
-		draw_hdd_mount_state(0);
+		draw_hdd_mount_state(drive);
 		ImGui::Separator();
-		if (ImGui::MenuItem("SASI-2 Open...")) {
-			open_hdd_dialog(1);
+	}
+	int in_use = 0;
+	for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
+		const char *path = hdd_config_path(0x20 | drive);
+		if ((path != nullptr) && (path[0] != '\0')) {
+			in_use++;
 		}
-		if (ImGui::MenuItem("SASI-2 Remove")) {
-			remove_hdd(1);
-		}
-		draw_hdd_mount_state(1);
-		ImGui::Separator();
+	}
+	char heading[48];
+	std::snprintf(heading, sizeof(heading), "SCSI (使用中 %d 台)###scsi", in_use);
+	if (ImGui::BeginMenu(heading)) {
 		for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
-			int encoded;
-
-			encoded = 0x20 | drive;
-			if (ImGui::MenuItem(
-			        (std::string("SCSI ID ") + std::to_string(drive) + " Open...").c_str())) {
-				open_hdd_dialog(encoded);
+			const int encoded = 0x20 | drive;
+			const std::string id = std::string("ID ") + std::to_string(drive);
+			if (ImGui::BeginMenu(id.c_str())) {
+				if (ImGui::MenuItem("開く…")) {
+					open_hdd_dialog(encoded);
+				}
+				if (ImGui::MenuItem("外す")) {
+					remove_hdd(encoded);
+				}
+				draw_hdd_mount_state(encoded);
+				ImGui::EndMenu();
 			}
-			if (ImGui::MenuItem(
-			        (std::string("SCSI ID ") + std::to_string(drive) + " Remove").c_str())) {
-				remove_hdd(encoded);
-			}
-			draw_hdd_mount_state(encoded);
-			if (drive != SCSIHDD_MAX - 1) {
-				ImGui::Separator();
-			}
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("New SASI image...")) {
-			open_new_sasi_dialog(0);
-		}
-		if (ImGui::MenuItem("New SCSI image...")) {
-			open_new_scsi_dialog(0);
 		}
 		ImGui::EndMenu();
 	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("新しい SASI イメージ…")) {
+		open_new_sasi_dialog(0);
+	}
+	if (ImGui::MenuItem("新しい SCSI イメージ…")) {
+		open_new_scsi_dialog(0);
+	}
+	ImGui::EndMenu();
 }
 
 static void set_display_scale(int scale) {
@@ -3605,12 +3582,6 @@ static void set_kana_input(const char *mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static void set_tenkey_overlay(bool enabled) {
-	kbdmap_set_tenkey_overlay(enabled ? TRUE : FALSE);
-	g_gui.keyboard_status = enabled ? "Tenkey overlay enabled." : "Tenkey overlay disabled.";
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
 static const char *binding_name(SDL_Scancode scancode) {
 	const char *name;
 
@@ -3792,9 +3763,54 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
+		if (ImGui::BeginMenu("モニタ")) {
+			// DIP switch SW1, read by the ROM at reset.
+			if (ImGui::MenuItem("24 kHz（リセット）", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz（リセット）", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::Separator();
+			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
+			// (8x8 text doubled, 200-line graphics with scanline gaps).
+			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::Separator();
 		draw_renderer_selection();
 		if (!scrnmng_native_active() && ImGui::BeginMenu("エフェクト")) {
-			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
+			static const char *labels[] = {"加工なし", "線形補間", "走査線", "CRT 簡易"};
 			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_effect == value)) {
 					set_display_effect(value);
@@ -3802,9 +3818,9 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Scaling")) {
-			static const char *labels[] = {"Native", "Fit", "Fit 8-dot", "Integer", "Stretch"};
+		if (ImGui::BeginMenu("拡大方法")) {
+			static const char *labels[] = {"等倍", "合わせる", "合わせる (8 ドット単位)", "整数倍",
+			                               "引き伸ばし"};
 			for (int value = 0; value < VAEG_SCALING_COUNT; value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_scaling == value)) {
 					set_display_scaling(value);
@@ -3812,29 +3828,28 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Window size")) {
-			if (ImGui::MenuItem("Native", nullptr, np2oscfg.gui_scale == 1)) {
+		if (ImGui::BeginMenu("ウィンドウサイズ")) {
+			if (ImGui::MenuItem("等倍", nullptr, np2oscfg.gui_scale == 1)) {
 				set_display_scale(1);
 			}
-			if (ImGui::MenuItem("x2", nullptr, np2oscfg.gui_scale == 2)) {
+			if (ImGui::MenuItem("2倍", nullptr, np2oscfg.gui_scale == 2)) {
 				set_display_scale(2);
 			}
-			if (ImGui::MenuItem("x3", nullptr, np2oscfg.gui_scale == 3)) {
+			if (ImGui::MenuItem("3倍", nullptr, np2oscfg.gui_scale == 3)) {
 				set_display_scale(3);
 			}
-			if (ImGui::MenuItem("x4", nullptr, np2oscfg.gui_scale == 4)) {
+			if (ImGui::MenuItem("4倍", nullptr, np2oscfg.gui_scale == 4)) {
 				set_display_scale(4);
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Custom...", nullptr,
-			                    np2oscfg.gui_scale == 0 || np2oscfg.gui_scale > 4,
+			if (ImGui::MenuItem("任意…", nullptr, np2oscfg.gui_scale == 0 || np2oscfg.gui_scale > 4,
 			                    scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
 				open_custom_size_dialog();
 			}
 			ImGui::EndMenu();
 		}
 		bool aspect = np2oscfg.gui_aspect != 0;
-		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
+		if (ImGui::MenuItem("縦横比の補正", nullptr, aspect)) {
 			set_display_aspect(!aspect);
 		}
 		const bool fullscreen = scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED;
@@ -3850,10 +3865,9 @@ static void draw_screen_menu(void) {
 			sysmng_update(SYS_UPDATEOSCFG);
 			scrnmng_front_panel_changed();
 		}
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Frame skip")) {
-			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
-			                               "1/4 frame"};
+		if (ImGui::BeginMenu("フレームスキップ")) {
+			static const char *labels[] = {"自動", "全フレーム", "1/2 フレーム", "1/3 フレーム",
+			                               "1/4 フレーム"};
 			for (int value = 0; value < static_cast<int>(std::size(labels)); value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.DRAW_SKIP == value)) {
 					np2oscfg.DRAW_SKIP = static_cast<BYTE>(value);
@@ -3862,29 +3876,25 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		ImGui::Separator();
-		menu_item_not_implemented("Rotate left/right (not implemented)");
-		menu_item_not_implemented("Screen option... (not implemented)");
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Font")) {
+		if (ImGui::BeginMenu("フォント")) {
 			char path[MAX_PATH];
 			const char *va_filename = romva_default_font_filename();
 			const bool va_available = font_preset_path(va_filename, path, sizeof(path));
 			const bool va_selected = np2cfg.fontfile[0] == '\0';
-			if (ImGui::MenuItem("VA default", nullptr, va_selected, va_available)) {
+			if (ImGui::MenuItem("VA 標準", nullptr, va_selected, va_available)) {
 				load_default_va_font();
 			}
 			if (!va_available) {
-				ImGui::TextDisabled("%s not found in the ROM directory", va_filename);
+				ImGui::TextDisabled("ROM ディレクトリに %s がありません", va_filename);
 			}
 			const bool pc98_available = font_preset_path(pc98fontromname, path, sizeof(path));
 			const bool pc98_selected =
 			    np2cfg.fontfile[0] && !file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname);
-			if (ImGui::MenuItem("98font compatibility", nullptr, pc98_selected, pc98_available)) {
+			if (ImGui::MenuItem("98font 互換", nullptr, pc98_selected, pc98_available)) {
 				load_font_preset(pc98fontromname);
 			}
 			if (!pc98_available) {
-				ImGui::TextDisabled("98font.rom not found in the ROM directory");
+				ImGui::TextDisabled("ROM ディレクトリに 98font.rom がありません");
 			}
 			ImGui::EndMenu();
 		}
@@ -3895,251 +3905,226 @@ static void draw_screen_menu(void) {
 	}
 }
 
-static void draw_device_menu(void) {
-	if (ImGui::BeginMenu("デバイス")) {
-		if (ImGui::BeginMenu("キーボード")) {
-			if (ImGui::MenuItem("Keyboard", nullptr, np2cfg.KEY_MODE == 0)) {
-				set_key_mode(0);
-			}
-			if (ImGui::MenuItem("JoyKey-1", nullptr, np2cfg.KEY_MODE == 1)) {
-				set_key_mode(1);
-			}
-			if (ImGui::MenuItem("JoyKey-2", nullptr, np2cfg.KEY_MODE == 2)) {
-				set_key_mode(2);
-			}
-			if (ImGui::MenuItem("Mouse key", nullptr, np2cfg.KEY_MODE == 3)) {
-				set_key_mode(3);
-			}
-			if (ImGui::BeginMenu("F12 binding")) {
-				if (ImGui::MenuItem("Mouse", nullptr, np2oscfg.F12KEY == 0)) {
-					set_f12_key(0);
-				}
-				if (ImGui::MenuItem("COPY", nullptr, np2oscfg.F12KEY == 1)) {
-					set_f12_key(1);
-				}
-				if (ImGui::MenuItem("STOP", nullptr, np2oscfg.F12KEY == 2)) {
-					set_f12_key(2);
-				}
-				if (ImGui::MenuItem("Tenkey =", nullptr, np2oscfg.F12KEY == 3)) {
-					set_f12_key(3);
-				}
-				if (ImGui::MenuItem("Tenkey ,", nullptr, np2oscfg.F12KEY == 4)) {
-					set_f12_key(4);
-				}
-				if (ImGui::MenuItem("PC key", nullptr, np2oscfg.F12KEY == 5)) {
-					set_f12_key(5);
-				}
-				if (ImGui::MenuItem("Full speed (No Wait)", nullptr,
-				                    np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
-					set_f12_key(KBDMAP_F12_FULL_SPEED);
-				}
-				if (ImGui::MenuItem("スクリーンショット", nullptr,
-				                    np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
-					set_f12_key(KBDMAP_F12_SCREENSHOT);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Host layout")) {
-				if (ImGui::MenuItem("JIS physical", nullptr,
-				                    std::string(kbdmap_layout_name()) == "jis")) {
-					set_keyboard_layout("jis");
-				}
-				if (ImGui::MenuItem("US keytop", nullptr,
-				                    std::string(kbdmap_layout_name()) == "us")) {
-					set_keyboard_layout("us");
-				}
-				if (ImGui::MenuItem("Custom", nullptr,
-				                    std::string(kbdmap_layout_name()) == "custom")) {
-					set_keyboard_layout("custom");
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Kana input")) {
-				if (ImGui::MenuItem("JIS Kana", nullptr,
-				                    std::string(kbdmap_kana_input_name()) == "jis-kana")) {
-					set_kana_input("jis-kana");
-				}
-				if (ImGui::MenuItem("Roman Kana", nullptr,
-				                    std::string(kbdmap_kana_input_name()) == "roman")) {
-					set_kana_input("roman");
-				}
-				ImGui::EndMenu();
-			}
-			{
-				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
-				if (ImGui::MenuItem("Tenkey overlay (cursor keys = 8/4/6/2)", nullptr,
-				                    tenkey_overlay)) {
-					set_tenkey_overlay(!tenkey_overlay);
-				}
-			}
-			if (ImGui::MenuItem("Key bindings...")) {
-				g_gui.keyboard_config_open = true;
-			}
-			menu_item_not_implemented("Mechanical keys (not implemented)");
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("音")) {
-			if (ImGui::BeginMenu("FM sound OPN/OPNA")) {
-				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
-				ImGui::BeginDisabled(!va1);
-				if (ImGui::MenuItem("OPN (VA)", nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
-					select_sound_hardware(FMBOARD_VA_OPN);
-				}
-				ImGui::EndDisabled();
-				if (ImGui::MenuItem("OPNA (VA2/VA3, VA + Sound Board II)", nullptr,
-				                    np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
-					select_sound_hardware(FMBOARD_VA_OPNA);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("FM sound backend")) {
-				const UINT backend = opngen_getbackend();
-				if (ImGui::MenuItem("NP2", nullptr, backend == OPN_BACKEND_NP2)) {
-					select_opn_backend(OPN_BACKEND_NP2);
-				}
-				if (ImGui::MenuItem("ymfm", nullptr, backend == OPN_BACKEND_YMFM)) {
-					select_opn_backend(OPN_BACKEND_YMFM);
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::BeginDisabled(opngen_getbackend() != OPN_BACKEND_YMFM);
-			if (ImGui::BeginMenu("ymfm fidelity")) {
-				const UINT fidelity = ymfm_opn_getfidelity();
-				if (ImGui::MenuItem("Minimum (~166 kHz native, default)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MINIMUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
-				}
-				if (ImGui::MenuItem("Medium (~333 kHz native)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MEDIUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
-				}
-				if (ImGui::MenuItem("Maximum (~998 kHz native, high CPU)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MAXIMUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::EndDisabled();
-			if (ImGui::BeginMenu("Sampling rate")) {
-				if (ImGui::MenuItem("11.025 kHz", nullptr, np2cfg.samplingrate == 11025)) {
-					select_sampling_rate(11025);
-				}
-				if (ImGui::MenuItem("22.05 kHz", nullptr, np2cfg.samplingrate == 22050)) {
-					select_sampling_rate(22050);
-				}
-				if (ImGui::MenuItem("44.1 kHz (Recommended)", nullptr,
-				                    np2cfg.samplingrate == 44100)) {
-					select_sampling_rate(44100);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Sound buffer")) {
-				bool preset_selected = false;
-				for (const int preset : kSoundBufferPresets) {
-					char label[32];
-					const bool selected = np2cfg.delayms == preset;
+/* カーソル割り当て: what the host cursor keys send. The tenkey overlay and
+ * the joystick and mouse key modes all take the cursor keys, so they are one
+ * choice. */
+enum {
+	CURSOR_NORMAL = 0,
+	CURSOR_TENKEY,
+	CURSOR_JOYSTICK,
+	CURSOR_MOUSE
+};
 
-					std::snprintf(label, sizeof(label), "%d ms", preset);
-					preset_selected = preset_selected || selected;
-					if (ImGui::MenuItem(label, nullptr, selected)) {
-						select_sound_buffer(static_cast<UINT>(preset));
-					}
-				}
-				char custom_label[48];
-				std::snprintf(custom_label, sizeof(custom_label), "Custom... (%u ms)",
-				              np2cfg.delayms);
-				if (ImGui::MenuItem(custom_label, nullptr, !preset_selected)) {
-					open_sound_buffer_dialog();
-				}
-				ImGui::EndMenu();
-			}
-			bool enabled = soundmng_isenabled() ? true : false;
-			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
-				np2oscfg.sound_enabled = enabled ? 0 : 1;
-				soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
-				sysmng_update(SYS_UPDATEOSCFG);
-			}
-			bool motor = np2cfg.MOTOR != 0;
-			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
-				np2cfg.MOTOR = motor ? 0 : 1;
-				if (np2cfg.MOTOR == 0) {
-					fddmtrsnd_stop();
-				}
-				sysmng_update(SYS_UPDATECFG);
-			}
-			int volume = np2cfg.vol_fm;
-			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
-				apply_master_volume(volume);
-			}
-			int tape_volume = np2cfg.cmt_vol;
-			if (ImGui::SliderInt("Tape volume", &tape_volume, 0, 128)) {
-				np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
-				cmt_setvol(np2cfg.cmt_vol);
-				sysmng_update(SYS_UPDATECFG);
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("メインメモリ容量")) {
-			const UINT16 capacities[] = {256, 384, 512, 640};
-			for (UINT16 capacity : capacities) {
-				char label[16];
-				std::snprintf(label, sizeof(label), "%u KB", capacity);
-				if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
-					save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
-				}
-			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr,
-			                    np2cfg.main_ram_auto != 0)) {
-				save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
-			}
-			ImGui::TextDisabled("変更は次のリセットで反映");
-			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
-			ImGui::EndMenu();
-		}
-		if (ImGui::MenuItem("ハードディスクから起動 (バックアップメモリへ自動反映)", nullptr,
-		                    np2cfg.boot_fixed_disk != 0)) {
-			save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
-		}
-		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
-			open_bms_config_dialog();
-		}
-		if (ImGui::MenuItem("EMS Board...", nullptr, np2cfg.EXTMEM != 0)) {
-			open_ems_config_dialog();
-		}
+static int cursor_assignment(void) {
+	if (np2cfg.KEY_MODE == 1) {
+		return CURSOR_JOYSTICK;
+	}
+	if (np2cfg.KEY_MODE == 3) {
+		return CURSOR_MOUSE;
+	}
+	return kbdmap_tenkey_overlay_enabled() ? CURSOR_TENKEY : CURSOR_NORMAL;
+}
 
-		if (ImGui::BeginMenu("Mouse")) {
-			bool capture = np2oscfg.MOUSE_SW != 0;
-			const char *capture_shortcut =
-			    (np2oscfg.F12KEY == 0) ? "F12 / middle click" : "Middle click";
-			if (ImGui::MenuItem("Capture mouse", capture_shortcut, capture)) {
-				set_mouse_capture(!capture);
+static void set_cursor_assignment(int assignment) {
+	set_key_mode((assignment == CURSOR_JOYSTICK) ? 1 : (assignment == CURSOR_MOUSE) ? 3 : 0);
+	kbdmap_set_tenkey_overlay((assignment == CURSOR_TENKEY) ? TRUE : FALSE);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void draw_key_menu(void) {
+	if (!ImGui::BeginMenu("Key")) {
+		return;
+	}
+	if (ImGui::BeginMenu("カーソル割り当て")) {
+		static const char *labels[] = {"通常", "テンキー 8/4/6/2", "ジョイスティック", "マウス"};
+		const int current = cursor_assignment();
+		for (int i = 0; i < static_cast<int>(std::size(labels)); i++) {
+			if (ImGui::MenuItem(labels[i], nullptr, current == i)) {
+				set_cursor_assignment(i);
 			}
-			if (ImGui::BeginMenu("VA controller port")) {
-				if (ImGui::MenuItem("Joystick", nullptr, mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
-					set_mouse_device(MOUSEIFVA_JOYPAD);
-				}
-				if (ImGui::MenuItem("Mouse", nullptr, mouseifvacfg.device == MOUSEIFVA_MOUSE)) {
-					set_mouse_device(MOUSEIFVA_MOUSE);
-				}
-				ImGui::EndMenu();
-			}
-			bool rapid = np2cfg.MOUSERAPID != 0;
-			if (ImGui::MenuItem("Rapid buttons", nullptr, rapid)) {
-				set_mouse_rapid(!rapid);
-			}
-			if (mousemng_status()[0] != '\0') {
-				ImGui::Separator();
-				ImGui::BeginDisabled();
-				ImGui::MenuItem(mousemng_status());
-				ImGui::EndDisabled();
-			}
-			ImGui::EndMenu();
 		}
-		menu_item_not_implemented("Serial option... (not implemented)");
-		menu_item_not_implemented("MIDI option... (not implemented)");
 		ImGui::EndMenu();
 	}
+	if (ImGui::BeginMenu("ホストの配列")) {
+		if (ImGui::MenuItem("JIS", nullptr, std::string(kbdmap_layout_name()) == "jis")) {
+			set_keyboard_layout("jis");
+		}
+		if (ImGui::MenuItem("US", nullptr, std::string(kbdmap_layout_name()) == "us")) {
+			set_keyboard_layout("us");
+		}
+		if (ImGui::MenuItem("カスタム", nullptr, std::string(kbdmap_layout_name()) == "custom")) {
+			set_keyboard_layout("custom");
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("かな入力")) {
+		if (ImGui::MenuItem("JIS かな", nullptr,
+		                    std::string(kbdmap_kana_input_name()) == "jis-kana")) {
+			set_kana_input("jis-kana");
+		}
+		if (ImGui::MenuItem("ローマ字かな", nullptr,
+		                    std::string(kbdmap_kana_input_name()) == "roman")) {
+			set_kana_input("roman");
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("F12 の割り当て")) {
+		if (ImGui::MenuItem("マウス", nullptr, np2oscfg.F12KEY == 0)) {
+			set_f12_key(0);
+		}
+		if (ImGui::MenuItem("COPY", nullptr, np2oscfg.F12KEY == 1)) {
+			set_f12_key(1);
+		}
+		if (ImGui::MenuItem("STOP", nullptr, np2oscfg.F12KEY == 2)) {
+			set_f12_key(2);
+		}
+		if (ImGui::MenuItem("テンキー =", nullptr, np2oscfg.F12KEY == 3)) {
+			set_f12_key(3);
+		}
+		if (ImGui::MenuItem("テンキー ,", nullptr, np2oscfg.F12KEY == 4)) {
+			set_f12_key(4);
+		}
+		if (ImGui::MenuItem("PC キー", nullptr, np2oscfg.F12KEY == 5)) {
+			set_f12_key(5);
+		}
+		if (ImGui::MenuItem("最大速度", nullptr, np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
+			set_f12_key(KBDMAP_F12_FULL_SPEED);
+		}
+		if (ImGui::MenuItem("スクリーンショット", nullptr,
+		                    np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
+			set_f12_key(KBDMAP_F12_SCREENSHOT);
+		}
+		if (ImGui::MenuItem("一時停止", nullptr, np2oscfg.F12KEY == KBDMAP_F12_PAUSE)) {
+			set_f12_key(KBDMAP_F12_PAUSE);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("キーの割り当て…")) {
+		g_gui.keyboard_config_open = true;
+	}
+	ImGui::Separator();
+	bool capture = np2oscfg.MOUSE_SW != 0;
+	const char *capture_shortcut = (np2oscfg.F12KEY == 0) ? "F12 / 中ボタン" : "中ボタン";
+	if (ImGui::MenuItem("マウスを捕捉", capture_shortcut, capture)) {
+		set_mouse_capture(!capture);
+	}
+	if (ImGui::BeginMenu("コントローラポート")) {
+		if (ImGui::MenuItem("ジョイスティック", nullptr, mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
+			set_mouse_device(MOUSEIFVA_JOYPAD);
+		}
+		if (ImGui::MenuItem("マウス", nullptr, mouseifvacfg.device == MOUSEIFVA_MOUSE)) {
+			set_mouse_device(MOUSEIFVA_MOUSE);
+		}
+		ImGui::EndMenu();
+	}
+	bool rapid = np2cfg.MOUSERAPID != 0;
+	if (ImGui::MenuItem("連射ボタン", nullptr, rapid)) {
+		set_mouse_rapid(!rapid);
+	}
+	if (mousemng_status()[0] != '\0') {
+		ImGui::TextWrapped("%s", mousemng_status());
+	}
+
+	ImGui::EndMenu();
+}
+
+static void draw_sound_menu(void) {
+	if (!ImGui::BeginMenu("音")) {
+		return;
+	}
+	if (ImGui::BeginMenu("FM 音源ボード")) {
+		const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
+		if (va1 && ImGui::MenuItem("OPN", nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
+			select_sound_hardware(FMBOARD_VA_OPN);
+		}
+		if (ImGui::MenuItem("OPNA (VA2/VA3、VA + サウンドボード II)", nullptr,
+		                    np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
+			select_sound_hardware(FMBOARD_VA_OPNA);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("FM の方式")) {
+		const UINT backend = opngen_getbackend();
+		if (ImGui::MenuItem("ymfm", nullptr, backend == OPN_BACKEND_YMFM)) {
+			select_opn_backend(OPN_BACKEND_YMFM);
+		}
+		if (ImGui::MenuItem("NP2", nullptr, backend == OPN_BACKEND_NP2)) {
+			select_opn_backend(OPN_BACKEND_NP2);
+		}
+		ImGui::EndMenu();
+	}
+	if ((opngen_getbackend() == OPN_BACKEND_YMFM) && ImGui::BeginMenu("ymfm の精度")) {
+		const UINT fidelity = ymfm_opn_getfidelity();
+		if (ImGui::MenuItem("最小 (約 166 kHz、既定)", nullptr,
+		                    fidelity == YMFMBRIDGE_FIDELITY_MINIMUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
+		}
+		if (ImGui::MenuItem("中 (約 333 kHz)", nullptr, fidelity == YMFMBRIDGE_FIDELITY_MEDIUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
+		}
+		if (ImGui::MenuItem("最大 (約 998 kHz、高負荷)", nullptr,
+		                    fidelity == YMFMBRIDGE_FIDELITY_MAXIMUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("サンプリング周波数")) {
+		if (ImGui::MenuItem("11.025 kHz", nullptr, np2cfg.samplingrate == 11025)) {
+			select_sampling_rate(11025);
+		}
+		if (ImGui::MenuItem("22.05 kHz", nullptr, np2cfg.samplingrate == 22050)) {
+			select_sampling_rate(22050);
+		}
+		if (ImGui::MenuItem("44.1 kHz (推奨)", nullptr, np2cfg.samplingrate == 44100)) {
+			select_sampling_rate(44100);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("バッファ")) {
+		bool preset_selected = false;
+		for (const int preset : kSoundBufferPresets) {
+			char label[32];
+			const bool selected = np2cfg.delayms == preset;
+
+			std::snprintf(label, sizeof(label), "%d ms", preset);
+			preset_selected = preset_selected || selected;
+			if (ImGui::MenuItem(label, nullptr, selected)) {
+				select_sound_buffer(static_cast<UINT>(preset));
+			}
+		}
+		char custom_label[48];
+		std::snprintf(custom_label, sizeof(custom_label), "任意… (%u ms)", np2cfg.delayms);
+		if (ImGui::MenuItem(custom_label, nullptr, !preset_selected)) {
+			open_sound_buffer_dialog();
+		}
+		ImGui::EndMenu();
+	}
+	const bool muted = soundmng_isenabled() ? false : true;
+	if (ImGui::MenuItem("ミュート", nullptr, muted)) {
+		np2oscfg.sound_enabled = muted ? 1 : 0;
+		soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	bool motor = np2cfg.MOTOR != 0;
+	if (ImGui::MenuItem("シーク音", nullptr, motor)) {
+		np2cfg.MOTOR = motor ? 0 : 1;
+		if (np2cfg.MOTOR == 0) {
+			fddmtrsnd_stop();
+		}
+		sysmng_update(SYS_UPDATECFG);
+	}
+	int volume = np2cfg.vol_fm;
+	if (ImGui::SliderInt("音量", &volume, 0, 128)) {
+		apply_master_volume(volume);
+	}
+	int tape_volume = np2cfg.cmt_vol;
+	if (ImGui::SliderInt("テープの音量", &tape_volume, 0, 128)) {
+		np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
+		cmt_setvol(np2cfg.cmt_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+
+	ImGui::EndMenu();
 }
 
 static void open_about_dialog(void) {
@@ -4154,63 +4139,92 @@ static void set_info_layer(UINT layer, bool enabled) {
 	pccore_redraw();
 }
 
+/* While paused (F12 assigned to 一時停止), say so and offer to resume, as
+ * the menu bar no longer has a Pause button (M110). */
+static void draw_pause_overlay(void) {
+	if (!taskmng_ispaused()) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowBgAlpha(0.85f);
+	if (ImGui::Begin("##paused", nullptr,
+	                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+	                     ImGuiWindowFlags_NoNav)) {
+		ImGui::TextUnformatted("一時停止中");
+		if (ImGui::Button("再開")) {
+			taskmng_toggle_pause();
+		}
+	}
+	ImGui::End();
+}
+
 static void draw_info_menu(void) {
+	// 情報 alone at the right end of the menu bar, or right after the other
+	// menus when the window is too narrow.
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float width = ImGui::CalcTextSize("情報").x + style.ItemSpacing.x * 2.0f;
+	const float right = ImGui::GetWindowContentRegionMax().x - width;
+	if (right > ImGui::GetCursorPosX()) {
+		ImGui::SetCursorPosX(right);
+	}
 	if (ImGui::BeginMenu("情報")) {
 		bool show_fdd = (np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0;
-		if (ImGui::MenuItem("Show FDD", nullptr, show_fdd)) {
+		if (ImGui::MenuItem("FDD を表示", nullptr, show_fdd)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FDD;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_fps = (np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) != 0;
-		if (ImGui::MenuItem("Show FPS", nullptr, show_fps)) {
+		if (ImGui::MenuItem("FPS を表示", nullptr, show_fps)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FPS;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_cpu_clock = (np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) != 0;
-		if (ImGui::MenuItem("Show CPU clock", nullptr, show_cpu_clock)) {
+		if (ImGui::MenuItem("CPU クロックを表示", nullptr, show_cpu_clock)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_CPU_CLOCK;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_sgp_clock = (np2oscfg.DISPCLK & VAEG_DISPINFO_SGP_CLOCK) != 0;
-		if (ImGui::MenuItem("Show SGP clock", nullptr, show_sgp_clock)) {
+		if (ImGui::MenuItem("SGP クロックを表示", nullptr, show_sgp_clock)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_SGP_CLOCK;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_frame = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) != 0;
-		if (ImGui::MenuItem("Show frame", nullptr, show_frame)) {
+		if (ImGui::MenuItem("フレームを表示", nullptr, show_frame)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAME;
 			scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_video = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
-		if (ImGui::MenuItem("Show video info overlay", nullptr, show_video)) {
+		if (ImGui::MenuItem("ビデオ情報を表示", nullptr, show_video)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_framebuffer = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
-		if (ImGui::MenuItem("Show FB info overlay", nullptr, show_framebuffer)) {
+		if (ImGui::MenuItem("FB 情報を表示", nullptr, show_framebuffer)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAMEBUFFER;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		ImGui::Separator();
 		bool show_text = scrndrawva_layer_enabled(VAEG_VA_LAYER_TEXT) != FALSE;
-		if (ImGui::MenuItem("Show text", nullptr, show_text)) {
+		if (ImGui::MenuItem("テキストを表示", nullptr, show_text)) {
 			set_info_layer(VAEG_VA_LAYER_TEXT, !show_text);
 		}
 		bool show_sprite = scrndrawva_layer_enabled(VAEG_VA_LAYER_SPRITE) != FALSE;
-		if (ImGui::MenuItem("Show sprite", nullptr, show_sprite)) {
+		if (ImGui::MenuItem("スプライトを表示", nullptr, show_sprite)) {
 			set_info_layer(VAEG_VA_LAYER_SPRITE, !show_sprite);
 		}
 		bool show_graphics0 = scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS0) != FALSE;
-		if (ImGui::MenuItem("Show graphics 0", nullptr, show_graphics0)) {
+		if (ImGui::MenuItem("グラフィック 0 を表示", nullptr, show_graphics0)) {
 			set_info_layer(VAEG_VA_LAYER_GRAPHICS0, !show_graphics0);
 		}
 		bool show_graphics1 = scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS1) != FALSE;
-		if (ImGui::MenuItem("Show graphics 1", nullptr, show_graphics1)) {
+		if (ImGui::MenuItem("グラフィック 1 を表示", nullptr, show_graphics1)) {
 			set_info_layer(VAEG_VA_LAYER_GRAPHICS1, !show_graphics1);
 		}
 		ImGui::Separator();
@@ -4340,10 +4354,10 @@ static void draw_about_dialog(void) {
 
 static void draw_state_menu(void) {
 	if (ImGui::BeginMenu("状態")) {
-		if (ImGui::BeginMenu("Save")) {
+		if (ImGui::BeginMenu("保存")) {
 			for (int slot = 0; slot < kStateSlots; slot++) {
 				char label[32];
-				std::snprintf(label, sizeof(label), "Slot %d", slot);
+				std::snprintf(label, sizeof(label), "スロット %d", slot);
 				if (ImGui::MenuItem(label)) {
 					std::string path = state_slot_path(slot);
 					soundmng_stop();
@@ -4361,10 +4375,10 @@ static void draw_state_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Load")) {
+		if (ImGui::BeginMenu("読み込み")) {
 			for (int slot = 0; slot < kStateSlots; slot++) {
 				char label[32];
-				std::snprintf(label, sizeof(label), "Slot %d", slot);
+				std::snprintf(label, sizeof(label), "スロット %d", slot);
 				if (ImGui::MenuItem(label)) {
 					std::string path = state_slot_path(slot);
 					char error[1024];
@@ -4792,18 +4806,14 @@ void gui_draw(void) {
 	    ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
 	        ImGui::IsAnyItemActive(), SDL_GetTicks());
 	if (show_menu && ImGui::BeginMainMenuBar()) {
-		const bool paused = taskmng_ispaused() ? true : false;
-		if (ImGui::Button(paused ? "Resume" : "Pause")) {
-			taskmng_toggle_pause();
-		}
-		ImGui::Separator();
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
 		draw_tape_menu();
 		draw_edit_menu();
 		draw_screen_menu();
-		draw_device_menu();
+		draw_key_menu();
+		draw_sound_menu();
 		draw_state_menu();
 		draw_info_menu();
 		ImGui::EndMainMenuBar();
@@ -4822,6 +4832,7 @@ void gui_draw(void) {
 		}
 		ImGui::End();
 	}
+	draw_pause_overlay();
 	draw_state_error_dialog();
 	draw_fdd_browser();
 	draw_hdd_browser();

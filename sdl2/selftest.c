@@ -6619,6 +6619,13 @@ static int test_mouse_state(void) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 screenshot binding changed"));
 	}
+	/* M110: F12 can pause and resume instead of the menu-bar button. */
+	np2oscfg.F12KEY = KBDMAP_F12_PAUSE;
+	if ((kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_PAUSE)) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 pause binding changed"));
+	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
 	return (SUCCESS);
