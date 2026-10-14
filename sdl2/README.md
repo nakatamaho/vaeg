@@ -83,6 +83,14 @@ the CRT-effect shader cache into `vaeg-cache/`, whatever the current
 directory. If that directory cannot be written, the user directory (where
 `vaeg.cfg` is) is used instead.
 
+模擬 has two speed controls (M110). 実行速度 (10-400 %, the right end = No
+Wait) slows or speeds frames, timers and sound together. CPU クロック changes
+the CPU alone, without a reset, frames, timers and music keeping real time:
+機種の既定 (x2, 7.99 MHz), PC-8801 標準速度相当 (about 4 MHz) and 高速相当
+(about 8 MHz; approximations on the VA's V1/V2 mode, to be calibrated on
+hardware), 2倍, 4倍, 8倍, and 任意 (a multiplier of 3.9936 MHz and a 10-100 %
+speed; `clk_mult` and `CPU_Speed` in the configuration).
+
 音 > 全体の音量 (`master_volume`, 0-100 %, default 100) scales the final
 mix, every source included; ミュート silences the output (as `--mute`).
 個別の音量 sets the balance: 音源 (FM, SSG, ADPCM and rhythm together, as their

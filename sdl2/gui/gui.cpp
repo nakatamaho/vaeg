@@ -115,7 +115,6 @@ constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
 constexpr int kScsiImageCount = 6;
-constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kNdp8087Presets[] = {5000000, 8000000, 10000000};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
@@ -894,18 +893,6 @@ static void draw_configure_dialog(void) {
 		// The sections scroll; the message line and the buttons stay below.
 		ImGui::BeginChild("configure-body",
 		                  ImVec2(0.0f, -2.0f * ImGui::GetFrameHeightWithSpacing()));
-		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
-		                      ImGuiWindowFlags_NoScrollbar)) {
-			ImGui::TextUnformatted("CPU");
-			ImGui::Separator();
-			draw_multiplier_input("Multiplier", &g_gui.pending_cpu_multiplier, kCpuPresets,
-			                      static_cast<int>(std::size(kCpuPresets)));
-			ImGui::Text("Effective CPU clock: %.4f MHz",
-			            3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
-			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
-		}
-		ImGui::EndChild();
-
 		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 155.0f), true,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			const bool requested_changed =
@@ -2759,29 +2746,78 @@ static void draw_speed_control(void) {
 	}
 }
 
-/* CPU クロック: the CPU alone; frames, timers and sound keep real time. */
+/*
+ * CPU クロック (M110): the CPU alone; frames, timers and sound keep real
+ * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
+ * speed; both apply at once, without a reset. On the VA's V1/V2 mode the
+ * PC-8801 presets are approximations to be calibrated on hardware.
+ */
+struct CpuClockPreset {
+	const char *label;
+	UINT multiple;
+	UINT speed;
+};
+
+static const CpuClockPreset kCpuClockPresets[] = {
+    {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
+    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
+    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
+    {nullptr, 0, 0},
+    {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
+    {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
+    {"8倍", PCCORE_STANDARD_MULTIPLE * 8, 100},
+};
+
+static void set_cpu_clock(UINT multiple, UINT speed) {
+	if (!pccore_cpu_multiple_valid(multiple)) {
+		return;
+	}
+	np2cfg.multiple = multiple;
+	np2cfg.cpu_speed = static_cast<UINT8>(std::clamp(speed, 10u, 100u));
+	pccore_clockrestore();
+	sgp_configure_speed();
+	sysmng_update(SYS_UPDATECFG);
+}
+
 static void draw_cpu_clock_menu(void) {
 	char heading[64];
-	const double mhz = static_cast<double>(pccore_cpu_clock()) *
-	                   static_cast<double>(pccore_cpu_speed()) / 100.0 / 1000000.0;
+	const UINT multiple = pccore_cpu_multiple();
+	const UINT speed = pccore_cpu_speed();
+	const double mhz = 3.9936 * multiple * speed / 100.0;
 
 	std::snprintf(heading, sizeof(heading), "CPU クロック (%.2f MHz)###cpu-clock", mhz);
-	if (ImGui::BeginMenu(heading)) {
-		int cpu = static_cast<int>(pccore_cpu_speed());
-		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
-		if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
-			cpu = ((cpu + 2) / 5) * 5;
-			np2cfg.cpu_speed = static_cast<UINT8>(cpu);
-			pccore_set_cpu_speed(np2cfg.cpu_speed);
-			sysmng_update(SYS_UPDATECFG);
+	if (!ImGui::BeginMenu(heading)) {
+		return;
+	}
+	bool matched = false;
+	for (const auto &preset : kCpuClockPresets) {
+		if (preset.label == nullptr) {
+			ImGui::Separator();
+			continue;
 		}
-		if (ImGui::MenuItem("機種の既定に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
-			np2cfg.cpu_speed = 100;
-			pccore_set_cpu_speed(100);
-			sysmng_update(SYS_UPDATECFG);
+		// Only the first equal preset is checked (高速相当 equals 既定 on the VA).
+		const bool selected = !matched && (multiple == preset.multiple) && (speed == preset.speed);
+		matched = matched || selected;
+		if (ImGui::MenuItem(preset.label, nullptr, selected)) {
+			set_cpu_clock(preset.multiple, preset.speed);
 		}
+	}
+	if (ImGui::BeginMenu("任意", true)) {
+		int value = static_cast<int>(multiple);
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+		if (ImGui::SliderInt("倍率", &value, 1, PCCORE_CPU_MULTIPLE_MAX, "x%d",
+		                     ImGuiSliderFlags_AlwaysClamp)) {
+			set_cpu_clock(static_cast<UINT>(value), speed);
+		}
+		value = static_cast<int>(speed);
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+		if (ImGui::SliderInt("速度", &value, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+			set_cpu_clock(multiple, static_cast<UINT>(((value + 2) / 5) * 5));
+		}
+		ImGui::TextDisabled("3.9936 MHz × 倍率 × 速度");
 		ImGui::EndMenu();
 	}
+	ImGui::EndMenu();
 }
 
 static void draw_boot_menu(void) {
