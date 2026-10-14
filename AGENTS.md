@@ -97,6 +97,31 @@ from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-su
 input, like the PC-Engine system disk); its profile tables are tracked under
 `demos/zundamon-orbit/256/ida/` (M109).
 
+## Media build regression before every gate
+
+Every milestone gate includes this machine check, run locally from a
+clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
+are private inputs, so hosted CI cannot run it). Downloads come from the
+shared cache `~/.cache/vaeg/auto-generated-pc88va-utility-media` and
+`~/.cache/vaeg/msdos4-va.2`; a cache miss may download, a checksum
+mismatch fails.
+
+- Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
+  FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
+  builds both SASI images (PC-Engine 1.05 for the VA, 1.1 for the VA2)
+  with that FDD as payload. In vaeg the FDD boots and each SASI image boots
+  alone on its model.
+- Demo disks: every `demos/*/build-d88.sh` distribution, the all-demos,
+  all-demos-msdos4 and self-booting SGP disks build, and their payloads are
+  byte-identical to the committed `demos/disks/*.d88.xz` (see "Demos stay
+  buildable").
+- Record in the task file the commit, the commands, their exit status and
+  the SHA-256 of each produced image. Generated images stay outside Git
+  except the distributable `.d88.xz` files already allowed.
+
+A failure blocks the gate. Fix it in the milestone (and record it in the
+bug-fix ledger), as in M110 when the utility FDD had stopped building.
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI
