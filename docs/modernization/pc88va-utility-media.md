@@ -537,12 +537,13 @@ and required `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
 creates that vanilla disk in a temporary directory and installs the development
 environment on top of it.
 
-The utility floppy and both VA/VA2 SASI utility HDD variants include the
-repository's source-built timing test at `\BIN\V480PAT.COM`, its unchanged
-self-contained source at `\SRC\VTIMING\V480PAT.ASM`, and ASCII usage/license
-instructions at `\DOC\VTIMING.TXT`. Regenerate existing images to add them.
-The common development-tool manifest covers all three files; the floppy COM
-is copied after DIET so it remains the exact NASM output. HOSTFAT is optional
+Both VA/VA2 SASI utility HDD variants include the repository's
+source-built timing test at `\BIN\V480PAT.COM`, its unchanged self-contained
+source at `\SRC\VTIMING\V480PAT.ASM`, and ASCII usage/license instructions
+at `\DOC\VTIMING.TXT`. Regenerate existing images to add them. The common
+development-tool manifest covers all three files. The utility floppy no
+longer carries them (M110): with VZ Editor (M106) they did not fit, and
+V480PAT, TSPMODE and TSPFILL are on the self-booting SGP disk. HOSTFAT is optional
 for host-file transfers, not required for running V480PAT from the media.
 See [the timing tools README](../../tools/pc88va/vtiming/README.md#utility-fdd-and-hdd-installation)
 and [the measured display modes](pc88va-video-modes.md#128-frames-near-60-hz-m105).
