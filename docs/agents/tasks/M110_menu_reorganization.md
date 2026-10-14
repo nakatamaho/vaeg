@@ -36,7 +36,10 @@ below was agreed item by item in the same session.
 ## Decisions
 
 - [POLICY] Top-level menus, in this order:
-  模擬 / FDD / HDD / Tape / 編集 / 画面 / Key / 音 / 状態 / 情報.
+  模擬 / FDD / HDD / Tape / 編集 / 画面 / Key / 音 / 状態 from the left,
+  and 情報 alone at the right end of the menu bar (maintainer,
+  2026-10-15); when the window is too narrow for both, 情報 follows the
+  others instead of overlapping them.
 - [POLICY] Labels are Japanese throughout (machine and format names such
   as OPNA, ymfm, SASI stay as written), except the top-level device menus
   FDD, HDD, Tape and Key (maintainer, 2026-10-15).
