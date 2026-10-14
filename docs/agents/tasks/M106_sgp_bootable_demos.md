@@ -453,4 +453,9 @@ mode lamp follows V1/V2/V3.
   reproduce the one-line scroll. Open; not investigated yet (NEON's text
   console hides the system line with the Screen Editor `INT 94h` and
   restores it on exit, which may not suit MS-DOS 4.0).
+- SASI browser file type (maintainer request): SASI-1/SASI-2 Open lists
+  `.hdi` images by default, with an All files (`*.*`) choice, like the FDD
+  and tape browsers; SCSI Open keeps listing every file. Builds without
+  warnings; the GUI itself was not exercised (no display here).
+  [e2b7393f](https://github.com/nakatamaho/vaeg/commit/e2b7393f447cdca9cddd676b31407fb311a7278d).
 
