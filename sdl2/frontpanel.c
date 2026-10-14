@@ -33,6 +33,9 @@
 #include "frontpanel.h"
 #include "np2.h"
 #include "fdd/fddfile.h"
+#include "machine/pccore.h"
+#include "cpucore.h"
+#include "iocore.h"
 
 #include <SDL.h>
 
@@ -64,6 +67,23 @@ void frontpanel_fdd_access(UINT drv) {
 
 BOOL frontpanel_mode_lit(UINT num) {
 	return (num < FRONTPANEL_MODES) ? panel.mode_on[num] : FALSE;
+}
+
+/* M109: the KANA and CAPS lamps follow the guest's own lock state. In V3 the
+ * BIOS keeps it in its shift-state byte 0040:06B0h (physical 00AB0h; bit 3
+ * KANA, bit 2 CAPS; INT 82h AH=0Bh returns it). In V1/V2 that byte is not
+ * used and the PC-8801 key matrix holds the locked key down: port 08h bit 5
+ * (KANA) and port 0Ah bit 7 (CAPS), active low. Both checked in vaeg. */
+BOOL frontpanel_lock_lit(UINT lock) {
+	const BOOL v1v2 = (panel.mode_on[0] || panel.mode_on[1]) ? TRUE : FALSE;
+
+	if (lock == FRONTPANEL_LOCK_KANA) {
+		return v1v2 ? !(keybrd.keymap[0x08] & 0x20) : ((mem[0xab0] & 0x08) != 0);
+	}
+	if (lock == FRONTPANEL_LOCK_CAPS) {
+		return v1v2 ? !(keybrd.keymap[0x0a] & 0x80) : ((mem[0xab0] & 0x04) != 0);
+	}
+	return FALSE;
 }
 
 BOOL frontpanel_drive_lit(UINT drv, UINT32 now) {

@@ -5276,6 +5276,33 @@ static int test_front_panel(void) {
 	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
 		problem = "mode lamp state";
 	}
+	/* M109: lock lamps follow the key matrix in V1/V2 (V2 lit here) and the
+	 * BIOS shift-state byte 00AB0h in V3. */
+	{
+		const UINT8 saved_shift = mem[0xab0];
+		const UINT8 saved_m08 = keybrd.keymap[0x08];
+		const UINT8 saved_m0a = keybrd.keymap[0x0a];
+
+		mem[0xab0] = 0x0c;
+		keybrd.keymap[0x08] = 0xff;
+		keybrd.keymap[0x0a] = 0x7f;
+		if ((problem == NULL) && (frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          !frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V1/V2 lock lamps did not follow the key matrix";
+		}
+		frontpanel_set_modeled(1, FALSE);
+		frontpanel_set_modeled(2, TRUE);
+		mem[0xab0] = 0x08;
+		if ((problem == NULL) && (!frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V3 lock lamps did not follow the BIOS shift state";
+		}
+		frontpanel_set_modeled(2, FALSE);
+		frontpanel_set_modeled(1, TRUE);
+		mem[0xab0] = saved_shift;
+		keybrd.keymap[0x08] = saved_m08;
+		keybrd.keymap[0x0a] = saved_m0a;
+	}
 	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
 	if ((problem == NULL) &&
 	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {

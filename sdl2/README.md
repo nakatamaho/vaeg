@@ -111,7 +111,8 @@ sends a mapped
 guest make/break pair. Names include `ctrl-c`, `ctrl-z`, `ctrl-left`,
 `ctrl-right`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `home`,
 `help`, `insert`, `delete`, `f1` through `f10`, `shift-f1` through `shift-f10`,
-and `shift-up`, `shift-down`, `shift-left`, or `shift-right`. Chords press the
+`shift-up`, `shift-down`, `shift-left`, `shift-right`, and the lock keys
+`caps` and `kana`. Chords press the
 modifier before the key and release it after the key; each make/break transition
 is separated by three guest frames. An active text
 paste completes before the next key command. Unknown names and unavailable key
@@ -757,7 +758,10 @@ while frames, timers, FM, BEEP and disk timing keep real time.
 `Screen -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
 off) shows a slim bar of lamps below the screen in a window (14 rows per 640
 dots): FD1 and FD2 light for 120 ms after each sector access, red for
-2D/2DD media and green for 2HD, and V1/V2/V3 follow port 1CDh bits 4-6.
+2D/2DD media and green for 2HD, V1/V2/V3 follow port 1CDh bits 4-6, and
+KANA and CAPS (amber) show the guest's lock state: in V3 the BIOS shift-state
+byte 0040:06B0h, in V1/V2 the locked key in the PC-8801 key matrix (port 08h
+bit 5, port 0Ah bit 7).
 The bar takes its own rows below the guest picture: turning it on or off
 adds or removes them from the current window, and the saved window size
 excludes them. It is not shown in full screen or under a headless video

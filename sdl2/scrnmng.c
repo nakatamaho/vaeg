@@ -1729,6 +1729,7 @@ static BOOL scrnmng_update_window_size(void) {
 /* The simple front panel: a dark bar with the drive and mode lamps. */
 static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
+	static const char *const lock_labels[2] = {"KANA", "CAPS"};
 	const int s = frontpanel_simple_scale(bar->w);
 	const UINT32 now = SDL_GetTicks();
 	SDL_Color label = {200, 196, 180, 255};
@@ -1745,16 +1746,16 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	r.w = bar->w;
 	r.h = s;
 	scrnmng_panel_fill(&r, 70, 70, 74);
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 7; i++) {
 		const BOOL drive = (i < 2) ? TRUE : FALSE;
-		char text[4];
+		char text[5];
 		BOOL lit;
 		Uint8 cr;
 		Uint8 cg;
 		Uint8 cb;
 
-		if (i == 2) {
-			x += 16 * s; /* gap between the drives and the mode lamps */
+		if ((i == 2) || (i == 5)) {
+			x += 16 * s; /* gap before the mode and the lock lamps */
 		}
 		if (drive) {
 			text[0] = 'F';
@@ -1771,12 +1772,19 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 				cg = 45;
 				cb = 30;
 			}
-		} else {
+		} else if (i < 5) {
 			SDL_strlcpy(text, mode_labels[i - 2], sizeof(text));
 			lit = frontpanel_mode_lit((UINT)(i - 2));
 			cr = 120;
 			cg = 255;
 			cb = 130;
+		} else {
+			/* M109: the keyboard's KANA and CAPS lock lamps. */
+			SDL_strlcpy(text, lock_labels[i - 5], sizeof(text));
+			lit = frontpanel_lock_lit((UINT)(i - 5));
+			cr = 255;
+			cg = 170;
+			cb = 40;
 		}
 		scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, text, label);
 		x += (int)SDL_strlen(text) * 8 * s + 4 * s;
