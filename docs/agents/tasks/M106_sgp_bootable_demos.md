@@ -470,4 +470,10 @@ mode lamp follows V1/V2/V3.
   failed with an older image from August that has no VZ; PC-Engine passes
   a typed `.com` suffix to the program as an argument, so the command is
   typed without it.)
+- Standard gate check (maintainer, 2026-10-14) with the clean static
+  Windows build of `db87de9b` (`vaeg.exe` SHA-256
+  `a9a62277d3b577b1d41a38a61e542a9dd5ccd52eb1fc38b559dc7d0d5a14010d`):
+  V3 boot, the bundled VA demo, an OS boot and simple operations pass; the
+  SASI browser's `.hdi` file type was seen in the GUI. Pending for G106:
+  the self-booting `sgp-boot.d88` on the PC-88VA2.
 
