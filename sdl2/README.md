@@ -281,6 +281,8 @@ FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
 The FDD and tape file lists show the usual types by default (FDD: `.d88`,
 `.88d`, `.zip`, `.7z`, `.lzh`; tape: `.cmt`, `.t88`, `.zip`, `.7z`,
 `.lzh`); the file-type list below the path switches to All files (`*.*`).
+The SASI-1/SASI-2 Open list likewise shows `.hdi` images by default, with
+the same All files choice; SCSI Open lists every file.
 Opening an archive from FDD1 mounts the first two basename-sorted images as
 FDD1/FDD2. Opening from FDD2 mounts only the first image as FDD2 and leaves
 FDD1 unchanged. The same extraction limits, traversal/link rejection,

@@ -257,6 +257,7 @@ struct GuiState {
 	bool hdd_browser_refresh = false;
 	std::string hdd_browser_dir;
 	std::vector<BrowserEntry> hdd_entries;
+	bool hdd_all_files = false; /* SASI file type: All files (*.*) */
 	std::string hdd_status;
 	bool new_sasi_open = false;
 	bool new_sasi_refresh = false;
@@ -1463,6 +1464,10 @@ static const char *const kFddFileTypes[] = {".d88", ".88d", ".zip", ".7z", ".lzh
 static const char *const kTapeFileTypes[] = {".cmt", ".t88", ".zip", ".7z", ".lzh"};
 static const char kFddFileTypeLabel[] = "Disk images (*.d88;*.88d;*.zip;*.7z;*.lzh)";
 static const char kTapeFileTypeLabel[] = "Tape images (*.cmt;*.t88;*.zip;*.7z;*.lzh)";
+/* The SASI browser lists .hdi images by default (maintainer request); the
+ * SCSI browser keeps listing every file. */
+static const char *const kSasiFileTypes[] = {".hdi"};
+static const char kSasiFileTypeLabel[] = "SASI HDD images (*.hdi)";
 
 static bool file_type_listed(const std::string &name, const char *const *types, size_t count) {
 	std::string extension = fs::u8path(name).extension().u8string();
@@ -1530,6 +1535,8 @@ static void refresh_fdd_browser(void) {
 	g_gui.fdd_browser_refresh = false;
 }
 
+static bool hdd_is_scsi(int drive);
+
 static void refresh_hdd_browser(void) {
 	std::error_code ec;
 
@@ -1551,6 +1558,10 @@ static void refresh_hdd_browser(void) {
 		item.name = entry.path().filename().u8string();
 		item.path = entry.path().u8string();
 		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		if (!item.is_dir && !g_gui.hdd_all_files && !hdd_is_scsi(g_gui.hdd_dialog_drive) &&
+		    !file_type_listed(item.name, kSasiFileTypes, std::size(kSasiFileTypes))) {
 			continue;
 		}
 		g_gui.hdd_entries.push_back(item);
@@ -2323,7 +2334,7 @@ static void draw_hdd_browser(void) {
 	if (g_gui.hdd_browser_refresh) {
 		refresh_hdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 450.0f), ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.hdd_browser_refresh,
 		                             "hdd-open")) {
@@ -2358,6 +2369,10 @@ static void draw_hdd_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##hdd-path", g_gui.hdd_path[slot], sizeof(g_gui.hdd_path[slot]));
+		if (!hdd_is_scsi(drive) &&
+		    draw_file_type_combo("##hdd-file-type", kSasiFileTypeLabel, &g_gui.hdd_all_files)) {
+			g_gui.hdd_browser_refresh = true;
+		}
 		if (ImGui::Button("Open")) {
 			mount_hdd_from_dialog();
 		}
