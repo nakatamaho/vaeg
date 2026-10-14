@@ -2747,6 +2747,9 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 static int test_viewport(void) {
 	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
+		return (fail("state thumbnail", "PNG did not read back"));
+	}
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;

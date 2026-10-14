@@ -78,9 +78,20 @@ case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
 Files vaeg writes go next to the executable (M110): 画面 >
-スクリーンショットを保存 into `screenshots/`, and the CRT-effect shader cache
-into `vaeg-cache/`, whatever the current directory. If that directory cannot
-be written, the user directory (where `vaeg.cfg` is) is used instead.
+スクリーンショットを保存 into `screenshots/`, saved states into `states/`, and
+the CRT-effect shader cache into `vaeg-cache/`, whatever the current
+directory. If that directory cannot be written, the user directory (where
+`vaeg.cfg` is) is used instead.
+
+状態 keeps ten slots per software in `states/<name>-<hash>/slotN.sav`, each
+with a `slotN.png` thumbnail of the guest screen. The software is the medium
+booted at the last reset: the FDD1 image, else SASI-1, else the tape, else
+`states/common/`; the name is the image's file name (Japanese kept) and the
+hash tells equal names in different directories apart. The 保存 and 読み込み
+lists show each slot's date and its thumbnail on hover; 一覧… shows the ten
+thumbnails; 名前を付けて保存… saves `<name>.sav` in the same directory; and
+ファイルから読み込み… opens any state under `states/`. State files of
+earlier builds may be refused.
 
 Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
 loads a raw `.cmt` or `.t88` tape image, or the first such image inside a

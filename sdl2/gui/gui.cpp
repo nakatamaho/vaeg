@@ -37,7 +37,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <chrono>
+#include <ctime>
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -157,16 +160,8 @@ static bool is_directory(const std::string &path);
 static void open_hostfat_browser(void);
 static void draw_hostfat_browser_popup(void);
 static void draw_state_error_dialog(void);
+static void state_capture_software(void);
 static void draw_hostfat_error_dialog(void);
-
-static std::string state_slot_path(int slot) {
-	char name[32];
-	char path[MAX_PATH];
-
-	std::snprintf(name, sizeof(name), "np2sdl.S%02d", slot);
-	file_getstatepath(path, sizeof(path), name);
-	return std::string(path);
-}
 
 struct BrowserEntry {
 	std::string name;
@@ -276,6 +271,14 @@ struct GuiState {
 	bool state_error_request = false;
 	bool state_force_hostfat_available = false;
 	std::string state_force_hostfat_path;
+	std::string state_software_media;
+	bool state_software_set = false;
+	bool state_overview_open = false;
+	bool state_save_as_request = false;
+	bool state_save_as_open = false;
+	char state_save_as_name[128] = {};
+	bool state_browser_open = false;
+	std::string state_browser_dir;
 	std::string keyboard_status;
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
@@ -1853,6 +1856,7 @@ static void reset_guest(void) {
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
+	state_capture_software();
 }
 
 static void open_fdd_dialog(int drive) {
@@ -4396,79 +4400,487 @@ static void draw_about_dialog(void) {
 	}
 }
 
-static void draw_state_menu(void) {
-	if (ImGui::BeginMenu("状態")) {
-		if (ImGui::BeginMenu("保存")) {
-			for (int slot = 0; slot < kStateSlots; slot++) {
-				char label[32];
-				std::snprintf(label, sizeof(label), "スロット %d", slot);
-				if (ImGui::MenuItem(label)) {
-					std::string path = state_slot_path(slot);
-					soundmng_stop();
-					int ret = statsave_save(path.c_str());
-					if (ret != STATFLAG_SUCCESS) {
-						file_delete(path.c_str());
-						g_gui.state_status = "State save failed: ";
-						g_gui.state_status += path;
-					} else {
-						g_gui.state_status = "State saved: ";
-						g_gui.state_status += path;
-					}
-					soundmng_play();
-				}
-			}
-			ImGui::EndMenu();
+// ---- Saved states (M110): states/<software>/slotN.sav with slotN.png
+
+constexpr int kStateThumbnailWidth = 320;
+
+struct StateThumbnail {
+	long long stamp = -1;
+	SDL_Texture *texture = nullptr;
+	ImTextureData *native = nullptr;
+	int width = 0;
+	int height = 0;
+};
+
+static std::map<std::string, StateThumbnail> g_state_thumbnails;
+
+/* The medium that names the software: FDD1, else SASI-1, else the tape. */
+static std::string state_media_path(void) {
+	const char *path = fdd_diskname(0);
+
+	if ((path == nullptr) || (path[0] == '\0')) {
+		path = diskdrv_fname[0];
+	}
+	if ((path != nullptr) && (path[0] != '\0')) {
+		return path;
+	}
+	path = hdd_config_path(0);
+	if ((path != nullptr) && (path[0] != '\0')) {
+		return path;
+	}
+	return g_gui.tape_loaded;
+}
+
+/* The software is the one booted: its medium is taken at each reset (and on
+ * first use), so a disk swap during play keeps the slots together. */
+static void state_capture_software(void) {
+	g_gui.state_software_media = state_media_path();
+	g_gui.state_software_set = true;
+}
+
+/* states/<file name without extension>-<hash of the full path>/, or
+ * states/common/ with no medium. The name is kept as written (Japanese
+ * included); characters host file systems forbid become '_'. */
+static std::string state_directory_name(const std::string &media) {
+	if (media.empty()) {
+		return "common";
+	}
+	std::string stem = fs::u8path(media).stem().u8string();
+	for (char &c : stem) {
+		if ((static_cast<unsigned char>(c) < 0x20) || (std::strchr("<>:\"/\\|?*", c) != nullptr)) {
+			c = '_';
 		}
-		if (ImGui::BeginMenu("読み込み")) {
-			for (int slot = 0; slot < kStateSlots; slot++) {
-				char label[32];
-				std::snprintf(label, sizeof(label), "スロット %d", slot);
-				if (ImGui::MenuItem(label)) {
-					std::string path = state_slot_path(slot);
-					char error[1024];
-					char override_error[1024];
-					error[0] = '\0';
-					override_error[0] = '\0';
-					g_gui.state_force_hostfat_available = false;
-					g_gui.state_force_hostfat_path.clear();
-					int ret = statsave_check(path.c_str(), error, sizeof(error));
-					if ((ret & ~STATFLAG_DISKCHG) != 0) {
-						int override_ret = statsave_check_hostfat_override(
-						    path.c_str(), override_error, sizeof(override_error));
-						g_gui.state_status = "State load failed: ";
-						g_gui.state_status += path;
-						if (error[0] != '\0') {
-							g_gui.state_status += " (";
-							g_gui.state_status += error;
-							g_gui.state_status += ")";
-						}
-						if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
-							g_gui.state_force_hostfat_available = true;
-							g_gui.state_force_hostfat_path = path;
-						}
-						g_gui.state_error_request = true;
-					} else {
-						taskmng_clear_fast_forward();
-						statsave_load(path.c_str());
-						sdlkbd_reset_state();
-						mousemng_reset();
-						scrndrawva_redraw();
-						g_gui.state_status = "State loaded: ";
-						g_gui.state_status += path;
-						if ((ret & STATFLAG_DISKCHG) != 0) {
-							g_gui.state_status += " (disk warning ignored)";
-						}
-					}
-				}
+	}
+	while (!stem.empty() && ((stem.back() == '.') || (stem.back() == ' '))) {
+		stem.pop_back();
+	}
+	if (stem.empty()) {
+		stem = "media";
+	}
+	UINT32 hash = 2166136261u;
+	for (unsigned char c : media) {
+		hash = (hash ^ c) * 16777619u;
+	}
+	char suffix[16];
+	std::snprintf(suffix, sizeof(suffix), "-%06x", static_cast<unsigned>(hash & 0xffffff));
+	return stem + suffix;
+}
+
+static std::string state_root(void) {
+	char root[MAX_PATH];
+
+	(void)file_getappdir(root, sizeof(root), "states");
+	return root;
+}
+
+static std::string state_software_dir(void) {
+	if (!g_gui.state_software_set) {
+		state_capture_software();
+	}
+	std::string dir =
+	    join_path(state_root(), state_directory_name(g_gui.state_software_media).c_str());
+	(void)file_dircreate(dir.c_str());
+	return dir;
+}
+
+static std::string state_slot_file(int slot) {
+	char name[32];
+
+	std::snprintf(name, sizeof(name), "slot%d.sav", slot);
+	return join_path(state_software_dir(), name);
+}
+
+static std::string state_thumbnail_path(const std::string &state) {
+	return fs::u8path(state).replace_extension(".png").u8string();
+}
+
+/* "MM-DD HH:MM" of a file, or an empty string when it does not exist. */
+static std::string state_file_time(const std::string &path) {
+	std::error_code ec;
+	const fs::path file = fs::u8path(path);
+
+	if (!fs::is_regular_file(file, ec)) {
+		return std::string();
+	}
+	const auto written = fs::last_write_time(file, ec);
+	if (ec) {
+		return std::string();
+	}
+	const auto system = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+	    written - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+	const std::time_t seconds = std::chrono::system_clock::to_time_t(system);
+	std::tm local{};
+#if defined(_WIN32)
+	localtime_s(&local, &seconds);
+#else
+	localtime_r(&seconds, &local);
+#endif
+	char text[32];
+	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d", local.tm_mon + 1, local.tm_mday,
+	              local.tm_hour, local.tm_min);
+	return text;
+}
+
+static long long state_file_stamp(const std::string &path) {
+	std::error_code ec;
+	const fs::path file = fs::u8path(path);
+	const auto size = fs::file_size(file, ec);
+	if (ec) {
+		return -1;
+	}
+	const auto written = fs::last_write_time(file, ec);
+	if (ec) {
+		return -1;
+	}
+	// Nonnegative, so that -1 alone means "no file".
+	return (static_cast<long long>(written.time_since_epoch().count()) ^
+	        (static_cast<long long>(size) << 20)) &
+	       0x7fffffffffffffffLL;
+}
+
+static void state_release_thumbnail(StateThumbnail &thumbnail) {
+	if (thumbnail.texture != nullptr) {
+		SDL_DestroyTexture(thumbnail.texture);
+		thumbnail.texture = nullptr;
+	}
+	if (thumbnail.native != nullptr) {
+		ImGui::UnregisterUserTexture(thumbnail.native);
+		IM_DELETE(thumbnail.native);
+		thumbnail.native = nullptr;
+	}
+	thumbnail.width = 0;
+	thumbnail.height = 0;
+}
+
+static void state_release_thumbnails(void) {
+	for (auto &entry : g_state_thumbnails) {
+		state_release_thumbnail(entry.second);
+	}
+	g_state_thumbnails.clear();
+}
+
+/* The thumbnail of a state as a texture, reloaded when the file changes. */
+static const StateThumbnail *state_thumbnail(const std::string &state) {
+	const std::string path = state_thumbnail_path(state);
+	const long long stamp = state_file_stamp(path);
+	StateThumbnail &thumbnail = g_state_thumbnails[path];
+
+	if (thumbnail.stamp == stamp) {
+		return ((thumbnail.texture != nullptr) || (thumbnail.native != nullptr)) ? &thumbnail
+		                                                                         : nullptr;
+	}
+	state_release_thumbnail(thumbnail);
+	thumbnail.stamp = stamp;
+	int width = 0;
+	int height = 0;
+	BYTE *pixels = nullptr;
+	if ((stamp < 0) ||
+	    (scrnmng_load_stored_png(path.c_str(), &width, &height, &pixels) != SUCCESS)) {
+		return nullptr;
+	}
+	if (g_gui.native_renderer) {
+		auto *texture = IM_NEW(ImTextureData)();
+		texture->Create(ImTextureFormat_RGBA32, width, height);
+		for (int row = 0; row < height; row++) {
+			std::memcpy(texture->GetPixelsAt(0, row), pixels + static_cast<size_t>(row) * width * 4,
+			            static_cast<size_t>(width) * 4);
+		}
+		ImGui::RegisterUserTexture(texture);
+		thumbnail.native = texture;
+	} else if (g_gui.renderer != nullptr) {
+		thumbnail.texture = SDL_CreateTexture(g_gui.renderer, SDL_PIXELFORMAT_RGBA32,
+		                                      SDL_TEXTUREACCESS_STATIC, width, height);
+		if (thumbnail.texture != nullptr) {
+			SDL_UpdateTexture(thumbnail.texture, nullptr, pixels, width * 4);
+		}
+	}
+	std::free(pixels);
+	thumbnail.width = width;
+	thumbnail.height = height;
+	return ((thumbnail.texture != nullptr) || (thumbnail.native != nullptr)) ? &thumbnail : nullptr;
+}
+
+static void state_draw_thumbnail(const std::string &state, float width) {
+	const StateThumbnail *thumbnail = state_thumbnail(state);
+	const float height = width * 0.625f;
+
+	if (thumbnail == nullptr) {
+		ImGui::Dummy(ImVec2(width, height));
+		return;
+	}
+	const float scaled = width * static_cast<float>(thumbnail->height) / thumbnail->width;
+	ImGui::Image(thumbnail->native ? thumbnail->native->GetTexRef()
+	                               : ImTextureRef(thumbnail->texture),
+	             ImVec2(width, scaled));
+}
+
+static void state_thumbnail_tooltip(const std::string &state) {
+	if (ImGui::IsItemHovered() && (state_thumbnail(state) != nullptr)) {
+		ImGui::BeginTooltip();
+		state_draw_thumbnail(state, ImGui::GetFontSize() * 15.0f);
+		ImGui::EndTooltip();
+	}
+}
+
+static void state_save(const std::string &path) {
+	soundmng_stop();
+	const int ret = statsave_save(path.c_str());
+	if (ret != STATFLAG_SUCCESS) {
+		file_delete(path.c_str());
+		g_gui.state_status = "保存できませんでした: ";
+	} else {
+		const std::string thumbnail = state_thumbnail_path(path);
+		(void)scrnmng_save_guest_thumbnail(thumbnail.c_str(), kStateThumbnailWidth);
+		g_gui.state_status = "保存しました: ";
+	}
+	g_gui.state_status += display_file_name(path.c_str());
+	soundmng_play();
+}
+
+static void state_load(const std::string &path) {
+	char error[1024];
+	char override_error[1024];
+
+	error[0] = '\0';
+	override_error[0] = '\0';
+	g_gui.state_force_hostfat_available = false;
+	g_gui.state_force_hostfat_path.clear();
+	const int ret = statsave_check(path.c_str(), error, sizeof(error));
+	if ((ret & ~STATFLAG_DISKCHG) != 0) {
+		const int override_ret =
+		    statsave_check_hostfat_override(path.c_str(), override_error, sizeof(override_error));
+		g_gui.state_status = "読み込めませんでした: ";
+		g_gui.state_status += path;
+		if (error[0] != '\0') {
+			g_gui.state_status += " (";
+			g_gui.state_status += error;
+			g_gui.state_status += ")";
+		}
+		if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
+			g_gui.state_force_hostfat_available = true;
+			g_gui.state_force_hostfat_path = path;
+		}
+		g_gui.state_error_request = true;
+		return;
+	}
+	taskmng_clear_fast_forward();
+	statsave_load(path.c_str());
+	sdlkbd_reset_state();
+	mousemng_reset();
+	scrndrawva_redraw();
+	g_gui.state_status = "読み込みました: ";
+	g_gui.state_status += display_file_name(path.c_str());
+	if ((ret & STATFLAG_DISKCHG) != 0) {
+		g_gui.state_status += " (ディスクの違いを無視)";
+	}
+}
+
+static std::string state_software_label(void) {
+	if (!g_gui.state_software_set) {
+		state_capture_software();
+	}
+	if (g_gui.state_software_media.empty()) {
+		return "共通 (メディアなし)";
+	}
+	return display_file_name(g_gui.state_software_media.c_str());
+}
+
+static void draw_state_slots(bool save) {
+	ImGui::TextDisabled("%s", state_software_label().c_str());
+	for (int slot = 0; slot < kStateSlots; slot++) {
+		const std::string path = state_slot_file(slot);
+		const std::string when = state_file_time(path);
+		char label[64];
+		std::snprintf(label, sizeof(label), "スロット %d", slot);
+		if (ImGui::MenuItem(label, when.empty() ? "空き" : when.c_str(), false,
+		                    save || !when.empty())) {
+			if (save) {
+				state_save(path);
+			} else {
+				state_load(path);
 			}
-			ImGui::EndMenu();
+		}
+		state_thumbnail_tooltip(path);
+	}
+}
+
+static void draw_state_menu(void) {
+	if (!ImGui::BeginMenu("状態")) {
+		return;
+	}
+	if (ImGui::BeginMenu("保存")) {
+		draw_state_slots(true);
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("読み込み")) {
+		draw_state_slots(false);
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("一覧…")) {
+		g_gui.state_overview_open = true;
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("名前を付けて保存…")) {
+		g_gui.state_save_as_name[0] = '\0';
+		g_gui.state_save_as_request = true;
+	}
+	if (ImGui::MenuItem("ファイルから読み込み…")) {
+		g_gui.state_browser_dir = state_software_dir();
+		g_gui.state_browser_open = true;
+	}
+	if (!g_gui.state_status.empty()) {
+		ImGui::Separator();
+		ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+	}
+	ImGui::EndMenu();
+}
+
+/* 一覧: the ten slots of the current software with their thumbnails. */
+static void draw_state_overview(void) {
+	if (!g_gui.state_overview_open) {
+		return;
+	}
+	prepare_dialog(56.0f, 32.0f, ImGuiCond_Appearing);
+	if (ImGui::Begin("状態の一覧###state-overview", &g_gui.state_overview_open)) {
+		ImGui::TextUnformatted(state_software_label().c_str());
+		ImGui::Separator();
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		const float width = (std::max)(ImGui::GetFontSize() * 4.0f,
+		                               (ImGui::GetContentRegionAvail().x - spacing * 4.0f) / 5.0f);
+		for (int slot = 0; slot < kStateSlots; slot++) {
+			const std::string path = state_slot_file(slot);
+			const std::string when = state_file_time(path);
+			ImGui::PushID(slot);
+			ImGui::BeginGroup();
+			state_draw_thumbnail(path, width);
+			ImGui::Text("スロット %d", slot);
+			ImGui::TextDisabled("%s", when.empty() ? "空き" : when.c_str());
+			if (ImGui::SmallButton("保存")) {
+				state_save(path);
+			}
+			ImGui::SameLine();
+			ImGui::BeginDisabled(when.empty());
+			if (ImGui::SmallButton("読み込み")) {
+				state_load(path);
+			}
+			ImGui::EndDisabled();
+			ImGui::EndGroup();
+			ImGui::PopID();
+			if ((slot % 5) != 4) {
+				ImGui::SameLine();
+			}
 		}
 		if (!g_gui.state_status.empty()) {
 			ImGui::Separator();
 			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
 		}
-		ImGui::EndMenu();
 	}
+	ImGui::End();
+}
+
+/* 名前を付けて保存: states/<software>/<name>.sav (and .png). */
+static void draw_state_save_as(void) {
+	if (g_gui.state_save_as_request) {
+		g_gui.state_save_as_request = false;
+		g_gui.state_save_as_open = true;
+		ImGui::OpenPopup("名前を付けて保存###state-save-as");
+	}
+	if (!g_gui.state_save_as_open) {
+		return;
+	}
+	prepare_dialog(28.0f, 10.0f, ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("名前を付けて保存###state-save-as", &g_gui.state_save_as_open)) {
+		ImGui::TextUnformatted(state_software_label().c_str());
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		const bool entered = ImGui::InputText("##state-name", g_gui.state_save_as_name,
+		                                      sizeof(g_gui.state_save_as_name),
+		                                      ImGuiInputTextFlags_EnterReturnsTrue);
+		std::string name = g_gui.state_save_as_name;
+		for (char &c : name) {
+			if ((static_cast<unsigned char>(c) < 0x20) ||
+			    (std::strchr("<>:\"/\\|?*", c) != nullptr)) {
+				c = '_';
+			}
+		}
+		ImGui::TextDisabled("同じ名前のときは上書きします");
+		ImGui::BeginDisabled(name.empty());
+		if ((ImGui::Button("保存") || entered) && !name.empty()) {
+			state_save(join_path(state_software_dir(), (name + ".sav").c_str()));
+			g_gui.state_save_as_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル")) {
+			g_gui.state_save_as_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+/* ファイルから読み込み: any state below states/, for another software's
+ * slots or a named state. */
+static void draw_state_browser(void) {
+	if (!g_gui.state_browser_open) {
+		return;
+	}
+	prepare_dialog(44.0f, 30.0f, ImGuiCond_Appearing);
+	if (ImGui::Begin("ファイルから読み込み###state-browser", &g_gui.state_browser_open)) {
+		const std::string root = state_root();
+		std::error_code ec;
+		std::vector<std::string> dirs;
+		for (const auto &entry : fs::directory_iterator(fs::u8path(root), ec)) {
+			std::error_code st_ec;
+			if (entry.is_directory(st_ec)) {
+				dirs.push_back(entry.path().filename().u8string());
+			}
+		}
+		std::sort(dirs.begin(), dirs.end());
+		const float list_height = browser_list_height(1.5f, g_gui.state_status);
+		ImGui::BeginChild("state-dirs",
+		                  ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, list_height),
+		                  ImGuiChildFlags_Borders);
+		for (const auto &dir : dirs) {
+			const std::string path = join_path(root, dir.c_str());
+			const bool selected =
+			    fs::u8path(path) == fs::u8path(g_gui.state_browser_dir).parent_path() ||
+			    fs::u8path(path) == fs::u8path(g_gui.state_browser_dir);
+			if (ImGui::Selectable(dir.c_str(), selected)) {
+				g_gui.state_browser_dir = path;
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::BeginChild("state-files", ImVec2(0.0f, list_height), ImGuiChildFlags_Borders);
+		std::vector<std::string> files;
+		for (const auto &entry : fs::directory_iterator(fs::u8path(g_gui.state_browser_dir), ec)) {
+			std::error_code st_ec;
+			if (entry.is_regular_file(st_ec) && (entry.path().extension() == ".sav")) {
+				files.push_back(entry.path().u8string());
+			}
+		}
+		std::sort(files.begin(), files.end());
+		for (const auto &file : files) {
+			const std::string label =
+			    display_file_name(file.c_str()) + "  " + state_file_time(file);
+			if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick) &&
+			    ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+				state_load(file);
+			}
+			state_thumbnail_tooltip(file);
+		}
+		ImGui::EndChild();
+		ImGui::TextDisabled("ダブルクリックで読み込み");
+		if (!g_gui.state_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+		}
+	}
+	ImGui::End();
 }
 
 static void draw_hostfat_error_dialog(void) {
@@ -4649,6 +5061,7 @@ void gui_shutdown(void) {
 		SDL_StopTextInput();
 		g_gui.text_input_active = false;
 	}
+	state_release_thumbnails();
 	if (g_gui.about_texture != nullptr) {
 		SDL_DestroyTexture(g_gui.about_texture);
 		g_gui.about_texture = nullptr;
@@ -4888,6 +5301,9 @@ void gui_draw(void) {
 	}
 	draw_pause_overlay();
 	draw_state_error_dialog();
+	draw_state_overview();
+	draw_state_save_as();
+	draw_state_browser();
 	draw_fdd_browser();
 	draw_hdd_browser();
 	draw_tape_browser();

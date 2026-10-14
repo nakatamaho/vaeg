@@ -42,6 +42,7 @@
 #include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
 #include "frontpanel.h"
+#include "winutf.h"
 
 typedef struct {
 	BOOL enable;
@@ -344,6 +345,24 @@ static BOOL scrnmng_png_write_chunk(FILE *fp, const char type[4], const BYTE *da
 	return scrnmng_png_write_u32(fp, crc);
 }
 
+/* fopen on a UTF-8 path (Windows needs the wide-character call for
+ * non-ASCII names such as the per-software state directories, M110). */
+static FILE *scrnmng_fopen(const char *path, BOOL write) {
+#if defined(WIN32)
+	wchar_t *wide = winutf_from_utf8(path);
+	FILE *fp;
+
+	if (wide == NULL) {
+		return (NULL);
+	}
+	fp = _wfopen(wide, write ? L"wb" : L"rb");
+	winutf_free(wide);
+	return (fp);
+#else
+	return (fopen(path, write ? "wb" : "rb"));
+#endif
+}
+
 static BOOL scrnmng_png_save_surface(SDL_Surface *surface, const char *path) {
 	BYTE ihdr[13];
 	BYTE *raw = NULL;
@@ -470,7 +489,7 @@ static BOOL scrnmng_png_save_surface(SDL_Surface *surface, const char *path) {
 	ihdr[10] = 0;
 	ihdr[11] = 0;
 	ihdr[12] = 0;
-	fp = fopen(path, "wb");
+	fp = scrnmng_fopen(path, TRUE);
 	if (fp == NULL) {
 		goto cleanup;
 	}
@@ -2603,6 +2622,228 @@ BOOL scrnmng_save_guest_frame(const char *path) {
 	}
 	SDL_FreeSurface(surface);
 	return (result);
+}
+
+/*
+ * M110: a thumbnail of the guest frame (no host effects) for a saved state,
+ * `width` pixels wide with the frame's aspect, written as PNG.
+ */
+BOOL scrnmng_save_guest_thumbnail(const char *path, int width) {
+	SDL_Surface *source;
+	SDL_Surface *full;
+	SDL_Surface *thumb;
+	SDL_Rect rect;
+	BOOL result = FAILURE;
+
+	if ((path == NULL) || (path[0] == '\0') || (scrnmng.shadow == NULL) || (width <= 0) ||
+	    (scrnmng.width <= 0) || (scrnmng.height <= 0)) {
+		return (FAILURE);
+	}
+	source = SDL_CreateRGBSurfaceWithFormatFrom(scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
+	                                            scrnmng.width, scrnmng.height, 16,
+	                                            scrnmng.shadow_pitch, SDL_PIXELFORMAT_RGB565);
+	full = SDL_CreateRGBSurfaceWithFormat(0, scrnmng.width, scrnmng.height, 32,
+	                                      SDL_PIXELFORMAT_ARGB8888);
+	rect.x = 0;
+	rect.y = 0;
+	rect.w = width;
+	rect.h = (scrnmng.height * width + scrnmng.width / 2) / scrnmng.width;
+	if (rect.h <= 0) {
+		rect.h = 1;
+	}
+	thumb = SDL_CreateRGBSurfaceWithFormat(0, rect.w, rect.h, 32, SDL_PIXELFORMAT_ARGB8888);
+	if ((source != NULL) && (full != NULL) && (thumb != NULL) &&
+	    (SDL_BlitSurface(source, NULL, full, NULL) == 0) &&
+	    (SDL_BlitScaled(full, NULL, thumb, &rect) == 0)) {
+		result = scrnmng_png_save_surface(thumb, path);
+	}
+	if (thumb != NULL) {
+		SDL_FreeSurface(thumb);
+	}
+	if (full != NULL) {
+		SDL_FreeSurface(full);
+	}
+	if (source != NULL) {
+		SDL_FreeSurface(source);
+	}
+	return (result);
+}
+
+static UINT32 scrnmng_png_be32(const BYTE *p) {
+	return ((UINT32)p[0] << 24) | ((UINT32)p[1] << 16) | ((UINT32)p[2] << 8) | p[3];
+}
+
+/*
+ * M110: read back a PNG as scrnmng_png_save_surface writes it (8-bit RGBA,
+ * stored deflate blocks, filter 0 on every row), for state thumbnails. Any
+ * other PNG is refused. *pixels is RGBA32, freed by the caller with free().
+ */
+BOOL scrnmng_load_stored_png(const char *path, int *width, int *height, BYTE **pixels) {
+	FILE *fp;
+	long length;
+	BYTE *data = NULL;
+	BYTE *zdata = NULL;
+	BYTE *raw = NULL;
+	BYTE *out = NULL;
+	size_t zlen = 0;
+	size_t pos;
+	size_t rawlen = 0;
+	size_t row_bytes;
+	UINT32 w = 0;
+	UINT32 h = 0;
+	UINT32 y;
+	BOOL result = FAILURE;
+	static const BYTE signature[8] = {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a};
+
+	if ((path == NULL) || (width == NULL) || (height == NULL) || (pixels == NULL)) {
+		return (FAILURE);
+	}
+	fp = scrnmng_fopen(path, FALSE);
+	if (fp == NULL) {
+		return (FAILURE);
+	}
+	if ((fseek(fp, 0, SEEK_END) != 0) || ((length = ftell(fp)) < 33) || (length > (16 << 20)) ||
+	    (fseek(fp, 0, SEEK_SET) != 0) || ((data = (BYTE *)malloc((size_t)length)) == NULL) ||
+	    (fread(data, 1, (size_t)length, fp) != (size_t)length) || memcmp(data, signature, 8)) {
+		goto cleanup;
+	}
+	zdata = (BYTE *)malloc((size_t)length);
+	if (zdata == NULL) {
+		goto cleanup;
+	}
+	for (pos = 8; pos + 12 <= (size_t)length;) {
+		const UINT32 chunk = scrnmng_png_be32(data + pos);
+		const BYTE *type = data + pos + 4;
+
+		if (chunk > (size_t)length - pos - 12) {
+			goto cleanup;
+		}
+		if (!memcmp(type, "IHDR", 4)) {
+			if ((chunk != 13) || (data[pos + 16] != 8) || (data[pos + 17] != 6) || data[pos + 18] ||
+			    data[pos + 19] || data[pos + 20]) {
+				goto cleanup;
+			}
+			w = scrnmng_png_be32(data + pos + 8);
+			h = scrnmng_png_be32(data + pos + 12);
+		} else if (!memcmp(type, "IDAT", 4)) {
+			memcpy(zdata + zlen, data + pos + 8, chunk);
+			zlen += chunk;
+		} else if (!memcmp(type, "IEND", 4)) {
+			break;
+		}
+		pos += (size_t)chunk + 12;
+	}
+	if ((w == 0) || (h == 0) || (w > 4096) || (h > 4096) || (zlen < 2) ||
+	    ((zdata[0] & 0x0f) != 8)) {
+		goto cleanup;
+	}
+	row_bytes = (size_t)w * 4 + 1;
+	raw = (BYTE *)malloc(row_bytes * h);
+	if (raw == NULL) {
+		goto cleanup;
+	}
+	for (pos = 2; pos < zlen;) {
+		const BYTE header = zdata[pos];
+		size_t block;
+
+		if (((header >> 1) & 3) != 0 || (pos + 5 > zlen)) {
+			goto cleanup;
+		}
+		block = zdata[pos + 1] | ((size_t)zdata[pos + 2] << 8);
+		if ((block != (size_t)(~(zdata[pos + 3] | (zdata[pos + 4] << 8)) & 0xffff)) ||
+		    (pos + 5 + block > zlen) || (rawlen + block > row_bytes * h)) {
+			goto cleanup;
+		}
+		memcpy(raw + rawlen, zdata + pos + 5, block);
+		rawlen += block;
+		pos += 5 + block;
+		if (header & 1) {
+			break;
+		}
+	}
+	if (rawlen != row_bytes * h) {
+		goto cleanup;
+	}
+	out = (BYTE *)malloc((size_t)w * 4 * h);
+	if (out == NULL) {
+		goto cleanup;
+	}
+	for (y = 0; y < h; y++) {
+		if (raw[y * row_bytes] != 0) {
+			goto cleanup;
+		}
+		memcpy(out + (size_t)y * w * 4, raw + y * row_bytes + 1, (size_t)w * 4);
+	}
+	*width = (int)w;
+	*height = (int)h;
+	*pixels = out;
+	out = NULL;
+	result = SUCCESS;
+
+cleanup:
+	fclose(fp);
+	free(data);
+	free(zdata);
+	free(raw);
+	free(out);
+	return (result);
+}
+
+/* M110: a state thumbnail written by scrnmng_png_save_surface reads back
+ * pixel for pixel; a PNG with a compressed block is refused. */
+BOOL scrnmng_thumbnail_png_selftest(const char *path) {
+	SDL_Surface *surface;
+	BYTE *pixels = NULL;
+	int width = 0;
+	int height = 0;
+	int x;
+	int y;
+	BOOL ok;
+	FILE *fp;
+	static const BYTE fixed_block[] = {
+	    0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 'I', 'H', 'D', 'R', 0, 0, 0, 1, 0,
+	    0, 0, 1, 8, 6, 0, 0, 0, 0, 0, 0, 0,
+	    /* a final fixed-Huffman block whose bytes would
+	                                    * also pass as a stored block of one row */
+	    0, 0, 0, 16, 'I', 'D', 'A', 'T', 0x78, 0x01, 0x03, 0x05, 0x00, 0xfa, 0xff, 0x00, 0x11, 0x22,
+	    0x33, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'I', 'E', 'N', 'D', 0, 0, 0, 0};
+
+	surface = SDL_CreateRGBSurfaceWithFormat(0, 37, 5, 32, SDL_PIXELFORMAT_ARGB8888);
+	if (surface == NULL) {
+		return (FAILURE);
+	}
+	for (y = 0; y < 5; y++) {
+		for (x = 0; x < 37; x++) {
+			((Uint32 *)((BYTE *)surface->pixels + y * surface->pitch))[x] =
+			    SDL_MapRGBA(surface->format, (Uint8)(x * 7), (Uint8)(y * 50), (Uint8)(x ^ y), 255);
+		}
+	}
+	ok = (scrnmng_png_save_surface(surface, path) == SUCCESS) &&
+	     (scrnmng_load_stored_png(path, &width, &height, &pixels) == SUCCESS) && (width == 37) &&
+	     (height == 5);
+	for (y = 0; ok && (y < 5); y++) {
+		for (x = 0; ok && (x < 37); x++) {
+			const BYTE *p = pixels + ((size_t)y * 37 + x) * 4;
+			ok = (p[0] == (BYTE)(x * 7)) && (p[1] == (BYTE)(y * 50)) && (p[2] == (BYTE)(x ^ y)) &&
+			     (p[3] == 255);
+		}
+	}
+	free(pixels);
+	pixels = NULL;
+	SDL_FreeSurface(surface);
+	fp = scrnmng_fopen(path, TRUE);
+	if (fp != NULL) {
+		fwrite(fixed_block, 1, sizeof(fixed_block), fp);
+		fclose(fp);
+		if (scrnmng_load_stored_png(path, &width, &height, &pixels) == SUCCESS) {
+			free(pixels);
+			ok = FALSE;
+		}
+	} else {
+		ok = FALSE;
+	}
+	(void)remove(path);
+	return (ok ? SUCCESS : FAILURE);
 }
 
 BOOL scrnmng_save_guest_frame_with_analysis(const char *path) {
