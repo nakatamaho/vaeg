@@ -266,3 +266,35 @@ exercised once.
   the evidence of that status are recorded in `docs/agents/DECISIONS/`
   before porting.
 - Floppy-disk timing against hardware: issue #33.
+
+## Progress
+
+- Menu bar reorganized as agreed (起動 with the VA rows, the speed controls,
+  機種の構成, モニタ under 画面, Key, 音, HDD with SCSI folded, 情報 at the
+  right, Pause as an F12 assignment with an on-screen 再開, greyed
+  placeholders removed, cursor-key choice saved as `cursor_keys`); every top
+  menu and the main submenus checked in a headless window at 1x.
+  [8cecfd66](https://github.com/nakatamaho/vaeg/commit/8cecfd6663a9a6937348e76f880a1328309c02b9).
+- Dialogs fit the window: sizes in font units clamped to 95 % of the work
+  area, centred; file lists leave the path field and buttons visible at 1x;
+  the settings window scrolls above fixed buttons.
+  [9e3ffc78](https://github.com/nakatamaho/vaeg/commit/9e3ffc78dde6f07749aa18755a14779ff0a0f5cf).
+- 8087 on by default. All 17 all-demos programs under PC-Engine 1.1 and
+  MS-DOS 4.0, on the VA and the VA2 (68 runs), drew and returned without
+  CPU errors; ZUNDAORB the same with the 8087 on and off (it must be started
+  from its own directory). [ac79b8f3](https://github.com/nakatamaho/vaeg/commit/ac79b8f39ed02a4f8da509d57509b9b172a321d9).
+- AGENTS.md: cleanup after a passed human gate
+  ([f57f5a7e](https://github.com/nakatamaho/vaeg/commit/f57f5a7e93d3c6964fed768845beb9e21b274ed4)) and the media
+  build regression before every gate
+  ([6562f6f0](https://github.com/nakatamaho/vaeg/commit/6562f6f06d8ca75e3baecb3a912f8ce187b46579)).
+- Utility FDD build fixed (V480PAT kept on the HDD and the SGP disk only;
+  ledger entry). [dd7a661e](https://github.com/nakatamaho/vaeg/commit/dd7a661e23164385b3995091db35b827d41bd3cc).
+- Media build regression at `6562f6f0`, clean clone, shared cache:
+  `build-utility-disk.sh` (PC-Engine 1.1) exit 0, FDD SHA-256 `60a08e32…`,
+  4096 bytes free, boots in vaeg; `build-sasi-utility-disks.sh` exit 0, VA
+  `03b71a45…`, VA2 `a3054775…`, each boots alone on its model with
+  `\BIN\V480PAT.COM`; the five `build-d88.sh` distributions,
+  `build-from-psd.sh`, the SGP boot disk, all-demos and all-demos-msdos4
+  exit 0 with payloads identical to the committed disks (zundamon differs
+  only in 14 directory-date bytes; the SGP boot `.xz` is byte-identical).
+
