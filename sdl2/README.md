@@ -83,6 +83,9 @@ ZIP, 7z or LZH archive (with LibArchive), or records to a raw image;
 `LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
 `--tape-save` do the same from the command line. Loading and saving play
 the tape's FSK sound; Sound > Tape volume sets its level separately.
+Tape > Fast load (`CMT_Fast`, off by default) delivers the bytes 16 times
+faster than the baud rate and skips the leader; off, a tape loads at its
+real speed.
 
 Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
