@@ -465,4 +465,9 @@ mode lamp follows V1/V2/V3.
   VA and 1.1 for the VA2). In vaeg with the same HEAD, each image alone
   boots PC-Engine from the fixed disk on its model, and `vzva` opens
   `\VZ\HELP.DEF`. SHA-256: VA `63a4ac84`, VA2 `c0c340a2`, FDD `1f7d9abe`.
+- Maintainer check (2026-10-14, Windows build `db87de9b`): the rebuilt
+  VA2 SASI image boots by itself and `vzva` runs VZ Editor. (A first try
+  failed with an older image from August that has no VZ; PC-Engine passes
+  a typed `.com` suffix to the program as an argument, so the command is
+  typed without it.)
 
