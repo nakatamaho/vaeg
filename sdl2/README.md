@@ -83,6 +83,16 @@ the CRT-effect shader cache into `vaeg-cache/`, whatever the current
 directory. If that directory cannot be written, the user directory (where
 `vaeg.cfg` is) is used instead.
 
+History (M110): FDD1 履歴 and FDD2 履歴 (10 each), a 履歴 per SASI drive and
+SCSI ID (5 each) and Tape > 履歴 (10) list media inserted through the menus or
+by drag and drop (an archive is listed as the archive); missing files are
+greyed, and each list ends with 履歴を消す. 模擬 > 最近の起動 (10) records, at
+each reset from the GUI, the FDD, SASI and tape media with the machine and the
+V1/V2 or N mode; choosing one puts them back and resets. The FDD, HDD and tape
+file windows offer 最近のフォルダ (5). Media given on the command line or by
+headless scripts are not recorded. The lists are kept in `vaeg-history.txt`
+next to `vaeg.cfg`.
+
 模擬 has two speed controls (M110). 実行速度 (10-400 %, the right end = No
 Wait) slows or speeds frames, timers and sound together. CPU クロック changes
 the CPU alone, without a reset, frames, timers and music keeping real time:

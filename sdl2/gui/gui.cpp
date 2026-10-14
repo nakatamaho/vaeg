@@ -37,6 +37,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <chrono>
 #include <ctime>
 #include <iterator>
@@ -160,6 +161,8 @@ static void open_hostfat_browser(void);
 static void draw_hostfat_browser_popup(void);
 static void draw_state_error_dialog(void);
 static void state_capture_software(void);
+static void history_record_boot(void);
+static bool load_tape_path(const std::string &path);
 static void draw_hostfat_error_dialog(void);
 
 struct BrowserEntry {
@@ -1804,6 +1807,305 @@ static std::string display_file_name(const char *path) {
 	return name;
 }
 
+// ---- History (M110): media per drive, recent boots, recent folders.
+// Kept in vaeg-history.txt next to vaeg.cfg, one "key<TAB>value" per line.
+// Only media inserted through the GUI (menus, drag and drop) are recorded.
+
+enum HistoryKind {
+	HIST_FDD1 = GUI_HISTORY_FDD1,
+	HIST_FDD2 = GUI_HISTORY_FDD2,
+	HIST_SASI1,
+	HIST_SASI2,
+	HIST_SCSI0,
+	HIST_TAPE = HIST_SCSI0 + SCSIHDD_MAX,
+	HIST_DIRS,
+	HIST_COUNT
+};
+
+struct BootRecord {
+	std::string model;
+	bool v1 = false;
+	bool standard = false;
+	bool nmode = false;
+	std::string n80rom;
+	std::string fdd[2];
+	std::string sasi[2];
+	std::string tape;
+
+	bool operator==(const BootRecord &other) const {
+		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
+		       (nmode == other.nmode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
+		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
+		       (sasi[1] == other.sasi[1]) && (tape == other.tape);
+	}
+};
+
+constexpr std::size_t kRecentBoots = 10;
+
+static std::vector<std::string> g_history[HIST_COUNT];
+static std::vector<BootRecord> g_recent_boots;
+static bool g_history_loaded = false;
+/* The path the user chose for each FDD (an archive, not its extracted
+ * image), for recent boots. */
+static std::string g_fdd_origin[2];
+
+static std::size_t history_limit(int kind) {
+	if ((kind == HIST_FDD1) || (kind == HIST_FDD2) || (kind == HIST_TAPE)) {
+		return 10;
+	}
+	return 5;
+}
+
+static std::string history_key(int kind) {
+	if (kind == HIST_FDD1) {
+		return "fdd1";
+	}
+	if (kind == HIST_FDD2) {
+		return "fdd2";
+	}
+	if ((kind == HIST_SASI1) || (kind == HIST_SASI2)) {
+		return "sasi" + std::to_string(kind - HIST_SASI1 + 1);
+	}
+	if ((kind >= HIST_SCSI0) && (kind < HIST_TAPE)) {
+		return "scsi" + std::to_string(kind - HIST_SCSI0);
+	}
+	return (kind == HIST_TAPE) ? "tape" : "dir";
+}
+
+static std::string history_file(void) {
+	char path[MAX_PATH];
+
+	file_getstatepath(path, sizeof(path), "vaeg-history.txt");
+	return path;
+}
+
+static std::vector<std::string> history_split(const std::string &line) {
+	std::vector<std::string> fields;
+	std::size_t start = 0;
+
+	for (;;) {
+		const std::size_t tab = line.find('\t', start);
+		fields.push_back(line.substr(start, tab - start));
+		if (tab == std::string::npos) {
+			return fields;
+		}
+		start = tab + 1;
+	}
+}
+
+static void history_save(void) {
+	std::ofstream output(fs::u8path(history_file()), std::ios::binary | std::ios::trunc);
+
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		for (const auto &path : g_history[kind]) {
+			output << history_key(kind) << '\t' << path << '\n';
+		}
+	}
+	for (const auto &boot : g_recent_boots) {
+		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
+		       << (boot.standard ? 1 : 0) << '\t' << (boot.nmode ? 1 : 0) << '\t' << boot.n80rom
+		       << '\t' << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t'
+		       << boot.sasi[1] << '\t' << boot.tape << '\n';
+	}
+}
+
+static void history_load(void) {
+	if (g_history_loaded) {
+		return;
+	}
+	g_history_loaded = true;
+	std::ifstream input(fs::u8path(history_file()), std::ios::binary);
+	std::string line;
+	while (std::getline(input, line)) {
+		if (!line.empty() && (line.back() == '\r')) {
+			line.pop_back();
+		}
+		const std::vector<std::string> fields = history_split(line);
+		if ((fields.size() == 11) && (fields[0] == "boot")) {
+			BootRecord boot;
+			boot.model = fields[1];
+			boot.v1 = fields[2] == "1";
+			boot.standard = fields[3] == "1";
+			boot.nmode = fields[4] == "1";
+			boot.n80rom = fields[5];
+			boot.fdd[0] = fields[6];
+			boot.fdd[1] = fields[7];
+			boot.sasi[0] = fields[8];
+			boot.sasi[1] = fields[9];
+			boot.tape = fields[10];
+			if (g_recent_boots.size() < kRecentBoots) {
+				g_recent_boots.push_back(boot);
+			}
+			continue;
+		}
+		if ((fields.size() != 2) || fields[1].empty()) {
+			continue;
+		}
+		for (int kind = 0; kind < HIST_COUNT; kind++) {
+			if ((fields[0] == history_key(kind)) &&
+			    (g_history[kind].size() < history_limit(kind))) {
+				g_history[kind].push_back(fields[1]);
+			}
+		}
+	}
+}
+
+static void history_add(int kind, const std::string &path) {
+	if ((kind < 0) || (kind >= HIST_COUNT) || path.empty() ||
+	    (path.find_first_of("\t\r\n") != std::string::npos)) {
+		return;
+	}
+	history_load();
+	std::vector<std::string> &list = g_history[kind];
+	list.erase(std::remove(list.begin(), list.end(), path), list.end());
+	list.insert(list.begin(), path);
+	if (list.size() > history_limit(kind)) {
+		list.resize(history_limit(kind));
+	}
+	history_save();
+}
+
+static void history_add_dir(const std::string &path) {
+	const std::string dir = parent_dir(path);
+
+	if (is_directory(dir)) {
+		history_add(HIST_DIRS, dir);
+	}
+}
+
+/* Drag and drop (dropmedia.cpp) reports the file the user dropped. */
+static void history_add_dropped(int kind, const char *path) {
+	if ((path == nullptr) || (path[0] == '\0')) {
+		return;
+	}
+	if ((kind == HIST_FDD1) || (kind == HIST_FDD2)) {
+		g_fdd_origin[kind] = path;
+	}
+	history_add(kind, path);
+	history_add_dir(path);
+}
+
+static int history_hdd_kind(int drive) {
+	return hdd_is_scsi(drive) ? (HIST_SCSI0 + hdd_slot(drive)) : (HIST_SASI1 + hdd_slot(drive));
+}
+
+static bool history_paths_exist(const BootRecord &boot) {
+	const std::string *paths[] = {&boot.fdd[0], &boot.fdd[1], &boot.sasi[0], &boot.sasi[1],
+	                              &boot.tape};
+	for (const std::string *path : paths) {
+		std::error_code ec;
+		if (!path->empty() && !fs::exists(fs::u8path(*path), ec)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/* 最近の起動: the media, machine and mode at a reset from the GUI. */
+static void history_record_boot(void) {
+	BootRecord boot;
+
+	history_load();
+	boot.model = np2cfg.model;
+	boot.v1 = bkupmemva_get_88v1() != FALSE;
+	boot.standard = np2cfg.v1v2_standard != 0;
+	boot.nmode = np2cfg.v1v2_nmode != 0;
+	boot.n80rom = boot.nmode ? np2cfg.v1v2_n80rom : "";
+	for (int drive = 0; drive < 2; drive++) {
+		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
+		if ((mounted == nullptr) || (mounted[0] == '\0')) {
+			mounted = diskdrv_fname[drive];
+		}
+		if ((mounted != nullptr) && (mounted[0] != '\0')) {
+			boot.fdd[drive] = g_fdd_origin[drive].empty() ? mounted : g_fdd_origin[drive];
+		}
+		boot.sasi[drive] = np2cfg.sasihdd[drive];
+	}
+	boot.tape = cmt_inserted() ? g_gui.tape_loaded : "";
+	if (boot.fdd[0].empty() && boot.fdd[1].empty() && boot.sasi[0].empty() &&
+	    boot.sasi[1].empty() && boot.tape.empty()) {
+		return;
+	}
+	g_recent_boots.erase(std::remove(g_recent_boots.begin(), g_recent_boots.end(), boot),
+	                     g_recent_boots.end());
+	g_recent_boots.insert(g_recent_boots.begin(), boot);
+	if (g_recent_boots.size() > kRecentBoots) {
+		g_recent_boots.resize(kRecentBoots);
+	}
+	history_save();
+}
+
+static std::string history_boot_label(const BootRecord &boot) {
+	std::string name;
+	const std::string *media[] = {&boot.fdd[0], &boot.sasi[0], &boot.tape, &boot.fdd[1],
+	                              &boot.sasi[1]};
+	for (const std::string *path : media) {
+		if (!path->empty()) {
+			name = display_file_name(path->c_str());
+			break;
+		}
+	}
+	std::string mode = boot.nmode ? "N" : (boot.v1 ? "V1" : "V2");
+	if (!boot.nmode) {
+		mode += boot.standard ? " S" : " H";
+	}
+	return name + "  (" + ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3") +
+	       ", " + mode + ")";
+}
+
+/* A list of recent files for one drive; `select` is called with the path. */
+template <typename Select>
+static void draw_history_menu(const char *label, int kind, Select select) {
+	if (!ImGui::BeginMenu(label)) {
+		return;
+	}
+	history_load();
+	std::vector<std::string> &list = g_history[kind];
+	if (list.empty()) {
+		ImGui::TextDisabled("なし");
+	}
+	for (std::size_t index = 0; index < list.size(); index++) {
+		const std::string path = list[index];
+		std::error_code ec;
+		const bool exists = fs::exists(fs::u8path(path), ec);
+		const std::string item = display_file_name(path.c_str()) + "##" + std::to_string(index);
+		if (ImGui::MenuItem(item.c_str(), nullptr, false, exists)) {
+			select(path);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s", path.c_str());
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("履歴を消す", nullptr, false, !list.empty())) {
+		list.clear();
+		history_save();
+	}
+	ImGui::EndMenu();
+}
+
+/* A "最近のフォルダ" combo for the file-selection windows. */
+static bool draw_recent_dirs(std::string &dir) {
+	bool changed = false;
+
+	history_load();
+	if (g_history[HIST_DIRS].empty()) {
+		return false;
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+	if (ImGui::BeginCombo("##recent-dirs", "最近のフォルダ", ImGuiComboFlags_HeightLarge)) {
+		for (const auto &path : g_history[HIST_DIRS]) {
+			if (ImGui::Selectable(path.c_str())) {
+				dir = path;
+				changed = true;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	return changed;
+}
+
 static void set_fdd_status(int drive, const char *action, const char *path) {
 	g_gui.fdd_status = "FDD";
 	g_gui.fdd_status += static_cast<char>('1' + drive);
@@ -1882,6 +2184,7 @@ static void reset_guest(void) {
 	mousemng_reset();
 	scrndrawva_redraw();
 	state_capture_software();
+	history_record_boot();
 }
 
 static void open_fdd_dialog(int drive) {
@@ -2028,64 +2331,79 @@ static void open_new_fdd_dialog(int format) {
 	g_gui.fdd_browser_open = false;
 }
 
-static void mount_fdd_from_dialog(void) {
-	int drive;
-	const char *path;
+/* Mount an image or an archive (its images from `drive` on) chosen by the
+ * user, and record it in the drive's history. */
+static bool mount_fdd_path(int drive, const std::string &path_string) {
+	const char *path = path_string.c_str();
 	std::string error;
 
-	drive = g_gui.fdd_dialog_drive;
 	if ((drive < 0) || (drive >= 2)) {
-		return;
+		return false;
 	}
-	path = g_gui.fdd_path[drive];
 	if (!file_is_mountable(path, &error)) {
 		g_gui.fdd_status = "FDD";
 		g_gui.fdd_status += static_cast<char>('1' + drive);
 		g_gui.fdd_status += " mount failed: ";
 		g_gui.fdd_status += error;
-		return;
+		return false;
 	}
 	if (dropmedia_path_is_archive(path)) {
 		if (!dropmedia_mount_archive(path, static_cast<UINT>(drive))) {
 			g_gui.fdd_status = dropmedia_status();
-			return;
+			return false;
 		}
 		g_gui.fdd_status.clear();
-		persist_fdd_dir(parent_dir(path));
-		g_gui.fdd_browser_open = false;
-		return;
+	} else {
+		diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
+		remember_fdd_mount(drive, path);
+		dropmedia_prune_storage();
+		set_fdd_status(drive, "mounted", path);
 	}
-	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
-	remember_fdd_mount(drive, path);
-	dropmedia_prune_storage();
-	persist_fdd_dir(parent_dir(path));
-	set_fdd_status(drive, "mounted", path);
-	g_gui.fdd_browser_open = false;
+	persist_fdd_dir(parent_dir(path_string));
+	g_fdd_origin[drive] = path_string;
+	history_add(drive, path_string);
+	history_add_dir(path_string);
+	return true;
 }
 
-static void mount_hdd_from_dialog(void) {
-	int drive;
-	int slot;
-	const char *path;
+static void mount_fdd_from_dialog(void) {
+	const int drive = g_gui.fdd_dialog_drive;
+
+	if ((drive >= 0) && (drive < 2) && mount_fdd_path(drive, g_gui.fdd_path[drive])) {
+		g_gui.fdd_browser_open = false;
+	}
+}
+
+static bool mount_hdd_path(int drive, const std::string &path_string) {
+	const char *path = path_string.c_str();
+	const int slot = hdd_slot(drive);
 	std::string error;
 
-	drive = g_gui.hdd_dialog_drive;
-	slot = hdd_slot(drive);
-	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
-		return;
-	}
-	path = g_gui.hdd_path[slot];
 	if (!hdd_file_is_mountable(path, &error)) {
 		g_gui.hdd_status = hdd_interface_name(drive);
 		g_gui.hdd_status += static_cast<char>('1' + slot);
 		g_gui.hdd_status += " open failed: ";
 		g_gui.hdd_status += error;
-		return;
+		return false;
 	}
 	diskdrv_sethdd(static_cast<REG8>(drive), path);
-	persist_hdd_dir(parent_dir(path));
+	persist_hdd_dir(parent_dir(path_string));
 	set_hdd_status(drive, "configured; reset to apply", path);
-	g_gui.hdd_browser_open = false;
+	history_add(history_hdd_kind(drive), path_string);
+	history_add_dir(path_string);
+	return true;
+}
+
+static void mount_hdd_from_dialog(void) {
+	const int drive = g_gui.hdd_dialog_drive;
+	const int slot = hdd_slot(drive);
+
+	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
+		return;
+	}
+	if (mount_hdd_path(drive, g_gui.hdd_path[slot])) {
+		g_gui.hdd_browser_open = false;
+	}
 }
 
 static std::string hdi_path(const char *path) {
@@ -2275,6 +2593,7 @@ static void create_new_scsi_image(void) {
 }
 
 static void eject_fdd(int drive) {
+	g_fdd_origin[drive].clear();
 	diskdrv_setfdd(static_cast<REG8>(drive), nullptr, 0);
 	remember_fdd_mount(drive, nullptr);
 	dropmedia_prune_storage();
@@ -2323,6 +2642,9 @@ static void draw_fdd_browser(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Up")) {
 			g_gui.fdd_browser_dir = parent_dir(g_gui.fdd_browser_dir);
+			g_gui.fdd_browser_refresh = true;
+		}
+		if (draw_recent_dirs(g_gui.fdd_browser_dir)) {
 			g_gui.fdd_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -2403,6 +2725,9 @@ static void draw_hdd_browser(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Up")) {
 			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
+			g_gui.hdd_browser_refresh = true;
+		}
+		if (draw_recent_dirs(g_gui.hdd_browser_dir)) {
 			g_gui.hdd_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -2873,6 +3198,56 @@ static void draw_boot_menu(void) {
 	ImGui::EndMenu();
 }
 
+/* 最近の起動: put a recorded set of media back, select its machine and
+ * mode, and reset (which moves the set to the top). */
+static void boot_from_history(const BootRecord &boot) {
+	for (int drive = 0; drive < 2; drive++) {
+		if (boot.fdd[drive].empty()) {
+			eject_fdd(drive);
+		} else {
+			(void)mount_fdd_path(drive, boot.fdd[drive]);
+		}
+		if (boot.sasi[drive].empty()) {
+			diskdrv_sethdd(static_cast<REG8>(drive), nullptr);
+		} else {
+			diskdrv_sethdd(static_cast<REG8>(drive), boot.sasi[drive].c_str());
+		}
+	}
+	if (boot.tape.empty()) {
+		if (cmt_inserted()) {
+			cmt_eject();
+		}
+		g_gui.tape_loaded.clear();
+	} else {
+		(void)load_tape_path(boot.tape);
+	}
+	select_boot(boot.model.c_str(), boot.v1, boot.standard,
+	            boot.nmode ? boot.n80rom.c_str() : nullptr);
+}
+
+static void draw_recent_boots_menu(void) {
+	if (!ImGui::BeginMenu("最近の起動")) {
+		return;
+	}
+	history_load();
+	if (g_recent_boots.empty()) {
+		ImGui::TextDisabled("なし");
+	}
+	for (std::size_t index = 0; index < g_recent_boots.size(); index++) {
+		const BootRecord boot = g_recent_boots[index];
+		const std::string label = history_boot_label(boot) + "##boot" + std::to_string(index);
+		if (ImGui::MenuItem(label.c_str(), nullptr, false, history_paths_exist(boot))) {
+			boot_from_history(boot);
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("履歴を消す", nullptr, false, !g_recent_boots.empty())) {
+		g_recent_boots.clear();
+		history_save();
+	}
+	ImGui::EndMenu();
+}
+
 static void draw_machine_config_menu(void) {
 	if (!ImGui::BeginMenu("機種の構成")) {
 		return;
@@ -2914,6 +3289,7 @@ static void draw_emulate_menu(void) {
 		reset_guest();
 	}
 	draw_boot_menu();
+	draw_recent_boots_menu();
 	ImGui::Separator();
 	draw_speed_control();
 	draw_cpu_clock_menu();
@@ -3008,6 +3384,9 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD1 開く…")) {
 			open_fdd_dialog(0);
 		}
+		draw_history_menu("FDD1 履歴", HIST_FDD1, [](const std::string &path) {
+			mount_fdd_path(0, path);
+		});
 		if (ImGui::MenuItem("FDD1 取り出し")) {
 			eject_fdd(0);
 		}
@@ -3016,6 +3395,9 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD2 開く…")) {
 			open_fdd_dialog(1);
 		}
+		draw_history_menu("FDD2 履歴", HIST_FDD2, [](const std::string &path) {
+			mount_fdd_path(1, path);
+		});
 		if (ImGui::MenuItem("FDD2 取り出し")) {
 			eject_fdd(1);
 		}
@@ -3104,6 +3486,31 @@ static void open_tape_dialog(void) {
 	g_gui.tape_browser_refresh = true;
 }
 
+/* Load a tape image, or the first .cmt/.t88 of a zip/7z/lzh archive, and
+ * record it in the tape history. */
+static bool load_tape_path(const std::string &path) {
+	char extracted[MAX_PATH];
+	const char *source = path.c_str();
+
+	if (dropmedia_path_is_tape_archive(path.c_str())) {
+		source = dropmedia_extract_tape(path.c_str(), extracted, sizeof(extracted)) ? extracted
+		                                                                            : nullptr;
+	}
+	if (source == nullptr) {
+		g_gui.tape_status = dropmedia_status();
+		return false;
+	}
+	if (cmt_open(source) != SUCCESS) {
+		g_gui.tape_status = "Not a usable tape image.";
+		return false;
+	}
+	g_gui.tape_loaded = path;
+	g_gui.tape_status = "Tape loaded.";
+	history_add(HIST_TAPE, path);
+	history_add_dir(path);
+	return true;
+}
+
 static void stop_tape_recording(void) {
 	if (cmt_saving()) {
 		g_gui.tape_status =
@@ -3133,6 +3540,9 @@ static void draw_tape_browser(void) {
 			g_gui.tape_browser_dir = parent_dir(g_gui.tape_browser_dir);
 			g_gui.tape_browser_refresh = true;
 		}
+		if (draw_recent_dirs(g_gui.tape_browser_dir)) {
+			g_gui.tape_browser_refresh = true;
+		}
 		ImGui::Separator();
 		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
 		                                     ImGui::GetContentRegionAvail().y -
@@ -3158,25 +3568,8 @@ static void draw_tape_browser(void) {
 		if (draw_file_type_combo("##tape-file-type", kTapeFileTypeLabel, &g_gui.tape_all_files)) {
 			g_gui.tape_browser_refresh = true;
 		}
-		if (ImGui::Button("Load tape")) {
-			char extracted[MAX_PATH];
-			const char *source = g_gui.tape_path;
-
-			/* A zip/7z/lzh archive: its first .cmt/.t88 is loaded. */
-			if (dropmedia_path_is_tape_archive(g_gui.tape_path)) {
-				source = dropmedia_extract_tape(g_gui.tape_path, extracted, sizeof(extracted))
-				             ? extracted
-				             : nullptr;
-			}
-			if (source == nullptr) {
-				g_gui.tape_status = dropmedia_status();
-			} else if (cmt_open(source) == SUCCESS) {
-				g_gui.tape_loaded = g_gui.tape_path;
-				g_gui.tape_status = "Tape loaded.";
-				g_gui.tape_browser_open = false;
-			} else {
-				g_gui.tape_status = "Not a usable tape image.";
-			}
+		if (ImGui::Button("Load tape") && load_tape_path(g_gui.tape_path)) {
+			g_gui.tape_browser_open = false;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Record to this file")) {
@@ -3205,6 +3598,9 @@ static void draw_tape_menu(void) {
 		if (ImGui::MenuItem("読み込み・録音…")) {
 			open_tape_dialog();
 		}
+		draw_history_menu("履歴", HIST_TAPE, [](const std::string &path) {
+			(void)load_tape_path(path);
+		});
 		if (ImGui::MenuItem("巻き戻し", nullptr, false, cmt_inserted() != FALSE)) {
 			cmt_rewind();
 		}
@@ -3251,6 +3647,10 @@ static void draw_harddisk_menu(void) {
 		if (ImGui::MenuItem((name + " 開く…").c_str())) {
 			open_hdd_dialog(drive);
 		}
+		draw_history_menu((name + " 履歴").c_str(), HIST_SASI1 + drive,
+		                  [drive](const std::string &path) {
+			                  mount_hdd_path(drive, path);
+		                  });
 		if (ImGui::MenuItem((name + " 外す").c_str())) {
 			remove_hdd(drive);
 		}
@@ -3274,6 +3674,9 @@ static void draw_harddisk_menu(void) {
 				if (ImGui::MenuItem("開く…")) {
 					open_hdd_dialog(encoded);
 				}
+				draw_history_menu("履歴", HIST_SCSI0 + drive, [encoded](const std::string &path) {
+					mount_hdd_path(encoded, path);
+				});
 				if (ImGui::MenuItem("外す")) {
 					remove_hdd(encoded);
 				}
@@ -5056,6 +5459,10 @@ static void draw_state_error_dialog(void) {
 }
 
 } // namespace
+
+extern "C" void gui_history_add(int kind, const char *path) {
+	history_add_dropped(kind, path);
+}
 extern "C" BOOL gui_copy_screen_text(void) {
 	return copy_screen_text();
 }
