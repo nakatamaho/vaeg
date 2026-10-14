@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M109 - Demo fixes and 200-line display on the 24 kHz monitor
 
-Status: **complete; G109 passed on 2026-10-14**
+Status: **complete; G109 passed on 2026-10-14; merged to `main` at [e9e8e2c](https://github.com/nakatamaho/vaeg/commit/e9e8e2c9cce92391fb9d870e321686c8c9debff0)**
 
 Series: V3 series (maintainer request, 2026-10-14, after G106). Branch
 `topic/m109-demo-display-fixes` off `main` at `d9a84316`. Commit prefix
