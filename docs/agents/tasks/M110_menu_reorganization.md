@@ -92,9 +92,12 @@ below was agreed item by item in the same session.
   ファイルから読み込み… are added. Slots are kept per software in
   `states/<software>/`, the name taken from the FDD1 image, else the SASI-1
   image, else the tape, else `common`. Directory names vaeg chooses are
-  English (`states`, `screenshots`, `recordings`, `common`, `extra`). The name is the image's file name made
-  safe for the host file system, followed by a short hash of its full path
-  so that equal names from different directories stay apart. It is fixed
+  English (`states`, `screenshots`, `recordings`, `common`, `extra`).
+  The software directory is the image's file name without its extension,
+  kept as written, Japanese included (UTF-8; characters the host file
+  system forbids are replaced), followed by a short hash of its full path
+  so that equal names from different directories stay apart, for example
+  `ゲームA-1a2b3c` (maintainer, 2026-10-15). It is fixed
   when a state of that software is first saved, so a disk swap during play
   keeps the slots together; loading a slot made with another disk keeps
   the existing disk-change warning. `vaeg-cache/` (librashader shader
