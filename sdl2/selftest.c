@@ -5493,7 +5493,8 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
-/* M103i: output levels for the analog and the digital RGB monitor. */
+/* M103i: output levels for the analog and the digital RGB monitor; M109:
+ * the digital monitor turns on every nonzero component. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
 
@@ -5502,10 +5503,11 @@ static int test_monitor_output_levels(void) {
 	    (scrndrawva_outputlevel(16, 5, FALSE) != 0x87) ||
 	    (scrndrawva_outputlevel(63, 6, FALSE) != 0xff)) {
 		problem = "analog output levels";
-	} else if ((scrndrawva_outputlevel(7, 5, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(8, 5, TRUE) != 0xff) ||
-	           (scrndrawva_outputlevel(15, 6, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(16, 6, TRUE) != 0xff) ||
+	} else if ((scrndrawva_outputlevel(0, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(1, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(5, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(7, 6, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(1, 6, TRUE) != 0xff) ||
 	           (scrndrawva_outputlevel(0, 6, TRUE) != 0)) {
 		problem = "digital RGB thresholds";
 	}
