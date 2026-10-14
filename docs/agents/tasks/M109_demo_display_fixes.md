@@ -59,3 +59,54 @@ the kana and Caps Lock indicators follow the keyboard; the digital
 rebuilt and their payloads match a fresh build (AGENTS.md).
 
 ## Progress
+
+- 24.8 kHz scanlines (item 5): on a 24.8 kHz display (port 1CBh bit 3) the
+  demos that use 200-line graphics set port 100h RSM = 01 (lines doubled,
+  measured on the PC-88VA2 with V480PAT D in M104) after turning graphics
+  on and back to RSM = 00 before restoring the screen: SGP pseudo-sprite
+  16/256/65536, sgp-scan 65536, wireframe 65536, GLASS, NEON3 (200-line),
+  ZUNDAORB. NEON4 (640x400, or 65536 colours already RSM = 01) needed
+  nothing. In vaeg the old SGPD_7A showed a blank odd raster on all 170 lit
+  rasters, the rebuilt ones none. NEON3's unused reserve shrank by 64 words
+  to fit. A vaeg display option for blank rasters was tried and dropped: the
+  demos now choose the doubled mode themselves.
+- ZUNDAORB without bank memory (items 1, 2): the atlas is in conventional
+  RAM at 40000h-5FFFFh (SGP reads main RAM at the same address); the BMS
+  probe became a check that DOS gave the program memory up to 60000h. In
+  vaeg it runs with `Use_BMS_=false` and 512 KiB. HUD: `DIST:+n ` is one
+  cell wider, LOOK and RAD moved right by one cell (on the HUD background).
+- Zundamon artwork (maintainer): the first standing pose (layers as stored)
+  of the free "ずんだもん立ち絵素材2.3.psd", redistributable. The atlas
+  builder reads the PSD's merged image with psd-tools when ImageMagick is
+  absent (reproducible); the IDA profile tables are tracked in
+  `demos/zundamon-orbit/256/ida/` and `build-from-psd.sh` rebuilds the
+  distribution disk from the PSD, so zundamon is no longer an exception in
+  AGENTS.md.
+- 1024 balls (item 3): all pseudo-sprite demos (16-colour M7a-M7d, M7s,
+  256 static/scrolling, 65536). Their SGP command lists, and the M7d
+  templates, moved out of the .COM into the segments after the program
+  (CS + 1000h..); the dirty-rectangle list is capped at 513 with a full-clear
+  fallback; records 128+ of the 256/65536-colour demos are generated. Found
+  on the way: M7d never updated its FPS/count digits (startup glyph
+  addresses), now converted each frame; M7 records 33+ started in 8 columns.
+  In vaeg all draw 1024 balls (start count 1024 in a test build).
+- KANA and CAPS lamps (item 6): the front-panel bar shows them from the
+  guest's lock state, V3 BIOS shift byte 00AB0h (bit 3 KANA, bit 2 CAPS) or,
+  in V1/V2, the PC-8801 key matrix (port 08h bit 5, 0Ah bit 7), each checked
+  in vaeg; `@key caps`/`@key kana` added to the headless input.
+- Display tests on the self-booting disk (maintainer: TSPTEST = TSPMODE,
+  plus TSPFILL and `V480PAT A`): menu items L, M, N with command tails; the
+  loader gives INT 21h 48h/49h (TSPFILL) and turns graphics off on return.
+  The three tools waited on keyboard BIOS 00h/01h (hang without an OS and
+  under MS-DOS) and now use 0Ah/09h. `demos/disks/sgp-boot.d88.xz` is
+  committed as a distributable bootable disk (all source-built, no system
+  files, reproducible, round-trip checked).
+- Disks rebuilt from HEAD: glass-orbit, neon3, sgp-pseudo-sprite,
+  sgp-wireframe, zundamon-orbit, all-demos, all-demos-msdos4 and the new
+  sgp-boot; neon4 kept (its files are unchanged, only directory dates
+  differed). The MS-DOS 4.0 source image was fetched again from release
+  `msdos4-va.2` (SHA-256 matches the pin). In vaeg (VA2) all 17 programs of
+  the PC-Engine 1.1 bootable and the MS-DOS 4.0 all-demos disks draw and
+  leave on ESC; on the self-booting disk A-N run and return to the menu.
+  [f0ad4e47](https://github.com/nakatamaho/vaeg/commit/f0ad4e473d745ca48a4fffbe3be31b54ac257a63).
+
