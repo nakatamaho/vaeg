@@ -54,6 +54,29 @@ The clean-checkout build is the fully static MinGW build described under
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+### Cleanup after a passed human gate
+
+When the maintainer states that a milestone's human gate passed, and after
+the gate record, the `--no-ff` merge and the roadmap record are pushed,
+remove that milestone's working directories. The gate pass is the approval
+for these categories; no separate list is needed:
+
+- the milestone's worktree and its local branch, after confirming that the
+  branch is contained in `origin/main` and the worktree has no uncommitted
+  changes;
+- the temporary merge worktree;
+- the static MinGW build directories of that milestone
+  (`../vaeg-mingw-<short-sha>/`);
+- its hardware handoff and private scratch directories
+  (`~/work/pc88va/m<id>-hw/`, `~/work/pc88va/m<id>-private/`) and
+  `/tmp/m<id>/`, after moving anything the maintainer asked to keep.
+
+Never remove without explicit approval: `pc88va-private-docs/`, another
+milestone's worktree or branch, the shared caches under `~/.cache/vaeg/`
+(they are reused), the remote branch, and files the maintainer supplied
+(photos, screenshots, media, archives). Report what was removed and what was
+kept.
+
 ## Demos stay buildable
 
 Every milestone must leave every bundled demo buildable from a clean
