@@ -24,7 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M106 - Self-booting SGP demo disk
 
-Status: **complete; G106 passed on 2026-10-14**
+Status: **complete; G106 passed on 2026-10-14; merged to `main` at [2c2ec50](https://github.com/nakatamaho/vaeg/commit/2c2ec5030e4ff7f8bf5b4bfeb25402e72714d0aa)**
 
 Series: V3 series (maintainer request, 2026-10-08). Branch
 `topic/m106-sgp-bootable-demos` off `main` at
@@ -500,4 +500,3 @@ mode lamp follows V1/V2/V3.
   hardware against 60 in vaeg), the 24 kHz scanlines for 200-line modes,
   the kana and Caps Lock indicators, the digital 8-colour hardware check,
   and the zundamon artwork and SGP LINE endpoint decisions.
-
