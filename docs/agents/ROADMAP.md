@@ -161,6 +161,7 @@ M36–M41 archive status.
 | M107a | tasks/M107a_voyage_opna_arrangement.md | Original six-FM/three-SSG arrangement and source-built ADPCM kick/snare/sweep preparation; VOYAGE guest sources unchanged | **G107a machine preparation checkpoint; OPNA guest integration/audition remain separate** |
 | M107b | tasks/M107b_voyage_opna_playback.md | Separate VOYOPNA guest integration: six FM voices, three SSG tones and original ADPCM-B percussion; bounded upload, shared cues and shutdown | **Local build/content/VA2 dispatch/return checks complete; G107b human audition pending; no hardware/full-regression claim or emulator changes** |
 | M108 | tasks/M108_cpu_conformance_checks.md | Per-role CPU conformance checks: uPD9002 native mode against a SingleStepTests V20 failing-record baseline, uPD70008-compatible mode against real PC-88VA2 ZEX CRCs, FDC uPD780C against stock Z80 ZEX CRCs; role core configuration shared by production and tests | **G108 machine-verifiable gate; no guest-visible behaviour change** |
+| M109 | tasks/M109_demo_display_fixes.md | Demo fixes from the hardware runs (ZUNDAORB without bank memory, HUD spacing, up to 1024 balls), 200-line modes without scanlines at 24 kHz, kana and Caps Lock indicators | **In progress; G109 human gate pending** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 documentation check** |
 
 Planned series (ADR-0016; rows are added when each task file exists;

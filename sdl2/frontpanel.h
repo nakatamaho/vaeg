@@ -36,9 +36,15 @@ enum {
 	FRONTPANEL_SIMPLE = 1 /* a slim bar of lamps (default) */
 };
 
+enum {
+	FRONTPANEL_LOCK_KANA = 0,
+	FRONTPANEL_LOCK_CAPS = 1
+};
+
 void frontpanel_set_modeled(UINT num, BOOL on);
 void frontpanel_fdd_access(UINT drv);
 BOOL frontpanel_mode_lit(UINT num);
+BOOL frontpanel_lock_lit(UINT lock);
 BOOL frontpanel_drive_lit(UINT drv, UINT32 now);
 BOOL frontpanel_drive_is_2hd(UINT drv);
 /* Height of the panel drawn across width pixels; 0 when it is turned off. */

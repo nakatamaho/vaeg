@@ -1729,6 +1729,7 @@ static BOOL scrnmng_update_window_size(void) {
 /* The simple front panel: a dark bar with the drive and mode lamps. */
 static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
+	static const char *const lock_labels[2] = {"KANA", "CAPS"};
 	const int s = frontpanel_simple_scale(bar->w);
 	const UINT32 now = SDL_GetTicks();
 	SDL_Color label = {200, 196, 180, 255};
@@ -1745,9 +1746,9 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 	r.w = bar->w;
 	r.h = s;
 	scrnmng_panel_fill(&r, 70, 70, 74);
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 7; i++) {
 		const BOOL drive = (i < 2) ? TRUE : FALSE;
-		char text[4];
+		char text[5];
 		BOOL lit;
 		Uint8 cr;
 		Uint8 cg;
@@ -1755,6 +1756,10 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 
 		if (i == 2) {
 			x += 16 * s; /* gap between the drives and the mode lamps */
+		} else if (i == 5) {
+			/* the lock lamps are right-aligned: two of "KANA" + lamp, the
+			 * same 12-dot spacing between them, 8 dots from the right edge */
+			x = bar->x + bar->w - 8 * s - (2 * (4 * 8 * s + 4 * s + 12 * s) + 12 * s);
 		}
 		if (drive) {
 			text[0] = 'F';
@@ -1771,12 +1776,19 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 				cg = 45;
 				cb = 30;
 			}
-		} else {
+		} else if (i < 5) {
 			SDL_strlcpy(text, mode_labels[i - 2], sizeof(text));
 			lit = frontpanel_mode_lit((UINT)(i - 2));
 			cr = 120;
 			cg = 255;
 			cb = 130;
+		} else {
+			/* M109: the keyboard's KANA and CAPS lock lamps. */
+			SDL_strlcpy(text, lock_labels[i - 5], sizeof(text));
+			lit = frontpanel_lock_lit((UINT)(i - 5));
+			cr = 255;
+			cg = 170;
+			cb = 40;
 		}
 		scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, text, label);
 		x += (int)SDL_strlen(text) * 8 * s + 4 * s;
@@ -1875,6 +1887,13 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (148 + 6) * s], surface->format, &r, &g, &b);
 	if (ok && ((r + g + b) > 250)) {
 		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
+		ok = FALSE;
+	}
+	/* M109: the CAPS lamp ends 8 dots from the right edge (lit or not, it
+	 * differs from the bar's background) */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 14 * s)], surface->format, &r, &g, &b);
+	if (ok && (r == 34) && (g == 34) && (b == 36)) {
+		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
 		ok = FALSE;
 	}
 	SDL_DestroyRenderer(renderer);

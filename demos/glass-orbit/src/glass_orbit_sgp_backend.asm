@@ -148,6 +148,7 @@ glass_p4_sgp_entry:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     glass_p4_sgp_failed
+        call    line_doubling_on
 
         mov     dx, PORT_MEMORY_MAP
         mov     al, MEMORY_MAP_GVRAM_SINGLE
@@ -256,9 +257,53 @@ glass_p4_sgp_escape_pressed:
         stc
         ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the screen is handed back.
+line_doubling_on:
+        push    ax
+        push    dx
+        mov     dx, 0x01cb
+        in      al, dx
+        test    al, 0x08
+        jz      .done
+        mov     dx, 0x0100
+        in      ax, dx
+        test    al, 0x02
+        jz      .done
+        test    al, 0xc0
+        jnz     .done
+        or      al, 0x40
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 1
+.done:
+        pop     dx
+        pop     ax
+        ret
+
+line_doubling_off:
+        cmp     byte [cs:line_doubling_set], 0
+        je      .done
+        push    ax
+        push    dx
+        mov     dx, 0x0100
+        in      ax, dx
+        and     al, 0x3f
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 0
+        pop     dx
+        pop     ax
+.done:
+        ret
+
+line_doubling_set:
+        db      0
+
 glass_p4_sgp_exit:
         cmp     word [cs:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
         jne     glass_p4_sgp_idle
+        call    line_doubling_off
         mov     ax, 0x0b00             ; $ScnDsp: graphics off.
         int     VIDEO_BIOS_INT
         mov     ax, 0x0a00             ; $PalInit: the caller's text colours

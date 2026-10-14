@@ -41,7 +41,7 @@ single-page tearing seen in the earlier version. Each hue bitmap uses
 supersampled Phong-style diffuse/specular shading while remaining
 monochromatic. SPACE toggles a direct-SGP white square grid whose cells are
 16x16 logical pixels. UP/DOWN (or `+`/`-`) changes the active sphere count from
-one to 128. If SGP misses a field, presentation can repeat an intact page, but
+one to 1024. If SGP misses a field, presentation can repeat an intact page, but
 it does not expose partially drawn rows.
 
 The position and velocity table is deterministic. Its logical y values are

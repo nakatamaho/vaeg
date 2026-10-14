@@ -602,6 +602,7 @@ neon_va_enter:
         pop     es
         or      ax, ax
         jnz     .fail_display
+        call    line_doubling_on
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_GVRAM
         out     dx, al
@@ -654,7 +655,51 @@ neon_va_enter:
         stc
         ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the screen is handed back.
+line_doubling_on:
+        push    ax
+        push    dx
+        mov     dx, 0x01cb
+        in      al, dx
+        test    al, 0x08
+        jz      .done
+        mov     dx, 0x0100
+        in      ax, dx
+        test    al, 0x02
+        jz      .done
+        test    al, 0xc0
+        jnz     .done
+        or      al, 0x40
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 1
+.done:
+        pop     dx
+        pop     ax
+        ret
+
+line_doubling_off:
+        cmp     byte [cs:line_doubling_set], 0
+        je      .done
+        push    ax
+        push    dx
+        mov     dx, 0x0100
+        in      ax, dx
+        and     al, 0x3f
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 0
+        pop     dx
+        pop     ax
+.done:
+        ret
+
+line_doubling_set:
+        db      0
+
 neon_va_leave:
+        call    line_doubling_off
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_TVRAM
         out     dx, al
@@ -1896,8 +1941,9 @@ neon_text_last_scene                db 0ffh
 ; alignment cushion without letting the status-row cleanup cross the loader
 ; return reserve at E000h.  M106 shrank it from 224 words so that the public
 ; NEON RELAY 3 ver1.5 sources (external/neon3-1.5), 128 bytes larger than the
-; earlier private copy, still fit.
-neon_counter_stack                 times 160 dw 0
+; earlier private copy, still fit; M109 shrank it by another 64 words for
+; the 24.8 kHz line doubling.
+neon_counter_stack                 times 96 dw 0
 neon_counter_stack_top:
 
 align 2

@@ -38,6 +38,7 @@ that system's files and is likewise never committed.
 from __future__ import annotations
 
 import argparse
+import lzma
 import os
 import shutil
 import struct
@@ -54,7 +55,7 @@ FORMATS = {
 LOADER_BYTES_MAX = 8192
 COM_MAX = 0xFE00  # the image must fit DEMO_SEG:0100-FEFF below the stack
 
-# (menu label, build step, file produced in the work directory)
+# (menu label, build step, file produced in the work directory[, command tail])
 DEMOS = [
     ("pseudo-sprites, 16 colours, M7a (synchronous)", "sprite16", "16/SGPD_7A.COM"),
     ("pseudo-sprites, 16 colours, M7b (dirty rectangles)", "sprite16", "16/SGPD_7B.COM"),
@@ -67,7 +68,16 @@ DEMOS = [
     ("wireframe, 16 colours", "wire16", "w16/SGPWIRE.COM"),
     ("wireframe, 256 colours", "wire256", "w256/SGPWIRE.COM"),
     ("wireframe, 65536 colours", "wire65536", "w65536/SGPWIRE.COM"),
+    # M109: display-timing and TSP tests (tools/pc88va/vtiming), with their
+    # command tails.
+    ("V480PAT A: 24.8 kHz display timing sweep", "vtiming", "vt/V480PAT.COM", " A"),
+    ("TSPMODE: undocumented TSP screen modes", "vtiming", "vt/TSPMODE.COM"),
+    ("TSPFILL A: known data under those modes", "vtiming", "vt/TSPFILL.COM", " A"),
 ]
+
+
+def demo_tail(entry: tuple) -> str:
+    return entry[3] if len(entry) > 3 else ""
 
 
 def build_demos(repo: Path, work: Path, env: dict[str, str]) -> None:
@@ -81,7 +91,11 @@ def build_demos(repo: Path, work: Path, env: dict[str, str]) -> None:
         "wire256": [demos / "sgp-wireframe/256/build.sh", work / "w256/SGPWIRE.COM"],
         "wire65536": [demos / "sgp-wireframe/65536/build.sh", work / "w65536/SGPWIRE.COM"],
     }
-    for name in sorted({step for _, step, _ in DEMOS}):
+    vtiming = repo / "tools/pc88va/vtiming"
+    (work / "vt").mkdir(parents=True, exist_ok=True)
+    for name in ("v480pat", "tspmode", "tspfill"):
+        nasm(env, ["-o", str(work / "vt" / f"{name.upper()}.COM"), str(vtiming / f"{name}.asm")])
+    for name in sorted({entry[1] for entry in DEMOS} - {"vtiming"}):
         script, target = steps[name]
         (target if target.suffix == "" else target.parent).mkdir(parents=True, exist_ok=True)
         subprocess.run(["sh", str(script), str(target)], check=True, env=env,
@@ -135,7 +149,7 @@ def write_d88(path: Path, image: bytes, name: str, geo: Geometry) -> None:
 # System-disk directories (8.3 names); sprites and wireframes share them,
 # as in the existing distribution disks.
 PCENGINE_DIRS = {"16": "16", "256": "256", "65536": "65536",
-                 "w16": "16", "w256": "256", "w65536": "65536"}
+                 "w16": "16", "w256": "256", "w65536": "65536", "vt": "VTIMING"}
 
 
 def build_on_system(repo: Path, env: dict[str, str], source: Path, output: Path) -> int:
@@ -147,8 +161,9 @@ def build_on_system(repo: Path, env: dict[str, str], source: Path, output: Path)
         work = Path(tmp) / "build"
         payload = Path(tmp) / "payload"
         build_demos(repo, work, env)
-        for _, _, rel in DEMOS:
-            folder, name = rel.split("/")
+        for entry in DEMOS:
+            folder, name = entry[2].split("/")
+            rel = entry[2]
             target = payload / PCENGINE_DIRS[folder] / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(work / rel, target)
@@ -157,8 +172,8 @@ def build_on_system(repo: Path, env: dict[str, str], source: Path, output: Path)
         subprocess.run([sys.executable, str(tool), "install", "--image", str(output),
                         "--payload", str(payload)], check=True)
     print(f"Created bootable SGP demo disk: {output}")
-    for _, _, rel in DEMOS:
-        folder, name = rel.split("/")
+    for entry in DEMOS:
+        folder, name = entry[2].split("/")
         print(f"  {PCENGINE_DIRS[folder]}\\{name}")
     print("  the disk holds the source disk's system files: keep it outside the repository")
     return 0
@@ -170,6 +185,9 @@ def main() -> int:
                         help="raw D88 to write, outside the repository")
     parser.add_argument("--format", choices=sorted(FORMATS), default="2hd",
                         help="disk format (default 2hd)")
+    parser.add_argument("--compressed-output", type=Path,
+                        help="the distributable .d88.xz (M109; default "
+                             "demos/disks/sgp-boot.d88.xz for the 2HD disk; 'none' skips it)")
     parser.add_argument("--system-source", "--pcengine-source", type=Path,
                         help="install the demos on a copy of this PC-Engine 1.05/1.1 "
                              "or PC-88VA MS-DOS system disk instead")
@@ -196,26 +214,38 @@ def main() -> int:
 
     if args.system_source is not None:
         return build_on_system(repo, env, args.system_source, output)
+    compressed_output = args.compressed_output
+    if compressed_output is None and geo.name == "2hd":
+        compressed_output = repo / "demos/disks/sgp-boot.d88.xz"
+    if compressed_output is not None and str(compressed_output) == "none":
+        compressed_output = None
+    if compressed_output is not None and compressed_output.exists():
+        print(f"error: refusing to overwrite {compressed_output}", file=sys.stderr)
+        return 1
 
     with tempfile.TemporaryDirectory(prefix="sgp-boot-") as tmp:
         work = Path(tmp)
         build_demos(repo, work, env)
-        payloads = [(label, (work / rel).read_bytes(), rel) for label, _, rel in DEMOS]
+        payloads = [(entry[0], (work / entry[2]).read_bytes(), entry[2], demo_tail(entry))
+                    for entry in DEMOS]
 
         # Layout: IPL at sector 0, the loader from sector 1, then each demo.
         loader_first = 1
         loader_sectors_max = geo.sectors(LOADER_BYTES_MAX)
         first = loader_first + loader_sectors_max
         lines = [f"catalog_count\tdw\t{len(payloads)}", "catalog:"]
-        for index, (label, data, rel) in enumerate(payloads):
+        for index, (label, data, rel, tail) in enumerate(payloads):
             if len(data) > COM_MAX:
                 print(f"error: {rel} is {len(data)} bytes, over {COM_MAX}", file=sys.stderr)
                 return 1
-            lines.append(f"\t\tdw\t{first}, {geo.sectors(len(data))}, label{index}")
+            tail_ref = f"tail{index}" if tail else "0"
+            lines.append(f"\t\tdw\t{first}, {geo.sectors(len(data))}, label{index}, {tail_ref}")
             first += geo.sectors(len(data))
         lines.append("\t\tdw\t0")
-        for index, (label, _, _) in enumerate(payloads):
+        for index, (label, _, _, tail) in enumerate(payloads):
             lines.append(f"label{index}\t\tdb\t{asm_string(label)}")
+            if tail:
+                lines.append(f"tail{index}\t\tdb\t{asm_string(tail)}")
         (work / "catalog.inc").write_text("\n".join(lines) + "\n", encoding="ascii")
         if first > geo.tracks * geo.per_track:
             print(f"error: the demos do not fit a {geo.name.upper()} disk", file=sys.stderr)
@@ -239,15 +269,27 @@ def main() -> int:
         image[0:len(ipl)] = ipl
         image[loader_first * size:loader_first * size + len(loader)] = loader
         lba = loader_first + loader_sectors_max
-        for _, data, _ in payloads:
+        for _, data, _, _ in payloads:
             image[lba * size:lba * size + len(data)] = data
             lba += geo.sectors(len(data))
         write_d88(output, bytes(image), "SGPBOOT", geo)
+        if compressed_output is not None:
+            # M109: everything on the disk is built from this repository's
+            # sources (IPL, loader, demos and tests; no system files), so it is
+            # distributable (AGENTS.md); the .xz must round-trip to the D88.
+            raw = output.read_bytes()
+            packed = lzma.compress(raw, format=lzma.FORMAT_XZ, preset=lzma.PRESET_EXTREME | 9)
+            if lzma.decompress(packed) != raw:
+                print("error: the compressed image does not round-trip", file=sys.stderr)
+                return 1
+            compressed_output.write_bytes(packed)
 
     print(f"Created self-booting SGP demo disk ({geo.name.upper()}): {output}")
-    for index, (label, data, rel) in enumerate(payloads):
+    for index, (label, data, rel, _) in enumerate(payloads):
         print(f"  {chr(ord('A') + index)}  {rel:20s} {len(data):6d} bytes  {label}")
-    print(f"  loader {len(loader)} bytes; the disk must stay outside the repository")
+    print(f"  loader {len(loader)} bytes")
+    if compressed_output is not None:
+        print(f"  distributable copy: {compressed_output}")
     return 0
 
 

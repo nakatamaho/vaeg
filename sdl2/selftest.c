@@ -5276,6 +5276,33 @@ static int test_front_panel(void) {
 	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
 		problem = "mode lamp state";
 	}
+	/* M109: lock lamps follow the key matrix in V1/V2 (V2 lit here) and the
+	 * BIOS shift-state byte 00AB0h in V3. */
+	{
+		const UINT8 saved_shift = mem[0xab0];
+		const UINT8 saved_m08 = keybrd.keymap[0x08];
+		const UINT8 saved_m0a = keybrd.keymap[0x0a];
+
+		mem[0xab0] = 0x0c;
+		keybrd.keymap[0x08] = 0xff;
+		keybrd.keymap[0x0a] = 0x7f;
+		if ((problem == NULL) && (frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          !frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V1/V2 lock lamps did not follow the key matrix";
+		}
+		frontpanel_set_modeled(1, FALSE);
+		frontpanel_set_modeled(2, TRUE);
+		mem[0xab0] = 0x08;
+		if ((problem == NULL) && (!frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V3 lock lamps did not follow the BIOS shift state";
+		}
+		frontpanel_set_modeled(2, FALSE);
+		frontpanel_set_modeled(1, TRUE);
+		mem[0xab0] = saved_shift;
+		keybrd.keymap[0x08] = saved_m08;
+		keybrd.keymap[0x0a] = saved_m0a;
+	}
 	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
 	if ((problem == NULL) &&
 	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {
@@ -5466,7 +5493,8 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
-/* M103i: output levels for the analog and the digital RGB monitor. */
+/* M103i: output levels for the analog and the digital RGB monitor; M109:
+ * the digital monitor turns a component on above 1/31 of full scale. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
 
@@ -5475,11 +5503,13 @@ static int test_monitor_output_levels(void) {
 	    (scrndrawva_outputlevel(16, 5, FALSE) != 0x87) ||
 	    (scrndrawva_outputlevel(63, 6, FALSE) != 0xff)) {
 		problem = "analog output levels";
-	} else if ((scrndrawva_outputlevel(7, 5, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(8, 5, TRUE) != 0xff) ||
-	           (scrndrawva_outputlevel(15, 6, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(16, 6, TRUE) != 0xff) ||
-	           (scrndrawva_outputlevel(0, 6, TRUE) != 0)) {
+	} else if ((scrndrawva_outputlevel(0, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(1, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(2, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(5, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(2, 6, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(3, 6, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(7, 6, TRUE) != 0xff)) {
 		problem = "digital RGB thresholds";
 	}
 	if (problem != NULL) {

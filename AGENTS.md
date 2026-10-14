@@ -69,9 +69,10 @@ gate:
   4.0) and confirm it draws, and run `MANDEL.BAS` from N88-BASIC;
 - record the result in the task file.
 
-Exception until resolved: `zundamon-orbit` needs a maintainer-supplied
-artwork source and private profile tables that are not in the repository;
-its committed disk is checked by running it, not by rebuilding it.
+`zundamon-orbit` is rebuilt with `demos/zundamon-orbit/build-from-psd.sh`
+from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-supplied
+input, like the PC-Engine system disk); its profile tables are tracked under
+`demos/zundamon-orbit/256/ida/` (M109).
 
 ## CI and expensive-test discipline
 

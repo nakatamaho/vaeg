@@ -82,7 +82,7 @@ org 0x100
 %define BULLET_COUNT            32
 %define SPRITE_INITIAL_COUNT    BALL_COUNT
 %define SPRITE_MIN_COUNT        1
-%define SPRITE_MAX_COUNT        256
+%define SPRITE_MAX_COUNT        1024
 %define BULLET_FIRST_INDEX      BALL_COUNT
 %define SPRITE_WIDTH            24
 %define SPRITE_HEIGHT           24
@@ -105,10 +105,23 @@ org 0x100
 %define G1_PAGE_B_DSA           0x027d00
 %define SCREEN_WORD_COUNT       0x3e80
 %if M7_VARIANT >= 2
-%define DIRTY_RECT_MAX_COUNT    (SPRITE_MAX_COUNT * 2 + 1)
+; M109: capped; with more rectangles the frame falls back to a full clear.
+%define DIRTY_RECT_MAX_COUNT    513
 %define SGP_COMMAND_WORD_COUNT  (13 + DIRTY_RECT_MAX_COUNT * 9 + (SPRITE_MAX_COUNT + FPS_GLYPH_COUNT) * 16)
 %else
 %define SGP_COMMAND_WORD_COUNT  (11 + (SPRITE_MAX_COUNT + FPS_GLYPH_COUNT) * 16)
+%endif
+; M109: each SGP command list (and the M7d templates) has a 64-KiB segment
+; of its own above the program (FAR_SEGMENT_COUNT of them, from CS + 1000h).
+%if SGP_COMMAND_WORD_COUNT * 2 > 0x10000
+%error "SGP command list exceeds its 64-KiB segment"
+%endif
+%if M7_VARIANT >= 4
+%define FAR_SEGMENT_COUNT       3
+%elif M7_VARIANT >= 3
+%define FAR_SEGMENT_COUNT       2
+%else
+%define FAR_SEGMENT_COUNT       1
 %endif
 %define FPS_SAMPLE_FRAMES       60
 %define BALL_PIXEL_COUNT        (SPRITE_WIDTH * SPRITE_HEIGHT)
@@ -165,6 +178,8 @@ start:
     pop ds
     cld
 
+    call initialize_far_segments
+    jc far_memory_failed
     call save_video_state
 %if M7_VARIANT >= 4
     call initialize_m7d_tables
@@ -415,6 +430,7 @@ initialize_video:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
+    call line_doubling_on
 
     clc
     ret
@@ -1220,7 +1236,10 @@ append_dirty_rect:
     push bp
     mov si, [dirty_rect_count]
     cmp si, DIRTY_RECT_MAX_COUNT
-    jae .done
+    jb .room
+    mov byte [dirty_full_clear], 1
+    jmp .done
+.room:
     shl si, 1
     mov [dirty_rect_x + si], ax
     mov [dirty_rect_y + si], dx
@@ -1414,28 +1433,58 @@ emit_dirty_clear_commands:
     ret
 %endif
 
+; ES:DI = the start of the command list being built (its own segment).
 select_build_buffer:
+    xor di, di
+    mov [builder_command_base], di
 %if M7_VARIANT >= 3
     cmp byte [build_command_index], 0
     jne .buffer_b
-    mov di, sgp_command_list_a
-    mov [builder_command_base], di
+    mov es, [list_segment_a]
     mov si, sgp_work_area_a
     mov [builder_work_area], si
     ret
 .buffer_b:
-    mov di, sgp_command_list_b
-    mov [builder_command_base], di
+    mov es, [list_segment_b]
     mov si, sgp_work_area_b
     mov [builder_work_area], si
     ret
 %else
-    mov di, sgp_command_list
-    mov [builder_command_base], di
+    mov es, [list_segment_a]
     mov si, sgp_work_area
     mov [builder_work_area], si
     ret
 %endif
+
+; M109: place the command lists (and the M7d templates) in the segments
+; after the program, CS + 1000h onwards, if DOS gave the program that much
+; memory (PSP:0002h, the paragraph past its block).
+initialize_far_segments:
+    mov ax, cs
+    add ax, 0x1000
+    mov [list_segment_a], ax
+%if M7_VARIANT >= 3
+    add ax, 0x1000
+    mov [list_segment_b], ax
+%endif
+%if M7_VARIANT >= 4
+    add ax, 0x1000
+    mov [template_segment], ax
+%endif
+    add ax, 0x1000
+    cmp [0x0002], ax
+    jb .failed
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+far_memory_failed:
+    mov dx, message_far_memory_failed
+    call print_string
+    mov ax, 0x4c03
+    int 0x21
 
 %if M7_VARIANT >= 4
 ; M7d startup pass: convert immutable main-RAM pointers once and build
@@ -1484,12 +1533,14 @@ initialize_m7d_tables:
     add bp, 2
     loop .glyph_source_loop
 
-    mov si, sgp_command_list_a
-    call physical_address_from_ds_si
+    mov ax, [list_segment_a]
+    xor si, si
+    call physical_address_from_ax_si
     mov [sgp_command_address_a_low], ax
     mov [sgp_command_address_a_high], dx
-    mov si, sgp_command_list_b
-    call physical_address_from_ds_si
+    mov ax, [list_segment_b]
+    xor si, si
+    call physical_address_from_ax_si
     mov [sgp_command_address_b_low], ax
     mov [sgp_command_address_b_high], dx
     mov si, sgp_work_area_a
@@ -1504,7 +1555,8 @@ initialize_m7d_tables:
     mov bx, sprite_records
     mov bp, m7_sprite_source_low
     mov si, m7_sprite_source_high
-    mov di, sprite_command_templates
+    mov es, [template_segment]
+    xor di, di
     mov cx, SPRITE_MAX_COUNT
 .template_loop:
     push cx
@@ -1546,6 +1598,8 @@ initialize_m7d_tables:
     add bp, 2
     add si, 2
     loop .template_loop
+    push ds
+    pop es
 
     pop bp
     pop di
@@ -1564,13 +1618,16 @@ emit_sprite_template_commands:
     push si
     push bp
     mov bx, sprite_records
-    mov si, sprite_command_templates
+    xor si, si
     mov cx, [active_sprite_count]
 .next_template:
     jcxz .done
     push cx
     mov cx, 16
+    push ds
+    mov ds, [template_segment]
     rep movsw
+    pop ds
     pop cx
 
     mov ax, [bx + SPRITE_X_OFFSET]
@@ -1754,8 +1811,9 @@ build_sgp_frame_commands:
     call m6_accumulate_frame_counters
 
 %if M7_VARIANT == 3
+    mov ax, es
     mov si, [builder_command_base]
-    call physical_address_from_ds_si
+    call physical_address_from_ax_si
     cmp byte [build_command_index], 0
     jne .store_command_address_b
     mov [sgp_command_address_a_low], ax
@@ -1766,8 +1824,9 @@ build_sgp_frame_commands:
     mov [sgp_command_address_b_high], dx
 .command_address_ready:
 %elif M7_VARIANT < 3
-    mov si, sgp_command_list
-    call physical_address_from_ds_si
+    mov ax, es
+    xor si, si
+    call physical_address_from_ax_si
     mov [sgp_command_address_low], ax
     mov [sgp_command_address_high], dx
 %endif
@@ -1807,20 +1866,18 @@ emit_fps_glyph_commands:
     stosw
     mov ax, FPS_GLYPH_PITCH
     stosw
-%if M7_VARIANT >= 4
-    mov ax, [m7_glyph_source_low + bp]
-    stosw
-    mov ax, [m7_glyph_source_high + bp]
-    stosw
-%else
+    ; M109: the glyph pointers change with the FPS and count digits, so
+    ; their addresses are converted every frame (M7d had kept the startup
+    ; ones, so its counters always showed zeros).
+    push cx
     push si
     mov si, [si]
     call physical_address_from_ds_si
     pop si
+    pop cx
     stosw
     mov ax, dx
     stosw
-%endif
 
     mov ax, SGP_COMMAND_SET_DEST
     stosw
@@ -1954,6 +2011,8 @@ wait_sgp_idle:
 
 physical_address_from_ds_si:
     mov ax, ds
+; AX = segment.
+physical_address_from_ax_si:
     xor dx, dx
     mov cx, 4
 
@@ -1989,7 +2048,51 @@ save_video_state:
     mov [saved_g1_bpp], al
     ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the video state is restored.
+line_doubling_on:
+    push ax
+    push dx
+    mov dx, 0x01cb
+    in al, dx
+    test al, 0x08
+    jz .done
+    mov dx, 0x0100
+    in ax, dx
+    test al, 0x02
+    jz .done
+    test al, 0xc0
+    jnz .done
+    or al, 0x40
+    out dx, ax
+    mov byte [cs:line_doubling_set], 1
+.done:
+    pop dx
+    pop ax
+    ret
+
+line_doubling_off:
+    cmp byte [cs:line_doubling_set], 0
+    je .done
+    push ax
+    push dx
+    mov dx, 0x0100
+    in ax, dx
+    and al, 0x3f
+    out dx, ax
+    mov byte [cs:line_doubling_set], 0
+    pop dx
+    pop ax
+.done:
+    ret
+
+line_doubling_set:
+    db 0
+
 restore_video_state:
+    call line_doubling_off
     push cs
     pop ds
 
@@ -2044,6 +2147,12 @@ saved_g0_bpp:
 saved_g1_bpp:
     db 0
 builder_command_base:
+    dw 0
+list_segment_a:
+    dw 0
+list_segment_b:
+    dw 0
+template_segment:
     dw 0
 builder_work_area:
     dw 0
@@ -2234,22 +2343,22 @@ message_start:
 %if M7_SCROLL
     db "SGPD_7S: M7 scrolling Graphic 0 background", 13, 10
     db "Three bands use 3/7/11 phases aligned to checker boundaries.", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 1
     db "SGPD_7A: M7a measurement-separated baseline", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 2
     db "SGPD_7B: M7b page-local dirty clear", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 3
     db "SGPD_7C: M7c CPU/SGP pipeline", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 4
     db "SGPD_7D: M7d invariant-hoisted renderer", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %else
     db "SGP final pseudo-sprite renderer", 13, 10
-    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+    db "UP/+ adds a sprite (max 1024), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %endif
 message_m6_summary:
     db 13, 10, "SGP counters (last frame and totals):", 13, 10, "$"
@@ -2287,6 +2396,8 @@ label_m7_full_clears:
 %endif
 message_done:
     db "Video state restored.", 13, 10, "$"
+message_far_memory_failed:
+    db "Not enough memory for the SGP command lists.", 13, 10, "$"
 message_failed:
     db "Video or SGP initialization failed.", 13, 10, "$"
 message_animation_failed:
@@ -2338,21 +2449,8 @@ m7_zero_address_low:
 m7_zero_address_high:
     dw 0
 
-align 2, db 0
-sprite_command_templates:
-    times SPRITE_MAX_COUNT * 16 dw 0
 %endif
 
-align 2, db 0
-%if M7_VARIANT >= 3
-sgp_command_list_a:
-    times SGP_COMMAND_WORD_COUNT dw 0
-sgp_command_list_b:
-    times SGP_COMMAND_WORD_COUNT dw 0
-%else
-sgp_command_list:
-    times SGP_COMMAND_WORD_COUNT dw 0
-%endif
 
 align 2, db 0
 sprite_records:
@@ -2380,7 +2478,7 @@ sprite_records:
 %endrep
 %assign EXTRA_SPRITE_INDEX BULLET_FIRST_INDEX + BULLET_COUNT
 %rep SPRITE_MAX_COUNT - (BULLET_FIRST_INDEX + BULLET_COUNT)
-    dw ((EXTRA_SPRITE_INDEX * 37) % (SCREEN_WIDTH - SPRITE_WIDTH)), ((EXTRA_SPRITE_INDEX * 53) % (SCREEN_HEIGHT - SPRITE_HEIGHT)), ((EXTRA_SPRITE_INDEX * 3) % 5) - 2, ((EXTRA_SPRITE_INDEX * 5) % 7) - 3, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_00 + ((EXTRA_SPRITE_INDEX % 16) * SPRITE_BITMAP_BYTES), EXTRA_SPRITE_INDEX
+    dw ((EXTRA_SPRITE_INDEX * 37 + (EXTRA_SPRITE_INDEX / 8) * 11) % (SCREEN_WIDTH - SPRITE_WIDTH)), ((EXTRA_SPRITE_INDEX * 53) % (SCREEN_HEIGHT - SPRITE_HEIGHT)), ((EXTRA_SPRITE_INDEX * 3) % 5) - 2, ((EXTRA_SPRITE_INDEX * 5) % 7) - 3, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_00 + ((EXTRA_SPRITE_INDEX % 16) * SPRITE_BITMAP_BYTES), EXTRA_SPRITE_INDEX
 %assign EXTRA_SPRITE_INDEX EXTRA_SPRITE_INDEX + 1
 %endrep
 

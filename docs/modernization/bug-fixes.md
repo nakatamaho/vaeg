@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M109 — the digital RGB monitor showed the NEC logo red
+
+- **Symptom/scope:** with Emulate > モニタ > デジタル RGB (8色), the VA demo's
+  NEC logo was red and the background showed many cyan and blue dots; on a
+  PC-88VA2 with a digital RGB monitor the logo is yellow with a red edge and
+  the background white. Display only; every program shown with the option.
+- **Demonstrated cause:** the option turned a colour component on from a
+  quarter of full scale (M103i `[POLICY]`). The logo's colour is R 31, G 7 of
+  63; G 7 stayed off. The photograph needs G 7/63, R 5/31 and the rock's
+  dark grey (5, 11, 5) on.
+- **Correction:** a component is on above 1/31 of full scale
+  ([digital8colormode.md](digital8colormode.md)). A first correction,
+  "nonzero is on", showed a hidden R 1/31 screen of the demo in bright red;
+  the PC-88VA2 shows it black.
+- **Verification:** selftest `test_monitor_output_levels` (fails on the old
+  rule); the VA demo in vaeg with the option shows NEC and VA yellow, the
+  NEC edge red, the background white and the hidden screen black, as in the
+  [photographs](m109-photos/va2-digital8-va-demo.jpg)
+  ([hidden screen](m109-photos/va2-digital8-hidden-screen.jpg)).
+- **Milestone/task/commit:** M109;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/80a6223a9b2e23c0298e104ffb1333603eda73b7).
+
 ### M107b — avoid retaining a demo-sized ADPCM wrap limit
 
 - **Symptom/scope:** the unmerged OPNA prototype set a 4KiB ADPCM address

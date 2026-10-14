@@ -61,7 +61,7 @@ typedef enum {
     KBDROLE_M, KBDROLE_N, KBDROLE_O, KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S,
     KBDROLE_T, KBDROLE_U, KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y,
     KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3, KBDROLE_4, KBDROLE_5, KBDROLE_6,
-    KBDROLE_7, KBDROLE_8, KBDROLE_9
+    KBDROLE_7, KBDROLE_8, KBDROLE_9, KBDROLE_CAPS, KBDROLE_KANA
 } KBDMAP_ROLE;
 static int events[256], count, mapping_missing, paste_busy, pasted;
 static char text[64];
@@ -126,13 +126,14 @@ int main(int argc, char **argv) {
         }
         frame(&s,1830); assert(s.completed && pasted==0);
     } else if (!strcmp(argv[1],"roles")) {
-        static const char *names[]={"up","down","left","right","home","help","insert","delete"};
+        static const char *names[]={"up","down","left","right","home","help","insert","delete",
+            "caps","kana"};
         static const int roles[]={KBDROLE_UP,KBDROLE_DOWN,KBDROLE_LEFT,KBDROLE_RIGHT,
-            KBDROLE_HOME,KBDROLE_HELP,KBDROLE_INS,KBDROLE_DEL};
+            KBDROLE_HOME,KBDROLE_HELP,KBDROLE_INS,KBDROLE_DEL,KBDROLE_CAPS,KBDROLE_KANA};
         int i;
-        for (i=0;i<8;i++) { char line[24]; snprintf(line,sizeof(line),"@key %s",names[i]); add(&s,line); }
+        for (i=0;i<10;i++) { char line[24]; snprintf(line,sizeof(line),"@key %s",names[i]); add(&s,line); }
         headless_input_script_initialize(&s);
-        for (i=0;i<8;i++) {
+        for (i=0;i<10;i++) {
             UINT start=600+(UINT)i*123;
             frame(&s,start); assert(count==i*2+1 && events[count-1]==roles[i]);
             frame(&s,start+3); assert(count==i*2+2 && events[count-1]==-roles[i]);
