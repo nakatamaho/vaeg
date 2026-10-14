@@ -126,8 +126,7 @@ start:		mov	si,0081h
 		mov	[es:TABLE+0ah],ax
 		call	label
 		call	settle		; drop key repeats, then wait
-		mov	ah,00h
-		int	82h
+		call	getkey
 		cmp	al,1bh
 		je	.done
 		inc	byte [mode]
@@ -171,6 +170,20 @@ start:		mov	si,0081h
 
 ; wait about 20 frames (VRTC rising edges, port 40h bit 5), then clear
 ; the keyboard queue so a held key steps only once
+; M109: wait for a key with the keyboard BIOS's primitive functions 0Ah
+; (sense) and 09h (read); functions 00h/01h wait on the Japanese front end,
+; which only an OS installs, so they hang on a self-booting disk and under
+; MS-DOS. AH = scan code, AL = internal code; ESC (scan 00h) gives AL = 1Bh.
+getkey:		mov	ah,0ah
+		int	82h
+		jc	getkey
+		mov	ah,09h
+		int	82h
+		or	ah,ah
+		jnz	.r
+		mov	al,1bh
+.r:		ret
+
 settle:		mov	cx,20
 .f:		mov	dx,0040h
 .lo:		in	al,dx
