@@ -70,6 +70,17 @@ below was agreed item by item in the same session.
 - [POLICY] Screen rotation is planned (maintainer). Its greyed placeholder
   goes now; when implemented it appears in 画面 as 画面の回転 ▶ (0°, 90°
   left, 90° right, 180°).
+- [POLICY] Saved states, screenshots and (future) recordings go into
+  `states/`, `screenshots/` and `recordings/` in the directory holding
+  `vaeg.exe` (the executable's directory from `SDL_GetBasePath`, not the
+  current directory), next to the ROMs and `vaeg-cache/`; if that directory
+  is not writable, the user directory (where `vaeg.cfg` lives) is used and
+  the menu says so. The existing `np2sdl.S00`-`S09` slots are moved into
+  `states/` at first start. Under discussion: per-software subdirectories
+  (named from the FDD1 image, else SASI-1, else the tape, else a common
+  one), a thumbnail PNG per slot, a slot overview window, and whether
+  screenshots are also split per software. Headless `--screenshot` keeps
+  its explicit paths.
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
   headless tests keep working.
