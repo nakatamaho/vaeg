@@ -2778,6 +2778,32 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
+
+- **Symptom/scope:** on the maintainer's PC-88VA2 with the MS-DOS 4.0
+  all-demos disk (2026-10-14), NEON3 and NEON4 draw, but text stays visible
+  on the right while they run, and after they exit the console scrolls
+  only one line. Under PC-Engine 1.1 they are correct. In vaeg (VA2, same
+  disk) NEON3 leaves its status text after ESC but scrolling stays normal,
+  so the one-line scroll is not reproduced.
+- **Cause:** not established. Hypothesis, untested: NEON hides the system
+  line with the Screen Editor `INT 94h` (`AH=01h`) and restores it on exit,
+  calls made for PC-Engine that MS-DOS 4.0 may implement differently.
+- **Next step:** deferred to a later milestone (maintainer decision): trace
+  NEON's text-console calls under MS-DOS 4.0 and compare the text BIOS
+  scroll-region state before and after.
+
+### M106 — VA3DDEMO draws nothing in vaeg
+
+- **Symptom/scope:** the Softlib `VA3DDEMO` source, assembled with JWasm
+  2.20 (`-mz`, one duplicated `stack` word removed from the segment
+  declaration; 3700-byte EXE, reproducible), runs in vaeg (VA2) but draws
+  nothing. Not installed on the utility media.
+- **Cause:** not established. The program declares `.186` and contains no
+  `0F 8x` near jump.
+- **Next step:** compare its graphics setup with the documented BIOS and
+  SGP calls; check on hardware if possible.
+
 ### M106 — GLASS, NEON3 and NEON4 do not run on the original VA model
 
 - **Symptom/scope:** in vaeg with the original VA ROM (`--model va`), the
