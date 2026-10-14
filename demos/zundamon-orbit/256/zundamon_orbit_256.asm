@@ -141,12 +141,12 @@ org 0x100
 ; update also erases stale sign/decimal characters.
 %define HUD_STATUS_SPEED_X      4
 %define HUD_STATUS_DISTANCE_X   64
-%define HUD_STATUS_LOOK_X       106
-%define HUD_STATUS_RADIUS_X     154
+%define HUD_STATUS_LOOK_X       112   ; M109: DIST field now 8 cells
+%define HUD_STATUS_RADIUS_X     160
 %define HUD_STATUS_Y            24
 %define HUD_STATUS_SECOND_Y     24
 %define STATUS_SPEED_WIDTH      60
-%define STATUS_DISTANCE_WIDTH   42
+%define STATUS_DISTANCE_WIDTH   48
 %define STATUS_LOOK_WIDTH       42
 %define STATUS_RADIUS_WIDTH     54
 %define STATUS_FIELD_HEIGHT     8
@@ -248,6 +248,13 @@ org 0x100
 
 %define BMS_WINDOW_SEGMENT      0x8000
 %define BMS_WINDOW_SGP_BASE     0x080000
+; M109: the atlas lives in conventional RAM at 4000:0000-5FFF:000F (128 KiB
+; above the relocated program), so no I/O bank memory board is needed and a
+; machine with 512 KiB of main RAM runs the demo. SGP reads main RAM at the
+; same physical address.
+%define ATLAS_SEGMENT           0x4000
+%define ATLAS_SGP_BASE          0x040000
+%define ATLAS_END_SEGMENT       0x6000
 %define BMS_BANK_SIZE_LOW       0x0000
 %define BMS_BANK_SIZE_HIGH      0x0002
 %define BMS_FIRST_SELECTOR      1
@@ -466,7 +473,7 @@ relocated_start:
     mov dx, message_start
     call print_string
 
-    call probe_bms_mapping
+    call check_atlas_memory
     long_jc bms_probe_failed
     mov byte [probe_result], 0
     mov bx, PORT_BMS_SELECTOR
@@ -1038,6 +1045,11 @@ compare_es_bytes:
     ret
 
 verify_normal_guards:
+    cmp byte [ordinary_guards_active], 0
+    jne .installed
+    clc
+    ret
+.installed:
     mov ax, NORMAL_OUTSIDE_SEGMENT
     mov es, ax
     mov di, NORMAL_OUTSIDE_OFFSET
@@ -1134,10 +1146,22 @@ restore_one_probe_bank:
     call write_es_bytes
     ret
 
+; M109: the atlas is in conventional RAM; there is no bank to select.
 select_ordinary_mapping:
-    mov dx, PORT_BMS_SELECTOR
-    xor al, al
-    out dx, al
+    ret
+
+; Fail unless DOS gave the program memory up to ATLAS_END_SEGMENT (PSP:0002h
+; holds the paragraph past its block).
+check_atlas_memory:
+    push es
+    mov es, [psp_segment]
+    cmp word [es:0x0002], ATLAS_END_SEGMENT
+    pop es
+    jb .failed
+    clc
+    ret
+.failed:
+    stc
     ret
 
 ; G98l-B: load the 1024-byte header/descriptor region conventionally, then
@@ -1214,9 +1238,6 @@ load_atlas_to_bms:
     mov bp, payload_crc_state
     call crc32_update_es
 
-    mov dx, PORT_BMS_SELECTOR
-    mov al, BMS_FIRST_SELECTOR
-    out dx, al
     mov ax, [atlas_loaded]
     mov dx, [atlas_loaded + 2]
     call bms_segment_from_offset
@@ -1567,7 +1588,7 @@ select_scale_descriptor:
     ja .failed
     mov ax, [selected_bank_offset]
     mov dx, [selected_bank_offset + 2]
-    add dx, BMS_WINDOW_SGP_BASE >> 16
+    add dx, ATLAS_SGP_BASE >> 16
     mov [selected_source_low], ax
     mov [selected_source_high], dx
     clc
@@ -2210,9 +2231,6 @@ verify_bms_frame_crc:
     ret
 
 crc32_bms_range:
-    mov dx, PORT_BMS_SELECTOR
-    mov al, BMS_FIRST_SELECTOR
-    out dx, al
 .next:
     mov ax, [crc_range_remaining]
     or ax, [crc_range_remaining + 2]
@@ -2240,8 +2258,8 @@ crc32_bms_range:
 .done:
     ret
 
-; AX:DX is a byte offset within one 128-KiB bank.  Return ES:DI inside the
-; CPU-visible 80000h-9ffffh aperture.
+; AX:DX is a byte offset within the 128-KiB atlas.  Return ES:DI inside the
+; conventional-RAM atlas area at ATLAS_SEGMENT.
 bms_segment_from_offset:
     mov di, ax
     and di, 0x000f
@@ -2254,7 +2272,7 @@ bms_segment_from_offset:
     shl dx, 1
     loop .shift_high
     add ax, dx
-    add ax, BMS_WINDOW_SEGMENT
+    add ax, ATLAS_SEGMENT
     mov es, ax
     ret
 
@@ -2328,7 +2346,7 @@ initialize_video_double_buffer:
     jc .failed
     mov ax, [selected_bank_offset]
     mov dx, [selected_bank_offset + 2]
-    add dx, BMS_WINDOW_SGP_BASE >> 16
+    add dx, ATLAS_SGP_BASE >> 16
     mov [selected_source_low], ax
     mov [selected_source_high], dx
     call verify_staging_poison
@@ -2428,6 +2446,7 @@ initialize_video_double_buffer:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
+    call line_doubling_on
     clc
     ret
 .failed:
@@ -4177,14 +4196,6 @@ record_multi_frame_publication:
 
 select_render_bms:
     inc word [bms_bank_selections]
-    mov dx, PORT_BMS_SELECTOR
-    in al, dx
-    cmp al, BMS_FIRST_SELECTOR
-    je .done
-    mov al, BMS_FIRST_SELECTOR
-    out dx, al
-    inc word [bms_bank_switches]
-.done:
     ret
 
 record_orbit_publication:
@@ -5404,14 +5415,6 @@ qa_before_scheduler_actions:
     ret
 
 select_render_ordinary:
-    mov dx, PORT_BMS_SELECTOR
-    in al, dx
-    test al, al
-    jz .done
-    xor al, al
-    out dx, al
-    inc word [bms_bank_switches]
-.done:
     ret
 
 run_sgp_command_list:
@@ -5558,7 +5561,51 @@ save_video_state:
     mov [saved_g1_bpp], al
     ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the video state is restored.
+line_doubling_on:
+    push ax
+    push dx
+    mov dx, 0x01cb
+    in al, dx
+    test al, 0x08
+    jz .done
+    mov dx, 0x0100
+    in ax, dx
+    test al, 0x02
+    jz .done
+    test al, 0xc0
+    jnz .done
+    or al, 0x40
+    out dx, ax
+    mov byte [cs:line_doubling_set], 1
+.done:
+    pop dx
+    pop ax
+    ret
+
+line_doubling_off:
+    cmp byte [cs:line_doubling_set], 0
+    je .done
+    push ax
+    push dx
+    mov dx, 0x0100
+    in ax, dx
+    and al, 0x3f
+    out dx, ax
+    mov byte [cs:line_doubling_set], 0
+    pop dx
+    pop ax
+.done:
+    ret
+
+line_doubling_set:
+    db 0
+
 restore_video_state:
+    call line_doubling_off
     push cs
     pop ds
     mov dx, PORT_MEMORY_MAP
@@ -5609,10 +5656,10 @@ print_string:
 message_start:
 %if M98Y_PRIVATE_PROFILE
     db "M98Y_INIT: private IDA billboard profile", 13, 10
-    db "Selector 0 is ordinary RAM; selector 1 is the validated atlas bank.", 13, 10, "$"
+    db "The atlas is in conventional RAM at 40000h.", 13, 10, "$"
 %else
     db "M98V_INIT: full-page multi-ZUNDAMON frame baseline", 13, 10
-    db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
+    db "The atlas is in conventional RAM at 40000h.", 13, 10, "$"
 %endif
 message_done:
 %if M98Y_PRIVATE_PROFILE
@@ -5623,7 +5670,7 @@ message_done:
 message_option_failed:
     db "M98V_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
 message_bms_failed:
-    db "M98V_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M109_FAIL: needs conventional RAM up to 60000h for the atlas.", 13, 10, "$"
 message_atlas_failed:
     db "M98V_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_descriptor_failed:

@@ -31,12 +31,13 @@ The source material permits redistribution, commercial use, and modification;
 credit and Niconico content-tree registration are optional. The PSD itself is
 omitted because of its size.
 
-Runtime requirement: an I/O bank memory board at port `1D0h` with 128 banks
-of 128 KiB (16 MiB), which vaeg provides by default (`Use_BMS_`). Without
-it the program reports `M98V_FAIL: predecessor BMS mapping probe failed.`
-and exits; under PC-Engine, which shows nothing for `INT 21h` function
-`09h`, it simply returns to `Ready`. A PC-88VA2 without such a board
-behaves this way (maintainer, 2026-10-14).
+Runtime requirement (M109): 512 KiB of main RAM. The atlas is loaded into
+conventional RAM at `40000h`-`5FFFFh` and SGP reads it there, so no I/O bank
+memory board is needed (earlier builds required a 16 MiB board at port
+`1D0h`, which the maintainer's PC-88VA2 lacks). If DOS did not give the
+program memory up to `60000h` it reports `M109_FAIL: needs conventional RAM
+up to 60000h for the atlas.` and exits. On a 24.8 kHz display the 200-line
+picture is shown with each line doubled (port `100h` RSM = 01).
 
 ## Build
 
