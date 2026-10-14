@@ -1238,7 +1238,7 @@ path, either through a restored host-drive bridge or through explicit HDD
 image management tools. The PCEPAT/MSE setup complements that work but
 does not replace it.
 
-The SDL2 GUI parity list currently keeps HardDisk open/remove support as a
+The SDL2 GUI parity list currently keeps HDD open/remove support as a
 later item. When that lands, this document is the expected software
 environment to test against.
 

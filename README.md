@@ -450,10 +450,10 @@ standard execution setting; x1-x32 changes V30 capacity while machine time,
 sound, display, FDD, and RTC timing stay at standard speed. `sgp_mode` selects
 Model default (0), Follow CPU (1), or Custom (2), with `sgp_mult=1..16` for
 Custom. The GUI exposes
-`Emulate -> Boot model -> VA / VA2/VA3`; changing the model selects its
+`模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA`; changing the model selects its
 default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
 filename set, and resets the guest while retaining configured FDD and
-SASI media. `Sound -> FM sound OPN/OPNA` can add Sound Board II to a VA.
+SASI media. `音 -> FM 音源ボード` can add Sound Board II to a VA.
 
 ## Quick Build
 

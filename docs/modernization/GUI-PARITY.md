@@ -24,6 +24,13 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # GUI Parity Inventory
 
+> M110 reorganized the SDL2 menu bar: 模擬 (formerly Emulate, with 起動,
+> 実行速度, CPU クロック, 機種の構成 and 詳細設定…), FDD, HDD (formerly
+> HardDisk), Tape, 編集, 画面 (with モニタ), Key and 音 (formerly Device),
+> 状態 and 情報; the Pause button became an F12 assignment. The table below
+> keeps the win9x menu names it compares against; see
+> [`sdl2/README.md`](../../sdl2/README.md) for the current SDL2 menus.
+
 M10 scope note: the gate items are implemented in the SDL2 ImGui frontend.
 Unimplemented Win32 features remain visible as disabled stubs with
 `(not implemented)`.

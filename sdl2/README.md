@@ -126,15 +126,16 @@ Tape > Fast load (`CMT_Fast`, off by default) delivers the bytes 16 times
 faster than the baud rate and skips the leader; off, a tape loads at its
 real speed.
 
-Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
+画面 > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
 takes effect at the reset it triggers.
 
-V1/V2 mode: Emulate > Z80 mode selects V2 H, V2 S, V1 H or V1 S (the VA's
+V1/V2 mode: 模擬 > 起動 > PC-88VA2/VA3 or PC-88VA selects V2 H, V2 S, V1 H
+or V1 S (the VA's
 memory switch for V1/V2; standard speed S is a vaeg extension) and resets.
 An optional 32 KiB PC-8001/8801 N-BASIC ROM in the ROM directory, which the
 VA itself does not carry, named `n80.1.8.rom` or `n80.1.2.rom` (known dumps,
-identified by SHA-1) or `n80.rom` (any content), enables N (PC-8001) entries, which starts in N-BASIC without a disk, and lets V1 S N-88
+identified by SHA-1) or `n80.rom` (any content), enables N entries there, which start in N-BASIC without a disk, and lets V1 S N-88
 BASIC enter N-BASIC with `NEW ON 1`. N-BASIC boots a disk left in drive 1.
 See `docs/modernization/v1v2-n-basic-mode.md`.
 
@@ -273,7 +274,7 @@ integration check copied byte-identical data from beyond 60 MiB. PC-88VA
 16 KiB FAT12 clusters; 32 KiB clusters are not accepted by this CONFIG.SYS
 driver path.
 
-HOSTFAT can also be enabled persistently under Emulate -> Configure. Selecting
+HOSTFAT can also be enabled persistently under 模擬 -> 詳細設定…. Selecting
 a folder and pressing OK builds the replacement snapshot on a worker thread,
 leaves the current mounted image unchanged during the build, then atomically
 commits it and resets the guest. Disable HOSTFAT to unmount and reset. Host
@@ -310,7 +311,7 @@ starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
 restored with persistent managed mounts after an application restart.
 
-New FDD image creates formatted MS-DOS 2HD and 2DD (640 KB) images, and
+FDD -> 新しい FDD イメージ creates formatted MS-DOS 2HD and 2DD (640 KB) images, and
 unformatted D88 images (all sectors present, filled with E5h) of 2DD
 720 KB, 2D 320 KB (N88-BASIC layout) and 2D 360 KB.
 
@@ -374,11 +375,11 @@ HDD1FILE=/path/to/disk.hdi
 HDD2FILE=
 ```
 
-The SDL2 GUI also exposes HardDisk -> New SASI image plus SASI-1/SASI-2
+The SDL2 GUI also exposes HDD -> 新しい SASI イメージ… plus SASI-1/SASI-2
 Open and Remove, and SCSI ID 0 through SCSI ID 6 Open and Remove. New SASI
 image creates HDI images using the existing 5/10/15/20/30/40 MB SASI
 geometry table and refuses to overwrite an existing file. Its default name is
-`new-sasi-hdd.hdd`. HardDisk -> New SCSI image creates VHD-format images in
+`new-sasi-hdd.hdd`. HDD -> 新しい SCSI イメージ… creates VHD-format images in
 5/10/20/40/80/160 MB sizes and can assign the new image to SCSI ID 0 through
 SCSI ID 6. The default names are `new-scsi-hdd_id0.hdi` through
 `new-scsi-hdd_id6.hdi`; both `.hdi` and `.hdd` names are accepted for the
@@ -607,7 +608,7 @@ old `biospath` INI key is ignored by SDL2 and is no longer written.
 `np2cfg.biospath` remains the shared core loader path but is derived at
 runtime.
 
-Use `Emulate -> Boot model -> VA` for `pc_model=88VA1` and unsuffixed files.
+Use `模擬 -> 起動 -> PC-88VA` for `pc_model=88VA1` and unsuffixed files.
 Use `VA2/VA3` for `pc_model=88VA2` with the optional 8087 disabled, or
 `VA2/VA3 + 8087` for the same ROM set with the single optional 8087 enabled.
 Changing the selection performs the existing reset flow and retains configured
@@ -631,7 +632,7 @@ Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
 disable both backup-memory reads and writes. These two options are mutually
 exclusive. No implicit migration or fallback reads old user-state copies.
 
-`Boot_FixedDisk=true` (the default; Menu -> デバイス -> ハードディスクから起動)
+`Boot_FixedDisk=true` (the default; 模擬 -> 機種の構成 -> HDD から起動)
 makes the BIOS setup's 起動ディスク follow the attached media, so a SASI or SCSI
 hard disk boots without opening the setup menu with the PC key. At
 startup/reset vaeg sets bit 7 of B1FC4h (固定ディスク) when a hard disk is
@@ -645,7 +646,7 @@ the BIOS setup's choice while a hard disk is attached; without one the bit
 is cleared in either case.
 
 For VA/VA2 models, `Main_RAM` is the installed conventional-RAM capacity.
-Menu -> デバイス -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
+模擬 -> 機種の構成 -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
 whether to synchronize the BIOS backup-memory capacity at startup/reset:
 
 ```ini
@@ -689,10 +690,11 @@ mode and feeds movement plus active-low left/right buttons through the
 existing guest mouse interface. It does not write guest coordinates or BIOS
 state directly.
 
-Select `VA controller port -> Mouse` for VA mouse software; `Joystick` keeps
-the original controller-pad path. `Capture mouse` traps the host pointer only
+Select `Key -> コントローラポート -> マウス` for VA mouse software;
+`ジョイスティック` keeps the original controller-pad path. `Key -> マウスを捕捉`
+traps the host pointer only
 while the vaeg window has focus and Dear ImGui is not using the mouse. F12
-toggles capture when `Keyboard -> F12 binding -> Mouse` is selected. The same
+toggles capture when `Key -> F12 の割り当て -> マウス` is selected. The same
 menu can route F12 to the guest PC key. Middle
 click also toggles capture outside the GUI. Focus loss, reset, state load, and
 shutdown release both guest buttons and pending movement.
@@ -710,14 +712,14 @@ configuration files without these keys remain uncaptured in joystick mode.
 
 ## Clipboard Copy and Paste
 
-`Edit -> Copy screen text` copies the visible logical TVRAM text to the host
+`編集 -> 画面の文字をコピー` copies the visible logical TVRAM text to the host
 clipboard. Cmd+C is supported on macOS; Ctrl+Shift+C is supported on
 Linux/Windows. HCCODE ASCII, half-width kana, and JIS kanji are converted to
 UTF-8, with trailing line spaces removed.
 Copy uses the rendered 80-/40-column viewport rather than the frame's two
 horizontal guard cells, and collapses paired left/right HCCODE kanji cells.
 
-`Edit -> Paste` sends host clipboard text to the guest as paced keyboard
+`編集 -> 貼り付け` sends host clipboard text to the guest as paced keyboard
 make/break input. The shortcut is Command+V on macOS and Control+V on
 Linux/Windows. Printable ASCII and CR/LF line breaks are supported; CRLF is
 one Return. Each make or break transition is separated by 20 ms. Unsupported
@@ -726,20 +728,20 @@ the Edit menu.
 
 The queue finishes an in-flight key release, then pauses while Dear ImGui
 captures keyboard/text input or a modal is open. Reset, state load, focus
-loss, quit, and explicit Cancel Paste stop the queue and release synthetic
+loss, quit, and 貼り付けの取り消し stop the queue and release synthetic
 keys. Paste does not access guest memory or text buffers. Japanese/IME paste
-and guest-to-host copy is provided by Copy screen text.
+and guest-to-host copy is provided by 画面の文字をコピー.
 
 ## Display
 
 The SDL2 window is resizable and keeps the guest framebuffer fixed at
-640x400 RGB565. Screen -> Scaling selects Native, Fit, Fit 8-dot, Integer, or
-Stretch. Aspect correction is independent of scaling. Native/x2/x3 remain
-window-size presets, and Custom accepts a logical width and height. High-DPI
+640x400 RGB565. 画面 -> 拡大方法 selects 等倍, 合わせる, 合わせる (8 ドット単位), 整数倍, or
+引き伸ばし. 縦横比の補正 is independent of scaling. ウィンドウサイズ 等倍/2倍/3倍/4倍
+are presets, and 任意… accepts a logical width and height. High-DPI
 drawable dimensions are calculated separately and are never saved as logical
 window size.
 
-Screen -> Effect selects Unfiltered, Linear, Scanline, or CRT Lite. Scanline
+画面 -> エフェクト selects 加工なし, 線形補間, 走査線, or CRT 簡易. Scanline
 and CRT Lite are procedural SDL_Renderer overlays aligned to the 400-line
 guest raster. CRT Lite adds a restrained RGB pattern and edge darkening. No
 MAME renderer code, shader, LUT, mask texture, or artwork is used.
@@ -752,17 +754,17 @@ hexadecimal `fscrnmod` fields, but detailed monitor/mode selection and
 Borderless desktop are not exposed in the current GUI.
 
 `画面 -> スクリーンショットを保存` writes the most recent 640x400 guest frame as a
-PNG directly in the current working directory; it never contains the host GUI
+PNG into `screenshots/` next to the executable; it never contains the host GUI
 menu or overlays. Names include the local time, the SDL tick count, and a
 collision suffix, so existing captures are never overwritten. `PrintScreen`
 invokes the same host action and is no longer sent to the guest COPY key.
-`デバイス -> キーボード -> F12 binding` can also assign the same action to F12;
+`Key -> F12 の割り当て` can also assign the same action to F12;
 existing F12 selections remain unchanged.
 
 ## Execution Speed And Pacing
 
-`Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and
-sets independent execution capacity for the V30 and SGP. CPU x2 is the
+The VA base clock stays at 3.9936 MHz; `模擬 -> CPU クロック` (M110) sets
+the V30's execution capacity at once, and `模擬 -> 詳細設定…` the SGP's. CPU x2 is the
 standard 7.9872 MHz setting for VA, VA2, and VA3. CPU x1-x32 changes only the
 amount of V30 work available per unit of machine time. Unlike the CPU, the
 SGP model-default clock differs by model.
@@ -776,8 +778,9 @@ SGP speed has three modes:
 
 These nominal clocks correspond to the 4 MHz and 8 MHz model clocks recorded
 in [Inside PC-88VA Wiki section 4.4.6](http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF).
-The GUI displays both the relative scale and effective clock. CPU and SGP
-changes reset the guest through the media-preserving reset path. The settings
+The GUI displays both the relative scale and effective clock. SGP changes
+reset the guest through the media-preserving reset path; CPU-clock
+choices apply without a reset. The settings
 are stored as:
 
 ```ini
@@ -788,16 +791,16 @@ sgp_mult=1
 ```
 
 CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
-FDD timing, RTC, or normal one-to-one host pacing. The `Emulate` menu's speed
+FDD timing, RTC, or normal one-to-one host pacing. The `模擬` menu's 実行速度
 slider paces guest frames at 10-400 % of real time in 10 % steps
 (`s_speed`); its right end is No Wait (`s_NOWAIT`), which removes host
 waiting. Sound follows the guest, so it breaks up below 100 % and above
 it (the BEEP worst, as it is built from CPU-timed on/off events). To slow
-only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
+only the program, use `CPU クロック` below it (its 任意 speed is `CPU_Speed`, 10-100 %
 in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
-V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
+V3 (on top of the multiplier) and in the V1/V2 compatible mode,
 while frames, timers, FM, BEEP and disk timing keep real time.
-`Screen -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
+`画面 -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
 off) shows a slim bar of lamps below the screen in a window (14 rows per 640
 dots): FD1 and FD2 light for 120 ms after each sector access, red for
 2D/2DD media and green for 2HD, V1/V2/V3 follow port 1CDh bits 4-6, and
@@ -809,17 +812,19 @@ adds or removes them from the current window, and the saved window size
 excludes them. It is not shown in full screen or under a headless video
 driver; with the native CRT presenter it
 is drawn through the GUI overlay.
-`Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
+`画面 -> フレームスキップ` selects 自動, 全フレーム, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
 draw skip 16; releasing it, losing focus, resetting, loading a state, or
 quitting clears the temporary mode. The active host action is not sent to the
 guest, and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
-The Keyboard -> F12 binding menu can select `Full speed (No Wait)` as an
+Key -> F12 の割り当て can select `最大速度` (No Wait) as an
 alternative hold-to-fast-forward shortcut; in that mode F12 uses the same
-temporary path and is not sent to the guest.
+temporary path and is not sent to the guest. It can also select `一時停止`
+(M110, `F12_bind=8`), which pauses and resumes; the menu bar has no Pause
+button, and a paused machine shows 一時停止中 with a 再開 button.
 
-`Info -> Show FPS`, `Show CPU clock`, `Show SGP clock`, and `Show frame`
+`情報 -> FPS を表示`, `CPU クロックを表示`, `SGP クロックを表示`, and `フレームを表示`
 independently control the corresponding suffixes in the native window title.
 For a new configuration, CPU and SGP clock display are enabled while FPS and
 frame display are off; saved `DspClock` flags are preserved. The measured clocks
@@ -827,16 +832,16 @@ are the configured effective clocks scaled by guest frames completed per host
 second relative to the nominal 60Hz guest frame rate, so No Wait and F11 show
 the actual extra throughput. The measurement uses guest frames rather than
 rendered frames and is refreshed approximately once per second; it does not
-change frame skip or guest timing. `Info -> Show text`, `Show sprite`, `Show
-graphics 0`, and `Show graphics 1` independently enable the four VA composition
+change frame skip or guest timing. `情報 -> テキストを表示`, `スプライトを表示`,
+`グラフィック 0 を表示`, and `グラフィック 1 を表示` independently enable the four VA composition
 layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
 switches are frontend display filters and do not modify guest VRAM or video
-registers. `Info -> Show video info overlay` reports the logical graphics
-state (`ON`/`OFF`, logical size, and bpp). `Info -> Show FB info overlay`
+registers. `情報 -> ビデオ情報を表示` reports the logical graphics
+state (`ON`/`OFF`, logical size, and bpp). `情報 -> FB 情報を表示`
 lists all four VA framebuffer descriptors vertically (`FB0` through `FB3`).
 Each active descriptor is split into `source` (virtual source geometry), `view`
 (visible sub-screen geometry), and `DSA` (display source address); unavailable
-descriptors are shown as `OFF`. `Info -> About` opens the version and runtime
+descriptors are shown as `OFF`. `情報 -> About` opens the version and runtime
 information dialog.
 
 ## OPN/OPNA FM Backend
@@ -861,9 +866,9 @@ This backend choice is independent of emulated sound hardware. The Sound
 menu also exposes `FM sound OPN/OPNA`: VA defaults to its built-in YM2203/OPN
 (`SNDboard=100`) and can select Sound Board II YM2608/OPNA
 (`SNDboard=200`). VA2/VA3 defaults to YM2608/OPNA; its OPN-only choice is
-disabled. Hardware changes reset the guest and preserve mounted media.
+not shown. Hardware changes reset the guest and preserve mounted media.
 
-`Sound on/off` pauses or resumes host audio output without removing the
+`音 -> ミュート` pauses or resumes host audio output without removing the
 selected guest OPN/OPNA hardware. The choice is stored separately as
 `sound_enabled`; `SNDboard` always remains a valid hardware value so FM timer
 polling software continues to run while output is muted.
@@ -910,13 +915,14 @@ user-state sidecar `keyboard.map`.
 points to that
 sidecar.
 
-Device / Keyboard in the ImGui menu exposes:
+The Key menu exposes:
 
-- Host layout: JIS physical, US keytop, Custom
-- Kana input: JIS Kana, Roman Kana
-- Tenkey overlay: maps the cursor keys up/left/right/down to guest keypad
-  8/4/6/2
-- Full key binding table with capture-next-key
+- カーソル割り当て: 通常, テンキー 8/4/6/2 (the tenkey overlay), ジョイスティック
+  or マウス (`cursor_keys`, M110)
+- ホストの配列: JIS, US, カスタム
+- かな入力: JIS かな, ローマ字かな
+- F12 の割り当て
+- キーの割り当て…: the full key binding table with capture-next-key
 
 JIS physical maps host scancode position to PC-88VA physical key
 position. US keytop maps printable US punctuation keytops/chords to
