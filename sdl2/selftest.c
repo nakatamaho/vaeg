@@ -6977,6 +6977,23 @@ int vaeg_selftest_run(void) {
 	if (test_app_directory() != SUCCESS) {
 		return (FAILURE);
 	}
+	{
+		/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
+		const int saved = soundmng_mastervolume();
+		soundmng_setmastervolume(0);
+		const int v0 = soundmng_mastervolume();
+		soundmng_setmastervolume(50);
+		const int v50 = soundmng_mastervolume();
+		soundmng_setmastervolume(100);
+		const int v100 = soundmng_mastervolume();
+		soundmng_setmastervolume(250);
+		const int v250 = soundmng_mastervolume();
+		soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
+		if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
+			return (fail("master volume", "percent to mixing volume"));
+		}
+		fprintf(stderr, "selftest: master volume ok\n");
+	}
 	if (test_scanline_fill() != SUCCESS) {
 		return (FAILURE);
 	}

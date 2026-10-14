@@ -83,6 +83,11 @@ the CRT-effect shader cache into `vaeg-cache/`, whatever the current
 directory. If that directory cannot be written, the user directory (where
 `vaeg.cfg` is) is used instead.
 
+音 > 全体の音量 (`master_volume`, 0-100 %, default 100) scales the final
+mix, every source included; ミュート silences the output (as `--mute`).
+個別の音量 sets the balance: 音源 (FM, SSG, ADPCM and rhythm together, as their
+ratio is fixed on hardware), BEEP, テープ and シーク音.
+
 状態 keeps ten slots per software in `states/<name>-<hash>/slotN.sav`, each
 with a `slotN.png` thumbnail of the guest screen. The software is the medium
 booted at the last reset: the FDD1 image, else SASI-1, else the tape, else
@@ -98,7 +103,7 @@ loads a raw `.cmt` or `.t88` tape image, or the first such image inside a
 ZIP, 7z or LZH archive (with LibArchive), or records to a raw image;
 `LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
 `--tape-save` do the same from the command line. Loading and saving play
-the tape's FSK sound; Sound > Tape volume sets its level separately.
+the tape's FSK sound; 音 > 個別の音量 > テープ sets its level.
 Tape > Fast load (`CMT_Fast`, off by default) delivers the bytes 16 times
 faster than the baud rate and skips the leader; off, a tape loads at its
 real speed.

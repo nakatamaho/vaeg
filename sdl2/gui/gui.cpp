@@ -1237,9 +1237,10 @@ static UINT8 scale_master_volume(int volume, int max_value) {
 	return static_cast<UINT8>((volume * max_value + kMasterVolumeMax / 2) / kMasterVolumeMax);
 }
 
-static void apply_master_volume(int volume) {
+/* 個別の音量 (M110). 音源 sets FM, SSG, ADPCM and rhythm together: their
+ * ratio is fixed by the chip and the board on hardware. */
+static void apply_source_volume(int volume) {
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
-	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
 	np2cfg.vol_ssg = mixer_volume;
@@ -1251,17 +1252,54 @@ static void apply_master_volume(int volume) {
 	rhythm_update(&rhythm);
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
+	sysmng_update(SYS_UPDATECFG);
+}
 
-	// The buzzer follows the master volume finely; BEEP_vol (0-3) keeps a
-	// value that is not 0 unless the master volume is 0, for older builds.
+static int beep_volume(void) {
+	if (np2cfg.beep_level <= kMasterVolumeMax) {
+		return np2cfg.beep_level;
+	}
+	return (std::min)(np2cfg.BEEP_VOL * 43, kMasterVolumeMax);
+}
+
+static void apply_beep_volume(int volume) {
+	// BEEP_vol (0-3) keeps a nonzero value unless the level is 0, for
+	// older builds.
 	np2cfg.beep_level = static_cast<UINT8>(std::clamp(volume, 0, kMasterVolumeMax));
 	np2cfg.BEEP_VOL =
 	    static_cast<UINT8>((np2cfg.beep_level * 3 + kMasterVolumeMax - 1) / kMasterVolumeMax);
 	beep_setlevel(np2cfg.beep_level);
-
-	np2cfg.MOTORVOL = motor_volume;
-	fddmtrsnd_volume(np2cfg.MOTORVOL);
 	sysmng_update(SYS_UPDATECFG);
+}
+
+static void draw_source_volumes(void) {
+	const float width = ImGui::GetFontSize() * 10.0f;
+	int value;
+
+	value = np2cfg.vol_fm;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("音源 (FM/SSG/ADPCM/リズム)", &value, 0, kMasterVolumeMax)) {
+		apply_source_volume(value);
+	}
+	value = beep_volume();
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("BEEP", &value, 0, kMasterVolumeMax)) {
+		apply_beep_volume(value);
+	}
+	value = np2cfg.cmt_vol;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("テープ", &value, 0, 128)) {
+		np2cfg.cmt_vol = static_cast<UINT8>(value);
+		cmt_setvol(np2cfg.cmt_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	value = np2cfg.MOTORVOL;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("シーク音", &value, 0, 100)) {
+		np2cfg.MOTORVOL = static_cast<UINT8>(value);
+		fddmtrsnd_volume(np2cfg.MOTORVOL);
+		sysmng_update(SYS_UPDATECFG);
+	}
 }
 
 static void select_opn_backend(UINT backend) {
@@ -4080,6 +4118,27 @@ static void draw_sound_menu(void) {
 	if (!ImGui::BeginMenu("音")) {
 		return;
 	}
+	// 全体の音量: the final mix (M110); the sources' balance is below.
+	int master = np2oscfg.master_volume;
+	ImGui::TextUnformatted("全体の音量");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##master-volume", &master, 0, 100, "%d%%",
+	                     ImGuiSliderFlags_AlwaysClamp)) {
+		np2oscfg.master_volume = static_cast<BYTE>(master);
+		soundmng_setmastervolume(np2oscfg.master_volume);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	const bool muted = soundmng_isenabled() ? false : true;
+	if (ImGui::MenuItem("ミュート", nullptr, muted)) {
+		np2oscfg.sound_enabled = muted ? 1 : 0;
+		soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::BeginMenu("個別の音量")) {
+		draw_source_volumes();
+		ImGui::EndMenu();
+	}
+	ImGui::Separator();
 	if (ImGui::BeginMenu("FM 音源ボード")) {
 		const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
 		if (va1 && ImGui::MenuItem("OPN", nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
@@ -4147,12 +4206,6 @@ static void draw_sound_menu(void) {
 		}
 		ImGui::EndMenu();
 	}
-	const bool muted = soundmng_isenabled() ? false : true;
-	if (ImGui::MenuItem("ミュート", nullptr, muted)) {
-		np2oscfg.sound_enabled = muted ? 1 : 0;
-		soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
-		sysmng_update(SYS_UPDATEOSCFG);
-	}
 	bool motor = np2cfg.MOTOR != 0;
 	if (ImGui::MenuItem("シーク音", nullptr, motor)) {
 		np2cfg.MOTOR = motor ? 0 : 1;
@@ -4161,17 +4214,6 @@ static void draw_sound_menu(void) {
 		}
 		sysmng_update(SYS_UPDATECFG);
 	}
-	int volume = np2cfg.vol_fm;
-	if (ImGui::SliderInt("音量", &volume, 0, 128)) {
-		apply_master_volume(volume);
-	}
-	int tape_volume = np2cfg.cmt_vol;
-	if (ImGui::SliderInt("テープの音量", &tape_volume, 0, 128)) {
-		np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
-		cmt_setvol(np2cfg.cmt_vol);
-		sysmng_update(SYS_UPDATECFG);
-	}
-
 	ImGui::EndMenu();
 }
 
