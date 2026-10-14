@@ -458,4 +458,11 @@ mode lamp follows V1/V2/V3.
   and tape browsers; SCSI Open keeps listing every file. Builds without
   warnings; the GUI itself was not exercised (no display here).
   [e2b7393f](https://github.com/nakatamaho/vaeg/commit/e2b7393f447cdca9cddd676b31407fb311a7278d).
+- Utility media rebuilt from HEAD `db87de9b` (maintainer request): the
+  utility FDD (`build-utility-disk.sh`; its 129 files are identical to the
+  previous build, only directory metadata differ) and, with it as payload,
+  both SASI images (`build-sasi-utility-disks.sh`, PC-Engine 1.05 for the
+  VA and 1.1 for the VA2). In vaeg with the same HEAD, each image alone
+  boots PC-Engine from the fixed disk on its model, and `vzva` opens
+  `\VZ\HELP.DEF`. SHA-256: VA `63a4ac84`, VA2 `c0c340a2`, FDD `1f7d9abe`.
 
