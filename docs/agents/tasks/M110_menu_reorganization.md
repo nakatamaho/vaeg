@@ -99,10 +99,11 @@ below was agreed item by item in the same session.
   the existing disk-change warning. `vaeg-cache/` (librashader shader
   files), today created in the current directory, is also created in the
   executable's directory, so that a shortcut or command line starting vaeg
-  elsewhere no longer scatters it (maintainer, 2026-10-15). Under
-  discussion: a ソフトごと/共通 switch, and whether screenshots are also
-  split per software. Headless `--screenshot` keeps
-  its explicit paths.
+  elsewhere no longer scatters it (maintainer, 2026-10-15). Screenshots
+  are not split per software: they all go into `screenshots/` with
+  today's date-and-time names (maintainer, 2026-10-15); headless
+  `--screenshot` keeps its explicit paths. Under discussion: a
+  ソフトごと/共通 switch for the state slots.
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
   headless tests keep working.
