@@ -66,6 +66,31 @@ an SGP regression test that can also run on real hardware.
 - Self-booting SGP disk: menu item O runs SGPTEST; rebuilt, reproducible,
   round-trip checked. [d3680ae1](https://github.com/nakatamaho/vaeg/commit/d3680ae110f583b3edb99b10af5a89f78f2f36ee).
 
+## Hardware checks requested (original PC-88VA and PC-88VA2)
+
+The maintainer's original PC-88VA works again (2026-10-14); these are to be
+run on it and, where marked, on the PC-88VA2. Disk: the self-booting SGP
+disk (`demos/disks/sgp-boot.d88.xz`, menu letters below) unless stated.
+Record each result here with its model, whatever it shows.
+
+1. SGPTEST (menu O), VA and VA2: photograph the screen; record every `*`
+   line and the T21 line.
+   - T06-T12 show how the hardware reads the low bits of FBW. M97b's
+     VA-only rule came from the BNN manual alone and M109a replaced it from
+     software behaviour; neither is measured.
+   - T21 times one transfer. vaeg gives about 625 polls on the VA and 11
+     on the VA2, far from the 2:1 SGP clock ratio; the two hardware values
+     calibrate vaeg's SGP speed.
+2. The commercial game of this task, VA: its vertically reversed enemies
+   must not be striped (turns the M109a evidence from derived to measured).
+3. Open original-VA defects of the bug-fix ledger, VA: GLASS, NEON3 and
+   NEON4 (all-demos disks) and the glyph blocks of SGPD_7A (menu A). Correct
+   on hardware means a vaeg fault; the same fault means hardware behaviour.
+4. If time allows:
+   - SGP demo A frame rate, VA (the VA2 shows 30 FPS against vaeg's 60).
+   - `V480PAT A` and `TSPMODE` (menu L, M), VA: M104 measured them only on
+     the VA2, and the VA has 64 KiB of TVRAM.
+
 ## Gate G109a (human)
 
 Standard V3 gate (clean static MinGW build of the pushed commit), plus: the
