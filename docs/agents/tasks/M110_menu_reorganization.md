@@ -36,9 +36,10 @@ below was agreed item by item in the same session.
 ## Decisions
 
 - [POLICY] Top-level menus, in this order:
-  模擬 / FDD / HDD / テープ / 編集 / 画面 / キー / 音 / 状態 / 情報.
+  模擬 / FDD / HDD / Tape / 編集 / 画面 / Key / 音 / 状態 / 情報.
 - [POLICY] Labels are Japanese throughout (machine and format names such
-  as OPNA, ymfm, SASI stay as written).
+  as OPNA, ymfm, SASI stay as written), except the top-level device menus
+  FDD, HDD, Tape and Key (maintainer, 2026-10-15).
 - [POLICY] Permanently unimplemented, always-greyed items are removed:
   FDD3/FDD4 open and eject, Rotate, Screen option, Mechanical keys, Serial
   option, MIDI option, the mouse-status line, the fixed Base clock combo
@@ -165,7 +166,7 @@ FDD           FDD1/FDD2 開く…/取り出し (with their contents),
 HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
               SCSI ▶ (heading shows how many are in use) ID 0-6 ▶ 開く…/外す
               (each with its contents), 新しい SASI/SCSI イメージ… (VA only)
-テープ        読み込み・録音…, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
+Tape          読み込み・録音…, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
 編集          画面の文字をコピー, 貼り付け, 貼り付けの取り消し
 画面          スクリーンショットを保存 (and 加工前), 録画 (future),
               モニタ ▶ 24 kHz / 15 kHz (リセット), デジタル RGB (8色),
@@ -173,7 +174,7 @@ HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
               描画方式 ▶ (and CRT 設定…), エフェクト ▶, 拡大方法 ▶,
               ウィンドウサイズ ▶, 縦横比の補正, 全画面表示, 前面パネル,
               フレームスキップ ▶, フォント ▶, 画面の回転 ▶ (future)
-キー          カーソルキーの使い方 ▶ 通常 / テンキー 8/4/6/2 / ジョイスティック / マウス,
+Key           カーソルキーの使い方 ▶ 通常 / テンキー 8/4/6/2 / ジョイスティック / マウス,
               ホストの配列 ▶, かな入力 ▶,
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
               マウスを捕捉, コントローラポート ▶, 連射ボタン
