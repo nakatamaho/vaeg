@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M109 - Demo fixes and 200-line display on the 24 kHz monitor
 
-Status: **in progress**
+Status: **complete; G109 passed on 2026-10-14**
 
 Series: V3 series (maintainer request, 2026-10-14, after G106). Branch
 `topic/m109-demo-display-fixes` off `main` at `d9a84316`. Commit prefix
@@ -128,3 +128,15 @@ rebuilt and their payloads match a fresh build (AGENTS.md).
   that fits all photographs; in vaeg the hidden screen is black and the logo
   scene unchanged. [e29cec80](https://github.com/nakatamaho/vaeg/commit/e29cec805d3a3a4360376f0d5df766eef5e89866).
 
+### G109
+
+- Passed on 2026-10-14 (maintainer), with the Windows build
+  `d7613974...72d9` (SHA-256, static MinGW) from
+  [8137d640](https://github.com/nakatamaho/vaeg/commit/8137d640ba975ab01bdf00ae8aa9ad5839cf80c4);
+  the self-booting SGP disk and the rebuilt PC-Engine and MS-DOS 4.0 demo
+  disks on the PC-88VA2 or in vaeg as recorded above, and the digital
+  8-colour mode against the maintainer's photographs.
+- Left open: the exact input threshold of the digital monitor between 1/31
+  and 11 % of full scale (not measured), and the open defects carried from
+  M106 (NEON3/NEON4 and the MS-DOS console, VA3DDEMO, the original-VA
+  demo faults, BEEP pitch, the SGP speed gap).
