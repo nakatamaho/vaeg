@@ -51,8 +51,7 @@ below was agreed item by item in the same session.
   paused machine shows that it is paused on screen.
 - [POLICY] The uPD8087 is on by default on every VA model (no software for
   the original VA uses it, which the maintainer accepts); it is switched off
-  in the settings window. The "VA2/VA3 + 8087" model entry goes. A saved
-  `NDP8087=false` keeps precedence.
+  in the settings window. The "VA2/VA3 + 8087" model entry goes.
 - [POLICY] Speed has two controls in 模擬 that act differently:
   実行速度 (10-400 %, 最大 = No Wait, back to 100 %) slows frames, timers
   and sound together; CPU クロック changes the CPU alone, frames, timers and
@@ -66,11 +65,13 @@ below was agreed item by item in the same session.
   are defined as "close to the machine" and calibrated from hardware
   measurements later; on the PC-8801 machines (M113) they are 4 MHz and
   8 MHz. A clock away from the default is shown by the CPU-clock display.
-- [POLICY] KEY_MODE becomes カーソルキーの使い方: 通常 / ジョイスティック
-  (JoyKey-1) / マウス (Mouse key, kept only if it works when checked).
-  JoyKey-2 is removed: it feeds the PC-98 FM board's second joystick
-  connector, which vaeg never reads, so it only disabled the keys; a saved
-  2 becomes 通常.
+- [POLICY] KEY_MODE and the tenkey overlay become one choice,
+  カーソルキーの使い方: 通常 (the VA cursor keys) / テンキー 8/4/6/2 (today's
+  tenkey overlay, for games that move with the keypad) / ジョイスティック
+  (JoyKey-1) / マウス (Mouse key, kept only if it works when checked); they
+  all redirect the cursor keys, so only one can apply. JoyKey-2 is removed:
+  it feeds the PC-98 FM board's second joystick connector, which vaeg never
+  reads, so it only disabled the keys.
 - [POLICY] New FDD images in the order 2HD, 2D (320 KB), 2DD (640 KB), then
   after a separator 2D (360 KB), 2DD (720 KB).
 - [POLICY] Recording (not implemented yet) will go into 画面 next to the
@@ -83,8 +84,7 @@ below was agreed item by item in the same session.
   `vaeg.exe` (the executable's directory from `SDL_GetBasePath`, not the
   current directory), next to the ROMs and `vaeg-cache/`; if that directory
   is not writable, the user directory (where `vaeg.cfg` lives) is used and
-  the menu says so. The existing `np2sdl.S00`-`S09` slots are moved into
-  `states/` at first start. Each slot is saved with a thumbnail PNG of the
+  the menu says so. Each slot is saved with a thumbnail PNG of the
   guest frame at that moment (unprocessed, about 320x200): `slotN.sav` and
   `slotN.png`. The 保存/読み込み lists show each slot's date and time (空き
   when unused) and its thumbnail on hover, and 一覧… opens a window of the
@@ -118,13 +118,16 @@ below was agreed item by item in the same session.
   current sound is unchanged. 個別の音量 keeps the balance: 音源 (FM, SSG,
   ADPCM and rhythm together, as their ratio is fixed by the chip and the
   board on hardware; no separate FM slider), BEEP, テープ, シーク音 and
-  later PCG, stored in the existing keys (`volume_F`/`S`/`A`/`R`,
-  `BEEP_vol`, `CMT_vol`, `Seek_Vol`). "Sound on/off" (SDL output paused,
+  later PCG. "Sound on/off" (SDL output paused,
   the guest unaffected, as `--mute`) becomes ミュート, checked when silent,
   placed right below 全体の音量; no F12 assignment for it.
-- Existing configuration keys stay readable and are still written, so an
-  older vaeg reads a new configuration file; command-line options and the
-  headless tests keep working.
+- [POLICY] Compatibility (maintainer, 2026-10-15): configuration files
+  and state files need not stay compatible. Configuration keys may be
+  renamed, merged or dropped without migrating old values (defaults apply),
+  and a new vaeg need not write keys an older one reads. State files of
+  earlier builds need not load (a clear message instead of a crash), and
+  the existing `np2sdl.S00`-`S09` slots are not moved. Command-line options
+  and the headless tests keep working.
 
 ## Agreed menu
 
@@ -170,8 +173,8 @@ HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
               描画方式 ▶ (and CRT 設定…), エフェクト ▶, 拡大方法 ▶,
               ウィンドウサイズ ▶, 縦横比の補正, 全画面表示, 前面パネル,
               フレームスキップ ▶, フォント ▶, 画面の回転 ▶ (future)
-キー          カーソルキーの使い方 ▶ 通常 / ジョイスティック / マウス,
-              テンキー代わり, ホストの配列 ▶, かな入力 ▶,
+キー          カーソルキーの使い方 ▶ 通常 / テンキー 8/4/6/2 / ジョイスティック / マウス,
+              ホストの配列 ▶, かな入力 ▶,
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
               マウスを捕捉, コントローラポート ▶, 連射ボタン
 音            全体の音量 [slider], ミュート,
@@ -191,14 +194,15 @@ HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
 Implement the agreed menu for the VA models: the reorganization, the
 removals, Pause as an F12 assignment with an on-screen indication, the
 speed controls, 8087 on by default, the cursor-key setting, the FDD image
-order, Japanese labels, and the configuration compatibility above. 起動
+order, Japanese labels, the directories and state slots above. 起動
 offers the VA rows with 自動, V2 H/S, V1 H/S and N (today's choices); V3
 and the other machines come later. Update the READMEs that name menu paths
 (historical task files and the bug-fix ledger keep their wording).
 
 Checks: the 8087-on default re-runs the all-demos programs and an OS boot
-on the VA and the VA2; a state file saved without the 8087 still loads;
-`--model` and the headless scripts keep working; every menu item is
+on the VA and the VA2; states save and load under the new layout and an
+old state file is refused cleanly; `--model` and the headless scripts keep
+working; every menu item is
 exercised once.
 
 ## Later stages (planned, not part of M110)
@@ -206,8 +210,8 @@ exercised once.
 - M111: 起動 as machine ▶ boot mode for the VA, including V3, V2 and V1
   forced at boot without writing the backup-memory file (method from the
   ROM's behaviour), and N moved into it. Configuration keys `Machine=` and
-  `BootMode=`, migrated from `model`, `v1v2_nmode`, `v1v2_standard` and the
-  V1 bit.
+  `BootMode=` replace `model`, `v1v2_nmode`, `v1v2_standard` (no migration
+  needed).
 - M112: extra ROMs. The VA ROMs and wave files stay where they are (next
   to `vaeg.exe`, or the `--roms` directory, then the current directory);
   extra ROMs go below it in `extra/<machine>/`, named after the machine
