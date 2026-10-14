@@ -297,4 +297,32 @@ exercised once.
   `build-from-psd.sh`, the SGP boot disk, all-demos and all-demos-msdos4
   exit 0 with payloads identical to the committed disks (zundamon differs
   only in 14 directory-date bytes; the SGP boot `.xz` is byte-identical).
+- Files next to the executable: `screenshots/` and `vaeg-cache/` through
+  `file_getappdir` (user directory when not writable; selftest
+  `application directory`). [7b733b3a](https://github.com/nakatamaho/vaeg/commit/7b733b3a22970da676c2897b06ff697a793f289e).
+- State slots per software with thumbnails, 一覧…, 名前を付けて保存… and
+  ファイルから読み込み…; PNG read/write through UTF-8 paths (selftest
+  `state thumbnail`, two mutations caught). Deviation from the plan: the
+  software is the medium at the last reset (the booted one), not at the
+  first save; a disk swap during play still keeps the slots together.
+  Checked in vaeg: save into `states/ゲームA-a008ab/`, reset, load returns
+  to the saved screen. [0c1f0f12](https://github.com/nakatamaho/vaeg/commit/0c1f0f12da9f46debc5a827bfad7f365a81ce551).
+- 全体の音量 on the final mix (`master_volume`), 個別の音量, ミュート below
+  it (selftest `master volume`). [05a08f72](https://github.com/nakatamaho/vaeg/commit/05a08f72a84417335c88c1885f3953a1948bd653).
+- CPU クロック presets, applied without a reset; the multiplier left the
+  settings window. [fd368432](https://github.com/nakatamaho/vaeg/commit/fd3684325aa0085c8a71eff4ff8d00f89f65a5dc).
+- Histories (FDD, SASI, SCSI, tape), 最近の起動 and 最近のフォルダ.
+  Deviation: kept in `vaeg-history.txt` next to `vaeg.cfg` rather than in
+  the configuration file (lists of paths do not fit its fixed-size keys).
+  Boots are recorded at GUI resets only. [9e1123f8](https://github.com/nakatamaho/vaeg/commit/9e1123f826d95d19d79de2403d8aa009d9a4ea8c).
+- カーソル割り当て > マウス kept: the cursor keys move the mouse the VA
+  reads (selftest `cursor keys as mouse`, fails with the key path removed).
+  [3b9f10b2](https://github.com/nakatamaho/vaeg/commit/3b9f10b266f031785e6e864269b98c7c798bbdba).
+- Documentation names the new menu paths. [0afb3314](https://github.com/nakatamaho/vaeg/commit/0afb33148033d232e6acf3ed54e1ef999a2f0d7d).
+- Not done in M110 (M111): 起動 offers today's V2/V1 H/S and N choices;
+  the separate 自動 entry and forced V3 come with the boot-mode work.
+- Since `6562f6f0` (media regression) and `ac79b8f3` (all-demos runs) no
+  file under `demos/`, `tools/`, `cpu/`, `io/`, `machine/`, `memoryva/`,
+  `vram/`, `sound/`, `fdd/` or `bios/` changed, so those results stand for
+  the gate commit.
 

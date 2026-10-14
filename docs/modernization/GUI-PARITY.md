@@ -32,8 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 > [`sdl2/README.md`](../../sdl2/README.md) for the current SDL2 menus.
 
 M10 scope note: the gate items are implemented in the SDL2 ImGui frontend.
-Unimplemented Win32 features remain visible as disabled stubs with
-`(not implemented)`.
+Unimplemented Win32 features remained visible as disabled stubs with
+`(not implemented)` until M110 removed them from the menus.
 
 ## Sources
 
