@@ -70,7 +70,7 @@ below was agreed item by item in the same session.
   measurements later; on the PC-8801 machines (M113) they are 4 MHz and
   8 MHz. A clock away from the default is shown by the CPU-clock display.
 - [POLICY] KEY_MODE and the tenkey overlay become one choice,
-  カーソルキーの使い方: 通常 (the VA cursor keys) / テンキー 8/4/6/2 (today's
+  カーソル割り当て: 通常 (the VA cursor keys) / テンキー 8/4/6/2 (today's
   tenkey overlay, for games that move with the keypad) / ジョイスティック
   (JoyKey-1) / マウス (Mouse key, kept only if it works when checked); they
   all redirect the cursor keys, so only one can apply. JoyKey-2 is removed:
@@ -177,7 +177,7 @@ Tape          読み込み・録音…, 巻き戻し, 取り出し, 録音を止
               描画方式 ▶ (and CRT 設定…), エフェクト ▶, 拡大方法 ▶,
               ウィンドウサイズ ▶, 縦横比の補正, 全画面表示, 前面パネル,
               フレームスキップ ▶, フォント ▶, 画面の回転 ▶ (future)
-Key           カーソルキーの使い方 ▶ 通常 / テンキー 8/4/6/2 / ジョイスティック / マウス,
+Key           カーソル割り当て ▶ 通常 / テンキー 8/4/6/2 / ジョイスティック / マウス,
               ホストの配列 ▶, かな入力 ▶,
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
               マウスを捕捉, コントローラポート ▶, 連射ボタン
