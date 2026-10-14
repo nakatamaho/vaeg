@@ -48,13 +48,14 @@ static void scrndrawva_initialize(void) {
  * Digital RGB monitor: [VA1] schematic pp. 261 and 263, the digital R, G and
  * B pins carry the analog colour drive through 1 kOhm, with no conversion
  * logic, so the monitor's input threshold decides each component. [MEAS]
- * (M109, PC-88VA2 VA demo on a digital monitor) every nonzero component is
- * on: the red NEC logo, R 31 G 7 of 63, shows yellow with a red edge (R 5)
- * and the dark rock white. See docs/modernization/digital8colormode.md.
+ * (M109, PC-88VA2 VA demo on a digital monitor) a component is on above
+ * 1/31 of full scale: the red NEC logo, R 31 G 7 of 63, shows yellow with a
+ * red edge (R 5) and the dark rock white, while a hidden screen in R 1 of 31
+ * stays black. See docs/modernization/digital8colormode.md.
  */
 BYTE scrndrawva_outputlevel(UINT value, UINT bits, BOOL digital) {
 	if (digital) {
-		return value ? 0xff : 0;
+		return ((value * 31) > ((1u << bits) - 1)) ? 0xff : 0;
 	}
 	return (BYTE)((value << (8 - bits)) | (value ? ((1u << (8 - bits)) - 1) : 0));
 }
