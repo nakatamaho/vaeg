@@ -125,6 +125,17 @@ below was agreed item by item in the same session.
   later PCG. "Sound on/off" (SDL output paused,
   the guest unaffected, as `--mute`) becomes ミュート, checked when silent,
   placed right below 全体の音量; no F12 assignment for it.
+- Dialog windows fit the vaeg window (maintainer, 2026-10-15: the FDD
+  file browser has to be enlarged by hand on some hosts, and at the default
+  1x window it does not quite fit). Cause: the file browsers and other
+  dialogs open at fixed pixel sizes (620x420 and similar, with
+  `ImGuiCond_FirstUseEver`, no saved layout) at ImGui's default position,
+  whatever the window size and the GUI font scale, so at 1x (640x422) they
+  run past the window's edges. Every dialog is sized in font units,
+  clamped to the window's work area (at most 95 % of it), centred, and
+  given each time it appears; the file list takes the remaining height, so
+  the path field and the buttons stay visible at 1x. A dialog the user
+  resizes keeps that size until vaeg exits.
 - [POLICY] Compatibility (maintainer, 2026-10-15): configuration files
   and state files need not stay compatible. Configuration keys may be
   renamed, merged or dropped without migrating old values (defaults apply),
