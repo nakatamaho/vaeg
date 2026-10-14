@@ -2859,6 +2859,10 @@ separate parity correction or move it to Open Defects.
   with very different GVRAM write counts, points away from GVRAM waits
   alone. Next step: a hardware benchmark per instruction class (register,
   MUL/DIV, main RAM, TVRAM, GVRAM) compared with vaeg, in a later milestone.
+- **Further evidence (M106, maintainer, 2026-10-14):** demo A of the
+  self-booting SGP disk (SGPD_7A, 16 pseudo-sprites, one SGP command list
+  per frame) shows 30 FPS on the PC-88VA2 and 60 FPS in vaeg, so SGP-bound
+  work is also about twice as fast.
 
 ### M103g — V1/V2 voice pitch observation without a demonstrated cause
 

@@ -476,4 +476,12 @@ mode lamp follows V1/V2/V3.
   V3 boot, the bundled VA demo, an OS boot and simple operations pass; the
   SASI browser's `.hdi` file type was seen in the GUI. Pending for G106:
   the self-booting `sgp-boot.d88` on the PC-88VA2.
+- Self-booting SGP disk on the PC-88VA2 (maintainer, 2026-10-14): boots
+  and its demos run; the maintainer will use it for hardware QA from now
+  on. Demo A (SGPD_7A, 16 sprites) shows 30 FPS on the hardware against
+  60 FPS in vaeg (added to the M104 speed entry of the ledger).
+- Carried over to a later milestone (maintainer): demo fixes; on the
+  24 kHz monitor setting, no scanlines for 640x200 and 320x200; the kana
+  and Caps Lock indicators at the bottom; a hardware check of the digital
+  8-colour mode.
 
