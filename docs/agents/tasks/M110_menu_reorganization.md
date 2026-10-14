@@ -36,7 +36,7 @@ below was agreed item by item in the same session.
 ## Decisions
 
 - [POLICY] Top-level menus, in this order:
-  模擬 / FDD / ハードディスク / テープ / 編集 / 画面 / キー / 音 / 状態 / 情報.
+  模擬 / FDD / HDD / テープ / 編集 / 画面 / キー / 音 / 状態 / 情報.
 - [POLICY] Labels are Japanese throughout (machine and format names such
   as OPNA, ymfm, SASI stay as written).
 - [POLICY] Permanently unimplemented, always-greyed items are removed:
@@ -46,7 +46,7 @@ below was agreed item by item in the same session.
   Items unavailable only for the moment (Rewind or Eject with no tape,
   for example) stay greyed out, so that items do not move.
 - [POLICY] Options that never apply to the current machine are hidden, not
-  greyed: OPN (VA only), ymfm fidelity (ymfm only), ハードディスク (VA only).
+  greyed: OPN (VA only), ymfm fidelity (ymfm only), HDD (VA only).
 - [POLICY] The Pause button goes; 一時停止 becomes an F12 assignment, and a
   paused machine shows that it is paused on screen.
 - [POLICY] The uPD8087 is on by default on every VA model (no software for
@@ -149,7 +149,7 @@ below was agreed item by item in the same session.
  ├─ 機種の構成 ▶
  │   ├─ メインメモリ容量 ▶
  │   ├─ バックアップメモリへ自動反映
- │   ├─ ハードディスクから起動
+ │   ├─ HDD から起動
  │   ├─ I/O バンクメモリ…
  │   ├─ EMS ボード…
  │   └─ PCG (PCG-8100 / PCG-8800)  (M115+, 8001/8801 only)
@@ -159,7 +159,7 @@ below was agreed item by item in the same session.
 FDD           FDD1/FDD2 開く…/取り出し (with their contents),
               新しい FDD イメージ ▶ 2HD / 2D (320 KB) / 2DD (640 KB) / ── /
               2D (360 KB) / 2DD (720 KB)
-ハードディスク SASI-1, SASI-2 開く…/外す (as today, with their contents),
+HDD           SASI-1, SASI-2 開く…/外す (as today, with their contents),
               SCSI ▶ (heading shows how many are in use) ID 0-6 ▶ 開く…/外す
               (each with its contents), 新しい SASI/SCSI イメージ… (VA only)
 テープ        読み込み・録音…, 巻き戻し, 取り出し, 録音を止める, Fast load (off by default)
