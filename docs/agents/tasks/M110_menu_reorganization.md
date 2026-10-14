@@ -67,6 +67,9 @@ below was agreed item by item in the same session.
   after a separator 2D (360 KB), 2DD (720 KB).
 - [POLICY] Recording (not implemented yet) will go into 画面 next to the
   screenshots, with an F12 assignment.
+- [POLICY] Screen rotation is planned (maintainer). Its greyed placeholder
+  goes now; when implemented it appears in 画面 as 画面の回転 ▶ (0°, 90°
+  left, 90° right, 180°).
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
   headless tests keep working.
@@ -110,7 +113,7 @@ FDD           FDD1/FDD2 開く…/取り出し (with their contents),
                        15 kHz 走査線: 隙間あり / 埋める, V1/V2 表示: VA 標準 / PC-8801 風,
               描画方式 ▶ (and CRT 設定…), エフェクト ▶, 拡大方法 ▶,
               ウィンドウサイズ ▶, 縦横比の補正, 全画面表示, 前面パネル,
-              フレームスキップ ▶, フォント ▶
+              フレームスキップ ▶, フォント ▶, 画面の回転 ▶ (future)
 キー          カーソルキーの使い方 ▶ 通常 / ジョイスティック / マウス,
               テンキー代わり, ホストの配列 ▶, かな入力 ▶,
               F12 の割り当て ▶ (adds 一時停止; 録画 later), キーの割り当て…,
