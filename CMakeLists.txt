@@ -909,6 +909,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_extract_vz_editor
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_extract_vz_editor.py")
+    add_test(NAME vaeg_sgptest_consistency
+        COMMAND "${Python3_EXECUTABLE}" -I
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_sgptest.py")
     add_test(NAME vaeg_all_demos_msdos4_disk
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_all_demos_msdos4_disk.py")
