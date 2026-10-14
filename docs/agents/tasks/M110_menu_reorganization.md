@@ -89,10 +89,15 @@ below was agreed item by item in the same session.
   `slotN.png`. The 保存/読み込み lists show each slot's date and time (空き
   when unused) and its thumbnail on hover, and 一覧… opens a window of the
   ten thumbnails, clicked to save or load. 名前を付けて保存… and
-  ファイルから読み込み… are added. Under discussion: per-software
-  subdirectories (named from the FDD1 image, else SASI-1, else the tape,
-  else a common one), a ソフトごと/共通 switch, and whether screenshots are
-  also split per software. Headless `--screenshot` keeps
+  ファイルから読み込み… are added. Slots are kept per software in
+  `states/<software>/`, the name taken from the FDD1 image, else the SASI-1
+  image, else the tape, else 共通. The name is the image's file name made
+  safe for the host file system, followed by a short hash of its full path
+  so that equal names from different directories stay apart. It is fixed
+  when a state of that software is first saved, so a disk swap during play
+  keeps the slots together; loading a slot made with another disk keeps
+  the existing disk-change warning. Under discussion: a ソフトごと/共通
+  switch, and whether screenshots are also split per software. Headless `--screenshot` keeps
   its explicit paths.
 - Existing configuration keys stay readable and are still written, so an
   older vaeg reads a new configuration file; command-line options and the
