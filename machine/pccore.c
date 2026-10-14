@@ -117,8 +117,9 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
-/* uPD70008-compatible mode: the CPU speed only (the multiplier is V30-only). */
-CLOCKSCALE pccore_compat_scale = {100, 100, 0};
+/* uPD70008-compatible mode: the same uPD9002 clock (multiplier and CPU speed)
+ * as native V30 mode. */
+CLOCKSCALE pccore_compat_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
 UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
 static UINT pccore_cpu_speed_value = 100;
@@ -191,7 +192,11 @@ void pccore_set_cpu_speed(UINT percent) {
 	pccore_cpu_speed_value = percent;
 	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
-	clockscale_configure(&pccore_compat_scale, 100, percent);
+	/* The uPD9002 runs compatible (Z80) code on the same clock as native V30
+	 * code, so the CPU clock multiplier applies to both: x1 (3.9936 MHz) runs
+	 * PC-8801 software at half the standard x2 rate. */
+	clockscale_configure(&pccore_compat_scale, PCCORE_STANDARD_MULTIPLE * 100,
+	                     pccore_cpu_multiple_value * percent);
 }
 
 UINT pccore_cpu_speed(void) {
