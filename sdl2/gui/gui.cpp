@@ -698,6 +698,41 @@ static void open_configure_dialog(void) {
 	g_gui.configure_request = true;
 }
 
+/*
+ * M110: dialogs fit the vaeg window. The first size is given in font units
+ * and clamped to 95 % of the work area, which also bounds the user's
+ * resizing; ImGui keeps a resized window's size for the session. The
+ * window is centred each time it appears.
+ */
+static void prepare_dialog(float width_em, float height_em, ImGuiCond size_cond) {
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float unit = ImGui::GetFontSize();
+	const ImVec2 limit(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f);
+
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+	                               viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
+	                        ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(
+	    ImVec2((std::min)(width_em * unit, limit.x), (std::min)(height_em * unit, limit.y)),
+	    size_cond);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), limit);
+}
+
+/* A file list taking the height the lines below it (and a wrapped status
+ * text) leave, so that the path field and the buttons stay visible. */
+static float browser_list_height(float footer_lines, const std::string &status) {
+	const ImGuiStyle &style = ImGui::GetStyle();
+	float footer = footer_lines * ImGui::GetFrameHeightWithSpacing();
+
+	if (!status.empty()) {
+		footer +=
+		    ImGui::CalcTextSize(status.c_str(), nullptr, false, ImGui::GetContentRegionAvail().x)
+		        .y +
+		    2.0f * style.ItemSpacing.y + 1.0f;
+	}
+	return (std::max)(ImGui::GetFrameHeight() * 3.0f, ImGui::GetContentRegionAvail().y - footer);
+}
+
 static void draw_multiplier_input(const char *label, int *value, const int *presets,
                                   int preset_count) {
 	ImGui::PushID(label);
@@ -821,9 +856,7 @@ static void draw_configure_dialog(void) {
 	if (!g_gui.configure_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(560.0f, 800.0f), ImGuiCond_Appearing);
+	prepare_dialog(35.0f, 50.0f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Configure##clock-config", &g_gui.configure_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool cpu_valid =
@@ -848,6 +881,9 @@ static void draw_configure_dialog(void) {
 		    (g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
 		    (g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
 
+		// The sections scroll; the message line and the buttons stay below.
+		ImGui::BeginChild("configure-body",
+		                  ImVec2(0.0f, -2.0f * ImGui::GetFrameHeightWithSpacing()));
 		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			ImGui::TextUnformatted("CPU");
@@ -966,6 +1002,7 @@ static void draw_configure_dialog(void) {
 			}
 		}
 		ImGui::EndChild();
+		ImGui::EndChild();
 
 		if (!cpu_valid) {
 			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
@@ -1034,9 +1071,7 @@ static void draw_bms_config_dialog(void) {
 	if (!g_gui.bms_config_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(430.0f, 285.0f), ImGuiCond_Appearing);
+	prepare_dialog(26.875f, 17.8125f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("I/O Bank Memory##bms-config", &g_gui.bms_config_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		static const char *ports[] = {"01D0H (PC-88VA-01/02 mode)", "00ECH (PC-9801 mode)"};
@@ -1145,9 +1180,7 @@ static void draw_ems_config_dialog(void) {
 	if (!g_gui.ems_config_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(430.0f, 250.0f), ImGuiCond_Appearing);
+	prepare_dialog(26.875f, 15.625f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("EMS Board##ems-config", &g_gui.ems_config_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool capacity_valid =
@@ -1605,9 +1638,7 @@ static void draw_hostfat_browser_popup(void) {
 	if (!g_gui.hostfat_browser_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 480.0f), ImGuiCond_Appearing);
+	prepare_dialog(38.75f, 30.0f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Select HOSTFAT folder##hostfat-browser",
 	                           &g_gui.hostfat_browser_open, ImGuiWindowFlags_NoCollapse)) {
 		if (g_gui.hostfat_browser_refresh) {
@@ -1625,7 +1656,7 @@ static void draw_hostfat_browser_popup(void) {
 		if (ImGui::Button("Refresh")) {
 			g_gui.hostfat_browser_refresh = true;
 		}
-		if (ImGui::BeginChild("hostfat-directory-list", ImVec2(0, 330.0f),
+		if (ImGui::BeginChild("hostfat-directory-list", ImVec2(0, browser_list_height(1.5f, "")),
 		                      ImGuiChildFlags_Borders)) {
 			for (const BrowserEntry &entry : g_gui.hostfat_entries) {
 				const std::string label = "[D] " + entry.name;
@@ -2241,7 +2272,7 @@ static void draw_fdd_browser(void) {
 	if (g_gui.fdd_browser_refresh) {
 		refresh_fdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 26.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Mount FDD image or archive", &g_gui.fdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.fdd_browser_dir, g_gui.fdd_browser_refresh,
 		                             "fdd-open")) {
@@ -2321,7 +2352,7 @@ static void draw_hdd_browser(void) {
 	if (g_gui.hdd_browser_refresh) {
 		refresh_hdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 450.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 28.125f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.hdd_browser_refresh,
 		                             "hdd-open")) {
@@ -2339,7 +2370,9 @@ static void draw_hdd_browser(void) {
 			g_gui.hdd_browser_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("hdd-browser-list", ImVec2(0, 230.0f), ImGuiChildFlags_Borders)) {
+		if (ImGui::BeginChild("hdd-browser-list",
+		                      ImVec2(0, browser_list_height(3.0f, g_gui.hdd_status)),
+		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
 				label += entry.name;
@@ -2383,7 +2416,7 @@ static void draw_new_sasi_dialog(void) {
 		refresh_hdd_browser();
 		g_gui.new_sasi_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SASI HDD image", &g_gui.new_sasi_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.new_sasi_refresh, "new-sasi")) {
 			copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path),
@@ -2401,7 +2434,8 @@ static void draw_new_sasi_dialog(void) {
 			g_gui.new_sasi_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-sasi-browser-list", ImVec2(0, 170.0f),
+		if (ImGui::BeginChild("new-sasi-browser-list",
+		                      ImVec2(0, browser_list_height(8.0f, g_gui.hdd_status)),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
@@ -2456,7 +2490,7 @@ static void draw_new_scsi_dialog(void) {
 		refresh_hdd_browser();
 		g_gui.new_scsi_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SCSI HDD image", &g_gui.new_scsi_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.new_scsi_refresh, "new-scsi")) {
 			copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path),
@@ -2474,7 +2508,8 @@ static void draw_new_scsi_dialog(void) {
 			g_gui.new_scsi_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-scsi-browser-list", ImVec2(0, 170.0f),
+		if (ImGui::BeginChild("new-scsi-browser-list",
+		                      ImVec2(0, browser_list_height(9.0f, g_gui.hdd_status)),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
@@ -2541,7 +2576,7 @@ static void draw_new_fdd_dialog(void) {
 		refresh_fdd_browser();
 		g_gui.new_fdd_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("New FDD image", &g_gui.new_fdd_open)) {
 		if (draw_host_drive_selector(g_gui.fdd_browser_dir, g_gui.new_fdd_refresh, "new-fdd")) {
 			copy_path(
@@ -2569,7 +2604,9 @@ static void draw_new_fdd_dialog(void) {
 			g_gui.new_fdd_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-fdd-browser-list", ImVec2(0, 170.0f), ImGuiChildFlags_Borders)) {
+		if (ImGui::BeginChild("new-fdd-browser-list",
+		                      ImVec2(0, browser_list_height(11.0f, g_gui.fdd_status)),
+		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.fdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
 				label += entry.name;
@@ -2998,7 +3035,7 @@ static void draw_tape_browser(void) {
 	if (g_gui.tape_browser_refresh) {
 		refresh_tape_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 26.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Cassette tape image", &g_gui.tape_browser_open)) {
 		draw_host_drive_selector(g_gui.tape_browser_dir, g_gui.tape_browser_refresh, "tape-open");
 		ImGui::TextWrapped("%s", g_gui.tape_browser_dir.c_str());
@@ -3281,7 +3318,7 @@ static void draw_native_crt_settings(void) {
 	if (!g_gui.native_crt_settings_open || !scrnmng_native_filter_enabled()) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_FirstUseEver);
+	prepare_dialog(35.0f, 26.25f, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("CRT設定###Shader settings", &g_gui.native_crt_settings_open)) {
 		ImGui::End();
 		return;
@@ -3440,7 +3477,7 @@ static void draw_custom_size_dialog(void) {
 	if (!g_gui.custom_size_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(380.0f, 200.0f), ImGuiCond_Appearing);
+	prepare_dialog(23.75f, 12.5f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Custom window size##display", &g_gui.custom_size_open,
 	                           ImGuiWindowFlags_NoResize)) {
 		if (ImGui::RadioButton("Integer multiplier", g_gui.custom_size_integer)) {
@@ -3510,7 +3547,7 @@ static void draw_sound_buffer_dialog(void) {
 	if (!g_gui.sound_buffer_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(360.0f, 145.0f), ImGuiCond_Appearing);
+	prepare_dialog(22.5f, 9.0625f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Custom sound buffer##sound", &g_gui.sound_buffer_open,
 	                           ImGuiWindowFlags_NoResize)) {
 		ImGui::InputInt("Buffer length (ms)", &g_gui.pending_sound_buffer_ms);
@@ -3626,7 +3663,7 @@ static void draw_keyboard_config(void) {
 	if (!g_gui.keyboard_config_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(47.5f, 32.5f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Keyboard mapping", &g_gui.keyboard_config_open)) {
 		if (ImGui::Button("Reset to JIS defaults")) {
 			reset_keyboard_to_jis();
@@ -4432,6 +4469,11 @@ static void draw_hostfat_error_dialog(void) {
 		g_gui.hostfat_error_request = false;
 		ImGui::OpenPopup("HOSTFAT error##hostfat-error");
 	}
+	{
+		const ImGuiViewport *viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f));
+	}
 	if (ImGui::BeginPopupModal("HOSTFAT error##hostfat-error", &g_gui.hostfat_error_open,
 	                           ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.25f, 0.25f, 1.0f));
@@ -4458,6 +4500,11 @@ static void draw_state_error_dialog(void) {
 		g_gui.state_error_request = false;
 		g_gui.state_error_open = true;
 		ImGui::OpenPopup("State load rejected##state-load-error");
+	}
+	{
+		const ImGuiViewport *viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f));
 	}
 	if (ImGui::BeginPopupModal("State load rejected##state-load-error", &g_gui.state_error_open,
 	                           ImGuiWindowFlags_AlwaysAutoResize)) {
