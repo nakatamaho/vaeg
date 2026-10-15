@@ -208,6 +208,11 @@ Release notes may summarize the ledger but do not replace it.
   absolute paths, or hashes unless the maintainer explicitly authorizes that
   exact metadata. Keep raw private screenshots, logs, traces, and save files
   outside Git, and never stage, commit, or push them.
+- Refer to commercial-machine ROMs only by MAME's published set and file
+  names and SHA-1 values. Do not state who owns, dumped, or holds a ROM,
+  where a ROM came from, or that it was checked on hardware; describe a
+  ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
+  dump notes stay as historical records.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
   read-only for agents. Never create, modify, or delete anything under it:
   no work directories, scratch output, builds, logs, screenshots, or
