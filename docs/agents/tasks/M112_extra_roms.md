@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M112 — Extra ROMs for further machines
 
-Status: **complete; G112 passed on 2026-10-15**
+Status: **complete; G112 passed on 2026-10-15; merged to `main` at [4aa0f5b](https://github.com/nakatamaho/vaeg/commit/4aa0f5b6bb18dc862afdf154a6d36415b6a058c2)**
 
 ## Request
 
