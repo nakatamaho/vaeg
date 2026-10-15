@@ -98,6 +98,16 @@ CD-ROM, PC-98DO's PC-98 side.
   read FFh and the unit does not run. Absent extension banks, kanji ROMs
   and dictionary read FFh.
 
+- [POLICY] Maintainer review (2026-10-15): a model starts with any missing
+  role except `n88`; 起動 shows 自動 without its fallback; the PC-8801/8001
+  submenu drops "(追加 ROM)"; a model submenu has the VA's mode labels
+  (V2 H ... N) and a ROM submenu; MAME matches are not marked, mismatches
+  are ("MAME と不一致"); the ROM directory path is no longer shown in the
+  menu. 画面: the monitor submenu shows its frequency (モニタ: 24 kHz) and
+  V1/V2 表示 is its own 画面 submenu. New FDD images are all unformatted
+  D88 (2HD 1.2 MB and 2DD 640 KB added to 2DD 720 KB, 2D 320/360 KB); the
+  MS-DOS formatted images are no longer offered in the GUI.
+
 ## Implementation
 
 - `bios/romva.c`: `romva_machine_hook`, called at the end of

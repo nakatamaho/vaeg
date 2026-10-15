@@ -97,7 +97,8 @@ carries the FDD ROM; a model 10 runs a drive once one is fitted).
 | PC-98DO | `n88`, `n88_0`-`n88_3`, `n80`, `disk` |
 | PC-88VA, PC-88VA2 | `n88`, `n88_0`-`n88_3`, `disk`, `kanji1` |
 
-A model with a missing role is shown as 不足あり; its ROMs are still listed.
+A model with a missing role is shown as 不足あり; its ROMs are still listed,
+and (M113) it can still be started as long as it has `n88`.
 
 ## Checks and names
 
@@ -133,11 +134,11 @@ MAME revision recorded in its header; no MAME code is used. When one SHA-1
 appears under several MAME machines, the entry of the model directory's own
 machine is preferred.
 
-A match is shown as "MAME と一致" (with BAD_DUMP when MAME marks it) and is a
-reference only, not proof of a good dump: MAME's declared values for the
-original PC-88VA's `vafont.rom` and `varom00.rom` differ from confirmed
-readbacks ([VA ROM dump notes](va-rom-dump-notes.md)). A ROM MAME does not
-list is accepted and shown as "MAME になし".
+A match is not marked; it names the ROM and is a reference only, not proof
+of a good dump: MAME's declared values for the original PC-88VA's
+`vafont.rom` and `varom00.rom` differ from confirmed readbacks
+([VA ROM dump notes](va-rom-dump-notes.md)). A ROM MAME does not list is
+accepted and marked "MAME と不一致"; one MAME marks BAD_DUMP is marked so.
 
 ## Combined PC88.ROM
 
@@ -158,15 +159,15 @@ follow this layout; do not place it here.
 
 ## Selecting revisions
 
-`模擬 -> 起動 -> PC-8801/8001 (追加 ROM)` lists every model directory, its
-missing roles and its files; the directory is scanned (SHA-1) each time the
+`模擬 -> 起動 -> PC-8801/8001 -> <model> -> ROM` lists the model's missing
+roles and its files; the directory is scanned (SHA-1) each time the
 起動 menu opens. A role with several files becomes a submenu of its
 revisions; the choice is stored per model and role in the configuration key
 `ExtraROMSelect` (`<model>/<role>=<revision>;...`). Hovering an entry shows
 its file, size, SHA-1, banner and MAME name. A file changed after the scan
 is not read until the menu is opened again.
 
-M113 adds the start entries of the PC-8801 models to the same menu.
+The start entries of a model (M113) are in the same model submenu.
 
 ## Command line
 

@@ -69,16 +69,17 @@ not startable (M114).
 
 ## Starting a model
 
-- `模擬 -> 起動 -> PC-8801/8001 (追加 ROM) -> <model>`: the entries
-  `V2 H で起動` ... `N で起動` reset into that model. They are disabled
-  while a required role is missing. Choosing a PC-88VA/VA2 entry under
-  `起動` goes back to the VA.
+- `模擬 -> 起動 -> PC-8801/8001 -> <model>`: the entries `V2 H` ... `V1 S`
+  and `N`, as for the VA, reset into that model; `ROM` lists its files and
+  revisions. A model with missing roles (不足あり) still starts; only a
+  model without `n88.rom` cannot. Choosing a PC-88VA/VA2 entry under `起動`
+  goes back to the VA.
 - The configuration keeps the model in `ExtraMachine`; `最近の起動` records
   it. The window title and 情報 -> More show the running model.
 - Command line: `--extra-machine <model>` starts it for the session, in V2
   where the model has V2 and in V1 otherwise.
-- A model whose ROMs are no longer complete when the machine resets falls
-  back to the VA ROMs with a warning.
+- A model whose `n88.rom` is gone when the machine resets falls back to the
+  VA ROMs with a warning.
 
 ## Verification
 
