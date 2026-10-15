@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M111 — Boot modes: machine ▶ mode
 
-Status: **in progress**
+Status: **complete; G111 passed on 2026-10-15**
 
 ## Request
 
@@ -64,3 +64,9 @@ it is based on the M110 branch and is rebased if G110 needs changes.
 - [POLICY] The machine stays in `pc_model`; only the boot mode got a new key
   (`BootMode`). M110's plan of a `Machine=` key is dropped as it would only
   rename `pc_model`.
+
+### G111
+
+- Passed on 2026-10-15 (maintainer), with the Windows build
+  `f4ad1965...0194` (SHA-256, static MinGW) from
+  [58e812af](https://github.com/nakatamaho/vaeg/commit/58e812affc2b69f8ede9179d06980c1ffdc7e269).
