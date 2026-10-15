@@ -116,6 +116,7 @@ typedef struct {
 	BOOL version;
 	BOOL smoke;
 	BOOL selftest;
+	BOOL list_extra_roms; /* M112: print extra/ and exit */
 	BOOL debug;
 	BOOL fdctrace;
 	BOOL scsitrace;

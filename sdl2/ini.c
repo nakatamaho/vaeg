@@ -362,6 +362,7 @@ static const INITBL iniitem[] = {
     {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
     {"BootMode", INITYPE_UINT8, &np2cfg.boot_mode, 0},
     {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},
+    {"ExtraROMSelect", INITYPE_STR, np2cfg.extra_rom_select, sizeof(np2cfg.extra_rom_select)},
     {"Monitor15kHz", INITYPE_BOOL, &np2cfg.monitor_15khz, 0},
     {"MonitorDigital", INITYPE_BOOL, &np2cfg.monitor_digital, 0},
     {"Monitor15kHzFill", INITYPE_BOOL, &np2cfg.monitor_15khz_fill, 0},
