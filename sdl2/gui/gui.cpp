@@ -1337,25 +1337,28 @@ static void select_sound_buffer(UINT delayms) {
 }
 
 /*
- * 模擬 > 起動: select the machine and its V1/V2 or N mode in one step and
- * reset. V1/V2 is the VA's memory switch B1FC5h bit 0, as its setup menu
- * stores it; H/S and N are vaeg extensions (see memctrlva_i031). A V3 disk
- * still boots V3 whatever is chosen here (M111 adds forced modes).
+ * 模擬 > 起動: select the machine and its boot mode in one step and reset
+ * (M111). 自動 lets the ROM decide from the boot disk (a V3 disk boots V3,
+ * otherwise V1/V2 as last chosen); V2/V1 H/S skip the V3 search and start
+ * V1/V2; N starts N-BASIC. V1/V2 is the VA's memory switch B1FC5h bit 0, as
+ * its setup menu stores it; H/S and N are vaeg extensions (memctrlva_i031).
  */
-static void select_boot(const char *model, bool v1, bool standard, const char *n80rom) {
+static void select_boot(const char *model, int boot_mode, bool v1, bool standard,
+                        const char *n80rom) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
 
 	np2_select_boot_model(model);
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
-	if (n80rom != nullptr) {
-		np2cfg.v1v2_nmode = 1;
-		milstr_ncpy(np2cfg.v1v2_n80rom, n80rom, sizeof(np2cfg.v1v2_n80rom));
-	} else {
+	np2cfg.boot_mode = static_cast<UINT8>(boot_mode);
+	if (boot_mode == BOOTMODE_N) {
+		if (n80rom != nullptr) {
+			milstr_ncpy(np2cfg.v1v2_n80rom, n80rom, sizeof(np2cfg.v1v2_n80rom));
+		}
+	} else if (boot_mode == BOOTMODE_V1V2) {
 		bkupmemva_set_88v1(v1 ? TRUE : FALSE);
 		np2cfg.v1v2_standard = standard ? 1 : 0;
-		np2cfg.v1v2_nmode = 0;
 	}
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
@@ -1826,7 +1829,7 @@ struct BootRecord {
 	std::string model;
 	bool v1 = false;
 	bool standard = false;
-	bool nmode = false;
+	int mode = BOOTMODE_AUTO;
 	std::string n80rom;
 	std::string fdd[2];
 	std::string sasi[2];
@@ -1834,7 +1837,7 @@ struct BootRecord {
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
-		       (nmode == other.nmode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
+		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
 		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
 		       (sasi[1] == other.sasi[1]) && (tape == other.tape);
 	}
@@ -1903,9 +1906,9 @@ static void history_save(void) {
 	}
 	for (const auto &boot : g_recent_boots) {
 		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
-		       << (boot.standard ? 1 : 0) << '\t' << (boot.nmode ? 1 : 0) << '\t' << boot.n80rom
-		       << '\t' << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t'
-		       << boot.sasi[1] << '\t' << boot.tape << '\n';
+		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
+		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
+		       << '\t' << boot.tape << '\n';
 	}
 }
 
@@ -1926,7 +1929,10 @@ static void history_load(void) {
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
 			boot.standard = fields[3] == "1";
-			boot.nmode = fields[4] == "1";
+			boot.mode = std::atoi(fields[4].c_str());
+			if ((boot.mode < BOOTMODE_AUTO) || (boot.mode > BOOTMODE_N)) {
+				boot.mode = BOOTMODE_AUTO;
+			}
 			boot.n80rom = fields[5];
 			boot.fdd[0] = fields[6];
 			boot.fdd[1] = fields[7];
@@ -2009,8 +2015,8 @@ static void history_record_boot(void) {
 	boot.model = np2cfg.model;
 	boot.v1 = bkupmemva_get_88v1() != FALSE;
 	boot.standard = np2cfg.v1v2_standard != 0;
-	boot.nmode = np2cfg.v1v2_nmode != 0;
-	boot.n80rom = boot.nmode ? np2cfg.v1v2_n80rom : "";
+	boot.mode = np2cfg.boot_mode;
+	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
 	for (int drive = 0; drive < 2; drive++) {
 		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
 		if ((mounted == nullptr) || (mounted[0] == '\0')) {
@@ -2045,9 +2051,12 @@ static std::string history_boot_label(const BootRecord &boot) {
 			break;
 		}
 	}
-	std::string mode = boot.nmode ? "N" : (boot.v1 ? "V1" : "V2");
-	if (!boot.nmode) {
+	std::string mode = (boot.mode == BOOTMODE_N) ? "N" : (boot.v1 ? "V1" : "V2");
+	if (boot.mode != BOOTMODE_N) {
 		mode += boot.standard ? " S" : " H";
+	}
+	if (boot.mode == BOOTMODE_AUTO) {
+		mode = "自動, V3 以外は " + mode;
 	}
 	return name + "  (" + ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3") +
 	       ", " + mode + ")";
@@ -3168,17 +3177,25 @@ static void draw_boot_menu(void) {
 	}
 	const bool v1 = bkupmemva_get_88v1() != FALSE;
 	const bool standard = np2cfg.v1v2_standard != 0;
-	const bool nmode = np2cfg.v1v2_nmode != 0;
+	const int boot_mode = np2cfg.boot_mode;
 	for (const auto &machine : machines) {
 		const bool current = milstr_cmp(np2cfg.model, machine.model) == 0;
 		if (!ImGui::BeginMenu(machine.label)) {
 			continue;
 		}
+		// 自動: the fallback for a disk without a V3 IPL is the V1/V2 mode
+		// last chosen, shown in the label.
+		char automatic[64];
+		std::snprintf(automatic, sizeof(automatic), "自動 (V3 以外は %s %s)", v1 ? "V1" : "V2",
+		              standard ? "S" : "H");
+		if (ImGui::MenuItem(automatic, nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
+			select_boot(machine.model, BOOTMODE_AUTO, v1, standard, nullptr);
+		}
 		for (const auto &mode : modes) {
 			if (ImGui::MenuItem(mode.label, nullptr,
-			                    current && !nmode && (v1 == mode.v1) &&
+			                    current && (boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
 			                        (standard == mode.standard))) {
-				select_boot(machine.model, mode.v1, mode.standard, nullptr);
+				select_boot(machine.model, BOOTMODE_V1V2, mode.v1, mode.standard, nullptr);
 			}
 		}
 		// vaeg extension: N-BASIC from a user-supplied ROM.
@@ -3187,10 +3204,10 @@ static void draw_boot_menu(void) {
 				continue;
 			}
 			const std::string label = std::string("N (") + entry.label + ")##" + entry.name;
-			const bool loaded = current && nmode && memoryva_n80_exist &&
+			const bool loaded = current && (boot_mode == BOOTMODE_N) && memoryva_n80_exist &&
 			                    (strcmp(memoryva_n80_file, entry.name) == 0);
 			if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
-				select_boot(machine.model, false, false, entry.name);
+				select_boot(machine.model, BOOTMODE_N, v1, standard, entry.name);
 			}
 		}
 		ImGui::EndMenu();
@@ -3221,8 +3238,8 @@ static void boot_from_history(const BootRecord &boot) {
 	} else {
 		(void)load_tape_path(boot.tape);
 	}
-	select_boot(boot.model.c_str(), boot.v1, boot.standard,
-	            boot.nmode ? boot.n80rom.c_str() : nullptr);
+	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
+	            (boot.mode == BOOTMODE_N) ? boot.n80rom.c_str() : nullptr);
 }
 
 static void draw_recent_boots_menu(void) {

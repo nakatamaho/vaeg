@@ -31,6 +31,11 @@ enum {
 	PCMODEL_VA1 = 1,
 	PCMODEL_VA2 = 2,
 
+	/* M111: how reset chooses between V3 and V1/V2. */
+	BOOTMODE_AUTO = 0, /* the ROM decides from the boot disk */
+	BOOTMODE_V1V2 = 1, /* V1/V2 (B1FC5h and V1V2_Standard), skipping the V3 search */
+	BOOTMODE_N = 2,    /* N-BASIC from a user-supplied ROM (vaeg extension) */
+
 	FMBOARD_NONE = 0x0000,
 	FMBOARD_VA_OPN = 0x0100,
 	FMBOARD_VA_OPNA = 0x0200,
@@ -65,7 +70,7 @@ typedef struct {
 	/* vaeg extension: report PC-8801 standard speed (S) in V1/V2 mode. */
 	UINT8 v1v2_standard;
 	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
-	UINT8 v1v2_nmode;
+	UINT8 boot_mode; /* BOOTMODE_*: how reset chooses V3 or V1/V2 (M111) */
 	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
 	OEMCHAR v1v2_n80rom[32];
 	/* DIP switch SW1, monitor type, read at reset: 0 = 24.8 kHz, 1 = 15 kHz. */

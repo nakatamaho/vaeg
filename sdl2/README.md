@@ -130,9 +130,16 @@ real speed.
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
 takes effect at the reset it triggers.
 
-V1/V2 mode: 模擬 > 起動 > PC-88VA2/VA3 or PC-88VA selects V2 H, V2 S, V1 H
-or V1 S (the VA's
-memory switch for V1/V2; standard speed S is a vaeg extension) and resets.
+Boot mode (M111): 模擬 > 起動 > PC-88VA2/VA3 or PC-88VA selects the machine
+and how it boots, and resets. 自動 lets the ROM decide from the boot disk, as
+the machine does: a disk with a V3 IPL boots V3, anything else V1/V2 in the
+mode last chosen (shown in the label; with no disk the VA2 asks for a disk).
+V2 H, V2 S, V1 H and V1 S start V1/V2 even with a V3 disk or no disk: port
+40h bit 3 (the original VA's SW7) reads OFF until compatible code runs, so
+the ROM skips its V3 boot search, and N-88 BASIC then boots a V1/V2 disk in
+drive 1 itself. V1/V2 is the VA's memory switch B1FC5h bit 0; standard speed
+S is a vaeg extension. The choice is saved as `BootMode` (0 自動, 1 V1/V2,
+2 N).
 An optional 32 KiB PC-8001/8801 N-BASIC ROM in the ROM directory, which the
 VA itself does not carry, named `n80.1.8.rom` or `n80.1.2.rom` (known dumps,
 identified by SHA-1) or `n80.rom` (any content), enables N entries there, which start in N-BASIC without a disk, and lets V1 S N-88

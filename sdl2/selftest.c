@@ -5532,6 +5532,32 @@ static int test_app_directory(void) {
 	return (SUCCESS);
 }
 
+/* M111: the V1/V2 boot mode makes port 40h bit 3 (SW7) read 1, so the ROM
+ * skips its V3 boot search, until compatible code first runs; 自動 leaves
+ * it 0. */
+static int test_boot_mode_sw7(void) {
+	const UINT8 saved = np2cfg.boot_mode;
+	BOOL automatic;
+	BOOL v1v2_before;
+	BOOL v1v2_after;
+
+	np2cfg.boot_mode = BOOTMODE_AUTO;
+	memctrlva_nmode_reset();
+	automatic = memctrlva_nmode_boot_search();
+	np2cfg.boot_mode = BOOTMODE_V1V2;
+	memctrlva_nmode_reset();
+	v1v2_before = memctrlva_nmode_boot_search();
+	memctrlva_nmode_compat_entry();
+	v1v2_after = memctrlva_nmode_boot_search();
+	np2cfg.boot_mode = saved;
+	memctrlva_nmode_reset();
+	if (automatic || !v1v2_before || v1v2_after) {
+		return (fail("boot mode", "SW7 for 自動 and V1/V2"));
+	}
+	fprintf(stderr, "selftest: boot mode ok\n");
+	return (SUCCESS);
+}
+
 /* M110: カーソル割り当て > マウス (KEY_MODE 3) moves the guest mouse that
  * the VA's mouse interface reads, from the cursor keys. */
 static int test_cursor_keys_as_mouse(void) {
@@ -5781,7 +5807,7 @@ static int test_v1v2_memory_switch(void) {
 		/* N mode: RMODE at reset, port 40h bit 3, and the 8801 reset state of
 		 * the ROM's emulated port 53h (text on) at the first compat entry. */
 		memoryva_n80_exist = TRUE;
-		np2cfg.v1v2_nmode = 1;
+		np2cfg.boot_mode = BOOTMODE_N;
 		memoryva_88_port31 = 0;
 		memctrlva_nmode_reset();
 		if ((problem == NULL) && ((memoryva_88_port31 != 0x04) || !memctrlva_nmode_active() ||
@@ -5812,7 +5838,7 @@ static int test_v1v2_memory_switch(void) {
 		if ((problem == NULL) && ((memoryva_88_port31 != 0) || (iocore_inp8(0x040) & 0x08))) {
 			problem = "N mode acted without an N80 ROM";
 		}
-		np2cfg.v1v2_nmode = 0;
+		np2cfg.boot_mode = BOOTMODE_AUTO;
 		memoryva_n80_exist = saved_exist;
 		memoryva_n80[0x0000] = saved0;
 		memoryva_n80[0x5fff] = saved1;
@@ -7007,6 +7033,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_cursor_keys_as_mouse() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_boot_mode_sw7() != SUCCESS) {
 		return (FAILURE);
 	}
 	{

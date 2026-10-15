@@ -227,23 +227,28 @@ static REG8 IOINPCALL memctrlva_i031(UINT port) {
  * 53h is put into the PC-8801 reset state (text on).
  */
 static BOOL nmode_entry_pending;
+static BOOL boot_search_skip_pending;
 
 BOOL memctrlva_nmode_active(void) {
-	return (np2cfg.v1v2_nmode && memoryva_n80_exist) ? TRUE : FALSE;
+	return ((np2cfg.boot_mode == BOOTMODE_N) && memoryva_n80_exist) ? TRUE : FALSE;
 }
 
 /*
- * TRUE from reset until the first compatible-mode entry: the VA ROM's boot
- * search, which port 40h bit 3 must skip. N-BASIC reads the same bit as
- * "no disk unit" (00CBh) and then skips its disk boot, so it must read 0.
+ * TRUE from reset until the first compatible-mode entry when the boot mode
+ * chooses V1/V2 or N (M111): port 40h bit 3 then reads 1, the original VA's
+ * SW7 OFF, so the ROM skips its V3 boot search and enters V1/V2 (also the
+ * VA2, which otherwise asks for a disk). N-88 BASIC still boots a disk in
+ * drive 1. N-BASIC reads the same bit as "no disk unit" (00CBh) and then
+ * skips its disk boot, so it must read 0 afterwards.
  */
 BOOL memctrlva_nmode_boot_search(void) {
-	return nmode_entry_pending;
+	return boot_search_skip_pending;
 }
 
 /* Called after the ROMs are loaded (romva_initialize) at every reset. */
 void memctrlva_nmode_reset(void) {
 	nmode_entry_pending = memctrlva_nmode_active();
+	boot_search_skip_pending = nmode_entry_pending || (np2cfg.boot_mode == BOOTMODE_V1V2);
 	if (nmode_entry_pending) {
 		memoryva_88_port31 = 0x04; /* RMODE: N-BASIC at 0000h-7FFFh */
 	}
@@ -257,6 +262,7 @@ void memctrlva_nmode_reset(void) {
  * 53h to 0. Clear bit 7 in both places once, as that reset would.
  */
 void memctrlva_nmode_compat_entry(void) {
+	boot_search_skip_pending = FALSE;
 	if (!nmode_entry_pending) {
 		return;
 	}
