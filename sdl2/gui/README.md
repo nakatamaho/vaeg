@@ -170,8 +170,9 @@ check or stall software waiting for the FM timer.
 
 模擬 -> 起動 selects the machine and its V1/V2 or N mode in one step:
 `PC-88VA2/VA3` writes `pc_model=88VA2` and `PC-88VA` writes
-`pc_model=88VA1`, each with V2 H, V2 S, V1 H, V1 S and, with an N-BASIC
-ROM, N. The 8087 is on by default on both (M110) and is switched off in
+`pc_model=88VA1`, each with 自動 (the ROM decides from the boot disk), V2 H,
+V2 S, V1 H, V1 S (V1/V2 even with a V3 disk or no disk, M111) and, with an
+N-BASIC ROM, N; the choice is saved as `BootMode`. The 8087 is on by default on both (M110) and is switched off in
 模擬 -> 詳細設定…. The VA selection uses the unsuffixed ROM names, while
 the VA2 uses MAME-compatible `*_va2.rom` names. Both sets are read beside the executable. Selection immediately uses
 the existing guest-reset flow, including preservation of configured FDD and

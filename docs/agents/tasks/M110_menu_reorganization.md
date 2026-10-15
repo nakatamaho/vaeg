@@ -259,6 +259,11 @@ exercised once.
   (FH/MH-compatible layout and the existing PC-8801 key matrix); keys a
   8001 lacks are ignored. Hard disks stay attached but hidden and unused
   outside the VA. The front-panel lamps follow the machine.
+- X88000 (public domain) supports HAL Laboratory's PCG-8800 and has a
+  PC-8001mkII/SR emulation mode (maintainer, 2026-10-15), so it is the
+  reference for both M114 and M115. Its source is not on the build machine
+  yet; it is to be obtained, and its version and the evidence of its
+  public-domain status recorded, before anything is ported.
 - M115: PCG-8100 (8001) and PCG-8800 (8801): character redefinition and
   the 8253 three-voice tone generator, ported from X88000, which is in the
   public domain. Ported files carry the BSD header required for new files
