@@ -638,6 +638,11 @@ static void scrnmng_update_title(void) {
 	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
 	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
 	length = snprintf(title, sizeof(title), "%s", app_name);
+	/* M113: the PC-8801 model running in V1/V2 mode. */
+	if ((np2cfg.extra_machine[0] != '\0') && (length >= 0) && ((size_t)length < sizeof(title))) {
+		length +=
+		    snprintf(title + length, sizeof(title) - (size_t)length, " - %s", np2cfg.extra_machine);
+	}
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0) {
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);

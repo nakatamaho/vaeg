@@ -161,6 +161,7 @@ typedef struct {
 	const char *scsi_path[7];
 	const char *hostfat_path;
 	const char *roms_path;
+	const char *extra_machine; /* M113: --extra-machine model directory */
 	const char *config_path;
 	const char *bkupmem_path;
 	const char *headless_input_script;

@@ -75,6 +75,8 @@ typedef struct {
 	OEMCHAR v1v2_n80rom[32];
 	/* M112: revisions chosen under extra/, "<machine>/<role>=<revision>;"... */
 	OEMCHAR extra_rom_select[512];
+	/* M113: PC-8801 machine started from extra/<name>/; empty for the VA. */
+	OEMCHAR extra_machine[64];
 	/* DIP switch SW1, monitor type, read at reset: 0 = 24.8 kHz, 1 = 15 kHz. */
 	UINT8 monitor_15khz;
 	/* Display on the digital RGB output (8 colours); a display-side policy. */

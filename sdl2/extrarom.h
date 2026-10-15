@@ -97,11 +97,20 @@ typedef struct {
 	char missing[128]; /* required roles not found, "n80_2sr font80sr" */
 } EXTRAROM_MACHINE;
 
+/* M113: how a model directory is started. */
+typedef struct {
+	const char *base_model; /* str_VA1 or str_VA2 */
+	BOOL startable;         /* FALSE for the PC-8001 family (M114) */
+	BOOL v2;                /* N88-BASIC V2 */
+	BOOL high;              /* 8 MHz (H) as well as 4 MHz (S) */
+} EXTRAROM_PROFILE;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern const char *const extrarom_role_names[EXTRAROM_ROLES];
+extern char extrarom_last_error[160];
 
 void extrarom_dir(char *path, int size);
 UINT extrarom_scan(EXTRAROM_MACHINE *machines, UINT count);
@@ -117,6 +126,9 @@ void extrarom_select(const char *machine, UINT role, const char *revision);
 BOOL extrarom_read(const EXTRAROM_MACHINE *machine, const EXTRAROM_FILE *file, BYTE *data,
                    UINT size);
 int extrarom_list(void);
+BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out);
+BOOL extrarom_startable(const EXTRAROM_MACHINE *machine);
+void extrarom_apply(void);
 
 #ifdef __cplusplus
 }

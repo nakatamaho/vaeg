@@ -52,6 +52,7 @@
 #include "emsio.h"
 #include "gui/gui.h"
 #include "extrarom.h"
+#include "romva.h"
 #include "romcheck.h"
 #include "selftest.h"
 #include "upd9002_trace.h"
@@ -243,6 +244,9 @@ typedef struct {
 
 typedef struct {
 	BOOL model_sound;
+	BOOL extra_machine;
+	char saved_extra_machine[64];
+	UINT8 saved_boot_mode;
 	char model[sizeof(np2cfg.model)];
 	char applied_model[sizeof(np2cfg.model)];
 	UINT16 sound;
@@ -325,6 +329,7 @@ static void usage(const char *progname) {
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("\t--roms path         ROM directory override\n");
 	printf("\t--list-extra-roms   list the ROMs under extra/ in the ROM directory\n");
+	printf("\t--extra-machine NAME  start the PC-8801 model in extra/NAME (session only)\n");
 	printf("Persistence (paths are relative to the current directory):\n");
 	printf("\t--cfg path | --no-cfg\n");
 	printf("\t--bkupmem path | --no-bkupmem\n");
@@ -1065,8 +1070,13 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	int drive;
 
 	ZeroMemory(saved, sizeof(*saved));
-	saved->model_sound =
-	    (options->model != VAEG_CLI_MODEL_UNSET) || (options->fm_sound != VAEG_CLI_FM_SOUND_UNSET);
+	saved->model_sound = (options->model != VAEG_CLI_MODEL_UNSET) ||
+	                     (options->fm_sound != VAEG_CLI_FM_SOUND_UNSET) ||
+	                     (options->extra_machine != NULL);
+	saved->extra_machine = options->extra_machine != NULL;
+	milstr_ncpy(saved->saved_extra_machine, np2cfg.extra_machine,
+	            sizeof(saved->saved_extra_machine));
+	saved->saved_boot_mode = np2cfg.boot_mode;
 	if (saved->model_sound) {
 		file_cpyname(saved->model, np2cfg.model, sizeof(saved->model));
 		saved->sound = np2cfg.SOUND_SW;
@@ -1252,6 +1262,11 @@ static void update_applied_display(CLI_SAVED_CONFIG *saved) {
 
 static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_CONFIG *saved) {
 	int drive;
+
+	if (saved->extra_machine) {
+		milstr_ncpy(np2cfg.extra_machine, saved->saved_extra_machine, sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = saved->saved_boot_mode;
+	}
 
 	if (saved->model_sound && !strcmp(np2cfg.model, saved->applied_model) &&
 	    (np2cfg.SOUND_SW == saved->applied_sound)) {
@@ -1833,6 +1848,7 @@ int main(int argc, char **argv) {
 	VAEG_SCREENSHOT_SCHEDULER screenshots;
 	char cli_error[256];
 	const char *cli_model;
+	int extra_machine_v1;
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m46-dispatch-qa")) {
@@ -1939,6 +1955,7 @@ int main(int argc, char **argv) {
 	run_ok = SUCCESS;
 	splash_started = 0;
 	cli_model = NULL;
+	extra_machine_v1 = -1;
 	ZeroMemory(&input_script, sizeof(input_script));
 	if (vaeg_cli_parse(argc, argv, &options, cli_error, sizeof(cli_error)) != SUCCESS) {
 		fprintf(stderr, "Error: %s\n", cli_error);
@@ -2018,6 +2035,7 @@ int main(int argc, char **argv) {
 		return (run_ok);
 	}
 	initload();
+	romva_machine_hook = extrarom_apply;
 	if (options.list_extra_roms) {
 		char missing[MAX_PATH];
 		(void)resolve_model_rompath(missing, sizeof(missing));
@@ -2103,6 +2121,21 @@ int main(int argc, char **argv) {
 	if (options.model != VAEG_CLI_MODEL_UNSET) {
 		cli_model = cli_model_name(options.model);
 	}
+	if (options.extra_machine != NULL) {
+		EXTRAROM_PROFILE profile;
+		if (!extrarom_profile(options.extra_machine, &profile) || !profile.startable) {
+			fprintf(stderr, "Error: --extra-machine: %s is not a PC-8801 model vaeg can start\n",
+			        options.extra_machine);
+			SDL_Quit();
+			dosio_term();
+			return (FAILURE);
+		}
+		/* M113: session only; V2 where the model has it, else V1. */
+		cli_model = profile.base_model;
+		milstr_ncpy(np2cfg.extra_machine, options.extra_machine, sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		extra_machine_v1 = profile.v2 ? 0 : 1;
+	}
 	if (options.smoke) {
 		smoke_configure_va((cli_model != NULL) ? cli_model : str_VA2);
 		apply_cli_config(&options, &saved_cli);
@@ -2126,6 +2159,9 @@ int main(int argc, char **argv) {
 		apply_cli_config(&options, &saved_cli);
 	}
 	select_backup_memory_path(&options);
+	if (extra_machine_v1 >= 0) {
+		bkupmemva_set_88v1(extra_machine_v1 ? TRUE : FALSE);
+	}
 	warn_va_config_sanity();
 	if (np2_debug) {
 		fprintf(stderr,

@@ -234,7 +234,7 @@ struct GuiState {
 	bool native_crt_settings_open = false;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
-	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
+	int new_fdd_format = NEWDISK_FDD_BLANK_2HD_1200;
 	int new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
 	int new_fdd_drive = 0;
 	bool new_fdd_mount_after_create = true;
@@ -1345,13 +1345,15 @@ static void select_sound_buffer(UINT delayms) {
  * its setup menu stores it; H/S and N are vaeg extensions (memctrlva_i031).
  */
 static void select_boot(const char *model, int boot_mode, bool v1, bool standard,
-                        const char *n80rom) {
+                        const char *n80rom, const char *extra_machine = nullptr) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
 
 	np2_select_boot_model(model);
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
+	milstr_ncpy(np2cfg.extra_machine, (extra_machine != nullptr) ? extra_machine : "",
+	            sizeof(np2cfg.extra_machine));
 	np2cfg.boot_mode = static_cast<UINT8>(boot_mode);
 	if (boot_mode == BOOTMODE_N) {
 		if (n80rom != nullptr) {
@@ -1363,6 +1365,17 @@ static void select_boot(const char *model, int boot_mode, bool v1, bool standard
 	}
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
+}
+
+/* M113: start a PC-8801 model from extra/<name>/ in the VA's V1/V2 mode
+ * (V2/V1 with H or S, or N), on the VA model its profile names. */
+static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(name, &profile) || !profile.startable) {
+		return;
+	}
+	select_boot(profile.base_model, boot_mode, v1, standard, nullptr, name);
 }
 
 static void select_monitor(bool khz15) {
@@ -1835,12 +1848,13 @@ struct BootRecord {
 	std::string fdd[2];
 	std::string sasi[2];
 	std::string tape;
+	std::string extra; /* M113: PC-8801 model directory, empty for the VA */
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
 		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
 		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
-		       (sasi[1] == other.sasi[1]) && (tape == other.tape);
+		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra);
 	}
 };
 
@@ -1909,7 +1923,7 @@ static void history_save(void) {
 		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
 		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
 		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
-		       << '\t' << boot.tape << '\n';
+		       << '\t' << boot.tape << '\t' << boot.extra << '\n';
 	}
 }
 
@@ -1925,7 +1939,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if ((fields.size() == 11) && (fields[0] == "boot")) {
+		if (((fields.size() == 11) || (fields.size() == 12)) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -1940,6 +1954,9 @@ static void history_load(void) {
 			boot.sasi[0] = fields[8];
 			boot.sasi[1] = fields[9];
 			boot.tape = fields[10];
+			if (fields.size() == 12) {
+				boot.extra = fields[11];
+			}
 			if (g_recent_boots.size() < kRecentBoots) {
 				g_recent_boots.push_back(boot);
 			}
@@ -2018,6 +2035,7 @@ static void history_record_boot(void) {
 	boot.standard = np2cfg.v1v2_standard != 0;
 	boot.mode = np2cfg.boot_mode;
 	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
+	boot.extra = np2cfg.extra_machine;
 	for (int drive = 0; drive < 2; drive++) {
 		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
 		if ((mounted == nullptr) || (mounted[0] == '\0')) {
@@ -2057,10 +2075,12 @@ static std::string history_boot_label(const BootRecord &boot) {
 		mode += boot.standard ? " S" : " H";
 	}
 	if (boot.mode == BOOTMODE_AUTO) {
-		mode = "自動, V3 以外は " + mode;
+		mode = "自動";
 	}
-	return name + "  (" + ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3") +
-	       ", " + mode + ")";
+	const std::string machine =
+	    !boot.extra.empty() ? boot.extra
+	                        : ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3");
+	return name + "  (" + machine + ", " + mode + ")";
 }
 
 /* A list of recent files for one drive; `select` is called with the path. */
@@ -2298,11 +2318,15 @@ static void open_new_scsi_dialog(int drive) {
 static const char *new_fdd_default_name(int format, int container) {
 	switch (format) {
 	case NEWDISK_FDD_BLANK_2DD_720:
-		return "newdisk-2dd720.d88";
+		return "newdisk-2dd.d88";
 	case NEWDISK_FDD_BLANK_2D_320:
-		return "newdisk-2d320.d88";
+		return "newdisk-2d.d88";
 	case NEWDISK_FDD_BLANK_2D_360:
 		return "newdisk-2d360.d88";
+	case NEWDISK_FDD_BLANK_2HD_1200:
+		return "newdisk-2hd.d88";
+	case NEWDISK_FDD_BLANK_2DD_640:
+		return "newdisk-2dd.d88";
 	default:
 		break;
 	}
@@ -2998,26 +3022,15 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##new-fdd-path", g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path));
-		ImGui::Text("Image format");
-		if (ImGui::RadioButton("D88", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_D88)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_D88));
-		}
+		// M113: new disks are unformatted D88 images (blank E5h sectors);
+		// the guest's FORMAT rewrites every track with its own sector layout,
+		// so one initial layout per media type is offered.
+		ImGui::Text("未フォーマット (D88)");
+		ImGui::RadioButton("2HD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2HD_1200);
 		ImGui::SameLine();
-		if (ImGui::RadioButton("IMG (raw)", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_RAW)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_RAW));
-		}
-		ImGui::Text("Disk format");
-		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2HD);
+		ImGui::RadioButton("2DD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
 		ImGui::SameLine();
-		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2DD);
-		ImGui::TextDisabled("Unformatted (blank sectors, D88 only):");
-		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
+		ImGui::RadioButton("2D", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
 		if (!newdisk_fdd_has_filesystem(static_cast<UINT>(g_gui.new_fdd_format)) &&
 		    (g_gui.new_fdd_container != NEWDISK_FDD_CONTAINER_D88)) {
 			g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
@@ -3165,12 +3178,13 @@ static void scan_extra_roms(void) {
 	g_extra_machines.resize(count);
 }
 
+/* A MAME match is not shown; a ROM MAME does not list, or marks BAD_DUMP, is. */
 static std::string extra_rom_item(const EXTRAROM_FILE &file) {
 	std::string text = file.label;
 	if (file.mame[0] == '\0') {
-		text += "  [MAME になし]";
-	} else {
-		text += file.mame_bad_dump ? "  [MAME と一致, BAD_DUMP]" : "  [MAME と一致]";
+		text += "  [MAME と不一致]";
+	} else if (file.mame_bad_dump) {
+		text += "  [BAD_DUMP]";
 	}
 	return text;
 }
@@ -3188,21 +3202,55 @@ static void extra_rom_tooltip(const EXTRAROM_FILE &file) {
 	if (file.mame[0] != '\0') {
 		ImGui::Text("MAME: %s%s%s%s", file.mame, (file.mame_bios[0] != '\0') ? " (" : "",
 		            file.mame_bios, (file.mame_bios[0] != '\0') ? ")" : "");
-		ImGui::TextDisabled("MAME との一致は参考です（良いダンプの保証ではありません）");
 	}
 	ImGui::EndTooltip();
 }
 
-static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+/* M113: the start entries of a model, labelled as for the VA: V2/V1 (H
+ * where the model runs at 8 MHz, S) and N when it has N-BASIC. */
+static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(machine.name, &profile) || !profile.startable) {
+		ImGui::TextDisabled("起動はまだできません");
+		return;
+	}
+	const bool ready = extrarom_startable(&machine);
+	const bool current = milstr_cmp(np2cfg.extra_machine, machine.name) == 0;
+	const bool v1 = bkupmemva_get_88v1() != FALSE;
+	const bool standard = np2cfg.v1v2_standard != 0;
+	const bool has_n80 = extrarom_choice(&machine, EXTRAROM_ROLE_N80) != nullptr;
+	static const struct {
+		const char *label;
+		bool v1;
+		bool standard;
+	} modes[] = {
+	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
+	for (const auto &mode : modes) {
+		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high)) {
+			continue;
+		}
+		const bool selected = current && (np2cfg.boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
+		                      (standard == mode.standard);
+		if (ImGui::MenuItem(mode.label, nullptr, selected, ready)) {
+			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
+		}
+	}
+	if (has_n80 &&
+	    ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
+		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
+	}
+	if (!ready) {
+		ImGui::TextDisabled("n88.rom がありません");
+	}
+}
+
+/* The ROMs of a model, one line per role; a role with several files is a
+ * submenu of its revisions, remembered per model and role. */
+static void draw_extra_rom_files(const EXTRAROM_MACHINE &machine) {
 	static const char *const reasons[] = {"名前が役割に合わない", "大きさが違う", "中身が空",
 	                                      "読めない"};
-	std::string title = machine.name;
-	if (!machine.known) {
-		title += "  (機種不明)";
-	} else if (machine.missing[0] != '\0') {
-		title += "  (不足あり)";
-	}
-	if (!ImGui::BeginMenu(title.c_str())) {
+	if (!ImGui::BeginMenu("ROM")) {
 		return;
 	}
 	if (machine.missing[0] != '\0') {
@@ -3221,7 +3269,6 @@ static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 			extra_rom_tooltip(*chosen);
 			continue;
 		}
-		// Revisions: the choice is kept per machine and role in the config.
 		const std::string menu = head + chosen->label + "##" + extrarom_role_names[role];
 		if (!ImGui::BeginMenu(menu.c_str())) {
 			continue;
@@ -3238,29 +3285,46 @@ static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 		ImGui::EndMenu();
 	}
 	for (UINT i = 0; (i < machine.ignored) && (i < EXTRAROM_MAX_IGNORED); i++) {
-		ImGui::TextDisabled("使わないファイル: %s (%s)", machine.skipped[i].file,
+		ImGui::TextDisabled("使わない: %s (%s)", machine.skipped[i].file,
 		                    reasons[machine.skipped[i].reason]);
 	}
 	ImGui::EndMenu();
 }
 
-/* 起動 > PC-8801/8001 (追加 ROM): what was found and the revision chosen
- * for each role. These machines do not run yet; their emulation follows. */
+static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+	std::string title = machine.name;
+	if (!machine.known) {
+		title += " (機種不明)";
+	} else if (machine.missing[0] != '\0') {
+		title += " (不足あり)";
+	}
+	if (!ImGui::BeginMenu(title.c_str())) {
+		return;
+	}
+	draw_extra_machine_start(machine);
+	ImGui::Separator();
+	draw_extra_rom_files(machine);
+	ImGui::EndMenu();
+}
+
+/* 起動 > PC-8801/8001: the models found under extra/, started in the VA's
+ * V1/V2 mode with their own ROMs. The directory is shown on hover only
+ * when nothing was found, so that a long path does not widen the menu. */
 static void draw_extra_rom_menu(void) {
-	if (!ImGui::BeginMenu("PC-8801/8001 (追加 ROM)")) {
+	if (!ImGui::BeginMenu("PC-8801/8001")) {
 		return;
 	}
 	char dir[MAX_PATH];
 	extrarom_dir(dir, sizeof(dir));
-	ImGui::TextDisabled("ROM の確認と版の選択のみ（この機種での起動はまだできません）");
 	if (g_extra_machines.empty()) {
-		ImGui::TextDisabled("ROM がありません: %s", dir);
+		ImGui::TextDisabled("ROM がありません");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s/<機種名>/<役割>.rom", dir);
+		}
 	}
 	for (const auto &machine : g_extra_machines) {
 		draw_extra_rom_machine(machine);
 	}
-	ImGui::Separator();
-	ImGui::TextDisabled("置き場所: %s/<機種名>/<役割>.rom", dir);
 	ImGui::EndMenu();
 }
 
@@ -3290,16 +3354,13 @@ static void draw_boot_menu(void) {
 	const bool standard = np2cfg.v1v2_standard != 0;
 	const int boot_mode = np2cfg.boot_mode;
 	for (const auto &machine : machines) {
-		const bool current = milstr_cmp(np2cfg.model, machine.model) == 0;
+		const bool current =
+		    (milstr_cmp(np2cfg.model, machine.model) == 0) && (np2cfg.extra_machine[0] == '\0');
 		if (!ImGui::BeginMenu(machine.label)) {
 			continue;
 		}
-		// 自動: the fallback for a disk without a V3 IPL is the V1/V2 mode
-		// last chosen, shown in the label.
-		char automatic[64];
-		std::snprintf(automatic, sizeof(automatic), "自動 (V3 以外は %s %s)", v1 ? "V1" : "V2",
-		              standard ? "S" : "H");
-		if (ImGui::MenuItem(automatic, nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
+		// 自動: a disk without a V3 IPL starts the V1/V2 mode last chosen.
+		if (ImGui::MenuItem("自動", nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
 			select_boot(machine.model, BOOTMODE_AUTO, v1, standard, nullptr);
 		}
 		for (const auto &mode : modes) {
@@ -3350,6 +3411,10 @@ static void boot_from_history(const BootRecord &boot) {
 		g_gui.tape_loaded.clear();
 	} else {
 		(void)load_tape_path(boot.tape);
+	}
+	if (!boot.extra.empty()) {
+		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
+		return;
 	}
 	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
 	            (boot.mode == BOOTMODE_N) ? boot.n80rom.c_str() : nullptr);
@@ -3538,21 +3603,18 @@ static void draw_fdd_menu(void) {
 		}
 		ImGui::Separator();
 		if (ImGui::BeginMenu("新しい FDD イメージ")) {
-			if (ImGui::MenuItem("2HD (1.2 MB、MS-DOS)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2HD);
+			// Every new disk is unformatted; the guest formats it with its
+			// own sector layout (a 2DD becomes 640 or 720 KB, a 2D 320 or
+			// 360 KB), so one entry per media type is enough.
+			ImGui::TextDisabled("未フォーマット");
+			if (ImGui::MenuItem("2HD…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2HD_1200);
 			}
-			if (ImGui::MenuItem("2D (320 KB、未フォーマット)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
-			}
-			if (ImGui::MenuItem("2DD (640 KB、MS-DOS)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
-			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("2D (360 KB、未フォーマット)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
-			}
-			if (ImGui::MenuItem("2DD (720 KB、未フォーマット)…")) {
+			if (ImGui::MenuItem("2DD…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
+			}
+			if (ImGui::MenuItem("2D…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
 			}
 			ImGui::EndMenu();
 		}
@@ -4418,51 +4480,6 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("モニタ")) {
-			// DIP switch SW1, read by the ROM at reset.
-			if (ImGui::MenuItem("24 kHz（リセット）", nullptr, np2cfg.monitor_15khz == 0)) {
-				select_monitor(false);
-			}
-			if (ImGui::MenuItem("15 kHz（リセット）", nullptr, np2cfg.monitor_15khz != 0)) {
-				select_monitor(true);
-			}
-			ImGui::Separator();
-			// Analog or digital RGB output; display only, no reset.
-			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
-				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
-				sysmng_update(SYS_UPDATECFG);
-				scrndrawva_redraw();
-			}
-			ImGui::Separator();
-			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
-			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
-			                    np2cfg.monitor_15khz_fill == 0)) {
-				np2cfg.monitor_15khz_fill = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
-			                    np2cfg.monitor_15khz_fill != 0)) {
-				np2cfg.monitor_15khz_fill = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::Separator();
-			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
-			// (8x8 text doubled, 200-line graphics with scanline gaps).
-			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
-				np2cfg.v1v2_8801_display = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
-				np2cfg.v1v2_8801_display = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::EndMenu();
-		}
-		ImGui::Separator();
 		draw_renderer_selection();
 		if (!scrnmng_native_active() && ImGui::BeginMenu("エフェクト")) {
 			static const char *labels[] = {"加工なし", "線形補間", "走査線", "CRT 簡易"};
@@ -4512,6 +4529,53 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
+		// The monitor's horizontal frequency (DIP switch SW1, read by the ROM
+		// at reset) and how its picture is shown.
+		if (ImGui::BeginMenu(np2cfg.monitor_15khz ? "モニタ: 15 kHz" : "モニタ: 24 kHz")) {
+			if (ImGui::MenuItem("24 kHz (リセット)", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz (リセット)", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
+		// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one (8x8
+		// text doubled, 200-line graphics with scanline gaps).
+		if (ImGui::BeginMenu("V1/V2 表示")) {
+			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
 		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
 		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
 		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
@@ -4986,6 +5050,13 @@ static void draw_about_dialog(void) {
 					milstr_ncat(g_gui.about_info, (id != nullptr) ? id : "unreadable",
 					            sizeof(g_gui.about_info));
 					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
+				}
+				if (np2cfg.extra_machine[0] != '\0') {
+					milstr_ncat(g_gui.about_info, "\nPC-8801 machine: ", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info,
+					            (extrarom_last_error[0] != '\0') ? extrarom_last_error
+					                                             : np2cfg.extra_machine,
+					            sizeof(g_gui.about_info));
 				}
 				g_gui.about_more = true;
 			}

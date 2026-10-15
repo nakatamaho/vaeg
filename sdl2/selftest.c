@@ -36,6 +36,8 @@
 #include "emsio.h"
 #include "bkupmemva.h"
 #include "romva.h"
+#include "subsystemmx.h"
+#include "io/subsystem.h"
 #include "extrarom.h"
 #include "n80rom.h"
 #include "memctrlva.h"
@@ -108,7 +110,6 @@ extern BEEPCFG beepcfg;
 #endif
 #include "io/upd9002_regs.h"
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-#include "io/subsystem.h"
 #include "tests/upd780/subsystem_integration.h"
 #endif
 
@@ -1067,11 +1068,13 @@ static int test_new_blank_fdd_images(void) {
 		UINT size;
 	} blank[] = {{NEWDISK_FDD_BLANK_2DD_720, 0x10, 80, 9, 2, 512},
 	             {NEWDISK_FDD_BLANK_2D_320, 0x00, 40, 16, 1, 256},
-	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512}};
+	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512},
+	             {NEWDISK_FDD_BLANK_2HD_1200, 0x20, 77, 8, 3, 1024},
+	             {NEWDISK_FDD_BLANK_2DD_640, 0x10, 80, 8, 2, 512}};
 	_D88HEAD header;
 	_D88SEC sector_header;
 	_FDDFILE parsed;
-	BYTE sector[512];
+	BYTE sector[1024];
 	char path[MAX_PATH];
 	const char *problem = NULL;
 	FILEH fh;
@@ -5969,6 +5972,187 @@ static int test_extra_roms(void) {
 	return (SUCCESS);
 }
 
+/* Write `dir`/`name` filled by selftest_fill_rom; returns FALSE on error. */
+static BOOL selftest_put_rom(const char *dir, const char *name, UINT size, BYTE seed) {
+	static BYTE data[0x80000];
+
+	selftest_fill_rom(data, size, seed, NULL);
+	return selftest_write_file(dir, name, data, size);
+}
+
+/* M113: a PC-8801 model directory replaces the ROM images V1/V2 mode reads:
+ * N88-BASIC and its banks (absent banks FFh), N-BASIC, a 2 KiB FDD ROM
+ * repeated over 8 KiB or no FDD unit, the kanji ROMs in port order, the 8x8
+ * characters from kanji1.rom, no dictionary, and 自動 started as V1/V2. A
+ * missing role still starts; a directory without n88.rom leaves the VA ROMs.
+ * Synthetic data only. */
+static int test_extra_machine(void) {
+	static const char *const sr_files[] = {"n88.rom",   "n88_0.rom", "n88_1.rom", "n88_2.rom",
+	                                       "n88_3.rom", "n80.rom",   "disk.rom",  "kanji1.rom"};
+	static const UINT sr_sizes[] = {0x8000, 0x2000, 0x2000, 0x2000, 0x2000, 0x8000, 0x800, 0x20000};
+	static const char *const pc_files[] = {"n88.rom", "n88_0.rom", "n80.rom", "font.rom"};
+	static const UINT pc_sizes[] = {0x8000, 0x2000, 0x8000, 0x800};
+	static BYTE expect[0x20000];
+	static EXTRAROM_MACHINE scanned;
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dirsr[MAX_PATH];
+	char dirpc[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot_mode = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	EXTRAROM_PROFILE profile;
+	const char *problem = NULL;
+	BOOL ok = TRUE;
+	UINT i;
+
+	if (!extrarom_profile("PC-8801MA", &profile) || !profile.startable || !profile.v2 ||
+	    !profile.high || strcmp(profile.base_model, str_VA2) ||
+	    !extrarom_profile("PC-8801", &profile) || profile.v2 || profile.high ||
+	    !extrarom_profile("PC-88VA", &profile) || strcmp(profile.base_model, str_VA1) ||
+	    !extrarom_profile("PC-8001", &profile) || profile.startable ||
+	    extrarom_profile("PC-9801", &profile)) {
+		problem = "model profiles";
+	}
+	SPRINTF(root, "vaeg-selftest-%lu-machine", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dirsr, base, sizeof(dirsr));
+	file_setseparator(dirsr, sizeof(dirsr));
+	file_catname(dirsr, "PC-8801mkIISR", sizeof(dirsr));
+	file_cpyname(dirpc, base, sizeof(dirpc));
+	file_setseparator(dirpc, sizeof(dirpc));
+	file_catname(dirpc, "PC-8801", sizeof(dirpc));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dirsr);
+	file_dircreate(dirpc);
+	for (i = 0; i < NELEMENTS(sr_files); i++) {
+		ok = ok && selftest_put_rom(dirsr, sr_files[i], sr_sizes[i], (BYTE)(0x10 + i));
+	}
+	for (i = 0; i < NELEMENTS(pc_files); i++) {
+		ok = ok && selftest_put_rom(dirpc, pc_files[i], pc_sizes[i], (BYTE)(0x40 + i));
+	}
+	if ((problem == NULL) && !ok) {
+		problem = "could not write test ROM files";
+	}
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	romva_machine_hook = extrarom_apply;
+
+	/* mkIISR: every role but jisyo. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801mkIISR", sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_AUTO;
+		romva_initialize();
+		selftest_fill_rom(expect, 0x8000, 0x10, NULL);
+		if (memcmp(rom1mem + 0x10000, expect, 0x8000) || (extrarom_last_error[0] != '\0')) {
+			problem = "N88-BASIC from n88.rom";
+		}
+		selftest_fill_rom(expect, 0x2000, 0x13, NULL);
+		if ((problem == NULL) && memcmp(rom1mem + 0x18000 + 2 * 0x2000, expect, 0x2000)) {
+			problem = "extension bank 2";
+		}
+		selftest_fill_rom(expect, 0x8000, 0x15, NULL);
+		if ((problem == NULL) && (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x8000))) {
+			problem = "N-BASIC from n80.rom";
+		}
+		selftest_fill_rom(expect, 0x800, 0x16, NULL);
+		if ((problem == NULL) &&
+		    (memcmp(subsystem.rom, expect, 0x800) ||
+		     memcmp(subsystem.rom + 0x1800, expect, 0x800) || subsystemmxcfg.absent)) {
+			problem = "2 KiB FDD ROM repeated over 8 KiB";
+		}
+		selftest_fill_rom(expect, 0x20000, 0x17, NULL);
+		if (problem == NULL) {
+			iocore_out8(0x0e8, 0x34);
+			iocore_out8(0x0e9, 0x12);
+			if ((cgrom88_kanji[0] == NULL) || (iocore_inp8(0x0e9) != expect[0x2468]) ||
+			    (iocore_inp8(0x0e8) != expect[0x2469])) {
+				problem = "kanji1.rom on ports E8h/E9h";
+			}
+		}
+		if ((problem == NULL) && ((cgrom88_kanji[1] == NULL) || (cgrom88_kanji[1][0] != 0xff) ||
+		                          memcmp(fontmem + 0x41000, expect + 0x1000, 0x800))) {
+			problem = "missing kanji2 or 8x8 characters from kanji1.rom";
+		}
+		if ((problem == NULL) && ((dicmem[0] != 0xff) || (dicmem[0x7ffff] != 0xff))) {
+			problem = "missing dictionary";
+		}
+		if ((problem == NULL) && (np2cfg.boot_mode != BOOTMODE_V1V2)) {
+			problem = "自動 started as V1/V2";
+		}
+	}
+	/* PC-8801: no disk.rom means no FDD unit; banks 1-3 read FFh. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801", sizeof(np2cfg.extra_machine));
+		romva_initialize();
+		selftest_fill_rom(expect, 0x800, 0x43, NULL);
+		if (!subsystemmxcfg.absent || (iocore_inp8(0x0fc) != 0xff) ||
+		    (rom1mem[0x18000 + 0x2000] != 0xff) || (rom1mem[0x1ffff] != 0xff) ||
+		    memcmp(fontmem + 0x41000, expect, 0x800)) {
+			problem = "PC-8801 without an FDD unit";
+		}
+	}
+	/* A missing role does not prevent a start: without kanji1.rom the port
+	 * reads FFh. Without n88.rom the VA ROMs stay and the reason is kept. */
+	if (problem == NULL) {
+		selftest_delete_rom(dirsr, "kanji1.rom");
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801mkIISR", sizeof(np2cfg.extra_machine));
+		romva_initialize();
+		iocore_out8(0x0e8, 0x34);
+		iocore_out8(0x0e9, 0x12);
+		if ((extrarom_last_error[0] != '\0') || (rom1mem[0x10000] != 0x10) ||
+		    (cgrom88_kanji[0] == NULL) || (iocore_inp8(0x0e9) != 0xff)) {
+			problem = "machine with a missing role";
+		}
+	}
+	if (problem == NULL) {
+		selftest_delete_rom(dirsr, "n88.rom");
+		FillMemory(rom1mem + 0x10000, 0x8000, 0x5a);
+		romva_initialize();
+		if ((extrarom_last_error[0] == '\0') || (cgrom88_kanji[0] != NULL) ||
+		    subsystemmxcfg.absent || (rom1mem[0x10000] == 0x10)) {
+			problem = "machine without n88.rom";
+		}
+		/* The 起動 entries are disabled for it. */
+		if ((problem == NULL) && (!extrarom_scan_machine(dirsr, "PC-8801mkIISR", &scanned) ||
+		                          extrarom_startable(&scanned))) {
+			problem = "start entries without n88.rom";
+		}
+	}
+	for (i = 0; i < NELEMENTS(sr_files); i++) {
+		selftest_delete_rom(dirsr, sr_files[i]);
+	}
+	for (i = 0; i < NELEMENTS(pc_files); i++) {
+		selftest_delete_rom(dirpc, pc_files[i]);
+	}
+#if defined(_WIN32)
+	_rmdir(dirsr);
+	_rmdir(dirpc);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dirsr);
+	rmdir(dirpc);
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot_mode;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	if (problem != NULL) {
+		return (fail("PC-8801 machine", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 machine ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -6145,11 +6329,13 @@ static int test_v1v2_rom_ports(void) {
 
 	/* Level 1 kanji: JIS 323Ch is PC-8801 word address 65C0h + row (byte
 	 * CB80h); the VA font image keeps it at byte 8B80h (bit 14 inverted).
-	 * Non-kanji addresses below 4000h index the image directly. */
+	 * Non-kanji addresses below 4000h index the image directly. Level 2 is
+	 * not inverted (M113): word address 65C0h reads byte CB80h. */
 	fontmem[0x8b80 + 2 * 3] = 0x5a;
 	fontmem[0x8b80 + 2 * 3 + 1] = 0xa5;
 	fontmem[0x0420] = 0x11;
-	fontmem[0x20000 + 0x8b80] = 0x77;
+	fontmem[0x20000 + 0xcb80] = 0x77;
+	fontmem[0x20000 + 0x8b80] = 0x66;
 	iocore_out8(0x0e8, 0xc3);
 	iocore_out8(0x0e9, 0x65);
 	if ((iocore_inp8(0x0e9) != 0x5a) || (iocore_inp8(0x0e8) != 0xa5)) {
@@ -7300,6 +7486,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_extra_roms() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_extra_machine() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
