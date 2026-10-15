@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build one bootable PC-Engine D88 containing all demo distributions.
+"""Build one bootable D88 containing all demo distributions.
 
 The checked-in demo distributions are non-bootable data D88 images.  This
 builder extracts their files into collision-free profile directories, then
-installs that payload on a user-supplied PC-Engine system disk.  The source
-system image and the generated bootable D88 are local artifacts.
+installs that payload on a user-supplied PC-Engine 1.05/1.1 or PC-88VA
+MS-DOS system disk.  The source system image and the generated bootable D88
+are local artifacts.
 """
 
 # Copyright (c) 2026 Nakata Maho
@@ -50,6 +51,12 @@ DEFAULT_DISTRIBUTIONS = (
     ("sgp-pseudo-sprite.d88.xz", ("SPRITE/16", "SPRITE/256", "SPRITE/65536")),
     ("sgp-wireframe.d88.xz", ("WIRE/16", "WIRE/256", "WIRE/65536")),
     ("zundamon-orbit.d88.xz", ("ZUNDAMON",)),
+)
+# N88-BASIC programs installed beside the distributions on PC-Engine disks,
+# whose ROM BASIC can load them (MS-DOS has no BASIC): (repository path, root
+# file name). Text gets CRLF line ends, as N88-BASIC expects.
+BASIC_ROOT_FILES = (
+    ("demos/mandelbrot/mandelbrot.bas", "MANDEL.BAS"),
 )
 
 
@@ -144,6 +151,23 @@ def extract_distribution(path, target_names, payload_root, module):
             output.write_bytes(read_file(disk, entry))
 
 
+def build_payload(distribution_dir, payload_root, module, basic=True):
+    """Write every demo of the all-demos disks below payload_root; with basic,
+    also the N88-BASIC programs."""
+    for filename, target_names in DEFAULT_DISTRIBUTIONS:
+        distribution = Path(distribution_dir) / filename
+        if not distribution.is_file():
+            raise BuildError(f"distribution is not readable: {distribution}")
+        extract_distribution(distribution, target_names, payload_root, module)
+    if not basic:
+        return
+    root = Path(payload_root) / "root"
+    root.mkdir(exist_ok=True)
+    for source, name in BASIC_ROOT_FILES:
+        text = (REPOSITORY_ROOT / source).read_bytes()
+        (root / name).write_bytes(text.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+
+
 def build(source, distribution_dir, output):
     module = load_pcengine_module()
     source = Path(source)
@@ -160,11 +184,7 @@ def build(source, distribution_dir, output):
         temporary_root = Path(temporary)
         payload_root = temporary_root / "payload"
         payload_root.mkdir()
-        for filename, target_names in DEFAULT_DISTRIBUTIONS:
-            distribution = distribution_dir / filename
-            if not distribution.is_file():
-                raise BuildError(f"distribution is not readable: {distribution}")
-            extract_distribution(distribution, target_names, payload_root, module)
+        build_payload(distribution_dir, payload_root, module)
 
         vanilla = temporary_root / "vanilla.d88"
         try:
@@ -192,10 +212,10 @@ def build(source, distribution_dir, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Build one bootable PC-Engine D88 containing all demo distributions")
+        description="Build one bootable D88 containing all demo distributions")
     parser.add_argument(
         "--source", required=True, type=Path,
-        help="user-supplied PC-Engine 1.05 or 1.1 boot D88")
+        help="user-supplied PC-Engine 1.05/1.1 or PC-88VA MS-DOS boot D88")
     parser.add_argument(
         "--distribution-dir", type=Path, default=DEFAULT_DISTRIBUTION_DIR,
         help="directory containing the checked-in demo .d88.xz distributions")
@@ -209,13 +229,13 @@ def main(argv=None):
                              args.output.resolve())
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
-    print("Created bootable all-demo PC-Engine D88")
+    print("Created bootable all-demo D88")
     print(f"output: {args.output.resolve()}")
     print(f"size: {size} bytes")
     print(f"SHA-256: {digest}")
     print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRITE/16 "
           "SPRITE/256 SPRITE/65536 WIRE/16 WIRE/256 WIRE/65536 "
-          "ZUNDAMON")
+          "ZUNDAMON; root file MANDEL.BAS")
     return 0
 
 

@@ -43,6 +43,7 @@
 #include "gui/gui.h"
 #include "recording/recording_native_composition.h"
 #include "recording/recording_osd_snapshot.h"
+#include "frontpanel.h"
 
 typedef struct {
 	BOOL enable;
@@ -131,6 +132,7 @@ static VAEG_SPEEDMETER speedmeter;
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport);
+static void scrnmng_draw_front_panel(void);
 static BOOL scrnmng_get_drawable_size(int *width, int *height);
 static BOOL scrnmng_create_sdl_resources(void);
 static BOOL scrnmng_native_fallback(void);
@@ -168,6 +170,63 @@ const char *scrnmng_native_preset_path(void) {
 	}
 	return VAEG_DEFAULT_SHADER_PRESET;
 #endif
+}
+
+/*
+ * Front panel lamp bar below the guest picture (sdl2/frontpanel.c): in a visible
+ * window only, not in full screen and not under a headless video driver, so
+ * captures and headless runs are unchanged. With the native CRT presenter
+ * the bar is drawn through the GUI overlay.
+ */
+static int scrnmng_front_panel_height(int width) {
+	const char *video_driver;
+
+	if ((np2oscfg.front_panel == FRONTPANEL_OFF) ||
+	    (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+		return 0;
+	}
+	video_driver = SDL_GetCurrentVideoDriver();
+	if ((video_driver == NULL) || vaeg_native_presenter_is_headless_video_driver(video_driver)) {
+		return 0;
+	}
+	return frontpanel_height(width);
+}
+
+/* Rows of the window height taken by the panel now (windowed mode). The
+ * saved window size excludes them, and showing or hiding the panel adds or
+ * removes them from the current window instead of resetting its size. */
+static int scrnmng_panel_applied = 0;
+
+int scrnmng_front_panel_applied(void) {
+	return scrnmng_panel_applied;
+}
+
+static void scrnmng_fit_front_panel(void) {
+	int width;
+	int height;
+	int panel;
+
+	if ((scrnmng.window == NULL) || (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+		return;
+	}
+	SDL_GetWindowSize(scrnmng.window, &width, &height);
+	panel = scrnmng_front_panel_height(width);
+	if (panel == scrnmng_panel_applied) {
+		return;
+	}
+	height = max(240, height - scrnmng_panel_applied + panel);
+	scrnmng_panel_applied = panel;
+	SDL_SetWindowSize(scrnmng.window, width, height);
+}
+
+/* A filled rectangle on the SDL renderer, or the GUI overlay when native. */
+static void scrnmng_panel_fill(const SDL_Rect *r, Uint8 red, Uint8 green, Uint8 blue) {
+	if (scrnmng.native_active) {
+		gui_overlay_rect(r->x, r->y, r->w, r->h, red, green, blue, 255);
+	} else {
+		SDL_SetRenderDrawColor(scrnmng.renderer, red, green, blue, 255);
+		SDL_RenderFillRect(scrnmng.renderer, r);
+	}
 }
 
 static BOOL scrnmng_native_requested(void) {
@@ -1123,6 +1182,9 @@ void scrnmng_draw_native_overlays(void) {
 		scrnmng_draw_video_info_overlay(&viewport);
 		scrnmng_draw_framebuffer_info_overlay(&viewport);
 	}
+	if (scrnmng.native_active) {
+		scrnmng_draw_front_panel();
+	}
 }
 
 BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
@@ -1279,6 +1341,7 @@ static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport) {
 	input.drawable_height = output_height;
 	input.menu_inset =
 	    (int)(((SINT64)scrnmng.menu_height * output_height + (window_height / 2)) / window_height);
+	input.bottom_inset = scrnmng_front_panel_height(output_width);
 	if (scrnmng.display_mode == VAEG_DISPLAY_WINDOWED) {
 		input.scaling = scrnmng.scaling;
 	} else {
@@ -2032,7 +2095,8 @@ static BOOL scrnmng_update_window_size(void) {
 		current_w = 0;
 		current_h = 0;
 		target_w = scrnmng.width * scrnmng.scale;
-		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale);
+		scrnmng_panel_applied = scrnmng_front_panel_height(target_w);
+		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale) + scrnmng_panel_applied;
 		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
 		if ((current_w == target_w) && (current_h == target_h)) {
 			return (FALSE);
@@ -2041,6 +2105,185 @@ static BOOL scrnmng_update_window_size(void) {
 		return (TRUE);
 	}
 	return (FALSE);
+}
+
+/* The simple front panel: a dark bar with the drive and mode lamps. */
+static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
+	static const char *const lock_labels[2] = {"KANA", "CAPS"};
+	const int s = frontpanel_simple_scale(bar->w);
+	const UINT32 now = SDL_GetTicks();
+	SDL_Color label = {200, 196, 180, 255};
+	SDL_Rect r;
+	int x = 8 * s;
+	int i;
+
+	if (!scrnmng.native_active) {
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	}
+	scrnmng_panel_fill(bar, 34, 34, 36);
+	r.x = bar->x;
+	r.y = bar->y;
+	r.w = bar->w;
+	r.h = s;
+	scrnmng_panel_fill(&r, 70, 70, 74);
+	for (i = 0; i < 7; i++) {
+		const BOOL drive = (i < 2) ? TRUE : FALSE;
+		char text[5];
+		BOOL lit;
+		Uint8 cr;
+		Uint8 cg;
+		Uint8 cb;
+
+		if (i == 2) {
+			x += 16 * s; /* gap between the drives and the mode lamps */
+		} else if (i == 5) {
+			/* the lock lamps are right-aligned: two of "KANA" + lamp, the
+			 * same 12-dot spacing between them, 8 dots from the right edge */
+			x = bar->x + bar->w - 8 * s - (2 * (4 * 8 * s + 4 * s + 12 * s) + 12 * s);
+		}
+		if (drive) {
+			text[0] = 'F';
+			text[1] = 'D';
+			text[2] = (char)('1' + i);
+			text[3] = '\0';
+			lit = frontpanel_drive_lit((UINT)i, now);
+			if (frontpanel_drive_is_2hd((UINT)i)) {
+				cr = 60;
+				cg = 235;
+				cb = 80;
+			} else {
+				cr = 255;
+				cg = 45;
+				cb = 30;
+			}
+		} else if (i < 5) {
+			SDL_strlcpy(text, mode_labels[i - 2], sizeof(text));
+			lit = frontpanel_mode_lit((UINT)(i - 2));
+			cr = 120;
+			cg = 255;
+			cb = 130;
+		} else {
+			/* M109: the keyboard's KANA and CAPS lock lamps. */
+			SDL_strlcpy(text, lock_labels[i - 5], sizeof(text));
+			lit = frontpanel_lock_lit((UINT)(i - 5));
+			cr = 255;
+			cg = 170;
+			cb = 40;
+		}
+		scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, text, label);
+		x += (int)SDL_strlen(text) * 8 * s + 4 * s;
+		r.x = x;
+		r.y = bar->y + 5 * s;
+		r.w = 12 * s;
+		r.h = 6 * s;
+		if (lit) {
+			scrnmng_panel_fill(&r, cr, cg, cb);
+		} else {
+			scrnmng_panel_fill(&r, 52, 60, 52);
+		}
+		x += r.w + 12 * s;
+	}
+}
+
+/* Draw the front panel across the bottom of the drawable, and fit the
+ * window when the setting, display mode or presenter changes. */
+static void scrnmng_draw_front_panel(void) {
+	static int last_layout = -1;
+	int layout;
+	int output_w;
+	int output_h;
+	SDL_Rect panel;
+
+	if ((scrnmng.window == NULL) || (!scrnmng.native_active && (scrnmng.renderer == NULL))) {
+		return;
+	}
+	/* Only on a change of the panel setting, display mode or presenter: the
+	 * bar grows with the window width, so following its height would fight a
+	 * window the user is resizing. */
+	layout =
+	    (np2oscfg.front_panel * 8) + (scrnmng.display_mode * 2) + (scrnmng.native_active ? 1 : 0);
+	if (layout != last_layout) {
+		last_layout = layout;
+		scrnmng_fit_front_panel();
+	}
+	if ((scrnmng_get_drawable_size(&output_w, &output_h) != SUCCESS) || (output_w <= 0)) {
+		return;
+	}
+	panel.h = scrnmng_front_panel_height(output_w);
+	if (panel.h <= 0) {
+		return;
+	}
+	panel.x = 0;
+	panel.y = output_h - panel.h;
+	panel.w = output_w;
+	scrnmng_draw_simple_panel(&panel);
+}
+
+/* Selftest: the simple bar's lamps on a software renderer (drive 1 and V3
+ * lit by the caller); out_path, if set, receives the picture as BMP. */
+BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *problem, size_t size) {
+	SDL_Renderer *saved_renderer = scrnmng.renderer;
+	const BOOL saved_native = scrnmng.native_active;
+	SDL_Surface *surface;
+	SDL_Renderer *renderer;
+	SDL_Rect bar;
+	const Uint32 *px;
+	Uint8 r;
+	Uint8 g;
+	Uint8 b;
+	const int s = frontpanel_simple_scale(width);
+	BOOL ok = TRUE;
+
+	bar.x = 0;
+	bar.y = 0;
+	bar.w = width;
+	bar.h = 14 * s;
+	surface = SDL_CreateRGBSurfaceWithFormat(0, bar.w, bar.h, 32, SDL_PIXELFORMAT_ARGB8888);
+	renderer = (surface != NULL) ? SDL_CreateSoftwareRenderer(surface) : NULL;
+	if (renderer == NULL) {
+		SDL_snprintf(problem, size, "no software renderer");
+		if (surface != NULL) {
+			SDL_FreeSurface(surface);
+		}
+		return FAILURE;
+	}
+	scrnmng.renderer = renderer;
+	scrnmng.native_active = FALSE;
+	scrnmng_draw_simple_panel(&bar);
+	SDL_RenderPresent(renderer);
+	scrnmng.renderer = saved_renderer;
+	scrnmng.native_active = saved_native;
+	if (out_path != NULL) {
+		SDL_SaveBMP(surface, out_path);
+	}
+	px = (const Uint32 *)surface->pixels;
+	/* lamps start after their label: FD1 at 36, FD2 at 88, V1 at 148 (+16 gap) */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (8 + 24 + 4 + 6) * s], surface->format, &r, &g,
+	           &b);
+	if ((r + g + b) < 250) {
+		SDL_snprintf(problem, size, "simple panel drive 1 lamp is not lit");
+		ok = FALSE;
+	}
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (148 + 6) * s], surface->format, &r, &g, &b);
+	if (ok && ((r + g + b) > 250)) {
+		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
+		ok = FALSE;
+	}
+	/* M109: the CAPS lamp ends 8 dots from the right edge (lit or not, it
+	 * differs from the bar's background) */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 14 * s)], surface->format, &r, &g, &b);
+	if (ok && (r == 34) && (g == 34) && (b == 36)) {
+		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
+		ok = FALSE;
+	}
+	SDL_DestroyRenderer(renderer);
+	SDL_FreeSurface(surface);
+	return ok ? SUCCESS : FAILURE;
+}
+
+void scrnmng_front_panel_changed(void) {
+	scrnmng_fit_front_panel();
 }
 
 void scrnmng_set_menu_height(int height) {
@@ -2256,6 +2499,7 @@ BOOL scrnmng_capture_window_size(int *width, int *height) {
 		return (FAILURE);
 	}
 	SDL_GetWindowSize(scrnmng.window, width, height);
+	*height = max(240, *height - scrnmng_panel_applied); /* saved without the panel */
 	return (SUCCESS);
 }
 
@@ -2362,6 +2606,7 @@ void scrnmng_present_begin(void) {
 		src.h = scrnmng.height;
 		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, &src, &dst);
 	}
+	scrnmng_draw_front_panel();
 	SDL_RenderSetClipRect(scrnmng.renderer, &dst);
 	if (((scrnmng.effect == VAEG_EFFECT_SCANLINE) || (scrnmng.effect == VAEG_EFFECT_CRT_LITE)) &&
 	    (dst.h >= scrnmng.height)) {

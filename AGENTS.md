@@ -54,6 +54,26 @@ The clean-checkout build is the fully static MinGW build described under
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+## Demos stay buildable
+
+Every milestone must leave every bundled demo buildable from a clean
+checkout with the repository's own sources and tools. Before a milestone's
+gate:
+
+- build each demo under `demos/` (GLASS, NEON3, NEON4, the pseudo-sprite and
+  wireframe sets, sgp-scan, the self-booting SGP disk) and check that the
+  payloads on the committed `demos/disks/*.d88.xz` are byte-identical to the
+  fresh build; if a source change alters a payload, rebuild the affected
+  distribution, all-demos and all-demos-msdos4 disks in the same milestone;
+- start every program of the all-demos disk in vaeg (PC-Engine and MS-DOS
+  4.0) and confirm it draws, and run `MANDEL.BAS` from N88-BASIC;
+- record the result in the task file.
+
+`zundamon-orbit` is rebuilt with `demos/zundamon-orbit/build-from-psd.sh`
+from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-supplied
+input, like the PC-Engine system disk); its profile tables are tracked under
+`demos/zundamon-orbit/256/ida/` (M109).
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI
@@ -127,14 +147,26 @@ Release notes may summarize the ledger but do not replace it.
   a source-built and freely distributable payload, and the compressed image
   round-trips byte-for-byte to its generated raw D88.  A disk may be bootable
   if it meets these conditions; a disk that needs PC-Engine, NEC system files,
-  or other non-redistributable payloads to boot does not.  The raw D88,
-  PC-Engine system files, private media, ROMs, and source templates remain
-  untracked and must never be committed.
+  or other non-redistributable payloads to boot does not.  A maintainer-
+  approved exception (M106) admits the MIT-licensed MS-DOS 4.0 for the
+  PC-88VA of the FreeDOS-88VA project as system files of a bootable demo
+  disk: only from the pinned release `msdos4-va.2` image (its published
+  SHA-256), only the files a `pcengine_disk.py vanilla` copy keeps, with the
+  release's `LICENSE.TXT` on the disk and its boot sector and files checked
+  by hash.  The raw D88, PC-Engine system files, private media, ROMs, and
+  source templates remain untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
   exact metadata. Keep raw private screenshots, logs, traces, and save files
   outside Git, and never stage, commit, or push them.
+- The maintainer's private reference tree (`pc88va-private-docs/`) is
+  read-only for agents. Never create, modify, or delete anything under it:
+  no work directories, scratch output, builds, logs, screenshots, or
+  generated media. This includes audit or disassembly scratch
+  (`*-audit-*`) and milestone work trees (`m<id>-*`), which have been
+  found there and removed. Put task work under a task-specific directory
+  elsewhere (for example `~/work/pc88va/m<id>-private/` or `/tmp/m<id>/`).
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules

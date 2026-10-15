@@ -41,6 +41,7 @@ typedef struct {
 	int menu_inset;
 	int scaling;
 	BOOL aspect;
+	int bottom_inset; /* front panel below the guest picture */
 } VAEG_VIEWPORT_INPUT;
 
 typedef struct {

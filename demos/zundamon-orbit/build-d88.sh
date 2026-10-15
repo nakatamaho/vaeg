@@ -77,7 +77,7 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$work_dir/payload/root"
 M98Y_PROFILE=private \
-M98Y_PRIVATE_PROFILE_DIR=${M98Y_PRIVATE_PROFILE_DIR:-} \
+M98Y_PRIVATE_PROFILE_DIR=${M98Y_PRIVATE_PROFILE_DIR:-$script_dir/256/ida} \
 M98Y_PRIVATE_ATLAS="$atlas_image" \
 M98X_RUNTIME_MODE=1 NASM=${NASM:-nasm} \
     "$script_dir/256/build.sh" "$work_dir/payload/root/ZUNDAORB.COM" \

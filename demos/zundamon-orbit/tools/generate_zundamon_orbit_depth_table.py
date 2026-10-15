@@ -195,6 +195,8 @@ def main() -> int:
     parser.add_argument("--atlas", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--metadata", type=Path)
+    parser.add_argument("--radius", type=int, nargs=2, metavar=("X", "Y"),
+                        help="fixed orbit radii (the IDA profile uses 96 16)")
     args = parser.parse_args()
     if args.output.exists() or (args.metadata is not None and args.metadata.exists()):
         parser.error("refusing to overwrite generated output")
@@ -202,7 +204,13 @@ def main() -> int:
     header, descriptors = atlas_format.inspect_bytes(contents)
     if header.required_bank_count != 1 or len(descriptors) != 30:
         raise SystemExit("M98T_THIRTY_SCALE_ATLAS_INVALID")
-    radius_x, radius_y, adjustments = select_radii(descriptors)
+    if args.radius is not None:
+        radius_x, radius_y = args.radius
+        adjustments = int(radius_x != M98S_RADIUS_X) + int(radius_y != M98S_RADIUS_Y)
+        if not radius_pair_is_valid(generate_entries(radius_x, radius_y), descriptors):
+            raise SystemExit("M109_FIXED_RADII_INVALID")
+    else:
+        radius_x, radius_y, adjustments = select_radii(descriptors)
     entries = generate_entries(radius_x, radius_y)
     validate_generation(entries)
     encoded = encode_include(entries, radius_x, radius_y, adjustments)

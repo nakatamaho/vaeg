@@ -47,6 +47,17 @@ s88valsi_doc=
 s88va250_archive=
 s88va250_doc=
 stest_source_archive=
+zim_img_archive=
+rdems15_archive=
+rdems152_archive=
+gm1_archive=
+clk_source=
+clk_archive=
+clk_doc=
+va3ddemo_asm=
+va3ddemo_doc=
+extra_packages_dir=
+vz_image=
 work_dir=
 
 usage() {
@@ -63,6 +74,11 @@ Usage: $program_name --output DIR --profile fdd|sasi \
 		       [--s88valsi-archive FILE --s88valsi-doc FILE] \
 		       [--s88va250-archive FILE --s88va250-doc FILE]
 		       [--stest-source-archive FILE]
+		       [--zim-img-archive FILE] [--rdems15-archive FILE]
+		       [--rdems152-archive FILE] [--gm1-archive FILE]
+		       [--clk-source FILE --clk-archive FILE --clk-doc FILE]
+		       [--va3ddemo-asm FILE --va3ddemo-doc FILE]
+		       [--extra-packages-dir DIR] [--vz-image FILE]
 
 Create the normalized development-tool tree consumed by both the FDD and
 SASI injectors.  The output contains BIN, DOC, SRC, ARCHIVE, and UNIX subtrees.
@@ -74,6 +90,12 @@ directories.  The caller chooses which subtrees fit its target medium;
 extraction and destination naming are shared.  The additional source and
 library package archives are SASI-only and are retained without expansion;
 they are rejected for the compact FDD profile.
+
+The SASI-only --extra-packages-dir names a directory holding the PC-88VA
+Softlib packages added in M106 under their Softlib names (the caller checks
+their SHA-256); --vz-image is VZ_VA.D88 of VZ Editor 1.60 for the PC-88VA.
+Original archives go to ARCHIVE, runnable programs to BIN, manuals to DOC;
+VASG goes to its own VASG directory and the sample VZ definitions to VZ.
 EOF
 }
 
@@ -198,6 +220,17 @@ while (($#)); do
 		stest_source_archive=$2
 		shift 2
 		;;
+	--zim-img-archive) (($# >= 2)) || die "$1 requires a path"; zim_img_archive=$2; shift 2 ;;
+	--rdems15-archive) (($# >= 2)) || die "$1 requires a path"; rdems15_archive=$2; shift 2 ;;
+	--rdems152-archive) (($# >= 2)) || die "$1 requires a path"; rdems152_archive=$2; shift 2 ;;
+	--gm1-archive) (($# >= 2)) || die "$1 requires a path"; gm1_archive=$2; shift 2 ;;
+	--clk-source) (($# >= 2)) || die "$1 requires a path"; clk_source=$2; shift 2 ;;
+	--clk-archive) (($# >= 2)) || die "$1 requires a path"; clk_archive=$2; shift 2 ;;
+	--clk-doc) (($# >= 2)) || die "$1 requires a path"; clk_doc=$2; shift 2 ;;
+	--va3ddemo-asm) (($# >= 2)) || die "$1 requires a path"; va3ddemo_asm=$2; shift 2 ;;
+	--va3ddemo-doc) (($# >= 2)) || die "$1 requires a path"; va3ddemo_doc=$2; shift 2 ;;
+	--extra-packages-dir) (($# >= 2)) || die "$1 requires a path"; extra_packages_dir=$2; shift 2 ;;
+	--vz-image) (($# >= 2)) || die "$1 requires a path"; vz_image=$2; shift 2 ;;
 	-h|--help)
 		usage
 		exit 0
@@ -233,12 +266,23 @@ if [[ $profile == sasi ]]; then
 		[[ -n ${path} && -f ${path} && -r ${path} ]] ||
 			die "package is not readable: ${path:-<missing>}"
 	done
+	for path in "$zim_img_archive" "$rdems15_archive" "$rdems152_archive" \
+		"$gm1_archive" "$clk_source" "$clk_archive" "$clk_doc" \
+		"$va3ddemo_asm" "$va3ddemo_doc" "$vz_image"; do
+		[[ -z ${path} || ( -f ${path} && -r ${path} ) ]] ||
+			die "package is not readable: $path"
+	done
+	[[ -z ${extra_packages_dir} || -d ${extra_packages_dir} ]] ||
+		die "extra package directory is not readable: $extra_packages_dir"
 else
 	for path in "$two_hc_source_archive" "$two_hc_driver_archive" \
 		"$pcepat_source_archive" "$tsclv_source_archive" \
 		"$s88valsi_archive" "$s88valsi_doc" \
 		"$s88va250_archive" "$s88va250_doc" \
-		"$stest_source_archive"; do
+		"$stest_source_archive" "$zim_img_archive" "$rdems15_archive" \
+		"$rdems152_archive" "$gm1_archive" "$clk_source" "$clk_archive" \
+		"$clk_doc" "$va3ddemo_asm" "$va3ddemo_doc" "$extra_packages_dir" \
+		"$vz_image"; do
 		[[ -z ${path} ]] || die 'new source/library packages are SASI-only'
 	done
 fi
@@ -252,11 +296,28 @@ done
 	"$output_dir/UNIX/BIN" "$output_dir/UNIX/DOC" "$output_dir/UNIX/MAN"
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-stage-tools.XXXXXX")
 
+# lhasa, the documented extractor, lower-cases MS-DOS member names; alias
+# them so the callers can use the names the archives store.
+add_uppercase_aliases() {
+	local root=$1
+	local path
+	local name
+	local uppercase
+
+	while IFS= read -r -d '' path; do
+		name=${path##*/}
+		uppercase=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+		[[ ${name} != "${uppercase}" ]] || continue
+		[[ -e ${path%/*}/$uppercase ]] || ln -s -- "$name" "${path%/*}/$uppercase"
+	done < <(find "$root" -depth -mindepth 1 -print0)
+}
+
 extract_lha() {
 	local archive=$1
 	local destination=$2
 	mkdir -p -- "$destination"
 	lha xfw="$destination" "$archive" >/dev/null
+	add_uppercase_aliases "$destination"
 }
 
 extract_zip() {
@@ -390,6 +451,129 @@ while IFS= read -r -d '' member; do
 	mkdir -p -- "${destination%/*}"
 	cp -p -- "$member" "$destination"
 done < <(find "$unix_root/man" "$unix_root/doc" -type f -print0 | sort -z)
+fi
+
+if [[ $profile == sasi ]]; then
+	# Softlib packages the SASI wrapper has passed since M97z4 (M106: they
+	# were never staged, which stopped the build).  RDEMS 1.52's driver and
+	# manual already come from the FDD payload; G&M needs EMI.COM and
+	# ANIPLAY.EXE, which are not distributed, so it is kept as an archive.
+	if [[ -n ${zim_img_archive} ]]; then
+		extract_lha "$zim_img_archive" "$work_dir/zim"
+		copy_required "$zim_img_archive" "$output_dir/ARCHIVE/ZIM_IMG.LZH"
+		copy_required "$work_dir/zim/IMG2ZIM.COM" "$output_dir/BIN/IMG2ZIM.COM"
+		copy_required "$work_dir/zim/ZIM2IMG.COM" "$output_dir/BIN/ZIM2IMG.COM"
+	fi
+	if [[ -n ${rdems15_archive} ]]; then
+		extract_lha "$rdems15_archive" "$work_dir/rdems15"
+		copy_required "$rdems15_archive" "$output_dir/ARCHIVE/RDEMS15.LZH"
+		copy_required "$work_dir/rdems15/RDEMS15.MAN" "$output_dir/DOC/RDEMS15.MAN"
+		copy_required "$work_dir/rdems15/RDMAIN15.MAN" "$output_dir/DOC/RDMAIN15.MAN"
+	fi
+	if [[ -n ${rdems152_archive} ]]; then
+		copy_required "$rdems152_archive" "$output_dir/ARCHIVE/RDEMS152.LZH"
+	fi
+	if [[ -n ${gm1_archive} ]]; then
+		extract_lha "$gm1_archive" "$work_dir/gm1"
+		copy_required "$gm1_archive" "$output_dir/ARCHIVE/G&M1.LZH"
+		copy_required "$work_dir/gm1/G&M.DOC" "$output_dir/DOC/G&M.DOC"
+	fi
+	if [[ -n ${clk_archive} ]]; then
+		extract_lha "$clk_archive" "$work_dir/clk"
+		copy_required "$clk_archive" "$output_dir/ARCHIVE/CLK21.LZH"
+		copy_required "$clk_source" "$output_dir/ARCHIVE/CLK21.SRC"
+		copy_required "$work_dir/clk/CLK.COM" "$output_dir/BIN/CLK.COM"
+		copy_required "$clk_doc" "$output_dir/DOC/CLK21.DOC"
+	fi
+	if [[ -n ${va3ddemo_asm} ]]; then
+		copy_required "$va3ddemo_asm" "$output_dir/ARCHIVE/VA3DDEMO.ASM"
+		copy_required "$va3ddemo_doc" "$output_dir/DOC/VA3DDEMO.DOC"
+	fi
+fi
+
+if [[ $profile == sasi && -n ${extra_packages_dir} ]]; then
+	# M106 maintainer additions.  Also restores, for the SASI images, the
+	# FDFRMSRC archive and the SCFORM change history that the utility FDD
+	# no longer carries.
+	pkg=$extra_packages_dir
+	for name in PCP_7A.LZH PCP_CA.LZH FD98_232.LZH FD_VA.LZH VASG100.LZH \
+		NYANCO25.LZH MARINVA.LZH MARINVA.LZP FATMAP11.LZH FDFRMSRC.LZH; do
+		copy_required "$pkg/$name" "$output_dir/ARCHIVE/$name"
+	done
+	for name in NYANCO25.DOC MARINVA.DOC FATMAP11.DOC; do
+		copy_required "$pkg/$name" "$output_dir/DOC/$name"
+	done
+	extract_lha "$pkg/PCP_7A.LZH" "$work_dir/pcp7a"
+	copy_required "$work_dir/pcp7a/INTTRG.TXT" "$output_dir/DOC/INTTRG.TXT"
+	extract_lha "$pkg/PCP_CA.LZH" "$work_dir/pcpca"
+	copy_required "$work_dir/pcpca/SMM.TXT" "$output_dir/DOC/SMM.TXT"
+	extract_lha "$pkg/SCF124.LZH" "$work_dir/scform"
+	copy_required "$work_dir/scform/SCFORM.LOG" "$output_dir/DOC/SCFORM.LOG"
+
+	# FD 2.32 for the PC-9801 with FD_VA's BUPDATE patch for the PC-88VA.
+	command -v dosbox >/dev/null 2>&1 ||
+		die 'required host command is missing: dosbox'
+	fd_tree=$work_dir/fd
+	extract_lha "$pkg/FD98_232.LZH" "$fd_tree"
+	extract_lha "$pkg/FD_VA.LZH" "$fd_tree"
+	extract_lha "$pkg/BDIFF128.LZH" "$work_dir/bdiff"
+	fd_patch=$work_dir/fd-patch
+	mkdir -p -- "$fd_patch"
+	copy_required "$fd_tree/FD98.COM" "$fd_patch/FD98.COM"
+	copy_required "$fd_tree/FD98.BDF" "$fd_patch/FD98.BDF"
+	copy_required "$work_dir/bdiff/BUPDATE.EXE" "$fd_patch/BUPDATE.EXE"
+	printf '%s\n' '[sblaster]' 'sbtype=none' '[speaker]' 'pcspeaker=false' \
+		> "$work_dir/dosbox.conf"
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox \
+		-conf "$work_dir/dosbox.conf" -exit -c "mount c $fd_patch" -c 'c:' \
+		-c 'bupdate -x -i -o fd98.bdf' -c 'exit' >/dev/null 2>&1
+	fd98_digest=$(sha256sum -- "$fd_patch/FD98.COM")
+	[[ ${fd98_digest%% *} == b62f83c33a094380e56b3f0324c4c784587736186417988e1caa03ec84326107 ]] ||
+		die 'FD_VA patch did not give the expected FD98.COM'
+	copy_required "$fd_patch/FD98.COM" "$output_dir/BIN/FD98.COM"
+	for name in FD.COM FDCUST2.COM FD.CFG FDG.COM; do
+		copy_required "$fd_tree/$name" "$output_dir/BIN/$name"
+	done
+	for name in FD.DOC FDCUST2.DOC FD98_232.DOC FDG.DOC; do
+		copy_required "$fd_tree/$name" "$output_dir/DOC/$name"
+	done
+
+	mkdir -p -- "$output_dir/VASG"
+	extract_lha "$pkg/VASG100.LZH" "$work_dir/vasg"
+	while IFS= read -r -d '' member; do
+		name=${member##*/}
+		[[ ${name} == "${name^^}" ]] || continue
+		cp -p -- "$member" "$output_dir/VASG/$name"
+	done < <(find "$work_dir/vasg" -maxdepth 1 -print0 | sort -z)
+
+	extract_lha "$pkg/NYANCO25.LZH" "$work_dir/nyanco"
+	copy_required "$work_dir/nyanco/NYANCO.COM" "$output_dir/BIN/NYANCO.COM"
+	copy_required "$work_dir/nyanco/NYANCO.DOC" "$output_dir/DOC/NYANCO.DOC"
+	extract_lha "$pkg/MARINVA.LZH" "$work_dir/marin"
+	extract_lha "$pkg/MARINVA.LZP" "$work_dir/marin"
+	copy_required "$work_dir/marin/MARIN.COM" "$output_dir/BIN/MARIN.COM"
+	copy_required "$work_dir/marin/MARIN.PCM" "$output_dir/BIN/MARIN.PCM"
+	copy_required "$work_dir/marin/MARIN.DOC" "$output_dir/DOC/MARIN.DOC"
+fi
+
+if [[ $profile == sasi && -n ${vz_image} ]]; then
+	# VZ Editor 1.60 for the PC-88VA, as on the utility FDD, plus the PC-98
+	# manuals and the sample definition files (under VZ).
+	python3 -I "${0%/*}/extract-vz-editor.py" --profile sasi \
+		--image "$vz_image" --output "$work_dir/vz" >/dev/null
+	copy_required "$work_dir/vz/VZVA.COM" "$output_dir/BIN/VZVA.COM"
+	copy_required "$work_dir/vz/VZVA.DEF" "$output_dir/BIN/VZVA.DEF"
+	copy_required "$work_dir/vz/VZFL.DEF" "$output_dir/BIN/VZFL.DEF"
+	copy_required "$work_dir/vz/VZVA.DOC" "$output_dir/DOC/VZVA.DOC"
+	copy_required "$work_dir/vz/LICENSE.TXT" "$output_dir/DOC/VZLIC.TXT"
+	copy_required "$work_dir/vz/README.DOC" "$output_dir/DOC/VZREAD.DOC"
+	copy_required "$work_dir/vz/VZ16.DOC" "$output_dir/DOC/VZ16.DOC"
+	copy_required "$work_dir/vz/MAC16.DOC" "$output_dir/DOC/MAC16.DOC"
+	mkdir -p -- "$output_dir/VZ"
+	for name in VZ.DEF BLOCK.DEF CVTKEI.DEF GAME.DEF HELP.DEF KEISEN.DEF \
+		KEISEN_J.DEF TOOL.DEF VZ16.DEF ZENHAN.DEF; do
+		copy_required "$work_dir/vz/$name" "$output_dir/VZ/$name"
+	done
 fi
 
 write_manifest() {

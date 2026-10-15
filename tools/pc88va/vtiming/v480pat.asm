@@ -448,8 +448,7 @@ parse:		mov	si,0081h
 .wait:
 		mov	ah,0ch			; drop pending keys, wait for one
 		int	82h
-		mov	ah,00h
-		int	82h
+		call	getkey
 		mov	[lastkey],ax
 		cmp	word [sflag],2
 		jne	.r24
@@ -516,6 +515,20 @@ sweep:		mov	[sweepp],bx
 		int	21h
 
 ; horizontal white/colour line at y = SI, full width (skipped beyond N)
+; M109: wait for a key with the keyboard BIOS's primitive functions 0Ah
+; (sense) and 09h (read); functions 00h/01h wait on the Japanese front end,
+; which only an OS installs, so they hang on a self-booting disk and under
+; MS-DOS. AH = scan code, AL = internal code; ESC (scan 00h) gives AL = 1Bh.
+getkey:		mov	ah,0ah
+		int	82h
+		jc	getkey
+		mov	ah,09h
+		int	82h
+		or	ah,ah
+		jnz	.r
+		mov	al,1bh
+.r:		ret
+
 hline:		cmp	si,[lines]
 		jae	.r
 		mov	ax,si

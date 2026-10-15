@@ -52,7 +52,7 @@ BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *vi
 	}
 	viewport->y = max(0, min(input->menu_inset, input->drawable_height));
 	available_width = input->drawable_width;
-	available_height = input->drawable_height - viewport->y;
+	available_height = input->drawable_height - viewport->y - max(0, input->bottom_inset);
 	if ((available_width <= 0) || (available_height <= 0)) {
 		return (FAILURE);
 	}

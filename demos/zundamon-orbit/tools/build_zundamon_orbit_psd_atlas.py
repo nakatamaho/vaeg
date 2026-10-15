@@ -88,6 +88,42 @@ def read_psd_rgb(input_file: Path, convert_command: str) -> bytes:
     return result.stdout
 
 
+def read_psd_rgb_psd_tools(input_file: Path) -> bytes:
+    """Read the PSD's stored merged image with psd-tools (M109).
+
+    The merged image data (RGB plus alpha) is what ImageMagick reads as
+    ``[0]``. As with ``-alpha background`` and ``-resize``, the picture is
+    scaled with its alpha and fully transparent pixels become black, which
+    the converter treats as transparent.
+    """
+    if not input_file.is_file() or input_file.is_symlink():
+        fail("M98AB_PSD_INPUT", "PSD input must be a regular file")
+    try:
+        from PIL import Image
+        from psd_tools import PSDImage
+    except ImportError as error:
+        raise PsdAtlasError(
+            "M109_PSD_TOOLS_MISSING", "psd-tools and Pillow are unavailable") from error
+    try:
+        merged = PSDImage.open(input_file).numpy()
+    except Exception as error:  # psd-tools raises several exception types
+        raise PsdAtlasError("M98AB_PSD_DECODE", "PSD composite could not be decoded") from error
+    if merged.ndim != 3 or merged.shape[2] != 4:
+        fail("M109_PSD_CHANNELS", "PSD merged image is not RGB with alpha")
+    rgba = Image.fromarray((merged * 255.0 + 0.5).clip(0, 255).astype("uint8"), "RGBA")
+    rgba = rgba.resize((SOURCE_WIDTH, SOURCE_HEIGHT), Image.Resampling.LANCZOS)
+    pixels = rgba.tobytes()
+    output = bytearray()
+    for offset in range(0, len(pixels), 4):
+        if pixels[offset + 3] == 0:
+            output += bytes(BACKGROUND)
+        else:
+            output += pixels[offset:offset + 3]
+    if len(output) != RGB_BYTES:
+        fail("M98AB_RGB_SIZE", "PSD composite did not produce 96x128 RGB data")
+    return bytes(output)
+
+
 def convert_rgb_to_va8(rgb_pixels: bytes) -> bytes:
     if len(rgb_pixels) != RGB_BYTES:
         fail("M98AB_RGB_SIZE", "RGB input length differs")
@@ -111,10 +147,16 @@ def build_atlas(rgb_pixels: bytes) -> bytes:
 
 
 def write_atlas(input_file: Path, output_file: Path,
-                convert_command: str) -> None:
+                convert_command: str, decoder: str = "auto") -> None:
     if output_file.exists():
         fail("M98AB_OUTPUT_EXISTS", "output file already exists")
-    contents = build_atlas(read_psd_rgb(input_file, convert_command))
+    if decoder == "auto":
+        decoder = "convert" if shutil.which(convert_command) else "psd-tools"
+    if decoder == "psd-tools":
+        rgb = read_psd_rgb_psd_tools(input_file)
+    else:
+        rgb = read_psd_rgb(input_file, convert_command)
+    contents = build_atlas(rgb)
     try:
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_file.write_bytes(contents)
@@ -127,9 +169,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="one PSD input file")
     parser.add_argument("output", type=Path, help="new zundamon.bin output")
+    parser.add_argument("--decoder", choices=("auto", "convert", "psd-tools"),
+                        default="auto",
+                        help="ImageMagick convert, or psd-tools (auto: convert if found)")
     arguments = parser.parse_args(argv)
     try:
-        write_atlas(arguments.input, arguments.output, "convert")
+        write_atlas(arguments.input, arguments.output, "convert", arguments.decoder)
     except (PsdAtlasError, va8_converter.ConversionError,
             scaler.ScaleError, packer.PackingError) as error:
         print(error, file=sys.stderr)

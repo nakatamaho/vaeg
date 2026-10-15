@@ -78,10 +78,14 @@ case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
 Tape (V1/V2 BASIC, a vaeg extension: the VA itself has no cassette)
-loads a raw `.cmt` or `.t88` tape image or records to a raw image;
+loads a raw `.cmt` or `.t88` tape image, or the first such image inside a
+ZIP, 7z or LZH archive (with LibArchive), or records to a raw image;
 `LOAD "CAS:"`, `BLOAD` and `SAVE "CAS:"` then use it. `--tape` and
 `--tape-save` do the same from the command line. Loading and saving play
 the tape's FSK sound; Sound > Tape volume sets its level separately.
+Tape > Fast load (`CMT_Fast`, off by default) delivers the bytes 16 times
+faster than the baud rate and skips the leader; off, a tape loads at its
+real speed.
 
 Emulate > モニタ selects the monitor DIP switch (SW1): 24 kHz, or 15 kHz,
 where 200-line modes show with scanlines as on a 15 kHz monitor. It
@@ -110,7 +114,8 @@ sends a mapped
 guest make/break pair. Names include `ctrl-c`, `ctrl-z`, `ctrl-left`,
 `ctrl-right`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `home`,
 `help`, `insert`, `delete`, `f1` through `f10`, `shift-f1` through `shift-f10`,
-and `shift-up`, `shift-down`, `shift-left`, or `shift-right`. Chords press the
+`shift-up`, `shift-down`, `shift-left`, `shift-right`, and the lock keys
+`caps` and `kana`. Chords press the
 modifier before the key and release it after the key; each make/break transition
 is separated by three guest frames. An active text
 paste completes before the next key command. Unknown names and unavailable key
@@ -277,6 +282,11 @@ the browser to that drive's root, and updates the New-image default filename
 there. Linux and macOS retain their normal filesystem-root navigation.
 
 FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
+The FDD and tape file lists show the usual types by default (FDD: `.d88`,
+`.88d`, `.zip`, `.7z`, `.lzh`; tape: `.cmt`, `.t88`, `.zip`, `.7z`,
+`.lzh`); the file-type list below the path switches to All files (`*.*`).
+The SASI-1/SASI-2 Open list likewise shows `.hdi` images by default, with
+the same All files choice; SCSI Open lists every file.
 Opening an archive from FDD1 mounts the first two basename-sorted images as
 FDD1/FDD2. Opening from FDD2 mounts only the first image as FDD2 and leaves
 FDD1 unchanged. The same extraction limits, traversal/link rejection,
@@ -582,6 +592,19 @@ Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
 disable both backup-memory reads and writes. These two options are mutually
 exclusive. No implicit migration or fallback reads old user-state copies.
 
+`Boot_FixedDisk=true` (the default; Menu -> デバイス -> ハードディスクから起動)
+makes the BIOS setup's 起動ディスク follow the attached media, so a SASI or SCSI
+hard disk boots without opening the setup menu with the PC key. At
+startup/reset vaeg sets bit 7 of B1FC4h (固定ディスク) when a hard disk is
+attached and clears it (フロッピーディスク) otherwise, in a backup-memory record
+that carries the BIOS signature, and corrects its checksum. Clearing keeps a
+state the hardware can reach: a real machine cannot select the fixed disk
+without one, and the original VA otherwise hangs instead of starting
+N88-BASIC. A bootable floppy in
+drive 1 still boots first. With `false` vaeg does not set the bit, leaving
+the BIOS setup's choice while a hard disk is attached; without one the bit
+is cleared in either case.
+
 For VA/VA2 models, `Main_RAM` is the installed conventional-RAM capacity.
 Menu -> デバイス -> メインメモリ容量 selects 256, 384, 512, or 640 KB and
 whether to synchronize the BIOS backup-memory capacity at startup/reset:
@@ -735,6 +758,18 @@ only the program, use the `CPU 速度` slider below it (`CPU_Speed`, 10-100 %
 in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
 V3 (on top of the Configure multiplier) and in the V1/V2 compatible mode,
 while frames, timers, FM, BEEP and disk timing keep real time.
+`Screen -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
+off) shows a slim bar of lamps below the screen in a window (14 rows per 640
+dots): FD1 and FD2 light for 120 ms after each sector access, red for
+2D/2DD media and green for 2HD, V1/V2/V3 follow port 1CDh bits 4-6, and
+KANA and CAPS (amber, at the right end of the bar) show the guest's lock state: in V3 the BIOS shift-state
+byte 0040:06B0h, in V1/V2 the locked key in the PC-8801 key matrix (port 08h
+bit 5, port 0Ah bit 7).
+The bar takes its own rows below the guest picture: turning it on or off
+adds or removes them from the current window, and the saved window size
+excludes them. It is not shown in full screen or under a headless video
+driver; with the native CRT presenter it
+is drawn through the GUI overlay.
 `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 1/4 presentation without changing guest time. Holding the configured
 `Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
@@ -840,7 +875,8 @@ Device / Keyboard in the ImGui menu exposes:
 
 - Host layout: JIS physical, US keytop, Custom
 - Kana input: JIS Kana, Roman Kana
-- Tenkey overlay: maps YUI/HJK/NM,. to guest keypad 789/456/123/0
+- Tenkey overlay: maps the cursor keys up/left/right/down to guest keypad
+  8/4/6/2
 - Full key binding table with capture-next-key
 
 JIS physical maps host scancode position to PC-88VA physical key

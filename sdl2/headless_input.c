@@ -304,7 +304,9 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script, const 
 	            {"shift-up", KBDROLE_UP, KBDROLE_SHIFTL},
 	            {"shift-down", KBDROLE_DOWN, KBDROLE_SHIFTL},
 	            {"shift-left", KBDROLE_LEFT, KBDROLE_SHIFTL},
-	            {"shift-right", KBDROLE_RIGHT, KBDROLE_SHIFTL}};
+	            {"shift-right", KBDROLE_RIGHT, KBDROLE_SHIFTL},
+	            {"caps", KBDROLE_CAPS, KBDROLE_STOP},
+	            {"kana", KBDROLE_KANA, KBDROLE_STOP}};
 	UINT key;
 	if (length >= 6 && memcmp(line, "@text ", 6) == 0) {
 		return headless_input_script_add_text(script, line + 6, length - 6, FALSE);

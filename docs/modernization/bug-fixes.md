@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M109 — the digital RGB monitor showed the NEC logo red
+
+- **Symptom/scope:** with Emulate > モニタ > デジタル RGB (8色), the VA demo's
+  NEC logo was red and the background showed many cyan and blue dots; on a
+  PC-88VA2 with a digital RGB monitor the logo is yellow with a red edge and
+  the background white. Display only; every program shown with the option.
+- **Demonstrated cause:** the option turned a colour component on from a
+  quarter of full scale (M103i `[POLICY]`). The logo's colour is R 31, G 7 of
+  63; G 7 stayed off. The photograph needs G 7/63, R 5/31 and the rock's
+  dark grey (5, 11, 5) on.
+- **Correction:** a component is on above 1/31 of full scale
+  ([digital8colormode.md](digital8colormode.md)). A first correction,
+  "nonzero is on", showed a hidden R 1/31 screen of the demo in bright red;
+  the PC-88VA2 shows it black.
+- **Verification:** selftest `test_monitor_output_levels` (fails on the old
+  rule); the VA demo in vaeg with the option shows NEC and VA yellow, the
+  NEC edge red, the background white and the hidden screen black, as in the
+  [photographs](m109-photos/va2-digital8-va-demo.jpg)
+  ([hidden screen](m109-photos/va2-digital8-hidden-screen.jpg)).
+- **Milestone/task/commit:** M109;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/80a6223a9b2e23c0298e104ffb1333603eda73b7).
+
 ### M107b — avoid retaining a demo-sized ADPCM wrap limit
 
 - **Symptom/scope:** the unmerged OPNA prototype set a 4KiB ADPCM address
@@ -77,7 +99,123 @@ land.
   [fix 179f6a10](https://github.com/nakatamaho/vaeg/commit/179f6a10ae3f3b1b2720af54ec4b2aa17fefd324),
   backported from [ded95a4b](https://github.com/nakatamaho/vaeg/commit/ded95a4b3b38f0b9e5b140f163e6badf8c87dc3d).
 
-### M106a — SGP LINE drew with its two direction bits exchanged
+### M106 — SGP demos contained 386-only near conditional jumps
+
+- **Symptom/scope:** in vaeg, `SPRITE\16\SGPD_7C.COM` and `SGPD_7D.COM`
+  drew a cyan/yellow checkerboard and wrong ball colours (PC-Engine 1.1 and
+  MS-DOS 4.0, VA2). On the maintainer's PC-88VA2, `SPRITE\256\SGP256S.COM`
+  and `SGP256T.COM` hung at once (2026-10-09). Affects every disk carrying
+  these programs (pseudo-sprite distribution, all-demos, all-demos-msdos4,
+  the self-booting SGP disk) and the `sgp-scan` 16-colour build.
+- **Demonstrated root cause:** the pseudo-sprite, wireframe and sgp-scan
+  sources declared no CPU, so NASM encoded conditional jumps beyond the
+  short range as the 386 near form `0F 8x`. The distributed SGPD_7C/7D
+  contained four, SGP256S/T one each (a `jnz` right after the first
+  `INT 8Fh`), the sgp-scan bar program one. The uPD9002 executes the 80186
+  instruction set, where `0F` introduces NEC extended instructions, not a
+  near jump. vaeg decodes `0F 85` as a one-byte reserved operation, so the
+  following bytes are decoded out of step (shown by the wrong colours,
+  which the rebuilt programs do not show). The rebuilt SGP256S and
+  SGP256T run on the maintainer's PC-88VA2 (2026-10-14), so this encoding
+  was the hardware hang.
+- **Correction:** `cpu 186` in the nine SGP demo sources, as GLASS, NEON3,
+  NEON4 and zundamon-orbit already declare a CPU; NASM now emits an
+  inverted short jump around a near `JMP`. Only the five programs above
+  change; all other SGP builds are byte-identical. The pseudo-sprite,
+  all-demos and all-demos-msdos4 disks are rebuilt; only those four
+  programs differ on them.
+- **Also resolved:** SGPD_7C stalling under MS-DOS 4.0 in vaeg (noted
+  during the M106 LINE work and deferred): the rebuilt program runs and
+  leaves on ESC to a working prompt; the old one now stops at its
+  `0F 85` (see below).
+- **Verification:** no `0F 8x` remains in any rebuilt program; SGPD_7C,
+  SGPD_7D, SGP256S and SGP256T draw with correct colours in vaeg (VA2)
+  from the rebuilt PC-Engine 1.1 and MS-DOS 4.0 disks, where the old
+  SGPD_7C/7D did not. On the PC-88VA2 the rebuilt SGP256S/T run
+  (maintainer, 2026-10-14).
+- **Emulator follow-up (maintainer request, [POLICY]):** vaeg no longer
+  decodes `0F 80h`-`8Fh` as a one-byte reserved operation; the uPD9002
+  stops on the `0Fh` byte as `HLT` does, without leaving it on an
+  interrupt, and reports the first stop at each address on stderr. What
+  the real uPD9002 does with these bytes is not known beyond the hang;
+  this makes such programs hang in vaeg too instead of running out of
+  step. The old SGPD_7C and SGP256S now stop at once in vaeg, at
+  `0238h` and `0173h`; the rebuilt ones run. Other reserved `0F` forms are
+  unchanged. Test `vaeg_upd9002_m106_near_jcc` (all sixteen second bytes,
+  staying stopped, `0F 90` unchanged; three mutations caught).
+  [b5be04ff](https://github.com/nakatamaho/vaeg/commit/b5be04fff33316c035bb03e025f887612cf9b64e).
+- **Milestone/task:** M106, [task file](../agents/tasks/M106_sgp_bootable_demos.md).
+- **Commits:** [eb953958](https://github.com/nakatamaho/vaeg/commit/eb953958c374fb2e1d47d46acb9896d1e9e3ba9e), [0a1076bb](https://github.com/nakatamaho/vaeg/commit/0a1076bb1308cc850b4910562f87e8501eb25e1f).
+
+### M106 — Tapes whose loader chains a second block did not start
+
+- **Symptom/scope:** a PC-8801 tape (T88) whose BASIC part auto-types the
+  monitor's `mon`/`r` to load its machine-code part stopped on its
+  "loading" screen after `LOAD "CAS:"` and `RUN`, with and without fast
+  load; on a PC-8801 the game loads and starts. V1/V2 cassette, T88 images
+  with more than one data block.
+- **Demonstrated cause:** N-88 BASIC ends a cassette load by reading one
+  byte past its program. On the tape that byte comes from the 1200 Hz
+  (space) gap after the block, a run of 0 bits that the 8251 receives as
+  00h. vaeg dropped the T88's timed blocks and joined the data, so BASIC
+  took the first byte (3Ah, the monitor's record mark) of the machine-code
+  block, and the monitor stopped after 7 bytes (tape position 781 of 780
+  bytes of BASIC, then 788).
+- **Correction:** T88 blank, space and mark blocks take their recorded
+  time; space blocks deliver 00h at the baud rate; with fast load the
+  blocks are shortened by 16 instead of dropped (decision C11 revised).
+- **Verification:** the tape loads and the game starts in vaeg (original
+  VA ROM BASIC 2.4, no disk) with fast load off and on; the cassette
+  selftest checks the 00h count and carrier of space and mark blocks in
+  both modes and fails with the zero bytes removed or with blocks skipped
+  under fast load.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [07d35f7c](https://github.com/nakatamaho/vaeg/commit/07d35f7ccc8e60b937e304c8290c05b3d9975166).
+
+### M106 — The SASI utility HDD build had stopped at its first step
+
+- **Symptom/scope:** `tools/pc88va/build-sasi-utility-disks.sh` failed at
+  once with `unknown argument: --zim-img-archive`, so neither SASI utility
+  image could be rebuilt. Host-side media tooling only.
+- **Demonstrated cause:** since M97z4 (`10483d8c`) the wrapper downloads
+  ZIM_IMG, RDEMS15, RDEMS152, G&M1, CLK21 and VA3DDEMO and passes them to
+  `stage-development-tools.sh`, which at no commit in the history accepted
+  those options; where the earlier images placed these packages is not
+  recorded.
+- **Correction:** the stager accepts and stages them: original archives
+  under `\ARCHIVE`, IMG2ZIM/ZIM2IMG and CLK in `\BIN`, their manuals in
+  `\DOC` (G&M stays an archive: it needs EMI.COM and ANIPLAY.EXE, which
+  are not distributed; RDEMS 1.52 is already loaded from `\SYS`).
+- **Verification:** both images build again; with a PC-Engine FDD boot in
+  vaeg (VA and VA2) the image reads as drive C:.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [77b01b2b](https://github.com/nakatamaho/vaeg/commit/77b01b2b3a35a73b28f3cc28c4b22a37f03a5176).
+
+### M106 — Disk builders placed PC-Engine files where PC-Engine cannot read
+
+- **Symptom/scope:** a PC-Engine disk built by `tools/pc88va/pcengine_disk.py`
+  that filled past cylinder 76 did not work: the utility FDD with VZ Editor
+  stopped while CONFIG.SYS loaded its drivers (vaeg, VA and VA2), because
+  SCHD.SYS, SQEMM98.SYS, TFD.SYS and TSCLVA.SYS had been pushed to cylinders
+  77-79. Every disk the tools build for PC-Engine (utility, demo and
+  validation disks); the committed demo disks and earlier utility disks all
+  ended below cylinder 77 and are unaffected. MS-DOS disks are not affected.
+- **Demonstrated cause:** the tool allocated all 80 cylinders of the 2HD
+  image (clusters up to 1270). PC-Engine uses 77: on a blank system disk its
+  `DIR` reports 1,166,336 bytes free, 48 clusters (cylinders 77-79) fewer
+  than the tool counted, and `TYPE` of a file placed on cylinder 77 or 79
+  never seeks past cylinder 5 and prints other data, while a file on
+  cylinder 76 reads correctly (vaeg, VA and VA2).
+- **Correction:** PC-Engine disks are allocated only up to cluster 1222
+  (cylinder 76); disks with the MS-DOS parameter block keep all 80
+  cylinders.
+- **Verification:** `tests/pc88va/test_pcengine_disk_capacity.py` (fails
+  with the old limit); the rebuilt utility FDD boots and runs VZ; the
+  committed demo disks rebuild with unchanged file placement.
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md).
+  Fix: [61309af7](https://github.com/nakatamaho/vaeg/commit/61309af765c16a61b4db7016d2fe76c2b0acfa6a).
+
+### M106 and M106a — SGP LINE drew with its two direction bits exchanged
 
 - **Symptom/scope:** LINE commands went the wrong way whenever exactly one
   direction bit was set. GLASS ORBIT under PC-Engine 1.1 shows on a
@@ -94,17 +232,25 @@ land.
   `SGP_BLTMODE_LINE_VD` `0400h` again. BITBLT and PATBLT are unchanged
   (not measured).
 - **Verification:** the SGP selftest draws four 4bpp lines (no bit, `0800h`,
-  `0400h`, both) and checks their end points and extents. The maintainer
-  previously confirmed GLASS and all three SGPWIRE variants on a PC-88VA2;
-  this backport's local checks and rebuilt-media results are recorded in the
-  [M106a task](../agents/tasks/M106a_sgp_line_demofix.md).
-- **Task/evidence/commit:** [M106a task](../agents/tasks/M106a_sgp_line_demofix.md),
+  `0400h`, both) and checks their end points and extents; it fails with
+  the M97b assignment. 110 CTests pass. The re-encoded GLASS and the
+  16-, 256- and 65536-colour SGPWIRE run correctly on the PC-88VA2 under
+  PC-Engine 1.1 (maintainer, 2026-10-09;
+  all-demos disk built from the distributions of commit
+  [0af3fcf2](https://github.com/nakatamaho/vaeg/commit/0af3fcf2cfeda2978b941b395c551470892dbc94)).
+- **Task/evidence/commit:** [M106 task](../agents/tasks/M106_sgp_bootable_demos.md),
+  [photo](m106-photos/va2-pcengine-glass-line.jpg),
   [SGP notes section 13](upd92017-sgp.md#13-line-0009h).
-  Original fix: [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba);
-  demo correction: [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f);
-  hardware acceptance: [2ba2c8d1](https://github.com/nakatamaho/vaeg/commit/2ba2c8d1b9530f48b04aab1c3629863bb89369cf).
-  Main-based backport: [50614fbb](https://github.com/nakatamaho/vaeg/commit/50614fbb218174fc57ba369cfd799b073b2eb8e9);
-  rebuilt disks: [0f4b6f4e](https://github.com/nakatamaho/vaeg/commit/0f4b6f4e72015bc7a0ddf672f0ac232daf5eca62).
+  Fix: [cc915511](https://github.com/nakatamaho/vaeg/commit/cc9155117e433ce333a2451ffcf1325202209aba); demos: [ef036c12](https://github.com/nakatamaho/vaeg/commit/ef036c12154d3ae4919da2c744dce600f286d01f),
+  rebuilt disks [a958fb1e](https://github.com/nakatamaho/vaeg/commit/a958fb1eae08c82e2fbc48de267fde7a16587f30). NEON3, whose original sources were missing,
+  is rebuilt from the tracked NEON RELAY 3 ver1.5 sources
+  ([ADR-0017](../agents/DECISIONS/ADR-0017-neon3-sources.md)):
+  [ed3e052c](https://github.com/nakatamaho/vaeg/commit/ed3e052c96e6fc92b30fffd7c5aca6bf2b6b5af3), [42d45dd7](https://github.com/nakatamaho/vaeg/commit/42d45dd771827a67cdc754916a1bccf88245233a), [a55238ff](https://github.com/nakatamaho/vaeg/commit/a55238ff454e63bb6130037913e37df26b16f7b5), [2e8ed22b](https://github.com/nakatamaho/vaeg/commit/2e8ed22b0b5980f81bac4ec01c1fb08d75425335).
+  Main-based backport (M106a, [task](../agents/tasks/M106a_sgp_line_demofix.md)):
+  [50614fbb](https://github.com/nakatamaho/vaeg/commit/50614fbb218174fc57ba369cfd799b073b2eb8e9);
+  its rebuilt disks [0f4b6f4e](https://github.com/nakatamaho/vaeg/commit/0f4b6f4e72015bc7a0ddf672f0ac232daf5eca62),
+  superseded on merge by the M106 disks (identical demo sources, plus the
+  `cpu 186` rebuild).
 
 ### M107 — VOYAGE packed pages showed through the restored console
 
@@ -1370,8 +1516,8 @@ separate parity correction or move it to Open Defects.
   unimplemented SCAN command handlers, and one unconditional VA2-style block
   decoder. The local PC-88VA Technical Manual defines common LINE/BLT
   direction bits, complete SCAN results, and the original-VA field widths.
-- **Correction (LINE part reverted in M106a from the M106 hardware evidence;
-  see the M106a entry):** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
+- **Correction (LINE part reverted in M106 after a hardware photo, and
+  backported as M106a; see the M106 and M106a entry):** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
   versus VA2 descriptor profiles explicitly, and execute SCAN RIGHT/LEFT
   incrementally with the documented SET COLOR boundary and destination
   updates. No SGP timing coefficient or save-state layout changed.
@@ -2719,6 +2865,57 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
+
+- **Symptom/scope:** on the maintainer's PC-88VA2 with the MS-DOS 4.0
+  all-demos disk (2026-10-14), NEON3 and NEON4 draw, but text stays visible
+  on the right while they run, and after they exit the console scrolls
+  only one line. Under PC-Engine 1.1 they are correct. In vaeg (VA2, same
+  disk) NEON3 leaves its status text after ESC but scrolling stays normal,
+  so the one-line scroll is not reproduced.
+- **Cause:** not established. Hypothesis, untested: NEON hides the system
+  line with the Screen Editor `INT 94h` (`AH=01h`) and restores it on exit,
+  calls made for PC-Engine that MS-DOS 4.0 may implement differently.
+- **Next step:** deferred to a later milestone (maintainer decision): trace
+  NEON's text-console calls under MS-DOS 4.0 and compare the text BIOS
+  scroll-region state before and after.
+
+### M106 — VA3DDEMO draws nothing in vaeg
+
+- **Symptom/scope:** the Softlib `VA3DDEMO` source, assembled with JWasm
+  2.20 (`-mz`, one duplicated `stack` word removed from the segment
+  declaration; 3700-byte EXE, reproducible), runs in vaeg (VA2) but draws
+  nothing. Not installed on the utility media.
+- **Cause:** not established. The program declares `.186` and contains no
+  `0F 8x` near jump.
+- **Next step:** compare its graphics setup with the documented BIOS and
+  SGP calls; check on hardware if possible.
+
+### M106 — GLASS, NEON3 and NEON4 do not run on the original VA model
+
+- **Symptom/scope:** in vaeg with the original VA ROM (`--model va`), the
+  ROM's PC-Engine 1.0 starts from the PC-Engine 1.1 all-demos disk; there
+  GLASS stops with nothing drawn (magenta cursor), NEON3 fills the screen
+  with garbled text and NEON4 shows nothing (2026-10-13, with the disks
+  rebuilt after the `0F 8x` fix; the same with the older disks). The SGP
+  pseudo-sprite and wireframe programs run. On the VA2 model all of them
+  run. Whether a real original VA behaves the same is not known (the
+  maintainer's hardware is a VA2).
+- **Cause:** not established; none of these programs contains `0F 8x`.
+- **Next step:** compare the PC-Engine 1.0 and 1.1 services these programs
+  call (graphics BIOS, SGP and text BIOS entry points).
+
+### M106 — SGPD_7A FPS digits are solid blocks on the original VA model
+
+- **Symptom/scope:** in vaeg with the original VA ROM, the FPS/count glyphs
+  of `SPRITE\16\SGPD_7A.COM` (drawn by SGP into graphics) show as a row of
+  solid blocks; the balls and background are correct. The same under
+  PC-Engine and from the self-booting SGP disk; on the VA2 model the digits
+  are readable. Real original-VA behaviour is not known.
+- **Cause:** not established.
+- **Next step:** compare the glyph source data and the SGP transfer of the
+  overlay between the VA and VA2 models.
+
 ### M105 — Port 40h sound (CMD SING, game sound) sounds wrong
 
 - **Symptom/scope:** the sound made through port 40h sounds odd, as if its
@@ -2733,6 +2930,8 @@ separate parity correction or move it to Open Defects.
   Known separately: with the speed slider away from 100 % the BEEP is
   garbled because it is built from CPU-clock on/off events while the host
   consumes samples in real time (`sdl2/README.md`).
+  Later report (maintainer, M106): the `BEEP` pitch is wrong too, so the
+  plain buzzer is not the reference it seemed to be above.
 - **Status:** not investigated; no root cause is claimed. Moved to a later
   milestone by the maintainer.
 
@@ -2747,6 +2946,10 @@ separate parity correction or move it to Open Defects.
   with very different GVRAM write counts, points away from GVRAM waits
   alone. Next step: a hardware benchmark per instruction class (register,
   MUL/DIV, main RAM, TVRAM, GVRAM) compared with vaeg, in a later milestone.
+- **Further evidence (M106, maintainer, 2026-10-14):** demo A of the
+  self-booting SGP disk (SGPD_7A, 16 pseudo-sprites, one SGP command list
+  per frame) shows 30 FPS on the PC-88VA2 and 60 FPS in vaeg, so SGP-bound
+  work is also about twice as fast.
 
 ### M103g — V1/V2 voice pitch observation without a demonstrated cause
 

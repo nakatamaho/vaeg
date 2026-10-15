@@ -29,6 +29,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -121,6 +122,20 @@ static std::string compressed_image_basename(const std::string &path) {
 
 static bool compressed_image_extension_supported(const std::string &path) {
 	return !compressed_image_basename(path).empty();
+}
+
+/* Cassette tape images (M106): opened from an archive through the tape menu. */
+static bool tape_extension_supported(const std::string &path) {
+	const std::string extension = path_extension(path);
+
+	return (extension == ".cmt") || (extension == ".t88");
+}
+
+/* zip, 7z and lzh only: compressed single images are disk images. */
+static bool tape_archive_extension_supported(const std::string &path) {
+	const std::string extension = path_extension(path);
+
+	return (extension == ".zip") || (extension == ".7z") || (extension == ".lzh");
 }
 
 static bool archive_extension_supported(const std::string &path) {
@@ -559,9 +574,13 @@ static bool extract_xz_image(const std::string &image_path, std::vector<DiskCand
 	return true;
 }
 
+/* Extract the archive's regular files that accept() takes (disk images by
+ * default, tape images for the tape menu); kind names them in errors. */
 static bool extract_archive_images(const std::string &archive_path,
                                    std::vector<DiskCandidate> *images, std::string *error,
-                                   const fs::path &storage_root) {
+                                   const fs::path &storage_root,
+                                   bool (*accept)(const std::string &) = image_extension_supported,
+                                   const char *kind = "disk image") {
 	struct archive *reader;
 	struct archive_entry *entry;
 	fs::path temp_dir;
@@ -575,7 +594,8 @@ static bool extract_archive_images(const std::string &archive_path,
 #endif
 	int result;
 
-	if (compressed_image_extension_supported(archive_path)) {
+	if ((accept == image_extension_supported) &&
+	    compressed_image_extension_supported(archive_path)) {
 		return extract_xz_image(archive_path, images, error, storage_root);
 	}
 
@@ -625,8 +645,7 @@ static bool extract_archive_images(const std::string &archive_path,
 			*error = "archive links are not allowed";
 			goto extract_error;
 		}
-		if ((archive_entry_filetype(entry) != AE_IFREG) ||
-		    (!image_extension_supported(entry_path))) {
+		if ((archive_entry_filetype(entry) != AE_IFREG) || (!accept(entry_path))) {
 			archive_read_data_skip(reader);
 			continue;
 		}
@@ -701,7 +720,7 @@ static bool extract_archive_images(const std::string &archive_path,
 	archive_read_free(reader);
 	if (image_count == 0) {
 		fs::remove_all(temp_dir);
-		*error = "archive contains no supported disk image";
+		*error = std::string("archive contains no supported ") + kind;
 		return false;
 	}
 	return true;
@@ -831,6 +850,46 @@ extern "C" BOOL dropmedia_process_event(const void *event) {
 
 extern "C" BOOL dropmedia_path_is_archive(const char *path) {
 	return ((path != nullptr) && archive_extension_supported(path)) ? TRUE : FALSE;
+}
+
+extern "C" BOOL dropmedia_path_is_tape_archive(const char *path) {
+	return ((path != nullptr) && tape_archive_extension_supported(path)) ? TRUE : FALSE;
+}
+
+/* Extract the first .cmt/.t88 (by name) of a zip/7z/lzh archive into the
+ * managed storage and return its path; the tape is read into memory when
+ * it is opened, so later pruning of the storage does not affect it. */
+extern "C" BOOL dropmedia_extract_tape(const char *path, char *extracted, UINT size) {
+	g_status.clear();
+	if ((path == nullptr) || (extracted == nullptr) || (size == 0) ||
+	    !tape_archive_extension_supported(path)) {
+		g_status = "Archive open failed: not a zip, 7z or lzh archive.";
+		return FALSE;
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	std::vector<DiskCandidate> tapes;
+	std::string error;
+
+	if (!extract_archive_images(path, &tapes, &error, archive_storage_root(),
+	                            tape_extension_supported, "tape image")) {
+		g_status = "Archive open failed: " + error + ": " + fs::u8path(path).filename().u8string();
+		return FALSE;
+	}
+	std::sort(tapes.begin(), tapes.end(), candidate_less);
+	if (tapes[0].path.size() >= size) {
+		g_status = "Archive open failed: extracted tape path is too long.";
+		return FALSE;
+	}
+	std::memcpy(extracted, tapes[0].path.c_str(), tapes[0].path.size() + 1);
+	g_status = "Tape " + tapes[0].basename + " from " + fs::u8path(path).filename().u8string();
+	if (tapes.size() > 1) {
+		g_status += " (first of " + std::to_string(tapes.size()) + " tape images)";
+	}
+	return TRUE;
+#else
+	g_status = "Archive open unavailable: this build has no LibArchive support.";
+	return FALSE;
+#endif
 }
 
 extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
@@ -1015,6 +1074,33 @@ extern "C" BOOL dropmedia_selftest(void) {
 	fs::remove_all(test_dir, ec);
 	if (ec || (!fs::create_directory(test_dir, ec)) || ec) {
 		return FAILURE;
+	}
+	/* M106: a tape image inside a zip is extracted for the tape menu; a
+	 * disk-only archive offers no tape. */
+	if ((!tape_extension_supported("game.T88")) || (!tape_extension_supported("game.cmt")) ||
+	    tape_extension_supported("game.d88") || (!dropmedia_path_is_tape_archive("tape.ZIP")) ||
+	    dropmedia_path_is_tape_archive("disk.d88.xz")) {
+		fs::remove_all(test_dir);
+		return FAILURE;
+	}
+	{
+		const fs::path tape_zip = test_dir / "tape-test.zip";
+		const fs::path disk_zip = test_dir / "disk-test.zip";
+		std::vector<DiskCandidate> tapes;
+		std::vector<DiskCandidate> none;
+
+		if ((!write_test_archive(tape_zip, false, "dir/game.t88")) ||
+		    (!extract_archive_images(tape_zip.u8string(), &tapes, &error, test_dir / "storage-tape",
+		                             tape_extension_supported, "tape image")) ||
+		    (tapes.size() != 1) || (tapes[0].basename != "game.t88") ||
+		    (!write_test_archive(disk_zip, false, "dir/game.d88")) ||
+		    extract_archive_images(disk_zip.u8string(), &none, &error, test_dir / "storage-none",
+		                           tape_extension_supported, "tape image") ||
+		    (error.find("tape image") == std::string::npos)) {
+			fs::remove_all(test_dir);
+			dropmedia_shutdown();
+			return FAILURE;
+		}
 	}
 	for (bool seven_zip : {false, true}) {
 		fs::path archive_path = test_dir / (seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");

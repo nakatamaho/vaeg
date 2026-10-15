@@ -73,6 +73,7 @@
 #include "ini.h"
 #include "machine/pccore.h"
 #include "machine/timing.h"
+#include "frontpanel.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
@@ -228,6 +229,7 @@ struct GuiState {
 	bool fdd_browser_refresh = false;
 	std::string fdd_browser_dir;
 	std::vector<BrowserEntry> fdd_entries;
+	bool fdd_all_files = false; /* file type: All files (*.*) */
 	std::string fdd_status;
 	std::string font_status;
 	std::string screenshot_status;
@@ -255,6 +257,7 @@ struct GuiState {
 	bool tape_browser_refresh = false;
 	std::string tape_browser_dir;
 	std::vector<BrowserEntry> tape_entries;
+	bool tape_all_files = false; /* file type: All files (*.*) */
 	char tape_path[MAX_PATH] = {};
 	std::string tape_loaded;
 	std::string tape_recording;
@@ -262,6 +265,7 @@ struct GuiState {
 	bool hdd_browser_refresh = false;
 	std::string hdd_browser_dir;
 	std::vector<BrowserEntry> hdd_entries;
+	bool hdd_all_files = false; /* SASI file type: All files (*.*) */
 	std::string hdd_status;
 	bool new_sasi_open = false;
 	bool new_sasi_refresh = false;
@@ -1245,6 +1249,24 @@ static void draw_bms_config_dialog(void) {
 	}
 }
 
+/* With this on, the BIOS boot-disk setting (B1FC4h bit 7) follows whether a
+ * hard disk is attached, at the next reset; a floppy in drive 1 still boots
+ * first. */
+static void save_boot_fixed_disk(bool enabled) {
+	const UINT8 previous = np2cfg.boot_fixed_disk;
+	np2cfg.boot_fixed_disk = enabled ? 1 : 0;
+	if (initsave_checked() != SUCCESS) {
+		np2cfg.boot_fixed_disk = previous;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Configuration not saved",
+		                         "Could not save the active configuration file. Check write "
+		                         "permissions and whether --no-cfg is enabled. Settings were not "
+		                         "changed.",
+		                         nullptr);
+		return;
+	}
+	sysmng_update(SYS_UPDATECFG);
+}
+
 static void save_main_ram_settings(UINT16 capacity, bool automatic) {
 	const UINT16 previous_capacity = np2cfg.main_ram;
 	const UINT8 previous_auto = np2cfg.main_ram_auto;
@@ -1591,6 +1613,51 @@ static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
 	return a.name < b.name;
 }
 
+/* File types of the FDD and tape browsers (M106, maintainer request): the
+ * usual image and archive types by default, or every file, as in a Windows
+ * "Files of type" list. */
+static const char *const kFddFileTypes[] = {".d88", ".88d", ".zip", ".7z", ".lzh"};
+static const char *const kTapeFileTypes[] = {".cmt", ".t88", ".zip", ".7z", ".lzh"};
+static const char kFddFileTypeLabel[] = "Disk images (*.d88;*.88d;*.zip;*.7z;*.lzh)";
+static const char kTapeFileTypeLabel[] = "Tape images (*.cmt;*.t88;*.zip;*.7z;*.lzh)";
+/* The SASI browser lists .hdi images by default (maintainer request); the
+ * SCSI browser keeps listing every file. */
+static const char *const kSasiFileTypes[] = {".hdi"};
+static const char kSasiFileTypeLabel[] = "SASI HDD images (*.hdi)";
+
+static bool file_type_listed(const std::string &name, const char *const *types, size_t count) {
+	std::string extension = fs::u8path(name).extension().u8string();
+
+	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+		return static_cast<char>(std::tolower(c));
+	});
+	for (size_t i = 0; i < count; i++) {
+		if (extension == types[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* A "Files of type" combo; returns true when the choice changed. */
+static bool draw_file_type_combo(const char *id, const char *label, bool *all_files) {
+	bool changed = false;
+
+	ImGui::SetNextItemWidth(-1.0f);
+	if (ImGui::BeginCombo(id, *all_files ? "All files (*.*)" : label)) {
+		if (ImGui::Selectable(label, !*all_files) && *all_files) {
+			*all_files = false;
+			changed = true;
+		}
+		if (ImGui::Selectable("All files (*.*)", *all_files) && !*all_files) {
+			*all_files = true;
+			changed = true;
+		}
+		ImGui::EndCombo();
+	}
+	return changed;
+}
+
 static void refresh_fdd_browser(void) {
 	std::error_code ec;
 
@@ -1614,11 +1681,17 @@ static void refresh_fdd_browser(void) {
 		if (item.name.empty() || (item.name[0] == '.')) {
 			continue;
 		}
+		if (!item.is_dir && !g_gui.fdd_all_files &&
+		    !file_type_listed(item.name, kFddFileTypes, std::size(kFddFileTypes))) {
+			continue;
+		}
 		g_gui.fdd_entries.push_back(item);
 	}
 	std::sort(g_gui.fdd_entries.begin(), g_gui.fdd_entries.end(), browser_entry_less);
 	g_gui.fdd_browser_refresh = false;
 }
+
+static bool hdd_is_scsi(int drive);
 
 static void refresh_hdd_browser(void) {
 	std::error_code ec;
@@ -1641,6 +1714,10 @@ static void refresh_hdd_browser(void) {
 		item.name = entry.path().filename().u8string();
 		item.path = entry.path().u8string();
 		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		if (!item.is_dir && !g_gui.hdd_all_files && !hdd_is_scsi(g_gui.hdd_dialog_drive) &&
+		    !file_type_listed(item.name, kSasiFileTypes, std::size(kSasiFileTypes))) {
 			continue;
 		}
 		g_gui.hdd_entries.push_back(item);
@@ -2352,7 +2429,7 @@ static void draw_fdd_browser(void) {
 		}
 		ImGui::Separator();
 		const ImGuiStyle &style = ImGui::GetStyle();
-		float footer_height = 2.0f * ImGui::GetFrameHeightWithSpacing();
+		float footer_height = 3.0f * ImGui::GetFrameHeightWithSpacing();
 		if (!g_gui.fdd_status.empty()) {
 			footer_height += ImGui::CalcTextSize(g_gui.fdd_status.c_str(), nullptr, false,
 			                                     ImGui::GetContentRegionAvail().x)
@@ -2379,6 +2456,9 @@ static void draw_fdd_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##fdd-path", g_gui.fdd_path[drive], sizeof(g_gui.fdd_path[drive]));
+		if (draw_file_type_combo("##fdd-file-type", kFddFileTypeLabel, &g_gui.fdd_all_files)) {
+			g_gui.fdd_browser_refresh = true;
+		}
 		if (ImGui::Button("Mount")) {
 			mount_fdd_from_dialog();
 		}
@@ -2410,7 +2490,7 @@ static void draw_hdd_browser(void) {
 	if (g_gui.hdd_browser_refresh) {
 		refresh_hdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 450.0f), ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.hdd_browser_refresh,
 		                             "hdd-open")) {
@@ -2445,6 +2525,10 @@ static void draw_hdd_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##hdd-path", g_gui.hdd_path[slot], sizeof(g_gui.hdd_path[slot]));
+		if (!hdd_is_scsi(drive) &&
+		    draw_file_type_combo("##hdd-file-type", kSasiFileTypeLabel, &g_gui.hdd_all_files)) {
+			g_gui.hdd_browser_refresh = true;
+		}
 		if (ImGui::Button("Open")) {
 			mount_hdd_from_dialog();
 		}
@@ -3051,6 +3135,10 @@ static void refresh_tape_browser(void) {
 		if (item.name.empty() || (item.name[0] == '.')) {
 			continue;
 		}
+		if (!item.is_dir && !g_gui.tape_all_files &&
+		    !file_type_listed(item.name, kTapeFileTypes, std::size(kTapeFileTypes))) {
+			continue;
+		}
 		g_gui.tape_entries.push_back(item);
 	}
 	std::sort(g_gui.tape_entries.begin(), g_gui.tape_entries.end(), browser_entry_less);
@@ -3110,7 +3198,7 @@ static void draw_tape_browser(void) {
 		ImGui::Separator();
 		const float list_height = (std::max)(ImGui::GetFrameHeight() * 3.0f,
 		                                     ImGui::GetContentRegionAvail().y -
-		                                         3.0f * ImGui::GetFrameHeightWithSpacing());
+		                                         4.0f * ImGui::GetFrameHeightWithSpacing());
 		if (ImGui::BeginChild("tape-browser-list", ImVec2(0, list_height),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.tape_entries) {
@@ -3129,8 +3217,22 @@ static void draw_tape_browser(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##tape-path", g_gui.tape_path, sizeof(g_gui.tape_path));
-		if (ImGui::Button("Load tape (.cmt / .t88)")) {
-			if (cmt_open(g_gui.tape_path) == SUCCESS) {
+		if (draw_file_type_combo("##tape-file-type", kTapeFileTypeLabel, &g_gui.tape_all_files)) {
+			g_gui.tape_browser_refresh = true;
+		}
+		if (ImGui::Button("Load tape")) {
+			char extracted[MAX_PATH];
+			const char *source = g_gui.tape_path;
+
+			/* A zip/7z/lzh archive: its first .cmt/.t88 is loaded. */
+			if (dropmedia_path_is_tape_archive(g_gui.tape_path)) {
+				source = dropmedia_extract_tape(g_gui.tape_path, extracted, sizeof(extracted))
+				             ? extracted
+				             : nullptr;
+			}
+			if (source == nullptr) {
+				g_gui.tape_status = dropmedia_status();
+			} else if (cmt_open(source) == SUCCESS) {
 				g_gui.tape_loaded = g_gui.tape_path;
 				g_gui.tape_status = "Tape loaded.";
 				g_gui.tape_browser_open = false;
@@ -3551,8 +3653,10 @@ static void draw_custom_size_dialog(void) {
 			if (g_gui.custom_size_integer) {
 				set_display_scale(g_gui.pending_window_scale);
 			} else {
+				// The size excludes the front panel, which is added below it.
 				SDL_SetWindowSize(static_cast<SDL_Window *>(scrnmng_get_window()),
-				                  g_gui.pending_window_width, g_gui.pending_window_height);
+				                  g_gui.pending_window_width,
+				                  g_gui.pending_window_height + scrnmng_front_panel_applied());
 				np2oscfg.gui_window_width = static_cast<UINT16>(g_gui.pending_window_width);
 				np2oscfg.gui_window_height = static_cast<UINT16>(g_gui.pending_window_height);
 				np2oscfg.gui_scale = 0;
@@ -3894,6 +3998,15 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
+		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
+		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
+		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
+			np2oscfg.front_panel =
+			    (np2oscfg.front_panel != FRONTPANEL_OFF) ? FRONTPANEL_OFF : FRONTPANEL_SIMPLE;
+			sysmng_update(SYS_UPDATEOSCFG);
+			scrnmng_front_panel_changed();
+		}
+		ImGui::Separator();
 		if (ImGui::BeginMenu("Frame skip")) {
 			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
 			                               "1/4 frame"};
@@ -4010,7 +4123,8 @@ static void draw_device_menu(void) {
 			}
 			{
 				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
-				if (ImGui::MenuItem("Tenkey overlay (YUI/HJK/NM,.)", nullptr, tenkey_overlay)) {
+				if (ImGui::MenuItem("Tenkey overlay (cursor keys = 8/4/6/2)", nullptr,
+				                    tenkey_overlay)) {
 					set_tenkey_overlay(!tenkey_overlay);
 				}
 			}
@@ -4138,6 +4252,10 @@ static void draw_device_menu(void) {
 			ImGui::TextDisabled("変更は次のリセットで反映");
 			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
 			ImGui::EndMenu();
+		}
+		if (ImGui::MenuItem("ハードディスクから起動 (バックアップメモリへ自動反映)", nullptr,
+		                    np2cfg.boot_fixed_disk != 0)) {
+			save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
 		}
 		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
 			open_bms_config_dialog();

@@ -679,26 +679,28 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[DOCUMENTED]** The Technical Manual's LINE table places `VD` at `0800h`
-and `HD` at `0400h`, the same direction-bit positions as BITBLT and PATBLT.
+**[DOCUMENTED]** The Technical Manual's LINE table places `VD` at `0800h` and
+`HD` at `0400h`, the same direction-bit positions as BITBLT and PATBLT (the
+OCR of that page is marked for review).
 
-**[MAINTAINER HARDWARE REPORT]** Previously recorded PC-88VA2 evidence
-establishes the opposite for LINE: `0800h` draws right to left and `0400h`
-bottom to top. GLASS ORBIT's misdirected floor fan and cube edges were
-reproduced by exchanging the two bits in vaeg. The maintainer subsequently
-confirmed corrected GLASS and all three SGPWIRE colour depths on that machine.
-This session claims no new measurement; per-model raw vectors and private
-captures are not published here. See the
-[M106a backport task](../agents/tasks/M106a_sgp_line_demofix.md) for original
-fix and hardware-acceptance commits.
-
-**[IMPLEMENTATION]** M106a restores `LINE_HD=0800h`, `LINE_VD=0400h` in
-`io/sgp.h`; the pre-M106a shared-mask mapping disagreed with the report.
-BITBLT/PATBLT are unchanged and their hardware directions remain unmeasured.
-[The comparison and raw-mode examples](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違)
-keep these evidence layers separate. Test asymmetric lines with one direction
-bit at a time; equal bits cannot discriminate the swap. Do not use a host
-graphics-library line routine.
+**[MEAS]** A PC-88VA2 does the opposite for LINE: `0800h` draws right to left
+and `0400h` bottom to top. GLASS ORBIT under PC-Engine 1.1, which encodes LINE
+by the manual's table, shows on the PC-88VA2 (photo
+[`m106-photos/va2-pcengine-glass-line.jpg`](m106-photos/va2-pcengine-glass-line.jpg))
+only the left half of the floor's fan of lines, no right half, and four cube
+edges running down from the cube to the floor. vaeg reproduces all three with
+the swapped meaning and none with the manual's. M97b had changed vaeg from
+the swapped meaning (inherited from upstream) to the manual's; M106 restores
+the swapped one (`SGP_BLTMODE_LINE_HD = 0800h`, `SGP_BLTMODE_LINE_VD = 0400h`).
+GLASS and the 16-, 256- and 65536-colour SGPWIRE re-encoded with these bits
+draw correctly on the PC-88VA2 (maintainer, 2026-10-09).
+The same correction was backported separately as M106a
+([task](../agents/tasks/M106a_sgp_line_demofix.md)); both reach the same
+`io/sgp.h` mapping. The [comparison and raw-mode examples](../io/io_sgp.md#lineの方向ビット--実機と資料実装の相違)
+keep the evidence layers separate.
+Whether BITBLT and PATBLT follow the manual is not measured. Implementations
+must test asymmetric lines in all four direction combinations. Do not use a
+host graphics-library line routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
 octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
@@ -817,7 +819,7 @@ A staged emulator strategy is:
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
 | `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
-| LINE | Manual-derived HD=0400h/VD=0800h; maintainer reports real-machine HD=0800h/VD=0400h | Implemented with HD=0800h, VD=0400h (M106a) | Endpoint and tie-breaking hardware test |
+| LINE | Documented; directions measured (M106) | Implemented; hardware directions (0800h horizontal, 0400h vertical) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
 | SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
 | Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |

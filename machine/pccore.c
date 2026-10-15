@@ -70,6 +70,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
                  .main_ram_auto = 1,
+                 .boot_fixed_disk = 1,
                  .v1v2_standard = 0,
                  .v1v2_nmode = 0,
                  .ITF_WORK = 1,
@@ -87,7 +88,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .spb_x = 1,
                  .BEEP_VOL = 3,
                  .beep_level = 0xff,
-                 .cmt_fast = 1,
+                 .cmt_fast = 0,
                  .cmt_vol = 48,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
@@ -395,6 +396,21 @@ UINT64 pccore_guest_clock(void) {
 	return pccore_guest_clock_high + (UINT64)current;
 }
 
+/* A SASI or SCSI hard disk (not a CD-ROM or MO) is attached. */
+static BOOL pccore_fixed_disk_attached(void) {
+	static const REG8 drives[] = {0x00, 0x01, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26};
+	SXSIDEV sxsi;
+	int i;
+
+	for (i = 0; i < NELEMENTS(drives); i++) {
+		sxsi = sxsi_getptr(drives[i]);
+		if ((sxsi != NULL) && ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_HDD)) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
 void pccore_reset(void) {
 	int i;
 
@@ -449,6 +465,7 @@ void pccore_reset(void) {
 		pccore.hddif |= PCHDD_SCSI;
 		TRACEOUT(("supported SCSI"));
 	}
+	bkupmemva_sync_bootdisk(pccore_fixed_disk_attached());
 
 	sound_changeclock();
 	beep_changeclock();
