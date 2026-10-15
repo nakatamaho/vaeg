@@ -4486,54 +4486,6 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
-		// The monitor's horizontal frequency (DIP switch SW1, read by the ROM
-		// at reset) and how its picture is shown.
-		if (ImGui::BeginMenu(np2cfg.monitor_15khz ? "モニタ: 15 kHz" : "モニタ: 24 kHz")) {
-			if (ImGui::MenuItem("24 kHz (リセット)", nullptr, np2cfg.monitor_15khz == 0)) {
-				select_monitor(false);
-			}
-			if (ImGui::MenuItem("15 kHz (リセット)", nullptr, np2cfg.monitor_15khz != 0)) {
-				select_monitor(true);
-			}
-			ImGui::Separator();
-			// Analog or digital RGB output; display only, no reset.
-			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
-				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
-				sysmng_update(SYS_UPDATECFG);
-				scrndrawva_redraw();
-			}
-			ImGui::Separator();
-			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
-			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
-			                    np2cfg.monitor_15khz_fill == 0)) {
-				np2cfg.monitor_15khz_fill = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
-			                    np2cfg.monitor_15khz_fill != 0)) {
-				np2cfg.monitor_15khz_fill = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::EndMenu();
-		}
-		// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one (8x8
-		// text doubled, 200-line graphics with scanline gaps).
-		if (ImGui::BeginMenu("V1/V2 表示")) {
-			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
-				np2cfg.v1v2_8801_display = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
-				np2cfg.v1v2_8801_display = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::EndMenu();
-		}
-		ImGui::Separator();
 		draw_renderer_selection();
 		if (!scrnmng_native_active() && ImGui::BeginMenu("エフェクト")) {
 			static const char *labels[] = {"加工なし", "線形補間", "走査線", "CRT 簡易"};
@@ -4583,6 +4535,53 @@ static void draw_screen_menu(void) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
+		// The monitor's horizontal frequency (DIP switch SW1, read by the ROM
+		// at reset) and how its picture is shown.
+		if (ImGui::BeginMenu(np2cfg.monitor_15khz ? "モニタ: 15 kHz" : "モニタ: 24 kHz")) {
+			if (ImGui::MenuItem("24 kHz (リセット)", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz (リセット)", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
+		// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one (8x8
+		// text doubled, 200-line graphics with scanline gaps).
+		if (ImGui::BeginMenu("V1/V2 表示")) {
+			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
 		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
 		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
 		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
