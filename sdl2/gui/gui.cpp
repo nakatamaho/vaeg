@@ -2075,7 +2075,7 @@ static std::string history_boot_label(const BootRecord &boot) {
 		mode += boot.standard ? " S" : " H";
 	}
 	if (boot.mode == BOOTMODE_AUTO) {
-		mode = "自動, V3 以外は " + mode;
+		mode = "自動";
 	}
 	const std::string machine =
 	    !boot.extra.empty() ? boot.extra
@@ -3180,12 +3180,13 @@ static void scan_extra_roms(void) {
 	g_extra_machines.resize(count);
 }
 
+/* A MAME match is not shown; a ROM MAME does not list, or marks BAD_DUMP, is. */
 static std::string extra_rom_item(const EXTRAROM_FILE &file) {
 	std::string text = file.label;
 	if (file.mame[0] == '\0') {
-		text += "  [MAME になし]";
-	} else {
-		text += file.mame_bad_dump ? "  [MAME と一致, BAD_DUMP]" : "  [MAME と一致]";
+		text += "  [MAME と不一致]";
+	} else if (file.mame_bad_dump) {
+		text += "  [BAD_DUMP]";
 	}
 	return text;
 }
@@ -3203,19 +3204,17 @@ static void extra_rom_tooltip(const EXTRAROM_FILE &file) {
 	if (file.mame[0] != '\0') {
 		ImGui::Text("MAME: %s%s%s%s", file.mame, (file.mame_bios[0] != '\0') ? " (" : "",
 		            file.mame_bios, (file.mame_bios[0] != '\0') ? ")" : "");
-		ImGui::TextDisabled("MAME との一致は参考です（良いダンプの保証ではありません）");
 	}
 	ImGui::EndTooltip();
 }
 
-/* M113: the start entries of a model: V2/V1 (H where the model runs at
- * 8 MHz, S) and N when it has N-BASIC. */
+/* M113: the start entries of a model, labelled as for the VA: V2/V1 (H
+ * where the model runs at 8 MHz, S) and N when it has N-BASIC. */
 static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 	EXTRAROM_PROFILE profile;
 
 	if (!extrarom_profile(machine.name, &profile) || !profile.startable) {
-		ImGui::TextDisabled("この機種での起動はまだできません");
-		ImGui::Separator();
+		ImGui::TextDisabled("起動はまだできません");
 		return;
 	}
 	const bool ready = extrarom_startable(&machine);
@@ -3233,42 +3232,32 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high)) {
 			continue;
 		}
-		const std::string label = std::string(mode.label) + " で起動##" + machine.name;
 		const bool selected = current && (np2cfg.boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
 		                      (standard == mode.standard);
-		if (ImGui::MenuItem(label.c_str(), nullptr, selected, ready)) {
+		if (ImGui::MenuItem(mode.label, nullptr, selected, ready)) {
 			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
 		}
 	}
-	if (has_n80) {
-		const std::string label = std::string("N で起動##") + machine.name;
-		if (ImGui::MenuItem(label.c_str(), nullptr, current && (np2cfg.boot_mode == BOOTMODE_N),
-		                    ready)) {
-			select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
-		}
+	if (has_n80 &&
+	    ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
+		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
 	}
 	if (!ready) {
-		ImGui::TextDisabled("ROM がそろっていないため起動できません");
+		ImGui::TextDisabled("n88.rom がありません");
 	}
-	ImGui::Separator();
 }
 
-static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+/* The ROMs of a model, one line per role; a role with several files is a
+ * submenu of its revisions, remembered per model and role. */
+static void draw_extra_rom_files(const EXTRAROM_MACHINE &machine) {
 	static const char *const reasons[] = {"名前が役割に合わない", "大きさが違う", "中身が空",
 	                                      "読めない"};
-	std::string title = machine.name;
-	if (!machine.known) {
-		title += "  (機種不明)";
-	} else if (machine.missing[0] != '\0') {
-		title += "  (不足あり)";
-	}
-	if (!ImGui::BeginMenu(title.c_str())) {
+	if (!ImGui::BeginMenu("ROM")) {
 		return;
 	}
 	if (machine.missing[0] != '\0') {
 		ImGui::TextDisabled("不足: %s", machine.missing);
 	}
-	draw_extra_machine_start(machine);
 	for (UINT role = 0; role < EXTRAROM_ROLES; role++) {
 		const EXTRAROM_FILE *files[EXTRAROM_MAX_FILES];
 		const UINT n = extrarom_revisions(&machine, role, files, EXTRAROM_MAX_FILES);
@@ -3282,7 +3271,6 @@ static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 			extra_rom_tooltip(*chosen);
 			continue;
 		}
-		// Revisions: the choice is kept per machine and role in the config.
 		const std::string menu = head + chosen->label + "##" + extrarom_role_names[role];
 		if (!ImGui::BeginMenu(menu.c_str())) {
 			continue;
@@ -3299,29 +3287,46 @@ static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 		ImGui::EndMenu();
 	}
 	for (UINT i = 0; (i < machine.ignored) && (i < EXTRAROM_MAX_IGNORED); i++) {
-		ImGui::TextDisabled("使わないファイル: %s (%s)", machine.skipped[i].file,
+		ImGui::TextDisabled("使わない: %s (%s)", machine.skipped[i].file,
 		                    reasons[machine.skipped[i].reason]);
 	}
 	ImGui::EndMenu();
 }
 
-/* 起動 > PC-8801/8001 (追加 ROM): what was found and the revision chosen
- * for each role. These machines do not run yet; their emulation follows. */
+static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+	std::string title = machine.name;
+	if (!machine.known) {
+		title += " (機種不明)";
+	} else if (machine.missing[0] != '\0') {
+		title += " (不足あり)";
+	}
+	if (!ImGui::BeginMenu(title.c_str())) {
+		return;
+	}
+	draw_extra_machine_start(machine);
+	ImGui::Separator();
+	draw_extra_rom_files(machine);
+	ImGui::EndMenu();
+}
+
+/* 起動 > PC-8801/8001: the models found under extra/, started in the VA's
+ * V1/V2 mode with their own ROMs. The directory is shown on hover only
+ * when nothing was found, so that a long path does not widen the menu. */
 static void draw_extra_rom_menu(void) {
-	if (!ImGui::BeginMenu("PC-8801/8001 (追加 ROM)")) {
+	if (!ImGui::BeginMenu("PC-8801/8001")) {
 		return;
 	}
 	char dir[MAX_PATH];
 	extrarom_dir(dir, sizeof(dir));
-	ImGui::TextDisabled("VA の V1/V2 モードで、この ROM を使って起動します");
 	if (g_extra_machines.empty()) {
-		ImGui::TextDisabled("ROM がありません: %s", dir);
+		ImGui::TextDisabled("ROM がありません");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s/<機種名>/<役割>.rom", dir);
+		}
 	}
 	for (const auto &machine : g_extra_machines) {
 		draw_extra_rom_machine(machine);
 	}
-	ImGui::Separator();
-	ImGui::TextDisabled("置き場所: %s/<機種名>/<役割>.rom", dir);
 	ImGui::EndMenu();
 }
 
@@ -3356,12 +3361,8 @@ static void draw_boot_menu(void) {
 		if (!ImGui::BeginMenu(machine.label)) {
 			continue;
 		}
-		// 自動: the fallback for a disk without a V3 IPL is the V1/V2 mode
-		// last chosen, shown in the label.
-		char automatic[64];
-		std::snprintf(automatic, sizeof(automatic), "自動 (V3 以外は %s %s)", v1 ? "V1" : "V2",
-		              standard ? "S" : "H");
-		if (ImGui::MenuItem(automatic, nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
+		// 自動: a disk without a V3 IPL starts the V1/V2 mode last chosen.
+		if (ImGui::MenuItem("自動", nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
 			select_boot(machine.model, BOOTMODE_AUTO, v1, standard, nullptr);
 		}
 		for (const auto &mode : modes) {
@@ -4485,12 +4486,13 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("モニタ")) {
-			// DIP switch SW1, read by the ROM at reset.
-			if (ImGui::MenuItem("24 kHz（リセット）", nullptr, np2cfg.monitor_15khz == 0)) {
+		// The monitor's horizontal frequency (DIP switch SW1, read by the ROM
+		// at reset) and how its picture is shown.
+		if (ImGui::BeginMenu(np2cfg.monitor_15khz ? "モニタ: 15 kHz" : "モニタ: 24 kHz")) {
+			if (ImGui::MenuItem("24 kHz (リセット)", nullptr, np2cfg.monitor_15khz == 0)) {
 				select_monitor(false);
 			}
-			if (ImGui::MenuItem("15 kHz（リセット）", nullptr, np2cfg.monitor_15khz != 0)) {
+			if (ImGui::MenuItem("15 kHz (リセット)", nullptr, np2cfg.monitor_15khz != 0)) {
 				select_monitor(true);
 			}
 			ImGui::Separator();
@@ -4514,15 +4516,17 @@ static void draw_screen_menu(void) {
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
 			}
-			ImGui::Separator();
-			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
-			// (8x8 text doubled, 200-line graphics with scanline gaps).
-			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+			ImGui::EndMenu();
+		}
+		// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one (8x8
+		// text doubled, 200-line graphics with scanline gaps).
+		if (ImGui::BeginMenu("V1/V2 表示")) {
+			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
 				np2cfg.v1v2_8801_display = 0;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
 			}
-			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
 				np2cfg.v1v2_8801_display = 1;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
