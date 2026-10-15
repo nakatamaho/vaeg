@@ -59,6 +59,14 @@ ADR-0016 "Derivations" records the derivation.
   as the PC-8801-style display does). Tone volume `PCG_vol` (音 -> 個別の音量).
 - [POLICY] The PCG state is saved in state files (section `PCG88`).
 
+- [POLICY] Maintainer review (2026-10-16), outside the PCG itself: the
+  詳細設定 (Configure) dialog clipped the 8087 and HOSTFAT sections, cut the
+  host pacing field and left a large blank below. Its sections had fixed
+  pixel heights and the dialog a fixed height; they now size to their
+  contents in font units (Host pacing in its own section, a wider field),
+  and the dialog takes the height of its sections up to 95 % of the window,
+  scrolling the sections with the buttons kept visible below that.
+
 ## Implementation
 
 - `io/pcg88.c`, `io/pcg88.h`; reset and port binding in `io/iocore.c`; the
