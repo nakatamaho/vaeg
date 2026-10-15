@@ -37,6 +37,7 @@
 #include "bkupmemva.h"
 #include "romva.h"
 #include "subsystemmx.h"
+#include "io/subsystem.h"
 #include "extrarom.h"
 #include "n80rom.h"
 #include "memctrlva.h"
@@ -109,7 +110,6 @@ extern BEEPCFG beepcfg;
 #endif
 #include "io/upd9002_regs.h"
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-#include "io/subsystem.h"
 #include "tests/upd780/subsystem_integration.h"
 #endif
 
