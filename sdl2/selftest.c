@@ -1068,11 +1068,13 @@ static int test_new_blank_fdd_images(void) {
 		UINT size;
 	} blank[] = {{NEWDISK_FDD_BLANK_2DD_720, 0x10, 80, 9, 2, 512},
 	             {NEWDISK_FDD_BLANK_2D_320, 0x00, 40, 16, 1, 256},
-	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512}};
+	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512},
+	             {NEWDISK_FDD_BLANK_2HD_1200, 0x20, 77, 8, 3, 1024},
+	             {NEWDISK_FDD_BLANK_2DD_640, 0x10, 80, 8, 2, 512}};
 	_D88HEAD header;
 	_D88SEC sector_header;
 	_FDDFILE parsed;
-	BYTE sector[512];
+	BYTE sector[1024];
 	char path[MAX_PATH];
 	const char *problem = NULL;
 	FILEH fh;

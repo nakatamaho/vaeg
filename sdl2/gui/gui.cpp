@@ -234,7 +234,7 @@ struct GuiState {
 	bool native_crt_settings_open = false;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
-	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
+	int new_fdd_format = NEWDISK_FDD_BLANK_2HD_1200;
 	int new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
 	int new_fdd_drive = 0;
 	bool new_fdd_mount_after_create = true;
@@ -2323,6 +2323,10 @@ static const char *new_fdd_default_name(int format, int container) {
 		return "newdisk-2d320.d88";
 	case NEWDISK_FDD_BLANK_2D_360:
 		return "newdisk-2d360.d88";
+	case NEWDISK_FDD_BLANK_2HD_1200:
+		return "newdisk-2hd.d88";
+	case NEWDISK_FDD_BLANK_2DD_640:
+		return "newdisk-2dd.d88";
 	default:
 		break;
 	}
@@ -3018,23 +3022,14 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##new-fdd-path", g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path));
-		ImGui::Text("Image format");
-		if (ImGui::RadioButton("D88", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_D88)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_D88));
-		}
+		// M113: new disks are unformatted D88 images (blank E5h sectors);
+		// the guest formats them.
+		ImGui::Text("未フォーマット (D88)");
+		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2HD_1200);
 		ImGui::SameLine();
-		if (ImGui::RadioButton("IMG (raw)", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_RAW)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_RAW));
-		}
-		ImGui::Text("Disk format");
-		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2HD);
+		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_640);
 		ImGui::SameLine();
-		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2DD);
-		ImGui::TextDisabled("Unformatted (blank sectors, D88 only):");
 		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
-		ImGui::SameLine();
 		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
 		ImGui::SameLine();
 		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
@@ -3609,21 +3604,22 @@ static void draw_fdd_menu(void) {
 		}
 		ImGui::Separator();
 		if (ImGui::BeginMenu("新しい FDD イメージ")) {
-			if (ImGui::MenuItem("2HD (1.2 MB、MS-DOS)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2HD);
+			// Every new disk is unformatted; the guest formats it.
+			ImGui::TextDisabled("未フォーマット");
+			if (ImGui::MenuItem("2HD (1.2 MB)…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2HD_1200);
 			}
-			if (ImGui::MenuItem("2D (320 KB、未フォーマット)…")) {
+			if (ImGui::MenuItem("2DD (640 KB)…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_640);
+			}
+			if (ImGui::MenuItem("2DD (720 KB)…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
+			}
+			if (ImGui::MenuItem("2D (320 KB)…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
 			}
-			if (ImGui::MenuItem("2DD (640 KB、MS-DOS)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
-			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("2D (360 KB、未フォーマット)…")) {
+			if (ImGui::MenuItem("2D (360 KB)…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
-			}
-			if (ImGui::MenuItem("2DD (720 KB、未フォーマット)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
 			}
 			ImGui::EndMenu();
 		}
