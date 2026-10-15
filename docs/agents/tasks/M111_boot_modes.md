@@ -55,8 +55,12 @@ it is based on the M110 branch and is rebased if G110 needs changes.
   starts N-88 BASIC. Selftest `boot mode` (fails with SW7 left alone for
   V1/V2).
 
-## Open
+## Decisions
 
-- Forced V3 (maintainer decision pending): no ROM path refuses V1/V2, so
-  it would need either the V3 setup (PC key held at power-on), a vaeg-side
-  refusal of the V1/V2 hand-off, or no V3 entry at all.
+- [POLICY] No V3 entry (maintainer, 2026-10-15): no ROM path refuses V1/V2
+  for a disk without a V3 IPL, and a V3 disk already boots V3 under 自動.
+  The alternatives, the V3 setup (PC key held at power-on) or a vaeg-side
+  refusal of the V1/V2 hand-off, were not taken.
+- [POLICY] The machine stays in `pc_model`; only the boot mode got a new key
+  (`BootMode`). M110's plan of a `Machine=` key is dropped as it would only
+  rename `pc_model`.
