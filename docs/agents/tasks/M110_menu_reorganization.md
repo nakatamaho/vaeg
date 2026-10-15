@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M110 — Menu reorganization (and the plan for further machines)
 
-Status: **in progress**
+Status: **complete; G110 passed on 2026-10-15**
 
 ## Request
 
@@ -326,3 +326,8 @@ exercised once.
   `vram/`, `sound/`, `fdd/` or `bios/` changed, so those results stand for
   the gate commit.
 
+### G110
+
+- Passed on 2026-10-15 (maintainer), with the Windows build
+  `ce09e6be...1d76` (SHA-256, static MinGW) from
+  [9097d308](https://github.com/nakatamaho/vaeg/commit/9097d308e47f77d49b5139724999fc9b852cbc99).
