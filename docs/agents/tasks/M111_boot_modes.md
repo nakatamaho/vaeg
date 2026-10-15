@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M111 — Boot modes: machine ▶ mode
 
-Status: **complete; G111 passed on 2026-10-15**
+Status: **complete; G111 passed on 2026-10-15; merged to `main` at [f5fced4](https://github.com/nakatamaho/vaeg/commit/f5fced4268514ba46936a980be1fc996bb403828)**
 
 ## Request
 
