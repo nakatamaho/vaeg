@@ -107,6 +107,11 @@ CD-ROM, PC-98DO's PC-98 side.
   V1/V2 表示 is its own 画面 submenu. New FDD images are all unformatted
   D88 (2HD 1.2 MB and 2DD 640 KB added to 2DD 720 KB, 2D 320/360 KB); the
   MS-DOS formatted images are no longer offered in the GUI.
+- [POLICY] The guest's FORMAT rewrites every track with its own layout
+  (PC-Engine formats a 640 KB image as 720 KB; maintainer, 2026-10-15), so
+  the GUI offers one unformatted image per media type: 2HD (77 x 2 x 8 x
+  1024), 2DD (80 x 2 x 9 x 512) and 2D (40 x 2 x 16 x 256). The other
+  layouts stay in `fdd/newdisk.c` and its selftest.
 
 ## Implementation
 
