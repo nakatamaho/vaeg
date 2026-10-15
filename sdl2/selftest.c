@@ -5981,8 +5981,9 @@ static BOOL selftest_put_rom(const char *dir, const char *name, UINT size, BYTE 
 /* M113: a PC-8801 model directory replaces the ROM images V1/V2 mode reads:
  * N88-BASIC and its banks (absent banks FFh), N-BASIC, a 2 KiB FDD ROM
  * repeated over 8 KiB or no FDD unit, the kanji ROMs in port order, the 8x8
- * characters from kanji1.rom, no dictionary, and 自動 started as V1/V2. An
- * incomplete directory leaves the VA ROMs. Synthetic data only. */
+ * characters from kanji1.rom, no dictionary, and 自動 started as V1/V2. A
+ * missing role still starts; a directory without n88.rom leaves the VA ROMs.
+ * Synthetic data only. */
 static int test_extra_machine(void) {
 	static const char *const sr_files[] = {"n88.rom",   "n88_0.rom", "n88_1.rom", "n88_2.rom",
 	                                       "n88_3.rom", "n80.rom",   "disk.rom",  "kanji1.rom"};
@@ -5990,6 +5991,7 @@ static int test_extra_machine(void) {
 	static const char *const pc_files[] = {"n88.rom", "n88_0.rom", "n80.rom", "font.rom"};
 	static const UINT pc_sizes[] = {0x8000, 0x2000, 0x8000, 0x800};
 	static BYTE expect[0x20000];
+	static EXTRAROM_MACHINE scanned;
 	char root[MAX_PATH];
 	char base[MAX_PATH];
 	char dirsr[MAX_PATH];
@@ -6093,18 +6095,33 @@ static int test_extra_machine(void) {
 			problem = "PC-8801 without an FDD unit";
 		}
 	}
-	/* Incomplete: the VA ROMs stay and the reason is kept. */
+	/* A missing role does not prevent a start: without kanji1.rom the port
+	 * reads FFh. Without n88.rom the VA ROMs stay and the reason is kept. */
 	if (problem == NULL) {
 		selftest_delete_rom(dirsr, "kanji1.rom");
 		milstr_ncpy(np2cfg.extra_machine, "PC-8801mkIISR", sizeof(np2cfg.extra_machine));
+		romva_initialize();
+		iocore_out8(0x0e8, 0x34);
+		iocore_out8(0x0e9, 0x12);
+		if ((extrarom_last_error[0] != '\0') || (rom1mem[0x10000] != 0x10) ||
+		    (cgrom88_kanji[0] == NULL) || (iocore_inp8(0x0e9) != 0xff)) {
+			problem = "machine with a missing role";
+		}
+	}
+	if (problem == NULL) {
+		selftest_delete_rom(dirsr, "n88.rom");
 		FillMemory(rom1mem + 0x10000, 0x8000, 0x5a);
 		romva_initialize();
 		if ((extrarom_last_error[0] == '\0') || (cgrom88_kanji[0] != NULL) ||
 		    subsystemmxcfg.absent || (rom1mem[0x10000] == 0x10)) {
-			problem = "incomplete machine directory";
+			problem = "machine without n88.rom";
+		}
+		/* The 起動 entries are disabled for it. */
+		if ((problem == NULL) && (!extrarom_scan_machine(dirsr, "PC-8801mkIISR", &scanned) ||
+		                          extrarom_startable(&scanned))) {
+			problem = "start entries without n88.rom";
 		}
 	}
-
 	for (i = 0; i < NELEMENTS(sr_files); i++) {
 		selftest_delete_rom(dirsr, sr_files[i]);
 	}

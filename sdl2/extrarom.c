@@ -827,12 +827,14 @@ BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out) {
 	return FALSE;
 }
 
-/* A machine that can be started: a known, startable model with every role. */
+/* A machine that can be started: a known, startable model with N88-BASIC.
+ * Other missing roles do not prevent a start (maintainer, M113); they read
+ * as FFh, or leave no FDD unit or no N mode. */
 BOOL extrarom_startable(const EXTRAROM_MACHINE *machine) {
 	EXTRAROM_PROFILE profile;
 
-	return machine->known && (machine->missing[0] == '\0') &&
-	       extrarom_profile(machine->name, &profile) && profile.startable;
+	return machine->known && extrarom_profile(machine->name, &profile) && profile.startable &&
+	       (extrarom_choice(machine, EXTRAROM_ROLE_N88) != NULL);
 }
 
 static BOOL apply_role(const EXTRAROM_MACHINE *m, UINT role, BYTE *data, UINT size) {
@@ -867,8 +869,8 @@ void extrarom_apply(void) {
 	file_catname(dir, np2cfg.extra_machine, sizeof(dir));
 	if (!extrarom_scan_machine(dir, np2cfg.extra_machine, &machine) ||
 	    !extrarom_startable(&machine)) {
-		snprintf(extrarom_last_error, sizeof(extrarom_last_error),
-		         "%.60s: no complete ROM set in extra/", np2cfg.extra_machine);
+		snprintf(extrarom_last_error, sizeof(extrarom_last_error), "%.60s: no n88.rom in extra/",
+		         np2cfg.extra_machine);
 		fprintf(stderr, "WARNING: %s; the VA ROMs are used\n", extrarom_last_error);
 		return;
 	}
