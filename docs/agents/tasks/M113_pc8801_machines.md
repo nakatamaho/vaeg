@@ -133,3 +133,15 @@ CD-ROM, PC-98DO's PC-98 side.
   VA2 machines and their V1/V2/N modes still behave as before (regression);
   the clean-checkout MinGW build and the media build regression of
   AGENTS.md.
+- Media build regression at `12857cab`, clean clone, shared cache (the
+  following commit changes only selftest includes): `build-utility-disk.sh`
+  (PC-Engine 1.1) exit 0, 4096 bytes free, boots in vaeg;
+  `build-sasi-utility-disks.sh` exit 0, each image boots alone on its model
+  with `\BIN\V480PAT.COM`; the five demo `build-d88.sh`, `build-from-psd.sh`,
+  the SGP boot disk, all-demos and all-demos-msdos4 exit 0. Every file in
+  every regenerated image is identical to the committed images; the
+  remaining differences are directory dates only; the SGP boot and
+  all-demos-msdos4 `.xz` are byte-identical.
+- Clean-checkout MinGW build of `896e31cc`: `vaeg.exe` SHA-256
+  `c689ae38241e621aa63c3a334c8d115994cf2d80879874cc80ebe6f15d3e7fd1`,
+  imports Windows system DLLs only.
