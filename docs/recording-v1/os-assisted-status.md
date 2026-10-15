@@ -1,7 +1,29 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest main refresh (explicit maintainer request)
+## Latest main refresh (second explicit update request)
+
+Starting HEAD: `99b151b3fea636475e15c1a3affa00d657e72c1a`. Fetch of
+`origin refs/heads/main` succeeded; new pinned tip:
+`7ab25602b1fcf2b2171978dd43b7954e6f78e8f6`. Normal merge commit:
+`1c9e96ea381b7d3cd4806e3794035ea5adf1375c`. The branch remains
+`topic/m100os-recording-resume`; local main and remote publication are untouched.
+
+Conflicts in `machine/pccore.c`, `sdl2/np2.c` and `sdl2/scrnmng.c` were resolved
+by retaining both recording and main functionality: guest clock plus fixed-disk
+reset helper, recording startup plus archived-tape extraction in the successful
+startup branch, and recording plus front-panel includes. All three inherited
+unstaged files were verified byte-identical before/after merge and tests.
+
+Post-merge ON/OFF builds passed. Recording CTest with `--no-tests=error` passed
+20/20 ON and 12/12 OFF. Encoding/EOL/case and local `git diff --check` passed.
+The staged incoming-diff whitespace check reported only pre-existing extra EOF
+blank lines in `demos/sgp-pseudo-sprite/README.md` and
+`docs/agents/tasks/M106a_sgp_line_demofix.md`; both blobs were verified identical
+to the fetched main and were not reformatted. Full demo/media/human gates were
+not revalidated or marked passed by this integration-only check.
+
+## Previous main refresh (explicit maintainer request)
 
 The maintainer subsequently requested another main merge. Starting HEAD was
 `8a3c18f780573433a6c7cb028edaeeb1c1b08977`; `git fetch origin refs/heads/main`
