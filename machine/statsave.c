@@ -35,6 +35,7 @@
 #include "videova.h"
 #include "tsp.h"
 #include "cgromva.h"
+#include "pcg88.h"
 #include "gactrlva.h"
 #include "sgp.h"
 #include "mouseifva.h"

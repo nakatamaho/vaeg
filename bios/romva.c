@@ -14,6 +14,7 @@
 #include "cgromva.h"
 #include "subsystem.h"
 #include "subsystemmx.h"
+#include "pcg88.h"
 #include "cpu/upd9002_upd70008.h"
 
 #define VAFONTROM "vafont.rom"
@@ -229,6 +230,7 @@ void romva_initialize(void) {
 	if (romva_machine_hook != NULL) {
 		romva_machine_hook();
 	}
+	pcg88_initfont();
 
 	upd9002_upd70008_register();
 }
