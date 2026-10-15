@@ -100,9 +100,10 @@ typedef struct {
 /* M113: how a model directory is started. */
 typedef struct {
 	const char *base_model; /* str_VA1 or str_VA2 */
-	BOOL startable;         /* FALSE for the PC-8001 family (M114) */
+	BOOL startable;         /* a model vaeg can start */
 	BOOL v2;                /* N88-BASIC V2 */
 	BOOL high;              /* 8 MHz (H) as well as 4 MHz (S) */
+	UINT n_role;            /* M114: PC-8001 family: its N-BASIC role; 0 otherwise */
 } EXTRAROM_PROFILE;
 
 #ifdef __cplusplus
