@@ -6145,11 +6145,13 @@ static int test_v1v2_rom_ports(void) {
 
 	/* Level 1 kanji: JIS 323Ch is PC-8801 word address 65C0h + row (byte
 	 * CB80h); the VA font image keeps it at byte 8B80h (bit 14 inverted).
-	 * Non-kanji addresses below 4000h index the image directly. */
+	 * Non-kanji addresses below 4000h index the image directly. Level 2 is
+	 * not inverted (M113): word address 65C0h reads byte CB80h. */
 	fontmem[0x8b80 + 2 * 3] = 0x5a;
 	fontmem[0x8b80 + 2 * 3 + 1] = 0xa5;
 	fontmem[0x0420] = 0x11;
-	fontmem[0x20000 + 0x8b80] = 0x77;
+	fontmem[0x20000 + 0xcb80] = 0x77;
+	fontmem[0x20000 + 0x8b80] = 0x66;
 	iocore_out8(0x0e8, 0xc3);
 	iocore_out8(0x0e9, 0x65);
 	if ((iocore_inp8(0x0e9) != 0x5a) || (iocore_inp8(0x0e8) != 0xa5)) {

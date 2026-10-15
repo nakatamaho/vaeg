@@ -223,14 +223,17 @@ static void IOOUTCALL cgromva_o14f(UINT port, REG8 dat) {
  * per raster, left first. The VA2 extension ROM's BASIC computes the PC-8801
  * address of a kanji as ((jis1 & 1Fh) | (jis2 & 60h)) << 9 |
  * (jis2 & 1Fh) << 4, while the JIS decoder above selects the 3xxx/4xxx
- * (5xxx/6xxx) block with the opposite sense of byte-offset bit 14. Below
- * byte offset 8000h (non-kanji) both orders agree.
+ * block with the opposite sense of byte-offset bit 14. Below byte offset
+ * 8000h (non-kanji) both orders agree. Level 2 is not inverted (M113): read
+ * through the ports that way, the VA level-2 image matches a PC-8801 kanji2
+ * ROM matching MAME's `pc8801ma` glyph for glyph, and the inverted order
+ * does not.
  */
 static UINT32 cgrom88_offset(UINT port) {
 	const UINT level = (port >= 0xec) ? 1 : 0;
 	UINT32 offset = (UINT32)cgrom88.address[level] << 1;
 
-	if (offset >= 0x8000) {
+	if ((level == 0) && (offset >= 0x8000)) {
 		offset ^= 0x4000;
 	}
 	return ((UINT32)level << 17) + offset;
