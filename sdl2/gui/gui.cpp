@@ -2318,9 +2318,9 @@ static void open_new_scsi_dialog(int drive) {
 static const char *new_fdd_default_name(int format, int container) {
 	switch (format) {
 	case NEWDISK_FDD_BLANK_2DD_720:
-		return "newdisk-2dd720.d88";
+		return "newdisk-2dd.d88";
 	case NEWDISK_FDD_BLANK_2D_320:
-		return "newdisk-2d320.d88";
+		return "newdisk-2d.d88";
 	case NEWDISK_FDD_BLANK_2D_360:
 		return "newdisk-2d360.d88";
 	case NEWDISK_FDD_BLANK_2HD_1200:
@@ -3023,16 +3023,14 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##new-fdd-path", g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path));
 		// M113: new disks are unformatted D88 images (blank E5h sectors);
-		// the guest formats them.
+		// the guest's FORMAT rewrites every track with its own sector layout,
+		// so one initial layout per media type is offered.
 		ImGui::Text("未フォーマット (D88)");
-		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2HD_1200);
+		ImGui::RadioButton("2HD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2HD_1200);
 		ImGui::SameLine();
-		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_640);
+		ImGui::RadioButton("2DD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
 		ImGui::SameLine();
-		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
-		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
+		ImGui::RadioButton("2D", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
 		if (!newdisk_fdd_has_filesystem(static_cast<UINT>(g_gui.new_fdd_format)) &&
 		    (g_gui.new_fdd_container != NEWDISK_FDD_CONTAINER_D88)) {
 			g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
@@ -3605,22 +3603,18 @@ static void draw_fdd_menu(void) {
 		}
 		ImGui::Separator();
 		if (ImGui::BeginMenu("新しい FDD イメージ")) {
-			// Every new disk is unformatted; the guest formats it.
+			// Every new disk is unformatted; the guest formats it with its
+			// own sector layout (a 2DD becomes 640 or 720 KB, a 2D 320 or
+			// 360 KB), so one entry per media type is enough.
 			ImGui::TextDisabled("未フォーマット");
-			if (ImGui::MenuItem("2HD (1.2 MB)…")) {
+			if (ImGui::MenuItem("2HD…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2HD_1200);
 			}
-			if (ImGui::MenuItem("2DD (640 KB)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_640);
-			}
-			if (ImGui::MenuItem("2DD (720 KB)…")) {
+			if (ImGui::MenuItem("2DD…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
 			}
-			if (ImGui::MenuItem("2D (320 KB)…")) {
+			if (ImGui::MenuItem("2D…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
-			}
-			if (ImGui::MenuItem("2D (360 KB)…")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
 			}
 			ImGui::EndMenu();
 		}
