@@ -118,6 +118,16 @@ static REG8 IOINPCALL memctrlva_i071(UINT port) {
 }
 
 static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
+	/*
+	 * M114: on a PC-8001mkII bit 1 selects all RAM, bit 3 enables graphics,
+	 * and bits 0, 2 and 4 are its own bank and graphics bits (X88000
+	 * WriteIO_31_N80), not the 200-line, N/N88 ROM and colour bits of a
+	 * PC-8801: keep N-BASIC and the 200-line display the PC-8001 family
+	 * always has. The mkII's own graphics modes are not modelled.
+	 */
+	if (memoryva_pc8001) {
+		dat = (REG8)((dat & 0x0a) | 0x05);
+	}
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
 	memoryva_88_port31 = (UINT8)dat;
 	if (memoryva_88_mode) {
@@ -269,6 +279,10 @@ void memctrlva_nmode_compat_entry(void) {
 	nmode_entry_pending = FALSE;
 	upd9002_mainram_write(0x4e8, (REG8)(upd9002_mainram_read(0x4e8) & 0x7f));
 	iocore_out8(0x148, (REG8)(videova.txtmode & 0x7f));
+	/* M114: a PC-8001 never writes port 31h; start at 200 lines. */
+	if (memoryva_pc8001) {
+		memctrlva_o031(0x31, 0x00);
+	}
 }
 
 // ---- I/F
