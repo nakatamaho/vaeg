@@ -155,6 +155,8 @@ CD-ROM, PC-98DO's PC-98 side.
   every regenerated image is identical to the committed images; the
   remaining differences are directory dates only; the SGP boot and
   all-demos-msdos4 `.xz` are byte-identical.
-- Clean-checkout MinGW build of `896e31cc`: `vaeg.exe` SHA-256
-  `c689ae38241e621aa63c3a334c8d115994cf2d80879874cc80ebe6f15d3e7fd1`,
-  imports Windows system DLLs only.
+- Clean-checkout MinGW build of `ad514bef` (after the menu review):
+  `vaeg.exe` SHA-256
+  `19f55ec48838876da9b77509041ddae03eaee149c9097ee944ead7f7654e64b4`,
+  imports Windows system DLLs only. The menu review changes no media
+  builder, so the media build regression above stands.
