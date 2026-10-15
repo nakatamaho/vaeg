@@ -77,3 +77,14 @@ ADR-0016 "Derivations" records the derivation.
 - With a ROM set matching MAME's `pc8001`, a BASIC program that writes AAh
   into the eight rows of code 80h shows `CHR$(128)` as vertical stripes
   with the PCG on and as the ROM glyph with it off.
+- Media build regression at `3d4908e1` (M115, which contains this
+  branch), clean clone, shared cache: `build-utility-disk.sh` (PC-Engine
+  1.1) exit 0, 4096 bytes free, boots in vaeg; `build-sasi-utility-disks.sh`
+  exit 0, each image boots alone on its model with `\BIN\V480PAT.COM`; the
+  five demo `build-d88.sh`, `build-from-psd.sh`, the SGP boot disk,
+  all-demos and all-demos-msdos4 exit 0, every file in every regenerated
+  image identical to the committed images (directory dates only differ;
+  the SGP boot and all-demos-msdos4 `.xz` byte-identical).
+- Clean-checkout MinGW build of `3d4908e1`: `vaeg.exe` SHA-256
+  `100a54a7357e8b31f1e20e2d06e1f63c3a1123732114564e1ab1320efcb9737a`,
+  imports Windows system DLLs only; ctest 92 of 92.
