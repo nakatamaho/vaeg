@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M113 — PC-8801 machines
 
-Status: **planned; not started**
+Status: **implemented; G113 human gate pending**
 
 ## Request
 
@@ -78,10 +78,56 @@ CD-ROM, PC-98DO's PC-98 side.
   keeps its copyright notice and licence in the file header.
 - MAME's published ROM definitions (M112) for roles and sizes only.
 
+## Decisions
+
+- [POLICY] Approach A (maintainer, 2026-10-15): a PC-8801 model runs in the
+  VA's V1/V2 mode with the ROM images V1/V2 mode reads replaced by the
+  model's ROMs; the VA firmware still starts the machine and the VA ROM
+  set stays required. Starting a PC-8801 without the VA firmware (B) or a
+  separate PC-8801 hardware model (C) is left to later milestones.
+- [POLICY] No test ROM, test disk or third-party pseudo BIOS is added
+  (maintainer, 2026-10-15); verification is selftests on synthetic data
+  and the human gate.
+- [POLICY] Base model: the VA for the `PC-88VA` set, the VA2 for every
+  other model (OPNA sound; its first half is OPN-compatible). Modes: V2
+  from the mkIISR on, H (8 MHz) from the FH/MH on, N with `n80`.
+- [POLICY] The PC-8801 without `disk.rom` has no FDD unit: ports FCh-FFh
+  read FFh and the unit does not run. Absent extension banks, kanji ROMs
+  and dictionary read FFh.
+
+## Implementation
+
+- `bios/romva.c`: `romva_machine_hook`, called at the end of
+  `romva_initialize()`; resets the kanji override and the FDD unit.
+- `sdl2/extrarom.c`: model profiles (base, V2, H), `extrarom_apply()`
+  (the replacement above; falls back to the VA ROMs with a warning when
+  the directory is no longer complete), `PC-88VA`/`PC-88VA2` model entries.
+- `io/cgromva.c`: `cgrom88_kanji[2]`, PC-8801 kanji ROM images read in
+  MAME's port order; level-2 order fix (bug-fix ledger).
+- `io/subsystemmx.c`: `subsystemmx_set_absent()` (no FDD unit).
+- Configuration `ExtraMachine`; `--extra-machine <model>` (session only).
+- GUI: start entries per model under 起動 -> PC-8801/8001 (追加 ROM);
+  choosing a VA entry clears the model; 最近の起動 records it; the window
+  title and 情報 -> More show it.
+- Documentation: [`pc8801-machines.md`](../../modernization/pc8801-machines.md),
+  [`extra-roms.md`](../../modernization/extra-roms.md), README.
+
 ## Verification
 
-- Selftests on synthetic data only (ROM mapping, banking, ports); no ROM
-  image, test ROM or test disk is added to the repository.
+- Selftests on synthetic data only; no ROM image, test ROM or test disk is
+  added to the repository. `PC-8801 machine`: replaced images, extension
+  bank placement, 2 KiB FDD ROM repetition, no FDD unit without `disk.rom`
+  (ports read FFh), absent banks, kanji ROMs in port order, 8x8 characters
+  from `kanji1.rom`, missing dictionary, 自動 started as V1/V2, an
+  incomplete directory leaving the VA ROMs, model profiles.
+  `V1/V2 ROM ports`: the level-2 kanji order. Mutation check: 16 of 16
+  mutants of `sdl2/extrarom.c`, `io/cgromva.c` and `io/subsystemmx.c`
+  killed.
+- With a ROM set matching MAME's `pc8801ma`: V2 BASIC reaches `Ok` with
+  version 2.3, a V2 disk boots through the model's own FDD ROM, and N mode
+  starts N-BASIC 1.8, from the command line and from the 起動 menu.
+- Regression: the VA and VA2 boot PC-Engine in V3 and reach `Ok` in V2 as
+  before; ctest 92 of 92.
 - G113 human gate: with a ROM set matching MAME's `pc8801ma`, V2 BASIC
   reaches its prompt and a disk boots; V1 and N where present; the VA and
   VA2 machines and their V1/V2/N modes still behave as before (regression);

@@ -24,9 +24,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # Extra ROMs: PC-8801 and PC-8001 families
 
 M112 lets vaeg find user-supplied ROMs of the PC-8801 and PC-8001 families,
-check them, name them, and remember which revision of each ROM to use. The
-machines themselves are emulated from M113 (PC-8801) and M114 (PC-8001) on;
-M112 only discovers and selects their ROMs. Task:
+check them, name them, and remember which revision of each ROM to use. M113
+starts the PC-8801 models from them ([PC-8801 machines](pc8801-machines.md));
+the PC-8001 family follows in M114. Task:
 [`M112`](../agents/tasks/M112_extra_roms.md).
 
 No ROM is provided by this repository. Dump ROMs from hardware you own.
@@ -49,7 +49,9 @@ extra/
   `PC-8001mkIISR`, `PC-8801`, `PC-8801mkII`, `PC-8801mkIISR`,
   `PC-8801mkIIFR`, `PC-8801mkIIMR`, `PC-8801FH`, `PC-8801MH`, `PC-8801FA`,
   `PC-8801MA`, `PC-8801FE`, `PC-8801MA2`, `PC-8801FE2`, `PC-8801MC`,
-  `PC-98DO`. Other directory names are listed as an unknown model.
+  `PC-98DO`, and (M113) `PC-88VA` and `PC-88VA2` for PC-8801-layout sets
+  taken from the VA ROMs. Other directory names are listed as an unknown
+  model.
 - One file per role, named after the role (case does not matter).
 - Revisions of a role: `<role>_v<label>.rom`, for example `n80_v1.01.rom`.
   The plain `<role>.rom` is the default.
@@ -93,6 +95,7 @@ carries the FDD ROM; a model 10 runs a drive once one is fitted).
 | PC-8801MA, MA2 | as MH, and `jisyo` |
 | PC-8801MC | as MA, and `cdbios` |
 | PC-98DO | `n88`, `n88_0`-`n88_3`, `n80`, `disk` |
+| PC-88VA, PC-88VA2 | `n88`, `n88_0`-`n88_3`, `disk`, `kanji1` |
 
 A model with a missing role is shown as 不足あり; its ROMs are still listed.
 
@@ -159,7 +162,7 @@ revisions; the choice is stored per model and role in the configuration key
 its file, size, SHA-1, banner and MAME name. A file changed after the scan
 is not read until the menu is opened again.
 
-Starting a machine from this menu follows with M113 and M114.
+M113 adds the start entries of the PC-8801 models to the same menu.
 
 ## Command line
 
