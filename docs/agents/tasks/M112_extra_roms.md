@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M112 — Extra ROMs for further machines
 
-Status: **implemented; G112 human gate pending**
+Status: **complete; G112 passed on 2026-10-15**
 
 ## Request
 
@@ -132,3 +132,12 @@ MAME's published values, is recorded in this repository.
   Mutation check: 16 of 17 mutants of `sdl2/extrarom.c` killed; the
   survivor removes the explicit search for the default `<role>.rom`, which
   the sort by revision already places first (equivalent).
+
+### G112
+
+- Passed on 2026-10-15 (maintainer). The extra-ROM discovery, the ROM
+  submenus and revision choice were exercised in the G113 check, with the
+  Windows build `19f55ec4...64b4` (SHA-256, static MinGW) from
+  [ad514bef](https://github.com/nakatamaho/vaeg/commit/ad514bef7673da8606f4019a5720588a506dedae),
+  which contains this branch; the media build regression recorded in M113
+  at `12857cab` covers it as well (M112 changes no media builder).
