@@ -288,6 +288,11 @@ The VA2/VA3 names match MAME's `pc88va2` ROM set in
 subsystem that MAME currently leaves unconnected.
 The frontend checks the executable directory first, then the current working
 directory as a development fallback.
+
+ROMs of the PC-8801 and PC-8001 families go below the same directory, in
+`extra/<model>/<role>.rom` (for example `extra/PC-8801MA/n88.rom`); see
+[Extra ROMs](docs/modernization/extra-roms.md). `vaeg --list-extra-roms`
+lists what was found. Those machines are not emulated yet.
 ROM files are intentionally absent from source and
 binary artifacts. At startup, size, CRC32, and SHA-1 are checked against the
 recorded VAEG ROM identities, including MAME-derived identities for the
