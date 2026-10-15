@@ -39,6 +39,7 @@
 #include "subsystemmx.h"
 #include "io/subsystem.h"
 #include "extrarom.h"
+#include "pcg88.h"
 #include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
@@ -6243,6 +6244,122 @@ static int test_pc8001_machine(void) {
 	return (SUCCESS);
 }
 
+/* M115: PCG-8100/8800: character writes and ROM copies into the two banks,
+ * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
+ * loads, BCD, short counts silent), the tone output, and nothing while the
+ * PCG is disabled or outside 88 mode. */
+static int test_pcg88(void) {
+	const UINT8 saved_enable = np2cfg.pcg_enable;
+	const BOOL saved_88 = memoryva_88_mode;
+	const UINT32 saved_rate = soundcfg.rate;
+	const BYTE saved_rom = fontmem[0x41000 + 0x400];
+	SINT32 pcm[2 * 64];
+	const BYTE *g;
+	const char *problem = NULL;
+	UINT i;
+	BOOL sound;
+
+	fontmem[0x41000 + 0x400] = 0x3c;
+	np2cfg.pcg_enable = 1;
+	memoryva_88_mode = TRUE;
+	pcg88_reset();
+	pcg88_initfont();
+	if ((pcg88.ram[0][0] != 0x3c) || (pcg88.ram[1][0] != 0x3c)) {
+		problem = "banks start as the ROM's codes 80h-FFh";
+	}
+	if (problem == NULL) {
+		iocore_out8(0x00, 0x5a);
+		iocore_out8(0x01, 0x08);
+		iocore_out8(0x02, 0x10);
+		g = pcg88_glyph(0x81);
+		if ((pcg88.ram[0][8] != 0x5a) || (g == NULL) || (g[0] != 0x5a) ||
+		    (pcg88_glyph(0x01) != NULL)) {
+			problem = "character write and the upper half shown";
+		}
+		iocore_out8(0x02, 0x00); /* write bit clear: no write */
+		iocore_out8(0x01, 0x09);
+		iocore_out8(0x00, 0x99);
+		if ((problem == NULL) && (pcg88.ram[0][9] == 0x99)) {
+			problem = "write without address bit 12";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x03, 0x12); /* lower half from bank 0, write bank 1 */
+		pcg88.ram[0][0] = 0x77;
+		pcg88.ram[1][0] = 0x00;
+		iocore_out8(0x01, 0x00);
+		iocore_out8(0x02, 0x30); /* copy the ROM */
+		g = pcg88_glyph(0x00);
+		if ((pcg88.ram[1][0] != 0x3c) || (g == NULL) || (g[0] != 0x77) ||
+		    (pcg88_glyph(0x80) != NULL)) {
+			problem = "bank select, ROM copy and port 03h";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x0f, 0x36); /* counter 0, LSB then MSB */
+		iocore_out8(0x0c, 0xe8);
+		iocore_out8(0x0c, 0x03);
+		iocore_out8(0x0f, 0x60); /* counter 1, MSB only */
+		iocore_out8(0x0d, 0x10);
+		iocore_out8(0x0f, 0xb7); /* counter 2, LSB then MSB, BCD 2000 */
+		iocore_out8(0x0e, 0x00);
+		iocore_out8(0x0e, 0x20);
+		if (pcg88_frequency(0) != 0) {
+			problem = "tone before its enable bit";
+		}
+		iocore_out8(0x02, 0xc8);
+		if ((problem == NULL) &&
+		    ((pcg88_frequency(0) != 4000) || (pcg88_frequency(1) != 4000000 / 0x1000) ||
+		     (pcg88_frequency(2) != 2000))) {
+			problem = "8253 counts and tones";
+		}
+		iocore_out8(0x0f, 0x50); /* counter 1, LSB only: 99, too short */
+		iocore_out8(0x0d, 0x63);
+		if ((problem == NULL) && (pcg88_frequency(1) != 0)) {
+			problem = "a short count is silent";
+		}
+	}
+	if (problem == NULL) {
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		ZeroMemory(pcm, sizeof(pcm));
+		pcg88_getpcm(NULL, pcm, 64);
+		sound = FALSE;
+		for (i = 0; i < NELEMENTS(pcm); i++) {
+			sound = sound || (pcm[i] != 0);
+		}
+		if (!sound) {
+			problem = "tone output";
+		}
+	}
+	if (problem == NULL) {
+		np2cfg.pcg_enable = 0;
+		iocore_out8(0x00, 0x11);
+		iocore_out8(0x01, 0x08);
+		iocore_out8(0x02, 0x10);
+		if ((pcg88.ram[1][8] == 0x11) || (pcg88_glyph(0x81) != NULL) || (pcg88_frequency(0) != 0)) {
+			problem = "PCG disabled";
+		}
+		np2cfg.pcg_enable = 1;
+		memoryva_88_mode = FALSE;
+		if ((problem == NULL) && ((pcg88_glyph(0x81) != NULL) || (pcg88_frequency(0) != 0))) {
+			problem = "PCG outside 88 mode";
+		}
+	}
+	np2cfg.pcg_enable = saved_enable;
+	memoryva_88_mode = saved_88;
+	soundcfg.rate = saved_rate;
+	pcg88_setvol(np2cfg.pcg_vol);
+	fontmem[0x41000 + 0x400] = saved_rom;
+	pcg88_reset();
+	pcg88_initfont();
+	if (problem != NULL) {
+		return (fail("PCG-8100/8800", problem));
+	}
+	fprintf(stderr, "selftest: PCG-8100/8800 ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -7582,6 +7699,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pc8001_machine() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pcg88() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
