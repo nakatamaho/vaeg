@@ -81,3 +81,14 @@ expansion ROM bank at 6000h; the mkIISR's N80SR mode (`n80_3`,
   "NEC PC-8001 BASIC Ver 1.1", "NEC N-80 BASIC Ver 1.0" and "Ver 1.2"
   reach `Ok` at full row height, and `print 1+2` answers 3; from the
   command line and from 起動.
+- Media build regression at `3d4908e1` (M115, which contains this
+  branch), clean clone, shared cache: `build-utility-disk.sh` (PC-Engine
+  1.1) exit 0, 4096 bytes free, boots in vaeg; `build-sasi-utility-disks.sh`
+  exit 0, each image boots alone on its model with `\BIN\V480PAT.COM`; the
+  five demo `build-d88.sh`, `build-from-psd.sh`, the SGP boot disk,
+  all-demos and all-demos-msdos4 exit 0, every file in every regenerated
+  image identical to the committed images (directory dates only differ;
+  the SGP boot and all-demos-msdos4 `.xz` byte-identical).
+- Clean-checkout MinGW build of `3d4908e1`: `vaeg.exe` SHA-256
+  `100a54a7357e8b31f1e20e2d06e1f63c3a1123732114564e1ab1320efcb9737a`,
+  imports Windows system DLLs only; ctest 92 of 92.
