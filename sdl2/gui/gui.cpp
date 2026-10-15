@@ -1345,13 +1345,15 @@ static void select_sound_buffer(UINT delayms) {
  * its setup menu stores it; H/S and N are vaeg extensions (memctrlva_i031).
  */
 static void select_boot(const char *model, int boot_mode, bool v1, bool standard,
-                        const char *n80rom) {
+                        const char *n80rom, const char *extra_machine = nullptr) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
 
 	np2_select_boot_model(model);
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
+	milstr_ncpy(np2cfg.extra_machine, (extra_machine != nullptr) ? extra_machine : "",
+	            sizeof(np2cfg.extra_machine));
 	np2cfg.boot_mode = static_cast<UINT8>(boot_mode);
 	if (boot_mode == BOOTMODE_N) {
 		if (n80rom != nullptr) {
@@ -1363,6 +1365,17 @@ static void select_boot(const char *model, int boot_mode, bool v1, bool standard
 	}
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
+}
+
+/* M113: start a PC-8801 model from extra/<name>/ in the VA's V1/V2 mode
+ * (V2/V1 with H or S, or N), on the VA model its profile names. */
+static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(name, &profile) || !profile.startable) {
+		return;
+	}
+	select_boot(profile.base_model, boot_mode, v1, standard, nullptr, name);
 }
 
 static void select_monitor(bool khz15) {
@@ -1835,12 +1848,13 @@ struct BootRecord {
 	std::string fdd[2];
 	std::string sasi[2];
 	std::string tape;
+	std::string extra; /* M113: PC-8801 model directory, empty for the VA */
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
 		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
 		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
-		       (sasi[1] == other.sasi[1]) && (tape == other.tape);
+		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra);
 	}
 };
 
@@ -1909,7 +1923,7 @@ static void history_save(void) {
 		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
 		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
 		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
-		       << '\t' << boot.tape << '\n';
+		       << '\t' << boot.tape << '\t' << boot.extra << '\n';
 	}
 }
 
@@ -1925,7 +1939,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if ((fields.size() == 11) && (fields[0] == "boot")) {
+		if (((fields.size() == 11) || (fields.size() == 12)) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -1940,6 +1954,9 @@ static void history_load(void) {
 			boot.sasi[0] = fields[8];
 			boot.sasi[1] = fields[9];
 			boot.tape = fields[10];
+			if (fields.size() == 12) {
+				boot.extra = fields[11];
+			}
 			if (g_recent_boots.size() < kRecentBoots) {
 				g_recent_boots.push_back(boot);
 			}
@@ -2018,6 +2035,7 @@ static void history_record_boot(void) {
 	boot.standard = np2cfg.v1v2_standard != 0;
 	boot.mode = np2cfg.boot_mode;
 	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
+	boot.extra = np2cfg.extra_machine;
 	for (int drive = 0; drive < 2; drive++) {
 		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
 		if ((mounted == nullptr) || (mounted[0] == '\0')) {
@@ -2059,8 +2077,10 @@ static std::string history_boot_label(const BootRecord &boot) {
 	if (boot.mode == BOOTMODE_AUTO) {
 		mode = "自動, V3 以外は " + mode;
 	}
-	return name + "  (" + ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3") +
-	       ", " + mode + ")";
+	const std::string machine =
+	    !boot.extra.empty() ? boot.extra
+	                        : ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3");
+	return name + "  (" + machine + ", " + mode + ")";
 }
 
 /* A list of recent files for one drive; `select` is called with the path. */
@@ -3193,6 +3213,51 @@ static void extra_rom_tooltip(const EXTRAROM_FILE &file) {
 	ImGui::EndTooltip();
 }
 
+/* M113: the start entries of a model: V2/V1 (H where the model runs at
+ * 8 MHz, S) and N when it has N-BASIC. */
+static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(machine.name, &profile) || !profile.startable) {
+		ImGui::TextDisabled("この機種での起動はまだできません");
+		ImGui::Separator();
+		return;
+	}
+	const bool ready = extrarom_startable(&machine);
+	const bool current = milstr_cmp(np2cfg.extra_machine, machine.name) == 0;
+	const bool v1 = bkupmemva_get_88v1() != FALSE;
+	const bool standard = np2cfg.v1v2_standard != 0;
+	const bool has_n80 = extrarom_choice(&machine, EXTRAROM_ROLE_N80) != nullptr;
+	static const struct {
+		const char *label;
+		bool v1;
+		bool standard;
+	} modes[] = {
+	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
+	for (const auto &mode : modes) {
+		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high)) {
+			continue;
+		}
+		const std::string label = std::string(mode.label) + " で起動##" + machine.name;
+		const bool selected = current && (np2cfg.boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
+		                      (standard == mode.standard);
+		if (ImGui::MenuItem(label.c_str(), nullptr, selected, ready)) {
+			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
+		}
+	}
+	if (has_n80) {
+		const std::string label = std::string("N で起動##") + machine.name;
+		if (ImGui::MenuItem(label.c_str(), nullptr, current && (np2cfg.boot_mode == BOOTMODE_N),
+		                    ready)) {
+			select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
+		}
+	}
+	if (!ready) {
+		ImGui::TextDisabled("ROM がそろっていないため起動できません");
+	}
+	ImGui::Separator();
+}
+
 static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 	static const char *const reasons[] = {"名前が役割に合わない", "大きさが違う", "中身が空",
 	                                      "読めない"};
@@ -3208,6 +3273,7 @@ static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
 	if (machine.missing[0] != '\0') {
 		ImGui::TextDisabled("不足: %s", machine.missing);
 	}
+	draw_extra_machine_start(machine);
 	for (UINT role = 0; role < EXTRAROM_ROLES; role++) {
 		const EXTRAROM_FILE *files[EXTRAROM_MAX_FILES];
 		const UINT n = extrarom_revisions(&machine, role, files, EXTRAROM_MAX_FILES);
@@ -3252,7 +3318,7 @@ static void draw_extra_rom_menu(void) {
 	}
 	char dir[MAX_PATH];
 	extrarom_dir(dir, sizeof(dir));
-	ImGui::TextDisabled("ROM の確認と版の選択のみ（この機種での起動はまだできません）");
+	ImGui::TextDisabled("VA の V1/V2 モードで、この ROM を使って起動します");
 	if (g_extra_machines.empty()) {
 		ImGui::TextDisabled("ROM がありません: %s", dir);
 	}
@@ -3290,7 +3356,8 @@ static void draw_boot_menu(void) {
 	const bool standard = np2cfg.v1v2_standard != 0;
 	const int boot_mode = np2cfg.boot_mode;
 	for (const auto &machine : machines) {
-		const bool current = milstr_cmp(np2cfg.model, machine.model) == 0;
+		const bool current =
+		    (milstr_cmp(np2cfg.model, machine.model) == 0) && (np2cfg.extra_machine[0] == '\0');
 		if (!ImGui::BeginMenu(machine.label)) {
 			continue;
 		}
@@ -3350,6 +3417,10 @@ static void boot_from_history(const BootRecord &boot) {
 		g_gui.tape_loaded.clear();
 	} else {
 		(void)load_tape_path(boot.tape);
+	}
+	if (!boot.extra.empty()) {
+		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
+		return;
 	}
 	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
 	            (boot.mode == BOOTMODE_N) ? boot.n80rom.c_str() : nullptr);
@@ -4986,6 +5057,13 @@ static void draw_about_dialog(void) {
 					milstr_ncat(g_gui.about_info, (id != nullptr) ? id : "unreadable",
 					            sizeof(g_gui.about_info));
 					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
+				}
+				if (np2cfg.extra_machine[0] != '\0') {
+					milstr_ncat(g_gui.about_info, "\nPC-8801 machine: ", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info,
+					            (extrarom_last_error[0] != '\0') ? extrarom_last_error
+					                                             : np2cfg.extra_machine,
+					            sizeof(g_gui.about_info));
 				}
 				g_gui.about_more = true;
 			}
