@@ -652,11 +652,9 @@ rm -- "$payload_dir/bin/DIETEXE.LOG" "$payload_dir/bin/DIETCOM.LOG"
 printf 'DIET processed %u executables and saved %u bytes\n' \
 	"$diet_processed" "$diet_saved"
 
-# Keep the source-built timing test byte-identical to the NASM output.
-copy_payload "$common_stage_dir/BIN/V480PAT.COM" bin/V480PAT.COM
-copy_payload "$common_stage_dir/DOC/VTIMING.TXT" doc/VTIMING.TXT
-mkdir -p -- "$payload_dir/src/vtiming"
-copy_payload "$common_stage_dir/SRC/VTIMING/V480PAT.ASM" src/vtiming/V480PAT.ASM
+# M110: V480PAT and its source stay on the SASI images only; with VZ Editor
+# (M106) they no longer fit the FDD, and the display tests are on the
+# self-booting SGP disk.
 
 printf '%s\r\n' \
 	'FILES   = 20' \

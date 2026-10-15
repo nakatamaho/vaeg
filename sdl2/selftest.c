@@ -2747,6 +2747,9 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 static int test_viewport(void) {
 	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
+		return (fail("state thumbnail", "PNG did not read back"));
+	}
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
@@ -5493,6 +5496,71 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
+/* M110: file_getappdir creates the named directory next to the executable
+ * (where the build directory is writable) and ends it with a separator. */
+static int test_app_directory(void) {
+	char path[MAX_PATH];
+	char *base;
+	const char *problem = NULL;
+	size_t length;
+
+	base = SDL_GetBasePath();
+	if (!file_getappdir(path, sizeof(path), "vaeg-selftest-appdir")) {
+		problem = "executable directory not used";
+	} else if ((base == NULL) || (strncmp(path, base, strlen(base)) != 0)) {
+		problem = "directory not below the executable";
+	} else {
+		length = strlen(path);
+		if ((length == 0) || ((path[length - 1] != '/') && (path[length - 1] != '\\'))) {
+			problem = "no trailing separator";
+		} else if (file_attr(path) < 0) {
+			problem = "directory not created";
+		}
+	}
+	if (base != NULL) {
+		SDL_free(base);
+	}
+#if defined(_WIN32)
+	_rmdir(path);
+#else
+	rmdir(path);
+#endif
+	if (problem != NULL) {
+		return (fail("application directory", problem));
+	}
+	fprintf(stderr, "selftest: application directory ok\n");
+	return (SUCCESS);
+}
+
+/* M110: カーソル割り当て > マウス (KEY_MODE 3) moves the guest mouse that
+ * the VA's mouse interface reads, from the cursor keys. */
+static int test_cursor_keys_as_mouse(void) {
+	const UINT8 saved_mode = np2cfg.KEY_MODE;
+	SINT16 x0;
+	SINT16 x1;
+	int i;
+
+	np2cfg.KEY_MODE = 3;
+	keystat_resetjoykey();
+	mouseif_sync();
+	mouseif_sync();
+	x0 = mouseif.x;
+	keystat_keydown(0x3c); /* cursor right */
+	for (i = 0; i < 8; i++) {
+		mouseif_sync();
+	}
+	keystat_keyup(0x3c);
+	mouseif_sync();
+	x1 = mouseif.x;
+	np2cfg.KEY_MODE = saved_mode;
+	keystat_resetjoykey();
+	if (x1 <= x0) {
+		return (fail("cursor keys as mouse", "cursor right did not move the mouse"));
+	}
+	fprintf(stderr, "selftest: cursor keys as mouse ok\n");
+	return (SUCCESS);
+}
+
 /* M103i: output levels for the analog and the digital RGB monitor; M109:
  * the digital monitor turns a component on above 1/31 of full scale. */
 static int test_monitor_output_levels(void) {
@@ -6619,6 +6687,13 @@ static int test_mouse_state(void) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 screenshot binding changed"));
 	}
+	/* M110: F12 can pause and resume instead of the menu-bar button. */
+	np2oscfg.F12KEY = KBDMAP_F12_PAUSE;
+	if ((kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_PAUSE)) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 pause binding changed"));
+	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
 	return (SUCCESS);
@@ -6927,6 +7002,29 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_monitor_output_levels() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_app_directory() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_cursor_keys_as_mouse() != SUCCESS) {
+		return (FAILURE);
+	}
+	{
+		/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
+		const int saved = soundmng_mastervolume();
+		soundmng_setmastervolume(0);
+		const int v0 = soundmng_mastervolume();
+		soundmng_setmastervolume(50);
+		const int v50 = soundmng_mastervolume();
+		soundmng_setmastervolume(100);
+		const int v100 = soundmng_mastervolume();
+		soundmng_setmastervolume(250);
+		const int v250 = soundmng_mastervolume();
+		soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
+		if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
+			return (fail("master volume", "percent to mixing volume"));
+		}
+		fprintf(stderr, "selftest: master volume ok\n");
 	}
 	if (test_scanline_fill() != SUCCESS) {
 		return (FAILURE);

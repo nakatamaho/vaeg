@@ -69,7 +69,8 @@ to F11 and controls the temporary hold-to-fast-forward pacing action;
 `F12_bind=0` (Mouse). These actions are shown as host rows in the Keyboard
 mapping window and can be rebound without changing guest key codes.
 
-The F12 binding menu also provides `F12_bind=6` (`Full speed (No Wait)`). While
+Key > F12 の割り当て also provides `F12_bind=6` (`最大速度`, No Wait) and,
+since M110, `F12_bind=8` (`一時停止`). While
 F12 is held in this mode, it selects the same temporary No Wait and draw-skip
 16 pacing path as the configurable `fast_forward` host action; the F12 event is
 not sent to the guest.
@@ -151,7 +152,7 @@ use PC key chords such as PC+D.
 
 `keyboard_tenkey_overlay=1` is a game-oriented overlay independent of
 the JIS/US/Custom host layout. It is off by default. When enabled from
-Device / Keyboard / Tenkey overlay, the following host scancodes are sent
+Key / カーソル割り当て / テンキー 8/4/6/2, the following host scancodes are sent
 as guest keypad make/break events:
 
 | Host scancode | Guest keypad role | Guest code |

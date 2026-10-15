@@ -57,7 +57,7 @@ implementation choice.
 | Item | Where | Notes |
 |---|---|---|
 | N-BASIC ROM | `n80.1.8.rom`, `n80.1.2.rom`, `n80.rom` or `N80.ROM`, 32 KiB, in the ROM directory | Optional; loaded at every reset: the file chosen in the menu (`V1V2_N80ROM`), else the first found in that order. The versioned names are known dumps (below); `n80.rom` is accepted whatever it holds. About shows the loaded file and its identity. |
-| Z80 mode | Emulate > Z80 mode: V2 H, V2 S, V1 H, V1 S, and one N (PC-8001) entry per usable N-BASIC ROM file, labelled with its identity | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` and N is `V1V2_NMode` in the configuration file. N is available only with an N80 ROM. Selecting an entry resets. About shows `Z80 MODE`. |
+| Z80 mode | 模擬 > 起動 > PC-88VA2/VA3 or PC-88VA (M110; formerly Emulate > Z80 mode): V2 H, V2 S, V1 H, V1 S, and one N entry per usable N-BASIC ROM file, labelled with its identity | V1/V2 is the VA memory switch B1FC5h bit 0 (backup memory); H/S is `V1V2_Standard` and N is `V1V2_NMode` in the configuration file. N is available only with an N80 ROM. Selecting an entry resets. About shows `Z80 MODE`. |
 
 Known dumps, registered by SHA-1 at the maintainer's request
 (`sdl2/n80rom.c`; other files are shown as "unknown dump"):
@@ -127,7 +127,7 @@ Ver 1.8) the top 8 KiB is byte-identical to the VA's own Debug 8800 bank
 ## 4. Starting N-BASIC with `NEW ON 1` (implemented)
 
 1. Put the N80 ROM in the ROM directory; check About (`ROM(N80): exist`).
-2. Emulate > Z80 mode > V1 S (resets).
+2. 模擬 > 起動 > PC-88VA2/VA3 > V1 S (resets).
 3. Boot V1/V2 N-88 BASIC from a V1/V2 disk (the VA ROM enters V1/V2 only
    from such media on the VA2).
 4. Eject the disk from drive 1, then type `NEW ON 1`.

@@ -41,6 +41,7 @@
 #include "mouseifva.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "kbdmap.h"
 
 typedef struct {
 	const char *title;
@@ -432,6 +433,8 @@ static const INITBL iniitem[] = {
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},
+    {"master_volume", INITYPE_UINT8, &np2oscfg.master_volume, 0},
+    {"cursor_keys", INITYPE_UINT8, &np2cfg.KEY_MODE, 0},
     {"Mouse_sw", INITYPE_BOOL, &np2oscfg.MOUSE_SW, 0},
     {"e_resume", INITYPE_BOOL, &np2oscfg.resume, 0},
     {"jast_snd", INITYPE_BOOL, &np2oscfg.jastsnd, 0}, // ver0.73
@@ -606,6 +609,9 @@ void initload(void) {
 		np2cfg.SOUND_SW = np2_default_sound_for_model(np2cfg.model);
 	}
 	np2oscfg.sound_enabled = np2oscfg.sound_enabled ? 1 : 0;
+	if (np2oscfg.master_volume > 100) {
+		np2oscfg.master_volume = 100;
+	}
 	np2oscfg.MOUSE_SW = np2oscfg.MOUSE_SW ? 1 : 0;
 	if (mouseifvacfg.device > MOUSEIFVA_MOUSE) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid Mouse_VA=%u; using joystick",
@@ -614,6 +620,14 @@ void initload(void) {
 	}
 	np2oscfg.keyboard_auto_kana_lock = np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
+	/* M110: the cursor keys as keys (0), joystick (1) or mouse (3); the PC-98
+	 * second-joystick mode 2 is gone. */
+	if ((np2cfg.KEY_MODE != 1) && (np2cfg.KEY_MODE != 3)) {
+		np2cfg.KEY_MODE = 0;
+	}
+	if (np2oscfg.F12KEY > KBDMAP_F12_PAUSE) {
+		np2oscfg.F12KEY = 0;
+	}
 	opngen_setbackend(opngen_parsebackend(np2oscfg.opn_backend));
 	milstr_ncpy(np2oscfg.opn_backend, opngen_backendname(opngen_getbackend()),
 	            sizeof(np2oscfg.opn_backend));

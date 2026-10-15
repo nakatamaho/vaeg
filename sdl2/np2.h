@@ -74,6 +74,7 @@ typedef struct {
 	char opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
 	char ymfm_fidelity[NP2OSCFG_YMFM_FIDELITY_NAME_SIZE];
 	BYTE sound_enabled;
+	BYTE master_volume; /* M110: 全体の音量, 0-100 % of the final mix */
 	BYTE gui_effect;
 	BYTE gui_scaling;
 	UINT16 gui_window_width;

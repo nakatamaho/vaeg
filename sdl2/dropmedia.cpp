@@ -49,6 +49,7 @@
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
+#include "gui/gui.h"
 #include "np2.h"
 #include "sysmng.h"
 
@@ -66,6 +67,7 @@ struct DiskCandidate {
 	std::string path;
 	std::string basename;
 	std::string source_directory;
+	std::string origin; /* M110: the dropped file (an archive or the image) */
 };
 
 std::vector<std::string> g_dropped_paths;
@@ -799,9 +801,13 @@ static void process_drop_batch(void) {
 		if (archive_extension_supported(path)) {
 #if defined(VAEG_HAVE_LIBARCHIVE)
 			std::string error;
+			const std::size_t first = images.size();
 			if (!extract_archive_images(path, &images, &error, archive_storage_root())) {
 				append_status_line("Archive drop failed: " + error + ": " +
 				                   fs_path.filename().u8string());
+			}
+			for (std::size_t index = first; index < images.size(); index++) {
+				images[index].origin = path;
 			}
 #else
 			append_status_line("Archive drop unavailable: this build has no LibArchive support.");
@@ -812,6 +818,12 @@ static void process_drop_batch(void) {
 	}
 	if (!images.empty()) {
 		mount_candidates(&images, 0);
+		/* mount_candidates sorted the list: entry N went into FDD N+1. */
+		for (std::size_t drive = 0; (drive < images.size()) && (drive < 2); drive++) {
+			const DiskCandidate &image = images[drive];
+			gui_history_add(static_cast<int>(drive),
+			                image.origin.empty() ? image.path.c_str() : image.origin.c_str());
+		}
 	} else if (g_status.empty()) {
 		g_status = "Drop contained no supported disk image.";
 	}

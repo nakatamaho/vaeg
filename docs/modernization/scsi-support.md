@@ -100,10 +100,10 @@ initializes the selected target.
 
 ### 2. Create and attach a VAEG SCSI image
 
-The GUI creates VHD-format SCSI images. Choose **HardDisk -> New SCSI
-image...**, select a size, and assign it to **SCSI ID 0** through **SCSI ID 6**.
+The GUI creates VHD-format SCSI images. Choose **HDD -> 新しい SCSI
+イメージ…**, select a size, and assign it to **SCSI ID 0** through **SCSI ID 6**.
 The usual first two targets are SCSI ID 0 and SCSI ID 1. Existing
-images can be attached through the corresponding **Open** menu item. Reset
+images can be attached through **HDD -> SCSI -> ID n -> 開く…**. Reset
 the guest after changing an attachment so PCPLUS/SCHD re-enumerates it.
 
 The same operation can be prepared from a shell:

@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M110 — the utility FDD no longer built after the M106 merge
+
+- **Symptom/scope:** `tools/pc88va/build-utility-disk.sh` failed with
+  `not enough free space` on `main` from the M106 merge on; the SASI images,
+  which take that FDD as payload, could not be rebuilt either. Build tooling
+  only; existing images were unaffected.
+- **Demonstrated cause:** the M106 branch put VZ Editor on the FDD and
+  dropped five files to make room; M105a, on `main` meanwhile, added
+  V480PAT, its source and its instructions to the FDD. The merge combined
+  both, and the payload needed 28672 bytes more than the PC-Engine 1.1 disk
+  has (measured from the builder's payload directory). The M106 gate media
+  were built from the branch before the merge, so it went unnoticed.
+- **Correction:** V480PAT and its files stay off the FDD; they remain on
+  both SASI images, and V480PAT, TSPMODE and TSPFILL are on the
+  self-booting SGP disk.
+- **Verification:** the FDD builds from a clean clone with the shared cache
+  (4096 bytes left), boots PC-Engine 1.1 in vaeg and lists VZ; both SASI
+  images build with it as payload, boot alone on the VA and the VA2 and
+  hold `\BIN\V480PAT.COM`; `test_vtiming_media.py` checks the FDD builder
+  no longer copies the files (fails with them restored).
+- **Milestone/task/commit:** M110;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/dd7a661e23164385b3995091db35b827d41bd3cc).
+
 ### M109 — the digital RGB monitor showed the NEC logo red
 
 - **Symptom/scope:** with Emulate > モニタ > デジタル RGB (8色), the VA demo's

@@ -147,6 +147,7 @@ NP2OSCFG np2oscfg = {0,
                      "ymfm",
                      "minimum",
                      1,
+                     100,
                      VAEG_EFFECT_UNFILTERED,
                      VAEG_SCALING_FIT,
                      640,
@@ -2194,6 +2195,7 @@ int main(int argc, char **argv) {
 
 	soundmng_initialize();
 	soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+	soundmng_setmastervolume(np2oscfg.master_volume);
 	commng_initialize();
 	sysmng_initialize();
 	taskmng_initialize();
