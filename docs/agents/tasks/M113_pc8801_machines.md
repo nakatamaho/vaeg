@@ -91,6 +91,9 @@ CD-ROM, PC-98DO's PC-98 side.
 - [POLICY] Base model: the VA for the `PC-88VA` set, the VA2 for every
   other model (OPNA sound; its first half is OPN-compatible). Modes: V2
   from the mkIISR on, H (8 MHz) from the FH/MH on, N with `n80`.
+- [POLICY] The mkIITR is added as a model directory (maintainer,
+  2026-10-15). MAME has the mkIITR, FE and FE2 only as commented-out
+  machines without ROM definitions; their roles follow the mkIISR and the FA.
 - [POLICY] The PC-8801 without `disk.rom` has no FDD unit: ports FCh-FFh
   read FFh and the unit does not run. Absent extension banks, kanji ROMs
   and dictionary read FFh.

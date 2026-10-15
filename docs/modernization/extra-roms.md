@@ -47,9 +47,9 @@ extra/
 
 - One directory per model, named after it: `PC-8001`, `PC-8001mkII`,
   `PC-8001mkIISR`, `PC-8801`, `PC-8801mkII`, `PC-8801mkIISR`,
-  `PC-8801mkIIFR`, `PC-8801mkIIMR`, `PC-8801FH`, `PC-8801MH`, `PC-8801FA`,
-  `PC-8801MA`, `PC-8801FE`, `PC-8801MA2`, `PC-8801FE2`, `PC-8801MC`,
-  `PC-98DO`, and (M113) `PC-88VA` and `PC-88VA2` for PC-8801-layout sets
+  `PC-8801mkIITR`, `PC-8801mkIIFR`, `PC-8801mkIIMR`, `PC-8801FH`,
+  `PC-8801MH`, `PC-8801FA`, `PC-8801MA`, `PC-8801FE`, `PC-8801MA2`,
+  `PC-8801FE2`, `PC-8801MC`, `PC-98DO`, and (M113) `PC-88VA` and `PC-88VA2` for PC-8801-layout sets
   taken from the VA ROMs. Other directory names are listed as an unknown
   model.
 - One file per role, named after the role (case does not matter).
@@ -90,7 +90,7 @@ carries the FDD ROM; a model 10 runs a drive once one is fitted).
 | PC-8001mkIISR | `n80_2sr`, `n80_3`, `font`, `font80sr`, `fonthira` |
 | PC-8801 | `n88`, `n88_0`, `n80`, `font` or `kanji1` |
 | PC-8801mkII | `n88`, `n88_0`, `n80`, `disk`, `kanji1` |
-| PC-8801mkIISR, mkIIFR | `n88`, `n88_0`-`n88_3`, `n80`, `disk`, `kanji1` |
+| PC-8801mkIISR, mkIITR, mkIIFR | `n88`, `n88_0`-`n88_3`, `n80`, `disk`, `kanji1` |
 | PC-8801mkIIMR, FH, MH, FA, FE, FE2 | as mkIISR, and `kanji2` |
 | PC-8801MA, MA2 | as MH, and `jisyo` |
 | PC-8801MC | as MA, and `cdbios` |
@@ -118,6 +118,10 @@ When two files of a role would read the same but differ in content, the
 first eight hex digits of their SHA-1 are added. Equal banners do occur
 with different contents (two PC-8001 "Ver 1.0" ROMs, two N-BASIC "Ver 1.8"
 ROMs, three N88 V2 "2.3" ROMs), so a banner alone does not name a revision.
+
+MAME defines no ROMs for the mkIITR, FE and FE2 (their machine entries are
+commented out), so their files are never shown as MAME matches; their
+required roles follow the mkIISR and the FA.
 
 ### MAME's published values
 

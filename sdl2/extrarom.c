@@ -68,7 +68,9 @@ static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
  *
  * M113: `base` is the VA model whose V1/V2 mode runs the machine (0: not
  * startable yet), `v2` whether it has N88-BASIC V2 (from the mkIISR on) and
- * `high` whether it runs at 8 MHz (H; from the FH/MH on). PC-88VA and
+ * `high` whether it runs at 8 MHz (H; from the FH/MH on). The mkIITR, FE
+ * and FE2 are listed in MAME only as commented-out machines without ROM
+ * definitions; their roles follow the mkIISR, FA and FA. PC-88VA and
  * PC-88VA2 are PC-8801-layout sets taken from the VA ROMs.
  */
 #define PC8801_V2_ROLES "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1"
@@ -85,6 +87,7 @@ static const struct {
     {"PC-8801", "n88 n88_0 n80 font|kanji1", 2, 0, 0},
     {"PC-8801mkII", "n88 n88_0 n80 disk kanji1", 2, 0, 0},
     {"PC-8801mkIISR", PC8801_V2_ROLES, 2, 1, 0},
+    {"PC-8801mkIITR", PC8801_V2_ROLES, 2, 1, 0},
     {"PC-8801mkIIFR", PC8801_V2_ROLES, 2, 1, 0},
     {"PC-8801mkIIMR", PC8801_V2_ROLES " kanji2", 2, 1, 0},
     {"PC-8801FH", PC8801_V2_ROLES " kanji2", 2, 1, 1},

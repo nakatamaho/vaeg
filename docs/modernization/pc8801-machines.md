@@ -54,7 +54,7 @@ compatibility mode and a PC-8801 remain.
 | Model directory | Base | Modes offered |
 |---|---|---|
 | PC-8801, PC-8801mkII | VA2 | V1 S, N |
-| PC-8801mkIISR, mkIIFR, mkIIMR | VA2 | V2 S, V1 S, N |
+| PC-8801mkIISR, mkIITR, mkIIFR, mkIIMR | VA2 | V2 S, V1 S, N |
 | PC-8801FH, MH, FA, MA, FE, MA2, FE2, MC, PC-98DO | VA2 | V2 H/S, V1 H/S, N |
 | PC-88VA | VA | V2 H/S, V1 H/S |
 | PC-88VA2 | VA2 | V2 H/S, V1 H/S |
