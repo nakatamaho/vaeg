@@ -191,6 +191,8 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 			options->smoke = TRUE;
 		} else if (!strcmp(argument, "--selftest")) {
 			options->selftest = TRUE;
+		} else if (!strcmp(argument, "--list-extra-roms")) {
+			options->list_extra_roms = TRUE;
 		} else if (!strcmp(argument, "--debug")) {
 			options->debug = TRUE;
 		} else if (!strcmp(argument, "--fdctrace")) {

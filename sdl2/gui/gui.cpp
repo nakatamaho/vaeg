@@ -51,6 +51,7 @@
 #include "memoryva.h"
 #include "maketextva.h"
 #include "bkupmemva.h"
+#include "extrarom.h"
 #include "n80rom.h"
 #include "cmt.h"
 #include "diskdrv.h"
@@ -3154,6 +3155,115 @@ static void draw_cpu_clock_menu(void) {
 	ImGui::EndMenu();
 }
 
+/* M112: ROMs of the PC-8801/8001 families under extra/, scanned (SHA-1)
+ * once each time the 起動 menu opens. */
+static std::vector<EXTRAROM_MACHINE> g_extra_machines;
+
+static void scan_extra_roms(void) {
+	g_extra_machines.resize(EXTRAROM_MAX_MACHINES);
+	const UINT count = extrarom_scan(g_extra_machines.data(), EXTRAROM_MAX_MACHINES);
+	g_extra_machines.resize(count);
+}
+
+static std::string extra_rom_item(const EXTRAROM_FILE &file) {
+	std::string text = file.label;
+	if (file.mame[0] == '\0') {
+		text += "  [MAME になし]";
+	} else {
+		text += file.mame_bad_dump ? "  [MAME と一致, BAD_DUMP]" : "  [MAME と一致]";
+	}
+	return text;
+}
+
+static void extra_rom_tooltip(const EXTRAROM_FILE &file) {
+	if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		return;
+	}
+	ImGui::BeginTooltip();
+	ImGui::Text("%s  (%u バイト)", file.file, static_cast<unsigned>(file.size));
+	ImGui::Text("SHA-1 %s", file.sha1);
+	if (file.banner[0] != '\0') {
+		ImGui::Text("版表示: %s", file.banner);
+	}
+	if (file.mame[0] != '\0') {
+		ImGui::Text("MAME: %s%s%s%s", file.mame, (file.mame_bios[0] != '\0') ? " (" : "",
+		            file.mame_bios, (file.mame_bios[0] != '\0') ? ")" : "");
+		ImGui::TextDisabled("MAME との一致は参考です（良いダンプの保証ではありません）");
+	}
+	ImGui::EndTooltip();
+}
+
+static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+	static const char *const reasons[] = {"名前が役割に合わない", "大きさが違う", "中身が空",
+	                                      "読めない"};
+	std::string title = machine.name;
+	if (!machine.known) {
+		title += "  (機種不明)";
+	} else if (machine.missing[0] != '\0') {
+		title += "  (不足あり)";
+	}
+	if (!ImGui::BeginMenu(title.c_str())) {
+		return;
+	}
+	if (machine.missing[0] != '\0') {
+		ImGui::TextDisabled("不足: %s", machine.missing);
+	}
+	for (UINT role = 0; role < EXTRAROM_ROLES; role++) {
+		const EXTRAROM_FILE *files[EXTRAROM_MAX_FILES];
+		const UINT n = extrarom_revisions(&machine, role, files, EXTRAROM_MAX_FILES);
+		const EXTRAROM_FILE *chosen = extrarom_choice(&machine, role);
+		if ((n == 0) || (chosen == nullptr)) {
+			continue;
+		}
+		const std::string head = std::string(extrarom_role_names[role]) + ": ";
+		if (n == 1) {
+			ImGui::MenuItem((head + extra_rom_item(*chosen)).c_str(), nullptr, false, false);
+			extra_rom_tooltip(*chosen);
+			continue;
+		}
+		// Revisions: the choice is kept per machine and role in the config.
+		const std::string menu = head + chosen->label + "##" + extrarom_role_names[role];
+		if (!ImGui::BeginMenu(menu.c_str())) {
+			continue;
+		}
+		for (UINT i = 0; i < n && i < EXTRAROM_MAX_FILES; i++) {
+			const std::string item =
+			    extra_rom_item(*files[i]) + "  " + files[i]->file + "##" + std::to_string(i);
+			if (ImGui::MenuItem(item.c_str(), nullptr, files[i] == chosen)) {
+				extrarom_select(machine.name, role, files[i]->revision);
+				sysmng_update(SYS_UPDATECFG);
+			}
+			extra_rom_tooltip(*files[i]);
+		}
+		ImGui::EndMenu();
+	}
+	for (UINT i = 0; (i < machine.ignored) && (i < EXTRAROM_MAX_IGNORED); i++) {
+		ImGui::TextDisabled("使わないファイル: %s (%s)", machine.skipped[i].file,
+		                    reasons[machine.skipped[i].reason]);
+	}
+	ImGui::EndMenu();
+}
+
+/* 起動 > PC-8801/8001 (追加 ROM): what was found and the revision chosen
+ * for each role. These machines do not run yet; their emulation follows. */
+static void draw_extra_rom_menu(void) {
+	if (!ImGui::BeginMenu("PC-8801/8001 (追加 ROM)")) {
+		return;
+	}
+	char dir[MAX_PATH];
+	extrarom_dir(dir, sizeof(dir));
+	ImGui::TextDisabled("ROM の確認と版の選択のみ（この機種での起動はまだできません）");
+	if (g_extra_machines.empty()) {
+		ImGui::TextDisabled("ROM がありません: %s", dir);
+	}
+	for (const auto &machine : g_extra_machines) {
+		draw_extra_rom_machine(machine);
+	}
+	ImGui::Separator();
+	ImGui::TextDisabled("置き場所: %s/<機種名>/<役割>.rom", dir);
+	ImGui::EndMenu();
+}
+
 static void draw_boot_menu(void) {
 	static const struct {
 		const char *label;
@@ -3173,6 +3283,7 @@ static void draw_boot_menu(void) {
 	// The ROM directory is scanned (SHA-1) once each time the menu opens.
 	if (!g_n80_scanned) {
 		n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+		scan_extra_roms();
 		g_n80_scanned = true;
 	}
 	const bool v1 = bkupmemva_get_88v1() != FALSE;
@@ -3212,6 +3323,8 @@ static void draw_boot_menu(void) {
 		}
 		ImGui::EndMenu();
 	}
+	ImGui::Separator();
+	draw_extra_rom_menu();
 	ImGui::EndMenu();
 }
 

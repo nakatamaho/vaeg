@@ -36,6 +36,7 @@
 #include "emsio.h"
 #include "bkupmemva.h"
 #include "romva.h"
+#include "extrarom.h"
 #include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
@@ -5690,6 +5691,284 @@ static int test_n80_rom_files(void) {
 	return (SUCCESS);
 }
 
+/* Write `size` bytes from `data` as `dir`/`name`. */
+static BOOL selftest_write_file(const char *dir, const char *name, const BYTE *data, UINT size) {
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL ok;
+
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_write(fh, data, size) == size);
+	file_close(fh);
+	return ok;
+}
+
+/* A ROM image of `size` bytes, different for each `seed`, optionally with
+ * a banner at offset 100h. */
+static void selftest_fill_rom(BYTE *data, UINT size, BYTE seed, const char *banner) {
+	UINT i;
+
+	for (i = 0; i < size; i++) {
+		data[i] = (BYTE)(seed + i * 7 + (i >> 8));
+	}
+	if (banner != NULL) {
+		memcpy(data + 0x100, banner, strlen(banner) + 1);
+	}
+}
+
+static const EXTRAROM_FILE *selftest_extra_file(const EXTRAROM_MACHINE *m, const char *file,
+                                                UINT role) {
+	UINT i;
+
+	for (i = 0; i < m->count; i++) {
+		if ((m->files[i].role == role) && (strcmp(m->files[i].file, file) == 0)) {
+			return &m->files[i];
+		}
+	}
+	return NULL;
+}
+
+/* M112: ROMs below extra/<machine>/: role and revision names, size and
+ * blank checks, banners, MAME names, required roles, a combined PC88.ROM,
+ * and the revision chosen in the menu. Synthetic data only. */
+static int test_extra_roms(void) {
+	static BYTE rom[0x1c000];
+	static BYTE part[0x8000];
+	static const char *const files88[] = {"n88.rom",        "n88_0.rom", "n80.rom",
+	                                      "n80_vB.rom",     "font.rom",  "n88_vblank.rom",
+	                                      "n88_vshort.rom", "other.rom"};
+	static const char *const filessr[] = {"PC88.ROM"};
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dir88[MAX_PATH];
+	char dirsr[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_select[sizeof(np2cfg.extra_rom_select)];
+	char banner[64];
+	char mame[64];
+	char bios[32];
+	EXTRAROM_MACHINE *machines;
+	const EXTRAROM_MACHINE *m88 = NULL;
+	const EXTRAROM_MACHINE *msr = NULL;
+	const EXTRAROM_FILE *f;
+	const char *problem = NULL;
+	BOOL bad;
+	UINT count;
+	UINT i;
+
+	machines = (EXTRAROM_MACHINE *)malloc(sizeof(*machines) * EXTRAROM_MAX_MACHINES);
+	if (machines == NULL) {
+		return (fail("extra ROMs", "out of memory"));
+	}
+	/* Banners: two BASICs in one ROM are joined; a trailing '.' is dropped. */
+	ZeroMemory(part, 0x400);
+	memcpy(part + 0x10, "NEC PC-8001 BASIC Ver 1.3.", 26);
+	memcpy(part + 0x200, "NEC N-80 BASIC Ver 1.0", 22);
+	if ((extrarom_banner(part, 0x400, banner, sizeof(banner)) != 2) ||
+	    strcmp(banner, "PC-8001 BASIC Ver 1.3 + N-80 BASIC Ver 1.0")) {
+		problem = "version banners";
+	}
+	/* MAME names: this model's own entry is preferred; BAD_DUMP is kept. */
+	if ((problem == NULL) &&
+	    (!extrarom_mame_lookup("6d2d838de7fea20ddf6601660d0525d5b17bf8a3", "PC-8001", mame,
+	                           sizeof(mame), bios, sizeof(bios), &bad) ||
+	     strcmp(mame, "pc8001 n80v101.rom") || strcmp(bios, "N-BASIC v1.01") || !bad)) {
+		problem = "MAME name of a PC-8001 N-BASIC ROM";
+	}
+	if ((problem == NULL) &&
+	    (!extrarom_mame_lookup("82e11a177af6a5091dd67f50a2f4bafda84d6556", "PC-8801mkIISR", mame,
+	                           sizeof(mame), bios, sizeof(bios), &bad) ||
+	     strcmp(mame, "pc8801mk2sr kanji1.rom") || (bios[0] != '\0') || bad)) {
+		problem = "MAME name preferring the model";
+	}
+	if ((problem == NULL) &&
+	    extrarom_mame_lookup("0000000000000000000000000000000000000000", "PC-8801", mame,
+	                         sizeof(mame), bios, sizeof(bios), &bad)) {
+		problem = "MAME name of an unknown ROM";
+	}
+
+	SPRINTF(root, "vaeg-selftest-%lu-extra", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dir88, base, sizeof(dir88));
+	file_setseparator(dir88, sizeof(dir88));
+	file_catname(dir88, "PC-8801", sizeof(dir88));
+	file_cpyname(dirsr, base, sizeof(dirsr));
+	file_setseparator(dirsr, sizeof(dirsr));
+	file_catname(dirsr, "PC-8801mkIISR", sizeof(dirsr));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dir88);
+	file_dircreate(dirsr);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_select, np2cfg.extra_rom_select, sizeof(saved_select));
+	np2cfg.extra_rom_select[0] = '\0';
+
+	/* PC-8801: no disk.rom (its FDD is external); two N-BASIC files with
+	 * the same banner; a blank, a short and an unnamed file. */
+	if (problem == NULL) {
+		BOOL ok;
+		selftest_fill_rom(part, 0x8000, 1, "NEC N-88 BASIC Version 1.0");
+		ok = selftest_write_file(dir88, files88[0], part, 0x8000);
+		selftest_fill_rom(part, 0x2000, 2, NULL);
+		ok = ok && selftest_write_file(dir88, files88[1], part, 0x2000);
+		selftest_fill_rom(part, 0x8000, 3, "NEC PC-8001 BASIC Ver 1.2");
+		ok = ok && selftest_write_file(dir88, files88[2], part, 0x8000);
+		selftest_fill_rom(part, 0x8000, 4, "NEC PC-8001 BASIC Ver 1.2");
+		ok = ok && selftest_write_file(dir88, files88[3], part, 0x8000);
+		selftest_fill_rom(part, 0x800, 5, NULL);
+		ok = ok && selftest_write_file(dir88, files88[4], part, 0x800);
+		FillMemory(part, 0x8000, 0xff);
+		ok = ok && selftest_write_file(dir88, files88[5], part, 0x8000);
+		selftest_fill_rom(part, 0x100, 6, NULL);
+		ok = ok && selftest_write_file(dir88, files88[6], part, 0x100);
+		ok = ok && selftest_write_file(dir88, files88[7], part, 0x100);
+		/* mkIISR: one combined PC88.ROM with a 2 KiB DISK ROM, no kanji1. */
+		selftest_fill_rom(rom, sizeof(rom), 9, "NEC N-88 BASIC Version 1.4");
+		memcpy(rom + 0x10100, "<NEC N-88 BASIC Version 2.0", 28);
+		FillMemory(rom + 0x14800, 0x1800, 0xff);
+		ok = ok && selftest_write_file(dirsr, filessr[0], rom, sizeof(rom));
+		if (!ok) {
+			problem = "could not write test ROM files";
+		}
+	}
+	count = 0;
+	if (problem == NULL) {
+		count = extrarom_scan(machines, EXTRAROM_MAX_MACHINES);
+		for (i = 0; i < count; i++) {
+			if (strcmp(machines[i].name, "PC-8801") == 0) {
+				m88 = &machines[i];
+			} else if (strcmp(machines[i].name, "PC-8801mkIISR") == 0) {
+				msr = &machines[i];
+			}
+		}
+		if ((count != 2) || (m88 == NULL) || (msr == NULL) || (m88 > msr)) {
+			problem = "machine directories and their order";
+		}
+	}
+	if ((problem == NULL) &&
+	    (!m88->known || (m88->missing[0] != '\0') || (m88->count != 5) || (m88->ignored != 3))) {
+		problem = "PC-8801 files, ignored files or required roles";
+	}
+	if (problem == NULL) {
+		static const EXTRAROM_IGNORED reasons[] = {EXTRAROM_IGNORED_BLANK, EXTRAROM_IGNORED_SIZE,
+		                                           EXTRAROM_IGNORED_NAME};
+		for (i = 0; i < 3; i++) {
+			if ((strcmp(m88->skipped[i].file, files88[5 + i]) != 0) ||
+			    (m88->skipped[i].reason != reasons[i])) {
+				problem = "reasons for ignored files";
+			}
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(m88, "n88.rom", EXTRAROM_ROLE_N88);
+		if ((f == NULL) || strcmp(f->banner, "N-88 BASIC Version 1.0") ||
+		    strcmp(f->label, "N-88 BASIC Version 1.0") || (f->mame[0] != '\0')) {
+			problem = "banner label of a ROM unknown to MAME";
+		}
+	}
+	/* Equal banners, different contents: the SHA-1 prefix tells them apart. */
+	if (problem == NULL) {
+		const EXTRAROM_FILE *a = selftest_extra_file(m88, "n80.rom", EXTRAROM_ROLE_N80);
+		const EXTRAROM_FILE *b = selftest_extra_file(m88, "n80_vB.rom", EXTRAROM_ROLE_N80);
+		char expect[96];
+		if ((a == NULL) || (b == NULL) || strcmp(b->revision, "B")) {
+			problem = "revision file name";
+		} else {
+			SPRINTF(expect, "PC-8001 BASIC Ver 1.2 [%.8s]", b->sha1);
+			if (strcmp(b->label, expect) || !strcmp(a->label, b->label)) {
+				problem = "labels of revisions with equal banners";
+			}
+		}
+	}
+	/* The default is <role>.rom; a choice is remembered per machine and role. */
+	if (problem == NULL) {
+		f = extrarom_choice(m88, EXTRAROM_ROLE_N80);
+		if ((f == NULL) || strcmp(f->file, "n80.rom")) {
+			problem = "default revision";
+		}
+	}
+	if (problem == NULL) {
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N88, "X");
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N80, "B");
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N88, "");
+		f = extrarom_choice(m88, EXTRAROM_ROLE_N80);
+		if (strcmp(np2cfg.extra_rom_select, "PC-8801/n80=B") || (f == NULL) ||
+		    strcmp(f->file, "n80_vB.rom") ||
+		    strcmp(extrarom_selected("PC-8801", EXTRAROM_ROLE_N80), "B")) {
+			problem = "revision choice";
+		}
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N80, "");
+		if ((problem == NULL) && (np2cfg.extra_rom_select[0] != '\0')) {
+			problem = "revision choice reset";
+		}
+	}
+	/* PC88.ROM: parts at the M88 offsets, N-BASIC joined from two pieces,
+	 * a 2 KiB DISK ROM, and kanji1.rom reported missing. */
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_N88_2);
+		if (!msr->known || strcmp(msr->missing, "kanji1") || (msr->count != 7) || (f == NULL) ||
+		    (f->offset != 0x10000) || strcmp(f->banner, "N-88 BASIC Version 2.0")) {
+			problem = "split of a combined PC88.ROM";
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_DISK);
+		if ((f == NULL) || (f->size != 0x800) || !extrarom_read(msr, f, part, 0x800) ||
+		    memcmp(part, rom + 0x14000, 0x800)) {
+			problem = "2 KiB DISK ROM in PC88.ROM";
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_N80);
+		if ((f == NULL) || (f->size != 0x8000) || !extrarom_read(msr, f, part, 0x8000) ||
+		    memcmp(part, rom + 0x16000, 0x6000) || memcmp(part + 0x6000, rom + 0x8000, 0x2000)) {
+			problem = "N-BASIC from PC88.ROM";
+		}
+	}
+	/* A file changed after the scan is not read. */
+	if (problem == NULL) {
+		f = selftest_extra_file(m88, "n88_0.rom", EXTRAROM_ROLE_N88_0);
+		selftest_fill_rom(part, 0x2000, 7, NULL);
+		if ((f == NULL) || !selftest_write_file(dir88, "n88_0.rom", part, 0x2000) ||
+		    extrarom_read(m88, f, part, 0x2000)) {
+			problem = "ROM changed after the scan";
+		}
+	}
+
+	for (i = 0; i < NELEMENTS(files88); i++) {
+		selftest_delete_rom(dir88, files88[i]);
+	}
+	selftest_delete_rom(dirsr, filessr[0]);
+#if defined(_WIN32)
+	_rmdir(dir88);
+	_rmdir(dirsr);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dir88);
+	rmdir(dirsr);
+	rmdir(base);
+	rmdir(root);
+#endif
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	milstr_ncpy(np2cfg.extra_rom_select, saved_select, sizeof(np2cfg.extra_rom_select));
+	free(machines);
+	if (problem != NULL) {
+		return (fail("extra ROMs", problem));
+	}
+	fprintf(stderr, "selftest: extra ROMs ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -7018,6 +7297,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_n80_rom_files() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_extra_roms() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {

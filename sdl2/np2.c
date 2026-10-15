@@ -51,6 +51,7 @@
 #include "bkupmemva.h"
 #include "emsio.h"
 #include "gui/gui.h"
+#include "extrarom.h"
 #include "romcheck.h"
 #include "selftest.h"
 #include "upd9002_trace.h"
@@ -323,6 +324,7 @@ static void usage(const char *progname) {
 	printf("\t--scsi4 path|none   --scsi5 path|none   --scsi6 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("\t--roms path         ROM directory override\n");
+	printf("\t--list-extra-roms   list the ROMs under extra/ in the ROM directory\n");
 	printf("Persistence (paths are relative to the current directory):\n");
 	printf("\t--cfg path | --no-cfg\n");
 	printf("\t--bkupmem path | --no-bkupmem\n");
@@ -2016,6 +2018,14 @@ int main(int argc, char **argv) {
 		return (run_ok);
 	}
 	initload();
+	if (options.list_extra_roms) {
+		char missing[MAX_PATH];
+		(void)resolve_model_rompath(missing, sizeof(missing));
+		run_ok = extrarom_list();
+		SDL_Quit();
+		dosio_term();
+		return (run_ok);
+	}
 	timing_setspeed(np2oscfg.speed_percent);
 	if (validate_cli_options(&options) != SUCCESS) {
 		SDL_Quit();
