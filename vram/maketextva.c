@@ -25,6 +25,7 @@ ToDo:
 #include "videova.h"
 #include "sysportva.h"
 #include "maketextva.h"
+#include "pcg88.h"
 
 //#define	USETABLE					// 返って遅くなってしまうようだ。
 //#define	USETABLE2					// 効果がなさそうだ。
@@ -437,8 +438,11 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			if ((d & EMU3301_SECRET) || ((d & EMU3301_BLINK) && ((tsp.blinkcnt2 & 0x18) == 0x08))) {
 				glyphfg = bg;
 			}
-			const BOOL ank8 = videova_8801_display();
-			font = ank8 ? cgromva_ank8(code) : cgromva_font(code);
+			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one. */
+			const BYTE *pcg = pcg88_glyph(code);
+			const BOOL ank8 =
+			    videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04));
+			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));
 			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
