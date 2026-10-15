@@ -52,6 +52,7 @@
 #include "maketextva.h"
 #include "bkupmemva.h"
 #include "extrarom.h"
+#include "pcg88.h"
 #include "n80rom.h"
 #include "cmt.h"
 #include "diskdrv.h"
@@ -1282,6 +1283,13 @@ static void draw_source_volumes(void) {
 	if (ImGui::SliderInt("テープ", &value, 0, 128)) {
 		np2cfg.cmt_vol = static_cast<UINT8>(value);
 		cmt_setvol(np2cfg.cmt_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	value = np2cfg.pcg_vol;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("PCG", &value, 0, 128)) {
+		np2cfg.pcg_vol = static_cast<UINT8>(value);
+		pcg88_setvol(np2cfg.pcg_vol);
 		sysmng_update(SYS_UPDATECFG);
 	}
 	value = np2cfg.MOTORVOL;
@@ -3467,6 +3475,13 @@ static void draw_machine_config_menu(void) {
 	}
 	if (ImGui::MenuItem("HDD から起動", nullptr, np2cfg.boot_fixed_disk != 0)) {
 		save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
+	}
+	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
+	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
+	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
+		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+		pccore_redraw();
 	}
 	if (ImGui::MenuItem("I/O バンクメモリ…", nullptr, bmsiocfg.enabled != FALSE)) {
 		open_bms_config_dialog();
