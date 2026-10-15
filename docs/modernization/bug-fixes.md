@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M113 — V1/V2 level-2 kanji came from the wrong half of the font
+
+- **Symptom/scope:** in V1/V2 mode, JIS level-2 kanji read through ports
+  ECh/EDh above PC-8801 word address 4000h returned the glyphs of another
+  row block. Guest-visible to every 8801 program that reads level-2 kanji
+  on either VA model.
+- **Demonstrated cause:** `cgrom88_offset` (`io/cgromva.c`) inverted byte
+  offset bit 14 for both levels. The inversion is derived for level 1 from
+  the VA2 ROM's BASIC; for level 2 it is wrong: reading the VA font image
+  through the ports without it reproduces a PC-8801 kanji2 ROM matching
+  MAME's `pc8801ma` glyph for glyph wherever that ROM has a glyph, and with
+  it 3,667 of 4,096 glyph cells differ.
+- **Correction:** the inversion applies to level 1 only.
+- **Verification:** selftest `test_v1v2_rom_ports` reads a level-2 raster
+  at word address 65C0h from byte CB80h (fails on the old order).
+- **Milestone/task/commit:** M113;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/3d632a6ceee7068358f909e4582e6cc876e0d1d2).
+
 ### M110 — the utility FDD no longer built after the M106 merge
 
 - **Symptom/scope:** `tools/pc88va/build-utility-disk.sh` failed with
