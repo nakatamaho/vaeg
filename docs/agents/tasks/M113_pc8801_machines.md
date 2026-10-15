@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M113 — PC-8801 machines
 
-Status: **complete; G113 passed on 2026-10-15**
+Status: **complete; G113 passed on 2026-10-15; merged to `main` at [3ad13c2](https://github.com/nakatamaho/vaeg/commit/3ad13c2e1f454fe38647bfc77e1d82ed6195bbd4)**
 
 ## Request
 
