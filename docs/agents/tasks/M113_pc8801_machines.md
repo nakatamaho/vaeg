@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M113 — PC-8801 machines
 
-Status: **implemented; G113 human gate pending**
+Status: **complete; G113 passed on 2026-10-15**
 
 ## Request
 
@@ -160,3 +160,15 @@ CD-ROM, PC-98DO's PC-98 side.
   `19f55ec48838876da9b77509041ddae03eaee149c9097ee944ead7f7654e64b4`,
   imports Windows system DLLs only. The menu review changes no media
   builder, so the media build regression above stands.
+
+### G113
+
+- Passed on 2026-10-15 (maintainer), with the Windows build
+  `19f55ec4...64b4` (SHA-256, static MinGW) from
+  [ad514bef](https://github.com/nakatamaho/vaeg/commit/ad514bef7673da8606f4019a5720588a506dedae):
+  a set matching MAME's `pc8801ma` starts V2 H at `Ok` (2.3), boots a V2
+  disk and starts N-BASIC; the PC-8801 and PC-88VA2 sets start; a model
+  with missing roles starts; choosing the VA under 起動 returns to the VA;
+  a new unformatted 2HD image is formatted by the guest. The later commit
+  [9876038e](https://github.com/nakatamaho/vaeg/commit/9876038e97ec060e4580ff380be35853dc9ee5fc)
+  only moves モニタ and V1/V2 表示 within 画面, as requested in the review.
