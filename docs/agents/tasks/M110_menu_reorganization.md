@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M110 — Menu reorganization (and the plan for further machines)
 
-Status: **complete; G110 passed on 2026-10-15**
+Status: **complete; G110 passed on 2026-10-15; merged to `main` at [6f15dc5](https://github.com/nakatamaho/vaeg/commit/6f15dc5fcc9c16668366ce54ba9dd578e36f134f)**
 
 ## Request
 
