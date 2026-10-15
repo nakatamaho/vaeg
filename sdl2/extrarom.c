@@ -35,10 +35,17 @@
 #include "machine/pccore.h"
 #include "extrarom.h"
 #include "romcheck.h"
+#include "strres.h"
+#include "memoryva.h"
+#include "cgromva.h"
+#include "subsystem.h"
+#include "subsystemmx.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+char extrarom_last_error[160];
 
 const char *const extrarom_role_names[EXTRAROM_ROLES] = {
     "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr", "n80_3",
@@ -58,28 +65,39 @@ static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
  * a drive once one is fitted, maintainer). The mkII takes its 8x8 characters from
  * kanji1.rom, as later models do; MAME notes that its known dump holds only
  * the main ROMs.
+ *
+ * M113: `base` is the VA model whose V1/V2 mode runs the machine (0: not
+ * startable yet), `v2` whether it has N88-BASIC V2 (from the mkIISR on) and
+ * `high` whether it runs at 8 MHz (H; from the FH/MH on). PC-88VA and
+ * PC-88VA2 are PC-8801-layout sets taken from the VA ROMs.
  */
+#define PC8801_V2_ROLES "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1"
 static const struct {
 	const char *name;
 	const char *required;
+	UINT8 base;
+	UINT8 v2;
+	UINT8 high;
 } machine_table[] = {
-    {"PC-8001", "n80 font"},
-    {"PC-8001mkII", "n80_2 font"},
-    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira"},
-    {"PC-8801", "n88 n88_0 n80 font|kanji1"},
-    {"PC-8801mkII", "n88 n88_0 n80 disk kanji1"},
-    {"PC-8801mkIISR", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1"},
-    {"PC-8801mkIIFR", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1"},
-    {"PC-8801mkIIMR", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801FH", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801MH", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801FA", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801MA", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2 jisyo"},
-    {"PC-8801FE", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801MA2", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2 jisyo"},
-    {"PC-8801FE2", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2"},
-    {"PC-8801MC", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1 kanji2 jisyo cdbios"},
-    {"PC-98DO", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk"},
+    {"PC-8001", "n80 font", 0, 0, 0},
+    {"PC-8001mkII", "n80_2 font", 0, 0, 0},
+    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira", 0, 0, 0},
+    {"PC-8801", "n88 n88_0 n80 font|kanji1", 2, 0, 0},
+    {"PC-8801mkII", "n88 n88_0 n80 disk kanji1", 2, 0, 0},
+    {"PC-8801mkIISR", PC8801_V2_ROLES, 2, 1, 0},
+    {"PC-8801mkIIFR", PC8801_V2_ROLES, 2, 1, 0},
+    {"PC-8801mkIIMR", PC8801_V2_ROLES " kanji2", 2, 1, 0},
+    {"PC-8801FH", PC8801_V2_ROLES " kanji2", 2, 1, 1},
+    {"PC-8801MH", PC8801_V2_ROLES " kanji2", 2, 1, 1},
+    {"PC-8801FA", PC8801_V2_ROLES " kanji2", 2, 1, 1},
+    {"PC-8801MA", PC8801_V2_ROLES " kanji2 jisyo", 2, 1, 1},
+    {"PC-8801FE", PC8801_V2_ROLES " kanji2", 2, 1, 1},
+    {"PC-8801MA2", PC8801_V2_ROLES " kanji2 jisyo", 2, 1, 1},
+    {"PC-8801FE2", PC8801_V2_ROLES " kanji2", 2, 1, 1},
+    {"PC-8801MC", PC8801_V2_ROLES " kanji2 jisyo cdbios", 2, 1, 1},
+    {"PC-98DO", "n88 n88_0 n88_1 n88_2 n88_3 n80 disk", 2, 1, 1},
+    {"PC-88VA", "n88 n88_0 n88_1 n88_2 n88_3 disk kanji1", 1, 1, 1},
+    {"PC-88VA2", "n88 n88_0 n88_1 n88_2 n88_3 disk kanji1", 2, 1, 1},
 };
 
 static const struct {
@@ -788,4 +806,112 @@ int extrarom_list(void) {
 	}
 	free(machines);
 	return SUCCESS;
+}
+
+/* M113: how a model directory is started; FALSE for an unknown name. */
+BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out) {
+	UINT i;
+
+	for (i = 0; i < NELEMENTS(machine_table); i++) {
+		if (same_name(name, machine_table[i].name)) {
+			out->base_model = (machine_table[i].base == 1) ? str_VA1 : str_VA2;
+			out->startable = (machine_table[i].base != 0) ? TRUE : FALSE;
+			out->v2 = machine_table[i].v2 ? TRUE : FALSE;
+			out->high = machine_table[i].high ? TRUE : FALSE;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* A machine that can be started: a known, startable model with every role. */
+BOOL extrarom_startable(const EXTRAROM_MACHINE *machine) {
+	EXTRAROM_PROFILE profile;
+
+	return machine->known && (machine->missing[0] == '\0') &&
+	       extrarom_profile(machine->name, &profile) && profile.startable;
+}
+
+static BOOL apply_role(const EXTRAROM_MACHINE *m, UINT role, BYTE *data, UINT size) {
+	const EXTRAROM_FILE *f = extrarom_choice(m, role);
+
+	return (f != NULL) && (f->size == size) && extrarom_read(m, f, data, size);
+}
+
+/*
+ * M113: romva_machine_hook. With np2cfg.extra_machine set, replace the ROM
+ * images V1/V2 mode reads with that machine's ROMs: N88-BASIC and its banks,
+ * N-BASIC, the FDD unit's ROM (none for a PC-8801 without disk.rom), the
+ * kanji ROMs, the 8x8 characters and the dictionary. The VA firmware still
+ * starts the machine. Roles a machine lacks read as FFh.
+ */
+void extrarom_apply(void) {
+	static EXTRAROM_MACHINE machine;
+	static BYTE kanji[2][0x20000];
+	static BYTE n80[0x8000];
+	char base[MAX_PATH];
+	char dir[MAX_PATH];
+	const EXTRAROM_FILE *f;
+	UINT i;
+
+	extrarom_last_error[0] = '\0';
+	if (np2cfg.extra_machine[0] == '\0') {
+		return;
+	}
+	extrarom_dir(base, sizeof(base));
+	file_cpyname(dir, base, sizeof(dir));
+	file_setseparator(dir, sizeof(dir));
+	file_catname(dir, np2cfg.extra_machine, sizeof(dir));
+	if (!extrarom_scan_machine(dir, np2cfg.extra_machine, &machine) ||
+	    !extrarom_startable(&machine)) {
+		snprintf(extrarom_last_error, sizeof(extrarom_last_error),
+		         "%.60s: no complete ROM set in extra/", np2cfg.extra_machine);
+		fprintf(stderr, "WARNING: %s; the VA ROMs are used\n", extrarom_last_error);
+		return;
+	}
+	if (!apply_role(&machine, EXTRAROM_ROLE_N88, rom1mem + 0x10000, 0x8000)) {
+		snprintf(extrarom_last_error, sizeof(extrarom_last_error), "%s: n88 unreadable",
+		         machine.name);
+		fprintf(stderr, "WARNING: %s; the VA ROMs are used\n", extrarom_last_error);
+		return;
+	}
+	FillMemory(rom1mem + 0x18000, 0x8000, 0xff);
+	for (i = 0; i < 4; i++) {
+		(void)apply_role(&machine, EXTRAROM_ROLE_N88_0 + i, rom1mem + 0x18000 + i * 0x2000, 0x2000);
+	}
+	memoryva_n80_exist = apply_role(&machine, EXTRAROM_ROLE_N80, n80, sizeof(n80));
+	if (memoryva_n80_exist) {
+		CopyMemory(memoryva_n80, n80, sizeof(n80));
+		snprintf(memoryva_n80_file, sizeof(memoryva_n80_file), "%s", "n80.rom");
+	} else {
+		memoryva_n80_file[0] = '\0';
+	}
+	/* The FDD unit: 8 KiB, or 2 KiB repeated over the 8 KiB ROM space. */
+	f = extrarom_choice(&machine, EXTRAROM_ROLE_DISK);
+	if ((f != NULL) && extrarom_read(&machine, f, subsystem.rom, f->size)) {
+		for (i = f->size; i < sizeof(subsystem.rom); i++) {
+			subsystem.rom[i] = subsystem.rom[i % f->size];
+		}
+		subsystem.romexist = TRUE;
+	} else {
+		subsystemmx_set_absent(TRUE);
+	}
+	for (i = 0; i < 2; i++) {
+		if (!apply_role(&machine, EXTRAROM_ROLE_KANJI1 + i, kanji[i], 0x20000)) {
+			FillMemory(kanji[i], 0x20000, 0xff);
+		}
+		cgrom88_kanji[i] = kanji[i];
+	}
+	/* 8x8 characters: font.rom, else kanji1.rom 1000h-17FFh (MAME). */
+	if (!apply_role(&machine, EXTRAROM_ROLE_FONT, fontmem + 0x41000, 0x800) &&
+	    (extrarom_choice(&machine, EXTRAROM_ROLE_KANJI1) != NULL)) {
+		CopyMemory(fontmem + 0x41000, kanji[0] + 0x1000, 0x800);
+	}
+	if (!apply_role(&machine, EXTRAROM_ROLE_JISYO, dicmem, 0x80000)) {
+		FillMemory(dicmem, 0x80000, 0xff);
+	}
+	if (np2cfg.boot_mode == BOOTMODE_AUTO) {
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+	}
+	fprintf(stderr, "INFO: PC-8801 machine %s from %s\n", machine.name, dir);
 }
