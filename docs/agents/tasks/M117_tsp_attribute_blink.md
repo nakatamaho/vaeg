@@ -116,14 +116,15 @@ in effect. Verified: no cursor over eight frames of the game screen on both
 models; the PC-Engine, V1/V2 BASIC and N-BASIC cursors still blink; ctest
 93/93; selftest extended and mutation-checked.
 
-Clean-checkout MinGW build of `c6a0f758` (with the cursor fix; later
-commits are records only): `vaeg.exe` SHA-256
-`3b2fd0e3435c5d8edf965e4ebd0ca970710eabcb18947ab257b1c49366788456`.
+Clean-checkout MinGW build of `da3c9353` (with the cursor fix and
+attribute modes 2, 3 and 6): `vaeg.exe` SHA-256
+`539d656872aa329e9cedcf36f2e25cf8be9284f905754f1ec51876be19eadb94`.
 
 ## Gate G117 (human)
 
 Standard gate, plus: the software where the maintainer saw blinking on the
-hardware blinks in vaeg; TSPMODE 4-7 matches the M104 record; 画面 > 右に
+hardware blinks in vaeg; TSPMODE 2-7 matches the hardware (2: halves at
+double width with lines, 3: black, 4-5: blinking, 6-7: grey and steady); 画面 > 右に
 90° 回転 turns the picture right with the SDL renderer and with Native CRT,
 the mouse follows, and turning it off restores the window; the
 commercial game shows no text cursor on either model. (Rotation passed with the SDL
