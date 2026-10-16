@@ -1869,7 +1869,7 @@ static std::string display_file_name(const char *path) {
 }
 
 // ---- History (M110): media per drive, recent boots, recent folders.
-// Kept in vaeg-history.txt next to vaeg.cfg, one "key<TAB>value" per line.
+// Kept in vaeg-history.txt in the user directory, one "key<TAB>value" per line.
 // Only media inserted through the GUI (menus, drag and drop) are recorded.
 
 enum HistoryKind {
