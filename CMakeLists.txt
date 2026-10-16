@@ -902,6 +902,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_repo_check_eol
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_eol.py")
+    add_test(NAME vaeg_repo_check_md_comments
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_md_comments.py")
     add_test(NAME vaeg_pcengine_disk_msdos
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_pcengine_disk_msdos.py")
