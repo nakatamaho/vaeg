@@ -103,3 +103,12 @@ was published. The pin now matches the current notices
 Linux Package step, replayed locally on the `linux-ci-gcc` build, passes
 `check-librashader-package.py` and `check_zex_archive.py`. The tag was moved
 to the corrected commit.
+
+The second run built and published the Linux package, but the macOS job
+(release runner `macos-14`) failed to compile `cpu/upd8087/upd8087.c`: its
+Apple clang rejects a `static const` array initialized from other `const`
+objects ("initializer element is not a compile-time constant"); the build
+workflow's `macos-latest` and GCC accept it. The FLD-constant table is now
+an automatic array, which every C99 compiler accepts
+([53ecfc35](https://github.com/nakatamaho/vaeg/commit/53ecfc35946d5b3898166013d590fbd5b413a16b)); CTest 93/93 and
+the selftest pass. The run was cancelled and the tag moved again.
