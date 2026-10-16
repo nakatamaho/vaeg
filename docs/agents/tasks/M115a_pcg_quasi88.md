@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115a — PCG behaviour from QUASI88, clearer tones, credits
 
-Status: **complete; G115a passed on 2026-10-16**
+Status: **complete; G115a passed on 2026-10-16; merged to `main` at [e492658](https://github.com/nakatamaho/vaeg/commit/e492658c044d257a054c5667b938c3c24036b306)**
 
 ## Request
 
