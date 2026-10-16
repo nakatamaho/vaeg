@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M107b — the legacy VOYAGE drew its lines mirrored
+
+- **Symptom/scope:** the legacy `VOYAGE.COM` (three FM voices and noise)
+  showed the "VA" logo broken and the sea's grid torn in vaeg and on
+  hardware; every SGP LINE with exactly one direction bit set went the
+  wrong way. Demo only; `VOYOPNA.COM` was correct.
+- **Demonstrated cause:** M107b kept the legacy build byte-identical,
+  including the Technical Manual's exchanged LINE direction bits (HD 0400h,
+  VD 0800h) that M106a corrected from a PC-88VA2 photograph; only the OPNA
+  variant used the measured bits.
+- **Correction:** both variants use HD 0800h and VD 0400h.
+- **Verification:** `test_voyage.py` asserts the measured bits; vaeg (VA2)
+  shows the logo and the grid whole with the new build and broken with the
+  old one; `VOYOPNA.COM` is byte-identical before and after.
+- **Milestone/task/commit:** M107b;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d351d2bba69919bd06ef1763393b9ed5d0de8165).
+
 ### M113 — V1/V2 level-2 kanji came from the wrong half of the font
 
 - **Symptom/scope:** in V1/V2 mode, JIS level-2 kanji read through ports
