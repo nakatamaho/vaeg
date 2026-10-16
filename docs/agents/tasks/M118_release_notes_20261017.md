@@ -50,6 +50,29 @@ a README News entry (maintainer, 2026-10-16).
   shown in the README News entry; `CHANGES.20261017.md` links the same
   files as release assets of `rel-20261017`, as in Rel.20260908.
 
+## Follow-up: compatible-mode HALT (maintainer, 2026-10-16)
+
+After G118 the maintainer approved fixing, on this branch, the
+compatible-mode `HALT` that a native interrupt did not end (found by
+msx88va M02; a game port had worked around it with `EI; JR $`). Ledger entry
+"M118 — a compatible-mode HALT never ended";
+[correcting commit](https://github.com/nakatamaho/vaeg/commit/3bb56ce4b79468c3fc44ae0f6c9402b4c42f5bd7).
+
+Checks (`linux-ci-gcc`, VA2 model where a model applies):
+
+- `ctest`: 93 cases, 89 passed, 4 skipped (ROM or corpus not configured),
+  0 failed. The new HALT case of `vaeg_upd9002_brkem_upd70008` fails
+  without the correction.
+- `tools/qa/m103b_basic_boot.py run` with maintainer-local VA2 ROMs and the
+  V2 BASIC disk: exit 0.
+- a compatible-mode test disk (M01), menu 1: `ei-halt` PASS, A=55, one VRTC between
+  HALT and resume (before: hung on that line); the other probes unchanged.
+- msx88va `msx.d88` built without its vaeg workaround: C-BIOS reaches its
+  "No cartridge found" screen (before: blank, halted in its first wait).
+- `check_encoding`, `check_eol`, `check_case`: pass. `clang-format-mp-22`
+  is not installed on this host; clang-format 18 with the 22-only
+  `KeepEmptyLines` key removed reports no change in the three files.
+
 ## Gate G118 (human)
 
 The maintainer reviews the release notes and the README changes.
