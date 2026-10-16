@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M114 — PC-8001 machines
 
-Status: **implemented; G114 human gate pending**
+Status: **complete; G114 passed on 2026-10-16**
 
 ## Request
 
@@ -92,3 +92,11 @@ expansion ROM bank at 6000h; the mkIISR's N80SR mode (`n80_3`,
 - Clean-checkout MinGW build of `3d4908e1`: `vaeg.exe` SHA-256
   `100a54a7357e8b31f1e20e2d06e1f63c3a1123732114564e1ab1320efcb9737a`,
   imports Windows system DLLs only; ctest 92 of 92.
+
+### G114
+
+- Passed on 2026-10-16 (maintainer), with the Windows build
+  `e35586746c4a...3775` (SHA-256, static MinGW) from
+  [d65b3de7](https://github.com/nakatamaho/vaeg/commit/d65b3de7d86595995e44cd27b846cad30d78f5ca)
+  (M115, which contains this branch): the PC-8001, PC-8001mkII and
+  PC-8001mkIISR start N-BASIC at full row height (15 kHz) and take input.
