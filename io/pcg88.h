@@ -28,7 +28,8 @@
 /*
  * M115: PCG-8100 (PC-8001) and PCG-8800 (PC-8801) programmable character
  * generator with its 8253 three-voice tone generator, in V1/V2 (88) mode.
- * Derived from X88000 1.5.3 PC88Pcg.cpp (public domain); see io/pcg88.c.
+ * Derived from X88000 1.5.3 PC88Pcg.cpp (public domain), with behaviour
+ * checked against QUASI88 0.7.4; see io/pcg88.c.
  */
 
 typedef struct {
@@ -38,8 +39,9 @@ typedef struct {
 	UINT16 address;    /* port 01h (low) and 02h (high) */
 	UINT8 data;        /* port 00h */
 	UINT8 setbank;     /* bank written */
-	UINT8 sound_on[3]; /* port 02h bits 3, 6, 7 */
-	UINT8 mode[3];     /* 8253 read/load mode per counter */
+	UINT8 sound_on[3]; /* port 02h bits 3, 6, 7: the 8253 gates */
+	UINT8 rl[3];       /* 8253 read/load mode per counter */
+	UINT8 mode[3];     /* 8253 counter mode 0-5 */
 	UINT16 counter[3];
 	UINT8 msb[3]; /* the next byte of a 16-bit load is the MSB */
 	UINT8 bcd[3];
