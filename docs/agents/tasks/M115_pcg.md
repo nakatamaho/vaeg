@@ -67,6 +67,16 @@ ADR-0016 "Derivations" records the derivation.
   and the dialog takes the height of its sections up to 95 % of the window,
   scrolling the sections with the buttons kept visible below that.
 
+- Maintainer report (2026-10-16), outside the PCG itself: pasting a BASIC
+  program into V1 N-88 BASIC on Windows turned `100` into `10` and `3000`
+  into `30`; repeated characters lost their repeats, other characters were
+  kept. Not reproduced here with scripted input (real time and `--nowait`,
+  V2 and an extra-ROM PC-8801). [DERIVED, unconfirmed] The paste stepped
+  key down/up by host time only (20 ms); when guest frames are run in a
+  burst, a release can pass with no guest frame, so the guest sees one long
+  press. Each key event now also waits for two guest frames. Not entered in
+  the bug-fix ledger until the maintainer confirms the paste works.
+
 ## Implementation
 
 - `io/pcg88.c`, `io/pcg88.h`; reset and port binding in `io/iocore.c`; the
