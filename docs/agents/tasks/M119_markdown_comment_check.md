@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M119 — check Markdown files for HTML comments that hide content
 
-Status: **complete; G119 machine-verifiable gate passed on 2026-10-17**
+Status: **complete; G119 machine-verifiable gate passed on 2026-10-17; merged to `main` at [ad4a606](https://github.com/nakatamaho/vaeg/commit/ad4a606e6b690c918f2482bcbf9acadc900350d4)**
 
 ## Request
 
