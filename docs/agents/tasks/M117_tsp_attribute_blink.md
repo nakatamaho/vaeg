@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M117 — TSP attribute modes 4-7 and blink; screen rotation
 
-Status: **implemented; G117 human gate pending**
+Status: **complete; G117 passed on 2026-10-16**
 
 ## Request
 
@@ -129,3 +129,11 @@ double width with lines, 3: black, 4-5: blinking, 6-7: grey and steady); 画面 
 the mouse follows, and turning it off restores the window; the
 commercial game shows no text cursor on either model. (Rotation passed with the SDL
 renderer and librashader, maintainer, 2026-10-16.)
+
+### G117
+
+- Passed on 2026-10-16 (maintainer) with the Windows build
+  `539d656872aa...db94` (SHA-256, static MinGW) from
+  [da3c9353](https://github.com/nakatamaho/vaeg/commit/da3c93535992bce7c773edf6e6bdf70eb2d5f1d8):
+  blink, TSPMODE 2-7, the rotation (SDL renderer and librashader) and the
+  game's hidden cursor. The `MODE` 8-14 pattern moves to a separate milestone.
