@@ -3129,9 +3129,10 @@ static bool execute_register_instruction(UPD8087_STATE *state, uint8_t opcode,
 			return true;
 		}
 		if (reg == 5) {
-			static const UPD8087_RAW80 constants[] = {
-				raw_one, raw_l2t, raw_l2e, raw_pi, raw_lg2, raw_ln2, raw_zero
-			};
+			/* automatic: older Apple clang rejects a static array
+			 * initialized from other const objects (M118) */
+			const UPD8087_RAW80 constants[] = {raw_one, raw_l2t, raw_l2e, raw_pi,
+			                                   raw_lg2, raw_ln2, raw_zero};
 			if (rm > 6 || !state_can_commit(state)) {
 				return false;
 			}
