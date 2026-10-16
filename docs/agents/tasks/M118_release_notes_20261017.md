@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M118 — Rel.20261017 release notes
 
-Status: **implemented; G118 human gate pending**
+Status: **complete; G118 passed on 2026-10-17**
 
 ## Request
 
@@ -50,3 +50,7 @@ a README News entry (maintainer, 2026-10-17).
 ## Gate G118 (human)
 
 The maintainer reviews the release notes and the README changes.
+
+### G118
+
+- Passed on 2026-10-17 (maintainer).
