@@ -135,6 +135,17 @@ PC-88VA and PC-88VA2 (photographs, maintainer), menu P:
   is not reproducible. FFF3h and FFF4h, the values software uses, agree
   with vaeg. T07 and T09 therefore cannot be checked by a fixed CRC.
 
+### SGPTEST on the PC-88VA2 (2026-10-16)
+
+PC-88VA2 (photograph, maintainer): the same 18 tests equal vaeg; T07 85F1
+(as on the VA) and T09 7CB8 (VA: 773C); T21: 963 polls, 3 frames. T21
+takes 3 frames on both models, while vaeg gives about 625 polls on the VA
+and 10 polls (0 frames) on the VA2: vaeg's VA2 SGP is far too fast (input
+to issue #38).
+
+SGPTEST now shows T07 and T09 with "?" and does not count them, since
+their hardware results vary; every other test is compared.
+
 ## Gate G109a (human)
 
 Standard V3 gate (clean static MinGW build of the pushed commit), plus: the
