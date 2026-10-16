@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M116 — 最近の起動 that does not start, and the host pacing label
 
-Status: **implemented; G116 human gate pending**
+Status: **complete; G116 passed on 2026-10-16**
 
 ## Request
 
@@ -69,3 +69,9 @@ models, are affected. Also: show the host pacing setting in Japanese.
 - Clean-checkout MinGW build of `fa1b9989` (with LibArchive): `vaeg.exe`
   SHA-256 `4a7b8b2fbc90ba48fcb2748aa73600e07366d8220d70e9523720c06fac63a79c`;
   ctest 92 of 92. No media builder changed.
+
+### G116
+
+- Passed on 2026-10-16 (maintainer), with the Windows build
+  `4a7b8b2fbc90...a79c` (SHA-256, static MinGW) from
+  [fa1b9989](https://github.com/nakatamaho/vaeg/commit/fa1b9989ec5888acb6fe8ffbb2c63bd29093a024).
