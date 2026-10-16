@@ -110,6 +110,31 @@ agree with vaeg's decoding (-12, -10).
   SGPDUMP also prints port 153h before SGP use and after its restore (41h,
   51h, 41h in vaeg on the VA).
 
+### SGPDUMP on hardware (2026-10-16)
+
+PC-88VA and PC-88VA2 (photographs, maintainer), menu P:
+
+- Port 153h reads 41h before SGP use, 51h is written, and 41h is read back
+  after the restore on both models, as in vaeg: the read-modify-write does
+  not change the memory map. With the loader's cursor turned off, no stray
+  cursor is shown.
+- T07 (FBW FFF2h): CRC 74AD on both models; SGPTEST had given 85F1 on the
+  VA. T09 (FFF0h): 75B6 on the VA, 7E32 on the VA2 (SGPTEST: 773C on the
+  VA). The same transfer gives different results between runs and between
+  models, so with these FBW values the hardware reads bytes that the test
+  does not set.
+- What was written (rows from DST + 9 lines, 13 bytes from DST + 8): T07
+  leaves rows 9-15 and 19 at the fill pattern, changes row 16 a little,
+  fills row 17 with FFh and writes source data into row 18. T09 writes
+  FFh (VA) or a repeated CB FF pattern (VA2) into rows 9-17 from byte 1 on,
+  and the same rows 16-18 as T07. vaeg writes source data into rows 9-20
+  for both.
+- [DERIVED] With a negative source FBW whose low bits are 10b or 00b
+  (FFF2h, FFF0h) and VD, the hardware does not step through the source as
+  vaeg does; its output depends on memory outside the test's buffers and
+  is not reproducible. FFF3h and FFF4h, the values software uses, agree
+  with vaeg. T07 and T09 therefore cannot be checked by a fixed CRC.
+
 ## Gate G109a (human)
 
 Standard V3 gate (clean static MinGW build of the pushed commit), plus: the
