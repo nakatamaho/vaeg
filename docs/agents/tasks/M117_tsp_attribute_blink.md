@@ -54,6 +54,14 @@ bit 7 showed as a brighter background (F0h: grey instead of white).
   grey and identical in every sampled frame; after, it is white on the
   white main split and disappears and returns with the blink phase.
 - ctest 93/93, selftest all passed.
+- Media build regression at `6b9e5e23` (clean clone): the utility disk
+  (4096 bytes free, boots), both SASI images (boot on their models and run
+  `\BIN\V480PAT.COM`), the five demo `build-d88.sh`, `build-from-psd.sh`,
+  the SGP boot disk, all-demos and all-demos-msdos4 exit 0 with every file
+  identical to the committed images (SGP boot D88 and all-demos-msdos4
+  `.xz` byte-identical).
+- Clean-checkout MinGW build of `6b9e5e23`: `vaeg.exe` SHA-256
+  `a94e0301076f8d9270c975d2712d1b69c47cb6d0c165432e937167d0fa2adce0`.
 
 ## Gate G117 (human)
 
