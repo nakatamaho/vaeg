@@ -7249,11 +7249,25 @@ static int test_keyboard_mapping(void) {
 	    (kbdpaste_interval_ms() != 20)) {
 		return (fail("keyboard-paste", "UTF-8 skip or pacing failed"));
 	}
-	/* M106: a scripted paste runs even while the GUI holds the keyboard. */
+	/* M106: a scripted paste runs even while the GUI holds the keyboard.
+	 * M115: each key event also waits for guest frames, so that a released
+	 * key is seen before the same key is pressed again. */
 	if (kbdpaste_start_text("ab")) {
-		UINT32 now = SDL_GetTicks() + kbdpaste_interval_ms();
+		UINT32 now = SDL_GetTicks() + 4 * kbdpaste_interval_ms();
+		UINT frame;
 
+		for (index = 0; index < 8; index++) {
+			kbdpaste_tick(now, TRUE);
+			now += kbdpaste_interval_ms();
+		}
+		if (!kbdpaste_active()) {
+			kbdpaste_cancel();
+			return (fail("keyboard-paste", "key events without guest frames"));
+		}
 		for (index = 0; (index < 16) && kbdpaste_active(); index++) {
+			for (frame = 0; frame < kbdpaste_frames_per_event(); frame++) {
+				kbdpaste_frame();
+			}
 			kbdpaste_tick(now, TRUE);
 			now += kbdpaste_interval_ms();
 		}

@@ -30,6 +30,14 @@
 
 enum {
 	KBDPASTE_EVENT_INTERVAL_MS = 20,
+	/*
+	 * Guest frames between two key events. The host time alone let a key's
+	 * release pass while the guest ran no frame (frames are run in bursts
+	 * to catch up), so the guest never saw it and a repeated character
+	 * ("100", "3000") lost its repeats. Two frames give the keyboard scan a
+	 * whole frame in each state.
+	 */
+	KBDPASTE_EVENT_FRAMES = 2,
 	KBDPASTE_STATUS_SIZE = 160
 };
 
@@ -47,6 +55,7 @@ typedef struct {
 	size_t index;
 	UINT skipped;
 	UINT32 next_tick;
+	UINT frames; /* guest frames since the last key event */
 	KBDPASTE_PHASE phase;
 	BOOL shift_down;
 	BOOL key_down;
@@ -309,6 +318,7 @@ static void clear_queue(void) {
 	paste.index = 0;
 	paste.phase = KBDPASTE_PHASE_IDLE;
 	paste.next_tick = 0;
+	paste.frames = 0;
 }
 
 void kbdpaste_initialize(void) {
@@ -355,6 +365,7 @@ static BOOL kbdpaste_start(const char *text, BOOL scripted) {
 	paste.skipped = skipped;
 	paste.phase = actions[0].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
 	paste.next_tick = SDL_GetTicks();
+	paste.frames = 0;
 	kbdinject_allrelease();
 	if (skipped != 0) {
 		snprintf(paste.status, sizeof(paste.status), "Pasting %u characters (%u skipped).",
@@ -399,6 +410,9 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 	cleanup_only = FALSE;
 	if (paste.scripted) {
 		paused = FALSE;
+	}
+	if (!paused && (paste.frames < KBDPASTE_EVENT_FRAMES)) {
+		return;
 	}
 	if (paused) {
 		if (paste.phase == KBDPASTE_PHASE_KEY_UP) {
@@ -473,6 +487,18 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 		    paste.actions[paste.index].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
 	}
 	paste.next_tick = now + KBDPASTE_EVENT_INTERVAL_MS;
+	paste.frames = 0;
+}
+
+/* Called after every guest frame. */
+void kbdpaste_frame(void) {
+	if ((paste.actions != NULL) && (paste.frames < KBDPASTE_EVENT_FRAMES)) {
+		paste.frames++;
+	}
+}
+
+UINT kbdpaste_frames_per_event(void) {
+	return KBDPASTE_EVENT_FRAMES;
 }
 
 void kbdpaste_cancel(void) {

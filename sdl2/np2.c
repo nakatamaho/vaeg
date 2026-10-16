@@ -52,6 +52,7 @@
 #include "emsio.h"
 #include "gui/gui.h"
 #include "extrarom.h"
+#include "kbdpaste.h"
 #include "romva.h"
 #include "romcheck.h"
 #include "selftest.h"
@@ -1604,6 +1605,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		}
 	}
 	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount, frames);
+	kbdpaste_frame();
 	return SUCCESS;
 }
 

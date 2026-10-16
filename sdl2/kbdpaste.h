@@ -42,6 +42,8 @@ void kbdpaste_shutdown(void);
 BOOL kbdpaste_start_clipboard(void);
 BOOL kbdpaste_start_text(const char *text);
 void kbdpaste_tick(UINT32 now, BOOL paused);
+void kbdpaste_frame(void);
+UINT kbdpaste_frames_per_event(void);
 void kbdpaste_cancel(void);
 BOOL kbdpaste_active(void);
 const char *kbdpaste_status(void);
