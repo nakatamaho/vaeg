@@ -328,6 +328,7 @@ struct GuiState {
 	bool sound_buffer_request = false;
 	int pending_sound_buffer_ms = VAEG_SOUND_BUFFER_DEFAULT_MS;
 	bool about_open = false;
+	std::string boot_status; /* M116: why a recent boot did not start */
 	bool about_request = false;
 	bool about_more = false;
 	char about_info[2048] = {};
@@ -974,9 +975,11 @@ static void draw_configure_dialog(void) {
 		ImGui::EndChild();
 		if (ImGui::BeginChild("pacing-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
-			ImGui::TextUnformatted("Host pacing");
+			// M116: host pacing (PacingMs): the shortest time between two
+			// guest frames; 0 leaves the speed to the normal timing.
+			ImGui::TextUnformatted("ホストの待ち時間");
 			ImGui::Separator();
-			ImGui::TextUnformatted("Delay per loop (ms)");
+			ImGui::TextUnformatted("1 フレームごとの最小間隔 (ms)");
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(unit * 9.0f);
 			ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
@@ -985,6 +988,10 @@ static void draw_configure_dialog(void) {
 			if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
 				g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
 			}
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("0 で無効（ふつうは 0）。大きくするとホストの負荷は下がり、"
+			                   "エミュレーションは遅くなります。");
+			ImGui::PopStyleColor();
 		}
 		ImGui::EndChild();
 
@@ -2050,16 +2057,18 @@ static int history_hdd_kind(int drive) {
 	return hdd_is_scsi(drive) ? (HIST_SCSI0 + hdd_slot(drive)) : (HIST_SASI1 + hdd_slot(drive));
 }
 
-static bool history_paths_exist(const BootRecord &boot) {
+/* M116: the files of a recorded boot that no longer exist, one per line. */
+static std::string history_missing_paths(const BootRecord &boot) {
+	std::string missing;
 	const std::string *paths[] = {&boot.fdd[0], &boot.fdd[1], &boot.sasi[0], &boot.sasi[1],
 	                              &boot.tape};
 	for (const std::string *path : paths) {
 		std::error_code ec;
 		if (!path->empty() && !fs::exists(fs::u8path(*path), ec)) {
-			return false;
+			missing += (missing.empty() ? "" : "\n") + *path;
 		}
 	}
-	return true;
+	return missing;
 }
 
 /* 最近の起動: the media, machine and mode at a reset from the GUI. */
@@ -2079,7 +2088,17 @@ static void history_record_boot(void) {
 			mounted = diskdrv_fname[drive];
 		}
 		if ((mounted != nullptr) && (mounted[0] != '\0')) {
-			boot.fdd[drive] = g_fdd_origin[drive].empty() ? mounted : g_fdd_origin[drive];
+			char archive[MAX_PATH];
+			// M116: an image extracted from an archive (also one restored
+			// from the configuration at start-up) is recorded as the
+			// archive, since the extracted copy is removed later.
+			if (!g_fdd_origin[drive].empty()) {
+				boot.fdd[drive] = g_fdd_origin[drive];
+			} else if (dropmedia_source_archive(mounted, archive, sizeof(archive))) {
+				boot.fdd[drive] = archive;
+			} else {
+				boot.fdd[drive] = mounted;
+			}
 		}
 		boot.sasi[drive] = np2cfg.sasihdd[drive];
 	}
@@ -3431,11 +3450,15 @@ static void draw_boot_menu(void) {
 /* 最近の起動: put a recorded set of media back, select its machine and
  * mode, and reset (which moves the set to the top). */
 static void boot_from_history(const BootRecord &boot) {
+	g_gui.boot_status.clear();
 	for (int drive = 0; drive < 2; drive++) {
 		if (boot.fdd[drive].empty()) {
 			eject_fdd(drive);
-		} else {
-			(void)mount_fdd_path(drive, boot.fdd[drive]);
+		} else if (!mount_fdd_path(drive, boot.fdd[drive])) {
+			// M116: do not reset into the previous disk; say why instead.
+			g_gui.boot_status = "起動できませんでした: " + g_gui.fdd_status;
+			fprintf(stderr, "最近の起動: %s\n", g_gui.fdd_status.c_str());
+			return;
 		}
 		if (boot.sasi[drive].empty()) {
 			diskdrv_sethdd(static_cast<REG8>(drive), nullptr);
@@ -3464,14 +3487,23 @@ static void draw_recent_boots_menu(void) {
 		return;
 	}
 	history_load();
+	if (!g_gui.boot_status.empty()) {
+		ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.4f, 1.0f), "%s", g_gui.boot_status.c_str());
+		ImGui::Separator();
+	}
 	if (g_recent_boots.empty()) {
 		ImGui::TextDisabled("なし");
 	}
 	for (std::size_t index = 0; index < g_recent_boots.size(); index++) {
 		const BootRecord boot = g_recent_boots[index];
 		const std::string label = history_boot_label(boot) + "##boot" + std::to_string(index);
-		if (ImGui::MenuItem(label.c_str(), nullptr, false, history_paths_exist(boot))) {
+		const std::string missing = history_missing_paths(boot);
+		if (ImGui::MenuItem(label.c_str(), nullptr, false, missing.empty())) {
 			boot_from_history(boot);
+		}
+		// M116: a greyed entry says which file is gone.
+		if (!missing.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("見つからないファイル:\n%s", missing.c_str());
 		}
 	}
 	ImGui::Separator();
