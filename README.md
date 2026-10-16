@@ -230,6 +230,7 @@ Common user-facing command-line options are:
 | Execution | `--frameskip VALUE` | Select `auto`, `full`, 2, 3, or 4 frame skip |
 | Display | `--fullscreen` or `--windowed` | Select the window mode |
 | Display | `--effect VALUE` | Select the display effect |
+| Display | `--rotate none` or `--rotate right` | Show the screen unturned or turned 90 degrees right |
 | Display | `--scaling VALUE` | Select the display scaling mode |
 | Input | `--controller joystick` or `--controller mouse` | Select the controller type |
 | Input | `--keyboard-layout VALUE` | Select `jis`, `us`, or `custom` keyboard mapping |
