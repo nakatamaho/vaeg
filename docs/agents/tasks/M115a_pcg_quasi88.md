@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115a — PCG behaviour from QUASI88, clearer tones, credits
 
-Status: **implemented; G115a human gate pending**
+Status: **complete; G115a passed on 2026-10-16**
 
 ## Request
 
@@ -77,3 +77,11 @@ About.
 - Clean-checkout MinGW build of `9be3174d`: `vaeg.exe` SHA-256
   `57b838d87207d2581480238818b8fa8308316b41dbc37267ad1452703361b815`; ctest
   92 of 92. No media builder changed.
+
+### G115a
+
+- Passed on 2026-10-16 (maintainer), with the Windows build
+  `57b838d87207...b815` (SHA-256, static MinGW) from
+  [9be3174d](https://github.com/nakatamaho/vaeg/commit/9be3174d4c4eabcb14c6f7e407c3b1499323e2b7):
+  the PCG tones sound clear and the stray PCG dots are gone; the About
+  credit is shown. Closes issue #41.
