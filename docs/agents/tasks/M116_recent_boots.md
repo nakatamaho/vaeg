@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M116 — 最近の起動 that does not start, and the host pacing label
 
-Status: **complete; G116 passed on 2026-10-16**
+Status: **complete; G116 passed on 2026-10-16; merged to `main` at [5f6b033](https://github.com/nakatamaho/vaeg/commit/5f6b0331abf37b2106c6f700568a214e1bc02b35)**
 
 ## Request
 
