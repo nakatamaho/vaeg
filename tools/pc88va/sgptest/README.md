@@ -79,9 +79,9 @@ as the descriptor holds it. Destinations have a 64-byte pitch.
 | T04 | BITBLT 0005h | dot 2 | dot 0 | source shift |
 | T05 | BITBLT 0805h (VD) | FBW 16, from its last line | from line 20 up | bottom-up copy |
 | T06 | BITBLT 0905h (VD, TP=1) | 12-byte lines, FBW FFF3h | dot 3, from line 20 up | the M109a case: vaeg decodes -12 |
-| T07 | as T06 | FBW FFF2h | as T06 | vaeg: -12 (same as T06) |
+| T07 | as T06 | FBW FFF2h | as T06 | not compared ("?"): hardware result varies |
 | T08 | as T06 | FBW FFF4h | as T06 | vaeg: -10 |
-| T09 | as T06 | FBW FFF0h | as T06 | vaeg: -14 |
+| T09 | as T06 | FBW FFF0h | as T06 | not compared ("?"): hardware result varies |
 | T10 | BITBLT 0005h | 12-byte lines, FBW 000Ch | dot 0 | reference for T11, T12 |
 | T11 | as T10 | FBW 000Dh | as T10 | vaeg: 12 (same as T10) |
 | T12 | as T10 | FBW 000Eh | as T10 | vaeg: 14 |
@@ -122,6 +122,17 @@ It assembles the program without expected values, runs it headless on the
 VA and the VA2 model, reads the CRCs from the TVRAM dump and fails unless
 both models agree. Regenerate it only after a deliberate change to vaeg's
 SGP, and rebuild the self-booting disk afterwards.
+
+## Hardware results (2026-10-16)
+
+On a PC-88VA and a PC-88VA2 every test except T07 and T09 gives vaeg's
+CRC. T07 and T09 (source FBW FFF2h and FFF0h with VD) give different CRCs
+between runs and between the models (SGPTEST: T07 85F1 on both, T09 773C
+on the VA and 7CB8 on the VA2; SGPDUMP: 74AD, and 75B6 / 7E32): the
+hardware reads bytes the test does not set. SGPTEST therefore shows their
+CRCs with "?" and does not count them. T21 took 3 frames on both models
+(1171 and 963 polls); vaeg gives about 625 polls on the VA and 11 on the
+VA2.
 
 ## SGPDUMP (diagnostic build)
 

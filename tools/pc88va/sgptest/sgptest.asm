@@ -419,13 +419,24 @@ report:
 .crc:
     mov ax, [crc]
     call puthex
+    ; T07 and T09 (FBW FFF2h, FFF0h): the hardware result depends on memory
+    ; the test does not set (SGPDUMP on the PC-88VA and VA2), so they are
+    ; shown and not compared.
     mov bx, [test_index]
+    cmp bx, 7
+    je .info
+    cmp bx, 9
+    je .info
     dec bx
     shl bx, 1
     mov ax, [expected + bx]
     cmp ax, [crc]
     jne .diff
     mov si, same_text
+    call puts
+    jmp .sep
+.info:
+    mov si, info_text
     call puts
     jmp .sep
 .diff:
@@ -884,9 +895,10 @@ last:           dw 0
 window:         dw 0
 %endif
 
-title:          db 'SGPTEST (vaeg M109a): CRC, "=" as vaeg, "*" vaeg value', 13, 10, 0
+title:          db 'SGPTEST (vaeg M109a): CRC, "=" as vaeg, "*" vaeg value, "?" not compared', 13, 10, 0
 same_text:      db ' =    ', 0
 diff_text:      db ' *', 0
+info_text:      db ' ?    ', 0
 gap_text:       db '  ', 0
 timeout_text:   db 'TIMEOUT', 0
 summary:        db 'differences from vaeg: ', 0
