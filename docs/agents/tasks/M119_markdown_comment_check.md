@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M119 — check Markdown files for HTML comments that hide content
 
-Status: **implemented; G119 machine-verifiable gate pending**
+Status: **complete; G119 machine-verifiable gate passed on 2026-10-17**
 
 ## Request
 
@@ -72,3 +72,10 @@ raw tags. Fixed in M118
 `python3 tools/repo/check_md_comments.py` exits 0 on `main`, CTest
 `vaeg_repo_check_md_comments` passes, and the hosted `repo invariants` job
 passes.
+
+### G119
+
+- Passed on 2026-10-17: the check reports 0 findings, CTest
+  `vaeg_repo_check_md_comments` passes, and hosted build run 38978374227 on
+  [1a1ca6a0](https://github.com/nakatamaho/vaeg/commit/1a1ca6a06435bbbb9468be616cca4f113f41662b)
+  passed every job, its `repo invariants` job running the check.
