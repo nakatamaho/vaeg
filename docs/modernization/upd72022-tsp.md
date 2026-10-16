@@ -860,11 +860,26 @@ then apply external transparency and class separation.
 `[UNKNOWN]` Ordering of line pixels against every secret/reverse combination
 requires a hardware discriminator test.
 
-`[MEAS]` vaeg (M117) decodes modes 4 and 5 as above, including blink; before
-M117 they were read as mode 0 and never blinked. Undocumented modes 6 and 7
-are read as a 4-bit background (bits 7:4) and foreground (bits 3:0), mode 6
-with bit 7 as blink and mode 7 without blink; this reproduces the TSPMODE
-observations with attribute F0h (section 20) and is otherwise unverified.
+`[MEAS]` PC-88VA2, TSPMODE from the self-booting SGP disk (2026-10-16,
+photographs and films kept privately). The menu text has attribute 70h and
+the test block F0h:
+
+- `MODE` 2: every row carries a line at its bottom across the whole width;
+  each 70h character shows the left half of its glyph at double width in
+  its own cell (`pseudo` reads `peeucc`), the F0h block likewise; colours
+  come from the screen table.
+- `MODE` 3: the main split is entirely black.
+- `MODE` 6: grey block, no blinking (as 7).
+- `MODE` 8, 9 and 10: the whole main split becomes the static multicoloured
+  pattern recorded in section 20.
+
+vaeg (M117) decodes modes 2-5 as above: mode 2 with DWID (bit 6) as the
+left half at double width, DWIDC (bit 7) as the right half, underline at the
+row's last raster and the horizontal line at `HRA`; mode 3 as colour and
+shape records starting black on black with no shape at each split and
+frame, so shape records alone show nothing. Modes 6 and 7 are read as mode
+0. Before M117 modes 2-7 were all read as mode 0. Values 8-31 still use
+their low three bits; the pattern of 8-14 is not modelled.
 
 ## 13. Sprite engine
 
@@ -1422,7 +1437,7 @@ with blinking). Undocumented values:
 
 | `MODE` | Observation |
 |---:|---|
-| 6 | as 4-5, the block grey instead of white |
+| 6 | as 4-5, the block grey instead of white, but not blinking (corrected 2026-10-16) |
 | 7 | as 6 without blinking |
 | 8, 9 | an unidentified pattern instead of characters |
 | 10, 11 | the same pattern, finer |
