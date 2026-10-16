@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115 — PCG-8100/8800
 
-Status: **implemented; G115 human gate pending**
+Status: **complete; G115 passed on 2026-10-16**
 
 ## Request
 
@@ -75,7 +75,8 @@ ADR-0016 "Derivations" records the derivation.
   key down/up by host time only (20 ms); when guest frames are run in a
   burst, a release can pass with no guest frame, so the guest sees one long
   press. Each key event now also waits for two guest frames. Not entered in
-  the bug-fix ledger until the maintainer confirms the paste works.
+  the bug-fix ledger until the maintainer confirms the paste works. The
+  maintainer confirmed it with the `b7e611e2` build; ledger entry added.
 
 ## Implementation
 
@@ -106,3 +107,15 @@ ADR-0016 "Derivations" records the derivation.
 - Clean-checkout MinGW build of `3d4908e1`: `vaeg.exe` SHA-256
   `100a54a7357e8b31f1e20e2d06e1f63c3a1123732114564e1ab1320efcb9737a`,
   imports Windows system DLLs only; ctest 92 of 92.
+
+### G115
+
+- Passed on 2026-10-16 (maintainer), with the Windows build
+  `21278ba49e3c...b93b` (SHA-256, static MinGW) from
+  [b7e611e2](https://github.com/nakatamaho/vaeg/commit/b7e611e24e4e0dc4406f747abac987c169d23c40):
+  PCG characters shown with the option on and the ROM's with it off; the
+  three-tone test program plays C, C+E and C+E+G and stops; the pasted
+  program keeps `100` and `3000`; the Configure dialog shows every section
+  without clipping or blank space. The maintainer hears the tones as
+  slightly unclear (point-sampled square waves alias); improving them is
+  left to an issue.

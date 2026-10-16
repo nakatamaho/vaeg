@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M115 — pasted text lost repeated characters
+
+- **Symptom/scope:** pasting a BASIC program into N-88 BASIC (V1, Windows
+  build) turned `100` into `10` and `3000` into `30`: a character repeated
+  right after itself was dropped; other characters arrived. GUI paste
+  (編集 -> 貼り付け) and scripted text, every guest mode.
+- **Demonstrated cause:** the paste stepped key down and up by host time
+  only (20 ms). Guest frames are run in bursts to catch up, so a release
+  could pass with no guest frame; the guest saw one long press of the
+  repeated key. Pacing the events by guest frames as well removed the loss
+  on the maintainer's machine with the same program, and nothing else
+  changed.
+- **Correction:** each key event also waits for two guest frames.
+- **Verification:** selftest `keyboard paste mapping` (events do not advance
+  without guest frames; fails with the frame wait removed); the maintainer
+  pasted the program again with the `b7e611e2` Windows build and it was
+  entered and ran correctly.
+- **Milestone/task/commit:** M115;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/f276bf1f055594251ef75bdb9265f3f3e7bcf15b).
+
 ### M113 — V1/V2 level-2 kanji came from the wrong half of the font
 
 - **Symptom/scope:** in V1/V2 mode, JIS level-2 kanji read through ports
