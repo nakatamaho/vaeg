@@ -2429,6 +2429,7 @@ static int test_va_cursor_sprite_enable(void) {
 	tsp.sprtable = sprite_table;
 	tsp.curn = 31;
 	tsp.ce = TRUE;
+	tsp.dspon = TRUE; /* M117: the cursor needs the text display */
 	makesprva_blankraster();
 	makesprva_begin();
 	makesprva_raster();
@@ -6426,7 +6427,8 @@ static int test_pcg88(void) {
 /* M117: TSP attribute modes. Modes 4 and 5 read bit 7 as blink, bits 6-4
  * as background and 3-0 as foreground; mode 5 adds the line for foreground
  * 1/9; with F0h mode 6 blinks grey and mode 7 is grey without blinking
- * (PC-88VA2, M104 TSPMODE); modes 0 and 1 are unchanged. */
+ * (PC-88VA2, M104 TSPMODE); modes 0 and 1 are unchanged. The cursor
+ * needs DSPON. */
 static int test_tsp_attribute_modes(void) {
 	BYTE bg;
 	BYTE fg;
@@ -6464,6 +6466,24 @@ static int test_tsp_attribute_modes(void) {
 	maketextva_decode_attr(1, 0xf2, 3, &bg, &fg, &flags);
 	if ((problem == NULL) && ((bg != 3) || (fg != 0x0f) || (flags != 0x02))) {
 		problem = "mode 1 unchanged";
+	}
+	{
+		/* the CURDEF cursor needs the text display (DSPON): SYNC alone
+		 * leaves it hidden, as on the hardware with a commercial game */
+		const UINT8 saved_ce = tsp.ce;
+		const BOOL saved_dspon = tsp.dspon;
+
+		tsp.ce = 1;
+		tsp.dspon = FALSE;
+		if ((problem == NULL) && makesprva_cursor_shown()) {
+			problem = "cursor shown without DSPON";
+		}
+		tsp.dspon = TRUE;
+		if ((problem == NULL) && !makesprva_cursor_shown()) {
+			problem = "cursor hidden with CE and DSPON";
+		}
+		tsp.ce = saved_ce;
+		tsp.dspon = saved_dspon;
 	}
 	if (problem != NULL) {
 		return (fail("TSP attribute modes", problem));

@@ -172,6 +172,15 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 #endif
 }
 
+/*
+ * M117: the CURDEF cursor (CE) is shown only while the text display runs
+ * (DSPON). After SYNC without DSPON the hardware shows no cursor (a commercial
+ * game, PC-88VA and VA2), while sprites with SW set stay until DSPOFF.
+ */
+BOOL makesprva_cursor_shown(void) {
+	return (tsp.ce && tsp.dspon) ? TRUE : FALSE;
+}
+
 void makesprva_begin(void) {
 	int i;
 	BYTE *sprinfo;
@@ -187,7 +196,7 @@ void makesprva_begin(void) {
 		work._spr[i].sw = d & 0x0200;
 		work._spr[i].vlines = ((d >> 10) + 1) * 4;
 		work._spr[i].yp = d & 0x01ff;
-		if ((i == tsp.curn) && tsp.ce) {
+		if ((i == tsp.curn) && makesprva_cursor_shown()) {
 			work._spr[i].sw = TRUE;
 		}
 		d = LOADINTELWORD(sprinfo + 4);
@@ -200,7 +209,7 @@ void makesprva_begin(void) {
 		work._spr[i].spda = d;
 
 		// カーソルの点滅
-		if ((i == tsp.curn) && tsp.ce && tsp.be && (tsp.blinkcnt2 & 0x08)) {
+		if ((i == tsp.curn) && makesprva_cursor_shown() && tsp.be && (tsp.blinkcnt2 & 0x08)) {
 			work._spr[i].sw = FALSE;
 		}
 
