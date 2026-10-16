@@ -106,6 +106,10 @@ class VoyageTests(unittest.TestCase):
         self.assertIn("call discard_startup_keys", instructions)
         self.assertIn("cmp ax, 001bh", instructions)
         self.assertNotIn("cmp ah, 0", instructions)
+        # SGP LINE direction bits as measured (M106a), in both variants.
+        self.assertIn("%define VOYAGE_LINE_HD 0800h", instructions)
+        self.assertIn("%define VOYAGE_LINE_VD 0400h", instructions)
+        self.assertNotIn("%define VOYAGE_LINE_HD 0400h", instructions)
 
     def test_escape_internal_code_contract(self):
         # Same passing scan-zero fixture, one changed internal-code field.
