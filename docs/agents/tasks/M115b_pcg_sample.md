@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115b — PCG-8100/8800 sample program
 
-Status: **implemented; G115b human gate pending**
+Status: **complete; G115b passed on 2026-10-16**
 
 ## Request
 
@@ -43,3 +43,7 @@ Add the PCG sample written during G115 to the repository (maintainer,
 - vaeg (VA2, V2 BASIC, PCG on): the pasted program runs; the four
   characters show whole (eight rows each) and the figure is drawn eight
   times. The maintainer ran the earlier version in VA2 N mode.
+
+### G115b
+
+- Passed on 2026-10-16 (maintainer).
