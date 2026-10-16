@@ -74,3 +74,6 @@ About.
   killed (store from 00h restored, store removed, mode-3 check, 266 limit,
   clock, PolyBLEP, mode decode, MSB-only load).
 - About dialog checked in a screenshot (credit wrapped below the version).
+- Clean-checkout MinGW build of `9be3174d`: `vaeg.exe` SHA-256
+  `57b838d87207d2581480238818b8fa8308316b41dbc37267ad1452703361b815`; ctest
+  92 of 92. No media builder changed.
