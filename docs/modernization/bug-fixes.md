@@ -129,8 +129,10 @@ land.
 - **Verification:** SGP selftest (`FFF3h` is -12 on both models); the game
   in VA mode shows no striped sprite over 15 sampled scenes; SGPTEST shows
   0 differences on both models and 5 with the M97b rule restored.
-  Hardware results for the other low-bit values are pending (SGPTEST
-  T06-T12, [M109a task](../agents/tasks/M109a_sgp_fbw_and_sgptest.md)).
+  On a PC-88VA and a PC-88VA2 (G109a) SGPTEST equals vaeg except T07 and
+  T09 (FBW FFF2h, FFF0h), whose hardware results vary between runs and
+  models; they are no longer compared
+  ([M109a task](../agents/tasks/M109a_sgp_fbw_and_sgptest.md)).
 - **Milestone/task/commit:** M109a;
   [correcting commit](https://github.com/nakatamaho/vaeg/commit/d288656ce79e1c56eeb2022647079a8c498e1f23).
 
