@@ -66,3 +66,6 @@ models, are affected. Also: show the host pacing setting in Japanese.
   `.d88` entry starts while another disk is mounted.
 - To confirm on Windows at G116: the maintainer's greyed and inactive
   entries; after re-recording, archive entries start.
+- Clean-checkout MinGW build of `fa1b9989` (with LibArchive): `vaeg.exe`
+  SHA-256 `4a7b8b2fbc90ba48fcb2748aa73600e07366d8220d70e9523720c06fac63a79c`;
+  ctest 92 of 92. No media builder changed.
