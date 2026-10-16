@@ -122,3 +122,17 @@ It assembles the program without expected values, runs it headless on the
 VA and the VA2 model, reads the CRCs from the TVRAM dump and fails unless
 both models agree. Regenerate it only after a deliberate change to vaeg's
 SGP, and rebuild the self-booting disk afterwards.
+
+## SGPDUMP (diagnostic build)
+
+`nasm -DDUMP -DEXPECTED_NONE` builds `SGPDUMP.COM` (menu P of the
+self-booting SGP disk). It runs only T07 and T09 and shows, on one screen,
+their CRCs, the offsets from `DST` where the two results differ, 11 rows of
+13 bytes from the first difference for both tests side by side, and port
+153h as read before SGP use, the value written to enable it, and the value
+read back after the restore. It was added after the hardware run on a
+PC-88VA (M109a) gave other CRCs than vaeg for T07 and T09 (FBW FFF2h,
+FFF0h) and no FBW value from -64 to 25 reproduces them in vaeg; a photo of
+its screen shows what the hardware wrote. The 153h line checks whether
+the read-modify-write of port 153h changes the memory map (the text
+cursor was corrupted after SGPTEST on the PC-88VA, also right after boot).

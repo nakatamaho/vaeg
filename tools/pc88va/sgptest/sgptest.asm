@@ -96,6 +96,9 @@ start:
     push cs
     pop es
     cld
+%ifdef DUMP
+    jmp dump_main
+%endif
     mov si, title
     call puts
     call fill_sources
@@ -383,6 +386,10 @@ run_list:
     mov dx, PORT_MEMORY_MAP
     mov al, [saved_map]
     out dx, al
+%ifdef DUMP
+    in al, dx
+    mov [map_after], al
+%endif
     sti
     pop si
     ret
@@ -697,6 +704,185 @@ putdec:
     pop bx
     pop ax
     ret
+
+%ifdef DUMP
+; ---- SGPDUMP (M109a): T07 and T09 side by side. Both whole checked areas
+; are kept; the CRCs, the first and last offsets (from DST) where the two
+; differ, and 14 rows of 13 bytes from the first difference are shown,
+; with port 153h as read before SGP use and after its restore.
+%define DUMP_A   0xd000
+%define DUMP_B   0xdc00
+%define DUMP_ROWS 11
+%define DUMP_COLS 13
+
+dump_main:
+    mov si, dump_title
+    call puts
+    mov dx, PORT_MEMORY_MAP
+    in al, dx
+    mov [map_before], al
+    call fill_sources
+    mov si, tests + 6*TEST_SIZE        ; T07
+    mov di, DUMP_A
+    call dump_one
+    mov [crc_a], ax
+    mov si, tests + 8*TEST_SIZE        ; T09
+    mov di, DUMP_B
+    call dump_one
+    mov [crc_b], ax
+    mov si, map_text
+    call puts
+    mov al, [map_before]
+    call puthex2
+    mov si, map_set_text
+    call puts
+    mov al, [map_before]
+    or al, 0x10
+    call puthex2
+    mov si, map_after_text
+    call puts
+    mov al, [map_after]
+    call puthex2
+    mov si, crlf
+    call puts
+    mov si, crc_text
+    call puts
+    mov ax, [crc_a]
+    call puthex
+    mov al, ' '
+    call putc
+    mov ax, [crc_b]
+    call puthex
+    ; first and last differing offsets
+    mov word [first], 0xffff
+    mov word [last], 0xffff
+    xor bx, bx
+.cmp:
+    mov al, [DUMP_A + bx]
+    cmp al, [DUMP_B + bx]
+    je .same
+    cmp word [first], 0xffff
+    jne .f
+    mov [first], bx
+.f: mov [last], bx
+.same:
+    inc bx
+    cmp bx, DSTAREA_SIZE
+    jb .cmp
+    mov si, diff_range_text
+    call puts
+    mov ax, [first]
+    sub ax, GUARD
+    call puthex
+    mov al, '-'
+    call putc
+    mov ax, [last]
+    sub ax, GUARD
+    call puthex
+    mov si, crlf
+    call puts
+    ; window: from the row and even column of the first difference
+    mov ax, [first]
+    cmp ax, 0xffff
+    jne .w
+    mov ax, GUARD + 8*DPITCH + 8
+.w: and ax, 0xfffe
+    mov [window], ax
+    mov si, dump_head
+    call puts
+    xor bp, bp
+.row:
+    mov ax, [window]
+    mov bx, bp
+    mov cl, 6
+    shl bx, cl                         ; BP * DPITCH (64)
+    add ax, bx
+    push ax
+    sub ax, GUARD
+    call puthex
+    mov al, ' '
+    call putc
+    pop ax
+    push ax
+    mov si, DUMP_A
+    add si, ax
+    call dump_hexrow
+    mov al, ' '
+    call putc
+    pop ax
+    mov si, DUMP_B
+    add si, ax
+    call dump_hexrow
+    mov si, crlf
+    call puts
+    inc bp
+    cmp bp, DUMP_ROWS
+    jb .row
+    mov ax, 0x4c00
+    int 0x21
+
+; SI = test entry, DI = buffer: run the test, copy the whole checked
+; area; AX = its CRC.
+dump_one:
+    push di
+    push si
+    call fill_dest
+    pop si
+    call build_blt_list
+    call run_list
+    pop di
+    mov si, DSTAREA
+    mov cx, DSTAREA_SIZE
+    rep movsb
+    mov si, DSTAREA
+    mov cx, DSTAREA_SIZE
+    call crc16
+    ret
+
+; SI = bytes: DUMP_COLS of them as hex.
+dump_hexrow:
+    mov cx, DUMP_COLS
+.b: lodsb
+    call puthex2
+    loop .b
+    ret
+
+; AL as two hex digits.
+puthex2:
+    push ax
+    push cx
+    mov ah, al
+    xor al, al
+    mov cx, 2
+.n: rol ax, 4
+    push ax
+    and al, 0x0f
+    add al, '0'
+    cmp al, '9'
+    jbe .d
+    add al, 7
+.d: call putc
+    pop ax
+    loop .n
+    pop cx
+    pop ax
+    ret
+
+dump_title:     db 'SGPDUMP (vaeg M109a): T07 (FBW FFF2h) and T09 (FFF0h)', 13, 10, 0
+map_text:       db '153h before ', 0
+map_set_text:   db ', set ', 0
+map_after_text: db ', after restore ', 0
+crc_text:       db 'CRC T07 T09: ', 0
+diff_range_text: db '  differ from DST+', 0
+dump_head:      db 'DST+ T07                       T09', 13, 10, 0
+map_before:     db 0
+map_after:      db 0
+crc_a:          dw 0
+crc_b:          dw 0
+first:          dw 0
+last:           dw 0
+window:         dw 0
+%endif
 
 title:          db 'SGPTEST (vaeg M109a): CRC, "=" as vaeg, "*" vaeg value', 13, 10, 0
 same_text:      db ' =    ', 0
