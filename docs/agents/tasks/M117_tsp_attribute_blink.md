@@ -21,7 +21,7 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
-# M117 — TSP attribute modes 4-7 and blink
+# M117 — TSP attribute modes 4-7 and blink; screen rotation
 
 Status: **implemented; G117 human gate pending**
 
@@ -60,10 +60,36 @@ bit 7 showed as a brighter background (F0h: grey instead of white).
   the SGP boot disk, all-demos and all-demos-msdos4 exit 0 with every file
   identical to the committed images (SGP boot D88 and all-demos-msdos4
   `.xz` byte-identical).
-- Clean-checkout MinGW build of `6b9e5e23`: `vaeg.exe` SHA-256
-  `a94e0301076f8d9270c975d2712d1b69c47cb6d0c165432e937167d0fa2adce0`.
+- Clean-checkout MinGW build: see the screen rotation section.
+
+## Screen rotation
+
+Requested by the maintainer on 2026-10-16: turn the screen 90 degrees right.
+
+- 画面 > 右に 90° 回転, config `GUI_rotate` (0 none, 1 right), command line
+  `--rotate none|right` (applies to the session only, like `--effect`).
+- Display only; the guest frame, `--screenshot`-free guest captures and
+  state thumbnails stay unturned. The SDL path draws the texture turned
+  with `SDL_RenderCopyEx`; Native CRT receives the turned picture (height x
+  width, 3:4 with the aspect correction). The viewport fits the turned
+  picture, the window size from the 画面 menu becomes height x width, mouse
+  points are turned back for the guest, and the scanline and CRT-lite
+  overlays follow the guest rows and columns.
+- Startup keeps the saved window size, as for the window scale; toggling
+  the menu item resizes the window.
+- Selftest `viewport`: turned geometry (800x600: 375x600 at x 212; 450x600
+  with the aspect correction) and the turned inverse mapping (1:1 corners),
+  each mutation-checked.
+
+Verification (Linux, headless): `--rotate right` shows the PC-Engine screen
+turned right with the guest top on the right (SDL renderer and the dummy
+capture); with `--effect scanline` and `crt-lite` the lines run vertically;
+the menu item appears and resizes the window to 400x676; `--rotate` is not
+written to the configuration. The Native CRT path could not be run here.
 
 ## Gate G117 (human)
 
 Standard gate, plus: the software where the maintainer saw blinking on the
-hardware blinks in vaeg; TSPMODE 4-7 matches the M104 record.
+hardware blinks in vaeg; TSPMODE 4-7 matches the M104 record; 画面 > 右に
+90° 回転 turns the picture right with the SDL renderer and with Native CRT,
+the mouse follows, and turning it off restores the window.
