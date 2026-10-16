@@ -975,9 +975,11 @@ static void draw_configure_dialog(void) {
 		ImGui::EndChild();
 		if (ImGui::BeginChild("pacing-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
-			ImGui::TextUnformatted("Host pacing");
+			// M116: host pacing (PacingMs): the shortest time between two
+			// guest frames; 0 leaves the speed to the normal timing.
+			ImGui::TextUnformatted("ホストの待ち時間");
 			ImGui::Separator();
-			ImGui::TextUnformatted("Delay per loop (ms)");
+			ImGui::TextUnformatted("1 フレームごとの最小間隔 (ms)");
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(unit * 9.0f);
 			ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
@@ -986,6 +988,10 @@ static void draw_configure_dialog(void) {
 			if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
 				g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
 			}
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("0 で無効（ふつうは 0）。大きくするとホストの負荷は下がり、"
+			                   "エミュレーションは遅くなります。");
+			ImGui::PopStyleColor();
 		}
 		ImGui::EndChild();
 
