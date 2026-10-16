@@ -8,6 +8,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "cmt.h"
+#include "pcg88.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -88,6 +89,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .beep_level = 0xff,
                  .cmt_fast = 0,
                  .cmt_vol = 48,
+                 .pcg_vol = 48,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -280,6 +282,7 @@ static void sound_init(void) {
 	sound_create(rate, np2cfg.delayms);
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
+	pcg88_setvol(np2cfg.pcg_vol);
 	if (np2cfg.beep_level <= 128) {
 		beep_setlevel(np2cfg.beep_level);
 	} else {

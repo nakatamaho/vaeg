@@ -233,6 +233,7 @@ set(VAEG_CORE_SOURCES
     io/pic.c
     io/pit.c
     io/cmt.c
+    io/pcg88.c
     io/serial.c
     io/upd4990.c
     cbus/cbuscore.c

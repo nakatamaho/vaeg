@@ -94,6 +94,9 @@ typedef struct {
 	UINT8 cmt_fast;
 	/* Cassette tape sound volume, 0-128 (independent of the master volume). */
 	UINT8 cmt_vol;
+	/* M115: PCG-8100/8800 in V1/V2 mode, and its tone volume (0-128). */
+	UINT8 pcg_enable;
+	UINT8 pcg_vol;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

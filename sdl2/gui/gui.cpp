@@ -52,6 +52,7 @@
 #include "maketextva.h"
 #include "bkupmemva.h"
 #include "extrarom.h"
+#include "pcg88.h"
 #include "n80rom.h"
 #include "cmt.h"
 #include "diskdrv.h"
@@ -771,12 +772,13 @@ static void draw_multiplier_input(const char *label, int *value, const int *pres
 
 static void draw_ndp8087_clock_input(int *value) {
 	ImGui::PushID("NDP8087 clock");
+	const float unit = ImGui::GetFontSize();
 	ImGui::TextUnformatted("Clock (Hz)");
-	ImGui::SameLine(145.0f);
-	ImGui::SetNextItemWidth(125.0f);
+	ImGui::SameLine(unit * 6.0f);
+	ImGui::SetNextItemWidth(unit * 11.0f);
 	ImGui::InputInt("##value", value, 100000, 1000000);
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(110.0f);
+	ImGui::SetNextItemWidth(unit * 7.0f);
 	if (ImGui::BeginCombo("##presets", "Preset")) {
 		for (int i = 0; i < static_cast<int>(std::size(kNdp8087Presets)); i++) {
 			char item[32];
@@ -869,9 +871,21 @@ static void draw_configure_dialog(void) {
 	if (!g_gui.configure_open) {
 		return;
 	}
-	prepare_dialog(35.0f, 50.0f, ImGuiCond_Appearing);
+	/*
+	 * The dialog takes the height of its sections (font units, no fixed
+	 * pixel sizes), up to 95 % of the window; beyond that the sections
+	 * scroll and the message line and the buttons stay visible.
+	 */
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float unit = ImGui::GetFontSize();
+	const ImVec2 limit(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f);
+	const float width = (std::min)(unit * 36.0f, limit.x);
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+	                               viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
+	                        ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f), ImVec2(width, limit.y));
 	if (ImGui::BeginPopupModal("Configure##clock-config", &g_gui.configure_open,
-	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
+	                           ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool cpu_valid =
 		    pccore_cpu_multiple_valid(static_cast<UINT>(g_gui.pending_cpu_multiplier));
 		const bool sgp_mode_valid = sgp_speed_mode_valid(static_cast<UINT>(g_gui.pending_sgp_mode));
@@ -894,10 +908,17 @@ static void draw_configure_dialog(void) {
 		    (g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
 		    (g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
 
-		// The sections scroll; the message line and the buttons stay below.
-		ImGui::BeginChild("configure-body",
-		                  ImVec2(0.0f, -2.0f * ImGui::GetFrameHeightWithSpacing()));
-		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 155.0f), true,
+		// The sections scroll when the window is too low; the message line
+		// and the buttons stay below.
+		const ImGuiStyle &style = ImGui::GetStyle();
+		const float footer = 2.0f * ImGui::GetFrameHeightWithSpacing() + ImGui::GetFrameHeight() +
+		                     2.0f * style.WindowPadding.y;
+		const ImGuiChildFlags section = ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY;
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(FLT_MAX, (std::max)(limit.y - footer, unit * 6.0f)));
+		ImGui::BeginChild("configure-body", ImVec2(width - 2.0f * style.WindowPadding.x, 0.0f),
+		                  ImGuiChildFlags_AutoResizeY);
+		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			const bool requested_changed =
 			    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
@@ -918,7 +939,7 @@ static void draw_configure_dialog(void) {
 		}
 		ImGui::EndChild();
 
-		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 165.0f), true,
+		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			static const char *modes[] = {"Model default", "Follow CPU", "Custom"};
 			const UINT model = (milstr_cmp(np2cfg.model, str_VA1) == 0) ? PCMODEL_VA1 : PCMODEL_VA2;
@@ -951,25 +972,33 @@ static void draw_configure_dialog(void) {
 			ImGui::Text("Effective SGP clock: %.4f MHz", model_clock_mhz * effective_scale);
 		}
 		ImGui::EndChild();
-		ImGui::Text("Host pacing delay per loop (ms)");
-		ImGui::SetNextItemWidth(120.0f);
-		ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
-		if (g_gui.pending_pacing_ms < 0)
-			g_gui.pending_pacing_ms = 0;
-		if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
-			g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
+		if (ImGui::BeginChild("pacing-config", ImVec2(0.0f, 0.0f), section,
+		                      ImGuiWindowFlags_NoScrollbar)) {
+			ImGui::TextUnformatted("Host pacing");
+			ImGui::Separator();
+			ImGui::TextUnformatted("Delay per loop (ms)");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(unit * 9.0f);
+			ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
+			if (g_gui.pending_pacing_ms < 0)
+				g_gui.pending_pacing_ms = 0;
+			if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
+				g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
+			}
 		}
+		ImGui::EndChild();
 
-		if (ImGui::BeginChild("hostfat-config", ImVec2(0.0f, 175.0f), true,
+		if (ImGui::BeginChild("hostfat-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			ImGui::TextUnformatted("HOSTFAT read-only host folder");
 			ImGui::Separator();
 			ImGui::Checkbox("Enable HOSTFAT", &g_gui.pending_hostfat_enabled);
-			ImGui::SetNextItemWidth(-92.0f);
+			const float browse = unit * 6.0f;
+			ImGui::SetNextItemWidth(-(browse + style.ItemSpacing.x));
 			ImGui::InputText("##hostfat-dir", g_gui.pending_hostfat_dir,
 			                 sizeof(g_gui.pending_hostfat_dir));
 			ImGui::SameLine();
-			if (ImGui::Button("Browse...", ImVec2(84.0f, 0.0f))) {
+			if (ImGui::Button("Browse...", ImVec2(browse, 0.0f))) {
 				open_hostfat_browser();
 			}
 			if (ImGui::Button("Rebuild + reset on OK")) {
@@ -1019,8 +1048,9 @@ static void draw_configure_dialog(void) {
 			ImGui::TextUnformatted("Wait for the current HOSTFAT build to finish.");
 		}
 
-		const float button_width = 88.0f;
-		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - (button_width * 2.0f + 8.0f));
+		const float button_width = unit * 5.5f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+		                     (button_width * 2.0f + style.ItemSpacing.x));
 		ImGui::BeginDisabled(!valid);
 		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
 			apply_configure_dialog();
@@ -1282,6 +1312,13 @@ static void draw_source_volumes(void) {
 	if (ImGui::SliderInt("テープ", &value, 0, 128)) {
 		np2cfg.cmt_vol = static_cast<UINT8>(value);
 		cmt_setvol(np2cfg.cmt_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	value = np2cfg.pcg_vol;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("PCG", &value, 0, 128)) {
+		np2cfg.pcg_vol = static_cast<UINT8>(value);
+		pcg88_setvol(np2cfg.pcg_vol);
 		sysmng_update(SYS_UPDATECFG);
 	}
 	value = np2cfg.MOTORVOL;
@@ -3467,6 +3504,13 @@ static void draw_machine_config_menu(void) {
 	}
 	if (ImGui::MenuItem("HDD から起動", nullptr, np2cfg.boot_fixed_disk != 0)) {
 		save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
+	}
+	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
+	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
+	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
+		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+		pccore_redraw();
 	}
 	if (ImGui::MenuItem("I/O バンクメモリ…", nullptr, bmsiocfg.enabled != FALSE)) {
 		open_bms_config_dialog();
