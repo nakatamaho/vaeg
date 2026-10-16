@@ -88,6 +88,14 @@ BOOL scrnmng_get_display_aspect(void);
 void scrnmng_set_scaling(int scaling);
 int scrnmng_get_scaling(void);
 void scrnmng_set_effect(int effect);
+/* M117: VAEG_ROTATE_NONE or VAEG_ROTATE_RIGHT (90 degrees clockwise). */
+enum {
+	VAEG_ROTATE_NONE = 0,
+	VAEG_ROTATE_RIGHT,
+	VAEG_ROTATE_COUNT
+};
+void scrnmng_set_rotation(int rotation);
+int scrnmng_get_rotation(void);
 int scrnmng_get_effect(void);
 BOOL scrnmng_get_viewport(VAEG_VIEWPORT *viewport);
 BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *guest_y);

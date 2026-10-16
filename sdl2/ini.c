@@ -459,6 +459,7 @@ static const INITBL iniitem[] = {
     {"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
     {"GUI_effect", INITYPE_UINT8, &np2oscfg.gui_effect, 0},
     {"GUI_scaling", INITYPE_UINT8, &np2oscfg.gui_scaling, 0},
+    {"GUI_rotate", INITYPE_UINT8, &np2oscfg.gui_rotate, 0},
     {"GUI_win_cx", INITYPE_UINT16, &np2oscfg.gui_window_width, 0},
     {"GUI_win_cy", INITYPE_UINT16, &np2oscfg.gui_window_height, 0},
     {"display_mode", INITYPE_UINT8, &np2oscfg.gui_display_mode, 0},
@@ -562,6 +563,9 @@ void initload(void) {
 	if (np2oscfg.gui_shader_preset[0] == '\0') {
 		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
 		            sizeof(np2oscfg.gui_shader_preset));
+	}
+	if (np2oscfg.gui_rotate >= VAEG_ROTATE_COUNT) {
+		np2oscfg.gui_rotate = VAEG_ROTATE_NONE;
 	}
 	if (np2oscfg.gui_effect >= VAEG_EFFECT_COUNT) {
 		np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;

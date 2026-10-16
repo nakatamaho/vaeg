@@ -83,6 +83,13 @@ enum {
 	VAEG_CLI_EFFECT_CRT_LITE
 };
 
+/* M117: --rotate none|right */
+enum {
+	VAEG_CLI_ROTATE_UNSET = 0,
+	VAEG_CLI_ROTATE_NONE,
+	VAEG_CLI_ROTATE_RIGHT
+};
+
 enum {
 	VAEG_CLI_SCALING_UNSET = 0,
 	VAEG_CLI_SCALING_NATIVE,
@@ -147,6 +154,7 @@ typedef struct {
 	UINT frame_skip;
 	UINT display_mode;
 	UINT effect;
+	UINT rotate;
 	UINT scaling;
 	UINT controller;
 	UINT keyboard_layout;

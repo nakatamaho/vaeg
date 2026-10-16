@@ -40,11 +40,19 @@ BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *vi
 	int ratio_width;
 	int ratio_height;
 	int scale;
+	VAEG_VIEWPORT_INPUT turned;
 
 	if ((input == NULL) || (viewport == NULL)) {
 		return (FAILURE);
 	}
 	ZeroMemory(viewport, sizeof(*viewport));
+	if (input->rotate) {
+		/* the viewport holds the turned picture: guest height by width */
+		turned = *input;
+		turned.guest_width = input->guest_height;
+		turned.guest_height = input->guest_width;
+		input = &turned;
+	}
 	if ((input->guest_width <= 0) || (input->guest_height <= 0) || (input->drawable_width <= 0) ||
 	    (input->drawable_height <= 0) || (input->scaling < 0) ||
 	    (input->scaling >= VAEG_SCALING_COUNT)) {
@@ -56,8 +64,8 @@ BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *vi
 	if ((available_width <= 0) || (available_height <= 0)) {
 		return (FAILURE);
 	}
-	ratio_width = input->aspect ? 4 : input->guest_width;
-	ratio_height = input->aspect ? 3 : input->guest_height;
+	ratio_width = input->aspect ? (input->rotate ? 3 : 4) : input->guest_width;
+	ratio_height = input->aspect ? (input->rotate ? 4 : 3) : input->guest_height;
 
 	switch (input->scaling) {
 	case VAEG_SCALING_NATIVE:
@@ -116,6 +124,28 @@ BOOL vaeg_viewport_map_point(const VAEG_VIEWPORT *viewport, int guest_width, int
 	}
 	*guest_x = (int)(((UINT64)(drawable_x - viewport->x) * guest_width) / viewport->width);
 	*guest_y = (int)(((UINT64)(drawable_y - viewport->y) * guest_height) / viewport->height);
+	return (SUCCESS);
+}
+
+/* M117: as vaeg_viewport_map_point for a picture turned 90 degrees right,
+ * where guest (x, y) is shown at (guest_height - 1 - y, x). */
+BOOL vaeg_viewport_map_point_rotated(const VAEG_VIEWPORT *viewport, int guest_width,
+                                     int guest_height, BOOL rotate, int drawable_x, int drawable_y,
+                                     int *guest_x, int *guest_y) {
+	int turned_x;
+	int turned_y;
+
+	if (!rotate) {
+		return (vaeg_viewport_map_point(viewport, guest_width, guest_height, drawable_x, drawable_y,
+		                                guest_x, guest_y));
+	}
+	if ((guest_x == NULL) || (guest_y == NULL) ||
+	    (vaeg_viewport_map_point(viewport, guest_height, guest_width, drawable_x, drawable_y,
+	                             &turned_x, &turned_y) != SUCCESS)) {
+		return (FAILURE);
+	}
+	*guest_x = turned_y;
+	*guest_y = guest_height - 1 - turned_x;
 	return (SUCCESS);
 }
 

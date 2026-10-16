@@ -443,6 +443,18 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				                  "--effect accepts unfiltered, linear, scanline, or crt-lite",
 				                  value));
 			}
+		} else if (!strcmp(argument, "--rotate")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL) {
+				return (FAILURE);
+			}
+			if (name_equal(value, "none")) {
+				options->rotate = VAEG_CLI_ROTATE_NONE;
+			} else if (name_equal(value, "right")) {
+				options->rotate = VAEG_CLI_ROTATE_RIGHT;
+			} else {
+				return (set_error(error, error_size, "--rotate accepts none or right", value));
+			}
 		} else if (!strcmp(argument, "--scaling")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if (value == NULL) {

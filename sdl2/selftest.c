@@ -2737,6 +2737,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	input.bottom_inset = 0;
 	input.scaling = scaling;
 	input.aspect = aspect;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != x) ||
 	    (viewport.y != y) || (viewport.width != width) || (viewport.height != height)) {
 		fprintf(stderr,
@@ -2790,12 +2791,47 @@ static int test_viewport(void) {
 	input.bottom_inset = 0;
 	input.scaling = VAEG_SCALING_FIT;
 	input.aspect = FALSE;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 300, &guest_x, &guest_y) != SUCCESS) ||
 	    (guest_x != 320) || (guest_y != 200) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 25, &guest_x, &guest_y) != FAILURE)) {
 		return (fail("viewport", "inverse coordinate transform failed"));
 	}
+	/* M117: turned right, 640x400 becomes a 400x640 picture; on 800x600 it
+	 * fits as 375x600 at x 212 (3:4 with the aspect correction, 450x600 at
+	 * 175). Shown 1:1, the top-left guest dot is at the top right and the
+	 * bottom-left one at the top left. */
+	input.rotate = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 212) ||
+	    (viewport.y != 0) || (viewport.width != 375) || (viewport.height != 600)) {
+		return (fail("viewport", "turned picture geometry failed"));
+	}
+	input.drawable_width = 400;
+	input.drawable_height = 640;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 0, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 399) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 639, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 639) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 400, 300, &guest_x, &guest_y) !=
+	     FAILURE)) {
+		return (fail("viewport", "turned inverse coordinate transform failed"));
+	}
+	input.drawable_width = 800;
+	input.drawable_height = 600;
+	input.aspect = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 175) ||
+	    (viewport.width != 450) || (viewport.height != 600)) {
+		return (fail("viewport", "turned aspect-corrected geometry failed"));
+	}
+	input.aspect = FALSE;
+	input.rotate = FALSE;
 	input.drawable_width = 0;
 	if (vaeg_viewport_calculate(&input, &viewport) != FAILURE) {
 		return (fail("viewport", "zero drawable size was accepted"));
