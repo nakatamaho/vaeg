@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M117 — the text cursor stayed visible after SYNC
+
+- **Symptom/scope:** in a commercial game the blinking text cursor showed at the
+  top left of the game screen on the VA and VA2 models; the hardware shows
+  none. Software that leaves the text display off after SYNC with the
+  CURDEF cursor enabled.
+- **Demonstrated cause:** the game sends SYNC (which stops the text display)
+  and no DSPON, with CURDEF CE still set; `vram/makesprva.c` forced the
+  cursor sprite on from CE alone.
+- **Correction:** the CE cursor is shown only while the text display is on
+  (DSPON); sprites with SW set are unchanged.
+- **Verification:** the game screen has no cursor on either model over eight
+  sampled frames; the PC-Engine, V1/V2 and N-BASIC cursors still blink;
+  selftest `TSP attribute modes` (cursor without DSPON), mutation-checked.
+- **Milestone/task/commit:** M117,
+  [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/f4a09d59118e5dec3d457d96d2dfb9e834ca19db).
+
 ### M117 — text with the blink attribute did not blink
 
 - **Symptom/scope:** text that blinks on the PC-88VA hardware stayed steady
