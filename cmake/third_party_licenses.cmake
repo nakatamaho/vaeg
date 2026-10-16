@@ -73,6 +73,8 @@ if(VAEG_FETCH_SDL2)
     vaeg_license("SDL2 / yuv2rgb - BSD"
         "${sdl2_SOURCE_DIR}/src/video/yuv2rgb/LICENSE")
 endif()
+vaeg_license("PC-8801/PCG references - X88000 (public domain), QUASI88"
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/licenses/pc8801-references.txt")
 vaeg_license("Dear ImGui - MIT"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/LICENSE.txt")
 foreach(component rectpack textedit truetype)

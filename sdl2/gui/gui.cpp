@@ -5056,7 +5056,7 @@ static void draw_about_dialog(void) {
 	const float width =
 	    (std::min)((g_gui.about_more ? 620.0f : 360.0f) * ui_scale, viewport->WorkSize.x * 0.9f);
 	const float height =
-	    (std::min)((g_gui.about_more ? 700.0f : 350.0f) * ui_scale, viewport->WorkSize.y * 0.9f);
+	    (std::min)((g_gui.about_more ? 740.0f : 395.0f) * ui_scale, viewport->WorkSize.y * 0.9f);
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
 	if (ImGui::BeginPopupModal("About...##vaeg", &g_gui.about_open,
@@ -5110,6 +5110,11 @@ static void draw_about_dialog(void) {
 			ImGui::EndTable();
 		}
 
+		// PC-8801/8001 and PCG emulation references (M113-M115a).
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::TextWrapped("PC-8801/8001 and PCG-8100/8800: written with reference to X88000 "
+		                   "(Manuke, public domain) and QUASI88 (showtime).");
+		ImGui::PopStyleColor();
 		if (ImGui::Button("Third-party licenses..."))
 			ImGui::OpenPopup("Third-party licenses");
 		draw_third_party_licenses();
