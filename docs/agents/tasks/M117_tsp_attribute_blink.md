@@ -87,8 +87,8 @@ capture); with `--effect scanline` and `crt-lite` the lines run vertically;
 the menu item appears and resizes the window to 400x676; `--rotate` is not
 written to the configuration. The Native CRT path could not be run here.
 
-Clean-checkout MinGW build of `5d2b03ad` (blink fix and rotation; later
-commits are records only): `vaeg.exe` SHA-256
+Clean-checkout MinGW build of `5d2b03ad` (blink fix and rotation):
+`vaeg.exe` SHA-256
 `eb604e044aa36a637c2ec2fa6bcda2ee0ca62852d85ed6bc60168f174be692db`.
 
 ## Cursor after SYNC
@@ -100,6 +100,10 @@ DSPON; no sprite has SW set. The CE cursor is now shown only while DSPON is
 in effect. Verified: no cursor over eight frames of the game screen on both
 models; the PC-Engine, V1/V2 BASIC and N-BASIC cursors still blink; ctest
 93/93; selftest extended and mutation-checked.
+
+Clean-checkout MinGW build of `c6a0f758` (with the cursor fix; later
+commits are records only): `vaeg.exe` SHA-256
+`3b2fd0e3435c5d8edf965e4ebd0ca970710eabcb18947ab257b1c49366788456`.
 
 ## Gate G117 (human)
 
