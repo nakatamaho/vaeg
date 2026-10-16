@@ -91,6 +91,25 @@ Record each result here with its model, whatever it shows.
    - `V480PAT A` and `TSPMODE` (menu L, M), VA: M104 measured them only on
      the VA2, and the VA has 64 KiB of TVRAM.
 
+## Hardware results (2026-10-16)
+
+PC-88VA (photograph, maintainer): SGPTEST T01-T06, T08 and T10-T20 equal
+vaeg; T07 85F1 (vaeg 5006) and T09 773C (vaeg 2A25), the source FBW
+FFF2h and FFF0h; T21: 1171 polls, 3 frames. FFF3h (T06) and FFF4h (T08)
+agree with vaeg's decoding (-12, -10).
+
+- No source FBW from -64 to 25 reproduces 85F1 or 773C in vaeg (each value
+  forced through the decoder and SGPTEST rerun), so the hardware result is
+  not a different FBW alone. SGPDUMP (menu P, `-DDUMP`) shows what the
+  hardware wrote for T07 and T09 to find the rule.
+- The text cursor was a stray multicoloured bar after SGPTEST, also right
+  after boot. In vaeg the self-booting disk's menu shows a red bar before
+  any program runs: the loader starts the text BIOS without an operating
+  system, and the cursor's sprite pattern is never defined. The loader now
+  turns the cursor off (INT 83h 25h, AL = 00h); not an SGPTEST fault.
+  SGPDUMP also prints port 153h before SGP use and after its restore (41h,
+  51h, 41h in vaeg on the VA).
+
 ## Gate G109a (human)
 
 Standard V3 gate (clean static MinGW build of the pushed commit), plus: the
