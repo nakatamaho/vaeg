@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M114 — PC-8001 machines
 
-Status: **complete; G114 passed on 2026-10-16**
+Status: **complete; G114 passed on 2026-10-16; merged to `main` at [6f33314](https://github.com/nakatamaho/vaeg/commit/6f33314049c7638dd8136eb5a3e2e7d877682847)**
 
 ## Request
 
