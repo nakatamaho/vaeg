@@ -38,6 +38,7 @@
 #include "strres.h"
 #include "memoryva.h"
 #include "cgromva.h"
+#include "videova.h"
 #include "subsystem.h"
 #include "subsystemmx.h"
 
@@ -72,6 +73,10 @@ static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
  * and FE2 are listed in MAME only as commented-out machines without ROM
  * definitions; their roles follow the mkIISR, FA and FA. PC-88VA and
  * PC-88VA2 are PC-8801-layout sets taken from the VA ROMs.
+ *
+ * M114: the PC-8001 family (`n_role` set) runs in the N mode of the VA2's
+ * V1/V2 mode with its own N-BASIC ROM in place of a PC-8801's n80.rom; the
+ * VA's N88-BASIC stays, as the VA firmware still starts the machine.
  */
 #define PC8801_V2_ROLES "n88 n88_0 n88_1 n88_2 n88_3 n80 disk kanji1"
 static const struct {
@@ -80,10 +85,11 @@ static const struct {
 	UINT8 base;
 	UINT8 v2;
 	UINT8 high;
+	UINT8 n_role;
 } machine_table[] = {
-    {"PC-8001", "n80 font", 0, 0, 0},
-    {"PC-8001mkII", "n80_2 font", 0, 0, 0},
-    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira", 0, 0, 0},
+    {"PC-8001", "n80 font", 2, 0, 0, EXTRAROM_ROLE_N80},
+    {"PC-8001mkII", "n80_2 font", 2, 0, 0, EXTRAROM_ROLE_N80_2},
+    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira", 2, 0, 0, EXTRAROM_ROLE_N80_2SR},
     {"PC-8801", "n88 n88_0 n80 font|kanji1", 2, 0, 0},
     {"PC-8801mkII", "n88 n88_0 n80 disk kanji1", 2, 0, 0},
     {"PC-8801mkIISR", PC8801_V2_ROLES, 2, 1, 0},
@@ -821,6 +827,7 @@ BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out) {
 			out->startable = (machine_table[i].base != 0) ? TRUE : FALSE;
 			out->v2 = machine_table[i].v2 ? TRUE : FALSE;
 			out->high = machine_table[i].high ? TRUE : FALSE;
+			out->n_role = machine_table[i].n_role;
 			return TRUE;
 		}
 	}
@@ -834,13 +841,48 @@ BOOL extrarom_startable(const EXTRAROM_MACHINE *machine) {
 	EXTRAROM_PROFILE profile;
 
 	return machine->known && extrarom_profile(machine->name, &profile) && profile.startable &&
-	       (extrarom_choice(machine, EXTRAROM_ROLE_N88) != NULL);
+	       (extrarom_choice(machine, profile.n_role ? profile.n_role : (UINT)EXTRAROM_ROLE_N88) !=
+	        NULL);
 }
 
 static BOOL apply_role(const EXTRAROM_MACHINE *m, UINT role, BYTE *data, UINT size) {
 	const EXTRAROM_FILE *f = extrarom_choice(m, role);
 
 	return (f != NULL) && (f->size == size) && extrarom_read(m, f, data, size);
+}
+
+/*
+ * M114: a PC-8001 model: its N-BASIC ROM (24 KiB, the 6000h-7FFFh socket
+ * reading FFh, or 32 KiB) replaces N-BASIC, the 8x8 characters come from
+ * font.rom, the external FDD unit runs disk.rom when one is given, and the
+ * machine starts in N mode. N88-BASIC, its banks and the kanji ROMs stay
+ * the VA's (the PC-8001 family has neither).
+ */
+static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
+	const EXTRAROM_FILE *f = extrarom_choice(machine, n_role);
+	UINT i;
+
+	FillMemory(memoryva_n80, sizeof(memoryva_n80), 0xff);
+	memoryva_n80_exist = (f != NULL) && (f->size <= sizeof(memoryva_n80)) &&
+	                     extrarom_read(machine, f, memoryva_n80, f->size);
+	milstr_ncpy(memoryva_n80_file, memoryva_n80_exist ? f->file : "", sizeof(memoryva_n80_file));
+	f = extrarom_choice(machine, EXTRAROM_ROLE_DISK);
+	if ((f != NULL) && extrarom_read(machine, f, subsystem.rom, f->size)) {
+		for (i = f->size; i < sizeof(subsystem.rom); i++) {
+			subsystem.rom[i] = subsystem.rom[i % f->size];
+		}
+		subsystem.romexist = TRUE;
+	} else {
+		subsystemmx_set_absent(TRUE);
+	}
+	(void)apply_role(machine, EXTRAROM_ROLE_FONT, fontmem + 0x41000, 0x800);
+	np2cfg.boot_mode = BOOTMODE_N;
+	memoryva_pc8001 = TRUE;
+	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
+	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
+	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */
+	videova.crtmode = 0;
+	fprintf(stderr, "INFO: PC-8001 machine %s (N mode)\n", machine->name);
 }
 
 /*
@@ -852,6 +894,7 @@ static BOOL apply_role(const EXTRAROM_MACHINE *m, UINT role, BYTE *data, UINT si
  */
 void extrarom_apply(void) {
 	static EXTRAROM_MACHINE machine;
+	EXTRAROM_PROFILE profile;
 	static BYTE kanji[2][0x20000];
 	static BYTE n80[0x8000];
 	char base[MAX_PATH];
@@ -869,9 +912,13 @@ void extrarom_apply(void) {
 	file_catname(dir, np2cfg.extra_machine, sizeof(dir));
 	if (!extrarom_scan_machine(dir, np2cfg.extra_machine, &machine) ||
 	    !extrarom_startable(&machine)) {
-		snprintf(extrarom_last_error, sizeof(extrarom_last_error), "%.60s: no n88.rom in extra/",
+		snprintf(extrarom_last_error, sizeof(extrarom_last_error), "%.60s: no BASIC ROM in extra/",
 		         np2cfg.extra_machine);
 		fprintf(stderr, "WARNING: %s; the VA ROMs are used\n", extrarom_last_error);
+		return;
+	}
+	if (extrarom_profile(machine.name, &profile) && profile.n_role) {
+		apply_pc8001(&machine, profile.n_role);
 		return;
 	}
 	if (!apply_role(&machine, EXTRAROM_ROLE_N88, rom1mem + 0x10000, 0x8000)) {

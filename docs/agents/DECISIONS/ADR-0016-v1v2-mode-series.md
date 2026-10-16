@@ -106,6 +106,7 @@ Re-implemented from X88000 1.5.3 (public domain; source archive
 | M103d | `memoryva/memoryva.c` (`n88_gvram_ex_read`/`_write`) | `PC88Z80Main.cpp`, `ReadMemoryGVRamEx`, `WriteMemoryGVRamEx*` | GVRAM extended access: latch, comparison read, ALU and copy modes |
 | M103d | `vram/scrndrawva.c` (multiplane 1 bit/pixel merge) | `X88ScreenDrawer.cpp`, monochrome modes | Colour and reverse rule for graphics dots (the merge itself follows the VA technical manual) |
 | M103e | `io/memctrlva.c` (`E2h`/`E3h`) | `PC88Z80Main.cpp`, `ReadIO_E2`/`WriteIO_E2`/`ReadIO_E3`/`WriteIO_E3` | Port numbering and bit layout of extended RAM control |
+| M114 | `io/memctrlva.c` (port 31h on a PC-8001 model) | `PC88Z80Main.cpp`, `WriteIO_31_N80` | PC-8001mkII meaning of port 31h bits (all-RAM, graphics enable) |
 
 Each choice and its status is listed in
 [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).

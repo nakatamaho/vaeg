@@ -62,10 +62,22 @@ compatibility mode and a PC-8801 remain.
 H and S are vaeg's 8 MHz and 4 MHz report in V1/V2 mode; models before the
 FH/MH run at 4 MHz only. N needs `n80`. Sound is the base model's (the
 VA2's OPNA; its first half is OPN-compatible); the original PC-8801 has no
-FM sound, which is not modelled. `PC-88VA` and `PC-88VA2` are
+FM sound, which is not modelled. The PC-8001 family (M114) runs in N mode
+only (below). `PC-88VA` and `PC-88VA2` are
 PC-8801-layout sets taken from the VA ROMs (`n88`, banks, `disk`, `kanji1`,
-`kanji2`, `font`, `jisyo`; no N-BASIC). The PC-8001 family is listed but
-not startable (M114).
+`kanji2`, `font`, `jisyo`; no N-BASIC).
+
+## PC-8001 family (M114)
+
+The PC-8001, PC-8001mkII and PC-8001mkIISR run in the N mode of the VA2's
+V1/V2 mode with their own N-BASIC ROM (`n80`, `n80_2`, `n80_2sr`) in place
+of a PC-8801's; a 24 KiB PC-8001 ROM leaves the 6000h-7FFFh socket reading
+FFh. The VA's N88-BASIC stays. These BASICs program the CRTC for a 15 kHz
+monitor, so the machine runs with SW1 at 15 kHz. Port 31h has its
+PC-8001mkII meaning: N-BASIC and 200 lines stay selected. There is no FDD
+inside; `disk.rom` gives the external unit. The mkII's own graphics modes
+and its expansion ROM bank, and the mkIISR's N80SR mode, are not modelled;
+the mkII and mkIISR start their N-80 BASIC.
 
 ## Starting a model
 

@@ -3219,7 +3219,9 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 	const bool current = milstr_cmp(np2cfg.extra_machine, machine.name) == 0;
 	const bool v1 = bkupmemva_get_88v1() != FALSE;
 	const bool standard = np2cfg.v1v2_standard != 0;
-	const bool has_n80 = extrarom_choice(&machine, EXTRAROM_ROLE_N80) != nullptr;
+	// M114: the PC-8001 family starts in N mode only, from its own N-BASIC.
+	const UINT n_role = profile.n_role ? profile.n_role : static_cast<UINT>(EXTRAROM_ROLE_N80);
+	const bool has_n80 = extrarom_choice(&machine, n_role) != nullptr;
 	static const struct {
 		const char *label;
 		bool v1;
@@ -3227,7 +3229,7 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 	} modes[] = {
 	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
 	for (const auto &mode : modes) {
-		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high)) {
+		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high) || profile.n_role) {
 			continue;
 		}
 		const bool selected = current && (np2cfg.boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
@@ -3241,7 +3243,7 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
 	}
 	if (!ready) {
-		ImGui::TextDisabled("n88.rom がありません");
+		ImGui::TextDisabled(profile.n_role ? "BASIC の ROM がありません" : "n88.rom がありません");
 	}
 }
 

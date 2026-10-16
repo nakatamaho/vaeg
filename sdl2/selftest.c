@@ -6011,8 +6011,10 @@ static int test_extra_machine(void) {
 	    !profile.high || strcmp(profile.base_model, str_VA2) ||
 	    !extrarom_profile("PC-8801", &profile) || profile.v2 || profile.high ||
 	    !extrarom_profile("PC-88VA", &profile) || strcmp(profile.base_model, str_VA1) ||
-	    !extrarom_profile("PC-8001", &profile) || profile.startable ||
-	    extrarom_profile("PC-9801", &profile)) {
+	    !extrarom_profile("PC-8001", &profile) || !profile.startable ||
+	    (profile.n_role != EXTRAROM_ROLE_N80) || !extrarom_profile("PC-8001mkII", &profile) ||
+	    (profile.n_role != EXTRAROM_ROLE_N80_2) || !extrarom_profile("PC-8801MA", &profile) ||
+	    profile.n_role || extrarom_profile("PC-9801", &profile)) {
 		problem = "model profiles";
 	}
 	SPRINTF(root, "vaeg-selftest-%lu-machine", (unsigned long)getpid());
@@ -6150,6 +6152,94 @@ static int test_extra_machine(void) {
 		return (fail("PC-8801 machine", problem));
 	}
 	fprintf(stderr, "selftest: PC-8801 machine ok\n");
+	return (SUCCESS);
+}
+
+/* M114: a PC-8001 model runs in N mode: its 24 KiB N-BASIC with the
+ * 6000h-7FFFh socket reading FFh, the 8x8 characters from font.rom, no FDD
+ * unit without disk.rom, a 15 kHz monitor, and port 31h with its PC-8001mkII
+ * meaning (N-BASIC and 200 lines kept, bit 1 all-RAM and bit 3 graphics
+ * passed on). Synthetic data only. */
+static int test_pc8001_machine(void) {
+	static BYTE expect[0x6000];
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dir[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot_mode = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	const char *problem = NULL;
+
+	SPRINTF(root, "vaeg-selftest-%lu-pc8001", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dir, base, sizeof(dir));
+	file_setseparator(dir, sizeof(dir));
+	file_catname(dir, "PC-8001", sizeof(dir));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dir);
+	if (!selftest_put_rom(dir, "n80.rom", 0x6000, 0x31) ||
+	    !selftest_put_rom(dir, "font.rom", 0x800, 0x32)) {
+		problem = "could not write test ROM files";
+	}
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	romva_machine_hook = extrarom_apply;
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		romva_initialize();
+		selftest_fill_rom(expect, 0x6000, 0x31, NULL);
+		if (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x6000) ||
+		    (memoryva_n80[0x6000] != 0xff) || (memoryva_n80[0x7fff] != 0xff)) {
+			problem = "24 KiB N-BASIC with an empty socket";
+		}
+		selftest_fill_rom(expect, 0x800, 0x32, NULL);
+		if ((problem == NULL) && memcmp(fontmem + 0x41000, expect, 0x800)) {
+			problem = "8x8 characters from font.rom";
+		}
+		if ((problem == NULL) && (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) ||
+		                          (videova.crtmode != 0) || !subsystemmxcfg.absent)) {
+			problem = "N mode, 15 kHz and no FDD unit";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x031, 0x10);
+		if (memoryva_88_port31 != 0x05) {
+			problem = "port 31h keeps N-BASIC and 200 lines";
+		}
+		iocore_out8(0x031, 0x0a);
+		if ((problem == NULL) && (memoryva_88_port31 != 0x0f)) {
+			problem = "port 31h passes all-RAM and graphics bits";
+		}
+	}
+	selftest_delete_rom(dir, "n80.rom");
+	selftest_delete_rom(dir, "font.rom");
+#if defined(_WIN32)
+	_rmdir(dir);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dir);
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot_mode;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	if ((problem == NULL) && memoryva_pc8001) {
+		problem = "PC-8001 state left after reset";
+	}
+	if (problem != NULL) {
+		return (fail("PC-8001 machine", problem));
+	}
+	fprintf(stderr, "selftest: PC-8001 machine ok\n");
 	return (SUCCESS);
 }
 
@@ -7489,6 +7579,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_extra_machine() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pc8001_machine() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
