@@ -6258,6 +6258,7 @@ static int test_pcg88(void) {
 	const char *problem = NULL;
 	UINT i;
 	BOOL sound;
+	BOOL edge;
 
 	fontmem[0x41000 + 0x400] = 0x3c;
 	np2cfg.pcg_enable = 1;
@@ -6275,6 +6276,17 @@ static int test_pcg88(void) {
 		if ((pcg88.ram[0][8] != 0x5a) || (g == NULL) || (g[0] != 0x5a) ||
 		    (pcg88_glyph(0x01) != NULL)) {
 			problem = "character write and the upper half shown";
+		}
+		/* M115a (as QUASI88): with bit 12 set, writes to 00h and 01h do not
+		 * store; the next write to 02h does. */
+		iocore_out8(0x00, 0x66);
+		iocore_out8(0x01, 0x0a);
+		if ((problem == NULL) && ((pcg88.ram[0][8] != 0x5a) || (pcg88.ram[0][10] == 0x66))) {
+			problem = "store by a write to port 00h or 01h";
+		}
+		iocore_out8(0x02, 0x10);
+		if ((problem == NULL) && (pcg88.ram[0][10] != 0x66)) {
+			problem = "store by a write to port 02h";
 		}
 		iocore_out8(0x02, 0x00); /* write bit clear: no write */
 		iocore_out8(0x01, 0x09);
@@ -6299,7 +6311,7 @@ static int test_pcg88(void) {
 		iocore_out8(0x0f, 0x36); /* counter 0, LSB then MSB */
 		iocore_out8(0x0c, 0xe8);
 		iocore_out8(0x0c, 0x03);
-		iocore_out8(0x0f, 0x60); /* counter 1, MSB only */
+		iocore_out8(0x0f, 0x66); /* counter 1, MSB only */
 		iocore_out8(0x0d, 0x10);
 		iocore_out8(0x0f, 0xb7); /* counter 2, LSB then MSB, BCD 2000 */
 		iocore_out8(0x0e, 0x00);
@@ -6309,27 +6321,42 @@ static int test_pcg88(void) {
 		}
 		iocore_out8(0x02, 0xc8);
 		if ((problem == NULL) &&
-		    ((pcg88_frequency(0) != 4000) || (pcg88_frequency(1) != 4000000 / 0x1000) ||
-		     (pcg88_frequency(2) != 2000))) {
+		    ((pcg88_frequency(0) != 3993600 / 1000) || (pcg88_frequency(1) != 3993600 / 0x1000) ||
+		     (pcg88_frequency(2) != 3993600 / 2000))) {
 			problem = "8253 counts and tones";
 		}
-		iocore_out8(0x0f, 0x50); /* counter 1, LSB only: 99, too short */
-		iocore_out8(0x0d, 0x63);
+		iocore_out8(0x0f, 0x76); /* counter 1: 266 silent, 267 sounds */
+		iocore_out8(0x0d, 0x0a);
+		iocore_out8(0x0d, 0x01);
 		if ((problem == NULL) && (pcg88_frequency(1) != 0)) {
-			problem = "a short count is silent";
+			problem = "a count of 266 is silent";
 		}
+		iocore_out8(0x0d, 0x0b);
+		iocore_out8(0x0d, 0x01);
+		if ((problem == NULL) && (pcg88_frequency(1) != 3993600 / 267)) {
+			problem = "a count of 267 sounds";
+		}
+		iocore_out8(0x0f, 0x34); /* counter 0 in mode 2: no tone */
+		if ((problem == NULL) && (pcg88_frequency(0) != 0)) {
+			problem = "a counter outside mode 3 is silent";
+		}
+		iocore_out8(0x0f, 0x36);
 	}
 	if (problem == NULL) {
 		soundcfg.rate = 44100;
 		pcg88_setvol(64);
 		ZeroMemory(pcm, sizeof(pcm));
+		iocore_out8(0x02, 0x40); /* counter 1 alone, 267: near 15 kHz */
 		pcg88_getpcm(NULL, pcm, 64);
 		sound = FALSE;
+		edge = FALSE;
 		for (i = 0; i < NELEMENTS(pcm); i++) {
 			sound = sound || (pcm[i] != 0);
+			/* band-limited edges: samples between the two levels */
+			edge = edge || ((pcm[i] != 0) && (pcm[i] != 64 * 32) && (pcm[i] != -64 * 32));
 		}
-		if (!sound) {
-			problem = "tone output";
+		if (!sound || !edge) {
+			problem = "band-limited tone output";
 		}
 	}
 	if (problem == NULL) {

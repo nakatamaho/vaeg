@@ -43,15 +43,23 @@ in the configuration); its tone volume is `音 -> 個別の音量 -> PCG`
 | 0Ch-0Eh | 8253 counters 0-2 |
 | 0Fh | 8253 mode word |
 
-Whenever address bit 12 is set, a write to 00h-02h stores the data, or
-with address bit 13 the ROM's byte, at address bits 9-0 (character
-`(code & 7Fh)`, row 0-7) of the bank written. Both banks start as the ROM's
+A write to 02h with address bit 12 set stores the data, or with address
+bit 13 the ROM's byte, at address bits 9-0 (character `(code & 7Fh)`, row
+0-7) of the bank written; writes to 00h and 01h only set the data and the
+address (M115a, as QUASI88). Pulse bit 12: set it in one write to 02h and
+clear it in the next. Both banks start as the ROM's
 codes 80h-FFh, and codes 80h-FFh are shown from bank 0.
 
-A counter sounds a square wave of 4 MHz / count while its enable bit is
-set; counts up to 100h are silent and 0 counts 65536.
+A counter in mode 3 sounds a square wave of 3.9936 MHz / count while its
+gate bit is set; a gate 0->1 restarts it; counts up to 266 are silent and 0
+counts 65536. Other counter modes give no tone. The square waves are
+band-limited (M115a).
 
 ## Source
+
+M115a checked the behaviour against QUASI88 0.7.4 by showtime (write
+timing, 8253 clock and modes); no QUASI88 code is used.
+
 
 Rewritten in C from X88000 1.5.3 by Manuke (public domain): `PC88Pcg.cpp`,
 `X88000.cpp` (`PcgSoundOutput`) and `PC88Z80Main.cpp` (port map); see
