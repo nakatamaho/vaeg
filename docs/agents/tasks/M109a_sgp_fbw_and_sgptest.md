@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M109a — SGP pitch on the original VA, and an SGP regression test
 
-Status: **in progress; G109a human gate pending**
+Status: **complete; G109a passed on 2026-10-16**
 
 ## Request
 
@@ -152,3 +152,12 @@ Standard V3 gate (clean static MinGW build of the pushed commit), plus: the
 game's enemies are drawn without stripes in vaeg's VA mode; SGPTEST from the
 self-booting disk runs on the PC-88VA2 and its screen is recorded whatever
 the differences are.
+
+### G109a
+
+- Passed on 2026-10-16 (maintainer), with the Windows build
+  `4d080b243e8d...9faf` (SHA-256, static MinGW) from
+  [9d79ae4d](https://github.com/nakatamaho/vaeg/commit/9d79ae4d050720e1e0701d416a86452dfb5b8652):
+  the commercial game's vertically reversed enemies are drawn without
+  stripes in vaeg's VA mode; SGPTEST and SGPDUMP were run on the PC-88VA
+  and the PC-88VA2 and their screens recorded above.
