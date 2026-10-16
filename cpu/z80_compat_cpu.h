@@ -68,6 +68,8 @@ class Z80CompatCpu {
 	void SetMainReg(const Z80CompatReg &reg);
 	// Replace only the alternate set (r_af, r_hl, r_de, r_bc).
 	void SetAltReg(const Z80CompatReg &reg);
+	// Leave the HALT state; PC already points after the HALT.
+	void LeaveHalt();
 	void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
 	void SetFlagProfile(Z80CompatFlagProfile profile);
 	Z80CompatFlagProfile GetFlagProfile() const;

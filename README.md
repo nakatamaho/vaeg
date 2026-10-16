@@ -44,7 +44,12 @@ remains a useful historical reference.
   `extra/` (the VA ROM set is still needed);
 - PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
   mode (optional);
-- cassette tape images (`.cmt`, `.t88`) for V1/V2 BASIC (a vaeg extension);
+- cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
+  recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
+  for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
+- cursor keys assignable to the keypad 8/4/6/2, a joystick or the mouse
+  (Key > カーソル割り当て), and F12 assignable to COPY, STOP, keypad `=` or
+  `,`, PC, full speed, screenshot or pause;
 - 8087 emulation, enabled by default;
 - partial PC-9801-55-compatible SCSI support;
 - EMS support;
@@ -74,7 +79,8 @@ remains a useful historical reference.
 adds the V1/V2 and N modes: PC-8801 software and N-BASIC run in the VA's
 compatibility modes, and PC-8801 and PC-8001 machines start from
 user-supplied ROMs placed in `extra/`. It also adds the 8087 (enabled by
-default), the PCG-8100/8800, cassette tape images for V1/V2 BASIC,
+default), the PCG-8100/8800, cassette tape images for V1/V2 BASIC (load and
+record, with tape sound), cursor keys assignable to the keypad 8/4/6/2,
 reorganized Japanese menus with state slots and thumbnails, and a self-booting
 SGP demo disk. No PC-8801 or PC-8001 ROMs are included.
 
@@ -83,6 +89,10 @@ SGP demo disk. No PC-8801 or PC-8001 ROMs are included.
 <tr>
 <td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155514-0000091005-000.png" alt="PC-8801mkIISR demonstration in V2 mode"><br><em>PC-8801mkIISR demonstration in V2 mode</em></td>
 <td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155419-0000036240-000.png" alt="N88-BASIC V2 in V2 mode"><br><em>N88-BASIC V2 in V2 mode</em></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-162748-0000092236-000.png" alt="N-BASIC in N mode"><br><em>N-BASIC in N mode</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-173043-0000094917-000.png" alt="Loading a cassette tape image in V1/V2 BASIC"><br><em>Loading a cassette tape image in V1/V2 BASIC</em></td>
 </tr>
 </table>
 </div>
@@ -252,6 +262,7 @@ Common user-facing command-line options are:
 | Sound | `--soundbuffer MS` | Set the sound buffer from 40 to 1000 ms |
 | Sound | `--mute` | Start with sound muted |
 | FDD | `--fdd1 PATH`, `--fdd2 PATH` | Mount a D88 or raw floppy image |
+| Tape | `--tape PATH`, `--tape-save PATH` | Load a `.cmt`/`.t88` tape, or record to a raw tape image (V1/V2) |
 | SASI | `--sasi1 PATH`, `--sasi2 PATH` | Mount a SASI HDI image |
 | HOSTFAT | `--hostfat-dir PATH` | Attach a read-only host folder to PC-Engine |
 | Persistence | `--cfg PATH` or `--no-cfg` | Select or disable the configuration file |
@@ -457,7 +468,7 @@ The portable frontend keeps its writable files in three places.
   (the CRT shader cache). If that directory cannot be written, the user
   directory below is used instead.
 - User directory: the boot and media histories (`vaeg-history.txt`), the
-  custom keyboard map sidecar, and the disks extracted from dropped or
+  custom keyboard map (`keyboard.map`), and the disks extracted from dropped or
   opened archives (`archive-drop/`):
   - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
   - Windows: `%APPDATA%\vaeg`

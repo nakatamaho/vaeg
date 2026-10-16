@@ -35,6 +35,31 @@ land.
 
 ## Maintenance Rules
 
+### M118 — a compatible-mode HALT never ended
+
+- **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode
+  that executes `HALT` stopped for good: the native interrupt was serviced,
+  but after its `IRET` the code stayed halted. Programs that wait for the
+  frame with `EI; HALT` (the `ei-halt` probe of a compatible-mode test
+  disk, C-BIOS under msx88va) hung; the PC-88VA and PC-88VA2 continue
+  after the `HALT`.
+- **Demonstrated cause:** the suzukiplan core keeps `IFF_HALT` set and its
+  PC already after the `HALT`. A native interrupt taken from compatible
+  mode saved that PC, but nothing cleared `IFF_HALT`, and `SetMainReg` on
+  the `IRET` resume preserves it, so the core went on executing its halted
+  NOP cycles.
+- **Correction:** the adapter's interrupt-entry hook clears the HALT state
+  before syncing to native (`Z80CompatCpu::LeaveHalt`); the `IRET` then
+  resumes at the instruction after the `HALT`, as the V30 manual (chapter
+  8) describes. The protected `cpu/upd9002/` core is unchanged.
+- **Verification:** selftest `vaeg_upd9002_brkem_upd70008` gains a HALT
+  case (`EI; HALT`, native interrupt, `IRET`, `LD A,55h` runs), which fails
+  before the fix; the test disk's `ei-halt` probe PASS (hung before); msx88va boots
+  C-BIOS with its HALTs; M103b V2 BASIC boot passes; all 93 CTest cases pass.
+- **Milestone/task/commit:** M118,
+  [M118 task](../agents/tasks/M118_release_notes_20261017.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/3bb56ce4b79468c3fc44ae0f6c9402b4c42f5bd7).
+
 ### M117 — the text cursor stayed visible after SYNC
 
 - **Symptom/scope:** in a commercial game the blinking text cursor showed at the

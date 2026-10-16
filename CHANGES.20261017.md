@@ -33,6 +33,10 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
 <td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20261017/vaeg-20261017-155514-0000091005-000.png" alt="PC-8801mkIISR demonstration in V2 mode"><br><em>PC-8801mkIISR demonstration in V2 mode</em></td>
 <td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20261017/vaeg-20261017-155419-0000036240-000.png" alt="N88-BASIC V2 in V2 mode"><br><em>N88-BASIC V2 in V2 mode</em></td>
 </tr>
+<tr>
+<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20261017/vaeg-20261017-162748-0000092236-000.png" alt="N-BASIC in N mode"><br><em>N-BASIC in N mode</em></td>
+<td align="center" width="50%"><img width="100%" src="https://github.com/nakatamaho/vaeg/releases/download/rel-20261017/vaeg-20261017-173043-0000094917-000.png" alt="Loading a cassette tape image in V1/V2 BASIC"><br><em>Loading a cassette tape image in V1/V2 BASIC</em></td>
+</tr>
 </table>
 </div>
 
@@ -46,9 +50,12 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
 - 模擬 > 起動 selects the machine and its mode: 自動 (the ROM decides from
   the boot disk), V1/V2 H/S (also with a V3 disk or no disk) and N.
   `BootMode` in `vaeg.cfg` replaces `V1V2_NMode`.
-- Cassette tape images (`.cmt`, `.t88`) can be loaded in V1/V2 BASIC, with
-  tape sound and an optional fast load (off by default). This is a vaeg
-  extension; the VA has no cassette interface.
+- Cassette tape images for V1/V2 BASIC (a vaeg extension; the VA has no
+  cassette interface): the Tape menu loads a `.cmt` or `.t88` image, or one
+  inside a ZIP, 7z or LZH archive, and records `SAVE "CAS:"` to a raw image
+  (also `--tape` and `--tape-save`), with rewind, eject and a history.
+  `LOAD "CAS:"` and `BLOAD` play the tape sound with its leader; its level
+  is under 音 > 個別の音量 > テープ. Fast load is optional (off by default).
 - A PC-8801-style display option for V1/V2, monitor switches (15 kHz,
   digital RGB 8 colours), and a multi-image D88 selection
   (`--fdd1-image`/`--fdd2-image`).
@@ -91,6 +98,10 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
 
 - Reorganized Japanese menus (模擬 and nine further top menus); Pause is an
   F12 assignment; one speed control; CPU clock presets.
+- Key > カーソル割り当て sends the cursor keys as they are, as the keypad
+  8/4/6/2 (for software that moves with the keypad), as the joystick, or as
+  the mouse. F12 can also be COPY, STOP, keypad `=` or `,`, PC, full speed
+  or a screenshot.
 - State save and load with ten slots per software, each with a thumbnail,
   and a slot list window.
 - Master volume and per-source volumes.
