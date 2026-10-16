@@ -3984,6 +3984,12 @@ static void set_display_scaling(int scaling) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_display_rotation(int rotation) {
+	np2oscfg.gui_rotate = static_cast<BYTE>(rotation);
+	scrnmng_set_rotation(np2oscfg.gui_rotate);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static void set_display_effect(int effect) {
 	np2oscfg.gui_effect = static_cast<BYTE>(effect);
 	scrnmng_set_effect(np2oscfg.gui_effect);
@@ -4601,6 +4607,10 @@ static void draw_screen_menu(void) {
 		bool aspect = np2oscfg.gui_aspect != 0;
 		if (ImGui::MenuItem("縦横比の補正", nullptr, aspect)) {
 			set_display_aspect(!aspect);
+		}
+		const bool rotated = np2oscfg.gui_rotate == VAEG_ROTATE_RIGHT;
+		if (ImGui::MenuItem("右に 90° 回転", nullptr, rotated)) {
+			set_display_rotation(rotated ? VAEG_ROTATE_NONE : VAEG_ROTATE_RIGHT);
 		}
 		const bool fullscreen = scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED;
 		if (ImGui::MenuItem("全画面表示", nullptr, fullscreen)) {

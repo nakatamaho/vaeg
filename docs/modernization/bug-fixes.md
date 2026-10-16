@@ -35,6 +35,46 @@ land.
 
 ## Maintenance Rules
 
+### M117 — the text cursor stayed visible after SYNC
+
+- **Symptom/scope:** in a commercial game the blinking text cursor showed at the
+  top left of the game screen on the VA and VA2 models; the hardware shows
+  none. Software that leaves the text display off after SYNC with the
+  CURDEF cursor enabled.
+- **Demonstrated cause:** the game sends SYNC (which stops the text display)
+  and no DSPON, with CURDEF CE still set; `vram/makesprva.c` forced the
+  cursor sprite on from CE alone.
+- **Correction:** the CE cursor is shown only while the text display is on
+  (DSPON); sprites with SW set are unchanged.
+- **Verification:** the game screen has no cursor on either model over eight
+  sampled frames; the PC-Engine, V1/V2 and N-BASIC cursors still blink;
+  selftest `TSP attribute modes` (cursor without DSPON), mutation-checked.
+- **Milestone/task/commit:** M117,
+  [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/f4a09d59118e5dec3d457d96d2dfb9e834ca19db).
+
+### M117 — text with the blink attribute did not blink
+
+- **Symptom/scope:** text that blinks on the PC-88VA hardware stayed steady
+  in vaeg; with TSP attribute modes 4 and 5 the background also showed one
+  step too bright (F0h grey instead of white); modes 2 and 3 showed plain
+  characters where the hardware shows double-width halves with lines (2)
+  or nothing (3). V3 text in attribute modes 2-7 only.
+- **Demonstrated cause:** `vram/maketextva.c` decoded attribute modes 0 and 1
+  only and read modes 2-7 as mode 0, which has no blink bit, so bit 7 of
+  modes 4 and 5 (blink) became background bit 3.
+- **Correction:** modes 4 and 5 are decoded as documented (bit 7 blink, bits
+  6:4 background, mode 5 line for colours 1 and 9); undocumented modes 6 and
+  7 follow the PC-88VA2 TSPMODE observations; modes 2 and 3 decode their
+  shape bits and colour/shape records
+  ([second correcting commit](https://github.com/nakatamaho/vaeg/commit/f9caa9481584a85557678aaa3732509aeae71353)).
+- **Verification:** TSPMODE 4 under PC-Engine blinks after the fix and was
+  steady before; TSPMODE 2 and 3 on the self-booting SGP disk match the
+  PC-88VA2 photographs; selftest `TSP attribute modes`.
+- **Milestone/task/commit:** M117,
+  [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/746f3e4d405ca455f47884df0901eae13babba12).
+
 ### M115 — pasted text lost repeated characters
 
 - **Symptom/scope:** pasting a BASIC program into N-88 BASIC (V1, Windows

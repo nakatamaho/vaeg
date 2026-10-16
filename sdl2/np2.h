@@ -77,6 +77,7 @@ typedef struct {
 	BYTE master_volume; /* M110: 全体の音量, 0-100 % of the final mix */
 	BYTE gui_effect;
 	BYTE gui_scaling;
+	BYTE gui_rotate; /* M117: VAEG_ROTATE_NONE or VAEG_ROTATE_RIGHT */
 	UINT16 gui_window_width;
 	UINT16 gui_window_height;
 	BYTE gui_display_mode;

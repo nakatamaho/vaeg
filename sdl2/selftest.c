@@ -2429,6 +2429,7 @@ static int test_va_cursor_sprite_enable(void) {
 	tsp.sprtable = sprite_table;
 	tsp.curn = 31;
 	tsp.ce = TRUE;
+	tsp.dspon = TRUE; /* M117: the cursor needs the text display */
 	makesprva_blankraster();
 	makesprva_begin();
 	makesprva_raster();
@@ -2737,6 +2738,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	input.bottom_inset = 0;
 	input.scaling = scaling;
 	input.aspect = aspect;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != x) ||
 	    (viewport.y != y) || (viewport.width != width) || (viewport.height != height)) {
 		fprintf(stderr,
@@ -2790,12 +2792,47 @@ static int test_viewport(void) {
 	input.bottom_inset = 0;
 	input.scaling = VAEG_SCALING_FIT;
 	input.aspect = FALSE;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 300, &guest_x, &guest_y) != SUCCESS) ||
 	    (guest_x != 320) || (guest_y != 200) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 25, &guest_x, &guest_y) != FAILURE)) {
 		return (fail("viewport", "inverse coordinate transform failed"));
 	}
+	/* M117: turned right, 640x400 becomes a 400x640 picture; on 800x600 it
+	 * fits as 375x600 at x 212 (3:4 with the aspect correction, 450x600 at
+	 * 175). Shown 1:1, the top-left guest dot is at the top right and the
+	 * bottom-left one at the top left. */
+	input.rotate = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 212) ||
+	    (viewport.y != 0) || (viewport.width != 375) || (viewport.height != 600)) {
+		return (fail("viewport", "turned picture geometry failed"));
+	}
+	input.drawable_width = 400;
+	input.drawable_height = 640;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 0, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 399) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 639, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 639) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 400, 300, &guest_x, &guest_y) !=
+	     FAILURE)) {
+		return (fail("viewport", "turned inverse coordinate transform failed"));
+	}
+	input.drawable_width = 800;
+	input.drawable_height = 600;
+	input.aspect = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 175) ||
+	    (viewport.width != 450) || (viewport.height != 600)) {
+		return (fail("viewport", "turned aspect-corrected geometry failed"));
+	}
+	input.aspect = FALSE;
+	input.rotate = FALSE;
 	input.drawable_width = 0;
 	if (vaeg_viewport_calculate(&input, &viewport) != FAILURE) {
 		return (fail("viewport", "zero drawable size was accepted"));
@@ -6387,6 +6424,92 @@ static int test_pcg88(void) {
 	return (SUCCESS);
 }
 
+/* M117: TSP attribute modes. Modes 4 and 5 read bit 7 as blink, bits 6-4
+ * as background and 3-0 as foreground; mode 5 adds the line for foreground
+ * 1/9; with F0h modes 6 and 7 are grey without blinking; mode 2 takes
+ * shape bits and mode 3 colour/shape records (PC-88VA2 TSPMODE); modes 0
+ * and 1 are unchanged. The cursor needs DSPON. */
+static int test_tsp_attribute_modes(void) {
+	BYTE bg;
+	BYTE fg;
+	BYTE flags;
+	const char *problem = NULL;
+
+	maketextva_decode_attr(4, 0xf0, 0, &bg, &fg, &flags);
+	if ((bg != 7) || (fg != 0) || !(flags & 0x02)) {
+		problem = "mode 4 blink, background and foreground";
+	}
+	maketextva_decode_attr(4, 0x35, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 5) || (flags != 0))) {
+		problem = "mode 4 without blink";
+	}
+	maketextva_decode_attr(5, 0x09, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 9) || !(flags & 0x08) || (flags & 0x02))) {
+		problem = "mode 5 horizontal line for foreground 9";
+	}
+	maketextva_decode_attr(5, 0x82, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (!(flags & 0x02) || (flags & 0x08))) {
+		problem = "mode 5 blink without the line";
+	}
+	maketextva_decode_attr(6, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 6 grey background without blink";
+	}
+	maketextva_decode_attr(2, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0) || (fg != 7) || (flags != 0x70))) {
+		problem = "mode 2 DWID, underline and line from 70h";
+	}
+	maketextva_decode_attr(2, 0x8f, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (flags != 0x87)) {
+		problem = "mode 2 DWIDC, reverse, blink and secret without bit 3";
+	}
+	maketextva_decode_reset();
+	maketextva_decode_attr(3, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0) || (bg != 0) || (flags != 0x70))) {
+		problem = "mode 3 shape record alone stays black";
+	}
+	maketextva_decode_attr(3, 0xab, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0x0a) || (bg != 3) || (flags != 0x70))) {
+		problem = "mode 3 colour record keeps the shape";
+	}
+	maketextva_decode_reset();
+	maketextva_decode_attr(7, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 7 grey background without blink";
+	}
+	maketextva_decode_attr(0, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (fg != 0) || (flags != 0))) {
+		problem = "mode 0 unchanged";
+	}
+	maketextva_decode_attr(1, 0xf2, 3, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 0x0f) || (flags != 0x02))) {
+		problem = "mode 1 unchanged";
+	}
+	{
+		/* the CURDEF cursor needs the text display (DSPON): SYNC alone
+		 * leaves it hidden, as on the hardware with a commercial game */
+		const UINT8 saved_ce = tsp.ce;
+		const BOOL saved_dspon = tsp.dspon;
+
+		tsp.ce = 1;
+		tsp.dspon = FALSE;
+		if ((problem == NULL) && makesprva_cursor_shown()) {
+			problem = "cursor shown without DSPON";
+		}
+		tsp.dspon = TRUE;
+		if ((problem == NULL) && !makesprva_cursor_shown()) {
+			problem = "cursor hidden with CE and DSPON";
+		}
+		tsp.ce = saved_ce;
+		tsp.dspon = saved_dspon;
+	}
+	if (problem != NULL) {
+		return (fail("TSP attribute modes", problem));
+	}
+	fprintf(stderr, "selftest: TSP attribute modes ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -7743,6 +7866,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pcg88() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_attribute_modes() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {

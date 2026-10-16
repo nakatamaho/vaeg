@@ -60,6 +60,7 @@ typedef struct {
 	int menu_height;
 	int scaling;
 	int effect;
+	int rotation;
 	int display_mode;
 	int window_x;
 	int window_y;
@@ -108,6 +109,8 @@ enum {
 
 static SCRNMNG scrnmng;
 static SCRNSTAT scrnstat;
+/* M117: the guest picture turned right, for Native CRT and dummy capture */
+static UINT16 scrnmng_turned[SCRNMNG_CANVAS_WIDTH * SCRNMNG_CANVAS_MAX_HEIGHT];
 static SCRNSURF scrnsurf;
 static VAEG_SPEEDMETER speedmeter;
 
@@ -224,6 +227,26 @@ static BOOL scrnmng_native_requested(void) {
 	       !vaeg_native_presenter_is_headless_video_driver(video_driver);
 }
 
+/* The shadow canvas turned 90 degrees right: height x width pixels, guest
+ * (x, y) at (height - 1 - y, x). */
+static const UINT16 *scrnmng_turn_shadow(void) {
+	const BYTE *row;
+	int x;
+	int y;
+	int w;
+	int h;
+
+	w = scrnmng.width;
+	h = scrnmng.height;
+	for (y = 0; y < h; y++) {
+		row = scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2) + (y * scrnmng.shadow_pitch);
+		for (x = 0; x < w; x++) {
+			scrnmng_turned[(x * h) + (h - 1 - y)] = ((const UINT16 *)row)[x];
+		}
+	}
+	return (scrnmng_turned);
+}
+
 static void scrnmng_capture_dummy_frame(void) {
 	VAEG_VIEWPORT viewport;
 	SDL_Surface *source;
@@ -238,6 +261,15 @@ static void scrnmng_capture_dummy_frame(void) {
 	if (source == NULL) {
 		fprintf(stderr, "scsitrace rendered-screen-source-failed error=%s\n", SDL_GetError());
 		return;
+	}
+	if (scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		SDL_FreeSurface(source);
+		source = SDL_CreateRGBSurfaceWithFormatFrom((void *)scrnmng_turn_shadow(), scrnmng.height,
+		                                            scrnmng.width, 16, scrnmng.height * 2,
+		                                            SDL_PIXELFORMAT_RGB565);
+		if (source == NULL) {
+			return;
+		}
 	}
 	(void)SDL_FillRect(scrnmng.rendered_frame, NULL,
 	                   SDL_MapRGB(scrnmng.rendered_frame->format, 0, 0, 0));
@@ -1182,6 +1214,7 @@ static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport) {
 		}
 	}
 	input.aspect = scrnmng.aspect;
+	input.rotate = (scrnmng.rotation == VAEG_ROTATE_RIGHT) ? TRUE : FALSE;
 	return (vaeg_viewport_calculate(&input, viewport));
 }
 
@@ -1744,8 +1777,13 @@ static BOOL scrnmng_update_window_size(void) {
 		current_w = 0;
 		current_h = 0;
 		target_w = scrnmng.width * scrnmng.scale;
+		target_h = scrnmng.height * scrnmng.scale;
+		if (scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+			target_w = scrnmng.height * scrnmng.scale;
+			target_h = scrnmng.width * scrnmng.scale;
+		}
 		scrnmng_panel_applied = scrnmng_front_panel_height(target_w);
-		target_h = scrnmng.menu_height + (scrnmng.height * scrnmng.scale) + scrnmng_panel_applied;
+		target_h += scrnmng.menu_height + scrnmng_panel_applied;
 		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
 		if ((current_w == target_w) && (current_h == target_h)) {
 			return (FALSE);
@@ -2001,6 +2039,24 @@ int scrnmng_get_effect(void) {
 	return (scrnmng.effect);
 }
 
+void scrnmng_set_rotation(int rotation) {
+	if ((rotation < 0) || (rotation >= VAEG_ROTATE_COUNT)) {
+		rotation = VAEG_ROTATE_NONE;
+	}
+	if (scrnmng.rotation == rotation) {
+		return;
+	}
+	scrnmng.rotation = rotation;
+	scrnmng_update_window_size();
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("rotation-change");
+	}
+}
+
+int scrnmng_get_rotation(void) {
+	return (scrnmng.rotation);
+}
+
 BOOL scrnmng_get_viewport(VAEG_VIEWPORT *viewport) {
 	if (viewport == NULL) {
 		return (FAILURE);
@@ -2029,8 +2085,9 @@ BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *gue
 	}
 	drawable_x = (int)(((SINT64)window_x * output_width) / window_width);
 	drawable_y = (int)(((SINT64)window_y * output_height) / window_height);
-	return (vaeg_viewport_map_point(&viewport, scrnmng.width, scrnmng.height, drawable_x,
-	                                drawable_y, guest_x, guest_y));
+	return (vaeg_viewport_map_point_rotated(&viewport, scrnmng.width, scrnmng.height,
+	                                        (scrnmng.rotation == VAEG_ROTATE_RIGHT) ? TRUE : FALSE,
+	                                        drawable_x, drawable_y, guest_x, guest_y));
 }
 
 static void scrnmng_remember_window(void) {
@@ -2224,6 +2281,9 @@ void scrnmng_present_begin(void) {
 	SDL_Rect dst;
 	int row;
 	int x;
+	BOOL turned;
+	int row_span; /* screen pixels across the guest rows */
+	int col_span; /* screen pixels across the guest columns */
 	scrnmng.sdl_overlays_drawn = FALSE;
 
 	if (!scrnmng.enable) {
@@ -2252,12 +2312,27 @@ void scrnmng_present_begin(void) {
 		src.y = 0;
 		src.w = scrnmng.width;
 		src.h = scrnmng.height;
-		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, &src, &dst);
+		if (scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+			SDL_Rect landscape;
+
+			/* the unturned rectangle with the viewport's centre */
+			landscape.w = dst.h;
+			landscape.h = dst.w;
+			landscape.x = dst.x + ((dst.w - dst.h) / 2);
+			landscape.y = dst.y + ((dst.h - dst.w) / 2);
+			SDL_RenderCopyEx(scrnmng.renderer, scrnmng.texture, &src, &landscape, 90.0, NULL,
+			                 SDL_FLIP_NONE);
+		} else {
+			SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, &src, &dst);
+		}
 	}
+	turned = (scrnmng.rotation == VAEG_ROTATE_RIGHT) ? TRUE : FALSE;
+	row_span = turned ? dst.w : dst.h;
+	col_span = turned ? dst.h : dst.w;
 	scrnmng_draw_front_panel();
 	SDL_RenderSetClipRect(scrnmng.renderer, &dst);
 	if (((scrnmng.effect == VAEG_EFFECT_SCANLINE) || (scrnmng.effect == VAEG_EFFECT_CRT_LITE)) &&
-	    (dst.h >= scrnmng.height)) {
+	    (row_span >= scrnmng.height)) {
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
 		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0,
 		                       (scrnmng.effect == VAEG_EFFECT_CRT_LITE) ? 42 : 34);
@@ -2266,31 +2341,41 @@ void scrnmng_present_begin(void) {
 			int y1;
 			SDL_Rect line;
 
-			y0 = dst.y + (row * dst.h) / scrnmng.height;
-			y1 = dst.y + ((row + 1) * dst.h) / scrnmng.height;
+			y0 = (row * row_span) / scrnmng.height;
+			y1 = ((row + 1) * row_span) / scrnmng.height;
 			if (y1 <= y0) {
 				y1 = y0 + 1;
 			}
-			line.x = dst.x;
-			line.y = y0;
-			line.w = dst.w;
-			line.h = y1 - y0;
+			if (turned) {
+				/* guest row 0 is the rightmost column */
+				line.x = dst.x + dst.w - y1;
+				line.y = dst.y;
+				line.w = y1 - y0;
+				line.h = dst.h;
+			} else {
+				line.x = dst.x;
+				line.y = dst.y + y0;
+				line.w = dst.w;
+				line.h = y1 - y0;
+			}
 			SDL_RenderFillRect(scrnmng.renderer, &line);
 		}
 	}
 	if (scrnmng.effect == VAEG_EFFECT_CRT_LITE) {
-		if (dst.w >= (scrnmng.width * 2)) {
+		if (col_span >= (scrnmng.width * 2)) {
+			static const UINT8 stripe[3][3] = {{24, 2, 2}, {2, 24, 2}, {2, 2, 24}};
+
+			/* stripes along the guest columns: horizontal once turned */
 			SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_ADD);
-			for (x = dst.x; x < (dst.x + dst.w); x += 3) {
-				SDL_SetRenderDrawColor(scrnmng.renderer, 24, 2, 2, 10);
-				SDL_RenderDrawLine(scrnmng.renderer, x, dst.y, x, dst.y + dst.h - 1);
-				if ((x + 1) < (dst.x + dst.w)) {
-					SDL_SetRenderDrawColor(scrnmng.renderer, 2, 24, 2, 10);
-					SDL_RenderDrawLine(scrnmng.renderer, x + 1, dst.y, x + 1, dst.y + dst.h - 1);
-				}
-				if ((x + 2) < (dst.x + dst.w)) {
-					SDL_SetRenderDrawColor(scrnmng.renderer, 2, 2, 24, 10);
-					SDL_RenderDrawLine(scrnmng.renderer, x + 2, dst.y, x + 2, dst.y + dst.h - 1);
+			for (x = 0; x < col_span; x++) {
+				SDL_SetRenderDrawColor(scrnmng.renderer, stripe[x % 3][0], stripe[x % 3][1],
+				                       stripe[x % 3][2], 10);
+				if (turned) {
+					SDL_RenderDrawLine(scrnmng.renderer, dst.x, dst.y + x, dst.x + dst.w - 1,
+					                   dst.y + x);
+				} else {
+					SDL_RenderDrawLine(scrnmng.renderer, dst.x + x, dst.y, dst.x + x,
+					                   dst.y + dst.h - 1);
 				}
 			}
 		}
@@ -2530,12 +2615,22 @@ void scrnmng_present_end(void) {
 				                                          viewport.y, viewport.width,
 				                                          viewport.height);
 			}
-			vaeg_frame_input_initialize(
-			    &frame, scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2), scrnmng.width,
-			    scrnmng.height, (UINT32)scrnmng.shadow_pitch, VAEG_FRAME_PIXEL_RGB565,
-			    VAEG_FRAME_ROWS_TOP_DOWN, scrnmng.aspect ? 4U : (UINT32)scrnmng.width,
-			    scrnmng.aspect ? 3U : (UINT32)scrnmng.height, vaeg_nominal_frame_rate, 1U,
-			    scrnmng.native_frame_number++, 16666667U);
+			if (scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+				/* the shaders get the turned picture (height x width) */
+				vaeg_frame_input_initialize(
+				    &frame, scrnmng_turn_shadow(), scrnmng.height, scrnmng.width,
+				    (UINT32)scrnmng.height * 2, VAEG_FRAME_PIXEL_RGB565, VAEG_FRAME_ROWS_TOP_DOWN,
+				    scrnmng.aspect ? 3U : (UINT32)scrnmng.height,
+				    scrnmng.aspect ? 4U : (UINT32)scrnmng.width, vaeg_nominal_frame_rate, 1U,
+				    scrnmng.native_frame_number++, 16666667U);
+			} else {
+				vaeg_frame_input_initialize(
+				    &frame, scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2), scrnmng.width,
+				    scrnmng.height, (UINT32)scrnmng.shadow_pitch, VAEG_FRAME_PIXEL_RGB565,
+				    VAEG_FRAME_ROWS_TOP_DOWN, scrnmng.aspect ? 4U : (UINT32)scrnmng.width,
+				    scrnmng.aspect ? 3U : (UINT32)scrnmng.height, vaeg_nominal_frame_rate, 1U,
+				    scrnmng.native_frame_number++, 16666667U);
+			}
 			if (scrnmng.display_capture_ready) {
 				SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(
 				    0, drawable_width, drawable_height, 32, SDL_PIXELFORMAT_RGBA32);

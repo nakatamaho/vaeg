@@ -153,6 +153,7 @@ NP2OSCFG np2oscfg = {0,
                      100,
                      VAEG_EFFECT_UNFILTERED,
                      VAEG_SCALING_FIT,
+                     VAEG_ROTATE_NONE,
                      640,
                      422,
                      VAEG_DISPLAY_WINDOWED,
@@ -286,6 +287,8 @@ typedef struct {
 	UINT8 applied_fscrnmod;
 	BOOL effect;
 	BYTE saved_effect;
+	BOOL rotate;
+	BYTE saved_rotate;
 	BOOL scaling;
 	BYTE saved_scaling;
 	BOOL controller;
@@ -342,6 +345,7 @@ static void usage(const char *progname) {
 	printf("Display and input (session only):\n");
 	printf("\t--fullscreen | --windowed\n");
 	printf("\t--effect unfiltered|linear|scanline|crt-lite\n");
+	printf("\t--rotate none|right\n");
 	printf("\t--scaling native|fit|fit-8dot|integer|stretch\n");
 	printf("\t--controller joystick|mouse\n");
 	printf("\t--keyboard-layout jis|us|custom\n");
@@ -972,6 +976,10 @@ static BYTE cli_effect(UINT value) {
 	return ((BYTE)(value - VAEG_CLI_EFFECT_UNFILTERED));
 }
 
+static BYTE cli_rotate(UINT value) {
+	return ((value == VAEG_CLI_ROTATE_RIGHT) ? VAEG_ROTATE_RIGHT : VAEG_ROTATE_NONE);
+}
+
 static BYTE cli_scaling(UINT value) {
 	return ((BYTE)(value - VAEG_CLI_SCALING_NATIVE));
 }
@@ -1113,6 +1121,8 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	saved->fscrnmod = np2oscfg.fscrnmod;
 	saved->effect = options->effect != VAEG_CLI_EFFECT_UNSET;
 	saved->saved_effect = np2oscfg.gui_effect;
+	saved->rotate = options->rotate != VAEG_CLI_ROTATE_UNSET;
+	saved->saved_rotate = np2oscfg.gui_rotate;
 	saved->scaling = options->scaling != VAEG_CLI_SCALING_UNSET;
 	saved->saved_scaling = np2oscfg.gui_scaling;
 	saved->controller = options->controller != VAEG_CLI_CONTROLLER_UNSET;
@@ -1202,6 +1212,9 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 	}
 	if (saved->effect) {
 		np2oscfg.gui_effect = cli_effect(options->effect);
+	}
+	if (saved->rotate) {
+		np2oscfg.gui_rotate = cli_rotate(options->rotate);
 	}
 	if (saved->scaling) {
 		np2oscfg.gui_scaling = cli_scaling(options->scaling);
@@ -1322,6 +1335,9 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_
 	if (saved->effect && (np2oscfg.gui_effect == cli_effect(options->effect))) {
 		np2oscfg.gui_effect = saved->saved_effect;
 	}
+	if (saved->rotate && (np2oscfg.gui_rotate == cli_rotate(options->rotate))) {
+		np2oscfg.gui_rotate = saved->saved_rotate;
+	}
 	if (saved->scaling && (np2oscfg.gui_scaling == cli_scaling(options->scaling))) {
 		np2oscfg.gui_scaling = saved->saved_scaling;
 	}
@@ -1397,6 +1413,7 @@ BOOL np2_cli_override_selftest(void) {
 	np2oscfg.fscrnmod = 2;
 	np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
 	np2oscfg.gui_scaling = VAEG_SCALING_FIT;
+	np2oscfg.gui_rotate = VAEG_ROTATE_NONE;
 	milstr_ncpy(np2oscfg.keyboard_host_layout, "jis", sizeof(np2oscfg.keyboard_host_layout));
 	file_cpyname(np2oscfg.fdd_image[0], "saved1.d88", sizeof(np2oscfg.fdd_image[0]));
 	file_cpyname(np2oscfg.fdd_image[1], "saved2.d88", sizeof(np2oscfg.fdd_image[1]));
@@ -2205,6 +2222,7 @@ int main(int argc, char **argv) {
 	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
 	scrnmng_set_scaling(np2oscfg.gui_scaling);
 	scrnmng_set_effect(np2oscfg.gui_effect);
+	scrnmng_set_rotation(np2oscfg.gui_rotate);
 	SDL_Log("Display config: window=%ux%u mode=%u monitor=%d scaling=%u effect=%u",
 	        np2oscfg.gui_window_width, np2oscfg.gui_window_height, np2oscfg.gui_display_mode,
 	        np2oscfg.gui_monitor, np2oscfg.gui_scaling, np2oscfg.gui_effect);
