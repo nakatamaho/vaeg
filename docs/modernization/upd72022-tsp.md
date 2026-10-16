@@ -856,6 +856,12 @@ then apply external transparency and class separation.
 `[UNKNOWN]` Ordering of line pixels against every secret/reverse combination
 requires a hardware discriminator test.
 
+`[MEAS]` vaeg (M117) decodes modes 4 and 5 as above, including blink; before
+M117 they were read as mode 0 and never blinked. Undocumented modes 6 and 7
+are read as a 4-bit background (bits 7:4) and foreground (bits 3:0), mode 6
+with bit 7 as blink and mode 7 without blink; this reproduces the TSPMODE
+observations with attribute F0h (section 20) and is otherwise unverified.
+
 ## 13. Sprite engine
 
 ### 13.1 Descriptors, ownership, and priority
