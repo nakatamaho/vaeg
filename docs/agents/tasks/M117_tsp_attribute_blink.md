@@ -91,9 +91,21 @@ Clean-checkout MinGW build of `5d2b03ad` (blink fix and rotation; later
 commits are records only): `vaeg.exe` SHA-256
 `eb604e044aa36a637c2ec2fa6bcda2ee0ca62852d85ed6bc60168f174be692db`.
 
+## Cursor after SYNC
+
+Reported by the maintainer on 2026-10-16: a commercial game disk shows the text
+cursor in vaeg (VA and VA2) but not on the hardware. The game's TSP
+commands end with CURDEF FBh (sprite 31, CE and BE) and a SYNC with no
+DSPON; no sprite has SW set. The CE cursor is now shown only while DSPON is
+in effect. Verified: no cursor over eight frames of the game screen on both
+models; the PC-Engine, V1/V2 BASIC and N-BASIC cursors still blink; ctest
+93/93; selftest extended and mutation-checked.
+
 ## Gate G117 (human)
 
 Standard gate, plus: the software where the maintainer saw blinking on the
 hardware blinks in vaeg; TSPMODE 4-7 matches the M104 record; 画面 > 右に
 90° 回転 turns the picture right with the SDL renderer and with Native CRT,
-the mouse follows, and turning it off restores the window.
+the mouse follows, and turning it off restores the window; the
+commercial game shows no text cursor on either model. (Rotation passed with the SDL
+renderer and librashader, maintainer, 2026-10-16.)
