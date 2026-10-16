@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115b — PCG-8100/8800 sample program
 
-Status: **complete; G115b passed on 2026-10-16**
+Status: **complete; G115b passed on 2026-10-16; merged to `main` at [70d506b](https://github.com/nakatamaho/vaeg/commit/70d506bf40b0b1e03674472cb68da5eeaeefe50e)**
 
 ## Request
 
