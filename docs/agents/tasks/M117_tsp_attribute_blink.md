@@ -68,8 +68,8 @@ Requested by the maintainer on 2026-10-16: turn the screen 90 degrees right.
 
 - 画面 > 右に 90° 回転, config `GUI_rotate` (0 none, 1 right), command line
   `--rotate none|right` (applies to the session only, like `--effect`).
-- Display only; the guest frame, `--screenshot`-free guest captures and
-  state thumbnails stay unturned. The SDL path draws the texture turned
+- Display only: the guest frame, 加工前 screenshots and state thumbnails
+  stay unturned; rendered screenshots and `--screenshot` are turned. The SDL path draws the texture turned
   with `SDL_RenderCopyEx`; Native CRT receives the turned picture (height x
   width, 3:4 with the aspect correction). The viewport fits the turned
   picture, the window size from the 画面 menu becomes height x width, mouse
