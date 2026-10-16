@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M117 — TSP attribute modes 4-7 and blink; screen rotation
 
-Status: **complete; G117 passed on 2026-10-16**
+Status: **complete; G117 passed on 2026-10-16; merged to `main` at [6a5996b](https://github.com/nakatamaho/vaeg/commit/6a5996b4db033a9c88da4e3323d2a8a88d4e371f)**
 
 ## Request
 
