@@ -44,6 +44,9 @@ a README News entry (maintainer, 2026-10-16).
   release date): `docs/images/vaeg-20261017-155514-0000091005-000.png`
   (PC-8801mkIISR demonstration, V2 mode) and
   `docs/images/vaeg-20261017-155419-0000036240-000.png` (N88-BASIC V2),
+  `docs/images/vaeg-20261017-162748-0000092236-000.png` (N-BASIC, N mode) and
+  `docs/images/vaeg-20261017-173043-0000094917-000.png` (a cassette tape loading in
+  V1/V2 BASIC), the last two added on 2026-10-16,
   shown in the README News entry; `CHANGES.20261017.md` links the same
   files as release assets of `rel-20261017`, as in Rel.20260908.
 
