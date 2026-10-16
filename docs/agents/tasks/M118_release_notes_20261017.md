@@ -112,3 +112,19 @@ workflow's `macos-latest` and GCC accept it. The FLD-constant table is now
 an automatic array, which every C99 compiler accepts
 ([53ecfc35](https://github.com/nakatamaho/vaeg/commit/53ecfc35946d5b3898166013d590fbd5b413a16b)); CTest 93/93 and
 the selftest pass. The run was cancelled and the tag moved again.
+
+## Release published (2026-10-17)
+
+[Rel.20261017](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017),
+tag `rel-20261017` at
+[31577624](https://github.com/nakatamaho/vaeg/commit/315776242341bb452f40fa2bf50df01ceae591c7)
+(hosted build CI green). The release workflow built and uploaded the three
+packages; the downloaded Linux and Windows binaries report
+`Rel.20261017` and embed that commit. The four screenshots were attached
+and the release published.
+
+| Asset | SHA-256 |
+|---|---|
+| `vaeg-rel20261017-linux-x86_64.tar.gz` | `205b0d6db8bd2baf683771eab187de442377dc6a978d007d1e4feb14aed7d7d6` |
+| `vaeg-rel20261017-macos-arm64.tar.gz` | `c6f406f3e2510f75eef7d7628934e6767ae3c81d9c041ee565132287445329d3` |
+| `vaeg-rel20261017-win-x86_64.zip` | `8b5966665d093836b78e088acd4acae5e0028fb96af717fc7731e3a6d7b5227c` |
