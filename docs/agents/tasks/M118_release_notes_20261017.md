@@ -91,3 +91,15 @@ starts and terminates its own
 `linux-ci-asan` and `linux-ci-gcc` CTest: 93/93 each (four skips). Ledger
 entry "M118 — PC-8801, PC-8001 and PCG selftests accessed a destroyed
 machine".
+
+## Follow-up: release packaging (2026-10-17)
+
+The first `rel-20261017` release run (tag at `3f926d7e`) stopped in the
+Linux Package step: `stage-librashader-assets.sh` pins the SHA-256 of
+`docs/licenses/THIRD_PARTY_NOTICES.md`, which M115a extended with the
+X88000 and QUASI88 credits without updating the pin. No release or asset
+was published. The pin now matches the current notices
+([84549e10](https://github.com/nakatamaho/vaeg/commit/84549e101ae89eea6d689a9e0e1098f7c4eaf099)); the workflow's
+Linux Package step, replayed locally on the `linux-ci-gcc` build, passes
+`check-librashader-package.py` and `check_zex_archive.py`. The tag was moved
+to the corrected commit.
