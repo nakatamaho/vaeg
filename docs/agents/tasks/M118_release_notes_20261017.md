@@ -23,13 +23,13 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M118 — Rel.20261017 release notes
 
-Status: **complete; G118 passed on 2026-10-17; merged to `main` at [c5d518f](https://github.com/nakatamaho/vaeg/commit/c5d518f53603f15ac9c5b899103344668c788adf)**
+Status: **complete; G118 passed on 2026-10-16; merged to `main` at [c5d518f](https://github.com/nakatamaho/vaeg/commit/c5d518f53603f15ac9c5b899103344668c788adf)**
 
 ## Request
 
 Write `CHANGES.20261017.md` from the commits since Rel.20260908, keeping
 what matters to users; add the V1/V2 and N modes to the README features and
-a README News entry (maintainer, 2026-10-17).
+a README News entry (maintainer, 2026-10-16).
 
 ## Work
 
@@ -53,4 +53,4 @@ The maintainer reviews the release notes and the README changes.
 
 ### G118
 
-- Passed on 2026-10-17 (maintainer).
+- Passed on 2026-10-16 (maintainer).
