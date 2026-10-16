@@ -97,8 +97,11 @@ The menu lists:
 | L | `V480PAT A`: the 24.8 kHz display-timing sweep ([vtiming](../../tools/pc88va/vtiming/README.md)) |
 | M | `TSPMODE`: undocumented TSP screen modes |
 | N | `TSPFILL A`: known data under those modes |
+| O | `SGPTEST`: SGP regression test, CRCs against vaeg ([sgptest](../../tools/pc88va/sgptest/README.md), M109a) |
+| P | `SGPDUMP`: the destination bytes of T07 and T09 side by side and port 153h before and after SGP use (M109a) |
 
-ESC in a demo ends it; its summary is printed and a key returns to the menu,
+SGPTEST and SGPDUMP need no key: they print their results and end. ESC in a demo ends
+it; its summary is printed and a key returns to the menu,
 which turns graphics off and restores the default palette first (M109).
 Up to 1024 balls in A-H (UP/DOWN or `+`/`-`).
 

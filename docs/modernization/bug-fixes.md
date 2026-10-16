@@ -113,6 +113,27 @@ land.
 - **Milestone/task/commit:** M110;
   [correcting commit](https://github.com/nakatamaho/vaeg/commit/dd7a661e23164385b3995091db35b827d41bd3cc).
 
+### M109a — SGP sprites read upwards were striped on the original VA
+
+- **Symptom/scope:** in the VA (not VA2) model, sprites a commercial game
+  draws with a vertically reversed SGP BITBLT appeared as horizontal
+  stripes. Every program sending an SGP pitch with low bits set, VA model
+  only.
+- **Demonstrated cause:** the source descriptor's FBW is `FFF3h` for
+  12-byte lines. Since M97b vaeg dropped its low two bits on the VA (-16)
+  instead of reading it as on the VA2 (-12), so each line moved 4 bytes.
+  The command stream is the same on both models; with the VA2 reading the
+  VA draws them correctly.
+- **Correction:** FBW is decoded the same way on both models: bit 0
+  dropped, a negative pitch two bytes shorter (`sgp_decode_fbw`).
+- **Verification:** SGP selftest (`FFF3h` is -12 on both models); the game
+  in VA mode shows no striped sprite over 15 sampled scenes; SGPTEST shows
+  0 differences on both models and 5 with the M97b rule restored.
+  Hardware results for the other low-bit values are pending (SGPTEST
+  T06-T12, [M109a task](../agents/tasks/M109a_sgp_fbw_and_sgptest.md)).
+- **Milestone/task/commit:** M109a;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d288656ce79e1c56eeb2022647079a8c498e1f23).
+
 ### M109 — the digital RGB monitor showed the NEC logo red
 
 - **Symptom/scope:** with Emulate > モニタ > デジタル RGB (8色), the VA demo's

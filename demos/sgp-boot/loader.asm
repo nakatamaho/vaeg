@@ -80,6 +80,8 @@ menu:		mov	ax,cs
 		int	83h
 		mov	ax,1702h		; clear the whole split screen
 		int	83h
+		mov	ax,2500h		; cursor off (M109a: the ROM does not define
+		int	83h			; its sprite pattern, which shows stray data)
 		xor	dx,dx			; cursor to the top left
 		mov	ah,08h
 		int	83h

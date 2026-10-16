@@ -73,6 +73,9 @@ DEMOS = [
     ("V480PAT A: 24.8 kHz display timing sweep", "vtiming", "vt/V480PAT.COM", " A"),
     ("TSPMODE: undocumented TSP screen modes", "vtiming", "vt/TSPMODE.COM"),
     ("TSPFILL A: known data under those modes", "vtiming", "vt/TSPFILL.COM", " A"),
+    # M109a: SGP regression test (tools/pc88va/sgptest).
+    ("SGPTEST: SGP regression test, CRCs against vaeg", "sgptest", "sg/SGPTEST.COM"),
+    ("SGPDUMP: T07/T09 bytes and port 153h", "sgptest", "sg/SGPDUMP.COM"),
 ]
 
 
@@ -95,7 +98,12 @@ def build_demos(repo: Path, work: Path, env: dict[str, str]) -> None:
     (work / "vt").mkdir(parents=True, exist_ok=True)
     for name in ("v480pat", "tspmode", "tspfill"):
         nasm(env, ["-o", str(work / "vt" / f"{name.upper()}.COM"), str(vtiming / f"{name}.asm")])
-    for name in sorted({entry[1] for entry in DEMOS} - {"vtiming"}):
+    sgptest = repo / "tools/pc88va/sgptest"
+    (work / "sg").mkdir(parents=True, exist_ok=True)
+    nasm(env, [f"-I{sgptest}/", "-o", str(work / "sg" / "SGPTEST.COM"), str(sgptest / "sgptest.asm")])
+    nasm(env, [f"-I{sgptest}/", "-DDUMP", "-DEXPECTED_NONE", "-o", str(work / "sg" / "SGPDUMP.COM"),
+               str(sgptest / "sgptest.asm")])
+    for name in sorted({entry[1] for entry in DEMOS} - {"vtiming", "sgptest"}):
         script, target = steps[name]
         (target if target.suffix == "" else target.parent).mkdir(parents=True, exist_ok=True)
         subprocess.run(["sh", str(script), str(target)], check=True, env=env,
@@ -149,7 +157,8 @@ def write_d88(path: Path, image: bytes, name: str, geo: Geometry) -> None:
 # System-disk directories (8.3 names); sprites and wireframes share them,
 # as in the existing distribution disks.
 PCENGINE_DIRS = {"16": "16", "256": "256", "65536": "65536",
-                 "w16": "16", "w256": "256", "w65536": "65536", "vt": "VTIMING"}
+                 "w16": "16", "w256": "256", "w65536": "65536", "vt": "VTIMING",
+                 "sg": "SGPTEST"}
 
 
 def build_on_system(repo: Path, env: dict[str, str], source: Path, output: Path) -> int:
