@@ -15,6 +15,7 @@ void maketextva_blankraster(void);
 UINT32 maketextva_bytelocal(UINT32 local);
 BOOL maketextva_bytelocal_usable(UINT32 local);
 const BYTE *maketextva_3301_text(UINT row);
+void maketextva_decode_attr(UINT mode, BYTE attr, BYTE frame_bg, BYTE *bg, BYTE *fg, BYTE *flags);
 
 #ifdef __cplusplus
 }

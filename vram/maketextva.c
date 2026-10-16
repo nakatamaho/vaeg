@@ -170,6 +170,41 @@ static void synattr1(BYTE attr, CHARATTR charattr) {
 	charattr->attr = attr & 0x0f;
 }
 
+/*
+ * attribute modes 4 and 5 (M117): bit 7 blink, bits 6-4 background, bits
+ * 3-0 foreground (Technical Manual); mode 5 also draws the horizontal line
+ * when (foreground & 7) == 1. Undocumented modes 6 and 7, measured with
+ * attribute F0h on a PC-88VA2 (M104 TSPMODE): 6 blinks with a grey block
+ * and 7 shows the grey block without blinking, read here as a 4-bit
+ * background (F0h gives 15), with and without blink.
+ */
+static void synattr4(BYTE attr, CHARATTR charattr) {
+	charattr->bg = (attr >> 4) & 0x07;
+	charattr->fg = attr & 0x0f;
+	charattr->attr = (attr & 0x80) ? TEXTVA_ATR_BL : 0;
+}
+
+static void synattr5(BYTE attr, CHARATTR charattr) {
+	synattr4(attr, charattr);
+	if ((charattr->fg & 0x07) == 1) {
+		charattr->attr |= TEXTVA_ATR_HL;
+	}
+}
+
+static void synattr6(BYTE attr, CHARATTR charattr) {
+	charattr->bg = attr >> 4;
+	charattr->fg = attr & 0x0f;
+	charattr->attr = (attr & 0x80) ? TEXTVA_ATR_BL : 0;
+}
+
+static void synattr7(BYTE attr, CHARATTR charattr) {
+	synattr0(attr, charattr);
+}
+
+/* Attribute decoding per screen-table MODE (bits 2-0). */
+static SYNATTRFN const synattrtbl[] = {synattr0, synattr1, synattr0, synattr0,
+                                       synattr4, synattr5, synattr6, synattr7};
+
 static void makeline(BYTE *v, UINT16 rwchar) {
 	int x;
 	UINT r;
@@ -584,9 +619,6 @@ void maketextva(void) {
 #endif
 
 static void selectframe(int no) {
-	static SYNATTRFN synattrtbl[] = {synattr0, synattr1, synattr0, synattr0,
-	                                 synattr0, synattr0, synattr0, synattr0};
-
 	work.frameno = no;
 	work.frame = &work._frame[no];
 	work.framelimit = work.y + work.frame->rh;
@@ -836,4 +868,21 @@ void maketextva_raster(void) {
 		work.y++;
 	}
 	work.screeny++;
+}
+
+/* M117: attribute decoding of a screen-table MODE for the selftest (mode 1
+ * takes its background from the split screen, given here as frame_bg). */
+void maketextva_decode_attr(UINT mode, BYTE attr, BYTE frame_bg, BYTE *bg, BYTE *fg, BYTE *flags) {
+	_CHARATTR c;
+
+	if ((mode & 0x07) == 1) {
+		c.bg = frame_bg;
+		c.fg = attr >> 4;
+		c.attr = attr & 0x0f;
+	} else {
+		synattrtbl[mode & 0x07](attr, &c);
+	}
+	*bg = c.bg;
+	*fg = c.fg;
+	*flags = c.attr;
 }

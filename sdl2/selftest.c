@@ -6387,6 +6387,55 @@ static int test_pcg88(void) {
 	return (SUCCESS);
 }
 
+/* M117: TSP attribute modes. Modes 4 and 5 read bit 7 as blink, bits 6-4
+ * as background and 3-0 as foreground; mode 5 adds the line for foreground
+ * 1/9; with F0h mode 6 blinks grey and mode 7 is grey without blinking
+ * (PC-88VA2, M104 TSPMODE); modes 0 and 1 are unchanged. */
+static int test_tsp_attribute_modes(void) {
+	BYTE bg;
+	BYTE fg;
+	BYTE flags;
+	const char *problem = NULL;
+
+	maketextva_decode_attr(4, 0xf0, 0, &bg, &fg, &flags);
+	if ((bg != 7) || (fg != 0) || !(flags & 0x02)) {
+		problem = "mode 4 blink, background and foreground";
+	}
+	maketextva_decode_attr(4, 0x35, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 5) || (flags != 0))) {
+		problem = "mode 4 without blink";
+	}
+	maketextva_decode_attr(5, 0x09, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 9) || !(flags & 0x08) || (flags & 0x02))) {
+		problem = "mode 5 horizontal line for foreground 9";
+	}
+	maketextva_decode_attr(5, 0x82, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (!(flags & 0x02) || (flags & 0x08))) {
+		problem = "mode 5 blink without the line";
+	}
+	maketextva_decode_attr(6, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || !(flags & 0x02))) {
+		problem = "mode 6 blinks with a grey background";
+	}
+	maketextva_decode_attr(7, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 7 grey background without blink";
+	}
+	maketextva_decode_attr(0, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (fg != 0) || (flags != 0))) {
+		problem = "mode 0 unchanged";
+	}
+	maketextva_decode_attr(1, 0xf2, 3, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 0x0f) || (flags != 0x02))) {
+		problem = "mode 1 unchanged";
+	}
+	if (problem != NULL) {
+		return (fail("TSP attribute modes", problem));
+	}
+	fprintf(stderr, "selftest: TSP attribute modes ok\n");
+	return (SUCCESS);
+}
+
 /* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
@@ -7743,6 +7792,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pcg88() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_attribute_modes() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_monitor_switch() != SUCCESS) {
