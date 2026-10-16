@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M117 — TSP attribute modes 4-7 and blink; screen rotation
 
-Status: **complete; G117 passed on 2026-10-16; merged to `main` at [6a5996b](https://github.com/nakatamaho/vaeg/commit/6a5996b4db033a9c88da4e3323d2a8a88d4e371f)**
+Status: **complete; G117 passed on 2026-10-16; merged to `main` at [2c95625](https://github.com/nakatamaho/vaeg/commit/2c95625ae5010704e867941ab27f690ed01bfc50)**
 
 ## Request
 
@@ -116,9 +116,10 @@ in effect. Verified: no cursor over eight frames of the game screen on both
 models; the PC-Engine, V1/V2 BASIC and N-BASIC cursors still blink; ctest
 93/93; selftest extended and mutation-checked.
 
-Clean-checkout MinGW build of `da3c9353` (with the cursor fix and
-attribute modes 2, 3 and 6): `vaeg.exe` SHA-256
-`539d656872aa329e9cedcf36f2e25cf8be9284f905754f1ec51876be19eadb94`.
+Clean-checkout MinGW build of `2fe4d9a7` (with the cursor fix and
+attribute modes 2, 3 and 6; built as `da3c9353` before the 2026-10-16
+history rewrite, which changed only comments in its sources):
+`vaeg.exe` SHA-256 `539d656872aa329e9cedcf36f2e25cf8be9284f905754f1ec51876be19eadb94`.
 
 ## Gate G117 (human)
 
@@ -134,6 +135,6 @@ renderer and librashader, maintainer, 2026-10-16.)
 
 - Passed on 2026-10-16 (maintainer) with the Windows build
   `539d656872aa...db94` (SHA-256, static MinGW) from
-  [da3c9353](https://github.com/nakatamaho/vaeg/commit/da3c93535992bce7c773edf6e6bdf70eb2d5f1d8):
+  [2fe4d9a7](https://github.com/nakatamaho/vaeg/commit/2fe4d9a7b42e842a0a6a3c14fdd616f8aa5a38da):
   blink, TSPMODE 2-7, the rotation (SDL renderer and librashader) and the
   game's hidden cursor. The `MODE` 8-14 pattern moves to a separate milestone.

@@ -51,7 +51,7 @@ land.
   selftest `TSP attribute modes` (cursor without DSPON), mutation-checked.
 - **Milestone/task/commit:** M117,
   [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
-  [correcting commit](https://github.com/nakatamaho/vaeg/commit/f4a09d59118e5dec3d457d96d2dfb9e834ca19db).
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/20214bebeaa910ca8342b88388b7f0f38a49e7df).
 
 ### M117 — text with the blink attribute did not blink
 
@@ -67,7 +67,7 @@ land.
   6:4 background, mode 5 line for colours 1 and 9); undocumented modes 6 and
   7 follow the PC-88VA2 TSPMODE observations; modes 2 and 3 decode their
   shape bits and colour/shape records
-  ([second correcting commit](https://github.com/nakatamaho/vaeg/commit/f9caa9481584a85557678aaa3732509aeae71353)).
+  ([second correcting commit](https://github.com/nakatamaho/vaeg/commit/06b5f07b1a14b629260808ae8a09382439a2030f)).
 - **Verification:** TSPMODE 4 under PC-Engine blinks after the fix and was
   steady before; TSPMODE 2 and 3 on the self-booting SGP disk match the
   PC-88VA2 photographs; selftest `TSP attribute modes`.
