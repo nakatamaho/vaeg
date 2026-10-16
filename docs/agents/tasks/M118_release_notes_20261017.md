@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M118 — Rel.20261017 release notes
 
-Status: **complete; G118 passed on 2026-10-17**
+Status: **complete; G118 passed on 2026-10-17; merged to `main` at [c5d518f](https://github.com/nakatamaho/vaeg/commit/c5d518f53603f15ac9c5b899103344668c788adf)**
 
 ## Request
 
