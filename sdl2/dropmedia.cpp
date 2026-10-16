@@ -62,6 +62,8 @@ constexpr std::uintmax_t kMaxExtractedBytes = 128u * 1024u * 1024u;
 constexpr std::size_t kMaxArchiveEntries = 4096;
 constexpr std::size_t kMaxImageCandidates = 256;
 constexpr const char kArchiveSourceDirectoryFile[] = ".source-directory";
+/* M116: the archive an image was extracted from, for 最近の起動. */
+constexpr const char kArchiveSourceFile[] = ".source-archive";
 
 struct DiskCandidate {
 	std::string path;
@@ -268,6 +270,20 @@ static void write_archive_source_directory(const fs::path &archive_directory,
 	}
 }
 
+static void write_archive_source(const fs::path &archive_directory,
+                                 const std::string &archive_path) {
+	std::error_code ec;
+	const std::string absolute = fs::absolute(fs::u8path(archive_path), ec).u8string();
+	if (ec || absolute.empty() || (absolute.size() >= MAX_PATH)) {
+		return;
+	}
+	std::ofstream output(archive_directory / kArchiveSourceFile,
+	                     std::ios::binary | std::ios::trunc);
+	if (output) {
+		output.write(absolute.data(), static_cast<std::streamsize>(absolute.size()));
+	}
+}
+
 static fs::path managed_archive_directory(const std::string &mounted_path,
                                           const fs::path &storage_root) {
 	std::error_code ec;
@@ -331,6 +347,33 @@ static std::string read_archive_source_directory(const std::string &mounted_path
 		return std::string();
 	}
 	return source_directory;
+}
+
+/* M116: the archive written by write_archive_source, if it still exists. */
+static std::string read_archive_source(const std::string &mounted_path,
+                                       const fs::path &storage_root) {
+	const fs::path directory = managed_archive_directory(mounted_path, storage_root);
+	char buffer[MAX_PATH];
+
+	if (directory.empty()) {
+		return std::string();
+	}
+	std::ifstream input(directory / kArchiveSourceFile, std::ios::binary);
+	if (!input) {
+		return std::string();
+	}
+	input.read(buffer, sizeof(buffer));
+	const std::streamsize count = input.gcount();
+	if ((count <= 0) || (count >= static_cast<std::streamsize>(sizeof(buffer)))) {
+		return std::string();
+	}
+	const std::string path(buffer, static_cast<std::size_t>(count));
+	std::error_code ec;
+	if ((path.find('\0') != std::string::npos) || !fs::is_regular_file(fs::u8path(path), ec) ||
+	    ec) {
+		return std::string();
+	}
+	return path;
 }
 
 static std::string read_archive_source_directory(const std::string &mounted_path) {
@@ -566,6 +609,7 @@ static bool extract_xz_image(const std::string &image_path, std::vector<DiskCand
 	}
 	archive_read_free(reader);
 	write_archive_source_directory(output_dir, source_directory);
+	write_archive_source(output_dir, image_path);
 	if ((output_path.u8string().size() >= MAX_PATH) || (image_bytes == 0)) {
 		*error = (image_bytes == 0) ? "compressed image is empty"
 		                            : "extracted disk image path is too long";
@@ -707,6 +751,7 @@ static bool extract_archive_images(const std::string &archive_path,
 			goto extract_error;
 		}
 		write_archive_source_directory(output_dir, source_directory);
+		write_archive_source(output_dir, archive_path);
 		if (output_path.u8string().size() >= MAX_PATH) {
 			*error = "extracted disk image path is too long";
 			goto extract_error;
@@ -939,6 +984,29 @@ extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 #endif
 }
 
+/* M116: the archive a managed (extracted) image came from; FALSE when the
+ * image is not one or the archive no longer exists. */
+extern "C" BOOL dropmedia_source_archive(const char *mounted_path, char *archive, UINT size) {
+	if ((archive != nullptr) && (size != 0)) {
+		archive[0] = '\0';
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	if ((mounted_path == nullptr) || (mounted_path[0] == '\0') || (archive == nullptr) ||
+	    (size == 0)) {
+		return FALSE;
+	}
+	const std::string path = read_archive_source(mounted_path, archive_storage_root());
+	if (path.empty() || (path.size() >= size)) {
+		return FALSE;
+	}
+	file_cpyname(archive, path.c_str(), static_cast<int>(size));
+	return TRUE;
+#else
+	(void)mounted_path;
+	return FALSE;
+#endif
+}
+
 extern "C" BOOL dropmedia_fdd_source_directory(UINT drive, const char *mounted_path,
                                                char *directory, UINT directory_size) {
 	if ((directory != nullptr) && (directory_size != 0)) {
@@ -1133,7 +1201,9 @@ extern "C" BOOL dropmedia_selftest(void) {
 		    (extracted.size() != 1) || (extracted[0].basename != expected_basename) ||
 		    (extracted[0].source_directory != test_dir.u8string()) ||
 		    (read_archive_source_directory(extracted[0].path, storage_root) !=
-		     test_dir.u8string())) {
+		     test_dir.u8string()) ||
+		    (read_archive_source(extracted[0].path, storage_root) !=
+		     fs::absolute(archive_path).u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
@@ -1166,7 +1236,8 @@ extern "C" BOOL dropmedia_selftest(void) {
 		std::ifstream extracted_file(extracted[0].path, std::ios::binary);
 		const std::string contents((std::istreambuf_iterator<char>(extracted_file)),
 		                           std::istreambuf_iterator<char>());
-		if (contents != "D88") {
+		if ((contents != "D88") || (read_archive_source(extracted[0].path, storage_root) !=
+		                            fs::absolute(image_path).u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
