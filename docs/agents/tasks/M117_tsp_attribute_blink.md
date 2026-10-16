@@ -60,7 +60,7 @@ bit 7 showed as a brighter background (F0h: grey instead of white).
   the SGP boot disk, all-demos and all-demos-msdos4 exit 0 with every file
   identical to the committed images (SGP boot D88 and all-demos-msdos4
   `.xz` byte-identical).
-- Clean-checkout MinGW build: see the screen rotation section.
+- Clean-checkout MinGW build: below.
 
 ## Screen rotation
 
@@ -86,6 +86,10 @@ turned right with the guest top on the right (SDL renderer and the dummy
 capture); with `--effect scanline` and `crt-lite` the lines run vertically;
 the menu item appears and resizes the window to 400x676; `--rotate` is not
 written to the configuration. The Native CRT path could not be run here.
+
+Clean-checkout MinGW build of `5d2b03ad` (blink fix and rotation; later
+commits are records only): `vaeg.exe` SHA-256
+`eb604e044aa36a637c2ec2fa6bcda2ee0ca62852d85ed6bc60168f174be692db`.
 
 ## Gate G117 (human)
 
