@@ -75,6 +75,7 @@ DEMOS = [
     ("TSPFILL A: known data under those modes", "vtiming", "vt/TSPFILL.COM", " A"),
     # M109a: SGP regression test (tools/pc88va/sgptest).
     ("SGPTEST: SGP regression test, CRCs against vaeg", "sgptest", "sg/SGPTEST.COM"),
+    ("SGPDUMP: T07/T09 bytes and port 153h", "sgptest", "sg/SGPDUMP.COM"),
 ]
 
 
@@ -100,6 +101,8 @@ def build_demos(repo: Path, work: Path, env: dict[str, str]) -> None:
     sgptest = repo / "tools/pc88va/sgptest"
     (work / "sg").mkdir(parents=True, exist_ok=True)
     nasm(env, [f"-I{sgptest}/", "-o", str(work / "sg" / "SGPTEST.COM"), str(sgptest / "sgptest.asm")])
+    nasm(env, [f"-I{sgptest}/", "-DDUMP", "-DEXPECTED_NONE", "-o", str(work / "sg" / "SGPDUMP.COM"),
+               str(sgptest / "sgptest.asm")])
     for name in sorted({entry[1] for entry in DEMOS} - {"vtiming", "sgptest"}):
         script, target = steps[name]
         (target if target.suffix == "" else target.parent).mkdir(parents=True, exist_ok=True)
