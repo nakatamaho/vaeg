@@ -37,6 +37,15 @@ remains a useful historical reference.
 `vaeg` has the following features:
 
 - builds and runs natively on modern Windows, Linux, and macOS systems;
+- V1/V2 and N modes: PC-8801 software (N88-BASIC V1/V2, N88-DISK BASIC,
+  uPD3301 text with semigraphics, graphics, buzzer and port sound) and
+  N-BASIC run in the VA's compatibility modes, selected under 模擬 > 起動;
+- PC-8801 and PC-8001 machines started from user-supplied ROMs in
+  `extra/` (the VA ROM set is still needed);
+- PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
+  mode (optional);
+- cassette tape images (`.cmt`, `.t88`) for V1/V2 BASIC (a vaeg extension);
+- 8087 emulation, enabled by default;
 - partial PC-9801-55-compatible SCSI support;
 - EMS support;
 - main-memory and BMS compatibility;
@@ -49,13 +58,36 @@ remains a useful historical reference.
 - a uPD70008-compatible Z80 emulation path for `BRKEM`, using the
   pinned [MIT-licensed SuzukiPlan Z80 emulator](https://github.com/suzukiplan/z80);
   the former Z80 core with unclear licensing is no longer part of the active
-  tree, and `BRKEM2` is not yet supported;
+  tree; `BRKEM2` starts the V1/V2 modes;
 - optional on-screen graphics and text-sprite diagnostics;
+- state save slots with thumbnails, a front-panel lamp bar, and a screen
+  turned 90 degrees right;
 - CRT screen effects via librashader (disabled by default);
 - substantially reorganized and simplified code;
 - a greatly reduced PC-98-only codebase.
 
 ## News
+
+### 2026-10-17 - Rel.20261017
+
+[Rel.20261017](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017)
+adds the V1/V2 and N modes: PC-8801 software and N-BASIC run in the VA's
+compatibility modes, and PC-8801 and PC-8001 machines start from
+user-supplied ROMs placed in `extra/`. It also adds the 8087 (enabled by
+default), the PCG-8100/8800, cassette tape images for V1/V2 BASIC,
+reorganized Japanese menus with state slots and thumbnails, and a self-booting
+SGP demo disk. No PC-8801 or PC-8001 ROMs are included.
+
+<div align="center">
+<table align="center" width="100%">
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155514-0000091005-000.png" alt="PC-8801mkIISR demonstration in V2 mode"><br><em>PC-8801mkIISR demonstration in V2 mode</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155419-0000036240-000.png" alt="N88-BASIC V2 in V2 mode"><br><em>N88-BASIC V2 in V2 mode</em></td>
+</tr>
+</table>
+</div>
+
+See [Rel.20261017 changes](CHANGES.20261017.md) for the complete notes.
 
 ### 2026-09-21 - 8087 support
 
