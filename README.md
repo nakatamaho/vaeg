@@ -446,54 +446,66 @@ local bootable-disk workflow.
 
 ## Runtime Files and Saved State
 
-The portable frontend stores writable runtime files in two locations. The
-configuration and VA backup-memory files use the current working directory by
-default:
+The portable frontend keeps its writable files in three places.
 
-- Current working directory: `vaeg.cfg`, `vabkupmem.dat`, and
-  `va2bkupmem.dat`
+- Current working directory: `vaeg.cfg` and the backup memory,
+  `vabkupmem.dat` (PC-88VA) or `va2bkupmem.dat` (PC-88VA2/VA3). `--cfg` and
+  `--bkupmem` select other paths; `--no-cfg` and `--no-bkupmem` disable
+  them.
+- Next to the executable: `states/` (state slots, one directory per
+  software, each slot with a thumbnail), `screenshots/`, and `vaeg-cache/`
+  (the CRT shader cache). If that directory cannot be written, the user
+  directory below is used instead.
+- User directory: the boot and media histories (`vaeg-history.txt`), the
+  custom keyboard map sidecar, and the disks extracted from dropped or
+  opened archives (`archive-drop/`):
+  - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
+  - Windows: `%APPDATA%\vaeg`
+  - macOS: `~/Library/Application Support/vaeg`
 
-GUI save-state slots and keyboard sidecars normally use the platform user
-state directory:
-
-- Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
-- Windows: `%APPDATA%\vaeg`
-- macOS: `~/Library/Application Support/vaeg`
-
-For a portable setup, place `vaeg.cfg` and the applicable backup-memory file
-beside the executable, or start vaeg from the directory containing them. The
-`--cfg` and `--bkupmem` options can select explicit paths. GUI save-state
-slots and keyboard sidecars remain in the platform user state directory.
+The ROMs are read from the executable's directory (or `--roms`): the VA ROM
+set, `extra/<model>/<role>.rom` for the PC-8801 and PC-8001 machines, and
+the N-BASIC ROMs for N mode. For a portable setup, place `vaeg.cfg` and the
+backup-memory file beside the executable and start vaeg from that
+directory.
 
 Save-state files are local runtime artifacts. They are not portable
 across architectures, compilers, or build families; do not move a state
 file between 32-bit and 64-bit builds, between legacy and portable
 builds, or between different host platforms and expect it to load.
 
-For PC-88VA booting, `vaeg.cfg` should select the VA machine, its sound
-hardware, and the VA clock domain:
+The machine, its sound hardware and the CPU clock are chosen from the menus
+and saved in `vaeg.cfg`; a configuration that starts a PC-88VA looks like:
 
 ```ini
 pc_model=88VA1
 SNDboard=100
 clk_base=3993600
 clk_mult=2
+CPU_Speed=100
 sgp_mode=0
 sgp_mult=1
+BootMode=0
 ```
 
-`SNDboard=100` selects the VA built-in YM2203/OPN. Use `SNDboard=200`
-for a VA with Sound Board II, or with `pc_model=88VA2` for the built-in
-YM2608/OPNA. Stale PC-98 defaults can halt at V2, leave the VA sound
-hardware unbound, or select an invalid execution setting. CPU x2 is the
-standard execution setting; x1-x32 changes V30 capacity while machine time,
-sound, display, FDD, and RTC timing stay at standard speed. `sgp_mode` selects
-Model default (0), Follow CPU (1), or Custom (2), with `sgp_mult=1..16` for
-Custom. The GUI exposes
-`模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA`; changing the model selects its
-default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
-filename set, and resets the guest while retaining configured FDD and
-SASI media. `音 -> FM 音源ボード` can add Sound Board II to a VA.
+- `pc_model`: `88VA1` (PC-88VA) or `88VA2` (PC-88VA2/VA3).
+- `SNDboard`: `100` for the VA's built-in YM2203/OPN, `200` for the YM2608/OPNA
+  (built into the VA2/VA3, or Sound Board II on a VA).
+- `clk_mult` (1-32) and `CPU_Speed` (10-100 %): the CPU clock is 3.9936 MHz
+  x `clk_mult` x `CPU_Speed`; x2 at 100 % is the standard. Machine time,
+  sound, display, FDD and RTC timing stay at standard speed.
+- `sgp_mode`: Model default (0), Follow CPU (1), or Custom (2) with
+  `sgp_mult=1..16`, set in 模擬 -> 詳細設定….
+- `BootMode`: 自動 (0), V1/V2 (1), or N (2). `NDP8087=1` enables the 8087
+  (the default), `PCG=1` the PCG-8100/8800, and `ExtraMachine` names a
+  PC-8801 or PC-8001 model under `extra/`.
+
+In the GUI, `模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA` selects the machine and
+its mode (自動, V2 H/S, V1 H/S, or N with a found N-BASIC ROM), and the
+PC-8801 and PC-8001 models found under `extra/` follow below. Changing the
+model selects its default sound hardware and ROM set and resets the guest
+while keeping the FDD and SASI media. `模擬 -> CPU クロック` holds the clock
+presets, and `音 -> FM 音源ボード` can add Sound Board II to a VA.
 
 ## Quick Build
 
