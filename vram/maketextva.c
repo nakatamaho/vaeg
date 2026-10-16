@@ -95,6 +95,9 @@ typedef struct {
 	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
 	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
 	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
+	UINT8 m3_fg;      // attribute mode 3: colour and shape records in force (M117)
+	UINT8 m3_bg;
+	UINT8 m3_shape;
 } _TEXTVAWORK;
 
 static _TEXTVAWORK work;
@@ -171,12 +174,41 @@ static void synattr1(BYTE attr, CHARATTR charattr) {
 }
 
 /*
+ * attribute mode 2 (M117): both colours from the split screen; bit 7 DWIDC,
+ * 6 DWID, 5 underline, 4 horizontal line, 2 reverse, 1 blink, 0 secret
+ * (Technical Manual). On a PC-88VA2 attribute 70h shows each character's
+ * left half at double width with lines, F0h its right half.
+ */
+static void synattr2(BYTE attr, CHARATTR charattr) {
+	charattr->bg = work.frame->bg;
+	charattr->fg = work.frame->fg;
+	charattr->attr = attr & (BYTE)~0x08;
+}
+
+/*
+ * attribute mode 3 (M117): a stream of colour records (bit 3 set: bits 7-4
+ * foreground, 2-0 background) and shape records (mode 2 bits). The state
+ * starts black on black with no shape for each split screen and frame, so
+ * shape records alone show nothing, as on a PC-88VA2.
+ */
+static void synattr3(BYTE attr, CHARATTR charattr) {
+	if (attr & 0x08) {
+		work.m3_fg = attr >> 4;
+		work.m3_bg = attr & 0x07;
+	} else {
+		work.m3_shape = attr;
+	}
+	charattr->bg = work.m3_bg;
+	charattr->fg = work.m3_fg;
+	charattr->attr = work.m3_shape;
+}
+
+/*
  * attribute modes 4 and 5 (M117): bit 7 blink, bits 6-4 background, bits
  * 3-0 foreground (Technical Manual); mode 5 also draws the horizontal line
  * when (foreground & 7) == 1. Undocumented modes 6 and 7, measured with
- * attribute F0h on a PC-88VA2 (M104 TSPMODE): 6 blinks with a grey block
- * and 7 shows the grey block without blinking, read here as a 4-bit
- * background (F0h gives 15), with and without blink.
+ * attribute F0h on a PC-88VA2: a grey block without blinking, read as mode
+ * 0 (bits 7-4 background, 3-0 foreground).
  */
 static void synattr4(BYTE attr, CHARATTR charattr) {
 	charattr->bg = (attr >> 4) & 0x07;
@@ -191,19 +223,9 @@ static void synattr5(BYTE attr, CHARATTR charattr) {
 	}
 }
 
-static void synattr6(BYTE attr, CHARATTR charattr) {
-	charattr->bg = attr >> 4;
-	charattr->fg = attr & 0x0f;
-	charattr->attr = (attr & 0x80) ? TEXTVA_ATR_BL : 0;
-}
-
-static void synattr7(BYTE attr, CHARATTR charattr) {
-	synattr0(attr, charattr);
-}
-
 /* Attribute decoding per screen-table MODE (bits 2-0). */
-static SYNATTRFN const synattrtbl[] = {synattr0, synattr1, synattr0, synattr0,
-                                       synattr4, synattr5, synattr6, synattr7};
+static SYNATTRFN const synattrtbl[] = {synattr0, synattr1, synattr2, synattr3,
+                                       synattr4, synattr5, synattr0, synattr0};
 
 static void makeline(BYTE *v, UINT16 rwchar) {
 	int x;
@@ -268,7 +290,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 #endif
 
 		if ((hccode == 0 || hccode == 0x20) && bg == 0 &&
-		    ((charattr.attr & (TEXTVA_ATR_HL | TEXTVA_ATR_HL2)) == 0)) {
+		    ((charattr.attr & (TEXTVA_ATR_HL | TEXTVA_ATR_HL2 | TEXTVA_ATR_UL)) == 0)) {
 			// 空白、背景色0、アンダーラインなし
 			b += TEXTVA_CHARWIDTH;
 		} else {
@@ -283,7 +305,19 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 			for (r = 0; r < work.lineheight; r++) {
 				fontdata = *font;
 				font += fontw;
-				if ((charattr.attr & (TEXTVA_ATR_HL | TEXTVA_ATR_HL2)) && r == tsp.hlinepos) {
+				if (charattr.attr & TEXTVA_ATR_DWID) {
+					/* M117: one half of the glyph at double width, the
+					 * left half unless DWIDC */
+					BYTE half =
+					    (charattr.attr & TEXTVA_ATR_DWIDC) ? (BYTE)(fontdata << 4) : fontdata;
+					fontdata = 0;
+					for (i = 0; i < 4; i++) {
+						fontdata = (BYTE)((fontdata << 2) | ((half & 0x80) ? 3 : 0));
+						half <<= 1;
+					}
+				}
+				if (((charattr.attr & (TEXTVA_ATR_HL | TEXTVA_ATR_HL2)) && r == tsp.hlinepos) ||
+				    ((charattr.attr & TEXTVA_ATR_UL) && (r == work.lineheight - 1U))) {
 					for (i = 0; i < 8; i++) {
 						b[i] = ul;
 					}
@@ -629,6 +663,9 @@ static void selectframe(int no) {
 	work.raster = work.frame->rasteroffset;
 	work.linebitmap_ready = FALSE;
 	work.synattr = synattrtbl[work.frame->mode & 0x07];
+	work.m3_fg = 0;
+	work.m3_bg = 0;
+	work.m3_shape = 0;
 }
 
 void maketextva_begin(BOOL *scrn200) {
@@ -870,18 +907,26 @@ void maketextva_raster(void) {
 	work.screeny++;
 }
 
-/* M117: attribute decoding of a screen-table MODE for the selftest (mode 1
- * takes its background from the split screen, given here as frame_bg). */
+/* M117: attribute decoding of a screen-table MODE for the selftest; the
+ * split screen gives frame_bg and a white foreground (modes 1 and 2). Mode 3
+ * keeps its record state between calls until maketextva_decode_reset. */
+void maketextva_decode_reset(void) {
+	work.m3_fg = 0;
+	work.m3_bg = 0;
+	work.m3_shape = 0;
+}
+
 void maketextva_decode_attr(UINT mode, BYTE attr, BYTE frame_bg, BYTE *bg, BYTE *fg, BYTE *flags) {
+	_TEXTVAFRAME frame;
+	const TEXTVAFRAME saved = work.frame;
 	_CHARATTR c;
 
-	if ((mode & 0x07) == 1) {
-		c.bg = frame_bg;
-		c.fg = attr >> 4;
-		c.attr = attr & 0x0f;
-	} else {
-		synattrtbl[mode & 0x07](attr, &c);
-	}
+	ZeroMemory(&frame, sizeof(frame));
+	frame.bg = frame_bg;
+	frame.fg = 7;
+	work.frame = &frame;
+	synattrtbl[mode & 0x07](attr, &c);
+	work.frame = saved;
 	*bg = c.bg;
 	*fg = c.fg;
 	*flags = c.attr;

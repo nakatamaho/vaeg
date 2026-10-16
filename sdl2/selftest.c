@@ -6426,9 +6426,9 @@ static int test_pcg88(void) {
 
 /* M117: TSP attribute modes. Modes 4 and 5 read bit 7 as blink, bits 6-4
  * as background and 3-0 as foreground; mode 5 adds the line for foreground
- * 1/9; with F0h mode 6 blinks grey and mode 7 is grey without blinking
- * (PC-88VA2, M104 TSPMODE); modes 0 and 1 are unchanged. The cursor
- * needs DSPON. */
+ * 1/9; with F0h modes 6 and 7 are grey without blinking; mode 2 takes
+ * shape bits and mode 3 colour/shape records (PC-88VA2 TSPMODE); modes 0
+ * and 1 are unchanged. The cursor needs DSPON. */
 static int test_tsp_attribute_modes(void) {
 	BYTE bg;
 	BYTE fg;
@@ -6452,9 +6452,27 @@ static int test_tsp_attribute_modes(void) {
 		problem = "mode 5 blink without the line";
 	}
 	maketextva_decode_attr(6, 0xf0, 0, &bg, &fg, &flags);
-	if ((problem == NULL) && ((bg != 0x0f) || !(flags & 0x02))) {
-		problem = "mode 6 blinks with a grey background";
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 6 grey background without blink";
 	}
+	maketextva_decode_attr(2, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0) || (fg != 7) || (flags != 0x70))) {
+		problem = "mode 2 DWID, underline and line from 70h";
+	}
+	maketextva_decode_attr(2, 0x8f, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (flags != 0x87)) {
+		problem = "mode 2 DWIDC, reverse, blink and secret without bit 3";
+	}
+	maketextva_decode_reset();
+	maketextva_decode_attr(3, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0) || (bg != 0) || (flags != 0x70))) {
+		problem = "mode 3 shape record alone stays black";
+	}
+	maketextva_decode_attr(3, 0xab, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0x0a) || (bg != 3) || (flags != 0x70))) {
+		problem = "mode 3 colour record keeps the shape";
+	}
+	maketextva_decode_reset();
 	maketextva_decode_attr(7, 0xf0, 0, &bg, &fg, &flags);
 	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
 		problem = "mode 7 grey background without blink";
