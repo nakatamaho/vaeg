@@ -57,16 +57,20 @@ land.
 
 - **Symptom/scope:** text that blinks on the PC-88VA hardware stayed steady
   in vaeg; with TSP attribute modes 4 and 5 the background also showed one
-  step too bright (F0h grey instead of white). V3 text in attribute modes
-  4-7 only.
+  step too bright (F0h grey instead of white); modes 2 and 3 showed plain
+  characters where the hardware shows double-width halves with lines (2)
+  or nothing (3). V3 text in attribute modes 2-7 only.
 - **Demonstrated cause:** `vram/maketextva.c` decoded attribute modes 0 and 1
   only and read modes 2-7 as mode 0, which has no blink bit, so bit 7 of
   modes 4 and 5 (blink) became background bit 3.
 - **Correction:** modes 4 and 5 are decoded as documented (bit 7 blink, bits
   6:4 background, mode 5 line for colours 1 and 9); undocumented modes 6 and
-  7 follow the PC-88VA2 TSPMODE observations.
+  7 follow the PC-88VA2 TSPMODE observations; modes 2 and 3 decode their
+  shape bits and colour/shape records
+  ([second correcting commit](https://github.com/nakatamaho/vaeg/commit/f9caa9481584a85557678aaa3732509aeae71353)).
 - **Verification:** TSPMODE 4 under PC-Engine blinks after the fix and was
-  steady before; selftest `TSP attribute modes`.
+  steady before; TSPMODE 2 and 3 on the self-booting SGP disk match the
+  PC-88VA2 photographs; selftest `TSP attribute modes`.
 - **Milestone/task/commit:** M117,
   [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
   [correcting commit](https://github.com/nakatamaho/vaeg/commit/746f3e4d405ca455f47884df0901eae13babba12).
