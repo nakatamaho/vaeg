@@ -62,6 +62,21 @@ bit 7 showed as a brighter background (F0h: grey instead of white).
   `.xz` byte-identical).
 - Clean-checkout MinGW build: below.
 
+## Attribute modes 2, 3 and 6 (2026-10-16)
+
+The maintainer ran TSPMODE from the self-booting SGP disk on a PC-88VA2
+(photographs and films kept privately): mode 6 does not blink; mode 2
+shows each character's left half at double width with a line under every
+row; mode 3 is black; modes 8-10 show the static pattern known from M104.
+The menu text carries attribute 70h and the test block F0h, so mode 2 reads
+70h as DWID, underline and horizontal line (Technical Manual bits) and mode
+3 sees only shape records. vaeg now decodes mode 2 (DWID left half, DWIDC
+right half, underline, line), mode 3 (colour/shape records from black on
+black at each split) and modes 6-7 as mode 0. vaeg's TSPMODE 2 matches the
+photograph line for line; 3 is black; 6 is grey and steady. The 8-14
+pattern is not modelled (its source is unidentified). Selftest extended and
+mutation-checked; ctest 93/93.
+
 ## Screen rotation
 
 Requested by the maintainer on 2026-10-16: turn the screen 90 degrees right.
