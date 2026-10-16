@@ -6081,6 +6081,11 @@ static int test_extra_machine(void) {
 	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
 	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
 	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	romva_machine_hook = extrarom_apply;
 
 	/* mkIISR: every role but jisyo. */
@@ -6186,6 +6191,8 @@ static int test_extra_machine(void) {
 	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
 	romva_machine_hook = saved_hook;
 	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("PC-8801 machine", problem));
 	}
@@ -6226,6 +6233,11 @@ static int test_pc8001_machine(void) {
 	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
 	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
 	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	romva_machine_hook = extrarom_apply;
 	if (problem == NULL) {
 		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
@@ -6271,6 +6283,8 @@ static int test_pc8001_machine(void) {
 	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
 	romva_machine_hook = saved_hook;
 	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
 	if ((problem == NULL) && memoryva_pc8001) {
 		problem = "PC-8001 state left after reset";
 	}
@@ -6297,6 +6311,11 @@ static int test_pcg88(void) {
 	BOOL sound;
 	BOOL edge;
 
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
 	fontmem[0x41000 + 0x400] = 0x3c;
 	np2cfg.pcg_enable = 1;
 	memoryva_88_mode = TRUE;
@@ -6417,6 +6436,8 @@ static int test_pcg88(void) {
 	fontmem[0x41000 + 0x400] = saved_rom;
 	pcg88_reset();
 	pcg88_initfont();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("PCG-8100/8800", problem));
 	}
