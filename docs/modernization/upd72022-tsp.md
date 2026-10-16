@@ -569,6 +569,10 @@ enabled, the selected descriptor supplies the cursor image and position even
 if its `SW` bit is clear. `SPRON` and the descriptor contents must still be
 valid.
 
+`[MEAS]` The cursor also needs the text display: a game that sends `SYNC`
+and no `DSPON`, leaving `CE` set, shows no cursor on a PC-88VA or VA2.
+vaeg (M117) shows the `CE` cursor only while `DSPON` is in effect.
+
 `ACTSCR` (`16h`) accepts the split number in bits 6:5 (equivalently
 `split * 32`) and selects the virtual coordinate space used by `CURS` and
 `LPNR`.
