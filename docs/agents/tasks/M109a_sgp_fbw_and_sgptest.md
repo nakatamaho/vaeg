@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M109a — SGP pitch on the original VA, and an SGP regression test
 
-Status: **complete; G109a passed on 2026-10-16**
+Status: **complete; G109a passed on 2026-10-16; merged to `main` at [823996f](https://github.com/nakatamaho/vaeg/commit/823996f8db3a9d4bf5046989675285eb4c6aa18b)**
 
 ## Request
 
