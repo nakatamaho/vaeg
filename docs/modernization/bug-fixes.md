@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M118 — PC-8801, PC-8001 and PCG selftests accessed a destroyed machine
+
+- **Symptom/scope:** hosted CI failed on `main` from M113 on: ASan aborted
+  the ROM-less selftest with heap-use-after-free in `iocore_out8`, and the
+  Windows and macOS trace-enabled selftests failed. Normal guest execution
+  is not affected; the local release build passed because it reads the
+  freed table without a sanitizer.
+- **Demonstrated cause:** `test_extra_machine` (M113), `test_pc8001_machine`
+  (M114) and `test_pcg88` (M115) used the I/O table without initializing a
+  machine, after an earlier fixture had freed it with `pccore_term`; the
+  ASan stacks show the allocation and free in the earlier fixture and the
+  invalid reads in these three (the same class as the M106a entry).
+- **Correction:** each of the three fixtures starts its own machine
+  (`pccore_init`, `pccore_reset`) and terminates it on exit, as the M106a
+  fixtures do.
+- **Verification:** the uncorrected `linux-ci-asan` selftest aborts at each
+  fixture in turn; after the correction it passes, and all 93 ASan/UBSan
+  and 93 normal CTest cases pass (four external-fixture skips).
+- **Milestone/task/commit:** M118,
+  [M118 task](../agents/tasks/M118_release_notes_20261017.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/95846b952860aa7e6f32d4865e1c7d090de2d80e).
+
 ### M118 — a compatible-mode HALT never ended
 
 - **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode

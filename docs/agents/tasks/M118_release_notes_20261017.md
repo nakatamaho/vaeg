@@ -80,3 +80,14 @@ The maintainer reviews the release notes and the README changes.
 ### G118
 
 - Passed on 2026-10-16 (maintainer).
+
+## Follow-up: hosted CI before the release (2026-10-17)
+
+Hosted CI had failed on `main` since about M107b (ASan heap-use-after-free
+in the selftest; Windows and macOS trace-enabled selftests). Three selftest
+fixtures from M113-M115 used the I/O table without a live machine; each now
+starts and terminates its own
+([95846b95](https://github.com/nakatamaho/vaeg/commit/95846b952860aa7e6f32d4865e1c7d090de2d80e)). Local
+`linux-ci-asan` and `linux-ci-gcc` CTest: 93/93 each (four skips). Ledger
+entry "M118 — PC-8801, PC-8001 and PCG selftests accessed a destroyed
+machine".
