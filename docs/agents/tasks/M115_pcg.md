@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
 # M115 — PCG-8100/8800
 
-Status: **complete; G115 passed on 2026-10-16**
+Status: **complete; G115 passed on 2026-10-16; merged to `main` at [5e25777](https://github.com/nakatamaho/vaeg/commit/5e25777ecd9065cb941c243a18dbcf61a18331bd)**
 
 ## Request
 
