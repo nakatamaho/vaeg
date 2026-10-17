@@ -18,8 +18,10 @@ reproduces before correction and completes1200 frames after real GUI-start
 automation. [Full evidence and local macOS Release handoff](screen-change-stop.md).
 Current macOS arm64 statically links minimal LGPLFFmpeg8.1.2 and pinned
 librashader. Both default static on Windows/macOS, fail closed for missing
-archives, and have no dylib imports in the macOS handoff. SDL2/LibArchive/iconv
-remain shared. [Exact checks and artifacts](static-linking.md). Earlier shared
+archives, and have no dylib imports in the macOS handoff. The later0455d0c9
+macOS build defaults SDL2/LibArchive/zlib/xz static too and imports only Apple
+system libraries/Frameworks, not MacPorts runtime dylibs. Windows artifact stays
+at86535d23; its static defaults are unchanged. [Exact checks and artifacts](static-linking.md). Earlier shared
 FFmpeg builds are historical; nonfree MacPorts FFmpeg is not handed off. All inherited files remain untouched
 and uncommitted; Metal is included only in the macOS working-tree build.
 Native Windows and full live/hardware performance gates remain pending.

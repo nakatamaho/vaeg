@@ -31,7 +31,11 @@ static by default on macOS too. [Implementation86535d23](https://github.com/naka
 uses exact FFmpeg archives/private link metadata with no shared fallback and
 retains librashader pin/notice checks. [Static evidence/artifacts](static-linking.md).
 Mac `build/macos-recording-static-release/sdl2/vaeg` has no FFmpeg/librashader
-dylib dependency; SDL2/LibArchive/iconv/system Frameworks remain shared.
+dylib dependency. The [SDL2/LibArchive follow-up0455d0c9](https://github.com/nakatamaho/vaeg/commit/0455d0c94e7018fdf2db4f4574b0e98088f658e0)
+also defaults those dependencies static on macOS and rebuilds the same handoff
+path. Its imports are now exclusively Apple system libraries/Frameworks;
+MacPorts SDL/archive/iconv runtime dependencies are gone. Current Mac SHA256:
+`4f5b01c7b28705ef04834cbe21e7860e8fcacba0e2a4194e3b3586d64b3ddc4f`.
 Earlier shared-FFmpeg builds below are historical, not the current handoff.
 Existing inherited snapshots remain unchanged and uncommitted.
 

@@ -38,7 +38,47 @@ notice audit is retained. Default recording OFF does not discover/link FFmpeg.
 Existing CMake caches require explicit ON when they retain older OFF values.
 Linux defaults are unchanged; an explicit developer dynamic opt-out exists.
 
-## Checks
+## Current SDL2/LibArchive static-default follow-up
+
+[0455d0c94e7018fdf2db4f4574b0e98088f658e0](https://github.com/nakatamaho/vaeg/commit/0455d0c94e7018fdf2db4f4574b0e98088f658e0)
+extends desktop defaults to fetched static SDL2 and the fetched static
+LibArchive/zlib/xz stack on macOS. The legacy-named macos-macports and macos-asan
+presets now explicitly enable them too, updating older cached OFF values when
+using those presets. Existing explicit developer opt-outs remain possible.
+No shared SDL/archive fallback on the static path. Linux defaults unchanged;
+Windows already used this same static dependency path and stays unchanged.
+
+Pinned SDL2 2.32.10, LibArchive3.8.7, zlib1.3.1 and xz5.8.3 sources are reused
+from the existing checksum-pinned FetchContent cache, copied into task-local
+build sources, not re-downloaded or hand-edited. A content manifest confirms
+all4202 copied files remain identical after configuring/building. No new vendor
+code or binaries enter Git. SDL2/LibArchive feature scope/options are unchanged.
+
+New fixture5/5 includes actual option declarations for fresh Windows/macOS/Linux
+contexts and verifies all five static/fetch defaults; archive-resolution negative
+cases retain passing-before-one-mutation and exact error codes. Actual static
+SDL/archive ON selection:25 passed, one H.264 hardware probe skipped. Static
+preset/Metal loader, exact FFV1/PCM/native runtime integration and ROM-less tests
+are included. OFF16/16 and final Release executable selftest pass. Logs:
+`/tmp/m100s2/sdl-archive-*.log`; exact configure commands and source identities
+are retained in the task-local build directory. Windows86535d23 artifact is
+unchanged: default values/target path remain identical, no new Windows runtime
+claim or unnecessary rebuild. Earlier profiling remains a historical checkpoint.
+
+**Current macOS handoff** (same path, updated executable):
+`build/macos-recording-static-release/sdl2/vaeg`,38697320 bytes, SHA256
+`4f5b01c7b28705ef04834cbe21e7860e8fcacba0e2a4194e3b3586d64b3ddc4f`.
+Base0455d0c9 plus unchanged three-file inherited snapshot9e123689… (full identity
+below/adjacent report), not a clean-commit artifact. Release arm64, recording ON,
+trace/performance instrumentation/tests OFF. `otool -L` now resolves every import
+to `/usr/lib/` or `/System/Library/`: no SDL2/LibArchive/FFmpeg/librashader/zlib/xz
+or MacPorts iconv dylib dependency. Iconv is the Apple system library, not a new
+statically bundled dependency. No MacPorts runtime installation is required by
+these imports. App packaging, old-macOS runtime compatibility, live Metal/audio,
+media/demo/human and redistribution/relinking legal approvals remain separate.
+No new private-media access, inherited edit/commit, hosted CI, push or main change.
+
+## Previous FFmpeg/librashader-only checkpoint checks
 
 - Isolated CMake fixture4/4: archive chosen beside dylib/so, ordered private
   dependency closure, one missing-archive mutation, empty metadata mutation,
@@ -66,7 +106,7 @@ nor raw guest evidence is published. No unchanged expensive profiling rerun:
 previous dynamic-library throughput is a historical checkpoint, not attributed
 to this static target. No native Windows/live Metal performance gate is claimed.
 
-## Current local artifacts
+## Previous FFmpeg/librashader-only local artifacts
 
 Working-tree builds based on86535d23 plus unchanged/uncommitted inherited sources:
 
@@ -89,8 +129,9 @@ Native static FFmpeg is built separately, leaving the earlier shared checkpoint
 untouched. Existing audited librashader87e8a97b archive/notices are reused, not
 rebuilt or modified. Archive paths and digests are in the adjacent build report.
 
-This request changes those **two libraries**, not all macOS dependencies. Current
-local SDL2/LibArchive/iconv remain shared; Apple Frameworks/system libraries also
+At that earlier checkpoint, only those **two libraries** were changed; local
+SDL2/LibArchive/iconv remained shared. The current follow-up above supersedes
+that external shared-library requirement; Apple Frameworks/system libraries
 remain dynamic. Not a standalone portable .app or a macOS13 support guarantee
 (MacPorts dependencies have newer minimum versions). Static LGPL redistribution
 still needs corresponding source/notices and user relinking materials; no legal/

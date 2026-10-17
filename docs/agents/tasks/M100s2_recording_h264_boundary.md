@@ -109,3 +109,16 @@ Cached Rust archive/notices reused, minimal native FFmpeg built static from the
 same pinned source. Compatibility workflow now prepares its pinned static
 librashader instead of relying on the former dynamic default. No hosted CI run,
 new private asset access, inherited edit/commit, push or gate completion.
+
+Further request: macOS SDL2/LibArchive static by default too.
+[0455d0c9](https://github.com/nakatamaho/vaeg/commit/0455d0c94e7018fdf2db4f4574b0e98088f658e0)
+selects existing pinned static SDL2/LibArchive/zlib/xz paths and updates Mac
+presets, without changing Linux defaults or the already-static Windows path.
+Source-cache copies are byte-verified unchanged (4202 files), no new downloads
+or vendored edits. Default/resolver fixture5/5; actual static SDL/archive ON
+25 pass/one hardware skip, OFF16/16, final Release selftest pass. Final Mac
+imports are exclusively Apple system libraries/Frameworks, no MacPorts dylibs.
+Updated artifact/hash/logs in the [static handoff](../../recording-v1/static-linking.md).
+Windows86535d23 artifact unchanged; no redundant build or profiling rerun.
+No inherited edit/commit, private-media access/publication, hosted CI/push,
+clean-checkout/media/demo/human or legal gate claimed.

@@ -36,7 +36,11 @@ archive, audited notices and rustc native-link libraries through the existing
 `VAEG_LIBRASHADER_*` settings. Missing inputs fail, not dlopen fallback. Existing
 CMake caches retain prior explicit values: reconfigure them with both static
 options ON. Explicit shared-library opt-out remains a developer configuration,
-not the desktop default. Apple system Frameworks are not made static.
+not the desktop default. `VAEG_FETCH_SDL2`, `VAEG_STATIC_SDL2` and
+`VAEG_FETCH_LIBARCHIVE` now also default ON on Windows/macOS, selecting pinned
+static SDL2 and LibArchive/zlib/xz with no shared fallback. Mac development/ASan
+presets explicitly select these settings. Apple system Frameworks are not made
+static.
 
 [Static handoff and exact checks](static-linking.md). Minimal LGPL FFmpeg remains
 required for our handoff; static linkage alone does not establish its license
