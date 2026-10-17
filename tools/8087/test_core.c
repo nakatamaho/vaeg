@@ -1340,7 +1340,7 @@ static int test_precision_control(void) {
  * ulp of the correctly rounded value (mpmath, 200 bits), set PE, leave the
  * host x87 control and status words as they were, and the series runs
  * again when the host path is off. */
-static bool within_one_ulp(UPD8087_RAW80 value, UPD8087_RAW80 expected) {
+static bool within_ulps(UPD8087_RAW80 value, UPD8087_RAW80 expected, uint64_t ulps) {
 	uint64_t difference;
 
 	if (value.sign_exp != expected.sign_exp) {
@@ -1348,7 +1348,11 @@ static bool within_one_ulp(UPD8087_RAW80 value, UPD8087_RAW80 expected) {
 	}
 	difference = (value.signif > expected.signif) ? value.signif - expected.signif
 	                                              : expected.signif - value.signif;
-	return difference <= 1;
+	return difference <= ulps;
+}
+
+static bool within_one_ulp(UPD8087_RAW80 value, UPD8087_RAW80 expected) {
+	return within_ulps(value, expected, 1);
 }
 
 #if (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
@@ -1434,12 +1438,67 @@ static int test_host_x87_transcendentals(void) {
 
 	upd8087_set_host_fpu(false);
 	CHECK(!upd8087_host_fpu_active(), "the host x87 path can be turned off");
+	return 0;
+}
+
+/* M123: the SoftFloat series (host x87 off or unavailable) are within 8
+ * ulp of the correctly rounded values, also near y = x for FPATAN and for
+ * small F2XM1 operands, and the guest precision control does not apply. */
+static int test_series_transcendentals(void) {
+	static const UPD8087_RAW80 tan_quarter = {UINT64_C(0x82bc2d21e262af32), 0x3ffd};
+	static const UPD8087_RAW80 atan_half = {UINT64_C(0xed63382b0dda7b45), 0x3ffd};
+	static const UPD8087_RAW80 atan_74_75 = {UINT64_C(0xc758058f0bad342a), 0x3ffe};
+	static const UPD8087_RAW80 exp2_quarter_m1 = {UINT64_C(0xc1bf828c6dc54b7a), 0x3ffc};
+	static const UPD8087_RAW80 exp2_tiny_m1 = {UINT64_C(0xb1722757b1b2935f), 0x3fec};
+	static const UPD8087_RAW80 log2_three = {UINT64_C(0xcae00d1cfdeb43d0), 0x3fff};
+	static const UPD8087_RAW80 log2_five_quarters = {UINT64_C(0xa4d3c25e68dc57f2), 0x3ffd};
+	static const UPD8087_RAW80 three = {UINT64_C(0xc000000000000000), 0x4000};
+	static const UPD8087_RAW80 seventy_four = {UINT64_C(0x9400000000000000), 0x4005};
+	static const UPD8087_RAW80 seventy_five = {UINT64_C(0x9600000000000000), 0x4005};
+	static const UPD8087_RAW80 tiny = {UINT64_C(0x8000000000000000), 0x3fed}; /* 2^-18 */
+	UPD8087_STATE state;
+
+	upd8087_set_host_fpu(false);
+	reset_enabled(&state);
+	state.control = (uint16_t)((state.control & 0xfcff) | 0x0000); /* 24-bit precision */
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf2) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[(state.top + 1) & 7], tan_quarter, 8),
+	      "series FPTAN tan(1/4), at 24-bit precision control");
 	reset_enabled(&state);
 	set_stack_value(&state, 1, TEST_QUARTER);
 	set_stack_value(&state, 0, TEST_HALF);
 	CHECK(execute_register(&state, 0xd9, 0xf3) == UPD8087_EXECUTED &&
-	          !within_one_ulp(state.reg[state.top], atan_half),
-	      "the SoftFloat series runs with the host path off");
+	          within_ulps(state.reg[state.top], atan_half, 8),
+	      "series FPATAN atan(1/2)");
+	reset_enabled(&state);
+	set_stack_value(&state, 1, seventy_four);
+	set_stack_value(&state, 0, seventy_five);
+	CHECK(execute_register(&state, 0xd9, 0xf3) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[state.top], atan_74_75, 8),
+	      "series FPATAN atan(74/75) near y = x");
+	reset_enabled(&state);
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf0) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[state.top], exp2_quarter_m1, 8),
+	      "series F2XM1 2^(1/4)-1");
+	reset_enabled(&state);
+	set_stack_value(&state, 0, tiny);
+	CHECK(execute_register(&state, 0xd9, 0xf0) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[state.top], exp2_tiny_m1, 8),
+	      "series F2XM1 keeps the digits of 2^(2^-18)-1");
+	reset_enabled(&state);
+	set_stack_value(&state, 1, TEST_ONE);
+	set_stack_value(&state, 0, three);
+	CHECK(execute_register(&state, 0xd9, 0xf1) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[state.top], log2_three, 8),
+	      "series FYL2X log2(3)");
+	reset_enabled(&state);
+	set_stack_value(&state, 1, TEST_ONE);
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf9) == UPD8087_EXECUTED &&
+	          within_ulps(state.reg[state.top], log2_five_quarters, 8),
+	      "series FYL2XP1 log2(5/4)");
 	upd8087_set_host_fpu(true);
 	return 0;
 }
@@ -1467,7 +1526,7 @@ int main(void) {
 			return 1;
 		}
 	}
-	if (test_host_x87_transcendentals()) {
+	if (test_host_x87_transcendentals() || test_series_transcendentals()) {
 		return 1;
 	}
 	fprintf(stdout, "8087 core tests: PASS\n");
