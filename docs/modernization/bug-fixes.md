@@ -3086,8 +3086,11 @@ separate parity correction or move it to Open Defects.
   swap or decoder workaround has been applied speculatively.
 - **Verification so far:** public primary/random RGB FFV1 encode/decode checks
   pass for the Windows test executable under a repaired task-local Wine prefix.
-  Added exhaustive RGB565 color round-trip coverage; macOS checks pass. These
-  synthetic checks do not reproduce or disprove the saved-movie report.
+  All 65,536 RGB565 values round-trip on macOS and Wine. A public color-bar
+  movie encoded/muxed by the exact Windows Release objects independently
+  decodes to all 180 source RGB frames and exact PCM on macOS. These synthetic
+  checks do not reproduce or disprove the saved-movie report. See
+  [follow-up evidence](../recording-v1/recording-ui-followup.md).
 - **Next step:** identify the affected player and compare decoded RGB values
   against the captured source, separating capture, mux metadata and playback.
   Do not publish private guest images or clip identities as evidence.

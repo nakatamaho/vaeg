@@ -24,11 +24,14 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Local FFV1-enabled MinGW build
 
+Historical initial build. The newer UI/rotation/lamp build and movie-only tint
+investigation are in the [follow-up evidence](recording-ui-followup.md).
+
 ## Artifact and source
 
 - Evaluated source: `d63955c00cbb31d249be767f8b3f8f6014e3542e` on the recording
   task branch, including published main `f81b1af9ae820b15c7ac29ac2fe29d8a641883bc`.
-- Executable: `../vaeg-mingw-recording-74c3355d/output/vaeg.exe`.
+- Archived executable: `../vaeg-mingw-recording-74c3355d/output/vaeg-d63955c0.exe`.
   The directory name records the starting commit, not the final evaluated SHA.
 - SHA256: `3ff27618c74735a7fb4da15bc36a3601e0499bbfa320554040e06ed81b58a723`.
 - Size: 58,835,809 bytes; PE32+ x86-64 Windows GUI executable.

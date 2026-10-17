@@ -15,18 +15,28 @@ builtin DLLs from the container's installed package. Wine setup was separate
 from the earlier failed Python-inclusive attempt. Matroska Unicode-directory
 and native-session file tests still fail under that incomplete prefix; do not
 claim the entire Windows suite passed. New exhaustive RGB565 FFV1 round-trip
-coverage passes on macOS; Windows rebuild and execution follow. No private
-clip or screenshot has been accessed or recorded.
+coverage now passes on macOS and Wine with the rebuilt Windows test binary.
+A public color-bar MKV made with the exact Windows Release encoder/muxer objects
+independently decodes to all 180 original RGB frames on macOS, with exact PCM.
+No private clip or screenshot has been accessed or recorded. Tint remains OPEN;
+player identity and the public pattern's appearance on that player are pending.
 
-Requested automatic dated `recordings/` output, 90-degree clockwise recording,
-Japanese start/stop/settings and RECORDING panel indicator are in progress.
+Automatic dated `recordings/` output, clockwise recording, Japanese controls/
+settings and the RECORDING lamp left of KANA/CAPS are implemented in
+`df9655883275f662216dc8febe1b0da5f3189928`. New executable SHA256:
+`13bd765fa218ea4e8fe6c32a1ce382dbf6f802ea1bb8fae6ef46eaa9c4a14e9e`,
+58,839,792 bytes, at `../vaeg-mingw-recording-74c3355d/output/vaeg.exe`.
+See [follow-up evidence, UI behavior and limitations](recording-ui-followup.md).
+macOS ON/OFF recording tests: 22/22 and 14/14; ROM-less panel selftest: 1/1;
+MinGW build/link/import audit: exit0; six focused Windows/Wine checks passed.
+The full Wine integration suite/native Windows GUI gate is not claimed passed.
 
 ## Latest requested FFV1-enabled MinGW artifact
 
 The explicit recording-ON request is fulfilled by a separate static Release
 artifact, without replacing the earlier OFF executable. Evaluated source:
 `d63955c00cbb31d249be767f8b3f8f6014e3542e`; artifact:
-`../vaeg-mingw-recording-74c3355d/output/vaeg.exe`, 58,835,809 bytes, SHA256
+`../vaeg-mingw-recording-74c3355d/output/vaeg-d63955c0.exe`, 58,835,809 bytes, SHA256
 `3ff27618c74735a7fb4da15bc36a3601e0499bbfa320554040e06ed81b58a723`.
 FFmpeg8.1.2 was built for Windows with only FFV1/PCM encoders and Matroska,
 GPL/nonfree/network/programs disabled; no additional FFmpeg DLL is required.
