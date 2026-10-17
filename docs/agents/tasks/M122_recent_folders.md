@@ -75,3 +75,14 @@ FDD and HDD windows keep their own folders.
   `bbfe44b6f037...2a09` (SHA-256, static MinGW) from
   [497e6154](https://github.com/nakatamaho/vaeg/commit/497e6154e672e5ad6a587b37a4408d4fe2801f97).
   Released as Rel.20261017.2.
+
+## Releases consolidated (2026-10-17)
+
+At the maintainer's request Rel.20261017, Rel.20261017.1 and the planned
+Rel.20261017.2 were merged into one re-release, Rel.20261017: the
+multi-image D88 (M120), compatible-mode HALT (M118) and recent-folder
+(M122) changes went into `CHANGES.20261017.md`, the README News entries
+into one, and `CHANGES.20261017.1.md` and `CHANGES.20261017.2.md` were
+removed. The published `rel-20261017` and `rel-20261017.1` releases and
+tags were deleted and `rel-20261017` was tagged again on the consolidated
+`main`; `rel-20261017.2` was never pushed.
