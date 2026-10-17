@@ -3075,6 +3075,28 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — title FPS stayed zero with the frame counter hidden
+
+- **Symptom/scope:** title-bar FPS stays0.0 when FPS is enabled but the separate
+  frame-counter display is disabled; its past intermittent appearance can
+  depend on those display settings. This concerns title FPS, not an OSD item.
+- **Demonstrated root cause:** `scrnmng_framedisp_tick` updated the FPS meter
+  only when `framedisp_enabled` (the FRAME visibility option) was true, while
+  the title used the independent FPS visibility bit. The same guard exists in
+  [pre-recording main](https://github.com/nakatamaho/vaeg/commit/f81b1af9ae820b15c7ac29ac2fe29d8a641883bc);
+  this is not introduced by the BGRA conversion.
+- **Correction:** always update the draw-rate measurement; keep the two title
+  visibility switches independent. No fabricated60FPS or recording-clock change.
+- **Verification:** SDL title regression exercises FPS-only, FPS+FRAME, neither,
+  and FRAME-only with120 draws/2s. Before the fix, FPS-only fails with stable
+  `FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=8`; afterwards measured60.0 and
+  each visible/hidden title field are correct. Full macOS ROM-less test passes
+  1/1, OFF build passes, and MinGW build/import audit passes. Startup measurement
+  delay or a paused guest can legitimately show0.0. Native Windows review pending.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [current follow-up](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [9b0c44d7](https://github.com/nakatamaho/vaeg/commit/9b0c44d7c2d9044834f7078f0d41790f2c688d61).
+
 ### M100s2 — recording settings clipped controls in the default window
 
 - **Symptom/scope:** the recording details window is too small or extends beyond

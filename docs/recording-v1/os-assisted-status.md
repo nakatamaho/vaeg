@@ -1,17 +1,21 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest opaque-BGRA archive compatibility correction
+## Latest title-FPS independence correction
 
-The current test executable is based on `a5f5b3fb36c51c843f9598036d4537e1afc4033f`
+The current test executable is based on `9b0c44d7c2d9044834f7078f0d41790f2c688d61`
 **plus unchanged, uncommitted inherited native-session implementation/tests**;
 not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `92fb29e8be3b1a68d7bcfd6ca059a09d80d4a320b1b81d89d3572f2a48d1b6ed`.
+SHA256: `1d8b94f924a6b188103540073393a9911ed8a2f7f5d3a441d2a684c799e72769`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-opaque-bgra-archive-compatibility-correction).
+[current follow-up evidence](recording-ui-followup.md#current-title-fps-independence-correction).
+Title FPS measurement is now independent of the FRAME display switch. The
+FPS-only failure is reproduced before correction and four visibility modes
+pass afterwards; macOS ROM-less1/1 and MinGW build/import audit pass. The guard
+predates recording/BGRA changes. Startup/paused0.0 is still legitimate.
 Recording details now fit the viewport with a scrolling body/fixed button row;
 five viewport/font regression profiles pass. Controlled BGR0/BGRA CLI fixtures
 both decode to exact original RGB; BGRA alpha is opaque. The maintainer now

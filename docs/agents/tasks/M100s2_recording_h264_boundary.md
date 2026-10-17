@@ -65,3 +65,12 @@ is unchanged. Native macOS application objects generate640x400/180 frames and
 not Windows runtime proof. Artifact identities, every retained failed attempt
 and the remaining new-app/native Windows gate are in the current follow-up;
 the tint ledger remains OPEN. No inherited dirty file was changed/committed.
+
+Title-FPS follow-up: the pre-existing main gated FPS measurement on the separate
+FRAME visibility switch. Reproduce FPS-only0.0 with120 draws/2s, then decouple
+measurement in [9b0c44d7](https://github.com/nakatamaho/vaeg/commit/9b0c44d7c2d9044834f7078f0d41790f2c688d61).
+The SDL-title regression covers all four FPS/FRAME visibility combinations;
+macOS ROM-less1/1, OFF build and MinGW build/import audit pass. About2s initial
+measurement delay and paused0.0 remain valid. Recorder code/input identities are
+unchanged, so prior expensive/recording evidence is reused with its limitations.
+This remains a working-tree audio-patch test build, not a native Windows gate.

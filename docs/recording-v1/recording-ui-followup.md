@@ -24,7 +24,33 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current opaque-BGRA archive compatibility correction
+## Current title-FPS independence correction
+
+The maintainer clarifies the zero reading is title-bar FPS, not OSD, and it has
+sometimes displayed previously. The measurement was erroneously gated by FRAME
+visibility while FPS had an independent switch. This guard also exists in the
+pre-recording main, so it is not introduced by opaque BGRA.
+
+[Fix](https://github.com/nakatamaho/vaeg/commit/9b0c44d7c2d9044834f7078f0d41790f2c688d61):
+always update measurement independently of visibility. The integrated SDL-title
+regression supplies120 draws over2s in four FPS/FRAME visibility combinations.
+Before correction, FPS-only fails `FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=8`;
+afterwards the meter reads60.0 and the title shows only requested fields.
+Full macOS ROM-less suite passes1/1; OFF build and MinGW build/import audit pass.
+A fresh measurement needs about2s; a stopped guest can correctly read0.0.
+
+Current Windows working-tree test build: `output/vaeg-audio-local-test.exe`
+(also `output/vaeg.exe`),58,844,785 bytes, SHA256
+`1d8b94f924a6b188103540073393a9911ed8a2f7f5d3a441d2a684c799e72769`.
+Base `9b0c44d7c2d9044834f7078f0d41790f2c688d61` plus the unchanged inherited
+patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`.
+All three inherited files remain byte-identical/uncommitted; Metal is excluded.
+This is not a clean-commit or native Windows gate result. Previous executable:
+`output/vaeg-audio-local-a5f5b3fb.exe`. BGRA, PCM and recording-clock code is
+unchanged from the following checkpoint; its completed evidence and outstanding
+Wine allocator/native Windows limits are reused, not rerun or waived.
+
+## Previous opaque-BGRA archive compatibility correction
 
 The maintainer confirms **seven colors with BGRA, three with BGR0** in the
 controlled pair. This establishes a working packed-format route in that VLC,
@@ -39,8 +65,8 @@ focused Wine tests (exhaustive RGB565/RGB24/alpha, capabilities, PCM) pass.
 The mux test checks alpha after decoding and rejects a single opaque-format
 flag mutation with `InvalidConfig`, starting from a passing configuration.
 
-Current static Windows executable: `output/vaeg-audio-local-test.exe` (also
-`output/vaeg.exe`), 58,843,761 bytes, SHA256
+Previous static Windows executable: `output/vaeg-audio-local-a5f5b3fb.exe`,
+58,843,761 bytes, SHA256
 `92fb29e8be3b1a68d7bcfd6ca059a09d80d4a320b1b81d89d3572f2a48d1b6ed`.
 Base `a5f5b3fb36c51c843f9598036d4537e1afc4033f` plus unchanged inherited audio
 patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`:
