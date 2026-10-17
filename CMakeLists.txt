@@ -101,7 +101,31 @@ if(Git_FOUND)
             AND VAEG_BUILD_DATE_OUTPUT MATCHES "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$")
         set(VAEG_BUILD_DATE "${VAEG_BUILD_DATE_OUTPUT}")
     endif()
+    # M120: a release tag on the commit names the release, so that a
+    # follow-up release (rel-20261017.1) does not depend on the commit date.
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CONFIG_GLOBAL=${VAEG_GIT_CONFIG}"
+            "GIT_CONFIG_SYSTEM=${VAEG_GIT_CONFIG}"
+            "${GIT_EXECUTABLE}" tag --points-at HEAD --list "rel-*"
+            --sort=-version:refname
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        RESULT_VARIABLE VAEG_BUILD_TAG_RESULT
+        OUTPUT_VARIABLE VAEG_BUILD_TAG_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
+set(VAEG_BUILD_RELEASE "${VAEG_BUILD_DATE}")
+if(VAEG_BUILD_TAG_RESULT EQUAL 0 AND VAEG_BUILD_TAG_OUTPUT)
+    string(REPLACE "\n" ";" VAEG_BUILD_TAGS "${VAEG_BUILD_TAG_OUTPUT}")
+    foreach(VAEG_BUILD_TAG IN LISTS VAEG_BUILD_TAGS)
+        if(VAEG_BUILD_TAG MATCHES
+                "^rel-([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9](\\.[1-9][0-9]*)?)$")
+            set(VAEG_BUILD_RELEASE "${CMAKE_MATCH_1}")
+            break()
+        endif()
+    endforeach()
+endif()
+message(STATUS "vaeg release name: Rel.${VAEG_BUILD_RELEASE}")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vaeg_build_info.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"

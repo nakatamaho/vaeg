@@ -25,6 +25,8 @@
 #define VAEG_BUILD_INFO_H
 
 #define VAEG_BUILD_DATE "@VAEG_BUILD_DATE@"
+/* M120: the release tag (20261017.1) or, without one, the commit date */
+#define VAEG_BUILD_RELEASE "@VAEG_BUILD_RELEASE@"
 #define VAEG_BUILD_COMMIT "@VAEG_BUILD_COMMIT@"
 
 #endif
