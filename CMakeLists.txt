@@ -36,8 +36,13 @@ if(MINGW)
 endif()
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_MINGW_STATIC_DEFAULT})
 option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_MINGW_STATIC_DEFAULT})
+set(VAEG_DESKTOP_STATIC_DEFAULT OFF)
+if(WIN32 OR APPLE)
+    set(VAEG_DESKTOP_STATIC_DEFAULT ON)
+endif()
+option(VAEG_STATIC_FFMPEG "Link FFmpeg archives without shared-library fallback" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
-option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_MINGW_STATIC_DEFAULT})
+option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_DESKTOP_STATIC_DEFAULT})
 set(VAEG_LIBRASHADER_STATIC_LIBRARY "" CACHE FILEPATH "Target-compatible librashader static archive")
 set(VAEG_LIBRASHADER_NATIVE_LIBS "" CACHE STRING "Native link libraries reported by rustc")
 set(VAEG_LIBRASHADER_STATIC_NOTICES "" CACHE FILEPATH "Generated static dependency notices")
@@ -190,10 +195,18 @@ if(VAEG_ENABLE_RECORDING)
     pkg_check_modules(FFMPEG_AVUTIL REQUIRED IMPORTED_TARGET libavutil)
     pkg_check_modules(FFMPEG_AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
     pkg_check_modules(FFMPEG_AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
-    list(APPEND VAEG_FFMPEG_TARGETS
-        PkgConfig::FFMPEG_AVUTIL
-        PkgConfig::FFMPEG_AVCODEC
-        PkgConfig::FFMPEG_AVFORMAT)
+    if(VAEG_STATIC_FFMPEG)
+        include(cmake/ffmpeg_static.cmake)
+        foreach(component AVUTIL AVCODEC AVFORMAT)
+            vaeg_ffmpeg_static_target(vaeg_ffmpeg_${component} FFMPEG_${component})
+            list(APPEND VAEG_FFMPEG_TARGETS vaeg_ffmpeg_${component})
+        endforeach()
+    else()
+        list(APPEND VAEG_FFMPEG_TARGETS
+            PkgConfig::FFMPEG_AVUTIL
+            PkgConfig::FFMPEG_AVCODEC
+            PkgConfig::FFMPEG_AVFORMAT)
+    endif()
 endif()
 
 set(CMAKE_C_STANDARD 99)
@@ -990,6 +1003,11 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_ffmpeg_static_resolution
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_static_ffmpeg.py")
+    set_tests_properties(vaeg_ffmpeg_static_resolution PROPERTIES
+        LABELS "frontend;portability;recording")
     foreach(compiler_header_language IN ITEMS c cpp)
         add_executable(vaeg_compiler_header_${compiler_header_language}_test
             tests/frontend/test_compiler_header.${compiler_header_language})
