@@ -338,6 +338,12 @@ void Z80CompatCpu::SetMainReg(const Z80CompatReg &source) {
 	SynchronizePublicMirror();
 }
 
+void Z80CompatCpu::LeaveHalt() {
+	if (impl_ != nullptr) {
+		impl_->cpu.reg.IFF &= static_cast<std::uint8_t>(~kIffHalt);
+	}
+}
+
 void Z80CompatCpu::SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base) {
 	code_base_ = code_base;
 	data_base_ = data_base;

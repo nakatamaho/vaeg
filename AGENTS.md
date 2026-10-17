@@ -54,6 +54,29 @@ The clean-checkout build is the fully static MinGW build described under
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+### Cleanup after a passed human gate
+
+When the maintainer states that a milestone's human gate passed, and after
+the gate record, the `--no-ff` merge and the roadmap record are pushed,
+remove that milestone's working directories. The gate pass is the approval
+for these categories; no separate list is needed:
+
+- the milestone's worktree and its local branch, after confirming that the
+  branch is contained in `origin/main` and the worktree has no uncommitted
+  changes;
+- the temporary merge worktree;
+- the static MinGW build directories of that milestone
+  (`../vaeg-mingw-<short-sha>/`);
+- its hardware handoff and private scratch directories
+  (`~/work/pc88va/m<id>-hw/`, `~/work/pc88va/m<id>-private/`) and
+  `/tmp/m<id>/`, after moving anything the maintainer asked to keep.
+
+Never remove without explicit approval: `pc88va-private-docs/`, another
+milestone's worktree or branch, the shared caches under `~/.cache/vaeg/`
+(they are reused), the remote branch, and files the maintainer supplied
+(photos, screenshots, media, archives). Report what was removed and what was
+kept.
+
 ## Demos stay buildable
 
 Every milestone must leave every bundled demo buildable from a clean
@@ -73,6 +96,31 @@ gate:
 from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-supplied
 input, like the PC-Engine system disk); its profile tables are tracked under
 `demos/zundamon-orbit/256/ida/` (M109).
+
+## Media build regression before every gate
+
+Every milestone gate includes this machine check, run locally from a
+clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
+are private inputs, so hosted CI cannot run it). Downloads come from the
+shared cache `~/.cache/vaeg/auto-generated-pc88va-utility-media` and
+`~/.cache/vaeg/msdos4-va.2`; a cache miss may download, a checksum
+mismatch fails.
+
+- Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
+  FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
+  builds both SASI images (PC-Engine 1.05 for the VA, 1.1 for the VA2)
+  with that FDD as payload. In vaeg the FDD boots and each SASI image boots
+  alone on its model.
+- Demo disks: every `demos/*/build-d88.sh` distribution, the all-demos,
+  all-demos-msdos4 and self-booting SGP disks build, and their payloads are
+  byte-identical to the committed `demos/disks/*.d88.xz` (see "Demos stay
+  buildable").
+- Record in the task file the commit, the commands, their exit status and
+  the SHA-256 of each produced image. Generated images stay outside Git
+  except the distributable `.d88.xz` files already allowed.
+
+A failure blocks the gate. Fix it in the milestone (and record it in the
+bug-fix ledger), as in M110 when the utility FDD had stopped building.
 
 ## CI and expensive-test discipline
 
@@ -160,6 +208,11 @@ Release notes may summarize the ledger but do not replace it.
   absolute paths, or hashes unless the maintainer explicitly authorizes that
   exact metadata. Keep raw private screenshots, logs, traces, and save files
   outside Git, and never stage, commit, or push them.
+- Refer to commercial-machine ROMs only by MAME's published set and file
+  names and SHA-1 values. Do not state who owns, dumped, or holds a ROM,
+  where a ROM came from, or that it was checked on hardware; describe a
+  ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
+  dump notes stay as historical records.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
   read-only for agents. Never create, modify, or delete anything under it:
   no work directories, scratch output, builds, logs, screenshots, or

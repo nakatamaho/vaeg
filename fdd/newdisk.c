@@ -46,7 +46,11 @@ static const NEWDISKFDDMSDOS newdisk_fdd_msdos_geometry[] = {
     /* 2D 320 KB: 40 cylinders, 16 x 256 (N88-BASIC) */
     {40, 2, 16, 1, 256, 0x00, 0, 0, 0, 0, 0},
     /* 2D 360 KB: 40 cylinders, 9 x 512 */
-    {40, 2, 9, 2, 512, 0x00, 0, 0, 0, 0, 0}};
+    {40, 2, 9, 2, 512, 0x00, 0, 0, 0, 0, 0},
+    /* 2HD 1.2 MB: 77 cylinders, 8 x 1024 */
+    {77, 2, 8, 3, 1024, 0x20, 0, 0, 0, 0, 0},
+    /* 2DD 640 KB: 80 cylinders, 8 x 512 */
+    {80, 2, 8, 2, 512, 0x10, 0, 0, 0, 0, 0}};
 
 BOOL newdisk_fdd_has_filesystem(UINT format) {
 	return ((format < NEWDISK_FDD_MSDOS_COUNT) && newdisk_fdd_msdos_geometry[format].filesystem)

@@ -8,6 +8,7 @@
 
 typedef struct {
 	BOOL mockup;
+	BOOL absent; /* M113: no FDD unit (ports FCh-FFh float, unit stopped) */
 } _SUBSYSTEMMXCFG, *SUBSYSTEMMXCFG;
 
 #ifdef __cplusplus
@@ -20,6 +21,7 @@ void subsystemmx_initialize(void);
 void subsystemmx_reset(void);
 void subsystemmx_bind(void);
 void subsystemmx_exec(void);
+void subsystemmx_set_absent(BOOL absent);
 
 #ifdef __cplusplus
 }

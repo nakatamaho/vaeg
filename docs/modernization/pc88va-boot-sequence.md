@@ -319,8 +319,10 @@ separate configuration decision and tests.
 Status (M103b, maintainer decision): an SW7 GUI/INI option was added and then
 withdrawn. vaeg offers no user-facing V1/V2 selection and follows the ROM's
 automatic selection from the boot media (traced for the VA2 in
-[`v1v2-mode-plan.md`](v1v2-mode-plan.md) §5.2). SW7 therefore stays zero; an
-original-VA SW7 OFF configuration would need a new decision.
+[`v1v2-mode-plan.md`](v1v2-mode-plan.md) §5.2). Since M111 the boot modes
+V2/V1 H/S (and N) report SW7 OFF from reset until compatible code first
+runs (decision C13 in [`v1v2-mode-decisions.md`](v1v2-mode-decisions.md));
+自動 keeps it zero.
 
 ### Original-VA Remaining Unknowns
 

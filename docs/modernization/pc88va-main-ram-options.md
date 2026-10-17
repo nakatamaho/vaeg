@@ -90,7 +90,7 @@ settings. Automatic synchronization can be disabled to retain a deliberately
 mismatched BIOS selection. With OFF, missing/truncated backup files start cleared
 rather than receiving a capacity record. Firmware writes remain permitted.
 
-Menu -> デバイス -> メインメモリ容量 provides the four capacities and the automatic
+模擬 -> 機種の構成 -> メインメモリ容量 provides the four capacities and the automatic
 synchronization checkbox. Changes are persisted to the active configuration
 file and applied together at the next reset. The running memory limit is latched
 at reset so saving a menu choice cannot alter memory underneath a running guest.

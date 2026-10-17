@@ -427,6 +427,23 @@ static BOOL sgp_blt_mode_valid(UINT16 bltmode, const _SGP_BLOCK *src, const _SGP
 	return (TRUE);
 }
 
+/*
+ * FBW as both models use it: bit 0 is dropped and a negative pitch is two
+ * bytes shorter. A commercial game written for the original VA sends FFF3h
+ * (bit 1 set, against the BNN manual's "low two bits zero") as the source
+ * pitch of 12-byte lines read upwards, and draws correctly with -12; M97b's
+ * VA-only rule (low two bits dropped, giving -16) garbled them (M109a).
+ */
+static SINT16 sgp_decode_fbw(UINT16 raw_fbw) {
+	SINT16 fbw;
+
+	fbw = (SINT16)(raw_fbw & 0xfffe);
+	if (fbw < 0) {
+		fbw += 2;
+	}
+	return (fbw);
+}
+
 static void fetch_block(UINT32 address, SGP_BLOCK block) {
 	UINT16 dat;
 	UINT16 raw_fbw;
@@ -442,20 +459,14 @@ static void fetch_block(UINT32 address, SGP_BLOCK block) {
 		/* Preserve the wider VA2 descriptor profile used by existing software. */
 		block->width = sgp_memoryread_w(address + 2) & 0x3fff;
 		block->height = sgp_memoryread_w(address + 4);
-		block->fbw = raw_fbw & 0xfffe;
 	} else {
-		/* The original VA descriptor defines 12-bit extents and a four-byte pitch. */
+		/* The original VA descriptor defines 12-bit extents. */
 		block->width = sgp_memoryread_w(address + 2) & 0x0fff;
 		block->height = sgp_memoryread_w(address + 4) & 0x0fff;
-		block->fbw = raw_fbw & 0xfffc;
 	}
+	block->fbw = sgp_decode_fbw(raw_fbw);
 	block->address =
 	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
-
-	/* Legacy VA2 compatibility for an observed R-TYPE command stream. */
-	if ((pccore.model_va == PCMODEL_VA2) && (block->fbw < 0)) {
-		block->fbw += 2;
-	}
 }
 
 static void init_block(SGP_BLOCK block) {
@@ -1707,14 +1718,26 @@ BOOL sgp_manual_commands_selftest(void) {
 	pccore.model_va = PCMODEL_VA1;
 	fetch_block(descriptor_address, &block);
 	if ((block.scrnmode != 1) || (block.dot != 3) || (block.width != 0x0abc) ||
-	    (block.height != 0x0456) || (block.fbw != 4) || (block.address != 0x201234)) {
+	    (block.height != 0x0456) || (block.fbw != 6) || (block.address != 0x201234)) {
 		goto restore;
 	}
+	/* M109a: FFF3h, a 12-byte source read upwards, is -12 on both models. */
+	STOREINTELWORD(mem + descriptor_address + 6, 0xfff3);
+	fetch_block(descriptor_address, &block);
+	if (block.fbw != -12) {
+		goto restore;
+	}
+	STOREINTELWORD(mem + descriptor_address + 6, 0x0006);
 
 	pccore.model_va = PCMODEL_VA2;
 	fetch_block(descriptor_address, &block);
 	if ((block.width != 0x3abc) || (block.height != 0xf456) || (block.fbw != 6) ||
 	    (block.address != 0x201234)) {
+		goto restore;
+	}
+	STOREINTELWORD(mem + descriptor_address + 6, 0xfff3);
+	fetch_block(descriptor_address, &block);
+	if (block.fbw != -12) {
 		goto restore;
 	}
 

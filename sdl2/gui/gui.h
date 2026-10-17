@@ -40,9 +40,19 @@ void gui_new_frame(void);
 void gui_draw(void);
 void gui_render(void);
 BOOL gui_overlay_selftest(void);
+/* M122: recent-folder lists; `root` is an empty, writable test directory */
+BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size);
 void gui_display_capture_result(const char *path, BOOL success);
 void gui_overlay_rect(int x, int y, int width, int height, unsigned char r, unsigned char g,
                       unsigned char b, unsigned char a);
+
+/* M110: record a medium the user inserted outside the GUI's own dialogs
+ * (drag and drop) in the drive's history. */
+enum {
+	GUI_HISTORY_FDD1 = 0,
+	GUI_HISTORY_FDD2 = 1
+};
+void gui_history_add(int kind, const char *path);
 
 #ifdef __cplusplus
 }

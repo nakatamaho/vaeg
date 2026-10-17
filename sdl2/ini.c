@@ -41,6 +41,7 @@
 #include "mouseifva.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "kbdmap.h"
 
 typedef struct {
 	const char *title;
@@ -359,8 +360,10 @@ static const INITBL iniitem[] = {
     {"Main_RAM_Auto", INITYPE_BOOL, &np2cfg.main_ram_auto, 0},
     {"Boot_FixedDisk", INITYPE_BOOL, &np2cfg.boot_fixed_disk, 0},
     {"V1V2_Standard", INITYPE_BOOL, &np2cfg.v1v2_standard, 0},
-    {"V1V2_NMode", INITYPE_BOOL, &np2cfg.v1v2_nmode, 0},
+    {"BootMode", INITYPE_UINT8, &np2cfg.boot_mode, 0},
     {"V1V2_N80ROM", INITYPE_STR, np2cfg.v1v2_n80rom, sizeof(np2cfg.v1v2_n80rom)},
+    {"ExtraROMSelect", INITYPE_STR, np2cfg.extra_rom_select, sizeof(np2cfg.extra_rom_select)},
+    {"ExtraMachine", INITYPE_STR, np2cfg.extra_machine, sizeof(np2cfg.extra_machine)},
     {"Monitor15kHz", INITYPE_BOOL, &np2cfg.monitor_15khz, 0},
     {"MonitorDigital", INITYPE_BOOL, &np2cfg.monitor_digital, 0},
     {"Monitor15kHzFill", INITYPE_BOOL, &np2cfg.monitor_15khz_fill, 0},
@@ -368,6 +371,8 @@ static const INITBL iniitem[] = {
     {"CPU_Speed", INITYPE_UINT8, &np2cfg.cpu_speed, 0},
     {"CMT_Fast", INITYPE_BOOL, &np2cfg.cmt_fast, 0},
     {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
+    {"PCG", INITYPE_BOOL, &np2cfg.pcg_enable, 0},
+    {"PCG_vol", INITYPE_UINT8, &np2cfg.pcg_vol, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
     {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
@@ -378,6 +383,8 @@ static const INITBL iniitem[] = {
 
     {"FDD1FILE", INITYPE_STR, np2oscfg.fdd_image[0], MAX_PATH},
     {"FDD2FILE", INITYPE_STR, np2oscfg.fdd_image[1], MAX_PATH},
+    {"FDD1IMAGE", INITYPE_UINT8, &np2oscfg.fdd_image_index[0], 0},
+    {"FDD2IMAGE", INITYPE_UINT8, &np2oscfg.fdd_image_index[1], 0},
     {"HDD1FILE", INITYPE_STR, np2cfg.sasihdd[0], MAX_PATH},
     {"HDD2FILE", INITYPE_STR, np2cfg.sasihdd[1], MAX_PATH},
     {"SCSIHDD0", INITYPE_STR, np2cfg.scsihdd[0], MAX_PATH},
@@ -432,13 +439,13 @@ static const INITBL iniitem[] = {
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},
+    {"master_volume", INITYPE_UINT8, &np2oscfg.master_volume, 0},
+    {"cursor_keys", INITYPE_UINT8, &np2cfg.KEY_MODE, 0},
     {"Mouse_sw", INITYPE_BOOL, &np2oscfg.MOUSE_SW, 0},
     {"e_resume", INITYPE_BOOL, &np2oscfg.resume, 0},
     {"jast_snd", INITYPE_BOOL, &np2oscfg.jastsnd, 0}, // ver0.73
     {"GUI_scale", INITYPE_UINT8, &np2oscfg.gui_scale, 0},
     {"GUI_aspect", INITYPE_BOOL, &np2oscfg.gui_aspect, 0},
-    {"GUI_fdddir", INITYPE_STR, np2oscfg.gui_fdd_dir, MAX_PATH},
-    {"GUI_hdddir", INITYPE_STR, np2oscfg.gui_hdd_dir, MAX_PATH},
     {"keyboard_host_layout", INITYPE_STR, np2oscfg.keyboard_host_layout,
      sizeof(np2oscfg.keyboard_host_layout)},
     {"keyboard_kana_input", INITYPE_STR, np2oscfg.keyboard_kana_input,
@@ -452,6 +459,7 @@ static const INITBL iniitem[] = {
     {"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
     {"GUI_effect", INITYPE_UINT8, &np2oscfg.gui_effect, 0},
     {"GUI_scaling", INITYPE_UINT8, &np2oscfg.gui_scaling, 0},
+    {"GUI_rotate", INITYPE_UINT8, &np2oscfg.gui_rotate, 0},
     {"GUI_win_cx", INITYPE_UINT16, &np2oscfg.gui_window_width, 0},
     {"GUI_win_cy", INITYPE_UINT16, &np2oscfg.gui_window_height, 0},
     {"display_mode", INITYPE_UINT8, &np2oscfg.gui_display_mode, 0},
@@ -556,6 +564,9 @@ void initload(void) {
 		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
 		            sizeof(np2oscfg.gui_shader_preset));
 	}
+	if (np2oscfg.gui_rotate >= VAEG_ROTATE_COUNT) {
+		np2oscfg.gui_rotate = VAEG_ROTATE_NONE;
+	}
 	if (np2oscfg.gui_effect >= VAEG_EFFECT_COUNT) {
 		np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
 	}
@@ -606,6 +617,9 @@ void initload(void) {
 		np2cfg.SOUND_SW = np2_default_sound_for_model(np2cfg.model);
 	}
 	np2oscfg.sound_enabled = np2oscfg.sound_enabled ? 1 : 0;
+	if (np2oscfg.master_volume > 100) {
+		np2oscfg.master_volume = 100;
+	}
 	np2oscfg.MOUSE_SW = np2oscfg.MOUSE_SW ? 1 : 0;
 	if (mouseifvacfg.device > MOUSEIFVA_MOUSE) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid Mouse_VA=%u; using joystick",
@@ -614,6 +628,17 @@ void initload(void) {
 	}
 	np2oscfg.keyboard_auto_kana_lock = np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
+	/* M110: the cursor keys as keys (0), joystick (1) or mouse (3); the PC-98
+	 * second-joystick mode 2 is gone. */
+	if ((np2cfg.KEY_MODE != 1) && (np2cfg.KEY_MODE != 3)) {
+		np2cfg.KEY_MODE = 0;
+	}
+	if (np2cfg.boot_mode > BOOTMODE_N) {
+		np2cfg.boot_mode = BOOTMODE_AUTO;
+	}
+	if (np2oscfg.F12KEY > KBDMAP_F12_PAUSE) {
+		np2oscfg.F12KEY = 0;
+	}
 	opngen_setbackend(opngen_parsebackend(np2oscfg.opn_backend));
 	milstr_ncpy(np2oscfg.opn_backend, opngen_backendname(opngen_getbackend()),
 	            sizeof(np2oscfg.opn_backend));

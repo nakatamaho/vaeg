@@ -38,7 +38,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <chrono>
+#include <ctime>
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -48,6 +52,8 @@
 #include "memoryva.h"
 #include "maketextva.h"
 #include "bkupmemva.h"
+#include "extrarom.h"
+#include "pcg88.h"
 #include "n80rom.h"
 #include "cmt.h"
 #include "diskdrv.h"
@@ -56,6 +62,7 @@
 #include "hostfat_manager.h"
 #include "hostfat_path.h"
 #include "fddfile.h"
+#include "fdd_d88.h"
 #include "fontdata.h"
 #include "romva.h"
 #include "machine/keystat.h"
@@ -115,7 +122,6 @@ constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
 constexpr int kScsiImageCount = 6;
-constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kNdp8087Presets[] = {5000000, 8000000, 10000000};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
@@ -160,16 +166,10 @@ static bool is_directory(const std::string &path);
 static void open_hostfat_browser(void);
 static void draw_hostfat_browser_popup(void);
 static void draw_state_error_dialog(void);
+static void state_capture_software(void);
+static void history_record_boot(void);
+static bool load_tape_path(const std::string &path);
 static void draw_hostfat_error_dialog(void);
-
-static std::string state_slot_path(int slot) {
-	char name[32];
-	char path[MAX_PATH];
-
-	std::snprintf(name, sizeof(name), "np2sdl.S%02d", slot);
-	file_getstatepath(path, sizeof(path), name);
-	return std::string(path);
-}
 
 struct BrowserEntry {
 	std::string name;
@@ -244,7 +244,7 @@ struct GuiState {
 	bool native_crt_settings_open = false;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
-	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
+	int new_fdd_format = NEWDISK_FDD_BLANK_2HD_1200;
 	int new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
 	int new_fdd_drive = 0;
 	bool new_fdd_mount_after_create = true;
@@ -284,6 +284,14 @@ struct GuiState {
 	bool state_error_request = false;
 	bool state_force_hostfat_available = false;
 	std::string state_force_hostfat_path;
+	std::string state_software_media;
+	bool state_software_set = false;
+	bool state_overview_open = false;
+	bool state_save_as_request = false;
+	bool state_save_as_open = false;
+	char state_save_as_name[128] = {};
+	bool state_browser_open = false;
+	std::string state_browser_dir;
 	std::string keyboard_status;
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
@@ -329,6 +337,7 @@ struct GuiState {
 	bool sound_buffer_request = false;
 	int pending_sound_buffer_ms = VAEG_SOUND_BUFFER_DEFAULT_MS;
 	bool about_open = false;
+	std::string boot_status; /* M116: why a recent boot did not start */
 	bool about_request = false;
 	bool about_more = false;
 	char about_info[2048] = {};
@@ -571,10 +580,17 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 		g_gui.screenshot_status = "スクリーンショットの時刻取得に失敗しました。";
 		return (FAILURE);
 	}
+	// M110: screenshots/ next to the executable (one directory for all
+	// software), with today's date-and-time names.
+	char directory[MAX_PATH];
+	(void)file_getappdir(directory, sizeof(directory), "screenshots");
 	for (attempt = 0; attempt < 1000; attempt++) {
-		std::snprintf(path, sizeof(path), "vaeg-%04u%02u%02u-%02u%02u%02u-%010u-%03u.png",
+		char name[96];
+		std::snprintf(name, sizeof(name), "vaeg-%04u%02u%02u-%02u%02u%02u-%010u-%03u.png",
 		              systime.year, systime.month, systime.day, systime.hour, systime.minute,
 		              systime.second, static_cast<unsigned int>(ticks), attempt);
+		file_cpyname(path, directory, sizeof(path));
+		file_catname(path, name, sizeof(path));
 		if (file_attr(path) < 0) {
 			break;
 		}
@@ -840,12 +856,6 @@ static std::string new_scsi_default_path(const std::string &directory, int drive
 	return join_path(directory, name.c_str());
 }
 
-static void menu_item_not_implemented(const char *label) {
-	ImGui::BeginDisabled();
-	ImGui::MenuItem(label);
-	ImGui::EndDisabled();
-}
-
 static void open_configure_dialog(void) {
 	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
@@ -858,6 +868,41 @@ static void open_configure_dialog(void) {
 	g_gui.pending_hostfat_rebuild = false;
 	g_gui.configure_open = true;
 	g_gui.configure_request = true;
+}
+
+/*
+ * M110: dialogs fit the vaeg window. The first size is given in font units
+ * and clamped to 95 % of the work area, which also bounds the user's
+ * resizing; ImGui keeps a resized window's size for the session. The
+ * window is centred each time it appears.
+ */
+static void prepare_dialog(float width_em, float height_em, ImGuiCond size_cond) {
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float unit = ImGui::GetFontSize();
+	const ImVec2 limit(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f);
+
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+	                               viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
+	                        ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(
+	    ImVec2((std::min)(width_em * unit, limit.x), (std::min)(height_em * unit, limit.y)),
+	    size_cond);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), limit);
+}
+
+/* A file list taking the height the lines below it (and a wrapped status
+ * text) leave, so that the path field and the buttons stay visible. */
+static float browser_list_height(float footer_lines, const std::string &status) {
+	const ImGuiStyle &style = ImGui::GetStyle();
+	float footer = footer_lines * ImGui::GetFrameHeightWithSpacing();
+
+	if (!status.empty()) {
+		footer +=
+		    ImGui::CalcTextSize(status.c_str(), nullptr, false, ImGui::GetContentRegionAvail().x)
+		        .y +
+		    2.0f * style.ItemSpacing.y + 1.0f;
+	}
+	return (std::max)(ImGui::GetFrameHeight() * 3.0f, ImGui::GetContentRegionAvail().y - footer);
 }
 
 static void draw_multiplier_input(const char *label, int *value, const int *presets,
@@ -885,12 +930,13 @@ static void draw_multiplier_input(const char *label, int *value, const int *pres
 
 static void draw_ndp8087_clock_input(int *value) {
 	ImGui::PushID("NDP8087 clock");
+	const float unit = ImGui::GetFontSize();
 	ImGui::TextUnformatted("Clock (Hz)");
-	ImGui::SameLine(145.0f);
-	ImGui::SetNextItemWidth(125.0f);
+	ImGui::SameLine(unit * 6.0f);
+	ImGui::SetNextItemWidth(unit * 11.0f);
 	ImGui::InputInt("##value", value, 100000, 1000000);
 	ImGui::SameLine();
-	ImGui::SetNextItemWidth(110.0f);
+	ImGui::SetNextItemWidth(unit * 7.0f);
 	if (ImGui::BeginCombo("##presets", "Preset")) {
 		for (int i = 0; i < static_cast<int>(std::size(kNdp8087Presets)); i++) {
 			char item[32];
@@ -983,11 +1029,21 @@ static void draw_configure_dialog(void) {
 	if (!g_gui.configure_open) {
 		return;
 	}
+	/*
+	 * The dialog takes the height of its sections (font units, no fixed
+	 * pixel sizes), up to 95 % of the window; beyond that the sections
+	 * scroll and the message line and the buttons stay visible.
+	 */
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(560.0f, 800.0f), ImGuiCond_Appearing);
+	const float unit = ImGui::GetFontSize();
+	const ImVec2 limit(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f);
+	const float width = (std::min)(unit * 36.0f, limit.x);
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+	                               viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
+	                        ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f), ImVec2(width, limit.y));
 	if (ImGui::BeginPopupModal("Configure##clock-config", &g_gui.configure_open,
-	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
+	                           ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool cpu_valid =
 		    pccore_cpu_multiple_valid(static_cast<UINT>(g_gui.pending_cpu_multiplier));
 		const bool sgp_mode_valid = sgp_speed_mode_valid(static_cast<UINT>(g_gui.pending_sgp_mode));
@@ -1010,25 +1066,17 @@ static void draw_configure_dialog(void) {
 		    (g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
 		    (g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
 
-		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
-		                      ImGuiWindowFlags_NoScrollbar)) {
-			ImGui::TextUnformatted("CPU");
-			ImGui::Separator();
-			ImGui::BeginDisabled();
-			if (ImGui::BeginCombo("Base clock", "3.9936 MHz")) {
-				ImGui::Selectable("3.9936 MHz", true);
-				ImGui::EndCombo();
-			}
-			ImGui::EndDisabled();
-			draw_multiplier_input("Multiplier", &g_gui.pending_cpu_multiplier, kCpuPresets,
-			                      static_cast<int>(std::size(kCpuPresets)));
-			ImGui::Text("Effective CPU clock: %.4f MHz",
-			            3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
-			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
-		}
-		ImGui::EndChild();
-
-		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 155.0f), true,
+		// The sections scroll when the window is too low; the message line
+		// and the buttons stay below.
+		const ImGuiStyle &style = ImGui::GetStyle();
+		const float footer = 2.0f * ImGui::GetFrameHeightWithSpacing() + ImGui::GetFrameHeight() +
+		                     2.0f * style.WindowPadding.y;
+		const ImGuiChildFlags section = ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY;
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(FLT_MAX, (std::max)(limit.y - footer, unit * 6.0f)));
+		ImGui::BeginChild("configure-body", ImVec2(width - 2.0f * style.WindowPadding.x, 0.0f),
+		                  ImGuiChildFlags_AutoResizeY);
+		if (ImGui::BeginChild("ndp8087-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			const bool requested_changed =
 			    ((np2cfg.upd8087_enable != 0) != g_gui.pending_ndp8087_enabled) ||
@@ -1049,7 +1097,7 @@ static void draw_configure_dialog(void) {
 		}
 		ImGui::EndChild();
 
-		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 165.0f), true,
+		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			static const char *modes[] = {"Model default", "Follow CPU", "Custom"};
 			const UINT model = (milstr_cmp(np2cfg.model, str_VA1) == 0) ? PCMODEL_VA1 : PCMODEL_VA2;
@@ -1082,25 +1130,39 @@ static void draw_configure_dialog(void) {
 			ImGui::Text("Effective SGP clock: %.4f MHz", model_clock_mhz * effective_scale);
 		}
 		ImGui::EndChild();
-		ImGui::Text("Host pacing delay per loop (ms)");
-		ImGui::SetNextItemWidth(120.0f);
-		ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
-		if (g_gui.pending_pacing_ms < 0)
-			g_gui.pending_pacing_ms = 0;
-		if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
-			g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
+		if (ImGui::BeginChild("pacing-config", ImVec2(0.0f, 0.0f), section,
+		                      ImGuiWindowFlags_NoScrollbar)) {
+			// M116: host pacing (PacingMs): the shortest time between two
+			// guest frames; 0 leaves the speed to the normal timing.
+			ImGui::TextUnformatted("ホストの待ち時間");
+			ImGui::Separator();
+			ImGui::TextUnformatted("1 フレームごとの最小間隔 (ms)");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(unit * 9.0f);
+			ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
+			if (g_gui.pending_pacing_ms < 0)
+				g_gui.pending_pacing_ms = 0;
+			if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
+				g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
+			}
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+			ImGui::TextWrapped("0 で無効（ふつうは 0）。大きくするとホストの負荷は下がり、"
+			                   "エミュレーションは遅くなります。");
+			ImGui::PopStyleColor();
 		}
+		ImGui::EndChild();
 
-		if (ImGui::BeginChild("hostfat-config", ImVec2(0.0f, 175.0f), true,
+		if (ImGui::BeginChild("hostfat-config", ImVec2(0.0f, 0.0f), section,
 		                      ImGuiWindowFlags_NoScrollbar)) {
 			ImGui::TextUnformatted("HOSTFAT read-only host folder");
 			ImGui::Separator();
 			ImGui::Checkbox("Enable HOSTFAT", &g_gui.pending_hostfat_enabled);
-			ImGui::SetNextItemWidth(-92.0f);
+			const float browse = unit * 6.0f;
+			ImGui::SetNextItemWidth(-(browse + style.ItemSpacing.x));
 			ImGui::InputText("##hostfat-dir", g_gui.pending_hostfat_dir,
 			                 sizeof(g_gui.pending_hostfat_dir));
 			ImGui::SameLine();
-			if (ImGui::Button("Browse...", ImVec2(84.0f, 0.0f))) {
+			if (ImGui::Button("Browse...", ImVec2(browse, 0.0f))) {
 				open_hostfat_browser();
 			}
 			if (ImGui::Button("Rebuild + reset on OK")) {
@@ -1134,6 +1196,7 @@ static void draw_configure_dialog(void) {
 			}
 		}
 		ImGui::EndChild();
+		ImGui::EndChild();
 
 		if (!cpu_valid) {
 			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
@@ -1149,8 +1212,9 @@ static void draw_configure_dialog(void) {
 			ImGui::TextUnformatted("Wait for the current HOSTFAT build to finish.");
 		}
 
-		const float button_width = 88.0f;
-		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - (button_width * 2.0f + 8.0f));
+		const float button_width = unit * 5.5f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+		                     (button_width * 2.0f + style.ItemSpacing.x));
 		ImGui::BeginDisabled(!valid);
 		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
 			apply_configure_dialog();
@@ -1202,9 +1266,7 @@ static void draw_bms_config_dialog(void) {
 	if (!g_gui.bms_config_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(430.0f, 285.0f), ImGuiCond_Appearing);
+	prepare_dialog(26.875f, 17.8125f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("I/O Bank Memory##bms-config", &g_gui.bms_config_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		static const char *ports[] = {"01D0H (PC-88VA-01/02 mode)", "00ECH (PC-9801 mode)"};
@@ -1313,9 +1375,7 @@ static void draw_ems_config_dialog(void) {
 	if (!g_gui.ems_config_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(430.0f, 250.0f), ImGuiCond_Appearing);
+	prepare_dialog(26.875f, 15.625f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("EMS Board##ems-config", &g_gui.ems_config_open,
 	                           ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
 		const bool capacity_valid =
@@ -1362,9 +1422,10 @@ static UINT8 scale_master_volume(int volume, int max_value) {
 	return static_cast<UINT8>((volume * max_value + kMasterVolumeMax / 2) / kMasterVolumeMax);
 }
 
-static void apply_master_volume(int volume) {
+/* 個別の音量 (M110). 音源 sets FM, SSG, ADPCM and rhythm together: their
+ * ratio is fixed by the chip and the board on hardware. */
+static void apply_source_volume(int volume) {
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
-	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
 	np2cfg.vol_ssg = mixer_volume;
@@ -1376,17 +1437,61 @@ static void apply_master_volume(int volume) {
 	rhythm_update(&rhythm);
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
+	sysmng_update(SYS_UPDATECFG);
+}
 
-	// The buzzer follows the master volume finely; BEEP_vol (0-3) keeps a
-	// value that is not 0 unless the master volume is 0, for older builds.
+static int beep_volume(void) {
+	if (np2cfg.beep_level <= kMasterVolumeMax) {
+		return np2cfg.beep_level;
+	}
+	return (std::min)(np2cfg.BEEP_VOL * 43, kMasterVolumeMax);
+}
+
+static void apply_beep_volume(int volume) {
+	// BEEP_vol (0-3) keeps a nonzero value unless the level is 0, for
+	// older builds.
 	np2cfg.beep_level = static_cast<UINT8>(std::clamp(volume, 0, kMasterVolumeMax));
 	np2cfg.BEEP_VOL =
 	    static_cast<UINT8>((np2cfg.beep_level * 3 + kMasterVolumeMax - 1) / kMasterVolumeMax);
 	beep_setlevel(np2cfg.beep_level);
-
-	np2cfg.MOTORVOL = motor_volume;
-	fddmtrsnd_volume(np2cfg.MOTORVOL);
 	sysmng_update(SYS_UPDATECFG);
+}
+
+static void draw_source_volumes(void) {
+	const float width = ImGui::GetFontSize() * 10.0f;
+	int value;
+
+	value = np2cfg.vol_fm;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("音源 (FM/SSG/ADPCM/リズム)", &value, 0, kMasterVolumeMax)) {
+		apply_source_volume(value);
+	}
+	value = beep_volume();
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("BEEP", &value, 0, kMasterVolumeMax)) {
+		apply_beep_volume(value);
+	}
+	value = np2cfg.cmt_vol;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("テープ", &value, 0, 128)) {
+		np2cfg.cmt_vol = static_cast<UINT8>(value);
+		cmt_setvol(np2cfg.cmt_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	value = np2cfg.pcg_vol;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("PCG", &value, 0, 128)) {
+		np2cfg.pcg_vol = static_cast<UINT8>(value);
+		pcg88_setvol(np2cfg.pcg_vol);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	value = np2cfg.MOTORVOL;
+	ImGui::SetNextItemWidth(width);
+	if (ImGui::SliderInt("シーク音", &value, 0, 100)) {
+		np2cfg.MOTORVOL = static_cast<UINT8>(value);
+		fddmtrsnd_volume(np2cfg.MOTORVOL);
+		sysmng_update(SYS_UPDATECFG);
+	}
 }
 
 static void select_opn_backend(UINT backend) {
@@ -1433,30 +1538,45 @@ static void select_sound_buffer(UINT delayms) {
 	reset_guest();
 }
 
-static void select_boot_model(const char *model, bool enable_8087) {
+/*
+ * 模擬 > 起動: select the machine and its boot mode in one step and reset
+ * (M111). 自動 lets the ROM decide from the boot disk (a V3 disk boots V3,
+ * otherwise V1/V2 as last chosen); V2/V1 H/S skip the V3 search and start
+ * V1/V2; N starts N-BASIC. V1/V2 is the VA's memory switch B1FC5h bit 0, as
+ * its setup menu stores it; H/S and N are vaeg extensions (memctrlva_i031).
+ */
+static void select_boot(const char *model, int boot_mode, bool v1, bool standard,
+                        const char *n80rom, const char *extra_machine = nullptr) {
 	const UINT16 old_sound = np2cfg.SOUND_SW;
-	const bool old_8087 = np2cfg.upd8087_enable != 0;
 
 	np2_select_boot_model(model);
-	np2cfg.upd8087_enable = enable_8087 ? 1 : 0;
 	if (np2cfg.SOUND_SW != old_sound) {
 		soundrenewal = 1;
 	}
-	sysmng_update(SYS_UPDATECFG | ((old_8087 != enable_8087) ? SYS_UPDATECLOCK : 0));
+	milstr_ncpy(np2cfg.extra_machine, (extra_machine != nullptr) ? extra_machine : "",
+	            sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = static_cast<UINT8>(boot_mode);
+	if (boot_mode == BOOTMODE_N) {
+		if (n80rom != nullptr) {
+			milstr_ncpy(np2cfg.v1v2_n80rom, n80rom, sizeof(np2cfg.v1v2_n80rom));
+		}
+	} else if (boot_mode == BOOTMODE_V1V2) {
+		bkupmemva_set_88v1(v1 ? TRUE : FALSE);
+		np2cfg.v1v2_standard = standard ? 1 : 0;
+	}
+	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
 
-/*
- * V1/V2 ("Z80") mode: V1/V2 is the VA's memory switch B1FC5h bit 0, as its
- * setup menu stores it; H/S is a vaeg extension (see memctrlva_i031). Both
- * take effect at reset, as on the machine.
- */
-static void select_v1v2_mode(bool v1, bool standard) {
-	bkupmemva_set_88v1(v1 ? TRUE : FALSE);
-	np2cfg.v1v2_standard = standard ? 1 : 0;
-	np2cfg.v1v2_nmode = 0;
-	sysmng_update(SYS_UPDATECFG);
-	reset_guest();
+/* M113: start a PC-8801 model from extra/<name>/ in the VA's V1/V2 mode
+ * (V2/V1 with H or S, or N), on the VA model its profile names. */
+static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(name, &profile) || !profile.startable) {
+		return;
+	}
+	select_boot(profile.base_model, boot_mode, v1, standard, nullptr, name);
 }
 
 static void select_monitor(bool khz15) {
@@ -1468,7 +1588,7 @@ static void select_monitor(bool khz15) {
 	reset_guest();
 }
 
-/* N-BASIC ROM files found when the Z80 mode menu was last opened. */
+/* N-BASIC ROM files found when the 起動 menu was last opened. */
 static N80ROMENTRY g_n80_entries[ROMVA_N80_NAMES];
 static bool g_n80_scanned = false;
 
@@ -1774,9 +1894,7 @@ static void draw_hostfat_browser_popup(void) {
 	if (!g_gui.hostfat_browser_open) {
 		return;
 	}
-	const ImGuiViewport *viewport = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 480.0f), ImGuiCond_Appearing);
+	prepare_dialog(38.75f, 30.0f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Select HOSTFAT folder##hostfat-browser",
 	                           &g_gui.hostfat_browser_open, ImGuiWindowFlags_NoCollapse)) {
 		if (g_gui.hostfat_browser_refresh) {
@@ -1794,7 +1912,7 @@ static void draw_hostfat_browser_popup(void) {
 		if (ImGui::Button("Refresh")) {
 			g_gui.hostfat_browser_refresh = true;
 		}
-		if (ImGui::BeginChild("hostfat-directory-list", ImVec2(0, 330.0f),
+		if (ImGui::BeginChild("hostfat-directory-list", ImVec2(0, browser_list_height(1.5f, "")),
 		                      ImGuiChildFlags_Borders)) {
 			for (const BrowserEntry &entry : g_gui.hostfat_entries) {
 				const std::string label = "[D] " + entry.name;
@@ -1818,22 +1936,6 @@ static void draw_hostfat_browser_popup(void) {
 		}
 		ImGui::EndPopup();
 	}
-}
-
-static void persist_fdd_dir(const std::string &dir) {
-	if (!is_directory(dir)) {
-		return;
-	}
-	copy_path(np2oscfg.gui_fdd_dir, sizeof(np2oscfg.gui_fdd_dir), dir);
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
-static void persist_hdd_dir(const std::string &dir) {
-	if (!is_directory(dir)) {
-		return;
-	}
-	copy_path(np2oscfg.gui_hdd_dir, sizeof(np2oscfg.gui_hdd_dir), dir);
-	sysmng_update(SYS_UPDATEOSCFG);
 }
 
 static bool file_is_mountable(const char *path, std::string *error) {
@@ -1907,6 +2009,433 @@ static std::string display_file_name(const char *path) {
 	return name;
 }
 
+// ---- History (M110): media per drive, recent boots, recent folders.
+// Kept in vaeg-history.txt in the user directory, one "key<TAB>value" per line.
+// Only media inserted through the GUI (menus, drag and drop) are recorded.
+
+enum HistoryKind {
+	HIST_FDD1 = GUI_HISTORY_FDD1,
+	HIST_FDD2 = GUI_HISTORY_FDD2,
+	HIST_SASI1,
+	HIST_SASI2,
+	HIST_SCSI0,
+	HIST_TAPE = HIST_SCSI0 + SCSIHDD_MAX,
+	/* M122: recent folders of the FDD, HDD and tape file windows */
+	HIST_DIR_FDD,
+	HIST_DIR_HDD,
+	HIST_DIR_TAPE,
+	HIST_COUNT
+};
+
+struct BootRecord {
+	std::string model;
+	bool v1 = false;
+	bool standard = false;
+	int mode = BOOTMODE_AUTO;
+	std::string n80rom;
+	std::string fdd[2];
+	std::string sasi[2];
+	std::string tape;
+	std::string extra; /* M113: PC-8801 model directory, empty for the VA */
+	UINT fdd_image[2] = {0, 0}; /* M120: disk of a multi-image D88 */
+
+	bool operator==(const BootRecord &other) const {
+		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
+		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
+		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
+		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra) &&
+		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]);
+	}
+};
+
+constexpr std::size_t kRecentBoots = 10;
+
+static std::vector<std::string> g_history[HIST_COUNT];
+static std::vector<BootRecord> g_recent_boots;
+static bool g_history_loaded = false;
+/* The path the user chose for each FDD (an archive, not its extracted
+ * image), for recent boots. */
+static std::string g_fdd_origin[2];
+
+static std::size_t history_limit(int kind) {
+	if ((kind == HIST_FDD1) || (kind == HIST_FDD2) || (kind == HIST_TAPE)) {
+		return 10;
+	}
+	return 5;
+}
+
+static std::string history_key(int kind) {
+	if (kind == HIST_FDD1) {
+		return "fdd1";
+	}
+	if (kind == HIST_FDD2) {
+		return "fdd2";
+	}
+	if ((kind == HIST_SASI1) || (kind == HIST_SASI2)) {
+		return "sasi" + std::to_string(kind - HIST_SASI1 + 1);
+	}
+	if ((kind >= HIST_SCSI0) && (kind < HIST_TAPE)) {
+		return "scsi" + std::to_string(kind - HIST_SCSI0);
+	}
+	if (kind == HIST_TAPE) {
+		return "tape";
+	}
+	if (kind == HIST_DIR_FDD) {
+		return "dirfdd";
+	}
+	return (kind == HIST_DIR_HDD) ? "dirhdd" : "dirtape";
+}
+
+static std::string history_file(void) {
+	char path[MAX_PATH];
+
+	file_getstatepath(path, sizeof(path), "vaeg-history.txt");
+	return path;
+}
+
+static std::vector<std::string> history_split(const std::string &line) {
+	std::vector<std::string> fields;
+	std::size_t start = 0;
+
+	for (;;) {
+		const std::size_t tab = line.find('\t', start);
+		fields.push_back(line.substr(start, tab - start));
+		if (tab == std::string::npos) {
+			return fields;
+		}
+		start = tab + 1;
+	}
+}
+
+static void history_save(void) {
+	std::ofstream output(fs::u8path(history_file()), std::ios::binary | std::ios::trunc);
+
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		for (const auto &path : g_history[kind]) {
+			output << history_key(kind) << '\t' << path << '\n';
+		}
+	}
+	for (const auto &boot : g_recent_boots) {
+		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
+		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
+		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
+		       << '\t' << boot.tape << '\t' << boot.extra << '\t' << boot.fdd_image[0] << ','
+		       << boot.fdd_image[1] << '\n';
+	}
+}
+
+/* M122: the folders of the shared "dir" list (M110-M120) go to the FDD,
+ * HDD and tape lists whose files were in them; a folder of none of them
+ * goes to the FDD list. Written back in the new form at the next save. */
+static void history_split_legacy_dirs(const std::vector<std::string> &dirs) {
+	static const struct {
+		int first;
+		int last;
+		int dir_kind;
+	} groups[] = {{HIST_FDD1, HIST_FDD2, HIST_DIR_FDD},
+	              {HIST_SASI1, HIST_TAPE - 1, HIST_DIR_HDD},
+	              {HIST_TAPE, HIST_TAPE, HIST_DIR_TAPE}};
+
+	for (const std::string &dir : dirs) {
+		bool placed = false;
+		for (const auto &group : groups) {
+			bool used = false;
+			for (int kind = group.first; !used && (kind <= group.last); kind++) {
+				for (const std::string &file : g_history[kind]) {
+					if (parent_dir(file) == dir) {
+						used = true;
+						break;
+					}
+				}
+			}
+			std::vector<std::string> &list = g_history[group.dir_kind];
+			if (used && (list.size() < history_limit(group.dir_kind)) &&
+			    (std::find(list.begin(), list.end(), dir) == list.end())) {
+				list.push_back(dir);
+			}
+			placed = placed || used;
+		}
+		std::vector<std::string> &fdd = g_history[HIST_DIR_FDD];
+		if (!placed && (fdd.size() < history_limit(HIST_DIR_FDD)) &&
+		    (std::find(fdd.begin(), fdd.end(), dir) == fdd.end())) {
+			fdd.push_back(dir);
+		}
+	}
+}
+
+static void history_load(void) {
+	if (g_history_loaded) {
+		return;
+	}
+	g_history_loaded = true;
+	std::ifstream input(fs::u8path(history_file()), std::ios::binary);
+	std::string line;
+	std::vector<std::string> legacy_dirs;
+	while (std::getline(input, line)) {
+		if (!line.empty() && (line.back() == '\r')) {
+			line.pop_back();
+		}
+		const std::vector<std::string> fields = history_split(line);
+		if ((fields.size() >= 11) && (fields.size() <= 13) && (fields[0] == "boot")) {
+			BootRecord boot;
+			boot.model = fields[1];
+			boot.v1 = fields[2] == "1";
+			boot.standard = fields[3] == "1";
+			boot.mode = std::atoi(fields[4].c_str());
+			if ((boot.mode < BOOTMODE_AUTO) || (boot.mode > BOOTMODE_N)) {
+				boot.mode = BOOTMODE_AUTO;
+			}
+			boot.n80rom = fields[5];
+			boot.fdd[0] = fields[6];
+			boot.fdd[1] = fields[7];
+			boot.sasi[0] = fields[8];
+			boot.sasi[1] = fields[9];
+			boot.tape = fields[10];
+			if (fields.size() >= 12) {
+				boot.extra = fields[11];
+			}
+			if (fields.size() == 13) {
+				// M120: "first,second" disks of multi-image D88 files
+				unsigned first = 0;
+				unsigned second = 0;
+				if (std::sscanf(fields[12].c_str(), "%u,%u", &first, &second) == 2) {
+					boot.fdd_image[0] = (first < 255u) ? first : 0u;
+					boot.fdd_image[1] = (second < 255u) ? second : 0u;
+				}
+			}
+			if (g_recent_boots.size() < kRecentBoots) {
+				g_recent_boots.push_back(boot);
+			}
+			continue;
+		}
+		if ((fields.size() != 2) || fields[1].empty()) {
+			continue;
+		}
+		if (fields[0] == "dir") {
+			legacy_dirs.push_back(fields[1]);
+			continue;
+		}
+		for (int kind = 0; kind < HIST_COUNT; kind++) {
+			if ((fields[0] == history_key(kind)) &&
+			    (g_history[kind].size() < history_limit(kind))) {
+				g_history[kind].push_back(fields[1]);
+			}
+		}
+	}
+	history_split_legacy_dirs(legacy_dirs);
+}
+
+static void history_add(int kind, const std::string &path) {
+	if ((kind < 0) || (kind >= HIST_COUNT) || path.empty() ||
+	    (path.find_first_of("\t\r\n") != std::string::npos)) {
+		return;
+	}
+	history_load();
+	std::vector<std::string> &list = g_history[kind];
+	list.erase(std::remove(list.begin(), list.end(), path), list.end());
+	list.insert(list.begin(), path);
+	if (list.size() > history_limit(kind)) {
+		list.resize(history_limit(kind));
+	}
+	history_save();
+}
+
+/* Record the folder of `path` in a recent-folder list (HIST_DIR_*). */
+static void history_add_dir(int dir_kind, const std::string &path) {
+	const std::string dir = parent_dir(path);
+
+	if (is_directory(dir)) {
+		history_add(dir_kind, dir);
+	}
+}
+
+/*
+ * M122: the folder a file window opens in: the folder of the medium in use
+ * (`current`), else the newest existing folder of its own list, else of the
+ * FDD, HDD and tape lists in that order, else the home directory.
+ */
+static std::string history_start_dir(int dir_kind, const std::string &current) {
+	static const int order[] = {HIST_DIR_FDD, HIST_DIR_HDD, HIST_DIR_TAPE};
+
+	if (!current.empty() && is_directory(current)) {
+		return current;
+	}
+	history_load();
+	for (int pass = 0; pass < 2; pass++) {
+		for (int kind : order) {
+			if ((pass == 0) != (kind == dir_kind)) {
+				continue;
+			}
+			for (const std::string &dir : g_history[kind]) {
+				if (is_directory(dir)) {
+					return dir;
+				}
+			}
+		}
+	}
+	return home_dir();
+}
+
+/* Drag and drop (dropmedia.cpp) reports the file the user dropped. */
+static void history_add_dropped(int kind, const char *path) {
+	if ((path == nullptr) || (path[0] == '\0')) {
+		return;
+	}
+	if ((kind == HIST_FDD1) || (kind == HIST_FDD2)) {
+		g_fdd_origin[kind] = path;
+	}
+	history_add(kind, path);
+	history_add_dir(HIST_DIR_FDD, path);
+}
+
+static int history_hdd_kind(int drive) {
+	return hdd_is_scsi(drive) ? (HIST_SCSI0 + hdd_slot(drive)) : (HIST_SASI1 + hdd_slot(drive));
+}
+
+/* M116: the files of a recorded boot that no longer exist, one per line. */
+static std::string history_missing_paths(const BootRecord &boot) {
+	std::string missing;
+	const std::string *paths[] = {&boot.fdd[0], &boot.fdd[1], &boot.sasi[0], &boot.sasi[1],
+	                              &boot.tape};
+	for (const std::string *path : paths) {
+		std::error_code ec;
+		if (!path->empty() && !fs::exists(fs::u8path(*path), ec)) {
+			missing += (missing.empty() ? "" : "\n") + *path;
+		}
+	}
+	return missing;
+}
+
+/* 最近の起動: the media, machine and mode at a reset from the GUI. */
+static void history_record_boot(void) {
+	BootRecord boot;
+
+	history_load();
+	boot.model = np2cfg.model;
+	boot.v1 = bkupmemva_get_88v1() != FALSE;
+	boot.standard = np2cfg.v1v2_standard != 0;
+	boot.mode = np2cfg.boot_mode;
+	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
+	boot.extra = np2cfg.extra_machine;
+	for (int drive = 0; drive < 2; drive++) {
+		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
+		if ((mounted == nullptr) || (mounted[0] == '\0')) {
+			mounted = diskdrv_fname[drive];
+		}
+		if ((mounted != nullptr) && (mounted[0] != '\0')) {
+			char archive[MAX_PATH];
+			// M116: an image extracted from an archive (also one restored
+			// from the configuration at start-up) is recorded as the
+			// archive, since the extracted copy is removed later.
+			if (!g_fdd_origin[drive].empty()) {
+				boot.fdd[drive] = g_fdd_origin[drive];
+			} else if (dropmedia_source_archive(mounted, archive, sizeof(archive))) {
+				boot.fdd[drive] = archive;
+			} else {
+				boot.fdd[drive] = mounted;
+			}
+			boot.fdd_image[drive] = (fdd_diskname(static_cast<REG8>(drive))[0] != '\0')
+			                            ? fdd_diskimage(static_cast<REG8>(drive))
+			                            : diskdrv_pendingimage(static_cast<REG8>(drive));
+		}
+		boot.sasi[drive] = np2cfg.sasihdd[drive];
+	}
+	boot.tape = cmt_inserted() ? g_gui.tape_loaded : "";
+	if (boot.fdd[0].empty() && boot.fdd[1].empty() && boot.sasi[0].empty() &&
+	    boot.sasi[1].empty() && boot.tape.empty()) {
+		return;
+	}
+	g_recent_boots.erase(std::remove(g_recent_boots.begin(), g_recent_boots.end(), boot),
+	                     g_recent_boots.end());
+	g_recent_boots.insert(g_recent_boots.begin(), boot);
+	if (g_recent_boots.size() > kRecentBoots) {
+		g_recent_boots.resize(kRecentBoots);
+	}
+	history_save();
+}
+
+static std::string history_boot_label(const BootRecord &boot) {
+	std::string name;
+	const std::string *media[] = {&boot.fdd[0], &boot.sasi[0], &boot.tape, &boot.fdd[1],
+	                              &boot.sasi[1]};
+	for (const std::string *path : media) {
+		if (!path->empty()) {
+			name = display_file_name(path->c_str());
+			// M120: the disk of a multi-image D88 file in a drive
+			if ((path == &boot.fdd[0]) && (boot.fdd_image[0] != 0)) {
+				name += " #" + std::to_string(boot.fdd_image[0] + 1);
+			} else if ((path == &boot.fdd[1]) && (boot.fdd_image[1] != 0)) {
+				name += " #" + std::to_string(boot.fdd_image[1] + 1);
+			}
+			break;
+		}
+	}
+	std::string mode = (boot.mode == BOOTMODE_N) ? "N" : (boot.v1 ? "V1" : "V2");
+	if (boot.mode != BOOTMODE_N) {
+		mode += boot.standard ? " S" : " H";
+	}
+	if (boot.mode == BOOTMODE_AUTO) {
+		mode = "自動";
+	}
+	const std::string machine =
+	    !boot.extra.empty() ? boot.extra
+	                        : ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3");
+	return name + "  (" + machine + ", " + mode + ")";
+}
+
+/* A list of recent files for one drive; `select` is called with the path. */
+template <typename Select>
+static void draw_history_menu(const char *label, int kind, Select select) {
+	if (!ImGui::BeginMenu(label)) {
+		return;
+	}
+	history_load();
+	std::vector<std::string> &list = g_history[kind];
+	if (list.empty()) {
+		ImGui::TextDisabled("なし");
+	}
+	for (std::size_t index = 0; index < list.size(); index++) {
+		const std::string path = list[index];
+		std::error_code ec;
+		const bool exists = fs::exists(fs::u8path(path), ec);
+		const std::string item = display_file_name(path.c_str()) + "##" + std::to_string(index);
+		if (ImGui::MenuItem(item.c_str(), nullptr, false, exists)) {
+			select(path);
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s", path.c_str());
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("履歴を消す", nullptr, false, !list.empty())) {
+		list.clear();
+		history_save();
+	}
+	ImGui::EndMenu();
+}
+
+/* A "最近のフォルダ" combo for the file-selection windows. */
+static bool draw_recent_dirs(int dir_kind, std::string &dir) {
+	bool changed = false;
+
+	history_load();
+	if (g_history[dir_kind].empty()) {
+		return false;
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+	if (ImGui::BeginCombo("##recent-dirs", "最近のフォルダ", ImGuiComboFlags_HeightLarge)) {
+		for (const auto &path : g_history[dir_kind]) {
+			if (ImGui::Selectable(path.c_str())) {
+				dir = path;
+				changed = true;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	return changed;
+}
+
 static void set_fdd_status(int drive, const char *action, const char *path) {
 	g_gui.fdd_status = "FDD";
 	g_gui.fdd_status += static_cast<char>('1' + drive);
@@ -1935,55 +2464,64 @@ static void set_hdd_status(int drive, const char *action, const char *path) {
 	}
 }
 
-static void remember_fdd_mount(int drive, const char *path) {
+/* `image`: the disk of a multi-image D88 (M120), 0 = first. */
+static void remember_fdd_mount(int drive, const char *path, UINT image = 0) {
 	if ((drive < 0) || (drive >= 2)) {
 		return;
 	}
 	if ((path != nullptr) && (path[0] != '\0')) {
 		copy_path(np2oscfg.fdd_image[drive], sizeof(np2oscfg.fdd_image[drive]), path);
+		np2oscfg.fdd_image_index[drive] = static_cast<BYTE>(image);
 	} else {
 		np2oscfg.fdd_image[drive][0] = '\0';
+		np2oscfg.fdd_image_index[drive] = 0;
 	}
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static void capture_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+static void capture_reset_fdd_mounts(char paths[2][MAX_PATH], UINT images[2]) {
 	for (int drive = 0; drive < 2; drive++) {
 		const char *current;
 
 		paths[drive][0] = '\0';
+		images[drive] = 0;
 		if (np2oscfg.fdd_image[drive][0] != '\0') {
 			copy_path(paths[drive], MAX_PATH, np2oscfg.fdd_image[drive]);
+			images[drive] = np2oscfg.fdd_image_index[drive];
 			continue;
 		}
 		current = fdd_diskname(static_cast<REG8>(drive));
 		if ((current != nullptr) && (current[0] != '\0')) {
 			copy_path(paths[drive], MAX_PATH, current);
+			images[drive] = fdd_diskimage(static_cast<REG8>(drive));
 		}
 	}
 }
 
-static void restore_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+static void restore_reset_fdd_mounts(char paths[2][MAX_PATH], const UINT images[2]) {
 	for (int drive = 0; drive < 2; drive++) {
 		if (paths[drive][0] == '\0') {
 			continue;
 		}
-		diskdrv_setfdd(static_cast<REG8>(drive), paths[drive], 0);
-		remember_fdd_mount(drive, paths[drive]);
+		diskdrv_setfddex(static_cast<REG8>(drive), paths[drive], 0, images[drive]);
+		remember_fdd_mount(drive, paths[drive], images[drive]);
 	}
 }
 
 static void reset_guest(void) {
 	char fdd_paths[2][MAX_PATH];
+	UINT fdd_images[2];
 
-	capture_reset_fdd_mounts(fdd_paths);
+	capture_reset_fdd_mounts(fdd_paths, fdd_images);
 	taskmng_clear_fast_forward();
 	pccore_cfgupdate();
 	pccore_reset();
-	restore_reset_fdd_mounts(fdd_paths);
+	restore_reset_fdd_mounts(fdd_paths, fdd_images);
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
+	state_capture_software();
+	history_record_boot();
 }
 
 static void open_fdd_dialog(int drive) {
@@ -2005,13 +2543,7 @@ static void open_fdd_dialog(int drive) {
 			start_dir = parent_dir(current);
 		}
 	}
-	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_FDD, start_dir);
 	g_gui.fdd_browser_dir = absolute_path(start_dir);
 	g_gui.fdd_browser_open = true;
 	g_gui.fdd_browser_refresh = true;
@@ -2030,13 +2562,7 @@ static void open_hdd_dialog(int drive) {
 	} else {
 		g_gui.hdd_path[hdd_slot(drive)][0] = '\0';
 	}
-	if (start_dir.empty() && (np2oscfg.gui_hdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, start_dir);
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	g_gui.hdd_browser_open = true;
 	g_gui.hdd_browser_refresh = true;
@@ -2047,12 +2573,7 @@ static void open_new_sasi_dialog(int drive) {
 	std::string path;
 
 	g_gui.new_sasi_drive = std::clamp(drive, 0, 1);
-	if ((np2oscfg.gui_hdd_dir[0] != '\0') && is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, "");
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	path = join_path(g_gui.hdd_browser_dir, new_sasi_default_name());
 	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
@@ -2068,12 +2589,7 @@ static void open_new_scsi_dialog(int drive) {
 	std::string path;
 
 	g_gui.new_scsi_drive = std::clamp(drive, 0, SCSIHDD_MAX - 1);
-	if ((np2oscfg.gui_hdd_dir[0] != '\0') && is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, "");
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	path = new_scsi_default_path(g_gui.hdd_browser_dir, g_gui.new_scsi_drive);
 	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
@@ -2087,11 +2603,15 @@ static void open_new_scsi_dialog(int drive) {
 static const char *new_fdd_default_name(int format, int container) {
 	switch (format) {
 	case NEWDISK_FDD_BLANK_2DD_720:
-		return "newdisk-2dd720.d88";
+		return "newdisk-2dd.d88";
 	case NEWDISK_FDD_BLANK_2D_320:
-		return "newdisk-2d320.d88";
+		return "newdisk-2d.d88";
 	case NEWDISK_FDD_BLANK_2D_360:
 		return "newdisk-2d360.d88";
+	case NEWDISK_FDD_BLANK_2HD_1200:
+		return "newdisk-2hd.d88";
+	case NEWDISK_FDD_BLANK_2DD_640:
+		return "newdisk-2dd.d88";
 	default:
 		break;
 	}
@@ -2113,12 +2633,7 @@ static void open_new_fdd_dialog(int format) {
 
 	g_gui.new_fdd_format = std::clamp(format, 0, NEWDISK_FDD_MSDOS_COUNT - 1);
 	g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
-	if ((np2oscfg.gui_fdd_dir[0] != '\0') && is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_FDD, "");
 	g_gui.fdd_browser_dir = absolute_path(start_dir);
 	path = join_path(g_gui.fdd_browser_dir,
 	                 new_fdd_default_name(g_gui.new_fdd_format, g_gui.new_fdd_container));
@@ -2130,64 +2645,87 @@ static void open_new_fdd_dialog(int format) {
 	g_gui.fdd_browser_open = false;
 }
 
-static void mount_fdd_from_dialog(void) {
-	int drive;
-	const char *path;
+/* Mount an image or an archive (its images from `drive` on) chosen by the
+ * user, and record it in the drive's history; `image` picks a disk of a
+ * multi-image D88 (M120). */
+static bool mount_fdd_path(int drive, const std::string &path_string, UINT image = 0) {
+	const char *path = path_string.c_str();
 	std::string error;
 
-	drive = g_gui.fdd_dialog_drive;
 	if ((drive < 0) || (drive >= 2)) {
-		return;
+		return false;
 	}
-	path = g_gui.fdd_path[drive];
 	if (!file_is_mountable(path, &error)) {
 		g_gui.fdd_status = "FDD";
 		g_gui.fdd_status += static_cast<char>('1' + drive);
 		g_gui.fdd_status += " mount failed: ";
 		g_gui.fdd_status += error;
-		return;
+		return false;
 	}
 	if (dropmedia_path_is_archive(path)) {
 		if (!dropmedia_mount_archive(path, static_cast<UINT>(drive))) {
 			g_gui.fdd_status = dropmedia_status();
-			return;
+			return false;
 		}
 		g_gui.fdd_status.clear();
-		persist_fdd_dir(parent_dir(path));
-		g_gui.fdd_browser_open = false;
-		return;
+	} else {
+		diskdrv_setfddex(static_cast<REG8>(drive), path, 0, image);
+		remember_fdd_mount(drive, path, image);
+		dropmedia_prune_storage();
+		set_fdd_status(drive, "mounted", path);
+		// M120: the first disk of a multi-image D88 in FDD1 brings its
+		// second disk into FDD2, as PC-8801 software expects.
+		if ((drive == 0) && (image == 0) && (fddd88_images(path, nullptr, 0) >= 2)) {
+			diskdrv_setfddex(1, path, 0, 1);
+			remember_fdd_mount(1, path, 1);
+			g_fdd_origin[1] = path_string;
+			g_gui.fdd_status += " (FDD2: #2)";
+		}
 	}
-	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
-	remember_fdd_mount(drive, path);
-	dropmedia_prune_storage();
-	persist_fdd_dir(parent_dir(path));
-	set_fdd_status(drive, "mounted", path);
-	g_gui.fdd_browser_open = false;
+	g_fdd_origin[drive] = path_string;
+	history_add(drive, path_string);
+	history_add_dir(HIST_DIR_FDD, path_string);
+	return true;
 }
 
-static void mount_hdd_from_dialog(void) {
-	int drive;
-	int slot;
-	const char *path;
+static void mount_fdd_from_dialog(void) {
+	const int drive = g_gui.fdd_dialog_drive;
+
+	if ((drive >= 0) && (drive < 2) && mount_fdd_path(drive, g_gui.fdd_path[drive])) {
+		g_gui.fdd_browser_open = false;
+	}
+}
+
+static bool mount_hdd_path(int drive, const std::string &path_string) {
+	const char *path = path_string.c_str();
+	const int slot = hdd_slot(drive);
 	std::string error;
 
-	drive = g_gui.hdd_dialog_drive;
-	slot = hdd_slot(drive);
-	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
-		return;
-	}
-	path = g_gui.hdd_path[slot];
 	if (!hdd_file_is_mountable(path, &error)) {
 		g_gui.hdd_status = hdd_interface_name(drive);
 		g_gui.hdd_status += static_cast<char>('1' + slot);
 		g_gui.hdd_status += " open failed: ";
 		g_gui.hdd_status += error;
-		return;
+		return false;
 	}
 	diskdrv_sethdd(static_cast<REG8>(drive), path);
-	persist_hdd_dir(parent_dir(path));
+
 	set_hdd_status(drive, "configured; reset to apply", path);
-	g_gui.hdd_browser_open = false;
+	history_add(history_hdd_kind(drive), path_string);
+	history_add_dir(HIST_DIR_HDD, path_string);
+	return true;
+}
+
+static void mount_hdd_from_dialog(void) {
+	const int drive = g_gui.hdd_dialog_drive;
+	const int slot = hdd_slot(drive);
+
+	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
+		return;
+	}
+	if (mount_hdd_path(drive, g_gui.hdd_path[slot])) {
+		g_gui.hdd_browser_open = false;
+	}
 }
 
 static std::string hdi_path(const char *path) {
@@ -2282,7 +2820,7 @@ static void create_new_fdd_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path), path);
-	persist_fdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_FDD, path);
 	if (g_gui.new_fdd_mount_after_create) {
 		diskdrv_setfdd(static_cast<REG8>(drive), path.c_str(), 0);
 		remember_fdd_mount(drive, path.c_str());
@@ -2324,7 +2862,7 @@ static void create_new_sasi_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
-	persist_hdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_HDD, path);
 	if (g_gui.new_sasi_open_after_create) {
 		diskdrv_sethdd(static_cast<REG8>(drive), path.c_str());
 		set_hdd_status(drive, "created and configured; reset to apply", path.c_str());
@@ -2365,7 +2903,7 @@ static void create_new_scsi_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
-	persist_hdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_HDD, path);
 	if (g_gui.new_scsi_open_after_create) {
 		diskdrv_sethdd(static_cast<REG8>(0x20 | drive), path.c_str());
 		set_hdd_status(0x20 | drive, "created and configured; reset to apply", path.c_str());
@@ -2377,6 +2915,7 @@ static void create_new_scsi_image(void) {
 }
 
 static void eject_fdd(int drive) {
+	g_fdd_origin[drive].clear();
 	diskdrv_setfdd(static_cast<REG8>(drive), nullptr, 0);
 	remember_fdd_mount(drive, nullptr);
 	dropmedia_prune_storage();
@@ -2410,7 +2949,7 @@ static void draw_fdd_browser(void) {
 	if (g_gui.fdd_browser_refresh) {
 		refresh_fdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 26.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Mount FDD image or archive", &g_gui.fdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.fdd_browser_dir, g_gui.fdd_browser_refresh,
 		                             "fdd-open")) {
@@ -2425,6 +2964,9 @@ static void draw_fdd_browser(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Up")) {
 			g_gui.fdd_browser_dir = parent_dir(g_gui.fdd_browser_dir);
+			g_gui.fdd_browser_refresh = true;
+		}
+		if (draw_recent_dirs(HIST_DIR_FDD, g_gui.fdd_browser_dir)) {
 			g_gui.fdd_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -2490,7 +3032,7 @@ static void draw_hdd_browser(void) {
 	if (g_gui.hdd_browser_refresh) {
 		refresh_hdd_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 450.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 28.125f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.hdd_browser_refresh,
 		                             "hdd-open")) {
@@ -2507,8 +3049,13 @@ static void draw_hdd_browser(void) {
 			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
 			g_gui.hdd_browser_refresh = true;
 		}
+		if (draw_recent_dirs(HIST_DIR_HDD, g_gui.hdd_browser_dir)) {
+			g_gui.hdd_browser_refresh = true;
+		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("hdd-browser-list", ImVec2(0, 230.0f), ImGuiChildFlags_Borders)) {
+		if (ImGui::BeginChild("hdd-browser-list",
+		                      ImVec2(0, browser_list_height(3.0f, g_gui.hdd_status)),
+		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
 				label += entry.name;
@@ -2552,7 +3099,7 @@ static void draw_new_sasi_dialog(void) {
 		refresh_hdd_browser();
 		g_gui.new_sasi_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SASI HDD image", &g_gui.new_sasi_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.new_sasi_refresh, "new-sasi")) {
 			copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path),
@@ -2570,7 +3117,8 @@ static void draw_new_sasi_dialog(void) {
 			g_gui.new_sasi_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-sasi-browser-list", ImVec2(0, 170.0f),
+		if (ImGui::BeginChild("new-sasi-browser-list",
+		                      ImVec2(0, browser_list_height(8.0f, g_gui.hdd_status)),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
@@ -2625,7 +3173,7 @@ static void draw_new_scsi_dialog(void) {
 		refresh_hdd_browser();
 		g_gui.new_scsi_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SCSI HDD image", &g_gui.new_scsi_open)) {
 		if (draw_host_drive_selector(g_gui.hdd_browser_dir, g_gui.new_scsi_refresh, "new-scsi")) {
 			copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path),
@@ -2643,7 +3191,8 @@ static void draw_new_scsi_dialog(void) {
 			g_gui.new_scsi_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-scsi-browser-list", ImVec2(0, 170.0f),
+		if (ImGui::BeginChild("new-scsi-browser-list",
+		                      ImVec2(0, browser_list_height(9.0f, g_gui.hdd_status)),
 		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.hdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
@@ -2710,7 +3259,7 @@ static void draw_new_fdd_dialog(void) {
 		refresh_fdd_browser();
 		g_gui.new_fdd_refresh = false;
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 31.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("New FDD image", &g_gui.new_fdd_open)) {
 		if (draw_host_drive_selector(g_gui.fdd_browser_dir, g_gui.new_fdd_refresh, "new-fdd")) {
 			copy_path(
@@ -2738,7 +3287,9 @@ static void draw_new_fdd_dialog(void) {
 			g_gui.new_fdd_refresh = true;
 		}
 		ImGui::Separator();
-		if (ImGui::BeginChild("new-fdd-browser-list", ImVec2(0, 170.0f), ImGuiChildFlags_Borders)) {
+		if (ImGui::BeginChild("new-fdd-browser-list",
+		                      ImVec2(0, browser_list_height(11.0f, g_gui.fdd_status)),
+		                      ImGuiChildFlags_Borders)) {
 			for (const auto &entry : g_gui.fdd_entries) {
 				std::string label = entry.is_dir ? "[D] " : "    ";
 				label += entry.name;
@@ -2759,26 +3310,15 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##new-fdd-path", g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path));
-		ImGui::Text("Image format");
-		if (ImGui::RadioButton("D88", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_D88)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_D88));
-		}
+		// M113: new disks are unformatted D88 images (blank E5h sectors);
+		// the guest's FORMAT rewrites every track with its own sector layout,
+		// so one initial layout per media type is offered.
+		ImGui::Text("未フォーマット (D88)");
+		ImGui::RadioButton("2HD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2HD_1200);
 		ImGui::SameLine();
-		if (ImGui::RadioButton("IMG (raw)", &g_gui.new_fdd_container, NEWDISK_FDD_CONTAINER_RAW)) {
-			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
-			          fdd_image_path(g_gui.new_fdd_path, NEWDISK_FDD_CONTAINER_RAW));
-		}
-		ImGui::Text("Disk format");
-		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2HD);
+		ImGui::RadioButton("2DD", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
 		ImGui::SameLine();
-		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_MSDOS_2DD);
-		ImGui::TextDisabled("Unformatted (blank sectors, D88 only):");
-		ImGui::RadioButton("2DD (720 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2DD_720);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (360 KB)", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_360);
+		ImGui::RadioButton("2D", &g_gui.new_fdd_format, NEWDISK_FDD_BLANK_2D_320);
 		if (!newdisk_fdd_has_filesystem(static_cast<UINT>(g_gui.new_fdd_format)) &&
 		    (g_gui.new_fdd_container != NEWDISK_FDD_CONTAINER_D88)) {
 			g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
@@ -2807,6 +3347,8 @@ static void draw_new_fdd_dialog(void) {
 
 /* Emulation speed: 10-400 % of real time in 10 % steps, and No Wait (full
  * speed) at the right end of the slider. */
+/* 実行速度: 10-400 % of real time in 10 % steps, and No Wait (full speed) at
+ * the right end of the slider; frames, timers and sound follow. */
 static void draw_speed_control(void) {
 	enum {
 		SPEED_MIN = 10,
@@ -2816,7 +3358,7 @@ static void draw_speed_control(void) {
 	const int speed = (np2oscfg.speed_percent == 0) ? 100 : np2oscfg.speed_percent;
 	int value = np2oscfg.NOWAIT ? SPEED_FULL : speed;
 
-	ImGui::TextUnformatted("速度");
+	ImGui::TextUnformatted("実行速度");
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
 	if (ImGui::SliderInt("##speed", &value, SPEED_MIN, SPEED_FULL,
 	                     np2oscfg.NOWAIT ? "最大 (No Wait)" : "%d%%",
@@ -2831,159 +3373,441 @@ static void draw_speed_control(void) {
 		}
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	if (ImGui::MenuItem("速度を 100% に戻す", nullptr, false,
+	if (ImGui::MenuItem("実行速度を 100% に戻す", nullptr, false,
 	                    (np2oscfg.NOWAIT != 0) || (speed != 100))) {
 		np2oscfg.NOWAIT = 0;
 		np2oscfg.speed_percent = 100;
 		timing_setspeed(100);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	// CPU speed: only the CPU slows (V3 and V1/V2); frames, timers and sound
-	// keep real time.
-	int cpu = static_cast<int>(pccore_cpu_speed());
-	ImGui::TextUnformatted("CPU 速度");
-	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
-	if (ImGui::SliderInt("##cpuspeed", &cpu, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
-		cpu = ((cpu + 2) / 5) * 5;
-		np2cfg.cpu_speed = static_cast<UINT8>(cpu);
-		pccore_set_cpu_speed(np2cfg.cpu_speed);
-		sysmng_update(SYS_UPDATECFG);
+}
+
+/*
+ * CPU クロック (M110): the CPU alone; frames, timers and sound keep real
+ * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
+ * speed; both apply at once, without a reset. On the VA's V1/V2 mode the
+ * PC-8801 presets are approximations to be calibrated on hardware.
+ */
+struct CpuClockPreset {
+	const char *label;
+	UINT multiple;
+	UINT speed;
+};
+
+static const CpuClockPreset kCpuClockPresets[] = {
+    {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
+    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
+    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
+    {nullptr, 0, 0},
+    {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
+    {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
+    {"8倍", PCCORE_STANDARD_MULTIPLE * 8, 100},
+};
+
+static void set_cpu_clock(UINT multiple, UINT speed) {
+	if (!pccore_cpu_multiple_valid(multiple)) {
+		return;
 	}
-	if (ImGui::MenuItem("CPU 速度を 100% に戻す", nullptr, false, pccore_cpu_speed() != 100)) {
-		np2cfg.cpu_speed = 100;
-		pccore_set_cpu_speed(100);
-		sysmng_update(SYS_UPDATECFG);
+	np2cfg.multiple = multiple;
+	np2cfg.cpu_speed = static_cast<UINT8>(std::clamp(speed, 10u, 100u));
+	pccore_clockrestore();
+	sgp_configure_speed();
+	sysmng_update(SYS_UPDATECFG);
+}
+
+static void draw_cpu_clock_menu(void) {
+	char heading[64];
+	const UINT multiple = pccore_cpu_multiple();
+	const UINT speed = pccore_cpu_speed();
+	const double mhz = 3.9936 * multiple * speed / 100.0;
+
+	std::snprintf(heading, sizeof(heading), "CPU クロック (%.2f MHz)###cpu-clock", mhz);
+	if (!ImGui::BeginMenu(heading)) {
+		return;
+	}
+	bool matched = false;
+	for (const auto &preset : kCpuClockPresets) {
+		if (preset.label == nullptr) {
+			ImGui::Separator();
+			continue;
+		}
+		// Only the first equal preset is checked (高速相当 equals 既定 on the VA).
+		const bool selected = !matched && (multiple == preset.multiple) && (speed == preset.speed);
+		matched = matched || selected;
+		if (ImGui::MenuItem(preset.label, nullptr, selected)) {
+			set_cpu_clock(preset.multiple, preset.speed);
+		}
+	}
+	if (ImGui::BeginMenu("任意", true)) {
+		int value = static_cast<int>(multiple);
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+		if (ImGui::SliderInt("倍率", &value, 1, PCCORE_CPU_MULTIPLE_MAX, "x%d",
+		                     ImGuiSliderFlags_AlwaysClamp)) {
+			set_cpu_clock(static_cast<UINT>(value), speed);
+		}
+		value = static_cast<int>(speed);
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
+		if (ImGui::SliderInt("速度", &value, 10, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp)) {
+			set_cpu_clock(multiple, static_cast<UINT>(((value + 2) / 5) * 5));
+		}
+		ImGui::TextDisabled("3.9936 MHz × 倍率 × 速度");
+		ImGui::EndMenu();
+	}
+	ImGui::EndMenu();
+}
+
+/* M112: ROMs of the PC-8801/8001 families under extra/, scanned (SHA-1)
+ * once each time the 起動 menu opens. */
+static std::vector<EXTRAROM_MACHINE> g_extra_machines;
+
+static void scan_extra_roms(void) {
+	g_extra_machines.resize(EXTRAROM_MAX_MACHINES);
+	const UINT count = extrarom_scan(g_extra_machines.data(), EXTRAROM_MAX_MACHINES);
+	g_extra_machines.resize(count);
+}
+
+/* A MAME match is not shown; a ROM MAME does not list, or marks BAD_DUMP, is. */
+static std::string extra_rom_item(const EXTRAROM_FILE &file) {
+	std::string text = file.label;
+	if (file.mame[0] == '\0') {
+		text += "  [MAME と不一致]";
+	} else if (file.mame_bad_dump) {
+		text += "  [BAD_DUMP]";
+	}
+	return text;
+}
+
+static void extra_rom_tooltip(const EXTRAROM_FILE &file) {
+	if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		return;
+	}
+	ImGui::BeginTooltip();
+	ImGui::Text("%s  (%u バイト)", file.file, static_cast<unsigned>(file.size));
+	ImGui::Text("SHA-1 %s", file.sha1);
+	if (file.banner[0] != '\0') {
+		ImGui::Text("版表示: %s", file.banner);
+	}
+	if (file.mame[0] != '\0') {
+		ImGui::Text("MAME: %s%s%s%s", file.mame, (file.mame_bios[0] != '\0') ? " (" : "",
+		            file.mame_bios, (file.mame_bios[0] != '\0') ? ")" : "");
+	}
+	ImGui::EndTooltip();
+}
+
+/* M113: the start entries of a model, labelled as for the VA: V2/V1 (H
+ * where the model runs at 8 MHz, S) and N when it has N-BASIC. */
+static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
+	EXTRAROM_PROFILE profile;
+
+	if (!extrarom_profile(machine.name, &profile) || !profile.startable) {
+		ImGui::TextDisabled("起動はまだできません");
+		return;
+	}
+	const bool ready = extrarom_startable(&machine);
+	const bool current = milstr_cmp(np2cfg.extra_machine, machine.name) == 0;
+	const bool v1 = bkupmemva_get_88v1() != FALSE;
+	const bool standard = np2cfg.v1v2_standard != 0;
+	// M114: the PC-8001 family starts in N mode only, from its own N-BASIC.
+	const UINT n_role = profile.n_role ? profile.n_role : static_cast<UINT>(EXTRAROM_ROLE_N80);
+	const bool has_n80 = extrarom_choice(&machine, n_role) != nullptr;
+	static const struct {
+		const char *label;
+		bool v1;
+		bool standard;
+	} modes[] = {
+	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
+	for (const auto &mode : modes) {
+		if ((!mode.v1 && !profile.v2) || (!mode.standard && !profile.high) || profile.n_role) {
+			continue;
+		}
+		const bool selected = current && (np2cfg.boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
+		                      (standard == mode.standard);
+		if (ImGui::MenuItem(mode.label, nullptr, selected, ready)) {
+			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
+		}
+	}
+	if (has_n80 &&
+	    ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
+		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
+	}
+	if (!ready) {
+		ImGui::TextDisabled(profile.n_role ? "BASIC の ROM がありません" : "n88.rom がありません");
 	}
 }
 
-static void draw_emulate_menu(void) {
-	if (ImGui::BeginMenu("エミュレート")) {
-		if (ImGui::MenuItem("リセット")) {
-			reset_guest();
+/* The ROMs of a model, one line per role; a role with several files is a
+ * submenu of its revisions, remembered per model and role. */
+static void draw_extra_rom_files(const EXTRAROM_MACHINE &machine) {
+	static const char *const reasons[] = {"名前が役割に合わない", "大きさが違う", "中身が空",
+	                                      "読めない"};
+	if (!ImGui::BeginMenu("ROM")) {
+		return;
+	}
+	if (machine.missing[0] != '\0') {
+		ImGui::TextDisabled("不足: %s", machine.missing);
+	}
+	for (UINT role = 0; role < EXTRAROM_ROLES; role++) {
+		const EXTRAROM_FILE *files[EXTRAROM_MAX_FILES];
+		const UINT n = extrarom_revisions(&machine, role, files, EXTRAROM_MAX_FILES);
+		const EXTRAROM_FILE *chosen = extrarom_choice(&machine, role);
+		if ((n == 0) || (chosen == nullptr)) {
+			continue;
 		}
-		ImGui::Separator();
-		draw_speed_control();
-		ImGui::Separator();
-		if (ImGui::BeginMenu("起動機種")) {
-			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
-				select_boot_model(str_VA1, false);
-			}
-			if (ImGui::MenuItem("VA2/VA3", nullptr,
-			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
-			                        (np2cfg.upd8087_enable == 0))) {
-				select_boot_model(str_VA2, false);
-			}
-			if (ImGui::MenuItem("VA2/VA3 + 8087", nullptr,
-			                    (milstr_cmp(np2cfg.model, str_VA2) == 0) &&
-			                        (np2cfg.upd8087_enable != 0))) {
-				select_boot_model(str_VA2, true);
-			}
-			ImGui::EndMenu();
+		const std::string head = std::string(extrarom_role_names[role]) + ": ";
+		if (n == 1) {
+			ImGui::MenuItem((head + extra_rom_item(*chosen)).c_str(), nullptr, false, false);
+			extra_rom_tooltip(*chosen);
+			continue;
 		}
-		if (ImGui::BeginMenu("モニタ")) {
-			// DIP switch SW1, read by the ROM at reset.
-			if (ImGui::MenuItem("24 kHz", nullptr, np2cfg.monitor_15khz == 0)) {
-				select_monitor(false);
-			}
-			if (ImGui::MenuItem("15 kHz", nullptr, np2cfg.monitor_15khz != 0)) {
-				select_monitor(true);
-			}
-			ImGui::Separator();
-			// Analog or digital RGB output; display only, no reset.
-			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
-				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
-				sysmng_update(SYS_UPDATECFG);
-				scrndrawva_redraw();
-			}
-			ImGui::Separator();
-			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
-			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
-			                    np2cfg.monitor_15khz_fill == 0)) {
-				np2cfg.monitor_15khz_fill = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
-			                    np2cfg.monitor_15khz_fill != 0)) {
-				np2cfg.monitor_15khz_fill = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::Separator();
-			// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one
-			// (8x8 text doubled, 200-line graphics with scanline gaps).
-			if (ImGui::MenuItem("V1/V2 表示: VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
-				np2cfg.v1v2_8801_display = 0;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			if (ImGui::MenuItem("V1/V2 表示: PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
-				np2cfg.v1v2_8801_display = 1;
-				sysmng_update(SYS_UPDATECFG);
-				pccore_redraw();
-			}
-			ImGui::EndMenu();
+		const std::string menu = head + chosen->label + "##" + extrarom_role_names[role];
+		if (!ImGui::BeginMenu(menu.c_str())) {
+			continue;
 		}
-		if (ImGui::BeginMenu("Z80モード")) {
-			static const struct {
-				const char *label;
-				bool v1;
-				bool standard;
-			} modes[] = {{"V2 H", false, false},
-			             {"V2 S", false, true},
-			             {"V1 H", true, false},
-			             {"V1 S", true, true}};
-			const bool v1 = bkupmemva_get_88v1() != FALSE;
-			const bool standard = np2cfg.v1v2_standard != 0;
-			const bool nmode = np2cfg.v1v2_nmode != 0;
-
-			for (const auto &mode : modes) {
-				if (ImGui::MenuItem(mode.label, nullptr,
-				                    !nmode && (v1 == mode.v1) && (standard == mode.standard))) {
-					select_v1v2_mode(mode.v1, mode.standard);
-				}
+		for (UINT i = 0; i < n && i < EXTRAROM_MAX_FILES; i++) {
+			const std::string item =
+			    extra_rom_item(*files[i]) + "  " + files[i]->file + "##" + std::to_string(i);
+			if (ImGui::MenuItem(item.c_str(), nullptr, files[i] == chosen)) {
+				extrarom_select(machine.name, role, files[i]->revision);
+				sysmng_update(SYS_UPDATECFG);
 			}
-			ImGui::Separator();
-			// vaeg extension: start in N-BASIC from a user-supplied ROM. The ROM
-			// directory is scanned (SHA-1) once each time the menu opens.
-			if (!g_n80_scanned) {
-				n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
-				g_n80_scanned = true;
-			}
-			bool any_n80 = false;
-			for (const auto &entry : g_n80_entries) {
-				if (!entry.present) {
-					continue;
-				}
-				any_n80 = true;
-				const std::string label =
-				    std::string("N (PC-8001): ") + entry.name + " - " + entry.label;
-				const bool loaded =
-				    nmode && memoryva_n80_exist && (strcmp(memoryva_n80_file, entry.name) == 0);
-				if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
-					np2cfg.v1v2_nmode = 1;
-					milstr_ncpy(np2cfg.v1v2_n80rom, entry.name, sizeof(np2cfg.v1v2_n80rom));
-					sysmng_update(SYS_UPDATECFG);
-					reset_guest();
-				}
-			}
-			if (!any_n80) {
-				ImGui::MenuItem("N (PC-8001): no N-BASIC ROM", nullptr, false, false);
-			}
-			ImGui::EndMenu();
-		} else {
-			g_n80_scanned = false;
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("Configure...")) {
-			open_configure_dialog();
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("終了")) {
-			taskmng_exit();
+			extra_rom_tooltip(*files[i]);
 		}
 		ImGui::EndMenu();
 	}
+	for (UINT i = 0; (i < machine.ignored) && (i < EXTRAROM_MAX_IGNORED); i++) {
+		ImGui::TextDisabled("使わない: %s (%s)", machine.skipped[i].file,
+		                    reasons[machine.skipped[i].reason]);
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_extra_rom_machine(const EXTRAROM_MACHINE &machine) {
+	std::string title = machine.name;
+	if (!machine.known) {
+		title += " (機種不明)";
+	} else if (machine.missing[0] != '\0') {
+		title += " (不足あり)";
+	}
+	if (!ImGui::BeginMenu(title.c_str())) {
+		return;
+	}
+	draw_extra_machine_start(machine);
+	ImGui::Separator();
+	draw_extra_rom_files(machine);
+	ImGui::EndMenu();
+}
+
+/* 起動 > PC-8801/8001: the models found under extra/, started in the VA's
+ * V1/V2 mode with their own ROMs. The directory is shown on hover only
+ * when nothing was found, so that a long path does not widen the menu. */
+static void draw_extra_rom_menu(void) {
+	if (!ImGui::BeginMenu("PC-8801/8001")) {
+		return;
+	}
+	char dir[MAX_PATH];
+	extrarom_dir(dir, sizeof(dir));
+	if (g_extra_machines.empty()) {
+		ImGui::TextDisabled("ROM がありません");
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s/<機種名>/<役割>.rom", dir);
+		}
+	}
+	for (const auto &machine : g_extra_machines) {
+		draw_extra_rom_machine(machine);
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_boot_menu(void) {
+	static const struct {
+		const char *label;
+		bool v1;
+		bool standard;
+	} modes[] = {
+	    {"V2 H", false, false}, {"V2 S", false, true}, {"V1 H", true, false}, {"V1 S", true, true}};
+	static const struct {
+		const char *label;
+		const char *model;
+	} machines[] = {{"PC-88VA2/VA3", str_VA2}, {"PC-88VA", str_VA1}};
+
+	if (!ImGui::BeginMenu("起動")) {
+		g_n80_scanned = false;
+		return;
+	}
+	// The ROM directory is scanned (SHA-1) once each time the menu opens.
+	if (!g_n80_scanned) {
+		n80rom_scan(g_n80_entries, ROMVA_N80_NAMES);
+		scan_extra_roms();
+		g_n80_scanned = true;
+	}
+	const bool v1 = bkupmemva_get_88v1() != FALSE;
+	const bool standard = np2cfg.v1v2_standard != 0;
+	const int boot_mode = np2cfg.boot_mode;
+	for (const auto &machine : machines) {
+		const bool current =
+		    (milstr_cmp(np2cfg.model, machine.model) == 0) && (np2cfg.extra_machine[0] == '\0');
+		if (!ImGui::BeginMenu(machine.label)) {
+			continue;
+		}
+		// 自動: a disk without a V3 IPL starts the V1/V2 mode last chosen.
+		if (ImGui::MenuItem("自動", nullptr, current && (boot_mode == BOOTMODE_AUTO))) {
+			select_boot(machine.model, BOOTMODE_AUTO, v1, standard, nullptr);
+		}
+		for (const auto &mode : modes) {
+			if (ImGui::MenuItem(mode.label, nullptr,
+			                    current && (boot_mode == BOOTMODE_V1V2) && (v1 == mode.v1) &&
+			                        (standard == mode.standard))) {
+				select_boot(machine.model, BOOTMODE_V1V2, mode.v1, mode.standard, nullptr);
+			}
+		}
+		// vaeg extension: N-BASIC from a user-supplied ROM.
+		for (const auto &entry : g_n80_entries) {
+			if (!entry.present) {
+				continue;
+			}
+			const std::string label = std::string("N (") + entry.label + ")##" + entry.name;
+			const bool loaded = current && (boot_mode == BOOTMODE_N) && memoryva_n80_exist &&
+			                    (strcmp(memoryva_n80_file, entry.name) == 0);
+			if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+				select_boot(machine.model, BOOTMODE_N, v1, standard, entry.name);
+			}
+		}
+		ImGui::EndMenu();
+	}
+	ImGui::Separator();
+	draw_extra_rom_menu();
+	ImGui::EndMenu();
+}
+
+/* 最近の起動: put a recorded set of media back, select its machine and
+ * mode, and reset (which moves the set to the top). */
+static void boot_from_history(const BootRecord &boot) {
+	g_gui.boot_status.clear();
+	for (int drive = 0; drive < 2; drive++) {
+		if (boot.fdd[drive].empty()) {
+			eject_fdd(drive);
+		} else if (!mount_fdd_path(drive, boot.fdd[drive], boot.fdd_image[drive])) {
+			// M116: do not reset into the previous disk; say why instead.
+			g_gui.boot_status = "起動できませんでした: " + g_gui.fdd_status;
+			fprintf(stderr, "最近の起動: %s\n", g_gui.fdd_status.c_str());
+			return;
+		}
+		if (boot.sasi[drive].empty()) {
+			diskdrv_sethdd(static_cast<REG8>(drive), nullptr);
+		} else {
+			diskdrv_sethdd(static_cast<REG8>(drive), boot.sasi[drive].c_str());
+		}
+	}
+	if (boot.tape.empty()) {
+		if (cmt_inserted()) {
+			cmt_eject();
+		}
+		g_gui.tape_loaded.clear();
+	} else {
+		(void)load_tape_path(boot.tape);
+	}
+	if (!boot.extra.empty()) {
+		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
+		return;
+	}
+	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
+	            (boot.mode == BOOTMODE_N) ? boot.n80rom.c_str() : nullptr);
+}
+
+static void draw_recent_boots_menu(void) {
+	if (!ImGui::BeginMenu("最近の起動")) {
+		return;
+	}
+	history_load();
+	if (!g_gui.boot_status.empty()) {
+		ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.4f, 1.0f), "%s", g_gui.boot_status.c_str());
+		ImGui::Separator();
+	}
+	if (g_recent_boots.empty()) {
+		ImGui::TextDisabled("なし");
+	}
+	for (std::size_t index = 0; index < g_recent_boots.size(); index++) {
+		const BootRecord boot = g_recent_boots[index];
+		const std::string label = history_boot_label(boot) + "##boot" + std::to_string(index);
+		const std::string missing = history_missing_paths(boot);
+		if (ImGui::MenuItem(label.c_str(), nullptr, false, missing.empty())) {
+			boot_from_history(boot);
+		}
+		// M116: a greyed entry says which file is gone.
+		if (!missing.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("見つからないファイル:\n%s", missing.c_str());
+		}
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("履歴を消す", nullptr, false, !g_recent_boots.empty())) {
+		g_recent_boots.clear();
+		history_save();
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_machine_config_menu(void) {
+	if (!ImGui::BeginMenu("機種の構成")) {
+		return;
+	}
+	if (ImGui::BeginMenu("メインメモリ容量")) {
+		const UINT16 capacities[] = {256, 384, 512, 640};
+		for (UINT16 capacity : capacities) {
+			char label[16];
+			std::snprintf(label, sizeof(label), "%u KB", capacity);
+			if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
+				save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
+			}
+		}
+		ImGui::TextDisabled("変更は次のリセットで反映");
+		ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr, np2cfg.main_ram_auto != 0)) {
+		save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
+	}
+	if (ImGui::MenuItem("HDD から起動", nullptr, np2cfg.boot_fixed_disk != 0)) {
+		save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
+	}
+	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
+	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
+	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
+		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+		pccore_redraw();
+	}
+	if (ImGui::MenuItem("I/O バンクメモリ…", nullptr, bmsiocfg.enabled != FALSE)) {
+		open_bms_config_dialog();
+	}
+	if (ImGui::MenuItem("EMS ボード…", nullptr, np2cfg.EXTMEM != 0)) {
+		open_ems_config_dialog();
+	}
+	ImGui::EndMenu();
+}
+
+static void draw_emulate_menu(void) {
+	if (!ImGui::BeginMenu("模擬")) {
+		g_n80_scanned = false;
+		return;
+	}
+	if (ImGui::MenuItem("リセット")) {
+		reset_guest();
+	}
+	draw_boot_menu();
+	draw_recent_boots_menu();
+	ImGui::Separator();
+	draw_speed_control();
+	draw_cpu_clock_menu();
+	ImGui::Separator();
+	draw_machine_config_menu();
+	if (ImGui::MenuItem("詳細設定…")) {
+		open_configure_dialog();
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("終了")) {
+		taskmng_exit();
+	}
+	ImGui::EndMenu();
 }
 
 static void draw_edit_menu(void) {
@@ -2995,13 +3819,14 @@ static void draw_edit_menu(void) {
 		const char *copy_shortcut = "Ctrl+Shift+C";
 		const char *shortcut = "Ctrl+V";
 #endif
-		if (ImGui::MenuItem("Copy screen text", copy_shortcut)) {
+		if (ImGui::MenuItem("画面の文字をコピー", copy_shortcut)) {
 			copy_screen_text();
 		}
 		if (ImGui::MenuItem("貼り付け", shortcut)) {
 			kbdpaste_start_clipboard();
 		}
-		if (ImGui::MenuItem("Cancel Paste", nullptr, false, kbdpaste_active() ? true : false)) {
+		if (ImGui::MenuItem("貼り付けの取り消し", nullptr, false,
+		                    kbdpaste_active() ? true : false)) {
 			kbdpaste_cancel();
 		}
 		if (kbdpaste_status()[0] != '\0') {
@@ -3010,6 +3835,124 @@ static void draw_edit_menu(void) {
 		}
 		ImGui::EndMenu();
 	}
+}
+
+/* M120: the disk names of a D88 file (UTF-8, empty when unnamed), read
+ * again only when the file or its size changes; empty for other files. */
+static const std::vector<std::string> &d88_disk_names(const std::string &path) {
+	struct Cached {
+		long long size = -1;
+		std::vector<std::string> names;
+	};
+	static std::map<std::string, Cached> cache;
+	std::error_code error;
+	const long long size = static_cast<long long>(fs::file_size(fs::u8path(path), error));
+	Cached &entry = cache[path];
+	if (!error && (entry.size == size)) {
+		return entry.names;
+	}
+	entry.size = error ? -1 : size;
+	entry.names.clear();
+	// a plain array: libc++ rejects a std::vector of char arrays
+	static char raw[FDDD88_MAX_IMAGES][FDDD88_NAME_SIZE];
+	const UINT count = fddd88_images(path.c_str(), raw, FDDD88_MAX_IMAGES);
+	for (UINT i = 0; i < count; i++) {
+		UINT16 utf[FDDD88_NAME_SIZE];
+		std::string name;
+		ZeroMemory(utf, sizeof(utf));
+		codecnv_sjis2utf(utf, NELEMENTS(utf), raw[i], FDDD88_NAME_SIZE);
+		for (UINT k = 0; (k < NELEMENTS(utf)) && (utf[k] != 0); k++) {
+			copy_append_utf8(&name, utf[k]);
+		}
+		while (!name.empty() && (name.back() == ' ')) {
+			name.pop_back();
+		}
+		entry.names.push_back(name);
+	}
+	return entry.names;
+}
+
+/* The file in a drive or about to be inserted, and its disk (M120). */
+static std::string fdd_current_file(int drive, UINT *image, bool *inserting) {
+	const char *path = fdd_diskname(static_cast<REG8>(drive));
+	*inserting = false;
+	*image = fdd_diskimage(static_cast<REG8>(drive));
+	if ((path == nullptr) || (path[0] == '\0')) {
+		path = diskdrv_fname[drive];
+		*inserting = path[0] != '\0';
+		*image = diskdrv_pendingimage(static_cast<REG8>(drive));
+	}
+	return ((path != nullptr) ? path : "");
+}
+
+static std::string d88_disk_label(UINT image, const std::vector<std::string> &names) {
+	std::string label = std::to_string(image + 1) + "/" + std::to_string(names.size());
+	if ((image < names.size()) && !names[image].empty()) {
+		label += " " + names[image];
+	}
+	return label;
+}
+
+/* Put disk `image` of `path` in `drive`, keeping where the file came from
+ * (an archive) as `origin` (M120). */
+static void switch_fdd_disk(int drive, const std::string &path, UINT image,
+                            const std::string &origin) {
+	diskdrv_setfddex(static_cast<REG8>(drive), path.c_str(), 0, image);
+	remember_fdd_mount(drive, path.c_str(), image);
+	g_fdd_origin[drive] = origin;
+	set_fdd_status(drive, "mounted", path.c_str());
+	g_gui.fdd_status += " #" + std::to_string(image + 1);
+}
+
+/* FDDn ディスク: the disks of the file in this drive and, when it holds
+ * several, of the file in the other drive (M120). */
+static void draw_fdd_disk_menu(int drive) {
+	struct Source {
+		int drive;
+		std::string path;
+		UINT image;
+	};
+	std::vector<Source> sources;
+	for (int i = 0; i < 2; i++) {
+		const int source_drive = (i == 0) ? drive : (1 - drive);
+		bool inserting;
+		UINT image;
+		const std::string path = fdd_current_file(source_drive, &image, &inserting);
+		if (path.empty() || (d88_disk_names(path).size() < 2) ||
+		    ((i == 1) && !sources.empty() && (sources[0].path == path))) {
+			continue;
+		}
+		sources.push_back({source_drive, path, image});
+	}
+	char label[32];
+	std::snprintf(label, sizeof(label), "FDD%d ディスク", drive + 1);
+	if (sources.empty() || !ImGui::BeginMenu(label)) {
+		return;
+	}
+	bool current_image_set = false;
+	UINT current_image = 0;
+	bool inserting;
+	const std::string current = fdd_current_file(drive, &current_image, &inserting);
+	current_image_set = !current.empty();
+	for (const Source &source : sources) {
+		const std::vector<std::string> names = d88_disk_names(source.path);
+		if (source.drive != drive) {
+			ImGui::Separator();
+			ImGui::TextDisabled("FDD%d のファイル: %s", source.drive + 1,
+			                    display_file_name(source.path.c_str()).c_str());
+		}
+		for (UINT k = 0; k < names.size(); k++) {
+			std::string item = std::to_string(k + 1) + ": ";
+			item += names[k].empty() ? "(名前なし)" : names[k];
+			item += "##" + std::to_string(source.drive) + "-" + std::to_string(k);
+			const bool selected =
+			    current_image_set && (current == source.path) && (current_image == k);
+			if (ImGui::MenuItem(item.c_str(), nullptr, selected)) {
+				switch_fdd_disk(drive, source.path, k, g_fdd_origin[source.drive]);
+			}
+		}
+	}
+	ImGui::EndMenu();
 }
 
 static void draw_fdd_mount_state(int drive) {
@@ -3023,12 +3966,20 @@ static void draw_fdd_mount_state(int drive) {
 		inserting = path[0] != '\0';
 	}
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("FDD%d: Empty", drive + 1);
+		ImGui::TextDisabled("FDD%d: なし", drive + 1);
 		return;
 	}
-	const std::string name = display_file_name(path);
+	std::string name = display_file_name(path);
+	// M120: which disk of a multi-image D88 file
+	const std::vector<std::string> &names = d88_disk_names(path);
+	if (names.size() > 1) {
+		UINT image;
+		bool pending;
+		(void)fdd_current_file(drive, &image, &pending);
+		name += " [" + d88_disk_label(image, names) + "]";
+	}
 	if (inserting) {
-		ImGui::Text("FDD%d: %s (inserting)", drive + 1, name.c_str());
+		ImGui::Text("FDD%d: %s (挿入中)", drive + 1, name.c_str());
 	} else {
 		ImGui::Text("FDD%d: %s", drive + 1, name.c_str());
 	}
@@ -3049,7 +4000,7 @@ static void draw_hdd_mount_state(int drive) {
 		label += static_cast<char>('1' + hdd_slot(drive));
 	}
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("%s: Empty", label.c_str());
+		ImGui::TextDisabled("%s: なし", label.c_str());
 		return;
 	}
 	const std::string name = display_file_name(path);
@@ -3061,48 +4012,47 @@ static void draw_hdd_mount_state(int drive) {
 
 static void draw_fdd_menu(void) {
 	if (ImGui::BeginMenu("FDD")) {
-		if (ImGui::MenuItem("FDD1 Open...")) {
+		if (ImGui::MenuItem("FDD1 開く…")) {
 			open_fdd_dialog(0);
 		}
-		if (ImGui::MenuItem("FDD1 Eject")) {
+		draw_history_menu("FDD1 履歴", HIST_FDD1, [](const std::string &path) {
+			mount_fdd_path(0, path);
+		});
+		if (ImGui::MenuItem("FDD1 取り出し")) {
 			eject_fdd(0);
 		}
+		draw_fdd_disk_menu(0);
 		draw_fdd_mount_state(0);
 		ImGui::Separator();
-		if (ImGui::MenuItem("FDD2 Open...")) {
+		if (ImGui::MenuItem("FDD2 開く…")) {
 			open_fdd_dialog(1);
 		}
-		if (ImGui::MenuItem("FDD2 Eject")) {
+		draw_history_menu("FDD2 履歴", HIST_FDD2, [](const std::string &path) {
+			mount_fdd_path(1, path);
+		});
+		if (ImGui::MenuItem("FDD2 取り出し")) {
 			eject_fdd(1);
 		}
+		draw_fdd_disk_menu(1);
 		draw_fdd_mount_state(1);
-		ImGui::Separator();
-		menu_item_not_implemented("FDD3 Open... (not implemented)");
-		menu_item_not_implemented("FDD3 Eject (not implemented)");
-		menu_item_not_implemented("FDD4 Open... (not implemented)");
-		menu_item_not_implemented("FDD4 Eject (not implemented)");
 		if (dropmedia_status()[0] != '\0') {
 			ImGui::Separator();
 			ImGui::TextWrapped("%s", dropmedia_status());
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("New FDD image")) {
-			if (ImGui::MenuItem("2HD (1.2 MB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2HD);
+		if (ImGui::BeginMenu("新しい FDD イメージ")) {
+			// Every new disk is unformatted; the guest formats it with its
+			// own sector layout (a 2DD becomes 640 or 720 KB, a 2D 320 or
+			// 360 KB), so one entry per media type is enough.
+			ImGui::TextDisabled("未フォーマット");
+			if (ImGui::MenuItem("2HD…")) {
+				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2HD_1200);
 			}
-			if (ImGui::MenuItem("2DD (640 KB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
-			}
-			ImGui::Separator();
-			ImGui::TextDisabled("Unformatted");
-			if (ImGui::MenuItem("2DD (720 KB)...")) {
+			if (ImGui::MenuItem("2DD…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2DD_720);
 			}
-			if (ImGui::MenuItem("2D (320 KB)...")) {
+			if (ImGui::MenuItem("2D…")) {
 				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_320);
-			}
-			if (ImGui::MenuItem("2D (360 KB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_BLANK_2D_360);
 			}
 			ImGui::EndMenu();
 		}
@@ -3153,17 +4103,36 @@ static void open_tape_dialog(void) {
 	} else if (!g_gui.tape_recording.empty()) {
 		start_dir = parent_dir(g_gui.tape_recording);
 	}
-	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_TAPE, start_dir);
 	g_gui.tape_browser_dir = absolute_path(start_dir);
 	g_gui.tape_status.clear();
 	g_gui.tape_browser_open = true;
 	g_gui.tape_browser_refresh = true;
+}
+
+/* Load a tape image, or the first .cmt/.t88 of a zip/7z/lzh archive, and
+ * record it in the tape history. */
+static bool load_tape_path(const std::string &path) {
+	char extracted[MAX_PATH];
+	const char *source = path.c_str();
+
+	if (dropmedia_path_is_tape_archive(path.c_str())) {
+		source = dropmedia_extract_tape(path.c_str(), extracted, sizeof(extracted)) ? extracted
+		                                                                            : nullptr;
+	}
+	if (source == nullptr) {
+		g_gui.tape_status = dropmedia_status();
+		return false;
+	}
+	if (cmt_open(source) != SUCCESS) {
+		g_gui.tape_status = "Not a usable tape image.";
+		return false;
+	}
+	g_gui.tape_loaded = path;
+	g_gui.tape_status = "Tape loaded.";
+	history_add(HIST_TAPE, path);
+	history_add_dir(HIST_DIR_TAPE, path);
+	return true;
 }
 
 static void stop_tape_recording(void) {
@@ -3182,7 +4151,7 @@ static void draw_tape_browser(void) {
 	if (g_gui.tape_browser_refresh) {
 		refresh_tape_browser();
 	}
-	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(38.75f, 26.25f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Cassette tape image", &g_gui.tape_browser_open)) {
 		draw_host_drive_selector(g_gui.tape_browser_dir, g_gui.tape_browser_refresh, "tape-open");
 		ImGui::TextWrapped("%s", g_gui.tape_browser_dir.c_str());
@@ -3193,6 +4162,9 @@ static void draw_tape_browser(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Up")) {
 			g_gui.tape_browser_dir = parent_dir(g_gui.tape_browser_dir);
+			g_gui.tape_browser_refresh = true;
+		}
+		if (draw_recent_dirs(HIST_DIR_TAPE, g_gui.tape_browser_dir)) {
 			g_gui.tape_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -3220,31 +4192,15 @@ static void draw_tape_browser(void) {
 		if (draw_file_type_combo("##tape-file-type", kTapeFileTypeLabel, &g_gui.tape_all_files)) {
 			g_gui.tape_browser_refresh = true;
 		}
-		if (ImGui::Button("Load tape")) {
-			char extracted[MAX_PATH];
-			const char *source = g_gui.tape_path;
-
-			/* A zip/7z/lzh archive: its first .cmt/.t88 is loaded. */
-			if (dropmedia_path_is_tape_archive(g_gui.tape_path)) {
-				source = dropmedia_extract_tape(g_gui.tape_path, extracted, sizeof(extracted))
-				             ? extracted
-				             : nullptr;
-			}
-			if (source == nullptr) {
-				g_gui.tape_status = dropmedia_status();
-			} else if (cmt_open(source) == SUCCESS) {
-				g_gui.tape_loaded = g_gui.tape_path;
-				g_gui.tape_status = "Tape loaded.";
-				g_gui.tape_browser_open = false;
-			} else {
-				g_gui.tape_status = "Not a usable tape image.";
-			}
+		if (ImGui::Button("Load tape") && load_tape_path(g_gui.tape_path)) {
+			g_gui.tape_browser_open = false;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Record to this file")) {
 			stop_tape_recording();
 			if ((g_gui.tape_path[0] != '\0') && (cmt_save_begin(g_gui.tape_path) == SUCCESS)) {
 				g_gui.tape_recording = g_gui.tape_path;
+				history_add_dir(HIST_DIR_TAPE, g_gui.tape_recording);
 				g_gui.tape_status = "Recording; written when stopped.";
 				g_gui.tape_browser_open = false;
 			} else {
@@ -3264,17 +4220,20 @@ static void draw_tape_browser(void) {
 
 static void draw_tape_menu(void) {
 	if (ImGui::BeginMenu("Tape")) {
-		if (ImGui::MenuItem("Load / record...")) {
+		if (ImGui::MenuItem("読み込み・録音…")) {
 			open_tape_dialog();
 		}
-		if (ImGui::MenuItem("Rewind", nullptr, false, cmt_inserted() != FALSE)) {
+		draw_history_menu("履歴", HIST_TAPE, [](const std::string &path) {
+			(void)load_tape_path(path);
+		});
+		if (ImGui::MenuItem("巻き戻し", nullptr, false, cmt_inserted() != FALSE)) {
 			cmt_rewind();
 		}
-		if (ImGui::MenuItem("Eject", nullptr, false, cmt_inserted() != FALSE)) {
+		if (ImGui::MenuItem("取り出し", nullptr, false, cmt_inserted() != FALSE)) {
 			cmt_eject();
 			g_gui.tape_loaded.clear();
 		}
-		if (ImGui::MenuItem("Stop recording", nullptr, false, cmt_saving() != FALSE)) {
+		if (ImGui::MenuItem("録音を止める", nullptr, false, cmt_saving() != FALSE)) {
 			stop_tape_recording();
 		}
 		bool fast = np2cfg.cmt_fast != 0;
@@ -3285,69 +4244,81 @@ static void draw_tape_menu(void) {
 		ImGui::Separator();
 		if (cmt_inserted()) {
 			const std::string name = display_file_name(g_gui.tape_loaded.c_str());
-			ImGui::Text("Tape: %s", name.c_str());
-			ImGui::Text("%u / %u bytes", static_cast<unsigned>(cmt_position()),
+			ImGui::Text("テープ: %s", name.c_str());
+			ImGui::Text("%u / %u バイト", static_cast<unsigned>(cmt_position()),
 			            static_cast<unsigned>(cmt_length()));
 		} else {
-			ImGui::TextDisabled("No tape");
+			ImGui::TextDisabled("テープなし");
 		}
 		if (cmt_saving()) {
 			const std::string name = display_file_name(g_gui.tape_recording.c_str());
-			ImGui::Text("Recording: %s (%u bytes)", name.c_str(),
+			ImGui::Text("録音中: %s (%u バイト)", name.c_str(),
 			            static_cast<unsigned>(cmt_saved_bytes()));
 		}
 		if (!g_gui.tape_status.empty()) {
 			ImGui::TextWrapped("%s", g_gui.tape_status.c_str());
 		}
-		ImGui::TextDisabled("V1/V2 BASIC (vaeg extension)");
+		ImGui::TextDisabled("V1/V2 BASIC 用 (vaeg 独自)");
 		ImGui::EndMenu();
 	}
 }
 
 static void draw_harddisk_menu(void) {
-	if (ImGui::BeginMenu("HardDisk")) {
-		if (ImGui::MenuItem("SASI-1 Open...")) {
-			open_hdd_dialog(0);
+	if (!ImGui::BeginMenu("HDD")) {
+		return;
+	}
+	for (int drive = 0; drive < 2; drive++) {
+		const std::string name = std::string("SASI-") + static_cast<char>('1' + drive);
+		if (ImGui::MenuItem((name + " 開く…").c_str())) {
+			open_hdd_dialog(drive);
 		}
-		if (ImGui::MenuItem("SASI-1 Remove")) {
-			remove_hdd(0);
+		draw_history_menu((name + " 履歴").c_str(), HIST_SASI1 + drive,
+		                  [drive](const std::string &path) {
+			                  mount_hdd_path(drive, path);
+		                  });
+		if (ImGui::MenuItem((name + " 外す").c_str())) {
+			remove_hdd(drive);
 		}
-		draw_hdd_mount_state(0);
+		draw_hdd_mount_state(drive);
 		ImGui::Separator();
-		if (ImGui::MenuItem("SASI-2 Open...")) {
-			open_hdd_dialog(1);
+	}
+	int in_use = 0;
+	for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
+		const char *path = hdd_config_path(0x20 | drive);
+		if ((path != nullptr) && (path[0] != '\0')) {
+			in_use++;
 		}
-		if (ImGui::MenuItem("SASI-2 Remove")) {
-			remove_hdd(1);
-		}
-		draw_hdd_mount_state(1);
-		ImGui::Separator();
+	}
+	char heading[48];
+	std::snprintf(heading, sizeof(heading), "SCSI (使用中 %d 台)###scsi", in_use);
+	if (ImGui::BeginMenu(heading)) {
 		for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
-			int encoded;
-
-			encoded = 0x20 | drive;
-			if (ImGui::MenuItem(
-			        (std::string("SCSI ID ") + std::to_string(drive) + " Open...").c_str())) {
-				open_hdd_dialog(encoded);
+			const int encoded = 0x20 | drive;
+			const std::string id = std::string("ID ") + std::to_string(drive);
+			if (ImGui::BeginMenu(id.c_str())) {
+				if (ImGui::MenuItem("開く…")) {
+					open_hdd_dialog(encoded);
+				}
+				draw_history_menu("履歴", HIST_SCSI0 + drive, [encoded](const std::string &path) {
+					mount_hdd_path(encoded, path);
+				});
+				if (ImGui::MenuItem("外す")) {
+					remove_hdd(encoded);
+				}
+				draw_hdd_mount_state(encoded);
+				ImGui::EndMenu();
 			}
-			if (ImGui::MenuItem(
-			        (std::string("SCSI ID ") + std::to_string(drive) + " Remove").c_str())) {
-				remove_hdd(encoded);
-			}
-			draw_hdd_mount_state(encoded);
-			if (drive != SCSIHDD_MAX - 1) {
-				ImGui::Separator();
-			}
-		}
-		ImGui::Separator();
-		if (ImGui::MenuItem("New SASI image...")) {
-			open_new_sasi_dialog(0);
-		}
-		if (ImGui::MenuItem("New SCSI image...")) {
-			open_new_scsi_dialog(0);
 		}
 		ImGui::EndMenu();
 	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("新しい SASI イメージ…")) {
+		open_new_sasi_dialog(0);
+	}
+	if (ImGui::MenuItem("新しい SCSI イメージ…")) {
+		open_new_scsi_dialog(0);
+	}
+	ImGui::EndMenu();
 }
 
 static void set_display_scale(int scale) {
@@ -3365,6 +4336,12 @@ static void set_display_aspect(bool aspect) {
 static void set_display_scaling(int scaling) {
 	np2oscfg.gui_scaling = static_cast<BYTE>(scaling);
 	scrnmng_set_scaling(np2oscfg.gui_scaling);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_display_rotation(int rotation) {
+	np2oscfg.gui_rotate = static_cast<BYTE>(rotation);
+	scrnmng_set_rotation(np2oscfg.gui_rotate);
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
@@ -3460,7 +4437,7 @@ static void draw_native_crt_settings(void) {
 	if (!g_gui.native_crt_settings_open || !scrnmng_native_filter_enabled()) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(560, 420), ImGuiCond_FirstUseEver);
+	prepare_dialog(35.0f, 26.25f, ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("CRT設定###Shader settings", &g_gui.native_crt_settings_open)) {
 		ImGui::End();
 		return;
@@ -3619,7 +4596,7 @@ static void draw_custom_size_dialog(void) {
 	if (!g_gui.custom_size_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(380.0f, 200.0f), ImGuiCond_Appearing);
+	prepare_dialog(23.75f, 12.5f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Custom window size##display", &g_gui.custom_size_open,
 	                           ImGuiWindowFlags_NoResize)) {
 		if (ImGui::RadioButton("Integer multiplier", g_gui.custom_size_integer)) {
@@ -3689,7 +4666,7 @@ static void draw_sound_buffer_dialog(void) {
 	if (!g_gui.sound_buffer_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(360.0f, 145.0f), ImGuiCond_Appearing);
+	prepare_dialog(22.5f, 9.0625f, ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Custom sound buffer##sound", &g_gui.sound_buffer_open,
 	                           ImGuiWindowFlags_NoResize)) {
 		ImGui::InputInt("Buffer length (ms)", &g_gui.pending_sound_buffer_ms);
@@ -3761,12 +4738,6 @@ static void set_kana_input(const char *mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static void set_tenkey_overlay(bool enabled) {
-	kbdmap_set_tenkey_overlay(enabled ? TRUE : FALSE);
-	g_gui.keyboard_status = enabled ? "Tenkey overlay enabled." : "Tenkey overlay disabled.";
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
 static const char *binding_name(SDL_Scancode scancode) {
 	const char *name;
 
@@ -3811,7 +4782,7 @@ static void draw_keyboard_config(void) {
 	if (!g_gui.keyboard_config_open) {
 		return;
 	}
-	ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_FirstUseEver);
+	prepare_dialog(47.5f, 32.5f, ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Keyboard mapping", &g_gui.keyboard_config_open)) {
 		if (ImGui::Button("Reset to JIS defaults")) {
 			reset_keyboard_to_jis();
@@ -3950,7 +4921,7 @@ static void draw_screen_menu(void) {
 		ImGui::Separator();
 		draw_renderer_selection();
 		if (!scrnmng_native_active() && ImGui::BeginMenu("エフェクト")) {
-			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
+			static const char *labels[] = {"加工なし", "線形補間", "走査線", "CRT 簡易"};
 			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_effect == value)) {
 					set_display_effect(value);
@@ -3958,9 +4929,9 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Scaling")) {
-			static const char *labels[] = {"Native", "Fit", "Fit 8-dot", "Integer", "Stretch"};
+		if (ImGui::BeginMenu("拡大方法")) {
+			static const char *labels[] = {"等倍", "合わせる", "合わせる (8 ドット単位)", "整数倍",
+			                               "引き伸ばし"};
 			for (int value = 0; value < VAEG_SCALING_COUNT; value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.gui_scaling == value)) {
 					set_display_scaling(value);
@@ -3968,36 +4939,86 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Window size")) {
-			if (ImGui::MenuItem("Native", nullptr, np2oscfg.gui_scale == 1)) {
+		if (ImGui::BeginMenu("ウィンドウサイズ")) {
+			if (ImGui::MenuItem("等倍", nullptr, np2oscfg.gui_scale == 1)) {
 				set_display_scale(1);
 			}
-			if (ImGui::MenuItem("x2", nullptr, np2oscfg.gui_scale == 2)) {
+			if (ImGui::MenuItem("2倍", nullptr, np2oscfg.gui_scale == 2)) {
 				set_display_scale(2);
 			}
-			if (ImGui::MenuItem("x3", nullptr, np2oscfg.gui_scale == 3)) {
+			if (ImGui::MenuItem("3倍", nullptr, np2oscfg.gui_scale == 3)) {
 				set_display_scale(3);
 			}
-			if (ImGui::MenuItem("x4", nullptr, np2oscfg.gui_scale == 4)) {
+			if (ImGui::MenuItem("4倍", nullptr, np2oscfg.gui_scale == 4)) {
 				set_display_scale(4);
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Custom...", nullptr,
-			                    np2oscfg.gui_scale == 0 || np2oscfg.gui_scale > 4,
+			if (ImGui::MenuItem("任意…", nullptr, np2oscfg.gui_scale == 0 || np2oscfg.gui_scale > 4,
 			                    scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
 				open_custom_size_dialog();
 			}
 			ImGui::EndMenu();
 		}
 		bool aspect = np2oscfg.gui_aspect != 0;
-		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
+		if (ImGui::MenuItem("縦横比の補正", nullptr, aspect)) {
 			set_display_aspect(!aspect);
+		}
+		const bool rotated = np2oscfg.gui_rotate == VAEG_ROTATE_RIGHT;
+		if (ImGui::MenuItem("右に 90° 回転", nullptr, rotated)) {
+			set_display_rotation(rotated ? VAEG_ROTATE_NONE : VAEG_ROTATE_RIGHT);
 		}
 		const bool fullscreen = scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED;
 		if (ImGui::MenuItem("全画面表示", nullptr, fullscreen)) {
 			set_display_mode(fullscreen ? VAEG_DISPLAY_WINDOWED : VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
+		// The monitor's horizontal frequency (DIP switch SW1, read by the ROM
+		// at reset) and how its picture is shown.
+		if (ImGui::BeginMenu(np2cfg.monitor_15khz ? "モニタ: 15 kHz" : "モニタ: 24 kHz")) {
+			if (ImGui::MenuItem("24 kHz (リセット)", nullptr, np2cfg.monitor_15khz == 0)) {
+				select_monitor(false);
+			}
+			if (ImGui::MenuItem("15 kHz (リセット)", nullptr, np2cfg.monitor_15khz != 0)) {
+				select_monitor(true);
+			}
+			ImGui::Separator();
+			// Analog or digital RGB output; display only, no reset.
+			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
+				sysmng_update(SYS_UPDATECFG);
+				scrndrawva_redraw();
+			}
+			ImGui::Separator();
+			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
+			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
+			                    np2cfg.monitor_15khz_fill == 0)) {
+				np2cfg.monitor_15khz_fill = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
+			                    np2cfg.monitor_15khz_fill != 0)) {
+				np2cfg.monitor_15khz_fill = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
+		// V1/V2 at 24 kHz: the VA's own picture or a PC-8801-style one (8x8
+		// text doubled, 200-line graphics with scanline gaps).
+		if (ImGui::BeginMenu("V1/V2 表示")) {
+			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				np2cfg.v1v2_8801_display = 0;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				np2cfg.v1v2_8801_display = 1;
+				sysmng_update(SYS_UPDATECFG);
+				pccore_redraw();
+			}
+			ImGui::EndMenu();
+		}
 		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
 		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
 		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
@@ -4006,10 +5027,9 @@ static void draw_screen_menu(void) {
 			sysmng_update(SYS_UPDATEOSCFG);
 			scrnmng_front_panel_changed();
 		}
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Frame skip")) {
-			static const char *labels[] = {"Auto", "Full frame", "1/2 frame", "1/3 frame",
-			                               "1/4 frame"};
+		if (ImGui::BeginMenu("フレームスキップ")) {
+			static const char *labels[] = {"自動", "全フレーム", "1/2 フレーム", "1/3 フレーム",
+			                               "1/4 フレーム"};
 			for (int value = 0; value < static_cast<int>(std::size(labels)); value++) {
 				if (ImGui::MenuItem(labels[value], nullptr, np2oscfg.DRAW_SKIP == value)) {
 					np2oscfg.DRAW_SKIP = static_cast<BYTE>(value);
@@ -4018,29 +5038,25 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		ImGui::Separator();
-		menu_item_not_implemented("Rotate left/right (not implemented)");
-		menu_item_not_implemented("Screen option... (not implemented)");
-		ImGui::Separator();
-		if (ImGui::BeginMenu("Font")) {
+		if (ImGui::BeginMenu("フォント")) {
 			char path[MAX_PATH];
 			const char *va_filename = romva_default_font_filename();
 			const bool va_available = font_preset_path(va_filename, path, sizeof(path));
 			const bool va_selected = np2cfg.fontfile[0] == '\0';
-			if (ImGui::MenuItem("VA default", nullptr, va_selected, va_available)) {
+			if (ImGui::MenuItem("VA 標準", nullptr, va_selected, va_available)) {
 				load_default_va_font();
 			}
 			if (!va_available) {
-				ImGui::TextDisabled("%s not found in the ROM directory", va_filename);
+				ImGui::TextDisabled("ROM ディレクトリに %s がありません", va_filename);
 			}
 			const bool pc98_available = font_preset_path(pc98fontromname, path, sizeof(path));
 			const bool pc98_selected =
 			    np2cfg.fontfile[0] && !file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname);
-			if (ImGui::MenuItem("98font compatibility", nullptr, pc98_selected, pc98_available)) {
+			if (ImGui::MenuItem("98font 互換", nullptr, pc98_selected, pc98_available)) {
 				load_font_preset(pc98fontromname);
 			}
 			if (!pc98_available) {
-				ImGui::TextDisabled("98font.rom not found in the ROM directory");
+				ImGui::TextDisabled("ROM ディレクトリに 98font.rom がありません");
 			}
 			ImGui::EndMenu();
 		}
@@ -4051,251 +5067,230 @@ static void draw_screen_menu(void) {
 	}
 }
 
-static void draw_device_menu(void) {
-	if (ImGui::BeginMenu("デバイス")) {
-		if (ImGui::BeginMenu("キーボード")) {
-			if (ImGui::MenuItem("Keyboard", nullptr, np2cfg.KEY_MODE == 0)) {
-				set_key_mode(0);
-			}
-			if (ImGui::MenuItem("JoyKey-1", nullptr, np2cfg.KEY_MODE == 1)) {
-				set_key_mode(1);
-			}
-			if (ImGui::MenuItem("JoyKey-2", nullptr, np2cfg.KEY_MODE == 2)) {
-				set_key_mode(2);
-			}
-			if (ImGui::MenuItem("Mouse key", nullptr, np2cfg.KEY_MODE == 3)) {
-				set_key_mode(3);
-			}
-			if (ImGui::BeginMenu("F12 binding")) {
-				if (ImGui::MenuItem("Mouse", nullptr, np2oscfg.F12KEY == 0)) {
-					set_f12_key(0);
-				}
-				if (ImGui::MenuItem("COPY", nullptr, np2oscfg.F12KEY == 1)) {
-					set_f12_key(1);
-				}
-				if (ImGui::MenuItem("STOP", nullptr, np2oscfg.F12KEY == 2)) {
-					set_f12_key(2);
-				}
-				if (ImGui::MenuItem("Tenkey =", nullptr, np2oscfg.F12KEY == 3)) {
-					set_f12_key(3);
-				}
-				if (ImGui::MenuItem("Tenkey ,", nullptr, np2oscfg.F12KEY == 4)) {
-					set_f12_key(4);
-				}
-				if (ImGui::MenuItem("PC key", nullptr, np2oscfg.F12KEY == 5)) {
-					set_f12_key(5);
-				}
-				if (ImGui::MenuItem("Full speed (No Wait)", nullptr,
-				                    np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
-					set_f12_key(KBDMAP_F12_FULL_SPEED);
-				}
-				if (ImGui::MenuItem("スクリーンショット", nullptr,
-				                    np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
-					set_f12_key(KBDMAP_F12_SCREENSHOT);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Host layout")) {
-				if (ImGui::MenuItem("JIS physical", nullptr,
-				                    std::string(kbdmap_layout_name()) == "jis")) {
-					set_keyboard_layout("jis");
-				}
-				if (ImGui::MenuItem("US keytop", nullptr,
-				                    std::string(kbdmap_layout_name()) == "us")) {
-					set_keyboard_layout("us");
-				}
-				if (ImGui::MenuItem("Custom", nullptr,
-				                    std::string(kbdmap_layout_name()) == "custom")) {
-					set_keyboard_layout("custom");
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Kana input")) {
-				if (ImGui::MenuItem("JIS Kana", nullptr,
-				                    std::string(kbdmap_kana_input_name()) == "jis-kana")) {
-					set_kana_input("jis-kana");
-				}
-				if (ImGui::MenuItem("Roman Kana", nullptr,
-				                    std::string(kbdmap_kana_input_name()) == "roman")) {
-					set_kana_input("roman");
-				}
-				ImGui::EndMenu();
-			}
-			{
-				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
-				if (ImGui::MenuItem("Tenkey overlay (cursor keys = 8/4/6/2)", nullptr,
-				                    tenkey_overlay)) {
-					set_tenkey_overlay(!tenkey_overlay);
-				}
-			}
-			if (ImGui::MenuItem("Key bindings...")) {
-				g_gui.keyboard_config_open = true;
-			}
-			menu_item_not_implemented("Mechanical keys (not implemented)");
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("音")) {
-			if (ImGui::BeginMenu("FM sound OPN/OPNA")) {
-				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
-				ImGui::BeginDisabled(!va1);
-				if (ImGui::MenuItem("OPN (VA)", nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
-					select_sound_hardware(FMBOARD_VA_OPN);
-				}
-				ImGui::EndDisabled();
-				if (ImGui::MenuItem("OPNA (VA2/VA3, VA + Sound Board II)", nullptr,
-				                    np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
-					select_sound_hardware(FMBOARD_VA_OPNA);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("FM sound backend")) {
-				const UINT backend = opngen_getbackend();
-				if (ImGui::MenuItem("NP2", nullptr, backend == OPN_BACKEND_NP2)) {
-					select_opn_backend(OPN_BACKEND_NP2);
-				}
-				if (ImGui::MenuItem("ymfm", nullptr, backend == OPN_BACKEND_YMFM)) {
-					select_opn_backend(OPN_BACKEND_YMFM);
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::BeginDisabled(opngen_getbackend() != OPN_BACKEND_YMFM);
-			if (ImGui::BeginMenu("ymfm fidelity")) {
-				const UINT fidelity = ymfm_opn_getfidelity();
-				if (ImGui::MenuItem("Minimum (~166 kHz native, default)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MINIMUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
-				}
-				if (ImGui::MenuItem("Medium (~333 kHz native)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MEDIUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
-				}
-				if (ImGui::MenuItem("Maximum (~998 kHz native, high CPU)", nullptr,
-				                    fidelity == YMFMBRIDGE_FIDELITY_MAXIMUM)) {
-					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::EndDisabled();
-			if (ImGui::BeginMenu("Sampling rate")) {
-				if (ImGui::MenuItem("11.025 kHz", nullptr, np2cfg.samplingrate == 11025)) {
-					select_sampling_rate(11025);
-				}
-				if (ImGui::MenuItem("22.05 kHz", nullptr, np2cfg.samplingrate == 22050)) {
-					select_sampling_rate(22050);
-				}
-				if (ImGui::MenuItem("44.1 kHz (Recommended)", nullptr,
-				                    np2cfg.samplingrate == 44100)) {
-					select_sampling_rate(44100);
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Sound buffer")) {
-				bool preset_selected = false;
-				for (const int preset : kSoundBufferPresets) {
-					char label[32];
-					const bool selected = np2cfg.delayms == preset;
+/* カーソル割り当て: what the host cursor keys send. The tenkey overlay and
+ * the joystick and mouse key modes all take the cursor keys, so they are one
+ * choice. */
+enum {
+	CURSOR_NORMAL = 0,
+	CURSOR_TENKEY,
+	CURSOR_JOYSTICK,
+	CURSOR_MOUSE
+};
 
-					std::snprintf(label, sizeof(label), "%d ms", preset);
-					preset_selected = preset_selected || selected;
-					if (ImGui::MenuItem(label, nullptr, selected)) {
-						select_sound_buffer(static_cast<UINT>(preset));
-					}
-				}
-				char custom_label[48];
-				std::snprintf(custom_label, sizeof(custom_label), "Custom... (%u ms)",
-				              np2cfg.delayms);
-				if (ImGui::MenuItem(custom_label, nullptr, !preset_selected)) {
-					open_sound_buffer_dialog();
-				}
-				ImGui::EndMenu();
-			}
-			bool enabled = soundmng_isenabled() ? true : false;
-			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
-				np2oscfg.sound_enabled = enabled ? 0 : 1;
-				soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
-				sysmng_update(SYS_UPDATEOSCFG);
-			}
-			bool motor = np2cfg.MOTOR != 0;
-			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
-				np2cfg.MOTOR = motor ? 0 : 1;
-				if (np2cfg.MOTOR == 0) {
-					fddmtrsnd_stop();
-				}
-				sysmng_update(SYS_UPDATECFG);
-			}
-			int volume = np2cfg.vol_fm;
-			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
-				apply_master_volume(volume);
-			}
-			int tape_volume = np2cfg.cmt_vol;
-			if (ImGui::SliderInt("Tape volume", &tape_volume, 0, 128)) {
-				np2cfg.cmt_vol = static_cast<UINT8>(tape_volume);
-				cmt_setvol(np2cfg.cmt_vol);
-				sysmng_update(SYS_UPDATECFG);
-			}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("メインメモリ容量")) {
-			const UINT16 capacities[] = {256, 384, 512, 640};
-			for (UINT16 capacity : capacities) {
-				char label[16];
-				std::snprintf(label, sizeof(label), "%u KB", capacity);
-				if (ImGui::MenuItem(label, nullptr, np2cfg.main_ram == capacity)) {
-					save_main_ram_settings(capacity, np2cfg.main_ram_auto != 0);
-				}
-			}
-			ImGui::Separator();
-			if (ImGui::MenuItem("バックアップメモリへ自動反映", nullptr,
-			                    np2cfg.main_ram_auto != 0)) {
-				save_main_ram_settings(np2cfg.main_ram, np2cfg.main_ram_auto == 0);
-			}
-			ImGui::TextDisabled("変更は次のリセットで反映");
-			ImGui::TextDisabled("現在の実装容量: %u KB", pccore_mainram_limit() / 1024);
-			ImGui::EndMenu();
-		}
-		if (ImGui::MenuItem("ハードディスクから起動 (バックアップメモリへ自動反映)", nullptr,
-		                    np2cfg.boot_fixed_disk != 0)) {
-			save_boot_fixed_disk(np2cfg.boot_fixed_disk == 0);
-		}
-		if (ImGui::MenuItem("I/O Bank Memory...", nullptr, bmsiocfg.enabled != FALSE)) {
-			open_bms_config_dialog();
-		}
-		if (ImGui::MenuItem("EMS Board...", nullptr, np2cfg.EXTMEM != 0)) {
-			open_ems_config_dialog();
-		}
+static int cursor_assignment(void) {
+	if (np2cfg.KEY_MODE == 1) {
+		return CURSOR_JOYSTICK;
+	}
+	if (np2cfg.KEY_MODE == 3) {
+		return CURSOR_MOUSE;
+	}
+	return kbdmap_tenkey_overlay_enabled() ? CURSOR_TENKEY : CURSOR_NORMAL;
+}
 
-		if (ImGui::BeginMenu("Mouse")) {
-			bool capture = np2oscfg.MOUSE_SW != 0;
-			const char *capture_shortcut =
-			    (np2oscfg.F12KEY == 0) ? "F12 / middle click" : "Middle click";
-			if (ImGui::MenuItem("Capture mouse", capture_shortcut, capture)) {
-				set_mouse_capture(!capture);
+static void set_cursor_assignment(int assignment) {
+	set_key_mode((assignment == CURSOR_JOYSTICK) ? 1 : (assignment == CURSOR_MOUSE) ? 3 : 0);
+	kbdmap_set_tenkey_overlay((assignment == CURSOR_TENKEY) ? TRUE : FALSE);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void draw_key_menu(void) {
+	if (!ImGui::BeginMenu("Key")) {
+		return;
+	}
+	if (ImGui::BeginMenu("カーソル割り当て")) {
+		static const char *labels[] = {"通常", "テンキー 8/4/6/2", "ジョイスティック", "マウス"};
+		const int current = cursor_assignment();
+		for (int i = 0; i < static_cast<int>(std::size(labels)); i++) {
+			if (ImGui::MenuItem(labels[i], nullptr, current == i)) {
+				set_cursor_assignment(i);
 			}
-			if (ImGui::BeginMenu("VA controller port")) {
-				if (ImGui::MenuItem("Joystick", nullptr, mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
-					set_mouse_device(MOUSEIFVA_JOYPAD);
-				}
-				if (ImGui::MenuItem("Mouse", nullptr, mouseifvacfg.device == MOUSEIFVA_MOUSE)) {
-					set_mouse_device(MOUSEIFVA_MOUSE);
-				}
-				ImGui::EndMenu();
-			}
-			bool rapid = np2cfg.MOUSERAPID != 0;
-			if (ImGui::MenuItem("Rapid buttons", nullptr, rapid)) {
-				set_mouse_rapid(!rapid);
-			}
-			if (mousemng_status()[0] != '\0') {
-				ImGui::Separator();
-				ImGui::BeginDisabled();
-				ImGui::MenuItem(mousemng_status());
-				ImGui::EndDisabled();
-			}
-			ImGui::EndMenu();
 		}
-		menu_item_not_implemented("Serial option... (not implemented)");
-		menu_item_not_implemented("MIDI option... (not implemented)");
 		ImGui::EndMenu();
 	}
+	if (ImGui::BeginMenu("ホストの配列")) {
+		if (ImGui::MenuItem("JIS", nullptr, std::string(kbdmap_layout_name()) == "jis")) {
+			set_keyboard_layout("jis");
+		}
+		if (ImGui::MenuItem("US", nullptr, std::string(kbdmap_layout_name()) == "us")) {
+			set_keyboard_layout("us");
+		}
+		if (ImGui::MenuItem("カスタム", nullptr, std::string(kbdmap_layout_name()) == "custom")) {
+			set_keyboard_layout("custom");
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("かな入力")) {
+		if (ImGui::MenuItem("JIS かな", nullptr,
+		                    std::string(kbdmap_kana_input_name()) == "jis-kana")) {
+			set_kana_input("jis-kana");
+		}
+		if (ImGui::MenuItem("ローマ字かな", nullptr,
+		                    std::string(kbdmap_kana_input_name()) == "roman")) {
+			set_kana_input("roman");
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("F12 の割り当て")) {
+		if (ImGui::MenuItem("マウス", nullptr, np2oscfg.F12KEY == 0)) {
+			set_f12_key(0);
+		}
+		if (ImGui::MenuItem("COPY", nullptr, np2oscfg.F12KEY == 1)) {
+			set_f12_key(1);
+		}
+		if (ImGui::MenuItem("STOP", nullptr, np2oscfg.F12KEY == 2)) {
+			set_f12_key(2);
+		}
+		if (ImGui::MenuItem("テンキー =", nullptr, np2oscfg.F12KEY == 3)) {
+			set_f12_key(3);
+		}
+		if (ImGui::MenuItem("テンキー ,", nullptr, np2oscfg.F12KEY == 4)) {
+			set_f12_key(4);
+		}
+		if (ImGui::MenuItem("PC キー", nullptr, np2oscfg.F12KEY == 5)) {
+			set_f12_key(5);
+		}
+		if (ImGui::MenuItem("最大速度", nullptr, np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
+			set_f12_key(KBDMAP_F12_FULL_SPEED);
+		}
+		if (ImGui::MenuItem("スクリーンショット", nullptr,
+		                    np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
+			set_f12_key(KBDMAP_F12_SCREENSHOT);
+		}
+		if (ImGui::MenuItem("一時停止", nullptr, np2oscfg.F12KEY == KBDMAP_F12_PAUSE)) {
+			set_f12_key(KBDMAP_F12_PAUSE);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("キーの割り当て…")) {
+		g_gui.keyboard_config_open = true;
+	}
+	ImGui::Separator();
+	bool capture = np2oscfg.MOUSE_SW != 0;
+	const char *capture_shortcut = (np2oscfg.F12KEY == 0) ? "F12 / 中ボタン" : "中ボタン";
+	if (ImGui::MenuItem("マウスを捕捉", capture_shortcut, capture)) {
+		set_mouse_capture(!capture);
+	}
+	if (ImGui::BeginMenu("コントローラポート")) {
+		if (ImGui::MenuItem("ジョイスティック", nullptr, mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
+			set_mouse_device(MOUSEIFVA_JOYPAD);
+		}
+		if (ImGui::MenuItem("マウス", nullptr, mouseifvacfg.device == MOUSEIFVA_MOUSE)) {
+			set_mouse_device(MOUSEIFVA_MOUSE);
+		}
+		ImGui::EndMenu();
+	}
+	bool rapid = np2cfg.MOUSERAPID != 0;
+	if (ImGui::MenuItem("連射ボタン", nullptr, rapid)) {
+		set_mouse_rapid(!rapid);
+	}
+	if (mousemng_status()[0] != '\0') {
+		ImGui::TextWrapped("%s", mousemng_status());
+	}
+
+	ImGui::EndMenu();
+}
+
+static void draw_sound_menu(void) {
+	if (!ImGui::BeginMenu("音")) {
+		return;
+	}
+	// 全体の音量: the final mix (M110); the sources' balance is below.
+	int master = np2oscfg.master_volume;
+	ImGui::TextUnformatted("全体の音量");
+	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+	if (ImGui::SliderInt("##master-volume", &master, 0, 100, "%d%%",
+	                     ImGuiSliderFlags_AlwaysClamp)) {
+		np2oscfg.master_volume = static_cast<BYTE>(master);
+		soundmng_setmastervolume(np2oscfg.master_volume);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	const bool muted = soundmng_isenabled() ? false : true;
+	if (ImGui::MenuItem("ミュート", nullptr, muted)) {
+		np2oscfg.sound_enabled = muted ? 1 : 0;
+		soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::BeginMenu("個別の音量")) {
+		draw_source_volumes();
+		ImGui::EndMenu();
+	}
+	ImGui::Separator();
+	if (ImGui::BeginMenu("FM 音源ボード")) {
+		const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
+		if (va1 && ImGui::MenuItem("OPN", nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
+			select_sound_hardware(FMBOARD_VA_OPN);
+		}
+		if (ImGui::MenuItem("OPNA (VA2/VA3、VA + サウンドボード II)", nullptr,
+		                    np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
+			select_sound_hardware(FMBOARD_VA_OPNA);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("FM の方式")) {
+		const UINT backend = opngen_getbackend();
+		if (ImGui::MenuItem("ymfm", nullptr, backend == OPN_BACKEND_YMFM)) {
+			select_opn_backend(OPN_BACKEND_YMFM);
+		}
+		if (ImGui::MenuItem("NP2", nullptr, backend == OPN_BACKEND_NP2)) {
+			select_opn_backend(OPN_BACKEND_NP2);
+		}
+		ImGui::EndMenu();
+	}
+	if ((opngen_getbackend() == OPN_BACKEND_YMFM) && ImGui::BeginMenu("ymfm の精度")) {
+		const UINT fidelity = ymfm_opn_getfidelity();
+		if (ImGui::MenuItem("最小 (約 166 kHz、既定)", nullptr,
+		                    fidelity == YMFMBRIDGE_FIDELITY_MINIMUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
+		}
+		if (ImGui::MenuItem("中 (約 333 kHz)", nullptr, fidelity == YMFMBRIDGE_FIDELITY_MEDIUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
+		}
+		if (ImGui::MenuItem("最大 (約 998 kHz、高負荷)", nullptr,
+		                    fidelity == YMFMBRIDGE_FIDELITY_MAXIMUM)) {
+			select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("サンプリング周波数")) {
+		if (ImGui::MenuItem("11.025 kHz", nullptr, np2cfg.samplingrate == 11025)) {
+			select_sampling_rate(11025);
+		}
+		if (ImGui::MenuItem("22.05 kHz", nullptr, np2cfg.samplingrate == 22050)) {
+			select_sampling_rate(22050);
+		}
+		if (ImGui::MenuItem("44.1 kHz (推奨)", nullptr, np2cfg.samplingrate == 44100)) {
+			select_sampling_rate(44100);
+		}
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("バッファ")) {
+		bool preset_selected = false;
+		for (const int preset : kSoundBufferPresets) {
+			char label[32];
+			const bool selected = np2cfg.delayms == preset;
+
+			std::snprintf(label, sizeof(label), "%d ms", preset);
+			preset_selected = preset_selected || selected;
+			if (ImGui::MenuItem(label, nullptr, selected)) {
+				select_sound_buffer(static_cast<UINT>(preset));
+			}
+		}
+		char custom_label[48];
+		std::snprintf(custom_label, sizeof(custom_label), "任意… (%u ms)", np2cfg.delayms);
+		if (ImGui::MenuItem(custom_label, nullptr, !preset_selected)) {
+			open_sound_buffer_dialog();
+		}
+		ImGui::EndMenu();
+	}
+	bool motor = np2cfg.MOTOR != 0;
+	if (ImGui::MenuItem("シーク音", nullptr, motor)) {
+		np2cfg.MOTOR = motor ? 0 : 1;
+		if (np2cfg.MOTOR == 0) {
+			fddmtrsnd_stop();
+		}
+		sysmng_update(SYS_UPDATECFG);
+	}
+	ImGui::EndMenu();
 }
 
 static void open_about_dialog(void) {
@@ -4310,63 +5305,92 @@ static void set_info_layer(UINT layer, bool enabled) {
 	pccore_redraw();
 }
 
+/* While paused (F12 assigned to 一時停止), say so and offer to resume, as
+ * the menu bar no longer has a Pause button (M110). */
+static void draw_pause_overlay(void) {
+	if (!taskmng_ispaused()) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowBgAlpha(0.85f);
+	if (ImGui::Begin("##paused", nullptr,
+	                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+	                     ImGuiWindowFlags_NoNav)) {
+		ImGui::TextUnformatted("一時停止中");
+		if (ImGui::Button("再開")) {
+			taskmng_toggle_pause();
+		}
+	}
+	ImGui::End();
+}
+
 static void draw_info_menu(void) {
+	// 情報 alone at the right end of the menu bar, or right after the other
+	// menus when the window is too narrow.
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float width = ImGui::CalcTextSize("情報").x + style.ItemSpacing.x * 2.0f;
+	const float right = ImGui::GetWindowContentRegionMax().x - width;
+	if (right > ImGui::GetCursorPosX()) {
+		ImGui::SetCursorPosX(right);
+	}
 	if (ImGui::BeginMenu("情報")) {
 		bool show_fdd = (np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0;
-		if (ImGui::MenuItem("Show FDD", nullptr, show_fdd)) {
+		if (ImGui::MenuItem("FDD を表示", nullptr, show_fdd)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FDD;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_fps = (np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) != 0;
-		if (ImGui::MenuItem("Show FPS", nullptr, show_fps)) {
+		if (ImGui::MenuItem("FPS を表示", nullptr, show_fps)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FPS;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_cpu_clock = (np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) != 0;
-		if (ImGui::MenuItem("Show CPU clock", nullptr, show_cpu_clock)) {
+		if (ImGui::MenuItem("CPU クロックを表示", nullptr, show_cpu_clock)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_CPU_CLOCK;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_sgp_clock = (np2oscfg.DISPCLK & VAEG_DISPINFO_SGP_CLOCK) != 0;
-		if (ImGui::MenuItem("Show SGP clock", nullptr, show_sgp_clock)) {
+		if (ImGui::MenuItem("SGP クロックを表示", nullptr, show_sgp_clock)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_SGP_CLOCK;
 			scrnmng_refresh_title();
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_frame = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) != 0;
-		if (ImGui::MenuItem("Show frame", nullptr, show_frame)) {
+		if (ImGui::MenuItem("フレームを表示", nullptr, show_frame)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAME;
 			scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_video = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
-		if (ImGui::MenuItem("Show video info overlay", nullptr, show_video)) {
+		if (ImGui::MenuItem("ビデオ情報を表示", nullptr, show_video)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_framebuffer = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
-		if (ImGui::MenuItem("Show FB info overlay", nullptr, show_framebuffer)) {
+		if (ImGui::MenuItem("FB 情報を表示", nullptr, show_framebuffer)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAMEBUFFER;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		ImGui::Separator();
 		bool show_text = scrndrawva_layer_enabled(VAEG_VA_LAYER_TEXT) != FALSE;
-		if (ImGui::MenuItem("Show text", nullptr, show_text)) {
+		if (ImGui::MenuItem("テキストを表示", nullptr, show_text)) {
 			set_info_layer(VAEG_VA_LAYER_TEXT, !show_text);
 		}
 		bool show_sprite = scrndrawva_layer_enabled(VAEG_VA_LAYER_SPRITE) != FALSE;
-		if (ImGui::MenuItem("Show sprite", nullptr, show_sprite)) {
+		if (ImGui::MenuItem("スプライトを表示", nullptr, show_sprite)) {
 			set_info_layer(VAEG_VA_LAYER_SPRITE, !show_sprite);
 		}
 		bool show_graphics0 = scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS0) != FALSE;
-		if (ImGui::MenuItem("Show graphics 0", nullptr, show_graphics0)) {
+		if (ImGui::MenuItem("グラフィック 0 を表示", nullptr, show_graphics0)) {
 			set_info_layer(VAEG_VA_LAYER_GRAPHICS0, !show_graphics0);
 		}
 		bool show_graphics1 = scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS1) != FALSE;
-		if (ImGui::MenuItem("Show graphics 1", nullptr, show_graphics1)) {
+		if (ImGui::MenuItem("グラフィック 1 を表示", nullptr, show_graphics1)) {
 			set_info_layer(VAEG_VA_LAYER_GRAPHICS1, !show_graphics1);
 		}
 		ImGui::Separator();
@@ -4429,7 +5453,7 @@ static void draw_about_dialog(void) {
 	const float width =
 	    (std::min)((g_gui.about_more ? 620.0f : 360.0f) * ui_scale, viewport->WorkSize.x * 0.9f);
 	const float height =
-	    (std::min)((g_gui.about_more ? 700.0f : 350.0f) * ui_scale, viewport->WorkSize.y * 0.9f);
+	    (std::min)((g_gui.about_more ? 740.0f : 395.0f) * ui_scale, viewport->WorkSize.y * 0.9f);
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
 	if (ImGui::BeginPopupModal("About...##vaeg", &g_gui.about_open,
@@ -4470,12 +5494,24 @@ static void draw_about_dialog(void) {
 					            sizeof(g_gui.about_info));
 					milstr_ncat(g_gui.about_info, ")", sizeof(g_gui.about_info));
 				}
+				if (np2cfg.extra_machine[0] != '\0') {
+					milstr_ncat(g_gui.about_info, "\nPC-8801 machine: ", sizeof(g_gui.about_info));
+					milstr_ncat(g_gui.about_info,
+					            (extrarom_last_error[0] != '\0') ? extrarom_last_error
+					                                             : np2cfg.extra_machine,
+					            sizeof(g_gui.about_info));
+				}
 				g_gui.about_more = true;
 			}
 			ImGui::EndDisabled();
 			ImGui::EndTable();
 		}
 
+		// PC-8801/8001 and PCG emulation references (M113-M115a).
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::TextWrapped("PC-8801/8001 and PCG-8100/8800: written with reference to X88000 "
+		                   "(Manuke, public domain) and QUASI88 (showtime).");
+		ImGui::PopStyleColor();
 		if (ImGui::Button("Third-party licenses..."))
 			ImGui::OpenPopup("Third-party licenses");
 		draw_third_party_licenses();
@@ -4494,85 +5530,498 @@ static void draw_about_dialog(void) {
 	}
 }
 
-static void draw_state_menu(void) {
-	if (ImGui::BeginMenu("状態")) {
-		if (ImGui::BeginMenu("Save")) {
-			for (int slot = 0; slot < kStateSlots; slot++) {
-				char label[32];
-				std::snprintf(label, sizeof(label), "Slot %d", slot);
-				if (ImGui::MenuItem(label)) {
-					std::string path = state_slot_path(slot);
-					soundmng_stop();
-					int ret = statsave_save(path.c_str());
-					if (ret != STATFLAG_SUCCESS) {
-						file_delete(path.c_str());
-						g_gui.state_status = "State save failed: ";
-						g_gui.state_status += path;
-					} else {
-						g_gui.state_status = "State saved: ";
-						g_gui.state_status += path;
-					}
-					soundmng_play();
-				}
-			}
-			ImGui::EndMenu();
+// ---- Saved states (M110): states/<software>/slotN.sav with slotN.png
+
+constexpr int kStateThumbnailWidth = 320;
+
+struct StateThumbnail {
+	long long stamp = -1;
+	SDL_Texture *texture = nullptr;
+	ImTextureData *native = nullptr;
+	int width = 0;
+	int height = 0;
+};
+
+static std::map<std::string, StateThumbnail> g_state_thumbnails;
+
+/* The medium that names the software: FDD1, else SASI-1, else the tape. */
+static std::string state_media_path(void) {
+	const char *path = fdd_diskname(0);
+
+	if ((path == nullptr) || (path[0] == '\0')) {
+		path = diskdrv_fname[0];
+	}
+	if ((path != nullptr) && (path[0] != '\0')) {
+		return path;
+	}
+	path = hdd_config_path(0);
+	if ((path != nullptr) && (path[0] != '\0')) {
+		return path;
+	}
+	return g_gui.tape_loaded;
+}
+
+/* The software is the one booted: its medium is taken at each reset (and on
+ * first use), so a disk swap during play keeps the slots together. */
+static void state_capture_software(void) {
+	g_gui.state_software_media = state_media_path();
+	g_gui.state_software_set = true;
+}
+
+/* states/<file name without extension>-<hash of the full path>/, or
+ * states/common/ with no medium. The name is kept as written (Japanese
+ * included); characters host file systems forbid become '_'. */
+static std::string state_directory_name(const std::string &media) {
+	if (media.empty()) {
+		return "common";
+	}
+	std::string stem = fs::u8path(media).stem().u8string();
+	for (char &c : stem) {
+		if ((static_cast<unsigned char>(c) < 0x20) || (std::strchr("<>:\"/\\|?*", c) != nullptr)) {
+			c = '_';
 		}
-		if (ImGui::BeginMenu("Load")) {
-			for (int slot = 0; slot < kStateSlots; slot++) {
-				char label[32];
-				std::snprintf(label, sizeof(label), "Slot %d", slot);
-				if (ImGui::MenuItem(label)) {
-					std::string path = state_slot_path(slot);
-					char error[1024];
-					char override_error[1024];
-					error[0] = '\0';
-					override_error[0] = '\0';
-					g_gui.state_force_hostfat_available = false;
-					g_gui.state_force_hostfat_path.clear();
-					int ret = statsave_check(path.c_str(), error, sizeof(error));
-					if ((ret & ~STATFLAG_DISKCHG) != 0) {
-						int override_ret = statsave_check_hostfat_override(
-						    path.c_str(), override_error, sizeof(override_error));
-						g_gui.state_status = "State load failed: ";
-						g_gui.state_status += path;
-						if (error[0] != '\0') {
-							g_gui.state_status += " (";
-							g_gui.state_status += error;
-							g_gui.state_status += ")";
-						}
-						if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
-							g_gui.state_force_hostfat_available = true;
-							g_gui.state_force_hostfat_path = path;
-						}
-						g_gui.state_error_request = true;
-					} else {
-						taskmng_clear_fast_forward();
-						statsave_load(path.c_str());
-						sdlkbd_reset_state();
-						mousemng_reset();
-						scrndrawva_redraw();
-						g_gui.state_status = "State loaded: ";
-						g_gui.state_status += path;
-						if ((ret & STATFLAG_DISKCHG) != 0) {
-							g_gui.state_status += " (disk warning ignored)";
-						}
-					}
-				}
+	}
+	while (!stem.empty() && ((stem.back() == '.') || (stem.back() == ' '))) {
+		stem.pop_back();
+	}
+	if (stem.empty()) {
+		stem = "media";
+	}
+	UINT32 hash = 2166136261u;
+	for (unsigned char c : media) {
+		hash = (hash ^ c) * 16777619u;
+	}
+	char suffix[16];
+	std::snprintf(suffix, sizeof(suffix), "-%06x", static_cast<unsigned>(hash & 0xffffff));
+	return stem + suffix;
+}
+
+static std::string state_root(void) {
+	char root[MAX_PATH];
+
+	(void)file_getappdir(root, sizeof(root), "states");
+	return root;
+}
+
+static std::string state_software_dir(void) {
+	if (!g_gui.state_software_set) {
+		state_capture_software();
+	}
+	std::string dir =
+	    join_path(state_root(), state_directory_name(g_gui.state_software_media).c_str());
+	(void)file_dircreate(dir.c_str());
+	return dir;
+}
+
+static std::string state_slot_file(int slot) {
+	char name[32];
+
+	std::snprintf(name, sizeof(name), "slot%d.sav", slot);
+	return join_path(state_software_dir(), name);
+}
+
+static std::string state_thumbnail_path(const std::string &state) {
+	return fs::u8path(state).replace_extension(".png").u8string();
+}
+
+/* "MM-DD HH:MM" of a file, or an empty string when it does not exist. */
+static std::string state_file_time(const std::string &path) {
+	std::error_code ec;
+	const fs::path file = fs::u8path(path);
+
+	if (!fs::is_regular_file(file, ec)) {
+		return std::string();
+	}
+	const auto written = fs::last_write_time(file, ec);
+	if (ec) {
+		return std::string();
+	}
+	const auto system = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+	    written - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+	const std::time_t seconds = std::chrono::system_clock::to_time_t(system);
+	std::tm local{};
+#if defined(_WIN32)
+	localtime_s(&local, &seconds);
+#else
+	localtime_r(&seconds, &local);
+#endif
+	char text[32];
+	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d", local.tm_mon + 1, local.tm_mday,
+	              local.tm_hour, local.tm_min);
+	return text;
+}
+
+static long long state_file_stamp(const std::string &path) {
+	std::error_code ec;
+	const fs::path file = fs::u8path(path);
+	const auto size = fs::file_size(file, ec);
+	if (ec) {
+		return -1;
+	}
+	const auto written = fs::last_write_time(file, ec);
+	if (ec) {
+		return -1;
+	}
+	// Nonnegative, so that -1 alone means "no file".
+	return (static_cast<long long>(written.time_since_epoch().count()) ^
+	        (static_cast<long long>(size) << 20)) &
+	       0x7fffffffffffffffLL;
+}
+
+static void state_release_thumbnail(StateThumbnail &thumbnail) {
+	if (thumbnail.texture != nullptr) {
+		SDL_DestroyTexture(thumbnail.texture);
+		thumbnail.texture = nullptr;
+	}
+	if (thumbnail.native != nullptr) {
+		ImGui::UnregisterUserTexture(thumbnail.native);
+		IM_DELETE(thumbnail.native);
+		thumbnail.native = nullptr;
+	}
+	thumbnail.width = 0;
+	thumbnail.height = 0;
+}
+
+static void state_release_thumbnails(void) {
+	for (auto &entry : g_state_thumbnails) {
+		state_release_thumbnail(entry.second);
+	}
+	g_state_thumbnails.clear();
+}
+
+/* The thumbnail of a state as a texture, reloaded when the file changes. */
+static const StateThumbnail *state_thumbnail(const std::string &state) {
+	const std::string path = state_thumbnail_path(state);
+	const long long stamp = state_file_stamp(path);
+	StateThumbnail &thumbnail = g_state_thumbnails[path];
+
+	if (thumbnail.stamp == stamp) {
+		return ((thumbnail.texture != nullptr) || (thumbnail.native != nullptr)) ? &thumbnail
+		                                                                         : nullptr;
+	}
+	state_release_thumbnail(thumbnail);
+	thumbnail.stamp = stamp;
+	int width = 0;
+	int height = 0;
+	BYTE *pixels = nullptr;
+	if ((stamp < 0) ||
+	    (scrnmng_load_stored_png(path.c_str(), &width, &height, &pixels) != SUCCESS)) {
+		return nullptr;
+	}
+	if (g_gui.native_renderer) {
+		auto *texture = IM_NEW(ImTextureData)();
+		texture->Create(ImTextureFormat_RGBA32, width, height);
+		for (int row = 0; row < height; row++) {
+			std::memcpy(texture->GetPixelsAt(0, row), pixels + static_cast<size_t>(row) * width * 4,
+			            static_cast<size_t>(width) * 4);
+		}
+		ImGui::RegisterUserTexture(texture);
+		thumbnail.native = texture;
+	} else if (g_gui.renderer != nullptr) {
+		thumbnail.texture = SDL_CreateTexture(g_gui.renderer, SDL_PIXELFORMAT_RGBA32,
+		                                      SDL_TEXTUREACCESS_STATIC, width, height);
+		if (thumbnail.texture != nullptr) {
+			SDL_UpdateTexture(thumbnail.texture, nullptr, pixels, width * 4);
+		}
+	}
+	std::free(pixels);
+	thumbnail.width = width;
+	thumbnail.height = height;
+	return ((thumbnail.texture != nullptr) || (thumbnail.native != nullptr)) ? &thumbnail : nullptr;
+}
+
+static void state_draw_thumbnail(const std::string &state, float width) {
+	const StateThumbnail *thumbnail = state_thumbnail(state);
+	const float height = width * 0.625f;
+
+	if (thumbnail == nullptr) {
+		ImGui::Dummy(ImVec2(width, height));
+		return;
+	}
+	const float scaled = width * static_cast<float>(thumbnail->height) / thumbnail->width;
+	ImGui::Image(thumbnail->native ? thumbnail->native->GetTexRef()
+	                               : ImTextureRef(thumbnail->texture),
+	             ImVec2(width, scaled));
+}
+
+static void state_thumbnail_tooltip(const std::string &state) {
+	if (ImGui::IsItemHovered() && (state_thumbnail(state) != nullptr)) {
+		ImGui::BeginTooltip();
+		state_draw_thumbnail(state, ImGui::GetFontSize() * 15.0f);
+		ImGui::EndTooltip();
+	}
+}
+
+static void state_save(const std::string &path) {
+	soundmng_stop();
+	const int ret = statsave_save(path.c_str());
+	if (ret != STATFLAG_SUCCESS) {
+		file_delete(path.c_str());
+		g_gui.state_status = "保存できませんでした: ";
+	} else {
+		const std::string thumbnail = state_thumbnail_path(path);
+		(void)scrnmng_save_guest_thumbnail(thumbnail.c_str(), kStateThumbnailWidth);
+		g_gui.state_status = "保存しました: ";
+	}
+	g_gui.state_status += display_file_name(path.c_str());
+	soundmng_play();
+}
+
+static void state_load(const std::string &path) {
+	char error[1024];
+	char override_error[1024];
+
+	error[0] = '\0';
+	override_error[0] = '\0';
+	g_gui.state_force_hostfat_available = false;
+	g_gui.state_force_hostfat_path.clear();
+	const int ret = statsave_check(path.c_str(), error, sizeof(error));
+	if ((ret & ~STATFLAG_DISKCHG) != 0) {
+		const int override_ret =
+		    statsave_check_hostfat_override(path.c_str(), override_error, sizeof(override_error));
+		g_gui.state_status = "読み込めませんでした: ";
+		g_gui.state_status += path;
+		if (error[0] != '\0') {
+			g_gui.state_status += " (";
+			g_gui.state_status += error;
+			g_gui.state_status += ")";
+		}
+		if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
+			g_gui.state_force_hostfat_available = true;
+			g_gui.state_force_hostfat_path = path;
+		}
+		g_gui.state_error_request = true;
+		return;
+	}
+	taskmng_clear_fast_forward();
+	statsave_load(path.c_str());
+	sdlkbd_reset_state();
+	mousemng_reset();
+	scrndrawva_redraw();
+	g_gui.state_status = "読み込みました: ";
+	g_gui.state_status += display_file_name(path.c_str());
+	if ((ret & STATFLAG_DISKCHG) != 0) {
+		g_gui.state_status += " (ディスクの違いを無視)";
+	}
+}
+
+static std::string state_software_label(void) {
+	if (!g_gui.state_software_set) {
+		state_capture_software();
+	}
+	if (g_gui.state_software_media.empty()) {
+		return "共通 (メディアなし)";
+	}
+	return display_file_name(g_gui.state_software_media.c_str());
+}
+
+static void draw_state_slots(bool save) {
+	ImGui::TextDisabled("%s", state_software_label().c_str());
+	for (int slot = 0; slot < kStateSlots; slot++) {
+		const std::string path = state_slot_file(slot);
+		const std::string when = state_file_time(path);
+		char label[64];
+		std::snprintf(label, sizeof(label), "スロット %d", slot);
+		if (ImGui::MenuItem(label, when.empty() ? "空き" : when.c_str(), false,
+		                    save || !when.empty())) {
+			if (save) {
+				state_save(path);
+			} else {
+				state_load(path);
 			}
-			ImGui::EndMenu();
+		}
+		state_thumbnail_tooltip(path);
+	}
+}
+
+static void draw_state_menu(void) {
+	if (!ImGui::BeginMenu("状態")) {
+		return;
+	}
+	if (ImGui::BeginMenu("保存")) {
+		draw_state_slots(true);
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("読み込み")) {
+		draw_state_slots(false);
+		ImGui::EndMenu();
+	}
+	if (ImGui::MenuItem("一覧…")) {
+		g_gui.state_overview_open = true;
+	}
+	ImGui::Separator();
+	if (ImGui::MenuItem("名前を付けて保存…")) {
+		g_gui.state_save_as_name[0] = '\0';
+		g_gui.state_save_as_request = true;
+	}
+	if (ImGui::MenuItem("ファイルから読み込み…")) {
+		g_gui.state_browser_dir = state_software_dir();
+		g_gui.state_browser_open = true;
+	}
+	if (!g_gui.state_status.empty()) {
+		ImGui::Separator();
+		ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+	}
+	ImGui::EndMenu();
+}
+
+/* 一覧: the ten slots of the current software with their thumbnails. */
+static void draw_state_overview(void) {
+	if (!g_gui.state_overview_open) {
+		return;
+	}
+	prepare_dialog(56.0f, 32.0f, ImGuiCond_Appearing);
+	if (ImGui::Begin("状態の一覧###state-overview", &g_gui.state_overview_open)) {
+		ImGui::TextUnformatted(state_software_label().c_str());
+		ImGui::Separator();
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		const float width = (std::max)(ImGui::GetFontSize() * 4.0f,
+		                               (ImGui::GetContentRegionAvail().x - spacing * 4.0f) / 5.0f);
+		for (int slot = 0; slot < kStateSlots; slot++) {
+			const std::string path = state_slot_file(slot);
+			const std::string when = state_file_time(path);
+			ImGui::PushID(slot);
+			ImGui::BeginGroup();
+			state_draw_thumbnail(path, width);
+			ImGui::Text("スロット %d", slot);
+			ImGui::TextDisabled("%s", when.empty() ? "空き" : when.c_str());
+			if (ImGui::SmallButton("保存")) {
+				state_save(path);
+			}
+			ImGui::SameLine();
+			ImGui::BeginDisabled(when.empty());
+			if (ImGui::SmallButton("読み込み")) {
+				state_load(path);
+			}
+			ImGui::EndDisabled();
+			ImGui::EndGroup();
+			ImGui::PopID();
+			if ((slot % 5) != 4) {
+				ImGui::SameLine();
+			}
 		}
 		if (!g_gui.state_status.empty()) {
 			ImGui::Separator();
 			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
 		}
-		ImGui::EndMenu();
 	}
+	ImGui::End();
+}
+
+/* 名前を付けて保存: states/<software>/<name>.sav (and .png). */
+static void draw_state_save_as(void) {
+	if (g_gui.state_save_as_request) {
+		g_gui.state_save_as_request = false;
+		g_gui.state_save_as_open = true;
+		ImGui::OpenPopup("名前を付けて保存###state-save-as");
+	}
+	if (!g_gui.state_save_as_open) {
+		return;
+	}
+	prepare_dialog(28.0f, 10.0f, ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("名前を付けて保存###state-save-as", &g_gui.state_save_as_open)) {
+		ImGui::TextUnformatted(state_software_label().c_str());
+		ImGui::SetNextItemWidth(-1.0f);
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		const bool entered = ImGui::InputText("##state-name", g_gui.state_save_as_name,
+		                                      sizeof(g_gui.state_save_as_name),
+		                                      ImGuiInputTextFlags_EnterReturnsTrue);
+		std::string name = g_gui.state_save_as_name;
+		for (char &c : name) {
+			if ((static_cast<unsigned char>(c) < 0x20) ||
+			    (std::strchr("<>:\"/\\|?*", c) != nullptr)) {
+				c = '_';
+			}
+		}
+		ImGui::TextDisabled("同じ名前のときは上書きします");
+		ImGui::BeginDisabled(name.empty());
+		if ((ImGui::Button("保存") || entered) && !name.empty()) {
+			state_save(join_path(state_software_dir(), (name + ".sav").c_str()));
+			g_gui.state_save_as_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル")) {
+			g_gui.state_save_as_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+/* ファイルから読み込み: any state below states/, for another software's
+ * slots or a named state. */
+static void draw_state_browser(void) {
+	if (!g_gui.state_browser_open) {
+		return;
+	}
+	prepare_dialog(44.0f, 30.0f, ImGuiCond_Appearing);
+	if (ImGui::Begin("ファイルから読み込み###state-browser", &g_gui.state_browser_open)) {
+		const std::string root = state_root();
+		std::error_code ec;
+		std::vector<std::string> dirs;
+		for (const auto &entry : fs::directory_iterator(fs::u8path(root), ec)) {
+			std::error_code st_ec;
+			if (entry.is_directory(st_ec)) {
+				dirs.push_back(entry.path().filename().u8string());
+			}
+		}
+		std::sort(dirs.begin(), dirs.end());
+		const float list_height = browser_list_height(1.5f, g_gui.state_status);
+		ImGui::BeginChild("state-dirs",
+		                  ImVec2(ImGui::GetContentRegionAvail().x * 0.4f, list_height),
+		                  ImGuiChildFlags_Borders);
+		for (const auto &dir : dirs) {
+			const std::string path = join_path(root, dir.c_str());
+			const bool selected =
+			    fs::u8path(path) == fs::u8path(g_gui.state_browser_dir).parent_path() ||
+			    fs::u8path(path) == fs::u8path(g_gui.state_browser_dir);
+			if (ImGui::Selectable(dir.c_str(), selected)) {
+				g_gui.state_browser_dir = path;
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::BeginChild("state-files", ImVec2(0.0f, list_height), ImGuiChildFlags_Borders);
+		std::vector<std::string> files;
+		for (const auto &entry : fs::directory_iterator(fs::u8path(g_gui.state_browser_dir), ec)) {
+			std::error_code st_ec;
+			if (entry.is_regular_file(st_ec) && (entry.path().extension() == ".sav")) {
+				files.push_back(entry.path().u8string());
+			}
+		}
+		std::sort(files.begin(), files.end());
+		for (const auto &file : files) {
+			const std::string label =
+			    display_file_name(file.c_str()) + "  " + state_file_time(file);
+			if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick) &&
+			    ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+				state_load(file);
+			}
+			state_thumbnail_tooltip(file);
+		}
+		ImGui::EndChild();
+		ImGui::TextDisabled("ダブルクリックで読み込み");
+		if (!g_gui.state_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+		}
+	}
+	ImGui::End();
 }
 
 static void draw_hostfat_error_dialog(void) {
 	if (g_gui.hostfat_error_request) {
 		g_gui.hostfat_error_request = false;
 		ImGui::OpenPopup("HOSTFAT error##hostfat-error");
+	}
+	{
+		const ImGuiViewport *viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f));
 	}
 	if (ImGui::BeginPopupModal("HOSTFAT error##hostfat-error", &g_gui.hostfat_error_open,
 	                           ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -4600,6 +6049,11 @@ static void draw_state_error_dialog(void) {
 		g_gui.state_error_request = false;
 		g_gui.state_error_open = true;
 		ImGui::OpenPopup("State load rejected##state-load-error");
+	}
+	{
+		const ImGuiViewport *viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowSizeConstraints(
+		    ImVec2(0.0f, 0.0f), ImVec2(viewport->WorkSize.x * 0.95f, viewport->WorkSize.y * 0.95f));
 	}
 	if (ImGui::BeginPopupModal("State load rejected##state-load-error", &g_gui.state_error_open,
 	                           ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -4654,6 +6108,10 @@ static void draw_state_error_dialog(void) {
 }
 
 } // namespace
+
+extern "C" void gui_history_add(int kind, const char *path) {
+	history_add_dropped(kind, path);
+}
 extern "C" BOOL gui_copy_screen_text(void) {
 	return copy_screen_text();
 }
@@ -4737,6 +6195,7 @@ void gui_shutdown(void) {
 		SDL_StopTextInput();
 		g_gui.text_input_active = false;
 	}
+	state_release_thumbnails();
 	if (g_gui.about_texture != nullptr) {
 		SDL_DestroyTexture(g_gui.about_texture);
 		g_gui.about_texture = nullptr;
@@ -4948,11 +6407,6 @@ void gui_draw(void) {
 	    ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
 	        ImGui::IsAnyItemActive(), SDL_GetTicks());
 	if (show_menu && ImGui::BeginMainMenuBar()) {
-		const bool paused = taskmng_ispaused() ? true : false;
-		if (ImGui::Button(paused ? "Resume" : "Pause")) {
-			taskmng_toggle_pause();
-		}
-		ImGui::Separator();
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
@@ -4960,7 +6414,8 @@ void gui_draw(void) {
 		draw_edit_menu();
 		draw_screen_menu();
 		draw_recording_menu();
-		draw_device_menu();
+		draw_key_menu();
+		draw_sound_menu();
 		draw_state_menu();
 		draw_info_menu();
 		ImGui::EndMainMenuBar();
@@ -4979,7 +6434,11 @@ void gui_draw(void) {
 		}
 		ImGui::End();
 	}
+	draw_pause_overlay();
 	draw_state_error_dialog();
+	draw_state_overview();
+	draw_state_save_as();
+	draw_state_browser();
 	draw_fdd_browser();
 	draw_hdd_browser();
 	draw_tape_browser();
@@ -5035,6 +6494,77 @@ void gui_overlay_rect(int x, int y, int width, int height,
 	if (!g_gui.initialized || !g_gui.native_renderer) return;
 	draw_overlay_rect(ImGui::GetBackgroundDrawList(), ImGui::GetIO().DisplayFramebufferScale,
 	                  ImGui::GetMainViewport()->Pos, x, y, width, height, IM_COL32(r, g, b, a));
+}
+
+BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
+	std::vector<std::string> saved[HIST_COUNT];
+	const bool saved_loaded = g_history_loaded;
+	const std::string base = absolute_path(root); /* lists hold absolute folders */
+	const std::string fdd = join_path(base, "fdd");
+	const std::string hdd = join_path(base, "hdd");
+	const std::string tape = join_path(base, "tape");
+	const std::string other = join_path(base, "other");
+	const std::string media = join_path(base, "media");
+	const char *failed = nullptr;
+
+	for (const std::string &dir : {fdd, hdd, tape, other, media}) {
+		(void)file_dircreate(dir.c_str());
+	}
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		saved[kind].swap(g_history[kind]);
+	}
+	g_history_loaded = true; /* no history file is read or written */
+
+	if (history_start_dir(HIST_DIR_TAPE, "") != home_dir()) {
+		failed = "no folders: home";
+	}
+	g_history[HIST_DIR_HDD] = {hdd};
+	g_history[HIST_DIR_TAPE] = {join_path(base, "missing"), tape};
+	if (!failed && (history_start_dir(HIST_DIR_FDD, "") != hdd)) {
+		failed = "FDD without its own folder: the HDD folder";
+	}
+	if (!failed && (history_start_dir(HIST_DIR_TAPE, "") != tape)) {
+		failed = "tape: its own newest existing folder";
+	}
+	g_history[HIST_DIR_FDD] = {fdd};
+	if (!failed && (history_start_dir(HIST_DIR_HDD, "") != hdd)) {
+		failed = "HDD: its own folder";
+	}
+	g_history[HIST_DIR_HDD].clear();
+	g_history[HIST_DIR_TAPE].clear();
+	if (!failed && ((history_start_dir(HIST_DIR_HDD, "") != fdd) ||
+	                (history_start_dir(HIST_DIR_TAPE, "") != fdd))) {
+		failed = "HDD and tape without their own: the FDD folder";
+	}
+	if (!failed && (history_start_dir(HIST_DIR_FDD, media) != media)) {
+		failed = "the medium in use first";
+	}
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		g_history[kind].clear();
+	}
+	g_history[HIST_FDD2] = {join_path(fdd, "a.d88")};
+	g_history[HIST_SASI1] = {join_path(hdd, "a.hdi")};
+	g_history[HIST_TAPE] = {join_path(tape, "a.cmt"), join_path(fdd, "b.cmt")};
+	history_split_legacy_dirs({tape, other, fdd, hdd});
+	if (!failed && ((g_history[HIST_DIR_FDD] != std::vector<std::string>{other, fdd}) ||
+	                (g_history[HIST_DIR_HDD] != std::vector<std::string>{hdd}) ||
+	                (g_history[HIST_DIR_TAPE] != std::vector<std::string>{tape, fdd}))) {
+		failed = "the shared list split by the files used in each folder";
+	}
+
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		g_history[kind].swap(saved[kind]);
+	}
+	g_history_loaded = saved_loaded;
+	for (const std::string &dir : {fdd, hdd, tape, other, media}) {
+		std::error_code error;
+		fs::remove(fs::u8path(dir), error);
+	}
+	if (failed != nullptr) {
+		std::snprintf(problem, size, "%s", failed);
+		return FAILURE;
+	}
+	return SUCCESS;
 }
 
 BOOL gui_overlay_selftest(void) {

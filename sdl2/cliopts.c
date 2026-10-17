@@ -219,6 +219,8 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 			options->smoke = TRUE;
 		} else if (!strcmp(argument, "--selftest")) {
 			options->selftest = TRUE;
+		} else if (!strcmp(argument, "--list-extra-roms")) {
+			options->list_extra_roms = TRUE;
 		} else if (!strcmp(argument, "--debug")) {
 			options->debug = TRUE;
 		} else if (!strcmp(argument, "--fdctrace")) {
@@ -500,6 +502,18 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				                  "--effect accepts unfiltered, linear, scanline, or crt-lite",
 				                  value));
 			}
+		} else if (!strcmp(argument, "--rotate")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL) {
+				return (FAILURE);
+			}
+			if (name_equal(value, "none")) {
+				options->rotate = VAEG_CLI_ROTATE_NONE;
+			} else if (name_equal(value, "right")) {
+				options->rotate = VAEG_CLI_ROTATE_RIGHT;
+			} else {
+				return (set_error(error, error_size, "--rotate accepts none or right", value));
+			}
 		} else if (!strcmp(argument, "--scaling")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if (value == NULL) {
@@ -603,6 +617,13 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				return (set_error(error, error_size, "HOSTFAT directory path is too long", value));
 			}
 			options->hostfat_path = value;
+		} else if (!strcmp(argument, "--extra-machine")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0') || (strlen(value) >= 64)) {
+				return (
+				    set_error(error, error_size, "--extra-machine requires a model name", value));
+			}
+			options->extra_machine = value;
 		} else if (!strcmp(argument, "--roms")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0')) {

@@ -35,6 +35,218 @@ land.
 
 ## Maintenance Rules
 
+### M120 — the second disk of a multi-image D88 came back as the first
+
+- **Symptom/scope:** with a disk other than the first of a multi-image D88
+  in a drive (`--fdd1-image`/`--fdd2-image`), loading a save state, a reset
+  from the GUI, or the next start put the file's first disk back. Only
+  D88 files that hold several disks.
+- **Demonstrated cause:** the state's disk record held the path and the
+  write-protect flag only, and `flagload_disk` mounted with whatever disk
+  number the drive had last used; the GUI reset and `vaeg.cfg` kept only
+  the path (`FDD1FILE`), so they remounted disk 1.
+- **Correction:** the state stores the disk number in bits 15-8 of the
+  record's flag word (older states hold 0 there: the first disk) and the
+  load sets it before mounting; `vaeg.cfg` keeps it as `FDD1IMAGE` and
+  `FDD2IMAGE`, and the reset and 最近の起動 restore it.
+- **Verification:** selftest `D88 multi-image state` (disk 2 in FDD1 and
+  disk 1 of the same file in FDD2, saved and loaded over stale numbers);
+  mutation-checked (number not saved; stale number kept). A start from a
+  configuration with `FDD2IMAGE=1` shows the second disk as B: in PC-Engine.
+- **Milestone/task/commit:** M120,
+  [M120 task](../agents/tasks/M120_d88_multi_image.md);
+  [state commit](https://github.com/nakatamaho/vaeg/commit/130e25812c72743cc5b8d76d198f4cfa26dc695b),
+  [configuration commit](https://github.com/nakatamaho/vaeg/commit/449458eb95c723f0f8500e7e2ea32605cde8f91e),
+  [reset and recent-boots commit](https://github.com/nakatamaho/vaeg/commit/9f4a0c02fc51a515fdfa7a3d3a5465d08632e41c).
+
+### M118 — PC-8801, PC-8001 and PCG selftests accessed a destroyed machine
+
+- **Symptom/scope:** hosted CI failed on `main` from M113 on: ASan aborted
+  the ROM-less selftest with heap-use-after-free in `iocore_out8`, and the
+  Windows and macOS trace-enabled selftests failed. Normal guest execution
+  is not affected; the local release build passed because it reads the
+  freed table without a sanitizer.
+- **Demonstrated cause:** `test_extra_machine` (M113), `test_pc8001_machine`
+  (M114) and `test_pcg88` (M115) used the I/O table without initializing a
+  machine, after an earlier fixture had freed it with `pccore_term`; the
+  ASan stacks show the allocation and free in the earlier fixture and the
+  invalid reads in these three (the same class as the M106a entry).
+- **Correction:** each of the three fixtures starts its own machine
+  (`pccore_init`, `pccore_reset`) and terminates it on exit, as the M106a
+  fixtures do.
+- **Verification:** the uncorrected `linux-ci-asan` selftest aborts at each
+  fixture in turn; after the correction it passes, and all 93 ASan/UBSan
+  and 93 normal CTest cases pass (four external-fixture skips).
+- **Milestone/task/commit:** M118,
+  [M118 task](../agents/tasks/M118_release_notes_20261017.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/95846b952860aa7e6f32d4865e1c7d090de2d80e).
+
+### M118 — a compatible-mode HALT never ended
+
+- **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode
+  that executes `HALT` stopped for good: the native interrupt was serviced,
+  but after its `IRET` the code stayed halted. Programs that wait for the
+  frame with `EI; HALT` (the `ei-halt` probe of a compatible-mode test
+  disk, C-BIOS under msx88va) hung; the PC-88VA and PC-88VA2 continue
+  after the `HALT`.
+- **Demonstrated cause:** the suzukiplan core keeps `IFF_HALT` set and its
+  PC already after the `HALT`. A native interrupt taken from compatible
+  mode saved that PC, but nothing cleared `IFF_HALT`, and `SetMainReg` on
+  the `IRET` resume preserves it, so the core went on executing its halted
+  NOP cycles.
+- **Correction:** the adapter's interrupt-entry hook clears the HALT state
+  before syncing to native (`Z80CompatCpu::LeaveHalt`); the `IRET` then
+  resumes at the instruction after the `HALT`, as the V30 manual (chapter
+  8) describes. The protected `cpu/upd9002/` core is unchanged.
+- **Verification:** selftest `vaeg_upd9002_brkem_upd70008` gains a HALT
+  case (`EI; HALT`, native interrupt, `IRET`, `LD A,55h` runs), which fails
+  before the fix; the test disk's `ei-halt` probe PASS (hung before); msx88va boots
+  C-BIOS with its HALTs; M103b V2 BASIC boot passes; all 93 CTest cases pass.
+- **Milestone/task/commit:** M118,
+  [M118 task](../agents/tasks/M118_release_notes_20261017.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/3bb56ce4b79468c3fc44ae0f6c9402b4c42f5bd7).
+
+### M117 — the text cursor stayed visible after SYNC
+
+- **Symptom/scope:** in a commercial game the blinking text cursor showed at the
+  top left of the game screen on the VA and VA2 models; the hardware shows
+  none. Software that leaves the text display off after SYNC with the
+  CURDEF cursor enabled.
+- **Demonstrated cause:** the game sends SYNC (which stops the text display)
+  and no DSPON, with CURDEF CE still set; `vram/makesprva.c` forced the
+  cursor sprite on from CE alone.
+- **Correction:** the CE cursor is shown only while the text display is on
+  (DSPON); sprites with SW set are unchanged.
+- **Verification:** the game screen has no cursor on either model over eight
+  sampled frames; the PC-Engine, V1/V2 and N-BASIC cursors still blink;
+  selftest `TSP attribute modes` (cursor without DSPON), mutation-checked.
+- **Milestone/task/commit:** M117,
+  [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/20214bebeaa910ca8342b88388b7f0f38a49e7df).
+
+### M117 — text with the blink attribute did not blink
+
+- **Symptom/scope:** text that blinks on the PC-88VA hardware stayed steady
+  in vaeg; with TSP attribute modes 4 and 5 the background also showed one
+  step too bright (F0h grey instead of white); modes 2 and 3 showed plain
+  characters where the hardware shows double-width halves with lines (2)
+  or nothing (3). V3 text in attribute modes 2-7 only.
+- **Demonstrated cause:** `vram/maketextva.c` decoded attribute modes 0 and 1
+  only and read modes 2-7 as mode 0, which has no blink bit, so bit 7 of
+  modes 4 and 5 (blink) became background bit 3.
+- **Correction:** modes 4 and 5 are decoded as documented (bit 7 blink, bits
+  6:4 background, mode 5 line for colours 1 and 9); undocumented modes 6 and
+  7 follow the PC-88VA2 TSPMODE observations; modes 2 and 3 decode their
+  shape bits and colour/shape records
+  ([second correcting commit](https://github.com/nakatamaho/vaeg/commit/06b5f07b1a14b629260808ae8a09382439a2030f)).
+- **Verification:** TSPMODE 4 under PC-Engine blinks after the fix and was
+  steady before; TSPMODE 2 and 3 on the self-booting SGP disk match the
+  PC-88VA2 photographs; selftest `TSP attribute modes`.
+- **Milestone/task/commit:** M117,
+  [M117 task](../agents/tasks/M117_tsp_attribute_blink.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/746f3e4d405ca455f47884df0901eae13babba12).
+
+### M115 — pasted text lost repeated characters
+
+- **Symptom/scope:** pasting a BASIC program into N-88 BASIC (V1, Windows
+  build) turned `100` into `10` and `3000` into `30`: a character repeated
+  right after itself was dropped; other characters arrived. GUI paste
+  (編集 -> 貼り付け) and scripted text, every guest mode.
+- **Demonstrated cause:** the paste stepped key down and up by host time
+  only (20 ms). Guest frames are run in bursts to catch up, so a release
+  could pass with no guest frame; the guest saw one long press of the
+  repeated key. Pacing the events by guest frames as well removed the loss
+  on the maintainer's machine with the same program, and nothing else
+  changed.
+- **Correction:** each key event also waits for two guest frames.
+- **Verification:** selftest `keyboard paste mapping` (events do not advance
+  without guest frames; fails with the frame wait removed); the maintainer
+  pasted the program again with the `b7e611e2` Windows build and it was
+  entered and ran correctly.
+- **Milestone/task/commit:** M115;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/f276bf1f055594251ef75bdb9265f3f3e7bcf15b).
+
+### M107b — the legacy VOYAGE drew its lines mirrored
+
+- **Symptom/scope:** the legacy `VOYAGE.COM` (three FM voices and noise)
+  showed the "VA" logo broken and the sea's grid torn in vaeg and on
+  hardware; every SGP LINE with exactly one direction bit set went the
+  wrong way. Demo only; `VOYOPNA.COM` was correct.
+- **Demonstrated cause:** M107b kept the legacy build byte-identical,
+  including the Technical Manual's exchanged LINE direction bits (HD 0400h,
+  VD 0800h) that M106a corrected from a PC-88VA2 photograph; only the OPNA
+  variant used the measured bits.
+- **Correction:** both variants use HD 0800h and VD 0400h.
+- **Verification:** `test_voyage.py` asserts the measured bits; vaeg (VA2)
+  shows the logo and the grid whole with the new build and broken with the
+  old one; `VOYOPNA.COM` is byte-identical before and after.
+- **Milestone/task/commit:** M107b;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d351d2bba69919bd06ef1763393b9ed5d0de8165).
+
+### M113 — V1/V2 level-2 kanji came from the wrong half of the font
+
+- **Symptom/scope:** in V1/V2 mode, JIS level-2 kanji read through ports
+  ECh/EDh above PC-8801 word address 4000h returned the glyphs of another
+  row block. Guest-visible to every 8801 program that reads level-2 kanji
+  on either VA model.
+- **Demonstrated cause:** `cgrom88_offset` (`io/cgromva.c`) inverted byte
+  offset bit 14 for both levels. The inversion is derived for level 1 from
+  the VA2 ROM's BASIC; for level 2 it is wrong: reading the VA font image
+  through the ports without it reproduces a PC-8801 kanji2 ROM matching
+  MAME's `pc8801ma` glyph for glyph wherever that ROM has a glyph, and with
+  it 3,667 of 4,096 glyph cells differ.
+- **Correction:** the inversion applies to level 1 only.
+- **Verification:** selftest `test_v1v2_rom_ports` reads a level-2 raster
+  at word address 65C0h from byte CB80h (fails on the old order).
+- **Milestone/task/commit:** M113;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/3d632a6ceee7068358f909e4582e6cc876e0d1d2).
+
+### M110 — the utility FDD no longer built after the M106 merge
+
+- **Symptom/scope:** `tools/pc88va/build-utility-disk.sh` failed with
+  `not enough free space` on `main` from the M106 merge on; the SASI images,
+  which take that FDD as payload, could not be rebuilt either. Build tooling
+  only; existing images were unaffected.
+- **Demonstrated cause:** the M106 branch put VZ Editor on the FDD and
+  dropped five files to make room; M105a, on `main` meanwhile, added
+  V480PAT, its source and its instructions to the FDD. The merge combined
+  both, and the payload needed 28672 bytes more than the PC-Engine 1.1 disk
+  has (measured from the builder's payload directory). The M106 gate media
+  were built from the branch before the merge, so it went unnoticed.
+- **Correction:** V480PAT and its files stay off the FDD; they remain on
+  both SASI images, and V480PAT, TSPMODE and TSPFILL are on the
+  self-booting SGP disk.
+- **Verification:** the FDD builds from a clean clone with the shared cache
+  (4096 bytes left), boots PC-Engine 1.1 in vaeg and lists VZ; both SASI
+  images build with it as payload, boot alone on the VA and the VA2 and
+  hold `\BIN\V480PAT.COM`; `test_vtiming_media.py` checks the FDD builder
+  no longer copies the files (fails with them restored).
+- **Milestone/task/commit:** M110;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/dd7a661e23164385b3995091db35b827d41bd3cc).
+
+### M109a — SGP sprites read upwards were striped on the original VA
+
+- **Symptom/scope:** in the VA (not VA2) model, sprites a commercial game
+  draws with a vertically reversed SGP BITBLT appeared as horizontal
+  stripes. Every program sending an SGP pitch with low bits set, VA model
+  only.
+- **Demonstrated cause:** the source descriptor's FBW is `FFF3h` for
+  12-byte lines. Since M97b vaeg dropped its low two bits on the VA (-16)
+  instead of reading it as on the VA2 (-12), so each line moved 4 bytes.
+  The command stream is the same on both models; with the VA2 reading the
+  VA draws them correctly.
+- **Correction:** FBW is decoded the same way on both models: bit 0
+  dropped, a negative pitch two bytes shorter (`sgp_decode_fbw`).
+- **Verification:** SGP selftest (`FFF3h` is -12 on both models); the game
+  in VA mode shows no striped sprite over 15 sampled scenes; SGPTEST shows
+  0 differences on both models and 5 with the M97b rule restored.
+  On a PC-88VA and a PC-88VA2 (G109a) SGPTEST equals vaeg except T07 and
+  T09 (FBW FFF2h, FFF0h), whose hardware results vary between runs and
+  models; they are no longer compared
+  ([M109a task](../agents/tasks/M109a_sgp_fbw_and_sgptest.md)).
+- **Milestone/task/commit:** M109a;
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/d288656ce79e1c56eeb2022647079a8c498e1f23).
+
 ### M109 — the digital RGB monitor showed the NEC logo red
 
 - **Symptom/scope:** with Emulate > モニタ > デジタル RGB (8色), the VA demo's

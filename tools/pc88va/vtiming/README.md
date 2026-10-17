@@ -175,8 +175,9 @@ measurements.
 
 ## Utility FDD and HDD installation
 
-The utility floppy builder and both VA/VA2 SASI utility HDD variants also
-include the source-built V480PAT from this directory:
+Both VA/VA2 SASI utility HDD variants also include the source-built
+V480PAT from this directory (the utility floppy no longer does, M110; use
+the self-booting SGP disk or the HDD):
 
 - `\BIN\V480PAT.COM` (uncompressed NASM output);
 - `\SRC\VTIMING\V480PAT.ASM` (the same self-contained source);
@@ -184,7 +185,7 @@ include the source-built V480PAT from this directory:
 
 `stage-vtiming.sh --output DIR` creates just these three files in a new host
 directory. The common development-tool stager incorporates them into its
-manifest; the floppy builder copies the COM after its DIET pass. Existing
+manifest. Existing
 media must be regenerated to acquire the files. No HOSTFAT driver is needed
 for running the installed utility; HOSTFAT can optionally transfer host-built
 files. Assemble the source with NASM on the host, not the guest's JWASM.

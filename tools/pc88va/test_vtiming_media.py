@@ -131,11 +131,10 @@ class VtimingMediaTests(unittest.TestCase):
         self.assertIn('"$script_dir/stage-vtiming.sh"', common)
         self.assertLess(common.index('"$script_dir/stage-vtiming.sh"'),
                         common.rindex("write_manifest"))
+        # M110: the FDD no longer carries V480PAT (it did not fit with VZ).
         fdd = (TOOLS / "build-utility-disk.sh").read_text()
-        self.assertGreater(fdd.index('bin/V480PAT.COM'),
-                           fdd.index("DIET processed"))
         for path in PATHS:
-            self.assertIn(f'"$common_stage_dir/{path}"', fdd)
+            self.assertNotIn(f'"$common_stage_dir/{path}"', fdd)
         sasi = (TOOLS / "build-sasi-utility-disks.sh").read_text()
         self.assertIn('"$script_dir/stage-development-tools.sh"', sasi)
         self.assertEqual(sasi.count('--supplemental-tree "$supplemental_tree"'), 2)

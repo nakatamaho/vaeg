@@ -278,7 +278,7 @@ static void info_bios_n80(char *str, int maxlen, NP2INFOEX *ex) {
 
 /* V1/V2 (Z80) mode as stored for the next reset: V1/V2 and H/S. */
 static void info_z80mode(char *str, int maxlen, NP2INFOEX *ex) {
-	if (np2cfg.v1v2_nmode) {
+	if (np2cfg.boot_mode == BOOTMODE_N) {
 		milstr_ncpy(str, memoryva_n80_exist ? "N" : "N (no N80 ROM)", maxlen);
 		return;
 	}

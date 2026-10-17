@@ -60,3 +60,11 @@ closure and both licensing boundaries are recorded in the same provenance.
 The general VAEG asset notice, including the MIT-licensed suzukiplan Z80
 component and the SIL-licensed Noto Sans JP font, is distributed as
 `assets/NOTICE.md` together with the applicable license files.
+
+## PC-8801/8001 and PCG references
+
+The PC-8801-side behaviour and the PCG-8100/8800 emulation were written with
+reference to X88000 1.5.3 by Manuke (public domain; some routines
+re-implemented in C) and QUASI88 0.7.4 by showtime (behavioural reference
+only; no code used). See `docs/licenses/pc8801-references.txt`, which the
+executable shows under 情報 -> Third-party licenses.

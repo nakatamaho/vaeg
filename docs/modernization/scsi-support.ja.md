@@ -96,7 +96,7 @@ DEVICE = A:\SCHD.SYS -I1
 
 ### 2. VAEGのSCSIイメージを作成して接続する
 
-GUIはVHD形式のSCSIイメージを作成します。**HardDisk -> New SCSI image...**
+GUIはVHD形式のSCSIイメージを作成します。**HDD -> 新しい SCSI イメージ…**
 を選び、サイズを指定し、**SCSI ID 0** から **SCSI ID 6** のいずれかへ割り
 当てます。通常最初に使うのはSCSI ID 0と1です。既存イメージは対応する
 **Open**メニューから接続できます。接続を変更した後は、PCPLUS/SCHDが再列挙

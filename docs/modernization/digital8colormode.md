@@ -1,6 +1,6 @@
 # Digital 8-colour monitor output
 
-Emulate > モニタ > デジタル RGB (8色) (`MonitorDigital` in the config file)
+画面 > モニタ > デジタル RGB (8色) (`MonitorDigital` in the config file)
 shows the picture as a digital RGB monitor connected to the PC-88VA would.
 It is a display option only: the guest sees no difference and no reset is
 needed.

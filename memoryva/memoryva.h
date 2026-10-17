@@ -75,6 +75,8 @@ extern _MEMORYVA88ERAM memoryva_88_eram;
 /* Optional user-supplied N-BASIC ROM (vaeg extension, bios/romva.c). */
 extern BYTE memoryva_n80[0x8000];
 extern BOOL memoryva_n80_exist;
+/* M114: a PC-8001 model runs in N mode; port 31h has its PC-8001mkII meaning. */
+extern BOOL memoryva_pc8001;
 extern char memoryva_n80_file[32]; /* file loaded, empty without a ROM */
 
 /*

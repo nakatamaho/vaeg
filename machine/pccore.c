@@ -8,6 +8,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "cmt.h"
+#include "pcg88.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -60,7 +61,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .MOUSERAPID = 0,
                  .calendar = 0,
                  .usefd144 = 0,
-                 .upd8087_enable = 0,
+                 .upd8087_enable = 1,
                  .upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ,
                  .model = OEMTEXT("88VA2"),
                  .baseclock = PCBASECLOCK40,
@@ -72,7 +73,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .main_ram_auto = 1,
                  .boot_fixed_disk = 1,
                  .v1v2_standard = 0,
-                 .v1v2_nmode = 0,
+                 .boot_mode = BOOTMODE_AUTO,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -90,6 +91,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .beep_level = 0xff,
                  .cmt_fast = 0,
                  .cmt_vol = 48,
+                 .pcg_vol = 48,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -285,6 +287,7 @@ static void sound_init(void) {
 	sound_create(rate, np2cfg.delayms);
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
+	pcg88_setvol(np2cfg.pcg_vol);
 	if (np2cfg.beep_level <= 128) {
 		beep_setlevel(np2cfg.beep_level);
 	} else {
