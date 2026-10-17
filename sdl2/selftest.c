@@ -1667,41 +1667,61 @@ static int test_fdd_d88_short_table(void) {
 	return (SUCCESS);
 }
 
-/* M103f: choose a disk inside a multi-image D88 file. */
+/* Write two images back to back, the second named "B", as the first `size`
+ * bytes of that pair followed by zeros (M120: a partial header or a cut
+ * image is not counted). */
+static BOOL selftest_d88_two_images(const char *path, UINT size) {
+	static BYTE file[0x10400 * 2 + 0x100];
+	FILEH fh;
+	BOOL ok;
+
+	if ((size > sizeof(file)) || !selftest_d88_table_image(path, 0x2a0, 0)) {
+		return FALSE;
+	}
+	fh = file_open_rb(path);
+	ok = (fh != FILEH_INVALID) && (file_read(fh, file, 0x10400) == 0x10400);
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	if (!ok) {
+		return FALSE;
+	}
+	CopyMemory(file + 0x10400, file, 0x10400);
+	file[0x10400] = 'B';
+	ZeroMemory(file + 0x10400 * 2, 0x100);
+	fh = file_create(path);
+	ok = (fh != FILEH_INVALID) && (file_write(fh, file, size) == size);
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	return ok;
+}
+
+/* M103f: choose a disk inside a multi-image D88 file; M120: list them. */
 static int test_fdd_d88_multi_image(void) {
-	static BYTE file[0x10400 * 2];
 	char path[MAX_PATH];
 	char *pick_second[] = {"vaeg", "--fdd2-image", "2"};
 	char *pick_none[] = {"vaeg", "--fdd1-image", "0"};
+	char names[3][FDDD88_NAME_SIZE];
 	VAEG_CLI_OPTIONS options;
 	char error[256];
 	_FDDFILE parsed;
 	const char *problem;
-	FILEH fh;
 
 	problem = NULL;
 	SPRINTF(path, "vaeg-selftest-%lu-d88-multi.d88", (unsigned long)getpid());
-	if (!selftest_d88_table_image(path, 0x2a0, 0)) {
-		problem = "could not build an image";
-	} else {
-		fh = file_open_rb(path);
-		if ((fh == FILEH_INVALID) || (file_read(fh, file, 0x10400) != 0x10400)) {
-			problem = "could not read the image back";
-		}
-		if (fh != FILEH_INVALID) {
-			file_close(fh);
-		}
+	if (!selftest_d88_two_images(path, 0x10400 * 2 + 0x100)) {
+		problem = "could not write the two-image file";
 	}
 	if (problem == NULL) {
-		CopyMemory(file + 0x10400, file, 0x10400);
-		file[0x10400] = 'B'; /* name of the second image */
-		fh = file_create(path);
-		if ((fh == FILEH_INVALID) || (file_write(fh, file, sizeof(file)) != sizeof(file))) {
-			problem = "could not write the two-image file";
+		ZeroMemory(names, sizeof(names));
+		if ((fddd88_images(path, names, 3) != 2) || (names[0][0] != '\0') || (names[1][0] != 'B') ||
+		    (names[1][1] != '\0') || (names[2][0] != '\0')) {
+			problem = "two images and their names (trailing bytes ignored)";
 		}
-		if (fh != FILEH_INVALID) {
-			file_close(fh);
-		}
+	}
+	if ((problem == NULL) && (fddd88_images(path, NULL, 0) != 2)) {
+		problem = "count without names";
 	}
 	if (problem == NULL) {
 		ZeroMemory(&parsed, sizeof(parsed));
@@ -1717,6 +1737,14 @@ static int test_fdd_d88_multi_image(void) {
 		parsed.num = 2;
 		if (fddd88_set(&parsed, path, 0) != FAILURE) {
 			problem = "a missing third image was accepted";
+		}
+	}
+	if (problem == NULL) {
+		/* the second image cut short is not counted */
+		if (!selftest_d88_two_images(path, 0x10400 * 2 - 1)) {
+			problem = "could not rewrite the two-image file";
+		} else if (fddd88_images(path, NULL, 0) != 1) {
+			problem = "a cut second image was counted";
 		}
 	}
 	file_delete(path);

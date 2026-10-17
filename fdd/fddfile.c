@@ -48,6 +48,13 @@ BOOL fdd_diskprotect(REG8 drv) {
 	return (TRUE);
 }
 
+UINT fdd_diskimage(REG8 drv) {
+	if ((drv >= MAX_FDDFILE) || (fddfile[drv].type != DISKTYPE_D88)) {
+		return (0);
+	}
+	return (fddfile[drv].num);
+}
+
 // --------------------------------------------------------------------------
 
 BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {

@@ -82,6 +82,8 @@ void fddfile_reset2dmode(void);
 const char *fdd_diskname(REG8 drv);
 BOOL fdd_diskready(REG8 drv);
 BOOL fdd_diskprotect(REG8 drv);
+/* M120: the disk of a multi-image D88 file in the drive, 0 = first. */
+UINT fdd_diskimage(REG8 drv);
 
 BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro);
 BOOL fdd_eject(REG8 drv);
