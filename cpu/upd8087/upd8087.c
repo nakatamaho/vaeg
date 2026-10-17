@@ -442,15 +442,19 @@ static void configure_softfloat(const UPD8087_STATE *state) {
 		softfloat_roundingMode = softfloat_round_near_even;
 		break;
 	}
+	/* SoftFloat names the precision by the width of the format it rounds
+	 * to: 32 (24-bit significand), 64 (53-bit) or 80 (64-bit). M123: 53 and
+	 * 64 were passed here, which rounded the 8087's default 64-bit precision
+	 * to 53 bits and its 53-bit precision to 64 bits. */
 	switch (precision) {
 	case 0x0000:
 		extF80_roundingPrecision = 32;
 		break;
 	case 0x0200:
-		extF80_roundingPrecision = 53;
+		extF80_roundingPrecision = 64;
 		break;
 	default:
-		extF80_roundingPrecision = 64;
+		extF80_roundingPrecision = 80;
 		break;
 	}
 }

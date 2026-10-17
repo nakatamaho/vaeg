@@ -1306,6 +1306,36 @@ static int test_softfloat_context(void) {
 	return 0;
 }
 
+/* M123: the precision control rounds 1/3 to 64, 53 and 24 significand
+ * bits (FINIT's default is 64). */
+static int test_precision_control(void) {
+	static const UPD8087_RAW80 three = {UINT64_C(0xc000000000000000), 0x4000};
+	static const struct {
+		uint16_t control;
+		uint64_t third;
+	} cases[] = {
+	    {0x037f, UINT64_C(0xaaaaaaaaaaaaaaab)}, /* PC 11: 64 bits */
+	    {0x027f, UINT64_C(0xaaaaaaaaaaaaa800)}, /* PC 10: 53 bits */
+	    {0x007f, UINT64_C(0xaaaaab0000000000)}, /* PC 00: 24 bits */
+	};
+	UPD8087_STATE state;
+	unsigned i;
+
+	for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+		reset_enabled(&state);
+		state.control = cases[i].control;
+		set_stack_value(&state, 1, TEST_ONE);
+		set_stack_value(&state, 0, three);
+		/* D8 F9: FDIVR ST,ST(1), ST = ST(1) / ST */
+		CHECK(execute_register(&state, 0xd8, 0xf9) == UPD8087_EXECUTED,
+		      "precision test FDIVR executes");
+		CHECK(state.reg[state.top].signif == cases[i].third &&
+		          state.reg[state.top].sign_exp == 0x3ffd,
+		      "1/3 is rounded to the precision the control word selects");
+	}
+	return 0;
+}
+
 /* M123: the transcendental instructions on the host x87 are within one
  * ulp of the correctly rounded value (mpmath, 200 bits), set PE, leave the
  * host x87 control and status words as they were, and the series runs
@@ -1421,7 +1451,7 @@ static int run_core_tests(void) {
 	       test_bcd_and_integer_transfers() || test_denormal_memory_loads() ||
 	       test_integer_memory_direction() || test_register_arithmetic_directions() ||
 	       test_infinity_control() || test_exception_wait_and_bus_seam() ||
-	       test_decoder_inventory() || test_softfloat_context();
+	       test_decoder_inventory() || test_softfloat_context() || test_precision_control();
 }
 
 int main(void) {
