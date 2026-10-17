@@ -73,6 +73,13 @@ remains a useful historical reference.
 
 ## News
 
+### 2026-10-17 - Rel.20261017.1
+
+[Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1)
+adds D88 files that hold several disks: FDD > FDD1 ディスク and FDD2 ディスク
+choose a disk, and the choice is kept over resets, restarts and save states.
+See [Rel.20261017.1 changes](CHANGES.20261017.1.md).
+
 ### 2026-10-17 - Rel.20261017
 
 [Rel.20261017](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017)
