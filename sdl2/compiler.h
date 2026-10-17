@@ -94,12 +94,15 @@ typedef uint32_t DWORD;
 #define MAX_PATH PATH_MAX
 #endif
 
+/* Function-like min/max macros break C++ standard-library declarations. */
+#ifndef __cplusplus
 #ifndef max
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
 #ifndef min
 #define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 #endif
 
 #ifndef ZeroMemory

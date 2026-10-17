@@ -989,6 +989,16 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    foreach(compiler_header_language IN ITEMS c cpp)
+        add_executable(vaeg_compiler_header_${compiler_header_language}_test
+            tests/frontend/test_compiler_header.${compiler_header_language})
+        target_include_directories(vaeg_compiler_header_${compiler_header_language}_test
+            PRIVATE ${VAEG_INCLUDE_DIRS})
+        add_test(NAME vaeg_compiler_header_${compiler_header_language}
+            COMMAND vaeg_compiler_header_${compiler_header_language}_test)
+        set_tests_properties(vaeg_compiler_header_${compiler_header_language} PROPERTIES
+            LABELS "frontend;portability;recording")
+    endforeach()
     add_executable(vaeg_recording_realtime_clock_test
         tests/frontend/recording/test_recording_realtime_clock.cpp
         sdl2/recording/recording_realtime_clock.cpp)
