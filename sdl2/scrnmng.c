@@ -44,6 +44,7 @@
 #include "gui/gui.h"
 #include "recording/recording_native_composition.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_runtime.h"
 #include "recording/recording_osd_snapshot.h"
 #include "frontpanel.h"
 #include "winutf.h"
@@ -2058,6 +2059,8 @@ BOOL scrnmng_native_set_parameter(const char *name, float value) {
 }
 
 void scrnmng_request_native_crt(BOOL enabled, BOOL reload) {
+	if (reload || ((np2oscfg.gui_native_crt != 0) != (enabled != 0)))
+		vaeg_recording_runtime_screen_changed();
 	np2oscfg.gui_native_crt = enabled ? 1 : 0;
 	scrnmng.native_change_pending = TRUE;
 	scrnmng.native_reload_pending = reload;
@@ -2070,8 +2073,11 @@ BOOL scrnmng_native_filter_enabled(void) {
 
 BOOL scrnmng_set_native_filter(BOOL enabled) {
 	// Presentation-thread operation: keep the device, GUI and preset intact.
-	if (!scrnmng.native_active ||
-	    !vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
+	if (!scrnmng.native_active)
+		return FAILURE;
+	if ((enabled != 0) != (scrnmng_native_filter_enabled() != 0))
+		vaeg_recording_runtime_screen_changed();
+	if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
 		return FAILURE;
 	}
 	if (enabled) {
@@ -2411,6 +2417,7 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 }
 
 void scrnmng_front_panel_changed(void) {
+	vaeg_recording_runtime_screen_changed();
 	scrnmng_fit_front_panel();
 }
 
@@ -2421,6 +2428,7 @@ void scrnmng_set_menu_height(int height) {
 	if (scrnmng.menu_height == height) {
 		return;
 	}
+	vaeg_recording_runtime_screen_changed();
 	scrnmng.menu_height = height;
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("menu-height");
@@ -2433,6 +2441,8 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	} else if (scale > VAEG_WINDOW_SCALE_MAX) {
 		scale = VAEG_WINDOW_SCALE_MAX;
 	}
+	if (scrnmng.scale != scale || scrnmng.aspect != (aspect ? TRUE : FALSE))
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
 	scrnmng_update_window_size();
@@ -2454,6 +2464,8 @@ void scrnmng_set_scaling(int scaling) {
 	if ((scaling < 0) || (scaling >= VAEG_SCALING_COUNT)) {
 		scaling = VAEG_SCALING_FIT;
 	}
+	if (scrnmng.scaling != scaling)
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.scaling = scaling;
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("scaling-change");
@@ -2468,6 +2480,8 @@ void scrnmng_set_effect(int effect) {
 	if ((effect < 0) || (effect >= VAEG_EFFECT_COUNT)) {
 		effect = VAEG_EFFECT_UNFILTERED;
 	}
+	if (scrnmng.effect != effect)
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.effect = effect;
 	if (scrnmng.texture != NULL) {
 		SDL_SetTextureScaleMode(scrnmng.texture, (effect == VAEG_EFFECT_UNFILTERED)
@@ -2487,13 +2501,7 @@ void scrnmng_set_rotation(int rotation) {
 	if (scrnmng.rotation == rotation) {
 		return;
 	}
-	/* FFV1 stream dimensions are fixed. Finalize before changing orientation. */
-	if (recording_follow_rotation && vaeg_recording_native_session_is_active()) {
-		if (!vaeg_recording_native_session_stop()) {
-			fprintf(stderr, "Recording finalization on rotation failed: %s\n",
-			        vaeg_recording_native_session_last_error());
-		}
-	}
+	vaeg_recording_runtime_screen_changed();
 	scrnmng.rotation = rotation;
 	scrnmng_update_window_size();
 	if (scrnmng.visible) {
@@ -2600,6 +2608,8 @@ BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height, UI
 	    (SDL_GetDesktopDisplayMode(monitor, &desktop) != 0)) {
 		return (FAILURE);
 	}
+	/* Explicit display-mode/monitor requests change the presentation contract. */
+	vaeg_recording_runtime_screen_changed();
 	if (scrnmng.display_mode == VAEG_DISPLAY_WINDOWED) {
 		scrnmng_remember_window();
 	}

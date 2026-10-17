@@ -72,6 +72,7 @@
 #include "debug_harness.h"
 #include "recording/recording.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_runtime.h"
 #include <stdlib.h>
 #include "opngen.h"
 #include "ymfmbridge.h"
@@ -178,6 +179,7 @@ NP2OSCFG np2oscfg = {0,
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
+static BOOL recording_batch_mode;
 static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
 static const char va_backup_memory_file[] = "vabkupmem.dat";
@@ -1607,13 +1609,15 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
-		if (!vaeg_recording_native_session_after_guest_exec()) {
+		const VAEG_RECORDING_RUNTIME_RESULT recording_step =
+		    vaeg_recording_runtime_step(recording_batch_mode);
+		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_FAILED) {
 			fprintf(stderr, "Error: native recording failed: %s\n",
 			        vaeg_recording_native_session_last_error());
 			taskmng_exit();
 			return FAILURE;
 		}
-		if (vaeg_recording_native_session_should_stop()) {
+		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_COMPLETE) {
 			taskmng_exit();
 		}
 		if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
@@ -2016,6 +2020,11 @@ int main(int argc, char **argv) {
 	if (options.version) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
 		return (SUCCESS);
+	}
+	{
+		const char *path = getenv("VAEG_RECORDING_NATIVE_PATH");
+		recording_batch_mode = options.record || ((path != NULL) && (path[0] != '\0'));
+		vaeg_recording_runtime_clear_event();
 	}
 	if (options.record) {
 		VAEG_RECORDING_CAPABILITIES recording_capabilities;

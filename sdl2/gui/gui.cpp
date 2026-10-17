@@ -92,6 +92,7 @@
 #include "rhythm.h"
 #include "recording/recording.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_runtime.h"
 #include "scrndrawva.h"
 #include "scrnmng.h"
 #include "scrndraw.h"
@@ -702,6 +703,7 @@ static void start_recording_from_dialog(void) {
 		g_gui.recording_status += vaeg_recording_native_session_last_error();
 		return;
 	}
+	vaeg_recording_runtime_clear_event();
 	g_gui.recording_open = false;
 	g_gui.recording_status = "録画中（Native video / FFV1 + PCM）";
 }
@@ -712,15 +714,25 @@ static void draw_recording_menu(void) {
 	static bool was_active = false;
 
 	vaeg_recording_get_capabilities(&capabilities);
-	if (!active && was_active) {
+	const auto event = vaeg_recording_runtime_last_event();
+	if (!active && (was_active || event != VAEG_RECORDING_RUNTIME_EVENT_NONE)) {
 		const char *error = vaeg_recording_native_session_last_error();
-		if ((error == nullptr) || (error[0] == '\0') || (std::strcmp(error, "none") == 0)) {
+		if (event == VAEG_RECORDING_RUNTIME_SCREEN_SAVED) {
+			g_gui.recording_status = "画面設定が変更されたため録画を停止・保存しました: ";
+			g_gui.recording_status += g_gui.recording_path;
+		} else if (event == VAEG_RECORDING_RUNTIME_SCREEN_EMPTY) {
+			g_gui.recording_status =
+			    "画面設定が変更されたため録画を停止しました（保存可能な区間なし）";
+		} else if (event != VAEG_RECORDING_RUNTIME_ERROR_STOPPED &&
+		           ((error == nullptr) || (error[0] == '\0') ||
+		            (std::strcmp(error, "none") == 0))) {
 			g_gui.recording_status = "録画を保存しました: ";
 			g_gui.recording_status += g_gui.recording_path;
 		} else if (!vaeg_recording_native_session_is_finalizing()) {
 			g_gui.recording_status = "録画に失敗しました: ";
-			g_gui.recording_status += error;
+			g_gui.recording_status += (error != nullptr) ? error : "unknown";
 		}
+		vaeg_recording_runtime_clear_event();
 	}
 	was_active = active;
 	if (ImGui::BeginMenu("録画")) {
@@ -1648,6 +1660,7 @@ static void select_monitor(bool khz15) {
 	if ((np2cfg.monitor_15khz != 0) == khz15) {
 		return;
 	}
+	vaeg_recording_runtime_screen_changed();
 	np2cfg.monitor_15khz = khz15 ? 1 : 0;
 	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
@@ -4542,6 +4555,7 @@ static void draw_native_crt_settings(void) {
 			}
 			bool auto_mask = np2oscfg.gui_native_mask_auto != 0;
 			if (ImGui::Checkbox("RGB mask: Auto by window scale", &auto_mask)) {
+				vaeg_recording_runtime_screen_changed();
 				np2oscfg.gui_native_mask_auto = auto_mask ? 1 : 0;
 				if (auto_mask) {
 					mask_parameter->value = scrnmng_native_mask_intensity();
@@ -4566,6 +4580,7 @@ static void draw_native_crt_settings(void) {
 			const char *format = parameter->name == "SCREEN_SIZE" ? "%.2f" : "%.3f";
 			if (ImGui::SliderFloat(parameter->name.c_str(), &value, parameter->minimum,
 			                       parameter->maximum, format)) {
+				vaeg_recording_runtime_screen_changed();
 				(void)parameters.set_value_at(i, value, nullptr);
 				if (parameter->name == "MASK_INTENSITY") {
 					np2oscfg.gui_native_mask_auto = 0;
@@ -4587,6 +4602,7 @@ static void draw_native_crt_settings(void) {
 			ImGui::PopID();
 		}
 		if (ImGui::Button("Reset parameters")) {
+			vaeg_recording_runtime_screen_changed();
 			np2oscfg.gui_native_mask_auto = 1;
 			parameters.reset();
 			if (mask_parameter != nullptr) {
@@ -4692,6 +4708,7 @@ static void draw_custom_size_dialog(void) {
 		}
 		ImGui::BeginDisabled(!valid || (scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED));
 		if (ImGui::Button("Apply")) {
+			vaeg_recording_runtime_screen_changed();
 			if (g_gui.custom_size_integer) {
 				set_display_scale(g_gui.pending_window_scale);
 			} else {
@@ -5049,6 +5066,7 @@ static void draw_screen_menu(void) {
 			ImGui::Separator();
 			// Analog or digital RGB output; display only, no reset.
 			if (ImGui::MenuItem("デジタル RGB (8色)", nullptr, np2cfg.monitor_digital != 0)) {
+				vaeg_recording_runtime_screen_changed();
 				np2cfg.monitor_digital = np2cfg.monitor_digital ? 0 : 1;
 				sysmng_update(SYS_UPDATECFG);
 				scrndrawva_redraw();
@@ -5057,12 +5075,16 @@ static void draw_screen_menu(void) {
 			// 15 kHz scanlines: gaps as on a CRT, or filled as on an LCD.
 			if (ImGui::MenuItem("15 kHz 走査線: 隙間あり (CRT)", nullptr,
 			                    np2cfg.monitor_15khz_fill == 0)) {
+				if (np2cfg.monitor_15khz_fill != 0)
+					vaeg_recording_runtime_screen_changed();
 				np2cfg.monitor_15khz_fill = 0;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
 			}
 			if (ImGui::MenuItem("15 kHz 走査線: 埋める (液晶)", nullptr,
 			                    np2cfg.monitor_15khz_fill != 0)) {
+				if (np2cfg.monitor_15khz_fill == 0)
+					vaeg_recording_runtime_screen_changed();
 				np2cfg.monitor_15khz_fill = 1;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
@@ -5073,11 +5095,15 @@ static void draw_screen_menu(void) {
 		// text doubled, 200-line graphics with scanline gaps).
 		if (ImGui::BeginMenu("V1/V2 表示")) {
 			if (ImGui::MenuItem("VA 標準", nullptr, np2cfg.v1v2_8801_display == 0)) {
+				if (np2cfg.v1v2_8801_display != 0)
+					vaeg_recording_runtime_screen_changed();
 				np2cfg.v1v2_8801_display = 0;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
 			}
 			if (ImGui::MenuItem("PC-8801 風", nullptr, np2cfg.v1v2_8801_display != 0)) {
+				if (np2cfg.v1v2_8801_display == 0)
+					vaeg_recording_runtime_screen_changed();
 				np2cfg.v1v2_8801_display = 1;
 				sysmng_update(SYS_UPDATECFG);
 				pccore_redraw();
@@ -5366,6 +5392,8 @@ static void open_about_dialog(void) {
 }
 
 static void set_info_layer(UINT layer, bool enabled) {
+	if ((scrndrawva_layer_enabled(layer) != FALSE) != enabled)
+		vaeg_recording_runtime_screen_changed();
 	scrndrawva_set_layer_enabled(layer, enabled ? TRUE : FALSE);
 	pccore_redraw();
 }
@@ -5433,11 +5461,13 @@ static void draw_info_menu(void) {
 		}
 		bool show_video = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
 		if (ImGui::MenuItem("ビデオ情報を表示", nullptr, show_video)) {
+			vaeg_recording_runtime_screen_changed();
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		bool show_framebuffer = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
 		if (ImGui::MenuItem("FB 情報を表示", nullptr, show_framebuffer)) {
+			vaeg_recording_runtime_screen_changed();
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAMEBUFFER;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
