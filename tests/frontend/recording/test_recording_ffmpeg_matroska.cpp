@@ -255,12 +255,13 @@ void decode_fixture(const fs::path &path, const Fixture &fixture) {
 			}
 			assert(result >= 0);
 			if (context == decoder.video) {
-				assert(frame->format == AV_PIX_FMT_BGR0);
+				assert(frame->format == AV_PIX_FMT_BGRA);
 				std::vector<std::uint8_t> rgb(5u * 3u * 3u);
 				for (std::uint32_t y = 0u; y < 3u; ++y) {
 					const auto *row = frame->data[0] + static_cast<std::size_t>(y) * frame->linesize[0];
 					for (std::uint32_t x = 0u; x < 5u; ++x) {
 						const auto *pixel = row + x * 4u;
+						assert(pixel[3] == 255u);
 						const std::size_t output = (static_cast<std::size_t>(y) * 5u + x) * 3u;
 						rgb[output] = pixel[2];
 						rgb[output + 1u] = pixel[1];
@@ -288,12 +289,13 @@ void decode_fixture(const fs::path &path, const Fixture &fixture) {
 			}
 			assert(result >= 0);
 			if (context == decoder.video) {
-				assert(frame->format == AV_PIX_FMT_BGR0);
+				assert(frame->format == AV_PIX_FMT_BGRA);
 				std::vector<std::uint8_t> rgb(5u * 3u * 3u);
 				for (std::uint32_t y = 0u; y < 3u; ++y) {
 					const auto *row = frame->data[0] + static_cast<std::size_t>(y) * frame->linesize[0];
 					for (std::uint32_t x = 0u; x < 5u; ++x) {
 						const auto *pixel = row + x * 4u;
+						assert(pixel[3] == 255u);
 						const std::size_t output = (static_cast<std::size_t>(y) * 5u + x) * 3u;
 						rgb[output] = pixel[2];
 						rgb[output + 1u] = pixel[1];
@@ -383,6 +385,22 @@ void check_successful_fixture() {
 	}
 }
 
+void check_packing_contract() {
+	const Fixture fixture = make_fixture();
+	const fs::path root = make_directory("packing-contract");
+	const MatroskaWriterConfig config = make_config(root / "packing.mkv");
+	const auto valid = FfmpegMatroskaWriter::create(config, fixture.video_info, fixture.audio_info);
+	assert(valid);
+	assert(valid.writer->cancel() == FfmpegMatroskaWriterError::Canceled);
+	auto invalid_video = fixture.video_info;
+	invalid_video.opaque_bgra = false;
+	const auto invalid = FfmpegMatroskaWriter::create(config, invalid_video, fixture.audio_info);
+	assert(invalid.error == FfmpegMatroskaWriterError::InvalidConfig);
+	std::error_code error;
+	fs::remove_all(root, error);
+	assert(!error);
+}
+
 void check_target_and_cancel() {
 	const Fixture fixture = make_fixture();
 	const fs::path root = make_directory("ownership");
@@ -463,6 +481,7 @@ void check_fault_paths() {
 
 int main() {
 	check_successful_fixture();
+	check_packing_contract();
 	check_target_and_cancel();
 	check_fault_paths();
 	assert(vaeg::recording::ffmpeg_matroska_writer_error_name(

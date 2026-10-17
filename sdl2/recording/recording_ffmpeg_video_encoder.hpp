@@ -94,7 +94,7 @@ struct VideoEncoderInfo {
 	std::uint32_t width;
 	std::uint32_t height;
 	std::uint32_t gop_size;
-	bool bgr0;
+	bool opaque_bgra;
 	bool ffv1_version3;
 	bool slice_crc;
 	std::vector<std::uint8_t> codec_extradata;

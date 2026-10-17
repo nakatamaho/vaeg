@@ -3124,8 +3124,17 @@ separate parity correction or move it to Open Defects.
 - **Symptom/scope:** the maintainer reports a red cast in saved FFV1 movies,
   while the emulator window itself has normal colors. Reported against the
   [recording-enabled MinGW build](https://github.com/nakatamaho/vaeg/commit/d63955c00cbb31d249be767f8b3f8f6014e3542e).
-- **Cause/correction:** not established; no corrective color matrix, channel
-  swap or decoder workaround has been applied speculatively.
+- **Demonstrated compatibility boundary:** the maintainer sees seven colors
+  with the controlled opaque-BGRA fixture but only three with the BGR0 control
+  in the same VLC. Both files independently decode to the original RGB values.
+  The internal VLC failure stage is not established; do not attribute it to
+  capture or to a specific VLC decoder/renderer implementation.
+- **Correction:** the archive encoder, capability probe, encoder-info contract
+  and Matroska parameters now select explicit BGRA, with alpha255 on every
+  visible pixel. Full RGB values, FFV1v3/GOP1/slice-CRC, PCM and H.264 policy
+  are unchanged. Tests verify decoded alpha as well as exact RGB, including
+  every RGB565 value and padded/odd-sized fixtures. Actual new-application
+  movie playback remains pending before closing this entry.
 - **Verification so far:** public primary/random RGB FFV1 encode/decode checks
   pass for the Windows test executable under a repaired task-local Wine prefix.
   All 65,536 RGB565 values round-trip on macOS and Wine. A public color-bar
@@ -3138,10 +3147,9 @@ separate parity correction or move it to Open Defects.
   decoded frames. The missing RGB metadata is now corrected separately above;
   the new tagged fixture preserves every encoded packet. The maintainer now
   confirms **no visible improvement in VLC**, so this metadata correction is
-  not a solution to the tint. Controlled BGR0/BGRA public fixtures are next;
-  both independently decode to all original RGB frames, with opaque BGRA alpha.
-  Affected-player comparison is pending; no private guest images or clip
-  identities are needed or published.
+  not a solution to the tint. Controlled BGR0/BGRA public fixtures then isolate
+  a working BGRA route in the affected player; source values are not adjusted.
+  No private guest images or clip identities are needed or published.
 - **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
   [recording status](../recording-v1/os-assisted-status.md).
 

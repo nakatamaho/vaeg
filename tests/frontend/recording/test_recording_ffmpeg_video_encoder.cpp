@@ -195,13 +195,14 @@ std::vector<DecodedFrame> decode_packets(const std::vector<EncodedVideoPacket> &
 				break;
 			}
 			assert(result >= 0);
-			assert(decoder.frame->format == AV_PIX_FMT_BGR0);
+			assert(decoder.frame->format == AV_PIX_FMT_BGRA);
 			DecodedFrame output{decoder.frame->pts, std::vector<std::uint8_t>(width * height * 3u)};
 			for (std::uint32_t y = 0; y < height; ++y) {
 				const auto *source = decoder.frame->data[0] +
 				                     static_cast<std::size_t>(y) * decoder.frame->linesize[0];
 				for (std::uint32_t x = 0; x < width; ++x) {
 					const auto *pixel = source + x * 4u;
+					assert(pixel[3] == 255u);
 					const std::size_t destination = (static_cast<std::size_t>(y) * width + x) * 3u;
 					output.rgb[destination] = pixel[2];
 					output.rgb[destination + 1u] = pixel[1];
@@ -227,7 +228,7 @@ void check_round_trip(const Fixture &fixture) {
 	const auto create = FfmpegVideoEncoder::create(config);
 	assert(create);
 	assert(create.encoder->info().gop_size == 1u);
-	assert(create.encoder->info().bgr0);
+	assert(create.encoder->info().opaque_bgra);
 	assert(create.encoder->info().ffv1_version3);
 	assert(create.encoder->info().slice_crc);
 

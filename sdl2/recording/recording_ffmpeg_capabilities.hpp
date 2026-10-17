@@ -52,7 +52,7 @@ struct FfmpegCapabilityInventory {
 	bool ffv1_encoder;
 	bool pcm_s16le_encoder;
 	bool matroska_muxer;
-	bool ffv1_bgr0;
+	bool ffv1_bgra;
 	bool pcm_s16;
 	bool ffv1_slice_crc;
 	bool ffv1_version3;

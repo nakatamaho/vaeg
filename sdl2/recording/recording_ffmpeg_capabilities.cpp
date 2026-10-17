@@ -136,7 +136,7 @@ bool probe_ffv1_options(const AVCodec *codec, bool *slice_crc, bool *version3) n
 	}
 	context->width = 2;
 	context->height = 2;
-	context->pix_fmt = AV_PIX_FMT_BGR0;
+	context->pix_fmt = AV_PIX_FMT_BGRA;
 	context->time_base = AVRational{1, 60};
 	context->framerate = AVRational{60, 1};
 	context->gop_size = 1;
@@ -197,7 +197,7 @@ evaluate_ffmpeg_capabilities(const FfmpegCapabilityInventory &inventory) noexcep
 	if (!inventory.matroska_muxer) {
 		return FfmpegCapabilityError::MissingMatroskaMuxer;
 	}
-	if (!inventory.ffv1_bgr0) {
+	if (!inventory.ffv1_bgra) {
 		return FfmpegCapabilityError::MissingFfv1PixelFormat;
 	}
 	if (!inventory.pcm_s16) {
@@ -242,7 +242,7 @@ FfmpegProbeResult probe_ffmpeg_capabilities() noexcept {
 	result.capabilities.inventory.ffv1_encoder = ffv1 != nullptr;
 	result.capabilities.inventory.pcm_s16le_encoder = pcm_s16le != nullptr;
 	result.capabilities.inventory.matroska_muxer = matroska != nullptr;
-	result.capabilities.inventory.ffv1_bgr0 = codec_supports_pixel_format(ffv1, AV_PIX_FMT_BGR0);
+	result.capabilities.inventory.ffv1_bgra = codec_supports_pixel_format(ffv1, AV_PIX_FMT_BGRA);
 	result.capabilities.inventory.pcm_s16 =
 	    codec_supports_sample_format(pcm_s16le, AV_SAMPLE_FMT_S16);
 	result.capabilities.inventory.matroska_accepts_ffv1 =

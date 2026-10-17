@@ -45,7 +45,7 @@ static void test_distinct_missing_capabilities() {
 	assert(vaeg::recording::evaluate_ffmpeg_capabilities(inventory) ==
 	       FfmpegCapabilityError::MissingMatroskaMuxer);
 	inventory = all_capabilities();
-	inventory.ffv1_bgr0 = false;
+	inventory.ffv1_bgra = false;
 	assert(vaeg::recording::evaluate_ffmpeg_capabilities(inventory) ==
 	       FfmpegCapabilityError::MissingFfv1PixelFormat);
 	inventory = all_capabilities();
@@ -81,7 +81,7 @@ static void test_actual_development_libraries() {
 	assert(result.capabilities.inventory.ffv1_encoder);
 	assert(result.capabilities.inventory.pcm_s16le_encoder);
 	assert(result.capabilities.inventory.matroska_muxer);
-	assert(result.capabilities.inventory.ffv1_bgr0);
+	assert(result.capabilities.inventory.ffv1_bgra);
 	assert(result.capabilities.inventory.pcm_s16);
 	assert(result.capabilities.inventory.ffv1_slice_crc);
 	assert(result.capabilities.inventory.ffv1_version3);

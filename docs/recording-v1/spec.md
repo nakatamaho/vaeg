@@ -100,8 +100,9 @@ never copy private guest font ROMs into the implementation or public tests.
 The stored video is FFV1 version 3, 8-bit RGB, with all frames independently
 seekable (`gop_size = 1`) and slice CRC enabled where the supported encoder
 provides the documented v3 option. Use a supported packed RGB format with explicit
-byte order, preferably BGR0 on the supported little-endian targets. BGRA with
-opaque alpha is an acceptable capability-tested fallback. Do not assume that an
+byte order. Use capability-tested BGRA with alpha255 for the current archive
+backend: the affected VLC displays the public BGRA fixture correctly but loses
+colors with BGR0. This is a packing compatibility policy, not a color correction. Do not assume that an
 SDL integer pixel-format name implies identical in-memory FFmpeg channel order.
 
 A reversible channel permutation or padding byte change is allowed. RGB-to-YUV

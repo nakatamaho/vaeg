@@ -23,10 +23,12 @@ library versions and the encoder configuration in synthetic evidence.
 
 ## F2. Encoder setup
 
-Use 8-bit packed RGB preserving all R/G/B values. BGR0 is the preferred memory
-format on the currently targeted little-endian platforms; FFmpeg's native-endian
-aliases must be resolved explicitly. Capability-tested BGRA with alpha set opaque
-is acceptable. Unit tests cover endian/channel conversion, odd dimensions, padded
+Use 8-bit packed RGB preserving all R/G/B values. The current backend selects
+explicit BGRA with alpha255, verified by capability probing and decoded-frame
+assertions. The affected VLC displays the controlled BGRA public fixture
+correctly but not BGR0; no RGB matrix/gamma adjustment is involved. FFmpeg's
+native-endian aliases must not substitute for explicit byte order.
+Unit tests cover endian/channel conversion, odd dimensions, padded
 source rows, RGB565 expansion, solid colors, checkerboards, gradients, and random
 seeded RGB values. Padding/alpha bytes are normalized out of comparisons.
 

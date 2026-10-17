@@ -184,6 +184,8 @@ class FfmpegVideoEncoder::Impl {
 			std::memset(destination_row, 0, static_cast<std::size_t>(frame->linesize[0]));
 			for (std::uint32_t x = 0; x < info.width; ++x) {
 				auto *destination = destination_row + (static_cast<std::size_t>(x) * 4u);
+				/* Opaque BGRA is compatible with the affected VLC player. */
+				destination[3] = 255u;
 				if (input.descriptor.pixel_format == VAEG_RECORDING_PIXEL_RGB565) {
 					const std::size_t offset = static_cast<std::size_t>(x) * 2u;
 					const std::uint32_t value =
@@ -277,7 +279,7 @@ VideoEncoderCreateResult FfmpegVideoEncoder::create(const VideoEncoderConfig &co
 		}
 		context->width = static_cast<int>(config.width);
 		context->height = static_cast<int>(config.height);
-		context->pix_fmt = AV_PIX_FMT_BGR0;
+		context->pix_fmt = AV_PIX_FMT_BGRA;
 		context->time_base = AVRational{config.time_base_num, config.time_base_den};
 		context->framerate = AVRational{config.time_base_den, config.time_base_num};
 		context->gop_size = 1;
@@ -295,7 +297,7 @@ VideoEncoderCreateResult FfmpegVideoEncoder::create(const VideoEncoderConfig &co
 			return {FfmpegVideoEncoderError::OpenFailure, nullptr};
 		}
 		std::int64_t slice_crc = 0;
-		if (context->level != 3 || context->gop_size != 1 || context->pix_fmt != AV_PIX_FMT_BGR0 ||
+		if (context->level != 3 || context->gop_size != 1 || context->pix_fmt != AV_PIX_FMT_BGRA ||
 		    av_opt_get_int(context.get(), "slicecrc", AV_OPT_SEARCH_CHILDREN, &slice_crc) < 0 ||
 		    slice_crc != 1) {
 			return {FfmpegVideoEncoderError::OptionFailure, nullptr};
@@ -306,7 +308,7 @@ VideoEncoderCreateResult FfmpegVideoEncoder::create(const VideoEncoderConfig &co
 		if (!frame || !packet) {
 			return {FfmpegVideoEncoderError::AllocationFailure, nullptr};
 		}
-		frame->format = AV_PIX_FMT_BGR0;
+		frame->format = AV_PIX_FMT_BGRA;
 		frame->width = static_cast<int>(config.width);
 		frame->height = static_cast<int>(config.height);
 		if (av_frame_get_buffer(frame.get(), 32) < 0) {

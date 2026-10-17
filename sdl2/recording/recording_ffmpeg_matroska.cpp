@@ -508,9 +508,9 @@ class FfmpegMatroskaWriter::Impl {
 #endif
 		const bool archive = video.codec == RecordingVideoCodec::Ffv1;
 		const bool valid_video = archive
-		    ? (video.gop_size == 1u && video.bgr0 && video.ffv1_version3 && video.slice_crc)
+		    ? (video.gop_size == 1u && video.opaque_bgra && video.ffv1_version3 && video.slice_crc)
 		    : (video.codec == RecordingVideoCodec::H264 && video.gop_size == 120u &&
-		       !video.bgr0 && !video.ffv1_version3 && !video.slice_crc &&
+		       !video.opaque_bgra && !video.ffv1_version3 && !video.slice_crc &&
 		       !video.codec_extradata.empty() && !(video.width & 1u) && !(video.height & 1u) &&
 		       config.video_time_base_num == 1 && config.video_time_base_den == 60 &&
 		       !config.encoder_provider.empty() && !config.encoder_device.empty() &&
@@ -580,7 +580,7 @@ class FfmpegMatroskaWriter::Impl {
 		video_parameters->codec_id = archive ? AV_CODEC_ID_FFV1 : AV_CODEC_ID_H264;
 		video_parameters->width = static_cast<int>(video.width);
 		video_parameters->height = static_cast<int>(video.height);
-		video_parameters->format = archive ? AV_PIX_FMT_BGR0 : AV_PIX_FMT_NV12;
+		video_parameters->format = archive ? AV_PIX_FMT_BGRA : AV_PIX_FMT_NV12;
 		if (archive) {
 			/* Packed RGB is full-range RGB, not unspecified YCbCr. */
 			video_parameters->color_range = AVCOL_RANGE_JPEG;
