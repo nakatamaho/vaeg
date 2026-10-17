@@ -74,6 +74,15 @@ multi-image file was already refused.
 - Release name: tags `rel-20261017.1` → `Rel.20261017.1`, `rel-20261018`
   → `Rel.20261018`, a malformed tag or none → the commit date.
 
+- Media build regression at `48cc1d7e` (clean clone): the five demo
+  `build-d88.sh`, `build-from-psd.sh`, the SGP boot disk, all-demos and
+  all-demos-msdos4 exit 0 with every file identical to the committed images
+  (SGP boot D88 and all-demos-msdos4 `.xz` byte-identical); the utility
+  disk (4096 bytes free) and both SASI images build.
+- Clean-checkout MinGW build of `48cc1d7e`, with a local (unpushed) tag
+  `rel-20261017.1` on it: `vaeg.exe` reports `Rel.20261017.1`, SHA-256
+  `121df04279211e80934bf0f8daaffd573d1c7f33a9c60c13c88177cd8471aacc`.
+
 ## Gate G120 (human)
 
 Standard gate, plus: a multi-image D88 shows its disks under FDD1/FDD2
