@@ -3782,6 +3782,60 @@ static int strip_statsave_section(const char *source, const char *destination, c
 	return (ret);
 }
 
+/* M120: a state keeps the disk of a multi-image D88 in each drive. */
+static int test_fdd_multi_image_state(void) {
+	char disk[MAX_PATH];
+	char path[MAX_PATH];
+	const char *problem = NULL;
+
+	SPRINTF(disk, "vaeg-selftest-%lu-state-multi.d88", (unsigned long)getpid());
+	SPRINTF(path, "vaeg-selftest-%lu-state-multi.sts", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	soundmng_stop();
+	if (!selftest_d88_two_images(disk, 0x10400 * 2)) {
+		problem = "could not write the two-image file";
+	}
+	if (problem == NULL) {
+		fddfile[0].num = 1;
+		fddfile[1].num = 0;
+		if ((fdd_set(0, disk, FTYPE_NONE, 0) != SUCCESS) ||
+		    (fdd_set(1, disk, FTYPE_NONE, 0) != SUCCESS) || (fdd_diskimage(0) != 1) ||
+		    (fdd_diskimage(1) != 0) || (statsave_save(path) != STATFLAG_SUCCESS)) {
+			problem = "two drives on one file could not be saved";
+		}
+	}
+	if (problem == NULL) {
+		/* stale selections that the load must replace */
+		fdd_eject(0);
+		fdd_eject(1);
+		fddfile[0].num = 0;
+		fddfile[1].num = 1;
+		if (statsave_load(path) != STATFLAG_SUCCESS) {
+			problem = "state did not load";
+		} else if ((fdd_diskimage(0) != 1) || (fddfile[0].inf.d88.head.fd_name[0] != 'B') ||
+		           (fdd_diskimage(1) != 0) || (fddfile[1].inf.d88.base != 0) ||
+		           fdd_diskprotect(0) || fdd_diskprotect(1)) {
+			problem = "the disks in the drives were not restored";
+		}
+	}
+	fdd_eject(0);
+	fdd_eject(1);
+	fddfile[0].num = 0;
+	fddfile[1].num = 0;
+	file_delete(path);
+	file_delete(disk);
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("D88 multi-image state", problem));
+	}
+	fprintf(stderr, "selftest: D88 multi-image state ok\n");
+	return (SUCCESS);
+}
+
 /* M103a: a state saved while compatible code waits in a native CALLN handler
  * resumes into compatible mode; older files saved that way are refused. */
 static int test_compat_mode_state(void) {
@@ -7817,6 +7871,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_multi_image() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_multi_image_state() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_production_path() != SUCCESS) {
