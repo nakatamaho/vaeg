@@ -112,3 +112,20 @@ reports `Rel.20261017.1`.
   `49b09400fdac...17a1` (SHA-256, static MinGW) from
   [04a5a461](https://github.com/nakatamaho/vaeg/commit/04a5a4619c9d527d69467d2c7e5ae2a4a39cf8fc):
   a two-disk game file opened in FDD1 starts with disk B in FDD2 and plays.
+
+## Release published (2026-10-17)
+
+The hosted macOS build of the merge failed: libc++ rejects
+`std::vector<char[18]>`; the names are now read into a plain array
+([b4167e51](https://github.com/nakatamaho/vaeg/commit/b4167e5117a492aeabc3226ac7b47a8e88b666b5)),
+and hosted CI passed every job. The workflow's Linux Package step was
+replayed locally first.
+[Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1),
+tag `rel-20261017.1` at `b4167e51`; the downloaded Linux, Windows and
+macOS executables report `Rel.20261017.1` and the tagged commit.
+
+| Asset | SHA-256 |
+|---|---|
+| `vaeg-rel20261017.1-linux-x86_64.tar.gz` | `821b47cb4c5c89e3d26b82facf437b57febb678549527be4159542a8e83f64ca` |
+| `vaeg-rel20261017.1-macos-arm64.tar.gz` | `bd6375b69757024a1a5a3dd2ad52c6576a1740c7a195b07e16dfc70d539748c2` |
+| `vaeg-rel20261017.1-win-x86_64.zip` | `64b2fd74818f230a8f4829b35b5703fd77e76e31b0981a666238e3f778878d90` |
