@@ -581,7 +581,12 @@ class FfmpegMatroskaWriter::Impl {
 		video_parameters->width = static_cast<int>(video.width);
 		video_parameters->height = static_cast<int>(video.height);
 		video_parameters->format = archive ? AV_PIX_FMT_BGR0 : AV_PIX_FMT_NV12;
-		if (!archive) {
+		if (archive) {
+			/* Packed RGB is full-range RGB, not unspecified YCbCr. */
+			video_parameters->color_range = AVCOL_RANGE_JPEG;
+			video_parameters->color_space = AVCOL_SPC_RGB;
+			video_parameters->bits_per_raw_sample = 8;
+		} else {
 			video_parameters->color_range = AVCOL_RANGE_MPEG;
 			video_parameters->color_space = AVCOL_SPC_BT709;
 			video_parameters->color_primaries = AVCOL_PRI_BT709;

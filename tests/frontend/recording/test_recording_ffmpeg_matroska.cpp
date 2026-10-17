@@ -200,6 +200,9 @@ void open_decoder(const fs::path &path, Decoder *decoder) {
 	const AVStream *video_stream = decoder->format->streams[decoder->video_index];
 	const AVStream *audio_stream = decoder->format->streams[decoder->audio_index];
 	assert(video_stream->codecpar->codec_id == AV_CODEC_ID_FFV1);
+	assert(video_stream->codecpar->color_range == AVCOL_RANGE_JPEG);
+	assert(video_stream->codecpar->color_space == AVCOL_SPC_RGB);
+	assert(video_stream->codecpar->bits_per_raw_sample == 8);
 	assert(audio_stream->codecpar->codec_id == AV_CODEC_ID_PCM_S16LE);
 	assert(video_stream->codecpar->width == 5 && video_stream->codecpar->height == 3);
 	assert(audio_stream->codecpar->sample_rate == 48000);
