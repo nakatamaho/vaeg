@@ -75,6 +75,13 @@ remains a useful historical reference.
 
 ## News
 
+### 2026-10-17 - Rel.20261017.2
+
+[Rel.20261017.2](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.2)
+gives the FDD, HDD and tape file windows their own 最近のフォルダ, so tapes
+kept in another folder no longer mix with disk folders. See
+[Rel.20261017.2 changes](CHANGES.20261017.2.md).
+
 ### 2026-10-17 - Rel.20261017.1
 
 [Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1)

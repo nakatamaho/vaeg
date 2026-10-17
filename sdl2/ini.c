@@ -446,8 +446,6 @@ static const INITBL iniitem[] = {
     {"jast_snd", INITYPE_BOOL, &np2oscfg.jastsnd, 0}, // ver0.73
     {"GUI_scale", INITYPE_UINT8, &np2oscfg.gui_scale, 0},
     {"GUI_aspect", INITYPE_BOOL, &np2oscfg.gui_aspect, 0},
-    {"GUI_fdddir", INITYPE_STR, np2oscfg.gui_fdd_dir, MAX_PATH},
-    {"GUI_hdddir", INITYPE_STR, np2oscfg.gui_hdd_dir, MAX_PATH},
     {"keyboard_host_layout", INITYPE_STR, np2oscfg.keyboard_host_layout,
      sizeof(np2oscfg.keyboard_host_layout)},
     {"keyboard_kana_input", INITYPE_STR, np2oscfg.keyboard_kana_input,

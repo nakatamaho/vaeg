@@ -1782,22 +1782,6 @@ static void draw_hostfat_browser_popup(void) {
 	}
 }
 
-static void persist_fdd_dir(const std::string &dir) {
-	if (!is_directory(dir)) {
-		return;
-	}
-	copy_path(np2oscfg.gui_fdd_dir, sizeof(np2oscfg.gui_fdd_dir), dir);
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
-static void persist_hdd_dir(const std::string &dir) {
-	if (!is_directory(dir)) {
-		return;
-	}
-	copy_path(np2oscfg.gui_hdd_dir, sizeof(np2oscfg.gui_hdd_dir), dir);
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
 static bool file_is_mountable(const char *path, std::string *error) {
 	short attr;
 
@@ -1880,7 +1864,10 @@ enum HistoryKind {
 	HIST_SASI2,
 	HIST_SCSI0,
 	HIST_TAPE = HIST_SCSI0 + SCSIHDD_MAX,
-	HIST_DIRS,
+	/* M122: recent folders of the FDD, HDD and tape file windows */
+	HIST_DIR_FDD,
+	HIST_DIR_HDD,
+	HIST_DIR_TAPE,
 	HIST_COUNT
 };
 
@@ -1934,7 +1921,13 @@ static std::string history_key(int kind) {
 	if ((kind >= HIST_SCSI0) && (kind < HIST_TAPE)) {
 		return "scsi" + std::to_string(kind - HIST_SCSI0);
 	}
-	return (kind == HIST_TAPE) ? "tape" : "dir";
+	if (kind == HIST_TAPE) {
+		return "tape";
+	}
+	if (kind == HIST_DIR_FDD) {
+		return "dirfdd";
+	}
+	return (kind == HIST_DIR_HDD) ? "dirhdd" : "dirtape";
 }
 
 static std::string history_file(void) {
@@ -1975,6 +1968,45 @@ static void history_save(void) {
 	}
 }
 
+/* M122: the folders of the shared "dir" list (M110-M120) go to the FDD,
+ * HDD and tape lists whose files were in them; a folder of none of them
+ * goes to the FDD list. Written back in the new form at the next save. */
+static void history_split_legacy_dirs(const std::vector<std::string> &dirs) {
+	static const struct {
+		int first;
+		int last;
+		int dir_kind;
+	} groups[] = {{HIST_FDD1, HIST_FDD2, HIST_DIR_FDD},
+	              {HIST_SASI1, HIST_TAPE - 1, HIST_DIR_HDD},
+	              {HIST_TAPE, HIST_TAPE, HIST_DIR_TAPE}};
+
+	for (const std::string &dir : dirs) {
+		bool placed = false;
+		for (const auto &group : groups) {
+			bool used = false;
+			for (int kind = group.first; !used && (kind <= group.last); kind++) {
+				for (const std::string &file : g_history[kind]) {
+					if (parent_dir(file) == dir) {
+						used = true;
+						break;
+					}
+				}
+			}
+			std::vector<std::string> &list = g_history[group.dir_kind];
+			if (used && (list.size() < history_limit(group.dir_kind)) &&
+			    (std::find(list.begin(), list.end(), dir) == list.end())) {
+				list.push_back(dir);
+			}
+			placed = placed || used;
+		}
+		std::vector<std::string> &fdd = g_history[HIST_DIR_FDD];
+		if (!placed && (fdd.size() < history_limit(HIST_DIR_FDD)) &&
+		    (std::find(fdd.begin(), fdd.end(), dir) == fdd.end())) {
+			fdd.push_back(dir);
+		}
+	}
+}
+
 static void history_load(void) {
 	if (g_history_loaded) {
 		return;
@@ -1982,6 +2014,7 @@ static void history_load(void) {
 	g_history_loaded = true;
 	std::ifstream input(fs::u8path(history_file()), std::ios::binary);
 	std::string line;
+	std::vector<std::string> legacy_dirs;
 	while (std::getline(input, line)) {
 		if (!line.empty() && (line.back() == '\r')) {
 			line.pop_back();
@@ -2022,6 +2055,10 @@ static void history_load(void) {
 		if ((fields.size() != 2) || fields[1].empty()) {
 			continue;
 		}
+		if (fields[0] == "dir") {
+			legacy_dirs.push_back(fields[1]);
+			continue;
+		}
 		for (int kind = 0; kind < HIST_COUNT; kind++) {
 			if ((fields[0] == history_key(kind)) &&
 			    (g_history[kind].size() < history_limit(kind))) {
@@ -2029,6 +2066,7 @@ static void history_load(void) {
 			}
 		}
 	}
+	history_split_legacy_dirs(legacy_dirs);
 }
 
 static void history_add(int kind, const std::string &path) {
@@ -2046,12 +2084,40 @@ static void history_add(int kind, const std::string &path) {
 	history_save();
 }
 
-static void history_add_dir(const std::string &path) {
+/* Record the folder of `path` in a recent-folder list (HIST_DIR_*). */
+static void history_add_dir(int dir_kind, const std::string &path) {
 	const std::string dir = parent_dir(path);
 
 	if (is_directory(dir)) {
-		history_add(HIST_DIRS, dir);
+		history_add(dir_kind, dir);
 	}
+}
+
+/*
+ * M122: the folder a file window opens in: the folder of the medium in use
+ * (`current`), else the newest existing folder of its own list, else of the
+ * FDD, HDD and tape lists in that order, else the home directory.
+ */
+static std::string history_start_dir(int dir_kind, const std::string &current) {
+	static const int order[] = {HIST_DIR_FDD, HIST_DIR_HDD, HIST_DIR_TAPE};
+
+	if (!current.empty() && is_directory(current)) {
+		return current;
+	}
+	history_load();
+	for (int pass = 0; pass < 2; pass++) {
+		for (int kind : order) {
+			if ((pass == 0) != (kind == dir_kind)) {
+				continue;
+			}
+			for (const std::string &dir : g_history[kind]) {
+				if (is_directory(dir)) {
+					return dir;
+				}
+			}
+		}
+	}
+	return home_dir();
 }
 
 /* Drag and drop (dropmedia.cpp) reports the file the user dropped. */
@@ -2063,7 +2129,7 @@ static void history_add_dropped(int kind, const char *path) {
 		g_fdd_origin[kind] = path;
 	}
 	history_add(kind, path);
-	history_add_dir(path);
+	history_add_dir(HIST_DIR_FDD, path);
 }
 
 static int history_hdd_kind(int drive) {
@@ -2193,17 +2259,17 @@ static void draw_history_menu(const char *label, int kind, Select select) {
 }
 
 /* A "最近のフォルダ" combo for the file-selection windows. */
-static bool draw_recent_dirs(std::string &dir) {
+static bool draw_recent_dirs(int dir_kind, std::string &dir) {
 	bool changed = false;
 
 	history_load();
-	if (g_history[HIST_DIRS].empty()) {
+	if (g_history[dir_kind].empty()) {
 		return false;
 	}
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
 	if (ImGui::BeginCombo("##recent-dirs", "最近のフォルダ", ImGuiComboFlags_HeightLarge)) {
-		for (const auto &path : g_history[HIST_DIRS]) {
+		for (const auto &path : g_history[dir_kind]) {
 			if (ImGui::Selectable(path.c_str())) {
 				dir = path;
 				changed = true;
@@ -2321,13 +2387,7 @@ static void open_fdd_dialog(int drive) {
 			start_dir = parent_dir(current);
 		}
 	}
-	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_FDD, start_dir);
 	g_gui.fdd_browser_dir = absolute_path(start_dir);
 	g_gui.fdd_browser_open = true;
 	g_gui.fdd_browser_refresh = true;
@@ -2346,13 +2406,7 @@ static void open_hdd_dialog(int drive) {
 	} else {
 		g_gui.hdd_path[hdd_slot(drive)][0] = '\0';
 	}
-	if (start_dir.empty() && (np2oscfg.gui_hdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, start_dir);
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	g_gui.hdd_browser_open = true;
 	g_gui.hdd_browser_refresh = true;
@@ -2363,12 +2417,7 @@ static void open_new_sasi_dialog(int drive) {
 	std::string path;
 
 	g_gui.new_sasi_drive = std::clamp(drive, 0, 1);
-	if ((np2oscfg.gui_hdd_dir[0] != '\0') && is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, "");
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	path = join_path(g_gui.hdd_browser_dir, new_sasi_default_name());
 	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
@@ -2384,12 +2433,7 @@ static void open_new_scsi_dialog(int drive) {
 	std::string path;
 
 	g_gui.new_scsi_drive = std::clamp(drive, 0, SCSIHDD_MAX - 1);
-	if ((np2oscfg.gui_hdd_dir[0] != '\0') && is_directory(np2oscfg.gui_hdd_dir)) {
-		start_dir = np2oscfg.gui_hdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_HDD, "");
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
 	path = new_scsi_default_path(g_gui.hdd_browser_dir, g_gui.new_scsi_drive);
 	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
@@ -2433,12 +2477,7 @@ static void open_new_fdd_dialog(int format) {
 
 	g_gui.new_fdd_format = std::clamp(format, 0, NEWDISK_FDD_MSDOS_COUNT - 1);
 	g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
-	if ((np2oscfg.gui_fdd_dir[0] != '\0') && is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_FDD, "");
 	g_gui.fdd_browser_dir = absolute_path(start_dir);
 	path = join_path(g_gui.fdd_browser_dir,
 	                 new_fdd_default_name(g_gui.new_fdd_format, g_gui.new_fdd_container));
@@ -2487,10 +2526,9 @@ static bool mount_fdd_path(int drive, const std::string &path_string, UINT image
 			g_gui.fdd_status += " (FDD2: #2)";
 		}
 	}
-	persist_fdd_dir(parent_dir(path_string));
 	g_fdd_origin[drive] = path_string;
 	history_add(drive, path_string);
-	history_add_dir(path_string);
+	history_add_dir(HIST_DIR_FDD, path_string);
 	return true;
 }
 
@@ -2515,10 +2553,10 @@ static bool mount_hdd_path(int drive, const std::string &path_string) {
 		return false;
 	}
 	diskdrv_sethdd(static_cast<REG8>(drive), path);
-	persist_hdd_dir(parent_dir(path_string));
+
 	set_hdd_status(drive, "configured; reset to apply", path);
 	history_add(history_hdd_kind(drive), path_string);
-	history_add_dir(path_string);
+	history_add_dir(HIST_DIR_HDD, path_string);
 	return true;
 }
 
@@ -2626,7 +2664,7 @@ static void create_new_fdd_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path), path);
-	persist_fdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_FDD, path);
 	if (g_gui.new_fdd_mount_after_create) {
 		diskdrv_setfdd(static_cast<REG8>(drive), path.c_str(), 0);
 		remember_fdd_mount(drive, path.c_str());
@@ -2668,7 +2706,7 @@ static void create_new_sasi_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
-	persist_hdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_HDD, path);
 	if (g_gui.new_sasi_open_after_create) {
 		diskdrv_sethdd(static_cast<REG8>(drive), path.c_str());
 		set_hdd_status(drive, "created and configured; reset to apply", path.c_str());
@@ -2709,7 +2747,7 @@ static void create_new_scsi_image(void) {
 		return;
 	}
 	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
-	persist_hdd_dir(parent_dir(path));
+	history_add_dir(HIST_DIR_HDD, path);
 	if (g_gui.new_scsi_open_after_create) {
 		diskdrv_sethdd(static_cast<REG8>(0x20 | drive), path.c_str());
 		set_hdd_status(0x20 | drive, "created and configured; reset to apply", path.c_str());
@@ -2772,7 +2810,7 @@ static void draw_fdd_browser(void) {
 			g_gui.fdd_browser_dir = parent_dir(g_gui.fdd_browser_dir);
 			g_gui.fdd_browser_refresh = true;
 		}
-		if (draw_recent_dirs(g_gui.fdd_browser_dir)) {
+		if (draw_recent_dirs(HIST_DIR_FDD, g_gui.fdd_browser_dir)) {
 			g_gui.fdd_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -2855,7 +2893,7 @@ static void draw_hdd_browser(void) {
 			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
 			g_gui.hdd_browser_refresh = true;
 		}
-		if (draw_recent_dirs(g_gui.hdd_browser_dir)) {
+		if (draw_recent_dirs(HIST_DIR_HDD, g_gui.hdd_browser_dir)) {
 			g_gui.hdd_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -3909,13 +3947,7 @@ static void open_tape_dialog(void) {
 	} else if (!g_gui.tape_recording.empty()) {
 		start_dir = parent_dir(g_gui.tape_recording);
 	}
-	if (start_dir.empty() && (np2oscfg.gui_fdd_dir[0] != '\0') &&
-	    is_directory(np2oscfg.gui_fdd_dir)) {
-		start_dir = np2oscfg.gui_fdd_dir;
-	}
-	if (start_dir.empty()) {
-		start_dir = home_dir();
-	}
+	start_dir = history_start_dir(HIST_DIR_TAPE, start_dir);
 	g_gui.tape_browser_dir = absolute_path(start_dir);
 	g_gui.tape_status.clear();
 	g_gui.tape_browser_open = true;
@@ -3943,7 +3975,7 @@ static bool load_tape_path(const std::string &path) {
 	g_gui.tape_loaded = path;
 	g_gui.tape_status = "Tape loaded.";
 	history_add(HIST_TAPE, path);
-	history_add_dir(path);
+	history_add_dir(HIST_DIR_TAPE, path);
 	return true;
 }
 
@@ -3976,7 +4008,7 @@ static void draw_tape_browser(void) {
 			g_gui.tape_browser_dir = parent_dir(g_gui.tape_browser_dir);
 			g_gui.tape_browser_refresh = true;
 		}
-		if (draw_recent_dirs(g_gui.tape_browser_dir)) {
+		if (draw_recent_dirs(HIST_DIR_TAPE, g_gui.tape_browser_dir)) {
 			g_gui.tape_browser_refresh = true;
 		}
 		ImGui::Separator();
@@ -4012,6 +4044,7 @@ static void draw_tape_browser(void) {
 			stop_tape_recording();
 			if ((g_gui.tape_path[0] != '\0') && (cmt_save_begin(g_gui.tape_path) == SUCCESS)) {
 				g_gui.tape_recording = g_gui.tape_path;
+				history_add_dir(HIST_DIR_TAPE, g_gui.tape_recording);
 				g_gui.tape_status = "Recording; written when stopped.";
 				g_gui.tape_browser_open = false;
 			} else {
@@ -6303,6 +6336,77 @@ void gui_overlay_rect(int x, int y, int width, int height,
 	if (!g_gui.initialized || !g_gui.native_renderer) return;
 	draw_overlay_rect(ImGui::GetBackgroundDrawList(), ImGui::GetIO().DisplayFramebufferScale,
 	                  ImGui::GetMainViewport()->Pos, x, y, width, height, IM_COL32(r, g, b, a));
+}
+
+BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
+	std::vector<std::string> saved[HIST_COUNT];
+	const bool saved_loaded = g_history_loaded;
+	const std::string base = absolute_path(root); /* lists hold absolute folders */
+	const std::string fdd = join_path(base, "fdd");
+	const std::string hdd = join_path(base, "hdd");
+	const std::string tape = join_path(base, "tape");
+	const std::string other = join_path(base, "other");
+	const std::string media = join_path(base, "media");
+	const char *failed = nullptr;
+
+	for (const std::string &dir : {fdd, hdd, tape, other, media}) {
+		(void)file_dircreate(dir.c_str());
+	}
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		saved[kind].swap(g_history[kind]);
+	}
+	g_history_loaded = true; /* no history file is read or written */
+
+	if (history_start_dir(HIST_DIR_TAPE, "") != home_dir()) {
+		failed = "no folders: home";
+	}
+	g_history[HIST_DIR_HDD] = {hdd};
+	g_history[HIST_DIR_TAPE] = {join_path(base, "missing"), tape};
+	if (!failed && (history_start_dir(HIST_DIR_FDD, "") != hdd)) {
+		failed = "FDD without its own folder: the HDD folder";
+	}
+	if (!failed && (history_start_dir(HIST_DIR_TAPE, "") != tape)) {
+		failed = "tape: its own newest existing folder";
+	}
+	g_history[HIST_DIR_FDD] = {fdd};
+	if (!failed && (history_start_dir(HIST_DIR_HDD, "") != hdd)) {
+		failed = "HDD: its own folder";
+	}
+	g_history[HIST_DIR_HDD].clear();
+	g_history[HIST_DIR_TAPE].clear();
+	if (!failed && ((history_start_dir(HIST_DIR_HDD, "") != fdd) ||
+	                (history_start_dir(HIST_DIR_TAPE, "") != fdd))) {
+		failed = "HDD and tape without their own: the FDD folder";
+	}
+	if (!failed && (history_start_dir(HIST_DIR_FDD, media) != media)) {
+		failed = "the medium in use first";
+	}
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		g_history[kind].clear();
+	}
+	g_history[HIST_FDD2] = {join_path(fdd, "a.d88")};
+	g_history[HIST_SASI1] = {join_path(hdd, "a.hdi")};
+	g_history[HIST_TAPE] = {join_path(tape, "a.cmt"), join_path(fdd, "b.cmt")};
+	history_split_legacy_dirs({tape, other, fdd, hdd});
+	if (!failed && ((g_history[HIST_DIR_FDD] != std::vector<std::string>{other, fdd}) ||
+	                (g_history[HIST_DIR_HDD] != std::vector<std::string>{hdd}) ||
+	                (g_history[HIST_DIR_TAPE] != std::vector<std::string>{tape, fdd}))) {
+		failed = "the shared list split by the files used in each folder";
+	}
+
+	for (int kind = 0; kind < HIST_COUNT; kind++) {
+		g_history[kind].swap(saved[kind]);
+	}
+	g_history_loaded = saved_loaded;
+	for (const std::string &dir : {fdd, hdd, tape, other, media}) {
+		std::error_code error;
+		fs::remove(fs::u8path(dir), error);
+	}
+	if (failed != nullptr) {
+		std::snprintf(problem, size, "%s", failed);
+		return FAILURE;
+	}
+	return SUCCESS;
 }
 
 BOOL gui_overlay_selftest(void) {
