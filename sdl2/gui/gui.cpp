@@ -3659,8 +3659,9 @@ static const std::vector<std::string> &d88_disk_names(const std::string &path) {
 	}
 	entry.size = error ? -1 : size;
 	entry.names.clear();
-	std::vector<char[FDDD88_NAME_SIZE]> raw(FDDD88_MAX_IMAGES);
-	const UINT count = fddd88_images(path.c_str(), raw.data(), FDDD88_MAX_IMAGES);
+	// a plain array: libc++ rejects a std::vector of char arrays
+	static char raw[FDDD88_MAX_IMAGES][FDDD88_NAME_SIZE];
+	const UINT count = fddd88_images(path.c_str(), raw, FDDD88_MAX_IMAGES);
 	for (UINT i = 0; i < count; i++) {
 		UINT16 utf[FDDD88_NAME_SIZE];
 		std::string name;
