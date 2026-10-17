@@ -78,7 +78,44 @@ static void build_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot,
 	           framebuffer_enabled, 0u, 255u);
 }
 
+static void check_clockwise_rotation(void) {
+	uint8_t pixels[16] = {0};
+	const uint16_t colors[6] = {0xf800, 0x07e0, 0x001f, 0x07ff, 0xf81f, 0xffe0};
+	const uint8_t expected[18] = {0, 255, 255, 255, 0, 0, 255, 0, 255,
+	                              0, 255, 0, 255, 255, 0, 0, 0, 255};
+	uint8_t original[18];
+	VAEG_RECORDING_NATIVE_RGB565_SOURCE source = {pixels, 3, 2, 8, sizeof(pixels)};
+	VAEG_RECORDING_NATIVE_FRAME frame;
+	unsigned i;
+	for (i = 0; i < 6; ++i) {
+		put565(pixels + (i / 3) * 8, i % 3, colors[i]);
+	}
+	vaeg_recording_native_frame_initialize(&frame);
+	assert(vaeg_recording_native_frame_copy_rgb565(&source, &frame) ==
+	       VAEG_RECORDING_NATIVE_FRAME_OK);
+	memcpy(original, frame.pixels, sizeof(original));
+	frame.frame_token = 73;
+	frame.sample_aspect_width = 2;
+	frame.sample_aspect_height = 3;
+	assert(vaeg_recording_native_frame_rotate_right(&frame) == VAEG_RECORDING_NATIVE_FRAME_OK);
+	assert(frame.width == 2 && frame.height == 3 && frame.pitch_bytes == 6);
+	assert(frame.size_bytes == 18 && frame.frame_token == 73);
+	assert(frame.sample_aspect_width == 3 && frame.sample_aspect_height == 2);
+	assert(memcmp(frame.pixels, expected, sizeof(expected)) == 0);
+	for (i = 0; i < 3; ++i) {
+		assert(vaeg_recording_native_frame_rotate_right(&frame) == VAEG_RECORDING_NATIVE_FRAME_OK);
+	}
+	assert(frame.width == 3 && frame.height == 2 && frame.pitch_bytes == 9);
+	assert(memcmp(frame.pixels, original, sizeof(original)) == 0);
+	vaeg_recording_native_frame_destroy(&frame);
+	assert(vaeg_recording_native_frame_rotate_right(&frame) ==
+	       VAEG_RECORDING_NATIVE_FRAME_NULL_SOURCE);
+	assert(vaeg_recording_native_frame_rotate_right(NULL) ==
+	       VAEG_RECORDING_NATIVE_FRAME_NULL_SOURCE);
+}
+
 int main(void) {
+	check_clockwise_rotation();
 	uint8_t source_storage[32u * 52u + 2u];
 	uint8_t glyphs[256u * 8u];
 	VAEG_RECORDING_NATIVE_RGB565_SOURCE source;

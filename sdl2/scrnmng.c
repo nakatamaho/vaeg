@@ -43,6 +43,7 @@
 #include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
 #include "recording/recording_native_composition.h"
+#include "recording/recording_native_session.h"
 #include "recording/recording_osd_snapshot.h"
 #include "frontpanel.h"
 #include "winutf.h"
@@ -128,6 +129,8 @@ enum {
 };
 
 static SCRNMNG scrnmng;
+static BOOL recording_include_osd = TRUE;
+static BOOL recording_follow_rotation = TRUE;
 static SCRNSTAT scrnstat;
 /* M117: the guest picture turned right, for Native CRT and dummy capture */
 static UINT16 scrnmng_turned[SCRNMNG_CANVAS_WIDTH * SCRNMNG_CANVAS_MAX_HEIGHT];
@@ -1260,6 +1263,15 @@ BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
 	return SUCCESS;
 }
 
+BOOL scrnmng_configure_native_recording(BOOL include_osd, BOOL follow_rotation) {
+	if (vaeg_recording_native_session_is_active()) {
+		return FAILURE;
+	}
+	recording_include_osd = include_osd ? TRUE : FALSE;
+	recording_follow_rotation = follow_rotation ? TRUE : FALSE;
+	return SUCCESS;
+}
+
 BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) {
 	VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 	return scrnmng_capture_native_recording_frame_with_snapshot(frame, &snapshot);
@@ -1290,6 +1302,22 @@ BOOL scrnmng_capture_native_recording_frame_with_snapshot(
 		        vaeg_recording_native_frame_error_name(error));
 		return FAILURE;
 	}
+	if (recording_follow_rotation && scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		error = vaeg_recording_native_frame_rotate_right(frame);
+		if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+			vaeg_recording_native_frame_destroy(frame);
+			return FAILURE;
+		}
+		snapshot->guest_width = frame->width;
+		snapshot->guest_height = frame->height;
+	}
+	if (!recording_include_osd) {
+		UINT32 layer;
+		for (layer = 0; layer < snapshot->layer_count; ++layer) {
+			snapshot->layers[layer].enabled = 0;
+			snapshot->layers[layer].visible = 0;
+		}
+	}
 	error = vaeg_recording_native_frame_apply_osd(frame, snapshot, fontdata_8);
 	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
 		fprintf(stderr, "Native recording OSD composition failed: %s\n",
@@ -1305,9 +1333,14 @@ BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPT
 		return FAILURE;
 	}
 	ZeroMemory(descriptor, sizeof(*descriptor));
-	descriptor->width = (UINT32)scrnmng.width;
-	descriptor->height = (UINT32)scrnmng.height;
-	descriptor->stride_bytes = (UINT64)scrnmng.width * 3u;
+	if (recording_follow_rotation && scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		descriptor->width = (UINT32)scrnmng.height;
+		descriptor->height = (UINT32)scrnmng.width;
+	} else {
+		descriptor->width = (UINT32)scrnmng.width;
+		descriptor->height = (UINT32)scrnmng.height;
+	}
+	descriptor->stride_bytes = (UINT64)descriptor->width * 3u;
 	descriptor->pixel_format = VAEG_RECORDING_PIXEL_RGB24;
 	return vaeg_recording_validate_video_descriptor(descriptor) == VAEG_RECORDING_ERROR_OK
 	           ? SUCCESS
@@ -1326,6 +1359,8 @@ UINT32 scrnmng_native_recording_descriptor_generation(void) {
 	generation = (generation ^ (UINT32)scrnmng.height) * 16777619u;
 	generation = (generation ^ (UINT32)scrnmng.shadow_pitch) * 16777619u;
 	generation = (generation ^ 1u) * 16777619u;
+	generation =
+	    (generation ^ (UINT32)(recording_follow_rotation ? scrnmng.rotation : 0)) * 16777619u;
 	return generation;
 }
 
@@ -2203,6 +2238,10 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		Uint8 cg;
 		Uint8 cb;
 
+		/* Leave room for RECORDING and both lock lamps in portrait windows. */
+		if (i >= 2 && i < 5 && bar->w < 480 * s) {
+			continue;
+		}
 		if (i == 2) {
 			x += 16 * s; /* gap between the drives and the mode lamps */
 		} else if (i == 5) {
@@ -2251,6 +2290,20 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 			scrnmng_panel_fill(&r, 52, 60, 52);
 		}
 		x += r.w + 12 * s;
+	}
+	/* Keep KANA/CAPS right-aligned; the recording indicator sits just left. */
+	x = bar->x + bar->w - 216 * s;
+	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "RECORDING", label);
+	r.x = x + 76 * s;
+	r.y = bar->y + 5 * s;
+	r.w = 12 * s;
+	r.h = 6 * s;
+	if (vaeg_recording_native_session_is_finalizing()) {
+		scrnmng_panel_fill(&r, 255, 180, 40);
+	} else if (vaeg_recording_native_session_is_active()) {
+		scrnmng_panel_fill(&r, 255, 45, 30);
+	} else {
+		scrnmng_panel_fill(&r, 52, 60, 52);
 	}
 }
 
@@ -2345,6 +2398,13 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
 		ok = FALSE;
 	}
+	/* RECORDING is directly left of the lock lamps and dim while idle. */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 134 * s)], surface->format, &r, &g, &b);
+	if (ok && !vaeg_recording_native_session_is_active() && ((r != 52) || (g != 60) || (b != 52))) {
+		SDL_snprintf(problem, size,
+		             "simple panel RECORDING lamp is not dim at its expected position");
+		ok = FALSE;
+	}
 	SDL_DestroyRenderer(renderer);
 	SDL_FreeSurface(surface);
 	return ok ? SUCCESS : FAILURE;
@@ -2426,6 +2486,13 @@ void scrnmng_set_rotation(int rotation) {
 	}
 	if (scrnmng.rotation == rotation) {
 		return;
+	}
+	/* FFV1 stream dimensions are fixed. Finalize before changing orientation. */
+	if (recording_follow_rotation && vaeg_recording_native_session_is_active()) {
+		if (!vaeg_recording_native_session_stop()) {
+			fprintf(stderr, "Recording finalization on rotation failed: %s\n",
+			        vaeg_recording_native_session_last_error());
+		}
 	}
 	scrnmng.rotation = rotation;
 	scrnmng_update_window_size();

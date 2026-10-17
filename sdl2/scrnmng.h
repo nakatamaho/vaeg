@@ -124,6 +124,7 @@ BOOL scrnmng_window_rebind_selftest(void);
 void scrnmng_draw_native_overlays(void);
 void scrnmng_draw_sdl_overlays(void);
 BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
+BOOL scrnmng_configure_native_recording(BOOL include_osd, BOOL follow_rotation);
 BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame);
 BOOL scrnmng_capture_native_recording_frame_with_snapshot(
 	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot);

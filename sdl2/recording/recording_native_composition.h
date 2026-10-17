@@ -75,6 +75,8 @@ void vaeg_recording_native_frame_initialize(VAEG_RECORDING_NATIVE_FRAME *frame);
 void vaeg_recording_native_frame_destroy(VAEG_RECORDING_NATIVE_FRAME *frame);
 VAEG_RECORDING_NATIVE_FRAME_ERROR vaeg_recording_native_frame_copy_rgb565(
 	const VAEG_RECORDING_NATIVE_RGB565_SOURCE *source, VAEG_RECORDING_NATIVE_FRAME *frame);
+VAEG_RECORDING_NATIVE_FRAME_ERROR vaeg_recording_native_frame_rotate_right(
+	VAEG_RECORDING_NATIVE_FRAME *frame);
 VAEG_RECORDING_NATIVE_FRAME_ERROR vaeg_recording_native_frame_apply_osd(
 	VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *snapshot,
 	const uint8_t *glyphs_8x8);

@@ -183,6 +183,39 @@ static int valid_frame(const VAEG_RECORDING_NATIVE_FRAME *frame) {
 	       (frame->size_bytes <= VAEG_RECORDING_NATIVE_FRAME_MAX_BYTES);
 }
 
+VAEG_RECORDING_NATIVE_FRAME_ERROR vaeg_recording_native_frame_rotate_right(
+	VAEG_RECORDING_NATIVE_FRAME *frame) {
+	uint8_t *rotated;
+	uint32_t x;
+	uint32_t y;
+	uint32_t old_width;
+	uint32_t aspect;
+	if (!valid_frame(frame)) {
+		return VAEG_RECORDING_NATIVE_FRAME_NULL_SOURCE;
+	}
+	rotated = (uint8_t *)malloc((size_t)frame->width * frame->height * 3u);
+	if (rotated == NULL) {
+		return VAEG_RECORDING_NATIVE_FRAME_TOO_LARGE;
+	}
+	for (y = 0; y < frame->height; ++y) {
+		for (x = 0; x < frame->width; ++x) {
+			memcpy(rotated + ((size_t)x * frame->height + frame->height - 1u - y) * 3u,
+			       frame->pixels + (size_t)y * frame->pitch_bytes + x * 3u, 3u);
+		}
+	}
+	free(frame->pixels);
+	frame->pixels = rotated;
+	old_width = frame->width;
+	frame->width = frame->height;
+	frame->height = old_width;
+	frame->pitch_bytes = frame->width * 3u;
+	frame->size_bytes = (uint64_t)frame->pitch_bytes * frame->height;
+	aspect = frame->sample_aspect_width;
+	frame->sample_aspect_width = frame->sample_aspect_height;
+	frame->sample_aspect_height = aspect;
+	return VAEG_RECORDING_NATIVE_FRAME_OK;
+}
+
 static int valid_snapshot(const VAEG_RECORDING_NATIVE_FRAME *frame,
 	const VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
 	uint32_t layer_no;

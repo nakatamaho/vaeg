@@ -236,6 +236,9 @@ struct GuiState {
 	bool recording_open = false;
 	int recording_source = VAEG_RECORDING_SOURCE_NATIVE;
 	char recording_path[1024] = {};
+	bool recording_auto_path = true;
+	bool recording_include_osd = true;
+	bool recording_follow_rotation = true;
 	char recording_frame_limit[32] = {};
 	std::string recording_status;
 	vaeg::librashader::ShaderPreset native_crt_preset;
@@ -619,12 +622,31 @@ static BOOL save_screenshot(BOOL with_graphics_analysis) {
 	return (SUCCESS);
 }
 
-static void open_recording_dialog(void) {
-	if (g_gui.recording_path[0] == '\0') {
-		std::snprintf(g_gui.recording_path, sizeof(g_gui.recording_path), "vaeg-recording.mkv");
+static bool generate_recording_path(void) {
+	_SYSTIME systime;
+	char directory[MAX_PATH];
+	const UINT32 ticks = SDL_GetTicks();
+	if (timemng_gettime(&systime) != SUCCESS) {
+		g_gui.recording_status = "録画用の時刻を取得できません。";
+		return false;
 	}
-	g_gui.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
-	g_gui.recording_frame_limit[0] = '\0';
+	(void)file_getappdir(directory, sizeof(directory), "recordings");
+	for (UINT attempt = 0; attempt < 1000; ++attempt) {
+		char name[112];
+		std::snprintf(name, sizeof(name), "vaeg-recording-%04u%02u%02u-%02u%02u%02u-%010u-%03u.mkv",
+		              systime.year, systime.month, systime.day, systime.hour, systime.minute,
+		              systime.second, static_cast<unsigned int>(ticks), attempt);
+		file_cpyname(g_gui.recording_path, directory, sizeof(g_gui.recording_path));
+		file_catname(g_gui.recording_path, name, sizeof(g_gui.recording_path));
+		if (file_attr(g_gui.recording_path) < 0) {
+			return true;
+		}
+	}
+	g_gui.recording_status = "重複しない録画ファイル名を確保できません。";
+	return false;
+}
+
+static void open_recording_dialog(void) {
 	g_gui.recording_open = true;
 }
 
@@ -655,51 +677,61 @@ static void start_recording_from_dialog(void) {
 
 	vaeg_recording_get_capabilities(&capabilities);
 	if (!capabilities.backend_available) {
-		g_gui.recording_status = "Recording unavailable: this build has no FFmpeg backend.";
+		g_gui.recording_status = "このビルドでは録画を利用できません。";
 		return;
 	}
 	if (g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
-		g_gui.recording_status =
-		    "Displayed video unavailable: final-client capture is not implemented yet.";
+		g_gui.recording_status = "表示後の画面の録画はまだ利用できません。";
 		return;
 	}
 	if (!parse_recording_frame_limit(g_gui.recording_frame_limit, &frame_limit)) {
-		g_gui.recording_status = "Recording start failed: frame limit must be a positive integer.";
+		g_gui.recording_status = "フレーム数は正の整数、または空欄を指定してください。";
+		return;
+	}
+	if (g_gui.recording_auto_path && !generate_recording_path()) {
+		return;
+	}
+	if (scrnmng_configure_native_recording(g_gui.recording_include_osd,
+	                                       g_gui.recording_follow_rotation) != SUCCESS) {
+		g_gui.recording_status = "録画中は設定を変更できません。";
 		return;
 	}
 	if (!vaeg_recording_session_start(g_gui.recording_path,
 	                                  static_cast<uint32_t>(g_gui.recording_source), frame_limit)) {
-		g_gui.recording_status = "Recording start failed: ";
+		g_gui.recording_status = "録画開始に失敗しました: ";
 		g_gui.recording_status += vaeg_recording_native_session_last_error();
 		return;
 	}
 	g_gui.recording_open = false;
-	g_gui.recording_status = "Recording started: Native video";
+	g_gui.recording_status = "録画中（Native video / FFV1 + PCM）";
 }
 
 static void draw_recording_menu(void) {
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	const bool active = vaeg_recording_native_session_is_active() != 0;
+	static bool was_active = false;
 
 	vaeg_recording_get_capabilities(&capabilities);
-	if (!active && g_gui.recording_status == "Finalizing...") {
+	if (!active && was_active) {
 		const char *error = vaeg_recording_native_session_last_error();
 		if ((error == nullptr) || (error[0] == '\0') || (std::strcmp(error, "none") == 0)) {
-			g_gui.recording_status = "Recording saved.";
+			g_gui.recording_status = "録画を保存しました: ";
+			g_gui.recording_status += g_gui.recording_path;
 		} else if (!vaeg_recording_native_session_is_finalizing()) {
-			g_gui.recording_status = "Recording failed: ";
+			g_gui.recording_status = "録画に失敗しました: ";
 			g_gui.recording_status += error;
 		}
 	}
+	was_active = active;
 	if (ImGui::BeginMenu("録画")) {
 		if (active) {
 			if (vaeg_recording_native_session_is_finalizing()) {
-				ImGui::MenuItem("Finalizing...", nullptr, false, false);
-			} else if (ImGui::MenuItem("Stop Recording")) {
+				ImGui::MenuItem("保存処理中...", nullptr, false, false);
+			} else if (ImGui::MenuItem("録画停止")) {
 				if (vaeg_recording_native_session_request_stop()) {
-					g_gui.recording_status = "Finalizing...";
+					g_gui.recording_status = "保存処理中...";
 				} else {
-					g_gui.recording_status = "Recording stop failed: ";
+					g_gui.recording_status = "録画停止に失敗しました: ";
 					g_gui.recording_status += vaeg_recording_native_session_last_error();
 				}
 			}
@@ -709,18 +741,20 @@ static void draw_recording_menu(void) {
 			    (clock != 0u && ticks <= UINT64_MAX / 1000u)
 			        ? static_cast<unsigned long long>((ticks * 1000u) / clock)
 			        : 0u;
-			ImGui::Text("Native video: guest %llums, %llu frames",
-			            elapsed_ms,
-			            static_cast<unsigned long long>(
-			                vaeg_recording_native_session_accepted_frames()));
+			ImGui::Text(
+			    "録画時間 %llums / %llu フレーム", elapsed_ms,
+			    static_cast<unsigned long long>(vaeg_recording_native_session_accepted_frames()));
 		} else {
 			const bool can_start = capabilities.backend_available != 0u;
-			if (ImGui::MenuItem("Start Recording...", nullptr, false, can_start)) {
-				open_recording_dialog();
+			if (ImGui::MenuItem("録画開始", nullptr, false, can_start)) {
+				start_recording_from_dialog();
 			}
 			if (!can_start) {
-				ImGui::TextDisabled("Unavailable: build without FFmpeg recording support");
+				ImGui::TextDisabled("このビルドでは録画を利用できません。");
 			}
+		}
+		if (ImGui::MenuItem("詳細設定...")) {
+			open_recording_dialog();
 		}
 		if (!g_gui.recording_status.empty()) {
 			ImGui::Separator();
@@ -736,12 +770,16 @@ static void draw_recording_dialog(void) {
 	}
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	vaeg_recording_get_capabilities(&capabilities);
-	ImGui::SetNextWindowSize(ImVec2(560, 250), ImGuiCond_FirstUseEver);
-	if (!ImGui::Begin("Start Recording", &g_gui.recording_open)) {
+	ImGui::SetNextWindowSize(ImVec2(720, 420), ImGuiCond_FirstUseEver);
+	if (!ImGui::Begin("録画の詳細設定", &g_gui.recording_open)) {
 		ImGui::End();
 		return;
 	}
-	ImGui::TextUnformatted("Source");
+	const bool active = vaeg_recording_native_session_is_active() != 0;
+	ImGui::TextUnformatted("形式: FFV1（可逆圧縮）+ PCM音声 / MKV");
+	ImGui::TextDisabled("ゲスト時間基準。処理が追いつかない場合は実行速度が低下します。");
+	ImGui::BeginDisabled(active);
+	ImGui::TextUnformatted("録画対象");
 	ImGui::RadioButton("Native video", &g_gui.recording_source,
 	                   VAEG_RECORDING_SOURCE_NATIVE);
 	ImGui::SameLine();
@@ -749,15 +787,24 @@ static void draw_recording_dialog(void) {
 	ImGui::RadioButton("Displayed video", &g_gui.recording_source,
 	                   VAEG_RECORDING_SOURCE_DISPLAYED);
 	ImGui::EndDisabled();
-	ImGui::TextDisabled("Displayed video unavailable: final-client capture is not implemented yet.");
-	ImGui::InputText("File (.mkv)", g_gui.recording_path, sizeof(g_gui.recording_path));
-	ImGui::InputText("Frame limit (optional)", g_gui.recording_frame_limit,
+	ImGui::TextDisabled("Displayed video はまだ利用できません。");
+	ImGui::Checkbox("保存先とファイル名を自動設定", &g_gui.recording_auto_path);
+	ImGui::TextDisabled("実行ファイル横の recordings/ に日時付きで保存します。");
+	ImGui::TextDisabled("書き込めない場合はユーザーディレクトリを使用します。");
+	ImGui::BeginDisabled(g_gui.recording_auto_path);
+	ImGui::InputText("保存先 (.mkv)", g_gui.recording_path, sizeof(g_gui.recording_path));
+	ImGui::EndDisabled();
+	ImGui::Checkbox("OSDを含める", &g_gui.recording_include_osd);
+	ImGui::Checkbox("画面の90度回転に合わせる", &g_gui.recording_follow_rotation);
+	ImGui::TextDisabled("録画中に回転を変更すると、現在の動画を保存して停止します。");
+	ImGui::InputText("フレーム数の上限（空欄は無制限）", g_gui.recording_frame_limit,
 	                 sizeof(g_gui.recording_frame_limit), ImGuiInputTextFlags_CharsDecimal);
-	if (ImGui::Button("Start", ImVec2(110, 0)) && capabilities.backend_available) {
+	if (ImGui::Button("録画開始", ImVec2(110, 0)) && capabilities.backend_available) {
 		start_recording_from_dialog();
 	}
+	ImGui::EndDisabled();
 	ImGui::SameLine();
-	if (ImGui::Button("Cancel", ImVec2(110, 0))) {
+	if (ImGui::Button("閉じる", ImVec2(110, 0))) {
 		g_gui.recording_open = false;
 	}
 	if (!g_gui.recording_status.empty()) {
