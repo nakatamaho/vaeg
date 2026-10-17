@@ -61,6 +61,7 @@
 #include "hostfat_manager.h"
 #include "hostfat_path.h"
 #include "fddfile.h"
+#include "fdd_d88.h"
 #include "fontdata.h"
 #include "romva.h"
 #include "machine/keystat.h"
@@ -1893,12 +1894,14 @@ struct BootRecord {
 	std::string sasi[2];
 	std::string tape;
 	std::string extra; /* M113: PC-8801 model directory, empty for the VA */
+	UINT fdd_image[2] = {0, 0}; /* M120: disk of a multi-image D88 */
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
 		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
 		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
-		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra);
+		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra) &&
+		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]);
 	}
 };
 
@@ -1967,7 +1970,8 @@ static void history_save(void) {
 		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
 		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
 		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
-		       << '\t' << boot.tape << '\t' << boot.extra << '\n';
+		       << '\t' << boot.tape << '\t' << boot.extra << '\t' << boot.fdd_image[0] << ','
+		       << boot.fdd_image[1] << '\n';
 	}
 }
 
@@ -1983,7 +1987,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if (((fields.size() == 11) || (fields.size() == 12)) && (fields[0] == "boot")) {
+		if ((fields.size() >= 11) && (fields.size() <= 13) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -1998,8 +2002,17 @@ static void history_load(void) {
 			boot.sasi[0] = fields[8];
 			boot.sasi[1] = fields[9];
 			boot.tape = fields[10];
-			if (fields.size() == 12) {
+			if (fields.size() >= 12) {
 				boot.extra = fields[11];
+			}
+			if (fields.size() == 13) {
+				// M120: "first,second" disks of multi-image D88 files
+				unsigned first = 0;
+				unsigned second = 0;
+				if (std::sscanf(fields[12].c_str(), "%u,%u", &first, &second) == 2) {
+					boot.fdd_image[0] = (first < 255u) ? first : 0u;
+					boot.fdd_image[1] = (second < 255u) ? second : 0u;
+				}
 			}
 			if (g_recent_boots.size() < kRecentBoots) {
 				g_recent_boots.push_back(boot);
@@ -2099,6 +2112,9 @@ static void history_record_boot(void) {
 			} else {
 				boot.fdd[drive] = mounted;
 			}
+			boot.fdd_image[drive] = (fdd_diskname(static_cast<REG8>(drive))[0] != '\0')
+			                            ? fdd_diskimage(static_cast<REG8>(drive))
+			                            : diskdrv_pendingimage(static_cast<REG8>(drive));
 		}
 		boot.sasi[drive] = np2cfg.sasihdd[drive];
 	}
@@ -2123,6 +2139,12 @@ static std::string history_boot_label(const BootRecord &boot) {
 	for (const std::string *path : media) {
 		if (!path->empty()) {
 			name = display_file_name(path->c_str());
+			// M120: the disk of a multi-image D88 file in a drive
+			if ((path == &boot.fdd[0]) && (boot.fdd_image[0] != 0)) {
+				name += " #" + std::to_string(boot.fdd_image[0] + 1);
+			} else if ((path == &boot.fdd[1]) && (boot.fdd_image[1] != 0)) {
+				name += " #" + std::to_string(boot.fdd_image[1] + 1);
+			}
 			break;
 		}
 	}
@@ -2220,52 +2242,59 @@ static void set_hdd_status(int drive, const char *action, const char *path) {
 	}
 }
 
-static void remember_fdd_mount(int drive, const char *path) {
+/* `image`: the disk of a multi-image D88 (M120), 0 = first. */
+static void remember_fdd_mount(int drive, const char *path, UINT image = 0) {
 	if ((drive < 0) || (drive >= 2)) {
 		return;
 	}
 	if ((path != nullptr) && (path[0] != '\0')) {
 		copy_path(np2oscfg.fdd_image[drive], sizeof(np2oscfg.fdd_image[drive]), path);
+		np2oscfg.fdd_image_index[drive] = static_cast<BYTE>(image);
 	} else {
 		np2oscfg.fdd_image[drive][0] = '\0';
+		np2oscfg.fdd_image_index[drive] = 0;
 	}
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static void capture_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+static void capture_reset_fdd_mounts(char paths[2][MAX_PATH], UINT images[2]) {
 	for (int drive = 0; drive < 2; drive++) {
 		const char *current;
 
 		paths[drive][0] = '\0';
+		images[drive] = 0;
 		if (np2oscfg.fdd_image[drive][0] != '\0') {
 			copy_path(paths[drive], MAX_PATH, np2oscfg.fdd_image[drive]);
+			images[drive] = np2oscfg.fdd_image_index[drive];
 			continue;
 		}
 		current = fdd_diskname(static_cast<REG8>(drive));
 		if ((current != nullptr) && (current[0] != '\0')) {
 			copy_path(paths[drive], MAX_PATH, current);
+			images[drive] = fdd_diskimage(static_cast<REG8>(drive));
 		}
 	}
 }
 
-static void restore_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+static void restore_reset_fdd_mounts(char paths[2][MAX_PATH], const UINT images[2]) {
 	for (int drive = 0; drive < 2; drive++) {
 		if (paths[drive][0] == '\0') {
 			continue;
 		}
-		diskdrv_setfdd(static_cast<REG8>(drive), paths[drive], 0);
-		remember_fdd_mount(drive, paths[drive]);
+		diskdrv_setfddex(static_cast<REG8>(drive), paths[drive], 0, images[drive]);
+		remember_fdd_mount(drive, paths[drive], images[drive]);
 	}
 }
 
 static void reset_guest(void) {
 	char fdd_paths[2][MAX_PATH];
+	UINT fdd_images[2];
 
-	capture_reset_fdd_mounts(fdd_paths);
+	capture_reset_fdd_mounts(fdd_paths, fdd_images);
 	taskmng_clear_fast_forward();
 	pccore_cfgupdate();
 	pccore_reset();
-	restore_reset_fdd_mounts(fdd_paths);
+	restore_reset_fdd_mounts(fdd_paths, fdd_images);
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
@@ -2422,8 +2451,9 @@ static void open_new_fdd_dialog(int format) {
 }
 
 /* Mount an image or an archive (its images from `drive` on) chosen by the
- * user, and record it in the drive's history. */
-static bool mount_fdd_path(int drive, const std::string &path_string) {
+ * user, and record it in the drive's history; `image` picks a disk of a
+ * multi-image D88 (M120). */
+static bool mount_fdd_path(int drive, const std::string &path_string, UINT image = 0) {
 	const char *path = path_string.c_str();
 	std::string error;
 
@@ -2444,10 +2474,18 @@ static bool mount_fdd_path(int drive, const std::string &path_string) {
 		}
 		g_gui.fdd_status.clear();
 	} else {
-		diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
-		remember_fdd_mount(drive, path);
+		diskdrv_setfddex(static_cast<REG8>(drive), path, 0, image);
+		remember_fdd_mount(drive, path, image);
 		dropmedia_prune_storage();
 		set_fdd_status(drive, "mounted", path);
+		// M120: the first disk of a multi-image D88 in FDD1 brings its
+		// second disk into FDD2, as PC-8801 software expects.
+		if ((drive == 0) && (image == 0) && (fddd88_images(path, nullptr, 0) >= 2)) {
+			diskdrv_setfddex(1, path, 0, 1);
+			remember_fdd_mount(1, path, 1);
+			g_fdd_origin[1] = path_string;
+			g_gui.fdd_status += " (FDD2: #2)";
+		}
 	}
 	persist_fdd_dir(parent_dir(path_string));
 	g_fdd_origin[drive] = path_string;
@@ -3454,7 +3492,7 @@ static void boot_from_history(const BootRecord &boot) {
 	for (int drive = 0; drive < 2; drive++) {
 		if (boot.fdd[drive].empty()) {
 			eject_fdd(drive);
-		} else if (!mount_fdd_path(drive, boot.fdd[drive])) {
+		} else if (!mount_fdd_path(drive, boot.fdd[drive], boot.fdd_image[drive])) {
 			// M116: do not reset into the previous disk; say why instead.
 			g_gui.boot_status = "起動できませんでした: " + g_gui.fdd_status;
 			fprintf(stderr, "最近の起動: %s\n", g_gui.fdd_status.c_str());
@@ -3605,6 +3643,123 @@ static void draw_edit_menu(void) {
 	}
 }
 
+/* M120: the disk names of a D88 file (UTF-8, empty when unnamed), read
+ * again only when the file or its size changes; empty for other files. */
+static const std::vector<std::string> &d88_disk_names(const std::string &path) {
+	struct Cached {
+		long long size = -1;
+		std::vector<std::string> names;
+	};
+	static std::map<std::string, Cached> cache;
+	std::error_code error;
+	const long long size = static_cast<long long>(fs::file_size(fs::u8path(path), error));
+	Cached &entry = cache[path];
+	if (!error && (entry.size == size)) {
+		return entry.names;
+	}
+	entry.size = error ? -1 : size;
+	entry.names.clear();
+	std::vector<char[FDDD88_NAME_SIZE]> raw(FDDD88_MAX_IMAGES);
+	const UINT count = fddd88_images(path.c_str(), raw.data(), FDDD88_MAX_IMAGES);
+	for (UINT i = 0; i < count; i++) {
+		UINT16 utf[FDDD88_NAME_SIZE];
+		std::string name;
+		ZeroMemory(utf, sizeof(utf));
+		codecnv_sjis2utf(utf, NELEMENTS(utf), raw[i], FDDD88_NAME_SIZE);
+		for (UINT k = 0; (k < NELEMENTS(utf)) && (utf[k] != 0); k++) {
+			copy_append_utf8(&name, utf[k]);
+		}
+		while (!name.empty() && (name.back() == ' ')) {
+			name.pop_back();
+		}
+		entry.names.push_back(name);
+	}
+	return entry.names;
+}
+
+/* The file in a drive or about to be inserted, and its disk (M120). */
+static std::string fdd_current_file(int drive, UINT *image, bool *inserting) {
+	const char *path = fdd_diskname(static_cast<REG8>(drive));
+	*inserting = false;
+	*image = fdd_diskimage(static_cast<REG8>(drive));
+	if ((path == nullptr) || (path[0] == '\0')) {
+		path = diskdrv_fname[drive];
+		*inserting = path[0] != '\0';
+		*image = diskdrv_pendingimage(static_cast<REG8>(drive));
+	}
+	return ((path != nullptr) ? path : "");
+}
+
+static std::string d88_disk_label(UINT image, const std::vector<std::string> &names) {
+	std::string label = std::to_string(image + 1) + "/" + std::to_string(names.size());
+	if ((image < names.size()) && !names[image].empty()) {
+		label += " " + names[image];
+	}
+	return label;
+}
+
+/* Put disk `image` of `path` in `drive`, keeping where the file came from
+ * (an archive) as `origin` (M120). */
+static void switch_fdd_disk(int drive, const std::string &path, UINT image,
+                            const std::string &origin) {
+	diskdrv_setfddex(static_cast<REG8>(drive), path.c_str(), 0, image);
+	remember_fdd_mount(drive, path.c_str(), image);
+	g_fdd_origin[drive] = origin;
+	set_fdd_status(drive, "mounted", path.c_str());
+	g_gui.fdd_status += " #" + std::to_string(image + 1);
+}
+
+/* FDDn ディスク: the disks of the file in this drive and, when it holds
+ * several, of the file in the other drive (M120). */
+static void draw_fdd_disk_menu(int drive) {
+	struct Source {
+		int drive;
+		std::string path;
+		UINT image;
+	};
+	std::vector<Source> sources;
+	for (int i = 0; i < 2; i++) {
+		const int source_drive = (i == 0) ? drive : (1 - drive);
+		bool inserting;
+		UINT image;
+		const std::string path = fdd_current_file(source_drive, &image, &inserting);
+		if (path.empty() || (d88_disk_names(path).size() < 2) ||
+		    ((i == 1) && !sources.empty() && (sources[0].path == path))) {
+			continue;
+		}
+		sources.push_back({source_drive, path, image});
+	}
+	char label[32];
+	std::snprintf(label, sizeof(label), "FDD%d ディスク", drive + 1);
+	if (sources.empty() || !ImGui::BeginMenu(label)) {
+		return;
+	}
+	bool current_image_set = false;
+	UINT current_image = 0;
+	bool inserting;
+	const std::string current = fdd_current_file(drive, &current_image, &inserting);
+	current_image_set = !current.empty();
+	for (const Source &source : sources) {
+		const std::vector<std::string> names = d88_disk_names(source.path);
+		if (source.drive != drive) {
+			ImGui::Separator();
+			ImGui::TextDisabled("FDD%d のファイル: %s", source.drive + 1,
+			                    display_file_name(source.path.c_str()).c_str());
+		}
+		for (UINT k = 0; k < names.size(); k++) {
+			std::string item = std::to_string(k + 1) + ": ";
+			item += names[k].empty() ? "(名前なし)" : names[k];
+			item += "##" + std::to_string(source.drive) + "-" + std::to_string(k);
+			const bool selected =
+			    current_image_set && (current == source.path) && (current_image == k);
+			if (ImGui::MenuItem(item.c_str(), nullptr, selected)) {
+				switch_fdd_disk(drive, source.path, k, g_fdd_origin[source.drive]);
+			}
+		}
+	}
+	ImGui::EndMenu();
+}
+
 static void draw_fdd_mount_state(int drive) {
 	const char *path;
 	bool inserting;
@@ -3619,7 +3774,15 @@ static void draw_fdd_mount_state(int drive) {
 		ImGui::TextDisabled("FDD%d: なし", drive + 1);
 		return;
 	}
-	const std::string name = display_file_name(path);
+	std::string name = display_file_name(path);
+	// M120: which disk of a multi-image D88 file
+	const std::vector<std::string> &names = d88_disk_names(path);
+	if (names.size() > 1) {
+		UINT image;
+		bool pending;
+		(void)fdd_current_file(drive, &image, &pending);
+		name += " [" + d88_disk_label(image, names) + "]";
+	}
 	if (inserting) {
 		ImGui::Text("FDD%d: %s (挿入中)", drive + 1, name.c_str());
 	} else {
@@ -3663,6 +3826,7 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD1 取り出し")) {
 			eject_fdd(0);
 		}
+		draw_fdd_disk_menu(0);
 		draw_fdd_mount_state(0);
 		ImGui::Separator();
 		if (ImGui::MenuItem("FDD2 開く…")) {
@@ -3674,6 +3838,7 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD2 取り出し")) {
 			eject_fdd(1);
 		}
+		draw_fdd_disk_menu(1);
 		draw_fdd_mount_state(1);
 		if (dropmedia_status()[0] != '\0') {
 			ImGui::Separator();

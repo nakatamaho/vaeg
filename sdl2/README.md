@@ -91,7 +91,18 @@ each reset from the GUI, the FDD, SASI and tape media with the machine and the
 V1/V2 or N mode; choosing one puts them back and resets. The FDD, HDD and tape
 file windows offer 最近のフォルダ (5). Media given on the command line or by
 headless scripts are not recorded. The lists are kept in `vaeg-history.txt`
-next to `vaeg.cfg`.
+in the user directory (see the top-level README).
+
+Multi-image D88 (M120): a D88 file may hold several disks back to back.
+Opening or dropping one into FDD1 mounts its first disk there and its
+second disk in FDD2 (into FDD2, the first disk only); FDD1 ディスク and FDD2 ディスク list the
+disks of the file in that drive, and of a multi-image file in the other
+drive, by number and the name in their headers, so disk 2 of the same file
+can go into FDD2. The FDD menu shows the disk in use as `[2/3 NAME]`. The
+disk is kept over a reset, in `vaeg.cfg` (`FDD1IMAGE`, `FDD2IMAGE`, from
+0), in save states and in 最近の起動. Writes go to that disk; formatting a
+disk of a multi-image file is refused. `--fdd1-image N` and
+`--fdd2-image N` choose one from the command line.
 
 模擬 has two speed controls (M110). 実行速度 (10-400 %, the right end = No
 Wait) slows or speeds frames, timers and sound together. CPU クロック changes

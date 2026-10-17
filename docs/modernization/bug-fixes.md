@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M120 — the second disk of a multi-image D88 came back as the first
+
+- **Symptom/scope:** with a disk other than the first of a multi-image D88
+  in a drive (`--fdd1-image`/`--fdd2-image`), loading a save state, a reset
+  from the GUI, or the next start put the file's first disk back. Only
+  D88 files that hold several disks.
+- **Demonstrated cause:** the state's disk record held the path and the
+  write-protect flag only, and `flagload_disk` mounted with whatever disk
+  number the drive had last used; the GUI reset and `vaeg.cfg` kept only
+  the path (`FDD1FILE`), so they remounted disk 1.
+- **Correction:** the state stores the disk number in bits 15-8 of the
+  record's flag word (older states hold 0 there: the first disk) and the
+  load sets it before mounting; `vaeg.cfg` keeps it as `FDD1IMAGE` and
+  `FDD2IMAGE`, and the reset and 最近の起動 restore it.
+- **Verification:** selftest `D88 multi-image state` (disk 2 in FDD1 and
+  disk 1 of the same file in FDD2, saved and loaded over stale numbers);
+  mutation-checked (number not saved; stale number kept). A start from a
+  configuration with `FDD2IMAGE=1` shows the second disk as B: in PC-Engine.
+- **Milestone/task/commit:** M120,
+  [M120 task](../agents/tasks/M120_d88_multi_image.md);
+  [state commit](https://github.com/nakatamaho/vaeg/commit/130e25812c72743cc5b8d76d198f4cfa26dc695b),
+  [configuration commit](https://github.com/nakatamaho/vaeg/commit/449458eb95c723f0f8500e7e2ea32605cde8f91e),
+  [reset and recent-boots commit](https://github.com/nakatamaho/vaeg/commit/9f4a0c02fc51a515fdfa7a3d3a5465d08632e41c).
+
 ### M118 — PC-8801, PC-8001 and PCG selftests accessed a destroyed machine
 
 - **Symptom/scope:** hosted CI failed on `main` from M113 on: ASan aborted

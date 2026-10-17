@@ -173,7 +173,8 @@ NP2OSCFG np2oscfg = {0,
                      {0},
                      1,
                      100,
-                     1};
+                     1,
+                     {0, 0}};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -298,6 +299,9 @@ typedef struct {
 	BOOL fdd[2];
 	char saved_fdd[2][MAX_PATH];
 	char applied_fdd[2][MAX_PATH];
+	BOOL fdd_index[2]; /* M120: --fddN-image given */
+	BYTE saved_fdd_index[2];
+	BYTE applied_fdd_index[2];
 	BOOL sasi[2];
 	char saved_sasi[2][MAX_PATH];
 	char applied_sasi[2][MAX_PATH];
@@ -905,9 +909,6 @@ static BOOL check_fdd_image(const char *path, const char *level) {
 	return (SUCCESS);
 }
 
-/* Disk within a multi-image D88 chosen on the command line, 0-based. */
-static UINT cli_fdd_image[2];
-
 static void mount_configured_fdd_images(void) {
 	int drive;
 
@@ -921,7 +922,7 @@ static void mount_configured_fdd_images(void) {
 		if (path[0] == '\0') {
 			continue;
 		}
-		diskdrv_setfddex((REG8)drive, path, 0, cli_fdd_image[drive]);
+		diskdrv_setfddex((REG8)drive, path, 0, np2oscfg.fdd_image_index[drive]);
 	}
 }
 
@@ -1134,6 +1135,9 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	}
 	for (drive = 0; drive < 2; drive++) {
 		saved->fdd[drive] = options->fdd_mode[drive] != VAEG_CLI_MEDIA_UNSET;
+		/* M120: a new FDD path starts at its first disk unless one is named */
+		saved->fdd_index[drive] = saved->fdd[drive] || (options->fdd_image[drive] != 0);
+		saved->saved_fdd_index[drive] = np2oscfg.fdd_image_index[drive];
 		if (saved->fdd[drive]) {
 			file_cpyname(saved->saved_fdd[drive], np2oscfg.fdd_image[drive],
 			             sizeof(saved->saved_fdd[drive]));
@@ -1227,7 +1231,11 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 		            sizeof(np2oscfg.keyboard_host_layout));
 	}
 	for (drive = 0; drive < 2; drive++) {
-		cli_fdd_image[drive] = (options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0;
+		if (saved->fdd_index[drive]) {
+			np2oscfg.fdd_image_index[drive] =
+			    (BYTE)((options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0);
+			saved->applied_fdd_index[drive] = np2oscfg.fdd_image_index[drive];
+		}
 		if (saved->fdd[drive]) {
 			if (options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) {
 				file_cpyname(np2oscfg.fdd_image[drive], options->fdd_path[drive],
@@ -1353,6 +1361,13 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_
 		if (saved->fdd[drive] && !strcmp(np2oscfg.fdd_image[drive], saved->applied_fdd[drive])) {
 			file_cpyname(np2oscfg.fdd_image[drive], saved->saved_fdd[drive],
 			             sizeof(np2oscfg.fdd_image[drive]));
+			if (saved->fdd_index[drive] &&
+			    (np2oscfg.fdd_image_index[drive] == saved->applied_fdd_index[drive])) {
+				np2oscfg.fdd_image_index[drive] = saved->saved_fdd_index[drive];
+			}
+		} else if (!saved->fdd[drive] && saved->fdd_index[drive] &&
+		           (np2oscfg.fdd_image_index[drive] == saved->applied_fdd_index[drive])) {
+			np2oscfg.fdd_image_index[drive] = saved->saved_fdd_index[drive];
 		}
 		if (saved->sasi[drive] && !strcmp(np2cfg.sasihdd[drive], saved->applied_sasi[drive])) {
 			file_cpyname(np2cfg.sasihdd[drive], saved->saved_sasi[drive],

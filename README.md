@@ -44,6 +44,8 @@ remains a useful historical reference.
   `extra/` (the VA ROM set is still needed);
 - PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
   mode (optional);
+- D88 files holding several disks: disk A in drive 1 and disk B in drive 2
+  on opening, and any disk chosen from the FDD menu;
 - cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
   recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
   for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
@@ -72,6 +74,16 @@ remains a useful historical reference.
 - a greatly reduced PC-98-only codebase.
 
 ## News
+
+### 2026-10-17 - Rel.20261017.1
+
+[Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1)
+supports D88 files that hold several disks, as many PC-8801 games are
+distributed. Open one in FDD1 and its disk A goes into drive 1 and disk B
+into drive 2, ready to play; FDD > FDD1 ディスク and FDD2 ディスク list every
+disk by the name stored in the file for the disk changes a game asks for.
+The disks in use are kept over resets, restarts and save states. See
+[Rel.20261017.1 changes](CHANGES.20261017.1.md).
 
 ### 2026-10-17 - Rel.20261017
 
@@ -262,6 +274,7 @@ Common user-facing command-line options are:
 | Sound | `--soundbuffer MS` | Set the sound buffer from 40 to 1000 ms |
 | Sound | `--mute` | Start with sound muted |
 | FDD | `--fdd1 PATH`, `--fdd2 PATH` | Mount a D88 or raw floppy image |
+| FDD | `--fdd1-image N`, `--fdd2-image N` | Choose disk N (from 1) of a D88 file holding several disks |
 | Tape | `--tape PATH`, `--tape-save PATH` | Load a `.cmt`/`.t88` tape, or record to a raw tape image (V1/V2) |
 | SASI | `--sasi1 PATH`, `--sasi2 PATH` | Mount a SASI HDI image |
 | HOSTFAT | `--hostfat-dir PATH` | Attach a read-only host folder to PC-Engine |
