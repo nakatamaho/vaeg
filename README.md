@@ -44,6 +44,8 @@ remains a useful historical reference.
   `extra/` (the VA ROM set is still needed);
 - PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
   mode (optional);
+- D88 files holding several disks: disk A in drive 1 and disk B in drive 2
+  on opening, and any disk chosen from the FDD menu;
 - cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
   recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
   for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
@@ -76,9 +78,12 @@ remains a useful historical reference.
 ### 2026-10-17 - Rel.20261017.1
 
 [Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1)
-adds D88 files that hold several disks: FDD > FDD1 ディスク and FDD2 ディスク
-choose a disk, and the choice is kept over resets, restarts and save states.
-See [Rel.20261017.1 changes](CHANGES.20261017.1.md).
+supports D88 files that hold several disks, as many PC-8801 games are
+distributed. Open one in FDD1 and its disk A goes into drive 1 and disk B
+into drive 2, ready to play; FDD > FDD1 ディスク and FDD2 ディスク list every
+disk by the name stored in the file for the disk changes a game asks for.
+The disks in use are kept over resets, restarts and save states. See
+[Rel.20261017.1 changes](CHANGES.20261017.1.md).
 
 ### 2026-10-17 - Rel.20261017
 
