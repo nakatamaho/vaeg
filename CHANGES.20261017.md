@@ -26,7 +26,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 This release records the changes from Rel.20260908 through Rel.20261017.
 The main additions are the V1/V2 compatibility modes (PC-8801 and N-BASIC
 software on the VA), PC-8801 and PC-8001 machines started from
-user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
+user-supplied ROMs, D88 files holding several disks, the 8087, the
+PCG-8100/8800, and a reorganized menu.
 
 <div align="center">
 <table align="center" width="100%">
@@ -79,6 +80,19 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
   `demos/pcg-sample`.
 - No PC-8801 or PC-8001 ROMs are included.
 
+## Multi-image D88 files
+
+- Opening or dropping a D88 file that holds several disks into FDD1 mounts
+  its first disk there and its second disk in FDD2, as many PC-8801 games
+  expect.
+- FDD > FDD1 ディスク and FDD2 ディスク list the disks of the file, by number
+  and the name stored in the file, and put the chosen one in the drive; the
+  disks of the file in the other drive are listed as well.
+- The FDD menu shows the disk in use, for example `[2/3 NAME]`.
+- The chosen disk is kept over a reset, in `vaeg.cfg` (`FDD1IMAGE`,
+  `FDD2IMAGE`), in save states and in 最近の起動. Writes go to that disk.
+- `--fdd1-image N` and `--fdd2-image N` choose a disk from the command line.
+
 ## V3 display, CPU and sound
 
 - 8087 emulation is included and enabled by default, with the VA2's 8 MHz
@@ -94,6 +108,8 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
   on hardware.
 - Pasted text no longer loses repeated characters and is paced by guest
   frames.
+- Z80 code that waits with `EI; HALT` in the uPD9002's compatible mode
+  continues after the interrupt, as on the hardware.
 
 ## Frontend
 
@@ -115,6 +131,11 @@ user-supplied ROMs, the 8087, the PCG-8100/8800, and a reorganized menu.
   lamps.
 - 15 kHz scanline fill (CRT gaps or LCD fill); 200-line modes are line
   doubled at 24 kHz.
+
+- The FDD, HDD and tape file windows each keep their own 最近のフォルダ (5
+  each). A window opens in the folder of the medium in use, else its own
+  newest folder, else the newest of the FDD, HDD and tape windows in that
+  order. The `GUI_fdddir` and `GUI_hdddir` settings are no longer used.
 
 ## Disks and demos
 
