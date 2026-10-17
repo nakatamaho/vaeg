@@ -114,7 +114,10 @@ not attributed to the final dependency set. The measurements do not establish
 why the maintainer's previous live recording was unusably slow. Debug alone is
 not a demonstrated explanation, especially because ordinary emulation was fine.
 
-## Local test artifacts
+## Historical local test artifacts (before the static-default follow-up)
+
+These are the evaluated screen-change checkpoint, not the current recommended
+handoff. See [Windows/macOS static-link defaults and artifacts](static-linking.md).
 
 Both are working-tree test builds, not clean-commit/release approvals.
 Base105e5cac plus inherited snapshots:

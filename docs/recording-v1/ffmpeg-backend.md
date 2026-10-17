@@ -21,6 +21,27 @@ pixel/sample formats, and required options at startup. Fail clearly when ON is
 misconfigured. Do not silently configure OFF or switch codecs. Record exact
 library versions and the encoder configuration in synthetic evidence.
 
+### Static linking defaults (maintainer follow-up)
+
+`VAEG_STATIC_FFMPEG` defaults ON on Windows/macOS and OFF on other platforms.
+When recording is enabled, use target-compatible FFmpeg archives from the
+selected pkg-config prefix, preserving the ordered `--static` private dependency
+closure. Exact archive paths prevent `-lavcodec` from preferring a neighboring
+dylib/DLL. Missing archives fail with `VAEG_FFMPEG_STATIC_ARCHIVE_MISSING`;
+malformed metadata fails with `VAEG_FFMPEG_STATIC_METADATA_MISSING`. No shared
+fallback. Recording OFF still performs no FFmpeg discovery/linking.
+
+`VAEG_STATIC_LIBRASHADER` also defaults ON on Windows/macOS. Supply the pinned
+archive, audited notices and rustc native-link libraries through the existing
+`VAEG_LIBRASHADER_*` settings. Missing inputs fail, not dlopen fallback. Existing
+CMake caches retain prior explicit values: reconfigure them with both static
+options ON. Explicit shared-library opt-out remains a developer configuration,
+not the desktop default. Apple system Frameworks are not made static.
+
+[Static handoff and exact checks](static-linking.md). Minimal LGPL FFmpeg remains
+required for our handoff; static linkage alone does not establish its license
+configuration or satisfy redistribution/relinking obligations.
+
 ## F2. Encoder setup
 
 Use 8-bit packed RGB preserving all R/G/B values. The current backend selects

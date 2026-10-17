@@ -24,7 +24,18 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current screen-change stop and macOS Release handoff
+## Current Windows/macOS static-link handoff
+
+The maintainer makes FFmpeg static by default on Windows/macOS and librashader
+static by default on macOS too. [Implementation86535d23](https://github.com/nakatamaho/vaeg/commit/86535d23e8641d6f67f4e5f3683f23d69c622812)
+uses exact FFmpeg archives/private link metadata with no shared fallback and
+retains librashader pin/notice checks. [Static evidence/artifacts](static-linking.md).
+Mac `build/macos-recording-static-release/sdl2/vaeg` has no FFmpeg/librashader
+dylib dependency; SDL2/LibArchive/iconv/system Frameworks remain shared.
+Earlier shared-FFmpeg builds below are historical, not the current handoff.
+Existing inherited snapshots remain unchanged and uncommitted.
+
+## Previous screen-change stop and macOS Release handoff
 
 The maintainer requests automatic recording stop on screen-setting changes.
 [105e5cac](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b)

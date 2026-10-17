@@ -95,3 +95,17 @@ sample frames exactly. Processing throughput is not live guest/display FPS;
 previous slow live recording is not explained by Debug alone. Existing inherited
 sources remain unchanged/uncommitted. LOCAL_ONLY, no hosted CI, no media/demo or
 human gate, no legal/release approval and no OS-assisted completion claimed.
+
+Static-default follow-up: the maintainer requests Windows/macOS static FFmpeg
+and macOS static librashader. [86535d23](https://github.com/nakatamaho/vaeg/commit/86535d23e8641d6f67f4e5f3683f23d69c622812)
+sets desktop defaults, resolves exact FFmpeg archives/private flags, fails closed
+without archives and keeps existing librashader archive/license audit. No
+recording-OFF FFmpeg discovery. Isolated resolver4/4, real static ON25 passed
+plus one H.264 hardware skip, OFF16/16, final Release selftest and Win static
+build/import audit pass. Static preset/Metal loader tests pass; macOS has no
+FFmpeg/librashader dylib dependency, while other local dependencies stay shared.
+[Static artifact/command/check scope](../../recording-v1/static-linking.md).
+Cached Rust archive/notices reused, minimal native FFmpeg built static from the
+same pinned source. Compatibility workflow now prepares its pinned static
+librashader instead of relying on the former dynamic default. No hosted CI run,
+new private asset access, inherited edit/commit, push or gate completion.

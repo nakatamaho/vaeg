@@ -1,23 +1,26 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest screen-change recording-stop correction
+## Latest static dependency defaults and screen-change recording stop
 
-The current test executable is based on `105e5cac38962c5e408891a98f8620f61edd733b`
+The current test executable is based on `86535d23e8641d6f67f4e5f3683f23d69c622812`
 **plus unchanged, uncommitted inherited native-session implementation/tests**;
 not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `bc3aedd236e753052688be02b4b85dc63c2acef8841618440fa613822ba41c8d`.
+SHA256: `69df6d74f0be73ac291fc24fe9b939ab9f5d61edde23444cd2fc90b7dfd127fe`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-screen-change-stop-and-macos-release-handoff).
+[current follow-up evidence](recording-ui-followup.md#current-windowsmacos-static-link-handoff).
 GUI recording now stops/saves completed intervals on screen-setting changes or
 coded-descriptor rejection without exiting the guest. The reported15kHz case
 reproduces before correction and completes1200 frames after real GUI-start
 automation. [Full evidence and local macOS Release handoff](screen-change-stop.md).
-Final macOS arm64 uses a task-local minimal shared LGPLFFmpeg8.1.2, not the
-nonfree/unredistributable MacPorts FFmpeg. All inherited files remain untouched
+Current macOS arm64 statically links minimal LGPLFFmpeg8.1.2 and pinned
+librashader. Both default static on Windows/macOS, fail closed for missing
+archives, and have no dylib imports in the macOS handoff. SDL2/LibArchive/iconv
+remain shared. [Exact checks and artifacts](static-linking.md). Earlier shared
+FFmpeg builds are historical; nonfree MacPorts FFmpeg is not handed off. All inherited files remain untouched
 and uncommitted; Metal is included only in the macOS working-tree build.
 Native Windows and full live/hardware performance gates remain pending.
 
