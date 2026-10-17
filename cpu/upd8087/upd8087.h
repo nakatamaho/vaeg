@@ -177,6 +177,15 @@ void upd8087_load_environment(UPD8087_STATE *state, const uint8_t image[14]);
 void upd8087_store_state(const UPD8087_STATE *state, uint8_t image[94]);
 void upd8087_load_state(UPD8087_STATE *state, const uint8_t image[94]);
 
+/* M123: on x86 and x86-64 hosts built with GCC or Clang, FPTAN, FPATAN,
+ * F2XM1, FYL2X and FYL2XP1 can run on the host x87 (inline assembly) instead
+ * of the SoftFloat series. The domain checks, the stack and the status
+ * handling stay the same; results may differ from the series in the last
+ * bits and between hosts. The setting is not part of the machine state. */
+bool upd8087_host_fpu_available(void);
+void upd8087_set_host_fpu(bool enabled);
+bool upd8087_host_fpu_active(void);
+
 /* Explicit fixed-endian VAEG savestate payload; this is not a C struct dump. */
 bool upd8087_store_machine_state(const UPD8087_STATE *state, uint8_t *image,
 	uint32_t image_size);

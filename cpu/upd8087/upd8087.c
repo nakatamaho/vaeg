@@ -937,6 +937,190 @@ static void set_compare_conditions(UPD8087_STATE *state, int comparison,
 	}
 }
 
+/* ---- M123: host x87 for the transcendental instructions ---- */
+
+#if (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
+#define UPD8087_HOST_X87 1
+#else
+#define UPD8087_HOST_X87 0
+#endif
+
+enum {
+	HOST_F2XM1 = 0,
+	HOST_FYL2X,
+	HOST_FPTAN,
+	HOST_FPATAN,
+	HOST_FYL2XP1
+};
+
+static bool host_fpu_enabled = true;
+
+bool upd8087_host_fpu_available(void) {
+	return UPD8087_HOST_X87 != 0;
+}
+
+void upd8087_set_host_fpu(bool enabled) {
+	host_fpu_enabled = enabled;
+}
+
+bool upd8087_host_fpu_active(void) {
+	return (UPD8087_HOST_X87 != 0) && host_fpu_enabled;
+}
+
+#if UPD8087_HOST_X87
+typedef struct {
+	unsigned char bytes[10];
+} HOST_X87_EXTENDED;
+
+typedef struct {
+	unsigned char bytes[28];
+} HOST_X87_ENVIRONMENT;
+
+static void host_x87_from_raw(UPD8087_RAW80 value, HOST_X87_EXTENDED *out) {
+	unsigned i;
+
+	for (i = 0; i < 8; i++) {
+		out->bytes[i] = (unsigned char)(value.signif >> (8 * i));
+	}
+	out->bytes[8] = (unsigned char)value.sign_exp;
+	out->bytes[9] = (unsigned char)(value.sign_exp >> 8);
+}
+
+static UPD8087_RAW80 host_x87_to_raw(const HOST_X87_EXTENDED *in) {
+	UPD8087_RAW80 value;
+	unsigned i;
+
+	value.signif = 0;
+	for (i = 0; i < 8; i++) {
+		value.signif |= (uint64_t)in->bytes[i] << (8 * i);
+	}
+	value.sign_exp = (uint16_t)(in->bytes[8] | (in->bytes[9] << 8));
+	return value;
+}
+
+/*
+ * Run one instruction on the host x87 with the guest rounding control,
+ * 64-bit precision and every exception masked. x is ST(0), y is ST(1). The
+ * host environment (control word, status flags) is saved and restored, and
+ * the host register stack is left as it was. Returns the host status word.
+ */
+static uint16_t host_x87_run(unsigned operation, uint16_t guest_control, UPD8087_RAW80 x,
+                             UPD8087_RAW80 y, UPD8087_RAW80 *result) {
+	HOST_X87_ENVIRONMENT environment;
+	HOST_X87_EXTENDED in_x;
+	HOST_X87_EXTENDED in_y;
+	HOST_X87_EXTENDED out;
+	uint16_t control = (uint16_t)((guest_control & 0x0c00) | 0x033f);
+	uint16_t status = 0;
+
+	host_x87_from_raw(x, &in_x);
+	host_x87_from_raw(y, &in_y);
+	memset(&out, 0, sizeof(out));
+	switch (operation) {
+	case HOST_F2XM1:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "f2xm1\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x)
+		                 : "st", "memory");
+		break;
+	case HOST_FPTAN:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fptan\n\t"
+		                 "fstp %%st(0)\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x)
+		                 : "st", "st(1)", "memory");
+		break;
+	case HOST_FPATAN:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fpatan\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	case HOST_FYL2X:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fyl2x\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	default: /* HOST_FYL2XP1 */
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fyl2xp1\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	}
+	*result = host_x87_to_raw(&out);
+	return status;
+}
+#endif
+
+/* The instruction on the host x87 when that is active: the guest status
+ * gains the host's IE/ZE/OE/UE/PE flags (operands are already normal, so DE
+ * is not taken). Returns false when the SoftFloat series must run. */
+static bool host_transcendental(UPD8087_STATE *state, unsigned operation, UPD8087_RAW80 x,
+                                UPD8087_RAW80 y, UPD8087_RAW80 *result) {
+#if UPD8087_HOST_X87
+	uint16_t status;
+	UPD8087_RAW80 value;
+
+	if (!host_fpu_enabled) {
+		return false;
+	}
+	status = host_x87_run(operation, state->control, raw_for_arithmetic(state, x),
+	                      raw_for_arithmetic(state, y), &value);
+	raise_status(state,
+	             (uint8_t)(status & (UPD8087_STATUS_IE | UPD8087_STATUS_ZE | UPD8087_STATUS_OE |
+	                                 UPD8087_STATUS_UE | UPD8087_STATUS_PE)));
+	*result = raw_for_arithmetic(state, value);
+	return true;
+#else
+	(void)state;
+	(void)operation;
+	(void)x;
+	(void)y;
+	(void)result;
+	return false;
+#endif
+}
+
 static UPD8087_RAW80 exp2_series(UPD8087_STATE *state, UPD8087_RAW80 value) {
 	UPD8087_RAW80 term = raw_one;
 	UPD8087_RAW80 sum = raw_one;
@@ -2606,9 +2790,11 @@ static bool execute_fptan(UPD8087_STATE *state) {
 		 * operands as undefined without signalling an exception. */
 		return true;
 	}
-	sine = sin_series(state, value);
-	cosine = cos_series(state, value);
-	tangent = sf_div(state, sine, cosine);
+	if (!host_transcendental(state, HOST_FPTAN, value, raw_zero, &tangent)) {
+		sine = sin_series(state, value);
+		cosine = cos_series(state, value);
+		tangent = sf_div(state, sine, cosine);
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 0, tangent);
 		set_c2(state, false);
@@ -2636,7 +2822,9 @@ static bool execute_fpatan(UPD8087_STATE *state) {
 	    raw_compare(state, y, x, &unordered) >= 0 || unordered) {
 		return true;
 	}
-	result = atan_value(state, sf_div(state, y, x));
+	if (!host_transcendental(state, HOST_FPATAN, x, y, &result)) {
+		result = atan_value(state, sf_div(state, y, x));
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 1, result);
 		stack_pop(state);
@@ -2741,7 +2929,9 @@ static bool execute_transcendental(UPD8087_STATE *state, unsigned operation) {
 		    raw_compare(state, value, raw_half, &(bool){false}) > 0) {
 			return true;
 		}
-		result = sf_sub(state, exp2_series(state, value), raw_one);
+		if (!host_transcendental(state, HOST_F2XM1, value, raw_zero, &result)) {
+			result = sf_sub(state, exp2_series(state, value), raw_one);
+		}
 		break;
 	case 1: /* FYL2X */
 		if (!stack_require(state, 1) && !state_can_commit(state)) {
@@ -2753,7 +2943,9 @@ static bool execute_transcendental(UPD8087_STATE *state, unsigned operation) {
 		    raw_is_infinity(stack_get(state, 1))) {
 			return true;
 		}
-		result = sf_mul(state, stack_get(state, 1), log2_value(state, value));
+		if (!host_transcendental(state, HOST_FYL2X, value, stack_get(state, 1), &result)) {
+			result = sf_mul(state, stack_get(state, 1), log2_value(state, value));
+		}
 		if (state_can_commit(state)) {
 			stack_set(state, 1, result);
 			stack_pop(state);
@@ -2788,7 +2980,9 @@ static bool execute_fyl2xp1(UPD8087_STATE *state) {
 	    raw_is_infinity(stack_get(state, 1))) {
 		return true;
 	}
-	result = sf_mul(state, stack_get(state, 1), log2_one_plus_value(state, x));
+	if (!host_transcendental(state, HOST_FYL2XP1, x, stack_get(state, 1), &result)) {
+		result = sf_mul(state, stack_get(state, 1), log2_one_plus_value(state, x));
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 1, result);
 		stack_pop(state);

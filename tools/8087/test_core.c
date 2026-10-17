@@ -1306,17 +1306,138 @@ static int test_softfloat_context(void) {
 	return 0;
 }
 
+/* M123: the transcendental instructions on the host x87 are within one
+ * ulp of the correctly rounded value (mpmath, 200 bits), set PE, leave the
+ * host x87 control and status words as they were, and the series runs
+ * again when the host path is off. */
+static bool within_one_ulp(UPD8087_RAW80 value, UPD8087_RAW80 expected) {
+	uint64_t difference;
+
+	if (value.sign_exp != expected.sign_exp) {
+		return false;
+	}
+	difference = (value.signif > expected.signif) ? value.signif - expected.signif
+	                                              : expected.signif - value.signif;
+	return difference <= 1;
+}
+
+#if (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
+static void host_x87_words(uint16_t *control, uint16_t *status) {
+	__asm__ volatile("fnstcw %0\n\tfnstsw %1" : "=m"(*control), "=m"(*status));
+}
+
+static void host_x87_clear_flags(void) {
+	__asm__ volatile("fnclex");
+}
+#else
+static void host_x87_clear_flags(void) {
+}
+
+static void host_x87_words(uint16_t *control, uint16_t *status) {
+	*control = 0;
+	*status = 0;
+}
+#endif
+
+static int test_host_x87_transcendentals(void) {
+	static const UPD8087_RAW80 tan_quarter = {UINT64_C(0x82bc2d21e262af32), 0x3ffd};
+	static const UPD8087_RAW80 atan_half = {UINT64_C(0xed63382b0dda7b45), 0x3ffd};
+	static const UPD8087_RAW80 exp2_quarter_m1 = {UINT64_C(0xc1bf828c6dc54b7a), 0x3ffc};
+	static const UPD8087_RAW80 log2_three = {UINT64_C(0xcae00d1cfdeb43d0), 0x3fff};
+	static const UPD8087_RAW80 log2_five_quarters = {UINT64_C(0xa4d3c25e68dc57f2), 0x3ffd};
+	static const UPD8087_RAW80 three = {UINT64_C(0xc000000000000000), 0x4000};
+	UPD8087_STATE state;
+	uint16_t control_before;
+	uint16_t status_before;
+	uint16_t control_after;
+	uint16_t status_after;
+
+	if (!upd8087_host_fpu_available()) {
+		CHECK(!upd8087_host_fpu_active(), "no host x87 path without an x86 host");
+		fprintf(stdout, "8087 host x87: not available on this host\n");
+		return 0;
+	}
+	upd8087_set_host_fpu(true);
+	CHECK(upd8087_host_fpu_active(), "the host x87 path can be selected");
+	host_x87_clear_flags();
+	host_x87_words(&control_before, &status_before);
+
+	reset_enabled(&state);
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf2) == UPD8087_EXECUTED &&
+	          raw_equal(state.reg[state.top], TEST_ONE) &&
+	          within_one_ulp(state.reg[(state.top + 1) & 7], tan_quarter) &&
+	          (state.status & UPD8087_STATUS_PE) != 0,
+	      "host FPTAN gives tan(1/4) and pushes one");
+
+	reset_enabled(&state);
+	set_stack_value(&state, 1, TEST_QUARTER);
+	set_stack_value(&state, 0, TEST_HALF);
+	CHECK(execute_register(&state, 0xd9, 0xf3) == UPD8087_EXECUTED &&
+	          within_one_ulp(state.reg[state.top], atan_half),
+	      "host FPATAN gives atan(1/2)");
+
+	reset_enabled(&state);
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf0) == UPD8087_EXECUTED &&
+	          within_one_ulp(state.reg[state.top], exp2_quarter_m1),
+	      "host F2XM1 gives 2^(1/4)-1");
+
+	reset_enabled(&state);
+	state.control |= 0x0c00; /* chop: a host control word unlike the default */
+	set_stack_value(&state, 1, TEST_ONE);
+	set_stack_value(&state, 0, three);
+	CHECK(execute_register(&state, 0xd9, 0xf1) == UPD8087_EXECUTED &&
+	          within_one_ulp(state.reg[state.top], log2_three),
+	      "host FYL2X gives log2(3)");
+
+	reset_enabled(&state);
+	set_stack_value(&state, 1, TEST_ONE);
+	set_stack_value(&state, 0, TEST_QUARTER);
+	CHECK(execute_register(&state, 0xd9, 0xf9) == UPD8087_EXECUTED &&
+	          within_one_ulp(state.reg[state.top], log2_five_quarters),
+	      "host FYL2XP1 gives log2(5/4)");
+
+	host_x87_words(&control_after, &status_after);
+	CHECK(control_after == control_before && status_after == status_before,
+	      "the host x87 control and status words are restored");
+
+	upd8087_set_host_fpu(false);
+	CHECK(!upd8087_host_fpu_active(), "the host x87 path can be turned off");
+	reset_enabled(&state);
+	set_stack_value(&state, 1, TEST_QUARTER);
+	set_stack_value(&state, 0, TEST_HALF);
+	CHECK(execute_register(&state, 0xd9, 0xf3) == UPD8087_EXECUTED &&
+	          !within_one_ulp(state.reg[state.top], atan_half),
+	      "the SoftFloat series runs with the host path off");
+	upd8087_set_host_fpu(true);
+	return 0;
+}
+
+static int run_core_tests(void) {
+	return test_config_and_timing() || test_debug_view() || test_environment_codecs() ||
+	       test_environment_memory_operations() || test_machine_state_codec() ||
+	       test_instruction_slice() || test_special_instructions() ||
+	       test_bcd_and_integer_transfers() || test_denormal_memory_loads() ||
+	       test_integer_memory_direction() || test_register_arithmetic_directions() ||
+	       test_infinity_control() || test_exception_wait_and_bus_seam() ||
+	       test_decoder_inventory() || test_softfloat_context();
+}
+
 int main(void) {
-	if (test_config_and_timing() || test_debug_view() || test_environment_codecs() ||
-	    test_environment_memory_operations() ||
-	    test_machine_state_codec() || test_instruction_slice() ||
-	    test_special_instructions() || test_bcd_and_integer_transfers() ||
-	    test_denormal_memory_loads() ||
-	    test_integer_memory_direction() ||
-	    test_register_arithmetic_directions() ||
-	    test_infinity_control() ||
-	    test_exception_wait_and_bus_seam() || test_decoder_inventory() ||
-	    test_softfloat_context()) {
+	/* M123: the whole battery with the SoftFloat series, then (on x86
+	 * hosts) with the host x87 path. */
+	upd8087_set_host_fpu(false);
+	if (run_core_tests()) {
+		return 1;
+	}
+	if (upd8087_host_fpu_available()) {
+		upd8087_set_host_fpu(true);
+		if (run_core_tests()) {
+			return 1;
+		}
+	}
+	if (test_host_x87_transcendentals()) {
 		return 1;
 	}
 	fprintf(stdout, "8087 core tests: PASS\n");
