@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M122 — separate recent folders for the FDD, HDD and tape file windows
 
-Status: **implemented; G122 human gate pending**
+Status: **complete; G122 passed on 2026-10-17**
 
 ## Request
 
@@ -68,3 +68,10 @@ the medium in use, else `GUI_fdddir` (FDD and tape windows) or
 Standard gate, plus: Tape > 読み込み… lists only tape folders and opens in
 the last tape folder; with no tape folder yet it opens in the FDD folder;
 FDD and HDD windows keep their own folders.
+
+### G122
+
+- Passed on 2026-10-17 (maintainer) with the Windows build
+  `bbfe44b6f037...2a09` (SHA-256, static MinGW) from
+  [497e6154](https://github.com/nakatamaho/vaeg/commit/497e6154e672e5ad6a587b37a4408d4fe2801f97).
+  Released as Rel.20261017.2.
