@@ -3075,6 +3075,26 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — FFV1 Matroska output omitted full-range RGB metadata
+
+- **Symptom/scope:** archive files report unknown range/matrix rather than
+  describing their full-range, 8-bit packed RGB pixels. The separately reported
+  VLC white-to-yellow/red-cast symptom is still OPEN below.
+- **Demonstrated root cause:** the custom Matroska writer reconstructs codec
+  parameters, but filled color properties only for H.264, not FFV1. Independent
+  inspection of the Windows-produced public file confirms the omission.
+- **Correction:** declare full-range RGB and eight-bit components in the FFV1
+  codec parameters; retain limited-range BT.709 for H.264. No RGB values change.
+- **Verification:** mux/decode regression assertions check these properties;
+  macOS recording tests pass 22/22. The new Windows Release public fixture
+  reports `pc`/`gbr`/8-bit, independently decodes to all 180 original RGB frames,
+  and has identical encoded payloads/timestamps for all 360 video/PCM packets.
+  Native Windows/VLC confirmation remains pending; this is not a demonstrated
+  correction of the reported player tint.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [evaluated source, artifact and limitations](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
+
 ## Open Defects
 
 ### M100s2 — saved FFV1 video has a red cast on Windows
@@ -3091,9 +3111,12 @@ separate parity correction or move it to Open Defects.
   decodes to all 180 source RGB frames and exact PCM on macOS. These synthetic
   checks do not reproduce or disprove the saved-movie report. See
   [follow-up evidence](../recording-v1/recording-ui-followup.md).
-- **Next step:** identify the affected player and compare decoded RGB values
-  against the captured source, separating capture, mux metadata and playback.
-  Do not publish private guest images or clip identities as evidence.
+- **Player follow-up:** VLC shows only yellow/red/green in the public pattern,
+  with white appearing yellow. Full RGB is still present in independently
+  decoded frames. The missing RGB metadata is now corrected separately above;
+  the new tagged fixture preserves every encoded packet. Compare it in the
+  affected VLC before attributing or closing the tint defect. No private guest
+  images or clip identities are needed or published.
 - **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
   [recording status](../recording-v1/os-assisted-status.md).
 

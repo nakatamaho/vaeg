@@ -1,12 +1,27 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Maintainer follow-up: native archive tint and recording controls
+## Latest local REC/RGB/audio snapshot
+
+The current test executable is based on `8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7`
+**plus unchanged, uncommitted inherited native-session implementation/tests**;
+not a clean-commit artifact. These files were neither edited nor committed.
+SHA256: `bbecff82bdccf0c5ad73d6a6177b79cfb2b0167ef6f98c9248c5919ee6ca7bae`.
+Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
+Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
+full-range RGB metadata correction, public packet-identical comparison fixture,
+checks and pending VLC/native Windows gates are in the
+[current follow-up evidence](recording-ui-followup.md#current-rectoggle-rgb-headers-and-local-audio-snapshot).
+The maintainer identifies VLC, only three colored bars, and white appearing
+yellow. This remains OPEN; the metadata correction has not been confirmed to
+resolve the player's symptom. No channel/matrix/gamma correction was applied.
+
+## Previous clean archive tint/controls checkpoint
 
 The maintainer reports red tint in the saved movie only; live VAEG display is
 normal. This remains OPEN, not a demonstrated channel-order or matrix defect.
-Player identity and independent captured-source/decoded-RGB comparison are
-pending. No speculative tint correction has been applied. See the
+At this earlier checkpoint, player identity and independent
+captured-source/decoded-RGB comparison were pending. No speculative tint correction has been applied. See the
 [open correctness-ledger entry](../modernization/bug-fixes.md#m100s2--saved-ffv1-video-has-a-red-cast-on-windows).
 
 Public RGB FFV1 encode/decode, capability and PCM Windows test executables run
@@ -19,13 +34,14 @@ coverage now passes on macOS and Wine with the rebuilt Windows test binary.
 A public color-bar MKV made with the exact Windows Release encoder/muxer objects
 independently decodes to all 180 original RGB frames on macOS, with exact PCM.
 No private clip or screenshot has been accessed or recorded. Tint remains OPEN;
-player identity and the public pattern's appearance on that player are pending.
+at this earlier checkpoint the player and pattern appearance were unknown.
 
 Automatic dated `recordings/` output, clockwise recording, Japanese controls/
 settings and the RECORDING lamp left of KANA/CAPS are implemented in
 `df9655883275f662216dc8febe1b0da5f3189928`. New executable SHA256:
 `13bd765fa218ea4e8fe6c32a1ce382dbf6f802ea1bb8fae6ef46eaa9c4a14e9e`,
-58,839,792 bytes, at `../vaeg-mingw-recording-74c3355d/output/vaeg.exe`.
+58,839,792 bytes, now archived as
+`../vaeg-mingw-recording-74c3355d/output/vaeg-df965588.exe`.
 See [follow-up evidence, UI behavior and limitations](recording-ui-followup.md).
 macOS ON/OFF recording tests: 22/22 and 14/14; ROM-less panel selftest: 1/1;
 MinGW build/link/import audit: exit0; six focused Windows/Wine checks passed.
