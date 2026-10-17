@@ -3077,6 +3077,27 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M123 — the 8087 SoftFloat series is inaccurate in its transcendentals
+
+- **Symptom/scope:** the SoftFloat path of FPTAN, FPATAN, F2XM1, FYL2X and
+  FYL2XP1 differs from the exact value by thousands of ulp or more; FPATAN
+  near Y = X is wrong from the sixth digit (atan(74/75): 0.778679 instead
+  of 0.778687), and F2XM1 of small operands loses most of its digits. Since
+  M123 this applies only when the host x87 path is off or unavailable
+  (macOS arm64 builds).
+- **Cause (from the code and the measurements):** FPATAN sums at most 191
+  terms of the arctangent series, which converges slowly near |z| = 1;
+  F2XM1 computes 2^x and then subtracts one, cancelling the leading digits
+  for small x; the other series accumulate one rounding per term.
+- **Evidence:** 20,000 random operands per instruction against long-double
+  libm (and mpmath for the unit-test points): series up to 1.6e16 ulp
+  (FPATAN), 2.2e7 (F2XM1), 1.0e4 (FPTAN, FYL2XP1), 2.8e3 (FYL2X); the host
+  x87 path at most 2 ulp
+  ([M123 task](../agents/tasks/M123_8087_host_x87.md),
+  [host path commit](https://github.com/nakatamaho/vaeg/commit/9abda93dfd5262042435606da751581d33d1baea)).
+- **Next step:** argument reduction and better-converging formulas (or an
+  exact-rounding library) for the series, checked against mpmath.
+
 ### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
 
 - **Symptom/scope:** on the maintainer's PC-88VA2 with the MS-DOS 4.0
