@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M122 — separate recent folders for the FDD, HDD and tape file windows
 
-Status: **complete; G122 passed on 2026-10-17**
+Status: **complete; G122 passed on 2026-10-17; merged to `main` at [0e923b4](https://github.com/nakatamaho/vaeg/commit/0e923b428a88dd02bb306b82261a240be73226a3)**
 
 ## Request
 
