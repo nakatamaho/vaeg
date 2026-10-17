@@ -274,8 +274,9 @@ extern "C" void ymfm_opn_setcfg(REG8 maxch, UINT flag) {
 	for (unsigned index = 0; index < kChipSlots; index++) {
 		ymfm_slot &slot = g_slots[index];
 		const unsigned first_channel = index * 6;
-		const unsigned channels =
-		    (maxch > first_channel) ? std::min(static_cast<unsigned>(maxch - first_channel), 6U) : 0;
+		const unsigned channels = (maxch > first_channel)
+		                              ? std::min(static_cast<unsigned>(maxch - first_channel), 6U)
+		                              : 0;
 		slot.active = channels != 0;
 		slot.use_opna = (channels > 3) || ((flag & OPN_CHMASK) != 0);
 		slot.stereo = (flag & OPN_CHMASK) == OPN_STEREO;
