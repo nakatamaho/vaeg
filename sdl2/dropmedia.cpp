@@ -47,6 +47,8 @@
 
 #include "compiler.h"
 #include "diskdrv.h"
+#include "fddfile.h"
+#include "fdd_d88.h"
 #include "dosio.h"
 #include "dropmedia.h"
 #include "gui/gui.h"
@@ -821,6 +823,17 @@ static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t fir
 	if (images->size() > capacity) {
 		append_status_line("Ignored " + std::to_string(images->size() - capacity) +
 		                   " additional disk image(s).");
+	}
+	// M120: one multi-image D88 for FDD1 also puts its second disk in FDD2.
+	if ((first_drive == 0) && (images->size() == 1) &&
+	    (fddd88_images((*images)[0].path.c_str(), nullptr, 0) >= 2)) {
+		const DiskCandidate &image = (*images)[0];
+		diskdrv_setfddex(1, image.path.c_str(), 0, 1);
+		file_cpyname(np2oscfg.fdd_image[1], image.path.c_str(), sizeof(np2oscfg.fdd_image[1]));
+		np2oscfg.fdd_image_index[1] = 1;
+		remember_archive_source(1, image.path, image.source_directory);
+		sysmng_update(SYS_UPDATEOSCFG);
+		append_status_line("FDD2: disk 2 of the same file.");
 	}
 	dropmedia_prune_storage();
 }

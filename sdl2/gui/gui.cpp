@@ -2478,6 +2478,14 @@ static bool mount_fdd_path(int drive, const std::string &path_string, UINT image
 		remember_fdd_mount(drive, path, image);
 		dropmedia_prune_storage();
 		set_fdd_status(drive, "mounted", path);
+		// M120: the first disk of a multi-image D88 in FDD1 brings its
+		// second disk into FDD2, as PC-8801 software expects.
+		if ((drive == 0) && (image == 0) && (fddd88_images(path, nullptr, 0) >= 2)) {
+			diskdrv_setfddex(1, path, 0, 1);
+			remember_fdd_mount(1, path, 1);
+			g_fdd_origin[1] = path_string;
+			g_gui.fdd_status += " (FDD2: #2)";
+		}
 	}
 	persist_fdd_dir(parent_dir(path_string));
 	g_fdd_origin[drive] = path_string;
