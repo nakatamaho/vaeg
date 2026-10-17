@@ -2955,6 +2955,42 @@ static int scrnmng_displayed_fixture_callback(
 	return 1;
 }
 
+static BOOL scrnmng_fps_visibility_selftest(void) {
+	const SCRNMNG saved = scrnmng;
+	const VAEG_SPEEDMETER saved_speedmeter = speedmeter;
+	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const UINT saved_drawcount = drawcount;
+	const UINT8 modes[] = {VAEG_DISPINFO_FPS, VAEG_DISPINFO_FPS | VAEG_DISPINFO_FRAME,
+	                       0, VAEG_DISPINFO_FRAME};
+	BOOL result = SUCCESS;
+	UINT mode;
+	for (mode = 0; mode < sizeof(modes) / sizeof(modes[0]); ++mode) {
+		const char *title;
+		np2oscfg.DISPCLK = modes[mode];
+		scrnmng_set_framedisp((modes[mode] & VAEG_DISPINFO_FRAME) != 0);
+		vaeg_framedisp_reset(&scrnmng.framedisp, 0, 0);
+		drawcount = 0;
+		scrnmng_framedisp_tick(0, 0, 0);
+		drawcount = 120;
+		scrnmng_framedisp_tick(2000, 120, 120);
+		title = SDL_GetWindowTitle(scrnmng.window);
+		if (scrnmng.framedisp.fps_tenths != 600 ||
+		    ((strstr(title, "60.0FPS") != NULL) != ((modes[mode] & VAEG_DISPINFO_FPS) != 0)) ||
+		    ((strstr(title, "FRAME 120") != NULL) != ((modes[mode] & VAEG_DISPINFO_FRAME) != 0))) {
+			fprintf(stderr, "selftest: FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=%u\n",
+			        (unsigned int)modes[mode]);
+			result = FAILURE;
+			break;
+		}
+	}
+	scrnmng = saved;
+	speedmeter = saved_speedmeter;
+	np2oscfg.DISPCLK = saved_info;
+	drawcount = saved_drawcount;
+	scrnmng_update_title();
+	return result;
+}
+
 BOOL scrnmng_display_capture_selftest(void) {
 	const SCRNMNG saved = scrnmng;
 	const UINT8 saved_info = np2oscfg.DISPCLK;
@@ -2970,6 +3006,7 @@ BOOL scrnmng_display_capture_selftest(void) {
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
 	scrnmng.window = SDL_CreateWindow("display capture test", 0, 0, 640, 422, SDL_WINDOW_HIDDEN);
 	if (!scrnmng.window) goto cleanup;
+	if (scrnmng_fps_visibility_selftest() != SUCCESS) goto cleanup;
 	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
 	if (!scrnmng.renderer) goto cleanup;
 	white = SDL_CreateRGBSurfaceWithFormat(0, 640, 400, 32, SDL_PIXELFORMAT_RGBA32);
@@ -3647,9 +3684,8 @@ void scrnmng_refresh_title(void) {
 }
 
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames) {
-	if (scrnmng.framedisp_enabled) {
-		(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
-	}
+	/* FPS measurement is independent of the frame-counter visibility switch. */
+	(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
 	scrnmng_update_speedmeter(tick, frames);
 	scrnmng_update_title();
 }
