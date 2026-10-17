@@ -101,6 +101,8 @@ typedef struct {
 	/* Front panel below the screen (FDD access and V1/V2/V3 mode lamps):
 	 * FRONTPANEL_OFF or FRONTPANEL_SIMPLE (lamp bar). */
 	BYTE front_panel;
+	/* M120: the disk of a multi-image D88 in fdd_image[], 0 = first. */
+	BYTE fdd_image_index[2];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

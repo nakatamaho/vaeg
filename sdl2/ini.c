@@ -383,6 +383,8 @@ static const INITBL iniitem[] = {
 
     {"FDD1FILE", INITYPE_STR, np2oscfg.fdd_image[0], MAX_PATH},
     {"FDD2FILE", INITYPE_STR, np2oscfg.fdd_image[1], MAX_PATH},
+    {"FDD1IMAGE", INITYPE_UINT8, &np2oscfg.fdd_image_index[0], 0},
+    {"FDD2IMAGE", INITYPE_UINT8, &np2oscfg.fdd_image_index[1], 0},
     {"HDD1FILE", INITYPE_STR, np2cfg.sasihdd[0], MAX_PATH},
     {"HDD2FILE", INITYPE_STR, np2cfg.sasihdd[1], MAX_PATH},
     {"SCSIHDD0", INITYPE_STR, np2cfg.scsihdd[0], MAX_PATH},
