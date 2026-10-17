@@ -724,17 +724,24 @@ static void draw_recording_menu(void) {
 	}
 	was_active = active;
 	if (ImGui::BeginMenu("録画")) {
-		if (active) {
-			if (vaeg_recording_native_session_is_finalizing()) {
-				ImGui::MenuItem("保存処理中...", nullptr, false, false);
-			} else if (ImGui::MenuItem("録画停止")) {
+		const bool finalizing = vaeg_recording_native_session_is_finalizing() != 0;
+		const bool available = active || capabilities.backend_available != 0u;
+		if (ImGui::MenuItem("録画開始／停止", nullptr, active, available && !finalizing)) {
+			if (active) {
 				if (vaeg_recording_native_session_request_stop()) {
 					g_gui.recording_status = "保存処理中...";
 				} else {
 					g_gui.recording_status = "録画停止に失敗しました: ";
 					g_gui.recording_status += vaeg_recording_native_session_last_error();
 				}
+			} else {
+				start_recording_from_dialog();
 			}
+		}
+		if (finalizing) {
+			ImGui::TextDisabled("保存処理中...");
+		}
+		if (active) {
 			const uint64_t ticks = vaeg_recording_native_session_elapsed_ticks();
 			const uint64_t clock = pccore.realclock;
 			const unsigned long long elapsed_ms =
@@ -744,14 +751,8 @@ static void draw_recording_menu(void) {
 			ImGui::Text(
 			    "録画時間 %llums / %llu フレーム", elapsed_ms,
 			    static_cast<unsigned long long>(vaeg_recording_native_session_accepted_frames()));
-		} else {
-			const bool can_start = capabilities.backend_available != 0u;
-			if (ImGui::MenuItem("録画開始", nullptr, false, can_start)) {
-				start_recording_from_dialog();
-			}
-			if (!can_start) {
-				ImGui::TextDisabled("このビルドでは録画を利用できません。");
-			}
+		} else if (!available) {
+			ImGui::TextDisabled("このビルドでは録画を利用できません。");
 		}
 		if (ImGui::MenuItem("詳細設定...")) {
 			open_recording_dialog();

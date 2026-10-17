@@ -2238,8 +2238,8 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		Uint8 cg;
 		Uint8 cb;
 
-		/* Leave room for RECORDING and both lock lamps in portrait windows. */
-		if (i >= 2 && i < 5 && bar->w < 480 * s) {
+		/* Leave room for REC and both lock lamps in portrait windows. */
+		if (i >= 2 && i < 5 && bar->w < 444 * s) {
 			continue;
 		}
 		if (i == 2) {
@@ -2292,9 +2292,9 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		x += r.w + 12 * s;
 	}
 	/* Keep KANA/CAPS right-aligned; the recording indicator sits just left. */
-	x = bar->x + bar->w - 216 * s;
-	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "RECORDING", label);
-	r.x = x + 76 * s;
+	x = bar->x + bar->w - 180 * s;
+	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "REC", label);
+	r.x = x + 28 * s;
 	r.y = bar->y + 5 * s;
 	r.w = 12 * s;
 	r.h = 6 * s;
@@ -2398,11 +2398,11 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
 		ok = FALSE;
 	}
-	/* RECORDING is directly left of the lock lamps and dim while idle. */
-	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 134 * s)], surface->format, &r, &g, &b);
+	/* REC is directly left of the lock lamps and dim while idle. */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 146 * s)], surface->format, &r, &g, &b);
 	if (ok && !vaeg_recording_native_session_is_active() && ((r != 52) || (g != 60) || (b != 52))) {
 		SDL_snprintf(problem, size,
-		             "simple panel RECORDING lamp is not dim at its expected position");
+		             "simple panel REC lamp is not dim at its expected position");
 		ok = FALSE;
 	}
 	SDL_DestroyRenderer(renderer);
