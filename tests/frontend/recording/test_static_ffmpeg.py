@@ -69,6 +69,28 @@ file(WRITE "${{CMAKE_BINARY_DIR}}/resolved.txt" "${{libs}}")
         codes = re.findall(r"(VAEG_FFMPEG_[A-Z_]+):", result.stdout + result.stderr)
         self.assertEqual(codes, [expected], result.stdout + result.stderr)
 
+    def test_desktop_dependency_defaults(self):
+        source = (ROOT / "CMakeLists.txt").read_text()
+        options = source.split("set(VAEG_DESKTOP_STATIC_DEFAULT OFF)", 1)[1]
+        options = "set(VAEG_DESKTOP_STATIC_DEFAULT OFF)" + options.split(
+            "option(VAEG_Z80_COMPAT_INTEGRATION_TRACE", 1)[0]
+        for platform in ("windows", "macos", "linux"):
+            with self.subTest(platform=platform):
+                script = self.root / (platform + ".cmake")
+                settings = (f"set(WIN32 {'ON' if platform == 'windows' else 'OFF'})\n"
+                            f"set(APPLE {'ON' if platform == 'macos' else 'OFF'})\n")
+                expected = "OFF" if platform == "linux" else "ON"
+                checks = ""
+                for name in ("FETCH_SDL2", "STATIC_SDL2", "FETCH_LIBARCHIVE",
+                             "STATIC_FFMPEG", "STATIC_LIBRASHADER"):
+                    checks += (f'if(NOT "${{VAEG_{name}}}" STREQUAL "{expected}")\n'
+                               f' message(FATAL_ERROR "DEFAULT_MISMATCH: {name}")\n'
+                               'endif()\n')
+                script.write_text(settings + options + checks)
+                result = subprocess.run(["cmake", "-P", str(script)],
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_exact_archive_and_private_link_order(self):
         self.valid()
 

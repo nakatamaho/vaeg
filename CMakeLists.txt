@@ -30,16 +30,12 @@ option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_ENABLE_RECORDING "Enable the optional recording facade" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
-set(VAEG_MINGW_STATIC_DEFAULT OFF)
-if(MINGW)
-    set(VAEG_MINGW_STATIC_DEFAULT ON)
-endif()
-option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_MINGW_STATIC_DEFAULT})
-option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_MINGW_STATIC_DEFAULT})
 set(VAEG_DESKTOP_STATIC_DEFAULT OFF)
 if(WIN32 OR APPLE)
     set(VAEG_DESKTOP_STATIC_DEFAULT ON)
 endif()
+option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_DESKTOP_STATIC_DEFAULT})
+option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_STATIC_FFMPEG "Link FFmpeg archives without shared-library fallback" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
 option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_DESKTOP_STATIC_DEFAULT})
@@ -49,7 +45,7 @@ set(VAEG_LIBRASHADER_STATIC_NOTICES "" CACHE FILEPATH "Generated static dependen
 option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
-    "Fetch pinned static archive dependencies instead of using system LibArchive" ${VAEG_MINGW_STATIC_DEFAULT})
+    "Fetch pinned static archive dependencies instead of using system LibArchive" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_Z80_COMPAT_INTEGRATION_TRACE
     "Compile deterministic subsystem compatibility/FDD integration tracing" OFF)
 option(VAEG_UPD9002_PERF_DIAGNOSTIC
