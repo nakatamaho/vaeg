@@ -28,10 +28,11 @@ several disks.
 
 ## Multi-image D88 files
 
-- Opening a D88 file that holds several disks mounts its first disk.
-  FDD > FDD1 ディスク and FDD2 ディスク list the disks of the file, by number
-  and the name stored in the file, and put the chosen one in the drive; a
-  second disk of the file in FDD1 can go into FDD2 the same way.
+- Opening or dropping a D88 file that holds several disks into FDD1 mounts
+  its first disk there and its second disk in FDD2.
+- FDD > FDD1 ディスク and FDD2 ディスク list the disks of the file, by number
+  and the name stored in the file, and put the chosen one in the drive; the
+  disks of the file in the other drive are listed as well.
 - The FDD menu shows the disk in use, for example `[2/3 NAME]`.
 - The chosen disk is kept over a reset, in `vaeg.cfg` (`FDD1IMAGE`,
   `FDD2IMAGE`), in save states and in 最近の起動. Writes go to that disk.

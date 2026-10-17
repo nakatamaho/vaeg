@@ -94,7 +94,8 @@ headless scripts are not recorded. The lists are kept in `vaeg-history.txt`
 in the user directory (see the top-level README).
 
 Multi-image D88 (M120): a D88 file may hold several disks back to back.
-Opening one mounts its first disk; FDD1 ディスク and FDD2 ディスク list the
+Opening or dropping one into FDD1 mounts its first disk there and its
+second disk in FDD2 (into FDD2, the first disk only); FDD1 ディスク and FDD2 ディスク list the
 disks of the file in that drive, and of a multi-image file in the other
 drive, by number and the name in their headers, so disk 2 of the same file
 can go into FDD2. The FDD menu shows the disk in use as `[2/3 NAME]`. The
