@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M120 — multi-image D88 files, and Rel.20261017.1
 
-Status: **implemented; G120 human gate pending**
+Status: **complete; G120 passed on 2026-10-17**
 
 ## Request
 
@@ -105,3 +105,10 @@ Standard gate, plus: a multi-image D88 shows its disks under FDD1/FDD2
 ディスク, a game's disk change works by choosing the next disk, the choice
 survives a reset, a restart and a save state, and the built executable
 reports `Rel.20261017.1`.
+
+### G120
+
+- Passed on 2026-10-17 (maintainer) with the Windows build
+  `49b09400fdac...17a1` (SHA-256, static MinGW) from
+  [04a5a461](https://github.com/nakatamaho/vaeg/commit/04a5a4619c9d527d69467d2c7e5ae2a4a39cf8fc):
+  a two-disk game file opened in FDD1 starts with disk B in FDD2 and plays.
