@@ -24,7 +24,53 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current REC/toggle, RGB headers and local audio snapshot
+## Current viewport-fit settings and color-packing comparison
+
+The maintainer confirms the RGB-tagged public fixture still shows the same
+three colors in VLC. **RGB metadata did not resolve the tint.** No new channel,
+matrix/gamma correction or production pixel-format change is made here.
+
+[Settings-layout fix](https://github.com/nakatamaho/vaeg/commit/ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee):
+open centered at 52x38 font units, bounded to 95 percent of the viewport on each
+appearance (overriding a remembered tiny size). Descriptions wrap; field labels
+sit above full-width inputs. Settings/status scroll in a child while start/close
+buttons remain in the footer. ROM-less regression passes 1/1 with five
+viewport/font profiles, long status, a seeded 128x72 window and scroll-end/
+footer-bounds assertions. ON/OFF builds and recording/header tests pass 22/22
+and 14/14. These are layout assertions, not a native Windows visual gate.
+
+Current working-tree test executable: `output/vaeg-audio-local-test.exe` (also
+`output/vaeg.exe`), 58,843,761 bytes, SHA256
+`a5c2565cb3405dd2500838af36cdfb210dd2fa99e1cef095855197ed1c1453f7`.
+Base `ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee` plus the same inherited audio
+patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`;
+not a clean-commit build. All three inherited files remain byte-identical and
+uncommitted; Metal is excluded. Windows build/import audit passes. Previous
+snapshot archived as `output/vaeg-audio-local-8a7ca19a.exe`.
+
+Controlled, video-only developer fixtures use the same macOS FFmpeg8.1.2 CLI,
+source RGB bytes, dimensions 640x400, 180 frames/60Hz, FFV1 v3/GOP1/slice-CRC,
+threads1, full-range RGB metadata and muxer. Only requested packed pixel format
+differs; these are **not production Windows encoder/muxer object fixtures**:
+
+- `output/public-vlc-packing-bgr0.mkv`, SHA256
+  `db3188f491d657c3bf20ba5e15b2a82113f4e1b062763904fbdfd14520abb27e`:
+  independently decoded RGB24 matches all 180 source frames exactly.
+- `output/public-vlc-packing-bgra.mkv`, SHA256
+  `b811f4f267684d2b0cb44dc429b7ecfadaa2ca03b5ca88815dd3b3801891f3f6`:
+  independently decoded BGRA matches all 180 expected frames exactly,
+  including alpha255 for every pixel. Both files report the intended format.
+- Worker/source/corpus/contract/target-policy identities, exact commands, exit
+  statuses and output digests are retained in
+  `output/public-vlc-packing-validation.json`. Reference bars are white, yellow,
+  cyan, green, magenta, red, blue, black. Compare **both** in the affected VLC;
+  a good BGRA file alone would not establish a packing cause if BGR0 also works.
+- VLC display status is **NOT_RUN locally**. A separate native C libVLC callback
+  probe, avoiding Python and using lazy binding, also times out loading the
+  installed library, before any decoded frame. No consent/security/driver
+  setting was changed. No affected-player color claim follows from this probe.
+
+## Previous REC/toggle, RGB headers and local audio snapshot
 
 The maintainer reports only yellow/red/green in VLC, including white appearing
 yellow, and inability to start the previous Windows build with the reported
@@ -41,8 +87,8 @@ private-source or native Windows reproduction here.
   No matrix/gamma/channel or pixel-value correction was applied; H.264 remains
   limited-range BT.709.
 - Current **working-tree test build**, not a clean-commit build:
-  `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`
-  (also `output/vaeg.exe`), 58,840,570 bytes, SHA256
+  `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-8a7ca19a.exe`,
+  58,840,570 bytes, SHA256
   `bbecff82bdccf0c5ad73d6a6177b79cfb2b0167ef6f98c9248c5919ee6ca7bae`.
 - Evaluated base: `8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7`, plus the
   **unchanged, uncommitted** inherited native-session implementation/test files.

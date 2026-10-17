@@ -38,3 +38,17 @@ whereas the local snapshot arms and completes sample intervals. This is not a
 clean-commit build, none of the three inherited files was changed/committed,
 and native Windows/VLC confirmation is pending. Exact identities and evidence
 are in the [current follow-up](../../recording-v1/recording-ui-followup.md).
+
+The maintainer confirms the RGB-tagged file does not improve VLC colors. Keep
+that defect OPEN; compare controlled BGR0/BGRA files without changing production
+packing. Both CLI fixtures decode to all original RGB frames; BGRA alpha is255.
+A separate native C libVLC probe also times out during library load, providing
+no decoded-frame/player evidence. Recording settings are corrected in
+[ee5ebc8d](https://github.com/nakatamaho/vaeg/commit/ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee):
+viewport/font-aware opening size, wrapped/stacked fields and scrollable content
+above a fixed action row. ROM-less layout regression (five viewport/font
+profiles, remembered tiny size and long status) passes1/1; ON/OFF builds and
+recording tests pass22/22,14/14; MinGW Release/import audit exit0. Latest test
+binary still includes the unchanged/uncommitted audio patch, not a clean-commit
+or native Windows gate result. No demos/media gate, hosted CI, push, main
+change or private asset access was performed.

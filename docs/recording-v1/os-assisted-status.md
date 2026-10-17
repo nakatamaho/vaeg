@@ -1,20 +1,23 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest local REC/RGB/audio snapshot
+## Latest viewport-fit recording settings and local audio snapshot
 
-The current test executable is based on `8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7`
+The current test executable is based on `ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee`
 **plus unchanged, uncommitted inherited native-session implementation/tests**;
 not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `bbecff82bdccf0c5ad73d6a6177b79cfb2b0167ef6f98c9248c5919ee6ca7bae`.
+SHA256: `a5c2565cb3405dd2500838af36cdfb210dd2fa99e1cef095855197ed1c1453f7`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-rectoggle-rgb-headers-and-local-audio-snapshot).
+[current follow-up evidence](recording-ui-followup.md#current-viewport-fit-settings-and-color-packing-comparison).
+Recording details now fit the viewport with a scrolling body/fixed button row;
+five viewport/font regression profiles pass. Controlled BGR0/BGRA CLI fixtures
+both decode to exact original RGB; BGRA alpha is opaque. Compare both in VLC.
 The maintainer identifies VLC, only three colored bars, and white appearing
-yellow. This remains OPEN; the metadata correction has not been confirmed to
-resolve the player's symptom. No channel/matrix/gamma correction was applied.
+yellow. This remains OPEN; the maintainer confirms the metadata correction did
+**not** improve the player's symptom. No channel/matrix/gamma correction was applied.
 
 ## Previous clean archive tint/controls checkpoint
 

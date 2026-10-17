@@ -3075,6 +3075,28 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — recording settings clipped controls in the default window
+
+- **Symptom/scope:** the recording details window is too small or extends beyond
+  the application viewport, hiding settings/buttons; long input labels/status
+  text also consume space outside the visible form.
+- **Demonstrated root cause:** this dialog retained a fixed 720x420 first-use
+  size without the shared viewport/font-aware dialog preparation. A remembered
+  small size bypassed that default, and the form placed long labels beside
+  inputs and action buttons after all content instead of reserving a footer.
+- **Correction:** use the common centered, font-scaled opening size bounded to
+  95 percent of the current work area on each appearance. Wrap descriptions,
+  place input labels above full-width fields, scroll settings/status separately,
+  and reserve the bottom row for appropriately sized start/close buttons.
+- **Verification:** ROM-less GUI regression checks five viewport/font profiles
+  (640x400, 1280x800, 320x480, and 640x400/320x240 with double-size fonts), each
+  seeded with a remembered 128x72 window and long status. Assert viewport bounds,
+  opening size, reachable child scroll end, and visible/unscrolled footer.
+  Local macOS ROM-less test passes 1/1; native Windows visual review is pending.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [recording follow-up](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [ee5ebc8d](https://github.com/nakatamaho/vaeg/commit/ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee).
+
 ### M100s2 — FFV1 Matroska output omitted full-range RGB metadata
 
 - **Symptom/scope:** archive files report unknown range/matrix rather than
@@ -3114,9 +3136,12 @@ separate parity correction or move it to Open Defects.
 - **Player follow-up:** VLC shows only yellow/red/green in the public pattern,
   with white appearing yellow. Full RGB is still present in independently
   decoded frames. The missing RGB metadata is now corrected separately above;
-  the new tagged fixture preserves every encoded packet. Compare it in the
-  affected VLC before attributing or closing the tint defect. No private guest
-  images or clip identities are needed or published.
+  the new tagged fixture preserves every encoded packet. The maintainer now
+  confirms **no visible improvement in VLC**, so this metadata correction is
+  not a solution to the tint. Controlled BGR0/BGRA public fixtures are next;
+  both independently decode to all original RGB frames, with opaque BGRA alpha.
+  Affected-player comparison is pending; no private guest images or clip
+  identities are needed or published.
 - **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
   [recording status](../recording-v1/os-assisted-status.md).
 
