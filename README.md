@@ -262,6 +262,7 @@ Common user-facing command-line options are:
 | Sound | `--soundbuffer MS` | Set the sound buffer from 40 to 1000 ms |
 | Sound | `--mute` | Start with sound muted |
 | FDD | `--fdd1 PATH`, `--fdd2 PATH` | Mount a D88 or raw floppy image |
+| FDD | `--fdd1-image N`, `--fdd2-image N` | Choose disk N (from 1) of a D88 file holding several disks |
 | Tape | `--tape PATH`, `--tape-save PATH` | Load a `.cmt`/`.t88` tape, or record to a raw tape image (V1/V2) |
 | SASI | `--sasi1 PATH`, `--sasi2 PATH` | Mount a SASI HDI image |
 | HOSTFAT | `--hostfat-dir PATH` | Attach a read-only host folder to PC-Engine |
