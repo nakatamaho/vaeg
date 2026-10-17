@@ -1,7 +1,46 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest main refresh (second explicit update request)
+## Latest published-release main refresh and requested MinGW build
+
+Starting HEAD: `f16037b0b86c56779199c0eab00a594cbf528d61`. Fetch succeeded;
+pinned published-release main: `f81b1af9ae820b15c7ac29ac2fe29d8a641883bc`.
+Normal merge/source-build commit: `63ecbabb3febf2ce0832d0b4cf54c02ad51c0539`.
+Conflicts in `sdl2/gui/gui.cpp` and `sdl2/soundmng.h` were resolved by retaining
+the recording menu, main's separate key/sound menus, recording device-spec API
+and main's master-volume API. The three inherited dirty files remained
+byte-identical and were not committed. No main reset, push or release publication.
+
+Post-merge macOS ON/OFF builds and recording CTest passed 20/20 and 12/12;
+encoding/EOL/case and staged whitespace checks passed. Earlier audio-audit text
+below predates this main: playback now uses `soundmng_master` in
+`soundmng.c:SDL_MixAudioFormat`, not always SDL_MIX_MAXVOLUME. The future real-time
+playback adapter must observe the post-master-volume signal and re-audit the
+current source rather than reuse the old gain assumption.
+
+The requested ordinary static MinGW Release was built from a fresh clean clone
+of `63ecbabb`, excluding inherited unstaged edits. Recording is OFF, tests OFF;
+SDL2, LibArchive and librashader/MinGW runtimes are static. Artifact:
+`../vaeg-mingw-63ecbabb/output/vaeg.exe`, 57,514,254 bytes, SHA256
+`06f1626325e4ac4a968fa7c9fd95cf9352de5eeeca8e460ef98da7a6eab21500`.
+Full source SHA is embedded in the executable; build date is `20261017`.
+The dedicated clean clone remained clean, and the output copy matched the built
+artifact byte-for-byte. Build report, notices, identity and audit logs are in
+`../vaeg-mingw-63ecbabb/output/`, including `BUILD-REPORT.md`.
+
+Exact build: `tools/release/build-mingw-static-container.sh --commit
+63ecbabb3febf2ce0832d0b4cf54c02ad51c0539`, with PATH-local GNU stat shim for
+macOS. Pinned Ubuntu24.04 image and all intermediates were retained. The wrapper
+returned1 only after successful compile/link: native ARM Linux objdump could not
+read PE in the final audit. Its original failure log was preserved. The unchanged
+import validator was then run using a PATH-local MinGW objdump on the completed
+binary and exited0; all imports are allowed Windows system DLLs/API sets. No
+recompilation, validation bypass, global tool replacement or source fix was used.
+The remaining artifact copy/identity/hash/report steps were completed explicitly;
+do not claim the wrapper itself exited0. This is not Windows runtime or human
+release validation; Windows/Wine and media/demo gates remain NOT_RUN.
+
+## Previous main refresh (second explicit update request)
 
 Starting HEAD: `99b151b3fea636475e15c1a3affa00d657e72c1a`. Fetch of
 `origin refs/heads/main` succeeded; new pinned tip:
