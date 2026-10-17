@@ -96,7 +96,10 @@ and Release application objects,640x400,180 intervals,3 trials per pattern.
 It includes RGB565 conversion, ownership, native tap/session, bounded queue,
 worker, FFV1, PCM, mux/finalize, synthetic source generation and hashing. It
 excludes guest instruction execution, real audio device, renderer and visible
-OSD/rotation. Median unpaced processing throughput, **not guest/display FPS**:
+OSD/rotation. This checkpoint is not CPU-isolated: a sanitizer rebuild/test
+runs concurrently. Alternating trials do not remove that limitation; these
+numbers are diagnostic observations, not isolated speed or acceptance claims.
+Median unpaced processing throughput, **not guest/display FPS**:
 
 | Synthetic input | Debug | Release |
 | --- | ---: | ---: |
