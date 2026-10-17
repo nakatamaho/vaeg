@@ -86,3 +86,14 @@ into one, and `CHANGES.20261017.1.md` and `CHANGES.20261017.2.md` were
 removed. The published `rel-20261017` and `rel-20261017.1` releases and
 tags were deleted and `rel-20261017` was tagged again on the consolidated
 `main`; `rel-20261017.2` was never pushed.
+
+Re-release published: tag `rel-20261017` at
+[9b47d489](https://github.com/nakatamaho/vaeg/commit/9b47d489f9331c25c3366eb86fc8021e2a40db1e)
+(hosted build CI green); the Linux, Windows and macOS executables report
+`Rel.20261017` and that commit; the four screenshots were attached.
+
+| Asset | SHA-256 |
+|---|---|
+| `vaeg-rel20261017-linux-x86_64.tar.gz` | `0f73274d4e0ebc5fd9164fb48dc69a183671b67b8b215da1c1eded6f69e3cab0` |
+| `vaeg-rel20261017-macos-arm64.tar.gz` | `4be01dc284c85ed50f02e743322dc30c79d67e7b7f74823b3606888e9a262851` |
+| `vaeg-rel20261017-win-x86_64.zip` | `fb0595fd43ddccf5d826d26798d697c43225b4618c2301be4dd8c0a8d44fd2b4` |
