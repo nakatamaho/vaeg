@@ -74,3 +74,24 @@ macOS ROM-less1/1, OFF build and MinGW build/import audit pass. About2s initial
 measurement delay and paused0.0 remain valid. Recorder code/input identities are
 unchanged, so prior expensive/recording evidence is reused with its limitations.
 This remains a working-tree audio-patch test build, not a native Windows gate.
+
+Screen-change follow-up:
+[105e5cac](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b)
+implements the maintainer-approved automatic stop on screen-setting changes:
+save only complete accepted intervals, stop recording, continue the guest. A
+neutral15kHz private case reproduced the old exit1 with/without rotation, rather
+than an ASan memory fault. Real GUI-start automation with final minimal-LGPL
+Release objects reaches1200 frames after save/stop, and the movie independently
+decodes with CRC/video/audio checks. Raw asset identities/evidence stay private.
+ON24/24, OFF15/15, ROM-less1/1, focused ASan/UBSan2/2 pass; Windows static build,
+import audit, integration cross-build and focused Wine policy pass. CLI batch
+failure remains fail-closed. Unrelated full-guest UBSan diagnostics remain OPEN.
+
+[Evidence, exact contract and artifact identities](../../recording-v1/screen-change-stop.md)
+also records the arm64 Release handoff, the corrected pinned minimal shared
+LGPLFFmpeg dependency selection, and controlled Debug/Release RGB565/session/
+encoder/mux profiling. Final18 synthetic movies decode3240 frames/2592000 stereo
+sample frames exactly. Processing throughput is not live guest/display FPS;
+previous slow live recording is not explained by Debug alone. Existing inherited
+sources remain unchanged/uncommitted. LOCAL_ONLY, no hosted CI, no media/demo or
+human gate, no legal/release approval and no OS-assisted completion claimed.

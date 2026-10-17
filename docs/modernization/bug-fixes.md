@@ -3075,6 +3075,34 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — a screen-size change during GUI recording exited the emulator
+
+- **Symptom/scope:** a neutral15kHz integration case exits when the guest changes
+  video mode during recording. It reproduces with right rotation and without;
+  the no-recording control reaches1200 frames.
+- **Demonstrated root cause:** the fixed-descriptor native tap rejects the new
+  geometry, but the frontend treats its recording error as a fatal emulator
+  error and calls `taskmng_exit`. The reproduced exit is status1, not an ASan
+  address fault; rotation alone is not the demonstrated cause.
+- **Correction:** a C99 frontend boundary finalizes already accepted complete
+  intervals before generic cancellation, stops interactive recording on screen
+  settings/descriptor changes, and continues the guest. Other GUI recording
+  errors and frame limits also stop recording, not the emulator. No resized
+  frame is appended and no segment is silently restarted. Batch CLI failures
+  and batch frame-limit exits retain their existing contracts.
+- **Verification:** policy and actual queue/encoder/mux tests cover saved/empty/
+  failed stops, batch failure and GUI frame limits. ON24/24, OFF15/15, GUI/FPS
+  ROM-less1/1, focused ASan/UBSan2/2 pass. Real GUI-start automation with final
+  minimal-LGPL Release objects saves the old stream and reaches1200 guest
+  frames; independent FFmpeg CRC/video/audio decode passes. Original media
+  remains untouched, all private evidence outside Git. Static MinGW build/import
+  audit, cross-build integration and focused Wine policy pass; native Windows
+  human confirmation remains pending. Full guest UBSan diagnostics are a separate
+  unresolved issue below, not claimed clean.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [reproduction, contract, artifact and validation limits](../recording-v1/screen-change-stop.md).
+- **Fixing commit:** [105e5cac](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b).
+
 ### M100s2 — title FPS stayed zero with the frame counter hidden
 
 - **Symptom/scope:** title-bar FPS stays0.0 when FPS is enabled but the separate
@@ -3140,6 +3168,24 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
+
+- **Observed scope:** UBSan reports signed left-shift/overflow in PSG synthesis,
+  PRNG arithmetic and a shared vendor instruction while executing a neutral
+  private integration case. The first halt-on-error run stops at the PSG shift.
+  Reporting-only UBSan allows the separate recording exit to be reproduced with
+  ASan still stopping on address errors. This is not a clean full UBSan run.
+- **Locations:** [PSG generation](../../sound/psggenc.c),
+  [PSG mixer](../../sound/psggeng.c), [PRNG](../../common/parts.c),
+  [shared vendor backend](../../external/suzukiplan-z80/z80.hpp).
+- **Cause/correction:** the diagnostics demonstrate host-language undefined
+  signed arithmetic, not the intended hardware wrap semantics or the cause of
+  the maintainer's exit. No tested correction is established here. Do not
+  hand-edit the vendored backend or roll unrelated arithmetic changes into the
+  screen-change lifecycle fix.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [screen-change verification limits](../recording-v1/screen-change-stop.md).
 
 ### M100s2 — saved FFV1 video has a red cast on Windows
 

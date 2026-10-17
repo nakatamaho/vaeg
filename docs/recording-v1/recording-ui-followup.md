@@ -24,7 +24,33 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current title-FPS independence correction
+## Current screen-change stop and macOS Release handoff
+
+The maintainer requests automatic recording stop on screen-setting changes.
+[105e5cac](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b)
+saves accepted complete intervals, stops GUI recording on display settings or
+coded-size change, and continues the guest. Actual GUI-start automation confirms
+1200-frame guest continuation and a CRC-decodable saved movie in the reported
+15kHz/right-rotation scenario. Batch CLI fail-closed behavior is preserved.
+
+[Full evidence, exact scope and limits](screen-change-stop.md).
+Current artifacts (working-tree snapshots, not clean-commit builds):
+
+- macOS arm64 Release, minimal shared LGPLFFmpeg, trace/tests OFF:
+  `build/macos-recording-lgpl-release/sdl2/vaeg`, SHA256
+  `29fba0de417e5bd02519e96f3a51bd5e5e28e5b884867da066b2ddaf0c1c131a`.
+  All three inherited source files included unchanged/uncommitted. Requires the
+  local shared dependencies; not a standalone app or macOS13 compatibility claim.
+- MinGW static Release: `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+  SHA256 `bc3aedd236e753052688be02b4b85dc63c2acef8841618440fa613822ba41c8d`.
+  Unchanged inherited audio patch included; Metal excluded.
+
+The earlier MacPorts-linked macOS builds are excluded from handoff because their
+FFmpeg reports nonfree/unredistributable. Final dependency resolution and three
+library licenses are audited against our pinned minimal LGPL8.1.2 build.
+No push, gate completion or native Windows runtime acceptance is claimed.
+
+## Previous title-FPS independence correction
 
 The maintainer clarifies the zero reading is title-bar FPS, not OSD, and it has
 sometimes displayed previously. The measurement was erroneously gated by FRAME
@@ -39,8 +65,8 @@ afterwards the meter reads60.0 and the title shows only requested fields.
 Full macOS ROM-less suite passes1/1; OFF build and MinGW build/import audit pass.
 A fresh measurement needs about2s; a stopped guest can correctly read0.0.
 
-Current Windows working-tree test build: `output/vaeg-audio-local-test.exe`
-(also `output/vaeg.exe`),58,844,785 bytes, SHA256
+Previous Windows working-tree test build: `output/vaeg-audio-local-9b0c44d7.exe`,
+58,844,785 bytes, SHA256
 `1d8b94f924a6b188103540073393a9911ed8a2f7f5d3a441d2a684c799e72769`.
 Base `9b0c44d7c2d9044834f7078f0d41790f2c688d61` plus the unchanged inherited
 patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`.
