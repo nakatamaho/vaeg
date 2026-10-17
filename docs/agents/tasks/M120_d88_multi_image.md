@@ -95,6 +95,10 @@ copy of that file: the FDD menu shows `[1/2 DISK A]` and `[2/2 DISK B]`,
 `vaeg.cfg` gets `FDD2IMAGE=1`, and the game starts and runs its opening.
 The drop path was built and reviewed but not exercised in the GUI test.
 
+Gate build after the follow-up: clean-checkout MinGW build of `04a5a461`
+(local tag `rel-20261017.1`), `vaeg.exe` reports `Rel.20261017.1`, SHA-256
+`49b09400fdac6edd867a591ddaceb381932e7d4c7ef08ca217e4b6fa81ef17a1`.
+
 ## Gate G120 (human)
 
 Standard gate, plus: a multi-image D88 shows its disks under FDD1/FDD2
