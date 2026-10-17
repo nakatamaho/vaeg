@@ -1032,6 +1032,29 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M123 — 8087 arithmetic rounded to 53 bits at its default 64-bit precision
+
+- **Symptom/scope:** with the 8087's default precision control (64 bits,
+  as after FINIT) every FADD, FSUB, FMUL, FDIV, FSQRT and the other SoftFloat
+  operations were rounded to 53 bits (1/3 ended in ...A800 instead of
+  ...AAAB); with 53-bit precision selected they were not rounded at all.
+  Every V3 program using the 8087 is affected; 24-bit precision was right.
+- **Demonstrated cause:** `configure_softfloat` set
+  `extF80_roundingPrecision` to 53 and 64, but SoftFloat names the format
+  width: 32, 64 (53-bit significand) or 80 (64-bit). 53 fell through to full
+  precision and 64 selected double precision.
+- **Correction:** precision control 10 maps to 64 and 11 to 80.
+- **Verification:** SoftFloat with the corrected values equals the host x87
+  bit for bit, value and flags, in 4,000,000 random add/sub/mul/div/sqrt
+  cases over every rounding and precision control (ordinary, near-underflow,
+  near-overflow, short-significand operands); unit test `precision control`
+  (1/3 at 64, 53 and 24 bits) fails with the old mapping. The SoftFloat
+  transcendental series improved from up to 1e4 ulp to 2-6 ulp (FPTAN,
+  FYL2X, FYL2XP1).
+- **Milestone/task/commit:** M123,
+  [M123 task](../agents/tasks/M123_8087_host_x87.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/1376fa802217a889c371c8702a5df951674de528).
+
 ### Zilog BIT n,(IX+d)/(IY+d) took X/Y from a stale WZ
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.
@@ -3079,8 +3102,9 @@ separate parity correction or move it to Open Defects.
 
 ### M123 — the 8087 SoftFloat series is inaccurate in its transcendentals
 
-- **Symptom/scope:** the SoftFloat path of FPTAN, FPATAN, F2XM1, FYL2X and
-  FYL2XP1 differs from the exact value by thousands of ulp or more; FPATAN
+- **Symptom/scope:** the SoftFloat path of FPATAN and F2XM1 differs from the
+  exact value by thousands of ulp or more (after the precision fix above,
+  FPTAN, FYL2X and FYL2XP1 are within 6 ulp); FPATAN
   near Y = X is wrong from the sixth digit (atan(74/75): 0.778679 instead
   of 0.778687), and F2XM1 of small operands loses most of its digits. Since
   M123 this applies only when the host x87 path is off or unavailable
@@ -3090,9 +3114,9 @@ separate parity correction or move it to Open Defects.
   F2XM1 computes 2^x and then subtracts one, cancelling the leading digits
   for small x; the other series accumulate one rounding per term.
 - **Evidence:** 20,000 random operands per instruction against long-double
-  libm (and mpmath for the unit-test points): series up to 1.6e16 ulp
-  (FPATAN), 2.2e7 (F2XM1), 1.0e4 (FPTAN, FYL2XP1), 2.8e3 (FYL2X); the host
-  x87 path at most 2 ulp
+  libm (and mpmath for the unit-test points), after the precision fix:
+  series up to 1.6e16 ulp (FPATAN) and 3.3e4 (F2XM1); the host x87 path at
+  most 2 ulp
   ([M123 task](../agents/tasks/M123_8087_host_x87.md),
   [host path commit](https://github.com/nakatamaho/vaeg/commit/9abda93dfd5262042435606da751581d33d1baea)).
 - **Next step:** argument reduction and better-converging formulas (or an
