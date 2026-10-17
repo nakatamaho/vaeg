@@ -63,8 +63,6 @@ typedef struct {
 	BYTE jastsnd;
 	BYTE gui_scale;
 	BYTE gui_aspect;
-	char gui_fdd_dir[MAX_PATH];
-	char gui_hdd_dir[MAX_PATH];
 	char fdd_image[2][MAX_PATH];
 	char keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
 	char keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];

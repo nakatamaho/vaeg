@@ -2779,6 +2779,14 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	return (SUCCESS);
 }
 
+static void selftest_remove_dir(const char *path) {
+#if defined(_WIN32)
+	_rmdir(path);
+#else
+	rmdir(path);
+#endif
+}
+
 static int test_viewport(void) {
 	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
@@ -2786,6 +2794,19 @@ static int test_viewport(void) {
 		return (fail("state thumbnail", "PNG did not read back"));
 	}
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
+	{
+		/* M122: each file window has its own recent folders */
+		char root[MAX_PATH];
+		char problem[128];
+		SPRINTF(root, "vaeg-selftest-%lu-dirs", (unsigned long)getpid());
+		(void)file_dircreate(root);
+		if (gui_recent_dirs_selftest(root, problem, sizeof(problem)) != SUCCESS) {
+			selftest_remove_dir(root);
+			return (fail("recent folders", problem));
+		}
+		selftest_remove_dir(root);
+		fprintf(stderr, "selftest: recent folders ok\n");
+	}
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
