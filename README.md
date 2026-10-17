@@ -46,6 +46,7 @@ remains a useful historical reference.
   mode (optional);
 - D88 files holding several disks: disk A in drive 1 and disk B in drive 2
   on opening, and any disk chosen from the FDD menu;
+- separate recent folders for the FDD, HDD and tape file windows;
 - cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
   recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
   for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
@@ -75,23 +76,6 @@ remains a useful historical reference.
 
 ## News
 
-### 2026-10-17 - Rel.20261017.2
-
-[Rel.20261017.2](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.2)
-gives the FDD, HDD and tape file windows their own 最近のフォルダ, so tapes
-kept in another folder no longer mix with disk folders. See
-[Rel.20261017.2 changes](CHANGES.20261017.2.md).
-
-### 2026-10-17 - Rel.20261017.1
-
-[Rel.20261017.1](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017.1)
-supports D88 files that hold several disks, as many PC-8801 games are
-distributed. Open one in FDD1 and its disk A goes into drive 1 and disk B
-into drive 2, ready to play; FDD > FDD1 ディスク and FDD2 ディスク list every
-disk by the name stored in the file for the disk changes a game asks for.
-The disks in use are kept over resets, restarts and save states. See
-[Rel.20261017.1 changes](CHANGES.20261017.1.md).
-
 ### 2026-10-17 - Rel.20261017
 
 [Rel.20261017](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017)
@@ -100,8 +84,15 @@ compatibility modes, and PC-8801 and PC-8001 machines start from
 user-supplied ROMs placed in `extra/`. It also adds the 8087 (enabled by
 default), the PCG-8100/8800, cassette tape images for V1/V2 BASIC (load and
 record, with tape sound), cursor keys assignable to the keypad 8/4/6/2,
-reorganized Japanese menus with state slots and thumbnails, and a self-booting
-SGP demo disk. No PC-8801 or PC-8001 ROMs are included.
+reorganized Japanese menus with state slots and thumbnails, separate recent
+folders for the FDD, HDD and tape windows, and a self-booting SGP demo disk.
+No PC-8801 or PC-8001 ROMs are included.
+
+D88 files that hold several disks, as many PC-8801 games are distributed,
+are supported: open one in FDD1 and its disk A goes into drive 1 and disk B
+into drive 2, ready to play; FDD > FDD1 ディスク and FDD2 ディスク list every
+disk by the name stored in the file for the disk changes a game asks for,
+and the disks in use are kept over resets, restarts and save states.
 
 <div align="center">
 <table align="center" width="100%">
