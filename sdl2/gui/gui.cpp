@@ -765,52 +765,69 @@ static void draw_recording_menu(void) {
 	}
 }
 
+static void prepare_dialog(float width_em, float height_em, ImGuiCond size_cond);
+
 static void draw_recording_dialog(void) {
 	if (!g_gui.recording_open) {
 		return;
 	}
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	vaeg_recording_get_capabilities(&capabilities);
-	ImGui::SetNextWindowSize(ImVec2(720, 420), ImGuiCond_FirstUseEver);
+	prepare_dialog(52.0f, 38.0f, ImGuiCond_Appearing);
 	if (!ImGui::Begin("録画の詳細設定", &g_gui.recording_open)) {
 		ImGui::End();
 		return;
 	}
 	const bool active = vaeg_recording_native_session_is_active() != 0;
+	const float footer = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
+	ImGui::BeginChild("recording-settings", ImVec2(0, -footer));
+	ImGui::PushTextWrapPos(0.0f);
 	ImGui::TextUnformatted("形式: FFV1（可逆圧縮）+ PCM音声 / MKV");
 	ImGui::TextDisabled("ゲスト時間基準。処理が追いつかない場合は実行速度が低下します。");
 	ImGui::BeginDisabled(active);
 	ImGui::TextUnformatted("録画対象");
 	ImGui::RadioButton("Native video", &g_gui.recording_source,
 	                   VAEG_RECORDING_SOURCE_NATIVE);
-	ImGui::SameLine();
 	ImGui::BeginDisabled();
 	ImGui::RadioButton("Displayed video", &g_gui.recording_source,
 	                   VAEG_RECORDING_SOURCE_DISPLAYED);
 	ImGui::EndDisabled();
 	ImGui::TextDisabled("Displayed video はまだ利用できません。");
-	ImGui::Checkbox("保存先とファイル名を自動設定", &g_gui.recording_auto_path);
+	ImGui::Checkbox("自動ファイル名", &g_gui.recording_auto_path);
 	ImGui::TextDisabled("実行ファイル横の recordings/ に日時付きで保存します。");
 	ImGui::TextDisabled("書き込めない場合はユーザーディレクトリを使用します。");
 	ImGui::BeginDisabled(g_gui.recording_auto_path);
-	ImGui::InputText("保存先 (.mkv)", g_gui.recording_path, sizeof(g_gui.recording_path));
+	ImGui::TextUnformatted("保存先 (.mkv)");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::InputText("##recording-path", g_gui.recording_path, sizeof(g_gui.recording_path));
 	ImGui::EndDisabled();
 	ImGui::Checkbox("OSDを含める", &g_gui.recording_include_osd);
-	ImGui::Checkbox("画面の90度回転に合わせる", &g_gui.recording_follow_rotation);
+	ImGui::Checkbox("画面の回転に追従", &g_gui.recording_follow_rotation);
 	ImGui::TextDisabled("録画中に回転を変更すると、現在の動画を保存して停止します。");
-	ImGui::InputText("フレーム数の上限（空欄は無制限）", g_gui.recording_frame_limit,
+	ImGui::TextUnformatted("フレーム数の上限（空欄は無制限）");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::InputText("##recording-frame-limit", g_gui.recording_frame_limit,
 	                 sizeof(g_gui.recording_frame_limit), ImGuiInputTextFlags_CharsDecimal);
-	if (ImGui::Button("録画開始", ImVec2(110, 0)) && capabilities.backend_available) {
+	ImGui::EndDisabled();
+	if (!g_gui.recording_status.empty()) {
+		ImGui::Separator();
+		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
+	}
+	ImGui::PopTextWrapPos();
+	ImGui::EndChild();
+	ImGui::Separator();
+	const float button_padding = ImGui::GetStyle().FramePadding.x * 2.0f;
+	const float start_width =
+	    (std::max)(110.0f, ImGui::CalcTextSize("録画開始").x + button_padding);
+	const float close_width = (std::max)(110.0f, ImGui::CalcTextSize("閉じる").x + button_padding);
+	ImGui::BeginDisabled(active || !capabilities.backend_available);
+	if (ImGui::Button("録画開始", ImVec2(start_width, 0))) {
 		start_recording_from_dialog();
 	}
 	ImGui::EndDisabled();
 	ImGui::SameLine();
-	if (ImGui::Button("閉じる", ImVec2(110, 0))) {
+	if (ImGui::Button("閉じる", ImVec2(close_width, 0))) {
 		g_gui.recording_open = false;
-	}
-	if (!g_gui.recording_status.empty()) {
-		ImGui::Separator();
-		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
 	}
 	ImGui::End();
 }
@@ -6615,7 +6632,100 @@ BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
 	return SUCCESS;
 }
 
+static BOOL recording_dialog_layout_selftest(void) {
+	const bool saved_open = g_gui.recording_open;
+	const std::string saved_status = g_gui.recording_status;
+	ImGuiContext *saved_context = ImGui::GetCurrentContext();
+	BOOL result = SUCCESS;
+	struct Profile {
+		ImVec2 viewport;
+		float font_size;
+	};
+	const Profile profiles[] = {
+	    {{640, 400}, 13}, {{1280, 800}, 13}, {{320, 480}, 13}, {{640, 400}, 26}, {{320, 240}, 26},
+	};
+	g_gui.recording_status.clear();
+	for (int repeat = 0; repeat < 8; ++repeat) {
+		g_gui.recording_status +=
+		    "Public layout test: long recording status must scroll above the buttons. ";
+	}
+	for (const Profile &profile : profiles) {
+		ImGuiContext *context = ImGui::CreateContext();
+		ImGui::SetCurrentContext(context);
+		ImGuiIO &io = ImGui::GetIO();
+		io.IniFilename = nullptr;
+		io.DisplaySize = profile.viewport;
+		ImFontConfig font;
+		font.SizePixels = profile.font_size;
+		io.Fonts->AddFontDefault(&font);
+		io.Fonts->Build();
+		/* A previously saved tiny window must not defeat the new opening size. */
+		ImGui::NewFrame();
+		ImGui::SetNextWindowSize(ImVec2(128, 72), ImGuiCond_Always);
+		ImGui::Begin("録画の詳細設定");
+		ImGui::End();
+		ImGui::EndFrame();
+		ImGui::NewFrame();
+		ImGui::EndFrame();
+		g_gui.recording_open = true;
+		for (int frame = 0; frame < 4; ++frame) {
+			ImGui::NewFrame();
+			draw_recording_dialog();
+			ImGuiWindow *window = ImGui::FindWindowByName("録画の詳細設定");
+			if (window == nullptr || window->DC.ChildWindows.Size != 1) {
+				result = FAILURE;
+			} else {
+				ImGuiWindow *body = window->DC.ChildWindows[0];
+				/* Let scrollbar-dependent text wrapping settle before scrolling. */
+				if (frame == 2)
+					ImGui::SetScrollY(body, body->ScrollMax.y);
+				if (frame == 3) {
+					const ImGuiViewport *viewport = ImGui::GetMainViewport();
+					const float width =
+					    (std::min)(52.0f * profile.font_size, viewport->WorkSize.x * 0.95f);
+					const float height =
+					    (std::min)(38.0f * profile.font_size, viewport->WorkSize.y * 0.95f);
+					if (std::abs(window->Size.x - width) > 1.0f ||
+					    std::abs(window->Size.y - height) > 1.0f ||
+					    window->Pos.x < viewport->WorkPos.x ||
+					    window->Pos.y < viewport->WorkPos.y ||
+					    window->Pos.x + window->Size.x >
+					        viewport->WorkPos.x + viewport->WorkSize.x ||
+					    window->Pos.y + window->Size.y >
+					        viewport->WorkPos.y + viewport->WorkSize.y ||
+					    window->DC.CursorMaxPos.y > window->InnerRect.Max.y + 1.0f ||
+					    window->ScrollMax.y > 1.0f || body->InnerRect.GetHeight() <= 0.0f ||
+					    std::abs(body->Scroll.y - body->ScrollMax.y) > 1.0f ||
+					    (profile.viewport.y <= 480 && body->ScrollMax.y <= 0.0f)) {
+						std::fprintf(
+						    stderr,
+						    "selftest: recording layout viewport=%.0fx%.0f font=%.0f "
+						    "size=%.0fx%.0f expected=%.0fx%.0f pos=%.0f,%.0f "
+						    "footer=%.0f/%.0f parent-scroll=%.0f body=%.0f scroll=%.0f/%.0f\n",
+						    profile.viewport.x, profile.viewport.y, profile.font_size,
+						    window->Size.x, window->Size.y, width, height, window->Pos.x,
+						    window->Pos.y, window->DC.CursorMaxPos.y, window->InnerRect.Max.y,
+						    window->ScrollMax.y, body->InnerRect.GetHeight(), body->Scroll.y,
+						    body->ScrollMax.y);
+						result = FAILURE;
+					}
+				}
+			}
+			ImGui::EndFrame();
+		}
+		ImGui::DestroyContext(context);
+	}
+	g_gui.recording_open = saved_open;
+	g_gui.recording_status = saved_status;
+	ImGui::SetCurrentContext(saved_context);
+	if (result != SUCCESS)
+		std::fprintf(stderr, "selftest: RECORDING_DIALOG_VIEWPORT_LAYOUT\n");
+	return result;
+}
+
 BOOL gui_overlay_selftest(void) {
+	if (recording_dialog_layout_selftest() != SUCCESS)
+		return FAILURE;
 	FullscreenMenuState menu;
 	update_fullscreen_menu(menu, true, false, false, false, 100);
 	if (!fullscreen_hint_visible(menu, 3099) || fullscreen_hint_visible(menu, 3100)) {
