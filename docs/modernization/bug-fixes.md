@@ -3150,6 +3150,13 @@ separate parity correction or move it to Open Defects.
   not a solution to the tint. Controlled BGR0/BGRA public fixtures then isolate
   a working BGRA route in the affected player; source values are not adjusted.
   No private guest images or clip identities are needed or published.
+- **Fixing implementation:** [a5f5b3fb](https://github.com/nakatamaho/vaeg/commit/a5f5b3fb36c51c843f9598036d4537e1afc4033f).
+  Mac round-trip/mux tests and three focused Wine tests pass; full-resolution
+  Windows generator is blocked by a Wine allocator assertion independently
+  reproduced by a CRT-only24MiB aligned allocation. Native macOS application
+  objects produce exact640x400 RGB/alpha/PCM. New-app native Windows playback
+  remains pending; keep this entry OPEN rather than claiming the private guest
+  report resolved.
 - **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
   [recording status](../recording-v1/os-assisted-status.md).
 

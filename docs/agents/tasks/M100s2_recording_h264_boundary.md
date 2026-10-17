@@ -52,3 +52,16 @@ recording tests pass22/22,14/14; MinGW Release/import audit exit0. Latest test
 binary still includes the unchanged/uncommitted audio patch, not a clean-commit
 or native Windows gate result. No demos/media gate, hosted CI, push, main
 change or private asset access was performed.
+
+The maintainer confirms BGRA displays seven colors while BGR0 fails with three.
+[Opaque-BGRA archive fix](https://github.com/nakatamaho/vaeg/commit/a5f5b3fb36c51c843f9598036d4537e1afc4033f)
+updates encoder, capability/info/muxer contracts and exact RGB/alpha tests;
+ON/OFF22/22,14/14 and three focused Wine tests pass. Windows Release-object
+640x400 generation is blocked by a Wine allocator assertion; a CRT-only test
+also fails at24MiB aligned allocation (8/16MiB pass). Low-address test-driver
+experiments fail loading and give no validation credit; production PE policy
+is unchanged. Native macOS application objects generate640x400/180 frames and
+144,000 stereo PCM frames with independently exact RGB/alpha255/PCM. This is
+not Windows runtime proof. Artifact identities, every retained failed attempt
+and the remaining new-app/native Windows gate are in the current follow-up;
+the tint ledger remains OPEN. No inherited dirty file was changed/committed.

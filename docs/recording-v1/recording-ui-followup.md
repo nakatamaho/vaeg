@@ -24,7 +24,52 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current viewport-fit settings and color-packing comparison
+## Current opaque-BGRA archive compatibility correction
+
+The maintainer confirms **seven colors with BGRA, three with BGR0** in the
+controlled pair. This establishes a working packed-format route in that VLC,
+not the exact internal VLC failing stage. The metadata-only correction did not
+help. Production FFV1 now uses explicit capability-tested BGRA with every alpha
+byte255, without changing RGB values, matrix/gamma, timing, PCM, H.264 or source
+capture. Encoder-info/muxer contracts reject non-opaque-BGRA archive descriptions.
+
+[Fix](https://github.com/nakatamaho/vaeg/commit/a5f5b3fb36c51c843f9598036d4537e1afc4033f):
+macOS ON/OFF builds/tests pass22/22,14/14; Windows Debug compilation and three
+focused Wine tests (exhaustive RGB565/RGB24/alpha, capabilities, PCM) pass.
+The mux test checks alpha after decoding and rejects a single opaque-format
+flag mutation with `InvalidConfig`, starting from a passing configuration.
+
+Current static Windows executable: `output/vaeg-audio-local-test.exe` (also
+`output/vaeg.exe`), 58,843,761 bytes, SHA256
+`92fb29e8be3b1a68d7bcfd6ca059a09d80d4a320b1b81d89d3572f2a48d1b6ed`.
+Base `a5f5b3fb36c51c843f9598036d4537e1afc4033f` plus unchanged inherited audio
+patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`:
+**working-tree test build, not clean-commit/native Windows acceptance**. All
+three inherited files remain byte-identical/uncommitted; Metal is excluded.
+Build/import audit passes; the prior build is `vaeg-audio-local-ee5ebc8d.exe`.
+
+Full-resolution verification has an explicit platform limit:
+
+- Default Windows Release-object640x400 generator aborts inside the first video
+  encode under Wine with `ntdll/unix/virtual.c:1003 alloc_pages_vprot`.
+  A restarted task-only Wine server does not fix it. A plain CRT-only program,
+  with **no FFmpeg/emulator code**, independently reproduces the same assertion
+  at24MiB aligned allocation (8/16MiB pass). Thus this test environment has a
+  demonstrated allocator failure; do not credit a completed Windows movie run.
+- Phase-logging and disposable low-address-policy driver experiments are kept;
+  the latter fail at loader status53 and give no validation credit. None of
+  these driver/PE-policy changes is applied to the production executable.
+  Commands, binaries, statuses and hashes: `opaque-bgra-wine-results.json`.
+- Native macOS **application encoder/muxer objects**, not the CLI, successfully
+  generate640x400/180 frames plus144,000 stereo PCM frames. Independent decode
+  matches every original RGB byte and every alpha255 byte; PCM is exact silence.
+  `output/public-ffv1-opaque-bgra-host.mkv`, SHA256
+  `4932df44809b1e2301fe868f8bd08750a26eee2dc0754f5e3b22b4ba14514146`;
+  identities/commands/results: `opaque-bgra-host-verification.json`. This is
+  **not** Windows Release runtime proof. Actual new-app capture/movie playback
+  and native Windows acceptance remain pending; tint entry stays OPEN.
+
+## Previous viewport-fit settings and color-packing comparison
 
 The maintainer confirms the RGB-tagged public fixture still shows the same
 three colors in VLC. **RGB metadata did not resolve the tint.** No new channel,
@@ -39,8 +84,8 @@ viewport/font profiles, long status, a seeded 128x72 window and scroll-end/
 footer-bounds assertions. ON/OFF builds and recording/header tests pass 22/22
 and 14/14. These are layout assertions, not a native Windows visual gate.
 
-Current working-tree test executable: `output/vaeg-audio-local-test.exe` (also
-`output/vaeg.exe`), 58,843,761 bytes, SHA256
+Previous working-tree test executable: `output/vaeg-audio-local-ee5ebc8d.exe`,
+58,843,761 bytes, SHA256
 `a5c2565cb3405dd2500838af36cdfb210dd2fa99e1cef095855197ed1c1453f7`.
 Base `ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee` plus the same inherited audio
 patch `0925091601467304336586c3bdf66b3d7cc08328afd5b9797edc190c7c1a2386`;

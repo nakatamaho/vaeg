@@ -1,20 +1,27 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest viewport-fit recording settings and local audio snapshot
+## Latest opaque-BGRA archive compatibility correction
 
-The current test executable is based on `ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee`
+The current test executable is based on `a5f5b3fb36c51c843f9598036d4537e1afc4033f`
 **plus unchanged, uncommitted inherited native-session implementation/tests**;
 not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `a5c2565cb3405dd2500838af36cdfb210dd2fa99e1cef095855197ed1c1453f7`.
+SHA256: `92fb29e8be3b1a68d7bcfd6ca059a09d80d4a320b1b81d89d3572f2a48d1b6ed`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-viewport-fit-settings-and-color-packing-comparison).
+[current follow-up evidence](recording-ui-followup.md#current-opaque-bgra-archive-compatibility-correction).
 Recording details now fit the viewport with a scrolling body/fixed button row;
 five viewport/font regression profiles pass. Controlled BGR0/BGRA CLI fixtures
-both decode to exact original RGB; BGRA alpha is opaque. Compare both in VLC.
+both decode to exact original RGB; BGRA alpha is opaque. The maintainer now
+confirms BGRA shows seven colors while BGR0 fails with three. Archive output
+therefore switches to explicit opaque BGRA; no RGB value correction is applied.
+macOS22/22,OFF14/14 and three focused Wine tests pass. Full-resolution Windows
+Release-object generation is BLOCKED by a Wine allocator assertion also
+reproduced by a plain CRT-only24MiB allocation. Native macOS application objects
+produce exact640x400 BGRA/PCM; that is not Windows runtime evidence. New-app
+recording/playback and native Windows gates remain pending.
 The maintainer identifies VLC, only three colored bars, and white appearing
 yellow. This remains OPEN; the maintainer confirms the metadata correction did
 **not** improve the player's symptom. No channel/matrix/gamma correction was applied.
