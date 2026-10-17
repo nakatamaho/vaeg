@@ -83,6 +83,18 @@ multi-image file was already refused.
   `rel-20261017.1` on it: `vaeg.exe` reports `Rel.20261017.1`, SHA-256
   `121df04279211e80934bf0f8daaffd573d1c7f33a9c60c13c88177cd8471aacc`.
 
+## Follow-up: the second disk in FDD2 (maintainer, 2026-10-17)
+
+The maintainer opened a two-disk game file in FDD1 and found FDD2 empty.
+As PC-8801 software expects disk B in drive 2, a multi-image D88 opened
+(menu, history, browser) or dropped (also from an archive) into FDD1 now
+puts its second disk in FDD2 as well; 最近の起動 still restores exactly
+what it recorded
+([7c7f7c16](https://github.com/nakatamaho/vaeg/commit/7c7f7c16f5a6843674b756e28dc14e6513c61920)). Checked with a
+copy of that file: the FDD menu shows `[1/2 DISK A]` and `[2/2 DISK B]`,
+`vaeg.cfg` gets `FDD2IMAGE=1`, and the game starts and runs its opening.
+The drop path was built and reviewed but not exercised in the GUI test.
+
 ## Gate G120 (human)
 
 Standard gate, plus: a multi-image D88 shows its disks under FDD1/FDD2
