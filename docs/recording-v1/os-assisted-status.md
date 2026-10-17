@@ -1,6 +1,26 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
+## Maintainer follow-up: native archive tint and recording controls
+
+The maintainer reports red tint in the saved movie only; live VAEG display is
+normal. This remains OPEN, not a demonstrated channel-order or matrix defect.
+Player identity and independent captured-source/decoded-RGB comparison are
+pending. No speculative tint correction has been applied. See the
+[open correctness-ledger entry](../modernization/bug-fixes.md#m100s2--saved-ffv1-video-has-a-red-cast-on-windows).
+
+Public RGB FFV1 encode/decode, capability and PCM Windows test executables run
+successfully under task-local Wine9 after restoring missing unmodified Wine
+builtin DLLs from the container's installed package. Wine setup was separate
+from the earlier failed Python-inclusive attempt. Matroska Unicode-directory
+and native-session file tests still fail under that incomplete prefix; do not
+claim the entire Windows suite passed. New exhaustive RGB565 FFV1 round-trip
+coverage passes on macOS; Windows rebuild and execution follow. No private
+clip or screenshot has been accessed or recorded.
+
+Requested automatic dated `recordings/` output, 90-degree clockwise recording,
+Japanese start/stop/settings and RECORDING panel indicator are in progress.
+
 ## Latest requested FFV1-enabled MinGW artifact
 
 The explicit recording-ON request is fulfilled by a separate static Release

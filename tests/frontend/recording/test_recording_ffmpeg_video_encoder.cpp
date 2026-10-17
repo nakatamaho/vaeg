@@ -140,6 +140,23 @@ Fixture make_rgb565_fixture() {
 	return fixture;
 }
 
+Fixture make_all_rgb565_colors() {
+	constexpr std::uint32_t width = 256u;
+	constexpr std::uint64_t stride = width * 2u + 8u;
+	Fixture fixture{{width, width, stride, VAEG_RECORDING_PIXEL_RGB565},
+	                std::vector<std::uint8_t>(stride * width, 0xa5u),
+	                std::vector<std::uint8_t>(width * width * 3u)};
+	for (std::uint32_t value = 0; value < 65536u; ++value) {
+		const auto offset = (value / width) * stride + (value % width) * 2u;
+		fixture.bytes[offset] = static_cast<std::uint8_t>(value);
+		fixture.bytes[offset + 1u] = static_cast<std::uint8_t>(value >> 8);
+		fixture.expected_rgb[value * 3u] = expand5((value >> 11) & 31u);
+		fixture.expected_rgb[value * 3u + 1u] = expand6((value >> 5) & 63u);
+		fixture.expected_rgb[value * 3u + 2u] = expand5(value & 31u);
+	}
+	return fixture;
+}
+
 std::vector<DecodedFrame> decode_packets(const std::vector<EncodedVideoPacket> &packets,
                                          const vaeg::recording::VideoEncoderInfo &info) {
 	const std::uint32_t width = info.width;
@@ -291,6 +308,7 @@ int main() {
 	       FfmpegVideoEncoderError::InvalidConfig);
 	check_round_trip(make_rgb24_fixture());
 	check_round_trip(make_rgb565_fixture());
+	check_round_trip(make_all_rgb565_colors());
 	check_invalid_inputs();
 	check_failure_paths();
 	assert(vaeg::recording::ffmpeg_video_encoder_error_name(

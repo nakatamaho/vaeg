@@ -3077,6 +3077,23 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M100s2 — saved FFV1 video has a red cast on Windows
+
+- **Symptom/scope:** the maintainer reports a red cast in saved FFV1 movies,
+  while the emulator window itself has normal colors. Reported against the
+  [recording-enabled MinGW build](https://github.com/nakatamaho/vaeg/commit/d63955c00cbb31d249be767f8b3f8f6014e3542e).
+- **Cause/correction:** not established; no corrective color matrix, channel
+  swap or decoder workaround has been applied speculatively.
+- **Verification so far:** public primary/random RGB FFV1 encode/decode checks
+  pass for the Windows test executable under a repaired task-local Wine prefix.
+  Added exhaustive RGB565 color round-trip coverage; macOS checks pass. These
+  synthetic checks do not reproduce or disprove the saved-movie report.
+- **Next step:** identify the affected player and compare decoded RGB values
+  against the captured source, separating capture, mux metadata and playback.
+  Do not publish private guest images or clip identities as evidence.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [recording status](../recording-v1/os-assisted-status.md).
+
 ### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
 
 - **Symptom/scope:** on the maintainer's PC-88VA2 with the MS-DOS 4.0
