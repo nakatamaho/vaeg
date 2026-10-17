@@ -1032,6 +1032,32 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M123 — the 8087 FPATAN and F2XM1 series were inaccurate
+
+- **Symptom/scope:** without the host x87 path (macOS arm64, or the setting
+  off) FPATAN near Y = X was wrong from the sixth digit (atan(74/75):
+  0.778679 instead of 0.778687) and F2XM1 of small operands lost most of
+  its digits; FPTAN, FYL2X and FYL2XP1 followed the guest precision control
+  in their intermediate steps.
+- **Demonstrated cause:** FPATAN summed at most 191 terms of the arctangent
+  series of y/x, which converges slowly near 1; F2XM1 computed 2^x and then
+  subtracted one, cancelling the leading digits; the series used the
+  guest's precision and rounding controls, which on the 8087 apply to
+  arithmetic, not to these instructions.
+- **Correction:** FPATAN reduces to t = (y - c x)/(x + c y) with c the
+  nearest eighth and a table of atan(k/8); F2XM1 sums expm1(x ln 2) without
+  a subtraction; every series runs at 64-bit precision, round to nearest,
+  passing its PE/UE/OE flags to the guest.
+- **Verification:** 20,000 random operands per instruction against
+  long-double libm: series now at most 4 ulp (FPATAN, F2XM1), 5 (FPTAN), 2
+  (FYL2X) and 6 (FYL2XP1), was up to 1.6e16 and 3.3e4; unit test `series
+  transcendentals` (mpmath values, including atan(74/75), 2^(2^-18)-1 and a
+  24-bit precision control) fails with each part of the correction undone.
+  FPATAN 23.8 µs → 3.3 µs, F2XM1 11.1 µs → 4.5 µs.
+- **Milestone/task/commit:** M123,
+  [M123 task](../agents/tasks/M123_8087_host_x87.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/9b74f2fa3475788fd851351c1fcd9238d4242490).
+
 ### M123 — 8087 arithmetic rounded to 53 bits at its default 64-bit precision
 
 - **Symptom/scope:** with the 8087's default precision control (64 bits,
@@ -3099,28 +3125,6 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
 ## Open Defects
-
-### M123 — the 8087 SoftFloat series is inaccurate in its transcendentals
-
-- **Symptom/scope:** the SoftFloat path of FPATAN and F2XM1 differs from the
-  exact value by thousands of ulp or more (after the precision fix above,
-  FPTAN, FYL2X and FYL2XP1 are within 6 ulp); FPATAN
-  near Y = X is wrong from the sixth digit (atan(74/75): 0.778679 instead
-  of 0.778687), and F2XM1 of small operands loses most of its digits. Since
-  M123 this applies only when the host x87 path is off or unavailable
-  (macOS arm64 builds).
-- **Cause (from the code and the measurements):** FPATAN sums at most 191
-  terms of the arctangent series, which converges slowly near |z| = 1;
-  F2XM1 computes 2^x and then subtracts one, cancelling the leading digits
-  for small x; the other series accumulate one rounding per term.
-- **Evidence:** 20,000 random operands per instruction against long-double
-  libm (and mpmath for the unit-test points), after the precision fix:
-  series up to 1.6e16 ulp (FPATAN) and 3.3e4 (F2XM1); the host x87 path at
-  most 2 ulp
-  ([M123 task](../agents/tasks/M123_8087_host_x87.md),
-  [host path commit](https://github.com/nakatamaho/vaeg/commit/9abda93dfd5262042435606da751581d33d1baea)).
-- **Next step:** argument reduction and better-converging formulas (or an
-  exact-rounding library) for the series, checked against mpmath.
 
 ### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
 

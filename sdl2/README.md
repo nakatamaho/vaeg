@@ -641,8 +641,8 @@ assembly (M123): about 50 times faster than the SoftFloat series and within
 one ulp of the exact result. The other instructions, the domain checks and
 the status flags are unchanged. 模擬 > 詳細設定… has the checkbox
 (`NDP8087HostFPU`, on by default; it applies at once, without a reset);
-off, or on other hosts (macOS arm64), the SoftFloat series is used.
-Results may then differ between hosts in the last bits.
+off, or on other hosts (macOS arm64), SoftFloat series accurate to a few
+ulp are used, so results may differ between hosts in the last bits.
 
 ## Configuration
 
