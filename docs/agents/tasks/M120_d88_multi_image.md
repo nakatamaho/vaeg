@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M120 — multi-image D88 files, and Rel.20261017.1
 
-Status: **complete; G120 passed on 2026-10-17**
+Status: **complete; G120 passed on 2026-10-17; merged to `main` at [bc5d913](https://github.com/nakatamaho/vaeg/commit/bc5d9134a9c271ecdb24c23a59dd3880334ffb25)**
 
 ## Request
 
