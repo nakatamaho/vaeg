@@ -635,6 +635,15 @@ Use `VA2/VA3` for `pc_model=88VA2` with the optional 8087 disabled, or
 Changing the selection performs the existing reset flow and retains configured
 FDD and SASI media.
 
+On x86 and x86-64 hosts (GCC or Clang builds: Linux, Windows) the 8087's
+FPTAN, FPATAN, F2XM1, FYL2X and FYL2XP1 run on the host x87 through inline
+assembly (M123): about 50 times faster than the SoftFloat series and within
+one ulp of the exact result. The other instructions, the domain checks and
+the status flags are unchanged. 模擬 > 詳細設定… has the checkbox
+(`NDP8087HostFPU`, on by default; it applies at once, without a reset);
+off, or on other hosts (macOS arm64), the SoftFloat series is used.
+Results may then differ between hosts in the last bits.
+
 ## Configuration
 
 The configuration syntax is unchanged. By default, the SDL2 frontend reads and

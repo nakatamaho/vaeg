@@ -53,7 +53,8 @@ remains a useful historical reference.
 - cursor keys assignable to the keypad 8/4/6/2, a joystick or the mouse
   (Key > カーソル割り当て), and F12 assignable to COPY, STOP, keypad `=` or
   `,`, PC, full speed, screenshot or pause;
-- 8087 emulation, enabled by default;
+- 8087 emulation, enabled by default, with its transcendental instructions
+  on the host x87 on x86 hosts;
 - partial PC-9801-55-compatible SCSI support;
 - EMS support;
 - main-memory and BMS compatibility;
