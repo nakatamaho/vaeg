@@ -13,3 +13,9 @@ independent verifier, path collision preservation, archive ON/OFF regressions,
 focused Werror/ASan/UBSan, repository encoding/EOL/case and whitespace checks.
 Evidence and handoff: [status](../../recording-v1/os-assisted-status.md).
 Sequential task-local progress authorized; LOCAL_ONLY, no routine approval stop.
+
+Maintainer-requested build follow-up: the separate FFV1-enabled MinGW artifact,
+minimal LGPL FFmpeg build, C/C++ header portability correction, checks and
+runtime/distribution limits are recorded in
+[MinGW FFV1 build evidence](../../recording-v1/mingw-ffv1-build.md). This enables
+the existing archive path, not the unfinished Windows real-time H.264 provider.

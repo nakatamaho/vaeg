@@ -1,7 +1,25 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest published-release main refresh and requested MinGW build
+## Latest requested FFV1-enabled MinGW artifact
+
+The explicit recording-ON request is fulfilled by a separate static Release
+artifact, without replacing the earlier OFF executable. Evaluated source:
+`d63955c00cbb31d249be767f8b3f8f6014e3542e`; artifact:
+`../vaeg-mingw-recording-74c3355d/output/vaeg.exe`, 58,835,809 bytes, SHA256
+`3ff27618c74735a7fb4da15bc36a3601e0499bbfa320554040e06ed81b58a723`.
+FFmpeg8.1.2 was built for Windows with only FFV1/PCM encoders and Matroska,
+GPL/nonfree/network/programs disabled; no additional FFmpeg DLL is required.
+The compile-blocking C min/max macro leakage into C++ was fixed without touching
+the three inherited dirty files. Final build/link/import audit exited0;
+Windows recording test executables cross-compiled, but Wine setup failed before
+execution and native Windows runtime remains NOT_RUN. macOS recording/header
+checks passed 22/22 ON and 14/14 OFF. Source/objects/FFmpeg archive/configuration
+and license notices are retained; static-distribution review is not complete.
+See [complete build evidence and limitations](mingw-ffv1-build.md) and local
+`../vaeg-mingw-recording-74c3355d/output/BUILD-REPORT.md`. LOCAL_ONLY, no push.
+
+## Latest published-release main refresh and ordinary OFF MinGW build
 
 Starting HEAD: `f16037b0b86c56779199c0eab00a594cbf528d61`. Fetch succeeded;
 pinned published-release main: `f81b1af9ae820b15c7ac29ac2fe29d8a641883bc`.
