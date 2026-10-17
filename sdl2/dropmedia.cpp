@@ -814,6 +814,7 @@ static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t fir
 		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
 		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
 		             sizeof(np2oscfg.fdd_image[drive]));
+		np2oscfg.fdd_image_index[drive] = 0; /* M120: the first disk */
 		remember_archive_source(drive, image.path, image.source_directory);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
