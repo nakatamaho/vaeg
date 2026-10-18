@@ -59,8 +59,30 @@ first disk. An archive of two or more disks opened for FDD2 now takes its
 second disk ([e2ba66dc](https://github.com/nakatamaho/vaeg/commit/e2ba66dcde74b35d2644fb270a35ad86d83cdcbd));
 checked with the real archive in a LibArchive build (ledger entry).
 
+## Follow-up: the display a session ends with (maintainer, 2026-10-18)
+
+The maintainer asked to keep also the window size at exit, 描画方式 and
+拡大方法. These were already kept in `vaeg.cfg` across a restart (checked:
+`GUI_win_cx/cy`, `GUI_scaling`, `NativeCRT`); the request applies to 最近の起動.
+Each recent boot now also holds the rotation, renderer (SDL, CRT,
+librashader unfiltered), scaling, window scale and window size its session
+ended with ([7a310a08](https://github.com/nakatamaho/vaeg/commit/7a310a08b21e04a46b3e7c3693066fd0936dd459)). They
+are written when the session ends: at the next reset, before another
+recent boot is restored, and at exit (`gui_session_end`). The fourteenth
+field becomes `monitor,rotation,renderer,scaling,scale,width,height`; the
+two-value form of the earlier M124 build still reads. The monitor stays
+the one the session started with, and the display fields no longer make two
+records of the same media differ.
+
+Verified with the GUI harness: a session changed to 整数倍, 2倍 and then
+quit wrote `0,0,0,3,2,1280,822`; a new start from default settings that
+chose the record came back at `GUI_scaling=3`, `GUI_scale=2` and a 1280x850
+window; with librashader (unfiltered) chosen the record held renderer 2 and
+restored `NativeCRT=true`, `NativeCRTFilter=false`.
+
 ## Gate G124 (human)
 
 Standard gate, plus: boot something at 15 kHz with the screen turned, boot
 something else at 24 kHz unturned, then choose the first from 最近の起動:
-it comes back at 15 kHz and turned; a two-disk ZIP comes back as A and B.
+it comes back at 15 kHz and turned, with the window size, 描画方式 and
+拡大方法 it had when that session ended; a two-disk ZIP comes back as A and B.
