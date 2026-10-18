@@ -1096,6 +1096,45 @@ the sample VZ definitions in `\VZ`. `FD98.COM` is patched with FD_VA's
 already on the images from the boot floppy. In vaeg, with the image as
 drive C: of a floppy-booted PC-Engine, VZ, FD and MARIN run (VA2).
 
+### M126 requested SASI software and BASIC samples
+
+The HDD-only `stage-softlib-additions.py` stage adds the following files to
+both generated SASI variants. The utility FDD is unchanged.
+
+| Softlib entry | HDD files and use |
+|---|---|
+| [VA3DDEMO](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=1&gnum=23) | `BIN/VA3DDEMO.EXE`, original `ARCHIVE/VA3DDEMO.ASM`, `DOC/VA3DDEMO.DOC` |
+| [CPMVA](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=424) | Already installed: `CPMVA.EXE`, `CPMBIOS.COM`, `DO.COM`, `EXIT.COM`, `FCONV.COM`, `RDCPM.EXE` in `BIN`, documentation in `DOC`, original archive in `ARCHIVE` |
+| [TENIM3](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=74) | Extracted game, background, patterns, loader source and correspondence in `TENIM3`; original self-extracting `TENIM3.COM` in `ARCHIVE`, manual in `DOC`. Change to `\\TENIM3` and run `BASIC TENIM3.BAS`; use the mouse. The archive is not the game executable. |
+| [PCODESRC](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=406) | `BIN/PCODE.COM`, `SRC/PCODE/PCODE.ASM`, original `ARCHIVE/PCODESRC.LZH`. This BASIC-version-specific resident utility is never loaded automatically. |
+
+VA3DDEMO and PCODE are built with the pinned JWasm 2.20 DOS assembler under
+DOSBox; the resulting EXE/COM hashes are checked. Only a temporary build
+copy of VA3DDEMO removes its duplicated `stack` keyword. Its original source
+and usage permission remain unchanged. TENIM3's supplied manual describes
+the publisher-authorized PDS release. Software is downloaded to the shared
+cache and installed locally, not vendored into Git or release packages.
+VA3DDEMO has a known unresolved blank-display issue in vaeg; installation
+and reproducible compilation are not a claim that it renders correctly.
+
+The unchanged repository BASIC sources are also installed, with CRLF line
+endings and DOS 8.3 names, as `BASIC/FPUTEST.BAS` and `BASIC/MANDEL.BAS`.
+`DOC/BASIC.TXT` contains quick instructions. From a HDD-only boot:
+
+```text
+CD \\BASIC
+BASIC /87
+LOAD "FPUTEST.BAS"
+RUN
+LOAD "MANDEL.BAS",A
+RUN
+```
+
+FPUTEST should report `failed: 0` with the 8087 enabled; omit `/87` to run
+with BASIC arithmetic instead (which does not test the 8087). Mandelbrot
+also runs without `/87`, and its full image takes time. The original BASIC
+sources, including their BSD notices, remain unchanged in Git.
+
 ## Supplemental Softlib Archive Disk
 
 [`tools/pc88va/build-softlib-archive-disk.sh`](../../tools/pc88va/build-softlib-archive-disk.sh)
