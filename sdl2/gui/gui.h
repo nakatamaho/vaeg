@@ -53,6 +53,8 @@ enum {
 	GUI_HISTORY_FDD2 = 1
 };
 void gui_history_add(int kind, const char *path);
+/* M124: at exit, the display goes into the running session's recent boot */
+void gui_session_end(void);
 
 #ifdef __cplusplus
 }
