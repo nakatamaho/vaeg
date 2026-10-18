@@ -295,6 +295,7 @@ struct GuiState {
 	int pending_sgp_multiplier = 1;
 	bool pending_ndp8087_enabled = false;
 	int pending_ndp8087_clock_hz = static_cast<int>(UPD8087_DEFAULT_CLOCK_HZ);
+	bool pending_ndp8087_host_fpu = true;
 	int pending_pacing_ms = 0;
 	bool pending_hostfat_enabled = false;
 	char pending_hostfat_dir[MAX_PATH] = {};
@@ -706,6 +707,7 @@ static void open_configure_dialog(void) {
 	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
 	g_gui.pending_ndp8087_enabled = np2cfg.upd8087_enable != 0;
 	g_gui.pending_ndp8087_clock_hz = static_cast<int>(np2cfg.upd8087_clock_hz);
+	g_gui.pending_ndp8087_host_fpu = np2cfg.upd8087_host_fpu != 0;
 	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
 	g_gui.pending_hostfat_enabled = np2oscfg.hostfat_enabled != 0;
 	milstr_ncpy(g_gui.pending_hostfat_dir, np2oscfg.hostfat_dir, sizeof(g_gui.pending_hostfat_dir));
@@ -819,6 +821,12 @@ static void apply_configure_dialog(void) {
 		reset_guest();
 		reset_done = true;
 	}
+	// M123: takes effect at once; no reset
+	if ((np2cfg.upd8087_host_fpu != 0) != g_gui.pending_ndp8087_host_fpu) {
+		np2cfg.upd8087_host_fpu = g_gui.pending_ndp8087_host_fpu ? 1 : 0;
+		upd8087_set_host_fpu(np2cfg.upd8087_host_fpu != 0);
+		sysmng_update(SYS_UPDATECFG);
+	}
 	if (ndp8087_changed) {
 		np2cfg.upd8087_enable = g_gui.pending_ndp8087_enabled ? 1 : 0;
 		np2cfg.upd8087_clock_hz = static_cast<UINT32>(g_gui.pending_ndp8087_clock_hz);
@@ -929,6 +937,14 @@ static void draw_configure_dialog(void) {
 			ImGui::Separator();
 			ImGui::Checkbox("Enable 8087", &g_gui.pending_ndp8087_enabled);
 			draw_ndp8087_clock_input(&g_gui.pending_ndp8087_clock_hz);
+			if (upd8087_host_fpu_available()) {
+				ImGui::Checkbox("FPTAN/FPATAN/F2XM1/FYL2X/FYL2XP1 on the host x87",
+				                &g_gui.pending_ndp8087_host_fpu);
+				ImGui::TextDisabled("Faster and closer to exact; results may differ from "
+				                    "other hosts in the last bits.");
+			} else {
+				ImGui::TextDisabled("Transcendentals: SoftFloat series (no host x87).");
+			}
 			ImGui::Text("Active: %s, %u Hz", upd8087.enabled ? "enabled" : "disabled",
 			            static_cast<unsigned int>(upd8087.clock_hz));
 			if (requested_changed) {

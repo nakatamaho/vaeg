@@ -376,6 +376,7 @@ static const INITBL iniitem[] = {
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
     {"NDP8087Hz", INITYPE_UINT32, &np2cfg.upd8087_clock_hz, 0},
+    {"NDP8087HostFPU", INITYPE_BOOL, &np2cfg.upd8087_host_fpu, 0},
     {"ITF_WORK", INITYPE_BOOL, &np2cfg.ITF_WORK, 0},
     {"Use_BMS_", INITYPE_BOOL, &bmsiocfg.enabled, 0},
     {"BMS_Port", INITYPE_HEX16, &bmsiocfg.port, 0},
