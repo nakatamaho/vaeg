@@ -134,6 +134,40 @@ UINT64 sgp_scale_elapsed(UINT32 elapsed) {
 	return (clockscale_apply(&sgp_clock_scale, elapsed));
 }
 
+/*
+ * M128: command costs calibrated against SGPBENCH 2 on the PC-88VA and the
+ * PC-88VA2 (docs/modernization/upd92017-sgp.md, "Measured timing"). The
+ * charges below are the former nominal ones, multiplied per model and per
+ * class by these factors (1/256 units); the remainder is carried so that
+ * small charges keep their fractions. Classes: setup (command fetch and
+ * the descriptors), BITBLT/PATBLT words and lines, CLS words. LINE and SCAN
+ * have no measurement and keep their nominal cost.
+ */
+#ifndef SGP_SCALE_VA_SETUP
+#define SGP_SCALE_VA_SETUP 370
+#define SGP_SCALE_VA_BLT 432
+#define SGP_SCALE_VA_CLS 525
+#define SGP_SCALE_VA2_SETUP 541
+#define SGP_SCALE_VA2_BLT 497
+#define SGP_SCALE_VA2_CLS 443
+#endif
+enum { SGP_COST_SETUP = 0, SGP_COST_BLT, SGP_COST_CLS, SGP_COST_NOMINAL, SGP_COST_CLASSES };
+
+static const UINT16 sgp_cost_scale[2][SGP_COST_CLASSES] = {
+    /* PC-88VA */ {SGP_SCALE_VA_SETUP, SGP_SCALE_VA_BLT, SGP_SCALE_VA_CLS, 256},
+    /* PC-88VA2 */ {SGP_SCALE_VA2_SETUP, SGP_SCALE_VA2_BLT, SGP_SCALE_VA2_CLS, 256},
+};
+static UINT32 sgp_cost_fraction;
+
+static void sgp_charge(int cost_class, UINT32 units) {
+	UINT32 scaled;
+
+	scaled = units * sgp_cost_scale[(pccore.model_va == PCMODEL_VA2) ? 1 : 0][cost_class] +
+	         sgp_cost_fraction;
+	sgp.remainclock -= (SINT32)(scaled >> 8);
+	sgp_cost_fraction = scaled & 0xff;
+}
+
 // ----
 
 static REG16 MEMCALL mainw_rd(UINT32 address) {
@@ -749,7 +783,7 @@ static void cmd_unknown(void) {
 static void cmd_nop(void) {
 	// No operation.
 	TRACEOUT(("SGP: cmd: nop"));
-	sgp.remainclock -= 5 * 2;
+	sgp_charge(SGP_COST_SETUP, 5 * 2);
 }
 
 static void cmd_end(void) {
@@ -764,7 +798,7 @@ static void cmd_set_work(void) {
 	// Load the 58-byte SGP work-area address.
 	sgp.workmem = sgp_memoryread_w(sgp.pc) & 0xfffe | ((UINT32)sgp_memoryread_w(sgp.pc + 2) << 16);
 	sgp.pc += 4;
-	sgp.remainclock -= 23 * 2;
+	sgp_charge(SGP_COST_SETUP, 23 * 2);
 }
 
 static void cmd_set_source(void) {
@@ -775,7 +809,7 @@ static void cmd_set_source(void) {
 	          sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw,
 	          sgp.src.address));
 	sgp.pc += 12;
-	sgp.remainclock -= 106 * 2;
+	sgp_charge(SGP_COST_SETUP, 106 * 2);
 }
 
 static void cmd_set_destination(void) {
@@ -786,20 +820,20 @@ static void cmd_set_destination(void) {
 	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
 	          sgp.dest.address));
 	sgp.pc += 12;
-	sgp.remainclock -= 106 * 2;
+	sgp_charge(SGP_COST_SETUP, 106 * 2);
 }
 
 static void cmd_set_color(void) {
 	sgp.color = sgp_memoryread_w(sgp.pc);
 	TRACEOUT(("SGP: cmd: set color: color=0x%x", sgp.color));
 	sgp.pc += 2;
-	sgp.remainclock -= 10 * 2;
+	sgp_charge(SGP_COST_SETUP, 10 * 2);
 }
 
 static void cmd_bitblt(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
-	sgp.remainclock -= 338 * 2;
+	sgp_charge(SGP_COST_SETUP, 338 * 2);
 
 	TRACEOUT(("SGP: cmd: bitblt: %04x", sgp.bltmode));
 	if (!sgp_blt_mode_valid(sgp.bltmode, &sgp.src, &sgp.dest)) {
@@ -827,7 +861,7 @@ static void cmd_bitblt(void) {
 static void cmd_patblt(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
-	sgp.remainclock -= 338 * 2;
+	sgp_charge(SGP_COST_SETUP, 338 * 2);
 	sgp_scan_trace("PATBLT mode=%04x src_width=%d src_height=%d dest_width=%d dest_height=%d dest_addr=%06lx dest_dot=%d",
 	               sgp.bltmode, sgp.src.width, sgp.src.height, sgp.dest.width, sgp.dest.height,
 	               sgp.dest.address, sgp.dest.dot);
@@ -914,7 +948,7 @@ static void cmd_cls(void) {
 	sgp.clscount =
 	    (UINT32)sgp_memoryread_w(sgp.pc + 4) | (((UINT32)sgp_memoryread_w(sgp.pc + 6)) << 16);
 	sgp.pc += 8;
-	sgp.remainclock -= 26 * 2;
+	sgp_charge(SGP_COST_SETUP, 26 * 2);
 
 	sgp.func = FUNC_EXEC_CLS;
 
@@ -1027,9 +1061,9 @@ static void exec_bitblt(void) {
 		//@@1	read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
 		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp.remainclock -= 10 * 2;
+			sgp_charge(SGP_COST_BLT, 10 * 2);
 		} else {
-			sgp.remainclock -= 8 * 2;
+			sgp_charge(SGP_COST_BLT, 8 * 2);
 		}
 	}
 
@@ -1040,7 +1074,7 @@ static void exec_bitblt(void) {
 			//sgp.func = fetch_command;
 			sgp.func = FUNC_FETCH_COMMAND;
 		} else {
-			sgp.remainclock -= 14 * 2;
+			sgp_charge(SGP_COST_BLT, 14 * 2);
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
 				sgp.src.lineaddress -= SGP_FBW_STEP(sgp.src);
@@ -1132,9 +1166,9 @@ static void exec_bitblt_hd(void) {
 		//@@1		read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
 		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp.remainclock -= 10 * 2;
+			sgp_charge(SGP_COST_BLT, 10 * 2);
 		} else {
-			sgp.remainclock -= 8 * 2;
+			sgp_charge(SGP_COST_BLT, 8 * 2);
 		}
 	}
 
@@ -1144,7 +1178,7 @@ static void exec_bitblt_hd(void) {
 		if (sgp.dest.ycount == 0) {
 			sgp.func = FUNC_FETCH_COMMAND;
 		} else {
-			sgp.remainclock -= 14 * 2;
+			sgp_charge(SGP_COST_BLT, 14 * 2);
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
 				sgp.src.lineaddress -= SGP_FBW_STEP(sgp.src);
@@ -1178,7 +1212,7 @@ static void exec_cls(void) {
 	if (sgp.clscount == 0) {
 		sgp.func = FUNC_FETCH_COMMAND;
 	}
-	sgp.remainclock -= 3 * 2;
+	sgp_charge(SGP_COST_CLS, 3 * 2);
 }
 
 static UINT16 scan_pixel(int dot, int scrnmode, UINT16 packed_value) {
@@ -1795,11 +1829,22 @@ BOOL sgp_manual_commands_selftest(void) {
 	    sgp_command_known(0xffff)) {
 		goto restore;
 	}
-	sgp.remainclock = 10;
+	/* NOP costs its nominal 10 units times the model's setup factor (M128). */
+	sgp.remainclock = 1000;
+	sgp_cost_fraction = 0;
 	cmd_nop();
-	if (sgp.remainclock != 0) {
+	if (sgp.remainclock != 1000 - (SINT32)((10 * sgp_cost_scale[(pccore.model_va == PCMODEL_VA2) ? 1 : 0]
+	                                                              [SGP_COST_SETUP]) >> 8)) {
 		goto restore;
 	}
+	pccore.model_va = PCMODEL_VA1;
+	sgp.remainclock = 1000;
+	cmd_nop();
+	if (sgp.remainclock != 1000 - ((10 * SGP_SCALE_VA_SETUP + 0) >> 8) &&
+	    sgp.remainclock != 1000 - ((10 * SGP_SCALE_VA_SETUP + 0xff) >> 8)) {
+		goto restore;
+	}
+	pccore.model_va = PCMODEL_VA2;
 	block.scrnmode = 0;
 	block.dot = 0;
 	block.width = 8;
