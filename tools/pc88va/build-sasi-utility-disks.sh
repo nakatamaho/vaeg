@@ -169,6 +169,14 @@ The Vector UNIX-like tools 4.12h package is staged below A:\\UNIX\\BIN with
 its manuals and source documentation below A:\\UNIX\\MAN and A:\\UNIX\\DOC;
 the original TGZ is retained under A:\\ARCHIVE.  Its path is added after
 A:\\BIN so existing VA utilities keep their historical command names.
+M126 HDD-only additions: VA3DDEMO.EXE and PCODE.COM are built with the pinned
+JWasm DOS assembler under DOSBox and Python 3.
+TENIM3 is expanded into A:\\TENIM3; start it there with BASIC TENIM3.BAS.
+Original source/archive files and manuals are retained.  The repository's
+FPUTEST.BAS and Mandelbrot (MANDEL.BAS, DOS 8.3 name) are installed under
+A:\\BASIC with CRLF line endings; see A:\\DOC\\BASIC.TXT.  These additions do
+not change the utility FDD.  VA3DDEMO has an unresolved blank-display issue
+in vaeg; reproducible compilation does not establish correct rendering.
 Generated images are never overwritten.
 EOF
 }

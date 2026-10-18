@@ -60,5 +60,59 @@ and full regeneration/readback of both private SASI images. Record commands,
 exit status, image hashes and limitations here. No emulator build inputs
 change, so no unchanged CMake, static MinGW or hosted emulator builds are
 required. Runtime and original-hardware compatibility are not gate claims.
+The maintainer requested this as a main fix and approved prioritizing it over
+M125; integrate the packaging-only change after the machine gate passes.
 
-Status: in progress. Stop for maintainer review before merging to main.
+## Verification result
+
+Packaging evaluated at `4b26db16f9b6e3d909b20b723c5cc4b7caa04c4e`, in a
+fresh local clone. Later usage-text/report edits do not alter staging code,
+package identities, assembler or BASIC sources.
+
+Commands (private input values are intentionally omitted):
+
+```sh
+python3 tests/pc88va/test_softlib_additions.py -v
+python3 tools/pc88va/test_vtiming_media.py -q
+bash -n tools/pc88va/build-sasi-utility-disks.sh
+python3 tools/repo/check_encoding.py
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+python3 tools/repo/check_md_comments.py
+git diff --check
+tools/pc88va/build-utility-disk.sh --source "$PCE110" --output "$NEW_FDD"
+tools/pc88va/build-sasi-utility-disks.sh --source-va "$PCE105" \
+  --source-va2 "$PCE110" --payload-d88 "$NEW_FDD" --output-dir "$NEW_HDDS"
+```
+
+All commands exited 0. Four Softlib tests pass, including two independent
+staging runs with byte-identical results and a synthetic FAT12 HDD readback.
+Three existing V480PAT packaging tests pass. Repository checks report no
+findings. Mutations disabling hash checks and omitting BASIC CRLF conversion
+each fail their intended focused test; the normal tests pass afterward.
+
+Full local regeneration produced a utility FDD with 4096 bytes free, and
+both complete SASI variants. All 129 FDD file payloads match the prior
+utility FDD byte-for-byte (directory timestamps ignored). Thirty requested
+and existing CPMVA files were read from each real generated HDD and matched
+the staged/public originals byte-for-byte, including both BASIC sources,
+all eleven TENIM3 members, unchanged VA3DDEMO source, and built EXE/COM.
+The destination is a new local output directory; older media were not
+modified. Generated output SHA-256:
+
+| Output | SHA-256 |
+|---|---|
+| Utility FDD (regression only) | `9594f2a7d4d85ed51f68328cf812776494139321d5faaf0d07e0065ab2d98f05` |
+| SASI VA | `d641c82ebebdaf1fee4a900a555be62c39a3b9d4c675eacc8c13c92a6de1c352` |
+| SASI VA2 | `91caacb65ba1062bc561daa744958b62172cf2ea54207933ec7ac1502ddeee07` |
+
+The existing M124 demo-build/runtime results are reused, not rerun:
+`git diff --name-only 9af8cb4ea808f617251cf8ec72812ded3af1197d HEAD`
+contains only task/roadmap/media documentation, the SASI wrapper, the new
+HDD staging helper and its tests. No demo, emulator, vendored, FDD-builder,
+shared-stager or build-system input changed. This is packaging-only
+validation and does not establish new guest-runtime results. In particular,
+the pre-existing VA3DDEMO blank-display issue remains open.
+
+**G126 machine packaging gate passed.** Main integration was requested by
+the maintainer; M125 remains on hold.
