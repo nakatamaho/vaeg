@@ -235,3 +235,22 @@ main-sync-0f7977e0 work directory. No shipping Release artifact rebuild, native
 Windows/private-media/throughput run or hosted CI manually requested. Prior Mac
 2bd194b9/Windows1b30383d handoff binaries remain unchanged and do not include
 this new main synchronization. Human/practical recording gate still pending.
+
+Next main sync, requested again by maintainer: fetched
+`fb38dd65c76bd1c5aea89d64fe63c36f061df193` into the recording branch at98a1d266.
+Conflict-free. Imports the PS instruction-stream fetch correction (including
+its split-segment BRKEM selftest, shared backend/provenance patch) and public
+FDC Clock::now fix. No hand-edits to imported source/vendor/provenance:7 blobs
+match main exactly; the ledger automatically combines both branches' records.
+Original3 inherited working files remain byte-identical and unstaged.
+
+Local commands, exit0:
+- `cmake --build build/macos-rec13-on --parallel 6`; `ctest --test-dir build/macos-rec13-on -R 'z80_compat|upd780|upd70008|upd9002_brkem|recording|romless|sdl_startup_viewport' --no-tests=error --output-on-failure`:37 passed/three skips (H.264 hardware and two external CPU probes).
+- Same build/CTest commands with `macos-rec13-off`:29 passed/two external CPU probe skips. BRKEM, shared compatibility contracts/headers/interrupts/wrappers/directed/state/generated/convergence and ROM-less recording/GUI checks pass.
+- Compile `io/subsystem.cpp` using the existing production Release compile command, no integration-testing define, object/dependency outputs redirected to task scratch:0. No shipping executable modified.
+- Encoding/EOL/case/Markdown-comment checks and staged whitespace check excluding the exact imported provenance patch pass. Full staged whitespace check returns2 only for pre-existing main patch lines23/37/39 (context blank/mail footer/EOF); keep that patch byte-identical to main rather than rewrite provenance.
+
+Local main-sync-fb38dd65 directory retains commands, worker/log/dependency
+identities and preservation evidence. No Release executable rebuild, native
+Windows/private-media/throughput run, manual hosted CI or gate pass. Prior
+shipping Mac2bd194b9/Windows1b30383d binaries remain unchanged; main/r2 unchanged.

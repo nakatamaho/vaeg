@@ -35,6 +35,38 @@ land.
 
 ## Maintenance Rules
 
+### Compatible-mode operands were fetched through DS0
+
+- **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode
+  whose code segment (PS) differs from its data segment (DS0) ran with
+  wrong operands: a `JP` went to an address read from the data segment, an
+  `LD A,n` loaded a data-segment byte. pc88va-gg, which runs its Z80
+  programs with separate code and data segments, looped at its first jump
+  and stopped at its start-up check; the PC-88VA and PC-88VA2 run it.
+  Software with PS = DS0 (V1/V2 mode, Debug 8800, CPMVA, pc88va-pk,
+  pc88va-dd) was not affected.
+- **Demonstrated cause:** `Z80CompatCpu::ReadMemory` translated only the
+  first byte of an instruction through the code base; prefixes' second
+  bytes, displacements and immediates went through the data base, against
+  the V30 manual's instruction fetch through PS
+  ([section 3.3](upd9002-upd70008-mode.md#33-address-space-and-segments)).
+- **Correction:** the vendored core's `fetch()` flags instruction-stream
+  reads ([patch](../agents/reports/upd9002_instruction_fetch_flag.patch),
+  recorded in `external/suzukiplan-z80/provenance.txt`) and `ReadMemory`
+  translates them through PS. `CALLN`'s vector byte was already read
+  through PS.
+- **Verification:** selftest `vaeg_upd9002_brkem_upd70008` gains a case
+  with PS and DS0 holding different bytes (immediates, an IX
+  displacement, `ED`-prefixed `LD BC,(nn)`, `JP`), which fails without the
+  fix; all 94 CTest cases pass on `linux-ci-gcc`; M103b V2 BASIC boot
+  passes; upstream's `test/` suite gives the same output before and after
+  the core patch. Hardware: the maintainer ran pc88va-gg, whose start-up
+  check stops if an operand is read through DS0, on the PC-88VA and
+  PC-88VA2 (2026-10-19).
+- **Milestone/task/commit:** maintainer-requested fix outside the
+  milestone sequence (2026-10-19);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/e0c47ca41f36ead299783d1dd21878449b0943fb).
+
 ### M127 — missing secondary media disabled an otherwise usable recent boot
 
 - **Symptom/scope:** a recent-boot entry with an existing primary floppy was

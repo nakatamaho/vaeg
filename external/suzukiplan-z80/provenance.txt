@@ -24,18 +24,18 @@ upstream_repository=https://github.com/suzukiplan/z80
 license=MIT
 license_file=LICENSE.txt
 
-# Current vendored state (M102, 2026-09-30)
+# Current vendored state (2026-10-19)
 current_base_sha=ab97d3fa9eedc4914f82f3d9bc2abf33984d984d
 current_base_note=upstream master after pull requests #60, #61 and #62 (CHANGELOG version 1.11.0, no tag)
-current_patches=docs/agents/reports/m102_upstream_upd9002_daa_cpl_scf_ccf.patch docs/agents/reports/m102_upstream_upd9002_ddcb_register_forms.patch docs/agents/reports/m102_upstream_undefined_opcodes.patch docs/agents/reports/m102_m35_irq_extension_on_1_11.patch docs/agents/reports/m102_upd9002_undefined_ed_semantics.patch
+current_patches=docs/agents/reports/m102_upstream_upd9002_daa_cpl_scf_ccf.patch docs/agents/reports/m102_upstream_upd9002_ddcb_register_forms.patch docs/agents/reports/m102_upstream_undefined_opcodes.patch docs/agents/reports/m102_m35_irq_extension_on_1_11.patch docs/agents/reports/m102_upd9002_undefined_ed_semantics.patch docs/agents/reports/upd9002_instruction_fetch_flag.patch
 current_patch_sha256_upd9002_daa_cpl_scf_ccf=0731306a6a0b6df14777f070f0194ecba345d929f2e37e06db00422db62beb07
 current_patch_sha256_upd9002_ddcb_register_forms=8eb861d3f79508af85e8b21d5993cb065ec295b561ae6da993dd5a36188ed9dd
 current_patch_sha256_undefined_opcodes=4d622e1cd327e58e45b7614e8cfd2ecd95ab01a876c2562b9ea1392cadc54ab9
 current_patch_sha256_m35_irq_extension=76e50ec777c1f6117f95faa2455d5625046329e778f183f4786c0d362a7b9ce8
 current_patch_sha256_upd9002_undefined_ed_semantics=678746bb8a7ae69f0d92cb959776839f6016bbcc70fff53d2a9dc91bc88c01cb
-current_resulting_commit=3cc3e221bb00dfb91532b18d6584ee57e1a0f13a
-current_resulting_tree=129c42b92db4a2e1b0cf422f226288ccea2fbbf3
-current_z80_hpp_sha256=8d88753778a0cf0d14d306ea4a5f54d11526051b2b93b569fe596dae540513dc
+current_patch_sha256_upd9002_instruction_fetch_flag=424541f9d1136f7c0984363c549806ad41f4d17ca430294748c1778d6751125d
+current_resulting_tree=afdcc3266051505ae42b865688909a859d7741bf
+current_z80_hpp_sha256=78cec88e7b9770863ac85f816194df25c7e682258d70b1859969cd0a151dd0d9
 current_upstream_pull_requests=https://github.com/suzukiplan/z80/pull/64 https://github.com/suzukiplan/z80/pull/63
 current_vendored_files=z80.hpp LICENSE.txt test/test-interrupt-extension.cpp
 
@@ -46,10 +46,22 @@ commits are offered again as #64; the undefined-opcode fix is #63. vaeg
 applies, on the upstream base above and in this order with
 `git am --committer-date-is-author-date` and committer
 "Nakata Maho <maho.nakata@gmail.com>": the two #64 commits, the #63 commit,
-and the M35 IRQ extension rebased onto this base (its test/Makefile conflict
-resolved). The result reproduces current_resulting_commit and
-current_resulting_tree; z80.hpp, LICENSE.txt and
-test/test-interrupt-extension.cpp were copied from that tree.
+the M35 IRQ extension rebased onto this base (its test/Makefile conflict
+resolved), the measured undefined ED semantics, and the instruction-fetch
+flag (2026-10-19: fetch() marks instruction-stream reads, so that the
+uPD9002 adapter fetches every byte of an instruction through PS; not
+offered upstream). The result reproduces current_resulting_tree; z80.hpp,
+LICENSE.txt and test/test-interrupt-extension.cpp were copied from that
+tree. Upstream's test/ suite (`make all`) gives the same output before and
+after the last patch.
+
+M102 recorded the resulting commit as
+3cc3e221bb00dfb91532b18d6584ee57e1a0f13a with tree
+129c42b92db4a2e1b0cf422f226288ccea2fbbf3 and z80.hpp SHA-256
+8d88753778a0cf0d14d306ea4a5f54d11526051b2b93b569fe596dae540513dc. A
+replay of its five patches on 2026-10-19 reproduced that tree and z80.hpp
+(not the commit SHA, which depends on the committer dates), and the
+instruction-fetch flag was applied on top of it.
 
 # History (superseded states)
 upstream_release=1.10.0
