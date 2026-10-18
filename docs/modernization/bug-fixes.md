@@ -1032,6 +1032,73 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M124 — a two-disk archive came back as disk A in both drives
+
+- **Symptom/scope:** a ZIP (or 7z/LZH) holding disks A and B, dropped or
+  opened into FDD1, mounted A and B; choosing it again from 最近の起動 or
+  from FDD2 履歴 put A into FDD2 as well. Archives of several disks only.
+- **Demonstrated cause:** both drives record the archive as their source,
+  so the recent boot holds it for FDD1 and FDD2; opening an archive for
+  FDD2 mounted its first disk, A.
+- **Correction:** an archive of two or more disks opened for FDD2 mounts
+  its second disk there, as when it is opened for FDD1.
+- **Verification:** with a two-disk game archive (GUI harness, LibArchive
+  build): a recent boot recording the archive for both drives restores A
+  and B (A and A with the correction undone); FDD1 履歴 gives A and B;
+  FDD2 履歴 gives B.
+- **Milestone/task/commit:** M124,
+  [M124 task](../agents/tasks/M124_recent_boot_display.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/e2ba66dcde74b35d2644fb270a35ad86d83cdcbd).
+
+### M123 — the 8087 FPATAN and F2XM1 series were inaccurate
+
+- **Symptom/scope:** without the host x87 path (macOS arm64, or the setting
+  off) FPATAN near Y = X was wrong from the sixth digit (atan(74/75):
+  0.778679 instead of 0.778687) and F2XM1 of small operands lost most of
+  its digits; FPTAN, FYL2X and FYL2XP1 followed the guest precision control
+  in their intermediate steps.
+- **Demonstrated cause:** FPATAN summed at most 191 terms of the arctangent
+  series of y/x, which converges slowly near 1; F2XM1 computed 2^x and then
+  subtracted one, cancelling the leading digits; the series used the
+  guest's precision and rounding controls, which on the 8087 apply to
+  arithmetic, not to these instructions.
+- **Correction:** FPATAN reduces to t = (y - c x)/(x + c y) with c the
+  nearest eighth and a table of atan(k/8); F2XM1 sums expm1(x ln 2) without
+  a subtraction; every series runs at 64-bit precision, round to nearest,
+  passing its PE/UE/OE flags to the guest.
+- **Verification:** 20,000 random operands per instruction against
+  long-double libm: series now at most 4 ulp (FPATAN, F2XM1), 5 (FPTAN), 2
+  (FYL2X) and 6 (FYL2XP1), was up to 1.6e16 and 3.3e4; unit test `series
+  transcendentals` (mpmath values, including atan(74/75), 2^(2^-18)-1 and a
+  24-bit precision control) fails with each part of the correction undone.
+  FPATAN 23.8 µs → 3.3 µs, F2XM1 11.1 µs → 4.5 µs.
+- **Milestone/task/commit:** M123,
+  [M123 task](../agents/tasks/M123_8087_host_x87.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/9b74f2fa3475788fd851351c1fcd9238d4242490).
+
+### M123 — 8087 arithmetic rounded to 53 bits at its default 64-bit precision
+
+- **Symptom/scope:** with the 8087's default precision control (64 bits,
+  as after FINIT) every FADD, FSUB, FMUL, FDIV, FSQRT and the other SoftFloat
+  operations were rounded to 53 bits (1/3 ended in ...A800 instead of
+  ...AAAB); with 53-bit precision selected they were not rounded at all.
+  Every V3 program using the 8087 is affected; 24-bit precision was right.
+- **Demonstrated cause:** `configure_softfloat` set
+  `extF80_roundingPrecision` to 53 and 64, but SoftFloat names the format
+  width: 32, 64 (53-bit significand) or 80 (64-bit). 53 fell through to full
+  precision and 64 selected double precision.
+- **Correction:** precision control 10 maps to 64 and 11 to 80.
+- **Verification:** SoftFloat with the corrected values equals the host x87
+  bit for bit, value and flags, in 4,000,000 random add/sub/mul/div/sqrt
+  cases over every rounding and precision control (ordinary, near-underflow,
+  near-overflow, short-significand operands); unit test `precision control`
+  (1/3 at 64, 53 and 24 bits) fails with the old mapping. The SoftFloat
+  transcendental series improved from up to 1e4 ulp to 2-6 ulp (FPTAN,
+  FYL2X, FYL2XP1).
+- **Milestone/task/commit:** M123,
+  [M123 task](../agents/tasks/M123_8087_host_x87.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/1376fa802217a889c371c8702a5df951674de528).
+
 ### Zilog BIT n,(IX+d)/(IY+d) took X/Y from a stale WZ
 
 - **Status:** fixed on `topic/m102-upd9002-undocumented-opcodes`.

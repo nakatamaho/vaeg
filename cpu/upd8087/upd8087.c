@@ -442,15 +442,19 @@ static void configure_softfloat(const UPD8087_STATE *state) {
 		softfloat_roundingMode = softfloat_round_near_even;
 		break;
 	}
+	/* SoftFloat names the precision by the width of the format it rounds
+	 * to: 32 (24-bit significand), 64 (53-bit) or 80 (64-bit). M123: 53 and
+	 * 64 were passed here, which rounded the 8087's default 64-bit precision
+	 * to 53 bits and its 53-bit precision to 64 bits. */
 	switch (precision) {
 	case 0x0000:
 		extF80_roundingPrecision = 32;
 		break;
 	case 0x0200:
-		extF80_roundingPrecision = 53;
+		extF80_roundingPrecision = 64;
 		break;
 	default:
-		extF80_roundingPrecision = 64;
+		extF80_roundingPrecision = 80;
 		break;
 	}
 }
@@ -937,20 +941,277 @@ static void set_compare_conditions(UPD8087_STATE *state, int comparison,
 	}
 }
 
-static UPD8087_RAW80 exp2_series(UPD8087_STATE *state, UPD8087_RAW80 value) {
-	UPD8087_RAW80 term = raw_one;
-	UPD8087_RAW80 sum = raw_one;
-	UPD8087_RAW80 x = sf_mul(state, value, raw_ln2);
+/* ---- M123: host x87 for the transcendental instructions ---- */
+
+#if (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
+#define UPD8087_HOST_X87 1
+#else
+#define UPD8087_HOST_X87 0
+#endif
+
+enum {
+	HOST_F2XM1 = 0,
+	HOST_FYL2X,
+	HOST_FPTAN,
+	HOST_FPATAN,
+	HOST_FYL2XP1
+};
+
+static bool host_fpu_enabled = true;
+
+bool upd8087_host_fpu_available(void) {
+	return UPD8087_HOST_X87 != 0;
+}
+
+void upd8087_set_host_fpu(bool enabled) {
+	host_fpu_enabled = enabled;
+}
+
+bool upd8087_host_fpu_active(void) {
+	return (UPD8087_HOST_X87 != 0) && host_fpu_enabled;
+}
+
+#if UPD8087_HOST_X87
+typedef struct {
+	unsigned char bytes[10];
+} HOST_X87_EXTENDED;
+
+typedef struct {
+	unsigned char bytes[28];
+} HOST_X87_ENVIRONMENT;
+
+static void host_x87_from_raw(UPD8087_RAW80 value, HOST_X87_EXTENDED *out) {
+	unsigned i;
+
+	for (i = 0; i < 8; i++) {
+		out->bytes[i] = (unsigned char)(value.signif >> (8 * i));
+	}
+	out->bytes[8] = (unsigned char)value.sign_exp;
+	out->bytes[9] = (unsigned char)(value.sign_exp >> 8);
+}
+
+static UPD8087_RAW80 host_x87_to_raw(const HOST_X87_EXTENDED *in) {
+	UPD8087_RAW80 value;
+	unsigned i;
+
+	value.signif = 0;
+	for (i = 0; i < 8; i++) {
+		value.signif |= (uint64_t)in->bytes[i] << (8 * i);
+	}
+	value.sign_exp = (uint16_t)(in->bytes[8] | (in->bytes[9] << 8));
+	return value;
+}
+
+/*
+ * Run one instruction on the host x87 with the guest rounding control,
+ * 64-bit precision and every exception masked. x is ST(0), y is ST(1). The
+ * host environment (control word, status flags) is saved and restored, and
+ * the host register stack is left as it was. Returns the host status word.
+ */
+static uint16_t host_x87_run(unsigned operation, uint16_t guest_control, UPD8087_RAW80 x,
+                             UPD8087_RAW80 y, UPD8087_RAW80 *result) {
+	HOST_X87_ENVIRONMENT environment;
+	HOST_X87_EXTENDED in_x;
+	HOST_X87_EXTENDED in_y;
+	HOST_X87_EXTENDED out;
+	uint16_t control = (uint16_t)((guest_control & 0x0c00) | 0x033f);
+	uint16_t status = 0;
+
+	host_x87_from_raw(x, &in_x);
+	host_x87_from_raw(y, &in_y);
+	memset(&out, 0, sizeof(out));
+	switch (operation) {
+	case HOST_F2XM1:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "f2xm1\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x)
+		                 : "st", "memory");
+		break;
+	case HOST_FPTAN:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fptan\n\t"
+		                 "fstp %%st(0)\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x)
+		                 : "st", "st(1)", "memory");
+		break;
+	case HOST_FPATAN:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fpatan\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	case HOST_FYL2X:
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fyl2x\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	default: /* HOST_FYL2XP1 */
+		__asm__ volatile("fnstenv %[env]\n\t"
+		                 "fnclex\n\t"
+		                 "fldcw %[cw]\n\t"
+		                 "fldt %[y]\n\t"
+		                 "fldt %[x]\n\t"
+		                 "fyl2xp1\n\t"
+		                 "fstpt %[out]\n\t"
+		                 "fnstsw %[sw]\n\t"
+		                 "fldenv %[env]"
+		                 : [out] "=m"(out), [sw] "=m"(status), [env] "+m"(environment)
+		                 : [cw] "m"(control), [x] "m"(in_x), [y] "m"(in_y)
+		                 : "st", "st(1)", "memory");
+		break;
+	}
+	*result = host_x87_to_raw(&out);
+	return status;
+}
+#endif
+
+/* The instruction on the host x87 when that is active: the guest status
+ * gains the host's IE/ZE/OE/UE/PE flags (operands are already normal, so DE
+ * is not taken). Returns false when the SoftFloat series must run. */
+static bool host_transcendental(UPD8087_STATE *state, unsigned operation, UPD8087_RAW80 x,
+                                UPD8087_RAW80 y, UPD8087_RAW80 *result) {
+#if UPD8087_HOST_X87
+	uint16_t status;
+	UPD8087_RAW80 value;
+
+	if (!host_fpu_enabled) {
+		return false;
+	}
+	status = host_x87_run(operation, state->control, raw_for_arithmetic(state, x),
+	                      raw_for_arithmetic(state, y), &value);
+	raise_status(state,
+	             (uint8_t)(status & (UPD8087_STATUS_IE | UPD8087_STATUS_ZE | UPD8087_STATUS_OE |
+	                                 UPD8087_STATUS_UE | UPD8087_STATUS_PE)));
+	*result = raw_for_arithmetic(state, value);
+	return true;
+#else
+	(void)state;
+	(void)operation;
+	(void)x;
+	(void)y;
+	(void)result;
+	return false;
+#endif
+}
+
+/*
+ * M123: the transcendental series run at 64-bit precision with round to
+ * nearest whatever the guest selects (the precision control applies to
+ * arithmetic, not to these instructions); their inexact, underflow and
+ * overflow flags go to the guest.
+ */
+static UPD8087_STATE series_state(const UPD8087_STATE *state) {
+	UPD8087_STATE scratch = *state;
+
+	scratch.control =
+	    (uint16_t)((scratch.control & (uint16_t)~(CONTROL_PC | CONTROL_RC)) | CONTROL_PC);
+	scratch.working_flags = 0;
+	return scratch;
+}
+
+static void series_finish(UPD8087_STATE *state, const UPD8087_STATE *scratch) {
+	raise_status(state, (uint8_t)(scratch->working_flags &
+	                              (UPD8087_STATUS_PE | UPD8087_STATUS_UE | UPD8087_STATUS_OE)));
+}
+
+/* M123: 2^x - 1 as expm1(x ln 2) = sum (x ln 2)^n / n!, n >= 1, with no
+ * final subtraction, so small x keeps its digits (F2XM1, 0 <= x <= 0.5). */
+static UPD8087_RAW80 exp2m1_series(UPD8087_STATE *state, UPD8087_RAW80 value) {
+	UPD8087_RAW80 y = sf_mul(state, value, raw_ln2);
+	UPD8087_RAW80 term = y;
+	UPD8087_RAW80 sum = y;
 	unsigned n;
 
-	for (n = 1; n <= 96; n++) {
-		term = sf_div(state, sf_mul(state, term, x), raw_from_u64(n));
+	for (n = 2; n <= 40; n++) {
+		term = sf_div(state, sf_mul(state, term, y), raw_from_u64(n));
 		sum = sf_add(state, sum, term);
 		if (raw_is_zero(term)) {
 			break;
 		}
 	}
 	return sum;
+}
+
+/* atan(k/8), k = 1..8, correctly rounded to 64 bits (mpmath). */
+static const UPD8087_RAW80 raw_atan_eighths[8] = {
+    {UINT64_C(0xfeadd4d5617b6e33), 0x3ffb}, {UINT64_C(0xfadbafc96406eb15), 0x3ffc},
+    {UINT64_C(0xb7b0ca0f26f78474), 0x3ffd}, {UINT64_C(0xed63382b0dda7b45), 0x3ffd},
+    {UINT64_C(0x8f005d5ef7f59f9b), 0x3ffe}, {UINT64_C(0xa4bc7d1934f70924), 0x3ffe},
+    {UINT64_C(0xb8053e2bc2319e74), 0x3ffe}, {UINT64_C(0xc90fdaa22168c235), 0x3ffe}};
+
+/*
+ * M123: atan(y / x) for 0 < y < x (FPATAN). With c = k/8 the nearest
+ * eighth to y/x, atan(y/x) = atan(c) + atan(t), t = (y - c x) / (x + c y),
+ * |t| <= 1/16, so the odd series converges in a few terms; y/x itself is
+ * never rounded.
+ */
+static UPD8087_RAW80 atan_ratio(UPD8087_STATE *state, UPD8087_RAW80 y, UPD8087_RAW80 x) {
+	UPD8087_RAW80 ratio = sf_div(state, sf_mul(state, y, raw_from_u64(8)), x);
+	UPD8087_RAW80 c;
+	UPD8087_RAW80 t;
+	UPD8087_RAW80 t2;
+	UPD8087_RAW80 term;
+	UPD8087_RAW80 sum;
+	unsigned k = 0;
+	unsigned n;
+	bool unordered;
+
+	while ((k < 8) && (raw_compare(state, ratio, raw_from_u64(2 * k + 1), &unordered) > 0)) {
+		/* ratio = 8 y / x; k is the nearest integer to it (0..8) */
+		if (raw_compare(state, sf_mul(state, ratio, raw_two), raw_from_u64(2 * k + 1),
+		                &unordered) <= 0) {
+			break;
+		}
+		k++;
+	}
+	c = sf_div(state, raw_from_u64(k), raw_from_u64(8));
+	t = sf_div(state, sf_sub(state, y, sf_mul(state, c, x)), sf_add(state, x, sf_mul(state, c, y)));
+	t2 = sf_mul(state, t, t);
+	term = t;
+	sum = t;
+	for (n = 1; n <= 24; n++) {
+		term = sf_mul(state, term, t2);
+		if (raw_is_zero(term)) {
+			break;
+		}
+		if (n & 1) {
+			sum = sf_sub(state, sum, sf_div(state, term, raw_from_u64(2 * n + 1)));
+		} else {
+			sum = sf_add(state, sum, sf_div(state, term, raw_from_u64(2 * n + 1)));
+		}
+	}
+	return (k == 0) ? sum : sf_add(state, raw_atan_eighths[k - 1], sum);
 }
 
 static UPD8087_RAW80 log2_mantissa(UPD8087_STATE *state, UPD8087_RAW80 value) {
@@ -1068,44 +1329,6 @@ static UPD8087_RAW80 cos_series(UPD8087_STATE *state, UPD8087_RAW80 value) {
 		}
 	}
 	return sum;
-}
-
-static UPD8087_RAW80 atan_value(UPD8087_STATE *state, UPD8087_RAW80 value) {
-	bool negative = (value.sign_exp & RAW_SIGN_MASK) != 0;
-	UPD8087_RAW80 absolute = raw_abs(value);
-	UPD8087_RAW80 result;
-	UPD8087_RAW80 one = raw_one;
-	UPD8087_RAW80 pi_over_two = sf_div(state, raw_pi, raw_from_i32(2));
-	UPD8087_RAW80 z;
-	UPD8087_RAW80 z2;
-	UPD8087_RAW80 term;
-	UPD8087_RAW80 sum;
-	unsigned n;
-	bool reciprocal = false;
-	bool unordered;
-
-	if (raw_compare(state, one, absolute, &unordered) < 0 && !unordered) {
-		reciprocal = true;
-		z = sf_div(state, one, absolute);
-	} else {
-		z = absolute;
-	}
-	z2 = sf_mul(state, z, z);
-	term = z;
-	sum = z;
-	for (n = 1; n <= 191; n++) {
-		term = sf_mul(state, term, z2);
-		if (n & 1) {
-			sum = sf_sub(state, sum, sf_div(state, term, raw_from_u64(2 * n + 1)));
-		} else {
-			sum = sf_add(state, sum, sf_div(state, term, raw_from_u64(2 * n + 1)));
-		}
-		if (raw_is_zero(term)) {
-			break;
-		}
-	}
-	result = reciprocal ? sf_sub(state, pi_over_two, sum) : sum;
-	return negative ? raw_neg(result) : result;
 }
 
 static UPD8087_RAW80 raw_power_of_two(int32_t amount) {
@@ -2606,9 +2829,13 @@ static bool execute_fptan(UPD8087_STATE *state) {
 		 * operands as undefined without signalling an exception. */
 		return true;
 	}
-	sine = sin_series(state, value);
-	cosine = cos_series(state, value);
-	tangent = sf_div(state, sine, cosine);
+	if (!host_transcendental(state, HOST_FPTAN, value, raw_zero, &tangent)) {
+		UPD8087_STATE scratch = series_state(state);
+		sine = sin_series(&scratch, value);
+		cosine = cos_series(&scratch, value);
+		tangent = sf_div(&scratch, sine, cosine);
+		series_finish(state, &scratch);
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 0, tangent);
 		set_c2(state, false);
@@ -2636,7 +2863,11 @@ static bool execute_fpatan(UPD8087_STATE *state) {
 	    raw_compare(state, y, x, &unordered) >= 0 || unordered) {
 		return true;
 	}
-	result = atan_value(state, sf_div(state, y, x));
+	if (!host_transcendental(state, HOST_FPATAN, x, y, &result)) {
+		UPD8087_STATE scratch = series_state(state);
+		result = atan_ratio(&scratch, y, x);
+		series_finish(state, &scratch);
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 1, result);
 		stack_pop(state);
@@ -2741,7 +2972,11 @@ static bool execute_transcendental(UPD8087_STATE *state, unsigned operation) {
 		    raw_compare(state, value, raw_half, &(bool){false}) > 0) {
 			return true;
 		}
-		result = sf_sub(state, exp2_series(state, value), raw_one);
+		if (!host_transcendental(state, HOST_F2XM1, value, raw_zero, &result)) {
+			UPD8087_STATE scratch = series_state(state);
+			result = exp2m1_series(&scratch, value);
+			series_finish(state, &scratch);
+		}
 		break;
 	case 1: /* FYL2X */
 		if (!stack_require(state, 1) && !state_can_commit(state)) {
@@ -2753,7 +2988,11 @@ static bool execute_transcendental(UPD8087_STATE *state, unsigned operation) {
 		    raw_is_infinity(stack_get(state, 1))) {
 			return true;
 		}
-		result = sf_mul(state, stack_get(state, 1), log2_value(state, value));
+		if (!host_transcendental(state, HOST_FYL2X, value, stack_get(state, 1), &result)) {
+			UPD8087_STATE scratch = series_state(state);
+			result = sf_mul(&scratch, stack_get(state, 1), log2_value(&scratch, value));
+			series_finish(state, &scratch);
+		}
 		if (state_can_commit(state)) {
 			stack_set(state, 1, result);
 			stack_pop(state);
@@ -2788,7 +3027,11 @@ static bool execute_fyl2xp1(UPD8087_STATE *state) {
 	    raw_is_infinity(stack_get(state, 1))) {
 		return true;
 	}
-	result = sf_mul(state, stack_get(state, 1), log2_one_plus_value(state, x));
+	if (!host_transcendental(state, HOST_FYL2XP1, x, stack_get(state, 1), &result)) {
+		UPD8087_STATE scratch = series_state(state);
+		result = sf_mul(&scratch, stack_get(state, 1), log2_one_plus_value(&scratch, x));
+		series_finish(state, &scratch);
+	}
 	if (state_can_commit(state)) {
 		stack_set(state, 1, result);
 		stack_pop(state);

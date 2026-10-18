@@ -63,6 +63,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .usefd144 = 0,
                  .upd8087_enable = 1,
                  .upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ,
+                 .upd8087_host_fpu = 1,
                  .model = OEMTEXT("88VA2"),
                  .baseclock = PCBASECLOCK40,
                  .multiple = 2,
@@ -317,6 +318,7 @@ void pccore_init(void) {
 	upd8087_config.enabled = np2cfg.upd8087_enable != 0;
 	upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
 	upd8087_initialize(&upd8087, &upd8087_config);
+	upd8087_set_host_fpu(np2cfg.upd8087_host_fpu != 0);
 	CPU_INITIALIZE();
 
 	// VA rendering owns its palette and raster conversion.

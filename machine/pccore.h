@@ -54,6 +54,7 @@ typedef struct {
 	UINT8 usefd144;
 	UINT8 upd8087_enable;
 	UINT32 upd8087_clock_hz;
+	UINT8 upd8087_host_fpu; /* M123: transcendentals on the host x87 (x86 hosts) */
 	// Configuration values used during reset and infrequently thereafter.
 	OEMCHAR model[8];
 	UINT baseclock;

@@ -88,7 +88,11 @@ SCSI ID (5 each) and Tape > 履歴 (10) list media inserted through the menus or
 by drag and drop (an archive is listed as the archive); missing files are
 greyed, and each list ends with 履歴を消す. 模擬 > 最近の起動 (10) records, at
 each reset from the GUI, the FDD, SASI and tape media with the machine and the
-V1/V2 or N mode; choosing one puts them back and resets. The FDD, HDD and tape
+V1/V2 or N mode and the monitor (24 or 15 kHz); when that session ends (the
+next reset, choosing another recent boot, or quitting) it also keeps the
+window size, 描画方式, 拡大方法 and screen rotation then in use (M124).
+Choosing one puts them back and resets. Records from before M124 leave
+these settings as they are. The FDD, HDD and tape
 file windows each keep their own 最近のフォルダ (5) (M122). A window opens
 in the folder of the medium in use, else its own newest folder, else the
 newest of the FDD, HDD and tape lists in that order, else the home
@@ -634,6 +638,15 @@ Use `VA2/VA3` for `pc_model=88VA2` with the optional 8087 disabled, or
 `VA2/VA3 + 8087` for the same ROM set with the single optional 8087 enabled.
 Changing the selection performs the existing reset flow and retains configured
 FDD and SASI media.
+
+On x86 and x86-64 hosts (GCC or Clang builds: Linux, Windows) the 8087's
+FPTAN, FPATAN, F2XM1, FYL2X and FYL2XP1 run on the host x87 through inline
+assembly (M123): about 50 times faster than the SoftFloat series and within
+one ulp of the exact result. The other instructions, the domain checks and
+the status flags are unchanged. 模擬 > 詳細設定… has the checkbox
+(`NDP8087HostFPU`, on by default; it applies at once, without a reset);
+off, or on other hosts (macOS arm64), SoftFloat series accurate to a few
+ulp are used, so results may differ between hosts in the last bits.
 
 ## Configuration
 

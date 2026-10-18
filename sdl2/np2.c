@@ -2377,6 +2377,7 @@ int main(int argc, char **argv) {
 		g75_screen_capture();
 	}
 
+	gui_session_end();
 	debug_harness_clear();
 	headless_input_script_clear(&input_script);
 	if (vaeg_recording_native_session_is_active() &&

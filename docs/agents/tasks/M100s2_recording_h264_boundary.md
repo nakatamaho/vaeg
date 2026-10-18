@@ -181,3 +181,16 @@ separates reset auto-split from generic state-load/rewind cancellation; a valid
 active fixture + that single generic notification asserts cancellation/no movie,
 not unintended restart. Affected ON/OFF/ROM-less, strict sanitizer4/4 and owned-
 only workers pass again. Final static Release artifacts embed9147dfa5.
+
+Pre-gate main synchronization: maintainer requests main ->
+`topic/m100os-recording-resume` first, holding the earlier r2 integration request.
+Fetched main `02ce6d474c6ad50173d109893023f584e7032ca7` merges without conflicts
+(8087/recent-boot changes included). Original3 inherited working files remain
+byte-identical and unstaged; no inherited changes enter the merge. Local ON
+selection26 passed/one H.264 hardware skip, OFF13/13 including8087/ROM-less,
+encoding/EOL/case/Markdown-comment and staged whitespace checks pass. Release
+handoff is refreshed after the merge commit. No new Metal/backend/codec policy
+change or main-branch update. The maintainer's macOS practical lossless-recording
+check is still pending; this sync is NOT a passed gate, and main incorporation
+must wait for explicit acceptance. Current recorder is FFV1 lossless compression,
+not raw uncompressed video.
