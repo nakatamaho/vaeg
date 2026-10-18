@@ -146,6 +146,24 @@ static BOOL taskmng_pause_shortcut(const SDL_Event *event, BOOL captured) {
 	return TRUE;
 }
 
+/* M125: F12 assigned to クイックセーブ; with Shift it loads the newest. */
+static BOOL taskmng_quicksave_shortcut(const SDL_Event *event, BOOL captured) {
+	if ((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) {
+		return FALSE;
+	}
+	if (kbdmap_special_action((UINT)event->key.keysym.scancode) != KBDMAP_SPECIAL_QUICKSAVE) {
+		return FALSE;
+	}
+	if ((event->type == SDL_KEYDOWN) && !event->key.repeat && !captured) {
+		if (event->key.keysym.mod & KMOD_SHIFT) {
+			gui_quick_load();
+		} else {
+			gui_quick_save();
+		}
+	}
+	return TRUE;
+}
+
 static void taskmng_toggle_mouse(void) {
 	np2oscfg.MOUSE_SW = mousemng_togglecapture() ? 1 : 0;
 	sysmng_update(SYS_UPDATEOSCFG);
@@ -315,6 +333,9 @@ void taskmng_rol(void) {
 			shortcut = TRUE;
 		}
 		if (taskmng_screenshot_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_quicksave_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
 		if (taskmng_mouse_button_shortcut(&e, captured)) {
