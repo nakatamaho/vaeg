@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M124 — monitor and screen rotation in 最近の起動
 
-Status: **implemented; G124 human gate pending**
+Status: **complete; G124 passed on 2026-10-18**
 
 ## Request
 
@@ -102,3 +102,9 @@ Standard gate, plus: boot something at 15 kHz with the screen turned, boot
 something else at 24 kHz unturned, then choose the first from 最近の起動:
 it comes back at 15 kHz and turned, with the window size, 描画方式 and
 拡大方法 it had when that session ended; a two-disk ZIP comes back as A and B.
+
+### G124
+
+- Passed on 2026-10-18 (maintainer) with the Windows build
+  `849a7e6da82b...cf8b` (SHA-256, static MinGW) from
+  [9af8cb4e](https://github.com/nakatamaho/vaeg/commit/9af8cb4ea808f617251cf8ec72812ded3af1197d).
