@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M127 — restore the letter-key keypad overlay
 
-Status: implemented and locally validated; G127 human gate pending.
+Status: **G127 human gate passed on 2026-10-19; merged to main.**
 
 ## Request and history
 
@@ -217,3 +217,32 @@ The absolute `vaeg.exe` and `BUILD-REPORT.md` paths are supplied to the
 maintainer. Windows execution and the G127 human checks remain pending.
 The report-only checkpoint did not require rebuilding. The later FDD filter
 and recent-boot corrections require an updated gate executable.
+
+## G127 passed and main integration
+
+The maintainer stated **G127 gate passed** on 2026-10-19, accepting the
+standard gate and the letter-keypad, FDD XZ and partial recent-boot follow-ups.
+This closes the pending checks at the earlier verification checkpoints.
+
+Final gate candidate:
+[cb35e722](https://github.com/nakatamaho/vaeg/commit/cb35e722d7460f5376af4a93abac0b7e802737ca).
+The clean static MinGW build of that pushed commit exited 0 and verified
+commit/date embedding and Windows-system-DLL-only imports. Executable
+SHA-256: `7583d8f0152c09a18524da62fb78b28eb00660fa710eeb071fd2dcfbad5444f8`.
+All hosted checks passed for that candidate, including Linux GCC/Clang/ASan,
+macOS, Windows compatibility/release, standalone conformance, native SST,
+repository invariants and the guest-driver distribution:
+[CI](https://github.com/nakatamaho/vaeg/actions/runs/39139369006).
+
+[PR #44](https://github.com/nakatamaho/vaeg/pull/44) had already been merged
+with a two-parent merge commit at
+[c7a14dd0](https://github.com/nakatamaho/vaeg/commit/c7a14dd03b071c7cc3e67fb2ed576e69f6f6e5c1).
+The final topic candidate is contained in main; no duplicate merge is needed.
+The gate and roadmap record is a documentation-only follow-up based on
+origin/main, not another emulator change or an authorization for M125.
+
+After pushing the gate record, remove only M127's clean merged worktree/local
+branch, its temporary gate-record worktree, its initial/final static MinGW
+build directories and `/tmp/m127/`. Keep remote branches, user-supplied
+assets, shared caches, the private reference tree, utility HDD outputs and
+all other milestones' worktrees untouched.
