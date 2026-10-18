@@ -75,6 +75,17 @@ selecting `.d88.xz` and `.88d.xz` through FDD Open mounts each and preserves
 the source bytes. Fixtures use only a public source-built demo. Temporary
 GUI code is removed. No private user media or names enter Git.
 
+## Maintainer-requested pre-gate follow-up: partially missing recent boots
+
+A recorded boot must remain selectable if some recorded media still exist,
+not be disabled because a secondary floppy, HDD or tape is gone. Restore
+existing media and explicitly eject missing media; show which were skipped.
+Keep all-missing media records disabled and recheck at selection time, before
+changing the running session. Media-less ROM boots remain valid. Verify
+per-record isolation and partial/all-missing cases with synthetic fixtures,
+and a real GUI selection using public demo media. Keep this fix in its own
+commit and update the correctness ledger. Do not change the history format.
+
 ## Verification and G127
 
 Run GCC and ASan/UBSan builds, CTest, smoke/selftest, focused mapping and

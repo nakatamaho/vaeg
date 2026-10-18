@@ -91,8 +91,12 @@ each reset from the GUI, the FDD, SASI and tape media with the machine and the
 V1/V2 or N mode and the monitor (24 or 15 kHz); when that session ends (the
 next reset, choosing another recent boot, or quitting) it also keeps the
 window size, 描画方式, 拡大方法 and screen rotation then in use (M124).
-Choosing one puts them back and resets. Records from before M124 leave
-these settings as they are. The FDD, HDD and tape
+Choosing one puts them back and resets. If only some recorded media are
+missing, the entry remains selectable with `(一部なし)`; missing drives are
+emptied rather than retaining unrelated current media, and the skipped paths
+are shown. If all recorded media are missing the entry remains disabled;
+media-less ROM boots are valid. Availability is rechecked before mounting
+(M127). Records from before M124 leave these settings as they are. The FDD, HDD and tape
 file windows each keep their own 最近のフォルダ (5) (M122). A window opens
 in the folder of the medium in use, else its own newest folder, else the
 newest of the FDD, HDD and tape lists in that order, else the home

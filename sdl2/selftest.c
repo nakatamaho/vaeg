@@ -2797,6 +2797,18 @@ static int test_viewport(void) {
 	if (gui_file_filter_selftest() != SUCCESS)
 		return FAILURE;
 	{
+		char root[MAX_PATH];
+		char problem[128];
+		SPRINTF(root, "vaeg-selftest-%lu-boot-media", (unsigned long)getpid());
+		(void)file_dircreate(root);
+		if (gui_recent_boot_media_selftest(root, problem, sizeof(problem)) != SUCCESS) {
+			selftest_remove_dir(root);
+			return fail("recent boot media", problem);
+		}
+		selftest_remove_dir(root);
+		fprintf(stderr, "selftest: recent boot media ok\n");
+	}
+	{
 		/* M122: each file window has its own recent folders */
 		char root[MAX_PATH];
 		char problem[128];
