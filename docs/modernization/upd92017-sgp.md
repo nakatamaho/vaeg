@@ -851,7 +851,7 @@ A staged emulator strategy is:
 | SET_COLOR lane expansion | Mode-dependent 1/4/8/16-bpp lane use is documented | Full color is retained, but lane-level conformance remains a test target | Add mode-specific raw vectors |
 | `SF` source alignment | `0=shift to destination dot`, `1=no shift` | Alignment path exists | Verify every start-dot and word-boundary combination |
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
-| `FBW` | Byte pitch; low two bits zero | Same on both models (M109a): bit 0 dropped, a negative pitch two bytes shorter; negative with low bits 10b, and FFF0h, are undefined on hardware and read FFFFh (M128) | Measured: FFF3h, FFF4h correct; FFF2h, FFF6h, FFF0h garble on VA and VA2 |
+| `FBW` | Byte pitch; low two bits zero | Same on both models (M109a): bit 0 dropped, a negative pitch two bytes shorter; negative with low bits 10b, and FFF0h, are undefined on hardware: the first source line is read, then FFFFh (M128) | Measured: FFF3h, FFF4h correct; FFF2h, FFF6h, FFF0h garble on VA and VA2 |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented; directions measured (M106) | Implemented; hardware directions (0800h horizontal, 0400h vertical) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |

@@ -467,11 +467,12 @@ static BOOL sgp_blt_mode_valid(UINT16 bltmode, const _SGP_BLOCK *src, const _SGP
  * 16x16 4bpp sprites), and FFF0h, do not step through the source on the
  * PC-88VA or the PC-88VA2: SGPTEST T07/T09 (M109a) varied between runs and
  * models, and every Y-flipped sprite of that port was garbled on both
- * machines, while FFF3h and FFF4h agree with the decoding below. The rule
- * the hardware follows is not known. vaeg used to draw these as ordinary
+ * machines, while FFF3h and FFF4h agree with the decoding below. The first
+ * source line is read correctly (SGPBENCH 3: one-line upward cases pass on
+ * both machines); the rule for the following lines is not known. vaeg used to draw these as ordinary
  * pitches, hiding the fault. They are now marked (bit 0 of the decoded
- * pitch, which is otherwise always even) and their source reads give
- * FFFFh, the value the hardware wrote over most rows in SGPDUMP: visibly
+ * pitch, which is otherwise always even) and their source reads after the
+ * first line give FFFFh, the value the hardware wrote over most rows in SGPDUMP: visibly
  * wrong, as on the machines, not a model of their output.
  */
 #define SGP_FBW_UNDEFINED 0x0001
@@ -538,8 +539,9 @@ static void init_block(SGP_BLOCK block) {
 static void read_word(SGP_BLOCK block) {
 	UINT16 dat;
 
-	if ((block == &sgp.src) && (block->fbw & SGP_FBW_UNDEFINED)) {
-		dat = 0xffff; /* M128: see sgp_fbw_undefined() */
+	if ((block == &sgp.src) && (block->fbw & SGP_FBW_UNDEFINED) &&
+	    (block->lineaddress != block->address)) {
+		dat = 0xffff; /* M128: see sgp_fbw_undefined(); the first line is read */
 	} else {
 		dat = sgp_memoryread_w(block->nextaddress);
 	}

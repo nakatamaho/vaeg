@@ -81,7 +81,8 @@ machines (`docs/modernization/m128-photos/`).
 - Undefined pitches: a negative source FBW with low bits 10b, or FFF0h, is
   marked when decoded and its source reads give FFFFh, visibly wrong as on
   the machines (not a model of their output, which is not reproducible);
-  the line step is unchanged. Selftest: FFF4h is -10, FFF6h marked with a
+  the line step is unchanged; the first line is read normally (SGPBENCH 3).
+  Selftest: FFF4h is -10, FFF6h marked with a
   step of -8, FFF2h/FFF0h marked, FFF3h/FFF4h/0006h/000Eh not.
   eebbefe9.
 - Costs: the nominal charges are multiplied per model and class (setup:
@@ -103,6 +104,17 @@ machines (`docs/modernization/m128-photos/`).
   the other 20 match.
 - `--selftest` passes; `ctest` (linux-ci-gcc) 94 of 94; repository
   checkers pass.
+
+## SGPBENCH 3 (2026-10-19)
+
+The same benchmark with the CASES line moved into the visible picture
+(`m128-photos/va-sgpbench3.jpg`, `va2-sgpbench3.jpg`): 24 of 48 cases fail
+on both machines (VA: 4:120 5:128 6:120 7:130 12:120 ...; VA2: 4:120
+5:129 6:120 7:132 12:120 ...), timings as in SGPBENCH 2. vaeg had 28: the
+four upward cases one line high (35, 40, 41, 45) pass on hardware, so the
+first source line is read correctly and only the following lines go
+wrong. vaeg now reads the first line normally and FFFFh after it: the
+same 24 cases fail (4:117 5:128 6:117 7:128 12:117), on both models.
 
 ## Gate G128 (human)
 

@@ -1117,10 +1117,10 @@ separate parity correction or move it to Open Defects.
   pitch; on hardware those with low bits 10b, and FFF0h, do not step
   through the source (SGPTEST T07/T09, SGPBENCH cases). SGP command costs
   were nominal, never measured.
-- **Correction:** such pitches are marked and their source reads give
-  FFFFh; setup, BITBLT and CLS costs are scaled per model to the
+- **Correction:** such pitches are marked and their source reads after the
+  first line (read correctly on hardware, SGPBENCH 3) give FFFFh; setup, BITBLT and CLS costs are scaled per model to the
   measurements.
-- **Verification:** SGPBENCH 2 in vaeg: the 28 upward cases fail as on
+- **Verification:** SGPBENCH 3 in vaeg: the same 24 cases fail as on
   hardware; BITBLT and CLS within about 2% of the photographs; selftest and
   ctest pass.
 - **Milestone/task/commit:** M128,
