@@ -201,3 +201,18 @@ selftest0/system-only imports. Windows refresh cannot start because the local
 Docker daemon socket is unavailable, not a compilation failure;9147 executable/
 report preserved. [Candidate and pending gate](../../recording-v1/recording-ui-followup.md#current-main-synchronized-recording-candidate).
 No private-media/performance rerun or gate pass; r2 integration remains held.
+
+Maintainer requests a repeat MinGW build after deleting Colima. Recreated only
+dedicated profilevaeg-build (VZ/Rosetta), preserved original Docker context;
+pinned Ubuntu24.04 linux/amd64 container restored using cached FFmpeg archives/
+librashader/SDL2/LibArchive/zlib/xz. Source1b30383ddaf9ea5bcd59a7c2e672bb4fa64e8543
+contains code2bd194b9 plus docs. Build0, system-DLL import audit0, embedded full
+commit verified; Release/recordingON/staticFFmpegON. Current executable58880144
+bytes/SHA256 `474b5c390a0e4dab27d34017f5a6641ac7a2404a88cc7a867b3ba6deb3da2a7d`.
+Identical audio-local alias checked; inherited3 files byte-identical,2 audio files
+match Windows source; unchanged inherited diffddd3f6b3… and no Metal patch there.
+Exact Docker/bootstrap commands, exit status, dependency/log/worker digests in
+local mingw-rebuild-validation.json. Prior9147 binary/report retained. Profile
+stopped after build to free host resources. No source edits, private-media/test
+rerun, native Windows/performance acceptance or gate pass. Repo validators pass;
+only this task and current-handoff/status evidence updated. Main/r2 unchanged.

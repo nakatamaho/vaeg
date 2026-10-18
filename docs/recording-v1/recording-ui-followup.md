@@ -42,12 +42,20 @@ The maintainer's macOS practical FFV1 lossless recording check is still pending;
 this is NOT gate-passed or main-incorporation approval. FFV1 is losslessly
 compressed, not raw uncompressed. No new Metal/backend/codec policy change.
 
-Windows refresh is deferred: Docker's local daemon socket is unavailable, before
-any container build starts. The Windows executable/report stays at9147dfa5 with
-SHA256 `b18e16f84da4bf116b2ba381141bcd1fbb8c530e8fecd03a5b2d499423dbff85`.
-Its task-local source is advanced to2bd194b9 for a later build, not a newly built
-Windows artifact. Prior9147 binaries/reports retained on both platforms. Adjacent
-Mac report/validation JSON records the new worker and validation identities.
+Windows refresh now succeeds after recreating the deleted Colima environment
+in dedicated profile `vaeg-build` (stopped after build, original context unchanged).
+Current `output/vaeg.exe` and identical `vaeg-audio-local-test.exe` in the existing
+task-local MinGW handoff:58880144 bytes, embedded source1b30383d, SHA256
+`474b5c390a0e4dab27d34017f5a6641ac7a2404a88cc7a867b3ba6deb3da2a7d`.
+Main-sync code2bd194b9 included; only docs differ at1b30383d. Pinned Ubuntu24.04
+linux/amd64 container, GCC13-posix/CMake3.28.3/NASM2.16.01; existing audited minimal
+static FFmpeg/librashader/SDL2/LibArchive/zlib/xz reused. Build/import audit0;
+Windows system DLLs only, Release/recordingON/staticFFmpegON, embedded full commit
+and audio-file equality checked. Audio diff SHA256ddd3f6b3… unchanged, no Metal
+patch in Windows. No native Windows execution or new frame/sample/performance
+acceptance claimed. `mingw-rebuild-validation.json` records exact command/log/
+worker/dependency digests. Prior9147 binaries/reports retained on both platforms.
+Adjacent Mac report/validation JSON records that candidate's validation identities.
 No hosted CI manually requested, main movement, private-media rerun, performance
 acceptance or human/media/demo/legal gate is claimed.
 

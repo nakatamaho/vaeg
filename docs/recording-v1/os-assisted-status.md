@@ -6,8 +6,9 @@
 [2bd194b9](https://github.com/nakatamaho/vaeg/commit/2bd194b96352cb7ea4af8f56767074a4896c6d9c)
 merges main02ce6d47 into the recording branch, not the reverse. New macOS static
 Release/selftest/import checks pass; ON26/one skip, OFF13 pass. The maintainer's
-practical macOS FFV1 lossless recording gate remains pending. Windows remains
-9147dfa5 because Docker is unavailable; its refresh is not claimed successful.
+practical macOS FFV1 lossless recording gate remains pending. Windows now rebuilt
+at1b30383d after recreating Colima; build/static imports pass. The dedicated build
+profile is stopped. No Windows execution or practical recording acceptance claimed.
 [Current macOS candidate and exact identities](recording-ui-followup.md#current-main-synchronized-recording-candidate).
 Inherited3 files are byte-identical; no main update/r2 integration or passed gate.
 
