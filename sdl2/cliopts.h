@@ -83,6 +83,13 @@ enum {
 	VAEG_CLI_EFFECT_CRT_LITE
 };
 
+/* M117: --rotate none|right */
+enum {
+	VAEG_CLI_ROTATE_UNSET = 0,
+	VAEG_CLI_ROTATE_NONE,
+	VAEG_CLI_ROTATE_RIGHT
+};
+
 enum {
 	VAEG_CLI_SCALING_UNSET = 0,
 	VAEG_CLI_SCALING_NATIVE,
@@ -116,6 +123,7 @@ typedef struct {
 	BOOL version;
 	BOOL smoke;
 	BOOL selftest;
+	BOOL list_extra_roms; /* M112: print extra/ and exit */
 	BOOL debug;
 	BOOL fdctrace;
 	BOOL scsitrace;
@@ -146,6 +154,7 @@ typedef struct {
 	UINT frame_skip;
 	UINT display_mode;
 	UINT effect;
+	UINT rotate;
 	UINT scaling;
 	UINT controller;
 	UINT keyboard_layout;
@@ -160,6 +169,7 @@ typedef struct {
 	const char *scsi_path[7];
 	const char *hostfat_path;
 	const char *roms_path;
+	const char *extra_machine; /* M113: --extra-machine model directory */
 	const char *config_path;
 	const char *bkupmem_path;
 	const char *headless_input_script;

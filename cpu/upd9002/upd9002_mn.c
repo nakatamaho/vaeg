@@ -3586,6 +3586,31 @@ UPD9002FN _repc_segprefix_ds(void) {
 		INT_NUM(6, UPD9002_IP);
 	}
 }
+/*
+ * 0F 80h-8Fh is the 80386 near conditional jump, which the uPD9002 (80186
+ * instruction set, 0Fh introducing NEC extended instructions) does not
+ * have. Programs assembled with it hang on a PC-88VA2 (M106,
+ * docs/modernization/bug-fixes.md), while decoding 0Fh as a one-byte
+ * reserved operation ran the following bytes out of step. [POLICY] Stop
+ * here as HLT does, without leaving it on an interrupt: IP stays on the 0Fh
+ * byte and the time slice ends, so the guest makes no further progress.
+ * The first stop at each address is reported on stderr.
+ */
+static void _halt_0x0f_8x(UINT8 op) {
+	static UINT32 reported = 0xffffffffU;
+	const UINT32 address = CS_BASE + (UINT16)(UPD9002_IP - 1);
+
+	if (address != reported) {
+		reported = address;
+		fprintf(stderr,
+		        "uPD9002: 386 near jump 0F %02X at %04X:%04X is not an uPD9002 instruction; "
+		        "the CPU is halted\n",
+		        op, (unsigned)UPD9002_CS, (unsigned)(UINT16)(UPD9002_IP - 1));
+	}
+	UPD9002_IP--;
+	UPD9002_REMCLOCK = -1;
+}
+
 UPD9002FN _reserved_0x0f(void) {
 	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_0F);
 	UPD9002_WORKCLOCK(2);
@@ -3705,6 +3730,10 @@ UPD9002FN _ope0x0f(void) { // 0F:
 		UPD9002_IP++;
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
 		upd9002_core_brkem(vector);
+		return;
+	}
+	if ((op & 0xf0) == 0x80) {
+		_halt_0x0f_8x((UINT8)op);
 		return;
 	}
 	if (op & 0xc0) {

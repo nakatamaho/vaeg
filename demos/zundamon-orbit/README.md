@@ -31,23 +31,48 @@ The source material permits redistribution, commercial use, and modification;
 credit and Niconico content-tree registration are optional. The PSD itself is
 omitted because of its size.
 
+Runtime requirement (M109): 512 KiB of main RAM. The atlas is loaded into
+conventional RAM at `40000h`-`5FFFFh` and SGP reads it there, so no I/O bank
+memory board is needed (earlier builds required a 16 MiB board at port
+`1D0h`, which the maintainer's PC-88VA2 lacks). If DOS did not give the
+program memory up to `60000h` it reports `M109_FAIL: needs conventional RAM
+up to 60000h for the atlas.` and exits. On a 24.8 kHz display the 200-line
+picture is shown with each line doubled (port `100h` RSM = 01).
+
 ## Build
 
-Requirements: Python 3, ImageMagick `convert`, NASM, and a local private
-profile containing the generated depth, HUD, and status tables.
+The artwork is the first standing pose (the layers visible as stored) of
+`ずんだもん立ち絵素材2.3.psd`, a free character material whose terms permit
+redistribution (maintainer, M109). The profile tables made from it (depth,
+HUD and status) are tracked in [`256/ida/`](256/ida/). One command rebuilds
+the distribution disk from the PSD:
+
+```sh
+demos/zundamon-orbit/build-from-psd.sh [--python PYTHON] \
+  /path/to/ずんだもん立ち絵素材2.3.psd \
+  /path/to/pcengine110-bootonly.d88 /private/tmp/zundamon-orbit.d88
+```
+
+It makes `ZUNDAMON.BIN` with ImageMagick `convert` when present, otherwise
+with psd-tools (`PYTHON` must import `psd_tools` and `PIL`; the two decoders
+scale differently, so the committed disk is the psd-tools result), checks
+that the tracked tables regenerate from it, and writes
+`demos/disks/zundamon-orbit.d88.xz`. The step-by-step commands below remain.
+
+Requirements: Python 3, NASM, and ImageMagick `convert` or psd-tools.
 
 Build the replaceable atlas:
 
 ```sh
 python3 demos/zundamon-orbit/tools/build_zundamon_orbit_psd_atlas.py \
-  /path/to/zundamon.psd /path/to/zundamon.bin
+  [--decoder convert|psd-tools] /path/to/zundamon.psd /path/to/zundamon.bin
 ```
 
 Build `ZUNDAORB.COM` and an optional listing:
 
 ```sh
 M98Y_PROFILE=private \
-M98Y_PRIVATE_PROFILE_DIR=/path/to/private/profile \
+M98Y_PRIVATE_PROFILE_DIR=demos/zundamon-orbit/256/ida \
 M98Y_PRIVATE_ATLAS=/path/to/zundamon.bin \
   demos/zundamon-orbit/256/build.sh \
   /path/to/ZUNDAORB.COM /path/to/ZUNDAORB.LST
@@ -58,7 +83,7 @@ Create a local boot disk from the PC-Engine 2HD template. The disk receives
 
 ```sh
 M98Y_PROFILE=private \
-M98Y_PRIVATE_PROFILE_DIR=/path/to/private/profile \
+M98Y_PRIVATE_PROFILE_DIR=demos/zundamon-orbit/256/ida \
   demos/zundamon-orbit/build-local-d88.sh \
   /path/to/pcengine110-bootonly.d88 /path/to/zundamon.bin \
   /path/to/ZUNDAORB.d88
@@ -70,7 +95,7 @@ companion to `demos/disks/zundamon-orbit.d88.xz`:
 
 ```sh
 M98Y_PROFILE=private \
-M98Y_PRIVATE_PROFILE_DIR=/path/to/private/profile \
+M98Y_PRIVATE_PROFILE_DIR=demos/zundamon-orbit/256/ida \
   demos/zundamon-orbit/build-d88.sh \
   /path/to/pcengine110-bootonly.d88 /path/to/zundamon.bin \
   /private/tmp/zundamon-orbit.d88

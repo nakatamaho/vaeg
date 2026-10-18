@@ -111,7 +111,7 @@ start:		mov	sp,0fffeh
 		mov	es,ax
 		mov	ax,[es:TABLE+10h]	; split 0 start
 		mov	[rsa0],ax
-		mov	ax,[es:TABLE+30h]	; split 1 start (function-key row)
+		call	label_row		; split 1, or the last row of split 0
 		mov	[rsa1],ax
 		mov	ax,[es:TABLE+0ah]
 		mov	[save0],ax
@@ -119,6 +119,13 @@ start:		mov	sp,0fffeh
 		sub	cx,[rsa0]
 		jbe	restore_all.quit
 		mov	[len],cx
+		mov	[flen],cx		; fill all of it, but not the label
+		cmp	byte [madesplit],0	; row made from split 0
+		je	.full
+		mov	ax,[rsa1]
+		sub	ax,[rsa0]
+		mov	[flen],ax
+.full:
 
 		push	ds			; save characters, then attributes
 		mov	si,[rsa0]
@@ -147,8 +154,7 @@ start:		mov	sp,0fffeh
 .step:		call	dofill
 		call	label
 		call	settle
-		mov	ah,00h
-		int	82h
+		call	getkey
 		cmp	al,1bh
 		je	.done
 		inc	byte [fill]
@@ -173,7 +179,8 @@ restore_all:	mov	ax,[save0]
 		add	di,8000h
 		rep	movsb
 		pop	ds
-.quit:		cli
+.quit:		call	unsplit
+		cli
 		mov	al,[bank]
 		mov	dx,0153h
 		out	dx,al
@@ -222,7 +229,7 @@ frames:
 		test	al,20h
 		jz	.hi
 		push	cx
-		mov	ah,01h
+		mov	ah,0ah			; key waiting? (primitive sense, M109)
 		int	82h
 		pop	cx
 		jnc	.key
@@ -234,11 +241,11 @@ frames:
 
 ; fill both areas with pattern [fill]
 dofill:		mov	di,[rsa0]
-		mov	cx,[len]
+		mov	cx,[flen]
 		call	fillarea
 		mov	di,[rsa0]
 		add	di,8000h
-		mov	cx,[len]
+		mov	cx,[flen]
 		mov	byte [attr],1
 		call	fillarea
 		mov	byte [attr],0
@@ -290,6 +297,20 @@ fillarea:	mov	bx,di
 		loop	.b
 		ret
 
+; M109: wait for a key with the keyboard BIOS's primitive functions 0Ah
+; (sense) and 09h (read); functions 00h/01h wait on the Japanese front end,
+; which only an OS installs, so they hang on a self-booting disk and under
+; MS-DOS. AH = scan code, AL = internal code; ESC (scan 00h) gives AL = 1Bh.
+getkey:		mov	ah,0ah
+		int	82h
+		jc	getkey
+		mov	ah,09h
+		int	82h
+		or	ah,ah
+		jnz	.r
+		mov	al,1bh
+.r:		ret
+
 ; wait about 20 frames (VRTC rising edges, port 40h bit 5), then clear
 ; the keyboard queue so a held key steps only once
 settle:		mov	cx,20
@@ -306,6 +327,67 @@ settle:		mov	cx,20
 		ret
 
 ; "MODE nn Pn" in the function-key row, white, mode-1 attribute
+; M109: AX = the TVRAM address of the bottom row for the "MODE" label:
+; split 1 (PC-Engine's function-key row) when it is shown (height at +34h).
+; Otherwise, as on the self-booting SGP disk, where the ROM text BIOS sets
+; up split 0 alone, the last 20-raster row of split 0 is made into split 1
+; (a copy of split 0's descriptor, so the label keeps the normal character
+; mode while split 0's MODE changes); unsplit puts the table back.
+label_row:	mov	ax,[es:TABLE+30h]
+		cmp	word [es:TABLE+34h],0
+		jne	.r
+		push	bx
+		push	cx
+		push	dx
+		push	si
+		xor	si,si			; save split 1, copy split 0 to it
+.c:		mov	ax,[es:TABLE+20h+si]
+		mov	[splitsave+si],ax
+		mov	ax,[es:TABLE+si]
+		mov	[es:TABLE+20h+si],ax
+		add	si,2
+		cmp	si,20h
+		jb	.c
+		mov	ax,[es:TABLE+14h]	; split 0 height in rasters
+		mov	[rh0save],ax
+		and	ax,01feh
+		xor	dx,dx
+		mov	cx,20
+		div	cx
+		or	ax,ax
+		jz	.top
+		dec	ax
+.top:		mov	bx,[es:TABLE+08h]	; line width in bytes
+		and	bx,03ffh
+		mul	bx
+		add	ax,[es:TABLE+10h]
+		mov	[es:TABLE+30h],ax	; split 1: that row, 20 rasters
+		mov	word [es:TABLE+34h],20
+		sub	word [es:TABLE+14h],20
+		mov	byte [madesplit],1
+		pop	si
+		pop	dx
+		pop	cx
+		pop	bx
+.r:		ret
+
+unsplit:	cmp	byte [madesplit],0
+		je	.r
+		push	ax
+		push	si
+		xor	si,si
+.c:		mov	ax,[splitsave+si]
+		mov	[es:TABLE+20h+si],ax
+		add	si,2
+		cmp	si,20h
+		jb	.c
+		mov	ax,[rh0save]
+		mov	[es:TABLE+14h],ax
+		mov	byte [madesplit],0
+		pop	si
+		pop	ax
+.r:		ret
+
 label:		mov	al,[mode]
 		xor	ah,ah
 		mov	bl,10
@@ -339,6 +421,11 @@ automodes	db	8, 12, 14, 10, 13, 0
 		align	2
 rsa0		dw	0
 rsa1		dw	0
+rh0save		dw	0
+splitsave	times 16 dw 0
+madesplit	db	0
+		align	2
 save0		dw	0
 len		dw	0
+flen		dw	0
 saveseg		dw	0

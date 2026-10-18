@@ -48,6 +48,10 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 	}
 }
 
+UINT diskdrv_pendingimage(REG8 drv) {
+	return ((drv < 4) ? diskdrv_image[drv] : 0);
+}
+
 void diskdrv_setfdd(REG8 drv, const char *fname, int readonly) {
 	diskdrv_setfddex(drv, fname, readonly, 0);
 }

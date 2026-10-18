@@ -146,7 +146,7 @@ copy_checked "$repo_root/external/librashader/include/README.md" \
 	f2b103e6d0dbff9ea3cebe848f3b10c099215231a3d5edc99fa1fa2b9bba13a3
 copy_checked "$repo_root/docs/licenses/THIRD_PARTY_NOTICES.md" \
 	"$output/licenses/THIRD_PARTY_NOTICES.md" \
-	7e1e234b6e9ef077779bdb3e1486fcbb567903202fdf2f56e38ceacf1500282d
+	f1ac44c6f11d76f7b7a30671c4c42465d0cccf285a41650e7ae6509f965e7504
 
 if [[ -n ${runtime} ]]; then
 	[[ -f ${runtime} ]] || die "runtime file does not exist: ${runtime}"

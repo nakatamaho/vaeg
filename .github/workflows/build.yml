@@ -52,6 +52,8 @@ jobs:
         run: python3 tools/repo/check_eol.py --enforce
       - name: Check path case
         run: python3 tools/repo/check_case.py
+      - name: Check Markdown comments
+        run: python3 tools/repo/check_md_comments.py
 
   guest-drivers:
     name: PC-88VA guest-driver distribution

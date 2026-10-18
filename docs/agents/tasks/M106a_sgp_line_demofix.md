@@ -187,3 +187,14 @@ rerunning the entire suite. The focused remaining-test command also ran the
 M60a evidence static check, which passed. No expensive SST campaign rerun or
 hosted CI debugging was requested. The unchanged disks retain their recorded
 generator/COM/manifest identities.
+
+## Gate record
+
+G106a passed on 2026-10-15 (maintainer). The LINE correction and the rebuilt
+demo distributions were merged by
+[PR #20](https://github.com/nakatamaho/vaeg/pull/20) (merge
+[0ca4401d](https://github.com/nakatamaho/vaeg/commit/0ca4401de2344877511ae5f3d8eed7783f745964)); the same
+LINE directions were confirmed on the PC-88VA2 for GLASS and the three
+SGPWIRE variants and carried into M106, whose gate G106 passed on
+2026-10-14.
+

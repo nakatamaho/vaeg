@@ -36,6 +36,11 @@ SECTOR_SIZE = 1024
 DATA_START_LBA = 11
 DATA_CLUSTER_COUNT = 1269
 LAST_DATA_CLUSTER = DATA_CLUSTER_COUNT + 1
+# PC-Engine addresses only 77 cylinders of the 80 on the image, like PC-98
+# 2HD media: it reports 1221 data clusters free on a blank disk and never
+# reads the sectors of cylinders 77-79 (M106).  Files placed there cannot be
+# read.  MS-DOS disks declare all 1280 sectors in their parameter block.
+PCENGINE_LAST_DATA_CLUSTER = 77 * 2 * 8 - DATA_START_LBA + 1
 ROOT_START_LBA = 5
 ROOT_SECTORS = 6
 SYSTEM_LAYOUTS = {
@@ -53,6 +58,14 @@ SYSTEM_LAYOUTS = {
     },
 }
 SYSTEM_FILES = tuple(next(iter(SYSTEM_LAYOUTS.values())))
+# MS-DOS for the PC-88VA (the FreeDOS-88VA project's MS-DOS 2.0 and 4.0
+# disks) formats 2HD media with the same FAT12 layout. Its boot sector loads
+# IO.SYS from cluster 2. A vanilla copy keeps the system files, the start-up
+# files and the licence, in their original root order with the volume label.
+MSDOS_BPB = bytes.fromhex("000401010002c0000005fe0200")
+MSDOS_SYSTEM_FILES = ("IO.SYS", "MSDOS.SYS", "COMMAND.COM")
+MSDOS_KEPT_FILES = MSDOS_SYSTEM_FILES + (
+    "CONFIG.SYS", "AUTOEXEC.BAT", "LICENSE.TXT", "README.TXT")
 
 
 class DiskError(Exception):
@@ -169,9 +182,13 @@ class PcEngineDisk:
             raise DiskError("the two source FAT12 copies differ")
         if self.fat[:3] != b"\xfe\xff\xff":
             raise DiskError("source does not have the expected PC-Engine FAT12 header")
-        self.system_version = None
+        self.last_cluster = (
+            LAST_DATA_CLUSTER
+            if self.boot_sector[11:11 + len(MSDOS_BPB)] == MSDOS_BPB
+            else PCENGINE_LAST_DATA_CLUSTER)
+        self.system = None
         if require_system_files:
-            self.system_version = self.validate_system_files()
+            self.system = self.identify_system()
 
     def _parse_sectors(self):
         track_offsets = struct.unpack_from("<164I", self.image, 0x20)
@@ -280,7 +297,7 @@ class PcEngineDisk:
     def allocate_clusters(self, count):
         free_clusters = [
             cluster
-            for cluster in range(2, LAST_DATA_CLUSTER + 1)
+            for cluster in range(2, self.last_cluster + 1)
             if self.fat_get(cluster) == 0
         ][:count]
         if len(free_clusters) != count:
@@ -306,6 +323,21 @@ class PcEngineDisk:
                 return version
         raise DiskError("unsupported PC-Engine 1.05/1.1 system-file layout")
 
+    def is_msdos(self):
+        if self.boot_sector[11:11 + len(MSDOS_BPB)] != MSDOS_BPB:
+            return False
+        for name in MSDOS_SYSTEM_FILES:
+            if not find_entry(self.root, short_name(name))[1]:
+                return False
+        offset, _ = find_entry(self.root, short_name("IO.SYS"))
+        return struct.unpack_from("<H", self.root, offset + 26)[0] == 2
+
+    def identify_system(self):
+        """Name the system on the disk: "PC-Engine <version>" or "MS-DOS"."""
+        if self.is_msdos():
+            return "MS-DOS"
+        return f"PC-Engine {self.validate_system_files()}"
+
     def flush(self):
         self.write_lbas(1, self.fat)
         self.write_lbas(3, self.fat)
@@ -316,7 +348,7 @@ class PcEngineDisk:
     def free_bytes(self):
         free_clusters = sum(
             self.fat_get(cluster) == 0
-            for cluster in range(2, LAST_DATA_CLUSTER + 1)
+            for cluster in range(2, self.last_cluster + 1)
         )
         return free_clusters * SECTOR_SIZE
 
@@ -342,6 +374,19 @@ def write_new_file(path, contents):
             os.unlink(temporary_name)
 
 
+def vanilla_entries(disk):
+    """Root entries a vanilla copy keeps, in their new order."""
+    if disk.system == "MS-DOS":
+        kept = {short_name(name) for name in MSDOS_KEPT_FILES}
+        return [bytes(entry) for _, entry in iter_entries(disk.root)
+                if entry[11] & 0x08 or bytes(entry[:11]) in kept]
+    entries = []
+    for name in SYSTEM_FILES:
+        source_offset, _ = find_entry(disk.root, short_name(name))
+        entries.append(bytes(disk.root[source_offset:source_offset + 32]))
+    return entries
+
+
 def create_vanilla(source, output):
     disk = PcEngineDisk(Path(source).read_bytes())
     source_fat = bytes(disk.fat)
@@ -351,12 +396,12 @@ def create_vanilla(source, output):
     preserved_clusters = set()
 
     root_offset = 0
-    for name in SYSTEM_FILES:
-        source_offset, _ = find_entry(disk.root, short_name(name))
-        entry = bytes(disk.root[source_offset:source_offset + 32])
+    for entry in vanilla_entries(disk):
         new_root[root_offset:root_offset + 32] = entry
         root_offset += 32
         first_cluster = struct.unpack_from("<H", entry, 26)[0]
+        if entry[11] & 0x08 or first_cluster == 0:
+            continue  # the volume label and empty files own no clusters
         chain = disk.cluster_chain(first_cluster, source_fat)
         preserved_clusters.update(chain)
         for cluster in chain:
@@ -370,7 +415,7 @@ def create_vanilla(source, output):
             disk.write_cluster(cluster, zero_cluster)
     disk.flush()
     write_new_file(output, disk.image)
-    print(f"Created vanilla PC-Engine {disk.system_version} system disk: {output}")
+    print(f"Created vanilla {disk.system} system disk: {output}")
     print(f"Remaining FAT12 space: {disk.free_bytes()} bytes")
 
 
@@ -492,16 +537,17 @@ def install_payload(image, payload_root):
     if not payload.is_dir():
         raise DiskError("payload directory does not exist")
 
-    allowed_root_names = set(SYSTEM_FILES)
     existing_names = {
         display_name(entry[:11])
         for _, entry in iter_entries(disk.root)
         if not entry[11] & 0x08
     }
-    if existing_names not in (set(), allowed_root_names):
+    vanilla_msdos = (set(MSDOS_SYSTEM_FILES) <= existing_names
+                     <= set(MSDOS_KEPT_FILES))
+    if existing_names not in (set(), set(SYSTEM_FILES)) and not vanilla_msdos:
         raise DiskError(
             "install input is neither an empty data disk nor a vanilla "
-            "PC-Engine 1.05/1.1 system disk"
+            "PC-Engine 1.05/1.1 or MS-DOS system disk"
         )
 
     installed_files = 0
@@ -559,7 +605,8 @@ def list_image(image):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Manipulate the known PC-Engine 1.05/1.1 D88/FAT12 layout"
+        description="Manipulate the known PC-Engine 1.05/1.1 and PC-88VA MS-DOS "
+        "D88/FAT12 layout"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

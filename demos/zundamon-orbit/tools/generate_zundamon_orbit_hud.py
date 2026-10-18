@@ -46,7 +46,8 @@ STATUS_SPEED_FIELDS = tuple(f"SPD:{label} " for label in
                              "4.00X", "5.00X", "6.00X", "7.00X", "8.00X"))
 IDA64_STATUS_SPEED_FIELDS = tuple(
     f"SPD:{index / 4:.2f}X " for index in range(4, 17))
-STATUS_DISTANCE_FIELDS = tuple(f"DIST:{bias:+d}" for bias in range(-4, 5))
+# M109: a trailing space separates DIST from LOOK on the HUD background.
+STATUS_DISTANCE_FIELDS = tuple(f"DIST:{bias:+d} " for bias in range(-4, 5))
 STATUS_LOOK_FIELDS = tuple(f"LOOK:{level:+d}" for level in range(-4, 5))
 STATUS_RADIUS_FIELDS = tuple(f"RAD:{label}" for label in
                             ("0.50X", "0.63X", "0.75X", "0.88X",
@@ -210,7 +211,7 @@ def encode_status_include(speed_fields=STATUS_SPEED_FIELDS) -> bytes:
         "%define HUD_STATUS_SPEED_WIDTH 60",
         "%define HUD_STATUS_SPEED_HEIGHT 8",
         "%define HUD_STATUS_DISTANCE_COUNT 9",
-        "%define HUD_STATUS_DISTANCE_WIDTH 42",
+        "%define HUD_STATUS_DISTANCE_WIDTH 48",
         "%define HUD_STATUS_DISTANCE_HEIGHT 8",
         "%define HUD_STATUS_LOOK_COUNT 9",
         "%define HUD_STATUS_LOOK_WIDTH 42",
@@ -221,7 +222,7 @@ def encode_status_include(speed_fields=STATUS_SPEED_FIELDS) -> bytes:
     ]
     status_sets = (
         (speed_fields, "hud_status_speed_tile", 60),
-        (STATUS_DISTANCE_FIELDS, "hud_status_distance_tile", 42),
+        (STATUS_DISTANCE_FIELDS, "hud_status_distance_tile", 48),
         (STATUS_LOOK_FIELDS, "hud_status_look_tile", 42),
         (STATUS_RADIUS_FIELDS, "hud_status_radius_tile", 54),
     )

@@ -21,6 +21,9 @@
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 bits 16
+; The uPD9002 executes the 80186 instruction set; this keeps NASM from
+; emitting 386-only forms such as the 0F 8x near conditional jump.
+cpu 186
 org 0x100
 
 %define KEYBOARD_BIOS_INT       0x82
@@ -213,6 +216,7 @@ initialize_video:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
+    call line_doubling_on
     clc
     ret
 
@@ -900,7 +904,51 @@ save_video_state:
     mov [saved_g1_bpp], al
     ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the video state is restored.
+line_doubling_on:
+    push ax
+    push dx
+    mov dx, 0x01cb
+    in al, dx
+    test al, 0x08
+    jz .done
+    mov dx, 0x0100
+    in ax, dx
+    test al, 0x02
+    jz .done
+    test al, 0xc0
+    jnz .done
+    or al, 0x40
+    out dx, ax
+    mov byte [cs:line_doubling_set], 1
+.done:
+    pop dx
+    pop ax
+    ret
+
+line_doubling_off:
+    cmp byte [cs:line_doubling_set], 0
+    je .done
+    push ax
+    push dx
+    mov dx, 0x0100
+    in ax, dx
+    and al, 0x3f
+    out dx, ax
+    mov byte [cs:line_doubling_set], 0
+    pop dx
+    pop ax
+.done:
+    ret
+
+line_doubling_set:
+    db 0
+
 restore_video_state:
+    call line_doubling_off
     push cs
     pop ds
     mov dx, PORT_MEMORY_MAP

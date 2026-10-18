@@ -31,6 +31,11 @@ enum {
 	PCMODEL_VA1 = 1,
 	PCMODEL_VA2 = 2,
 
+	/* M111: how reset chooses between V3 and V1/V2. */
+	BOOTMODE_AUTO = 0, /* the ROM decides from the boot disk */
+	BOOTMODE_V1V2 = 1, /* V1/V2 (B1FC5h and V1V2_Standard), skipping the V3 search */
+	BOOTMODE_N = 2,    /* N-BASIC from a user-supplied ROM (vaeg extension) */
+
 	FMBOARD_NONE = 0x0000,
 	FMBOARD_VA_OPN = 0x0100,
 	FMBOARD_VA_OPNA = 0x0200,
@@ -49,6 +54,7 @@ typedef struct {
 	UINT8 usefd144;
 	UINT8 upd8087_enable;
 	UINT32 upd8087_clock_hz;
+	UINT8 upd8087_host_fpu; /* M123: transcendentals on the host x87 (x86 hosts) */
 	// Configuration values used during reset and infrequently thereafter.
 	OEMCHAR model[8];
 	UINT baseclock;
@@ -60,12 +66,18 @@ typedef struct {
 	/* Installed conventional RAM ceiling; BIOS MEMswtch remains independent. */
 	UINT16 main_ram;
 	UINT8 main_ram_auto;
+	/* vaeg: keep the BIOS boot-disk setting on the fixed disk (M106). */
+	UINT8 boot_fixed_disk;
 	/* vaeg extension: report PC-8801 standard speed (S) in V1/V2 mode. */
 	UINT8 v1v2_standard;
 	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
-	UINT8 v1v2_nmode;
+	UINT8 boot_mode; /* BOOTMODE_*: how reset chooses V3 or V1/V2 (M111) */
 	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
 	OEMCHAR v1v2_n80rom[32];
+	/* M112: revisions chosen under extra/, "<machine>/<role>=<revision>;"... */
+	OEMCHAR extra_rom_select[512];
+	/* M113: PC-8801 machine started from extra/<name>/; empty for the VA. */
+	OEMCHAR extra_machine[64];
 	/* DIP switch SW1, monitor type, read at reset: 0 = 24.8 kHz, 1 = 15 kHz. */
 	UINT8 monitor_15khz;
 	/* Display on the digital RGB output (8 colours); a display-side policy. */
@@ -83,6 +95,9 @@ typedef struct {
 	UINT8 cmt_fast;
 	/* Cassette tape sound volume, 0-128 (independent of the master volume). */
 	UINT8 cmt_vol;
+	/* M115: PCG-8100/8800 in V1/V2 mode, and its tone volume (0-128). */
+	UINT8 pcg_enable;
+	UINT8 pcg_vol;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

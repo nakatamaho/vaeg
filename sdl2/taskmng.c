@@ -131,6 +131,21 @@ static BOOL taskmng_screenshot_shortcut(const SDL_Event *event, BOOL captured) {
 	return TRUE;
 }
 
+/* F12 assigned to 一時停止 (M110; the menu-bar Pause button is gone). It
+ * also resumes while paused, as events are still read then. */
+static BOOL taskmng_pause_shortcut(const SDL_Event *event, BOOL captured) {
+	if ((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) {
+		return FALSE;
+	}
+	if (kbdmap_special_action((UINT)event->key.keysym.scancode) != KBDMAP_SPECIAL_PAUSE) {
+		return FALSE;
+	}
+	if ((event->type == SDL_KEYDOWN) && !event->key.repeat && !captured) {
+		taskmng_toggle_pause();
+	}
+	return TRUE;
+}
+
 static void taskmng_toggle_mouse(void) {
 	np2oscfg.MOUSE_SW = mousemng_togglecapture() ? 1 : 0;
 	sysmng_update(SYS_UPDATEOSCFG);
@@ -294,6 +309,9 @@ void taskmng_rol(void) {
 			shortcut = TRUE;
 		}
 		if (taskmng_copy_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_pause_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
 		if (taskmng_screenshot_shortcut(&e, captured)) {

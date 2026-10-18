@@ -24,6 +24,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M108 - CPU conformance checks per role
 
+Status: **complete; G108 passed on 2026-10-15; merged to `main` by [PR #28](https://github.com/nakatamaho/vaeg/pull/28) and [PR #29](https://github.com/nakatamaho/vaeg/pull/29)**
+
 Maintainer-requested QA milestone based on `main`; commit prefix `M108:`.
 No dependency on the pending G106a or G107b gates.
 
@@ -87,3 +89,8 @@ python3 tools/repo/check_eol.py --enforce
 python3 tools/repo/check_case.py
 git diff --check
 ```
+
+### G108
+
+- Passed on 2026-10-15 (maintainer approval of the machine-verifiable gate
+  above); the work had been merged to `main` by PR #28 and PR #29.

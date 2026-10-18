@@ -47,7 +47,7 @@ extern UINT sys_updates;
 
 #define sysmng_initialize() sys_updates = 0
 #define sysmng_update(a) sys_updates |= (a)
-#define sysmng_fddaccess(a)
+void sysmng_fddaccess(REG8 drv);
 #define sysmng_hddaccess(a)
 void sysmng_cpureset(void);
 void sysmng_modeled(BYTE num, BYTE sw);

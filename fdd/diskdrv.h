@@ -5,6 +5,8 @@ extern "C" {
 
 extern int diskdrv_delay[4];
 extern char diskdrv_fname[4][MAX_PATH];
+/* M120: the disk of a multi-image D88 that diskdrv_fname will insert */
+UINT diskdrv_pendingimage(REG8 drv);
 
 void diskdrv_sethdd(REG8 drv, const char *fname);
 

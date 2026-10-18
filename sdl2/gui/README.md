@@ -30,17 +30,19 @@ The M10 GUI uses Dear ImGui with `imgui_impl_sdl2` and
 
 ## Input Routing
 
-The main menu bar provides a `Pause / Break` button. It suspends guest CPU
-execution, guest timing, and host audio while leaving the GUI responsive;
-clicking `Resume` continues execution without a wall-clock catch-up burst.
+`Key -> F12 の割り当て -> 一時停止` makes F12 pause and resume (M110; the
+menu bar no longer has a Pause button). Pausing suspends guest CPU
+execution, guest timing, and host audio while leaving the GUI responsive; a
+一時停止中 window with a 再開 button is shown, and resuming continues
+execution without a wall-clock catch-up burst.
 
 The configured `Fast forward` binding is first handled as a frontend-global
 hold-to-fast-forward shortcut, so its keyup always clears the transient state
 even while ImGui captures input. It defaults to F11 and is configurable in
 the Keyboard mapping window. The `Mouse capture` host action is likewise
-listed there; it is active when the existing F12 binding menu is set to Mouse.
+listed there; it is active when Key -> F12 の割り当て is set to マウス.
 The same menu can route F12 to the guest PC key without enabling mouse capture.
-It can also route F12 to `Full speed (No Wait)`, which uses the same temporary
+It can also route F12 to `最大速度` (No Wait), which uses the same temporary
 hold-to-fast-forward path as the configured host action.
 All events are then passed to Dear ImGui. Other keyboard events and
 SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard` is
@@ -60,12 +62,12 @@ assigned KANA key controls guest kana mode: one press locks KANA, and the
 next press unlocks it. Roman-Kana consumes A-Z scancodes only while that
 KANA lock mirror is active.
 
-M24 adds `Edit -> Paste`, and this hotfix restores `Edit -> Copy screen text`.
+M24 adds `編集 -> 貼り付け`, and a hotfix restores `編集 -> 画面の文字をコピー`.
 Clipboard UTF-8 is filtered to printable ASCII and line breaks, converted to
 M14 guest key roles, and paced through `kbdinject`. ImGui keyboard/text capture
 prevents shortcut paste and pauses an active queue. Reset, state load, focus
 loss, and shutdown cancel the queue and release any synthetic key. No Unicode,
-IME text, or guest memory injection is used; Copy screen text handles guest-to-host text.
+IME text, or guest memory injection is used; 画面の文字をコピー handles guest-to-host text.
 
 M26 routes mouse events only while SDL relative mouse mode is active and
 ImGui does not want the mouse. The persistent capture request is independent
@@ -78,11 +80,12 @@ binding is Mouse; middle click is always a host capture toggle outside ImGui.
 
 ## Storage Menus
 
-FDD1/FDD2 Open and Eject act immediately through the existing floppy
+FDD1/FDD2 開く… and 取り出し act immediately through the existing floppy
 mount path. The GUI Reset command reapplies the mounted FDD paths after
 the core reset. The paths are saved as `FDD1FILE` / `FDD2FILE` in
 `vaeg.cfg`, so mounted FDDs are restored across reset and application
-restart; Eject clears the corresponding saved path.
+restart; 取り出し clears the corresponding saved path. FDD1/FDD2 履歴 list
+the media inserted through the menus or by drag and drop (M110).
 
 FDD1/FDD2 Open accepts ZIP, 7z, and LZH in LibArchive-enabled builds. FDD1
 Open assigns the first two basename-sorted archive images to FDD1/FDD2. FDD2
@@ -104,7 +107,7 @@ there rather than displaying managed extraction storage. A small metadata file
 inside each managed image directory preserves that browser location across an
 application restart and is pruned together with the extracted image.
 
-FDD -> New FDD image creates an empty FAT12 data disk as Japanese MS-DOS 2HD
+FDD -> 新しい FDD イメージ creates an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 output retains track/sector metadata; IMG
 output is a headerless raw image suitable for mtools. The destination filename
 is editable, existing files are never replaced, and the new image can be
@@ -112,17 +115,17 @@ mounted immediately as FDD1 or FDD2 through the same persistent mount path.
 These are formatted data disks, not bootable MS-DOS system disks. 2D creation
 remains deferred pending a separate compatibility audit.
 
-HardDisk -> New SASI image creates HDI images through the existing
+HDD -> 新しい SASI イメージ… creates HDI images through the existing
 `newdisk_hdi()` helper. Its default filename is `new-sasi-hdd.hdd`; the
 extension is only a descriptive filename choice and the image remains HDI
 format. It supports the legacy 5/10/15/20/30/40 MB SASI geometry choices and
 refuses to overwrite an existing file.
 
-HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
-`vaeg.cfg` through the existing `diskdrv_sethdd()` path. HardDisk -> SCSI
-SCSI ID 0 through SCSI ID 6 Open updates `SCSIHDD0` through `SCSIHDD6` through the
-same path. The corresponding Remove command clears the selected entry.
-HardDisk -> New SCSI image creates a VHD-format image using the existing
+HDD -> SASI-1/SASI-2 開く… updates `HDD1FILE` / `HDD2FILE` in
+`vaeg.cfg` through the existing `diskdrv_sethdd()` path. HDD -> SCSI ->
+ID 0 through ID 6 -> 開く… updates `SCSIHDD0` through `SCSIHDD6` through the
+same path. The corresponding 外す command clears the selected entry.
+HDD -> 新しい SCSI イメージ… creates a VHD-format image using the existing
 `newdisk_vhd()` helper, with 5/10/20/40/80/160 MB choices, and can configure it
 for SCSI ID 0 through SCSI ID 6 immediately. The default filenames are
 `new-scsi-hdd_id0.hdi` through `new-scsi-hdd_id6.hdi`; both `.hdi` and `.hdd`
@@ -134,53 +137,54 @@ configuration entries with the GUI.
 Reset the guest after changing a SASI or SCSI image; reset is the reliable
 point where `sxsi_open()`, `PCHDD_SASI`/`PCHDD_SCSI`, and the board binding
 are rebuilt for the guest. The configured image paths are retained across
-the GUI Reset command. The HardDisk menu shows the live mounted basename
-below each Remove command and exposes its full path on hover. The separate
+the GUI Reset command. The HDD menu shows the live mounted basename
+below each 外す command and exposes its full path on hover. The separate
 PC-Engine support-disk assembly flow remains available for bootable media
 such as `pcengine110-scsi-support.d88`.
 
 ## Sound Menu
 
-Sound -> FM sound backend selects `NP2` or `ymfm` and persists the choice as
+音 -> FM の方式 selects `ymfm` (the default) or `NP2` and persists the choice as
 `opn_backend` in `vaeg.cfg`. Both engines mirror FM register writes, so changing
 the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
 NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
-Sampling rate selects 11.025, 22.05, or 44.1 kHz for the complete mixed output;
+サンプリング周波数 selects 11.025, 22.05, or 44.1 kHz for the complete mixed output;
 22.05 kHz remains the compatibility default and 44.1 kHz is recommended for
-new configurations. Sound buffer provides 40/100/200/500/1000 ms presets and
+new configurations. バッファ provides 40/100/200/500/1000 ms presets and
 a validated 40-1000 ms custom value. Both settings rebuild NP2 and ymfm sound
 through the media-preserving guest reset path and persist as `SampleHz` and
 `Latencys`.
 
-ymfm fidelity selects Minimum, Medium, or Maximum native OPN generation before
+ymfm の精度 selects 最小, 中, or 最大 native OPN generation before
 box downsampling, approximately 166/333/998 kHz at the configured chip clocks.
 Minimum remains the compatibility default; Maximum has the highest CPU cost.
-The choice persists as `ymfm_fidelity` and is disabled while
-NP2 is selected because NP2 has no equivalent fidelity control.
-Sound on/off controls only host audio output. It does not clear `SNDboard` or
+The choice persists as `ymfm_fidelity` and is shown only while ymfm is
+selected, as NP2 has no equivalent fidelity control.
+ミュート silences only host audio output; 全体の音量 scales it. It does not clear `SNDboard` or
 detach the guest FM hardware, so muting cannot remove the selected OPN/OPNA
 check or stall software waiting for the FM timer.
 
 ## Boot Model Menu
 
-Emulate -> Boot model selects `VA`, `VA2/VA3`, or `VA2/VA3 + 8087`. `VA` writes
-`pc_model=88VA1` and disables the optional 8087; `VA2/VA3` writes
-`pc_model=88VA2` with the 8087 disabled; `VA2/VA3 + 8087` writes the same
-model with the single machine-owned 8087 enabled. The VA selection uses the
-unsuffixed ROM names, while both VA2 choices use MAME-compatible `*_va2.rom`
-names. Both sets are read beside the executable. Selection immediately uses
+模擬 -> 起動 selects the machine and its V1/V2 or N mode in one step:
+`PC-88VA2/VA3` writes `pc_model=88VA2` and `PC-88VA` writes
+`pc_model=88VA1`, each with 自動 (the ROM decides from the boot disk), V2 H,
+V2 S, V1 H, V1 S (V1/V2 even with a V3 disk or no disk, M111) and, with an
+N-BASIC ROM, N; the choice is saved as `BootMode`. The 8087 is on by default on both (M110) and is switched off in
+模擬 -> 詳細設定…. The VA selection uses the unsuffixed ROM names, while
+the VA2 uses MAME-compatible `*_va2.rom` names. Both sets are read beside the executable. Selection immediately uses
 the existing guest-reset flow, including preservation of configured FDD and
 SASI media. Missing ROMs are reported with the selected model and expected
 root.
 
-## Configure And Pacing
+## 詳細設定 And Pacing
 
-Emulate -> Configure opens a transactional CPU/SGP speed modal. Pending
-values do not touch core or saved configuration until OK. CPU x1-x32 changes
-V30 execution capacity; SGP Model default, Follow CPU, and Custom x1-x16
-change SGP execution capacity. Model default is 3.9936 MHz on VA and 7.9872
+模擬 -> 詳細設定… opens a transactional settings modal. Pending values do
+not touch core or saved configuration until OK. SGP Model default, Follow
+CPU, and Custom x1-x16 change SGP execution capacity; the CPU multiplier
+is set from 模擬 -> CPU クロック (M110), at once and without a reset. Model default is 3.9936 MHz on VA and 7.9872
 MHz on VA2/VA3; the dialog displays the resulting effective SGP clock. OK
 validates and resets through the existing FDD-preserving path. Cancel, Escape,
 and window close discard edits.
@@ -194,8 +198,8 @@ atomic pointer swap followed by a guest reset. A build error preserves the old
 mount. Disabling HOSTFAT explicitly unmounts it and resets the guest. Host
 folder changes are never reflected live inside a mounted FAT view.
 
-The Configure modal also contains the optional Intel 8087 (NDP) setting. The
-checkbox enables the single machine-owned 8087, and the integer clock field
+The settings modal also contains the Intel 8087 (NDP) setting, on by
+default (M110). The checkbox enables the single machine-owned 8087, and the integer clock field
 accepts 1,000,000 through 20,000,000 Hz. Presets are 5, 8, and 10 MHz; custom
 values remain persisted as integer Hz in `vaeg.cfg` under `NDP8087Hz`.
 Pending values are shown separately from the active oscillator and are marked

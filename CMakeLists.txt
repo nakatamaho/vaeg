@@ -101,7 +101,31 @@ if(Git_FOUND)
             AND VAEG_BUILD_DATE_OUTPUT MATCHES "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$")
         set(VAEG_BUILD_DATE "${VAEG_BUILD_DATE_OUTPUT}")
     endif()
+    # M120: a release tag on the commit names the release, so that a
+    # follow-up release (rel-20261017.1) does not depend on the commit date.
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CONFIG_GLOBAL=${VAEG_GIT_CONFIG}"
+            "GIT_CONFIG_SYSTEM=${VAEG_GIT_CONFIG}"
+            "${GIT_EXECUTABLE}" tag --points-at HEAD --list "rel-*"
+            --sort=-version:refname
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        RESULT_VARIABLE VAEG_BUILD_TAG_RESULT
+        OUTPUT_VARIABLE VAEG_BUILD_TAG_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
+set(VAEG_BUILD_RELEASE "${VAEG_BUILD_DATE}")
+if(VAEG_BUILD_TAG_RESULT EQUAL 0 AND VAEG_BUILD_TAG_OUTPUT)
+    string(REPLACE "\n" ";" VAEG_BUILD_TAGS "${VAEG_BUILD_TAG_OUTPUT}")
+    foreach(VAEG_BUILD_TAG IN LISTS VAEG_BUILD_TAGS)
+        if(VAEG_BUILD_TAG MATCHES
+                "^rel-([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9](\\.[1-9][0-9]*)?)$")
+            set(VAEG_BUILD_RELEASE "${CMAKE_MATCH_1}")
+            break()
+        endif()
+    endforeach()
+endif()
+message(STATUS "vaeg release name: Rel.${VAEG_BUILD_RELEASE}")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vaeg_build_info.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"
@@ -233,6 +257,7 @@ set(VAEG_CORE_SOURCES
     io/pic.c
     io/pit.c
     io/cmt.c
+    io/pcg88.c
     io/serial.c
     io/upd4990.c
     cbus/cbuscore.c
@@ -343,6 +368,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/pacing.c
     sdl2/framedisp.c
     sdl2/viewport.c
+    sdl2/frontpanel.c
     sdl2/appicon.c
     sdl2/splash.c
     sdl2/sysmng.c
@@ -366,6 +392,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/dropmedia.cpp
     sdl2/hostfat_snapshot.cpp
     sdl2/hostfat_manager.cpp
+    sdl2/extrarom.c
     sdl2/n80rom.c
     sdl2/romcheck.c
     sdl2/selftest.c
@@ -409,6 +436,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/m65d_ff6.c
         tests/upd9002/m65e_tail10.c
         tests/upd9002/m96d_nop.c
+        tests/upd9002/m106_near_jcc.c
         tests/upd9002/m68_segmented_memory.c
         tests/upd9002/m70_prefix_string.c
         tests/upd9002/m64_semantics.c
@@ -748,6 +776,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M65D_TESTING=1
         VAEG_UPD9002_M65E_TESTING=1
         VAEG_UPD9002_M96D_TESTING=1
+        VAEG_UPD9002_M106_TESTING=1
         VAEG_UPD9002_M68_TESTING=1
         VAEG_UPD9002_M70_TESTING=1
         VAEG_IDP_M69_TESTING=1
@@ -897,6 +926,24 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_repo_check_eol
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_eol.py")
+    add_test(NAME vaeg_repo_check_md_comments
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/repo/test_check_md_comments.py")
+    add_test(NAME vaeg_pcengine_disk_msdos
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_pcengine_disk_msdos.py")
+    add_test(NAME vaeg_pcengine_disk_capacity
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_pcengine_disk_capacity.py")
+    add_test(NAME vaeg_extract_vz_editor
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_extract_vz_editor.py")
+    add_test(NAME vaeg_sgptest_consistency
+        COMMAND "${Python3_EXECUTABLE}" -I
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_sgptest.py")
+    add_test(NAME vaeg_all_demos_msdos4_disk
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_all_demos_msdos4_disk.py")
     add_test(NAME vaeg_zex_archive_audit
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
@@ -1074,6 +1121,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m96d-nop)
     set_tests_properties(vaeg_upd9002_m96d_nop PROPERTIES
 		LABELS "romless;upd9002;m96d;semantics")
+
+    add_test(NAME vaeg_upd9002_m106_near_jcc
+		COMMAND vaeg_sdl2 --upd9002-m106-near-jcc)
+    set_tests_properties(vaeg_upd9002_m106_near_jcc PROPERTIES
+		LABELS "romless;upd9002;m106;semantics")
 
     add_test(NAME vaeg_upd9002_m68_segmented_memory
 		COMMAND vaeg_sdl2 --upd9002-m68-segmented-memory)

@@ -1,0 +1,47 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+
+
+PC-8801/8001 and PCG-8100/8800 emulation references
+
+vaeg's PC-8801-side behaviour (V1/V2 mode, the PC-8001 machines) and its
+PCG-8100/8800 emulation were written with reference to two PC-8801
+emulators. No ROM or other file of either is included.
+
+X88000 1.5.3
+  Author:  Manuke (written 1998-2018; PCG-8800 support assisted by apaslothy)
+  Site:    https://quagma.sakura.ne.jp/manuke/x88000.html
+  Status:  public domain (PDS), as stated in its X88000Src.txt: no
+           permission or acknowledgement is required. Acknowledged here.
+  Use:     behavioural reference; some routines re-implemented in C from
+           its source (io/pcg88.c from PC88Pcg.cpp; port and display details
+           listed in docs/agents/DECISIONS/ADR-0016-v1v2-mode-series.md,
+           "Derivations").
+
+QUASI88 0.7.4
+  Author:  showtime
+  Site:    https://www.eonet.ne.jp/~showtime/quasi88/
+  Status:  copyright of its author; its core under terms equivalent to the
+           modified BSD license, its sound output under the MAME/XMAME and
+           fmgen terms.
+  Use:     behavioural reference only (PCG-8100 write timing, the 8253 at
+           3.9936 MHz and its counter modes); no QUASI88 code is used.

@@ -8,6 +8,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "cmt.h"
+#include "pcg88.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -58,8 +59,9 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .MOUSERAPID = 0,
                  .calendar = 0,
                  .usefd144 = 0,
-                 .upd8087_enable = 0,
+                 .upd8087_enable = 1,
                  .upd8087_clock_hz = UPD8087_DEFAULT_CLOCK_HZ,
+                 .upd8087_host_fpu = 1,
                  .model = OEMTEXT("88VA2"),
                  .baseclock = PCBASECLOCK40,
                  .multiple = 2,
@@ -68,8 +70,9 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
                  .main_ram = 640,
                  .main_ram_auto = 1,
+                 .boot_fixed_disk = 1,
                  .v1v2_standard = 0,
-                 .v1v2_nmode = 0,
+                 .boot_mode = BOOTMODE_AUTO,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -85,8 +88,9 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .spb_x = 1,
                  .BEEP_VOL = 3,
                  .beep_level = 0xff,
-                 .cmt_fast = 1,
+                 .cmt_fast = 0,
                  .cmt_vol = 48,
+                 .pcg_vol = 48,
                  .vol14 = {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c},
                  .vol_fm = 64,
                  .vol_ssg = 64,
@@ -279,6 +283,7 @@ static void sound_init(void) {
 	sound_create(rate, np2cfg.delayms);
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
+	pcg88_setvol(np2cfg.pcg_vol);
 	if (np2cfg.beep_level <= 128) {
 		beep_setlevel(np2cfg.beep_level);
 	} else {
@@ -308,6 +313,7 @@ void pccore_init(void) {
 	upd8087_config.enabled = np2cfg.upd8087_enable != 0;
 	upd8087_config.clock_hz = np2cfg.upd8087_clock_hz;
 	upd8087_initialize(&upd8087, &upd8087_config);
+	upd8087_set_host_fpu(np2cfg.upd8087_host_fpu != 0);
 	CPU_INITIALIZE();
 
 	// VA rendering owns its palette and raster conversion.
@@ -374,6 +380,21 @@ void pccore_cfgupdate(void) {
 	}
 }
 
+/* A SASI or SCSI hard disk (not a CD-ROM or MO) is attached. */
+static BOOL pccore_fixed_disk_attached(void) {
+	static const REG8 drives[] = {0x00, 0x01, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26};
+	SXSIDEV sxsi;
+	int i;
+
+	for (i = 0; i < NELEMENTS(drives); i++) {
+		sxsi = sxsi_getptr(drives[i]);
+		if ((sxsi != NULL) && ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_HDD)) {
+			return (TRUE);
+		}
+	}
+	return (FALSE);
+}
+
 void pccore_reset(void) {
 	int i;
 
@@ -424,6 +445,7 @@ void pccore_reset(void) {
 		pccore.hddif |= PCHDD_SCSI;
 		TRACEOUT(("supported SCSI"));
 	}
+	bkupmemva_sync_bootdisk(pccore_fixed_disk_attached());
 
 	sound_changeclock();
 	beep_changeclock();
