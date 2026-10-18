@@ -402,9 +402,12 @@ const Z80CompatReg *Z80CompatCpu::GetReg() {
 
 std::uint8_t Z80CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
 	Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
-	const std::uint32_t translated = cpu->instruction_fetch_started_
-	                                     ? cpu->TranslateDataAddress(address)
-	                                     : cpu->TranslateCodeAddress(address);
+	// Every byte of the instruction stream comes from the code segment (PS),
+	// as through the prefetch queue; only operand accesses use DS0.
+	const std::uint32_t translated =
+	    (cpu->instruction_fetch_started_ && !cpu->impl_->cpu.instructionFetch)
+	        ? cpu->TranslateDataAddress(address)
+	        : cpu->TranslateCodeAddress(address);
 	const std::uint8_t value = static_cast<std::uint8_t>(cpu->memory_->Read8(translated));
 	if (!cpu->instruction_fetch_started_) {
 		cpu->instruction_fetch_started_ = true;

@@ -479,6 +479,14 @@ data   access :  physical = (DS0 << 4) + addr16
 stack  access :  physical = (DS0 << 4) + BP     <- DS0, not SS
 ```
 
+`[MEAS]` "Code fetch" covers every byte of an instruction — prefixes,
+opcode, displacement and immediate operands — not only the first:
+pc88va-gg runs Z80 code with PS different from DS0 on the PC-88VA and
+PC-88VA2, and its start-up check (an `LD A,n`, an `LD (nn),A` and an
+`LD A,(nn)` whose operand bytes differ between the two segments) passes
+on both (maintainer report, 2026-10-19). vaeg fetched only the first byte
+through PS until that fix (bug-fix ledger).
+
 The 64 KiB compatible-mode space can therefore sit anywhere in the 1 MiB
 physical space. Two instances are documented:
 

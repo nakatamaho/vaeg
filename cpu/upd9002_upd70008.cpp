@@ -746,6 +746,82 @@ static int compat_halt_selftest(void) {
 	return ok ? SUCCESS : FAILURE;
 }
 
+// Compatible mode fetches every byte of an instruction (prefixes,
+// opcode, displacement, immediate operands) through PS and addresses data
+// through DS0 (V30 manual; measured on the PC-88VA and PC-88VA2 with
+// pc88va-gg's start-up check). Here PS and DS0 hold different bytes at the
+// same offsets: an operand read through DS0 gives FFh, a data read through
+// PS gives 11h.
+static int compat_split_fetch_selftest(void) {
+	const UINT16 code_segment = 0x2000;
+	const UINT16 data_segment = 0x4000;
+	const UINT16 native_stack_segment = 0x3000;
+	const UINT16 code_offset = 0x0100;
+	const UINT16 compatible_offset = 0x1000;
+	const UINT32 code_base = static_cast<UINT32>(code_segment) << 4;
+	const UINT32 data_base = static_cast<UINT32>(data_segment) << 4;
+	const UINT32 native_stack_base = static_cast<UINT32>(native_stack_segment) << 4;
+
+	upd9002_core_initialize();
+	ZeroMemory(mem, 0x100000);
+	upd9002_upd70008_register();
+	upd9002_core_reset();
+	CPU_CS = code_segment;
+	CPU_DS = data_segment;
+	CPU_SS = native_stack_segment;
+	CPU_IP = code_offset;
+	CPU_SP = 0x0100;
+	CPU_BP = 0x0200;
+	CPU_FLAG = 0xf202;
+	CS_BASE = code_base;
+	DS_BASE = data_base;
+	SS_BASE = native_stack_base;
+	CPU_REMCLOCK = 100000;
+	CPU_BASECLOCK = 100000;
+	CPU_CLOCK = 0;
+	upd9002_memorywrite_w(0xe1 * 4, compatible_offset);
+	upd9002_memorywrite_w(0xe1 * 4 + 2, code_segment);
+	static const UINT8 native_code[] = {0x0f, 0xff, 0xe1}; // BRKEM E1h
+	static const UINT8 compatible_code[] = {
+	    0x3e, 0x5a,             // 1000 LD A,5Ah
+	    0x21, 0x34, 0x12,       // 1002 LD HL,1234h
+	    0xdd, 0x21, 0x00, 0x03, // 1005 LD IX,0300h
+	    0xdd, 0x7e, 0x02,       // 1009 LD A,(IX+2)
+	    0xed, 0x4b, 0x10, 0x03, // 100C LD BC,(0310h)
+	    0xc3, 0x18, 0x10,       // 1010 JP 1018h
+	    0x76, 0x76, 0x76, 0x76, 0x76, // 1013 HALT (not reached)
+	    0x3e, 0x66,                   // 1018 LD A,66h
+	};
+	CopyMemory(mem + code_base + code_offset, native_code, sizeof(native_code));
+	CopyMemory(mem + code_base + compatible_offset, compatible_code, sizeof(compatible_code));
+	FillMemory(mem + data_base + compatible_offset, sizeof(compatible_code), 0xff);
+	mem[code_base + 0x0302] = 0x11;
+	mem[code_base + 0x0310] = 0x11;
+	mem[code_base + 0x0311] = 0x11;
+	mem[data_base + 0x0302] = 0xa5;
+	mem[data_base + 0x0310] = 0xef;
+	mem[data_base + 0x0311] = 0xbe;
+
+	upd9002_core_step(); // BRKEM
+	bool ok = CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 && CPU_IP == compatible_offset;
+	upd9002_core_step(); // LD A,5Ah
+	ok = ok && CPU_AL == 0x5a;
+	upd9002_core_step(); // LD HL,1234h
+	ok = ok && CPU_BX == 0x1234;
+	upd9002_core_step(); // LD IX,0300h
+	ok = ok && CPU_SI == 0x0300;
+	upd9002_core_step(); // LD A,(IX+2)
+	ok = ok && CPU_AL == 0xa5;
+	upd9002_core_step(); // LD BC,(0310h)
+	ok = ok && CPU_CX == 0xbeef;
+	upd9002_core_step(); // JP 1018h
+	ok = ok && CPU_IP == compatible_offset + 0x18;
+	upd9002_core_step(); // LD A,66h
+	ok = ok && CPU_AL == 0x66 && CPU_IP == compatible_offset + 0x1a;
+	upd9002_core_deinitialize();
+	return ok ? SUCCESS : FAILURE;
+}
+
 extern "C" int upd9002_upd70008_compat_selftest(void) {
 	const UINT8 encodings[] = {0xff, 0xfe};
 	for (UINT8 encoding : encodings) {
@@ -756,6 +832,10 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	}
 	if (compat_halt_selftest() != SUCCESS) {
 		std::fprintf(stderr, "compatible HALT selftest failed\n");
+		return FAILURE;
+	}
+	if (compat_split_fetch_selftest() != SUCCESS) {
+		std::fprintf(stderr, "compatible operand fetch selftest failed\n");
 		return FAILURE;
 	}
 	return SUCCESS;
