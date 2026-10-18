@@ -51,8 +51,16 @@ shows `pce.d88  (VA2/VA3, 自動, 15 kHz, 右 90°)` and `pce.d88  (VA2/VA3,
 自動)`; choosing the first writes `Monitor15kHz=true` and `GUI_rotate=1` and
 turns the window; the old record is written back as `-1,-1`. ctest 94/94.
 
+## Follow-up: two-disk archives (maintainer, 2026-10-18)
+
+The display part worked. A ZIP holding disks A and B came back as A, A:
+both drives record the archive, and opening an archive for FDD2 took its
+first disk. An archive of two or more disks opened for FDD2 now takes its
+second disk ([e2ba66dc](https://github.com/nakatamaho/vaeg/commit/e2ba66dcde74b35d2644fb270a35ad86d83cdcbd));
+checked with the real archive in a LibArchive build (ledger entry).
+
 ## Gate G124 (human)
 
 Standard gate, plus: boot something at 15 kHz with the screen turned, boot
 something else at 24 kHz unturned, then choose the first from 最近の起動:
-it comes back at 15 kHz and turned.
+it comes back at 15 kHz and turned; a two-disk ZIP comes back as A and B.
