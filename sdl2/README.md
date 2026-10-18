@@ -88,7 +88,9 @@ SCSI ID (5 each) and Tape > 履歴 (10) list media inserted through the menus or
 by drag and drop (an archive is listed as the archive); missing files are
 greyed, and each list ends with 履歴を消す. 模擬 > 最近の起動 (10) records, at
 each reset from the GUI, the FDD, SASI and tape media with the machine and the
-V1/V2 or N mode; choosing one puts them back and resets. The FDD, HDD and tape
+V1/V2 or N mode, the monitor (24 or 15 kHz) and the screen rotation (M124);
+choosing one puts them back and resets. Records from before M124 leave the
+monitor and rotation as they are. The FDD, HDD and tape
 file windows each keep their own 最近のフォルダ (5) (M122). A window opens
 in the folder of the medium in use, else its own newest folder, else the
 newest of the FDD, HDD and tape lists in that order, else the home
