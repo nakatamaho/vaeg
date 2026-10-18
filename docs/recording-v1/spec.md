@@ -184,9 +184,14 @@ trailer/cues, closes I/O, and only then reports success. Destruction must not ra
 callbacks or retain dangling pixel/GUI/GPU memory. Stop is idempotent and can be
 requested during start, queue pressure, pause, or finalization.
 
-For Native, host window resize is harmless. If the canonical descriptor changes,
-stop before accepting the incompatible interval. A guest mode switch that retains
-the same descriptor continues normally. For Displayed, v1 does not resample old
+For Native, host window resize is harmless. A file never accepts an incompatible
+canonical descriptor. The approved M100s2 GUI extension automatically finalizes
+that file and starts a new part at a shared frame/audio boundary for TSP geometry,
+15/24kHz or manual rotation; no padding, cropping or rescaling is added. Explicit
+presentation requests also split. GUI recording remains active; cumulative REC
+time/frame limits span parts. CLI/environment batches remain fail-closed and do
+not opt into segmentation. A guest mode switch that retains the same descriptor
+and timing continues normally. For Displayed, v1 does not resample old
 and new client sizes into one fixed canvas: disable avoidable geometry-changing
 controls while recording, and finalize on an actual drawable-size/DPI/fullscreen
 change. Window move with unchanged drawable size may continue. Zero drawable size,
@@ -194,10 +199,17 @@ minimization that prevents acquisition, device loss, or presenter replacement en
 Displayed recording visibly; it must not silently become Native.
 
 Reset, state load/rewind, emulated clock change, audio-format change, and presenter
-switch requests finalize recording before that operation is applied. Disk/media
+switch requests end the current file before that operation is applied. The approved
+Native GUI reset extension closes the old clock/audio epoch and waits for the first
+new guest frame before rearming a new part. Arbitrary state-load/rewind epoch
+notifications retain cancellation and never silently resume. Reset and generic
+epoch notifications are separate APIs. Disk/media
 changes may continue when timing and descriptors stay valid. State save may continue
 but must not serialize recorder state or private output paths into guest state.
-No auto-segmentation or recorder pause/resume mode in v1.
+The original v1 excluded segmentation; the explicitly approved Native GUI
+extension above supersedes that exclusion, not the fixed-per-file geometry or
+batch contracts. There is still no recorder pause/resume mode.
+[Boundary/verification details](screen-change-stop.md#current-automatic-splitting-policy).
 
 ## S9. Files, build, and UI
 

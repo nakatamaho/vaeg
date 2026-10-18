@@ -24,7 +24,56 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current one-click recording controls
+## Current automatic recording splits
+
+[5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc)
+retains one-click controls and REC/MM:SS, and opts successful GUI starts into
+explicitly approved automatic files for TSP size/timing changes,15/24kHz,
+manual90-degree rotation and reset-driven monitor changes. Each file keeps its
+own fixed native dimensions/orientation; no padding/scaling/cropping. Output
+names are base.mkv, base-part-002.mkv, etc. Same-epoch handoff commits the old
+interval through the boundary and preserves the FIFO/sample cursor for the next
+part. Reset closes/rearms across distinct hardware clock/audio epochs. Empty
+parts are not published; collisions/errors stop capture without stopping the
+guest or deleting already finalized parts. Global frame limits and REC elapsed
+time survive splitting. CLI/environment batches stay fail-closed, not auto-split.
+[Implementation, verification and limitations](screen-change-stop.md#current-automatic-splitting-policy).
+
+ON25 pass/one H.264 hardware skip, OFF recording16/16 plus ROM-less1/1, focused
+strict ASan/UBSan4/4.18 synthetic parts decode to61 exact RGB/alpha frames and
+48800 contiguous stereo sample frames. Owned-only session/integration tests
+also pass without inherited edits. Private real-GUI-start and final Release
+rotation/reset helper probes reach1200/exit0 with decodable parts; private assets,
+commands, hashes and raw output stay outside Git. Not a DIGDUG-specific/native
+Windows/physical-device/full-guest sanitizer acceptance. Full MinGW workers
+cross-compile, Release/import audit and final arm64 Release selftest pass.
+
+Current artifacts, embedded code9147dfa5 plus preserved inherited edits. The
+[reset/state-load scope guard](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b)
+keeps arbitrary state-load/rewind cancellation separate from approved reset splits:
+
+- macOS `build/macos-recording-static-release/sdl2/vaeg`,38716760 bytes,
+  SHA256 `ec01ea072b5b8ab638048643bc07f326412b67f01518a938f97a845dab941c0a`.
+- MinGW task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+  58871081 bytes, SHA256
+  `b18e16f84da4bf116b2ba381141bcd1fbb8c530e8fecd03a5b2d499423dbff85`.
+
+Current inherited diff snapshot hashes (different text offsets from prior code,
+original edits retained unchanged): Mac
+`e549b01582e4f5182d88e80096204b3231c2a29242b269945fa2d4d0ee1e19fb`;
+Windows
+`ddd3f6b37eeaf3c054b82ec245b1b17c4ae729bff502779494f22b641da88068`.
+Original audio snapshot09250916… and full9e123689… remain preserved. The user
+permits owned edits to the native session/test; only owned edits are committed,
+with inherited round-trip and owned-only validation. Metal is byte-identical,
+not extended. Static dependencies/license scope unchanged; Mac imports only
+Apple system libraries/Frameworks. Adjacent reports/JSON/patches retain worker,
+source, command and public output identities. Previouse71/f32 artifacts retained.
+No hosted CI/push/main movement, new MP4 export or release/human/media gate.
+
+<a id="current-one-click-recording-controls"></a>
+
+## Previous one-click recording controls
 
 [Implementatione71f8396](https://github.com/nakatamaho/vaeg/commit/e71f83966b9c0819f89a0c29698daf955e64bd87)
 replaces the top-level recording submenu with `[録画開始/録画停止] [down arrow]`.
@@ -56,9 +105,9 @@ is not rerun: source diff is only gui.cpp, backend/archives unchanged.
 
 Current working-tree builds, basee71f8396:
 
-- macOS `build/macos-recording-static-release/sdl2/vaeg`,38698440 bytes,
+- macOS archived `build/macos-recording-static-release/sdl2/vaeg-e71f8396`,38698440 bytes,
   SHA256 `e697573f1f19d9f409fa2ba62e78f45fd02b6a8811d4564ca50fdb0d3c3ecbd4`.
-- Windows task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+- Windows archived task-local `output/vaeg-audio-local-e71f8396.exe`,
   58855268 bytes, SHA256
   `6fb045ab296255f4bd110da337c0c7a3c74904c6b6eeb25029265436e462b45c`.
 

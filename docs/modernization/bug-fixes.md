@@ -3075,6 +3075,40 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — ordinary TSP video changes ended an interactive recording
+
+- **Symptom/scope:** a GUI recording ends at a guest TSP line-count/geometry
+  change, preventing continuous DOS-to-game recording. Equal-size15/24kHz and
+  manual rotation also need new fixed-descriptor files rather than stopping REC.
+- **Demonstrated cause:** the coded descriptor incorporates canonical canvas
+  height; the tap rejects its change, and the earlier safety policy finalizes
+  without rearming. That avoids the prior emulator exit but cannot continue
+  ordinary guest video transitions. The first new handoff candidate also tried
+  initial audio discard again: real FIFO first_sample is its immutable origin,
+  not its current read cursor, causing audio_discard_underflow at the split.
+- **Correction:** approved GUI-only automatic files, old staged interval closed
+  through boundaryT, changed snapshot seeded atT in a fresh per-file queue/mux.
+  FIFO/grid/sample cursor persist without a second discard. Guest frequency is
+  included even at equal canvas size; reset-driven monitor changes close the
+  old clock/audio epoch before reset and rearm on its first frame. No padding,
+  rescaling, cropping or batch auto-restart. Global frame limits/REC time persist;
+  collision/error preserves finalized files and stops recording, not the guest.
+- **Verification:**18 synthetic parts independently decode to61 exact RGB/alpha
+  frames/48800 stereo sample frames; same-epoch sample/frame identities join
+  without gaps/duplicates. Repeated parts, fixed FIFO origin, reset/new epoch,
+  waiting/empty/limit and target collision assertions pass. ON25/one skip,
+  OFF16 plus ROM-less1, strict focused ASan/UBSan4 pass. Owned-only workers pass.
+  Authorized headless real-GUI-start geometry and final Release-object actual
+  rotation/reset probes reach1200/exit0; all parts video/audio-decode. Not a
+  DIGDUG-specific, physical Windows/device or full-guest sanitizer acceptance.
+  MinGW build/import and full-worker cross-compilation pass.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [automatic handoff contract and limits](../recording-v1/screen-change-stop.md#current-automatic-splitting-policy).
+- **Fixing commits:** [5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc),
+  [9147dfa5 reset/state-load scope guard](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b).
+  The latter keeps generic state-load/rewind notifications on cancellation,
+  tested from a valid active fixture, rather than silently auto-restarting.
+
 ### M100s2 — a screen-size change during GUI recording exited the emulator
 
 - **Symptom/scope:** a neutral15kHz integration case exits when the guest changes

@@ -22,9 +22,88 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
-# Screen-change recording stop and macOS Release handoff
+# Screen-change recording policy and desktop handoff
 
-## Correction and contract
+## Current automatic splitting policy
+
+The maintainer explicitly authorizes automatic files for TSP geometry changes,
+guest15/24kHz changes, manual90-degree rotation, and reset-driven monitor changes.
+[5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc)
+supersedes the older stop-only GUI policy below. A successful GUI start opts in;
+CLI/environment batches and non-opted-in API callers retain the old fail-closed
+fixed-descriptor behavior. No scaling, cropping, padding, fixed480-line canvas,
+new codecs, Metal changes, or implicit batch segmentation is introduced.
+
+At the first actual changed guest-frame boundaryT, the old staged image is
+committed throughT and its file is finalized. The changed image seeds the next
+segment at exactlyT; the following frame closes its first positive interval.
+The normal tap still rejects zero-duration submissions; only its explicit
+first-snapshot API can seed at start_ticks, once, with normal token/descriptor/
+buffer validation. Files are `name.mkv`, `name-part-002.mkv`, `name-part-003.mkv`,
+without overwriting existing targets. Current canonical frontend output dimensions
+are used: a guest's logical320x224 does not imply the encoder sees320x224.
+Window/canvas/rendering rules are unchanged.
+
+The same FIFO, sample grid, epoch and next-sample cursor survive normal splits.
+The old tail consumes throughceil_sample(T); the new writer begins at that same
+index, with its own rational mux/audio origin. FIFO first_sample is an immutable
+origin, not the read cursor: re-running the initial audio discard at rollover
+was shown to fail in the first private candidate. Rollover now checks the exact
+next-sample boundary and does not discard again. Tests model real fixed-origin
+FIFO state, rather than a moving first_sample.
+
+A reset closes the old valid clock epoch before pccore resets its clock/audio,
+keeps REC active while waiting, and rearms against the new audio epoch at its
+first guest frame. Repeated pre-frame reset requests coalesce. No cross-epoch
+PCM continuity is claimed: reset deliberately reinitializes the hardware timeline.
+Whole-recording accepted-frame limits and cumulative REC time survive parts;
+empty parts are not published. Collision/write/clock errors stop recording,
+retain already finalized parts and leave the guest running. Pending presentation
+requests coalesce at the next guest frame; idle notifications remain no-ops.
+
+Verification:
+
+- Real queue/FFV1/PCM/MKV tests cover DOS->game geometry, equal-size timing-only
+  changes, rotation, explicit presentation requests,3 repeated parts, reset/new
+  audio epoch, repeated reset while waiting, global frame limits, early/empty
+  parts and collision preservation/exact `target_exists` diagnostic.
+- Independent FFmpeg decoders verify18 synthetic movies/61 RGB+opaque-alpha
+  frames/48800 stereo sample frames. Source pixel/sample identities join exactly
+  across same-epoch parts; no decoded padding, loss or duplication. Initial
+  sample origin is captured before mode mutation, so the join test works both
+  with the committed baseline and the preserved inherited audio-origin fix.
+- ON25 pass/one hardware skip; OFF recording16/16 plus ROM-less1/1. Focused
+  strict ASan/UBSan4/4. Owned-only session and integration workers compile/run
+  without inherited changes; three-way removal/reapplication reproduces the
+  inherited working files exactly. Final static arm64 Release selftest passes.
+- Authorized private headless boot with the real GUI start path reaches1200
+  frames with2 geometry parts and independently decodable video/audio. Separate
+  final Release-object wrappers invoke actual rotation and actual monitor-reset
+  helpers; each reaches1200/exit0 with2 decodable parts. An initial combined
+  control harness saw only2 GUI callbacks, so its third-callback reset was never
+  invoked; the separate reset harness corrects that test condition. Raw input,
+  paths, commands, captures, logs and hashes stay private. Not a DIGDUG-specific
+  acceptance, physical UI, real Metal/audio-device performance, or whole-guest
+  strict UBSan claim.
+- MinGW static Release/system-DLL audit and cross-compilation of the new full
+  integration/session/tap/runtime workers pass; no new native Windows execution
+  is claimed. Known Wine full-size allocator blocker remains separate.
+
+The final [9147dfa5 scope guard](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b)
+separates the reset notification from generic state-load/rewind epoch cancellation.
+A valid active auto-split fixture followed by exactly that generic notification
+must cancel, not restart. Affected ON/OFF/ROM-less, strict focused sanitizer and
+owned-only workers pass again; final artifacts embed9147dfa5. Other completed
+encoder/performance evidence is not repeated or relabeled as new-device proof.
+
+The user permits owned additions to native_session.cpp and its test while
+retaining the original uncommitted audio edits. Only owned changes are committed;
+owned/inherited merge round-trips and owned-only tests verify separation. Metal
+remains byte-identical. Prior implementation-only checkpoints are historical.
+[Current artifacts](recording-ui-followup.md#current-automatic-recording-splits).
+LOCAL_ONLY; no push/main movement, hosted CI or human/media/demo/legal gate.
+
+## Previous stop-only correction and contract
 
 Evaluated implementation:
 [105e5cac38962c5e408891a98f8620f61edd733b](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b).

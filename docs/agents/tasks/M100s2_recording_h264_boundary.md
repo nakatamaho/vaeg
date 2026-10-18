@@ -150,3 +150,34 @@ Windows/live A/V acceptance. [Handoff](../../recording-v1/recording-ui-followup.
 Binaries/reports updated, priorf32 checkpoint retained. Inherited sources remain
 byte-identical/uncommitted; no MP4 export, new private-media access, hosted CI,
 push/main movement or human/media/demo/legal gate claimed.
+
+Automatic split follow-up: maintainer approves native geometry/timing changes,
+15/24kHz and manual90-degree rotation by separate files, not a fixed/padded canvas.
+[5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc)
+keeps FIFO/grid/cursor through same-epoch handoff, commits the old tail atT,
+seeds new snapshot atT, resets only the per-file queue/mux/video descriptor.
+Reset-driven monitor changes close the old epoch and rearm at the first new
+frame. Cumulative REC time/global frame limit survive parts. Existing target
+collisions preserve old finalized files and sentinel; empty parts never publish.
+GUI opts in, CLI/environment batches do not. [Contract/evidence](../../recording-v1/screen-change-stop.md#current-automatic-splitting-policy).
+ON25 pass/one skip; OFF recording16/16 plus ROM-less1/1; strict focused ASan/
+UBSan4/4;18 synthetic movies/61 exact frames/48800 stereo samples independently
+decoded with no same-epoch boundary loss/duplication. Initial private candidate
+exposed immutable FIFO first_sample vs read-cursor confusion; corrected primer
+never re-discards after a same-epoch split, tests now model real FIFO semantics.
+Private GUI-start geometry run and separate final Release actual rotation/reset
+helper probes reach1200/exit0 with decodable parts. One combined harness never
+reached its third GUI callback; a separate second-callback reset probe fixes
+that test condition, not production code. No DIGDUG-specific/native Windows/live
+Metal/audio-device or whole-guest strict UBSan acceptance. MinGW Release/import
+and full-worker cross-build pass. Final arm64 static Release selftest passes.
+User permits owned native session/test additions while preserving inherited edits;
+owned-only source/test workers pass, three-way inheritance removal/reapply is
+byte-exact; only owned changes committed, Metal untouched. [Artifacts](../../recording-v1/recording-ui-followup.md#current-automatic-recording-splits).
+Raw private commands/media/logs/hashes stay outside Git. No push/main movement,
+hosted CI, MP4 addition or human/media/demo/legal gate.
+Final [9147dfa5](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b)
+separates reset auto-split from generic state-load/rewind cancellation; a valid
+active fixture + that single generic notification asserts cancellation/no movie,
+not unintended restart. Affected ON/OFF/ROM-less, strict sanitizer4/4 and owned-
+only workers pass again. Final static Release artifacts embed9147dfa5.

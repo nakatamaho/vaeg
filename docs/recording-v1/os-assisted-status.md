@@ -1,32 +1,35 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest one-click recording controls and static dependency handoff
+## Latest automatic recording splits and static dependency handoff
 
-The current test executable is based on `e71f83966b9c0819f89a0c29698daf955e64bd87`
-**plus unchanged, uncommitted inherited native-session implementation/tests**;
-not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `6fb045ab296255f4bd110da337c0c7a3c74904c6b6eeb25029265436e462b45c`.
+The current test executable is based on `9147dfa530d2a486e0ca304cb5b3576fbba8e41b`
+**plus preserved, uncommitted inherited native-session implementation/tests**;
+not a clean-commit artifact. The user permits owned additions to those files;
+only owned edits are committed, with inherited merge-round-trip verification.
+SHA256: `b18e16f84da4bf116b2ba381141bcd1fbb8c530e8fecd03a5b2d499423dbff85`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-one-click-recording-controls).
-GUI recording now stops/saves completed intervals on screen-setting changes or
-coded-descriptor rejection without exiting the guest. The reported15kHz case
-reproduces before correction and completes1200 frames after real GUI-start
-automation. [Full evidence and local macOS Release handoff](screen-change-stop.md).
+[current follow-up evidence](recording-ui-followup.md#current-automatic-recording-splits).
+GUI recording now automatically splits fixed-descriptor files across TSP geometry,
+15/24kHz and rotation changes; reset-driven monitor changes rearm at the first
+new-epoch frame. CLI batches remain fail-closed. The reported15kHz stop/exit case
+reproduces before correction; GUI-start/rotation/reset boot probes reach1200
+frames with decodable parts. Synthetic decoders verify exact frame/sample joins. [Full evidence and local macOS Release handoff](screen-change-stop.md).
 Current macOS arm64 statically links minimal LGPLFFmpeg8.1.2 and pinned
 librashader. Both default static on Windows/macOS, fail closed for missing
 archives, and have no dylib imports in the macOS handoff. The later0455d0c9
 macOS build defaults SDL2/LibArchive/zlib/xz static too and imports only Apple
-system libraries/Frameworks, not MacPorts runtime dylibs. Current e71f8396 builds
-retain REC/MM:SS and add one-click start/stop plus an independent settings arrow.
+system libraries/Frameworks, not MacPorts runtime dylibs. Current9147dfa5 builds
+retain REC/MM:SS and one-click start/stop plus an independent settings arrow.
 Actual ImGui mouse-event tests cover25 state/viewport profiles, independent
 settings intent, disabled states and narrow/large-font placement. Both Windows
 and macOS artifacts are rebuilt; static dependency policy is unchanged. [Exact checks and artifacts](static-linking.md). Earlier shared
-FFmpeg builds are historical; nonfree MacPorts FFmpeg is not handed off. All inherited files remain untouched
-and uncommitted; Metal is included only in the macOS working-tree build.
+FFmpeg builds are historical; nonfree MacPorts FFmpeg is not handed off. Inherited edits remain preserved
+and uncommitted; Metal stays byte-identical and is included only in the macOS
+working-tree build, without new Metal work.
 Native Windows and full live/hardware performance gates remain pending.
 
 Title FPS measurement is now independent of the FRAME display switch. The
