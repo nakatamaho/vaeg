@@ -109,6 +109,16 @@ BOOL frontpanel_drive_is_2hd(UINT drv) {
 	return FALSE;
 }
 
+void frontpanel_recording_time(char *text, size_t size, uint64_t ticks, uint64_t clock) {
+	const uint64_t seconds = (clock != 0u) ? ticks / clock : 0u;
+
+	if (text == NULL || size == 0u) {
+		return;
+	}
+	snprintf(text, size, "%02llu:%02u", (unsigned long long)(seconds / 60u),
+	         (unsigned)(seconds % 60u));
+}
+
 int frontpanel_simple_scale(int width) {
 	const int scale = (width + 320) / 640;
 

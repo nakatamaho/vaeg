@@ -2217,16 +2217,22 @@ static BOOL scrnmng_update_window_size(void) {
 }
 
 /* The simple front panel: a dark bar with the drive and mode lamps. */
-static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording, BOOL finalizing,
+                                            UINT64 ticks, UINT64 clock) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
 	static const char *const lock_labels[2] = {"KANA", "CAPS"};
 	const int s = frontpanel_simple_scale(bar->w);
 	const UINT32 now = SDL_GetTicks();
 	SDL_Color label = {200, 196, 180, 255};
 	SDL_Rect r;
-	int x = 8 * s;
+	char elapsed[32];
+	int recording_x;
+	int x = bar->x + 8 * s;
 	int i;
 
+	frontpanel_recording_time(elapsed, sizeof(elapsed), ticks, clock);
+	/* Reserve a stable five-character timer, expanding for long recordings. */
+	recording_x = bar->x + bar->w - (136 + 48 + (int)SDL_strlen(elapsed) * 8) * s;
 	if (!scrnmng.native_active) {
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
 	}
@@ -2244,8 +2250,11 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		Uint8 cg;
 		Uint8 cb;
 
-		/* Leave room for REC and both lock lamps in portrait windows. */
-		if (i >= 2 && i < 5 && bar->w < 444 * s) {
+		/* Preserve the complete REC/timer/lock group in portrait windows. */
+		if (i >= 2 && i < 5 && recording_x < bar->x + 272 * s) {
+			continue;
+		}
+		if (drive && x + 40 * s > recording_x - 4 * s) {
 			continue;
 		}
 		if (i == 2) {
@@ -2295,22 +2304,32 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		} else {
 			scrnmng_panel_fill(&r, 52, 60, 52);
 		}
-		x += r.w + 12 * s;
+		x += r.w + ((drive && bar->w < 344 * s) ? 4 : 12) * s;
 	}
-	/* Keep KANA/CAPS right-aligned; the recording indicator sits just left. */
-	x = bar->x + bar->w - 180 * s;
+	/* Keep KANA/CAPS right-aligned; REC, lamp and movie time sit just left. */
+	x = recording_x;
 	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "REC", label);
 	r.x = x + 28 * s;
 	r.y = bar->y + 5 * s;
 	r.w = 12 * s;
 	r.h = 6 * s;
-	if (vaeg_recording_native_session_is_finalizing()) {
+	if (finalizing) {
 		scrnmng_panel_fill(&r, 255, 180, 40);
-	} else if (vaeg_recording_native_session_is_active()) {
+	} else if (recording) {
 		scrnmng_panel_fill(&r, 255, 45, 30);
 	} else {
 		scrnmng_panel_fill(&r, 52, 60, 52);
 	}
+	if (recording || finalizing) {
+		scrnmng_draw_text_glyphs(x + 48 * s, bar->y + 4 * s, s, elapsed, label);
+	}
+}
+
+static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+	scrnmng_draw_simple_panel_state(bar, vaeg_recording_native_session_is_active(),
+	                                vaeg_recording_native_session_is_finalizing(),
+	                                vaeg_recording_native_session_elapsed_ticks(),
+	                                pccore.realclock);
 }
 
 /* Draw the front panel across the bottom of the drawable, and fit the
@@ -2379,11 +2398,6 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	scrnmng.native_active = FALSE;
 	scrnmng_draw_simple_panel(&bar);
 	SDL_RenderPresent(renderer);
-	scrnmng.renderer = saved_renderer;
-	scrnmng.native_active = saved_native;
-	if (out_path != NULL) {
-		SDL_SaveBMP(surface, out_path);
-	}
 	px = (const Uint32 *)surface->pixels;
 	/* lamps start after their label: FD1 at 36, FD2 at 88, V1 at 148 (+16 gap) */
 	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (8 + 24 + 4 + 6) * s], surface->format, &r, &g,
@@ -2405,12 +2419,61 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 		ok = FALSE;
 	}
 	/* REC is directly left of the lock lamps and dim while idle. */
-	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 146 * s)], surface->format, &r, &g, &b);
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 190 * s)], surface->format, &r, &g, &b);
 	if (ok && !vaeg_recording_native_session_is_active() && ((r != 52) || (g != 60) || (b != 52))) {
 		SDL_snprintf(problem, size,
 		             "simple panel REC lamp is not dim at its expected position");
 		ok = FALSE;
 	}
+	/* Compare the real timer area against independently drawn expected glyphs;
+	 * exercise start/reset and finalization without modifying session state. */
+	{
+		static const char *const expected[] = {"01:23", "00:00", "100:00", "01:23"};
+		SDL_Rect timer = {width - 176 * s, 4 * s, 40 * s, 8 * s};
+		SDL_Surface *actual =
+		    SDL_CreateRGBSurfaceWithFormat(0, 48 * s, timer.h, 32, SDL_PIXELFORMAT_ARGB8888);
+		int phase;
+
+		if (actual == NULL) {
+			SDL_snprintf(problem, size, "no timer comparison surface");
+			ok = FALSE;
+		}
+		for (phase = 0; actual != NULL && phase < 4 && ok; ++phase) {
+			const SDL_Color color = {200, 196, 180, 255};
+			int row;
+
+			timer.w = (int)SDL_strlen(expected[phase]) * 8 * s;
+			timer.x = width - 136 * s - timer.w;
+			scrnmng_draw_simple_panel_state(&bar, phase != 3, phase == 3,
+			                                phase == 1 ? 0 : (phase == 2 ? 6000000 : 83000), 1000);
+			SDL_RenderPresent(renderer);
+			SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + timer.x - 14 * s], surface->format, &r,
+			           &g, &b);
+			if (r != 255 || g != (phase == 3 ? 180 : 45) || b != (phase == 3 ? 40 : 30)) {
+				SDL_snprintf(problem, size, "recording timer/lamp layout overlap");
+				ok = FALSE;
+			}
+			SDL_BlitSurface(surface, &timer, actual, NULL);
+			scrnmng_panel_fill(&timer, 34, 34, 36);
+			scrnmng_draw_text_glyphs(timer.x, timer.y, s, expected[phase], color);
+			SDL_RenderPresent(renderer);
+			for (row = 0; row < timer.h && ok; ++row) {
+				if (memcmp((const BYTE *)actual->pixels + row * actual->pitch,
+				           (const BYTE *)surface->pixels + (timer.y + row) * surface->pitch +
+				               timer.x * 4,
+				           (size_t)timer.w * 4) != 0) {
+					SDL_snprintf(problem, size, "recording MM:SS pixels/reset mismatch");
+					ok = FALSE;
+				}
+			}
+		}
+		SDL_FreeSurface(actual);
+	}
+	if (out_path != NULL) {
+		SDL_SaveBMP(surface, out_path);
+	}
+	scrnmng.renderer = saved_renderer;
+	scrnmng.native_active = saved_native;
 	SDL_DestroyRenderer(renderer);
 	SDL_FreeSurface(surface);
 	return ok ? SUCCESS : FAILURE;
