@@ -80,6 +80,22 @@ chose the record came back at `GUI_scaling=3`, `GUI_scale=2` and a 1280x850
 window; with librashader (unfiltered) chosen the record held renderer 2 and
 restored `NativeCRT=true`, `NativeCRTFilter=false`.
 
+## Local CI QA at `9af8cb4e` (2026-10-18)
+
+- Repository checks: encoding, EOL, path case, Markdown comments, milestone
+  IDs, clang-format of the changed sources: no findings.
+- `linux-ci-gcc`: build, smoke, CTest 94/94 (four external-fixture skips),
+  selftest; no new warnings in the changed files.
+- `linux-ci-asan` (ASan/UBSan): CTest 94/94, no sanitizer reports.
+- `linux-ci-clang` in the pinned Ubuntu 24.04 container with the CI job's
+  packages: build, smoke, CTest 94/94.
+- Media build regression (clean clone): demo disks, SGP boot disk,
+  all-demos and all-demos-msdos4 identical to the committed images; the
+  utility disk (4096 bytes free) and both SASI images build.
+- Clean-checkout static MinGW build: `vaeg.exe` SHA-256
+  `849a7e6da82b7dd275f0273fb5b9333a8e15381f02884cd6ff0ac7b31d2bcf8b`, Windows
+  system DLL imports only.
+
 ## Gate G124 (human)
 
 Standard gate, plus: boot something at 15 kHz with the screen turned, boot
