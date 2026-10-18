@@ -453,6 +453,7 @@ static const INITBL iniitem[] = {
      sizeof(np2oscfg.keyboard_kana_input)},
     {"keyboard_auto_kana_lock", INITYPE_BOOL, &np2oscfg.keyboard_auto_kana_lock, 0},
     {"keyboard_tenkey_overlay", INITYPE_BOOL, &np2oscfg.keyboard_tenkey_overlay, 0},
+    {"keyboard_letter_keypad", INITYPE_BOOL, &np2oscfg.keyboard_letter_keypad, 0},
     {"keyboard_custom_map", INITYPE_STR, np2oscfg.keyboard_custom_map,
      sizeof(np2oscfg.keyboard_custom_map)},
     {"opn_backend", INITYPE_STR, np2oscfg.opn_backend, sizeof(np2oscfg.opn_backend)},
@@ -629,6 +630,7 @@ void initload(void) {
 	}
 	np2oscfg.keyboard_auto_kana_lock = np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
+	np2oscfg.keyboard_letter_keypad = np2oscfg.keyboard_letter_keypad ? 1 : 0;
 	/* M110: the cursor keys as keys (0), joystick (1) or mouse (3); the PC-98
 	 * second-joystick mode 2 is gone. */
 	if ((np2cfg.KEY_MODE != 1) && (np2cfg.KEY_MODE != 3)) {

@@ -5117,6 +5117,15 @@ static void draw_key_menu(void) {
 		}
 		ImGui::EndMenu();
 	}
+	const bool letter_keypad = kbdmap_letter_keypad_enabled() ? true : false;
+	if (ImGui::MenuItem("テンキー代用 (YUI/HJK/NM,.)", nullptr, letter_keypad)) {
+		kbdmap_set_letter_keypad(!letter_keypad);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip(
+		    "Y U I = 7 8 9\nH J K = 4 5 6\nN M , = 1 2 3\n    . = 0\nカーソル割り当てとは独立");
+	}
 	if (ImGui::BeginMenu("F12 の割り当て")) {
 		if (ImGui::MenuItem("マウス", nullptr, np2oscfg.F12KEY == 0)) {
 			set_f12_key(0);

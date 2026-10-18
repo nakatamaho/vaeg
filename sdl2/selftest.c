@@ -7399,6 +7399,154 @@ static int test_keyboard_matrix_pacing(void) {
 	return (SUCCESS);
 }
 
+/* M127: test the real make/break route against independently injected VA
+ * keypad codes, including US punctuation and active Roman-Kana. */
+static int test_letter_keypad(void) {
+	static const struct {
+		SDL_Scancode host;
+		BYTE guest;
+	} keys[] = {{SDL_SCANCODE_Y, 0x42},     {SDL_SCANCODE_U, 0x43}, {SDL_SCANCODE_I, 0x44},
+	            {SDL_SCANCODE_H, 0x46},     {SDL_SCANCODE_J, 0x47}, {SDL_SCANCODE_K, 0x48},
+	            {SDL_SCANCODE_N, 0x4a},     {SDL_SCANCODE_M, 0x4b}, {SDL_SCANCODE_COMMA, 0x4c},
+	            {SDL_SCANCODE_PERIOD, 0x4e}};
+	static const char *layouts[] = {"jis", "us", "custom"};
+	const NP2OSCFG saved = np2oscfg;
+	const BYTE saved_key_mode = np2cfg.KEY_MODE;
+	const char *problem = NULL;
+	UINT8 expected[sizeof(keybrd.keymap)];
+	UINT8 released[sizeof(keybrd.keymap)];
+	UINT layout;
+	UINT key;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	np2cfg.KEY_MODE = 0;
+	np2oscfg.keyboard_custom_map[0] = '\0';
+	for (layout = 0; layout < NELEMENTS(layouts) && problem == NULL; layout++) {
+		kbdmap_set_layout(layouts[layout]);
+		kbdmap_set_kana_input("roman");
+		for (key = 0; key < NELEMENTS(keys) && problem == NULL; key++) {
+			keystat_initialize();
+			keyboard_resetsignal();
+			kbdmap_initialize();
+			/* Activate the host's Roman-Kana mirror before enabling the
+			 * overlay: these letters must bypass the parser. */
+			kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, FALSE);
+			kbdmap_keyup(SDL_SCANCODE_RALT, 0, 0);
+			/* The oracle uses explicit VA codes through keystat, which
+			 * also materializes the active KANA lock in the matrix. */
+			keystat_senddata(keys[key].guest);
+			memcpy(expected, keybrd.keymap, sizeof(expected));
+			keyboard_matrix_tick();
+			keyboard_matrix_tick();
+			keystat_senddata(keys[key].guest | 0x80);
+			memcpy(released, keybrd.keymap, sizeof(released));
+			kbdmap_set_letter_keypad(TRUE);
+			kbdmap_apply_config();
+			if (!kbdmap_letter_keypad_enabled()) {
+				problem = "M127_SETTING: letter keypad did not stay enabled";
+				break;
+			}
+			kbdmap_keydown(keys[key].host, 0, 0, FALSE);
+			if (memcmp(expected, keybrd.keymap, sizeof(expected)) != 0) {
+				problem = "M127_MAPPING: letter did not make the expected keypad digit";
+				break;
+			}
+			keyboard_matrix_tick();
+			keyboard_matrix_tick();
+			kbdmap_keyup(keys[key].host, 0, 0);
+			if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+				problem = "M127_KEYUP: keypad digit remained pressed";
+				break;
+			}
+			kbdmap_keydown(keys[key].host, 0, 0, FALSE);
+			keyboard_matrix_tick();
+			keyboard_matrix_tick();
+			kbdmap_set_letter_keypad(FALSE);
+			if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+				problem = "M127_DISABLE: disabling did not release a held keypad digit";
+				break;
+			}
+			kbdmap_set_letter_keypad(TRUE);
+			kbdmap_keydown(keys[key].host, 0, 0, TRUE);
+			if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+				problem = "M127_REPEAT: enabling remapped a held key's autorepeat";
+				break;
+			}
+			kbdmap_keydown(keys[key].host, 0, 0, FALSE);
+			keyboard_matrix_tick();
+			keyboard_matrix_tick();
+			kbdmap_reset_frontend_state();
+			if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+				problem = "M127_RESET: frontend reset left a keypad digit pressed";
+			}
+		}
+	}
+	if (problem == NULL) {
+		/* Switching the letter overlay must not change cursor assignment. */
+		kbdmap_set_tenkey_overlay(TRUE);
+		kbdmap_set_letter_keypad(TRUE);
+		kbdmap_set_letter_keypad(FALSE);
+		if (!kbdmap_tenkey_overlay_enabled() || np2cfg.KEY_MODE != 0) {
+			problem = "M127_INDEPENDENCE: letter overlay changed cursor assignment";
+		}
+		/* Up and U both hold keypad 8: releasing either source, or
+		 * disabling one overlay, must not release the other source. */
+		keystat_initialize();
+		keyboard_resetsignal();
+		memcpy(released, keybrd.keymap, sizeof(released));
+		keystat_senddata(0x43);
+		memcpy(expected, keybrd.keymap, sizeof(expected));
+		keystat_initialize();
+		keyboard_resetsignal();
+		kbdmap_set_letter_keypad(TRUE);
+		kbdmap_keydown(SDL_SCANCODE_UP, 0, 0, FALSE);
+		kbdmap_keydown(SDL_SCANCODE_U, 0, 0, FALSE);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		kbdmap_keyup(SDL_SCANCODE_U, 0, 0);
+		if (memcmp(expected, keybrd.keymap, sizeof(expected)) != 0) {
+			problem = "M127_SHARED_HOLD: letter release also released the cursor-held digit";
+		}
+		kbdmap_keydown(SDL_SCANCODE_U, 0, 0, FALSE);
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		kbdmap_set_tenkey_overlay(FALSE);
+		if (memcmp(expected, keybrd.keymap, sizeof(expected)) != 0) {
+			problem = "M127_SHARED_DISABLE: cursor disable released the letter-held digit";
+		}
+		kbdmap_set_letter_keypad(FALSE);
+		if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+			problem = "M127_SHARED_RELEASE: last overlay did not release the digit";
+		}
+		kbdmap_set_kana_input("jis-kana");
+		keystat_initialize();
+		keyboard_resetsignal();
+		keystat_senddata(kbdmap_lookup(SDL_SCANCODE_Y));
+		memcpy(expected, keybrd.keymap, sizeof(expected));
+		keystat_initialize();
+		keyboard_resetsignal();
+		kbdmap_keydown(SDL_SCANCODE_Y, 0, 0, FALSE);
+		if (memcmp(expected, keybrd.keymap, sizeof(expected)) != 0) {
+			problem = "M127_DISABLED: ordinary typing was not restored";
+		}
+	}
+	kbdmap_reset_frontend_state();
+	keystat_allrelease();
+	np2oscfg = saved;
+	np2cfg.KEY_MODE = saved_key_mode;
+	kbdmap_apply_config();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return fail("letter keypad", problem);
+	}
+	fprintf(stderr, "selftest: letter keypad ok\n");
+	return SUCCESS;
+}
+
 typedef struct {
 	char text[256];
 } TOKENBUF;
@@ -8049,6 +8197,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_keyboard_matrix_pacing() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_letter_keypad() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {

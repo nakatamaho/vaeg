@@ -955,6 +955,9 @@ The Key menu exposes:
   or マウス (`cursor_keys`, M110)
 - ホストの配列: JIS, US, カスタム
 - かな入力: JIS かな, ローマ字かな
+- テンキー代用 (YUI/HJK/NM,.): YUI=789, HJK=456, NM,=123, period=0;
+  independent of cursor assignment, off by default, persisted as
+  `keyboard_letter_keypad=true` (M127)
 - F12 の割り当て
 - キーの割り当て…: the full key binding table with capture-next-key
 
