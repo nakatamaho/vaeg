@@ -2794,6 +2794,8 @@ static int test_viewport(void) {
 		return (fail("state thumbnail", "PNG did not read back"));
 	}
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
+	if (gui_file_filter_selftest() != SUCCESS)
+		return FAILURE;
 	{
 		/* M122: each file window has its own recent folders */
 		char root[MAX_PATH];

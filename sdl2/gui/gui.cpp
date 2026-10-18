@@ -1596,9 +1596,11 @@ static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
 /* File types of the FDD and tape browsers (M106, maintainer request): the
  * usual image and archive types by default, or every file, as in a Windows
  * "Files of type" list. */
-static const char *const kFddFileTypes[] = {".d88", ".88d", ".zip", ".7z", ".lzh"};
+static const char *const kFddFileTypes[] = {".d88", ".88d", ".d88.xz", ".88d.xz",
+                                            ".zip", ".7z",  ".lzh"};
 static const char *const kTapeFileTypes[] = {".cmt", ".t88", ".zip", ".7z", ".lzh"};
-static const char kFddFileTypeLabel[] = "Disk images (*.d88;*.88d;*.zip;*.7z;*.lzh)";
+static const char kFddFileTypeLabel[] =
+    "Disk images (*.d88;*.88d;*.d88.xz;*.88d.xz;*.zip;*.7z;*.lzh)";
 static const char kTapeFileTypeLabel[] = "Tape images (*.cmt;*.t88;*.zip;*.7z;*.lzh)";
 /* The SASI browser lists .hdi images by default (maintainer request); the
  * SCSI browser keeps listing every file. */
@@ -1606,13 +1608,16 @@ static const char *const kSasiFileTypes[] = {".hdi"};
 static const char kSasiFileTypeLabel[] = "SASI HDD images (*.hdi)";
 
 static bool file_type_listed(const std::string &name, const char *const *types, size_t count) {
-	std::string extension = fs::u8path(name).extension().u8string();
+	// A supported type can have a compound suffix, such as .d88.xz.
+	std::string filename = name;
 
-	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+	std::transform(filename.begin(), filename.end(), filename.begin(), [](unsigned char c) {
 		return static_cast<char>(std::tolower(c));
 	});
 	for (size_t i = 0; i < count; i++) {
-		if (extension == types[i]) {
+		const std::string suffix = types[i];
+		if (filename.size() >= suffix.size() &&
+		    filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) == 0) {
 			return true;
 		}
 	}
@@ -6562,6 +6567,38 @@ BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
 		std::snprintf(problem, size, "%s", failed);
 		return FAILURE;
 	}
+	return SUCCESS;
+}
+
+BOOL gui_file_filter_selftest(void) {
+	static const char *const accepted[] = {
+	    "disk.d88",    "disk.88d",    "disk.d88.xz", "disk.88d.xz", "disk.D88.XZ",
+	    "disk.88D.XZ", "disk.D88.xZ", "set.zip",     "set.ZIP",     "set.7z",
+	    "set.7Z",      "set.lzh",     "set.LZH"};
+	static const char *const rejected[] = {"disk.xz",    "disk.d88.xz.bak", "disk.88d.xz.txt",
+	                                       "diskd88.xz", "notes.txt",       "",
+	                                       "xz",         "disk.gz"};
+	for (const char *name : accepted) {
+		if (!file_type_listed(name, kFddFileTypes, std::size(kFddFileTypes))) {
+			fprintf(stderr, "selftest: file filter failed: M127_FDD_FILTER_ACCEPT: %s\n", name);
+			return FAILURE;
+		}
+	}
+	for (const char *name : rejected) {
+		if (file_type_listed(name, kFddFileTypes, std::size(kFddFileTypes))) {
+			fprintf(stderr, "selftest: file filter failed: M127_FDD_FILTER_REJECT: %s\n", name);
+			return FAILURE;
+		}
+	}
+	if (!file_type_listed("tape.T88", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    !file_type_listed("disk.HDI", kSasiFileTypes, std::size(kSasiFileTypes)) ||
+	    file_type_listed("tape.t88.xz", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    file_type_listed("disk.d88.xz", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    file_type_listed("disk.hdi.bak", kSasiFileTypes, std::size(kSasiFileTypes))) {
+		fprintf(stderr, "selftest: file filter failed: M127_OTHER_FILTER\n");
+		return FAILURE;
+	}
+	fprintf(stderr, "selftest: file filter ok\n");
 	return SUCCESS;
 }
 

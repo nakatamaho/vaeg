@@ -40,6 +40,7 @@ void gui_new_frame(void);
 void gui_draw(void);
 void gui_render(void);
 BOOL gui_overlay_selftest(void);
+BOOL gui_file_filter_selftest(void);
 /* M122: recent-folder lists; `root` is an empty, writable test directory */
 BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size);
 void gui_display_capture_result(const char *path, BOOL success);

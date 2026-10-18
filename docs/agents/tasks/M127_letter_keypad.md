@@ -51,6 +51,17 @@ M125 remains on hold; this task starts from main without its quick-save code.
   after the last overlay source releases it. Enabling while a normal key is
   held ignores its autorepeat until a fresh keydown.
 
+## Maintainer-requested pre-gate follow-up: FDD XZ visibility
+
+The maintainer additionally requested `.d88.xz` and `.88d.xz` in FDD >
+開く before G127. Keep this correction in a separate M127 commit. The
+existing XZ extraction path already supports these images; the GUI filter
+omits them and inspects only the last extension. Match complete,
+case-insensitive suffixes, retain ZIP/7z/LZH, and reject unrelated `.xz`
+and backup suffixes. Test the production filter and XZ extraction with
+synthetic public fixtures; never record private media names or alter inputs.
+Include this correction in the updated static gate build and bug ledger.
+
 ## Verification and G127
 
 Run GCC and ASan/UBSan builds, CTest, smoke/selftest, focused mapping and
