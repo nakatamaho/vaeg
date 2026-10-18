@@ -322,13 +322,14 @@ Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
 second as FDD2, and later images are reported as ignored. Supported direct
 extensions are `.d88`, `.88d`, `.d98`, `.98d`, `.fdi`, `.xdf`, `.hdm`,
-`.dup`, `.2hd`, `.tfd`, and `.img`. A supported single disk image compressed as
+`.dup`, `.2hd`, `.tfd`, and `.img`.
 FDD > 開く lists `.d88.xz` and `.88d.xz` alongside D88/88D and ZIP/7z/LZH
 in its default file-type filter (case-insensitive). The same inputs can be
 mounted by dropping them on the window.
 
-`.d88.xz` (or another supported image suffix followed by `.xz`) is also
-accepted and extracted to bounded managed storage. ZIP, 7z, and LZH drops
+A supported single disk image compressed as `.d88.xz` (or another supported
+image suffix followed by `.xz`) is also accepted and extracted to bounded
+managed storage. ZIP, 7z, and LZH drops
 extract only supported images to bounded managed storage under the platform
 user-state directory when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 `FDD2FILE`, so they remain valid through reset and application restart.
