@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M127 — FDD Open hid supported XZ-compressed D88 images
+
+- **Symptom/scope:** FDD > Open listed ZIP/7z archives but hid `.d88.xz`
+  and `.88d.xz` images in its default file-type view.
+- **Demonstrated cause:** the GUI allow-list omitted the compound suffixes,
+  and its matcher compared only `filesystem::path::extension()` (`.xz`).
+  The existing archive path already recognized and extracted these formats.
+- **Correction:** add both suffixes and compare complete, case-insensitive
+  filename suffixes; keep tape/SASI filtering unchanged and reject bare
+  `.xz` and backup suffixes.
+- **Verification:** production-filter selftests cover supported/rejected names
+  and other browsers. Four mutations reproduce the intended accept/reject
+  failures. LibArchive 3.8.7 selftests extract both image suffixes in lower
+  and upper case. The real GUI lists and mounts synthetic `.d88.xz` and
+  `.88d.xz` copies of the public SGP demo, with byte-identical extraction.
+  GCC/ASan CTest: 94/94, four external-fixture skips.
+- **Task/evidence:** [M127 follow-up](../agents/tasks/M127_letter_keypad.md#maintainer-requested-pre-gate-follow-up-fdd-xz-visibility).
+- **Fix:** [32cdedf6](https://github.com/nakatamaho/vaeg/commit/32cdedf64048b04ec46e0f56ee846da376bf54fd).
+
 ### M120 — the second disk of a multi-image D88 came back as the first
 
 - **Symptom/scope:** with a disk other than the first of a multi-image D88

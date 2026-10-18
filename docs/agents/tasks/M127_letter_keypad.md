@@ -62,6 +62,19 @@ and backup suffixes. Test the production filter and XZ extraction with
 synthetic public fixtures; never record private media names or alter inputs.
 Include this correction in the updated static gate build and bug ledger.
 
+Implemented in [32cdedf6](https://github.com/nakatamaho/vaeg/commit/32cdedf64048b04ec46e0f56ee846da376bf54fd).
+Production-filter tests cover both compound suffixes, mixed case, ZIP/7z/LZH,
+bare `.xz`, backup suffixes and unchanged tape/SASI behavior. Four controlled
+mutations (last-extension-only, missing `.88d.xz`, overbroad `.xz`, and no
+case folding) fail with `M127_FDD_FILTER_ACCEPT` or
+`M127_FDD_FILTER_REJECT` as intended. GCC and ASan CTest each pass 94/94
+(four external skips). `linux-release` with fetched LibArchive 3.8.7 passes
+selftest, including lower/upper-case D88/88D XZ extraction. Real GUI fixture
+checks list all four case/suffix variants while omitting invalid suffixes;
+selecting `.d88.xz` and `.88d.xz` through FDD Open mounts each and preserves
+the source bytes. Fixtures use only a public source-built demo. Temporary
+GUI code is removed. No private user media or names enter Git.
+
 ## Verification and G127
 
 Run GCC and ASan/UBSan builds, CTest, smoke/selftest, focused mapping and
@@ -147,7 +160,7 @@ SHA-256 `4d7cf8e771563460be8966960a8c6aae96defabed7457db294b6df38f300056b`.
 Raw logs, generated images and captures are retained in task-local scratch.
 All 129 regenerated FDD payloads also match the previous utility disk.
 
-### Clean static Windows handoff
+### Initial static Windows handoff (superseded by the follow-ups)
 
 `tools/release/build-mingw-static-container.sh --commit
  da5988f575e2eb864685eb752a6e212b0b926afe` exited 0, using a fresh clone in
@@ -156,4 +169,5 @@ import audit pass (Windows system DLLs only). The executable SHA-256 is
 `0843af77c2ea7ea7052875d9878ef106023e43f65bd0c61a6d31c03162af2fdc`.
 The absolute `vaeg.exe` and `BUILD-REPORT.md` paths are supplied to the
 maintainer. Windows execution and the G127 human checks remain pending.
-Later changes are documentation-only; no unchanged build is rerun.
+The report-only checkpoint did not require rebuilding. The later FDD filter
+and recent-boot corrections require an updated gate executable.
