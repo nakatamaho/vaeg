@@ -216,3 +216,22 @@ local mingw-rebuild-validation.json. Prior9147 binary/report retained. Profile
 stopped after build to free host resources. No source edits, private-media/test
 rerun, native Windows/performance acceptance or gate pass. Repo validators pass;
 only this task and current-handoff/status evidence updated. Main/r2 unchanged.
+
+Repeat main synchronization, requested by maintainer: merge fetched main
+`0f7977e0f1c0f801b146d08c3c8b5c62963fb1c7` into the recording branch at964ad1d2.
+Includes M126 utility staging and M127 letter-keypad/recent-boot/filter changes;
+no main/r2 movement or gate pass. One GUI insertion conflict: retain both the
+recording controls/dialog selftests and main's recent-boot/filter selftests,
+without modifying their function bodies. Original3 inherited files remain
+byte-identical and excluded from the merge index. Local commands, all exit0:
+
+- `cmake --build build/macos-rec13-on --parallel 6`; `ctest --test-dir build/macos-rec13-on -R '8087|recording|static_(preset|metal)|romless|sound_capture|sound_generation|ffmpeg_static|sdl_startup_viewport' --no-tests=error --output-on-failure`:27 passed/one H.264 hardware skip, including GUI/keyboard/recent-boot/filter ROM-less checks.
+- `cmake --build build/macos-rec13-off --parallel 6`; `ctest --test-dir build/macos-rec13-off -R '8087|recording|romless|sdl_startup_viewport' --no-tests=error --output-on-failure`:14/14.
+- `python3 tests/pc88va/test_softlib_additions.py -v`:3 passed/one unavailable public-cache/DOSBox/Lhasa integration skip; `python3 tools/pc88va/test_vtiming_media.py -q`:3/3.
+- `bash -n tools/pc88va/build-sasi-utility-disks.sh`; repository encoding/EOL/case/Markdown-comment/staged-whitespace checks pass.
+
+Task-specific local logs and preservation/worker identities retained under the
+main-sync-0f7977e0 work directory. No shipping Release artifact rebuild, native
+Windows/private-media/throughput run or hosted CI manually requested. Prior Mac
+2bd194b9/Windows1b30383d handoff binaries remain unchanged and do not include
+this new main synchronization. Human/practical recording gate still pending.

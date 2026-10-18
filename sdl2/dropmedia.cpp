@@ -1153,8 +1153,10 @@ extern "C" BOOL dropmedia_selftest(void) {
 	    (!image_extension_supported("disk.IMG")) || image_extension_supported("disk.zip") ||
 	    (!dropmedia_path_is_archive("set.ZIP")) || (!dropmedia_path_is_archive("set.7Z")) ||
 	    (!dropmedia_path_is_archive("set.LZH")) || (!dropmedia_path_is_archive("disk.d88.xz")) ||
-	    dropmedia_path_is_archive("disk.xz") || dropmedia_path_is_archive("disk.d88") ||
-	    dropmedia_path_is_archive(NULL)) {
+	    (!dropmedia_path_is_archive("disk.88d.xz")) ||
+	    (!dropmedia_path_is_archive("disk.D88.XZ")) ||
+	    (!dropmedia_path_is_archive("disk.88D.XZ")) || dropmedia_path_is_archive("disk.xz") ||
+	    dropmedia_path_is_archive("disk.d88") || dropmedia_path_is_archive(NULL)) {
 		return FAILURE;
 	}
 	if ((!archive_path_safe("folder/disk.d88")) || archive_path_safe("../disk.d88") ||
@@ -1241,13 +1243,13 @@ extern "C" BOOL dropmedia_selftest(void) {
 			return FAILURE;
 		}
 	}
-	{
-		const fs::path image_path = test_dir / "sample.d88.xz";
-		const fs::path storage_root = test_dir / "storage-xz";
+	for (const char *name : {"sample.d88.xz", "sample.88d.xz", "sample.D88.XZ", "sample.88D.XZ"}) {
+		const fs::path image_path = test_dir / name;
+		const fs::path storage_root = test_dir / (std::string("storage-") + name);
 		std::vector<DiskCandidate> extracted;
 		if ((!write_test_xz_image(image_path)) ||
 		    (!extract_archive_images(image_path.u8string(), &extracted, &error, storage_root)) ||
-		    (extracted.size() != 1) || (extracted[0].basename != "sample.d88") ||
+		    (extracted.size() != 1) || (extracted[0].basename != image_path.stem().u8string()) ||
 		    (extracted[0].source_directory != test_dir.u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();

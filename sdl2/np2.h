@@ -101,6 +101,8 @@ typedef struct {
 	BYTE front_panel;
 	/* M120: the disk of a multi-image D88 in fdd_image[], 0 = first. */
 	BYTE fdd_image_index[2];
+	/* M127: YUI/HJK/NM,. as keypad digits, independent of cursor keys. */
+	BYTE keyboard_letter_keypad;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)
