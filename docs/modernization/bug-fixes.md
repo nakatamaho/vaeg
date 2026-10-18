@@ -3169,6 +3169,9 @@ separate parity correction or move it to Open Defects.
   `0F 8x` near jump.
 - **Next step:** compare its graphics setup with the documented BIOS and
   SGP calls; check on hardware if possible.
+- **Packaging follow-up:** [M126](../agents/tasks/M126_utility_softlib.md)
+  installs the reproducibly built EXE, unchanged source and documentation on
+  the utility HDDs. It does not fix or close this rendering defect.
 
 ### M106 — GLASS, NEON3 and NEON4 do not run on the original VA model
 
