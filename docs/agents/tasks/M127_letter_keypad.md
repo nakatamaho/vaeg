@@ -86,6 +86,39 @@ per-record isolation and partial/all-missing cases with synthetic fixtures,
 and a real GUI selection using public demo media. Keep this fix in its own
 commit and update the correctness ledger. Do not change the history format.
 
+Implemented in [f85cec0b](https://github.com/nakatamaho/vaeg/commit/f85cec0b5fda6198845e149d0f58ff9ccefeef63).
+The old menu required every nonempty media path in the record to exist.
+The new `HistoryBootPlan` preserves existing paths and clears missing ones,
+including the disk index of an absent floppy. Both the menu and the boot
+action use this plan; the action checks again before session/mount changes.
+
+Synthetic filesystem tests pass for complete, partial, all-missing,
+media-less ROM and HDD records, per-record isolation and disappearance after
+an earlier check. Mutations restoring the old all-paths gating, allowing
+all-missing records, rejecting media-less records, and retaining missing
+paths fail with their intended `M127_RECENT_PARTIAL`,
+`M127_RECENT_ALL_MISSING` or `M127_RECENT_ROM_BOOT` codes. Every mutation is
+restored before the integration checks.
+
+A real GUI fixture shows a disabled all-missing entry, an enabled partial
+entry and an enabled complete entry together. Selecting the partial entry
+mounts its existing public demo, ejects a different disk previously mounted
+in FDD2 and shows the missing FDD2/HDD/tape paths as a warning. Temporary GUI
+code is removed; fixtures, screenshots and logs remain outside Git.
+
+Final integrated GCC and ASan CTest each pass 94/94 (the same four external
+skips). The fetched LibArchive 3.8.7 release selftest passes the filter,
+recent-boot media, archive extraction and letter-keypad tests. The local
+release worker for this final source tree has SHA-256
+`eb2dfc0f97fd14ac1f7c48ed79285c3f7a4c2863817ca5e418f57b2811ab05d0`;
+it was built before the fixing commit was recorded (its configure-time
+version header still names `29067b97`). The clean static gate build must
+embed the final pushed candidate instead. Media/demo source-build results
+above are reused: `git diff da5988f575e2eb864685eb752a6e212b0b926afe HEAD
+-- demos tools` is empty, so every generated-media build input is unchanged.
+No unchanged media builders or all-demo build profiles are rerun solely for
+these GUI-only fixes.
+
 ## Verification and G127
 
 Run GCC and ASan/UBSan builds, CTest, smoke/selftest, focused mapping and
@@ -97,7 +130,9 @@ produce the clean static MinGW handoff.
 
 Human gate: standard V3/demo/OS check, plus toggle the new item, check the
 letter keypad in a guest, toggle off and check normal typing, restart and
-check persistence. Cursor assignment must remain independent. Stop at G127;
+check persistence. Cursor assignment must remain independent. Confirm that
+FDD Open lists/mounts `.d88.xz` and `.88d.xz`, and that an existing recent
+boot can be selected while missing secondary media are explicitly ejected. Stop at G127;
 do not merge or begin the next milestone before maintainer approval.
 
 ## Local verification
@@ -166,7 +201,7 @@ reuses source-build/payload results only, not unchanged-worker runtime
 results: the frontend worker has changed. Human V3/demo/OS and letter-keypad
 verification is still required at G127.
 
-The final GCC worker after restoring all mutations and the GUI harness has
+The initial letter-keypad GCC worker after restoring its mutations and GUI harness has
 SHA-256 `4d7cf8e771563460be8966960a8c6aae96defabed7457db294b6df38f300056b`.
 Raw logs, generated images and captures are retained in task-local scratch.
 All 129 regenerated FDD payloads also match the previous utility disk.

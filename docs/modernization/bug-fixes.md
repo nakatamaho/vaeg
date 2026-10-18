@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M127 — missing secondary media disabled an otherwise usable recent boot
+
+- **Symptom/scope:** a recent-boot entry with an existing primary floppy was
+  disabled if its recorded secondary floppy, HDD or tape no longer existed.
+- **Demonstrated cause:** the menu enabled an entry only when the list of
+  missing paths for the entire recorded set was empty. A secondary file
+  was therefore treated as a prerequisite for every medium in the set.
+  Availability was per record, not shared across different records.
+- **Correction:** prepare a per-record plan of existing media. Allow partial
+  records, mark them `(一部なし)`, explicitly eject missing media instead of
+  retaining unrelated current media, and show the skipped paths. Keep
+  all-missing records disabled and media-less ROM boots valid; recheck the
+  plan before changing the running session. History format is unchanged.
+- **Verification:** synthetic filesystem tests cover complete, partial,
+  all-missing, media-less and HDD records, per-record isolation and a file
+  removed after an earlier check. Four controlled mutations reproduce the
+  intended failures. In the GUI, a public demo record with a missing FDD2,
+  HDD and tape remains selectable beside an all-missing disabled record;
+  selecting it mounts the demo, ejects the previously mounted FDD2, and
+  reports the skipped media. GCC/ASan CTest: 94/94, four external skips.
+- **Task/evidence:** [M127 recent-boot follow-up](../agents/tasks/M127_letter_keypad.md#maintainer-requested-pre-gate-follow-up-partially-missing-recent-boots).
+- **Fix:** [f85cec0b](https://github.com/nakatamaho/vaeg/commit/f85cec0b5fda6198845e149d0f58ff9ccefeef63).
+
 ### M127 — FDD Open hid supported XZ-compressed D88 images
 
 - **Symptom/scope:** FDD > Open listed ZIP/7z archives but hid `.d88.xz`
