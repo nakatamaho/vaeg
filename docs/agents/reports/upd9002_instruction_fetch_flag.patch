@@ -1,0 +1,39 @@
+From ed71277b7fe76899afaf07bffccff44e917de58a Mon Sep 17 00:00:00 2001
+From: Nakata Maho <maho.nakata@gmail.com>
+Date: Mon, 19 Oct 2026 06:33:11 +0900
+Subject: [PATCH] Flag instruction-stream reads for a host with separate code
+ and data segments
+
+fetch() sets instructionFetch while it reads a byte of the instruction
+stream (opcode, prefix, displacement or immediate). A host such as the
+uPD9002's Z80-compatible mode, which fetches instructions through PS and
+addresses data through DS0, can then fetch every byte of an instruction
+from the code segment. Nothing changes for a host that ignores the flag.
+---
+ z80.hpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/z80.hpp b/z80.hpp
+index 3b86cf7..ce5cd63 100644
+--- a/z80.hpp
++++ b/z80.hpp
+@@ -6716,9 +6716,16 @@ class Z80
+         reg.interruptAddrN = addr;
+     }
+ 
++    // True while a byte of the instruction stream is read (opcode, prefix,
++    // displacement or immediate), so that a host can fetch those bytes from
++    // the code segment (uPD9002 compatible mode: PS) and data from DS0.
++    bool instructionFetch = false;
++
+     inline unsigned char fetch(int clocks)
+     {
++        instructionFetch = true;
+         unsigned char result = readByte(reg.PC, clocks);
++        instructionFetch = false;
+         reg.PC++;
+         return result;
+     }
+-- 
+2.43.0
+

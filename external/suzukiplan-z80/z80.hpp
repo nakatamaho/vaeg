@@ -6716,9 +6716,16 @@ class Z80
         reg.interruptAddrN = addr;
     }
 
+    // True while a byte of the instruction stream is read (opcode, prefix,
+    // displacement or immediate), so that a host can fetch those bytes from
+    // the code segment (uPD9002 compatible mode: PS) and data from DS0.
+    bool instructionFetch = false;
+
     inline unsigned char fetch(int clocks)
     {
+        instructionFetch = true;
         unsigned char result = readByte(reg.PC, clocks);
+        instructionFetch = false;
         reg.PC++;
         return result;
     }
