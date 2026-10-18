@@ -809,6 +809,12 @@ static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t fir
 	}
 	const std::size_t capacity = 2 - first_drive;
 	std::sort(images->begin(), images->end(), candidate_less);
+	// M124: an archive of several disks opened for FDD2 (from its history or
+	// a recent boot that recorded the archive for both drives) puts its
+	// second disk there, as when it is opened for FDD1, not its first.
+	if ((first_drive == 1) && (images->size() >= 2)) {
+		images->erase(images->begin());
+	}
 	for (std::size_t index = 0; (index < images->size()) && (index < capacity); index++) {
 		const DiskCandidate &image = (*images)[index];
 		const std::size_t drive = first_drive + index;

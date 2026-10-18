@@ -1032,6 +1032,24 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M124 — a two-disk archive came back as disk A in both drives
+
+- **Symptom/scope:** a ZIP (or 7z/LZH) holding disks A and B, dropped or
+  opened into FDD1, mounted A and B; choosing it again from 最近の起動 or
+  from FDD2 履歴 put A into FDD2 as well. Archives of several disks only.
+- **Demonstrated cause:** both drives record the archive as their source,
+  so the recent boot holds it for FDD1 and FDD2; opening an archive for
+  FDD2 mounted its first disk, A.
+- **Correction:** an archive of two or more disks opened for FDD2 mounts
+  its second disk there, as when it is opened for FDD1.
+- **Verification:** with a two-disk game archive (GUI harness, LibArchive
+  build): a recent boot recording the archive for both drives restores A
+  and B (A and A with the correction undone); FDD1 履歴 gives A and B;
+  FDD2 履歴 gives B.
+- **Milestone/task/commit:** M124,
+  [M124 task](../agents/tasks/M124_recent_boot_display.md);
+  [correcting commit](https://github.com/nakatamaho/vaeg/commit/e2ba66dcde74b35d2644fb270a35ad86d83cdcbd).
+
 ### M123 — the 8087 FPATAN and F2XM1 series were inaccurate
 
 - **Symptom/scope:** without the host x87 path (macOS arm64, or the setting
