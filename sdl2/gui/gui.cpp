@@ -708,6 +708,86 @@ static void start_recording_from_dialog(void) {
 	g_gui.recording_status = "録画中（Native video / FFV1 + PCM）";
 }
 
+enum class RecordingControlAction {
+	None,
+	Toggle,
+	Settings
+};
+
+struct RecordingControlState {
+	bool active;
+	bool finalizing;
+	bool available;
+	uint64_t elapsed_ms;
+	uint64_t frames;
+};
+
+static float recording_toggle_width(void) {
+	return (std::max)((std::max)(ImGui::CalcTextSize("録画開始").x,
+	                             ImGui::CalcTextSize("録画停止").x),
+	                  ImGui::CalcTextSize("保存中...").x) +
+	       ImGui::GetStyle().FramePadding.x * 2.0f;
+}
+
+static float recording_controls_width(void) {
+	return recording_toggle_width() + ImGui::GetStyle().ItemSpacing.x * 0.25f +
+	       ImGui::GetFrameHeight();
+}
+
+static bool recording_controls_leading(void) {
+	float preceding = ImGui::GetStyle().WindowPadding.x * 2.0f;
+	for (const char *label : {"模擬", "FDD", "HDD", "Tape", "編集", "画面"}) {
+		preceding += ImGui::CalcTextSize(label).x + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+	}
+	return preceding + recording_controls_width() > ImGui::GetWindowWidth();
+}
+
+/* Return intent only: opening settings must never start/stop a recording. */
+static RecordingControlAction draw_recording_controls(const RecordingControlState &state,
+                                                      const std::string &status) {
+	RecordingControlAction action = RecordingControlAction::None;
+	ImGui::PushID("recording-controls");
+	const char *label = state.finalizing
+	                        ? "保存中...###toggle"
+	                        : (state.active ? "録画停止###toggle" : "録画開始###toggle");
+	ImGui::BeginDisabled(state.finalizing || (!state.active && !state.available));
+	if (ImGui::Button(label, ImVec2(recording_toggle_width(), 0))) {
+		action = RecordingControlAction::Toggle;
+	}
+	ImGui::EndDisabled();
+	ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x * 0.25f);
+	if (ImGui::ArrowButton("options", ImGuiDir_Down)) {
+		ImGui::OpenPopup("options-menu");
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("録画メニュー（詳細設定・状態）");
+	}
+	const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
+	ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(work.x * 0.95f, work.y * 0.95f));
+	if (ImGui::BeginPopup("options-menu")) {
+		if (ImGui::MenuItem("詳細設定...")) {
+			action = RecordingControlAction::Settings;
+		}
+		ImGui::Separator();
+		if (state.finalizing) {
+			ImGui::TextDisabled("保存処理中...");
+		}
+		if (state.active) {
+			ImGui::Text("録画時間 %llums / %llu フレーム",
+			            static_cast<unsigned long long>(state.elapsed_ms),
+			            static_cast<unsigned long long>(state.frames));
+		} else if (!state.available) {
+			ImGui::TextDisabled("このビルドでは録画を利用できません。");
+		}
+		if (!status.empty()) {
+			ImGui::TextWrapped("%s", status.c_str());
+		}
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+	return action;
+}
+
 static void draw_recording_menu(void) {
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	const bool active = vaeg_recording_native_session_is_active() != 0;
@@ -735,45 +815,31 @@ static void draw_recording_menu(void) {
 		vaeg_recording_runtime_clear_event();
 	}
 	was_active = active;
-	if (ImGui::BeginMenu("録画")) {
-		const bool finalizing = vaeg_recording_native_session_is_finalizing() != 0;
-		const bool available = active || capabilities.backend_available != 0u;
-		if (ImGui::MenuItem("録画開始／停止", nullptr, active, available && !finalizing)) {
-			if (active) {
-				if (vaeg_recording_native_session_request_stop()) {
-					g_gui.recording_status = "保存処理中...";
-				} else {
-					g_gui.recording_status = "録画停止に失敗しました: ";
-					g_gui.recording_status += vaeg_recording_native_session_last_error();
-				}
+	const uint64_t ticks = vaeg_recording_native_session_elapsed_ticks();
+	const uint64_t clock = pccore.realclock;
+	const RecordingControlState state{
+	    active, vaeg_recording_native_session_is_finalizing() != 0,
+	    capabilities.backend_available != 0u,
+	    (clock != 0u && ticks <= UINT64_MAX / 1000u) ? (ticks * 1000u) / clock : 0u,
+	    vaeg_recording_native_session_accepted_frames()};
+	const RecordingControlAction action = draw_recording_controls(state, g_gui.recording_status);
+	if (action == RecordingControlAction::Settings) {
+		open_recording_dialog();
+	} else if (action == RecordingControlAction::Toggle) {
+		if (active) {
+			if (vaeg_recording_native_session_request_stop()) {
+				g_gui.recording_status = "保存処理中...";
 			} else {
-				start_recording_from_dialog();
+				g_gui.recording_status = "録画停止に失敗しました: ";
+				g_gui.recording_status += vaeg_recording_native_session_last_error();
+			}
+		} else {
+			start_recording_from_dialog();
+			if (!vaeg_recording_native_session_is_active()) {
+				/* Failed starts must show their reason instead of failing silently. */
+				open_recording_dialog();
 			}
 		}
-		if (finalizing) {
-			ImGui::TextDisabled("保存処理中...");
-		}
-		if (active) {
-			const uint64_t ticks = vaeg_recording_native_session_elapsed_ticks();
-			const uint64_t clock = pccore.realclock;
-			const unsigned long long elapsed_ms =
-			    (clock != 0u && ticks <= UINT64_MAX / 1000u)
-			        ? static_cast<unsigned long long>((ticks * 1000u) / clock)
-			        : 0u;
-			ImGui::Text(
-			    "録画時間 %llums / %llu フレーム", elapsed_ms,
-			    static_cast<unsigned long long>(vaeg_recording_native_session_accepted_frames()));
-		} else if (!available) {
-			ImGui::TextDisabled("このビルドでは録画を利用できません。");
-		}
-		if (ImGui::MenuItem("詳細設定...")) {
-			open_recording_dialog();
-		}
-		if (!g_gui.recording_status.empty()) {
-			ImGui::Separator();
-			ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
-		}
-		ImGui::EndMenu();
 	}
 }
 
@@ -6502,13 +6568,18 @@ void gui_draw(void) {
 	    ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
 	        ImGui::IsAnyItemActive(), SDL_GetTicks());
 	if (show_menu && ImGui::BeginMainMenuBar()) {
+		/* Keep one-click recording reachable in portrait/large-font windows. */
+		const bool recording_first = recording_controls_leading();
+		if (recording_first)
+			draw_recording_menu();
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
 		draw_tape_menu();
 		draw_edit_menu();
 		draw_screen_menu();
-		draw_recording_menu();
+		if (!recording_first)
+			draw_recording_menu();
 		draw_key_menu();
 		draw_sound_menu();
 		draw_state_menu();
@@ -6662,6 +6733,110 @@ BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
 	return SUCCESS;
 }
 
+static BOOL recording_controls_selftest(void) {
+	ImGuiContext *saved = ImGui::GetCurrentContext();
+	BOOL result = SUCCESS;
+	struct Profile {
+		ImVec2 viewport;
+		float font_size;
+	};
+	const Profile profiles[] = {
+	    {{640, 400}, 13}, {{1280, 800}, 13}, {{320, 480}, 13}, {{640, 400}, 26}, {{320, 240}, 26}};
+	const RecordingControlState states[] = {{false, false, true, 0, 0},
+	                                        {true, false, true, 83000, 4980},
+	                                        {true, false, false, 83000, 4980},
+	                                        {true, true, true, 83000, 4980},
+	                                        {false, false, false, 0, 0}};
+	for (const Profile &profile : profiles) {
+		for (const RecordingControlState &state : states) {
+			ImGuiContext *context = ImGui::CreateContext();
+			ImGui::SetCurrentContext(context);
+			ImGuiIO &io = ImGui::GetIO();
+			io.IniFilename = nullptr;
+			io.DisplaySize = profile.viewport;
+			io.ConfigInputTrickleEventQueue = false;
+			ImFontConfig font;
+			font.SizePixels = profile.font_size;
+			io.Fonts->AddFontDefault(&font);
+			io.Fonts->Build();
+			ImVec2 toggle;
+			ImVec2 arrow;
+			auto frame = [&](ImVec2 mouse, bool down) {
+				io.AddMousePosEvent(mouse.x, mouse.y);
+				io.AddMouseButtonEvent(0, down);
+				ImGui::NewFrame();
+				RecordingControlAction action = RecordingControlAction::None;
+				if (ImGui::BeginMainMenuBar()) {
+					const bool leading = recording_controls_leading();
+					if (!leading) {
+						for (const char *label : {"模擬", "FDD", "HDD", "Tape", "編集", "画面"}) {
+							if (ImGui::BeginMenu(label))
+								ImGui::EndMenu();
+						}
+					}
+					const ImVec2 start = ImGui::GetCursorScreenPos();
+					toggle = ImVec2(start.x + recording_toggle_width() * 0.5f,
+					                start.y + ImGui::GetFrameHeight() * 0.5f);
+					arrow = ImVec2(start.x + recording_controls_width() -
+					                   ImGui::GetFrameHeight() * 0.5f,
+					               toggle.y);
+					if (start.x < 0 || start.x + recording_controls_width() > profile.viewport.x ||
+					    start.y < 0 || start.y + ImGui::GetFrameHeight() > profile.viewport.y) {
+						result = FAILURE;
+					}
+					action = draw_recording_controls(state, "Public recording control status");
+					ImGui::EndMainMenuBar();
+				}
+				ImGui::Render();
+				return action;
+			};
+			const ImVec2 away(-1000, -1000);
+			frame(away, false);
+			frame(away, false);
+			const bool enabled = !state.finalizing && (state.active || state.available);
+			if (frame(toggle, true) != RecordingControlAction::None ||
+			    frame(toggle, false) !=
+			        (enabled ? RecordingControlAction::Toggle : RecordingControlAction::None) ||
+			    !context->OpenPopupStack.empty()) {
+				result = FAILURE;
+			}
+			/* Arrow and settings stay independent, even while unavailable/finalizing. */
+			if (frame(arrow, true) != RecordingControlAction::None ||
+			    frame(arrow, false) != RecordingControlAction::None)
+				result = FAILURE;
+			frame(away, false);
+			frame(away, false);
+			ImGuiWindow *popup =
+			    context->OpenPopupStack.empty() ? nullptr : context->OpenPopupStack[0].Window;
+			if (popup == nullptr) {
+				result = FAILURE;
+			} else {
+				const ImVec2 settings(popup->WorkRect.Min.x + 12.0f,
+				                      popup->WorkRect.Min.y + profile.font_size * 0.5f);
+				const auto press = frame(settings, true);
+				const auto release = frame(settings, false);
+				if ((press == RecordingControlAction::Settings) +
+				            (release == RecordingControlAction::Settings) !=
+				        1 ||
+				    press == RecordingControlAction::Toggle ||
+				    release == RecordingControlAction::Toggle) {
+					result = FAILURE;
+				}
+			}
+			if (result != SUCCESS) {
+				std::fprintf(stderr,
+				             "selftest: RECORDING_ONE_CLICK_CONTROLS viewport=%.0fx%.0f "
+				             "font=%.0f active=%d finalizing=%d available=%d\n",
+				             profile.viewport.x, profile.viewport.y, profile.font_size,
+				             state.active, state.finalizing, state.available);
+			}
+			ImGui::DestroyContext(context);
+		}
+	}
+	ImGui::SetCurrentContext(saved);
+	return result;
+}
+
 static BOOL recording_dialog_layout_selftest(void) {
 	const bool saved_open = g_gui.recording_open;
 	const std::string saved_status = g_gui.recording_status;
@@ -6754,6 +6929,8 @@ static BOOL recording_dialog_layout_selftest(void) {
 }
 
 BOOL gui_overlay_selftest(void) {
+	if (recording_controls_selftest() != SUCCESS)
+		return FAILURE;
 	if (recording_dialog_layout_selftest() != SUCCESS)
 		return FAILURE;
 	FullscreenMenuState menu;
