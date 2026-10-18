@@ -417,7 +417,7 @@ static BOOL pccore_fixed_disk_attached(void) {
 void pccore_reset(void) {
 	int i;
 
-	vaeg_recording_native_session_epoch_change();
+	vaeg_recording_native_session_before_reset();
 	pccore_debug_resume = FALSE;
 	pccore_guest_clock_high = 0;
 	pccore_guest_clock_last = 0;

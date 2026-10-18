@@ -100,6 +100,8 @@ int vaeg_recording_native_session_stop(void) {
 void vaeg_recording_native_session_cancel(void) {
 }
 
+void vaeg_recording_native_session_before_reset(void) {
+}
 void vaeg_recording_native_session_epoch_change(void) {
 }
 
@@ -1267,7 +1269,7 @@ extern "C" void vaeg_recording_native_session_cancel(void) {
 	}
 }
 
-extern "C" void vaeg_recording_native_session_epoch_change(void) {
+extern "C" void vaeg_recording_native_session_before_reset(void) {
 	using namespace vaeg::recording;
 	if (active_session && active_session->auto_split_enabled()) {
 		try {
@@ -1282,6 +1284,10 @@ extern "C" void vaeg_recording_native_session_epoch_change(void) {
 		active_session.reset();
 		return;
 	}
+	vaeg_recording_native_session_epoch_change();
+}
+
+extern "C" void vaeg_recording_native_session_epoch_change(void) {
 	if (vaeg::recording::active_session != nullptr) {
 		vaeg::recording::active_session->abort("recording_epoch_changed");
 		vaeg::recording::last_session_error =

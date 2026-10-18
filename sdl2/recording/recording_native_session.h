@@ -54,6 +54,8 @@ uint64_t vaeg_recording_native_session_elapsed_ticks(void);
 uint64_t vaeg_recording_native_session_accepted_frames(void);
 int vaeg_recording_native_session_stop(void);
 void vaeg_recording_native_session_cancel(void);
+/* Reset can auto-split; arbitrary state-load/rewind epoch changes still cancel. */
+void vaeg_recording_native_session_before_reset(void);
 void vaeg_recording_native_session_epoch_change(void);
 const char *vaeg_recording_native_session_last_error(void);
 

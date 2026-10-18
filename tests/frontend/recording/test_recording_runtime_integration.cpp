@@ -270,13 +270,13 @@ void split_repeated_and_epoch(const std::filesystem::path &dir) {
 			if (i == 0)
 				old_first = consumed_samples;
 		}
-		vaeg_recording_native_session_epoch_change();
+		vaeg_recording_native_session_before_reset();
 		check(vaeg_recording_native_session_is_active() && !audio_active &&
 		          vaeg_recording_native_session_elapsed_ticks() == 300000,
 		      "SPLIT_EPOCH_WAITING_WITH_REC_TIME");
 		reset(640, 400);
 		stream.generation_epoch = 4;
-		vaeg_recording_native_session_epoch_change(); // Repeated reset before a new frame coalesces.
+		vaeg_recording_native_session_before_reset(); // Repeated reset before a new frame coalesces.
 		check(vaeg_recording_runtime_step(0) == VAEG_RECORDING_RUNTIME_CONTINUE &&
 		          vaeg_recording_native_session_is_active(),
 		      "SPLIT_EPOCH_WAIT_CONTINUES");
@@ -463,6 +463,17 @@ int main() {
 		automatic_split(dir, kind);
 	split_repeated_and_epoch(dir);
 	split_edge_cases(dir);
+	reset(320, 224);
+	const auto state_load = dir / "state-load.mkv";
+	check(vaeg_recording_native_session_start(state_load.string().c_str(), 0), "SPLIT_STATE_LOAD_START");
+	vaeg_recording_native_session_enable_auto_split();
+	check(frame(0) == VAEG_RECORDING_NATIVE_TAP_OK, "SPLIT_STATE_LOAD_BASELINE");
+	vaeg_recording_runtime_step(0);
+	check(vaeg_recording_native_session_is_active(), "SPLIT_STATE_LOAD_VALID_FIXTURE");
+	// The state-load epoch notification is NOT an approved reset/geometry rollover.
+	vaeg_recording_native_session_epoch_change();
+	check(!vaeg_recording_native_session_is_active() && !std::filesystem::exists(state_load),
+	      "SPLIT_STATE_LOAD_REMAINS_CANCEL_NOT_RESTART");
 	geometry(dir / "right.mkv", 400, 640, 448, 640, false);
 	geometry(dir / "none.mkv", 640, 400, 640, 448, false);
 	geometry(dir / "small.mkv", 320, 224, 224, 320, false);
