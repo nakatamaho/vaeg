@@ -24,7 +24,54 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current REC movie-time display
+## Current one-click recording controls
+
+[Implementatione71f8396](https://github.com/nakatamaho/vaeg/commit/e71f83966b9c0819f89a0c29698daf955e64bd87)
+replaces the top-level recording submenu with `[録画開始/録画停止] [down arrow]`.
+The main button invokes the existing validated start path or requests the
+existing asynchronous stop/save. It uses current detailed settings, does not
+open a dialog on success, and retains dated exclusive output, source/OSD/
+rotation/frame-limit behavior. It introduces no new settings persistence.
+A failed start opens the settings dialog with its diagnostic instead of failing
+silently. Saving disables the toggle and shows保存中; unavailable backends disable
+start, but stop stays available for an active recording. REC/MM:SS is retained.
+
+The separate arrow opens a viewport-bounded popup with detailed settings and
+state/status. Arrow/settings clicks never start or stop recording. On sufficiently
+wide windows the controls remain in the old recording-menu position; portrait/
+large-font layouts put them first so neither control is clipped behind earlier
+menus. Other main-menu order and fullscreen reveal/popup retention are unchanged.
+
+The pure view returns an action enum; recording side effects stay in the normal
+frontend controller. Actual ImGui mouse press/release tests cover5 viewport/font
+profiles x5 states (idle, active, active despite unavailable capability, saving,
+unavailable): exactly one toggle intent, disabled-state rejection, independent
+arrow popup/settings intent, and viewport bounds. Existing detail-dialog layout
+regressions remain. Real ON selection25 passed/one H.264 hardware skip; OFF
+recording16/16 plus ROM-less1/1 pass. Final arm64 Release executable selftest and
+Windows static Release/system-DLL audit pass. These are synthetic/headless GUI
+intent/layout and existing backend tests, not physical Windows clicks or a new
+live GUI A/V/device acceptance run. Existing expensive encoder/profiling evidence
+is not rerun: source diff is only gui.cpp, backend/archives unchanged.
+
+Current working-tree builds, basee71f8396:
+
+- macOS `build/macos-recording-static-release/sdl2/vaeg`,38698440 bytes,
+  SHA256 `e697573f1f19d9f409fa2ba62e78f45fd02b6a8811d4564ca50fdb0d3c3ecbd4`.
+- Windows task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+  58855268 bytes, SHA256
+  `6fb045ab296255f4bd110da337c0c7a3c74904c6b6eeb25029265436e462b45c`.
+
+Full inherited source patch9e123689… (Mac)/audio-only09250916… (Windows) unchanged
+and uncommitted; exact full hashes in adjacent reports. Static dependency policy
+unchanged, Mac imports only Apple system libraries/Frameworks. Previousf32f9d33
+binaries/reports retained. Exact commands, workers and public log digests are in
+adjacent validation JSON. No new private asset access/publication, main move,
+push/hosted CI, media/demo/human/legal approval or MP4 export is claimed.
+
+<a id="current-rec-movie-time-display"></a>
+
+## Previous REC movie-time display
 
 [Implementationf32f9d33](https://github.com/nakatamaho/vaeg/commit/f32f9d336e2d35eb5d0dea2e3397f80b29a1ca96)
 adds elapsed movie time beside REC/the lamp, e.g. `REC [red] 01:23`. It divides
@@ -54,10 +101,10 @@ No unchanged FFV1 profiling/large corpus rerun is credited to this UI-only edit.
 
 Updated working-tree test artifacts, basef32f9d33:
 
-- macOS `build/macos-recording-static-release/sdl2/vaeg`,38697512 bytes,
+- macOS archived `build/macos-recording-static-release/sdl2/vaeg-f32f9d33`,38697512 bytes,
   SHA256 `8267b6ee2c95db300df30d95843de4fa633364630c4e93355f72bbfb1ee81a05`.
   Full inherited source snapshot9e123689… unchanged (identity in adjacent report).
-- MinGW task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+- MinGW archived task-local `output/vaeg-audio-local-f32f9d33.exe`,
   58849698 bytes, SHA256
   `c3df51b68f2d0cb7f01209bdf8e557a504733828071ab272a0a0bf55a46aef57`.
   Same audio-only source snapshot09250916…, no Metal. Previous86535d23 binary/

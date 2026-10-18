@@ -1,17 +1,17 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest REC movie-time display and static dependency handoff
+## Latest one-click recording controls and static dependency handoff
 
-The current test executable is based on `f32f9d336e2d35eb5d0dea2e3397f80b29a1ca96`
+The current test executable is based on `e71f83966b9c0819f89a0c29698daf955e64bd87`
 **plus unchanged, uncommitted inherited native-session implementation/tests**;
 not a clean-commit artifact. These files were neither edited nor committed.
-SHA256: `c3df51b68f2d0cb7f01209bdf8e557a504733828071ab272a0a0bf55a46aef57`.
+SHA256: `6fb045ab296255f4bd110da337c0c7a3c74904c6b6eeb25029265436e462b45c`.
 Path: `../vaeg-mingw-recording-74c3355d/output/vaeg-audio-local-test.exe`.
 Source patch identity, REC/toggle behavior, advancing-arm failure reproduction,
 full-range RGB metadata correction, public packet-identical comparison fixture,
 checks and pending VLC/native Windows gates are in the
-[current follow-up evidence](recording-ui-followup.md#current-rec-movie-time-display).
+[current follow-up evidence](recording-ui-followup.md#current-one-click-recording-controls).
 GUI recording now stops/saves completed intervals on screen-setting changes or
 coded-descriptor rejection without exiting the guest. The reported15kHz case
 reproduces before correction and completes1200 frames after real GUI-start
@@ -20,10 +20,11 @@ Current macOS arm64 statically links minimal LGPLFFmpeg8.1.2 and pinned
 librashader. Both default static on Windows/macOS, fail closed for missing
 archives, and have no dylib imports in the macOS handoff. The later0455d0c9
 macOS build defaults SDL2/LibArchive/zlib/xz static too and imports only Apple
-system libraries/Frameworks, not MacPorts runtime dylibs. Current f32f9d33 builds
-also show MM:SS beside REC from the existing session movie clock, not wall time,
-with portrait-safe layout/reset/long-minute pixel regressions. Both Windows and
-macOS artifacts are rebuilt; static dependency policy is unchanged. [Exact checks and artifacts](static-linking.md). Earlier shared
+system libraries/Frameworks, not MacPorts runtime dylibs. Current e71f8396 builds
+retain REC/MM:SS and add one-click start/stop plus an independent settings arrow.
+Actual ImGui mouse-event tests cover25 state/viewport profiles, independent
+settings intent, disabled states and narrow/large-font placement. Both Windows
+and macOS artifacts are rebuilt; static dependency policy is unchanged. [Exact checks and artifacts](static-linking.md). Earlier shared
 FFmpeg builds are historical; nonfree MacPorts FFmpeg is not handed off. All inherited files remain untouched
 and uncommitted; Metal is included only in the macOS working-tree build.
 Native Windows and full live/hardware performance gates remain pending.

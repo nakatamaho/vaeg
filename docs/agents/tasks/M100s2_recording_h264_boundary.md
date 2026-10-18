@@ -134,3 +134,19 @@ selftest and Win Release/import audit pass. Production formatter also passes
 isolated Wine tests with explicit unused panel stubs; initial link failure is
 retained, no native Windows GUI credit. [Artifact/evidence](../../recording-v1/recording-ui-followup.md#current-rec-movie-time-display).
 No protected source edits/commits, private-media access, hosted CI/push or gates.
+
+One-click follow-up: approved `[録画開始/録画停止] [down arrow]` top controls in
+[e71f8396](https://github.com/nakatamaho/vaeg/commit/e71f83966b9c0819f89a0c29698daf955e64bd87).
+Existing start/current settings and asynchronous save/stop are retained; success
+opens no dialog, errors show diagnostics/settings. Separate popup never toggles
+recording. Controls lead the bar when portrait/large-font preceding menus would
+clip them. View emits intent only; actual ImGui mouse press/release tests cover
+5 viewports/fonts x5 idle/active/saving/capability states, exactly one toggle,
+disabled states, independent arrow/settings and bounds. ON25 pass/one hardware
+skip; OFF recording16/16 plus ROM-less1/1; final static arm64 Release selftest,
+MinGW Release/import audit pass. Source change only gui.cpp; unchanged expensive
+backend/profiling evidence reused with original identities/scope, not new native
+Windows/live A/V acceptance. [Handoff](../../recording-v1/recording-ui-followup.md#current-one-click-recording-controls).
+Binaries/reports updated, priorf32 checkpoint retained. Inherited sources remain
+byte-identical/uncommitted; no MP4 export, new private-media access, hosted CI,
+push/main movement or human/media/demo/legal gate claimed.

@@ -38,8 +38,8 @@ notice audit is retained. Default recording OFF does not discover/link FFmpeg.
 Existing CMake caches require explicit ON when they retain older OFF values.
 Linux defaults are unchanged; an explicit developer dynamic opt-out exists.
 
-Current dependency policy below is unchanged. The later [REC movie-time
-handoff](recording-ui-followup.md#current-rec-movie-time-display) supersedes the
+Current dependency policy below is unchanged. The later [one-click recording
+handoff](recording-ui-followup.md#current-one-click-recording-controls) supersedes the
 artifact hashes in this packaging checkpoint, without changing static defaults.
 
 ## SDL2/LibArchive static-default checkpoint
