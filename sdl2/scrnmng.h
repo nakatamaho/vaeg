@@ -58,6 +58,9 @@ extern "C" {
 void scrnmng_setwidth(int posx, int width);
 #define scrnmng_setextend(e)
 void scrnmng_setheight(int posy, int height);
+void scrnmng_front_panel_changed(void);
+int scrnmng_front_panel_applied(void);
+BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *problem, size_t size);
 const SCRNSURF *scrnmng_surflock(void);
 void scrnmng_surfunlock(const SCRNSURF *surf);
 
@@ -85,6 +88,14 @@ BOOL scrnmng_get_display_aspect(void);
 void scrnmng_set_scaling(int scaling);
 int scrnmng_get_scaling(void);
 void scrnmng_set_effect(int effect);
+/* M117: VAEG_ROTATE_NONE or VAEG_ROTATE_RIGHT (90 degrees clockwise). */
+enum {
+	VAEG_ROTATE_NONE = 0,
+	VAEG_ROTATE_RIGHT,
+	VAEG_ROTATE_COUNT
+};
+void scrnmng_set_rotation(int rotation);
+int scrnmng_get_rotation(void);
 int scrnmng_get_effect(void);
 BOOL scrnmng_get_viewport(VAEG_VIEWPORT *viewport);
 BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *guest_y);
@@ -120,6 +131,9 @@ void scrnmng_present_end(void);
 BOOL scrnmng_save_rendered_frame(const char *path);
 BOOL scrnmng_save_guest_frame(const char *path);
 BOOL scrnmng_save_guest_frame_with_analysis(const char *path);
+BOOL scrnmng_save_guest_thumbnail(const char *path, int width);
+BOOL scrnmng_load_stored_png(const char *path, int *width, int *height, BYTE **pixels);
+BOOL scrnmng_thumbnail_png_selftest(const char *path);
 void scrnmng_set_framedisp(BOOL enabled);
 void scrnmng_reset_metrics(void);
 void scrnmng_refresh_title(void);

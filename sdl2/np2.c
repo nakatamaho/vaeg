@@ -51,6 +51,9 @@
 #include "bkupmemva.h"
 #include "emsio.h"
 #include "gui/gui.h"
+#include "extrarom.h"
+#include "kbdpaste.h"
+#include "romva.h"
 #include "romcheck.h"
 #include "selftest.h"
 #include "upd9002_trace.h"
@@ -112,6 +115,9 @@
 #if defined(VAEG_UPD9002_M96D_TESTING)
 #include "tests/upd9002/m96d_nop.h"
 #endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+#include "tests/upd9002/m106_near_jcc.h"
+#endif
 #if defined(VAEG_UPD9002_M68_TESTING)
 #include "tests/upd9002/m68_segmented_memory.h"
 #endif
@@ -127,15 +133,12 @@
 
 NP2OSCFG np2oscfg = {0,
                      0,
-                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK |
-                         VAEG_DISPINFO_FDD,
+                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FDD,
                      0,
                      0,
                      0,
                      1,
                      0,
-                     "",
-                     "",
                      {"", ""},
                      "",
                      "",
@@ -145,8 +148,10 @@ NP2OSCFG np2oscfg = {0,
                      "ymfm",
                      "minimum",
                      1,
+                     100,
                      VAEG_EFFECT_UNFILTERED,
                      VAEG_SCALING_FIT,
+                     VAEG_ROTATE_NONE,
                      640,
                      422,
                      VAEG_DISPLAY_WINDOWED,
@@ -164,7 +169,10 @@ NP2OSCFG np2oscfg = {0,
                      VAEG_DEFAULT_SHADER_PRESET,
                      0,
                      {0},
-                     1};
+                     1,
+                     100,
+                     1,
+                     {0, 0}};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -237,6 +245,9 @@ typedef struct {
 
 typedef struct {
 	BOOL model_sound;
+	BOOL extra_machine;
+	char saved_extra_machine[64];
+	UINT8 saved_boot_mode;
 	char model[sizeof(np2cfg.model)];
 	char applied_model[sizeof(np2cfg.model)];
 	UINT16 sound;
@@ -275,6 +286,8 @@ typedef struct {
 	UINT8 applied_fscrnmod;
 	BOOL effect;
 	BYTE saved_effect;
+	BOOL rotate;
+	BYTE saved_rotate;
 	BOOL scaling;
 	BYTE saved_scaling;
 	BOOL controller;
@@ -284,6 +297,9 @@ typedef struct {
 	BOOL fdd[2];
 	char saved_fdd[2][MAX_PATH];
 	char applied_fdd[2][MAX_PATH];
+	BOOL fdd_index[2]; /* M120: --fddN-image given */
+	BYTE saved_fdd_index[2];
+	BYTE applied_fdd_index[2];
 	BOOL sasi[2];
 	char saved_sasi[2][MAX_PATH];
 	char applied_sasi[2][MAX_PATH];
@@ -310,13 +326,16 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
-	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88 in, raw out)\n");
+	printf("\t--tape path         --tape-save path  (V1/V2 cassette: .cmt/.t88, or zip/7z/lzh\n"
+	       "\t                    holding one, in; raw out)\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
 	printf("\t--scsi0 path|none   --scsi1 path|none\n");
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
 	printf("\t--scsi4 path|none   --scsi5 path|none   --scsi6 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("\t--roms path         ROM directory override\n");
+	printf("\t--list-extra-roms   list the ROMs under extra/ in the ROM directory\n");
+	printf("\t--extra-machine NAME  start the PC-8801 model in extra/NAME (session only)\n");
 	printf("Persistence (paths are relative to the current directory):\n");
 	printf("\t--cfg path | --no-cfg\n");
 	printf("\t--bkupmem path | --no-bkupmem\n");
@@ -328,6 +347,7 @@ static void usage(const char *progname) {
 	printf("Display and input (session only):\n");
 	printf("\t--fullscreen | --windowed\n");
 	printf("\t--effect unfiltered|linear|scanline|crt-lite\n");
+	printf("\t--rotate none|right\n");
 	printf("\t--scaling native|fit|fit-8dot|integer|stretch\n");
 	printf("\t--controller joystick|mouse\n");
 	printf("\t--keyboard-layout jis|us|custom\n");
@@ -887,9 +907,6 @@ static BOOL check_fdd_image(const char *path, const char *level) {
 	return (SUCCESS);
 }
 
-/* Disk within a multi-image D88 chosen on the command line, 0-based. */
-static UINT cli_fdd_image[2];
-
 static void mount_configured_fdd_images(void) {
 	int drive;
 
@@ -903,7 +920,7 @@ static void mount_configured_fdd_images(void) {
 		if (path[0] == '\0') {
 			continue;
 		}
-		diskdrv_setfddex((REG8)drive, path, 0, cli_fdd_image[drive]);
+		diskdrv_setfddex((REG8)drive, path, 0, np2oscfg.fdd_image_index[drive]);
 	}
 }
 
@@ -956,6 +973,10 @@ static BYTE cli_display_mode(UINT value) {
 
 static BYTE cli_effect(UINT value) {
 	return ((BYTE)(value - VAEG_CLI_EFFECT_UNFILTERED));
+}
+
+static BYTE cli_rotate(UINT value) {
+	return ((value == VAEG_CLI_ROTATE_RIGHT) ? VAEG_ROTATE_RIGHT : VAEG_ROTATE_NONE);
 }
 
 static BYTE cli_scaling(UINT value) {
@@ -1057,8 +1078,13 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	int drive;
 
 	ZeroMemory(saved, sizeof(*saved));
-	saved->model_sound =
-	    (options->model != VAEG_CLI_MODEL_UNSET) || (options->fm_sound != VAEG_CLI_FM_SOUND_UNSET);
+	saved->model_sound = (options->model != VAEG_CLI_MODEL_UNSET) ||
+	                     (options->fm_sound != VAEG_CLI_FM_SOUND_UNSET) ||
+	                     (options->extra_machine != NULL);
+	saved->extra_machine = options->extra_machine != NULL;
+	milstr_ncpy(saved->saved_extra_machine, np2cfg.extra_machine,
+	            sizeof(saved->saved_extra_machine));
+	saved->saved_boot_mode = np2cfg.boot_mode;
 	if (saved->model_sound) {
 		file_cpyname(saved->model, np2cfg.model, sizeof(saved->model));
 		saved->sound = np2cfg.SOUND_SW;
@@ -1094,6 +1120,8 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	saved->fscrnmod = np2oscfg.fscrnmod;
 	saved->effect = options->effect != VAEG_CLI_EFFECT_UNSET;
 	saved->saved_effect = np2oscfg.gui_effect;
+	saved->rotate = options->rotate != VAEG_CLI_ROTATE_UNSET;
+	saved->saved_rotate = np2oscfg.gui_rotate;
 	saved->scaling = options->scaling != VAEG_CLI_SCALING_UNSET;
 	saved->saved_scaling = np2oscfg.gui_scaling;
 	saved->controller = options->controller != VAEG_CLI_CONTROLLER_UNSET;
@@ -1105,6 +1133,9 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *s
 	}
 	for (drive = 0; drive < 2; drive++) {
 		saved->fdd[drive] = options->fdd_mode[drive] != VAEG_CLI_MEDIA_UNSET;
+		/* M120: a new FDD path starts at its first disk unless one is named */
+		saved->fdd_index[drive] = saved->fdd[drive] || (options->fdd_image[drive] != 0);
+		saved->saved_fdd_index[drive] = np2oscfg.fdd_image_index[drive];
 		if (saved->fdd[drive]) {
 			file_cpyname(saved->saved_fdd[drive], np2oscfg.fdd_image[drive],
 			             sizeof(saved->saved_fdd[drive]));
@@ -1184,6 +1215,9 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 	if (saved->effect) {
 		np2oscfg.gui_effect = cli_effect(options->effect);
 	}
+	if (saved->rotate) {
+		np2oscfg.gui_rotate = cli_rotate(options->rotate);
+	}
 	if (saved->scaling) {
 		np2oscfg.gui_scaling = cli_scaling(options->scaling);
 	}
@@ -1195,7 +1229,11 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options, CLI_SAVED_CONFIG *
 		            sizeof(np2oscfg.keyboard_host_layout));
 	}
 	for (drive = 0; drive < 2; drive++) {
-		cli_fdd_image[drive] = (options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0;
+		if (saved->fdd_index[drive]) {
+			np2oscfg.fdd_image_index[drive] =
+			    (BYTE)((options->fdd_image[drive] != 0) ? options->fdd_image[drive] - 1 : 0);
+			saved->applied_fdd_index[drive] = np2oscfg.fdd_image_index[drive];
+		}
 		if (saved->fdd[drive]) {
 			if (options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) {
 				file_cpyname(np2oscfg.fdd_image[drive], options->fdd_path[drive],
@@ -1244,6 +1282,11 @@ static void update_applied_display(CLI_SAVED_CONFIG *saved) {
 
 static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_CONFIG *saved) {
 	int drive;
+
+	if (saved->extra_machine) {
+		milstr_ncpy(np2cfg.extra_machine, saved->saved_extra_machine, sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = saved->saved_boot_mode;
+	}
 
 	if (saved->model_sound && !strcmp(np2cfg.model, saved->applied_model) &&
 	    (np2cfg.SOUND_SW == saved->applied_sound)) {
@@ -1298,6 +1341,9 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_
 	if (saved->effect && (np2oscfg.gui_effect == cli_effect(options->effect))) {
 		np2oscfg.gui_effect = saved->saved_effect;
 	}
+	if (saved->rotate && (np2oscfg.gui_rotate == cli_rotate(options->rotate))) {
+		np2oscfg.gui_rotate = saved->saved_rotate;
+	}
 	if (saved->scaling && (np2oscfg.gui_scaling == cli_scaling(options->scaling))) {
 		np2oscfg.gui_scaling = saved->saved_scaling;
 	}
@@ -1313,6 +1359,13 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options, const CLI_SAVED_
 		if (saved->fdd[drive] && !strcmp(np2oscfg.fdd_image[drive], saved->applied_fdd[drive])) {
 			file_cpyname(np2oscfg.fdd_image[drive], saved->saved_fdd[drive],
 			             sizeof(np2oscfg.fdd_image[drive]));
+			if (saved->fdd_index[drive] &&
+			    (np2oscfg.fdd_image_index[drive] == saved->applied_fdd_index[drive])) {
+				np2oscfg.fdd_image_index[drive] = saved->saved_fdd_index[drive];
+			}
+		} else if (!saved->fdd[drive] && saved->fdd_index[drive] &&
+		           (np2oscfg.fdd_image_index[drive] == saved->applied_fdd_index[drive])) {
+			np2oscfg.fdd_image_index[drive] = saved->saved_fdd_index[drive];
 		}
 		if (saved->sasi[drive] && !strcmp(np2cfg.sasihdd[drive], saved->applied_sasi[drive])) {
 			file_cpyname(np2cfg.sasihdd[drive], saved->saved_sasi[drive],
@@ -1373,6 +1426,7 @@ BOOL np2_cli_override_selftest(void) {
 	np2oscfg.fscrnmod = 2;
 	np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
 	np2oscfg.gui_scaling = VAEG_SCALING_FIT;
+	np2oscfg.gui_rotate = VAEG_ROTATE_NONE;
 	milstr_ncpy(np2oscfg.keyboard_host_layout, "jis", sizeof(np2oscfg.keyboard_host_layout));
 	file_cpyname(np2oscfg.fdd_image[0], "saved1.d88", sizeof(np2oscfg.fdd_image[0]));
 	file_cpyname(np2oscfg.fdd_image[1], "saved2.d88", sizeof(np2oscfg.fdd_image[1]));
@@ -1581,6 +1635,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		}
 	}
 	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount, frames);
+	kbdpaste_frame();
 	return SUCCESS;
 }
 
@@ -1825,6 +1880,7 @@ int main(int argc, char **argv) {
 	VAEG_SCREENSHOT_SCHEDULER screenshots;
 	char cli_error[256];
 	const char *cli_model;
+	int extra_machine_v1;
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m46-dispatch-qa")) {
@@ -1896,6 +1952,11 @@ int main(int argc, char **argv) {
 		return upd9002_m96d_nop_main();
 	}
 #endif
+#if defined(VAEG_UPD9002_M106_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m106-near-jcc")) {
+		return upd9002_m106_near_jcc_main();
+	}
+#endif
 #if defined(VAEG_UPD9002_M68_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m68-segmented-memory")) {
 		return upd9002_m68_segmented_memory_main();
@@ -1926,6 +1987,7 @@ int main(int argc, char **argv) {
 	run_ok = SUCCESS;
 	splash_started = 0;
 	cli_model = NULL;
+	extra_machine_v1 = -1;
 	ZeroMemory(&input_script, sizeof(input_script));
 	if (vaeg_cli_parse(argc, argv, &options, cli_error, sizeof(cli_error)) != SUCCESS) {
 		fprintf(stderr, "Error: %s\n", cli_error);
@@ -2005,6 +2067,15 @@ int main(int argc, char **argv) {
 		return (run_ok);
 	}
 	initload();
+	romva_machine_hook = extrarom_apply;
+	if (options.list_extra_roms) {
+		char missing[MAX_PATH];
+		(void)resolve_model_rompath(missing, sizeof(missing));
+		run_ok = extrarom_list();
+		SDL_Quit();
+		dosio_term();
+		return (run_ok);
+	}
 	timing_setspeed(np2oscfg.speed_percent);
 	if (validate_cli_options(&options) != SUCCESS) {
 		SDL_Quit();
@@ -2082,6 +2153,21 @@ int main(int argc, char **argv) {
 	if (options.model != VAEG_CLI_MODEL_UNSET) {
 		cli_model = cli_model_name(options.model);
 	}
+	if (options.extra_machine != NULL) {
+		EXTRAROM_PROFILE profile;
+		if (!extrarom_profile(options.extra_machine, &profile) || !profile.startable) {
+			fprintf(stderr, "Error: --extra-machine: %s is not a PC-8801 model vaeg can start\n",
+			        options.extra_machine);
+			SDL_Quit();
+			dosio_term();
+			return (FAILURE);
+		}
+		/* M113: session only; V2 where the model has it, else V1. */
+		cli_model = profile.base_model;
+		milstr_ncpy(np2cfg.extra_machine, options.extra_machine, sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		extra_machine_v1 = profile.v2 ? 0 : 1;
+	}
 	if (options.smoke) {
 		smoke_configure_va((cli_model != NULL) ? cli_model : str_VA2);
 		apply_cli_config(&options, &saved_cli);
@@ -2105,6 +2191,9 @@ int main(int argc, char **argv) {
 		apply_cli_config(&options, &saved_cli);
 	}
 	select_backup_memory_path(&options);
+	if (extra_machine_v1 >= 0) {
+		bkupmemva_set_88v1(extra_machine_v1 ? TRUE : FALSE);
+	}
 	warn_va_config_sanity();
 	if (np2_debug) {
 		fprintf(stderr,
@@ -2146,6 +2235,7 @@ int main(int argc, char **argv) {
 	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
 	scrnmng_set_scaling(np2oscfg.gui_scaling);
 	scrnmng_set_effect(np2oscfg.gui_effect);
+	scrnmng_set_rotation(np2oscfg.gui_rotate);
 	SDL_Log("Display config: window=%ux%u mode=%u monitor=%d scaling=%u effect=%u",
 	        np2oscfg.gui_window_width, np2oscfg.gui_window_height, np2oscfg.gui_display_mode,
 	        np2oscfg.gui_monitor, np2oscfg.gui_scaling, np2oscfg.gui_effect);
@@ -2184,6 +2274,7 @@ int main(int argc, char **argv) {
 
 	soundmng_initialize();
 	soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+	soundmng_setmastervolume(np2oscfg.master_volume);
 	commng_initialize();
 	sysmng_initialize();
 	taskmng_initialize();
@@ -2198,8 +2289,19 @@ int main(int argc, char **argv) {
 		sdlkbd_reset_state();
 		scrndrawva_redraw();
 		mount_configured_fdd_images();
-		if ((options.tape_path != NULL) && (cmt_open(options.tape_path) != SUCCESS)) {
-			fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+		if (options.tape_path != NULL) {
+			char extracted[MAX_PATH];
+			const char *tape = options.tape_path;
+
+			/* zip/7z/lzh: the first .cmt/.t88 inside (M106) */
+			if (dropmedia_path_is_tape_archive(tape)) {
+				tape =
+				    dropmedia_extract_tape(tape, extracted, sizeof(extracted)) ? extracted : NULL;
+				fprintf(stderr, "%s\n", dropmedia_status());
+			}
+			if ((tape == NULL) || (cmt_open(tape) != SUCCESS)) {
+				fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+			}
 		}
 		if (options.tape_save_path != NULL) {
 			cmt_save_begin(options.tape_save_path);
@@ -2217,6 +2319,7 @@ int main(int argc, char **argv) {
 		g75_screen_capture();
 	}
 
+	gui_session_end();
 	debug_harness_clear();
 	headless_input_script_clear(&input_script);
 	pccore_cfgupdate();

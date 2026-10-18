@@ -27,6 +27,7 @@
 #include <time.h>
 #include <limits.h>
 #include "dosio.h"
+#include <SDL.h>
 #if defined(WIN32)
 #include <direct.h>
 #include <io.h>
@@ -479,6 +480,36 @@ void file_getuserdir(char *path, int size) {
 	}
 	file_append_userdir(path, "vaeg", size);
 #endif
+}
+
+/*
+ * M110: a directory vaeg creates next to the executable (states,
+ * screenshots, recordings, vaeg-cache), returned with a trailing separator.
+ * If the executable's directory cannot be written, the user directory is
+ * used instead and FALSE is returned so that the caller can say so.
+ */
+BOOL file_getappdir(char *path, int size, const char *name) {
+	char *base;
+	char probe[MAX_PATH];
+	FILEH fh;
+
+	base = SDL_GetBasePath();
+	if (base != NULL) {
+		file_cpyname(path, base, size);
+		SDL_free(base);
+		file_append_userdir(path, name, size);
+		file_cpyname(probe, path, sizeof(probe));
+		file_catname(probe, ".vaeg-write-test", sizeof(probe));
+		fh = file_create(probe);
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+			(void)file_delete(probe);
+			return (TRUE);
+		}
+	}
+	file_getuserdir(path, size);
+	file_append_userdir(path, name, size);
+	return (FALSE);
 }
 
 void file_getstatepath(char *path, int size, const char *name) {

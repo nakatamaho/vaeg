@@ -77,3 +77,15 @@ identities/captures remain private. No hosted CI or unchanged SST rerun.
 Escape and relaunch; normal clean-checkout V3/demo/OS review and real hardware
 remain independent. No next milestone until approval. An implementation-only
 checkpoint is not a passed G107b or a runtime-ready handoff.
+
+## G107b
+
+- Passed on 2026-10-16 (maintainer): `VOYOPNA.COM` on a PC-88VA2 in vaeg
+  plays the six-FM/three-SSG/ADPCM soundtrack; the maintainer notes a slight
+  visible lag (recorded, not a gate condition). Test disk built privately
+  from `main` (PC-Engine 1.1 boot disk with `VOYOPNA.COM` and `VOYAGE.COM`).
+- The maintainer pointed out that the legacy `VOYAGE.COM` still used the
+  Technical Manual's exchanged SGP LINE direction bits; it now uses the
+  measured bits, as `VOYOPNA.COM` does
+  ([correcting commit](https://github.com/nakatamaho/vaeg/commit/d351d2bba69919bd06ef1763393b9ed5d0de8165); bug-fix
+  ledger). `VOYOPNA.COM` is unchanged.

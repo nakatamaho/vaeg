@@ -46,6 +46,21 @@ typedef struct {
 
 static SOUNDMNG soundmng;
 
+/* M110: 全体の音量, applied to the final mix (every source, tape and seek
+ * sounds included) as SDL's mixing volume. */
+static int soundmng_master = SDL_MIX_MAXVOLUME;
+
+void soundmng_setmastervolume(UINT percent) {
+	if (percent > 100) {
+		percent = 100;
+	}
+	soundmng_master = (int)((percent * SDL_MIX_MAXVOLUME + 50) / 100);
+}
+
+int soundmng_mastervolume(void) {
+	return (soundmng_master);
+}
+
 static void sound_play_cb(void *userdata, Uint8 *stream, int len) {
 	int length;
 	SINT16 *dst;
@@ -61,7 +76,7 @@ static void sound_play_cb(void *userdata, Uint8 *stream, int len) {
 		ZeroMemory(dst, length);
 	}
 	ZeroMemory(stream, len);
-	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length, SDL_MIX_MAXVOLUME);
+	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length, soundmng_master);
 	soundmng.nsndbuf = (soundmng.nsndbuf + 1) % NSNDBUF;
 	(void)userdata;
 }

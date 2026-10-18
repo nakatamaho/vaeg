@@ -270,6 +270,48 @@ static D88SEC searchsector_d88(BOOL check) { // ver0.29
 
 // ----
 
+/*
+ * M120: the number of complete disk images in a D88 file, each a header
+ * whose fd_size covers at least the header and ends within the file; 0 when
+ * the file does not start with one. The names of the first `max` (the
+ * header's 17 bytes, Shift_JIS as stored) go to `names` when it is given.
+ */
+UINT fddd88_images(const char *fname, char (*names)[FDDD88_NAME_SIZE], UINT max) {
+	FILEH fh;
+	long end;
+	UINT32 base;
+	UINT32 size;
+	UINT count;
+	_D88HEAD head;
+
+	if (fname == NULL) {
+		return (0);
+	}
+	fh = file_open_rb(fname);
+	if (fh == FILEH_INVALID) {
+		return (0);
+	}
+	end = file_seek(fh, 0, FSEEK_END);
+	base = 0;
+	count = 0;
+	while ((end > 0) && (count < FDDD88_MAX_IMAGES) && ((UINT32)end - base >= sizeof(head)) &&
+	       (file_seek(fh, (long)base, FSEEK_SET) == (long)base) &&
+	       (file_read(fh, &head, sizeof(head)) == sizeof(head))) {
+		size = LOADINTELDWORD(head.fd_size);
+		if ((size < sizeof(head)) || (size > (UINT32)end - base)) {
+			break;
+		}
+		if ((names != NULL) && (count < max)) {
+			CopyMemory(names[count], head.fd_name, sizeof(head.fd_name));
+			names[count][sizeof(head.fd_name)] = '\0';
+		}
+		count++;
+		base += size;
+	}
+	file_close(fh);
+	return (count);
+}
+
 BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	short attr;
 	FILEH fh;

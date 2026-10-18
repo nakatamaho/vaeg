@@ -29,6 +29,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -46,8 +47,11 @@
 
 #include "compiler.h"
 #include "diskdrv.h"
+#include "fddfile.h"
+#include "fdd_d88.h"
 #include "dosio.h"
 #include "dropmedia.h"
+#include "gui/gui.h"
 #include "np2.h"
 #include "sysmng.h"
 
@@ -60,11 +64,14 @@ constexpr std::uintmax_t kMaxExtractedBytes = 128u * 1024u * 1024u;
 constexpr std::size_t kMaxArchiveEntries = 4096;
 constexpr std::size_t kMaxImageCandidates = 256;
 constexpr const char kArchiveSourceDirectoryFile[] = ".source-directory";
+/* M116: the archive an image was extracted from, for 最近の起動. */
+constexpr const char kArchiveSourceFile[] = ".source-archive";
 
 struct DiskCandidate {
 	std::string path;
 	std::string basename;
 	std::string source_directory;
+	std::string origin; /* M110: the dropped file (an archive or the image) */
 };
 
 std::vector<std::string> g_dropped_paths;
@@ -121,6 +128,20 @@ static std::string compressed_image_basename(const std::string &path) {
 
 static bool compressed_image_extension_supported(const std::string &path) {
 	return !compressed_image_basename(path).empty();
+}
+
+/* Cassette tape images (M106): opened from an archive through the tape menu. */
+static bool tape_extension_supported(const std::string &path) {
+	const std::string extension = path_extension(path);
+
+	return (extension == ".cmt") || (extension == ".t88");
+}
+
+/* zip, 7z and lzh only: compressed single images are disk images. */
+static bool tape_archive_extension_supported(const std::string &path) {
+	const std::string extension = path_extension(path);
+
+	return (extension == ".zip") || (extension == ".7z") || (extension == ".lzh");
 }
 
 static bool archive_extension_supported(const std::string &path) {
@@ -251,6 +272,20 @@ static void write_archive_source_directory(const fs::path &archive_directory,
 	}
 }
 
+static void write_archive_source(const fs::path &archive_directory,
+                                 const std::string &archive_path) {
+	std::error_code ec;
+	const std::string absolute = fs::absolute(fs::u8path(archive_path), ec).u8string();
+	if (ec || absolute.empty() || (absolute.size() >= MAX_PATH)) {
+		return;
+	}
+	std::ofstream output(archive_directory / kArchiveSourceFile,
+	                     std::ios::binary | std::ios::trunc);
+	if (output) {
+		output.write(absolute.data(), static_cast<std::streamsize>(absolute.size()));
+	}
+}
+
 static fs::path managed_archive_directory(const std::string &mounted_path,
                                           const fs::path &storage_root) {
 	std::error_code ec;
@@ -314,6 +349,33 @@ static std::string read_archive_source_directory(const std::string &mounted_path
 		return std::string();
 	}
 	return source_directory;
+}
+
+/* M116: the archive written by write_archive_source, if it still exists. */
+static std::string read_archive_source(const std::string &mounted_path,
+                                       const fs::path &storage_root) {
+	const fs::path directory = managed_archive_directory(mounted_path, storage_root);
+	char buffer[MAX_PATH];
+
+	if (directory.empty()) {
+		return std::string();
+	}
+	std::ifstream input(directory / kArchiveSourceFile, std::ios::binary);
+	if (!input) {
+		return std::string();
+	}
+	input.read(buffer, sizeof(buffer));
+	const std::streamsize count = input.gcount();
+	if ((count <= 0) || (count >= static_cast<std::streamsize>(sizeof(buffer)))) {
+		return std::string();
+	}
+	const std::string path(buffer, static_cast<std::size_t>(count));
+	std::error_code ec;
+	if ((path.find('\0') != std::string::npos) || !fs::is_regular_file(fs::u8path(path), ec) ||
+	    ec) {
+		return std::string();
+	}
+	return path;
 }
 
 static std::string read_archive_source_directory(const std::string &mounted_path) {
@@ -549,6 +611,7 @@ static bool extract_xz_image(const std::string &image_path, std::vector<DiskCand
 	}
 	archive_read_free(reader);
 	write_archive_source_directory(output_dir, source_directory);
+	write_archive_source(output_dir, image_path);
 	if ((output_path.u8string().size() >= MAX_PATH) || (image_bytes == 0)) {
 		*error = (image_bytes == 0) ? "compressed image is empty"
 		                            : "extracted disk image path is too long";
@@ -559,9 +622,13 @@ static bool extract_xz_image(const std::string &image_path, std::vector<DiskCand
 	return true;
 }
 
+/* Extract the archive's regular files that accept() takes (disk images by
+ * default, tape images for the tape menu); kind names them in errors. */
 static bool extract_archive_images(const std::string &archive_path,
                                    std::vector<DiskCandidate> *images, std::string *error,
-                                   const fs::path &storage_root) {
+                                   const fs::path &storage_root,
+                                   bool (*accept)(const std::string &) = image_extension_supported,
+                                   const char *kind = "disk image") {
 	struct archive *reader;
 	struct archive_entry *entry;
 	fs::path temp_dir;
@@ -575,7 +642,8 @@ static bool extract_archive_images(const std::string &archive_path,
 #endif
 	int result;
 
-	if (compressed_image_extension_supported(archive_path)) {
+	if ((accept == image_extension_supported) &&
+	    compressed_image_extension_supported(archive_path)) {
 		return extract_xz_image(archive_path, images, error, storage_root);
 	}
 
@@ -625,8 +693,7 @@ static bool extract_archive_images(const std::string &archive_path,
 			*error = "archive links are not allowed";
 			goto extract_error;
 		}
-		if ((archive_entry_filetype(entry) != AE_IFREG) ||
-		    (!image_extension_supported(entry_path))) {
+		if ((archive_entry_filetype(entry) != AE_IFREG) || (!accept(entry_path))) {
 			archive_read_data_skip(reader);
 			continue;
 		}
@@ -686,6 +753,7 @@ static bool extract_archive_images(const std::string &archive_path,
 			goto extract_error;
 		}
 		write_archive_source_directory(output_dir, source_directory);
+		write_archive_source(output_dir, archive_path);
 		if (output_path.u8string().size() >= MAX_PATH) {
 			*error = "extracted disk image path is too long";
 			goto extract_error;
@@ -701,7 +769,7 @@ static bool extract_archive_images(const std::string &archive_path,
 	archive_read_free(reader);
 	if (image_count == 0) {
 		fs::remove_all(temp_dir);
-		*error = "archive contains no supported disk image";
+		*error = std::string("archive contains no supported ") + kind;
 		return false;
 	}
 	return true;
@@ -741,6 +809,12 @@ static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t fir
 	}
 	const std::size_t capacity = 2 - first_drive;
 	std::sort(images->begin(), images->end(), candidate_less);
+	// M124: an archive of several disks opened for FDD2 (from its history or
+	// a recent boot that recorded the archive for both drives) puts its
+	// second disk there, as when it is opened for FDD1, not its first.
+	if ((first_drive == 1) && (images->size() >= 2)) {
+		images->erase(images->begin());
+	}
 	for (std::size_t index = 0; (index < images->size()) && (index < capacity); index++) {
 		const DiskCandidate &image = (*images)[index];
 		const std::size_t drive = first_drive + index;
@@ -748,12 +822,24 @@ static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t fir
 		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
 		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
 		             sizeof(np2oscfg.fdd_image[drive]));
+		np2oscfg.fdd_image_index[drive] = 0; /* M120: the first disk */
 		remember_archive_source(drive, image.path, image.source_directory);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
 	if (images->size() > capacity) {
 		append_status_line("Ignored " + std::to_string(images->size() - capacity) +
 		                   " additional disk image(s).");
+	}
+	// M120: one multi-image D88 for FDD1 also puts its second disk in FDD2.
+	if ((first_drive == 0) && (images->size() == 1) &&
+	    (fddd88_images((*images)[0].path.c_str(), nullptr, 0) >= 2)) {
+		const DiskCandidate &image = (*images)[0];
+		diskdrv_setfddex(1, image.path.c_str(), 0, 1);
+		file_cpyname(np2oscfg.fdd_image[1], image.path.c_str(), sizeof(np2oscfg.fdd_image[1]));
+		np2oscfg.fdd_image_index[1] = 1;
+		remember_archive_source(1, image.path, image.source_directory);
+		sysmng_update(SYS_UPDATEOSCFG);
+		append_status_line("FDD2: disk 2 of the same file.");
 	}
 	dropmedia_prune_storage();
 }
@@ -780,9 +866,13 @@ static void process_drop_batch(void) {
 		if (archive_extension_supported(path)) {
 #if defined(VAEG_HAVE_LIBARCHIVE)
 			std::string error;
+			const std::size_t first = images.size();
 			if (!extract_archive_images(path, &images, &error, archive_storage_root())) {
 				append_status_line("Archive drop failed: " + error + ": " +
 				                   fs_path.filename().u8string());
+			}
+			for (std::size_t index = first; index < images.size(); index++) {
+				images[index].origin = path;
 			}
 #else
 			append_status_line("Archive drop unavailable: this build has no LibArchive support.");
@@ -793,6 +883,12 @@ static void process_drop_batch(void) {
 	}
 	if (!images.empty()) {
 		mount_candidates(&images, 0);
+		/* mount_candidates sorted the list: entry N went into FDD N+1. */
+		for (std::size_t drive = 0; (drive < images.size()) && (drive < 2); drive++) {
+			const DiskCandidate &image = images[drive];
+			gui_history_add(static_cast<int>(drive),
+			                image.origin.empty() ? image.path.c_str() : image.origin.c_str());
+		}
 	} else if (g_status.empty()) {
 		g_status = "Drop contained no supported disk image.";
 	}
@@ -833,6 +929,46 @@ extern "C" BOOL dropmedia_path_is_archive(const char *path) {
 	return ((path != nullptr) && archive_extension_supported(path)) ? TRUE : FALSE;
 }
 
+extern "C" BOOL dropmedia_path_is_tape_archive(const char *path) {
+	return ((path != nullptr) && tape_archive_extension_supported(path)) ? TRUE : FALSE;
+}
+
+/* Extract the first .cmt/.t88 (by name) of a zip/7z/lzh archive into the
+ * managed storage and return its path; the tape is read into memory when
+ * it is opened, so later pruning of the storage does not affect it. */
+extern "C" BOOL dropmedia_extract_tape(const char *path, char *extracted, UINT size) {
+	g_status.clear();
+	if ((path == nullptr) || (extracted == nullptr) || (size == 0) ||
+	    !tape_archive_extension_supported(path)) {
+		g_status = "Archive open failed: not a zip, 7z or lzh archive.";
+		return FALSE;
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	std::vector<DiskCandidate> tapes;
+	std::string error;
+
+	if (!extract_archive_images(path, &tapes, &error, archive_storage_root(),
+	                            tape_extension_supported, "tape image")) {
+		g_status = "Archive open failed: " + error + ": " + fs::u8path(path).filename().u8string();
+		return FALSE;
+	}
+	std::sort(tapes.begin(), tapes.end(), candidate_less);
+	if (tapes[0].path.size() >= size) {
+		g_status = "Archive open failed: extracted tape path is too long.";
+		return FALSE;
+	}
+	std::memcpy(extracted, tapes[0].path.c_str(), tapes[0].path.size() + 1);
+	g_status = "Tape " + tapes[0].basename + " from " + fs::u8path(path).filename().u8string();
+	if (tapes.size() > 1) {
+		g_status += " (first of " + std::to_string(tapes.size()) + " tape images)";
+	}
+	return TRUE;
+#else
+	g_status = "Archive open unavailable: this build has no LibArchive support.";
+	return FALSE;
+#endif
+}
+
 extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 	g_status.clear();
 	if ((path == nullptr) || (path[0] == '\0')) {
@@ -864,6 +1000,29 @@ extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 	return TRUE;
 #else
 	g_status = "Archive open unavailable: this build has no LibArchive support.";
+	return FALSE;
+#endif
+}
+
+/* M116: the archive a managed (extracted) image came from; FALSE when the
+ * image is not one or the archive no longer exists. */
+extern "C" BOOL dropmedia_source_archive(const char *mounted_path, char *archive, UINT size) {
+	if ((archive != nullptr) && (size != 0)) {
+		archive[0] = '\0';
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	if ((mounted_path == nullptr) || (mounted_path[0] == '\0') || (archive == nullptr) ||
+	    (size == 0)) {
+		return FALSE;
+	}
+	const std::string path = read_archive_source(mounted_path, archive_storage_root());
+	if (path.empty() || (path.size() >= size)) {
+		return FALSE;
+	}
+	file_cpyname(archive, path.c_str(), static_cast<int>(size));
+	return TRUE;
+#else
+	(void)mounted_path;
 	return FALSE;
 #endif
 }
@@ -1016,6 +1175,33 @@ extern "C" BOOL dropmedia_selftest(void) {
 	if (ec || (!fs::create_directory(test_dir, ec)) || ec) {
 		return FAILURE;
 	}
+	/* M106: a tape image inside a zip is extracted for the tape menu; a
+	 * disk-only archive offers no tape. */
+	if ((!tape_extension_supported("game.T88")) || (!tape_extension_supported("game.cmt")) ||
+	    tape_extension_supported("game.d88") || (!dropmedia_path_is_tape_archive("tape.ZIP")) ||
+	    dropmedia_path_is_tape_archive("disk.d88.xz")) {
+		fs::remove_all(test_dir);
+		return FAILURE;
+	}
+	{
+		const fs::path tape_zip = test_dir / "tape-test.zip";
+		const fs::path disk_zip = test_dir / "disk-test.zip";
+		std::vector<DiskCandidate> tapes;
+		std::vector<DiskCandidate> none;
+
+		if ((!write_test_archive(tape_zip, false, "dir/game.t88")) ||
+		    (!extract_archive_images(tape_zip.u8string(), &tapes, &error, test_dir / "storage-tape",
+		                             tape_extension_supported, "tape image")) ||
+		    (tapes.size() != 1) || (tapes[0].basename != "game.t88") ||
+		    (!write_test_archive(disk_zip, false, "dir/game.d88")) ||
+		    extract_archive_images(disk_zip.u8string(), &none, &error, test_dir / "storage-none",
+		                           tape_extension_supported, "tape image") ||
+		    (error.find("tape image") == std::string::npos)) {
+			fs::remove_all(test_dir);
+			dropmedia_shutdown();
+			return FAILURE;
+		}
+	}
 	for (bool seven_zip : {false, true}) {
 		fs::path archive_path = test_dir / (seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
 		const fs::path storage_root = test_dir / "storage";
@@ -1035,7 +1221,9 @@ extern "C" BOOL dropmedia_selftest(void) {
 		    (extracted.size() != 1) || (extracted[0].basename != expected_basename) ||
 		    (extracted[0].source_directory != test_dir.u8string()) ||
 		    (read_archive_source_directory(extracted[0].path, storage_root) !=
-		     test_dir.u8string())) {
+		     test_dir.u8string()) ||
+		    (read_archive_source(extracted[0].path, storage_root) !=
+		     fs::absolute(archive_path).u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
@@ -1068,7 +1256,8 @@ extern "C" BOOL dropmedia_selftest(void) {
 		std::ifstream extracted_file(extracted[0].path, std::ios::binary);
 		const std::string contents((std::istreambuf_iterator<char>(extracted_file)),
 		                           std::istreambuf_iterator<char>());
-		if (contents != "D88") {
+		if ((contents != "D88") || (read_archive_source(extracted[0].path, storage_root) !=
+		                            fs::absolute(image_path).u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;

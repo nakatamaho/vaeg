@@ -21,6 +21,10 @@ typedef struct {
 
 extern _CGROM88 cgrom88;
 
+/* M113: PC-8801 kanji ROM images (128 KiB, MAME's port order) that replace
+ * the VA font image on ports E8h-EDh; NULL reads the VA font image. */
+extern BYTE *cgrom88_kanji[2];
+
 BYTE *cgromva_font(UINT16 hccode);
 int cgromva_width(UINT16 hccode);
 BYTE *cgromva_ank8(BYTE code);

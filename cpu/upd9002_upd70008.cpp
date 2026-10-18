@@ -312,6 +312,10 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		upd9002_alt_regs.hl = state->r_hl;
 	}
 
+	void LeaveHalt() {
+		upd70008_.LeaveHalt();
+	}
+
 	void Irq(bool asserted) {
 		if (initialized_) {
 			upd70008_.IRQ(0, asserted ? 1 : 0);
@@ -409,7 +413,11 @@ void compat_enter() {
 void compat_step() {
 	compat.Step();
 }
+// Called only when the core takes a native interrupt from compatible mode.
+// The interrupt ends a HALT (V30 manual chapter 8): without this the IRET
+// resumed a core that was still halted (M118).
 void compat_sync_to_native() {
+	compat.LeaveHalt();
 	compat.SyncToNative();
 }
 void compat_leave() {
@@ -675,6 +683,69 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 	return passed ? SUCCESS : FAILURE;
 }
 
+// M118: a native interrupt ends a compatible-mode HALT; the IRET resumes
+// at the instruction after it (V30 manual chapter 8; measured on the
+// PC-88VA and PC-88VA2 with a compatible-mode test disk).
+static int compat_halt_selftest(void) {
+	const UINT16 code_segment = 0x2000;
+	const UINT16 native_stack_segment = 0x3000;
+	const UINT16 code_offset = 0x0100;
+	const UINT16 compatible_offset = 0x1000;
+	const UINT16 native_interrupt_offset = 0x3100;
+	const UINT32 code_base = static_cast<UINT32>(code_segment) << 4;
+	const UINT32 native_stack_base = static_cast<UINT32>(native_stack_segment) << 4;
+
+	upd9002_core_initialize();
+	ZeroMemory(mem, 0x100000);
+	upd9002_upd70008_register();
+	upd9002_core_reset();
+	CPU_CS = code_segment;
+	CPU_DS = code_segment;
+	CPU_SS = native_stack_segment;
+	CPU_IP = code_offset;
+	CPU_SP = 0x0100;
+	CPU_BP = 0x0200;
+	CPU_FLAG = 0xf202;
+	CS_BASE = code_base;
+	DS_BASE = code_base;
+	SS_BASE = native_stack_base;
+	CPU_REMCLOCK = 100000;
+	CPU_BASECLOCK = 100000;
+	CPU_CLOCK = 0;
+	upd9002_memorywrite_w(0xe1 * 4, compatible_offset);
+	upd9002_memorywrite_w(0xe1 * 4 + 2, code_segment);
+	upd9002_memorywrite_w(0xe2 * 4, native_interrupt_offset);
+	upd9002_memorywrite_w(0xe2 * 4 + 2, code_segment);
+	static const UINT8 native_code[] = {0x0f, 0xff, 0xe1}; // BRKEM E1h
+	static const UINT8 compatible_code[] = {
+	    0xfb,       // EI
+	    0x76,       // HALT
+	    0x3e, 0x55, // LD A,55h
+	    0xed, 0xfd, // RETEM
+	};
+	CopyMemory(mem + code_base + code_offset, native_code, sizeof(native_code));
+	CopyMemory(mem + code_base + compatible_offset, compatible_code, sizeof(compatible_code));
+	mem[code_base + native_interrupt_offset] = 0xcf; // IRET
+
+	upd9002_core_step(); // BRKEM
+	upd9002_core_step(); // EI
+	upd9002_core_step(); // HALT
+	for (unsigned i = 0; i < 4; i++) {
+		upd9002_core_step(); // halted
+	}
+	bool ok = CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 && CPU_IP == compatible_offset + 2 &&
+	          CPU_AL == 0x00;
+	upd9002_core_interrupt(0xe2);
+	ok = ok && CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && CPU_IP == native_interrupt_offset &&
+	     upd9002_memoryread_w(native_stack_base + 0x00f4) == compatible_offset + 2;
+	upd9002_core_step(); // IRET
+	ok = ok && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008 && CPU_IP == compatible_offset + 2;
+	upd9002_core_step(); // LD A,55h
+	ok = ok && CPU_AL == 0x55 && CPU_IP == compatible_offset + 4;
+	upd9002_core_deinitialize();
+	return ok ? SUCCESS : FAILURE;
+}
+
 extern "C" int upd9002_upd70008_compat_selftest(void) {
 	const UINT8 encodings[] = {0xff, 0xfe};
 	for (UINT8 encoding : encodings) {
@@ -682,6 +753,10 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 			std::fprintf(stderr, "compatible entry selftest failed: 0F %02X\n", encoding);
 			return FAILURE;
 		}
+	}
+	if (compat_halt_selftest() != SUCCESS) {
+		std::fprintf(stderr, "compatible HALT selftest failed\n");
+		return FAILURE;
 	}
 	return SUCCESS;
 }

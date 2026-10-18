@@ -54,6 +54,74 @@ The clean-checkout build is the fully static MinGW build described under
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+### Cleanup after a passed human gate
+
+When the maintainer states that a milestone's human gate passed, and after
+the gate record, the `--no-ff` merge and the roadmap record are pushed,
+remove that milestone's working directories. The gate pass is the approval
+for these categories; no separate list is needed:
+
+- the milestone's worktree and its local branch, after confirming that the
+  branch is contained in `origin/main` and the worktree has no uncommitted
+  changes;
+- the temporary merge worktree;
+- the static MinGW build directories of that milestone
+  (`../vaeg-mingw-<short-sha>/`);
+- its hardware handoff and private scratch directories
+  (`~/work/pc88va/m<id>-hw/`, `~/work/pc88va/m<id>-private/`) and
+  `/tmp/m<id>/`, after moving anything the maintainer asked to keep.
+
+Never remove without explicit approval: `pc88va-private-docs/`, another
+milestone's worktree or branch, the shared caches under `~/.cache/vaeg/`
+(they are reused), the remote branch, and files the maintainer supplied
+(photos, screenshots, media, archives). Report what was removed and what was
+kept.
+
+## Demos stay buildable
+
+Every milestone must leave every bundled demo buildable from a clean
+checkout with the repository's own sources and tools. Before a milestone's
+gate:
+
+- build each demo under `demos/` (GLASS, NEON3, NEON4, the pseudo-sprite and
+  wireframe sets, sgp-scan, the self-booting SGP disk) and check that the
+  payloads on the committed `demos/disks/*.d88.xz` are byte-identical to the
+  fresh build; if a source change alters a payload, rebuild the affected
+  distribution, all-demos and all-demos-msdos4 disks in the same milestone;
+- start every program of the all-demos disk in vaeg (PC-Engine and MS-DOS
+  4.0) and confirm it draws, and run `MANDEL.BAS` from N88-BASIC;
+- record the result in the task file.
+
+`zundamon-orbit` is rebuilt with `demos/zundamon-orbit/build-from-psd.sh`
+from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-supplied
+input, like the PC-Engine system disk); its profile tables are tracked under
+`demos/zundamon-orbit/256/ida/` (M109).
+
+## Media build regression before every gate
+
+Every milestone gate includes this machine check, run locally from a
+clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
+are private inputs, so hosted CI cannot run it). Downloads come from the
+shared cache `~/.cache/vaeg/auto-generated-pc88va-utility-media` and
+`~/.cache/vaeg/msdos4-va.2`; a cache miss may download, a checksum
+mismatch fails.
+
+- Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
+  FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
+  builds both SASI images (PC-Engine 1.05 for the VA, 1.1 for the VA2)
+  with that FDD as payload. In vaeg the FDD boots and each SASI image boots
+  alone on its model.
+- Demo disks: every `demos/*/build-d88.sh` distribution, the all-demos,
+  all-demos-msdos4 and self-booting SGP disks build, and their payloads are
+  byte-identical to the committed `demos/disks/*.d88.xz` (see "Demos stay
+  buildable").
+- Record in the task file the commit, the commands, their exit status and
+  the SHA-256 of each produced image. Generated images stay outside Git
+  except the distributable `.d88.xz` files already allowed.
+
+A failure blocks the gate. Fix it in the milestone (and record it in the
+bug-fix ledger), as in M110 when the utility FDD had stopped building.
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI
@@ -127,14 +195,31 @@ Release notes may summarize the ledger but do not replace it.
   a source-built and freely distributable payload, and the compressed image
   round-trips byte-for-byte to its generated raw D88.  A disk may be bootable
   if it meets these conditions; a disk that needs PC-Engine, NEC system files,
-  or other non-redistributable payloads to boot does not.  The raw D88,
-  PC-Engine system files, private media, ROMs, and source templates remain
-  untracked and must never be committed.
+  or other non-redistributable payloads to boot does not.  A maintainer-
+  approved exception (M106) admits the MIT-licensed MS-DOS 4.0 for the
+  PC-88VA of the FreeDOS-88VA project as system files of a bootable demo
+  disk: only from the pinned release `msdos4-va.2` image (its published
+  SHA-256), only the files a `pcengine_disk.py vanilla` copy keeps, with the
+  release's `LICENSE.TXT` on the disk and its boot sector and files checked
+  by hash.  The raw D88, PC-Engine system files, private media, ROMs, and
+  source templates remain untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
   exact metadata. Keep raw private screenshots, logs, traces, and save files
   outside Git, and never stage, commit, or push them.
+- Refer to commercial-machine ROMs only by MAME's published set and file
+  names and SHA-1 values. Do not state who owns, dumped, or holds a ROM,
+  where a ROM came from, or that it was checked on hardware; describe a
+  ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
+  dump notes stay as historical records.
+- The maintainer's private reference tree (`pc88va-private-docs/`) is
+  read-only for agents. Never create, modify, or delete anything under it:
+  no work directories, scratch output, builds, logs, screenshots, or
+  generated media. This includes audit or disassembly scratch
+  (`*-audit-*`) and milestone work trees (`m<id>-*`), which have been
+  found there and removed. Put task work under a task-specific directory
+  elsewhere (for example `~/work/pc88va/m<id>-private/` or `/tmp/m<id>/`).
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules

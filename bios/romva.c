@@ -13,6 +13,8 @@
 #include "romva.h"
 #include "cgromva.h"
 #include "subsystem.h"
+#include "subsystemmx.h"
+#include "pcg88.h"
 #include "cpu/upd9002_upd70008.h"
 
 #define VAFONTROM "vafont.rom"
@@ -34,6 +36,8 @@
  */
 const char *const romva_n80_names[ROMVA_N80_NAMES] = {"n80.1.8.rom", "n80.1.2.rom", "n80.rom",
                                                       "N80.ROM"};
+
+void (*romva_machine_hook)(void) = NULL;
 
 static BOOL romva_load_n80(const char *name) {
 	char path[MAX_PATH];
@@ -218,6 +222,15 @@ void romva_initialize(void) {
 			subsystem.romexist = TRUE;
 		file_close(fh);
 	}
+
+	memoryva_pc8001 = FALSE;
+	cgrom88_kanji[0] = NULL;
+	cgrom88_kanji[1] = NULL;
+	subsystemmx_set_absent(FALSE);
+	if (romva_machine_hook != NULL) {
+		romva_machine_hook();
+	}
+	pcg88_initfont();
 
 	upd9002_upd70008_register();
 }

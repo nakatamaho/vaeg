@@ -37,6 +37,24 @@ remains a useful historical reference.
 `vaeg` has the following features:
 
 - builds and runs natively on modern Windows, Linux, and macOS systems;
+- V1/V2 and N modes: PC-8801 software (N88-BASIC V1/V2, N88-DISK BASIC,
+  uPD3301 text with semigraphics, graphics, buzzer and port sound) and
+  N-BASIC run in the VA's compatibility modes, selected under 模擬 > 起動;
+- PC-8801 and PC-8001 machines started from user-supplied ROMs in
+  `extra/` (the VA ROM set is still needed);
+- PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
+  mode (optional);
+- D88 files holding several disks: disk A in drive 1 and disk B in drive 2
+  on opening, and any disk chosen from the FDD menu;
+- separate recent folders for the FDD, HDD and tape file windows;
+- cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
+  recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
+  for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
+- cursor keys assignable to the keypad 8/4/6/2, a joystick or the mouse
+  (Key > カーソル割り当て), and F12 assignable to COPY, STOP, keypad `=` or
+  `,`, PC, full speed, screenshot or pause;
+- 8087 emulation, enabled by default, with its transcendental instructions
+  on the host x87 on x86 hosts;
 - partial PC-9801-55-compatible SCSI support;
 - EMS support;
 - main-memory and BMS compatibility;
@@ -49,13 +67,48 @@ remains a useful historical reference.
 - a uPD70008-compatible Z80 emulation path for `BRKEM`, using the
   pinned [MIT-licensed SuzukiPlan Z80 emulator](https://github.com/suzukiplan/z80);
   the former Z80 core with unclear licensing is no longer part of the active
-  tree, and `BRKEM2` is not yet supported;
+  tree; `BRKEM2` starts the V1/V2 modes;
 - optional on-screen graphics and text-sprite diagnostics;
+- state save slots with thumbnails, a front-panel lamp bar, and a screen
+  turned 90 degrees right;
 - CRT screen effects via librashader (disabled by default);
 - substantially reorganized and simplified code;
 - a greatly reduced PC-98-only codebase.
 
 ## News
+
+### 2026-10-17 - Rel.20261017
+
+[Rel.20261017](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261017)
+adds the V1/V2 and N modes: PC-8801 software and N-BASIC run in the VA's
+compatibility modes, and PC-8801 and PC-8001 machines start from
+user-supplied ROMs placed in `extra/`. It also adds the 8087 (enabled by
+default), the PCG-8100/8800, cassette tape images for V1/V2 BASIC (load and
+record, with tape sound), cursor keys assignable to the keypad 8/4/6/2,
+reorganized Japanese menus with state slots and thumbnails, separate recent
+folders for the FDD, HDD and tape windows, and a self-booting SGP demo disk.
+No PC-8801 or PC-8001 ROMs are included.
+
+D88 files that hold several disks, as many PC-8801 games are distributed,
+are supported: open one in FDD1 and its disk A goes into drive 1 and disk B
+into drive 2, ready to play; FDD > FDD1 ディスク and FDD2 ディスク list every
+disk by the name stored in the file for the disk changes a game asks for,
+and the disks in use are kept over resets, restarts and save states.
+
+<div align="center">
+<table align="center" width="100%">
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155514-0000091005-000.png" alt="PC-8801mkIISR demonstration in V2 mode"><br><em>PC-8801mkIISR demonstration in V2 mode</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-155419-0000036240-000.png" alt="N88-BASIC V2 in V2 mode"><br><em>N88-BASIC V2 in V2 mode</em></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-162748-0000092236-000.png" alt="N-BASIC in N mode"><br><em>N-BASIC in N mode</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261017-173043-0000094917-000.png" alt="Loading a cassette tape image in V1/V2 BASIC"><br><em>Loading a cassette tape image in V1/V2 BASIC</em></td>
+</tr>
+</table>
+</div>
+
+See [Rel.20261017 changes](CHANGES.20261017.md) for the complete notes.
 
 ### 2026-09-21 - 8087 support
 
@@ -220,6 +273,8 @@ Common user-facing command-line options are:
 | Sound | `--soundbuffer MS` | Set the sound buffer from 40 to 1000 ms |
 | Sound | `--mute` | Start with sound muted |
 | FDD | `--fdd1 PATH`, `--fdd2 PATH` | Mount a D88 or raw floppy image |
+| FDD | `--fdd1-image N`, `--fdd2-image N` | Choose disk N (from 1) of a D88 file holding several disks |
+| Tape | `--tape PATH`, `--tape-save PATH` | Load a `.cmt`/`.t88` tape, or record to a raw tape image (V1/V2) |
 | SASI | `--sasi1 PATH`, `--sasi2 PATH` | Mount a SASI HDI image |
 | HOSTFAT | `--hostfat-dir PATH` | Attach a read-only host folder to PC-Engine |
 | Persistence | `--cfg PATH` or `--no-cfg` | Select or disable the configuration file |
@@ -230,6 +285,7 @@ Common user-facing command-line options are:
 | Execution | `--frameskip VALUE` | Select `auto`, `full`, 2, 3, or 4 frame skip |
 | Display | `--fullscreen` or `--windowed` | Select the window mode |
 | Display | `--effect VALUE` | Select the display effect |
+| Display | `--rotate none` or `--rotate right` | Show the screen unturned or turned 90 degrees right |
 | Display | `--scaling VALUE` | Select the display scaling mode |
 | Input | `--controller joystick` or `--controller mouse` | Select the controller type |
 | Input | `--keyboard-layout VALUE` | Select `jis`, `us`, or `custom` keyboard mapping |
@@ -288,6 +344,13 @@ The VA2/VA3 names match MAME's `pc88va2` ROM set in
 subsystem that MAME currently leaves unconnected.
 The frontend checks the executable directory first, then the current working
 directory as a development fallback.
+
+ROMs of the PC-8801 and PC-8001 families go below the same directory, in
+`extra/<model>/<role>.rom` (for example `extra/PC-8801MA/n88.rom`); see
+[Extra ROMs](docs/modernization/extra-roms.md). `vaeg --list-extra-roms`
+lists what was found. The PC-8801 models start in the VA's V1/V2 mode with
+their own ROMs ([PC-8801 machines](docs/modernization/pc8801-machines.md));
+the VA ROM set is still needed.
 ROM files are intentionally absent from source and
 binary artifacts. At startup, size, CRC32, and SHA-1 are checked against the
 recorded VAEG ROM identities, including MAME-derived identities for the
@@ -401,57 +464,71 @@ local bootable-disk workflow.
 - [SGP pseudo-sprite](demos/disks/sgp-pseudo-sprite.d88.xz)
 - [SGP wireframe](demos/disks/sgp-wireframe.d88.xz)
 - [Zundamon Orbit](demos/disks/zundamon-orbit.d88.xz)
+- [Self-booting SGP demos and display tests](demos/disks/sgp-boot.d88.xz)
+  (boots with no operating system; [details](demos/sgp-boot/README.md))
 
 ## Runtime Files and Saved State
 
-The portable frontend stores writable runtime files in two locations. The
-configuration and VA backup-memory files use the current working directory by
-default:
+The portable frontend keeps its writable files in three places.
 
-- Current working directory: `vaeg.cfg`, `vabkupmem.dat`, and
-  `va2bkupmem.dat`
+- Current working directory: `vaeg.cfg` and the backup memory,
+  `vabkupmem.dat` (PC-88VA) or `va2bkupmem.dat` (PC-88VA2/VA3). `--cfg` and
+  `--bkupmem` select other paths; `--no-cfg` and `--no-bkupmem` disable
+  them.
+- Next to the executable: `states/` (state slots, one directory per
+  software, each slot with a thumbnail), `screenshots/`, and `vaeg-cache/`
+  (the CRT shader cache). If that directory cannot be written, the user
+  directory below is used instead.
+- User directory: the boot and media histories (`vaeg-history.txt`), the
+  custom keyboard map (`keyboard.map`), and the disks extracted from dropped or
+  opened archives (`archive-drop/`):
+  - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
+  - Windows: `%APPDATA%\vaeg`
+  - macOS: `~/Library/Application Support/vaeg`
 
-GUI save-state slots and keyboard sidecars normally use the platform user
-state directory:
-
-- Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
-- Windows: `%APPDATA%\vaeg`
-- macOS: `~/Library/Application Support/vaeg`
-
-For a portable setup, place `vaeg.cfg` and the applicable backup-memory file
-beside the executable, or start vaeg from the directory containing them. The
-`--cfg` and `--bkupmem` options can select explicit paths. GUI save-state
-slots and keyboard sidecars remain in the platform user state directory.
+The ROMs are read from the executable's directory (or `--roms`): the VA ROM
+set, `extra/<model>/<role>.rom` for the PC-8801 and PC-8001 machines, and
+the N-BASIC ROMs for N mode. For a portable setup, place `vaeg.cfg` and the
+backup-memory file beside the executable and start vaeg from that
+directory.
 
 Save-state files are local runtime artifacts. They are not portable
 across architectures, compilers, or build families; do not move a state
 file between 32-bit and 64-bit builds, between legacy and portable
 builds, or between different host platforms and expect it to load.
 
-For PC-88VA booting, `vaeg.cfg` should select the VA machine, its sound
-hardware, and the VA clock domain:
+The machine, its sound hardware and the CPU clock are chosen from the menus
+and saved in `vaeg.cfg`; a configuration that starts a PC-88VA looks like:
 
 ```ini
 pc_model=88VA1
 SNDboard=100
 clk_base=3993600
 clk_mult=2
+CPU_Speed=100
 sgp_mode=0
 sgp_mult=1
+BootMode=0
 ```
 
-`SNDboard=100` selects the VA built-in YM2203/OPN. Use `SNDboard=200`
-for a VA with Sound Board II, or with `pc_model=88VA2` for the built-in
-YM2608/OPNA. Stale PC-98 defaults can halt at V2, leave the VA sound
-hardware unbound, or select an invalid execution setting. CPU x2 is the
-standard execution setting; x1-x32 changes V30 capacity while machine time,
-sound, display, FDD, and RTC timing stay at standard speed. `sgp_mode` selects
-Model default (0), Follow CPU (1), or Custom (2), with `sgp_mult=1..16` for
-Custom. The GUI exposes
-`Emulate -> Boot model -> VA / VA2/VA3`; changing the model selects its
-default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
-filename set, and resets the guest while retaining configured FDD and
-SASI media. `Sound -> FM sound OPN/OPNA` can add Sound Board II to a VA.
+- `pc_model`: `88VA1` (PC-88VA) or `88VA2` (PC-88VA2/VA3).
+- `SNDboard`: `100` for the VA's built-in YM2203/OPN, `200` for the YM2608/OPNA
+  (built into the VA2/VA3, or Sound Board II on a VA).
+- `clk_mult` (1-32) and `CPU_Speed` (10-100 %): the CPU clock is 3.9936 MHz
+  x `clk_mult` x `CPU_Speed`; x2 at 100 % is the standard. Machine time,
+  sound, display, FDD and RTC timing stay at standard speed.
+- `sgp_mode`: Model default (0), Follow CPU (1), or Custom (2) with
+  `sgp_mult=1..16`, set in 模擬 -> 詳細設定….
+- `BootMode`: 自動 (0), V1/V2 (1), or N (2). `NDP8087=1` enables the 8087
+  (the default), `PCG=1` the PCG-8100/8800, and `ExtraMachine` names a
+  PC-8801 or PC-8001 model under `extra/`.
+
+In the GUI, `模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA` selects the machine and
+its mode (自動, V2 H/S, V1 H/S, or N with a found N-BASIC ROM), and the
+PC-8801 and PC-8001 models found under `extra/` follow below. Changing the
+model selects its default sound hardware and ROM set and resets the guest
+while keeping the FDD and SASI media. `模擬 -> CPU クロック` holds the clock
+presets, and `音 -> FM 音源ボード` can add Sound Board II to a VA.
 
 ## Quick Build
 

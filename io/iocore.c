@@ -15,6 +15,7 @@
 #include "subsystemmx.h"
 #include "va91.h"
 #include "cmt.h"
+#include "pcg88.h"
 #include "upd9002_regs.h"
 #include "upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -181,14 +182,14 @@ static const IOCBFN resetfn[] = {
     uPD4990_reset,      itimer_reset,    mouseif_reset,  np2sysp_reset, emsio_reset,
     memctrlva_reset,    tsp_reset,       sgp_reset,      videova_reset, subsystemmx_reset,
     systemportva_reset, mouseifva_reset, gactrlva_reset, cgromva_reset, va91_reset,
-    upd9002_regs_reset, cmt_reset,
+    upd9002_regs_reset, cmt_reset,       pcg88_reset,
 };
 
 static const IOCBFN bindfn[] = {
     dmac_bind,     fdc_bind,     keyboard_bind,    pic_bind,          rs232c_bind,
     itimer_bind,   np2sysp_bind, emsio_bind,       memctrlva_bind,    tsp_bind,
     sgp_bind,      videova_bind, subsystemmx_bind, systemportva_bind, mouseifva_bind,
-    gactrlva_bind, cgromva_bind, va91_bind,        upd9002_regs_bind,
+    gactrlva_bind, cgromva_bind, va91_bind,        upd9002_regs_bind, pcg88_bind,
 };
 
 void iocore_cb(const IOCBFN *cbfn, UINT count) {

@@ -29,13 +29,10 @@
 %if VOYAGE_OPNA != 0 && VOYAGE_OPNA != 1
 %error "VOYAGE_OPNA must be 0 or 1"
 %endif
-%if VOYAGE_OPNA
+; SGP LINE direction bits as measured on a PC-88VA2 (M106a): the Technical
+; Manual's table exchanges them. Both variants use the measured bits.
 %define VOYAGE_LINE_HD 0800h
 %define VOYAGE_LINE_VD 0400h
-%else
-%define VOYAGE_LINE_HD 0400h
-%define VOYAGE_LINE_VD 0800h
-%endif
 cpu 286
 bits 16
 org 0
@@ -746,8 +743,7 @@ colour:
 .done:
     ret
 
-; OPNA variant uses main's hardware-measured LINE HD=0800h/VD=0400h.
-; Legacy output preserves its original descriptor contract.
+; LINE uses the hardware-measured HD=0800h/VD=0400h (see the top).
 ; All endpoints are within the backing/display rectangle. This prototype
 ; clamps projected vertices at the border rather than geometric line clipping.
 line:

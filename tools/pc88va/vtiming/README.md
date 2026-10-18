@@ -175,8 +175,9 @@ measurements.
 
 ## Utility FDD and HDD installation
 
-The utility floppy builder and both VA/VA2 SASI utility HDD variants also
-include the source-built V480PAT from this directory:
+Both VA/VA2 SASI utility HDD variants also include the source-built
+V480PAT from this directory (the utility floppy no longer does, M110; use
+the self-booting SGP disk or the HDD):
 
 - `\BIN\V480PAT.COM` (uncompressed NASM output);
 - `\SRC\VTIMING\V480PAT.ASM` (the same self-contained source);
@@ -184,7 +185,7 @@ include the source-built V480PAT from this directory:
 
 `stage-vtiming.sh --output DIR` creates just these three files in a new host
 directory. The common development-tool stager incorporates them into its
-manifest; the floppy builder copies the COM after its DIET pass. Existing
+manifest. Existing
 media must be regenerated to acquire the files. No HOSTFAT driver is needed
 for running the installed utility; HOSTFAT can optionally transfer host-built
 files. Assemble the source with NASM on the host, not the guest's JWASM.
@@ -333,3 +334,28 @@ a grey grid every 32 dots, one-dot red/white checks in its top-left
 See [M104](../../../docs/agents/tasks/M104_v3_display_timing.md) and
 [`pc88va-video-modes.md`](../../../docs/modernization/pc88va-video-modes.md#12-measured-non-native-timings)
 for the measured results.
+
+## M109: keys without an operating system
+
+V480PAT, TSPMODE and TSPFILL used to wait for keys with keyboard BIOS
+functions `00h`/`01h`, which go through the Japanese front end that only an
+operating system installs; on the self-booting SGP disk or under MS-DOS
+they waited for ever. They now use the primitive functions `0Ah` (sense) and
+`09h` (read), ESC being scan code 00h. The published
+[`bin/v480pat.com`](bin/v480pat.com) is the binary used on hardware in M104
+and is left as it was. All three are on the self-booting SGP disk
+([`demos/sgp-boot`](../../../demos/sgp-boot/README.md)): `V480PAT A`,
+`TSPMODE` and `TSPFILL A`.
+
+
+## M109: the mode label on the bottom row
+
+TSPMODE and TSPFILL write their label (`MODE nn`, `MODE nn Pn`) on the
+bottom text row in split 1, which PC-Engine uses for the function keys.
+Without split 1 (descriptor height +34h is 0), as on the self-booting SGP
+disk, where the ROM text BIOS sets up split 0 alone, the label used to land
+on the first row of split 0 behind the menu. The tools now make split 1
+from the last 20-raster row of split 0 (a copy of split 0's descriptor, so
+the label keeps the normal character mode while split 0's mode changes),
+leave that row out of TSPFILL's fill so the label does not flicker, and put
+the table back on exit.

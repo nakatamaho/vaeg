@@ -36,6 +36,10 @@
 #include "emsio.h"
 #include "bkupmemva.h"
 #include "romva.h"
+#include "subsystemmx.h"
+#include "io/subsystem.h"
+#include "extrarom.h"
+#include "pcg88.h"
 #include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
@@ -92,6 +96,7 @@ extern BEEPCFG beepcfg;
 #include "soundopts.h"
 #include "strres.h"
 #include "viewport.h"
+#include "frontpanel.h"
 #include "ymfmbridge.h"
 #if defined(VAEG_UPD9002_M42_TESTING)
 #include "tests/upd9002/direct_harness.h"
@@ -106,7 +111,6 @@ extern BEEPCFG beepcfg;
 #endif
 #include "io/upd9002_regs.h"
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-#include "io/subsystem.h"
 #include "tests/upd780/subsystem_integration.h"
 #endif
 
@@ -1065,11 +1069,13 @@ static int test_new_blank_fdd_images(void) {
 		UINT size;
 	} blank[] = {{NEWDISK_FDD_BLANK_2DD_720, 0x10, 80, 9, 2, 512},
 	             {NEWDISK_FDD_BLANK_2D_320, 0x00, 40, 16, 1, 256},
-	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512}};
+	             {NEWDISK_FDD_BLANK_2D_360, 0x00, 40, 9, 2, 512},
+	             {NEWDISK_FDD_BLANK_2HD_1200, 0x20, 77, 8, 3, 1024},
+	             {NEWDISK_FDD_BLANK_2DD_640, 0x10, 80, 8, 2, 512}};
 	_D88HEAD header;
 	_D88SEC sector_header;
 	_FDDFILE parsed;
-	BYTE sector[512];
+	BYTE sector[1024];
 	char path[MAX_PATH];
 	const char *problem = NULL;
 	FILEH fh;
@@ -1661,41 +1667,61 @@ static int test_fdd_d88_short_table(void) {
 	return (SUCCESS);
 }
 
-/* M103f: choose a disk inside a multi-image D88 file. */
+/* Write two images back to back, the second named "B", as the first `size`
+ * bytes of that pair followed by zeros (M120: a partial header or a cut
+ * image is not counted). */
+static BOOL selftest_d88_two_images(const char *path, UINT size) {
+	static BYTE file[0x10400 * 2 + 0x100];
+	FILEH fh;
+	BOOL ok;
+
+	if ((size > sizeof(file)) || !selftest_d88_table_image(path, 0x2a0, 0)) {
+		return FALSE;
+	}
+	fh = file_open_rb(path);
+	ok = (fh != FILEH_INVALID) && (file_read(fh, file, 0x10400) == 0x10400);
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	if (!ok) {
+		return FALSE;
+	}
+	CopyMemory(file + 0x10400, file, 0x10400);
+	file[0x10400] = 'B';
+	ZeroMemory(file + 0x10400 * 2, 0x100);
+	fh = file_create(path);
+	ok = (fh != FILEH_INVALID) && (file_write(fh, file, size) == size);
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	return ok;
+}
+
+/* M103f: choose a disk inside a multi-image D88 file; M120: list them. */
 static int test_fdd_d88_multi_image(void) {
-	static BYTE file[0x10400 * 2];
 	char path[MAX_PATH];
 	char *pick_second[] = {"vaeg", "--fdd2-image", "2"};
 	char *pick_none[] = {"vaeg", "--fdd1-image", "0"};
+	char names[3][FDDD88_NAME_SIZE];
 	VAEG_CLI_OPTIONS options;
 	char error[256];
 	_FDDFILE parsed;
 	const char *problem;
-	FILEH fh;
 
 	problem = NULL;
 	SPRINTF(path, "vaeg-selftest-%lu-d88-multi.d88", (unsigned long)getpid());
-	if (!selftest_d88_table_image(path, 0x2a0, 0)) {
-		problem = "could not build an image";
-	} else {
-		fh = file_open_rb(path);
-		if ((fh == FILEH_INVALID) || (file_read(fh, file, 0x10400) != 0x10400)) {
-			problem = "could not read the image back";
-		}
-		if (fh != FILEH_INVALID) {
-			file_close(fh);
-		}
+	if (!selftest_d88_two_images(path, 0x10400 * 2 + 0x100)) {
+		problem = "could not write the two-image file";
 	}
 	if (problem == NULL) {
-		CopyMemory(file + 0x10400, file, 0x10400);
-		file[0x10400] = 'B'; /* name of the second image */
-		fh = file_create(path);
-		if ((fh == FILEH_INVALID) || (file_write(fh, file, sizeof(file)) != sizeof(file))) {
-			problem = "could not write the two-image file";
+		ZeroMemory(names, sizeof(names));
+		if ((fddd88_images(path, names, 3) != 2) || (names[0][0] != '\0') || (names[1][0] != 'B') ||
+		    (names[1][1] != '\0') || (names[2][0] != '\0')) {
+			problem = "two images and their names (trailing bytes ignored)";
 		}
-		if (fh != FILEH_INVALID) {
-			file_close(fh);
-		}
+	}
+	if ((problem == NULL) && (fddd88_images(path, NULL, 0) != 2)) {
+		problem = "count without names";
 	}
 	if (problem == NULL) {
 		ZeroMemory(&parsed, sizeof(parsed));
@@ -1711,6 +1737,14 @@ static int test_fdd_d88_multi_image(void) {
 		parsed.num = 2;
 		if (fddd88_set(&parsed, path, 0) != FAILURE) {
 			problem = "a missing third image was accepted";
+		}
+	}
+	if (problem == NULL) {
+		/* the second image cut short is not counted */
+		if (!selftest_d88_two_images(path, 0x10400 * 2 - 1)) {
+			problem = "could not rewrite the two-image file";
+		} else if (fddd88_images(path, NULL, 0) != 1) {
+			problem = "a cut second image was counted";
 		}
 	}
 	file_delete(path);
@@ -2225,6 +2259,67 @@ static int test_persistence_controls(void) {
 	return (SUCCESS);
 }
 
+/* M106: on a signed record the boot-disk bit B1FC4h bit 7 is always cleared
+ * without a fixed disk and, with Boot_FixedDisk on, set with one, with a
+ * checksum the ROM accepts; unsigned records are left alone. */
+static BYTE boot_fixed_disk_sum(void) {
+	BYTE sum = 0;
+	int j;
+
+	for (j = 0; j < 8; j++) {
+		sum = (BYTE)(sum + backupmem[0x1fc0 + j]);
+	}
+	return (sum);
+}
+
+static int test_boot_fixed_disk(void) {
+	static BYTE saved[0x04000];
+	const UINT8 saved_flag = np2cfg.boot_fixed_disk;
+	const char *problem = NULL;
+
+	CopyMemory(saved, backupmem, sizeof(saved));
+	ZeroMemory(backupmem, sizeof(backupmem));
+	backupmem[0x1fc4] = 0x64;
+	backupmem[0x1fc6] = 0xf9;
+	backupmem[0x1fc8] = 0x4b;
+	backupmem[0x1fc9] = 0x5a;
+	backupmem[0x1fca] = 0x4d;
+	np2cfg.boot_fixed_disk = 0;
+	bkupmemva_sync_bootdisk(TRUE);
+	if (backupmem[0x1fc4] != 0x64) {
+		problem = "set with Boot_FixedDisk off";
+	}
+	backupmem[0x1fc4] = 0xe4;
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "left set without a fixed disk with Boot_FixedDisk off";
+	}
+	np2cfg.boot_fixed_disk = 1;
+	bkupmemva_sync_bootdisk(TRUE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0xe4) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not set, or wrong checksum, with a fixed disk";
+	}
+	bkupmemva_sync_bootdisk(FALSE);
+	if ((problem == NULL) &&
+	    ((backupmem[0x1fc4] != 0x64) || (backupmem[0x1fcd] != boot_fixed_disk_sum()))) {
+		problem = "not cleared, or wrong checksum, without a fixed disk";
+	}
+	backupmem[0x1fc8] = 0x00;
+	bkupmemva_sync_bootdisk(TRUE);
+	if ((problem == NULL) && (backupmem[0x1fc4] != 0x64)) {
+		problem = "an unsigned record was changed";
+	}
+	np2cfg.boot_fixed_disk = saved_flag;
+	CopyMemory(backupmem, saved, sizeof(saved));
+	if (problem != NULL) {
+		return (fail("boot fixed disk", problem));
+	}
+	fprintf(stderr, "selftest: boot fixed disk ok\n");
+	return (SUCCESS);
+}
+
 static int test_main_ram_configuration(void) {
 	static const UINT16 capacities[] = {256, 384, 512, 640};
 	BYTE saved_backup_memory[0x04000];
@@ -2362,6 +2457,7 @@ static int test_va_cursor_sprite_enable(void) {
 	tsp.sprtable = sprite_table;
 	tsp.curn = 31;
 	tsp.ce = TRUE;
+	tsp.dspon = TRUE; /* M117: the cursor needs the text display */
 	makesprva_blankraster();
 	makesprva_begin();
 	makesprva_raster();
@@ -2668,8 +2764,10 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	input.drawable_width = drawable_width;
 	input.drawable_height = drawable_height;
 	input.menu_inset = menu_inset;
+	input.bottom_inset = 0;
 	input.scaling = scaling;
 	input.aspect = aspect;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != x) ||
 	    (viewport.y != y) || (viewport.width != width) || (viewport.height != height)) {
 		fprintf(stderr,
@@ -2682,10 +2780,34 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 	return (SUCCESS);
 }
 
+static void selftest_remove_dir(const char *path) {
+#if defined(_WIN32)
+	_rmdir(path);
+#else
+	rmdir(path);
+#endif
+}
+
 static int test_viewport(void) {
 	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
+		return (fail("state thumbnail", "PNG did not read back"));
+	}
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
+	{
+		/* M122: each file window has its own recent folders */
+		char root[MAX_PATH];
+		char problem[128];
+		SPRINTF(root, "vaeg-selftest-%lu-dirs", (unsigned long)getpid());
+		(void)file_dircreate(root);
+		if (gui_recent_dirs_selftest(root, problem, sizeof(problem)) != SUCCESS) {
+			selftest_remove_dir(root);
+			return (fail("recent folders", problem));
+		}
+		selftest_remove_dir(root);
+		fprintf(stderr, "selftest: recent folders ok\n");
+	}
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
@@ -2717,14 +2839,50 @@ static int test_viewport(void) {
 	input.drawable_width = 800;
 	input.drawable_height = 600;
 	input.menu_inset = 0;
+	input.bottom_inset = 0;
 	input.scaling = VAEG_SCALING_FIT;
 	input.aspect = FALSE;
+	input.rotate = FALSE;
 	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 300, &guest_x, &guest_y) != SUCCESS) ||
 	    (guest_x != 320) || (guest_y != 200) ||
 	    (vaeg_viewport_map_point(&viewport, 640, 400, 400, 25, &guest_x, &guest_y) != FAILURE)) {
 		return (fail("viewport", "inverse coordinate transform failed"));
 	}
+	/* M117: turned right, 640x400 becomes a 400x640 picture; on 800x600 it
+	 * fits as 375x600 at x 212 (3:4 with the aspect correction, 450x600 at
+	 * 175). Shown 1:1, the top-left guest dot is at the top right and the
+	 * bottom-left one at the top left. */
+	input.rotate = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 212) ||
+	    (viewport.y != 0) || (viewport.width != 375) || (viewport.height != 600)) {
+		return (fail("viewport", "turned picture geometry failed"));
+	}
+	input.drawable_width = 400;
+	input.drawable_height = 640;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 0, 0, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 0) || (guest_y != 399) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 399, 639, &guest_x, &guest_y) !=
+	     SUCCESS) ||
+	    (guest_x != 639) || (guest_y != 0) ||
+	    (vaeg_viewport_map_point_rotated(&viewport, 640, 400, TRUE, 400, 300, &guest_x, &guest_y) !=
+	     FAILURE)) {
+		return (fail("viewport", "turned inverse coordinate transform failed"));
+	}
+	input.drawable_width = 800;
+	input.drawable_height = 600;
+	input.aspect = TRUE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) || (viewport.x != 175) ||
+	    (viewport.width != 450) || (viewport.height != 600)) {
+		return (fail("viewport", "turned aspect-corrected geometry failed"));
+	}
+	input.aspect = FALSE;
+	input.rotate = FALSE;
 	input.drawable_width = 0;
 	if (vaeg_viewport_calculate(&input, &viewport) != FAILURE) {
 		return (fail("viewport", "zero drawable size was accepted"));
@@ -3644,6 +3802,60 @@ static int strip_statsave_section(const char *source, const char *destination, c
 	}
 	_MFREE(data);
 	return (ret);
+}
+
+/* M120: a state keeps the disk of a multi-image D88 in each drive. */
+static int test_fdd_multi_image_state(void) {
+	char disk[MAX_PATH];
+	char path[MAX_PATH];
+	const char *problem = NULL;
+
+	SPRINTF(disk, "vaeg-selftest-%lu-state-multi.d88", (unsigned long)getpid());
+	SPRINTF(path, "vaeg-selftest-%lu-state-multi.sts", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	soundmng_stop();
+	if (!selftest_d88_two_images(disk, 0x10400 * 2)) {
+		problem = "could not write the two-image file";
+	}
+	if (problem == NULL) {
+		fddfile[0].num = 1;
+		fddfile[1].num = 0;
+		if ((fdd_set(0, disk, FTYPE_NONE, 0) != SUCCESS) ||
+		    (fdd_set(1, disk, FTYPE_NONE, 0) != SUCCESS) || (fdd_diskimage(0) != 1) ||
+		    (fdd_diskimage(1) != 0) || (statsave_save(path) != STATFLAG_SUCCESS)) {
+			problem = "two drives on one file could not be saved";
+		}
+	}
+	if (problem == NULL) {
+		/* stale selections that the load must replace */
+		fdd_eject(0);
+		fdd_eject(1);
+		fddfile[0].num = 0;
+		fddfile[1].num = 1;
+		if (statsave_load(path) != STATFLAG_SUCCESS) {
+			problem = "state did not load";
+		} else if ((fdd_diskimage(0) != 1) || (fddfile[0].inf.d88.head.fd_name[0] != 'B') ||
+		           (fdd_diskimage(1) != 0) || (fddfile[1].inf.d88.base != 0) ||
+		           fdd_diskprotect(0) || fdd_diskprotect(1)) {
+			problem = "the disks in the drives were not restored";
+		}
+	}
+	fdd_eject(0);
+	fdd_eject(1);
+	fddfile[0].num = 0;
+	fddfile[1].num = 0;
+	file_delete(path);
+	file_delete(disk);
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("D88 multi-image state", problem));
+	}
+	fprintf(stderr, "selftest: D88 multi-image state ok\n");
+	return (SUCCESS);
 }
 
 /* M103a: a state saved while compatible code waits in a native CALLN handler
@@ -4808,7 +5020,20 @@ static int test_cassette_tape(void) {
 	                           0x01, 0xd3, 0x42,
 	                           /* end */
 	                           0x00, 0x00, 0x00, 0x00};
+	/* M106: space 0.5 s, mark 0.25 s, data 11h, mark 1 s, space 0.2 s,
+	 * data 22h (T88 times are in 1/4800 s). */
+	static const BYTE t88gaps[] = {
+	    'P',  'C',  '-',  '8',  '8',  '0',  '1',  ' ',  'T',  'a',  'p',  'e',  ' ',  'I',
+	    'm',  'a',  'g',  'e',  '(',  'T',  '8',  '8',  ')',  0,    0x02, 0x01, 0x08, 0x00,
+	    0,    0,    0,    0,    0x60, 0x09, 0,    0,    0x03, 0x01, 0x08, 0x00, 0,    0,
+	    0,    0,    0xb0, 0x04, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,
+	    0x10, 0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x11, 0x03, 0x01, 0x08, 0x00, 0,
+	    0,    0,    0,    0xc0, 0x12, 0,    0,    0x02, 0x01, 0x08, 0x00, 0,    0,    0,
+	    0,    0xc0, 0x03, 0,    0,    0x01, 0x01, 0x0d, 0x00, 0,    0,    0,    0,    0x10,
+	    0,    0,    0,    0x01, 0x00, 0xcc, 0x01, 0x22, 0x00, 0x00, 0x00, 0x00};
+	static const BYTE raw[] = {0xd3, 0x42};
 	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_fast = np2cfg.cmt_fast;
 	const char *problem = NULL;
 	int i;
 
@@ -4818,11 +5043,16 @@ static int test_cassette_tape(void) {
 	pccore_init();
 	pccore_reset();
 	memoryva_88_mode = 1;
+	np2cfg.cmt_fast = 1;
 	cmt_reset();
 	if ((cmt_open_memory(t88, sizeof(t88)) != SUCCESS) || (cmt_length() != 2)) {
 		problem = "T88 data blocks";
 	}
 	iocore_out8(0x030, 0x08); /* motor on, cassette 600 baud */
+	if ((problem == NULL) && (iocore_inp8(0x040) & 0x04)) {
+		problem = "carrier during a T88 blank block";
+	}
+	cmt_event(NULL); /* the end of the short blank block before the data */
 	if ((problem == NULL) && (!(iocore_inp8(0x040) & 0x04) || !cmt_selected())) {
 		problem = "cassette carrier";
 	}
@@ -4896,14 +5126,22 @@ static int test_cassette_tape(void) {
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
 	}
-	/* M105 leader without fast load: one second low, one second high, and
-	 * no byte until it ends; none with fast load. */
+	/* M106 leader of a raw image without fast load: 1200 Hz for 1.5 s with
+	 * no carrier, then 2400 Hz for 0.5 s with it, and no byte until both
+	 * end; none with fast load. Calling cmt_event directly leaves the event
+	 * pending, and the next block is timed from its due clock, so the
+	 * second remaining time includes the first. */
 	cmt_save_discard();
+	if ((problem == NULL) && (cmt_open_memory(raw, sizeof(raw)) != SUCCESS)) {
+		problem = "raw tape image";
+	}
 	if (problem == NULL) {
 		static SINT32 pcm[2 * 2205];
 		const UINT saved_rate = soundcfg.rate;
-		const UINT8 saved_fast = np2cfg.cmt_fast;
+		const SINT32 second = (SINT32)pccore.realclock;
 		UINT edges[2];
+		SINT32 remain[2];
+		BOOL carrier[2];
 		UINT k;
 
 		soundcfg.rate = 22050;
@@ -4913,11 +5151,9 @@ static int test_cassette_tape(void) {
 		iocore_out8(0x030, 0x00);
 		iocore_out8(0x030, 0x08);
 		iocore_out8(0x021, 0x14); /* RXE */
-		if ((nevent_getremain(NEVENT_CMT) < (SINT32)pccore.realclock) ||
-		    (iocore_inp8(0x021) & 0x02)) {
-			problem = "tape leader did not hold the data back";
-		}
 		for (i = 0; i < 2; i++) {
+			remain[i] = nevent_getremain(NEVENT_CMT);
+			carrier[i] = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
 			/* zero crossings over 0.1 s: 1200 Hz gives 240, 2400 Hz 480 */
 			ZeroMemory(pcm, sizeof(pcm));
 			cmt_getpcm(NULL, pcm, 2205);
@@ -4927,17 +5163,24 @@ static int test_cassette_tape(void) {
 					edges[i]++;
 				}
 			}
-			if (i == 0) {
-				for (k = 0; k < 10; k++) { /* to 1.1 s */
-					cmt_getpcm(NULL, pcm, 2205);
-				}
+			if (iocore_inp8(0x021) & 0x02) {
+				problem = "tape leader did not hold the data back";
 			}
+			cmt_event(NULL); /* the end of this part of the leader */
+		}
+		if ((problem == NULL) && ((remain[0] < second * 3 / 2 - second / 100) ||
+		                          (remain[0] > second * 3 / 2 + second / 100) ||
+		                          (remain[1] - remain[0] < second / 2 - second / 100) ||
+		                          (remain[1] - remain[0] > second / 2 + second / 100))) {
+			problem = "tape leader was not 1.5 s then 0.5 s";
 		}
 		if ((problem == NULL) &&
 		    ((edges[0] < 230) || (edges[0] > 250) || (edges[1] < 470) || (edges[1] > 490))) {
 			problem = "tape leader was not low then high";
 		}
-		cmt_event(NULL); /* the end of the leader */
+		if ((problem == NULL) && (carrier[0] || !carrier[1])) {
+			problem = "carrier during the tape leader";
+		}
 		if ((problem == NULL) && (iocore_inp8(0x021) & 0x02)) {
 			problem = "tape leader end delivered a byte";
 		}
@@ -4954,13 +5197,63 @@ static int test_cassette_tape(void) {
 			problem = "fast load played a tape leader";
 		}
 		iocore_out8(0x030, 0x00);
-		np2cfg.cmt_fast = saved_fast;
 		cmt_setvol(np2cfg.cmt_vol);
 		soundcfg.rate = saved_rate;
+	}
+	/* M106 T88 blocks without data come before the data that follows them:
+	 * a space block delivers 00h at the baud rate (600 baud: 30 bytes in
+	 * 0.5 s, 12 in 0.2 s) with no carrier; a mark block delivers nothing
+	 * with the carrier up. Fast load shortens both like the bytes. */
+	if ((problem == NULL) &&
+	    ((cmt_open_memory(t88gaps, sizeof(t88gaps)) != SUCCESS) || (cmt_length() != 2))) {
+		problem = "T88 with timed blocks";
+	}
+	for (i = 0; (i < 2) && (problem == NULL); i++) {
+		UINT zeros[2] = {0, 0};
+		UINT data = 0;
+		BOOL carrier_in_space = FALSE;
+		BOOL mark_seen = FALSE;
+		int k;
+
+		np2cfg.cmt_fast = (UINT8)i;
+		cmt_rewind();
+		iocore_out8(0x030, 0x00);
+		iocore_out8(0x030, 0x08);
+		iocore_out8(0x021, 0x14); /* RXE */
+		for (k = 0; (k < 400) && (data < 2); k++) {
+			const BOOL carrier = (iocore_inp8(0x040) & 0x04) ? TRUE : FALSE;
+
+			cmt_event(NULL);
+			if (iocore_inp8(0x021) & 0x02) {
+				const REG8 dat = iocore_inp8(0x020);
+
+				if (dat == 0x00) {
+					zeros[data]++;
+					carrier_in_space = carrier_in_space || carrier;
+				} else if (dat == (data ? 0x22 : 0x11)) {
+					data++;
+				} else {
+					problem = "T88 byte out of order";
+					break;
+				}
+			} else if (carrier) {
+				mark_seen = TRUE;
+			}
+		}
+		if ((problem == NULL) && (data != 2)) {
+			problem = "T88 data after its timed blocks";
+		} else if ((problem == NULL) &&
+		           ((zeros[0] < 29) || (zeros[0] > 31) || (zeros[1] < 11) || (zeros[1] > 13))) {
+			problem = "T88 space blocks as 00h bytes";
+		} else if ((problem == NULL) && (carrier_in_space || !mark_seen)) {
+			problem = "T88 carrier during a block";
+		}
+		iocore_out8(0x030, 0x00);
 	}
 	cmt_eject();
 	iocore_out8(0x030, 0x00);
 	memoryva_88_mode = saved_mode;
+	np2cfg.cmt_fast = saved_fast;
 	cmt_reset();
 	pccore_term();
 	soundmng_deinitialize();
@@ -5073,6 +5366,104 @@ static int test_beep_level(void) {
 		return (fail("beep level", problem));
 	}
 	fprintf(stderr, "selftest: beep level ok\n");
+	return (SUCCESS);
+}
+
+/* M106: the front panel lamp bar, its lamps and the room it takes. */
+static int test_front_panel(void) {
+	const BYTE saved_panel = np2oscfg.front_panel;
+	const _FDDFILE saved_fdd = fddfile[0];
+	char problem_text[96];
+	const char *problem = NULL;
+	VAEG_VIEWPORT_INPUT input;
+	VAEG_VIEWPORT viewport;
+	UINT32 now;
+
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
+		problem = "lamp bar is not 14 rows per 640 dots";
+	}
+	np2oscfg.front_panel = FRONTPANEL_OFF;
+	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
+		problem = "a turned-off panel took room";
+	}
+	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
+	/* the guest picture keeps its size above the bar */
+	ZeroMemory(&input, sizeof(input));
+	input.guest_width = 640;
+	input.guest_height = 400;
+	input.drawable_width = 640;
+	input.drawable_height = 22 + 400 + 14;
+	input.menu_inset = 22;
+	input.bottom_inset = 14;
+	input.scaling = VAEG_SCALING_FIT;
+	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+	                          (viewport.y != 22) || (viewport.height != 400))) {
+		problem = "the panel changed the guest picture";
+	}
+	/* lamp state: drive 1 accessed (2HD), V2 on */
+	ZeroMemory(&fddfile[0], sizeof(fddfile[0]));
+	fddfile[0].type = DISKTYPE_D88;
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2DD;
+	if ((problem == NULL) && frontpanel_drive_is_2hd(0)) {
+		problem = "2DD media reported as 2HD";
+	}
+	fddfile[0].inf.d88.fdtype_major = DISKTYPE_2HD;
+	if ((problem == NULL) && !frontpanel_drive_is_2hd(0)) {
+		problem = "2HD media not reported as 2HD";
+	}
+	frontpanel_set_modeled(0, FALSE);
+	frontpanel_set_modeled(1, TRUE);
+	frontpanel_set_modeled(2, FALSE);
+	frontpanel_fdd_access(0);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
+	                          frontpanel_drive_lit(0, now + 1000))) {
+		problem = "access lamp timing";
+	}
+	if ((problem == NULL) &&
+	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
+		problem = "mode lamp state";
+	}
+	/* M109: lock lamps follow the key matrix in V1/V2 (V2 lit here) and the
+	 * BIOS shift-state byte 00AB0h in V3. */
+	{
+		const UINT8 saved_shift = mem[0xab0];
+		const UINT8 saved_m08 = keybrd.keymap[0x08];
+		const UINT8 saved_m0a = keybrd.keymap[0x0a];
+
+		mem[0xab0] = 0x0c;
+		keybrd.keymap[0x08] = 0xff;
+		keybrd.keymap[0x0a] = 0x7f;
+		if ((problem == NULL) && (frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          !frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V1/V2 lock lamps did not follow the key matrix";
+		}
+		frontpanel_set_modeled(1, FALSE);
+		frontpanel_set_modeled(2, TRUE);
+		mem[0xab0] = 0x08;
+		if ((problem == NULL) && (!frontpanel_lock_lit(FRONTPANEL_LOCK_KANA) ||
+		                          frontpanel_lock_lit(FRONTPANEL_LOCK_CAPS))) {
+			problem = "V3 lock lamps did not follow the BIOS shift state";
+		}
+		frontpanel_set_modeled(2, FALSE);
+		frontpanel_set_modeled(1, TRUE);
+		mem[0xab0] = saved_shift;
+		keybrd.keymap[0x08] = saved_m08;
+		keybrd.keymap[0x0a] = saved_m0a;
+	}
+	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
+	if ((problem == NULL) &&
+	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {
+		problem = problem_text;
+	}
+	frontpanel_set_modeled(1, FALSE);
+	fddfile[0] = saved_fdd;
+	np2oscfg.front_panel = saved_panel;
+	if (problem != NULL) {
+		return (fail("front panel", problem));
+	}
+	fprintf(stderr, "selftest: front panel ok\n");
 	return (SUCCESS);
 }
 
@@ -5251,7 +5642,99 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
-/* M103i: output levels for the analog and the digital RGB monitor. */
+/* M110: file_getappdir creates the named directory next to the executable
+ * (where the build directory is writable) and ends it with a separator. */
+static int test_app_directory(void) {
+	char path[MAX_PATH];
+	char *base;
+	const char *problem = NULL;
+	size_t length;
+
+	base = SDL_GetBasePath();
+	if (!file_getappdir(path, sizeof(path), "vaeg-selftest-appdir")) {
+		problem = "executable directory not used";
+	} else if ((base == NULL) || (strncmp(path, base, strlen(base)) != 0)) {
+		problem = "directory not below the executable";
+	} else {
+		length = strlen(path);
+		if ((length == 0) || ((path[length - 1] != '/') && (path[length - 1] != '\\'))) {
+			problem = "no trailing separator";
+		} else if (file_attr(path) < 0) {
+			problem = "directory not created";
+		}
+	}
+	if (base != NULL) {
+		SDL_free(base);
+	}
+#if defined(_WIN32)
+	_rmdir(path);
+#else
+	rmdir(path);
+#endif
+	if (problem != NULL) {
+		return (fail("application directory", problem));
+	}
+	fprintf(stderr, "selftest: application directory ok\n");
+	return (SUCCESS);
+}
+
+/* M111: the V1/V2 boot mode makes port 40h bit 3 (SW7) read 1, so the ROM
+ * skips its V3 boot search, until compatible code first runs; 自動 leaves
+ * it 0. */
+static int test_boot_mode_sw7(void) {
+	const UINT8 saved = np2cfg.boot_mode;
+	BOOL automatic;
+	BOOL v1v2_before;
+	BOOL v1v2_after;
+
+	np2cfg.boot_mode = BOOTMODE_AUTO;
+	memctrlva_nmode_reset();
+	automatic = memctrlva_nmode_boot_search();
+	np2cfg.boot_mode = BOOTMODE_V1V2;
+	memctrlva_nmode_reset();
+	v1v2_before = memctrlva_nmode_boot_search();
+	memctrlva_nmode_compat_entry();
+	v1v2_after = memctrlva_nmode_boot_search();
+	np2cfg.boot_mode = saved;
+	memctrlva_nmode_reset();
+	if (automatic || !v1v2_before || v1v2_after) {
+		return (fail("boot mode", "SW7 for 自動 and V1/V2"));
+	}
+	fprintf(stderr, "selftest: boot mode ok\n");
+	return (SUCCESS);
+}
+
+/* M110: カーソル割り当て > マウス (KEY_MODE 3) moves the guest mouse that
+ * the VA's mouse interface reads, from the cursor keys. */
+static int test_cursor_keys_as_mouse(void) {
+	const UINT8 saved_mode = np2cfg.KEY_MODE;
+	SINT16 x0;
+	SINT16 x1;
+	int i;
+
+	np2cfg.KEY_MODE = 3;
+	keystat_resetjoykey();
+	mouseif_sync();
+	mouseif_sync();
+	x0 = mouseif.x;
+	keystat_keydown(0x3c); /* cursor right */
+	for (i = 0; i < 8; i++) {
+		mouseif_sync();
+	}
+	keystat_keyup(0x3c);
+	mouseif_sync();
+	x1 = mouseif.x;
+	np2cfg.KEY_MODE = saved_mode;
+	keystat_resetjoykey();
+	if (x1 <= x0) {
+		return (fail("cursor keys as mouse", "cursor right did not move the mouse"));
+	}
+	fprintf(stderr, "selftest: cursor keys as mouse ok\n");
+	return (SUCCESS);
+}
+
+/* M103i: output levels for the analog and the digital RGB monitor; M109:
+ * the digital monitor turns a component on above 1/31 of full scale. */
 static int test_monitor_output_levels(void) {
 	const char *problem = NULL;
 
@@ -5260,11 +5743,13 @@ static int test_monitor_output_levels(void) {
 	    (scrndrawva_outputlevel(16, 5, FALSE) != 0x87) ||
 	    (scrndrawva_outputlevel(63, 6, FALSE) != 0xff)) {
 		problem = "analog output levels";
-	} else if ((scrndrawva_outputlevel(7, 5, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(8, 5, TRUE) != 0xff) ||
-	           (scrndrawva_outputlevel(15, 6, TRUE) != 0) ||
-	           (scrndrawva_outputlevel(16, 6, TRUE) != 0xff) ||
-	           (scrndrawva_outputlevel(0, 6, TRUE) != 0)) {
+	} else if ((scrndrawva_outputlevel(0, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(1, 5, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(2, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(5, 5, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(2, 6, TRUE) != 0) ||
+	           (scrndrawva_outputlevel(3, 6, TRUE) != 0xff) ||
+	           (scrndrawva_outputlevel(7, 6, TRUE) != 0xff)) {
 		problem = "digital RGB thresholds";
 	}
 	if (problem != NULL) {
@@ -5348,6 +5833,805 @@ static int test_n80_rom_files(void) {
 		return (fail("N-BASIC ROM files", problem));
 	}
 	fprintf(stderr, "selftest: N-BASIC ROM files ok\n");
+	return (SUCCESS);
+}
+
+/* Write `size` bytes from `data` as `dir`/`name`. */
+static BOOL selftest_write_file(const char *dir, const char *name, const BYTE *data, UINT size) {
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL ok;
+
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, name, sizeof(path));
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		return FALSE;
+	}
+	ok = (file_write(fh, data, size) == size);
+	file_close(fh);
+	return ok;
+}
+
+/* A ROM image of `size` bytes, different for each `seed`, optionally with
+ * a banner at offset 100h. */
+static void selftest_fill_rom(BYTE *data, UINT size, BYTE seed, const char *banner) {
+	UINT i;
+
+	for (i = 0; i < size; i++) {
+		data[i] = (BYTE)(seed + i * 7 + (i >> 8));
+	}
+	if (banner != NULL) {
+		memcpy(data + 0x100, banner, strlen(banner) + 1);
+	}
+}
+
+static const EXTRAROM_FILE *selftest_extra_file(const EXTRAROM_MACHINE *m, const char *file,
+                                                UINT role) {
+	UINT i;
+
+	for (i = 0; i < m->count; i++) {
+		if ((m->files[i].role == role) && (strcmp(m->files[i].file, file) == 0)) {
+			return &m->files[i];
+		}
+	}
+	return NULL;
+}
+
+/* M112: ROMs below extra/<machine>/: role and revision names, size and
+ * blank checks, banners, MAME names, required roles, a combined PC88.ROM,
+ * and the revision chosen in the menu. Synthetic data only. */
+static int test_extra_roms(void) {
+	static BYTE rom[0x1c000];
+	static BYTE part[0x8000];
+	static const char *const files88[] = {"n88.rom",        "n88_0.rom", "n80.rom",
+	                                      "n80_vB.rom",     "font.rom",  "n88_vblank.rom",
+	                                      "n88_vshort.rom", "other.rom"};
+	static const char *const filessr[] = {"PC88.ROM"};
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dir88[MAX_PATH];
+	char dirsr[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_select[sizeof(np2cfg.extra_rom_select)];
+	char banner[64];
+	char mame[64];
+	char bios[32];
+	EXTRAROM_MACHINE *machines;
+	const EXTRAROM_MACHINE *m88 = NULL;
+	const EXTRAROM_MACHINE *msr = NULL;
+	const EXTRAROM_FILE *f;
+	const char *problem = NULL;
+	BOOL bad;
+	UINT count;
+	UINT i;
+
+	machines = (EXTRAROM_MACHINE *)malloc(sizeof(*machines) * EXTRAROM_MAX_MACHINES);
+	if (machines == NULL) {
+		return (fail("extra ROMs", "out of memory"));
+	}
+	/* Banners: two BASICs in one ROM are joined; a trailing '.' is dropped. */
+	ZeroMemory(part, 0x400);
+	memcpy(part + 0x10, "NEC PC-8001 BASIC Ver 1.3.", 26);
+	memcpy(part + 0x200, "NEC N-80 BASIC Ver 1.0", 22);
+	if ((extrarom_banner(part, 0x400, banner, sizeof(banner)) != 2) ||
+	    strcmp(banner, "PC-8001 BASIC Ver 1.3 + N-80 BASIC Ver 1.0")) {
+		problem = "version banners";
+	}
+	/* MAME names: this model's own entry is preferred; BAD_DUMP is kept. */
+	if ((problem == NULL) &&
+	    (!extrarom_mame_lookup("6d2d838de7fea20ddf6601660d0525d5b17bf8a3", "PC-8001", mame,
+	                           sizeof(mame), bios, sizeof(bios), &bad) ||
+	     strcmp(mame, "pc8001 n80v101.rom") || strcmp(bios, "N-BASIC v1.01") || !bad)) {
+		problem = "MAME name of a PC-8001 N-BASIC ROM";
+	}
+	if ((problem == NULL) &&
+	    (!extrarom_mame_lookup("82e11a177af6a5091dd67f50a2f4bafda84d6556", "PC-8801mkIISR", mame,
+	                           sizeof(mame), bios, sizeof(bios), &bad) ||
+	     strcmp(mame, "pc8801mk2sr kanji1.rom") || (bios[0] != '\0') || bad)) {
+		problem = "MAME name preferring the model";
+	}
+	if ((problem == NULL) &&
+	    extrarom_mame_lookup("0000000000000000000000000000000000000000", "PC-8801", mame,
+	                         sizeof(mame), bios, sizeof(bios), &bad)) {
+		problem = "MAME name of an unknown ROM";
+	}
+
+	SPRINTF(root, "vaeg-selftest-%lu-extra", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dir88, base, sizeof(dir88));
+	file_setseparator(dir88, sizeof(dir88));
+	file_catname(dir88, "PC-8801", sizeof(dir88));
+	file_cpyname(dirsr, base, sizeof(dirsr));
+	file_setseparator(dirsr, sizeof(dirsr));
+	file_catname(dirsr, "PC-8801mkIISR", sizeof(dirsr));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dir88);
+	file_dircreate(dirsr);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_select, np2cfg.extra_rom_select, sizeof(saved_select));
+	np2cfg.extra_rom_select[0] = '\0';
+
+	/* PC-8801: no disk.rom (its FDD is external); two N-BASIC files with
+	 * the same banner; a blank, a short and an unnamed file. */
+	if (problem == NULL) {
+		BOOL ok;
+		selftest_fill_rom(part, 0x8000, 1, "NEC N-88 BASIC Version 1.0");
+		ok = selftest_write_file(dir88, files88[0], part, 0x8000);
+		selftest_fill_rom(part, 0x2000, 2, NULL);
+		ok = ok && selftest_write_file(dir88, files88[1], part, 0x2000);
+		selftest_fill_rom(part, 0x8000, 3, "NEC PC-8001 BASIC Ver 1.2");
+		ok = ok && selftest_write_file(dir88, files88[2], part, 0x8000);
+		selftest_fill_rom(part, 0x8000, 4, "NEC PC-8001 BASIC Ver 1.2");
+		ok = ok && selftest_write_file(dir88, files88[3], part, 0x8000);
+		selftest_fill_rom(part, 0x800, 5, NULL);
+		ok = ok && selftest_write_file(dir88, files88[4], part, 0x800);
+		FillMemory(part, 0x8000, 0xff);
+		ok = ok && selftest_write_file(dir88, files88[5], part, 0x8000);
+		selftest_fill_rom(part, 0x100, 6, NULL);
+		ok = ok && selftest_write_file(dir88, files88[6], part, 0x100);
+		ok = ok && selftest_write_file(dir88, files88[7], part, 0x100);
+		/* mkIISR: one combined PC88.ROM with a 2 KiB DISK ROM, no kanji1. */
+		selftest_fill_rom(rom, sizeof(rom), 9, "NEC N-88 BASIC Version 1.4");
+		memcpy(rom + 0x10100, "<NEC N-88 BASIC Version 2.0", 28);
+		FillMemory(rom + 0x14800, 0x1800, 0xff);
+		ok = ok && selftest_write_file(dirsr, filessr[0], rom, sizeof(rom));
+		if (!ok) {
+			problem = "could not write test ROM files";
+		}
+	}
+	count = 0;
+	if (problem == NULL) {
+		count = extrarom_scan(machines, EXTRAROM_MAX_MACHINES);
+		for (i = 0; i < count; i++) {
+			if (strcmp(machines[i].name, "PC-8801") == 0) {
+				m88 = &machines[i];
+			} else if (strcmp(machines[i].name, "PC-8801mkIISR") == 0) {
+				msr = &machines[i];
+			}
+		}
+		if ((count != 2) || (m88 == NULL) || (msr == NULL) || (m88 > msr)) {
+			problem = "machine directories and their order";
+		}
+	}
+	if ((problem == NULL) &&
+	    (!m88->known || (m88->missing[0] != '\0') || (m88->count != 5) || (m88->ignored != 3))) {
+		problem = "PC-8801 files, ignored files or required roles";
+	}
+	if (problem == NULL) {
+		static const EXTRAROM_IGNORED reasons[] = {EXTRAROM_IGNORED_BLANK, EXTRAROM_IGNORED_SIZE,
+		                                           EXTRAROM_IGNORED_NAME};
+		for (i = 0; i < 3; i++) {
+			if ((strcmp(m88->skipped[i].file, files88[5 + i]) != 0) ||
+			    (m88->skipped[i].reason != reasons[i])) {
+				problem = "reasons for ignored files";
+			}
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(m88, "n88.rom", EXTRAROM_ROLE_N88);
+		if ((f == NULL) || strcmp(f->banner, "N-88 BASIC Version 1.0") ||
+		    strcmp(f->label, "N-88 BASIC Version 1.0") || (f->mame[0] != '\0')) {
+			problem = "banner label of a ROM unknown to MAME";
+		}
+	}
+	/* Equal banners, different contents: the SHA-1 prefix tells them apart. */
+	if (problem == NULL) {
+		const EXTRAROM_FILE *a = selftest_extra_file(m88, "n80.rom", EXTRAROM_ROLE_N80);
+		const EXTRAROM_FILE *b = selftest_extra_file(m88, "n80_vB.rom", EXTRAROM_ROLE_N80);
+		char expect[96];
+		if ((a == NULL) || (b == NULL) || strcmp(b->revision, "B")) {
+			problem = "revision file name";
+		} else {
+			SPRINTF(expect, "PC-8001 BASIC Ver 1.2 [%.8s]", b->sha1);
+			if (strcmp(b->label, expect) || !strcmp(a->label, b->label)) {
+				problem = "labels of revisions with equal banners";
+			}
+		}
+	}
+	/* The default is <role>.rom; a choice is remembered per machine and role. */
+	if (problem == NULL) {
+		f = extrarom_choice(m88, EXTRAROM_ROLE_N80);
+		if ((f == NULL) || strcmp(f->file, "n80.rom")) {
+			problem = "default revision";
+		}
+	}
+	if (problem == NULL) {
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N88, "X");
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N80, "B");
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N88, "");
+		f = extrarom_choice(m88, EXTRAROM_ROLE_N80);
+		if (strcmp(np2cfg.extra_rom_select, "PC-8801/n80=B") || (f == NULL) ||
+		    strcmp(f->file, "n80_vB.rom") ||
+		    strcmp(extrarom_selected("PC-8801", EXTRAROM_ROLE_N80), "B")) {
+			problem = "revision choice";
+		}
+		extrarom_select("PC-8801", EXTRAROM_ROLE_N80, "");
+		if ((problem == NULL) && (np2cfg.extra_rom_select[0] != '\0')) {
+			problem = "revision choice reset";
+		}
+	}
+	/* PC88.ROM: parts at the M88 offsets, N-BASIC joined from two pieces,
+	 * a 2 KiB DISK ROM, and kanji1.rom reported missing. */
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_N88_2);
+		if (!msr->known || strcmp(msr->missing, "kanji1") || (msr->count != 7) || (f == NULL) ||
+		    (f->offset != 0x10000) || strcmp(f->banner, "N-88 BASIC Version 2.0")) {
+			problem = "split of a combined PC88.ROM";
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_DISK);
+		if ((f == NULL) || (f->size != 0x800) || !extrarom_read(msr, f, part, 0x800) ||
+		    memcmp(part, rom + 0x14000, 0x800)) {
+			problem = "2 KiB DISK ROM in PC88.ROM";
+		}
+	}
+	if (problem == NULL) {
+		f = selftest_extra_file(msr, "PC88.ROM", EXTRAROM_ROLE_N80);
+		if ((f == NULL) || (f->size != 0x8000) || !extrarom_read(msr, f, part, 0x8000) ||
+		    memcmp(part, rom + 0x16000, 0x6000) || memcmp(part + 0x6000, rom + 0x8000, 0x2000)) {
+			problem = "N-BASIC from PC88.ROM";
+		}
+	}
+	/* A file changed after the scan is not read. */
+	if (problem == NULL) {
+		f = selftest_extra_file(m88, "n88_0.rom", EXTRAROM_ROLE_N88_0);
+		selftest_fill_rom(part, 0x2000, 7, NULL);
+		if ((f == NULL) || !selftest_write_file(dir88, "n88_0.rom", part, 0x2000) ||
+		    extrarom_read(m88, f, part, 0x2000)) {
+			problem = "ROM changed after the scan";
+		}
+	}
+
+	for (i = 0; i < NELEMENTS(files88); i++) {
+		selftest_delete_rom(dir88, files88[i]);
+	}
+	selftest_delete_rom(dirsr, filessr[0]);
+#if defined(_WIN32)
+	_rmdir(dir88);
+	_rmdir(dirsr);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dir88);
+	rmdir(dirsr);
+	rmdir(base);
+	rmdir(root);
+#endif
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	milstr_ncpy(np2cfg.extra_rom_select, saved_select, sizeof(np2cfg.extra_rom_select));
+	free(machines);
+	if (problem != NULL) {
+		return (fail("extra ROMs", problem));
+	}
+	fprintf(stderr, "selftest: extra ROMs ok\n");
+	return (SUCCESS);
+}
+
+/* Write `dir`/`name` filled by selftest_fill_rom; returns FALSE on error. */
+static BOOL selftest_put_rom(const char *dir, const char *name, UINT size, BYTE seed) {
+	static BYTE data[0x80000];
+
+	selftest_fill_rom(data, size, seed, NULL);
+	return selftest_write_file(dir, name, data, size);
+}
+
+/* M113: a PC-8801 model directory replaces the ROM images V1/V2 mode reads:
+ * N88-BASIC and its banks (absent banks FFh), N-BASIC, a 2 KiB FDD ROM
+ * repeated over 8 KiB or no FDD unit, the kanji ROMs in port order, the 8x8
+ * characters from kanji1.rom, no dictionary, and 自動 started as V1/V2. A
+ * missing role still starts; a directory without n88.rom leaves the VA ROMs.
+ * Synthetic data only. */
+static int test_extra_machine(void) {
+	static const char *const sr_files[] = {"n88.rom",   "n88_0.rom", "n88_1.rom", "n88_2.rom",
+	                                       "n88_3.rom", "n80.rom",   "disk.rom",  "kanji1.rom"};
+	static const UINT sr_sizes[] = {0x8000, 0x2000, 0x2000, 0x2000, 0x2000, 0x8000, 0x800, 0x20000};
+	static const char *const pc_files[] = {"n88.rom", "n88_0.rom", "n80.rom", "font.rom"};
+	static const UINT pc_sizes[] = {0x8000, 0x2000, 0x8000, 0x800};
+	static BYTE expect[0x20000];
+	static EXTRAROM_MACHINE scanned;
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dirsr[MAX_PATH];
+	char dirpc[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot_mode = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	EXTRAROM_PROFILE profile;
+	const char *problem = NULL;
+	BOOL ok = TRUE;
+	UINT i;
+
+	if (!extrarom_profile("PC-8801MA", &profile) || !profile.startable || !profile.v2 ||
+	    !profile.high || strcmp(profile.base_model, str_VA2) ||
+	    !extrarom_profile("PC-8801", &profile) || profile.v2 || profile.high ||
+	    !extrarom_profile("PC-88VA", &profile) || strcmp(profile.base_model, str_VA1) ||
+	    !extrarom_profile("PC-8001", &profile) || !profile.startable ||
+	    (profile.n_role != EXTRAROM_ROLE_N80) || !extrarom_profile("PC-8001mkII", &profile) ||
+	    (profile.n_role != EXTRAROM_ROLE_N80_2) || !extrarom_profile("PC-8801MA", &profile) ||
+	    profile.n_role || extrarom_profile("PC-9801", &profile)) {
+		problem = "model profiles";
+	}
+	SPRINTF(root, "vaeg-selftest-%lu-machine", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dirsr, base, sizeof(dirsr));
+	file_setseparator(dirsr, sizeof(dirsr));
+	file_catname(dirsr, "PC-8801mkIISR", sizeof(dirsr));
+	file_cpyname(dirpc, base, sizeof(dirpc));
+	file_setseparator(dirpc, sizeof(dirpc));
+	file_catname(dirpc, "PC-8801", sizeof(dirpc));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dirsr);
+	file_dircreate(dirpc);
+	for (i = 0; i < NELEMENTS(sr_files); i++) {
+		ok = ok && selftest_put_rom(dirsr, sr_files[i], sr_sizes[i], (BYTE)(0x10 + i));
+	}
+	for (i = 0; i < NELEMENTS(pc_files); i++) {
+		ok = ok && selftest_put_rom(dirpc, pc_files[i], pc_sizes[i], (BYTE)(0x40 + i));
+	}
+	if ((problem == NULL) && !ok) {
+		problem = "could not write test ROM files";
+	}
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	romva_machine_hook = extrarom_apply;
+
+	/* mkIISR: every role but jisyo. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801mkIISR", sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_AUTO;
+		romva_initialize();
+		selftest_fill_rom(expect, 0x8000, 0x10, NULL);
+		if (memcmp(rom1mem + 0x10000, expect, 0x8000) || (extrarom_last_error[0] != '\0')) {
+			problem = "N88-BASIC from n88.rom";
+		}
+		selftest_fill_rom(expect, 0x2000, 0x13, NULL);
+		if ((problem == NULL) && memcmp(rom1mem + 0x18000 + 2 * 0x2000, expect, 0x2000)) {
+			problem = "extension bank 2";
+		}
+		selftest_fill_rom(expect, 0x8000, 0x15, NULL);
+		if ((problem == NULL) && (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x8000))) {
+			problem = "N-BASIC from n80.rom";
+		}
+		selftest_fill_rom(expect, 0x800, 0x16, NULL);
+		if ((problem == NULL) &&
+		    (memcmp(subsystem.rom, expect, 0x800) ||
+		     memcmp(subsystem.rom + 0x1800, expect, 0x800) || subsystemmxcfg.absent)) {
+			problem = "2 KiB FDD ROM repeated over 8 KiB";
+		}
+		selftest_fill_rom(expect, 0x20000, 0x17, NULL);
+		if (problem == NULL) {
+			iocore_out8(0x0e8, 0x34);
+			iocore_out8(0x0e9, 0x12);
+			if ((cgrom88_kanji[0] == NULL) || (iocore_inp8(0x0e9) != expect[0x2468]) ||
+			    (iocore_inp8(0x0e8) != expect[0x2469])) {
+				problem = "kanji1.rom on ports E8h/E9h";
+			}
+		}
+		if ((problem == NULL) && ((cgrom88_kanji[1] == NULL) || (cgrom88_kanji[1][0] != 0xff) ||
+		                          memcmp(fontmem + 0x41000, expect + 0x1000, 0x800))) {
+			problem = "missing kanji2 or 8x8 characters from kanji1.rom";
+		}
+		if ((problem == NULL) && ((dicmem[0] != 0xff) || (dicmem[0x7ffff] != 0xff))) {
+			problem = "missing dictionary";
+		}
+		if ((problem == NULL) && (np2cfg.boot_mode != BOOTMODE_V1V2)) {
+			problem = "自動 started as V1/V2";
+		}
+	}
+	/* PC-8801: no disk.rom means no FDD unit; banks 1-3 read FFh. */
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801", sizeof(np2cfg.extra_machine));
+		romva_initialize();
+		selftest_fill_rom(expect, 0x800, 0x43, NULL);
+		if (!subsystemmxcfg.absent || (iocore_inp8(0x0fc) != 0xff) ||
+		    (rom1mem[0x18000 + 0x2000] != 0xff) || (rom1mem[0x1ffff] != 0xff) ||
+		    memcmp(fontmem + 0x41000, expect, 0x800)) {
+			problem = "PC-8801 without an FDD unit";
+		}
+	}
+	/* A missing role does not prevent a start: without kanji1.rom the port
+	 * reads FFh. Without n88.rom the VA ROMs stay and the reason is kept. */
+	if (problem == NULL) {
+		selftest_delete_rom(dirsr, "kanji1.rom");
+		milstr_ncpy(np2cfg.extra_machine, "PC-8801mkIISR", sizeof(np2cfg.extra_machine));
+		romva_initialize();
+		iocore_out8(0x0e8, 0x34);
+		iocore_out8(0x0e9, 0x12);
+		if ((extrarom_last_error[0] != '\0') || (rom1mem[0x10000] != 0x10) ||
+		    (cgrom88_kanji[0] == NULL) || (iocore_inp8(0x0e9) != 0xff)) {
+			problem = "machine with a missing role";
+		}
+	}
+	if (problem == NULL) {
+		selftest_delete_rom(dirsr, "n88.rom");
+		FillMemory(rom1mem + 0x10000, 0x8000, 0x5a);
+		romva_initialize();
+		if ((extrarom_last_error[0] == '\0') || (cgrom88_kanji[0] != NULL) ||
+		    subsystemmxcfg.absent || (rom1mem[0x10000] == 0x10)) {
+			problem = "machine without n88.rom";
+		}
+		/* The 起動 entries are disabled for it. */
+		if ((problem == NULL) && (!extrarom_scan_machine(dirsr, "PC-8801mkIISR", &scanned) ||
+		                          extrarom_startable(&scanned))) {
+			problem = "start entries without n88.rom";
+		}
+	}
+	for (i = 0; i < NELEMENTS(sr_files); i++) {
+		selftest_delete_rom(dirsr, sr_files[i]);
+	}
+	for (i = 0; i < NELEMENTS(pc_files); i++) {
+		selftest_delete_rom(dirpc, pc_files[i]);
+	}
+#if defined(_WIN32)
+	_rmdir(dirsr);
+	_rmdir(dirpc);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dirsr);
+	rmdir(dirpc);
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot_mode;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("PC-8801 machine", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 machine ok\n");
+	return (SUCCESS);
+}
+
+/* M114: a PC-8001 model runs in N mode: its 24 KiB N-BASIC with the
+ * 6000h-7FFFh socket reading FFh, the 8x8 characters from font.rom, no FDD
+ * unit without disk.rom, a 15 kHz monitor, and port 31h with its PC-8001mkII
+ * meaning (N-BASIC and 200 lines kept, bit 1 all-RAM and bit 3 graphics
+ * passed on). Synthetic data only. */
+static int test_pc8001_machine(void) {
+	static BYTE expect[0x6000];
+	char root[MAX_PATH];
+	char base[MAX_PATH];
+	char dir[MAX_PATH];
+	char saved_biospath[MAX_PATH];
+	char saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot_mode = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	const char *problem = NULL;
+
+	SPRINTF(root, "vaeg-selftest-%lu-pc8001", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_cpyname(dir, base, sizeof(dir));
+	file_setseparator(dir, sizeof(dir));
+	file_catname(dir, "PC-8001", sizeof(dir));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_dircreate(dir);
+	if (!selftest_put_rom(dir, "n80.rom", 0x6000, 0x31) ||
+	    !selftest_put_rom(dir, "font.rom", 0x800, 0x32)) {
+		problem = "could not write test ROM files";
+	}
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	romva_machine_hook = extrarom_apply;
+	if (problem == NULL) {
+		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		romva_initialize();
+		selftest_fill_rom(expect, 0x6000, 0x31, NULL);
+		if (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x6000) ||
+		    (memoryva_n80[0x6000] != 0xff) || (memoryva_n80[0x7fff] != 0xff)) {
+			problem = "24 KiB N-BASIC with an empty socket";
+		}
+		selftest_fill_rom(expect, 0x800, 0x32, NULL);
+		if ((problem == NULL) && memcmp(fontmem + 0x41000, expect, 0x800)) {
+			problem = "8x8 characters from font.rom";
+		}
+		if ((problem == NULL) && (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) ||
+		                          (videova.crtmode != 0) || !subsystemmxcfg.absent)) {
+			problem = "N mode, 15 kHz and no FDD unit";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x031, 0x10);
+		if (memoryva_88_port31 != 0x05) {
+			problem = "port 31h keeps N-BASIC and 200 lines";
+		}
+		iocore_out8(0x031, 0x0a);
+		if ((problem == NULL) && (memoryva_88_port31 != 0x0f)) {
+			problem = "port 31h passes all-RAM and graphics bits";
+		}
+	}
+	selftest_delete_rom(dir, "n80.rom");
+	selftest_delete_rom(dir, "font.rom");
+#if defined(_WIN32)
+	_rmdir(dir);
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(dir);
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot_mode;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
+	if ((problem == NULL) && memoryva_pc8001) {
+		problem = "PC-8001 state left after reset";
+	}
+	if (problem != NULL) {
+		return (fail("PC-8001 machine", problem));
+	}
+	fprintf(stderr, "selftest: PC-8001 machine ok\n");
+	return (SUCCESS);
+}
+
+/* M115: PCG-8100/8800: character writes and ROM copies into the two banks,
+ * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
+ * loads, BCD, short counts silent), the tone output, and nothing while the
+ * PCG is disabled or outside 88 mode. */
+static int test_pcg88(void) {
+	const UINT8 saved_enable = np2cfg.pcg_enable;
+	const BOOL saved_88 = memoryva_88_mode;
+	const UINT32 saved_rate = soundcfg.rate;
+	const BYTE saved_rom = fontmem[0x41000 + 0x400];
+	SINT32 pcm[2 * 64];
+	const BYTE *g;
+	const char *problem = NULL;
+	UINT i;
+	BOOL sound;
+	BOOL edge;
+
+	/* a live machine of its own: earlier tests end with pccore_term() */
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	fontmem[0x41000 + 0x400] = 0x3c;
+	np2cfg.pcg_enable = 1;
+	memoryva_88_mode = TRUE;
+	pcg88_reset();
+	pcg88_initfont();
+	if ((pcg88.ram[0][0] != 0x3c) || (pcg88.ram[1][0] != 0x3c)) {
+		problem = "banks start as the ROM's codes 80h-FFh";
+	}
+	if (problem == NULL) {
+		iocore_out8(0x00, 0x5a);
+		iocore_out8(0x01, 0x08);
+		iocore_out8(0x02, 0x10);
+		g = pcg88_glyph(0x81);
+		if ((pcg88.ram[0][8] != 0x5a) || (g == NULL) || (g[0] != 0x5a) ||
+		    (pcg88_glyph(0x01) != NULL)) {
+			problem = "character write and the upper half shown";
+		}
+		/* M115a (as QUASI88): with bit 12 set, writes to 00h and 01h do not
+		 * store; the next write to 02h does. */
+		iocore_out8(0x00, 0x66);
+		iocore_out8(0x01, 0x0a);
+		if ((problem == NULL) && ((pcg88.ram[0][8] != 0x5a) || (pcg88.ram[0][10] == 0x66))) {
+			problem = "store by a write to port 00h or 01h";
+		}
+		iocore_out8(0x02, 0x10);
+		if ((problem == NULL) && (pcg88.ram[0][10] != 0x66)) {
+			problem = "store by a write to port 02h";
+		}
+		iocore_out8(0x02, 0x00); /* write bit clear: no write */
+		iocore_out8(0x01, 0x09);
+		iocore_out8(0x00, 0x99);
+		if ((problem == NULL) && (pcg88.ram[0][9] == 0x99)) {
+			problem = "write without address bit 12";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x03, 0x12); /* lower half from bank 0, write bank 1 */
+		pcg88.ram[0][0] = 0x77;
+		pcg88.ram[1][0] = 0x00;
+		iocore_out8(0x01, 0x00);
+		iocore_out8(0x02, 0x30); /* copy the ROM */
+		g = pcg88_glyph(0x00);
+		if ((pcg88.ram[1][0] != 0x3c) || (g == NULL) || (g[0] != 0x77) ||
+		    (pcg88_glyph(0x80) != NULL)) {
+			problem = "bank select, ROM copy and port 03h";
+		}
+	}
+	if (problem == NULL) {
+		iocore_out8(0x0f, 0x36); /* counter 0, LSB then MSB */
+		iocore_out8(0x0c, 0xe8);
+		iocore_out8(0x0c, 0x03);
+		iocore_out8(0x0f, 0x66); /* counter 1, MSB only */
+		iocore_out8(0x0d, 0x10);
+		iocore_out8(0x0f, 0xb7); /* counter 2, LSB then MSB, BCD 2000 */
+		iocore_out8(0x0e, 0x00);
+		iocore_out8(0x0e, 0x20);
+		if (pcg88_frequency(0) != 0) {
+			problem = "tone before its enable bit";
+		}
+		iocore_out8(0x02, 0xc8);
+		if ((problem == NULL) &&
+		    ((pcg88_frequency(0) != 3993600 / 1000) || (pcg88_frequency(1) != 3993600 / 0x1000) ||
+		     (pcg88_frequency(2) != 3993600 / 2000))) {
+			problem = "8253 counts and tones";
+		}
+		iocore_out8(0x0f, 0x76); /* counter 1: 266 silent, 267 sounds */
+		iocore_out8(0x0d, 0x0a);
+		iocore_out8(0x0d, 0x01);
+		if ((problem == NULL) && (pcg88_frequency(1) != 0)) {
+			problem = "a count of 266 is silent";
+		}
+		iocore_out8(0x0d, 0x0b);
+		iocore_out8(0x0d, 0x01);
+		if ((problem == NULL) && (pcg88_frequency(1) != 3993600 / 267)) {
+			problem = "a count of 267 sounds";
+		}
+		iocore_out8(0x0f, 0x34); /* counter 0 in mode 2: no tone */
+		if ((problem == NULL) && (pcg88_frequency(0) != 0)) {
+			problem = "a counter outside mode 3 is silent";
+		}
+		iocore_out8(0x0f, 0x36);
+	}
+	if (problem == NULL) {
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		ZeroMemory(pcm, sizeof(pcm));
+		iocore_out8(0x02, 0x40); /* counter 1 alone, 267: near 15 kHz */
+		pcg88_getpcm(NULL, pcm, 64);
+		sound = FALSE;
+		edge = FALSE;
+		for (i = 0; i < NELEMENTS(pcm); i++) {
+			sound = sound || (pcm[i] != 0);
+			/* band-limited edges: samples between the two levels */
+			edge = edge || ((pcm[i] != 0) && (pcm[i] != 64 * 32) && (pcm[i] != -64 * 32));
+		}
+		if (!sound || !edge) {
+			problem = "band-limited tone output";
+		}
+	}
+	if (problem == NULL) {
+		np2cfg.pcg_enable = 0;
+		iocore_out8(0x00, 0x11);
+		iocore_out8(0x01, 0x08);
+		iocore_out8(0x02, 0x10);
+		if ((pcg88.ram[1][8] == 0x11) || (pcg88_glyph(0x81) != NULL) || (pcg88_frequency(0) != 0)) {
+			problem = "PCG disabled";
+		}
+		np2cfg.pcg_enable = 1;
+		memoryva_88_mode = FALSE;
+		if ((problem == NULL) && ((pcg88_glyph(0x81) != NULL) || (pcg88_frequency(0) != 0))) {
+			problem = "PCG outside 88 mode";
+		}
+	}
+	np2cfg.pcg_enable = saved_enable;
+	memoryva_88_mode = saved_88;
+	soundcfg.rate = saved_rate;
+	pcg88_setvol(np2cfg.pcg_vol);
+	fontmem[0x41000 + 0x400] = saved_rom;
+	pcg88_reset();
+	pcg88_initfont();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("PCG-8100/8800", problem));
+	}
+	fprintf(stderr, "selftest: PCG-8100/8800 ok\n");
+	return (SUCCESS);
+}
+
+/* M117: TSP attribute modes. Modes 4 and 5 read bit 7 as blink, bits 6-4
+ * as background and 3-0 as foreground; mode 5 adds the line for foreground
+ * 1/9; with F0h modes 6 and 7 are grey without blinking; mode 2 takes
+ * shape bits and mode 3 colour/shape records (PC-88VA2 TSPMODE); modes 0
+ * and 1 are unchanged. The cursor needs DSPON. */
+static int test_tsp_attribute_modes(void) {
+	BYTE bg;
+	BYTE fg;
+	BYTE flags;
+	const char *problem = NULL;
+
+	maketextva_decode_attr(4, 0xf0, 0, &bg, &fg, &flags);
+	if ((bg != 7) || (fg != 0) || !(flags & 0x02)) {
+		problem = "mode 4 blink, background and foreground";
+	}
+	maketextva_decode_attr(4, 0x35, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 5) || (flags != 0))) {
+		problem = "mode 4 without blink";
+	}
+	maketextva_decode_attr(5, 0x09, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 9) || !(flags & 0x08) || (flags & 0x02))) {
+		problem = "mode 5 horizontal line for foreground 9";
+	}
+	maketextva_decode_attr(5, 0x82, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (!(flags & 0x02) || (flags & 0x08))) {
+		problem = "mode 5 blink without the line";
+	}
+	maketextva_decode_attr(6, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 6 grey background without blink";
+	}
+	maketextva_decode_attr(2, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0) || (fg != 7) || (flags != 0x70))) {
+		problem = "mode 2 DWID, underline and line from 70h";
+	}
+	maketextva_decode_attr(2, 0x8f, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && (flags != 0x87)) {
+		problem = "mode 2 DWIDC, reverse, blink and secret without bit 3";
+	}
+	maketextva_decode_reset();
+	maketextva_decode_attr(3, 0x70, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0) || (bg != 0) || (flags != 0x70))) {
+		problem = "mode 3 shape record alone stays black";
+	}
+	maketextva_decode_attr(3, 0xab, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((fg != 0x0a) || (bg != 3) || (flags != 0x70))) {
+		problem = "mode 3 colour record keeps the shape";
+	}
+	maketextva_decode_reset();
+	maketextva_decode_attr(7, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (flags & 0x02))) {
+		problem = "mode 7 grey background without blink";
+	}
+	maketextva_decode_attr(0, 0xf0, 0, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 0x0f) || (fg != 0) || (flags != 0))) {
+		problem = "mode 0 unchanged";
+	}
+	maketextva_decode_attr(1, 0xf2, 3, &bg, &fg, &flags);
+	if ((problem == NULL) && ((bg != 3) || (fg != 0x0f) || (flags != 0x02))) {
+		problem = "mode 1 unchanged";
+	}
+	{
+		/* the CURDEF cursor needs the text display (DSPON): SYNC alone
+		 * leaves it hidden, as on the hardware with a commercial game */
+		const UINT8 saved_ce = tsp.ce;
+		const BOOL saved_dspon = tsp.dspon;
+
+		tsp.ce = 1;
+		tsp.dspon = FALSE;
+		if ((problem == NULL) && makesprva_cursor_shown()) {
+			problem = "cursor shown without DSPON";
+		}
+		tsp.dspon = TRUE;
+		if ((problem == NULL) && !makesprva_cursor_shown()) {
+			problem = "cursor hidden with CE and DSPON";
+		}
+		tsp.ce = saved_ce;
+		tsp.dspon = saved_dspon;
+	}
+	if (problem != NULL) {
+		return (fail("TSP attribute modes", problem));
+	}
+	fprintf(stderr, "selftest: TSP attribute modes ok\n");
 	return (SUCCESS);
 }
 
@@ -5468,7 +6752,7 @@ static int test_v1v2_memory_switch(void) {
 		/* N mode: RMODE at reset, port 40h bit 3, and the 8801 reset state of
 		 * the ROM's emulated port 53h (text on) at the first compat entry. */
 		memoryva_n80_exist = TRUE;
-		np2cfg.v1v2_nmode = 1;
+		np2cfg.boot_mode = BOOTMODE_N;
 		memoryva_88_port31 = 0;
 		memctrlva_nmode_reset();
 		if ((problem == NULL) && ((memoryva_88_port31 != 0x04) || !memctrlva_nmode_active() ||
@@ -5499,7 +6783,7 @@ static int test_v1v2_memory_switch(void) {
 		if ((problem == NULL) && ((memoryva_88_port31 != 0) || (iocore_inp8(0x040) & 0x08))) {
 			problem = "N mode acted without an N80 ROM";
 		}
-		np2cfg.v1v2_nmode = 0;
+		np2cfg.boot_mode = BOOTMODE_AUTO;
 		memoryva_n80_exist = saved_exist;
 		memoryva_n80[0x0000] = saved0;
 		memoryva_n80[0x5fff] = saved1;
@@ -5527,11 +6811,13 @@ static int test_v1v2_rom_ports(void) {
 
 	/* Level 1 kanji: JIS 323Ch is PC-8801 word address 65C0h + row (byte
 	 * CB80h); the VA font image keeps it at byte 8B80h (bit 14 inverted).
-	 * Non-kanji addresses below 4000h index the image directly. */
+	 * Non-kanji addresses below 4000h index the image directly. Level 2 is
+	 * not inverted (M113): word address 65C0h reads byte CB80h. */
 	fontmem[0x8b80 + 2 * 3] = 0x5a;
 	fontmem[0x8b80 + 2 * 3 + 1] = 0xa5;
 	fontmem[0x0420] = 0x11;
-	fontmem[0x20000 + 0x8b80] = 0x77;
+	fontmem[0x20000 + 0xcb80] = 0x77;
+	fontmem[0x20000 + 0x8b80] = 0x66;
 	iocore_out8(0x0e8, 0xc3);
 	iocore_out8(0x0e9, 0x65);
 	if ((iocore_inp8(0x0e9) != 0x5a) || (iocore_inp8(0x0e8) != 0xa5)) {
@@ -6238,6 +7524,35 @@ static int test_keyboard_mapping(void) {
 	    (kbdpaste_interval_ms() != 20)) {
 		return (fail("keyboard-paste", "UTF-8 skip or pacing failed"));
 	}
+	/* M106: a scripted paste runs even while the GUI holds the keyboard.
+	 * M115: each key event also waits for guest frames, so that a released
+	 * key is seen before the same key is pressed again. */
+	if (kbdpaste_start_text("ab")) {
+		UINT32 now = SDL_GetTicks() + 4 * kbdpaste_interval_ms();
+		UINT frame;
+
+		for (index = 0; index < 8; index++) {
+			kbdpaste_tick(now, TRUE);
+			now += kbdpaste_interval_ms();
+		}
+		if (!kbdpaste_active()) {
+			kbdpaste_cancel();
+			return (fail("keyboard-paste", "key events without guest frames"));
+		}
+		for (index = 0; (index < 16) && kbdpaste_active(); index++) {
+			for (frame = 0; frame < kbdpaste_frames_per_event(); frame++) {
+				kbdpaste_frame();
+			}
+			kbdpaste_tick(now, TRUE);
+			now += kbdpaste_interval_ms();
+		}
+		if (kbdpaste_active()) {
+			kbdpaste_cancel();
+			return (fail("keyboard-paste", "scripted paste held by GUI keyboard focus"));
+		}
+	} else {
+		return (fail("keyboard-paste", "scripted paste did not start"));
+	}
 	fprintf(stderr, "selftest: keyboard paste mapping ok\n");
 	fprintf(stderr, "selftest: keyboard mapping ok\n");
 	return (SUCCESS);
@@ -6358,6 +7673,13 @@ static int test_mouse_state(void) {
 	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_SCREENSHOT)) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 screenshot binding changed"));
+	}
+	/* M110: F12 can pause and resume instead of the menu-bar button. */
+	np2oscfg.F12KEY = KBDMAP_F12_PAUSE;
+	if ((kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_PAUSE)) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 pause binding changed"));
 	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
@@ -6546,6 +7868,9 @@ int vaeg_selftest_run(void) {
 	if (test_persistence_controls() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_boot_fixed_disk() != SUCCESS) {
+		return (FAILURE);
+	}
 	if (test_main_ram_configuration() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -6568,6 +7893,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_multi_image() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_multi_image_state() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_production_path() != SUCCESS) {
@@ -6656,6 +7984,21 @@ int vaeg_selftest_run(void) {
 	if (test_n80_rom_files() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_extra_roms() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_extra_machine() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pc8001_machine() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pcg88() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_attribute_modes() != SUCCESS) {
+		return (FAILURE);
+	}
 	if (test_monitor_switch() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -6665,7 +8008,36 @@ int vaeg_selftest_run(void) {
 	if (test_monitor_output_levels() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_app_directory() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_cursor_keys_as_mouse() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_boot_mode_sw7() != SUCCESS) {
+		return (FAILURE);
+	}
+	{
+		/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
+		const int saved = soundmng_mastervolume();
+		soundmng_setmastervolume(0);
+		const int v0 = soundmng_mastervolume();
+		soundmng_setmastervolume(50);
+		const int v50 = soundmng_mastervolume();
+		soundmng_setmastervolume(100);
+		const int v100 = soundmng_mastervolume();
+		soundmng_setmastervolume(250);
+		const int v250 = soundmng_mastervolume();
+		soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
+		if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
+			return (fail("master volume", "percent to mixing volume"));
+		}
+		fprintf(stderr, "selftest: master volume ok\n");
+	}
 	if (test_scanline_fill() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_front_panel() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_8801_display() != SUCCESS) {

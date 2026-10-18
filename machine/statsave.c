@@ -35,6 +35,7 @@
 #include "videova.h"
 #include "tsp.h"
 #include "cgromva.h"
+#include "pcg88.h"
 #include "gactrlva.h"
 #include "sgp.h"
 #include "mouseifva.h"
@@ -974,8 +975,11 @@ static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
 
 	sxsi_flash();
 	ret = STATFLAG_SUCCESS;
+	/* M120: bits 15-8 of `readonly` hold the disk of a multi-image D88
+	 * (states saved before hold 0 there: the first disk). */
 	for (i = 0; i < 4; i++) {
-		ret |= disksave(sfh, fdd_diskname(i), fdd_diskprotect(i));
+		ret |= disksave(sfh, fdd_diskname(i),
+		                (fdd_diskprotect(i) ? 1 : 0) | (int)(fdd_diskimage(i) << 8));
 	}
 	for (i = 0x00; i < 0x02; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
@@ -1053,12 +1057,14 @@ static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
 				flagload_disk_hook(i, st.path, sizeof(st.path), &st.readonly);
 			}
 			if (st.path[0]) {
-				fdd_set(i, st.path, FTYPE_NONE, st.readonly);
+				fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
+				fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
 			} else {
 				fdd_eject(i);
 			}
 #else
-			fdd_set(i, st.path, FTYPE_NONE, st.readonly);
+			fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
+			fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
 #endif
 		} else {
 			fdd_eject(i);

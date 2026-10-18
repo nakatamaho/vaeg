@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 const char *vaeg_builtin_shader_preset(void);
+void vaeg_builtin_shader_set_cache_root(const char *directory);
 #ifdef __cplusplus
 }
 #endif

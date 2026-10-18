@@ -22,7 +22,7 @@ rounding the result to VA 8-bpp `GGGRRRBB` direct color. There is no retained
 nonzero samples that quantize to zero use a dark neutral fallback so shadow
 pixels do not acquire a blue cast.
 UP/DOWN (or `+`/`-`) changes the active ball
-count from 1 through 128; ESC exits and restores the previous video mode.
+count from 1 through 1024; ESC exits and restores the previous video mode.
 
 Build with:
 

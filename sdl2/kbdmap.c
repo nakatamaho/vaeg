@@ -411,17 +411,12 @@ static const USKEYTOP_ENTRY us_keytop_entries[] = {
     {SDL_SCANCODE_SLASH, 0, APASS(0x32, "/")},
     {SDL_SCANCODE_SLASH, 1, ACHORD(GUEST_SHIFTL_CODE, 0x32, "?")}};
 
+/* M106 (maintainer request): the host cursor keys, not letter keys. */
 static const TENKEYOVERLAY_ENTRY tenkey_overlay_entries[] = {
-    {SDL_SCANCODE_Y, 0x42, "tenkey overlay keypad 7"},
-    {SDL_SCANCODE_U, 0x43, "tenkey overlay keypad 8"},
-    {SDL_SCANCODE_I, 0x44, "tenkey overlay keypad 9"},
-    {SDL_SCANCODE_H, 0x46, "tenkey overlay keypad 4"},
-    {SDL_SCANCODE_J, 0x47, "tenkey overlay keypad 5"},
-    {SDL_SCANCODE_K, 0x48, "tenkey overlay keypad 6"},
-    {SDL_SCANCODE_N, 0x4a, "tenkey overlay keypad 1"},
-    {SDL_SCANCODE_M, 0x4b, "tenkey overlay keypad 2"},
-    {SDL_SCANCODE_COMMA, 0x4c, "tenkey overlay keypad 3"},
-    {SDL_SCANCODE_PERIOD, 0x4e, "tenkey overlay keypad 0"}};
+    {SDL_SCANCODE_UP, 0x43, "tenkey overlay keypad 8"},
+    {SDL_SCANCODE_LEFT, 0x46, "tenkey overlay keypad 4"},
+    {SDL_SCANCODE_RIGHT, 0x48, "tenkey overlay keypad 6"},
+    {SDL_SCANCODE_DOWN, 0x4b, "tenkey overlay keypad 2"}};
 
 #undef AKEY
 #undef ACHORD
@@ -1442,6 +1437,9 @@ KBDMAP_SPECIAL_ACTION kbdmap_special_action(UINT scancode) {
 	if ((scancode == SDL_SCANCODE_F12) && (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
 		return KBDMAP_SPECIAL_SCREENSHOT;
 	}
+	if ((scancode == SDL_SCANCODE_F12) && (np2oscfg.F12KEY == KBDMAP_F12_PAUSE)) {
+		return KBDMAP_SPECIAL_PAUSE;
+	}
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
 		if (bindings[i] == (SDL_Scancode)scancode) {
 			KBDMAP_SPECIAL_ACTION action = special_action_for_role(entries[i].role);
@@ -1703,17 +1701,18 @@ int kbdmap_selftest(void) {
 	if (!kbdmap_tenkey_overlay_enabled()) {
 		KBDMAP_SELFTEST_FAIL("tenkey overlay persistence");
 	}
-	if ((selftest_expect_tenkey_overlay_action(SDL_SCANCODE_Y, 0x42) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_U, 0x43) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_I, 0x44) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_H, 0x46) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_J, 0x47) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_K, 0x48) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_N, 0x4a) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_M, 0x4b) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_COMMA, 0x4c) != SUCCESS) ||
-	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_PERIOD, 0x4e) != SUCCESS)) {
+	if ((selftest_expect_tenkey_overlay_action(SDL_SCANCODE_UP, 0x43) != SUCCESS) ||
+	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_LEFT, 0x46) != SUCCESS) ||
+	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_RIGHT, 0x48) != SUCCESS) ||
+	    (selftest_expect_tenkey_overlay_action(SDL_SCANCODE_DOWN, 0x4b) != SUCCESS)) {
 		KBDMAP_SELFTEST_FAIL("tenkey overlay mapping");
+	}
+	{
+		KBD_ACTION letter;
+
+		if (resolve_tenkey_overlay_action(SDL_SCANCODE_U, &letter)) {
+			KBDMAP_SELFTEST_FAIL("tenkey overlay still takes letter keys");
+		}
 	}
 	np2oscfg.keyboard_tenkey_overlay = 0;
 	set_config_string(np2oscfg.keyboard_host_layout, sizeof(np2oscfg.keyboard_host_layout), "jis");

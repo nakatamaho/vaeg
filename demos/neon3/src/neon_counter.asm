@@ -337,6 +337,10 @@ start:
         ; that has just finished rather than a frame that is still rendering.
         call    neon_counter_update_overlay
 %endif
+        ; The looping release never reaches the idle ESC poll below, so
+        ; poll once per completed frame (M106; the SGP list is idle here).
+        call    neon_escape_pressed
+        jc      neon_counter_exit
         inc     word [frame_counter]
         cmp     word [frame_counter], NEON_FRAME_LIMIT
         jb      .frame_loop
@@ -598,6 +602,7 @@ neon_va_enter:
         pop     es
         or      ax, ax
         jnz     .fail_display
+        call    line_doubling_on
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_GVRAM
         out     dx, al
@@ -650,7 +655,51 @@ neon_va_enter:
         stc
         ret
 
+; M109: on a 24.8 kHz display (port 1CBh bit 3) show 200-line graphics
+; (port 100h VM1 set) with each line on two rasters, port 100h RSM = 01,
+; instead of the scanline gaps of RSM = 00 (measured on a PC-88VA2 with
+; V480PAT D). Off restores RSM = 00 before the screen is handed back.
+line_doubling_on:
+        push    ax
+        push    dx
+        mov     dx, 0x01cb
+        in      al, dx
+        test    al, 0x08
+        jz      .done
+        mov     dx, 0x0100
+        in      ax, dx
+        test    al, 0x02
+        jz      .done
+        test    al, 0xc0
+        jnz     .done
+        or      al, 0x40
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 1
+.done:
+        pop     dx
+        pop     ax
+        ret
+
+line_doubling_off:
+        cmp     byte [cs:line_doubling_set], 0
+        je      .done
+        push    ax
+        push    dx
+        mov     dx, 0x0100
+        in      ax, dx
+        and     al, 0x3f
+        out     dx, ax
+        mov     byte [cs:line_doubling_set], 0
+        pop     dx
+        pop     ax
+.done:
+        ret
+
+line_doubling_set:
+        db      0
+
 neon_va_leave:
+        call    line_doubling_off
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_TVRAM
         out     dx, al
@@ -660,13 +709,20 @@ neon_va_leave:
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0300h              ; VA $Compose, text above G0
-        mov     cx, 0031h
+        ; Return to the caller's text screen (M106): graphics off, the
+        ; default palette back (the cursor and text use it), text only.
+        mov     ax, 0b00h              ; VA $ScnDsp, graphics off
         int     NEON_VIDEO_BIOS_INT
         mov     ax, 0338h
         mov     ds, ax
         mov     es, ax
-        mov     ax, 0b01h              ; VA $ScnDsp, display on
+        mov     ax, 0a00h              ; VA $PalInit
+        int     NEON_VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; VA $Compose, text only
+        mov     cx, 0001h
         int     NEON_VIDEO_BIOS_INT
         cld
         push    cs
@@ -702,10 +758,11 @@ neon_text_write_static_overlay:
         mov     dh, 3
         xor     dl, dl
         call    neon_status_bios_puts_at
+        ; The value is the length of one pass of the looping timeline.
         mov     si, neon_live_limit
+        mov     ax, NEON_FRAME_LIMIT
         mov     dh, 4
-        xor     dl, dl
-        call    neon_status_bios_puts_at
+        call    neon_status_bios_hex_at
         mov     si, neon_status_exit
         mov     dh, 14
         xor     dl, dl
@@ -773,17 +830,18 @@ neon_counter_update_overlay:
         popa
         ret
 
-; VA keyboard BIOS polling: AH=01h tests, AH=00h consumes one key.
+; VA keyboard BIOS polling, as in NEON4 and the SGP demos: AH=0Ah tests for
+; a pending key and AH=09h consumes it; scan code AH=00h is ESC.  AH=00h
+; waits on the Japanese front end, which MS-DOS does not install, so the
+; former AH=01h/00h pair stopped NEON3 under MS-DOS (M106).
 ; Return CF=1 only for the ESC key.
 neon_escape_pressed:
-        mov     ah, 01h
+        mov     ah, 0ah
         int     NEON_KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 00h
+        mov     ah, 09h
         int     NEON_KEYBOARD_BIOS_INT
-        cmp     bh, 0
-        jne     .none
-        cmp     bl, 1bh
+        cmp     ah, 00h
         je      .escape
 .none:
         clc
@@ -1883,8 +1941,9 @@ neon_text_last_scene                db 0ffh
 ; alignment cushion without letting the status-row cleanup cross the loader
 ; return reserve at E000h.  M106 shrank it from 224 words so that the public
 ; NEON RELAY 3 ver1.5 sources (external/neon3-1.5), 128 bytes larger than the
-; earlier private copy, still fit.
-neon_counter_stack                 times 160 dw 0
+; earlier private copy, still fit; M109 shrank it by another 64 words for
+; the 24.8 kHz line doubling.
+neon_counter_stack                 times 96 dw 0
 neon_counter_stack_top:
 
 align 2

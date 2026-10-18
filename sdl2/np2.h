@@ -63,8 +63,6 @@ typedef struct {
 	BYTE jastsnd;
 	BYTE gui_scale;
 	BYTE gui_aspect;
-	char gui_fdd_dir[MAX_PATH];
-	char gui_hdd_dir[MAX_PATH];
 	char fdd_image[2][MAX_PATH];
 	char keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
 	char keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
@@ -74,8 +72,10 @@ typedef struct {
 	char opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
 	char ymfm_fidelity[NP2OSCFG_YMFM_FIDELITY_NAME_SIZE];
 	BYTE sound_enabled;
+	BYTE master_volume; /* M110: 全体の音量, 0-100 % of the final mix */
 	BYTE gui_effect;
 	BYTE gui_scaling;
+	BYTE gui_rotate; /* M117: VAEG_ROTATE_NONE or VAEG_ROTATE_RIGHT */
 	UINT16 gui_window_width;
 	UINT16 gui_window_height;
 	BYTE gui_display_mode;
@@ -96,6 +96,11 @@ typedef struct {
 	BYTE gui_native_mask_auto;
 	/* Emulation speed in percent (10-400; 0 = 100); No Wait is the maximum. */
 	UINT16 speed_percent;
+	/* Front panel below the screen (FDD access and V1/V2/V3 mode lamps):
+	 * FRONTPANEL_OFF or FRONTPANEL_SIMPLE (lamp bar). */
+	BYTE front_panel;
+	/* M120: the disk of a multi-image D88 in fdd_image[], 0 = first. */
+	BYTE fdd_image_index[2];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

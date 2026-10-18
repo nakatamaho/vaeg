@@ -11,6 +11,7 @@ extern BYTE sprraster[];
 void makesprva_initialize(void);
 
 void makesprva_begin(void);
+BOOL makesprva_cursor_shown(void);
 void makesprva_raster(void);
 void makesprva_blankraster(void);
 
