@@ -194,3 +194,10 @@ change or main-branch update. The maintainer's macOS practical lossless-recordin
 check is still pending; this sync is NOT a passed gate, and main incorporation
 must wait for explicit acceptance. Current recorder is FFV1 lossless compression,
 not raw uncompressed video.
+Merge commit [2bd194b9](https://github.com/nakatamaho/vaeg/commit/2bd194b96352cb7ea4af8f56767074a4896c6d9c)
+parents050f5ad2 +02ce6d47. Final Mac static Release is38717112 bytes/SHA256
+`f5d19553a59259c3285ec4f98ad2cd7606e308c94136d692d11a790b79da1f88`;
+selftest0/system-only imports. Windows refresh cannot start because the local
+Docker daemon socket is unavailable, not a compilation failure;9147 executable/
+report preserved. [Candidate and pending gate](../../recording-v1/recording-ui-followup.md#current-main-synchronized-recording-candidate).
+No private-media/performance rerun or gate pass; r2 integration remains held.

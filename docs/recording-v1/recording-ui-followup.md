@@ -24,6 +24,33 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
+## Current main-synchronized recording candidate
+
+[2bd194b9](https://github.com/nakatamaho/vaeg/commit/2bd194b96352cb7ea4af8f56767074a4896c6d9c)
+merges main02ce6d47 into topic/m100os-recording-resume without conflicts; r2
+integration is held. Main itself is not updated. Main8087/recent-boot changes
+are included. The3 inherited working files are byte-identical and unstaged.
+
+Current macOS arm64 static Release `build/macos-recording-static-release/sdl2/vaeg`,
+38717112 bytes, SHA256
+`f5d19553a59259c3285ec4f98ad2cd7606e308c94136d692d11a790b79da1f88`.
+Embedded code2bd194b9 plus unchanged inherited full snapshote549b015….
+Release selftest passes; imports remain exclusively Apple system libraries/
+Frameworks. ON recording/8087/UI selection26 passed/one hardware skip; OFF13/13.
+Encoding/EOL/case/Markdown-comment/staged-whitespace and preservation checks pass.
+The maintainer's macOS practical FFV1 lossless recording check is still pending;
+this is NOT gate-passed or main-incorporation approval. FFV1 is losslessly
+compressed, not raw uncompressed. No new Metal/backend/codec policy change.
+
+Windows refresh is deferred: Docker's local daemon socket is unavailable, before
+any container build starts. The Windows executable/report stays at9147dfa5 with
+SHA256 `b18e16f84da4bf116b2ba381141bcd1fbb8c530e8fecd03a5b2d499423dbff85`.
+Its task-local source is advanced to2bd194b9 for a later build, not a newly built
+Windows artifact. Prior9147 binaries/reports retained on both platforms. Adjacent
+Mac report/validation JSON records the new worker and validation identities.
+No hosted CI manually requested, main movement, private-media rerun, performance
+acceptance or human/media/demo/legal gate is claimed.
+
 ## Current automatic recording splits
 
 [5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc)
@@ -48,11 +75,11 @@ commands, hashes and raw output stay outside Git. Not a DIGDUG-specific/native
 Windows/physical-device/full-guest sanitizer acceptance. Full MinGW workers
 cross-compile, Release/import audit and final arm64 Release selftest pass.
 
-Current artifacts, embedded code9147dfa5 plus preserved inherited edits. The
+Previous9147 checkpoint artifacts, embedded code9147dfa5 plus preserved inherited edits. The
 [reset/state-load scope guard](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b)
 keeps arbitrary state-load/rewind cancellation separate from approved reset splits:
 
-- macOS `build/macos-recording-static-release/sdl2/vaeg`,38716760 bytes,
+- macOS archived `build/macos-recording-static-release/sdl2/vaeg-9147dfa5`,38716760 bytes,
   SHA256 `ec01ea072b5b8ab638048643bc07f326412b67f01518a938f97a845dab941c0a`.
 - MinGW task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
   58871081 bytes, SHA256
