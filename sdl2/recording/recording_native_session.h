@@ -25,6 +25,7 @@
 #define VAEG_SDL2_RECORDING_NATIVE_SESSION_H
 
 #include <stdint.h>
+#include "recording/recording_native_tap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +35,15 @@ extern "C" {
 int vaeg_recording_session_start(const char *path, uint32_t source, uint64_t frame_limit);
 int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit);
 int vaeg_recording_native_session_start_from_environment(void);
+/* GUI opt-in only; CLI/environment batches keep descriptor-change failure. */
+void vaeg_recording_native_session_enable_auto_split(void);
+int vaeg_recording_native_session_auto_split_enabled(void);
+void vaeg_recording_native_session_request_split(void);
+const char *vaeg_recording_native_session_output_path(void);
+/* Called at the guest frame boundary, before its clock advances further. */
+VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_session_submit_frame(
+    uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
+    const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd);
 int vaeg_recording_native_session_after_guest_exec(void);
 int vaeg_recording_native_session_is_active(void);
 int vaeg_recording_native_session_should_stop(void);

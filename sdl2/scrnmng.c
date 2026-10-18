@@ -1359,6 +1359,8 @@ UINT32 scrnmng_native_recording_descriptor_generation(void) {
 	generation = (generation ^ (UINT32)scrnmng.width) * 16777619u;
 	generation = (generation ^ (UINT32)scrnmng.height) * 16777619u;
 	generation = (generation ^ (UINT32)scrnmng.shadow_pitch) * 16777619u;
+	/* Equal canvas sizes can still cross a guest 15/24 kHz timing boundary. */
+	generation = (generation ^ (UINT32)videova_hsyncmode()) * 16777619u;
 	generation = (generation ^ 1u) * 16777619u;
 	generation =
 	    (generation ^ (UINT32)(recording_follow_rotation ? scrnmng.rotation : 0)) * 16777619u;
@@ -3089,6 +3091,23 @@ BOOL scrnmng_display_capture_selftest(void) {
 	if (!scrnmng.texture) goto cleanup;
 	scrnmng.enable = TRUE;
 	scrnmng.width = 640; scrnmng.height = 400;
+	{
+		const int saved_pitch = scrnmng.shadow_pitch;
+		const UINT8 saved_crtmode = videova.crtmode;
+		const WORD saved_grmode = videova.grmode;
+		UINT32 generation15, generation24;
+		scrnmng.shadow_pitch = (640 + SCRNMNG_SURFACE_GUARD_LEFT) * 2;
+		videova.grmode &= ~0x0080;
+		videova.crtmode = 0;
+		generation15 = scrnmng_native_recording_descriptor_generation();
+		videova.crtmode = 1;
+		generation24 = scrnmng_native_recording_descriptor_generation();
+		videova.crtmode = saved_crtmode;
+		videova.grmode = saved_grmode;
+		scrnmng.shadow_pitch = saved_pitch;
+		if (generation15 == 0 || generation15 == generation24)
+			goto cleanup;
+	}
 	scrnmng.menu_height = 22; scrnmng.scale = 1;
 	scrnmng.scaling = VAEG_SCALING_FIT;
 	np2oscfg.DISPCLK = 0;

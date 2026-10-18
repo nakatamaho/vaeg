@@ -259,6 +259,9 @@ extern "C" BOOL sound_get_stream_state(SOUNDSTREAMSTATE *state) {
 	return SUCCESS;
 }
 
+extern "C" void sound_sync(void) {
+}
+
 extern "C" SOUND_RECORDING_ERROR sound_recording_start(UINT capacity_frames) {
 	assert(capacity_frames != 0u);
 	fake_recording_active = true;
@@ -309,6 +312,8 @@ extern "C" BOOL sound_recording_get_state(SOUNDRECORDINGSTATE *state) {
 }
 
 int main() {
+	/* Automatic splitting is explicitly opt-in, never implicit for batch callers. */
+	assert(!vaeg_recording_native_session_auto_split_enabled());
 	test_native_session_writes_complete_intervals();
 	test_epoch_change_cancels_without_publish();
 	test_start_rejects_invalid_and_existing_targets();

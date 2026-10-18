@@ -74,6 +74,10 @@ int vaeg_recording_native_tap_requires_guest_composition(int normal_draw);
 VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_frame(
 	uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
 	const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd);
+/* Only before the first submitted frame, exactly at tap start_ticks. */
+VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_initial_snapshot(
+    uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
+    const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd);
 void vaeg_recording_native_tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR error);
 VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_last_error(void);
 uint64_t vaeg_recording_native_tap_accepted_frames(void);

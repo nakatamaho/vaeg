@@ -703,6 +703,7 @@ static void start_recording_from_dialog(void) {
 		g_gui.recording_status += vaeg_recording_native_session_last_error();
 		return;
 	}
+	vaeg_recording_native_session_enable_auto_split();
 	vaeg_recording_runtime_clear_event();
 	g_gui.recording_open = false;
 	g_gui.recording_status = "録画中（Native video / FFV1 + PCM）";
@@ -794,6 +795,15 @@ static void draw_recording_menu(void) {
 	static bool was_active = false;
 
 	vaeg_recording_get_capabilities(&capabilities);
+	const char *output = vaeg_recording_native_session_output_path();
+	if ((active || was_active) && output != nullptr && output[0] != '\0' &&
+	    std::strcmp(output, g_gui.recording_path) != 0) {
+		SDL_strlcpy(g_gui.recording_path, output, sizeof(g_gui.recording_path));
+		if (active) {
+			g_gui.recording_status = "画面変更により録画を自動分割しました: ";
+			g_gui.recording_status += output;
+		}
+	}
 	const auto event = vaeg_recording_runtime_last_event();
 	if (!active && (was_active || event != VAEG_RECORDING_RUNTIME_EVENT_NONE)) {
 		const char *error = vaeg_recording_native_session_last_error();

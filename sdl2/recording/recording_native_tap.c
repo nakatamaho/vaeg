@@ -82,9 +82,11 @@ int vaeg_recording_native_tap_requires_guest_composition(int normal_draw) {
 	return (normal_draw != 0) || vaeg_recording_native_tap_is_active();
 }
 
-VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_frame(
-	uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
-	const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+static VAEG_RECORDING_NATIVE_TAP_ERROR tap_submit_frame(uint64_t sequence, uint64_t end_ticks,
+                                                        uint32_t descriptor_generation,
+                                                        const VAEG_RECORDING_NATIVE_FRAME *frame,
+                                                        const VAEG_RECORDING_OSD_SNAPSHOT *osd,
+                                                        int initial_snapshot) {
 	VAEG_RECORDING_NATIVE_CAPTURE capture;
 	if (!tap.active || tap.failed || tap.callback == NULL) {
 		return VAEG_RECORDING_NATIVE_TAP_ERROR_NOT_ACTIVE;
@@ -97,7 +99,10 @@ VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_frame(
 		tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR_DESCRIPTOR_CHANGED);
 		return tap.error;
 	}
-	if ((end_ticks < tap.last_end_ticks) || (end_ticks == tap.last_end_ticks)) {
+	/* A rollover seeds the first snapshot at the exact shared boundary. It
+	 * does not encode a zero-length interval; the following frame closes it. */
+	if (initial_snapshot ? (tap.have_sequence || end_ticks != tap.last_end_ticks)
+	                     : (end_ticks <= tap.last_end_ticks)) {
 		tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR_INVALID_TIME);
 		return tap.error;
 	}
@@ -132,6 +137,18 @@ VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_frame(
 	tap.accepted_frames++;
 	tap.have_sequence = 1;
 	return VAEG_RECORDING_NATIVE_TAP_OK;
+}
+
+VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_frame(
+    uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
+    const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+	return tap_submit_frame(sequence, end_ticks, descriptor_generation, frame, osd, 0);
+}
+
+VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_tap_submit_initial_snapshot(
+    uint64_t sequence, uint64_t end_ticks, uint32_t descriptor_generation,
+    const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+	return tap_submit_frame(sequence, end_ticks, descriptor_generation, frame, osd, 1);
 }
 
 void vaeg_recording_native_tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR error) {

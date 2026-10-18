@@ -45,6 +45,21 @@ int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) 
 int vaeg_recording_native_session_start_from_environment(void) {
 	return 1;
 }
+void vaeg_recording_native_session_enable_auto_split(void) {
+}
+int vaeg_recording_native_session_auto_split_enabled(void) {
+	return 0;
+}
+void vaeg_recording_native_session_request_split(void) {
+}
+const char *vaeg_recording_native_session_output_path(void) {
+	return "";
+}
+VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_session_submit_frame(
+    uint64_t sequence, uint64_t end_ticks, uint32_t generation,
+    const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+	return vaeg_recording_native_tap_submit_frame(sequence, end_ticks, generation, frame, osd);
+}
 
 int vaeg_recording_native_session_after_guest_exec(void) {
 	return 1;
@@ -464,6 +479,10 @@ class NativeRecordingSession {
 	}
 
 	bool after_guest_exec() noexcept {
+		if (awaiting_epoch_)
+			return true;
+		if (stop_requested_ && !writer_started_ && !failed_)
+			return true;
 		if (failed_) {
 			return false;
 		}
@@ -490,6 +509,109 @@ class NativeRecordingSession {
 		return true;
 	}
 
+	void enable_auto_split() noexcept {
+		auto_split_ = true;
+	}
+	bool auto_split_enabled() const noexcept {
+		return auto_split_;
+	}
+	void request_split() noexcept {
+		split_pending_ = true;
+	}
+	const std::string &output_path() const noexcept {
+		return segment_path_.empty() ? path_ : segment_path_;
+	}
+	const std::string &published_path() const noexcept {
+		return published_path_;
+	}
+
+	VAEG_RECORDING_NATIVE_TAP_ERROR submit_frame(std::uint64_t sequence, std::uint64_t ticks,
+	                                             std::uint32_t generation,
+	                                             const VAEG_RECORDING_NATIVE_FRAME *frame,
+	                                             const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+		if (stop_requested_ && !writer_started_)
+			return VAEG_RECORDING_NATIVE_TAP_OK;
+		if (awaiting_epoch_) {
+			if (manual_stop_requested_) {
+				stop_requested_ = true;
+				return VAEG_RECORDING_NATIVE_TAP_OK;
+			}
+			if (ticks != pccore_guest_clock() || !start()) {
+				if (last_error_.empty())
+					last_error_ = "segment_epoch_rearm_failed";
+				return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+			}
+			awaiting_epoch_ = false;
+			split_pending_ = false;
+			return vaeg_recording_native_tap_submit_initial_snapshot(sequence, ticks, generation,
+			                                                         frame, osd);
+		}
+		if (!auto_split_ || (!split_pending_ && generation == descriptor_generation_)) {
+			return vaeg_recording_native_tap_submit_frame(sequence, ticks, generation, frame, osd);
+		}
+		/* Keep the same capture FIFO and rational sample grid across segments.
+		 * Rearming audio here can lose samples already delivered to the device. */
+		if (!complete_boundary(ticks))
+			return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+		vaeg_recording_native_tap_stop();
+		if (stop_requested_ || manual_stop_requested_) {
+			stop_requested_ = true;
+			return VAEG_RECORDING_NATIVE_TAP_OK;
+		}
+		if (!advance_segment())
+			return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+		if (scrnmng_get_native_recording_video_descriptor(&video_descriptor_) != SUCCESS) {
+			last_error_ = "segment_descriptor_or_path_invalid";
+			return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+		}
+		descriptor_generation_ = scrnmng_native_recording_descriptor_generation();
+		if (descriptor_generation_ != generation) {
+			last_error_ = "segment_descriptor_changed_during_split";
+			return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+		}
+		segment_first_interval_ = accepted_intervals_;
+		staged_.ready = incoming_.ready = false;
+		const std::size_t bytes =
+		    static_cast<std::size_t>(video_descriptor_.stride_bytes) * video_descriptor_.height;
+		staged_.pixels.resize(bytes);
+		incoming_.pixels.resize(bytes);
+		split_pending_ = false;
+		if (vaeg_recording_native_tap_start(&NativeRecordingSession::tap_callback, this, ticks,
+		                                    descriptor_generation_) !=
+		    VAEG_RECORDING_NATIVE_TAP_OK) {
+			last_error_ = "segment_tap_start_failed";
+			return VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+		}
+		return vaeg_recording_native_tap_submit_initial_snapshot(sequence, ticks, generation, frame,
+		                                                         osd);
+	}
+
+	/* Reset-driven monitor changes begin a new clock/audio epoch. Seal the old
+	 * epoch before reset, then rearm on its first actual guest frame. */
+	bool change_epoch() {
+		if (awaiting_epoch_)
+			return true;
+		if (!complete_boundary(pccore_guest_clock()))
+			return false;
+		vaeg_recording_native_tap_stop();
+		if (sound_started_) {
+			sound_recording_stop();
+			sound_recording_release();
+			sound_started_ = false;
+		}
+		if (stop_requested_ || manual_stop_requested_)
+			return false;
+		if (!advance_segment())
+			return false;
+		completed_epoch_ticks_ = elapsed_ticks();
+		audio_primed_ = false;
+		staged_.ready = incoming_.ready = false;
+		segment_first_interval_ = accepted_intervals_;
+		split_pending_ = false;
+		awaiting_epoch_ = true;
+		return true;
+	}
+
 	bool stop() noexcept {
 		if (failed_) {
 			abort(last_error_.empty() ? "recording_failed" : last_error_.c_str());
@@ -499,29 +621,14 @@ class NativeRecordingSession {
 		if (sound_started_) {
 			sound_recording_stop();
 		}
-		if (!writer_started_) {
-			last_error_ = "recording_no_intervals";
-			if (sound_started_) {
-				sound_recording_release();
-				sound_started_ = false;
-			}
-			return false;
-		}
-		const QueueError result = (accepted_intervals_ == 0u) ? session_.cancel() : session_.stop();
+		const bool result = finish_segment();
 		if (sound_started_) {
 			sound_recording_release();
 			sound_started_ = false;
 		}
-		if (result != QueueError::None || session_.written_slices() != accepted_intervals_) {
-			const char *sink_error = session_.sink_error_name();
-			last_error_ = (result == QueueError::None)
-			                  ? "written_slice_count_mismatch"
-			                  : (sink_error != nullptr ? sink_error : queue_failure_name(result));
-			failed_ = true;
-			return false;
-		}
-		writer_started_ = false;
-		return accepted_intervals_ != 0u;
+		if (result && accepted_intervals_ == 0u)
+			last_error_ = "recording_no_intervals";
+		return result && accepted_intervals_ != 0u;
 	}
 
 	void abort(const char *reason) noexcept {
@@ -565,10 +672,10 @@ class NativeRecordingSession {
 	}
 
 	std::uint64_t elapsed_ticks() const noexcept {
-		if (!audio_primed_ || last_end_ticks_ < movie_start_ticks_) {
-			return 0u;
+		if (!audio_primed_ || last_end_ticks_ < recording_start_ticks_) {
+			return completed_epoch_ticks_;
 		}
-		return last_end_ticks_ - movie_start_ticks_;
+		return completed_epoch_ticks_ + last_end_ticks_ - recording_start_ticks_;
 	}
 
 	std::uint64_t accepted_intervals() const noexcept {
@@ -580,20 +687,84 @@ class NativeRecordingSession {
 	}
 
   private:
+	bool advance_segment() {
+		if (segment_index_ == UINT64_MAX) {
+			last_error_ = "segment_index_overflow";
+			return false;
+		}
+		++segment_index_;
+		std::string number = std::to_string(segment_index_);
+		if (number.size() < 3)
+			number.insert(0, 3 - number.size(), '0');
+		segment_path_ = path_.substr(0, path_.size() - 4) + "-part-" + number + ".mkv";
+		if (segment_path_.size() >= 1024) {
+			last_error_ = "segment_path_too_long";
+			return false;
+		}
+		return true;
+	}
+	bool complete_boundary(std::uint64_t ticks) noexcept {
+		if (ticks != pccore_guest_clock()) {
+			last_error_ = "segment_not_at_guest_boundary";
+			return false;
+		}
+		sound_sync();
+		if (!after_guest_exec())
+			return false;
+		if (staged_.ready && ticks < staged_.end_ticks) {
+			last_error_ = "segment_time_regressed";
+			return false;
+		}
+		if (staged_.ready && !stop_requested_ && ticks > staged_.end_ticks &&
+		    !commit_interval(staged_, ticks))
+			return false;
+		return finish_segment();
+	}
+	bool finish_segment() noexcept {
+		if (!writer_started_)
+			return true;
+		const std::uint64_t count = accepted_intervals_ - segment_first_interval_;
+		const QueueError result = count == 0u ? session_.cancel() : session_.stop();
+		if (result != QueueError::None || session_.written_slices() != count) {
+			const char *error = session_.sink_error_name();
+			last_error_ = result == QueueError::None
+			                  ? "written_slice_count_mismatch"
+			                  : (error != nullptr ? error : queue_failure_name(result));
+			failed_ = true;
+			return false;
+		}
+		writer_started_ = false;
+		if (count != 0u) {
+			try {
+				published_path_ = output_path();
+			} catch (const std::bad_alloc &) {
+				failed_ = true;
+				return false;
+			}
+		}
+		/* A canceled empty segment is terminal and needs explicit acknowledgement. */
+		if (count == 0u && session_.acknowledge_terminal() != QueueError::None) {
+			last_error_ = "segment_empty_acknowledge_failed";
+			return false;
+		}
+		return true;
+	}
+
 	bool validate_output_path() noexcept {
+		const std::string &output_path_string = output_path();
 		std::error_code error;
 		fs::path output;
 
-		if (path_.empty()) {
+		if (output_path_string.empty()) {
 			last_error_ = "recording_path_empty";
 			return false;
 		}
-		if (path_.find("://") != std::string::npos) {
+		if (output_path_string.find("://") != std::string::npos) {
 			last_error_ = "recording_path_not_local";
 			return false;
 		}
 		try {
-			output = fs::u8path(path_);
+			output = fs::u8path(output_path_string);
 		} catch (const fs::filesystem_error &) {
 			last_error_ = "recording_path_invalid";
 			return false;
@@ -744,10 +915,20 @@ class NativeRecordingSession {
 	}
 
 	bool prime_audio() noexcept {
-		if (sample_boundary_ceil(grid_, staged_.end_ticks, &next_audio_sample_) !=
-		        ClockError::None ||
-		    !discard_audio_before(next_audio_sample_) ||
-		    !calculate_origin_offset(staged_.end_ticks, next_audio_sample_,
+		std::uint64_t first_sample;
+		if (sample_boundary_ceil(grid_, staged_.end_ticks, &first_sample) != ClockError::None) {
+			last_error_ = "audio_prime_clock_invalid";
+			return false;
+		}
+		/* FIFO first_sample is its immutable origin, NOT its current read cursor.
+		 * A same-epoch split already consumed exactly to this boundary. */
+		if (audio_primed_ ? (first_sample != next_audio_sample_)
+		                  : !discard_audio_before(first_sample)) {
+			if (last_error_.empty()) last_error_ = "segment_audio_boundary_mismatch";
+			return false;
+		}
+		next_audio_sample_ = first_sample;
+		if (!calculate_origin_offset(staged_.end_ticks, next_audio_sample_,
 	                             &origin_offset_numerator_, &origin_offset_denominator_) ||
 		    !initialize_writer(staged_.end_ticks, next_audio_sample_)) {
 			if (last_error_.empty()) {
@@ -755,6 +936,8 @@ class NativeRecordingSession {
 			}
 			return false;
 		}
+		if (!audio_primed_)
+			recording_start_ticks_ = staged_.end_ticks;
 		audio_primed_ = true;
 		return true;
 	}
@@ -782,7 +965,7 @@ class NativeRecordingSession {
 		queue_config.first_audio_sample = first_audio_sample;
 		std::string sink_error;
 		std::unique_ptr<NativeRecordingSink> sink = NativeRecordingSink::create(
-		    path_, video_descriptor_, audio_descriptor_, movie_start, first_audio_sample,
+		    output_path(), video_descriptor_, audio_descriptor_, movie_start, first_audio_sample,
 		    origin_offset_numerator_, origin_offset_denominator_, pccore.realclock, &sink_error);
 		if (sink == nullptr) {
 			last_error_ = sink_error.empty() ? "recording_sink_create_failed" : sink_error;
@@ -813,7 +996,7 @@ class NativeRecordingSession {
 			return false;
 		}
 		CaptureSliceInput input{};
-		input.sequence = accepted_intervals_;
+		input.sequence = accepted_intervals_ - segment_first_interval_;
 		input.begin_ticks = frame.end_ticks;
 		input.end_ticks = end_ticks;
 		input.audio_sample_begin = range.begin;
@@ -837,11 +1020,22 @@ class NativeRecordingSession {
 		}
 		next_audio_sample_ = range.end;
 		++accepted_intervals_;
+		if (frame_limit_ != 0u && accepted_intervals_ >= frame_limit_)
+			stop_requested_ = true;
 		last_end_ticks_ = end_ticks;
 		return true;
 	}
 
 	std::string path_;
+	std::string segment_path_;
+	std::string published_path_;
+	bool auto_split_ = false;
+	bool split_pending_ = false;
+	bool awaiting_epoch_ = false;
+	std::uint64_t completed_epoch_ticks_ = 0u;
+	std::uint64_t segment_index_ = 1u;
+	std::uint64_t segment_first_interval_ = 0u;
+	std::uint64_t recording_start_ticks_ = 0u;
 	std::uint64_t frame_limit_;
 	std::uint32_t descriptor_generation_;
 	std::uint32_t audio_epoch_;
@@ -869,6 +1063,7 @@ class NativeRecordingSession {
 
 std::unique_ptr<NativeRecordingSession> active_session;
 std::string last_session_error;
+std::string last_published_path;
 
 bool parse_frame_limit(const char *value, std::uint64_t *limit) noexcept {
 	char *end = nullptr;
@@ -902,9 +1097,10 @@ extern "C" int vaeg_recording_session_start(const char *path, uint32_t source,
 }
 
 extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) {
-	using vaeg::recording::NativeRecordingSession;
 	using vaeg::recording::active_session;
+	using vaeg::recording::last_published_path;
 	using vaeg::recording::last_session_error;
+	using vaeg::recording::NativeRecordingSession;
 	if (path == nullptr || path[0] == '\0' || active_session != nullptr) {
 		last_session_error = (active_session != nullptr) ? "recording_busy" : "recording_path_empty";
 		return 0;
@@ -917,12 +1113,54 @@ extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t fr
 			return 0;
 		}
 		active_session = std::move(session);
+		last_published_path.clear();
 		last_session_error.clear();
 		return 1;
 	} catch (const std::bad_alloc &) {
 		last_session_error = "session_allocation_failed";
 		return 0;
 	}
+}
+
+extern "C" void vaeg_recording_native_session_enable_auto_split(void) {
+	if (vaeg::recording::active_session)
+		vaeg::recording::active_session->enable_auto_split();
+}
+extern "C" int vaeg_recording_native_session_auto_split_enabled(void) {
+	return vaeg::recording::active_session && vaeg::recording::active_session->auto_split_enabled();
+}
+extern "C" void vaeg_recording_native_session_request_split(void) {
+	if (vaeg::recording::active_session)
+		vaeg::recording::active_session->request_split();
+}
+extern "C" const char *vaeg_recording_native_session_output_path(void) {
+	return vaeg::recording::active_session ? vaeg::recording::active_session->output_path().c_str()
+	                                       : vaeg::recording::last_published_path.c_str();
+}
+extern "C" VAEG_RECORDING_NATIVE_TAP_ERROR
+vaeg_recording_native_session_submit_frame(uint64_t sequence, uint64_t ticks, uint32_t generation,
+                                           const VAEG_RECORDING_NATIVE_FRAME *frame,
+                                           const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
+	using namespace vaeg::recording;
+	if (!active_session)
+		return vaeg_recording_native_tap_submit_frame(sequence, ticks, generation, frame, osd);
+	VAEG_RECORDING_NATIVE_TAP_ERROR error;
+	try {
+		error = active_session->submit_frame(sequence, ticks, generation, frame, osd);
+		if (error == VAEG_RECORDING_NATIVE_TAP_OK || !active_session->auto_split_enabled()) {
+			return error;
+		}
+		last_session_error = active_session->last_error();
+		if (last_session_error.empty())
+			last_session_error = vaeg_recording_native_tap_error_name(error);
+	} catch (const std::bad_alloc &) {
+		last_session_error = "segment_allocation_failed";
+		error = VAEG_RECORDING_NATIVE_TAP_ERROR_CALLBACK_REJECTED;
+	}
+	last_published_path = active_session->published_path();
+	active_session->abort("segment_failed");
+	active_session.reset();
+	return error;
 }
 
 extern "C" int vaeg_recording_native_session_start_from_environment(void) {
@@ -946,6 +1184,7 @@ extern "C" int vaeg_recording_native_session_after_guest_exec(void) {
 	if (!vaeg::recording::active_session->after_guest_exec()) {
 		vaeg::recording::last_session_error =
 		    vaeg::recording::active_session->last_error();
+		vaeg::recording::last_published_path = vaeg::recording::active_session->published_path();
 		vaeg::recording::active_session->abort("recording_interval_failed");
 		vaeg::recording::active_session.reset();
 		return 0;
@@ -984,6 +1223,7 @@ extern "C" int vaeg_recording_native_session_poll_stop(void) {
 	}
 	const bool result = vaeg::recording::active_session->stop();
 	vaeg::recording::last_session_error = vaeg::recording::active_session->last_error();
+	vaeg::recording::last_published_path = vaeg::recording::active_session->published_path();
 	vaeg::recording::active_session.reset();
 	return result ? 1 : 0;
 }
@@ -1013,6 +1253,7 @@ extern "C" int vaeg_recording_native_session_stop(void) {
 	}
 	const bool result = vaeg::recording::active_session->stop();
 	vaeg::recording::last_session_error = vaeg::recording::active_session->last_error();
+	vaeg::recording::last_published_path = vaeg::recording::active_session->published_path();
 	vaeg::recording::active_session.reset();
 	return result ? 1 : 0;
 }
@@ -1027,6 +1268,20 @@ extern "C" void vaeg_recording_native_session_cancel(void) {
 }
 
 extern "C" void vaeg_recording_native_session_epoch_change(void) {
+	using namespace vaeg::recording;
+	if (active_session && active_session->auto_split_enabled()) {
+		try {
+			if (active_session->change_epoch())
+				return;
+			last_session_error = active_session->last_error();
+		} catch (const std::bad_alloc &) {
+			last_session_error = "segment_epoch_allocation_failed";
+		}
+		last_published_path = active_session->published_path();
+		active_session->abort("segment_epoch_finished");
+		active_session.reset();
+		return;
+	}
 	if (vaeg::recording::active_session != nullptr) {
 		vaeg::recording::active_session->abort("recording_epoch_changed");
 		vaeg::recording::last_session_error =

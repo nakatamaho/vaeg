@@ -33,6 +33,10 @@ static VAEG_RECORDING_RUNTIME_EVENT last_event;
 void vaeg_recording_runtime_screen_changed(void) {
 	if (!vaeg_recording_native_session_is_active())
 		return;
+	if (vaeg_recording_native_session_auto_split_enabled()) {
+		vaeg_recording_native_session_request_split();
+		return;
+	}
 	if (vaeg_recording_native_session_stop())
 		last_event = VAEG_RECORDING_RUNTIME_SCREEN_SAVED;
 	else {

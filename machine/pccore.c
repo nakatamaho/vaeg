@@ -515,7 +515,8 @@ static void drawscreenva(BOOL guest_boundary) {
 	tsp_updateclock();
 	//	}
 
-	if (!vaeg_recording_native_tap_requires_guest_composition(drawframe)) {
+	if (!vaeg_recording_native_tap_requires_guest_composition(drawframe) &&
+	    !(guest_boundary && vaeg_recording_native_session_is_active())) {
 		return;
 	}
 
@@ -679,7 +680,8 @@ static void drawscreenva(BOOL guest_boundary) {
 	if (screenupdate) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
 		drawcount++;
-		if (guest_boundary && vaeg_recording_native_tap_is_active()) {
+		if (guest_boundary &&
+		    (vaeg_recording_native_tap_is_active() || vaeg_recording_native_session_is_active())) {
 			VAEG_RECORDING_NATIVE_FRAME frame;
 			VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 			VAEG_RECORDING_NATIVE_TAP_ERROR error;
@@ -690,7 +692,7 @@ static void drawscreenva(BOOL guest_boundary) {
 				vaeg_recording_native_tap_fail(
 				    VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
 			} else {
-				error = vaeg_recording_native_tap_submit_frame(
+				error = vaeg_recording_native_session_submit_frame(
 				    (UINT64)drawcount, pccore_guest_clock(),
 				    scrnmng_native_recording_descriptor_generation(), &frame, &snapshot);
 				if (error != VAEG_RECORDING_NATIVE_TAP_OK) {

@@ -45,7 +45,8 @@ typedef enum {
 /* Presentation-thread boundary: interactive errors stop recording, not the guest.
  * CLI/environment batch recording retains its fail-closed exit contract. */
 VAEG_RECORDING_RUNTIME_RESULT vaeg_recording_runtime_step(int batch);
-/* Notify before applying an interactive screen setting. No-op when idle. */
+/* Notify before applying an interactive screen setting. Opted-in GUI sessions
+ * split at the next guest frame; legacy sessions finalize. No-op when idle. */
 void vaeg_recording_runtime_screen_changed(void);
 VAEG_RECORDING_RUNTIME_EVENT vaeg_recording_runtime_last_event(void);
 void vaeg_recording_runtime_clear_event(void);

@@ -154,7 +154,30 @@ static void test_callback_failure(void) {
 	vaeg_recording_native_tap_stop();
 }
 
+static void test_rollover_initial_snapshot(void) {
+	static const uint8_t pixels[] = {1, 2, 3, 4, 5, 6};
+	VAEG_RECORDING_NATIVE_FRAME frame;
+	VAEG_RECORDING_OSD_SNAPSHOT osd;
+	CALLBACK_STATE state;
+	memset(&state, 0, sizeof(state));
+	assert(vaeg_recording_native_tap_start(capture_callback, &state, 100, 9) ==
+	       VAEG_RECORDING_NATIVE_TAP_OK);
+	make_capture(&frame, &osd, 4, pixels);
+	assert(vaeg_recording_native_tap_submit_initial_snapshot(4, 100, 9, &frame, &osd) ==
+	       VAEG_RECORDING_NATIVE_TAP_OK);
+	assert(state.calls == 1 && state.begin_ticks[0] == 100 && state.end_ticks[0] == 100);
+	make_capture(&frame, &osd, 5, pixels);
+	assert(vaeg_recording_native_tap_submit_frame(5, 120, 9, &frame, &osd) ==
+	       VAEG_RECORDING_NATIVE_TAP_OK);
+	assert(state.begin_ticks[1] == 100 && state.end_ticks[1] == 120);
+	/* Exactly one mutation: an initial snapshot after capture already began. */
+	assert(vaeg_recording_native_tap_submit_initial_snapshot(5, 120, 9, &frame, &osd) ==
+	       VAEG_RECORDING_NATIVE_TAP_ERROR_INVALID_TIME);
+	vaeg_recording_native_tap_stop();
+}
+
 int main(void) {
+	test_rollover_initial_snapshot();
 	test_intervals_and_ownership();
 	test_descriptor_and_time_fail_closed();
 	test_callback_failure();

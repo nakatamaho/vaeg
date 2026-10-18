@@ -43,6 +43,11 @@ static void fixture(void) {
 	error = "none";
 	vaeg_recording_runtime_clear_event();
 }
+int vaeg_recording_native_session_auto_split_enabled(void) {
+	return 0;
+}
+void vaeg_recording_native_session_request_split(void) {
+}
 int vaeg_recording_native_session_is_active(void) {
 	return active;
 }
