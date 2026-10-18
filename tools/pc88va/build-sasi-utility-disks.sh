@@ -573,6 +573,16 @@ ensure_cached_package "$va3ddemo_asm" \
 ensure_cached_package "$va3ddemo_doc" \
 	ff416a82b52062a9d818f46e28fbaf7e73923728a5a61387736acdb9bedaaed5 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=1&gnum=23&fname=VA3dDEMO.DOC'
+# M126 additions (SASI only); TENIM3.COM is a self-extracting archive.
+ensure_cached_package "$extra_packages_dir/TENIM3.COM" \
+	f7b89107dc0a6a7c4ce53547418400f68a62bc4d2206a97f02489dfb1d556eb8 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=74&fname=TENIM3.COM'
+ensure_cached_package "$extra_packages_dir/TENIM3.DOC" \
+	e369fd63be567e19080fc89be41e43787bb32d9742a8be2f3995826f8d731fb6 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=74&fname=TENIM3.DOC'
+ensure_cached_package "$extra_packages_dir/PCODESRC.LZH" \
+	68e67920e507561b940ee88ac5a3c41afd17342c4b82c8f2124778d0aef93d31 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=406&fname=PCODESRC.LZH'
 # M106 additions, staged by stage-development-tools.sh --extra-packages-dir.
 ensure_cached_package "$extra_packages_dir/PCP_7A.LZH" \
 	af72b57dcefae7a1385585dfbdd7d1e71dc6348e49efe7822ef45e606c75f8fe \
@@ -671,6 +681,34 @@ supplemental_manifest=$work_dir/supplemental.manifest.tsv
 	--clk-source "$clk_source" --clk-archive "$clk_archive" --clk-doc "$clk_doc" \
 	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc" \
 	--extra-packages-dir "$extra_packages_dir" --vz-image "$vz_image"
+# This stage is separate from the common FDD/SASI stager: these additions
+# belong only on the HDD. Use a private input tree so explicit source and
+# assembler overrides remain effective, without changing the shared cache.
+softlib_inputs=$work_dir/softlib-inputs
+mkdir -p -- "$softlib_inputs"
+for name in TENIM3.COM TENIM3.DOC PCODESRC.LZH; do
+	cp -- "$extra_packages_dir/$name" "$softlib_inputs/$name"
+done
+cp -- "$va3ddemo_asm" "$softlib_inputs/VA3DDEMO.ASM"
+cp -- "$va3ddemo_doc" "$softlib_inputs/VA3DDEMO.DOC"
+cp -- "$jwasm_archive" "$softlib_inputs/JWasm_v220_dos.zip"
+python3 "$script_dir/stage-softlib-additions.py" \
+	--packages "$softlib_inputs" --output "$supplemental_tree"
+# Refresh the existing manifest after adding the HDD-only files.
+python3 - "$supplemental_tree" "$supplemental_manifest" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+with Path(sys.argv[2]).open('w', encoding='utf-8') as manifest:
+    manifest.write('# vaeg development-tool staging manifest v1\n')
+    manifest.write('# profile<TAB>relative_path<TAB>sha256<TAB>bytes\n')
+    for path in sorted(root.rglob('*')):
+        if path.is_file():
+            data = path.read_bytes()
+            manifest.write(f'sasi\t{path.relative_to(root).as_posix()}\t'
+                           f'{hashlib.sha256(data).hexdigest()}\t{len(data)}\n')
+PY
 
 mo_schd_tree=$work_dir/mo-schd
 mo_va128mo_tree=$work_dir/mo-va128mo
