@@ -115,4 +115,7 @@ validation and does not establish new guest-runtime results. In particular,
 the pre-existing VA3DDEMO blank-display issue remains open.
 
 **G126 machine packaging gate passed.** Main integration was requested by
-the maintainer; M125 remains on hold.
+the maintainer; M125 remains on hold. Merged to main at
+[9d3b927c](https://github.com/nakatamaho/vaeg/commit/9d3b927cdebcc4788efb1c44f09bb68b30171fb2).
+Implementation: [4b26db16](https://github.com/nakatamaho/vaeg/commit/4b26db16f9b6e3d909b20b723c5cc4b7caa04c4e);
+verification record: [df296dde](https://github.com/nakatamaho/vaeg/commit/df296dde4ebd721baa224082e1ad8c02e34c386b).
