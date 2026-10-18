@@ -38,7 +38,11 @@ notice audit is retained. Default recording OFF does not discover/link FFmpeg.
 Existing CMake caches require explicit ON when they retain older OFF values.
 Linux defaults are unchanged; an explicit developer dynamic opt-out exists.
 
-## Current SDL2/LibArchive static-default follow-up
+Current dependency policy below is unchanged. The later [REC movie-time
+handoff](recording-ui-followup.md#current-rec-movie-time-display) supersedes the
+artifact hashes in this packaging checkpoint, without changing static defaults.
+
+## SDL2/LibArchive static-default checkpoint
 
 [0455d0c94e7018fdf2db4f4574b0e98088f658e0](https://github.com/nakatamaho/vaeg/commit/0455d0c94e7018fdf2db4f4574b0e98088f658e0)
 extends desktop defaults to fetched static SDL2 and the fetched static
@@ -65,7 +69,7 @@ are retained in the task-local build directory. Windows86535d23 artifact is
 unchanged: default values/target path remain identical, no new Windows runtime
 claim or unnecessary rebuild. Earlier profiling remains a historical checkpoint.
 
-**Current macOS handoff** (same path, updated executable):
+**macOS handoff at this packaging checkpoint** (later REC timer supersedes it):
 `build/macos-recording-static-release/sdl2/vaeg`,38697320 bytes, SHA256
 `4f5b01c7b28705ef04834cbe21e7860e8fcacba0e2a4194e3b3586d64b3ddc4f`.
 Base0455d0c9 plus unchanged three-file inherited snapshot9e123689… (full identity

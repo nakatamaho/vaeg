@@ -122,3 +122,15 @@ Updated artifact/hash/logs in the [static handoff](../../recording-v1/static-lin
 Windows86535d23 artifact unchanged; no redundant build or profiling rerun.
 No inherited edit/commit, private-media access/publication, hosted CI/push,
 clean-checkout/media/demo/human or legal gate claimed.
+
+REC time follow-up: [f32f9d33](https://github.com/nakatamaho/vaeg/commit/f32f9d336e2d35eb5d0dea2e3397f80b29a1ca96)
+shows movie elapsed MM:SS beside the REC lamp, from existing session ticks and
+guest clock, not host wall time. Pause does not inflate it; restart is00:00;
+minutes do not wrap at60/100. KANA/CAPS right alignment retained, timer-aware
+narrow/long-duration lamp layout. Arithmetic edge cases and real pixel/glyph/
+red-amber/reset tests cover320/400/640/1280. Final extended ROM-less tests pass
+ON/OFF; full ON selection25 pass/one hardware skip, OFF16/16; static Mac Release
+selftest and Win Release/import audit pass. Production formatter also passes
+isolated Wine tests with explicit unused panel stubs; initial link failure is
+retained, no native Windows GUI credit. [Artifact/evidence](../../recording-v1/recording-ui-followup.md#current-rec-movie-time-display).
+No protected source edits/commits, private-media access, hosted CI/push or gates.

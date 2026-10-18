@@ -24,7 +24,51 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
-## Current Windows/macOS static-link handoff
+## Current REC movie-time display
+
+[Implementationf32f9d33](https://github.com/nakatamaho/vaeg/commit/f32f9d336e2d35eb5d0dea2e3397f80b29a1ca96)
+adds elapsed movie time beside REC/the lamp, e.g. `REC [red] 01:23`. It divides
+accepted session elapsed ticks by the existing guest clock, not SDL host ticks:
+pause does not inflate movie duration; a new session starts at00:00. Fractions
+are floored; minutes continue as60:00/100:00 rather than wrapping into hours.
+Idle hides the time; active/finalizing displays it with the existing red/amber
+lamp state. No changes to protected session/audio implementation are needed.
+
+The group reserves timer width even idle, grows for longer minutes, and keeps
+KANA/CAPS at the right edge. Mode lamps are omitted when the full group does
+not fit; drive spacing is compacted at320 width, and a drive label is omitted
+rather than overlapping the timer in exceptionally tight/long-duration layouts.
+Height, guest viewport, recording descriptor and timing/sound pipeline unchanged.
+
+Tests include00:00, subsecond floor,59:59/60:00/100:00, UINT64_MAX, zero clock,
+new-session zero and tiny/null output buffers. Real software-rendered panel
+pixels at320/400/640/1280 widths verify01:23, reset00:00,100:00, red/amber lamp
+positions and expected glyph pixels with no clock/lamp overlap. Extended
+ROM-less tests pass ON and OFF; full ON selection25 passed/one hardware skip,
+OFF16/16. Final static arm64 Release executable selftest passes. Windows static
+Release/system-DLL audit pass. An isolated worker compiling production
+frontpanel.c passes the formatting cases under Wine (not actual Windows GUI).
+Its first PE link retained unrelated panel references; explicit unused-state
+stubs fix the probe only, with the failed log retained and no production change.
+No unchanged FFV1 profiling/large corpus rerun is credited to this UI-only edit.
+
+Updated working-tree test artifacts, basef32f9d33:
+
+- macOS `build/macos-recording-static-release/sdl2/vaeg`,38697512 bytes,
+  SHA256 `8267b6ee2c95db300df30d95843de4fa633364630c4e93355f72bbfb1ee81a05`.
+  Full inherited source snapshot9e123689… unchanged (identity in adjacent report).
+- MinGW task-local `output/vaeg.exe` / `output/vaeg-audio-local-test.exe`,
+  58849698 bytes, SHA256
+  `c3df51b68f2d0cb7f01209bdf8e557a504733828071ab272a0a0bf55a46aef57`.
+  Same audio-only source snapshot09250916…, no Metal. Previous86535d23 binary/
+  report retained. Three inherited files remain byte-identical/uncommitted.
+
+[Static dependency policy](static-linking.md) still applies; Mac imports only
+Apple system libraries/Frameworks. Exact public test commands/log/worker digests
+are in task-local rec-time validation/report files. No private asset access,
+hosted CI/push, main move, native Windows/live device or media/human/legal gate.
+
+## Previous Windows/macOS static-link handoff
 
 The maintainer makes FFmpeg static by default on Windows/macOS and librashader
 static by default on macOS too. [Implementation86535d23](https://github.com/nakatamaho/vaeg/commit/86535d23e8641d6f67f4e5f3683f23d69c622812)
