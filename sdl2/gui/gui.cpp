@@ -1898,13 +1898,18 @@ struct BootRecord {
 	std::string tape;
 	std::string extra; /* M113: PC-8801 model directory, empty for the VA */
 	UINT fdd_image[2] = {0, 0}; /* M120: disk of a multi-image D88 */
+	/* M124: the monitor (1 = 15 kHz) and screen rotation in use; -1 for a
+	 * record written before M124, which leaves them as they are */
+	int monitor_15khz = -1;
+	int rotate = -1;
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
 		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
 		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
 		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra) &&
-		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]);
+		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]) &&
+		       (monitor_15khz == other.monitor_15khz) && (rotate == other.rotate);
 	}
 };
 
@@ -1980,7 +1985,7 @@ static void history_save(void) {
 		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
 		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
 		       << '\t' << boot.tape << '\t' << boot.extra << '\t' << boot.fdd_image[0] << ','
-		       << boot.fdd_image[1] << '\n';
+		       << boot.fdd_image[1] << '\t' << boot.monitor_15khz << ',' << boot.rotate << '\n';
 	}
 }
 
@@ -2036,7 +2041,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if ((fields.size() >= 11) && (fields.size() <= 13) && (fields[0] == "boot")) {
+		if ((fields.size() >= 11) && (fields.size() <= 14) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -2054,13 +2059,24 @@ static void history_load(void) {
 			if (fields.size() >= 12) {
 				boot.extra = fields[11];
 			}
-			if (fields.size() == 13) {
+			if (fields.size() >= 13) {
 				// M120: "first,second" disks of multi-image D88 files
 				unsigned first = 0;
 				unsigned second = 0;
 				if (std::sscanf(fields[12].c_str(), "%u,%u", &first, &second) == 2) {
 					boot.fdd_image[0] = (first < 255u) ? first : 0u;
 					boot.fdd_image[1] = (second < 255u) ? second : 0u;
+				}
+			}
+			if (fields.size() == 14) {
+				// M124: "monitor,rotation"
+				int monitor = -1;
+				int rotate = -1;
+				if ((std::sscanf(fields[13].c_str(), "%d,%d", &monitor, &rotate) == 2) &&
+				    (monitor >= 0) && (monitor <= 1) && (rotate >= 0) &&
+				    (rotate < VAEG_ROTATE_COUNT)) {
+					boot.monitor_15khz = monitor;
+					boot.rotate = rotate;
 				}
 			}
 			if (g_recent_boots.size() < kRecentBoots) {
@@ -2201,6 +2217,8 @@ static void history_record_boot(void) {
 		boot.sasi[drive] = np2cfg.sasihdd[drive];
 	}
 	boot.tape = cmt_inserted() ? g_gui.tape_loaded : "";
+	boot.monitor_15khz = (np2cfg.monitor_15khz != 0) ? 1 : 0;
+	boot.rotate = np2oscfg.gui_rotate;
 	if (boot.fdd[0].empty() && boot.fdd[1].empty() && boot.sasi[0].empty() &&
 	    boot.sasi[1].empty() && boot.tape.empty()) {
 		return;
@@ -2240,7 +2258,14 @@ static std::string history_boot_label(const BootRecord &boot) {
 	const std::string machine =
 	    !boot.extra.empty() ? boot.extra
 	                        : ((milstr_cmp(boot.model.c_str(), str_VA1) == 0) ? "VA" : "VA2/VA3");
-	return name + "  (" + machine + ", " + mode + ")";
+	std::string display;
+	if (boot.monitor_15khz >= 0) {
+		display = (boot.monitor_15khz != 0) ? ", 15 kHz" : ", 24 kHz";
+	}
+	if (boot.rotate == VAEG_ROTATE_RIGHT) {
+		display += ", 右 90°";
+	}
+	return name + "  (" + machine + ", " + mode + display + ")";
 }
 
 /* A list of recent files for one drive; `select` is called with the path. */
@@ -3539,6 +3564,8 @@ static void draw_boot_menu(void) {
 	ImGui::EndMenu();
 }
 
+static void set_display_rotation(int rotation);
+
 /* 最近の起動: put a recorded set of media back, select its machine and
  * mode, and reset (which moves the set to the top). */
 static void boot_from_history(const BootRecord &boot) {
@@ -3565,6 +3592,14 @@ static void boot_from_history(const BootRecord &boot) {
 		g_gui.tape_loaded.clear();
 	} else {
 		(void)load_tape_path(boot.tape);
+	}
+	// M124: the monitor applies at the reset below; the rotation at once
+	if (boot.monitor_15khz >= 0) {
+		np2cfg.monitor_15khz = static_cast<UINT8>(boot.monitor_15khz);
+		sysmng_update(SYS_UPDATECFG);
+	}
+	if (boot.rotate >= 0) {
+		set_display_rotation(boot.rotate);
 	}
 	if (!boot.extra.empty()) {
 		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
