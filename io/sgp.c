@@ -428,6 +428,26 @@ static BOOL sgp_blt_mode_valid(UINT16 bltmode, const _SGP_BLOCK *src, const _SGP
 }
 
 /*
+ * M128: negative source pitches whose low two bits are 10b (FFF2h, and
+ * FFF6h, the -8 pitch a VA port of an arcade game used for Y-flipped
+ * 16x16 4bpp sprites), and FFF0h, do not step through the source on the
+ * PC-88VA or the PC-88VA2: SGPTEST T07/T09 (M109a) varied between runs and
+ * models, and every Y-flipped sprite of that port was garbled on both
+ * machines, while FFF3h and FFF4h agree with the decoding below. The rule
+ * the hardware follows is not known. vaeg used to draw these as ordinary
+ * pitches, hiding the fault. They are now marked (bit 0 of the decoded
+ * pitch, which is otherwise always even) and their source reads give
+ * FFFFh, the value the hardware wrote over most rows in SGPDUMP: visibly
+ * wrong, as on the machines, not a model of their output.
+ */
+#define SGP_FBW_UNDEFINED 0x0001
+#define SGP_FBW_STEP(block) ((SINT32)((block).fbw & ~SGP_FBW_UNDEFINED))
+
+static BOOL sgp_fbw_undefined(UINT16 raw_fbw) {
+	return (((raw_fbw & 0x8000) != 0) && (((raw_fbw & 0x0003) == 0x0002) || (raw_fbw == 0xfff0)));
+}
+
+/*
  * FBW as both models use it: bit 0 is dropped and a negative pitch is two
  * bytes shorter. A commercial game written for the original VA sends FFF3h
  * (bit 1 set, against the BNN manual's "low two bits zero") as the source
@@ -440,6 +460,9 @@ static SINT16 sgp_decode_fbw(UINT16 raw_fbw) {
 	fbw = (SINT16)(raw_fbw & 0xfffe);
 	if (fbw < 0) {
 		fbw += 2;
+		if (sgp_fbw_undefined(raw_fbw)) {
+			fbw |= SGP_FBW_UNDEFINED;
+		}
 	}
 	return (fbw);
 }
@@ -465,6 +488,9 @@ static void fetch_block(UINT32 address, SGP_BLOCK block) {
 		block->height = sgp_memoryread_w(address + 4) & 0x0fff;
 	}
 	block->fbw = sgp_decode_fbw(raw_fbw);
+	if (block->fbw & SGP_FBW_UNDEFINED) {
+		TRACEOUT(("SGP: descriptor: FBW %04x is undefined on hardware (M128)", raw_fbw));
+	}
 	block->address =
 	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
 }
@@ -478,7 +504,11 @@ static void init_block(SGP_BLOCK block) {
 static void read_word(SGP_BLOCK block) {
 	UINT16 dat;
 
-	dat = sgp_memoryread_w(block->nextaddress);
+	if ((block == &sgp.src) && (block->fbw & SGP_FBW_UNDEFINED)) {
+		dat = 0xffff; /* M128: see sgp_fbw_undefined() */
+	} else {
+		dat = sgp_memoryread_w(block->nextaddress);
+	}
 	block->buf = SWAPWORD(dat);
 	//block->nextaddress += 2;
 	block->dotcount = dotcountmax[block->scrnmode];
@@ -1013,11 +1043,11 @@ static void exec_bitblt(void) {
 			sgp.remainclock -= 14 * 2;
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
-				sgp.src.lineaddress -= (SINT32)sgp.src.fbw;
-				sgp.dest.lineaddress -= (SINT32)sgp.dest.fbw;
+				sgp.src.lineaddress -= SGP_FBW_STEP(sgp.src);
+				sgp.dest.lineaddress -= SGP_FBW_STEP(sgp.dest);
 			} else {
-				sgp.src.lineaddress += (SINT32)sgp.src.fbw;
-				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
+				sgp.src.lineaddress += SGP_FBW_STEP(sgp.src);
+				sgp.dest.lineaddress += SGP_FBW_STEP(sgp.dest);
 			}
 			if (sgp.src.ycount == 0) {
 				// PATBLT destination height exceeds the source height and
@@ -1117,11 +1147,11 @@ static void exec_bitblt_hd(void) {
 			sgp.remainclock -= 14 * 2;
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
-				sgp.src.lineaddress -= (SINT32)sgp.src.fbw;
-				sgp.dest.lineaddress -= (SINT32)sgp.dest.fbw;
+				sgp.src.lineaddress -= SGP_FBW_STEP(sgp.src);
+				sgp.dest.lineaddress -= SGP_FBW_STEP(sgp.dest);
 			} else {
-				sgp.src.lineaddress += (SINT32)sgp.src.fbw;
-				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
+				sgp.src.lineaddress += SGP_FBW_STEP(sgp.src);
+				sgp.dest.lineaddress += SGP_FBW_STEP(sgp.dest);
 			}
 			if (sgp.src.ycount == 0) {
 				// PATBLT destination height exceeds the source height and
@@ -1375,9 +1405,9 @@ static void exec_line_x(void) {
 				sgp.lineslopecount -= sgp.lineslopedenominator;
 				// y = y + ydir
 				if (ydir > 0) {
-					sgp.dest.nextaddress += sgp.dest.fbw;
+					sgp.dest.nextaddress += SGP_FBW_STEP(sgp.dest);
 				} else {
-					sgp.dest.nextaddress -= sgp.dest.fbw;
+					sgp.dest.nextaddress -= SGP_FBW_STEP(sgp.dest);
 				}
 
 				// Charge modeled SGP execution time.
@@ -1473,9 +1503,9 @@ static void exec_line_y(void) {
 
 	// y = y + ydir
 	if (ydir > 0) {
-		sgp.dest.nextaddress += sgp.dest.fbw;
+		sgp.dest.nextaddress += SGP_FBW_STEP(sgp.dest);
 	} else {
-		sgp.dest.nextaddress -= sgp.dest.fbw;
+		sgp.dest.nextaddress -= SGP_FBW_STEP(sgp.dest);
 	}
 
 	// Charge modeled SGP execution time.
@@ -1738,6 +1768,21 @@ BOOL sgp_manual_commands_selftest(void) {
 	STOREINTELWORD(mem + descriptor_address + 6, 0xfff3);
 	fetch_block(descriptor_address, &block);
 	if (block.fbw != -12) {
+		goto restore;
+	}
+	/* M128: FFF4h is -10; FFF6h, FFF2h and FFF0h are undefined on hardware. */
+	STOREINTELWORD(mem + descriptor_address + 6, 0xfff4);
+	fetch_block(descriptor_address, &block);
+	if ((block.fbw != -10) || (SGP_FBW_STEP(block) != -10)) {
+		goto restore;
+	}
+	STOREINTELWORD(mem + descriptor_address + 6, 0xfff6);
+	fetch_block(descriptor_address, &block);
+	if (!(block.fbw & SGP_FBW_UNDEFINED) || (SGP_FBW_STEP(block) != -8)) {
+		goto restore;
+	}
+	if (!sgp_fbw_undefined(0xfff2) || !sgp_fbw_undefined(0xfff0) || sgp_fbw_undefined(0xfff3) ||
+	    sgp_fbw_undefined(0xfff4) || sgp_fbw_undefined(0x0006) || sgp_fbw_undefined(0x000e)) {
 		goto restore;
 	}
 
