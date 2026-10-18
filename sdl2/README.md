@@ -91,8 +91,12 @@ each reset from the GUI, the FDD, SASI and tape media with the machine and the
 V1/V2 or N mode and the monitor (24 or 15 kHz); when that session ends (the
 next reset, choosing another recent boot, or quitting) it also keeps the
 window size, 描画方式, 拡大方法 and screen rotation then in use (M124).
-Choosing one puts them back and resets. Records from before M124 leave
-these settings as they are. The FDD, HDD and tape
+Choosing one puts them back and resets. If only some recorded media are
+missing, the entry remains selectable with `(一部なし)`; missing drives are
+emptied rather than retaining unrelated current media, and the skipped paths
+are shown. If all recorded media are missing the entry remains disabled;
+media-less ROM boots are valid. Availability is rechecked before mounting
+(M127). Records from before M124 leave these settings as they are. The FDD, HDD and tape
 file windows each keep their own 最近のフォルダ (5) (M122). A window opens
 in the folder of the medium in use, else its own newest folder, else the
 newest of the FDD, HDD and tape lists in that order, else the home
@@ -322,9 +326,14 @@ Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
 second as FDD2, and later images are reported as ignored. Supported direct
 extensions are `.d88`, `.88d`, `.d98`, `.98d`, `.fdi`, `.xdf`, `.hdm`,
-`.dup`, `.2hd`, `.tfd`, and `.img`. A supported single disk image compressed as
-`.d88.xz` (or another supported image suffix followed by `.xz`) is also
-accepted and extracted to bounded managed storage. ZIP, 7z, and LZH drops
+`.dup`, `.2hd`, `.tfd`, and `.img`.
+FDD > 開く lists `.d88.xz` and `.88d.xz` alongside D88/88D and ZIP/7z/LZH
+in its default file-type filter (case-insensitive). The same inputs can be
+mounted by dropping them on the window.
+
+A supported single disk image compressed as `.d88.xz` (or another supported
+image suffix followed by `.xz`) is also accepted and extracted to bounded
+managed storage. ZIP, 7z, and LZH drops
 extract only supported images to bounded managed storage under the platform
 user-state directory when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 `FDD2FILE`, so they remain valid through reset and application restart.
@@ -955,6 +964,9 @@ The Key menu exposes:
   or マウス (`cursor_keys`, M110)
 - ホストの配列: JIS, US, カスタム
 - かな入力: JIS かな, ローマ字かな
+- テンキー代用 (YUI/HJK/NM,.): YUI=789, HJK=456, NM,=123, period=0;
+  independent of cursor assignment, off by default, persisted as
+  `keyboard_letter_keypad=true` (M127)
 - F12 の割り当て
 - キーの割り当て…: the full key binding table with capture-next-key
 

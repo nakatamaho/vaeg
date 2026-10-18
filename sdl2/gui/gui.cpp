@@ -1596,9 +1596,11 @@ static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
 /* File types of the FDD and tape browsers (M106, maintainer request): the
  * usual image and archive types by default, or every file, as in a Windows
  * "Files of type" list. */
-static const char *const kFddFileTypes[] = {".d88", ".88d", ".zip", ".7z", ".lzh"};
+static const char *const kFddFileTypes[] = {".d88", ".88d", ".d88.xz", ".88d.xz",
+                                            ".zip", ".7z",  ".lzh"};
 static const char *const kTapeFileTypes[] = {".cmt", ".t88", ".zip", ".7z", ".lzh"};
-static const char kFddFileTypeLabel[] = "Disk images (*.d88;*.88d;*.zip;*.7z;*.lzh)";
+static const char kFddFileTypeLabel[] =
+    "Disk images (*.d88;*.88d;*.d88.xz;*.88d.xz;*.zip;*.7z;*.lzh)";
 static const char kTapeFileTypeLabel[] = "Tape images (*.cmt;*.t88;*.zip;*.7z;*.lzh)";
 /* The SASI browser lists .hdi images by default (maintainer request); the
  * SCSI browser keeps listing every file. */
@@ -1606,13 +1608,16 @@ static const char *const kSasiFileTypes[] = {".hdi"};
 static const char kSasiFileTypeLabel[] = "SASI HDD images (*.hdi)";
 
 static bool file_type_listed(const std::string &name, const char *const *types, size_t count) {
-	std::string extension = fs::u8path(name).extension().u8string();
+	// A supported type can have a compound suffix, such as .d88.xz.
+	std::string filename = name;
 
-	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+	std::transform(filename.begin(), filename.end(), filename.begin(), [](unsigned char c) {
 		return static_cast<char>(std::tolower(c));
 	});
 	for (size_t i = 0; i < count; i++) {
-		if (extension == types[i]) {
+		const std::string suffix = types[i];
+		if (filename.size() >= suffix.size() &&
+		    filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) == 0) {
 			return true;
 		}
 	}
@@ -2187,18 +2192,39 @@ static int history_hdd_kind(int drive) {
 	return hdd_is_scsi(drive) ? (HIST_SCSI0 + hdd_slot(drive)) : (HIST_SASI1 + hdd_slot(drive));
 }
 
-/* M116: the files of a recorded boot that no longer exist, one per line. */
-static std::string history_missing_paths(const BootRecord &boot) {
+/* M127: a missing secondary medium must not block every existing medium
+ * in this record. Never fall back to media from the running session. */
+struct HistoryBootPlan {
+	BootRecord boot;
 	std::string missing;
-	const std::string *paths[] = {&boot.fdd[0], &boot.fdd[1], &boot.sasi[0], &boot.sasi[1],
-	                              &boot.tape};
-	for (const std::string *path : paths) {
+	bool startable;
+};
+
+static HistoryBootPlan history_boot_plan(const BootRecord &boot) {
+	HistoryBootPlan plan{boot, std::string(), false};
+	std::string *paths[] = {&plan.boot.fdd[0], &plan.boot.fdd[1], &plan.boot.sasi[0],
+	                        &plan.boot.sasi[1], &plan.boot.tape};
+	bool present = false;
+	for (std::string *path : paths) {
 		std::error_code ec;
-		if (!path->empty() && !fs::exists(fs::u8path(*path), ec)) {
-			missing += (missing.empty() ? "" : "\n") + *path;
+		if (path->empty()) {
+			continue;
+		}
+		if (fs::is_regular_file(fs::u8path(*path), ec)) {
+			present = true;
+		} else {
+			plan.missing += (plan.missing.empty() ? "" : "\n") + *path;
+			path->clear();
 		}
 	}
-	return missing;
+	for (int drive = 0; drive < 2; drive++) {
+		if (plan.boot.fdd[drive].empty()) {
+			plan.boot.fdd_image[drive] = 0;
+		}
+	}
+	// No recorded media is a valid ROM boot; all recorded media gone is not.
+	plan.startable = plan.missing.empty() || present;
+	return plan;
 }
 
 /* 最近の起動: the media, machine and mode at a reset from the GUI. */
@@ -3657,12 +3683,19 @@ static void restore_boot_display(const BootRecord &boot) {
 /* 最近の起動: put a recorded set of media back, select its machine and
  * mode, and reset (which moves the set to the top). */
 static void boot_from_history(const BootRecord &chosen) {
+	// Recheck before any mount or session mutation: files can disappear
+	// after the menu was drawn.
+	const HistoryBootPlan plan = history_boot_plan(chosen);
+	if (!plan.startable) {
+		g_gui.boot_status = "起動できませんでした。見つからないファイル:\n" + plan.missing;
+		return;
+	}
 	// M124: the running session ends here; record its display (this only
-	// updates the first record in place), then copy the chosen one, whose
-	// display is applied below
+	// updates the first record in place), then restore the validated chosen
+	// record's display below
 	history_note_session_display();
 	g_session_recorded = false;
-	const BootRecord boot = chosen;
+	const BootRecord boot = plan.boot;
 	g_gui.boot_status.clear();
 	for (int drive = 0; drive < 2; drive++) {
 		if (boot.fdd[drive].empty()) {
@@ -3686,6 +3719,9 @@ static void boot_from_history(const BootRecord &chosen) {
 		g_gui.tape_loaded.clear();
 	} else {
 		(void)load_tape_path(boot.tape);
+	}
+	if (!plan.missing.empty()) {
+		g_gui.boot_status = "見つからないメディアを除いて起動:\n" + plan.missing;
 	}
 	// M124: the monitor applies at the reset below; the rotation at once
 	if (boot.monitor_15khz >= 0) {
@@ -3715,14 +3751,17 @@ static void draw_recent_boots_menu(void) {
 	}
 	for (std::size_t index = 0; index < g_recent_boots.size(); index++) {
 		const BootRecord boot = g_recent_boots[index];
-		const std::string label = history_boot_label(boot) + "##boot" + std::to_string(index);
-		const std::string missing = history_missing_paths(boot);
-		if (ImGui::MenuItem(label.c_str(), nullptr, false, missing.empty())) {
+		const HistoryBootPlan plan = history_boot_plan(boot);
+		const std::string label = history_boot_label(boot) +
+		                          (plan.startable && !plan.missing.empty() ? " (一部なし)" : "") +
+		                          "##boot" + std::to_string(index);
+		if (ImGui::MenuItem(label.c_str(), nullptr, false, plan.startable)) {
 			boot_from_history(boot);
 		}
-		// M116: a greyed entry says which file is gone.
-		if (!missing.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-			ImGui::SetTooltip("見つからないファイル:\n%s", missing.c_str());
+		if (!plan.missing.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("%s\n%s",
+			                  plan.startable ? "以下を除いて起動します:" : "見つからないファイル:",
+			                  plan.missing.c_str());
 		}
 	}
 	ImGui::Separator();
@@ -5116,6 +5155,15 @@ static void draw_key_menu(void) {
 			set_kana_input("roman");
 		}
 		ImGui::EndMenu();
+	}
+	const bool letter_keypad = kbdmap_letter_keypad_enabled() ? true : false;
+	if (ImGui::MenuItem("テンキー代用 (YUI/HJK/NM,.)", nullptr, letter_keypad)) {
+		kbdmap_set_letter_keypad(!letter_keypad);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip(
+		    "Y U I = 7 8 9\nH J K = 4 5 6\nN M , = 1 2 3\n    . = 0\nカーソル割り当てとは独立");
 	}
 	if (ImGui::BeginMenu("F12 の割り当て")) {
 		if (ImGui::MenuItem("マウス", nullptr, np2oscfg.F12KEY == 0)) {
@@ -6553,6 +6601,107 @@ BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
 		std::snprintf(problem, size, "%s", failed);
 		return FAILURE;
 	}
+	return SUCCESS;
+}
+
+BOOL gui_recent_boot_media_selftest(const char *root, char *problem, size_t size) {
+	const fs::path dir = fs::u8path(root);
+	const fs::path present = dir / "present.d88";
+	const fs::path second = dir / "second.zip";
+	std::ofstream(present, std::ios::binary) << "media fixture";
+	std::ofstream(second, std::ios::binary) << "archive fixture";
+	const char *failed = nullptr;
+	BootRecord full;
+	full.fdd[0] = present.u8string();
+	full.fdd[1] = second.u8string();
+	full.fdd_image[0] = 1;
+	full.fdd_image[1] = 2;
+	full.rotate = 1;
+	full.renderer = 2;
+	full.monitor_15khz = 1;
+	const HistoryBootPlan complete = history_boot_plan(full);
+	if (!complete.startable || !complete.missing.empty() || !(complete.boot == full) ||
+	    complete.boot.rotate != full.rotate || complete.boot.renderer != full.renderer) {
+		failed = "M127_RECENT_COMPLETE";
+	}
+	BootRecord partial = full;
+	partial.fdd[1] = (dir / "missing.d88").u8string();
+	partial.sasi[0] = (dir / "missing.hdi").u8string();
+	partial.tape = (dir / "missing.t88").u8string();
+	const HistoryBootPlan usable = history_boot_plan(partial);
+	if (!failed &&
+	    (!usable.startable || usable.boot.fdd[0] != full.fdd[0] || usable.boot.fdd_image[0] != 1 ||
+	     !usable.boot.fdd[1].empty() || usable.boot.fdd_image[1] != 0 ||
+	     !usable.boot.sasi[0].empty() || !usable.boot.tape.empty() ||
+	     usable.missing.find(partial.fdd[1]) == std::string::npos ||
+	     usable.missing.find(partial.sasi[0]) == std::string::npos ||
+	     usable.missing.find(partial.tape) == std::string::npos)) {
+		failed = "M127_RECENT_PARTIAL";
+	}
+	BootRecord gone;
+	gone.fdd[0] = partial.fdd[1];
+	if (!failed && history_boot_plan(gone).startable) {
+		failed = "M127_RECENT_ALL_MISSING";
+	}
+	// A different entry's missing files must not contaminate this entry.
+	if (!failed &&
+	    (!history_boot_plan(full).startable || !history_boot_plan(full).missing.empty())) {
+		failed = "M127_RECENT_INDEPENDENT";
+	}
+	if (!failed && !history_boot_plan(BootRecord{}).startable) {
+		failed = "M127_RECENT_ROM_BOOT";
+	}
+	BootRecord hdd;
+	hdd.sasi[1] = present.u8string();
+	hdd.fdd[0] = gone.fdd[0];
+	if (!failed &&
+	    (!history_boot_plan(hdd).startable || !history_boot_plan(hdd).boot.fdd[0].empty())) {
+		failed = "M127_RECENT_HDD";
+	}
+	std::error_code ec;
+	fs::remove(present, ec);
+	BootRecord removed;
+	removed.fdd[0] = present.u8string();
+	if (!failed && history_boot_plan(removed).startable) {
+		failed = "M127_RECENT_RECHECK";
+	}
+	fs::remove(second, ec);
+	if (failed) {
+		std::snprintf(problem, size, "%s", failed);
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+BOOL gui_file_filter_selftest(void) {
+	static const char *const accepted[] = {
+	    "disk.d88",    "disk.88d",    "disk.d88.xz", "disk.88d.xz", "disk.D88.XZ",
+	    "disk.88D.XZ", "disk.D88.xZ", "set.zip",     "set.ZIP",     "set.7z",
+	    "set.7Z",      "set.lzh",     "set.LZH"};
+	static const char *const rejected[] = {"disk.xz",    "disk.d88.xz.bak", "disk.88d.xz.txt",
+	                                       "diskd88.xz", "notes.txt",       "",
+	                                       "xz",         "disk.gz"};
+	for (const char *name : accepted) {
+		if (!file_type_listed(name, kFddFileTypes, std::size(kFddFileTypes))) {
+			fprintf(stderr, "selftest: file filter failed: M127_FDD_FILTER_ACCEPT: %s\n", name);
+			return FAILURE;
+		}
+	}
+	for (const char *name : rejected) {
+		if (file_type_listed(name, kFddFileTypes, std::size(kFddFileTypes))) {
+			fprintf(stderr, "selftest: file filter failed: M127_FDD_FILTER_REJECT: %s\n", name);
+			return FAILURE;
+		}
+	}
+	if (!file_type_listed("tape.T88", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    !file_type_listed("disk.HDI", kSasiFileTypes, std::size(kSasiFileTypes)) ||
+	    file_type_listed("tape.t88.xz", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    file_type_listed("disk.d88.xz", kTapeFileTypes, std::size(kTapeFileTypes)) ||
+	    file_type_listed("disk.hdi.bak", kSasiFileTypes, std::size(kSasiFileTypes))) {
+		fprintf(stderr, "selftest: file filter failed: M127_OTHER_FILTER\n");
+		return FAILURE;
+	}
+	fprintf(stderr, "selftest: file filter ok\n");
 	return SUCCESS;
 }
 

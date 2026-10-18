@@ -68,7 +68,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   make/break events.
   Amended in M106 at the maintainer's request: the overlay now maps the
   host cursor keys up/left/right/down to guest keypad `8/4/6/2` instead of
-  the letter keys.
+  the letter keys. M127 restores the original letter mapping as the
+  independent, default-off `keyboard_letter_keypad` switch directly below
+  Key > かな入力; cursor assignment remains unchanged.
 - Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
   tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
   guest input so host IME state and UTF-8 composition cannot leak into the

@@ -50,8 +50,10 @@ The archived Win32 tree is evidence only. It was not edited for M14.
 - `keyboard_kana_input`: `jis-kana` or `roman`.
 - `keyboard_auto_kana_lock`: accepted from old configs, but Roman-Kana
   ignores it. The assigned KANA key controls guest kana lock directly.
-- `keyboard_tenkey_overlay`: `0` or `1`; when enabled, a tenkeyless
+- `keyboard_tenkey_overlay`: `true` or `false`; when enabled, a tenkeyless
   game overlay maps the cursor keys to guest keypad 8/4/6/2.
+- `keyboard_letter_keypad`: `true` or `false` (default); independently maps
+  `YUI/HJK/NM,.` to guest keypad `789/456/123/0` (M127).
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
   The sidecar file remains in the portable user-state directory even when
   `vaeg.cfg` is executable-local, and stores one `role=scancode-name`
@@ -150,7 +152,7 @@ use PC key chords such as PC+D.
 
 ## Tenkeyless Game Overlay
 
-`keyboard_tenkey_overlay=1` is a game-oriented overlay independent of
+`keyboard_tenkey_overlay=true` is a game-oriented overlay independent of
 the JIS/US/Custom host layout. It is off by default. When enabled from
 Key / カーソル割り当て / テンキー 8/4/6/2, the following host scancodes are sent
 as guest keypad make/break events:
@@ -163,8 +165,17 @@ as guest keypad make/break events:
 | Down | keypad 2 | 0x4b |
 
 Until M106 the overlay used the letter keys Y U I / H J K / N M , / .
-for keypad 7 8 9 / 4 5 6 / 1 2 3 / 0; at the maintainer's request it now
-uses the cursor keys, and the letter keys type letters again.
+for keypad 7 8 9 / 4 5 6 / 1 2 3 / 0. M106 changed it to the cursor keys.
+M127 restores the letter mapping as an independent setting, off by default:
+Key / テンキー代用 (YUI/HJK/NM,.) immediately below かな入力. It maps
+Y/U/I to 7/8/9, H/J/K to 4/5/6, N/M/comma to 1/2/3, and period to 0,
+using the same guest keypad codes (7=42h, 8=43h, 9=44h, 4=46h, 5=47h,
+6=48h, 1=4Ah, 2=4Bh, 3=4Ch, 0=4Eh). `keyboard_letter_keypad=true`
+persists it without changing cursor assignment. These letters are consumed
+before Roman-Kana or US punctuation processing. Disabling it or resetting
+frontend input releases held letter-keypad keys. Both overlays may be on;
+a digit held by both is released only after both overlay sources let go.
+Normal letters and punctuation return when the letter mapping is off.
 
 This overlay is intended for games on tenkeyless keyboards. It does not
 change the normal binding table and does not inject guest text. While it

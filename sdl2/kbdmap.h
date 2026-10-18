@@ -204,6 +204,8 @@ BOOL kbdmap_tenkey_overlay_enabled(void);
 void kbdmap_set_layout(const char *layout);
 void kbdmap_set_kana_input(const char *mode);
 void kbdmap_set_tenkey_overlay(BOOL enabled);
+BOOL kbdmap_letter_keypad_enabled(void);
+void kbdmap_set_letter_keypad(BOOL enabled);
 void kbdmap_reset_to_jis(void);
 void kbdmap_reset_to_us(void);
 BOOL kbdmap_set_binding(int index, SDL_Scancode scancode);
