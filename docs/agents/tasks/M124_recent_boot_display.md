@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M124 — monitor and screen rotation in 最近の起動
 
-Status: **complete; G124 passed on 2026-10-18**
+Status: **complete; G124 passed on 2026-10-18; merged to `main` at [a892699](https://github.com/nakatamaho/vaeg/commit/a8926994230297f57e7740aa5e3e4601d09ae84c)**
 
 ## Request
 
