@@ -122,7 +122,7 @@ class MinGWRecordingRecipe(unittest.TestCase):
         self.assertNotEqual(parser, driver)
         with tempfile.TemporaryDirectory() as temp:
             path = pathlib.Path(temp) / "parser.sh"
-            path.write_text(parser + '\nprintf "%s" "$recording"\n')
+            path.write_text(parser + '\nprintf "%s" "$recording"\n', newline="\n")
             for arguments, expected in (([], "ON"), (["--no-recording"], "OFF")):
                 result = subprocess.run(["bash", path.as_posix(), *arguments],
                                         text=True, capture_output=True)
@@ -140,7 +140,7 @@ class MinGWRecordingRecipe(unittest.TestCase):
             payload = root / "libavcodec.a"
             payload.write_bytes(b"valid static fixture")
             digest = hashlib.sha256(payload.read_bytes()).hexdigest()
-            (root / "manifest.sha256").write_text(f"{digest}  libavcodec.a\n")
+            (root / "manifest.sha256").write_text(f"{digest}  libavcodec.a\n", newline="\n")
 
             def validate():
                 return subprocess.run([
@@ -154,6 +154,14 @@ class MinGWRecordingRecipe(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             codes = re.findall(r"^VAEG_FFMPEG_[A-Z_]+$", result.stderr, re.MULTILINE)
             self.assertEqual(codes, ["VAEG_FFMPEG_CACHE_HASH_MISMATCH"], result.stderr)
+            # A separate passing baseline, then one extra unmanifested file.
+            payload.write_bytes(b"valid static fixture")
+            self.assertEqual(validate().returncode, 0)
+            (root / "unlisted.a").write_bytes(b"not in the approved file set")
+            result = validate()
+            self.assertNotEqual(result.returncode, 0)
+            codes = re.findall(r"^VAEG_FFMPEG_[A-Z_]+$", result.stderr, re.MULTILINE)
+            self.assertEqual(codes, ["VAEG_FFMPEG_CACHE_FILE_SET_MISMATCH"], result.stderr)
 
 
 if __name__ == "__main__":

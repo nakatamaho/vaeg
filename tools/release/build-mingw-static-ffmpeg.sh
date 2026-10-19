@@ -32,6 +32,13 @@ ffmpeg_verify_cache() {
 		echo 'VAEG_FFMPEG_CACHE_HASH_MISMATCH' >&2
 		return 1
 	fi
+	if ! cmp -s \
+		<(cd "$directory"; find . -type f ! -name manifest.sha256 -print | sed 's#^./##' | LC_ALL=C sort) \
+		<(cd "$directory"; cut -c67- manifest.sha256 | sed 's#^./##' | LC_ALL=C sort) ||
+	   [[ -n $(find "$directory" -type l -print -quit) ]]; then
+		echo 'VAEG_FFMPEG_CACHE_FILE_SET_MISMATCH' >&2
+		return 1
+	fi
 }
 
 ffmpeg_main() {
