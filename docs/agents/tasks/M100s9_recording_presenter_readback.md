@@ -40,7 +40,8 @@ separate from the new readback changes until independently verified.
 ## Gate and current status
 
 IMPLEMENTED: checkpoints 1–3 now have local macOS archive-path verification.
-Final clean-build/media prerequisites and the human gate remain open; this is not
+Static macOS Release and clean MinGW compile/import checks pass with the audit recovery
+below. Media/runtime prerequisites and the human gate remain open; this is not
 release approval. Stop before beginning another milestone.
 At final completion require actual macOS Displayed FFV1 playback and existing Native
 regression acceptance. Windows/Linux hardware availability and realtime audio are
@@ -110,9 +111,45 @@ Raw local logs, commands and worker/source digests are retained under
 `build/m100s9-completion/`; private scratch remains outside Git. An earlier manual
 launch referenced unavailable optional integration inputs and emitted missing-ROM
 warnings: it is only frontend evidence, not a boot/demo/OS or private-game PASS.
-Actual guest/media/PSD inputs, the final media regeneration/runtime cycle, a clean
-static MinGW handoff and Windows/Linux/older-macOS runtime evidence remain gate
-prerequisites, not established by the public Metal probe. No new human gate passed.
+Actual guest/media/PSD inputs and the final media regeneration/guest-runtime cycle
+remain missing gate prerequisites. The clean MinGW handoff does not establish
+physical Windows/Linux/older-macOS runtime evidence; those platform gates remain
+separate. No new human gate passed.
+
+## Clean-build and cross-host audit recovery
+
+Evaluated feature commit:
+[73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535).
+The required clean helper was invoked with that full SHA. Its new clone compiled
+recording OFF successfully, but the helper exited 1 in its import auditor: native
+AArch64 Ubuntu `objdump` did not recognize the valid x86-64 PE. The exact traceback
+is retained in the handoff's original `output/import-audit.txt`; compilation was
+not rerun as if it had failed.
+
+`check-static-windows-imports.py` now prefers the installed target-prefixed MinGW
+inspector, retaining native `objdump` as the fallback when it is absent. This is a
+build-tool portability correction, not an emulator change or an import allow-list
+bypass. Run `python3 tests/frontend/librashader/test_static_windows_imports.py`:
+both selector unit tests pass. The completed OFF executable passes the corrected
+inspector on the host and inside the same pinned Ubuntu container.
+
+Recording ON was then configured and compiled in a separate new build directory
+of that clean source clone. A first staging attempt correctly failed
+`VAEG_FFMPEG_STATIC_ARCHIVE_MISSING` because its sysroot was outside the toolchain's
+search root; its configure log is retained. The final fresh build installs the
+validated cached target FFmpeg archives at the standard MinGW target prefix and
+passes compile, embedded commit/date and system-DLL-only PE audits (exit 0).
+The successfully built pinned Rust archive was reused without rebuilding it.
+There was no shared-library or codec fallback. This is cross-build evidence,
+not native Windows movie/runtime proof.
+
+macOS Release source 73948eaa also builds and imports only Apple system libraries.
+Its real frontend records four public ROM-less frames for each source under
+frameskip 4: Native 640x400 and Displayed 640x436 with menu, FFV1/PCM and matching
+source tags. `ffprobe` independently confirms both outputs. The dependency
+macOS-version/alignment linker warnings remain, so older-macOS support is not
+established. The prior accepted macOS executable is retained, not discarded.
+No new human or distribution gate is claimed.
 
 ## Metal font-atlas correction
 
