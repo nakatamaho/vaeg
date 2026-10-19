@@ -1541,6 +1541,27 @@ static void scrnmng_displayed_capture_fail(
 	scrnmng_displayed_capture_release();
 }
 
+BOOL scrnmng_get_displayed_recording_video_descriptor(
+    VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor, UINT32 *generation) {
+	int width, height;
+	const char *driver = SDL_GetCurrentVideoDriver();
+	if (descriptor == NULL || generation == NULL || !scrnmng.enable ||
+	    (!scrnmng.native_active && scrnmng.renderer == NULL) ||
+	    driver == NULL || !strcmp(driver, "dummy") || !strcmp(driver, "offscreen") ||
+	    scrnmng.sdl_renderer_generation == 0u ||
+	    scrnmng_get_drawable_size(&width, &height) != SUCCESS || width <= 0 || height <= 0 ||
+	    (UINT64)(UINT32)width * (UINT32)height * 4u >
+	        VAEG_RECORDING_DISPLAYED_FRAME_MAX_BYTES) {
+		return FAILURE;
+	}
+	descriptor->width = (UINT32)width;
+	descriptor->height = (UINT32)height;
+	descriptor->stride_bytes = (UINT32)width * 3u;
+	descriptor->pixel_format = VAEG_RECORDING_PIXEL_RGB24;
+	*generation = scrnmng.sdl_renderer_generation;
+	return SUCCESS;
+}
+
 BOOL scrnmng_start_displayed_recording_capture(
 	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK callback, void *context) {
 	int width;
@@ -3494,11 +3515,15 @@ void scrnmng_present_end(void) {
 			scrnmng.native_capture_warning = TRUE;
 		}
 		if (scrnmng_get_drawable_size(&drawable_width, &drawable_height) != SUCCESS) {
+			if (scrnmng.displayed_capture_active)
+				scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED);
 			return;
 		}
 		native_result = vaeg_native_presenter_resize(
 		    scrnmng.native_presenter, (UINT32)drawable_width, (UINT32)drawable_height);
 		if (native_result == VAEG_NATIVE_PRESENTER_NO_OUTPUT) {
+			if (scrnmng.displayed_capture_active)
+				scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_READBACK_FAILED);
 			return;
 		}
 		if (native_result == VAEG_NATIVE_PRESENTER_FALLBACK) {
@@ -3557,7 +3582,9 @@ void scrnmng_present_end(void) {
 					/* Finish the screenshot before a callback may release recording pixels. */
 					scrnmng_finish_display_capture(surface, copied);
 				}
-				if (recording_readback && native_result != VAEG_NATIVE_PRESENTER_NO_OUTPUT) {
+				if (recording_readback) {
+					/* An archive cannot silently skip a guest image when a
+					 * drawable is unavailable. Incomplete readback fails closed. */
 					(void)scrnmng_finish_displayed_recording_frame(&capture);
 				}
 			}

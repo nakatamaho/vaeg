@@ -46,6 +46,9 @@ VAEG_RECORDING_NATIVE_TAP_ERROR vaeg_recording_native_session_submit_frame(
     const VAEG_RECORDING_NATIVE_FRAME *frame, const VAEG_RECORDING_OSD_SNAPSHOT *osd);
 int vaeg_recording_native_session_after_guest_exec(void);
 int vaeg_recording_native_session_is_active(void);
+int vaeg_recording_session_is_displayed(void);
+/* Interactive acquisition changes save complete intervals; batches fail closed. */
+int vaeg_recording_session_displayed_capture_changed(void);
 int vaeg_recording_native_session_should_stop(void);
 int vaeg_recording_native_session_request_stop(void);
 int vaeg_recording_native_session_poll_stop(void);

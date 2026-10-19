@@ -299,6 +299,17 @@ extern "C" BOOL scrnmng_get_native_recording_video_descriptor(
 	return SUCCESS;
 }
 
+/* This test deliberately has no Displayed presenter; integration tests own it. */
+extern "C" BOOL scrnmng_get_displayed_recording_video_descriptor(
+    VAEG_RECORDING_VIDEO_DESCRIPTOR *, UINT32 *) { return FAILURE; }
+extern "C" BOOL scrnmng_start_displayed_recording_capture(
+    VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK, void *) { return FAILURE; }
+extern "C" void scrnmng_stop_displayed_recording_capture(void) {}
+extern "C" BOOL scrnmng_displayed_recording_capture_active(void) { return FALSE; }
+extern "C" VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error(void) {
+	return VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+}
+
 extern "C" UINT32 scrnmng_native_recording_descriptor_generation(void) {
 	return 77u;
 }

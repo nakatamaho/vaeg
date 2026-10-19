@@ -129,6 +129,9 @@ BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame);
 BOOL scrnmng_capture_native_recording_frame_with_snapshot(
 	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
 BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor);
+/* Full drawable client image, RGB24, square pixels; no allocation or GPU work. */
+BOOL scrnmng_get_displayed_recording_video_descriptor(
+    VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor, UINT32 *generation);
 UINT32 scrnmng_native_recording_descriptor_generation(void);
 BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);

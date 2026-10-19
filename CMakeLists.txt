@@ -1233,6 +1233,7 @@ if(VAEG_ENABLE_TESTS)
     if(VAEG_ENABLE_RECORDING)
         add_executable(vaeg_recording_native_session_test
             tests/frontend/recording/test_recording_native_session.cpp
+            sdl2/recording/recording_displayed_capture.c
             sdl2/recording/recording_native_session.cpp
             sdl2/recording/recording_native_tap.c
             sdl2/recording/recording_queue.cpp
@@ -1268,6 +1269,7 @@ if(VAEG_ENABLE_TESTS)
 
         add_executable(vaeg_recording_runtime_integration_test
             tests/frontend/recording/test_recording_runtime_integration.cpp
+            sdl2/recording/recording_displayed_capture.c
             sdl2/recording/recording_runtime.c
             sdl2/recording/recording_native_session.cpp
             sdl2/recording/recording_native_tap.c
@@ -1296,6 +1298,41 @@ if(VAEG_ENABLE_TESTS)
             COMMAND vaeg_recording_runtime_integration_test)
         set_tests_properties(vaeg_recording_runtime_integration PROPERTIES
             LABELS "romless;recording;frontend;integration")
+        if(APPLE AND VAEG_ENABLE_LIBRASHADER AND VAEG_STATIC_LIBRASHADER)
+            get_target_property(m100s9_archive_sources vaeg_recording_runtime_integration_test SOURCES)
+            add_executable(vaeg_recording_metal_archive_probe
+                ${m100s9_archive_sources}
+                sdl2/librashader/frame_input.cpp
+                sdl2/librashader/frame_conversion.cpp
+                sdl2/librashader/native_presenter.cpp
+                sdl2/librashader/metal_presenter.cpp
+                sdl2/librashader/shader_parameters.cpp
+                sdl2/librashader/shader_preset.cpp
+                sdl2/librashader/builtin_shaders.cpp
+                sdl2/librashader/backends/metal_bridge.mm
+                external/imgui/imgui.cpp
+                external/imgui/imgui_draw.cpp
+                external/imgui/imgui_tables.cpp
+                external/imgui/imgui_widgets.cpp)
+            target_include_directories(vaeg_recording_metal_archive_probe PRIVATE
+                $<TARGET_PROPERTY:vaeg_sdl2,INCLUDE_DIRECTORIES>)
+            target_compile_features(vaeg_recording_metal_archive_probe PRIVATE cxx_std_17)
+            target_compile_definitions(vaeg_recording_metal_archive_probe PRIVATE
+                VAEG_ENABLE_RECORDING=1 VAEG_RECORDING_FFMPEG=1
+                VAEG_ENABLE_LIBRASHADER=1 VAEG_STATIC_LIBRASHADER=1
+                VAEG_RECORDING_METAL_PROBE=1
+                "VAEG_METAL_FRONTEND_BINARY=\"$<TARGET_FILE:vaeg_sdl2>\"")
+            add_dependencies(vaeg_recording_metal_archive_probe vaeg_sdl2)
+            target_compile_options(vaeg_recording_metal_archive_probe PRIVATE -Wall -fsigned-char)
+            target_link_libraries(vaeg_recording_metal_archive_probe PRIVATE
+                Threads::Threads ${VAEG_FFMPEG_TARGETS} ${VAEG_SDL2_LIBS}
+                "${VAEG_LIBRASHADER_STATIC_LIBRARY}" ${VAEG_LIBRASHADER_NATIVE_LIBS}
+                "-framework Cocoa" "-framework Metal" "-framework QuartzCore")
+            add_test(NAME vaeg_recording_metal_archive_probe
+                COMMAND vaeg_recording_metal_archive_probe)
+            set_tests_properties(vaeg_recording_metal_archive_probe PROPERTIES
+                SKIP_RETURN_CODE 77 TIMEOUT 90 LABELS "romless;recording;metal;hardware")
+        endif()
 
         add_executable(vaeg_recording_ffmpeg_capabilities_test
             tests/frontend/recording/test_recording_ffmpeg_capabilities.cpp

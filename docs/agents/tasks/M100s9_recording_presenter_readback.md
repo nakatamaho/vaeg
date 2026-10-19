@@ -39,11 +39,80 @@ separate from the new readback changes until independently verified.
 
 ## Gate and current status
 
-IN_PROGRESS; checkpoint 1 implemented, checkpoints 2 and 3 NOT_STARTED. No new
-human gate is claimed. Stop before beginning another milestone.
+IMPLEMENTED: checkpoints 1–3 now have local macOS archive-path verification.
+Final clean-build/media prerequisites and the human gate remain open; this is not
+release approval. Stop before beginning another milestone.
 At final completion require actual macOS Displayed FFV1 playback and existing Native
 regression acceptance. Windows/Linux hardware availability and realtime audio are
 separate runtime gates, never inferred from an API name or a cross-build.
+
+## Displayed archive implementation
+
+The source is fixed for each session. Displayed uses owned square-pixel RGB24
+snapshots of the full client drawable (shader, letterboxing, OSD and GUI), the
+existing indexed guest-time PCM FIFO, bounded lossless queues and exclusive
+FFV1/PCM/MKV writer. Source metadata is `displayed`, never `native`. Native keeps
+its existing capture, GUI auto-splitting, CLI failure and reset-rearm contracts.
+
+The main loop forces a real presentation for every Displayed guest frame even
+under draw-skip. The callback converts borrowed RGBA into preallocated owned RGB
+and commits the prior held-image interval at that exact guest boundary. Worker
+threads never receive borrowed pixels, GPU objects or GUI pointers. Repeated,
+gapped or regressed frame boundaries fail closed instead of dropping frames.
+
+Displayed geometry/presenter changes and reset save complete intervals and stop;
+the old image is sealed through the change boundary when valid. Arbitrary state
+load/rewind cancels, and batch acquisition changes remain errors. Empty recordings
+publish no file. Missing drawables/readback failures cannot leave an apparently
+active recorder indefinitely. Interactive failures do not terminate the guest.
+The screen menu and source/compression controls are locked while Displayed records;
+Displayed always includes the actual GUI/OSD, so Native-only OSD/rotation controls
+are disabled for that source.
+
+Both sources are selectable in the GUI, subject to current renderer availability;
+`--record-source displayed` now works too. Startup presents the actual first GUI
+layout before fixing the batch Displayed descriptor, because initial menu/font
+metrics can resize the client. No extra offscreen shader evaluation is introduced.
+The compression UI explicitly shows FFV1 and a disabled hardware H.264 choice with
+the missing host-time audio-mapping reason. It never advertises a working realtime
+path based solely on the earlier encoder probe.
+
+### Verification of the complete macOS path
+
+- Debug ON frontend/recording: 37 PASS, two opt-in hardware probes SKIP by default;
+  Debug OFF: 29 PASS. Focused ASan/UBSan clock/session/runtime/integration: 4 PASS
+  (`detect_leaks=0`, `halt_on_error=1`); not a whole-guest sanitizer result.
+- The extended runtime integration test independently decodes colored/asymmetric,
+  padded-pitch public Displayed snapshots and exact stereo PCM. It checks source
+  tags, opaque alpha, ownership after overwriting the callback buffer, guest-time
+  limits, manual stop, reset, state load, interactive geometry save, batch geometry
+  failure, readback failure, token gaps, held-image sealing and empty stop.
+- Nine changed first-party translation units pass replayed ON compile commands
+  with `-Werror`; repository encoding/EOL/case/Markdown-comment/whitespace checks
+  are required again before publication.
+- The opt-in actual Metal probe passes filtered/unfiltered final GUI rectangle and
+  first-frame font text, one presentation/readback per image, and exact FFV1 RGB/
+  opaque-alpha/PCM decode of both public movies. It also launches the real frontend
+  with an intentionally empty ROM directory: Native and Displayed each produce
+  four complete intervals with `--frameskip 4`, the correct source tag, FFV1/PCM
+  streams and actual Metal selection. Displayed includes the client menu. This
+  public subprocess is test-only; production recording uses library APIs only.
+  Empty ROMs prove frontend startup/draw-skip/recording, not guest boot or a ROM set.
+
+Exact command: isolated HOME, `VAEG_RUN_METAL_ARCHIVE_PROBE=1`,
+`build/macos-rec13-on/vaeg_recording_metal_archive_probe`. It emits
+`METAL_ARCHIVE_FINAL_GUI_FFV1_PCM_PARITY_PASS` and
+`METAL_FRONTEND_NATIVE_DISPLAYED_STARTUP_DRAW_SKIP_PASS`. The normal CTest entry
+skips unless explicitly opted in; a skip is never promoted to runtime PASS.
+The complete runtime was exercised separately with the opt-in environment.
+
+Raw local logs, commands and worker/source digests are retained under
+`build/m100s9-completion/`; private scratch remains outside Git. An earlier manual
+launch referenced unavailable optional integration inputs and emitted missing-ROM
+warnings: it is only frontend evidence, not a boot/demo/OS or private-game PASS.
+Actual guest/media/PSD inputs, the final media regeneration/runtime cycle, a clean
+static MinGW handoff and Windows/Linux/older-macOS runtime evidence remain gate
+prerequisites, not established by the public Metal probe. No new human gate passed.
 
 ## Metal font-atlas correction
 
