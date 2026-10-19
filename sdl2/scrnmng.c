@@ -99,9 +99,10 @@ typedef struct {
 	UINT32 displayed_capture_expected_generation;
 	UINT64 displayed_capture_last_token;
 	BOOL displayed_capture_have_token;
+	BOOL displayed_capture_native;
 	BOOL displayed_capture_active;
 	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR displayed_capture_error;
-	UINT32 sdl_renderer_generation;
+	UINT32 sdl_renderer_generation; /* Also identifies a native presenter lifetime. */
 	BOOL sdl_overlays_drawn;
 	VAEG_RECORDING_OSD_SNAPSHOT osd_snapshot;
 	BOOL osd_snapshot_valid;
@@ -1528,6 +1529,7 @@ static void scrnmng_displayed_capture_release(void) {
 	scrnmng.displayed_capture_expected_generation = 0u;
 	scrnmng.displayed_capture_last_token = 0u;
 	scrnmng.displayed_capture_have_token = FALSE;
+	scrnmng.displayed_capture_native = FALSE;
 	scrnmng.displayed_capture_active = FALSE;
 	scrnmng.displayed_capture_callback = NULL;
 	scrnmng.displayed_capture_context = NULL;
@@ -1555,10 +1557,8 @@ BOOL scrnmng_start_displayed_recording_capture(
 		return FAILURE;
 	}
 	scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
-	if (!scrnmng.enable || (scrnmng.renderer == NULL) || scrnmng.native_active) {
-		scrnmng.displayed_capture_error = scrnmng.native_active
-		                                       ? VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED
-		                                       : VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+	if (!scrnmng.enable || (!scrnmng.native_active && (scrnmng.renderer == NULL))) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
 		return FAILURE;
 	}
 	if ((SDL_GetCurrentVideoDriver() != NULL) &&
@@ -1596,6 +1596,7 @@ BOOL scrnmng_start_displayed_recording_capture(
 	scrnmng.displayed_capture_expected_generation = scrnmng.sdl_renderer_generation;
 	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
 	scrnmng.displayed_capture_have_token = TRUE;
+	scrnmng.displayed_capture_native = scrnmng.native_active;
 	scrnmng.displayed_capture_active = TRUE;
 	return SUCCESS;
 }
@@ -1613,37 +1614,53 @@ VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error
 	return scrnmng.displayed_capture_error;
 }
 
-static BOOL scrnmng_capture_displayed_recording_frame(void) {
-	VAEG_RECORDING_DISPLAYED_FRAME capture;
-	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+/* Presentation-thread preflight only: never render or allocate here. A false
+ * result means either no new guest token or an explicitly stopped capture. */
+static BOOL scrnmng_prepare_displayed_recording_frame(VAEG_OUTPUT_CAPTURE *output) {
 	int width;
 	int height;
 
+	ZeroMemory(output, sizeof(*output));
 	if (!scrnmng.displayed_capture_active) {
-		return SUCCESS;
+		return FALSE;
 	}
-	if (scrnmng.native_active || (scrnmng.renderer == NULL)) {
+	if ((scrnmng.native_active != scrnmng.displayed_capture_native) ||
+	    (!scrnmng.native_active && (scrnmng.renderer == NULL))) {
 		scrnmng_displayed_capture_fail(
 		    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
-		return FAILURE;
+		return FALSE;
 	}
 	if ((scrnmng_get_drawable_size(&width, &height) != SUCCESS) ||
 	    ((UINT32)width != scrnmng.displayed_capture_width) ||
 	    ((UINT32)height != scrnmng.displayed_capture_height)) {
 		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED);
-		return FAILURE;
+		return FALSE;
 	}
 	if (scrnmng.sdl_renderer_generation != scrnmng.displayed_capture_expected_generation) {
 		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
-		return FAILURE;
+		return FALSE;
 	}
 	if (scrnmng.displayed_capture_have_token &&
 	    (scrnmng.displayed_capture_last_token == (UINT64)drawcount)) {
-		return SUCCESS;
+		return FALSE;
 	}
-	if (SDL_RenderReadPixels(scrnmng.renderer, NULL, SDL_PIXELFORMAT_RGBA32,
-	                         scrnmng.displayed_capture_pixels,
-	                         (int)scrnmng.displayed_capture_pitch_bytes) != 0) {
+	output->pixels = scrnmng.displayed_capture_pixels;
+	output->width = scrnmng.displayed_capture_width;
+	output->height = scrnmng.displayed_capture_height;
+	output->pitch_bytes = scrnmng.displayed_capture_pitch_bytes;
+	return TRUE;
+}
+
+static BOOL scrnmng_finish_displayed_recording_frame(const VAEG_OUTPUT_CAPTURE *output) {
+	VAEG_RECORDING_DISPLAYED_FRAME capture;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+	if (!scrnmng.displayed_capture_active) {
+		return FAILURE;
+	}
+	if (!output->complete || output->pixels != scrnmng.displayed_capture_pixels ||
+	    output->width != scrnmng.displayed_capture_width ||
+	    output->height != scrnmng.displayed_capture_height ||
+	    output->pitch_bytes != scrnmng.displayed_capture_pitch_bytes) {
 		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_READBACK_FAILED);
 		return FAILURE;
 	}
@@ -1667,9 +1684,24 @@ static BOOL scrnmng_capture_displayed_recording_frame(void) {
 		    VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK_REJECTED);
 		return FAILURE;
 	}
-	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
-	scrnmng.displayed_capture_have_token = TRUE;
+	if (scrnmng.displayed_capture_active) {
+		scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+		scrnmng.displayed_capture_have_token = TRUE;
+	}
 	return SUCCESS;
+}
+
+static BOOL scrnmng_capture_displayed_recording_frame(void) {
+	VAEG_OUTPUT_CAPTURE output;
+	if (!scrnmng.displayed_capture_active) {
+		return SUCCESS;
+	}
+	if (!scrnmng_prepare_displayed_recording_frame(&output)) {
+		return scrnmng.displayed_capture_active ? SUCCESS : FAILURE;
+	}
+	output.complete = SDL_RenderReadPixels(scrnmng.renderer, NULL, SDL_PIXELFORMAT_RGBA32,
+	                                       output.pixels, (int)output.pitch_bytes) == 0;
+	return scrnmng_finish_displayed_recording_frame(&output);
 }
 
 BOOL scrnmng_texture_uniform(BOOL *uniform) {
@@ -1921,6 +1953,11 @@ BOOL scrnmng_create(int width, int height) {
 			}
 		}
 		if (scrnmng.native_active) {
+			/* Native startup never creates SDL renderer resources. Give its
+			 * capture descriptor a nonzero lifetime generation as well. */
+			if (++scrnmng.sdl_renderer_generation == 0u) {
+				scrnmng.sdl_renderer_generation = 1u;
+			}
 			scrnmng.renderer_backend[0] = '\0';
 			fprintf(stderr, "Native librashader selected: backend=%s mode=%s preset=%s\n",
 			        vaeg_native_presenter_backend(scrnmng.native_presenter),
@@ -3030,6 +3067,102 @@ static int scrnmng_displayed_fixture_callback(
 	return 1;
 }
 
+static int scrnmng_displayed_fixture_reject(
+	void *context, const VAEG_RECORDING_DISPLAYED_FRAME *capture) {
+	(void)context;
+	(void)capture;
+	return 0;
+}
+
+static int scrnmng_displayed_fixture_stop(
+	void *context, const VAEG_RECORDING_DISPLAYED_FRAME *capture) {
+	const int accepted = scrnmng_displayed_fixture_callback(context, capture);
+	scrnmng_stop_displayed_recording_capture();
+	return accepted;
+}
+
+/* Public pixels and the actual owned-buffer/callback path, without claiming
+ * that this software fixture exercised a physical native GPU. */
+static BOOL scrnmng_displayed_native_boundary_selftest(
+	SCRNMNG_DISPLAYED_CAPTURE_FIXTURE *fixture, const BYTE *expected) {
+	const VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR errors[] = {
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED,
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED,
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED,
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_READBACK_FAILED,
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK_REJECTED,
+	    VAEG_RECORDING_DISPLAYED_CAPTURE_OK};
+	VAEG_OUTPUT_CAPTURE output;
+	UINT mutation;
+	BOOL ok = FAILURE;
+
+	SDL_SetWindowSize(scrnmng.window, 640, 422);
+	/* Recording off: no output pointer and no allocation. */
+	if (scrnmng_prepare_displayed_recording_frame(&output) || output.pixels != NULL ||
+	    scrnmng.displayed_capture_pixels != NULL) return FAILURE;
+	for (mutation = 0; mutation < sizeof(errors) / sizeof(errors[0]); ++mutation) {
+		scrnmng.native_active = TRUE;
+		scrnmng.sdl_renderer_generation = 1u;
+		scrnmng.displayed_capture_native = TRUE;
+		scrnmng.displayed_capture_pixels = (BYTE *)malloc((size_t)640u * 422u * 4u);
+		if (!scrnmng.displayed_capture_pixels) goto cleanup;
+		scrnmng.displayed_capture_width = 640u;
+		scrnmng.displayed_capture_height = 422u;
+		scrnmng.displayed_capture_pitch_bytes = 640u * 4u;
+		scrnmng.displayed_capture_size_bytes = (UINT64)640u * 422u * 4u;
+		scrnmng.displayed_capture_generation = 1u;
+		scrnmng.displayed_capture_expected_generation = 1u;
+		scrnmng.displayed_capture_callback = scrnmng_displayed_fixture_callback;
+		scrnmng.displayed_capture_context = fixture;
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+		scrnmng.displayed_capture_active = TRUE;
+		fixture->count = 0u;
+		/* Every negative case first passes the same acquisition/content path. */
+		if (!scrnmng_prepare_displayed_recording_frame(&output) ||
+		    output.pixels != scrnmng.displayed_capture_pixels ||
+		    SDL_ConvertPixels(640, 422, SDL_PIXELFORMAT_RGB24, expected, 640 * 3,
+		                      SDL_PIXELFORMAT_RGBA32, output.pixels,
+		                      (int)output.pitch_bytes) != 0) goto cleanup;
+		output.complete = 1;
+		if (scrnmng_finish_displayed_recording_frame(&output) != SUCCESS ||
+		    scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK ||
+		    fixture->count != 1u || fixture->descriptor_generation != 1u ||
+		    fixture->frame_token != (UINT64)drawcount ||
+		    memcmp(fixture->rgb, expected, (size_t)640u * 422u * 3u) != 0) goto cleanup;
+		/* A redraw cannot ask the backend to capture the same guest token twice. */
+		if (scrnmng_prepare_displayed_recording_frame(&output) || output.pixels != NULL ||
+		    !scrnmng.displayed_capture_active || fixture->count != 1u) goto cleanup;
+		drawcount++;
+		if (!scrnmng_prepare_displayed_recording_frame(&output)) goto cleanup;
+		output.complete = 1;
+		switch (mutation) {
+		case 0: scrnmng.displayed_capture_width++; break;
+		case 1: scrnmng.sdl_renderer_generation++; break;
+		case 2: scrnmng.native_active = FALSE; break;
+		case 3: output.complete = 0; break;
+		case 4: scrnmng.displayed_capture_callback = scrnmng_displayed_fixture_reject; break;
+		case 5: scrnmng.displayed_capture_callback = scrnmng_displayed_fixture_stop; break;
+		}
+		if (mutation < 3u) {
+			if (scrnmng_prepare_displayed_recording_frame(&output)) goto cleanup;
+		} else if (scrnmng_finish_displayed_recording_frame(&output) !=
+		           (mutation == 5u ? SUCCESS : FAILURE)) goto cleanup;
+		if (scrnmng.displayed_capture_error != errors[mutation] ||
+		    scrnmng.displayed_capture_active || scrnmng.displayed_capture_pixels != NULL ||
+		    fixture->count != (mutation == 5u ? 2u : 1u)) {
+			fprintf(stderr, "selftest: DISPLAYED_NATIVE_BOUNDARY_ERROR case=%u error=%s\n",
+			        mutation, vaeg_recording_displayed_capture_error_name(
+			                      scrnmng.displayed_capture_error));
+			goto cleanup;
+		}
+	}
+	ok = SUCCESS;
+cleanup:
+	scrnmng_displayed_capture_release();
+	scrnmng.native_active = FALSE;
+	return ok;
+}
+
 static BOOL scrnmng_fps_visibility_selftest(void) {
 	const SCRNMNG saved = scrnmng;
 	const VAEG_SPEEDMETER saved_speedmeter = speedmeter;
@@ -3298,6 +3431,8 @@ BOOL scrnmng_display_capture_selftest(void) {
 	    (scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED)) {
 		goto cleanup;
 	}
+	if (scrnmng_displayed_native_boundary_selftest(&displayed_fixture,
+	                                               displayed_expected) != SUCCESS) goto cleanup;
 	if ((SDL_GetCurrentVideoDriver() != NULL) &&
 	    !strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
 		displayed_fixture.error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
@@ -3352,10 +3487,6 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	if (scrnmng.native_active) {
-		if (scrnmng.displayed_capture_active) {
-			scrnmng_displayed_capture_fail(
-			    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
-		}
 		if (scrnmng.rendered_capture_enabled && !scrnmng.native_capture_warning) {
 			fprintf(stderr,
 			        "Warning: rendered capture is unavailable while Native CRT owns the output; "
@@ -3394,21 +3525,41 @@ void scrnmng_present_end(void) {
 				    scrnmng.aspect ? 3U : (UINT32)scrnmng.height, vaeg_nominal_frame_rate, 1U,
 				    scrnmng.native_frame_number++, 16666667U);
 			}
-			if (scrnmng.display_capture_ready) {
-				SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(
-				    0, drawable_width, drawable_height, 32, SDL_PIXELFORMAT_RGBA32);
-				VAEG_OUTPUT_CAPTURE capture = {0};
-				if (surface) {
-					capture.pixels = surface->pixels;
-					capture.width = surface->w; capture.height = surface->h;
-					capture.pitch_bytes = surface->pitch;
+			{
+				VAEG_OUTPUT_CAPTURE capture;
+				const BOOL recording_readback =
+				    scrnmng_prepare_displayed_recording_frame(&capture);
+				SDL_Surface *surface = NULL;
+				if (scrnmng.display_capture_ready) {
+					surface = SDL_CreateRGBSurfaceWithFormat(
+					    0, drawable_width, drawable_height, 32, SDL_PIXELFORMAT_RGBA32);
+					if (surface && !recording_readback) {
+						capture.pixels = surface->pixels;
+						capture.width = surface->w;
+						capture.height = surface->h;
+						capture.pitch_bytes = surface->pitch;
+					}
 				}
-				vaeg_native_presenter_set_output_capture(scrnmng.native_presenter, &capture);
+				/* Exactly one live presentation and one optional readback, even
+				 * when a screenshot and recording request the same final image. */
+				vaeg_native_presenter_set_output_capture(
+				    scrnmng.native_presenter, capture.pixels ? &capture : NULL);
 				native_result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
 				vaeg_native_presenter_set_output_capture(scrnmng.native_presenter, NULL);
-				scrnmng_finish_display_capture(surface, capture.complete ? SUCCESS : FAILURE);
-			} else {
-				native_result = vaeg_native_presenter_present(scrnmng.native_presenter, &frame);
+				if (scrnmng.display_capture_ready) {
+					BOOL copied = capture.complete ? SUCCESS : FAILURE;
+					if (surface && recording_readback && capture.complete) {
+						copied = SDL_ConvertPixels(
+						    surface->w, surface->h, SDL_PIXELFORMAT_RGBA32, capture.pixels,
+						    (int)capture.pitch_bytes, SDL_PIXELFORMAT_RGBA32, surface->pixels,
+						    surface->pitch) == 0 ? SUCCESS : FAILURE;
+					}
+					/* Finish the screenshot before a callback may release recording pixels. */
+					scrnmng_finish_display_capture(surface, copied);
+				}
+				if (recording_readback && native_result != VAEG_NATIVE_PRESENTER_NO_OUTPUT) {
+					(void)scrnmng_finish_displayed_recording_frame(&capture);
+				}
 			}
 			if (native_result == VAEG_NATIVE_PRESENTER_NO_OUTPUT) {
 				return;

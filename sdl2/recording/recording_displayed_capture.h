@@ -59,7 +59,8 @@ typedef enum {
 
 /*
  * SDL_PIXELFORMAT_RGBA32 bytes are explicitly normalized as R, G, B, A by
- * the SDL readback seam. The source remains valid only for the callback.
+ * the SDL or native presenter readback seam. The source remains valid only
+ * for the callback.
  */
 typedef struct {
 	const uint8_t *pixels;
