@@ -30,6 +30,46 @@ static build/import audit. This follow-up changes no emulator/demo/media build
 input; reuse the earlier runtime and media evidence with its existing limits.
 User Windows recording confirmation remains separate from compile/link proof.
 
+Results: seven focused resolver/recipe tests pass, including default ON,
+explicit OFF, a passing cache followed by a one-byte mutation, and a separate
+passing cache followed by an unmanifested extra file. Exact failure codes
+are `VAEG_FFMPEG_CACHE_HASH_MISMATCH` and
+`VAEG_FFMPEG_CACHE_FILE_SET_MISMATCH`. Mutations disabling the default,
+checksum validation and file-set validation are detected, then restored.
+Shell syntax, encoding, EOL, case, Markdown and whitespace checks pass.
+
+The first clean attempt at
+[71162025](https://github.com/nakatamaho/vaeg/commit/711620252a2579c63dd85bf52b4f9ea8321c3f9f)
+verified the downloaded source but stopped because the minimal container
+lacked the XZ executable. Preserve that log/build directory. Add the explicit
+`xz-utils` prerequisite and its fixture assertion; do not rerun an unchanged
+failure. No FFmpeg compilation had completed in that first attempt.
+
+Successful clean handoff:
+[722528d3](https://github.com/nakatamaho/vaeg/commit/722528d34adbeeb2a9a08fe7e227dc62f5670fcd),
+source-built in a fresh clone by the pinned Ubuntu 24.04 container. Build,
+commit/date verification and system-DLL import audit exit 0. Actual cache:
+`VAEG_ENABLE_RECORDING:BOOL=ON`, `VAEG_STATIC_FFMPEG:BOOL=ON`. The linked PE
+contains `ff_ffv1_encoder`, `ff_pcm_s16le_encoder` and `ff_matroska_muxer`;
+FFmpeg configure reports LGPL 2.1-or-later and only the selected codecs.
+No FFmpeg/SDL2/MinGW runtime DLLs are imported.
+
+Executable: 58,910,574 bytes, SHA-256
+`744019207b8f8545f02e49fa79bff17ccec6866237552d00c428e4fd3538a0ef`.
+The absolute executable/report paths are supplied to the maintainer. Output
+also retains the verified source archive, LGPL text, library hashes, exact
+build identity, logs, installed static libraries and application relink inputs.
+This remains a local handoff, not an approved standalone public distribution.
+
+A later cache-validator/test-only refinement at
+[f842c03c](https://github.com/nakatamaho/vaeg/commit/f842c03c4e7ae296753f898fc887b59a6039f8d8)
+rejects extra files/symlinks and keeps temporary shell fixtures LF on Windows.
+The real completed FFmpeg cache passes that validator. Emulator sources,
+FFmpeg source/configuration, completed libraries and the worker binary are
+unchanged, so the successful artifact is reused instead of rebuilding for
+validator/report-only changes. The recording-OFF handoff is preserved; use
+the new executable rather than accidentally launching that older copy.
+
 ## Accepted FFV1 human gate and main integration
 
 Maintainer explicitly states "OK human gate passed merge" after macOS lossless

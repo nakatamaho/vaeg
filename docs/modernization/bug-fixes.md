@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M100s2 — standard static MinGW handoff omitted the accepted recorder
+
+- **Symptom/scope:** the main Windows handoff reported that recording was
+  unavailable even though the accepted native recorder had been merged.
+- **Demonstrated cause:** the container helper used `mingw-cross` without
+  overriding the optional CMake recording default or supplying FFmpeg.
+  The produced cache explicitly had `VAEG_ENABLE_RECORDING:BOOL=OFF`.
+- **Correction:** recording ON by default in the maintainer container helper,
+  with `--no-recording` as an explicit opt-out. Build pinned LGPL FFmpeg
+  8.1.2 with static FFV1/PCM/Matroska only. Verify the actual CMake option,
+  linked codec/muxer symbols and Windows-system-DLL-only imports. Global
+  developer CMake defaults and emulator/codec implementation are unchanged.
+- **Verification:** seven focused recipe/resolver tests pass, including a
+  real option-parser fixture and fail-closed cache hash/file-set negatives.
+  Mutations are caught. A fresh recording-ON MinGW build and PE audit pass;
+  FFV1, PCM S16LE and Matroska symbols are present, with no FFmpeg DLLs.
+  Native Windows recording execution remains a maintainer check, not a
+  claim based on compilation. Source/license/static libraries and relink
+  inputs are retained locally; no public distribution approval is implied.
+- **Task/evidence:** [M100s2 build follow-up](../agents/tasks/M100s2_recording_h264_boundary.md#maintainer-recording-enabled-mingw-handoff-follow-up-2026-10-19).
+- **Fix:** [71162025](https://github.com/nakatamaho/vaeg/commit/711620252a2579c63dd85bf52b4f9ea8321c3f9f),
+  [container decompressor prerequisite](https://github.com/nakatamaho/vaeg/commit/722528d34adbeeb2a9a08fe7e227dc62f5670fcd),
+  [closed cache validation](https://github.com/nakatamaho/vaeg/commit/f842c03c4e7ae296753f898fc887b59a6039f8d8).
+
 ### Compatible-mode operands were fetched through DS0
 
 - **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode
