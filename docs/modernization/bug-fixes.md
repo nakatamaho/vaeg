@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### Metal GUI could abort on a newly requested font atlas
+
+- **Symptom/scope:** macOS Metal GUI presentation could abort on its first text
+  draw, including the recording controls. The SDL renderer and guest CPU were
+  unaffected.
+- **Demonstrated cause:** GUI preparation ran before `ImGui::NewFrame()`, but
+  NewFrame could request a font-atlas texture. The Metal command encoder then
+  resolved `ImDrawCmd::GetTexID()` without handling that pending texture. An A/B
+  public-window worker with only the baseline Metal object substituted reproduced
+  the missing-upload assertion and exit 134.
+- **Correction:** handle pending GUI texture updates after draw data exists and
+  before resolving command texture IDs. This adopts the inherited Metal change
+  without changing its bytes or adding a second GUI/shader evaluation.
+- **Verification:** the corrected actual Metal probe exits 0 with first-frame
+  text and GUI rectangles, filtered/unfiltered final-client readback, and exact
+  independent FFV1 RGB/opaque-alpha plus PCM decoding. This is public synthetic
+  GPU/archive evidence, not a private guest or audio-device timing claim.
+- **Milestone/task/commit:** M100s9; [A/B evidence and scope](../agents/tasks/M100s9_recording_presenter_readback.md#metal-font-atlas-correction).
+  The correcting commit is linked in the following integration evidence update.
+
 ### Compatible-mode operands were fetched through DS0
 
 - **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode

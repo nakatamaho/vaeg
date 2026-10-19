@@ -844,7 +844,17 @@ static int vaeg_metal_render_gui(VAEG_METAL_STATE *state, id<MTLCommandBuffer> c
 		return 1;
 	}
 	draw_data = ImGui::GetDrawData();
-	if ((draw_data == nullptr) || (draw_data->TotalVtxCount <= 0) ||
+	if (draw_data == nullptr) {
+		return 1;
+	}
+	/* Dear ImGui may request the font-atlas texture during NewFrame(). Catch up
+	 * here, after Render() has produced draw data and before any command resolves
+	 * its TexRef to a backend texture ID. The earlier GUI prepare runs before
+	 * NewFrame() and therefore cannot see requests created by that frame. */
+	if (!vaeg_metal_update_gui_textures(state)) {
+		return 0;
+	}
+	if ((draw_data->TotalVtxCount <= 0) ||
 	    (draw_data->TotalIdxCount <= 0) || (draw_data->DisplaySize.x <= 0.0f) ||
 	    (draw_data->DisplaySize.y <= 0.0f)) {
 		return 1;

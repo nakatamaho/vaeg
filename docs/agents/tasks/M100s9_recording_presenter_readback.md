@@ -45,6 +45,25 @@ At final completion require actual macOS Displayed FFV1 playback and existing Na
 regression acceptance. Windows/Linux hardware availability and realtime audio are
 separate runtime gates, never inferred from an API name or a cross-build.
 
+## Metal font-atlas correction
+
+The inherited Metal texture-update change was preserved byte-for-byte and tested
+with the new public opt-in Metal/archive probe. A baseline worker substituted only
+the original `cd4fd8d6` Metal bridge object, keeping the same test and dependencies.
+It aborted with exit 134 at `ImDrawCmd::GetTexID`: a texture requested during
+`ImGui::NewFrame()` had not been uploaded before command texture resolution.
+The corrected bridge handles pending textures after `Render()` has produced draw
+data, before resolving draw commands. The corrected worker exits 0, including
+first-frame text, a final-client GUI rectangle, filtered/unfiltered output, and
+independent exact RGB/opaque-alpha/PCM decoding of both FFV1 movies. No native
+screen recording permission, private ROM, media or screenshot was used.
+
+Runtime command: isolated HOME, `VAEG_RUN_METAL_ARCHIVE_PROBE=1`, then
+`build/macos-rec13-on/vaeg_recording_metal_archive_probe`. Evidence and exact A/B
+compile/link commands are retained in `build/m100s9-completion/`. The standalone
+probe validates the real Metal presenter and FFV1 session with public pixels and
+synthetic audio; it is not a guest playback, physical audio-latency or Windows test.
+
 ## Checkpoint 1 local verification
 
 Evaluated changes: `sdl2/scrnmng.c` and the capture header comment, on base
