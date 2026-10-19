@@ -1,6 +1,35 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # M100s2 — hardware H.264 / Matroska checkpoint
 
+## Maintainer recording-enabled MinGW handoff follow-up (2026-10-19)
+
+The maintainer's main build at `f25cda385965d765441db9d6498fd40beae0a285`
+reported that recording was unavailable. Its clean CMake cache explicitly
+contains `VAEG_ENABLE_RECORDING:BOOL=OFF`: the standard container helper never
+set the optional feature ON or supplied FFmpeg, despite the recording code
+being accepted and merged. This is a build-delivery defect, not a new failure
+of the accepted recorder.
+
+Correct the container helper to build recording ON by default, with an
+explicit `--no-recording` opt-out. Keep global CMake/developer defaults and
+codec policy unchanged. Reuse the approved minimal LGPL FFmpeg 8.1.2 recipe,
+pinned source digest, static avutil/avcodec/avformat, FFV1/PCM/Matroska only;
+no Windows H.264 provider, GPL/nonfree components or runtime DLLs. Check the
+actual CMake option and linked encoder/muxer symbols before a handoff succeeds.
+Retain source, libraries, build objects, license and relink inputs locally;
+this does not approve publishing an LGPL static distribution.
+
+Cache identity covers source hash, exact flags, target compiler/linker and
+pinned container. Validate every cached file before reuse, and fail closed on
+corruption rather than replacing cache contents. Focused tests execute the
+real helper option parser and cache-content validator without Docker, private
+inputs or Git-history dependencies. The cache negative begins with a passing
+fixture, changes one byte and requires `VAEG_FFMPEG_CACHE_HASH_MISMATCH`.
+Run those tests, shell syntax, repository checks and a fresh recording-ON
+static build/import audit. This follow-up changes no emulator/demo/media build
+input; reuse the earlier runtime and media evidence with its existing limits.
+User Windows recording confirmation remains separate from compile/link proof.
+
 ## Accepted FFV1 human gate and main integration
 
 Maintainer explicitly states "OK human gate passed merge" after macOS lossless

@@ -24,6 +24,7 @@
 # Clean, fully static MinGW-w64 build of vaeg.exe in an isolated container.
 #
 # usage: tools/release/build-mingw-static-container.sh [--commit REV] [--work-dir DIR]
+#        [--no-recording]
 #
 # REV defaults to HEAD. DIR defaults to ../vaeg-mingw-<short-sha> beside the
 # repository and must not exist. The script clones REV into DIR/source (no
@@ -32,6 +33,9 @@
 # `mingw-cross` preset (static SDL2, LibArchive, zlib, xz, librashader and
 # MinGW runtimes), audits the PE imports, and writes DIR/output/vaeg.exe,
 # pe-imports.txt, third-party-notices.txt, the logs and BUILD-REPORT.md.
+# Recording is ON by default, with pinned static LGPL FFmpeg (FFV1/PCM/MKV).
+# --no-recording explicitly opts out. Source/relink inputs remain in DIR;
+# local handoff does not by itself establish LGPL distribution approval.
 # It prints the absolute path of vaeg.exe on success.
 
 set -euo pipefail
@@ -40,12 +44,15 @@ image="ubuntu@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 revision="HEAD"
 work_dir=""
+recording=ON
+ffmpeg_cache="${HOME}/.cache/vaeg/mingw-static-ffmpeg"
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--commit) revision="$2"; shift 2 ;;
 	--work-dir) work_dir="$2"; shift 2 ;;
-	*) echo "usage: $0 [--commit REV] [--work-dir DIR]" >&2; exit 2 ;;
+	--no-recording) recording=OFF; shift ;;
+	*) echo "usage: $0 [--commit REV] [--work-dir DIR] [--no-recording]" >&2; exit 2 ;;
 	esac
 done
 
@@ -57,7 +64,7 @@ if [[ -e "${work_dir}" ]]; then
 	echo "work directory already exists: ${work_dir}" >&2
 	exit 1
 fi
-mkdir -p "${work_dir}/output"
+mkdir -p "${work_dir}/output" "${ffmpeg_cache}"
 work_dir="$(cd "${work_dir}" && pwd)"
 
 git clone --quiet --no-local --no-checkout "${repo_root}" "${work_dir}/source"
@@ -71,11 +78,11 @@ branches="$(git -C "${repo_root}" branch -r --contains "${commit}" 2>/dev/null |
 cat > "${work_dir}/inner.sh" <<'INNER'
 #!/usr/bin/env bash
 set -euo pipefail
-trap 'chown -R "${HOST_UID}:${HOST_GID}" /work' EXIT
+trap 'chown -R "${HOST_UID}:${HOST_GID}" /work /ffmpeg-cache' EXIT
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev \
+	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev make nasm \
 	mingw-w64 gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix \
 	binutils-mingw-w64-x86-64 > /dev/null
 update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
@@ -89,8 +96,13 @@ export PATH="${HOME}/.cargo/bin:${PATH}"
 chown -R 0:0 /work/source
 
 cd /work/source
+if [[ ${ENABLE_RECORDING} == ON ]]; then
+	bash tools/release/build-mingw-static-ffmpeg.sh /work /ffmpeg-cache \
+		> /work/output/ffmpeg-stage.log 2>&1
+fi
 tools/release/build-mingw-static-librashader.sh > /work/output/librashader-build.log 2>&1
-cmake --preset mingw-cross > /work/output/configure.log 2>&1
+cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${ENABLE_RECORDING}" \
+	-DVAEG_STATIC_FFMPEG=ON > /work/output/configure.log 2>&1
 cmake --build --preset mingw-cross > /work/output/build.log 2>&1
 python3 tools/release/check-static-windows-imports.py --binary build/mingw-cross/sdl2/vaeg.exe \
 	> /work/output/import-audit.txt 2>&1
@@ -100,6 +112,19 @@ if ! grep -q "VAEG_BUILD_COMMIT \"$(git rev-parse HEAD)\"" build/mingw-cross/gen
 	grep -q 'VAEG_BUILD_DATE "unknown"' build/mingw-cross/generated/vaeg_build_info.h; then
 	echo "build identity was not embedded" >&2
 	exit 1
+fi
+if ! grep -q "VAEG_ENABLE_RECORDING:BOOL=${ENABLE_RECORDING}" build/mingw-cross/CMakeCache.txt; then
+	echo "recording option was not applied" >&2
+	exit 1
+fi
+if [[ ${ENABLE_RECORDING} == ON ]]; then
+	x86_64-w64-mingw32-nm build/mingw-cross/sdl2/vaeg.exe > /work/output/recording-symbols.txt
+	for symbol in ff_ffv1_encoder ff_pcm_s16le_encoder ff_matroska_muxer; do
+		grep -q " ${symbol}$" /work/output/recording-symbols.txt || {
+			echo "recording codec/muxer missing: ${symbol}" >&2
+			exit 1
+		}
+	done
 fi
 cp build/mingw-cross/generated/vaeg_build_info.h /work/output/
 cp build/mingw-cross/sdl2/vaeg.exe /work/output/vaeg.exe
@@ -118,7 +143,8 @@ chmod +x "${work_dir}/inner.sh"
 
 echo "building ${commit} in ${work_dir}" >&2
 docker run --rm -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-	-v "${work_dir}:/work" "${image}" /work/inner.sh
+	-e ENABLE_RECORDING="${recording}" -e VAEG_FFMPEG_IMAGE_ID="${image}" \
+	-v "${work_dir}:/work" -v "${ffmpeg_cache}:/ffmpeg-cache" "${image}" /work/inner.sh
 
 exe="${work_dir}/output/vaeg.exe"
 digest="$(sha256sum "${exe}" | cut -d' ' -f1)"
@@ -132,6 +158,9 @@ size="$(stat -c %s "${exe}")"
 	echo "- Container image: \`${image}\` (Ubuntu 24.04)"
 	echo "- Preset: \`mingw-cross\`, Release, tests disabled; static SDL2, LibArchive,"
 	echo "  zlib, xz, librashader and MinGW gcc/libstdc++/winpthread runtimes."
+	echo "- Recording: ${recording}; when ON, static LGPL FFmpeg 8.1.2, FFV1/PCM/MKV."
+	echo "- FFmpeg source, license, library hashes and relink inputs are retained locally;"
+	echo "  this is not a standalone LGPL distribution approval or Windows H.264 support."
 	sed 's/^/- /' "${work_dir}/output/toolchain.txt"
 	echo
 	echo "## Artifact"
