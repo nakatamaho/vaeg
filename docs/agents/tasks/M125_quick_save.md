@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M125 — quick save on F12
 
-Status: **G125 human gate passed on 2026-10-19; main integration pending**
+Status: **G125 human gate passed on 2026-10-19; merged to main.**
 
 ## Request
 
@@ -85,3 +85,33 @@ import audit passed. Executable SHA-256:
 The accepted build predates later main changes (including M127/M128).
 Integrate with the current main in a separate temporary worktree, preserving
 those changes, and run integration checks before pushing the main merge.
+
+## Main integration and validation
+
+Merged with `--no-ff` from a temporary worktree based on main
+[df10f477](https://github.com/nakatamaho/vaeg/commit/df10f47706e4e842e2e89ac287e7ec39ae6e15be),
+including the accepted native recording implementation. Merge:
+[75bd10f6](https://github.com/nakatamaho/vaeg/commit/75bd10f69b4751d81ab1c0aeb54cbe7b6ab83bde).
+The only textual conflict was the roadmap row insertion; both M125 and the
+later milestone rows were retained. Later frontend fixes, CPU/SGP changes,
+letter-keypad and native recording code remain in place.
+
+- `cmake --preset linux-ci-gcc` and its build (`-j16`): exit 0.
+- `ctest --test-dir build/linux-ci-gcc -j12 --output-on-failure`: all
+  emulator/integration tests pass, including quick-save rotation, F12,
+  recent-boot media, compound file filters, letter keypad and recording;
+  four external fixtures skip. Of 110 registered tests, only the repository
+  milestone-ID test initially failed: main's existing M100s2 roadmap row
+  lacked a G100s2 label. Adding that label changes no gate scope or code.
+  Focused rerun `ctest --test-dir build/linux-ci-gcc -R
+  '^vaeg_milestone_id_selftest$' --output-on-failure`: 1/1 passes, exit 0.
+  The unchanged emulator tests were not repeated for that documentation fix.
+- `--no-cfg --no-bkupmem --smoke --mute` with dummy SDL video/audio: exit 0.
+- Encoding, EOL, case, Markdown-comment and `git diff --check` validation:
+  exit 0, no findings.
+
+No feature code changed from the accepted M125 candidate during integration.
+After pushing the merge and gate record, remove M125's local merged worktree
+and branch, the temporary merge worktree and scratch, and its static MinGW
+build. Preserve the remote topic, user assets, other milestone worktrees and
+shared caches.
