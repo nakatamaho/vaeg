@@ -8,7 +8,22 @@ supported Linux backends. [M100s9](../agents/tasks/M100s9_recording_presenter_re
 has implemented the macOS Displayed FFV1 path on `topic/m100-metal-followup`;
 media/runtime prerequisites and its human gate remain open.
 
-Feature commit [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
+Latest evaluated integration:
+[bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c)
+merges current main
+[f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
+into the topic, preserving M125 quick saves/loads and recording epoch cancellation.
+ON/OFF/Metal/sanitizer checks were rerun; full Debug selftests pass with per-worker
+TMPDIRs, and Release full selftest passes. New macOS and clean MinGW ON artifacts
+are linked in the handoff. Only the unchanged audited shader SDK is reused, not
+application objects. Additional merged-unit strict checks expose an inherited
+kbdmap selftest cleanup warning; no blanket whole-tree Werror claim is made.
+Initial full-selftest temp-directory contention and its successful isolated reruns
+are retained in the new evidence, not hidden. The current evidence index is
+`build/m100s9-main-refresh/validation.json`, SHA-256
+`269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`.
+
+Original feature commit [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
 connects owned final-client snapshots to guest-time FFV1/PCM/MKV, including metadata,
 limits, stopping, reset/geometry handling and GUI/CLI source selection. Native
 retains its auto-splitting behavior. Displayed stops/saves on orderly descriptor
@@ -27,14 +42,15 @@ at [863c61f2](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c9
 A clean static MinGW ON build/import check also passes after the target-inspector
 correction [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
 The initial helper audit and SDK-staging failures remain recorded; unchanged
-completed compilation was not wastefully repeated. Later edits are tool/docs only,
-not changes to the evaluated feature inputs or retained workers.
+completed compilation was not wastefully repeated. Initial tool/docs-only edits
+left the 73948eaa workers unchanged; the later bc0198b9 main integration is now
+separately rebuilt/re-evaluated rather than reusing its old application results.
 
 Realtime H.264 remains disabled pending host playback/audio mapping. Native Windows,
 Linux devices, older macOS, media regeneration, actual guest operations/playback,
 distribution and human gates are not established. Required system-media/PSD inputs
 and host DOSBox are unavailable here. Current artifacts and limitations are in
-[handoff.md](handoff.md); full local source/worker/contract/command/log identities:
+[handoff.md](handoff.md). Historical 73948eaa source/worker/contract/command/log index:
 `build/m100s9-completion/validation.json`, SHA-256
 `690fa960f6e7571591354e126c8905f66c50e44e8b141d9ed40af8b894f2747c`.
 The earlier `build/m100s9-evidence/` index remains historical checkpoint-1 evidence.

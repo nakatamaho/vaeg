@@ -40,12 +40,62 @@ separate from the new readback changes until independently verified.
 ## Gate and current status
 
 IMPLEMENTED: checkpoints 1–3 now have local macOS archive-path verification.
-Static macOS Release and clean MinGW compile/import checks pass with the audit recovery
-below. Media/runtime prerequisites and the human gate remain open; this is not
+Static macOS Release and clean MinGW compile/import checks pass again after the
+latest-main integration below. Media/runtime prerequisites and the human gate remain open; this is not
 release approval. Stop before beginning another milestone.
 At final completion require actual macOS Displayed FFV1 playback and existing Native
 regression acceptance. Windows/Linux hardware availability and realtime audio are
 separate runtime gates, never inferred from an API name or a cross-build.
+
+## Latest-main rebuild requested by the maintainer
+
+Main [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
+is imported into this recording branch at
+[bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c).
+This is main-to-topic integration, not a follow-up merge into main or a passed
+recording gate. The ROADMAP conflict preserves both main's G100s2 wording and this
+M100s9 row. All M125 quick-save/load, F12/Shift+F12, OSD and selftest changes remain;
+all recording controls and the Metal correction remain too. Quick load and undo
+use `state_load()` / `statsave_load()`, preserving the existing recording epoch
+cancellation hook. No save-state format or core behavior was separately changed.
+
+Re-evaluated source is bc0198b9, not the earlier 73948eaa artifacts below:
+
+- ON frontend/recording: 37 PASS + two opt-in SKIP; OFF: 29 PASS. Actual opted-in
+  Metal GUI/font/filter/final-image FFV1 RGB/opaque-alpha/PCM comparison PASS.
+- Focused ASan/UBSan 4 PASS; recording strict compile variants 10 PASS. Extra
+  merged GUI/taskmng/selftest/ini strict checks pass; kbdmap's optional strict check
+  fails an inherited `-Wsometimes-uninitialized` selftest-cleanup warning. Its
+  source is byte-identical to imported main; no blanket Werror PASS is claimed.
+- Full Debug ON/OFF ROM-less selftests pass with distinct TMPDIRs, including
+  quick-save rotation/binding. Release full selftest passes. Initial parallel
+  ON/OFF full selftests collided over the legacy fixed dropmedia temporary
+  directory; failed logs are preserved. Isolated-temp reruns pass without source
+  changes. These are not private-media or guest boot tests.
+- macOS Release rebuilt and both public Native/Displayed four-frame CLI captures
+  pass independent FFV1/PCM/source-tag checks under frameskip 4. Apple-only imports
+  and embedded bc0198b9 identity pass; deployment/alignment warnings still remain.
+- The required helper builds OFF from a new clean pushed-source clone, exit 0.
+  Its task-local Docker adapter replaces only the temporary shader-SDK build step
+  with independently hash-verified cache staging. Pin/Rust/target/feature/lock/
+  archive/audit/builder identities are checked and every staged byte rechecked in
+  the container. No application build tree or object is reused. A separate fresh
+  recording ON tree builds and passes static PE imports/commit/date checks, exit 0.
+  This reuses unchanged expensive dependency compilation, not emulator behavior.
+
+Current macOS bytes 38,753,240, SHA-256
+`2b3e68225d0ed111c94307f20e0ad84b74517ec812e0b0b364b3db2261a63783`.
+Current MinGW ON bytes 58,917,027, SHA-256
+`73b2011024c92bd0923fea3c8e940390de93456d99208195b1204f73d02e9a3e`.
+Absolute executable/report paths are in the [handoff](../../recording-v1/handoff.md#active-m100s9-follow-up).
+Evidence index `build/m100s9-main-refresh/validation.json`, SHA-256
+`269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`,
+retains exact command records, source/worker/corpus/contract/policy/SDK/output
+identities, successful checks and failed exploratory checks. Original artifacts
+and evidence remain retained. Checkout-local Colima is stopped, not removed.
+Media/PSD/DOSBox prerequisites, media/demo/OS/playback human acceptance, native
+Windows/Linux/older-macOS and legal/distribution gates remain open. H.264 realtime
+remains disabled. No archived reference-tier source or provenance was changed.
 
 ## Displayed archive implementation
 
@@ -151,7 +201,7 @@ macOS-version/alignment linker warnings remain, so older-macOS support is not
 established. The prior accepted macOS executable is retained, not discarded.
 No new human or distribution gate is claimed.
 
-## Current handoff and evidence identities
+## Initial 73948eaa handoff and evidence identities (historical)
 
 - macOS Release, evaluated feature 73948eaa: 38,735,528 bytes;
   SHA-256 `82a93cdddef46d112f52f54e2d976b0ad44e191580b9c8f99bbc6c3313fcab60`.
@@ -173,7 +223,8 @@ Paired result: corrected exit 0; baseline SIGABRT (-6, shell 134), exact missing
 WantCreate/GetTexID assertion. The completed positive run is retained/reused,
 not discarded because a report or tool changed.
 
-The evaluated frontend/core/CMake/dependency inputs are unchanged after 73948eaa;
+Before the latest-main refresh, evaluated frontend/core/CMake/dependency inputs
+were unchanged from 73948eaa through dd3d488d;
 the subsequent PE selector/tests and documentation do not justify rerunning the
 completed emulator/GPU runs or Rust compilation. No hosted CI was requested.
 Repository encoding/EOL/case/Markdown-comment and diff checks pass with zero

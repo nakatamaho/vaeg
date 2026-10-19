@@ -10,7 +10,11 @@ authorized; the historical LOCAL_ONLY text below is not a current push ban.
 No follow-up main merge or new human gate is approved.
 
 **Displayed FFV1 implementation is complete locally; the milestone gate is not.**
-Evaluated feature source [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
+Current evaluated integration is
+[bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c),
+importing main [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
+at the maintainer's request. This preserves M125 quick saves/loads and recording
+state-load cancellation. Original feature source [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
 includes owned final-client acquisition, guest-time PCM integration, fixed source,
 metadata, lifecycle/error handling and enabled GUI/CLI selection. Native keeps
 its existing auto-split path; Displayed stops/saves on orderly geometry/reset.
@@ -25,29 +29,36 @@ The real Debug and static Release frontends also save Native/Displayed four-fram
 movies with frameskip 4 using intentionally empty ROMs. This is public frontend
 startup/timing evidence, not a commercial ROM, guest OS/demo or audio-device PASS.
 
-Current artifacts (evaluated source 73948eaa; later tool/docs edits leave emulator
-inputs unchanged):
+Current artifacts (evaluated merge bc0198b9; application code rebuilt and retested):
 
 - macOS: `/Users/maho/vaeg/build/macos-recording-static-release/sdl2/vaeg`,
-  SHA-256 `82a93cdddef46d112f52f54e2d976b0ad44e191580b9c8f99bbc6c3313fcab60`;
-  report `/Users/maho/vaeg/build/m100s9-completion/macos-build-report.md`.
+  SHA-256 `2b3e68225d0ed111c94307f20e0ad84b74517ec812e0b0b364b3db2261a63783`;
+  report `/Users/maho/vaeg/build/m100s9-main-refresh/macos-build-report.md`.
   Release/arm64/recording ON, static desktop dependencies and Apple-only dynamic
   imports; existing build directory, not a new-clone macOS artifact. Dependency
   macOS-version/alignment warnings mean older-macOS runtime remains unverified.
-- Windows cross-build: `/Users/maho/vaeg-mingw-73948eaa/output/vaeg.exe`,
-  SHA-256 `680d0a309890fa880da0a9e6b97dcffb58e6ee7a99fed4deda24c805c5e68c06`;
-  report `/Users/maho/vaeg-mingw-73948eaa/output/BUILD-REPORT.md`.
+- Windows cross-build: `/Users/maho/vaeg-mingw-bc0198b9/output/vaeg.exe`,
+  SHA-256 `73b2011024c92bd0923fea3c8e940390de93456d99208195b1204f73d02e9a3e`;
+  report `/Users/maho/vaeg-mingw-bc0198b9/output/BUILD-REPORT.md`.
   Clean pushed-source clone, recording ON, static dependencies/runtimes, embedded
-  commit/date and Windows-system-only imports verified. The helper's initial ARM
-  native-objdump failure and first incorrect SDK staging are retained, not hidden.
+  commit/date and Windows-system-only imports verified. The new helper exits 0;
+  only the independently validated unchanged shader SDK is reused by an explicit
+  task-local adapter of the temporary inner script, never application objects.
+  The initial 73948eaa helper/SDK-staging failure logs remain historical evidence.
   The target-aware auditor correction is
   [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
   This is not native Windows runtime/playback proof.
 
 Evidence/worker/source/contract/command/output identities:
-`build/m100s9-completion/validation.json`, SHA-256
-`690fa960f6e7571591354e126c8905f66c50e44e8b141d9ed40af8b894f2747c`.
-Paired Metal baseline/corrected workers and logs are retained; baseline aborts
+`build/m100s9-main-refresh/validation.json`, SHA-256
+`269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`.
+Full Debug ON/OFF selftests pass with isolated TMPDIRs, including quick saves;
+Release full selftest also passes. An initial parallel run raced on the legacy
+fixed dropmedia temp directory; its failed logs remain. Recording-focused strict
+checks pass; an additional kbdmap strict check exposes a pre-existing selftest
+cleanup warning in byte-identical main code, not a newly claimed Werror PASS.
+Historical `build/m100s9-completion/` evidence and paired Metal workers remain
+retained without unnecessary baseline rebuilds; that baseline aborts
 with the missing-texture GetTexID assertion, corrected worker exits 0. The prior
 accepted macOS executable and OFF MinGW artifact are also retained. Dedicated
 checkout-local m100s9 Colima/Docker storage is stopped, not removed; unrelated
