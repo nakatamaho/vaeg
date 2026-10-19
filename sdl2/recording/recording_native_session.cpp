@@ -141,7 +141,24 @@ namespace vaeg::recording {
 namespace {
 
 using Wide = unsigned __int128;
+using SignedWide = __int128;
 namespace fs = std::filesystem;
+
+bool wide_mul(Wide left, Wide right, Wide *result) noexcept {
+	if (result == nullptr || (right != 0u && left > (~static_cast<Wide>(0u)) / right)) {
+		return false;
+	}
+	*result = left * right;
+	return true;
+}
+
+bool wide_add(Wide left, Wide right, Wide *result) noexcept {
+	if (result == nullptr || left > (~static_cast<Wide>(0u)) - right) {
+		return false;
+	}
+	*result = left + right;
+	return true;
+}
 
 std::uint64_t gcd_u64(std::uint64_t left, std::uint64_t right) noexcept {
 	while (right != 0u) {
@@ -419,9 +436,11 @@ class NativeRecordingSession {
 
 	bool start() noexcept {
 		SOUNDSTREAMSTATE stream{};
+		SOUNDSTREAMSTATE armed_stream{};
 		SOUNDRECORDINGSTATE recording{};
 		std::uint64_t capacity;
-		const std::uint64_t start_ticks = pccore_guest_clock();
+		std::uint64_t start_ticks;
+		const UINT32 clock_rate = pccore.realclock;
 		if (!validate_output_path()) {
 			return false;
 		}
@@ -431,7 +450,7 @@ class NativeRecordingSession {
 		}
 		descriptor_generation_ = scrnmng_native_recording_descriptor_generation();
 		if (descriptor_generation_ == 0u || sound_get_stream_state(&stream) != SUCCESS ||
-		    stream.rate == 0u || pccore.realclock == 0u ||
+		    stream.rate == 0u || clock_rate == 0u || stream.accounting_overflow ||
 		    stream.generated_sample_count > static_cast<std::uint64_t>(INT64_MAX)) {
 			last_error_ = "recording_clock_unavailable";
 			return false;
@@ -444,23 +463,46 @@ class NativeRecordingSession {
 			last_error_ = "audio_capacity_overflow";
 			return false;
 		}
-		if (sound_recording_start(static_cast<UINT>(capacity)) != SOUND_RECORDING_ERROR_OK ||
-		    sound_recording_get_state(&recording) != SUCCESS) {
+		if (sound_recording_start(static_cast<UINT>(capacity)) != SOUND_RECORDING_ERROR_OK) {
 			last_error_ = "audio_capture_start_failed";
 			return false;
 		}
 		sound_started_ = true;
+		if (sound_get_stream_state(&armed_stream) != SUCCESS ||
+		    sound_recording_get_state(&recording) != SUCCESS) {
+			last_error_ = "audio_clock_snapshot_unavailable";
+			return false;
+		}
+		if (armed_stream.rate != audio_rate_ ||
+		    armed_stream.generation_epoch != stream.generation_epoch ||
+		    armed_stream.accounting_overflow || armed_stream.pcm_locked ||
+		    armed_stream.generated_sample_count > static_cast<std::uint64_t>(INT64_MAX) ||
+		    recording.rate != armed_stream.rate ||
+		    recording.epoch != armed_stream.generation_epoch ||
+		    !recording.active ||
+		    recording.first_sample > recording.next_sample ||
+		    recording.next_sample != armed_stream.generated_sample_count) {
+			last_error_ = "audio_clock_snapshot_invalid";
+			return false;
+		}
+		start_ticks = pccore_guest_clock();
+		if (pccore.realclock != clock_rate) {
+			last_error_ = "recording_clock_changed_during_start";
+			return false;
+		}
 		audio_epoch_ = recording.epoch;
 		const std::uint32_t delta =
-		    static_cast<std::uint32_t>(static_cast<std::uint32_t>(start_ticks) - stream.lastclock);
+		    static_cast<std::uint32_t>(static_cast<std::uint32_t>(start_ticks) -
+		                               armed_stream.lastclock);
 		if (static_cast<std::uint64_t>(delta) > start_ticks) {
 			last_error_ = "audio_clock_origin_invalid";
 			return false;
 		}
 		grid_.sample_rate_hz = audio_rate_;
-		grid_.clock_rate_hz = pccore.realclock;
+		grid_.clock_rate_hz = clock_rate;
 		grid_.origin_ticks = start_ticks - delta;
-		grid_.origin_sample_numerator = static_cast<std::int64_t>(stream.generated_sample_count);
+		grid_.origin_sample_numerator =
+		    static_cast<std::int64_t>(armed_stream.generated_sample_count) - 1;
 		grid_.origin_sample_denominator = 1u;
 		try {
 			const std::size_t video_bytes = static_cast<std::size_t>(video_descriptor_.stride_bytes) *
@@ -891,22 +933,54 @@ class NativeRecordingSession {
 	                             std::uint64_t *numerator,
 	                             std::uint64_t *denominator) const noexcept {
 		if (numerator == nullptr || denominator == nullptr || sample_index > INT64_MAX ||
-		    grid_.origin_sample_numerator < 0 || grid_.origin_sample_numerator > INT64_MAX ||
-		    movie_start < grid_.origin_ticks || grid_.sample_rate_hz == 0u ||
-		    grid_.clock_rate_hz == 0u) {
+		    grid_.origin_sample_denominator == 0u || movie_start < grid_.origin_ticks ||
+		    grid_.sample_rate_hz == 0u || grid_.clock_rate_hz == 0u) {
 			return false;
 		}
-		const Wide tick_numerator =
-		    (static_cast<Wide>(movie_start - grid_.origin_ticks) * grid_.sample_rate_hz);
-		const Wide sample_numerator =
-		    (static_cast<Wide>(sample_index) -
-		     static_cast<Wide>(grid_.origin_sample_numerator)) * grid_.clock_rate_hz;
-		if (sample_numerator < tick_numerator) {
+		Wide sample_index_scaled;
+		Wide origin_sample_abs;
+		Wide sample_delta_numerator;
+		Wide sample_time_numerator;
+		Wide tick_numerator;
+		Wide wide_denominator;
+		if (!wide_mul(static_cast<Wide>(sample_index),
+		              static_cast<Wide>(grid_.origin_sample_denominator),
+		              &sample_index_scaled)) {
 			return false;
 		}
-		const Wide value = sample_numerator - tick_numerator;
-		const Wide wide_denominator =
-		    static_cast<Wide>(grid_.sample_rate_hz) * grid_.clock_rate_hz;
+		const SignedWide signed_origin_sample =
+		    static_cast<SignedWide>(grid_.origin_sample_numerator);
+		origin_sample_abs = static_cast<Wide>(signed_origin_sample < 0
+		                                          ? -signed_origin_sample
+		                                          : signed_origin_sample);
+		if (signed_origin_sample < 0) {
+			if (!wide_add(sample_index_scaled, origin_sample_abs,
+			              &sample_delta_numerator)) {
+				return false;
+			}
+		} else {
+			if (sample_index_scaled < origin_sample_abs) {
+				return false;
+			}
+			sample_delta_numerator = sample_index_scaled - origin_sample_abs;
+		}
+		if (!wide_mul(sample_delta_numerator,
+		              static_cast<Wide>(grid_.clock_rate_hz),
+		              &sample_time_numerator) ||
+		    !wide_mul(static_cast<Wide>(movie_start - grid_.origin_ticks),
+		              static_cast<Wide>(grid_.sample_rate_hz), &tick_numerator) ||
+		    !wide_mul(tick_numerator,
+		              static_cast<Wide>(grid_.origin_sample_denominator),
+		              &tick_numerator) ||
+		    sample_time_numerator < tick_numerator ||
+		    !wide_mul(static_cast<Wide>(grid_.sample_rate_hz),
+		              static_cast<Wide>(grid_.clock_rate_hz), &wide_denominator) ||
+		    !wide_mul(wide_denominator,
+		              static_cast<Wide>(grid_.origin_sample_denominator),
+		              &wide_denominator)) {
+			return false;
+		}
+		const Wide value = sample_time_numerator - tick_numerator;
 		if (wide_denominator == 0u || value > UINT64_MAX || wide_denominator > UINT64_MAX) {
 			return false;
 		}
