@@ -104,6 +104,16 @@ directory. Media given on the command line or by
 headless scripts are not recorded. The lists are kept in `vaeg-history.txt`
 in the user directory (see the top-level README).
 
+Quick save (M125): Key > F12 の割り当て > クイックセーブ makes F12 save the
+running state at once as the newest of five quick saves (`quick1.sav` to
+`quick5.sav` with thumbnails in the software's state directory; the oldest
+is dropped, and a failed save leaves the five unchanged) and Shift+F12
+load the newest. A second press within one second is ignored. A notice
+appears at the top right; nothing stops. Before a quick load the running
+state is kept as `quickundo.sav`. 状態 > クイックセーブ lists the five
+(newest first), loads any of them, saves, and returns to the state before
+the last quick load.
+
 Multi-image D88 (M120): a D88 file may hold several disks back to back.
 Opening or dropping one into FDD1 mounts its first disk there and its
 second disk in FDD2 (into FDD2, the first disk only); FDD1 ディスク and FDD2 ディスク list the

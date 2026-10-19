@@ -284,6 +284,10 @@ struct GuiState {
 	bool new_scsi_open_after_create = true;
 	char new_scsi_path[MAX_PATH] = {};
 	std::string state_status;
+	std::string osd_text;  /* M125: a short notice at the top right */
+	Uint32 osd_until = 0;  /* SDL ticks when it disappears */
+	Uint32 quick_last = 0; /* ticks of the last quick save or load */
+	bool quick_used = false;
 	bool state_error_open = false;
 	bool state_error_request = false;
 	bool state_force_hostfat_available = false;
@@ -5517,6 +5521,10 @@ static void draw_key_menu(void) {
 		if (ImGui::MenuItem("一時停止", nullptr, np2oscfg.F12KEY == KBDMAP_F12_PAUSE)) {
 			set_f12_key(KBDMAP_F12_PAUSE);
 		}
+		if (ImGui::MenuItem("クイックセーブ (Shift+F12 で読み込み)", nullptr,
+		                    np2oscfg.F12KEY == KBDMAP_F12_QUICKSAVE)) {
+			set_f12_key(KBDMAP_F12_QUICKSAVE);
+		}
 		ImGui::EndMenu();
 	}
 	if (ImGui::MenuItem("キーの割り当て…")) {
@@ -6114,19 +6122,23 @@ static void state_thumbnail_tooltip(const std::string &state) {
 	}
 }
 
-static void state_save(const std::string &path) {
+/* Write a state and its thumbnail; a failed state is removed. */
+static bool state_write(const std::string &path) {
 	soundmng_stop();
-	const int ret = statsave_save(path.c_str());
-	if (ret != STATFLAG_SUCCESS) {
+	const bool ok = statsave_save(path.c_str()) == STATFLAG_SUCCESS;
+	if (!ok) {
 		file_delete(path.c_str());
-		g_gui.state_status = "保存できませんでした: ";
 	} else {
 		const std::string thumbnail = state_thumbnail_path(path);
 		(void)scrnmng_save_guest_thumbnail(thumbnail.c_str(), kStateThumbnailWidth);
-		g_gui.state_status = "保存しました: ";
 	}
-	g_gui.state_status += display_file_name(path.c_str());
 	soundmng_play();
+	return ok;
+}
+
+static void state_save(const std::string &path) {
+	g_gui.state_status = state_write(path) ? "保存しました: " : "保存できませんでした: ";
+	g_gui.state_status += display_file_name(path.c_str());
 }
 
 static void state_load(const std::string &path) {
@@ -6165,6 +6177,141 @@ static void state_load(const std::string &path) {
 	if ((ret & STATFLAG_DISKCHG) != 0) {
 		g_gui.state_status += " (ディスクの違いを無視)";
 	}
+}
+
+// ---- M125: quick saves, quick1 (newest) to quick5, and the state before
+// the last quick load (quickundo), next to the slots of the software.
+
+constexpr int kQuickSlots = 5;
+constexpr Uint32 kQuickIntervalMs = 1000;
+
+static std::string quick_file(const std::string &dir, int index) {
+	char name[32];
+
+	std::snprintf(name, sizeof(name), "quick%d.sav", index);
+	return join_path(dir, name);
+}
+
+static std::string quick_undo_file(const std::string &dir) {
+	return join_path(dir, "quickundo.sav");
+}
+
+static void quick_rename(const std::string &from, const std::string &to) {
+	std::error_code ec;
+	fs::remove(fs::u8path(to), ec);
+	if (fs::exists(fs::u8path(from), ec)) {
+		fs::rename(fs::u8path(from), fs::u8path(to), ec);
+	}
+}
+
+/*
+ * Make the freshly written `fresh` (and its .png) quick1: quick5 is
+ * dropped, quick1-4 move to quick2-5. Called only after `fresh` was written
+ * completely, so a failed save leaves the five quick saves as they were.
+ */
+static bool quick_rotate(const std::string &dir, const std::string &fresh) {
+	std::error_code ec;
+
+	if (!fs::is_regular_file(fs::u8path(fresh), ec)) {
+		return false;
+	}
+	for (int index = kQuickSlots - 1; index >= 1; index--) {
+		const std::string from = quick_file(dir, index);
+		const std::string to = quick_file(dir, index + 1);
+		quick_rename(from, to);
+		quick_rename(state_thumbnail_path(from), state_thumbnail_path(to));
+	}
+	quick_rename(fresh, quick_file(dir, 1));
+	quick_rename(state_thumbnail_path(fresh), state_thumbnail_path(quick_file(dir, 1)));
+	return fs::is_regular_file(fs::u8path(quick_file(dir, 1)), ec);
+}
+
+static void show_osd(const std::string &text) {
+	g_gui.osd_text = text;
+	g_gui.osd_until = SDL_GetTicks() + 1500;
+}
+
+/* One quick save or load per second, so a hurried double press does not
+ * push two saves or load twice. */
+static bool quick_allowed(void) {
+	const Uint32 now = SDL_GetTicks();
+	if (g_gui.quick_used && ((now - g_gui.quick_last) < kQuickIntervalMs)) {
+		return false;
+	}
+	g_gui.quick_used = true;
+	g_gui.quick_last = now;
+	return true;
+}
+
+static void quick_save(void) {
+	if (!quick_allowed()) {
+		return;
+	}
+	const std::string dir = state_software_dir();
+	const std::string fresh = join_path(dir, "quick-new.sav");
+	const Uint32 start = SDL_GetTicks();
+	const bool ok = state_write(fresh) && quick_rotate(dir, fresh);
+	fprintf(stderr, "quick save: %s in %u ms\n", ok ? "done" : "failed",
+	        static_cast<unsigned>(SDL_GetTicks() - start));
+	g_gui.state_status = ok ? "クイックセーブしました" : "クイックセーブできませんでした";
+	show_osd(g_gui.state_status);
+}
+
+static void state_load(const std::string &path);
+
+/* Load quick save `index`; the state before it is kept as quickundo. */
+static void quick_load(int index) {
+	const std::string dir = state_software_dir();
+	const std::string path = quick_file(dir, index);
+	std::error_code ec;
+
+	if (!fs::is_regular_file(fs::u8path(path), ec)) {
+		g_gui.state_status = "クイックセーブがありません";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	(void)state_write(quick_undo_file(dir));
+	state_load(path);
+	show_osd((g_gui.state_status.rfind("読み込みました", 0) == 0)
+	             ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
+	             : g_gui.state_status);
+}
+
+static void quick_undo(void) {
+	const std::string dir = state_software_dir();
+	const std::string undo = quick_undo_file(dir);
+	const std::string held = join_path(dir, "quickundo-held.sav");
+	std::error_code ec;
+
+	if (!fs::is_regular_file(fs::u8path(undo), ec)) {
+		return;
+	}
+	// swap: the state now becomes the undo, so a second undo returns
+	quick_rename(undo, held);
+	quick_rename(state_thumbnail_path(undo), state_thumbnail_path(held));
+	(void)state_write(undo);
+	state_load(held);
+	file_delete(held.c_str());
+	file_delete(state_thumbnail_path(held).c_str());
+	show_osd("クイックロードの前に戻しました");
+}
+
+static void draw_osd(void) {
+	if (g_gui.osd_text.empty() || (static_cast<Sint32>(SDL_GetTicks() - g_gui.osd_until) >= 0)) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(
+	    ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 8.0f, viewport->WorkPos.y + 8.0f),
+	    ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+	ImGui::SetNextWindowBgAlpha(0.75f);
+	if (ImGui::Begin("##osd", nullptr,
+	                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+	                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs)) {
+		ImGui::TextUnformatted(g_gui.osd_text.c_str());
+	}
+	ImGui::End();
 }
 
 static std::string state_software_label(void) {
@@ -6206,6 +6353,37 @@ static void draw_state_menu(void) {
 	}
 	if (ImGui::BeginMenu("読み込み")) {
 		draw_state_slots(false);
+		ImGui::EndMenu();
+	}
+	if (ImGui::BeginMenu("クイックセーブ")) {
+		const bool on_f12 = np2oscfg.F12KEY == KBDMAP_F12_QUICKSAVE;
+		const std::string dir = state_software_dir();
+		if (ImGui::MenuItem("今すぐ保存", on_f12 ? "F12" : nullptr)) {
+			g_gui.quick_used = false;
+			quick_save();
+		}
+		ImGui::Separator();
+		ImGui::TextDisabled("読み込み (新しい順)");
+		for (int index = 1; index <= kQuickSlots; index++) {
+			const std::string path = quick_file(dir, index);
+			const std::string when = state_file_time(path);
+			char label[32];
+			std::snprintf(label, sizeof(label), "%d", index);
+			const char *shortcut = when.empty() ? "空き" : when.c_str();
+			if (ImGui::MenuItem(label, shortcut, false, !when.empty())) {
+				quick_load(index);
+			}
+			state_thumbnail_tooltip(path);
+			if ((index == 1) && on_f12 && ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("Shift+F12");
+			}
+		}
+		ImGui::Separator();
+		const bool undo = !state_file_time(quick_undo_file(dir)).empty();
+		if (ImGui::MenuItem("読み込む前の状態に戻す", nullptr, false, undo)) {
+			quick_undo();
+		}
+		state_thumbnail_tooltip(quick_undo_file(dir));
 		ImGui::EndMenu();
 	}
 	if (ImGui::MenuItem("一覧…")) {
@@ -6480,6 +6658,16 @@ extern "C" void gui_history_add(int kind, const char *path) {
 }
 extern "C" BOOL gui_copy_screen_text(void) {
 	return copy_screen_text();
+}
+
+extern "C" void gui_quick_save(void) {
+	quick_save();
+}
+
+extern "C" void gui_quick_load(void) {
+	if (quick_allowed()) {
+		quick_load(1);
+	}
 }
 
 extern "C" BOOL gui_save_screenshot(void) {
@@ -6806,6 +6994,7 @@ void gui_draw(void) {
 		ImGui::End();
 	}
 	draw_pause_overlay();
+	draw_osd();
 	draw_state_error_dialog();
 	draw_state_overview();
 	draw_state_save_as();
@@ -6865,6 +7054,54 @@ void gui_overlay_rect(int x, int y, int width, int height,
 	if (!g_gui.initialized || !g_gui.native_renderer) return;
 	draw_overlay_rect(ImGui::GetBackgroundDrawList(), ImGui::GetIO().DisplayFramebufferScale,
 	                  ImGui::GetMainViewport()->Pos, x, y, width, height, IM_COL32(r, g, b, a));
+}
+
+BOOL gui_quick_rotate_selftest(const char *root, char *problem, size_t size) {
+	const std::string dir = absolute_path(root);
+	const char *failed = nullptr;
+	auto write = [](const std::string &path, const std::string &text) {
+		std::ofstream(fs::u8path(path), std::ios::binary) << text;
+	};
+	auto read = [](const std::string &path) {
+		std::ifstream input(fs::u8path(path), std::ios::binary);
+		std::string text;
+		std::getline(input, text);
+		return text;
+	};
+	const std::string fresh = join_path(dir, "quick-new.sav");
+
+	for (int round = 1; round <= 7; round++) {
+		write(fresh, "s" + std::to_string(round));
+		write(state_thumbnail_path(fresh), "t" + std::to_string(round));
+		if (!quick_rotate(dir, fresh)) {
+			failed = "a written save was not rotated in";
+			break;
+		}
+	}
+	/* seven saves: quick1..5 hold s7..s3, the thumbnails follow */
+	for (int index = 1; !failed && (index <= kQuickSlots); index++) {
+		const std::string expect = std::to_string(8 - index);
+		if ((read(quick_file(dir, index)) != "s" + expect) ||
+		    (read(state_thumbnail_path(quick_file(dir, index))) != "t" + expect)) {
+			failed = "quick1 is the newest and older saves move down";
+		}
+	}
+	if (!failed && (quick_rotate(dir, fresh) || (read(quick_file(dir, 1)) != "s7") ||
+	                (read(quick_file(dir, 5)) != "s3"))) {
+		failed = "a failed save (no file) leaves the five saves as they were";
+	}
+	if (!failed && fs::exists(fs::u8path(quick_file(dir, 6)))) {
+		failed = "no sixth save is kept";
+	}
+	for (int index = 1; index <= kQuickSlots + 1; index++) {
+		file_delete(quick_file(dir, index).c_str());
+		file_delete(state_thumbnail_path(quick_file(dir, index)).c_str());
+	}
+	if (failed != nullptr) {
+		std::snprintf(problem, size, "%s", failed);
+		return FAILURE;
+	}
+	return SUCCESS;
 }
 
 BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
