@@ -5,22 +5,39 @@
 After the accepted Native FFV1 main integration, the maintainer requested
 independent source/compression selection, macOS first, Windows/MinGW next, then
 supported Linux backends. [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md)
-is IN_PROGRESS on `topic/m100-metal-followup`.
+has implemented the macOS Displayed FFV1 path on `topic/m100-metal-followup`;
+media/runtime prerequisites and its human gate remain open.
 
-Readback checkpoint [49d60752](https://github.com/nakatamaho/vaeg/commit/49d6075209d5f53a3e179242b5ed0738233294f2)
-connects the actual native presenter's optional final image to the existing owned
-Displayed callback, without a second shader evaluation. Recording OFF adds no
-readback/allocation; simultaneous native screenshot/recording shares one readback.
-ON frontend/recording checks: 37 PASS + one opt-in hardware SKIP; OFF: 29 PASS.
-The public owned-pixel fixture passes ON/OFF and focused ASan/UBSan; strict C
-compilation and repository checks pass. These are not physical Metal output proof.
+Feature commit [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
+connects owned final-client snapshots to guest-time FFV1/PCM/MKV, including metadata,
+limits, stopping, reset/geometry handling and GUI/CLI source selection. Native
+retains its auto-splitting behavior. Displayed stops/saves on orderly descriptor
+changes instead of changing the canvas or substituting Native. Recording OFF adds
+no readback allocation; screenshot/recording still shares a single presentation.
 
-Displayed FFV1 session integration and selection remain NOT_STARTED/disabled.
-Realtime H.264 audio mapping, Windows/Linux device validation and final media/
-clean-build/human gates remain pending. The inherited Metal GUI texture patch is
-unchanged and uncommitted, separate from this checkpoint. Local digest/evidence
-index: `build/m100s9-evidence/validation.json`, SHA-256
-`271daec32fc18caafbcaabb771fbfc9246a99884a52755279a10edb7bc6ef318`.
+Debug frontend/recording: ON 37 PASS + two opt-in SKIP; OFF 29 PASS; focused
+ASan/UBSan 4 PASS; ten strict compile variants PASS. The explicitly opted-in actual
+Metal worker passes filtered/unfiltered final GUI/font/readback and exact FFV1
+RGB/opaque-alpha/PCM comparison. Public empty-ROM frontend tests pass for both
+sources with four intervals under frameskip 4, including the static macOS Release
+binary. These prove frontend/GPU/archive behavior, not OS/demo boot or device A/V.
+
+The inherited font-atlas change was independently reproduced, verified and adopted
+at [863c61f2](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c975d09e239b470eca).
+A clean static MinGW ON build/import check also passes after the target-inspector
+correction [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
+The initial helper audit and SDK-staging failures remain recorded; unchanged
+completed compilation was not wastefully repeated. Later edits are tool/docs only,
+not changes to the evaluated feature inputs or retained workers.
+
+Realtime H.264 remains disabled pending host playback/audio mapping. Native Windows,
+Linux devices, older macOS, media regeneration, actual guest operations/playback,
+distribution and human gates are not established. Required system-media/PSD inputs
+and host DOSBox are unavailable here. Current artifacts and limitations are in
+[handoff.md](handoff.md); full local source/worker/contract/command/log identities:
+`build/m100s9-completion/validation.json`, SHA-256
+`690fa960f6e7571591354e126c8905f66c50e44e8b141d9ed40af8b894f2747c`.
+The earlier `build/m100s9-evidence/` index remains historical checkpoint-1 evidence.
 
 ## Earlier recording evidence
 

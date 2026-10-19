@@ -151,6 +151,43 @@ macOS-version/alignment linker warnings remain, so older-macOS support is not
 established. The prior accepted macOS executable is retained, not discarded.
 No new human or distribution gate is claimed.
 
+## Current handoff and evidence identities
+
+- macOS Release, evaluated feature 73948eaa: 38,735,528 bytes;
+  SHA-256 `82a93cdddef46d112f52f54e2d976b0ad44e191580b9c8f99bbc6c3313fcab60`.
+- Clean MinGW recording ON: 58,904,869 bytes;
+  SHA-256 `680d0a309890fa880da0a9e6b97dcffb58e6ee7a99fed4deda24c805c5e68c06`.
+- OFF artifact retained: SHA-256
+  `3a2fffd26b6c5d25797c74414005ac50b512bdb7105e842a878aaaa6b7a7188c`.
+
+Absolute executable/report paths are in the [current handoff](../../recording-v1/handoff.md#active-m100s9-follow-up).
+Local `build/m100s9-completion/validation.json` SHA-256:
+`690fa960f6e7571591354e126c8905f66c50e44e8b141d9ed40af8b894f2747c`.
+It retains evaluated commits, worker/source/dependency digests, public corpus,
+comparison contract and target-policy identities, exact commands, exit statuses
+and output hashes. The paired corrected Metal worker SHA-256 is
+`1a57ea06c0ab2a559c0df45207fc87a18976f4d66e257e349336c6a97f46af3a`;
+its baseline-object counterpart is
+`d051cfa1433451a92a6e002fca10a7afbb85b4e523c7502d1694dfc47b19d7e9`.
+Paired result: corrected exit 0; baseline SIGABRT (-6, shell 134), exact missing
+WantCreate/GetTexID assertion. The completed positive run is retained/reused,
+not discarded because a report or tool changed.
+
+The evaluated frontend/core/CMake/dependency inputs are unchanged after 73948eaa;
+the subsequent PE selector/tests and documentation do not justify rerunning the
+completed emulator/GPU runs or Rust compilation. No hosted CI was requested.
+Repository encoding/EOL/case/Markdown-comment and diff checks pass with zero
+findings; their final output is retained beside the evidence index.
+
+No utility/SASI/demo distribution images were produced in this checkpoint:
+required private source media and PSD inputs are not available within the task's
+approved inputs, and `command -v dosbox` fails on this host. Full clean-clone media
+regeneration and guest launch/playback are **NOT_RUN/BLOCKED**, not passed based on
+unchanged media sources or existing unit fixtures. V3/demo/OS/manual recording
+acceptance is still required. Dedicated checkout-local Colima m100s9 is stopped;
+all handoff/evidence artifacts are retained and no unrelated environments, private
+inputs or branches were deleted. Do not begin M100s3/M100s4 or another milestone.
+
 ## Metal font-atlas correction
 
 The inherited Metal texture-update change was preserved byte-for-byte and tested

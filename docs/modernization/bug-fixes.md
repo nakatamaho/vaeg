@@ -53,7 +53,9 @@ land.
   independent FFV1 RGB/opaque-alpha plus PCM decoding. This is public synthetic
   GPU/archive evidence, not a private guest or audio-device timing claim.
 - **Milestone/task/commit:** M100s9; [A/B evidence and scope](../agents/tasks/M100s9_recording_presenter_readback.md#metal-font-atlas-correction).
-  The correcting commit is linked in the following integration evidence update.
+  [Correcting commit](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c975d09e239b470eca).
+  Paired workers/logs and current artifact limits are recorded in the
+  [handoff](../recording-v1/handoff.md#active-m100s9-follow-up).
 
 ### Compatible-mode operands were fetched through DS0
 

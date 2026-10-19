@@ -7,31 +7,59 @@ The maintainer requested macOS actual Displayed output first, independently
 selectable from Native, with FFV1 and hardware H.264 as separate compression
 choices; Windows/MinGW and supported Linux devices follow. Branch publication is
 authorized; the historical LOCAL_ONLY text below is not a current push ban.
-No follow-up main merge or new human gate is approved by this checkpoint.
+No follow-up main merge or new human gate is approved.
 
-Implemented [49d60752](https://github.com/nakatamaho/vaeg/commit/49d6075209d5f53a3e179242b5ed0738233294f2):
-Owned final-client acquisition in `sdl2/scrnmng.c` now accepts
-native presenters, preserving fixed descriptor/generation/token validation.
-The native path attaches its reusable RGBA buffer to the one real presentation,
-then invokes the callback after successful readback. Screenshot requests copy
-that same readback before callbacks can release the recording allocation.
-No native readback result silently substitutes guest pixels or reruns a shader.
+**Displayed FFV1 implementation is complete locally; the milestone gate is not.**
+Evaluated feature source [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
+includes owned final-client acquisition, guest-time PCM integration, fixed source,
+metadata, lifecycle/error handling and enabled GUI/CLI selection. Native keeps
+its existing auto-split path; Displayed stops/saves on orderly geometry/reset.
+No substitute guest image, second CRT evaluation or fixed output canvas is added.
+The independently verified Metal font-atlas fix is adopted at
+[863c61f2](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c975d09e239b470eca).
 
-Local ON/OFF builds, 37 PASS + one SKIP / 29 PASS frontend/recording tests,
-strict `scrnmng.c` compilation and focused capture ASan/UBSan pass. Evidence and
-worker/source/log hashes are in `build/m100s9-evidence/validation.json` (SHA-256
-`271daec32fc18caafbcaabb771fbfc9246a99884a52755279a10edb7bc6ef318`).
-The ON worker includes the unchanged inherited Metal GUI texture patch; OFF and
-sanitizer workers disable librashader. No clean release or physical GPU parity
-claim follows from these development fixtures.
+Local checks: ON 37 PASS + two opt-in SKIP / OFF 29 PASS, focused ASan/UBSan 4 PASS,
+ten strict compile variants PASS. Explicit actual Metal synthetic GUI/font,
+filtered/unfiltered final readback and exact FFV1/opaque-alpha/PCM comparison PASS.
+The real Debug and static Release frontends also save Native/Displayed four-frame
+movies with frameskip 4 using intentionally empty ROMs. This is public frontend
+startup/timing evidence, not a commercial ROM, guest OS/demo or audio-device PASS.
 
-Next within this same task: connect owned RGBA/RGB24 snapshots and their guest
-boundaries to FFV1/PCM, test lifecycle/reset/geometry behavior, then actual Metal
-preset/GUI parity and the complete selection path. Keep Displayed UI disabled
-until then. Do not reuse the archive audio FIFO for host-time realtime H.264;
-that still needs M100s3/M100s4. Preserve the uncommitted Metal file verbatim until
-its GUI fix has its own verification/ledger/adoption. Do not start another
-milestone or present this checkpoint as a finished Displayed movie feature.
+Current artifacts (evaluated source 73948eaa; later tool/docs edits leave emulator
+inputs unchanged):
+
+- macOS: `/Users/maho/vaeg/build/macos-recording-static-release/sdl2/vaeg`,
+  SHA-256 `82a93cdddef46d112f52f54e2d976b0ad44e191580b9c8f99bbc6c3313fcab60`;
+  report `/Users/maho/vaeg/build/m100s9-completion/macos-build-report.md`.
+  Release/arm64/recording ON, static desktop dependencies and Apple-only dynamic
+  imports; existing build directory, not a new-clone macOS artifact. Dependency
+  macOS-version/alignment warnings mean older-macOS runtime remains unverified.
+- Windows cross-build: `/Users/maho/vaeg-mingw-73948eaa/output/vaeg.exe`,
+  SHA-256 `680d0a309890fa880da0a9e6b97dcffb58e6ee7a99fed4deda24c805c5e68c06`;
+  report `/Users/maho/vaeg-mingw-73948eaa/output/BUILD-REPORT.md`.
+  Clean pushed-source clone, recording ON, static dependencies/runtimes, embedded
+  commit/date and Windows-system-only imports verified. The helper's initial ARM
+  native-objdump failure and first incorrect SDK staging are retained, not hidden.
+  The target-aware auditor correction is
+  [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
+  This is not native Windows runtime/playback proof.
+
+Evidence/worker/source/contract/command/output identities:
+`build/m100s9-completion/validation.json`, SHA-256
+`690fa960f6e7571591354e126c8905f66c50e44e8b141d9ed40af8b894f2747c`.
+Paired Metal baseline/corrected workers and logs are retained; baseline aborts
+with the missing-texture GetTexID assertion, corrected worker exits 0. The prior
+accepted macOS executable and OFF MinGW artifact are also retained. Dedicated
+checkout-local m100s9 Colima/Docker storage is stopped, not removed; unrelated
+environments/assets/branches were not deleted.
+
+Remaining **within M100s9**: obtain required system-media/PSD inputs and host DOSBox,
+perform the complete clean-clone media/demo regeneration/runtime cycle and actual
+V3/demo/OS/movie playback human gate. These cannot be replaced with empty-ROM or
+synthetic tests. Do not claim release/distribution or merge to main. Realtime
+H.264 stays disabled: M100s3/M100s4 still require actual host playback/audio mapping,
+not the archive FIFO. Do not begin those or another milestone until this gate is
+actually passed. Windows/Linux hardware and older-macOS gates remain separate.
 
 ## Current OS-assisted continuation
 
