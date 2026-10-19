@@ -1106,6 +1106,27 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M128 — upward SGP transfers with pitch FFF6h drew correctly; the SGP was too fast
+
+- **Symptom/scope:** a VA port of an arcade game drew every vertically
+  reversed sprite (BITBLT read upwards, source FBW FFF6h) garbled on the
+  PC-88VA and PC-88VA2 but correctly in vaeg, and ran slower on both
+  machines. SGPBENCH 2 measured BITBLT 1.6x (VA) / 2.0x (VA2) and CLS 2.0x /
+  1.3x slower than vaeg.
+- **Demonstrated cause:** vaeg decoded every negative FBW to an ordinary
+  pitch; on hardware those with low bits 10b, and FFF0h, do not step
+  through the source (SGPTEST T07/T09, SGPBENCH cases). SGP command costs
+  were nominal, never measured.
+- **Correction:** such pitches are marked and their source reads after the
+  first line (read correctly on hardware, SGPBENCH 3) give FFFFh; setup, BITBLT and CLS costs are scaled per model to the
+  measurements.
+- **Verification:** SGPBENCH 3 in vaeg: the same 24 cases fail as on
+  hardware; BITBLT and CLS within about 2% of the photographs; selftest and
+  ctest pass.
+- **Milestone/task/commit:** M128,
+  [M128 task](../agents/tasks/M128_sgp_negative_fbw_timing.md).
+
+
 ### M124 — a two-disk archive came back as disk A in both drives
 
 - **Symptom/scope:** a ZIP (or 7z/LZH) holding disks A and B, dropped or

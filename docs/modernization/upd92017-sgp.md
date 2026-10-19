@@ -785,6 +785,27 @@ because common software may implement flood fill on the CPU.
 
 ## 18. Memory contention and timing
 
+### 18.0 Measured timing (M128)
+
+SGPBENCH 2 on the PC-88VA and PC-88VA2 (task M128, photographs in
+`m128-photos/`), microseconds, packed 4bpp, sources in main RAM:
+
+| Operation | VA | VA2 |
+|---|---:|---:|
+| empty list, start to idle (with the CPU's start and polling) | 76.6 | 76.4 |
+| CLS, 17920 words | 27613.9 | 11934.4 |
+| one 16x16 BITBLT 0105h (in a list of 32) | 584.7 | 367.5 |
+| one 16x16 BITBLT 0005h | 531.3 | 337.3 |
+| one 8x8 BITBLT 0105h | 318.4 | 214.6 |
+| one 16x16, source in GVRAM | 588.8 | 341.4 |
+
+Destination start dot 1 costs the same as 0. A negative source FBW with low
+bits 10b (FFF6h, FFF2h) or FFF0h garbles the transfer. On the VA the CPU
+runs almost fully in parallel with a transfer; on the VA2 the two slow each
+other (main RAM writes: 16178 us for 32 pieces plus 35840 bytes, against
+11759 + 9499 separately). vaeg's setup, BITBLT and CLS costs are scaled per
+model to these figures.
+
 The Users Club material documents waits and contention involving TVRAM,
 character/Kanji resources, GVRAM, and display activity. CPU wait tables
 constrain relative costs but are not automatically SGP command-cycle counts.
@@ -830,7 +851,7 @@ A staged emulator strategy is:
 | SET_COLOR lane expansion | Mode-dependent 1/4/8/16-bpp lane use is documented | Full color is retained, but lane-level conformance remains a test target | Add mode-specific raw vectors |
 | `SF` source alignment | `0=shift to destination dot`, `1=no shift` | Alignment path exists | Verify every start-dot and word-boundary combination |
 | `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
-| `FBW` | Byte pitch; low two bits zero | Same on both models (M109a): bit 0 dropped, a negative pitch two bytes shorter | SGPTEST T06-T12 on hardware |
+| `FBW` | Byte pitch; low two bits zero | Same on both models (M109a): bit 0 dropped, a negative pitch two bytes shorter; negative with low bits 10b, and FFF0h, are undefined on hardware: the first source line is read, then FFFFh (M128) | Measured: FFF3h, FFF4h correct; FFF2h, FFF6h, FFF0h garble on VA and VA2 |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented; directions measured (M106) | Implemented; hardware directions (0800h horizontal, 0400h vertical) | Endpoint and tie-breaking hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
@@ -839,7 +860,7 @@ A staged emulator strategy is:
 | Kanji ROM writes | ROM is not a normal writable target | `knj2w_wt()` is a TODO no-op | Confirm write-protection behavior before changing it |
 | Unknown command after `000Ch` | Manual says thirteen commands but identifies twelve opcodes | `000Dh` and above are rejected as unknown | Do not invent the missing opcode |
 | VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
-| Clock | No recovered primary table | Nominal 3.9936/7.9872MHz | Captured/provisional provenance |
+| Clock | No recovered primary table | Nominal 3.9936/7.9872MHz; setup, BITBLT and CLS costs scaled per model to SGPBENCH 2 (M128) | Calibrated to within about 2% for BITBLT and CLS; LINE/SCAN unmeasured |
 | Contention | Shared-memory waits | Fixed approximate CPU deduction | Do not claim cycle accuracy |
 
 ### 19.1 Functions outside the SGP command set
