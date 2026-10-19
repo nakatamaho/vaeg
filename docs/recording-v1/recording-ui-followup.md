@@ -26,18 +26,24 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Current main-synchronized recording candidate
 
-[2bd194b9](https://github.com/nakatamaho/vaeg/commit/2bd194b96352cb7ea4af8f56767074a4896c6d9c)
-merges main02ce6d47 into topic/m100os-recording-resume without conflicts; r2
-integration is held. Main itself is not updated. Main8087/recent-boot changes
-are included. The3 inherited working files are byte-identical and unstaged.
+[20cedad3](https://github.com/nakatamaho/vaeg/commit/20cedad30073c2a55df11ed45a76ecd83f244b1a)
+includes mainfb38dd65 (PS operand fetch/FDC clock fixes), plus prior M126/M127
+integration. Main/r2 remain unchanged. The3 inherited working files are
+byte-identical and unstaged; this binary includes inherited audio/Metal edits.
 
 Current macOS arm64 static Release `build/macos-recording-static-release/sdl2/vaeg`,
-38717112 bytes, SHA256
-`f5d19553a59259c3285ec4f98ad2cd7606e308c94136d692d11a790b79da1f88`.
-Embedded code2bd194b9 plus unchanged inherited full snapshote549b015….
-Release selftest passes; imports remain exclusively Apple system libraries/
-Frameworks. ON recording/8087/UI selection26 passed/one hardware skip; OFF13/13.
-Encoding/EOL/case/Markdown-comment/staged-whitespace and preservation checks pass.
+38734728 bytes, SHA256
+`4f514af73ceb2979a6cbf4bb806315d444d071cfb526f8d359bcec48b2fcba1f`.
+Embedded code20cedad3 plus unchanged inherited full snapshote549b015….
+Release-O3/target13.0, recordingON/tests/trace/perfOFF. Configure/build/selftest0;
+actual final link includes static FFmpeg avcodec/avformat/avutil, SDL2, LibArchive,
+zlib, xz, librashader (8 required archives checked and hashed). Imports exclusively
+Apple system libraries/Frameworks: all third-party dependencies static, NOT a
+fully-static Mach-O without libSystem. No extra third-party dylibs needed.
+Prior2bd194b9 binary/report/JSON/snapshot archived alongside. Older macOS runtime
+not newly verified. Earlier merge ON37/three skips and OFF29/two skips remain
+recorded in task; no expensive frame/sample/performance corpus rerun here.
+Encoding/EOL/case/Markdown-comment/owned-whitespace and preservation checks pass.
 The maintainer's macOS practical FFV1 lossless recording check is still pending;
 this is NOT gate-passed or main-incorporation approval. FFV1 is losslessly
 compressed, not raw uncompressed. No new Metal/backend/codec policy change.

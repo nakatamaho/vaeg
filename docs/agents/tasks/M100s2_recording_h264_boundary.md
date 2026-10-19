@@ -254,3 +254,21 @@ Local main-sync-fb38dd65 directory retains commands, worker/log/dependency
 identities and preservation evidence. No Release executable rebuild, native
 Windows/private-media/throughput run, manual hosted CI or gate pass. Prior
 shipping Mac2bd194b9/Windows1b30383d binaries remain unchanged; main/r2 unchanged.
+
+Maintainer requests a lossless macOS fully-static candidate. Source20cedad3
+rebuilt arm64 Release-O3/target13.0:38734728 bytes/SHA256
+`4f514af73ceb2979a6cbf4bb806315d444d071cfb526f8d359bcec48b2fcba1f`.
+Configure/build/isolated dummy SDL+audio selftest0, all selftests pass. Explicit
+recording/staticFFmpeg/staticSDL/staticlibrashader/fetchedarchiveON; tests,
+BUILD_TESTING/ENABLE_TEST/trace/perfOFF. Exact final Ninja link verified for8
+required archives, all linked archive digests recorded; otool imports solely
+Apple system libraries/Frameworks. All third-party dependencies static, not
+an unsupported fully-static Mach-O/libSystem claim. No codec policy change:
+FFV1 opaque BGRA/PCM/MKV, one-click/automatic parts retained. Original3 files
+byte-identical; inherited full diff SHA256e549b015… included, not clean-commit.
+Previous2bd binary/report/JSON/snapshot retained; Windows remains1b30383d.
+Exact configure/build/selftest/import commands and dependency/worker/log digests
+in adjacent VALIDATION.json and local macos-lossless-20cedad3 directory. Repo
+checks pass. No private-media/real-device/performance/older-OS or exact-frame
+corpus rerun, no human/media/demo/legal gate pass. Only handoff/task documentation
+follows the evaluated commit; no source change or redundant rebuild required.
