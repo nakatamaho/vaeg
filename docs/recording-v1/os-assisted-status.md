@@ -1,7 +1,18 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # OS-assisted recording — checkpoint evidence and precise handoff
 
-## Latest main synchronization (gate still pending)
+## Native FFV1 human acceptance
+
+Maintainer accepts the macOS lossless recording human gate and authorizes main
+integration. [Audio correction942a831a](https://github.com/nakatamaho/vaeg/commit/942a831ab68452d4148da604a1a7b2c1b7f878ea)
+adopts the2 inherited audio files included in that test build; Metal remains
+uncommitted for a separate branch and is excluded from main integration.
+[Acceptance scope and exact artifact](../agents/tasks/M100s2_recording_h264_boundary.md#accepted-ffv1-human-gate-and-main-integration).
+This does not complete the real-time H.264/live coordinator/provider plan,
+Windows/old-macOS/performance or LGPL distribution gates. Previous pending-gate
+statements are historical checkpoints, not a denial of this later acceptance.
+
+## Previous main synchronization checkpoint
 
 [2bd194b9](https://github.com/nakatamaho/vaeg/commit/2bd194b96352cb7ea4af8f56767074a4896c6d9c)
 merges main02ce6d47 into the recording branch, not the reverse. New macOS static

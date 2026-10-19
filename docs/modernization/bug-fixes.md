@@ -3216,6 +3216,26 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — recording start used a stale audio clock origin
+
+- **Symptom/scope:** native FFV1 recording can reject start with
+  `audio_clock_origin_invalid`; an audio grid ahead of generated PCM also waits
+  for samples outside the guest interval. Applies to recording-enabled builds.
+- **Demonstrated cause:** start captured guest/stream clock state before arming
+  the audio capture, although arming may advance its watermark. The advancing-arm
+  fixture rejects the old origin. The grid also used generated count N rather
+  than the last generated sample index N-1; bounded-generation tests distinguish
+  the interval endpoints, including the initial negative origin.
+- **Correction:** adopt the already human-tested inherited audio correction:
+  snapshot guest/stream/capture state after arm, validate rate/epoch/counters,
+  use N-1, and calculate signed-origin rational offsets with checked wide
+  arithmetic. Preserve split FIFO cursor semantics and fail-closed clock checks.
+- **Verification:** native session/runtime integration/clock/Matroska4/4 and
+  focused strict ASan/UBSan4/4. The two source files are byte-identical to the
+  accepted macOS candidate. No new device/performance or Windows runtime claim.
+- **Task/evidence:** [M100s2 acceptance](../agents/tasks/M100s2_recording_h264_boundary.md#accepted-ffv1-human-gate-and-main-integration).
+- **Fixing commit:** [942a831a](https://github.com/nakatamaho/vaeg/commit/942a831ab68452d4148da604a1a7b2c1b7f878ea).
+
 ### M100s2 — ordinary TSP video changes ended an interactive recording
 
 - **Symptom/scope:** a GUI recording ends at a guest TSP line-count/geometry

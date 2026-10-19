@@ -1,6 +1,29 @@
 <!-- Copyright (c) 2026 Nakata Maho. SPDX-License-Identifier: BSD-2-Clause -->
 # M100s2 — hardware H.264 / Matroska checkpoint
 
+## Accepted FFV1 human gate and main integration
+
+Maintainer explicitly states "OK human gate passed merge" after macOS lossless
+recording confirmation. Accepted artifact: source20cedad3 plus the recorded
+inherited diff,38734728 bytes/SHA256
+`4f514af73ceb2979a6cbf4bb806315d444d071cfb526f8d359bcec48b2fcba1f`.
+Maintainer subsequently approves adopting the2 audio files and deferring Metal
+to a separate branch. [942a831a](https://github.com/nakatamaho/vaeg/commit/942a831ab68452d4148da604a1a7b2c1b7f878ea)
+commits those exact human-tested audio source/test bytes; native session/runtime
+integration/clock/Matroska4/4 and strict focused ASan/UBSan4/4 pass again. The
+Metal file stays byte-identical and uncommitted, excluded from main integration.
+The tested artifact is not misrepresented as a clean-commit/Metal-free binary.
+
+Human acceptance covers the native FFV1/PCM/MKV recording/UI/splitting follow-up,
+not completion of the OS-assisted real-time H.264 plan or other OS/device/legal
+approval. Earlier pending-gate statements below are historical checkpoints.
+Full private utility/demo image regeneration is not newly claimed by this
+acceptance; media/tool/demo build inputs are unchanged against main, which has
+its own M126/M128 gate records. Separate main integration validation and clean
+build identities are recorded below when completed.
+
+## Historical implementation and validation checkpoints
+
 Contract: [OS-assisted plan](../../recording-v1/os-assisted-plan.md). Reuse the
 existing libav boundary, seekable exclusive Matroska I/O and PCM encoder; retain
 FFV1 tests and default behavior. First locally executable provider is macOS

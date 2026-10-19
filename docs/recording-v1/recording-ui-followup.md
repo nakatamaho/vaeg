@@ -24,6 +24,17 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # Native FFV1 recording controls and tint follow-up
 
+## Accepted native FFV1 recording human gate
+
+The maintainer explicitly accepts the macOS recording human gate and requests
+main integration, then approves committing the2 inherited audio files while
+leaving Metal for a separate branch. [942a831a audio fix](https://github.com/nakatamaho/vaeg/commit/942a831ab68452d4148da604a1a7b2c1b7f878ea)
+retains their exact tested bytes;4 focused tests and4 strict sanitizer tests
+pass. [Gate scope](../agents/tasks/M100s2_recording_h264_boundary.md#accepted-ffv1-human-gate-and-main-integration).
+The accepted artifact below contains inherited Metal; main integration excludes
+it by explicit approval. This is not a claim of completed real-time H.264,
+Windows/old-OS/native-device performance or legal/distribution approval.
+
 ## Current main-synchronized recording candidate
 
 [20cedad3](https://github.com/nakatamaho/vaeg/commit/20cedad30073c2a55df11ed45a76ecd83f244b1a)
@@ -44,8 +55,8 @@ Prior2bd194b9 binary/report/JSON/snapshot archived alongside. Older macOS runtim
 not newly verified. Earlier merge ON37/three skips and OFF29/two skips remain
 recorded in task; no expensive frame/sample/performance corpus rerun here.
 Encoding/EOL/case/Markdown-comment/owned-whitespace and preservation checks pass.
-The maintainer's macOS practical FFV1 lossless recording check is still pending;
-this is NOT gate-passed or main-incorporation approval. FFV1 is losslessly
+At this build checkpoint human acceptance was pending; the later explicit
+acceptance and main-integration approval are recorded above. FFV1 is losslessly
 compressed, not raw uncompressed. No new Metal/backend/codec policy change.
 
 Windows refresh now succeeds after recreating the deleted Colima environment
