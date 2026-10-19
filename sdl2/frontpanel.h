@@ -26,6 +26,7 @@
 #define VAEG_SDL2_FRONTPANEL_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,8 @@ BOOL frontpanel_drive_is_2hd(UINT drv);
 int frontpanel_height(int width);
 /* Scale of the simple bar for a window width (1 at 640). */
 int frontpanel_simple_scale(int width);
+/* Movie time, not host wall time. Minutes continue past 59/99. */
+void frontpanel_recording_time(char *text, size_t size, uint64_t ticks, uint64_t clock);
 
 #ifdef __cplusplus
 }

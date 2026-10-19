@@ -32,6 +32,15 @@ enum {
 	SOUND_MAXPCM
 };
 
+typedef struct {
+	UINT requested_rate;
+	UINT obtained_rate;
+	UINT obtained_format;
+	UINT obtained_channels;
+	UINT obtained_samples;
+	BOOL device_available;
+} SOUNDMNGSPEC;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,6 +52,7 @@ void soundmng_play(void);
 void soundmng_stop(void);
 void soundmng_setenabled(BOOL enabled);
 BOOL soundmng_isenabled(void);
+BOOL soundmng_getspec(SOUNDMNGSPEC *spec);
 void soundmng_setmastervolume(UINT percent);
 int soundmng_mastervolume(void);
 #define soundmng_sync()

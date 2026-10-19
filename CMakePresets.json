@@ -157,12 +157,15 @@
     },
     {
       "name": "macos-macports",
-      "displayName": "macOS Development (MacPorts SDL2)",
+      "displayName": "macOS Development (MacPorts tools, static dependencies)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-macports",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_PREFIX_PATH": "/opt/local",
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
         "VAEG_WERROR": "OFF"
       },
       "environment": {
@@ -171,7 +174,7 @@
     },
     {
       "name": "macos-asan",
-      "displayName": "macOS ASan/UBSan Debug (MacPorts)",
+      "displayName": "macOS ASan/UBSan Debug (static dependencies)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-asan",
       "cacheVariables": {
@@ -180,6 +183,9 @@
         "CMAKE_C_FLAGS": "-fsanitize=address,undefined",
         "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
         "VAEG_WERROR": "OFF"
       },
       "environment": {

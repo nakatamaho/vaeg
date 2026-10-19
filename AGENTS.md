@@ -294,6 +294,17 @@ function instead.
   tag `archive/frozen-win9x-i286x-g56`; it is not a current build target and
   has no CI or compile-guarantee coverage.
 
+### Colima and Docker storage
+
+Create a dedicated directory under the current working directory for Colima
+and Docker runtime storage, for example `$PWD/build/container-runtime/`.
+Keep Colima configuration, VM disks, and Docker image/container data there;
+configure `COLIMA_HOME` and any underlying VM storage paths accordingly.
+Docker images must reside in that local VM/daemon storage, not a shared default
+Colima environment or an unrelated Docker daemon. A local Dockerfile or bind
+mount alone does not satisfy this storage requirement. Keep generated runtime
+files out of Git. Do not move or delete existing environments without approval.
+
 ### Clean-build handoff
 
 Whenever a clean build is needed, including the "build from clean

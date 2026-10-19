@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <string.h>
+#include <stdlib.h>
 #include "compiler.h"
 #include "sdlapi.h"
 #include "dosio.h"
@@ -41,6 +42,10 @@
 #include "librashader/native_presenter_controller.h"
 #include "librashader/builtin_shaders.h"
 #include "gui/gui.h"
+#include "recording/recording_native_composition.h"
+#include "recording/recording_native_session.h"
+#include "recording/recording_runtime.h"
+#include "recording/recording_osd_snapshot.h"
 #include "frontpanel.h"
 #include "winutf.h"
 
@@ -83,7 +88,24 @@ typedef struct {
 	char native_status[256];
 	char display_capture_path[MAX_PATH];
 	BOOL display_capture_ready;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK displayed_capture_callback;
+	void *displayed_capture_context;
+	BYTE *displayed_capture_pixels;
+	UINT64 displayed_capture_size_bytes;
+	UINT32 displayed_capture_pitch_bytes;
+	UINT32 displayed_capture_width;
+	UINT32 displayed_capture_height;
+	UINT32 displayed_capture_generation;
+	UINT32 displayed_capture_expected_generation;
+	UINT64 displayed_capture_last_token;
+	BOOL displayed_capture_have_token;
+	BOOL displayed_capture_active;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR displayed_capture_error;
+	UINT32 sdl_renderer_generation;
 	BOOL sdl_overlays_drawn;
+	VAEG_RECORDING_OSD_SNAPSHOT osd_snapshot;
+	BOOL osd_snapshot_valid;
+	UINT8 osd_snapshot_dispclk;
 } SCRNMNG;
 
 typedef struct {
@@ -108,6 +130,8 @@ enum {
 };
 
 static SCRNMNG scrnmng;
+static BOOL recording_include_osd = TRUE;
+static BOOL recording_follow_rotation = TRUE;
 static SCRNSTAT scrnstat;
 /* M117: the guest picture turned right, for Native CRT and dummy capture */
 static UINT16 scrnmng_turned[SCRNMNG_CANVAS_WIDTH * SCRNMNG_CANVAS_MAX_HEIGHT];
@@ -121,6 +145,10 @@ static void scrnmng_draw_front_panel(void);
 static BOOL scrnmng_get_drawable_size(int *width, int *height);
 static BOOL scrnmng_create_sdl_resources(void);
 static BOOL scrnmng_native_fallback(void);
+static BOOL scrnmng_ensure_osd_snapshot(const VAEG_VIEWPORT *viewport);
+static void scrnmng_displayed_capture_fail(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error);
+static BOOL scrnmng_capture_displayed_recording_frame(void);
 
 /* NULL selects the session's vaeg.cfg-backed CRT parameter store. */
 static const char *const scrnmng_native_parameter_state = NULL;
@@ -962,15 +990,174 @@ static int scrnmng_menu_offset(void) {
 	             window_height);
 }
 
-static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
-	char lines[4][96];
-	int line_count;
+static int scrnmng_osd_scale(const VAEG_VIEWPORT *viewport) {
+	int scale;
+
+	if (viewport == NULL) {
+		return 1;
+	}
+	scale = (int)viewport->scale_x;
+	if (scale < 1) {
+		scale = 1;
+	}
+	if (scale > 3) {
+		scale = 3;
+	}
+	return scale;
+}
+
+static int scrnmng_osd_width(const char *const *lines, int line_count, int scale) {
+	int width = 0;
+	int i;
+
+	for (i = 0; i < line_count; ++i) {
+		const int length = (int)strlen(lines[i]);
+		if (length > width) {
+			width = length;
+		}
+	}
+	return width * 8 * scale + 8 * scale;
+}
+
+static BOOL scrnmng_ensure_osd_snapshot(const VAEG_VIEWPORT *viewport) {
+	char video_lines[4][96];
+	char framebuffer_lines[VIDEOVA_FRAMEBUFFERS * 3][48];
+	const char *video_line_ptrs[4];
+	const char *framebuffer_line_ptrs[VIDEOVA_FRAMEBUFFERS * 3];
+	VAEG_RECORDING_OSD_LAYER_INPUT layers[VAEG_RECORDING_OSD_MAX_LAYERS];
+	VAEG_RECORDING_OSD_SNAPSHOT_INPUT input;
+	int video_count = 0;
+	int framebuffer_count = 0;
+	int output_width;
+	int output_height;
 	int scale;
 	int line_height;
 	int width;
 	int height;
-	int output_width;
-	int output_height;
+	int y_offset;
+	int i;
+	VAEG_RECORDING_OSD_ERROR error;
+	const BOOL video_enabled = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
+	const BOOL framebuffer_enabled = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
+
+	if ((viewport == NULL) || (!viewport->valid) ||
+	    (scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
+	    (output_width <= 0) || (output_height <= 0)) {
+		scrnmng.osd_snapshot_valid = FALSE;
+		return FAILURE;
+	}
+	if (scrnmng.osd_snapshot_valid &&
+	    (scrnmng.osd_snapshot_dispclk == np2oscfg.DISPCLK) &&
+	    (scrnmng.osd_snapshot.frame_token == (UINT64)drawcount) &&
+	    (scrnmng.osd_snapshot.guest_width == (UINT32)scrnmng.width) &&
+	    (scrnmng.osd_snapshot.guest_height == (UINT32)scrnmng.height) &&
+	    (scrnmng.osd_snapshot.output_width == (UINT32)output_width) &&
+	    (scrnmng.osd_snapshot.output_height == (UINT32)output_height)) {
+		return SUCCESS;
+	}
+
+	ZeroMemory(video_lines, sizeof(video_lines));
+	ZeroMemory(framebuffer_lines, sizeof(framebuffer_lines));
+	ZeroMemory(video_line_ptrs, sizeof(video_line_ptrs));
+	ZeroMemory(framebuffer_line_ptrs, sizeof(framebuffer_line_ptrs));
+	ZeroMemory(layers, sizeof(layers));
+	scale = scrnmng_osd_scale(viewport);
+	line_height = 8 * scale;
+	if (video_enabled) {
+		video_count = scrnmng_format_video_info_lines(video_lines);
+		for (i = 0; i < video_count; ++i) {
+			video_line_ptrs[i] = video_lines[i];
+		}
+	}
+	if (framebuffer_enabled) {
+		const int g0_bpp = scrnmng_video_bpp(videova.grres);
+		const int g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+		for (i = 0; i < VIDEOVA_FRAMEBUFFERS; ++i) {
+			const int bpp = (i & 1) ? g1_bpp : g0_bpp;
+			framebuffer_count += scrnmng_format_framebuffer_lines(
+			    &framebuffer_lines[framebuffer_count], i, bpp, &videova.framebuffer[i]);
+		}
+		for (i = 0; i < framebuffer_count; ++i) {
+			framebuffer_line_ptrs[i] = framebuffer_lines[i];
+		}
+	}
+
+	ZeroMemory(&layers[0], sizeof(layers[0]));
+	layers[0].kind = VAEG_RECORDING_OSD_VIDEO_INFO;
+	layers[0].coordinate_space = VAEG_RECORDING_OSD_COORDINATE_OUTPUT;
+	layers[0].anchor = VAEG_RECORDING_OSD_ANCHOR_TOP_RIGHT;
+	layers[0].enabled = video_enabled ? 1u : 0u;
+	layers[0].visible = 0u;
+	layers[0].scale = (UINT8)scale;
+	layers[0].background_alpha = 190u;
+	layers[0].text_alpha = 255u;
+	layers[0].line_count = (UINT32)video_count;
+	layers[0].lines = video_line_ptrs;
+	width = scrnmng_osd_width(video_line_ptrs, video_count, scale);
+	height = line_height * video_count + 8 * scale;
+	layers[0].x = output_width - width;
+	layers[0].y = scrnmng_menu_offset() + 2;
+	layers[0].width = width;
+	layers[0].height = height;
+	layers[0].clip_x = 0;
+	layers[0].clip_y = 0;
+	layers[0].clip_width = output_width;
+	layers[0].clip_height = output_height;
+	if (video_enabled && (width < output_width) && (height < output_height)) {
+		layers[0].visible = 1u;
+	}
+
+	ZeroMemory(&layers[1], sizeof(layers[1]));
+	layers[1].kind = VAEG_RECORDING_OSD_FRAMEBUFFER_INFO;
+	layers[1].coordinate_space = VAEG_RECORDING_OSD_COORDINATE_OUTPUT;
+	layers[1].anchor = VAEG_RECORDING_OSD_ANCHOR_TOP_RIGHT;
+	layers[1].enabled = framebuffer_enabled ? 1u : 0u;
+	layers[1].visible = 0u;
+	layers[1].scale = (UINT8)scale;
+	layers[1].background_alpha = 190u;
+	layers[1].text_alpha = 255u;
+	layers[1].line_count = (UINT32)framebuffer_count;
+	layers[1].lines = framebuffer_line_ptrs;
+	width = scrnmng_osd_width(framebuffer_line_ptrs, framebuffer_count, scale);
+	height = line_height * framebuffer_count + 8 * scale;
+	y_offset = scrnmng_menu_offset() + 2;
+	if (video_enabled) {
+		y_offset += 4 * line_height + 8 * scale + 4;
+	}
+	layers[1].x = output_width - width;
+	layers[1].y = y_offset;
+	layers[1].width = width;
+	layers[1].height = height;
+	layers[1].clip_x = 0;
+	layers[1].clip_y = 0;
+	layers[1].clip_width = output_width;
+	layers[1].clip_height = output_height;
+	if (framebuffer_enabled && (width < output_width) &&
+	    (y_offset + height < output_height)) {
+		layers[1].visible = 1u;
+	}
+
+	ZeroMemory(&input, sizeof(input));
+	input.frame_token = (UINT64)drawcount;
+	input.guest_width = (UINT32)scrnmng.width;
+	input.guest_height = (UINT32)scrnmng.height;
+	input.output_width = (UINT32)output_width;
+	input.output_height = (UINT32)output_height;
+	input.layer_count = VAEG_RECORDING_OSD_MAX_LAYERS;
+	input.layers = layers;
+	error = vaeg_recording_osd_snapshot_build(&input, &scrnmng.osd_snapshot);
+	if (error != VAEG_RECORDING_OSD_ERROR_OK) {
+		scrnmng.osd_snapshot_valid = FALSE;
+		fprintf(stderr, "OSD snapshot failed: %s\n", vaeg_recording_osd_error_name(error));
+		return FAILURE;
+	}
+	scrnmng.osd_snapshot_valid = TRUE;
+	scrnmng.osd_snapshot_dispclk = np2oscfg.DISPCLK;
+	return SUCCESS;
+}
+
+static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
+	const VAEG_RECORDING_OSD_LAYER *layer;
 	int i;
 	SDL_Rect background;
 	SDL_Color text_color;
@@ -979,68 +1166,41 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) == 0)) {
 		return;
 	}
-	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
-	    (output_width <= 0) || (output_height <= 0)) {
+	if (scrnmng_ensure_osd_snapshot(viewport) != SUCCESS) {
 		return;
 	}
-	line_count = scrnmng_format_video_info_lines(lines);
-
-	scale = (int)viewport->scale_x;
-	if (scale < 1) {
-		scale = 1;
-	}
-	if (scale > 3) {
-		scale = 3;
-	}
-	line_height = 8 * scale;
-	width = 0;
-	for (i = 0; i < line_count; i++) {
-		const int length = (int)strlen(lines[i]);
-		if (length > width) {
-			width = length;
-		}
-	}
-	width = width * 8 * scale + 8 * scale;
-	height = line_height * line_count + 8 * scale;
-	if ((width >= output_width) || (height >= output_height)) {
+	layer = vaeg_recording_osd_snapshot_find(&scrnmng.osd_snapshot,
+	                                          VAEG_RECORDING_OSD_VIDEO_INFO);
+	if ((layer == NULL) || (!layer->enabled) || (!layer->visible)) {
 		return;
 	}
-	background.x = output_width - width;
-	background.y = scrnmng_menu_offset() + 2;
-	background.w = width;
-	background.h = height;
+	background.x = layer->x;
+	background.y = layer->y;
+	background.w = layer->width;
+	background.h = layer->height;
 	if (scrnmng.native_active) {
-		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0, 190);
+		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0,
+		                layer->background_alpha);
 	} else {
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, layer->background_alpha);
 		SDL_RenderFillRect(scrnmng.renderer, &background);
 	}
 	text_color.r = 255;
 	text_color.g = 255;
 	text_color.b = 192;
-	text_color.a = 255;
-	for (i = 0; i < line_count; i++) {
-		scrnmng_draw_text_glyphs(background.x + 4 * scale,
-		                         background.y + 4 * scale + i * line_height, scale, lines[i],
-		                         text_color);
+	text_color.a = layer->text_alpha;
+	for (i = 0; i < (int)layer->line_count; i++) {
+		scrnmng_draw_text_glyphs(background.x + 4 * layer->scale,
+		                         background.y + 4 * layer->scale + i * 8 * layer->scale,
+		                         layer->scale, layer->lines[i], text_color);
 	}
 	if (!scrnmng.native_active)
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
 }
 
 static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport) {
-	char lines[VIDEOVA_FRAMEBUFFERS * 3][48];
-	int g0_bpp;
-	int g1_bpp;
-	int line_count;
-	int scale;
-	int line_height;
-	int width;
-	int height;
-	int output_width;
-	int output_height;
-	int y_offset;
+	const VAEG_RECORDING_OSD_LAYER *layer;
 	int i;
 	SDL_Rect background;
 	SDL_Color text_color;
@@ -1049,61 +1209,34 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) == 0)) {
 		return;
 	}
-	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
-	    (output_width <= 0) || (output_height <= 0)) {
+	if (scrnmng_ensure_osd_snapshot(viewport) != SUCCESS) {
 		return;
 	}
-	g0_bpp = scrnmng_video_bpp(videova.grres);
-	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
-	line_count = 0;
-	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
-		int bpp = (i & 1) ? g1_bpp : g0_bpp;
-		line_count +=
-		    scrnmng_format_framebuffer_lines(&lines[line_count], i, bpp, &videova.framebuffer[i]);
-	}
-	scale = (int)viewport->scale_x;
-	if (scale < 1) {
-		scale = 1;
-	}
-	if (scale > 3) {
-		scale = 3;
-	}
-	line_height = 8 * scale;
-	width = 0;
-	for (i = 0; i < line_count; i++) {
-		const int length = (int)strlen(lines[i]);
-		if (length > width) {
-			width = length;
-		}
-	}
-	width = width * 8 * scale + 8 * scale;
-	height = line_height * line_count + 8 * scale;
-	y_offset = scrnmng_menu_offset() + 2;
-	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0) {
-		y_offset += 4 * line_height + 8 * scale + 4;
-	}
-	if ((width >= output_width) || (y_offset + height >= output_height)) {
+	layer = vaeg_recording_osd_snapshot_find(&scrnmng.osd_snapshot,
+	                                          VAEG_RECORDING_OSD_FRAMEBUFFER_INFO);
+	if ((layer == NULL) || (!layer->enabled) || (!layer->visible)) {
 		return;
 	}
-	background.x = output_width - width;
-	background.y = y_offset;
-	background.w = width;
-	background.h = height;
+	background.x = layer->x;
+	background.y = layer->y;
+	background.w = layer->width;
+	background.h = layer->height;
 	if (scrnmng.native_active) {
-		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0, 190);
+		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0,
+		                layer->background_alpha);
 	} else {
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
-		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, layer->background_alpha);
 		SDL_RenderFillRect(scrnmng.renderer, &background);
 	}
 	text_color.r = 255;
 	text_color.g = 255;
 	text_color.b = 192;
-	text_color.a = 255;
-	for (i = 0; i < line_count; i++) {
-		scrnmng_draw_text_glyphs(background.x + 4 * scale,
-		                         background.y + 4 * scale + i * line_height, scale, lines[i],
-		                         text_color);
+	text_color.a = layer->text_alpha;
+	for (i = 0; i < (int)layer->line_count; i++) {
+		scrnmng_draw_text_glyphs(background.x + 4 * layer->scale,
+		                         background.y + 4 * layer->scale + i * 8 * layer->scale,
+		                         layer->scale, layer->lines[i], text_color);
 	}
 	if (!scrnmng.native_active)
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
@@ -1118,6 +1251,120 @@ void scrnmng_draw_native_overlays(void) {
 	if (scrnmng.native_active) {
 		scrnmng_draw_front_panel();
 	}
+}
+
+BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
+	VAEG_VIEWPORT viewport;
+
+	if ((snapshot == NULL) || (scrnmng_calculate_viewport(&viewport) != SUCCESS) ||
+	    (scrnmng_ensure_osd_snapshot(&viewport) != SUCCESS)) {
+		return FAILURE;
+	}
+	memcpy(snapshot, &scrnmng.osd_snapshot, sizeof(*snapshot));
+	return SUCCESS;
+}
+
+BOOL scrnmng_configure_native_recording(BOOL include_osd, BOOL follow_rotation) {
+	if (vaeg_recording_native_session_is_active()) {
+		return FAILURE;
+	}
+	recording_include_osd = include_osd ? TRUE : FALSE;
+	recording_follow_rotation = follow_rotation ? TRUE : FALSE;
+	return SUCCESS;
+}
+
+BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame) {
+	VAEG_RECORDING_OSD_SNAPSHOT snapshot;
+	return scrnmng_capture_native_recording_frame_with_snapshot(frame, &snapshot);
+}
+
+BOOL scrnmng_capture_native_recording_frame_with_snapshot(
+	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot) {
+	VAEG_RECORDING_NATIVE_RGB565_SOURCE source;
+	VAEG_RECORDING_NATIVE_FRAME_ERROR error;
+
+	if ((frame == NULL) || (scrnmng.shadow == NULL) || !scrnmng.enable ||
+	    (snapshot == NULL) || (scrnmng.width <= 0) || (scrnmng.height <= 0) ||
+	    (scrnmng.shadow_pitch <= 0)) {
+		return FAILURE;
+	}
+	if (scrnmng_get_osd_snapshot(snapshot) != SUCCESS) {
+		return FAILURE;
+	}
+	source.pixels = scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2);
+	source.width = (UINT32)scrnmng.width;
+	source.height = (UINT32)scrnmng.height;
+	source.pitch_bytes = (UINT32)scrnmng.shadow_pitch;
+	source.source_size_bytes = (UINT64)scrnmng.shadow_pitch * (UINT32)scrnmng.height -
+	                           (SCRNMNG_SURFACE_GUARD_LEFT * 2);
+	error = vaeg_recording_native_frame_copy_rgb565(&source, frame);
+	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+		fprintf(stderr, "Native recording frame copy failed: %s\n",
+		        vaeg_recording_native_frame_error_name(error));
+		return FAILURE;
+	}
+	if (recording_follow_rotation && scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		error = vaeg_recording_native_frame_rotate_right(frame);
+		if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+			vaeg_recording_native_frame_destroy(frame);
+			return FAILURE;
+		}
+		snapshot->guest_width = frame->width;
+		snapshot->guest_height = frame->height;
+	}
+	if (!recording_include_osd) {
+		UINT32 layer;
+		for (layer = 0; layer < snapshot->layer_count; ++layer) {
+			snapshot->layers[layer].enabled = 0;
+			snapshot->layers[layer].visible = 0;
+		}
+	}
+	error = vaeg_recording_native_frame_apply_osd(frame, snapshot, fontdata_8);
+	if (error != VAEG_RECORDING_NATIVE_FRAME_OK) {
+		fprintf(stderr, "Native recording OSD composition failed: %s\n",
+		        vaeg_recording_native_frame_error_name(error));
+		vaeg_recording_native_frame_destroy(frame);
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor) {
+	if ((descriptor == NULL) || (scrnmng.width <= 0) || (scrnmng.height <= 0)) {
+		return FAILURE;
+	}
+	ZeroMemory(descriptor, sizeof(*descriptor));
+	if (recording_follow_rotation && scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		descriptor->width = (UINT32)scrnmng.height;
+		descriptor->height = (UINT32)scrnmng.width;
+	} else {
+		descriptor->width = (UINT32)scrnmng.width;
+		descriptor->height = (UINT32)scrnmng.height;
+	}
+	descriptor->stride_bytes = (UINT64)descriptor->width * 3u;
+	descriptor->pixel_format = VAEG_RECORDING_PIXEL_RGB24;
+	return vaeg_recording_validate_video_descriptor(descriptor) == VAEG_RECORDING_ERROR_OK
+	           ? SUCCESS
+	           : FAILURE;
+}
+
+UINT32 scrnmng_native_recording_descriptor_generation(void) {
+	UINT32 generation;
+
+	if ((scrnmng.width <= 0) || (scrnmng.height <= 0) || (scrnmng.shadow_pitch <= 0)) {
+		return 0u;
+	}
+	/* The native coded descriptor is fixed by the owned canonical RGB24 frame. */
+	generation = 2166136261u;
+	generation = (generation ^ (UINT32)scrnmng.width) * 16777619u;
+	generation = (generation ^ (UINT32)scrnmng.height) * 16777619u;
+	generation = (generation ^ (UINT32)scrnmng.shadow_pitch) * 16777619u;
+	/* Equal canvas sizes can still cross a guest 15/24 kHz timing boundary. */
+	generation = (generation ^ (UINT32)videova_hsyncmode()) * 16777619u;
+	generation = (generation ^ 1u) * 16777619u;
+	generation =
+	    (generation ^ (UINT32)(recording_follow_rotation ? scrnmng.rotation : 0)) * 16777619u;
+	return generation;
 }
 
 static void scrnmng_log_renderer(void) {
@@ -1270,6 +1517,161 @@ static BOOL scrnmng_get_drawable_size(int *width, int *height) {
 	return SUCCESS;
 }
 
+static void scrnmng_displayed_capture_release(void) {
+	free(scrnmng.displayed_capture_pixels);
+	scrnmng.displayed_capture_pixels = NULL;
+	scrnmng.displayed_capture_size_bytes = 0u;
+	scrnmng.displayed_capture_pitch_bytes = 0u;
+	scrnmng.displayed_capture_width = 0u;
+	scrnmng.displayed_capture_height = 0u;
+	scrnmng.displayed_capture_generation = 0u;
+	scrnmng.displayed_capture_expected_generation = 0u;
+	scrnmng.displayed_capture_last_token = 0u;
+	scrnmng.displayed_capture_have_token = FALSE;
+	scrnmng.displayed_capture_active = FALSE;
+	scrnmng.displayed_capture_callback = NULL;
+	scrnmng.displayed_capture_context = NULL;
+}
+
+static void scrnmng_displayed_capture_fail(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error) {
+	scrnmng.displayed_capture_error = error;
+	scrnmng_displayed_capture_release();
+}
+
+BOOL scrnmng_start_displayed_recording_capture(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK callback, void *context) {
+	int width;
+	int height;
+	UINT64 pitch;
+	UINT64 size;
+
+	if (callback == NULL) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_NULL_INPUT;
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_active) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_BUSY;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	if (!scrnmng.enable || (scrnmng.renderer == NULL) || scrnmng.native_active) {
+		scrnmng.displayed_capture_error = scrnmng.native_active
+		                                       ? VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED
+		                                       : VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+		return FAILURE;
+	}
+	if ((SDL_GetCurrentVideoDriver() != NULL) &&
+	    !strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_DUMMY_DRIVER;
+		return FAILURE;
+	}
+	if ((scrnmng_get_drawable_size(&width, &height) != SUCCESS) || (width <= 0) ||
+	    (height <= 0) || (scrnmng.sdl_renderer_generation == 0u)) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+		return FAILURE;
+	}
+	pitch = (UINT64)(UINT32)width * 4u;
+	if ((UINT64)(UINT32)height > (UINT64_MAX / pitch)) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_SIZE_OVERFLOW;
+		return FAILURE;
+	}
+	size = pitch * (UINT32)height;
+	if (size > VAEG_RECORDING_DISPLAYED_FRAME_MAX_BYTES) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_TOO_LARGE;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_pixels = (BYTE *)malloc((size_t)size);
+	if (scrnmng.displayed_capture_pixels == NULL) {
+		scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_ALLOCATION_FAILED;
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_callback = callback;
+	scrnmng.displayed_capture_context = context;
+	scrnmng.displayed_capture_size_bytes = size;
+	scrnmng.displayed_capture_pitch_bytes = (UINT32)pitch;
+	scrnmng.displayed_capture_width = (UINT32)width;
+	scrnmng.displayed_capture_height = (UINT32)height;
+	scrnmng.displayed_capture_generation = scrnmng.sdl_renderer_generation;
+	scrnmng.displayed_capture_expected_generation = scrnmng.sdl_renderer_generation;
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	scrnmng.displayed_capture_active = TRUE;
+	return SUCCESS;
+}
+
+void scrnmng_stop_displayed_recording_capture(void) {
+	scrnmng.displayed_capture_error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	scrnmng_displayed_capture_release();
+}
+
+BOOL scrnmng_displayed_recording_capture_active(void) {
+	return scrnmng.displayed_capture_active;
+}
+
+VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error(void) {
+	return scrnmng.displayed_capture_error;
+}
+
+static BOOL scrnmng_capture_displayed_recording_frame(void) {
+	VAEG_RECORDING_DISPLAYED_FRAME capture;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+	int width;
+	int height;
+
+	if (!scrnmng.displayed_capture_active) {
+		return SUCCESS;
+	}
+	if (scrnmng.native_active || (scrnmng.renderer == NULL)) {
+		scrnmng_displayed_capture_fail(
+		    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		return FAILURE;
+	}
+	if ((scrnmng_get_drawable_size(&width, &height) != SUCCESS) ||
+	    ((UINT32)width != scrnmng.displayed_capture_width) ||
+	    ((UINT32)height != scrnmng.displayed_capture_height)) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED);
+		return FAILURE;
+	}
+	if (scrnmng.sdl_renderer_generation != scrnmng.displayed_capture_expected_generation) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_have_token &&
+	    (scrnmng.displayed_capture_last_token == (UINT64)drawcount)) {
+		return SUCCESS;
+	}
+	if (SDL_RenderReadPixels(scrnmng.renderer, NULL, SDL_PIXELFORMAT_RGBA32,
+	                         scrnmng.displayed_capture_pixels,
+	                         (int)scrnmng.displayed_capture_pitch_bytes) != 0) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_READBACK_FAILED);
+		return FAILURE;
+	}
+	ZeroMemory(&capture, sizeof(capture));
+	capture.pixels = scrnmng.displayed_capture_pixels;
+	capture.width = scrnmng.displayed_capture_width;
+	capture.height = scrnmng.displayed_capture_height;
+	capture.pitch_bytes = scrnmng.displayed_capture_pitch_bytes;
+	capture.size_bytes = scrnmng.displayed_capture_size_bytes;
+	capture.pixel_format = VAEG_RECORDING_DISPLAYED_PIXEL_RGBA32;
+	capture.row_origin = VAEG_RECORDING_DISPLAYED_ROWS_TOP_DOWN;
+	capture.frame_token = (UINT64)drawcount;
+	capture.descriptor_generation = scrnmng.displayed_capture_generation;
+	error = vaeg_recording_displayed_capture_validate(&capture);
+	if (error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK) {
+		scrnmng_displayed_capture_fail(error);
+		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_callback(scrnmng.displayed_capture_context, &capture) == 0) {
+		scrnmng_displayed_capture_fail(
+		    VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK_REJECTED);
+		return FAILURE;
+	}
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	return SUCCESS;
+}
+
 BOOL scrnmng_texture_uniform(BOOL *uniform) {
 	const BYTE *base;
 	BYTE first0;
@@ -1327,6 +1729,9 @@ void scrnmng_initialize(void) {
 }
 
 static BOOL scrnmng_create_sdl_resources(void) {
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+	}
 	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_ACCELERATED);
 	if (scrnmng.renderer == NULL) {
 		scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
@@ -1349,6 +1754,9 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	SDL_SetTextureScaleMode(scrnmng.texture, (scrnmng.effect == VAEG_EFFECT_UNFILTERED)
 	                                             ? SDL_ScaleModeNearest
 	                                             : SDL_ScaleModeLinear);
+	if (++scrnmng.sdl_renderer_generation == 0u) {
+		scrnmng.sdl_renderer_generation = 1u;
+	}
 	return SUCCESS;
 }
 
@@ -1396,6 +1804,9 @@ static BOOL scrnmng_detach_native_window(void) {
 static BOOL scrnmng_native_fallback(void) {
 	if (!scrnmng.native_active || (scrnmng.native_presenter == NULL)) {
 		return FAILURE;
+	}
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
 	}
 	snprintf(scrnmng.native_status, sizeof(scrnmng.native_status), "CRT fallback: %s",
 	         vaeg_native_presenter_error(scrnmng.native_presenter));
@@ -1544,6 +1955,11 @@ void scrnmng_show(void) {
 }
 
 void scrnmng_destroy(void) {
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE);
+	} else {
+		scrnmng_displayed_capture_release();
+	}
 	scrnmng.enable = FALSE;
 	scrnmng.visible = FALSE;
 	if (scrnmng.native_presenter != NULL) {
@@ -1645,6 +2061,8 @@ BOOL scrnmng_native_set_parameter(const char *name, float value) {
 }
 
 void scrnmng_request_native_crt(BOOL enabled, BOOL reload) {
+	if (reload || ((np2oscfg.gui_native_crt != 0) != (enabled != 0)))
+		vaeg_recording_runtime_screen_changed();
 	np2oscfg.gui_native_crt = enabled ? 1 : 0;
 	scrnmng.native_change_pending = TRUE;
 	scrnmng.native_reload_pending = reload;
@@ -1657,8 +2075,11 @@ BOOL scrnmng_native_filter_enabled(void) {
 
 BOOL scrnmng_set_native_filter(BOOL enabled) {
 	// Presentation-thread operation: keep the device, GUI and preset intact.
-	if (!scrnmng.native_active ||
-	    !vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
+	if (!scrnmng.native_active)
+		return FAILURE;
+	if ((enabled != 0) != (scrnmng_native_filter_enabled() != 0))
+		vaeg_recording_runtime_screen_changed();
+	if (!vaeg_native_presenter_set_filter(scrnmng.native_presenter, enabled)) {
 		return FAILURE;
 	}
 	if (enabled) {
@@ -1707,6 +2128,9 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	if (!scrnmng.native_active && !np2oscfg.gui_native_crt)
 		return SUCCESS;
 	// Called between ImGui frames on the presentation thread.
+	if (scrnmng.displayed_capture_active) {
+		scrnmng_displayed_capture_fail(VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+	}
 	was_native = scrnmng.native_active;
 	SDL_Log("Renderer switch: releasing GUI");
 	gui_shutdown();
@@ -1795,16 +2219,22 @@ static BOOL scrnmng_update_window_size(void) {
 }
 
 /* The simple front panel: a dark bar with the drive and mode lamps. */
-static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording, BOOL finalizing,
+                                            UINT64 ticks, UINT64 clock) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
 	static const char *const lock_labels[2] = {"KANA", "CAPS"};
 	const int s = frontpanel_simple_scale(bar->w);
 	const UINT32 now = SDL_GetTicks();
 	SDL_Color label = {200, 196, 180, 255};
 	SDL_Rect r;
-	int x = 8 * s;
+	char elapsed[32];
+	int recording_x;
+	int x = bar->x + 8 * s;
 	int i;
 
+	frontpanel_recording_time(elapsed, sizeof(elapsed), ticks, clock);
+	/* Reserve a stable five-character timer, expanding for long recordings. */
+	recording_x = bar->x + bar->w - (136 + 48 + (int)SDL_strlen(elapsed) * 8) * s;
 	if (!scrnmng.native_active) {
 		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
 	}
@@ -1822,6 +2252,13 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		Uint8 cg;
 		Uint8 cb;
 
+		/* Preserve the complete REC/timer/lock group in portrait windows. */
+		if (i >= 2 && i < 5 && recording_x < bar->x + 272 * s) {
+			continue;
+		}
+		if (drive && x + 40 * s > recording_x - 4 * s) {
+			continue;
+		}
 		if (i == 2) {
 			x += 16 * s; /* gap between the drives and the mode lamps */
 		} else if (i == 5) {
@@ -1869,8 +2306,32 @@ static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
 		} else {
 			scrnmng_panel_fill(&r, 52, 60, 52);
 		}
-		x += r.w + 12 * s;
+		x += r.w + ((drive && bar->w < 344 * s) ? 4 : 12) * s;
 	}
+	/* Keep KANA/CAPS right-aligned; REC, lamp and movie time sit just left. */
+	x = recording_x;
+	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "REC", label);
+	r.x = x + 28 * s;
+	r.y = bar->y + 5 * s;
+	r.w = 12 * s;
+	r.h = 6 * s;
+	if (finalizing) {
+		scrnmng_panel_fill(&r, 255, 180, 40);
+	} else if (recording) {
+		scrnmng_panel_fill(&r, 255, 45, 30);
+	} else {
+		scrnmng_panel_fill(&r, 52, 60, 52);
+	}
+	if (recording || finalizing) {
+		scrnmng_draw_text_glyphs(x + 48 * s, bar->y + 4 * s, s, elapsed, label);
+	}
+}
+
+static void scrnmng_draw_simple_panel(const SDL_Rect *bar) {
+	scrnmng_draw_simple_panel_state(bar, vaeg_recording_native_session_is_active(),
+	                                vaeg_recording_native_session_is_finalizing(),
+	                                vaeg_recording_native_session_elapsed_ticks(),
+	                                pccore.realclock);
 }
 
 /* Draw the front panel across the bottom of the drawable, and fit the
@@ -1939,11 +2400,6 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	scrnmng.native_active = FALSE;
 	scrnmng_draw_simple_panel(&bar);
 	SDL_RenderPresent(renderer);
-	scrnmng.renderer = saved_renderer;
-	scrnmng.native_active = saved_native;
-	if (out_path != NULL) {
-		SDL_SaveBMP(surface, out_path);
-	}
 	px = (const Uint32 *)surface->pixels;
 	/* lamps start after their label: FD1 at 36, FD2 at 88, V1 at 148 (+16 gap) */
 	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (8 + 24 + 4 + 6) * s], surface->format, &r, &g,
@@ -1964,12 +2420,69 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 		SDL_snprintf(problem, size, "simple panel CAPS lamp is not at the right edge");
 		ok = FALSE;
 	}
+	/* REC is directly left of the lock lamps and dim while idle. */
+	SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + (width - 190 * s)], surface->format, &r, &g, &b);
+	if (ok && !vaeg_recording_native_session_is_active() && ((r != 52) || (g != 60) || (b != 52))) {
+		SDL_snprintf(problem, size,
+		             "simple panel REC lamp is not dim at its expected position");
+		ok = FALSE;
+	}
+	/* Compare the real timer area against independently drawn expected glyphs;
+	 * exercise start/reset and finalization without modifying session state. */
+	{
+		static const char *const expected[] = {"01:23", "00:00", "100:00", "01:23"};
+		SDL_Rect timer = {width - 176 * s, 4 * s, 40 * s, 8 * s};
+		SDL_Surface *actual =
+		    SDL_CreateRGBSurfaceWithFormat(0, 48 * s, timer.h, 32, SDL_PIXELFORMAT_ARGB8888);
+		int phase;
+
+		if (actual == NULL) {
+			SDL_snprintf(problem, size, "no timer comparison surface");
+			ok = FALSE;
+		}
+		for (phase = 0; actual != NULL && phase < 4 && ok; ++phase) {
+			const SDL_Color color = {200, 196, 180, 255};
+			int row;
+
+			timer.w = (int)SDL_strlen(expected[phase]) * 8 * s;
+			timer.x = width - 136 * s - timer.w;
+			scrnmng_draw_simple_panel_state(&bar, phase != 3, phase == 3,
+			                                phase == 1 ? 0 : (phase == 2 ? 6000000 : 83000), 1000);
+			SDL_RenderPresent(renderer);
+			SDL_GetRGB(px[(8 * s) * (surface->pitch / 4) + timer.x - 14 * s], surface->format, &r,
+			           &g, &b);
+			if (r != 255 || g != (phase == 3 ? 180 : 45) || b != (phase == 3 ? 40 : 30)) {
+				SDL_snprintf(problem, size, "recording timer/lamp layout overlap");
+				ok = FALSE;
+			}
+			SDL_BlitSurface(surface, &timer, actual, NULL);
+			scrnmng_panel_fill(&timer, 34, 34, 36);
+			scrnmng_draw_text_glyphs(timer.x, timer.y, s, expected[phase], color);
+			SDL_RenderPresent(renderer);
+			for (row = 0; row < timer.h && ok; ++row) {
+				if (memcmp((const BYTE *)actual->pixels + row * actual->pitch,
+				           (const BYTE *)surface->pixels + (timer.y + row) * surface->pitch +
+				               timer.x * 4,
+				           (size_t)timer.w * 4) != 0) {
+					SDL_snprintf(problem, size, "recording MM:SS pixels/reset mismatch");
+					ok = FALSE;
+				}
+			}
+		}
+		SDL_FreeSurface(actual);
+	}
+	if (out_path != NULL) {
+		SDL_SaveBMP(surface, out_path);
+	}
+	scrnmng.renderer = saved_renderer;
+	scrnmng.native_active = saved_native;
 	SDL_DestroyRenderer(renderer);
 	SDL_FreeSurface(surface);
 	return ok ? SUCCESS : FAILURE;
 }
 
 void scrnmng_front_panel_changed(void) {
+	vaeg_recording_runtime_screen_changed();
 	scrnmng_fit_front_panel();
 }
 
@@ -1980,6 +2493,7 @@ void scrnmng_set_menu_height(int height) {
 	if (scrnmng.menu_height == height) {
 		return;
 	}
+	vaeg_recording_runtime_screen_changed();
 	scrnmng.menu_height = height;
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("menu-height");
@@ -1992,6 +2506,8 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	} else if (scale > VAEG_WINDOW_SCALE_MAX) {
 		scale = VAEG_WINDOW_SCALE_MAX;
 	}
+	if (scrnmng.scale != scale || scrnmng.aspect != (aspect ? TRUE : FALSE))
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
 	scrnmng_update_window_size();
@@ -2013,6 +2529,8 @@ void scrnmng_set_scaling(int scaling) {
 	if ((scaling < 0) || (scaling >= VAEG_SCALING_COUNT)) {
 		scaling = VAEG_SCALING_FIT;
 	}
+	if (scrnmng.scaling != scaling)
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.scaling = scaling;
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("scaling-change");
@@ -2027,6 +2545,8 @@ void scrnmng_set_effect(int effect) {
 	if ((effect < 0) || (effect >= VAEG_EFFECT_COUNT)) {
 		effect = VAEG_EFFECT_UNFILTERED;
 	}
+	if (scrnmng.effect != effect)
+		vaeg_recording_runtime_screen_changed();
 	scrnmng.effect = effect;
 	if (scrnmng.texture != NULL) {
 		SDL_SetTextureScaleMode(scrnmng.texture, (effect == VAEG_EFFECT_UNFILTERED)
@@ -2046,6 +2566,7 @@ void scrnmng_set_rotation(int rotation) {
 	if (scrnmng.rotation == rotation) {
 		return;
 	}
+	vaeg_recording_runtime_screen_changed();
 	scrnmng.rotation = rotation;
 	scrnmng_update_window_size();
 	if (scrnmng.visible) {
@@ -2152,6 +2673,8 @@ BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height, UI
 	    (SDL_GetDesktopDisplayMode(monitor, &desktop) != 0)) {
 		return (FAILURE);
 	}
+	/* Explicit display-mode/monitor requests change the presentation contract. */
+	vaeg_recording_runtime_screen_changed();
 	if (scrnmng.display_mode == VAEG_DISPLAY_WINDOWED) {
 		scrnmng_remember_window();
 	}
@@ -2285,6 +2808,7 @@ void scrnmng_present_begin(void) {
 	int row_span; /* screen pixels across the guest rows */
 	int col_span; /* screen pixels across the guest columns */
 	scrnmng.sdl_overlays_drawn = FALSE;
+	scrnmng.osd_snapshot_valid = FALSE;
 
 	if (!scrnmng.enable) {
 		return;
@@ -2455,17 +2979,109 @@ static SDL_Surface *scrnmng_read_sdl_output(void) {
 	return surface;
 }
 
+typedef struct {
+	BYTE *rgb;
+	UINT32 count;
+	UINT64 frame_token;
+	UINT32 descriptor_generation;
+	VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR error;
+} SCRNMNG_DISPLAYED_CAPTURE_FIXTURE;
+
+static void scrnmng_displayed_fixture_fill(BYTE *pixels, UINT32 width, UINT32 height,
+	                                           UINT32 pitch, int x, int y, int w, int h,
+	                                           BYTE red, BYTE green, BYTE blue) {
+	int row;
+	int column;
+
+	for (row = y; row < y + h; ++row) {
+		if ((row < 0) || ((UINT32)row >= height)) {
+			continue;
+		}
+		for (column = x; column < x + w; ++column) {
+			BYTE *pixel;
+			if ((column < 0) || ((UINT32)column >= width)) {
+				continue;
+			}
+			pixel = pixels + (size_t)row * pitch + (size_t)column * 3u;
+			pixel[0] = red;
+			pixel[1] = green;
+			pixel[2] = blue;
+		}
+	}
+}
+
+static int scrnmng_displayed_fixture_callback(
+	void *context, const VAEG_RECORDING_DISPLAYED_FRAME *capture) {
+	SCRNMNG_DISPLAYED_CAPTURE_FIXTURE *fixture =
+		(SCRNMNG_DISPLAYED_CAPTURE_FIXTURE *)context;
+
+	if ((fixture == NULL) || (capture == NULL)) {
+		return 0;
+	}
+	fixture->error = vaeg_recording_displayed_capture_to_rgb24(
+		capture, fixture->rgb, capture->width * 3u,
+		(UINT64)capture->width * capture->height * 3u);
+	if (fixture->error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK) {
+		return 0;
+	}
+	fixture->count++;
+	fixture->frame_token = capture->frame_token;
+	fixture->descriptor_generation = capture->descriptor_generation;
+	return 1;
+}
+
+static BOOL scrnmng_fps_visibility_selftest(void) {
+	const SCRNMNG saved = scrnmng;
+	const VAEG_SPEEDMETER saved_speedmeter = speedmeter;
+	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const UINT saved_drawcount = drawcount;
+	const UINT8 modes[] = {VAEG_DISPINFO_FPS, VAEG_DISPINFO_FPS | VAEG_DISPINFO_FRAME,
+	                       0, VAEG_DISPINFO_FRAME};
+	BOOL result = SUCCESS;
+	UINT mode;
+	for (mode = 0; mode < sizeof(modes) / sizeof(modes[0]); ++mode) {
+		const char *title;
+		np2oscfg.DISPCLK = modes[mode];
+		scrnmng_set_framedisp((modes[mode] & VAEG_DISPINFO_FRAME) != 0);
+		vaeg_framedisp_reset(&scrnmng.framedisp, 0, 0);
+		drawcount = 0;
+		scrnmng_framedisp_tick(0, 0, 0);
+		drawcount = 120;
+		scrnmng_framedisp_tick(2000, 120, 120);
+		title = SDL_GetWindowTitle(scrnmng.window);
+		if (scrnmng.framedisp.fps_tenths != 600 ||
+		    ((strstr(title, "60.0FPS") != NULL) != ((modes[mode] & VAEG_DISPINFO_FPS) != 0)) ||
+		    ((strstr(title, "FRAME 120") != NULL) != ((modes[mode] & VAEG_DISPINFO_FRAME) != 0))) {
+			fprintf(stderr, "selftest: FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=%u\n",
+			        (unsigned int)modes[mode]);
+			result = FAILURE;
+			break;
+		}
+	}
+	scrnmng = saved;
+	speedmeter = saved_speedmeter;
+	np2oscfg.DISPCLK = saved_info;
+	drawcount = saved_drawcount;
+	scrnmng_update_title();
+	return result;
+}
+
 BOOL scrnmng_display_capture_selftest(void) {
 	const SCRNMNG saved = scrnmng;
 	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const UINT saved_drawcount = drawcount;
 	const BOOL video_active = SDL_WasInit(SDL_INIT_VIDEO) != 0;
 	SDL_Surface *white = NULL, *baseline = NULL, *filtered = NULL, *info = NULL;
+	BYTE *displayed_expected = NULL;
+	SCRNMNG_DISPLAYED_CAPTURE_FIXTURE displayed_fixture;
 	VAEG_VIEWPORT viewport;
 	BOOL ok = FAILURE;
+	ZeroMemory(&displayed_fixture, sizeof(displayed_fixture));
 	if (!video_active && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) return FAILURE;
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
 	scrnmng.window = SDL_CreateWindow("display capture test", 0, 0, 640, 422, SDL_WINDOW_HIDDEN);
 	if (!scrnmng.window) goto cleanup;
+	if (scrnmng_fps_visibility_selftest() != SUCCESS) goto cleanup;
 	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
 	if (!scrnmng.renderer) goto cleanup;
 	white = SDL_CreateRGBSurfaceWithFormat(0, 640, 400, 32, SDL_PIXELFORMAT_RGBA32);
@@ -2475,6 +3091,23 @@ BOOL scrnmng_display_capture_selftest(void) {
 	if (!scrnmng.texture) goto cleanup;
 	scrnmng.enable = TRUE;
 	scrnmng.width = 640; scrnmng.height = 400;
+	{
+		const int saved_pitch = scrnmng.shadow_pitch;
+		const UINT8 saved_crtmode = videova.crtmode;
+		const WORD saved_grmode = videova.grmode;
+		UINT32 generation15, generation24;
+		scrnmng.shadow_pitch = (640 + SCRNMNG_SURFACE_GUARD_LEFT) * 2;
+		videova.grmode &= ~0x0080;
+		videova.crtmode = 0;
+		generation15 = scrnmng_native_recording_descriptor_generation();
+		videova.crtmode = 1;
+		generation24 = scrnmng_native_recording_descriptor_generation();
+		videova.crtmode = saved_crtmode;
+		videova.grmode = saved_grmode;
+		scrnmng.shadow_pitch = saved_pitch;
+		if (generation15 == 0 || generation15 == generation24)
+			goto cleanup;
+	}
 	scrnmng.menu_height = 22; scrnmng.scale = 1;
 	scrnmng.scaling = VAEG_SCALING_FIT;
 	np2oscfg.DISPCLK = 0;
@@ -2558,8 +3191,131 @@ BOOL scrnmng_display_capture_selftest(void) {
 			}
 		}
 	}
+	/*
+	 * Fixture-only final-client target: the public start function rejects the
+	 * dummy driver, so arm the internal seam directly after constructing a
+	 * real SDL software render target. This exercises acquisition and ownership
+	 * without presenting the dummy driver as platform evidence.
+	 */
+	scrnmng.width = 640;
+	scrnmng.height = 400;
+	scrnmng.menu_height = 22;
+	scrnmng.display_mode = VAEG_DISPLAY_WINDOWED;
+	scrnmng.scale = 1;
+	scrnmng_set_display(1, FALSE);
+	scrnmng.effect = VAEG_EFFECT_UNFILTERED;
+	np2oscfg.DISPCLK = 0;
+	scrnmng_present_begin();
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 255, 255, 255, 255);
+	{
+		SDL_Rect guest = {0, 22, 640, 400};
+		SDL_RenderFillRect(scrnmng.renderer, &guest);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 17, 34, 51, 255);
+	{
+		SDL_Rect menu = {0, 0, 640, 22};
+		SDL_RenderFillRect(scrnmng.renderer, &menu);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 170, 16, 32, 255);
+	{
+		SDL_Rect osd = {8, 30, 96, 16};
+		SDL_RenderFillRect(scrnmng.renderer, &osd);
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 32, 204, 64, 255);
+	{
+		SDL_Rect status = {500, 390, 120, 20};
+		SDL_RenderFillRect(scrnmng.renderer, &status);
+	}
+	displayed_expected = (BYTE *)malloc((size_t)640u * 422u * 3u);
+	displayed_fixture.rgb = (BYTE *)malloc((size_t)640u * 422u * 3u);
+	if ((displayed_expected == NULL) || (displayed_fixture.rgb == NULL)) goto cleanup;
+	memset(displayed_expected, 0, (size_t)640u * 422u * 3u);
+	for (int row = 22; row < 422; ++row) {
+		memset(displayed_expected + (size_t)row * 640u * 3u, 255, 640u * 3u);
+	}
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                0, 0, 640, 22, 17, 34, 51);
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                8, 30, 96, 16, 170, 16, 32);
+	scrnmng_displayed_fixture_fill(displayed_expected, 640u, 422u, 640u * 3u,
+	                                500, 390, 120, 20, 32, 204, 64);
+	displayed_fixture.error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+	scrnmng.sdl_renderer_generation = 1u;
+	scrnmng.displayed_capture_callback = scrnmng_displayed_fixture_callback;
+	scrnmng.displayed_capture_context = &displayed_fixture;
+	scrnmng.displayed_capture_pixels = (BYTE *)malloc((size_t)640u * 422u * 4u);
+	if (scrnmng.displayed_capture_pixels == NULL) goto cleanup;
+	scrnmng.displayed_capture_size_bytes = (UINT64)640u * 422u * 4u;
+	scrnmng.displayed_capture_pitch_bytes = 640u * 4u;
+	scrnmng.displayed_capture_width = 640u;
+	scrnmng.displayed_capture_height = 422u;
+	scrnmng.displayed_capture_generation = 1u;
+	scrnmng.displayed_capture_expected_generation = 1u;
+	scrnmng.displayed_capture_last_token = (UINT64)drawcount;
+	scrnmng.displayed_capture_have_token = TRUE;
+	scrnmng.displayed_capture_active = TRUE;
+	drawcount++;
+	scrnmng_present_end();
+	if (!scrnmng.displayed_capture_active || (displayed_fixture.count != 1u) ||
+	    (displayed_fixture.frame_token != (UINT64)drawcount) ||
+	    (displayed_fixture.descriptor_generation != 1u)) {
+		fprintf(stderr, "selftest: DISPLAYED_CAPTURE_METADATA_MISMATCH active=%d count=%u "
+		                "token=%llu expected=%u generation=%u error=%s\n",
+		        scrnmng.displayed_capture_active, displayed_fixture.count,
+		        (unsigned long long)displayed_fixture.frame_token, drawcount,
+		        displayed_fixture.descriptor_generation,
+		        vaeg_recording_displayed_capture_error_name(displayed_fixture.error));
+		goto cleanup;
+	}
+	if (memcmp(displayed_fixture.rgb, displayed_expected, (size_t)640u * 422u * 3u) != 0) {
+		size_t byte;
+		for (byte = 0; byte < (size_t)640u * 422u * 3u; ++byte) {
+			if (displayed_fixture.rgb[byte] != displayed_expected[byte]) {
+				fprintf(stderr, "selftest: DISPLAYED_CAPTURE_PIXEL_MISMATCH byte=%zu got=%u expected=%u\n",
+				        byte, displayed_fixture.rgb[byte], displayed_expected[byte]);
+				break;
+			}
+		}
+		goto cleanup;
+	}
+	/* A host-only redraw with the same guest token must not create a frame. */
+	scrnmng_present_begin();
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 99, 88, 77, 255);
+	{
+		SDL_Rect menu = {0, 0, 640, 22};
+		SDL_RenderFillRect(scrnmng.renderer, &menu);
+	}
+	scrnmng_present_end();
+	if (scrnmng.displayed_capture_active && (displayed_fixture.count != 1u)) goto cleanup;
+	/* A changed final-client geometry ends the fixed-descriptor capture. */
+	SDL_SetWindowSize(scrnmng.window, 800, 500);
+	drawcount++;
+	scrnmng_present_begin();
+	scrnmng_present_end();
+	if (scrnmng.displayed_capture_active ||
+	    (scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED)) {
+		goto cleanup;
+	}
+	if ((SDL_GetCurrentVideoDriver() != NULL) &&
+	    !strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
+		displayed_fixture.error = VAEG_RECORDING_DISPLAYED_CAPTURE_OK;
+		if (scrnmng_start_displayed_recording_capture(scrnmng_displayed_fixture_callback,
+		                                               &displayed_fixture) != FAILURE ||
+		    scrnmng.displayed_capture_error != VAEG_RECORDING_DISPLAYED_CAPTURE_DUMMY_DRIVER) {
+			goto cleanup;
+		}
+	}
 	ok = SUCCESS;
 cleanup:
+	if (ok == SUCCESS) {
+		fprintf(stderr, "selftest: displayed capture fixture ok (video=%s)\n",
+		        SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "unknown");
+	}
+	scrnmng_displayed_capture_release();
+	free(displayed_fixture.rgb);
+	free(displayed_expected);
 	SDL_FreeSurface(info); SDL_FreeSurface(filtered); SDL_FreeSurface(baseline);
 	SDL_FreeSurface(white);
 	SDL_DestroyTexture(scrnmng.texture);
@@ -2567,8 +3323,11 @@ cleanup:
 	SDL_DestroyWindow(scrnmng.window);
 	scrnmng = saved;
 	np2oscfg.DISPCLK = saved_info;
+	drawcount = saved_drawcount;
 	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
-	if (ok != SUCCESS) fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
+	if (ok != SUCCESS) {
+		fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
+	}
 	return ok;
 }
 
@@ -2593,6 +3352,10 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	if (scrnmng.native_active) {
+		if (scrnmng.displayed_capture_active) {
+			scrnmng_displayed_capture_fail(
+			    VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED);
+		}
 		if (scrnmng.rendered_capture_enabled && !scrnmng.native_capture_warning) {
 			fprintf(stderr,
 			        "Warning: rendered capture is unavailable while Native CRT owns the output; "
@@ -2661,6 +3424,10 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	if (scrnmng.renderer == NULL) {
+		if (scrnmng.displayed_capture_active) {
+			scrnmng_displayed_capture_fail(
+			    VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE);
+		}
 		return;
 	}
 	scrnmng_draw_sdl_overlays();
@@ -2671,6 +3438,7 @@ void scrnmng_present_end(void) {
 		SDL_Surface *surface = scrnmng_read_sdl_output();
 		scrnmng_finish_display_capture(surface, surface ? SUCCESS : FAILURE);
 	}
+	(void)scrnmng_capture_displayed_recording_frame();
 	SDL_RenderPresent(scrnmng.renderer);
 }
 
@@ -3008,9 +3776,8 @@ void scrnmng_refresh_title(void) {
 }
 
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames) {
-	if (scrnmng.framedisp_enabled) {
-		(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
-	}
+	/* FPS measurement is independent of the frame-counter visibility switch. */
+	(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
 	scrnmng_update_speedmeter(tick, frames);
 	scrnmng_update_title();
 }

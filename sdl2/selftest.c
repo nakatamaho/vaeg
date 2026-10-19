@@ -5465,10 +5465,48 @@ static int test_front_panel(void) {
 		keybrd.keymap[0x08] = saved_m08;
 		keybrd.keymap[0x0a] = saved_m0a;
 	}
-	/* the bar drawn on a software renderer: drive 1 lit, V1 dark */
-	if ((problem == NULL) &&
-	    (scrnmng_simple_panel_selftest(640, NULL, problem_text, sizeof(problem_text)) != SUCCESS)) {
-		problem = problem_text;
+	/* Movie-clock formatting: floor whole seconds, never wrap minutes at 60. */
+	{
+		static const struct {
+			UINT64 ticks;
+			UINT64 clock;
+			const char *expected;
+		} times[] = {{0, 6000000, "00:00"},
+		             {359999999, 6000000, "00:59"},
+		             {360000000, 6000000, "01:00"},
+		             {3599, 1, "59:59"},
+		             {3600, 1, "60:00"},
+		             {6000, 1, "100:00"},
+		             {UINT64_MAX, 1, "307445734561825860:15"},
+		             {UINT64_MAX, 0, "00:00"},
+		             {0, 1, "00:00"}};
+		char text[32];
+		size_t i;
+
+		for (i = 0; i < NELEMENTS(times) && problem == NULL; ++i) {
+			frontpanel_recording_time(text, sizeof(text), times[i].ticks, times[i].clock);
+			if (strcmp(text, times[i].expected) != 0) {
+				problem = "recording movie-clock MM:SS formatting";
+			}
+		}
+		frontpanel_recording_time(NULL, 0, 1, 1);
+		frontpanel_recording_time(text, 1, UINT64_MAX, 1);
+		if (problem == NULL && text[0] != '\0') {
+			problem = "recording time truncation is not terminated";
+		}
+	}
+	/* Actual software-rendered lamp/timer pixels, including portrait widths. */
+	{
+		static const int widths[] = {320, 400, 640, 1280};
+		size_t i;
+
+		for (i = 0; i < NELEMENTS(widths) && problem == NULL; ++i) {
+			frontpanel_fdd_access(0);
+			if (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
+			                                  sizeof(problem_text)) != SUCCESS) {
+				problem = problem_text;
+			}
+		}
 	}
 	frontpanel_set_modeled(1, FALSE);
 	fddfile[0] = saved_fdd;
@@ -7979,6 +8017,10 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	if (SDL_getenv("VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY") != NULL) {
+		/* Keep the SDL final-client probe independent of unrelated full-suite teardown. */
+		return scrnmng_display_capture_selftest();
+	}
 #if defined(VAEG_UPD9002_M44_TESTING)
 	if (upd9002_state_scenario_requested()) {
 		return (test_statsave() == SUCCESS ? SUCCESS : FAILURE);

@@ -3237,7 +3237,212 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
 
+### M100s2 — recording start used a stale audio clock origin
+
+- **Symptom/scope:** native FFV1 recording can reject start with
+  `audio_clock_origin_invalid`; an audio grid ahead of generated PCM also waits
+  for samples outside the guest interval. Applies to recording-enabled builds.
+- **Demonstrated cause:** start captured guest/stream clock state before arming
+  the audio capture, although arming may advance its watermark. The advancing-arm
+  fixture rejects the old origin. The grid also used generated count N rather
+  than the last generated sample index N-1; bounded-generation tests distinguish
+  the interval endpoints, including the initial negative origin.
+- **Correction:** adopt the already human-tested inherited audio correction:
+  snapshot guest/stream/capture state after arm, validate rate/epoch/counters,
+  use N-1, and calculate signed-origin rational offsets with checked wide
+  arithmetic. Preserve split FIFO cursor semantics and fail-closed clock checks.
+- **Verification:** native session/runtime integration/clock/Matroska4/4 and
+  focused strict ASan/UBSan4/4. The two source files are byte-identical to the
+  accepted macOS candidate. No new device/performance or Windows runtime claim.
+- **Task/evidence:** [M100s2 acceptance](../agents/tasks/M100s2_recording_h264_boundary.md#accepted-ffv1-human-gate-and-main-integration).
+- **Fixing commit:** [942a831a](https://github.com/nakatamaho/vaeg/commit/942a831ab68452d4148da604a1a7b2c1b7f878ea).
+
+### M100s2 — ordinary TSP video changes ended an interactive recording
+
+- **Symptom/scope:** a GUI recording ends at a guest TSP line-count/geometry
+  change, preventing continuous DOS-to-game recording. Equal-size15/24kHz and
+  manual rotation also need new fixed-descriptor files rather than stopping REC.
+- **Demonstrated cause:** the coded descriptor incorporates canonical canvas
+  height; the tap rejects its change, and the earlier safety policy finalizes
+  without rearming. That avoids the prior emulator exit but cannot continue
+  ordinary guest video transitions. The first new handoff candidate also tried
+  initial audio discard again: real FIFO first_sample is its immutable origin,
+  not its current read cursor, causing audio_discard_underflow at the split.
+- **Correction:** approved GUI-only automatic files, old staged interval closed
+  through boundaryT, changed snapshot seeded atT in a fresh per-file queue/mux.
+  FIFO/grid/sample cursor persist without a second discard. Guest frequency is
+  included even at equal canvas size; reset-driven monitor changes close the
+  old clock/audio epoch before reset and rearm on its first frame. No padding,
+  rescaling, cropping or batch auto-restart. Global frame limits/REC time persist;
+  collision/error preserves finalized files and stops recording, not the guest.
+- **Verification:**18 synthetic parts independently decode to61 exact RGB/alpha
+  frames/48800 stereo sample frames; same-epoch sample/frame identities join
+  without gaps/duplicates. Repeated parts, fixed FIFO origin, reset/new epoch,
+  waiting/empty/limit and target collision assertions pass. ON25/one skip,
+  OFF16 plus ROM-less1, strict focused ASan/UBSan4 pass. Owned-only workers pass.
+  Authorized headless real-GUI-start geometry and final Release-object actual
+  rotation/reset probes reach1200/exit0; all parts video/audio-decode. Not a
+  DIGDUG-specific, physical Windows/device or full-guest sanitizer acceptance.
+  MinGW build/import and full-worker cross-compilation pass.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [automatic handoff contract and limits](../recording-v1/screen-change-stop.md#current-automatic-splitting-policy).
+- **Fixing commits:** [5b0eb6c1](https://github.com/nakatamaho/vaeg/commit/5b0eb6c129a6a4e01d24d757b2dc55d53fd49fdc),
+  [9147dfa5 reset/state-load scope guard](https://github.com/nakatamaho/vaeg/commit/9147dfa530d2a486e0ca304cb5b3576fbba8e41b).
+  The latter keeps generic state-load/rewind notifications on cancellation,
+  tested from a valid active fixture, rather than silently auto-restarting.
+
+### M100s2 — a screen-size change during GUI recording exited the emulator
+
+- **Symptom/scope:** a neutral15kHz integration case exits when the guest changes
+  video mode during recording. It reproduces with right rotation and without;
+  the no-recording control reaches1200 frames.
+- **Demonstrated root cause:** the fixed-descriptor native tap rejects the new
+  geometry, but the frontend treats its recording error as a fatal emulator
+  error and calls `taskmng_exit`. The reproduced exit is status1, not an ASan
+  address fault; rotation alone is not the demonstrated cause.
+- **Correction:** a C99 frontend boundary finalizes already accepted complete
+  intervals before generic cancellation, stops interactive recording on screen
+  settings/descriptor changes, and continues the guest. Other GUI recording
+  errors and frame limits also stop recording, not the emulator. No resized
+  frame is appended and no segment is silently restarted. Batch CLI failures
+  and batch frame-limit exits retain their existing contracts.
+- **Verification:** policy and actual queue/encoder/mux tests cover saved/empty/
+  failed stops, batch failure and GUI frame limits. ON24/24, OFF15/15, GUI/FPS
+  ROM-less1/1, focused ASan/UBSan2/2 pass. Real GUI-start automation with final
+  minimal-LGPL Release objects saves the old stream and reaches1200 guest
+  frames; independent FFmpeg CRC/video/audio decode passes. Original media
+  remains untouched, all private evidence outside Git. Static MinGW build/import
+  audit, cross-build integration and focused Wine policy pass; native Windows
+  human confirmation remains pending. Full guest UBSan diagnostics are a separate
+  unresolved issue below, not claimed clean.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [reproduction, contract, artifact and validation limits](../recording-v1/screen-change-stop.md).
+- **Fixing commit:** [105e5cac](https://github.com/nakatamaho/vaeg/commit/105e5cac38962c5e408891a98f8620f61edd733b).
+
+### M100s2 — title FPS stayed zero with the frame counter hidden
+
+- **Symptom/scope:** title-bar FPS stays0.0 when FPS is enabled but the separate
+  frame-counter display is disabled; its past intermittent appearance can
+  depend on those display settings. This concerns title FPS, not an OSD item.
+- **Demonstrated root cause:** `scrnmng_framedisp_tick` updated the FPS meter
+  only when `framedisp_enabled` (the FRAME visibility option) was true, while
+  the title used the independent FPS visibility bit. The same guard exists in
+  [pre-recording main](https://github.com/nakatamaho/vaeg/commit/f81b1af9ae820b15c7ac29ac2fe29d8a641883bc);
+  this is not introduced by the BGRA conversion.
+- **Correction:** always update the draw-rate measurement; keep the two title
+  visibility switches independent. No fabricated60FPS or recording-clock change.
+- **Verification:** SDL title regression exercises FPS-only, FPS+FRAME, neither,
+  and FRAME-only with120 draws/2s. Before the fix, FPS-only fails with stable
+  `FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=8`; afterwards measured60.0 and
+  each visible/hidden title field are correct. Full macOS ROM-less test passes
+  1/1, OFF build passes, and MinGW build/import audit passes. Startup measurement
+  delay or a paused guest can legitimately show0.0. Native Windows review pending.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [current follow-up](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [9b0c44d7](https://github.com/nakatamaho/vaeg/commit/9b0c44d7c2d9044834f7078f0d41790f2c688d61).
+
+### M100s2 — recording settings clipped controls in the default window
+
+- **Symptom/scope:** the recording details window is too small or extends beyond
+  the application viewport, hiding settings/buttons; long input labels/status
+  text also consume space outside the visible form.
+- **Demonstrated root cause:** this dialog retained a fixed 720x420 first-use
+  size without the shared viewport/font-aware dialog preparation. A remembered
+  small size bypassed that default, and the form placed long labels beside
+  inputs and action buttons after all content instead of reserving a footer.
+- **Correction:** use the common centered, font-scaled opening size bounded to
+  95 percent of the current work area on each appearance. Wrap descriptions,
+  place input labels above full-width fields, scroll settings/status separately,
+  and reserve the bottom row for appropriately sized start/close buttons.
+- **Verification:** ROM-less GUI regression checks five viewport/font profiles
+  (640x400, 1280x800, 320x480, and 640x400/320x240 with double-size fonts), each
+  seeded with a remembered 128x72 window and long status. Assert viewport bounds,
+  opening size, reachable child scroll end, and visible/unscrolled footer.
+  Local macOS ROM-less test passes 1/1; native Windows visual review is pending.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [recording follow-up](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [ee5ebc8d](https://github.com/nakatamaho/vaeg/commit/ee5ebc8d1c4b5efbbf2489639803f1b0b3abf8ee).
+
+### M100s2 — FFV1 Matroska output omitted full-range RGB metadata
+
+- **Symptom/scope:** archive files report unknown range/matrix rather than
+  describing their full-range, 8-bit packed RGB pixels. The separately reported
+  VLC white-to-yellow/red-cast symptom is still OPEN below.
+- **Demonstrated root cause:** the custom Matroska writer reconstructs codec
+  parameters, but filled color properties only for H.264, not FFV1. Independent
+  inspection of the Windows-produced public file confirms the omission.
+- **Correction:** declare full-range RGB and eight-bit components in the FFV1
+  codec parameters; retain limited-range BT.709 for H.264. No RGB values change.
+- **Verification:** mux/decode regression assertions check these properties;
+  macOS recording tests pass 22/22. The new Windows Release public fixture
+  reports `pc`/`gbr`/8-bit, independently decodes to all 180 original RGB frames,
+  and has identical encoded payloads/timestamps for all 360 video/PCM packets.
+  Native Windows/VLC confirmation remains pending; this is not a demonstrated
+  correction of the reported player tint.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [evaluated source, artifact and limitations](../recording-v1/recording-ui-followup.md).
+- **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
+
 ## Open Defects
+
+### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
+
+- **Observed scope:** UBSan reports signed left-shift/overflow in PSG synthesis,
+  PRNG arithmetic and a shared vendor instruction while executing a neutral
+  private integration case. The first halt-on-error run stops at the PSG shift.
+  Reporting-only UBSan allows the separate recording exit to be reproduced with
+  ASan still stopping on address errors. This is not a clean full UBSan run.
+- **Locations:** [PSG generation](../../sound/psggenc.c),
+  [PSG mixer](../../sound/psggeng.c), [PRNG](../../common/parts.c),
+  [shared vendor backend](../../external/suzukiplan-z80/z80.hpp).
+- **Cause/correction:** the diagnostics demonstrate host-language undefined
+  signed arithmetic, not the intended hardware wrap semantics or the cause of
+  the maintainer's exit. No tested correction is established here. Do not
+  hand-edit the vendored backend or roll unrelated arithmetic changes into the
+  screen-change lifecycle fix.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [screen-change verification limits](../recording-v1/screen-change-stop.md).
+
+### M100s2 — saved FFV1 video has a red cast on Windows
+
+- **Symptom/scope:** the maintainer reports a red cast in saved FFV1 movies,
+  while the emulator window itself has normal colors. Reported against the
+  [recording-enabled MinGW build](https://github.com/nakatamaho/vaeg/commit/d63955c00cbb31d249be767f8b3f8f6014e3542e).
+- **Demonstrated compatibility boundary:** the maintainer sees seven colors
+  with the controlled opaque-BGRA fixture but only three with the BGR0 control
+  in the same VLC. Both files independently decode to the original RGB values.
+  The internal VLC failure stage is not established; do not attribute it to
+  capture or to a specific VLC decoder/renderer implementation.
+- **Correction:** the archive encoder, capability probe, encoder-info contract
+  and Matroska parameters now select explicit BGRA, with alpha255 on every
+  visible pixel. Full RGB values, FFV1v3/GOP1/slice-CRC, PCM and H.264 policy
+  are unchanged. Tests verify decoded alpha as well as exact RGB, including
+  every RGB565 value and padded/odd-sized fixtures. Actual new-application
+  movie playback remains pending before closing this entry.
+- **Verification so far:** public primary/random RGB FFV1 encode/decode checks
+  pass for the Windows test executable under a repaired task-local Wine prefix.
+  All 65,536 RGB565 values round-trip on macOS and Wine. A public color-bar
+  movie encoded/muxed by the exact Windows Release objects independently
+  decodes to all 180 source RGB frames and exact PCM on macOS. These synthetic
+  checks do not reproduce or disprove the saved-movie report. See
+  [follow-up evidence](../recording-v1/recording-ui-followup.md).
+- **Player follow-up:** VLC shows only yellow/red/green in the public pattern,
+  with white appearing yellow. Full RGB is still present in independently
+  decoded frames. The missing RGB metadata is now corrected separately above;
+  the new tagged fixture preserves every encoded packet. The maintainer now
+  confirms **no visible improvement in VLC**, so this metadata correction is
+  not a solution to the tint. Controlled BGR0/BGRA public fixtures then isolate
+  a working BGRA route in the affected player; source values are not adjusted.
+  No private guest images or clip identities are needed or published.
+- **Fixing implementation:** [a5f5b3fb](https://github.com/nakatamaho/vaeg/commit/a5f5b3fb36c51c843f9598036d4537e1afc4033f).
+  Mac round-trip/mux tests and three focused Wine tests pass; full-resolution
+  Windows generator is blocked by a Wine allocator assertion independently
+  reproduced by a CRT-only24MiB aligned allocation. Native macOS application
+  objects produce exact640x400 RGB/alpha/PCM. New-app native Windows playback
+  remains pending; keep this entry OPEN rather than claiming the private guest
+  report resolved.
+- **Task/evidence:** [M100s2](../agents/tasks/M100s2_recording_h264_boundary.md),
+  [recording status](../recording-v1/os-assisted-status.md).
 
 ### M106 — NEON3 and NEON4 leave the MS-DOS text console broken
 

@@ -1,0 +1,1 @@
+/goal REC00 is already accepted in the current recording-v1 status. Do not redo its audit or alter its evidence. For the current explicit recording-v1 authorization, continue with REC01 and each subsequent dependency-ready milestone while preserving all technical requirements, gate/status semantics, privacy rules and human/release validation requirements.

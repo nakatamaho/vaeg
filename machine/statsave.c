@@ -45,6 +45,7 @@
 #include "ymfmbridge.h"
 #include "va91.h"
 #include "upd9002_regs.h"
+#include "recording/recording_native_session.h"
 
 #if defined(MACOS)
 #define CRCONST str_cr
@@ -1617,6 +1618,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	}
 
 	soundmng_stop();
+	vaeg_recording_native_session_epoch_change();
 	rs232c_midipanic();
 	mpu98ii_midipanic();
 	sxsi_trash();

@@ -24,24 +24,28 @@ cmake_minimum_required(VERSION 3.20)
 
 project(vaeg LANGUAGES C CXX)
 
+find_package(Threads REQUIRED)
+
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
+option(VAEG_ENABLE_RECORDING "Enable the optional recording facade" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
-set(VAEG_MINGW_STATIC_DEFAULT OFF)
-if(MINGW)
-    set(VAEG_MINGW_STATIC_DEFAULT ON)
+set(VAEG_DESKTOP_STATIC_DEFAULT OFF)
+if(WIN32 OR APPLE)
+    set(VAEG_DESKTOP_STATIC_DEFAULT ON)
 endif()
-option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_MINGW_STATIC_DEFAULT})
-option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_MINGW_STATIC_DEFAULT})
+option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" ${VAEG_DESKTOP_STATIC_DEFAULT})
+option(VAEG_STATIC_SDL2 "Link SDL2 statically" ${VAEG_DESKTOP_STATIC_DEFAULT})
+option(VAEG_STATIC_FFMPEG "Link FFmpeg archives without shared-library fallback" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
-option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_MINGW_STATIC_DEFAULT})
+option(VAEG_STATIC_LIBRASHADER "Link the pinned librashader C API statically" ${VAEG_DESKTOP_STATIC_DEFAULT})
 set(VAEG_LIBRASHADER_STATIC_LIBRARY "" CACHE FILEPATH "Target-compatible librashader static archive")
 set(VAEG_LIBRASHADER_NATIVE_LIBS "" CACHE STRING "Native link libraries reported by rustc")
 set(VAEG_LIBRASHADER_STATIC_NOTICES "" CACHE FILEPATH "Generated static dependency notices")
 option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
-    "Fetch pinned static archive dependencies instead of using system LibArchive" ${VAEG_MINGW_STATIC_DEFAULT})
+    "Fetch pinned static archive dependencies instead of using system LibArchive" ${VAEG_DESKTOP_STATIC_DEFAULT})
 option(VAEG_Z80_COMPAT_INTEGRATION_TRACE
     "Compile deterministic subsystem compatibility/FDD integration tracing" OFF)
 option(VAEG_UPD9002_PERF_DIAGNOSTIC
@@ -61,7 +65,7 @@ if(MINGW)
     endif()
 endif()
 
-if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+if(APPLE AND (VAEG_ENABLE_LIBRASHADER OR VAEG_ENABLE_RECORDING))
     enable_language(OBJC)
     enable_language(OBJCXX)
 endif()
@@ -181,6 +185,26 @@ else()
     endif()
 endif()
 
+set(VAEG_FFMPEG_TARGETS)
+if(VAEG_ENABLE_RECORDING)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(FFMPEG_AVUTIL REQUIRED IMPORTED_TARGET libavutil)
+    pkg_check_modules(FFMPEG_AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
+    pkg_check_modules(FFMPEG_AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
+    if(VAEG_STATIC_FFMPEG)
+        include(cmake/ffmpeg_static.cmake)
+        foreach(component AVUTIL AVCODEC AVFORMAT)
+            vaeg_ffmpeg_static_target(vaeg_ffmpeg_${component} FFMPEG_${component})
+            list(APPEND VAEG_FFMPEG_TARGETS vaeg_ffmpeg_${component})
+        endforeach()
+    else()
+        list(APPEND VAEG_FFMPEG_TARGETS
+            PkgConfig::FFMPEG_AVUTIL
+            PkgConfig::FFMPEG_AVCODEC
+            PkgConfig::FFMPEG_AVFORMAT)
+    endif()
+endif()
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -275,6 +299,8 @@ set(VAEG_CORE_SOURCES
     sound/getsnd/getsmix.c
     bios/sxsibios.c
     sound/sound.c
+    sound/sound_generation.c
+    sound/sound_capture.c
     sound/sndcsec.c
     sound/fmboard.c
     sound/fmtimer.c
@@ -396,6 +422,17 @@ set(VAEG_SDL2_SOURCES
     sdl2/n80rom.c
     sdl2/romcheck.c
     sdl2/selftest.c
+    sdl2/recording/recording.c
+    sdl2/recording/recording_displayed_capture.c
+    sdl2/recording/recording_native_composition.c
+    sdl2/recording/recording_osd_snapshot.c
+    sdl2/recording/recording_native_tap.c
+    sdl2/recording/recording_native_session.cpp
+    sdl2/recording/recording_runtime.c
+    sdl2/recording/recording_contracts.cpp
+    sdl2/recording/recording_clock.cpp
+    sdl2/recording/recording_queue.cpp
+    sdl2/recording/recording_realtime_clock.cpp
     sdl2/soundmng.c
     sdl2/soundopts.c
     sdl2/ymfmbridge.cpp
@@ -405,6 +442,35 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+if(VAEG_ENABLE_RECORDING)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/recording/recording_ffmpeg_capabilities.cpp
+        sdl2/recording/recording_h264_encoder.cpp
+        sdl2/recording/recording_ffmpeg_video_encoder.cpp
+        sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+        sdl2/recording/recording_ffmpeg_matroska.cpp)
+endif()
+if(APPLE AND VAEG_ENABLE_RECORDING)
+    include(CheckSourceCompiles)
+    set(CMAKE_REQUIRED_LIBRARIES "-framework Cocoa" "-weak_framework ScreenCaptureKit")
+    check_source_compiles(OBJCXX "
+        #import <ScreenCaptureKit/ScreenCaptureKit.h>
+        int main() {
+            if (@available(macOS 14.0, *)) {
+                SCContentFilter *filter = nil;
+                return filter.pointPixelScale > 0;
+            }
+            return 0;
+        }" VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+    unset(CMAKE_REQUIRED_LIBRARIES)
+    if(VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+        list(APPEND VAEG_SDL2_SOURCES sdl2/recording/recording_macos_window_capture.mm)
+        set_source_files_properties(sdl2/recording/recording_macos_window_capture.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    else()
+        message(STATUS "Recording window capture: SDK lacks ScreenCaptureKit geometry API")
+    endif()
+endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/metal_bridge.mm
@@ -714,6 +780,11 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+if(VAEG_ENABLE_RECORDING)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_RECORDING=1)
+else()
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_RECORDING=0)
+endif()
 if(VAEG_ENABLE_LIBRASHADER)
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_LIBRASHADER=1)
     if(VAEG_STATIC_LIBRASHADER)
@@ -747,7 +818,16 @@ if(VAEG_ENABLE_LIBRASHADER)
     endif()
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
-    vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+    vaeg_core vaeg_va Threads::Threads ${VAEG_SDL2_LIBS})
+if(VAEG_ENABLE_RECORDING)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_RECORDING_FFMPEG=1)
+    target_link_libraries(vaeg_sdl2 PRIVATE ${VAEG_FFMPEG_TARGETS})
+    if(APPLE AND VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+        target_link_libraries(vaeg_sdl2 PRIVATE
+            "-framework Cocoa" "-framework CoreMedia" "-framework CoreVideo"
+            "-weak_framework ScreenCaptureKit")
+    endif()
+endif()
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     target_link_libraries(vaeg_sdl2 PRIVATE
         "-framework Foundation"
@@ -919,6 +999,452 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_ffmpeg_static_resolution
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_static_ffmpeg.py")
+    set_tests_properties(vaeg_ffmpeg_static_resolution PROPERTIES
+        LABELS "frontend;portability;recording")
+    foreach(compiler_header_language IN ITEMS c cpp)
+        add_executable(vaeg_compiler_header_${compiler_header_language}_test
+            tests/frontend/test_compiler_header.${compiler_header_language})
+        target_include_directories(vaeg_compiler_header_${compiler_header_language}_test
+            PRIVATE ${VAEG_INCLUDE_DIRS})
+        add_test(NAME vaeg_compiler_header_${compiler_header_language}
+            COMMAND vaeg_compiler_header_${compiler_header_language}_test)
+        set_tests_properties(vaeg_compiler_header_${compiler_header_language} PROPERTIES
+            LABELS "frontend;portability;recording")
+    endforeach()
+    add_executable(vaeg_recording_realtime_clock_test
+        tests/frontend/recording/test_recording_realtime_clock.cpp
+        sdl2/recording/recording_realtime_clock.cpp)
+    target_include_directories(vaeg_recording_realtime_clock_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_recording_realtime_clock_test PRIVATE cxx_std_17)
+    target_link_libraries(vaeg_recording_realtime_clock_test PRIVATE Threads::Threads)
+    target_compile_options(vaeg_recording_realtime_clock_test PRIVATE -Wall)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_realtime_clock_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_realtime_clock COMMAND vaeg_recording_realtime_clock_test)
+    set_tests_properties(vaeg_recording_realtime_clock PROPERTIES
+        LABELS "romless;recording;realtime;clock")
+    add_executable(vaeg_recording_c_contract_test
+        tests/frontend/recording/test_recording_c.c
+        sdl2/recording/recording.c)
+    target_include_directories(vaeg_recording_c_contract_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_definitions(vaeg_recording_c_contract_test PRIVATE
+        VAEG_ENABLE_RECORDING=0)
+    target_compile_options(vaeg_recording_c_contract_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_c_contract_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_c_contracts
+        COMMAND vaeg_recording_c_contract_test)
+    set_tests_properties(vaeg_recording_c_contracts PROPERTIES
+        LABELS "romless;recording;contracts")
+
+    add_executable(vaeg_recording_cli_test
+        tests/frontend/recording/test_recording_cli.c
+        sdl2/cliopts.c)
+    target_include_directories(vaeg_recording_cli_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpu"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/io"
+        "${CMAKE_CURRENT_SOURCE_DIR}/machine"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_cli_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_cli_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_cli
+        COMMAND vaeg_recording_cli_test)
+    set_tests_properties(vaeg_recording_cli PROPERTIES
+        LABELS "romless;recording;cli")
+
+    add_executable(vaeg_recording_osd_snapshot_test
+        tests/frontend/recording/test_recording_osd_snapshot.c
+        sdl2/recording/recording_osd_snapshot.c)
+    target_include_directories(vaeg_recording_osd_snapshot_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_osd_snapshot_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_osd_snapshot_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_osd_snapshot
+        COMMAND vaeg_recording_osd_snapshot_test)
+    set_tests_properties(vaeg_recording_osd_snapshot PROPERTIES
+        LABELS "romless;recording;osd")
+
+    add_executable(vaeg_recording_displayed_capture_test
+        tests/frontend/recording/test_recording_displayed_capture.c
+        sdl2/recording/recording_displayed_capture.c)
+    target_include_directories(vaeg_recording_displayed_capture_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_displayed_capture_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_displayed_capture_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_displayed_capture
+        COMMAND vaeg_recording_displayed_capture_test)
+    set_tests_properties(vaeg_recording_displayed_capture PROPERTIES
+        LABELS "romless;recording;displayed;readback")
+
+    add_executable(vaeg_recording_runtime_test
+        tests/frontend/recording/test_recording_runtime.c
+        sdl2/recording/recording_runtime.c)
+    target_include_directories(vaeg_recording_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_recording_runtime_test PRIVATE c_std_99)
+    add_test(NAME vaeg_recording_runtime COMMAND vaeg_recording_runtime_test)
+    set_tests_properties(vaeg_recording_runtime PROPERTIES LABELS "romless;recording;frontend")
+
+    add_executable(vaeg_recording_native_composition_test
+        tests/frontend/recording/test_recording_native_composition.c
+        sdl2/recording/recording_native_composition.c
+        sdl2/recording/recording_osd_snapshot.c)
+    target_include_directories(vaeg_recording_native_composition_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_native_composition_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_native_composition_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_native_composition
+        COMMAND vaeg_recording_native_composition_test)
+    set_tests_properties(vaeg_recording_native_composition PROPERTIES
+        LABELS "romless;recording;native;osd")
+
+    add_executable(vaeg_recording_native_tap_test
+        tests/frontend/recording/test_recording_native_tap.c
+        sdl2/recording/recording_native_tap.c)
+    target_include_directories(vaeg_recording_native_tap_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(vaeg_recording_native_tap_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_native_tap_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_native_tap
+        COMMAND vaeg_recording_native_tap_test)
+    set_tests_properties(vaeg_recording_native_tap PROPERTIES
+        LABELS "romless;recording;native;video;timing")
+
+    add_executable(vaeg_sound_generation_test
+        tests/frontend/recording/test_sound_generation.c
+        sound/sound_generation.c
+        common/parts.c)
+    target_include_directories(vaeg_sound_generation_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+    target_compile_options(vaeg_sound_generation_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_sound_generation_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_sound_generation
+        COMMAND vaeg_sound_generation_test)
+    set_tests_properties(vaeg_sound_generation PROPERTIES
+        LABELS "romless;recording;sound")
+
+    add_executable(vaeg_sound_capture_test
+        tests/frontend/recording/test_sound_capture.c
+        sound/sound_capture.c)
+    target_include_directories(vaeg_sound_capture_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+    target_compile_options(vaeg_sound_capture_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_sound_capture_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_sound_capture
+        COMMAND vaeg_sound_capture_test)
+    set_tests_properties(vaeg_sound_capture PROPERTIES
+        LABELS "romless;recording;sound;audio")
+
+    add_executable(vaeg_recording_contract_test
+        tests/frontend/recording/test_recording_contracts.cpp
+        sdl2/recording/recording.c
+        sdl2/recording/recording_contracts.cpp)
+    target_include_directories(vaeg_recording_contract_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_recording_contract_test PRIVATE cxx_std_17)
+    target_compile_definitions(vaeg_recording_contract_test PRIVATE
+        VAEG_ENABLE_RECORDING=0)
+    target_compile_options(vaeg_recording_contract_test PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_contract_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_contracts
+        COMMAND vaeg_recording_contract_test)
+    set_tests_properties(vaeg_recording_contracts PROPERTIES
+        LABELS "romless;recording;contracts")
+
+    add_executable(vaeg_recording_clock_test
+        tests/frontend/recording/test_recording_clock.cpp
+        sdl2/recording/recording_clock.cpp)
+    target_include_directories(vaeg_recording_clock_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_recording_clock_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_recording_clock_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_clock_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_clock
+        COMMAND vaeg_recording_clock_test)
+    set_tests_properties(vaeg_recording_clock PROPERTIES
+        LABELS "romless;recording;clock")
+
+    add_executable(vaeg_recording_queue_test
+        tests/frontend/recording/test_recording_queue.cpp
+        sdl2/recording/recording.c
+        sdl2/recording/recording_queue.cpp)
+    target_include_directories(vaeg_recording_queue_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_recording_queue_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_recording_queue_test PRIVATE -Wall -fsigned-char)
+    target_link_libraries(vaeg_recording_queue_test PRIVATE Threads::Threads)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_recording_queue_test PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_recording_queue
+        COMMAND vaeg_recording_queue_test)
+    set_tests_properties(vaeg_recording_queue PROPERTIES
+        LABELS "romless;recording;queue")
+
+    if(VAEG_ENABLE_RECORDING)
+        add_executable(vaeg_recording_native_session_test
+            tests/frontend/recording/test_recording_native_session.cpp
+            sdl2/recording/recording_native_session.cpp
+            sdl2/recording/recording_native_tap.c
+            sdl2/recording/recording_queue.cpp
+            sdl2/recording/recording.c
+            sdl2/recording/recording_contracts.cpp
+            sdl2/recording/recording_clock.cpp
+            sdl2/recording/recording_ffmpeg_video_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_native_session_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/cpu"
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+        target_compile_features(vaeg_recording_native_session_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_native_session_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1)
+        target_compile_options(vaeg_recording_native_session_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_native_session_test PRIVATE
+            Threads::Threads ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_native_session_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_native_session
+            COMMAND vaeg_recording_native_session_test)
+        set_tests_properties(vaeg_recording_native_session PROPERTIES
+            LABELS "romless;recording;native;video;audio;integration")
+
+        add_executable(vaeg_recording_runtime_integration_test
+            tests/frontend/recording/test_recording_runtime_integration.cpp
+            sdl2/recording/recording_runtime.c
+            sdl2/recording/recording_native_session.cpp
+            sdl2/recording/recording_native_tap.c
+            sdl2/recording/recording_queue.cpp
+            sdl2/recording/recording.c
+            sdl2/recording/recording_contracts.cpp
+            sdl2/recording/recording_clock.cpp
+            sdl2/recording/recording_ffmpeg_video_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_runtime_integration_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/cpu" "${CMAKE_CURRENT_BINARY_DIR}/generated"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2" "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common" "${CMAKE_CURRENT_SOURCE_DIR}/sound")
+        target_compile_features(vaeg_recording_runtime_integration_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_runtime_integration_test PRIVATE
+            VAEG_ENABLE_RECORDING=1 VAEG_RECORDING_FFMPEG=1)
+        target_compile_options(vaeg_recording_runtime_integration_test PRIVATE -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_runtime_integration_test PRIVATE
+            Threads::Threads ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_runtime_integration_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_runtime_integration
+            COMMAND vaeg_recording_runtime_integration_test)
+        set_tests_properties(vaeg_recording_runtime_integration PROPERTIES
+            LABELS "romless;recording;frontend;integration")
+
+        add_executable(vaeg_recording_ffmpeg_capabilities_test
+            tests/frontend/recording/test_recording_ffmpeg_capabilities.cpp
+            sdl2/recording/recording_ffmpeg_capabilities.cpp)
+        target_include_directories(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_ffmpeg_capabilities_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1)
+        target_compile_options(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_ffmpeg_capabilities_test PRIVATE
+            Threads::Threads ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_ffmpeg_capabilities_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_ffmpeg_capabilities
+            COMMAND vaeg_recording_ffmpeg_capabilities_test)
+        set_tests_properties(vaeg_recording_ffmpeg_capabilities PROPERTIES
+            LABELS "romless;recording;ffmpeg")
+
+        if(APPLE AND VAEG_HAVE_SCREEN_CAPTURE_KIT_GEOMETRY)
+            add_executable(vaeg_recording_macos_window_capture_test
+                tests/frontend/recording/test_recording_macos_window_capture.mm
+                sdl2/recording/recording_macos_window_capture.mm)
+            target_include_directories(vaeg_recording_macos_window_capture_test PRIVATE
+                "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+            set_target_properties(vaeg_recording_macos_window_capture_test PROPERTIES
+                OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
+            set_source_files_properties(tests/frontend/recording/test_recording_macos_window_capture.mm
+                PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+            target_compile_options(vaeg_recording_macos_window_capture_test PRIVATE -Wall)
+            target_link_libraries(vaeg_recording_macos_window_capture_test PRIVATE
+                "-framework Cocoa" "-framework CoreMedia" "-framework CoreVideo"
+                "-weak_framework ScreenCaptureKit")
+            if(VAEG_WERROR)
+                target_compile_options(vaeg_recording_macos_window_capture_test PRIVATE -Werror)
+            endif()
+            add_test(NAME vaeg_recording_macos_capture_contracts
+                COMMAND vaeg_recording_macos_window_capture_test --contracts)
+            set_tests_properties(vaeg_recording_macos_capture_contracts PROPERTIES
+                LABELS "romless;recording;window;contracts")
+            # Interactive public-window runtime probe is opt-in, not part of
+            # unattended CTest and never prompts for Screen Recording consent.
+        endif()
+        add_executable(vaeg_recording_h264_encoder_test
+            tests/frontend/recording/test_recording_h264_encoder.cpp
+            sdl2/recording/recording_h264_encoder.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_h264_encoder_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_h264_encoder_test PRIVATE cxx_std_17)
+        target_compile_options(vaeg_recording_h264_encoder_test PRIVATE -Wall)
+        target_link_libraries(vaeg_recording_h264_encoder_test PRIVATE ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_h264_encoder_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_h264_contracts
+            COMMAND vaeg_recording_h264_encoder_test --contracts)
+        add_test(NAME vaeg_recording_h264_hardware_probe
+            COMMAND vaeg_recording_h264_encoder_test)
+        set_tests_properties(vaeg_recording_h264_contracts PROPERTIES
+            LABELS "romless;recording;realtime;h264;contracts")
+        set_tests_properties(vaeg_recording_h264_hardware_probe PROPERTIES
+            LABELS "romless;recording;realtime;h264;hardware" SKIP_RETURN_CODE 77)
+        add_executable(vaeg_recording_ffv1_test
+            tests/frontend/recording/test_recording_ffmpeg_video_encoder.cpp
+            sdl2/recording/recording.c
+            sdl2/recording/recording_ffmpeg_video_encoder.cpp)
+        target_include_directories(vaeg_recording_ffv1_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_ffv1_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_ffv1_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1
+            VAEG_RECORDING_FFMPEG_TESTING=1)
+        target_compile_options(vaeg_recording_ffv1_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_ffv1_test PRIVATE
+            ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_ffv1_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_ffv1
+            COMMAND vaeg_recording_ffv1_test)
+        set_tests_properties(vaeg_recording_ffv1 PROPERTIES
+            LABELS "romless;recording;ffmpeg;ffv1")
+
+        add_executable(vaeg_recording_pcm_test
+            tests/frontend/recording/test_recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            common/parts.c)
+        target_include_directories(vaeg_recording_pcm_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_pcm_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_pcm_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1
+            VAEG_RECORDING_FFMPEG_TESTING=1)
+        target_compile_options(vaeg_recording_pcm_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_pcm_test PRIVATE
+            ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_pcm_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_pcm
+            COMMAND vaeg_recording_pcm_test)
+        set_tests_properties(vaeg_recording_pcm PROPERTIES
+            LABELS "romless;recording;ffmpeg;pcm")
+
+        add_executable(vaeg_recording_matroska_test
+            tests/frontend/recording/test_recording_ffmpeg_matroska.cpp
+            sdl2/recording/recording_ffmpeg_matroska.cpp
+            sdl2/recording/recording_ffmpeg_video_encoder.cpp
+            sdl2/recording/recording_ffmpeg_pcm_encoder.cpp
+            sdl2/recording/recording.c
+            common/parts.c)
+        target_include_directories(vaeg_recording_matroska_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+            "${CMAKE_CURRENT_SOURCE_DIR}/common"
+            "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_compile_features(vaeg_recording_matroska_test PRIVATE cxx_std_17)
+        target_compile_definitions(vaeg_recording_matroska_test PRIVATE
+            VAEG_ENABLE_RECORDING=1
+            VAEG_RECORDING_FFMPEG=1
+            VAEG_RECORDING_FFMPEG_TESTING=1)
+        target_compile_options(vaeg_recording_matroska_test PRIVATE
+            -Wall -fsigned-char)
+        target_link_libraries(vaeg_recording_matroska_test PRIVATE
+            ${VAEG_FFMPEG_TARGETS})
+        if(VAEG_WERROR)
+            target_compile_options(vaeg_recording_matroska_test PRIVATE -Werror)
+        endif()
+        add_test(NAME vaeg_recording_matroska
+            COMMAND vaeg_recording_matroska_test)
+        set_tests_properties(vaeg_recording_matroska PROPERTIES
+            LABELS "romless;recording;ffmpeg;matroska")
+    endif()
+
     add_test(NAME vaeg_8087_core COMMAND vaeg_8087_tests)
     add_test(NAME vaeg_third_party_licenses
         COMMAND "${Python3_EXECUTABLE}"

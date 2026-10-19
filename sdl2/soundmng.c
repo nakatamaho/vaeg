@@ -24,10 +24,10 @@
  */
 #include "compiler.h"
 #include "sdlapi.h"
-#include "parts.h"
 #include "soundmng.h"
 #include "soundopts.h"
 #include "sound.h"
+#include "sound_generation.h"
 #if defined(VERMOUTH_LIB)
 #include "commng.h"
 #include "cmver.h"
@@ -37,11 +37,13 @@
 
 typedef struct {
 	BOOL opened;
+	BOOL buffers_allocated;
 	BOOL enabled;
 	SDL_AudioDeviceID device;
 	int nsndbuf;
 	int samples;
 	SINT16 *buf[NSNDBUF];
+	SOUNDMNGSPEC spec;
 } SOUNDMNG;
 
 static SOUNDMNG soundmng;
@@ -68,12 +70,17 @@ static void sound_play_cb(void *userdata, Uint8 *stream, int len) {
 
 	length = min(len, (int)(soundmng.samples * 2 * sizeof(SINT16)));
 	dst = soundmng.buf[soundmng.nsndbuf];
-	src = sound_pcmlock();
-	if (src) {
-		satuation_s16(dst, src, length);
-		sound_pcmunlock(src);
+	if (sound_recording_is_active()) {
+		ZeroMemory(dst, (UINT)length);
+		(void)sound_playback_read_s16(
+			dst, (UINT)length, (UINT)(length / (2 * sizeof(SINT16))));
 	} else {
-		ZeroMemory(dst, length);
+		src = sound_pcmlock();
+		(void)vaeg_sound_pack_s16_or_silence(
+			dst, (UINT)length, src, soundmng.samples * 2u);
+		if (src) {
+			sound_pcmunlock(src);
+		}
 	}
 	ZeroMemory(stream, len);
 	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length, soundmng_master);
@@ -88,20 +95,17 @@ UINT soundmng_create(UINT rate, UINT ms) {
 	UINT samples;
 	SINT16 *tmp;
 
-	if (soundmng.opened) {
+	if (soundmng.opened || soundmng.buffers_allocated) {
 		goto smcre_err1;
 	}
-	if (SDL_InitSubSystem(SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
-		fprintf(stderr, "Error: SDL audio init: %s\n", SDL_GetError());
-		goto smcre_err1;
-	}
-
 	samples = vaeg_sound_buffer_samples(rate, ms, NSNDBUF);
 	if (samples == 0) {
 		goto smcre_err1;
 	}
 	soundmng.nsndbuf = 0;
 	soundmng.samples = samples;
+	ZeroMemory(&soundmng.spec, sizeof(soundmng.spec));
+	soundmng.spec.requested_rate = rate;
 	for (s = 0; s < NSNDBUF; s++) {
 		tmp = (SINT16 *)_MALLOC(samples * 2 * sizeof(SINT16), "buf");
 		if (tmp == NULL) {
@@ -109,6 +113,11 @@ UINT soundmng_create(UINT rate, UINT ms) {
 		}
 		soundmng.buf[s] = tmp;
 		ZeroMemory(tmp, samples * 2 * sizeof(SINT16));
+	}
+	soundmng.buffers_allocated = TRUE;
+	if (SDL_InitSubSystem(SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+		fprintf(stderr, "Warning: SDL audio init unavailable: %s\n", SDL_GetError());
+		return (samples);
 	}
 
 	ZeroMemory(&want, sizeof(want));
@@ -119,9 +128,14 @@ UINT soundmng_create(UINT rate, UINT ms) {
 	want.callback = sound_play_cb;
 	soundmng.device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
 	if (soundmng.device == 0) {
-		fprintf(stderr, "Error: SDL_OpenAudioDevice: %s\n", SDL_GetError());
-		goto smcre_err2;
+		fprintf(stderr, "Warning: SDL_OpenAudioDevice unavailable: %s\n", SDL_GetError());
+		return (samples);
 	}
+	soundmng.spec.device_available = TRUE;
+	soundmng.spec.obtained_rate = (UINT)have.freq;
+	soundmng.spec.obtained_format = (UINT)have.format;
+	soundmng.spec.obtained_channels = (UINT)have.channels;
+	soundmng.spec.obtained_samples = (UINT)have.samples;
 #if defined(VERMOUTH_LIB)
 	cmvermouth_load(rate);
 #endif
@@ -150,6 +164,11 @@ void soundmng_destroy(void) {
 		SDL_PauseAudioDevice(soundmng.device, 1);
 		SDL_CloseAudioDevice(soundmng.device);
 		soundmng.device = 0;
+#if defined(VERMOUTH_LIB)
+//		cmvermouth_unload();
+#endif
+	}
+	if (soundmng.buffers_allocated) {
 		for (i = 0; i < NSNDBUF; i++) {
 			tmp = soundmng.buf[i];
 			soundmng.buf[i] = NULL;
@@ -157,10 +176,9 @@ void soundmng_destroy(void) {
 				_MFREE(tmp);
 			}
 		}
-#if defined(VERMOUTH_LIB)
-//		cmvermouth_unload();
-#endif
+		soundmng.buffers_allocated = FALSE;
 	}
+	ZeroMemory(&soundmng.spec, sizeof(soundmng.spec));
 }
 
 void soundmng_play(void) {
@@ -184,6 +202,14 @@ void soundmng_setenabled(BOOL enabled) {
 
 BOOL soundmng_isenabled(void) {
 	return (soundmng.enabled);
+}
+
+BOOL soundmng_getspec(SOUNDMNGSPEC *spec) {
+	if (spec == NULL) {
+		return (FALSE);
+	}
+	*spec = soundmng.spec;
+	return (TRUE);
 }
 
 void soundmng_initialize(void) {

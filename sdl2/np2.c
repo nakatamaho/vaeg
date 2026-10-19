@@ -70,6 +70,9 @@
 #include "g75_screen.h"
 #include "headless_input.h"
 #include "debug_harness.h"
+#include "recording/recording.h"
+#include "recording/recording_native_session.h"
+#include "recording/recording_runtime.h"
 #include <stdlib.h>
 #include "opngen.h"
 #include "ymfmbridge.h"
@@ -177,6 +180,7 @@ NP2OSCFG np2oscfg = {0,
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
+static BOOL recording_batch_mode;
 static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
 static const char va_backup_memory_file[] = "vabkupmem.dat";
@@ -369,6 +373,8 @@ static void usage(const char *progname) {
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
 	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
 	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
+	printf("Recording (recording-enabled builds only):\n");
+	printf("\t--record FILE.mkv [--record-source native|displayed] [--record-frames N]\n");
 	printf("\t--version --help [-h]\n");
 	printf("Create image (no SDL session):\n");
 	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
@@ -1604,6 +1610,17 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
+		const VAEG_RECORDING_RUNTIME_RESULT recording_step =
+		    vaeg_recording_runtime_step(recording_batch_mode);
+		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_FAILED) {
+			fprintf(stderr, "Error: native recording failed: %s\n",
+			        vaeg_recording_native_session_last_error());
+			taskmng_exit();
+			return FAILURE;
+		}
+		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_COMPLETE) {
+			taskmng_exit();
+		}
 		if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
 			fprintf(stderr,
 			        "Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
@@ -1630,6 +1647,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		scrnmng_present_begin();
 		gui_render();
 		scrnmng_present_end();
+		(void)vaeg_recording_native_session_poll_stop();
 		if (initialize_gui_after_native_fallback() != SUCCESS) {
 			taskmng_exit();
 			return FAILURE;
@@ -1662,6 +1680,7 @@ static void render_host_ui_only(void) {
 	scrnmng_present_begin();
 	gui_render();
 	scrnmng_present_end();
+	(void)vaeg_recording_native_session_poll_stop();
 	if (initialize_gui_after_native_fallback() != SUCCESS) {
 		taskmng_exit();
 	}
@@ -2003,6 +2022,28 @@ int main(int argc, char **argv) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
 		return (SUCCESS);
 	}
+	{
+		const char *path = getenv("VAEG_RECORDING_NATIVE_PATH");
+		recording_batch_mode = options.record || ((path != NULL) && (path[0] != '\0'));
+		vaeg_recording_runtime_clear_event();
+	}
+	if (options.record) {
+		VAEG_RECORDING_CAPABILITIES recording_capabilities;
+
+		vaeg_recording_get_capabilities(&recording_capabilities);
+		if (options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+			fprintf(stderr,
+			        "Error: Displayed video recording is unavailable; final-client capture "
+			        "is not implemented yet\n");
+			return (FAILURE);
+		}
+		if (!recording_capabilities.backend_available) {
+			fprintf(stderr,
+			        "Error: recording is unavailable in this build; enable FFmpeg recording "
+			        "support\n");
+			return (FAILURE);
+		}
+	}
 	if (options.screenshot_count != 0) {
 		vaeg_screenshot_scheduler_init(&screenshots, options.screenshot_requests,
 		                               options.screenshot_count);
@@ -2287,35 +2328,52 @@ int main(int argc, char **argv) {
 
 	if (taskmng_isavail()) {
 		pccore_reset();
-		sdlkbd_reset_state();
-		scrndrawva_redraw();
-		mount_configured_fdd_images();
-		if (options.tape_path != NULL) {
-			char extracted[MAX_PATH];
-			const char *tape = options.tape_path;
-
-			/* zip/7z/lzh: the first .cmt/.t88 inside (M106) */
-			if (dropmedia_path_is_tape_archive(tape)) {
-				tape =
-				    dropmedia_extract_tape(tape, extracted, sizeof(extracted)) ? extracted : NULL;
-				fprintf(stderr, "%s\n", dropmedia_status());
+		if (options.record) {
+			if (!vaeg_recording_session_start(options.record_path, options.record_source,
+			                                  options.record_frame_limit)) {
+				fprintf(stderr, "Error: recording start failed: %s\n",
+				        vaeg_recording_native_session_last_error());
+				run_ok = FAILURE;
+				taskmng_exit();
 			}
-			if ((tape == NULL) || (cmt_open(tape) != SUCCESS)) {
-				fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
-			}
-		}
-		if (options.tape_save_path != NULL) {
-			cmt_save_begin(options.tape_save_path);
-		}
-		dropmedia_prune_storage();
-		if ((debug_harness_initialize() != SUCCESS) || (debug_harness_after_frame(0) != SUCCESS)) {
-			fprintf(stderr, "Error: debug initialization action failed\n");
+		} else if (!vaeg_recording_native_session_start_from_environment()) {
+			fprintf(stderr, "Error: native recording start failed: %s\n",
+			        vaeg_recording_native_session_last_error());
 			run_ok = FAILURE;
 			taskmng_exit();
-		} else {
-			run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
-			                 options.headless_input_script != NULL, &input_script,
-			                 (options.screenshot_count != 0) ? &screenshots : NULL);
+		}
+		if (run_ok == SUCCESS) {
+			sdlkbd_reset_state();
+			scrndrawva_redraw();
+			mount_configured_fdd_images();
+			if (options.tape_path != NULL) {
+				char extracted[MAX_PATH];
+				const char *tape = options.tape_path;
+
+				/* zip/7z/lzh: the first .cmt/.t88 inside (M106) */
+				if (dropmedia_path_is_tape_archive(tape)) {
+					tape =
+					    dropmedia_extract_tape(tape, extracted, sizeof(extracted)) ? extracted : NULL;
+					fprintf(stderr, "%s\n", dropmedia_status());
+				}
+				if ((tape == NULL) || (cmt_open(tape) != SUCCESS)) {
+					fprintf(stderr, "WARNING: cassette tape image not loaded: %s\n", options.tape_path);
+				}
+			}
+			if (options.tape_save_path != NULL) {
+				cmt_save_begin(options.tape_save_path);
+			}
+			dropmedia_prune_storage();
+			if ((debug_harness_initialize() != SUCCESS) ||
+			    (debug_harness_after_frame(0) != SUCCESS)) {
+				fprintf(stderr, "Error: debug initialization action failed\n");
+				run_ok = FAILURE;
+				taskmng_exit();
+			} else {
+				run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
+				                 options.headless_input_script != NULL, &input_script,
+				                 (options.screenshot_count != 0) ? &screenshots : NULL);
+			}
 		}
 		g75_screen_capture();
 	}
@@ -2323,6 +2381,12 @@ int main(int argc, char **argv) {
 	gui_session_end();
 	debug_harness_clear();
 	headless_input_script_clear(&input_script);
+	if (vaeg_recording_native_session_is_active() &&
+	    !vaeg_recording_native_session_stop()) {
+		fprintf(stderr, "Error: native recording stop failed: %s\n",
+		        vaeg_recording_native_session_last_error());
+		run_ok = FAILURE;
+	}
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
 	if ((!options.smoke) &&
@@ -2347,6 +2411,7 @@ int main(int argc, char **argv) {
 	return (run_ok);
 
 np2main_err3:
+	vaeg_recording_native_session_cancel();
 	gui_shutdown();
 	scrnmng_destroy();
 

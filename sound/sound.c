@@ -6,6 +6,8 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "sound.h"
+#include "sound_generation.h"
+#include "sound_capture.h"
 #include "sndcsec.h"
 #include "beep.h"
 #include "getsnd.h"
@@ -13,11 +15,9 @@
 SOUNDCFG soundcfg;
 
 #define STREAM_CBMAX 16
+#define SOUND_CAPTURE_CHUNK_FRAMES 512
 
-typedef struct {
-	void *hdl;
-	SOUNDCB cbfn;
-} CBTBL;
+typedef VAEG_SOUND_GENERATOR_SLOT CBTBL;
 
 typedef struct {
 	SINT32 *buffer;
@@ -25,6 +25,9 @@ typedef struct {
 	UINT samples;
 	UINT reserve;
 	UINT remain;
+	UINT64 generated_sample_count;
+	UINT32 generation_epoch;
+	BOOL accounting_overflow;
 #if defined(SUPPORT_WAVEREC)
 	WAVEWR rec;
 #endif
@@ -34,29 +37,132 @@ typedef struct {
 
 static SNDSTREAM sndstream;
 
+typedef struct {
+	SINT16 *buffer;
+	SINT32 *scratch;
+	VAEG_SOUND_CAPTURE_FIFO fifo;
+	SOUND_RECORDING_ERROR error;
+	UINT64 playback_dropped_frames;
+	UINT64 playback_underrun_frames;
+	BOOL active;
+	BOOL failed;
+} SOUNDRECORDING;
+
+static SOUNDRECORDING sndrecording;
+static volatile int locks = 0;
+
+static void sound_recording_fail_locked(SOUND_RECORDING_ERROR error) {
+	sndrecording.active = FALSE;
+	sndrecording.failed = TRUE;
+	sndrecording.error = error;
+}
+
 static void streamreset(void) {
 	SNDCSEC_ENTER;
+	if (sndrecording.active) {
+		sound_recording_fail_locked(SOUND_RECORDING_ERROR_EPOCH);
+	}
 	sndstream.ptr = sndstream.buffer;
 	sndstream.remain = sndstream.samples + sndstream.reserve;
+	sndstream.generated_sample_count = 0;
+	sndstream.accounting_overflow = FALSE;
+	sndstream.generation_epoch++;
 	sndstream.cbreg = sndstream.cb;
 	SNDCSEC_LEAVE;
 }
 
+static void sound_account_generated(UINT count) {
+	if (UINT64_MAX - sndstream.generated_sample_count < count) {
+		sndstream.generated_sample_count = UINT64_MAX;
+		sndstream.accounting_overflow = TRUE;
+	} else {
+		sndstream.generated_sample_count += count;
+	}
+}
+
 static void streamprepare(UINT samples) {
-	CBTBL *cb;
 	UINT count;
 
 	count = min(sndstream.remain, samples);
 	if (count) {
-		ZeroMemory(sndstream.ptr, count * 2 * sizeof(SINT32));
-		cb = sndstream.cb;
-		while (cb < sndstream.cbreg) {
-			cb->cbfn(cb->hdl, sndstream.ptr, count);
-			cb++;
-		}
+		count = vaeg_sound_generate_s32_stereo(
+			sndstream.ptr, count, count, sndstream.cb,
+			(UINT)(sndstream.cbreg - sndstream.cb));
+		sound_account_generated(count);
 		sndstream.ptr += count * 2;
 		sndstream.remain -= count;
 	}
+}
+
+static void sound_playback_append_locked(const SINT32 *source, UINT frames) {
+	UINT capacity;
+	UINT pending;
+	UINT available;
+	UINT copied;
+
+	if (source == NULL || frames == 0u) {
+		return;
+	}
+	capacity = sndstream.samples + sndstream.reserve;
+	pending = capacity - sndstream.remain;
+	available = capacity - pending;
+	copied = min(frames, available);
+	if (copied != 0u) {
+		CopyMemory(sndstream.buffer + pending * 2u, source,
+		           copied * 2u * sizeof(*source));
+		pending += copied;
+		sndstream.ptr = sndstream.buffer + pending * 2u;
+		sndstream.remain = capacity - pending;
+	}
+	if (copied < frames && UINT64_MAX - sndrecording.playback_dropped_frames >= frames - copied) {
+		sndrecording.playback_dropped_frames += frames - copied;
+	} else if (copied < frames) {
+		sndrecording.playback_dropped_frames = UINT64_MAX;
+	}
+}
+
+/* Return 1 when the complete request was generated, 0 when it was rejected
+ * before synthesis, and -1 when a post-generation accounting failure occurred. */
+static int sound_recording_generate_locked(UINT samples) {
+	UINT remaining;
+	UINT count;
+	VAEG_SOUND_CAPTURE_RESULT capture_result;
+
+	if (!sndrecording.active) {
+		return 0;
+	}
+	if (!vaeg_sound_capture_fifo_can_append(&sndrecording.fifo, samples)) {
+		sound_recording_fail_locked(SOUND_RECORDING_ERROR_CAPACITY);
+		return 0;
+	}
+	remaining = samples;
+	while (remaining != 0u) {
+		count = min(remaining, SOUND_CAPTURE_CHUNK_FRAMES);
+		count = vaeg_sound_generate_s32_stereo(
+			sndrecording.scratch, SOUND_CAPTURE_CHUNK_FRAMES, count,
+			sndstream.cb, (UINT)(sndstream.cbreg - sndstream.cb));
+		if (count == 0u) {
+			sound_recording_fail_locked(SOUND_RECORDING_ERROR_OVERFLOW);
+			return -1;
+		}
+		sound_account_generated(count);
+		if (sndstream.accounting_overflow) {
+			sound_recording_fail_locked(SOUND_RECORDING_ERROR_OVERFLOW);
+			return -1;
+		}
+		capture_result = vaeg_sound_capture_fifo_append_s32(
+			&sndrecording.fifo, sndrecording.scratch, count,
+			!soundmng_isenabled());
+		if (capture_result != VAEG_SOUND_CAPTURE_OK) {
+			sound_recording_fail_locked(
+				(capture_result == VAEG_SOUND_CAPTURE_CAPACITY) ?
+				SOUND_RECORDING_ERROR_CAPACITY : SOUND_RECORDING_ERROR_OVERFLOW);
+			return -1;
+		}
+		sound_playback_append_locked(sndrecording.scratch, count);
+		remaining -= count;
+	}
+	return 1;
 }
 
 #if defined(SUPPORT_WAVEREC)
@@ -66,7 +172,7 @@ BOOL sound_recstart(const char *filename) {
 	WAVEWR rec;
 
 	sound_recstop();
-	if (sndstream.buffer == NULL) {
+	if (sndstream.buffer == NULL || sndrecording.active) {
 		return (FAILURE);
 	}
 	rec = wavewr_open(filename, soundcfg.rate, 16, 2);
@@ -86,7 +192,6 @@ void sound_recstop(void) {
 }
 
 static void streamfilewrite(UINT samples) {
-	CBTBL *cb;
 	UINT count;
 	SINT32 buf32[2 * 512];
 	BYTE buf[2 * 2 * 512];
@@ -96,12 +201,10 @@ static void streamfilewrite(UINT samples) {
 
 	while (samples) {
 		count = min(samples, 512);
-		ZeroMemory(buf32, count * 2 * sizeof(SINT32));
-		cb = sndstream.cb;
-		while (cb < sndstream.cbreg) {
-			cb->cbfn(cb->hdl, buf32, count);
-			cb++;
-		}
+		count = vaeg_sound_generate_s32_stereo(
+			buf32, count, count, sndstream.cb,
+			(UINT)(sndstream.cbreg - sndstream.cb));
+		sound_account_generated(count);
 		r = min(sndstream.remain, count);
 		if (r) {
 			CopyMemory(sndstream.ptr, buf32, r * 2 * sizeof(SINT32));
@@ -159,6 +262,7 @@ BOOL sound_create(UINT rate, UINT ms) {
 	UINT reserve;
 
 	ZeroMemory(&sndstream, sizeof(sndstream));
+	ZeroMemory(&sndrecording, sizeof(sndrecording));
 	switch (rate) {
 	case 11025:
 	case 22050:
@@ -200,8 +304,235 @@ scre_err1:
 	return (FAILURE);
 }
 
+SOUND_RECORDING_ERROR sound_recording_start(UINT capacity_frames) {
+	SINT16 *capture_buffer;
+	SINT32 *scratch;
+	UINT capacity;
+	UINT pending;
+	UINT64 first_sample;
+	VAEG_SOUND_CAPTURE_RESULT capture_result;
+
+	if (sndstream.buffer == NULL) {
+		return SOUND_RECORDING_ERROR_NOT_READY;
+	}
+#if defined(SUPPORT_WAVEREC)
+	if (sndstream.rec != NULL) {
+		return SOUND_RECORDING_ERROR_BUSY;
+	}
+#endif
+	if (capacity_frames == 0u || capacity_frames > UINT_MAX / 2u ||
+	    capacity_frames > UINT_MAX / (2u * sizeof(SINT16))) {
+		return SOUND_RECORDING_ERROR_INVALID_CAPACITY;
+	}
+	if (sndrecording.buffer != NULL || sndrecording.active) {
+		return SOUND_RECORDING_ERROR_BUSY;
+	}
+	capture_buffer = (SINT16 *)_MALLOC(
+		capacity_frames * 2u * sizeof(SINT16), "recording audio");
+	scratch = (SINT32 *)_MALLOC(
+		SOUND_CAPTURE_CHUNK_FRAMES * 2u * sizeof(SINT32), "recording audio scratch");
+	if (capture_buffer == NULL || scratch == NULL) {
+		if (capture_buffer != NULL) {
+			_MFREE(capture_buffer);
+		}
+		if (scratch != NULL) {
+			_MFREE(scratch);
+		}
+		return SOUND_RECORDING_ERROR_ALLOCATION;
+	}
+
+	soundmng_stop();
+	SNDCSEC_ENTER;
+	if (locks != 0 || sndrecording.buffer != NULL || sndrecording.active) {
+		SNDCSEC_LEAVE;
+		_MFREE(capture_buffer);
+		_MFREE(scratch);
+		soundmng_play();
+		return SOUND_RECORDING_ERROR_BUSY;
+	}
+	capacity = sndstream.samples + sndstream.reserve;
+	pending = capacity - sndstream.remain;
+	if (sndstream.accounting_overflow || pending > capacity_frames ||
+	    sndstream.generated_sample_count < pending) {
+		SNDCSEC_LEAVE;
+		_MFREE(capture_buffer);
+		_MFREE(scratch);
+		soundmng_play();
+		return sndstream.accounting_overflow ? SOUND_RECORDING_ERROR_OVERFLOW :
+		                                      SOUND_RECORDING_ERROR_CAPACITY;
+	}
+	first_sample = sndstream.generated_sample_count - pending;
+	capture_result = vaeg_sound_capture_fifo_init(
+		&sndrecording.fifo, capture_buffer, capacity_frames,
+		first_sample, sndstream.generation_epoch);
+	if (capture_result != VAEG_SOUND_CAPTURE_OK) {
+		SNDCSEC_LEAVE;
+		_MFREE(capture_buffer);
+		_MFREE(scratch);
+		soundmng_play();
+		return SOUND_RECORDING_ERROR_INVALID_CAPACITY;
+	}
+	capture_result = vaeg_sound_capture_fifo_append_s32(
+		&sndrecording.fifo, sndstream.buffer, pending, FALSE);
+	if (capture_result != VAEG_SOUND_CAPTURE_OK) {
+		vaeg_sound_capture_fifo_clear(&sndrecording.fifo);
+		SNDCSEC_LEAVE;
+		_MFREE(capture_buffer);
+		_MFREE(scratch);
+		soundmng_play();
+		return (capture_result == VAEG_SOUND_CAPTURE_CAPACITY) ?
+			SOUND_RECORDING_ERROR_CAPACITY : SOUND_RECORDING_ERROR_OVERFLOW;
+	}
+	sndrecording.buffer = capture_buffer;
+	sndrecording.scratch = scratch;
+	sndrecording.error = SOUND_RECORDING_ERROR_OK;
+	sndrecording.playback_dropped_frames = 0;
+	sndrecording.playback_underrun_frames = 0;
+	sndrecording.failed = FALSE;
+	sndrecording.active = TRUE;
+	SNDCSEC_LEAVE;
+	soundmng_play();
+	return SOUND_RECORDING_ERROR_OK;
+}
+
+void sound_recording_stop(void) {
+	soundmng_stop();
+	if (sndstream.buffer != NULL) {
+		SNDCSEC_ENTER;
+		if (sndrecording.active) {
+			sndrecording.active = FALSE;
+		}
+		SNDCSEC_LEAVE;
+	}
+	soundmng_play();
+}
+
+void sound_recording_release(void) {
+	SINT16 *capture_buffer;
+	SINT32 *scratch;
+
+	sound_recording_stop();
+	if (sndstream.buffer == NULL) {
+		return;
+	}
+	SNDCSEC_ENTER;
+	capture_buffer = sndrecording.buffer;
+	scratch = sndrecording.scratch;
+	sndrecording.buffer = NULL;
+	sndrecording.scratch = NULL;
+	vaeg_sound_capture_fifo_clear(&sndrecording.fifo);
+	sndrecording.error = SOUND_RECORDING_ERROR_OK;
+	sndrecording.failed = FALSE;
+	sndrecording.playback_dropped_frames = 0;
+	sndrecording.playback_underrun_frames = 0;
+	SNDCSEC_LEAVE;
+	if (capture_buffer != NULL) {
+		_MFREE(capture_buffer);
+	}
+	if (scratch != NULL) {
+		_MFREE(scratch);
+	}
+}
+
+BOOL sound_recording_is_active(void) {
+	BOOL active;
+
+	if (sndstream.buffer == NULL) {
+		return FALSE;
+	}
+	SNDCSEC_ENTER;
+	active = sndrecording.active;
+	SNDCSEC_LEAVE;
+	return active;
+}
+
+UINT sound_recording_read(SINT16 *destination, UINT capacity_frames,
+	                      UINT64 *sample_begin, UINT32 *epoch) {
+	UINT count;
+
+	if (sndstream.buffer == NULL || destination == NULL || capacity_frames == 0u) {
+		return 0u;
+	}
+	SNDCSEC_ENTER;
+	count = vaeg_sound_capture_fifo_read(
+		&sndrecording.fifo, destination, capacity_frames, sample_begin, epoch);
+	SNDCSEC_LEAVE;
+	return count;
+}
+
+BOOL sound_recording_get_state(SOUNDRECORDINGSTATE *state) {
+	if (state == NULL) {
+		return FAILURE;
+	}
+	ZeroMemory(state, sizeof(*state));
+	if (sndstream.buffer == NULL) {
+		return FAILURE;
+	}
+	SNDCSEC_ENTER;
+	state->rate = soundcfg.rate;
+	state->capacity_frames = sndrecording.fifo.capacity_frames;
+	state->pending_frames = vaeg_sound_capture_fifo_pending(&sndrecording.fifo);
+	state->first_sample = sndrecording.fifo.first_sample;
+	state->next_sample = sndrecording.fifo.next_sample;
+	state->produced_frames = sndrecording.fifo.produced_frames;
+	state->consumed_frames = sndrecording.fifo.consumed_frames;
+	state->playback_dropped_frames = sndrecording.playback_dropped_frames;
+	state->playback_underrun_frames = sndrecording.playback_underrun_frames;
+	state->epoch = sndrecording.fifo.epoch;
+	state->error = sndrecording.error;
+	state->active = sndrecording.active;
+	state->failed = sndrecording.failed;
+	SNDCSEC_LEAVE;
+	return SUCCESS;
+}
+
+UINT sound_playback_read_s16(SINT16 *destination, UINT destination_bytes,
+	                         UINT requested_frames) {
+	UINT capacity;
+	UINT pending;
+	UINT destination_frames;
+	UINT count;
+	UINT remaining;
+
+	if (destination == NULL || destination_bytes < 2u * sizeof(SINT16) ||
+	    requested_frames == 0u || sndstream.buffer == NULL) {
+		return 0u;
+	}
+	destination_frames = destination_bytes / (2u * sizeof(SINT16));
+	count = min(requested_frames, destination_frames);
+	SNDCSEC_ENTER;
+	capacity = sndstream.samples + sndstream.reserve;
+	pending = capacity - sndstream.remain;
+	count = min(count, pending);
+	if (count != 0u) {
+		if (soundmng_isenabled()) {
+			(void)vaeg_sound_pack_s16_or_silence(
+				destination, count * 2u * sizeof(SINT16),
+				sndstream.buffer, count * 2u);
+		} else {
+			ZeroMemory(destination, count * 2u * sizeof(SINT16));
+		}
+		remaining = pending - count;
+		if (remaining != 0u) {
+			CopyMemory(sndstream.buffer, sndstream.buffer + count * 2u,
+			           remaining * 2u * sizeof(SINT32));
+		}
+		sndstream.ptr = sndstream.buffer + remaining * 2u;
+		sndstream.remain = capacity - remaining;
+	}
+	if (sndrecording.active && count < requested_frames &&
+	    UINT64_MAX - sndrecording.playback_underrun_frames >= requested_frames - count) {
+		sndrecording.playback_underrun_frames += requested_frames - count;
+	} else if (sndrecording.active && count < requested_frames) {
+		sndrecording.playback_underrun_frames = UINT64_MAX;
+	}
+	SNDCSEC_LEAVE;
+	return count;
+}
+
 void sound_destroy(void) {
 	if (sndstream.buffer) {
+		sound_recording_release();
 #if defined(SUPPORT_WAVEREC)
 		sound_recstop();
 #endif
@@ -216,6 +547,14 @@ void sound_destroy(void) {
 
 void sound_reset(void) {
 	if (sndstream.buffer) {
+		if (sndrecording.active) {
+			sound_recording_stop();
+			SNDCSEC_ENTER;
+			if (sndrecording.buffer != NULL) {
+				sound_recording_fail_locked(SOUND_RECORDING_ERROR_EPOCH);
+			}
+			SNDCSEC_LEAVE;
+		}
 		soundmng_reset();
 		streamreset();
 		soundcfg.lastclock = CPU_CLOCK;
@@ -230,6 +569,14 @@ void sound_changeclock(void) {
 
 	if (sndstream.buffer == NULL) {
 		return;
+	}
+	if (sndrecording.active) {
+		sound_recording_stop();
+		SNDCSEC_ENTER;
+		if (sndrecording.buffer != NULL) {
+			sound_recording_fail_locked(SOUND_RECORDING_ERROR_EPOCH);
+		}
+		SNDCSEC_LEAVE;
 	}
 
 	// とりあえず 25で割り切れる。
@@ -282,7 +629,13 @@ void sound_sync(void) {
 		streamfilewrite(length);
 	} else
 #endif
+	if (sndrecording.active) {
+		if (sound_recording_generate_locked(length) == 0) {
+			streamprepare(length);
+		}
+	} else {
 		streamprepare(length);
+	}
 	soundcfg.lastclock += length * soundcfg.clockbase / soundcfg.hzbase;
 	beep_eventreset();
 	SNDCSEC_LEAVE;
@@ -293,8 +646,6 @@ void sound_sync(void) {
 		soundmng_sync();
 	}
 }
-
-static volatile int locks = 0;
 
 const SINT32 *sound_pcmlock(void) {
 	const SINT32 *ret;
@@ -307,6 +658,11 @@ const SINT32 *sound_pcmlock(void) {
 	ret = sndstream.buffer;
 	if (ret) {
 		SNDCSEC_ENTER;
+		if (sndrecording.active) {
+			SNDCSEC_LEAVE;
+			locks--;
+			return (NULL);
+		}
 		if (sndstream.remain > sndstream.reserve)
 #if defined(SUPPORT_WAVEREC)
 			if (sndstream.rec) {
@@ -314,7 +670,8 @@ const SINT32 *sound_pcmlock(void) {
 			} else
 #endif
 			{
-				streamprepare(sndstream.remain - sndstream.reserve);
+				streamprepare(vaeg_sound_lookahead_frames(sndstream.remain,
+				                                           sndstream.reserve));
 				soundcfg.lastclock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 				beep_eventreset();
 			}
@@ -339,6 +696,35 @@ void sound_pcmunlock(const SINT32 *hdl) {
 		SNDCSEC_LEAVE;
 		locks--;
 	}
+}
+
+BOOL sound_get_stream_state(SOUNDSTREAMSTATE *state) {
+	UINT capacity;
+
+	if (state == NULL) {
+		return (FAILURE);
+	}
+	ZeroMemory(state, sizeof(*state));
+	if (sndstream.buffer == NULL) {
+		return (FAILURE);
+	}
+	SNDCSEC_ENTER;
+	state->rate = soundcfg.rate;
+	state->buffer_samples = sndstream.samples;
+	state->reserve_samples = sndstream.reserve;
+	state->remain_samples = sndstream.remain;
+	capacity = sndstream.samples;
+	if (sndstream.reserve <= (UINT_MAX - capacity)) {
+		capacity += sndstream.reserve;
+		state->pending_samples = capacity - sndstream.remain;
+	}
+	state->generated_sample_count = sndstream.generated_sample_count;
+	state->lastclock = soundcfg.lastclock;
+	state->generation_epoch = sndstream.generation_epoch;
+	state->pcm_locked = (locks != 0) ? TRUE : FALSE;
+	state->accounting_overflow = sndstream.accounting_overflow;
+	SNDCSEC_LEAVE;
+	return (SUCCESS);
 }
 
 // ---- pcmmix

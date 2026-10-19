@@ -26,6 +26,10 @@
 #define VAEG_SDL2_SCRNMNG_H
 
 #include "viewport.h"
+#include "recording/recording.h"
+#include "recording/recording_displayed_capture.h"
+#include "recording/recording_native_composition.h"
+#include "recording/recording_osd_snapshot.h"
 
 enum {
 	VAEG_EFFECT_UNFILTERED = 0,
@@ -107,6 +111,11 @@ BOOL scrnmng_capture_window_size(int *width, int *height);
 BOOL scrnmng_request_display_capture(const char *path);
 BOOL scrnmng_prepare_display_capture(void);
 BOOL scrnmng_display_capture_selftest(void);
+BOOL scrnmng_start_displayed_recording_capture(
+	VAEG_RECORDING_DISPLAYED_CAPTURE_CALLBACK callback, void *context);
+void scrnmng_stop_displayed_recording_capture(void);
+BOOL scrnmng_displayed_recording_capture_active(void);
+VAEG_RECORDING_DISPLAYED_CAPTURE_ERROR scrnmng_displayed_recording_capture_error(void);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 BOOL scrnmng_native_active(void);
@@ -114,6 +123,13 @@ BOOL scrnmng_take_native_fallback(void);
 BOOL scrnmng_window_rebind_selftest(void);
 void scrnmng_draw_native_overlays(void);
 void scrnmng_draw_sdl_overlays(void);
+BOOL scrnmng_get_osd_snapshot(VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
+BOOL scrnmng_configure_native_recording(BOOL include_osd, BOOL follow_rotation);
+BOOL scrnmng_capture_native_recording_frame(VAEG_RECORDING_NATIVE_FRAME *frame);
+BOOL scrnmng_capture_native_recording_frame_with_snapshot(
+	VAEG_RECORDING_NATIVE_FRAME *frame, VAEG_RECORDING_OSD_SNAPSHOT *snapshot);
+BOOL scrnmng_get_native_recording_video_descriptor(VAEG_RECORDING_VIDEO_DESCRIPTOR *descriptor);
+UINT32 scrnmng_native_recording_descriptor_generation(void);
 BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);
 void scrnmng_native_gui_shutdown(void);
