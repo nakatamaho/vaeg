@@ -23,8 +23,10 @@
 #
 
 """Exercise static archive resolution independently of host packages/history."""
+import hashlib
 import pathlib
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -108,6 +110,58 @@ file(WRITE "${{CMAKE_BINARY_DIR}}/resolved.txt" "${{libs}}")
         self.valid()
         self.flags = ""
         self.assert_code(self.configure(), "VAEG_FFMPEG_STATIC_METADATA_MISSING")
+
+
+@unittest.skipUnless(shutil.which("bash") and shutil.which("sha256sum"),
+                     "requires Bash and sha256sum for the container recipe")
+class MinGWRecordingRecipe(unittest.TestCase):
+    def test_recording_default_and_explicit_opt_out(self):
+        driver = (ROOT / "tools/release/build-mingw-static-container.sh").read_text()
+        # Execute the real option parser, stopping before Git/Docker/build work.
+        parser = driver.split('commit="$(git -C ', 1)[0]
+        self.assertNotEqual(parser, driver)
+        with tempfile.TemporaryDirectory() as temp:
+            path = pathlib.Path(temp) / "parser.sh"
+            path.write_text(parser + '\nprintf "%s" "$recording"\n', newline="\n")
+            for arguments, expected in (([], "ON"), (["--no-recording"], "OFF")):
+                result = subprocess.run(["bash", path.as_posix(), *arguments],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, expected)
+        self.assertIn('-DVAEG_ENABLE_RECORDING="${ENABLE_RECORDING}"', driver)
+        self.assertIn('-DVAEG_STATIC_FFMPEG=ON', driver)
+        self.assertIn('make nasm xz-utils', driver)
+        self.assertIn('ff_ffv1_encoder ff_pcm_s16le_encoder ff_matroska_muxer', driver)
+
+    def test_cache_content_validation_before_single_mutation(self):
+        helper = ROOT / "tools/release/build-mingw-static-ffmpeg.sh"
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            payload = root / "libavcodec.a"
+            payload.write_bytes(b"valid static fixture")
+            digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+            (root / "manifest.sha256").write_text(f"{digest}  libavcodec.a\n", newline="\n")
+
+            def validate():
+                return subprocess.run([
+                    "bash", "-c", 'source "$1"; ffmpeg_verify_cache "$2"',
+                    "cache-test", helper.as_posix(), root.as_posix()], text=True, capture_output=True)
+
+            result = validate()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload.write_bytes(b"Valid static fixture")
+            result = validate()
+            self.assertNotEqual(result.returncode, 0)
+            codes = re.findall(r"^VAEG_FFMPEG_[A-Z_]+$", result.stderr, re.MULTILINE)
+            self.assertEqual(codes, ["VAEG_FFMPEG_CACHE_HASH_MISMATCH"], result.stderr)
+            # A separate passing baseline, then one extra unmanifested file.
+            payload.write_bytes(b"valid static fixture")
+            self.assertEqual(validate().returncode, 0)
+            (root / "unlisted.a").write_bytes(b"not in the approved file set")
+            result = validate()
+            self.assertNotEqual(result.returncode, 0)
+            codes = re.findall(r"^VAEG_FFMPEG_[A-Z_]+$", result.stderr, re.MULTILINE)
+            self.assertEqual(codes, ["VAEG_FFMPEG_CACHE_FILE_SET_MISMATCH"], result.stderr)
 
 
 if __name__ == "__main__":
