@@ -639,7 +639,7 @@ void initload(void) {
 	if (np2cfg.boot_mode > BOOTMODE_N) {
 		np2cfg.boot_mode = BOOTMODE_AUTO;
 	}
-	if (np2oscfg.F12KEY > KBDMAP_F12_PAUSE) {
+	if (np2oscfg.F12KEY > KBDMAP_F12_QUICKSAVE) {
 		np2oscfg.F12KEY = 0;
 	}
 	opngen_setbackend(opngen_parsebackend(np2oscfg.opn_backend));

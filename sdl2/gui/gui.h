@@ -36,6 +36,11 @@ BOOL gui_guest_keyboard_blocked(void);
 BOOL gui_guest_mouse_blocked(void);
 BOOL gui_copy_screen_text(void);
 BOOL gui_save_screenshot(void);
+/* M125: quick save (newest of five, older ones moved down) or quick load
+ * of the newest; ignored within one second of the previous one */
+void gui_quick_save(void);
+void gui_quick_load(void);
+BOOL gui_quick_rotate_selftest(const char *root, char *problem, size_t size);
 void gui_new_frame(void);
 void gui_draw(void);
 void gui_render(void);

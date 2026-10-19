@@ -2821,6 +2821,19 @@ static int test_viewport(void) {
 		selftest_remove_dir(root);
 		fprintf(stderr, "selftest: recent folders ok\n");
 	}
+	{
+		/* M125: five quick saves, newest first */
+		char root[MAX_PATH];
+		char problem[128];
+		SPRINTF(root, "vaeg-selftest-%lu-quick", (unsigned long)getpid());
+		(void)file_dircreate(root);
+		if (gui_quick_rotate_selftest(root, problem, sizeof(problem)) != SUCCESS) {
+			selftest_remove_dir(root);
+			return (fail("quick save", problem));
+		}
+		selftest_remove_dir(root);
+		fprintf(stderr, "selftest: quick save ok\n");
+	}
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
@@ -7879,6 +7892,13 @@ static int test_mouse_state(void) {
 	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_PAUSE)) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 pause binding changed"));
+	}
+	/* M125: F12 as クイックセーブ (Shift+F12 loads) */
+	np2oscfg.F12KEY = KBDMAP_F12_QUICKSAVE;
+	if ((kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_QUICKSAVE)) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 quick-save binding changed"));
 	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
