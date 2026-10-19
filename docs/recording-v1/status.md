@@ -1,5 +1,29 @@
 # Recording v1 status
 
+## Current Metal/Displayed follow-up
+
+After the accepted Native FFV1 main integration, the maintainer requested
+independent source/compression selection, macOS first, Windows/MinGW next, then
+supported Linux backends. [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md)
+is IN_PROGRESS on `topic/m100-metal-followup`.
+
+Readback checkpoint [49d60752](https://github.com/nakatamaho/vaeg/commit/49d6075209d5f53a3e179242b5ed0738233294f2)
+connects the actual native presenter's optional final image to the existing owned
+Displayed callback, without a second shader evaluation. Recording OFF adds no
+readback/allocation; simultaneous native screenshot/recording shares one readback.
+ON frontend/recording checks: 37 PASS + one opt-in hardware SKIP; OFF: 29 PASS.
+The public owned-pixel fixture passes ON/OFF and focused ASan/UBSan; strict C
+compilation and repository checks pass. These are not physical Metal output proof.
+
+Displayed FFV1 session integration and selection remain NOT_STARTED/disabled.
+Realtime H.264 audio mapping, Windows/Linux device validation and final media/
+clean-build/human gates remain pending. The inherited Metal GUI texture patch is
+unchanged and uncommitted, separate from this checkpoint. Local digest/evidence
+index: `build/m100s9-evidence/validation.json`, SHA-256
+`271daec32fc18caafbcaabb771fbfc9246a99884a52755279a10edb7bc6ef318`.
+
+## Earlier recording evidence
+
 Current integrated OS-assisted extension status and resume instructions are in
 [os-assisted-status.md](os-assisted-status.md). The REC results below remain
 historical evidence, not blanket verification of the current checkout or the

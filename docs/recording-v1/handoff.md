@@ -1,5 +1,38 @@
 # Recording v1 handoff
 
+## Active M100s9 follow-up
+
+Continue [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md) only.
+The maintainer requested macOS actual Displayed output first, independently
+selectable from Native, with FFV1 and hardware H.264 as separate compression
+choices; Windows/MinGW and supported Linux devices follow. Branch publication is
+authorized; the historical LOCAL_ONLY text below is not a current push ban.
+No follow-up main merge or new human gate is approved by this checkpoint.
+
+Implemented [49d60752](https://github.com/nakatamaho/vaeg/commit/49d6075209d5f53a3e179242b5ed0738233294f2):
+Owned final-client acquisition in `sdl2/scrnmng.c` now accepts
+native presenters, preserving fixed descriptor/generation/token validation.
+The native path attaches its reusable RGBA buffer to the one real presentation,
+then invokes the callback after successful readback. Screenshot requests copy
+that same readback before callbacks can release the recording allocation.
+No native readback result silently substitutes guest pixels or reruns a shader.
+
+Local ON/OFF builds, 37 PASS + one SKIP / 29 PASS frontend/recording tests,
+strict `scrnmng.c` compilation and focused capture ASan/UBSan pass. Evidence and
+worker/source/log hashes are in `build/m100s9-evidence/validation.json` (SHA-256
+`271daec32fc18caafbcaabb771fbfc9246a99884a52755279a10edb7bc6ef318`).
+The ON worker includes the unchanged inherited Metal GUI texture patch; OFF and
+sanitizer workers disable librashader. No clean release or physical GPU parity
+claim follows from these development fixtures.
+
+Next within this same task: connect owned RGBA/RGB24 snapshots and their guest
+boundaries to FFV1/PCM, test lifecycle/reset/geometry behavior, then actual Metal
+preset/GUI parity and the complete selection path. Keep Displayed UI disabled
+until then. Do not reuse the archive audio FIFO for host-time realtime H.264;
+that still needs M100s3/M100s4. Preserve the uncommitted Metal file verbatim until
+its GUI fix has its own verification/ledger/adoption. Do not start another
+milestone or present this checkpoint as a finished Displayed movie feature.
+
 ## Current OS-assisted continuation
 
 The integrated recording extension now continues under the maintainer's
