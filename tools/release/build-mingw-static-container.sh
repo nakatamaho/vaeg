@@ -82,7 +82,7 @@ trap 'chown -R "${HOST_UID}:${HOST_GID}" /work /ffmpeg-cache' EXIT
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev make nasm \
+	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev make nasm xz-utils \
 	mingw-w64 gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix \
 	binutils-mingw-w64-x86-64 > /dev/null
 update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix

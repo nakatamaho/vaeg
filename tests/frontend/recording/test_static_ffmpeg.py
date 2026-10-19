@@ -130,6 +130,7 @@ class MinGWRecordingRecipe(unittest.TestCase):
                 self.assertEqual(result.stdout, expected)
         self.assertIn('-DVAEG_ENABLE_RECORDING="${ENABLE_RECORDING}"', driver)
         self.assertIn('-DVAEG_STATIC_FFMPEG=ON', driver)
+        self.assertIn('make nasm xz-utils', driver)
         self.assertIn('ff_ffv1_encoder ff_pcm_s16le_encoder ff_matroska_muxer', driver)
 
     def test_cache_content_validation_before_single_mutation(self):
