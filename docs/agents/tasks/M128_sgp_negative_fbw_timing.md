@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M128 — SGP: undefined negative pitches and measured command costs
 
-Status: **implemented on `topic/m128-sgp-negative-fbw`; G128 pending.**
+Status: **G128 human gate passed on 2026-10-19; merged to main.**
 
 ## Request
 
@@ -120,3 +120,22 @@ same 24 cases fail (4:117 5:128 6:117 7:128 12:117), on both models.
 
 Standard V3 gate, plus: SGPBENCH 2 in vaeg's VA and VA2 modes shows the
 upward cases garbled and timings close to the photographs.
+
+## G128 passed and main integration
+
+The maintainer stated **G128 passed** on 2026-10-19.
+
+Final gate candidate:
+[6c01ffb6](https://github.com/nakatamaho/vaeg/commit/6c01ffb6f5c241fca91e8c88ed48f99d74a48956).
+The clean static MinGW build of that pushed commit exited 0 and verified
+commit/date embedding and Windows-system-DLL-only imports. Executable
+SHA-256: `efbda719eee7a97aa4b3e26f2db7e3f04d4496d69cd4a891d5df8d9d4082dd43`.
+Hosted checks ([CI](https://github.com/nakatamaho/vaeg/actions/runs/39175625433)):
+all jobs passed except "standalone compatibility conformance", which fails
+identically on `main` since PR #45
+(`docs/agents/reports/upd9002_instruction_fetch_flag.patch` is reported as
+an unapproved patch artifact by `check_zex_archive.py`); not M128's change.
+
+Open, outside M128: the main CPU's memory writes are 1.5-1.7x faster in
+vaeg than on both machines; the SGP empty list (start to idle) is 36.5 us
+in vaeg against 76.5 us; destination dot 1 is 7% slower in vaeg.
