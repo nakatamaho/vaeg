@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M125 — quick save on F12
 
-Status: **implemented; G125 human gate pending**
+Status: **G125 human gate passed on 2026-10-19; main integration pending**
 
 ## Request
 
@@ -71,3 +71,17 @@ thumbnail). ctest 94/94.
 Standard gate, plus: with F12 set to クイックセーブ, F12 during play saves
 without stopping, Shift+F12 returns to the newest save, and 状態 >
 クイックセーブ lists them newest first.
+
+## G125 passed
+
+The maintainer stated **Gate passed; merge requested** on 2026-10-19.
+Accepted candidate:
+[b247425f](https://github.com/nakatamaho/vaeg/commit/b247425fa767a9e72825e452c54d431d2c09e1a3).
+The fully static MinGW build used a new clean clone and the pinned Ubuntu
+24.04 container; commit/date embedding and the Windows-system-DLL-only
+import audit passed. Executable SHA-256:
+`66b382783b6dfa577dfbc4c7801d78ad6f1529299bc2202289540520b16f304d`.
+
+The accepted build predates later main changes (including M127/M128).
+Integrate with the current main in a separate temporary worktree, preserving
+those changes, and run integration checks before pushing the main merge.
