@@ -712,6 +712,14 @@ a replacement for the original notices, source headers, and license files.
   macOS release builds statically link pinned SDL2 2.32.10, which is
   zlib-licensed, as recorded in
   `docs/agents/DECISIONS/ADR-0006-sdl2-acquisition.md`.
+- Recording-enabled builds can statically link FFmpeg. The pinned minimal
+  FFV1/PCM/Matroska build uses LGPL-2.1-or-later (GPL/nonfree/version3 disabled).
+  Distribution must include the applicable notices and provide corresponding
+  library source and materials sufficient to modify the library and relink.
+  This does not automatically relicense vaeg's BSD-covered source files.
+  Other FFmpeg configurations require their own license audit; source/notices/
+  relinking preparation is separate from the recording human gate. See
+  `docs/recording-v1/static-linking.md`.
 - Machine ROM images, guest font ROMs, optional mechanical sound WAV
   files, and operating system disks are not distributed by this
   repository. They remain governed by their own rights and licenses.

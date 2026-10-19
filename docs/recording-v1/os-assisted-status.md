@@ -9,8 +9,15 @@ adopts the2 inherited audio files included in that test build; Metal remains
 uncommitted for a separate branch and is excluded from main integration.
 [Acceptance scope and exact artifact](../agents/tasks/M100s2_recording_h264_boundary.md#accepted-ffv1-human-gate-and-main-integration).
 This does not complete the real-time H.264/live coordinator/provider plan,
-Windows/old-macOS/performance or LGPL distribution gates. Previous pending-gate
-statements are historical checkpoints, not a denial of this later acceptance.
+Windows/old-macOS/performance or LGPL distribution gates.
+[Main mergedaec0356](https://github.com/nakatamaho/vaeg/commit/daec03567a1842ba3b00aee1e25001e65dccd578)
+contains the accepted native archive/audio code, not the deferred Metal patch.
+Clean-source MinGW recordingON handofff735ae9c/build/import audit passes; fresh
+Metal-free Debug integration37/one hardware skip and strict focused sanitizer4/4
+pass. [Current artifact identities](recording-ui-followup.md#current-main-synchronized-recording-candidate).
+Previous pending-gate statements are historical checkpoints, not a denial of
+this later acceptance; private media/regeneration/legal/Windows runtime results
+are not invented by the merge.
 
 ## Previous main synchronization checkpoint
 

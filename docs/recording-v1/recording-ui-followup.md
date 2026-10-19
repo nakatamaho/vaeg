@@ -59,19 +59,21 @@ At this build checkpoint human acceptance was pending; the later explicit
 acceptance and main-integration approval are recorded above. FFV1 is losslessly
 compressed, not raw uncompressed. No new Metal/backend/codec policy change.
 
-Windows refresh now succeeds after recreating the deleted Colima environment
-in dedicated profile `vaeg-build` (stopped after build, original context unchanged).
-Current `output/vaeg.exe` and identical `vaeg-audio-local-test.exe` in the existing
-task-local MinGW handoff:58880144 bytes, embedded source1b30383d, SHA256
-`474b5c390a0e4dab27d34017f5a6641ac7a2404a88cc7a867b3ba6deb3da2a7d`.
-Main-sync code2bd194b9 included; only docs differ at1b30383d. Pinned Ubuntu24.04
-linux/amd64 container, GCC13-posix/CMake3.28.3/NASM2.16.01; existing audited minimal
-static FFmpeg/librashader/SDL2/LibArchive/zlib/xz reused. Build/import audit0;
-Windows system DLLs only, Release/recordingON/staticFFmpegON, embedded full commit
-and audio-file equality checked. Audio diff SHA256ddd3f6b3… unchanged, no Metal
-patch in Windows. No native Windows execution or new frame/sample/performance
-acceptance claimed. `mingw-rebuild-validation.json` records exact command/log/
-worker/dependency digests. Prior9147 binaries/reports retained on both platforms.
+Current clean-source Windows handoff:
+`build/handoff/m100s2-f735ae9c/output/vaeg.exe`,58898416 bytes, SHA256
+`574ddd2e253fcd00ea16ce2b4ea7be9373bbc4077ac87fff03e9bbb086f1a967`.
+Embedded sourcef735ae9c, clean Git status; audio correction942a831a committed,
+no Metal patch. [Main mergedaec0356](https://github.com/nakatamaho/vaeg/commit/daec03567a1842ba3b00aee1e25001e65dccd578)
+has the same evaluated tree. Standard clean MinGW helper succeeds; its default
+recording-OFF binary/report are retained separately. Then a second fresh build
+directory enables static recording using that clean source and audited minimal
+FFmpeg archives. Release/build/system-DLL audit0, full commit verified; no new
+native Windows runtime or frame/sample/performance acceptance claimed. Adjacent
+BUILD-REPORT.md/VALIDATION.json retain exact commands/log/worker/dependency
+identities and intact source/relink inputs. Local profilem100 VM/image storage
+under build/container-runtime/colima is stopped, not shared default Colima.
+Prior1b30383d (58880144 bytes/SHA256474b5c39…) and9147 artifacts/reports retained;
+they are not the new clean candidate.
 Adjacent Mac report/validation JSON records that candidate's validation identities.
 No hosted CI manually requested, main movement, private-media rerun, performance
 acceptance or human/media/demo/legal gate is claimed.

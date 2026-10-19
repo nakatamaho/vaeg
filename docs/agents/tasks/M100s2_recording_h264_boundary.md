@@ -19,8 +19,42 @@ not completion of the OS-assisted real-time H.264 plan or other OS/device/legal
 approval. Earlier pending-gate statements below are historical checkpoints.
 Full private utility/demo image regeneration is not newly claimed by this
 acceptance; media/tool/demo build inputs are unchanged against main, which has
-its own M126/M128 gate records. Separate main integration validation and clean
-build identities are recorded below when completed.
+its own M126/M128 gate records. [Main merge daec0356](https://github.com/nakatamaho/vaeg/commit/daec03567a1842ba3b00aee1e25001e65dccd578)
+has parents e923f92e + f735ae9c, with an exact tree match to the evaluated
+f735ae9c candidate before the documentation-only roadmap record. Main's M128
+SGP changes are preserved. Native ON37/one hardware skip, OFF29/29, strict
+focused sanitizer4/4 pass. A fresh Metal-free integration build in the task
+Debug test configuration also passes37/one hardware skip. Initial Release test
+configuration elided assertion-side-effect fixture calls; retain its failure/
+timeout logs, use the supported Debug fixture profile, and do not label those
+Release fixtures successful. No production source correction was needed.
+
+Clean-build handoff: `tools/release/build-mingw-static-container.sh --commit
+f735ae9c52c6254314b0e25383559c21a099e704` succeeds from a new clean clone and
+fresh build tree in pinned Ubuntu24.04/Rust1.88.0; system-DLL audit passes.
+GNU stat host compatibility uses a task-local wrapper. Colima VM/images live
+under this checkout's build/container-runtime/colima, not shared default state.
+The helper's default recording-OFF artifact/report is preserved separately;
+a second fresh build directory enables recording with the same clean source
+and cached audited static FFmpeg, not the inherited Metal working tree.
+Exact final artifact identities/commands and validation logs are retained in
+the handoff report and task-local main-integration evidence. This does not
+claim new native Windows execution or private media/real-device throughput.
+
+Final clean recording-ON MinGW artifact:58898416 bytes/SHA256
+`574ddd2e253fcd00ea16ce2b4ea7be9373bbc4077ac87fff03e9bbb086f1a967`.
+Sourcef735ae9c is clean, full commit embedded, no Metal patch; build/import audit0.
+Handoff (outside Git): `build/handoff/m100s2-f735ae9c/output/vaeg.exe`, adjacent
+BUILD-REPORT.md/VALIDATION.json and intact source/relink build inputs retained.
+The original milestone MinGW work directory is moved to this handoff location.
+Public softlib3/one optional integration skip and media unit3/3 pass; tool/demo
+inputs match main exactly. Full private regeneration/execution is not invented.
+Local Colima profilem100 is stopped. Gate/merge/roadmap documentation is the
+only change after the evaluated code tree; workers are not rebuilt for metadata.
+Temporary merge worktree/local integration branch and the contained local
+recording branch are removed after main push. Keep remote recording branch,
+other milestone branches/worktrees, handoff binaries/relink inputs/shared caches
+and private/user-supplied evidence. Metal stays uncommitted on a separate branch.
 
 ## Historical implementation and validation checkpoints
 
