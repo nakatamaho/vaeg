@@ -52,7 +52,7 @@ land.
   actual native OpenGL startup and a four-frame Displayed FFV1/PCM movie decode.
   This is public empty-ROM frontend evidence, not a guest or physical-GPU gate.
 - **Milestone/task/commit:** [M100s10](../agents/tasks/M100s10_recording_displayed_windows_linux.md);
-  fixing commit is recorded in that task's validation checkpoint.
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/43fdb709aaf6fb02c7a231cf6cfa4b57f71b0647).
 
 ### FFmpeg 6 blocked Linux archive builds and tiny-frame round trips
 
@@ -70,7 +70,7 @@ land.
   exact FFV1/Matroska and split-frame identity assertions; macOS newer FFmpeg
   recording suite also passes. No expected-pixel or alpha assertion was relaxed.
 - **Milestone/task/commit:** [M100s10](../agents/tasks/M100s10_recording_displayed_windows_linux.md);
-  fixing commit is recorded in that task's validation checkpoint.
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/43fdb709aaf6fb02c7a231cf6cfa4b57f71b0647).
 
 ### Recording source selection returned to Native after restart
 

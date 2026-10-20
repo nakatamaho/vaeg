@@ -73,6 +73,17 @@ scratch/evidence, not shipped as guest/hardware evidence.
   all-`-I` attempt failed inherited vendor unused-parameter/function-cast warnings;
   those logs remain, and vendor source was not edited.
 
+Implementation commit:
+[43fdb709](https://github.com/nakatamaho/vaeg/commit/43fdb709aaf6fb02c7a231cf6cfa4b57f71b0647).
+
+The clean MinGW helper now accepts `--recording`, explicitly building pinned
+minimal LGPL-only static FFmpeg 8.1.2 (archive SHA-256
+`464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c`).
+Recording OFF remains its default. GPL/nonfree/version3/autodetect/network are
+disabled; source archive, configuration, license and logs are retained outside
+Git. Host report hashing/size uses Python rather than GNU-only `stat -c` so the
+helper can finish on macOS. `bash -n` passes; the clean execution is pending.
+
 Still required: clean pushed-commit fully static recording-ON MinGW artifact and
 import audit, native Windows recording/playback, Linux shader/physical GPU and
 Wayland coverage, standard boot/demo/OS and private media/PSD/DOSBox checks.

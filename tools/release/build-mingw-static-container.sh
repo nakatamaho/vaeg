@@ -23,7 +23,7 @@
 
 # Clean, fully static MinGW-w64 build of vaeg.exe in an isolated container.
 #
-# usage: tools/release/build-mingw-static-container.sh [--commit REV] [--work-dir DIR]
+# usage: tools/release/build-mingw-static-container.sh [--commit REV] [--work-dir DIR] [--recording]
 #
 # REV defaults to HEAD. DIR defaults to ../vaeg-mingw-<short-sha> beside the
 # repository and must not exist. The script clones REV into DIR/source (no
@@ -40,12 +40,14 @@ image="ubuntu@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 revision="HEAD"
 work_dir=""
+recording="OFF"
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--commit) revision="$2"; shift 2 ;;
 	--work-dir) work_dir="$2"; shift 2 ;;
-	*) echo "usage: $0 [--commit REV] [--work-dir DIR]" >&2; exit 2 ;;
+	--recording) recording="ON"; shift ;;
+	*) echo "usage: $0 [--commit REV] [--work-dir DIR] [--recording]" >&2; exit 2 ;;
 	esac
 done
 
@@ -75,7 +77,7 @@ trap 'chown -R "${HOST_UID}:${HOST_GID}" /work' EXIT
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev \
+	ca-certificates curl git python3 cmake ninja-build pkg-config file gcc libc6-dev make xz-utils \
 	mingw-w64 gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix \
 	binutils-mingw-w64-x86-64 > /dev/null
 update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
@@ -90,7 +92,30 @@ chown -R 0:0 /work/source
 
 cd /work/source
 tools/release/build-mingw-static-librashader.sh > /work/output/librashader-build.log 2>&1
-cmake --preset mingw-cross > /work/output/configure.log 2>&1
+if [[ "${RECORDING}" == ON ]]; then
+	# Minimal LGPL-only archive recorder. No GPL/nonfree/version3, autodetected
+	# external codecs, network, or implicit host-library dependencies.
+	curl -fLsS https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz -o /work/ffmpeg.tar.xz
+	echo '464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c  /work/ffmpeg.tar.xz' | sha256sum -c -
+	tar -xJf /work/ffmpeg.tar.xz -C /work
+	(
+		cd /work/ffmpeg-8.1.2
+		./configure --prefix=/work/ffmpeg-stage --target-os=mingw32 --arch=x86_64 \
+			--cross-prefix=x86_64-w64-mingw32- --enable-cross-compile \
+			--pkg-config=pkg-config --disable-shared --enable-static \
+			--disable-programs --disable-doc --disable-debug --disable-asm \
+			--disable-autodetect --disable-network --disable-gpl --disable-nonfree \
+			--disable-version3 --disable-everything \
+			--enable-encoder=ffv1,pcm_s16le --enable-decoder=ffv1,pcm_s16le \
+			--enable-muxer=matroska --enable-demuxer=matroska --enable-protocol=file
+		make -j"$(nproc)"
+		make install
+	) > /work/output/ffmpeg-build.log 2>&1
+	cp /work/ffmpeg-8.1.2/COPYING.LGPLv2.1 /work/output/ffmpeg-license.txt
+	cp /work/ffmpeg-8.1.2/ffbuild/config.mak /work/output/ffmpeg-config.mak
+	export PKG_CONFIG_LIBDIR=/work/ffmpeg-stage/lib/pkgconfig
+fi
+cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" > /work/output/configure.log 2>&1
 cmake --build --preset mingw-cross > /work/output/build.log 2>&1
 python3 tools/release/check-static-windows-imports.py --binary build/mingw-cross/sdl2/vaeg.exe \
 	> /work/output/import-audit.txt 2>&1
@@ -117,12 +142,12 @@ INNER
 chmod +x "${work_dir}/inner.sh"
 
 echo "building ${commit} in ${work_dir}" >&2
-docker run --rm -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+docker run --rm -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
 	-v "${work_dir}:/work" "${image}" /work/inner.sh
 
 exe="${work_dir}/output/vaeg.exe"
-digest="$(sha256sum "${exe}" | cut -d' ' -f1)"
-size="$(stat -c %s "${exe}")"
+digest="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "${exe}")"
+size="$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "${exe}")"
 {
 	echo "# VAEG MinGW-w64 fully static build"
 	echo
@@ -132,6 +157,8 @@ size="$(stat -c %s "${exe}")"
 	echo "- Container image: \`${image}\` (Ubuntu 24.04)"
 	echo "- Preset: \`mingw-cross\`, Release, tests disabled; static SDL2, LibArchive,"
 	echo "  zlib, xz, librashader and MinGW gcc/libstdc++/winpthread runtimes."
+	echo "- Recording: ${recording}; when ON, pinned minimal LGPL-only FFmpeg 8.1.2 is static."
+	echo "  Source tarball and full configure/build log are retained beside the clean clone."
 	sed 's/^/- /' "${work_dir}/output/toolchain.txt"
 	echo
 	echo "## Artifact"
