@@ -185,6 +185,7 @@ M36–M41 archive status.
 | M126 | tasks/M126_utility_softlib.md | Requested Softlib packages and FPUTEST/MANDEL BASIC samples on both utility HDDs; M125 explicitly on hold | **G126 machine packaging gate passed; merged to main at [9d3b927c](https://github.com/nakatamaho/vaeg/commit/9d3b927cdebcc4788efb1c44f09bb68b30171fb2)** |
 | M127 | tasks/M127_letter_keypad.md | Independent YUI/HJK/NM,. letter keypad below Key / かな入力; requested FDD XZ filter and partially missing recent-boot fixes | **G127 human gate passed on 2026-10-19; merged to main at [c7a14dd0](https://github.com/nakatamaho/vaeg/commit/c7a14dd03b071c7cc3e67fb2ed576e69f6f6e5c1)** |
 | M128 | tasks/M128_sgp_negative_fbw_timing.md | SGP: negative pitches FFF6h/FFF2h/FFF0h undefined (garbled on VA and VA2); setup, BITBLT and CLS costs calibrated per model to SGPBENCH 2 | **G128 human gate passed on 2026-10-19; M128 complete: negative SGP pitches with low bits 10b and FFF0h garble after the first line as on hardware, setup/BITBLT/CLS costs calibrated per model to SGPBENCH; merged to main at [5767d04](https://github.com/nakatamaho/vaeg/commit/5767d049921aa82c5a275cb53dcc090d79b455ce)** |
+| M129 | tasks/M129_sgp_sprite_bench.md | SGP and sprite benchmarks (SGPBENCH, SPRBENCH) under `demos/sgp-bench/` with their VA/VA2 hardware results | **G129 pending** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 documentation check** |
 
 Planned series (ADR-0016; rows are added when each task file exists;
