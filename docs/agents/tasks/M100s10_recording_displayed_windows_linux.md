@@ -82,7 +82,27 @@ minimal LGPL-only static FFmpeg 8.1.2 (archive SHA-256
 Recording OFF remains its default. GPL/nonfree/version3/autodetect/network are
 disabled; source archive, configuration, license and logs are retained outside
 Git. Host report hashing/size uses Python rather than GNU-only `stat -c` so the
-helper can finish on macOS. `bash -n` passes; the clean execution is pending.
+helper can finish on macOS. `bash -n` passes.
+
+The first clean `97ae264959fed2dc13b0c35502ee3938bc9618a1 --recording`
+helper run completed the pinned shader SDK and FFmpeg builds, then failed CMake
+configuration: the cross toolchain overwrote `PKG_CONFIG_LIBDIR`, hiding the new
+FFmpeg stage. Its logs/dependency outputs are retained, not rerun as a mystery
+failure. The correction adds an explicit target-only dependency prefix to both
+CMake's root paths and pkg-config, including propagation through compiler probes.
+A fresh MinGW compiler/prefix/pkg-config/static-archive CMake probe passes; the
+first probe also caught and corrected the compiler-probe propagation issue.
+
+`--shader-sdk DIR` now permits read-only reuse of the completed dependency SDK;
+the existing mandatory CMake source/archive/notices hashes still apply and no
+application objects are reused. The next clean clone will use that audited SDK.
+This does not turn the failed 97ae2649 helper into an executable handoff.
+
+Additional checks: Linux GL bridge/presenter `-Wall -Wextra -Werror` compiles pass
+with vendor headers treated as system headers. ASan/UBSan real GL fixture passes
+(`ASAN_OPTIONS=detect_leaks=0`, Mesa/driver leak checking excluded;
+`UBSAN_OPTIONS=halt_on_error=1`). Isolated Linux ON/OFF full `--selftest` both
+exit 0. No hosted CI has been used as an iterative debugger.
 
 Still required: clean pushed-commit fully static recording-ON MinGW artifact and
 import audit, native Windows recording/playback, Linux shader/physical GPU and

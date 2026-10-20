@@ -32,7 +32,10 @@
 # `mingw-cross` preset (static SDL2, LibArchive, zlib, xz, librashader and
 # MinGW runtimes), audits the PE imports, and writes DIR/output/vaeg.exe,
 # pe-imports.txt, third-party-notices.txt, the logs and BUILD-REPORT.md.
-# It prints the absolute path of vaeg.exe on success.
+# --recording adds pinned minimal static FFmpeg archive recording. --shader-sdk
+# DIR reuses only an audited dependency SDK root (librashader-git/windows-audit),
+# mounted read-only and checked by the existing CMake archive/notices audit.
+# It never reuses application objects. It prints vaeg.exe's path on success.
 
 set -euo pipefail
 
@@ -41,13 +44,15 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 revision="HEAD"
 work_dir=""
 recording="OFF"
+shader_sdk=""
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--commit) revision="$2"; shift 2 ;;
 	--work-dir) work_dir="$2"; shift 2 ;;
 	--recording) recording="ON"; shift ;;
-	*) echo "usage: $0 [--commit REV] [--work-dir DIR] [--recording]" >&2; exit 2 ;;
+	--shader-sdk) shader_sdk="$(cd "$2" && pwd)"; shift 2 ;;
+	*) echo "usage: $0 [--commit REV] [--work-dir DIR] [--recording] [--shader-sdk DIR]" >&2; exit 2 ;;
 	esac
 done
 
@@ -91,7 +96,19 @@ export PATH="${HOME}/.cargo/bin:${PATH}"
 chown -R 0:0 /work/source
 
 cd /work/source
-tools/release/build-mingw-static-librashader.sh > /work/output/librashader-build.log 2>&1
+cmake_args=()
+shader_audit=/work/source/build/mingw-static/windows-audit
+if [[ -d /shader-sdk ]]; then
+	# Application objects are never reused. CMake's existing source/archive/
+	# notices audit remains mandatory for this read-only dependency SDK.
+	shader_audit=/shader-sdk/windows-audit
+	cmake_args+=(
+		-DVAEG_LIBRASHADER_STATIC_LIBRARY=/shader-sdk/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a
+		-DVAEG_LIBRASHADER_STATIC_NOTICES=/shader-sdk/windows-audit/third-party-notices.txt)
+	cp "${shader_audit}/static-build.json" /work/output/reused-shader-sdk.json
+else
+	tools/release/build-mingw-static-librashader.sh > /work/output/librashader-build.log 2>&1
+fi
 if [[ "${RECORDING}" == ON ]]; then
 	# Minimal LGPL-only archive recorder. No GPL/nonfree/version3, autodetected
 	# external codecs, network, or implicit host-library dependencies.
@@ -113,9 +130,9 @@ if [[ "${RECORDING}" == ON ]]; then
 	) > /work/output/ffmpeg-build.log 2>&1
 	cp /work/ffmpeg-8.1.2/COPYING.LGPLv2.1 /work/output/ffmpeg-license.txt
 	cp /work/ffmpeg-8.1.2/ffbuild/config.mak /work/output/ffmpeg-config.mak
-	export PKG_CONFIG_LIBDIR=/work/ffmpeg-stage/lib/pkgconfig
+	cmake_args+=(-DVAEG_MINGW_DEPENDENCY_PREFIX=/work/ffmpeg-stage)
 fi
-cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" > /work/output/configure.log 2>&1
+cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" "${cmake_args[@]}" > /work/output/configure.log 2>&1
 cmake --build --preset mingw-cross > /work/output/build.log 2>&1
 python3 tools/release/check-static-windows-imports.py --binary build/mingw-cross/sdl2/vaeg.exe \
 	> /work/output/import-audit.txt 2>&1
@@ -128,7 +145,7 @@ if ! grep -q "VAEG_BUILD_COMMIT \"$(git rev-parse HEAD)\"" build/mingw-cross/gen
 fi
 cp build/mingw-cross/generated/vaeg_build_info.h /work/output/
 cp build/mingw-cross/sdl2/vaeg.exe /work/output/vaeg.exe
-cp build/mingw-static/windows-audit/third-party-notices.txt /work/output/
+cp "${shader_audit}/third-party-notices.txt" /work/output/
 {
 	echo "gcc=$(x86_64-w64-mingw32-gcc --version | head -1)"
 	echo "gxx=$(x86_64-w64-mingw32-g++ --version | head -1)"
@@ -142,7 +159,11 @@ INNER
 chmod +x "${work_dir}/inner.sh"
 
 echo "building ${commit} in ${work_dir}" >&2
-docker run --rm -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
+docker_args=()
+if [[ -n "${shader_sdk}" ]]; then
+	docker_args+=(-v "${shader_sdk}:/shader-sdk:ro")
+fi
+docker run --rm "${docker_args[@]}" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
 	-v "${work_dir}:/work" "${image}" /work/inner.sh
 
 exe="${work_dir}/output/vaeg.exe"
@@ -157,6 +178,7 @@ size="$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "${exe}"
 	echo "- Container image: \`${image}\` (Ubuntu 24.04)"
 	echo "- Preset: \`mingw-cross\`, Release, tests disabled; static SDL2, LibArchive,"
 	echo "  zlib, xz, librashader and MinGW gcc/libstdc++/winpthread runtimes."
+	echo "- Shader SDK: ${shader_sdk:-fresh pinned source build}; application objects are fresh."
 	echo "- Recording: ${recording}; when ON, pinned minimal LGPL-only FFmpeg 8.1.2 is static."
 	echo "  Source tarball and full configure/build log are retained beside the clean clone."
 	sed 's/^/- /' "${work_dir}/output/toolchain.txt"
