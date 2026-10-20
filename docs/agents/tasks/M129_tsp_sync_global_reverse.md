@@ -117,7 +117,7 @@ private system disks copied to task scratch (paths omitted):
 | `sgp-boot/build-boot-d88.py` | 0 | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
 
 Every file of every regenerated FAT image is byte-identical to the committed
-`.d88.xz` (the remaining differences are directory dates); the
+`.d88.xz` (the images themselves were compared by file contents only); the
 all-demos-msdos4 and SGP boot `.xz` are byte-identical. In vaeg (M129
 release build) the utility FDD boots PC-Engine 1.1 on the VA2, and each SASI
 image alone boots PC-Engine on its model (1.05 VA, 1.1 VA2) once a backup
