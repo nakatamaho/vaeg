@@ -51,7 +51,7 @@ land.
   value and legacy missing-key checks, GUI selection/no-auto-arm checks, recording
   ON/OFF frontend suites and isolated full selftests.
 - **Milestone/task/commit:** [M100s9 preference follow-up](../agents/tasks/M100s9_recording_presenter_readback.md#recording-source-preference-follow-up).
-  The fixing commit is linked in the subsequent evidence update.
+  [Fixing commit](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162).
 
 ### Metal GUI could abort on a newly requested font atlas
 

@@ -8,7 +8,20 @@ supported Linux backends. [M100s9](../agents/tasks/M100s9_recording_presenter_re
 has implemented the macOS Displayed FFV1 path on `topic/m100-metal-followup`;
 media/runtime prerequisites and its human gate remain open.
 
-Latest evaluated integration:
+Current preference follow-up:
+[a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162)
+persists explicit GUI Native/Displayed choices across restart and renderer reinit.
+No auto-arm, no unavailable-source substitution, and no CLI preference rewrite;
+`--no-cfg` remains opt-out. Production config reloads (both choices/invalid/legacy),
+GUI no-arm checks and two actual Metal Release restarts/CLI isolation pass. Debug
+ON 37 PASS + 2 SKIP / OFF 29 PASS, full ON/OFF selftests, 4 changed-TU strict
+compiles and 4 focused sanitizer checks pass. Static macOS and fresh clean-source
+MinGW ON builds/import audits pass; current artifacts are in the handoff.
+Evidence: `build/m100s9-source-pref/validation.json`, SHA-256
+`a1c4ad1dcc452efb98094bdb1515f6632c2c19481e0ff9e475bf179ccd89615b`.
+All existing guest/media/device/human/legal gate limitations remain open.
+
+Latest evaluated main integration:
 [bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c)
 merges current main
 [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
@@ -19,7 +32,7 @@ are linked in the handoff. Only the unchanged audited shader SDK is reused, not
 application objects. Additional merged-unit strict checks expose an inherited
 kbdmap selftest cleanup warning; no blanket whole-tree Werror claim is made.
 Initial full-selftest temp-directory contention and its successful isolated reruns
-are retained in the new evidence, not hidden. The current evidence index is
+are retained in the main-refresh evidence, not hidden. That evidence index is
 `build/m100s9-main-refresh/validation.json`, SHA-256
 `269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`.
 

@@ -62,7 +62,31 @@ No guest state/save-state format or source/compression contract changes.
 Tests extend the production configuration save/load selftest for both choices,
 invalid values and missing keys. GUI controls check that changing the preference
 updates host settings without arming recording. ON/OFF frontend/recording and
-isolated full selftests are rerun; final artifact identities follow separately.
+isolated full selftests pass at
+[`a4c0b6a02fdd616071044c39d49c1fe6c1ccb162`](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162).
+ON: 37 PASS + 2 optional SKIP; OFF: 29 PASS; full ON/OFF selftests PASS;
+4 changed-TU strict compiles and 4 focused ASan/UBSan checks PASS. Two real
+macOS Release launches with saved Displayed=1 and explicit Native/Displayed CLI
+movies retain preference 1; both produce four correctly tagged FFV1 frames via
+Metal (intentional empty ROMs, not guest boot evidence). The source preference
+and CLI override are independent. No media/H.264/platform/human gate is closed.
+
+Evidence: `build/m100s9-source-pref/validation.json`, SHA-256
+`a1c4ad1dcc452efb98094bdb1515f6632c2c19481e0ff9e475bf179ccd89615b`.
+Commands, worker/source/contract/policy/SDK identities and output hashes are
+retained there. Existing static macOS Release rebuild:
+`build/macos-recording-static-release/sdl2/vaeg`, 38,753,240 bytes, SHA-256
+`b401e3953869b8f8e451d95578f063b8f4b694211c8f1ac3eb81b17840ca97e6`;
+report `build/m100s9-source-pref/macos-build-report.md`.
+Clean static MinGW handoff:
+`/Users/maho/vaeg-mingw-a4c0b6a0/output/vaeg.exe`, 58,916,515 bytes, SHA-256
+`b3595e5c02c558502fe18c91021db461b537717cafa02f40c6f7214598ff3e4d`;
+report `/Users/maho/vaeg-mingw-a4c0b6a0/output/BUILD-REPORT.md`.
+The required helper and separate fresh recording-ON application build both exit
+0; only unchanged independently audited SDK/dependency stages are reused via
+the disclosed task-local temporary-script adapter. All application objects are
+fresh. The dedicated checkout-local VM is stopped; prior artifacts are retained.
+Windows runtime and macOS deployment-version/alignment limitations are unchanged.
 
 ## Latest-main rebuild requested by the maintainer
 

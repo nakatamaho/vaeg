@@ -10,7 +10,13 @@ authorized; the historical LOCAL_ONLY text below is not a current push ban.
 No follow-up main merge or new human gate is approved.
 
 **Displayed FFV1 implementation is complete locally; the milestone gate is not.**
-Current evaluated integration is
+Current evaluated source is
+[a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162),
+which persists the GUI Native/Displayed preference without automatic recording.
+Both production config reloads and two Release restarts/CLI override isolation
+pass, alongside ON/OFF/full-selftest/focused-sanitizer and four changed-TU strict
+checks. Unavailable saved Displayed choices stay selected/unavailable; --no-cfg
+and CLI preference isolation retain their existing policies. Its main integration is
 [bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c),
 importing main [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
 at the maintainer's request. This preserves M125 quick saves/loads and recording
@@ -29,17 +35,17 @@ The real Debug and static Release frontends also save Native/Displayed four-fram
 movies with frameskip 4 using intentionally empty ROMs. This is public frontend
 startup/timing evidence, not a commercial ROM, guest OS/demo or audio-device PASS.
 
-Current artifacts (evaluated merge bc0198b9; application code rebuilt and retested):
+Current artifacts (evaluated preference fix a4c0b6a0; applications rebuilt/retested):
 
 - macOS: `/Users/maho/vaeg/build/macos-recording-static-release/sdl2/vaeg`,
-  SHA-256 `2b3e68225d0ed111c94307f20e0ad84b74517ec812e0b0b364b3db2261a63783`;
-  report `/Users/maho/vaeg/build/m100s9-main-refresh/macos-build-report.md`.
+  SHA-256 `b401e3953869b8f8e451d95578f063b8f4b694211c8f1ac3eb81b17840ca97e6`;
+  report `/Users/maho/vaeg/build/m100s9-source-pref/macos-build-report.md`.
   Release/arm64/recording ON, static desktop dependencies and Apple-only dynamic
   imports; existing build directory, not a new-clone macOS artifact. Dependency
   macOS-version/alignment warnings mean older-macOS runtime remains unverified.
-- Windows cross-build: `/Users/maho/vaeg-mingw-bc0198b9/output/vaeg.exe`,
-  SHA-256 `73b2011024c92bd0923fea3c8e940390de93456d99208195b1204f73d02e9a3e`;
-  report `/Users/maho/vaeg-mingw-bc0198b9/output/BUILD-REPORT.md`.
+- Windows cross-build: `/Users/maho/vaeg-mingw-a4c0b6a0/output/vaeg.exe`,
+  SHA-256 `b3595e5c02c558502fe18c91021db461b537717cafa02f40c6f7214598ff3e4d`;
+  report `/Users/maho/vaeg-mingw-a4c0b6a0/output/BUILD-REPORT.md`.
   Clean pushed-source clone, recording ON, static dependencies/runtimes, embedded
   commit/date and Windows-system-only imports verified. The new helper exits 0;
   only the independently validated unchanged shader SDK is reused by an explicit
@@ -49,7 +55,14 @@ Current artifacts (evaluated merge bc0198b9; application code rebuilt and retest
   [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
   This is not native Windows runtime/playback proof.
 
-Evidence/worker/source/contract/command/output identities:
+Current preference evidence/worker/source/contract/command/output identities:
+`build/m100s9-source-pref/validation.json`, SHA-256
+`a1c4ad1dcc452efb98094bdb1515f6632c2c19481e0ff9e475bf179ccd89615b`.
+ON 37 PASS + 2 SKIP / OFF 29 PASS, full ON/OFF selftests, 4 focused sanitizer
+checks, 4 changed-TU strict compiles and two Metal Release restarts/CLI isolation
+PASS. Clean MinGW OFF helper and fresh ON application build/import audits exit 0.
+
+Earlier main-refresh evidence and inherited-warning details:
 `build/m100s9-main-refresh/validation.json`, SHA-256
 `269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`.
 Full Debug ON/OFF selftests pass with isolated TMPDIRs, including quick saves;
