@@ -30,9 +30,16 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "imgui.h"
+#include "backends/imgui_impl_opengl3.h"
 #include "librashader/frame_conversion.h"
 #include "librashader/librashader_loader.h"
 
+typedef void (*VAEG_GL_BIND_BUFFER)(GLenum target, GLuint buffer);
+typedef void (*VAEG_GL_READ_BUFFER)(GLenum source);
+typedef void (*VAEG_GL_READ_PIXELS)(GLint x, GLint y, GLsizei width, GLsizei height,
+                                    GLenum format, GLenum type, void *pixels);
+typedef GLenum (*VAEG_GL_GET_ERROR)(void);
 typedef void (*VAEG_GL_ACTIVE_TEXTURE)(GLenum texture);
 typedef void (*VAEG_GL_ATTACH_SHADER)(GLuint program, GLuint shader);
 typedef void (*VAEG_GL_BIND_FRAMEBUFFER)(GLenum target, GLuint framebuffer);
@@ -78,6 +85,10 @@ typedef void (*VAEG_GL_USE_PROGRAM)(GLuint program);
 typedef void (*VAEG_GL_VIEWPORT)(GLint x, GLint y, GLsizei width, GLsizei height);
 
 struct VAEG_GL_FUNCTIONS {
+	VAEG_GL_BIND_BUFFER bind_buffer;
+	VAEG_GL_READ_BUFFER read_buffer;
+	VAEG_GL_READ_PIXELS read_pixels;
+	VAEG_GL_GET_ERROR get_error;
 	VAEG_GL_ACTIVE_TEXTURE active_texture;
 	VAEG_GL_ATTACH_SHADER attach_shader;
 	VAEG_GL_BIND_FRAMEBUFFER bind_framebuffer;
@@ -138,6 +149,7 @@ struct VAEG_GL_STATE {
 	libra_gl_filter_chain_t filter_chain;
 	bool filter_enabled;
 	bool filter_first_frame;
+	bool gui_ready;
 };
 
 struct VAEG_GL_SAVED_STATE {
@@ -162,6 +174,10 @@ static T vaeg_gl_load(const char *name) {
 
 static int vaeg_gl_load_functions(VAEG_GL_STATE *state) {
 #define VAEG_GL_LOAD(member, name) state->gl.member = vaeg_gl_load<decltype(state->gl.member)>(name)
+	VAEG_GL_LOAD(bind_buffer, "glBindBuffer");
+	VAEG_GL_LOAD(read_buffer, "glReadBuffer");
+	VAEG_GL_LOAD(read_pixels, "glReadPixels");
+	VAEG_GL_LOAD(get_error, "glGetError");
 	VAEG_GL_LOAD(active_texture, "glActiveTexture");
 	VAEG_GL_LOAD(attach_shader, "glAttachShader");
 	VAEG_GL_LOAD(bind_framebuffer, "glBindFramebuffer");
@@ -199,7 +215,9 @@ static int vaeg_gl_load_functions(VAEG_GL_STATE *state) {
 	VAEG_GL_LOAD(use_program, "glUseProgram");
 	VAEG_GL_LOAD(viewport, "glViewport");
 #undef VAEG_GL_LOAD
-	return (state->gl.active_texture != nullptr) && (state->gl.attach_shader != nullptr) &&
+	return (state->gl.bind_buffer != nullptr) && (state->gl.read_buffer != nullptr) &&
+	       (state->gl.read_pixels != nullptr) && (state->gl.get_error != nullptr) &&
+	       (state->gl.active_texture != nullptr) && (state->gl.attach_shader != nullptr) &&
 	       (state->gl.bind_framebuffer != nullptr) && (state->gl.bind_texture != nullptr) &&
 	       (state->gl.bind_vertex_array != nullptr) && (state->gl.clear != nullptr) &&
 	       (state->gl.clear_color != nullptr) && (state->gl.compile_shader != nullptr) &&
@@ -468,6 +486,9 @@ static void vaeg_gl_release_state(VAEG_GL_STATE *state) {
 	}
 	if (state->context != nullptr) {
 		(void)SDL_GL_MakeCurrent(state->window, state->context);
+		if (state->gui_ready && ImGui::GetCurrentContext()) {
+			ImGui_ImplOpenGL3_Shutdown();
+		}
 		if ((state->filter_chain != nullptr) &&
 		    (state->librashader.gl_filter_chain_free != nullptr)) {
 			(void)state->librashader.gl_filter_chain_free(&state->filter_chain);
@@ -582,6 +603,80 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_filter_parameter(
 	return VAEG_GL_BRIDGE_OK;
 }
 
+/* Read the one live back buffer, including GUI. The caller owns bounded storage.
+ * Restore pack/read state even on failure; no allocation or shader replay. */
+static void vaeg_gl_capture_output(VAEG_GL_STATE *state, VAEG_OUTPUT_CAPTURE *capture) {
+	if (capture == nullptr) return;
+	capture->complete = 0;
+	if (capture->pixels == nullptr || capture->width != state->drawable_width ||
+	    capture->height != state->drawable_height ||
+	    static_cast<uint64_t>(capture->pitch_bytes) != static_cast<uint64_t>(capture->width) * 4u)
+		return;
+	GLint framebuffer, buffer, pbo, alignment, row_length, skip_rows, skip_pixels;
+	state->gl.get_integerv(GL_READ_FRAMEBUFFER_BINDING, &framebuffer);
+	state->gl.get_integerv(GL_READ_BUFFER, &buffer);
+	state->gl.get_integerv(GL_PIXEL_PACK_BUFFER_BINDING, &pbo);
+	state->gl.get_integerv(GL_PACK_ALIGNMENT, &alignment);
+	state->gl.get_integerv(GL_PACK_ROW_LENGTH, &row_length);
+	state->gl.get_integerv(GL_PACK_SKIP_ROWS, &skip_rows);
+	state->gl.get_integerv(GL_PACK_SKIP_PIXELS, &skip_pixels);
+	/* Do not label a pre-existing GL error as a successful acquisition. */
+	const bool clean = state->gl.get_error() == GL_NO_ERROR;
+	if (clean) {
+		state->gl.bind_framebuffer(GL_READ_FRAMEBUFFER, 0);
+		state->gl.read_buffer(GL_BACK);
+		state->gl.bind_buffer(GL_PIXEL_PACK_BUFFER, 0);
+		state->gl.pixel_storei(GL_PACK_ALIGNMENT, 1);
+		state->gl.pixel_storei(GL_PACK_ROW_LENGTH, 0);
+		state->gl.pixel_storei(GL_PACK_SKIP_ROWS, 0);
+		state->gl.pixel_storei(GL_PACK_SKIP_PIXELS, 0);
+		state->gl.read_pixels(0, 0, capture->width, capture->height, GL_RGBA,
+		                      GL_UNSIGNED_BYTE, capture->pixels);
+		capture->complete = state->gl.get_error() == GL_NO_ERROR;
+	}
+	state->gl.bind_framebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(framebuffer));
+	state->gl.read_buffer(static_cast<GLenum>(buffer));
+	state->gl.bind_buffer(GL_PIXEL_PACK_BUFFER, static_cast<GLuint>(pbo));
+	state->gl.pixel_storei(GL_PACK_ALIGNMENT, alignment);
+	state->gl.pixel_storei(GL_PACK_ROW_LENGTH, row_length);
+	state->gl.pixel_storei(GL_PACK_SKIP_ROWS, skip_rows);
+	state->gl.pixel_storei(GL_PACK_SKIP_PIXELS, skip_pixels);
+	if (!capture->complete) return;
+	auto *pixels = static_cast<uint8_t *>(capture->pixels);
+	for (uint32_t y = 0; y < capture->height / 2u; ++y) {
+		auto *top = pixels + static_cast<size_t>(y) * capture->pitch_bytes;
+		auto *bottom = pixels + static_cast<size_t>(capture->height - 1u - y) * capture->pitch_bytes;
+		for (uint32_t x = 0; x < capture->pitch_bytes; ++x) {
+			const uint8_t value = top[x]; top[x] = bottom[x]; bottom[x] = value;
+		}
+	}
+	for (uint32_t y = 0; y < capture->height; ++y)
+		for (uint32_t x = 0; x < capture->width; ++x)
+			pixels[static_cast<size_t>(y) * capture->pitch_bytes + 4u * x + 3u] = 255u;
+}
+
+extern "C" int vaeg_gl_bridge_gui_prepare(VAEG_GL_BRIDGE *bridge) {
+	if (!bridge || !bridge->state || !ImGui::GetCurrentContext()) return 0;
+	auto *state = static_cast<VAEG_GL_STATE *>(bridge->state);
+	if (SDL_GL_MakeCurrent(state->window, state->context) != 0) return 0;
+	if (!state->gui_ready) {
+		if (!ImGui_ImplOpenGL3_Init("#version 330 core")) return 0;
+		state->gui_ready = true;
+	}
+	ImGui_ImplOpenGL3_NewFrame();
+	return 1;
+}
+
+extern "C" void vaeg_gl_bridge_gui_shutdown(VAEG_GL_BRIDGE *bridge) {
+	if (!bridge || !bridge->state) return;
+	auto *state = static_cast<VAEG_GL_STATE *>(bridge->state);
+	if (state->gui_ready && ImGui::GetCurrentContext()) {
+		(void)SDL_GL_MakeCurrent(state->window, state->context);
+		ImGui_ImplOpenGL3_Shutdown();
+	}
+	state->gui_ready = false;
+}
+
 extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
                                                            const VAEG_FRAME_INPUT *frame) {
 	VAEG_GL_STATE *state;
@@ -598,10 +693,13 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
 	if ((bridge == nullptr) || (bridge->state == nullptr) || (frame == nullptr)) {
 		return VAEG_GL_BRIDGE_INVALID_ARGUMENT;
 	}
+	if (bridge->capture) bridge->capture->complete = 0;
 	if (vaeg_frame_input_validate(frame) != VAEG_FRAME_INPUT_OK) {
 		return VAEG_GL_BRIDGE_INVALID_FRAME;
 	}
 	state = static_cast<VAEG_GL_STATE *>(bridge->state);
+	if (SDL_GL_MakeCurrent(state->window, state->context) != 0)
+		return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
 	SDL_GL_GetDrawableSize(state->window, &drawable_width, &drawable_height);
 	if ((drawable_width <= 0) || (drawable_height <= 0)) {
 		return VAEG_GL_BRIDGE_NO_OUTPUT;
@@ -701,6 +799,11 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
 		state->gl.uniform_1i(state->sampler_location, 0);
 		state->gl.draw_arrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
+	state->gl.bind_framebuffer(GL_FRAMEBUFFER, 0);
+	if (state->gui_ready && ImGui::GetCurrentContext() && ImGui::GetDrawData()) {
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	}
+	vaeg_gl_capture_output(state, bridge->capture);
 	vaeg_gl_restore_state(state, &saved);
 	SDL_GL_SwapWindow(state->window);
 	return VAEG_GL_BRIDGE_OK;

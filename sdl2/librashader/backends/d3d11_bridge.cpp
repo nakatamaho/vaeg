@@ -53,6 +53,7 @@ struct VAEG_D3D11_STATE {
 	IDXGISwapChain1 *swap_chain;
 	ID3D11RenderTargetView *render_target;
 	ID3D11Texture2D *source_texture;
+	ID3D11Texture2D *capture_staging;
 	ID3D11ShaderResourceView *source_view;
 	ID3D11VertexShader *vertex_shader;
 	ID3D11PixelShader *pixel_shader;
@@ -99,6 +100,7 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	vaeg_d3d11_release(&state->render_target);
 	vaeg_d3d11_release(&state->source_view);
 	vaeg_d3d11_release(&state->source_texture);
+	vaeg_d3d11_release(&state->capture_staging);
 	vaeg_d3d11_release(&state->sampler);
 	vaeg_d3d11_release(&state->pixel_shader);
 	vaeg_d3d11_release(&state->pass_through_rasterizer);
@@ -476,6 +478,7 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	if ((bridge == nullptr) || (bridge->state == nullptr) || (frame == nullptr)) {
 		return VAEG_D3D11_BRIDGE_INVALID_ARGUMENT;
 	}
+	if (bridge->capture) bridge->capture->complete = 0;
 	if (vaeg_frame_input_validate(frame) != VAEG_FRAME_INPUT_OK) {
 		return VAEG_D3D11_BRIDGE_INVALID_FRAME;
 	}
@@ -562,20 +565,31 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	}
 	if (bridge->capture) {
 		VAEG_OUTPUT_CAPTURE *capture = bridge->capture;
-		ID3D11Texture2D *back = nullptr, *staging = nullptr;
+		capture->complete = 0;
+		ID3D11Texture2D *back = nullptr;
 		D3D11_TEXTURE2D_DESC desc{};
 		D3D11_MAPPED_SUBRESOURCE mapped{};
 		if (SUCCEEDED(state->swap_chain->GetBuffer(0, IID_PPV_ARGS(&back)))) {
 			back->GetDesc(&desc);
 			if (capture->pixels && capture->width == desc.Width && capture->height == desc.Height &&
-			    capture->pitch_bytes >= desc.Width * 4 && desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM) {
+			    static_cast<uint64_t>(capture->pitch_bytes) >= static_cast<uint64_t>(desc.Width) * 4u &&
+			    desc.Format == DXGI_FORMAT_B8G8R8A8_UNORM) {
 				desc.Usage = D3D11_USAGE_STAGING;
 				desc.BindFlags = 0;
 				desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 				desc.MiscFlags = 0;
-				if (SUCCEEDED(state->device->CreateTexture2D(&desc, nullptr, &staging))) {
-					state->context->CopyResource(staging, back);
-					if (SUCCEEDED(state->context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped))) {
+				if (state->capture_staging) {
+					D3D11_TEXTURE2D_DESC previous{};
+					state->capture_staging->GetDesc(&previous);
+					if (previous.Width != desc.Width || previous.Height != desc.Height ||
+					    previous.Format != desc.Format)
+						vaeg_d3d11_release(&state->capture_staging);
+				}
+				if (!state->capture_staging)
+					(void)state->device->CreateTexture2D(&desc, nullptr, &state->capture_staging);
+				if (state->capture_staging) {
+					state->context->CopyResource(state->capture_staging, back);
+					if (SUCCEEDED(state->context->Map(state->capture_staging, 0, D3D11_MAP_READ, 0, &mapped))) {
 						for (UINT y = 0; y < desc.Height; ++y) {
 							const auto *src = static_cast<const unsigned char *>(mapped.pData) + y * mapped.RowPitch;
 							auto *dst = static_cast<unsigned char *>(capture->pixels) + y * capture->pitch_bytes;
@@ -584,14 +598,15 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 								dst[4*x+2] = src[4*x]; dst[4*x+3] = 255;
 							}
 						}
-						state->context->Unmap(staging, 0);
+						state->context->Unmap(state->capture_staging, 0);
 						capture->complete = 1;
 					}
-					staging->Release();
 				}
 			}
 			back->Release();
 		}
+	} else {
+		vaeg_d3d11_release(&state->capture_staging);
 	}
 	result = state->swap_chain->Present(1, 0);
 	if (result == DXGI_STATUS_OCCLUDED) {

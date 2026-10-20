@@ -485,7 +485,8 @@ endif()
 if(UNIX AND NOT APPLE AND NOT WIN32 AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/gl_bridge.cpp
-        sdl2/librashader/gl_presenter.cpp)
+        sdl2/librashader/gl_presenter.cpp
+        external/imgui/backends/imgui_impl_opengl3.cpp)
 endif()
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
@@ -1997,6 +1998,27 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_upd780_disasm PRIVATE -Wall -fsigned-char)
     if(VAEG_WERROR)
         target_compile_options(vaeg_upd780_disasm PRIVATE -Werror)
+    endif()
+
+    if(UNIX AND NOT APPLE AND NOT WIN32 AND VAEG_ENABLE_LIBRASHADER)
+        add_executable(vaeg_gl_displayed_test
+            tests/frontend/librashader/test_gl_displayed.cpp
+            sdl2/librashader/backends/gl_bridge.cpp
+            sdl2/librashader/frame_input.cpp
+            sdl2/librashader/frame_conversion.cpp
+            external/imgui/imgui.cpp
+            external/imgui/imgui_draw.cpp
+            external/imgui/imgui_tables.cpp
+            external/imgui/imgui_widgets.cpp
+            external/imgui/backends/imgui_impl_opengl3.cpp)
+        target_include_directories(vaeg_gl_displayed_test PRIVATE
+            sdl2 external/imgui external/librashader/include)
+        target_compile_features(vaeg_gl_displayed_test PRIVATE cxx_std_17)
+        target_link_libraries(vaeg_gl_displayed_test PRIVATE ${VAEG_SDL2_LIBS} ${CMAKE_DL_LIBS})
+        add_test(NAME vaeg_gl_displayed COMMAND vaeg_gl_displayed_test)
+        set_tests_properties(vaeg_gl_displayed PROPERTIES
+            LABELS "romless;recording;displayed;gpu" DISABLED TRUE)
+        # Opt-in: needs a real GL context, e.g. xvfb-run ./vaeg_gl_displayed_test.
     endif()
 
     add_executable(vaeg_librashader_frame_input_test

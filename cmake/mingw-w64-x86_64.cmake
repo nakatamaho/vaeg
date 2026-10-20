@@ -33,5 +33,15 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-set(ENV{PKG_CONFIG_LIBDIR} "/usr/x86_64-w64-mingw32/lib/pkgconfig")
+# Optional target-only staging prefix (e.g. minimal static recording FFmpeg).
+# Keep host pkg-config paths excluded during cross compilation.
+set(VAEG_MINGW_DEPENDENCY_PREFIX "" CACHE PATH "Additional MinGW target dependency prefix")
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES VAEG_MINGW_DEPENDENCY_PREFIX)
+if(VAEG_MINGW_DEPENDENCY_PREFIX)
+    list(APPEND CMAKE_FIND_ROOT_PATH "${VAEG_MINGW_DEPENDENCY_PREFIX}")
+    set(ENV{PKG_CONFIG_LIBDIR}
+        "${VAEG_MINGW_DEPENDENCY_PREFIX}/lib/pkgconfig:/usr/x86_64-w64-mingw32/lib/pkgconfig")
+else()
+    set(ENV{PKG_CONFIG_LIBDIR} "/usr/x86_64-w64-mingw32/lib/pkgconfig")
+endif()
 set(ENV{PKG_CONFIG_PATH} "")

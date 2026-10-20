@@ -30,6 +30,7 @@
 
 typedef struct {
 	void *state;
+	VAEG_OUTPUT_CAPTURE *capture;
 } VAEG_GL_BRIDGE;
 
 typedef enum {
@@ -55,6 +56,8 @@ VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_filter_parameter(VAEG_GL_BRIDGE *bridge
 VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
 	                                           const VAEG_FRAME_INPUT *frame);
 void vaeg_gl_bridge_shutdown(VAEG_GL_BRIDGE *bridge);
+int vaeg_gl_bridge_gui_prepare(VAEG_GL_BRIDGE *bridge);
+void vaeg_gl_bridge_gui_shutdown(VAEG_GL_BRIDGE *bridge);
 
 #ifdef __cplusplus
 }

@@ -64,25 +64,23 @@ class GLPresenter final : public NativePresenter {
 		} else {
 			std::snprintf(preset_path_, sizeof(preset_path_), "%s", info.preset_path);
 		}
-		if (!prepare_filter_parameters(info.preset_path, info.enable_filter,
-		                              info.parameter_state_path)) {
-			state_ = PresenterState::Unavailable;
-			error_ = PresenterError::PresetFailure;
-			return PresenterResult::Fallback;
-		}
+		const bool preset_ready = prepare_filter_parameters(info.preset_path, info.enable_filter,
+		                                                   info.parameter_state_path);
+		bool filter_ready = info.enable_filter && preset_ready;
 		state_ = PresenterState::Initializing;
 		if (!vaeg_gl_bridge_initialize(info.host_window, info.preset_path,
-		                               info.enable_filter ? 1 : 0, &bridge_)) {
-			state_ = PresenterState::Unavailable;
-			error_ = info.enable_filter ? PresenterError::FilterFailure
-			                           : PresenterError::DeviceFailure;
-			return PresenterResult::Fallback;
+		                               filter_ready ? 1 : 0, &bridge_)) {
+			if (filter_ready && vaeg_gl_bridge_initialize(info.host_window, nullptr, 0, &bridge_)) {
+				filter_ready = false;
+			} else {
+				state_ = PresenterState::Unavailable;
+				error_ = PresenterError::DeviceFailure;
+				return PresenterResult::Fallback;
+			}
 		}
-		if (info.enable_filter && !apply_filter_parameters()) {
-			shutdown();
-			state_ = PresenterState::Unavailable;
-			error_ = PresenterError::FilterFailure;
-			return PresenterResult::Fallback;
+		if (filter_ready && !apply_filter_parameters()) {
+			(void)vaeg_gl_bridge_set_filter_enabled(&bridge_, 0);
+			filter_ready = false;
 		}
 		if ((drawable_width_ != 0) && (drawable_height_ != 0) &&
 		    (vaeg_gl_bridge_set_drawable_size(&bridge_, drawable_width_, drawable_height_) !=
@@ -92,10 +90,19 @@ class GLPresenter final : public NativePresenter {
 			error_ = PresenterError::ResourceFailure;
 			return PresenterResult::Fallback;
 		}
-		state_ = info.enable_filter ? PresenterState::Filtered : PresenterState::PassThrough;
-		error_ = PresenterError::None;
+		filter_enabled_ = filter_ready;
+		state_ = filter_ready ? PresenterState::Filtered : PresenterState::PassThrough;
+		error_ = !preset_ready ? PresenterError::PresetFailure :
+		         (info.enable_filter && !filter_ready ? PresenterError::FilterFailure : PresenterError::None);
 		return PresenterResult::Recovered;
 	}
+
+	void set_output_capture(VAEG_OUTPUT_CAPTURE *capture) noexcept override {
+		bridge_.capture = capture;
+	}
+
+	bool gui_prepare() noexcept override { return vaeg_gl_bridge_gui_prepare(&bridge_) != 0; }
+	void gui_shutdown() noexcept override { vaeg_gl_bridge_gui_shutdown(&bridge_); }
 
 	PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
 		VAEG_GL_BRIDGE_RESULT result;

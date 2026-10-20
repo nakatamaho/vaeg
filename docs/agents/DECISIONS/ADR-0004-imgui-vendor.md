@@ -76,6 +76,19 @@ The MIT license remains unchanged.
 | `imgui_impl_dx11.cpp` | `1c0c3af25b45dceb4c45de7da591244f4935718154e7149d0e90858958c6f19d` |
 | `imgui_impl_dx11.h` | `fb8a314a6a2904dcc5bfeb938a169389e170f233ad367d33f1ce5c7bde586a7c` |
 
+M100s10 adds the unmodified OpenGL3 backend and its embedded loader from the
+same `v1.92.8` tag/commit. Linux native presentation composes the real GUI before
+Displayed readback; this is not a version change. The MIT license is unchanged.
+The loader's generated Khronos license contains one upstream trailing space;
+`.gitattributes` scopes a whitespace-check exception to that exact file so its
+pinned bytes remain untouched.
+
+| Added file under `external/imgui/backends/` | SHA-256 |
+| --- | --- |
+| `imgui_impl_opengl3.cpp` | `b9764d5ea3e250c78575174ca55211fc906f4cf9365e393b72012e3ba8bce541` |
+| `imgui_impl_opengl3.h` | `61316c5f27f9993fb543a12db36580f4c4479e611fb36ef10cd76e17b35e2999` |
+| `imgui_impl_opengl3_loader.h` | `d3aa3e1f3d23c8c88817832e17d8dd0f2d0b599ae28430067c3fad563b8b7cd5` |
+
 - Vendored files under `external/imgui` are third-party code and should
   not be hand-edited.
 - Upgrading Dear ImGui requires replacing the vendored files from a new

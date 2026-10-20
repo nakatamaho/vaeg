@@ -307,7 +307,13 @@ struct FileCallbacks {
 #endif
 };
 
+/* FFmpeg 7 made the AVIO write buffer const; Ubuntu 24.04 ships FFmpeg 6.
+ * Neither API permits this writer to modify the supplied bytes. */
+#if LIBAVFORMAT_VERSION_MAJOR >= 61
 int write_packet_callback(void *opaque, const std::uint8_t *data, int size) {
+#else
+int write_packet_callback(void *opaque, std::uint8_t *data, int size) {
+#endif
 	if (opaque == nullptr || size < 0) {
 		return AVERROR(EINVAL);
 	}

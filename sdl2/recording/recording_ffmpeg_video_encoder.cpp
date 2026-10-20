@@ -285,6 +285,10 @@ VideoEncoderCreateResult FfmpegVideoEncoder::create(const VideoEncoderConfig &co
 		context->gop_size = 1;
 		context->max_b_frames = 0;
 		context->level = 3;
+		/* FFmpeg 6's default multi-slice 3x2 BGRA round trip loses pixels.
+		 * Keep tiny frames in one slice; normal windows retain auto slicing. */
+		if ((config.width < 4u || config.height < 4u) &&
+		    config.width <= 352u && config.height <= 288u) context->slices = 1;
 		if (av_opt_set_int(context.get(), "slicecrc", 1, AV_OPT_SEARCH_CHILDREN) < 0) {
 			return {FfmpegVideoEncoderError::OptionFailure, nullptr};
 		}
