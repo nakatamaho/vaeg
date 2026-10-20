@@ -1936,16 +1936,14 @@ BOOL scrnmng_create(int width, int height) {
 		window_flags |= SDL_WINDOW_OPENGL;
 	}
 #endif
-	scrnmng.window =
-	    SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
-	                     window_flags);
+	scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+	                                  width, height, window_flags);
 #if defined(__linux__) && defined(VAEG_ENABLE_LIBRASHADER)
 	if (scrnmng.window == NULL && (window_flags & SDL_WINDOW_OPENGL)) {
 		/* An unavailable GL visual must not prevent the ordinary SDL fallback. */
 		SDL_GL_ResetAttributes();
-		scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
-		                                  SDL_WINDOWPOS_CENTERED, width, height,
-		                                  window_flags & ~SDL_WINDOW_OPENGL);
+		scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		                                  width, height, window_flags & ~SDL_WINDOW_OPENGL);
 	}
 #endif
 	if (scrnmng.window == NULL) {
