@@ -2,14 +2,22 @@
 
 ## Active M100s9 follow-up
 
-Continue [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md) only.
+[M100s9](../agents/tasks/M100s9_recording_presenter_readback.md) is now accepted:
+the maintainer explicitly said `gate passed` after the a4c0b6a0/03faab3c handoff.
+This covers Native/Displayed archive recording and the saved GUI source choice.
+No platform-specific checklist or new local media evidence was supplied; preserve
+NOT_RUN/BLOCKED machine results rather than converting acceptance into test logs.
+Gate closure includes a no-ff main merge and scoped cleanup; no next milestone
+implementation is started here.
 The maintainer requested macOS actual Displayed output first, independently
 selectable from Native, with FFV1 and hardware H.264 as separate compression
 choices; Windows/MinGW and supported Linux devices follow. Branch publication is
 authorized; the historical LOCAL_ONLY text below is not a current push ban.
-No follow-up main merge or new human gate is approved.
+G100s9 acceptance authorizes the normal main integration and scoped cleanup.
+Realtime H.264/Media Foundation, other platforms/devices and legal/distribution
+approval remain separate. Earlier evidence/open-gate statements below are historical.
 
-**Displayed FFV1 implementation is complete locally; the milestone gate is not.**
+**Displayed FFV1 implementation and the G100s9 human acceptance are complete.**
 Current evaluated source is
 [a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162),
 which persists the GUI Native/Displayed preference without automatic recording.
@@ -77,13 +85,13 @@ accepted macOS executable and OFF MinGW artifact are also retained. Dedicated
 checkout-local m100s9 Colima/Docker storage is stopped, not removed; unrelated
 environments/assets/branches were not deleted.
 
-Remaining **within M100s9**: obtain required system-media/PSD inputs and host DOSBox,
-perform the complete clean-clone media/demo regeneration/runtime cycle and actual
-V3/demo/OS/movie playback human gate. These cannot be replaced with empty-ROM or
-synthetic tests. Do not claim release/distribution or merge to main. Realtime
-H.264 stays disabled: M100s3/M100s4 still require actual host playback/audio mapping,
-not the archive FIFO. Do not begin those or another milestone until this gate is
-actually passed. Windows/Linux hardware and older-macOS gates remain separate.
+G100s9 is closed by explicit maintainer acceptance. The previously blocked local
+system-media/PSD/DOSBox clean-clone regeneration checks have not been rerun; no
+image hashes or V3/demo/OS/playback execution details are invented. Empty-ROM and
+synthetic tests remain frontend evidence only. Release/distribution is not approved.
+Realtime H.264 stays disabled: M100s3/M100s4 still require actual host playback/audio
+mapping, not the archive FIFO. Windows Media Foundation, Linux devices and older
+macOS remain separate work; no follow-on implementation starts in this closure.
 
 ## Current OS-assisted continuation
 

@@ -39,13 +39,22 @@ separate from the new readback changes until independently verified.
 
 ## Gate and current status
 
-IMPLEMENTED: checkpoints 1–3 now have local macOS archive-path verification.
-Static macOS Release and clean MinGW compile/import checks pass again after the
-latest-main integration below. Media/runtime prerequisites and the human gate remain open; this is not
-release approval. Stop before beginning another milestone.
-At final completion require actual macOS Displayed FFV1 playback and existing Native
-regression acceptance. Windows/Linux hardware availability and realtime audio are
-separate runtime gates, never inferred from an API name or a cross-build.
+**G100s9 human gate PASSED by explicit maintainer acceptance (`gate passed`) after
+handing off the source-preference correction
+[a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162)
+and its evidence checkpoint
+[03faab3c](https://github.com/nakatamaho/vaeg/commit/03faab3c171aec69074ec37be0d9d547de1f53ce).**
+This accepts the Native/Displayed guest-time FFV1/PCM archive implementation and
+persisted GUI source choice. Checkpoints 1–3 are complete. The maintainer did not
+supply a platform-by-platform checklist or new machine evidence; no such details
+are inferred from the acceptance. Earlier open-gate statements below are historical.
+
+The unavailable local private-media/PSD/DOSBox rebuild checks remain recorded as
+NOT_RUN/BLOCKED, not retrospectively PASS. Realtime H.264, Windows Media Foundation,
+Linux/older-macOS/device support and legal/distribution readiness are separate,
+unapproved gates. No implementation of another milestone is part of this closure.
+Gate record, no-ff main merge and roadmap record are published before cleanup;
+accepted handoff artifacts and expensive dependency/evidence results are preserved.
 
 ## Recording source preference follow-up
 

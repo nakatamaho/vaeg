@@ -5,8 +5,13 @@
 After the accepted Native FFV1 main integration, the maintainer requested
 independent source/compression selection, macOS first, Windows/MinGW next, then
 supported Linux backends. [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md)
-has implemented the macOS Displayed FFV1 path on `topic/m100-metal-followup`;
-media/runtime prerequisites and its human gate remain open.
+implemented the macOS Displayed FFV1 path on `topic/m100-metal-followup`.
+**The maintainer explicitly passed G100s9 after the a4c0b6a0/03faab3c handoff,**
+accepting the Native/Displayed archive path and persisted GUI source preference.
+No platform-by-platform runtime checklist was supplied. Missing local media/PSD/
+DOSBox regeneration evidence remains NOT_RUN/BLOCKED; H.264, Windows standard-API,
+other device/platform and distribution/legal gates are not implied by acceptance.
+Earlier open-gate statements in the retained evidence below are historical.
 
 Current preference follow-up:
 [a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162)
@@ -19,7 +24,9 @@ compiles and 4 focused sanitizer checks pass. Static macOS and fresh clean-sourc
 MinGW ON builds/import audits pass; current artifacts are in the handoff.
 Evidence: `build/m100s9-source-pref/validation.json`, SHA-256
 `a1c4ad1dcc452efb98094bdb1515f6632c2c19481e0ff9e475bf179ccd89615b`.
-All existing guest/media/device/human/legal gate limitations remain open.
+At evaluation these guest/media/device/human/legal limits were open; the human
+acceptance above subsequently closes G100s9 only, not the missing machine evidence
+or separate platform/realtime/distribution gates.
 
 Latest evaluated main integration:
 [bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c)
