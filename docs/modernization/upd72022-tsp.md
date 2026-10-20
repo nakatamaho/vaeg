@@ -857,6 +857,12 @@ the raw glyph; apply secret/blink visibility; apply per-cell reverse and
 `SYNC.RV`; add HLINE/ULINE foreground pixels; apply `DWID/DWIDC` geometry;
 then apply external transparency and class separation.
 
+`SYNC.RV` is applied as an exclusive OR with each cell's reverse attribute
+(M129). On the PC-88VA and PC-88VA2 it also reverses the text cells that
+carry the monochrome V1/V2 graphics (PC-8801mkIISR demonstration CARIGRAPH,
+black on white on both machines); a PC-8801 shows that scene white on black
+and vaeg's PC-8801 models follow it (see the V1/V2 decision X9).
+
 `[UNKNOWN]` Ordering of line pixels against every secret/reverse combination
 requires a hardware discriminator test.
 

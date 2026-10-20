@@ -1183,6 +1183,30 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M129 — the uPD3301 whole-screen reverse was ignored
+
+- **Symptom/scope:** V1/V2 software that starts the uPD3301 display with
+  its reverse bit (START DISPLAY 21h) was shown unreversed; the
+  PC-8801mkIISR demonstration's CARIGRAPH was white lines on black instead
+  of black lines on white as on PC-88VA and PC-88VA2 hardware. V3 text
+  using TSP `SYNC.RV` was affected the same way.
+- **Demonstrated cause:** the VA ROMs translate 21h into TSP `SYNC` byte 1
+  bit 3 (RV); a trace of the demonstration shows `OUT (C),A` with A = 21h to
+  port 51h followed by `SYNC` byte 1 = 5Fh. Neither text renderer read RV.
+- **Correction:** RV reverses every text cell on top of its own reverse
+  attribute (contributed by shitamo, PR #31). PC-8801 models started from
+  `extra/` ignore it while port 31h selects monochrome graphics, as a
+  PC-8801mkIISR shows the scene (V1/V2 decision X9); VA boots and the
+  PC-8001 family apply it.
+- **Verification:** selftest `TSP SYNC reverse` (native, and VA, PC-8801
+  and PC-8001 cases); the demonstration in vaeg: CARIGRAPH black on white
+  booted as VA and VA2, white on black as the PC-8801mkIISR model; maintainer
+  check on PC-88VA and PC-88VA2 hardware.
+- **Milestone/task/commit:** M129,
+  [M129 task](../agents/tasks/M129_tsp_sync_global_reverse.md),
+  [73b4ce80](https://github.com/nakatamaho/vaeg/commit/73b4ce80539870e8549b703f1f7340c31e636c93),
+  [cfef554d](https://github.com/nakatamaho/vaeg/commit/cfef554dd6404eda761fee2336705c7c8e8a08ba).
+
 ### M128 — upward SGP transfers with pitch FFF6h drew correctly; the SGP was too fast
 
 - **Symptom/scope:** a VA port of an arcade game drew every vertically

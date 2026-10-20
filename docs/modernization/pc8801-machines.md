@@ -47,7 +47,10 @@ V1/V2 mode reads replaced by the model's ROMs:
 The VA firmware and the VA ROM set are therefore still needed; so is
 everything else the VA's compatibility mode provides (TSP text in uPD3301
 emulation, the sub-CPU FDD unit, sound). Differences between the VA's
-compatibility mode and a PC-8801 remain.
+compatibility mode and a PC-8801 remain. One is modelled per machine: the
+uPD3301 whole-screen reverse (START DISPLAY 21h) is ignored by a PC-8801
+model while port 31h selects monochrome graphics, whereas the VA applies it
+(M129, V1/V2 decision X9).
 
 ### Base VA model and modes
 
