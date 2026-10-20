@@ -35,6 +35,43 @@ land.
 
 ## Maintenance Rules
 
+### Linux native OpenGL could not provide the final Displayed client image
+
+- **Symptom/scope:** Linux native presentation could not initialize its GUI or
+  deliver Displayed capture; startup fell back to SDL instead of native OpenGL.
+- **Demonstrated cause:** the application window lacked `SDL_WINDOW_OPENGL`, the
+  GL presenter did not override GUI preparation or output capture, and preset
+  preparation failure discarded even an unfiltered presenter. Actual startup
+  logs reproduced the device/preset failures; the bridge-only GL fixture exposed
+  the difference between a GL-capable test window and the application window.
+- **Correction:** request a GL-capable Linux native window with ordinary-window
+  fallback, retain pass-through on unavailable filters, compose the pinned ImGui
+  OpenGL3 backend, and read the one final back buffer before swapping. Normalize
+  top-down opaque RGBA and restore pixel-pack/read state without shader replay.
+- **Verification:** Xvfb/Mesa real GL GUI/readback/pack-state/geometry/off checks;
+  actual native OpenGL startup and a four-frame Displayed FFV1/PCM movie decode.
+  This is public empty-ROM frontend evidence, not a guest or physical-GPU gate.
+- **Milestone/task/commit:** [M100s10](../agents/tasks/M100s10_recording_displayed_windows_linux.md);
+  fixing commit is recorded in that task's validation checkpoint.
+
+### FFmpeg 6 blocked Linux archive builds and tiny-frame round trips
+
+- **Symptom/scope:** Ubuntu 24.04 recording ON failed to compile, and after the
+  API correction three archive tests failed exact decoded-image checks.
+- **Demonstrated cause:** FFmpeg 6 AVIO accepts a mutable-buffer callback while
+  the writer supplied the newer const-buffer signature. Independently, its
+  default multi-slice 3x2 BGRA round trip returned zero pixels/alpha; a one-slice
+  A/B passed exact RGB/opaque-alpha and integration checks. The internal upstream
+  codec defect is not claimed to have been isolated beyond this trigger.
+- **Correction:** select the AVIO callback signature by libavformat API major,
+  and request a single slice only for tiny frames within FFV1's small-frame
+  single-slice limits. Normal window sizes retain automatic slicing.
+- **Verification:** Linux FFmpeg 6 recording suite passes, including unchanged
+  exact FFV1/Matroska and split-frame identity assertions; macOS newer FFmpeg
+  recording suite also passes. No expected-pixel or alpha assertion was relaxed.
+- **Milestone/task/commit:** [M100s10](../agents/tasks/M100s10_recording_displayed_windows_linux.md);
+  fixing commit is recorded in that task's validation checkpoint.
+
 ### Recording source selection returned to Native after restart
 
 - **Symptom/scope:** the frontend's Displayed video choice was lost on restart or

@@ -1919,6 +1919,7 @@ BOOL scrnmng_window_rebind_selftest(void) {
 
 BOOL scrnmng_create(int width, int height) {
 	const char *preset_path;
+	Uint32 window_flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 
 	width = max(320, width);
 	height = max(240, height);
@@ -1926,9 +1927,27 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL video init: %s\n", SDL_GetError());
 		return (FAILURE);
 	}
+#if defined(__linux__) && defined(VAEG_ENABLE_LIBRASHADER)
+	if (scrnmng_native_requested()) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		window_flags |= SDL_WINDOW_OPENGL;
+	}
+#endif
 	scrnmng.window =
 	    SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
-	                     SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+	                     window_flags);
+#if defined(__linux__) && defined(VAEG_ENABLE_LIBRASHADER)
+	if (scrnmng.window == NULL && (window_flags & SDL_WINDOW_OPENGL)) {
+		/* An unavailable GL visual must not prevent the ordinary SDL fallback. */
+		SDL_GL_ResetAttributes();
+		scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
+		                                  SDL_WINDOWPOS_CENTERED, width, height,
+		                                  window_flags & ~SDL_WINDOW_OPENGL);
+	}
+#endif
 	if (scrnmng.window == NULL) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return (FAILURE);
