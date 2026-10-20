@@ -197,3 +197,15 @@ Final local evidence index: `build/m100s10-evidence/validation.json`, SHA-256
 The subsequent roadmap/task/handoff commit is documentation-only relative to
 ce62cacd; no unchanged emulator, shader SDK or FFmpeg behavior run is repeated
 for that evidence placement.
+
+## Subsequent local encoder policy request
+
+The maintainer requested that future H.264/AAC encoder implementations be
+statically linked only in explicitly opted-in local builds, never in CI or
+release artifacts. `AGENTS.md` now records default-OFF, CI/release rejection,
+separate local build/dependency trees, no artifact/cache publication, and
+fail-closed configuration/packaging tests and static dependency audits as
+prerequisites. This documentation change adds no encoder, build option, MP4
+conversion feature, or implemented release guard, and grants no patent clearance.
+The accepted FFV1/PCM application/build inputs are unchanged; no behavioral or
+expensive dependency test is rerun for this policy-only edit.

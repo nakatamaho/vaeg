@@ -245,6 +245,50 @@ Release notes may summarize the ledger but do not replace it.
 - Run the machine checks named in your task file (`tools/repo/*.py`,
   cmake builds) and paste their output into the PR description.
 
+## Local-only statically linked H.264/AAC encoders
+
+Maintainer policy: H.264/AAC encoder implementations may be statically linked
+**only into explicitly opted-in, maintainer-local builds** for personal use.
+This permission is not a patent clearance, a redistribution authorization, or
+an exemption from the selected implementations' copyright/license obligations.
+It does not authorize publishing a codec-enabled executable.
+
+- Any future local-codec build option must default to **OFF**. No automatic
+  detection of installed encoders, inherited environment, or dependency cache
+  may silently enable it. Normal Native/Displayed FFV1/PCM recording must remain
+  independent of this option.
+- **Never enable this option in any CI job**, including PR, branch, scheduled,
+  test, debug, release, or self-hosted CI jobs. Configuration/build entry points
+  must reject local-codec enablement in CI rather than silently producing a
+  codec-enabled target. Do not upload such binaries, libraries, SDKs, symbols,
+  source bundles, or dependency caches as CI artifacts.
+- **Never include these statically linked H.264/AAC encoder implementations in
+  a public release.** Release presets, packaging scripts and clean-build handoff
+  helpers must explicitly keep the option OFF and reject conflicting local
+  enablement. A codec-enabled local build must not be copied to release staging,
+  the usual release destination, GitHub Releases, or other public downloads.
+- Keep codec-enabled builds, dependency stages and caches outside Git and
+  separate from ordinary/CI/release build trees. Do not commit or push encoder
+  archives or local codec-enabled artifacts. Rebuild the normal release target
+  in a fresh, option-OFF tree; never relabel or reuse a local codec-enabled
+  executable or its application objects as a release build.
+- Before implementing this option, add fail-closed configuration/packaging
+  checks and focused tests for default-OFF, local explicit enablement, CI
+  rejection and release rejection. Release dependency/configuration audits
+  must prove that no H.264/AAC encoder implementation was pulled in through a
+  static FFmpeg archive or another dependency. Absence of codec DLL imports is
+  **not** evidence that static encoder code is absent. Keep the ordinary static
+  FFmpeg encoder allow-list restricted to FFV1/PCM; do not expand it for this
+  local-only feature.
+- Pin and document the exact local encoder implementations and their licenses
+  before linking them (for example, libx264's GPL/commercial licensing is
+  separate from codec patents). Do not claim that private use, static linking,
+  or an external/OS API automatically resolves all patent/license obligations.
+
+This section records the policy; it does not itself implement a CMake option,
+codec backend, or machine-enforced release guard. Those safeguards are required
+as part of any future local-codec implementation.
+
 ## Validator design and negative-test isolation
 
 Design new evidence and repository validators as three independently callable
