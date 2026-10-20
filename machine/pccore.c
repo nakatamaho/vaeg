@@ -683,7 +683,8 @@ static void drawscreenva(BOOL guest_boundary) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
 		drawcount++;
 		if (guest_boundary &&
-		    (vaeg_recording_native_tap_is_active() || vaeg_recording_native_session_is_active())) {
+		    (vaeg_recording_native_tap_is_active() ||
+		     (vaeg_recording_native_session_is_active() && !vaeg_recording_session_is_displayed()))) {
 			VAEG_RECORDING_NATIVE_FRAME frame;
 			VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 			VAEG_RECORDING_NATIVE_TAP_ERROR error;

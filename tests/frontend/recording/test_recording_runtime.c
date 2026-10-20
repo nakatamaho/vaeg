@@ -48,6 +48,8 @@ int vaeg_recording_native_session_auto_split_enabled(void) {
 }
 void vaeg_recording_native_session_request_split(void) {
 }
+int vaeg_recording_session_is_displayed(void) { return 0; }
+int vaeg_recording_session_displayed_capture_changed(void) { return 0; }
 int vaeg_recording_native_session_is_active(void) {
 	return active;
 }

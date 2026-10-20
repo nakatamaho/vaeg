@@ -35,6 +35,46 @@ land.
 
 ## Maintenance Rules
 
+### Recording source selection returned to Native after restart
+
+- **Symptom/scope:** the frontend's Displayed video choice was lost on restart or
+  GUI renderer reinitialization, forcing the user to select it again.
+- **Demonstrated cause:** the choice existed only in `GuiState`, whose default is
+  Native; the host configuration had no source preference to save or restore.
+- **Correction:** save `RecordingSource` in the normal host configuration, mark
+  explicit GUI selection changes dirty, and restore the choice during GUI init.
+  Native remains the legacy default; invalid values normalize to Native. An
+  unavailable saved Displayed choice remains selected/unavailable, not silently
+  substituted. Neither loading the preference nor CLI recording overrides arm
+  recording or rewrite the GUI preference. `--no-cfg` retains its existing policy.
+- **Verification:** production INI save/load round trips for both sources, invalid
+  value and legacy missing-key checks, GUI selection/no-auto-arm checks, recording
+  ON/OFF frontend suites and isolated full selftests.
+- **Milestone/task/commit:** [M100s9 preference follow-up](../agents/tasks/M100s9_recording_presenter_readback.md#recording-source-preference-follow-up).
+  [Fixing commit](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162).
+
+### Metal GUI could abort on a newly requested font atlas
+
+- **Symptom/scope:** macOS Metal GUI presentation could abort on its first text
+  draw, including the recording controls. The SDL renderer and guest CPU were
+  unaffected.
+- **Demonstrated cause:** GUI preparation ran before `ImGui::NewFrame()`, but
+  NewFrame could request a font-atlas texture. The Metal command encoder then
+  resolved `ImDrawCmd::GetTexID()` without handling that pending texture. An A/B
+  public-window worker with only the baseline Metal object substituted reproduced
+  the missing-upload assertion and exit 134.
+- **Correction:** handle pending GUI texture updates after draw data exists and
+  before resolving command texture IDs. This adopts the inherited Metal change
+  without changing its bytes or adding a second GUI/shader evaluation.
+- **Verification:** the corrected actual Metal probe exits 0 with first-frame
+  text and GUI rectangles, filtered/unfiltered final-client readback, and exact
+  independent FFV1 RGB/opaque-alpha plus PCM decoding. This is public synthetic
+  GPU/archive evidence, not a private guest or audio-device timing claim.
+- **Milestone/task/commit:** M100s9; [A/B evidence and scope](../agents/tasks/M100s9_recording_presenter_readback.md#metal-font-atlas-correction).
+  [Correcting commit](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c975d09e239b470eca).
+  Paired workers/logs and current artifact limits are recorded in the
+  [handoff](../recording-v1/handoff.md#active-m100s9-follow-up).
+
 ### Compatible-mode operands were fetched through DS0
 
 - **Symptom/scope:** Z80 code in the uPD9002's uPD70008-compatible mode

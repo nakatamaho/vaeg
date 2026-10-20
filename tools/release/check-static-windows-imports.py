@@ -26,6 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import argparse
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -42,13 +43,18 @@ WINDOWS_SYSTEM_DLLS = {
 }
 
 
+def pe_objdump():
+    # Native AArch64 binutils need not recognize the x86-64 PE target.
+    return shutil.which("x86_64-w64-mingw32-objdump") or "objdump"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=pathlib.Path, required=True)
     args = parser.parse_args()
     if not args.binary.is_file():
         parser.error("binary does not exist: " + str(args.binary))
-    output = subprocess.check_output(["objdump", "-p", str(args.binary)], text=True)
+    output = subprocess.check_output([pe_objdump(), "-p", str(args.binary)], text=True)
     imports = [match.group(1).lower() for line in output.splitlines()
                if (match := re.search(r"DLL Name:\s*(\S+)", line, re.I))]
     if not imports:

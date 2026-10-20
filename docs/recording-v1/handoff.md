@@ -1,5 +1,98 @@
 # Recording v1 handoff
 
+## Active M100s9 follow-up
+
+[M100s9](../agents/tasks/M100s9_recording_presenter_readback.md) is now accepted:
+the maintainer explicitly said `gate passed` after the a4c0b6a0/03faab3c handoff.
+This covers Native/Displayed archive recording and the saved GUI source choice.
+No platform-specific checklist or new local media evidence was supplied; preserve
+NOT_RUN/BLOCKED machine results rather than converting acceptance into test logs.
+Gate closure includes a no-ff main merge and scoped cleanup; no next milestone
+implementation is started here.
+The maintainer requested macOS actual Displayed output first, independently
+selectable from Native, with FFV1 and hardware H.264 as separate compression
+choices; Windows/MinGW and supported Linux devices follow. Branch publication is
+authorized; the historical LOCAL_ONLY text below is not a current push ban.
+G100s9 acceptance authorizes the normal main integration and scoped cleanup.
+Realtime H.264/Media Foundation, other platforms/devices and legal/distribution
+approval remain separate. Earlier evidence/open-gate statements below are historical.
+
+**Displayed FFV1 implementation and the G100s9 human acceptance are complete.**
+Current evaluated source is
+[a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162),
+which persists the GUI Native/Displayed preference without automatic recording.
+Both production config reloads and two Release restarts/CLI override isolation
+pass, alongside ON/OFF/full-selftest/focused-sanitizer and four changed-TU strict
+checks. Unavailable saved Displayed choices stay selected/unavailable; --no-cfg
+and CLI preference isolation retain their existing policies. Its main integration is
+[bc0198b9](https://github.com/nakatamaho/vaeg/commit/bc0198b9dbdd919d1046bd94081812affd18194c),
+importing main [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)
+at the maintainer's request. This preserves M125 quick saves/loads and recording
+state-load cancellation. Original feature source [73948eaa](https://github.com/nakatamaho/vaeg/commit/73948eaa511d3a97896155a1d05af864e818b535)
+includes owned final-client acquisition, guest-time PCM integration, fixed source,
+metadata, lifecycle/error handling and enabled GUI/CLI selection. Native keeps
+its existing auto-split path; Displayed stops/saves on orderly geometry/reset.
+No substitute guest image, second CRT evaluation or fixed output canvas is added.
+The independently verified Metal font-atlas fix is adopted at
+[863c61f2](https://github.com/nakatamaho/vaeg/commit/863c61f205af46fcda8814c975d09e239b470eca).
+
+Local checks: ON 37 PASS + two opt-in SKIP / OFF 29 PASS, focused ASan/UBSan 4 PASS,
+ten strict compile variants PASS. Explicit actual Metal synthetic GUI/font,
+filtered/unfiltered final readback and exact FFV1/opaque-alpha/PCM comparison PASS.
+The real Debug and static Release frontends also save Native/Displayed four-frame
+movies with frameskip 4 using intentionally empty ROMs. This is public frontend
+startup/timing evidence, not a commercial ROM, guest OS/demo or audio-device PASS.
+
+Current artifacts (evaluated preference fix a4c0b6a0; applications rebuilt/retested):
+
+- macOS: `/Users/maho/vaeg/build/macos-recording-static-release/sdl2/vaeg`,
+  SHA-256 `b401e3953869b8f8e451d95578f063b8f4b694211c8f1ac3eb81b17840ca97e6`;
+  report `/Users/maho/vaeg/build/m100s9-source-pref/macos-build-report.md`.
+  Release/arm64/recording ON, static desktop dependencies and Apple-only dynamic
+  imports; existing build directory, not a new-clone macOS artifact. Dependency
+  macOS-version/alignment warnings mean older-macOS runtime remains unverified.
+- Windows cross-build: `/Users/maho/vaeg-mingw-a4c0b6a0/output/vaeg.exe`,
+  SHA-256 `b3595e5c02c558502fe18c91021db461b537717cafa02f40c6f7214598ff3e4d`;
+  report `/Users/maho/vaeg-mingw-a4c0b6a0/output/BUILD-REPORT.md`.
+  Clean pushed-source clone, recording ON, static dependencies/runtimes, embedded
+  commit/date and Windows-system-only imports verified. The new helper exits 0;
+  only the independently validated unchanged shader SDK is reused by an explicit
+  task-local adapter of the temporary inner script, never application objects.
+  The initial 73948eaa helper/SDK-staging failure logs remain historical evidence.
+  The target-aware auditor correction is
+  [1bbf8cad](https://github.com/nakatamaho/vaeg/commit/1bbf8cadf925caabb0d822379e51695f8998a115).
+  This is not native Windows runtime/playback proof.
+
+Current preference evidence/worker/source/contract/command/output identities:
+`build/m100s9-source-pref/validation.json`, SHA-256
+`a1c4ad1dcc452efb98094bdb1515f6632c2c19481e0ff9e475bf179ccd89615b`.
+ON 37 PASS + 2 SKIP / OFF 29 PASS, full ON/OFF selftests, 4 focused sanitizer
+checks, 4 changed-TU strict compiles and two Metal Release restarts/CLI isolation
+PASS. Clean MinGW OFF helper and fresh ON application build/import audits exit 0.
+
+Earlier main-refresh evidence and inherited-warning details:
+`build/m100s9-main-refresh/validation.json`, SHA-256
+`269650d4099ff8904b6018d6c00e0ce7f62202b8094b36c692e2042cedd71f42`.
+Full Debug ON/OFF selftests pass with isolated TMPDIRs, including quick saves;
+Release full selftest also passes. An initial parallel run raced on the legacy
+fixed dropmedia temp directory; its failed logs remain. Recording-focused strict
+checks pass; an additional kbdmap strict check exposes a pre-existing selftest
+cleanup warning in byte-identical main code, not a newly claimed Werror PASS.
+Historical `build/m100s9-completion/` evidence and paired Metal workers remain
+retained without unnecessary baseline rebuilds; that baseline aborts
+with the missing-texture GetTexID assertion, corrected worker exits 0. The prior
+accepted macOS executable and OFF MinGW artifact are also retained. Dedicated
+checkout-local m100s9 Colima/Docker storage is stopped, not removed; unrelated
+environments/assets/branches were not deleted.
+
+G100s9 is closed by explicit maintainer acceptance. The previously blocked local
+system-media/PSD/DOSBox clean-clone regeneration checks have not been rerun; no
+image hashes or V3/demo/OS/playback execution details are invented. Empty-ROM and
+synthetic tests remain frontend evidence only. Release/distribution is not approved.
+Realtime H.264 stays disabled: M100s3/M100s4 still require actual host playback/audio
+mapping, not the archive FIFO. Windows Media Foundation, Linux devices and older
+macOS remain separate work; no follow-on implementation starts in this closure.
+
 ## Current OS-assisted continuation
 
 The integrated recording extension now continues under the maintainer's

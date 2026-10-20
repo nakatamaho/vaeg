@@ -69,6 +69,12 @@ int vaeg_recording_native_session_is_active(void) {
 	return 0;
 }
 
+int vaeg_recording_session_is_displayed(void) {
+	return 0;
+}
+int vaeg_recording_session_displayed_capture_changed(void) {
+	return 0;
+}
 int vaeg_recording_native_session_should_stop(void) {
 	return 0;
 }
@@ -198,7 +204,7 @@ class NativeRecordingSink final : public SliceSink {
 	    const VAEG_RECORDING_AUDIO_DESCRIPTOR &audio, std::uint64_t movie_start_ticks,
 	    std::uint64_t audio_epoch_sample, std::uint64_t audio_offset_numerator,
 	    std::uint64_t audio_offset_denominator, std::uint32_t clock_rate,
-	    std::string *error) noexcept {
+	    bool displayed, std::string *error) noexcept {
 	try {
 		VideoEncoderConfig video_config{};
 		video_config.width = video.width;
@@ -231,7 +237,7 @@ class NativeRecordingSink final : public SliceSink {
 		writer_config.video_time_base_den = static_cast<std::int32_t>(clock_rate);
 		writer_config.video_epoch_pts = static_cast<std::int64_t>(movie_start_ticks);
 		writer_config.audio_epoch_sample_index = audio_epoch_sample;
-		writer_config.source = "native";
+		writer_config.source = displayed ? "displayed" : "native";
 		writer_config.build_identity = VAEG_BUILD_COMMIT;
 		writer_config.osd_included = true;
 		MatroskaWriterCreateResult writer_create = FfmpegMatroskaWriter::create(
@@ -419,8 +425,9 @@ class NativeRecordingSession;
 
 class NativeRecordingSession {
   public:
-	NativeRecordingSession(const std::string &path, std::uint64_t frame_limit) noexcept
-	    : path_(path), frame_limit_(frame_limit), descriptor_generation_(0u),
+	NativeRecordingSession(const std::string &path, std::uint64_t frame_limit,
+	                       bool displayed) noexcept
+	    : path_(path), displayed_(displayed), frame_limit_(frame_limit), descriptor_generation_(0u),
 	      audio_epoch_(0u), audio_rate_(0u), sound_started_(false), writer_started_(false),
 	      failed_(false), stop_requested_(false), manual_stop_requested_(false),
 	      audio_primed_(false), accepted_intervals_(0u), movie_start_ticks_(0u),
@@ -444,11 +451,19 @@ class NativeRecordingSession {
 		if (!validate_output_path()) {
 			return false;
 		}
-		if (scrnmng_get_native_recording_video_descriptor(&video_descriptor_) != SUCCESS) {
-			last_error_ = "native_descriptor_unavailable";
-			return false;
+		if (displayed_) {
+			if (scrnmng_get_displayed_recording_video_descriptor(
+			        &video_descriptor_, &descriptor_generation_) != SUCCESS) {
+				last_error_ = "displayed_source_unavailable";
+				return false;
+			}
+		} else {
+			if (scrnmng_get_native_recording_video_descriptor(&video_descriptor_) != SUCCESS) {
+				last_error_ = "native_descriptor_unavailable";
+				return false;
+			}
+			descriptor_generation_ = scrnmng_native_recording_descriptor_generation();
 		}
-		descriptor_generation_ = scrnmng_native_recording_descriptor_generation();
 		if (descriptor_generation_ == 0u || sound_get_stream_state(&stream) != SUCCESS ||
 		    stream.rate == 0u || clock_rate == 0u || stream.accounting_overflow ||
 		    stream.generated_sample_count > static_cast<std::uint64_t>(INT64_MAX)) {
@@ -513,9 +528,18 @@ class NativeRecordingSession {
 			last_error_ = "native_stage_allocation_failed";
 			return false;
 		}
-		if (vaeg_recording_native_tap_start(&NativeRecordingSession::tap_callback, this,
-		                                    start_ticks, descriptor_generation_) !=
-		    VAEG_RECORDING_NATIVE_TAP_OK) {
+		capture_start_ticks_ = start_ticks;
+		if (displayed_) {
+			if (scrnmng_start_displayed_recording_capture(
+			        &NativeRecordingSession::displayed_callback, this) != SUCCESS) {
+				last_error_ = vaeg_recording_displayed_capture_error_name(
+				    scrnmng_displayed_recording_capture_error());
+				return false;
+			}
+			displayed_capture_owned_ = true;
+		} else if (vaeg_recording_native_tap_start(&NativeRecordingSession::tap_callback, this,
+		                                           start_ticks, descriptor_generation_) !=
+		           VAEG_RECORDING_NATIVE_TAP_OK) {
 			last_error_ = "native_tap_start_failed";
 			return false;
 		}
@@ -530,8 +554,11 @@ class NativeRecordingSession {
 		if (failed_) {
 			return false;
 		}
-		if (!vaeg_recording_native_tap_is_active()) {
-			fail_and_cancel("native_tap_stopped");
+		if (displayed_ ? !scrnmng_displayed_recording_capture_active()
+		               : !vaeg_recording_native_tap_is_active()) {
+			fail_and_cancel(displayed_ ? vaeg_recording_displayed_capture_error_name(
+			                                scrnmng_displayed_recording_capture_error())
+			                          : "native_tap_stopped");
 			return false;
 		}
 		if (!incoming_.ready) {
@@ -553,8 +580,18 @@ class NativeRecordingSession {
 		return true;
 	}
 
+	bool is_displayed() const noexcept { return displayed_; }
+	bool displayed_capture_changed() const noexcept {
+		if (!displayed_ || scrnmng_displayed_recording_capture_active()) return false;
+		const auto error = scrnmng_displayed_recording_capture_error();
+		return error == VAEG_RECORDING_DISPLAYED_CAPTURE_GEOMETRY_CHANGED ||
+		       error == VAEG_RECORDING_DISPLAYED_CAPTURE_PRESENTER_CHANGED ||
+		       error == VAEG_RECORDING_DISPLAYED_CAPTURE_UNAVAILABLE;
+	}
 	void enable_auto_split() noexcept {
-		auto_split_ = true;
+		/* Native snapshots can rearm at a guest boundary. Displayed descriptors
+		 * stop and save on presentation changes instead of fabricating pixels. */
+		auto_split_ = !displayed_;
 	}
 	bool auto_split_enabled() const noexcept {
 		return auto_split_;
@@ -573,7 +610,7 @@ class NativeRecordingSession {
 	                                             std::uint32_t generation,
 	                                             const VAEG_RECORDING_NATIVE_FRAME *frame,
 	                                             const VAEG_RECORDING_OSD_SNAPSHOT *osd) {
-		if (stop_requested_ && !writer_started_)
+		if (displayed_ || (stop_requested_ && !writer_started_))
 			return VAEG_RECORDING_NATIVE_TAP_OK;
 		if (awaiting_epoch_) {
 			if (manual_stop_requested_) {
@@ -661,7 +698,15 @@ class NativeRecordingSession {
 			abort(last_error_.empty() ? "recording_failed" : last_error_.c_str());
 			return false;
 		}
-		vaeg_recording_native_tap_stop();
+		/* The last actually displayed image holds through this guest boundary.
+		 * Seal an orderly descriptor change, never an arbitrary readback failure. */
+		if (displayed_ && (scrnmng_displayed_recording_capture_active() ||
+		                   displayed_capture_changed()) &&
+		    !complete_boundary(pccore_guest_clock())) {
+			abort(last_error_.c_str());
+			return false;
+		}
+		stop_video_capture();
 		if (sound_started_) {
 			sound_recording_stop();
 		}
@@ -679,7 +724,7 @@ class NativeRecordingSession {
 		if (reason != nullptr && last_error_.empty()) {
 			last_error_ = reason;
 		}
-		vaeg_recording_native_tap_stop();
+		stop_video_capture();
 		if (writer_started_) {
 			(void)session_.cancel();
 			writer_started_ = false;
@@ -731,6 +776,55 @@ class NativeRecordingSession {
 	}
 
   private:
+	void stop_video_capture() noexcept {
+		if (displayed_) {
+			if (displayed_capture_owned_) {
+				scrnmng_stop_displayed_recording_capture();
+				displayed_capture_owned_ = false;
+			}
+		} else {
+			vaeg_recording_native_tap_stop();
+		}
+	}
+	static int displayed_callback(void *context,
+	                              const VAEG_RECORDING_DISPLAYED_FRAME *capture) {
+		return static_cast<NativeRecordingSession *>(context)->accept_displayed(capture) ? 1 : 0;
+	}
+	bool accept_displayed(const VAEG_RECORDING_DISPLAYED_FRAME *capture) noexcept {
+		const std::uint64_t ticks = pccore_guest_clock();
+		if (failed_ || stop_requested_) return !failed_;
+		if (capture == nullptr || incoming_.ready ||
+		    capture->descriptor_generation != descriptor_generation_ ||
+		    capture->width != video_descriptor_.width ||
+		    capture->height != video_descriptor_.height || ticks < capture_start_ticks_ ||
+		    pccore.realclock != grid_.clock_rate_hz ||
+		    (staged_.ready && (ticks <= staged_.end_ticks ||
+		                      (capture->frame_token != staged_.sequence + 1u &&
+		                       !(staged_.sequence == UINT32_MAX && capture->frame_token == 0u))))) {
+			last_error_ = "displayed_capture_mismatch";
+			failed_ = true;
+			return false;
+		}
+		const auto error = vaeg_recording_displayed_capture_to_rgb24(
+		    capture, incoming_.pixels.data(), static_cast<std::uint32_t>(video_descriptor_.stride_bytes),
+		    incoming_.pixels.size());
+		if (error != VAEG_RECORDING_DISPLAYED_CAPTURE_OK) {
+			last_error_ = vaeg_recording_displayed_capture_error_name(error);
+			failed_ = true;
+			return false;
+		}
+		incoming_.width = capture->width;
+		incoming_.height = capture->height;
+		incoming_.pitch = static_cast<std::uint32_t>(video_descriptor_.stride_bytes);
+		incoming_.sequence = capture->frame_token;
+		incoming_.begin_ticks = staged_.ready ? staged_.end_ticks : capture_start_ticks_;
+		incoming_.end_ticks = ticks;
+		incoming_.descriptor_generation = capture->descriptor_generation;
+		incoming_.ready = true;
+		/* Process while this exact guest boundary is still current. Workers
+		 * receive only owned RGB/PCM slices, never a GPU or borrowed pointer. */
+		return after_guest_exec();
+	}
 	bool advance_segment() {
 		if (segment_index_ == UINT64_MAX) {
 			last_error_ = "segment_index_overflow";
@@ -753,8 +847,13 @@ class NativeRecordingSession {
 			return false;
 		}
 		sound_sync();
-		if (!after_guest_exec())
+		if (displayed_ && displayed_capture_changed()) {
+			/* The old image was held until this boundary even though the new
+			 * drawable is incompatible. No new pixels enter its descriptor. */
+			if (failed_ || incoming_.ready) return false;
+		} else if (!after_guest_exec()) {
 			return false;
+		}
 		if (staged_.ready && ticks < staged_.end_ticks) {
 			last_error_ = "segment_time_regressed";
 			return false;
@@ -1025,15 +1124,22 @@ class NativeRecordingSession {
 		}
 		const std::uint64_t frame_bytes = video_descriptor_.stride_bytes * video_descriptor_.height;
 		const std::uint64_t audio_reserve_bytes = static_cast<std::uint64_t>(audio_rate_) * 4u;
-		if (frame_bytes > UINT64_MAX / 12u || audio_reserve_bytes > UINT64_MAX / 12u) {
+		if (frame_bytes > UINT64_MAX / (displayed_ ? 20u : 12u) ||
+		    audio_reserve_bytes > UINT64_MAX / 12u) {
 			last_error_ = "recording_budget_overflow";
 			return false;
 		}
 		QueueConfig queue_config{};
 		queue_config.budget.max_slices = 8u;
 		queue_config.budget.active_interval_bytes = frame_bytes + audio_reserve_bytes;
-		queue_config.budget.readback_staging_bytes = frame_bytes;
-		queue_config.budget.max_bytes = frame_bytes * 12u + audio_reserve_bytes * 12u;
+		/* Displayed owns the reusable RGBA readback and two RGB snapshots in
+		 * addition to queued/worker slices. Account for those explicitly. */
+		queue_config.budget.readback_staging_bytes = displayed_
+		    ? static_cast<std::uint64_t>(video_descriptor_.width) * video_descriptor_.height * 4u +
+		          frame_bytes * 2u
+		    : frame_bytes;
+		queue_config.budget.max_bytes = frame_bytes * 12u + audio_reserve_bytes * 12u +
+		    (queue_config.budget.readback_staging_bytes - frame_bytes);
 		queue_config.video = video_descriptor_;
 		queue_config.audio = audio_descriptor_;
 		queue_config.descriptor_generation = descriptor_generation_;
@@ -1042,7 +1148,7 @@ class NativeRecordingSession {
 		std::string sink_error;
 		std::unique_ptr<NativeRecordingSink> sink = NativeRecordingSink::create(
 		    output_path(), video_descriptor_, audio_descriptor_, movie_start, first_audio_sample,
-		    origin_offset_numerator_, origin_offset_denominator_, pccore.realclock, &sink_error);
+		    origin_offset_numerator_, origin_offset_denominator_, pccore.realclock, displayed_, &sink_error);
 		if (sink == nullptr) {
 			last_error_ = sink_error.empty() ? "recording_sink_create_failed" : sink_error;
 			return false;
@@ -1103,6 +1209,9 @@ class NativeRecordingSession {
 	}
 
 	std::string path_;
+	bool displayed_;
+	bool displayed_capture_owned_ = false;
+	std::uint64_t capture_start_ticks_ = 0u;
 	std::string segment_path_;
 	std::string published_path_;
 	bool auto_split_ = false;
@@ -1165,14 +1274,10 @@ bool parse_frame_limit(const char *value, std::uint64_t *limit) noexcept {
 
 extern "C" int vaeg_recording_session_start(const char *path, uint32_t source,
                                              uint64_t frame_limit) {
-	if (source != VAEG_RECORDING_SOURCE_NATIVE) {
-		vaeg::recording::last_session_error = "displayed_source_unavailable";
+	if (source != VAEG_RECORDING_SOURCE_NATIVE && source != VAEG_RECORDING_SOURCE_DISPLAYED) {
+		vaeg::recording::last_session_error = "invalid_recording_source";
 		return 0;
 	}
-	return vaeg_recording_native_session_start(path, frame_limit);
-}
-
-extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) {
 	using vaeg::recording::active_session;
 	using vaeg::recording::last_published_path;
 	using vaeg::recording::last_session_error;
@@ -1183,7 +1288,7 @@ extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t fr
 	}
 	try {
 		std::unique_ptr<NativeRecordingSession> session(
-		    new NativeRecordingSession(path, frame_limit));
+		    new NativeRecordingSession(path, frame_limit, source == VAEG_RECORDING_SOURCE_DISPLAYED));
 		if (!session->start()) {
 			last_session_error = session->last_error();
 			return 0;
@@ -1198,6 +1303,16 @@ extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t fr
 	}
 }
 
+extern "C" int vaeg_recording_native_session_start(const char *path, uint64_t frame_limit) {
+	return vaeg_recording_session_start(path, VAEG_RECORDING_SOURCE_NATIVE, frame_limit);
+}
+extern "C" int vaeg_recording_session_is_displayed(void) {
+	return vaeg::recording::active_session && vaeg::recording::active_session->is_displayed();
+}
+extern "C" int vaeg_recording_session_displayed_capture_changed(void) {
+	return vaeg::recording::active_session &&
+	       vaeg::recording::active_session->displayed_capture_changed();
+}
 extern "C" void vaeg_recording_native_session_enable_auto_split(void) {
 	if (vaeg::recording::active_session)
 		vaeg::recording::active_session->enable_auto_split();
@@ -1345,6 +1460,11 @@ extern "C" void vaeg_recording_native_session_cancel(void) {
 
 extern "C" void vaeg_recording_native_session_before_reset(void) {
 	using namespace vaeg::recording;
+	if (active_session && active_session->is_displayed()) {
+		/* Reset changes the audio/guest epoch. Seal before either is replaced. */
+		(void)vaeg_recording_native_session_stop();
+		return;
+	}
 	if (active_session && active_session->auto_split_enabled()) {
 		try {
 			if (active_session->change_epoch())

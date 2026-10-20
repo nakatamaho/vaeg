@@ -42,6 +42,7 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "kbdmap.h"
+#include "recording/recording.h"
 
 typedef struct {
 	const char *title;
@@ -447,6 +448,7 @@ static const INITBL iniitem[] = {
     {"jast_snd", INITYPE_BOOL, &np2oscfg.jastsnd, 0}, // ver0.73
     {"GUI_scale", INITYPE_UINT8, &np2oscfg.gui_scale, 0},
     {"GUI_aspect", INITYPE_BOOL, &np2oscfg.gui_aspect, 0},
+    {"RecordingSource", INITYPE_UINT8, &np2oscfg.recording_source, 0},
     {"keyboard_host_layout", INITYPE_STR, np2oscfg.keyboard_host_layout,
      sizeof(np2oscfg.keyboard_host_layout)},
     {"keyboard_kana_input", INITYPE_STR, np2oscfg.keyboard_kana_input,
@@ -554,6 +556,9 @@ void initload(void) {
 	np2oscfg.DISPCLK &= VAEG_DISPINFO_MASK;
 	if (np2oscfg.gui_scale > VAEG_WINDOW_SCALE_MAX) {
 		np2oscfg.gui_scale = 1;
+	}
+	if (np2oscfg.recording_source >= VAEG_RECORDING_SOURCE_COUNT) {
+		np2oscfg.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;

@@ -656,6 +656,14 @@ static void open_recording_dialog(void) {
 	g_gui.recording_open = true;
 }
 
+static void set_recording_source(int source) {
+	g_gui.recording_source = source;
+	if (np2oscfg.recording_source != source) {
+		np2oscfg.recording_source = static_cast<BYTE>(source);
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+}
+
 static bool parse_recording_frame_limit(const char *value, uint64_t *limit) {
 	char *end;
 	unsigned long long parsed;
@@ -687,8 +695,12 @@ static void start_recording_from_dialog(void) {
 		return;
 	}
 	if (g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
-		g_gui.recording_status = "表示後の画面の録画はまだ利用できません。";
-		return;
+		VAEG_RECORDING_VIDEO_DESCRIPTOR descriptor{};
+		UINT32 generation = 0;
+		if (scrnmng_get_displayed_recording_video_descriptor(&descriptor, &generation) != SUCCESS) {
+			g_gui.recording_status = "現在の描画方式では表示後の画面を録画できません。";
+			return;
+		}
 	}
 	if (!parse_recording_frame_limit(g_gui.recording_frame_limit, &frame_limit)) {
 		g_gui.recording_status = "フレーム数は正の整数、または空欄を指定してください。";
@@ -697,7 +709,8 @@ static void start_recording_from_dialog(void) {
 	if (g_gui.recording_auto_path && !generate_recording_path()) {
 		return;
 	}
-	if (scrnmng_configure_native_recording(g_gui.recording_include_osd,
+	if (g_gui.recording_source == VAEG_RECORDING_SOURCE_NATIVE &&
+	    scrnmng_configure_native_recording(g_gui.recording_include_osd,
 	                                       g_gui.recording_follow_rotation) != SUCCESS) {
 		g_gui.recording_status = "録画中は設定を変更できません。";
 		return;
@@ -711,7 +724,9 @@ static void start_recording_from_dialog(void) {
 	vaeg_recording_native_session_enable_auto_split();
 	vaeg_recording_runtime_clear_event();
 	g_gui.recording_open = false;
-	g_gui.recording_status = "録画中（Native video / FFV1 + PCM）";
+	g_gui.recording_status = g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED
+	                             ? "録画中（Displayed video / FFV1 + PCM）"
+	                             : "録画中（Native video / FFV1 + PCM）";
 }
 
 enum class RecordingControlAction {
@@ -875,17 +890,34 @@ static void draw_recording_dialog(void) {
 	const float footer = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
 	ImGui::BeginChild("recording-settings", ImVec2(0, -footer));
 	ImGui::PushTextWrapPos(0.0f);
-	ImGui::TextUnformatted("形式: FFV1（可逆圧縮）+ PCM音声 / MKV");
+	ImGui::TextUnformatted("形式: PCM音声 / MKV");
 	ImGui::TextDisabled("ゲスト時間基準。処理が追いつかない場合は実行速度が低下します。");
 	ImGui::BeginDisabled(active);
-	ImGui::TextUnformatted("録画対象");
-	ImGui::RadioButton("Native video", &g_gui.recording_source,
-	                   VAEG_RECORDING_SOURCE_NATIVE);
+	ImGui::TextUnformatted("圧縮方式");
+	ImGui::RadioButton("FFV1（可逆圧縮）", true);
 	ImGui::BeginDisabled();
-	ImGui::RadioButton("Displayed video", &g_gui.recording_source,
-	                   VAEG_RECORDING_SOURCE_DISPLAYED);
+	ImGui::RadioButton("H.264（ハードウェア・リアルタイム）", false);
 	ImGui::EndDisabled();
-	ImGui::TextDisabled("Displayed video はまだ利用できません。");
+	ImGui::TextDisabled("H.264録画は音声のホスト時刻同期が未対応のため利用できません。");
+	ImGui::TextUnformatted("録画対象");
+	if (ImGui::RadioButton("Native video", g_gui.recording_source == VAEG_RECORDING_SOURCE_NATIVE)) {
+		set_recording_source(VAEG_RECORDING_SOURCE_NATIVE);
+	}
+	VAEG_RECORDING_VIDEO_DESCRIPTOR displayed_descriptor{};
+	UINT32 displayed_generation = 0;
+	const bool displayed_available = scrnmng_get_displayed_recording_video_descriptor(
+	    &displayed_descriptor, &displayed_generation) == SUCCESS;
+	ImGui::BeginDisabled(!displayed_available);
+	if (ImGui::RadioButton("Displayed video", g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED)) {
+		set_recording_source(VAEG_RECORDING_SOURCE_DISPLAYED);
+	}
+	ImGui::EndDisabled();
+	if (!displayed_available)
+		ImGui::TextDisabled("現在の描画方式ではDisplayed videoを利用できません。");
+	if (g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+		ImGui::TextDisabled("シェーダー・余白・OSD・GUIを含む実際のクライアント画面を録画します。");
+		ImGui::TextDisabled("画面設定・サイズ変更・リセット時は保存して停止します。");
+	}
 	ImGui::Checkbox("自動ファイル名", &g_gui.recording_auto_path);
 	ImGui::TextDisabled("実行ファイル横の recordings/ に日時付きで保存します。");
 	ImGui::TextDisabled("書き込めない場合はユーザーディレクトリを使用します。");
@@ -894,8 +926,10 @@ static void draw_recording_dialog(void) {
 	ImGui::SetNextItemWidth(-1.0f);
 	ImGui::InputText("##recording-path", g_gui.recording_path, sizeof(g_gui.recording_path));
 	ImGui::EndDisabled();
+	ImGui::BeginDisabled(g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED);
 	ImGui::Checkbox("OSDを含める", &g_gui.recording_include_osd);
 	ImGui::Checkbox("画面の回転に追従", &g_gui.recording_follow_rotation);
+	ImGui::EndDisabled();
 	ImGui::TextDisabled("録画中に回転を変更すると、現在の動画を保存して停止します。");
 	ImGui::TextUnformatted("フレーム数の上限（空欄は無制限）");
 	ImGui::SetNextItemWidth(-1.0f);
@@ -5250,7 +5284,7 @@ static void load_default_va_font(void) {
 }
 
 static void draw_screen_menu(void) {
-	if (ImGui::BeginMenu("画面")) {
+	if (ImGui::BeginMenu("画面", !vaeg_recording_session_is_displayed())) {
 		const char *screenshot_shortcut =
 		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
 		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
@@ -6702,6 +6736,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	g_gui.ui_scale = 0.0f;
 	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE ? 0 : menu_bar_height());
 	g_gui.window = static_cast<SDL_Window *>(window);
+	g_gui.recording_source = np2oscfg.recording_source;
 	g_gui.native_renderer = renderer == nullptr;
 	if (g_gui.native_renderer) {
 		if (!ImGui_ImplSDL2_InitForOther(g_gui.window)) {
@@ -7176,6 +7211,20 @@ BOOL gui_recent_dirs_selftest(const char *root, char *problem, size_t size) {
 }
 
 static BOOL recording_controls_selftest(void) {
+	/* Selection is a host preference, not a request to arm recording. */
+	const int saved_source = g_gui.recording_source;
+	const BYTE saved_preference = np2oscfg.recording_source;
+	const int active_before = vaeg_recording_native_session_is_active();
+	set_recording_source(VAEG_RECORDING_SOURCE_DISPLAYED);
+	const bool displayed_saved = g_gui.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED &&
+	    np2oscfg.recording_source == VAEG_RECORDING_SOURCE_DISPLAYED;
+	set_recording_source(VAEG_RECORDING_SOURCE_NATIVE);
+	const bool native_saved = g_gui.recording_source == VAEG_RECORDING_SOURCE_NATIVE &&
+	    np2oscfg.recording_source == VAEG_RECORDING_SOURCE_NATIVE;
+	g_gui.recording_source = saved_source;
+	np2oscfg.recording_source = saved_preference;
+	if (!displayed_saved || !native_saved ||
+	    vaeg_recording_native_session_is_active() != active_before) return FAILURE;
 	ImGuiContext *saved = ImGui::GetCurrentContext();
 	BOOL result = SUCCESS;
 	struct Profile {

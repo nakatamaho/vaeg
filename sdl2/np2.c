@@ -176,7 +176,8 @@ NP2OSCFG np2oscfg = {0,
                      100,
                      1,
                      {0, 0},
-                     0};
+                     0,
+                     VAEG_RECORDING_SOURCE_NATIVE};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -1605,6 +1606,8 @@ static BOOL initialize_gui_after_native_fallback(void) {
 static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	UPD9002_DIAGNOSTIC diagnostic;
 
+	/* Displayed archive capture must see every guest frame despite draw-skip. */
+	draw = draw || vaeg_recording_session_is_displayed();
 	if (draw) {
 		gui_new_frame();
 	}
@@ -1613,7 +1616,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		const VAEG_RECORDING_RUNTIME_RESULT recording_step =
 		    vaeg_recording_runtime_step(recording_batch_mode);
 		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_FAILED) {
-			fprintf(stderr, "Error: native recording failed: %s\n",
+			fprintf(stderr, "Error: recording failed: %s\n",
 			        vaeg_recording_native_session_last_error());
 			taskmng_exit();
 			return FAILURE;
@@ -1647,6 +1650,17 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		scrnmng_present_begin();
 		gui_render();
 		scrnmng_present_end();
+		if (vaeg_recording_session_is_displayed()) {
+			const VAEG_RECORDING_RUNTIME_RESULT result =
+			    vaeg_recording_runtime_step(recording_batch_mode);
+			if (result == VAEG_RECORDING_RUNTIME_BATCH_FAILED) {
+				fprintf(stderr, "Error: Displayed recording failed: %s\n",
+				        vaeg_recording_native_session_last_error());
+				taskmng_exit();
+				return FAILURE;
+			}
+			if (result == VAEG_RECORDING_RUNTIME_BATCH_COMPLETE) taskmng_exit();
+		}
 		(void)vaeg_recording_native_session_poll_stop();
 		if (initialize_gui_after_native_fallback() != SUCCESS) {
 			taskmng_exit();
@@ -1680,6 +1694,8 @@ static void render_host_ui_only(void) {
 	scrnmng_present_begin();
 	gui_render();
 	scrnmng_present_end();
+	if (vaeg_recording_session_is_displayed())
+		(void)vaeg_recording_runtime_step(FALSE);
 	(void)vaeg_recording_native_session_poll_stop();
 	if (initialize_gui_after_native_fallback() != SUCCESS) {
 		taskmng_exit();
@@ -2031,12 +2047,6 @@ int main(int argc, char **argv) {
 		VAEG_RECORDING_CAPABILITIES recording_capabilities;
 
 		vaeg_recording_get_capabilities(&recording_capabilities);
-		if (options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
-			fprintf(stderr,
-			        "Error: Displayed video recording is unavailable; final-client capture "
-			        "is not implemented yet\n");
-			return (FAILURE);
-		}
 		if (!recording_capabilities.backend_available) {
 			fprintf(stderr,
 			        "Error: recording is unavailable in this build; enable FFmpeg recording "
@@ -2328,6 +2338,12 @@ int main(int argc, char **argv) {
 
 	if (taskmng_isavail()) {
 		pccore_reset();
+		if (options.record && options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+			/* The first GUI layout may resize the client for its menu/font metrics.
+			 * Present that actual startup layout before fixing the archive descriptor. */
+			render_host_ui_only();
+			SDL_PumpEvents();
+		}
 		if (options.record) {
 			if (!vaeg_recording_session_start(options.record_path, options.record_source,
 			                                  options.record_frame_limit)) {
@@ -2383,7 +2399,7 @@ int main(int argc, char **argv) {
 	headless_input_script_clear(&input_script);
 	if (vaeg_recording_native_session_is_active() &&
 	    !vaeg_recording_native_session_stop()) {
-		fprintf(stderr, "Error: native recording stop failed: %s\n",
+		fprintf(stderr, "Error: recording stop failed: %s\n",
 		        vaeg_recording_native_session_last_error());
 		run_ok = FAILURE;
 	}

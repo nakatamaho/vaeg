@@ -56,9 +56,11 @@ VAEG_RECORDING_RUNTIME_RESULT vaeg_recording_runtime_step(int batch) {
 		return VAEG_RECORDING_RUNTIME_CONTINUE;
 	/* A rejected descriptor never enters the old stream. Save only already
 	 * accepted, complete intervals before the generic error path cancels them. */
-	if (!batch && !vaeg_recording_native_tap_is_active() &&
-	    vaeg_recording_native_tap_last_error() ==
-	        VAEG_RECORDING_NATIVE_TAP_ERROR_DESCRIPTOR_CHANGED) {
+	if (!batch && (vaeg_recording_session_displayed_capture_changed() ||
+	               (!vaeg_recording_session_is_displayed() &&
+	                !vaeg_recording_native_tap_is_active() &&
+	                vaeg_recording_native_tap_last_error() ==
+	                    VAEG_RECORDING_NATIVE_TAP_ERROR_DESCRIPTOR_CHANGED))) {
 		vaeg_recording_runtime_screen_changed();
 		return VAEG_RECORDING_RUNTIME_CONTINUE;
 	}
