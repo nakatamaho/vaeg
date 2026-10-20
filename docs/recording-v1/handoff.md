@@ -35,7 +35,11 @@ were corrected without relaxing exact decoded RGB/alpha assertions. Detailed
 commands, failed-attempt logs, worker/output identities and limits are retained
 in the task and `build/m100s10-evidence/validation.json`.
 
-**G100s10 remains OPEN.** Native Windows execution/playback, physical Linux GPU,
+**G100s10 PASSED by explicit maintainer acceptance** (`m100s10-displayed-windows-linux
+gate passed`) of the ce62cacd/37338696 handoff. No new platform checklist or
+machine evidence was supplied. Earlier open-gate statements are historical;
+acceptance does not convert unverified checks into machine passes.
+Native Windows execution/playback, physical Linux GPU,
 shader-runtime/Wayland coverage, guest boot/demo/OS and required private media/
 PSD/DOSBox regeneration are NOT_RUN/unverified, not inferred from builds or
 synthetic startup. No release/legal/distribution approval or next milestone is

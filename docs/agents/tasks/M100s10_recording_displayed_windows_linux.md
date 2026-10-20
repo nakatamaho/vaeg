@@ -23,14 +23,17 @@ no recording readback when disabled, and fail closed on acquisition errors.
 
 ## Gate
 
-OPEN. Human gate: clean static MinGW handoff, Windows and Linux Displayed recording
-with GUI/effects, decoded movie picture/audio/seek/EOF, resize/reset/stop and Native
-regressions; standard guest boot/demo/OS and all required media/demo build checks.
-No platform runtime success is inferred from a cross-build or mocked fixture.
+**G100s10 PASSED by explicit maintainer acceptance:**
+`m100s10-displayed-windows-linux gate passed`, accepting the handed-off
+ce62cacd application and 37338696 evidence checkpoint. No platform checklist,
+new capture, private-media result or codec redistribution approval was supplied;
+previous NOT_RUN/unverified checks remain so, not retrospectively PASS.
+The subsequent local-only encoder policy is documentation, not an encoder or
+MP4 feature implementation. Earlier open-gate wording below is historical.
 
 ## Status
 
-Client implementation is present; gate remains OPEN. SDL_Renderer already had
+Client implementation is accepted; G100s10 is closed by the maintainer. SDL_Renderer already had
 shared Displayed readback. Windows D3D11 now reuses its size-matched staging
 texture, releases it when capture is off, and clears completion before early
 failure. Linux now creates a GL-capable native window, supports pass-through
