@@ -31,6 +31,25 @@ previous NOT_RUN/unverified checks remain so, not retrospectively PASS.
 The subsequent local-only encoder policy is documentation, not an encoder or
 MP4 feature implementation. Earlier open-gate wording below is historical.
 
+## Main integration and retention
+
+- Gate record: [1f885c06](https://github.com/nakatamaho/vaeg/commit/1f885c0683a67ac3e90778ebc887e3c9bb09dae0).
+- No-ff milestone merge: [50b2c445](https://github.com/nakatamaho/vaeg/commit/50b2c4451647c2406c79a3473ab98f40a59186a3).
+- Published main integration: [25bbca7d](https://github.com/nakatamaho/vaeg/commit/25bbca7daa096610c59c8152cdd037feb65d6ae3).
+  A concurrent main push was preserved without force-pushing. Contrary to that
+  integration commit's overly narrow subject, it includes the concurrent CPU
+  multiplier/selftest changes from PR #32, not just documentation. The accepted
+  ce62cacd executables are not represented as rebuilt or tested on this new main.
+- Stable Windows handoff: `build/handoff/m100s10/windows-x64/vaeg.exe` and
+  `BUILD-REPORT.md`; Linux handoff remains `build/handoff/m100s10/linux-arm64/`.
+- `build/handoff/m100s10/preserved/preservation.json` maps original build/scratch
+  paths to retained SDK sources/intermediates, FFmpeg sources/stages, complete
+  outputs and logs. Windows executable and shader SDK hashes were rechecked.
+- After the gate/merge/roadmap push, remove only the three clean dedicated
+  MinGW build roots and the clean local topic branch contained in origin/main.
+  Keep this primary checkout, remote topic, unrelated local branches, handoffs,
+  evidence, stopped runtime storage and shared caches. No supplied asset is removed.
+
 ## Status
 
 Client implementation is accepted; G100s10 is closed by the maintainer. SDL_Renderer already had

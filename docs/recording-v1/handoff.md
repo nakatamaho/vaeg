@@ -14,9 +14,9 @@ Evaluated Release/build source:
 branch `m100s10-displayed-windows-linux`. Later evidence-only documentation does
 not change the application inputs.
 
-- **Windows x64:** `/Users/maho/work/pc88va/vaeg-mingw-ce62cacd/output/vaeg.exe`,
+- **Windows x64:** `/Users/maho/work/pc88va/vaeg/build/handoff/m100s10/windows-x64/vaeg.exe`,
   SHA-256 `22959a47da4fcf2cd8dd896c87ad41bb3e53d9725f81c67ba396782ad8b4d6a8`.
-  Report `/Users/maho/work/pc88va/vaeg-mingw-ce62cacd/output/BUILD-REPORT.md`.
+  Report `/Users/maho/work/pc88va/vaeg/build/handoff/m100s10/windows-x64/BUILD-REPORT.md`.
   Clean pushed clone, Release, recording ON, fully static desktop dependencies
   and Windows-system-only imports. Completed audited shader SDK reused read-only,
   no application objects reused. Verified retained copy/report:
@@ -44,6 +44,14 @@ shader-runtime/Wayland coverage, guest boot/demo/OS and required private media/
 PSD/DOSBox regeneration are NOT_RUN/unverified, not inferred from builds or
 synthetic startup. No release/legal/distribution approval or next milestone is
 implied. Previous G100s9 acceptance and its historical handoffs remain below.
+
+The accepted M100s10 branch is main-integrated at
+[25bbca7d](https://github.com/nakatamaho/vaeg/commit/25bbca7daa096610c59c8152cdd037feb65d6ae3).
+This also preserves a concurrent main CPU/selftest change; the accepted ce62cacd
+binaries are not a fresh build of that new main. Before scoped cleanup, complete
+SDK/FFmpeg/evidence outputs were retained under `build/handoff/m100s10/preserved/`
+with a verified path/digest map in `preservation.json`. Historical reports retain
+their original paths; current Windows handoff paths above point to verified copies.
 
 ## Active M100s9 follow-up
 
