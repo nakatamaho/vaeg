@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### Recording source selection returned to Native after restart
+
+- **Symptom/scope:** the frontend's Displayed video choice was lost on restart or
+  GUI renderer reinitialization, forcing the user to select it again.
+- **Demonstrated cause:** the choice existed only in `GuiState`, whose default is
+  Native; the host configuration had no source preference to save or restore.
+- **Correction:** save `RecordingSource` in the normal host configuration, mark
+  explicit GUI selection changes dirty, and restore the choice during GUI init.
+  Native remains the legacy default; invalid values normalize to Native. An
+  unavailable saved Displayed choice remains selected/unavailable, not silently
+  substituted. Neither loading the preference nor CLI recording overrides arm
+  recording or rewrite the GUI preference. `--no-cfg` retains its existing policy.
+- **Verification:** production INI save/load round trips for both sources, invalid
+  value and legacy missing-key checks, GUI selection/no-auto-arm checks, recording
+  ON/OFF frontend suites and isolated full selftests.
+- **Milestone/task/commit:** [M100s9 preference follow-up](../agents/tasks/M100s9_recording_presenter_readback.md#recording-source-preference-follow-up).
+  The fixing commit is linked in the subsequent evidence update.
+
 ### Metal GUI could abort on a newly requested font atlas
 
 - **Symptom/scope:** macOS Metal GUI presentation could abort on its first text

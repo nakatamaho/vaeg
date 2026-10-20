@@ -47,6 +47,23 @@ At final completion require actual macOS Displayed FFV1 playback and existing Na
 regression acceptance. Windows/Linux hardware availability and realtime audio are
 separate runtime gates, never inferred from an API name or a cross-build.
 
+## Recording source preference follow-up
+
+The maintainer requested that Displayed video remain selected after restarting.
+The GUI choice now persists as host-only `RecordingSource` in `vaeg.cfg`:
+0 = Native, 1 = Displayed. Explicit radio-button changes update the preference;
+GUI initialization (including renderer reinitialization) restores it. CLI source
+overrides do not change this preference, and restoring it never starts recording.
+A saved unavailable Displayed choice is retained with its unavailable message,
+not silently replaced. Existing/missing-key configurations default to Native and
+invalid values normalize to Native. `--no-cfg` still suppresses file persistence.
+No guest state/save-state format or source/compression contract changes.
+
+Tests extend the production configuration save/load selftest for both choices,
+invalid values and missing keys. GUI controls check that changing the preference
+updates host settings without arming recording. ON/OFF frontend/recording and
+isolated full selftests are rerun; final artifact identities follow separately.
+
 ## Latest-main rebuild requested by the maintainer
 
 Main [f25cda38](https://github.com/nakatamaho/vaeg/commit/f25cda385965d765441db9d6498fd40beae0a285)

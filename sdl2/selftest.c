@@ -2178,6 +2178,7 @@ static int test_profile_ini(void) {
 
 static int test_persistence_controls(void) {
 	char saved_crt[sizeof(np2oscfg.gui_shader_parameters)];
+	const BYTE saved_recording_source = np2oscfg.recording_source;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2211,6 +2212,42 @@ static int test_persistence_controls(void) {
 	if (strcmp(read_crt, np2oscfg.gui_shader_parameters) != 0) {
 		detail = "CRT parameters did not round-trip through the main config";
 	}
+	/* Exercise the production table and loader, not a parallel preference table. */
+	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT; source++) {
+		np2oscfg.recording_source = source;
+		initsave();
+		np2oscfg.recording_source = (BYTE)(1 - source);
+		initload();
+		if (np2oscfg.recording_source != source) {
+			detail = "recording source did not survive configuration reload";
+		}
+	}
+	np2oscfg.recording_source = 255;
+	initsave();
+	np2oscfg.recording_source = VAEG_RECORDING_SOURCE_DISPLAYED;
+	initload();
+	if (np2oscfg.recording_source != VAEG_RECORDING_SOURCE_NATIVE) {
+		detail = "invalid recording source did not fall back to Native";
+	}
+	/* A pre-preference config keeps the startup Native default. */
+	{
+		FILEH legacy = file_create(config_path);
+		const char section[] = "[NekoProjectII]\n";
+		if (legacy == FILEH_INVALID) {
+			detail = "legacy recording configuration fixture was not created";
+		} else {
+			if (file_write(legacy, section, sizeof(section) - 1) != sizeof(section) - 1) {
+				detail = "legacy recording configuration fixture was not written";
+			}
+			file_close(legacy);
+			np2oscfg.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
+			initload();
+			if (np2oscfg.recording_source != VAEG_RECORDING_SOURCE_NATIVE) {
+				detail = "missing recording preference changed the Native default";
+			}
+		}
+	}
+	np2oscfg.recording_source = saved_recording_source;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);

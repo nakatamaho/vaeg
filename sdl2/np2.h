@@ -103,6 +103,8 @@ typedef struct {
 	BYTE fdd_image_index[2];
 	/* M127: YUI/HJK/NM,. as keypad digits, independent of cursor keys. */
 	BYTE keyboard_letter_keypad;
+	/* GUI recording preference only; never starts a recording on launch. */
+	BYTE recording_source;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)
