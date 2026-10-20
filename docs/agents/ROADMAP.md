@@ -40,20 +40,20 @@ M36–M41 archive status.
 
 | ID  | Task file                  | Deliverable | Gate |
 |-----|----------------------------|-------------|------|
-| M0  | tasks/M0_inventory.md      | Inventory report (no repo mutation) | review only |
-| M1  | tasks/M1_vs2008_baseline.md | VS2008 Win32 Release builds as-is | **G1** human |
-| M2  | tasks/M2_vs2017_v141.md    | v141 build of unmodified code | **G2** human |
-| M3  | tasks/M3_prune.md          | Unreferenced files deleted from approved list | **G3** human |
-| M4  | tasks/M4_lowercase.md      | All tracked paths lowercase | **G4** human |
-| M5  | tasks/M5_eol_lf.md         | LF everywhere except declared CRLF exceptions; `.gitattributes` | **G5** human |
-| M6  | tasks/M6_utf8.md           | UTF-8 without BOM sources; charset flags decided | **G6** human |
-| M7  | tasks/M7_cmake_core.md     | CMake skeleton; NP2 core libs compile with gcc+clang on Linux; portable `sdl2/compiler.h` | **G7** machine + review |
-| M8  | tasks/M8_sdl2_frontend.md  | `sdl2/` SDL2 frontend (video/audio/input/timer/main loop) runs the PC-98 core on Linux | **G8** human |
-| M9  | tasks/M9_va_portable.md    | `cpucva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9** human (standard VA gate) |
-| M10 | tasks/M10_imgui.md         | Dear ImGui GUI: mount/reset/state/display/sound/exit; GUI-PARITY.md | **G10** human |
-| M11 | tasks/M11_mingw_macos.md   | MinGW + macOS builds via CMake presets; UTF-8 path boundary on Windows | **G11** human per OS |
-| M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
-| M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13** human sign-off |
+| M0  | tasks/M0_inventory.md      | Inventory report (no repo mutation) | **Review passed** |
+| M1  | tasks/M1_vs2008_baseline.md | VS2008 Win32 Release builds as-is | **G1 passed** (human) |
+| M2  | tasks/M2_vs2017_v141.md    | v141 build of unmodified code | **G2 passed** (human) |
+| M3  | tasks/M3_prune.md          | Unreferenced files deleted from approved list | **G3 passed** (human) |
+| M4  | tasks/M4_lowercase.md      | All tracked paths lowercase | **G4 passed** (human) |
+| M5  | tasks/M5_eol_lf.md         | LF everywhere except declared CRLF exceptions; `.gitattributes` | **G5 passed** (human) |
+| M6  | tasks/M6_utf8.md           | UTF-8 without BOM sources; charset flags decided | **G6 passed** (human) |
+| M7  | tasks/M7_cmake_core.md     | CMake skeleton; NP2 core libs compile with gcc+clang on Linux; portable `sdl2/compiler.h` | **G7 passed** (machine + review) |
+| M8  | tasks/M8_sdl2_frontend.md  | `sdl2/` SDL2 frontend (video/audio/input/timer/main loop) runs the PC-98 core on Linux | **G8 passed** (human) |
+| M9  | tasks/M9_va_portable.md    | `cpucva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9 passed** (human, standard VA gate) |
+| M10 | tasks/M10_imgui.md         | Dear ImGui GUI: mount/reset/state/display/sound/exit; GUI-PARITY.md | **G10 passed** (human) |
+| M11 | tasks/M11_mingw_macos.md   | MinGW + macOS builds via CMake presets; UTF-8 path boundary on Windows | **G11 passed** (human per OS) |
+| M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12 passed** (machine) |
+| M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13 passed** (human sign-off) |
 | M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS physical, US keytop, and custom presets; Kana/Roman-Kana input; tenkeyless overlay; GUI binding table | **G14 passed** |
 | M15 | tasks/M15_support_pc88va_constant_fold.md | Fold the always-enabled `SUPPORT_PC88VA` compile-time flag in the active tree while retaining runtime model selection | **G15 passed** |
 | M16 | tasks/M16_sasi_hdd_gui.md | Reactivate SASI in active CMake; expose SASI HDI creation and SASI-1/SASI-2 Open/Remove in the SDL2 ImGui HardDisk menu | **G16 passed** |
