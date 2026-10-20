@@ -119,9 +119,22 @@ BYTE textcolorraster[SURFACE_WIDTH];
  * the whole text screen, on top of each character's own reverse attribute.
  * The VA ROMs set it in V1/V2 mode when compatible code starts the uPD3301
  * display with its reverse bit (START DISPLAY, 21h).
+ *
+ * M129: the PC-88VA and PC-88VA2 apply it whatever the graphics mode (the
+ * PC-8801mkIISR demonstration's CARIGRAPH is black lines on white on both).
+ * A PC-8801mkIISR shows that scene white on black: a PC-8801 model started
+ * from extra/ ignores the reverse while port 31h selects monochrome
+ * graphics (bit 4 clear), as QUASI88 does. The PC-8001 family, which has no
+ * colour/monochrome graphics switch, always applies it (MAME pc8001).
  */
 static BOOL textva_global_reverse(void) {
-	return (tsp.syncparam[1] & 0x08) ? TRUE : FALSE;
+	if (!(tsp.syncparam[1] & 0x08)) {
+		return FALSE;
+	}
+	if (memoryva_pc8801 && memoryva_88_mode && !(memoryva_88_port31 & 0x10)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 
 #if defined(USETABLE)
