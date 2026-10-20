@@ -163,7 +163,7 @@ docker_args=()
 if [[ -n "${shader_sdk}" ]]; then
 	docker_args+=(-v "${shader_sdk}:/shader-sdk:ro")
 fi
-docker run --rm "${docker_args[@]}" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
+docker run --rm ${docker_args[@]+"${docker_args[@]}"} -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
 	-v "${work_dir}:/work" "${image}" /work/inner.sh
 
 exe="${work_dir}/output/vaeg.exe"
