@@ -12,6 +12,13 @@ No platform-by-platform runtime checklist was supplied. Missing local media/PSD/
 DOSBox regeneration evidence remains NOT_RUN/BLOCKED; H.264, Windows standard-API,
 other device/platform and distribution/legal gates are not implied by acceptance.
 Earlier open-gate statements in the retained evidence below are historical.
+[Gate record 1325121e](https://github.com/nakatamaho/vaeg/commit/1325121eb0ffa107a9eacfc19615292788673d7a)
+is merged to main by
+[4b487028](https://github.com/nakatamaho/vaeg/commit/4b4870281afed01e723834e5f36075f68635340f)
+without changing the accepted source tree. Handoffs and expensive SDK/evidence
+results are verified and retained under `build/handoff/m100s9-accepted/` before
+scoped build-tree/worktree/local-topic cleanup. The original a4c0b6a0 binary is
+retained, not relabeled as a newly built merge binary; see the handoff for paths.
 
 Current preference follow-up:
 [a4c0b6a0](https://github.com/nakatamaho/vaeg/commit/a4c0b6a02fdd616071044c39d49c1fe6c1ccb162)

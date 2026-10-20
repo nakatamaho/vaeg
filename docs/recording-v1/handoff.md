@@ -14,6 +14,22 @@ selectable from Native, with FFV1 and hardware H.264 as separate compression
 choices; Windows/MinGW and supported Linux devices follow. Branch publication is
 authorized; the historical LOCAL_ONLY text below is not a current push ban.
 G100s9 acceptance authorizes the normal main integration and scoped cleanup.
+[Gate record](https://github.com/nakatamaho/vaeg/commit/1325121eb0ffa107a9eacfc19615292788673d7a)
+was followed by the
+[no-ff main merge](https://github.com/nakatamaho/vaeg/commit/4b4870281afed01e723834e5f36075f68635340f).
+The merge tree equals the accepted gate-record tree; changes since evaluated
+a4c0b6a0 are documentation-only, so completed behavioral/dependency runs are reused.
+Accepted and earlier handoff outputs, the complete audited expensive shader SDK,
+FFmpeg dependency stage and exact logs are retained under
+`build/handoff/m100s9-accepted/` with verified copies in `preservation.json`.
+Historical reports/evidence indexes retain their original build-tree paths; the
+preservation manifest maps those paths to the retained outputs. The current
+Windows executable below is a byte-identical retained copy, not a new main build.
+The three dedicated M100s9 static MinGW build trees and temporary merge worktree/
+local topic branches are cleaned only after the gate/merge/roadmap push and clean/
+origin-main containment checks. The primary checkout, unrelated local main commit
+and M100r2 worktree, remote topic, shared/VM caches, evidence directories and private
+scratch of unestablished provenance are kept; no supplied assets are removed.
 Realtime H.264/Media Foundation, other platforms/devices and legal/distribution
 approval remain separate. Earlier evidence/open-gate statements below are historical.
 
@@ -51,9 +67,9 @@ Current artifacts (evaluated preference fix a4c0b6a0; applications rebuilt/retes
   Release/arm64/recording ON, static desktop dependencies and Apple-only dynamic
   imports; existing build directory, not a new-clone macOS artifact. Dependency
   macOS-version/alignment warnings mean older-macOS runtime remains unverified.
-- Windows cross-build: `/Users/maho/vaeg-mingw-a4c0b6a0/output/vaeg.exe`,
+- Windows cross-build: `/Users/maho/vaeg/build/handoff/m100s9-accepted/a4c0b6a0/output/vaeg.exe`,
   SHA-256 `b3595e5c02c558502fe18c91021db461b537717cafa02f40c6f7214598ff3e4d`;
-  report `/Users/maho/vaeg-mingw-a4c0b6a0/output/BUILD-REPORT.md`.
+  report `/Users/maho/vaeg/build/handoff/m100s9-accepted/a4c0b6a0/output/BUILD-REPORT.md`.
   Clean pushed-source clone, recording ON, static dependencies/runtimes, embedded
   commit/date and Windows-system-only imports verified. The new helper exits 0;
   only the independently validated unchanged shader SDK is reused by an explicit

@@ -56,6 +56,33 @@ unapproved gates. No implementation of another milestone is part of this closure
 Gate record, no-ff main merge and roadmap record are published before cleanup;
 accepted handoff artifacts and expensive dependency/evidence results are preserved.
 
+## Accepted main integration and cleanup handoff
+
+- Gate record:
+  [1325121e](https://github.com/nakatamaho/vaeg/commit/1325121eb0ffa107a9eacfc19615292788673d7a).
+- No-ff main merge:
+  [4b487028](https://github.com/nakatamaho/vaeg/commit/4b4870281afed01e723834e5f36075f68635340f).
+  Its tree equals the accepted gate-record tree; build-relevant inputs are unchanged
+  from evaluated a4c0b6a0. No unchanged expensive test/dependency run is repeated.
+- Retained Windows handoff:
+  `/Users/maho/vaeg/build/handoff/m100s9-accepted/a4c0b6a0/output/vaeg.exe`,
+  SHA-256 `b3595e5c02c558502fe18c91021db461b537717cafa02f40c6f7214598ff3e4d`;
+  report in that directory: `BUILD-REPORT.md`. This is the accepted a4c0b6a0
+  executable, not a newly built main-merge binary. macOS remains at the path below;
+  a verified copy is retained beside the Windows handoff too.
+- `build/handoff/m100s9-accepted/preservation.json` maps historical output paths
+  to verified retained copies for 73948eaa, bc0198b9 and a4c0b6a0. Complete audited
+  SDK sources/compiled intermediates, dependency stages and original evidence stay
+  available after removing the three dedicated MinGW build trees.
+- After the gate/merge/roadmap push: remove only those three MinGW trees and the
+  clean temporary merge worktree/local topic branches contained in origin/main.
+  Keep the primary checkout (detached at origin/main because local main has an
+  unrelated unmerged commit), unrelated M100r2 worktree/local main history, remote
+  branch, shared/VM caches, source-preference/completion evidence and private scratch
+  whose provenance is not established. No supplied media/photos/archives are removed.
+- Local media rebuilds remain NOT_RUN/BLOCKED. No new hardware/platform/legal
+  acceptance or follow-on implementation is inferred from the human gate pass.
+
 ## Recording source preference follow-up
 
 The maintainer requested that Displayed video remain selected after restarting.
