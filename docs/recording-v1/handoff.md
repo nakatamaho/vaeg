@@ -1,5 +1,46 @@
 # Recording v1 handoff
 
+## Active M100s10 — Windows/MinGW and Linux Displayed archive
+
+Maintainer-requested continuation after G100s9:
+[M100s10 task and validation](../agents/tasks/M100s10_recording_displayed_windows_linux.md).
+Client Displayed FFV1/PCM is implemented for Windows D3D11/common SDL and Linux
+native OpenGL/common SDL. Linux now composes the real GUI and reads its final
+back buffer before swap; Windows reuses bounded staging. No second shader pass,
+Native substitution, decorated OS capture or realtime H.264 is added.
+
+Evaluated Release/build source:
+[ce62cacd](https://github.com/nakatamaho/vaeg/commit/ce62cacd32885f5980c98d264c6e857b8c9c2795),
+branch `m100s10-displayed-windows-linux`. Later evidence-only documentation does
+not change the application inputs.
+
+- **Windows x64:** `/Users/maho/work/pc88va/vaeg-mingw-ce62cacd/output/vaeg.exe`,
+  SHA-256 `22959a47da4fcf2cd8dd896c87ad41bb3e53d9725f81c67ba396782ad8b4d6a8`.
+  Report `/Users/maho/work/pc88va/vaeg-mingw-ce62cacd/output/BUILD-REPORT.md`.
+  Clean pushed clone, Release, recording ON, fully static desktop dependencies
+  and Windows-system-only imports. Completed audited shader SDK reused read-only,
+  no application objects reused. Verified retained copy/report:
+  `build/handoff/m100s10/windows-x64/`.
+- **Linux arm64:** `/Users/maho/work/pc88va/vaeg/build/handoff/m100s10/linux-arm64/vaeg`,
+  SHA-256 `063af9827e8584339ffbee4fc64dd49d792c4425de914a52cb2339c58295a307`.
+  Report in that directory: `BUILD-REPORT.md`. Ubuntu 24.04 Release, recording ON;
+  system SDL2/LibArchive/FFmpeg dependencies, not x86-64 or a static distribution.
+  Actual native GL GUI startup and four-frame Displayed FFV1/PCM save/decode pass
+  with intentionally empty ROMs, Xvfb/Mesa software GL and dummy audio.
+
+Linux/macOS recording ON/OFF suites pass; Linux full selftests, real GL exact
+capture/pack-state/error/off tests, focused ASan/UBSan and Linux/MinGW strict
+compiles pass. Linux FFmpeg 6 AVIO signature and tiny multi-slice image failures
+were corrected without relaxing exact decoded RGB/alpha assertions. Detailed
+commands, failed-attempt logs, worker/output identities and limits are retained
+in the task and `build/m100s10-evidence/validation.json`.
+
+**G100s10 remains OPEN.** Native Windows execution/playback, physical Linux GPU,
+shader-runtime/Wayland coverage, guest boot/demo/OS and required private media/
+PSD/DOSBox regeneration are NOT_RUN/unverified, not inferred from builds or
+synthetic startup. No release/legal/distribution approval or next milestone is
+implied. Previous G100s9 acceptance and its historical handoffs remain below.
+
 ## Active M100s9 follow-up
 
 [M100s9](../agents/tasks/M100s9_recording_presenter_readback.md) is now accepted:
