@@ -96,3 +96,38 @@ on white booted as VA and VA2, and white on black on the PC-8801mkIISR model.
   `check_md_comments.py`: exit 0. The pinned `clang-format-mp-22` is not
   installed here; `clang-format-18 --dry-run` reports nothing for the
   changed C files, as for their `main` versions. `git diff --check` clean.
+
+## Media build regression
+
+Clean clone of `43e63ee82ff7d590e0bd31fac396a9192db6f14a`, shared caches,
+private system disks copied to task scratch (paths omitted):
+
+| Command | Exit | Output SHA-256 |
+|---|---:|---|
+| `build-utility-disk.sh` (PC-Engine 1.1) | 0 | FDD `81f85d4231395d8ea2f6e995740823c0fa5b101dd9fe0c1151639d7838dded52` (4096 bytes free) |
+| `build-sasi-utility-disks.sh` (1.05 VA, 1.1 VA2) | 0 | VA `6fc3052870b36ab5206fc536ac1a943b5acf8557860570c6b16459692fa0e934`, VA2 `d72e9e5e4c1c89f5ae909dc218b49c0a3a557daeba94be82311cec6ea2ad8e96` |
+| `glass-orbit/build-d88.sh` | 0 | `2477a0bfe2b623fa9fd0c7c4f07bd8429d755aa613c91f49d636085b8bd967b7` |
+| `neon3/build-d88.sh` | 0 | `1794434fa19732646a244cd6f53d6b91fe141de5ae606ad142e996a8f6610add` |
+| `neon4/build-d88.sh` | 0 | `95d2e36ca185e9c5b74b662b84cf9cbbe244f6a811f80961a4abe5189daa3f2e` |
+| `sgp-pseudo-sprite/build-d88.sh` | 0 | `8c3b0264f0070ca054ea7dd1326f3827b3efdb641535d2fbf00ebc10d4379a9b` |
+| `sgp-wireframe/build-d88.sh` | 0 | `eaac64d8a1ca4ce2237e3f2a52608424b9500f775a963862c0cc571b9906d63b` |
+| `zundamon-orbit/build-from-psd.sh` | 0 | `5b4380b108f7642b72112575e6fcd5697559fbc09dbbf8eba128d832742005a0` |
+| `build-all-demos-distribution-disk.py` | 0 | `c15a0fea96cb63b3cac6c554c6258e3d30e5e2e6b169fdadbb26da915cc4ec69` |
+| `build-all-demos-msdos4-disk.py` (`msdos4-va.2`) | 0 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| `sgp-boot/build-boot-d88.py` | 0 | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
+
+Every file of every regenerated FAT image is byte-identical to the committed
+`.d88.xz` (the remaining differences are directory dates); the
+all-demos-msdos4 and SGP boot `.xz` are byte-identical. In vaeg (M129
+release build) the utility FDD boots PC-Engine 1.1 on the VA2, and each SASI
+image alone boots PC-Engine on its model (1.05 VA, 1.1 VA2) once a backup
+memory record exists (`--no-bkupmem` leaves no record for the fixed-disk boot
+bit, M106). M129 changes no demo or media source.
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+43e63ee82ff7d590e0bd31fac396a9192db6f14a` completed: commit embedded,
+imports Windows system DLLs only. `vaeg.exe` SHA-256
+`b4e39261d27d9f3454f72264204269427597ad263f475d091d5cb293312f7fd4`.
+Later commits on this branch are documentation only.
