@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "recording_mp4_sink.hpp"
+#include "recording_autorelease_pool.hpp"
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <CoreVideo/CoreVideo.h>
@@ -68,7 +69,7 @@ class MacSink final : public Mp4Sink {
 	explicit MacSink(const Mp4Config &config) : config_(config) {
 	}
 	void open() {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			NSString *path = [NSString stringWithUTF8String:config_.path.c_str()];
 			NSError *failure = nil;
 			writer_ = [[AVAssetWriter alloc] initWithURL:[NSURL fileURLWithPath:path]
@@ -137,7 +138,7 @@ class MacSink final : public Mp4Sink {
 			if (![writer_ startWriting])
 				error("MP4_MAC_START");
 			[writer_ startSessionAtSourceTime:kCMTimeZero];
-		}
+		});
 	}
 	~MacSink() override {
 		@autoreleasepool {
@@ -160,7 +161,7 @@ class MacSink final : public Mp4Sink {
 		}
 	}
 	void video(const uint8_t *bgra, int64_t pts, int64_t duration) override {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			ready(video_);
 			CF<CVPixelBufferRef> buffer;
 			NSDictionary *threshold = @{(id)kCVPixelBufferPoolAllocationThresholdKey : @8};
@@ -187,10 +188,10 @@ class MacSink final : public Mp4Sink {
 				error("MP4_MAC_VIDEO_SAMPLE");
 			if (![video_ appendSampleBuffer:sample.ref])
 				error("MP4_MAC_VIDEO_WRITE");
-		}
+		});
 	}
 	void audio(const int16_t *pcm, size_t frames, int64_t pts) override {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			ready(audio_);
 			CF<CMBlockBufferRef> block;
 			CF<CMSampleBufferRef> sample;
@@ -205,23 +206,23 @@ class MacSink final : public Mp4Sink {
 				error("MP4_MAC_AUDIO_SAMPLE");
 			if (![audio_ appendSampleBuffer:sample.ref])
 				error("MP4_MAC_AUDIO_WRITE");
-		}
+		});
 	}
 	bool parallel_inputs() const override {
 		return true;
 	}
 	void end_video() override {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			[video_ markAsFinished];
-		}
+		});
 	}
 	void end_audio() override {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			[audio_ markAsFinished];
-		}
+		});
 	}
 	void finish() override {
-		@autoreleasepool {
+		with_autorelease_pool([&] {
 			auto done = std::make_shared<std::atomic<bool>>(false);
 			[writer_ finishWritingWithCompletionHandler:^{
 			  done->store(true);
@@ -236,7 +237,7 @@ class MacSink final : public Mp4Sink {
 			if (writer_.status != AVAssetWriterStatusCompleted)
 				error("MP4_MAC_FINISH");
 			finished_ = true;
-		}
+		});
 	}
 };
 }

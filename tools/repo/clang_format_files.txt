@@ -254,6 +254,7 @@ sdl2/np2.c
 sdl2/np2.h
 sdl2/pacing.c
 sdl2/pacing.h
+sdl2/recording/recording_autorelease_pool.hpp
 sdl2/recording/recording_mp4.cpp
 sdl2/recording/recording_mp4.h
 sdl2/recording/recording_mp4_local.cpp
@@ -329,6 +330,7 @@ sound/vermouth/midvoice.c
 sound/vermouth/midvoice.h
 sound/vermouth/vermouth.h
 sound/ymfmbridge.h
+tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h

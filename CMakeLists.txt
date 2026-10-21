@@ -1042,6 +1042,18 @@ if(VAEG_ENABLE_TESTS)
         target_link_options(vaeg_recording_mp4_test PRIVATE -municode)
     endif()
     add_test(NAME vaeg_recording_mp4 COMMAND vaeg_recording_mp4_test)
+    if(APPLE)
+        add_executable(vaeg_recording_autorelease_pool_test
+            tests/frontend/recording/test_recording_autorelease_pool.mm)
+        target_include_directories(vaeg_recording_autorelease_pool_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+        target_compile_features(vaeg_recording_autorelease_pool_test PRIVATE cxx_std_17)
+        target_compile_options(vaeg_recording_autorelease_pool_test PRIVATE -fobjc-arc)
+        target_link_libraries(vaeg_recording_autorelease_pool_test PRIVATE "-framework Foundation")
+        add_test(NAME vaeg_recording_autorelease_pool COMMAND vaeg_recording_autorelease_pool_test)
+        set_tests_properties(vaeg_recording_autorelease_pool PROPERTIES
+            LABELS "frontend;recording;romless;mp4")
+    endif()
     add_test(NAME vaeg_mp4_build_policy
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_mp4_policy.py")
     set_tests_properties(vaeg_recording_mp4 vaeg_mp4_build_policy PROPERTIES
