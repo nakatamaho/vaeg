@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### Valid native 60 Hz recordings failed compression with MP4_VIDEO_LAYOUT
+
+- **Symptom/scope:** a maintainer reported compression failure. A synthetic clip
+  produced by vaeg's own FFV1/PCM encoders and Matroska writer reproduces the same
+  `MP4_VIDEO_LAYOUT`; the source MKV remains valid and unchanged.
+- **Demonstrated cause:** initial decoded native frames lack duration metadata.
+  The converter substituted 16.667 ms and required the next PTS to be at least
+  that estimated end. Valid 60 Hz timestamps rounded to Matroska milliseconds,
+  `0,17,33,...`, fail because 33 is less than `17 + 16.667`. Dimensions/BGRA
+  layout are valid. Earlier export fixtures were made by the FFmpeg CLI and
+  supplied duration hints, missing this actual-writer case.
+- **Correction:** retain one pending scaled frame; emit it with the interval to
+  the next strictly increasing actual PTS. Only the last frame uses a duration
+  hint/nominal media rate. No tolerance, timestamp rewriting or source mutation;
+  true duplicate/backward PTS now fail specifically with `MP4_VIDEO_TIMESTAMP`.
+- **Verification:** the old worker rejects the same native 640x400/60 Hz clip;
+  corrected macOS/Linux workers export all 60 frames with PTS within 1 ms, audio,
+  full decode and unchanged source digests. Two single-timestamp mutations,
+  preserving valid cluster CRCs, each fail with the exact timestamp error and
+  no published output. Existing eight-case export profiles and ON/OFF suites pass.
+- **Milestone/task/commit:** [M100s11 regression evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/3473d15759057ff2974cca74c6f015ef71003f0f).
+
 ### macOS MP4 cancellation could leave an empty job temporary directory
 
 - **Symptom/scope:** a real macOS post-recording cancellation returned

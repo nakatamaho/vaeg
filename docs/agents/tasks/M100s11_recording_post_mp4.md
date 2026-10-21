@@ -310,3 +310,69 @@ Retain all old binaries/build roots/evidence, including the simple-label
 historical runtime evidence. **G100s11 remains OPEN**: native Windows execution,
 physical platform, guest boot/demo/OS and all required private-media gates are
 still NOT_RUN; no release/legal/distribution approval is inferred.
+
+### Reported MP4_VIDEO_LAYOUT on native recordings
+
+The maintainer's error is reproduced with a public fixture through vaeg's own
+FFV1/PCM/Matroska path, without accessing or publishing the maintainer's clip.
+Missing initial frame durations plus 1 ms timestamp quantization caused a false
+comparison of 33 ms with an estimated previous end of 33.667 ms. The old worker
+(SHA `1fac9578c0be14182d4305a3f2caef89b379f01b0097de774fe5347fc2887252`)
+rejects that valid 640x400/60 Hz recording. This is not a demonstrated pixel-format
+or damaged-media problem. [Permanent ledger](../../modernization/bug-fixes.md).
+
+[3473d157](https://github.com/nakatamaho/vaeg/commit/3473d15759057ff2974cca74c6f015ef71003f0f)
+uses one-frame lookahead and adjacent actual PTS to determine video duration,
+retaining bounded memory and strict increasing timestamps. Only the final frame
+uses a duration hint/nominal rate. True duplicate/backward timestamps are rejected
+with `MP4_VIDEO_TIMESTAMP`, not accepted with an arbitrary tolerance.
+
+The native timing regression uses the actual archive encoders/writer, not FFmpeg
+CLI-generated input. Baseline: 60 frames, full decode, original PTS within 1 ms,
+H.264/640x400 plus AAC/48 kHz/stereo, unchanged input. Two separate mutations alter
+only the third video timestamp (duplicate/backward), updating the cluster CRC;
+both require precisely `MP4_VIDEO_TIMESTAMP`, source retention, no MP4 or job temp.
+Command per backend (exit 0, three cases):
+
+```sh
+python3 tests/frontend/recording/test_mp4_native_timing.py \
+  --writer build/m100s11-mac-on/vaeg_recording_matroska_test \
+  --worker build/m100s11-mac-on/vaeg_recording_mp4_test \
+  --work /tmp/m100s11/video-layout/mac-native-final
+# Linux local container: linux-local targets and /evidence/video-layout/linux-native-final.
+```
+
+Both original eight-case export profiles also pass with the new workers.
+Recording CTest ON/OFF: macOS 28/19, Linux 26/18/local 26, exit 0/0 failed, prior
+skip/disabled qualifications unchanged. Final macOS ON/OFF and Linux local full
+selftests with dummy SDL/audio explicitly exit 0, including the new retry-field
+layout. The policy/static resolver 20/7 results are reused: their source, CMake
+policy, dependency identity and comparison contracts did not change.
+
+[e6eb60aa](https://github.com/nakatamaho/vaeg/commit/e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec)
+also allows an explicit existing MKV path in recording settings, so replacing the
+application/restarting no longer prevents retrying a previously saved recording.
+The field is separate from new-recording output, never starts/overwrites a
+recording and uses the same protected background converter. Empty means this
+process's last successful recording. This GUI-only change leaves the completed
+conversion worker digests unchanged:
+
+- macOS: `c2d9f43cad5e21ec88ebff8686590ecdc1f37648675eadec4965f81b6bc55e49`.
+- Linux: `8adcb443c4e7cbdd9b106dda29bca25e90a292162d7585044ff133c3c5c3f560`.
+
+Final source is e6eb60aa; evidence `build/m100s11-evidence/video-layout/validation.json`,
+SHA-256 `e45575d2746f074223c3a6eb46c1c67ad4aab9480c9495fde6d46965ebbfce0c`.
+Encoding/EOL/case/Markdown/whitespace checks pass; source/changed-line formatting
+has no new findings. Whole-manifest inherited formatting exceptions are unchanged.
+
+Updated clean Windows executable:
+`/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/vaeg.exe`, 59,211,391 bytes,
+SHA-256 `a7e0889bfe1bfcf224a685c8375c4c281dfb3651cb0ca4f41973e598e0674bcd`.
+Report `/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/BUILD-REPORT.md`, SHA-256
+`2db57eda465cf7244d74f2c01379739a36b680c5dc79763761ecf1a281eb93aa`.
+The usual clean static helper with `--commit e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec
+--recording --shader-sdk "$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`
+exits 0; minimal codec-registration/system-DLL import audits pass. Windows uses
+OS encoders, not bundled static H.264/AAC. Keep the intermediate 3473d157 build
+and all previous artifacts. Actual Windows/user-clip playback, private-media
+and hardware acceptance remain unverified: **G100s11 OPEN**.

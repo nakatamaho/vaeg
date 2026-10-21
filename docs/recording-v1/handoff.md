@@ -31,14 +31,15 @@ replaced. This does not enable realtime H.264/host-audio-clock recording.
 ### Windows clean-build artifact
 
 Evaluated pushed source:
-[`6de8b9085f83ddbbfe55dbe731ac27d465fda2df`](https://github.com/nakatamaho/vaeg/commit/6de8b9085f83ddbbfe55dbe731ac27d465fda2df).
-Includes the simple 「圧縮する」 label and persistent compression notification.
+[`e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec`](https://github.com/nakatamaho/vaeg/commit/e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec).
+Includes the simple 「圧縮する」 label, persistent notification, actual-writer
+60 Hz timestamp correction and explicit saved-MKV retry after restarting.
 Later completion documentation does not change build-relevant inputs.
 
-- Executable: `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/vaeg.exe`
-- SHA-256: `71fc5afc7664a1b5e2ceda3b7eff0b94ac701e055d269635633cb988496142cf`
-- Size: 59,210,873 bytes.
-- Report: `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/BUILD-REPORT.md`
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/vaeg.exe`
+- SHA-256: `a7e0889bfe1bfcf224a685c8375c4c281dfb3651cb0ca4f41973e598e0674bcd`
+- Size: 59,211,391 bytes.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/BUILD-REPORT.md`
 - Fresh clone/application objects, pinned container, recording ON, static desktop
   dependencies/minimal LGPL FFmpeg, Windows-system-only imports. Completed shader
   dependency SDK reused read-only/audited. LOCAL_ONLY encoders OFF; FFmpeg encoder
@@ -49,7 +50,15 @@ shared host dependencies, not a portable release). Linux LOCAL_ONLY application:
 `build/m100s11-linux-local/sdl2/vaeg` (arm64, private validation only).
 No private-codec artifact is published or copied to a handoff/release directory.
 
-Current notification/cleanup evidence: `build/m100s11-evidence/notification/validation.json`,
+Current native-timing/retry evidence: `build/m100s11-evidence/video-layout/validation.json`,
+SHA-256 `e45575d2746f074223c3a6eb46c1c67ad4aab9480c9495fde6d46965ebbfce0c`.
+Actual vaeg-writer 60 Hz export and two precise timestamp negatives pass on
+macOS/Linux, in addition to the existing eight-case export profiles. Original
+MKVs can be retried via 「圧縮する録画 (.mkv)」 with an unquoted full path.
+The old `MP4_VIDEO_LAYOUT` error was reproduced on a valid native recording;
+adjacent PTS now determine frame intervals without false overlap rejection.
+
+Previous notification/cleanup evidence: `build/m100s11-evidence/notification/validation.json`,
 SHA-256 `55de933a21069c353a1f503dd3dd0a83f2f410cddaec940f0e2d66443d69aaf0`.
 Initial converter evidence remains at `build/m100s11-evidence/final/validation.json`,
 SHA-256 `685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
