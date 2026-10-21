@@ -413,3 +413,64 @@ the completed eight/three-case evidence; no unaffected expensive profile was
 rerun. No native execution of the diagnostic or correction is claimed. No
 private media/name/hash was requested or published. Screenshot-rotation work
 was paused without source edits to prioritize this failure. **G100s11 OPEN.**
+
+### Finalize identified; source-derived native synthetic probe
+
+The maintainer retried 744fcbcb and confirms exactly
+`MP4_WINDOWS_API_FINALIZE: 0x80070057`. This excludes the subsequent close as
+that returning call; it does not identify the underlying encoder/muxer cause.
+WriteSample returning success does not establish that all queued samples encoded
+successfully. The Microsoft [Finalize contract](https://learn.microsoft.com/en-us/windows/win32/api/mfreadwrite/nf-mfreadwrite-imfsinkwriter-finalize)
+already includes end-of-segment markers; no missing-marker hypothesis, ignored
+HRESULT, arbitrary codec change or claimed correction was introduced.
+
+[cb0e2413](https://github.com/nakatamaho/vaeg/commit/cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5)
+adds a separate synthetic Windows probe, not a vaeg replacement. The production
+adapter and converter are unchanged. A pure generator extracts the production
+NV12 converter verbatim and creates adapter copies with read-only pre/post
+Finalize statistics and optional post-Finalize encoder-header queries. The
+copies differ only in hardware-transform preference (plus symbol disambiguation
+at compilation). Query failure cannot replace/suppress the original HRESULT.
+
+Six focused content/generation tests pass: baseline exact variant delta and
+pixel-function identity; separate single mutations remove/duplicate Finalize,
+remove hardware preference, remove the pixel function and remove its boundary.
+Each negative starts from a passing fixture and asserts the precise stable
+error code. No Git history, compiler or large corpus can mask these checks.
+Final x64 Ubuntu 24.04/GCC 13-posix compilation uses strict warning errors and
+static runtimes, matching the application's compiler family. Commands/exit 0:
+
+```sh
+python3 tests/frontend/recording/test_mp4_windows_probe_build.py
+# Existing task-local Ubuntu container, repository mounted at /work:
+docker exec -w /work m100s11-linux python3 tools/release/build-mp4-windows-probe.py \
+  --output-dir /work/build/m100s11-windows-probe-cb0e2413
+docker exec -w /work m100s11-linux python3 tools/release/check-static-windows-imports.py \
+  --binary build/m100s11-windows-probe-cb0e2413/mp4-windows-probe.exe
+```
+
+Import audit: kernel32.dll, msvcrt.dll, ole32.dll only; System32 MF dynamically
+loads as in production. No FFmpeg, private SDK or bundled H.264/AAC implementation
+is linked. Format/encoding/EOL/case/Markdown/whitespace checks pass. Initial
+Python 3.9 write_text newline-argument and missing mfidl include failures remain
+preserved in precommit output directories; the corrected tool compiles locally
+and in Ubuntu. No unchanged emulator behavior profile was rerun.
+
+Handoff executable:
+`/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/mp4-windows-probe.exe`,
+SHA-256 `1c308ff08fe6dc3bb713e7cd17104f3bf91c1df263a8c80e369ef3be3fd9b44a`.
+Report: `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/build-report.json`,
+SHA-256 `c8b6b7561ed5e3a9d47829b97120b036ffaf9db8f8f0cfb6c584788e09916237`.
+Build report records evaluated commit, input/generated-source hashes, compiler,
+exact commands/exits and executable digest. This standalone probe does not need
+or read ROMs, existing MKVs, private media or a GPU/window frontend. It writes
+only into a newly exclusive directory and retains synthetic failed partials;
+production failed-output cleanup is unchanged.
+
+Native execution pending: sixteen combinations of 640x400/1278x720/400x640/
+200x640, exact 60 Hz/Matroska-rounded PTS and hardware-transform ON/OFF. Each
+contains 60 generated frames/48,000 stereo PCM sample frames. Request report.txt,
+not a private clip. Hardware ON does not prove actual hardware use, and a PASS
+only means API finalization/close/no-replace publication, not decode/quality or
+milestone acceptance. Original recording remains available for a future tested
+correction. App 744fcbcb still fails the reported conversion; **G100s11 OPEN**.

@@ -1,6 +1,47 @@
 # Recording v1 handoff
 
-## Current Windows diagnostic — conversion E_INVALIDARG remains unresolved
+## Current Windows finalization probe — no correction claimed
+
+The maintainer confirms `MP4_WINDOWS_API_FINALIZE: 0x80070057` with the
+744fcbcb application. Finalize is the returning API, but may expose a delayed
+encoder failure; this does not demonstrate the underlying cause. Do not suppress
+the HRESULT or publish an incomplete MP4. The application is unchanged.
+
+A separate **synthetic diagnostic**, not a replacement vaeg.exe, is available:
+
+- Source: [cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5](https://github.com/nakatamaho/vaeg/commit/cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5).
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/mp4-windows-probe.exe`
+- SHA-256 `1c308ff08fe6dc3bb713e7cd17104f3bf91c1df263a8c80e369ef3be3fd9b44a`.
+- Build report: `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/build-report.json`,
+  SHA-256 `c8b6b7561ed5e3a9d47829b97120b036ffaf9db8f8f0cfb6c584788e09916237`.
+
+Copy the probe alone to a writable Windows folder (prefer a short path), then
+run it. It creates an exclusive `mp4-probe-*` directory under its working folder,
+retains every result and pauses for Enter when launched without arguments.
+Return **report.txt**, not ROMs, original recordings or other private media.
+It never reads those assets. Successful API finalization produces `.mp4`; failed
+synthetic files remain `.partial.mp4` for diagnosis, never as an accepted export.
+
+The 16 cases compare 640x400, 1278x720, 400x640 and 200x640; exact 60 Hz versus
+Matroska-ms-rounded timestamps; hardware-transform preference ON versus OFF.
+Each has 60 moving-gradient frames and one second of stereo 48 kHz generated
+PCM. The builder extracts the production NV12 conversion verbatim and generates
+two adapter copies: common read-only finalization probes plus the single hardware
+preference difference and factory-symbol disambiguation. It records received,
+encoded/processed counts before/after Finalize and optional post-Finalize encoder
+header queries, with individual HRESULTs. Query failure never replaces the
+original failure. ON is a preference, **not proof of actual hardware encoding**.
+A probe PASS means finalization/close/no-replace publication succeeded, not
+verified decode, quality, guest compatibility or a passed milestone gate.
+
+Ubuntu 24.04 GCC 13-posix x64 MinGW (matching the application's toolchain family),
+strict warnings/static link and system-only import audit pass. Imports are
+kernel32.dll, msvcrt.dll and ole32.dll; MF loads from System32 as in production.
+No FFmpeg, bundled H.264/AAC encoder, private SDK or media is included. Native
+probe execution remains NOT_RUN. Six isolated generation-contract tests pass;
+prior failing build attempts are retained. **G100s11 OPEN.**
+
+## Previous Windows diagnostic — conversion E_INVALIDARG remains unresolved
 
 The maintainer reports `MP4_WINDOWS_API: 0x80070057` with the original MKV
 retained. This is a **failed runtime attempt**, not a successful Windows gate.

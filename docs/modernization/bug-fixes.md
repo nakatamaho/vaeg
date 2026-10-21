@@ -3535,10 +3535,11 @@ separate parity correction or move it to Open Defects.
 - **Observed scope:** the maintainer reports a failed MP4 conversion with
   `MP4_WINDOWS_API: 0x80070057`; the source MKV remains present. No successful
   Windows export/playback is established. No private clip metadata is recorded.
-- **Cause/correction:** unresolved. The HRESULT means invalid argument, but the
-  previous common wrapper did not identify the returning API. Encoder settings,
-  sample submission, finalization and byte-stream close remain distinct possible
-  failure stages; none is recorded as the root cause without runtime evidence.
+- **Cause/correction:** unresolved. The maintainer retried the diagnostic and
+  reports `MP4_WINDOWS_API_FINALIZE: 0x80070057`. This identifies the returning
+  API, not the underlying encoder/muxer cause: a queued encoder error may surface
+  during finalization. It is not the subsequent byte-stream close. Do not ignore
+  Finalize failure or publish the potentially incomplete output.
 - **Diagnostic only:**
   [744fcbcb](https://github.com/nakatamaho/vaeg/commit/744fcbcb83e84afb7e85f03d03e84d162fca837c)
   adds operation labels to the HRESULT, including video/audio input setup,
@@ -3546,8 +3547,14 @@ separate parity correction or move it to Open Defects.
   suppress an error, overwrite an MP4 or alter/delete the original recording.
 - **Verification/next step:** strict MinGW compilation and clean static Windows
   build/import audit pass. Run the diagnostic on the same retained MKV and
-  obtain its exact stage-qualified error before correcting behavior. A native
-  Windows success is still required; compile/audit checks are not substitutes.
+  obtain its exact stage-qualified error before correcting behavior. The user
+  subsequently confirmed `FINALIZE`. A
+  [synthetic native probe](https://github.com/nakatamaho/vaeg/commit/cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5)
+  now compares hardware-transform preference ON/OFF, geometry and timestamps
+  without reading private media. It retains the production conversion/adapter
+  with read-only statistics/encoder-header probes. Its native results are pending;
+  no codec setting workaround or correction is claimed. A native Windows success
+  is still required; compile/audit checks are not substitutes.
   [M100s11 task/handoff](../agents/tasks/M100s11_recording_post_mp4.md).
 
 ### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
