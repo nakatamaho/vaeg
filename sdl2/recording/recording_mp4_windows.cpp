@@ -198,8 +198,10 @@ class WindowsSink final : public Mp4Sink {
 		check(writer_->BeginWriting());
 	}
 	~WindowsSink() override {
+		const bool writer_owned_stream = writer_.p != nullptr;
 		writer_.reset();
-		if (stream_.p)
+		// Close directly only if writer creation never took ownership.
+		if (stream_.p && !writer_owned_stream)
 			stream_->Close();
 		stream_.reset();
 		if (mf_)
@@ -222,9 +224,10 @@ class WindowsSink final : public Mp4Sink {
 		mp4_check_cancel(config_);
 		operation_ = "FINALIZE";
 		check(writer_->Finalize());
+		// Releasing the writer shuts down its media sink and closes the byte
+		// stream. Do not Close it again: the Windows file stream can return
+		// E_INVALIDARG even though Finalize succeeded and the MP4 is complete.
 		writer_.reset();
-		operation_ = "CLOSE_STREAM";
-		check(stream_->Close());
 		stream_.reset();
 	}
 };
