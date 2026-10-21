@@ -2512,4 +2512,24 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "m75;scsi;compiled"
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+    # Recording fixtures use assert both for checks and state-driving API calls.
+    # Release -DNDEBUG must not turn them into false passes or infinite EOF loops.
+    foreach(recording_test
+            vaeg_recording_mp4_test vaeg_recording_realtime_clock_test
+            vaeg_recording_c_contract_test vaeg_recording_cli_test
+            vaeg_recording_osd_snapshot_test vaeg_recording_displayed_capture_test
+            vaeg_recording_runtime_test vaeg_recording_native_composition_test
+            vaeg_recording_native_tap_test vaeg_recording_contract_test
+            vaeg_recording_clock_test vaeg_recording_queue_test
+            vaeg_recording_native_session_test vaeg_recording_runtime_integration_test
+            vaeg_recording_metal_archive_probe vaeg_recording_ffmpeg_capabilities_test
+            vaeg_recording_macos_window_capture_test vaeg_recording_h264_encoder_test
+            vaeg_recording_ffv1_test vaeg_recording_pcm_test vaeg_recording_matroska_test)
+        if(TARGET ${recording_test})
+            target_compile_options(${recording_test} PRIVATE -UNDEBUG)
+        endif()
+    endforeach()
+    if(VAEG_ENABLE_RECORDING)
+        set_tests_properties(vaeg_recording_ffv1 PROPERTIES TIMEOUT 30)
+    endif()
 endif()

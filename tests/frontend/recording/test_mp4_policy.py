@@ -102,6 +102,21 @@ class BuildPolicy(unittest.TestCase):
     def test_native_preferred(self):
         self.mutate("MP4_LOCAL_LINUX_ONLY", {"APPLE": "TRUE"})
 
+    def test_release_assertion_guard(self):
+        source = (ROOT / "tests/frontend/recording/test_recording_ffmpeg_video_encoder.cpp").read_text()
+        guard = "#ifdef NDEBUG" + source.split("#ifdef NDEBUG", 1)[1].split("#endif", 1)[0] + "#endif\n"
+        with tempfile.TemporaryDirectory(prefix="vaeg-recording-assertions-") as tmp:
+            fixture = Path(tmp) / "guard.c"
+            fixture.write_text(guard + "int main(void) { return 0; }\n")
+            command = ["cc", "-c", str(fixture), "-o", str(Path(tmp) / "guard.o")]
+            baseline = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(baseline.returncode, 0, baseline.stderr)
+            # Exactly one mutation: define NDEBUG; no SDK/history dependency.
+            result = subprocess.run(command + ["-DNDEBUG"], capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(set(re.findall(r"RECORDING_[A-Z_]+", result.stderr)),
+                             {"RECORDING_TEST_ASSERTIONS_REQUIRED"})
+
     def test_public_presets(self):
         presets = {p["name"]: p for p in json.loads((ROOT / "CMakePresets.json").read_text())["configurePresets"]}
         def resolve(name):
