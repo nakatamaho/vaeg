@@ -33,6 +33,8 @@ import sys
 import tempfile
 import unittest
 
+# Fixture imports must not generate bytecode inside the source checkout.
+sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 SPEC = importlib.util.spec_from_file_location("audit", ROOT / "tools/repo/check_mp4_codec_archive.py")
 AUDIT = importlib.util.module_from_spec(SPEC)
