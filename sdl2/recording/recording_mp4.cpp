@@ -313,6 +313,12 @@ class Exporter {
 		std::vector<int16_t> pcm;
 		int64_t audio_origin = -1, audio_frames = 0, video_end = -1, audio_input_end = -1;
 		uint64_t video_count = 0, audio_count = 0;
+		int64_t pending_video_pts = -1, pending_video_duration = 0;
+		const AVRational rate = av_guess_frame_rate(in.format, vs, nullptr);
+		const int64_t nominal_video_duration =
+		    rate.num > 0 && rate.den > 0 && av_q2d(rate) <= 240
+		        ? av_rescale_q(1, av_inv_q(rate), AVRational{1, 10000000})
+		        : 10000000 / 60;
 		const int64_t duration =
 		    in.format->duration > 0
 		        ? av_rescale_q(in.format->duration, AV_TIME_BASE_Q, AVRational{1, 10000000})
@@ -339,6 +345,14 @@ class Exporter {
 			}
 			return got;
 		};
+		auto emit_video = [&](int64_t interval) {
+			if (interval <= 0)
+				fail("MP4_VIDEO_TIMESTAMP");
+			sink->video(bgra.data(), pending_video_pts, interval);
+			video_end = pending_video_pts + interval;
+			++video_count;
+			progress(video_end, duration, true);
+		};
 		auto drain = [&](AVCodecContext *context, bool is_video, AVFrame *decoded) {
 			for (;;) {
 				mp4_check_cancel(config);
@@ -353,8 +367,15 @@ class Exporter {
 				if (is_video) {
 					if (f->width != width || f->height != height ||
 					    (f->format != AV_PIX_FMT_BGRA && f->format != AV_PIX_FMT_BGR0) ||
-					    std::abs(f->linesize[0]) < width * 4 || pts < video_end)
+					    std::abs(f->linesize[0]) < width * 4)
 						fail("MP4_VIDEO_LAYOUT");
+					// Matroska rounds 60 Hz to 0,17,33,... ms. Derive each interval
+					// from the next real PTS, not an overlapping nominal 16.667 ms.
+					if (pending_video_pts >= 0) {
+						if (pts <= pending_video_pts)
+							fail("MP4_VIDEO_TIMESTAMP");
+						emit_video(pts - pending_video_pts);
+					}
 					for (int y = 0; y < out_height; ++y) {
 						const uint8_t *row =
 						    f->data[0] + (int64_t(y) * height / out_height) * f->linesize[0];
@@ -364,12 +385,9 @@ class Exporter {
 							p[3] = 255;
 						}
 					}
-					const int64_t interval =
-					    f->duration > 0 ? time100ns(f->duration, vs->time_base) : 10000000 / 60;
-					sink->video(bgra.data(), pts, interval);
-					video_end = pts + interval;
-					++video_count;
-					progress(video_end, duration, true);
+					pending_video_pts = pts;
+					pending_video_duration = f->duration > 0 ? time100ns(f->duration, vs->time_base)
+					                                         : nominal_video_duration;
 				} else {
 					if (f->format != AV_SAMPLE_FMT_S16 || f->ch_layout.nb_channels != 2 ||
 					    f->sample_rate != in.audio->sample_rate || f->nb_samples <= 0 ||
@@ -403,6 +421,8 @@ class Exporter {
 				if (avcodec_send_packet(in.video, nullptr) < 0)
 					fail("MP4_DECODE_FLUSH");
 				drain(in.video, true, reader.frame);
+				if (pending_video_pts >= 0)
+					emit_video(pending_video_duration);
 				sink->end_video();
 			}
 			if (audio) {
