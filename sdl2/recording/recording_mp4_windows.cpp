@@ -36,10 +36,10 @@
 
 namespace vaeg::recording {
 namespace {
-void check(HRESULT result) {
+void check_windows_api(HRESULT result, const char *operation) {
 	if (FAILED(result)) {
-		char code[80];
-		std::snprintf(code, sizeof(code), "MP4_WINDOWS_API: 0x%08lx",
+		char code[160];
+		std::snprintf(code, sizeof(code), "MP4_WINDOWS_API_%s: 0x%08lx", operation,
 		              static_cast<unsigned long>(result));
 		throw std::runtime_error(code);
 	}
@@ -82,10 +82,15 @@ class WindowsSink final : public Mp4Sink {
 	Com<IMFByteStream> stream_;
 	DWORD video_stream_ = 0, audio_stream_ = 0;
 	std::vector<uint8_t> nv12_;
+	const char *operation_ = "COM_INITIALIZE";
+	void check(HRESULT result) const {
+		check_windows_api(result, operation_);
+	}
 	void sample(DWORD stream, const void *data, size_t bytes, int64_t pts, int64_t duration) {
 		mp4_check_cancel(config_);
 		if (bytes > UINT32_MAX)
 			throw std::runtime_error("MP4_WINDOWS_SAMPLE_BOUNDS");
+		operation_ = stream == video_stream_ ? "CREATE_VIDEO_SAMPLE" : "CREATE_AUDIO_SAMPLE";
 		Com<IMFMediaBuffer> buffer;
 		Com<IMFSample> sample;
 		check(buffer_(static_cast<DWORD>(bytes), &buffer.p));
@@ -98,6 +103,7 @@ class WindowsSink final : public Mp4Sink {
 		check(sample->AddBuffer(buffer.p));
 		check(sample->SetSampleTime(pts));
 		check(sample->SetSampleDuration(duration));
+		operation_ = stream == video_stream_ ? "WRITE_VIDEO_SAMPLE" : "WRITE_AUDIO_SAMPLE";
 		check(writer_->WriteSample(stream, sample.p));
 	}
 
@@ -121,17 +127,22 @@ class WindowsSink final : public Mp4Sink {
 		load(plat_, "MFCreateMemoryBuffer", buffer_);
 		load(plat_, "MFCreateFile", file_);
 		load(readwrite_, "MFCreateSinkWriterFromURL", writer_from_url_);
+		operation_ = "MF_STARTUP";
 		check(startup_(MF_VERSION, MFSTARTUP_FULL));
 		mf_ = true;
 		Com<IMFAttributes> attrs;
+		operation_ = "CREATE_WRITER_ATTRIBUTES";
 		check(attributes_(&attrs.p, 2));
 		check(attrs->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE));
 		check(attrs->SetGUID(MF_TRANSCODE_CONTAINERTYPE, MFTranscodeContainerType_MPEG4));
 		const auto path = std::filesystem::u8path(config_.path);
+		operation_ = "CREATE_FILE";
 		check(file_(MF_ACCESSMODE_READWRITE, MF_OPENMODE_FAIL_IF_EXIST, MF_FILEFLAGS_NONE,
 		            path.c_str(), &stream_.p));
+		operation_ = "CREATE_SINK_WRITER";
 		check(writer_from_url_(nullptr, stream_.p, attrs.p, &writer_.p));
 		Com<IMFMediaType> out_video, in_video, out_audio, in_audio;
+		operation_ = "VIDEO_OUTPUT_TYPE";
 		check(media_type_(&out_video.p));
 		check(out_video->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video));
 		check(out_video->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264));
@@ -142,7 +153,9 @@ class WindowsSink final : public Mp4Sink {
 		check(MFSetAttributeSize(out_video.p, MF_MT_FRAME_SIZE, config_.width, config_.height));
 		check(MFSetAttributeRatio(out_video.p, MF_MT_FRAME_RATE, 60, 1));
 		check(MFSetAttributeRatio(out_video.p, MF_MT_PIXEL_ASPECT_RATIO, 1, 1));
+		operation_ = "ADD_VIDEO_STREAM";
 		check(writer_->AddStream(out_video.p, &video_stream_));
+		operation_ = "VIDEO_INPUT_TYPE";
 		check(media_type_(&in_video.p));
 		check(out_video->CopyAllItems(in_video.p));
 		check(in_video->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_NV12));
@@ -156,7 +169,9 @@ class WindowsSink final : public Mp4Sink {
 		check(in_video->SetUINT32(MF_MT_VIDEO_NOMINAL_RANGE, MFNominalRange_16_235));
 		check(in_video->SetUINT32(MF_MT_VIDEO_PRIMARIES, MFVideoPrimaries_BT709));
 		check(in_video->SetUINT32(MF_MT_TRANSFER_FUNCTION, MFVideoTransFunc_709));
+		operation_ = "SET_VIDEO_INPUT_TYPE";
 		check(writer_->SetInputMediaType(video_stream_, in_video.p, nullptr));
+		operation_ = "AUDIO_OUTPUT_TYPE";
 		check(media_type_(&out_audio.p));
 		check(out_audio->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio));
 		check(out_audio->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC));
@@ -166,7 +181,9 @@ class WindowsSink final : public Mp4Sink {
 		check(out_audio->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 16000));
 		check(out_audio->SetUINT32(MF_MT_AAC_PAYLOAD_TYPE, 0));
 		check(out_audio->SetUINT32(MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION, 0x29));
+		operation_ = "ADD_AUDIO_STREAM";
 		check(writer_->AddStream(out_audio.p, &audio_stream_));
+		operation_ = "AUDIO_INPUT_TYPE";
 		check(media_type_(&in_audio.p));
 		check(in_audio->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Audio));
 		check(in_audio->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_PCM));
@@ -175,7 +192,9 @@ class WindowsSink final : public Mp4Sink {
 		check(in_audio->SetUINT32(MF_MT_AUDIO_BITS_PER_SAMPLE, 16));
 		check(in_audio->SetUINT32(MF_MT_AUDIO_BLOCK_ALIGNMENT, 4));
 		check(in_audio->SetUINT32(MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 192000));
+		operation_ = "SET_AUDIO_INPUT_TYPE";
 		check(writer_->SetInputMediaType(audio_stream_, in_audio.p, nullptr));
+		operation_ = "BEGIN_WRITING";
 		check(writer_->BeginWriting());
 	}
 	~WindowsSink() override {
@@ -201,8 +220,10 @@ class WindowsSink final : public Mp4Sink {
 	}
 	void finish() override {
 		mp4_check_cancel(config_);
+		operation_ = "FINALIZE";
 		check(writer_->Finalize());
 		writer_.reset();
+		operation_ = "CLOSE_STREAM";
 		check(stream_->Close());
 		stream_.reset();
 	}
