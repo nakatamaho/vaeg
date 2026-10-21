@@ -103,6 +103,11 @@ class BuildPolicy(unittest.TestCase):
     def test_native_preferred(self):
         self.mutate("MP4_LOCAL_LINUX_ONLY", {"APPLE": "TRUE"})
 
+    def test_objective_cpp_format_scope(self):
+        formatter = runpy.run_path(str(ROOT / "tools/repo/clang_format.py"))
+        self.assertIn(".mm", formatter["SOURCE_SUFFIXES"])
+        self.assertIn("sdl2/recording/recording_mp4_macos.mm", formatter["load_manifest"]())
+
     def test_codec_mutation_formats(self):
         mutate = runpy.run_path(str(ROOT / "tests/frontend/recording/test_mp4_export.py"))["wrong_video_codec"]
         direct = b"prefixV_FFV1suffix"

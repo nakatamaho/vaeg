@@ -35,7 +35,7 @@ GIT_ENV["GIT_CONFIG_SYSTEM"] = "/dev/null"
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "tools/repo/clang_format_files.txt"
 FORMATTER = "clang-format-mp-22"
-SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hpp"}
+SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", ".mm"}
 CHUNK_SIZE = 64
 
 
