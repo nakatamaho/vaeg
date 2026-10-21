@@ -1,5 +1,29 @@
 # Recording v1 handoff
 
+## Current Windows diagnostic — conversion E_INVALIDARG remains unresolved
+
+The maintainer reports `MP4_WINDOWS_API: 0x80070057` with the original MKV
+retained. This is a **failed runtime attempt**, not a successful Windows gate.
+The current diagnostic adds per-operation error labels without changing codec
+settings, sample data/timestamps or publication/cleanup behavior. Reuse the same
+MKV via 「圧縮する録画 (.mkv)」 and report the new error, for example
+`MP4_WINDOWS_API_FINALIZE: 0x80070057` (example, not an observed stage).
+
+- Source: [744fcbcb83e84afb7e85f03d03e84d162fca837c](https://github.com/nakatamaho/vaeg/commit/744fcbcb83e84afb7e85f03d03e84d162fca837c).
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/vaeg.exe`
+- Size: 59,212,927 bytes; SHA-256
+  `d715c9ff6f99c37ad693416dfdaea08364ef9aebd4b426571c39eb47e1254a31`.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/BUILD-REPORT.md`,
+  SHA-256 `4afd97d47ed770d67420494f4d08d8490488bcdcd00447799b4ac2ed91f4fd6b`.
+- Strict MinGW compile (`-Wall -Wextra -Wpedantic -Werror`) and clean static
+  handoff/import/ordinary-codec audits pass. OS H.264/AAC enabled, no bundled
+  H.264/AAC implementation. No actual diagnostic execution is claimed yet.
+- Only the Windows adapter changed; previous macOS/Linux export worker/source
+  identities are unchanged. Preserve prior results rather than rerunning them.
+
+This is **diagnosis, not a tested correction**. G100s11 remains OPEN. Historical
+converter validation and the preceding Windows review candidate follow.
+
 ## Active M100s11 — optional post-recording MP4
 
 [Usage/local-build guide](mp4-export.md),

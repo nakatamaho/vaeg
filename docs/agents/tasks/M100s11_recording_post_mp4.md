@@ -376,3 +376,40 @@ exits 0; minimal codec-registration/system-DLL import audits pass. Windows uses
 OS encoders, not bundled static H.264/AAC. Keep the intermediate 3473d157 build
 and all previous artifacts. Actual Windows/user-clip playback, private-media
 and hardware acceptance remain unverified: **G100s11 OPEN**.
+
+### Windows E_INVALIDARG report — diagnostic handoff, not a claimed fix
+
+The maintainer confirms the original MKV exists and reports
+`MP4_WINDOWS_API: 0x80070057`. This is an observed Windows conversion failure;
+successful Windows export/playback remains unverified. The HRESULT alone does
+not establish which call failed. Do not infer missing codecs, bad dimensions,
+invalid timestamps, finalization or redundant close as the root cause.
+
+[744fcbcb](https://github.com/nakatamaho/vaeg/commit/744fcbcb83e84afb7e85f03d03e84d162fca837c)
+adds operation-specific HRESULT diagnostics: COM/startup, file/sink creation,
+video/audio output/input negotiation, video/audio sample creation/writes,
+`BEGIN_WRITING`, `FINALIZE` and `CLOSE_STREAM`. It changes no encoding settings,
+sample contents/timing, file protection or cleanup behavior. The next required
+check is to retry the same retained MKV and obtain its exact new error code.
+[Unresolved ledger entry](../../modernization/bug-fixes.md).
+
+Local checks: `x86_64-w64-mingw32-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror
+-Isdl2 -c sdl2/recording/recording_mp4_windows.cpp -o
+/tmp/m100s11/windows-api-diagnostic/recording_mp4_windows.o`: exit 0. Source
+clang-format 22, encoding/EOL/case/Markdown comments and whitespace: exit 0.
+Clean helper `tools/release/build-mingw-static-container.sh --commit
+744fcbcb83e84afb7e85f03d03e84d162fca837c --recording --shader-sdk
+"$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`: exit 0;
+ordinary codec-registration and Windows-system-only import audits pass.
+
+- `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/vaeg.exe`, 59,212,927 bytes,
+  SHA-256 `d715c9ff6f99c37ad693416dfdaea08364ef9aebd4b426571c39eb47e1254a31`.
+- `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/BUILD-REPORT.md`, SHA-256
+  `4afd97d47ed770d67420494f4d08d8490488bcdcd00447799b4ac2ed91f4fd6b`.
+
+Only `recording_mp4_windows.cpp` changed among build-relevant paths since the
+preceding candidate. macOS/Linux workers and their compiled inputs still match
+the completed eight/three-case evidence; no unaffected expensive profile was
+rerun. No native execution of the diagnostic or correction is claimed. No
+private media/name/hash was requested or published. Screenshot-rotation work
+was paused without source edits to prioritize this failure. **G100s11 OPEN.**
