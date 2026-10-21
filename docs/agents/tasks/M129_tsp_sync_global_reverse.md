@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M129 — TSP SYNC global reverse (RV)
 
-Status: **implemented; G129 human gate pending.**
+Status: **G129 human gate passed on 2026-10-21.**
 
 Branch `topic/m129-tsp-sync-reverse`; commit prefix `M129:`.
 
@@ -131,3 +131,8 @@ bit, M106). M129 changes no demo or media source.
 imports Windows system DLLs only. `vaeg.exe` SHA-256
 `b4e39261d27d9f3454f72264204269427597ad263f475d091d5cb293312f7fd4`.
 Later commits on this branch are documentation only.
+
+## G129 passed
+
+The maintainer stated **G129 passed** on 2026-10-21 with the static Windows
+build of `43e63ee82ff7d590e0bd31fac396a9192db6f14a`.
