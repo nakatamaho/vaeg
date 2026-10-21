@@ -474,3 +474,66 @@ not a private clip. Hardware ON does not prove actual hardware use, and a PASS
 only means API finalization/close/no-replace publication, not decode/quality or
 milestone acceptance. Original recording remains available for a future tested
 correction. App 744fcbcb still fails the reported conversion; **G100s11 OPEN**.
+
+### Native probe reached redundant Close; ownership correction
+
+The maintainer returns the probe console: all sixteen cases report exactly
+`MP4_WINDOWS_API_CLOSE_STREAM: 0x80070057`, for both hardware preferences,
+both timing profiles and all four geometries. In this control flow Finalize has
+passed its error check; failure occurs only after writer release at explicit
+byte-stream Close. This is a different observed stage from the earlier
+application `FINALIZE` report. The report.txt statistics/headers, target-binary
+hash and post-correction native run have not yet been supplied; do not invent
+them, infer actual hardware encoding or claim MP4 decode/quality acceptance.
+No private clip/path/identity is recorded here.
+
+[9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
+corrects the demonstrated ownership mistake. Releasing the Sink Writer shuts
+down its media sink/file stream; the checked subsequent Close rejected that
+already-finalized output. Finish now checks Finalize, releases writer then
+stream interface. Exceptional cleanup closes directly only when writer creation
+never took ownership. Actual Finalize errors remain fatal, with the same source
+preservation, exclusive temporary ownership and no-replacement publication.
+No video/audio settings or timestamps changed.
+
+Eight tests pass. In addition to the six generator contracts, portable
+source-derived lifecycle tests copy the real finish method into an ownership
+model and verify successful release order, genuine Finalize failure propagation
+and cancellation before work. A passing baseline receives exactly one inserted
+checked Close after writer release; it must fail specifically with
+`MP4_WINDOWS_DOUBLE_CLOSE`, never an unrelated failure. Models/temporary binaries
+and logs remain under `/tmp/m100s11-win-lifecycle-*`; these tests are not a
+native MF substitute. Commands all exit 0:
+
+```sh
+python3 tests/frontend/recording/test_mp4_windows_probe_build.py
+x86_64-w64-mingw32-g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -Isdl2 \
+  -c sdl2/recording/recording_mp4_windows.cpp \
+  -o /tmp/m100s11/windows-api-diagnostic/close-fix.o
+tools/release/build-mingw-static-container.sh \
+  --commit 9c7ea061fff736036d83fde8b12bb62c8f4fe09b --recording \
+  --shader-sdk "$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"
+docker exec -w /work m100s11-linux python3 tools/release/build-mp4-windows-probe.py \
+  --output-dir /work/build/m100s11-windows-probe-9c7ea061
+```
+
+Clean static application and probe import audits pass; normal FFmpeg encoder
+registration audit remains minimal. New Windows artifacts:
+
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/vaeg.exe`, 59,212,927 bytes,
+  SHA-256 `a14cc4825885064ec28972d887a0ad21b73a896e65c571dbfe8955b6e8eadd9e`.
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/BUILD-REPORT.md`, SHA-256
+  `aae67bb25801fe361334372a4501ef7c6ba4b1224fae2e9a8104817964a05c84`.
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/mp4-windows-probe.exe`,
+  SHA-256 `0c142c696033bd1c0da2684c609f6d31c8063495d47c45125d805c3701fd05c4`.
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/build-report.json`,
+  SHA-256 `77a31d29ecdb80ac40de5297f45859dd8cc898fc09e61d997c86db5205dedc7b`.
+
+Only the Windows adapter changes production build inputs. macOS/Linux workers,
+configuration contracts and completed behavioral evidence remain unchanged;
+no unaffected expensive run or hosted CI was requested. Source format and
+encoding/EOL/case/Markdown/whitespace checks pass. Preserve all prior binaries,
+console evidence, partials and report.txt. Retry the retained MKV with the new
+application and optionally rerun the new probe. Publication/playback/native
+correction verification and the earlier Finalize report remain open, as do
+private-media and other human gates: **G100s11 OPEN**.

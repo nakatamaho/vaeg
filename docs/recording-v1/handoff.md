@@ -1,6 +1,41 @@
 # Recording v1 handoff
 
-## Current Windows finalization probe — no correction claimed
+## Current Windows stream-ownership correction — native recheck required
+
+The maintainer's preceding synthetic run reached `CLOSE_STREAM: 0x80070057` in
+all sixteen cases, **after** passing the Finalize check. Releasing the writer
+shuts down its owning file sink; the checked second Close incorrectly rejected
+that finalized output. [9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
+now releases writer then byte-stream interface without re-closing. Failure/cancel
+cleanup closes directly only if no writer took ownership. Genuine Finalize
+failure remains fatal; no codec settings or source recordings are changed.
+
+Updated application (not just a diagnostic):
+
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/vaeg.exe`, 59,212,927 bytes.
+- SHA-256 `a14cc4825885064ec28972d887a0ad21b73a896e65c571dbfe8955b6e8eadd9e`.
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/BUILD-REPORT.md`, SHA-256
+  `aae67bb25801fe361334372a4501ef7c6ba4b1224fae2e9a8104817964a05c84`.
+
+Replace vaeg.exe, then retry the retained MKV through 「圧縮する録画 (.mkv)」.
+Confirm MP4 exists and plays with sound. The separately reported application
+`FINALIZE` error remains unresolved until this actual retry; do not conflate it
+with the probe's demonstrated `CLOSE_STREAM` failure.
+
+Updated optional synthetic probe, using the same corrected source:
+
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/mp4-windows-probe.exe`
+- SHA-256 `0c142c696033bd1c0da2684c609f6d31c8063495d47c45125d805c3701fd05c4`.
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/build-report.json`,
+  SHA-256 `77a31d29ecdb80ac40de5297f45859dd8cc898fc09e61d997c86db5205dedc7b`.
+
+Eight generation/lifecycle tests, strict MinGW compilation and both builds/import
+audits pass. Lifecycle tests copy the actual finish method into a portable model;
+a single re-close mutation produces exactly `MP4_WINDOWS_DOUBLE_CLOSE`. This is
+not a native MF test. No post-correction Windows success/decode is claimed yet;
+keep earlier reports/partials and all artifacts. **G100s11 OPEN.**
+
+## Previous Windows finalization probe
 
 The maintainer confirms `MP4_WINDOWS_API_FINALIZE: 0x80070057` with the
 744fcbcb application. Finalize is the returning API, but may expose a delayed
