@@ -239,6 +239,7 @@ struct GuiState {
 	bool recording_open = false;
 	int recording_source = VAEG_RECORDING_SOURCE_NATIVE;
 	char recording_path[1024] = {};
+	char recording_compress_path[2048] = {};
 	bool recording_auto_path = true;
 	bool recording_create_mp4 = false;
 	bool recording_include_osd = true;
@@ -1128,9 +1129,16 @@ static void draw_recording_dialog(void) {
 		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
 	}
 	const char *saved = vaeg_recording_native_session_output_path();
-	ImGui::BeginDisabled(active || !vaeg_recording_mp4_available() || !saved || !*saved);
+	ImGui::BeginDisabled(active || !vaeg_recording_mp4_available());
+	ImGui::TextUnformatted("圧縮する録画 (.mkv)");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::InputTextWithHint("##compression-source", saved && *saved ? saved : "MKVのフルパス",
+	                         g_gui.recording_compress_path, sizeof(g_gui.recording_compress_path));
+	const char *source = g_gui.recording_compress_path[0] ? g_gui.recording_compress_path : saved;
+	ImGui::BeginDisabled(!source || !*source);
 	if (ImGui::Button("保存済みの録画からMP4を作成"))
-		(void)vaeg_recording_mp4_enqueue(saved);
+		(void)vaeg_recording_mp4_enqueue(source);
+	ImGui::EndDisabled();
 	ImGui::EndDisabled();
 	draw_mp4_status();
 	ImGui::PopTextWrapPos();
