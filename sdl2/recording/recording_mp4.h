@@ -46,6 +46,13 @@ typedef struct {
 	char output[2048];
 	char error[512];
 	char notice[512];
+	/* Monotonic identities let the UI distinguish repeated jobs/rejections. */
+	uint64_t job_id;
+	uint64_t notice_id;
+	/* Retain the latest failure even if the next queued job starts immediately. */
+	uint64_t failure_id;
+	char failure[2560];
+	int finishing;
 } VAEG_MP4_STATUS;
 
 int vaeg_recording_mp4_available(void);

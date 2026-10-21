@@ -46,6 +46,11 @@ int export_file(const char *source, bool cancel) {
 	for (;;) {
 		VAEG_MP4_STATUS s{};
 		vaeg_recording_mp4_get_status(&s);
+		if (s.state != VAEG_MP4_IDLE && s.job_id != 1) {
+			std::puts("MP4_TEST_JOB_ID");
+			vaeg_recording_mp4_shutdown();
+			return 2;
+		}
 		if (s.state == VAEG_MP4_RUNNING && s.encoded_ms > last_ms + 250) {
 			last_ms = s.encoded_ms;
 			std::printf("PROGRESS %.6f %lld\n", s.progress, static_cast<long long>(s.encoded_ms));
@@ -56,6 +61,11 @@ int export_file(const char *source, bool cancel) {
 			cancel = false;
 		}
 		if (!s.pending && s.state != VAEG_MP4_IDLE && s.state != VAEG_MP4_RUNNING) {
+			if (s.state == VAEG_MP4_FAILED && (s.failure_id != 1 || !s.failure[0])) {
+				std::puts("MP4_TEST_FAILURE_ID");
+				vaeg_recording_mp4_shutdown();
+				return 2;
+			}
 			std::printf("MP4_RESULT state=%d code=%s\nOUTPUT %s\n", int(s.state), s.error,
 			            s.output);
 			vaeg_recording_mp4_shutdown();
@@ -97,6 +107,11 @@ int run(int argc, char **argv) {
 	vaeg_recording_mp4_get_status(&status);
 	if (std::strcmp(status.notice,
 	                vaeg_recording_mp4_available() ? "MP4_SHUTDOWN" : "MP4_BACKEND_UNAVAILABLE"))
+		return 1;
+	if (status.notice_id != 1 || vaeg_recording_mp4_enqueue("must-not-open.mkv"))
+		return 1;
+	vaeg_recording_mp4_get_status(&status);
+	if (status.notice_id != 2)
 		return 1;
 	std::printf("MP4 unit PASS: %s\n", vaeg_recording_mp4_backend());
 	return 0;

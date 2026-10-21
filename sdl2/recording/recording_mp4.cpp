@@ -210,6 +210,12 @@ class Exporter {
 	std::atomic<bool> cancel_{false};
 	VAEG_MP4_STATUS status_{};
 	int64_t video_progress_ = 0, audio_progress_ = 0;
+	/* Caller holds mutex_. */
+	int reject_notice(const char *message) {
+		++status_.notice_id;
+		text(status_.notice, message);
+		return 0;
+	}
 	void progress(int64_t end, int64_t duration, bool video) {
 		std::lock_guard<std::mutex> lock(mutex_);
 		int64_t &track = video ? video_progress_ : audio_progress_;
@@ -448,6 +454,10 @@ class Exporter {
 		if (!video_count || !audio_count)
 			fail("MP4_INPUT_EMPTY");
 		mp4_check_cancel(config);
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			status_.finishing = 1;
+		}
 		sink->finish();
 		sink.reset();
 		mp4_check_cancel(config);
@@ -472,6 +482,8 @@ class Exporter {
 				working_ = true;
 				cancel_.store(false);
 				status_.state = VAEG_MP4_RUNNING;
+				++status_.job_id;
+				status_.finishing = 0;
 				status_.progress = 0;
 				status_.encoded_ms = 0;
 				video_progress_ = audio_progress_ = 0;
@@ -495,6 +507,11 @@ class Exporter {
 				if (error.empty())
 					status_.progress = 1;
 				text(status_.error, error);
+				if (status_.state == VAEG_MP4_FAILED) {
+					++status_.failure_id;
+					std::snprintf(status_.failure, sizeof(status_.failure), "%s\n%s",
+					              source.c_str(), error.c_str());
+				}
 			}
 		}
 	}
@@ -506,32 +523,26 @@ class Exporter {
 	int enqueue(const char *source) {
 		std::lock_guard<std::mutex> lock(mutex_);
 		if (!vaeg_recording_mp4_available()) {
-			text(status_.notice, "MP4_BACKEND_UNAVAILABLE");
-			return 0;
+			return reject_notice("MP4_BACKEND_UNAVAILABLE");
 		}
 		if (!source || !*source) {
-			text(status_.notice, "MP4_INPUT_PATH");
-			return 0;
+			return reject_notice("MP4_INPUT_PATH");
 		}
 		size_t length = 0;
 		while (length < 4096 && source[length])
 			++length;
 		if (length == 4096) {
-			text(status_.notice, "MP4_INPUT_PATH_TOO_LONG");
-			return 0;
+			return reject_notice("MP4_INPUT_PATH_TOO_LONG");
 		}
 		if (stopping_) {
-			text(status_.notice, "MP4_SHUTDOWN");
-			return 0;
+			return reject_notice("MP4_SHUTDOWN");
 		}
 		if (queue_.size() >= 4) {
-			text(status_.notice, "MP4_QUEUE_FULL: original MKV retained");
-			return 0;
+			return reject_notice("MP4_QUEUE_FULL: original MKV retained");
 		}
 		if ((working_ && source == std::string(status_.source)) ||
 		    std::find(queue_.begin(), queue_.end(), source) != queue_.end()) {
-			text(status_.notice, "MP4_ALREADY_QUEUED");
-			return 0;
+			return reject_notice("MP4_ALREADY_QUEUED");
 		}
 		if (!thread_.joinable())
 			thread_ = std::thread(&Exporter::run, this);
