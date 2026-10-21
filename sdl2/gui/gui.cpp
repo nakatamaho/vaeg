@@ -92,6 +92,7 @@
 #include "rhythm.h"
 #include "recording/recording.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_mp4.h"
 #include "recording/recording_runtime.h"
 #include "scrndrawva.h"
 #include "scrnmng.h"
@@ -238,6 +239,7 @@ struct GuiState {
 	int recording_source = VAEG_RECORDING_SOURCE_NATIVE;
 	char recording_path[1024] = {};
 	bool recording_auto_path = true;
+	bool recording_create_mp4 = false;
 	bool recording_include_osd = true;
 	bool recording_follow_rotation = true;
 	char recording_frame_limit[32] = {};
@@ -685,6 +687,30 @@ static bool parse_recording_frame_limit(const char *value, uint64_t *limit) {
 	return true;
 }
 
+/* Snapshot at recording start: every completed split uses the same choice. */
+static bool recording_export_requested = false;
+static void recording_saved_for_export(const char *path) {
+	if (recording_export_requested) (void)vaeg_recording_mp4_enqueue(path);
+}
+
+static void draw_mp4_status(void) {
+	VAEG_MP4_STATUS status{};
+	vaeg_recording_mp4_get_status(&status);
+	if (status.state == VAEG_MP4_RUNNING) {
+		ImGui::TextWrapped("MP4変換中: %s", status.source);
+		if (status.progress >= 0)
+			ImGui::ProgressBar(static_cast<float>(status.progress), ImVec2(-1, 0));
+		ImGui::Text("変換済み %lld ms / 待機 %u 件", static_cast<long long>(status.encoded_ms), status.pending);
+	} else if (status.state == VAEG_MP4_SUCCEEDED) {
+		ImGui::TextWrapped("MP4を作成しました: %s", status.output);
+	} else if (status.state == VAEG_MP4_FAILED || status.state == VAEG_MP4_CANCELLED) {
+		ImGui::TextWrapped("MP4変換は未完了です（元のMKVは保持）: %s", status.error);
+	}
+	if (status.notice[0]) ImGui::TextWrapped("MP4: %s", status.notice);
+	if ((status.state == VAEG_MP4_RUNNING || status.pending) && ImGui::Button("MP4変換を中止"))
+		vaeg_recording_mp4_cancel();
+}
+
 static void start_recording_from_dialog(void) {
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	uint64_t frame_limit = 0u;
@@ -715,6 +741,7 @@ static void start_recording_from_dialog(void) {
 		g_gui.recording_status = "録画中は設定を変更できません。";
 		return;
 	}
+	recording_export_requested = g_gui.recording_create_mp4;
 	if (!vaeg_recording_session_start(g_gui.recording_path,
 	                                  static_cast<uint32_t>(g_gui.recording_source), frame_limit)) {
 		g_gui.recording_status = "録画開始に失敗しました: ";
@@ -803,6 +830,7 @@ static RecordingControlAction draw_recording_controls(const RecordingControlStat
 		if (!status.empty()) {
 			ImGui::TextWrapped("%s", status.c_str());
 		}
+		draw_mp4_status();
 		ImGui::EndPopup();
 	}
 	ImGui::PopID();
@@ -898,7 +926,17 @@ static void draw_recording_dialog(void) {
 	ImGui::BeginDisabled();
 	ImGui::RadioButton("H.264（ハードウェア・リアルタイム）", false);
 	ImGui::EndDisabled();
-	ImGui::TextDisabled("H.264録画は音声のホスト時刻同期が未対応のため利用できません。");
+	ImGui::TextDisabled("リアルタイムH.264録画は未対応です。保存後のMP4変換は別の機能です。");
+	ImGui::BeginDisabled(!vaeg_recording_mp4_available() && !g_gui.recording_create_mp4);
+	if (ImGui::Checkbox("停止後に投稿用 MP4 を作成", &g_gui.recording_create_mp4)) {
+		np2oscfg.recording_create_mp4 = g_gui.recording_create_mp4 ? 1 : 0;
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	ImGui::EndDisabled();
+	ImGui::TextWrapped("変換方式: %s", vaeg_recording_mp4_backend());
+	ImGui::TextDisabled("元のMKVを残し、同名のMP4を別途作成します。既存MP4は上書きしません。");
+	ImGui::TextDisabled("H.264 / AAC、最大1280×720。変換はバックグラウンドで行います。");
+	ImGui::TextDisabled("アプリ終了時は変換を中止します（元のMKVは残ります）。");
 	ImGui::TextUnformatted("録画対象");
 	if (ImGui::RadioButton("Native video", g_gui.recording_source == VAEG_RECORDING_SOURCE_NATIVE)) {
 		set_recording_source(VAEG_RECORDING_SOURCE_NATIVE);
@@ -940,6 +978,11 @@ static void draw_recording_dialog(void) {
 		ImGui::Separator();
 		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
 	}
+	const char *saved = vaeg_recording_native_session_output_path();
+	ImGui::BeginDisabled(active || !vaeg_recording_mp4_available() || !saved || !*saved);
+	if (ImGui::Button("保存済みの録画からMP4を作成")) (void)vaeg_recording_mp4_enqueue(saved);
+	ImGui::EndDisabled();
+	draw_mp4_status();
 	ImGui::PopTextWrapPos();
 	ImGui::EndChild();
 	ImGui::Separator();
@@ -6737,6 +6780,8 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE ? 0 : menu_bar_height());
 	g_gui.window = static_cast<SDL_Window *>(window);
 	g_gui.recording_source = np2oscfg.recording_source;
+	g_gui.recording_create_mp4 = np2oscfg.recording_create_mp4 != 0;
+	vaeg_recording_native_session_set_saved_callback(&recording_saved_for_export);
 	g_gui.native_renderer = renderer == nullptr;
 	if (g_gui.native_renderer) {
 		if (!ImGui_ImplSDL2_InitForOther(g_gui.window)) {

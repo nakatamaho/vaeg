@@ -27,6 +27,13 @@
 #define VAEG_ENABLE_RECORDING 0
 #endif
 
+namespace {
+VAEG_RECORDING_SAVED_CALLBACK saved_callback = nullptr;
+}
+extern "C" void vaeg_recording_native_session_set_saved_callback(VAEG_RECORDING_SAVED_CALLBACK callback) {
+	saved_callback = callback;
+}
+
 #if !VAEG_ENABLE_RECORDING
 
 int vaeg_recording_session_start(const char *path, uint32_t source, uint64_t frame_limit) {
@@ -880,6 +887,10 @@ class NativeRecordingSession {
 		if (count != 0u) {
 			try {
 				published_path_ = output_path();
+				if (saved_callback) {
+					try { saved_callback(published_path_.c_str()); }
+					catch (...) { /* A consumer cannot invalidate a finalized archive. */ }
+				}
 			} catch (const std::bad_alloc &) {
 				failed_ = true;
 				return false;

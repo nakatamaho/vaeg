@@ -449,6 +449,7 @@ static const INITBL iniitem[] = {
     {"GUI_scale", INITYPE_UINT8, &np2oscfg.gui_scale, 0},
     {"GUI_aspect", INITYPE_BOOL, &np2oscfg.gui_aspect, 0},
     {"RecordingSource", INITYPE_UINT8, &np2oscfg.recording_source, 0},
+    {"RecordingCreateMp4", INITYPE_BOOL, &np2oscfg.recording_create_mp4, 0},
     {"keyboard_host_layout", INITYPE_STR, np2oscfg.keyboard_host_layout,
      sizeof(np2oscfg.keyboard_host_layout)},
     {"keyboard_kana_input", INITYPE_STR, np2oscfg.keyboard_kana_input,

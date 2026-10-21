@@ -254,6 +254,12 @@ sdl2/np2.c
 sdl2/np2.h
 sdl2/pacing.c
 sdl2/pacing.h
+sdl2/recording/recording_mp4.cpp
+sdl2/recording/recording_mp4.h
+sdl2/recording/recording_mp4_local.cpp
+sdl2/recording/recording_mp4_macos.mm
+sdl2/recording/recording_mp4_sink.hpp
+sdl2/recording/recording_mp4_windows.cpp
 sdl2/romankana.c
 sdl2/romankana.h
 sdl2/romcheck.c
@@ -323,6 +329,7 @@ sound/vermouth/midvoice.c
 sound/vermouth/midvoice.h
 sound/vermouth/vermouth.h
 sound/ymfmbridge.h
+tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd780/disasm.cpp

@@ -132,7 +132,8 @@ if [[ "${RECORDING}" == ON ]]; then
 	cp /work/ffmpeg-8.1.2/ffbuild/config.mak /work/output/ffmpeg-config.mak
 	cmake_args+=(-DVAEG_MINGW_DEPENDENCY_PREFIX=/work/ffmpeg-stage)
 fi
-cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" "${cmake_args[@]}" > /work/output/configure.log 2>&1
+cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" \
+	-DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF "${cmake_args[@]}" > /work/output/configure.log 2>&1
 cmake --build --preset mingw-cross > /work/output/build.log 2>&1
 python3 tools/release/check-static-windows-imports.py --binary build/mingw-cross/sdl2/vaeg.exe \
 	> /work/output/import-audit.txt 2>&1
@@ -180,6 +181,8 @@ size="$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "${exe}"
 	echo "  zlib, xz, librashader and MinGW gcc/libstdc++/winpthread runtimes."
 	echo "- Shader SDK: ${shader_sdk:-fresh pinned source build}; application objects are fresh."
 	echo "- Recording: ${recording}; when ON, pinned minimal LGPL-only FFmpeg 8.1.2 is static."
+	echo "- Local-only H.264/AAC encoders: OFF (public handoff); archive encoder registrations audited before linking."
+	echo "- Post-stop MP4 when recording ON: Windows Media Foundation OS APIs, no bundled H.264/AAC encoder implementation."
 	echo "  Source tarball and full configure/build log are retained beside the clean clone."
 	sed 's/^/- /' "${work_dir}/output/toolchain.txt"
 	echo

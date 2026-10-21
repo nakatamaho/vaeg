@@ -116,7 +116,17 @@ void submit_frame(std::uint64_t sequence, std::uint64_t end_ticks,
 	       VAEG_RECORDING_NATIVE_TAP_OK);
 }
 
+unsigned saved_notifications = 0;
+void saved_notice(const char *path) {
+	assert(path && fs::is_regular_file(fs::u8path(path)));
+	++saved_notifications;
+	/* A failing optional consumer must not invalidate archival success. */
+	throw 42;
+}
+
 void test_native_session_writes_complete_intervals() {
+	saved_notifications = 0;
+	vaeg_recording_native_session_set_saved_callback(&saved_notice);
 	const fs::path path = fs::temp_directory_path() / "vaeg-rec13-native-session-test.mkv";
 	std::error_code error;
 	fs::remove(path, error);
@@ -146,10 +156,14 @@ void test_native_session_writes_complete_intervals() {
 	assert(!vaeg_recording_native_session_is_active());
 	assert(fs::exists(path));
 	assert(fs::file_size(path, error) > 0u && !error);
+	assert(saved_notifications == 1);
+	vaeg_recording_native_session_set_saved_callback(nullptr);
 	fs::remove(path, error);
 }
 
 void test_epoch_change_cancels_without_publish() {
+	saved_notifications = 0;
+	vaeg_recording_native_session_set_saved_callback(&saved_notice);
 	const fs::path path = fs::temp_directory_path() / "vaeg-rec13-native-epoch-test.mkv";
 	std::error_code error;
 	fs::remove(path, error);
@@ -164,6 +178,8 @@ void test_epoch_change_cancels_without_publish() {
 	assert(!vaeg_recording_native_session_is_active());
 	assert(!fake_recording_active);
 	assert(!fs::exists(path));
+	assert(saved_notifications == 0);
+	vaeg_recording_native_session_set_saved_callback(nullptr);
 }
 
 void test_start_uses_quiesced_audio_clock_snapshot() {

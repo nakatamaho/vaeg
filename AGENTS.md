@@ -285,9 +285,16 @@ It does not authorize publishing a codec-enabled executable.
   separate from codec patents). Do not claim that private use, static linking,
   or an external/OS API automatically resolves all patent/license obligations.
 
-This section records the policy; it does not itself implement a CMake option,
-codec backend, or machine-enforced release guard. Those safeguards are required
-as part of any future local-codec implementation.
+M100s11 implements this boundary with `cmake/mp4_policy.cmake`, public-preset
+markers, configure/pre-build static archive audits and focused negative tests.
+See `docs/agents/DECISIONS/ADR-0018-post-recording-mp4.md`. Policy-only script-mode
+test fixtures may simulate local settings, but must never configure/build a
+codec-enabled vaeg target or compile/link encoder implementations in CI.
+
+macOS/Windows OS-API export adapters may be built in normal CI/release profiles:
+they call encoders already provided by the OS, rather than bundling encoder
+implementations. Do not interpret this distinction as patent clearance or an
+approval of the OS/application's license terms for every use or distribution.
 
 ## Validator design and negative-test isolation
 

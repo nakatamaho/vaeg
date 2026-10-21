@@ -41,11 +41,13 @@ class StaticFFmpeg(unittest.TestCase):
             for suffix in ("a", "dylib", "so"):
                 (self.root / ("lib" + name + "." + suffix)).touch()
         self.flags = "-lavformat;-lavcodec;-lavutil;-pthread;-lm;-framework;CoreVideo"
+        self.local = "OFF"
 
     def configure(self):
         (self.root / "CMakeLists.txt").write_text(f'''cmake_minimum_required(VERSION 3.20)
 project(static_fixture C)
 set(CMAKE_STATIC_LIBRARY_SUFFIX ".a")
+set(VAEG_ENABLE_LOCAL_MP4_ENCODERS "{self.local}")
 set(P_STATIC_LIBRARY_DIRS "{self.root.as_posix()}")
 set(P_STATIC_LDFLAGS "{self.flags}")
 include("{(ROOT / 'cmake/ffmpeg_static.cmake').as_posix()}")
@@ -93,6 +95,25 @@ file(WRITE "${{CMAKE_BINARY_DIR}}/resolved.txt" "${{libs}}")
 
     def test_exact_archive_and_private_link_order(self):
         self.valid()
+
+    def test_local_x264_is_exact_static(self):
+        self.valid()
+        self.local = "ON"
+        for suffix in ("a", "so", "dylib"):
+            (self.root / ("libx264." + suffix)).touch()
+        self.flags += ";-lx264"
+        result = self.configure()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.root / "build/resolved.txt").read_text().endswith("libx264.a"))
+        (self.root / "libx264.a").unlink()
+        self.assert_code(self.configure(), "VAEG_FFMPEG_STATIC_ARCHIVE_MISSING")
+
+    def test_ordinary_x264_link_forbidden(self):
+        self.valid()
+        self.flags += ";-lx264"
+        result = self.configure()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(re.findall(r"MP4_LOCAL_[A-Z_]+", result.stderr), ["MP4_LOCAL_LINK_FORBIDDEN"])
 
     def test_missing_archive_does_not_use_shared(self):
         self.valid()
