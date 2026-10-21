@@ -206,3 +206,31 @@ image checksum is invented for an unperformed media build. Run each required
 media command, record its actual exit/image digest and resolve any failure before
 calling G100s11 passed. No hosted CI was requested or used as an iterative debugger.
 No new legal/distribution approval, milestone merge or subsequent task is claimed.
+
+### Maintainer-requested macOS hardware-encoder observation
+
+On macOS 26.6.2 arm64, observed the actual Release export worker's VideoToolbox
+session using a task-local dyld diagnostic shim, without changing encoder
+settings or production sources. Queried `VTSessionCopyProperty` both after
+creation and after the first successful `VTCompressionSessionEncodeFrame`:
+
+- `kVTCompressionPropertyKey_UsingHardwareAcceleratedVideoEncoder`: **true**,
+  query status 0.
+- `kVTCompressionPropertyKey_EncoderID`:
+  **`com.apple.videotoolbox.videoencoder.ave.avc`**, query status 0.
+- Command: `DYLD_INSERT_LIBRARIES=/tmp/m100s11/vt-observe-frame.dylib
+  build/m100s11-mac-release-probe/vaeg_recording_mp4_test --export
+  /tmp/m100s11/hardware-observe-frame/fixture.mkv`; export exit 0, complete
+  `ffmpeg -v error -xerror -i .../fixture.mp4 -f null -` decode exit 0.
+- Worker SHA-256 `1fac9578c0be14182d4305a3f2caef89b379f01b0097de774fe5347fc2887252`;
+  diagnostic shim `700961e5fde60dfbae5da15008bad9dbd3b9be55898519b2d991e363707475d6`;
+  output `8f507c2e9bf49662940e54794c66af1877e916098aaf8b7013bf63c574c138ba`.
+  Source stayed `88fb76e050584a08eea90efa61211308519e51308d24e07c3878c47f2e62f1c2`.
+
+This confirms Apple's hardware AVC encoder for this particular conversion,
+not Metal shader execution or a guarantee for every device/resolution/OS. AAC's
+hardware implementation was not queried. The original diagnostic attempt using
+`RTLD_NEXT` failed in the injected shim (exit 138); direct dyld interposition
+corrected that diagnostic without modifying the application. Failed and
+successful logs/shims remain under `/tmp/m100s11/`; no other expensive profile
+was rerun and no gate/legal approval changes.
