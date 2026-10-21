@@ -690,7 +690,8 @@ static bool parse_recording_frame_limit(const char *value, uint64_t *limit) {
 /* Snapshot at recording start: every completed split uses the same choice. */
 static bool recording_export_requested = false;
 static void recording_saved_for_export(const char *path) {
-	if (recording_export_requested) (void)vaeg_recording_mp4_enqueue(path);
+	if (recording_export_requested)
+		(void)vaeg_recording_mp4_enqueue(path);
 }
 
 static void draw_mp4_status(void) {
@@ -700,13 +701,15 @@ static void draw_mp4_status(void) {
 		ImGui::TextWrapped("MP4変換中: %s", status.source);
 		if (status.progress >= 0)
 			ImGui::ProgressBar(static_cast<float>(status.progress), ImVec2(-1, 0));
-		ImGui::Text("変換済み %lld ms / 待機 %u 件", static_cast<long long>(status.encoded_ms), status.pending);
+		ImGui::Text("変換済み %lld ms / 待機 %u 件", static_cast<long long>(status.encoded_ms),
+		            status.pending);
 	} else if (status.state == VAEG_MP4_SUCCEEDED) {
 		ImGui::TextWrapped("MP4を作成しました: %s", status.output);
 	} else if (status.state == VAEG_MP4_FAILED || status.state == VAEG_MP4_CANCELLED) {
 		ImGui::TextWrapped("MP4変換は未完了です（元のMKVは保持）: %s", status.error);
 	}
-	if (status.notice[0]) ImGui::TextWrapped("MP4: %s", status.notice);
+	if (status.notice[0])
+		ImGui::TextWrapped("MP4: %s", status.notice);
 	if ((status.state == VAEG_MP4_RUNNING || status.pending) && ImGui::Button("MP4変換を中止"))
 		vaeg_recording_mp4_cancel();
 }
@@ -980,7 +983,8 @@ static void draw_recording_dialog(void) {
 	}
 	const char *saved = vaeg_recording_native_session_output_path();
 	ImGui::BeginDisabled(active || !vaeg_recording_mp4_available() || !saved || !*saved);
-	if (ImGui::Button("保存済みの録画からMP4を作成")) (void)vaeg_recording_mp4_enqueue(saved);
+	if (ImGui::Button("保存済みの録画からMP4を作成"))
+		(void)vaeg_recording_mp4_enqueue(saved);
 	ImGui::EndDisabled();
 	draw_mp4_status();
 	ImGui::PopTextWrapPos();
