@@ -543,8 +543,8 @@ private-media and other human gates: **G100s11 OPEN**.
 After the 9c7ea061 application handoff, the maintainer reports that compression
 now succeeds. Record this as native Windows conversion success feedback, not
 as a full milestone gate pass. Target-binary hash, output hash/frame counts,
-full decode/seek, audio playback and the corrected sixteen-case probe result
-have not been supplied. No private media/metadata was requested or committed.
+full decode/seek and the corrected sixteen-case probe result have not been
+supplied. The maintainer subsequently confirms that audio also plays. No private media/metadata was requested or committed.
 The demonstrated redundant-close defect is recorded among corrected bugs in
 the [permanent ledger](../../modernization/bug-fixes.md). The earlier `FINALIZE`
 report no longer reproduces on this retry, but no independent cause or separate
@@ -554,4 +554,6 @@ This update is documentation-only; application/probe artifacts and source remain
 9c7ea061, with their previously recorded digests. Reuse existing machine evidence
 rather than rebuild or rerun unchanged behavior. No hosted CI, merge, cleanup,
 release/distribution approval or next milestone is authorized by this component
-feedback. Playback and all other outstanding gates remain: **G100s11 OPEN**.
+feedback. Native Windows compression and audio playback are confirmed by the
+maintainer. Full decode/seek and all other outstanding gates remain:
+**G100s11 OPEN**.

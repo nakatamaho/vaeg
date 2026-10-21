@@ -56,8 +56,8 @@ land.
   portable model covers success ordering, Finalize failure and cancellation;
   one re-close mutation fails precisely with `MP4_WINDOWS_DOUBLE_CLOSE`.
   After the corrected application handoff, the maintainer reports that compression
-  now succeeds. This is native conversion feedback, not an independently collected
-  target-binary hash, full decode/seek, audio playback, corrected sixteen-case
+  now succeeds, and subsequently confirms audio playback. This is native user
+  feedback, not an independently collected target-binary hash, full decode/seek, corrected sixteen-case
   probe result or a completed G100s11 gate. No private media is published.
 - **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
   [application/probe handoff](../recording-v1/handoff.md).
@@ -3570,8 +3570,9 @@ separate parity correction or move it to Open Defects.
   compression succeeds, so the earlier symptom is not currently reproduced.
   Its independent root cause was not established; do not attribute a separate
   codec/geometry or Finalize correction to this evidence. Preserve the observation
-  for monitoring and collect an exact error if it returns. Playback/full-decode
-  verification and the milestone's other human gates remain pending.
+  for monitoring and collect an exact error if it returns. Audio playback is
+  now confirmed by the maintainer; full decode/seek and the milestone's other
+  human gates remain pending.
   [M100s11 task/handoff](../agents/tasks/M100s11_recording_post_mp4.md).
 
 ### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
