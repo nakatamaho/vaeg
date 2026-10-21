@@ -1,5 +1,63 @@
 # Recording v1 handoff
 
+## Active M100s11 — optional post-recording MP4
+
+[Usage/local-build guide](mp4-export.md),
+[task, commands and limits](../agents/tasks/M100s11_recording_post_mp4.md),
+[ADR-0018](../agents/DECISIONS/ADR-0018-post-recording-mp4.md).
+**G100s11 OPEN: no Windows runtime or guest/media acceptance is inferred.**
+
+Keep the original FFV1/PCM MKV and optionally create a separate H.264/AAC MP4
+following successful stop/publication (including each nonempty split). One
+background job/four pending paths; progress, completion, failure and cancellation
+are shown in recording settings. The start-time choice persists in INI. Exit
+cancels/joins conversions; sources remain. Existing MP4/symlink targets are never
+replaced. This does not enable realtime H.264/host-audio-clock recording.
+
+- **macOS:** AVFoundation system encoding. Actual native eight-case export,
+  full decode/seek, source preservation, audio/picture comparisons and an
+  optimized 1921x1081 -> 1278x720 / 22.05 -> 48 kHz conversion pass.
+- **Windows:** dynamically loaded System32 Media Foundation, no bundled encoder
+  implementation. Strict MinGW compilation/static worker link and clean Release
+  application build pass; actual Windows encoding/playback remains NOT_RUN.
+- **Linux:** actual eight-case export/decode passes with the explicitly opted-in
+  LOCAL_ONLY static FFmpeg libx264/native AAC build on Ubuntu 24.04 **arm64**.
+  Normal builds default OFF; all CI/public presets and cached-tree builds reject
+  local-only enablement. The private binary/SDK stays only in its local build
+  tree, not release staging or the usual release destination.
+
+### Windows clean-build artifact
+
+Evaluated pushed source:
+[`67cf5889a4161fd9a3cde61fc290bfb37f7d23bc`](https://github.com/nakatamaho/vaeg/commit/67cf5889a4161fd9a3cde61fc290bfb37f7d23bc).
+Later completion documentation does not change build-relevant inputs.
+
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-67cf5889/output/vaeg.exe`
+- SHA-256: `d5bdfd0081b3763c0f7beff2d20c291027df4f04f86c9362374c4034a3df0507`
+- Size: 59,201,085 bytes.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-67cf5889/output/BUILD-REPORT.md`
+- Fresh clone/application objects, pinned container, recording ON, static desktop
+  dependencies/minimal LGPL FFmpeg, Windows-system-only imports. Completed shader
+  dependency SDK reused read-only/audited. LOCAL_ONLY encoders OFF; FFmpeg encoder
+  registrations checked before linking, not inferred from missing codec DLLs.
+
+macOS development application: `build/m100s11-mac-on/sdl2/vaeg` (arm64, Debug,
+shared host dependencies, not a portable release). Linux LOCAL_ONLY application:
+`build/m100s11-linux-local/sdl2/vaeg` (arm64, private validation only).
+No private-codec artifact is published or copied to a handoff/release directory.
+
+Final retained evidence: `build/m100s11-evidence/final/validation.json`, SHA-256
+`685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
+Recording ON/OFF suites, policy/static-resolution fixtures and repository
+invariants pass. Whole-repository format check retains only demonstrated
+baseline deviations, with zero new violations. See the task for full selftest
+exit/timeout distinctions; do not turn a client timeout into an observed exit 0.
+
+Before acceptance: actual Windows normal/missing-MF conversion and playback,
+physical platform checks, V3 boot/demo/OS operations and all mandatory private
+utility/SASI/demo/media regeneration remain to be done. No legal/distribution
+approval or M100s11 merge is claimed. Earlier accepted handoffs follow.
+
 ## Active M100s10 — Windows/MinGW and Linux Displayed archive
 
 Maintainer-requested continuation after G100s9:

@@ -47,7 +47,10 @@ Linux's optional software backend requires explicit `VAEG_ENABLE_LOCAL_MP4_ENCOD
 (default OFF), static FFmpeg and `VAEG_LOCAL_MP4_ACKNOWLEDGEMENT=LOCAL_ONLY_NO_DISTRIBUTION`.
 It uses exactly libx264 and FFmpeg native AAC. Known CI environments and all
 CI/release/clean-handoff presets reject enablement, even if the public-build
-cache boolean is overridden. Normal static FFmpeg permits FFV1/PCM encoders
+cache boolean is overridden. A mandatory build dependency repeats the policy
+before compilation/archive audit, including a previously configured local tree
+moved into a CI/public environment. It uses the declared target system, not the
+script interpreter's host platform. Normal static FFmpeg permits FFV1/PCM encoders
 only; configure-time and pre-build archive audits reject extra registrations.
 The local option requires the exact additional libx264/AAC registrations. Resolve
 libx264 to an exact static archive as well; `--static` pkg-config alone is not
@@ -69,7 +72,9 @@ FFV1/PCM codec configuration. The local-only development profile is pinned to:
   <https://www.videolan.org/developers/x264.html>. The published arm64 package
   SHA-256 is `213534d13ff7afd55155ae022d972faa6d2c343fcebb1e4517f37d7193b1b6d0`.
   Package copyright identifies **GPL-2-or-later** and separate commercial licensing.
-  This profile uses the GPL package locally, not a commercial license.
+  This profile uses the GPL package locally, not a commercial license. Its
+  `libx264.a` SHA-256 is
+  `1a688333a67165dfb53a6562f6dcd2ea45b1d641ee9b9b32c7192e65bfc75b27`.
 - AAC is FFmpeg's native `aac` encoder, not libfdk-aac or a downloaded AAC SDK.
 
 These are public upstream/package identifiers, not private integration assets.

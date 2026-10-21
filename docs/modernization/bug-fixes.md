@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### Relative MP4 source names could select a different FFmpeg file URL
+
+- **Symptom/scope:** the new post-recording converter failed on a valid relative
+  POSIX name beginning with `file:`. It could inspect the unprefixed neighboring
+  file instead of the selected MKV. The archive writer itself was unaffected.
+- **Demonstrated cause:** filesystem validation used the literal relative name,
+  but both FFmpeg readers received that same string as a URL. A valid selected
+  MKV passed with an absolute argument; the relative argument instead produced
+  an EBML error from a deliberately invalid unprefixed neighbor.
+- **Correction:** resolve one absolute filesystem path before validation/output
+  setup, and give its UTF-8 representation to both read-only demuxers. Temporary
+  and final output paths use that same absolute parent.
+- **Verification:** the POSIX regression case now exports/fully decodes the valid
+  selected movie while leaving both source and neighbor unchanged. It passes in
+  the macOS-native and Linux-local eight-case export profiles; no source hash,
+  codec, picture or audio assertion was weakened.
+- **Milestone/task/commit:** [M100s11 evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/67cf5889a4161fd9a3cde61fc290bfb37f7d23bc).
+
 ### Linux native OpenGL could not provide the final Displayed client image
 
 - **Symptom/scope:** Linux native presentation could not initialize its GUI or
