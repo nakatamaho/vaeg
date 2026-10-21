@@ -224,7 +224,10 @@ class Exporter {
 			fail("MP4_BACKEND_UNAVAILABLE");
 		if (source.empty() || source.find("://") != std::string::npos)
 			fail("MP4_INPUT_PATH");
-		const fs::path input_path = fs::u8path(source);
+		// A valid relative POSIX filename may begin with "file:". Never let FFmpeg
+		// interpret that filesystem name as a URL selecting a different input.
+		const fs::path input_path = fs::absolute(fs::u8path(source));
+		const std::string input_file = input_path.u8string();
 		std::string ext = input_path.extension().u8string();
 		for (char &c : ext)
 			if (c >= 'A' && c <= 'Z')
@@ -245,7 +248,7 @@ class Exporter {
 		AVDictionary *options = nullptr;
 		av_dict_set(&options, "protocol_whitelist", "file", 0);
 		av_dict_set(&options, "format_whitelist", "matroska,webm", 0);
-		const int opened = avformat_open_input(&in.format, source.c_str(), nullptr, &options);
+		const int opened = avformat_open_input(&in.format, input_file.c_str(), nullptr, &options);
 		av_dict_free(&options);
 		if (opened < 0)
 			fail("MP4_INPUT_OPEN");
@@ -416,7 +419,7 @@ class Exporter {
 			av_dict_set(&opts, "protocol_whitelist", "file", 0);
 			av_dict_set(&opts, "format_whitelist", "matroska,webm", 0);
 			const int opened_audio =
-			    avformat_open_input(&audio_reader.format, source.c_str(), nullptr, &opts);
+			    avformat_open_input(&audio_reader.format, input_file.c_str(), nullptr, &opts);
 			av_dict_free(&opts);
 			if (opened_audio < 0)
 				fail("MP4_INPUT_OPEN");

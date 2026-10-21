@@ -31,6 +31,7 @@ from array import array
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import shutil
@@ -190,6 +191,18 @@ def main():
 
     # One controlled metadata mutation: reject a non-FFV1 video codec before
     # decoder probing, independent of whatever other decoders the host installed.
+    if os.name != "nt":
+        movie = source("relative-protocol-prefix")
+        movie = movie.rename(movie.parent / "file:expected.mkv")
+        neighbor = movie.parent / "expected.mkv"
+        neighbor.write_bytes(b"not the selected recording")
+        argv = [str(args.worker), "--export", movie.name]
+        commands.append({"argv": argv, "cwd": str(movie.parent)})
+        process = subprocess.Popen(argv, cwd=movie.parent, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result(process, movie, 0, "")
+        assert neighbor.read_bytes() == b"not the selected recording"
+        command([args.ffmpeg, "-v", "error", "-xerror", "-i", str(movie.with_suffix(".mp4")), "-f", "null", "-"])
+
     movie = source("wrong-codec")
     data = movie.read_bytes()
     movie.write_bytes(wrong_video_codec(data))
