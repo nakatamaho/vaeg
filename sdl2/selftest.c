@@ -5744,6 +5744,111 @@ static int test_8801_display(void) {
 	return (SUCCESS);
 }
 
+/* M129: the TSP SYNC global reverse (RV, byte 1 bit 3) on a blank text cell,
+ * in the native renderer and the uPD3301 emulation; a PC-8801 model ignores
+ * it while port 31h selects monochrome graphics. Returns the colour of the
+ * first visible text dot, or -1 when the frame was not set up. */
+static int sync_reverse_dot(BOOL emul) {
+	BOOL scrn200;
+
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002); /* mode 2, fg 15, bg 0 */
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	if (emul) {
+		UINT i;
+
+		for (i = 0; i < 20; i++) {
+			textmem[0x63c8 + 80 + i * 2] = 80; /* no attribute changes */
+		}
+	}
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.emul = emul ? 1 : 0;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode = 0;
+	videova.txtmode8 = 0x01;
+	tsp_dirty = TRUE;
+	maketextva_begin(&scrn200);
+	maketextva_raster();
+	return textraster[32];
+}
+
+static int test_tsp_sync_reverse(void) {
+	static const struct {
+		BOOL pc8801;
+		BOOL pc8001;
+		UINT8 port31;
+		BOOL reversed;
+		const char *problem;
+	} cases[] = {
+	    {FALSE, FALSE, 0x00, TRUE, "the VA ignored RV with monochrome graphics"},
+	    {FALSE, FALSE, 0x10, TRUE, "the VA ignored RV with colour graphics"},
+	    {TRUE, FALSE, 0x00, FALSE, "a PC-8801 applied RV with monochrome graphics"},
+	    {TRUE, FALSE, 0x10, TRUE, "a PC-8801 ignored RV with colour graphics"},
+	    {FALSE, TRUE, 0x05, TRUE, "a PC-8001 ignored RV"},
+	};
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_port31 = memoryva_88_port31;
+	const BOOL saved_pc8801 = memoryva_pc8801;
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const char *problem = NULL;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	/* Native (V3) text: a blank cell is the background, or the foreground
+	 * with RV. */
+	memoryva_88_mode = 0;
+	tsp.syncparam[1] = 0x57;
+	if (sync_reverse_dot(FALSE) != 0) {
+		problem = "native blank cell not the background";
+	}
+	tsp.syncparam[1] = 0x5f;
+	if ((problem == NULL) && (sync_reverse_dot(FALSE) != 15)) {
+		problem = "native text ignored RV";
+	}
+	/* uPD3301 emulation (V1/V2 mode). */
+	memoryva_88_mode = 1;
+	for (i = 0; (problem == NULL) && (i < NELEMENTS(cases)); i++) {
+		memoryva_pc8801 = cases[i].pc8801;
+		memoryva_pc8001 = cases[i].pc8001;
+		memoryva_88_port31 = cases[i].port31;
+		tsp.syncparam[1] = 0x57;
+		if (sync_reverse_dot(TRUE) != 0) {
+			problem = "emulated blank cell not the background without RV";
+		} else {
+			tsp.syncparam[1] = 0x5f;
+			if (sync_reverse_dot(TRUE) != (cases[i].reversed ? 15 : 0)) {
+				problem = cases[i].problem;
+			}
+		}
+	}
+	tsp.emul = 0;
+	tsp.syncparam[1] = 0x57;
+	memoryva_88_mode = saved_mode;
+	memoryva_88_port31 = saved_port31;
+	memoryva_pc8801 = saved_pc8801;
+	memoryva_pc8001 = saved_pc8001;
+	ZeroMemory(textmem, 0x8000);
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP SYNC reverse", problem));
+	}
+	fprintf(stderr, "selftest: TSP SYNC reverse ok\n");
+	return (SUCCESS);
+}
+
 /* M110: file_getappdir creates the named directory next to the executable
  * (where the build directory is writable) and ends it with a separator. */
 static int test_app_directory(void) {
@@ -8302,6 +8407,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_8801_display() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_sync_reverse() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {

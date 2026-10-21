@@ -965,5 +965,7 @@ void extrarom_apply(void) {
 	if (np2cfg.boot_mode == BOOTMODE_AUTO) {
 		np2cfg.boot_mode = BOOTMODE_V1V2;
 	}
+	/* M129: the PC-88VA/VA2 sets are VA ROMs on the VA and keep its display. */
+	memoryva_pc8801 = !same_name(machine.name, "PC-88VA") && !same_name(machine.name, "PC-88VA2");
 	fprintf(stderr, "INFO: PC-8801 machine %s from %s\n", machine.name, dir);
 }

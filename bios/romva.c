@@ -224,6 +224,7 @@ void romva_initialize(void) {
 	}
 
 	memoryva_pc8001 = FALSE;
+	memoryva_pc8801 = FALSE;
 	cgrom88_kanji[0] = NULL;
 	cgrom88_kanji[1] = NULL;
 	subsystemmx_set_absent(FALSE);

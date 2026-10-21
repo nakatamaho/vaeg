@@ -114,6 +114,29 @@ BYTE textraster[SURFACE_WIDTH]; // 1ラスタ分のピクセルデータ
 static BYTE linecolor[TEXTVA_SURFACE_WIDTH];
 BYTE textcolorraster[SURFACE_WIDTH];
 
+/*
+ * uPD72022 SYNC byte 1 bit 3 (RV): reverse the foreground and background of
+ * the whole text screen, on top of each character's own reverse attribute.
+ * The VA ROMs set it in V1/V2 mode when compatible code starts the uPD3301
+ * display with its reverse bit (START DISPLAY, 21h).
+ *
+ * M129: the PC-88VA and PC-88VA2 apply it whatever the graphics mode (the
+ * PC-8801mkIISR demonstration's CARIGRAPH is black lines on white on both).
+ * A PC-8801mkIISR shows that scene white on black: a PC-8801 model started
+ * from extra/ ignores the reverse while port 31h selects monochrome
+ * graphics (bit 4 clear), as QUASI88 does. The PC-8001 family, which has no
+ * colour/monochrome graphics switch, always applies it (MAME pc8001).
+ */
+static BOOL textva_global_reverse(void) {
+	if (!(tsp.syncparam[1] & 0x08)) {
+		return FALSE;
+	}
+	if (memoryva_pc8801 && memoryva_88_mode && !(memoryva_88_port31 & 0x10)) {
+		return FALSE;
+	}
+	return TRUE;
+}
+
 #if defined(USETABLE)
 static DWORD font2bitmap[16][16][16]; // [fg][bg][4bit分のビットマップ]
 #endif
@@ -267,7 +290,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 		v += 2;
 		work.synattr(attr, &charattr);
 
-		if (charattr.attr & TEXTVA_ATR_RV) {
+		if (((charattr.attr & TEXTVA_ATR_RV) ? TRUE : FALSE) != textva_global_reverse()) {
 			bg = charattr.fg;
 			fg = charattr.bg;
 		} else {
@@ -488,7 +511,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		d = deco[c];
 		fg = (UINT8)(8 + (color[c] & 0x07));
 		bg = work.frame->bg;
-		if (d & EMU3301_REVERSE) {
+		if (((d & EMU3301_REVERSE) ? TRUE : FALSE) != textva_global_reverse()) {
 			const UINT8 t = fg;
 			fg = bg;
 			bg = t;
