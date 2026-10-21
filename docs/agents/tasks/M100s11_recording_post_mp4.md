@@ -537,3 +537,21 @@ console evidence, partials and report.txt. Retry the retained MKV with the new
 application and optionally rerun the new probe. Publication/playback/native
 correction verification and the earlier Finalize report remain open, as do
 private-media and other human gates: **G100s11 OPEN**.
+
+### Maintainer feedback — corrected Windows compression succeeds
+
+After the 9c7ea061 application handoff, the maintainer reports that compression
+now succeeds. Record this as native Windows conversion success feedback, not
+as a full milestone gate pass. Target-binary hash, output hash/frame counts,
+full decode/seek, audio playback and the corrected sixteen-case probe result
+have not been supplied. No private media/metadata was requested or committed.
+The demonstrated redundant-close defect is recorded among corrected bugs in
+the [permanent ledger](../../modernization/bug-fixes.md). The earlier `FINALIZE`
+report no longer reproduces on this retry, but no independent cause or separate
+Finalize/codec correction is asserted.
+
+This update is documentation-only; application/probe artifacts and source remain
+9c7ea061, with their previously recorded digests. Reuse existing machine evidence
+rather than rebuild or rerun unchanged behavior. No hosted CI, merge, cleanup,
+release/distribution approval or next milestone is authorized by this component
+feedback. Playback and all other outstanding gates remain: **G100s11 OPEN**.

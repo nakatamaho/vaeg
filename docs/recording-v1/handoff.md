@@ -1,6 +1,14 @@
 # Recording v1 handoff
 
-## Current Windows stream-ownership correction — native recheck required
+## Current Windows stream-ownership correction — compression success reported
+
+After the 9c7ea061 handoff, the maintainer reports that compression succeeds.
+This confirms the reported Windows conversion failure no longer reproduces on
+that retry. No independent target-binary digest, full decode/seek, audio playback
+or corrected sixteen-case probe result has been provided. Those remain pending;
+this is component feedback, **not a passed G100s11 gate**. No rebuild or unchanged
+behavioral rerun is required for this documentation-only record.
+
 
 The maintainer's preceding synthetic run reached `CLOSE_STREAM: 0x80070057` in
 all sixteen cases, **after** passing the Finalize check. Releasing the writer
@@ -18,9 +26,10 @@ Updated application (not just a diagnostic):
   `aae67bb25801fe361334372a4501ef7c6ba4b1224fae2e9a8104817964a05c84`.
 
 Replace vaeg.exe, then retry the retained MKV through 「圧縮する録画 (.mkv)」.
-Confirm MP4 exists and plays with sound. The separately reported application
-`FINALIZE` error remains unresolved until this actual retry; do not conflate it
-with the probe's demonstrated `CLOSE_STREAM` failure.
+Compression now succeeds according to the maintainer. Playback with sound still
+needs confirmation. The earlier `FINALIZE` report is no longer reproduced, but
+its independent cause was not established; do not conflate it with the probe's
+demonstrated `CLOSE_STREAM` failure.
 
 Updated optional synthetic probe, using the same corrected source:
 
@@ -32,8 +41,9 @@ Updated optional synthetic probe, using the same corrected source:
 Eight generation/lifecycle tests, strict MinGW compilation and both builds/import
 audits pass. Lifecycle tests copy the actual finish method into a portable model;
 a single re-close mutation produces exactly `MP4_WINDOWS_DOUBLE_CLOSE`. This is
-not a native MF test. No post-correction Windows success/decode is claimed yet;
-keep earlier reports/partials and all artifacts. **G100s11 OPEN.**
+not a native MF test. Post-correction Windows compression success is now reported;
+full decode/playback remains unverified. Keep earlier reports/partials and all
+artifacts. **G100s11 OPEN.**
 
 ## Previous Windows finalization probe
 

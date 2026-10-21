@@ -35,6 +35,33 @@ land.
 
 ## Maintenance Rules
 
+### M100s11 — Windows MP4 rejected after successful finalization by redundant Close
+
+- **Symptom/scope:** the maintainer's native synthetic probe reports
+  `MP4_WINDOWS_API_CLOSE_STREAM: 0x80070057` in all sixteen geometry/timing/
+  hardware-preference cases, after passing the Finalize check. Conversion
+  discarded its unpublished temporary output instead of publishing MP4.
+- **Demonstrated cause:** finish released the owning Sink Writer/media sink,
+  then explicitly closed its retained byte-stream interface again. On the tested
+  Windows system the redundant Close returned E_INVALIDARG, incorrectly turning
+  successful finalization into a conversion failure.
+- **Correction:**
+  [9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
+  checks Finalize and releases writer then stream without a second Close.
+  Exceptional cleanup closes directly only if writer creation never took
+  ownership. Encoder settings, timestamps, original MKV protection, exclusive
+  temporary ownership and no-replacement publication remain unchanged.
+- **Verification:** eight local generation/lifecycle tests, strict MinGW compile,
+  clean static application/probe builds and import audits pass. The source-derived
+  portable model covers success ordering, Finalize failure and cancellation;
+  one re-close mutation fails precisely with `MP4_WINDOWS_DOUBLE_CLOSE`.
+  After the corrected application handoff, the maintainer reports that compression
+  now succeeds. This is native conversion feedback, not an independently collected
+  target-binary hash, full decode/seek, audio playback, corrected sixteen-case
+  probe result or a completed G100s11 gate. No private media is published.
+- **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
+  [application/probe handoff](../recording-v1/handoff.md).
+
 ### Valid native 60 Hz recordings failed compression with MP4_VIDEO_LAYOUT
 
 - **Symptom/scope:** a maintainer reported compression failure. A synthetic clip
@@ -3530,36 +3557,7 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
-### M100s11 — redundant Windows stream close rejects finalized MP4 (native correction check pending)
-
-- **Symptom/scope:** the maintainer's native synthetic probe reports
-  `MP4_WINDOWS_API_CLOSE_STREAM: 0x80070057` for all sixteen geometry/timing/
-  hardware-preference cases. These cases advanced past the Finalize error check,
-  then failed before publication. The application's converter consequently
-  discards its unpublished temporary output despite successful finalization.
-- **Demonstrated cause:** `finish()` releases the Sink Writer, shutting down
-  its owning media sink/file stream, then explicitly calls Close on the retained
-  byte-stream interface. On this Windows system that redundant Close returns
-  E_INVALIDARG; checking it incorrectly reclassifies successful finalization as
-  failed conversion. The native console demonstrates the return stage; output
-  decode and the corrected native lifetime remain to be verified.
-- **Correction:**
-  [9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
-  checks Finalize as before, releases writer then byte-stream interface without
-  a second Close. Exceptional cleanup closes directly only when writer creation
-  never took ownership. No encoder setting, timestamp, source MKV, no-replacement
-  publication rule or genuine Finalize error handling is changed.
-- **Verification:** eight local generation/lifecycle tests pass. The portable
-  source-derived method model verifies success ordering, genuine Finalize failure
-  and cancellation; reinserting exactly one checked Close after writer release
-  fails with precisely `MP4_WINDOWS_DOUBLE_CLOSE`. This models ownership, not
-  actual MF. Strict cross-compile, clean static application build, source-derived
-  native probe rebuild and system-only import audits pass. Native corrected
-  export/decode is pending, so keep this entry open until that evidence arrives.
-- **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
-  [updated application/probe handoff](../recording-v1/handoff.md).
-
-### M100s11 — separately reported Windows Finalize E_INVALIDARG remains unresolved
+### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 
 - **Observed scope:** before the sixteen-case probe, the maintainer reports
   `MP4_WINDOWS_API_FINALIZE: 0x80070057` from the application; original MKV exists.
@@ -3568,9 +3566,12 @@ separate parity correction or move it to Open Defects.
   encoder/muxer errors. The subsequent public synthetic cases instead reached
   the redundant-close defect above; that does not establish the cause of the
   earlier Finalize report. Its failure is still checked and never suppressed.
-- **Verification/next step:** retry the retained recording with 9c7ea061, verify
-  actual MP4 publication/playback and report any exact remaining error. Do not
-  claim a codec/geometry or Finalize correction solely from the close fix.
+- **Latest status/next step:** after the 9c7ea061 handoff the maintainer reports
+  compression succeeds, so the earlier symptom is not currently reproduced.
+  Its independent root cause was not established; do not attribute a separate
+  codec/geometry or Finalize correction to this evidence. Preserve the observation
+  for monitoring and collect an exact error if it returns. Playback/full-decode
+  verification and the milestone's other human gates remain pending.
   [M100s11 task/handoff](../agents/tasks/M100s11_recording_post_mp4.md).
 
 ### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
