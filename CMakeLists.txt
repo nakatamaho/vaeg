@@ -210,6 +210,7 @@ endif()
 
 # Post-stop export is independent of emulator-core C interfaces and real-time capture.
 add_library(vaeg_recording_mp4 STATIC sdl2/recording/recording_mp4.cpp)
+vaeg_mp4_attach_build_guard(vaeg_recording_mp4)
 target_compile_features(vaeg_recording_mp4 PRIVATE cxx_std_17)
 set_target_properties(vaeg_recording_mp4 PROPERTIES CXX_EXTENSIONS OFF CXX_STANDARD_REQUIRED ON)
 target_compile_definitions(vaeg_recording_mp4 PRIVATE

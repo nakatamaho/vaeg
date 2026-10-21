@@ -43,7 +43,7 @@ SPEC.loader.exec_module(AUDIT)
 CI_NAMES = ("CI", "GITHUB_ACTIONS", "GITLAB_CI", "TF_BUILD", "BUILD_NUMBER", "JENKINS_URL",
             "TEAMCITY_VERSION", "BUILDKITE", "CIRCLECI", "TRAVIS", "APPVEYOR", "VAEG_PUBLIC_PRESET")
 BASELINE = {"VAEG_ENABLE_LOCAL_MP4_ENCODERS": "ON", "VAEG_ENABLE_RECORDING": "ON",
-            "VAEG_STATIC_FFMPEG": "ON", "VAEG_PUBLIC_BUILD": "OFF", "APPLE": "FALSE", "WIN32": "FALSE",
+            "VAEG_STATIC_FFMPEG": "ON", "VAEG_PUBLIC_BUILD": "OFF", "CMAKE_SYSTEM_NAME": "Linux",
             "VAEG_LOCAL_MP4_ACKNOWLEDGEMENT": "LOCAL_ONLY_NO_DISTRIBUTION"}
 SYMBOLS = "00000000 D ff_ffv1_encoder\n00000001 D ff_pcm_s16le_encoder\n"
 
@@ -85,6 +85,36 @@ class BuildPolicy(unittest.TestCase):
             with self.subTest(name=name):
                 self.mutate("MP4_LOCAL_CI_FORBIDDEN", environment={name: "true"})
 
+    def test_cached_local_tree_rechecks_build_environment(self):
+        with tempfile.TemporaryDirectory(prefix="vaeg-mp4-build-policy-") as tmp:
+            root = Path(tmp)
+            # No codec source, SDK, compiler or Git history: only a command marker.
+            settings = "\n".join(f'set({k} "{v}" CACHE STRING "fixture" FORCE)' for k, v in BASELINE.items())
+            (root / "CMakeLists.txt").write_text('cmake_minimum_required(VERSION 3.20)\nproject(policy_fixture NONE)\n' + settings +
+                f'\ninclude("{ROOT}/cmake/mp4_policy.cmake")\n' +
+                'add_custom_target(fake_codec COMMAND "${CMAKE_COMMAND}" -E echo FAKE_CODEC_BUILD_RAN)\n' +
+                'add_library(fake_sdk INTERFACE)\n' +
+                'vaeg_mp4_attach_build_guard(fake_sdk)\n' +
+                'add_dependencies(fake_codec fake_sdk)\n')
+            env = clean_environment()
+            configured = subprocess.run(["cmake", "-S", tmp, "-B", str(root / "build"), "-G", "Ninja"],
+                                        env=env, capture_output=True, text=True)
+            self.assertEqual(configured.returncode, 0, configured.stderr)
+            command = ["cmake", "--build", str(root / "build"), "--target", "fake_codec"]
+            for name, code in (("CI", "MP4_LOCAL_CI_FORBIDDEN"),
+                               ("VAEG_PUBLIC_PRESET", "MP4_LOCAL_PRESET_FORBIDDEN")):
+                with self.subTest(name=name):
+                    baseline = subprocess.run(command, env=env, capture_output=True, text=True)
+                    self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+                    self.assertIn("FAKE_CODEC_BUILD_RAN", baseline.stdout)
+                    # One environment mutation; same configured tree, no reconfigure.
+                    bad = dict(env, **{name: "true"})
+                    result = subprocess.run(command, env=bad, capture_output=True, text=True)
+                    output = result.stdout + result.stderr
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(set(re.findall(r"\bMP4_LOCAL_[A-Z_]+\b", output)), {code})
+                    self.assertNotIn("FAKE_CODEC_BUILD_RAN", output)
+
     def test_public(self):
         self.mutate("MP4_LOCAL_PUBLIC_FORBIDDEN", {"VAEG_PUBLIC_BUILD": "ON"})
 
@@ -101,7 +131,9 @@ class BuildPolicy(unittest.TestCase):
         self.mutate("MP4_LOCAL_STATIC_RECORDING_REQUIRED", {"VAEG_ENABLE_RECORDING": "OFF"})
 
     def test_native_preferred(self):
-        self.mutate("MP4_LOCAL_LINUX_ONLY", {"APPLE": "TRUE"})
+        for system in ("Darwin", "Windows", "FreeBSD", ""):
+            with self.subTest(system=system):
+                self.mutate("MP4_LOCAL_LINUX_ONLY", {"CMAKE_SYSTEM_NAME": system})
 
     def test_objective_cpp_format_scope(self):
         formatter = runpy.run_path(str(ROOT / "tools/repo/clang_format.py"))

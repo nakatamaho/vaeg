@@ -48,11 +48,31 @@ function(vaeg_mp4_validate_policy)
     if(NOT VAEG_ENABLE_RECORDING OR NOT VAEG_STATIC_FFMPEG)
         message(FATAL_ERROR "MP4_LOCAL_STATIC_RECORDING_REQUIRED")
     endif()
-    if(APPLE OR WIN32)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message(FATAL_ERROR "MP4_LOCAL_LINUX_ONLY: use the native OS backend")
     endif()
 endfunction()
 vaeg_mp4_validate_policy()
+
+# Recheck at build time: a locally configured tree must not become a CI build.
+function(vaeg_mp4_attach_build_guard target)
+    if(NOT VAEG_ENABLE_LOCAL_MP4_ENCODERS)
+        return()
+    endif()
+    if(NOT TARGET vaeg_local_mp4_build_policy)
+        add_custom_target(vaeg_local_mp4_build_policy
+            COMMAND "${CMAKE_COMMAND}"
+                "-DVAEG_ENABLE_LOCAL_MP4_ENCODERS=ON"
+                "-DVAEG_ENABLE_RECORDING=${VAEG_ENABLE_RECORDING}"
+                "-DVAEG_STATIC_FFMPEG=${VAEG_STATIC_FFMPEG}"
+                "-DVAEG_PUBLIC_BUILD=${VAEG_PUBLIC_BUILD}"
+                "-DVAEG_LOCAL_MP4_ACKNOWLEDGEMENT=${VAEG_LOCAL_MP4_ACKNOWLEDGEMENT}"
+                "-DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}"
+                -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/mp4_policy.cmake"
+            VERBATIM COMMENT "Recheck local-only MP4 build policy")
+    endif()
+    add_dependencies(${target} vaeg_local_mp4_build_policy)
+endfunction()
 
 function(vaeg_mp4_audit_archive archive)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
