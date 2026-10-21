@@ -931,7 +931,7 @@ static void draw_recording_dialog(void) {
 	ImGui::EndDisabled();
 	ImGui::TextDisabled("リアルタイムH.264録画は未対応です。保存後のMP4変換は別の機能です。");
 	ImGui::BeginDisabled(!vaeg_recording_mp4_available() && !g_gui.recording_create_mp4);
-	if (ImGui::Checkbox("停止後に投稿用 MP4 を作成", &g_gui.recording_create_mp4)) {
+	if (ImGui::Checkbox("圧縮する", &g_gui.recording_create_mp4)) {
 		np2oscfg.recording_create_mp4 = g_gui.recording_create_mp4 ? 1 : 0;
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
