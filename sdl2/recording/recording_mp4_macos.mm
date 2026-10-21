@@ -143,6 +143,20 @@ class MacSink final : public Mp4Sink {
 		@autoreleasepool {
 			if (!finished_)
 				[writer_ cancelWriting];
+			// ARC's implicit member teardown runs AFTER this autorelease pool.
+			// Release native resources inside it so safe-save files disappear before
+			// the caller removes our temporary directory on a plain C++ thread.
+			if (pool_.ref) {
+				CFRelease(pool_.ref);
+				pool_.ref = nullptr;
+			}
+			if (audio_format_.ref) {
+				CFRelease(audio_format_.ref);
+				audio_format_.ref = nullptr;
+			}
+			audio_ = nil;
+			video_ = nil;
+			writer_ = nil;
 		}
 	}
 	void video(const uint8_t *bgra, int64_t pts, int64_t duration) override {
