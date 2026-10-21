@@ -27,6 +27,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -101,6 +102,15 @@ class BuildPolicy(unittest.TestCase):
 
     def test_native_preferred(self):
         self.mutate("MP4_LOCAL_LINUX_ONLY", {"APPLE": "TRUE"})
+
+    def test_codec_mutation_formats(self):
+        mutate = runpy.run_path(str(ROOT / "tests/frontend/recording/test_mp4_export.py"))["wrong_video_codec"]
+        direct = b"prefixV_FFV1suffix"
+        self.assertEqual(mutate(direct), b"prefixV_VP80suffix")
+        for extra in (0, 42):
+            vfw = (b"V_MS/VFW/FOURCC" + (40 + extra).to_bytes(4, "little") + bytes(8) +
+                   (1).to_bytes(2, "little") + (24).to_bytes(2, "little") + b"FFV1" + bytes(20 + extra))
+            self.assertEqual(mutate(vfw), vfw.replace(b"FFV1", b"VP80"))
 
     def test_release_assertion_guard(self):
         source = (ROOT / "tests/frontend/recording/test_recording_ffmpeg_video_encoder.cpp").read_text()

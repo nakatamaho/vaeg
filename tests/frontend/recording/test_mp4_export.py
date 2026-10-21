@@ -42,6 +42,21 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def wrong_video_codec(data):
+    if data.count(b"V_FFV1") == 1:
+        return data.replace(b"V_FFV1", b"V_VP80", 1)
+    # FFmpeg 6 writes V_MS/VFW/FOURCC with a BITMAPINFOHEADER instead.
+    assert b"V_MS/VFW/FOURCC" in data and data.count(b"FFV1") == 1
+    offset = data.index(b"FFV1")
+    size = int.from_bytes(data[offset - 16:offset - 12], "little")
+    # FFmpeg includes codec extradata in biSize (82 for the pinned fixture),
+    # not just the fixed 40-byte Windows BITMAPINFOHEADER structure.
+    assert 40 <= size <= len(data) - (offset - 16)
+    assert int.from_bytes(data[offset - 4:offset - 2], "little") == 1
+    assert int.from_bytes(data[offset - 2:offset], "little") in (24, 32)
+    return data[:offset] + b"VP80" + data[offset + 4:]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--worker", type=Path, required=True)
@@ -177,8 +192,7 @@ def main():
     # decoder probing, independent of whatever other decoders the host installed.
     movie = source("wrong-codec")
     data = movie.read_bytes()
-    assert data.count(b"V_FFV1") == 1
-    movie.write_bytes(data.replace(b"V_FFV1", b"V_VP80", 1))
+    movie.write_bytes(wrong_video_codec(data))
     result(run(movie), movie, 1, "MP4_INPUT_CODEC", digest(movie))
 
     movie = source("invalid-header")
