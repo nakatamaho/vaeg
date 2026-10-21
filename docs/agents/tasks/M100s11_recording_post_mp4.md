@@ -77,10 +77,11 @@ Implementation and local synthetic validation complete; **G100s11 remains OPEN**
 [architecture/license decision](../DECISIONS/ADR-0018-post-recording-mp4.md),
 [platform handoff](../../recording-v1/handoff.md).
 
-Evaluated final source is
+Evaluated initial converter source is
 [`67cf5889a4161fd9a3cde61fc290bfb37f7d23bc`](https://github.com/nakatamaho/vaeg/commit/67cf5889a4161fd9a3cde61fc290bfb37f7d23bc).
-Later completion records are documentation-only. Source/worker identities and
-commands are retained in `build/m100s11-evidence/final/validation.json`, SHA-256
+Completion records through `a899eddc` are documentation-only. Subsequent
+maintainer-requested GUI/cleanup work is recorded below. Initial source/worker
+identities and commands are retained in `build/m100s11-evidence/final/validation.json`, SHA-256
 `685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
 The collector asserts that the evaluated code files still match Git and both
 export workers still match their completed eight-case manifests. Raw logs,
@@ -234,3 +235,78 @@ hardware implementation was not queried. The original diagnostic attempt using
 corrected that diagnostic without modifying the application. Failed and
 successful logs/shims remain under `/tmp/m100s11/`; no other expensive profile
 was rerun and no gate/legal approval changes.
+
+### Persistent compression notification follow-up
+
+Approved after the maintainer requested visible background activity. Implemented
+in [b60b2992](https://github.com/nakatamaho/vaeg/commit/b60b29925e68a9972fd144ddb5f541da7c0e7452):
+
+- Bottom-right nonmodal panel, independent of recording settings/menu visibility.
+  「圧縮中…」 percentage/bar, unknown-duration animation, queued count and cancel;
+  「仕上げ中…」 reflects actual sink finalization, not an estimated 100 percent.
+- Completion lasts six seconds (extended while hovered), with 「保存先を開く」.
+  SDL opens a percent-encoded local directory URL, never a constructed shell
+  command. POSIX/drive/UNC, spaces, UTF-8 and URL metacharacters are covered.
+- Failure/rejection is sticky until closed, with optional details; cancellation
+  is a short notice. Job/rejection identities distinguish repeated identical
+  requests. Durable last-failure telemetry survives immediate next-job startup.
+  UI lifecycle state survives GUI/renderer recreation and never steals focus on
+  appearance. Window dimensions stay within the viewport with scroll fallback.
+- Source MKV, no-overwrite behavior, codec settings, timing and Linux isolation
+  remain unchanged. No new milestone or human acceptance is implied.
+
+Final evaluated code:
+[6de8b9085f83ddbbfe55dbe731ac27d465fda2df](https://github.com/nakatamaho/vaeg/commit/6de8b9085f83ddbbfe55dbe731ac27d465fda2df).
+Evidence `build/m100s11-evidence/notification/validation.json`, SHA-256
+`55de933a21069c353a1f503dd3dd0a83f2f410cddaec940f0e2d66443d69aaf0`.
+
+| Follow-up command/profile | Observed result |
+|---|---|
+| `cmake --build build/m100s11-mac-on -j8`; `ctest --test-dir build/m100s11-mac-on -L recording --output-on-failure` | exits 0; 28 tests, 0 failed |
+| same commands for `build/m100s11-mac-off` | exits 0; 19 tests, 0 failed |
+| same commands for Linux normal ON/OFF/local in the task container (`-j4`) | exits 0; 26/18/26, 0 failed; existing skip/disabled qualifications unchanged |
+| macOS ON/OFF and Linux LOCAL_ONLY full `--selftest --no-cfg --no-bkupmem` with dummy SDL/audio | explicit exits 0 at b60b2992; new lifecycle/layout test and all selftests pass |
+| lifecycle/layout fixtures | timeout/no-resurrection/repeated job+notice/durable queued failure; seven states at 640x400, 320x240 and 320x480, scales 1/2 |
+| `test_mp4_export.py`, final macOS worker, `/tmp/m100s11/notification-export-mac-pool-fix` | exit 0; all 8 actual export/negative cases |
+| same export script, Linux local worker, `/evidence/notification-export-linux` | exit 0; all 8; final worker digest unchanged after Apple-only follow-up |
+| `python3 tests/frontend/recording/test_mp4_policy.py`; `test_static_ffmpeg.py` | exits 0; 20 / 7 tests |
+| new ARC normal/exception drain test, ON and OFF | exits 0; mutation only to rethrow inside pool fails exactly `MAC_POOL_EXCEPTION_RELEASE` |
+| 64 focused real macOS cancellations on the same fixture | expected exit 1 / `MP4_CANCELLED`, source unchanged, no owned temporary directories |
+| encoding/EOL/case/Markdown comments/whitespace; new sources' strict format | exits 0; whole format manifest still exits 1 only on inherited baseline, added-line GUI comparison has zero new findings |
+
+The GUI selftests are synthetic ImGui layout/state checks, not proof of physical
+GPU rendering or native Windows button interaction. Final actual export workers:
+macOS `6dc974016c67232e8047a4fc3c305f242dc85955da81e3617782e28c2989e90c`,
+Linux `4367126e4f3afca4926061e6f291e8ec9446ddbb7026d9dd6b825c75ffbae1e7`.
+Linux completed b60b2992 results are reused only after verifying the final build
+has that identical worker and unchanged platform-relevant code/configuration.
+No unaffected expensive corpus/profile was rerun for report changes.
+
+The first macOS run exposed a real cancellation cleanup defect: the validator
+correctly rejected a retained empty job directory. A diagnostic captured errno
+66 and native safe-save files. One-second retries did not fix it; releasing
+members alone passed 32 larger-fixture cancels but still failed the original
+full-profile cancel. Those attempts are preserved, not labeled successful fixes.
+A weak-reference control then proved that C++ unwinding skips an autorelease
+pool's drain. The final helper catches inside, drains normally and rethrows;
+its single-mutation test and the full/focused exports above pass.
+[Permanent correctness record](../../modernization/bug-fixes.md). No recursive
+cleanup, file-protection bypass or relaxed validator assertion was introduced.
+
+Updated clean Windows handoff (fresh clone, source 6de8b908, OS MP4 encoding ON):
+
+- `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/vaeg.exe`, 59,210,873 bytes.
+- SHA-256 `71fc5afc7664a1b5e2ceda3b7eff0b94ac701e055d269635633cb988496142cf`.
+- `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/BUILD-REPORT.md`, SHA-256
+  `c1a274cea9acf1e3ce363189fed16a378f538daba3ce7b0c7d4652e464567f00`.
+- `tools/release/build-mingw-static-container.sh --commit
+  6de8b9085f83ddbbfe55dbe731ac27d465fda2df --recording --shader-sdk
+  "$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`: exit 0.
+  Static desktop dependencies, public/minimal FFmpeg archive registration audit
+  and Windows-system-only PE imports pass; no bundled H.264/AAC implementation.
+
+Retain all old binaries/build roots/evidence, including the simple-label
+`d8f3ea8a` handoff; none is deleted or relabeled. This supersedes their UI, not
+historical runtime evidence. **G100s11 remains OPEN**: native Windows execution,
+physical platform, guest boot/demo/OS and all required private-media gates are
+still NOT_RUN; no release/legal/distribution approval is inferred.

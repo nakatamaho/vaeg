@@ -9,8 +9,10 @@
 
 Keep the original FFV1/PCM MKV and optionally create a separate H.264/AAC MP4
 following successful stop/publication (including each nonempty split). One
-background job/four pending paths; progress, completion, failure and cancellation
-are shown in recording settings. The start-time choice persists in INI. Exit
+background job/four pending paths; a bottom-right notification shows progress,
+finishing, cancellation and six-second completion with an open-folder button.
+Failures stay until dismissed, including the latest failed queued job. Recording
+settings also retain detailed status. The start-time choice persists in INI. Exit
 cancels/joins conversions; sources remain. Existing MP4/symlink targets are never
 replaced. This does not enable realtime H.264/host-audio-clock recording.
 
@@ -29,13 +31,14 @@ replaced. This does not enable realtime H.264/host-audio-clock recording.
 ### Windows clean-build artifact
 
 Evaluated pushed source:
-[`67cf5889a4161fd9a3cde61fc290bfb37f7d23bc`](https://github.com/nakatamaho/vaeg/commit/67cf5889a4161fd9a3cde61fc290bfb37f7d23bc).
+[`6de8b9085f83ddbbfe55dbe731ac27d465fda2df`](https://github.com/nakatamaho/vaeg/commit/6de8b9085f83ddbbfe55dbe731ac27d465fda2df).
+Includes the simple 「圧縮する」 label and persistent compression notification.
 Later completion documentation does not change build-relevant inputs.
 
-- Executable: `/Users/maho/work/pc88va/vaeg-mingw-67cf5889/output/vaeg.exe`
-- SHA-256: `d5bdfd0081b3763c0f7beff2d20c291027df4f04f86c9362374c4034a3df0507`
-- Size: 59,201,085 bytes.
-- Report: `/Users/maho/work/pc88va/vaeg-mingw-67cf5889/output/BUILD-REPORT.md`
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/vaeg.exe`
+- SHA-256: `71fc5afc7664a1b5e2ceda3b7eff0b94ac701e055d269635633cb988496142cf`
+- Size: 59,210,873 bytes.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-6de8b908/output/BUILD-REPORT.md`
 - Fresh clone/application objects, pinned container, recording ON, static desktop
   dependencies/minimal LGPL FFmpeg, Windows-system-only imports. Completed shader
   dependency SDK reused read-only/audited. LOCAL_ONLY encoders OFF; FFmpeg encoder
@@ -46,8 +49,13 @@ shared host dependencies, not a portable release). Linux LOCAL_ONLY application:
 `build/m100s11-linux-local/sdl2/vaeg` (arm64, private validation only).
 No private-codec artifact is published or copied to a handoff/release directory.
 
-Final retained evidence: `build/m100s11-evidence/final/validation.json`, SHA-256
-`685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
+Current notification/cleanup evidence: `build/m100s11-evidence/notification/validation.json`,
+SHA-256 `55de933a21069c353a1f503dd3dd0a83f2f410cddaec940f0e2d66443d69aaf0`.
+Initial converter evidence remains at `build/m100s11-evidence/final/validation.json`,
+SHA-256 `685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
+The follow-up records explicit-exit GUI selftests, a complete eight-case export
+per backend and 64 macOS cancellations after correcting exception/pool lifetime.
+Earlier timeout and failed/incomplete cleanup attempts remain preserved.
 Recording ON/OFF suites, policy/static-resolution fixtures and repository
 invariants pass. Whole-repository format check retains only demonstrated
 baseline deviations, with zero new violations. See the task for full selftest

@@ -35,6 +35,32 @@ land.
 
 ## Maintenance Rules
 
+### macOS MP4 cancellation could leave an empty job temporary directory
+
+- **Symptom/scope:** a real macOS post-recording cancellation returned
+  `MP4_CANCELLED` but left its empty owner-only job directory. The MKV was
+  unchanged; publication/overwrite protection was not bypassed.
+- **Demonstrated cause:** C++ exceptions escaping `@autoreleasepool` skipped its
+  drain. A weak-reference control probe stayed alive after the exception and
+  died only when the outer pool drained. Native safe-save files could therefore
+  outlive directory cleanup (observed `ENOTEMPTY`, errno 66); later thread exit
+  removed those files but not the containing directory. ARC member destruction
+  also occurred after the destructor body's pool. Bounded cleanup retries and
+  explicit member release alone did not correct the exception path.
+- **Correction:** catch/preserve exceptions inside each native-operation pool,
+  drain on normal scope exit, then rethrow the original exception. Release native
+  sink members inside the teardown pool. Do not recursively delete native or
+  unexpected files and do not weaken source/no-replacement guarantees.
+- **Verification:** actual macOS eight-case export passes; 64 focused
+  cancellations on the same fixture retain the source and leave no job directory.
+  A standalone ARC test checks normal and exceptional pool draining. Its passing
+  fixture, mutated only to rethrow inside the pool, fails specifically with
+  `MAC_POOL_EXCEPTION_RELEASE`. Linux export worker identity is unchanged by the
+  Apple-only correction and its completed eight-case result is retained.
+- **Milestone/task/commits:** [M100s11 follow-up evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [exception-boundary fix](https://github.com/nakatamaho/vaeg/commit/6de8b9085f83ddbbfe55dbe731ac27d465fda2df),
+  [in-pool member teardown](https://github.com/nakatamaho/vaeg/commit/9030d1acd43297b0c0312e9cf6af39e538f05412).
+
 ### Relative MP4 source names could select a different FFmpeg file URL
 
 - **Symptom/scope:** the new post-recording converter failed on a valid relative
