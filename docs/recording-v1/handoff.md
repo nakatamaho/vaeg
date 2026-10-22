@@ -23,16 +23,29 @@ OS after correct-CWD/loading-bound follow-ups, boot/select the SGP demo, render
 the bundled VA demo title and start MANDEL.BAS (partial rows, not full completion).
 These agent observations do not establish physical GPU or human-gate acceptance.
 
-**Gate still blocked:** PSD is unavailable. SASI generation exits 1 fetching
-`PCODESRC.LZH` (HTTP 403; separate HTTPS attempt times out), and the three required
-CP/M tools/source/development disk inputs are also unavailable. Neither SASI
-image or model boot is passed. Native Windows full decode/seek/quality/missing-MF,
-physical Linux GPU/Wayland and remaining maintainer human acceptance stay open.
+**CP/M/SASI follow-up completed:** the maintainer supplied four locked CP/M
+archives and accepted local-use notices. The installer generates tools/source/dev
+images (exit 0), and a ROM-aware macOS run reaches CP/M 2.2 and its DIR listing.
+The supplied `PCODESRC.LZH` matches the pinned cache copy; missing extra packages
+are fetched from static publisher URLs and match the unchanged builder hashes.
+Both SASI images now build (exit 0) and boot alone on their emulated VA/VA2 models,
+accept DIR and return Ready (both exit 0). These use explicit isolated backup
+paths so normal BIOS fixed-disk selection initializes; earlier `--no-bkupmem`
+attempts are retained as unsuccessful fixtures, not boot passes.
+
+**Gate still OPEN:** PSD-based Zundamon source regeneration is unavailable.
+Native Windows full decode/seek/quality/missing-MF, physical Linux GPU/Wayland and
+remaining maintainer human acceptance also stay open. CP/M/SASI checks above use
+macOS SDL dummy/software, not physical hardware or new Windows execution.
 Full commands, image hashes, preserved failures and scope are in the
 [M100s11 task](../agents/tasks/M100s11_recording_post_mp4.md).
 Local evidence `build/m100s11-media-gate-16ed03ee/validation.json`, SHA-256
 `23d51328d7b179ef2dab477ed2cd47c2632d26aea08f9908da9a9d246c3de1c2`.
-**G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
+Follow-up evidence `build/m100s11-media-gate-16ed03ee/cpm-sasi-followup.json`,
+SHA-256 `3572a2f0b0550360308f52a5186bbcbd3e24991f4784ff274c90915908b001da`.
+The original index is retained as historical; its CP/M/SASI blockers are resolved
+by this supplement. No generated disk, private capture or license cache is
+published. **G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
 
 ## Screenshot rotation component accepted — 97259966
 

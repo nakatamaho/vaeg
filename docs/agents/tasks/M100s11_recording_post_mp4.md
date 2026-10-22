@@ -659,7 +659,8 @@ valid and no unchanged expensive run or rebuild is requested.
 
 The maintainer subsequently requested the remaining gate work. Evaluated commit:
 [16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
-**G100s11 remains OPEN: required PSD/SASI regeneration is blocked.**
+**G100s11 remains OPEN.** At this checkpoint PSD/SASI regeneration was blocked;
+the follow-up below resolves the CP/M/SASI blockers, not the PSD/human gates.
 
 A fresh remote clone was checked out at that commit under the untracked
 `build/m100s11-media-gate-16ed03ee/checkout`; tracked sources remain unchanged.
@@ -809,3 +810,131 @@ native Windows full decode/seek/quality and missing-MF behavior, physical Linux
 GPU/Wayland. No full gate pass is inferred from dummy SDL. No merge, cleanup,
 release/legal/distribution approval or next milestone is performed. All prior
 binaries, SDKs, logs, failed attempts, new gate work and input assets are retained.
+
+### CP/M source inputs supplied — SASI generation and both model boots verified
+
+The maintainer supplied the local cache containing the four locked CP/M input
+archives and explicitly answered **yes** to the installer license notices for
+local generation/use only. All four archive sizes/SHA-256 match
+`tools/cpmva/sources.lock.json` before and after generation. The maintainer also
+supplied the public `PCODESRC.LZH` package; it matches the original pinned hash
+and the verified shared-cache copy. No supplied file was changed or removed.
+
+Tool source is the same clean clone of pushed 16ed03ee. At follow-up HEAD
+[8c890722bb3a66a749ea920a01df79abf8770261](https://github.com/nakatamaho/vaeg/commit/8c890722bb3a66a749ea920a01df79abf8770261),
+`git diff --exit-code 16ed03ee HEAD -- tools/cpmva tools/pc88va external/zex`
+is empty (exit 0). No emulator/build-policy/source change is needed.
+
+Local evidence: `build/m100s11-media-gate-16ed03ee/cpm-sasi-followup.json`, SHA-256
+`3572a2f0b0550360308f52a5186bbcbd3e24991f4784ff274c90915908b001da`.
+It supplements rather than overwrites the original `validation.json`; historical
+CP/M/download/SASI blockers in that earlier index and section are not current
+failures. Commands, original-input preservation, generated image checks,
+cache acquisition, boot arguments, logs and captures are retained locally.
+
+#### CP/M generation and guest check
+
+With `G=build/m100s11-media-gate-16ed03ee`, `R=$G/checkout`, and `C` the
+maintainer-specified shared-cache `cpm` subdirectory, the actual command uses
+Python 3.12 and all four explicit local overrides:
+
+```sh
+python3.12 "$R/tools/cpmva/install_cpmva.py" \
+  --boot-disk "$G/inputs/system-b.d88" --output-dir "$G/cpmva-generated" \
+  --cache-dir "$HOME/.cache/vaeg/cpmva" \
+  --cpmva-archive "$C/CPMVA.LZH" --cpm22-archive "$C/cpm2-asm.zip" \
+  --vt100-games-archive "$C/vt100-games-12e2e2c26351022b3aea03c1fc4184398e7770e3.zip" \
+  --bdsc-archive "$C/bdsc-all.zip" --keep-work \
+  --accept-cpm-license --accept-cpmva-license \
+  --accept-games-license --accept-bdsc-license
+```
+
+**Exit 0.** The locked CP/M permission text is fetched/verified; z80asm 1.8 is
+built from its locked source. The installer validates addresses, rebuilt ZEX
+stock hashes and CP/M disk contents/extents before writing the images. The
+manifest reports original boot input unchanged. Generated tools/source/dev
+images still match their manifest after the guest check.
+
+Using the same macOS recording-ON binary and a ROM set matching MAME's `pc88va2`,
+boot the generated PC-Engine copy, enter `CPMVA`, swap FD1 to the tools disk at
+the prompt, press Enter and issue `DIR`. Bounded frame-6000 run **exits 0**;
+agent review of the retained capture confirms CP/M 2.2, its prompt, tool/game
+listing and returned prompt. This is a boot/DIR check, **not** execution of
+ZEX, games, BDS C or a CPU conformance corpus. Source/dev disk checks are the
+installer's content/extent validation, not separately observed program runs.
+
+Produced image SHA-256 values:
+
+| Image | SHA-256 |
+|---|---|
+| cpmva-tools.d88 | `1428440a48af8e63067f05626eaacb6a88ced146eb7e2f4b7b30e5462dfe69aa` |
+| cpmva-source.d88 | `8014e2b8ddb0f4097bd79056e22b32a470a3a60f0625788fd861392810e9f326` |
+| cpmva-dev.d88 | `a34b484bbc43107d7910bfb1b5ceb114505dc1ea67e72e4bd9b0c5f8297bed1c` |
+| pcengine-boot-cpmva.d88 | `b2fbced63e3758e2eb0a3befb8c9e79a1205157927d0b898c67f206042b5c2d0` |
+| cpmva-zexall-test.d88 | `a8080e6141865696f96991ef1ae5cdf6f10e9414aceae74d4be35f0039728b8b` |
+| cpmva-zexall-test.2d.d88 | `80b684392a8c1d7e18b25294b89766b4b0d87fabc71f1475cb8d0da447dcd17d` |
+
+All images, source extraction, permission/license evidence and manifests remain
+untracked/local. This approval is not public distribution or relicensing.
+
+#### SASI cache resolution, generation and isolated model boots
+
+A static publisher URL for `PCODESRC.LZH` returns the exact originally pinned
+bytes, unlike the dynamic download endpoint's HTTP 403. The supplied copy also
+matches. After caching it, the next SASI attempt fails at uncached `PCP_7A.LZH`;
+that failure is preserved separately. The task-local helper
+`fill-sasi-extra-cache.py` fetches the missing extra packages from the same
+publisher's static `/softlib/pub/<anum>/<gnum>/<fname>` paths and checks every
+file against the **unchanged builder hashes before cache placement**. Existing
+cache files are verified, never replaced. All 18 extra-package entries verify;
+11 missing entries download successfully. No lock, production URL or hash was
+changed, and the original failed dynamic/HTTPS attempts remain available.
+
+Run `build-sasi-utility-disks.sh` again with the same neutral system-a/system-b
+inputs and new utility FDD payload, replacing only the formerly missing CP/M
+input paths with the generated tools/source/dev disks:
+
+```sh
+bash "$R/tools/pc88va/build-sasi-utility-disks.sh" \
+  --source-va "$G/inputs/system-a.d88" --source-va2 "$G/inputs/system-b.d88" \
+  --payload-d88 "$G/images/utility-host.d88" \
+  --cpm-tools-d88 "$G/cpmva-generated/cpmva-tools.d88" \
+  --cpm-source-d88 "$G/cpmva-generated/cpmva-source.d88" \
+  --cpm-dev-d88 "$G/cpmva-generated/cpmva-dev.d88" \
+  --output-dir "$G/images/sasi-cpm-followup"
+```
+
+The same host-tool/DOSBox bridge/project-local container environment is used.
+**Exit 0**, producing both 40 MB images:
+
+| Image | SHA-256 |
+|---|---|
+| pc88va-sasi-40mb-va.hdi | `6562833f95e70a0a67dc95b745ec02a6ef8c1929af01b24003b23cf4c7db154a` |
+| pc88va-sasi-40mb-va2.hdi | `83c1d684d4402a2021fdd60d6e5c8312b9712ba501a1b5275cabdca802b50526` |
+
+Each is copied into a separate new per-model runtime directory and booted with
+FDD1/FDD2 absent, only SASI1 mounted, SASI2 absent, default fixed-disk boot and an
+explicit isolated `--bkupmem backup.dat`. With ROM sets matching MAME's `pc88va`
+and `pc88va2`, both frame-6000 runs **exit 0** and the agent observes the matching
+PC-Engine system's `DIR` listing and Ready prompt. Canonical images and runtime
+copies are byte-unchanged after these runs. This verifies SASI-only boot/DIR on
+both emulated models under macOS SDL dummy/software, not physical hardware or
+Windows execution.
+
+The first boot fixture incorrectly used `--no-bkupmem`, which disables the
+normal default BIOS-record seeding; fixed-disk selection only synchronizes a
+valid signed record. Those runs show BASIC/insert-disk screens and **are not
+SASI boot passes**, regardless of exit 0. The corrected fixture uses an explicit
+new backup path in each new working directory, allowing normal default seeding
+without reading or altering any user profile. No backup bytes, ROM or emulator
+source were patched; this is fixture correction, not a claimed emulator fix.
+
+**Resolved:** CP/M input availability/generation, checked public SASI package
+acquisition, both SASI image builds and both model boot/DIR checks. **Still OPEN:**
+the PSD-based Zundamon source rebuild, remaining maintainer human acceptance,
+native Windows full decode/seek/quality and missing-MF behavior, physical Linux
+GPU/Wayland. Earlier accepted compression/audio/screenshot components remain
+accepted. No unchanged MP4 export, SST, full demo matrix or Windows build was
+rerun: application/worker inputs and the 16ed03ee clean handoff are unchanged.
+Repository encoding/EOL/case/Markdown/whitespace checks pass. **G100s11 OPEN**;
+no merge, cleanup, distribution/legal approval or next milestone.
