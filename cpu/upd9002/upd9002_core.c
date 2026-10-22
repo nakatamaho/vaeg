@@ -176,6 +176,7 @@ static struct {
 UINT upd9002_fetched_bytes; /* by the current instruction (memory.c) */
 UINT upd9002_data_cycles;   /* its data bus cycles (memory.c) */
 UINT upd9002_prefix_clocks; /* its prefixes' clocks: the BIU fetches meanwhile */
+UINT upd9002_bus_waits;     /* its data cycles' wait states (memory.c) */
 
 static UINT32 upd9002_now(void) {
 	return (UINT32)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK);
@@ -241,9 +242,9 @@ static void upd9002_queue_account(UINT16 start_ip, UINT16 start_cs, UINT32 start
 		CPU_REMCLOCK -= (SINT32)stall;
 	}
 	end = upd9002_now();
-	/* The instruction's data cycles hold the bus. */
+	/* The instruction's data cycles, wait states included, hold the bus. */
 	if (upd9002_data_cycles && ((SINT32)(end - upd9002_queue.next) > 0)) {
-		upd9002_queue.next += upd9002_bus_clocks(4 * upd9002_data_cycles);
+		upd9002_queue.next += upd9002_bus_clocks(4 * upd9002_data_cycles) + upd9002_bus_waits;
 	}
 	if ((UPD9002_CS != start_cs) || (UPD9002_IP != (UINT16)(start_ip + length))) {
 		upd9002_queue_flush(end);
@@ -289,6 +290,7 @@ void upd9002_core_step(void) {
 	upd9002_fetched_bytes = 0;
 	upd9002_data_cycles = 0;
 	upd9002_prefix_clocks = 0;
+	upd9002_bus_waits = 0;
 	remain_before_fetch = UPD9002_REMCLOCK;
 	opcode = upd9002_fetch(CS_BASE + UPD9002_IP);
 	upd9002_current_opcode = (UINT8)opcode;

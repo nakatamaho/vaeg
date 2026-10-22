@@ -94,6 +94,7 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
  */
 extern UINT upd9002_fetched_bytes;
 extern UINT upd9002_data_cycles;
+extern UINT upd9002_bus_waits;
 
 static INLINE void upd9002_bus_wait(UINT32 address, UINT cycles) {
 	UINT wait;
@@ -113,6 +114,7 @@ static INLINE void upd9002_bus_wait(UINT32 address, UINT cycles) {
 	wait = upd9002_programmed_wait(address);
 	if (wait) {
 		CPU_REMCLOCK -= (SINT32)(wait * cycles);
+		upd9002_bus_waits += wait * cycles;
 	}
 }
 
@@ -174,7 +176,12 @@ REG8 MEMCALL upd9002_memoryread(UINT32 address) {
 	}
 #endif
 	upd9002_bus_wait(address, 1);
-	return upd9002_memoryread_va(address);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		const REG8 value = upd9002_memoryread_va(address);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+		return value;
+	}
 }
 
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
@@ -185,7 +192,12 @@ REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
 	}
 #endif
 	upd9002_bus_wait(address, 1 + (address & 1));
-	return upd9002_memoryread_va_w(address);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		const REG16 value = upd9002_memoryread_va_w(address);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+		return value;
+	}
 }
 
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
@@ -199,7 +211,11 @@ void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 1);
 	upd9002_bus_wait(address, 1);
-	upd9002_memorywrite_va(address, value);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		upd9002_memorywrite_va(address, value);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+	}
 }
 
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
@@ -214,7 +230,11 @@ void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 2);
 	upd9002_bus_wait(address, 1 + (address & 1));
-	upd9002_memorywrite_va_w(address, value);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		upd9002_memorywrite_va_w(address, value);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+	}
 }
 
 REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off) {
