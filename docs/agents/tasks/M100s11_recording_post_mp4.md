@@ -562,3 +562,89 @@ release/distribution approval or next milestone is authorized by this component
 feedback. Native Windows compression and audio playback are confirmed by the
 maintainer. Full decode/seek and all other outstanding gates remain:
 **G100s11 OPEN**.
+
+### Maintainer-added screenshot rotation gate and correction
+
+The maintainer explicitly adds: screenshots must follow a rotated screen. The
+requirement is now in the gate checklist above. Normal displayed readback already
+contains screen rotation; unprocessed/analysis saves did not consult rotation.
+[304f47b3](https://github.com/nakatamaho/vaeg/commit/304f47b317e3a4c8ead289fc440cfdb0a69f8622)
+adds a format/pitch-aware clockwise copy only to the guest screenshot save paths,
+after analysis composition. It never re-turns displayed readback, modifies the
+original shadow/guards, changes state thumbnails or changes recording/MP4 code.
+[User guide](../../modernization/native-crt-user-guide.md),
+[permanent ledger](../../modernization/bug-fixes.md).
+
+Three focused real-SDL/source-derived tests pass on macOS and Linux. Baseline
+covers 565/8888, four odd/padded portrait/landscape/one-pixel geometries, alpha
+and original retention. Each negative first passes its baseline, changes one
+condition/coordinate, and requires precisely `SCREENSHOT_ROTATION_DIMENSION`
+(no rotation) or `SCREENSHOT_ROTATION_PIXELS` (transpose), without Git/history
+or emulator-state dependence. Application tests additionally save/read every
+pixel of 18 PNG/BMP images per profile (raw/analysis, info off/on, 0 -> 90 -> 0).
+An asymmetric displayed SDL quadrant/crop fixture checks correct right rotation
+and prevents double turning already-composed output.
+
+Five profiles pass the focused raw/display checks with explicit exit 0:
+macOS recording ON/OFF; Linux recording ON/OFF/local. Exact commands, binary
+hashes, image/log digests and source closure are indexed in
+`build/m100s11-evidence/screenshot-rotation/validation.json`, SHA-256
+`73d5e499014cdef33f508fb5a5fbed6ee61b60de2511f4a8addcc7d7ff856c28`.
+Commands include `python3 tests/frontend/recording/test_screenshot_rotation.py`,
+and, in separate retained working directories, dummy SDL/audio invocations of
+`vaeg --selftest --no-cfg --no-bkupmem` with either
+`VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY=1` or
+`VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY=1`. All direct focused invocations exit 0.
+
+Broader build/CTest results and qualifications:
+
+- macOS ON: 122 enabled/listed, zero failed, four skipped. Full run completed
+  before the host wrapper timed out during the subsequent OFF run.
+- macOS OFF: 113 enabled/listed, zero failures across completed disjoint ranges
+  1-71, 72-112, 113. Wrappers timed out at 72 and then 113; only unfinished
+  ranges/tests were resumed, retaining completed results. Final test exits 0;
+  do not rewrite this as one observed full-run exit 0.
+- Linux local/ON: each 119 listed, 118 enabled; OFF: 111 listed, 110 enabled.
+  All summaries show zero failures; disabled/skipped hardware/private cases
+  remain unperformed. Host wrapper timed out while the daemon loop continued.
+  Docker exec create/start/die event correlation recovers the exact underlying
+  loop's exit 0, with event-log hash and exec identity in the evidence index.
+- Initial broad checks exposed two issues, preserved honestly: the existing
+  native invariant omitted M100s11's approved public-codec-policy preset;
+  [97259966](https://github.com/nakatamaho/vaeg/commit/9725996637c8f52e4870a560e39a75cbc2514a02)
+  adds exactly that preset to the closed expected set. macOS CPU checkpoint
+  comparison also saw the display fixture's pre-existing timestamp/PID-prefixed
+  Screenshot saved INFO log (observed separately with the preserved M100s10
+  executable). The fixture now saves/restores application log priority and
+  suppresses its INFO records; CPU trace/golden validators are unchanged.
+- The initial screenshot oracle incorrectly equated SDL_GetRGB expansion with
+  SDL's existing 565->8888 blitter (one-LSB rounding difference). Raw saves still
+  use the source-color oracle; composed rotations compare bit-exactly with their
+  own unturned composition. No pixel tolerance or weakened rotation check was
+  introduced. Initial images/logs remain under `/tmp/m100s11/`.
+
+No new-source formatting findings: diff-scoped checks against fa502659 cover
+216/1/29 added lines in scrnmng.c/h and selftest.c; inherited lines are unchanged.
+Encoding/EOL/case/Markdown/whitespace checks and native invariant pass. Full
+macOS/Linux selftests are exercised by the CTest profiles above. Completed MP4
+export/native timing profiles are reused only after verifying the existing
+macOS/Linux converter worker digests remain identical; no unchanged expensive
+export or hosted CI was rerun.
+
+Latest clean static Windows handoff from pushed 97259966 (recording/OS MP4 ON,
+local static encoders OFF), helper/import/codec audits exit 0:
+
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/vaeg.exe`, 59,218,214 bytes,
+  SHA-256 `7c4930593c4b23b4a6708c2e7c3a0d8391c461429d0a8d8f29614950494de0a3`.
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/BUILD-REPORT.md`, SHA-256
+  `d63c51eabba72b32a60c111e7ff9ae79b4d6bffa0b561577c7237ac3fd5c76bb`.
+
+Build command is the standard clean static helper with
+`--commit 9725996637c8f52e4870a560e39a75cbc2514a02 --recording --shader-sdk
+"$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`.
+Native Windows inspection of both screenshot menu entries through 0 -> 90 -> 0
+is still NOT_RUN. Normal displayed shots retain the current drawable/letterbox
+canvas; unprocessed shots swap dimensions. Dummy SDL/synthetic checks do not
+establish physical GPU or guest/private-media acceptance. Prior Windows MP4
+compression/audio acceptance remains recorded, all old artifacts are retained,
+no merge/cleanup occurred, and **G100s11 remains OPEN**.

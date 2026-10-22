@@ -35,6 +35,34 @@ land.
 
 ## Maintenance Rules
 
+### M100s11 — guest-resolution screenshots ignored display rotation
+
+- **Symptom/scope:** the maintainer requires screenshots to follow a 90-degree
+  rotated display. Normal composed-display readback already contains rotation;
+  guest-resolution/unprocessed and graphics-analysis saves instead stayed
+  landscape, independent of the selected display orientation.
+- **Demonstrated cause:** both guest save paths constructed surfaces from the
+  unturned shadow framebuffer and wrote them without consulting display rotation.
+  The analysis path also composed its information panel in guest coordinates.
+- **Correction:**
+  [304f47b3](https://github.com/nakatamaho/vaeg/commit/304f47b317e3a4c8ead289fc440cfdb0a69f8622)
+  rotates only these guest screenshot surfaces clockwise, after any analysis
+  composition, using format/pitch-aware pixel copies and swapped dimensions.
+  Normal displayed captures are not turned again; original shadow pixels,
+  padding, recording behavior and state thumbnails remain unchanged.
+- **Verification:** three focused actual-SDL/source-derived tests on macOS/Linux
+  check 565/8888, odd/padded portrait/landscape inputs and source immutability.
+  Separate missing-rotation/transpose mutations fail with precise dimension/pixel
+  codes. Five application profiles each round-trip 18 PNG/BMP saves through
+  0 -> 90 -> 0, with/without analysis, exact pixel mapping and original retention.
+  An asymmetric displayed-SDL quadrant/crop check guards against double rotation.
+  Builds and applicable selftests/CTest pass, with recorded skips/timeouts and
+  completion ranges. Clean static Windows 97259966 build passes; native Windows
+  rotated-screenshot inspection is still a human gate, not inferred from dummy SDL.
+- **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
+  [handoff](../recording-v1/handoff.md). The screenshot requirement is explicitly
+  added to G100s11; the overall gate remains OPEN.
+
 ### M100s11 — Windows MP4 rejected after successful finalization by redundant Close
 
 - **Symptom/scope:** the maintainer's native synthetic probe reports

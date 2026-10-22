@@ -1,6 +1,39 @@
 # Recording v1 handoff
 
-## Current Windows stream-ownership correction — compression success reported
+## Current M100s11 handoff — screenshot rotation gate added
+
+Maintainer-added gate: at display right 90 degrees, both screenshot menu entries
+must save that orientation; turning back must restore the normal orientation.
+The unprocessed/analysis screenshot paths now rotate their whole guest-resolution
+composition; normal displayed readback is already oriented and is not turned
+again. Native/Displayed recording and state thumbnails are unchanged.
+
+Latest clean static recording-enabled Windows binary:
+
+- Source [9725996637c8f52e4870a560e39a75cbc2514a02](https://github.com/nakatamaho/vaeg/commit/9725996637c8f52e4870a560e39a75cbc2514a02).
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/vaeg.exe`, 59,218,214 bytes.
+- SHA-256 `7c4930593c4b23b4a6708c2e7c3a0d8391c461429d0a8d8f29614950494de0a3`.
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/BUILD-REPORT.md`, SHA-256
+  `d63c51eabba72b32a60c111e7ff9ae79b4d6bffa0b561577c7237ac3fd5c76bb`.
+
+Please check `画面 > スクリーンショットを保存` and its `加工前` entry at
+0 -> right 90 -> 0. Pictures must follow the screen without reversal/double turn;
+normal displayed images retain their current window/letterbox canvas, whereas
+unprocessed screenshot dimensions swap at 90. Native Windows inspection is
+pending. Previous Windows MP4 compression/audio acceptance remains recorded for
+9c7ea061; the converter worker/source is unchanged by this screenshot correction.
+
+Three focused SDL tests and five application profiles (macOS ON/OFF, Linux
+ON/OFF/local) pass 18 saved PNG/BMP round trips per profile and a displayed SDL
+quadrant/crop check. Negative tests isolate exactly one missing rotation or
+transpose. Full/regression CTest results, skips, interrupted ranges and recovered
+Docker exit evidence are in the task. Evidence index
+`build/m100s11-evidence/screenshot-rotation/validation.json`, SHA-256
+`73d5e499014cdef33f508fb5a5fbed6ee61b60de2511f4a8addcc7d7ff856c28`.
+No physical GPU, guest/media or new gate acceptance follows from these fixtures.
+**G100s11 OPEN.** Older artifacts and runtime reports follow; preserve them.
+
+## Previous Windows stream-ownership correction — compression success reported
 
 After the 9c7ea061 handoff, the maintainer reports that compression succeeds.
 This confirms the reported Windows conversion failure no longer reproduces on
