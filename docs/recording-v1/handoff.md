@@ -1,9 +1,16 @@
 # Recording v1 handoff
 
-## Current M100s11 gate handoff — 16ed03ee, overall gate OPEN
+## M100s11 accepted handoff — G100s11 PASSED
 
-The maintainer requested remaining gate work after passing the screenshot
-component. A new clean static recording-enabled Windows build is ready:
+The maintainer explicitly replied **"passed!"** to the final Windows gate
+checklist: V3/demo/OS/simple operations, recording/compression, video/audio
+playback, seek/end playback and original MKV retention. The accepted source
+closure is [fef92deabbe6de4f95008692ee41026e5a7d530e](https://github.com/nakatamaho/vaeg/commit/fef92deabbe6de4f95008692ee41026e5a7d530e),
+which differs from the following clean Windows build only in four Markdown
+files. This is maintainer-reported acceptance, not independent target-digest or
+frame/sample/quality evidence. Previous component acceptance is retained.
+
+Accepted clean static recording-enabled Windows build:
 
 - Source [16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
 - `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/vaeg.exe`, 59,218,214 bytes.
@@ -13,7 +20,8 @@ component. A new clean static recording-enabled Windows build is ready:
 
 Standard helper exit 0; static/import/codec audits pass, OS MP4 ON and local-only
 static encoders OFF. The app's production inputs are unchanged from the accepted
-screenshot build; this is not a newly observed native Windows execution.
+screenshot build. Native Windows acceptance is the maintainer's report above;
+no new agent-observed native execution or target-side hash collection is claimed.
 
 All six component distributions now have clean-clone source-build evidence,
 including the supplied PSD, and their payloads match the committed archives.
@@ -39,10 +47,13 @@ accept DIR and return Ready (both exit 0). These use explicit isolated backup
 paths so normal BIOS fixed-disk selection initializes; earlier `--no-bkupmem`
 attempts are retained as unsuccessful fixtures, not boot passes.
 
-**Media-source/input blockers are resolved. Gate still OPEN:** native Windows
-full decode/seek/quality/missing-MF, physical Linux GPU/Wayland and remaining
-maintainer human acceptance stay open. CP/M/SASI checks above use
-macOS SDL dummy/software, not physical hardware or new Windows execution.
+**Media-source/input blockers are resolved; G100s11 PASSED.** Physical Linux
+GPU/Wayland and Windows missing-MF behavior remain unverified, as explicitly
+disclosed with the final checklist. Human playback/seek acceptance is not an
+automated Windows decode/quality corpus or a native 16-case probe report.
+CP/M/SASI checks above use macOS SDL dummy/software, not physical hardware or
+new Windows execution. No release, legal/distribution clearance or next task
+follows from this gate.
 Full commands, image hashes, preserved failures and scope are in the
 [M100s11 task](../agents/tasks/M100s11_recording_post_mp4.md).
 Local evidence `build/m100s11-media-gate-16ed03ee/validation.json`, SHA-256
@@ -56,7 +67,9 @@ published. PSD/source-closure evidence
 `d47450fea9280f633e4ee629307c9fe4f8cb2066d8954be2e3815a658ade61ee`.
 The exact reproducing PSD/assembler versions are recorded in the task and
 [demo build guide](../../demos/zundamon-orbit/README.md); unsuccessful alternate
-toolchains remain preserved. **G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
+toolchains remain preserved. **G100s11 PASSED; normal main integration authorized.**
+Preserve all previous artifacts/build roots/SDKs and user inputs below as already
+requested. Older OPEN checkpoints remain historical, not current gate status.
 
 ## Screenshot rotation component accepted — 97259966
 

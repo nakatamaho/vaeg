@@ -30,7 +30,9 @@ POSSIBILITY OF SUCH DAMAGE.
 The maintainer requested background post-stop compression on macOS, Linux and
 Windows, preferring OS encoding on macOS/Windows. G100s10 was explicitly accepted
 and integrated before this task. This is the single new implementation milestone.
-**G100s11 OPEN / HUMAN GATE.** No runtime success follows from a cross-build.
+**G100s11 PASSED / HUMAN GATE.** The maintainer explicitly replied "passed!"
+after the final Windows handoff/checklist. Cross-build results alone are not
+runtime evidence; see the final acceptance record below.
 
 ## Contract
 
@@ -79,7 +81,8 @@ and integrated before this task. This is the single new implementation milestone
 
 ## Status
 
-Implementation and local synthetic validation complete; **G100s11 remains OPEN**.
+Implementation, media-source closure and human acceptance complete;
+**G100s11 PASSED**. Earlier OPEN checkpoints below are historical records.
 [User/build guide](../../recording-v1/mp4-export.md),
 [architecture/license decision](../DECISIONS/ADR-0018-post-recording-mp4.md),
 [platform handoff](../../recording-v1/handoff.md).
@@ -1045,3 +1048,44 @@ emulator code, codec/backend change, legal/distribution approval, milestone merg
 cleanup or next task. The 16ed03ee Windows handoff and completed MP4 export tests
 remain valid for unchanged application inputs; no unnecessary SDK/build/export
 or unrelated expensive profile is repeated. Repository invariant checks pass.
+
+### Final human gate — maintainer acceptance
+
+After the final gate request at
+[fef92deabbe6de4f95008692ee41026e5a7d530e](https://github.com/nakatamaho/vaeg/commit/fef92deabbe6de4f95008692ee41026e5a7d530e),
+the maintainer explicitly replied **"passed!"**. **G100s11 PASSED.** The requested
+checklist was V3 boot, bundled VA demo, OS boot/DIR/program launch, and recording
+then compression with video/audio playback, seek/end playback and original MKV
+retention. Earlier compression/audio and both screenshot-menu 0 -> right 90 -> 0
+component acceptances remain valid. This records maintainer-reported human
+acceptance, not independently collected target hashes or automated Windows
+frame/sample/quality measurements.
+
+Accepted clean Windows handoff:
+
+- Source [16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/vaeg.exe`, SHA-256
+  `7111621cddc2069911159d3fda25c62d83f6cc57c0099249a0525a90d070a5b7`.
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/BUILD-REPORT.md`, SHA-256
+  `53949965b4b909b9662d1ca45850735eca9a245e1bf2d39100c85f4db1edcc44`.
+
+Before the request, both local digests were rechecked; all four changed paths
+from 16ed03ee to fef92dea are Markdown only. The clean build and completed
+source/worker/media evidence therefore remain identified by their original
+commits and digests, not relabeled as a newly built binary. All required media
+inputs/builds/payload comparisons have the recorded local results above.
+
+Limitations explicitly disclosed with the final checklist remain **unverified**:
+physical Linux GPU/Wayland and Windows without Media Foundation. No native
+corrected 16-case probe report or independent Windows full-decode/quality corpus
+was supplied. Human acceptance does not create those measurements, establish
+patent/license/distribution clearance, or permit publishing private media or
+local-only GPL encoder artifacts. No next milestone or release is started.
+
+The gate pass authorizes the normal no-ff main integration. Preserve all earlier
+binaries, build roots, SDKs, user inputs, evidence and failed diagnostics as
+previously requested; cleanup must not erase those retained artifacts. The
+primary checkout and project-local container storage are not disposable milestone
+worktrees. Only a clean temporary merge worktree and the contained local task
+branch are eligible for removal after the integration/roadmap record is pushed.
+Historical OPEN records and failed attempts stay intact.
