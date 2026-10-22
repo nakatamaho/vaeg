@@ -57,8 +57,10 @@ land.
   0 -> 90 -> 0, with/without analysis, exact pixel mapping and original retention.
   An asymmetric displayed-SDL quadrant/crop check guards against double rotation.
   Builds and applicable selftests/CTest pass, with recorded skips/timeouts and
-  completion ranges. Clean static Windows 97259966 build passes; native Windows
-  rotated-screenshot inspection is still a human gate, not inferred from dummy SDL.
+  completion ranges. Clean static Windows 97259966 build passes. After that
+  handoff the maintainer reports "OK passed" for the requested screenshot rotation
+  component gate. This visual acceptance is not inferred from dummy SDL and does
+  not establish independent output hashes or coverage of every GPU/backend.
 - **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
   [handoff](../recording-v1/handoff.md). The screenshot requirement is explicitly
   added to G100s11; the overall gate remains OPEN.

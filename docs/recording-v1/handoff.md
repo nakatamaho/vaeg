@@ -1,6 +1,6 @@
 # Recording v1 handoff
 
-## Current M100s11 handoff — screenshot rotation gate added
+## Current M100s11 handoff — screenshot rotation component gate passed
 
 Maintainer-added gate: at display right 90 degrees, both screenshot menu entries
 must save that orientation; turning back must restore the normal orientation.
@@ -16,11 +16,14 @@ Latest clean static recording-enabled Windows binary:
 - `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/BUILD-REPORT.md`, SHA-256
   `d63c51eabba72b32a60c111e7ff9ae79b4d6bffa0b561577c7237ac3fd5c76bb`.
 
-Please check `画面 > スクリーンショットを保存` and its `加工前` entry at
-0 -> right 90 -> 0. Pictures must follow the screen without reversal/double turn;
+The maintainer reports "OK passed" for the requested screenshot rotation check
+(`画面 > スクリーンショットを保存` and its `加工前` entry, 0 -> right 90 -> 0).
+This is component visual acceptance after the above Windows handoff, not an
+independently collected target digest, pixel corpus or every-backend result.
+Pictures must follow the screen without reversal/double turn;
 normal displayed images retain their current window/letterbox canvas, whereas
-unprocessed screenshot dimensions swap at 90. Native Windows inspection is
-pending. Previous Windows MP4 compression/audio acceptance remains recorded for
+unprocessed screenshot dimensions swap at 90. The screenshot component gate is
+now passed. Previous Windows MP4 compression/audio acceptance remains recorded for
 9c7ea061; the converter worker/source is unchanged by this screenshot correction.
 
 Three focused SDL tests and five application profiles (macOS ON/OFF, Linux
@@ -30,7 +33,8 @@ transpose. Full/regression CTest results, skips, interrupted ranges and recovere
 Docker exit evidence are in the task. Evidence index
 `build/m100s11-evidence/screenshot-rotation/validation.json`, SHA-256
 `73d5e499014cdef33f508fb5a5fbed6ee61b60de2511f4a8addcc7d7ff856c28`.
-No physical GPU, guest/media or new gate acceptance follows from these fixtures.
+The maintainer's visual acceptance is separate from these synthetic fixtures;
+no other GPU/backend, guest/private-media or overall gate acceptance is inferred.
 **G100s11 OPEN.** Older artifacts and runtime reports follow; preserve them.
 
 ## Previous Windows stream-ownership correction — compression success reported

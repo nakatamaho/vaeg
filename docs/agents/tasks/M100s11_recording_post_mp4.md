@@ -61,6 +61,8 @@ and integrated before this task. This is the single new implementation milestone
   screenshot and unprocessed/graphics-analysis screenshot without double-turning
   an already rotated display capture. PNG/BMP round-trip checks must preserve
   pixels and the source framebuffer; state thumbnails are outside this change.
+  **Screenshot component gate PASSED:** maintainer reports "OK passed" after
+  the 97259966 Windows handoff. This does not close the remaining G100s11 gates.
 - Focused passing fixtures and single-mutation negative tests with stable codes
   for export, no-overwrite, cancellation, missing backend and build policy.
 - macOS native actual MP4 export/decode and MKV digest preservation; Linux private
@@ -642,9 +644,13 @@ local static encoders OFF), helper/import/codec audits exit 0:
 Build command is the standard clean static helper with
 `--commit 9725996637c8f52e4870a560e39a75cbc2514a02 --recording --shader-sdk
 "$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`.
-Native Windows inspection of both screenshot menu entries through 0 -> 90 -> 0
-is still NOT_RUN. Normal displayed shots retain the current drawable/letterbox
+After this handoff the maintainer reports "OK passed" for the requested
+0 -> right 90 -> 0 screenshot component gate. Record this as maintainer visual
+acceptance, not independently collected screenshots, target-binary hashes or
+proof of every GPU backend. Normal displayed shots retain the current drawable/letterbox
 canvas; unprocessed shots swap dimensions. Dummy SDL/synthetic checks do not
 establish physical GPU or guest/private-media acceptance. Prior Windows MP4
 compression/audio acceptance remains recorded, all old artifacts are retained,
-no merge/cleanup occurred, and **G100s11 remains OPEN**.
+no merge/cleanup occurred, and **G100s11 remains OPEN**. This feedback-only
+record changes no binary/source inputs; existing test/handoff identities remain
+valid and no unchanged expensive run or rebuild is requested.
