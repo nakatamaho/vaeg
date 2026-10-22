@@ -72,6 +72,7 @@ static void prepare_executed(void) {
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	upd9002_state_reset();
+	upd9002_core_queue_reset(); /* (M130) */
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;

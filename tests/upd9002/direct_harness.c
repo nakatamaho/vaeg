@@ -156,8 +156,10 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 	saved_cpu = CPU_STATSAVE;
 	saved_dmac = dmac;
 	saved_wcu = upd9002_wcu;
-	/* Instruction-level cases: without the WCU's programmed waits (M130). */
+	/* Instruction-level cases: without the WCU's programmed waits (M130),
+	 * from an empty prefetch queue. */
 	upd9002_wcu_legacy();
+	upd9002_core_queue_reset();
 	CopyMemory(saved_ram, mem, 0x10000);
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
@@ -208,6 +210,7 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input, UPD9002_SSTS_RESUL
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	ZeroMemory(&dmac, sizeof(dmac));
 	ZeroMemory(mem, 0x100000);
+	upd9002_core_queue_reset();
 	set_cpu(&input->cpu);
 	for (index = 0; index < input->ram_count; index++) {
 		mem[input->ram[index].address] = input->ram[index].value;

@@ -7,7 +7,7 @@
 #include "gactrlva.h"
 
 enum {
-	MEMWAITVA_VRAM_SINGLE_R = 4,
+	MEMWAITVA_VRAM_SINGLE_R = 7, /* M130: PC-88VA and VA2, 4bpp shown */
 	MEMWAITVA_VRAM_MULTI_R = 7,
 	MEMWAITVA_VRAM_SINGLE_W = 1, // 1.5くらいにしたい・・・
 	MEMWAITVA_VRAM_MULTI_W = 4,
@@ -63,8 +63,17 @@ static void memwait_r(void) {
 	CPU_REMCLOCK -= wait;
 }
 
+/* M130: a CPU write to GVRAM waits until this many clocks have passed
+ * since the previous one ended (REP STOSW to GVRAM: 6.5 clocks a word on
+ * the PC-88VA and VA2, the program's loop included). */
+#define MEMWAITVA_VRAM_WRITE_INTERVAL 5
+
+static UINT32 memwait_last_write;
+
 static void memwait_w(void) {
 	int wait;
+	UINT32 now;
+	UINT32 since;
 	if (gactrlva.gmsp) {
 		// シングル
 		wait = MEMWAITVA_VRAM_SINGLE_W;
@@ -72,7 +81,13 @@ static void memwait_w(void) {
 		// マルチ
 		wait = MEMWAITVA_VRAM_MULTI_W;
 	}
+	now = (UINT32)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK);
+	since = now - memwait_last_write;
+	if (since < MEMWAITVA_VRAM_WRITE_INTERVAL) {
+		wait += (int)(MEMWAITVA_VRAM_WRITE_INTERVAL - since);
+	}
 	CPU_REMCLOCK -= wait;
+	memwait_last_write = now + (UINT32)wait;
 }
 
 /*

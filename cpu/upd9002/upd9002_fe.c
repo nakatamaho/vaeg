@@ -20,7 +20,7 @@ UPD9002_F6 _inc_ea8(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			res = upd9002_memoryread(madr);
@@ -44,7 +44,7 @@ UPD9002_F6 _dec_ea8(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			res = upd9002_memoryread(madr);
@@ -68,7 +68,7 @@ UPD9002_F6 _inc_ea16(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			res = upd9002_memoryread_w(madr);
@@ -92,7 +92,7 @@ UPD9002_F6 _dec_ea16(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			res = upd9002_memoryread_w(madr);
@@ -111,10 +111,10 @@ UPD9002_F6 _call_ea16(UINT op) {
 	UINT16 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(14);
 		src = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(11);
+		UPD9002_WORKCLOCK(23);
 		src = upd9002_memoryread_w(CALC_EA(op));
 	}
 	REGPUSH0(UPD9002_IP);
@@ -125,7 +125,7 @@ UPD9002_F6 _call_far_ea16(UINT op) {
 	UINT32 seg;
 	UINT ad;
 
-	UPD9002_WORKCLOCK(16);
+	UPD9002_WORKCLOCK(31);
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
 		REGPUSH0(UPD9002_CS) // ToDo
@@ -140,10 +140,10 @@ UPD9002_F6 _call_far_ea16(UINT op) {
 
 UPD9002_F6 _jmp_ea16(UINT op) {
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(11);
 		UPD9002_IP = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(11);
+		UPD9002_WORKCLOCK(20);
 		UPD9002_IP = upd9002_memoryread_w(CALC_EA(op));
 	}
 }
@@ -152,7 +152,7 @@ UPD9002_F6 _jmp_far_ea16(UINT op) {
 	UINT32 seg;
 	UINT ad;
 
-	UPD9002_WORKCLOCK(11);
+	UPD9002_WORKCLOCK(27);
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
 		UPD9002_IP = upd9002_memoryread_seg_w(seg, ad);
@@ -167,14 +167,14 @@ UPD9002_F6 _push_ea16(UINT op) {
 	UINT16 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(8);
 		if ((op & 7) == 4) {
 			src = (UINT16)(UPD9002_SP - 2);
 		} else {
 			src = *(REG16_B20(op));
 		}
 	} else {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(18);
 		src = upd9002_memoryread_w(CALC_EA(op));
 	}
 	REGPUSH0(src);
@@ -184,7 +184,7 @@ UPD9002_F6 _push_ff7_ea16(UINT op) {
 	UINT16 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(8);
 		if ((op & 7) == 4) {
 			REGPUSH0(UPD9002_SP);
 		} else {
@@ -192,7 +192,7 @@ UPD9002_F6 _push_ff7_ea16(UINT op) {
 			REGPUSH0(src);
 		}
 	} else {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(18);
 		src = upd9002_memoryread_w(CALC_EA(op));
 		REGPUSH0(src);
 	}

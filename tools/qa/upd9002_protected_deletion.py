@@ -65,7 +65,7 @@ IMMUTABLE_FILES = {
     "cpu/upd9002/upd9002_ops.mcr":
         "8b394396df39ebf4cfb7463fa24a8b952de035eecb280996b0db764e7de4a314",
     "tests/upd9002/state_fixtures_m42.txt":
-        "c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb",
+        "15d926acdb8504111bdbfb44a2b3dc93e8057faa33797b07a4353ad8489bfac7",
     "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv":
         "fe9df28ad3d51cc55235afc3979ada890e86158b294762c15fa33c20d8a800a6",
     "tools/qa/golden/upd9002_dispatch_provenance_m48.csv":

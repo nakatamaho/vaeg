@@ -92,10 +92,22 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
  * WCY2's DMA waits instead (not modelled), and host-side accesses (the
  * _nowait functions, meml_*) none.
  */
+extern UINT upd9002_fetched_bytes;
+extern UINT upd9002_data_cycles;
+
 static INLINE void upd9002_bus_wait(UINT32 address, UINT cycles) {
 	UINT wait;
 
-	if (!upd9002_waitmap.active || memoryva.dma_access) {
+	if (memoryva.dma_access) {
+		return;
+	}
+	upd9002_data_cycles += cycles;
+	/* A word at an odd address takes a second bus cycle (4 clocks); the
+	 * instruction counts (uPD70116) are those of an even address. */
+	if (cycles > 1) {
+		CPU_REMCLOCK -= (SINT32)clockscale_apply(&pccore_cpu_scale, 4 * (cycles - 1));
+	}
+	if (!upd9002_waitmap.active) {
 		return;
 	}
 	wait = upd9002_programmed_wait(address);
@@ -125,16 +137,21 @@ void MEMCALL upd9002_memorywrite_nowait(UINT32 address, REG8 value) {
 	upd9002_memorywrite_va(address, value);
 }
 
-/* Instruction fetch: the prefetch queue reads words, a bus cycle each. */
+/* Instruction fetch: the prefetch queue reads words, a bus cycle each (the
+ * instruction counts assume a prefetched queue: only the waits). */
 REG8 MEMCALL upd9002_fetch(UINT32 address) {
-	if (!(address & 1)) {
-		upd9002_bus_wait(address, 1);
+	upd9002_fetched_bytes++;
+	if (!(address & 1) && upd9002_waitmap.active && !memoryva.dma_access) {
+		CPU_REMCLOCK -= (SINT32)upd9002_programmed_wait(address);
 	}
 	return upd9002_memoryread_nowait(address);
 }
 
 REG16 MEMCALL upd9002_fetch_w(UINT32 address) {
-	upd9002_bus_wait(address, 1);
+	upd9002_fetched_bytes += 2;
+	if (upd9002_waitmap.active && !memoryva.dma_access) {
+		CPU_REMCLOCK -= (SINT32)upd9002_programmed_wait(address);
+	}
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
 		upd9002_test_flat_memory_reads += 2;

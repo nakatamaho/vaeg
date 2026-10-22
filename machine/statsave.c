@@ -457,6 +457,7 @@ static int flagload_upd9002_state_image(STFLAGH sfh, UINT16 version, UINT32 payl
 }
 
 static int flagload_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+	upd9002_core_queue_reset();
 	return (flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2, "uPD9002 payload is truncated"));
 }
 

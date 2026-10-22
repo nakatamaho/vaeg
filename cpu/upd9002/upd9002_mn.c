@@ -101,6 +101,8 @@ static const UINT8 shiftbase17[256] = {
     12, 13, 14, 15, 16, 17, 1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 1,
     2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17};
 
+extern UINT upd9002_prefix_clocks; /* upd9002_core.c (M130) */
+
 UPD9002FN _add_ea_r8(void) { // 00: add EA, REG8
 
 	BYTE *out;
@@ -115,7 +117,7 @@ UPD9002FN _add_ea_r8(void) { // 00: add EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -144,7 +146,7 @@ UPD9002FN _add_ea_r16(void) { // 01: add EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -167,7 +169,7 @@ UPD9002FN _add_r8_ea(void) { // 02: add REG8, EA
 	UINT dst;
 	UINT res;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	ADDBYTE(res, dst, src);
 	*out = (BYTE)res;
@@ -181,7 +183,7 @@ UPD9002FN _add_r16_ea(void) { // 03: add REG16, EA
 	UINT dst;
 	UINT res;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	ADDWORD(res, dst, src);
 	*out = (UINT16)res;
@@ -192,7 +194,7 @@ UPD9002FN _add_al_data8(void) { // 04: add al, DATA8
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	ADDBYTE(res, UPD9002_AL, src);
 	UPD9002_AL = (BYTE)res;
@@ -203,7 +205,7 @@ UPD9002FN _add_ax_data16(void) { // 05: add ax, DATA16
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	ADDWORD(res, UPD9002_AX, src);
 	UPD9002_AX = (UINT16)res;
@@ -211,14 +213,14 @@ UPD9002FN _add_ax_data16(void) { // 05: add ax, DATA16
 
 UPD9002FN _push_es(void) { // 06: push es
 
-	REGPUSH(UPD9002_ES, 3);
+	REGPUSH(UPD9002_ES, 8);
 }
 
 UPD9002FN _pop_es(void) { // 07: pop es
 
 	UINT tmp;
 
-	REGPOP(tmp, 5)
+	REGPOP(tmp, 8)
 	UPD9002_ES = tmp;
 	ES_BASE = SEGSELECT(tmp);
 }
@@ -236,7 +238,7 @@ UPD9002FN _or_ea_r8(void) { // 08: or EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -264,7 +266,7 @@ UPD9002FN _or_ea_r16(void) { // 09: or EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -286,7 +288,7 @@ UPD9002FN _or_r8_ea(void) { // 0a: or REG8, EA
 	UINT src;
 	UINT dst;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	ORBYTE(dst, src);
 	*out = (BYTE)dst;
@@ -299,7 +301,7 @@ UPD9002FN _or_r16_ea(void) { // 0b: or REG16, EA
 	UINT32 src;
 	UINT32 dst;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	ORWORD(dst, src);
 	*out = (UINT16)dst;
@@ -310,7 +312,7 @@ UPD9002FN _or_al_data8(void) { // 0c: or al, DATA8
 	UINT src;
 	UINT dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	dst = UPD9002_AL;
 	ORBYTE(dst, src);
@@ -322,7 +324,7 @@ UPD9002FN _or_ax_data16(void) { // 0d: or ax, DATA16
 	UINT32 src;
 	UINT32 dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	dst = UPD9002_AX;
 	ORWORD(dst, src);
@@ -331,7 +333,7 @@ UPD9002FN _or_ax_data16(void) { // 0d: or ax, DATA16
 
 UPD9002FN _push_cs(void) { // 0e: push cs
 
-	REGPUSH(UPD9002_CS, 3);
+	REGPUSH(UPD9002_CS, 8);
 }
 
 UPD9002FN _adc_ea_r8(void) { // 10: adc EA, REG8
@@ -348,7 +350,7 @@ UPD9002FN _adc_ea_r8(void) { // 10: adc EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -377,7 +379,7 @@ UPD9002FN _adc_ea_r16(void) { // 11: adc EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -400,7 +402,7 @@ UPD9002FN _adc_r8_ea(void) { // 12: adc REG8, EA
 	UINT dst;
 	UINT res;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	ADCBYTE(res, dst, src);
 	*out = (BYTE)res;
@@ -414,7 +416,7 @@ UPD9002FN _adc_r16_ea(void) { // 13: adc REG16, EA
 	UINT32 dst;
 	UINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	ADCWORD(res, dst, src);
 	*out = (UINT16)res;
@@ -425,7 +427,7 @@ UPD9002FN _adc_al_data8(void) { // 14: adc al, DATA8
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	ADCBYTE(res, UPD9002_AL, src);
 	UPD9002_AL = (BYTE)res;
@@ -436,7 +438,7 @@ UPD9002FN _adc_ax_data16(void) { // 15: adc ax, DATA16
 	UINT32 src;
 	UINT32 res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	ADCWORD(res, UPD9002_AX, src);
 	UPD9002_AX = (UINT16)res;
@@ -444,14 +446,14 @@ UPD9002FN _adc_ax_data16(void) { // 15: adc ax, DATA16
 
 UPD9002FN _push_ss(void) { // 16: push ss
 
-	REGPUSH(UPD9002_SS, 3);
+	REGPUSH(UPD9002_SS, 8);
 }
 
 UPD9002FN _pop_ss(void) { // 17: pop ss
 
 	UINT tmp;
 
-	REGPOP(tmp, 5)
+	REGPOP(tmp, 8)
 	UPD9002_SS = tmp;
 	SS_BASE = SEGSELECT(tmp);
 	SS_FIX = SS_BASE;
@@ -472,7 +474,7 @@ UPD9002FN _sbb_ea_r8(void) { // 18: sbb EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -501,7 +503,7 @@ UPD9002FN _sbb_ea_r16(void) { // 19: sbb EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -524,7 +526,7 @@ UPD9002FN _sbb_r8_ea(void) { // 1a: sbb REG8, EA
 	UINT dst;
 	UINT32 res;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	SBBBYTE(res, dst, src);
 	*out = (BYTE)res;
@@ -538,7 +540,7 @@ UPD9002FN _sbb_r16_ea(void) { // 1b: sbb REG16, EA
 	UINT32 dst;
 	UINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	SBBWORD(res, dst, src);
 	*out = (UINT16)res;
@@ -549,7 +551,7 @@ UPD9002FN _sbb_al_data8(void) { // 1c: adc al, DATA8
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	SBBBYTE(res, UPD9002_AL, src);
 	UPD9002_AL = (BYTE)res;
@@ -560,7 +562,7 @@ UPD9002FN _sbb_ax_data16(void) { // 1d: adc ax, DATA16
 	UINT32 src;
 	UINT32 res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	SBBWORD(res, UPD9002_AX, src);
 	UPD9002_AX = (UINT16)res;
@@ -568,14 +570,14 @@ UPD9002FN _sbb_ax_data16(void) { // 1d: adc ax, DATA16
 
 UPD9002FN _push_ds(void) { // 1e: push ds
 
-	REGPUSH(UPD9002_DS, 3);
+	REGPUSH(UPD9002_DS, 8);
 }
 
 UPD9002FN _pop_ds(void) { // 1f: pop ds
 
 	UINT tmp;
 
-	REGPOP(tmp, 5)
+	REGPOP(tmp, 8)
 	UPD9002_DS = tmp;
 	DS_BASE = SEGSELECT(tmp);
 	DS_FIX = DS_BASE;
@@ -594,7 +596,7 @@ UPD9002FN _and_ea_r8(void) { // 20: and EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -622,7 +624,7 @@ UPD9002FN _and_ea_r16(void) { // 21: and EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -644,7 +646,7 @@ UPD9002FN _and_r8_ea(void) { // 22: and REG8, EA
 	UINT src;
 	UINT dst;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	ANDBYTE(dst, src);
 	*out = (BYTE)dst;
@@ -657,7 +659,7 @@ UPD9002FN _and_r16_ea(void) { // 23: and REG16, EA
 	UINT32 src;
 	UINT32 dst;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	ANDWORD(dst, src);
 	*out = (UINT16)dst;
@@ -668,7 +670,7 @@ UPD9002FN _and_al_data8(void) { // 24: and al, DATA8
 	UINT src;
 	UINT dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	dst = UPD9002_AL;
 	ANDBYTE(dst, src);
@@ -680,7 +682,7 @@ UPD9002FN _and_ax_data16(void) { // 25: and ax, DATA16
 	UINT32 src;
 	UINT32 dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	dst = UPD9002_AX;
 	ANDWORD(dst, src);
@@ -689,6 +691,8 @@ UPD9002FN _and_ax_data16(void) { // 25: and ax, DATA16
 
 UPD9002FN _segprefix_es(void) { // 26: es:
 
+	UPD9002_WORKCLOCK(2); /* segment override prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	SS_FIX = ES_BASE;
 	DS_FIX = ES_BASE;
 	UPD9002_PREFIX++;
@@ -732,7 +736,7 @@ UPD9002FN _sub_ea_r8(void) { // 28: sub EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -761,7 +765,7 @@ UPD9002FN _sub_ea_r16(void) { // 29: sub EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -784,7 +788,7 @@ UPD9002FN _sub_r8_ea(void) { // 2a: sub REG8, EA
 	UINT dst;
 	UINT res;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	SUBBYTE(res, dst, src);
 	*out = (BYTE)res;
@@ -798,7 +802,7 @@ UPD9002FN _sub_r16_ea(void) { // 2b: sub REG16, EA
 	UINT32 dst;
 	UINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	SUBWORD(res, dst, src);
 	*out = (UINT16)res;
@@ -809,7 +813,7 @@ UPD9002FN _sub_al_data8(void) { // 2c: sub al, DATA8
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	SUBBYTE(res, UPD9002_AL, src);
 	UPD9002_AL = (BYTE)res;
@@ -820,7 +824,7 @@ UPD9002FN _sub_ax_data16(void) { // 2d: sub ax, DATA16
 	UINT32 src;
 	UINT32 res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	SUBWORD(res, UPD9002_AX, src);
 	UPD9002_AX = (UINT16)res;
@@ -828,6 +832,8 @@ UPD9002FN _sub_ax_data16(void) { // 2d: sub ax, DATA16
 
 UPD9002FN _segprefix_cs(void) { // 2e: cs:
 
+	UPD9002_WORKCLOCK(2); /* segment override prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	SS_FIX = CS_BASE;
 	DS_FIX = CS_BASE;
 	UPD9002_PREFIX++;
@@ -870,7 +876,7 @@ UPD9002FN _xor_ea_r8(void) { // 30: xor EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			dst = upd9002_memoryread(madr);
@@ -898,7 +904,7 @@ UPD9002FN _xor_ea_r16(void) { // 31: xor EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			dst = upd9002_memoryread_w(madr);
@@ -920,7 +926,7 @@ UPD9002FN _xor_r8_ea(void) { // 32: xor REG8, EA
 	UINT src;
 	UINT dst;
 
-	PREPART_REG8_EA(op, src, out, 2, 7);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	XORBYTE(dst, src);
 	*out = (BYTE)dst;
@@ -933,7 +939,7 @@ UPD9002FN _xor_r16_ea(void) { // 33: or REG16, EA
 	UINT32 src;
 	UINT32 dst;
 
-	PREPART_REG16_EA(op, src, out, 2, 7);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	XORWORD(dst, src);
 	*out = (UINT16)dst;
@@ -944,7 +950,7 @@ UPD9002FN _xor_al_data8(void) { // 34: or al, DATA8
 	UINT src;
 	UINT dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	dst = UPD9002_AL;
 	XORBYTE(dst, src);
@@ -956,7 +962,7 @@ UPD9002FN _xor_ax_data16(void) { // 35: or ax, DATA16
 	UINT32 src;
 	UINT32 dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	dst = UPD9002_AX;
 	XORWORD(dst, src);
@@ -965,6 +971,8 @@ UPD9002FN _xor_ax_data16(void) { // 35: or ax, DATA16
 
 UPD9002FN _segprefix_ss(void) { // 36: ss:
 
+	UPD9002_WORKCLOCK(2); /* segment override prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	SS_FIX = SS_BASE;
 	DS_FIX = SS_BASE;
 	UPD9002_PREFIX++;
@@ -985,7 +993,7 @@ UPD9002FN _aaa(void) { // 37:	AAA
 	const BOOL adjust = ((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	UINT8 result = value;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(7);
 	if (adjust) {
 		result = (UINT8)(value + 6);
 		UPD9002_AH++;
@@ -1007,7 +1015,7 @@ UPD9002FN _cmp_ea_r8(void) { // 38: cmp EA, REG8
 		dst = *(REG8_B20(op));
 		SUBBYTE(res, dst, src);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(11);
 		dst = upd9002_memoryread(CALC_EA(op));
 		SUBBYTE(res, dst, src);
 	}
@@ -1026,7 +1034,7 @@ UPD9002FN _cmp_ea_r16(void) { // 39: cmp EA, REG16
 		dst = *(REG16_B20(op));
 		SUBWORD(res, dst, src);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(11);
 		dst = upd9002_memoryread_w(CALC_EA(op));
 		SUBWORD(res, dst, src);
 	}
@@ -1040,7 +1048,7 @@ UPD9002FN _cmp_r8_ea(void) { // 3a: cmp REG8, EA
 	UINT dst;
 	UINT res;
 
-	PREPART_REG8_EA(op, src, out, 2, 6);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	dst = *out;
 	SUBBYTE(res, dst, src);
 }
@@ -1053,7 +1061,7 @@ UPD9002FN _cmp_r16_ea(void) { // 3b: cmp REG16, EA
 	UINT32 dst;
 	UINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 2, 6);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	dst = *out;
 	SUBWORD(res, dst, src);
 }
@@ -1063,7 +1071,7 @@ UPD9002FN _cmp_al_data8(void) { // 3c: cmp al, DATA8
 	UINT src;
 	UINT res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src);
 	SUBBYTE(res, UPD9002_AL, src);
 }
@@ -1073,13 +1081,15 @@ UPD9002FN _cmp_ax_data16(void) { // 3d: cmp ax, DATA16
 	UINT32 src;
 	UINT32 res;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src);
 	SUBWORD(res, UPD9002_AX, src);
 }
 
 UPD9002FN _segprefix_ds(void) { // 3e: ds:
 
+	UPD9002_WORKCLOCK(2); /* segment override prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	SS_FIX = DS_BASE;
 	DS_FIX = DS_BASE;
 	UPD9002_PREFIX++;
@@ -1100,7 +1110,7 @@ UPD9002FN _aas(void) { // 3F:	AAS
 	const BOOL adjust = ((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	UINT8 result = value;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(7);
 	if (adjust) {
 		result = (UINT8)(value - 6);
 		UPD9002_AH--;
@@ -1126,22 +1136,22 @@ UPD9002FN _inc_ax(void) INCWORD2(UPD9002_AX, 2)     // 40:	inc		ax
     UPD9002FN _dec_si(void) DECWORD2(UPD9002_SI, 2) // 4e:	dec		si
     UPD9002FN _dec_di(void) DECWORD2(UPD9002_DI, 2) // 4f:	dec		di
 
-    UPD9002FN _push_ax(void) REGPUSH(UPD9002_AX, 3) // 50:	push	ax
-    UPD9002FN _push_cx(void) REGPUSH(UPD9002_CX, 3) // 51:	push	cx
-    UPD9002FN _push_dx(void) REGPUSH(UPD9002_DX, 3) // 52:	push	dx
-    UPD9002FN _push_bx(void) REGPUSH(UPD9002_BX, 3) // 53:	push	bx
-    UPD9002FN _push_sp(void) REGPUSH(UPD9002_SP, 3) // 54: push sp
-    UPD9002FN _push_bp(void) REGPUSH(UPD9002_BP, 3) // 55:	push	bp
-    UPD9002FN _push_si(void) REGPUSH(UPD9002_SI, 3) // 56:	push	si
-    UPD9002FN _push_di(void) REGPUSH(UPD9002_DI, 3) // 57:	push	di
-    UPD9002FN _pop_ax(void) REGPOP(UPD9002_AX, 5)   // 58:	pop		ax
-    UPD9002FN _pop_cx(void) REGPOP(UPD9002_CX, 5)   // 59:	pop		cx
-    UPD9002FN _pop_dx(void) REGPOP(UPD9002_DX, 5)   // 5A:	pop		dx
-    UPD9002FN _pop_bx(void) REGPOP(UPD9002_BX, 5)   // 5B:	pop		bx
-    UPD9002FN _pop_sp(void) SP_POP(UPD9002_SP, 5)   // 5C:	pop		sp
-    UPD9002FN _pop_bp(void) REGPOP(UPD9002_BP, 5)   // 5D:	pop		bp
-    UPD9002FN _pop_si(void) REGPOP(UPD9002_SI, 5)   // 5E:	pop		si
-    UPD9002FN _pop_di(void) REGPOP(UPD9002_DI, 5)   // 5F:	pop		di
+    UPD9002FN _push_ax(void) REGPUSH(UPD9002_AX, 8) // 50:	push	ax
+    UPD9002FN _push_cx(void) REGPUSH(UPD9002_CX, 8) // 51:	push	cx
+    UPD9002FN _push_dx(void) REGPUSH(UPD9002_DX, 8) // 52:	push	dx
+    UPD9002FN _push_bx(void) REGPUSH(UPD9002_BX, 8) // 53:	push	bx
+    UPD9002FN _push_sp(void) REGPUSH(UPD9002_SP, 8) // 54: push sp
+    UPD9002FN _push_bp(void) REGPUSH(UPD9002_BP, 8) // 55:	push	bp
+    UPD9002FN _push_si(void) REGPUSH(UPD9002_SI, 8) // 56:	push	si
+    UPD9002FN _push_di(void) REGPUSH(UPD9002_DI, 8) // 57:	push	di
+    UPD9002FN _pop_ax(void) REGPOP(UPD9002_AX, 8)   // 58:	pop		ax
+    UPD9002FN _pop_cx(void) REGPOP(UPD9002_CX, 8)   // 59:	pop		cx
+    UPD9002FN _pop_dx(void) REGPOP(UPD9002_DX, 8)   // 5A:	pop		dx
+    UPD9002FN _pop_bx(void) REGPOP(UPD9002_BX, 8)   // 5B:	pop		bx
+    UPD9002FN _pop_sp(void) SP_POP(UPD9002_SP, 8)   // 5C:	pop		sp
+    UPD9002FN _pop_bp(void) REGPOP(UPD9002_BP, 8)   // 5D:	pop		bp
+    UPD9002FN _pop_si(void) REGPOP(UPD9002_SI, 8)   // 5E:	pop		si
+    UPD9002FN _pop_di(void) REGPOP(UPD9002_DI, 8)   // 5F:	pop		di
 
 #if (defined(ARM) || defined(X11)) && defined(BYTESEX_LITTLE)
 
@@ -1150,7 +1160,7 @@ UPD9002FN _inc_ax(void) INCWORD2(UPD9002_AX, 2)     // 40:	inc		ax
 	REG16 tmp;
 	UINT32 addr;
 
-	UPD9002_WORKCLOCK(17);
+	UPD9002_WORKCLOCK(35);
 	tmp = UPD9002_SP;
 	addr = tmp + SS_BASE;
 	if ((tmp < 16) || (INHIBIT_WORDP(addr))) {
@@ -1180,7 +1190,7 @@ UPD9002FN _popa(void) { // 61:	popa
 	UINT tmp;
 	UINT32 addr;
 
-	UPD9002_WORKCLOCK(19);
+	UPD9002_WORKCLOCK(43);
 	tmp = UPD9002_SP + 16;
 	addr = tmp + SS_BASE;
 	if ((tmp >= 0x10000) || (INHIBIT_WORDP(addr))) {
@@ -1226,7 +1236,7 @@ UPD9002FN _popa(void) { // 61:	popa
 	REGPUSH0(UPD9002_BP)
 	REGPUSH0(UPD9002_SI)
 	REGPUSH0(UPD9002_DI)
-	UPD9002_WORKCLOCK(17);
+	UPD9002_WORKCLOCK(35);
 }
 
 UPD9002FN _popa(void) { // 61:	popa
@@ -1246,7 +1256,7 @@ UPD9002FN _popa(void) { // 61:	popa
 	UPD9002_SP += 2;
 	UPD9002_AX = upd9002_memoryread_seg_w(SS_BASE, UPD9002_SP);
 	UPD9002_SP += 2;
-	UPD9002_WORKCLOCK(19);
+	UPD9002_WORKCLOCK(43);
 }
 
 #endif
@@ -1260,7 +1270,7 @@ UPD9002FN _bound(void) { // 62:	bound
 	SINT16 lower;
 	SINT16 upper;
 
-	UPD9002_WORKCLOCK(13); // ToDo
+	UPD9002_WORKCLOCK(26); // ToDo
 	GET_PCBYTE(op);
 	if (op < 0xc0) {
 		reg = (SINT16) * (REG16_B53(op));
@@ -1283,7 +1293,7 @@ UPD9002FN _push_data16(void) { // 68:	push	DATA16
 	UINT16 tmp;
 
 	GET_PCWORD(tmp)
-	REGPUSH(tmp, 3)
+	REGPUSH(tmp, 7)
 }
 
 UPD9002FN _imul_reg_ea_data16(void) { // 69:	imul	REG, EA, DATA16
@@ -1294,7 +1304,7 @@ UPD9002FN _imul_reg_ea_data16(void) { // 69:	imul	REG, EA, DATA16
 	SINT16 dst;
 	SINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 21, 24)
+	PREPART_REG16_EA(op, src, out, 39, 45)
 	GET_PCWORD(dst)
 	WORD_IMUL(res, dst, src)
 	*out = (UINT16)res;
@@ -1305,7 +1315,7 @@ UPD9002FN _push_data8(void) { // 6A:	push	DATA8
 	UINT16 tmp;
 
 	GET_PCBYTES(tmp)
-	REGPUSH(tmp, 3)
+	REGPUSH(tmp, 7)
 }
 
 UPD9002FN _imul_reg_ea_data8(void) { // 6B:	imul	REG, EA, DATA8
@@ -1316,7 +1326,7 @@ UPD9002FN _imul_reg_ea_data8(void) { // 6B:	imul	REG, EA, DATA8
 	SINT16 dst;
 	SINT32 res;
 
-	PREPART_REG16_EA(op, src, out, 21, 24)
+	PREPART_REG16_EA(op, src, out, 31, 37)
 	GET_PCBYTES(dst)
 	WORD_IMUL(res, dst, src)
 	*out = (UINT16)res;
@@ -1326,7 +1336,7 @@ UPD9002FN _insb(void) { // 6C:	insb
 
 	REG8 dat;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(10);
 	dat = iocore_inp8(UPD9002_DX);
 	upd9002_memorywrite(UPD9002_DI + ES_BASE, dat);
 	UPD9002_DI += STRING_DIR;
@@ -1336,7 +1346,7 @@ UPD9002FN _insw(void) { // 6D:	insw
 
 	REG16 dat;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(10);
 	dat = iocore_inp16(UPD9002_DX);
 	upd9002_memorywrite_w(UPD9002_DI + ES_BASE, dat);
 	UPD9002_DI += STRING_DIRx2;
@@ -1346,7 +1356,7 @@ UPD9002FN _outsb(void) { // 6E:	outsb
 
 	REG8 dat;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(10);
 	dat = upd9002_memoryread(UPD9002_SI + DS_FIX);
 	UPD9002_SI += STRING_DIR;
 	iocore_out8(UPD9002_DX, (BYTE)dat);
@@ -1356,7 +1366,7 @@ UPD9002FN _outsw(void) { // 6F:	outsw
 
 	REG16 dat;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(10);
 	dat = upd9002_memoryread_w(UPD9002_SI + DS_FIX);
 	UPD9002_SI += STRING_DIRx2;
 	iocore_out16(UPD9002_DX, (UINT16)dat);
@@ -1365,97 +1375,101 @@ UPD9002FN _outsw(void) { // 6F:	outsw
 UPD9002FN _jo_short(void) { // 70:	jo short
 
 	if (!UPD9002_OV)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jno_short(void) { // 71:	jno short
 
 	if (UPD9002_OV)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jc_short(void) { // 72:	jnae/jb/jc short
 
 	if (!(UPD9002_FLAGL & C_FLAG))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jnc_short(void) { // 73:	jae/jnb/jnc short
 
 	if (UPD9002_FLAGL & C_FLAG)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jz_short(void) { // 74:	je/jz short
 
 	if (!(UPD9002_FLAGL & Z_FLAG))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jnz_short(void) { // 75:	jne/jnz short
 
 	if (UPD9002_FLAGL & Z_FLAG)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jna_short(void) { // 76:	jna/jbe short
 
 	if (!(UPD9002_FLAGL & (Z_FLAG | C_FLAG)))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _ja_short(void) { // 77:	ja/jnbe short
 	if (UPD9002_FLAGL & (Z_FLAG | C_FLAG))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _js_short(void) { // 78:	js short
 
 	if (!(UPD9002_FLAGL & S_FLAG))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jns_short(void) { // 79:	jns short
 
 	if (UPD9002_FLAGL & S_FLAG)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jp_short(void) { // 7A:	jp/jpe short
 
 	if (!(UPD9002_FLAGL & P_FLAG))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jnp_short(void) { // 7B:	jnp/jpo short
 
 	if (UPD9002_FLAGL & P_FLAG)
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jl_short(void) { // 7C:	jl/jnge short
 
 	if (((UPD9002_FLAGL & S_FLAG) == 0) == (UPD9002_OV == 0))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jnl_short(void) { // 7D:	jnl/jge short
 
 	if (((UPD9002_FLAGL & S_FLAG) == 0) != (UPD9002_OV == 0))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jle_short(void) { // 7E:	jle/jng short
 
 	if ((!(UPD9002_FLAGL & Z_FLAG)) && (((UPD9002_FLAGL & S_FLAG) == 0) == (UPD9002_OV == 0)))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
 
 UPD9002FN _jnle_short(void) { // 7F:	jg/jnle short
 
 	if ((UPD9002_FLAGL & Z_FLAG) || (((UPD9002_FLAGL & S_FLAG) == 0) != (UPD9002_OV == 0)))
-		JMPNOP(2) else JMPSHORT(7)
+		JMPNOP(4) else JMPSHORT(14)
 }
+
+/* V30 (uPD70116) clocks of the 80/81/83 group with a memory operand: 18,
+ * CMP (reg field 7) 13. */
+#define UPD9002_GROUP1_MEM(op) ((((op) >> 3) & 7) == 7 ? 13 : 18)
 
 UPD9002FN _calc_ea8_i8(void) { // 80:	op		EA8, DATA8
 	                           // 82:	op		EA8, DATA8
@@ -1465,10 +1479,10 @@ UPD9002FN _calc_ea8_i8(void) { // 80:	op		EA8, DATA8
 
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(4);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(UPD9002_GROUP1_MEM(op));
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			c_op8xext8_table[(op >> 3) & 7](madr);
@@ -1488,10 +1502,10 @@ UPD9002FN _calc_ea16_i16(void) { // 81:	op		EA16, DATA16
 
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(4);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(UPD9002_GROUP1_MEM(op));
 		{
 			UINT32 seg;
 			UINT off;
@@ -1530,10 +1544,10 @@ UPD9002FN _calc_ea16_i8(void) { // 83:	op		EA16, DATA8
 
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(4);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(UPD9002_GROUP1_MEM(op));
 		{
 			UINT32 seg;
 			UINT off;
@@ -1576,7 +1590,7 @@ UPD9002FN _test_ea_r8(void) { // 84:	test	EA, REG8
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(6);
+		UPD9002_WORKCLOCK(10);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			tmp = upd9002_memoryread(madr);
@@ -1602,7 +1616,7 @@ UPD9002FN _test_ea_r16(void) { // 85:	test	EA, REG16
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(10);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			tmp = upd9002_memoryread_w(madr);
@@ -1627,7 +1641,7 @@ UPD9002FN _xchg_ea_r8(void) { // 86:	xchg	EA, REG8
 		UPD9002_WORKCLOCK(3);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			BYTE tmp = upd9002_memoryread(madr);
@@ -1652,7 +1666,7 @@ UPD9002FN _xchg_ea_r16(void) { // 87:	xchg	EA, REG16
 		UPD9002_WORKCLOCK(3);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			UINT16 tmp = upd9002_memoryread_w(madr);
@@ -1676,7 +1690,7 @@ UPD9002FN _mov_ea_r8(void) { // 88:	mov		EA, REG8
 		UPD9002_WORKCLOCK(2);
 		*(REG8_B20(op)) = src;
 	} else {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(9);
 		madr = CALC_EA(op);
 		upd9002_memorywrite(madr, src);
 	}
@@ -1692,7 +1706,7 @@ UPD9002FN _mov_ea_r16(void) { // 89:	mov		EA, REG16
 		UPD9002_WORKCLOCK(2);
 		*(REG16_B20(op)) = src;
 	} else {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(9);
 		upd9002_memorywrite_w(CALC_EA(op), src);
 	}
 }
@@ -1703,7 +1717,7 @@ UPD9002FN _mov_r8_ea(void) { // 8A:	mov		REG8, EA
 	BYTE src;
 	UINT op;
 
-	PREPART_REG8_EA(op, src, out, 2, 5);
+	PREPART_REG8_EA(op, src, out, 2, 11);
 	*out = src;
 }
 
@@ -1713,7 +1727,7 @@ UPD9002FN _mov_r16_ea(void) { // 8B:	mov		REG16, EA
 	UINT16 src;
 	UINT op;
 
-	PREPART_REG16_EA(op, src, out, 2, 5);
+	PREPART_REG16_EA(op, src, out, 2, 11);
 	*out = src;
 }
 
@@ -1728,7 +1742,7 @@ UPD9002FN _mov_ea_seg(void) { // 8C:	mov		EA, segreg
 		UPD9002_WORKCLOCK(2);
 		*(REG16_B20(op)) = tmp;
 	} else {
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(10);
 		upd9002_memorywrite_w(CALC_EA(op), tmp);
 	}
 }
@@ -1737,7 +1751,7 @@ UPD9002FN _lea_r16_ea(void) { // 8D:	lea		REG16, EA
 
 	UINT op;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(op)
 	if (op < 0xc0) {
 		*(REG16_B53(op)) = CALC_LEA(op);
@@ -1751,7 +1765,7 @@ UPD9002FN _pop_ea(void) { // 8F:	pop		EA
 	UINT op;
 	UINT16 tmp;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(17);
 	REGPOP0(tmp)
 
 	GET_PCBYTE(op)
@@ -1816,7 +1830,7 @@ UPD9002FN _cbw(void) { // 98:	cbw
 
 UPD9002FN _cwd(void) { // 99:	cwd
 
-	UPD9002_WORKCLOCK(2);
+	UPD9002_WORKCLOCK(4);
 	UPD9002_DX = ((UPD9002_AH & 0x80) ? 0xffff : 0x0000);
 }
 
@@ -1824,7 +1838,7 @@ UPD9002FN _call_far(void) { // 9A:	call far
 
 	UINT16 newip;
 
-	UPD9002_WORKCLOCK(13);
+	UPD9002_WORKCLOCK(21);
 	REGPUSH0(UPD9002_CS)
 	GET_PCWORD(newip)
 	GET_PCWORD(UPD9002_CS)
@@ -1846,7 +1860,7 @@ UPD9002FN _wait(void) { // 9B:	wait
 
 UPD9002FN _pushf(void) { // 9C:	pushf
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(8);
 	UPD9002_SP -= 2;
 	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, _materialize_pushf_image());
 }
@@ -1855,7 +1869,7 @@ UPD9002FN _popf(void) { // 9D:	popf
 
 	UINT flag;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(8);
 	REGPOP0(flag)
 	flag = (flag & 0x0ed5) | 0xf002;
 	UPD9002_OV = flag & O_FLAG;
@@ -1866,7 +1880,7 @@ UPD9002FN _popf(void) { // 9D:	popf
 
 UPD9002FN _sahf(void) { // 9E:	sahf
 
-	UPD9002_WORKCLOCK(2);
+	UPD9002_WORKCLOCK(3);
 	UPD9002_FLAGL = (UINT8)((UPD9002_AH & 0xd5) | 0x02);
 }
 
@@ -1880,7 +1894,7 @@ UPD9002FN _mov_al_m8(void) { // A0:	mov		al, m8
 
 	UINT op;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(10);
 	GET_PCWORD(op)
 	UPD9002_AL = upd9002_memoryread(DS_FIX + op);
 }
@@ -1889,7 +1903,7 @@ UPD9002FN _mov_ax_m16(void) { // A1:	mov		ax, m16
 
 	UINT op;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(10);
 	GET_PCWORD(op)
 	UPD9002_AX = upd9002_memoryread_w(DS_FIX + op);
 }
@@ -1898,7 +1912,7 @@ UPD9002FN _mov_m8_al(void) { // A2:	mov		m8, al
 
 	UINT op;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(9);
 	GET_PCWORD(op)
 	upd9002_memorywrite(DS_FIX + op, UPD9002_AL);
 }
@@ -1907,7 +1921,7 @@ UPD9002FN _mov_m16_ax(void) { // A3:	mov		m16, ax
 
 	UINT op;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(9);
 	GET_PCWORD(op);
 	upd9002_memorywrite_w(DS_FIX + op, UPD9002_AX);
 }
@@ -1916,7 +1930,7 @@ UPD9002FN _movsb(void) { // A4:	movsb
 
 	BYTE tmp;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	tmp = upd9002_memoryread(UPD9002_SI + DS_FIX);
 	upd9002_memorywrite(UPD9002_DI + ES_BASE, tmp);
 	UPD9002_SI += STRING_DIR;
@@ -1927,7 +1941,7 @@ UPD9002FN _movsw(void) { // A5:	movsw
 
 	UINT16 tmp;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	tmp = upd9002_memoryread_seg_w(DS_FIX, UPD9002_SI);
 	upd9002_memorywrite_seg_w(ES_BASE, UPD9002_DI, tmp);
 	UPD9002_SI += STRING_DIRx2;
@@ -1940,7 +1954,7 @@ UPD9002FN _cmpsb(void) { // A6:	cmpsb
 	UINT dst;
 	UINT res;
 
-	UPD9002_WORKCLOCK(8);
+	UPD9002_WORKCLOCK(13);
 	dst = upd9002_memoryread(UPD9002_SI + DS_FIX);
 	src = upd9002_memoryread(UPD9002_DI + ES_BASE);
 	SUBBYTE(res, dst, src)
@@ -1954,7 +1968,7 @@ UPD9002FN _cmpsw(void) { // A7:	cmpsw
 	UINT32 dst;
 	UINT32 res;
 
-	UPD9002_WORKCLOCK(8);
+	UPD9002_WORKCLOCK(13);
 	dst = upd9002_memoryread_w(UPD9002_SI + DS_FIX);
 	src = upd9002_memoryread_w(UPD9002_DI + ES_BASE);
 	SUBWORD(res, dst, src)
@@ -1967,7 +1981,7 @@ UPD9002FN _test_al_data8(void) { // A8:	test	al, DATA8
 	UINT src;
 	UINT dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCBYTE(src)
 	dst = UPD9002_AL;
 	ANDBYTE(dst, src)
@@ -1978,7 +1992,7 @@ UPD9002FN _test_ax_data16(void) { // A9:	test	ax, DATA16
 	UINT32 src;
 	UINT32 dst;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(4);
 	GET_PCWORD(src)
 	dst = UPD9002_AX;
 	ANDWORD(dst, src)
@@ -1986,28 +2000,28 @@ UPD9002FN _test_ax_data16(void) { // A9:	test	ax, DATA16
 
 UPD9002FN _stosb(void) { // AA:	stosw
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(7);
 	upd9002_memorywrite(UPD9002_DI + ES_BASE, UPD9002_AL);
 	UPD9002_DI += STRING_DIR;
 }
 
 UPD9002FN _stosw(void) { // AB:	stosw
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(7);
 	upd9002_memorywrite_w(UPD9002_DI + ES_BASE, UPD9002_AX);
 	UPD9002_DI += STRING_DIRx2;
 }
 
 UPD9002FN _lodsb(void) { // AC:	lodsb
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	UPD9002_AL = upd9002_memoryread(UPD9002_SI + DS_FIX);
 	UPD9002_SI += STRING_DIR;
 }
 
 UPD9002FN _lodsw(void) { // AD:	lodsw
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	UPD9002_AX = upd9002_memoryread_w(UPD9002_SI + DS_FIX);
 	UPD9002_SI += STRING_DIRx2;
 }
@@ -2066,7 +2080,7 @@ UPD9002FN _mov_al_imm(void) MOVIMM8(UPD9002_AL)      // B0:	mov		al, imm8
 	if (op & 0x20) {
 		UINT8 value;
 
-		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 7 : 19);
 		value = _ea8_read(op, &madr);
 		GET_PCBYTE(cl)
 		UPD9002_WORKCLOCK(cl);
@@ -2076,10 +2090,10 @@ UPD9002FN _mov_al_imm(void) MOVIMM8(UPD9002_AL)      // B0:	mov		al, imm8
 		return;
 	}
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(7);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(19);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			GET_PCBYTE(cl)
@@ -2115,7 +2129,7 @@ UPD9002FN _shift_ea16_data8(void) { // C1:	shift	EA16, DATA8
 	if (op & 0x20) {
 		UINT16 value;
 
-		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 7 : 19);
 		value = _ea16_read(op, &madr);
 		GET_PCBYTE(cl);
 		UPD9002_WORKCLOCK(cl);
@@ -2125,10 +2139,10 @@ UPD9002FN _shift_ea16_data8(void) { // C1:	shift	EA16, DATA8
 		return;
 	}
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(7);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(19);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			GET_PCBYTE(cl);
@@ -2157,7 +2171,7 @@ UPD9002FN _ret_near_data16(void) { // C2:	ret near DATA16
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(11);
+	UPD9002_WORKCLOCK(20);
 	GET_PCWORD(ad)
 	REGPOP0(UPD9002_IP)
 	UPD9002_SP += ad;
@@ -2165,7 +2179,7 @@ UPD9002FN _ret_near_data16(void) { // C2:	ret near DATA16
 
 UPD9002FN _ret_near(void) { // C3:	ret near
 
-	UPD9002_WORKCLOCK(11);
+	UPD9002_WORKCLOCK(15);
 	REGPOP0(UPD9002_IP)
 }
 
@@ -2175,7 +2189,7 @@ UPD9002FN _les_r16_ea(void) { // C4:	les		REG16, EA
 	UINT32 seg;
 	UINT ad;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(18);
 	GET_PCBYTE(op)
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
@@ -2193,7 +2207,7 @@ UPD9002FN _lds_r16_ea(void) { // C5:	lds		REG16, EA
 	UINT32 seg;
 	UINT ad;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(18);
 	GET_PCBYTE(op)
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
@@ -2212,12 +2226,12 @@ UPD9002FN _mov_ea8_data8(void) { // C6:	mov		EA8, DATA8
 
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(2);
+		UPD9002_WORKCLOCK(4);
 		GET_PCBYTE(*(REG8_B20(op)))
 	} else { // 03/11/23
 		UINT32 ad;
 		BYTE val;
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(11);
 		ad = CALC_EA(op);
 		GET_PCBYTE(val)
 		upd9002_memorywrite(ad, val);
@@ -2230,12 +2244,12 @@ UPD9002FN _mov_ea16_data16(void) { // C7:	mov		EA16, DATA16
 
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(2);
+		UPD9002_WORKCLOCK(4);
 		GET_PCWORD(*(REG16_B20(op)))
 	} else { // 03/11/23
 		UINT32 ad;
 		UINT16 val;
-		UPD9002_WORKCLOCK(3);
+		UPD9002_WORKCLOCK(11);
 		ad = CALC_EA(op);
 		GET_PCWORD(val)
 		upd9002_memorywrite_w(ad, val);
@@ -2252,21 +2266,21 @@ UPD9002FN _enter(void) { // C8:	enter	DATA16, DATA8
 	REGPUSH0(UPD9002_BP)
 	level &= 0x1f;
 	if (!level) { // enter level=0
-		UPD9002_WORKCLOCK(11);
+		UPD9002_WORKCLOCK(12);
 		UPD9002_BP = UPD9002_SP;
 		UPD9002_SP -= dimsize;
 	} else {
 		level--;
 		if (!level) { // enter level=1
 			UINT16 tmp;
-			UPD9002_WORKCLOCK(15);
+			UPD9002_WORKCLOCK(19);
 			tmp = UPD9002_SP;
 			REGPUSH0(tmp)
 			UPD9002_BP = tmp;
 			UPD9002_SP -= dimsize;
 		} else { // enter level=2-31
 			UINT16 bp;
-			UPD9002_WORKCLOCK(12 + level * 4);
+			UPD9002_WORKCLOCK(19 + (level - 1) * 8);
 			bp = UPD9002_BP;
 			UPD9002_BP = UPD9002_SP;
 			while (level--) {
@@ -2291,7 +2305,7 @@ UPD9002FN _enter(void) { // C8:	enter	DATA16, DATA8
 
 UPD9002FN fleave(void) { // C9:	leave
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(6);
 	UPD9002_SP = UPD9002_BP;
 	REGPOP0(UPD9002_BP)
 }
@@ -2300,7 +2314,7 @@ UPD9002FN _ret_far_data16(void) { // CA:	ret far	DATA16
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(15);
+	UPD9002_WORKCLOCK(24);
 	GET_PCWORD(ad)
 	REGPOP0(UPD9002_IP)
 	REGPOP0(UPD9002_CS)
@@ -2310,7 +2324,7 @@ UPD9002FN _ret_far_data16(void) { // CA:	ret far	DATA16
 
 UPD9002FN _ret_far(void) { // CB:	ret far
 
-	UPD9002_WORKCLOCK(15);
+	UPD9002_WORKCLOCK(21);
 	REGPOP0(UPD9002_IP)
 	REGPOP0(UPD9002_CS)
 	CS_BASE = SEGSELECT(UPD9002_CS);
@@ -2366,7 +2380,7 @@ UPD9002FN _iret(void) { // CF: iret
 	if (return_compat) {
 		upd9002_core_compat_iret_resume();
 	}
-	UPD9002_WORKCLOCK(31);
+	UPD9002_WORKCLOCK(27);
 	if ((UPD9002_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
 		UPD9002_IRQCHECKTERM
 	}
@@ -2383,7 +2397,7 @@ UPD9002FN _shift_ea8_1(void) { // D0:	shift EA8, 1
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			sft_e8_table[(op >> 3) & 7](madr);
@@ -2405,7 +2419,7 @@ UPD9002FN _shift_ea16_1(void) { // D1:	shift EA16, 1
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		{
 			UINT32 seg;
 			UINT off;
@@ -2441,7 +2455,7 @@ UPD9002FN _shift_ea8_cl(void) { // D2:	shift EA8, cl
 	if (op & 0x20) {
 		UINT8 value;
 
-		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 7 : 19);
 		value = _ea8_read(op, &madr);
 		cl = UPD9002_CL;
 		UPD9002_WORKCLOCK(cl);
@@ -2451,10 +2465,10 @@ UPD9002FN _shift_ea8_cl(void) { // D2:	shift EA8, cl
 		return;
 	}
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(7);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(19);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			cl = UPD9002_CL;
@@ -2490,7 +2504,7 @@ UPD9002FN _shift_ea16_cl(void) { // D3:	shift EA16, cl
 	if (op & 0x20) {
 		UINT16 value;
 
-		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 7 : 19);
 		value = _ea16_read(op, &madr);
 		cl = UPD9002_CL;
 		UPD9002_WORKCLOCK(cl);
@@ -2500,10 +2514,10 @@ UPD9002FN _shift_ea16_cl(void) { // D3:	shift EA16, cl
 		return;
 	}
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(7);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(19);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			cl = UPD9002_CL;
@@ -2533,7 +2547,7 @@ UPD9002FN _aam(void) { // D4:	AAM
 	UINT8 al;
 	UINT radix;
 
-	UPD9002_WORKCLOCK(16);
+	UPD9002_WORKCLOCK(15);
 	GET_PCBYTE(radix);
 	al = UPD9002_AL;
 	if (radix) {
@@ -2548,7 +2562,7 @@ UPD9002FN _aam(void) { // D4:	AAM
 
 UPD9002FN _aad(void) { // D5:	AAD
 
-	UPD9002_WORKCLOCK(14);
+	UPD9002_WORKCLOCK(7);
 	UPD9002_IP++; // is 10
 	UPD9002_AL += (UINT8)(UPD9002_AH * 10);
 	UPD9002_AH = 0;
@@ -2558,7 +2572,7 @@ UPD9002FN _aad(void) { // D5:	AAD
 
 UPD9002FN _xlat(void) { // D6:	xlat
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	UPD9002_AL = upd9002_memoryread(LOW16(UPD9002_AL + UPD9002_BX) + DS_FIX);
 }
 
@@ -2613,27 +2627,27 @@ UPD9002FN _loopnz(void) { // E0:	loopnz
 
 	UPD9002_CX--;
 	if ((!UPD9002_CX) || (UPD9002_FLAGL & Z_FLAG))
-		JMPNOP(4) else JMPSHORT(8)
+		JMPNOP(5) else JMPSHORT(14)
 }
 
 UPD9002FN _loopz(void) { // E1:	loopz
 
 	UPD9002_CX--;
 	if ((!UPD9002_CX) || (!(UPD9002_FLAGL & Z_FLAG)))
-		JMPNOP(4) else JMPSHORT(8)
+		JMPNOP(5) else JMPSHORT(14)
 }
 
 UPD9002FN _loop(void) { // E2:	loop
 
 	UPD9002_CX--;
 	if (!UPD9002_CX)
-		JMPNOP(5) else JMPSHORT(17)
+		JMPNOP(5) else JMPSHORT(13)
 }
 
 UPD9002FN _jcxz(void) { // E3:	jcxz
 
 	if (UPD9002_CX)
-		JMPNOP(4) else JMPSHORT(8)
+		JMPNOP(5) else JMPSHORT(13)
 }
 
 /*
@@ -2666,7 +2680,7 @@ UPD9002FN _in_al_data8(void) { // E4:	in		al, DATA8
 
 	UINT port;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	GET_PCBYTE(port)
 	if (native_iotrap(port, TRUE)) {
 		return;
@@ -2680,7 +2694,7 @@ UPD9002FN _in_ax_data8(void) { // E5:	in		ax, DATA8
 
 	UINT port;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	GET_PCBYTE(port)
 	if (native_iotrap(port, TRUE)) {
 		return;
@@ -2692,7 +2706,7 @@ UPD9002FN _out_data8_al(void) { // E6:	out		DATA8, al
 
 	UINT port;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(8);
 	GET_PCBYTE(port);
 	if (native_iotrap(port, FALSE)) {
 		return;
@@ -2704,7 +2718,7 @@ UPD9002FN _out_data8_ax(void) { // E7:	out		DATA8, ax
 
 	UINT port;
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(8);
 	GET_PCBYTE(port);
 	if (native_iotrap(port, FALSE)) {
 		return;
@@ -2716,7 +2730,7 @@ UPD9002FN _call_near(void) { // E8:	call near
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(7);
+	UPD9002_WORKCLOCK(16);
 	GET_PCWORD(ad)
 	REGPUSH0(UPD9002_IP)
 	UPD9002_IP += ad;
@@ -2726,7 +2740,7 @@ UPD9002FN _jmp_near(void) { // E9:	jmp near
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(7);
+	UPD9002_WORKCLOCK(13);
 	GET_PCWORD(ad)
 	UPD9002_IP += ad;
 }
@@ -2735,7 +2749,7 @@ UPD9002FN _jmp_far(void) { // EA:	jmp far
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(11);
+	UPD9002_WORKCLOCK(15);
 	GET_PCWORD(ad);
 	GET_PCWORD(UPD9002_CS);
 	UPD9002_IP = ad;
@@ -2746,14 +2760,14 @@ UPD9002FN _jmp_short(void) { // EB:	jmp short
 
 	UINT16 ad;
 
-	UPD9002_WORKCLOCK(7);
+	UPD9002_WORKCLOCK(12);
 	GET_PCBYTES(ad)
 	UPD9002_IP += ad;
 }
 
 UPD9002FN _in_al_dx(void) { // EC:	in		al, dx
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(8);
 	if (native_iotrap(UPD9002_DX, TRUE)) {
 		return;
 	}
@@ -2762,7 +2776,7 @@ UPD9002FN _in_al_dx(void) { // EC:	in		al, dx
 
 UPD9002FN _in_ax_dx(void) { // ED:	in		ax, dx
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(8);
 	if (native_iotrap(UPD9002_DX, TRUE)) {
 		return;
 	}
@@ -2771,7 +2785,7 @@ UPD9002FN _in_ax_dx(void) { // ED:	in		ax, dx
 
 UPD9002FN _out_dx_al(void) { // EE:	out		dx, al
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(8);
 	if (native_iotrap(UPD9002_DX, FALSE)) {
 		return;
 	}
@@ -2780,7 +2794,7 @@ UPD9002FN _out_dx_al(void) { // EE:	out		dx, al
 
 UPD9002FN _out_dx_ax(void) { // EF:	out		dx, ax
 
-	UPD9002_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(8);
 	if (native_iotrap(UPD9002_DX, FALSE)) {
 		return;
 	}
@@ -2794,6 +2808,8 @@ UPD9002FN _lock(void) { // F0:	lock
 
 UPD9002FN _repne(void) { // F2:	repne
 
+	UPD9002_WORKCLOCK(2); /* REP prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	UPD9002_PREFIX++;
 	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
@@ -2807,6 +2823,8 @@ UPD9002FN _repne(void) { // F2:	repne
 
 UPD9002FN _repe(void) { // F3:	repe
 
+	UPD9002_WORKCLOCK(2); /* REP prefix (V30) */
+	upd9002_prefix_clocks += 2;
 	UPD9002_PREFIX++;
 	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
@@ -2928,7 +2946,7 @@ UPD9002FN _mov_seg_ea(void) { // 8E:	mov		segrem, EA
 		UPD9002_WORKCLOCK(2);
 		tmp = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(11);
 		tmp = upd9002_memoryread_w(CALC_EA(op));
 	}
 	switch (op & 0x18) {
@@ -3129,7 +3147,7 @@ UPD9002FN _not1_ea8_cl(void) { // 0F 16: not1 EA8, CL
 	UINT8 value;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK((op >= 0xc0) ? 4 : 13);
+	UPD9002_WORKCLOCK((op >= 0xc0) ? 4 : 18);
 	value = _ea8_read(op, &madr);
 	value ^= (UINT8)(1U << (UPD9002_CL & 7));
 	_ea8_write(op, madr, value);
@@ -3141,7 +3159,7 @@ UPD9002FN _not1_ea16_cl(void) { // 0F 17: not1 EA16, CL
 	UINT16 value;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK((op >= 0xc0) ? 4 : 13);
+	UPD9002_WORKCLOCK((op >= 0xc0) ? 4 : 18);
 	value = _ea16_read(op, &madr);
 	value ^= (UINT16)(1U << (UPD9002_CL & 15));
 	_ea16_write(op, madr, value);
@@ -3242,7 +3260,7 @@ UPD9002FN _not1_ea8_i3(void) { // 0F 1E: not1 EA8, imm3
 	UINT8 value;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 14);
+	UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 19);
 	value = _ea8_read(op, &madr);
 	GET_PCBYTE(imm);
 	value ^= (UINT8)(1U << (imm & 7));
@@ -3256,7 +3274,7 @@ UPD9002FN _not1_ea16_i4(void) { // 0F 1F: not1 EA16, imm4
 	UINT16 value;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 14);
+	UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 19);
 	value = _ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	value ^= (UINT16)(1U << (imm & 15));
@@ -3322,7 +3340,7 @@ UPD9002FN _add4s(void) { // 0F 20: add4s
 	UINT8 result;
 	BOOL all_zero;
 
-	UPD9002_WORKCLOCK(26);
+	UPD9002_WORKCLOCK(7);
 	srcoffset = UPD9002_SI;
 	dstoffset = UPD9002_DI;
 	flags = 0;
@@ -3360,7 +3378,7 @@ static void _subcmp4s(BOOL compare_only) {
 	UINT8 result;
 	BOOL all_zero;
 
-	UPD9002_WORKCLOCK(26);
+	UPD9002_WORKCLOCK(7);
 	srcoffset = UPD9002_SI;
 	dstoffset = UPD9002_DI;
 	flags = 0;
@@ -3398,6 +3416,9 @@ UPD9002FN _cmp4s(void) { // 0F 26: cmp4s
 
 	_subcmp4s(TRUE);
 }
+/* ROL4/ROR4: register or memory operand clocks. */
+#define UPD9002_ROL4_CLOCK(op, reg, memory) (((op) >= 0xc0) ? (reg) : (memory))
+
 UPD9002FN _rol4_ea8(void) { // 0F 28: rol4 EA8
 
 	UINT op;
@@ -3406,7 +3427,7 @@ UPD9002FN _rol4_ea8(void) { // 0F 28: rol4 EA8
 	UINT8 oldal;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK(25);
+	UPD9002_WORKCLOCK(UPD9002_ROL4_CLOCK(op, 25, 28));
 	value = _ea8_read(op, &madr);
 	oldal = UPD9002_AL;
 	_ea8_write(op, madr, (UINT8)((value << 4) | (oldal & 0x0f)));
@@ -3420,7 +3441,7 @@ UPD9002FN _ror4_ea8(void) { // 0F 2A: ror4 EA8
 	UINT8 oldal;
 
 	GET_PCBYTE(op);
-	UPD9002_WORKCLOCK(25);
+	UPD9002_WORKCLOCK(UPD9002_ROL4_CLOCK(op, 29, 33));
 	value = _ea8_read(op, &madr);
 	oldal = UPD9002_AL;
 	_ea8_write(op, madr, (UINT8)((value >> 4) | ((oldal & 0x0f) << 4)));
