@@ -1143,3 +1143,74 @@ superseded MinGW directory/executable/report, SDK, source/media workspace, faile
 attempt, diagnostic and shared/project-local container cache. This follows the
 prior explicit preservation request; no user-supplied PSD/archive/media or
 private reference-tree file is removed. **M100s11 complete; no next task.**
+
+### CI follow-up requested after final status check
+
+Human gate acceptance and main integration remain complete. The final ordinary
+[build run 39723588276](https://github.com/nakatamaho/vaeg/actions/runs/39723588276)
+on `27fb328a869e3ba2220ab2bdb346d6f9b29ff9e8` finishes with **eight successful
+jobs and two failed jobs**. Do not describe that original run as green.
+The maintainer requests correction and re-verification within M100s11.
+
+1. Windows compatibility builds and smokes successfully, then fails exactly
+   `vaeg_mp4_build_policy` / `vaeg_ffmpeg_static_resolution`. Native Python
+   3.14.8 inserts backslash paths into generated CMake includes (`Invalid
+   character escape '\a'`), and expected static link paths use backslashes while
+   CMake returns forward slashes. These are fixture portability defects, not an
+   observed Media Foundation/runtime failure. Correction
+   [19991671](https://github.com/nakatamaho/vaeg/commit/19991671daa14104d35877a1c2b3b57f1bd1946a)
+   shares a POSIX-serialized CMake include helper and generates exact expected
+   archive paths with `as_posix()`. Two host-independent `PureWindowsPath`
+   regressions include drive paths with spaces. Actual resolved libraries,
+   ordering, framework flags and precise fail-closed codes remain strict.
+2. Standalone compatibility **all 19 tests pass** before its archive step rejects
+   the public instruction-fetch patch with `PATCH_UNAPPROVED`. It is already
+   recorded by [e0c47ca4](https://github.com/nakatamaho/vaeg/commit/e0c47ca41f36ead299783d1dd21878449b0943fb),
+   the permanent correctness ledger and the existing vendored provenance; M128
+   also records this pre-existing archive failure. The artifact/provenance/core
+   are not changed. Correction
+   [8d1b2fca](https://github.com/nakatamaho/vaeg/commit/8d1b2fcaa5dc6ee598c2983666ed2f5b2bed74a9)
+   permits only that exact pathname and recorded SHA-256 in **source mode**.
+   It does not authorize a directory, arbitrary patches or runtime/release
+   inclusion. Isolated passing content fixtures and one-mutation negatives
+   require precisely `PATCH_CONTENT`, `PATCH_UNAPPROVED` and `PATCH_WORK` for
+   edits, relocation/release mode and work artifacts. The composed archive test
+   includes the recorded patch and still rejects ZEX in release mode.
+
+Before any new hosted run: macOS and existing project-local Ubuntu container
+executions of the three suites exit **0**, respectively **21 policy / 8 static
+resolver / 17 archive tests** each. Original 27fb328a source archive reproduces
+one `PATCH_UNAPPROVED` with the original checker (exit 1) and passes the corrected
+checker (exit 0, 2540 files). No original patch byte is modified and no file is
+deleted. Repository encoding/EOL/case/Markdown/whitespace checks pass.
+
+To avoid rerunning unchanged SDK builds, native SST and conformance corpora,
+[f6bfcaa3](https://github.com/nakatamaho/vaeg/commit/f6bfcaa37a913784fa15abac89387c70b6f4bde5)
+adds a **manual-only** two-job workflow, `recording fixture checks`. The ordinary
+build/release workflow is untouched. Before targeted verification, separate Git
+ancestry and closed-path content checks require that the candidate descends from
+27fb328a and differs **only** in four fixture/checker files, this manual workflow
+and three explicitly listed milestone documents. Any other change fails; the
+original patch, emulator, CMake configuration, dependencies and payloads must
+remain byte-identical. A temporary Git fixture tests the two layers independently
+with exactly one content or ancestry mutation and precise
+`M100S11_FOLLOWUP_SCOPE` / `M100S11_FOLLOWUP_BASELINE` codes; a real-candidate
+composed check and workflow/native-Python assertions also pass (**4 tests**).
+
+The manual archive job runs all content tests and checks an actual `git archive`
+of the evaluated candidate. Only after it succeeds does a native Windows job
+run the two exact failing suites, using the original native Python **3.14.8**,
+MINGW64 GCC/CMake/Ninja, and an `os.name == 'nt'` assertion. No emulator, shader
+SDK, encoder or private media is built/uploaded. Public CI local-only encoders
+remain OFF; the policy tests' already-reviewed local child fixtures contain only
+fake command markers, never a codec or a production policy bypass.
+
+Original CI logs/job conclusions/artifact metadata and local attempts are retained
+under `build/m100s11-ci-followup-39723588276/`. The eight successful original jobs
+are retained for unchanged production inputs, **not** claimed as newly repeated
+on the fixture-only candidate. A final `[skip ci]` push intentionally avoids a
+second full automatic run; the scoped workflow is dispatched explicitly. Hosted
+follow-up result: **PENDING**, to be recorded with its evaluated SHA, run URL,
+commands/exits and log/index hashes. The human gate is not withdrawn, but CI
+follow-up is not complete until these affected checks pass. No new milestone,
+release, legal clearance, private artifact publication or executable replacement.

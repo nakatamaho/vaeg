@@ -94,6 +94,37 @@ class SourceModeTest(unittest.TestCase):
         )
 
 
+class RecordedPatchTest(unittest.TestCase):
+    def setUp(self):
+        self.name = "docs/agents/reports/upd9002_instruction_fetch_flag.patch"
+        self.data = (ROOT / self.name).read_bytes()
+        self.fixture = [PLAIN, (self.name, self.data)]
+        # Every negative starts from this independently passing content fixture.
+        self.assertEqual(inspect(self.fixture, checker.MODE_SOURCE), [])
+
+    def test_exact_recorded_patch(self):
+        self.assertEqual(inspect(self.fixture, checker.MODE_SOURCE), [])
+
+    def test_prefixed_recorded_patch(self):
+        members = [("vaeg-source/" + name, data) for name, data in self.fixture]
+        self.assertEqual(inspect(members, checker.MODE_SOURCE), [])
+
+    def test_modified_patch_content(self):
+        members = [PLAIN, (self.name, self.data + b"\n")]
+        self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_CONTENT"])
+
+    def test_same_content_elsewhere(self):
+        members = [PLAIN, ("docs/agents/reports/other.patch", self.data)]
+        self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_UNAPPROVED"])
+
+    def test_reject_work_artifact(self):
+        members = [PLAIN, (self.name + ".rej", self.data)]
+        self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_WORK"])
+
+    def test_reject_recorded_patch_in_release(self):
+        self.assertEqual(codes(inspect(self.fixture, checker.MODE_RELEASE)), ["PATCH_UNAPPROVED"])
+
+
 class ReleaseModeTest(unittest.TestCase):
     def test_plain_package_passes(self):
         self.assertEqual(inspect([PLAIN], checker.MODE_RELEASE), [])
@@ -123,7 +154,9 @@ class IntegrationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "source.tar.gz"
             with tarfile.open(archive, "w:gz") as output:
-                for name, data in [PLAIN, *ZEX_FILES.items()]:
+                for name, data in [PLAIN, *ZEX_FILES.items(),
+                                   *[(path, (ROOT / path).read_bytes())
+                                     for path in checker.SOURCE_ARCHIVE_PATCHES]]:
                     info = tarfile.TarInfo(name)
                     info.size = len(data)
                     output.addfile(info, io.BytesIO(data))

@@ -81,6 +81,13 @@ SOURCE_ARCHIVE_ZEX_FILES = {
     "external/zex/LICENSE.txt":
         "e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052",
 }
+# Existing public instruction-fetch fix, recorded with this digest in
+# external/suzukiplan-z80/provenance.txt (e0c47ca4). Source archives only;
+# neither a directory-wide patch exception nor a runtime-package permission.
+SOURCE_ARCHIVE_PATCHES = {
+    "docs/agents/reports/upd9002_instruction_fetch_flag.patch":
+        "424541f9d1136f7c0984363c549806ad41f4d17ca430294748c1778d6751125d",
+}
 MODE_RELEASE = "release"
 MODE_SOURCE = "source"
 APPROVED_PATCHES = {
@@ -144,7 +151,15 @@ def inspect_member(
         or normalized.endswith("/" + approved_patch)
         for approved_patch in APPROVED_PATCHES
     ):
-        violations.append(f"PATCH_UNAPPROVED unapproved patch artifact: {name}")
+        recorded_digest = next((
+            recorded_digest for recorded_path, recorded_digest in SOURCE_ARCHIVE_PATCHES.items()
+            if normalized == recorded_path or normalized.endswith("/" + recorded_path)
+        ), None)
+        if mode == MODE_SOURCE and recorded_digest is not None:
+            if digest != recorded_digest:
+                violations.append(f"PATCH_CONTENT modified recorded patch artifact: {name}")
+        else:
+            violations.append(f"PATCH_UNAPPROVED unapproved patch artifact: {name}")
 
 
 def inspect_tar(path: Path, mode: str = MODE_RELEASE) -> Tuple[int, List[str]]:

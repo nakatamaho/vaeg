@@ -25,7 +25,7 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import runpy
 import shutil
@@ -53,11 +53,16 @@ def clean_environment():
     return {k: v for k, v in os.environ.items() if k not in CI_NAMES}
 
 
+def policy_include(root):
+    # CMake quoted strings interpret Windows backslashes as escape sequences.
+    return f'include("{(root / "cmake/mp4_policy.cmake").as_posix()}")\n'
+
+
 def policy(values, environment=None):
     with tempfile.TemporaryDirectory(prefix="vaeg-mp4-policy-") as tmp:
         script = Path(tmp) / "policy.cmake"
         script.write_text("cmake_minimum_required(VERSION 3.20)\n" + "\n".join(f'set({k} "{v}" CACHE STRING "fixture" FORCE)' for k, v in values.items()) +
-                          f'\ninclude("{ROOT}/cmake/mp4_policy.cmake")\n'
+                          '\n' + policy_include(ROOT) +
                           'message(STATUS "MP4_POLICY_OK ${VAEG_ENABLE_LOCAL_MP4_ENCODERS}")\n')
         env = clean_environment()
         env.update(environment or {})
@@ -65,6 +70,11 @@ def policy(values, environment=None):
 
 
 class BuildPolicy(unittest.TestCase):
+    def test_windows_fixture_include_path(self):
+        root = PureWindowsPath(r"D:\a\repo with spaces")
+        self.assertEqual(policy_include(root),
+                         'include("D:/a/repo with spaces/cmake/mp4_policy.cmake")\n')
+
     def mutate(self, code, values=None, environment=None):
         baseline = policy(BASELINE)
         self.assertEqual(baseline.returncode, 0, baseline.stderr)
@@ -91,7 +101,7 @@ class BuildPolicy(unittest.TestCase):
             # No codec source, SDK, compiler or Git history: only a command marker.
             settings = "\n".join(f'set({k} "{v}" CACHE STRING "fixture" FORCE)' for k, v in BASELINE.items())
             (root / "CMakeLists.txt").write_text('cmake_minimum_required(VERSION 3.20)\nproject(policy_fixture NONE)\n' + settings +
-                f'\ninclude("{ROOT}/cmake/mp4_policy.cmake")\n' +
+                '\n' + policy_include(ROOT) +
                 'add_custom_target(fake_codec COMMAND "${CMAKE_COMMAND}" -E echo FAKE_CODEC_BUILD_RAN)\n' +
                 'add_library(fake_sdk INTERFACE)\n' +
                 'vaeg_mp4_attach_build_guard(fake_sdk)\n' +
