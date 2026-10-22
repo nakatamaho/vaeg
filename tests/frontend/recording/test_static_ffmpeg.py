@@ -32,6 +32,12 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
+def expected_libraries(root):
+    # CMake serializes absolute paths with forward slashes, including on Windows.
+    return [(root / ("lib" + n + ".a")).as_posix()
+            for n in ("avformat", "avcodec", "avutil")] + ["-pthread", "-lm", "-framework CoreVideo"]
+
+
 class StaticFFmpeg(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="vaeg-static-ffmpeg-")
@@ -62,14 +68,20 @@ file(WRITE "${{CMAKE_BINARY_DIR}}/resolved.txt" "${{libs}}")
         result = self.configure()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         resolved = (self.root / "build/resolved.txt").read_text().split(";")
-        self.assertEqual(resolved, [str(self.root / ("lib" + n + ".a"))
-                                   for n in ("avformat", "avcodec", "avutil")]
-                         + ["-pthread", "-lm", "-framework CoreVideo"])
+        self.assertEqual(resolved, expected_libraries(self.root))
 
     def assert_code(self, result, expected):
         self.assertNotEqual(result.returncode, 0)
         codes = re.findall(r"(VAEG_FFMPEG_[A-Z_]+):", result.stdout + result.stderr)
         self.assertEqual(codes, [expected], result.stdout + result.stderr)
+
+    def test_windows_expected_link_paths(self):
+        root = pathlib.PureWindowsPath(r"D:\a\fixture with spaces")
+        self.assertEqual(expected_libraries(root), [
+            "D:/a/fixture with spaces/libavformat.a",
+            "D:/a/fixture with spaces/libavcodec.a",
+            "D:/a/fixture with spaces/libavutil.a",
+            "-pthread", "-lm", "-framework CoreVideo"])
 
     def test_desktop_dependency_defaults(self):
         source = (ROOT / "CMakeLists.txt").read_text()
