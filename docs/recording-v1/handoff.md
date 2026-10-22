@@ -1,6 +1,40 @@
 # Recording v1 handoff
 
-## Current M100s11 handoff — screenshot rotation component gate passed
+## Current M100s11 gate handoff — 16ed03ee, overall gate OPEN
+
+The maintainer requested remaining gate work after passing the screenshot
+component. A new clean static recording-enabled Windows build is ready:
+
+- Source [16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/vaeg.exe`, 59,218,214 bytes.
+- SHA-256 `7111621cddc2069911159d3fda25c62d83f6cc57c0099249a0525a90d070a5b7`.
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/BUILD-REPORT.md`, SHA-256
+  `53949965b4b909b9662d1ca45850735eca9a245e1bf2d39100c85f4db1edcc44`.
+
+Standard helper exit 0; static/import/codec audits pass, OS MP4 ON and local-only
+static encoders OFF. The app's production inputs are unchanged from the accepted
+screenshot build; this is not a newly observed native Windows execution.
+
+Clean-clone five-component demo rebuilds and payload comparisons pass; self-booting
+SGP raw image matches. Both aggregates' payloads match, but their Zundamon input
+is the committed archive, **not** a fresh PSD rebuild. Utility FDD build/boot/DIR
+passes. ROM-aware macOS dummy/software runs visibly draw all 17 programs on each
+OS after correct-CWD/loading-bound follow-ups, boot/select the SGP demo, render
+the bundled VA demo title and start MANDEL.BAS (partial rows, not full completion).
+These agent observations do not establish physical GPU or human-gate acceptance.
+
+**Gate still blocked:** PSD is unavailable. SASI generation exits 1 fetching
+`PCODESRC.LZH` (HTTP 403; separate HTTPS attempt times out), and the three required
+CP/M tools/source/development disk inputs are also unavailable. Neither SASI
+image or model boot is passed. Native Windows full decode/seek/quality/missing-MF,
+physical Linux GPU/Wayland and remaining maintainer human acceptance stay open.
+Full commands, image hashes, preserved failures and scope are in the
+[M100s11 task](../agents/tasks/M100s11_recording_post_mp4.md).
+Local evidence `build/m100s11-media-gate-16ed03ee/validation.json`, SHA-256
+`23d51328d7b179ef2dab477ed2cd47c2632d26aea08f9908da9a9d246c3de1c2`.
+**G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
+
+## Screenshot rotation component accepted — 97259966
 
 Maintainer-added gate: at display right 90 degrees, both screenshot menu entries
 must save that orientation; turning back must restore the normal orientation.

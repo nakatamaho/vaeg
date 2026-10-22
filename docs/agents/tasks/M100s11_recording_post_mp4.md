@@ -654,3 +654,158 @@ compression/audio acceptance remains recorded, all old artifacts are retained,
 no merge/cleanup occurred, and **G100s11 remains OPEN**. This feedback-only
 record changes no binary/source inputs; existing test/handoff identities remain
 valid and no unchanged expensive run or rebuild is requested.
+
+### Requested gate run — clean clone of pushed 16ed03ee
+
+The maintainer subsequently requested the remaining gate work. Evaluated commit:
+[16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
+**G100s11 remains OPEN: required PSD/SASI regeneration is blocked.**
+
+A fresh remote clone was checked out at that commit under the untracked
+`build/m100s11-media-gate-16ed03ee/checkout`; tracked sources remain unchanged.
+New compressed distribution names were used in that clone, with aggregate inputs
+staged outside it; no committed disk was overwritten or removed. Input media and
+the reference tree were read-only. Public package downloads use the shared caches,
+with the builders' pinned checksum checks. Container/daemon storage stays in
+`build/cr10`; no unrelated daemon or hosted CI was used.
+
+Local evidence: `build/m100s11-media-gate-16ed03ee/validation.json`, SHA-256
+`23d51328d7b179ef2dab477ed2cd47c2632d26aea08f9908da9a9d246c3de1c2`.
+The index records commands/exits, image/log/script digests, source closure,
+unchanged converter workers and preserved failed attempts. Raw guest captures,
+logs, private input mappings and generated media remain outside Git.
+
+#### Media build commands and observed results
+
+Paths in these commands are neutral gate-workspace aliases, not private source
+identities. Inside the Ubuntu 24.04 arm64 media container, `/gate/checkout` is the
+clean clone, `/gate/inputs/system-b.d88` the PC-Engine 1.1 input, `/gate/images`
+the new raw outputs and `/gate/distributions` the staged component archives.
+Exact expanded commands/logs are indexed locally by `run-media.py`.
+
+- `bash demos/glass-orbit/build-d88.sh /gate/inputs/system-b.d88 /gate/images/gate-glass-orbit.d88`
+  and the corresponding `neon3`, `neon4`, `sgp-pseudo-sprite`, `sgp-wireframe`
+  builders: **each exit 0**. Fresh payload maps match the committed archives
+  byte-for-byte: respectively 1, 2, 2, 8 and 3 files, with no missing/extra files.
+- `python3 demos/sgp-boot/build-boot-d88.py --output /gate/images/sgp-boot.d88
+  --compressed-output /gate/distributions/sgp-boot.d88.xz`: **exit 0**;
+  the entire raw image equals the decompressed committed image.
+- `bash demos/sgp-scan/65536/build.sh /gate/images/SGPSCAN.COM`,
+  `bash demos/va-voyage/build.sh /gate/images/VOYAGE.COM`, and
+  `bash demos/va-voyage/build-opna.sh /gate/images/VOYOPNA.COM`: **each exit 0**.
+- `python3 tools/pc88va/build-all-demos-distribution-disk.py --source
+  /gate/inputs/system-b.d88 --distribution-dir /gate/distributions --output
+  /gate/images/all-demos.d88 --compressed-output /gate/distributions/all-demos.d88.xz`:
+  **exit 0**, all 19 stored files match the committed distribution.
+- The analogous `build-all-demos-msdos4-disk.py` command uses the pinned
+  `msdos4-va.2` input in the shared cache: **exit 0**, all 25 files match.
+  Its source, boot sector, system files and license checks pass.
+- `python3 tools/pc88va/build-all-demos-bootable-disk.py --source
+  /gate/inputs/system-b.d88 --distribution-dir /gate/distributions --output
+  /gate/images/all-demos-pce-boot.d88`: **exit 0**, local bootable PC-Engine
+  validation image, including the source-built `MANDEL.BAS` text.
+- `build-utility-disk.sh --source <system-b> --output <utility-host.d88>`:
+  **exit 0**, 125 installed files, 4096 bytes free. The exact host invocation is
+  in `run-utility-host.sh`. GNU dd, Python 3.12 and a same-path DOSBox bridge
+  supply host tools; pinned Open Watcom builds use the project-local daemon.
+  An earlier container invocation failed for lack of nested Docker, not for a
+  demonstrated media/emulator defect. That log remains preserved.
+
+**Aggregate limitation:** both aggregate rebuilds use five freshly built
+component distributions but the committed Zundamon archive, since the configured
+PSD input is unavailable. Their packaging/payload comparisons pass; this is
+**not** a complete all-components-from-source pass. The required
+`demos/zundamon-orbit/build-from-psd.sh` regeneration remains **BLOCKED/NOT_RUN**.
+
+Produced raw image SHA-256 values (not source-input identities):
+
+| Image | SHA-256 |
+|---|---|
+| GLASS | `690a6a64d78c60ddddfcad06c69c5fa9c2b69c11486b4dbc3a41716fd5a75c74` |
+| NEON3 | `22abd8bb589614b1d5cef59f142d2ee12f5e2b14a946537c6d76d13af5718ac3` |
+| NEON4 | `ed48e2d22ba5a6c22825eae8d441b28e79b9f341a5016dcff74509e64d4ecd10` |
+| pseudo-sprite | `4e2a6474b47363701d7cd6d61e0beb4eded39e813d7688e583c5513665ed2acb` |
+| wireframe | `62bbe05a24806040aa5ce70165564057dca4a59e3740c1dfa2a20d091cbd938b` |
+| self-booting SGP | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
+| all-demos | `675221e4919e06765fd00b74796d8af258b72485cd5afba05719e48ebaff1f17` |
+| all-demos-msdos4 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| PC-Engine bootable all-demos | `36a3876d474ed90203882f137cf83bc5d28488de18e555d9a778b13146b50ff4` |
+| utility FDD | `5b158c1716787a0984c661e63dc86454d1c0e30fdde4314b276fd1556dee97cd` |
+
+`build-sasi-utility-disks.sh` was invoked with neutral system-a/system-b inputs,
+the newly generated utility FDD as payload, the three neutral CP/M input paths
+and a new SASI output directory. **Exit 1:** uncached public `PCODESRC.LZH`
+download returns HTTP 403. A separate HTTPS diagnostic times out (exit 28);
+no unchecked substitute was cached. Independent preflight also finds the required
+CP/M tools/source/development D88 inputs unavailable. The actual failing SASI
+command stops at the download, before those input checks. Neither SASI image was
+produced; neither model's SASI boot is passed, and no output digest is invented.
+Resolve the pinned-package acquisition and supply the three CP/M inputs before
+rerunning that affected command; unchanged successful demo builds need not repeat.
+
+#### ROM-aware guest runs, not physical-platform acceptance
+
+The macOS recording-ON application (SHA-256
+`bb10a9c800fe5a8f745d02fdd67c126aa35c59f657ba24f6d5731522b1783c75`)
+was reused after proving that all five changed paths from its 97259966 source to
+16ed03ee are Markdown documentation. With a ROM set matching MAME's `pc88va2`,
+all runs isolate config/backup state and use SDL dummy/software/audio dummy:
+
+```sh
+vaeg --no-cfg --no-bkupmem --roms "$ROM_DIR" --model va2 \
+  --fdd1 "$IMAGE" --fdd2 none --sasi1 none --sasi2 none \
+  --nowait --frameskip full --headless-input-script input.txt \
+  --screenshot 2400:program.png
+```
+
+- Both OS images boot. All **17 programs on PC-Engine and 17 on MS-DOS 4.0**
+  visibly draw in retained captures, reviewed by the agent, not automatically
+  inferred from process exit. The 34 initial processes exit 0 and media stay
+  unchanged, but their root-directory Zundamon runs do **not** count as drawing.
+  Zundamon requires `CD \ZUNDAMON` before starting, and its frame-3200 capture
+  still shows loading. Separate correct-CWD runs exit 0 and visibly draw at
+  frames **4000 and 10000** on both OSes. Old contacts/failures are retained;
+  corrected review sheets are separate files.
+- Utility FDD boots, accepts `DIR` and returns a listing/Ready prompt (frame
+  6000, exit 0). Original PC-Engine boot/DIR also exits 0 and is visible.
+- Source-built SGP disk boots its menu; selecting **A**, not Enter, draws the
+  first sprite demo (frame 3200, exit 0).
+- The bundled VA demo boots and renders its title sequence (frame 3200, exit 0);
+  this is not acceptance of its entire sequence, audio or physical rendering.
+- From PC-Engine, `BASIC`, `LOAD "MANDEL.BAS"`, `RUN` starts the actual BASIC
+  program; colored rows are visible at frame 6000, exit 0. The full fractal is
+  **not** complete at that bound. A separate no-disk attempt stayed at the
+  insert-disk prompt and is explicitly not recorded as a BASIC success.
+
+Initial collection/input mistakes remain documented locally: the non-bootable
+file-map reader initially required OS files (collector corrected, completed
+GLASS build reused); a DIR screenshot bound preceded injection, and the next
+unbounded attempt timed out. The final bounded DIR run exits 0. These are not
+claimed emulator fixes or relaxed payload/CPU validators.
+
+#### Fresh Windows handoff and remaining gates
+
+The standard clean static helper was run against pushed 16ed03ee with
+`--recording --shader-sdk "$PWD/build/handoff/m100s10/preserved/dependencies/mingw-static"`:
+**exit 0**. Application objects are fresh; the reviewed shader SDK is reused.
+Static dependency, encoder-registration and system-DLL import audits pass.
+Recording/OS MP4 is ON; local-only static H.264/AAC is explicitly OFF.
+
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/vaeg.exe`, 59,218,214 bytes.
+- SHA-256 `7111621cddc2069911159d3fda25c62d83f6cc57c0099249a0525a90d070a5b7`.
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/BUILD-REPORT.md`, SHA-256
+  `53949965b4b909b9662d1ca45850735eca9a245e1bf2d39100c85f4db1edcc44`.
+
+The app's production inputs differ from the screenshot-accepted 97259966 only
+in documentation/build identity; previous native Windows compression/audio and
+screenshot component acceptance remains scoped to the original handoffs, not
+invented execution of this new executable. macOS/Linux export workers still
+match `c2d9f43c…` / `8adcb443…` exactly, so their completed export/decode evidence
+is reused rather than rerun. Encoding/EOL/case/Markdown/whitespace checks pass.
+
+**Still blocking/open:** PSD rebuild, pinned SASI package acquisition and three
+CP/M inputs, both SASI model boots, remaining maintainer standard human checks,
+native Windows full decode/seek/quality and missing-MF behavior, physical Linux
+GPU/Wayland. No full gate pass is inferred from dummy SDL. No merge, cleanup,
+release/legal/distribution approval or next milestone is performed. All prior
+binaries, SDKs, logs, failed attempts, new gate work and input assets are retained.
