@@ -3241,6 +3241,7 @@ BOOL scrnmng_display_capture_selftest(void) {
 	const SCRNMNG saved = scrnmng;
 	const UINT8 saved_info = np2oscfg.DISPCLK;
 	const UINT saved_drawcount = drawcount;
+	const SDL_LogPriority saved_log_priority = SDL_LogGetPriority(SDL_LOG_CATEGORY_APPLICATION);
 	const BOOL video_active = SDL_WasInit(SDL_INIT_VIDEO) != 0;
 	SDL_Surface *white = NULL, *baseline = NULL, *filtered = NULL, *info = NULL;
 	BYTE *displayed_expected = NULL;
@@ -3249,6 +3250,9 @@ BOOL scrnmng_display_capture_selftest(void) {
 	BOOL ok = FAILURE;
 	ZeroMemory(&displayed_fixture, sizeof(displayed_fixture));
 	if (!video_active && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) return FAILURE;
+	/* This synthetic fixture must not inject macOS wall-clock/PID-prefixed
+	 * screenshot INFO logs into deterministic CPU selftest checkpoints. */
+	SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_WARN);
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
 	scrnmng.window = SDL_CreateWindow("display capture test", 0, 0, 640, 422, SDL_WINDOW_HIDDEN);
 	if (!scrnmng.window) goto cleanup;
@@ -3282,6 +3286,46 @@ BOOL scrnmng_display_capture_selftest(void) {
 	scrnmng.menu_height = 22; scrnmng.scale = 1;
 	scrnmng.scaling = VAEG_SCALING_FIT;
 	np2oscfg.DISPCLK = 0;
+	{
+		static const BYTE colors[4][3] = {{255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 255}};
+		static const int right[4] = {2, 0, 3, 1};
+		SDL_Surface *cropped;
+		int q;
+		for (q = 0; q < 4; ++q) {
+			SDL_Rect quad = {(q % 2) * 320, (q / 2) * 200, 320, 200};
+			SDL_FillRect(white, &quad,
+			             SDL_MapRGBA(white->format, colors[q][0], colors[q][1], colors[q][2], 255));
+		}
+		if (SDL_UpdateTexture(scrnmng.texture, NULL, white->pixels, white->pitch) != 0)
+			goto cleanup;
+		scrnmng.rotation = VAEG_ROTATE_RIGHT;
+		scrnmng_present_begin();
+		info = scrnmng_read_sdl_output();
+		if (!info || scrnmng_calculate_viewport(&viewport) != SUCCESS)
+			goto cleanup;
+		cropped = scrnmng_crop_display_capture(info);
+		if (!cropped)
+			goto cleanup;
+		for (q = 0; q < 4; ++q) {
+			const int x = viewport.x + viewport.width * (q % 2 ? 3 : 1) / 4;
+			const int y = viewport.y - scrnmng.menu_height + viewport.height * (q / 2 ? 3 : 1) / 4;
+			if (cropped->w != 640 || cropped->h != 400 || x < 0 || y < 0 || x >= cropped->w ||
+			    y >= cropped->h ||
+			    memcmp((const BYTE *)cropped->pixels + (size_t)y * cropped->pitch + x * 4,
+			           colors[right[q]], 3) != 0) {
+				SDL_FreeSurface(cropped);
+				fprintf(stderr, "selftest: SCREENSHOT_DISPLAY_ROTATION_MISMATCH\n");
+				goto cleanup;
+			}
+		}
+		SDL_FreeSurface(cropped);
+		SDL_FreeSurface(info);
+		info = NULL;
+		scrnmng.rotation = VAEG_ROTATE_NONE;
+		SDL_FillRect(white, NULL, SDL_MapRGBA(white->format, 255, 255, 255, 255));
+		if (SDL_UpdateTexture(scrnmng.texture, NULL, white->pixels, white->pitch) != 0)
+			goto cleanup;
+	}
 	scrnmng_present_begin();
 	baseline = scrnmng_read_sdl_output();
 	scrnmng.effect = VAEG_EFFECT_SCANLINE;
@@ -3498,6 +3542,7 @@ cleanup:
 	np2oscfg.DISPCLK = saved_info;
 	drawcount = saved_drawcount;
 	if (!video_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
+	SDL_LogSetPriority(SDL_LOG_CATEGORY_APPLICATION, saved_log_priority);
 	if (ok != SUCCESS) {
 		fprintf(stderr, "selftest: DISPLAY_CAPTURE_MISMATCH: %s\n", SDL_GetError());
 	}
@@ -3661,6 +3706,45 @@ BOOL scrnmng_save_rendered_frame(const char *path) {
 	return (SUCCESS);
 }
 
+/* Takes ownership. Display readbacks are already oriented; use this only for
+ * screenshots composed from the unturned guest framebuffer. */
+static SDL_Surface *scrnmng_orient_guest_screenshot(SDL_Surface *source) {
+	SDL_Surface *turned;
+	int x, y;
+	const int bytes = source ? source->format->BytesPerPixel : 0;
+	if (!source || scrnmng.rotation != VAEG_ROTATE_RIGHT)
+		return source;
+	turned = SDL_CreateRGBSurfaceWithFormat(0, source->h, source->w, source->format->BitsPerPixel,
+	                                        source->format->format);
+	if (!turned) {
+		SDL_FreeSurface(source);
+		return NULL;
+	}
+	if (SDL_LockSurface(source) != 0) {
+		SDL_FreeSurface(turned);
+		SDL_FreeSurface(source);
+		return NULL;
+	}
+	if (SDL_LockSurface(turned) != 0) {
+		SDL_UnlockSurface(source);
+		SDL_FreeSurface(turned);
+		SDL_FreeSurface(source);
+		return NULL;
+	}
+	for (y = 0; y < source->h; ++y) {
+		for (x = 0; x < source->w; ++x) {
+			memcpy((BYTE *)turned->pixels + (size_t)x * turned->pitch +
+			           (size_t)(source->h - 1 - y) * bytes,
+			       (const BYTE *)source->pixels + (size_t)y * source->pitch + (size_t)x * bytes,
+			       bytes);
+		}
+	}
+	SDL_UnlockSurface(turned);
+	SDL_UnlockSurface(source);
+	SDL_FreeSurface(source);
+	return turned;
+}
+
 BOOL scrnmng_save_guest_frame(const char *path) {
 	SDL_Surface *surface;
 	BOOL result;
@@ -3675,6 +3759,9 @@ BOOL scrnmng_save_guest_frame(const char *path) {
 		fprintf(stderr, "guest-screen-save-source-failed path=%s error=%s\n", path, SDL_GetError());
 		return (FAILURE);
 	}
+	surface = scrnmng_orient_guest_screenshot(surface);
+	if (!surface)
+		return FAILURE;
 	if (scrnmng_path_is_png(path)) {
 		result = scrnmng_png_save_surface(surface, path);
 	} else {
@@ -3941,6 +4028,12 @@ BOOL scrnmng_save_guest_frame_with_analysis(const char *path) {
 		SDL_FreeSurface(source);
 		return (FAILURE);
 	}
+	/* Rotate the complete guest/analysis composition exactly once. */
+	surface = scrnmng_orient_guest_screenshot(surface);
+	if (!surface) {
+		SDL_FreeSurface(source);
+		return FAILURE;
+	}
 	if (scrnmng_path_is_png(path)) {
 		result = scrnmng_png_save_surface(surface, path);
 	} else {
@@ -3953,6 +4046,129 @@ BOOL scrnmng_save_guest_frame_with_analysis(const char *path) {
 	SDL_FreeSurface(surface);
 	SDL_FreeSurface(source);
 	return (result);
+}
+
+static BOOL scrnmng_read_screenshot_fixture(const char *path, BOOL png, int *width, int *height,
+                                            BYTE **pixels) {
+	SDL_Surface *bmp, *rgba;
+	int y;
+	if (png)
+		return scrnmng_load_stored_png(path, width, height, pixels);
+	bmp = SDL_LoadBMP(path);
+	if (!bmp)
+		return FAILURE;
+	rgba = SDL_ConvertSurfaceFormat(bmp, SDL_PIXELFORMAT_RGBA32, 0);
+	SDL_FreeSurface(bmp);
+	if (!rgba)
+		return FAILURE;
+	*width = rgba->w;
+	*height = rgba->h;
+	*pixels = (BYTE *)malloc((size_t)rgba->w * rgba->h * 4);
+	if (*pixels) {
+		for (y = 0; y < rgba->h; ++y)
+			memcpy(*pixels + (size_t)y * rgba->w * 4,
+			       (BYTE *)rgba->pixels + (size_t)y * rgba->pitch, (size_t)rgba->w * 4);
+	}
+	SDL_FreeSurface(rgba);
+	return *pixels ? SUCCESS : FAILURE;
+}
+
+BOOL scrnmng_screenshot_rotation_selftest(const char *directory) {
+	const SCRNMNG saved = scrnmng;
+	const UINT8 saved_info = np2oscfg.DISPCLK;
+	const int w = 37, h = 23;
+	const int pitch = (SCRNMNG_SURFACE_GUARD_LEFT + 37 + 5) * 2;
+	const size_t size = (size_t)pitch * h;
+	BYTE *shadow = (BYTE *)malloc(size);
+	BYTE *original = (BYTE *)malloc(size);
+	BYTE *baseline = NULL, *pixels = NULL;
+	SDL_PixelFormat *format = SDL_AllocFormat(SDL_PIXELFORMAT_RGB565);
+	int mode, turn, x, y, width = 0, height = 0;
+	BOOL ok = FAILURE;
+	if (!shadow || !original || !format)
+		goto cleanup;
+	memset(shadow, 0xa5, size);
+	for (y = 0; y < h; ++y) {
+		UINT16 *row = (UINT16 *)(shadow + (size_t)y * pitch) + SCRNMNG_SURFACE_GUARD_LEFT;
+		for (x = 0; x < w; ++x)
+			row[x] =
+			    (UINT16)(((x * 31 / (w - 1)) << 11) | ((y * 63 / (h - 1)) << 5) | ((x ^ y) & 31));
+	}
+	memcpy(original, shadow, size);
+	scrnmng.shadow = shadow;
+	scrnmng.shadow_pitch = pitch;
+	scrnmng.width = w;
+	scrnmng.height = h;
+	/* Raw 565 and composed 8888; PNG/BMP; analysis off/on; 0 -> 90 -> 0.
+	 * Every output is read back and every pixel checked, including odd widths,
+	 * source guards/padding, alpha, orientation and absence of source mutation. */
+	for (mode = 0; mode < 6; ++mode) {
+		const BOOL png = (mode & 1) == 0;
+		np2oscfg.DISPCLK = mode >= 4 ? VAEG_DISPINFO_VIDEO | VAEG_DISPINFO_FRAMEBUFFER : 0;
+		for (turn = 0; turn < 3; ++turn) {
+			char path[MAX_PATH];
+			const int n = snprintf(path, sizeof(path), "%s/screenshot-%d-%d.%s", directory, mode,
+			                       turn, png ? "png" : "bmp");
+			if (n < 0 || (size_t)n >= sizeof(path))
+				goto cleanup;
+			scrnmng.rotation = turn == 1 ? VAEG_ROTATE_RIGHT : VAEG_ROTATE_NONE;
+			if ((mode < 2 ? scrnmng_save_guest_frame(path)
+			              : scrnmng_save_guest_frame_with_analysis(path)) != SUCCESS ||
+			    scrnmng_read_screenshot_fixture(path, png, &width, &height, &pixels) != SUCCESS)
+				goto cleanup;
+			if (width != (turn == 1 ? h : w) || height != (turn == 1 ? w : h))
+				goto cleanup;
+			if (turn == 0) {
+				baseline = pixels;
+				pixels = NULL;
+				/* The existing SDL 565->8888 blitter has its own expansion
+				 * rounding. Check raw 565 against the source, and all composed
+				 * rotations bit-exactly against their unturned composition. */
+				if (mode < 2) {
+					for (y = 0; y < h; ++y) {
+						const UINT16 *row = (const UINT16 *)(original + (size_t)y * pitch) +
+						                    SCRNMNG_SURFACE_GUARD_LEFT;
+						for (x = 0; x < w; ++x) {
+							BYTE r, g, b;
+							const BYTE *p = baseline + ((size_t)y * w + x) * 4;
+							SDL_GetRGB(row[x], format, &r, &g, &b);
+							if (p[0] != r || p[1] != g || p[2] != b || p[3] != 255)
+								goto cleanup;
+						}
+					}
+				}
+			} else {
+				for (y = 0; y < h; ++y) {
+					for (x = 0; x < w; ++x) {
+						const int dx = turn == 1 ? h - 1 - y : x;
+						const int dy = turn == 1 ? x : y;
+						if (memcmp(pixels + ((size_t)dy * width + dx) * 4,
+						           baseline + ((size_t)y * w + x) * 4, 4) != 0)
+							goto cleanup;
+					}
+				}
+			}
+			free(pixels);
+			pixels = NULL;
+			if (memcmp(shadow, original, size) != 0)
+				goto cleanup;
+		}
+		free(baseline);
+		baseline = NULL;
+	}
+	ok = SUCCESS;
+cleanup:
+	scrnmng = saved;
+	np2oscfg.DISPCLK = saved_info;
+	if (format)
+		SDL_FreeFormat(format);
+	free(shadow);
+	free(original);
+	free(baseline);
+	free(pixels);
+	if (ok != SUCCESS)
+		fprintf(stderr, "selftest: SCREENSHOT_ROTATION_MISMATCH\n");
+	return ok;
 }
 
 void scrnmng_set_framedisp(BOOL enabled) {

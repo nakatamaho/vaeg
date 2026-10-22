@@ -153,6 +153,7 @@ BOOL scrnmng_save_guest_frame_with_analysis(const char *path);
 BOOL scrnmng_save_guest_thumbnail(const char *path, int width);
 BOOL scrnmng_load_stored_png(const char *path, int *width, int *height, BYTE **pixels);
 BOOL scrnmng_thumbnail_png_selftest(const char *path);
+BOOL scrnmng_screenshot_rotation_selftest(const char *directory);
 void scrnmng_set_framedisp(BOOL enabled);
 void scrnmng_reset_metrics(void);
 void scrnmng_refresh_title(void);

@@ -56,6 +56,11 @@ and integrated before this task. This is the single new implementation milestone
 
 ## Validation required before gate
 
+- Maintainer-added screenshot gate: 0 -> right 90 -> 0 degree display rotation
+  must produce screenshots with matching orientation. Cover the normal displayed
+  screenshot and unprocessed/graphics-analysis screenshot without double-turning
+  an already rotated display capture. PNG/BMP round-trip checks must preserve
+  pixels and the source framebuffer; state thumbnails are outside this change.
 - Focused passing fixtures and single-mutation negative tests with stable codes
   for export, no-overwrite, cancellation, missing backend and build policy.
 - macOS native actual MP4 export/decode and MKV digest preservation; Linux private
