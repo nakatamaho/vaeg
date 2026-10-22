@@ -66,6 +66,10 @@ wait control unit.
 5. Calibration against BENCH (#53), SGPBENCH and SPRBENCH (#38, #47);
    the benchmarks kept runnable; ledger entries; `ctest`.
 
+Decision (maintainer, 2026-10-23): no option to keep the old timing; vaeg
+follows the VA and VA2 as closely as possible. Faster guest code is what
+`--cpumult` is for.
+
 Out of scope: cycle-exact bus timing, CPU/SGP contention (#38 remains for
 it), the FDC subsystem CPU.
 
