@@ -813,16 +813,28 @@ void maketextva_raster(void) {
 	BYTE *lb;  // linebitmap
 	BYTE *lbs; // linebitmap 当該ラインの左端
 	TEXTVAFRAME f;
+	BOOL text_hidden = FALSE;
 
 	if (!tsp.dspon) {
 		maketextva_blankraster();
 		return;
 	}
 
+	/*
+	 * 148h bit 7 hides the text (the ROM sets it for OUT 53h bit 0). With
+	 * multiplane 1 bit/pixel graphics drawn in the text cell's colour (G4,
+	 * the V1/V2 monochrome graphics mode), the attribute colours still apply
+	 * to the graphics, as port 53h bit 0 hides only the characters on a
+	 * PC-8801: keep building the colour raster and blank only the text.
+	 * The PC-8801mkIIFR demonstration hides the text and animates
+	 * monochrome planes with OUT 53h; it was black instead of its drawing.
+	 */
 	if (videova.txtmode & 0x80) {
-		// テキスト表示OFF
-		maketextva_blankraster();
-		return;
+		if (!videova_textmerge()) {
+			maketextva_blankraster();
+			return;
+		}
+		text_hidden = TRUE;
 	}
 
 #if defined(SLEEP_HACK)
@@ -902,6 +914,9 @@ void maketextva_raster(void) {
 			*b = *lb;
 			b++;
 			lb++;
+		}
+		if (text_hidden) {
+			ZeroMemory(textraster, sizeof(textraster));
 		}
 
 		work.raster++;
