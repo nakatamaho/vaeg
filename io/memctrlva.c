@@ -219,7 +219,9 @@ static REG8 IOINPCALL memctrlva_i030(UINT port) {
  * IN 31h reads memory switch B1FC6h. Bit 6 (MS26) is unused and always 1 on
  * the VA; on the PC-8801 it reports high speed (H). As a vaeg extension,
  * V1/V2 mode can report standard speed (S, bit 6 clear), which N-88 BASIC's
- * NEW ON 1 requires (with V1). CPU timing is not changed.
+ * NEW ON 1 requires (with V1). S also halves the compatible-mode CPU clock
+ * (pccore_set_cpu_speed) and clears memory switch B1FC5h bit 1, which the
+ * ROM reports through port 6Eh (bkupmemva_sync_88speed).
  */
 static REG8 IOINPCALL memctrlva_i031(UINT port) {
 	if (memoryva_88_mode && np2cfg.v1v2_standard) {

@@ -103,6 +103,27 @@ void bkupmemva_sync_bootdisk(BOOL fixed_disk) {
 }
 
 /*
+ * V1/V2 speed (H/S): B1FC5h bit 1, 1 = H (high speed). The VA2 ROM writes
+ * B1FC5h to port 1C6h at reset (F000:12E4); bit 1 becomes port 1C9h bit 5,
+ * which the ROM's IN 6Eh trap (F000:1BB5) reports as the PC-8801FH clock
+ * flag: 7Fh (8 MHz) when set, FFh (4 MHz) when clear. vaeg keeps the bit in
+ * step with the boot menu's H/S (V1V2_Standard) at every reset, as it does
+ * the boot-disk bit, so software that reads port 6Eh sees the chosen speed.
+ * Only a record carrying the BIOS signature is changed.
+ */
+void bkupmemva_sync_88speed(BOOL standard) {
+	if ((backupmem[0x1fc8] != 0x4b) || (backupmem[0x1fc9] != 0x5a) || (backupmem[0x1fca] != 0x4d)) {
+		return;
+	}
+	if (standard) {
+		backupmem[0x1fc5] &= (BYTE)~0x02;
+	} else {
+		backupmem[0x1fc5] |= 0x02;
+	}
+	bkupmemva_update_checksum();
+}
+
+/*
  * V1/V2 system mode: B1FC5h bit 0 (1 = V1), which the VA2 ROM writes to
  * port 1C6h at reset (F000:12E4) and reflects in port 150h and in memory
  * switch MS27 (IN 31h bit 7). Takes effect at the next reset.

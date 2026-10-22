@@ -62,8 +62,9 @@ model while port 31h selects monochrome graphics, whereas the VA applies it
 | PC-88VA | VA | V2 H/S, V1 H/S |
 | PC-88VA2 | VA2 | V2 H/S, V1 H/S |
 
-H and S are vaeg's 8 MHz and 4 MHz report in V1/V2 mode; models before the
-FH/MH run at 4 MHz only. N needs `n80`. Sound is the base model's (the
+H and S are the V1/V2 speeds: H runs compatible code at 8 MHz and S at
+4 MHz, and port 6Eh (through memory switch B1FC5h bit 1) and IN 31h bit 6
+report them; models before the FH/MH run at 4 MHz only. N needs `n80`. Sound is the base model's (the
 VA2's OPNA; its first half is OPN-compatible); the original PC-8801 has no
 FM sound, which is not modelled. The PC-8001 family (M114) runs in N mode
 only (below). `PC-88VA` and `PC-88VA2` are
