@@ -216,7 +216,15 @@ void validate_content(const std::filesystem::path &path, unsigned first, unsigne
 	av_packet_free(&packet);
 	avformat_close_input(&ctx);
 }
+std::vector<std::string> notified_paths;
+void split_saved_notice(const char *path) {
+	check(std::filesystem::is_regular_file(std::filesystem::u8path(path)),
+	      "SPLIT_SAVED_ONLY_AFTER_PUBLISH");
+	notified_paths.emplace_back(path);
+}
 void automatic_split(const std::filesystem::path &dir, unsigned kind) {
+	notified_paths.clear();
+	vaeg_recording_native_session_set_saved_callback(&split_saved_notice);
 	const auto path = dir / ("auto-" + std::to_string(kind) + ".mkv");
 	const auto next = dir / ("auto-" + std::to_string(kind) + "-part-002.mkv");
 	reset(640, 400);
@@ -255,6 +263,9 @@ void automatic_split(const std::filesystem::path &dir, unsigned kind) {
 	validate_movie(next, width, height, 3);
 	validate_content(path, 0, 4, first_sample);
 	validate_content(next, 4, 3, first_sample + 3200);
+	check(notified_paths == std::vector<std::string>{path.u8string(), next.u8string()},
+	      "SPLIT_EACH_FINALIZED_SEGMENT_NOTIFIED_ONCE");
+	vaeg_recording_native_session_set_saved_callback(nullptr);
 }
 void split_repeated_and_epoch(const std::filesystem::path &dir) {
 	const auto path = dir / "repeat.mkv";

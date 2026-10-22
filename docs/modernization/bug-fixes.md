@@ -35,6 +35,131 @@ land.
 
 ## Maintenance Rules
 
+### M100s11 — guest-resolution screenshots ignored display rotation
+
+- **Symptom/scope:** the maintainer requires screenshots to follow a 90-degree
+  rotated display. Normal composed-display readback already contains rotation;
+  guest-resolution/unprocessed and graphics-analysis saves instead stayed
+  landscape, independent of the selected display orientation.
+- **Demonstrated cause:** both guest save paths constructed surfaces from the
+  unturned shadow framebuffer and wrote them without consulting display rotation.
+  The analysis path also composed its information panel in guest coordinates.
+- **Correction:**
+  [304f47b3](https://github.com/nakatamaho/vaeg/commit/304f47b317e3a4c8ead289fc440cfdb0a69f8622)
+  rotates only these guest screenshot surfaces clockwise, after any analysis
+  composition, using format/pitch-aware pixel copies and swapped dimensions.
+  Normal displayed captures are not turned again; original shadow pixels,
+  padding, recording behavior and state thumbnails remain unchanged.
+- **Verification:** three focused actual-SDL/source-derived tests on macOS/Linux
+  check 565/8888, odd/padded portrait/landscape inputs and source immutability.
+  Separate missing-rotation/transpose mutations fail with precise dimension/pixel
+  codes. Five application profiles each round-trip 18 PNG/BMP saves through
+  0 -> 90 -> 0, with/without analysis, exact pixel mapping and original retention.
+  An asymmetric displayed-SDL quadrant/crop check guards against double rotation.
+  Builds and applicable selftests/CTest pass, with recorded skips/timeouts and
+  completion ranges. Clean static Windows 97259966 build passes. After that
+  handoff the maintainer reports "OK passed" for the requested screenshot rotation
+  component gate. This visual acceptance is not inferred from dummy SDL and does
+  not establish independent output hashes or coverage of every GPU/backend.
+- **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
+  [handoff](../recording-v1/handoff.md). The screenshot requirement is explicitly
+  added to G100s11; the overall gate remains OPEN.
+
+### M100s11 — Windows MP4 rejected after successful finalization by redundant Close
+
+- **Symptom/scope:** the maintainer's native synthetic probe reports
+  `MP4_WINDOWS_API_CLOSE_STREAM: 0x80070057` in all sixteen geometry/timing/
+  hardware-preference cases, after passing the Finalize check. Conversion
+  discarded its unpublished temporary output instead of publishing MP4.
+- **Demonstrated cause:** finish released the owning Sink Writer/media sink,
+  then explicitly closed its retained byte-stream interface again. On the tested
+  Windows system the redundant Close returned E_INVALIDARG, incorrectly turning
+  successful finalization into a conversion failure.
+- **Correction:**
+  [9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
+  checks Finalize and releases writer then stream without a second Close.
+  Exceptional cleanup closes directly only if writer creation never took
+  ownership. Encoder settings, timestamps, original MKV protection, exclusive
+  temporary ownership and no-replacement publication remain unchanged.
+- **Verification:** eight local generation/lifecycle tests, strict MinGW compile,
+  clean static application/probe builds and import audits pass. The source-derived
+  portable model covers success ordering, Finalize failure and cancellation;
+  one re-close mutation fails precisely with `MP4_WINDOWS_DOUBLE_CLOSE`.
+  After the corrected application handoff, the maintainer reports that compression
+  now succeeds, and subsequently confirms audio playback. This is native user
+  feedback, not an independently collected target-binary hash, full decode/seek, corrected sixteen-case
+  probe result or a completed G100s11 gate. No private media is published.
+- **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
+  [application/probe handoff](../recording-v1/handoff.md).
+
+### Valid native 60 Hz recordings failed compression with MP4_VIDEO_LAYOUT
+
+- **Symptom/scope:** a maintainer reported compression failure. A synthetic clip
+  produced by vaeg's own FFV1/PCM encoders and Matroska writer reproduces the same
+  `MP4_VIDEO_LAYOUT`; the source MKV remains valid and unchanged.
+- **Demonstrated cause:** initial decoded native frames lack duration metadata.
+  The converter substituted 16.667 ms and required the next PTS to be at least
+  that estimated end. Valid 60 Hz timestamps rounded to Matroska milliseconds,
+  `0,17,33,...`, fail because 33 is less than `17 + 16.667`. Dimensions/BGRA
+  layout are valid. Earlier export fixtures were made by the FFmpeg CLI and
+  supplied duration hints, missing this actual-writer case.
+- **Correction:** retain one pending scaled frame; emit it with the interval to
+  the next strictly increasing actual PTS. Only the last frame uses a duration
+  hint/nominal media rate. No tolerance, timestamp rewriting or source mutation;
+  true duplicate/backward PTS now fail specifically with `MP4_VIDEO_TIMESTAMP`.
+- **Verification:** the old worker rejects the same native 640x400/60 Hz clip;
+  corrected macOS/Linux workers export all 60 frames with PTS within 1 ms, audio,
+  full decode and unchanged source digests. Two single-timestamp mutations,
+  preserving valid cluster CRCs, each fail with the exact timestamp error and
+  no published output. Existing eight-case export profiles and ON/OFF suites pass.
+- **Milestone/task/commit:** [M100s11 regression evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/3473d15759057ff2974cca74c6f015ef71003f0f).
+
+### macOS MP4 cancellation could leave an empty job temporary directory
+
+- **Symptom/scope:** a real macOS post-recording cancellation returned
+  `MP4_CANCELLED` but left its empty owner-only job directory. The MKV was
+  unchanged; publication/overwrite protection was not bypassed.
+- **Demonstrated cause:** C++ exceptions escaping `@autoreleasepool` skipped its
+  drain. A weak-reference control probe stayed alive after the exception and
+  died only when the outer pool drained. Native safe-save files could therefore
+  outlive directory cleanup (observed `ENOTEMPTY`, errno 66); later thread exit
+  removed those files but not the containing directory. ARC member destruction
+  also occurred after the destructor body's pool. Bounded cleanup retries and
+  explicit member release alone did not correct the exception path.
+- **Correction:** catch/preserve exceptions inside each native-operation pool,
+  drain on normal scope exit, then rethrow the original exception. Release native
+  sink members inside the teardown pool. Do not recursively delete native or
+  unexpected files and do not weaken source/no-replacement guarantees.
+- **Verification:** actual macOS eight-case export passes; 64 focused
+  cancellations on the same fixture retain the source and leave no job directory.
+  A standalone ARC test checks normal and exceptional pool draining. Its passing
+  fixture, mutated only to rethrow inside the pool, fails specifically with
+  `MAC_POOL_EXCEPTION_RELEASE`. Linux export worker identity is unchanged by the
+  Apple-only correction and its completed eight-case result is retained.
+- **Milestone/task/commits:** [M100s11 follow-up evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [exception-boundary fix](https://github.com/nakatamaho/vaeg/commit/6de8b9085f83ddbbfe55dbe731ac27d465fda2df),
+  [in-pool member teardown](https://github.com/nakatamaho/vaeg/commit/9030d1acd43297b0c0312e9cf6af39e538f05412).
+
+### Relative MP4 source names could select a different FFmpeg file URL
+
+- **Symptom/scope:** the new post-recording converter failed on a valid relative
+  POSIX name beginning with `file:`. It could inspect the unprefixed neighboring
+  file instead of the selected MKV. The archive writer itself was unaffected.
+- **Demonstrated cause:** filesystem validation used the literal relative name,
+  but both FFmpeg readers received that same string as a URL. A valid selected
+  MKV passed with an absolute argument; the relative argument instead produced
+  an EBML error from a deliberately invalid unprefixed neighbor.
+- **Correction:** resolve one absolute filesystem path before validation/output
+  setup, and give its UTF-8 representation to both read-only demuxers. Temporary
+  and final output paths use that same absolute parent.
+- **Verification:** the POSIX regression case now exports/fully decodes the valid
+  selected movie while leaving both source and neighbor unchanged. It passes in
+  the macOS-native and Linux-local eight-case export profiles; no source hash,
+  codec, picture or audio assertion was weakened.
+- **Milestone/task/commit:** [M100s11 evidence](../agents/tasks/M100s11_recording_post_mp4.md);
+  [fixing commit](https://github.com/nakatamaho/vaeg/commit/67cf5889a4161fd9a3cde61fc290bfb37f7d23bc).
+
 ### Linux native OpenGL could not provide the final Displayed client image
 
 - **Symptom/scope:** Linux native presentation could not initialize its GUI or
@@ -3485,6 +3610,24 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
+
+- **Observed scope:** before the sixteen-case probe, the maintainer reports
+  `MP4_WINDOWS_API_FINALIZE: 0x80070057` from the application; original MKV exists.
+  No private clip metadata or raw capture is recorded here.
+- **Cause/correction:** unresolved for that report. Finalize can expose queued
+  encoder/muxer errors. The subsequent public synthetic cases instead reached
+  the redundant-close defect above; that does not establish the cause of the
+  earlier Finalize report. Its failure is still checked and never suppressed.
+- **Latest status/next step:** after the 9c7ea061 handoff the maintainer reports
+  compression succeeds, so the earlier symptom is not currently reproduced.
+  Its independent root cause was not established; do not attribute a separate
+  codec/geometry or Finalize correction to this evidence. Preserve the observation
+  for monitoring and collect an exact error if it returns. Audio playback is
+  now confirmed by the maintainer; full decode/seek and the milestone's other
+  human gates remain pending.
+  [M100s11 task/handoff](../agents/tasks/M100s11_recording_post_mp4.md).
 
 ### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
 

@@ -99,15 +99,13 @@ void append_s16le(std::vector<std::uint8_t> *output, std::int32_t value) {
 	output->push_back(static_cast<std::uint8_t>(packed >> 8));
 }
 
-Fixture make_fixture() {
-	constexpr std::uint32_t width = 5u;
-	constexpr std::uint32_t height = 3u;
-	constexpr std::uint32_t frame_count = 3u;
-	constexpr std::uint32_t samples_per_interval = 1600u;
-	constexpr std::uint64_t stride = width * 3u + 2u;
+Fixture make_fixture(std::uint32_t width = 5u, std::uint32_t height = 3u,
+                     std::uint32_t frame_count = 3u, std::int32_t rate = 30) {
+	const std::uint32_t samples_per_interval = 48000u / static_cast<std::uint32_t>(rate);
+	const std::uint64_t stride = width * 3u + 2u;
 	Fixture fixture{};
 
-	const auto video_create = FfmpegVideoEncoder::create({width, height, 1, 30});
+	const auto video_create = FfmpegVideoEncoder::create({width, height, 1, rate});
 	assert(video_create);
 	fixture.video_info = video_create.encoder->info();
 	for (std::uint32_t frame_index = 0u; frame_index < frame_count; ++frame_index) {
@@ -479,7 +477,21 @@ void check_fault_paths() {
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
+	if (argc == 3 && std::string(argv[1]) == "--mp4-fixture") {
+		const Fixture fixture = make_fixture(640u, 400u, 60u, 60);
+		auto config = make_config(fs::u8path(argv[2]));
+		config.video_time_base_den = 60;
+		const auto create =
+		    FfmpegMatroskaWriter::create(config, fixture.video_info, fixture.audio_info);
+		assert(create);
+		assert(create.writer->write_interval(fixture.video_packets, fixture.audio_packets) ==
+		       FfmpegMatroskaWriterError::None);
+		assert(create.writer->finish() == FfmpegMatroskaWriterError::None);
+		return 0;
+	}
+	if (argc != 1)
+		return 2;
 	check_successful_fixture();
 	check_packing_contract();
 	check_target_and_cancel();

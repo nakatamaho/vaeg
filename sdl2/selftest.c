@@ -23,10 +23,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
+#include <errno.h>
 #if defined(_WIN32)
 #include <direct.h>
 #else
 #include <unistd.h>
+#include <sys/stat.h>
 #endif
 #include "selftest.h"
 #include "codecnv.h"
@@ -2825,9 +2827,34 @@ static void selftest_remove_dir(const char *path) {
 #endif
 }
 
+static int test_screenshot_rotation(void) {
+	char root[MAX_PATH];
+	unsigned attempt;
+	for (attempt = 0; attempt < 1000; ++attempt) {
+		SPRINTF(root, "vaeg-selftest-%lu-screenshot-rotation-%u", (unsigned long)getpid(), attempt);
+#if defined(_WIN32)
+		if (_mkdir(root) == 0)
+			break;
+#else
+		if (mkdir(root, 0700) == 0)
+			break;
+#endif
+		if (errno != EEXIST)
+			return fail("screenshot rotation", "cannot create fixture directory");
+	}
+	if (attempt == 1000)
+		return fail("screenshot rotation", "fixture directory exhausted");
+	if (scrnmng_screenshot_rotation_selftest(root) != SUCCESS)
+		return fail("screenshot rotation", "SCREENSHOT_ROTATION_MISMATCH");
+	fprintf(stderr, "selftest: screenshot rotation PNG/BMP 18 cases ok\n");
+	return SUCCESS;
+}
+
 static int test_viewport(void) {
 	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (test_screenshot_rotation() != SUCCESS)
+		return FAILURE;
 	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
 		return (fail("state thumbnail", "PNG did not read back"));
 	}
@@ -8180,6 +8207,8 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
+		return test_screenshot_rotation();
 	if (SDL_getenv("VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY") != NULL) {
 		/* Keep the SDL final-client probe independent of unrelated full-suite teardown. */
 		return scrnmng_display_capture_selftest();

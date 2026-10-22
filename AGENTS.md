@@ -253,9 +253,25 @@ This permission is not a patent clearance, a redistribution authorization, or
 an exemption from the selected implementations' copyright/license obligations.
 It does not authorize publishing a codec-enabled executable.
 
-- Any future local-codec build option must default to **OFF**. No automatic
-  detection of installed encoders, inherited environment, or dependency cache
-  may silently enable it. Normal Native/Displayed FFV1/PCM recording must remain
+- **Maintainer-local personal builds MUST have MP4 encoding enabled.** On Linux,
+  explicitly configure `VAEG_ENABLE_RECORDING=ON`, `VAEG_STATIC_FFMPEG=ON`,
+  `VAEG_ENABLE_LOCAL_MP4_ENCODERS=ON`, and
+  `VAEG_LOCAL_MP4_ACKNOWLEDGEMENT=LOCAL_ONLY_NO_DISTRIBUTION` using the reviewed,
+  isolated local SDK. Do not silently substitute an encoder-OFF build when its
+  dependencies are missing: report the local build as blocked instead.
+- On macOS/Windows, a personal local build MUST enable recording/OS-native MP4
+  support (`VAEG_ENABLE_RECORDING=ON`), using AVFoundation/Media Foundation.
+  Keep `VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF` there: that option is Linux-only and
+  must not replace the preferred OS encoder with bundled implementations.
+- **Every non-personal-local build MUST explicitly set
+  `VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF`.** This includes all CI, public/release,
+  packaging, clean-build handoff and distribution builds, even when executed on
+  the maintainer's own machine. Classify by intended use, not physical location.
+  The OS-API adapter exception below does not permit bundled static encoders.
+- The local-codec cache default must remain **OFF** as a fail-safe; the mandatory
+  personal Linux ON setting above is an explicit build instruction, not automatic
+  detection. Installed encoders, inherited environment or dependency caches must
+  never silently enable it. Normal Native/Displayed FFV1/PCM recording remains
   independent of this option.
 - **Never enable this option in any CI job**, including PR, branch, scheduled,
   test, debug, release, or self-hosted CI jobs. Configuration/build entry points
@@ -285,9 +301,16 @@ It does not authorize publishing a codec-enabled executable.
   separate from codec patents). Do not claim that private use, static linking,
   or an external/OS API automatically resolves all patent/license obligations.
 
-This section records the policy; it does not itself implement a CMake option,
-codec backend, or machine-enforced release guard. Those safeguards are required
-as part of any future local-codec implementation.
+M100s11 implements this boundary with `cmake/mp4_policy.cmake`, public-preset
+markers, configure/pre-build static archive audits and focused negative tests.
+See `docs/agents/DECISIONS/ADR-0018-post-recording-mp4.md`. Policy-only script-mode
+test fixtures may simulate local settings, but must never configure/build a
+codec-enabled vaeg target or compile/link encoder implementations in CI.
+
+macOS/Windows OS-API export adapters may be built in normal CI/release profiles:
+they call encoders already provided by the OS, rather than bundling encoder
+implementations. Do not interpret this distinction as patent clearance or an
+approval of the OS/application's license terms for every use or distribution.
 
 ## Validator design and negative-test isolation
 

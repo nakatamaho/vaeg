@@ -61,6 +61,11 @@ void vaeg_recording_native_session_cancel(void);
 void vaeg_recording_native_session_before_reset(void);
 void vaeg_recording_native_session_epoch_change(void);
 const char *vaeg_recording_native_session_last_error(void);
+/* Called on the session-owning thread after each nonempty segment is finalized
+ * and published. A failed/empty/cancelled segment never triggers this callback.
+ * The callback must not block or throw; it cannot change archival success. */
+typedef void (*VAEG_RECORDING_SAVED_CALLBACK)(const char *path);
+void vaeg_recording_native_session_set_saved_callback(VAEG_RECORDING_SAVED_CALLBACK callback);
 
 #ifdef __cplusplus
 }

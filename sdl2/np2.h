@@ -105,6 +105,8 @@ typedef struct {
 	BYTE keyboard_letter_keypad;
 	/* GUI recording preference only; never starts a recording on launch. */
 	BYTE recording_source;
+	/* Optional post-stop export, never changes or replaces archival MKV. */
+	BYTE recording_create_mp4;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

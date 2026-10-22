@@ -7,8 +7,20 @@
   },
   "configurePresets": [
     {
+      "name": "public-codec-policy",
+      "hidden": true,
+      "cacheVariables": {
+        "VAEG_PUBLIC_BUILD": "ON",
+        "VAEG_ENABLE_LOCAL_MP4_ENCODERS": "OFF"
+      },
+      "environment": {
+        "VAEG_PUBLIC_PRESET": "${presetName}"
+      }
+    },
+    {
       "name": "mingw-static-dependencies",
       "hidden": true,
+      "inherits": "public-codec-policy",
       "cacheVariables": {
         "VAEG_FETCH_SDL2": "ON",
         "VAEG_STATIC_SDL2": "ON",
@@ -32,6 +44,7 @@
     {
       "name": "linux-release",
       "displayName": "Linux Release",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-release",
       "cacheVariables": {
@@ -43,6 +56,7 @@
     {
       "name": "linux-ci-gcc",
       "displayName": "Linux CI GCC Release",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-ci-gcc",
       "cacheVariables": {
@@ -55,6 +69,7 @@
     {
       "name": "linux-ci-clang",
       "displayName": "Linux CI Clang Release",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-ci-clang",
       "cacheVariables": {
@@ -82,6 +97,7 @@
     {
       "name": "linux-ci-asan",
       "displayName": "Linux CI ASan/UBSan Debug",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-ci-asan",
       "cacheVariables": {
@@ -145,6 +161,7 @@
     {
       "name": "macos-release",
       "displayName": "macOS Release (static FetchContent SDL2)",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-release",
       "cacheVariables": {
@@ -195,6 +212,7 @@
     {
       "name": "macos-ci",
       "displayName": "macOS CI Release (FetchContent SDL2)",
+      "inherits": "public-codec-policy",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-ci",
       "cacheVariables": {

@@ -72,6 +72,7 @@
 #include "debug_harness.h"
 #include "recording/recording.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_mp4.h"
 #include "recording/recording_runtime.h"
 #include <stdlib.h>
 #include "opngen.h"
@@ -2403,6 +2404,8 @@ int main(int argc, char **argv) {
 		        vaeg_recording_native_session_last_error());
 		run_ok = FAILURE;
 	}
+	/* Cancel/join background export before application teardown. MKVs remain. */
+	vaeg_recording_mp4_shutdown();
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
 	if ((!options.smoke) &&
@@ -2428,6 +2431,7 @@ int main(int argc, char **argv) {
 
 np2main_err3:
 	vaeg_recording_native_session_cancel();
+	vaeg_recording_mp4_shutdown();
 	gui_shutdown();
 	scrnmng_destroy();
 

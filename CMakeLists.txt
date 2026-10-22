@@ -52,6 +52,7 @@ option(VAEG_UPD9002_PERF_DIAGNOSTIC
     "Compile disabled-by-default uPD9002 runtime performance diagnostics" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
+include(cmake/mp4_policy.cmake)
 
 if(MINGW)
     if(NOT VAEG_FETCH_SDL2 OR NOT VAEG_STATIC_SDL2)
@@ -191,9 +192,10 @@ if(VAEG_ENABLE_RECORDING)
     pkg_check_modules(FFMPEG_AVUTIL REQUIRED IMPORTED_TARGET libavutil)
     pkg_check_modules(FFMPEG_AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
     pkg_check_modules(FFMPEG_AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
+    pkg_check_modules(FFMPEG_SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
     if(VAEG_STATIC_FFMPEG)
         include(cmake/ffmpeg_static.cmake)
-        foreach(component AVUTIL AVCODEC AVFORMAT)
+        foreach(component AVUTIL AVCODEC AVFORMAT SWRESAMPLE)
             vaeg_ffmpeg_static_target(vaeg_ffmpeg_${component} FFMPEG_${component})
             list(APPEND VAEG_FFMPEG_TARGETS vaeg_ffmpeg_${component})
         endforeach()
@@ -201,7 +203,39 @@ if(VAEG_ENABLE_RECORDING)
         list(APPEND VAEG_FFMPEG_TARGETS
             PkgConfig::FFMPEG_AVUTIL
             PkgConfig::FFMPEG_AVCODEC
-            PkgConfig::FFMPEG_AVFORMAT)
+            PkgConfig::FFMPEG_AVFORMAT
+            PkgConfig::FFMPEG_SWRESAMPLE)
+    endif()
+endif()
+
+# Post-stop export is independent of emulator-core C interfaces and real-time capture.
+add_library(vaeg_recording_mp4 STATIC sdl2/recording/recording_mp4.cpp)
+vaeg_mp4_attach_build_guard(vaeg_recording_mp4)
+target_compile_features(vaeg_recording_mp4 PRIVATE cxx_std_17)
+set_target_properties(vaeg_recording_mp4 PROPERTIES CXX_EXTENSIONS OFF CXX_STANDARD_REQUIRED ON)
+target_compile_definitions(vaeg_recording_mp4 PRIVATE
+    VAEG_ENABLE_RECORDING=$<BOOL:${VAEG_ENABLE_RECORDING}>
+    VAEG_ENABLE_LOCAL_MP4_ENCODERS=$<BOOL:${VAEG_ENABLE_LOCAL_MP4_ENCODERS}>)
+target_compile_options(vaeg_recording_mp4 PRIVATE -Wall -Wextra -Wpedantic)
+if(VAEG_WERROR)
+    target_compile_options(vaeg_recording_mp4 PRIVATE -Werror)
+endif()
+target_link_libraries(vaeg_recording_mp4 PUBLIC Threads::Threads)
+if(VAEG_ENABLE_RECORDING)
+    target_link_libraries(vaeg_recording_mp4 PUBLIC ${VAEG_FFMPEG_TARGETS})
+    if(APPLE)
+        target_sources(vaeg_recording_mp4 PRIVATE sdl2/recording/recording_mp4_macos.mm)
+        set_source_files_properties(sdl2/recording/recording_mp4_macos.mm
+            PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+        target_link_libraries(vaeg_recording_mp4 PUBLIC
+            "-framework Foundation" objc "-framework AVFoundation" "-framework AudioToolbox"
+            "-framework CoreMedia" "-framework CoreVideo")
+    elseif(WIN32)
+        target_sources(vaeg_recording_mp4 PRIVATE sdl2/recording/recording_mp4_windows.cpp)
+        target_link_libraries(vaeg_recording_mp4 PUBLIC mfuuid ole32)
+    endif()
+    if(VAEG_ENABLE_LOCAL_MP4_ENCODERS)
+        target_sources(vaeg_recording_mp4 PRIVATE sdl2/recording/recording_mp4_local.cpp)
     endif()
 endif()
 
@@ -819,7 +853,7 @@ if(VAEG_ENABLE_LIBRASHADER)
     endif()
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
-    vaeg_core vaeg_va Threads::Threads ${VAEG_SDL2_LIBS})
+    vaeg_core vaeg_va Threads::Threads ${VAEG_SDL2_LIBS} vaeg_recording_mp4)
 if(VAEG_ENABLE_RECORDING)
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_RECORDING_FFMPEG=1)
     target_link_libraries(vaeg_sdl2 PRIVATE ${VAEG_FFMPEG_TARGETS})
@@ -1000,6 +1034,31 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)
+    target_include_directories(vaeg_recording_mp4_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_recording_mp4_test PRIVATE cxx_std_17)
+    target_link_libraries(vaeg_recording_mp4_test PRIVATE vaeg_recording_mp4)
+    if(WIN32)
+        target_link_options(vaeg_recording_mp4_test PRIVATE -municode)
+    endif()
+    add_test(NAME vaeg_recording_mp4 COMMAND vaeg_recording_mp4_test)
+    if(APPLE)
+        add_executable(vaeg_recording_autorelease_pool_test
+            tests/frontend/recording/test_recording_autorelease_pool.mm)
+        target_include_directories(vaeg_recording_autorelease_pool_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+        target_compile_features(vaeg_recording_autorelease_pool_test PRIVATE cxx_std_17)
+        target_compile_options(vaeg_recording_autorelease_pool_test PRIVATE -fobjc-arc)
+        target_link_libraries(vaeg_recording_autorelease_pool_test PRIVATE "-framework Foundation")
+        add_test(NAME vaeg_recording_autorelease_pool COMMAND vaeg_recording_autorelease_pool_test)
+        set_tests_properties(vaeg_recording_autorelease_pool PROPERTIES
+            LABELS "frontend;recording;romless;mp4")
+    endif()
+    add_test(NAME vaeg_mp4_build_policy
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_mp4_policy.py")
+    set_tests_properties(vaeg_recording_mp4 vaeg_mp4_build_policy PROPERTIES
+        LABELS "frontend;recording;romless;mp4")
+
     add_test(NAME vaeg_ffmpeg_static_resolution
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_static_ffmpeg.py")
@@ -2466,4 +2525,24 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "m75;scsi;compiled"
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+    # Recording fixtures use assert both for checks and state-driving API calls.
+    # Release -DNDEBUG must not turn them into false passes or infinite EOF loops.
+    foreach(recording_test
+            vaeg_recording_mp4_test vaeg_recording_realtime_clock_test
+            vaeg_recording_c_contract_test vaeg_recording_cli_test
+            vaeg_recording_osd_snapshot_test vaeg_recording_displayed_capture_test
+            vaeg_recording_runtime_test vaeg_recording_native_composition_test
+            vaeg_recording_native_tap_test vaeg_recording_contract_test
+            vaeg_recording_clock_test vaeg_recording_queue_test
+            vaeg_recording_native_session_test vaeg_recording_runtime_integration_test
+            vaeg_recording_metal_archive_probe vaeg_recording_ffmpeg_capabilities_test
+            vaeg_recording_macos_window_capture_test vaeg_recording_h264_encoder_test
+            vaeg_recording_ffv1_test vaeg_recording_pcm_test vaeg_recording_matroska_test)
+        if(TARGET ${recording_test})
+            target_compile_options(${recording_test} PRIVATE -UNDEBUG)
+        endif()
+    endforeach()
+    if(VAEG_ENABLE_RECORDING)
+        set_tests_properties(vaeg_recording_ffv1 PROPERTIES TIMEOUT 30)
+    endif()
 endif()

@@ -1,5 +1,298 @@
 # Recording v1 handoff
 
+## M100s11 accepted handoff — G100s11 PASSED
+
+The maintainer explicitly replied **"passed!"** to the final Windows gate
+checklist: V3/demo/OS/simple operations, recording/compression, video/audio
+playback, seek/end playback and original MKV retention. The accepted source
+closure is [fef92deabbe6de4f95008692ee41026e5a7d530e](https://github.com/nakatamaho/vaeg/commit/fef92deabbe6de4f95008692ee41026e5a7d530e),
+which differs from the following clean Windows build only in four Markdown
+files. This is maintainer-reported acceptance, not independent target-digest or
+frame/sample/quality evidence. Previous component acceptance is retained.
+
+Accepted clean static recording-enabled Windows build:
+
+- Source [16ed03ee87e3de5f384a6a8dbce80520574a88ea](https://github.com/nakatamaho/vaeg/commit/16ed03ee87e3de5f384a6a8dbce80520574a88ea).
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/vaeg.exe`, 59,218,214 bytes.
+- SHA-256 `7111621cddc2069911159d3fda25c62d83f6cc57c0099249a0525a90d070a5b7`.
+- `/Users/maho/work/pc88va/vaeg-mingw-16ed03ee/output/BUILD-REPORT.md`, SHA-256
+  `53949965b4b909b9662d1ca45850735eca9a245e1bf2d39100c85f4db1edcc44`.
+
+Standard helper exit 0; static/import/codec audits pass, OS MP4 ON and local-only
+static encoders OFF. The app's production inputs are unchanged from the accepted
+screenshot build. Native Windows acceptance is the maintainer's report above;
+no new agent-observed native execution or target-side hash collection is claimed.
+
+All six component distributions now have clean-clone source-build evidence,
+including the supplied PSD, and their payloads match the committed archives.
+The five unchanged prior source builds are reused by identity, not rebuilt again.
+Both aggregates have been rebuilt with the fresh PSD component: all-demos matches
+all 19 payloads; all-demos-msdos4 matches all 25 files and the whole raw image.
+Self-booting SGP raw-image equality and utility FDD build/boot/DIR also pass.
+Prior ROM-aware macOS dummy/software runs visibly draw all 17 programs on each
+OS after correct-CWD/loading-bound follow-ups, boot/select the SGP demo, render
+the bundled VA demo title and start MANDEL.BAS (partial rows, not full completion).
+An additional fresh-PSD PC-Engine run visibly draws Zundamon at frames 4000/6000.
+No full 34-program rerun is claimed; unchanged payloads and byte-identical MS-DOS
+media retain the previous evidence.
+These agent observations do not establish physical GPU or human-gate acceptance.
+
+**CP/M/SASI follow-up completed:** the maintainer supplied four locked CP/M
+archives and accepted local-use notices. The installer generates tools/source/dev
+images (exit 0), and a ROM-aware macOS run reaches CP/M 2.2 and its DIR listing.
+The supplied `PCODESRC.LZH` matches the pinned cache copy; missing extra packages
+are fetched from static publisher URLs and match the unchanged builder hashes.
+Both SASI images now build (exit 0) and boot alone on their emulated VA/VA2 models,
+accept DIR and return Ready (both exit 0). These use explicit isolated backup
+paths so normal BIOS fixed-disk selection initializes; earlier `--no-bkupmem`
+attempts are retained as unsuccessful fixtures, not boot passes.
+
+**Media-source/input blockers are resolved; G100s11 PASSED.** Physical Linux
+GPU/Wayland and Windows missing-MF behavior remain unverified, as explicitly
+disclosed with the final checklist. Human playback/seek acceptance is not an
+automated Windows decode/quality corpus or a native 16-case probe report.
+CP/M/SASI checks above use macOS SDL dummy/software, not physical hardware or
+new Windows execution. No release, legal/distribution clearance or next task
+follows from this gate.
+Full commands, image hashes, preserved failures and scope are in the
+[M100s11 task](../agents/tasks/M100s11_recording_post_mp4.md).
+Local evidence `build/m100s11-media-gate-16ed03ee/validation.json`, SHA-256
+`23d51328d7b179ef2dab477ed2cd47c2632d26aea08f9908da9a9d246c3de1c2`.
+Follow-up evidence `build/m100s11-media-gate-16ed03ee/cpm-sasi-followup.json`,
+SHA-256 `3572a2f0b0550360308f52a5186bbcbd3e24991f4784ff274c90915908b001da`.
+The original index is retained as historical; its CP/M/SASI blockers are resolved
+by this supplement. No generated disk, private capture or license cache is
+published. PSD/source-closure evidence
+`build/m100s11-media-gate-16ed03ee/psd-followup.json`, SHA-256
+`d47450fea9280f633e4ee629307c9fe4f8cb2066d8954be2e3815a658ade61ee`.
+The exact reproducing PSD/assembler versions are recorded in the task and
+[demo build guide](../../demos/zundamon-orbit/README.md); unsuccessful alternate
+toolchains remain preserved. **G100s11 PASSED; normal main integration authorized.**
+Preserve all previous artifacts/build roots/SDKs and user inputs below as already
+requested. Older OPEN checkpoints remain historical, not current gate status.
+
+## Screenshot rotation component accepted — 97259966
+
+Maintainer-added gate: at display right 90 degrees, both screenshot menu entries
+must save that orientation; turning back must restore the normal orientation.
+The unprocessed/analysis screenshot paths now rotate their whole guest-resolution
+composition; normal displayed readback is already oriented and is not turned
+again. Native/Displayed recording and state thumbnails are unchanged.
+
+Latest clean static recording-enabled Windows binary:
+
+- Source [9725996637c8f52e4870a560e39a75cbc2514a02](https://github.com/nakatamaho/vaeg/commit/9725996637c8f52e4870a560e39a75cbc2514a02).
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/vaeg.exe`, 59,218,214 bytes.
+- SHA-256 `7c4930593c4b23b4a6708c2e7c3a0d8391c461429d0a8d8f29614950494de0a3`.
+- `/Users/maho/work/pc88va/vaeg-mingw-97259966/output/BUILD-REPORT.md`, SHA-256
+  `d63c51eabba72b32a60c111e7ff9ae79b4d6bffa0b561577c7237ac3fd5c76bb`.
+
+The maintainer reports "OK passed" for the requested screenshot rotation check
+(`画面 > スクリーンショットを保存` and its `加工前` entry, 0 -> right 90 -> 0).
+This is component visual acceptance after the above Windows handoff, not an
+independently collected target digest, pixel corpus or every-backend result.
+Pictures must follow the screen without reversal/double turn;
+normal displayed images retain their current window/letterbox canvas, whereas
+unprocessed screenshot dimensions swap at 90. The screenshot component gate is
+now passed. Previous Windows MP4 compression/audio acceptance remains recorded for
+9c7ea061; the converter worker/source is unchanged by this screenshot correction.
+
+Three focused SDL tests and five application profiles (macOS ON/OFF, Linux
+ON/OFF/local) pass 18 saved PNG/BMP round trips per profile and a displayed SDL
+quadrant/crop check. Negative tests isolate exactly one missing rotation or
+transpose. Full/regression CTest results, skips, interrupted ranges and recovered
+Docker exit evidence are in the task. Evidence index
+`build/m100s11-evidence/screenshot-rotation/validation.json`, SHA-256
+`73d5e499014cdef33f508fb5a5fbed6ee61b60de2511f4a8addcc7d7ff856c28`.
+The maintainer's visual acceptance is separate from these synthetic fixtures;
+no other GPU/backend, guest/private-media or overall gate acceptance is inferred.
+**G100s11 OPEN.** Older artifacts and runtime reports follow; preserve them.
+
+## Previous Windows stream-ownership correction — compression success reported
+
+After the 9c7ea061 handoff, the maintainer reports that compression succeeds.
+This confirms the reported Windows conversion failure no longer reproduces on
+that retry. The maintainer additionally confirms audio playback. No independent
+target-binary digest, full decode/seek or corrected sixteen-case probe result
+has been provided. Those remain pending;
+this is component feedback, **not a passed G100s11 gate**. No rebuild or unchanged
+behavioral rerun is required for this documentation-only record.
+
+
+The maintainer's preceding synthetic run reached `CLOSE_STREAM: 0x80070057` in
+all sixteen cases, **after** passing the Finalize check. Releasing the writer
+shuts down its owning file sink; the checked second Close incorrectly rejected
+that finalized output. [9c7ea061](https://github.com/nakatamaho/vaeg/commit/9c7ea061fff736036d83fde8b12bb62c8f4fe09b)
+now releases writer then byte-stream interface without re-closing. Failure/cancel
+cleanup closes directly only if no writer took ownership. Genuine Finalize
+failure remains fatal; no codec settings or source recordings are changed.
+
+Updated application (not just a diagnostic):
+
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/vaeg.exe`, 59,212,927 bytes.
+- SHA-256 `a14cc4825885064ec28972d887a0ad21b73a896e65c571dbfe8955b6e8eadd9e`.
+- `/Users/maho/work/pc88va/vaeg-mingw-9c7ea061/output/BUILD-REPORT.md`, SHA-256
+  `aae67bb25801fe361334372a4501ef7c6ba4b1224fae2e9a8104817964a05c84`.
+
+Replace vaeg.exe, then retry the retained MKV through 「圧縮する録画 (.mkv)」.
+Compression succeeds and audio playback is confirmed by the maintainer. The earlier `FINALIZE` report is no longer reproduced, but
+its independent cause was not established; do not conflate it with the probe's
+demonstrated `CLOSE_STREAM` failure.
+
+Updated optional synthetic probe, using the same corrected source:
+
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/mp4-windows-probe.exe`
+- SHA-256 `0c142c696033bd1c0da2684c609f6d31c8063495d47c45125d805c3701fd05c4`.
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-9c7ea061/build-report.json`,
+  SHA-256 `77a31d29ecdb80ac40de5297f45859dd8cc898fc09e61d997c86db5205dedc7b`.
+
+Eight generation/lifecycle tests, strict MinGW compilation and both builds/import
+audits pass. Lifecycle tests copy the actual finish method into a portable model;
+a single re-close mutation produces exactly `MP4_WINDOWS_DOUBLE_CLOSE`. This is
+not a native MF test. Post-correction Windows compression success is now reported;
+audio playback is confirmed, while full decode/seek remains unverified. Keep earlier reports/partials and all
+artifacts. **G100s11 OPEN.**
+
+## Previous Windows finalization probe
+
+The maintainer confirms `MP4_WINDOWS_API_FINALIZE: 0x80070057` with the
+744fcbcb application. Finalize is the returning API, but may expose a delayed
+encoder failure; this does not demonstrate the underlying cause. Do not suppress
+the HRESULT or publish an incomplete MP4. The application is unchanged.
+
+A separate **synthetic diagnostic**, not a replacement vaeg.exe, is available:
+
+- Source: [cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5](https://github.com/nakatamaho/vaeg/commit/cb0e2413f32cfa403d71a4af3a5e63ee9ed52ae5).
+- `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/mp4-windows-probe.exe`
+- SHA-256 `1c308ff08fe6dc3bb713e7cd17104f3bf91c1df263a8c80e369ef3be3fd9b44a`.
+- Build report: `/Users/maho/work/pc88va/vaeg/build/m100s11-windows-probe-cb0e2413/build-report.json`,
+  SHA-256 `c8b6b7561ed5e3a9d47829b97120b036ffaf9db8f8f0cfb6c584788e09916237`.
+
+Copy the probe alone to a writable Windows folder (prefer a short path), then
+run it. It creates an exclusive `mp4-probe-*` directory under its working folder,
+retains every result and pauses for Enter when launched without arguments.
+Return **report.txt**, not ROMs, original recordings or other private media.
+It never reads those assets. Successful API finalization produces `.mp4`; failed
+synthetic files remain `.partial.mp4` for diagnosis, never as an accepted export.
+
+The 16 cases compare 640x400, 1278x720, 400x640 and 200x640; exact 60 Hz versus
+Matroska-ms-rounded timestamps; hardware-transform preference ON versus OFF.
+Each has 60 moving-gradient frames and one second of stereo 48 kHz generated
+PCM. The builder extracts the production NV12 conversion verbatim and generates
+two adapter copies: common read-only finalization probes plus the single hardware
+preference difference and factory-symbol disambiguation. It records received,
+encoded/processed counts before/after Finalize and optional post-Finalize encoder
+header queries, with individual HRESULTs. Query failure never replaces the
+original failure. ON is a preference, **not proof of actual hardware encoding**.
+A probe PASS means finalization/close/no-replace publication succeeded, not
+verified decode, quality, guest compatibility or a passed milestone gate.
+
+Ubuntu 24.04 GCC 13-posix x64 MinGW (matching the application's toolchain family),
+strict warnings/static link and system-only import audit pass. Imports are
+kernel32.dll, msvcrt.dll and ole32.dll; MF loads from System32 as in production.
+No FFmpeg, bundled H.264/AAC encoder, private SDK or media is included. Native
+probe execution remains NOT_RUN. Six isolated generation-contract tests pass;
+prior failing build attempts are retained. **G100s11 OPEN.**
+
+## Previous Windows diagnostic — conversion E_INVALIDARG remains unresolved
+
+The maintainer reports `MP4_WINDOWS_API: 0x80070057` with the original MKV
+retained. This is a **failed runtime attempt**, not a successful Windows gate.
+The current diagnostic adds per-operation error labels without changing codec
+settings, sample data/timestamps or publication/cleanup behavior. Reuse the same
+MKV via 「圧縮する録画 (.mkv)」 and report the new error, for example
+`MP4_WINDOWS_API_FINALIZE: 0x80070057` (example, not an observed stage).
+
+- Source: [744fcbcb83e84afb7e85f03d03e84d162fca837c](https://github.com/nakatamaho/vaeg/commit/744fcbcb83e84afb7e85f03d03e84d162fca837c).
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/vaeg.exe`
+- Size: 59,212,927 bytes; SHA-256
+  `d715c9ff6f99c37ad693416dfdaea08364ef9aebd4b426571c39eb47e1254a31`.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-744fcbcb/output/BUILD-REPORT.md`,
+  SHA-256 `4afd97d47ed770d67420494f4d08d8490488bcdcd00447799b4ac2ed91f4fd6b`.
+- Strict MinGW compile (`-Wall -Wextra -Wpedantic -Werror`) and clean static
+  handoff/import/ordinary-codec audits pass. OS H.264/AAC enabled, no bundled
+  H.264/AAC implementation. No actual diagnostic execution is claimed yet.
+- Only the Windows adapter changed; previous macOS/Linux export worker/source
+  identities are unchanged. Preserve prior results rather than rerunning them.
+
+This is **diagnosis, not a tested correction**. G100s11 remains OPEN. Historical
+converter validation and the preceding Windows review candidate follow.
+
+## Active M100s11 — optional post-recording MP4
+
+[Usage/local-build guide](mp4-export.md),
+[task, commands and limits](../agents/tasks/M100s11_recording_post_mp4.md),
+[ADR-0018](../agents/DECISIONS/ADR-0018-post-recording-mp4.md).
+**G100s11 OPEN: no Windows runtime or guest/media acceptance is inferred.**
+
+Keep the original FFV1/PCM MKV and optionally create a separate H.264/AAC MP4
+following successful stop/publication (including each nonempty split). One
+background job/four pending paths; a bottom-right notification shows progress,
+finishing, cancellation and six-second completion with an open-folder button.
+Failures stay until dismissed, including the latest failed queued job. Recording
+settings also retain detailed status. The start-time choice persists in INI. Exit
+cancels/joins conversions; sources remain. Existing MP4/symlink targets are never
+replaced. This does not enable realtime H.264/host-audio-clock recording.
+
+- **macOS:** AVFoundation system encoding. Actual native eight-case export,
+  full decode/seek, source preservation, audio/picture comparisons and an
+  optimized 1921x1081 -> 1278x720 / 22.05 -> 48 kHz conversion pass.
+- **Windows:** dynamically loaded System32 Media Foundation, no bundled encoder
+  implementation. Strict MinGW compilation/static worker link and clean Release
+  application build pass; actual Windows encoding/playback remains NOT_RUN.
+- **Linux:** actual eight-case export/decode passes with the explicitly opted-in
+  LOCAL_ONLY static FFmpeg libx264/native AAC build on Ubuntu 24.04 **arm64**.
+  Normal builds default OFF; all CI/public presets and cached-tree builds reject
+  local-only enablement. The private binary/SDK stays only in its local build
+  tree, not release staging or the usual release destination.
+
+### Windows clean-build artifact
+
+Evaluated pushed source:
+[`e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec`](https://github.com/nakatamaho/vaeg/commit/e6eb60aa4eaf01ce8c2566e74eea00aa0cabcdec).
+Includes the simple 「圧縮する」 label, persistent notification, actual-writer
+60 Hz timestamp correction and explicit saved-MKV retry after restarting.
+Later completion documentation does not change build-relevant inputs.
+
+- Executable: `/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/vaeg.exe`
+- SHA-256: `a7e0889bfe1bfcf224a685c8375c4c281dfb3651cb0ca4f41973e598e0674bcd`
+- Size: 59,211,391 bytes.
+- Report: `/Users/maho/work/pc88va/vaeg-mingw-e6eb60aa/output/BUILD-REPORT.md`
+- Fresh clone/application objects, pinned container, recording ON, static desktop
+  dependencies/minimal LGPL FFmpeg, Windows-system-only imports. Completed shader
+  dependency SDK reused read-only/audited. LOCAL_ONLY encoders OFF; FFmpeg encoder
+  registrations checked before linking, not inferred from missing codec DLLs.
+
+macOS development application: `build/m100s11-mac-on/sdl2/vaeg` (arm64, Debug,
+shared host dependencies, not a portable release). Linux LOCAL_ONLY application:
+`build/m100s11-linux-local/sdl2/vaeg` (arm64, private validation only).
+No private-codec artifact is published or copied to a handoff/release directory.
+
+Current native-timing/retry evidence: `build/m100s11-evidence/video-layout/validation.json`,
+SHA-256 `e45575d2746f074223c3a6eb46c1c67ad4aab9480c9495fde6d46965ebbfce0c`.
+Actual vaeg-writer 60 Hz export and two precise timestamp negatives pass on
+macOS/Linux, in addition to the existing eight-case export profiles. Original
+MKVs can be retried via 「圧縮する録画 (.mkv)」 with an unquoted full path.
+The old `MP4_VIDEO_LAYOUT` error was reproduced on a valid native recording;
+adjacent PTS now determine frame intervals without false overlap rejection.
+
+Previous notification/cleanup evidence: `build/m100s11-evidence/notification/validation.json`,
+SHA-256 `55de933a21069c353a1f503dd3dd0a83f2f410cddaec940f0e2d66443d69aaf0`.
+Initial converter evidence remains at `build/m100s11-evidence/final/validation.json`,
+SHA-256 `685d53bd7230bc34cf537a01e600528e000960597580cdef40f76ffc5dc50cdb`.
+The follow-up records explicit-exit GUI selftests, a complete eight-case export
+per backend and 64 macOS cancellations after correcting exception/pool lifetime.
+Earlier timeout and failed/incomplete cleanup attempts remain preserved.
+Recording ON/OFF suites, policy/static-resolution fixtures and repository
+invariants pass. Whole-repository format check retains only demonstrated
+baseline deviations, with zero new violations. See the task for full selftest
+exit/timeout distinctions; do not turn a client timeout into an observed exit 0.
+
+Before acceptance: actual Windows normal/missing-MF conversion and playback,
+physical platform checks, V3 boot/demo/OS operations and all mandatory private
+utility/SASI/demo/media regeneration remain to be done. No legal/distribution
+approval or M100s11 merge is claimed. Earlier accepted handoffs follow.
+
 ## Active M100s10 — Windows/MinGW and Linux Displayed archive
 
 Maintainer-requested continuation after G100s9:

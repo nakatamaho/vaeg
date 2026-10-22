@@ -52,4 +52,37 @@ FixNamespaceComments: false
 QualifierAlignment: Leave
 RemoveBracesLLVM: false
 RemoveSemicolon: false
+---
+Language: ObjC
+BasedOnStyle: LLVM
+Standard: c++17
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForIndentation
+BreakBeforeBraces: Attach
+IndentCaseLabels: false
+PointerAlignment: Right
+DerivePointerAlignment: false
+SortIncludes: Never
+IncludeBlocks: Preserve
+ReflowComments: false
+BreakStringLiterals: false
+MaxEmptyLinesToKeep: 1
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: None
+AllowShortLoopsOnASingleLine: false
+SeparateDefinitionBlocks: Leave
+FixNamespaceComments: false
+QualifierAlignment: Leave
+RemoveBracesLLVM: false
+RemoveSemicolon: false
 ...

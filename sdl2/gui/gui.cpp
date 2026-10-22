@@ -43,6 +43,7 @@
 #include <ctime>
 #include <iterator>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -92,6 +93,7 @@
 #include "rhythm.h"
 #include "recording/recording.h"
 #include "recording/recording_native_session.h"
+#include "recording/recording_mp4.h"
 #include "recording/recording_runtime.h"
 #include "scrndrawva.h"
 #include "scrnmng.h"
@@ -237,7 +239,9 @@ struct GuiState {
 	bool recording_open = false;
 	int recording_source = VAEG_RECORDING_SOURCE_NATIVE;
 	char recording_path[1024] = {};
+	char recording_compress_path[2048] = {};
 	bool recording_auto_path = true;
+	bool recording_create_mp4 = false;
 	bool recording_include_osd = true;
 	bool recording_follow_rotation = true;
 	char recording_frame_limit[32] = {};
@@ -685,6 +689,178 @@ static bool parse_recording_frame_limit(const char *value, uint64_t *limit) {
 	return true;
 }
 
+/* Snapshot at recording start: every completed split uses the same choice. */
+static bool recording_export_requested = false;
+static void recording_saved_for_export(const char *path) {
+	if (recording_export_requested)
+		(void)vaeg_recording_mp4_enqueue(path);
+}
+
+static void draw_mp4_status(void) {
+	VAEG_MP4_STATUS status{};
+	vaeg_recording_mp4_get_status(&status);
+	if (status.state == VAEG_MP4_RUNNING) {
+		ImGui::TextWrapped("MP4変換中: %s", status.source);
+		if (status.progress >= 0)
+			ImGui::ProgressBar(static_cast<float>(status.progress), ImVec2(-1, 0));
+		ImGui::Text("変換済み %lld ms / 待機 %u 件", static_cast<long long>(status.encoded_ms),
+		            status.pending);
+	} else if (status.state == VAEG_MP4_SUCCEEDED) {
+		ImGui::TextWrapped("MP4を作成しました: %s", status.output);
+	} else if (status.state == VAEG_MP4_FAILED || status.state == VAEG_MP4_CANCELLED) {
+		ImGui::TextWrapped("MP4変換は未完了です（元のMKVは保持）: %s", status.error);
+	}
+	if (status.notice[0])
+		ImGui::TextWrapped("MP4: %s", status.notice);
+	if ((status.state == VAEG_MP4_RUNNING || status.pending) && ImGui::Button("MP4変換を中止"))
+		vaeg_recording_mp4_cancel();
+}
+
+/* Kept outside GuiState so renderer/GUI recreation does not reset notices. */
+struct CompressionNotification {
+	uint64_t failure_id = 0;
+	uint64_t job_id = 0;
+	uint64_t notice_id = 0;
+	VAEG_MP4_STATE state = VAEG_MP4_IDLE;
+	Uint64 completed_until = 0;
+	Uint64 cancelled_until = 0;
+	std::string output;
+	std::string error_title;
+	std::string error_detail;
+	bool details = false;
+};
+
+static CompressionNotification compression_notification;
+
+static void update_compression_notification(CompressionNotification &view,
+                                            const VAEG_MP4_STATUS &status, Uint64 now) {
+	if (view.notice_id != status.notice_id) {
+		view.notice_id = status.notice_id;
+		if (status.notice[0]) {
+			view.error_title = "圧縮を開始できませんでした。元の録画は残っています。";
+			view.error_detail = status.notice;
+			view.details = false;
+		}
+	}
+	if (view.failure_id != status.failure_id) {
+		view.failure_id = status.failure_id;
+		view.error_title = "圧縮できませんでした。元の録画は残っています。";
+		view.error_detail = status.failure;
+		view.details = false;
+	}
+	if (view.job_id == status.job_id && view.state == status.state)
+		return;
+	view.job_id = status.job_id;
+	view.state = status.state;
+	if (status.state == VAEG_MP4_RUNNING) {
+		view.completed_until = view.cancelled_until = 0;
+	} else if (status.state == VAEG_MP4_SUCCEEDED) {
+		view.output = status.output;
+		view.completed_until = now + 6000;
+	} else if (status.state == VAEG_MP4_FAILED) {
+		view.error_title = "圧縮できませんでした。元の録画は残っています。";
+		view.error_detail = std::string(status.source) + "\n" + status.error;
+		view.details = false;
+	} else if (status.state == VAEG_MP4_CANCELLED) {
+		view.cancelled_until = now + 6000;
+	}
+}
+
+/* No shell command: percent-encode the UTF-8 path for SDL's OS URL opener. */
+static std::string compression_directory_url(const std::string &directory) {
+	std::string url = directory.rfind("//", 0) == 0  ? "file:"
+	                  : directory.rfind("/", 0) == 0 ? "file://"
+	                                                 : "file:///";
+	constexpr char hex[] = "0123456789ABCDEF";
+	for (unsigned char c : directory) {
+		if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		    c == '/' || c == ':' || c == '-' || c == '_' || c == '.' || c == '~') {
+			url += static_cast<char>(c);
+		} else {
+			url += '%';
+			url += hex[c >> 4];
+			url += hex[c & 15];
+		}
+	}
+	return url;
+}
+
+static void draw_compression_notification(const VAEG_MP4_STATUS &status, Uint64 now) {
+	auto &view = compression_notification;
+	update_compression_notification(view, status, now);
+	const bool active = status.state == VAEG_MP4_RUNNING || status.pending != 0;
+	const bool completed = now < view.completed_until;
+	const bool cancelled = now < view.cancelled_until;
+	if (!active && !completed && !cancelled && view.error_title.empty())
+		return;
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float margin = 10.0f * g_gui.ui_scale;
+	const float width =
+	    (std::max)(1.0f, (std::min)(380.0f * g_gui.ui_scale, viewport->WorkSize.x - 2 * margin));
+	ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - margin,
+	                               viewport->WorkPos.y + viewport->WorkSize.y - margin),
+	                        ImGuiCond_Always, ImVec2(1, 1));
+	ImGui::SetNextWindowSize(ImVec2(width, 0), ImGuiCond_Always);
+	ImGui::SetNextWindowSizeConstraints(
+	    ImVec2(1, 1), ImVec2(width, (std::max)(1.0f, viewport->WorkSize.y - 2 * margin)));
+	ImGui::SetNextWindowBgAlpha(0.94f);
+	if (ImGui::Begin("##compression_notification", nullptr,
+	                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+	                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove |
+	                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+	                     ImGuiWindowFlags_NoFocusOnAppearing)) {
+		if (active) {
+			if (status.state != VAEG_MP4_RUNNING) {
+				ImGui::TextUnformatted("圧縮を待機中…");
+			} else if (status.finishing) {
+				ImGui::TextUnformatted("仕上げ中…");
+			} else if (status.progress >= 0) {
+				ImGui::Text("圧縮中… %.0f%%", status.progress * 100);
+			} else {
+				constexpr char spinner[] = "|/-\\";
+				ImGui::Text("圧縮中… %c", spinner[(now / 150) % 4]);
+			}
+			if (status.state == VAEG_MP4_RUNNING && status.progress >= 0)
+				ImGui::ProgressBar(static_cast<float>(status.progress), ImVec2(-1, 0));
+			if (status.pending)
+				ImGui::Text("待機 %u 件", status.pending);
+			if (ImGui::Button("中止##compression"))
+				vaeg_recording_mp4_cancel();
+		} else if (completed) {
+			ImGui::TextUnformatted("圧縮しました");
+			if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
+				view.completed_until = now + 6000;
+			if (ImGui::Button("保存先を開く")) {
+				try {
+					const auto dir = fs::u8path(view.output).parent_path().generic_u8string();
+					if (SDL_OpenURL(compression_directory_url(dir).c_str()) != 0)
+						throw std::runtime_error(SDL_GetError());
+				} catch (const std::exception &error) {
+					view.error_title = "保存先を開けませんでした。";
+					view.error_detail = error.what();
+				}
+			}
+		} else if (cancelled) {
+			ImGui::TextWrapped("圧縮を中止しました。元の録画は残っています。");
+		}
+		if (!view.error_title.empty()) {
+			if (active || completed || cancelled)
+				ImGui::Separator();
+			ImGui::TextWrapped("%s", view.error_title.c_str());
+			if (ImGui::Button("詳細##compression"))
+				view.details = !view.details;
+			if (view.details)
+				ImGui::TextWrapped("%s", view.error_detail.c_str());
+			if (ImGui::Button("閉じる##compression_error")) {
+				view.error_title.clear();
+				view.error_detail.clear();
+				view.details = false;
+			}
+		}
+	}
+	ImGui::End();
+}
+
 static void start_recording_from_dialog(void) {
 	VAEG_RECORDING_CAPABILITIES capabilities{};
 	uint64_t frame_limit = 0u;
@@ -715,6 +891,7 @@ static void start_recording_from_dialog(void) {
 		g_gui.recording_status = "録画中は設定を変更できません。";
 		return;
 	}
+	recording_export_requested = g_gui.recording_create_mp4;
 	if (!vaeg_recording_session_start(g_gui.recording_path,
 	                                  static_cast<uint32_t>(g_gui.recording_source), frame_limit)) {
 		g_gui.recording_status = "録画開始に失敗しました: ";
@@ -803,6 +980,7 @@ static RecordingControlAction draw_recording_controls(const RecordingControlStat
 		if (!status.empty()) {
 			ImGui::TextWrapped("%s", status.c_str());
 		}
+		draw_mp4_status();
 		ImGui::EndPopup();
 	}
 	ImGui::PopID();
@@ -898,7 +1076,17 @@ static void draw_recording_dialog(void) {
 	ImGui::BeginDisabled();
 	ImGui::RadioButton("H.264（ハードウェア・リアルタイム）", false);
 	ImGui::EndDisabled();
-	ImGui::TextDisabled("H.264録画は音声のホスト時刻同期が未対応のため利用できません。");
+	ImGui::TextDisabled("リアルタイムH.264録画は未対応です。保存後のMP4変換は別の機能です。");
+	ImGui::BeginDisabled(!vaeg_recording_mp4_available() && !g_gui.recording_create_mp4);
+	if (ImGui::Checkbox("圧縮する", &g_gui.recording_create_mp4)) {
+		np2oscfg.recording_create_mp4 = g_gui.recording_create_mp4 ? 1 : 0;
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	ImGui::EndDisabled();
+	ImGui::TextWrapped("変換方式: %s", vaeg_recording_mp4_backend());
+	ImGui::TextDisabled("元のMKVを残し、同名のMP4を別途作成します。既存MP4は上書きしません。");
+	ImGui::TextDisabled("H.264 / AAC、最大1280×720。変換はバックグラウンドで行います。");
+	ImGui::TextDisabled("アプリ終了時は変換を中止します（元のMKVは残ります）。");
 	ImGui::TextUnformatted("録画対象");
 	if (ImGui::RadioButton("Native video", g_gui.recording_source == VAEG_RECORDING_SOURCE_NATIVE)) {
 		set_recording_source(VAEG_RECORDING_SOURCE_NATIVE);
@@ -940,6 +1128,19 @@ static void draw_recording_dialog(void) {
 		ImGui::Separator();
 		ImGui::TextWrapped("%s", g_gui.recording_status.c_str());
 	}
+	const char *saved = vaeg_recording_native_session_output_path();
+	ImGui::BeginDisabled(active || !vaeg_recording_mp4_available());
+	ImGui::TextUnformatted("圧縮する録画 (.mkv)");
+	ImGui::SetNextItemWidth(-1.0f);
+	ImGui::InputTextWithHint("##compression-source", saved && *saved ? saved : "MKVのフルパス",
+	                         g_gui.recording_compress_path, sizeof(g_gui.recording_compress_path));
+	const char *source = g_gui.recording_compress_path[0] ? g_gui.recording_compress_path : saved;
+	ImGui::BeginDisabled(!source || !*source);
+	if (ImGui::Button("保存済みの録画からMP4を作成"))
+		(void)vaeg_recording_mp4_enqueue(source);
+	ImGui::EndDisabled();
+	ImGui::EndDisabled();
+	draw_mp4_status();
 	ImGui::PopTextWrapPos();
 	ImGui::EndChild();
 	ImGui::Separator();
@@ -6737,6 +6938,8 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	scrnmng_set_menu_height(scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE ? 0 : menu_bar_height());
 	g_gui.window = static_cast<SDL_Window *>(window);
 	g_gui.recording_source = np2oscfg.recording_source;
+	g_gui.recording_create_mp4 = np2oscfg.recording_create_mp4 != 0;
+	vaeg_recording_native_session_set_saved_callback(&recording_saved_for_export);
 	g_gui.native_renderer = renderer == nullptr;
 	if (g_gui.native_renderer) {
 		if (!ImGui_ImplSDL2_InitForOther(g_gui.window)) {
@@ -7050,6 +7253,9 @@ void gui_draw(void) {
 	draw_native_crt_settings();
 	draw_sound_buffer_dialog();
 	draw_about_dialog();
+	VAEG_MP4_STATUS compression_status{};
+	vaeg_recording_mp4_get_status(&compression_status);
+	draw_compression_notification(compression_status, SDL_GetTicks64());
 }
 
 void gui_render(void) {
@@ -7520,7 +7726,124 @@ BOOL gui_file_filter_selftest(void) {
 	return SUCCESS;
 }
 
+static BOOL compression_notification_selftest(void) {
+	CompressionNotification view;
+	VAEG_MP4_STATUS status{};
+	status.job_id = 1;
+	status.state = VAEG_MP4_SUCCEEDED;
+	std::snprintf(status.output, sizeof(status.output), "/tmp/compression.mp4");
+	update_compression_notification(view, status, 100);
+	update_compression_notification(view, status, 1000);
+	if (view.completed_until != 6100 || view.output != status.output) {
+		std::fprintf(stderr, "selftest: COMPRESSION_COMPLETION_LIFETIME\n");
+		return FAILURE;
+	}
+	status.job_id = 2;
+	status.state = VAEG_MP4_FAILED;
+	std::snprintf(status.error, sizeof(status.error), "TEST_COMPRESSION_FAILURE");
+	update_compression_notification(view, status, 7000);
+	update_compression_notification(view, status, 70000);
+	if (view.error_title.empty()) {
+		std::fprintf(stderr, "selftest: COMPRESSION_ERROR_NOT_STICKY\n");
+		return FAILURE;
+	}
+	view.error_title.clear();
+	update_compression_notification(view, status, 71000);
+	if (!view.error_title.empty()) {
+		std::fprintf(stderr, "selftest: COMPRESSION_DISMISSED_ERROR_REOPENED\n");
+		return FAILURE;
+	}
+	++status.job_id;
+	update_compression_notification(view, status, 72000);
+	if (view.error_title.empty()) {
+		std::fprintf(stderr, "selftest: COMPRESSION_REPEATED_JOB_HIDDEN\n");
+		return FAILURE;
+	}
+	status.notice_id = 1;
+	std::snprintf(status.notice, sizeof(status.notice), "TEST_QUEUE_REJECTION");
+	update_compression_notification(view, status, 73000);
+	view.error_title.clear();
+	update_compression_notification(view, status, 74000);
+	if (!view.error_title.empty()) {
+		std::fprintf(stderr, "selftest: COMPRESSION_DISMISSED_NOTICE_REOPENED\n");
+		return FAILURE;
+	}
+	++status.notice_id;
+	update_compression_notification(view, status, 75000);
+	if (view.error_title.empty()) {
+		std::fprintf(stderr, "selftest: COMPRESSION_REPEATED_NOTICE_HIDDEN\n");
+		return FAILURE;
+	}
+	status.job_id = 4;
+	status.state = VAEG_MP4_RUNNING;
+	status.failure_id = 1;
+	std::snprintf(status.failure, sizeof(status.failure), "TEST_PAST_FAILURE");
+	update_compression_notification(view, status, 76000);
+	if (view.error_detail != "TEST_PAST_FAILURE") {
+		std::fprintf(stderr, "selftest: COMPRESSION_QUEUED_FAILURE_LOST\n");
+		return FAILURE;
+	}
+	if (compression_directory_url("/tmp/a b#%&") != "file:///tmp/a%20b%23%25%26" ||
+	    compression_directory_url("C:/recordings/a b") != "file:///C:/recordings/a%20b" ||
+	    compression_directory_url("//server/share/圧縮") !=
+	        "file://server/share/%E5%9C%A7%E7%B8%AE") {
+		std::fprintf(stderr, "selftest: COMPRESSION_DIRECTORY_URL\n");
+		return FAILURE;
+	}
+	const CompressionNotification saved_view = compression_notification;
+	const float saved_scale = g_gui.ui_scale;
+	ImGuiContext *saved_context = ImGui::GetCurrentContext();
+	BOOL result = SUCCESS;
+	for (const ImVec2 size : {ImVec2(640, 400), ImVec2(320, 240), ImVec2(320, 480)}) {
+		for (const float scale : {1.0f, 2.0f}) {
+			ImGuiContext *context = ImGui::CreateContext();
+			ImGuiIO &io = ImGui::GetIO();
+			io.IniFilename = nullptr;
+			io.DisplaySize = size;
+			ImFontConfig font;
+			font.SizePixels = 13 * scale;
+			io.Fonts->AddFontDefault(&font);
+			io.Fonts->Build();
+			g_gui.ui_scale = scale;
+			for (int variant = 0; variant < 7; ++variant) {
+				compression_notification = {};
+				status = {};
+				status.job_id = 1;
+				status.state =
+				    variant < 4 ? static_cast<VAEG_MP4_STATE>(variant + 1) : VAEG_MP4_RUNNING;
+				status.progress = variant == 4 ? -1.0 : 0.42;
+				status.finishing = variant == 5;
+				if (variant == 6) {
+					status.state = VAEG_MP4_IDLE;
+					status.pending = 2;
+				}
+				for (int frame = 0; frame < 4; ++frame) {
+					ImGui::NewFrame();
+					draw_compression_notification(status, 100);
+					ImGuiWindow *window = ImGui::FindWindowByName("##compression_notification");
+					if (!window || (frame == 3 && (window->Pos.x < 0 || window->Pos.y < 0 ||
+					                               window->Pos.x + window->Size.x > size.x + 1 ||
+					                               window->Pos.y + window->Size.y > size.y + 1)))
+						result = FAILURE;
+					ImGui::EndFrame();
+				}
+			}
+			ImGui::DestroyContext(context);
+		}
+	}
+	compression_notification = saved_view;
+	g_gui.ui_scale = saved_scale;
+	ImGui::SetCurrentContext(saved_context);
+	if (result != SUCCESS)
+		std::fprintf(stderr, "selftest: COMPRESSION_NOTIFICATION_VIEWPORT\n");
+	else
+		std::fprintf(stderr, "selftest: compression notification lifecycle/layout ok\n");
+	return result;
+}
+
 BOOL gui_overlay_selftest(void) {
+	if (compression_notification_selftest() != SUCCESS)
+		return FAILURE;
 	if (recording_controls_selftest() != SUCCESS)
 		return FAILURE;
 	if (recording_dialog_layout_selftest() != SUCCESS)

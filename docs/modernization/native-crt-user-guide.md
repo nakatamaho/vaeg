@@ -217,6 +217,13 @@ independently only when their respective display toggles are on, just as for
 normal screenshots. With both off, no analysis panel is added. Deterministic
 CLI raw capture remains separate and does not inherit these display toggles.
 
+Both screenshot menu entries follow the selected display orientation. At right
+90 degrees, the unprocessed screenshot rotates the complete guest/analysis
+composition clockwise and swaps its width/height; switching back restores the
+unturned orientation. Normal displayed screenshots already contain rotation and
+are not rotated a second time: they retain the current drawable/letterbox canvas
+as described above. This does not change saved-state thumbnails.
+
 Use `--screenshot FRAME:PATH` or `--screen-tvram-dump PATH` for deterministic
 guest-frame evidence. `--screen-dump` captures the SDL rendered target and is
 not available while Native CRT owns the output; VAEG reports that limitation
