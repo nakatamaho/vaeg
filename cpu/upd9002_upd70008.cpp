@@ -371,24 +371,41 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return pic8214_acknowledge_compat();
 		}
 		const SINT32 before = CPU_REMCLOCK;
+		const SINT32 base_before = CPU_BASECLOCK;
 		const UINT8 value = iocore_inp8(static_cast<UINT>(port & 0xffff));
-		const SINT32 elapsed = before - CPU_REMCLOCK;
-		if (elapsed > 0) {
-			counter_.past(elapsed);
-		}
+		AccountIo(before, base_before);
 		return value;
 	}
 
 	void IFCALL Out(std::uint32_t port, std::uint32_t data) override {
 		const SINT32 before = CPU_REMCLOCK;
+		const SINT32 base_before = CPU_BASECLOCK;
 		iocore_out8(static_cast<UINT>(port & 0xffff), static_cast<UINT8>(data));
-		const SINT32 elapsed = before - CPU_REMCLOCK;
-		if (elapsed > 0) {
-			counter_.past(elapsed);
-		}
+		AccountIo(before, base_before);
 	}
 
   private:
+	/*
+	 * Charge an I/O access to the compatible core. Wait clocks the device
+	 * took (iocore busclock) are machine time spent by the access. A device
+	 * that ends the time slice with nevent_forceexit() (OUT E4h, for one)
+	 * moves the slice's remainder out of CPU_BASECLOCK and CPU_REMCLOCK
+	 * together: that is not time spent, so only end the slice here. Counting
+	 * the remainder as elapsed charged a whole slice for every such OUT,
+	 * starving the Z80: the PC-8801mkIIFR demonstration's beach scene, which
+	 * writes E4h on every interrupt, ran about 25 times too slowly.
+	 */
+	void AccountIo(SINT32 before, SINT32 base_before) {
+		const SINT32 dropped = base_before - CPU_BASECLOCK;
+		const SINT32 elapsed = (before - CPU_REMCLOCK) - dropped;
+		if (elapsed > 0) {
+			counter_.past(elapsed);
+		}
+		if (dropped > 0) {
+			counter_.SetRemainclock(counter_.GetRemainclock() - dropped);
+		}
+	}
+
 	void SetMemoryBases() {
 		upd70008_.SetMemoryBases(static_cast<std::uint32_t>(CPU_CS) << 4,
 		                         static_cast<std::uint32_t>(CPU_DS) << 4);
