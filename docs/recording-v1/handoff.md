@@ -1,5 +1,21 @@
 # Recording v1 handoff
 
+## M100s11 CI follow-up — targeted verification pending
+
+Human gate/main integration remain accepted. Original
+[CI 39723588276](https://github.com/nakatamaho/vaeg/actions/runs/39723588276)
+finishes eight jobs successfully but fails Windows fixture path handling and
+source-archive approval of the already recorded instruction-fetch patch.
+The task records exact causes and corrections: test-only CMake path serialization,
+and a source-only exact-path/digest exception, with content/negative tests.
+macOS/Linux suites pass (21/8/17); no emulator, dependency, payload or accepted
+Windows executable changes. The ordinary workflows are unchanged. A manual-only,
+closed-scope workflow rechecks the affected native Windows suites and actual
+source archive; successful unrelated jobs/expensive profiles are retained, not
+rerun or misreported as a new full ten-job pass. Hosted follow-up is **PENDING**.
+All original artifacts/logs/inputs are retained. See the
+[task](../agents/tasks/M100s11_recording_post_mp4.md#ci-follow-up-requested-after-final-status-check).
+
 ## M100s11 accepted handoff — G100s11 PASSED
 
 The maintainer explicitly replied **"passed!"** to the final Windows gate
