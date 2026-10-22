@@ -1,6 +1,6 @@
 # Recording v1 handoff
 
-## M100s11 CI follow-up — targeted verification pending
+## M100s11 CI follow-up — verified
 
 Human gate/main integration remain accepted. Original
 [CI 39723588276](https://github.com/nakatamaho/vaeg/actions/runs/39723588276)
@@ -12,7 +12,21 @@ macOS/Linux suites pass (21/8/17); no emulator, dependency, payload or accepted
 Windows executable changes. The ordinary workflows are unchanged. A manual-only,
 closed-scope workflow rechecks the affected native Windows suites and actual
 source archive; successful unrelated jobs/expensive profiles are retained, not
-rerun or misreported as a new full ten-job pass. Hosted follow-up is **PENDING**.
+rerun or misreported as a new full ten-job pass.
+
+**Hosted follow-up PASSED:** [run 39794085772](https://github.com/nakatamaho/vaeg/actions/runs/39794085772),
+evaluated merge [81f4314a1d47ec87bb6d32db0221f126d8b9789e](https://github.com/nakatamaho/vaeg/commit/81f4314a1d47ec87bb6d32db0221f126d8b9789e).
+Both jobs succeed: archive content/negative tests **17/17**, actual source archive
+**2541 files** accepted; native Windows Python 3.14.8 policy/static suites
+**21/21** and **8/8**. An explicit native-Windows assertion and exact eight-file
+change scope pass. No runtime, dependency, original patch or payload changes.
+
+Index `build/m100s11-ci-followup-39723588276/validation.json`, SHA-256
+`aec574684bf490ded15eb07811df037cc6c6815f4ef6acdd19625f0499ec1a79`.
+Original failed CI remains historical; these two successful affected checks
+supplement its eight completed successes. GitHub's temporary Actions Results
+processing incident delayed status visibility; final complete logs and success
+metadata are retained, without repeating the jobs. **CI follow-up complete.**
 All original artifacts/logs/inputs are retained. See the
 [task](../agents/tasks/M100s11_recording_post_mp4.md#ci-follow-up-requested-after-final-status-check).
 

@@ -1210,7 +1210,55 @@ under `build/m100s11-ci-followup-39723588276/`. The eight successful original jo
 are retained for unchanged production inputs, **not** claimed as newly repeated
 on the fixture-only candidate. A final `[skip ci]` push intentionally avoids a
 second full automatic run; the scoped workflow is dispatched explicitly. Hosted
-follow-up result: **PENDING**, to be recorded with its evaluated SHA, run URL,
-commands/exits and log/index hashes. The human gate is not withdrawn, but CI
-follow-up is not complete until these affected checks pass. No new milestone,
+follow-up result: **SUCCESS**, recorded below with the evaluated SHA, run URL,
+commands/exits and log/index hashes. The human gate is retained. No new milestone,
 release, legal clearance, private artifact publication or executable replacement.
+
+#### Hosted follow-up completed — both affected checks pass
+
+[Scoped run 39794085772](https://github.com/nakatamaho/vaeg/actions/runs/39794085772)
+completes **success**, with **both jobs successful**, on the no-ff follow-up merge
+[81f4314a1d47ec87bb6d32db0221f126d8b9789e](https://github.com/nakatamaho/vaeg/commit/81f4314a1d47ec87bb6d32db0221f126d8b9789e).
+The repair chain is 19991671 (Windows fixtures), 8d1b2fca (recorded source patch),
+f6bfcaa3 (scoped manual workflow), and c5711448 (preflight/scope documentation).
+
+| Actual hosted check | Result |
+|---|---|
+| Git ancestry and exact eight-file allowed-change scope against 27fb328a | exit 0; production sources, build configuration, dependencies, original patch and payloads unchanged |
+| `python3 tests/z80_compat/test_check_zex_archive.py` | exit 0; **17 tests**, all pass |
+| `git archive ... HEAD`; corrected checker `--mode source` | exit 0; **2541 files**, no forbidden artifacts |
+| Native Windows Python 3.14.8 x64, `os.name == 'nt'` | assertion passes; not an MSYS/POSIX-only Python surrogate |
+| `test_mp4_policy.py`, MINGW64/Ninja | exit 0; **21 tests**, all pass |
+| `test_static_ffmpeg.py`, same native Windows environment | exit 0; **8 tests**, all pass |
+
+Actual hosted source-archive SHA-256:
+`8574bd4d1d1369d0aecf891e51b4c37dab4e5928a1b88785f69098b2485e1843`.
+This archive is not uploaded. Logs show the original failure conditions are
+exercised on native Windows and the exact source archive now passes without
+removing or modifying the recorded patch. Edited/relocated patches and runtime
+inclusion remain fail-closed; no checksum or expected error code is relaxed.
+
+Local retained index: `build/m100s11-ci-followup-39723588276/validation.json`,
+SHA-256 `aec574684bf490ded15eb07811df037cc6c6815f4ef6acdd19625f0499ec1a79`.
+It includes evaluated/baseline commits, exact changed paths, original and final
+job metadata, full logs/artifact metadata digests, local 21/8/17 results on both
+hosts, four scope tests, source-archive identities and original worker/executable
+hash checks. Original macOS/Linux workers `c2d9f43c…` / `8adcb443…` and accepted
+Windows executable `7111621c…` remain byte-unchanged. Existing source/media
+workspaces, SDKs, inputs, binaries and every failed diagnostic remain retained.
+
+The initial manual dispatch returned HTTP 404 before the new workflow was
+indexed; after listing/confirming it, **one** dispatch creates this run. During
+observation, Actions APIs temporarily show queued/no steps while GitHub's
+[Actions Results incident](https://stspg.io/44w94j036yc8) reports delayed workflow,
+step-result and repository-update processing. Those responses/status snapshots
+are retained. Subsequent complete logs and completed/success job metadata confirm
+the result; no duplicate dispatch or test rerun is used to mask a failure.
+
+**CI follow-up complete.** This supplements the original eight successful jobs
+and nineteen passing standalone conformance cases; it does **not** rewrite the
+original failed full run or claim a newly repeated ten-job full pipeline.
+The final completion record changes only the three allowed milestone documents;
+fixture/workflow/source-checker inputs and production code stay identical to the
+successful evaluated follow-up. No expensive profile or fresh executable build
+is needed for this report-only update. G100s11 stays PASSED; no next milestone.
