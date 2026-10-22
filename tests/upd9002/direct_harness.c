@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
+#include "io/upd9002_regs.h"
 #include "cpucore.h"
 #include "machine/nevent.h"
 #include "iocore.h"
@@ -136,6 +137,7 @@ static uint32_t hash_ram(uint32_t address, uint32_t size) {
 int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESULT *result) {
 	Upd9002RuntimeState saved_cpu;
 	_DMAC saved_dmac;
+	UPD9002_WCU saved_wcu;
 	uint8_t *saved_ram;
 	uint32_t index;
 
@@ -153,6 +155,9 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 	}
 	saved_cpu = CPU_STATSAVE;
 	saved_dmac = dmac;
+	saved_wcu = upd9002_wcu;
+	/* Instruction-level cases: without the WCU's programmed waits (M130). */
+	upd9002_wcu_legacy();
 	CopyMemory(saved_ram, mem, 0x10000);
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
@@ -173,6 +178,8 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 
 	CPU_STATSAVE = saved_cpu;
 	dmac = saved_dmac;
+	upd9002_wcu = saved_wcu;
+	upd9002_wcu_update();
 	CopyMemory(mem, saved_ram, 0x10000);
 	free(saved_ram);
 	return SUCCESS;

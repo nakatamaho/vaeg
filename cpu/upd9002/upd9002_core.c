@@ -166,6 +166,7 @@ void upd9002_core_step(void) {
 	UINT opcode;
 	BOOL preserve_state;
 	Upd9002RuntimeState state_before;
+	SINT32 remain_before_fetch;
 
 	if (upd9002_diagnostic_pending()) {
 		return;
@@ -175,7 +176,8 @@ void upd9002_core_step(void) {
 	upd9002_trace_step_begin();
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
-	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	remain_before_fetch = UPD9002_REMCLOCK;
+	opcode = upd9002_fetch(CS_BASE + UPD9002_IP);
 	upd9002_current_opcode = (UINT8)opcode;
 	upd9002_perf_record_step(CS_BASE, UPD9002_IP, (UINT8)opcode,
 	                         mem[(CS_BASE + (UINT16)(UPD9002_IP + 1)) & UPD9002_ADRSMASK]);
@@ -183,6 +185,8 @@ void upd9002_core_step(void) {
 	                 (opcode == 0xf2) || (opcode == 0xf3);
 	if (preserve_state) {
 		state_before = upd9002_core_context.s;
+		/* (also the opcode fetch's programmed waits, M130) */
+		state_before.remainclock = remain_before_fetch;
 	}
 	UPD9002_OV = UPD9002_FLAG & O_FLAG;
 	UPD9002_FLAG &= ~(O_FLAG);

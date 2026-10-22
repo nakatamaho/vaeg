@@ -535,7 +535,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index = 0; index < HOSTFAT_SECTOR_SIZE; index++) {
-		if (upd9002_memoryread(destination_address + index) != (BYTE)(index ^ 0x5a)) {
+		if (upd9002_memoryread_nowait(destination_address + index) != (BYTE)(index ^ 0x5a)) {
 			goto transport_cleanup;
 		}
 	}
@@ -549,7 +549,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index = 0; index < HOSTFAT_SECTOR_SIZE; index++) {
-		if (upd9002_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread_nowait(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -595,7 +595,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index = 0; index < HOSTFAT_SECTOR_SIZE; index++) {
-		if (upd9002_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread_nowait(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -614,7 +614,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index = 0; index < HOSTFAT_SECTOR_SIZE; index++) {
-		if (upd9002_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread_nowait(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -925,25 +925,25 @@ static int test_va_ems_board(void) {
 		goto ems_test_cleanup;
 	}
 	iocore_out8(0x08e1, 0);
-	upd9002_memorywrite(0x0c0000, 0x5a);
+	upd9002_memorywrite_nowait(0x0c0000, 0x5a);
 	if ((mem[0x100000] != 0x5a) || (emsio.addr[0] != 0x100000)) {
 		result = fail("VA EMS", "first 16KB page did not map");
 		goto ems_test_cleanup;
 	}
 	iocore_out8(0x08e1, 4);
-	upd9002_memorywrite(0x0c0000, 0xa5);
+	upd9002_memorywrite_nowait(0x0c0000, 0xa5);
 	if ((mem[0x104000] != 0xa5) || (emsio.addr[0] != 0x104000) || (mem[0x100000] != 0x5a)) {
 		result = fail("VA EMS", "page selection did not preserve distinct data");
 		goto ems_test_cleanup;
 	}
 	iocore_out8(0x08e1, 0x10);
-	upd9002_memorywrite(0x0c0000, 0x3c);
+	upd9002_memorywrite_nowait(0x0c0000, 0x3c);
 	if ((CPU_EXTMEM[0x10000] != 0x3c) || (emsio.addr[0] != 0x110000)) {
 		result = fail("VA EMS", "page mapping failed above the 64KB boundary");
 		goto ems_test_cleanup;
 	}
-	upd9002_memorywrite(0x0c0000, 0x96);
-	if ((upd9002_memoryread(0x0c0000) != 0x96) || (CPU_EXTMEM[0x10000] != 0x96)) {
+	upd9002_memorywrite_nowait(0x0c0000, 0x96);
+	if ((upd9002_memoryread_nowait(0x0c0000) != 0x96) || (CPU_EXTMEM[0x10000] != 0x96)) {
 		result = fail("VA EMS", "native VA page-frame access did not map");
 		goto ems_test_cleanup;
 	}
@@ -996,13 +996,13 @@ static int test_va_ems_board(void) {
 		if (pattern == saved_page) {
 			pattern ^= 0xff;
 		}
-		upd9002_memorywrite(0x0c0000 + (frame << 14), pattern);
-		if ((upd9002_memoryread(0x0c0000 + (frame << 14)) != pattern) || (*page_ptr != pattern)) {
+		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), pattern);
+		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) || (*page_ptr != pattern)) {
 			*page_ptr = saved_page;
 			result = fail("VA EMS", "13MB native page-frame test failed");
 			goto ems_test_cleanup;
 		}
-		upd9002_memorywrite(0x0c0000 + (frame << 14), saved_page);
+		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), saved_page);
 		if (*page_ptr != saved_page) {
 			result = fail("VA EMS", "13MB page test did not restore memory");
 			goto ems_test_cleanup;
@@ -4188,12 +4188,12 @@ static int test_statsave(void) {
 			UINT32 mismatched_digest;
 
 			identity_ip = CPU_IP;
-			identity_memory = upd9002_memoryread(0x0400);
+			identity_memory = upd9002_memoryread_nowait(0x0400);
 			mismatched_digest = hostfat_image_digest();
 			ZeroMemory(err, sizeof(err));
 			if ((statsave_check(path1, err, sizeof(err)) != STATFLAG_FAILURE) ||
 			    (strstr(err, "HOSTFAT snapshot") == NULL) || (CPU_IP != identity_ip) ||
-			    (upd9002_memoryread(0x0400) != identity_memory)) {
+			    (upd9002_memoryread_nowait(0x0400) != identity_memory)) {
 				ret = STATFLAG_FAILURE;
 			}
 			ZeroMemory(err, sizeof(err));
@@ -4202,10 +4202,10 @@ static int test_statsave(void) {
 					ret = STATFLAG_FAILURE;
 				} else {
 					CPU_IP ^= 0x0100;
-					upd9002_memorywrite(0x0400, identity_memory ^ 0xff);
+					upd9002_memorywrite_nowait(0x0400, identity_memory ^ 0xff);
 					if ((statsave_load_hostfat_override(path1) != STATFLAG_SUCCESS) ||
 					    (CPU_IP != identity_ip) ||
-					    (upd9002_memoryread(0x0400) != identity_memory) ||
+					    (upd9002_memoryread_nowait(0x0400) != identity_memory) ||
 					    (hostfat_image_digest() != mismatched_digest)) {
 						ret = STATFLAG_FAILURE;
 					}
@@ -4224,13 +4224,13 @@ static int test_statsave(void) {
 	}
 	if (ret == STATFLAG_SUCCESS) {
 		identity_ip = CPU_IP;
-		identity_memory = upd9002_memoryread(0x0400);
+		identity_memory = upd9002_memoryread_nowait(0x0400);
 		ZeroMemory(err, sizeof(err));
 		if ((statsave_check(pathbad, err, sizeof(err)) != STATFLAG_FAILURE) ||
 		    (strstr(err, "retired sound hardware") == NULL) || (CPU_IP != identity_ip) ||
-		    (upd9002_memoryread(0x0400) != identity_memory) ||
+		    (upd9002_memoryread_nowait(0x0400) != identity_memory) ||
 		    (statsave_load(pathbad) != STATFLAG_FAILURE) || (CPU_IP != identity_ip) ||
-		    (upd9002_memoryread(0x0400) != identity_memory)) {
+		    (upd9002_memoryread_nowait(0x0400) != identity_memory)) {
 			ret = STATFLAG_FAILURE;
 		}
 	}

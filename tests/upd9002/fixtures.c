@@ -104,6 +104,7 @@ int upd9002_fixture_verify(const char *path) {
 	FILE *stream;
 	Upd9002StateImage saved_cpu;
 	UPD9002_REGS saved_regs;
+	UPD9002_WCU saved_wcu;
 	uint8_t saved_program[8];
 	char actual[3][FIXTURE_LINE_CAPACITY];
 	char expected[FIXTURE_LINE_CAPACITY];
@@ -115,6 +116,9 @@ int upd9002_fixture_verify(const char *path) {
 	}
 	upd9002_state_export(&saved_cpu);
 	saved_regs = upd9002_regs;
+	saved_wcu = upd9002_wcu;
+	/* CPU-core fixtures: without the WCU's programmed waits (M130). */
+	upd9002_wcu_legacy();
 	CopyMemory(saved_program, mem + 0x2000, sizeof(saved_program));
 	fixture_line("reset", actual[0], sizeof(actual[0]));
 	prepare_executed();
@@ -126,6 +130,8 @@ int upd9002_fixture_verify(const char *path) {
 		return FAILURE;
 	}
 	upd9002_regs = saved_regs;
+	upd9002_wcu = saved_wcu;
+	upd9002_wcu_update();
 	CopyMemory(mem + 0x2000, saved_program, sizeof(saved_program));
 
 	stream = fopen(path, "rb");
