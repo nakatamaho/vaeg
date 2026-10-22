@@ -1089,3 +1089,57 @@ primary checkout and project-local container storage are not disposable mileston
 worktrees. Only a clean temporary merge worktree and the contained local task
 branch are eligible for removal after the integration/roadmap record is pushed.
 Historical OPEN records and failed attempts stay intact.
+
+### Main integration and preservation
+
+- [Gate record f7722d05](https://github.com/nakatamaho/vaeg/commit/f7722d05b78a8faa18d922dcf5c8d04b4454bc47) is pushed on the task branch.
+- [No-ff merge 9920f86d](https://github.com/nakatamaho/vaeg/commit/9920f86d9f776b205c5e3bd42a40a63725e8af0a) has parents
+  `e572796374695dc84cfe4ec6ad7a17cc7795956f` (current main including accepted M129)
+  and `f7722d05b78a8faa18d922dcf5c8d04b4454bc47` (accepted M100s11).
+  The merge is automatic, with no manual production-code conflict resolution.
+  M129's ROM/memory/extra-ROM/text-renderer changes are preserved exactly, and
+  both milestones' selftests remain enabled.
+- The exact candidate tree `10cd30f4807876ff4dc66b04d5906ba6316d3973` is built
+  out of tree in **new** macOS arm64 Debug recording ON/OFF directories; it is
+  verified identical to the merge tree. Accepted build roots are not rebuilt or
+  overwritten. These integration binaries are test artifacts, not a new clean
+  Windows handoff or a replacement for the accepted 16ed03ee executable.
+- `cmake --build` and full `ctest --output-on-failure` each exit **0** for both
+  profiles: **140 / 131** listed, **0 failures**, **9 skips each**. Counts include
+  18 bundled xz dependency tests from the ADR-pinned FetchContent archive stack;
+  five optional xz-tool cases skip, as do four pre-existing private/hardware/media
+  opt-ins. Those skips are not physical-device or private-corpus passes.
+  Recording, screenshot rotation, full selftest and M129 TSP SYNC reverse checks
+  pass together. This is macOS software regression evidence, not native Windows
+  or physical Linux testing of the integrated binary.
+- `check_encoding.py`: `0 finding(s)`; `check_eol.py`: `0 finding(s)`;
+  `check_case.py`, `check_md_comments.py`, unstaged/staged `git diff --check`:
+  exits **0**. `upd9002_native_invariant.py --root <merge-worktree>` exits **0**:
+  `presets=15 core=upd9002 selectors=absent`, lifecycle checks pass,
+  `block-executors=absent cpu-exec-macros=absent`.
+- Two runner invocation mistakes are retained honestly: initial configure exits
+  1 without the required integration-trace option; after adding that option the
+  two full profiles pass, but the final invariant command exits 2 without its
+  required `--root`. Only that remaining invariant/hash/whitespace tail is
+  resumed, exit **0**, against the identical tree; completed profiles do not
+  repeat. Neither is an emulator defect or a weakened validator.
+
+Local integration index: `build/m100s11-integration/validation.json`, SHA-256
+`b124721dc8241d77989e4984d9b15529cc9ef1c16f32744b1512ed246038295b`.
+It records tree/parents, commands, build/cache/log/binary digests, exact skips,
+failed setup and corrected tail. The original macOS/Linux export workers still
+match `c2d9f43c…` / `8adcb443…`; worker/build-script and screenshot-helper sources
+are unchanged, while the integrated frontend includes the separately tested M129
+changes. Old media indices and accepted Windows binary also retain their digests. Their
+expensive profiles are retained, not claimed as newly repeated on the new
+integration worker. No unchanged media regeneration, SST campaign or hosted
+iteration is used.
+
+After the merge and this documentation-only integration record are pushed,
+remove only the clean temporary merge worktree and its local branch, and the
+original task's local branch after confirming containment in `origin/main`.
+Keep the primary checkout on main, the remote task branch, every accepted and
+superseded MinGW directory/executable/report, SDK, source/media workspace, failed
+attempt, diagnostic and shared/project-local container cache. This follows the
+prior explicit preservation request; no user-supplied PSD/archive/media or
+private reference-tree file is removed. **M100s11 complete; no next task.**

@@ -71,6 +71,20 @@ toolchains remain preserved. **G100s11 PASSED; normal main integration authorize
 Preserve all previous artifacts/build roots/SDKs and user inputs below as already
 requested. Older OPEN checkpoints remain historical, not current gate status.
 
+Integrated with `--no-ff` at
+[9920f86d9f776b205c5e3bd42a40a63725e8af0a](https://github.com/nakatamaho/vaeg/commit/9920f86d9f776b205c5e3bd42a40a63725e8af0a),
+retaining the accepted M129 main changes. New macOS recording ON/OFF integration
+builds and full CTest pass (140/131 listed, zero failures, nine declared skips
+each); repository/native invariants pass. Index
+`build/m100s11-integration/validation.json`, SHA-256
+`b124721dc8241d77989e4984d9b15529cc9ef1c16f32744b1512ed246038295b`.
+See the task for dependency-test counts, preserved runner invocation failures and
+precise reuse scope. The accepted Windows artifact above remains in its original
+location; no integration Windows build/runtime or unrelated export/media rerun is
+inferred. Retained build roots/SDKs/evidence are exempt from cleanup as requested;
+only the contained local task branches and clean temporary merge worktree are
+removed after push. The primary checkout stays, on main.
+
 ## Screenshot rotation component accepted — 97259966
 
 Maintainer-added gate: at display right 90 degrees, both screenshot menu entries

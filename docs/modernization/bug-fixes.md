@@ -63,7 +63,9 @@ land.
   not establish independent output hashes or coverage of every GPU/backend.
 - **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
   [handoff](../recording-v1/handoff.md). The screenshot requirement is explicitly
-  added to G100s11; the overall gate remains OPEN.
+  added to G100s11; the overall human gate is subsequently
+  [accepted by the maintainer](https://github.com/nakatamaho/vaeg/commit/f7722d05b78a8faa18d922dcf5c8d04b4454bc47).
+  Other physical GPUs/backends remain unverified.
 
 ### M100s11 — Windows MP4 rejected after successful finalization by redundant Close
 
@@ -88,7 +90,10 @@ land.
   After the corrected application handoff, the maintainer reports that compression
   now succeeds, and subsequently confirms audio playback. This is native user
   feedback, not an independently collected target-binary hash, full decode/seek, corrected sixteen-case
-  probe result or a completed G100s11 gate. No private media is published.
+  probe result. That component feedback alone did not complete G100s11;
+  the later [final gate record](https://github.com/nakatamaho/vaeg/commit/f7722d05b78a8faa18d922dcf5c8d04b4454bc47)
+  records maintainer acceptance of playback/seek and the standard human checklist,
+  not an independent Windows decode/quality corpus. No private media is published.
 - **Task/evidence:** [M100s11](../agents/tasks/M100s11_recording_post_mp4.md),
   [application/probe handoff](../recording-v1/handoff.md).
 
@@ -3625,8 +3630,11 @@ separate parity correction or move it to Open Defects.
   Its independent root cause was not established; do not attribute a separate
   codec/geometry or Finalize correction to this evidence. Preserve the observation
   for monitoring and collect an exact error if it returns. Audio playback is
-  now confirmed by the maintainer; full decode/seek and the milestone's other
-  human gates remain pending.
+  now confirmed by the maintainer; the later
+  [final human gate](https://github.com/nakatamaho/vaeg/commit/f7722d05b78a8faa18d922dcf5c8d04b4454bc47)
+  also accepts playback/seek and standard V3/demo/OS operations. This does not
+  resolve the earlier report's independent cause or provide an automated Windows
+  decode/quality corpus. Continue monitoring rather than claiming a separate fix.
   [M100s11 task/handoff](../agents/tasks/M100s11_recording_post_mp4.md).
 
 ### M100s2 — unrelated signed-arithmetic sanitizer diagnostics during guest reproduction
