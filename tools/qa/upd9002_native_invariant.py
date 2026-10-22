@@ -76,6 +76,7 @@ EXPECTED_PRESETS = {
     "macos-macports",
     "macos-asan",
     "macos-ci",
+    "public-codec-policy",
 }
 
 
