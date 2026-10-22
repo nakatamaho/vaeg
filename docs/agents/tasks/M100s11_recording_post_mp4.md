@@ -938,3 +938,110 @@ accepted. No unchanged MP4 export, SST, full demo matrix or Windows build was
 rerun: application/worker inputs and the 16ed03ee clean handoff are unchanged.
 Repository encoding/EOL/case/Markdown/whitespace checks pass. **G100s11 OPEN**;
 no merge, cleanup, distribution/legal approval or next milestone.
+
+### Supplied PSD — full six-component source closure verified
+
+The maintainer supplied the PSD input and authorized its use for the remaining
+build check. The original PSD remains byte-unchanged; a neutral local copy is used
+inside the task container. No PSD identity/hash, raw artwork, generated atlas or
+private capture is published. Tool source remains the clean clone of pushed
+16ed03ee; at follow-up HEAD
+[ef9309eb99a4734dfd89a597b1d223421bcc37a5](https://github.com/nakatamaho/vaeg/commit/ef9309eb99a4734dfd89a597b1d223421bcc37a5),
+`git diff --exit-code 16ed03ee HEAD -- demos tools` is empty (exit 0).
+
+Local evidence: `build/m100s11-media-gate-16ed03ee/psd-followup.json`, SHA-256
+`d47450fea9280f633e4ee629307c9fe4f8cb2066d8954be2e3815a658ade61ee`.
+It retains source/tool/result identities, exact commands/exits, image/log hashes,
+round trips, all file-map comparisons and prior-evidence identities. Earlier
+indices and the failed attempts below are preserved, not overwritten as passes.
+
+#### Reproducing toolchain and successful PSD build
+
+The first macOS build completes but fails exact payload comparison: its
+ImageMagick path is not the committed psd-tools rendering (already documented in
+the demo README), and it uses NASM 3.01. Both stored payloads differ. An Ubuntu
+apt-only run with NASM 2.16.01, psd-tools 1.9.30, Pillow 10.2.0 and NumPy 1.26.4
+reproduces `ZUNDAORB.COM` exactly but not `ZUNDAMON.BIN`. Those outputs/logs remain
+available. No expected hash, pixel tolerance, profile table or distribution was
+changed to accept either mismatch.
+
+An isolated Linux virtual environment reproduces **both stored files exactly**:
+Python 3.12.3, NASM 2.16.01, psd-tools 1.26.0, Pillow 13.0.0, NumPy 2.5.4.
+The dependency resolver report retains package/wheel hashes. These are tested
+combinations, not an isolated proof that any single PSD library caused the
+variation. The [demo README](../../../demos/zundamon-orbit/README.md) now records
+the known-good recipe; no generator or emulator code changes.
+
+Exact successful command, inside the existing task-local Ubuntu container with
+no ImageMagick executable in PATH:
+
+```sh
+cd /gate/checkout
+demos/zundamon-orbit/build-from-psd.sh \
+  --python /gate/psd-tools-env/bin/python \
+  /gate/inputs/artwork-source.psd /gate/inputs/system-b.d88 \
+  /gate/images/psd-followup/gate-zundamon-orbit-pip.d88
+```
+
+**Exit 0.** All three tracked IDA profile tables regenerate and compare exactly.
+The resulting disk has precisely `ZUNDAORB.COM` and `ZUNDAMON.BIN`, both
+byte-identical to the committed Zundamon distribution. Compressed output
+round-trips to its generated raw D88. Generated raw/compressed files remain in
+the task work/clean clone, not the maintained tree or Git index.
+
+#### Aggregates now use all source-built components
+
+The five previously completed component builds are reused only after checking
+unchanged source/commands, preserved raw-image digests and compressed-to-raw
+round trips. All their payloads are rechecked against the committed component
+archives. A **new** aggregate-input directory receives those five source-built
+archives plus the **new PSD-built** Zundamon archive; no committed component
+archive substitutes for a missing source build now.
+
+From the clean clone, using that new distribution directory and new raw and
+compressed paths under `images/psd-followup` / `distributions-psd-followup`:
+
+- `build-all-demos-distribution-disk.py`: **exit 0**; all **19** stored files
+  match the committed all-demos disk byte-for-byte.
+- `build-all-demos-msdos4-disk.py`: **exit 0**; pinned MS-DOS source, boot/system
+  file/license checks and all **25** file comparisons pass. The **entire raw
+  image** equals both the committed disk and the earlier runtime-tested image.
+- `build-all-demos-bootable-disk.py`: **exit 0**; the new local PC-Engine bootable
+  image has identical file contents and boot sector to the earlier guest-tested
+  image. Whole-image bytes differ because current FAT timestamps differ; no
+  whole-image identity is claimed for this PC-Engine case.
+
+Produced raw image SHA-256 values:
+
+| Image | SHA-256 |
+|---|---|
+| PSD-built Zundamon | `f947894a075eee708831d904ef2f71e370d5253102d75584acd248d63ce9f4c6` |
+| all-demos | `5c83860884a324b3e77b35945b052c20057f1f187e84a78eca261561438b538d` |
+| all-demos-msdos4 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| PC-Engine bootable all-demos | `e6ef659d56a35f380016a5995ed06e282f003473c9d1d1c9636a8f181fb973c9` |
+
+Non-bootable data-disk raw bytes can also differ from the committed image's FAT
+timestamps; the contract requires exact payload maps, not falsified raw hashes.
+The self-booting SGP whole-image comparison remains the earlier passing result.
+
+One additional ROM-aware macOS dummy/software guest run boots the new PC-Engine
+image, changes to `\ZUNDAMON` and starts the program. Frame-4000 and frame-6000
+captures visibly draw its sprites; process **exit 0**, input image unchanged.
+The binary still has SHA-256 `bb10a9c8…`. Earlier 17-program-per-OS observations
+are retained for unchanged program/data payloads; the MS-DOS runtime media is
+also byte-identical. This is not a claimed rerun of all 34 programs on the new
+PC-Engine raw image, nor physical GPU or native Windows acceptance.
+
+**Resolved:** PSD source availability and exact Zundamon regeneration, the
+previous committed-Zundamon aggregate limitation, and all required media-input
+blockers. Utility FDD, both SASI builds/model boots, demo source builds and
+payload checks now have their recorded local results. No committed distribution
+needs replacement because all fresh payloads match. Previous CP/M/SASI evidence
+and all original inputs remain intact.
+
+**G100s11 remains OPEN:** native Windows full decode/seek/quality and missing-MF,
+physical Linux GPU/Wayland and remaining maintainer human acceptance. No new
+emulator code, codec/backend change, legal/distribution approval, milestone merge,
+cleanup or next task. The 16ed03ee Windows handoff and completed MP4 export tests
+remain valid for unchanged application inputs; no unnecessary SDK/build/export
+or unrelated expensive profile is repeated. Repository invariant checks pass.

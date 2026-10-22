@@ -15,12 +15,18 @@ Standard helper exit 0; static/import/codec audits pass, OS MP4 ON and local-onl
 static encoders OFF. The app's production inputs are unchanged from the accepted
 screenshot build; this is not a newly observed native Windows execution.
 
-Clean-clone five-component demo rebuilds and payload comparisons pass; self-booting
-SGP raw image matches. Both aggregates' payloads match, but their Zundamon input
-is the committed archive, **not** a fresh PSD rebuild. Utility FDD build/boot/DIR
-passes. ROM-aware macOS dummy/software runs visibly draw all 17 programs on each
+All six component distributions now have clean-clone source-build evidence,
+including the supplied PSD, and their payloads match the committed archives.
+The five unchanged prior source builds are reused by identity, not rebuilt again.
+Both aggregates have been rebuilt with the fresh PSD component: all-demos matches
+all 19 payloads; all-demos-msdos4 matches all 25 files and the whole raw image.
+Self-booting SGP raw-image equality and utility FDD build/boot/DIR also pass.
+Prior ROM-aware macOS dummy/software runs visibly draw all 17 programs on each
 OS after correct-CWD/loading-bound follow-ups, boot/select the SGP demo, render
 the bundled VA demo title and start MANDEL.BAS (partial rows, not full completion).
+An additional fresh-PSD PC-Engine run visibly draws Zundamon at frames 4000/6000.
+No full 34-program rerun is claimed; unchanged payloads and byte-identical MS-DOS
+media retain the previous evidence.
 These agent observations do not establish physical GPU or human-gate acceptance.
 
 **CP/M/SASI follow-up completed:** the maintainer supplied four locked CP/M
@@ -33,9 +39,9 @@ accept DIR and return Ready (both exit 0). These use explicit isolated backup
 paths so normal BIOS fixed-disk selection initializes; earlier `--no-bkupmem`
 attempts are retained as unsuccessful fixtures, not boot passes.
 
-**Gate still OPEN:** PSD-based Zundamon source regeneration is unavailable.
-Native Windows full decode/seek/quality/missing-MF, physical Linux GPU/Wayland and
-remaining maintainer human acceptance also stay open. CP/M/SASI checks above use
+**Media-source/input blockers are resolved. Gate still OPEN:** native Windows
+full decode/seek/quality/missing-MF, physical Linux GPU/Wayland and remaining
+maintainer human acceptance stay open. CP/M/SASI checks above use
 macOS SDL dummy/software, not physical hardware or new Windows execution.
 Full commands, image hashes, preserved failures and scope are in the
 [M100s11 task](../agents/tasks/M100s11_recording_post_mp4.md).
@@ -45,7 +51,12 @@ Follow-up evidence `build/m100s11-media-gate-16ed03ee/cpm-sasi-followup.json`,
 SHA-256 `3572a2f0b0550360308f52a5186bbcbd3e24991f4784ff274c90915908b001da`.
 The original index is retained as historical; its CP/M/SASI blockers are resolved
 by this supplement. No generated disk, private capture or license cache is
-published. **G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
+published. PSD/source-closure evidence
+`build/m100s11-media-gate-16ed03ee/psd-followup.json`, SHA-256
+`d47450fea9280f633e4ee629307c9fe4f8cb2066d8954be2e3815a658ade61ee`.
+The exact reproducing PSD/assembler versions are recorded in the task and
+[demo build guide](../../demos/zundamon-orbit/README.md); unsuccessful alternate
+toolchains remain preserved. **G100s11 OPEN; no merge or cleanup.** Preserve all previous artifacts below.
 
 ## Screenshot rotation component accepted — 97259966
 

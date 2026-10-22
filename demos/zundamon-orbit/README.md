@@ -61,6 +61,28 @@ that the tracked tables regenerate from it, and writes
 
 Requirements: Python 3, NASM, and ImageMagick `convert` or psd-tools.
 
+For **byte-identical distribution checks**, M100s11 verified this isolated
+Ubuntu 24.04 toolchain: Python 3.12.3, NASM 2.16.01, psd-tools 1.26.0,
+Pillow 13.0.0 and NumPy 2.5.4. An isolated environment can pin the Python tools:
+
+```sh
+python3 -m venv /path/to/psd-env
+/path/to/psd-env/bin/pip install \
+  psd-tools==1.26.0 Pillow==13.0.0 numpy==2.5.4
+```
+
+Use `build-from-psd.sh --python /path/to/psd-env/bin/python` in an environment
+with NASM 2.16.01 and **no `convert` in PATH**, as in the verified Linux run.
+Alternatively, the step-by-step atlas command below accepts
+`--decoder psd-tools` explicitly. `NASM` may select the assembler executable.
+Do not assume arbitrary decoder/library/assembler versions reproduce the
+committed bytes: the macOS ImageMagick/NASM 3 combination and Ubuntu's older
+psd-tools 1.9.30/Pillow 10.2.0/NumPy 1.26.4 stack did not. This is a known-good
+reproduction recipe, not a claim that every listed version is individually
+necessary or that one particular PSD library caused the differences. The M100s11
+comparison still requires exact equality of both stored payloads, not a visual
+approximation or a relaxed checksum.
+
 Build the replaceable atlas:
 
 ```sh
