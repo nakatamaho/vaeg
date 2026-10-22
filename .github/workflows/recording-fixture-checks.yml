@@ -1,0 +1,95 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Manual, narrowly scoped M100s11 follow-up. The ordinary build/release
+# workflows are unchanged. Reuse their completed emulator/SST/SDK results only
+# when the original evaluated tree differs at exactly these fixture/report paths.
+name: recording fixture checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-archive:
+    name: recorded source archive and fixture-only scope
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require unchanged emulator, dependencies and original patch
+        run: |
+          baseline=27fb328a869e3ba2220ab2bdb346d6f9b29ff9e8
+          git merge-base --is-ancestor "$baseline" HEAD || { echo M100S11_FOLLOWUP_BASELINE; exit 1; }
+          git diff --exit-code "$baseline" HEAD -- . \
+            ':(exclude).github/workflows/recording-fixture-checks.yml' \
+            ':(exclude)tests/frontend/recording/test_mp4_policy.py' \
+            ':(exclude)tests/frontend/recording/test_static_ffmpeg.py' \
+            ':(exclude)tests/z80_compat/check_zex_archive.py' \
+            ':(exclude)tests/z80_compat/test_check_zex_archive.py' \
+            ':(exclude)docs/agents/tasks/M100s11_recording_post_mp4.md' \
+            ':(exclude)docs/agents/ROADMAP.md' \
+            ':(exclude)docs/recording-v1/handoff.md' || { echo M100S11_FOLLOWUP_SCOPE; exit 1; }
+      - name: Focused archive content and negative tests
+        run: python3 tests/z80_compat/test_check_zex_archive.py
+      - name: Check actual candidate source archive
+        run: |
+          git archive --format=tar.gz --output="$RUNNER_TEMP/vaeg-source.tar.gz" HEAD
+          python3 tests/z80_compat/check_zex_archive.py --mode source "$RUNNER_TEMP/vaeg-source.tar.gz"
+          sha256sum "$RUNNER_TEMP/vaeg-source.tar.gz"
+
+  windows-fixtures:
+    name: native Windows recording policy and static resolver fixtures
+    needs: source-archive
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          # Same native Python version as the original failing compatibility job.
+          python-version: '3.14.8'
+          architecture: x64
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+      - name: Run the exact failing suites with native Windows paths
+        env:
+          CMAKE_GENERATOR: Ninja
+          VAEG_ENABLE_LOCAL_MP4_ENCODERS: 'OFF'
+        run: |
+          python="$(cygpath -u '${{ steps.python.outputs.python-path }}')"
+          "$python" -c 'import os, sys; print(sys.version); print(sys.executable); assert os.name == "nt", "native Windows Python required"'
+          cmake --version
+          cc --version
+          "$python" tests/frontend/recording/test_mp4_policy.py
+          "$python" tests/frontend/recording/test_static_ffmpeg.py
