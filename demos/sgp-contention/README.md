@@ -63,43 +63,38 @@ type `SGPCONT`.
 
 ## Results (2026-10-23)
 
-GG's BENCH2 on the machines (same loops; its VRTC handler does a little
-more work than this program's), and SGPCONT in vaeg after M130:
+SGPCONT photographed on the machines, and in vaeg after M130:
 
 | Row | VA | VA2 | vaeg VA | vaeg VA2 |
 |---|---:|---:|---:|---:|
-| A CPU | 3466 | 3495 | 2994 | 2994 |
-| B RAM AND OR | 1491 | 1471 | 1471 | 1528 |
-| C G0 READ | 2074 | 2083 | 1947 | 1947 |
-| D G0 WRITE | 2429 | 2454 | 2431 | 2431 |
-| E G0 AND OR | 1397 | 1400 | 1392 | 1392 |
-| F STOSW G0 | 23950 | 24153 | 23204 | 23204 |
-| G MOVSW RAM G0 | 13751 | 15224 | 13765 | 15251 |
-| H G1 READ | 1865 | 1866 | 1947 | 1947 |
-| I G1 WRITE | 2428 | 2452 | 2432 | 2432 |
-| J G1 AND OR | 1347 | 1371 | 1321 | 1321 |
-| K STOSW G1 | 23950 | 24153 | 23204 | 23204 |
-| L SGP 30 SPRITES | 562 | 908 | 597 | 944 |
-| M SGP WITH RAM | 566 | 900 | 596 | 943 |
-| N RAM WITH SGP | 990 | 706 | 1080 | 766 |
-| O SGP WITH G1 | 568 | 895 | 592 | 934 |
-| P G1 WITH SGP | 1774 | 1118 | 1702 | 1167 |
-| Q CPU CLEAR 30 | 2463 | 2488 | 2583 | 2583 |
+| A CPU | 3050 | 3068 | 2994 | 2994 |
+| B RAM AND OR | 1440 | 1478 | 1471 | 1528 |
+| C G0 READ | 2084 | 2093 | 1947 | 1947 |
+| D G0 WRITE | 2441 | 2466 | 2431 | 2431 |
+| E G0 AND OR | 1404 | 1407 | 1392 | 1392 |
+| F STOSW G0 | 24062 | 24259 | 23204 | 23204 |
+| G MOVSW RAM G0 | 13819 | 15297 | 13765 | 15251 |
+| H G1 READ | 1875 | 1875 | 1947 | 1947 |
+| I G1 WRITE | 2440 | 2464 | 2432 | 2432 |
+| J G1 AND OR | 1354 | 1378 | 1321 | 1321 |
+| K STOSW G1 | 24062 | 24259 | 23204 | 23204 |
+| L SGP 30 SPRITES | 562 | 908 | 597 | 945 |
+| M SGP WITH RAM | 568 | 899 | 596 | 920 |
+| N RAM WITH SGP | 958 | 674 | 1080 | 747 |
+| O SGP WITH G1 | 571 | 900 | 592 | 934 |
+| P G1 WITH SGP | 1785 | 1125 | 1702 | 1109 |
+| Q CPU CLEAR 30 | 2478 | 2501 | 2583 | 2583 |
 | R SGP CLEAR 30 | 616 | 989 | 661 | 1035 |
 
-Row A depends on where the loop lies (prefetch): GG's build gives 3519 in
-vaeg on both models. GG's build in vaeg after M130 gives N 1074 / 762 and
-P 1690 / 1161 (VA / VA2); before the contention model, 1229 / 1111 and
-1896 / 1653.
-
-- Two screens cost the CPU nothing: G0 and G1 are as fast as the single
-  screen of GG's BENCH (GV read 1865, write 2428, AND-OR 1347 on the VA).
-- While the SGP draws, the CPU loses about 0.31 of its time on the VA
-  (N/B 0.66, P/I 0.73) and 0.53 on the VA2 (0.48, 0.46); the SGP is not
-  slowed by the CPU (M, O against L). SGPBENCH and SPRBENCH give the same
-  shares on the VA2 for a compute loop and for 16- to 128-dot sprites.
-- The CPU clears 16x16 rectangles about four times (VA) and three times
-  (VA2) as fast as the SGP.
-
-SGPCONT itself has not yet been run on the machines; its photographs
-would replace the first two columns.
+- On both machines the stripes show through the sprites' holes, in set
+  0's colours, under the sprites in set 1's.
+- Two screens cost the CPU nothing: G0 and G1 are as fast as one screen
+  (GG's BENCH on the VA: GV read 1865, write 2428, AND-OR 1347).
+- While the SGP draws, the CPU keeps 0.67 (N/B) and 0.73 (P/I) of its work
+  on the VA, 0.46 and 0.46 on the VA2; the SGP is not slowed by the CPU (M,
+  O against L). GG's BENCH2, with the same loops, gave the same shares.
+- The CPU clears 16x16 rectangles about four times (VA) and two and a half
+  times (VA2) as fast as the SGP.
+- vaeg, divided by the machine and by its own row without the SGP (B, I):
+  N 1.10 / 1.07, P 0.96 / 1.00 (VA / VA2); before M130's contention model
+  1.23 / 1.57 and 1.08 / 1.51.

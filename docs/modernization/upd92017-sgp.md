@@ -808,7 +808,7 @@ model to these figures.
 
 CPU and SGP together (M130; `demos/sgp-contention`, with SGPBENCH and
 SPRBENCH): while the SGP is busy the CPU loses about 0.31 of its time on
-the VA and 0.53 on the VA2, nearly the same for a compute loop, main RAM
+the VA and 0.55 on the VA2, nearly the same for a compute loop, main RAM
 work, GVRAM writes and for 16x16 to 128x128 transfers (VA2 0.42-0.57; VA
 0.27-0.34). The SGP is not slowed by the CPU (within 1%). Two screens
 (G0 over G1) do not slow the CPU's GVRAM accesses.
@@ -836,7 +836,7 @@ it deducted a fixed four CPU clocks for every SGP memory access, with no
 measurement behind it: the CPU's loss grew with the SGP's access rate and
 came to about 0.2-0.3 of the time on both models. Since M130, every CPU
 instruction executed while the SGP is busy is stretched by share / (1 -
-share), share 80/256 on the VA and 136/256 on the VA2 (`io/sgp.c`), so
+share), share 80/256 on the VA and 142/256 on the VA2 (`io/sgp.c`), so
 that the CPU gets the measured part of the time; the SGP's speed is
 unchanged. This is a time-share model fitted to the benchmarks, not a bus
 arbitration model.
@@ -872,7 +872,7 @@ A staged emulator strategy is:
 | Unknown command after `000Ch` | Manual says thirteen commands but identifies twelve opcodes | `000Dh` and above are rejected as unknown | Do not invent the missing opcode |
 | VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
 | Clock | No recovered primary table | Nominal 3.9936/7.9872MHz; setup, BITBLT and CLS costs scaled per model to SGPBENCH 2 (M128) | Calibrated to within about 2% for BITBLT and CLS; LINE/SCAN unmeasured |
-| Contention | Shared-memory waits | CPU time share while the SGP is busy, per model, fitted to SGPCONT, SGPBENCH and SPRBENCH (M130) | Not a cycle model; overlap timings in vaeg 0.88-1.05 of the machines |
+| Contention | Shared-memory waits | CPU time share while the SGP is busy, per model, fitted to SGPCONT, SGPBENCH and SPRBENCH (M130) | Not a cycle model; overlap timings in vaeg 0.90-1.10 of the machines |
 
 ### 19.1 Functions outside the SGP command set
 

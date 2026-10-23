@@ -1323,18 +1323,19 @@ separate parity correction or move it to Open Defects.
   machines give (#38).
 - **Demonstrated cause:** `io/sgp.c` charged the CPU a fixed four clocks
   for every SGP memory access, a value with no measurement (its own
-  comment). On the machines the CPU loses about 0.31 (VA) and 0.53 (VA2)
+  comment). On the machines the CPU loses about 0.31 (VA) and 0.55 (VA2)
   of the time the SGP is busy, nearly independent of what the CPU does
   and of the transfer size; the fixed charge gave 0.2-0.3 on both and grew
   with the SGP's access rate.
 - **Correction:** the per-access charge is removed; each CPU instruction
   executed while the SGP is busy is stretched by share / (1 - share),
-  share 80/256 (VA) and 136/256 (VA2). The SGP's own speed is unchanged.
+  share 80/256 (VA) and 142/256 (VA2). The SGP's own speed is unchanged.
   New demo `demos/sgp-contention` (SGPCONT.COM) repeats the measurement.
-- **Verification:** GG's BENCH2 in vaeg against the photographs, divided
-  by the same loop without the SGP: CPU work with the SGP 0.96-1.04 (VA)
-  and 0.98-1.05 (VA2) (main RAM was 1.19 / 1.43); SGPBENCH's overlap rows 1.02-1.03 (VA) and
-  0.88-1.03 (VA2) (were 0.94-1.03 and 0.80-0.90); SPRBENCH's SGP25-75
+- **Verification:** SGPCONT and GG's BENCH2 in vaeg against the
+  photographs, divided by the same loop without the SGP: CPU work with the
+  SGP 0.96-1.10 (VA) and 0.96-1.07 (VA2) (were 1.07-1.23 and 1.43-1.57);
+  SGPBENCH's overlap rows 1.02-1.03 (VA) and 0.90-1.04 (VA2) (were
+  0.94-1.03 and 0.80-0.90); SPRBENCH's SGP25-75
   columns between its CPU-only and SGP-only ratios at every size. ctest
   112/112; `--selftest` passes.
 - **Milestone/task/commit:** M130,

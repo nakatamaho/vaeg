@@ -1607,7 +1607,7 @@ static void fetch_command(void) {
  * CPU's loss is a share of the time the SGP is busy, about the same for
  * compute loops, main RAM and GVRAM work and for 16x16 to 128x128
  * transfers (demos/sgp-contention, SGPBENCH, SPRBENCH on both models):
- * about 0.31 on the PC-88VA and 0.53 on the PC-88VA2 (1/256 units below).
+ * about 0.31 on the PC-88VA and 0.55 on the PC-88VA2 (1/256 units below).
  * The SGP itself is not slowed by the CPU (within 1%). Each CPU instruction
  * executed while the SGP is busy is stretched by share / (1 - share): its
  * clocks plus the delay make the time it took with the SGP running. This
@@ -1617,7 +1617,7 @@ static void fetch_command(void) {
  */
 #ifndef SGP_CPU_SHARE_VA
 #define SGP_CPU_SHARE_VA 80
-#define SGP_CPU_SHARE_VA2 136
+#define SGP_CPU_SHARE_VA2 142
 #endif
 
 static void sgp_cpu_share(UINT32 past) {

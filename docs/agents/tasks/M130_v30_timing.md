@@ -130,7 +130,7 @@ Branch `topic/m130-sgp-contention` (on `topic/m130-wcu-memory-waits`).
   to 128-dot sprites; on the VA they bound it below 0.35.
 - `[CODE]` `io/sgp.c`: the fixed four CPU clocks per SGP memory access
   removed; `sgp_step()` stretches each CPU instruction executed while the
-  SGP is busy by share / (1 - share), share 80/256 (VA) and 136/256 (VA2),
+  SGP is busy by share / (1 - share), share 80/256 (VA) and 142/256 (VA2),
   remainder carried (`sgp.cpudelay`, `sgp.cpudelayfrac` in the state's
   spare bytes). A per-access charge fitted to the 16x16 lists (6 and 7
   clocks) made SPRBENCH's SGP75 column 1.10-1.28 slow at 64 and 128 dots;
@@ -139,17 +139,20 @@ Branch `topic/m130-sgp-contention` (on `topic/m130-wcu-memory-waits`).
 
 | Benchmark | VA | VA2 | before |
 |---|---|---|---|
-| BENCH2 CPU with the SGP (N, P), after baseline | 0.96-1.04 | 0.98-1.05 | 1.07-1.19 / 1.43-1.50 |
-| SGPBENCH overlap rows (time) | 1.02-1.03 | 0.88-1.03 | 0.94-1.03 / 0.80-0.90 |
-| SPRBENCH SGP25-75 (time) | 0.90-0.99 | 0.90-1.00 | 0.86-0.99 / 0.85-1.01 |
+| SGPCONT and BENCH2, CPU with the SGP (N, P), after baseline | 0.96-1.10 | 0.96-1.07 | 1.07-1.23 / 1.43-1.57 |
+| SGPBENCH overlap rows (time) | 1.02-1.03 | 0.90-1.04 | 0.94-1.03 / 0.80-0.90 |
+| SPRBENCH SGP25-75 (time) | 0.90-0.99 | 0.90-1.02 | 0.86-0.99 / 0.85-1.01 |
 
-  SPRBENCH's split columns now lie between its CPU column (0.89-0.91,
-  #47) and its SGP column (0.95-1.00) at every size.
+  SPRBENCH's split columns lie between its CPU column (0.89-0.91, #47)
+  and its SGP column (0.95-1.00), within 0.02. The VA2 share was 136/256
+  until SGPCONT's own photographs (2026-10-23), which gave N 10% fast.
+  On the VA, N (1.04-1.10) and P (0.96) pull apart: one share cannot fit
+  both closer.
 - `demos/sgp-contention`: SGPCONT.COM, the same 18 rows as BENCH2 with
   the same loops, segments and lists, standalone (`build.sh`, font from
-  `gen_font.py`); in vaeg it gives the figures of its README. Its own run
-  on the machines is pending. Not on the all-demos disks (no committed
-  disk changes).
+  `gen_font.py`); photographed on the VA and VA2 (2026-10-23: the
+  transparency picture correct on both), figures in its README. Not on
+  the all-demos disks (no committed disk changes).
 
 ## Media and demo regression
 
