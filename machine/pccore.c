@@ -200,10 +200,12 @@ void pccore_set_cpu_speed(UINT percent) {
 	pccore_cpu_speed_value = percent;
 	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
-	/* The uPD9002 runs compatible (Z80) code on the same clock as native V30
-	 * code, so the CPU clock multiplier applies to both: x1 (3.9936 MHz) runs
-	 * PC-8801 software at half the standard x2 rate. */
-	clockscale_configure(&pccore_compat_scale, PCCORE_STANDARD_MULTIPLE * 100,
+	/* Compatible (Z80) code runs at the V1/V2 speed chosen with H/S: H at the
+	 * standard 7.9872 MHz, S at half of it (3.9936 MHz, the PC-8801's
+	 * standard speed). The CPU clock multiplier and speed then adjust it as
+	 * they do V30 code: x1 halves either rate. */
+	clockscale_configure(&pccore_compat_scale,
+	                     PCCORE_STANDARD_MULTIPLE * 100 * (np2cfg.v1v2_standard ? 2 : 1),
 	                     pccore_cpu_multiple_value * percent);
 }
 
@@ -217,6 +219,11 @@ UINT pccore_cpu_multiple(void) {
 
 UINT32 pccore_cpu_clock(void) {
 	return (pccore.baseclock * pccore_cpu_multiple_value);
+}
+
+/* Effective clock of compatible (Z80) code: the V30 clock, halved in S. */
+UINT32 pccore_compat_cpu_clock(void) {
+	return (pccore_cpu_clock() / (np2cfg.v1v2_standard ? 2 : 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +483,7 @@ void pccore_reset(void) {
 		TRACEOUT(("supported SCSI"));
 	}
 	bkupmemva_sync_bootdisk(pccore_fixed_disk_attached());
+	bkupmemva_sync_88speed(np2cfg.v1v2_standard ? TRUE : FALSE);
 
 	sound_changeclock();
 	beep_changeclock();

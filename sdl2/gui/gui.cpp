@@ -3896,8 +3896,10 @@ static void draw_speed_control(void) {
 /*
  * CPU クロック (M110): the CPU alone; frames, timers and sound keep real
  * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
- * speed; both apply at once, without a reset. On the VA's V1/V2 mode the
- * PC-8801 presets are approximations to be calibrated on hardware.
+ * speed; both apply at once, without a reset. In V1/V2 mode the base speed
+ * is the boot menu's H (7.9872 MHz) or S (half of it, the PC-8801's standard
+ * speed), as on the VA, and these settings adjust it; the PC-8801 presets
+ * are therefore gone (H and S cover them).
  */
 struct CpuClockPreset {
 	const char *label;
@@ -3907,8 +3909,6 @@ struct CpuClockPreset {
 
 static const CpuClockPreset kCpuClockPresets[] = {
     {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
-    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
-    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
     {nullptr, 0, 0},
     {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
     {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
@@ -3930,7 +3930,8 @@ static void draw_cpu_clock_menu(void) {
 	char heading[64];
 	const UINT multiple = pccore_cpu_multiple();
 	const UINT speed = pccore_cpu_speed();
-	const double mhz = 3.9936 * multiple * speed / 100.0;
+	const bool compat_standard = memoryva_88_mode && (np2cfg.v1v2_standard != 0);
+	const double mhz = 3.9936 * multiple * speed / 100.0 / (compat_standard ? 2.0 : 1.0);
 
 	std::snprintf(heading, sizeof(heading), "CPU クロック (%.2f MHz)###cpu-clock", mhz);
 	if (!ImGui::BeginMenu(heading)) {
@@ -3942,7 +3943,6 @@ static void draw_cpu_clock_menu(void) {
 			ImGui::Separator();
 			continue;
 		}
-		// Only the first equal preset is checked (高速相当 equals 既定 on the VA).
 		const bool selected = !matched && (multiple == preset.multiple) && (speed == preset.speed);
 		matched = matched || selected;
 		if (ImGui::MenuItem(preset.label, nullptr, selected)) {
@@ -3964,6 +3964,8 @@ static void draw_cpu_clock_menu(void) {
 		ImGui::TextDisabled("3.9936 MHz × 倍率 × 速度");
 		ImGui::EndMenu();
 	}
+	ImGui::Separator();
+	ImGui::TextDisabled("V1/V2 は 起動 の H/S が基準（S は H の半分）");
 	ImGui::EndMenu();
 }
 

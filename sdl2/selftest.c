@@ -2627,24 +2627,30 @@ static int test_clockscale(void) {
 		}
 	}
 	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode;
-	 * the CPU clock multiplier applies to both modes. */
+	 * the CPU clock multiplier applies to both modes, and V1/V2 S halves the
+	 * compatible-mode clock (twice the cost). */
 	{
 		static const struct {
 			UINT multiple;
 			UINT percent;
 			UINT32 v30;    /* scaled cost of 100 cycles */
 			UINT32 compat; /* scaled cost of 100 cycles */
-		} speeds[] = {{2, 100, 100, 100}, {2, 50, 200, 200}, {2, 10, 1000, 1000},
-		              {4, 50, 100, 100},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
+			UINT8 standard; /* V1/V2 S */
+		} speeds[] = {{2, 100, 100, 100, 0}, {2, 50, 200, 200, 0}, {2, 10, 1000, 1000, 0},
+		              {4, 50, 100, 100, 0},  {2, 0, 100, 100, 0},  {2, 5, 1000, 1000, 0},
+		              {2, 100, 100, 200, 1}, {1, 100, 200, 400, 1}, {4, 100, 50, 100, 1}};
 		const UINT8 saved_speed = np2cfg.cpu_speed;
+		const UINT8 saved_standard = np2cfg.v1v2_standard;
 
 		for (index = 0; index < NELEMENTS(speeds); index++) {
 			np2cfg.multiple = speeds[index].multiple;
 			np2cfg.cpu_speed = (UINT8)speeds[index].percent;
+			np2cfg.v1v2_standard = speeds[index].standard;
 			pccore_clockrestore();
 			if ((clockscale_apply(&pccore_cpu_scale, 100) != speeds[index].v30) ||
 			    (clockscale_apply(&pccore_compat_scale, 100) != speeds[index].compat)) {
 				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
 				np2cfg.multiple = saved_config_multiple;
 				pccore.baseclock = saved_baseclock;
 				pccore_clockrestore();
@@ -2652,6 +2658,7 @@ static int test_clockscale(void) {
 			}
 		}
 		np2cfg.cpu_speed = saved_speed;
+		np2cfg.v1v2_standard = saved_standard;
 	}
 	np2cfg.multiple = saved_config_multiple;
 	pccore.baseclock = saved_baseclock;
