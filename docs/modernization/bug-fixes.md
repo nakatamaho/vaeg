@@ -3647,6 +3647,16 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M131 — Display corruption remains in V2S
+
+The maintainer confirms the H-mode correction but reports that private fixture
+`guest-start-01` still corrupts its display in V2S. The correction intentionally
+retains the S-mode main-RAM text fallback needed by N88-BASIC. Whether and how
+that fallback accounts for this guest's V2S failure is not yet demonstrated;
+neither a root cause nor guest incompatibility with V2S is claimed. Investigate
+text-source selection while retaining the existing S-mode BASIC coverage.
+See [M131 feedback and investigation](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-feedback-and-unresolved-v2s-case).
+
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 
 - **Observed scope:** before the sixteen-case probe, the maintainer reports

@@ -219,8 +219,25 @@ shared default daemon.
 - Windows execution is not inferred from compilation/import checks. This is
   available for targeted defect confirmation, **not a G131 gate request**.
 
+## Maintainer feedback and unresolved V2S case
+
+The maintainer confirmed the supplied correction, then separately reported
+that `guest-start-01` still has a corrupted display in V2S. This is targeted
+confirmation of the earlier correction, not a full G131 pass.
+
+The current helper deliberately preserves the S-mode main-RAM text path, so
+that path remains a candidate for the V2S symptom. The exact V2S cause and
+correct display-source policy are not yet established by a trace or isolated
+experiment. Do not conclude that the guest is incompatible with V2S merely
+from this result, and do not disable main-RAM text globally: existing V1S
+N88-BASIC depends on it. Resolve the guest's S-mode text-source selection
+without regressing that BASIC path before declaring the defect fully closed.
+
 ## Remaining gate work
 
+- Investigate and resolve the maintainer-reported V2S display corruption,
+  preserving S-mode BASIC text display. The H-mode correction alone does not
+  establish V2S compatibility.
 - Generate both SASI utility images and boot/DIR each alone on its model.
   The three required generated CP/M inputs are not currently present in task
   scratch; SASI generation is NOT_RUN, not a passing or failing image build.
