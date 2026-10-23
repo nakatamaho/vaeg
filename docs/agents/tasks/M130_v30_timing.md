@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M130 — Main-CPU timing: V30 clock counts and programmed memory waits
 
-Status: **implemented (V30 timing; CPU/SGP contention); G130 human gate pending.**
+Status: **G130 human gate passed on 2026-10-23.**
 
 ## Request
 
@@ -176,3 +176,10 @@ Branch `topic/m130-sgp-contention` (on `topic/m130-wcu-memory-waits`).
   stand. In vaeg with M130, 15 of the 17 programs of all-demos-msdos4 draw;
   ZUNDAORB (atlas in conventional RAM at 40000h fails) and SGP655S (one
   ball) look the same with `main`'s vaeg.
+
+## G130 passed
+
+The maintainer stated **G130 passed** on 2026-10-23 with the static Windows
+build of bb3815be (`vaeg-mingw-bb3815be/output/vaeg.exe`, SHA-256
+`ce5b791fde54d769cc0ace0717868d267890b7cdc4ed95c7ce38f331fb849f95`), which
+includes the CPU/SGP contention (PR #54, merged into this branch).
