@@ -1313,6 +1313,34 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M130 — main-CPU code ran 1.5-2.6 times faster than on the PC-88VA and VA2
+
+- **Symptom/scope:** every class of V30-mode code (register loops, main
+  RAM and GVRAM accesses, string instructions) ran 1.5-2.6x faster in vaeg
+  than on both machines (#53; also #38's CPU part and #47): software tuned
+  in vaeg drew half as often on hardware. VA and VA2 differed only in
+  main RAM above 40000h, which vaeg did not show.
+- **Demonstrated cause:** `cpu/upd9002/` charged the 80286 clock counts of
+  Neko Project II's i286 core (MOVSW 5, REP MOVSW 4 a word, Jcc 7), with
+  no prefix cost, no odd-address bus cycle, no instruction prefetch limit
+  and no programmed memory waits; GVRAM reads waited 4 clocks.
+- **Correction:** the uPD70116's counts from its user's manual (byte or
+  even-address word, prefetched; segment and REP prefixes 2); a second bus
+  cycle (4 clocks) for an odd-address word; a prefetch queue (6 bytes, an
+  aligned word every 4 clocks while the bus is free, emptied by a taken
+  transfer whose count covers the target's first word; data cycles and
+  their waits hold the bus); the wait control unit's registers
+  (FFF4h-FFF6h) give the programmed waits by partition (VA: 1 in
+  40000h-DFFFFh, VA2: 0; the A0000h-DFFFFh devices keep their own waits);
+  GVRAM read wait 7 and back-to-back GVRAM writes spaced (5 clocks).
+- **Verification:** a 10-loop benchmark (#53) within 0.95-1.09 of the VA
+  and VA2 photographs (was 1.5-2.6); SGPBENCH's CPU rows within 0.95-1.07;
+  SPRBENCH's CPU column 1.10-1.13 (was 1.48-1.62; the rest stays in #47).
+  The trace and state fixtures changed in their clock fields only. ctest
+  112/112.
+- **Milestone/task/commit:** M130,
+  [M130 task](../agents/tasks/M130_v30_timing.md).
+
 ### M129 — the uPD3301 whole-screen reverse was ignored
 
 - **Symptom/scope:** V1/V2 software that starts the uPD3301 display with
@@ -3775,7 +3803,8 @@ separate parity correction or move it to Open Defects.
   3.4 and 4.25 times per second at 16, 8 and 4 bits in vaeg against 1.4,
   1.6 and 1.9 on a PC-88VA2, at 15.98 and 24.8 kHz alike
   (`pc88va-video-modes.md` section 12.4). V3 mode; other code not measured.
-- **Status:** not investigated; no root cause is claimed. The CPU clock
+- **Status:** the main CPU's part fixed in M130 (V30 clock counts, waits,
+  prefetch); CPU/SGP contention remains. The CPU clock
   (7.9872 MHz) matches the board; the ratio being the same at every depth,
   with very different GVRAM write counts, points away from GVRAM waits
   alone. Next step: a hardware benchmark per instruction class (register,

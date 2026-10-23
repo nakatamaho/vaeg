@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M130 — Main-CPU timing: V30 clock counts and programmed memory waits
 
-Status: **in progress.**
+Status: **implemented; G130 human gate pending.**
 
 ## Request
 
@@ -79,3 +79,51 @@ G130: on a clean static build, BENCH, SGPBENCH (CPU rows) and SPRBENCH
 (CPU column) in vaeg within 10 % of the VA and VA2 photographs, per
 model; the standard gate (V3 boot, bundled demos, an OS); demos and media
 regression as in AGENTS.md.
+
+## Result
+
+Commits on `topic/m130-wcu-memory-waits`: the WCU (402e92ed), the task
+file, the V30 timing (2fbdb54d) and the bus hold of waits (d5feb5c0).
+
+- `[CODE]` `cpu/upd9002/upd9002_mn.c`, `_f6.c`, `_fe.c`, `_rp.c`,
+  `_core.c`: about 340 counts replaced by the uPD70116's (byte or even
+  word, prefetched); segment and REP prefixes 2; NMI 38, INT 49, BRK 38,
+  RETI 27. `memory.c`: an odd-address word is two bus cycles (+4); the
+  WCU's programmed waits for CPU data cycles and instruction fetch; DMA
+  and host-side accesses (`_nowait`, `meml_*`) take none. `upd9002_core.c`:
+  the prefetch queue. `memoryva/gvramva.c`: GVRAM read wait 7, writes
+  spaced. `io/upd9002_regs.*`: FFF4h-FFF6h (state section `UPD9WCU`; a
+  state without it keeps no programmed waits).
+- `[MEASURED]` vaeg divided by the photographs (more is faster):
+
+| Benchmark | VA | VA2 | before M130 |
+|---|---|---|---|
+| BENCH (GG test disk, 10 loops) | 0.95-1.04 | 0.95-1.09 | 1.5-2.6 |
+| SGPBENCH CPU rows (LOOP, STOSW GV/RAM, MOVSW GV-GV) | 0.95-1.07 | 0.95-1.07 | 1.06-1.8 |
+| SPRBENCH CPU column (8 sizes) | 1.10-1.13 | 1.10-1.13 | 1.48-1.62 |
+
+  SPRBENCH's remaining 8 clocks a word (four memory accesses a word) are
+  left open in #47 (maintainer, 2026-10-23); the likeliest cause, a data
+  cycle waiting for a prefetch cycle in progress, needs a hardware
+  measurement to separate from the loops that match.
+- `[MEASURED]` A game port that drew 59 frames a second in vaeg before M130
+  draws 44 on average (minimum 22) in play now; the VA and VA2 showed
+  23-56.
+- Fixtures: `tests/upd9002/trace_baseline.txt` (8 of 52 lines, the
+  `consumed`/`remain` fields only; DIVU r8 14 to 19) and
+  `state_fixtures_m42.txt` (two rows' clock); their protected hashes
+  updated. ctest 112/112.
+
+## Media and demo regression
+
+- Utility FDD (`build-utility-disk.sh`, PC-Engine 1.1) from a clean clone
+  of d5feb5c0: exit 0, 4096 bytes free; it differs from one built from
+  `main` (e5727963) only in 280 directory time fields (file contents
+  identical). SHA-256 `2a283385524fbce2d9515ab74c2f9176cc0d2fd8197d132da381efa087e2d699`.
+- `build-sasi-utility-disks.sh`: not run here: the CP/M tools disk
+  (`--cpm-tools-d88`) is missing on this host.
+- Demos: M130 changes no demo source or builder (`demos/` and `tools/` as
+  on `main` except the QA hash table), so M129's byte-identical results
+  stand. In vaeg with M130, 15 of the 17 programs of all-demos-msdos4 draw;
+  ZUNDAORB (atlas in conventional RAM at 40000h fails) and SGP655S (one
+  ball) look the same with `main`'s vaeg.
