@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **Correction implemented; local validation passed; G131 not requested.**
+Status: **Provisional H-mode workaround; display-source policy unresolved; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -58,7 +58,7 @@ Standard V3 boot, bundled demo, OS boot and simple operations, plus
 render correctly. Supply the static Windows executable path, SHA-256 and
 `BUILD-REPORT.md` path. No next milestone until maintainer acceptance.
 
-## Findings and correction
+## Findings and provisional workaround
 
 - The fixture contains two D88 images. Both must be mounted: disk 1 in FDD1,
   disk 2 in FDD2. A single-drive CLI run waits for the absent disk and does not
@@ -73,7 +73,8 @@ render correctly. Supply the static Windows executable path, SHA-256 and
   non-text game data while fast TVRAM holds blank text rows. The fallback
   incorrectly interprets that data as characters and text attributes.
 - `maketextva_3301_row` now additionally requires `np2cfg.v1v2_standard` before
-  selecting main RAM. Both rendering and text copy share this correction.
+  selecting main RAM. Both rendering and text copy share this provisional change.
+  Removing the H-mode symptom does not validate the remaining S-mode selector.
   No CPU, GVRAM, disk, palette, save-state layout or archived source changes.
 - A Zilog flag-profile diagnostic A/B did not remove the failure. No diagnostic
   switches, raw traces, guest data or private identities are retained in the
@@ -229,9 +230,101 @@ The current helper deliberately preserves the S-mode main-RAM text path, so
 that path remains a candidate for the V2S symptom. The exact V2S cause and
 correct display-source policy are not yet established by a trace or isolated
 experiment. Do not conclude that the guest is incompatible with V2S merely
-from this result, and do not disable main-RAM text globally: existing V1S
-N88-BASIC depends on it. Resolve the guest's S-mode text-source selection
-without regressing that BASIC path before declaring the defect fully closed.
+from this result. The historical V1S BASIC observation motivates preserving
+coverage, but does not prove that either the original TMODE-only fallback or
+the new H/S-qualified fallback is a correct general rule. Resolve the guest's
+text-source selection without regressing BASIC before declaring the defect
+fully closed. The maintainer and agent agree that the present patch is
+provisional and must not yet be merged to main.
+
+## Manual review: CPU banking is not the display source
+
+Independently summarized from the supplied reference material; source copies,
+OCR text, private input identities and captures remain outside Git.
+
+- *PC-8801 Series Machine-Language Game Graphics*, section 1-5, printed
+  pp. 33-34 (figure 1-5-1 and LIST 1.7), distinguishes standard-mode main-RAM
+  text from the separate fast text RAM used in V1H and V2. In the latter modes,
+  the main RAM beneath F000h-FFFFh is an additional usable 4 KiB, not another
+  image of the displayed text. The example selects that RAM, stores data, then
+  explicitly copies it to the separate fast RAM to make it visible.
+- Its figure 2-1-1, printed p. 39, assigns port 32h bit 4 to the CPU bank
+  selection: 0 selects fast RAM; 1 selects underlying main memory. Consequently
+  TMODE=1 does **not** imply that display fetches switch to main RAM in H mode
+  or V2. The original renderer fallback conflated these two functions.
+- *PC-8801/mkII/SR Analysis Manual Compilation*, section 5-4, describes the
+  character/attribute layout and the CRTC/DMAC setup, including channel 2's
+  display start and terminal count. These are display-fetch parameters, not
+  merely the current CPU-visible bank.
+- *PC-8801 Disk N88-BASIC Analysis Manual*, printed p. 231, identifies the
+  default text area as F3C8h-FFF7h. *PC-Techknow8801 Vol. 1*, section 3-1-4,
+  describes 120-byte rows (80 characters plus 40 attribute bytes), totaling
+  3000 bytes. Thus the entire F000h-FFFFh bank is not synonymous with the BASIC
+  screen: work areas and the display's programmed start must remain distinct.
+
+The manual establishes a real distinction between V1S and V1H/V2. It does not
+specify vaeg's artificial V2S combination or establish that clearing the speed
+identification bit in V2 must change display storage. In particular, the
+current `np2cfg.v1v2_standard && TMODE` renderer selector remains unproven for
+V2. Trace the effective guest mode and firmware's display setup before replacing
+it; do not equate an S menu preference with a hardware display-source signal.
+
+## Explicit eight-case game boot matrix
+
+Evaluated production commit and worker are the unchanged `e0be89d2` build
+identified above; no production edits or rebuild occurred for this comparison.
+Each run has an isolated INI and backup record: `BootMode=1`, explicit
+`V1V2_Standard=false/true`, B1FC5h bit 0 and the memory-switch checksum initialized
+for V2/V1, both fixture images mounted, and the same scripted Enter at frame
+2400. Model, configuration, backup, input and output paths are case-specific.
+The originals are not modified. Exit 0 in all eight runs is process completion,
+not by itself a successful game boot.
+
+| Model | Requested mode | Result at frame 3600 |
+|---|---|---|
+| VA | V1H | Gameplay draws coherently after Start |
+| VA | V1S | Guest displays `V1-H OR V2 MODE ONLY`; gameplay not reached |
+| VA | V2H | Gameplay draws coherently after Start |
+| VA | V2S | Gameplay reached; severe text overlay after Start |
+| VA2 | V1H | Gameplay draws coherently after Start |
+| VA2 | V1S | Guest displays `V1-H OR V2 MODE ONLY`; gameplay not reached |
+| VA2 | V2H | Gameplay draws coherently after Start |
+| VA2 | V2S | Gameplay reached; severe text overlay after Start |
+
+The saved V1/V2 bit agrees with each requested mode after all eight runs.
+The V1S rejection is a guest-visible observation, not an extrapolation from
+V2S corruption. The rejection explicitly permits V2; it does not establish
+that V2S corruption is correct or that the game is incompatible with V2S.
+
+Additional BASIC boot probes, with separate neutral V1 and V2 system fixtures,
+reach N88-BASIC 1.9 (V1) or 2.4 (V2) and an `Ok` prompt in all eight model/mode
+combinations. The first PRINT probe was consumed by `How many files(0-15)?`,
+so those runs demonstrate boot/display only, not command execution. A separate
+query run first answers that prompt, then issues PRINT; both attempts are
+retained rather than treating the first as an executed command. All eight
+query runs exit 0 and display `M131 2` followed by the requested port value:
+
+| Mode | BASIC version | IN 31h, VA | IN 31h, VA2 |
+|---|---|---|---|
+| V1H | 1.9 | F9h | F9h |
+| V1S | 1.9 | B9h | B9h |
+| V2H | 2.4 | 79h | 79h |
+| V2S | 2.4 | 39h | 39h |
+
+The query input waits 600 frames beyond the harness's initial 600, sends Enter
+for the file-count question, waits 300, then sends
+`PRINT "M131";1+1;" PORT31=";HEX$(INP(&H31))`. The final capture is frame 3000.
+The second set uses fresh per-case copies of the first runs' configuration,
+backup and writable disk copy; no original media is written. Port 31h bits 7
+and 6 confirm the intended V1/V2 and H/S identification in these BASIC runs.
+These are current-patch observations, not a fallback-disabled A/B or proof of
+real VA S-mode behavior. The old claim that BASIC necessarily requires the
+existing renderer fallback still needs that controlled A/B.
+
+Documentation-only follow-up: `check_encoding.py`, `check_eol.py`,
+`check_case.py`, `check_md_comments.py` and `git diff --check` all exit 0.
+The emulator worker and build-relevant sources are unchanged, so no unrelated
+build, CTest, media rebuild or hosted CI is repeated.
 
 ## Remaining gate work
 

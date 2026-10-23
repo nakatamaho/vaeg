@@ -47,7 +47,7 @@ land.
   intact game image; the text renderer interprets unrelated RAM as characters
   and attributes and overlays it. Selecting the fast TVRAM source in H mode
   removes the corruption without changing CPU, VRAM writes or the guest disk.
-- **Correction:**
+- **Provisional correction (not approved for merge):**
   [e0be89d2](https://github.com/nakatamaho/vaeg/commit/e0be89d2133822514c188f81a2b6f7190b10bf04)
   restricts the main-RAM text source to the explicit S-mode extension
   (`np2cfg.v1v2_standard`), retaining the existing 88-mode, TMODE and
@@ -61,6 +61,8 @@ land.
   recording-ON build, selftest and CTest pass (140 listed, nine skipped);
   private scripted VA/VA2 runs show coherent gameplay after Start. Hardware
   behavior and the standard milestone human gate are not newly verified.
+  Later manual review distinguishes CPU banking from display sourcing; the
+  general H/S-qualified selector remains unproven, especially for V2S.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
@@ -3650,11 +3652,15 @@ separate parity correction or move it to Open Defects.
 ### M131 — Display corruption remains in V2S
 
 The maintainer confirms the H-mode correction but reports that private fixture
-`guest-start-01` still corrupts its display in V2S. The correction intentionally
-retains the S-mode main-RAM text fallback needed by N88-BASIC. Whether and how
-that fallback accounts for this guest's V2S failure is not yet demonstrated;
-neither a root cause nor guest incompatibility with V2S is claimed. Investigate
-text-source selection while retaining the existing S-mode BASIC coverage.
+`guest-start-01` still corrupts its display in V2S; explicit isolated VA/VA2
+runs reproduce it. Both models draw gameplay in V1H/V2H; in V1S the guest
+itself displays `V1-H OR V2 MODE ONLY`. Manual review establishes that port
+32h bit 4 CPU banking must not be conflated with the display source, and that
+the documented fast-text modes include V2. The provisional H/S selector and
+the older TMODE-only fallback are not general hardware proofs. Neither a
+verified V2S root cause nor guest incompatibility with V2S is claimed.
+Investigate effective mode and display setup while retaining BASIC coverage;
+do not merge the provisional workaround yet.
 See [M131 feedback and investigation](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-feedback-and-unresolved-v2s-case).
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
