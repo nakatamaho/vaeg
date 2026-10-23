@@ -47,8 +47,10 @@ land.
   intact game image; the text renderer interprets unrelated RAM as characters
   and attributes and overlays it. Selecting the fast TVRAM source in H mode
   removes the corruption without changing CPU, VRAM writes or the guest disk.
-- **Correction:** restrict the main-RAM text source to the explicit S-mode
-  extension (`np2cfg.v1v2_standard`), retaining the existing 88-mode, TMODE and
+- **Correction:**
+  [e0be89d2](https://github.com/nakatamaho/vaeg/commit/e0be89d2133822514c188f81a2b6f7190b10bf04)
+  restricts the main-RAM text source to the explicit S-mode extension
+  (`np2cfg.v1v2_standard`), retaining the existing 88-mode, TMODE and
   text-window checks. H mode continues to display fast TVRAM; CPU banking and
   S-mode text behavior are unchanged. The shared source helper also fixes text
   copying from the displayed screen.
@@ -61,7 +63,8 @@ land.
   behavior and the standard milestone human gate are not newly verified.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
-  The task records the fixing commit after commit creation; G131 is pending.
+  Source-built demo payload closure and the clean static Windows build are
+  also recorded there. Remaining runtime/media checks and G131 are pending.
 
 ### M100s11 — guest-resolution screenshots ignored display rotation
 

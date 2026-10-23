@@ -119,8 +119,115 @@ ctest --test-dir "$PRIVATE/build" --output-on-failure -j8
   pre-existing formatting drift in `sdl2/selftest.c`; only the newly added
   region is normalized, with no unrelated formatting changes.
 
+## Pushed correction and final worker
+
+Fixing commit:
+[e0be89d2133822514c188f81a2b6f7190b10bf04](https://github.com/nakatamaho/vaeg/commit/e0be89d2133822514c188f81a2b6f7190b10bf04),
+pushed to `origin/milestone/m131-display-corruption`.
+
+After configuring/building that pushed commit, the macOS worker SHA-256 is
+`ff629acc9ecec05c9492391cd1b5da15e25b9114a6a98f2bbc25e1e10db872a3`.
+Its selftest exits 0. The earlier complete CTest run evaluated the identical
+corrected production helper; subsequent code edits only made the new selftest's
+text-copy assertions NULL-safe and normalized their formatting. Unrelated
+expensive tests are not repeated for documentation/build-identity changes.
+
+A local launcher mounts both fixture images with fresh configuration; it and
+all captures remain outside Git. Neither firmware nor the guest disk was patched.
+
+## Clean-clone media build regression
+
+Source: a separate clean clone of pushed `e0be89d2133822514c188f81a2b6f7190b10bf04`.
+All commands below exit 0 with fresh output paths. `$S` denotes that clone,
+`$G` task scratch, `$T` the private 80-cylinder 2HD template, `$P` the supplied
+artwork and `$D` the pinned MS-DOS source from the shared cache. No private
+input identity or raw capture is published.
+
+- Each of `glass-orbit`, `neon3`, `neon4`, `sgp-pseudo-sprite` and
+  `sgp-wireframe`: `$S/demos/<component>/build-d88.sh "$T" "$G/<new>.d88"`.
+- `$S/demos/zundamon-orbit/build-from-psd.sh --python /gate/psd-env/bin/python
+  "$P" "$T" "$G/<new>.d88"`, inside the task-local Ubuntu container.
+- `python3 "$S/tools/pc88va/build-all-demos-distribution-disk.py" --source "$T"
+  --distribution-dir "$G/distributions-final" --output "$G/final-all-demos.d88"
+  --compressed-output "$G/final-all-demos.d88.xz"`.
+- The analogous `build-all-demos-msdos4-disk.py` command uses `$D` as source
+  and fresh `final-all-demos-msdos4` output paths.
+- `python3 "$S/demos/sgp-boot/build-boot-d88.py" --output "$G/sgp-boot.d88"
+  --compressed-output "$G/sgp-boot.d88.xz"`.
+- `python3 "$S/tools/pc88va/build-all-demos-bootable-disk.py" --source "$T"
+  --distribution-dir "$G/distributions-final" --output "$G/final-all-demos-pce.d88"`.
+- `$S/tools/pc88va/build-utility-disk.sh --source "$T" --output "$G/utility.d88"`:
+  125 installed files, 4096 bytes free. Host GNU dd and a DOSBox-X command
+  bridge are used; the Open Watcom build uses the isolated task Docker daemon.
+
+All six component distributions and both aggregates have **byte-identical stored
+file maps** to their committed archives (1/2/2/8/3/2 component files, 19 all-demos
+files, 25 MS-DOS files). The self-booting SGP raw disk is exactly identical;
+the entire MS-DOS aggregate raw image is also identical. FAT timestamp differences
+in other raw images are not treated as payload differences.
+
+Initial private input preflights exposed a 77-cylinder image and then a
+write-protected template; these attempts fail, not pass. A separate correct
+80-cylinder writable input is used without altering the supplied originals.
+Initial NASM 3.01/ImageMagick builds differ from the committed NEON3 and
+Zundamon payloads. NASM 2.16.03 still differs in equivalent XCHG register
+encodings. The already documented M100s11 reproduction recipe resolves these
+without changing any source or distribution: Ubuntu Python 3.12.3, NASM 2.16.01,
+psd-tools 1.26.0, Pillow 13.0.0, NumPy 2.5.4, no ImageMagick in PATH.
+The five successful unaffected component builds are reused; only NEON3,
+Zundamon and the affected aggregates are rebuilt. Failed attempts, resolver
+report and successful comparisons are preserved privately, not relabeled.
+
+Raw generated image SHA-256 values (not source-input hashes):
+
+| Image | SHA-256 |
+|---|---|
+| GLASS | `a414801fbd955943131056ee6cc1ea3394f5b83533a9a8240da6b2b41fa63aa5` |
+| NEON3 | `d7a1d9e14a39b85b86beea6470346291f20e074866d0b43e8242b90d5235ee37` |
+| NEON4 | `81cfae7a7d672bd31afff4b147f7c74a456f324324ccc1edfc7fd60b609a9833` |
+| pseudo-sprite | `57c71e3b85fa5aa3fe8d15287bc11c755f38de17346f0ae5fd0644336563e48f` |
+| wireframe | `c20d04394e1dba43444a3d08eda116830398bbd5403420f14ef503941296184e` |
+| Zundamon | `75722d5df1c852d0b60a2847d5cdfd7337e553370a3939dc925d6b52ba3ff342` |
+| all-demos | `bd2b77405b7f376455809b0d09515cbe20fe2f506f87c948b439e6667da94d65` |
+| all-demos-msdos4 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| self-booting SGP | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
+| utility FDD | `a262905ea1d47d2e4b769efd2d165a5eb57f162cf802d883fd91b9d6ac6c506c` |
+| PC-Engine bootable all-demos | `89ea7b9949cb7196c51a85d7b507fd191f95eaa4b90b029878dae2ecaa4e35e7` |
+
+Runtime checks with the final macOS worker: the newly generated utility FDD,
+PC-Engine all-demos image and MS-DOS all-demos image each reach their OS prompt
+at frame 1200, exit 0, with dummy SDL and isolated config/backup state. This is
+boot coverage only, not a claim that all programs or MANDEL were run.
+
+## Fresh static Windows preview
+
+```sh
+tools/release/build-mingw-static-container.sh \
+  --commit e0be89d2133822514c188f81a2b6f7190b10bf04 --recording
+```
+
+Exit 0. Fresh clone, application objects and pinned shader SDK; recording/OS
+MP4 ON, local-only bundled encoders explicitly OFF. Minimal static FFmpeg,
+encoder-registration audit and Windows system-DLL import audit pass. The local
+VM/configuration/disks and Docker data are under the repository's ignored
+`build/container-runtime/`, with an explicitly selected local socket, not the
+shared default daemon.
+
+- `../vaeg-mingw-e0be89d2/output/vaeg.exe`, 59,221,494 bytes.
+- SHA-256: `76dc753844d54869e84ca8ee1e7a23a57fb5e3c340bc8586dbcb23761458416f`.
+- Build report: `../vaeg-mingw-e0be89d2/output/BUILD-REPORT.md`.
+- Windows execution is not inferred from compilation/import checks. This is
+  available for targeted defect confirmation, **not a G131 gate request**.
+
 ## Remaining gate work
 
-Fixing commit identity, final worker digest and pushed-commit verification are
-recorded after creation. Clean-clone demo/media source closure, utility model
-boots and the fresh static Windows handoff remain pending. No G131 pass claim.
+- Generate both SASI utility images and boot/DIR each alone on its model.
+  The three required generated CP/M inputs are not currently present in task
+  scratch; SASI generation is NOT_RUN, not a passing or failing image build.
+- Launch every all-demos program under both OSes and verify drawing; run
+  `MANDEL.BAS` from N88-BASIC and exercise the self-booting SGP demo.
+- Complete the standard V3/demo/OS human checklist and the targeted fixture
+  check only after all mandatory machine/media checks are complete.
+
+M131 remains open. No human acceptance, Windows runtime, hardware behavior,
+next milestone or cleanup approval is inferred from this investigation.
