@@ -404,12 +404,6 @@ static BYTE sgp_memoryread(UINT32 address) {
 		address: even physical address.
 */
 static REG16 sgp_memoryread_w(UINT32 address) {
-	CPU_REMCLOCK -= 4; // TODO: real contention should stall only when the CPU also requests memory.
-	                   // The current model charges this wait for every SGP memory access.
-	                   // After a long CPU instruction such as REP MOVSW, one sgp_step() may
-	                   // perform many transfers, drive CPU_REMCLOCK far negative, and delay
-	                   // scheduled events.
-	                   // The four-clock charge has no hardware measurement behind it.
 	return rd16[(address >> 16) & 0x3f](address & 0x3fffffL);
 }
 
@@ -418,7 +412,6 @@ static REG16 sgp_memoryread_w(UINT32 address) {
 		address: even physical address.
 */
 static void sgp_memorywrite_w(UINT32 address, REG16 value) {
-	CPU_REMCLOCK -= 4; // TODO: see the contention limitation in sgp_memoryread_w().
 	wt16[(address >> 16) & 0x3f](address & 0x3fffffL, value);
 }
 
@@ -1609,6 +1602,38 @@ static void fetch_command(void) {
 	}
 }
 
+/*
+ * M130: while the SGP is busy the main CPU gets only part of the time. The
+ * CPU's loss is a share of the time the SGP is busy, about the same for
+ * compute loops, main RAM and GVRAM work and for 16x16 to 128x128
+ * transfers (demos/sgp-contention, SGPBENCH, SPRBENCH on both models):
+ * about 0.31 on the PC-88VA and 0.55 on the PC-88VA2 (1/256 units below).
+ * The SGP itself is not slowed by the CPU (within 1%). Each CPU instruction
+ * executed while the SGP is busy is stretched by share / (1 - share): its
+ * clocks plus the delay make the time it took with the SGP running. This
+ * replaces a fixed four CPU clocks charged for every SGP memory access,
+ * which had no measurement and made the CPU's loss grow with the SGP's
+ * access rate.
+ */
+#ifndef SGP_CPU_SHARE_VA
+#define SGP_CPU_SHARE_VA 80
+#define SGP_CPU_SHARE_VA2 142
+#endif
+
+static void sgp_cpu_share(UINT32 past) {
+	UINT32 share;
+	UINT32 work;
+	UINT64 scaled;
+
+	share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_VA2 : SGP_CPU_SHARE_VA;
+	/* The clocks since the last step, less the delay charged then. */
+	work = (past > sgp.cpudelay) ? (past - sgp.cpudelay) : 0;
+	scaled = (UINT64)work * share * 256 / (256 - share) + sgp.cpudelayfrac;
+	sgp.cpudelay = (UINT32)(scaled >> 8);
+	sgp.cpudelayfrac = (UINT32)(scaled & 0xff);
+	CPU_REMCLOCK -= (SINT32)sgp.cpudelay;
+}
+
 void sgp_step(void) {
 	UINT32 now;
 	UINT32 past;
@@ -1618,6 +1643,11 @@ void sgp_step(void) {
 
 	now = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	past = now - sgp.lastclock;
+	if (sgp.busy & SGP_BUSY) {
+		sgp_cpu_share(past);
+	} else {
+		sgp.cpudelay = 0;
+	}
 	sgp.remainclock += (SINT32)sgp_scale_elapsed(past);
 
 	while (sgp.remainclock > 0) {

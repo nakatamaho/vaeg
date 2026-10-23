@@ -72,6 +72,10 @@ vz_image=$softlib_cache/VZ_VA.D88
 cpm_tools_d88=${HOME}/88VA/images/cpm/cpmva-tools.d88
 cpm_source_d88=${HOME}/88VA/images/cpm/cpmva-source.d88
 cpm_dev_d88=${HOME}/88VA/images/cpm/cpmva-dev.d88
+cpm_images_given=0
+# Without the three CP/M images, they are made from these cached archives
+# with tools/cpmva/install_cpmva.py (offline; the VA2 source as boot disk).
+cpm_source_cache=$softlib_cache/cpm
 scsi_id=0
 scsi_profile=fixed-160mb
 docs_lang=both
@@ -119,6 +123,12 @@ Usage: $program_name [--source-va PATH] [--source-va2 PATH]
        [--docs-lang en|ja|both]
        [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
        [--output-dir DIR]
+
+The CP/M images default to ~/88VA/images/cpm.  When none is given and they
+are not there, they are built offline by tools/cpmva/install_cpmva.py from
+the archives cached in ~/.cache/vaeg/auto-generated-pc88va-utility-media/cpm
+(CPMVA.LZH, cpm2-asm.zip, bdsc-all.zip, vt100-games-*.zip), whose notices
+are accepted by having supplied them.
 
 Build two 40 MB PC-88VA SASI HDI development disks:
   pc88va-sasi-40mb-va.hdi   PC-Engine 1.05
@@ -386,16 +396,19 @@ while (($#)); do
 	--cpm-tools-d88)
 		(($# >= 2)) || die '--cpm-tools-d88 requires a path'
 		cpm_tools_d88=$2
+		cpm_images_given=1
 		shift 2
 		;;
 	--cpm-source-d88)
 		(($# >= 2)) || die '--cpm-source-d88 requires a path'
 		cpm_source_d88=$2
+		cpm_images_given=1
 		shift 2
 		;;
 	--cpm-dev-d88)
 		(($# >= 2)) || die '--cpm-dev-d88 requires a path'
 		cpm_dev_d88=$2
+		cpm_images_given=1
 		shift 2
 		;;
 	--output-dir)
@@ -648,17 +661,43 @@ ensure_cached_package "$vz_image" \
 	die "VA128MO archive is not readable: $mo_va128mo_archive (use --mo-va128mo-archive)"
 [[ -f $mo_stest_archive && -r $mo_stest_archive ]] ||
 	die "STEST115 archive is not readable: $mo_stest_archive (use --mo-stest-archive)"
-[[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
-	die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
-[[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
-	die "CP/M source D88 is not readable: $cpm_source_d88 (use --cpm-source-d88)"
-[[ -f $cpm_dev_d88 && -r $cpm_dev_d88 ]] ||
-	die "CP/M development D88 is not readable: $cpm_dev_d88 (use --cpm-dev-d88)"
+cpm_build=0
+if ! [[ -r $cpm_tools_d88 && -r $cpm_source_d88 && -r $cpm_dev_d88 ]]; then
+	if ((cpm_images_given)); then
+		[[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
+			die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
+		[[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
+			die "CP/M source D88 is not readable: $cpm_source_d88 (use --cpm-source-d88)"
+		die "CP/M development D88 is not readable: $cpm_dev_d88 (use --cpm-dev-d88)"
+	fi
+	cpm_games_archive=$(compgen -G "$cpm_source_cache/vt100-games-*.zip" | head -n 1 || true)
+	for cpm_input in "$cpm_source_cache/CPMVA.LZH" "$cpm_source_cache/cpm2-asm.zip" \
+		"$cpm_source_cache/bdsc-all.zip" "$cpm_games_archive"; do
+		[[ -n $cpm_input && -f $cpm_input && -r $cpm_input ]] ||
+			die "no CP/M images in ~/88VA/images/cpm and no cached archive to build them: ${cpm_input:-$cpm_source_cache/vt100-games-*.zip} (use --cpm-tools-d88, --cpm-source-d88, --cpm-dev-d88)"
+	done
+	cpm_build=1
+fi
 [[ -f $builder && -r $builder ]] || die "builder is not readable: $builder"
 ensure_jwasm_archive
 mkdir -p -- "$output_dir"
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-sasi.XXXXXX")
+if ((cpm_build)); then
+	printf 'Building the CP/M images from %s\n' "$cpm_source_cache"
+	python3 -I "$repo_root/tools/cpmva/install_cpmva.py" --boot-disk "$source_va2" \
+		--output-dir "$work_dir/cpmva" --offline \
+		--cpmva-archive "$cpm_source_cache/CPMVA.LZH" \
+		--cpm22-archive "$cpm_source_cache/cpm2-asm.zip" \
+		--bdsc-archive "$cpm_source_cache/bdsc-all.zip" \
+		--vt100-games-archive "$cpm_games_archive" \
+		--accept-cpm-license --accept-cpmva-license \
+		--accept-games-license --accept-bdsc-license >/dev/null ||
+		die 'building the CP/M images from the cached archives failed'
+	cpm_tools_d88=$work_dir/cpmva/cpmva-tools.d88
+	cpm_source_d88=$work_dir/cpmva/cpmva-source.d88
+	cpm_dev_d88=$work_dir/cpmva/cpmva-dev.d88
+fi
 lsic_tree=$work_dir/lsic
 mkdir -p -- "$lsic_tree"
 lha xfw="$lsic_tree" "$lsic_archive" >/dev/null

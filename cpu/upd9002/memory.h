@@ -43,6 +43,12 @@ REG16 MEMCALL upd9002_memoryread_w(UINT32 address);
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value);
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value);
 REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off);
+/* Without the WCU's programmed waits (M130): host-side accesses. */
+REG8 MEMCALL upd9002_memoryread_nowait(UINT32 address);
+void MEMCALL upd9002_memorywrite_nowait(UINT32 address, REG8 value);
+/* Instruction fetch: a wait cycle a word. */
+REG8 MEMCALL upd9002_fetch(UINT32 address);
+REG16 MEMCALL upd9002_fetch_w(UINT32 address);
 void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 value);
 
 REG8 MEMCALL meml_read8(UINT seg, UINT off);
@@ -57,8 +63,8 @@ void MEMCALL meml_read(UINT32 address, void *dat, UINT leng);
 void MEMCALL meml_write(UINT32 address, const void *dat, UINT leng);
 
 /* Physical address space used by DMA clients. */
-#define MEMP_READ8(addr) upd9002_memoryread((addr))
-#define MEMP_WRITE8(addr, dat) upd9002_memorywrite((addr), (dat))
+#define MEMP_READ8(addr) upd9002_memoryread_nowait((addr))
+#define MEMP_WRITE8(addr, dat) upd9002_memorywrite_nowait((addr), (dat))
 
 /* Segmented and linear address helpers used by BIOS services. */
 #define MEML_READ8(seg, off) meml_read8((seg), (off))

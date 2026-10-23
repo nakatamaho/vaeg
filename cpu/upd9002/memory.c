@@ -3,6 +3,7 @@
 #include "machine/pccore.h"
 #include "memoryva.h"
 #include "upd9002_trace.h"
+#include "io/upd9002_regs.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include "tests/upd9002/direct_harness.h"
 #endif
@@ -85,6 +86,84 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
 }
 
 /*
+ * The WCU's programmed waits (M130): one bus cycle a byte, and a word at an
+ * even address; a word at an odd address is two. Machine clocks, not
+ * scaled with the CPU (as the device waits in memoryva). DMA cycles use
+ * WCY2's DMA waits instead (not modelled), and host-side accesses (the
+ * _nowait functions, meml_*) none.
+ */
+extern UINT upd9002_fetched_bytes;
+extern UINT upd9002_data_cycles;
+extern UINT upd9002_bus_waits;
+
+static INLINE void upd9002_bus_wait(UINT32 address, UINT cycles) {
+	UINT wait;
+
+	if (memoryva.dma_access) {
+		return;
+	}
+	upd9002_data_cycles += cycles;
+	/* A word at an odd address takes a second bus cycle (4 clocks); the
+	 * instruction counts (uPD70116) are those of an even address. */
+	if (cycles > 1) {
+		CPU_REMCLOCK -= (SINT32)clockscale_apply(&pccore_cpu_scale, 4 * (cycles - 1));
+	}
+	if (!upd9002_waitmap.active) {
+		return;
+	}
+	wait = upd9002_programmed_wait(address);
+	if (wait) {
+		CPU_REMCLOCK -= (SINT32)(wait * cycles);
+		upd9002_bus_waits += wait * cycles;
+	}
+}
+
+REG8 MEMCALL upd9002_memoryread_nowait(UINT32 address) {
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_reads++;
+		return mem[address & 0xfffff];
+	}
+#endif
+	return upd9002_memoryread_va(address);
+}
+
+void MEMCALL upd9002_memorywrite_nowait(UINT32 address, REG8 value) {
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_writes++;
+		mem[address & 0xfffff] = (BYTE)value;
+		return;
+	}
+#endif
+	upd9002_memorywrite_va(address, value);
+}
+
+/* Instruction fetch: the prefetch queue reads words, a bus cycle each (the
+ * instruction counts assume a prefetched queue: only the waits). */
+REG8 MEMCALL upd9002_fetch(UINT32 address) {
+	upd9002_fetched_bytes++;
+	if (!(address & 1) && upd9002_waitmap.active && !memoryva.dma_access) {
+		CPU_REMCLOCK -= (SINT32)upd9002_programmed_wait(address);
+	}
+	return upd9002_memoryread_nowait(address);
+}
+
+REG16 MEMCALL upd9002_fetch_w(UINT32 address) {
+	upd9002_fetched_bytes += 2;
+	if (upd9002_waitmap.active && !memoryva.dma_access) {
+		CPU_REMCLOCK -= (SINT32)upd9002_programmed_wait(address);
+	}
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_test_flat_memory_active()) {
+		upd9002_test_flat_memory_reads += 2;
+		return (REG16)(mem[address & 0xfffff] | (mem[(address + 1) & 0xfffff] << 8));
+	}
+#endif
+	return upd9002_memoryread_va_w(address);
+}
+
+/*
  * Normal CPU and DMA accesses always enter the native VA decoder. The SST
  * instruction harness is intentionally isolated from machine devices and
  * therefore retains its explicit flat 1 MiB test-memory seam.
@@ -96,7 +175,13 @@ REG8 MEMCALL upd9002_memoryread(UINT32 address) {
 		return mem[address & 0xfffff];
 	}
 #endif
-	return upd9002_memoryread_va(address);
+	upd9002_bus_wait(address, 1);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		const REG8 value = upd9002_memoryread_va(address);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+		return value;
+	}
 }
 
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
@@ -106,7 +191,13 @@ REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
 		return (REG16)(mem[address & 0xfffff] | (mem[(address + 1) & 0xfffff] << 8));
 	}
 #endif
-	return upd9002_memoryread_va_w(address);
+	upd9002_bus_wait(address, 1 + (address & 1));
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		const REG16 value = upd9002_memoryread_va_w(address);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+		return value;
+	}
 }
 
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
@@ -119,7 +210,12 @@ void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 #endif
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 1);
-	upd9002_memorywrite_va(address, value);
+	upd9002_bus_wait(address, 1);
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		upd9002_memorywrite_va(address, value);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+	}
 }
 
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
@@ -133,7 +229,12 @@ void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
 #endif
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 2);
-	upd9002_memorywrite_va_w(address, value);
+	upd9002_bus_wait(address, 1 + (address & 1));
+	{
+		const SINT32 before = CPU_REMCLOCK;
+		upd9002_memorywrite_va_w(address, value);
+		upd9002_bus_waits += (UINT)(before - CPU_REMCLOCK);
+	}
 }
 
 REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off) {
@@ -167,19 +268,25 @@ void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 valu
 }
 
 REG8 MEMCALL meml_read8(UINT seg, UINT off) {
-	return upd9002_memoryread(((UINT32)seg << 4) + LOW16(off));
+	return upd9002_memoryread_nowait(((UINT32)seg << 4) + LOW16(off));
 }
 
 REG16 MEMCALL meml_read16(UINT seg, UINT off) {
-	return upd9002_memoryread_seg_w((UINT32)seg << 4, off);
+	UINT32 segment_base = (UINT32)seg << 4;
+
+	return (REG16)(upd9002_memoryread_nowait(segment_base + LOW16(off)) |
+	               (upd9002_memoryread_nowait(segment_base + LOW16(off + 1)) << 8));
 }
 
 void MEMCALL meml_write8(UINT seg, UINT off, REG8 value) {
-	upd9002_memorywrite(((UINT32)seg << 4) + LOW16(off), value);
+	upd9002_memorywrite_nowait(((UINT32)seg << 4) + LOW16(off), value);
 }
 
 void MEMCALL meml_write16(UINT seg, UINT off, REG16 value) {
-	upd9002_memorywrite_seg_w((UINT32)seg << 4, off, value);
+	UINT32 segment_base = (UINT32)seg << 4;
+
+	upd9002_memorywrite_nowait(segment_base + LOW16(off), (REG8)value);
+	upd9002_memorywrite_nowait(segment_base + LOW16(off + 1), (REG8)(value >> 8));
 }
 
 void MEMCALL meml_readstr(UINT seg, UINT off, void *dat, UINT leng) {
@@ -190,7 +297,7 @@ void MEMCALL meml_readstr(UINT seg, UINT off, void *dat, UINT leng) {
 	segment_base = (UINT32)seg << 4;
 	off = LOW16(off);
 	while (leng--) {
-		*out++ = upd9002_memoryread(segment_base + off);
+		*out++ = upd9002_memoryread_nowait(segment_base + off);
 		off = LOW16(off + 1);
 	}
 }
@@ -203,7 +310,7 @@ void MEMCALL meml_writestr(UINT seg, UINT off, const void *dat, UINT leng) {
 	segment_base = (UINT32)seg << 4;
 	off = LOW16(off);
 	while (leng--) {
-		upd9002_memorywrite(segment_base + off, *in++);
+		upd9002_memorywrite_nowait(segment_base + off, *in++);
 		off = LOW16(off + 1);
 	}
 }
@@ -213,7 +320,7 @@ void MEMCALL meml_read(UINT32 address, void *dat, UINT leng) {
 
 	out = (BYTE *)dat;
 	while (leng--) {
-		*out++ = upd9002_memoryread(address++);
+		*out++ = upd9002_memoryread_nowait(address++);
 	}
 }
 
@@ -222,6 +329,6 @@ void MEMCALL meml_write(UINT32 address, const void *dat, UINT leng) {
 
 	in = (const BYTE *)dat;
 	while (leng--) {
-		upd9002_memorywrite(address++, *in++);
+		upd9002_memorywrite_nowait(address++, *in++);
 	}
 }

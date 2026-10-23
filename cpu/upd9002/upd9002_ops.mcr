@@ -143,22 +143,22 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 
 
 #define	GET_PCBYTE(b)												\
-		(b) = upd9002_memoryread(CS_BASE + UPD9002_IP);					\
+		(b) = upd9002_fetch(CS_BASE + UPD9002_IP);					\
 		UPD9002_IP++;
 
 
 #define	GET_PCBYTES(b)												\
-		(b) = __CBW(upd9002_memoryread(CS_BASE + UPD9002_IP));			\
+		(b) = __CBW(upd9002_fetch(CS_BASE + UPD9002_IP));			\
 		UPD9002_IP++;
 
 
 #define	GET_PCBYTESD(b)												\
-		(b) = __CBD(upd9002_memoryread(CS_BASE + UPD9002_IP));			\
+		(b) = __CBD(upd9002_fetch(CS_BASE + UPD9002_IP));			\
 		UPD9002_IP++;
 
 
 #define	GET_PCWORD(b)												\
-		(b) = upd9002_memoryread_w(CS_BASE + UPD9002_IP);					\
+		(b) = upd9002_fetch_w(CS_BASE + UPD9002_IP);					\
 		UPD9002_IP += 2;
 
 
@@ -482,7 +482,7 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 
 #define	JMPSHORT(clock) {											\
 		UPD9002_WORKCLOCK(clock);										\
-		UPD9002_IP += __CBW(upd9002_memoryread(CS_BASE + UPD9002_IP));		\
+		UPD9002_IP += __CBW(upd9002_fetch(CS_BASE + UPD9002_IP));		\
 		UPD9002_IP++;													\
 	}
 

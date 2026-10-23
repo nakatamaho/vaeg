@@ -8,27 +8,27 @@
 // ---------------------------------------------------------------------- ins
 
 UPD9002EXT upd9002_rep_insb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		do {
 			REG8 dat = iocore_inp8(UPD9002_DX);
 			upd9002_memorywrite(UPD9002_DI + ES_BASE, dat);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 		} while (--UPD9002_CX);
 	}
 }
 
 UPD9002EXT upd9002_rep_insw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		do {
 			REG16 dat = iocore_inp16(UPD9002_DX);
 			upd9002_memorywrite_w(UPD9002_DI + ES_BASE, dat);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 		} while (--UPD9002_CX);
 	}
 }
@@ -36,27 +36,27 @@ UPD9002EXT upd9002_rep_insw(void) {
 // ---------------------------------------------------------------------- outs
 
 UPD9002EXT upd9002_rep_outsb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		do {
 			REG8 dat = upd9002_memoryread(UPD9002_SI + DS_FIX);
 			UPD9002_SI += stp;
 			iocore_out8(UPD9002_DX, (BYTE)dat);
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 		} while (--UPD9002_CX);
 	}
 }
 
 UPD9002EXT upd9002_rep_outsw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(9);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		do {
 			REG16 dat = upd9002_memoryread_w(UPD9002_SI + DS_FIX);
 			UPD9002_SI += stp;
 			iocore_out16(UPD9002_DX, (UINT16)dat);
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 		} while (--UPD9002_CX);
 	}
 }
@@ -70,7 +70,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 	UINT16 r_si;
 	UINT16 r_di;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	r_cx = UPD9002_CX;
 	if (r_cx) {
 		stp = STRING_DIR;
@@ -81,7 +81,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 			upd9002_memorywrite(ES_BASE + r_di, dat);
 			r_si += stp;
 			r_di += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 			r_cx--;
 			if (!r_cx) {
 				break;
@@ -103,7 +103,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 	UINT16 r_si;
 	UINT16 r_di;
 
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	r_cx = UPD9002_CX;
 	if (r_cx) {
 		stp = STRING_DIRx2;
@@ -114,7 +114,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 			upd9002_memorywrite_seg_w(ES_BASE, r_di, dat);
 			r_si += stp;
 			r_di += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 			r_cx--;
 			if (!r_cx) {
 				break;
@@ -131,7 +131,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 }
 #else
 UPD9002EXT upd9002_rep_movsb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		while (1) {
@@ -139,7 +139,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 			upd9002_memorywrite(UPD9002_DI + ES_BASE, dat);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -153,7 +153,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 }
 
 UPD9002EXT upd9002_rep_movsw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(11);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		while (1) {
@@ -161,7 +161,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 			upd9002_memorywrite_seg_w(ES_BASE, UPD9002_DI, dat);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(8);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -178,13 +178,13 @@ UPD9002EXT upd9002_rep_movsw(void) {
 // ---------------------------------------------------------------------- lods
 
 UPD9002EXT upd9002_rep_lodsb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		while (1) {
 			UPD9002_AL = upd9002_memoryread(UPD9002_SI + DS_FIX);
 			UPD9002_SI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(9);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -198,13 +198,13 @@ UPD9002EXT upd9002_rep_lodsb(void) {
 }
 
 UPD9002EXT upd9002_rep_lodsw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		while (1) {
 			UPD9002_AX = upd9002_memoryread_w(UPD9002_SI + DS_FIX);
 			UPD9002_SI += stp;
-			UPD9002_WORKCLOCK(4);
+			UPD9002_WORKCLOCK(9);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -220,13 +220,13 @@ UPD9002EXT upd9002_rep_lodsw(void) {
 // ---------------------------------------------------------------------- stos
 
 UPD9002EXT upd9002_rep_stosb(void) {
-	UPD9002_WORKCLOCK(4);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		while (1) {
 			upd9002_memorywrite(UPD9002_DI + ES_BASE, UPD9002_AL);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(3);
+			UPD9002_WORKCLOCK(4);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -240,13 +240,13 @@ UPD9002EXT upd9002_rep_stosb(void) {
 }
 
 UPD9002EXT upd9002_rep_stosw(void) {
-	UPD9002_WORKCLOCK(4);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		while (1) {
 			upd9002_memorywrite_w(UPD9002_DI + ES_BASE, UPD9002_AX);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(3);
+			UPD9002_WORKCLOCK(4);
 			UPD9002_CX--;
 			if (!UPD9002_CX) {
 				break;
@@ -262,7 +262,7 @@ UPD9002EXT upd9002_rep_stosw(void) {
 // ---------------------------------------------------------------------- cmps
 
 UPD9002EXT upd9002_repe_cmpsb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		do {
@@ -271,7 +271,7 @@ UPD9002EXT upd9002_repe_cmpsb(void) {
 			UINT src = upd9002_memoryread(UPD9002_DI + ES_BASE);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(9);
+			UPD9002_WORKCLOCK(14);
 			SUBBYTE(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (UPD9002_FLAGL & Z_FLAG));
@@ -279,7 +279,7 @@ UPD9002EXT upd9002_repe_cmpsb(void) {
 }
 
 UPD9002EXT upd9002_repne_cmpsb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		do {
@@ -288,7 +288,7 @@ UPD9002EXT upd9002_repne_cmpsb(void) {
 			UINT src = upd9002_memoryread(UPD9002_DI + ES_BASE);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(9);
+			UPD9002_WORKCLOCK(14);
 			SUBBYTE(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (!(UPD9002_FLAGL & Z_FLAG)));
@@ -296,7 +296,7 @@ UPD9002EXT upd9002_repne_cmpsb(void) {
 }
 
 UPD9002EXT upd9002_repe_cmpsw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		do {
@@ -305,7 +305,7 @@ UPD9002EXT upd9002_repe_cmpsw(void) {
 			UINT32 src = upd9002_memoryread_w(UPD9002_DI + ES_BASE);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(9);
+			UPD9002_WORKCLOCK(14);
 			SUBWORD(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (UPD9002_FLAGL & Z_FLAG));
@@ -313,7 +313,7 @@ UPD9002EXT upd9002_repe_cmpsw(void) {
 }
 
 UPD9002EXT upd9002_repne_cmpsw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		do {
@@ -322,7 +322,7 @@ UPD9002EXT upd9002_repne_cmpsw(void) {
 			UINT32 src = upd9002_memoryread_w(UPD9002_DI + ES_BASE);
 			UPD9002_SI += stp;
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(9);
+			UPD9002_WORKCLOCK(14);
 			SUBWORD(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (!(UPD9002_FLAGL & Z_FLAG)));
@@ -332,7 +332,7 @@ UPD9002EXT upd9002_repne_cmpsw(void) {
 // ---------------------------------------------------------------------- scas
 
 UPD9002EXT upd9002_repe_scasb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		UINT dst = UPD9002_AL;
@@ -340,7 +340,7 @@ UPD9002EXT upd9002_repe_scasb(void) {
 			UINT res;
 			UINT src = upd9002_memoryread(UPD9002_DI + ES_BASE);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(8);
+			UPD9002_WORKCLOCK(10);
 			SUBBYTE(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (UPD9002_FLAGL & Z_FLAG));
@@ -348,7 +348,7 @@ UPD9002EXT upd9002_repe_scasb(void) {
 }
 
 UPD9002EXT upd9002_repne_scasb(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIR;
 		UINT dst = UPD9002_AL;
@@ -356,7 +356,7 @@ UPD9002EXT upd9002_repne_scasb(void) {
 			UINT res;
 			UINT src = upd9002_memoryread(UPD9002_DI + ES_BASE);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(8);
+			UPD9002_WORKCLOCK(10);
 			SUBBYTE(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (!(UPD9002_FLAGL & Z_FLAG)));
@@ -364,7 +364,7 @@ UPD9002EXT upd9002_repne_scasb(void) {
 }
 
 UPD9002EXT upd9002_repe_scasw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		UINT32 dst = UPD9002_AX;
@@ -372,7 +372,7 @@ UPD9002EXT upd9002_repe_scasw(void) {
 			UINT32 res;
 			UINT32 src = upd9002_memoryread_w(UPD9002_DI + ES_BASE);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(8);
+			UPD9002_WORKCLOCK(10);
 			SUBWORD(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (UPD9002_FLAGL & Z_FLAG));
@@ -380,7 +380,7 @@ UPD9002EXT upd9002_repe_scasw(void) {
 }
 
 UPD9002EXT upd9002_repne_scasw(void) {
-	UPD9002_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(7);
 	if (UPD9002_CX) {
 		int stp = STRING_DIRx2;
 		UINT32 dst = UPD9002_AX;
@@ -388,7 +388,7 @@ UPD9002EXT upd9002_repne_scasw(void) {
 			UINT32 res;
 			UINT32 src = upd9002_memoryread_w(UPD9002_DI + ES_BASE);
 			UPD9002_DI += stp;
-			UPD9002_WORKCLOCK(8);
+			UPD9002_WORKCLOCK(10);
 			SUBWORD(res, dst, src)
 			UPD9002_CX--;
 		} while ((UPD9002_CX) && (!(UPD9002_FLAGL & Z_FLAG)));

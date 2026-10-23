@@ -150,7 +150,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		Upd9002Upd70008ConfigureCore(
 		    &upd70008_,
 		    [](void *, std::uint8_t index) -> std::uint8_t {
-			    return static_cast<std::uint8_t>(upd9002_memoryread(index));
+			    return static_cast<std::uint8_t>(upd9002_memoryread_nowait(index));
 		    },
 		    nullptr);
 		initialized_ = upd70008_.Init(this, this, &clock_, &counter_, kInterruptAcknowledgePort);
@@ -195,8 +195,9 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		counter_.SetRemainclock(CPU_REMCLOCK);
 		const std::uint16_t pc = static_cast<std::uint16_t>(upd70008_.GetPC());
 		const std::uint32_t code_address = (CPU_CS << 4) + pc;
-		const std::uint8_t op0 = static_cast<std::uint8_t>(upd9002_memoryread(code_address));
-		const std::uint8_t op1 = static_cast<std::uint8_t>(upd9002_memoryread(code_address + 1));
+		// (looking ahead at the instruction: not bus cycles of their own)
+		const std::uint8_t op0 = static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address));
+		const std::uint8_t op1 = static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address + 1));
 		const std::uint32_t trace_slot = compat_trace_slot();
 		compat_trace("before", trace_slot, op0, op1);
 
@@ -227,7 +228,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 		if ((op0 == 0xed) && (op1 == 0xed)) {
 			const std::uint8_t vector =
-			    static_cast<std::uint8_t>(upd9002_memoryread(code_address + 2));
+			    static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address + 2));
 			upd70008_.SetPC(static_cast<std::uint16_t>(pc + 3));
 			SyncToNative();
 			upd9002_core_compat_calln(vector, static_cast<REG16>(pc + 3));
@@ -357,12 +358,27 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		return SUCCESS;
 	}
 
+	// The waits of a memory access (the WCU's programmed ones, M130, and
+	// the devices') are taken from the native clock, as In() does.
 	std::uint32_t IFCALL Read8(std::uint32_t address) override {
-		return upd9002_memoryread(address & CPU_ADRSMASK);
+		const SINT32 before = CPU_REMCLOCK;
+		const std::uint32_t value = upd9002_memoryread(address & CPU_ADRSMASK);
+		const SINT32 elapsed = before - CPU_REMCLOCK;
+		if (elapsed > 0) {
+			CPU_REMCLOCK = before;
+			counter_.past(elapsed);
+		}
+		return value;
 	}
 
 	void IFCALL Write8(std::uint32_t address, std::uint32_t data) override {
+		const SINT32 before = CPU_REMCLOCK;
 		upd9002_memorywrite(address & CPU_ADRSMASK, static_cast<UINT8>(data));
+		const SINT32 elapsed = before - CPU_REMCLOCK;
+		if (elapsed > 0) {
+			CPU_REMCLOCK = before;
+			counter_.past(elapsed);
+		}
 	}
 
 	std::uint32_t IFCALL In(std::uint32_t port) override {

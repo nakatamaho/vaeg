@@ -155,8 +155,116 @@ static void upd9002_core_initreg(void) {
 	UPD9002_FLAG = 0xf002;
 }
 
+/*
+ * The bus interface unit's prefetch queue (M130). The uPD70116's clock
+ * counts assume a prefetched instruction; code that runs out of prefetched
+ * bytes waits for the BIU, which reads an aligned word every 4 clocks while
+ * the bus is free and holds at most 6 bytes. A taken transfer (and an
+ * interrupt) empties the queue; its own count covers the first word of the
+ * target. Calibrated on PC-88VA and PC-88VA2 loops: ADD/INC/DEC/Bcc 22.3
+ * clocks a pass (model 22), ES: MOV AL,[DI] with the same 32.9 (33), DBNZ
+ * at an odd address 18.1 (17). Not saved in states: a loaded state starts
+ * with an empty queue.
+ */
+static struct {
+	UINT32 next;      /* clock the BIU's next word arrives */
+	UINT16 ip;        /* where the queue's bytes start */
+	UINT16 cs;
+	UINT8 bytes;      /* bytes in the queue */
+	UINT8 valid;
+} upd9002_queue;
+UINT upd9002_fetched_bytes; /* by the current instruction (memory.c) */
+UINT upd9002_data_cycles;   /* its data bus cycles (memory.c) */
+UINT upd9002_prefix_clocks; /* its prefixes' clocks: the BIU fetches meanwhile */
+UINT upd9002_bus_waits;     /* its data cycles' wait states (memory.c) */
+
+static UINT32 upd9002_now(void) {
+	return (UINT32)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK);
+}
+
+static UINT32 upd9002_bus_clocks(UINT32 clocks) {
+	return (UINT32)clockscale_apply(&pccore_cpu_scale, clocks);
+}
+
+static void upd9002_queue_flush(UINT32 now) {
+	/* The first word of the target arrives as the transfer ends. */
+	upd9002_queue.ip = UPD9002_IP;
+	upd9002_queue.cs = UPD9002_CS;
+	upd9002_queue.bytes = (UINT8)((UPD9002_IP & 1) ? 1 : 2);
+	upd9002_queue.next = now + upd9002_bus_clocks(4);
+	upd9002_queue.valid = 1;
+}
+
+/* The BIU's words up to clock NOW (queue limit 6 bytes). */
+static void upd9002_queue_fill(UINT32 now) {
+	while ((SINT32)(now - upd9002_queue.next) >= 0) {
+		if (upd9002_queue.bytes > 4) {
+			upd9002_queue.next = now;
+			return;
+		}
+		upd9002_queue.bytes += 2;
+		upd9002_queue.next += upd9002_bus_clocks(4);
+	}
+}
+
+/* After an instruction of LENGTH bytes that started at START_IP, clock
+ * START and charged its own count: the stall for bytes not yet fetched. */
+static void upd9002_queue_account(UINT16 start_ip, UINT16 start_cs, UINT32 start, UINT length) {
+	UINT32 stall;
+	UINT32 end;
+
+	if (!upd9002_queue.valid || (upd9002_queue.ip != start_ip) ||
+	    (upd9002_queue.cs != start_cs)) {
+		/* Arrived by a transfer outside an instruction (interrupt, state
+		 * load, mode switch): as after a transfer. */
+		UINT16 ip = UPD9002_IP;
+		UINT16 cs = UPD9002_CS;
+		UPD9002_IP = start_ip;
+		UPD9002_CS = start_cs;
+		upd9002_queue_flush(start);
+		UPD9002_IP = ip;
+		UPD9002_CS = cs;
+	}
+	upd9002_queue_fill(start);
+	start += upd9002_prefix_clocks; /* the bytes after the prefixes */
+	stall = 0;
+	while (upd9002_queue.bytes < length) {
+		UINT32 at = upd9002_queue.next;
+		if ((SINT32)(at - start) > 0) {
+			stall += at - start;
+			start = at;
+		}
+		upd9002_queue.bytes += 2;
+		upd9002_queue.next += upd9002_bus_clocks(4);
+	}
+	upd9002_queue.bytes -= (UINT8)length;
+	if (stall) {
+		CPU_REMCLOCK -= (SINT32)stall;
+	}
+	end = upd9002_now();
+	/* The instruction's data cycles, wait states included, hold the bus. */
+	if (upd9002_data_cycles && ((SINT32)(end - upd9002_queue.next) > 0)) {
+		upd9002_queue.next += upd9002_bus_clocks(4 * upd9002_data_cycles) + upd9002_bus_waits;
+	}
+	if ((UPD9002_CS != start_cs) || (UPD9002_IP != (UINT16)(start_ip + length))) {
+		upd9002_queue_flush(end);
+		return;
+	}
+	upd9002_queue.ip = UPD9002_IP;
+	upd9002_queue.cs = UPD9002_CS;
+}
+
+void upd9002_core_queue_reset(void) {
+	upd9002_queue.valid = 0;
+}
+
 void upd9002_core_step(void) {
+	UINT16 queue_ip;
+	UINT16 queue_cs;
+	UINT32 queue_start;
+
 	if (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) {
+		upd9002_queue.valid = 0;
 		if (upd9002_compat_hooks.step != NULL) {
 			upd9002_compat_hooks.step();
 		}
@@ -166,6 +274,7 @@ void upd9002_core_step(void) {
 	UINT opcode;
 	BOOL preserve_state;
 	Upd9002RuntimeState state_before;
+	SINT32 remain_before_fetch;
 
 	if (upd9002_diagnostic_pending()) {
 		return;
@@ -175,7 +284,15 @@ void upd9002_core_step(void) {
 	upd9002_trace_step_begin();
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
-	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	queue_ip = UPD9002_IP;
+	queue_cs = UPD9002_CS;
+	queue_start = upd9002_now();
+	upd9002_fetched_bytes = 0;
+	upd9002_data_cycles = 0;
+	upd9002_prefix_clocks = 0;
+	upd9002_bus_waits = 0;
+	remain_before_fetch = UPD9002_REMCLOCK;
+	opcode = upd9002_fetch(CS_BASE + UPD9002_IP);
 	upd9002_current_opcode = (UINT8)opcode;
 	upd9002_perf_record_step(CS_BASE, UPD9002_IP, (UINT8)opcode,
 	                         mem[(CS_BASE + (UINT16)(UPD9002_IP + 1)) & UPD9002_ADRSMASK]);
@@ -183,6 +300,8 @@ void upd9002_core_step(void) {
 	                 (opcode == 0xf2) || (opcode == 0xf3);
 	if (preserve_state) {
 		state_before = upd9002_core_context.s;
+		/* (also the opcode fetch's programmed waits, M130) */
+		state_before.remainclock = remain_before_fetch;
 	}
 	UPD9002_OV = UPD9002_FLAG & O_FLAG;
 	UPD9002_FLAG &= ~(O_FLAG);
@@ -209,12 +328,18 @@ void upd9002_core_step(void) {
 		upd9002_trace_step_end();
 		return;
 	}
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE) {
+		upd9002_queue_account(queue_ip, queue_cs, queue_start, upd9002_fetched_bytes);
+	} else {
+		upd9002_queue.valid = 0;
+	}
 	upd9002_dmap();
 	upd9002_guest_trace_step_end();
 	upd9002_trace_step_end();
 }
 
 void upd9002_core_reset(void) {
+	upd9002_core_queue_reset();
 #if defined(VAEG_UPD9002_M46_TESTING)
 	upd9002_dispatch_test_require_immutable();
 #endif
@@ -364,7 +489,7 @@ void CPUCALL upd9002_core_brkem(REG8 vect) {
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
 	CPU_COMPAT_RETURN_PENDING = 0;
-	UPD9002_WORKCLOCK(20);
+	UPD9002_WORKCLOCK(38);
 	if (upd9002_compat_hooks.enter != NULL) {
 		upd9002_compat_hooks.enter();
 	}
@@ -383,7 +508,7 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 1;
-	UPD9002_WORKCLOCK(20);
+	UPD9002_WORKCLOCK(38);
 }
 
 void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip) {
@@ -421,7 +546,7 @@ void CPUCALL upd9002_core_compat_retem(void) {
 	UPD9002_TRAP = ((flag & T_FLAG) != 0);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
-	UPD9002_WORKCLOCK(31);
+	UPD9002_WORKCLOCK(27);
 	if (upd9002_compat_hooks.leave != NULL) {
 		upd9002_compat_hooks.leave();
 	}
@@ -454,7 +579,7 @@ void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 	UPD9002_IP = LOADINTELWORD(ptr + 0); // real mode!
 	UPD9002_CS = LOADINTELWORD(ptr + 2); // real mode!
 	CS_BASE = UPD9002_CS << 4;
-	UPD9002_WORKCLOCK(20);
+	UPD9002_WORKCLOCK(35);
 }
 
 void CPUCALL upd9002_core_interrupt(REG8 vect) {
@@ -481,11 +606,11 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 		CS_BASE = UPD9002_CS << 4;
 		CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 		CPU_COMPAT_RETURN_PENDING = 1;
-		UPD9002_WORKCLOCK(20);
+		UPD9002_WORKCLOCK(49);
 		return;
 	}
 
-	op = upd9002_memoryread(UPD9002_IP + CS_BASE);
+	op = upd9002_memoryread_nowait(UPD9002_IP + CS_BASE);
 	if (op == 0xf4) { // hlt
 		UPD9002_IP++;
 	}
@@ -500,7 +625,7 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 	UPD9002_IP = LOADINTELWORD(ptr + 0); // real mode!
 	UPD9002_CS = LOADINTELWORD(ptr + 2); // real mode!
 	CS_BASE = UPD9002_CS << 4;
-	UPD9002_WORKCLOCK(20);
+	UPD9002_WORKCLOCK(49);
 }
 
 // ---- test
