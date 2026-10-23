@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **X88000-aligned follow-up implemented; selftest/CTest pass; runtime confirmation pending; no merge or G131 request.**
+Status: **X88000-aligned follow-up passes VA/VA2 game/BASIC matrix; hardware probe/media ready, hardware results pending; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -442,11 +442,154 @@ skipped tests as before. Formatting-only changes after that run do not alter
 the executed logic. Runtime and final pushed-worker identities will be recorded
 separately, without relabeling the earlier eight-case matrix as fixed output.
 
+## Pushed follow-up runtime verification
+
+Evaluated source commit:
+[bf215b998a616d07c9c909383c4160f5712f4597](https://github.com/nakatamaho/vaeg/commit/bf215b998a616d07c9c909383c4160f5712f4597).
+The recording-ON macOS worker rebuilt from that pushed commit has SHA-256
+`e032203ecf1dd7fee94c57b8f0e1fa08f284c6640a7f65d3f10f35cb22d4cb3b`.
+The final worker's selftest and `ctest --test-dir "$PRIVATE/build"
+--output-on-failure -j8` both exit 0 (140 listed, zero failed, nine skipped;
+96.98 seconds for CTest).
+
+The same eight-case contract documented above is rerun in new, isolated output
+directories: fresh per-case configuration/backup/disk copy, explicit V1/V2 and
+H/S selection, both fixture images mounted, Enter at frame 2400, screenshots
+at frames 1790 and 3600. All eight game runs exit 0 and their saved mode bits
+agree with the request. On **both VA and VA2**, V1H, V2H **and V2S** now show
+coherent gameplay after Start; V1S still displays the guest's explicit
+`V1-H OR V2 MODE ONLY` rejection. This is not an assertion that V1S gameplay
+works. The previous V2S overlay disappears without changing the guest media.
+
+All eight BASIC boot and all eight corrected PRINT/query runs also exit 0.
+BASIC versions and IN 31h results remain those in the earlier query table;
+every query prints `M131 2`. In particular V1S still displays BASIC and its
+output. These comparisons use the same neutral V1/V2 BASIC fixtures as before;
+the newly supplied common-system fixture is a separate probe-media input.
+Raw logs, commands, captures and output digests remain in private scratch.
+
+Repository encoding/EOL/case/Markdown-comment checks and `git diff --check`
+exit 0. New C regions are normalized with clang-format-mp-22. The whole-manifest
+format checker is blocked by the pre-existing `manifest paths are not sorted`
+error; its manifest, configuration and checker are identical to pre-follow-up
+commit `9be7754d`. No unrelated manifest/source formatting is changed.
+
+## Hardware probe preparation and correction of earlier assertions
+
+The maintainer states that VA/VA2 can select V1S/V1H/V2S/V2H. The agent's earlier
+claim that V2S could not be checked on these machines was premature and is
+withdrawn. Record selected mode and actual IN 31h separately; manual memory-
+switch descriptions and emulator source do not replace the hardware check.
+
+The supplied non-Japanese N88-BASIC system fixture is described by the
+maintainer as V1/V2 compatible. Its D88 is 2HD (154 tracks), not 2D. A copy is
+extracted outside Git with a neutral identifier; the supplied archive and
+read-only reference tree are unmodified. No system image is distributed in Git.
+The source-only diagnostic and instructions live under
+[`tools/pc88va/m131-tvram/`](../../../tools/pc88va/m131-tvram/README.md).
+It measures CPU-bank aliasing and displayed A/B patterns in two TMODE phases,
+then restores both banks and the original port 32h before reporting to BASIC.
+Hardware output is not yet available; probe emulator/media verification remains
+in progress. No original-M88 or physical-machine run is implied.
+
+Initial probe build 01 loaded at 9000h and requested `CLEAR ,&H8FFF`. The common
+disk BASIC rejected that reservation with `Illegal function call in 1000` in
+all eight requested mode/model runs. Process exit 0 is not a probe pass: no
+machine-code phase ran. The disk BASIC memory map places disk code and its
+buffers above 8400h, so the diagnostic must reserve space above those areas,
+not assume ROM-BASIC layout. Failed output and the first saved disk remain
+private. Build 02 relocates code/stack to B000h-BFFFh, backup banks to
+C000h-DFFFh, and requests `CLEAR ,&HAFFF`; that reservation succeeds. Its single
+VA2/V2H preflight then exposes `Syntax error in 1050`: this N88 CALL syntax
+requires an address variable, not a literal. The preflight's monochrome setup
+also makes its text unreadable in the rendered capture; the TVRAM dump reveals
+the error. Build 03 uses `A=&HB000:CALL A` and explicit colour-mode
+`SCREEN 1:COLOR 7,0,0`. No machine-code restoration pass is inferred from the
+failed preflight. Build 03 reaches a readable phase 0 but does not advance:
+the initial SPACE mask used bit 7, whereas the compatibility matrix uses port
+09h bit 6 (also consistent with the manual's two rotates). Build 04 corrects
+both polling masks to 40h, retaining the same layout. The blocked preflight
+is not a restoration pass and its captures are preserved. Build 04 completes
+both phases and reports `RESTORE=1` and PRINT result 2 in a VA2/V2H preflight,
+but its final BASIC text is still obscured: SCREEN selects graphics mode,
+whereas CONSOLE's fourth argument selects colour text attributes. Build 05
+explicitly issues `CONSOLE 0,25,0,1` before COLOR. The machine-code binary is
+unchanged from build 04. Verify the final loader and readable result across
+all cases before handoff.
+The independent builder test verifies the
+DATA loader exactly reproduces the binary, its checksum, license and layout,
+and byte-identical output from two fresh builds.
+
+## Final probe and private hardware handoff
+
+Build 05's source-only diagnostic is ready for targeted hardware testing, not
+a hardware-verified result. It uses the same final emulator worker/production
+commit identified above; application sources and worker digest are unchanged.
+The private common-system fixture is `basic-common-01`, separate from the
+older V1/V2 boot fixtures and `guest-start-01`.
+
+```sh
+python3 tools/pc88va/m131-tvram/build.py \
+  --assembler "$VAEG_Z80ASM" --output-dir "$PRIVATE/probe-build"
+VAEG_Z80ASM="$VAEG_Z80ASM" python3 tools/pc88va/m131-tvram/test_build.py
+```
+
+Both commands exit 0 with z80asm 1.8. The integration test performs two fresh
+builds and checks byte-identical output, the DATA loader/binary equality,
+checksum, reserved layout, entry/result offsets, SPACE masks and required
+BASIC setup/CALL syntax. No assembler is downloaded and no system image is
+built or distributed by this public source-only builder.
+
+Freely distributable probe-output identities (not system-image/input hashes):
+
+- Machine-code bytes: 604; loader checksum: 62810; origin B000h.
+- Binary SHA-256:
+  `1f991a024393ea10aabd1aea6f9fae1689a19c1b8ac9ff85dc0e58558745d47d`.
+- ASCII BASIC loader SHA-256:
+  `bd99fd35ee8ad9715466beb08f76326796c0a47b4752b28acd6e7194a87bb656`.
+- Assembly source SHA-256:
+  `ccf5ca8e4b815b0732b527d84442be6fb4bd18a5532cff3868b8a90f8d307f8a`.
+
+The saved BASIC program is installed by the guest's own SAVE on private disk
+copies, then reloaded and run. All eight final emulator subprocesses exit 0.
+Captures at frames 5500/6500 show the two stable phases; frame 9000 shows the
+readable result, `RESTORE=1` and PRINT result 2. Both models give:
+
+| Mode | IN31 | Original32 | Phase32 P0/P1 | CPU P0/P1 | Display P0/P1 | Restore / PRINT |
+|---|---|---|---|---|---|---|
+| V1H | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / 2 |
+| V1S | B9h | 9Ah | 8Ah/9Ah | 42h/42h | B/B | 1 / 2 |
+| V2H | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / 2 |
+| V2S | 39h | AAh | AAh/BAh | 41h/42h | A/A | 1 / 2 |
+
+This is an **emulator** result table. It is not filled in as a hardware result.
+The initial private aggregation script exits 1 because it looks for results
+only in the raw TVRAM dump: V1S instead displays main RAM. Its false negatives
+are retained, not relabeled as successful raw-dump checks. A separate rendered-
+content check exits 0 for all eight cases: phase banners/labels match the
+inspected A/B references and the result/PRINT rows are pixel-identical to the
+successful fast-text reference. The eight result screens are also inspected
+visually, including the V1S main-RAM results. No unchanged emulator run is
+repeated merely to correct this private analysis helper.
+
+The private handoff contains `m131-tvram-2hd.d88`, the source-only BASIC loader,
+machine-code binary, build report and operator README outside Git. The D88 is
+a copy of the tested VA2/V2H candidate, verified byte-for-byte at handoff. It
+contains the maintainer-supplied system files and must **not** be uploaded or
+committed. Use an appropriate D88 writer; write-protect the physical test disk
+after preparation. The runtime routine itself performs no disk I/O. The input
+archive/read-only reference tree and original media were not modified.
+
+Repository encoding/EOL/case/Markdown-comment and diff-whitespace checks pass.
+No hosted CI, new application rebuild, static Windows handoff or full milestone
+gate is claimed for these source-only diagnostic/evidence changes. All failed
+probe attempts and raw evidence remain private. The earlier Windows preview
+predates the source-aligned correction and is not a corrected V2S executable.
+
 ## Remaining gate work
 
-- Investigate and resolve the maintainer-reported V2S display corruption,
-  preserving S-mode BASIC text display. The H-mode correction alone does not
-  establish V2S compatibility.
+- Confirm the source-aligned policy on hardware using the diagnostic; do not
+  infer a real VA/VA2 result from the corrected emulator's own output.
 - Generate both SASI utility images and boot/DIR each alone on its model.
   The three required generated CP/M inputs are not currently present in task
   scratch; SASI generation is NOT_RUN, not a passing or failing image build.

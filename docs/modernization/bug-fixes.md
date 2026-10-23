@@ -35,11 +35,12 @@ land.
 
 ## Maintenance Rules
 
-### M131 — H-mode graphics obscured by spurious main-RAM text
+### M131 — Graphics obscured by spurious main-RAM text
 
 - **Symptom/scope:** private fixture `guest-start-01` boots, but Enter at
   Start produces severe bands and stray characters over the game display in
-  V1/V2 H mode on both VA and VA2 models.
+  V1/V2 H mode on both VA and VA2 models. The initial H-mode workaround
+  leaves the same overlay visible in V2S on both models.
 - **Demonstrated cause:** the M103h standard-speed text compatibility path in
   `maketextva_3301_row` selected main RAM whenever 88 mode and TMODE were set,
   without checking the standard-speed preference. The guest uses the RAM
@@ -63,13 +64,20 @@ land.
   behavior and the standard milestone human gate are not newly verified.
   Later manual review distinguishes CPU banking from display sourcing; the
   general H/S-qualified selector remains unproven, especially for V2S.
-  The subsequent X88000-alignment replaces that provisional selector: V2 and
+  The subsequent [X88000-alignment bf215b99](https://github.com/nakatamaho/vaeg/commit/bf215b998a616d07c9c909383c4160f5712f4597)
+  replaces that provisional selector: V2 and
   V1H display fast text independently of TMODE; only V1S displays main RAM.
   One shared effective-mode policy also prevents CPU access to fast text in
   V1S and keeps the RAM-display sleep guard active independently of TMODE.
   The new V1/V2 × H/S × TMODE test fails on the provisional helper and passes
-  with this follow-up; macOS selftest/CTest pass. Its final commit identity
-  and runtime verification are recorded in the linked task.
+  with this follow-up; macOS selftest/CTest pass. The final worker's isolated
+  eight-case matrix confirms coherent V1H/V2H/V2S gameplay on VA and VA2;
+  V1S is explicitly rejected by the guest rather than entering gameplay.
+  All eight BASIC PRINT/query cases pass, retaining V1S output. The demonstrated
+  V2S overlay cause was the provisional selector displaying underlying RAM
+  because S was selected, despite effective V2. Hardware confirmation and the
+  broader gate remain pending; the maintainer reports all four modes are
+  selectable on VA/VA2. Final worker identity and commands are in the linked task.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
@@ -3655,22 +3663,6 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
-
-### M131 — Display corruption remains in V2S
-
-The maintainer confirms the H-mode correction but reports that private fixture
-`guest-start-01` still corrupts its display in V2S; explicit isolated VA/VA2
-runs reproduce it. Both models draw gameplay in V1H/V2H; in V1S the guest
-itself displays `V1-H OR V2 MODE ONLY`. Manual review establishes that port
-32h bit 4 CPU banking must not be conflated with the display source, and that
-the documented fast-text modes include V2. The provisional H/S selector and
-the older TMODE-only fallback are not general hardware proofs. Neither a
-verified V2S root cause nor guest incompatibility with V2S is claimed.
-Investigate effective mode and display setup while retaining BASIC coverage;
-do not merge the provisional workaround yet. The maintainer subsequently
-requests X88000 alignment; the shared-mode follow-up is implemented with
-passing focused and full tests, but runtime confirmation is still pending.
-See [M131 feedback and investigation](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-feedback-and-unresolved-v2s-case).
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 
