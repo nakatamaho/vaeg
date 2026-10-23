@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M130 — Main-CPU timing: V30 clock counts and programmed memory waits
 
-Status: **implemented; G130 human gate pending.**
+Status: **implemented (V30 timing; CPU/SGP contention); G130 human gate pending.**
 
 ## Request
 
@@ -70,8 +70,11 @@ Decision (maintainer, 2026-10-23): no option to keep the old timing; vaeg
 follows the VA and VA2 as closely as possible. Faster guest code is what
 `--cpumult` is for.
 
-Out of scope: cycle-exact bus timing, CPU/SGP contention (#38 remains for
-it), the FDC subsystem CPU.
+6. CPU/SGP contention (#38; maintainer request, 2026-10-23, after the
+   two-screen benchmark on both machines), with a demo that repeats the
+   measurement.
+
+Out of scope: cycle-exact bus timing, the FDC subsystem CPU.
 
 ## Gate (proposed)
 
@@ -113,6 +116,40 @@ file, the V30 timing (2fbdb54d) and the bus hold of waits (d5feb5c0).
   `consumed`/`remain` fields only; DIVU r8 14 to 19) and
   `state_fixtures_m42.txt` (two rows' clock); their protected hashes
   updated. ctest 112/112.
+
+## CPU/SGP contention
+
+Branch `topic/m130-sgp-contention` (on `topic/m130-wcu-memory-waits`).
+
+- `[MEASURED]` GG's BENCH2 (600 VRTCs a row; photographs of the VA and
+  VA2, 2026-10-23): two screens, G0 over G1, cost the CPU nothing; an SGP
+  list of 30 16x16 sprites takes 17.8 ms (VA) and 11.0 ms (VA2), the same
+  while the CPU works; the CPU meanwhile keeps 0.66 (VA) / 0.48 (VA2) of
+  its main RAM work and 0.73 / 0.46 of its G1 writes. SGPBENCH (M128) and
+  SPRBENCH (M129) give the VA2 0.43-0.57 for a compute loop, STOSW and 16-
+  to 128-dot sprites; on the VA they bound it below 0.35.
+- `[CODE]` `io/sgp.c`: the fixed four CPU clocks per SGP memory access
+  removed; `sgp_step()` stretches each CPU instruction executed while the
+  SGP is busy by share / (1 - share), share 80/256 (VA) and 136/256 (VA2),
+  remainder carried (`sgp.cpudelay`, `sgp.cpudelayfrac` in the state's
+  spare bytes). A per-access charge fitted to the 16x16 lists (6 and 7
+  clocks) made SPRBENCH's SGP75 column 1.10-1.28 slow at 64 and 128 dots;
+  the time share does not.
+- `[MEASURED]` vaeg divided by the machines:
+
+| Benchmark | VA | VA2 | before |
+|---|---|---|---|
+| BENCH2 CPU with the SGP (N, P), after baseline | 0.96-1.04 | 0.98-1.05 | 1.07-1.19 / 1.43-1.50 |
+| SGPBENCH overlap rows (time) | 1.02-1.03 | 0.88-1.03 | 0.94-1.03 / 0.80-0.90 |
+| SPRBENCH SGP25-75 (time) | 0.90-0.99 | 0.90-1.00 | 0.86-0.99 / 0.85-1.01 |
+
+  SPRBENCH's split columns now lie between its CPU column (0.89-0.91,
+  #47) and its SGP column (0.95-1.00) at every size.
+- `demos/sgp-contention`: SGPCONT.COM, the same 18 rows as BENCH2 with
+  the same loops, segments and lists, standalone (`build.sh`, font from
+  `gen_font.py`); in vaeg it gives the figures of its README. Its own run
+  on the machines is pending. Not on the all-demos disks (no committed
+  disk changes).
 
 ## Media and demo regression
 

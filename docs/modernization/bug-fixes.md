@@ -1313,6 +1313,34 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M130 — the CPU kept too much of its speed while the SGP drew
+
+- **Symptom/scope:** CPU work done while an SGP list runs was 1.2x (VA)
+  to 1.6x (VA2) faster in vaeg than on the machines for main RAM work
+  (GG's BENCH2: 1229 / 1111 blocks against 990 / 706) and up to 1.25x
+  for SGPBENCH's overlap rows on the VA2; a port splitting its drawing
+  between the CPU and the SGP expected more from the split than the
+  machines give (#38).
+- **Demonstrated cause:** `io/sgp.c` charged the CPU a fixed four clocks
+  for every SGP memory access, a value with no measurement (its own
+  comment). On the machines the CPU loses about 0.31 (VA) and 0.53 (VA2)
+  of the time the SGP is busy, nearly independent of what the CPU does
+  and of the transfer size; the fixed charge gave 0.2-0.3 on both and grew
+  with the SGP's access rate.
+- **Correction:** the per-access charge is removed; each CPU instruction
+  executed while the SGP is busy is stretched by share / (1 - share),
+  share 80/256 (VA) and 136/256 (VA2). The SGP's own speed is unchanged.
+  New demo `demos/sgp-contention` (SGPCONT.COM) repeats the measurement.
+- **Verification:** GG's BENCH2 in vaeg against the photographs, divided
+  by the same loop without the SGP: CPU work with the SGP 0.96-1.04 (VA)
+  and 0.98-1.05 (VA2) (main RAM was 1.19 / 1.43); SGPBENCH's overlap rows 1.02-1.03 (VA) and
+  0.88-1.03 (VA2) (were 0.94-1.03 and 0.80-0.90); SPRBENCH's SGP25-75
+  columns between its CPU-only and SGP-only ratios at every size. ctest
+  112/112; `--selftest` passes.
+- **Milestone/task/commit:** M130,
+  [M130 task](../agents/tasks/M130_v30_timing.md),
+  [demo](../../demos/sgp-contention/README.md).
+
 ### M130 — main-CPU code ran 1.5-2.6 times faster than on the PC-88VA and VA2
 
 - **Symptom/scope:** every class of V30-mode code (register loops, main
@@ -3804,7 +3832,7 @@ separate parity correction or move it to Open Defects.
   1.6 and 1.9 on a PC-88VA2, at 15.98 and 24.8 kHz alike
   (`pc88va-video-modes.md` section 12.4). V3 mode; other code not measured.
 - **Status:** the main CPU's part fixed in M130 (V30 clock counts, waits,
-  prefetch); CPU/SGP contention remains. The CPU clock
+  prefetch) and the CPU/SGP contention in M130. The CPU clock
   (7.9872 MHz) matches the board; the ratio being the same at every depth,
   with very different GVRAM write counts, points away from GVRAM waits
   alone. Next step: a hardware benchmark per instruction class (register,
