@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **Provisional H-mode workaround; display-source policy unresolved; no merge or G131 request.**
+Status: **X88000-aligned follow-up implemented; selftest/CTest pass; runtime confirmation pending; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -393,6 +393,54 @@ text there irrespective of the CPU's current TMODE bank selection. Translating
 this to the VA's emulated 3301/TSP window still needs implementation and focused
 BASIC/game regression tests. No production change, merge or gate pass is
 claimed by this source comparison.
+
+## M88-derived source and X88000-aligned follow-up
+
+The maintainer requests alignment with X88000 after the comparison above.
+The earlier instruction not to merge remains in force; this authorizes the
+follow-up implementation, not milestone acceptance.
+
+The additional reference is the M88-derived macOS port
+[bubio/M88M at c6e3300d9331e4fa5d9af667232201a7571a63d1](https://github.com/bubio/M88M/tree/c6e3300d9331e4fa5d9af667232201a7571a63d1),
+not a claim that an unmodified original M88 release was executed:
+
+- [`pc88.cpp`, lines 270-277](https://github.com/bubio/M88M/blob/c6e3300d9331e4fa5d9af667232201a7571a63d1/src/pc88/pc88.cpp#L270-L277)
+  connects display DMA to TVRAM when IN 31h bit 6 is set, otherwise to main
+  RAM. This connection is separate from subsequent CPU banking.
+- [`memory.cpp`, UpdateF0](https://github.com/bubio/M88M/blob/c6e3300d9331e4fa5d9af667232201a7571a63d1/src/pc88/memory.cpp#L836-L837)
+  selects CPU TVRAM access only when bit 6 allows fast text and port 32h bit 4
+  is clear. TMODE does not reconnect display DMA.
+- [`config.h`, lines 21-22](https://github.com/bubio/M88M/blob/c6e3300d9331e4fa5d9af667232201a7571a63d1/src/pc88/config.h#L21-L22)
+  encodes V1S/V1H/V2 as 20h/21h/31h;
+  [`Base::Reset`](https://github.com/bubio/M88M/blob/c6e3300d9331e4fa5d9af667232201a7571a63d1/src/pc88/base.cpp#L63-L67)
+  derives the H bit from bit 0 of this mode. Supported V2 therefore enables
+  fast text. This is consistent with X88000 for supported N88 modes, but
+  does not directly test vaeg's artificial V2S combination.
+
+The follow-up uses one shared C policy, `memoryva_88_fast_text()`: the effective
+V1 identification is MS27 (backup B1FC6h bit 7, also returned by IN 31h), and
+only effective V1 with the explicit S preference disables fast text. V2 keeps
+fast text irrespective of the S preference. No new saved-state field is added.
+
+- Display rasterization and copied text select main RAM only for V1S, regardless
+  of current TMODE. The existing TSP window/address translation is retained.
+- CPU F000h access still observes graphics/dictionary/extended-memory precedence.
+  Fast text is available in V1H/V2 only and selected with TMODE clear; V1S
+  accesses main RAM even with TMODE clear, matching X88000.
+- The main-RAM display sleep guard follows this same policy, rather than TMODE,
+  so V1S RAM changes cannot be hidden by the fast-TV RAM dirty flag.
+- S-mode IN 31h identification, CPU timing, ROMs, media and V3 behavior are not
+  changed by this follow-up.
+
+The focused selftest now crosses V1/V2, H/S and both TMODE values, checking
+raster pixels, copied text and CPU read/write bank isolation. It retains the
+V3-with-saved-S and GVRAM-priority checks. Against the old provisional helper,
+the new test exits 1 with `V2 display source depends on S preference or TMODE`.
+With the shared policy it exits 0, `TSP 3301 emulation ok`. The recording-ON
+macOS build succeeds; full CTest exits 0, 140 listed, zero failed, the same nine
+skipped tests as before. Formatting-only changes after that run do not alter
+the executed logic. Runtime and final pushed-worker identities will be recorded
+separately, without relabeling the earlier eight-case matrix as fixed output.
 
 ## Remaining gate work
 

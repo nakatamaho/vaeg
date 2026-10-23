@@ -7231,6 +7231,7 @@ static int test_emulation_speed(void) {
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
 	const UINT8 saved_standard = np2cfg.v1v2_standard;
+	const UINT8 saved_ms26 = backupmem[0x1fc6];
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
 	static const BYTE tvwrite[] = {0x8e, 0x10, 0x00, 0x00, 0x8f, 0x01,
 	                               0x00, 0x00, 0x97, 0x8c, 0x67, 0x88};
@@ -7455,43 +7456,54 @@ static int test_tsp_3301_emulation(void) {
 			}
 		}
 		videova.txtmode8 = 0x01;
-		/* M103h: with 32h TMODE set in 88 mode (V1S N-88 BASIC) the text
-		 * comes from 88-mode main RAM F000h-FFFFh, not TVRAM 6000h. */
-		CopyMemory(mem + 0x1f000, textmem + 0x6000, 0x1000);
-		ZeroMemory(textmem + 0x6000, 0x1000);
-		iocore_out8(0x153, 0x01);
-		iocore_out8(0x32, 0x18); /* TMODE 1 */
-		/* M131: H mode keeps displaying fast TVRAM even when TMODE
-		 * exposes main RAM to the CPU. RAM may hold arbitrary game data. */
-		np2cfg.v1v2_standard = 0;
-		tsp_dirty = TRUE;
-		maketextva_begin(&scrn200);
-		maketextva_raster();
-		if ((problem == NULL) && ((textraster[8] != 0) || (maketextva_3301_text(0) == NULL) ||
-		                          (maketextva_3301_text(0)[0] != 0))) {
-			problem = "H mode TMODE 1 displayed main RAM instead of fast TVRAM";
-		}
-		/* S mode is the explicit compatibility extension: retain its
-		 * main-RAM display and text-copy source. */
-		np2cfg.v1v2_standard = 1;
-		tsp_dirty = TRUE;
-		maketextva_begin(&scrn200);
-		maketextva_raster();
-		for (i = 0; i < 8; i++) {
-			if ((problem == NULL) && (textraster[8 + i] != 10)) {
-				problem = "TMODE 1 did not show the text in 88-mode main RAM";
+		/* M131: X88000 separates display storage from CPU banking. V2
+		 * always uses fast text; only V1S displays underlying main RAM. */
+		{
+			UINT v1, standard, tmode;
+
+			CopyMemory(mem + 0x1f000, textmem + 0x6000, 0x1000);
+			ZeroMemory(textmem + 0x6000, 0x1000);
+			iocore_out8(0x153, 0x01);
+			iocore_out8(0x5f, 0x00);
+			for (v1 = 0; v1 < 2; v1++) {
+				backupmem[0x1fc6] = (BYTE)((backupmem[0x1fc6] & 0x7f) | (v1 << 7));
+				for (standard = 0; standard < 2; standard++) {
+					np2cfg.v1v2_standard = (UINT8)standard;
+					for (tmode = 0; tmode < 2; tmode++) {
+						const BOOL main_text = v1 && standard;
+						const BOOL cpu_fast = !main_text && !tmode;
+						const BYTE *row;
+
+						iocore_out8(0x32, 0x08 | (tmode << 4));
+						tsp_dirty = TRUE;
+						maketextva_begin(&scrn200);
+						maketextva_raster();
+						for (i = 0; i < 8; i++) {
+							if ((problem == NULL) && (textraster[8 + i] != (main_text ? 10 : 0))) {
+								problem = v1 ? "V1 display source differs from X88000"
+								             : "V2 display source depends on S preference or TMODE";
+							}
+						}
+						row = maketextva_3301_text(0);
+						if ((problem == NULL) &&
+						    ((row == NULL) || (row[0] != (main_text ? 'A' : 0)))) {
+							problem = "text copy differs from mode-selected display source";
+						}
+						/* Unused tail bytes keep this CPU check out of the displayed row. */
+						textmem[0x6ff8] = 0x12;
+						mem[0x1fff8] = 0x34;
+						if ((problem == NULL) &&
+						    (upd9002_memoryread_va(0x1fff8) != (cpu_fast ? 0x12 : 0x34))) {
+							problem = "CPU text bank differs from X88000 mode/TMODE selection";
+						}
+						upd9002_memorywrite_va(0x1fff8, 0x56);
+						if ((problem == NULL) && ((textmem[0x6ff8] != (cpu_fast ? 0x56 : 0x12)) ||
+						                          (mem[0x1fff8] != (cpu_fast ? 0x34 : 0x56)))) {
+							problem = "CPU text write reached the wrong bank";
+						}
+					}
+				}
 			}
-		}
-		if ((problem == NULL) &&
-		    ((maketextva_3301_text(0) == NULL) || (maketextva_3301_text(0)[0] != 'A'))) {
-			problem = "S mode TMODE 1 text copy did not read main RAM";
-		}
-		iocore_out8(0x32, 0x08); /* TMODE 0: TVRAM, now blank */
-		tsp_dirty = TRUE;
-		maketextva_begin(&scrn200);
-		maketextva_raster();
-		if ((problem == NULL) && (textraster[8] != 0)) {
-			problem = "TMODE 0 still showed main RAM text";
 		}
 		/* A saved S-mode preference must not change V3 text sourcing. */
 		iocore_out8(0x32, 0x18);
@@ -7532,8 +7544,9 @@ static int test_tsp_3301_emulation(void) {
 			problem = "CURS did not move the cursor sprite";
 		}
 	}
-	/* The 88-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
+	/* The H-mode window: F000h-FFFFh is TVRAM 6000h with TMODE clear. */
 	if (problem == NULL) {
+		np2cfg.v1v2_standard = 0;
 		iocore_out8(0x153, 0x01); /* 88-mode memory */
 		iocore_out8(0x5f, 0x00);  /* no GVRAM plane */
 		iocore_out8(0x32, 0xa8);  /* TMODE 0 */
@@ -7559,6 +7572,7 @@ static int test_tsp_3301_emulation(void) {
 		}
 	}
 	np2cfg.v1v2_standard = saved_standard;
+	backupmem[0x1fc6] = saved_ms26;
 	pccore_term();
 	soundmng_deinitialize();
 	if (problem != NULL) {

@@ -698,7 +698,7 @@ void maketextva_begin(BOOL *scrn200) {
 #if defined(SLEEP_HACK)
 	/* Main-RAM text (see maketextva_3301_row) does not mark textmem dirty. */
 	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge() &&
-	    !(memoryva_88_mode && (sysportva.port032 & 0x10))) {
+	    !(memoryva_88_mode && !memoryva_88_fast_text())) {
 		work.sleep = TRUE;
 	} else {
 		work.sleep = FALSE;
@@ -769,22 +769,19 @@ UINT32 maketextva_bytelocal(UINT32 local) {
  * real TSP's output for these addresses is not documented.
  */
 /*
- * Source of an emulated 3301 row at TVRAM byte `offset`. With port 32h TMODE
- * set in 88 mode, PC-8801 software keeps its text in main RAM F000h-FFFFh
- * (no fast TVRAM), as N-88 BASIC does in V1S mode. The VA always reports
- * high speed and never runs that way; under the vaeg standard-speed
- * extension the 4 KiB TVRAM window (6000h-6FFFh) is then read from the
- * 88-mode main RAM instead, as the PC-8801's CRTC DMA would. TMODE alone
- * changes CPU access, not the H-mode display source: games can use the
- * underlying RAM for non-text data while fast TVRAM remains displayed.
+ * Source of an emulated 3301 row at TVRAM byte `offset`. Match X88000:
+ * V2 and V1H display fast text RAM regardless of CPU TMODE banking; V1S
+ * displays main RAM. The VA normally reports H; V1S is a vaeg extension.
+ * Its 4 KiB TVRAM window (6000h-6FFFh) represents main RAM F000h-FFFFh.
+ * The shared mode policy also controls CPU fast-RAM availability, but
+ * TMODE selects the CPU bank only, not the display source.
  */
 static BYTE emul_row_ram[256];
 
 static const BYTE *maketextva_3301_row(UINT32 offset) {
 	UINT i;
 
-	if (!memoryva_88_mode || !np2cfg.v1v2_standard || !(sysportva.port032 & 0x10) ||
-	    (offset < 0x6000) || (offset >= 0x7000)) {
+	if (!memoryva_88_mode || memoryva_88_fast_text() || (offset < 0x6000) || (offset >= 0x7000)) {
 		return textmem + offset;
 	}
 	for (i = 0; i < sizeof(emul_row_ram); i++) {

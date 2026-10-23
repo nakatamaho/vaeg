@@ -825,14 +825,25 @@ static UINT32 n88_gvram_address(UINT32 address) {
 }
 
 /*
- * 88-mode TVRAM (BNN manual 8.2.1): with no GVRAM plane selected and port
- * 32h TMODE (bit 4) clear, F000h-FFFFh is the 4 KiB of V3 TVRAM at A6000h.
+ * Match X88000's N88 text-storage policy: V2 always uses fast text RAM;
+ * only V1S uses main RAM. MS27 (IN 31h bit 7) identifies the effective V1
+ * mode established by the ROM, not merely the next-reset menu preference.
+ * The S extension changes speed identification, not V2 display storage.
+ */
+BOOL memoryva_88_fast_text(void) {
+	return !np2cfg.v1v2_standard || !(backupmem[0x1fc6] & 0x80);
+}
+
+/*
+ * 88-mode CPU TVRAM window (BNN manual 8.2.1): with no GVRAM selected,
+ * fast text enabled and TMODE clear, F000h-FFFFh maps V3 TVRAM A6000h.
+ * TMODE changes CPU banking, never the fast-mode display source.
  */
 static BOOL n88_tvram_selected(UINT32 address) {
 	const BOOL gvram =
 	    memoryva_88_alu.gvam ? (memoryva_88_alu.port035 & 0x80) != 0 : (memoryva_88_plane < 3);
-	return memoryva_88_mode && !gvram && !(sysportva.port032 & 0x10) && address >= 0x1f000 &&
-	       address < 0x20000;
+	return memoryva_88_mode && memoryva_88_fast_text() && !gvram && !(sysportva.port032 & 0x10) &&
+	       address >= 0x1f000 && address < 0x20000;
 }
 
 static UINT32 n88_tvram_offset(UINT32 address) {

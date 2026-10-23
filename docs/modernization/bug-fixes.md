@@ -63,6 +63,13 @@ land.
   behavior and the standard milestone human gate are not newly verified.
   Later manual review distinguishes CPU banking from display sourcing; the
   general H/S-qualified selector remains unproven, especially for V2S.
+  The subsequent X88000-alignment replaces that provisional selector: V2 and
+  V1H display fast text independently of TMODE; only V1S displays main RAM.
+  One shared effective-mode policy also prevents CPU access to fast text in
+  V1S and keeps the RAM-display sleep guard active independently of TMODE.
+  The new V1/V2 × H/S × TMODE test fails on the provisional helper and passes
+  with this follow-up; macOS selftest/CTest pass. Its final commit identity
+  and runtime verification are recorded in the linked task.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
@@ -3660,7 +3667,9 @@ the documented fast-text modes include V2. The provisional H/S selector and
 the older TMODE-only fallback are not general hardware proofs. Neither a
 verified V2S root cause nor guest incompatibility with V2S is claimed.
 Investigate effective mode and display setup while retaining BASIC coverage;
-do not merge the provisional workaround yet.
+do not merge the provisional workaround yet. The maintainer subsequently
+requests X88000 alignment; the shared-mode follow-up is implemented with
+passing focused and full tests, but runtime confirmation is still pending.
 See [M131 feedback and investigation](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-feedback-and-unresolved-v2s-case).
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
