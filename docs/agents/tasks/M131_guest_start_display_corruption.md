@@ -523,7 +523,13 @@ and byte-identical output from two fresh builds.
 ## Final probe and private hardware handoff
 
 Build 05's source-only diagnostic is ready for targeted hardware testing, not
-a hardware-verified result. It uses the same final emulator worker/production
+a hardware-verified result. Probe source commit:
+[acda0456ad9c7536d4b1da4843eedc1e720bde67](https://github.com/nakatamaho/vaeg/commit/acda0456ad9c7536d4b1da4843eedc1e720bde67).
+A fresh out-of-tree probe rebuild of that pushed source exits 0;
+`cmp` confirms its binary, BASIC loader and build report are byte-identical to
+the tested handoff. The final commit adds only this identity record; no probe
+payload or application input changes, so emulator/media runs are not repeated.
+It uses the same final emulator worker/production
 commit identified above; application sources and worker digest are unchanged.
 The private common-system fixture is `basic-common-01`, separate from the
 older V1/V2 boot fixtures and `guest-start-01`.
