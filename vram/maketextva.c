@@ -774,15 +774,17 @@ UINT32 maketextva_bytelocal(UINT32 local) {
  * (no fast TVRAM), as N-88 BASIC does in V1S mode. The VA always reports
  * high speed and never runs that way; under the vaeg standard-speed
  * extension the 4 KiB TVRAM window (6000h-6FFFh) is then read from the
- * 88-mode main RAM instead, as the PC-8801's CRTC DMA would.
+ * 88-mode main RAM instead, as the PC-8801's CRTC DMA would. TMODE alone
+ * changes CPU access, not the H-mode display source: games can use the
+ * underlying RAM for non-text data while fast TVRAM remains displayed.
  */
 static BYTE emul_row_ram[256];
 
 static const BYTE *maketextva_3301_row(UINT32 offset) {
 	UINT i;
 
-	if (!memoryva_88_mode || !(sysportva.port032 & 0x10) || (offset < 0x6000) ||
-	    (offset >= 0x7000)) {
+	if (!memoryva_88_mode || !np2cfg.v1v2_standard || !(sysportva.port032 & 0x10) ||
+	    (offset < 0x6000) || (offset >= 0x7000)) {
 		return textmem + offset;
 	}
 	for (i = 0; i < sizeof(emul_row_ram); i++) {

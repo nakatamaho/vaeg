@@ -7230,6 +7230,7 @@ static int test_emulation_speed(void) {
 
 /* M103c: TSP uPD3301 emulation commands and the 88-mode TVRAM window. */
 static int test_tsp_3301_emulation(void) {
+	const UINT8 saved_standard = np2cfg.v1v2_standard;
 	static const BYTE emul[] = {0x8c, 0x00, 0x4e, 0x13, 0x18};
 	static const BYTE tvwrite[] = {0x8e, 0x10, 0x00, 0x00, 0x8f, 0x01,
 	                               0x00, 0x00, 0x97, 0x8c, 0x67, 0x88};
@@ -7460,6 +7461,19 @@ static int test_tsp_3301_emulation(void) {
 		ZeroMemory(textmem + 0x6000, 0x1000);
 		iocore_out8(0x153, 0x01);
 		iocore_out8(0x32, 0x18); /* TMODE 1 */
+		/* M131: H mode keeps displaying fast TVRAM even when TMODE
+		 * exposes main RAM to the CPU. RAM may hold arbitrary game data. */
+		np2cfg.v1v2_standard = 0;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		if ((problem == NULL) && ((textraster[8] != 0) || (maketextva_3301_text(0) == NULL) ||
+		                          (maketextva_3301_text(0)[0] != 0))) {
+			problem = "H mode TMODE 1 displayed main RAM instead of fast TVRAM";
+		}
+		/* S mode is the explicit compatibility extension: retain its
+		 * main-RAM display and text-copy source. */
+		np2cfg.v1v2_standard = 1;
 		tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
 		maketextva_raster();
@@ -7468,6 +7482,10 @@ static int test_tsp_3301_emulation(void) {
 				problem = "TMODE 1 did not show the text in 88-mode main RAM";
 			}
 		}
+		if ((problem == NULL) &&
+		    ((maketextva_3301_text(0) == NULL) || (maketextva_3301_text(0)[0] != 'A'))) {
+			problem = "S mode TMODE 1 text copy did not read main RAM";
+		}
 		iocore_out8(0x32, 0x08); /* TMODE 0: TVRAM, now blank */
 		tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
@@ -7475,7 +7493,17 @@ static int test_tsp_3301_emulation(void) {
 		if ((problem == NULL) && (textraster[8] != 0)) {
 			problem = "TMODE 0 still showed main RAM text";
 		}
+		/* A saved S-mode preference must not change V3 text sourcing. */
+		iocore_out8(0x32, 0x18);
 		iocore_out8(0x153, 0x41);
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		maketextva_raster();
+		if ((problem == NULL) && ((textraster[8] != 0) || (maketextva_3301_text(0) == NULL) ||
+		                          (maketextva_3301_text(0)[0] != 0))) {
+			problem = "V3 with an S-mode preference displayed 88-mode main RAM";
+		}
+		np2cfg.v1v2_standard = saved_standard;
 	}
 	/* M103h: ACTSCR and CURS move the cursor sprite (original VA ROM). Split 1
 	 * with RXP 1008 (two hidden cells) and RYP 0, 20-raster rows, no sprite
@@ -7530,6 +7558,7 @@ static int test_tsp_3301_emulation(void) {
 			problem = "V3 mode still mapped TVRAM at 1F3C8h";
 		}
 	}
+	np2cfg.v1v2_standard = saved_standard;
 	pccore_term();
 	soundmng_deinitialize();
 	if (problem != NULL) {
