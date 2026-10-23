@@ -326,6 +326,74 @@ Documentation-only follow-up: `check_encoding.py`, `check_eol.py`,
 The emulator worker and build-relevant sources are unchanged, so no unrelated
 build, CTest, media rebuild or hosted CI is repeated.
 
+## X88000 and quasi88 source comparison
+
+This is static implementation comparison, not a claim of guest execution in
+those emulators or a substitute for VA firmware/hardware evidence. Reference
+checkouts remain outside Git; no third-party implementation is copied into
+vaeg. This comparison uses these exact public revisions, rather than silently
+assuming they are the X88000 1.5.3 reference cited by earlier milestones:
+
+- [nakatamaho/x88000, 1606677251c49c5d980953e13b42be5812ea99e7](https://github.com/nakatamaho/x88000/tree/1606677251c49c5d980953e13b42be5812ea99e7),
+  source directory `x88_1_5_1_src`.
+- [waitingmoon/quasi88, 19898729564def241def40c663c4d78759dad203](https://github.com/waitingmoon/quasi88/tree/19898729564def241def40c663c4d78759dad203),
+  README identifies version 0.6.5.
+
+### X88000
+
+- [`PC88Z80Main.cpp`, Reset, lines 712-733](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.cpp#L712-L733):
+  N88 V2 unconditionally sets `m_bFastTVRamUse=true`. The default branch uses
+  `IsHighSpeedMode()` instead. Thus V2 fast-text selection does not depend on
+  the H/S setting.
+- [`PC88Z80Main.h`, GetTVRam, lines 824-833](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.h#L824-L833):
+  display fetch uses fast TVRAM when fast-text use is enabled and the effective
+  DMA address is at least F000h. It does not consult `m_bFastTVRamDisable`.
+  Below F000h it reads main RAM; the programmed display address still matters.
+- [`PC88Z80Main.cpp`, MemBankFastTVRamMode, lines 1681-1696](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.cpp#L1681-L1696):
+  the disable flag does select CPU read/write handlers for the F000h bank,
+  subject to the graphics mapping. `WriteIO_32` passes port 32h bit 4 to this
+  function. It does not change the display's fast-text-use flag.
+- [`ReadIO_31`, lines 2378-2383](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.cpp#L2378-L2383)
+  separately reports the high-speed setting in bit 6 and V1/V2 in bit 7.
+  Even if the high-speed setting is false with V2, Reset's V2 branch still
+  selects fast text. This is a code-path observation, not a claim that every
+  frontend exposes a V2S option.
+
+### quasi88
+
+- [`pc88main.c`, boot mode initialization, lines 2790-2815](https://github.com/waitingmoon/quasi88/blob/19898729564def241def40c663c4d78759dad203/src/pc88main.c#L2790-L2815):
+  V1S clears `high_mode`; V1H and V2 set it. V2 also sets the H identification
+  bit. There is no independent BASIC_V2S mode in the mode enumeration.
+- [`pc88main.c`, memory-layout note, lines 243-252](https://github.com/waitingmoon/quasi88/blob/19898729564def241def40c663c4d78759dad203/src/pc88main.c#L243-L252):
+  in high mode, `main_ram[F000h..FFFFh]` represents **fast display RAM**, while
+  `main_high_ram[0..0FFFh]` represents the **underlying main RAM**. Variable
+  names alone would misleadingly suggest the reverse.
+- [`main_memory_mapping_c000_ffff`, lines 436-461](https://github.com/waitingmoon/quasi88/blob/19898729564def241def40c663c4d78759dad203/src/pc88main.c#L436-L461):
+  with high mode and port 32h bit 4 set, CPU access selects `main_high_ram`.
+  Otherwise, absent the dictionary mapping, it selects `main_ram`. This is
+  CPU banking, not a change to the text renderer's source.
+- [`crtcdmac.c`, character/attribute fetches](https://github.com/waitingmoon/quasi88/blob/19898729564def241def40c663c4d78759dad203/src/crtcdmac.c#L481-L507)
+  read `main_ram` using the programmed DMA addresses. The transparent-attribute
+  path does likewise. Consequently V2 text continues to use the fast backing
+  at F000h even while the CPU selects underlying RAM.
+
+### Consequence for M131
+
+Both implementations agree with the manual distinction: V2 uses fast text;
+TMODE CPU banking does not redirect that display source. X88000 additionally
+makes the V2 selection independent of the H/S setting. quasi88 has no V2S
+selection, so it must not be reported as having passed a V2S runtime test.
+
+This strongly supports expecting coherent rendering in vaeg V2S and rejects
+S preference alone as justification for displaying unrelated underlying RAM.
+The candidate policy must distinguish V1S from V2 (and respect the programmed
+display address), rather than treating every S preference as main-RAM display.
+CPU banking in V1S also deserves separate coverage: the references disable fast
+text there irrespective of the CPU's current TMODE bank selection. Translating
+this to the VA's emulated 3301/TSP window still needs implementation and focused
+BASIC/game regression tests. No production change, merge or gate pass is
+claimed by this source comparison.
+
 ## Remaining gate work
 
 - Investigate and resolve the maintainer-reported V2S display corruption,
