@@ -120,8 +120,17 @@ file, the V30 timing (2fbdb54d) and the bus hold of waits (d5feb5c0).
   of d5feb5c0: exit 0, 4096 bytes free; it differs from one built from
   `main` (e5727963) only in 280 directory time fields (file contents
   identical). SHA-256 `2a283385524fbce2d9515ab74c2f9176cc0d2fd8197d132da381efa087e2d699`.
-- `build-sasi-utility-disks.sh`: not run here: the CP/M tools disk
-  (`--cpm-tools-d88`) is missing on this host.
+- `build-sasi-utility-disks.sh` stopped on this host: it read the three
+  CP/M images only from `~/88VA/images/cpm`, which is absent here, although
+  their sources are cached. Fixed (maintainer request, 2026-10-23): without
+  the images and without `--cpm-*-d88`, the script builds them offline with
+  `tools/cpmva/install_cpmva.py` from
+  `~/.cache/vaeg/auto-generated-pc88va-utility-media/cpm` (CPMVA.LZH,
+  cpm2-asm.zip, bdsc-all.zip, vt100-games-*.zip), the VA2 source as boot
+  disk. With PC-Engine 1.05 (VA) and 1.1 (VA2) and the utility FDD above:
+  exit 0; VA `e8835d144c3e915a60b726a82f198c8a0a321fba8ebf203926b6a1da7a9ca78f`, VA2 `eef165ebd5984fb60f5970e7bed73517ea92860002fe3a319549a17ad6ec372a`. Booting them in vaeg
+  needs a backup memory record with the fixed-disk boot (M106), left to
+  the gate. `vaeg.exe` does not depend on this script.
 - Demos: M130 changes no demo source or builder (`demos/` and `tools/` as
   on `main` except the QA hash table), so M129's byte-identical results
   stand. In vaeg with M130, 15 of the 17 programs of all-demos-msdos4 draw;
