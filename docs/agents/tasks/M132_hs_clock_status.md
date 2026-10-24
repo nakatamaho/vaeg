@@ -609,6 +609,12 @@ The request to display `G123` again is interpreted in context as G132, not
 approval of another milestone. Default-ON behavior for a new configuration,
 window/fullscreen/presenter geometry, tooltip/content checks, additional machine
 profiles and actual state-file/M131 regression checks remain unaccepted.
+The maintainer subsequently also accepts three section-5 checks: the selected
+machine's formal name is displayed, all V1/V2/V3 lamps are off during PC-8001
+family N execution, and non-VA machines show no SGP clock. These are scoped
+runtime/UI confirmations, not acceptance of every additional-ROM profile or
+precise N80/N80SR subtype classification. PC-8801 live N/V1/V2 consistency and
+ambiguous-subtype wording remain pending.
 This is partial checklist acceptance, not passage of G132 or authorization to
 merge, clean up or start the next milestone.
 
