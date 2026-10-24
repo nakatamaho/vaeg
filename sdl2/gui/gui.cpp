@@ -7296,7 +7296,6 @@ void gui_draw(void) {
 		}
 		ImGui::End();
 	}
-	draw_machine_status();
 	draw_pause_overlay();
 	draw_osd();
 	draw_state_error_dialog();
@@ -7328,6 +7327,9 @@ void gui_render(void) {
 	if (!g_gui.initialized) {
 		return;
 	}
+	/* Information survives the fresh-frame screenshot path that suppresses
+	 * menus/dialogs in gui_draw, and uses the final footer/window geometry. */
+	draw_machine_status();
 	if (g_gui.native_renderer) scrnmng_draw_native_overlays();
 	ImGui::Render();
 	update_text_input_state();
