@@ -24,7 +24,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **Hardware-driven V1S banking/display and IN31 corrections pass selftest/CTest, all eight game/BASIC cases and all eight probe cases against the hardware table. H/S timing and IN6Eh are separate issues #58/#59; no merge or G131 request.**
+Status: **G131 requested: M130-integrated candidate 3326349a passes CTest,
+24 isolated compatibility cases, media regeneration/payload closure and the
+34-case all-demos drawing check. Clean static Windows handoff available;
+human acceptance and merge pending. Full-tree formatting retains baseline
+drift; the 89 M131 edited C/C++ lines pass. H/S timing and IN6Eh remain
+separate issues #58/#59.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -768,7 +773,7 @@ formatting passes; the pre-existing full-manifest ordering failure is unchanged.
 No hosted CI was requested, no private capture/media was committed, and no
 new Windows executable or full G131 media/demo gate is claimed.
 
-## Remaining gate work
+## Remaining gate work at 820094be (historical)
 
 - Produce a current clean static Windows handoff before requesting the full
   gate; the earlier e0be89d2 preview does not contain this correction.
@@ -783,3 +788,224 @@ new Windows executable or full G131 media/demo gate is claimed.
 M131 remains open. The targeted hardware observations above are not full human
 acceptance, Windows runtime verification, approval for the next milestone or
 cleanup approval.
+
+## G131 preparation after accepted M130 integration
+
+The maintainer requested G131 and a subsequent merge. This is a request to
+perform the human gate, not a statement that it passed. The previously pending
+machine/media work above is now completed as follows; human acceptance remains
+pending.
+
+### Evaluated source and workers
+
+Accepted M130 main baseline `4c2354cf7fde394e02f633f38656d95975d7549b`
+is integrated without conflicts at
+[3326349a](https://github.com/nakatamaho/vaeg/commit/3326349ae4b9f6ac352f5aabc07891b0009a407a).
+All new application and media evaluations below use that pushed commit.
+The macOS recording-ON target was reconfigured and rebuilt; its generated
+version identifies 3326349a, unlike the historical incremental worker above.
+Its SHA-256 is
+`db9ca01b5e71b137c566bd40d8effddddc6a14ecf88705903db452d8cf4f9e7f`.
+
+```sh
+cmake --build "$BUILD" -j 8
+ctest --test-dir "$BUILD" --output-on-failure -j 4
+python3 "$PRIVATE/g131/run-matrix.py"
+```
+
+All exit 0. CTest lists 140 tests, zero failures and the same nine skips,
+87.59 seconds. The unchanged compatibility corpus/contract described above
+runs in 24 isolated processes: all eight game cases show coherent gameplay,
+all eight BASIC queries pass, and all eight probe CPU-bank/IN31/restore/PRINT
+checks pass. All 16 BASIC/probe content checks pass. A separate content-only
+comparison verifies the entire rendered phase-0 and phase-1 images against
+the inspected A/A references in all eight cases (16 images, exit 0).
+The game/BASIC contact sheets are inspected, not inferred from process exit.
+Private commands, configurations, captures, reference/output digests and
+inspection records are retained outside Git; the worker digest is unchanged.
+
+### Clean static Windows handoff
+
+```sh
+vaeg-container tools/release/build-mingw-static-container.sh \
+  --commit 3326349ae4b9f6ac352f5aabc07891b0009a407a
+```
+
+Exit 0, fresh clone and application objects, pinned Ubuntu 24.04 container,
+`mingw-cross` Release. Embedded commit/date and system-DLL-only PE imports
+are verified by the helper. Recording is OFF in this handoff; local bundled
+H.264/AAC encoders are explicitly OFF. This is not a recording acceptance test.
+
+- Executable: `../vaeg-mingw-3326349a/output/vaeg.exe`, 57,611,737 bytes.
+- SHA-256: `1c371b2e242ecc7e9dc8689c6565cabaefa29367e56774eca599115894389f1a`.
+- Report: `../vaeg-mingw-3326349a/output/BUILD-REPORT.md`.
+- The helper compiles/links and audits imports; it does **not** execute Windows
+  guests. The following runtime results are from the identified macOS worker.
+- Docker uses the project-local daemon through process-local `DOCKER_HOST`;
+  the global context remains `default`. No context is activated or overwritten.
+
+### Clean-clone media regeneration and payload closure
+
+The source clone is detached at 3326349a with tracked sources unchanged.
+Inputs use neutral bindings `$DEMO_TEMPLATE` (PC-Engine 1.1 demo template),
+`$SYSTEM_VA` (PC-Engine 1.05 boot template), `$SYSTEM_VA2` (PC-Engine 1.1
+boot template), `$ARTWORK` and the pinned public MS-DOS release cache.
+Private originals/reference trees are unchanged; only scratch copies are
+made writable when required. Generated images are not staged or published.
+
+Final commands/stages all exit 0:
+
+```sh
+demos/glass-orbit/build-d88.sh "$DEMO_TEMPLATE" "$OUT/g131-glass-orbit.d88"
+demos/neon3/build-d88.sh "$DEMO_TEMPLATE" "$OUT/g131-neon3-distribution.d88"
+demos/neon4/build-d88.sh "$DEMO_TEMPLATE" "$OUT/g131-neon4-distribution.d88"
+demos/sgp-pseudo-sprite/build-d88.sh "$DEMO_TEMPLATE" \
+  "$OUT/g131-sgp-pseudo-sprite.d88"
+demos/sgp-wireframe/build-d88.sh "$DEMO_TEMPLATE" "$OUT/g131-sgp-wireframe.d88"
+demos/zundamon-orbit/build-from-psd.sh --python "$PSD_PYTHON" \
+  "$ARTWORK" "$DEMO_TEMPLATE" "$OUT/g131-zundamon-orbit.d88"
+python3 tools/pc88va/build-all-demos-distribution-disk.py \
+  --source "$DEMO_TEMPLATE" --distribution-dir "$DIST" \
+  --output "$OUT/all-demos.d88" --compressed-output "$DIST/all-demos.d88.xz"
+python3 tools/pc88va/build-all-demos-msdos4-disk.py \
+  --source "$MSDOS4" --distribution-dir "$DIST" \
+  --output "$OUT/all-demos-msdos4.d88" \
+  --compressed-output "$DIST/all-demos-msdos4.d88.xz"
+python3 tools/pc88va/build-all-demos-bootable-disk.py \
+  --source "$SYSTEM_VA2" --distribution-dir "$DIST" \
+  --output "$OUT/all-demos-pce.d88"
+python3 demos/sgp-boot/build-boot-d88.py --output "$OUT/sgp-boot.d88" \
+  --compressed-output "$DIST/sgp-boot.d88.xz"
+demos/sgp-scan/65536/build.sh "$OUT/SGP65536.COM"
+demos/sgp-contention/build.sh "$OUT/sgp-contention"
+demos/va-voyage/build.sh "$OUT/va-voyage"
+bash demos/va-voyage/build-opna.sh "$OUT/va-voyage-opna"
+tools/pc88va/build-utility-disk.sh --source "$SYSTEM_VA2" \
+  --output "$OUT/utility.d88"
+tools/pc88va/build-sasi-utility-disks.sh --source-va "$SYSTEM_VA" \
+  --source-va2 "$SYSTEM_VA2" --payload-d88 "$OUT/utility.d88" \
+  --output-dir "$OUT/sasi"
+python3 "$PRIVATE/g131/compare-media.py"
+```
+
+The private driver collects the six compressed component outputs under the
+canonical distribution names in `$DIST` before building aggregates. Demo
+assembly/PSD decoding uses Ubuntu Python 3.12.3, NASM 2.16.01,
+psd-tools 1.26.0, Pillow 13.0.0 and NumPy 2.5.4, without ImageMagick.
+Utility/SASI commands complete through the host GNU-dd/DOSBox-X bridge and
+the project-scoped Docker connection, reusing the checksum-checked shared
+caches. The SASI builder regenerates its CP/M inputs from cached sources;
+the earlier missing-generated-input blocker is resolved without private
+reference-tree writes.
+
+All nine fresh compressed images round-trip exactly to their generated raw
+D88s. The eight FAT file maps compare byte-for-byte with the committed
+canonical distributions (62 file comparisons); self-booting SGP compares
+as an exact raw image. All assertions pass. Timestamp/header-only differences
+in other raw containers are not payload changes; no distribution replacement
+is required. Initial input-validation/harness setup failures are preserved
+separately, not counted as successful builds: write-protection/layout
+preflights, the OPNA script's explicit bash invocation, and a container lacking
+the Docker CLI. The final commands above succeed.
+
+Produced raw-image SHA-256 values:
+
+| Generated image / neutral role | SHA-256 |
+|---|---|
+| all-demos-msdos4.d88 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| all-demos-pce.d88 | `743e9a441cf6770bf10158e5d8717ae88d46e5de67e82d610a49a329879ecc7c` |
+| all-demos.d88 | `897b9219458f3d3255cadda3f3ea1c525f9ced732749bc4d5a0e026d78d0a716` |
+| glass-orbit.d88 | `43dbc5bd18e2068321b14a59d94c416e3e4caa633de39b672b92c26c461276f9` |
+| neon3-distribution.d88 | `3f1043b72d84796efbe8ddf446f85069684ce20b30e95a5e2f496303edb5768e` |
+| neon4-distribution.d88 | `ac6a9bfce29a937ebb05ac863dc948f7ff606384797f8bec3e93a827b2c4664f` |
+| sgp-pseudo-sprite.d88 | `f007b689bdc03ae6e0cd999ae17570341f06060e8fd175778423c6bb6531c978` |
+| sgp-wireframe.d88 | `103bcb066f3c4f53c4f42f0a326d44731ea24020f8032817b0f0139cb8224e19` |
+| zundamon-orbit.d88 | `299104233327faf333df9030825f42d2c240450d5812867b5158147e1eaff300` |
+| sgp-boot.d88 | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
+| utility-fdd-01 | `8e8b2d9f48d0e927cc7392ab62e069ca0ebe2fa1046034884e9f5e9ec8615bd7` |
+| utility-sasi-va-01 | `e53875d430d3a8e99c1204cc966fdaccffce04f3e397386549c3543dde2c76c7` |
+| utility-sasi-va2-01 | `56fe61cb73384b74ffdb6da1c6a5f0097e5e5797545bebbd1eb5ab7f625ac638` |
+
+Produced compressed-image SHA-256 values:
+
+| Generated distribution | SHA-256 |
+|---|---|
+| all-demos-msdos4.d88.xz | `67ddb64012bc89464cdaa2809c62a2a9c2460c52ecec7f815dc45a6193eef241` |
+| all-demos.d88.xz | `45715a444e7110a93f9f2b82872044de4854dbeb2d5c6eb6384281aaa053a420` |
+| glass-orbit.d88.xz | `24e93e4fc848ad288a4632ee89631221c24c2e3e1735978fb517b6f2b1069e59` |
+| neon3-distribution.d88.xz | `c4da5afb9c1bef645750e726767403b048c29f06f1115bccde38543d1d9eea06` |
+| neon4-distribution.d88.xz | `2432b7bdeab3042cdfc97dbb46e461aa6b1927ea7550a5ce1d7c6414042f0767` |
+| sgp-boot.d88.xz | `657f91e25d9417b0b4fd9948d40caeec7f2daa6db6d2218b6f709be62b5238c5` |
+| sgp-pseudo-sprite.d88.xz | `44ea5701f85e4fbfe840da868482d19cadb27be91f0f966bbe71a3a439afd180` |
+| sgp-wireframe.d88.xz | `a1696e6dc41a1df2151d18a50c2f24df53691773e855821b1c6579730975d6d1` |
+| zundamon-orbit.d88.xz | `fdeaf8401ac8272d27c1c117b49e3401570780ed65293c06d1b9a9ad18c3a218` |
+
+### Runtime drawing and boot inspection
+
+```sh
+python3 "$PRIVATE/g131/run-demos.py"
+python3 "$PRIVATE/g131/run-extras.py"
+python3 "$PRIVATE/g131/run-followups.py"
+python3 "$PRIVATE/g131/run-pce-invocations.py"
+```
+
+All drivers exit 0 and retain each subprocess's exact command/configuration,
+status and output digests. Cases use isolated media/backup/configuration,
+VA2, 640 KiB, CPU multiplier 2, no-wait and mute, except the original-VA SASI
+case. Process exit alone is not a drawing assertion: captures are inspected.
+
+- All 17 all-demos executables draw under both PC-Engine and MS-DOS 4.0,
+  34 cases total: GLASS, NEON200/400, both NEON4 variants, eight pseudo-sprite
+  variants, three wireframe variants and ZUNDAORB. The first 32 are inspected
+  at frame 4200; ZUNDAORB follow-ups extend to frame 16000.
+- Under PC-Engine, after `CD \ZUNDAMON`, use **`ZUNDAORB` without `.COM`**.
+  The suffix and suffix-qualified full-path trials return to Ready without
+  drawing; they are retained as unsuccessful invocations, not passing cases.
+  The bare-name trial draws at frames 8000/16000. No shell/parser root cause
+  or emulator correction is inferred from this invocation difference.
+  MS-DOS 4.0 uses `ZUNDAORB.COM`; the original frame-4200 INIT-only capture
+  is superseded by the inspected extended-run drawing, not relabeled a pass.
+- Utility FDD boots on VA2; each SASI image boots **alone** on its intended
+  model (no FDD/second HDD). All three accept DIR and display directory
+  listings followed by Ready at frame 4200. This verifies the required
+  boot/simple operation, not every installed utility.
+- Self-booting SGP reaches its menu and selecting A displays the sprite demo
+  at frame 4200, without an OS disk.
+- N88-日本語BASIC V3.1 starts with `BASIC /87`, loads `MANDEL.BAS` and runs it.
+  The plotted colour band visibly progresses from frame 4000 to 12000;
+  completion of the entire 640x400 fractal is not claimed. The initial README
+  invocation `LOAD "MANDEL.BAS",A` reports Syntax error; the controlled
+  follow-up `LOAD "MANDEL.BAS"` draws. README examples and the 8.3 filename
+  are corrected in [eb7ea0a3](https://github.com/nakatamaho/vaeg/commit/eb7ea0a38bf9149e90990ea9f7b2c63102731164).
+  BASIC/emulator sources and the demo payload are unchanged.
+
+### Repository checks, reuse and human handoff
+
+Encoding, EOL, case, Markdown-comment and diff checks exit 0. The two adjacent
+formatter-manifest paths are reordered at
+[a85469b2](https://github.com/nakatamaho/vaeg/commit/a85469b2698419bb5495f2611f2aab82a6781125),
+with all 387 members unchanged; manifest and pinned formatter validation
+pass. Full `tools/repo/clang_format.py` now reaches the source check and exits
+1 on baseline drift in 26 files. This is **not** reported as a full format
+pass. The 89 added/changed C/C++ lines relative to accepted main pass the
+pinned formatter; unrelated lines are not reformatted. Full diagnostics are
+preserved privately for maintainer review.
+
+Only the enumerated formatter manifest and Markdown documentation change
+after evaluated commit 3326349a. Application/build-relevant inputs, demo
+payload sources and worker digest remain unchanged. Completed expensive
+builds and guest/media runs are therefore reused for the evidence-only
+handoff instead of rerunning identical behavior. No hosted CI success is
+claimed; no private original/capture/media or application binary is committed.
+The archived reference tier is unaffected.
+
+Human G131 still requires the supplied static Windows executable: standard
+V3 boot, bundled VA demo, OS boot/DIR/program launch, and Enter at Start in
+`guest-start-01` with its two images mounted in FDD1/FDD2. Confirm the formerly
+corrupt subsequent screens; exercising all four requested VA/VA2 modes is
+recommended. Existing hardware photos do not replace this Windows/manual
+acceptance. Clock timing and IN6Eh remain #58/#59, not newly verified.
+
+**No G131 pass, main merge, next-milestone authorization or cleanup is recorded.
+Wait for explicit maintainer acceptance before the gate record and `--no-ff`
+merge.**

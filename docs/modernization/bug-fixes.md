@@ -101,7 +101,12 @@ land.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
-  also recorded there. Remaining runtime/media checks and G131 are pending.
+  also recorded there. The M130-integrated candidate
+  [3326349a](https://github.com/nakatamaho/vaeg/commit/3326349ae4b9f6ac352f5aabc07891b0009a407a)
+  passes renewed CTest and all 24 compatibility cases; media regeneration,
+  payload closure, both SASI model boots/DIR and all 34 demo drawing cases
+  are complete, with a current clean static Windows handoff. Human G131 and
+  merge remain pending; no Windows runtime or timing acceptance is inferred.
 
 ### M100s11 — guest-resolution screenshots ignored display rotation
 
