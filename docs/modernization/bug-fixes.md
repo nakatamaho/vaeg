@@ -56,7 +56,7 @@ land.
   implementation is claimed.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [mode/backlog contract](v1v2-hs-clock-status-plan.md).
-- **Fix commit:** to be linked in the immediate evidence update.
+- **Fix commit:** [677b57ca](https://github.com/nakatamaho/vaeg/commit/677b57ca4655d5db7a007049b784b0001b859111).
 
 ### M132 — S affected V3 BRKEM and rescaled native bus waits
 

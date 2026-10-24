@@ -2182,6 +2182,9 @@ static int test_profile_ini(void) {
 static int test_persistence_controls(void) {
 	char saved_crt[sizeof(np2oscfg.gui_shader_parameters)];
 	const BYTE saved_recording_source = np2oscfg.recording_source;
+	const BYTE saved_machine_status = np2oscfg.machine_status;
+	const BYTE saved_front_panel = np2oscfg.front_panel;
+	const BYTE saved_info = np2oscfg.DISPCLK;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2215,6 +2218,25 @@ static int test_persistence_controls(void) {
 	if (strcmp(read_crt, np2oscfg.gui_shader_parameters) != 0) {
 		detail = "CRT parameters did not round-trip through the main config";
 	}
+	/* Independent footer visibility and existing per-field choices survive
+	 * the real production configuration writer/reader. */
+	for (BYTE show = 0; show < 2; show++) {
+		for (BYTE lamps = 0; lamps < 2; lamps++) {
+			const BYTE info =
+			    VAEG_DISPINFO_CPU_CLOCK | (show ? VAEG_DISPINFO_FRAME : VAEG_DISPINFO_FPS);
+			np2oscfg.machine_status = show;
+			np2oscfg.front_panel = lamps;
+			np2oscfg.DISPCLK = info;
+			initsave();
+			np2oscfg.machine_status = !show;
+			np2oscfg.front_panel = !lamps;
+			np2oscfg.DISPCLK = 0;
+			initload();
+			if (np2oscfg.machine_status != show || np2oscfg.front_panel != lamps ||
+			    np2oscfg.DISPCLK != info)
+				detail = "independent information/panel settings did not round-trip";
+		}
+	}
 	/* Exercise the production table and loader, not a parallel preference table. */
 	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT; source++) {
 		np2oscfg.recording_source = source;
@@ -2244,13 +2266,22 @@ static int test_persistence_controls(void) {
 			}
 			file_close(legacy);
 			np2oscfg.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
+			np2oscfg.machine_status = 1;
+			np2oscfg.front_panel = saved_front_panel;
+			np2oscfg.DISPCLK = saved_info;
 			initload();
+			if (np2oscfg.machine_status != 1 || np2oscfg.front_panel != saved_front_panel ||
+			    np2oscfg.DISPCLK != saved_info)
+				detail = "legacy config changed footer defaults or existing choices";
 			if (np2oscfg.recording_source != VAEG_RECORDING_SOURCE_NATIVE) {
 				detail = "missing recording preference changed the Native default";
 			}
 		}
 	}
 	np2oscfg.recording_source = saved_recording_source;
+	np2oscfg.machine_status = saved_machine_status;
+	np2oscfg.front_panel = saved_front_panel;
+	np2oscfg.DISPCLK = saved_info;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -5591,6 +5622,50 @@ static int test_machine_status(void) {
 		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
 			problem = "nominal clock or short English status";
 			goto done;
+		}
+	}
+	{
+		static const struct {
+			int window, drawable, status, lamps, top, inset;
+		} layouts[] = {{460, 460, 24, 14, 422, 38}, {460, 920, 24, 28, 422, 76},
+		               {240, 480, 40, 14, 193, 94}, {460, 460, 24, 0, 436, 24},
+		               {460, 460, 0, 14, 446, 14},  {460, 460, 0, 0, 460, 0},
+		               {240, 240, 1000, 14, 0, 240}};
+		int top, inset;
+		UINT show, lamps_on;
+		for (i = 0; i < NELEMENTS(layouts); i++) {
+			if (!machine_status_layout(layouts[i].window, layouts[i].drawable, layouts[i].status,
+			                           layouts[i].lamps, &top, &inset) ||
+			    top != layouts[i].top || inset != layouts[i].inset) {
+				problem = "footer DPI, narrow/tall-font or independent visibility geometry";
+				goto done;
+			}
+		}
+		if (machine_status_layout(0, 480, 24, 14, &top, &inset) ||
+		    machine_status_layout(240, 0, 24, 14, &top, &inset)) {
+			problem = "invalid footer geometry accepted";
+			goto done;
+		}
+		for (show = 0; show < 2; show++) {
+			for (lamps_on = 0; lamps_on < 2; lamps_on++) {
+				VAEG_VIEWPORT_INPUT input = {0};
+				VAEG_VIEWPORT viewport;
+				const int height = 422 + (int)show * 24 + (int)lamps_on * 14;
+				(void)machine_status_layout(height, height * 2, (int)show * 24, (int)lamps_on * 28,
+				                            &top, &inset);
+				input.guest_width = 640;
+				input.guest_height = 400;
+				input.drawable_width = 1280;
+				input.drawable_height = height * 2;
+				input.menu_inset = 44;
+				input.bottom_inset = inset;
+				input.scaling = VAEG_SCALING_FIT;
+				if (vaeg_viewport_calculate(&input, &viewport) != SUCCESS || viewport.y != 44 ||
+				    viewport.height != 800 || viewport.width != 1280) {
+					problem = "footer toggles changed the HiDPI guest picture";
+					goto done;
+				}
+			}
 		}
 	}
 	for (i = 0; i < NELEMENTS(clocks); i++) {

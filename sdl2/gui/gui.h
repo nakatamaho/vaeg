@@ -43,6 +43,8 @@ void gui_quick_load(void);
 BOOL gui_quick_rotate_selftest(const char *root, char *problem, size_t size);
 void gui_new_frame(void);
 void gui_draw(void);
+/* Logical window units, independent of guest scaling and HiDPI pixels. */
+int gui_status_bar_height(void);
 void gui_render(void);
 BOOL gui_overlay_selftest(void);
 BOOL gui_file_filter_selftest(void);

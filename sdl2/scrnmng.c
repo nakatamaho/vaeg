@@ -48,6 +48,7 @@
 #include "recording/recording_runtime.h"
 #include "recording/recording_osd_snapshot.h"
 #include "frontpanel.h"
+#include "machine_status.h"
 #include "winutf.h"
 
 typedef struct {
@@ -194,18 +195,52 @@ const char *scrnmng_native_preset_path(void) {
  * captures and headless runs are unchanged. With the native CRT presenter
  * the bar is drawn through the GUI overlay.
  */
-static int scrnmng_front_panel_height(int width) {
-	const char *video_driver;
+static BOOL scrnmng_visible_ui(void) {
+	const char *driver = SDL_GetCurrentVideoDriver();
 
-	if ((np2oscfg.front_panel == FRONTPANEL_OFF) ||
-	    (scrnmng.display_mode != VAEG_DISPLAY_WINDOWED)) {
+	return driver != NULL && !vaeg_native_presenter_is_headless_video_driver(driver);
+}
+
+BOOL scrnmng_status_visible(void) {
+	return np2oscfg.machine_status && scrnmng_visible_ui();
+}
+
+/* Both footers reserve space outside guest pixels. The lamp bar retains its
+ * windowed-only policy; the independently selected status also works fullscreen. */
+static int scrnmng_front_panel_height(int width, BOOL drawable) {
+	const int status = scrnmng_status_visible() ? gui_status_bar_height() : 0;
+	const int lamps = scrnmng.display_mode == VAEG_DISPLAY_WINDOWED ? frontpanel_height(width) : 0;
+	int window_width, window_height, output_width, output_height, top, inset;
+
+	if (!scrnmng_visible_ui())
 		return 0;
+	if (drawable && scrnmng.window != NULL) {
+		SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
+		if (scrnmng_get_drawable_size(&output_width, &output_height) == SUCCESS &&
+		    machine_status_layout(window_height, output_height, status, lamps, &top, &inset))
+			return inset;
 	}
-	video_driver = SDL_GetCurrentVideoDriver();
-	if ((video_driver == NULL) || vaeg_native_presenter_is_headless_video_driver(video_driver)) {
-		return 0;
-	}
-	return frontpanel_height(width);
+	return status + lamps;
+}
+
+BOOL scrnmng_status_rect(RECT_T *rect) {
+	int width, height, output_width, output_height;
+	int inset;
+
+	if (rect == NULL || scrnmng.window == NULL || !scrnmng_status_visible())
+		return FALSE;
+	SDL_GetWindowSize(scrnmng.window, &width, &height);
+	if (scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS || output_height <= 0)
+		return FALSE;
+	if (!machine_status_layout(
+	        height, output_height, gui_status_bar_height(),
+	        scrnmng.display_mode == VAEG_DISPLAY_WINDOWED ? frontpanel_height(output_width) : 0,
+	        &rect->top, &inset))
+		return FALSE;
+	rect->left = 0;
+	rect->right = width;
+	rect->bottom = min(height, rect->top + gui_status_bar_height());
+	return TRUE;
 }
 
 /* Rows of the window height taken by the panel now (windowed mode). The
@@ -226,7 +261,7 @@ static void scrnmng_fit_front_panel(void) {
 		return;
 	}
 	SDL_GetWindowSize(scrnmng.window, &width, &height);
-	panel = scrnmng_front_panel_height(width);
+	panel = scrnmng_front_panel_height(width, FALSE);
 	if (panel == scrnmng_panel_applied) {
 		return;
 	}
@@ -608,18 +643,12 @@ static BOOL scrnmng_path_is_png(const char *path) {
 	return (first == 'p') && (second == 'n') && (third == 'g') && (extension[4] == '\0');
 }
 
-static UINT32 scrnmng_measured_clock(UINT32 configured_clock) {
-	UINT64 measured;
+UINT32 scrnmng_draw_fps_tenths(void) {
+	return scrnmng.framedisp.fps_tenths;
+}
 
-	if (!speedmeter.valid || (speedmeter.fps_tenths == 0)) {
-		return configured_clock;
-	}
-	measured = (UINT64)configured_clock * speedmeter.fps_tenths;
-	measured /= (UINT64)vaeg_nominal_frame_rate * 10;
-	if (measured > 0xffffffffULL) {
-		return 0xffffffffU;
-	}
-	return (UINT32)measured;
+UINT32 scrnmng_guest_fps_tenths(void) {
+	return speedmeter.fps_tenths;
 }
 
 static void scrnmng_update_speedmeter(UINT32 tick, UINT32 frames) {
@@ -690,47 +719,16 @@ static void scrnmng_append_fdd_title(char *title, size_t title_size, int *length
 
 static void scrnmng_update_title(void) {
 	char title[512];
-	UINT32 cpu_clock;
-	UINT32 sgp_clock;
 	int length;
 
-	if (scrnmng.window == NULL) {
+	if (scrnmng.window == NULL)
 		return;
-	}
-	cpu_clock = scrnmng_measured_clock(memoryva_88_mode ? pccore_compat_cpu_clock()
-	                                                    : pccore_cpu_clock());
-	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
 	length = snprintf(title, sizeof(title), "%s", app_name);
-	/* M113: the PC-8801 model running in V1/V2 mode. */
-	if ((np2cfg.extra_machine[0] != '\0') && (length >= 0) && ((size_t)length < sizeof(title))) {
-		length +=
-		    snprintf(title + length, sizeof(title) - (size_t)length, " - %s", np2cfg.extra_machine);
-	}
+	/* Preserve the independent FDD title preference. Machine and clocks now
+	 * have one presentation, in the information bar, not duplicated here. */
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0) {
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);
-	}
-	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) && (length >= 0) &&
-	    ((size_t)length < sizeof(title))) {
-		length += snprintf(title + length, sizeof(title) - (size_t)length, " - %u.%1uFPS",
-		                   (unsigned int)(scrnmng.framedisp.fps_tenths / 10),
-		                   (unsigned int)(scrnmng.framedisp.fps_tenths % 10));
-	}
-	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) && (length >= 0) &&
-	    ((size_t)length < sizeof(title))) {
-		length += snprintf(title + length, sizeof(title) - (size_t)length, " - CPU %u.%04uMHz",
-		                   (unsigned int)(cpu_clock / 1000000),
-		                   (unsigned int)((cpu_clock % 1000000) / 100));
-	}
-	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_SGP_CLOCK) && (length >= 0) &&
-	    ((size_t)length < sizeof(title))) {
-		length += snprintf(title + length, sizeof(title) - (size_t)length, " - SGP %u.%04uMHz",
-		                   (unsigned int)(sgp_clock / 1000000),
-		                   (unsigned int)((sgp_clock % 1000000) / 100));
-	}
-	if (scrnmng.framedisp_enabled && (length >= 0) && ((size_t)length < sizeof(title))) {
-		length += snprintf(title + length, sizeof(title) - (size_t)length, " - FRAME %u",
-		                   (unsigned int)drawcount);
 	}
 	SDL_SetWindowTitle(scrnmng.window, title);
 }
@@ -1444,7 +1442,7 @@ static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport) {
 	input.drawable_height = output_height;
 	input.menu_inset =
 	    (int)(((SINT64)scrnmng.menu_height * output_height + (window_height / 2)) / window_height);
-	input.bottom_inset = scrnmng_front_panel_height(output_width);
+	input.bottom_inset = scrnmng_front_panel_height(output_width, TRUE);
 	if (scrnmng.display_mode == VAEG_DISPLAY_WINDOWED) {
 		input.scaling = scrnmng.scaling;
 	} else {
@@ -2283,7 +2281,7 @@ static BOOL scrnmng_update_window_size(void) {
 			target_w = scrnmng.height * scrnmng.scale;
 			target_h = scrnmng.width * scrnmng.scale;
 		}
-		scrnmng_panel_applied = scrnmng_front_panel_height(target_w);
+		scrnmng_panel_applied = scrnmng_front_panel_height(target_w, FALSE);
 		target_h += scrnmng.menu_height + scrnmng_panel_applied;
 		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
 		if ((current_w == target_w) && (current_h == target_h)) {
@@ -2426,8 +2424,9 @@ static void scrnmng_draw_front_panel(void) {
 	/* Only on a change of the panel setting, display mode or presenter: the
 	 * bar grows with the window width, so following its height would fight a
 	 * window the user is resizing. */
-	layout =
-	    (np2oscfg.front_panel * 8) + (scrnmng.display_mode * 2) + (scrnmng.native_active ? 1 : 0);
+	layout = (np2oscfg.front_panel * 8) + (scrnmng.display_mode * 2) +
+	         (scrnmng.native_active ? 1 : 0) + (np2oscfg.machine_status ? 64 : 0) +
+	         gui_status_bar_height() * 128;
 	if (layout != last_layout) {
 		last_layout = layout;
 		scrnmng_fit_front_panel();
@@ -2435,7 +2434,9 @@ static void scrnmng_draw_front_panel(void) {
 	if ((scrnmng_get_drawable_size(&output_w, &output_h) != SUCCESS) || (output_w <= 0)) {
 		return;
 	}
-	panel.h = scrnmng_front_panel_height(output_w);
+	panel.h = (scrnmng_visible_ui() && scrnmng.display_mode == VAEG_DISPLAY_WINDOWED)
+	              ? frontpanel_height(output_w)
+	              : 0;
 	if (panel.h <= 0) {
 		return;
 	}
@@ -3214,6 +3215,8 @@ static BOOL scrnmng_fps_visibility_selftest(void) {
 	UINT mode;
 	for (mode = 0; mode < sizeof(modes) / sizeof(modes[0]); ++mode) {
 		const char *title;
+		VAEG_MACHINE_STATUS status;
+		char line[256];
 		np2oscfg.DISPCLK = modes[mode];
 		scrnmng_set_framedisp((modes[mode] & VAEG_DISPINFO_FRAME) != 0);
 		vaeg_framedisp_reset(&scrnmng.framedisp, 0, 0);
@@ -3222,9 +3225,13 @@ static BOOL scrnmng_fps_visibility_selftest(void) {
 		drawcount = 120;
 		scrnmng_framedisp_tick(2000, 120, 120);
 		title = SDL_GetWindowTitle(scrnmng.window);
-		if (scrnmng.framedisp.fps_tenths != 600 ||
-		    ((strstr(title, "60.0FPS") != NULL) != ((modes[mode] & VAEG_DISPINFO_FPS) != 0)) ||
-		    ((strstr(title, "FRAME 120") != NULL) != ((modes[mode] & VAEG_DISPINFO_FRAME) != 0))) {
+		machine_status_get(&status);
+		machine_status_line(line, sizeof(line), &status, modes[mode], scrnmng_draw_fps_tenths(),
+		                    drawcount);
+		if (scrnmng.framedisp.fps_tenths != 600 || strstr(title, "FPS") ||
+		    strstr(title, "FRAME ") || strstr(title, "CPU ") ||
+		    ((strstr(line, "60.0FPS") != NULL) != ((modes[mode] & VAEG_DISPINFO_FPS) != 0)) ||
+		    ((strstr(line, "FRAME 120") != NULL) != ((modes[mode] & VAEG_DISPINFO_FRAME) != 0))) {
 			fprintf(stderr, "selftest: FPS_DISPLAY_DEPENDS_ON_FRAME_VISIBILITY mode=%u\n",
 			        (unsigned int)modes[mode]);
 			result = FAILURE;

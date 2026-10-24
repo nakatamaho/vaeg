@@ -438,6 +438,7 @@ static const INITBL iniitem[] = {
     {"s_NOWAIT", INITYPE_BOOL, &np2oscfg.NOWAIT, 0},
     {"s_speed", INITYPE_UINT16, &np2oscfg.speed_percent, 0},
     {"FrontPanelMode", INITYPE_UINT8, &np2oscfg.front_panel, 0},
+    {"MachineStatus", INITYPE_UINT8, &np2oscfg.machine_status, 0},
     {"SkpFrame", INITYPE_UINT8, &np2oscfg.DRAW_SKIP, 0},
     {"DspClock", INITYPE_UINT8, &np2oscfg.DISPCLK, 0},
     {"F12_bind", INITYPE_UINT8, &np2oscfg.F12KEY, 0},
@@ -555,6 +556,7 @@ void initload(void) {
 		np2cfg.delayms = (UINT16)delayms;
 	}
 	np2oscfg.DISPCLK &= VAEG_DISPINFO_MASK;
+	np2oscfg.machine_status = np2oscfg.machine_status ? 1 : 0;
 	if (np2oscfg.gui_scale > VAEG_WINDOW_SCALE_MAX) {
 		np2oscfg.gui_scale = 1;
 	}

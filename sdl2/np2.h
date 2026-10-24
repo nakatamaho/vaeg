@@ -107,6 +107,8 @@ typedef struct {
 	BYTE recording_source;
 	/* Optional post-stop export, never changes or replaces archival MKV. */
 	BYTE recording_create_mp4;
+	/* Independent information bar; absent configuration defaults to ON. */
+	BYTE machine_status;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

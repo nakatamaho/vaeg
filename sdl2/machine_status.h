@@ -59,6 +59,9 @@ extern "C" {
 VAEG_MACHINE_MODE machine_status_mode(void);
 BOOL machine_status_n_selected(void);
 void machine_status_get(VAEG_MACHINE_STATUS *status);
+/* Pure footer geometry: heights/top in window units, lamp/inset in pixels. */
+BOOL machine_status_layout(int window_height, int drawable_height, int status_height,
+                           int lamp_height, int *top, int *inset);
 void machine_status_clock(char *text, size_t size, UINT32 hz);
 void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status, UINT flags,
                          UINT32 fps_tenths, UINT32 frames);

@@ -82,6 +82,7 @@
 #include "machine/pccore.h"
 #include "machine/timing.h"
 #include "frontpanel.h"
+#include "machine_status.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
@@ -3896,10 +3897,9 @@ static void draw_speed_control(void) {
 /*
  * CPU クロック (M110): the CPU alone; frames, timers and sound keep real
  * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
- * speed; both apply at once, without a reset. In V1/V2 mode the base speed
- * is the boot menu's H (7.9872 MHz) or S (half of it, the PC-8801's standard
- * speed), as on the VA, and these settings adjust it; the PC-8801 presets
- * are therefore gone (H and S cover them).
+ * speed; both apply at once, without a reset. In 88 mode the H/S input
+ * selects the base; native V3 BRKEM is independent of that selection.
+ * Retain historical presets as additional adjustments, not H/S aliases.
  */
 struct CpuClockPreset {
 	const char *label;
@@ -3909,6 +3909,8 @@ struct CpuClockPreset {
 
 static const CpuClockPreset kCpuClockPresets[] = {
     {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
+    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
+    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
     {nullptr, 0, 0},
     {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
     {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
@@ -3930,10 +3932,11 @@ static void draw_cpu_clock_menu(void) {
 	char heading[64];
 	const UINT multiple = pccore_cpu_multiple();
 	const UINT speed = pccore_cpu_speed();
-	const bool compat_standard = memoryva_88_mode && (np2cfg.v1v2_standard != 0);
-	const double mhz = 3.9936 * multiple * speed / 100.0 / (compat_standard ? 2.0 : 1.0);
-
-	std::snprintf(heading, sizeof(heading), "CPU クロック (%.2f MHz)###cpu-clock", mhz);
+	VAEG_MACHINE_STATUS status;
+	char clock[32];
+	machine_status_get(&status);
+	machine_status_clock(clock, sizeof(clock), status.cpu_hz);
+	std::snprintf(heading, sizeof(heading), "CPU クロック (%s)###cpu-clock", clock);
 	if (!ImGui::BeginMenu(heading)) {
 		return;
 	}
@@ -3965,7 +3968,7 @@ static void draw_cpu_clock_menu(void) {
 		ImGui::EndMenu();
 	}
 	ImGui::Separator();
-	ImGui::TextDisabled("V1/V2 は 起動 の H/S が基準（S は H の半分）");
+	ImGui::TextDisabled("88 モードは H/S が基準。速度 50%% はさらに半速です。");
 	ImGui::EndMenu();
 }
 
@@ -5609,14 +5612,6 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		// Front panel below the screen: FDD access and V1/V2/V3 mode lamps.
-		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
-		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
-			np2oscfg.front_panel =
-			    (np2oscfg.front_panel != FRONTPANEL_OFF) ? FRONTPANEL_OFF : FRONTPANEL_SIMPLE;
-			sysmng_update(SYS_UPDATEOSCFG);
-			scrnmng_front_panel_changed();
-		}
 		if (ImGui::BeginMenu("フレームスキップ")) {
 			static const char *labels[] = {"自動", "全フレーム", "1/2 フレーム", "1/3 フレーム",
 			                               "1/4 フレーム"};
@@ -5931,6 +5926,55 @@ static void draw_pause_overlay(void) {
 	ImGui::End();
 }
 
+static void draw_machine_status(void) {
+	RECT_T rect;
+	VAEG_MACHINE_STATUS status;
+	char line[256];
+
+	if (!scrnmng_status_rect(&rect))
+		return;
+	machine_status_get(&status);
+	machine_status_line(line, sizeof(line), &status, np2oscfg.DISPCLK, scrnmng_draw_fps_tenths(),
+	                    drawcount);
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + rect.left, viewport->Pos.y + rect.top));
+	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(rect.right - rect.left),
+	                                static_cast<float>(rect.bottom - rect.top)));
+	ImGui::SetNextWindowBgAlpha(1.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+	                    ImVec2(6.0f * g_gui.ui_scale, 2.0f * g_gui.ui_scale));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
+	if (ImGui::Begin("##machine_status", nullptr,
+	                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse |
+	                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+	                     ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+		ImGui::TextUnformatted(line);
+		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+			ImGui::BeginTooltip();
+			ImGui::TextUnformatted(line); // complete text, even in a narrow window
+			ImGui::Separator();
+			ImGui::Text("CPU: %.6f MHz", status.cpu_hz / 1000000.0);
+			ImGui::Text("Base: %.6f MHz", status.base_hz / 1000000.0);
+			ImGui::Text("Multiplier: x%.2f",
+			            status.cpu_multiple / double(PCCORE_STANDARD_MULTIPLE));
+			ImGui::Text("Speed: %u%%", status.cpu_speed);
+			ImGui::Text("Domain: %s", status.compatible ? "88 compatible" : "native");
+			if (status.has_sgp)
+				ImGui::Text("SGP: %.6f MHz", status.sgp_hz / 1000000.0);
+			const UINT32 draws = scrnmng_draw_fps_tenths();
+			const UINT32 frames = scrnmng_guest_fps_tenths();
+			ImGui::Text("Draws: %u.%u FPS", draws / 10, draws % 10);
+			ImGui::Text("Guest frames: %u.%u FPS", frames / 10, frames % 10);
+			if (status.mode_id == VAEG_MODE_N_FAMILY)
+				ImGui::TextUnformatted("N-family subtype is not identified at runtime.");
+			ImGui::EndTooltip();
+		}
+	}
+	ImGui::End();
+	ImGui::PopStyleVar(2);
+}
+
 static void draw_info_menu(void) {
 	// 情報 alone at the right end of the menu bar, or right after the other
 	// menus when the window is too narrow.
@@ -5941,6 +5985,19 @@ static void draw_info_menu(void) {
 		ImGui::SetCursorPosX(right);
 	}
 	if (ImGui::BeginMenu("情報")) {
+		if (ImGui::MenuItem("機種・動作情報", nullptr, np2oscfg.machine_status != 0)) {
+			np2oscfg.machine_status = !np2oscfg.machine_status;
+			sysmng_update(SYS_UPDATEOSCFG);
+			scrnmng_front_panel_changed();
+		}
+		if (ImGui::MenuItem("前面パネル (ランプ)", nullptr,
+		                    np2oscfg.front_panel != FRONTPANEL_OFF)) {
+			np2oscfg.front_panel =
+			    np2oscfg.front_panel != FRONTPANEL_OFF ? FRONTPANEL_OFF : FRONTPANEL_SIMPLE;
+			sysmng_update(SYS_UPDATEOSCFG);
+			scrnmng_front_panel_changed();
+		}
+		ImGui::Separator();
 		bool show_fdd = (np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0;
 		if (ImGui::MenuItem("FDD を表示", nullptr, show_fdd)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FDD;
@@ -7154,6 +7211,12 @@ void gui_new_frame(void) {
 	                            ? 0 : static_cast<int>(std::ceil(ImGui::GetFrameHeight())));
 }
 
+int gui_status_bar_height(void) {
+	if (!g_gui.initialized)
+		return 24;
+	return static_cast<int>(std::ceil(ImGui::GetFrameHeight() + 2.0f * g_gui.ui_scale));
+}
+
 void gui_draw(void) {
 	if (!g_gui.initialized) {
 		return;
@@ -7233,6 +7296,7 @@ void gui_draw(void) {
 		}
 		ImGui::End();
 	}
+	draw_machine_status();
 	draw_pause_overlay();
 	draw_osd();
 	draw_state_error_dialog();

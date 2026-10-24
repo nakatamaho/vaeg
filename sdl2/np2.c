@@ -137,7 +137,8 @@
 
 NP2OSCFG np2oscfg = {0,
                      0,
-                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FDD,
+                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FDD |
+                         VAEG_DISPINFO_FPS,
                      0,
                      0,
                      0,
@@ -178,7 +179,9 @@ NP2OSCFG np2oscfg = {0,
                      1,
                      {0, 0},
                      0,
-                     VAEG_RECORDING_SOURCE_NATIVE};
+                     VAEG_RECORDING_SOURCE_NATIVE,
+                     0,
+                     1};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;

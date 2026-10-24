@@ -129,6 +129,22 @@ void machine_status_get(VAEG_MACHINE_STATUS *status) {
 	status->sgp_hz = status->has_sgp ? sgp_effective_clock() : 0;
 }
 
+BOOL machine_status_layout(int window_height, int drawable_height, int status_height,
+                           int lamp_height, int *top, int *inset) {
+	SINT64 pixels;
+
+	if (window_height <= 0 || drawable_height <= 0 || status_height < 0 || lamp_height < 0 ||
+	    top == NULL || inset == NULL)
+		return FALSE;
+	pixels = ((SINT64)status_height * drawable_height + window_height - 1) / window_height;
+	pixels += lamp_height;
+	if (pixels > drawable_height)
+		pixels = drawable_height;
+	*inset = (int)pixels;
+	*top = window_height - (int)((pixels * window_height + drawable_height - 1) / drawable_height);
+	return TRUE;
+}
+
 void machine_status_clock(char *text, size_t size, UINT32 hz) {
 	if (hz >= 1000000) {
 		snprintf(text, size, "%uMHz", (unsigned)((hz + 500000ULL) / 1000000));
