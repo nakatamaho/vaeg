@@ -31,6 +31,7 @@
 #include "np2.h"
 #include "np2ver.h"
 #include "machine/pccore.h"
+#include "memoryva.h"
 #include "sgp.h"
 #include "videova.h"
 #include "tsp.h"
@@ -696,7 +697,8 @@ static void scrnmng_update_title(void) {
 	if (scrnmng.window == NULL) {
 		return;
 	}
-	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
+	cpu_clock = scrnmng_measured_clock(memoryva_88_mode ? pccore_compat_cpu_clock()
+	                                                    : pccore_cpu_clock());
 	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
 	length = snprintf(title, sizeof(title), "%s", app_name);
 	/* M113: the PC-8801 model running in V1/V2 mode. */

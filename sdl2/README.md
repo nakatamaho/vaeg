@@ -128,10 +128,16 @@ disk of a multi-image file is refused. `--fdd1-image N` and
 模擬 has two speed controls (M110). 実行速度 (10-400 %, the right end = No
 Wait) slows or speeds frames, timers and sound together. CPU クロック changes
 the CPU alone, without a reset, frames, timers and music keeping real time:
-機種の既定 (x2, 7.99 MHz), PC-8801 標準速度相当 (about 4 MHz) and 高速相当
-(about 8 MHz; approximations on the VA's V1/V2 mode, to be calibrated on
-hardware), 2倍, 4倍, 8倍, and 任意 (a multiplier of 3.9936 MHz and a 10-100 %
-speed; `clk_mult` and `CPU_Speed` in the configuration).
+機種の既定 (x2, 7.99 MHz), 2倍, 4倍, 8倍, and 任意 (a multiplier of 3.9936
+MHz and a 10-100 % speed; `clk_mult` and `CPU_Speed` in the configuration).
+In V1/V2 mode the base speed is the 起動 menu's H or S, as on the VA: H runs
+compatible code at 7.99 MHz and S at half of it (3.99 MHz, the PC-8801's
+standard speed), and the CPU クロック settings adjust that base. S also
+clears memory switch B1FC5h bit 1, so port 6Eh reports 4 MHz (H: 8 MHz),
+but does not clear IN 31h bit 6 on VA/VA2 (M131). The heading and the window
+title show the proposed compatible-mode clock while V1/V2 code runs.
+These PR #55 changes are an intermediate M132 implementation; see the
+[agreed redesign and verification limits](../docs/modernization/v1v2-hs-clock-status-plan.md).
 
 音 > 全体の音量 (`master_volume`, 0-100 %, default 100) scales the final
 mix, every source included; ミュート silences the output (as `--mute`).

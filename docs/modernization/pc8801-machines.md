@@ -62,12 +62,13 @@ model while port 31h selects monochrome graphics, whereas the VA applies it
 | PC-88VA | VA | V2 H/S, V1 H/S |
 | PC-88VA2 | VA2 | V2 H/S, V1 H/S |
 
-H and S are stored mode selections; entries before FH/MH offer S only.
-They are not a calibrated CPU-speed control. M131 preserves the VA ROM's
-IN31 value in both selections (F9h for V1, 79h for V2) and keeps fast text
-available in V1S, as measured on VA/VA2. Actual H/S timing and IN6Eh flag
-synchronization are separate follow-ups, not implemented by that correction.
-Use CPU clock/speed controls for the existing manual rate adjustment.
+H and S are mode selections; entries before FH/MH offer S only. PR #55's
+proposed compatible-clock scaling and IN6Eh synchronization are being
+integrated and corrected in M132, not yet a calibrated or accepted result;
+see the [H/S and status design](v1v2-hs-clock-status-plan.md).
+M131 preserves the VA ROM's IN31 value in both selections (F9h for V1,
+79h for V2) and keeps fast text available in V1S, as measured on VA/VA2.
+Do not restore the former IN31 bit-6 masking when integrating the proposal.
 N needs `n80`. Sound is the base model's (the
 VA2's OPNA; its first half is OPN-compatible); the original PC-8801 has no
 FM sound, which is not modelled. The PC-8001 family (M114) runs in N mode

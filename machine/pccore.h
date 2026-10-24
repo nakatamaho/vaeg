@@ -196,6 +196,7 @@ UINT pccore_cpu_multiple(void);
 UINT pccore_cpu_speed(void);
 void pccore_set_cpu_speed(UINT percent);
 UINT32 pccore_cpu_clock(void);
+UINT32 pccore_compat_cpu_clock(void);
 UINT16 pccore_mainram_kb(void);
 UINT32 pccore_mainram_limit(void);
 /* Apply pending RAM settings only while the CPU is stopped for reset. */

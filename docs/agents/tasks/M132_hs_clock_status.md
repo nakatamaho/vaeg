@@ -36,8 +36,12 @@ an independently persistent, default-ON 機種・動作情報 display. PR #56 is
 Canonical specification:
 [v1v2-hs-clock-status-plan.md](../../modernization/v1v2-hs-clock-status-plan.md).
 Reviewed PR head: `1091af8b260139a69d16d7afdb36883678655589`.
-Do not merge/cherry-pick its obsolete IN31 assumptions or remove speed presets
-without a separate decision. Preserve the accepted M131 text-bank/display policy.
+The maintainer subsequently requested accepting the actual PR source/history
+rather than independently rewriting it. Merge the original PR commit into this
+milestone branch, resolve obsolete IN31 assumptions in favor of M131, then make
+the agreed corrections in separate commits. Preserve original authorship and
+history. Preset removal in the incoming proposal is to be corrected according
+to the agreed design, not silently treated as a new UI decision.
 
 ## Implementation sequence
 
@@ -79,3 +83,12 @@ explicit maintainer gate acceptance.
 
 - Design/task created before production changes. Private work uses
   `~/work/pc88va/m132-private/`; private reference assets are read-only.
+- On the request to accept the actual PR source, the initial uncommitted
+  six-file independent patch was preserved privately and removed from the
+  working tree before integration. The original PR commit is merged with its
+  authorship/history intact. Only conflict resolution and M131-related wording
+  are adjusted at acceptance; original-VA/first-boot fixes, timing scope,
+  native-wait accounting and status redesign remain subsequent work.
+- The two integration conflicts are the IN31 comment and machine-mode
+  documentation. IN31 still reads B1FC6h unchanged; no RAM/display change is
+  accepted from the proposal. This intermediate integration is not G132-ready.
