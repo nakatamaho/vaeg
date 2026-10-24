@@ -10,10 +10,10 @@ UPD9002_F6 _test_ea8_data8(UINT op) {
 	UINT dst;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(2);
+		UPD9002_WORKCLOCK(4);
 		dst = *(REG8_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(6);
+		UPD9002_WORKCLOCK(11);
 		dst = upd9002_memoryread(CALC_EA(op));
 	}
 	GET_PCBYTE(src)
@@ -27,7 +27,7 @@ UPD9002_F6 _not_ea8(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		*(REG8_B20(op)) ^= 0xff;
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			REG8 value = upd9002_memoryread(madr);
@@ -49,7 +49,7 @@ UPD9002_F6 _neg_ea8(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG8_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (madr >= UPD9002_MEMWRITEMAX) {
 			src = upd9002_memoryread(madr);
@@ -69,10 +69,10 @@ UPD9002_F6 _mul_ea8(UINT op) {
 	UINT res;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(13);
+		UPD9002_WORKCLOCK(21);
 		src = *(REG8_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(16);
+		UPD9002_WORKCLOCK(27);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
 	BYTE_MUL(res, UPD9002_AL, src)
@@ -84,10 +84,10 @@ UPD9002_F6 _imul_ea8(UINT op) {
 	SINT32 res;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(13);
+		UPD9002_WORKCLOCK(36);
 		src = *(REG8_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(16);
+		UPD9002_WORKCLOCK(42);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
 	BYTE_IMUL(res, UPD9002_AL, src)
@@ -100,10 +100,10 @@ UPD9002_F6 _div_ea8(UINT op) {
 	UINT8 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(14);
+		UPD9002_WORKCLOCK(19);
 		src = *(REG8_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(17);
+		UPD9002_WORKCLOCK(25);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
 	dividend = UPD9002_AX;
@@ -128,10 +128,10 @@ UPD9002_F6 _idiv_ea8(UINT op) {
 	UINT8 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(17);
+		UPD9002_WORKCLOCK(31);
 		src = *(REG8_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(20);
+		UPD9002_WORKCLOCK(37);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
 	dividend = (SINT16)UPD9002_AX;
@@ -161,10 +161,10 @@ UPD9002_F6 _test_ea16_data16(UINT op) {
 	UINT32 dst;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(2);
+		UPD9002_WORKCLOCK(4);
 		dst = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(6);
+		UPD9002_WORKCLOCK(11);
 		dst = upd9002_memoryread_w(CALC_EA(op));
 	}
 	GET_PCWORD(src)
@@ -178,7 +178,7 @@ UPD9002_F6 _not_ea16(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		*(REG16_B20(op)) ^= 0xffff;
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (!(INHIBIT_WORDP(madr))) {
 			REG16 value = LOADINTELWORD(mem + madr);
@@ -202,7 +202,7 @@ UPD9002_F6 _neg_ea16(UINT op) {
 		UPD9002_WORKCLOCK(2);
 		out = REG16_B20(op);
 	} else {
-		UPD9002_WORKCLOCK(7);
+		UPD9002_WORKCLOCK(16);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			src = upd9002_memoryread_w(madr);
@@ -222,10 +222,10 @@ UPD9002_F6 _mul_ea16(UINT op) {
 	UINT32 res;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(21);
+		UPD9002_WORKCLOCK(29);
 		src = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(24);
+		UPD9002_WORKCLOCK(35);
 		src = upd9002_memoryread_w(CALC_EA(op));
 	}
 	WORD_MUL(res, UPD9002_AX, src)
@@ -238,10 +238,10 @@ UPD9002_F6 _imul_ea16(UINT op) {
 	SINT32 res;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(21);
+		UPD9002_WORKCLOCK(44);
 		src = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(24);
+		UPD9002_WORKCLOCK(50);
 		src = upd9002_memoryread_w(CALC_EA(op));
 	}
 	WORD_IMUL(res, UPD9002_AX, src)
@@ -264,10 +264,10 @@ UPD9002_F6 _div_ea16(UINT op) {
 	UINT32 flag_result;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(22);
+		UPD9002_WORKCLOCK(25);
 		src = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(25);
+		UPD9002_WORKCLOCK(31);
 		src = _div_read_ea16(op);
 	}
 	dividend = ((UINT32)UPD9002_DX << 16) | UPD9002_AX;
@@ -292,10 +292,10 @@ UPD9002_F6 _idiv_ea16(UINT op) {
 	UINT16 src;
 
 	if (op >= 0xc0) {
-		UPD9002_WORKCLOCK(25);
+		UPD9002_WORKCLOCK(40);
 		src = *(REG16_B20(op));
 	} else {
-		UPD9002_WORKCLOCK(28);
+		UPD9002_WORKCLOCK(46);
 		src = _div_read_ea16(op);
 	}
 	dividend = (SINT32)(((UINT32)UPD9002_DX << 16) | UPD9002_AX);

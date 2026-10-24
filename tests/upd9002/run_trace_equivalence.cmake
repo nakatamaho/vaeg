@@ -106,10 +106,10 @@ foreach(current_line IN LISTS m60a_saved_flags_lines)
         m42_compatible_trace "${m42_compatible_trace}")
 endforeach()
 set(m64_div_flags_lines
-    "end step=00000000 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
-    "end step=00000001 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
-    "end step=00000002 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
-    "end step=00000003 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da")
+    "end step=00000000 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=00000013 remain=000003d5"
+    "end step=00000001 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=00000013 remain=000003d5"
+    "end step=00000002 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=00000013 remain=000003d5"
+    "end step=00000003 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=00000013 remain=000003d5")
 foreach(current_line IN LISTS m64_div_flags_lines)
     string(REGEX MATCHALL "${current_line}" matches "${m42_compatible_trace}")
     list(LENGTH matches match_count)

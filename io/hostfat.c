@@ -347,7 +347,7 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 		return (HOSTFAT_RESULT_BAD_REQUEST);
 	}
 	for (position = 0; position < sizeof(packet); position++) {
-		packet[position] = upd9002_memoryread(request_address + position);
+		packet[position] = upd9002_memoryread_nowait(request_address + position);
 	}
 	if ((packet[0] < HOSTFAT_PACKET_SIZE) || (packet[HOSTFAT_PACKET_UNIT] != 0) ||
 	    (packet[HOSTFAT_PACKET_COMMAND] != HOSTFAT_COMMAND_READ)) {
@@ -373,7 +373,7 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 
 	image_offset = (UINT32)start * HOSTFAT_SECTOR_SIZE;
 	for (position = 0; position < transfer_size; position++) {
-		upd9002_memorywrite(transfer_address + position,
+		upd9002_memorywrite_nowait(transfer_address + position,
 		                    hostfat_state.image[image_offset + position]);
 	}
 	return (HOSTFAT_RESULT_OK);

@@ -306,6 +306,8 @@ int upd9002_core_mode_state_load(const UINT8 *buffer);
 void CPUCALL upd9002_core_interrupt(REG8 vect);
 
 void upd9002_core_step(void);
+/* Empty the prefetch queue model (M130): reset, state load, tests. */
+void upd9002_core_queue_reset(void);
 #if defined(VAEG_UPD9002_M46_TESTING)
 int upd9002_dispatch_test_verify(void);
 void upd9002_dispatch_test_require_immutable(void);

@@ -48,7 +48,9 @@ typedef struct {
 	UINT16 lineslopenumerator;
 	UINT32 lineslopecount;
 
-	UINT8 dummy2[64];
+	UINT32 cpudelay;     // CPU clocks charged by the last sgp_step() (M130).
+	UINT32 cpudelayfrac; // Their remainder, 1/256 clock.
+	UINT8 dummy2[56];
 } _SGP, *SGP;
 
 enum {

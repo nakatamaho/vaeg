@@ -806,6 +806,13 @@ other (main RAM writes: 16178 us for 32 pieces plus 35840 bytes, against
 11759 + 9499 separately). vaeg's setup, BITBLT and CLS costs are scaled per
 model to these figures.
 
+CPU and SGP together (M130; `demos/sgp-contention`, with SGPBENCH and
+SPRBENCH): while the SGP is busy the CPU loses about 0.31 of its time on
+the VA and 0.55 on the VA2, nearly the same for a compute loop, main RAM
+work, GVRAM writes and for 16x16 to 128x128 transfers (VA2 0.42-0.57; VA
+0.27-0.34). The SGP is not slowed by the CPU (within 1%). Two screens
+(G0 over G1) do not slow the CPU's GVRAM accesses.
+
 The Users Club material documents waits and contention involving TVRAM,
 character/Kanji resources, GVRAM, and display activity. CPU wait tables
 constrain relative costs but are not automatically SGP command-cycle counts.
@@ -824,11 +831,15 @@ No authoritative per-command clock table has been recovered. Command fetch,
 setup, pixel/word cost, ROP differences, transparency skip, active-versus-blank
 cost, model clock, abort latency, and interrupt latency remain unresolved.
 
-**[IMPLEMENTATION]** vaeg has detailed historical command costs and deducts a
-fixed four CPU clocks for every SGP memory access, with a source comment that
-four has no basis and real contention should apply only when CPU access
-coincides. The M20 speed work deliberately preserved these values. They must
-not be described as measured hardware timing.
+**[IMPLEMENTATION]** vaeg has detailed historical command costs. Until M130
+it deducted a fixed four CPU clocks for every SGP memory access, with no
+measurement behind it: the CPU's loss grew with the SGP's access rate and
+came to about 0.2-0.3 of the time on both models. Since M130, every CPU
+instruction executed while the SGP is busy is stretched by share / (1 -
+share), share 80/256 on the VA and 142/256 on the VA2 (`io/sgp.c`), so
+that the CPU gets the measured part of the time; the SGP's speed is
+unchanged. This is a time-share model fitted to the benchmarks, not a bus
+arbitration model.
 
 A staged emulator strategy is:
 
@@ -861,7 +872,7 @@ A staged emulator strategy is:
 | Unknown command after `000Ch` | Manual says thirteen commands but identifies twelve opcodes | `000Dh` and above are rejected as unknown | Do not invent the missing opcode |
 | VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
 | Clock | No recovered primary table | Nominal 3.9936/7.9872MHz; setup, BITBLT and CLS costs scaled per model to SGPBENCH 2 (M128) | Calibrated to within about 2% for BITBLT and CLS; LINE/SCAN unmeasured |
-| Contention | Shared-memory waits | Fixed approximate CPU deduction | Do not claim cycle accuracy |
+| Contention | Shared-memory waits | CPU time share while the SGP is busy, per model, fitted to SGPCONT, SGPBENCH and SPRBENCH (M130) | Not a cycle model; overlap timings in vaeg 0.90-1.10 of the machines |
 
 ### 19.1 Functions outside the SGP command set
 

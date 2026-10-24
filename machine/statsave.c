@@ -457,6 +457,7 @@ static int flagload_upd9002_state_image(STFLAGH sfh, UINT16 version, UINT32 payl
 }
 
 static int flagload_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+	upd9002_core_queue_reset();
 	return (flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2, "uPD9002 payload is truncated"));
 }
 
@@ -1651,6 +1652,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	/* A state without PIC8214 predates 8214 mode: those builds always
 	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
 	pic8214.mode8259 = 1;
+	/* A state without UPD9WCU predates the programmed memory waits (M130). */
+	upd9002_wcu_legacy();
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
