@@ -23,7 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Agreed implementation added; final verification/handoff in progress.
+Status: **Agreed implementation and static Windows artifact added;
+PSD-source closure and interactive GUI verification remain pending.
 G132 not requested or passed.**
 
 Branch: `milestone/m132-hs-clock-status`.
@@ -251,7 +252,9 @@ reformatting unrelated lines. Original PR ancestry is retained and verified.
 The required PSD source has not been located in the available input locations;
 its source rebuild/payload check is blocked pending the maintainer's input.
 A committed atlas or disk is not substituted and described as a fresh PSD build.
-Other clean-media, runtime and Windows handoff checks continue separately.
+The completed partial clean-media, headless runtime and Windows handoff
+checks are recorded below. Interactive GUI inspection is also pending because
+the current execution environment supplies no Cocoa display.
 No G132 request, pass, main merge or cleanup is authorized by these unit results.
 
 The code-freeze checkpoint is pushed with hosted CI explicitly skipped while
@@ -314,3 +317,144 @@ this is the public clean-build handoff, not a personal recording-enabled build.
   guests. No Windows execution or G132 acceptance is inferred.
 - Project-local Colima VM/daemon storage is used with process-local connection
   settings. The global Docker context is not changed.
+
+## Partial clean-media regression
+
+All generated images remain outside Git. Components/extras/utility use a clean
+clone of pushed commit 338174ee; the corrected SASI stage uses a separate clean
+clone of pushed commit 360eb71c. The tool-only correction does not change the
+already evaluated component/utility inputs, so those completed stages are reused.
+Linux uses Ubuntu 24.04, Python 3.12.3 and NASM 2.16.01. Input originals remain
+unchanged; only scratch copies have their D88 write-protection byte cleared.
+The shared caches are checksum-checked by the builders.
+
+```sh
+for spec in glass-orbit:glass-orbit neon3:neon3-distribution \
+  neon4:neon4-distribution sgp-pseudo-sprite:sgp-pseudo-sprite \
+  sgp-wireframe:sgp-wireframe; do
+  demos/${spec%%:*}/build-d88.sh "$DEMO_TEMPLATE" "$OUT/m132-${spec#*:}.d88"
+done
+python3 demos/sgp-boot/build-boot-d88.py --output "$OUT/sgp-boot.d88" \
+  --compressed-output "$DIST/sgp-boot.d88.xz"
+demos/sgp-scan/65536/build.sh "$OUT/SGP65536.COM"
+demos/sgp-contention/build.sh "$OUT/sgp-contention"
+demos/va-voyage/build.sh "$OUT/va-voyage"
+bash demos/va-voyage/build-opna.sh "$OUT/va-voyage-opna"
+tools/pc88va/build-utility-disk.sh --source "$SYSTEM_VA2" --output "$OUT/utility.d88"
+tools/pc88va/build-sasi-utility-disks.sh --source-va "$SYSTEM_VA" \
+  --source-va2 "$SYSTEM_VA2" --payload-d88 "$OUT/utility.d88" --output-dir "$OUT/sasi"
+python3 "$PRIVATE/compare-components.py"
+```
+
+Final listed stages exit 0. The initial SASI stage exits 1 on the case-alias
+bug above; its exact failure is retained rather than relabeled a pass.
+Five fresh distributions contain 16 payloads, all byte-identical to the
+committed FAT file maps. Six compressed outputs round-trip exactly, and
+self-booting SGP matches its committed raw D88 exactly. No replacement binary
+is staged. Component labels below omit the scratch `m132-` filename prefix.
+
+| Produced raw image / neutral role | SHA-256 |
+|---|---|
+| glass-orbit.d88 | `10c9900b67b3948052ed91965e728e29c655e51275d719fcd8d4cde3f34d325b` |
+| neon3-distribution.d88 | `67aae4df9bca3f9eb71e6794f9fef3b5c01d463671113322f4bed6ffc8ee0b85` |
+| neon4-distribution.d88 | `e629ccfc3ff10c62a103f9ac2ba62f5cc2635bb45be0a2a1f72984478ba2a220` |
+| sgp-pseudo-sprite.d88 | `913e7478767adf36924170c943052f15ecad7a5907c7579d3d9a8b0b4ba59449` |
+| sgp-wireframe.d88 | `17da016bd716de0e7d51191e91f1261e4686634845910895584af22a99b87ad6` |
+| sgp-boot.d88 | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` |
+| utility-fdd-01 | `cf5b38eed92064326f7fc43eecec127dca9e1a7be82f76c126093c2048d5de5a` |
+| utility-sasi-va-01 | `fa5a794eb617919683ca02d03561c0ca0c0c2c9db0ad546f12a78781072def22` |
+| utility-sasi-va2-01 | `b1aeb0c8d3f1da98307df7a4881894526cbb4ed67a3ae687fb24b57bacd7f4fb` |
+
+| Produced compressed distribution | SHA-256 |
+|---|---|
+| glass-orbit.d88.xz | `71b286ba5b033dd74d81dfee06db3df6cb261df8451081a76a22cf4821055efe` |
+| neon3-distribution.d88.xz | `72b89c13cea76a1664bdac7451d1d65e93429cbd2502ad494c55fc64e7924c3e` |
+| neon4-distribution.d88.xz | `50e301cc3d5f8e4be86f1f008bf2f36825126d532d2799c922355b1e539f87a0` |
+| sgp-pseudo-sprite.d88.xz | `0fa03de4b17eabb615f75891bbcebe62232cbb2db07808f247c57b5db525e40c` |
+| sgp-wireframe.d88.xz | `38dec15498f7a618dabef27485b8ad4e6a72132a395126ba7edbcbd75503977b` |
+| sgp-boot.d88.xz | `657f91e25d9417b0b4fd9948d40caeec7f2daa6db6d2218b6f709be62b5238c5` |
+
+**Blocked, not passed:** the required original PSD has not been located,
+including a metadata-only search of available ZIP inputs. Zundamon's fresh
+source rebuild and therefore fresh all-demos/all-demos-msdos4/PC-Engine
+aggregate closure remain pending. Existing committed artwork/disk bytes are
+not presented as a fresh source build. This blocks a G132 request.
+
+## Headless guest runtime inspection
+
+All cases execute the unchanged 338174ee worker with the recorded SHA-256.
+Exact commands/configurations, input/corpus identities, comparison contracts,
+exit status, output digests and inspection records remain private.
+
+```sh
+python3 "$PRIVATE/run-runtime-extras.py"
+python3 "$PRIVATE/run-all-demos.py"
+python3 "$PRIVATE/run-basic-flags.py"
+```
+
+Process exit is not used as a drawing assertion: the captured screens and
+contact sheets are inspected. Follow-up commands and unsuccessful trials are
+retained separately.
+
+- The fresh utility FDD boots on VA2 and accepts DIR. Each fresh SASI disk
+  boots **alone** on its intended model and accepts DIR after the firmware's
+  backup record has been initialized and reset. Initial empty-record boots
+  do not yet apply the signature-gated fixed-disk preference and are retained
+  as unsuccessful trials, not successful standalone boots.
+- Fresh self-booting SGP reaches the menu and A displays the sprite scene.
+- All 17 bundled executables draw under PC-Engine and MS-DOS 4.0: 34 inspected
+  program/OS combinations. Normal captures use frame 4200; Zundamon extends
+  to frame 16000 and is visibly drawing. Bare `ZUNDAORB` is used under PC-Engine.
+  An initial MS-DOS NEON4/16 trial remains at the changed-directory prompt;
+  a targeted follow-up increasing the post-CD wait from 60 to 600 frames
+  starts it and draws. This is not counted as an emulator correction.
+- Runtime uses **committed reference distributions**, not a claim that the
+  blocked PSD/aggregate rebuild has completed. A private PC-Engine bootable
+  reference is assembled from those distributions; MS-DOS uses its committed
+  bootable reference. Their raw SHA-256 values are respectively
+  `073dc96bd621fdfce4ae530652f27364911161bcd55ba0d874bde66a15ccf8b2` and
+  `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78`.
+- Native N88-日本語BASIC V3.1 starts with `BASIC /87`, successfully loads
+  `MANDEL.BAS` and RUN begins plotting a coloured band by frame 12000.
+  Complete rendering of the fractal is not claimed.
+
+### ROM-backed BASIC flag checks
+
+Supplementary actual-guest BASIC calls cover VA/VA2 × V1/V2 × H/S, using valid
+initialized backup records. The checked IPL files match MAME's `pc88va`
+`varom1.rom` and `pc88va2` `varom1_va2.rom`; this statement does not assert an
+unverified full-set identity or publish any other private ROM identity.
+
+| Mode | IN6Eh | IN31h |
+|---|---|---|
+| V1H | 7Fh | F9h |
+| V1S | FFh | F9h |
+| V2H | 7Fh | 79h |
+| V2S | FFh | 79h |
+
+Both models produce the table. H uses the original hex query. Short synthetic
+S key pulses lose characters in the initial bulk queries; spaced-character
+follow-ups obtain decimal 255/249 or 255/121. Original-VA V1S obtains IN6Eh in
+one follow-up and IN31h=249 in a separate held-key `?inp(49)` follow-up. Syntax
+errors and incomplete queries are retained, not asserted as flag results.
+This checks the observed emulator/ROM path, not hardware timing calibration,
+full ROMful fresh/invalid/reset/state-file coverage or interactive typing quality.
+Issues #58/#59 are not closed on this evidence alone.
+
+## Remaining G132 work
+
+- Supply the original PSD/archive and complete fresh Zundamon and aggregate
+  payload/round-trip closure. Generated images stay outside Git.
+- Interactive normal/fullscreen/narrow-window and presenter/tooltip checks
+  remain pending. The current Cocoa run reports
+  `The video driver did not add any displays`. Automation forces SDL dummy;
+  its successful guest captures intentionally contain no information/footer UI.
+  An attempted Displayed recording under dummy correctly fails as unavailable,
+  and is not mislabeled as successful GUI verification.
+- Check the master/footer/panel independence, exact tooltip details, N-family
+  lamps, formal selected names and post-state-load behavior with the supplied
+  Windows artifact. Actual saved-state-file round trips and the original
+  game/full 604-byte probe runtime matrix are not claimed by the supplementary
+  BASIC queries; relevant ROMless/source-build tests remain green.
+- Retain the existing 26-file full-format baseline limitation. No main merge,
+  cleanup, next milestone, G132 pass or final hosted CI success is claimed.

@@ -54,8 +54,10 @@ land.
   under modeled no-op renaming. The full correction passes all 31 installer
   cases and the focused CTest. Each collision negative first passes its alias
   baseline, mutates one property and checks the exact error code. The real
-  bind-mount alias/no-op was also reproduced independently. Full regenerated
-  SASI boot verification is recorded separately when complete.
+  bind-mount alias/no-op was also reproduced independently. All 31 cases pass
+  on macOS and Linux. Clean-clone SASI generation then completes; both images
+  boot alone on their intended models and accept DIR after the normal
+  firmware-record initialization/reset, as recorded in the task.
 - **Task/evidence:** [M132 media regression](../agents/tasks/M132_hs_clock_status.md#media-regression-portability-correction).
 - **Fix commit:** [360eb71c](https://github.com/nakatamaho/vaeg/commit/360eb71c420e1e27b07adaa65a20b0d6516b9161).
 
@@ -136,8 +138,11 @@ land.
   `VA reset retained stale H/S or damaged unrelated input bits`. The corrected
   ROMless suite passes. The matrix covers both models, automatic/manual RAM,
   absent/valid/bad signatures, V1/V2, H→S→H, VA2 first-boot mode output,
-  checksums, unrelated bits and restored-latch binding. ROMful IN6Eh and
-  physical timing calibration remain unverified, not inferred from this test.
+  checksums, unrelated bits and restored-latch binding. Supplementary
+  [guest BASIC checks](../agents/tasks/M132_hs_clock_status.md#rom-backed-basic-flag-checks)
+  observe IN6Eh=7Fh/FFh for H/S and IN31h=F9h/79h for V1/V2 on both models;
+  fast synthetic S typing requires spaced/held-key follow-ups. This does not
+  establish physical timing or full ROMful first-boot/saved-state coverage.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [selection contract](v1v2-hs-clock-status-plan.md).
 - **Fix commits:** [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54),
