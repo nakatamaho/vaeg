@@ -2641,24 +2641,70 @@ static int test_clockscale(void) {
 		              {2, 100, 100, 200, 1}, {1, 100, 200, 400, 1}, {4, 100, 50, 100, 1}};
 		const UINT8 saved_speed = np2cfg.cpu_speed;
 		const UINT8 saved_standard = np2cfg.v1v2_standard;
+		const UINT8 saved_88 = memoryva_88_mode;
+		const UINT8 saved_a = sysportva.a;
 
 		for (index = 0; index < NELEMENTS(speeds); index++) {
 			np2cfg.multiple = speeds[index].multiple;
 			np2cfg.cpu_speed = (UINT8)speeds[index].percent;
 			np2cfg.v1v2_standard = speeds[index].standard;
+			memoryva_88_mode = 1;
+			sysportva.a = (sysportva.a & ~0x20) | (speeds[index].standard ? 0 : 0x20);
 			pccore_clockrestore();
 			if ((clockscale_apply(&pccore_cpu_scale, 100) != speeds[index].v30) ||
-			    (clockscale_apply(&pccore_compat_scale, 100) != speeds[index].compat)) {
+			    (pccore_compat_clocks(100, FALSE) != speeds[index].compat) ||
+			    (pccore_compat_clocks(7, TRUE) != 7) ||
+			    (pccore_compat_cpu_clock() !=
+			     pccore_cpu_clock() / (speeds[index].standard ? 2 : 1))) {
 				np2cfg.cpu_speed = saved_speed;
 				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
 				np2cfg.multiple = saved_config_multiple;
 				pccore.baseclock = saved_baseclock;
 				pccore_clockrestore();
 				return (fail("clockscale", "CPU speed did not scale the cycle cost"));
 			}
+			memoryva_88_mode = 0;
+			if ((pccore_compat_clocks(100, FALSE) != speeds[index].v30) ||
+			    (pccore_compat_cpu_clock() != pccore_cpu_clock())) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return fail("clockscale", "saved S selection slowed native V3 BRKEM code");
+			}
+		}
+		/* The H/S factor retains fractional carry, even with native waits
+		 * interleaved; it never multiplies an already charged wait. */
+		np2cfg.multiple = 3;
+		np2cfg.cpu_speed = 100;
+		sysportva.a &= ~0x20;
+		for (memoryva_88_mode = 0; memoryva_88_mode < 2; memoryva_88_mode++) {
+			pccore_clockrestore();
+			total = 0;
+			for (index = 0; index < 30000; index++) {
+				total += pccore_compat_clocks(1, FALSE);
+				(void)pccore_compat_clocks(7, TRUE);
+			}
+			if (total != (memoryva_88_mode ? 40000 : 20000)) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return fail("clockscale", "H/S fractional instruction carry drifted");
+			}
 		}
 		np2cfg.cpu_speed = saved_speed;
 		np2cfg.v1v2_standard = saved_standard;
+		memoryva_88_mode = saved_88;
+		sysportva.a = saved_a;
 	}
 	np2cfg.multiple = saved_config_multiple;
 	pccore.baseclock = saved_baseclock;

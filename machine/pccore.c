@@ -34,6 +34,7 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "sysportva.h"
 
 #include "../vram/maketextva.h"
 #include "../vram/makesprva.h"
@@ -200,12 +201,9 @@ void pccore_set_cpu_speed(UINT percent) {
 	pccore_cpu_speed_value = percent;
 	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
-	/* Compatible (Z80) code runs at the V1/V2 speed chosen with H/S: H at the
-	 * standard 7.9872 MHz, S at half of it (3.9936 MHz, the PC-8801's
-	 * standard speed). The CPU clock multiplier and speed then adjust it as
-	 * they do V30 code: x1 halves either rate. */
-	clockscale_configure(&pccore_compat_scale,
-	                     PCCORE_STANDARD_MULTIPLE * 100 * (np2cfg.v1v2_standard ? 2 : 1),
+	/* H/S is applied at the instruction boundary, not baked into a ratio
+	 * also used by native V3 BRKEM code or already charged bus waits. */
+	clockscale_configure(&pccore_compat_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
 }
 
@@ -221,9 +219,30 @@ UINT32 pccore_cpu_clock(void) {
 	return (pccore.baseclock * pccore_cpu_multiple_value);
 }
 
-/* Effective clock of compatible (Z80) code: the V30 clock, halved in S. */
+/* Use the restored/live input, rather than a pending reset preference. */
+BOOL pccore_88_standard(void) {
+	return (sysportva.a & 0x20) ? FALSE : TRUE;
+}
+
+/* Configured compatible clock, excluding CPU speed percent and host pace. */
 UINT32 pccore_compat_cpu_clock(void) {
-	return (pccore_cpu_clock() / (np2cfg.v1v2_standard ? 2 : 1));
+	return pccore_cpu_clock() / ((memoryva_88_mode && pccore_88_standard()) ? 2 : 1);
+}
+
+UINT64 pccore_compat_clocks(UINT32 clocks, BOOL native_wait) {
+	UINT64 elapsed;
+
+	if (native_wait) {
+		/* Memory and I/O have already charged native machine-clock units. */
+		return clocks;
+	}
+	elapsed = clockscale_apply(&pccore_compat_scale, clocks);
+	if (memoryva_88_mode && pccore_88_standard()) {
+		/* Two applications retain fractional carry without 32-bit doubling
+		 * overflow, and leave V3's compatible instructions at their base rate. */
+		elapsed += clockscale_apply(&pccore_compat_scale, clocks);
+	}
+	return elapsed;
 }
 
 // ---------------------------------------------------------------------------

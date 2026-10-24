@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M132 — S affected V3 BRKEM and rescaled native bus waits
+
+- **Symptom/scope:** the imported PR #55 halves compatible instruction
+  capacity even for V3 BRKEM code when a saved S preference is present.
+  Its S factor also doubles native-clock memory/I/O waits a second time;
+  CPU percentage/multiplier adjustments can likewise rescale those waits.
+- **Demonstrated cause:** the PR bakes S into `pccore_compat_scale` without
+  checking 88 mode. The adapter passes both compatible instruction cycles and
+  already charged native elapsed waits through that same conversion.
+- **Correction:** keep the PR's compatible clock API and baseline ratio, but
+  apply the live H/S input only at compatible instruction accounting in 88
+  mode. Route all four memory/I/O wait callbacks through a native-unit path.
+  Restore-state latch values, not pending reset preferences, select H/S.
+  Native V30, FDC, timer and SGP accounting are not changed.
+- **Verification:** the isolation assertion fails on the imported proposal
+  with `saved S selection slowed native V3 BRKEM code`. The corrected ROMless
+  suite passes multiplier/percentage H/S matrices, V3 isolation, nominal
+  clocks, native-wait identity and interleaved-wait fractional carry over
+  30,000 instruction slices in each domain. These are emulator arithmetic
+  and routing checks, not physical instruction/ROM-trap calibration.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [clock-domain contract](v1v2-hs-clock-status-plan.md).
+- **Fix commit:** to be linked in the immediate evidence update.
+
 ### M132 — H/S identification retained a stale or first-boot speed
 
 - **Symptom/scope:** PR #55's backup-bit synchronization alone leaves the
@@ -60,7 +84,7 @@ land.
   physical timing calibration remain unverified, not inferred from this test.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [selection contract](v1v2-hs-clock-status-plan.md).
-- **Fix commit:** to be linked in the immediate evidence update.
+- **Fix commit:** [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54).
 
 ### M131 — Graphics obscured by spurious main-RAM text
 

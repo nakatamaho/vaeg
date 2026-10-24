@@ -107,8 +107,13 @@ class CompatCounter final : public IClockCounter {
   public:
 	void IFCALL past(std::int32_t clocks) override {
 		// CPU speed (machine/pccore.c): 100 / percent machine clocks a cycle.
-		remain_ -= static_cast<std::int32_t>(
-		    clockscale_apply(&pccore_compat_scale, static_cast<UINT32>(clocks)));
+		remain_ -=
+		    static_cast<std::int32_t>(pccore_compat_clocks(static_cast<UINT32>(clocks), FALSE));
+	}
+
+	void past_native(std::int32_t clocks) {
+		remain_ -=
+		    static_cast<std::int32_t>(pccore_compat_clocks(static_cast<UINT32>(clocks), TRUE));
 	}
 
 	std::int32_t IFCALL GetRemainclock() override {
@@ -366,7 +371,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		const SINT32 elapsed = before - CPU_REMCLOCK;
 		if (elapsed > 0) {
 			CPU_REMCLOCK = before;
-			counter_.past(elapsed);
+			counter_.past_native(elapsed);
 		}
 		return value;
 	}
@@ -377,7 +382,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		const SINT32 elapsed = before - CPU_REMCLOCK;
 		if (elapsed > 0) {
 			CPU_REMCLOCK = before;
-			counter_.past(elapsed);
+			counter_.past_native(elapsed);
 		}
 	}
 
@@ -390,7 +395,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		const UINT8 value = iocore_inp8(static_cast<UINT>(port & 0xffff));
 		const SINT32 elapsed = before - CPU_REMCLOCK;
 		if (elapsed > 0) {
-			counter_.past(elapsed);
+			counter_.past_native(elapsed);
 		}
 		return value;
 	}
@@ -400,7 +405,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		iocore_out8(static_cast<UINT>(port & 0xffff), static_cast<UINT8>(data));
 		const SINT32 elapsed = before - CPU_REMCLOCK;
 		if (elapsed > 0) {
-			counter_.past(elapsed);
+			counter_.past_native(elapsed);
 		}
 	}
 
