@@ -76,8 +76,13 @@ land.
   with `saved S selection slowed native V3 BRKEM code`. The corrected ROMless
   suite passes multiplier/percentage H/S matrices, V3 isolation, nominal
   clocks, native-wait identity and interleaved-wait fractional carry over
-  30,000 instruction slices in each domain. These are emulator arithmetic
-  and routing checks, not physical instruction/ROM-trap calibration.
+  30,000 instruction slices in each domain. The
+  [real adapter probes](https://github.com/nakatamaho/vaeg/commit/13ebbb1a3272a9061f697adcd4a32797e124fddd)
+  also execute ten NOP/IN/OUT instructions: H/S/S50/V3S NOP costs are
+  40/80/160/40; IN and OUT are 130/240/460/130, retaining 20 native I/O clocks.
+  Restoring only the old I/O wait route makes the passing fixture fail with
+  130/260/520/130. These are emulator accounting checks, not physical
+  instruction/ROM-trap calibration.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [clock-domain contract](v1v2-hs-clock-status-plan.md).
 - **Fix commit:** [576657dc](https://github.com/nakatamaho/vaeg/commit/576657dce046d9eb2d317caaf5c13e5a19098f1a).
@@ -111,7 +116,8 @@ land.
   physical timing calibration remain unverified, not inferred from this test.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [selection contract](v1v2-hs-clock-status-plan.md).
-- **Fix commit:** [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54).
+- **Fix commits:** [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54),
+  [firmware-created first-boot record 46f6c75c](https://github.com/nakatamaho/vaeg/commit/46f6c75c20505e95fb74bdd3ed03e6d3b42f19b0).
 
 ### M131 — Graphics obscured by spurious main-RAM text
 

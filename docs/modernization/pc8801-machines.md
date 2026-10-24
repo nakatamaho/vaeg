@@ -62,31 +62,40 @@ model while port 31h selects monochrome graphics, whereas the VA applies it
 | PC-88VA | VA | V2 H/S, V1 H/S |
 | PC-88VA2 | VA2 | V2 H/S, V1 H/S |
 
-H and S are mode selections; entries before FH/MH offer S only. PR #55's
-proposed compatible-clock scaling and IN6Eh synchronization are being
-integrated and corrected in M132, not yet a calibrated or accepted result;
-see the [H/S and status design](v1v2-hs-clock-status-plan.md).
+H and S are mode selections; entries before FH/MH offer S only. M132 imports
+PR #55's source/history, then corrects reset/first-boot identification, V3
+isolation and native-wait accounting. In 88 mode the nominal base is 7.9872 MHz
+in H, 3.9936 MHz in S, before optional multiplier/speed adjustments. This is
+implemented emulator policy, not newly calibrated hardware timing; G132 is
+pending. See the [H/S and status design](v1v2-hs-clock-status-plan.md).
 M131 preserves the VA ROM's IN31 value in both selections (F9h for V1,
 79h for V2) and keeps fast text available in V1S, as measured on VA/VA2.
 Do not restore the former IN31 bit-6 masking when integrating the proposal.
 N needs `n80`. Sound is the base model's (the
 VA2's OPNA; its first half is OPN-compatible); the original PC-8801 has no
-FM sound, which is not modelled. The PC-8001 family (M114) runs in N mode
-only (below). `PC-88VA` and `PC-88VA2` are
+FM sound, which is not modelled. The PC-8001 family (M114) uses the internal
+N-ROM startup route (below); that route name does not identify the BASIC subtype. `PC-88VA` and `PC-88VA2` are
 PC-8801-layout sets taken from the VA ROMs (`n88`, banks, `disk`, `kanji1`,
 `kanji2`, `font`, `jisyo`; no N-BASIC).
 
 ## PC-8001 family (M114)
 
-The PC-8001, PC-8001mkII and PC-8001mkIISR run in the N mode of the VA2's
-V1/V2 mode with their own N-BASIC ROM (`n80`, `n80_2`, `n80_2sr`) in place
+The PC-8001, PC-8001mkII and PC-8001mkIISR use the N-ROM route of the VA2's
+V1/V2 backend with their own BASIC ROM (`n80`, `n80_2`, `n80_2sr`) in place
 of a PC-8801's; a 24 KiB PC-8001 ROM leaves the 6000h-7FFFh socket reading
 FFh. The VA's N88-BASIC stays. These BASICs program the CRTC for a 15 kHz
 monitor, so the machine runs with SW1 at 15 kHz. Port 31h has its
 PC-8001mkII meaning: N-BASIC and 200 lines stay selected. There is no FDD
 inside; `disk.rom` gives the external unit. The mkII's own graphics modes
-and its expansion ROM bank, and the mkIISR's N80SR mode, are not modelled;
-the mkII and mkIISR start their N-80 BASIC.
+and its expansion ROM bank are not modelled; the mkII and mkIISR start their
+N-80 BASIC. The maintainer specifically reports N80-BASIC boot on mkII.
+That boot is not evidence that its model-specific graphics or N80SR switching
+are implemented. mkIISR N/N80/N80SR functionality and runtime subtype switching
+require separate verification. M132 reports the selected formal machine, turns
+both V1/V2 lamps off for a live N-ROM selection, and uses `N/N80` or
+`N/N80/N80SR` where the running subtype is not reliably distinguished. It does
+not infer a running BASIC from strings found in its ROM. The concrete remaining
+work is tracked in the [design backlog](v1v2-hs-clock-status-plan.md#pc-8001系の観測と積み残し).
 
 ## Starting a model
 

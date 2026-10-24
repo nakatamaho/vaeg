@@ -23,7 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Implementation started; G132 not requested or passed.**
+Status: **Agreed implementation added; final verification/handoff in progress.
+G132 not requested or passed.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -43,7 +44,7 @@ the agreed corrections in separate commits. Preserve original authorship and
 history. Preset removal in the incoming proposal is to be corrected according
 to the agreed design, not silently treated as a new UI decision.
 
-## Implementation sequence
+## Implementation sequence (code and documentation added)
 
 1. Record approved design and explicit N80/N80SR backlog.
 2. Correct VA/VA2 H/S identification/reset synchronization, preserving checksums
@@ -129,5 +130,76 @@ full-run plus focused-recheck results, not a fabricated second full run.
 The nine skips match the G131 baseline (external SST/probes, ROM-dependent
 BASIC boot, five xz tests). Encoding/EOL/case/Markdown/diff checks pass.
 Exact logs and commands are private. No hosted CI result, guest-media acceptance,
-Windows handoff, IN6Eh integration proof or G132 pass is claimed. The incoming
-proposal's known reset/timing/UI gaps remain to be corrected in later commits.
+Windows handoff, ROMful IN6Eh integration proof or G132 pass is claimed by
+this historical source-acceptance baseline. The incoming
+proposal's reset/timing/UI gaps are corrected by the subsequent commits below.
+
+## Implemented corrections and frontend
+
+| Concern | Commit |
+|---|---|
+| Original VA/VA2 effective H/S input, first-boot mode output, reset/bind matrix | [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54) |
+| 88-only S instruction conversion, native-wait routing, live/restored clock | [576657dc](https://github.com/nakatamaho/vaeg/commit/576657dce046d9eb2d317caaf5c13e5a19098f1a) |
+| Canonical profile identity, shared N/V1/V2/V3 model, N-family lamps | [677b57ca](https://github.com/nakatamaho/vaeg/commit/677b57ca4655d5db7a007049b784b0001b859111) |
+| Default-ON independent footer, moved lamp setting, tooltip and geometry/configuration tests | [e75f8fb6](https://github.com/nakatamaho/vaeg/commit/e75f8fb626b8513c29690a6a890fe697c8b678bd) |
+| Firmware-created original-VA record reconciled after reset on 88 entry | [46f6c75c](https://github.com/nakatamaho/vaeg/commit/46f6c75c20505e95fb74bdd3ed03e6d3b42f19b0) |
+| Footer survives screenshot menu suppression, uses final render geometry | [5a431e36](https://github.com/nakatamaho/vaeg/commit/5a431e36e9994e1dda93de61b8828c6e21dc415d) |
+| Real uPD70008 instruction/I/O accounting integration tests | [13ebbb1a](https://github.com/nakatamaho/vaeg/commit/13ebbb1a3272a9061f697adcd4a32797e124fddd) |
+
+Correctness entries and demonstrated causes are in the
+[permanent ledger](../../modernization/bug-fixes.md). The incoming PR's
+historical CPU presets are retained; 50% is now explicitly an additional
+adjustment to H/S. Custom settings are never guessed away.
+
+### Focused red/green evidence
+
+Commands use the same recording-ON, local-encoders-OFF macOS build described
+above. Exact stdout/stderr remain private; no ROM inputs are needed here.
+
+```sh
+cmake --build "$PRIVATE/build" -j 8
+ctest --test-dir "$PRIVATE/build" -R '^vaeg_romless_tests$' --output-on-failure
+ctest --test-dir "$PRIVATE/build" -R '^vaeg_upd9002_brkem_upd70008$' --output-on-failure
+```
+
+- Identification matrix fails on the imported source with
+  `VA reset retained stale H/S or damaged unrelated input bits` (exit 8).
+  After correction, the suite passes (exit 0). It covers VA/VA2,
+  auto/manual RAM, absent/valid/bad signatures, V1/V2, H→S→H, VA2 first-boot
+  mode output, checksum/unrelated-bit preservation and restored-latch binding.
+- A separate firmware-created-record assertion fails before the 88-entry
+  follow-up with `original-VA first boot left the new BIOS record at the wrong H/S`
+  (exit 8); the follow-up suite passes (exit 0). V3 BRKEM must not apply or
+  consume that synchronization, and invalid RAM is not manufactured.
+- V3-isolation assertion fails on the incoming ratio with
+  `saved S selection slowed native V3 BRKEM code` (exit 8). Corrected matrices
+  pass multiplier/percentage combinations, nominal clocks, native-wait identity
+  and 30,000 fractional slices with interleaved waits in each domain (exit 0).
+- A passing profile fixture fails after changing only the effective lamp getter
+  back to raw-latch behavior (exit 8); the shared classifier passes. Formal
+  machine names, no non-VA SGP, short rounding/sub-MHz/overflow, truncation,
+  runtime N-ROM versus N boot preference, and explicit ambiguous subtypes are
+  checked. ROM banner strings are not runtime evidence.
+- Production configuration round-trips all four status/panel visibility
+  combinations and per-field flags. A legacy key-less fixture retains the
+  ON startup default and existing panel/field choices. Pure footer geometry
+  covers 1x/2x DPI, tall fonts/narrow sizes, independent toggles and bounds;
+  all four toggles preserve the 640×400 guest area at 2x DPI.
+- Actual adapter execution, ten instructions per probe, passes:
+
+  | Probe | H | S | S + 50% | V3 BRKEM with saved S |
+  |---|---:|---:|---:|---:|
+  | NOP | 40 | 80 | 160 | 40 |
+  | IN A,(7Eh) | 130 | 240 | 460 | 130 |
+  | OUT (7Eh),A | 130 | 240 | 460 | 130 |
+
+  The I/O fixture explicitly builds/binds the standard machine bus (20 native
+  clocks for ten accesses). Initial unbound-fixture failures are retained as
+  setup failures, not production defects. Starting from the passing fixture,
+  restoring only the old I/O wait route produces H=130, S=260, S50=520 and
+  V3S=130 and fails the intended native-wait assertion (exit 8). Restoring the
+  native-unit route passes (exit 0). No FDC or native V30 timing is changed.
+
+These checks demonstrate emulator accounting, not real-hardware calibration.
+Remaining whole-tree, clean-media, runtime and handoff results are recorded
+below once actually completed; no G132 acceptance is implied.
