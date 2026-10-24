@@ -28,6 +28,8 @@
 #include "io/iocore.h"
 #include "io/upd9002_regs.h"
 #include "io/memctrlva.h"
+#include "io/sysportva.h"
+#include "memoryva/memoryva.h"
 #include "cpu/upd9002_upd70008.h"
 #include "cpu/upd9002_upd70008_core_config.h"
 #include "cpu/z80_compat_cpu.h"
@@ -862,8 +864,12 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
 	return SUCCESS;
 }
 
-// M105: the CPU speed scales the compatible core's cycles (ten NOPs).
-static SINT32 compat_nop_clocks(UINT percent) {
+// M105/M132: real adapter execution, not only clock-ratio arithmetic.
+static SINT32 compat_nop_clocks(UINT percent, BOOL mode88, BOOL standard, UINT8 io_opcode = 0) {
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_a = sysportva.a;
+	const UINT saved_percent = pccore_cpu_speed();
+	const UINT saved_machine_multiple = pccore.multiple;
 	const UINT16 code_segment = 0x2000;
 	const UINT32 code_base = static_cast<UINT32>(code_segment) << 4;
 	SINT32 before;
@@ -872,7 +878,15 @@ static SINT32 compat_nop_clocks(UINT percent) {
 	ZeroMemory(mem, 0x100000);
 	upd9002_upd70008_register();
 	upd9002_core_reset();
+	memoryva_88_mode = mode88 ? 1 : 0;
+	sysportva.a = (sysportva.a & ~0x20) | (standard ? 0 : 0x20);
 	pccore_set_cpu_speed(percent);
+	if (io_opcode != 0) {
+		// The standalone CPU fixture need not have initialized the machine.
+		pccore.multiple = PCCORE_STANDARD_MULTIPLE;
+		iocore_build();
+		iocore_bind(); // unassigned probe port, two native clocks per I/O
+	}
 	CPU_CS = code_segment;
 	CPU_DS = code_segment;
 	CPU_SS = 0x3000;
@@ -892,26 +906,68 @@ static SINT32 compat_nop_clocks(UINT percent) {
 	mem[code_base + 0x0100] = 0x0f; // BRKEM E1h
 	mem[code_base + 0x0101] = 0xff;
 	mem[code_base + 0x0102] = 0xe1;
+	if (io_opcode != 0) {
+		for (int i = 0; i < 10; i++) {
+			mem[code_base + 0x1000 + i * 2] = io_opcode;
+			mem[code_base + 0x1001 + i * 2] = 0x7e;
+		}
+	}
 	upd9002_core_step();
 	before = CPU_REMCLOCK;
 	for (int i = 0; i < 10; i++) {
-		upd9002_core_step(); // NOP (memory is zero)
+		upd9002_core_step(); // NOP, or immediate-port IN/OUT
 	}
 	before -= CPU_REMCLOCK;
-	pccore_set_cpu_speed(100);
+	memoryva_88_mode = saved_88;
+	sysportva.a = saved_a;
+	pccore_set_cpu_speed(saved_percent);
+	if (io_opcode != 0) {
+		pccore.multiple = saved_machine_multiple;
+		iocore_build();
+		iocore_bind();
+	}
 	upd9002_core_deinitialize();
 	return before;
 }
 
 extern "C" int upd9002_upd70008_cpu_speed_selftest(void) {
-	const SINT32 full = compat_nop_clocks(100);
-	const SINT32 half = compat_nop_clocks(50);
+	const SINT32 full = compat_nop_clocks(100, FALSE, FALSE);
+	const SINT32 half = compat_nop_clocks(50, FALSE, FALSE);
+	const SINT32 high88 = compat_nop_clocks(100, TRUE, FALSE);
+	const SINT32 standard88 = compat_nop_clocks(100, TRUE, TRUE);
+	const SINT32 standard_half = compat_nop_clocks(50, TRUE, TRUE);
+	const SINT32 native_standard = compat_nop_clocks(100, FALSE, TRUE);
 
-	if ((full <= 0) || (half != full * 2)) {
-		std::fprintf(stderr, "compatible CPU speed selftest failed: 100%% %d, 50%% %d clocks\n",
-		             static_cast<int>(full), static_cast<int>(half));
+	if ((full <= 0) || (half != full * 2) || high88 != full || standard88 != full * 2 ||
+	    standard_half != full * 4 || native_standard != full) {
+		std::fprintf(
+		    stderr,
+		    "compatible CPU speed selftest failed: base=%d half=%d H=%d S=%d S50=%d V3S=%d\n",
+		    static_cast<int>(full), static_cast<int>(half), static_cast<int>(high88),
+		    static_cast<int>(standard88), static_cast<int>(standard_half),
+		    static_cast<int>(native_standard));
 		return FAILURE;
 	}
+	const UINT8 io_opcodes[] = {0xdb, 0xd3};
+	for (const UINT8 opcode : io_opcodes) {
+		const SINT32 high = compat_nop_clocks(100, TRUE, FALSE, opcode);
+		const SINT32 low = compat_nop_clocks(100, TRUE, TRUE, opcode);
+		const SINT32 low50 = compat_nop_clocks(50, TRUE, TRUE, opcode);
+		const SINT32 v3 = compat_nop_clocks(100, FALSE, TRUE, opcode);
+		// Ten accesses charge 20 native clocks, never an H/S or CPU-speed ratio.
+		if (high <= 20 || low != (high - 20) * 2 + 20 || low50 != (high - 20) * 4 + 20 ||
+		    v3 != high) {
+			std::fprintf(
+			    stderr, "compatible native-wait selftest failed: op=%02x H=%d S=%d S50=%d V3S=%d\n",
+			    opcode, high, low, low50, v3);
+			return FAILURE;
+		}
+		std::fprintf(stderr, "selftest: uPD70008 IO %02x clocks H=%d S=%d S50=%d V3S=%d\n", opcode,
+		             high, low, low50, v3);
+	}
+	std::fprintf(stderr, "selftest: uPD70008 NOP clocks H=%d S=%d S50=%d V3S=%d\n",
+	             static_cast<int>(high88), static_cast<int>(standard88),
+	             static_cast<int>(standard_half), static_cast<int>(native_standard));
 	return SUCCESS;
 }
 
