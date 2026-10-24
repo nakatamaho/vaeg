@@ -92,3 +92,42 @@ explicit maintainer gate acceptance.
 - The two integration conflicts are the IN31 comment and machine-mode
   documentation. IN31 still reads B1FC6h unchanged; no RAM/display change is
   accepted from the proposal. This intermediate integration is not G132-ready.
+
+### Original PR source acceptance baseline
+
+Original PR commit
+[1091af8b](https://github.com/nakatamaho/vaeg/commit/1091af8b260139a69d16d7afdb36883678655589)
+is a direct parent of acceptance merge
+[c13f1288](https://github.com/nakatamaho/vaeg/commit/c13f12888718d08b81b249e7c57c26a56bd9f029).
+It is not a rewritten or independently recreated patch. Main remains unchanged.
+
+```sh
+cmake -S "$SOURCE" -B "$PRIVATE/build" -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/opt/local \
+  -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=OFF \
+  -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF -DVAEG_STATIC_LIBRASHADER=OFF \
+  -DVAEG_FETCH_SDL2=ON -DVAEG_FETCH_LIBARCHIVE=ON \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON
+cmake -S "$SOURCE" -B "$PRIVATE/build"
+cmake --build "$PRIVATE/build" -j 8
+ctest --test-dir "$PRIVATE/build" --output-on-failure -j 4
+ctest --test-dir "$PRIVATE/build" -R '^vaeg_milestone_id_selftest$' \
+  --output-on-failure
+```
+
+Configure/build exit 0 (1293 build steps). The macOS recording-ON worker embeds
+c13f1288 and has SHA-256
+`7f5b3ddd35236dee7c546853fa6f33c19804950314240cb5a2e1bb348a26cad5`.
+The first full CTest run lists 140 tests, 130 pass, nine skip, one fails
+(exit 8, 99.44 seconds). The sole failure is the new roadmap row mentioning
+the predecessor gate before its own gate: `ROADMAP:190: gate ID mismatch`.
+The row is corrected without changing the validator; the focused recheck
+passes (exit 0). Emulator/romless tests already passed, so no unchanged
+application tests are rerun for this documentation correction. This records
+full-run plus focused-recheck results, not a fabricated second full run.
+
+The nine skips match the G131 baseline (external SST/probes, ROM-dependent
+BASIC boot, five xz tests). Encoding/EOL/case/Markdown/diff checks pass.
+Exact logs and commands are private. No hosted CI result, guest-media acceptance,
+Windows handoff, IN6Eh integration proof or G132 pass is claimed. The incoming
+proposal's known reset/timing/UI gaps remain to be corrected in later commits.
