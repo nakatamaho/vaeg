@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M132 — CP/M media extraction rejected case-insensitive lookup aliases
+
+- **Symptom/scope:** clean SASI utility-media generation aborted with
+  `ARCHIVE_DUPLICATE` while restoring Lhasa's lower-case member names on a
+  Linux bind mount backed by a case-insensitive host filesystem.
+- **Demonstrated root cause:** the uppercase lookup existed but referred to
+  the one lowercase directory entry and the same inode, not a second archive
+  member. The collision guard treated existence as proof of a distinct entry.
+  Independently, a direct case-only rename on that bind mount returned success
+  without changing the stored directory-entry spelling.
+- **Correction:** distinguish a lookup alias from separately enumerated entries
+  and different inodes; both genuine collision classes still fail closed with
+  `ARCHIVE_DUPLICATE`. Rename a true alias through a private intermediate
+  sibling, avoiding the bind mount's no-op. Register the installer suite in CTest.
+- **Verification:** the isolated passing-alias fixture fails on the old guard
+  with `ARCHIVE_DUPLICATE`; a guard-only correction fails its stored-name assertion
+  under modeled no-op renaming. The full correction passes all 31 installer
+  cases and the focused CTest. Each collision negative first passes its alias
+  baseline, mutates one property and checks the exact error code. The real
+  bind-mount alias/no-op was also reproduced independently. Full regenerated
+  SASI boot verification is recorded separately when complete.
+- **Task/evidence:** [M132 media regression](../agents/tasks/M132_hs_clock_status.md#media-regression-portability-correction).
+- **Fix commit:** [360eb71c](https://github.com/nakatamaho/vaeg/commit/360eb71c420e1e27b07adaa65a20b0d6516b9161).
+
 ### M132 — N-family execution showed the backend's V2 lamp
 
 - **Symptom/scope:** N80-BASIC boot on PC-8001mkII shows a V2 lamp; N-family

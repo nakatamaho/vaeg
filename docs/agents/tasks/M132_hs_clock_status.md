@@ -259,3 +259,58 @@ private media/runtime/handoff work is incomplete. It makes the exact code
 commit available for clean-clone checks without using hosted CI as a debugger.
 One final hosted review-candidate run is deferred until applicable local checks
 and the evidence layout are settled.
+
+## Media regression portability correction
+
+The clean-media run found a real portability defect, not an archive checksum
+mismatch. Under Lhasa on a Linux bind mount backed by a case-insensitive host,
+CP/M installation rejected a lowercase member's uppercase lookup as a duplicate.
+The directory contained one entry; both spellings existed and had the same
+inode. A direct case-only rename also returned success without changing the
+stored name. Originals and cached archives were not changed.
+
+[Fix 360eb71c](https://github.com/nakatamaho/vaeg/commit/360eb71c420e1e27b07adaa65a20b0d6516b9161)
+retains rejection of distinct entries/inodes and stages real aliases through
+an intermediate sibling. The [permanent ledger](../../modernization/bug-fixes.md)
+records the demonstrated cause. Focused commands:
+
+```sh
+python3 tools/cpmva/tests/test_install_cpmva.py
+cmake -S . -B "$PRIVATE/build"
+ctest --test-dir "$PRIVATE/build" -R '^vaeg_cpmva_installer$' --output-on-failure
+```
+
+Exit 0: 31 Python cases and the newly registered CTest pass. The alias positive
+fails on the old guard with `ARCHIVE_DUPLICATE`; removing only staged renaming
+fails its stored-name assertion. Collision negatives first prove their passing
+baseline, change only the directory-entry list or inode identity, then require
+exactly `ARCHIVE_DUPLICATE`. No Git/history or large corpus gates mask these tests.
+
+CTest now registers 141 cases. The prior full 140-case emulator result is
+retained, not described as a new full 141-case run. Since the application-code
+freeze, only this media tool, its tests, documentation and a pure `add_test`
+registration have changed; no application compilation/link flags or sources
+changed. The evaluated emulator remains commit 338174ee and its worker remains
+`f905e238e9417a5abe0cc421c3018823823154b44ec7a429ba7b99cc6b8b5f17`.
+Unchanged expensive emulator evaluations are not rerun for this tool-only fix.
+
+## Clean static Windows artifact
+
+```sh
+vaeg-container tools/release/build-mingw-static-container.sh \
+  --commit 338174ee17daa885f038b3742dd0f1ed0560bfc5
+```
+
+Exit 0, from a new clean clone of the pushed application-code freeze. The pinned
+Ubuntu 24.04 container, Rust 1.88.0, `mingw-cross` Release, fresh librashader SDK
+and fresh application objects complete. Embedded commit/date and system-DLL-only
+PE imports are audited. Recording and local bundled H.264/AAC encoders are OFF;
+this is the public clean-build handoff, not a personal recording-enabled build.
+
+- Executable: `../vaeg-mingw-338174ee/output/vaeg.exe`, 57,626,801 bytes.
+- SHA-256: `6d18e4f173884a4dbbe029e58e0ee86576c15a7c2e5f081556c0151fbcb6584a`.
+- Report: `../vaeg-mingw-338174ee/output/BUILD-REPORT.md`.
+- The script compiles/links and audits imports; it does not execute Windows
+  guests. No Windows execution or G132 acceptance is inferred.
+- Project-local Colima VM/daemon storage is used with process-local connection
+  settings. The global Docker context is not changed.
