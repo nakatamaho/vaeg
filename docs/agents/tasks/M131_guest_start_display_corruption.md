@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **Hardware probe shows distinct CPU banks and A/A display in all eight requested modes; current V1S/IN31 policy disagrees with hardware. Emulator game/BASIC checks remain valid but are not hardware equivalence; no merge or G131 request.**
+Status: **Hardware-driven V1S banking/display and IN31 corrections implemented; red/green selftests pass. Final-worker runtime checks pending; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -646,12 +646,59 @@ old BASIC compatibility path must not be removed without controlled regression
 checks. No production worker, media payload or comparison input for the prior
 emulator runs changes, so those expensive runs are not repeated.
 
+## Hardware-driven correction requested by the maintainer
+
+The maintainer explicitly requested correcting both mismatches above:
+
+- Remove the V1S fast-RAM availability exception. CPU F000h-FFFFh still
+  selects TVRAM with TMODE clear and underlying RAM with TMODE set, subject
+  to the unchanged GVRAM/dictionary/extended-memory precedence.
+- Remove the main-RAM display fallback. The 3301 renderer and copied text
+  always use TVRAM; H/S, V1/V2 and CPU TMODE do not change that source.
+  Retire the unused mode helper/RAM-row buffer and its main-RAM sleep guard.
+- Return B1FC6h unchanged for IN31 in V3 and 88 mode. Do not mask bit 6 or
+  mutate the backup record based on H/S.
+- Do not change compatible execution timing, clock flags, save-state layout,
+  menu selections or speed presets. Separate follow-ups:
+  [H/S timing #58](https://github.com/nakatamaho/vaeg/issues/58) and
+  [IN6Eh identification #59](https://github.com/nakatamaho/vaeg/issues/59),
+  both related to proposal PR #55, not merged as part of M131.
+
+Controlled red/green sequence with the macOS recording-ON, local-encoders-OFF
+build:
+
+1. Update the expected V1/V2 x H/S x TMODE raster, text-copy and CPU-bank
+   behavior and V1/V2 x H/S x V3/88-mode IN31 readback. The old production
+   code fails with `TSP 3301 emulation failed: VA display source depends on
+   V1/V2, H/S or TMODE` (exit 1).
+2. Correct only the RAM/display policy. The TSP test passes; the suite next
+   fails with `V1/V2 memory switch failed: H/S changed VA IN 31h or its
+   memory switch` (exit 1).
+3. Remove IN31 masking. The entire selftest passes (exit 0), including N-ROM
+   extension, V3 saved-S behavior and existing GVRAM/state checks.
+
+Build command: `cmake --build "$BUILD" -j 8`. Test command:
+`SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$WORKER" --selftest`.
+An earlier invocation without the dummy SDL drivers exits 1 in the viewport
+setup before reaching these tests; it is retained as a harness preflight
+failure, not counted as the controlled red test.
+
+The old `NEW ON 1` instructions depended on the now-removed compatibility
+behavior and are marked historical, not silently advertised as still working.
+Direct N-ROM boot remains an independent extension. The canonical mode/text
+policy documents are updated without claiming a measured H/S clock.
+The pre-commit candidate also passes CTest (exit 0; 140 listed, zero failed,
+the same nine skips; 87.06 seconds) and encoding/EOL/case/Markdown-comment and
+diff-whitespace checks. Edited C lines match clang-format 22. The full canonical
+formatter entry point is still blocked by `manifest paths are not sorted`;
+its manifest, checker and configuration are unchanged from bf215b99.
+Final evaluated-worker identity and runtime verification follow separately.
+
 ## Remaining gate work
 
-- Resolve the hardware-observed V1S CPU/display mismatch and S-mode IN31
-  mismatch; verify BASIC and guest behavior without conflating a compatibility
-  extension with the measured VA modes. The original hardware-confirmation
-  item is not a pass for the current source-aligned policy.
+- Confirm the corrected worker against the hardware probe table and rerun
+  BASIC and guest behavior in all requested modes. The earlier source-aligned
+  worker is not hardware-equivalent and its runs cannot validate changed code.
 - Generate both SASI utility images and boot/DIR each alone on its model.
   The three required generated CP/M inputs are not currently present in task
   scratch; SASI generation is NOT_RUN, not a passing or failing image build.

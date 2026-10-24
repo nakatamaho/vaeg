@@ -3680,11 +3680,15 @@ separate parity correction or move it to Open Defects.
   and retains IN31 bit 6 clearing for S. Emulator V1S therefore reads
   42h/42h and reports B9h; V2S reports 39h. Those measured differences are
   established, but the full VA H/S identification/timing mechanism is not.
-- **Correction/verification:** unresolved; no emulator correction or hardware
-  acceptance is claimed by this evidence update. Separate the VA mode policy
-  from PC-8801 compatibility extensions, preserve BASIC with controlled
-  regression tests, and check both models. The photographs contain no clock
-  measurement or IN6Eh result; they do not validate the separate speed proposal.
+- **Correction/verification:** the maintainer-requested correction removes
+  the V1S CPU-fast-RAM restriction, the main-RAM display fallback and IN31
+  bit-6 masking. Raster/text-copy/CPU-bank and IN31 expectations are now based
+  on the hardware table. Controlled red tests demonstrate both defects in
+  sequence; the corrected macOS selftest passes. Final-worker runtime/BASIC
+  verification is pending, so keep this open until that evidence is recorded.
+  The photographs contain no clock measurement or IN6Eh result; those are
+  separate issues [#58](https://github.com/nakatamaho/vaeg/issues/58) and
+  [#59](https://github.com/nakatamaho/vaeg/issues/59), not part of this fix.
 - **Evidence:** [M131 hardware observations](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-hardware-observations-current-policy-contradicted),
   using the [source-only probe](https://github.com/nakatamaho/vaeg/commit/acda0456ad9c7536d4b1da4843eedc1e720bde67).
   Original images and private identity metadata remain outside Git. The

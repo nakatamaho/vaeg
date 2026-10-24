@@ -6869,7 +6869,7 @@ static int test_tsp_attribute_modes(void) {
 	return (SUCCESS);
 }
 
-/* M103h: the V1/V2 memory switch and its checksum, and the S extension. */
+/* M103h/M131: the V1/V2 memory switch, checksum and VA H/S identification. */
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
 	UINT8 sum;
@@ -6919,21 +6919,28 @@ static int test_v1v2_memory_switch(void) {
 			problem = "port 150h did not report V2 after reset";
 		}
 	}
-	/* IN 31h: S clears MS26 only in 88 mode. */
+	/* M131 hardware: IN 31h is F9h in V1 and 79h in V2, including S.
+	 * The selected H/S preference must not mask the memory-switch readback. */
 	if (problem == NULL) {
-		np2cfg.v1v2_standard = 1;
-		iocore_out8(0x153, 0x41);
-		if (iocore_inp8(0x031) != 0x79) {
-			problem = "S changed IN 31h in V3 mode";
+		UINT v1, standard, compat;
+
+		for (v1 = 0; v1 < 2; v1++) {
+			const BYTE expected = (BYTE)(0x79 | (v1 << 7));
+
+			backupmem[0x1fc6] = expected;
+			for (standard = 0; standard < 2; standard++) {
+				np2cfg.v1v2_standard = (UINT8)standard;
+				for (compat = 0; compat < 2; compat++) {
+					iocore_out8(0x153, compat ? 0x01 : 0x41);
+					if ((problem == NULL) &&
+					    ((iocore_inp8(0x031) != expected) || (backupmem[0x1fc6] != expected))) {
+						problem = "H/S changed VA IN 31h or its memory switch";
+					}
+				}
+			}
 		}
-		iocore_out8(0x153, 0x01);
-		if ((problem == NULL) && (iocore_inp8(0x031) != 0x39)) {
-			problem = "S did not clear MS26 in 88 mode";
-		}
+		backupmem[0x1fc6] = 0x79;
 		np2cfg.v1v2_standard = 0;
-		if ((problem == NULL) && (iocore_inp8(0x031) != 0x79)) {
-			problem = "H changed IN 31h";
-		}
 	}
 	/* N-BASIC ROM (vaeg extension): RMODE shows it at 0000h-7FFFh in 88
 	 * mode; without it RMODE keeps N-88 BASIC below 6000h. */
@@ -7456,8 +7463,8 @@ static int test_tsp_3301_emulation(void) {
 			}
 		}
 		videova.txtmode8 = 0x01;
-		/* M131: X88000 separates display storage from CPU banking. V2
-		 * always uses fast text; only V1S displays underlying main RAM. */
+		/* M131 hardware: all four VA modes display fast text independently
+		 * of TMODE. CPU banking remains available in V1S as well as H/V2. */
 		{
 			UINT v1, standard, tmode;
 
@@ -7470,8 +7477,7 @@ static int test_tsp_3301_emulation(void) {
 				for (standard = 0; standard < 2; standard++) {
 					np2cfg.v1v2_standard = (UINT8)standard;
 					for (tmode = 0; tmode < 2; tmode++) {
-						const BOOL main_text = v1 && standard;
-						const BOOL cpu_fast = !main_text && !tmode;
+						const BOOL cpu_fast = !tmode;
 						const BYTE *row;
 
 						iocore_out8(0x32, 0x08 | (tmode << 4));
@@ -7479,14 +7485,12 @@ static int test_tsp_3301_emulation(void) {
 						maketextva_begin(&scrn200);
 						maketextva_raster();
 						for (i = 0; i < 8; i++) {
-							if ((problem == NULL) && (textraster[8 + i] != (main_text ? 10 : 0))) {
-								problem = v1 ? "V1 display source differs from X88000"
-								             : "V2 display source depends on S preference or TMODE";
+							if ((problem == NULL) && (textraster[8 + i] != 0)) {
+								problem = "VA display source depends on V1/V2, H/S or TMODE";
 							}
 						}
 						row = maketextva_3301_text(0);
-						if ((problem == NULL) &&
-						    ((row == NULL) || (row[0] != (main_text ? 'A' : 0)))) {
+						if ((problem == NULL) && ((row == NULL) || (row[0] != 0))) {
 							problem = "text copy differs from mode-selected display source";
 						}
 						/* Unused tail bytes keep this CPU check out of the displayed row. */
@@ -7494,7 +7498,7 @@ static int test_tsp_3301_emulation(void) {
 						mem[0x1fff8] = 0x34;
 						if ((problem == NULL) &&
 						    (upd9002_memoryread_va(0x1fff8) != (cpu_fast ? 0x12 : 0x34))) {
-							problem = "CPU text bank differs from X88000 mode/TMODE selection";
+							problem = "VA CPU text bank does not follow TMODE independently of H/S";
 						}
 						upd9002_memorywrite_va(0x1fff8, 0x56);
 						if ((problem == NULL) && ((textmem[0x6ff8] != (cpu_fast ? 0x56 : 0x12)) ||
