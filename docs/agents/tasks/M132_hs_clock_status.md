@@ -23,9 +23,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Agreed implementation and static Windows artifact added;
-PSD-source closure and interactive GUI verification remain pending.
-G132 not requested or passed.**
+Status: **Agreed implementation, static Windows artifact and full demo/media
+source closure complete; interactive GUI and remaining regression verification
+are pending. G132 not requested or passed.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -249,12 +249,10 @@ reformatting unrelated lines. Original PR ancestry is retained and verified.
 
 ### Remaining gate work and CI staging
 
-The required PSD source has not been located in the available input locations;
-its source rebuild/payload check is blocked pending the maintainer's input.
-A committed atlas or disk is not substituted and described as a fresh PSD build.
-The completed partial clean-media, headless runtime and Windows handoff
-checks are recorded below. Interactive GUI inspection is also pending because
-the current execution environment supplies no Cocoa display.
+The initial PSD-source blocker was resolved after the maintainer supplied the
+original archive. Fresh source/payload closure and the exact limits on reuse of
+earlier runtime evidence are recorded below. Interactive GUI inspection is
+still pending because the current execution environment supplies no Cocoa display.
 No G132 request, pass, main merge or cleanup is authorized by these unit results.
 
 The code-freeze checkpoint is pushed with hosted CI explicitly skipped while
@@ -318,7 +316,7 @@ this is the public clean-build handoff, not a personal recording-enabled build.
 - Project-local Colima VM/daemon storage is used with process-local connection
   settings. The global Docker context is not changed.
 
-## Partial clean-media regression
+## Clean-media regression
 
 All generated images remain outside Git. Components/extras/utility use a clean
 clone of pushed commit 338174ee; the corrected SASI stage uses a separate clean
@@ -374,11 +372,82 @@ is staged. Component labels below omit the scratch `m132-` filename prefix.
 | sgp-wireframe.d88.xz | `38dec15498f7a618dabef27485b8ad4e6a72132a395126ba7edbcbd75503977b` |
 | sgp-boot.d88.xz | `657f91e25d9417b0b4fd9948d40caeec7f2daa6db6d2218b6f709be62b5238c5` |
 
-**Blocked, not passed:** the required original PSD has not been located,
-including a metadata-only search of available ZIP inputs. Zundamon's fresh
-source rebuild and therefore fresh all-demos/all-demos-msdos4/PC-Engine
-aggregate closure remain pending. Existing committed artwork/disk bytes are
-not presented as a fresh source build. This blocks a G132 request.
+### PSD-source and aggregate closure follow-up
+
+The maintainer supplied the original archive after the initial metadata-only
+search had failed to locate it. That initial BLOCKED result is superseded by
+this completed build, not retroactively relabeled PASS. The reference directory
+and archive remain read-only; only the PSD member was extracted into task-private
+scratch. Archive/PSD identities are recorded privately and the original archive
+is checked unchanged. Neither private source metadata nor generated assets are
+staged in Git.
+
+Evaluated source: clean clone of pushed
+[360eb71c](https://github.com/nakatamaho/vaeg/commit/360eb71c420e1e27b07adaa65a20b0d6516b9161).
+The six component builder/source inputs are unchanged from the application-code
+freeze; five completed distributions and selfboot results above are reused.
+The isolated Ubuntu 24.04 environment uses Python 3.12.3, NASM 2.16.01,
+psd-tools 1.26.0, Pillow 13.0.0 and NumPy 2.5.4, with no `convert` in PATH.
+
+```sh
+python3 -m venv "$PRIVATE/psd-env"
+"$PRIVATE/psd-env/bin/pip" install psd-tools==1.26.0 Pillow==13.0.0 numpy==2.5.4
+export TMPDIR="$PRIVATE/media-tmp"
+demos/zundamon-orbit/build-from-psd.sh --python "$PRIVATE/psd-env/bin/python" \
+  "$PSD_INPUT" "$SYSTEM_VA2" "$OUT/m132-zundamon-orbit.d88"
+cp demos/disks/m132-zundamon-orbit.d88.xz "$DIST/zundamon-orbit.d88.xz"
+python3 tools/pc88va/build-all-demos-distribution-disk.py --source "$SYSTEM_VA2" \
+  --distribution-dir "$DIST" --output "$OUT/all-demos.d88" \
+  --compressed-output "$DIST/all-demos.d88.xz"
+python3 tools/pc88va/build-all-demos-msdos4-disk.py --source "$MSDOS4_SOURCE" \
+  --distribution-dir "$DIST" --output "$OUT/all-demos-msdos4.d88" \
+  --compressed-output "$DIST/all-demos-msdos4.d88.xz"
+python3 tools/pc88va/build-all-demos-bootable-disk.py --source "$SYSTEM_VA2" \
+  --distribution-dir "$DIST" --output "$OUT/all-demos-pce.d88"
+python3 "$PRIVATE/compare-psd-aggregates.py"
+```
+
+Final commands exit 0. Tracked IDA profile regeneration matches; the two fresh
+Zundamon payloads, 19 all-demos files and 25 MS-DOS aggregate files are exactly
+equal to their committed FAT file maps. All three compressed outputs round-trip
+exactly. The MS-DOS aggregate additionally equals the committed raw D88.
+An initial unprefixed Zundamon output name correctly refuses to overwrite the
+clone's committed compressed disk (exit 1); the prefixed output above resolves
+that naming collision without deleting or changing the reference distribution.
+
+| Produced raw image / neutral role | SHA-256 |
+|---|---|
+| zundamon-orbit.d88 | `7801fdfd91535686a4579e169d1b8abde0696f5c15e5bf3e3df13e93a62c9d61` |
+| all-demos.d88 | `f4296aa825113ba5495ef87a007d7c5b2a1cc12d5a6a0ec72d39c3ec31c0ae16` |
+| all-demos-msdos4.d88 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` |
+| all-demos-pce-bootable-01 | `2053ccaa4228a3300f3a2a9ece9d118c291579b76d0428ecff03f8623c2bdfbe` |
+
+| Produced compressed distribution | SHA-256 |
+|---|---|
+| zundamon-orbit.d88.xz | `549273004aa2a80359b1c08291933f44a6a4b057aa315e51eccd548bd43b8766` |
+| all-demos.d88.xz | `9ef55a760375d43521a10f79a497d03b49e8d48bc51c707222487d95dd2ce256` |
+| all-demos-msdos4.d88.xz | `67ddb64012bc89464cdaa2809c62a2a9c2460c52ecec7f815dc45a6193eef241` |
+
+#### Binding the completed runtime evidence to fresh media
+
+The fresh MS-DOS image equals the earlier runtime corpus byte-for-byte.
+The fresh PC-Engine bootable image has identical file paths/payloads (23 files),
+boot/system bytes, FAT allocation and all other bytes except directory creation/
+modification timestamps: 244 differing bytes. A comparison that clears only the
+FAT directory-entry time/date words at offsets 14–17 and 22–25 recursively
+produces equal complete images; it never masks file contents or arbitrary offsets.
+Normalized raw SHA-256:
+`66cb4a415e5267414d0e808b311872276ae283230135c7af4792280daa8437d0`.
+The initial exact-raw assertion failed on that timestamp difference and is
+retained separately; raw equality is not claimed for PC-Engine.
+
+This closes fresh media source/payload requirements and permits reuse of the
+unchanged worker's 34 inspected demo/OS executions and BASIC Mandelbrot check
+below. Those executions used the earlier reference containers, not the newly
+produced containers; this is evidence reuse under a proven timestamp-only
+container difference, not a claim of 34 new executions. No application input,
+worker, payload, comparison policy or execution-target setting has changed.
+Interactive GUI, state-file and M131 runtime regression work remains pending.
 
 ## Headless guest runtime inspection
 
@@ -409,7 +478,9 @@ retained separately.
   a targeted follow-up increasing the post-CD wait from 60 to 600 frames
   starts it and draws. This is not counted as an emulator correction.
 - Runtime uses **committed reference distributions**, not a claim that the
-  blocked PSD/aggregate rebuild has completed. A private PC-Engine bootable
+  then-blocked PSD/aggregate rebuild had completed. The later source closure
+  above establishes exact MS-DOS identity and a timestamp-only PC-Engine
+  difference, permitting reuse without claiming fresh executions. A private PC-Engine bootable
   reference is assembled from those distributions; MS-DOS uses its committed
   bootable reference. Their raw SHA-256 values are respectively
   `073dc96bd621fdfce4ae530652f27364911161bcd55ba0d874bde66a15ccf8b2` and
@@ -443,8 +514,8 @@ Issues #58/#59 are not closed on this evidence alone.
 
 ## Remaining G132 work
 
-- Supply the original PSD/archive and complete fresh Zundamon and aggregate
-  payload/round-trip closure. Generated images stay outside Git.
+- PSD/archive source and fresh Zundamon/aggregate payload/round-trip closure
+  are complete as recorded above. Generated images remain outside Git.
 - Interactive normal/fullscreen/narrow-window and presenter/tooltip checks
   remain pending. The current Cocoa run reports
   `The video driver did not add any displays`. Automation forces SDL dummy;
