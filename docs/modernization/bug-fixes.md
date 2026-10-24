@@ -35,6 +35,81 @@ land.
 
 ## Maintenance Rules
 
+### M131 — Graphics obscured by spurious main-RAM text
+
+- **Symptom/scope:** private fixture `guest-start-01` boots, but Enter at
+  Start produces severe bands and stray characters over the game display in
+  V1/V2 H mode on both VA and VA2 models. The initial H-mode workaround
+  leaves the same overlay visible in V2S on both models.
+- **Demonstrated cause:** the M103h standard-speed text compatibility path in
+  `maketextva_3301_row` selected main RAM whenever 88 mode and TMODE were set,
+  without checking the standard-speed preference. The guest uses the RAM
+  beneath fast TVRAM for game data. Independent GVRAM reconstruction shows an
+  intact game image; the text renderer interprets unrelated RAM as characters
+  and attributes and overlays it. Selecting the fast TVRAM source in H mode
+  removes the corruption without changing CPU, VRAM writes or the guest disk.
+- **Provisional correction (not approved for merge):**
+  [e0be89d2](https://github.com/nakatamaho/vaeg/commit/e0be89d2133822514c188f81a2b6f7190b10bf04)
+  restricts the main-RAM text source to the explicit S-mode extension
+  (`np2cfg.v1v2_standard`), retaining the existing 88-mode, TMODE and
+  text-window checks. H mode continues to display fast TVRAM; CPU banking and
+  S-mode text behavior are unchanged. The shared source helper also fixes text
+  copying from the displayed screen.
+- **Verification:** the new H-mode selftest fails on the original helper and
+  passes with the correction. It checks raster output and copied text for H
+  and S with TMODE set, and prevents a saved S preference from changing V3
+  sourcing. Existing TMODE-clear and memory-window tests still pass. macOS
+  recording-ON build, selftest and CTest pass (140 listed, nine skipped);
+  private scripted VA/VA2 runs show coherent gameplay after Start. Hardware
+  behavior and the standard milestone human gate are not newly verified.
+  Later manual review distinguishes CPU banking from display sourcing; the
+  general H/S-qualified selector remains unproven, especially for V2S.
+  The subsequent [X88000-alignment bf215b99](https://github.com/nakatamaho/vaeg/commit/bf215b998a616d07c9c909383c4160f5712f4597)
+  replaces that provisional selector: V2 and
+  V1H display fast text independently of TMODE; only V1S displays main RAM.
+  One shared effective-mode policy also prevents CPU access to fast text in
+  V1S and keeps the RAM-display sleep guard active independently of TMODE.
+  The new V1/V2 × H/S × TMODE test fails on the provisional helper and passes
+  with this follow-up; macOS selftest/CTest pass. The final worker's isolated
+  eight-case matrix confirms coherent V1H/V2H/V2S gameplay on VA and VA2;
+  V1S is explicitly rejected by the guest rather than entering gameplay.
+  All eight BASIC PRINT/query cases pass, retaining V1S output. The demonstrated
+  V2S overlay cause was the provisional selector displaying underlying RAM
+  because S was selected, despite effective V2. These are emulator results,
+  not hardware equivalence. Subsequent targeted hardware observations show
+  A/A display and distinct CPU banks in all eight requested modes, exposing
+  the V1S CPU/display restriction and both S-mode IN31 values as incorrect.
+- **Hardware-driven follow-up:**
+  [de47a4c0](https://github.com/nakatamaho/vaeg/commit/de47a4c0af20f457c7bc114951e44ce6222e3f68)
+  removes the V1S CPU-fast-RAM restriction, the main-RAM display fallback and
+  IN31 bit-6 masking. CPU banks remain distinct at the measured byte in all
+  four modes; TMODE changes CPU access, not display storage. IN31 preserves
+  B1FC6h (F9h for the measured V1 cases, 79h for V2). Controlled red/green
+  tests demonstrate both corrections. The evaluated worker passes CTest
+  (140 listed, zero failed, nine skipped) and 24 isolated runtime cases:
+  eight games, eight BASIC queries and eight common-BASIC probes. All probe
+  fields match the hardware transcription; emulator restore/PRINT pass in
+  every case, while hardware PRINT was not photographed. All game cases,
+  including V1S, now reach coherent gameplay without the overlay. The historical
+  `NEW ON 1` workaround is not claimed as preserved. Clock calibration and
+  IN6Eh remain separate [#58](https://github.com/nakatamaho/vaeg/issues/58)/
+  [#59](https://github.com/nakatamaho/vaeg/issues/59) work, not acceptance of
+  proposal PR #55. The broader gate remains pending. The linked task records
+  the exact worker digest, incremental-build version-header caveat, commands,
+  hardware observations and scope limits; no release/clean-build handoff is
+  claimed for that private test binary.
+- **Task/evidence and fixing commit:**
+  [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
+  Source-built demo payload closure and the clean static Windows build are
+  also recorded there. The M130-integrated candidate
+  [3326349a](https://github.com/nakatamaho/vaeg/commit/3326349ae4b9f6ac352f5aabc07891b0009a407a)
+  passes renewed CTest and all 24 compatibility cases; media regeneration,
+  payload closure, both SASI model boots/DIR and all 34 demo drawing cases
+  are complete, with a current clean static Windows handoff. G131 subsequently
+  passed by explicit maintainer `gate passed` acceptance of that handoff and
+  the 5888d899 preparation record. Windows/manual acceptance is maintainer-
+  reported; timing and IN6Eh remain separate, unverified work.
+
 ### M100s11 — guest-resolution screenshots ignored display rotation
 
 - **Symptom/scope:** the maintainer requires screenshots to follow a 90-degree

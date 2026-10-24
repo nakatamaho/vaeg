@@ -825,8 +825,9 @@ static UINT32 n88_gvram_address(UINT32 address) {
 }
 
 /*
- * 88-mode TVRAM (BNN manual 8.2.1): with no GVRAM plane selected and port
- * 32h TMODE (bit 4) clear, F000h-FFFFh is the 4 KiB of V3 TVRAM at A6000h.
+ * 88-mode CPU TVRAM window (BNN manual 8.2.1): with no GVRAM selected,
+ * TMODE clear, F000h-FFFFh maps V3 TVRAM A6000h in V1/V2, H and S.
+ * TMODE changes CPU banking, never the text display source (M131 hardware).
  */
 static BOOL n88_tvram_selected(UINT32 address) {
 	const BOOL gvram =

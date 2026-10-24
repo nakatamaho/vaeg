@@ -114,17 +114,31 @@ Ver 1.8) the top 8 KiB is byte-identical to the VA's own Debug 8800 bank
   rule, so saved settings were restored to defaults at each boot (ledger
   entry, fixed in M103h).
 
-### 3.4 Text display in standard speed
+### 3.4 Text display and VA H/S modes (M131 correction)
 
-- In S mode N-88 BASIC disables the fast TVRAM (port 32h TMODE set) and keeps
-  its text in main RAM F000h–FFFFh, which the PC-8801's CRTC DMA reads. The
-  VA always runs as H and never shows text from there.
-- vaeg (decision C6): with TMODE set in 88 mode, the TSP 3301 emulation reads
-  the 4 KiB text window from 88-mode main RAM. After `NEW ON 1` port 32h stays
-  as N-88 BASIC left it, so N-BASIC's text, written to the same area, is shown
-  the same way.
+- The maintainer can select V1S, V1H, V2S and V2H on VA/VA2. The
+  [M131 hardware probe](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-hardware-observations-current-policy-contradicted)
+  shows distinct CPU banks and the bank-0 text displayed with either TMODE
+  value in all eight requested model/mode combinations. H/S selection does
+  not disable fast text RAM or select underlying main RAM for display.
+- IN31 returns F9h in both V1 modes and 79h in both V2 modes in that probe.
+  The emulator now returns the ROM's B1FC6h value without masking bit 6 for S.
+  PC-8801 H/S identification conventions must not be imposed on the VA port.
+- The earlier TMODE-dependent main-RAM display fallback, and its later V1S-only
+  form, were compatibility assumptions contradicted by these observations.
+  They are removed; rendering and text copy use the same TVRAM source. CPU
+  TMODE banking, GVRAM and other higher-priority memory mappings remain separate.
+- No H/S clock or IN6Eh measurement is implied. CPU timing is unchanged by
+  this correction.
 
-## 4. Starting N-BASIC with `NEW ON 1` (implemented)
+## 4. Historical N-BASIC entry with `NEW ON 1`
+
+The steps below describe the former PC-8801-style compatibility path, not a
+currently guaranteed VA boot procedure. It depended on clearing IN31 bit 6
+and displaying underlying main RAM, both removed by the M131 hardware
+correction. Do not restore those mismatches to make this command pass. Use the
+explicit N boot option in section 6 for the independently implemented N-ROM
+extension; a faithful `NEW ON 1` solution needs separate investigation.
 
 1. Put the N80 ROM in the ROM directory; check About (`ROM(N80): exist`).
 2. 模擬 > 起動 > PC-88VA2/VA3 > V1 S (resets).
@@ -142,7 +156,10 @@ N-BASIC prints "NEC PC-8001 BASIC Ver 1.8" and `Ok`, and runs programs.
 prompt (3C7Dh) and later searches for it to find the start of the input
 line (1EADh). In the VA, VA2 and PC-8801 fonts FCh is blank.
 
-## 5. Implementation (no ROM patches)
+## 5. Implementation history (no ROM patches)
+
+The IN31 S-bit masking and TMODE main-RAM display entries below are historical;
+M131 removes both after the hardware counterexample in section 3.4.
 
 | Change | Files | Commit |
 |---|---|---|
@@ -157,7 +174,8 @@ line (1EADh). In the VA, VA2 and PC-8801 fonts FCh is blank.
 
 Romless tests (`vaeg_romless_tests`): the memory-switch checksum and V1/V2
 selection, IN 31h under H/S, port 150h after reset, the N80 mapping with and
-without RMODE/MMODE, About's entries, and 3301 text from main RAM.
+without RMODE/MMODE, About's entries, and TMODE-independent 3301 text with
+separate CPU banks in all four VA modes.
 
 ## 6. Booting directly in N mode (implemented, decision C9)
 

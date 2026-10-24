@@ -696,9 +696,7 @@ void maketextva_begin(BOOL *scrn200) {
 	BYTE *fbinfo;
 
 #if defined(SLEEP_HACK)
-	/* Main-RAM text (see maketextva_3301_row) does not mark textmem dirty. */
-	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge() &&
-	    !(memoryva_88_mode && (sysportva.port032 & 0x10))) {
+	if (work.allzero && !textmem_dirty && !tsp_dirty && !videova_textmerge()) {
 		work.sleep = TRUE;
 	} else {
 		work.sleep = FALSE;
@@ -769,26 +767,13 @@ UINT32 maketextva_bytelocal(UINT32 local) {
  * real TSP's output for these addresses is not documented.
  */
 /*
- * Source of an emulated 3301 row at TVRAM byte `offset`. With port 32h TMODE
- * set in 88 mode, PC-8801 software keeps its text in main RAM F000h-FFFFh
- * (no fast TVRAM), as N-88 BASIC does in V1S mode. The VA always reports
- * high speed and never runs that way; under the vaeg standard-speed
- * extension the 4 KiB TVRAM window (6000h-6FFFh) is then read from the
- * 88-mode main RAM instead, as the PC-8801's CRTC DMA would.
+ * Source of an emulated 3301 row at TVRAM byte `offset`. M131 hardware
+ * shows the CPU-bank-0 text in V1/V2, H and S, with either TMODE value.
+ * TMODE selects the CPU bank only; underlying main RAM is not a display
+ * source. Rendering and text copy share this selection.
  */
-static BYTE emul_row_ram[256];
-
 static const BYTE *maketextva_3301_row(UINT32 offset) {
-	UINT i;
-
-	if (!memoryva_88_mode || !(sysportva.port032 & 0x10) || (offset < 0x6000) ||
-	    (offset >= 0x7000)) {
-		return textmem + offset;
-	}
-	for (i = 0; i < sizeof(emul_row_ram); i++) {
-		emul_row_ram[i] = mem[0x1f000 + ((offset - 0x6000 + i) & 0x0fff)];
-	}
-	return emul_row_ram;
+	return textmem + offset;
 }
 
 /*

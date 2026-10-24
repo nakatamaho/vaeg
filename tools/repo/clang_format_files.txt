@@ -330,8 +330,8 @@ sound/vermouth/midvoice.c
 sound/vermouth/midvoice.h
 sound/vermouth/vermouth.h
 sound/ymfmbridge.h
-tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_mp4_windows_probe.cpp
+tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h

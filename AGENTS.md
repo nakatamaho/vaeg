@@ -372,6 +372,31 @@ Colima environment or an unrelated Docker daemon. A local Dockerfile or bind
 mount alone does not satisfy this storage requirement. Keep generated runtime
 files out of Git. Do not move or delete existing environments without approval.
 
+Select vaeg's dedicated daemon per process with `DOCKER_HOST` or an explicitly
+selected, project-specific `DOCKER_CONTEXT`. Never run `docker context use`,
+change the persisted global current context, or overwrite another project's
+context definition. `DOCKER_CONTEXT` takes precedence over `DOCKER_HOST`:
+when selecting a Unix socket with `DOCKER_HOST`, unset inherited
+`DOCKER_CONTEXT` in the child process, not in the user's login-shell setup.
+Fail if the dedicated runtime/socket is unavailable; never fall back to the
+shared/default daemon. Start Colima with `--activate=false`; newly created
+runtimes must use project-specific profile names to avoid context-name
+collisions. Do not rename or recreate an existing runtime without approval.
+
+On the maintainer's macOS setup, `~/work/tmp/vaeg-container` is a local-only
+wrapper for the existing vaeg runtime. It sets `COLIMA_HOME` and `DOCKER_HOST`
+for its child command, clears inherited context/TLS overrides, and leaves the
+global context untouched. Use it when present, for example:
+
+```sh
+~/work/tmp/vaeg-container docker info
+~/work/tmp/vaeg-container tools/release/build-mingw-static-container.sh --commit <full-sha>
+```
+
+The wrapper stays outside Git. On other setups, apply the same process-local
+selection to that checkout's dedicated runtime; do not assume this local
+wrapper exists. Verify that `docker context show` is unchanged after use.
+
 ### Clean-build handoff
 
 Whenever a clean build is needed, including the "build from clean
