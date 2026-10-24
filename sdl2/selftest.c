@@ -7126,6 +7126,8 @@ static int test_tsp_attribute_modes(void) {
 static int test_88speed_identification(void) {
 	const NP2CFG saved_cfg = np2cfg;
 	const _SYSPORTVA saved_port = sysportva;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_31 = memoryva_88_port31;
 	BYTE saved_record[16];
 	BYTE before[16];
 	const char *problem = NULL;
@@ -7192,6 +7194,33 @@ static int test_88speed_identification(void) {
 			}
 		}
 	}
+	/* Original-VA manual-RAM first boot: firmware creates its default
+	 * signature after reset and never writes 1C6h. Reconcile that new record
+	 * on 88 entry, but do not change it for native V3 BRKEM. */
+	for (standard = 0; standard < 2; standard++) {
+		np2cfg.v1v2_standard = (BYTE)standard;
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		systemportva_reset();
+		memctrlva_nmode_reset();
+		memset(backupmem + 0x1fc0, 0, sizeof(before));
+		backupmem[0x1fc5] = 0x04;
+		backupmem[0x1fc6] = 0x79;
+		backupmem[0x1fc8] = 0x4b;
+		backupmem[0x1fc9] = 0x5a;
+		backupmem[0x1fca] = 0x4d;
+		memoryva_88_mode = 0;
+		memctrlva_nmode_compat_entry();
+		if (backupmem[0x1fc5] != 0x04) {
+			problem = "V3 BRKEM reconciled an 88-mode BIOS record";
+			goto done;
+		}
+		memoryva_88_mode = 1;
+		memctrlva_nmode_compat_entry();
+		if ((backupmem[0x1fc5] & 2) != (standard ? 0 : 2)) {
+			problem = "original-VA first boot left the new BIOS record at the wrong H/S";
+			goto done;
+		}
+	}
 	/* Bind after state loading must retain the restored latch, not replace
 	 * it with a different pending reset selection. */
 	for (standard = 0; standard < 2; standard++) {
@@ -7207,6 +7236,9 @@ done:
 	np2cfg = saved_cfg;
 	sysportva = saved_port;
 	memcpy(backupmem + 0x1fc0, saved_record, sizeof(saved_record));
+	memctrlva_nmode_reset();
+	memoryva_88_mode = saved_88;
+	memoryva_88_port31 = saved_31;
 	systemportva_bind();
 	if (problem != NULL) {
 		return fail("88 speed identification", problem);

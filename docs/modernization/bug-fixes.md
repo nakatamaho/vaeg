@@ -97,8 +97,12 @@ land.
   menu-owned; the VA2 output also reconciles a now-valid BIOS record through
   PR #55's helper. Invalid records are not manufactured, unrelated bits and
   IN31h are preserved, and binding a restored state does not reapply a pending
-  reset selection. This is the agreed emulator selection policy, not a new
-  hardware measurement of writable port 1C6h semantics.
+  reset selection. A subsequent first-boot test also demonstrates that an
+  original-VA record created by firmware after reset needs reconciliation:
+  the first applicable 88 entry synchronizes that now-signature-bearing record
+  using the live/restored input. V3 BRKEM does not consume or apply that step.
+  This is the agreed emulator selection policy, not a new hardware measurement
+  of writable port 1C6h semantics.
 - **Verification:** the original PR integration fails the new matrix with
   `VA reset retained stale H/S or damaged unrelated input bits`. The corrected
   ROMless suite passes. The matrix covers both models, automatic/manual RAM,

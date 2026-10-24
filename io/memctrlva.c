@@ -11,6 +11,7 @@
 #include "sgp.h"
 #include "va91.h"
 #include "cpu/upd9002/memory.h"
+#include "bkupmemva.h"
 
 // ---- I/O
 
@@ -234,6 +235,7 @@ static REG8 IOINPCALL memctrlva_i031(UINT port) {
  */
 static BOOL nmode_entry_pending;
 static BOOL boot_search_skip_pending;
+static BOOL speed_record_pending;
 
 BOOL memctrlva_nmode_active(void) {
 	return ((np2cfg.boot_mode == BOOTMODE_N) && memoryva_n80_exist) ? TRUE : FALSE;
@@ -253,6 +255,7 @@ BOOL memctrlva_nmode_boot_search(void) {
 
 /* Called after the ROMs are loaded (romva_initialize) at every reset. */
 void memctrlva_nmode_reset(void) {
+	speed_record_pending = TRUE;
 	nmode_entry_pending = memctrlva_nmode_active();
 	boot_search_skip_pending = nmode_entry_pending || (np2cfg.boot_mode == BOOTMODE_V1V2);
 	if (nmode_entry_pending) {
@@ -268,6 +271,15 @@ void memctrlva_nmode_reset(void) {
  * 53h to 0. Clear bit 7 in both places once, as that reset would.
  */
 void memctrlva_nmode_compat_entry(void) {
+	/* Manual-RAM first boot can create a BIOS record after reset; the
+	 * original VA never writes 1C6h. Reconcile it when entering 88 code,
+	 * not on V3 BRKEM, and use the live/restored input rather than a pending
+	 * menu choice. If firmware has not made a record yet, keep waiting. */
+	if (speed_record_pending && memoryva_88_mode && backupmem[0x1fc8] == 0x4b &&
+	    backupmem[0x1fc9] == 0x5a && backupmem[0x1fca] == 0x4d) {
+		bkupmemva_sync_88speed(pccore_88_standard());
+		speed_record_pending = FALSE;
+	}
 	boot_search_skip_pending = FALSE;
 	if (!nmode_entry_pending) {
 		return;
