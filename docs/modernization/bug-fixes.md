@@ -35,6 +35,33 @@ land.
 
 ## Maintenance Rules
 
+### M132 — H/S identification retained a stale or first-boot speed
+
+- **Symptom/scope:** PR #55's backup-bit synchronization alone leaves the
+  original VA's effective IN6Eh source at S after H reset, or retains H after
+  S reset. VA2 firmware can replace the H selection with its first-boot S
+  default when no valid backup record was available.
+- **Demonstrated cause:** `systemportva_reset()` ORed C1h into input latch A
+  without assigning bit 5. Original-VA firmware does not perform VA2's OUT
+  1C6h initialization. The former output handler independently copied bit 1
+  of firmware data into that latch, including the first-boot default.
+- **Correction:** reset explicitly assigns the selected H/S input on both
+  models. Mode output still sets V1/V2, but the emulated H/S input remains
+  menu-owned; the VA2 output also reconciles a now-valid BIOS record through
+  PR #55's helper. Invalid records are not manufactured, unrelated bits and
+  IN31h are preserved, and binding a restored state does not reapply a pending
+  reset selection. This is the agreed emulator selection policy, not a new
+  hardware measurement of writable port 1C6h semantics.
+- **Verification:** the original PR integration fails the new matrix with
+  `VA reset retained stale H/S or damaged unrelated input bits`. The corrected
+  ROMless suite passes. The matrix covers both models, automatic/manual RAM,
+  absent/valid/bad signatures, V1/V2, H→S→H, VA2 first-boot mode output,
+  checksums, unrelated bits and restored-latch binding. ROMful IN6Eh and
+  physical timing calibration remain unverified, not inferred from this test.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [selection contract](v1v2-hs-clock-status-plan.md).
+- **Fix commit:** to be linked in the immediate evidence update.
+
 ### M131 — Graphics obscured by spurious main-RAM text
 
 - **Symptom/scope:** private fixture `guest-start-01` boots, but Enter at

@@ -17,6 +17,7 @@
 #include "sysmng.h"
 #include "memoryva.h"
 #include "memctrlva.h"
+#include "bkupmemva.h"
 
 _SYSPORTVACFG sysportvacfg = {0xcd};
 
@@ -144,11 +145,12 @@ static REG8 IOINPCALL sysp_i190(UINT port) {
 
 static void IOOUTCALL sysp_o1c6(UINT port, REG8 dat) {
 	sysportva.modesw = (dat & 0x01) ? 0xfffe : 0xfffd;
-	if (dat & 0x02) {
-		sysportva.a |= 0x20;
-	} else {
-		sysportva.a &= ~0x20;
-	}
+	/* H/S is the menu-selected input, not an independent clock controlled
+	 * by firmware's mode output. In particular VA2's default S record on
+	 * the first boot must not undo an H selection. Do not seed an invalid
+	 * BIOS record; reconcile it only once firmware has made it valid. */
+	sysportva.a = (sysportva.a & ~0x20) | (np2cfg.v1v2_standard ? 0 : 0x20);
+	bkupmemva_sync_88speed(np2cfg.v1v2_standard ? TRUE : FALSE);
 	if ((dat & 0xfc) != 0x04) {
 		TRACEOUT(("o1c6: unsupported bits are specified: 0x%.2x", dat));
 	}
@@ -221,7 +223,9 @@ void systemportva_reset(void) {
 	 * selection. How the original VA chooses the mode is not documented.
 	 */
 	sysportva.modesw = (backupmem[0x1fc5] & 0x01) ? 0xfffe : 0xfffd;
-	sysportva.a |= 0xc1;
+	/* The original VA does not execute the VA2 firmware's OUT 1C6h.
+	 * Initialize and clear H/S explicitly, including invalid/missing RAM. */
+	sysportva.a = (sysportva.a & ~0x20) | 0xc1 | (np2cfg.v1v2_standard ? 0 : 0x20);
 	sysportva.c = 0xf9;
 	sysportva.port010 = 0;
 	sysportva.port040 = 0;

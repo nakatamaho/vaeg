@@ -6877,6 +6877,98 @@ static int test_tsp_attribute_modes(void) {
 }
 
 /* M103h/M131: the V1/V2 memory switch, checksum and VA H/S identification. */
+static int test_88speed_identification(void) {
+	const NP2CFG saved_cfg = np2cfg;
+	const _SYSPORTVA saved_port = sysportva;
+	BYTE saved_record[16];
+	BYTE before[16];
+	const char *problem = NULL;
+	UINT model, automatic, valid, v1, standard, repeat, i;
+
+	memcpy(saved_record, backupmem + 0x1fc0, sizeof(saved_record));
+	for (model = 0; model < 2; model++) {
+		milstr_ncpy(np2cfg.model, model ? str_VA2 : str_VA1, sizeof(np2cfg.model));
+		for (automatic = 0; automatic < 2; automatic++) {
+			np2cfg.main_ram_auto = (BYTE)automatic;
+			for (valid = 0; valid < 3; valid++) {
+				for (v1 = 0; v1 < 2; v1++) {
+					/* H -> S -> H, starting with a stale opposite latch. */
+					for (repeat = 0; repeat < 3; repeat++) {
+						BYTE sum = 0;
+						standard = repeat == 1;
+						np2cfg.v1v2_standard = (BYTE)standard;
+						memset(backupmem + 0x1fc0, 0, sizeof(before));
+						backupmem[0x1fc5] = (BYTE)(0x34 | v1 | (standard ? 2 : 0));
+						backupmem[0x1fc6] = v1 ? 0xf9 : 0x79;
+						if (valid) {
+							backupmem[0x1fc8] = 0x4b;
+							backupmem[0x1fc9] = 0x5a;
+							backupmem[0x1fca] = valid == 1 ? 0x4d : 0x00;
+						}
+						memcpy(before, backupmem + 0x1fc0, sizeof(before));
+						bkupmemva_sync_88speed(standard);
+						if (valid != 1) {
+							if (memcmp(before, backupmem + 0x1fc0, sizeof(before))) {
+								problem = "H/S manufactured or changed an invalid BIOS record";
+								goto done;
+							}
+						} else {
+							for (i = 0; i < 8; i++) {
+								sum = (BYTE)(sum + backupmem[0x1fc0 + i]);
+							}
+							if (((backupmem[0x1fc5] & 2) != (standard ? 0 : 2)) ||
+							    ((backupmem[0x1fc5] & ~2) != (before[5] & ~2)) ||
+							    (backupmem[0x1fc6] != before[6]) ||
+							    (backupmem[0x1fcd] != (BYTE)(sum + (v1 ? 0 : 0x80)))) {
+								problem = "H/S damaged valid BIOS fields or checksum";
+								goto done;
+							}
+						}
+						sysportva.a = (BYTE)(0xc5 | (standard ? 0x20 : 0));
+						systemportva_reset();
+						if (((sysportva.a & 0x20) != (standard ? 0 : 0x20)) ||
+						    ((sysportva.a & ~0x20) != 0xc5)) {
+							problem = "VA reset retained stale H/S or damaged unrelated input bits";
+							goto done;
+						}
+						/* VA2 firmware writes a default S record on its first boot.
+						 * Its mode output must not undo the selected H/S input. */
+						if (model) {
+							systemportva_bind();
+							iocore_out8(0x1c6, 0x04 | v1);
+							if ((iocore_inp8(0x1c9) & 0x20) != (standard ? 0 : 0x20)) {
+								problem = "VA2 first-boot defaults overrode selected H/S";
+								goto done;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	/* Bind after state loading must retain the restored latch, not replace
+	 * it with a different pending reset selection. */
+	for (standard = 0; standard < 2; standard++) {
+		np2cfg.v1v2_standard = (BYTE)!standard;
+		sysportva.a = (BYTE)(0xc5 | (standard ? 0 : 0x20));
+		systemportva_bind();
+		if ((iocore_inp8(0x1c9) & 0x20) != (standard ? 0 : 0x20)) {
+			problem = "binding replaced a restored H/S latch with a pending selection";
+			break;
+		}
+	}
+done:
+	np2cfg = saved_cfg;
+	sysportva = saved_port;
+	memcpy(backupmem + 0x1fc0, saved_record, sizeof(saved_record));
+	systemportva_bind();
+	if (problem != NULL) {
+		return fail("88 speed identification", problem);
+	}
+	fprintf(stderr, "selftest: 88 speed identification matrix ok\n");
+	return SUCCESS;
+}
+
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
 	UINT8 sum;
@@ -8426,6 +8518,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_v1v2_rom_ports() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_88speed_identification() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_v1v2_memory_switch() != SUCCESS) {
 		return (FAILURE);
