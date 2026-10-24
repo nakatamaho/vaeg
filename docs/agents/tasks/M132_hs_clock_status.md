@@ -598,6 +598,20 @@ used, calibrate physical hardware, resolve TIME$, or pass the remaining G132
 GUI/state-file/M131 regression requirements. G132 remains pending; no merge,
 cleanup or next milestone is authorized by this scoped confirmation.
 
+### Partial G132 maintainer checklist acceptance
+
+On the displayed G132 checklist, the maintainer accepts section 1 (V3 boot,
+bundled VA demo and OS/simple operations). In section 3, the maintainer accepts
+both Information-menu entries, independent information/panel ON/OFF operation,
+visibility persistence across save/restart and individual field-setting
+persistence. These items are removed from the next remaining-work checklist.
+The request to display `G123` again is interpreted in context as G132, not
+approval of another milestone. Default-ON behavior for a new configuration,
+window/fullscreen/presenter geometry, tooltip/content checks, additional machine
+profiles and actual state-file/M131 regression checks remain unaccepted.
+This is partial checklist acceptance, not passage of G132 or authorization to
+merge, clean up or start the next milestone.
+
 ### Refreshed production worker and clean Windows paste-fix handoff
 
 Fix/evaluated commit:
@@ -643,7 +657,9 @@ H run printing `ELAPSED: 00:00:00`. The unchanged 338174ee worker reproduces
 that exact H result under NEC N88-BASIC Version 2.4. The S capture at frame
 18000 is still executing the original long loop; it is not recorded as a
 completed S stopwatch result. The underlying TIME$ cause is unresolved and
-tracked in the [open ledger](../../modernization/bug-fixes.md#m132--basic-time-stopwatch-remains-at-zero).
+tracked in the [open ledger](../../modernization/bug-fixes.md#m132--basic-time-stopwatch-remains-at-zero)
+and, at the maintainer's request, independent [issue #60](https://github.com/nakatamaho/vaeg/issues/60).
+Issue creation is not a clock fix or G132 acceptance.
 
 A pure-BASIC VRTC polling alternative yields H=1837/S=1650 counts, but its
 interpreter-level polling can miss short VRTC pulses. It is not a reliable

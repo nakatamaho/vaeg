@@ -3904,6 +3904,9 @@ separate parity correction or move it to Open Defects.
   or prove real-hardware timing. Slow pure-BASIC VRTC polling is also rejected
   as a reliable ratio test because it can miss pulses.
 - **Task/evidence:** [M132 BASIC checks](../agents/tasks/M132_hs_clock_status.md#user-reported-basic-stopwatch-failure-and-clock-independent-check).
+- **Tracking:** [issue #60](https://github.com/nakatamaho/vaeg/issues/60), created
+  at the maintainer's request with reproduction, confirmed scope and unresolved
+  clock-policy/root-cause questions; separate from H/S calibration issue #58.
 - **Next step:** isolate TIME$ reads/writes and elapsed-clock progression in the
   compatible guest before selecting a production fix. No fixing commit exists.
 
