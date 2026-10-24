@@ -30,20 +30,24 @@ through 15 are generated from HSV hues; entry 0 is black.
 
 ## Run
 
-Copy `mandelbrot.bas` to the guest disk as `MANDELBROT.BAS`. On a VA2/VA3
-profile with the optional 8087 enabled, start BASIC with `/87` and run:
+Copy `mandelbrot.bas` to the guest disk as `MANDEL.BAS`, the 8.3 filename
+used on the all-demos disks. On a VA2/VA3 profile with the optional 8087
+enabled, start BASIC with `/87` and run:
 
 ```text
 BASIC /87
-LOAD "MANDELBROT.BAS",A
+LOAD "MANDEL.BAS"
 RUN
 ```
+
+N88-日本語BASIC V3.1 reads the ASCII file automatically. Do not append `,A`
+to `LOAD`: that invocation reports `Syntax error` in this BASIC.
 
 The same program also runs without the 8087:
 
 ```text
 BASIC
-LOAD "MANDELBROT.BAS",A
+LOAD "MANDEL.BAS"
 RUN
 ```
 
