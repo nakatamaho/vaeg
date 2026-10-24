@@ -3861,6 +3861,26 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M132 — BASIC TIME$ stopwatch remains at zero
+
+- **Observed scope:** the maintainer's V1/V2 BASIC benchmark finishes its nested
+  FOR loops but reports `ELAPSED: 00:00:00` after setting TIME$ to zero. The
+  unchanged M132 application-code-freeze worker reproduces the H result under
+  NEC N88-BASIC Version 2.4. This is not evidence that the loop takes zero time
+  or that H/S scaling is absent.
+- **Cause/correction:** unresolved; no RTC, BASIC, interrupt or host-calendar
+  root cause has been established and no emulator correction is claimed.
+  The assistant withdraws its unvalidated TIME$ stopwatch recommendation.
+- **Verification/alternative:** an independently clocked eight-VRTC-period
+  machine-code loop entered through BASIC gives H=29802 and S=15303 polling
+  iterations, with IN6Eh=7Fh/FFh respectively. This demonstrates slower compatible
+  execution in S without depending on TIME$. It does not fix the clock symptom
+  or prove real-hardware timing. Slow pure-BASIC VRTC polling is also rejected
+  as a reliable ratio test because it can miss pulses.
+- **Task/evidence:** [M132 BASIC checks](../agents/tasks/M132_hs_clock_status.md#user-reported-basic-stopwatch-failure-and-clock-independent-check).
+- **Next step:** isolate TIME$ reads/writes and elapsed-clock progression in the
+  compatible guest before selecting a production fix. No fixing commit exists.
+
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 
 - **Observed scope:** before the sixteen-case probe, the maintainer reports

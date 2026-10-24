@@ -529,3 +529,67 @@ Issues #58/#59 are not closed on this evidence alone.
   BASIC queries; relevant ROMless/source-build tests remain green.
 - Retain the existing 26-file full-format baseline limitation. No main merge,
   cleanup, next milestone, G132 pass or final hosted CI success is claimed.
+
+## User-reported BASIC stopwatch failure and clock-independent check
+
+The assistant's proposed `TIME$="00:00:00"` / nested FOR-loop stopwatch
+was not validated before being offered. The maintainer reports a completed
+H run printing `ELAPSED: 00:00:00`. The unchanged 338174ee worker reproduces
+that exact H result under NEC N88-BASIC Version 2.4. The S capture at frame
+18000 is still executing the original long loop; it is not recorded as a
+completed S stopwatch result. The underlying TIME$ cause is unresolved and
+tracked in the [open ledger](../../modernization/bug-fixes.md#m132--basic-time-stopwatch-remains-at-zero).
+
+A pure-BASIC VRTC polling alternative yields H=1837/S=1650 counts, but its
+interpreter-level polling can miss short VRTC pulses. It is not a reliable
+speed-ratio test and is not supplied as evidence of half speed. Initial
+per-character automation mishandles isolated spaces (`@text ` becomes literal
+input after trimming); those syntax-error/setup trials are preserved, not
+attributed to the guest CPU. Whole-line automation correctly enters the
+programs. One H setup trial times out; one S screenshot is taken before RUN's
+Return has been injected. The targeted S follow-up extends the capture horizon.
+
+A 47-byte compatible-mode routine instead counts fast polling iterations over
+eight complete VRTC periods, preserving AF/BC/DE/HL and briefly masking
+interrupts during measurement. It reserves B000h upwards via CLEAR, writes the
+16-bit result at B100h, then returns with interrupts enabled. It uses neither
+TIME$ nor a host stopwatch. Exact BASIC used in the successful H and S cases:
+
+```basic
+10 CLEAR ,&HAFFF
+20 CLS
+30 FOR I=0 TO 46:READ D:POKE &HB000+I,D:NEXT I
+40 A=&HB000:CALL A
+50 PRINT "IN6E=";HEX$(INP(&H6E))
+60 PRINT "SCORE=";PEEK(&HB100)+256*PEEK(&HB101)
+70 END
+100 DATA 245,197,213,229,243,33,0,0,6,8,219,64
+110 DATA 230,32,40,250,219,64,230,32,32,250,35,219
+120 DATA 64,230,32,40,249,35,219,64,230,32,32,249
+130 DATA 16,240,34,0,177,251,225,209,193,241,201
+```
+
+```sh
+python3 "$PRIVATE/run-basic-benchmark-bulk.py"
+python3 "$PRIVATE/run-basic-benchmark-vrtc.py"
+python3 "$PRIVATE/run-basic-benchmark-vrtc-followup.py"
+python3 "$PRIVATE/run-basic-benchmark-vrtc-machine.py"
+```
+
+All four final commands exit 0; result screens are inspected, not inferred from
+process exit. Configurations select VA2/V2, standard multiplier x2 and CPU 100%,
+using the same initialized backup seed and worker hash as the prior BASIC flag
+checks. Automation uses No Wait; the measurement is tied to guest VRTC, not host
+elapsed time. The final machine-code captures at frame 20000 show:
+
+| Selection | IN6Eh | Score (higher is faster) |
+|---|---|---:|
+| H | 7Fh | 29802 |
+| S | FFh | 15303 |
+
+S/H=0.51349 for this loop. Native bus waits, including IN waits, remain in the
+native domain, so an exact 0.5 ratio is not required. This is observed emulator
+execution against its video timeline, not physical hardware calibration or a
+TIME$ fix. Private commands, runner/probe identities, captures and output hashes
+are retained. No application source is changed and unchanged full tests/builds
+are not rerun for this evidence-only follow-up.
