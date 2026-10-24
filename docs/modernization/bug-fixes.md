@@ -77,10 +77,27 @@ land.
   V2S overlay cause was the provisional selector displaying underlying RAM
   because S was selected, despite effective V2. These are emulator results,
   not hardware equivalence. Subsequent targeted hardware observations show
-  A/A display and distinct CPU banks in all eight requested modes; V1S RAM
-  policy and both S-mode IN31 values disagree with the current implementation.
-  See the M131 open defect below. The broader gate remains pending. Final
-  worker identity, commands and the hardware transcription are in the linked task.
+  A/A display and distinct CPU banks in all eight requested modes, exposing
+  the V1S CPU/display restriction and both S-mode IN31 values as incorrect.
+- **Hardware-driven follow-up:**
+  [de47a4c0](https://github.com/nakatamaho/vaeg/commit/de47a4c0af20f457c7bc114951e44ce6222e3f68)
+  removes the V1S CPU-fast-RAM restriction, the main-RAM display fallback and
+  IN31 bit-6 masking. CPU banks remain distinct at the measured byte in all
+  four modes; TMODE changes CPU access, not display storage. IN31 preserves
+  B1FC6h (F9h for the measured V1 cases, 79h for V2). Controlled red/green
+  tests demonstrate both corrections. The evaluated worker passes CTest
+  (140 listed, zero failed, nine skipped) and 24 isolated runtime cases:
+  eight games, eight BASIC queries and eight common-BASIC probes. All probe
+  fields match the hardware transcription; emulator restore/PRINT pass in
+  every case, while hardware PRINT was not photographed. All game cases,
+  including V1S, now reach coherent gameplay without the overlay. The historical
+  `NEW ON 1` workaround is not claimed as preserved. Clock calibration and
+  IN6Eh remain separate [#58](https://github.com/nakatamaho/vaeg/issues/58)/
+  [#59](https://github.com/nakatamaho/vaeg/issues/59) work, not acceptance of
+  proposal PR #55. The broader gate remains pending. The linked task records
+  the exact worker digest, incremental-build version-header caveat, commands,
+  hardware observations and scope limits; no release/clean-build handoff is
+  claimed for that private test binary.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
@@ -3666,33 +3683,6 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
-
-### M131 — VA S-mode RAM policy and IN31 disagree with hardware probe
-
-- **Observed scope:** maintainer-confirmed VA/VA2 V1S, V1H, V2S and V2H,
-  three hardware photographs per case. All eight cases display A/A while
-  the CPU reads 41h/42h at F3C8h under the two TMODE selections. V1 returns
-  IN31 F9h and V2 returns 79h, including the requested S cases. Each return
-  screen shows `RESTORE=1` and BASIC `Ok`; hardware PRINT is not photographed.
-- **Implementation difference:** the current
-  [bf215b99 policy](https://github.com/nakatamaho/vaeg/commit/bf215b998a616d07c9c909383c4160f5712f4597)
-  makes fast text unavailable to V1S CPU accesses, predicts B/B display there,
-  and retains IN31 bit 6 clearing for S. Emulator V1S therefore reads
-  42h/42h and reports B9h; V2S reports 39h. Those measured differences are
-  established, but the full VA H/S identification/timing mechanism is not.
-- **Correction/verification:** the maintainer-requested correction removes
-  the V1S CPU-fast-RAM restriction, the main-RAM display fallback and IN31
-  bit-6 masking. Raster/text-copy/CPU-bank and IN31 expectations are now based
-  on the hardware table. Controlled red tests demonstrate both defects in
-  sequence; the corrected macOS selftest passes. Final-worker runtime/BASIC
-  verification is pending, so keep this open until that evidence is recorded.
-  The photographs contain no clock measurement or IN6Eh result; those are
-  separate issues [#58](https://github.com/nakatamaho/vaeg/issues/58) and
-  [#59](https://github.com/nakatamaho/vaeg/issues/59), not part of this fix.
-- **Evidence:** [M131 hardware observations](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-hardware-observations-current-policy-contradicted),
-  using the [source-only probe](https://github.com/nakatamaho/vaeg/commit/acda0456ad9c7536d4b1da4843eedc1e720bde67).
-  Original images and private identity metadata remain outside Git. The
-  current policy's passing selftests are not proof against this counterexample.
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 

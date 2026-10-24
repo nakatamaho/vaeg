@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **Hardware-driven V1S banking/display and IN31 corrections implemented; red/green selftests pass. Final-worker runtime checks pending; no merge or G131 request.**
+Status: **Hardware-driven V1S banking/display and IN31 corrections pass selftest/CTest, all eight game/BASIC cases and all eight probe cases against the hardware table. H/S timing and IN6Eh are separate issues #58/#59; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -694,11 +694,84 @@ formatter entry point is still blocked by `manifest paths are not sorted`;
 its manifest, checker and configuration are unchanged from bf215b99.
 Final evaluated-worker identity and runtime verification follow separately.
 
+## Evaluated hardware-corrected worker and runtime verification
+
+Evaluated source/fixing commit:
+[de47a4c0af20f457c7bc114951e44ce6222e3f68](https://github.com/nakatamaho/vaeg/commit/de47a4c0af20f457c7bc114951e44ce6222e3f68).
+Worker SHA-256:
+`4c3e56a93e5321a965afea5f1af88072314020ea89322233bf1bd15a93c479ee`.
+The exact binary is preserved privately along with the earlier worker, build
+logs, commands, case results, raw dumps, output digests and contact sheets.
+
+Identity caveat: this incremental test build retains the earlier configure-
+time version header stamped e0be89d2, although its compiled sources are the
+corrected de47a4c0 tree. The evaluated-source identity is established by the
+clean source commit/build record and the worker digest, not by that stale
+version label. This is **not** a clean-build/release handoff or an executable
+to redistribute. A future handoff must configure a fresh tree and verify the
+embedded commit as required by the clean-build helper. No attempt is made to
+relabel the old worker or hide its configure-time identity.
+
+Commands/status:
+
+```sh
+cmake --build "$BUILD" -j 8
+ctest --test-dir "$BUILD" --output-on-failure -j 4
+/opt/local/bin/python3.12 "$PRIVATE/run-hardware-fix-matrix.py"
+```
+
+All exit 0. The evaluated worker's CTest run lists 140 tests, zero failures,
+the same nine skips and 93.08 seconds. The runtime driver performs 24 fresh
+isolated subprocesses: eight games, eight BASIC queries, and eight common-
+BASIC hardware probes. Every emulator subprocess exits 0. It checks BASIC
+PRINT/IN31 and probe IN31/CPU-bank/restore/PRINT content; all 16 content checks
+pass. A separate content-only comparison verifies both phase banners/labels
+against the inspected A-pattern reference in all eight probe cases (exit 0).
+All game, BASIC-query and phase/return contact sheets are also inspected
+visually. The worker digest remains unchanged throughout.
+
+Corpus/contract: `guest-start-01` in both drives (second concatenated image
+in drive 2), `basic-v1-01` (BASIC 1.9), `basic-v2-01` (BASIC 2.4), and
+`basic-common-01` with the unchanged source-only build-05 probe. VA and VA2 each
+run V1H/V1S/V2H/V2S with explicit configuration and isolated backup/media
+copies. Game screenshots are at frames 1790/3600, BASIC at 1100/3000 and
+probe phase/return checks at 5500/6500/9000. The driver waits for the BASIC
+file-count question and presses Enter before PRINT, rather than consuming
+PRINT as an answer to the question. Private metadata and full output digests
+remain outside Git.
+
+Both models now produce the following probe results, agreeing with every
+photographed hardware field at the tested points:
+
+| Mode | IN31 | Original32 | Phase32 P0/P1 | CPU P0/P1 | Display P0/P1 | Restore / emulator PRINT |
+|---|---|---|---|---|---|---|
+| V1S | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / 2 |
+| V1H | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / 2 |
+| V2S | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / 2 |
+| V2H | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / 2 |
+
+Every BASIC case prints `M131 2` and F9h (V1) or 79h (V2), with readable
+output. All eight game cases reach coherent gameplay after Enter without
+the spurious overlay. In particular, the corrected V1S cases no longer
+show the earlier `V1-H OR V2 MODE ONLY` rejection. That earlier observation
+used the former bit-6-masked IN31 and V1S RAM policy; it must not be generalized
+to the photographed VA mode.
+This does not claim the game has been tested on hardware in every mode.
+Hardware PRINT remains unphotographed; emulator PRINT does not substitute
+for it. No clock calibration or IN6Eh validation is claimed.
+
+Only evidence/documentation changes follow the evaluated source commit.
+Application inputs and worker digest are unchanged, so the completed runs
+are preserved rather than repeated for the final evidence commit. Encoding,
+EOL, case, Markdown-comment and diff checks pass. Canonical edited-line
+formatting passes; the pre-existing full-manifest ordering failure is unchanged.
+No hosted CI was requested, no private capture/media was committed, and no
+new Windows executable or full G131 media/demo gate is claimed.
+
 ## Remaining gate work
 
-- Confirm the corrected worker against the hardware probe table and rerun
-  BASIC and guest behavior in all requested modes. The earlier source-aligned
-  worker is not hardware-equivalent and its runs cannot validate changed code.
+- Produce a current clean static Windows handoff before requesting the full
+  gate; the earlier e0be89d2 preview does not contain this correction.
 - Generate both SASI utility images and boot/DIR each alone on its model.
   The three required generated CP/M inputs are not currently present in task
   scratch; SASI generation is NOT_RUN, not a passing or failing image build.
