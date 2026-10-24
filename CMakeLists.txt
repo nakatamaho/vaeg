@@ -1571,6 +1571,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_zex_archive_audit
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
+    add_test(NAME vaeg_cpmva_installer
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_install_cpmva.py")
     add_test(NAME vaeg_cpmva_zexbuild
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_zexbuild.py")

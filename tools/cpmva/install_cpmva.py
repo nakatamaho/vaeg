@@ -294,15 +294,26 @@ def restore_upper_case_names(root: Path) -> None:
     unar keep them as stored (upper case for CPMVA.LZH).
     """
     for current, directories, files in os.walk(root, topdown=False):
-        for name in files + directories:
+        names = files + directories
+        for name in names:
             upper = name.upper()
             if upper == name:
                 continue
             source = Path(current) / name
             target = Path(current) / upper
             if target.exists():
-                fail("ARCHIVE_DUPLICATE", f"case-folded member collides: {upper}")
-            source.rename(target)
+                # A case-insensitive lookup can find the source itself. Still
+                # reject a separate directory entry, even a hard-linked one.
+                if upper in names or not source.samefile(target):
+                    fail("ARCHIVE_DUPLICATE", f"case-folded member collides: {upper}")
+                # Linux bind mounts backed by a case-insensitive host may make
+                # a direct case-only rename a no-op. Use a distinct sibling.
+                with tempfile.TemporaryDirectory(prefix=".cpmva-case-", dir=current) as staging:
+                    intermediate = Path(staging) / "member"
+                    source.rename(intermediate)
+                    intermediate.rename(target)
+            else:
+                source.rename(target)
 
 
 def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]:

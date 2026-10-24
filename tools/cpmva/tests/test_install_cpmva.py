@@ -370,13 +370,51 @@ class InstallerTests(unittest.TestCase):
         members = self.extract_with_fake_lha("lha", "LHa for UNIX version 1.14i")
         self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
 
+    def restore_case_alias_fixture(self, root, entries=None, same_inode=True):
+        # Model a case-insensitive lookup on every host. One directory entry,
+        # two spellings of the same inode; rename itself uses the real FS.
+        root.mkdir()
+        (root / "a.txt").write_bytes(b"fixture")
+        names = ["a.txt"] if entries is None else entries
+        real_rename = Path.rename
+
+        def bind_mount_rename(source, target):
+            target = Path(target)
+            if source.parent == target.parent and source.name.upper() == target.name:
+                return target  # observed Linux/case-insensitive-host no-op
+            return real_rename(source, target)
+
+        with mock.patch.object(self.installer.os, "walk", return_value=[(root, [], names)]), \
+                mock.patch.object(Path, "exists", return_value=True), \
+                mock.patch.object(Path, "samefile", return_value=same_inode), \
+                mock.patch.object(Path, "rename", autospec=True, side_effect=bind_mount_rename):
+            self.installer.restore_upper_case_names(root)
+        self.assertEqual([p.name for p in root.iterdir()], ["A.TXT"])
+        self.assertEqual((root / "A.TXT").read_bytes(), b"fixture")
+
+    def test_upper_case_restore_allows_lookup_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "case-alias"
+            self.restore_case_alias_fixture(root)
+            self.assertEqual([p.name for p in root.iterdir()], ["A.TXT"])
+            self.assertEqual((root / "A.TXT").read_bytes(), b"fixture")
+
     def test_upper_case_restore_rejects_collisions(self):
         with tempfile.TemporaryDirectory() as directory:
-            (Path(directory) / "a.txt").write_text("1")
-            (Path(directory) / "A.TXT").write_text("2")
+            # Passing fixture first; mutate only the directory-entry list.
+            self.restore_case_alias_fixture(Path(directory) / "baseline")
             with self.assertRaises(self.installer.InstallerError) as raised:
-                self.installer.restore_upper_case_names(Path(directory))
-        self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
+                self.restore_case_alias_fixture(
+                    Path(directory) / "mutated", entries=["a.txt", "A.TXT"])
+            self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
+
+    def test_upper_case_restore_rejects_different_inode(self):
+        with tempfile.TemporaryDirectory() as directory:
+            # A newly appeared distinct target must never be overwritten.
+            self.restore_case_alias_fixture(Path(directory) / "baseline")
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.restore_case_alias_fixture(Path(directory) / "mutated", same_inode=False)
+            self.assertEqual(raised.exception.code, "ARCHIVE_DUPLICATE")
 
     def test_media_2d_copy_changes_only_the_media_byte(self):
         image = self.installer.build_tools_disk(
