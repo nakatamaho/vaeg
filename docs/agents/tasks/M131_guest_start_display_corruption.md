@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **X88000-aligned follow-up passes VA/VA2 game/BASIC matrix; hardware probe/media ready, hardware results pending; no merge or G131 request.**
+Status: **Hardware probe shows distinct CPU banks and A/A display in all eight requested modes; current V1S/IN31 policy disagrees with hardware. Emulator game/BASIC checks remain valid but are not hardware equivalence; no merge or G131 request.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -592,10 +592,66 @@ gate is claimed for these source-only diagnostic/evidence changes. All failed
 probe attempts and raw evidence remain private. The earlier Windows preview
 predates the source-aligned correction and is not a corrected V2S executable.
 
+## Maintainer hardware observations: current policy contradicted
+
+The maintainer supplied 24 private hardware photographs and confirmed the
+sequence: VA V1S, V1H, V2S, V2H, then VA2 V1S, V1H, V2S, V2H; three photographs
+per case, in PHASE 0, PHASE 1, return order. Model/requested-mode assignments
+come from that confirmation, not from interpreting IN31 bit 6. The probe is
+from source commit
+[acda0456ad9c7536d4b1da4843eedc1e720bde67](https://github.com/nakatamaho/vaeg/commit/acda0456ad9c7536d4b1da4843eedc1e720bde67),
+with the freely distributable build identities recorded above.
+
+All 24 photographs were visually inspected, with enlarged return panels for
+reading numeric fields. Originals remain untouched outside Git. Only this
+independently written transcription is published; source filenames, paths,
+hashes, raw images and converted contact sheets remain private.
+
+| Stable case | Requested mode | IN31 | Original32 | Phase32 P0/P1 | CPU P0/P1 | Display P0/P1 | Restore / BASIC |
+|---|---|---|---|---|---|---|---|
+| hw-va-v1s-01 | VA V1S | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / Ok |
+| hw-va-v1h-01 | VA V1H | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / Ok |
+| hw-va-v2s-01 | VA V2S | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / Ok |
+| hw-va-v2h-01 | VA V2H | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / Ok |
+| hw-va2-v1s-01 | VA2 V1S | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / Ok |
+| hw-va2-v1h-01 | VA2 V1H | F9h | 8Ah | 8Ah/9Ah | 41h/42h | A/A | 1 / Ok |
+| hw-va2-v2s-01 | VA2 V2S | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / Ok |
+| hw-va2-v2h-01 | VA2 V2H | 79h | AAh | AAh/BAh | 41h/42h | A/A | 1 / Ok |
+
+Observed conclusions, limited to this probe and common BASIC boot:
+
+- CPU selections remain distinct at F3C8h in all eight cases: 41h then 42h.
+  The stable display continues to show the CPU-bank-0 A pattern with either
+  TMODE value. This supports separating CPU banking from display sourcing.
+- In the requested S cases, IN31 bit 6 is still set. V1 returns F9h and V2
+  returns 79h, just as the corresponding H cases. Four selectable modes do
+  **not** imply that this port reports their H/S difference on VA hardware.
+- The current emulator's V1S result (CPU 42h/42h, display B/B, IN31 B9h) is
+  contradicted. Its V2S display/CPU result agrees, but IN31 39h does not.
+  H-mode display/CPU/port results agree at the measured points. Passing the
+  current policy's selftest does not resolve either S-mode discrepancy.
+- Every result photograph shows `RESTORE=1` and BASIC `Ok`. None shows the
+  requested `PRINT 1+1`, so hardware PRINT is **not observed**, not a pass.
+- No elapsed-time/clock measurement or IN6Eh result is present. These photos
+  neither prove nor disprove the separate H/S clock proposal. Do not infer
+  the selected speed from IN31, relabel S cases as H, or conclude that the
+  selectable S modes do not exist.
+
+The earlier X88000-derived V1S prediction and emulator table are retained as
+historical predictions/results, not rewritten to match the photographs.
+The evidence requires reviewing the VA-specific port-identification and RAM
+availability policy separately from PC-8801 compatibility extensions. No
+emulator correction is made in this evidence-only update; in particular, the
+old BASIC compatibility path must not be removed without controlled regression
+checks. No production worker, media payload or comparison input for the prior
+emulator runs changes, so those expensive runs are not repeated.
+
 ## Remaining gate work
 
-- Confirm the source-aligned policy on hardware using the diagnostic; do not
-  infer a real VA/VA2 result from the corrected emulator's own output.
+- Resolve the hardware-observed V1S CPU/display mismatch and S-mode IN31
+  mismatch; verify BASIC and guest behavior without conflating a compatibility
+  extension with the measured VA modes. The original hardware-confirmation
+  item is not a pass for the current source-aligned policy.
 - Generate both SASI utility images and boot/DIR each alone on its model.
   The three required generated CP/M inputs are not currently present in task
   scratch; SASI generation is NOT_RUN, not a passing or failing image build.
@@ -604,5 +660,6 @@ predates the source-aligned correction and is not a corrected V2S executable.
 - Complete the standard V3/demo/OS human checklist and the targeted fixture
   check only after all mandatory machine/media checks are complete.
 
-M131 remains open. No human acceptance, Windows runtime, hardware behavior,
-next milestone or cleanup approval is inferred from this investigation.
+M131 remains open. The targeted hardware observations above are not full human
+acceptance, Windows runtime verification, approval for the next milestone or
+cleanup approval.

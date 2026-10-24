@@ -75,9 +75,12 @@ land.
   V1S is explicitly rejected by the guest rather than entering gameplay.
   All eight BASIC PRINT/query cases pass, retaining V1S output. The demonstrated
   V2S overlay cause was the provisional selector displaying underlying RAM
-  because S was selected, despite effective V2. Hardware confirmation and the
-  broader gate remain pending; the maintainer reports all four modes are
-  selectable on VA/VA2. Final worker identity and commands are in the linked task.
+  because S was selected, despite effective V2. These are emulator results,
+  not hardware equivalence. Subsequent targeted hardware observations show
+  A/A display and distinct CPU banks in all eight requested modes; V1S RAM
+  policy and both S-mode IN31 values disagree with the current implementation.
+  See the M131 open defect below. The broader gate remains pending. Final
+  worker identity, commands and the hardware transcription are in the linked task.
 - **Task/evidence and fixing commit:**
   [M131 investigation and verification](../agents/tasks/M131_guest_start_display_corruption.md).
   Source-built demo payload closure and the clean static Windows build are
@@ -3663,6 +3666,29 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M131 — VA S-mode RAM policy and IN31 disagree with hardware probe
+
+- **Observed scope:** maintainer-confirmed VA/VA2 V1S, V1H, V2S and V2H,
+  three hardware photographs per case. All eight cases display A/A while
+  the CPU reads 41h/42h at F3C8h under the two TMODE selections. V1 returns
+  IN31 F9h and V2 returns 79h, including the requested S cases. Each return
+  screen shows `RESTORE=1` and BASIC `Ok`; hardware PRINT is not photographed.
+- **Implementation difference:** the current
+  [bf215b99 policy](https://github.com/nakatamaho/vaeg/commit/bf215b998a616d07c9c909383c4160f5712f4597)
+  makes fast text unavailable to V1S CPU accesses, predicts B/B display there,
+  and retains IN31 bit 6 clearing for S. Emulator V1S therefore reads
+  42h/42h and reports B9h; V2S reports 39h. Those measured differences are
+  established, but the full VA H/S identification/timing mechanism is not.
+- **Correction/verification:** unresolved; no emulator correction or hardware
+  acceptance is claimed by this evidence update. Separate the VA mode policy
+  from PC-8801 compatibility extensions, preserve BASIC with controlled
+  regression tests, and check both models. The photographs contain no clock
+  measurement or IN6Eh result; they do not validate the separate speed proposal.
+- **Evidence:** [M131 hardware observations](../agents/tasks/M131_guest_start_display_corruption.md#maintainer-hardware-observations-current-policy-contradicted),
+  using the [source-only probe](https://github.com/nakatamaho/vaeg/commit/acda0456ad9c7536d4b1da4843eedc1e720bde67).
+  Original images and private identity metadata remain outside Git. The
+  current policy's passing selftests are not proof against this counterexample.
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 

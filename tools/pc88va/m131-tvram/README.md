@@ -111,7 +111,8 @@ record only the stable SPACE-waiting phases.
 
 After restoration BASIC reports:
 
-- `PORT31`: entry IN 31h (bit 7: V1 identification; bit 6: H identification);
+- `PORT31`: entry IN 31h (bit 7: V1 identification; bit 6: PC-8801-style H
+  identification, not necessarily the selected VA H/S mode);
 - `ORIGINAL32`: entry port 32h;
 - `CPU P0` / `P1`: first character read by the CPU at F3C8h in each phase;
 - `PORT32 P0` / `P1`: port readback in the two phases;
@@ -139,6 +140,14 @@ CPU reads 41h/42h in V1H/V2, and B/B displayed with CPU reads 42h/42h in V1S.
 The V2S observation is particularly important: do not decide it from its label
 or from agreement with the emulator we just changed. Record unexpected output,
 actual IN 31h and return behavior without trying to make it match the prediction.
+
+**Subsequent hardware observation:** the maintainer's VA and VA2 photographs
+show A/A with CPU 41h/42h in all four requested modes. IN31 is F9h for V1 and
+79h for V2, including S. This contradicts the V1S prediction and the emulator's
+S-mode IN31 clearing; it does not invalidate the selectable S modes. Every
+return screen shows RESTORE=1 and BASIC Ok; PRINT and clock/IN6Eh measurements
+are not photographed. See the [M131 hardware transcription](../../../docs/agents/tasks/M131_guest_start_display_corruption.md#maintainer-hardware-observations-current-policy-contradicted).
+Do not treat the prediction above as a hardware acceptance criterion.
 
 Keep raw hardware photographs, media and logs outside Git. Publish only an
 independently written result summary with neutral fixture identifiers and the
