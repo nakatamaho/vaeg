@@ -56,7 +56,7 @@ land.
   132 pass, nine unchanged skips and zero failures. Extremely slow custom
   clocks and actual desktop menu/shortcut checks remain outside this proof.
 - **Task/evidence:** [M132 paste regression](../agents/tasks/M132_hs_clock_status.md#s-mode-paste-regression-follow-up).
-- **Fix commit:** recorded by the subsequent artifact/evidence checkpoint.
+- **Fix commit:** [7fe3bebf](https://github.com/nakatamaho/vaeg/commit/7fe3bebf83cdd418b4c7154f99d929a61f648a80).
 
 ### M132 — CP/M media extraction rejected case-insensitive lookup aliases
 

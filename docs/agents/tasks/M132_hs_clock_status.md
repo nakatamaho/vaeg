@@ -581,9 +581,47 @@ the actual DOWN/UP queue boundary on every guest frame. Starting from the
 passing fixture, changing only the interval getter back to constant two frames
 fails exactly `M132_PASTE_SPEED_POLICY` (CTest exit 8). Restoring the policy
 passes. Full tests are run only after removing the private driver and
-restoring the positive policy. The later refreshed artifact identity will be
-recorded separately. No desktop clipboard-menu/shortcut acceptance or G132
-pass is inferred from the controlled paste-queue test.
+restoring the positive policy. This full run evaluates the precommit production
+source; the committed version-only rebuild and focused suite also pass.
+No desktop clipboard-menu/shortcut acceptance or G132 pass is inferred from
+the controlled paste-queue test.
+
+### Refreshed production worker and clean Windows paste-fix handoff
+
+Fix/evaluated commit:
+[7fe3bebf](https://github.com/nakatamaho/vaeg/commit/7fe3bebf83cdd418b4c7154f99d929a61f648a80).
+Production macOS worker SHA-256:
+`aa1a046e801e36f901183f30122ab7e6300acd6a6a441a8d24421426e22223fd`.
+Recording remains ON and local bundled encoders OFF. The committed worker,
+without the private driver, enters and runs the same BASIC speed program in
+VA2/V1H and V1S. Captures at frame 20000 show H IN6Eh=7Fh/SCORE=29802 and
+S IN6Eh=FFh/SCORE=15303. This confirms that the paste correction does not
+undo the CPU slowdown. The ordinary No Wait production run is not substituted
+for the controlled frame-floor red/green proof above.
+
+```sh
+python3 "$PRIVATE/run-paste-production.py"
+vaeg-container tools/release/build-mingw-static-container.sh \
+  --commit 7fe3bebf83cdd418b4c7154f99d929a61f648a80 \
+  --shader-sdk "$PREVIOUS_HANDOFF/source/build/mingw-static"
+```
+
+Both exit 0. The Windows build uses a new clean clone and fresh application
+objects, reusing only the prior audited pinned librashader dependency SDK
+read-only. The archive/notices audits run again. The pinned Ubuntu 24.04,
+Rust 1.88.0, static `mingw-cross` Release profile embeds the new commit/date
+and passes the system-DLL-only PE import audit. Recording and local bundled
+H.264/AAC encoders remain OFF in this public clean-build handoff.
+
+- Current executable: `../vaeg-mingw-7fe3bebf/output/vaeg.exe`, 57,627,313 bytes.
+- SHA-256: `efd47fb7f6b7fd3e1fb76eb13ef7e33441ecd98ed43fcffedea8c17514b7c6cd`.
+- Report: `../vaeg-mingw-7fe3bebf/output/BUILD-REPORT.md`.
+- This supersedes the 338174ee Windows artifact for further paste/GUI checks.
+  Both old and new artifacts/evidence are retained; no Windows runtime or
+  maintainer acceptance is inferred from compile/import success.
+- Encoding/EOL/case/Markdown/milestone-ID/diff and changed-line clang-format 22
+  checks pass. Global formatting debt is unchanged. The final hosted review
+  run remains deferred while the other G132 prerequisites are pending.
 
 ## User-reported BASIC stopwatch failure and clock-independent check
 
