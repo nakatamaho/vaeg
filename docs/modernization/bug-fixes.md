@@ -53,8 +53,11 @@ land.
   production four-case live-input/queue-boundary tests. The original constant
   interval fails exactly `M132_PASTE_SPEED_POLICY`; corrected focused tests
   pass. After removing the private driver, full CTest lists 141 tests,
-  132 pass, nine unchanged skips and zero failures. Extremely slow custom
-  clocks and actual desktop menu/shortcut checks remain outside this proof.
+  132 pass, nine unchanged skips and zero failures. After the refreshed Windows
+  handoff, the maintainer reports VA2/V1S IN6Eh=FFh/SCORE=15303 and explicitly
+  confirms the character loss is resolved (`解消しました。OK`). This is scoped
+  paste-fix acceptance, not G132 passage. Extremely slow custom clocks and the
+  exact desktop menu/shortcut path remain outside this proof.
 - **Task/evidence:** [M132 paste regression](../agents/tasks/M132_hs_clock_status.md#s-mode-paste-regression-follow-up).
 - **Fix commit:** [7fe3bebf](https://github.com/nakatamaho/vaeg/commit/7fe3bebf83cdd418b4c7154f99d929a61f648a80).
 

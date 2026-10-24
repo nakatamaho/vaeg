@@ -586,6 +586,18 @@ source; the committed version-only rebuild and focused suite also pass.
 No desktop clipboard-menu/shortcut acceptance or G132 pass is inferred from
 the controlled paste-queue test.
 
+### Maintainer confirmation of the paste fix
+
+After the refreshed 7fe3bebf Windows handoff, the maintainer reports
+VA2/V1S IN6Eh=FFh and SCORE=15303, then explicitly confirms the paste character
+loss is resolved (`解消しました。OK`). The preceding VA2/V1H report was
+IN6Eh=7Fh/SCORE=29801; the observed S/H score ratio is approximately 0.5135.
+This accepts the reported V1S paste correction and confirms the guest speed
+comparison. It does not independently identify the exact desktop menu/shortcut
+used, calibrate physical hardware, resolve TIME$, or pass the remaining G132
+GUI/state-file/M131 regression requirements. G132 remains pending; no merge,
+cleanup or next milestone is authorized by this scoped confirmation.
+
 ### Refreshed production worker and clean Windows paste-fix handoff
 
 Fix/evaluated commit:
