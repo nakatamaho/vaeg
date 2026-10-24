@@ -26,8 +26,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Status: **G131 PASSED by explicit maintainer acceptance (`gate passed`) of
 the 3326349a clean static Windows handoff and 5888d899 preparation record.
-M131 closed; main integration follows this gate record. Full-tree formatting
-retains documented baseline drift; the 89 M131 edited C/C++ lines pass.
+M131 closed; merged to main with `--no-ff` at
+[93355b69](https://github.com/nakatamaho/vaeg/commit/93355b695b2976a5943432a8f91b7a9472c4a203).
+Full-tree formatting retains documented baseline drift; the 89 M131 edited
+C/C++ lines pass.
 H/S timing and IN6Eh remain separate issues #58/#59.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
