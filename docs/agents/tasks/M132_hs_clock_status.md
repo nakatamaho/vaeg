@@ -203,3 +203,59 @@ ctest --test-dir "$PRIVATE/build" -R '^vaeg_upd9002_brkem_upd70008$' --output-on
 These checks demonstrate emulator accounting, not real-hardware calibration.
 Remaining whole-tree, clean-media, runtime and handoff results are recorded
 below once actually completed; no G132 acceptance is implied.
+
+## Code-freeze local verification
+
+Evaluated commit:
+[`338174ee17daa885f038b3742dd0f1ed0560bfc5`](https://github.com/nakatamaho/vaeg/commit/338174ee17daa885f038b3742dd0f1ed0560bfc5).
+The macOS worker embeds that commit, has recording ON and local bundled
+MP4 encoders OFF. SHA-256:
+`f905e238e9417a5abe0cc421c3018823823154b44ec7a429ba7b99cc6b8b5f17`.
+
+```sh
+cmake -S . -B "$PRIVATE/build"
+cmake --build "$PRIVATE/build" -j 8
+ctest --test-dir "$PRIVATE/build" --output-on-failure -j 4
+python3 tools/repo/check_encoding.py --expect utf8
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+python3 tools/repo/check_md_comments.py
+python3 tools/qa/milestone_ids.py --selftest --audit --discover
+git diff 49cb0112 --check
+```
+
+All exit 0. CTest lists 140 tests: 131 pass, nine skip, zero fail; 91.08s.
+The skips are unchanged from the source-acceptance baseline: SST corpus,
+external uPD70008/uPD780 probes, private BASIC boot input and the five
+LibArchive upstream environment/generated-input cases. This is not a run
+of those missing private/corpus tests.
+Milestone-ID audit/selftest passes 49 strict cases; discovery reports
+211 tasks, 163 reports and 152 roadmap rows. Encoding/EOL each report zero
+violations; case/Markdown each report zero findings.
+
+An earlier full preflight of `96ebc20d713fbc3da98dd84246a0a9af0e05a00e`
+also passed 140 listed tests with the same skips (87.27s); its worker SHA-256
+was `73e9313d01b679742977998a6cb21035ffe42b6ae08ba2bbe92d3b92748523e6`.
+The subsequent source change is two initializer-alignment spaces in a test.
+The final code-freeze run above evaluates the final formatted source and
+restored native-I/O route, not the temporary negative-control binary.
+
+Clang-format 22 checks 978 changed manifest-covered lines against accepted
+main with zero intersecting replacements. The separate full-tree formatter
+continues to report the same 26-file baseline debt as M131 (exit 1); this
+is **not** claimed as a global formatting pass and is not repaired by
+reformatting unrelated lines. Original PR ancestry is retained and verified.
+
+### Remaining gate work and CI staging
+
+The required PSD source has not been located in the available input locations;
+its source rebuild/payload check is blocked pending the maintainer's input.
+A committed atlas or disk is not substituted and described as a fresh PSD build.
+Other clean-media, runtime and Windows handoff checks continue separately.
+No G132 request, pass, main merge or cleanup is authorized by these unit results.
+
+The code-freeze checkpoint is pushed with hosted CI explicitly skipped while
+private media/runtime/handoff work is incomplete. It makes the exact code
+commit available for clean-clone checks without using hosted CI as a debugger.
+One final hosted review-candidate run is deferred until applicable local checks
+and the evidence layout are settled.
