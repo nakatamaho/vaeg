@@ -105,8 +105,10 @@ land.
   [3326349a](https://github.com/nakatamaho/vaeg/commit/3326349ae4b9f6ac352f5aabc07891b0009a407a)
   passes renewed CTest and all 24 compatibility cases; media regeneration,
   payload closure, both SASI model boots/DIR and all 34 demo drawing cases
-  are complete, with a current clean static Windows handoff. Human G131 and
-  merge remain pending; no Windows runtime or timing acceptance is inferred.
+  are complete, with a current clean static Windows handoff. G131 subsequently
+  passed by explicit maintainer `gate passed` acceptance of that handoff and
+  the 5888d899 preparation record. Windows/manual acceptance is maintainer-
+  reported; timing and IN6Eh remain separate, unverified work.
 
 ### M100s11 — guest-resolution screenshots ignored display rotation
 

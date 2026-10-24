@@ -24,12 +24,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M131 — Guest display corruption after Start
 
-Status: **G131 requested: M130-integrated candidate 3326349a passes CTest,
-24 isolated compatibility cases, media regeneration/payload closure and the
-34-case all-demos drawing check. Clean static Windows handoff available;
-human acceptance and merge pending. Full-tree formatting retains baseline
-drift; the 89 M131 edited C/C++ lines pass. H/S timing and IN6Eh remain
-separate issues #58/#59.**
+Status: **G131 PASSED by explicit maintainer acceptance (`gate passed`) of
+the 3326349a clean static Windows handoff and 5888d899 preparation record.
+M131 closed; main integration follows this gate record. Full-tree formatting
+retains documented baseline drift; the 89 M131 edited C/C++ lines pass.
+H/S timing and IN6Eh remain separate issues #58/#59.**
 
 Branch: `milestone/m131-display-corruption`. Commit prefix: `M131:`.
 
@@ -1006,6 +1005,29 @@ corrupt subsequent screens; exercising all four requested VA/VA2 modes is
 recommended. Existing hardware photos do not replace this Windows/manual
 acceptance. Clock timing and IN6Eh remain #58/#59, not newly verified.
 
-**No G131 pass, main merge, next-milestone authorization or cleanup is recorded.
-Wait for explicit maintainer acceptance before the gate record and `--no-ff`
-merge.**
+At that handoff, no G131 pass or main merge had been recorded. The following
+explicit acceptance supersedes that pending status.
+
+## G131 acceptance
+
+The maintainer explicitly stated **`gate passed`** after the Windows handoff
+and discussion of the V1S result. G131 is passed against source candidate
+[3326349a](https://github.com/nakatamaho/vaeg/commit/3326349ae4b9f6ac352f5aabc07891b0009a407a)
+and preparation record
+[5888d899](https://github.com/nakatamaho/vaeg/commit/5888d899ea0e05029fb936b63c6a1e3b5b592a42).
+The accepted executable SHA-256 is
+`1c371b2e242ecc7e9dc8689c6565cabaefa29367e56774eca599115894389f1a`.
+Standard V3/demo/OS and targeted Start-screen acceptance is maintainer-reported,
+not an agent-executed Windows test or a new per-mode hardware-game campaign.
+
+The documented baseline full-tree formatting failure and nine CTest skips are
+not relabeled passing checks. H/S timing, IN6Eh and game completion on physical
+V1S hardware remain outside the demonstrated correction. No next milestone
+is started or authorized by this record.
+
+This acceptance permits the prescribed `--no-ff` main integration and scoped
+cleanup under AGENTS.md. The primary repository, remote milestone branch,
+shared caches, private reference tree and maintainer-supplied originals are
+retained. M131 scratch/hardware-handoff and static-build directories are
+removed only after the gate record, merge and roadmap record are pushed;
+accepted artifact identities and verification summaries remain in this task.
