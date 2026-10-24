@@ -5952,6 +5952,9 @@ static void draw_machine_status(void) {
 		ImGui::TextUnformatted(line);
 		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
 			ImGui::BeginTooltip();
+			const float wrap = std::max(
+			    96.0f, std::min(560.0f * g_gui.ui_scale, ImGui::GetIO().DisplaySize.x - 24.0f));
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
 			ImGui::TextUnformatted(line); // complete text, even in a narrow window
 			ImGui::Separator();
 			ImGui::Text("CPU: %.6f MHz", status.cpu_hz / 1000000.0);
@@ -5968,6 +5971,7 @@ static void draw_machine_status(void) {
 			ImGui::Text("Guest frames: %u.%u FPS", frames / 10, frames % 10);
 			if (status.mode_id == VAEG_MODE_N_FAMILY)
 				ImGui::TextUnformatted("N-family subtype is not identified at runtime.");
+			ImGui::PopTextWrapPos();
 			ImGui::EndTooltip();
 		}
 	}
