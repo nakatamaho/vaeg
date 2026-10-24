@@ -429,6 +429,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/framedisp.c
     sdl2/viewport.c
     sdl2/frontpanel.c
+    sdl2/machine_status.c
     sdl2/appicon.c
     sdl2/splash.c
     sdl2/sysmng.c

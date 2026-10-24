@@ -99,6 +99,7 @@ extern BEEPCFG beepcfg;
 #include "strres.h"
 #include "viewport.h"
 #include "frontpanel.h"
+#include "machine_status.h"
 #include "ymfmbridge.h"
 #if defined(VAEG_UPD9002_M42_TESTING)
 #include "tests/upd9002/direct_harness.h"
@@ -5513,6 +5514,130 @@ static int test_beep_level(void) {
 	return (SUCCESS);
 }
 
+/* M132: public model identity, live mode and nominal clock formatting. */
+static int test_machine_status(void) {
+	const NP2CFG saved_cfg = np2cfg;
+	const UINT saved_baseclock = pccore.baseclock;
+	const UINT saved_model = pccore.model_va;
+	const _SYSPORTVA saved_port = sysportva;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_31 = memoryva_88_port31;
+	const BOOL saved_n80 = memoryva_n80_exist;
+	BOOL lamps[3];
+	const char *problem = NULL;
+	VAEG_MACHINE_STATUS status;
+	char text[256], clock[32];
+	UINT i;
+	static const struct {
+		const char *machine;
+		const char *formal;
+		const char *mode;
+		BOOL n;
+		BOOL high;
+		BOOL sgp;
+	} cases[] = {
+	    {"", "PC-88VA2", "V2S", FALSE, FALSE, TRUE},
+	    {"pc-8801mh", "PC-8801MH", "V2H", FALSE, TRUE, FALSE},
+	    {"PC-8801MA", "PC-8801MA", "V2H", FALSE, TRUE, FALSE},
+	    {"PC-8801mkIISR", "PC-8801mkIISR", "V2", FALSE, FALSE, FALSE},
+	    {"PC-8001", "PC-8001", "N", TRUE, FALSE, FALSE},
+	    {"PC-8001mkII", "PC-8001mkII", "N/N80", TRUE, FALSE, FALSE},
+	    {"PC-8001mkIISR", "PC-8001mkIISR", "N/N80/N80SR", TRUE, FALSE, FALSE},
+	    {"PC-8801MH", "PC-8801MH", "N", TRUE, TRUE, FALSE},
+	};
+	static const struct {
+		UINT32 hz;
+		const char *text;
+	} clocks[] = {
+	    {7987200, "8MHz"},    {3993600, "4MHz"},    {1996800, "2MHz"},
+	    {122880, "0.123MHz"}, {999999, "1.000MHz"}, {0xffffffffU, "4295MHz"},
+	};
+
+	for (i = 0; i < 3; i++)
+		lamps[i] = frontpanel_raw_mode_lit(i);
+	pccore.baseclock = PCBASECLOCK40;
+	pccore.model_va = PCMODEL_VA2;
+	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	np2cfg.cpu_speed = 50;
+	/* A stale boot route is deliberately opposite the actual ROM selector. */
+	np2cfg.boot_mode = BOOTMODE_AUTO;
+	memoryva_88_mode = 1;
+	memoryva_n80_exist = TRUE;
+	frontpanel_set_modeled(0, FALSE);
+	frontpanel_set_modeled(1, TRUE);
+	frontpanel_set_modeled(2, FALSE);
+	for (i = 0; i < NELEMENTS(cases); i++) {
+		milstr_ncpy(np2cfg.extra_machine, cases[i].machine, sizeof(np2cfg.extra_machine));
+		memoryva_88_port31 = cases[i].n ? 4 : 0;
+		sysportva.a = (sysportva.a & ~0x20) | (cases[i].high ? 0x20 : 0);
+		pccore_clockrestore();
+		machine_status_get(&status);
+		if (strcmp(status.machine, cases[i].formal) || strcmp(status.mode, cases[i].mode) ||
+		    status.has_sgp != cases[i].sgp ||
+		    (cases[i].n &&
+		     (frontpanel_mode_lit(0) || frontpanel_mode_lit(1) || frontpanel_mode_lit(2)))) {
+			problem = "model profile, N-family classification or shared lamp policy";
+			goto done;
+		}
+		machine_status_line(text, sizeof(text), &status,
+		                    VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FPS,
+		                    600, 120);
+		if ((strstr(text, "SGP") != NULL) != cases[i].sgp || strstr(text, "FRAME") != NULL ||
+		    strstr(text, "60.0FPS") == NULL) {
+			problem = "status field visibility";
+			goto done;
+		}
+		if (i == 0 && (status.cpu_hz != 1996800 || status.base_hz != 3993600 ||
+		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
+			problem = "nominal clock or short English status";
+			goto done;
+		}
+	}
+	for (i = 0; i < NELEMENTS(clocks); i++) {
+		machine_status_clock(clock, sizeof(clock), clocks[i].hz);
+		if (strcmp(clock, clocks[i].text)) {
+			problem = "clock rounding or sub-MHz/overflow formatting";
+			goto done;
+		}
+	}
+	/* Merely choosing the internal N boot route is not runtime N evidence. */
+	memoryva_88_port31 = 0;
+	np2cfg.boot_mode = BOOTMODE_N;
+	if (machine_status_mode() != VAEG_MODE_V2) {
+		problem = "boot preference was mistaken for an active N ROM";
+		goto done;
+	}
+	machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FRAME, 600, 120);
+	if (!strstr(text, "FRAME 120") || strstr(text, "FPS") || strstr(text, "CPU")) {
+		problem = "FRAME and FPS settings are coupled";
+		goto done;
+	}
+	{
+		char tiny[8];
+		memset(tiny, '!', sizeof(tiny));
+		machine_status_line(tiny + 1, 6, &status, 0x7f, 600, 120);
+		if (tiny[0] != '!' || tiny[7] != '!' || tiny[6] != '\0') {
+			problem = "bounded status formatter";
+			goto done;
+		}
+	}
+done:
+	np2cfg = saved_cfg;
+	pccore.baseclock = saved_baseclock;
+	pccore.model_va = saved_model;
+	sysportva = saved_port;
+	memoryva_88_mode = saved_88;
+	memoryva_88_port31 = saved_31;
+	memoryva_n80_exist = saved_n80;
+	for (i = 0; i < 3; i++)
+		frontpanel_set_modeled(i, lamps[i]);
+	pccore_clockrestore();
+	if (problem)
+		return fail("machine status", problem);
+	fprintf(stderr, "selftest: machine status profiles, nominal clocks and N lamps ok\n");
+	return SUCCESS;
+}
+
 /* M106: the front panel lamp bar, its lamps and the room it takes. */
 static int test_front_panel(void) {
 	const BYTE saved_panel = np2oscfg.front_panel;
@@ -8626,6 +8751,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_scanline_fill() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_machine_status() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_front_panel() != SUCCESS) {
 		return (FAILURE);

@@ -127,6 +127,7 @@ void extrarom_select(const char *machine, UINT role, const char *revision);
 BOOL extrarom_read(const EXTRAROM_MACHINE *machine, const EXTRAROM_FILE *file, BYTE *data,
                    UINT size);
 int extrarom_list(void);
+const char *extrarom_machine_name(const char *name);
 BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out);
 BOOL extrarom_startable(const EXTRAROM_MACHINE *machine);
 void extrarom_apply(void);

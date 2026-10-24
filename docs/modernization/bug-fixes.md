@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M132 — N-family execution showed the backend's V2 lamp
+
+- **Symptom/scope:** N80-BASIC boot on PC-8001mkII shows a V2 lamp; N-family
+  ROMs run through a VA2 compatibility route whose raw LED latch can remain V2.
+- **Demonstrated cause:** frontend lamps directly exposed that raw latch,
+  without classifying the live N-ROM selector. The internal N boot-route name
+  also did not identify whether an N-family subtype was actually selected.
+- **Correction:** one shared frontend classifier uses the live 88-mode N-ROM
+  selection first, then valid one-hot mode lamps or running/system-mode inputs.
+  All N-family classifications suppress V1/V2/V3 lamps; lock keys still use
+  the compatible key matrix. Formal profile names and nominal clocks are
+  shared with the status formatter. Ambiguous mkII/SR subtypes are explicitly
+  `N/N80` or `N/N80/N80SR`, never inferred from ROM banner strings.
+- **Verification:** profile/clock/format/N-lamp tests pass. Replacing only the
+  effective lamp getter with the original raw-latch behavior makes that same
+  passing fixture fail at the N-family lamp assertion; restoring the shared
+  classifier removes the failure. Tests also reject a saved N boot preference
+  as proof of active N-ROM selection. No full N80 graphics or runtime-subtype
+  implementation is claimed.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [mode/backlog contract](v1v2-hs-clock-status-plan.md).
+- **Fix commit:** to be linked in the immediate evidence update.
+
 ### M132 — S affected V3 BRKEM and rescaled native bus waits
 
 - **Symptom/scope:** the imported PR #55 halves compatible instruction
@@ -57,7 +80,7 @@ land.
   and routing checks, not physical instruction/ROM-trap calibration.
 - **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
   [clock-domain contract](v1v2-hs-clock-status-plan.md).
-- **Fix commit:** to be linked in the immediate evidence update.
+- **Fix commit:** [576657dc](https://github.com/nakatamaho/vaeg/commit/576657dce046d9eb2d317caaf5c13e5a19098f1a).
 
 ### M132 — H/S identification retained a stale or first-boot speed
 

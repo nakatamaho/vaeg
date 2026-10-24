@@ -818,6 +818,15 @@ int extrarom_list(void) {
 }
 
 /* M113: how a model directory is started; FALSE for an unknown name. */
+const char *extrarom_machine_name(const char *name) {
+	UINT i;
+
+	for (i = 0; i < NELEMENTS(machine_table); i++) {
+		if (same_name(name, machine_table[i].name)) return machine_table[i].name;
+	}
+	return NULL;
+}
+
 BOOL extrarom_profile(const char *name, EXTRAROM_PROFILE *out) {
 	UINT i;
 
