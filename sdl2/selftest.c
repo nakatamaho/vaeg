@@ -2665,8 +2665,8 @@ static int test_clockscale(void) {
 		static const struct {
 			UINT multiple;
 			UINT percent;
-			UINT32 v30;    /* scaled cost of 100 cycles */
-			UINT32 compat; /* scaled cost of 100 cycles */
+			UINT32 v30;     /* scaled cost of 100 cycles */
+			UINT32 compat;  /* scaled cost of 100 cycles */
 			UINT8 standard; /* V1/V2 S */
 		} speeds[] = {{2, 100, 100, 100, 0}, {2, 50, 200, 200, 0}, {2, 10, 1000, 1000, 0},
 		              {4, 50, 100, 100, 0},  {2, 0, 100, 100, 0},  {2, 5, 1000, 1000, 0},
