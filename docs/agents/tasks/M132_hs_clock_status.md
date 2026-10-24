@@ -530,6 +530,61 @@ Issues #58/#59 are not closed on this evidence alone.
 - Retain the existing 26-file full-format baseline limitation. No main merge,
   cleanup, next milestone, G132 pass or final hosted CI success is claimed.
 
+## S-mode paste regression follow-up
+
+After the VA2/V1H score of 29801, the maintainer reports that V1S clipboard
+paste drops the C in CLEAR and many other characters. This is a paste defect,
+not a request to change compatible CPU timing or weaken the speed benchmark.
+
+The production paste queue had one two-guest-frame interval for native/H/S.
+The same two frames no longer allow the slower S BASIC scan to consume every
+press/release. A normal No Wait automation run can hide this: the separate
+20 ms host-time floor admits many more guest frames before each event.
+Both line-at-a-time and full-queue No Wait trials initially appear correct.
+
+A private, temporary test driver feeds the whole benchmark, including all
+newlines, into one production paste queue. It advances the host-time argument
+by at least 20 ms per guest frame, so the existing guest-frame floor, not a
+slow host or No Wait, controls event admission. It does not change CPU, keyboard
+matrix, BASIC or paste state-machine behavior. With that identical driver,
+the original two-frame policy reproduces `10 LEAR,...`, merged/dropped lines,
+`Overflow` and `IST` rather than `LIST` in VA2/V1S; VA2/V1H is intact. Changing
+only paste pacing to four frames for live S produces the complete correct
+11-line program and LIST in both H and S. The source/bytes, worker/driver
+patch identities, commands, output hashes and inspected captures stay private.
+The driver's initial NULL-action-text crash is retained as a test-driver setup
+failure, then corrected before either controlled red/green run.
+
+Production correction: use four frames between SHIFT/DOWN/UP events only when
+88 mode is active and the live/restored input selects S. Keep two frames for
+H and native V3, even with a saved/pending S choice. Keep the independent 20 ms
+host floor, keyboard matrix semantics, cancellation/focus cleanup and all
+CPU clocks unchanged. Extremely slow custom CPU settings are not claimed as
+newly covered by this H/S-specific correction.
+
+The temporary driver is removed byte-for-byte before production validation;
+no private paths, virtual-clock hook or fixture marker enters the commit.
+The original 338174ee executable is retained privately before the build tree
+is updated. Earlier guest/media evidence still refers to that preserved
+worker, not the new executable now at the old build output path.
+
+```sh
+cmake --build "$PRIVATE/build" -j 8
+ctest --test-dir "$PRIVATE/build" -R '^vaeg_romless_tests$' --output-on-failure
+ctest --test-dir "$PRIVATE/build" --output-on-failure -j 4
+```
+
+Focused and full production checks exit 0. The full run now lists 141 tests:
+132 pass, nine unchanged skips, zero failures, 84.83s. New focused cases check
+native H/S-latch and 88 H/S, deliberately opposite pending preferences, and
+the actual DOWN/UP queue boundary on every guest frame. Starting from the
+passing fixture, changing only the interval getter back to constant two frames
+fails exactly `M132_PASTE_SPEED_POLICY` (CTest exit 8). Restoring the policy
+passes. Full tests are run only after removing the private driver and
+restoring the positive policy. The later refreshed artifact identity will be
+recorded separately. No desktop clipboard-menu/shortcut acceptance or G132
+pass is inferred from the controlled paste-queue test.
+
 ## User-reported BASIC stopwatch failure and clock-independent check
 
 The assistant's proposed `TIME$="00:00:00"` / nested FOR-loop stopwatch

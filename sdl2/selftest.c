@@ -8284,6 +8284,53 @@ static int test_romankana(void) {
 	return (SUCCESS);
 }
 
+static int test_keyboard_paste_speed_pacing(void) {
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_input = sysportva.a;
+	const UINT8 saved_preference = np2cfg.v1v2_standard;
+	const char *problem = NULL;
+	UINT mode;
+
+	/* The live/restored latch, not a pending menu choice, owns the interval. */
+	for (mode = 0; mode < 4 && problem == NULL; mode++) {
+		UINT expected = (mode == 3) ? 4 : 2;
+		UINT frame;
+		UINT32 now = SDL_GetTicks() + 1000;
+
+		memoryva_88_mode = (mode & 2) ? 1 : 0;
+		sysportva.a = (saved_input & ~0x20) | ((mode & 1) ? 0 : 0x20);
+		np2cfg.v1v2_standard = (mode & 1) ? 0 : 1;
+		if (kbdpaste_frames_per_event() != expected) {
+			problem = "M132_PASTE_SPEED_POLICY";
+			break;
+		}
+		if (!kbdpaste_start_text("a")) {
+			problem = "M132_PASTE_FIXTURE_START";
+			break;
+		}
+		/* One unshifted character has DOWN and UP phases. Host time alone
+		 * must not complete either phase before its guest-frame floor. */
+		for (frame = 1; frame <= expected * 2; frame++) {
+			kbdpaste_frame();
+			now += kbdpaste_interval_ms();
+			kbdpaste_tick(now, TRUE);
+			if (kbdpaste_active() != (frame < expected * 2)) {
+				problem = "M132_PASTE_PHASE_FRAME_FLOOR";
+				break;
+			}
+		}
+		kbdpaste_cancel();
+	}
+	kbdpaste_cancel();
+	memoryva_88_mode = saved_mode;
+	sysportva.a = saved_input;
+	np2cfg.v1v2_standard = saved_preference;
+	if (problem != NULL) {
+		return fail("keyboard-paste", problem);
+	}
+	return SUCCESS;
+}
+
 static int test_keyboard_mapping(void) {
 	char printable[96];
 	KBDPASTE_ACTION actions[96];
@@ -8294,7 +8341,7 @@ static int test_keyboard_mapping(void) {
 	if (kbdmap_selftest() != SUCCESS) {
 		return (fail("keyboard-map", "mapping lookup/persistence failed"));
 	}
-	if (test_romankana() != SUCCESS) {
+	if (test_romankana() != SUCCESS || test_keyboard_paste_speed_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
 	for (index = 0; index < 95; index++) {

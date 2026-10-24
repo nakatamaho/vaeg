@@ -27,6 +27,8 @@
 #include "kbdinject.h"
 #include "kbdmap.h"
 #include "kbdpaste.h"
+#include "machine/pccore.h"
+#include "memoryva.h"
 
 enum {
 	KBDPASTE_EVENT_INTERVAL_MS = 20,
@@ -34,8 +36,8 @@ enum {
 	 * Guest frames between two key events. The host time alone let a key's
 	 * release pass while the guest ran no frame (frames are run in bursts
 	 * to catch up), so the guest never saw it and a repeated character
-	 * ("100", "3000") lost its repeats. Two frames give the keyboard scan a
-	 * whole frame in each state.
+	 * ("100", "3000") lost its repeats. The base interval is for H/native;
+	 * S needs twice as many frames for the slower guest keyboard scan.
 	 */
 	KBDPASTE_EVENT_FRAMES = 2,
 	KBDPASTE_STATUS_SIZE = 160
@@ -411,7 +413,7 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 	if (paste.scripted) {
 		paused = FALSE;
 	}
-	if (!paused && (paste.frames < KBDPASTE_EVENT_FRAMES)) {
+	if (!paused && (paste.frames < kbdpaste_frames_per_event())) {
 		return;
 	}
 	if (paused) {
@@ -492,13 +494,13 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 
 /* Called after every guest frame. */
 void kbdpaste_frame(void) {
-	if ((paste.actions != NULL) && (paste.frames < KBDPASTE_EVENT_FRAMES)) {
+	if ((paste.actions != NULL) && (paste.frames < kbdpaste_frames_per_event())) {
 		paste.frames++;
 	}
 }
 
 UINT kbdpaste_frames_per_event(void) {
-	return KBDPASTE_EVENT_FRAMES;
+	return KBDPASTE_EVENT_FRAMES * ((memoryva_88_mode && pccore_88_standard()) ? 2 : 1);
 }
 
 void kbdpaste_cancel(void) {

@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M132 — S-mode paste dropped characters after the H/S timing correction
+
+- **Symptom/scope:** VA2/V1S paste turns CLEAR into LEAR, loses other characters
+  and can merge BASIC lines. VA2/V1H accepts the same benchmark.
+- **Demonstrated cause:** paste used the same two-guest-frame interval in H and
+  S even though the compatible BASIC scan now executes more slowly in S.
+  No Wait tests could mask the short interval because the separate 20 ms host
+  floor let many guest frames elapse. A controlled frame-driven clock with the
+  same full multiline queue reproduces the missing C, corrupt lines and LIST
+  under two-frame S pacing; four-frame S pacing removes them without changing
+  CPU, matrix or BASIC behavior. H remains unchanged in the same fixture.
+- **Correction:** select four frames in live/restored 88 S and two in H/native;
+  do not use a pending boot preference to slow native V3 paste. Retain the
+  separate host-time floor, release/cancel behavior and all CPU timing.
+- **Verification:** controlled full-queue VA2/V1H/S red/green captures and
+  production four-case live-input/queue-boundary tests. The original constant
+  interval fails exactly `M132_PASTE_SPEED_POLICY`; corrected focused tests
+  pass. After removing the private driver, full CTest lists 141 tests,
+  132 pass, nine unchanged skips and zero failures. Extremely slow custom
+  clocks and actual desktop menu/shortcut checks remain outside this proof.
+- **Task/evidence:** [M132 paste regression](../agents/tasks/M132_hs_clock_status.md#s-mode-paste-regression-follow-up).
+- **Fix commit:** recorded by the subsequent artifact/evidence checkpoint.
+
 ### M132 — CP/M media extraction rejected case-insensitive lookup aliases
 
 - **Symptom/scope:** clean SASI utility-media generation aborted with
