@@ -122,6 +122,27 @@ mismatch fails.
 A failure blocks the gate. Fix it in the milestone (and record it in the
 bug-fix ledger), as in M110 when the utility FDD had stopped building.
 
+## Local QA before human review
+
+Maintainer direction during M132: automate reproducible gate checks as local QA
+instead of repeatedly asking the human to execute them. Private-input tests run
+locally, with explicit input bindings and out-of-tree generated evidence; they
+must not upload private assets, identities or captures to hosted CI. Reusable
+runners and content validators belong in the repository, without private paths.
+
+A zero worker exit, a saved screenshot or a plausible nominal clock is not a
+semantic PASS. Check guest-visible results, expected state transitions, persistence
+and appropriate image/text contracts. Use stable failure codes and passing-fixture,
+single-mutation negatives. Distinguish PASS, FAIL and BLOCKED/NOT_RUN; dummy video
+must not stand in for actual presenter, window or fullscreen inspection. Preserve
+and reuse unchanged expensive evidence under the identity rules below.
+
+Prioritize machine/mode/reset, H/S execution, paste, cassette and actual state-file
+round trips. Move human work toward genuine visual/interactive judgment and final
+acceptance. Report exactly which checklist items an automated case covers; adding
+a runner does not mark unimplemented cases passed, retroactively upgrade prior
+manual checks, or authorize a milestone merge without its required gate acceptance.
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI

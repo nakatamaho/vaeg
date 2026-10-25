@@ -3887,6 +3887,25 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M132 — T88 LOAD waits while the raw cassette control loads
+
+- **Observed scope:** the maintainer reports that a supplied T88 cannot be
+  loaded while raw CMT works. Local VA2/V1H ROM BASIC reproduces this with
+  fast load both ON and OFF: the tagged-input case remains after LOAD without
+  Found/completion at frame 10000; the supplied raw control reaches Found/Ok.
+  Inputs have different extracted byte populations, so this is not yet a
+  same-payload encoding comparison or a completed-gameplay assertion.
+- **Cause/correction:** unresolved. The preserved 338174ee worker also fails
+  the fast T88 case, excluding the later paste correction as its introduction
+  in this fixture. No pre-M132 runtime comparison or demonstrated parser,
+  carrier/leader, interrupt or timing root cause exists yet. No fix is claimed.
+- **Verification:** the reusable local QA runner returns exactly
+  `BASIC_QA_TAPE_HEADER_NOT_FOUND` for T88 and PASS for the raw control even
+  though both workers exit 0. Content checks require Found and the following
+  Ok after LOAD, not merely a screenshot or a prior prompt. Initial unsupported
+  LOAD-with-R syntax errors are retained as setup failures, not tape failures.
+- **Task/evidence:** [M132 cassette/local QA reproduction](../agents/tasks/M132_hs_clock_status.md#t88-versus-raw-cassette-reproduction).
+
 ### M132 — original PC-8801 starts after a long black screen
 
 - **Observed scope:** the maintainer's original PC-8801/V1 eventually boots,

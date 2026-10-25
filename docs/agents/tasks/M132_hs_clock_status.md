@@ -530,6 +530,131 @@ Issues #58/#59 are not closed on this evidence alone.
 - Retain the existing 26-file full-format baseline limitation. No main merge,
   cleanup, next milestone, G132 pass or final hosted CI success is claimed.
 
+## Local QA migration directed by the maintainer
+
+The maintainer requests automating reproducible items previously presented as
+human-gate work, improving QA precision and reducing manual burden. This is
+recorded in AGENTS.md as a continuing local-QA rule, not blanket G132 passage.
+The remaining checklist must distinguish implemented semantic automation,
+unimplemented automation, display-environment blockers and genuinely human
+judgment. Preserve all previous scoped maintainer confirmations.
+
+First reusable entry point: `tools/qa/compatible_basic_qa.py`. It can run a
+private-input cassette LOAD or the existing eight-VRTC-period H/S probe using
+an explicit worker/embedded-commit binding, initialized V1 backup seed, read-only
+ROM directory and copied tape input. It writes configuration, input script,
+commands, worker/input/ROM identities, worker status, content error code and
+output digests only to a new out-of-tree directory. No media/ROM path is embedded
+in tracked source. Content validation is independently callable on existing
+TVRAM dumps, allowing reuse of completed runs. It does not validate protected
+Git history/topology, claim GUI acceptance or bypass production behavior.
+
+```sh
+python3 tools/qa/compatible_basic_qa.py --selftest
+python3 tools/qa/compatible_basic_qa.py --scenario tape-load \
+  --worker "$WORKER" --evaluated-commit "$WORKER_COMMIT" --roms "$ROM_INPUTS" \
+  --backup-seed "$V1_BACKUP_SEED" --tape "$TAPE_INPUT" --fast \
+  --frames 10000 --output-dir "$NEW_PRIVATE_OUTPUT"
+python3 tools/qa/compatible_basic_qa.py --check-dump "$EXISTING_TAPE_DUMP"
+python3 tools/qa/compatible_basic_qa.py --scenario hs-clock --standard \
+  --worker "$WORKER" --evaluated-commit "$WORKER_COMMIT" --roms "$ROM_INPUTS" \
+  --backup-seed "$V1_BACKUP_SEED" --output-dir "$NEW_PRIVATE_S_OUTPUT"
+python3 tools/qa/compatible_basic_qa.py --compare-hs "$H_DUMP" "$S_DUMP"
+```
+
+Selftest passes valid fixtures and nine exact-code controlled negatives. A prior
+`Ok`, worker exit 0 or a saved frame cannot pass cassette LOAD: the checker
+requires a subsequent Found header and completion prompt after the actual LOAD
+command, and rejects guest errors. H/S checks require matching IN6Eh, a valid
+score/return prompt and S/H between 0.45 and 0.60. Existing production dumps
+pass H=29802/S=15303, ratio 0.513489. The cassette integration below deliberately
+fails on guest content despite worker exit 0, exercising composed runner/content
+validation. This is a functional guest-result contract, not real-hardware timing
+calibration or a desktop paste-menu test.
+
+Fresh reusable-runner H and S runs also pass at 7fe3bebf and their dumped
+results pass the cross-run ratio contract. This tests the actual run path as
+well as reuse of earlier dumps. The raw/T88 pair exercises the composed worker
+execution plus semantic checker; the pure negative tests do not depend on Git
+history or private corpora.
+
+### G132 local QA case definitions and ownership
+
+The maintainer repeats the request to define as much of this gate as possible
+as local QA (the contextual `G123` means G132). The checklist below replaces
+repeated manual execution requests with machine-owned cases. It is a coverage
+plan with explicit current status, not a declaration that every runner exists.
+
+Status meanings: PASS = the stated machine contract actually ran successfully;
+FAIL = it ran and violated that contract; PARTIAL = only the specified layer or
+subset ran; NOT_IMPLEMENTED = the needed integration runner is not yet present;
+BLOCKED = execution requires an unavailable display/input environment. Prior
+human acceptances remain valid records but are not relabeled automated PASS.
+
+| Case ID | Inputs/actions and automated acceptance contract | Current machine status |
+|---|---|---|
+| `g132-clock-v1` | Initialized VA2/V1 seed; run H and S with the same worker/probe. Require IN6Eh=7Fh/FFh, valid returned score and S/H 0.45–0.60. Keep actual values and identities. | **PASS**: reusable runner H/S and comparison. No host stopwatch or TIME$. |
+| `g132-mode-matrix` | VA/VA2 × V1/V2 × H/S. Query IN6Eh and IN31h in actual BASIC; require 7Fh/FFh and F9h/79h respectively, completed prompt and runtime mode agreement. | **PARTIAL**: eight inspected earlier guest queries and ROMless matrices exist; reusable eight-case generation/content classifier still **NOT_IMPLEMENTED**. |
+| `g132-reset-transitions` | H→S→H, V1↔V2 and model changes through the real reset path. After each transition check identity ports, mode/status, clock and usable input. Keep the same custom multiplier/percent when not explicitly changed. | **PARTIAL**: reset/latch unit tests and scoped human reset acceptance; end-to-end transition runner **NOT_IMPLEMENTED**. |
+| `g132-m131-probe` | Source-build the 604-byte probe; private BASIC boots across both VA models and four modes; compare stored CPU/display-bank and restore results with the approved M131 matrix. A build-only pass is insufficient. | **PARTIAL**: source/ROMless tests and prior M131 evidence retained; refreshed machine-run matrix **NOT_IMPLEMENTED**. |
+| `g132-m131-guest-start` | Copied neutral private game fixture; reproduce the agreed Start/Enter sequence. Check the gameplay region with approved visual markers/reference tolerance, not just process exit or a nonblack image. | **NOT_IMPLEMENTED** as a reusable local checker. Existing private evidence is not a newly executed candidate check. |
+| `g132-paste` | Mixed case, repeated digits, punctuation and full multiline BASIC, including CLEAR. Compare actual stored/listed text or program bytes; then run it. Enforce normal-rate guest-frame floors so No Wait cannot hide dropped input. Test cancellation/focus release separately. | **PARTIAL**: production phase-boundary selftests, controlled private-driver red/green and human V1S acceptance. Durable normal-rate full-queue integration driver **NOT_IMPLEMENTED**. |
+| `g132-config` | Key-less fresh config defaults MachineStatus ON; all four information/panel combinations, field preferences survive save/reload without rewriting one another. | **PASS** for existing production configuration selftests; desktop menu/restart acceptance is independently maintainer-confirmed. |
+| `g132-status-content` | Shared model enumerates formal names, live N/V1/V2/V3, exact clock/tooltips, short rounding, N-family lamp suppression, non-VA SGP omission and ambiguous N subtypes. Reject boot preference/banner as runtime proof. | **PASS** for focused model/format/lamp tests; scoped runtime/UI checks already accepted. |
+| `g132-speed-controls` | Apply every retained preset and a nonpreset multiplier/percent; cross reset/restart/state load and inspect effective clock/settings. Test custom values, not only nominal labels. | **PARTIAL**: arithmetic/config unit coverage; actual GUI preset interaction and end-to-end persistence **NOT_IMPLEMENTED**. |
+| `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL**: pure geometry tests pass. Real-display capture/validation **BLOCKED** by Cocoa having no display; dummy output cannot pass it. |
+| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL**: formatter/FPS/screenshot unit coverage and some human acceptance. Remaining final-client checks **BLOCKED**; no real presenter test harness available here. |
+| `g132-state-hs` | Save actual H state file; change effective setting to S; load and require restored H identity/clock/status. Repeat S→H→saved S. Mutate a guest variable between save/load to prove the file was really restored. | **NOT_IMPLEMENTED**. In-memory bind tests are not a serialized-file round trip. |
+| `g132-state-input` | After each state-file restore, type a marker and paste mixed-case/repeated-key text; compare guest result and released modifier/key matrix. Require correct lamps/status as well as input. | **NOT_IMPLEMENTED**; depends on the actual file-round-trip runner, not screenshot existence. |
+| `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
+| `g132-cassette-tagged` | Private tagged role, same boot/load procedure and fast OFF/ON; same semantic completion contract as raw. Do not silently convert it to raw for this check. | **FAIL**: `BASIC_QA_TAPE_HEADER_NOT_FOUND`; reproduced on 7fe3bebf and fast mode on preserved 338174ee. Root cause/introduction unresolved. |
+| `g132-standard-regression` | Clean demo/media source closure, utility/standalone SASI OS operations, all-demo drawing and BASIC Mandelbrot under the recorded corpus/worker/contract. Reuse only when behavior-relevant inputs are unchanged. | **PARTIAL**: completed source closure and earlier inspected runtime evidence retained; reusable semantic batch integration remains incomplete. Human standard V3/demo/OS operations accepted. |
+| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **NOT_RUN** pending local readiness. |
+
+Machine-owned next priorities are the remaining mode/reset matrix, durable paste
+integration and actual state-file round trips, plus diagnosis of the failing
+T88 case. Define passing baseline and single-mutation negative contracts before
+accepting new validators; use isolated temporary repositories only if future
+history/topology checks are needed. Generated results must be valid out of tree
+before any evidence-placement checks run.
+
+Only the residual real-display visual quality/OS integration and final gate
+judgment are human-owned. Where a real-display runner is unavailable, report
+BLOCKED and request a supported display environment or a tightly scoped visual
+review, rather than reassigning the entire machine case to the maintainer. New
+FAIL/BLOCKED cases are not silently waived by previous partial OK messages.
+G132 remains unpassed; no merge/cleanup or next milestone is authorized.
+
+## T88 versus raw cassette reproduction
+
+The maintainer supplies a T88 input and reports raw CMT loads while T88 does
+not. Original inputs are copied read-only into task scratch; tracked records use
+neutral roles tape-tagged-01/tape-raw-01. At production 7fe3bebf, VA2/V1H ROM
+BASIC Version 1.9, standard multiplier/CPU 100%, initialized backup seed, no disk
+media, the T88 remains after `LOAD "CAS:"` without Found or completion at frame
+10000. Raw CMT reaches Found and a following Ok. Both fast-load ON and OFF show
+that difference. This is successful raw BASIC-loader input, not a claim that
+all subsequent machine-code parts/gameplay are tested. These supplied T88 and
+raw inputs have different extracted byte populations; they are not described
+as byte-identical encodings of the same tape.
+
+The first private runner tried an unsupported LOAD-with-R form and obtained
+Syntax error for both inputs. Those setup trials are cancelled/retained and
+are not cassette failures. The corrected LOAD-only trials exit 0, but the new
+content validator returns `BASIC_QA_TAPE_HEADER_NOT_FOUND` for each T88 case
+(exit 1) and PASS for both raw cases (exit 0). Fresh runs through the reusable
+entry point confirm fast raw PASS and fast T88 FAIL with the same exact code,
+both with worker exit 0. The preserved pre-paste-fix 338174ee worker also fails
+the fast T88 case with that code. Therefore the paste correction is not the
+origin of this local failure; a pre-M132 runtime baseline has not yet been
+compared and the original introduction is unresolved. Raw/T88 timing-carrier
+and parser root cause remains unproven; no production fix is claimed.
+
+Exact input identities, trace/capture originals and commands/reports remain
+private. Record runner contract and output digests rather than asking the human
+to repeatedly reproduce this same tape failure. See the
+[open ledger](../../modernization/bug-fixes.md#m132--t88-load-waits-while-the-raw-cassette-control-loads).
+
 ## Original PC-8801 long black-screen boot investigation
 
 During G132, the maintainer reports that the original PC-8801 in V1 appears
