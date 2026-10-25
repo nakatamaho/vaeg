@@ -7,6 +7,17 @@ or files or directories outside that tree. Keep all file access within
 `~/work` and its descendants, including access through symlinks and tools.
 This restriction takes precedence over any paths or workflows below.
 
+Locations inside the boundary used by the workflows below:
+
+- task scratch: `~/work/pc88va/tmp/m<id>/`; set
+  `TMPDIR=~/work/pc88va/tmp` for tools that create temporary files;
+- the shared download cache: `~/work/pc88va/cache/vaeg/`, selected for the
+  repository's tools with `VAEG_CACHE_DIR=~/work/pc88va/cache/vaeg` (they
+  fall back to `~/.cache/vaeg` without it, which is outside the boundary);
+- private inputs (system disks, ROMs, extra ROMs) are read from
+  `~/work/pc88va/pc88va-private-docs/` and copied into task scratch when a
+  tool needs a writable or renamed copy.
+
 PC-88VA emulator derived from Neko Project II. Upstream (project-vaeg)
 is abandoned; this fork is the living tree.
 
@@ -76,12 +87,13 @@ for these categories; no separate list is needed:
   (`../vaeg-mingw-<short-sha>/`);
 - its hardware handoff and private scratch directories
   (`~/work/pc88va/m<id>-hw/`, `~/work/pc88va/m<id>-private/`) and
-  `/tmp/m<id>/`, after moving anything the maintainer asked to keep.
+  `~/work/pc88va/tmp/m<id>/`, after moving anything the maintainer asked
+  to keep.
 
 Never remove without explicit approval: `pc88va-private-docs/`, another
-milestone's worktree or branch, the shared caches under `~/.cache/vaeg/`
-(they are reused), the remote branch, and files the maintainer supplied
-(photos, screenshots, media, archives). Report what was removed and what was
+milestone's worktree or branch, the shared caches under
+`~/work/pc88va/cache/vaeg/` (they are reused), the remote branch, and
+files the maintainer supplied (photos, screenshots, media, archives). Report what was removed and what was
 kept.
 
 ## Demos stay buildable
@@ -109,9 +121,10 @@ input, like the PC-Engine system disk); its profile tables are tracked under
 Every milestone gate includes this machine check, run locally from a
 clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
 are private inputs, so hosted CI cannot run it). Downloads come from the
-shared cache `~/.cache/vaeg/auto-generated-pc88va-utility-media` and
-`~/.cache/vaeg/msdos4-va.2`; a cache miss may download, a checksum
-mismatch fails.
+shared cache `~/work/pc88va/cache/vaeg/auto-generated-pc88va-utility-media`
+and `~/work/pc88va/cache/vaeg/msdos4-va.2` (export
+`VAEG_CACHE_DIR=~/work/pc88va/cache/vaeg`); a cache miss may download, a
+checksum mismatch fails.
 
 - Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
   FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
@@ -226,7 +239,8 @@ Release notes may summarize the ledger but do not replace it.
   generated media. This includes audit or disassembly scratch
   (`*-audit-*`) and milestone work trees (`m<id>-*`), which have been
   found there and removed. Put task work under a task-specific directory
-  elsewhere (for example `~/work/pc88va/m<id>-private/` or `/tmp/m<id>/`).
+  elsewhere (for example `~/work/pc88va/m<id>-private/` or
+  `~/work/pc88va/tmp/m<id>/`).
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules
@@ -436,6 +450,12 @@ destination is:
   `build/mingw-cross/sdl2/vaeg.exe` for the Linux cross-build.
 - Verify each copied executable against its build artifact with `cmp` or
   SHA-256.
+
+The destination is outside `~/work`, so under the filesystem access
+boundary agents do not write there: put the two executables in
+`~/work/pc88va/release-handoff/` as `vaeg` and `vaeg.exe`, verify them as
+above, and give the maintainer their absolute paths and SHA-256 values for
+the copy.
 
 This is a maintainer-local directory outside Git. Unless explicitly requested,
 replace only `vaeg` and `vaeg.exe`; do not alter or inventory its ROMs, disk
