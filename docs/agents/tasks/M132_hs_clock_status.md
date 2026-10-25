@@ -81,6 +81,70 @@ nominal clock labels, or acceptable demo speed. Issues #58/#59 retain any
 unverified hardware/integration work. No next milestone, merge or cleanup until
 explicit maintainer gate acceptance.
 
+## G132 acceptance definition — local QA first
+
+This is the current gate definition requested by the maintainer. Contextual
+requests saying `G123` refer here to G132; they do not reopen or redefine the
+historical M123/8087 milestone. This definition refines how the authorized M132
+scope is verified, not its CPU/hardware contract or authorization to begin a
+new milestone.
+
+### Scope and pass conditions
+
+G132 accepts the PR #55-derived H/S accounting and identification, shared
+machine/runtime-mode status, independent information/panel controls and related
+regressions on the accepted M131 baseline. PR #56 remains excluded.
+
+1. **Production checks:** the applicable native build, complete CTest, focused
+   red/green checks, repository invariants and changed-line formatting pass.
+   Record skips and pre-existing global format debt explicitly. Run final public
+   review CI only after local readiness; no private assets/results are uploaded.
+2. **Guest/local QA:** cover H/S execution and identity, mode/reset transitions,
+   M131 probe/game regressions, paste integrity, configuration persistence,
+   status contents/custom clocks and real saved-state-file restoration using
+   the case contracts under "G132 local QA case definitions and ownership".
+   Check semantic guest/state outcomes, not worker exit or screenshot existence.
+   Existing unit/manual evidence remains identified as such; it cannot be
+   relabeled a completed end-to-end automated case. Implement automation where
+   feasible, and state precisely what remains outside it.
+3. **Standard regression/handoff:** retain clean-source demo/media build and
+   payload closure, applicable OS/demo runtime evidence, and a clean static
+   MinGW handoff of the evaluated production code. Bind each result to source,
+   worker digest, corpus/input identities, comparison/target contract, command,
+   status and output digests. Reuse unchanged expensive results only when the
+   relevant identities are proven unchanged.
+4. **Real-display boundary:** actual window/fullscreen/presenter composition
+   must be checked on a real display. Automate captures and geometry/content
+   checks where supported; reserve residual visual quality/OS interaction for
+   a small human review. Dummy/software-only guest output is not proof of a
+   real client/footer/tooltip. Unavailable display execution is BLOCKED, not PASS.
+5. **Known defects:** retain TIME$ (#60), original-PC-8801 startup latency (#61)
+   and the reproduced T88 failure as explicit open results. An issue link alone
+   does not waive a failing gate case. A demonstrated fix/recheck or explicit
+   maintainer-approved scope exclusion with its reason is required before
+   calling an affected case satisfied. Do not infer hardware calibration or
+   exact N80/N80SR runtime identification from emulator arithmetic/status tests.
+6. **Final human acceptance:** present a short summary of automated coverage,
+   remaining visual review, artifact identity and explicitly approved deferrals.
+   G132 passes only on explicit maintainer acceptance of the gate as a whole.
+   Individual OK messages accept only the stated items. Only then may the
+   required gate record/merge/roadmap workflow and approved cleanup proceed.
+
+### Result vocabulary and current disposition
+
+PASS means the stated acceptance contract actually passed; FAIL means it ran
+and violated the contract. NOT_IMPLEMENTED/NOT_RUN and BLOCKED are not passing
+results. PARTIAL names its exact completed layer/subset and missing coverage.
+A human-approved case is recorded separately from its automation status.
+
+Current G132 is **NOT PASSED**: reusable H/S and raw-loader QA pass, T88 QA
+fails, several integration runners (including actual state-file transitions)
+remain unimplemented, final-client checks need a real display, and final
+hosted review CI has not run. Prior scoped human OK results remain accepted;
+the maintainer is not asked to repeat them merely because automation is added.
+No production fix, issue waiver, merge, cleanup or next milestone is implied by
+this definition.
+
 ## Work log
 
 - Design/task created before production changes. Private work uses
