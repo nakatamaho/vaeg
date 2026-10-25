@@ -6420,10 +6420,12 @@ static int test_n80_rom_files(void) {
 	char dir[MAX_PATH];
 	char saved_biospath[MAX_PATH];
 	N80ROMENTRY entries[ROMVA_N80_NAMES];
+	const UINT8 saved_nmode = np2cfg.v1v2_nmode_enable;
 	const char *problem;
 	UINT i;
 
 	problem = NULL;
+	np2cfg.v1v2_nmode_enable = 1; /* M137 */
 	if (strcmp(n80rom_identify_sha1("063609dd518c124a4fc9ba35d1bae35771666a34"), "N-BASIC 1.2") ||
 	    strcmp(n80rom_identify_sha1("06dae1db384aa29d81c5b6ed587877e7128fcb35"), "N-BASIC 1.8") ||
 	    strcmp(n80rom_identify_sha1("0000000000000000000000000000000000000000"), "unknown dump")) {
@@ -6456,6 +6458,16 @@ static int test_n80_rom_files(void) {
 			problem = "menu choice of the N-BASIC ROM";
 		}
 	}
+	/* M137: with N mode off in 詳細設定 no N-BASIC ROM is loaded, so RMODE
+	 * cannot show it and an N boot is not available. */
+	if (problem == NULL) {
+		np2cfg.v1v2_nmode_enable = 0;
+		romva_initialize();
+		if (memoryva_n80_exist || (memoryva_n80_file[0] != '\0')) {
+			problem = "N-BASIC ROM loaded with N mode off";
+		}
+		np2cfg.v1v2_nmode_enable = 1;
+	}
 	if (problem == NULL) {
 		n80rom_scan(entries, ROMVA_N80_NAMES);
 		if (entries[0].present || !entries[1].present || strcmp(entries[1].label, "unknown dump") ||
@@ -6482,6 +6494,7 @@ static int test_n80_rom_files(void) {
 	rmdir(dir);
 #endif
 	np2cfg.v1v2_n80rom[0] = '\0';
+	np2cfg.v1v2_nmode_enable = saved_nmode;
 	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
 	romva_initialize();
 	if (problem != NULL) {

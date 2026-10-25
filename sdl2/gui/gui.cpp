@@ -317,6 +317,7 @@ struct GuiState {
 	bool pending_ndp8087_enabled = false;
 	int pending_ndp8087_clock_hz = static_cast<int>(UPD8087_DEFAULT_CLOCK_HZ);
 	bool pending_ndp8087_host_fpu = true;
+	bool pending_nmode_enable = false; /* M137 */
 	int pending_pacing_ms = 0;
 	bool pending_hostfat_enabled = false;
 	char pending_hostfat_dir[MAX_PATH] = {};
@@ -1257,6 +1258,7 @@ static void open_configure_dialog(void) {
 	g_gui.pending_ndp8087_enabled = np2cfg.upd8087_enable != 0;
 	g_gui.pending_ndp8087_clock_hz = static_cast<int>(np2cfg.upd8087_clock_hz);
 	g_gui.pending_ndp8087_host_fpu = np2cfg.upd8087_host_fpu != 0;
+	g_gui.pending_nmode_enable = np2cfg.v1v2_nmode_enable != 0;
 	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
 	g_gui.pending_hostfat_enabled = np2oscfg.hostfat_enabled != 0;
 	milstr_ncpy(g_gui.pending_hostfat_dir, np2oscfg.hostfat_dir, sizeof(g_gui.pending_hostfat_dir));
@@ -1385,6 +1387,19 @@ static void apply_configure_dialog(void) {
 			reset_done = true;
 		}
 	}
+	// M137: N mode for VA/VA2 boots; the N-BASIC ROM is loaded at reset.
+	if ((np2cfg.v1v2_nmode_enable != 0) != g_gui.pending_nmode_enable) {
+		np2cfg.v1v2_nmode_enable = g_gui.pending_nmode_enable ? 1 : 0;
+		if (!np2cfg.v1v2_nmode_enable && (np2cfg.boot_mode == BOOTMODE_N) &&
+		    (np2cfg.extra_machine[0] == '\0')) {
+			np2cfg.boot_mode = BOOTMODE_AUTO;
+		}
+		sysmng_update(SYS_UPDATECFG);
+		if (!reset_done) {
+			reset_guest();
+			reset_done = true;
+		}
+	}
 	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
 		char error[256]{};
 		if (g_gui.pending_hostfat_enabled) {
@@ -1503,6 +1518,20 @@ static void draw_configure_dialog(void) {
 				ImGui::TextDisabled("Requested values are active.");
 			}
 			ImGui::TextDisabled("One 8087 maximum; FPO2 is never connected.");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::BeginChild("nmode-config", ImVec2(0.0f, 0.0f), section,
+		                      ImGuiWindowFlags_NoScrollbar)) {
+			ImGui::TextUnformatted("N モード (PC-88VA / VA2)");
+			ImGui::Separator();
+			ImGui::Checkbox("N モード（N-BASIC）を使う", &g_gui.pending_nmode_enable);
+			ImGui::TextDisabled("vaeg の拡張です。実機の VA に N-BASIC はありません。");
+			ImGui::TextDisabled("ROM ディレクトリの n80.rom などが必要です。off のときは");
+			ImGui::TextDisabled("起動メニューの N を選べず、N-BASIC は表に出ません。");
+			if ((np2cfg.v1v2_nmode_enable != 0) != g_gui.pending_nmode_enable) {
+				ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.2f, 1.0f), "OK でリセットして反映します。");
+			}
 		}
 		ImGui::EndChild();
 
@@ -4134,6 +4163,14 @@ static void draw_extra_rom_menu(void) {
 	ImGui::EndMenu();
 }
 
+/* M137: the hint on a greyed N item (VA/VA2 boots). */
+static void nmode_unavailable_tooltip(void) {
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		ImGui::SetTooltip("N モード: feature not available\n"
+		                  "模擬 > 詳細設定… の「N モード」で on/off できます。");
+	}
+}
+
 static void draw_boot_menu(void) {
 	static const struct {
 		const char *label;
@@ -4176,17 +4213,28 @@ static void draw_boot_menu(void) {
 				select_boot(machine.model, BOOTMODE_V1V2, mode.v1, mode.standard, nullptr);
 			}
 		}
-		// vaeg extension: N-BASIC from a user-supplied ROM.
+		// vaeg extension: N-BASIC from a user-supplied ROM. M137: only with
+		// N mode enabled in 詳細設定; otherwise shown greyed with a hint.
+		const bool nmode = np2cfg.v1v2_nmode_enable != 0;
+		bool any_n80 = false;
 		for (const auto &entry : g_n80_entries) {
 			if (!entry.present) {
 				continue;
 			}
+			any_n80 = true;
 			const std::string label = std::string("N (") + entry.label + ")##" + entry.name;
 			const bool loaded = current && (boot_mode == BOOTMODE_N) && memoryva_n80_exist &&
 			                    (strcmp(memoryva_n80_file, entry.name) == 0);
-			if (ImGui::MenuItem(label.c_str(), nullptr, loaded)) {
+			if (ImGui::MenuItem(label.c_str(), nullptr, loaded, nmode)) {
 				select_boot(machine.model, BOOTMODE_N, v1, standard, entry.name);
 			}
+			if (!nmode) {
+				nmode_unavailable_tooltip();
+			}
+		}
+		if (!nmode && !any_n80) {
+			ImGui::MenuItem("N", nullptr, false, false);
+			nmode_unavailable_tooltip();
 		}
 		ImGui::EndMenu();
 	}
@@ -4309,10 +4357,16 @@ static void draw_recent_boots_menu(void) {
 		const std::string label = history_boot_label(boot) +
 		                          (plan.startable && !plan.missing.empty() ? " (一部なし)" : "") +
 		                          "##boot" + std::to_string(index);
-		if (ImGui::MenuItem(label.c_str(), nullptr, false, plan.startable)) {
+		// M137: a VA N boot needs N mode enabled in 詳細設定.
+		const bool nmode_blocked =
+		    (boot.mode == BOOTMODE_N) && boot.extra.empty() && (np2cfg.v1v2_nmode_enable == 0);
+		if (ImGui::MenuItem(label.c_str(), nullptr, false, plan.startable && !nmode_blocked)) {
 			boot_from_history(boot);
 		}
-		if (!plan.missing.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+		if (nmode_blocked) {
+			nmode_unavailable_tooltip();
+		} else if (!plan.missing.empty() &&
+		           ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 			ImGui::SetTooltip("%s\n%s",
 			                  plan.startable ? "以下を除いて起動します:" : "見つからないファイル:",
 			                  plan.missing.c_str());
