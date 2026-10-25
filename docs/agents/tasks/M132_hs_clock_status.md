@@ -163,13 +163,12 @@ not explicit draft-reference approval or whole G132 passage.
   「基準画像OK」. No repeat reference review is requested unless an intentional
   visual/target change requires a new baseline. Repeated launching, resizing,
   toggling, capture and comparison are machine work.
-- Optionally perform a short final native-Windows usability/quality smoke on the
-  recording-enabled review build: start recording with compression selected,
-  stop, wait for completion, and judge playback/seek/audio in the resulting MP4.
-  Native Windows runtime is unavailable on this cross-build host. This narrowly
-  scoped review does not replace machine export/decode validation where a
-  supported Windows automation environment is available, nor does it assert all
-  recording/presenter profiles passed.
+- **Completed:** the maintainer explicitly confirms download/startup and
+  recording → post-stop MP4 compression → MP4 playback success on the supplied
+  recording-enabled Windows build. Do not request the same smoke again. This is
+  maintainer-reported Windows execution, not automated execution by this Mac
+  cross-build host; seek, audio synchronization, exact frame parity and every
+  recording/presenter profile were not separately reported.
 - Decide explicit deferrals for known defects if requesting gate closure before
   their correction; issue creation/interim OK alone is not a waiver.
 - Give final G132 acceptance only after the machine-owned prerequisites are
@@ -847,6 +846,29 @@ Compile/link/import/static-encoder validation is not native Windows execution,
 video export/playback validation or whole G132 acceptance. Those are not claimed
 by this host. No new emulator code is changed for this handoff; the subsequent
 documentation record does not require rebuilding unchanged application behavior.
+
+### Maintainer Windows recording/compression acceptance
+
+After clarification, the maintainer explicitly confirms both:
+
+- 「録画 → 停止後のMP4圧縮 → MP4の再生まで成功」 → yes;
+- 「ダウンロード・起動」 → OK.
+
+Record this as successful native-Windows use of the supplied recording-enabled
+`94c2ff326fdc7c6de51ea0c087d35500c5d6a05b` handoff, covering download, startup,
+recording, post-stop MP4 generation and playback. It is maintainer-reported
+runtime acceptance of that workflow, not merely compile/import validation.
+Do not infer seek/audio-sync/quality measurements, exact encoded parity, every
+presenter/source profile or a machine-run Windows corpus from the statement.
+The same smoke need not be repeated for this unchanged binary.
+
+The subsequent request 「G132お願いします」 is a gate-status/review request,
+not an explicit statement that G132 passed or that its unresolved machine cases
+are waived. Approved reference images and this Windows workflow are complete
+human checks. Actual state-file transitions, remaining mode/paste/M131 and
+UI-control regression automation, T88 diagnosis/defect disposition and final
+CI are still machine-owned prerequisites. No repeated human regression list,
+whole-gate PASS, merge, cleanup or next milestone is inferred.
 
 ### Machine-owned X11 capture and draft reference execution
 
