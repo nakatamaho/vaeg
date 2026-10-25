@@ -122,8 +122,11 @@ Every milestone gate includes this machine check, run locally from a
 clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
 are private inputs, so hosted CI cannot run it). Downloads come from the
 shared cache `~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache/`
-(the utility-media archives at its top, `msdos4-va.2/`); a cache miss
-may download, a checksum mismatch fails.
+(the utility-media archives at its top, the CP/M archives in `cpm/`, and
+`msdos4-va.2/dl/msdos4-pc88va-2hd.d88`, which
+`build-all-demos-msdos4-disk.py` downloads from the FreeDOS-88VA
+`msdos4-va.2` release when missing); a cache miss may download, a checksum
+mismatch fails.
 
 - Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
   FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
