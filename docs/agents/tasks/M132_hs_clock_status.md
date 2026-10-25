@@ -573,7 +573,9 @@ real original hardware with no external unit waits this long, or the open-bus/
 absence model needs correction, remains unresolved. No production change,
 fast-boot workaround, FDD ROM redistribution, hardware timing claim or G132
 pass follows from this investigation. See the
-[open ledger](../../modernization/bug-fixes.md#m132--original-pc-8801-starts-after-a-long-black-screen).
+[open ledger](../../modernization/bug-fixes.md#m132--original-pc-8801-starts-after-a-long-black-screen)
+and maintainer-requested [issue #61](https://github.com/nakatamaho/vaeg/issues/61).
+Issue creation does not resolve the delay or pass G132.
 
 ## S-mode paste regression follow-up
 

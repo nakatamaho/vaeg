@@ -3904,6 +3904,9 @@ separate parity correction or move it to Open Defects.
   fixture, but whether its duration/absence status matches real original
   hardware is unresolved. No production correction or recommended ROM patch
   exists; do not label the delay hardware-correct or bypass the boot code.
+- **Tracking:** [issue #61](https://github.com/nakatamaho/vaeg/issues/61), created
+  at the maintainer's request; includes the controlled comparison and remaining
+  hardware/fixture uncertainty. No fixing commit exists.
 - **Task/evidence:** [M132 original-model boot investigation](../agents/tasks/M132_hs_clock_status.md#original-pc-8801-long-black-screen-boot-investigation).
 
 ### M132 — BASIC TIME$ stopwatch remains at zero
