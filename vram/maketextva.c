@@ -827,21 +827,20 @@ void maketextva_raster(void) {
 
 	/*
 	 * 148h bit 7 hides the text; the ROM sets it for OUT 53h bit 0 in V1/V2
-	 * mode. M134, with port 31h selecting monochrome graphics (bit 4 clear;
-	 * multiplane 1 bit/pixel, G4, when shown) on PC-88VA and PC-88VA2
-	 * hardware (V2, N88-BASIC, SCREEN 1 and OUT &H53,1): the characters
-	 * disappear, cells keep their background (the reversed function-key
-	 * labels become blank white blocks, also while the PC-8801mkIISR
-	 * demonstration starts) and the graphics keep the cell colours. A PC-8801 hides the characters and
-	 * their backgrounds but its monochrome graphics keep the attribute
-	 * colours (PR #56, shitamo; the PC-8801mkIIFR demonstration's fishing
-	 * scene as M88 shows it), which the PC-8801 and PC-8001 models from
-	 * extra/ follow. With colour graphics, and in V3 mode, the whole text is
-	 * hidden as before: the PC-8801mkIISR demonstration hides the text in
-	 * colour mode over its title, where the VA's blank keys disappear.
+	 * mode. M134, PC-88VA and PC-88VA2 hardware (V2 N88-BASIC, SCREEN 1 then
+	 * OUT &H53,1): the characters disappear, cells keep their background
+	 * (the reversed function-key labels become blank white blocks, also
+	 * while the PC-8801mkIISR demonstration starts) and the multiplane
+	 * 1 bit/pixel graphics (G4) keep the cell colours. The maintainer states
+	 * that the blocks belong to every V1/V2 boot of a VA or VA2, whatever
+	 * the graphics mode, and to no other machine. A PC-8801 hides the
+	 * characters and their backgrounds but its monochrome graphics keep the
+	 * attribute colours (PR #56, shitamo; the PC-8801mkIIFR demonstration's
+	 * fishing scene as M88 shows it), which the PC-8801 and PC-8001 models
+	 * from extra/ follow. V3 mode hides the whole text as before.
 	 */
 	if (videova.txtmode & 0x80) {
-		if (!memoryva_88_mode || (memoryva_88_port31 & 0x10)) {
+		if (!memoryva_88_mode || (pc88family && !videova_textmerge())) {
 			maketextva_blankraster();
 			return;
 		}

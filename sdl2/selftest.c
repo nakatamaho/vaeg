@@ -6180,7 +6180,7 @@ static int test_tsp_text_hide(void) {
 		const char *problem;
 	} cases[] = {
 	    {1, FALSE, 0x09, 15, 15, "the VA did not keep backgrounds and colours with monochrome graphics"},
-	    {1, FALSE, 0x19, 0, 0, "the VA kept hidden text with colour graphics"},
+	    {1, FALSE, 0x19, 15, 15, "the VA lost backgrounds with colour graphics"},
 	    {1, TRUE, 0x09, 0, 15, "a PC-8801 model kept backgrounds or lost colours"},
 	    {1, TRUE, 0x19, 0, 0, "a PC-8801 model kept hidden text with colour graphics"},
 	    {0, FALSE, 0x09, 0, 0, "V3 mode kept hidden text"},
@@ -6208,6 +6208,9 @@ static int test_tsp_text_hide(void) {
 		memoryva_88_mode = cases[i].mode88;
 		memoryva_pc8801 = cases[i].pc8801;
 		memoryva_88_port31 = cases[i].port31;
+		/* Graphics shown; 102h bit 0 mirrors port 31h bit 4 (colour). */
+		videova.grmode = 0x8000;
+		videova.grres = (cases[i].port31 & 0x10) ? 0x0001 : 0x0000;
 		videova.txtmode = 0x00;
 		text_hide_dots(&text, &glyph, &colour);
 		if ((text != 15) || (glyph != 15) || (colour != 15)) {
@@ -6223,6 +6226,8 @@ static int test_tsp_text_hide(void) {
 		}
 	}
 	videova.txtmode = 0x00;
+	videova.grmode = 0;
+	videova.grres = 0;
 	tsp.emul = 0;
 	CopyMemory(fontmem + 0x40000 + 'A' * 16, saved_glyph, sizeof(saved_glyph));
 	memoryva_88_mode = saved_mode;
