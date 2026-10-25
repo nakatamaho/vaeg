@@ -96,6 +96,12 @@ platform-specific librashader arguments as the workflow, plus:
 
 GCC 16 defaults to a newer C++ dialect, so the explicit C++17 settings are
 important: the tagged code uses the C++17 `filesystem::u8string()` API.
+For the `rel-20261025` Windows source bundle, copy the supplied complete
+`recording-source/test_recording_ffmpeg_matroska.cpp` over the same-named
+file under `tests/frontend/recording/` before CTest. It closes test readers
+before removing fixtures on Windows; it does not modify application source.
+Its BSD header is retained and its digest is included in `SHA256SUMS`.
+Standalone patch artifacts remain prohibited by the runtime archive audit.
 Build that preset and run CTest before replacing your executable. The static
 resolver selects the exact FFmpeg archives from your pkg-config prefix; the
 normal archive policy rejects H.264/AAC and any encoder outside the ordinary

@@ -62,6 +62,20 @@ class ReleaseRecording(unittest.TestCase):
         self.mutation("needs: [linux, windows, macos]", "needs: [linux]",
                       "RELEASE_RECORDING_PUBLISH_GATE")
 
+    def test_complete_fixture_source_distribution(self):
+        spec = importlib.util.spec_from_file_location(
+            'archive_contract', ROOT / 'tests/z80_compat/check_zex_archive.py')
+        archive = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(archive)
+        source = (ROOT / 'tests/frontend/recording/test_recording_ffmpeg_matroska.cpp').read_bytes()
+        self.assertTrue(source.startswith(b'/*\n * Copyright'))
+        self.assertIn(b'#include <fstream>', source)
+        self.assertIn(b'int main(', source)
+        violations = []
+        archive.inspect_member('package/recording-source/test_recording_ffmpeg_matroska.cpp',
+                               source, violations)
+        self.assertEqual([], violations)
+
     def test_cpp_dialect_not_explicit(self):
         self.mutation("-DCMAKE_CXX_STANDARD=17", "-DCMAKE_CXX_STANDARD=20",
                       "RELEASE_RECORDING_CXX_STANDARD")

@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           git fetch origin "$GITHUB_SHA"
           git show "${GITHUB_SHA}:tests/frontend/recording/test_recording_ffmpeg_matroska.cpp" > tests/frontend/recording/test_recording_ffmpeg_matroska.cpp
-          git diff HEAD -- tests/frontend/recording/test_recording_ffmpeg_matroska.cpp > build/m138-test-fixture.patch
+          cp tests/frontend/recording/test_recording_ffmpeg_matroska.cpp build/m138-test-fixed.cpp
           git diff HEAD --stat
       - name: Build and test tagged application
         id: application
@@ -144,17 +144,6 @@ jobs:
           python3 tools/release/check-static-windows-imports.py --binary build/mingw-ci/sdl2/vaeg.exe
           git restore --source=HEAD -- tests/frontend/recording/test_recording_ffmpeg_matroska.cpp
           sha256sum build/mingw-ci/sdl2/vaeg.exe build/mingw-ci/vaeg_recording_matroska_test.exe
-      - name: Preserve failed ordinary build for identity-bound recovery
-        if: ${{ failure() && steps.application.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: m138-ordinary-windows-recovery
-          retention-days: 7
-          path: |
-            build/mingw-ci
-            build/mingw-static
-            build/recording-sdk
-            build/m138-test-fixture.patch
       - name: Reuse successful original guest-driver bundle
         uses: actions/download-artifact@v4
         with:
@@ -177,9 +166,9 @@ jobs:
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           printf '%s\n' 'Build tagged recording code with -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON (GCC 16 defaults to a newer dialect).' \
-            'Apply m138-test-fixture.patch at the vaeg source root before running CTest: it scopes test readers before Windows fixture cleanup, without changing application source.' \
+            'Before CTest, copy the supplied test_recording_ffmpeg_matroska.cpp over tests/frontend/recording/test_recording_ffmpeg_matroska.cpp at the vaeg source root: it scopes test readers before Windows cleanup, without changing application source.' \
             > "dist-package/${package}/recording-source/BUILD-ENVIRONMENT.txt"
-          cp build/m138-test-fixture.patch "dist-package/${package}/recording-source/"
+          cp build/m138-test-fixed.cpp "dist-package/${package}/recording-source/test_recording_ffmpeg_matroska.cpp"
           python3 - "dist-package/${package}/recording-source" <<'PY'
           import hashlib, pathlib, sys
           root = pathlib.Path(sys.argv[1])
@@ -199,6 +188,27 @@ jobs:
           python tests/z80_compat/check_zex_archive.py $asset
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload $env:RELEASE_TAG $asset --clobber
+      - name: Preserve failed ordinary build or package for identity-bound recovery
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: m138-ordinary-windows-recovery
+          retention-days: 7
+          path: |
+            build/mingw-ci/sdl2/vaeg.exe
+            build/mingw-ci/vaeg_recording_matroska_test.exe
+            build/mingw-ci/generated/vaeg_build_info.h
+            build/mingw-ci/Testing/Temporary
+            build/mingw-static/windows-audit
+            build/mingw-static/librashader-git/target/x86_64-pc-windows-gnu/release/liblibrashader_capi.a
+            build/recording-sdk/stage
+            build/recording-sdk/source/ffmpeg-8.1.2.tar.xz
+            build/recording-sdk/build/config.h
+            build/recording-sdk/build/ffbuild/config.mak
+            build/recording-sdk/archive-audit.txt
+            build/m138-test-fixed.cpp
+            dist-package
+            vaeg-rel20261025-win-x86_64.zip
 
   macos:
     if: ${{ !inputs.retain_macos }}
