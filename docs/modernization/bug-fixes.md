@@ -1571,6 +1571,34 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M134 — hidden text blanked the V1/V2 monochrome graphics; the VA's blank key blocks were missing
+
+- **Symptom/scope:** V1/V2 software that hides the text with `OUT 53h` bit 0
+  while showing monochrome graphics (port 31h bit 4 clear) went black in
+  vaeg: the PC-8801mkIIFR demonstration's fishing scene, and N88-BASIC
+  `SCREEN 1` with `OUT &H53,1`, where PC-88VA/VA2 hardware keeps the
+  graphics. On the hardware the reversed function-key labels also remain as
+  blank white blocks (seen while the PC-8801mkIISR demonstration starts,
+  issue #50); vaeg showed nothing.
+- **Demonstrated cause:** the ROM sets 148h bit 7 for `OUT 53h` bit 0, and
+  `maketextva_raster()` then blanked both the text raster and the colour
+  raster from which the multiplane graphics take their colours (G4).
+- **Correction:** in V1/V2 mode with monochrome graphics, hidden text keeps
+  building the uPD3301 rows: the colour raster stays (PR #56, shitamo); VA
+  boots also keep the cell backgrounds with the glyphs and lines suppressed;
+  PC-8801/8001 models blank the text raster. Colour graphics and V3 mode
+  hide the whole text as before (V1/V2 decision X10).
+- **Verification:** selftest `TSP text hide` (VA, PC-8801 model, colour
+  mode and V3 cases; three mutations caught); vaeg VA and VA2 show the box
+  and blank key blocks after `OUT &H53,1` as the maintainer's photographs
+  of both machines do, the PC-8801mkIISR model the box only; the
+  PC-8801mkIISR demonstration shows the blocks while it starts on the VA
+  and not over its title.
+- **Milestone/task/commit:** M134,
+  [M134 task](../agents/tasks/M134_v1v2_hidden_text.md),
+  [b55ce02a](https://github.com/nakatamaho/vaeg/commit/b55ce02a2e8635b8f448aae7ce5a55286f89e4f8),
+  [c0fbaa21](https://github.com/nakatamaho/vaeg/commit/c0fbaa2137a96240f8c651a852772b3569167fb0).
+
 ### M130 — the CPU kept too much of its speed while the SGP drew
 
 - **Symptom/scope:** CPU work done while an SGP list runs was 1.2x (VA)
