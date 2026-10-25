@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M137 — N mode on VA/VA2 boots as an option
 
-Status: **implemented; G137 human gate pending.**
+Status: **G137 human gate passed on 2026-10-25.**
 
 Branch `milestone/m137-nmode-option`; commit prefix `M137:`.
 
@@ -79,3 +79,8 @@ before; the PC-8801/8001 machines' N mode is unaffected.
 bee07c447602f0bcb8060c4d7ed0c4cda7e085f8`: commit embedded, Windows system
 DLL imports only; `vaeg.exe` SHA-256
 `e756fe70c56157776b94c8e0f88ae5c582084ac56e03a20611891008a0785491`.
+
+## G137 passed
+
+The maintainer stated **G137 passed** on 2026-10-25 with the static Windows
+build of `bee07c447602f0bcb8060c4d7ed0c4cda7e085f8`.
