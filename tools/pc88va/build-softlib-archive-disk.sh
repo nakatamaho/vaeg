@@ -60,6 +60,9 @@ die() {
 }
 
 cleanup() {
+	if [[ -n ${cache_dir_real:-} ]]; then
+		vaeg_cache_case_view_close "$cache_dir" "$cache_dir_real"
+	fi
 	if [[ -n ${download_tmp} && -f ${download_tmp} ]]; then
 		rm -f -- "$download_tmp"
 	fi
@@ -126,6 +129,11 @@ for required_command in curl lha python3 sha256sum unzip; do
 done
 
 mkdir -p -- "$cache_dir"
+cache_dir_real=$cache_dir
+# shellcheck source=cache-case-view.sh
+source "$script_dir/cache-case-view.sh"
+# Exact-name view of the cache (a copy may hold x8map130.lzh for X8MAP130.LZH).
+cache_dir=$(vaeg_cache_case_view "$cache_dir_real") || die 'could not create the cache view'
 
 verify_sha256() {
 	local path=$1
