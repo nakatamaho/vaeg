@@ -21,7 +21,8 @@ enum {
 	LASTSTATE = YL,
 };
 
-_MOUSEIFVACFG mouseifvacfg = {MOUSEIFVA_JOYPAD};
+/* M136: by default nothing is connected to the controller port. */
+_MOUSEIFVACFG mouseifvacfg = {MOUSEIFVA_NONE};
 
 _MOUSEIFVA mouseifva;
 
@@ -176,8 +177,13 @@ void mouseifva_indata(UINT8 *data4, UINT8 *data2) {
 	case MOUSEIFVA_MOUSE:
 		mouseva_indata(data4, data2);
 		break;
-	default:
+	case MOUSEIFVA_JOYPAD:
 		joypad_indata(data4, data2);
+		break;
+	default:
+		/* M136: an empty port reads as released lines (pull-ups). */
+		*data4 = 0x0f;
+		*data2 = 0x03;
 		break;
 	}
 }

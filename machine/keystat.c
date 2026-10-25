@@ -3,6 +3,7 @@
 #include "textfile.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "mouseifva.h"
 #include "machine/keystat.h"
 #include "machine/keystat.tbl"
 
@@ -334,6 +335,17 @@ void keystat_resendstat(void) {
 
 // ----
 
+/*
+ * M136: the cursor keys (カーソル割り当て) drive the joystick (KEY_MODE 1) or
+ * the mouse (KEY_MODE 3) only while that device is on the controller port;
+ * otherwise they stay ordinary keys, so that nothing is lost while the port
+ * is empty.
+ */
+static BOOL keystat_cursor_device(void) {
+	return ((np2cfg.KEY_MODE == 1) && (mouseifvacfg.device == MOUSEIFVA_JOYPAD)) ||
+	       ((np2cfg.KEY_MODE == 3) && (mouseifvacfg.device == MOUSEIFVA_MOUSE));
+}
+
 void keystat_keydown(REG8 ref) {
 	UINT8 shift;
 	const NKEYM *nkey;
@@ -342,7 +354,7 @@ void keystat_keydown(REG8 ref) {
 		nkey = (NKEYM *)(nkeytbl.user + (ref - NKEY_USER));
 		keystat_down(nkey->key, nkey->keys, NKEYREF_USER);
 	} else if (ref < NKEY_SYSTEM) {
-		if (np2cfg.KEY_MODE) {
+		if (keystat_cursor_device()) {
 			shift = kbexflag[ref];
 			if (shift & KBEX_JOYKEY) {
 				keystat.extkey |= (1 << (shift & 7));
@@ -362,7 +374,7 @@ void keystat_keyup(REG8 ref) {
 		nkey = (NKEYM *)(nkeytbl.user + (ref - NKEY_USER));
 		keystat_up(nkey->key, nkey->keys, NKEYREF_USER);
 	} else if (ref < NKEY_SYSTEM) {
-		if (np2cfg.KEY_MODE) {
+		if (keystat_cursor_device()) {
 			shift = kbexflag[ref];
 			if (shift & KBEX_JOYKEY) {
 				keystat.extkey &= ~(1 << (shift & 7));

@@ -5296,10 +5296,13 @@ static void set_mouse_capture(bool capture) {
 }
 
 static void set_mouse_device(UINT8 device) {
-	if ((device != MOUSEIFVA_JOYPAD) && (device != MOUSEIFVA_MOUSE)) {
+	if ((device != MOUSEIFVA_JOYPAD) && (device != MOUSEIFVA_MOUSE) &&
+	    (device != MOUSEIFVA_NONE)) {
 		return;
 	}
 	mouseifvacfg.device = device;
+	/* The cursor keys follow the device now on the port (M136). */
+	keystat_resetjoykey();
 	sysmng_update(SYS_UPDATECFG);
 }
 
@@ -5769,6 +5772,9 @@ static void draw_key_menu(void) {
 		set_mouse_capture(!capture);
 	}
 	if (ImGui::BeginMenu("コントローラポート")) {
+		if (ImGui::MenuItem("なし", nullptr, mouseifvacfg.device == MOUSEIFVA_NONE)) {
+			set_mouse_device(MOUSEIFVA_NONE);
+		}
 		if (ImGui::MenuItem("ジョイスティック", nullptr, mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
 			set_mouse_device(MOUSEIFVA_JOYPAD);
 		}

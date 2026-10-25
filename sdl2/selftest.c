@@ -6310,11 +6310,13 @@ static int test_boot_mode_sw7(void) {
  * the VA's mouse interface reads, from the cursor keys. */
 static int test_cursor_keys_as_mouse(void) {
 	const UINT8 saved_mode = np2cfg.KEY_MODE;
+	const UINT8 saved_device = mouseifvacfg.device;
 	SINT16 x0;
 	SINT16 x1;
 	int i;
 
 	np2cfg.KEY_MODE = 3;
+	mouseifvacfg.device = MOUSEIFVA_MOUSE; /* M136: only with the mouse on the port */
 	keystat_resetjoykey();
 	mouseif_sync();
 	mouseif_sync();
@@ -6327,11 +6329,62 @@ static int test_cursor_keys_as_mouse(void) {
 	mouseif_sync();
 	x1 = mouseif.x;
 	np2cfg.KEY_MODE = saved_mode;
+	mouseifvacfg.device = saved_device;
 	keystat_resetjoykey();
 	if (x1 <= x0) {
 		return (fail("cursor keys as mouse", "cursor right did not move the mouse"));
 	}
 	fprintf(stderr, "selftest: cursor keys as mouse ok\n");
+	return (SUCCESS);
+}
+
+/* M136: the controller port is empty by default and reads as released
+ * lines; the cursor keys stay keys unless their device is on the port. */
+static int test_controller_port_none(void) {
+	const UINT8 saved_mode = np2cfg.KEY_MODE;
+	const UINT8 saved_device = mouseifvacfg.device;
+	const char *problem = NULL;
+	UINT8 data4;
+	UINT8 data2;
+
+	mouseifvacfg.device = MOUSEIFVA_NONE;
+	data4 = 0;
+	data2 = 0;
+	mouseifva_indata(&data4, &data2);
+	if ((data4 != 0x0f) || (data2 != 0x03)) {
+		problem = "an empty port did not read as released";
+	}
+	/* Cursor keys as joystick: with the joystick on the port a held cursor
+	 * key reaches the joystick lines and not the keyboard. */
+	if (problem == NULL) {
+		np2cfg.KEY_MODE = 1;
+		mouseifvacfg.device = MOUSEIFVA_JOYPAD;
+		keystat_resetjoykey();
+		keystat_keydown(0x3a); /* cursor up */
+		if (keystat_getjoy() == 0xff) {
+			problem = "cursor up did not reach the joystick";
+		}
+		keystat_keyup(0x3a);
+		keystat_resetjoykey();
+	}
+	/* With nothing on the port the same key stays a key. */
+	if (problem == NULL) {
+		mouseifvacfg.device = MOUSEIFVA_NONE;
+		keystat_resetjoykey();
+		keystat_keydown(0x3a);
+		if (keystat_getjoy() != 0xff) {
+			problem = "cursor up drove an absent joystick";
+		}
+		keystat_keyup(0x3a);
+		keystat_resetjoykey();
+	}
+	np2cfg.KEY_MODE = saved_mode;
+	mouseifvacfg.device = saved_device;
+	keystat_resetjoykey();
+	if (problem != NULL) {
+		return (fail("controller port", problem));
+	}
+	fprintf(stderr, "selftest: controller port ok\n");
 	return (SUCCESS);
 }
 
@@ -9004,6 +9057,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_cursor_keys_as_mouse() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_controller_port_none() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_boot_mode_sw7() != SUCCESS) {

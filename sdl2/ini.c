@@ -427,7 +427,7 @@ static const INITBL iniitem[] = {
     {"btnRAPID", INITYPE_BOOL, &np2cfg.BTN_RAPID, 0},
     {"btn_MODE", INITYPE_BOOL, &np2cfg.BTN_MODE, 0},
     {"MS_RAPID", INITYPE_BOOL, &np2cfg.MOUSERAPID, 0},
-    {"Mouse_VA", INITYPE_UINT8, &mouseifvacfg.device, 0},
+    {"ControllerPort", INITYPE_UINT8, &mouseifvacfg.device, 0},
 
     {"BG_COLOR", INITYPE_HEX32, &np2cfg.BG_COLOR, 0},
     {"FG_COLOR", INITYPE_HEX32, &np2cfg.FG_COLOR, 0},
@@ -631,10 +631,13 @@ void initload(void) {
 		np2oscfg.master_volume = 100;
 	}
 	np2oscfg.MOUSE_SW = np2oscfg.MOUSE_SW ? 1 : 0;
-	if (mouseifvacfg.device > MOUSEIFVA_MOUSE) {
-		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid Mouse_VA=%u; using joystick",
+	/* M136: ControllerPort replaces Mouse_VA, so that an existing
+	 * configuration starts with nothing on the port: 0 joystick, 1 mouse,
+	 * 2 nothing (the default). */
+	if (mouseifvacfg.device > MOUSEIFVA_NONE) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid ControllerPort=%u; using none",
 		            mouseifvacfg.device);
-		mouseifvacfg.device = MOUSEIFVA_JOYPAD;
+		mouseifvacfg.device = MOUSEIFVA_NONE;
 	}
 	np2oscfg.keyboard_auto_kana_lock = np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
