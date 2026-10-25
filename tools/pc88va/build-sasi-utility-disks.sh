@@ -32,7 +32,7 @@ source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
-softlib_cache=${VAEG_CACHE_DIR:-${HOME}/.cache/vaeg}/auto-generated-pc88va-utility-media
+softlib_cache=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache}/auto-generated-pc88va-utility-media
 lsic_archive=$softlib_cache/LSIC330C.LZH
 ish_archive=$softlib_cache/ISHARC.COM
 ish_doc=$softlib_cache/ISHARC.DOC
@@ -145,10 +145,10 @@ regenerated from the documented VA load order.  LSIC330C.LZH is verified,
 retained in A:\\ARCHIVE, and extracted below A:\\LSIC86 for use through MSE.
 The shared Auto-generated PC-88VA utility media cache is
 \$VAEG_CACHE_DIR/auto-generated-pc88va-utility-media (\$VAEG_CACHE_DIR
-defaults to ~/.cache/vaeg).  LSIC330C.LZH and the
-other public archives are read from that directory; use the corresponding
-command-line archive option to select an explicit copy.  The CP/M emulator
-defaults to cpm08.zip in the same cache, and the three preserved CP/M data
+defaults to ~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache).
+LSIC330C.LZH and the other public archives are read from that directory; use
+the corresponding command-line archive option to select an explicit copy.
+The CP/M emulator defaults to cpm08.zip in the same cache, and the three preserved CP/M data
 disks default to ~/88VA/images/cpm; use the CP/M options to select other
 copies.
 The SCHD155T, VA128MO, and STEST115 archives default to that shared cache; use
