@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M134 — V1/V2 hidden text with monochrome graphics
 
-Status: **implemented; G134 human gate pending.**
+Status: **G134 human gate passed on 2026-10-25.**
 
 Branch `milestone/m134-text-hide`; commit prefix `M134:`.
 
@@ -54,9 +54,8 @@ the review's discriminator on both machines (kept privately).
 - The maintainer (2026-10-25): the blocks belong to every V1/V2 boot of a
   VA or VA2, whatever the graphics mode, and to no other machine. A first
   version hid the whole text in colour mode, derived from the
-  demonstration; it was replaced. vaeg therefore keeps the blocks over the
-  demonstration's title and RGB prompt; when they go on hardware remains
-  open.
+  demonstration; it was replaced. In the gate build the maintainer saw
+  the demonstration's blocks go as on hardware.
 - PR #56's PC-8801 behaviour (characters and backgrounds hidden, colours
   kept for the graphics) is taken from M88 and the PC-8801mkIIFR
   demonstration; it is kept for the PC-8801/8001 models from `extra/`, as
@@ -100,3 +99,36 @@ Standard V3 gate, plus:
   PC-8801mkIISR model; the PC-8801mkIISR demonstration on the VA shows the
   blocks from frame 150 on, also over its title and RGB prompt; the
   PC-8801mkIISR model shows none.
+
+## Media build regression
+
+Clean clone of `cadbb4068a73a8d2f85a3a1e622a0d881ae4c974`, cache
+`~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache/`,
+`TMPDIR=~/work/pc88va/tmp/m134/tmp`:
+
+- `build-utility-disk.sh` (PC-Engine 1.1): exit 0, 4096 bytes free.
+- The five demo `build-d88.sh`, `build-from-psd.sh`, all-demos,
+  all-demos-msdos4 (MS-DOS 4.0 fetched into the cache and checked) and the
+  SGP boot disk (at `b0de69a1`; no demo or demo-builder input changed
+  since): exit 0, every file identical to the committed images; the
+  all-demos-msdos4 and SGP boot `.xz` byte-identical.
+- `build-sasi-utility-disks.sh`: **NOT RUN to completion (blocked)**. After
+  the case fix it stops at `PCP_7A.LZH`: eleven packages (FATMAP11.DOC,
+  FD98_232.LZH, FD_VA.LZH, MARINVA.DOC/.LZH/.LZP, NYANCO25.DOC/.LZH,
+  PCP_7A.LZH, PCP_CA.LZH, VASG100.LZH) are absent from the new cache, and
+  the softlib site answers 403. The maintainer passed the gate with this
+  open; the SASI images need these packages in the cache.
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+cadbb4068a73a8d2f85a3a1e622a0d881ae4c974`: commit embedded, Windows system
+DLL imports only; `vaeg.exe` SHA-256
+`292f0f0acb3bc1c700b7bb3a8201a9f9da9ba17023f797dfedae1636407a5749`.
+`linux-ci-gcc` ctest: 119 of 119 passed.
+
+## G134 passed
+
+The maintainer stated **G134 passed** on 2026-10-25 with that build: the
+BASIC discriminator as on hardware, and the PC-8801mkIISR demonstration's
+blank blocks going as on hardware.
