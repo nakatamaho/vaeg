@@ -1,0 +1,117 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+"""Font and palette of Z80TIME.COM (z80time.asm): synthetic data.
+
+The 5x7 font of vaeg demos/sgp-bench, with a comma. Usage: gen_font.py OUTPUT.INC
+"""
+
+import sys
+
+FONT = {
+    ' ': '.....|.....|.....|.....|.....|.....|.....',
+    '0': '.###.|#...#|#..##|#.#.#|##..#|#...#|.###.',
+    '1': '..#..|.##..|..#..|..#..|..#..|..#..|.###.',
+    '2': '.###.|#...#|....#|...#.|..#..|.#...|#####',
+    '3': '#####|...#.|..#..|...#.|....#|#...#|.###.',
+    '4': '...#.|..##.|.#.#.|#..#.|#####|...#.|...#.',
+    '5': '#####|#....|####.|....#|....#|#...#|.###.',
+    '6': '..##.|.#...|#....|####.|#...#|#...#|.###.',
+    '7': '#####|....#|...#.|..#..|.#...|.#...|.#...',
+    '8': '.###.|#...#|#...#|.###.|#...#|#...#|.###.',
+    '9': '.###.|#...#|#...#|.####|....#|...#.|.##..',
+    'A': '.###.|#...#|#...#|#####|#...#|#...#|#...#',
+    'B': '####.|#...#|#...#|####.|#...#|#...#|####.',
+    'C': '.###.|#...#|#....|#....|#....|#...#|.###.',
+    'D': '###..|#..#.|#...#|#...#|#...#|#..#.|###..',
+    'E': '#####|#....|#....|####.|#....|#....|#####',
+    'F': '#####|#....|#....|####.|#....|#....|#....',
+    'G': '.###.|#...#|#....|#.###|#...#|#...#|.####',
+    'H': '#...#|#...#|#...#|#####|#...#|#...#|#...#',
+    'I': '.###.|..#..|..#..|..#..|..#..|..#..|.###.',
+    'J': '..###|...#.|...#.|...#.|...#.|#..#.|.##..',
+    'K': '#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#',
+    'L': '#....|#....|#....|#....|#....|#....|#####',
+    'M': '#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#',
+    'N': '#...#|#...#|##..#|#.#.#|#..##|#...#|#...#',
+    'O': '.###.|#...#|#...#|#...#|#...#|#...#|.###.',
+    'P': '####.|#...#|#...#|####.|#....|#....|#....',
+    'Q': '.###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#',
+    'R': '####.|#...#|#...#|####.|#.#..|#..#.|#...#',
+    'S': '.####|#....|#....|.###.|....#|....#|####.',
+    'T': '#####|..#..|..#..|..#..|..#..|..#..|..#..',
+    'U': '#...#|#...#|#...#|#...#|#...#|#...#|.###.',
+    'V': '#...#|#...#|#...#|#...#|#...#|.#.#.|..#..',
+    'W': '#...#|#...#|#...#|#.#.#|#.#.#|#.#.#|.#.#.',
+    'X': '#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#',
+    'Y': '#...#|#...#|.#.#.|..#..|..#..|..#..|..#..',
+    'Z': '#####|....#|...#.|..#..|.#...|#....|#####',
+    '.': '.....|.....|.....|.....|.....|.##..|.##..',
+    ',': '.....|.....|.....|.....|.##..|..#..|.#...',
+    ':': '.....|.##..|.##..|.....|.##..|.##..|.....',
+    '/': '.....|....#|...#.|..#..|.#...|#....|.....',
+    '-': '.....|.....|.....|#####|.....|.....|.....',
+    '+': '.....|..#..|..#..|#####|..#..|..#..|.....',
+    '=': '.....|.....|#####|.....|#####|.....|.....',
+    '(': '...#.|..#..|.#...|.#...|.#...|..#..|...#.',
+    ')': '.#...|..#..|...#.|...#.|...#.|..#..|.#...',
+}
+
+
+def font() -> bytes:
+    """ASCII 32..95, 7 bytes a glyph, bit 4 the leftmost dot, XOR A5h."""
+    out = bytearray()
+    for code in range(32, 96):
+        rows = FONT.get(chr(code), FONT[' ']).split('|')
+        assert len(rows) == 7 and all(len(r) == 5 for r in rows), chr(code)
+        out += bytes(0xa5 ^ sum(1 << (4 - i) for i, c in enumerate(r) if c == '#') for r in rows)
+    return bytes(out)
+
+
+def palette_word(r: int, g: int, b: int) -> int:
+    return (g << 12) | (r << 6) | (b << 1)
+
+
+# Set 0 (G1: text, stripes) and set 1 (G0: the sprites, saturated colours).
+PALETTE0 = [palette_word(*c) for c in (
+    (0, 0, 0), (15, 15, 15), (15, 0, 0), (0, 15, 0), (0, 0, 15), (15, 15, 0), (0, 15, 15), (15, 0, 15),
+    (8, 8, 8), (15, 4, 4), (4, 15, 4), (15, 15, 6), (6, 6, 15), (9, 5, 2), (4, 8, 8), (15, 15, 15))]
+PALETTE1 = [palette_word(*c) for c in (
+    (0, 0, 0), (15, 0, 0), (0, 15, 0), (0, 0, 15), (15, 15, 0), (15, 0, 15), (0, 15, 15), (15, 15, 15),
+    (8, 0, 0), (0, 8, 0), (0, 0, 8), (8, 8, 0), (8, 0, 8), (0, 8, 8), (8, 8, 8), (15, 8, 0))]
+
+
+def include() -> str:
+    data = font()
+    lines = ['; Generated by gen_font.py: synthetic data.',
+             '%define PALETTE32 ' + ','.join(f'{w:#06x}' for w in PALETTE0 + PALETTE1),
+             '\t\tjmp\tstart\t\t\t; data first', 'FONT:']
+    for i in range(0, len(data), 16):
+        lines.append('\t\tdb\t' + ','.join(f'{b:#04x}' for b in data[i:i + 16]))
+    return '\n'.join(lines) + '\n'
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        sys.exit('usage: gen_font.py OUTPUT.INC')
+    with open(sys.argv[1], 'w', encoding='ascii', newline='\n') as out:
+        out.write(include())

@@ -396,6 +396,10 @@ void Z80CompatCpu::ApplyFlagProfile() {
 	                              : Z80::FlagProfile::Zilog);
 }
 
+bool Z80CompatCpu::Halted() const {
+	return impl_ != nullptr && (impl_->cpu.reg.IFF & kIffHalt) != 0;
+}
+
 const Z80CompatReg *Z80CompatCpu::GetReg() {
 	return &public_registers_;
 }
@@ -408,7 +412,9 @@ std::uint8_t Z80CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
 	    (cpu->instruction_fetch_started_ && !cpu->impl_->cpu.instructionFetch)
 	        ? cpu->TranslateDataAddress(address)
 	        : cpu->TranslateCodeAddress(address);
+	cpu->code_read_ = !(cpu->instruction_fetch_started_ && !cpu->impl_->cpu.instructionFetch);
 	const std::uint8_t value = static_cast<std::uint8_t>(cpu->memory_->Read8(translated));
+	cpu->code_read_ = false;
 	if (!cpu->instruction_fetch_started_) {
 		cpu->instruction_fetch_started_ = true;
 		cpu->first_opcode_ = value;

@@ -105,12 +105,319 @@ static void compat_trace(const char *event, std::uint32_t slot, std::uint8_t op0
 	    CPU_FLAG, CPU_REMCLOCK);
 }
 
+// M135: the time of a compatible-mode instruction on the PC-88VA and
+// PC-88VA2, from Z80TIME 2 (demos/z80-timing; issue #62): eight copies of
+// one instruction a pass, steady state, without waits (the VA2's figures),
+// in 1/256 clock. The core's Z80 cycles are replaced by these; memory and
+// I/O waits are still charged natively (Read8, Write8, In, Out). The
+// measured classes are marked M; the others take the measured class they
+// resemble most (an operand access, a taken transfer, a prefix).
+namespace {
+
+constexpr std::uint32_t C(double clocks) {
+	return static_cast<std::uint32_t>(clocks * 256.0 + 0.5);
+}
+
+struct CompatCost {
+	std::uint8_t length = 1;
+	bool conditional = false; // taken when the next PC is not after it
+	bool fallback = false;    // the core's cycles (I/O, HALT, unknown)
+	std::uint32_t taken = 0;
+	std::uint32_t not_taken = 0;
+};
+
+CompatCost Cost(std::uint32_t clocks, std::uint8_t length) {
+	CompatCost c;
+	c.length = length;
+	c.taken = c.not_taken = clocks;
+	return c;
+}
+
+CompatCost Conditional(std::uint32_t taken, std::uint32_t not_taken, std::uint8_t length) {
+	CompatCost c = Cost(taken, length);
+	c.conditional = true;
+	c.not_taken = not_taken;
+	return c;
+}
+
+CompatCost Fallback() {
+	CompatCost c;
+	c.fallback = true;
+	return c;
+}
+
+const std::uint32_t kReg = C(2.85);       // M: INC A, ADD A,C, EX DE,HL, ADD HL,DE
+const std::uint32_t kMove = C(2.98);      // M: LD A,B
+const std::uint32_t kImm = C(4.01);       // M: LD A,n
+const std::uint32_t kAluImm = C(4.23);    // M: ADD A,n, AND n
+const std::uint32_t kPair = C(2.08);      // M: INC DE, EXX
+const std::uint32_t kLoad = C(10.94);     // M: LD A,(HL)
+const std::uint32_t kStore = C(10.40);    // M: LD (HL),A
+const std::uint32_t kReadModify = C(17.37); // M: INC (HL)
+const std::uint32_t kJr = C(12.52);       // M: JR
+const std::uint32_t kJp = C(15.16);       // M: JP nn
+const std::uint32_t kJpNot = C(6.35);     // M: JP NZ not taken, LD DE,nn
+const std::uint32_t kCall = C(22.54);     // M: CALL + RET 41.54 (RET 19)
+const std::uint32_t kRet = C(19.00);
+const std::uint32_t kStack = C(10.42);    // M: PUSH + POP 20.84
+const std::uint32_t kIndexed = C(3.00);   // DD/FD on a register form: ADD IX,DE
+const std::uint32_t kBlock = C(24.02);    // M: LDIR, a byte
+
+CompatCost Unprefixed(std::uint8_t op) {
+	const std::uint8_t x = op >> 6;
+	const std::uint8_t y = (op >> 3) & 7;
+	const std::uint8_t z = op & 7;
+	if (x == 1) {
+		if (op == 0x76) {
+			return Fallback(); // HALT
+		}
+		if (z == 6) {
+			return Cost(kLoad, 1);
+		}
+		return Cost(y == 6 ? kStore : kMove, 1);
+	}
+	if (x == 2) {
+		return Cost(z == 6 ? kLoad : kReg, 1);
+	}
+	if (x == 0) {
+		switch (z) {
+		case 0:
+			switch (y) {
+			case 0:
+				return Cost(C(1.97), 1); // M: NOP
+			case 1:
+				return Cost(kPair, 1); // EX AF,AF'
+			case 2:
+				return Conditional(C(18.10), C(6.00), 2); // M: DJNZ taken (block entry apart)
+			case 3:
+				return Cost(kJr, 2);
+			default:
+				return Conditional(kJr, C(5.24), 2); // M: JR NZ not taken
+			}
+		case 1:
+			return Cost((op & 8) ? kReg : kJpNot, (op & 8) ? 1 : 3); // ADD HL,rr / LD rr,nn
+		case 2:
+			switch (y) {
+			case 0:
+			case 2:
+				return Cost(kStore, 1); // LD (BC/DE),A
+			case 1:
+			case 3:
+				return Cost(C(8.99), 1); // M: LD A,(DE)
+			case 4:
+			case 6:
+				return Cost(C(11.98), 3); // M: LD (nn),HL, LD (nn),A
+			default:
+				return Cost(C(11.49), 3); // M: LD HL,(nn), LD A,(nn)
+			}
+		case 3:
+			return Cost(kPair, 1); // INC/DEC rr
+		case 4:
+		case 5:
+			return Cost(y == 6 ? kReadModify : kReg, 1);
+		case 6:
+			return Cost(y == 6 ? C(11.50) : kImm, 2); // LD (HL),n: a store and a byte
+		default:
+			switch (y) {
+			case 4:
+				return Cost(C(7.08), 1); // M: DAA
+			case 5:
+			case 6:
+			case 7:
+				return Cost(kReg, 1); // CPL, SCF, CCF
+			default:
+				return Cost(C(5.77), 1); // M: RLCA
+			}
+		}
+	}
+	switch (z) {
+	case 0:
+		return Conditional(kRet + C(1.0), C(3.88), 1); // M: RET NZ not taken
+	case 1:
+		switch (op) {
+		case 0xc9:
+			return Cost(kRet, 1);
+		case 0xd9:
+			return Cost(kPair, 1); // M: EXX
+		case 0xe9:
+			return Cost(kJr, 1); // JP (HL)
+		case 0xf9:
+			return Cost(kReg, 1); // LD SP,HL
+		default:
+			return Cost(kStack, 1); // POP
+		}
+	case 2:
+		return Conditional(kJp, kJpNot, 3);
+	case 3:
+		switch (op) {
+		case 0xc3:
+			return Cost(kJp, 3);
+		case 0xe3:
+			return Cost(C(20.0), 1); // EX (SP),HL: a word read and written
+		case 0xeb:
+			return Cost(kReg, 1);
+		case 0xf3:
+		case 0xfb:
+			return Cost(C(1.97), 1); // DI, EI
+		default:
+			return Fallback(); // OUT (n),A, IN A,(n); CB is decoded apart
+		}
+	case 4:
+		return Conditional(kCall, kJpNot, 3);
+	case 5:
+		return Cost(op == 0xcd ? kCall : kStack, op == 0xcd ? 3 : 1);
+	case 6:
+		return Cost(kAluImm, 2);
+	default:
+		return Cost(kCall - C(2.5), 1); // RST
+	}
+}
+
+CompatCost PrefixCb(std::uint8_t op) {
+	const bool bit = (op >> 6) == 1;
+	if ((op & 7) == 6) {
+		return Cost(bit ? C(13.0) : C(21.79), 2); // M: SET 0,(HL)
+	}
+	return Cost(bit ? C(5.94) : C(8.21), 2); // M: BIT 0,A, SRL A
+}
+
+CompatCost PrefixEd(std::uint8_t op) {
+	if (op >= 0x40 && op < 0x80) {
+		switch (op & 0x0f) {
+		case 0x00:
+		case 0x01:
+		case 0x08:
+		case 0x09:
+			return Fallback(); // IN r,(C), OUT (C),r
+		case 0x02:
+		case 0x0a:
+			return Cost(kReg + kIndexed, 2); // SBC/ADC HL,rr
+		case 0x03:
+			return Cost(C(11.98) + kIndexed, 4); // LD (nn),rr
+		case 0x0b:
+			return Cost(C(11.49) + kIndexed, 4); // LD rr,(nn)
+		case 0x04:
+		case 0x0c:
+			return Cost(C(4.01), 2); // M: NEG
+		case 0x05:
+		case 0x0d:
+			return Cost(kRet + kIndexed, 2); // RETN, RETI
+		case 0x07:
+		case 0x0f:
+			if (op == 0x67 || op == 0x6f) {
+				return Cost(C(21.79), 2); // RRD, RLD
+			}
+			return Cost(C(5.0), 2); // LD I,A ...
+		default:
+			return Cost(C(4.01), 2); // IM
+		}
+	}
+	switch (op) {
+	case 0xa0:
+	case 0xa8:
+	case 0xb0:
+	case 0xb8:
+	case 0xa1:
+	case 0xa9:
+	case 0xb1:
+	case 0xb9:
+		return Cost(kBlock, 2); // LDI ... CPDR, an iteration
+	default:
+		return Fallback(); // block I/O (trapped), undefined
+	}
+}
+
+CompatCost PrefixIndex(std::uint8_t op, std::uint8_t op3) {
+	if (op == 0xcb) {
+		return Cost((op3 >> 6) == 1 ? C(15.0) : C(27.44), 4); // M: RL (IX+d)
+	}
+	if (op == 0x34 || op == 0x35) {
+		return Cost(C(25.30), 3); // M: INC (IX+d)
+	}
+	if (op == 0x36) {
+		return Cost(C(19.50), 4); // LD (IX+d),n
+	}
+	if ((op & 0xc0) == 0x40 && op != 0x76) {
+		if ((op & 7) == 6) {
+			return Cost(C(12.91), 3); // M: LD A,(IX+d)
+		}
+		if ((op & 0xf8) == 0x70) {
+			return Cost(C(18.79), 3); // M: LD (IX+d),A
+		}
+	}
+	if ((op & 0xc0) == 0x80 && (op & 7) == 6) {
+		return Cost(C(12.91), 3); // ALU (IX+d)
+	}
+	if (op == 0x21) {
+		return Cost(C(8.44), 4); // M: LD IX,nn
+	}
+	if (op == 0xdd || op == 0xfd || op == 0xed || op == 0x76) {
+		return Fallback();
+	}
+	CompatCost c = Unprefixed(op);
+	if (c.fallback) {
+		return c;
+	}
+	c.length = static_cast<std::uint8_t>(c.length + 1);
+	c.taken += kIndexed; // M: ADD IX,DE 5.94 against ADD HL,DE 2.85
+	c.not_taken += kIndexed;
+	return c;
+}
+
+CompatCost CompatInstructionCost(std::uint8_t op0, std::uint8_t op1, std::uint8_t op3) {
+	switch (op0) {
+	case 0xcb:
+		return PrefixCb(op1);
+	case 0xed:
+		return PrefixEd(op1);
+	case 0xdd:
+	case 0xfd:
+		return PrefixIndex(op1, op3);
+	default:
+		return Unprefixed(op0);
+	}
+}
+
+} // namespace
+
 class CompatCounter final : public IClockCounter {
   public:
 	void IFCALL past(std::int32_t clocks) override {
+		if (measured_) {
+			core_cycles_ += clocks; // replaced by the measured cost (M135)
+			return;
+		}
 		// CPU speed (machine/pccore.c): 100 / percent machine clocks a cycle.
 		remain_ -=
 		    static_cast<std::int32_t>(pccore_compat_clocks(static_cast<UINT32>(clocks), FALSE));
+	}
+
+	// M135: during an instruction the core's cycles are only counted; the
+	// adapter then charges the measured cost (1/256 clock, the fraction
+	// carried) or, for the classes without one, the core's cycles.
+	void BeginMeasured() {
+		measured_ = true;
+		core_cycles_ = 0;
+	}
+
+	void ResetFraction() {
+		fraction_ = 0;
+	}
+
+	void EndMeasured(bool use_core, std::uint32_t cost) {
+		measured_ = false;
+		if (use_core) {
+			if (core_cycles_ > 0) {
+				past(core_cycles_);
+			}
+			return;
+		}
+		const std::uint32_t total = cost + fraction_;
+		fraction_ = total & 0xff;
+		const std::uint32_t clocks = total >> 8;
+		if (clocks > 0) {
+			remain_ -= static_cast<std::int32_t>(pccore_compat_clocks(clocks, FALSE));
+		}
 	}
 
 	void past_native(std::int32_t clocks) {
@@ -128,6 +435,9 @@ class CompatCounter final : public IClockCounter {
 
   private:
 	std::int32_t remain_ = 0;
+	bool measured_ = false;
+	std::int32_t core_cycles_ = 0;
+	std::uint32_t fraction_ = 0;
 };
 
 class CompatClock final : public IClock {
@@ -147,6 +457,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		initialized_ = false;
 		have_compatible_state_ = false;
 		counter_.SetRemainclock(0);
+		counter_.ResetFraction(); // (the measured costs' carried fraction, M135)
 	}
 
 	// Shared by Enter() and StateLoad() so that a state loaded before the
@@ -253,7 +564,23 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		}
 
 		const bool was_enabled = upd70008_.GetReg()->iff1 != 0;
+		const std::uint8_t op3 =
+		    static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address + 3));
+		const CompatCost cost = CompatInstructionCost(op0, op1, op3);
+		const bool halted = upd70008_.Halted();
+		acknowledged_ = false;
+		last_data_ = kNoAddress;
+		counter_.BeginMeasured();
 		upd70008_.ExecOne();
+		bool use_core = cost.fallback || acknowledged_ || halted;
+		std::uint32_t clocks = cost.taken;
+		if (!use_core && cost.conditional) {
+			const std::uint16_t next = static_cast<std::uint16_t>(pc + cost.length);
+			if (static_cast<std::uint16_t>(upd70008_.GetPC()) == next) {
+				clocks = cost.not_taken;
+			}
+		}
+		counter_.EndMeasured(use_core, clocks);
 		SyncToNative();
 		CPU_REMCLOCK = counter_.GetRemainclock();
 		// The machine arbitrates interrupts only between CPU time slices
@@ -367,13 +694,33 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	// The waits of a memory access (the WCU's programmed ones, M130, and
 	// the devices') are taken from the native clock, as In() does.
+	// M135: the bus moves words. An instruction byte at an odd address came
+	// with the byte before it (the prefetch queue fetches aligned words), and
+	// the high byte of a 16-bit operand at an even address shares its low
+	// byte's bus cycle: neither waits again. Measured (Z80TIME 2, VA): code
+	// above 40000h adds about half a clock a byte; LD HL,(nn), PUSH and POP
+	// add one wait, as LD A,(nn) does.
+	bool SharesBusCycle(std::uint32_t address, bool write) {
+		if (upd70008_.CodeRead()) {
+			return (address & 1) != 0;
+		}
+		const bool shared = ((address & 1) != 0) && (last_data_ == address - 1) &&
+		                    (last_data_write_ == write);
+		last_data_ = address;
+		last_data_write_ = write;
+		return shared;
+	}
+
 	std::uint32_t IFCALL Read8(std::uint32_t address) override {
 		const SINT32 before = CPU_REMCLOCK;
 		const std::uint32_t value = upd9002_memoryread(address & CPU_ADRSMASK);
 		const SINT32 elapsed = before - CPU_REMCLOCK;
+		const bool shared = SharesBusCycle(address & CPU_ADRSMASK, false);
 		if (elapsed > 0) {
 			CPU_REMCLOCK = before;
-			counter_.past_native(elapsed);
+			if (!shared) {
+				counter_.past_native(elapsed);
+			}
 		}
 		return value;
 	}
@@ -382,14 +729,18 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		const SINT32 before = CPU_REMCLOCK;
 		upd9002_memorywrite(address & CPU_ADRSMASK, static_cast<UINT8>(data));
 		const SINT32 elapsed = before - CPU_REMCLOCK;
+		const bool shared = SharesBusCycle(address & CPU_ADRSMASK, true);
 		if (elapsed > 0) {
 			CPU_REMCLOCK = before;
-			counter_.past_native(elapsed);
+			if (!shared) {
+				counter_.past_native(elapsed);
+			}
 		}
 	}
 
 	std::uint32_t IFCALL In(std::uint32_t port) override {
 		if (port == kInterruptAcknowledgePort) {
+			acknowledged_ = true; // (the core's cycles for that step, M135)
 			upd70008_.IRQ(0, 0);
 			return pic8214_acknowledge_compat();
 		}
@@ -418,6 +769,10 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	}
 
 	UPD70008C upd70008_;
+	static constexpr std::uint32_t kNoAddress = 0xffffffffU;
+	bool acknowledged_ = false;
+	std::uint32_t last_data_ = kNoAddress;
+	bool last_data_write_ = false;
 	CompatCounter counter_;
 	CompatClock clock_;
 	bool initialized_ = false;
