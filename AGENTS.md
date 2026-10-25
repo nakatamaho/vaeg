@@ -1,5 +1,12 @@
 # AGENTS.md — vaeg (88VA Eternal Grafx)
 
+## Filesystem access boundary
+
+Do not read or write directories above `~/work` (`/home/maho/work`),
+or files or directories outside that tree. Keep all file access within
+`~/work` and its descendants, including access through symlinks and tools.
+This restriction takes precedence over any paths or workflows below.
+
 PC-88VA emulator derived from Neko Project II. Upstream (project-vaeg)
 is abandoned; this fork is the living tree.
 
