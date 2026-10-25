@@ -35,6 +35,32 @@ land.
 
 ## Maintenance Rules
 
+### M138 — GCC 16 release build selected a newer filesystem API
+
+- **Symptom/scope:** the native MinGW recording-enabled Windows release
+  stopped while compiling `recording_mp4.cpp`; the completed static
+  C++17 cross-build and Linux package were unaffected.
+- **Demonstrated cause:** the
+  [failed native job](https://github.com/nakatamaho/vaeg/actions/runs/40194230125/job/121173794828)
+  invokes GCC 16.2 without a dialect flag. Its newer default gives
+  `filesystem::u8string()` a `basic_string<char8_t>` result, incompatible
+  with the C++17 recording code's `std::string` API. A C++17 feature floor
+  did not constrain newer compiler defaults. A local isolated expression
+  passes in C++17 and fails with the same type mismatch in C++20.
+- **Correction:** explicitly require C++17 in public presets and release
+  configure commands. Build the failed desktop packages from the unchanged
+  release tag with explicit dialect/shell prerequisites, retaining the
+  successful Linux package. The source and supplied rebuild instructions
+  remain available; recording is not disabled as a workaround.
+- **Verification:** 23 release-contract tests, 21 local-codec policy tests,
+  eight static SDK resolver tests, both workflow parsers, shell syntax and
+  actual original-run/draft/source-identity preflight pass. The tagged clean
+  static C++17 cross-build passes; hosted follow-up completion is recorded
+  separately in the
+  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-desktop-recovery).
+- **Milestone/commit:** M138,
+  [443a3d80751855d1ae85a88a8cd8a114458915e2](https://github.com/nakatamaho/vaeg/commit/443a3d80751855d1ae85a88a8cd8a114458915e2).
+
 ### M138 — macOS release recording SDK stopped under system Bash
 
 - **Symptom/scope:** the recording-enabled macOS release job stopped before
