@@ -80,6 +80,12 @@ class Z80CompatCpu {
 	typedef std::uint8_t (*NativeVectorRead)(void *opaque, std::uint8_t index);
 	void SetNativeVectorRead(NativeVectorRead reader, void *opaque);
 	const Z80CompatReg *GetReg();
+	// True while the memory read in progress is an instruction-stream byte
+	// (from the code segment), false for an operand access (M133).
+	bool CodeRead() const {
+		return code_read_;
+	}
+	bool Halted() const;
 
   private:
 	struct Impl;
@@ -122,6 +128,7 @@ class Z80CompatCpu {
 	bool materialize_r_flags_after_instruction_;
 	std::uint32_t code_base_;
 	std::uint32_t data_base_;
+	bool code_read_ = false;
 	Z80CompatFlagProfile flag_profile_;
 	Z80CompatReg public_registers_;
 };

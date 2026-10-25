@@ -489,7 +489,7 @@ void CPUCALL upd9002_core_brkem(REG8 vect) {
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
 	CPU_COMPAT_RETURN_PENDING = 0;
-	UPD9002_WORKCLOCK(38);
+	UPD9002_WORKCLOCK(47); /* M133: Z80TIME 2 (BRKEM + RETEM) */
 	if (upd9002_compat_hooks.enter != NULL) {
 		upd9002_compat_hooks.enter();
 	}
@@ -508,7 +508,7 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 1;
-	UPD9002_WORKCLOCK(38);
+	UPD9002_WORKCLOCK(47); /* M133: Z80TIME 2 (CALLN + IRET) */
 }
 
 void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip) {
@@ -546,7 +546,7 @@ void CPUCALL upd9002_core_compat_retem(void) {
 	UPD9002_TRAP = ((flag & T_FLAG) != 0);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
-	UPD9002_WORKCLOCK(27);
+	UPD9002_WORKCLOCK(37); /* M133: Z80TIME 2 */
 	if (upd9002_compat_hooks.leave != NULL) {
 		upd9002_compat_hooks.leave();
 	}

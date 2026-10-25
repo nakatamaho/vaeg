@@ -2546,6 +2546,83 @@ The MAME NEC V20/V30 core is used only as a comparison for the standard
 V30 transition frame and opcode placement; its 8080 emulation decoder is
 not used as the compatible decoder.
 
+### 14.2 Instruction timing (M133)
+
+`[MEAS]` Z80TIME 2 (`demos/z80-timing`, issue #62) was photographed on a
+PC-88VA and a PC-88VA2 on 2026-10-25 (N = 1200 VRTCs a row). The table gives
+clocks per instruction at 7.9872 MHz: the row less the BASE row, over 2048
+(eight copies a pass, 256 passes). BASE and the N rows are per pass, LDIR
+per byte, and BRKEM + RETEM per round trip including the native `LOOP`.
+HI is data or code above 40000h, where the VA inserts one wait.
+
+| Row | VA | VA2 |
+|---|---:|---:|
+| BASE DJNZ | 19.61 | 19.55 |
+| NOP | 2.00 | 1.97 |
+| LD A,B | 3.01 | 2.98 |
+| LD A,N | 4.12 | 4.01 |
+| LD DE,NN | 6.39 | 6.35 |
+| INC A | 2.86 | 2.85 |
+| INC DE | 2.14 | 2.08 |
+| ADD A,C | 2.86 | 2.85 |
+| ADD A,N | 4.27 | 4.23 |
+| ADD HL,DE | 2.86 | 2.85 |
+| AND N | 4.27 | 4.23 |
+| RLCA | 5.76 | 5.77 |
+| DAA | 7.07 | 7.08 |
+| EX DE,HL | 2.86 | 2.85 |
+| EXX | 2.14 | 2.08 |
+| LD A,(HL) HI | 12.17 | 11.04 |
+| LD A,(HL) LO | 10.94 | 10.94 |
+| LD (HL),A HI | 11.52 | 10.42 |
+| LD (HL),A LO | 10.49 | 10.38 |
+| LD A,(DE) HI | 10.21 | 8.99 |
+| INC (HL) HI | 19.59 | 17.37 |
+| LD A,(NN) HI | 12.62 | 11.49 |
+| LD (NN),A HI | 13.14 | 11.98 |
+| LD HL,(NN) HI | 12.62 | 11.49 |
+| LD (NN),HL HI | 13.14 | 11.98 |
+| PUSH+POP HI | 23.11 | 20.84 |
+| CALL+RET HI | 43.90 | 41.54 |
+| JR TAKEN | 12.59 | 12.52 |
+| JR NZ NOT | 5.24 | 5.24 |
+| JP NN | 15.27 | 15.16 |
+| JP NZ NOT | 6.39 | 6.35 |
+| RET NZ NOT | 3.97 | 3.88 |
+| LD A,(IX+D) HI | 14.03 | 12.91 |
+| LD (IX+D),A HI | 20.14 | 18.79 |
+| INC (IX+D) HI | 27.64 | 25.30 |
+| ADD IX,DE | 6.00 | 5.94 |
+| LD IX,NN | 8.53 | 8.44 |
+| BIT 0,A | 6.00 | 5.94 |
+| SRL A | 8.26 | 8.21 |
+| SET 0,(HL) HI | 24.13 | 21.79 |
+| RL (IX+D) HI | 29.77 | 27.44 |
+| NEG | 4.12 | 4.01 |
+| LDIR BYTE HI | 26.58 | 24.02 |
+| CALLN+IRET | 74.14 | 73.55 |
+| BRKEM+RETEM | 97.51 | 96.78 |
+| NOP CODE HI | 2.54 | 1.97 |
+| LD A,(HL) CODE HI | 12.60 | 10.94 |
+| N BASE DEC JNZ | 18.68 | 18.64 |
+| N NOP | 2.86 | 2.86 |
+| N MOV AL,(BX) HI | 13.04 | 11.80 |
+
+The instruction timing of compatible mode does not follow the Z80's counts:
+
+- Register instructions take 2-3 clocks.
+- Operand accesses take about 11 clocks.
+- Taken transfers take 12.5-15 clocks, and `CALL` + `RET` take 41.5.
+- 16-bit operands are a single bus cycle.
+- Code waits once per aligned word.
+
+`[IMPL]` Since M133 the adapter charges these costs per instruction class
+(`CompatInstructionCost` in `cpu/upd9002_upd70008.cpp`) instead of the
+core's Z80 cycles. Unmeasured classes take the nearest measured one. Memory
+waits are still charged natively, word-wise. BRKEM and CALLN cost 47 clocks
+and RETEM 37. Z80TIME 1 and 2 in vaeg are within 0.96-1.03 of these
+photographs, per row.
+
 ---
 
 # Part IV — Open questions and tests
