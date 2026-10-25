@@ -99,6 +99,7 @@ extern BEEPCFG beepcfg;
 #include "strres.h"
 #include "viewport.h"
 #include "frontpanel.h"
+#include "machine_status.h"
 #include "ymfmbridge.h"
 #if defined(VAEG_UPD9002_M42_TESTING)
 #include "tests/upd9002/direct_harness.h"
@@ -2181,6 +2182,9 @@ static int test_profile_ini(void) {
 static int test_persistence_controls(void) {
 	char saved_crt[sizeof(np2oscfg.gui_shader_parameters)];
 	const BYTE saved_recording_source = np2oscfg.recording_source;
+	const BYTE saved_machine_status = np2oscfg.machine_status;
+	const BYTE saved_front_panel = np2oscfg.front_panel;
+	const BYTE saved_info = np2oscfg.DISPCLK;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2214,6 +2218,25 @@ static int test_persistence_controls(void) {
 	if (strcmp(read_crt, np2oscfg.gui_shader_parameters) != 0) {
 		detail = "CRT parameters did not round-trip through the main config";
 	}
+	/* Independent footer visibility and existing per-field choices survive
+	 * the real production configuration writer/reader. */
+	for (BYTE show = 0; show < 2; show++) {
+		for (BYTE lamps = 0; lamps < 2; lamps++) {
+			const BYTE info =
+			    VAEG_DISPINFO_CPU_CLOCK | (show ? VAEG_DISPINFO_FRAME : VAEG_DISPINFO_FPS);
+			np2oscfg.machine_status = show;
+			np2oscfg.front_panel = lamps;
+			np2oscfg.DISPCLK = info;
+			initsave();
+			np2oscfg.machine_status = !show;
+			np2oscfg.front_panel = !lamps;
+			np2oscfg.DISPCLK = 0;
+			initload();
+			if (np2oscfg.machine_status != show || np2oscfg.front_panel != lamps ||
+			    np2oscfg.DISPCLK != info)
+				detail = "independent information/panel settings did not round-trip";
+		}
+	}
 	/* Exercise the production table and loader, not a parallel preference table. */
 	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT; source++) {
 		np2oscfg.recording_source = source;
@@ -2243,13 +2266,22 @@ static int test_persistence_controls(void) {
 			}
 			file_close(legacy);
 			np2oscfg.recording_source = VAEG_RECORDING_SOURCE_NATIVE;
+			np2oscfg.machine_status = 1;
+			np2oscfg.front_panel = saved_front_panel;
+			np2oscfg.DISPCLK = saved_info;
 			initload();
+			if (np2oscfg.machine_status != 1 || np2oscfg.front_panel != saved_front_panel ||
+			    np2oscfg.DISPCLK != saved_info)
+				detail = "legacy config changed footer defaults or existing choices";
 			if (np2oscfg.recording_source != VAEG_RECORDING_SOURCE_NATIVE) {
 				detail = "missing recording preference changed the Native default";
 			}
 		}
 	}
 	np2oscfg.recording_source = saved_recording_source;
+	np2oscfg.machine_status = saved_machine_status;
+	np2oscfg.front_panel = saved_front_panel;
+	np2oscfg.DISPCLK = saved_info;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -2627,31 +2659,84 @@ static int test_clockscale(void) {
 		}
 	}
 	/* M105 CPU speed: cycles cost 100 / percent in V30 and compatible mode;
-	 * the CPU clock multiplier applies to both modes. */
+	 * the CPU clock multiplier applies to both modes, and V1/V2 S halves the
+	 * compatible-mode clock (twice the cost). */
 	{
 		static const struct {
 			UINT multiple;
 			UINT percent;
-			UINT32 v30;    /* scaled cost of 100 cycles */
-			UINT32 compat; /* scaled cost of 100 cycles */
-		} speeds[] = {{2, 100, 100, 100}, {2, 50, 200, 200}, {2, 10, 1000, 1000},
-		              {4, 50, 100, 100},  {2, 0, 100, 100},  {2, 5, 1000, 1000}};
+			UINT32 v30;     /* scaled cost of 100 cycles */
+			UINT32 compat;  /* scaled cost of 100 cycles */
+			UINT8 standard; /* V1/V2 S */
+		} speeds[] = {{2, 100, 100, 100, 0}, {2, 50, 200, 200, 0},  {2, 10, 1000, 1000, 0},
+		              {4, 50, 100, 100, 0},  {2, 0, 100, 100, 0},   {2, 5, 1000, 1000, 0},
+		              {2, 100, 100, 200, 1}, {1, 100, 200, 400, 1}, {4, 100, 50, 100, 1}};
 		const UINT8 saved_speed = np2cfg.cpu_speed;
+		const UINT8 saved_standard = np2cfg.v1v2_standard;
+		const UINT8 saved_88 = memoryva_88_mode;
+		const UINT8 saved_a = sysportva.a;
 
 		for (index = 0; index < NELEMENTS(speeds); index++) {
 			np2cfg.multiple = speeds[index].multiple;
 			np2cfg.cpu_speed = (UINT8)speeds[index].percent;
+			np2cfg.v1v2_standard = speeds[index].standard;
+			memoryva_88_mode = 1;
+			sysportva.a = (sysportva.a & ~0x20) | (speeds[index].standard ? 0 : 0x20);
 			pccore_clockrestore();
 			if ((clockscale_apply(&pccore_cpu_scale, 100) != speeds[index].v30) ||
-			    (clockscale_apply(&pccore_compat_scale, 100) != speeds[index].compat)) {
+			    (pccore_compat_clocks(100, FALSE) != speeds[index].compat) ||
+			    (pccore_compat_clocks(7, TRUE) != 7) ||
+			    (pccore_compat_cpu_clock() !=
+			     pccore_cpu_clock() / (speeds[index].standard ? 2 : 1))) {
 				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
 				np2cfg.multiple = saved_config_multiple;
 				pccore.baseclock = saved_baseclock;
 				pccore_clockrestore();
 				return (fail("clockscale", "CPU speed did not scale the cycle cost"));
 			}
+			memoryva_88_mode = 0;
+			if ((pccore_compat_clocks(100, FALSE) != speeds[index].v30) ||
+			    (pccore_compat_cpu_clock() != pccore_cpu_clock())) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return fail("clockscale", "saved S selection slowed native V3 BRKEM code");
+			}
+		}
+		/* The H/S factor retains fractional carry, even with native waits
+		 * interleaved; it never multiplies an already charged wait. */
+		np2cfg.multiple = 3;
+		np2cfg.cpu_speed = 100;
+		sysportva.a &= ~0x20;
+		for (memoryva_88_mode = 0; memoryva_88_mode < 2; memoryva_88_mode++) {
+			pccore_clockrestore();
+			total = 0;
+			for (index = 0; index < 30000; index++) {
+				total += pccore_compat_clocks(1, FALSE);
+				(void)pccore_compat_clocks(7, TRUE);
+			}
+			if (total != (memoryva_88_mode ? 40000 : 20000)) {
+				np2cfg.cpu_speed = saved_speed;
+				np2cfg.v1v2_standard = saved_standard;
+				memoryva_88_mode = saved_88;
+				sysportva.a = saved_a;
+				np2cfg.multiple = saved_config_multiple;
+				pccore.baseclock = saved_baseclock;
+				pccore_clockrestore();
+				return fail("clockscale", "H/S fractional instruction carry drifted");
+			}
 		}
 		np2cfg.cpu_speed = saved_speed;
+		np2cfg.v1v2_standard = saved_standard;
+		memoryva_88_mode = saved_88;
+		sysportva.a = saved_a;
 	}
 	np2cfg.multiple = saved_config_multiple;
 	pccore.baseclock = saved_baseclock;
@@ -5460,6 +5545,174 @@ static int test_beep_level(void) {
 	return (SUCCESS);
 }
 
+/* M132: public model identity, live mode and nominal clock formatting. */
+static int test_machine_status(void) {
+	const NP2CFG saved_cfg = np2cfg;
+	const UINT saved_baseclock = pccore.baseclock;
+	const UINT saved_model = pccore.model_va;
+	const _SYSPORTVA saved_port = sysportva;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_31 = memoryva_88_port31;
+	const BOOL saved_n80 = memoryva_n80_exist;
+	BOOL lamps[3];
+	const char *problem = NULL;
+	VAEG_MACHINE_STATUS status;
+	char text[256], clock[32];
+	UINT i;
+	static const struct {
+		const char *machine;
+		const char *formal;
+		const char *mode;
+		BOOL n;
+		BOOL high;
+		BOOL sgp;
+	} cases[] = {
+	    {"", "PC-88VA2", "V2S", FALSE, FALSE, TRUE},
+	    {"pc-8801mh", "PC-8801MH", "V2H", FALSE, TRUE, FALSE},
+	    {"PC-8801MA", "PC-8801MA", "V2H", FALSE, TRUE, FALSE},
+	    {"PC-8801mkIISR", "PC-8801mkIISR", "V2", FALSE, FALSE, FALSE},
+	    {"PC-8001", "PC-8001", "N", TRUE, FALSE, FALSE},
+	    {"PC-8001mkII", "PC-8001mkII", "N/N80", TRUE, FALSE, FALSE},
+	    {"PC-8001mkIISR", "PC-8001mkIISR", "N/N80/N80SR", TRUE, FALSE, FALSE},
+	    {"PC-8801MH", "PC-8801MH", "N", TRUE, TRUE, FALSE},
+	};
+	static const struct {
+		UINT32 hz;
+		const char *text;
+	} clocks[] = {
+	    {7987200, "8MHz"},    {3993600, "4MHz"},    {1996800, "2MHz"},
+	    {122880, "0.123MHz"}, {999999, "1.000MHz"}, {0xffffffffU, "4295MHz"},
+	};
+
+	for (i = 0; i < 3; i++)
+		lamps[i] = frontpanel_raw_mode_lit(i);
+	pccore.baseclock = PCBASECLOCK40;
+	pccore.model_va = PCMODEL_VA2;
+	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	np2cfg.cpu_speed = 50;
+	/* A stale boot route is deliberately opposite the actual ROM selector. */
+	np2cfg.boot_mode = BOOTMODE_AUTO;
+	memoryva_88_mode = 1;
+	memoryva_n80_exist = TRUE;
+	frontpanel_set_modeled(0, FALSE);
+	frontpanel_set_modeled(1, TRUE);
+	frontpanel_set_modeled(2, FALSE);
+	for (i = 0; i < NELEMENTS(cases); i++) {
+		milstr_ncpy(np2cfg.extra_machine, cases[i].machine, sizeof(np2cfg.extra_machine));
+		memoryva_88_port31 = cases[i].n ? 4 : 0;
+		sysportva.a = (sysportva.a & ~0x20) | (cases[i].high ? 0x20 : 0);
+		pccore_clockrestore();
+		machine_status_get(&status);
+		if (strcmp(status.machine, cases[i].formal) || strcmp(status.mode, cases[i].mode) ||
+		    status.has_sgp != cases[i].sgp ||
+		    (cases[i].n &&
+		     (frontpanel_mode_lit(0) || frontpanel_mode_lit(1) || frontpanel_mode_lit(2)))) {
+			problem = "model profile, N-family classification or shared lamp policy";
+			goto done;
+		}
+		machine_status_line(text, sizeof(text), &status,
+		                    VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK | VAEG_DISPINFO_FPS,
+		                    600, 120);
+		if ((strstr(text, "SGP") != NULL) != cases[i].sgp || strstr(text, "FRAME") != NULL ||
+		    strstr(text, "60.0FPS") == NULL) {
+			problem = "status field visibility";
+			goto done;
+		}
+		if (i == 0 && (status.cpu_hz != 1996800 || status.base_hz != 3993600 ||
+		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
+			problem = "nominal clock or short English status";
+			goto done;
+		}
+	}
+	{
+		static const struct {
+			int window, drawable, status, lamps, top, inset;
+		} layouts[] = {{460, 460, 24, 14, 422, 38}, {460, 920, 24, 28, 422, 76},
+		               {240, 480, 40, 14, 193, 94}, {460, 460, 24, 0, 436, 24},
+		               {460, 460, 0, 14, 446, 14},  {460, 460, 0, 0, 460, 0},
+		               {240, 240, 1000, 14, 0, 240}};
+		int top, inset;
+		UINT show, lamps_on;
+		for (i = 0; i < NELEMENTS(layouts); i++) {
+			if (!machine_status_layout(layouts[i].window, layouts[i].drawable, layouts[i].status,
+			                           layouts[i].lamps, &top, &inset) ||
+			    top != layouts[i].top || inset != layouts[i].inset) {
+				problem = "footer DPI, narrow/tall-font or independent visibility geometry";
+				goto done;
+			}
+		}
+		if (machine_status_layout(0, 480, 24, 14, &top, &inset) ||
+		    machine_status_layout(240, 0, 24, 14, &top, &inset)) {
+			problem = "invalid footer geometry accepted";
+			goto done;
+		}
+		for (show = 0; show < 2; show++) {
+			for (lamps_on = 0; lamps_on < 2; lamps_on++) {
+				VAEG_VIEWPORT_INPUT input = {0};
+				VAEG_VIEWPORT viewport;
+				const int height = 422 + (int)show * 24 + (int)lamps_on * 14;
+				(void)machine_status_layout(height, height * 2, (int)show * 24, (int)lamps_on * 28,
+				                            &top, &inset);
+				input.guest_width = 640;
+				input.guest_height = 400;
+				input.drawable_width = 1280;
+				input.drawable_height = height * 2;
+				input.menu_inset = 44;
+				input.bottom_inset = inset;
+				input.scaling = VAEG_SCALING_FIT;
+				if (vaeg_viewport_calculate(&input, &viewport) != SUCCESS || viewport.y != 44 ||
+				    viewport.height != 800 || viewport.width != 1280) {
+					problem = "footer toggles changed the HiDPI guest picture";
+					goto done;
+				}
+			}
+		}
+	}
+	for (i = 0; i < NELEMENTS(clocks); i++) {
+		machine_status_clock(clock, sizeof(clock), clocks[i].hz);
+		if (strcmp(clock, clocks[i].text)) {
+			problem = "clock rounding or sub-MHz/overflow formatting";
+			goto done;
+		}
+	}
+	/* Merely choosing the internal N boot route is not runtime N evidence. */
+	memoryva_88_port31 = 0;
+	np2cfg.boot_mode = BOOTMODE_N;
+	if (machine_status_mode() != VAEG_MODE_V2) {
+		problem = "boot preference was mistaken for an active N ROM";
+		goto done;
+	}
+	machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FRAME, 600, 120);
+	if (!strstr(text, "FRAME 120") || strstr(text, "FPS") || strstr(text, "CPU")) {
+		problem = "FRAME and FPS settings are coupled";
+		goto done;
+	}
+	{
+		char tiny[8];
+		memset(tiny, '!', sizeof(tiny));
+		machine_status_line(tiny + 1, 6, &status, 0x7f, 600, 120);
+		if (tiny[0] != '!' || tiny[7] != '!' || tiny[6] != '\0') {
+			problem = "bounded status formatter";
+			goto done;
+		}
+	}
+done:
+	np2cfg = saved_cfg;
+	pccore.baseclock = saved_baseclock;
+	pccore.model_va = saved_model;
+	sysportva = saved_port;
+	memoryva_88_mode = saved_88;
+	memoryva_88_port31 = saved_31;
+	memoryva_n80_exist = saved_n80;
+	for (i = 0; i < 3; i++)
+		frontpanel_set_modeled(i, lamps[i]);
+	pccore_clockrestore();
+	if (problem)
+		return fail("machine status", problem);
+	fprintf(stderr, "selftest: machine status profiles, nominal clocks and N lamps ok\n");
+	return SUCCESS;
+}
+
 /* M106: the front panel lamp bar, its lamps and the room it takes. */
 static int test_front_panel(void) {
 	const BYTE saved_panel = np2oscfg.front_panel;
@@ -6870,6 +7123,138 @@ static int test_tsp_attribute_modes(void) {
 }
 
 /* M103h/M131: the V1/V2 memory switch, checksum and VA H/S identification. */
+static int test_88speed_identification(void) {
+	const NP2CFG saved_cfg = np2cfg;
+	const _SYSPORTVA saved_port = sysportva;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_31 = memoryva_88_port31;
+	BYTE saved_record[16];
+	BYTE before[16];
+	const char *problem = NULL;
+	UINT model, automatic, valid, v1, standard, repeat, i;
+
+	/* The preceding ROM-port fixture terminates its core/I/O table. Own a
+	 * fresh table before binding ports, rather than using its freed map. */
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return fail("88 speed identification", "I/O fixture allocation failed");
+	}
+	memcpy(saved_record, backupmem + 0x1fc0, sizeof(saved_record));
+	for (model = 0; model < 2; model++) {
+		milstr_ncpy(np2cfg.model, model ? str_VA2 : str_VA1, sizeof(np2cfg.model));
+		for (automatic = 0; automatic < 2; automatic++) {
+			np2cfg.main_ram_auto = (BYTE)automatic;
+			for (valid = 0; valid < 3; valid++) {
+				for (v1 = 0; v1 < 2; v1++) {
+					/* H -> S -> H, starting with a stale opposite latch. */
+					for (repeat = 0; repeat < 3; repeat++) {
+						BYTE sum = 0;
+						standard = repeat == 1;
+						np2cfg.v1v2_standard = (BYTE)standard;
+						memset(backupmem + 0x1fc0, 0, sizeof(before));
+						backupmem[0x1fc5] = (BYTE)(0x34 | v1 | (standard ? 2 : 0));
+						backupmem[0x1fc6] = v1 ? 0xf9 : 0x79;
+						if (valid) {
+							backupmem[0x1fc8] = 0x4b;
+							backupmem[0x1fc9] = 0x5a;
+							backupmem[0x1fca] = valid == 1 ? 0x4d : 0x00;
+						}
+						memcpy(before, backupmem + 0x1fc0, sizeof(before));
+						bkupmemva_sync_88speed(standard);
+						if (valid != 1) {
+							if (memcmp(before, backupmem + 0x1fc0, sizeof(before))) {
+								problem = "H/S manufactured or changed an invalid BIOS record";
+								goto done;
+							}
+						} else {
+							for (i = 0; i < 8; i++) {
+								sum = (BYTE)(sum + backupmem[0x1fc0 + i]);
+							}
+							if (((backupmem[0x1fc5] & 2) != (standard ? 0 : 2)) ||
+							    ((backupmem[0x1fc5] & ~2) != (before[5] & ~2)) ||
+							    (backupmem[0x1fc6] != before[6]) ||
+							    (backupmem[0x1fcd] != (BYTE)(sum + (v1 ? 0 : 0x80)))) {
+								problem = "H/S damaged valid BIOS fields or checksum";
+								goto done;
+							}
+						}
+						sysportva.a = (BYTE)(0xc5 | (standard ? 0x20 : 0));
+						systemportva_reset();
+						if (((sysportva.a & 0x20) != (standard ? 0 : 0x20)) ||
+						    ((sysportva.a & ~0x20) != 0xc5)) {
+							problem = "VA reset retained stale H/S or damaged unrelated input bits";
+							goto done;
+						}
+						/* VA2 firmware writes a default S record on its first boot.
+						 * Its mode output must not undo the selected H/S input. */
+						if (model) {
+							systemportva_bind();
+							iocore_out8(0x1c6, 0x04 | v1);
+							if ((iocore_inp8(0x1c9) & 0x20) != (standard ? 0 : 0x20)) {
+								problem = "VA2 first-boot defaults overrode selected H/S";
+								goto done;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	/* Original-VA manual-RAM first boot: firmware creates its default
+	 * signature after reset and never writes 1C6h. Reconcile that new record
+	 * on 88 entry, but do not change it for native V3 BRKEM. */
+	for (standard = 0; standard < 2; standard++) {
+		np2cfg.v1v2_standard = (BYTE)standard;
+		np2cfg.boot_mode = BOOTMODE_V1V2;
+		systemportva_reset();
+		memctrlva_nmode_reset();
+		memset(backupmem + 0x1fc0, 0, sizeof(before));
+		backupmem[0x1fc5] = 0x04;
+		backupmem[0x1fc6] = 0x79;
+		backupmem[0x1fc8] = 0x4b;
+		backupmem[0x1fc9] = 0x5a;
+		backupmem[0x1fca] = 0x4d;
+		memoryva_88_mode = 0;
+		memctrlva_nmode_compat_entry();
+		if (backupmem[0x1fc5] != 0x04) {
+			problem = "V3 BRKEM reconciled an 88-mode BIOS record";
+			goto done;
+		}
+		memoryva_88_mode = 1;
+		memctrlva_nmode_compat_entry();
+		if ((backupmem[0x1fc5] & 2) != (standard ? 0 : 2)) {
+			problem = "original-VA first boot left the new BIOS record at the wrong H/S";
+			goto done;
+		}
+	}
+	/* Bind after state loading must retain the restored latch, not replace
+	 * it with a different pending reset selection. */
+	for (standard = 0; standard < 2; standard++) {
+		np2cfg.v1v2_standard = (BYTE)!standard;
+		sysportva.a = (BYTE)(0xc5 | (standard ? 0 : 0x20));
+		systemportva_bind();
+		if ((iocore_inp8(0x1c9) & 0x20) != (standard ? 0 : 0x20)) {
+			problem = "binding replaced a restored H/S latch with a pending selection";
+			break;
+		}
+	}
+done:
+	np2cfg = saved_cfg;
+	sysportva = saved_port;
+	memcpy(backupmem + 0x1fc0, saved_record, sizeof(saved_record));
+	memctrlva_nmode_reset();
+	memoryva_88_mode = saved_88;
+	memoryva_88_port31 = saved_31;
+	systemportva_bind();
+	iocore_destroy();
+	if (problem != NULL) {
+		return fail("88 speed identification", problem);
+	}
+	fprintf(stderr, "selftest: 88 speed identification matrix ok\n");
+	return SUCCESS;
+}
+
 static int test_v1v2_memory_switch(void) {
 	const char *problem;
 	UINT8 sum;
@@ -7907,6 +8292,53 @@ static int test_romankana(void) {
 	return (SUCCESS);
 }
 
+static int test_keyboard_paste_speed_pacing(void) {
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_input = sysportva.a;
+	const UINT8 saved_preference = np2cfg.v1v2_standard;
+	const char *problem = NULL;
+	UINT mode;
+
+	/* The live/restored latch, not a pending menu choice, owns the interval. */
+	for (mode = 0; mode < 4 && problem == NULL; mode++) {
+		UINT expected = (mode == 3) ? 4 : 2;
+		UINT frame;
+		UINT32 now = SDL_GetTicks() + 1000;
+
+		memoryva_88_mode = (mode & 2) ? 1 : 0;
+		sysportva.a = (saved_input & ~0x20) | ((mode & 1) ? 0 : 0x20);
+		np2cfg.v1v2_standard = (mode & 1) ? 0 : 1;
+		if (kbdpaste_frames_per_event() != expected) {
+			problem = "M132_PASTE_SPEED_POLICY";
+			break;
+		}
+		if (!kbdpaste_start_text("a")) {
+			problem = "M132_PASTE_FIXTURE_START";
+			break;
+		}
+		/* One unshifted character has DOWN and UP phases. Host time alone
+		 * must not complete either phase before its guest-frame floor. */
+		for (frame = 1; frame <= expected * 2; frame++) {
+			kbdpaste_frame();
+			now += kbdpaste_interval_ms();
+			kbdpaste_tick(now, TRUE);
+			if (kbdpaste_active() != (frame < expected * 2)) {
+				problem = "M132_PASTE_PHASE_FRAME_FLOOR";
+				break;
+			}
+		}
+		kbdpaste_cancel();
+	}
+	kbdpaste_cancel();
+	memoryva_88_mode = saved_mode;
+	sysportva.a = saved_input;
+	np2cfg.v1v2_standard = saved_preference;
+	if (problem != NULL) {
+		return fail("keyboard-paste", problem);
+	}
+	return SUCCESS;
+}
+
 static int test_keyboard_mapping(void) {
 	char printable[96];
 	KBDPASTE_ACTION actions[96];
@@ -7917,7 +8349,7 @@ static int test_keyboard_mapping(void) {
 	if (kbdmap_selftest() != SUCCESS) {
 		return (fail("keyboard-map", "mapping lookup/persistence failed"));
 	}
-	if (test_romankana() != SUCCESS) {
+	if (test_romankana() != SUCCESS || test_keyboard_paste_speed_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
 	for (index = 0; index < 95; index++) {
@@ -8420,6 +8852,9 @@ int vaeg_selftest_run(void) {
 	if (test_v1v2_rom_ports() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_88speed_identification() != SUCCESS) {
+		return FAILURE;
+	}
 	if (test_v1v2_memory_switch() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -8478,6 +8913,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_scanline_fill() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_machine_status() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_front_panel() != SUCCESS) {
 		return (FAILURE);

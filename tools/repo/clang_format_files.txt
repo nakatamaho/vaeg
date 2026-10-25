@@ -246,6 +246,8 @@ sdl2/kbdmap.c
 sdl2/kbdmap.h
 sdl2/kbdpaste.c
 sdl2/kbdpaste.h
+sdl2/machine_status.c
+sdl2/machine_status.h
 sdl2/mousemng.c
 sdl2/mousemng.h
 sdl2/mousestate.c

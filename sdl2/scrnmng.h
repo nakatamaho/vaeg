@@ -157,6 +157,10 @@ BOOL scrnmng_screenshot_rotation_selftest(const char *directory);
 void scrnmng_set_framedisp(BOOL enabled);
 void scrnmng_reset_metrics(void);
 void scrnmng_refresh_title(void);
+BOOL scrnmng_status_visible(void);
+BOOL scrnmng_status_rect(RECT_T *rect);
+UINT32 scrnmng_draw_fps_tenths(void);
+UINT32 scrnmng_guest_fps_tenths(void);
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames);
 
 typedef struct {

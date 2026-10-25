@@ -128,10 +128,21 @@ disk of a multi-image file is refused. `--fdd1-image N` and
 模擬 has two speed controls (M110). 実行速度 (10-400 %, the right end = No
 Wait) slows or speeds frames, timers and sound together. CPU クロック changes
 the CPU alone, without a reset, frames, timers and music keeping real time:
-機種の既定 (x2, 7.99 MHz), PC-8801 標準速度相当 (about 4 MHz) and 高速相当
-(about 8 MHz; approximations on the VA's V1/V2 mode, to be calibrated on
-hardware), 2倍, 4倍, 8倍, and 任意 (a multiplier of 3.9936 MHz and a 10-100 %
-speed; `clk_mult` and `CPU_Speed` in the configuration).
+機種の既定, the historical PC-8801 presets, 2倍, 4倍, 8倍, and 任意
+(`clk_mult` and `CPU_Speed`, 10-100 %, in the configuration).
+M132 accepts PR #55's source/history and corrects its scope: in 88 mode H
+uses a nominal 7.9872 MHz base and S half of it, 3.9936 MHz. Additional CPU
+multiplier/speed still apply; a saved S + x2 + 50 % now means nominal 2 MHz,
+not 4 MHz. Select 機種の既定 for the standard multiplier and 100 %; custom
+settings are not guessed or migrated away. Native V3 BRKEM does not inherit
+S, and already charged native memory/I/O waits are not scaled twice.
+The effective H/S input is initialized on both VA models, including first
+boot; signature-bearing backup records are reconciled at reset, VA2 mode
+output, or first applicable 88 entry after firmware initializes a record.
+IN31h is unchanged (M131). The CPU heading and information bar use nominal
+clocks including CPU speed %, never host-throughput-derived MHz. Exact
+physical timing and ROM-trap calibration remain separate; see the
+[design and verification limits](../docs/modernization/v1v2-hs-clock-status-plan.md).
 
 音 > 全体の音量 (`master_volume`, 0-100 %, default 100) scales the final
 mix, every source included; ミュート silences the output (as `--mute`).
@@ -853,10 +864,11 @@ only the program, use `CPU クロック` below it (its 任意 speed is `CPU_Spee
 in 5 % steps): every instruction cycle costs 100 / speed machine clocks, in
 V3 (on top of the multiplier) and in the V1/V2 compatible mode,
 while frames, timers, FM, BEEP and disk timing keep real time.
-`画面 -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
+`情報 -> 前面パネル (ランプ)` (`FrontPanelMode`: 1 on, the default; 0
 off) shows a slim bar of lamps below the screen in a window (14 rows per 640
 dots): FD1 and FD2 light for 120 ms after each sector access, red for
-2D/2DD media and green for 2HD, V1/V2/V3 follow port 1CDh bits 4-6, and
+2D/2DD media and green for 2HD. V1/V2/V3 use the shared effective mode;
+N-family ROM selection leaves all three off even if the backend latch says V2.
 KANA and CAPS (amber, at the right end of the bar) show the guest's lock state: in V3 the BIOS shift-state
 byte 0040:06B0h, in V1/V2 the locked key in the PC-8801 key matrix (port 08h
 bit 5, port 0Ah bit 7).
@@ -877,15 +889,27 @@ temporary path and is not sent to the guest. It can also select `一時停止`
 (M110, `F12_bind=8`), which pauses and resumes; the menu bar has no Pause
 button, and a paused machine shows 一時停止中 with a 再開 button.
 
+`情報 -> 機種・動作情報` (`MachineStatus`, default 1, including an old config
+without that key) independently shows/hides the bottom information bar. It is
+separate from the moved lamp toggle and works in windowed/fullscreen SDL and
+native-presenter paths; headless runs reserve neither bar. Windowed toggles add
+or remove their own rows without resizing the guest picture. Narrow windows
+clip the regular line; hovering reveals its full text and English details.
+
 `情報 -> FPS を表示`, `CPU クロックを表示`, `SGP クロックを表示`, and `フレームを表示`
-independently control the corresponding suffixes in the native window title.
-For a new configuration, CPU and SGP clock display are enabled while FPS and
-frame display are off; saved `DspClock` flags are preserved. The measured clocks
-are the configured effective clocks scaled by guest frames completed per host
-second relative to the nominal 60Hz guest frame rate, so No Wait and F11 show
-the actual extra throughput. The measurement uses guest frames rather than
-rendered frames and is refreshed approximately once per second; it does not
-change frame skip or guest timing. `情報 -> テキストを表示`, `スプライトを表示`,
+independently control that bar's fields, not window-title suffixes. A new config
+shows CPU/SGP/FPS, not FRAME; existing `DspClock` choices are preserved. For
+example: `PC-88VA2 | V2S | CPU 4MHz | SGP 8MHz | 60.0FPS`. Formal extra-machine
+names replace backend VA/VA2 names; SGP is shown only for the PC-88VA family.
+CPU/SGP MHz are configured nominal clocks, rounded for the short line and
+independent of host pacing/No Wait. The tooltip gives exact MHz, base,
+multiplier, CPU speed %, CPU domain and measured draw/guest-frame FPS.
+Regular FPS measures completed guest draws per host second; FRAME is the
+cumulative draw count since reset, not the number of host presents. Neither
+changes guest timing. The title keeps the application name and optional FDD
+information, without duplicating clocks/FPS/FRAME. N-ROM selection is detected
+at runtime, not from `BootMode` or ROM banners; ambiguous mkII/SR BASIC subtypes
+are explicitly `N/N80` or `N/N80/N80SR`, not falsely asserted as N80/N80SR. `情報 -> テキストを表示`, `スプライトを表示`,
 `グラフィック 0 を表示`, and `グラフィック 1 を表示` independently enable the four VA composition
 layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
 switches are frontend display filters and do not modify guest VRAM or video

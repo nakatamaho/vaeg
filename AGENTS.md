@@ -144,6 +144,36 @@ mismatch fails.
 A failure blocks the gate. Fix it in the milestone (and record it in the
 bug-fix ledger), as in M110 when the utility FDD had stopped building.
 
+## Local QA before human review
+
+Maintainer direction during M132: automate reproducible gate checks as local QA
+instead of repeatedly asking the human to execute them. Private-input tests run
+locally, with explicit input bindings and out-of-tree generated evidence; they
+must not upload private assets, identities or captures to hosted CI. Reusable
+runners and content validators belong in the repository, without private paths.
+
+A zero worker exit, a saved screenshot or a plausible nominal clock is not a
+semantic PASS. Check guest-visible results, expected state transitions, persistence
+and appropriate image/text contracts. Use stable failure codes and passing-fixture,
+single-mutation negatives. Distinguish PASS, FAIL and BLOCKED/NOT_RUN; dummy video
+must not stand in for actual presenter, window or fullscreen inspection. Preserve
+and reuse unchanged expensive evidence under the identity rules below.
+
+Prioritize machine/mode/reset, H/S execution, paste, cassette and actual state-file
+round trips. Visual/layout checks are also machine-owned: compare final-client
+screenshots against independently approved, frozen references at fixed settings,
+size, DPI and backend, with narrowly bounded dynamic masks and region checks.
+Do not assign routine overlap/clipping/fullscreen checks to a human merely because
+they are visual. Human work is reference approval, intentional visual-change
+approval, genuinely unautomatable interaction and final acceptance. Lack of a
+real display blocks that target's capture automation; it does not transfer the
+whole test back to the maintainer. A mapped SDL client on virtual X11 with a
+window manager is a valid explicitly labeled software-integration target, not
+SDL dummy output; never promote it to physical-GPU, Cocoa, Windows or true-HiDPI
+coverage. Report exactly which checklist items an automated case covers; adding
+a runner does not mark unimplemented cases passed, retroactively upgrade prior
+manual checks, or authorize a milestone merge without its required gate acceptance.
+
 ## CI and expensive-test discipline
 
 Do not use hosted CI as an iterative debugger. Before requesting a hosted CI

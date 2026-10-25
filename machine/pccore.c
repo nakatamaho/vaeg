@@ -34,6 +34,7 @@
 #include "bmsio.h"
 #include "emsio.h"
 #include "bkupmemva.h"
+#include "sysportva.h"
 
 #include "../vram/maketextva.h"
 #include "../vram/makesprva.h"
@@ -200,9 +201,8 @@ void pccore_set_cpu_speed(UINT percent) {
 	pccore_cpu_speed_value = percent;
 	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
-	/* The uPD9002 runs compatible (Z80) code on the same clock as native V30
-	 * code, so the CPU clock multiplier applies to both: x1 (3.9936 MHz) runs
-	 * PC-8801 software at half the standard x2 rate. */
+	/* H/S is applied at the instruction boundary, not baked into a ratio
+	 * also used by native V3 BRKEM code or already charged bus waits. */
 	clockscale_configure(&pccore_compat_scale, PCCORE_STANDARD_MULTIPLE * 100,
 	                     pccore_cpu_multiple_value * percent);
 }
@@ -217,6 +217,32 @@ UINT pccore_cpu_multiple(void) {
 
 UINT32 pccore_cpu_clock(void) {
 	return (pccore.baseclock * pccore_cpu_multiple_value);
+}
+
+/* Use the restored/live input, rather than a pending reset preference. */
+BOOL pccore_88_standard(void) {
+	return (sysportva.a & 0x20) ? FALSE : TRUE;
+}
+
+/* Configured compatible clock, excluding CPU speed percent and host pace. */
+UINT32 pccore_compat_cpu_clock(void) {
+	return pccore_cpu_clock() / ((memoryva_88_mode && pccore_88_standard()) ? 2 : 1);
+}
+
+UINT64 pccore_compat_clocks(UINT32 clocks, BOOL native_wait) {
+	UINT64 elapsed;
+
+	if (native_wait) {
+		/* Memory and I/O have already charged native machine-clock units. */
+		return clocks;
+	}
+	elapsed = clockscale_apply(&pccore_compat_scale, clocks);
+	if (memoryva_88_mode && pccore_88_standard()) {
+		/* Two applications retain fractional carry without 32-bit doubling
+		 * overflow, and leave V3's compatible instructions at their base rate. */
+		elapsed += clockscale_apply(&pccore_compat_scale, clocks);
+	}
+	return elapsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +502,7 @@ void pccore_reset(void) {
 		TRACEOUT(("supported SCSI"));
 	}
 	bkupmemva_sync_bootdisk(pccore_fixed_disk_attached());
+	bkupmemva_sync_88speed(np2cfg.v1v2_standard ? TRUE : FALSE);
 
 	sound_changeclock();
 	beep_changeclock();

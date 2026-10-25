@@ -225,14 +225,26 @@ screen text reads the 3301 text rows.
 - The function-key row shows control-code pictures (for example HT and CR);
   the PC-8801 font has the same pictures at 01h–1Fh, so this is likely
   correct, but unconfirmed.
-- N80SR and the N80 (PC-8001mkII) mode are not pursued (§8).
+- Model-specific N80/N80SR graphics and runtime subtype identification remain
+  separate work (§8). PC-8001mkII N80-BASIC boot is maintainer-observed; do not
+  confuse the internal N startup route with an N-only BASIC implementation.
 
-## 8. N80SR and N80 modes: not pursued
+## 8. N80SR and N80 graphics: historical scope and current backlog
+
+M132 clarification: the following M103i decision concerns representing these
+machines' display modes through VA hardware, not whether their BASIC ROMs can
+start in the emulator. M114 added extra-machine ROM startup and the maintainer
+reports mkII N80-BASIC boot. Full mkII graphics/expansion banking and mkIISR
+N/N80/N80SR behavior still need individual verification. M132 identifies the
+live N-ROM selector and suppresses V1/V2 lamps, but ambiguous BASIC subtypes
+remain `N/N80` or `N/N80/N80SR`. See the
+[current implementation/backlog](v1v2-hs-clock-status-plan.md#pc-8001系の観測と積み残し).
 
 Maintainer decision (2026-10-05, M103i): vaeg does not add N80SR (N80 V2,
 PC-8001mkIISR) or the N80 (PC-8001mkII) mode, because neither display can
-be reached on a real VA, even with a custom I/O-trap handler. The study
-below is a desk study; nothing in it was run on hardware or in vaeg.
+be reached on a real VA, even with a custom I/O-trap handler. The display study
+below is a historical desk study; its display models were not run on hardware
+or in vaeg at that checkpoint.
 Hiragana display was excluded from the start.
 
 Display models, from `[X88000]` 1.5.3 behaviour:

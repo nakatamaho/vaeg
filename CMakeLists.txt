@@ -429,6 +429,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/framedisp.c
     sdl2/viewport.c
     sdl2/frontpanel.c
+    sdl2/machine_status.c
     sdl2/appicon.c
     sdl2/splash.c
     sdl2/sysmng.c
@@ -1570,6 +1571,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_zex_archive_audit
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/test_check_zex_archive.py")
+    add_test(NAME vaeg_cpmva_installer
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_install_cpmva.py")
     add_test(NAME vaeg_cpmva_zexbuild
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/cpmva/tests/test_zexbuild.py")
@@ -2489,6 +2493,29 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "romless;frontend;viewport"
         TIMEOUT 30)
+    # M132: synthetic-only local-QA checker tests; never use private captures in CI.
+    add_test(NAME vaeg_local_basic_qa_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/compatible_basic_qa.py" --selftest)
+    add_test(NAME vaeg_screen_compare_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/screen_compare.py" --selftest)
+    add_test(NAME vaeg_x11_capture_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_capture.py" --selftest)
+    add_test(NAME vaeg_x11_matrix_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_matrix.py" selftest)
+    add_test(NAME vaeg_x11_gate_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_gate.py" --selftest)
+    add_test(NAME vaeg_guest_start_qa_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/guest_start_qa.py" --selftest)
+    set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest
+        vaeg_x11_capture_selftest vaeg_x11_matrix_selftest vaeg_x11_gate_selftest
+        vaeg_guest_start_qa_selftest PROPERTIES
+        LABELS "romless;frontend;local-qa;m132")
     # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
     # answers PRINT 1+1, draws a painted circle and round-trips a program
     # through SAVE and LOAD. Needs maintainer-local VA2 ROMs and V2 BASIC

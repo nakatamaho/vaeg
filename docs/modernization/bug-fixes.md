@@ -35,6 +35,189 @@ land.
 
 ## Maintenance Rules
 
+### M132 — Installer test doubles failed on native Windows Python
+
+- **Symptom/scope:** the Windows installer unit tests cannot discover their fake
+  LHA executables and lose renamed case-alias fixtures. Production extraction
+  is not demonstrated defective by these fixture failures.
+- **Demonstrated cause:** extensionless POSIX shell scripts depend on executable
+  lookup/shebang behavior absent from native Windows Python. Separately, the
+  globally mocked `os.walk` returns the fixture-root file list for staging-dir
+  cleanup too, letting Windows cleanup delete the renamed fixture.
+- **Correction:** execute real strict-syntax Python fixture children through a
+  test-only adapter; scope mocked traversal to the intended root and delegate
+  other paths. Keep actual filesystem output and collision/inode checks.
+- **Verification:** exact hosted log retrieved; 32 tests pass on macOS and Linux.
+  A wrong-dialect single mutation requires exact `ARCHIVE_FORMAT`; a controlled
+  broad-walk mutation is rejected by the outside-root traversal guard. The
+  [native Windows follow-up](https://github.com/nakatamaho/vaeg/actions/runs/40172060736)
+  now passes the installer and complete platform checks. Scope is recorded in the
+  [M132 task](../agents/tasks/M132_hs_clock_status.md#hosted-windows-follow-up--test-doubles-only).
+- **Milestone/commit:** M132,
+  [068ccf1786290c00d9d34e71fe03ef9edcac66c0](https://github.com/nakatamaho/vaeg/commit/068ccf1786290c00d9d34e71fe03ef9edcac66c0).
+
+### M132 — H/S selftest bound ports through a freed I/O table
+
+- **Symptom/scope:** the hosted sanitizer profile aborts the H/S identification
+  selftest, also failing trace-equivalence and compiled checks that invoke the
+  same complete selftest. This is a test-fixture lifetime defect, not a
+  demonstrated normal-emulation use-after-free.
+- **Demonstrated cause:** the preceding ROM-port test calls `pccore_term`, which
+  frees the I/O table. `test_88speed_identification` subsequently calls
+  `systemportva_bind` without creating/building a new table; `getextiofunc`
+  dereferences the freed map. The hosted allocation/free/access stacks and a
+  local sanitizer reproduction establish this chain.
+- **Correction:** give the H/S fixture its own balanced I/O create/build/destroy
+  lifecycle. No production I/O/core paths or normal emulation behavior change.
+- **Verification:** original [hosted sanitizer failure](https://github.com/nakatamaho/vaeg/actions/runs/40169935661)
+  retrieved before retry; local original fixture fails with the same ASan
+  heap-use-after-free. Corrected trace-equivalence, ROMless and compiled checks
+  pass 3/3 under ASan/UBSan, 303.24 seconds. The
+  [hosted follow-up](https://github.com/nakatamaho/vaeg/actions/runs/40172060736)
+  passes the full sanitizer and Windows compatibility jobs, including those
+  three checks. Details are recorded in the [M132 task evidence](../agents/tasks/M132_hs_clock_status.md#hosted-sanitizer-follow-up--test-fixture-only).
+- **Milestone/commit:** M132,
+  [303328982c9c741c1fe65cbe4f0b49f746500945](https://github.com/nakatamaho/vaeg/commit/303328982c9c741c1fe65cbe4f0b49f746500945).
+
+### M132 — S-mode paste dropped characters after the H/S timing correction
+
+- **Symptom/scope:** VA2/V1S paste turns CLEAR into LEAR, loses other characters
+  and can merge BASIC lines. VA2/V1H accepts the same benchmark.
+- **Demonstrated cause:** paste used the same two-guest-frame interval in H and
+  S even though the compatible BASIC scan now executes more slowly in S.
+  No Wait tests could mask the short interval because the separate 20 ms host
+  floor let many guest frames elapse. A controlled frame-driven clock with the
+  same full multiline queue reproduces the missing C, corrupt lines and LIST
+  under two-frame S pacing; four-frame S pacing removes them without changing
+  CPU, matrix or BASIC behavior. H remains unchanged in the same fixture.
+- **Correction:** select four frames in live/restored 88 S and two in H/native;
+  do not use a pending boot preference to slow native V3 paste. Retain the
+  separate host-time floor, release/cancel behavior and all CPU timing.
+- **Verification:** controlled full-queue VA2/V1H/S red/green captures and
+  production four-case live-input/queue-boundary tests. The original constant
+  interval fails exactly `M132_PASTE_SPEED_POLICY`; corrected focused tests
+  pass. After removing the private driver, full CTest lists 141 tests,
+  132 pass, nine unchanged skips and zero failures. After the refreshed Windows
+  handoff, the maintainer reports VA2/V1S IN6Eh=FFh/SCORE=15303 and explicitly
+  confirms the character loss is resolved (`解消しました。OK`). This is scoped
+  paste-fix acceptance, not G132 passage. Extremely slow custom clocks and the
+  exact desktop menu/shortcut path remain outside this proof.
+- **Task/evidence:** [M132 paste regression](../agents/tasks/M132_hs_clock_status.md#s-mode-paste-regression-follow-up).
+- **Fix commit:** [7fe3bebf](https://github.com/nakatamaho/vaeg/commit/7fe3bebf83cdd418b4c7154f99d929a61f648a80).
+
+### M132 — CP/M media extraction rejected case-insensitive lookup aliases
+
+- **Symptom/scope:** clean SASI utility-media generation aborted with
+  `ARCHIVE_DUPLICATE` while restoring Lhasa's lower-case member names on a
+  Linux bind mount backed by a case-insensitive host filesystem.
+- **Demonstrated root cause:** the uppercase lookup existed but referred to
+  the one lowercase directory entry and the same inode, not a second archive
+  member. The collision guard treated existence as proof of a distinct entry.
+  Independently, a direct case-only rename on that bind mount returned success
+  without changing the stored directory-entry spelling.
+- **Correction:** distinguish a lookup alias from separately enumerated entries
+  and different inodes; both genuine collision classes still fail closed with
+  `ARCHIVE_DUPLICATE`. Rename a true alias through a private intermediate
+  sibling, avoiding the bind mount's no-op. Register the installer suite in CTest.
+- **Verification:** the isolated passing-alias fixture fails on the old guard
+  with `ARCHIVE_DUPLICATE`; a guard-only correction fails its stored-name assertion
+  under modeled no-op renaming. The full correction passes all 31 installer
+  cases and the focused CTest. Each collision negative first passes its alias
+  baseline, mutates one property and checks the exact error code. The real
+  bind-mount alias/no-op was also reproduced independently. All 31 cases pass
+  on macOS and Linux. Clean-clone SASI generation then completes; both images
+  boot alone on their intended models and accept DIR after the normal
+  firmware-record initialization/reset, as recorded in the task.
+- **Task/evidence:** [M132 media regression](../agents/tasks/M132_hs_clock_status.md#media-regression-portability-correction).
+- **Fix commit:** [360eb71c](https://github.com/nakatamaho/vaeg/commit/360eb71c420e1e27b07adaa65a20b0d6516b9161).
+
+### M132 — N-family execution showed the backend's V2 lamp
+
+- **Symptom/scope:** N80-BASIC boot on PC-8001mkII shows a V2 lamp; N-family
+  ROMs run through a VA2 compatibility route whose raw LED latch can remain V2.
+- **Demonstrated cause:** frontend lamps directly exposed that raw latch,
+  without classifying the live N-ROM selector. The internal N boot-route name
+  also did not identify whether an N-family subtype was actually selected.
+- **Correction:** one shared frontend classifier uses the live 88-mode N-ROM
+  selection first, then valid one-hot mode lamps or running/system-mode inputs.
+  All N-family classifications suppress V1/V2/V3 lamps; lock keys still use
+  the compatible key matrix. Formal profile names and nominal clocks are
+  shared with the status formatter. Ambiguous mkII/SR subtypes are explicitly
+  `N/N80` or `N/N80/N80SR`, never inferred from ROM banner strings.
+- **Verification:** profile/clock/format/N-lamp tests pass. Replacing only the
+  effective lamp getter with the original raw-latch behavior makes that same
+  passing fixture fail at the N-family lamp assertion; restoring the shared
+  classifier removes the failure. Tests also reject a saved N boot preference
+  as proof of active N-ROM selection. No full N80 graphics or runtime-subtype
+  implementation is claimed.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [mode/backlog contract](v1v2-hs-clock-status-plan.md).
+- **Fix commit:** [677b57ca](https://github.com/nakatamaho/vaeg/commit/677b57ca4655d5db7a007049b784b0001b859111).
+
+### M132 — S affected V3 BRKEM and rescaled native bus waits
+
+- **Symptom/scope:** the imported PR #55 halves compatible instruction
+  capacity even for V3 BRKEM code when a saved S preference is present.
+  Its S factor also doubles native-clock memory/I/O waits a second time;
+  CPU percentage/multiplier adjustments can likewise rescale those waits.
+- **Demonstrated cause:** the PR bakes S into `pccore_compat_scale` without
+  checking 88 mode. The adapter passes both compatible instruction cycles and
+  already charged native elapsed waits through that same conversion.
+- **Correction:** keep the PR's compatible clock API and baseline ratio, but
+  apply the live H/S input only at compatible instruction accounting in 88
+  mode. Route all four memory/I/O wait callbacks through a native-unit path.
+  Restore-state latch values, not pending reset preferences, select H/S.
+  Native V30, FDC, timer and SGP accounting are not changed.
+- **Verification:** the isolation assertion fails on the imported proposal
+  with `saved S selection slowed native V3 BRKEM code`. The corrected ROMless
+  suite passes multiplier/percentage H/S matrices, V3 isolation, nominal
+  clocks, native-wait identity and interleaved-wait fractional carry over
+  30,000 instruction slices in each domain. The
+  [real adapter probes](https://github.com/nakatamaho/vaeg/commit/13ebbb1a3272a9061f697adcd4a32797e124fddd)
+  also execute ten NOP/IN/OUT instructions: H/S/S50/V3S NOP costs are
+  40/80/160/40; IN and OUT are 130/240/460/130, retaining 20 native I/O clocks.
+  Restoring only the old I/O wait route makes the passing fixture fail with
+  130/260/520/130. These are emulator accounting checks, not physical
+  instruction/ROM-trap calibration.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [clock-domain contract](v1v2-hs-clock-status-plan.md).
+- **Fix commit:** [576657dc](https://github.com/nakatamaho/vaeg/commit/576657dce046d9eb2d317caaf5c13e5a19098f1a).
+
+### M132 — H/S identification retained a stale or first-boot speed
+
+- **Symptom/scope:** PR #55's backup-bit synchronization alone leaves the
+  original VA's effective IN6Eh source at S after H reset, or retains H after
+  S reset. VA2 firmware can replace the H selection with its first-boot S
+  default when no valid backup record was available.
+- **Demonstrated cause:** `systemportva_reset()` ORed C1h into input latch A
+  without assigning bit 5. Original-VA firmware does not perform VA2's OUT
+  1C6h initialization. The former output handler independently copied bit 1
+  of firmware data into that latch, including the first-boot default.
+- **Correction:** reset explicitly assigns the selected H/S input on both
+  models. Mode output still sets V1/V2, but the emulated H/S input remains
+  menu-owned; the VA2 output also reconciles a now-valid BIOS record through
+  PR #55's helper. Invalid records are not manufactured, unrelated bits and
+  IN31h are preserved, and binding a restored state does not reapply a pending
+  reset selection. A subsequent first-boot test also demonstrates that an
+  original-VA record created by firmware after reset needs reconciliation:
+  the first applicable 88 entry synchronizes that now-signature-bearing record
+  using the live/restored input. V3 BRKEM does not consume or apply that step.
+  This is the agreed emulator selection policy, not a new hardware measurement
+  of writable port 1C6h semantics.
+- **Verification:** the original PR integration fails the new matrix with
+  `VA reset retained stale H/S or damaged unrelated input bits`. The corrected
+  ROMless suite passes. The matrix covers both models, automatic/manual RAM,
+  absent/valid/bad signatures, V1/V2, H→S→H, VA2 first-boot mode output,
+  checksums, unrelated bits and restored-latch binding. Supplementary
+  [guest BASIC checks](../agents/tasks/M132_hs_clock_status.md#rom-backed-basic-flag-checks)
+  observe IN6Eh=7Fh/FFh for H/S and IN31h=F9h/79h for V1/V2 on both models;
+  fast synthetic S typing requires spaced/held-key follow-ups. This does not
+  establish physical timing or full ROMful first-boot/saved-state coverage.
+- **Task/evidence:** [M132](../agents/tasks/M132_hs_clock_status.md),
+  [selection contract](v1v2-hs-clock-status-plan.md).
+- **Fix commits:** [6b12b849](https://github.com/nakatamaho/vaeg/commit/6b12b8494dadfea994ae95860636d02b66a02d54),
+  [firmware-created first-boot record 46f6c75c](https://github.com/nakatamaho/vaeg/commit/46f6c75c20505e95fb74bdd3ed03e6d3b42f19b0).
+
 ### M131 — Graphics obscured by spurious main-RAM text
 
 - **Symptom/scope:** private fixture `guest-start-01` boots, but Enter at
@@ -3747,6 +3930,75 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M132 — T88 LOAD waits while the raw cassette control loads
+
+- **Observed scope:** the maintainer reports that a supplied T88 cannot be
+  loaded while raw CMT works. Local VA2/V1H ROM BASIC reproduces this with
+  fast load both ON and OFF: the tagged-input case remains after LOAD without
+  Found/completion at frame 10000; the supplied raw control reaches Found/Ok.
+  Inputs have different extracted byte populations, so this is not yet a
+  same-payload encoding comparison or a completed-gameplay assertion.
+- **Cause/correction:** unresolved. The preserved 338174ee worker also fails
+  the fast T88 case, excluding the later paste correction as its introduction
+  in this fixture. No pre-M132 runtime comparison or demonstrated parser,
+  carrier/leader, interrupt or timing root cause exists yet. No fix is claimed.
+- **Verification:** the reusable local QA runner returns exactly
+  `BASIC_QA_TAPE_HEADER_NOT_FOUND` for T88 and PASS for the raw control even
+  though both workers exit 0. Content checks require Found and the following
+  Ok after LOAD, not merely a screenshot or a prior prompt. Initial unsupported
+  LOAD-with-R syntax errors are retained as setup failures, not tape failures.
+- **Task/evidence:** [M132 cassette/local QA reproduction](../agents/tasks/M132_hs_clock_status.md#t88-versus-raw-cassette-reproduction).
+
+### M132 — original PC-8801 starts after a long black screen
+
+- **Observed scope:** the maintainer's original PC-8801/V1 eventually boots,
+  but initially looks hung with a prolonged black screen. The local production
+  7fe3bebf worker reproduces that symptom with the FDD unit absent.
+- **Established mechanism in the local fixture:** missing disk-unit ROM selects
+  the existing absent-unit/open-bus handlers; status reads return FFh. Bounded
+  compatible traces show BASIC polling that status and consuming its software
+  timeout. At standard CPU settings/S, frame 3000 is still black and frame 4000
+  shows the boot question. Changing only FDD-unit presence in private scratch,
+  still with no disk inserted, shows that question by frame 500. Thus an absent
+  unit differs from an attached unit with empty drives. The exact maintainer
+  role/configuration combination has not been matched.
+- **Cause/correction status:** the timeout mechanism is established for this
+  fixture, but whether its duration/absence status matches real original
+  hardware is unresolved. No production correction or recommended ROM patch
+  exists; do not label the delay hardware-correct or bypass the boot code.
+- **Maintainer follow-up:** the real original PC-8801 reportedly starts
+  immediately in a tape-only setup; the emulator may assume an attached disk
+  unit. Do not justify the long timeout as normal hardware behavior. DIP input
+  mapping and absent-unit status remain distinct hypotheses to isolate; missing
+  disk-unit firmware input is not itself a user-selected DIP configuration.
+- **Tracking:** [issue #61](https://github.com/nakatamaho/vaeg/issues/61), created
+  at the maintainer's request; includes the controlled comparison and remaining
+  hardware/fixture uncertainty. No fixing commit exists.
+- **Task/evidence:** [M132 original-model boot investigation](../agents/tasks/M132_hs_clock_status.md#original-pc-8801-long-black-screen-boot-investigation).
+
+### M132 — BASIC TIME$ stopwatch remains at zero
+
+- **Observed scope:** the maintainer's V1/V2 BASIC benchmark finishes its nested
+  FOR loops but reports `ELAPSED: 00:00:00` after setting TIME$ to zero. The
+  unchanged M132 application-code-freeze worker reproduces the H result under
+  NEC N88-BASIC Version 2.4. This is not evidence that the loop takes zero time
+  or that H/S scaling is absent.
+- **Cause/correction:** unresolved; no RTC, BASIC, interrupt or host-calendar
+  root cause has been established and no emulator correction is claimed.
+  The assistant withdraws its unvalidated TIME$ stopwatch recommendation.
+- **Verification/alternative:** an independently clocked eight-VRTC-period
+  machine-code loop entered through BASIC gives H=29802 and S=15303 polling
+  iterations, with IN6Eh=7Fh/FFh respectively. This demonstrates slower compatible
+  execution in S without depending on TIME$. It does not fix the clock symptom
+  or prove real-hardware timing. Slow pure-BASIC VRTC polling is also rejected
+  as a reliable ratio test because it can miss pulses.
+- **Task/evidence:** [M132 BASIC checks](../agents/tasks/M132_hs_clock_status.md#user-reported-basic-stopwatch-failure-and-clock-independent-check).
+- **Tracking:** [issue #60](https://github.com/nakatamaho/vaeg/issues/60), created
+  at the maintainer's request with reproduction, confirmed scope and unresolved
+  clock-policy/root-cause questions; separate from H/S calibration issue #58.
+- **Next step:** isolate TIME$ reads/writes and elapsed-clock progression in the
+  compatible guest before selecting a production fix. No fixing commit exists.
 
 ### M100s11 — earlier Finalize E_INVALIDARG report, no longer reproduced
 

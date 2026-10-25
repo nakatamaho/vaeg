@@ -44,6 +44,8 @@ enum {
 
 void frontpanel_set_modeled(UINT num, BOOL on);
 void frontpanel_fdd_access(UINT drv);
+/* Raw latch for the shared mode classifier; renderers use mode_lit. */
+BOOL frontpanel_raw_mode_lit(UINT num);
 BOOL frontpanel_mode_lit(UINT num);
 BOOL frontpanel_lock_lit(UINT lock);
 BOOL frontpanel_drive_lit(UINT drv, UINT32 now);

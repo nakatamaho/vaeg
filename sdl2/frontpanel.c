@@ -31,6 +31,7 @@
 
 #include "compiler.h"
 #include "frontpanel.h"
+#include "machine_status.h"
 #include "np2.h"
 #include "fdd/fddfile.h"
 #include "machine/pccore.h"
@@ -65,8 +66,16 @@ void frontpanel_fdd_access(UINT drv) {
 	}
 }
 
-BOOL frontpanel_mode_lit(UINT num) {
+BOOL frontpanel_raw_mode_lit(UINT num) {
 	return (num < FRONTPANEL_MODES) ? panel.mode_on[num] : FALSE;
+}
+
+BOOL frontpanel_mode_lit(UINT num) {
+	const VAEG_MACHINE_MODE mode = machine_status_mode();
+
+	return (num == 0 && mode == VAEG_MODE_V1) ||
+	       (num == 1 && mode == VAEG_MODE_V2) ||
+	       (num == 2 && mode == VAEG_MODE_V3);
 }
 
 /* M109: the KANA and CAPS lamps follow the guest's own lock state. In V3 the
@@ -75,7 +84,8 @@ BOOL frontpanel_mode_lit(UINT num) {
  * used and the PC-8801 key matrix holds the locked key down: port 08h bit 5
  * (KANA) and port 0Ah bit 7 (CAPS), active low. Both checked in vaeg. */
 BOOL frontpanel_lock_lit(UINT lock) {
-	const BOOL v1v2 = (panel.mode_on[0] || panel.mode_on[1]) ? TRUE : FALSE;
+	const BOOL v1v2 = machine_status_n_selected() || frontpanel_mode_lit(0) ||
+	                  frontpanel_mode_lit(1);
 
 	if (lock == FRONTPANEL_LOCK_KANA) {
 		return v1v2 ? !(keybrd.keymap[0x08] & 0x20) : ((mem[0xab0] & 0x08) != 0);
