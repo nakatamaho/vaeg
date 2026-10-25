@@ -615,7 +615,11 @@ family N execution, and non-VA machines show no SGP clock. These are scoped
 runtime/UI confirmations, not acceptance of every additional-ROM profile or
 precise N80/N80SR subtype classification. The maintainer further accepts
 PC-8801 live N/V1/V2 display consistency and identification/speed/display
-consistency after a mode change and reset. Ambiguous-subtype wording and actual
+consistency after a mode change and reset. The maintainer also accepts four
+information-bar checks: correct current runtime mode, short standard H/S clocks
+(approximately 8/4 MHz), exact clock/base/multiplier/speed-percent tooltips,
+and working FPS with FRAME hidden by default. These four items are removed
+from the remaining checklist. Ambiguous-subtype wording and actual
 saved-state-file round trips remain pending.
 This is partial checklist acceptance, not passage of G132 or authorization to
 merge, clean up or start the next milestone.
