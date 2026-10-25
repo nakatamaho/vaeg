@@ -49,8 +49,9 @@ land.
   other paths. Keep actual filesystem output and collision/inode checks.
 - **Verification:** exact hosted log retrieved; 32 tests pass on macOS and Linux.
   A wrong-dialect single mutation requires exact `ARCHIVE_FORMAT`; a controlled
-  broad-walk mutation is rejected by the outside-root traversal guard. Native
-  Windows follow-up and scope are recorded in the
+  broad-walk mutation is rejected by the outside-root traversal guard. The
+  [native Windows follow-up](https://github.com/nakatamaho/vaeg/actions/runs/40172060736)
+  now passes the installer and complete platform checks. Scope is recorded in the
   [M132 task](../agents/tasks/M132_hs_clock_status.md#hosted-windows-follow-up--test-doubles-only).
 - **Milestone/commit:** M132,
   [068ccf1786290c00d9d34e71fe03ef9edcac66c0](https://github.com/nakatamaho/vaeg/commit/068ccf1786290c00d9d34e71fe03ef9edcac66c0).
@@ -71,8 +72,10 @@ land.
 - **Verification:** original [hosted sanitizer failure](https://github.com/nakatamaho/vaeg/actions/runs/40169935661)
   retrieved before retry; local original fixture fails with the same ASan
   heap-use-after-free. Corrected trace-equivalence, ROMless and compiled checks
-  pass 3/3 under ASan/UBSan, 303.24 seconds. The hosted follow-up is recorded in
-  the [M132 task evidence](../agents/tasks/M132_hs_clock_status.md#hosted-sanitizer-follow-up--test-fixture-only).
+  pass 3/3 under ASan/UBSan, 303.24 seconds. The
+  [hosted follow-up](https://github.com/nakatamaho/vaeg/actions/runs/40172060736)
+  passes the full sanitizer and Windows compatibility jobs, including those
+  three checks. Details are recorded in the [M132 task evidence](../agents/tasks/M132_hs_clock_status.md#hosted-sanitizer-follow-up--test-fixture-only).
 - **Milestone/commit:** M132,
   [303328982c9c741c1fe65cbe4f0b49f746500945](https://github.com/nakatamaho/vaeg/commit/303328982c9c741c1fe65cbe4f0b49f746500945).
 

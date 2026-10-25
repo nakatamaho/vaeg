@@ -23,13 +23,15 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Requested machine-owned regression and display-operation QA complete:
-guest-start 8/8, refreshed M131 probe 8/8, actual state/input/reset/speed operations
-and tooltip/FPS/FRAME/menu persistence pass. Local full tests pass (138 executed,
-9 skipped, zero failures). Hosted review found sanitizer/Windows test-fixture
-defects; local corrections pass and focused platform follow-up is next. Approved 32-case X11
-references and accepted Windows workflow remain valid. Native CRT/Cocoa/physical
-HiDPI automation remains BLOCKED, not PASS. G132 human acceptance is pending.**
+Status: **Requested machine-owned QA and final verification complete: guest-start
+8/8, refreshed M131 probe 8/8, actual state/input/reset/speed operations and
+tooltip/FPS/FRAME/menu persistence pass. Local full tests pass (138 executed,
+9 skipped, zero failures). Final hosted coverage passes through eight retained
+successful original jobs plus successful corrected ASan/Windows follow-up;
+the original FAIL is preserved, not relabeled. Approved 32-case X11 references
+and accepted Windows workflow remain valid; fresh static handoff is built.
+Native CRT/Cocoa/physical HiDPI automation remains BLOCKED, not PASS.
+G132 human acceptance is pending.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -718,7 +720,7 @@ human acceptances remain valid records but are not relabeled automated PASS.
 | `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
 | `g132-cassette-tagged` | Private tagged role, same boot/load procedure and fast OFF/ON; same semantic completion contract as raw. Do not silently convert it to raw for this check. | **FAIL**: `BASIC_QA_TAPE_HEADER_NOT_FOUND`; reproduced on 7fe3bebf and fast mode on preserved 338174ee. Root cause/introduction unresolved. |
 | `g132-standard-regression` | Clean demo/media source closure, utility/standalone SASI OS operations, all-demo drawing and BASIC Mandelbrot under the recorded corpus/worker/contract. Reuse only when behavior-relevant inputs are unchanged. | **PARTIAL**: completed source closure and earlier inspected runtime evidence retained; reusable semantic batch integration remains incomplete. Human standard V3/demo/OS operations accepted. |
-| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **FOLLOW_UP_READY**: original hosted run completes eight successful jobs; sanitizer/Windows fixture failures are corrected locally (3/3 sanitizer checks, 32/32 portable installer tests). Preserve successful jobs; rerun only failed platforms. |
+| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **PASS / COMPOSED_CI**: original full run retains eight successful jobs; corrected focused run passes ASan and native Windows plus lint/driver dependency. Original FAIL and both evaluated commits remain recorded; unrelated expensive jobs are reused, not rerun. |
 
 The maintainer's requested remaining machine-owned operations and guest-start
 matrix are now complete; final hosted CI follows local validation. The recorded
@@ -1401,10 +1403,67 @@ corrects only installer test doubles:
 - A controlled single mutation back to the broad traversal mock is rejected by
   the new outside-root traversal assertion, with no unrelated errors. This
   demonstrates the fixture isolation guard locally rather than using hosted
-  CI as the iterative debugger. Native Windows execution is confirmed only by
-  the subsequent hosted follow-up, not inferred from these local hosts.
+  CI as the iterative debugger. Native Windows execution is now confirmed by the successful hosted follow-up,
+  not inferred from these local hosts.
 
 Pinned actionlint 1.7.7 validates the manual-profile workflow. The default full
 matrix and explicit focused job sets are checked locally before dispatch. No
 emulator/installer production implementation changes, private input uploads,
 whole-game reruns or new human checks are required by these test-only fixes.
+
+## Final CI disposition and clean static handoff
+
+The requested three items are complete. This is machine verification closure,
+**not** G132 human acceptance or authorization to merge/clean/start another task.
+
+| Evaluation | Result and reuse boundary |
+|---|---|
+| Full candidate [7fa54b2fa67e47ab3f33b8078b7380d8d1e5dfbc](https://github.com/nakatamaho/vaeg/commit/7fa54b2fa67e47ab3f33b8078b7380d8d1e5dfbc), [run 40169935661](https://github.com/nakatamaho/vaeg/actions/runs/40169935661) | Eight jobs succeed: repository, guest drivers, SST V20, standalone conformance, GCC, Clang, macOS and Windows release artifact. ASan/Windows compatibility fail on the documented test fixtures. Preserve overall FAIL and exact logs. |
+| Corrected [c16a458f4d322c6499184d61432983acbfaf1939](https://github.com/nakatamaho/vaeg/commit/c16a458f4d322c6499184d61432983acbfaf1939), [run 40172060736](https://github.com/nakatamaho/vaeg/actions/runs/40172060736), manual `failed-platforms` | **SUCCESS**: repository, guest-driver dependency, ASan and native Windows compatibility all pass. Other job definitions are deliberately skipped, not represented as newly executed. ASan reports `100% tests passed, 0 tests failed out of 117` (334.00 s); Windows reports `100% tests passed out of 133` (180.31 s). The installer test and all three selftest-invoking checks now pass natively. |
+
+This composed coverage retains the original eight successful job results and
+repairs/rechecks only the two failed platform contracts. It is not a claim that
+all jobs were rerun on the corrected SHA. Normal emulator/installer paths and
+all earlier evaluated normal-operation workers/digests remain unchanged; only
+selftest/fixture code and manual CI selection changed. Both original/follow-up
+job receipts and complete failure/success logs are retained privately. The final
+report commit changes documentation only; do not rerun identical expensive
+behavior just to stamp its report SHA.
+
+The private final evidence index verifies selected phase checkpoints without
+relabeling containing FAIL runs, all capture/output bindings, observed normal-rate
+settings, postrestore queue/key/Shift release and approved lamp-region matches.
+Private sources/identities/hashes are not published. Repository encoding/EOL/case/
+Markdown, strict milestone audit, changed-line clang-format 22 (1,041 lines, zero
+findings), diff checks, actionlint 1.7.7 and focused QA selftests pass. Full-tree
+historical format debt is not represented as a full-format PASS.
+
+A fresh clean clone of the pushed corrected commit also builds successfully:
+
+```sh
+tools/release/build-mingw-static-container.sh \
+  --commit c16a458f4d322c6499184d61432983acbfaf1939 \
+  --recording --shader-sdk "$AUDITED_PINNED_SHADER_SDK"
+```
+
+- Exit 0; `mingw-cross` Release in pinned Ubuntu 24.04, GCC 13-posix/Rust 1.88.0.
+  Application objects are fresh; only the audited shader SDK is reused read-only.
+- Recording ON, public build, bundled local H.264/AAC encoders OFF. Static minimal
+  LGPL-only FFmpeg 8.1.2 contains the lossless FFV1/PCM encoders only; registrations
+  are audited before linking. Post-stop MP4 uses Windows Media Foundation OS APIs,
+  not bundled H.264/AAC implementations. This is not patent/license clearance.
+- Executable: `../vaeg-mingw-c16a458f/output/vaeg.exe`, 59,241,864 bytes;
+  SHA-256 `98084f17f2f8b2b6ab65a8d6a4d72e41c2271dae186c2c85deb96f6f7bef9d71`.
+  `BUILD-REPORT.md` is beside it. Commit/date embedding and Windows-system-DLL-only
+  PE import audits pass.
+- This exact cross-built executable was not run on Windows by the helper. The
+  successful native Windows CI evaluates the same source with its CI build;
+  prior maintainer startup/recording/MP4/playback acceptance stays bound to the
+  earlier supplied artifact, not silently reassigned to this new file. No repeat
+  manual request is made for unchanged normal-operation implementation.
+
+No private input, original asset name/path/hash, image or raw local evidence was
+staged, pushed or uploaded to CI. No protected binary payload, vendor code or
+archived reference-tier provenance was modified. Final PR remains draft pending
+explicit whole-G132 human judgment; no merge, cleanup or next milestone follows
+from these results automatically.
