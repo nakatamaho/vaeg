@@ -613,8 +613,10 @@ The maintainer subsequently also accepts three section-5 checks: the selected
 machine's formal name is displayed, all V1/V2/V3 lamps are off during PC-8001
 family N execution, and non-VA machines show no SGP clock. These are scoped
 runtime/UI confirmations, not acceptance of every additional-ROM profile or
-precise N80/N80SR subtype classification. PC-8801 live N/V1/V2 consistency and
-ambiguous-subtype wording remain pending.
+precise N80/N80SR subtype classification. The maintainer further accepts
+PC-8801 live N/V1/V2 display consistency and identification/speed/display
+consistency after a mode change and reset. Ambiguous-subtype wording and actual
+saved-state-file round trips remain pending.
 This is partial checklist acceptance, not passage of G132 or authorization to
 merge, clean up or start the next milestone.
 
