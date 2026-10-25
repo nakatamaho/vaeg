@@ -49,10 +49,12 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
           fetch-depth: 0
+      - name: Validate release recording contract
+        run: python3 tools/release/check-recording-release.py
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libarchive-dev gcc g++ nasm
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libarchive-dev gcc g++ nasm make curl xz-utils python3
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: x86_64-unknown-linux-gnu
@@ -69,9 +71,16 @@ jobs:
             --source build/m99-static/librashader-git \
             --target x86_64-unknown-linux-gnu \
             --output build/m99-static/linux-audit
+      - name: Build minimal static recording SDK
+        run: bash tools/release/build-recording-ffmpeg.sh build/recording-sdk
       - name: Configure
         run: >-
+          PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset linux-ci-gcc
+          -DVAEG_ENABLE_RECORDING=ON
+          -DVAEG_STATIC_FFMPEG=ON
+          -DVAEG_PUBLIC_BUILD=ON
+          -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
           -DVAEG_STATIC_LIBRASHADER=ON
           -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/x86_64-unknown-linux-gnu/release/liblibrashader_capi.a
           -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/linux-audit/third-party-notices.txt
@@ -104,6 +113,7 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
+          bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
@@ -176,6 +186,8 @@ jobs:
             mingw-w64-x86_64-pkgconf
             python
             nasm
+            make
+            curl
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: x86_64-pc-windows-gnu
@@ -183,8 +195,16 @@ jobs:
         run: |
           export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
           tools/release/build-mingw-static-librashader.sh
+      - name: Build minimal static recording SDK
+        run: bash tools/release/build-recording-ffmpeg.sh build/recording-sdk
       - name: Configure
-        run: cmake --preset mingw-ci
+        run: >-
+          PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
+          cmake --preset mingw-ci
+          -DVAEG_ENABLE_RECORDING=ON
+          -DVAEG_STATIC_FFMPEG=ON
+          -DVAEG_PUBLIC_BUILD=ON
+          -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
       - name: Build
         run: cmake --build --preset mingw-ci
       - name: Smoke
@@ -238,6 +258,7 @@ jobs:
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
+          bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           cp assets/OFL.txt "dist-package/${package}/assets/"
           cp assets/NOTICE.md "dist-package/${package}/assets/"
@@ -283,7 +304,7 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
           fetch-depth: 0
       - name: Install build tools
-        run: brew install cmake ninja nasm
+        run: brew install cmake ninja nasm pkgconf
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: aarch64-apple-darwin
@@ -300,9 +321,16 @@ jobs:
             --source build/m99-static/librashader-git \
             --target aarch64-apple-darwin \
             --output build/m99-static/macos-audit
+      - name: Build minimal static recording SDK
+        run: bash tools/release/build-recording-ffmpeg.sh build/recording-sdk
       - name: Configure
         run: >-
+          PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset macos-ci
+          -DVAEG_ENABLE_RECORDING=ON
+          -DVAEG_STATIC_FFMPEG=ON
+          -DVAEG_PUBLIC_BUILD=ON
+          -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
           -DVAEG_STATIC_LIBRASHADER=ON
           -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/aarch64-apple-darwin/release/liblibrashader_capi.a
           -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/macos-audit/third-party-notices.txt
@@ -336,6 +364,7 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
+          bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"

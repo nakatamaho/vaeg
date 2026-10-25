@@ -21,8 +21,8 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-88VA Eternal Grafx Rel.20260814 distribution README
-================================================
+88VA Eternal Grafx distribution README
+====================================
 
 This archive contains the portable SDL2/Dear ImGui build of 88VA
 Eternal Grafx. Source archives are attached automatically by GitHub
@@ -38,7 +38,7 @@ Files supplied by the release package
 Setup guides
 ------------
 
-The release notes are in `CHANGES.20260814.md`. User setup guides are
+The release notes are in the packaged `CHANGES.<release>.md`. User setup guides are
 available in the tagged source tree:
 
 - SCSI support: https://github.com/nakatamaho/vaeg/blob/rel-20260814/docs/modernization/scsi-support.md
@@ -82,6 +82,22 @@ and the optional RDEMS.SYS RAM-disk driver are supplied through the separate
 supplemental-disk workflow. README-PC88VA-drivers.txt gives the exact
 CONFIG.SYS order. The paired HOSTFAT and SQEMM98 licenses are under
 `licenses/`, and SHA256SUMS covers the complete guest-driver subset.
+
+Recording
+---------
+
+Public builds enable lossless FFV1 video and PCM audio recording in MKV.
+Native records the guest picture; Displayed records the composed client.
+Windows/macOS optionally convert the saved MKV to MP4 through OS encoders.
+Linux public builds do not provide MP4 compression. The MKV is preserved.
+No H.264/AAC encoder implementation is bundled.
+
+FFmpeg is statically linked from a minimal LGPL-2.1-or-later configuration.
+Keep licenses/ffmpeg-lgpl-2.1.txt and recording-source/ with this package.
+That directory supplies the exact FFmpeg source, generated configuration,
+application source and rebuilding/relinking instructions. Source checksums
+are in recording-source/SHA256SUMS. Additional recording documentation is
+under docs/recording-v1/ in the supplied application source.
 
 Additional platform runtime files:
 
