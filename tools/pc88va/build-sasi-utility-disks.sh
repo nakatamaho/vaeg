@@ -32,7 +32,12 @@ source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
-softlib_cache=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc88va-utilities-cache}
+softlib_cache_real=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc88va-utilities-cache}
+mkdir -p -- "$softlib_cache_real"
+# shellcheck source=cache-case-view.sh
+source "$script_dir/cache-case-view.sh"
+# Exact-name view of the cache (a copy may hold isharc.com for ISHARC.COM).
+softlib_cache=$(vaeg_cache_case_view "$softlib_cache_real") || exit 1
 lsic_archive=$softlib_cache/LSIC330C.LZH
 ish_archive=$softlib_cache/ISHARC.COM
 ish_doc=$softlib_cache/ISHARC.DOC
@@ -84,6 +89,7 @@ jwasm_tmp=
 download_tmp=
 
 cleanup() {
+	vaeg_cache_case_view_close "$softlib_cache" "$softlib_cache_real"
 	if [[ -n ${jwasm_tmp} && -f ${jwasm_tmp} ]]; then
 		rm -f -- "$jwasm_tmp"
 	fi
