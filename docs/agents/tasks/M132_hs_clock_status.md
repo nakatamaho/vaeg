@@ -619,8 +619,11 @@ consistency after a mode change and reset. The maintainer also accepts four
 information-bar checks: correct current runtime mode, short standard H/S clocks
 (approximately 8/4 MHz), exact clock/base/multiplier/speed-percent tooltips,
 and working FPS with FRAME hidden by default. These four items are removed
-from the remaining checklist. Ambiguous-subtype wording and actual
-saved-state-file round trips remain pending.
+from the remaining checklist. After clarification that `N/N80` and
+`N/N80/N80SR` denote unresolved runtime subtype candidates rather than a
+confirmed N80/N80SR selection, the maintainer accepts that ambiguity display.
+Section 5 of the displayed checklist is therefore complete; actual
+saved-state-file round trips and the other remaining checks are still pending.
 This is partial checklist acceptance, not passage of G132 or authorization to
 merge, clean up or start the next milestone.
 
