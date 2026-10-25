@@ -1524,9 +1524,20 @@ The report records its original build location; this is relocation, not a new
 build or reassigned Windows-execution claim. Recording/native OS MP4 stays ON,
 bundled local H.264/AAC encoders OFF.
 
-After this roadmap/merge record is pushed, remove only the clean temporary merge
-worktree, contained milestone local branch, M132 private scratch and four M132
-static build directories. The main project worktree, remote milestone branch,
-other milestones, shared runtime/caches, received inputs and archived evidence
-remain. Task-owned QA containers are stopped; daemon/images are not removed.
-Report actual removal after it completes. No next milestone is started.
+Post-gate cleanup completes after the
+[roadmap/merge record 142884f5312d7ca8425f3353349511f0464464ee](https://github.com/nakatamaho/vaeg/commit/142884f5312d7ca8425f3353349511f0464464ee)
+is pushed. After verifying clean trees and containment in `origin/main`, the
+temporary merge worktree and milestone local branch are removed; the primary
+project worktree is switched to clean, synchronized `main`, not deleted. The
+M132 private scratch and four M132 static build directories are removed only
+after every retained source/archive binding is reverified. Read-only generated
+directory permissions are repaired only inside those approved disposable roots.
+The full private retention/cleanup receipts remain outside Git.
+
+The primary worktree, remote milestone branch, other milestones, original shared
+runtime/caches, received inputs and archived evidence remain. The expensive
+pinned shader dependency and its audit are also retained separately inside the
+work tree; no application build objects are reused for a release. Task-owned QA
+containers are stopped; daemon/images are not removed. The retained final
+executable/report location above replaces the removed temporary build location.
+No next milestone is started.
