@@ -93,8 +93,8 @@ for these categories; no separate list is needed:
 Never remove without explicit approval: `pc88va-private-docs/`, another
 milestone's worktree or branch, the shared caches under
 `~/work/pc88va/cache/vaeg/` (they are reused), the remote branch, and
-files the maintainer supplied (photos, screenshots, media, archives). Report what was removed and what was
-kept.
+files the maintainer supplied (photos, screenshots, media, archives).
+Report what was removed and what was kept.
 
 ## Demos stay buildable
 
