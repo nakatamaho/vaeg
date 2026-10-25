@@ -27,6 +27,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build pkg-config libsdl2-dev libarchive-dev \
     libgl1-mesa-dev libglu1-mesa-dev xvfb xdotool x11-apps x11-utils openbox \
-    fonts-dejavu-core python3 git && rm -rf /var/lib/apt/lists/*
+    fonts-dejavu-core python3 git xclip tesseract-ocr && rm -rf /var/lib/apt/lists/*
 ENV SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=dummy LIBGL_ALWAYS_SOFTWARE=1
 CMD ["sleep", "infinity"]

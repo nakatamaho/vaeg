@@ -23,10 +23,12 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Agreed implementation, static Windows artifact and full demo/media
-source closure complete; the 32-case virtual-X11 reference set is explicitly
-approved and its screenshot comparison passes. Native-platform/HiDPI/tooltip and
-remaining regression verification are pending. G132 not requested or passed.**
+Status: **Requested machine-owned regression and display-operation QA complete:
+guest-start 8/8, refreshed M131 probe 8/8, actual state/input/reset/speed operations
+and tooltip/FPS/FRAME/menu persistence pass. Local full tests pass (138 executed,
+9 skipped, zero failures). Final hosted review CI is next. Approved 32-case X11
+references and accepted Windows workflow remain valid. Native CRT/Cocoa/physical
+HiDPI automation remains BLOCKED, not PASS. G132 human acceptance is pending.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -700,29 +702,29 @@ human acceptances remain valid records but are not relabeled automated PASS.
 | Case ID | Inputs/actions and automated acceptance contract | Current machine status |
 |---|---|---|
 | `g132-clock-v1` | Initialized VA2/V1 seed; run H and S with the same worker/probe. Require IN6Eh=7Fh/FFh, valid returned score and S/H 0.45–0.60. Keep actual values and identities. | **PASS**: reusable runner H/S and comparison. No host stopwatch or TIME$. |
-| `g132-mode-matrix` | VA/VA2 × V1/V2 × H/S. Query IN6Eh and IN31h in actual BASIC; require 7Fh/FFh and F9h/79h respectively, completed prompt and runtime mode agreement. | **PARTIAL**: eight inspected earlier guest queries and ROMless matrices exist; reusable eight-case generation/content classifier still **NOT_IMPLEMENTED**. |
-| `g132-reset-transitions` | H→S→H, V1↔V2 and model changes through the real reset path. After each transition check identity ports, mode/status, clock and usable input. Keep the same custom multiplier/percent when not explicitly changed. | **PARTIAL**: reset/latch unit tests and scoped human reset acceptance; end-to-end transition runner **NOT_IMPLEMENTED**. |
-| `g132-m131-probe` | Source-build the 604-byte probe; private BASIC boots across both VA models and four modes; compare stored CPU/display-bank and restore results with the approved M131 matrix. A build-only pass is insufficient. | **PARTIAL**: source/ROMless tests and prior M131 evidence retained; refreshed machine-run matrix **NOT_IMPLEMENTED**. |
-| `g132-m131-guest-start` | Copied neutral private game fixture; reproduce the agreed Start/Enter sequence. Check the gameplay region with approved visual markers/reference tolerance, not just process exit or a nonblack image. | **NOT_IMPLEMENTED** as a reusable local checker. Existing private evidence is not a newly executed candidate check. |
-| `g132-paste` | Mixed case, repeated digits, punctuation and full multiline BASIC, including CLEAR. Compare actual stored/listed text or program bytes; then run it. Enforce normal-rate guest-frame floors so No Wait cannot hide dropped input. Test cancellation/focus release separately. | **PARTIAL**: production phase-boundary selftests, controlled private-driver red/green and human V1S acceptance. Durable normal-rate full-queue integration driver **NOT_IMPLEMENTED**. |
+| `g132-mode-matrix` | VA/VA2 × V1/V2 × H/S. Query IN6Eh and IN31h in actual BASIC; require 7Fh/FFh and F9h/79h respectively, completed prompt and runtime mode agreement. | **PASS**: refreshed eight-case real-client probe matrix and per-model reset transitions; guest ports, stored latch and rendered status agree. |
+| `g132-reset-transitions` | H→S→H, V1↔V2 and model changes through the real reset path. After each transition check identity ports, mode/status, clock and usable input. Keep the same custom multiplier/percent when not explicitly changed. | **PASS**: real VA/VA2 mode/reset cycles plus custom-clock reset/load/restart checks; preserved phase checkpoints are distinguished from their containing runs. |
+| `g132-m131-probe` | Source-build the 604-byte probe; private BASIC boots across both VA models and four modes; compare stored CPU/display-bank and restore results with the approved M131 matrix. A build-only pass is insufficient. | **PASS 8/8**: fresh source-built 604-byte/checksum-62810 probe; both visible phases A/A, CPU 41h/42h, mode-specific port/bank values, restore=1 and post-return PRINT=2. |
+| `g132-m131-guest-start` | Copied neutral private game fixture; reproduce the agreed Start/Enter sequence. Check the gameplay region with approved visual markers/reference tolerance, not just process exit or a nonblack image. | **PASS 8/8**: fresh guest-only runs; transition, four solid aligned HUD components and two unchanged regions exactly match preserved pre-M132 positive evidence. Historical bad capture is rejected. Not whole-game or presenter coverage. |
+| `g132-paste` | Mixed case, repeated digits, punctuation and full multiline BASIC, including CLEAR. Compare actual stored/listed text or program bytes; then run it. Enforce normal-rate guest-frame floors so No Wait cannot hide dropped input. Test cancellation/focus release separately. | **PASS**: normal-rate production clipboard queue, H/S restored files, LIST/RUN and sum=5050; held normal keys, mixed case/symbols/repeats, menu/focus cancellation, empty queue and released keys/Shift/lamps. |
 | `g132-config` | Key-less fresh config defaults MachineStatus ON; all four information/panel combinations, field preferences survive save/reload without rewriting one another. | **PASS** for existing production configuration selftests; desktop menu/restart acceptance is independently maintainer-confirmed. |
 | `g132-status-content` | Shared model enumerates formal names, live N/V1/V2/V3, exact clock/tooltips, short rounding, N-family lamp suppression, non-VA SGP omission and ambiguous N subtypes. Reject boot preference/banner as runtime proof. | **PASS** for focused model/format/lamp tests; scoped runtime/UI checks already accepted. |
-| `g132-speed-controls` | Apply every retained preset and a nonpreset multiplier/percent; cross reset/restart/state load and inspect effective clock/settings. Test custom values, not only nominal labels. | **PARTIAL**: arithmetic/config unit coverage; actual GUI preset interaction and end-to-end persistence **NOT_IMPLEMENTED**. |
+| `g132-speed-controls` | Apply every retained preset and a nonpreset multiplier/percent; cross reset/restart/state load and inspect effective clock/settings. Test custom values, not only nominal labels. | **PASS**: all six presets, custom x3/75%, live CPU globals, rendered clocks and reset/load/process-restart persistence. Fixed PCCORE.multiple is not used as the user-multiplier oracle. |
 | `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL / X11_STATIC_PASS**: the approved 32-case virtual-X11 static suite passes exactly; actual window/panel geometry checks pass. 200% GUI font scale is not HiDPI. Cocoa/physical HiDPI remain **BLOCKED**. |
-| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL / X11_STATIC_PASS**: SDL software/OpenGL X11 static captures match approved references and OS title assertions pass. Tooltip/dynamic-field UI actions remain **NOT_IMPLEMENTED**; native CRT/Cocoa/physical-GPU cases remain separate **BLOCKED** targets. |
-| `g132-state-hs` | Save actual H state file; change effective setting to S; load and require restored H identity/clock/status. Repeat S→H→saved S. Mutate a guest variable between save/load to prove the file was really restored. | **NOT_IMPLEMENTED**. In-memory bind tests are not a serialized-file round trip. |
-| `g132-state-input` | After each state-file restore, type a marker and paste mixed-case/repeated-key text; compare guest result and released modifier/key matrix. Require correct lamps/status as well as input. | **NOT_IMPLEMENTED**; depends on the actual file-round-trip runner, not screenshot existence. |
+| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **X11_STATIC_PASS / X11_OPERATIONS_PASS**: approved software/OpenGL static suite retained; normal-size software-X11 precise tooltip, dynamic FPS/FRAME, live toggles and restart pass. Native CRT/Cocoa/physical-GPU/true-HiDPI automation remains **BLOCKED**, not inferred. |
+| `g132-state-hs` | Save actual H state file; change effective setting to S; load and require restored H identity/clock/status. Repeat S→H→saved S. Mutate a guest variable between save/load to prove the file was really restored. | **PASS**: actual serialized H→S→H and S→H→S files, changed guest variable restored to its saved value, opposite pending preference, guest ports, latch and visible clock/status. |
+| `g132-state-input` | After each state-file restore, type a marker and paste mixed-case/repeated-key text; compare guest result and released modifier/key matrix. Require correct lamps/status as well as input. | **PASS**: normal typing and full production clipboard program after both restores; listed/executed contents, queue/key/Shift release, lamp reference and visible live status. |
 | `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
 | `g132-cassette-tagged` | Private tagged role, same boot/load procedure and fast OFF/ON; same semantic completion contract as raw. Do not silently convert it to raw for this check. | **FAIL**: `BASIC_QA_TAPE_HEADER_NOT_FOUND`; reproduced on 7fe3bebf and fast mode on preserved 338174ee. Root cause/introduction unresolved. |
 | `g132-standard-regression` | Clean demo/media source closure, utility/standalone SASI OS operations, all-demo drawing and BASIC Mandelbrot under the recorded corpus/worker/contract. Reuse only when behavior-relevant inputs are unchanged. | **PARTIAL**: completed source closure and earlier inspected runtime evidence retained; reusable semantic batch integration remains incomplete. Human standard V3/demo/OS operations accepted. |
-| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **NOT_RUN** pending local readiness. |
+| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **READY**: final local full/focused tests, source/evidence bindings and repository checks are complete; one hosted public review candidate follows. |
 
-Machine-owned next priorities are the remaining mode/reset matrix, durable paste
-integration and actual state-file round trips, plus diagnosis of the failing
-T88 case. Define passing baseline and single-mutation negative contracts before
-accepting new validators; use isolated temporary repositories only if future
-history/topology checks are needed. Generated results must be valid out of tree
-before any evidence-placement checks run.
+The maintainer's requested remaining machine-owned operations and guest-start
+matrix are now complete; final hosted CI follows local validation. The recorded
+known-defect exclusions above remain authoritative: do not reopen their diagnosis
+as a prerequisite. Preserve passing fixtures and exact single-mutation error codes;
+use isolated temporary repositories only if future history/topology checks are
+needed. Generated results remain out of tree and are not public Git evidence.
 
 The maintainer corrects the earlier assignment of visual checks to a human:
 window geometry, clipping, overlap and fullscreen are screenshot-comparison
@@ -1258,3 +1260,70 @@ execution against its video timeline, not physical hardware calibration or a
 TIME$ fix. Private commands, runner/probe identities, captures and output hashes
 are retained. No application source is changed and unchanged full tests/builds
 are not rerun for this evidence-only follow-up.
+
+## Requested machine-QA closure — operations and entry scene
+
+The three requested work items are: eight-condition `guest-start-01`, actual
+GUI tooltip/FPS/FRAME operations, and final evidence/local checks followed by
+hosted CI. No private asset names, paths, identities or hashes are published.
+Known excluded defects stay unresolved; this section does not reclassify them.
+
+- `x11_gate.py` supplies production-client state, input, reset, preset/custom,
+  cancellation, M131 probe and display scenarios. The worker is the preserved
+  [887a708a source](https://github.com/nakatamaho/vaeg/commit/887a708a28a89cfa3f70f5edf17c0e3a0cb88fa9),
+  SHA-256 `32232cbac1cf896178fb667a3b9239d684429a6ad30e2d5037eaf005b9f09865`.
+  No emulator-side test hooks or guest-memory writes are added. The ELF64 observer
+  reads only the owned process's closed queue/clock symbols with ABI checks.
+- Preserve the completed H phase from its checkpoint, the separate complete S
+  run, the five completed VA2 transitions from their checkpoint, the separate
+  complete VA transition run, and complete cancellation/control/probe/display
+  results. A later harness error is not used to erase earlier semantic evidence,
+  and the containing FAIL reports are retained, not renamed overall PASS.
+- The refreshed source-built probe passes all eight conditions, including both
+  observed display phases, bank/port checks, restoration and fresh BASIC input.
+- `guest_start_qa.py` completes eight fresh boots using copied inputs and the
+  agreed Enter sequence at guest frame 1800. Each requires worker exit 0,
+  changed pre/post frames, four aligned solid HUD components and exact equality
+  in two unchanged regions to the independently preserved pre-M132 positive
+  capture. Prior reviewed positive captures agree there; the preserved actual
+  historical bad capture fails `G132_GAME_HUD_BOXES`. No current candidate frame
+  is promoted to reference. Animated areas and gameplay completion are not
+  claimed. These are deliberately dummy guest-frame/core regression checks,
+  not presenter evidence.
+- The normal-size software-X11 display scenario confirms six-decimal CPU/base/SGP
+  tooltip values, multiplier/percent/domain, draw/guest-frame labels and a tooltip
+  wholly within the client. A live BASIC redraw supplies the measured-rate
+  stimulus. Two captures show positive measured FPS and advancing FRAME;
+  FRAME is absent before opt-in, can be removed independently and stays absent
+  after restart while FPS stays enabled. All four actual information/panel menu
+  combinations have independent observed 24/28-pixel geometry changes.
+- Retained setup failures include short input pulses, wrong menu coordinates,
+  OCR ambiguities, use of the peripheral multiplier as CPU-setting oracle,
+  cropping the tooltip at the guest/footer boundary rather than the client,
+  sampling immediately after a metric reset, and an incorrect expected field
+  bitmask. These are corrected QA assumptions, not demonstrated emulator bugs.
+- Final local commands: `cmake --build "$BUILD" -j 6` exits 0;
+  `ctest --test-dir "$BUILD" --output-on-failure -j 1` exits 0, 147 tests,
+  138 executed PASS, nine conditional SKIPs, zero failures, 159.31 seconds.
+  The earlier parallel attempt's failed `dropmedia` selftest is retained;
+  it does not replace the successful standard serial run. Updated QA-only
+  content fixtures are checked separately after validator edits.
+- The new CTests contain synthetic inputs only: ten exact-code state/glyph/
+  lamp/field mutations and three exact-code guest geometry/policy/one-pixel
+  mutations, plus PNG integration. No private media or screenshots reach CI.
+- Application source/configuration inputs are unchanged from the evaluated
+  worker: 1,094 public implementation/resource/build-input files are bound in a
+  private manifest. The only root CMake difference registers/labels QA tests;
+  no application target, option or compiler setting changes. Generated revision/
+  date metadata is not asserted byte-identical. Retain the actual worker digest,
+  evaluated scripts, package inventory, policy/input/capture/output digests and
+  exact commands privately. Existing expensive demo/media and approved 32-case
+  static captures are reused, not represented as newly executed.
+
+[Operation/reference instructions](../../../tools/qa/screen-compare.md#real-operations-serialization-and-dynamic-fields)
+and [guest-start contract](../../../tools/qa/screen-compare.md#guest-start-bankdisplay-regression)
+explain the scope. The standard demo/media source and runtime records above and
+maintainer Windows startup/recording/MP4/playback acceptance remain valid. Native
+CRT/Cocoa/physical HiDPI automation remains unavailable, not a synthetic PASS.
+Hosted CI and final G132 human judgment are separate; no merge, cleanup or next
+milestone is authorized by these machine results.

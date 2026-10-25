@@ -226,7 +226,68 @@ the emulator.
 An Xvfb/Openbox client is a real SDL X11 window, not dummy output, but its
 coverage is **virtual X11 with software/Mesa**, not a physical GPU, macOS Cocoa,
 Windows, true HiDPI or the separate native CRT presenter. Those targets remain
-separate automation work/environment blockers. Tooltip cases still need fixed
-pointer placement/timing and reviewed masks for measured FPS digits; CPU-speed
-menus need controlled UI actions and observed state. Do not infer those from
-the static toggle matrix or ask a human to repeat them instead.
+separate automation work/environment blockers. The operation runner below adds
+normal-size software-X11 tooltip, dynamic-field and CPU-menu checks. These are
+not inferred from the static toggle matrix and do not cover other native targets.
+
+## Real operations, serialization and dynamic fields
+
+`x11_gate.py` drives the actual mapped client at normal emulation speed. It uses
+production clipboard paste/copy, held XTest keys, menus and real quick-save files;
+it does not inject guest state or add emulator hooks. Separate scenarios cover
+H/S save/load, VA/VA2 mode/reset transitions, preset/custom clocks, paste cancel
+and focus loss, and the source-built M131 probe. `display` checks precise tooltip
+clocks/domain and client bounds, measured FPS under a live BASIC redraw stimulus,
+advancing FRAME, FRAME opt-in, four live information/panel toggles and restart
+persistence. FRAME toggles reset metrics: allow a complete sampling window before
+judging the measured rate. A freshly reset zero is not a steady-state FPS failure.
+
+```sh
+python3 tools/qa/x11_gate.py --selftest
+python3 tools/qa/x11_gate.py \
+  --worker "$WORKER" --evaluated-commit "$WORKER_COMMIT" \
+  --roms "$ROM_ROOT" --backup-seed "$BASIC_SEED" --display :133 \
+  --reference-dir "$APPROVED_REFERENCES" --manifest-sha256 "$MANIFEST_DIGEST" \
+  --scenario display --output-dir "$NEW_PRIVATE_RESULT"
+```
+
+The Linux ELF64 observer only reads the owned child's production paste queue and
+CPU multiplier/speed globals. It checks executable ownership, ELF ABI and closed
+symbol names/sizes, and never writes process memory. `PCCORE.multiple` is the
+fixed peripheral-time multiplier, **not** the user's CPU multiplier; use the live
+CPU globals and rendered effective clock for preset/custom checks. Unsupported
+observer ABIs fail closed, not as PASS. Tool/package/worker/input/output identities,
+clipboard text, owned-client captures and actual state files remain private.
+
+Content selftests use synthetic state, glyph, lamp and field fixtures. Each
+negative starts from a passing fixture and asserts the exact intended error code;
+it does not depend on Git topology or private media. A failed later phase does
+not make an earlier completed phase fail, but reuse must cite its checkpoint and
+preserve the original overall FAIL rather than relabel it PASS.
+
+## Guest-start bank/display regression
+
+`guest_start_qa.py` runs `guest-start-01` in all eight VA/VA2 × V1/V2 × H/S
+conditions, using new media/backup copies for each run. Its explicit target is
+**dummy guest-frame regression**, not a real-window/presenter check. It requires
+successful process exit, different pre/post-start captures, four aligned solid
+HUD components and exact matches in two unchanged HUD/banner regions against a
+frozen, independently produced pre-M132 positive capture. Animated world/portrait
+areas are not compared; this checks entry-scene coherence, not game completion.
+
+```sh
+python3 tools/qa/guest_start_qa.py --selftest
+python3 tools/qa/guest_start_qa.py \
+  --worker "$WORKER" --evaluated-commit "$WORKER_COMMIT" --roms "$ROM_ROOT" \
+  --media "$PRIVATE_START_MEDIA" --backup-seeds "$SEED_DIRECTORY" \
+  --policy "$FROZEN_PRIVATE_POLICY" --output-dir "$NEW_PRIVATE_RESULT"
+```
+
+The closed `private-guest-hud-v1` policy and `reference.png` stay outside Git.
+Retain the prior acceptance/reference-origin record independently; a JSON basis
+string alone does not attest origin or approval. Never generate the reference
+from the current candidate. Synthetic component/policy/one-pixel mutations test
+exact failure codes; a composed PNG check tests integration. A preserved historical
+bad capture can additionally demonstrate rejection of the actual regression.
+Only synthetic selftests run in CTest/hosted CI; private inputs, identities,
+policies, raw logs and images must never be staged or uploaded.
