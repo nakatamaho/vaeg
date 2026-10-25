@@ -139,3 +139,18 @@ DLL imports only; `vaeg.exe` SHA-256
 The maintainer stated **G134 passed** on 2026-10-25 with that build: the
 BASIC discriminator as on hardware, and the PC-8801mkIISR demonstration's
 blank blocks going as on hardware.
+
+## SASI regression completed after the gate
+
+After the maintainer restored the eleven packages (and NYANCO25.DOC/.LZH)
+in the cache, a clean clone of
+[bd781886](https://github.com/nakatamaho/vaeg/commit/bd78188638dfcd3bed41c696434fc245277adedd)
+(which keeps the CP/M installer's scratch out of the cache; its first run
+fetched the CP/M licence texts and the z80asm source into the cache's
+`cpm/`) built every medium: `build-utility-disk.sh` exit 0 (FDD SHA-256
+`4ec6dae5b4eabf2e844fa64c08764740600d437c9b369d12bec3e1f49cccd093`),
+`build-sasi-utility-disks.sh` exit 0 (VA
+`06984005c0671bc06d1962658ffdaa237bb6bcd84aee1e6d4f36461109d74af0`, VA2
+`4816b458dd1baf14f2c51f98642565292aabb6ca43dfb3d7cd67708a271f1ce3`). In
+vaeg the FDD boots PC-Engine 1.1 on the VA2 and each SASI image alone boots
+PC-Engine on its model (1.05 VA, 1.1 VA2).
