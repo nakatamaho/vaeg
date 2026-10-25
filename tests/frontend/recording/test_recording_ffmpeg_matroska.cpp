@@ -371,8 +371,10 @@ void check_successful_fixture() {
 	assert(create.writer->finish() == FfmpegMatroskaWriterError::None);
 	assert(create.writer->finish() == FfmpegMatroskaWriterError::AlreadyFinalized);
 	assert(fs::exists(movie));
-	std::ifstream seekable(movie, std::ios::binary | std::ios::ate);
-	assert(seekable && seekable.tellg() > 0);
+	{
+		std::ifstream seekable(movie, std::ios::binary | std::ios::ate);
+		assert(seekable && seekable.tellg() > 0);
+	}
 	decode_fixture(movie, fixture);
 	if (std::getenv("VAEG_RECORDING_KEEP_FIXTURE") == nullptr) {
 		std::error_code error;
@@ -410,9 +412,11 @@ void check_target_and_cancel() {
 	const auto existing = FfmpegMatroskaWriter::create(make_config(movie), fixture.video_info,
 	                                                    fixture.audio_info);
 	assert(existing.error == FfmpegMatroskaWriterError::TargetExists);
-	std::ifstream target(movie, std::ios::binary);
-	std::string contents((std::istreambuf_iterator<char>(target)), std::istreambuf_iterator<char>());
-	assert(contents == "keep");
+	{
+		std::ifstream target(movie, std::ios::binary);
+		std::string contents((std::istreambuf_iterator<char>(target)), std::istreambuf_iterator<char>());
+		assert(contents == "keep");
+	}
 
 	const fs::path partial_collision = root / "preexisting.partial";
 	{
@@ -424,10 +428,12 @@ void check_target_and_cancel() {
 	const auto collision = FfmpegMatroskaWriter::create(collision_config, fixture.video_info,
 	                                                     fixture.audio_info);
 	assert(collision.error == FfmpegMatroskaWriterError::PathFailure);
-	std::ifstream partial_reader(partial_collision, std::ios::binary);
-	std::string partial_contents((std::istreambuf_iterator<char>(partial_reader)),
-	                            std::istreambuf_iterator<char>());
-	assert(partial_contents == "keep-partial");
+	{
+		std::ifstream partial_reader(partial_collision, std::ios::binary);
+		std::string partial_contents((std::istreambuf_iterator<char>(partial_reader)),
+		                            std::istreambuf_iterator<char>());
+		assert(partial_contents == "keep-partial");
+	}
 
 	const fs::path canceled_movie = root / "canceled.mkv";
 	const auto create = FfmpegMatroskaWriter::create(make_config(canceled_movie), fixture.video_info,

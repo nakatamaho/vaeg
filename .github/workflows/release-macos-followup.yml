@@ -33,6 +33,11 @@ on:
         description: 'Original release run with successful Linux and failed Windows/macOS jobs'
         required: true
         type: string
+      retain_macos:
+        description: 'Reuse the digest-bound successful M138 macOS package; build Windows only'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -41,6 +46,7 @@ permissions:
 env:
   RELEASE_TAG: ${{ inputs.tag_name }}
   SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+  RETAIN_MACOS: ${{ inputs.retain_macos }}
   GH_TOKEN: ${{ github.token }}
   GH_REPO: ${{ github.repository }}
 
@@ -62,6 +68,44 @@ jobs:
           $expected = gh api "repos/$env:GH_REPO/actions/runs/$env:SOURCE_RUN_ID" --jq .head_sha
           $actual = git rev-parse HEAD
           if (!$expected -or $expected -ne $actual) { throw 'RELEASE_FOLLOWUP_SOURCE_MISMATCH' }
+      - name: Verify approved macOS evidence when reusing it
+        if: ${{ inputs.retain_macos }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build | Out-Null
+          gh api "repos/$env:GH_REPO/actions/runs/$env:SOURCE_RUN_ID" > build/followup-run.json
+          gh api "repos/$env:GH_REPO/actions/runs/$env:SOURCE_RUN_ID/jobs?per_page=100" > build/followup-jobs.json
+          gh release view $env:RELEASE_TAG --json isDraft,assets > build/followup-release.json
+          gh api "repos/$env:GH_REPO/actions/runs/40197355081/jobs?per_page=100" > build/retained-macos-jobs.json
+          @'
+          import json, subprocess
+          def validate_evidence(tag_sha, run, jobs, release):
+              if not tag_sha or run.get('head_sha') != tag_sha:
+                  raise SystemExit('RELEASE_FOLLOWUP_SOURCE_MISMATCH')
+              if release.get('isDraft') is not True:
+                  raise SystemExit('RELEASE_FOLLOWUP_NOT_DRAFT')
+              expected = {'linux gcc release': 'success', 'windows mingw native static-runtime': 'failure',
+                          'macos fetch-sdl2 release': 'failure'}
+              for name, conclusion in expected.items():
+                  matches = [job for job in jobs.get('jobs', []) if job.get('name') == name]
+                  if len(matches) != 1 or matches[0].get('conclusion') != conclusion:
+                      raise SystemExit('RELEASE_FOLLOWUP_JOB_EVIDENCE')
+          def validate_retained_macos(tag_sha, jobs, release):
+              if tag_sha != '4fb3c44052fcccab7e47830ca1945d1498469bb2':
+                  raise SystemExit('RELEASE_FOLLOWUP_RETAINED_SOURCE')
+              matches = [job for job in jobs.get('jobs', []) if job.get('name') == 'macos tagged-source Bash follow-up']
+              if len(matches) != 1 or matches[0].get('conclusion') != 'success':
+                  raise SystemExit('RELEASE_FOLLOWUP_RETAINED_JOB')
+              assets = [a for a in release.get('assets', []) if a.get('name') == 'vaeg-rel20261025-macos-arm64.tar.gz']
+              if len(assets) != 1 or assets[0].get('digest') != 'sha256:b08539689269f7c49f72e3599ce2693388373ab1d58280c1522c28dde834f02e':
+                  raise SystemExit('RELEASE_FOLLOWUP_RETAINED_ASSET')
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          release = json.load(open('build/followup-release.json'))
+          validate_evidence(sha, json.load(open('build/followup-run.json')), json.load(open('build/followup-jobs.json')), release)
+          validate_retained_macos(sha, json.load(open('build/retained-macos-jobs.json')), release)
+          print('Same-source original evidence and approved macOS artifact retained')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -84,12 +128,33 @@ jobs:
           -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
           -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=ON
           -DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+      - name: Apply test-only Windows reader-lifetime correction
+        run: |
+          set -euo pipefail
+          git fetch origin "$GITHUB_SHA"
+          git show "${GITHUB_SHA}:tests/frontend/recording/test_recording_ffmpeg_matroska.cpp" > tests/frontend/recording/test_recording_ffmpeg_matroska.cpp
+          git diff HEAD -- tests/frontend/recording/test_recording_ffmpeg_matroska.cpp > build/m138-test-fixture.patch
+          git diff HEAD --stat
       - name: Build and test tagged application
+        id: application
         run: |
           cmake --build --preset mingw-ci
           SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
           ctest --test-dir build/mingw-ci --output-on-failure
           python3 tools/release/check-static-windows-imports.py --binary build/mingw-ci/sdl2/vaeg.exe
+          git restore --source=HEAD -- tests/frontend/recording/test_recording_ffmpeg_matroska.cpp
+          sha256sum build/mingw-ci/sdl2/vaeg.exe build/mingw-ci/vaeg_recording_matroska_test.exe
+      - name: Preserve failed ordinary build for identity-bound recovery
+        if: ${{ failure() && steps.application.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: m138-ordinary-windows-recovery
+          retention-days: 7
+          path: |
+            build/mingw-ci
+            build/mingw-static
+            build/recording-sdk
+            build/m138-test-fixture.patch
       - name: Reuse successful original guest-driver bundle
         uses: actions/download-artifact@v4
         with:
@@ -112,7 +177,9 @@ jobs:
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           printf '%s\n' 'Build tagged recording code with -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON (GCC 16 defaults to a newer dialect).' \
+            'Apply m138-test-fixture.patch at the vaeg source root before running CTest: it scopes test readers before Windows fixture cleanup, without changing application source.' \
             > "dist-package/${package}/recording-source/BUILD-ENVIRONMENT.txt"
+          cp build/m138-test-fixture.patch "dist-package/${package}/recording-source/"
           python3 - "dist-package/${package}/recording-source" <<'PY'
           import hashlib, pathlib, sys
           root = pathlib.Path(sys.argv[1])
@@ -134,6 +201,7 @@ jobs:
           gh release upload $env:RELEASE_TAG $asset --clobber
 
   macos:
+    if: ${{ !inputs.retain_macos }}
     name: macos tagged-source Bash follow-up
     runs-on: macos-14
     steps:
@@ -245,6 +313,7 @@ jobs:
     name: publish complete retained release
     runs-on: ubuntu-latest
     needs: [windows, macos]
+    if: ${{ always() && needs.windows.result == 'success' && (needs.macos.result == 'success' || (inputs.retain_macos && needs.macos.result == 'skipped')) }}
     steps:
       - name: Verify all retained packages and publish
         run: |
@@ -252,12 +321,17 @@ jobs:
           gh release view "$RELEASE_TAG" --json assets > build/release-assets.json
           python3 - <<'PY'
           import json, os
-          def validate_assets(tag, data):
+          def validate_assets(tag, data, retain_macos=False):
               assets = {asset['name'] for asset in data.get('assets', [])}
               prefix = 'vaeg-' + tag.replace('-', '')
               for suffix in ('-linux-x86_64.tar.gz', '-win-x86_64.zip', '-macos-arm64.tar.gz'):
                   if prefix + suffix not in assets:
                       raise SystemExit('RELEASE_FOLLOWUP_ASSET_SET')
-          validate_assets(os.environ['RELEASE_TAG'], json.load(open('build/release-assets.json')))
+              if retain_macos:
+                  matches = [a for a in data['assets'] if a['name'] == 'vaeg-rel20261025-macos-arm64.tar.gz']
+                  if len(matches) != 1 or matches[0].get('digest') != 'sha256:b08539689269f7c49f72e3599ce2693388373ab1d58280c1522c28dde834f02e':
+                      raise SystemExit('RELEASE_FOLLOWUP_RETAINED_ASSET')
+          validate_assets(os.environ['RELEASE_TAG'], json.load(open('build/release-assets.json')),
+                          os.environ.get('RETAIN_MACOS') == 'true')
           PY
           gh release edit "$RELEASE_TAG" --draft=false --latest

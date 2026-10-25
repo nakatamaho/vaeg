@@ -133,14 +133,23 @@ class FollowupEvidence(unittest.TestCase):
     def setUp(self):
         source = (ROOT / ".github/workflows/release-macos-followup.yml").read_text()
         self.functions = {}
-        for block in re.findall(r"          python3 - <<'PY'\n(.*?)          PY", source, re.S):
+        blocks = re.findall(r"          python3 - <<'PY'\n(.*?)          PY", source, re.S)
+        blocks += re.findall(r"          @'\n(.*?)          '@ \| python -", source, re.S)
+        definitions = {}
+        for block in blocks:
             tree = ast.parse(textwrap.dedent(block))
+            for node in tree.body:
+                if isinstance(node, ast.FunctionDef):
+                    fingerprint = ast.dump(node)
+                    if node.name in definitions:
+                        self.assertEqual(definitions[node.name], fingerprint)
+                    definitions[node.name] = fingerprint
             # Load only independently callable content layers, never their CLI I/O.
             nodes = [node for node in tree.body
                      if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef))]
             exec(compile(ast.Module(body=nodes, type_ignores=[]), "followup-content", "exec"),
                  self.functions)
-        self.sha = "a" * 40
+        self.sha = "4fb3c44052fcccab7e47830ca1945d1498469bb2"
         self.run = {"head_sha": self.sha}
         self.jobs = {"jobs": [
             {"name": "linux gcc release", "conclusion": "success"},
@@ -149,11 +158,17 @@ class FollowupEvidence(unittest.TestCase):
         self.release = {"isDraft": True}
         self.assets = {"assets": [{"name": "vaeg-rel20261025" + suffix} for suffix in (
             "-linux-x86_64.tar.gz", "-win-x86_64.zip", "-macos-arm64.tar.gz")]}
+        self.retained_jobs = {'jobs': [
+            {'name': 'macos tagged-source Bash follow-up', 'conclusion': 'success'}]}
+        self.retained_release = {'isDraft': True, 'assets': [a.copy() for a in self.assets['assets']]}
+        self.retained_release['assets'][-1]['digest'] = 'sha256:b08539689269f7c49f72e3599ce2693388373ab1d58280c1522c28dde834f02e'
         self.validate()
 
     def validate(self):
         self.functions['validate_evidence'](self.sha, self.run, self.jobs, self.release)
         self.functions['validate_assets']('rel-20261025', self.assets)
+        self.functions['validate_retained_macos'](self.sha, self.retained_jobs, self.retained_release)
+        self.functions['validate_assets']('rel-20261025', self.retained_release, True)
 
     def assert_code(self, code):
         with self.assertRaises(SystemExit) as error:
@@ -182,6 +197,25 @@ class FollowupEvidence(unittest.TestCase):
     def test_missing_package(self):
         self.assets['assets'].pop()
         self.assert_code('RELEASE_FOLLOWUP_ASSET_SET')
+
+    def test_retained_source_scope(self):
+        with self.assertRaises(SystemExit) as error:
+            self.functions['validate_retained_macos']('a' * 40, self.retained_jobs, self.retained_release)
+        self.assertEqual(error.exception.code, 'RELEASE_FOLLOWUP_RETAINED_SOURCE')
+
+    def test_retained_job_failed(self):
+        self.retained_jobs['jobs'][0]['conclusion'] = 'failure'
+        self.assert_code('RELEASE_FOLLOWUP_RETAINED_JOB')
+
+    def test_retained_asset_digest(self):
+        self.retained_release['assets'][-1]['digest'] = 'sha256:' + '0' * 64
+        self.assert_code('RELEASE_FOLLOWUP_RETAINED_ASSET')
+
+    def test_retained_publish_digest(self):
+        self.retained_release['assets'][-1]['digest'] = 'sha256:' + '0' * 64
+        with self.assertRaises(SystemExit) as error:
+            self.functions['validate_assets']('rel-20261025', self.retained_release, True)
+        self.assertEqual(error.exception.code, 'RELEASE_FOLLOWUP_RETAINED_ASSET')
 
 
 if __name__ == "__main__":
