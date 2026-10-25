@@ -97,7 +97,9 @@ Standard V3 gate, plus:
   `pc88va2`: the BASIC discriminator with `SCREEN 1` and with `SCREEN 0`
   gives box and blank key blocks on VA and VA2 and the box only on the
   PC-8801mkIISR model; the PC-8801mkIISR demonstration on the VA shows the
-  blocks from frame 150 on, also over its title and RGB prompt; the
+  blocks from frame 150 on, and a headless run without input still showed
+  them at frames 400 and 900 (the maintainer saw them go in the gate
+  build); the
   PC-8801mkIISR model shows none.
 
 ## Media build regression
