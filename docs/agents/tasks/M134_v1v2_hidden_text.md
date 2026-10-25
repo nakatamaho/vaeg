@@ -76,6 +76,11 @@ the review's discriminator on both machines (kept privately).
   the media builders find cached packages whatever the case of their names.
 - V1/V2 decision X10 (and a note on G4), ledger entry, roadmap row.
 
+PR #56 itself was merged to `main` in parallel as M133
+([af995613](https://github.com/nakatamaho/vaeg/commit/af99561345dc408ecb502ab40a7f2c0ae16c75c0));
+the M134 merge keeps M134's `vram/maketextva.c`, which contains that change
+(b55ce02a is the same patch) and extends it.
+
 ## Gate G134 (human)
 
 Standard V3 gate, plus:

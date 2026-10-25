@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M133 — Hidden text blacked out text-merged monochrome graphics
+
+- **Symptom/scope:** V1/V2 multiplane 1-bit/pixel graphics disappeared when
+  the guest hid text; PR #56 reports this in a demonstration's fishing scene.
+- **Demonstrated cause:** `maketextva_raster()` cleared `textcolorraster`
+  together with the character raster for `148h` bit 7, although
+  `scrndrawva_compose_raster()` uses that colour raster for graphics dots
+  when `videova_textmerge()` is true.
+- **Correction:** in text-merged graphics mode, generate the attribute-colour
+  raster even with text hidden, then zero only the character raster. Preserve
+  full blanking for non-merged modes and TSP display-stop.
+- **Verification:** static producer/consumer review, successful ten-job
+  candidate CI and clean static recording/OS-MP4-enabled MinGW build;
+  explicit maintainer human acceptance of that Windows handoff. New raster
+  tests and task-specific demo/media regeneration were not run; see the
+  [M133 gate and coverage record](../agents/tasks/M133_hidden_text_graphics_colour.md).
+- **Milestone/commit:** M133, [PR #56](https://github.com/nakatamaho/vaeg/pull/56),
+  [bcfb11aa74b7856c10e9ce8868897673cde7dfc3](https://github.com/nakatamaho/vaeg/commit/bcfb11aa74b7856c10e9ce8868897673cde7dfc3).
+
 ### M132 — Installer test doubles failed on native Windows Python
 
 - **Symptom/scope:** the Windows installer unit tests cannot discover their fake
@@ -1584,7 +1603,10 @@ separate parity correction or move it to Open Defects.
   `maketextva_raster()` then blanked both the text raster and the colour
   raster from which the multiplane graphics take their colours (G4).
 - **Correction:** in V1/V2 mode hidden text keeps building the uPD3301
-  rows: the colour raster stays for the graphics (PR #56, shitamo); VA
+  rows: the colour raster stays for the graphics (PR #56, shitamo, merged
+  as M133 at
+  [af995613](https://github.com/nakatamaho/vaeg/commit/af99561345dc408ecb502ab40a7f2c0ae16c75c0);
+  M134 carries the same change as b55ce02a); VA
   boots also keep the cell backgrounds with the glyphs and lines suppressed,
   in every graphics mode (maintainer); PC-8801/8001 models blank the text
   and keep the colours only for monochrome multiplane graphics. V3 mode
