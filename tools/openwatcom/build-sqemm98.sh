@@ -30,7 +30,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 engine=${CONTAINER_ENGINE:-docker}
 image_tag=${VAEG_OPENWATCOM_IMAGE_TAG:-vaeg/openwatcom:2026-08-01}
-cache_dir=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache}
+cache_dir=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc88va-utilities-cache}
 output=
 license_output=
 source_dir=

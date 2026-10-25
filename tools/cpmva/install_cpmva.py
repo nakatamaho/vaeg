@@ -175,8 +175,8 @@ class InstallerError(Exception):
 
 def vaeg_cache_dir() -> Path:
     """The shared vaeg download cache: $VAEG_CACHE_DIR, else the maintainer's
-    ~/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache."""
-    default = Path.home() / "work/pc88va/pc88va-private-docs/pc-88va-utilties-cache"
+    ~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache."""
+    default = Path.home() / "work/pc88va/pc88va-private-docs/pc88va-utilities-cache"
     return Path(os.environ.get("VAEG_CACHE_DIR") or default)
 
 

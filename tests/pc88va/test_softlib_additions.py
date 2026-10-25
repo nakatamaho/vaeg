@@ -45,7 +45,7 @@ STAGE = load("softlib_stage", TOOLS / "stage-softlib-additions.py")
 MEDIA = load("softlib_media", TOOLS / "test_vtiming_media.py")
 CACHE = Path(
     os.environ.get("VAEG_CACHE_DIR")
-    or Path.home() / "work/pc88va/pc88va-private-docs/pc-88va-utilties-cache"
+    or Path.home() / "work/pc88va/pc88va-private-docs/pc88va-utilities-cache"
 )
 
 
