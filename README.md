@@ -87,10 +87,10 @@ remains a useful historical reference.
 
 ## News
 
-### 2026-10-25 - Rel.20261025 (release preparation)
+### 2026-10-25 - Rel.20261025
 
-[Rel.20261025 changes](CHANGES.20261025.md) cover the commits since
-Rel.20261017 through M136: VA/VA2-calibrated CPU and SGP timing, corrected
+[Rel.20261025](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261025)
+covers the commits since Rel.20261017 through M137: VA/VA2-calibrated CPU and SGP timing, corrected
 V1/V2 H/S execution and text banking, machine-specific hidden-text and
 reverse-display behaviour, lossless movie recording, background OS MP4
 conversion on Windows/macOS, five-generation quick saves, a machine-information
@@ -117,9 +117,9 @@ blocks and draws white lines on black.
 </table>
 </div>
 
-The release is being prepared; no new tag or public binary is implied by
-this entry. Recording is explicitly enabled in the release workflow; final
-package/runtime verification is still required before publication.
+See [Rel.20261025 changes](CHANGES.20261025.md) for the complete release
+notes. Public builds enable recording; Linux public builds do not include
+MP4 compression.
 
 ### 2026-10-17 - Rel.20261017
 

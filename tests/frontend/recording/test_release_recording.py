@@ -51,6 +51,14 @@ class ReleaseRecording(unittest.TestCase):
     def test_complete_release_contract(self):
         CONTRACT.validate_content(self.workflow, self.builder)
 
+    def test_no_partial_publication(self):
+        self.mutation("              --draft \\\n", "",
+                      "RELEASE_RECORDING_NOT_DRAFT")
+
+    def test_all_platforms_required(self):
+        self.mutation("needs: [linux, windows, macos]", "needs: [linux]",
+                      "RELEASE_RECORDING_PUBLISH_GATE")
+
     def test_recording_disabled(self):
         self.mutation("-DVAEG_ENABLE_RECORDING=ON", "-DVAEG_ENABLE_RECORDING=OFF",
                       "RELEASE_RECORDING_DISABLED")

@@ -36,6 +36,12 @@ class ContractError(ValueError):
 
 
 def validate_content(workflow, builder):
+    if 'gh release create "${RELEASE_TAG}" \\\n              --draft \\' not in workflow:
+        raise ContractError("RELEASE_RECORDING_NOT_DRAFT")
+    publish = workflow.split("  publish:\n", 1)
+    if (len(publish) != 2 or "needs: [linux, windows, macos]" not in publish[1]
+            or '--draft=false --latest' not in publish[1]):
+        raise ContractError("RELEASE_RECORDING_PUBLISH_GATE")
     for platform in ("linux", "windows", "macos"):
         match = re.search(r"^  " + platform + r":\n(.*?)(?=^  \w+:|\Z)",
                           workflow, re.MULTILINE | re.DOTALL)

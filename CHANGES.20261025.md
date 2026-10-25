@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # 88VA Eternal Grafx Rel.20261025
 
-Changes since Rel.20261017, through M136. This release focuses on CPU and
+Changes since Rel.20261017, through M137. This release focuses on CPU and
 SGP timing, the differences between VA and PC-8801 compatibility displays,
 movie recording, and everyday save-state and input controls.
 
