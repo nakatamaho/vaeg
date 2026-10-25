@@ -23,15 +23,16 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M132 — H/S clock, identification and machine status
 
-Status: **Requested machine-owned QA and final verification complete: guest-start
-8/8, refreshed M131 probe 8/8, actual state/input/reset/speed operations and
-tooltip/FPS/FRAME/menu persistence pass. Local full tests pass (138 executed,
-9 skipped, zero failures). Final hosted coverage passes through eight retained
-successful original jobs plus successful corrected ASan/Windows follow-up;
-the original FAIL is preserved, not relabeled. Approved 32-case X11 references
-and accepted Windows workflow remain valid; fresh static handoff is built.
-Native CRT/Cocoa/physical HiDPI automation remains BLOCKED, not PASS.
-G132 human acceptance is pending.**
+Status: **G132 PASSED by explicit maintainer `G132 passed` acceptance on
+2026-10-25 after final report f2a48d5af8b3c248c3a40a8d723900f08565e762.
+Guest-start and refreshed M131 probe each pass 8/8; actual state/input/reset/
+speed and tooltip/FPS/FRAME/menu persistence pass. Local full tests execute
+138 PASS, nine SKIPs and zero failures. Final hosted coverage combines eight
+retained original successful jobs with corrected successful ASan/Windows
+follow-up; the original FAIL remains preserved. Approved X11 references,
+accepted Windows workflow and fresh static handoff retain their identities.
+Native CRT/Cocoa/physical HiDPI automation remains BLOCKED, not relabeled PASS.
+No next milestone is started.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -1464,6 +1465,30 @@ tools/release/build-mingw-static-container.sh \
 
 No private input, original asset name/path/hash, image or raw local evidence was
 staged, pushed or uploaded to CI. No protected binary payload, vendor code or
-archived reference-tier provenance was modified. Final PR remains draft pending
-explicit whole-G132 human judgment; no merge, cleanup or next milestone follows
-from these results automatically.
+archived reference-tier provenance was modified. The machine-only report did not itself authorize a merge, cleanup or next
+milestone. Subsequent explicit human acceptance is recorded below.
+
+## G132 human gate acceptance
+
+On 2026-10-25 the maintainer explicitly states **`G132 passed`** after the
+[final machine-QA report f2a48d5af8b3c248c3a40a8d723900f08565e762](https://github.com/nakatamaho/vaeg/commit/f2a48d5af8b3c248c3a40a8d723900f08565e762)
+and [successful corrected hosted follow-up](https://github.com/nakatamaho/vaeg/actions/runs/40172060736).
+The evaluated/fresh-static-build source remains
+[c16a458f4d322c6499184d61432983acbfaf1939](https://github.com/nakatamaho/vaeg/commit/c16a458f4d322c6499184d61432983acbfaf1939).
+The accepted artifact's public build SHA-256 is
+`98084f17f2f8b2b6ab65a8d6a4d72e41c2271dae186c2c85deb96f6f7bef9d71`.
+
+This is whole-G132 acceptance under the documented coverage, exclusions and
+unverified boundaries, not a new claim of physical-GPU/Cocoa/true-HiDPI testing,
+absolute hardware calibration or execution of the exact new cross-built file.
+Previously unresolved/excluded defects remain unresolved; PR #56 is excluded.
+The original PR #55 source/history and accepted G131 behavior remain preserved.
+
+The gate authorizes the repository's normal `--no-ff` merge, roadmap record and
+post-gate M132-directory/local-branch cleanup after containment/clean-tree
+checks. Preserve private verification evidence, independently approved
+references, received inputs and the final Windows artifact outside Git before
+removing working directories. Keep the remote branch, shared caches, private
+reference tree, other milestones and main working tree. No M133 or other new
+task is initiated. The following main-branch record will identify the actual
+merge and cleanup disposition after completion.
