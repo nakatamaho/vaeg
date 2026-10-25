@@ -1490,5 +1490,43 @@ checks. Preserve private verification evidence, independently approved
 references, received inputs and the final Windows artifact outside Git before
 removing working directories. Keep the remote branch, shared caches, private
 reference tree, other milestones and main working tree. No M133 or other new
-task is initiated. The following main-branch record will identify the actual
-merge and cleanup disposition after completion.
+task is initiated.
+
+### Accepted main integration and post-gate retention
+
+[PR #63](https://github.com/nakatamaho/vaeg/pull/63) is merged by the explicit
+`--no-ff` commit
+[d94188e85c09a48700d5f90942e8f8e1e14f3bf1](https://github.com/nakatamaho/vaeg/commit/d94188e85c09a48700d5f90942e8f8e1e14f3bf1),
+with gate record
+[02de073dfcad622d4c87d4c51f160a55448cf257](https://github.com/nakatamaho/vaeg/commit/02de073dfcad622d4c87d4c51f160a55448cf257)
+as its milestone parent. The independently advanced main baseline's cache policy
+and tool changes are preserved. No emulator/resource/build input differs from
+the corrected evaluated source c16a458f; only existing main tooling/policy and
+subsequent documentation differ. Merged installer/cache tests, guest/GUI
+synthetic QA, shell syntax, encoding/EOL/case/Markdown and strict milestone
+checks pass locally. No unchanged gameplay, SST, rendering or recording run is
+repeated for this merge/report-only integration.
+
+Before removing working directories, 18,653 private evidence/received-input/
+worker/handoff nodes are copied and byte-verified into a persistent maintainer-
+local QA archive inside the permitted work tree, outside Git. All non-build
+scratch data is retained, including earlier FAILs, immutable references,
+received files, selected output/checkpoint bindings and frozen workers; evaluated
+build configurations/CTest receipts and all four historical Windows output
+sets are retained too. Original shared caches and private reference inputs are
+not modified or removed. Symlinks are copied without following them. The full
+relocation/hash manifest remains private, not a new public asset-identity list.
+
+The final public-safe executable and unchanged original `BUILD-REPORT.md` are
+also retained at `../release-handoff/m132-c16a458f/output/`, with executable
+SHA-256 `98084f17f2f8b2b6ab65a8d6a4d72e41c2271dae186c2c85deb96f6f7bef9d71`.
+The report records its original build location; this is relocation, not a new
+build or reassigned Windows-execution claim. Recording/native OS MP4 stays ON,
+bundled local H.264/AAC encoders OFF.
+
+After this roadmap/merge record is pushed, remove only the clean temporary merge
+worktree, contained milestone local branch, M132 private scratch and four M132
+static build directories. The main project worktree, remote milestone branch,
+other milestones, shared runtime/caches, received inputs and archived evidence
+remain. Task-owned QA containers are stopped; daemon/images are not removed.
+Report actual removal after it completes. No next milestone is started.
