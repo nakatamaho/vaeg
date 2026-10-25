@@ -203,7 +203,7 @@ def main() -> int:
                         "or built from the locked source into the cache)")
     cache_root = os.environ.get("VAEG_CACHE_DIR") or (
         Path.home() / "work/pc88va/pc88va-private-docs/pc88va-utilities-cache")
-    parser.add_argument("--cache-dir", type=Path, default=Path(cache_root) / "cpmva")
+    parser.add_argument("--cache-dir", type=Path, default=Path(cache_root) / "cpm")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--skip-zex", action="store_true",
                         help="skip the full ZEXDOCF/ZEXALLF runs (minutes each)")

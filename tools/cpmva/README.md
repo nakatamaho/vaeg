@@ -98,7 +98,7 @@ are not copied into generated manifests or archives.
 
 ## Offline and local-source installation
 
-The default cache is `$VAEG_CACHE_DIR/cpmva`, with `VAEG_CACHE_DIR` defaulting
+The default cache is `$VAEG_CACHE_DIR/cpm`, with `VAEG_CACHE_DIR` defaulting
 to `~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache`. A separate
 cache can be selected:
 

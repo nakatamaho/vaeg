@@ -1468,7 +1468,7 @@ def main() -> int:
             print(
                 "Would fetch and verify locked CPMVA, CP/M, vt100-games, BDS C, and "
                 "(unless one is supplied or in PATH) z80asm 1.8 sources into: "
-                f"{args.cache_dir or vaeg_cache_dir() / 'cpmva'}"
+                f"{args.cache_dir or vaeg_cache_dir() / 'cpm'}"
             )
             print(
                 f"Would build {BOOT_OUTPUT_NAME}, {TOOLS_OUTPUT_NAME}, "
@@ -1478,7 +1478,7 @@ def main() -> int:
             print(f"Would use image backend: {backend}")
             return 0
 
-        cache_dir = args.cache_dir or vaeg_cache_dir() / "cpmva"
+        cache_dir = args.cache_dir or vaeg_cache_dir() / "cpm"
         cache_dir.mkdir(parents=True, exist_ok=True)
         cpmva_path, cpmva_url, cpmva_override = fetch_locked_source(
             "cpmva", lock["sources"]["cpmva"], args.cpmva_archive, cache_dir, lock, args.offline
