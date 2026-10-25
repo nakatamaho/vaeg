@@ -11,9 +11,9 @@ Locations inside the boundary used by the workflows below:
 
 - task scratch: `~/work/pc88va/tmp/m<id>/`; set
   `TMPDIR=~/work/pc88va/tmp` for tools that create temporary files;
-- the shared download cache: `~/work/pc88va/cache/vaeg/`, selected for the
-  repository's tools with `VAEG_CACHE_DIR=~/work/pc88va/cache/vaeg` (they
-  fall back to `~/.cache/vaeg` without it, which is outside the boundary);
+- the shared download cache:
+  `~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/`, the
+  default of the repository's tools (`VAEG_CACHE_DIR` overrides it);
 - private inputs (system disks, ROMs, extra ROMs) are read from
   `~/work/pc88va/pc88va-private-docs/` and copied into task scratch when a
   tool needs a writable or renamed copy.
@@ -91,10 +91,10 @@ for these categories; no separate list is needed:
   to keep.
 
 Never remove without explicit approval: `pc88va-private-docs/`, another
-milestone's worktree or branch, the shared caches under
-`~/work/pc88va/cache/vaeg/` (they are reused), the remote branch, and
-files the maintainer supplied (photos, screenshots, media, archives).
-Report what was removed and what was kept.
+milestone's worktree or branch, the shared cache
+`~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/` (it is
+reused), the remote branch, and files the maintainer supplied (photos,
+screenshots, media, archives). Report what was removed and what was kept.
 
 ## Demos stay buildable
 
@@ -121,10 +121,9 @@ input, like the PC-Engine system disk); its profile tables are tracked under
 Every milestone gate includes this machine check, run locally from a
 clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
 are private inputs, so hosted CI cannot run it). Downloads come from the
-shared cache `~/work/pc88va/cache/vaeg/auto-generated-pc88va-utility-media`
-and `~/work/pc88va/cache/vaeg/msdos4-va.2` (export
-`VAEG_CACHE_DIR=~/work/pc88va/cache/vaeg`); a cache miss may download, a
-checksum mismatch fails.
+shared cache `~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/`
+(`auto-generated-pc88va-utility-media/` and `msdos4-va.2/`); a cache miss
+may download, a checksum mismatch fails.
 
 - Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
   FDD from PC-Engine 1.1, and `tools/pc88va/build-sasi-utility-disks.sh`
@@ -234,7 +233,10 @@ Release notes may summarize the ledger but do not replace it.
   ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
   dump notes stay as historical records.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
-  read-only for agents. Never create, modify, or delete anything under it:
+  read-only for agents, except its `pc-88va-utilities-cache/` directory,
+  where the repository's tools may store archives they download (nothing
+  else: no work files, builds, or logs there). Otherwise never create,
+  modify, or delete anything under it:
   no work directories, scratch output, builds, logs, screenshots, or
   generated media. This includes audit or disassembly scratch
   (`*-audit-*`) and milestone work trees (`m<id>-*`), which have been
