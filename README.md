@@ -50,7 +50,9 @@ remains a useful historical reference.
 - cassette tape images (`.cmt`, `.t88`, or inside ZIP/7z/LZH) loaded and
   recorded from the Tape menu or `--tape`/`--tape-save`, with tape sound,
   for V1/V2 BASIC (a vaeg extension; the VA has no cassette interface);
-- cursor keys assignable to the keypad 8/4/6/2, a joystick or the mouse
+- cursor keys assignable to the keypad 8/4/6/2, a joystick or the mouse (the
+  latter two while that device is on the controller port, which is empty by
+  default)
   (Key > カーソル割り当て), and F12 assignable to COPY, STOP, keypad `=` or
   `,`, PC, full speed, screenshot or pause;
 - 8087 emulation, enabled by default, with its transcendental instructions
@@ -287,7 +289,7 @@ Common user-facing command-line options are:
 | Display | `--effect VALUE` | Select the display effect |
 | Display | `--rotate none` or `--rotate right` | Show the screen unturned or turned 90 degrees right |
 | Display | `--scaling VALUE` | Select the display scaling mode |
-| Input | `--controller joystick` or `--controller mouse` | Select the controller type |
+| Input | `--controller none`, `joystick` or `mouse` | What is on the controller port (default: nothing) |
 | Input | `--keyboard-layout VALUE` | Select `jis`, `us`, or `custom` keyboard mapping |
 | Information | `--help` or `--version` | Show usage or version information |
 
