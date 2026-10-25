@@ -69,9 +69,9 @@ mo_stest_archive=$mo_cache/stest115.lzh
 jwasm_archive=$softlib_cache/JWasm_v220_dos.zip
 extra_packages_dir=$softlib_cache
 vz_image=$softlib_cache/VZ_VA.D88
-cpm_tools_d88=${HOME}/88VA/images/cpm/cpmva-tools.d88
-cpm_source_d88=${HOME}/88VA/images/cpm/cpmva-source.d88
-cpm_dev_d88=${HOME}/88VA/images/cpm/cpmva-dev.d88
+cpm_tools_d88=
+cpm_source_d88=
+cpm_dev_d88=
 cpm_images_given=0
 # Without the three CP/M images, they are made from these cached archives
 # with tools/cpmva/install_cpmva.py (offline; the VA2 source as boot disk).
@@ -124,9 +124,9 @@ Usage: $program_name [--source-va PATH] [--source-va2 PATH]
        [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
        [--output-dir DIR]
 
-The CP/M images default to ~/88VA/images/cpm.  When none is given and they
-are not there, they are built offline by tools/cpmva/install_cpmva.py from
-the archives cached in \$VAEG_CACHE_DIR/auto-generated-pc88va-utility-media/cpm
+Unless all three CP/M images are given, they are built offline by
+tools/cpmva/install_cpmva.py from the archives cached in
+\$VAEG_CACHE_DIR/auto-generated-pc88va-utility-media/cpm
 (CPMVA.LZH, cpm2-asm.zip, bdsc-all.zip, vt100-games-*.zip), whose notices
 are accepted by having supplied them.
 
@@ -148,9 +148,9 @@ The shared Auto-generated PC-88VA utility media cache is
 defaults to ~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache).
 LSIC330C.LZH and the other public archives are read from that directory; use
 the corresponding command-line archive option to select an explicit copy.
-The CP/M emulator defaults to cpm08.zip in the same cache, and the three preserved CP/M data
-disks default to ~/88VA/images/cpm; use the CP/M options to select other
-copies.
+The CP/M emulator defaults to cpm08.zip in the same cache, and the three
+CP/M data disks are built from the cached CP/M archives; use the CP/M
+options to select existing copies.
 The SCHD155T, VA128MO, and STEST115 archives default to that shared cache; use
 the --mo-* options to select explicit copies.  The archives are retained under
 A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
@@ -663,19 +663,19 @@ ensure_cached_package "$vz_image" \
 [[ -f $mo_stest_archive && -r $mo_stest_archive ]] ||
 	die "STEST115 archive is not readable: $mo_stest_archive (use --mo-stest-archive)"
 cpm_build=0
-if ! [[ -r $cpm_tools_d88 && -r $cpm_source_d88 && -r $cpm_dev_d88 ]]; then
-	if ((cpm_images_given)); then
-		[[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
-			die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
-		[[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
-			die "CP/M source D88 is not readable: $cpm_source_d88 (use --cpm-source-d88)"
+if ((cpm_images_given)); then
+	[[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
+		die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
+	[[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
+		die "CP/M source D88 is not readable: $cpm_source_d88 (use --cpm-source-d88)"
+	[[ -f $cpm_dev_d88 && -r $cpm_dev_d88 ]] ||
 		die "CP/M development D88 is not readable: $cpm_dev_d88 (use --cpm-dev-d88)"
-	fi
+else
 	cpm_games_archive=$(compgen -G "$cpm_source_cache/vt100-games-*.zip" | head -n 1 || true)
 	for cpm_input in "$cpm_source_cache/CPMVA.LZH" "$cpm_source_cache/cpm2-asm.zip" \
 		"$cpm_source_cache/bdsc-all.zip" "$cpm_games_archive"; do
 		[[ -n $cpm_input && -f $cpm_input && -r $cpm_input ]] ||
-			die "no CP/M images in ~/88VA/images/cpm and no cached archive to build them: ${cpm_input:-$cpm_source_cache/vt100-games-*.zip} (use --cpm-tools-d88, --cpm-source-d88, --cpm-dev-d88)"
+			die "no cached archive to build the CP/M images: ${cpm_input:-$cpm_source_cache/vt100-games-*.zip} (use --cpm-tools-d88, --cpm-source-d88, --cpm-dev-d88)"
 	done
 	cpm_build=1
 fi
