@@ -95,6 +95,7 @@ typedef struct {
 	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
 	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
 	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
+	UINT8 glyphs_hidden; // M134: VA text off in V1/V2 mode: cells keep their background
 	UINT8 m3_fg;      // attribute mode 3: colour and shape records in force (M117)
 	UINT8 m3_bg;
 	UINT8 m3_shape;
@@ -527,7 +528,8 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		{
 			const UINT8 linecolor = fg;
 			UINT8 glyphfg = fg;
-			if ((d & EMU3301_SECRET) || ((d & EMU3301_BLINK) && ((tsp.blinkcnt2 & 0x18) == 0x08))) {
+			if ((d & EMU3301_SECRET) || ((d & EMU3301_BLINK) && ((tsp.blinkcnt2 & 0x18) == 0x08)) ||
+			    work.glyphs_hidden) {
 				glyphfg = bg;
 			}
 			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one. */
@@ -538,8 +540,9 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
-				const BOOL line = ((d & EMU3301_UPPER) && (r == 0)) ||
-				                  ((d & EMU3301_UNDER) && (r == work.lineheight - 1));
+				const BOOL line = !work.glyphs_hidden &&
+				                  (((d & EMU3301_UPPER) && (r == 0)) ||
+				                   ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
 				/* PC-8801 style: each 8x8 row on two rasters. */
 				const UINT fontrow = ank8 ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
@@ -814,6 +817,8 @@ void maketextva_raster(void) {
 	BYTE *lbs; // linebitmap 当該ラインの左端
 	TEXTVAFRAME f;
 	BOOL text_hidden = FALSE;
+	BOOL blank_text = FALSE;
+	const BOOL pc88family = memoryva_pc8801 || memoryva_pc8001;
 
 	if (!tsp.dspon) {
 		maketextva_blankraster();
@@ -821,21 +826,28 @@ void maketextva_raster(void) {
 	}
 
 	/*
-	 * 148h bit 7 hides the text (the ROM sets it for OUT 53h bit 0). With
-	 * multiplane 1 bit/pixel graphics drawn in the text cell's colour (G4,
-	 * the V1/V2 monochrome graphics mode), the attribute colours still apply
-	 * to the graphics, as port 53h bit 0 hides only the characters on a
-	 * PC-8801: keep building the colour raster and blank only the text.
-	 * The PC-8801mkIIFR demonstration hides the text and animates
-	 * monochrome planes with OUT 53h; it was black instead of its drawing.
+	 * 148h bit 7 hides the text; the ROM sets it for OUT 53h bit 0 in V1/V2
+	 * mode. M134, with port 31h selecting monochrome graphics (bit 4 clear;
+	 * multiplane 1 bit/pixel, G4, when shown) on PC-88VA and PC-88VA2
+	 * hardware (V2, N88-BASIC, SCREEN 1 and OUT &H53,1): the characters
+	 * disappear, cells keep their background (the reversed function-key
+	 * labels become blank white blocks, also while the PC-8801mkIISR
+	 * demonstration starts) and the graphics keep the cell colours. A PC-8801 hides the characters and
+	 * their backgrounds but its monochrome graphics keep the attribute
+	 * colours (PR #56, shitamo; the PC-8801mkIIFR demonstration's fishing
+	 * scene as M88 shows it), which the PC-8801 and PC-8001 models from
+	 * extra/ follow. With colour graphics, and in V3 mode, the whole text is
+	 * hidden as before: the PC-8801mkIISR demonstration hides the text in
+	 * colour mode over its title, where the VA's blank keys disappear.
 	 */
 	if (videova.txtmode & 0x80) {
-		if (!videova_textmerge()) {
+		if (!memoryva_88_mode || (memoryva_88_port31 & 0x10)) {
 			maketextva_blankraster();
 			return;
 		}
 		text_hidden = TRUE;
 	}
+	work.glyphs_hidden = (text_hidden && !pc88family) ? 1 : 0;
 
 #if defined(SLEEP_HACK)
 	if (work.sleep) {
@@ -915,7 +927,11 @@ void maketextva_raster(void) {
 			b++;
 			lb++;
 		}
-		if (text_hidden) {
+		/* Hidden text without the VA's kept backgrounds: the PC-8801 models,
+		 * and split screens outside the uPD3301 emulation. */
+		blank_text = text_hidden &&
+		             (pc88family || !tsp.emul || (work.frameno != tsp.emul_frame));
+		if (blank_text) {
 			ZeroMemory(textraster, sizeof(textraster));
 		}
 
