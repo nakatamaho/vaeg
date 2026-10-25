@@ -156,4 +156,3 @@ media regression as in AGENTS.md.
 The maintainer accepted the gate and requested the merge on 2026-10-25
 ("G133 mergeお願いします", then "M135 に改めてからマージします。OK"; the
 demo and media regression reported OK).
-
