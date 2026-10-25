@@ -12,7 +12,7 @@ Locations inside the boundary used by the workflows below:
 - task scratch: `~/work/pc88va/tmp/m<id>/`; set
   `TMPDIR=~/work/pc88va/tmp` for tools that create temporary files;
 - the shared download cache:
-  `~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/`, the
+  `~/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache/`, the
   default of the repository's tools (`VAEG_CACHE_DIR` overrides it);
 - private inputs (system disks, ROMs, extra ROMs) are read from
   `~/work/pc88va/pc88va-private-docs/` and copied into task scratch when a
@@ -92,7 +92,7 @@ for these categories; no separate list is needed:
 
 Never remove without explicit approval: `pc88va-private-docs/`, another
 milestone's worktree or branch, the shared cache
-`~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/` (it is
+`~/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache/` (it is
 reused), the remote branch, and files the maintainer supplied (photos,
 screenshots, media, archives). Report what was removed and what was kept.
 
@@ -121,8 +121,8 @@ input, like the PC-Engine system disk); its profile tables are tracked under
 Every milestone gate includes this machine check, run locally from a
 clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
 are private inputs, so hosted CI cannot run it). Downloads come from the
-shared cache `~/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache/`
-(`auto-generated-pc88va-utility-media/` and `msdos4-va.2/`); a cache miss
+shared cache `~/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache/`
+(the utility-media archives at its top, `msdos4-va.2/`); a cache miss
 may download, a checksum mismatch fails.
 
 - Utility media: `tools/pc88va/build-utility-disk.sh` builds the utility
@@ -233,7 +233,7 @@ Release notes may summarize the ledger but do not replace it.
   ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
   dump notes stay as historical records.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
-  read-only for agents, except its `pc-88va-utilities-cache/` directory,
+  read-only for agents, except its `pc-88va-utilties-cache/` directory,
   where the repository's tools may store archives they download (nothing
   else: no work files, builds, or logs there). Otherwise never create,
   modify, or delete anything under it:
