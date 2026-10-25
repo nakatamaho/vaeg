@@ -4102,6 +4102,31 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M139 — selected PC-8801MA still exposes the VA main-CPU flag identity
+
+- **Symptom/scope:** neutral fixture `ma-detect-01` rejects execution as VA
+  despite PC-8801MA being selected. This is a demonstrated selected-MA
+  compatibility limitation, not a claim that all substituted models or
+  programs have been tested.
+- **Demonstrated cause:** the guest's main-CPU identification routine captures
+  H after BIT. Documented Z80 BIT sets H, whereas measured uPD9002 rule R3
+  clears it. M113 substitutes the MA ROMs over VA V1/V2 execution; the main
+  adapter still unconditionally selects the uPD9002 flag profile. The guest
+  consequently detects that retained CPU behavior. Its identification routine
+  does not use I/O or ROM-identity reads; changing the separate FDC uPD780C
+  would not correct this branch.
+- **Verification:** sixteen independently authored, isolated CPU-probe cases
+  reproduce the profile distinction without I/O. The unchanged published
+  macOS worker, with MA selected and staged private inputs, shows the VA
+  rejection and a zero identification result, then returns to BASIC. SDL
+  dummy evidence verifies guest text/state only, not display acceptance.
+- **Correction:** not implemented or authorized. Preserve correct VA/VA2 R3
+  and FDC behavior; review selected-machine CPU semantics, the VA boot bridge,
+  reset/state restore and timing before a separate approved implementation.
+- **Task/evidence/commit:** [M139 findings](../agents/tasks/M139_upd780_or_upd9002_check.md#findings),
+  evaluated at [5d4dafff](https://github.com/nakatamaho/vaeg/commit/5d4dafffd4e1fe07422f940a6e51dea09b677ab5).
+  No fixing commit exists; G139 findings review is pending.
+
 ### M132 — T88 LOAD waits while the raw cassette control loads
 
 - **Observed scope:** the maintainer reports that a supplied T88 cannot be
