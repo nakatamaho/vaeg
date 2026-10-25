@@ -7133,6 +7133,13 @@ static int test_88speed_identification(void) {
 	const char *problem = NULL;
 	UINT model, automatic, valid, v1, standard, repeat, i;
 
+	/* The preceding ROM-port fixture terminates its core/I/O table. Own a
+	 * fresh table before binding ports, rather than using its freed map. */
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return fail("88 speed identification", "I/O fixture allocation failed");
+	}
 	memcpy(saved_record, backupmem + 0x1fc0, sizeof(saved_record));
 	for (model = 0; model < 2; model++) {
 		milstr_ncpy(np2cfg.model, model ? str_VA2 : str_VA1, sizeof(np2cfg.model));
@@ -7240,6 +7247,7 @@ done:
 	memoryva_88_mode = saved_88;
 	memoryva_88_port31 = saved_31;
 	systemportva_bind();
+	iocore_destroy();
 	if (problem != NULL) {
 		return fail("88 speed identification", problem);
 	}
