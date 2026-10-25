@@ -36,8 +36,10 @@ import argparse
 import hashlib
 import importlib.util
 import lzma
+import os
 import struct
 import tempfile
+import urllib.request
 from pathlib import Path
 
 
@@ -47,6 +49,11 @@ DEFAULT_DISTRIBUTION_DIR = REPOSITORY_ROOT / "demos" / "disks"
 DEFAULT_COMPRESSED_OUTPUT = DEFAULT_DISTRIBUTION_DIR / "all-demos-msdos4.d88.xz"
 MSDOS4_RELEASE = "https://github.com/FreeDOS-88VA/MS-DOS/releases/tag/msdos4-va.2"
 MSDOS4_SHA256 = "7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0"
+MSDOS4_URL = ("https://github.com/FreeDOS-88VA/MS-DOS/releases/download/msdos4-va.2/"
+              "msdos4-pc88va-2hd.d88")
+CACHE_ROOT = Path(os.environ.get("VAEG_CACHE_DIR")
+                  or Path.home() / "work/pc88va/pc88va-private-docs/pc88va-utilities-cache")
+DEFAULT_SOURCE = CACHE_ROOT / "msdos4-va.2" / "dl" / "msdos4-pc88va-2hd.d88"
 FIXED_FAT_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1  # 2026-01-01
 FIXED_FAT_TIME = 0
 # The release's boot sector and the files a vanilla copy keeps (SHA-256).
@@ -122,6 +129,20 @@ def validate_image(image, distribution_dir):
     return errors
 
 
+def cached_source(path=DEFAULT_SOURCE):
+    """The release image in the shared cache, downloaded and checked on a miss."""
+    if not path.exists():
+        with urllib.request.urlopen(MSDOS4_URL) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != MSDOS4_SHA256:
+            raise BuildError(f"downloaded image does not match {MSDOS4_RELEASE}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial = path.with_name(path.name + ".part")
+        partial.write_bytes(data)
+        partial.replace(path)
+    return path
+
+
 def build_image(source, distribution_dir):
     """Return the raw D88 bytes of the bootable MS-DOS 4.0 all-demos disk."""
     if hashlib.sha256(Path(source).read_bytes()).hexdigest() != MSDOS4_SHA256:
@@ -151,8 +172,9 @@ def build_image(source, distribution_dir):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--source", required=True, type=Path,
-                        help=f"msdos4-pc88va-2hd.d88 of {MSDOS4_RELEASE}")
+    parser.add_argument("--source", type=Path,
+                        help=f"msdos4-pc88va-2hd.d88 of {MSDOS4_RELEASE} (default: the "
+                             f"shared cache, {DEFAULT_SOURCE}, downloaded when missing)")
     parser.add_argument("--distribution-dir", type=Path, default=DEFAULT_DISTRIBUTION_DIR,
                         help="directory containing the demo .d88.xz distributions")
     parser.add_argument("--output", required=True, type=Path,
@@ -168,7 +190,8 @@ def main(argv=None):
         for path in (output, compressed_output):
             if path.exists():
                 raise BuildError(f"output already exists: {path}")
-        image = build_image(args.source.resolve(), args.distribution_dir.resolve())
+        source = args.source if args.source is not None else cached_source()
+        image = build_image(source.resolve(), args.distribution_dir.resolve())
         errors = validate_image(image, args.distribution_dir.resolve())
         if errors:
             raise BuildError(" ".join(errors))
