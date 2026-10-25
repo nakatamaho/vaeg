@@ -530,6 +530,51 @@ Issues #58/#59 are not closed on this evidence alone.
 - Retain the existing 26-file full-format baseline limitation. No main merge,
   cleanup, next milestone, G132 pass or final hosted CI success is claimed.
 
+## Original PC-8801 long black-screen boot investigation
+
+During G132, the maintainer reports that the original PC-8801 in V1 appears
+not to boot (black screen), then confirms that it eventually starts after an
+unusually long delay. This is not recorded as a permanent startup failure or
+as acceptance of its startup latency.
+
+The unchanged production 7fe3bebf macOS worker, with its previously recorded
+hash, reproduces a long black interval using an initialized VA2/V1 backup seed,
+standard multiplier/CPU 100%, S and no mounted media. The original PC-8801
+profile has no FDD-unit ROM in this fixture, so the existing subsystem-absent
+path makes FCh–FFh reads return FFh. Bounded compatible instruction traces show
+BASIC repeatedly polling the disk-unit status port and decrementing its
+software timeout counters. This establishes an FDD-response timeout path,
+not a rendering hang or a stopped CPU.
+
+A controlled fixture copy changes only FDD-unit ROM presence, leaving the same
+original PC-8801 BASIC/other roles, backup seed, settings, worker and empty
+media slots. With an FDD unit present but no inserted disk, the boot question
+is visible by frame 500 (about 8.3 seconds at 60 Hz). Without the unit, captures
+at frames 2000 and 3000 remain black and frame 4000 shows `How many files(0-15)?`
+(visible between approximately 50 and 67 guest seconds). A separate run
+continues through Return to the Version 1.0 BASIC banner. Later synthetic text
+in that run repeats characters; that capture is proof of startup, not a pass
+for original-model input quality. The mkII comparison starts Version 1.3 and
+accepts the test PRINT. No ROM or original asset is modified; the one-role
+counterfactual exists only in task-private scratch.
+
+```sh
+python3 "$PRIVATE/run-pc8801-boot-check.py"
+python3 "$PRIVATE/run-pc8801-boot-delay.py"
+python3 "$PRIVATE/run-pc8801-boot-with-fdc.py"
+```
+
+All exit 0; screens and bounded traces are inspected. These No Wait runs use
+completed guest frames for timing, not host wall-clock measurements. Exact
+private role identities, fixture differences, commands and output digests stay
+outside Git. This proves the delay mechanism for the local fixture; the
+maintainer's exact ROM-role/setting combination has not been matched. Whether
+real original hardware with no external unit waits this long, or the open-bus/
+absence model needs correction, remains unresolved. No production change,
+fast-boot workaround, FDD ROM redistribution, hardware timing claim or G132
+pass follows from this investigation. See the
+[open ledger](../../modernization/bug-fixes.md#m132--original-pc-8801-starts-after-a-long-black-screen).
+
 ## S-mode paste regression follow-up
 
 After the VA2/V1H score of 29801, the maintainer reports that V1S clipboard

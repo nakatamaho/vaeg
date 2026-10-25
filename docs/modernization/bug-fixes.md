@@ -3887,6 +3887,25 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M132 — original PC-8801 starts after a long black screen
+
+- **Observed scope:** the maintainer's original PC-8801/V1 eventually boots,
+  but initially looks hung with a prolonged black screen. The local production
+  7fe3bebf worker reproduces that symptom with the FDD unit absent.
+- **Established mechanism in the local fixture:** missing disk-unit ROM selects
+  the existing absent-unit/open-bus handlers; status reads return FFh. Bounded
+  compatible traces show BASIC polling that status and consuming its software
+  timeout. At standard CPU settings/S, frame 3000 is still black and frame 4000
+  shows the boot question. Changing only FDD-unit presence in private scratch,
+  still with no disk inserted, shows that question by frame 500. Thus an absent
+  unit differs from an attached unit with empty drives. The exact maintainer
+  role/configuration combination has not been matched.
+- **Cause/correction status:** the timeout mechanism is established for this
+  fixture, but whether its duration/absence status matches real original
+  hardware is unresolved. No production correction or recommended ROM patch
+  exists; do not label the delay hardware-correct or bypass the boot code.
+- **Task/evidence:** [M132 original-model boot investigation](../agents/tasks/M132_hs_clock_status.md#original-pc-8801-long-black-screen-boot-investigation).
+
 ### M132 — BASIC TIME$ stopwatch remains at zero
 
 - **Observed scope:** the maintainer's V1/V2 BASIC benchmark finishes its nested
