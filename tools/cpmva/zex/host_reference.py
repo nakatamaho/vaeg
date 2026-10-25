@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -200,7 +201,7 @@ def main() -> int:
     parser.add_argument("--runner", required=True, type=Path, help="vaeg_cpm_runner")
     parser.add_argument("--assembler", help="z80asm 1.8 (default: VAEG_Z80ASM, PATH, "
                         "or built from the locked source into the cache)")
-    parser.add_argument("--cache-dir", type=Path, default=Path.home() / ".cache" / "vaeg" / "cpmva")
+    parser.add_argument("--cache-dir", type=Path, default=Path(os.environ.get("VAEG_CACHE_DIR") or Path.home() / ".cache" / "vaeg") / "cpmva")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--skip-zex", action="store_true",
                         help="skip the full ZEXDOCF/ZEXALLF runs (minutes each)")

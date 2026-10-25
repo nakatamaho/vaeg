@@ -30,7 +30,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${HOME}/.cache/vaeg/auto-generated-pc88va-utility-media
+cache_dir=${VAEG_CACHE_DIR:-${HOME}/.cache/vaeg}/auto-generated-pc88va-utility-media
 work_dir=
 output_tmp=
 download_tmp=

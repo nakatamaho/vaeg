@@ -24,6 +24,7 @@
 
 import hashlib
 import importlib.util
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -42,7 +43,7 @@ def load(name, path):
 
 STAGE = load("softlib_stage", TOOLS / "stage-softlib-additions.py")
 MEDIA = load("softlib_media", TOOLS / "test_vtiming_media.py")
-CACHE = Path.home() / ".cache/vaeg/auto-generated-pc88va-utility-media"
+CACHE = Path(os.environ.get("VAEG_CACHE_DIR") or Path.home() / ".cache/vaeg") / "auto-generated-pc88va-utility-media"
 
 
 class ContentTests(unittest.TestCase):
