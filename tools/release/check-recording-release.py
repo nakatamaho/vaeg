@@ -62,6 +62,10 @@ def validate_content(workflow, builder):
             if re.findall(r"-DVAEG_" + option + r"=([^\s]+)", configure) != [expected]:
                 raise ContractError(code)
         sdk = "bash tools/release/build-recording-ffmpeg.sh build/recording-sdk"
+        if platform == "macos":
+            if "brew install cmake ninja nasm pkgconf bash" not in job:
+                raise ContractError("RELEASE_RECORDING_MACOS_BASH")
+            sdk = '\'"$(brew --prefix)/bin/bash" tools/release/build-recording-ffmpeg.sh build/recording-sdk\''
         if sdk not in job.split("      - name: Configure", 1)[0]:
             raise ContractError("RELEASE_RECORDING_SDK")
         if 'PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"' not in configure:

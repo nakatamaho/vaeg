@@ -1,0 +1,165 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+name: release macOS follow-up
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Existing draft release tag (never moved by this workflow)'
+        required: true
+        type: string
+      source_run_id:
+        description: 'Original release run with successful Linux and Windows jobs'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  RELEASE_TAG: ${{ inputs.tag_name }}
+  SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  macos:
+    name: macos tagged-source Bash follow-up
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
+          fetch-depth: 0
+      - name: Verify retained source and successful platform evidence
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          export TAGGED_SHA="$(git rev-parse HEAD)"
+          gh release view "$RELEASE_TAG" --json isDraft > build/followup-release.json
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID" > build/followup-run.json
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN_ID/jobs?per_page=100" > build/followup-jobs.json
+          python3 - <<'PY'
+          import json, os
+          def validate_evidence(tag_sha, run, jobs, release):
+              if not tag_sha or run.get('head_sha') != tag_sha:
+                  raise SystemExit('RELEASE_FOLLOWUP_SOURCE_MISMATCH')
+              if release.get('isDraft') is not True:
+                  raise SystemExit('RELEASE_FOLLOWUP_NOT_DRAFT')
+              for name in ('linux gcc release', 'windows mingw native static-runtime'):
+                  matches = [job for job in jobs.get('jobs', []) if job.get('name') == name]
+                  if len(matches) != 1 or matches[0].get('conclusion') != 'success':
+                      raise SystemExit('RELEASE_FOLLOWUP_JOB_EVIDENCE')
+          validate_evidence(os.environ['TAGGED_SHA'], json.load(open('build/followup-run.json')),
+                            json.load(open('build/followup-jobs.json')), json.load(open('build/followup-release.json')))
+          print('Original tagged-source Linux/Windows success evidence verified')
+          PY
+      - name: Install build tools including explicit modern Bash
+        run: brew install cmake ninja nasm pkgconf bash
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: aarch64-apple-darwin
+      - name: Build pinned static librashader
+        run: |
+          mkdir -p build/m99-static
+          git clone https://github.com/SnowflakePowered/librashader.git build/m99-static/librashader-git
+          git -C build/m99-static/librashader-git checkout --detach 87e8a97b50516d997defeaa168173dcd185d4022
+          python3 tools/release/build-static-librashader.py \
+            --source build/m99-static/librashader-git \
+            --target aarch64-apple-darwin --output build/m99-static/macos-audit
+      - name: Build tagged minimal static recording SDK with Homebrew Bash 5
+        run: '"$(brew --prefix)/bin/bash" tools/release/build-recording-ffmpeg.sh build/recording-sdk'
+      - name: Configure
+        run: >-
+          PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
+          cmake --preset macos-ci
+          -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=ON
+          -DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+          -DVAEG_STATIC_LIBRASHADER=ON
+          -DVAEG_LIBRASHADER_STATIC_LIBRARY=${{ github.workspace }}/build/m99-static/librashader-git/target/aarch64-apple-darwin/release/liblibrashader_capi.a
+          -DVAEG_LIBRASHADER_STATIC_NOTICES=${{ github.workspace }}/build/m99-static/macos-audit/third-party-notices.txt
+          '-DVAEG_LIBRASHADER_NATIVE_LIBS=c++;-framework Metal;-framework Foundation;-framework CoreFoundation;iconv;objc'
+      - name: Build and test tagged application
+        run: |
+          cmake --build --preset macos-ci
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
+          ctest --test-dir build/macos-ci --output-on-failure
+      - name: Reuse successful original guest-driver bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: vaeg-release-pc88va-guest-drivers
+          path: build/pc88va-guest-drivers
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+      - name: Package and validate
+        run: |
+          set -euo pipefail
+          (cd build/pc88va-guest-drivers && shasum -a 256 --check SHA256SUMS)
+          file build/macos-ci/sdl2/vaeg | tee build/vaeg-file.txt
+          grep -q arm64 build/vaeg-file.txt
+          release_id="${RELEASE_TAG//-/}"
+          package="vaeg-${release_id}-macos-arm64"
+          mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
+          cp build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
+          cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
+          cp assets/OFL.txt assets/NOTICE.md "dist-package/${package}/assets/"
+          cp external/suzukiplan-z80/LICENSE.txt "dist-package/${package}/licenses/suzukiplan-z80.txt"
+          cp "CHANGES.${RELEASE_TAG#rel-}.md" "dist-package/${package}/"
+          cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
+          printf '%s\n' 'Use Homebrew Bash 5 for the tagged FFmpeg SDK helper; macOS system Bash 3.2 cannot expand its empty platform array under set -u.' \
+            'macOS: brew install bash; invoke "$(brew --prefix)/bin/bash" tools/release/build-recording-ffmpeg.sh build/recording-sdk.' \
+            > "dist-package/${package}/recording-source/BUILD-ENVIRONMENT.txt"
+          python3 - "dist-package/${package}/recording-source" <<'PY'
+          import hashlib, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          files = sorted(p for p in root.iterdir() if p.is_file() and p.name != 'SHA256SUMS')
+          (root / 'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n' for p in files))
+          PY
+          tools/release/stage-librashader-assets.sh --output "dist-package/${package}" --platform macos
+          python3 tools/release/check-librashader-package.py --input "dist-package/${package}" --platform macos
+          if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib|libav(codec|format|util).*dylib|libswresample.*dylib'; then
+            echo 'Unexpected dynamic SDL2/FFmpeg dependency' >&2
+            exit 1
+          fi
+          otool -L "dist-package/${package}/vaeg"
+          tar -C dist-package -czf "${package}.tar.gz" "${package}"
+          python3 tools/release/check-librashader-package.py --input "${package}.tar.gz" --platform macos
+          python3 tests/z80_compat/check_zex_archive.py "${package}.tar.gz"
+          gh release upload "$RELEASE_TAG" "${package}.tar.gz" --clobber
+      - name: Verify all retained packages and publish
+        run: |
+          gh release view "$RELEASE_TAG" --json assets > build/release-assets.json
+          python3 - <<'PY'
+          import json, os
+          def validate_assets(tag, data):
+              assets = {asset['name'] for asset in data.get('assets', [])}
+              prefix = 'vaeg-' + tag.replace('-', '')
+              for suffix in ('-linux-x86_64.tar.gz', '-win-x86_64.zip', '-macos-arm64.tar.gz'):
+                  if prefix + suffix not in assets:
+                      raise SystemExit('RELEASE_FOLLOWUP_ASSET_SET')
+          validate_assets(os.environ['RELEASE_TAG'], json.load(open('build/release-assets.json')))
+          PY
+          gh release edit "$RELEASE_TAG" --draft=false --latest

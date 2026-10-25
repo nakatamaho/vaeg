@@ -55,6 +55,12 @@ platform tools and pinned SDL2/LibArchive/librashader dependencies. Use the
 release tag/embedded commit to identify the original build. The tracked
 source includes the dependency fetch/build scripts and notices.
 
+Use a modern Bash (the release builders use Bash 5). On macOS, install it
+with `brew install bash` and invoke `"$(brew --prefix)/bin/bash"` rather than
+the system's Bash 3.2: the tagged SDK helper uses an empty array with `set -u`,
+which Bash 3.2 rejects. The macOS package includes this prerequisite in
+`recording-source/BUILD-ENVIRONMENT.txt` as well.
+
 For a native Linux, macOS or MSYS2 MINGW64 build, prepare the original minimal
 FFmpeg SDK with:
 

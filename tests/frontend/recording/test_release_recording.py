@@ -22,8 +22,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 """Single-mutation release-content tests; no current Git topology dependency."""
+import ast
 import importlib.util
 import pathlib
+import re
+import textwrap
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -108,6 +111,11 @@ class ReleaseRecording(unittest.TestCase):
             CONTRACT.validate_content(self.workflow, self.builder)
         self.assertEqual(str(error.exception), "RELEASE_RECORDING_DISABLED")
 
+    def test_macos_requires_modern_bash(self):
+        self.mutation("brew install cmake ninja nasm pkgconf bash",
+                      "brew install cmake ninja nasm pkgconf",
+                      "RELEASE_RECORDING_MACOS_BASH")
+
     def test_macos_recording_disabled(self):
         start = self.workflow.index("  macos:\n")
         self.workflow = self.workflow[:start] + self.workflow[start:].replace(
@@ -115,6 +123,60 @@ class ReleaseRecording(unittest.TestCase):
         with self.assertRaises(CONTRACT.ContractError) as error:
             CONTRACT.validate_content(self.workflow, self.builder)
         self.assertEqual(str(error.exception), "RELEASE_RECORDING_DISABLED")
+
+
+class FollowupEvidence(unittest.TestCase):
+    def setUp(self):
+        source = (ROOT / ".github/workflows/release-macos-followup.yml").read_text()
+        self.functions = {}
+        for block in re.findall(r"          python3 - <<'PY'\n(.*?)          PY", source, re.S):
+            tree = ast.parse(textwrap.dedent(block))
+            # Load only independently callable content layers, never their CLI I/O.
+            nodes = [node for node in tree.body
+                     if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef))]
+            exec(compile(ast.Module(body=nodes, type_ignores=[]), "followup-content", "exec"),
+                 self.functions)
+        self.sha = "a" * 40
+        self.run = {"head_sha": self.sha}
+        self.jobs = {"jobs": [
+            {"name": "linux gcc release", "conclusion": "success"},
+            {"name": "windows mingw native static-runtime", "conclusion": "success"}]}
+        self.release = {"isDraft": True}
+        self.assets = {"assets": [{"name": "vaeg-rel20261025" + suffix} for suffix in (
+            "-linux-x86_64.tar.gz", "-win-x86_64.zip", "-macos-arm64.tar.gz")]}
+        self.validate()
+
+    def validate(self):
+        self.functions['validate_evidence'](self.sha, self.run, self.jobs, self.release)
+        self.functions['validate_assets']('rel-20261025', self.assets)
+
+    def assert_code(self, code):
+        with self.assertRaises(SystemExit) as error:
+            self.validate()
+        self.assertEqual(error.exception.code, code)
+
+    def test_complete_followup_contract(self):
+        self.validate()
+
+    def test_source_mismatch(self):
+        self.run['head_sha'] = 'b' * 40
+        self.assert_code('RELEASE_FOLLOWUP_SOURCE_MISMATCH')
+
+    def test_not_draft(self):
+        self.release['isDraft'] = False
+        self.assert_code('RELEASE_FOLLOWUP_NOT_DRAFT')
+
+    def test_failed_retained_job(self):
+        self.jobs['jobs'][1]['conclusion'] = 'failure'
+        self.assert_code('RELEASE_FOLLOWUP_JOB_EVIDENCE')
+
+    def test_missing_retained_job(self):
+        self.jobs['jobs'].pop()
+        self.assert_code('RELEASE_FOLLOWUP_JOB_EVIDENCE')
+
+    def test_missing_package(self):
+        self.assets['assets'].pop()
+        self.assert_code('RELEASE_FOLLOWUP_ASSET_SET')
 
 
 if __name__ == "__main__":

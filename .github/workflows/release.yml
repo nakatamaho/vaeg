@@ -309,7 +309,7 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
           fetch-depth: 0
       - name: Install build tools
-        run: brew install cmake ninja nasm pkgconf
+        run: brew install cmake ninja nasm pkgconf bash
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: aarch64-apple-darwin
@@ -327,7 +327,7 @@ jobs:
             --target aarch64-apple-darwin \
             --output build/m99-static/macos-audit
       - name: Build minimal static recording SDK
-        run: bash tools/release/build-recording-ffmpeg.sh build/recording-sdk
+        run: '"$(brew --prefix)/bin/bash" tools/release/build-recording-ffmpeg.sh build/recording-sdk'
       - name: Configure
         run: >-
           PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
