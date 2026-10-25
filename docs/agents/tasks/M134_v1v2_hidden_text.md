@@ -48,11 +48,15 @@ the review's discriminator on both machines (kept privately).
   function-key labels become blank white blocks.
 - The blocks are the "tofu" of
   [issue #50](https://github.com/nakatamaho/vaeg/issues/50): a vaeg trace of
-  the PC-8801mkIISR demonstration shows the text hidden (148h = 80h) with
-  port 31h = 00h while it starts, where the VA shows the blocks, and
-  `OUT 53h,01h` with port 31h = 19h (colour graphics) over its title, where
-  the maintainer saw them go. The colour-mode rule (whole text hidden) is
-  derived from this sequence.
+  the PC-8801mkIISR demonstration shows the text hidden (148h = 80h) while
+  it starts, where the VA shows the blocks, and `OUT 53h,01h` with port 31h
+  = 19h (colour graphics) over its title.
+- The maintainer (2026-10-25): the blocks belong to every V1/V2 boot of a
+  VA or VA2, whatever the graphics mode, and to no other machine. A first
+  version hid the whole text in colour mode, derived from the
+  demonstration; it was replaced. vaeg therefore keeps the blocks over the
+  demonstration's title and RGB prompt; when they go on hardware remains
+  open.
 - PR #56's PC-8801 behaviour (characters and backgrounds hidden, colours
   kept for the graphics) is taken from M88 and the PC-8801mkIIFR
   demonstration; it is kept for the PC-8801/8001 models from `extra/`, as
@@ -63,34 +67,36 @@ the review's discriminator on both machines (kept privately).
 - [b55ce02a](https://github.com/nakatamaho/vaeg/commit/b55ce02a2e8635b8f448aae7ce5a55286f89e4f8)
   (author shitamo, PR #56): keep the colour raster while the text is hidden
   with monochrome graphics.
-- [c0fbaa21](https://github.com/nakatamaho/vaeg/commit/c0fbaa2137a96240f8c651a852772b3569167fb0):
-  VA boots keep the cell backgrounds with glyphs and lines suppressed;
-  PC-8801/8001 models blank the text raster; the rule applies only in V1/V2
-  mode with port 31h bit 4 clear (colour graphics and V3 hide the whole
-  text). Selftest `TSP text hide`.
+- [c0fbaa21](https://github.com/nakatamaho/vaeg/commit/c0fbaa2137a96240f8c651a852772b3569167fb0),
+  [cc201696](https://github.com/nakatamaho/vaeg/commit/cc20169600d7d2fbe83930426e45d94089063d4b):
+  VA boots keep the cell backgrounds with glyphs and lines suppressed in
+  every V1/V2 graphics mode; PC-8801/8001 models blank the text and keep the
+  colours only for monochrome multiplane graphics; V3 hides the whole text.
+  Selftest `TSP text hide`.
+- [f845a379](https://github.com/nakatamaho/vaeg/commit/f845a379b5a435b65d638431aa07e0cf3199f6b8):
+  the media builders find cached packages whatever the case of their names.
 - V1/V2 decision X10 (and a note on G4), ledger entry, roadmap row.
 
 ## Gate G134 (human)
 
-Standard V3 gate, plus on the VA/VA2 and in vaeg:
+Standard V3 gate, plus:
 
 - the BASIC discriminator above: box and blank key blocks on VA and VA2,
-  box only on the PC-8801mkIISR model;
-- `SCREEN 0` (colour) then `OUT &H53,1` on a VA: the whole text, key blocks
-  included, should disappear (the derived colour-mode rule);
+  box only on the PC-8801mkIISR model (**maintainer: OK, 2026-10-25**);
+- `SCREEN 0` then `OUT &H53,1`: blank key blocks on VA and VA2 too;
 - the PC-8801mkIISR demonstration on the VA: blank key blocks while it
-  starts, none over its title or its RGB prompt;
+  starts;
 - if available, the PC-8801mkIIFR demonstration's fishing scene draws.
 
 ## Local verification
 
-- `--selftest`: exit 0, `TSP text hide ok`. Mutations caught: no
-  colour-mode condition ("the VA kept hidden text with colour graphics"),
-  backgrounds kept on a PC-8801 model, glyphs not suppressed ("a hidden
-  glyph was drawn").
+- `--selftest`: exit 0, `TSP text hide ok`. Mutations caught: VA blanked
+  in colour mode ("the VA lost backgrounds with colour graphics"), PC-8801
+  model keeping hidden text in colour mode, glyphs not suppressed or not
+  blanked on a PC-8801 model ("a hidden glyph was drawn").
 - Linux release build with ROM sets matching MAME's `pc88va` and
-  `pc88va2`: the BASIC discriminator gives box and blank key blocks on VA
-  and VA2, box only on the PC-8801mkIISR model; the PC-8801mkIISR
-  demonstration on the VA shows the blocks at frame 150, the BASIC labels at
-  200, and no blocks over the title (260-900) or the RGB prompt; the
-  PC-8801mkIISR model shows no blocks while it starts.
+  `pc88va2`: the BASIC discriminator with `SCREEN 1` and with `SCREEN 0`
+  gives box and blank key blocks on VA and VA2 and the box only on the
+  PC-8801mkIISR model; the PC-8801mkIISR demonstration on the VA shows the
+  blocks from frame 150 on, also over its title and RGB prompt; the
+  PC-8801mkIISR model shows none.
