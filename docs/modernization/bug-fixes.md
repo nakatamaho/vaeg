@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M138 — Matroska fixture cleanup aborted on Windows
+
+- **Symptom/scope:** native Windows recording tests aborted at directory
+  cleanup after successfully writing, finalizing and decoding the Unicode-path
+  Matroska fixture. This did not demonstrate a recording writer defect.
+- **Demonstrated cause:** test `ifstream` objects remained open across
+  `remove_all`; Windows disallows deleting those open files. The original
+  [failed fixture run](https://github.com/nakatamaho/vaeg/actions/runs/40197355081)
+  identifies the cleanup assertion. Three reader lifetimes have this pattern.
+- **Correction:** scope all three readers before cleanup; retain every
+  writing, decoding, ownership, collision, cancellation and fault assertion.
+  Application source and the release tag remain unchanged. Supply the complete
+  corrected BSD-licensed testcase with corresponding-source materials rather
+  than weakening the runtime archive's patch-artifact policy.
+- **Verification:** focused local Matroska rebuild/CTest passes. Both subsequent
+  native Windows builds pass all 139 runnable tests (five SKIP), including
+  the complete Matroska fixture; the
+  [final release run](https://github.com/nakatamaho/vaeg/actions/runs/40202401194)
+  also passes packaging and publication. See the
+  [M138 result](../agents/tasks/M138_release_20261025.md#published-result).
+- **Milestone/commit:** M138,
+  [9835507bede6802dd859ce96958130f6ca241cef](https://github.com/nakatamaho/vaeg/commit/9835507bede6802dd859ce96958130f6ca241cef).
+
 ### M138 — GCC 16 release build selected a newer filesystem API
 
 - **Symptom/scope:** the native MinGW recording-enabled Windows release
@@ -52,12 +75,13 @@ land.
   release tag with explicit dialect/shell prerequisites, retaining the
   successful Linux package. The source and supplied rebuild instructions
   remain available; recording is not disabled as a workaround.
-- **Verification:** 23 release-contract tests, 21 local-codec policy tests,
-  eight static SDK resolver tests, both workflow parsers, shell syntax and
-  actual original-run/draft/source-identity preflight pass. The tagged clean
-  static C++17 cross-build passes; hosted follow-up completion is recorded
-  separately in the
-  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-desktop-recovery).
+- **Verification:** 28 final release-contract tests, 21 local-codec policy
+  tests, eight static SDK resolver tests, workflow parsers, shell syntax and
+  actual source/draft/reuse preflight pass. The tagged clean static C++17
+  cross-build and final native Windows build pass; native CTest has 139 PASS,
+  five SKIP and zero final failures. The
+  [published result](../agents/tasks/M138_release_20261025.md#published-result)
+  preserves earlier failures and exact worker/package identities.
 - **Milestone/commit:** M138,
   [443a3d80751855d1ae85a88a8cd8a114458915e2](https://github.com/nakatamaho/vaeg/commit/443a3d80751855d1ae85a88a8cd8a114458915e2).
 
@@ -75,11 +99,13 @@ land.
   unchanged release tag, requires original same-source Linux success and
   desktop failure evidence, and documents the shell prerequisite in the
   package. The tag and successful Linux binary are not moved or rebuilt.
-- **Verification:** 22 content/negative tests pass, including exact-code
-  source/job/draft/asset checks; both workflows parse and every follow-up
-  shell step passes syntax checks. Hosted completion is tracked in the
-  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-desktop-recovery),
-  not inferred from the local checks.
+- **Verification:** final local content/negative tests and workflow syntax
+  checks pass. The corrected macOS hosted job succeeds with 141 CTest PASS,
+  11 SKIP and zero failures, and its audited package is published/reused by
+  digest, not rebuilt. See the
+  [M138 result](../agents/tasks/M138_release_20261025.md#published-result)
+  for the original failure, completed jobs and artifact identity; no physical
+  GPU or display acceptance is inferred.
 - **Milestone/commit:** M138,
   [f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92](https://github.com/nakatamaho/vaeg/commit/f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92).
 
