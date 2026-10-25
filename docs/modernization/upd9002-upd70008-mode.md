@@ -2546,7 +2546,7 @@ The MAME NEC V20/V30 core is used only as a comparison for the standard
 V30 transition frame and opcode placement; its 8080 emulation decoder is
 not used as the compatible decoder.
 
-### 14.2 Instruction timing (M133)
+### 14.2 Instruction timing (M135)
 
 `[MEAS]` Z80TIME 2 (`demos/z80-timing`, issue #62) was photographed on a
 PC-88VA and a PC-88VA2 on 2026-10-25 (N = 1200 VRTCs a row). The table gives
@@ -2616,7 +2616,7 @@ The instruction timing of compatible mode does not follow the Z80's counts:
 - 16-bit operands are a single bus cycle.
 - Code waits once per aligned word.
 
-`[IMPL]` Since M133 the adapter charges these costs per instruction class
+`[IMPL]` Since M135 the adapter charges these costs per instruction class
 (`CompatInstructionCost` in `cpu/upd9002_upd70008.cpp`) instead of the
 core's Z80 cycles. Unmeasured classes take the nearest measured one. Memory
 waits are still charged natively, word-wise. BRKEM and CALLN cost 47 clocks

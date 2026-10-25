@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 `Z80TIME.COM` (`z80time.asm`) is an MS-DOS program for a PC-88VA or PC-88VA2
 (and vaeg). It measures the uPD9002's compatible (uPD70008, Z80) mode one
-instruction at a time, to calibrate vaeg's compatible-mode timing (M133,
+instruction at a time, to calibrate vaeg's compatible-mode timing (M135,
 issue #62). It contains no data of any other program. The font is synthetic
 (`gen_font.py`, from `demos/sgp-bench`), and the screen set-up is that of
 `demos/sgp-contention`.

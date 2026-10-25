@@ -81,7 +81,7 @@ class Z80CompatCpu {
 	void SetNativeVectorRead(NativeVectorRead reader, void *opaque);
 	const Z80CompatReg *GetReg();
 	// True while the memory read in progress is an instruction-stream byte
-	// (from the code segment), false for an operand access (M133).
+	// (from the code segment), false for an operand access (M135).
 	bool CodeRead() const {
 		return code_read_;
 	}

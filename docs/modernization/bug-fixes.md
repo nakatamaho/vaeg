@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M133 — Hidden text blacked out text-merged monochrome graphics
+
+- **Symptom/scope:** V1/V2 multiplane 1-bit/pixel graphics disappeared when
+  the guest hid text; PR #56 reports this in a demonstration's fishing scene.
+- **Demonstrated cause:** `maketextva_raster()` cleared `textcolorraster`
+  together with the character raster for `148h` bit 7, although
+  `scrndrawva_compose_raster()` uses that colour raster for graphics dots
+  when `videova_textmerge()` is true.
+- **Correction:** in text-merged graphics mode, generate the attribute-colour
+  raster even with text hidden, then zero only the character raster. Preserve
+  full blanking for non-merged modes and TSP display-stop.
+- **Verification:** static producer/consumer review, successful ten-job
+  candidate CI and clean static recording/OS-MP4-enabled MinGW build;
+  explicit maintainer human acceptance of that Windows handoff. New raster
+  tests and task-specific demo/media regeneration were not run; see the
+  [M133 gate and coverage record](../agents/tasks/M133_hidden_text_graphics_colour.md).
+- **Milestone/commit:** M133, [PR #56](https://github.com/nakatamaho/vaeg/pull/56),
+  [bcfb11aa74b7856c10e9ce8868897673cde7dfc3](https://github.com/nakatamaho/vaeg/commit/bcfb11aa74b7856c10e9ce8868897673cde7dfc3).
+
 ### M132 — Installer test doubles failed on native Windows Python
 
 - **Symptom/scope:** the Windows installer unit tests cannot discover their fake
@@ -1571,7 +1590,7 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
-### M133 — compatible-mode code ran at the Z80's clock counts
+### M135 — compatible-mode code ran at the Z80's clock counts
 
 - **Symptom/scope:** compatible (uPD70008) mode code ran up to about 1.5 times too fast in vaeg on both models. Branches, memory accesses and CALL/RET were too fast; register instructions such as `ADD HL,rr`, `INC rr` and `EXX` were too slow by up to about 4 times. Software tuned in vaeg, such as a port running Z80 programs in compatible mode, ran slower on the machines (issue #62).
 - **Demonstrated cause:** the adapter charged the vendored core's Z80 cycle counts. It also charged one memory wait for every byte, code and 16-bit operands included. Z80TIME 1 and 2 on the PC-88VA and PC-88VA2 show:
@@ -1584,7 +1603,54 @@ separate parity correction or move it to Open Defects.
   - Z80TIME 1: 0.96-1.02.
 
   ctest 119/119; `--selftest` passes.
-- **Milestone/task/commit:** M133, [M133 task](../agents/tasks/M133_compat_mode_timing.md).
+- **Milestone/task/commit:** M135, [M135 task](../agents/tasks/M135_compat_mode_timing.md).
+### M134 — hidden text blanked the V1/V2 monochrome graphics; the VA's blank key blocks were missing
+
+- **Symptom/scope:** V1/V2 software that hides the text with `OUT 53h` bit 0
+  while showing monochrome graphics went black in vaeg: the PC-8801mkIIFR
+  demonstration's fishing scene, and N88-BASIC `SCREEN 1` with
+  `OUT &H53,1`, where PC-88VA/VA2 hardware keeps the graphics. On the
+  hardware the reversed function-key labels also remain as blank white
+  blocks (also while the PC-8801mkIISR demonstration starts, issue #50);
+  vaeg showed nothing.
+- **Demonstrated cause:** the ROM sets 148h bit 7 for `OUT 53h` bit 0, and
+  `maketextva_raster()` then blanked both the text raster and the colour
+  raster from which the multiplane graphics take their colours (G4).
+- **Correction:** in V1/V2 mode hidden text keeps building the uPD3301
+  rows: the colour raster stays for the graphics (PR #56, shitamo, merged
+  as M133 at
+  [af995613](https://github.com/nakatamaho/vaeg/commit/af99561345dc408ecb502ab40a7f2c0ae16c75c0);
+  M134 carries the same change as b55ce02a); VA
+  boots also keep the cell backgrounds with the glyphs and lines suppressed,
+  in every graphics mode (maintainer); PC-8801/8001 models blank the text
+  and keep the colours only for monochrome multiplane graphics. V3 mode
+  hides the whole text as before (V1/V2 decision X10).
+- **Verification:** selftest `TSP text hide` (VA in both graphics modes,
+  PC-8801 model, V3; four mutations caught); vaeg VA and VA2 show the box
+  and the blank key blocks after `OUT &H53,1` as the maintainer's
+  photographs of both machines do, and the maintainer confirmed it in vaeg;
+  the PC-8801mkIISR model shows the box only.
+- **Milestone/task/commit:** M134,
+  [M134 task](../agents/tasks/M134_v1v2_hidden_text.md),
+  [b55ce02a](https://github.com/nakatamaho/vaeg/commit/b55ce02a2e8635b8f448aae7ce5a55286f89e4f8),
+  [c0fbaa21](https://github.com/nakatamaho/vaeg/commit/c0fbaa2137a96240f8c651a852772b3569167fb0),
+  [cc201696](https://github.com/nakatamaho/vaeg/commit/cc20169600d7d2fbe83930426e45d94089063d4b).
+
+### M134 — media builders missed cached packages whose names differ in case
+
+- **Symptom/scope:** with a shared cache copied through a case-insensitive
+  file system (`isharc.com` for `ISHARC.COM`), `build-sasi-utility-disks.sh`
+  tried to download the package again and failed (the softlib site answers
+  403).
+- **Demonstrated cause:** the builders open cached packages by exact name.
+- **Correction:** `tools/pc88va/cache-case-view.sh` gives the builders a
+  private view of the cache with upper- and lower-case links; downloads
+  made through the view move into the cache on exit. Used by the SASI,
+  SCSI-support and softlib-archive builders.
+- **Verification:** the SASI builder finds the lower-case copies; the
+  cache is unchanged after a run.
+- **Milestone/task/commit:** M134,
+  [f845a379](https://github.com/nakatamaho/vaeg/commit/f845a379b5a435b65d638431aa07e0cf3199f6b8).
 
 ### M130 — the CPU kept too much of its speed while the SGP drew
 

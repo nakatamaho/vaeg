@@ -105,7 +105,7 @@ static void compat_trace(const char *event, std::uint32_t slot, std::uint8_t op0
 	    CPU_FLAG, CPU_REMCLOCK);
 }
 
-// M133: the time of a compatible-mode instruction on the PC-88VA and
+// M135: the time of a compatible-mode instruction on the PC-88VA and
 // PC-88VA2, from Z80TIME 2 (demos/z80-timing; issue #62): eight copies of
 // one instruction a pass, steady state, without waits (the VA2's figures),
 // in 1/256 clock. The core's Z80 cycles are replaced by these; memory and
@@ -384,7 +384,7 @@ class CompatCounter final : public IClockCounter {
   public:
 	void IFCALL past(std::int32_t clocks) override {
 		if (measured_) {
-			core_cycles_ += clocks; // replaced by the measured cost (M133)
+			core_cycles_ += clocks; // replaced by the measured cost (M135)
 			return;
 		}
 		// CPU speed (machine/pccore.c): 100 / percent machine clocks a cycle.
@@ -392,7 +392,7 @@ class CompatCounter final : public IClockCounter {
 		    static_cast<std::int32_t>(pccore_compat_clocks(static_cast<UINT32>(clocks), FALSE));
 	}
 
-	// M133: during an instruction the core's cycles are only counted; the
+	// M135: during an instruction the core's cycles are only counted; the
 	// adapter then charges the measured cost (1/256 clock, the fraction
 	// carried) or, for the classes without one, the core's cycles.
 	void BeginMeasured() {
@@ -457,7 +457,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		initialized_ = false;
 		have_compatible_state_ = false;
 		counter_.SetRemainclock(0);
-		counter_.ResetFraction(); // (the measured costs' carried fraction, M133)
+		counter_.ResetFraction(); // (the measured costs' carried fraction, M135)
 	}
 
 	// Shared by Enter() and StateLoad() so that a state loaded before the
@@ -694,7 +694,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	// The waits of a memory access (the WCU's programmed ones, M130, and
 	// the devices') are taken from the native clock, as In() does.
-	// M133: the bus moves words. An instruction byte at an odd address came
+	// M135: the bus moves words. An instruction byte at an odd address came
 	// with the byte before it (the prefetch queue fetches aligned words), and
 	// the high byte of a 16-bit operand at an even address shares its low
 	// byte's bus cycle: neither waits again. Measured (Z80TIME 2, VA): code
@@ -740,7 +740,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	std::uint32_t IFCALL In(std::uint32_t port) override {
 		if (port == kInterruptAcknowledgePort) {
-			acknowledged_ = true; // (the core's cycles for that step, M133)
+			acknowledged_ = true; // (the core's cycles for that step, M135)
 			upd70008_.IRQ(0, 0);
 			return pic8214_acknowledge_compat();
 		}

@@ -6129,6 +6129,121 @@ static int test_tsp_sync_reverse(void) {
 	return (SUCCESS);
 }
 
+/* M134: text hidden by 148h bit 7 (OUT 53h bit 0) in V1/V2 mode. Row 0 of a
+ * uPD3301 frame: reverse from column 0, normal from column 8, 'A' (top row
+ * of its glyph set by the caller) in column 10. Renders one raster and
+ * reports the text dot of reversed column 4, and the text dot and the cell
+ * colour of column 10. */
+static void text_hide_dots(BYTE *reversed_text, BYTE *glyph_text, BYTE *normal_colour) {
+	BOOL scrn200;
+	UINT i;
+
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002); /* mode 2, fg 15, bg 0 */
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	textmem[0x63c8 + 10] = 'A';
+	textmem[0x63c8 + 80] = 0;
+	textmem[0x63c8 + 81] = 0x04; /* reverse from column 0 */
+	textmem[0x63c8 + 82] = 8;
+	textmem[0x63c8 + 83] = 0x00; /* normal from column 8 */
+	for (i = 2; i < 20; i++) {
+		textmem[0x63c8 + 80 + i * 2] = 80;
+	}
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.emul = 1;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode8 = 0x01;
+	tsp_dirty = TRUE;
+	maketextva_begin(&scrn200);
+	maketextva_raster();
+	*reversed_text = textraster[4 * 8];
+	*glyph_text = textraster[10 * 8];
+	*normal_colour = textcolorraster[10 * 8];
+}
+
+static int test_tsp_text_hide(void) {
+	static const struct {
+		UINT8 mode88;
+		BOOL pc8801;
+		UINT8 port31;
+		BYTE text;   /* reversed blank cell */
+		BYTE colour; /* normal cell colour for monochrome graphics */
+		const char *problem;
+	} cases[] = {
+	    {1, FALSE, 0x09, 15, 15, "the VA did not keep backgrounds and colours with monochrome graphics"},
+	    {1, FALSE, 0x19, 15, 15, "the VA lost backgrounds with colour graphics"},
+	    {1, TRUE, 0x09, 0, 15, "a PC-8801 model kept backgrounds or lost colours"},
+	    {1, TRUE, 0x19, 0, 0, "a PC-8801 model kept hidden text with colour graphics"},
+	    {0, FALSE, 0x09, 0, 0, "V3 mode kept hidden text"},
+	};
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_port31 = memoryva_88_port31;
+	const BOOL saved_pc8801 = memoryva_pc8801;
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const char *problem = NULL;
+	BYTE saved_glyph[16];
+	BYTE text;
+	BYTE glyph;
+	BYTE colour;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	CopyMemory(saved_glyph, fontmem + 0x40000 + 'A' * 16, sizeof(saved_glyph));
+	ZeroMemory(fontmem + 0x40000 + 'A' * 16, 16);
+	fontmem[0x40000 + 'A' * 16] = 0xff; /* top row lit */
+	memoryva_pc8001 = FALSE;
+	for (i = 0; (problem == NULL) && (i < NELEMENTS(cases)); i++) {
+		memoryva_88_mode = cases[i].mode88;
+		memoryva_pc8801 = cases[i].pc8801;
+		memoryva_88_port31 = cases[i].port31;
+		/* Graphics shown; 102h bit 0 mirrors port 31h bit 4 (colour). */
+		videova.grmode = 0x8000;
+		videova.grres = (cases[i].port31 & 0x10) ? 0x0001 : 0x0000;
+		videova.txtmode = 0x00;
+		text_hide_dots(&text, &glyph, &colour);
+		if ((text != 15) || (glyph != 15) || (colour != 15)) {
+			problem = "shown text: reversed cell, glyph or cell colour wrong";
+			break;
+		}
+		videova.txtmode = 0x80;
+		text_hide_dots(&text, &glyph, &colour);
+		if (glyph != 0) {
+			problem = "a hidden glyph was drawn";
+		} else if ((text != cases[i].text) || (colour != cases[i].colour)) {
+			problem = cases[i].problem;
+		}
+	}
+	videova.txtmode = 0x00;
+	videova.grmode = 0;
+	videova.grres = 0;
+	tsp.emul = 0;
+	CopyMemory(fontmem + 0x40000 + 'A' * 16, saved_glyph, sizeof(saved_glyph));
+	memoryva_88_mode = saved_mode;
+	memoryva_88_port31 = saved_port31;
+	memoryva_pc8801 = saved_pc8801;
+	memoryva_pc8001 = saved_pc8001;
+	ZeroMemory(textmem, 0x8000);
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("TSP text hide", problem));
+	}
+	fprintf(stderr, "selftest: TSP text hide ok\n");
+	return (SUCCESS);
+}
+
 /* M110: file_getappdir creates the named directory next to the executable
  * (where the build directory is writable) and ends it with a separator. */
 static int test_app_directory(void) {
@@ -8924,6 +9039,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_sync_reverse() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_tsp_text_hide() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {
