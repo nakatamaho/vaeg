@@ -59,7 +59,8 @@ git -C "${repo}" archive --format=tar.gz --prefix=vaeg-source/ HEAD \
     python3 - <<'PY'
 import hashlib
 import pathlib
-paths = sorted(p for p in pathlib.Path('.').iterdir() if p.is_file())
+paths = sorted(p for p in pathlib.Path('.').iterdir()
+               if p.is_file() and p.name != 'SHA256SUMS')
 pathlib.Path('SHA256SUMS').write_text(''.join(
     hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n' for p in paths))
 PY
