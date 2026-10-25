@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M138 — macOS release recording SDK stopped under system Bash
+
+- **Symptom/scope:** the recording-enabled macOS release job stopped before
+  application configuration; Linux succeeded and the release remained a draft.
+- **Demonstrated cause:** the runner's system Bash 3.2 treats expansion of the
+  SDK helper's empty `platform_args` array as unbound under `set -u`. The
+  [original job log](https://github.com/nakatamaho/vaeg/actions/runs/40194230125/job/121173794820)
+  identifies that exact expression. The expression fails locally with Bash
+  3.2 and succeeds with Bash 5, which built the local native SDK.
+- **Correction:** install and explicitly invoke Homebrew Bash for macOS SDK
+  creation. A scoped follow-up builds only the failed macOS target from the
+  unchanged release tag, requires successful same-source Linux/Windows
+  evidence, and documents the shell prerequisite in the package. The tag
+  and successful platform binaries are not moved or rebuilt.
+- **Verification:** 22 content/negative tests pass, including exact-code
+  source/job/draft/asset checks; both workflows parse and every follow-up
+  shell step passes syntax checks. Hosted completion is tracked in the
+  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-macos-recovery),
+  not inferred from the local checks.
+- **Milestone/commit:** M138,
+  [f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92](https://github.com/nakatamaho/vaeg/commit/f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92).
+
 ### M133 — Hidden text blacked out text-merged monochrome graphics
 
 - **Symptom/scope:** V1/V2 multiplane 1-bit/pixel graphics disappeared when
