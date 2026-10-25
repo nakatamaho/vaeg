@@ -1510,14 +1510,14 @@ def main() -> int:
             # Cache the assembler source with the other inputs so that a later
             # --offline run can build it.
             fetch_assembler_source(lock, cache_dir, args.offline)
-        work_root = cache_dir / "work"
-        work_root.mkdir(parents=True, exist_ok=True)
+        # Scratch stays out of the shared cache, which holds downloads only:
+        # a kept work tree goes beside the outputs, otherwise under TMPDIR.
         if args.keep_work:
-            work = work_root / f"run-{input_digest[:12]}"
+            work = args.output_dir / "work" / f"run-{input_digest[:12]}"
             work.mkdir(parents=True, exist_ok=True)
             cleanup = False
         else:
-            temporary = tempfile.TemporaryDirectory(prefix="cpmva-", dir=work_root)
+            temporary = tempfile.TemporaryDirectory(prefix="cpmva-")
             work = Path(temporary.name)
             cleanup = True
         try:
