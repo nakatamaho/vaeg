@@ -154,3 +154,7 @@ fetched the CP/M licence texts and the z80asm source into the cache's
 `4816b458dd1baf14f2c51f98642565292aabb6ca43dfb3d7cd67708a271f1ce3`). In
 vaeg the FDD boots PC-Engine 1.1 on the VA2 and each SASI image alone boots
 PC-Engine on its model (1.05 VA, 1.1 VA2).
+
+The maintainer accepted the post-gate tool change
+[bd781886](https://github.com/nakatamaho/vaeg/commit/bd78188638dfcd3bed41c696434fc245277adedd)
+and this completed regression as passed (2026-10-25); no further gate run.
