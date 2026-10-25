@@ -35,6 +35,47 @@ land.
 
 ## Maintenance Rules
 
+### M132 — Installer test doubles failed on native Windows Python
+
+- **Symptom/scope:** the Windows installer unit tests cannot discover their fake
+  LHA executables and lose renamed case-alias fixtures. Production extraction
+  is not demonstrated defective by these fixture failures.
+- **Demonstrated cause:** extensionless POSIX shell scripts depend on executable
+  lookup/shebang behavior absent from native Windows Python. Separately, the
+  globally mocked `os.walk` returns the fixture-root file list for staging-dir
+  cleanup too, letting Windows cleanup delete the renamed fixture.
+- **Correction:** execute real strict-syntax Python fixture children through a
+  test-only adapter; scope mocked traversal to the intended root and delegate
+  other paths. Keep actual filesystem output and collision/inode checks.
+- **Verification:** exact hosted log retrieved; 32 tests pass on macOS and Linux.
+  A wrong-dialect single mutation requires exact `ARCHIVE_FORMAT`; a controlled
+  broad-walk mutation is rejected by the outside-root traversal guard. Native
+  Windows follow-up and scope are recorded in the
+  [M132 task](../agents/tasks/M132_hs_clock_status.md#hosted-windows-follow-up--test-doubles-only).
+- **Milestone/commit:** M132,
+  [068ccf1786290c00d9d34e71fe03ef9edcac66c0](https://github.com/nakatamaho/vaeg/commit/068ccf1786290c00d9d34e71fe03ef9edcac66c0).
+
+### M132 — H/S selftest bound ports through a freed I/O table
+
+- **Symptom/scope:** the hosted sanitizer profile aborts the H/S identification
+  selftest, also failing trace-equivalence and compiled checks that invoke the
+  same complete selftest. This is a test-fixture lifetime defect, not a
+  demonstrated normal-emulation use-after-free.
+- **Demonstrated cause:** the preceding ROM-port test calls `pccore_term`, which
+  frees the I/O table. `test_88speed_identification` subsequently calls
+  `systemportva_bind` without creating/building a new table; `getextiofunc`
+  dereferences the freed map. The hosted allocation/free/access stacks and a
+  local sanitizer reproduction establish this chain.
+- **Correction:** give the H/S fixture its own balanced I/O create/build/destroy
+  lifecycle. No production I/O/core paths or normal emulation behavior change.
+- **Verification:** original [hosted sanitizer failure](https://github.com/nakatamaho/vaeg/actions/runs/40169935661)
+  retrieved before retry; local original fixture fails with the same ASan
+  heap-use-after-free. Corrected trace-equivalence, ROMless and compiled checks
+  pass 3/3 under ASan/UBSan, 303.24 seconds. The hosted follow-up is recorded in
+  the [M132 task evidence](../agents/tasks/M132_hs_clock_status.md#hosted-sanitizer-follow-up--test-fixture-only).
+- **Milestone/commit:** M132,
+  [303328982c9c741c1fe65cbe4f0b49f746500945](https://github.com/nakatamaho/vaeg/commit/303328982c9c741c1fe65cbe4f0b49f746500945).
+
 ### M132 — S-mode paste dropped characters after the H/S timing correction
 
 - **Symptom/scope:** VA2/V1S paste turns CLEAR into LEAR, loses other characters

@@ -26,7 +26,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Status: **Requested machine-owned regression and display-operation QA complete:
 guest-start 8/8, refreshed M131 probe 8/8, actual state/input/reset/speed operations
 and tooltip/FPS/FRAME/menu persistence pass. Local full tests pass (138 executed,
-9 skipped, zero failures). Final hosted review CI is next. Approved 32-case X11
+9 skipped, zero failures). Hosted review found sanitizer/Windows test-fixture
+defects; local corrections pass and focused platform follow-up is next. Approved 32-case X11
 references and accepted Windows workflow remain valid. Native CRT/Cocoa/physical
 HiDPI automation remains BLOCKED, not PASS. G132 human acceptance is pending.**
 
@@ -717,7 +718,7 @@ human acceptances remain valid records but are not relabeled automated PASS.
 | `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
 | `g132-cassette-tagged` | Private tagged role, same boot/load procedure and fast OFF/ON; same semantic completion contract as raw. Do not silently convert it to raw for this check. | **FAIL**: `BASIC_QA_TAPE_HEADER_NOT_FOUND`; reproduced on 7fe3bebf and fast mode on preserved 338174ee. Root cause/introduction unresolved. |
 | `g132-standard-regression` | Clean demo/media source closure, utility/standalone SASI OS operations, all-demo drawing and BASIC Mandelbrot under the recorded corpus/worker/contract. Reuse only when behavior-relevant inputs are unchanged. | **PARTIAL**: completed source closure and earlier inspected runtime evidence retained; reusable semantic batch integration remains incomplete. Human standard V3/demo/OS operations accepted. |
-| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **READY**: final local full/focused tests, source/evidence bindings and repository checks are complete; one hosted public review candidate follows. |
+| `g132-review-ci` | After local results/layout are final, run one hosted review candidate for public builds/unit/repo checks. Never upload private local QA inputs/results or use CI to debug a local failure. | **FOLLOW_UP_READY**: original hosted run completes eight successful jobs; sanitizer/Windows fixture failures are corrected locally (3/3 sanitizer checks, 32/32 portable installer tests). Preserve successful jobs; rerun only failed platforms. |
 
 The maintainer's requested remaining machine-owned operations and guest-start
 matrix are now complete; final hosted CI follows local validation. The recorded
@@ -1327,3 +1328,83 @@ maintainer Windows startup/recording/MP4/playback acceptance remain valid. Nativ
 CRT/Cocoa/physical HiDPI automation remains unavailable, not a synthetic PASS.
 Hosted CI and final G132 human judgment are separate; no merge, cleanup or next
 milestone is authorized by these machine results.
+
+## Hosted sanitizer follow-up — test fixture only
+
+The first settled hosted candidate is
+[7fa54b2fa67e47ab3f33b8078b7380d8d1e5dfbc](https://github.com/nakatamaho/vaeg/commit/7fa54b2fa67e47ab3f33b8078b7380d8d1e5dfbc),
+[run 40169935661](https://github.com/nakatamaho/vaeg/actions/runs/40169935661).
+Its sanitizer log was retrieved before attempting a retry. ASan identifies
+`test_88speed_identification` binding ports after the preceding ROM-port fixture
+has freed the I/O table. The allocation/free/access stacks establish a fixture
+lifetime defect, not an unsupported guess about normal emulator behavior.
+
+- Reproduce locally in an isolated non-personal Linux ASan/UBSan QA build,
+  recording/local encoders explicitly OFF, integration trace ON. The optional
+  native-CRT library capability is ON in this build's recorded cache; an initial
+  OFF argument used an unsupported option name. Do not cite it as an OFF build
+  or native-presenter evidence: these tests use the dummy driver.
+  `ctest --test-dir "$ASAN_BUILD" --output-on-failure -R '^vaeg_romless_tests$'`
+  exits 8 with the same heap-use-after-free.
+- [303328982c9c741c1fe65cbe4f0b49f746500945](https://github.com/nakatamaho/vaeg/commit/303328982c9c741c1fe65cbe4f0b49f746500945)
+  gives that selftest its own create/build/destroy lifecycle. No core, frontend
+  normal-operation, CPU, display, paste or recording implementation changes.
+- Rebuild and run the three affected checks:
+  `ctest --test-dir "$ASAN_BUILD" --output-on-failure -R '^vaeg_(romless_tests|upd9002_trace_equivalence|m75_transfer_info_compiled)$'`.
+  All three pass: 181.68/60.77/60.78 seconds, 303.24 seconds total. The local
+  wrapper timed out while the container finished; the retained final CTest log
+  explicitly reports 3/3 PASS. Do not count an incomplete wrapper as a completed
+  test without that final result.
+- The public-source equality manifest above binds the original QA candidate;
+  this subsequent exception is confined to the selftest fixture body. Existing
+  evaluated normal-operation workers/digests and their core/display/recording
+  inputs are unchanged. Reuse the expensive game, state and screenshot results;
+  do not rebuild an unchanged gameplay worker or reinterpret its source identity.
+- Preserve successful unrelated hosted jobs, their evaluated commit and logs.
+  Add explicit manual `build.yml` profiles: default `all` keeps the full public
+  matrix; `asan` runs repository invariants plus the existing sanitizer job only;
+  `failed-platforms` additionally runs the Windows compatibility job and its
+  guest-driver dependency, not the already successful release/SST/conformance/
+  Linux/macOS jobs. Ordinary push/PR execution remains the complete matrix.
+  A focused profile is not, by itself, a full gate PASS. The original run was
+  allowed to finish; profile-separated concurrency also prevents future focused
+  runs from cancelling an unfinished full run. No local encoder enablement or
+  private input/artifact is added to CI.
+
+The [ledger](../../modernization/bug-fixes.md#m132--hs-selftest-bound-ports-through-a-freed-io-table)
+records scope/cause/correction. Private sanitizer worker/configuration/input and
+output identities are retained. Unrelated documented UBSan backlog output is not
+silently suppressed or declared corrected by this fixture change.
+
+## Hosted Windows follow-up — test doubles only
+
+The original Windows compatibility job completes and exposes the same H/S
+fixture's invalid I/O table use (three selftest-invoking failures), plus six
+installer-test fixture errors. Its exact log is retrieved before any retry.
+The separate Windows release-artifact job succeeds and is not rerun.
+
+[068ccf1786290c00d9d34e71fe03ef9edcac66c0](https://github.com/nakatamaho/vaeg/commit/068ccf1786290c00d9d34e71fe03ef9edcac66c0)
+corrects only installer test doubles:
+
+- POSIX extensionless shell fixtures are not found/executed by native Windows
+  Python executable lookup. Execute real strict-syntax Python children through
+  a test-only subprocess adapter, preserving every installer argument and the
+  actual extracted-file checks. No production tool detection/extraction changes.
+- The globally mocked `os.walk` also intercepts Windows temporary-directory
+  cleanup and returns the fixture root's files for the staging directory. The
+  cleanup then removes the newly renamed fixture. Limit the mock to its intended
+  root and delegate every other traversal to the real filesystem.
+- `python3 tools/cpmva/tests/test_install_cpmva.py` passes all 32 tests on macOS
+  and Linux. An added negative first passes the correct Lhasa contract, mutates
+  only the detected dialect and requires exact `ARCHIVE_FORMAT` rejection by the
+  real strict-syntax child. The collision/inode exact-code negatives remain.
+- A controlled single mutation back to the broad traversal mock is rejected by
+  the new outside-root traversal assertion, with no unrelated errors. This
+  demonstrates the fixture isolation guard locally rather than using hosted
+  CI as the iterative debugger. Native Windows execution is confirmed only by
+  the subsequent hosted follow-up, not inferred from these local hosts.
+
+Pinned actionlint 1.7.7 validates the manual-profile workflow. The default full
+matrix and explicit focused job sets are checked locally before dispatch. No
+emulator/installer production implementation changes, private input uploads,
+whole-game reruns or new human checks are required by these test-only fixes.
