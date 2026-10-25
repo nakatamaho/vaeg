@@ -113,11 +113,16 @@ regressions on the accepted M131 baseline. PR #56 remains excluded.
    worker digest, corpus/input identities, comparison/target contract, command,
    status and output digests. Reuse unchanged expensive results only when the
    relevant identities are proven unchanged.
-4. **Real-display boundary:** actual window/fullscreen/presenter composition
-   must be checked on a real display. Automate captures and geometry/content
-   checks where supported; reserve residual visual quality/OS interaction for
-   a small human review. Dummy/software-only guest output is not proof of a
-   real client/footer/tooltip. Unavailable display execution is BLOCKED, not PASS.
+4. **Screenshot-owned display QA:** actual window/fullscreen/presenter
+   composition is machine-owned. Capture the real final client at fixed
+   settings, size, DPI and backend; compare against independently reviewed,
+   frozen images with bounded dynamic masks and explicit guest/status/panel
+   regions. Overlap, clipping and fullscreen behavior are routine automated
+   checks, not a manual checklist. Human involvement is initial reference
+   approval, intentional visual-change approval or genuinely unautomatable OS
+   interaction. Dummy/software-only guest output is not real-client proof.
+   Unavailable real-display capture is BLOCKED, not PASS or automatic transfer
+   of the whole case to the maintainer.
 5. **Known defects:** retain TIME$ (#60), original-PC-8801 startup latency (#61)
    and the reproduced T88 failure as explicit open results. An issue link alone
    does not waive a failing gate case. A demonstrated fix/recheck or explicit
@@ -125,7 +130,8 @@ regressions on the accepted M131 baseline. PR #56 remains excluded.
    calling an affected case satisfied. Do not infer hardware calibration or
    exact N80/N80SR runtime identification from emulator arithmetic/status tests.
 6. **Final human acceptance:** present a short summary of automated coverage,
-   remaining visual review, artifact identity and explicitly approved deferrals.
+   any reference/intentional-change approvals, artifact identity and explicitly
+   approved deferrals.
    G132 passes only on explicit maintainer acceptance of the gate as a whole.
    Individual OK messages accept only the stated items. Only then may the
    required gate record/merge/roadmap workflow and approved cleanup proceed.
@@ -682,12 +688,62 @@ accepting new validators; use isolated temporary repositories only if future
 history/topology checks are needed. Generated results must be valid out of tree
 before any evidence-placement checks run.
 
-Only the residual real-display visual quality/OS integration and final gate
-judgment are human-owned. Where a real-display runner is unavailable, report
-BLOCKED and request a supported display environment or a tightly scoped visual
-review, rather than reassigning the entire machine case to the maintainer. New
+The maintainer corrects the earlier assignment of visual checks to a human:
+window geometry, clipping, overlap and fullscreen are screenshot-comparison
+work. These are machine-owned even when a real-display capture environment is
+unavailable. Human work is reference approval, intentional visual-change
+approval, genuinely unautomatable OS interaction and final gate judgment.
+Where capture cannot execute, report BLOCKED and request a supported display
+environment, not a repeat of the whole manual display checklist. New
 FAIL/BLOCKED cases are not silently waived by previous partial OK messages.
 G132 remains unpassed; no merge/cleanup or next milestone is authorized.
+
+### Screenshot comparison implementation and honest coverage
+
+`tools/qa/screen_compare.py` implements independent content checks and a composed
+private-input entry point. See [the comparison contract](../../../tools/qa/screen-compare.md).
+It verifies a frozen policy digest, the approved reference-image digest,
+actual-image/capture-metadata binding and fixed target settings before region
+comparison. It checks full-client coverage, guest/status/panel rectangles,
+non-overlap, dimensions and bounded masks/tolerances; it produces per-region
+metrics, a red changed-pixel map and a report. Guest-only captures and dummy
+video cannot satisfy the real-client contract. Colour-profile differences are
+not silently ignored. No golden-update/promotion command is provided.
+
+Synthetic tests cover PNG RGB/RGBA and row filters, exact comparisons, bounded
+mask acceptance, changed pixels, wrong dimensions, guest-only/dummy source
+claims, target/reference/image bindings, overly broad masks/tolerances,
+missing required regions, overlap, malformed PNG and colour metadata. A final
+file/CLI integration composes the layers. Both this test and the existing BASIC
+QA selftest are registered with CTest using generated synthetic inputs only;
+private references/captures never enter CI.
+
+This is a working comparator, not a completed real-display capture pipeline.
+Capture metadata is checked for binding but its origin is not independently
+attested: a trusted capture adapter must obtain the final client and settings
+from the real application/OS. Current guest-only/dummy screenshots cannot be
+relabeled real-client images. A supported capture adapter, independently
+approved private reference set and full normal/narrow/DPI/fullscreen/toggle/
+backend matrix remain unexecuted/BLOCKED here. Title nonduplication also needs
+an OS/window-title assertion or a separate whole-window capture; final-client
+pixels alone do not include the OS title bar. No M132 display case is marked
+PASS merely because synthetic comparator tests pass.
+
+Local implementation verification (private logs retained):
+
+- Native configure with `VAEG_ENABLE_RECORDING=ON` and
+  `VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF`: exit 0.
+- `ctest --test-dir "$LOCAL_BUILD" -R
+  'vaeg_(local_basic_qa_selftest|screen_compare_selftest)$'
+  --output-on-failure`: exit 0, 2/2 PASS. Only synthetic inputs are used.
+- Existing production PNG decoding/re-encoding round trip: PASS, explicitly a
+  codec check, not a real-client visual acceptance case.
+- Encoding, EOL, case, Markdown-comment, milestone-ID checks and `git diff
+  --check`: exit 0.
+- Emulator sources are unchanged; the CMake change only registers the two
+  Python checker tests. Existing production worker digest remains unchanged,
+  so no unchanged expensive emulator corpus was rerun for this validator-only
+  change. No new application build/handoff or full-runtime PASS is claimed.
 
 ## T88 versus raw cassette reproduction
 

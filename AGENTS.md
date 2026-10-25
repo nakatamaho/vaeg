@@ -138,8 +138,14 @@ must not stand in for actual presenter, window or fullscreen inspection. Preserv
 and reuse unchanged expensive evidence under the identity rules below.
 
 Prioritize machine/mode/reset, H/S execution, paste, cassette and actual state-file
-round trips. Move human work toward genuine visual/interactive judgment and final
-acceptance. Report exactly which checklist items an automated case covers; adding
+round trips. Visual/layout checks are also machine-owned: compare final-client
+screenshots against independently approved, frozen references at fixed settings,
+size, DPI and backend, with narrowly bounded dynamic masks and region checks.
+Do not assign routine overlap/clipping/fullscreen checks to a human merely because
+they are visual. Human work is reference approval, intentional visual-change
+approval, genuinely unautomatable interaction and final acceptance. Lack of a
+real display blocks capture automation; it does not transfer the whole test back
+to the maintainer. Report exactly which checklist items an automated case covers; adding
 a runner does not mark unimplemented cases passed, retroactively upgrade prior
 manual checks, or authorize a milestone merge without its required gate acceptance.
 

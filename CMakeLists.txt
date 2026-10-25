@@ -2493,6 +2493,15 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "romless;frontend;viewport"
         TIMEOUT 30)
+    # M132: synthetic-only local-QA checker tests; never use private captures in CI.
+    add_test(NAME vaeg_local_basic_qa_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/compatible_basic_qa.py" --selftest)
+    add_test(NAME vaeg_screen_compare_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/screen_compare.py" --selftest)
+    set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest PROPERTIES
+        LABELS "romless;frontend;local-qa;m132")
     # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
     # answers PRINT 1+1, draws a painted circle and round-trips a program
     # through SAVE and LOAD. Needs maintainer-local VA2 ROMs and V2 BASIC
