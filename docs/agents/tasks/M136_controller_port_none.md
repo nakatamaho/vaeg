@@ -66,3 +66,17 @@ Standard V3 gate, plus: a fresh and an existing configuration start with
   Restoring the old cursor-key diversion fails with "cursor up drove an
   absent joystick".
 - `--controller bogus` reports "accepts only none, joystick or mouse".
+- `linux-ci-gcc` ctest: 119 of 119 after naming G133 in the M133 roadmap
+  row (`vaeg_milestone_id_selftest` had failed on `main` since that row).
+- Media build regression reused: `tools/` and `demos/` are unchanged since
+  [bd781886](https://github.com/nakatamaho/vaeg/commit/bd78188638dfcd3bed41c696434fc245277adedd),
+  whose clean-clone regression (utility FDD, both SASI images and their
+  boots) is recorded in M134; the demo payloads were checked at M134's
+  `cadbb406` and no demo input changed since.
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+0478e4528ec7acd8324289c837535d3cd90045c5`: commit embedded, Windows system
+DLL imports only.
+`vaeg.exe` SHA-256 `6963b6451d1be880e55e25d3b07959bc490a0daa1aff77e6839140bb53d189cb`. Later commits are documentation only.
