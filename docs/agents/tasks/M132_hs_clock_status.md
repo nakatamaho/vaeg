@@ -24,8 +24,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M132 — H/S clock, identification and machine status
 
 Status: **Agreed implementation, static Windows artifact and full demo/media
-source closure complete; the virtual-X11 screenshot matrix matches in all 32
-cases with draft-reference approval pending. Native-platform/HiDPI/tooltip and
+source closure complete; the 32-case virtual-X11 reference set is explicitly
+approved and its screenshot comparison passes. Native-platform/HiDPI/tooltip and
 remaining regression verification are pending. G132 not requested or passed.**
 
 Branch: `milestone/m132-hs-clock-status`.
@@ -146,8 +146,8 @@ A human-approved case is recorded separately from its automation status.
 
 Current G132 is **NOT PASSED**: reusable H/S and raw-loader QA pass, T88 QA
 fails, several integration runners (including actual state-file transitions)
-remain unimplemented, the 32-case virtual-X11 final-client comparison awaits
-reference approval (native-platform/HiDPI checks remain separate), and final
+remain unimplemented, the 32-case virtual-X11 final-client comparison passes
+against approved references (native-platform/HiDPI checks remain separate), and final
 hosted review CI has not run. Prior scoped human OK results remain accepted;
 the maintainer is not asked to repeat them merely because automation is added.
 No production fix, issue waiver, merge, cleanup or next milestone is implied by
@@ -159,8 +159,10 @@ The maintainer asks what remains human-owned and requests a current Windows
 build with recording and compression enabled. Their preceding interim OK is
 not explicit draft-reference approval or whole G132 passage.
 
-- Approve the prepared reference image set once (or identify a baseline defect).
-  Repeated launching, resizing, toggling, capture and comparison are machine work.
+- **Completed:** the maintainer explicitly approves the reference set with
+  「基準画像OK」. No repeat reference review is requested unless an intentional
+  visual/target change requires a new baseline. Repeated launching, resizing,
+  toggling, capture and comparison are machine work.
 - Optionally perform a short final native-Windows usability/quality smoke on the
   recording-enabled review build: start recording with compression selected,
   stop, wait for completion, and judge playback/seek/audio in the resulting MP4.
@@ -701,8 +703,8 @@ human acceptances remain valid records but are not relabeled automated PASS.
 | `g132-config` | Key-less fresh config defaults MachineStatus ON; all four information/panel combinations, field preferences survive save/reload without rewriting one another. | **PASS** for existing production configuration selftests; desktop menu/restart acceptance is independently maintainer-confirmed. |
 | `g132-status-content` | Shared model enumerates formal names, live N/V1/V2/V3, exact clock/tooltips, short rounding, N-family lamp suppression, non-VA SGP omission and ambiguous N subtypes. Reject boot preference/banner as runtime proof. | **PASS** for focused model/format/lamp tests; scoped runtime/UI checks already accepted. |
 | `g132-speed-controls` | Apply every retained preset and a nonpreset multiplier/percent; cross reset/restart/state load and inspect effective clock/settings. Test custom values, not only nominal labels. | **PARTIAL**: arithmetic/config unit coverage; actual GUI preset interaction and end-to-end persistence **NOT_IMPLEMENTED**. |
-| `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL / APPROVAL_REQUIRED**: 32 virtual-X11 static cases match exactly; actual window/panel geometry checks pass. 200% GUI font scale is not HiDPI. Cocoa/physical HiDPI remain **BLOCKED**. |
-| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL / APPROVAL_REQUIRED**: SDL software/OpenGL X11 static captures match and OS title assertions pass. Tooltip/dynamic-field UI actions remain **NOT_IMPLEMENTED**; native CRT/Cocoa/physical-GPU cases remain separate **BLOCKED** targets. |
+| `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL / X11_STATIC_PASS**: the approved 32-case virtual-X11 static suite passes exactly; actual window/panel geometry checks pass. 200% GUI font scale is not HiDPI. Cocoa/physical HiDPI remain **BLOCKED**. |
+| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL / X11_STATIC_PASS**: SDL software/OpenGL X11 static captures match approved references and OS title assertions pass. Tooltip/dynamic-field UI actions remain **NOT_IMPLEMENTED**; native CRT/Cocoa/physical-GPU cases remain separate **BLOCKED** targets. |
 | `g132-state-hs` | Save actual H state file; change effective setting to S; load and require restored H identity/clock/status. Repeat S→H→saved S. Mutate a guest variable between save/load to prove the file was really restored. | **NOT_IMPLEMENTED**. In-memory bind tests are not a serialized-file round trip. |
 | `g132-state-input` | After each state-file restore, type a marker and paste mixed-case/repeated-key text; compare guest result and released modifier/key matrix. Require correct lamps/status as well as input. | **NOT_IMPLEMENTED**; depends on the actual file-round-trip runner, not screenshot existence. |
 | `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
@@ -775,6 +777,29 @@ Local implementation verification (private logs retained):
   Python checker tests. Existing production worker digest remains unchanged,
   so no unchanged expensive emulator corpus was rerun for this validator-only
   change. No new application build/handoff or full-runtime PASS is claimed.
+
+### Explicit reference approval and approved-suite result
+
+The maintainer explicitly states **「基準画像OK」**, approving the previously
+presented 32-case virtual-X11 reference image set. This supersedes the earlier
+DRAFT/APPROVAL_REQUIRED state for that set only; it is not G132 passage,
+Windows recording/playback acceptance or permission to waive other failures.
+
+The approved copy is retained in the shared local-QA cache outside Git and
+milestone scratch cleanup, with the exact user approval/scope and a newly frozen
+manifest digest. The original draft/evaluation records are preserved. Every
+reference PNG and per-case policy remains byte-identical to the presented set;
+only approval metadata and the HTML review heading change. Exact private paths,
+manifest identities and raw captures remain out of Git.
+
+Recompare the existing candidate capture matrix, without rerunning any emulator
+session, against that approved manifest: **exit 0 / suite PASS, 32/32 exact
+matches, no masks or tolerance**. Fullscreen/geometry/worker/source/title and
+content bindings remain checked by the composed entry point. The report keeps
+`gate_pass=false`: suite approval does not approve the whole milestone. Tested
+workers/target profile remain those recorded below; recording-ON Windows,
+physical GPU, Cocoa, true HiDPI, native CRT and tooltip/menu scenarios are not
+inferred from this result. No merge/cleanup or next milestone is authorized.
 
 ### Recording-enabled current Windows review handoff
 
