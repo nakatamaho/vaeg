@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M136 — Controller port empty by default
 
-Status: **implemented; G136 human gate pending.**
+Status: **G136 human gate passed on 2026-10-25.**
 
 Branch `milestone/m136-controller-none`; commit prefix `M136:`.
 
@@ -81,3 +81,8 @@ Standard V3 gate, plus: a fresh and an existing configuration start with
 0478e4528ec7acd8324289c837535d3cd90045c5`: commit embedded, Windows system
 DLL imports only.
 `vaeg.exe` SHA-256 `6963b6451d1be880e55e25d3b07959bc490a0daa1aff77e6839140bb53d189cb`. Later commits are documentation only.
+
+## G136 passed
+
+The maintainer stated **G136 passed** on 2026-10-25 with the static Windows
+build of `0478e4528ec7acd8324289c837535d3cd90045c5`.
