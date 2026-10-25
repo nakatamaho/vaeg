@@ -702,6 +702,19 @@ pass follows from this investigation. See the
 and maintainer-requested [issue #61](https://github.com/nakatamaho/vaeg/issues/61).
 Issue creation does not resolve the delay or pass G132.
 
+The maintainer subsequently reports that the real original PC-8801 starts
+immediately in a tape-only configuration, asks whether DIP switches are involved,
+and approves treating the emulator's disk unit as connected. This observation
+rules out treating the local long delay as established normal tape-only behavior.
+The source currently infers an absent unit from missing disk-unit ROM input;
+that is not proof of an intentional DIP setting. DIP/readback mapping versus
+absent-unit handshake/status remains to be isolated. The approved connected-unit
+policy does not authorize inventing firmware, redistributing it or skipping the
+ROM's startup code. Extend local QA to connected/empty-drive and tape-only
+configurations with their correct DIP inputs, recording the first prompt frame
+and timeout path. This follow-up is also recorded on issue #61; no production
+fix or G132 passage is claimed.
+
 ## S-mode paste regression follow-up
 
 After the VA2/V1H score of 29801, the maintainer reports that V1S clipboard

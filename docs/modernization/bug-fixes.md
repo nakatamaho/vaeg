@@ -3923,6 +3923,11 @@ separate parity correction or move it to Open Defects.
   fixture, but whether its duration/absence status matches real original
   hardware is unresolved. No production correction or recommended ROM patch
   exists; do not label the delay hardware-correct or bypass the boot code.
+- **Maintainer follow-up:** the real original PC-8801 reportedly starts
+  immediately in a tape-only setup; the emulator may assume an attached disk
+  unit. Do not justify the long timeout as normal hardware behavior. DIP input
+  mapping and absent-unit status remain distinct hypotheses to isolate; missing
+  disk-unit firmware input is not itself a user-selected DIP configuration.
 - **Tracking:** [issue #61](https://github.com/nakatamaho/vaeg/issues/61), created
   at the maintainer's request; includes the controlled comparison and remaining
   hardware/fixture uncertainty. No fixing commit exists.
