@@ -86,12 +86,16 @@ configure vaeg using `linux-ci-gcc`, `mingw-ci` or `macos-ci`, with the same
 platform-specific librashader arguments as the workflow, plus:
 
 ```text
+-DCMAKE_CXX_STANDARD=17
+-DCMAKE_CXX_STANDARD_REQUIRED=ON
 -DVAEG_ENABLE_RECORDING=ON
 -DVAEG_STATIC_FFMPEG=ON
 -DVAEG_PUBLIC_BUILD=ON
 -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
 ```
 
+GCC 16 defaults to a newer C++ dialect, so the explicit C++17 settings are
+important: the tagged code uses the C++17 `filesystem::u8string()` API.
 Build that preset and run CTest before replacing your executable. The static
 resolver selects the exact FFmpeg archives from your pkg-config prefix; the
 normal archive policy rejects H.264/AAC and any encoder outside the ordinary

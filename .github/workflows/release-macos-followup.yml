@@ -20,7 +20,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-name: release macOS follow-up
+name: release desktop follow-up
 
 on:
   workflow_dispatch:
@@ -30,7 +30,7 @@ on:
         required: true
         type: string
       source_run_id:
-        description: 'Original release run with successful Linux and Windows jobs'
+        description: 'Original release run with successful Linux and failed Windows/macOS jobs'
         required: true
         type: string
 
@@ -45,6 +45,94 @@ env:
   GH_REPO: ${{ github.repository }}
 
 jobs:
+  windows:
+    name: windows tagged-source C++17 follow-up
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
+          fetch-depth: 0
+      - name: Verify tagged source identity
+        shell: pwsh
+        run: |
+          $expected = gh api "repos/$env:GH_REPO/actions/runs/$env:SOURCE_RUN_ID" --jq .head_sha
+          $actual = git rev-parse HEAD
+          if (!$expected -or $expected -ne $actual) { throw 'RELEASE_FOLLOWUP_SOURCE_MISMATCH' }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf python nasm make curl
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: x86_64-pc-windows-gnu
+      - name: Build pinned static SDKs
+        run: |
+          export PATH="$(cygpath -u "${USERPROFILE}")/.cargo/bin:${PATH}"
+          tools/release/build-mingw-static-librashader.sh
+          bash tools/release/build-recording-ffmpeg.sh build/recording-sdk
+      - name: Configure explicit C++17
+        run: >-
+          PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
+          cmake --preset mingw-ci
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
+          -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=ON
+          -DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+      - name: Build and test tagged application
+        run: |
+          cmake --build --preset mingw-ci
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
+          ctest --test-dir build/mingw-ci --output-on-failure
+          python3 tools/release/check-static-windows-imports.py --binary build/mingw-ci/sdl2/vaeg.exe
+      - name: Reuse successful original guest-driver bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: vaeg-release-pc88va-guest-drivers
+          path: build/pc88va-guest-drivers
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+      - name: Stage and validate package
+        run: |
+          set -euo pipefail
+          (cd build/pc88va-guest-drivers && sha256sum --check SHA256SUMS)
+          release_id="${RELEASE_TAG//-/}"
+          package="vaeg-${release_id}-win-x86_64"
+          mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
+          cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
+          cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
+          cp assets/OFL.txt assets/NOTICE.md "dist-package/${package}/assets/"
+          cp external/suzukiplan-z80/LICENSE.txt "dist-package/${package}/licenses/suzukiplan-z80.txt"
+          cp "CHANGES.${RELEASE_TAG#rel-}.md" "dist-package/${package}/"
+          cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
+          printf '%s\n' 'Build tagged recording code with -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON (GCC 16 defaults to a newer dialect).' \
+            > "dist-package/${package}/recording-source/BUILD-ENVIRONMENT.txt"
+          python3 - "dist-package/${package}/recording-source" <<'PY'
+          import hashlib, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          files = sorted(p for p in root.iterdir() if p.is_file() and p.name != 'SHA256SUMS')
+          (root / 'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n' for p in files))
+          PY
+          tools/release/stage-librashader-assets.sh --output "dist-package/${package}" --platform windows
+          python3 tools/release/check-librashader-package.py --input "dist-package/${package}" --platform windows
+      - name: Zip, validate and upload
+        shell: pwsh
+        run: |
+          $package = 'vaeg-' + ($env:RELEASE_TAG -replace '-', '') + '-win-x86_64'
+          $asset = "$package.zip"
+          Compress-Archive -Path "dist-package/$package" -DestinationPath $asset
+          python tools/release/check-librashader-package.py --input $asset --platform windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/z80_compat/check_zex_archive.py $asset
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $env:RELEASE_TAG $asset --clobber
+
   macos:
     name: macos tagged-source Bash follow-up
     runs-on: macos-14
@@ -68,13 +156,15 @@ jobs:
                   raise SystemExit('RELEASE_FOLLOWUP_SOURCE_MISMATCH')
               if release.get('isDraft') is not True:
                   raise SystemExit('RELEASE_FOLLOWUP_NOT_DRAFT')
-              for name in ('linux gcc release', 'windows mingw native static-runtime'):
+              expected = {'linux gcc release': 'success', 'windows mingw native static-runtime': 'failure',
+                          'macos fetch-sdl2 release': 'failure'}
+              for name, conclusion in expected.items():
                   matches = [job for job in jobs.get('jobs', []) if job.get('name') == name]
-                  if len(matches) != 1 or matches[0].get('conclusion') != 'success':
+                  if len(matches) != 1 or matches[0].get('conclusion') != conclusion:
                       raise SystemExit('RELEASE_FOLLOWUP_JOB_EVIDENCE')
           validate_evidence(os.environ['TAGGED_SHA'], json.load(open('build/followup-run.json')),
                             json.load(open('build/followup-jobs.json')), json.load(open('build/followup-release.json')))
-          print('Original tagged-source Linux/Windows success evidence verified')
+          print('Original same-source Linux success and Windows/macOS failures verified')
           PY
       - name: Install build tools including explicit modern Bash
         run: brew install cmake ninja nasm pkgconf bash
@@ -95,6 +185,7 @@ jobs:
         run: >-
           PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset macos-ci
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
           -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=ON
           -DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
           -DVAEG_STATIC_LIBRASHADER=ON
@@ -149,8 +240,15 @@ jobs:
           python3 tools/release/check-librashader-package.py --input "${package}.tar.gz" --platform macos
           python3 tests/z80_compat/check_zex_archive.py "${package}.tar.gz"
           gh release upload "$RELEASE_TAG" "${package}.tar.gz" --clobber
+
+  publish:
+    name: publish complete retained release
+    runs-on: ubuntu-latest
+    needs: [windows, macos]
+    steps:
       - name: Verify all retained packages and publish
         run: |
+          mkdir -p build
           gh release view "$RELEASE_TAG" --json assets > build/release-assets.json
           python3 - <<'PY'
           import json, os

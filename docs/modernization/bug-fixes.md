@@ -45,14 +45,14 @@ land.
   identifies that exact expression. The expression fails locally with Bash
   3.2 and succeeds with Bash 5, which built the local native SDK.
 - **Correction:** install and explicitly invoke Homebrew Bash for macOS SDK
-  creation. A scoped follow-up builds only the failed macOS target from the
-  unchanged release tag, requires successful same-source Linux/Windows
-  evidence, and documents the shell prerequisite in the package. The tag
-  and successful platform binaries are not moved or rebuilt.
+  creation. The scoped desktop follow-up builds the failed targets from the
+  unchanged release tag, requires original same-source Linux success and
+  desktop failure evidence, and documents the shell prerequisite in the
+  package. The tag and successful Linux binary are not moved or rebuilt.
 - **Verification:** 22 content/negative tests pass, including exact-code
   source/job/draft/asset checks; both workflows parse and every follow-up
   shell step passes syntax checks. Hosted completion is tracked in the
-  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-macos-recovery),
+  [M138 task](../agents/tasks/M138_release_20261025.md#tagged-release-and-scoped-desktop-recovery),
   not inferred from the local checks.
 - **Milestone/commit:** M138,
   [f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92](https://github.com/nakatamaho/vaeg/commit/f1a0d76fe7be5da6a68b2baee9924ae6c34b6b92).

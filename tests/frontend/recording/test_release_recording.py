@@ -62,6 +62,10 @@ class ReleaseRecording(unittest.TestCase):
         self.mutation("needs: [linux, windows, macos]", "needs: [linux]",
                       "RELEASE_RECORDING_PUBLISH_GATE")
 
+    def test_cpp_dialect_not_explicit(self):
+        self.mutation("-DCMAKE_CXX_STANDARD=17", "-DCMAKE_CXX_STANDARD=20",
+                      "RELEASE_RECORDING_CXX_STANDARD")
+
     def test_recording_disabled(self):
         self.mutation("-DVAEG_ENABLE_RECORDING=ON", "-DVAEG_ENABLE_RECORDING=OFF",
                       "RELEASE_RECORDING_DISABLED")
@@ -140,7 +144,8 @@ class FollowupEvidence(unittest.TestCase):
         self.run = {"head_sha": self.sha}
         self.jobs = {"jobs": [
             {"name": "linux gcc release", "conclusion": "success"},
-            {"name": "windows mingw native static-runtime", "conclusion": "success"}]}
+            {"name": "windows mingw native static-runtime", "conclusion": "failure"},
+            {"name": "macos fetch-sdl2 release", "conclusion": "failure"}]}
         self.release = {"isDraft": True}
         self.assets = {"assets": [{"name": "vaeg-rel20261025" + suffix} for suffix in (
             "-linux-x86_64.tar.gz", "-win-x86_64.zip", "-macos-arm64.tar.gz")]}
@@ -167,7 +172,7 @@ class FollowupEvidence(unittest.TestCase):
         self.assert_code('RELEASE_FOLLOWUP_NOT_DRAFT')
 
     def test_failed_retained_job(self):
-        self.jobs['jobs'][1]['conclusion'] = 'failure'
+        self.jobs['jobs'][0]['conclusion'] = 'failure'
         self.assert_code('RELEASE_FOLLOWUP_JOB_EVIDENCE')
 
     def test_missing_retained_job(self):

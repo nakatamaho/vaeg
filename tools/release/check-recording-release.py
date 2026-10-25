@@ -53,6 +53,9 @@ def validate_content(workflow, builder):
         if match is None:
             raise ContractError("RELEASE_RECORDING_CONFIGURE")
         configure = match.group(1)
+        if (re.findall(r"-DCMAKE_CXX_STANDARD=([^\s]+)", configure) != ['17'] or
+                re.findall(r"-DCMAKE_CXX_STANDARD_REQUIRED=([^\s]+)", configure) != ['ON']):
+            raise ContractError("RELEASE_RECORDING_CXX_STANDARD")
         for option, expected, code in (
             ("ENABLE_RECORDING", "ON", "RELEASE_RECORDING_DISABLED"),
             ("STATIC_FFMPEG", "ON", "RELEASE_RECORDING_NOT_STATIC"),

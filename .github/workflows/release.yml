@@ -77,6 +77,7 @@ jobs:
         run: >-
           PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset linux-ci-gcc
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
           -DVAEG_ENABLE_RECORDING=ON
           -DVAEG_STATIC_FFMPEG=ON
           -DVAEG_PUBLIC_BUILD=ON
@@ -206,6 +207,7 @@ jobs:
         run: >-
           PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset mingw-ci
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
           -DVAEG_ENABLE_RECORDING=ON
           -DVAEG_STATIC_FFMPEG=ON
           -DVAEG_PUBLIC_BUILD=ON
@@ -332,6 +334,7 @@ jobs:
         run: >-
           PKG_CONFIG_PATH="$PWD/build/recording-sdk/stage/lib/pkgconfig"
           cmake --preset macos-ci
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON
           -DVAEG_ENABLE_RECORDING=ON
           -DVAEG_STATIC_FFMPEG=ON
           -DVAEG_PUBLIC_BUILD=ON
