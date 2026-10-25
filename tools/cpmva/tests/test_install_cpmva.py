@@ -326,25 +326,24 @@ class InstallerTests(unittest.TestCase):
     def write_fake_lha(self, directory, name, banner):
         # Each fake accepts only its own extraction syntax: lhasa "xw=DIR"
         # (lower-cased names), lha-1.14i "x -w=DIR" (names as stored).
-        lhasa = "Lhasa" in banner
-        extract = (
-            "xw=*) d=\"${1#xw=}\"; printf hello > \"$d/readme.doc\";"
-            " printf exe > \"$d/cpmva.exe\"; exit 0;;\n"
-            if lhasa
-            else "x) d=\"${2#-w=}\"; printf hello > \"$d/README.DOC\";"
-            " printf exe > \"$d/CPMVA.EXE\"; exit 0;;\n"
-        )
         script = Path(directory) / name
         script.write_text(
-            "#!/bin/sh\n"
-            f"if [ $# -eq 0 ]; then echo '{banner}'; exit 0; fi\n"
-            "case \"$1\" in\n"
-            "l) echo '[generic]  5 100.0% Jan  1  1989 readme.doc';"
-            "   echo '[generic]  3 100.0% Jan  1  1989 cpmva.exe'; exit 0;;\n"
-            + extract
-            + "esac\necho 'unsupported syntax' >&2; exit 1\n"
+            "from pathlib import Path\nimport sys\n"
+            f"banner = {banner!r}\nlhasa = {'Lhasa' in banner!r}\n"
+            "args = sys.argv[1:]\n"
+            "if not args:\n    print(banner)\n    raise SystemExit(0)\n"
+            "if args[0] == 'l' and len(args) == 2:\n"
+            "    print('[generic]  5 100.0% Jan  1  1989 readme.doc')\n"
+            "    print('[generic]  3 100.0% Jan  1  1989 cpmva.exe')\n"
+            "    raise SystemExit(0)\n"
+            "if lhasa and len(args) == 2 and args[0].startswith('xw='):\n"
+            "    destination = Path(args[0][3:])\n"
+            "elif not lhasa and len(args) == 3 and args[0] == 'x' and args[1].startswith('-w='):\n"
+            "    destination = Path(args[1][3:])\n"
+            "else:\n    raise SystemExit('unsupported syntax')\n"
+            "for name, data in [('README.DOC', b'hello'), ('CPMVA.EXE', b'exe')]:\n"
+            "    (destination / (name.lower() if lhasa else name)).write_bytes(data)\n"
         )
-        script.chmod(0o755)
         return script
 
     def extract_with_fake_lha(self, name, banner):
@@ -352,10 +351,20 @@ class InstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             tools = Path(directory) / "bin"
             tools.mkdir()
-            self.write_fake_lha(tools, name, banner)
+            script = self.write_fake_lha(tools, name, banner)
             archive = Path(directory) / "CPMVA.LZH"
             archive.write_bytes(b"not a real archive")
-            with mock.patch.dict(os.environ, {"PATH": str(tools)}):
+            real_run = subprocess.run
+
+            def run_fixture(command, **kwargs):
+                self.assertEqual(command[0], str(script))
+                # Execute a real strict-syntax child on every host, without
+                # relying on POSIX shebang lookup or Windows PATHEXT.
+                return real_run([sys.executable, str(script), *command[1:]], **kwargs)
+
+            with mock.patch.object(self.installer.shutil, "which",
+                                   side_effect=lambda tool: str(script) if tool == name else None), \
+                    mock.patch.object(self.installer.subprocess, "run", side_effect=run_fixture):
                 return self.installer.safe_extract_archive(archive, Path(directory) / "work", lock)
 
     def test_lhasa_is_detected_and_names_restored(self):
@@ -370,6 +379,15 @@ class InstallerTests(unittest.TestCase):
         members = self.extract_with_fake_lha("lha", "LHa for UNIX version 1.14i")
         self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
 
+    def test_lhasa_rejects_classic_extraction_syntax(self):
+        banner = "Lhasa v0.4.0 command line LHA tool"
+        self.assertEqual(sorted(self.extract_with_fake_lha("lha", banner)),
+                         ["CPMVA.EXE", "README.DOC"])
+        with mock.patch.object(self.installer, "lha_is_lhasa", return_value=False):
+            with self.assertRaises(self.installer.InstallerError) as raised:
+                self.extract_with_fake_lha("lha", banner)
+        self.assertEqual(raised.exception.code, "ARCHIVE_FORMAT")
+
     def restore_case_alias_fixture(self, root, entries=None, same_inode=True):
         # Model a case-insensitive lookup on every host. One directory entry,
         # two spellings of the same inode; rename itself uses the real FS.
@@ -377,6 +395,14 @@ class InstallerTests(unittest.TestCase):
         (root / "a.txt").write_bytes(b"fixture")
         names = ["a.txt"] if entries is None else entries
         real_rename = Path.rename
+        real_walk = os.walk
+
+        def fixture_walk(top, *args, **kwargs):
+            if Path(top) == root:
+                return iter([(root, [], names)])
+            # Windows rmtree may itself use os.walk. Never substitute the root
+            # fixture when TemporaryDirectory cleans up its staging sibling.
+            return real_walk(top, *args, **kwargs)
 
         def bind_mount_rename(source, target):
             target = Path(target)
@@ -384,10 +410,11 @@ class InstallerTests(unittest.TestCase):
                 return target  # observed Linux/case-insensitive-host no-op
             return real_rename(source, target)
 
-        with mock.patch.object(self.installer.os, "walk", return_value=[(root, [], names)]), \
+        with mock.patch.object(self.installer.os, "walk", side_effect=fixture_walk), \
                 mock.patch.object(Path, "exists", return_value=True), \
                 mock.patch.object(Path, "samefile", return_value=same_inode), \
                 mock.patch.object(Path, "rename", autospec=True, side_effect=bind_mount_rename):
+            self.assertEqual(list(os.walk(root.parent)), list(real_walk(root.parent)))
             self.installer.restore_upper_case_names(root)
         self.assertEqual([p.name for p in root.iterdir()], ["A.TXT"])
         self.assertEqual((root / "A.TXT").read_bytes(), b"fixture")
