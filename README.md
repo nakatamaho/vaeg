@@ -74,10 +74,52 @@ remains a useful historical reference.
 - state save slots with thumbnails, a front-panel lamp bar, and a screen
   turned 90 degrees right;
 - CRT screen effects via librashader (disabled by default);
+- lossless FFV1/PCM MKV movie recording, from the native guest picture or
+  the displayed client; optional background MP4 conversion through the OS
+  on Windows/macOS (no MP4 compression in Linux public builds);
+- VA/VA2-calibrated native and compatible-mode CPU timing, H/S selection,
+  and model-specific SGP timing and CPU/SGP contention;
+- five-generation quick saves on F12 and quick loads on Shift+F12, when
+  that F12 assignment is selected;
+- an independently switchable machine/mode/clock information bar;
 - substantially reorganized and simplified code;
 - a greatly reduced PC-98-only codebase.
 
 ## News
+
+### 2026-10-25 - Rel.20261025
+
+[Rel.20261025](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261025)
+covers the commits since Rel.20261017 through M137: VA/VA2-calibrated CPU and SGP timing, corrected
+V1/V2 H/S execution and text banking, machine-specific hidden-text and
+reverse-display behaviour, lossless movie recording, background OS MP4
+conversion on Windows/macOS, five-generation quick saves, a machine-information
+bar, and improved recent-boot and input controls. The controller port is
+now empty (`なし`) by default; select a joystick or mouse explicitly when
+needed. PR #57's forced-slice-exit I/O accounting fix is not included.
+
+The four emulator screenshots below show the PC-8801mkIISR demonstration
+booted as a VA (top row) and as a PC-8801mkIISR (bottom row). The maintainer
+confirms that both match the respective real machines: the VA retains blank
+key blocks and draws black lines on white; the PC-8801mkIISR has no blank
+blocks and draws white lines on black.
+
+<div align="center">
+<table align="center" width="100%">
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261025-192336-0000017427-000.png" alt="PC-8801mkIISR demonstration title booted as a VA"><br><em>VA boot: demonstration title, including the blank key blocks</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261025-192522-0000123417-000.png" alt="PC-8801mkIISR demonstration line drawing booted as a VA"><br><em>VA boot: black lines on white</em></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261025-203526-0000090924-000.png" alt="PC-8801mkIISR demonstration title booted as a PC-8801mkIISR"><br><em>PC-8801mkIISR boot: demonstration title, without blank blocks</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/vaeg-20261025-203829-0000274378-000.png" alt="PC-8801mkIISR demonstration line drawing booted as a PC-8801mkIISR"><br><em>PC-8801mkIISR boot: white lines on black</em></td>
+</tr>
+</table>
+</div>
+
+See [Rel.20261025 changes](CHANGES.20261025.md) for the complete release
+notes. Public builds enable recording; Linux public builds do not include
+MP4 compression.
 
 ### 2026-10-17 - Rel.20261017
 

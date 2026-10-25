@@ -1065,6 +1065,11 @@ if(VAEG_ENABLE_TESTS)
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_static_ffmpeg.py")
     set_tests_properties(vaeg_ffmpeg_static_resolution PROPERTIES
         LABELS "frontend;portability;recording")
+    add_test(NAME vaeg_release_recording_contract
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/recording/test_release_recording.py")
+    set_tests_properties(vaeg_release_recording_contract PROPERTIES
+        LABELS "frontend;portability;recording")
     foreach(compiler_header_language IN ITEMS c cpp)
         add_executable(vaeg_compiler_header_${compiler_header_language}_test
             tests/frontend/test_compiler_header.${compiler_header_language})
