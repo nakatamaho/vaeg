@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M135 — Compatible-mode timing against the PC-88VA and PC-88VA2
 
-Status: **implemented; G135 human gate pending.** Z80TIME 2 photographed
+Status: **G135 human gate passed on 2026-10-25.** Z80TIME 2 photographed
 on the VA and VA2; the measured cost model is in the adapter.
 
 Branch: `milestone/m133-compat-timing`. Commit prefix: `M135:`.
@@ -141,3 +141,19 @@ media regression as in AGENTS.md.
 - Demos: no demo source or builder changes, except the new
   `demos/z80-timing`, which is on no committed disk. The media and demo
   regression of AGENTS.md is still to run before G135.
+- After the merge of main and the renumbering (99db7cb5): ctest 118/119.
+  The one failure, `vaeg_milestone_id_selftest` on ROADMAP line 190 (the
+  M133 row of PR #56 names no G133 gate), fails the same on origin/main
+  b7d76588 and is not touched here. `--selftest` passes; Z80TIME 2 rows
+  0.95-1.03 as before. Static Windows handoff of 99db7cb5: exit 0,
+  `vaeg-mingw-99db7cb5/output/vaeg.exe`, SHA-256
+  `13454736d4f719102ae39229e2e7dbe99b811d7a2b89e7a572f188585edbdf9c`.
+- The demo and media build regression: done by the maintainer, reported OK
+  (2026-10-25).
+
+## G135 passed
+
+The maintainer accepted the gate and requested the merge on 2026-10-25
+("G133 mergeお願いします", then "M135 に改めてからマージします。OK"; the
+demo and media regression reported OK).
+
