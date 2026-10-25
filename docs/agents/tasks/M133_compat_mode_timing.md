@@ -125,3 +125,15 @@ media regression as in AGENTS.md.
 - ctest 119/119 (`VAEG_ENABLE_TESTS`, with the integration trace);
   `--selftest` passes (NOP: H 19, S 38, S50 76 clocks for ten).
 
+- `[MEASURED]` A port that runs three Z80 programs in compatible mode
+  (stage 1 frames 1250-2250, renders a second) draws about the same as
+  before M133: VA2 model 53.9 (was 54.2), VA model 52.2 (was 52.0).
+  Its Z80 code mixes instructions that M133 makes slower (memory
+  accesses, transfers, CALL/RET) with instructions it makes faster
+  (register and 16-bit arithmetic, exchanges).
+- Static Windows handoff of 65788372 (`build-mingw-static-container.sh`,
+  exit 0): `vaeg-mingw-65788372/output/vaeg.exe`, SHA-256
+  `153cf12376e522408fb29e5a25319ba55c7465b0fde6bdf671ac66e08e9ceda1`.
+- Demos: no demo source or builder changes, except the new
+  `demos/z80-timing`, which is on no committed disk. The media and demo
+  regression of AGENTS.md is still to run before G133.
