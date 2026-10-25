@@ -25,6 +25,9 @@ POSSIBILITY OF SUCH DAMAGE.
 # M133 — Hidden text retains monochrome graphics colours (PR #56)
 
 Status: **human gate PASSED**; maintainer explicitly requested merge.
+Merged to main with `--no-ff` at
+[af99561345dc408ecb502ab40a7f2c0ae16c75c0](https://github.com/nakatamaho/vaeg/commit/af99561345dc408ecb502ab40a7f2c0ae16c75c0);
+GitHub reports PR #56 MERGED. Original author commit is the second parent.
 
 ## Scope and correction
 
