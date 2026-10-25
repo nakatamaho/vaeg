@@ -67,3 +67,15 @@ before; the PC-8801/8001 machines' N mode is unaffected.
 - Linux release, VA2 with `BootMode=2` and an N-BASIC ROM in the ROM
   directory: `V1V2_NModeEnable=false` logs "N mode: feature not available"
   and does not start N-BASIC; `true` starts N-BASIC (PC-8001 BASIC 1.8).
+- `linux-ci-gcc` ctest: 119 of 119.
+- Media build regression reused: the media builders are unchanged since
+  [bd781886](https://github.com/nakatamaho/vaeg/commit/bd78188638dfcd3bed41c696434fc245277adedd)
+  (recorded in M134); since then only `demos/z80-timing` (M135) was added,
+  which builds (`Z80TIME.COM`, exit 0) and is on no committed disk.
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+bee07c447602f0bcb8060c4d7ed0c4cda7e085f8`: commit embedded, Windows system
+DLL imports only; `vaeg.exe` SHA-256
+`e756fe70c56157776b94c8e0f88ae5c582084ac56e03a20611891008a0785491`.
