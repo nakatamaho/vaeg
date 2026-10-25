@@ -124,12 +124,16 @@ regressions on the accepted M131 baseline. PR #56 remains excluded.
    interaction. Dummy/software-only guest output is not real-client proof.
    Unavailable real-display capture is BLOCKED, not PASS or automatic transfer
    of the whole case to the maintainer.
-5. **Known defects:** retain TIME$ (#60), original-PC-8801 startup latency (#61)
-   and the reproduced T88 failure as explicit open results. An issue link alone
-   does not waive a failing gate case. A demonstrated fix/recheck or explicit
-   maintainer-approved scope exclusion with its reason is required before
-   calling an affected case satisfied. Do not infer hardware calibration or
-   exact N80/N80SR runtime identification from emulator arithmetic/status tests.
+5. **Known defects — explicitly excluded from G132 closure:** the maintainer
+   states 「T88読み込み失敗など、未解決問題の整理。ー＞これは不要。この方針で
+   機械側のQA終わらしてください。」 This explicitly removes investigation,
+   correction and reconciliation of the already recorded T88, TIME$ (#60) and
+   original-PC-8801 startup latency (#61) defects from this gate's remaining
+   work. Retain their open ledger/issues and existing FAIL evidence; do not
+   relabel them PASS, resolve their issues or rerun unchanged failing cases.
+   This is a scoped gate exclusion, not a demonstrated fix or permission to
+   suppress a new regression discovered by the remaining QA. Hardware
+   calibration and exact N80/N80SR identification are still not established.
 6. **Final human acceptance:** present a short summary of automated coverage,
    any reference/intentional-change approvals, artifact identity and explicitly
    approved deferrals.
@@ -144,9 +148,10 @@ and violated the contract. NOT_IMPLEMENTED/NOT_RUN and BLOCKED are not passing
 results. PARTIAL names its exact completed layer/subset and missing coverage.
 A human-approved case is recorded separately from its automation status.
 
-Current G132 is **NOT PASSED**: reusable H/S and raw-loader QA pass, T88 QA
-fails, several integration runners (including actual state-file transitions)
-remain unimplemented, the 32-case virtual-X11 final-client comparison passes
+Current G132 is **NOT PASSED**: reusable H/S and raw-loader QA pass; the known
+T88/TIME$/startup defects remain open but are explicitly excluded from gate
+closure by the maintainer. Several integration runners (including actual
+state-file transitions) remain unimplemented, the 32-case virtual-X11 final-client comparison passes
 against approved references (native-platform/HiDPI checks remain separate), and final
 hosted review CI has not run. Prior scoped human OK results remain accepted;
 the maintainer is not asked to repeat them merely because automation is added.
@@ -169,8 +174,9 @@ not explicit draft-reference approval or whole G132 passage.
   maintainer-reported Windows execution, not automated execution by this Mac
   cross-build host; seek, audio synchronization, exact frame parity and every
   recording/presenter profile were not separately reported.
-- Decide explicit deferrals for known defects if requesting gate closure before
-  their correction; issue creation/interim OK alone is not a waiver.
+- **Completed:** the maintainer explicitly excludes investigation/correction of
+  the previously recorded T88/TIME$/startup defects from this gate. Preserve
+  their unresolved status; do not ask for the same exclusion again.
 - Give final G132 acceptance only after the machine-owned prerequisites are
   complete or explicitly deferred. It is not requested merely because this
   review executable is ready. Previously accepted V3/demo/OS and UI checks are
