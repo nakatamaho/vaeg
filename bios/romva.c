@@ -150,11 +150,35 @@ BOOL romva_load_pc98_font(const char *filename) {
 	return (TRUE);
 }
 
+/*
+ * The VA carries no N-BASIC. A 32 KiB N-BASIC ROM placed beside the VA ROMs
+ * is shown at 0000h-7FFFh under port 31h RMODE in 88 mode, as on a PC-8801
+ * (see memoryva_n80). M137: only with N mode enabled in 詳細設定; otherwise
+ * N mode is not available, RMODE keeps the VA's own banks and an N boot
+ * starts V1/V2. The PC-8801/8001 machines load their own N-BASIC role
+ * afterwards (romva_machine_hook).
+ */
+void romva_load_n80_rom(void) {
+	UINT i;
+
+	memoryva_n80_file[0] = '\0';
+	memoryva_n80_exist = FALSE;
+	if (!np2cfg.v1v2_nmode_enable) {
+		if (np2cfg.boot_mode == BOOTMODE_N) {
+			fprintf(stderr, "INFO: N mode: feature not available (enable it in 詳細設定)\n");
+		}
+		return;
+	}
+	memoryva_n80_exist = romva_load_n80(np2cfg.v1v2_n80rom);
+	for (i = 0; !memoryva_n80_exist && (i < ROMVA_N80_NAMES); i++) {
+		memoryva_n80_exist = romva_load_n80(romva_n80_names[i]);
+	}
+}
+
 void romva_initialize(void) {
 	char path[MAX_PATH];
 	FILEH fh;
 	BOOL success;
-	int i;
 
 	memoryva.rom0exist = 0;
 	memoryva.rom1exist = 0;
@@ -203,16 +227,7 @@ void romva_initialize(void) {
 		file_close(fh);
 	}
 
-	/*
-	 * The VA carries no N-BASIC. A 32 KiB N-BASIC ROM placed beside the VA
-	 * ROMs is shown at 0000h-7FFFh under port 31h RMODE in 88 mode, as on a
-	 * PC-8801 (see memoryva_n80).
-	 */
-	memoryva_n80_file[0] = '\0';
-	memoryva_n80_exist = romva_load_n80(np2cfg.v1v2_n80rom);
-	for (i = 0; !memoryva_n80_exist && (i < ROMVA_N80_NAMES); i++) {
-		memoryva_n80_exist = romva_load_n80(romva_n80_names[i]);
-	}
+	romva_load_n80_rom();
 
 	getbiospath(path, VASUBSYSROM, sizeof(path));
 	fh = file_open_rb(path);

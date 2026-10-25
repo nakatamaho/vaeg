@@ -74,6 +74,9 @@ typedef struct {
 	UINT8 boot_mode; /* BOOTMODE_*: how reset chooses V3 or V1/V2 (M111) */
 	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
 	OEMCHAR v1v2_n80rom[32];
+	/* M137: N mode (N-BASIC) for VA/VA2 boots; off by default, as the VA has
+	 * no N-BASIC. The PC-8801/8001 machines from extra/ do not depend on it. */
+	UINT8 v1v2_nmode_enable;
 	/* M112: revisions chosen under extra/, "<machine>/<role>=<revision>;"... */
 	OEMCHAR extra_rom_select[512];
 	/* M113: PC-8801 machine started from extra/<name>/; empty for the VA. */

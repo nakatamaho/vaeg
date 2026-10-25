@@ -532,7 +532,7 @@ The portable frontend keeps its writable files in three places.
 
 The ROMs are read from the executable's directory (or `--roms`): the VA ROM
 set, `extra/<model>/<role>.rom` for the PC-8801 and PC-8001 machines, and
-the N-BASIC ROMs for N mode. For a portable setup, place `vaeg.cfg` and the
+the N-BASIC ROMs for N mode (enabled in 詳細設定). For a portable setup, place `vaeg.cfg` and the
 backup-memory file beside the executable and start vaeg from that
 directory.
 
@@ -568,7 +568,8 @@ BootMode=0
   PC-8801 or PC-8001 model under `extra/`.
 
 In the GUI, `模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA` selects the machine and
-its mode (自動, V2 H/S, V1 H/S, or N with a found N-BASIC ROM), and the
+its mode (自動, V2 H/S, V1 H/S, or N with a found N-BASIC ROM; N needs
+`模擬 -> 詳細設定…` > N モード, off by default as the VA has no N-BASIC), and the
 PC-8801 and PC-8001 models found under `extra/` follow below. Changing the
 model selects its default sound hardware and ROM set and resets the guest
 while keeping the FDD and SASI media. `模擬 -> CPU クロック` holds the clock
