@@ -30,7 +30,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc-88va-utilities-cache}/auto-generated-pc88va-utility-media
+cache_dir=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc-88va-utilties-cache}
 sqemm_driver=
 sqemm_license=
 work_dir=

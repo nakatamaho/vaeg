@@ -202,7 +202,7 @@ def main() -> int:
     parser.add_argument("--assembler", help="z80asm 1.8 (default: VAEG_Z80ASM, PATH, "
                         "or built from the locked source into the cache)")
     cache_root = os.environ.get("VAEG_CACHE_DIR") or (
-        Path.home() / "work/pc88va/pc88va-private-docs/pc-88va-utilities-cache")
+        Path.home() / "work/pc88va/pc88va-private-docs/pc-88va-utilties-cache")
     parser.add_argument("--cache-dir", type=Path, default=Path(cache_root) / "cpmva")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--skip-zex", action="store_true",
