@@ -153,6 +153,33 @@ the maintainer is not asked to repeat them merely because automation is added.
 No production fix, issue waiver, merge, cleanup or next milestone is implied by
 this definition.
 
+### Current human-owned review, not another manual regression list
+
+The maintainer asks what remains human-owned and requests a current Windows
+build with recording and compression enabled. Their preceding interim OK is
+not explicit draft-reference approval or whole G132 passage.
+
+- Approve the prepared reference image set once (or identify a baseline defect).
+  Repeated launching, resizing, toggling, capture and comparison are machine work.
+- Optionally perform a short final native-Windows usability/quality smoke on the
+  recording-enabled review build: start recording with compression selected,
+  stop, wait for completion, and judge playback/seek/audio in the resulting MP4.
+  Native Windows runtime is unavailable on this cross-build host. This narrowly
+  scoped review does not replace machine export/decode validation where a
+  supported Windows automation environment is available, nor does it assert all
+  recording/presenter profiles passed.
+- Decide explicit deferrals for known defects if requesting gate closure before
+  their correction; issue creation/interim OK alone is not a waiver.
+- Give final G132 acceptance only after the machine-owned prerequisites are
+  complete or explicitly deferred. It is not requested merely because this
+  review executable is ready. Previously accepted V3/demo/OS and UI checks are
+  not repeated.
+
+Actual state-file round trips, mode/paste regressions, T88 diagnosis, remaining
+native-platform/HiDPI/tooltip/menu automation and final hosted CI remain on the
+machine side. The current build is a review candidate, not a claim that those
+unfinished cases passed.
+
 ## Work log
 
 - Design/task created before production changes. Private work uses
@@ -748,6 +775,53 @@ Local implementation verification (private logs retained):
   Python checker tests. Existing production worker digest remains unchanged,
   so no unchanged expensive emulator corpus was rerun for this validator-only
   change. No new application build/handoff or full-runtime PASS is claimed.
+
+### Recording-enabled current Windows review handoff
+
+At the maintainer's request, the pushed code at
+`94c2ff326fdc7c6de51ea0c087d35500c5d6a05b` is built from a new clean clone and
+fresh application objects with the repository helper:
+
+```sh
+tools/release/build-mingw-static-container.sh \
+  --commit 94c2ff326fdc7c6de51ea0c087d35500c5d6a05b --recording \
+  --shader-sdk "$PREVIOUS_AUDITED_SHADER_SDK"
+```
+
+The process-local wrapper selects the existing project-local Colima/Docker
+socket/storage; no global Docker context changes. Only the audited pinned shader
+SDK is reused read-only; no old application objects or build tree are reused.
+The helper exits 0. Preset `mingw-cross`, Release, Ubuntu 24.04 pinned image,
+MinGW GCC 13-posix and Rust 1.88.0. Cache confirms recording ON, static FFmpeg ON,
+public handoff ON, local static MP4 encoders OFF. Configure and pre-link audits
+report only `ff_ffv1_encoder,ff_pcm_s16le_encoder`; system-DLL PE import audit
+passes, and the embedded commit/date match the clean checkout.
+
+Recording saves lossless FFV1/PCM MKV with pinned minimal LGPL-only FFmpeg 8.1.2.
+The existing Windows Media Foundation adapter supplies post-stop H.264/AAC MP4
+through OS APIs, not bundled encoder implementations. The recording-start
+"圧縮する" checkbox must be enabled by the user; no user config is supplied or
+overwritten. Original MKV is retained; existing MP4 is not overwritten. This is
+not a patent/license clearance or approval to publish codec-enabled local SDKs.
+
+- Executable: `../vaeg-mingw-94c2ff32/output/vaeg.exe`, 59,241,864 bytes.
+- Executable SHA-256:
+  `519e5abe498f2908c594e72a6feb607133c6ff2db91c47d83bddde4ef4be0c3b`.
+- Report: `../vaeg-mingw-94c2ff32/output/BUILD-REPORT.md`.
+- Private local transfer ZIP: `vaeg-g132-94c2ff32-recording.zip`, 19,954,159 bytes,
+  containing the executable, report, build identity, import/config audits,
+  dependency notices/licenses and recording instructions, no ROM, media, config
+  or private screenshots.
+- ZIP SHA-256:
+  `263593b45033325f5ea46eb4b43d95c99b351adb1a6de64846ec954c1939c1e2`.
+- ZIP integrity and extracted-executable digest verification: PASS. Source,
+  FFmpeg tarball/config/build log and dependency/build reports remain outside
+  Git. This supersedes the recording-OFF 7fe3bebf handoff for current review.
+
+Compile/link/import/static-encoder validation is not native Windows execution,
+video export/playback validation or whole G132 acceptance. Those are not claimed
+by this host. No new emulator code is changed for this handoff; the subsequent
+documentation record does not require rebuilding unchanged application behavior.
 
 ### Machine-owned X11 capture and draft reference execution
 
