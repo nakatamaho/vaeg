@@ -144,8 +144,11 @@ size, DPI and backend, with narrowly bounded dynamic masks and region checks.
 Do not assign routine overlap/clipping/fullscreen checks to a human merely because
 they are visual. Human work is reference approval, intentional visual-change
 approval, genuinely unautomatable interaction and final acceptance. Lack of a
-real display blocks capture automation; it does not transfer the whole test back
-to the maintainer. Report exactly which checklist items an automated case covers; adding
+real display blocks that target's capture automation; it does not transfer the
+whole test back to the maintainer. A mapped SDL client on virtual X11 with a
+window manager is a valid explicitly labeled software-integration target, not
+SDL dummy output; never promote it to physical-GPU, Cocoa, Windows or true-HiDPI
+coverage. Report exactly which checklist items an automated case covers; adding
 a runner does not mark unimplemented cases passed, retroactively upgrade prior
 manual checks, or authorize a milestone merge without its required gate acceptance.
 

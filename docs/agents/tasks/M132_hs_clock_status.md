@@ -24,8 +24,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M132 — H/S clock, identification and machine status
 
 Status: **Agreed implementation, static Windows artifact and full demo/media
-source closure complete; interactive GUI and remaining regression verification
-are pending. G132 not requested or passed.**
+source closure complete; the virtual-X11 screenshot matrix matches in all 32
+cases with draft-reference approval pending. Native-platform/HiDPI/tooltip and
+remaining regression verification are pending. G132 not requested or passed.**
 
 Branch: `milestone/m132-hs-clock-status`.
 Baseline: `49cb0112a1ffaaf26f4bf1830d1df2a89b93746d` (accepted G131).
@@ -145,7 +146,8 @@ A human-approved case is recorded separately from its automation status.
 
 Current G132 is **NOT PASSED**: reusable H/S and raw-loader QA pass, T88 QA
 fails, several integration runners (including actual state-file transitions)
-remain unimplemented, final-client checks need a real display, and final
+remain unimplemented, the 32-case virtual-X11 final-client comparison awaits
+reference approval (native-platform/HiDPI checks remain separate), and final
 hosted review CI has not run. Prior scoped human OK results remain accepted;
 the maintainer is not asked to repeat them merely because automation is added.
 No production fix, issue waiver, merge, cleanup or next milestone is implied by
@@ -672,8 +674,8 @@ human acceptances remain valid records but are not relabeled automated PASS.
 | `g132-config` | Key-less fresh config defaults MachineStatus ON; all four information/panel combinations, field preferences survive save/reload without rewriting one another. | **PASS** for existing production configuration selftests; desktop menu/restart acceptance is independently maintainer-confirmed. |
 | `g132-status-content` | Shared model enumerates formal names, live N/V1/V2/V3, exact clock/tooltips, short rounding, N-family lamp suppression, non-VA SGP omission and ambiguous N subtypes. Reject boot preference/banner as runtime proof. | **PASS** for focused model/format/lamp tests; scoped runtime/UI checks already accepted. |
 | `g132-speed-controls` | Apply every retained preset and a nonpreset multiplier/percent; cross reset/restart/state load and inspect effective clock/settings. Test custom values, not only nominal labels. | **PARTIAL**: arithmetic/config unit coverage; actual GUI preset interaction and end-to-end persistence **NOT_IMPLEMENTED**. |
-| `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL**: pure geometry tests pass. Real-display capture/validation **BLOCKED** by Cocoa having no display; dummy output cannot pass it. |
-| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL**: formatter/FPS/screenshot unit coverage and some human acceptance. Remaining final-client checks **BLOCKED**; no real presenter test harness available here. |
+| `g132-layout` | Normal/narrow/high-DPI/fullscreen and four toggle combinations; assert guest viewport bounds, readable/unclipped labels, independent geometry and fullscreen panel suppression from final-client captures. | **PARTIAL / APPROVAL_REQUIRED**: 32 virtual-X11 static cases match exactly; actual window/panel geometry checks pass. 200% GUI font scale is not HiDPI. Cocoa/physical HiDPI remain **BLOCKED**. |
+| `g132-presenter` | For each applicable renderer, inspect actual final-client information/panel composition and screenshots, title nonduplication, tooltip rendering, FPS and default-hidden FRAME. Record backend/geometry and expected regions. | **PARTIAL / APPROVAL_REQUIRED**: SDL software/OpenGL X11 static captures match and OS title assertions pass. Tooltip/dynamic-field UI actions remain **NOT_IMPLEMENTED**; native CRT/Cocoa/physical-GPU cases remain separate **BLOCKED** targets. |
 | `g132-state-hs` | Save actual H state file; change effective setting to S; load and require restored H identity/clock/status. Repeat S→H→saved S. Mutate a guest variable between save/load to prove the file was really restored. | **NOT_IMPLEMENTED**. In-memory bind tests are not a serialized-file round trip. |
 | `g132-state-input` | After each state-file restore, type a marker and paste mixed-case/repeated-key text; compare guest result and released modifier/key matrix. Require correct lamps/status as well as input. | **NOT_IMPLEMENTED**; depends on the actual file-round-trip runner, not screenshot existence. |
 | `g132-cassette-raw` | Private raw role, LOAD-only command, fast OFF/ON. Require Found followed by Ok after LOAD, no guest error. Subsequent BLOAD/gameplay is a separate future contract. | **PASS** for loader-only checks, including a fresh reusable fast run. |
@@ -718,9 +720,11 @@ file/CLI integration composes the layers. Both this test and the existing BASIC
 QA selftest are registered with CTest using generated synthetic inputs only;
 private references/captures never enter CI.
 
-This is a working comparator, not a completed real-display capture pipeline.
-Capture metadata is checked for binding but its origin is not independently
-attested: a trusted capture adapter must obtain the final client and settings
+At this initial comparator checkpoint the real-display capture pipeline was
+not implemented. The X11 follow-up below supplies that adapter and execution;
+this paragraph preserves the earlier scope, not the current X11 status.
+Comparator-only metadata is checked for binding but cannot independently attest
+its origin: a trusted capture adapter must obtain the final client and settings
 from the real application/OS. Current guest-only/dummy screenshots cannot be
 relabeled real-client images. A supported capture adapter, independently
 approved private reference set and full normal/narrow/DPI/fullscreen/toggle/
@@ -744,6 +748,99 @@ Local implementation verification (private logs retained):
   Python checker tests. Existing production worker digest remains unchanged,
   so no unchanged expensive emulator corpus was rerun for this validator-only
   change. No new application build/handoff or full-runtime PASS is claimed.
+
+### Machine-owned X11 capture and draft reference execution
+
+The maintainer requests completing the capture/reference/execution work on the
+machine side rather than returning it as manual testing. Added reusable tools:
+
+- `tools/qa/x11_capture.py`: owns the worker process, locates its mapped X11
+  window by PID, checks executable/ownership/title/geometry/EWMH fullscreen,
+  injects real keyboard events, freezes the process for XWD client readback,
+  verifies the source BASIC readiness marker and application-saved settings,
+  and records worker/input/adapter/output identities. DirectColor readback uses
+  its actual channel LUT, not an assumption of linear RGB masks.
+- `tools/qa/x11_matrix.py`: executes the closed 32-case matrix, prepares only
+  DRAFT references, emits an HTML review index and frozen per-case policies,
+  and compares against a caller-bound reference manifest. Reference approval,
+  worker binding, matrix closure and image/layout content are independent
+  validators. Missing cases, mixed-worker evidence and approval without an
+  approval record fail with exact codes. There is no automatic approval mode.
+- `tools/qa/x11-qa.dockerfile`: pinned-base, input-free integration-QA environment.
+  This is a non-personal QA build with recording/local encoders/native CRT OFF,
+  not a maintainer personal Linux executable or proof of the codec-enabled
+  profile. Source/input mounts are read-only; private scratch is writable.
+
+macOS is at the login window with no user GUI domain. No login, credentials or
+screen-permission workaround is attempted. Instead, the existing project-local
+Colima/Docker daemon hosts dedicated Xvfb/Openbox servers at 1280×960/96 DPI.
+These are actual mapped SDL X11 windows, not SDL dummy/guest-framebuffer images.
+The scope is **virtual X11, aarch64 Ubuntu 24.04, SDL software and Mesa OpenGL**;
+it does not establish physical GPU, Cocoa, Windows, native CRT or true HiDPI
+correctness. The 200% case changes GUI font scale, not pixel/logical DPI ratio.
+
+Runtime baseline: accepted production code at
+`7fe3bebf83cdd418b4c7154f99d929a61f648a80`, separately built worker SHA-256
+`c181398b51dfec387dc5fb9a6b88bf788b8bd5791477a70303ef918aaaf714ce`.
+Candidate: `887a708a28a89cfa3f70f5edf17c0e3a0cb88fa9`, worker SHA-256
+`32232cbac1cf896178fb667a3b9239d684429a6ad30e2d5037eaf005b9f09865`.
+Application code is unchanged between them; new tooling/CMake test registrations
+are evaluated separately. The dedicated image identity and full package/X server/
+CMake inventory, source snapshots, exact commands and output digests are retained
+privately. The original ROM inputs remain unchanged; resolved regular-file
+copies avoid host-absolute symlink failures inside read-only mounts.
+
+Matrix: **2 SDL renderers × 4 layouts × 4 toggle combinations = 32 cases per
+worker, 64 completed worker sessions**. Layouts are normal, 320-pixel narrow,
+fullscreen and 200% GUI font scale. Each uses actual external key make/break
+input and a source BASIC static marker loop with cursor, FPS and FRAME disabled.
+Both capture runs exit 0 / CAPTURED_UNREVIEWED. Final composed comparison exits
+**2 / APPROVAL_REQUIRED: 32/32 exact pixel matches, no masks, no tolerance**.
+All expected footer/menu geometry and actual title/setting/readiness checks pass.
+Supplemental content checks pass 64 worker bindings, 32 panel-presence/layout
+checks and four fullscreen panel-ON/OFF image-equality pairs on the candidate.
+
+Reference preparation produces DRAFT only, with a private HTML image index for
+one-time reference review. No images or captures are placed in Git or uploaded.
+Pixel equality to an unreviewed baseline is not visual correctness or G132
+passage. The only baseline-related human action is initial reference approval;
+repeat startup/resizing/capturing/comparing operations are machine-owned.
+
+Executed commands (all concrete arguments/reports remain private):
+
+```sh
+python3 tools/qa/x11_matrix.py capture --worker "$BASELINE_WORKER" \
+  --evaluated-commit "$BASELINE_COMMIT" --roms "$PRIVATE_ROM_COPIES" \
+  --backup-seed "$PRIVATE_V1_SEED" --display :132 --display-kind virtual-x11 \
+  --output-dir "$NEW_BASELINE_CAPTURE"
+# exit 0; 32 captures, same command on candidate/display :133: exit 0.
+python3 tools/qa/x11_matrix.py prepare --capture-dir "$BASELINE_CAPTURE" \
+  --output-dir "$NEW_DRAFT_REFERENCE"
+# exit 0; 32 frozen draft policies/images plus review index.
+python3 tools/qa/x11_matrix.py compare --capture-dir "$CANDIDATE_CAPTURE" \
+  --reference-dir "$FROZEN_DRAFT_REFERENCE" --manifest-sha256 "$FROZEN_MANIFEST_DIGEST" \
+  --output-dir "$NEW_COMPARISON"
+# exit 2; APPROVAL_REQUIRED, 32/32 exact matches, gate_pass=false.
+```
+
+Retained setup failures are not hidden: headless-script/debug-script options
+force SDL dummy in production and cannot be used for real-window automation;
+initial ROM symlink targets were not reachable in the container; the first
+external Enter held too briefly and consumed the first program line at the
+file-count prompt; a first fullscreen pointer position opened a dynamic-FPS
+tooltip. The corrected protocol resolves ROM copies, uses real X11 input with
+held Enter, verifies BASIC readiness, and parks the pointer outside footer/menu
+hit regions. No firmware, CPU or keyboard implementation was patched for QA.
+
+The completed captures are reused across later content-validator tightening;
+worker, capture adapter/guest fixture, screenshot comparison and policy-layout
+inputs are proven unchanged against preserved source snapshots. A final composed
+comparison with the strengthened identity/approval/panel checks also returns
+2 with 32/32 matches. No unchanged emulator sessions were repeated for those
+validator changes. Four synthetic CTest checks (BASIC, PNG comparison, X11
+adapter, matrix) pass; hosted CI remains deferred until the final candidate.
+Remaining native-platform/HiDPI/tooltip/menu work stays machine-owned and is not
+silently reassigned as a manual checklist. G132 remains unpassed.
 
 ## T88 versus raw cassette reproduction
 

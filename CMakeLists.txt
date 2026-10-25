@@ -2500,7 +2500,14 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_screen_compare_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/screen_compare.py" --selftest)
-    set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest PROPERTIES
+    add_test(NAME vaeg_x11_capture_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_capture.py" --selftest)
+    add_test(NAME vaeg_x11_matrix_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_matrix.py" selftest)
+    set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest
+        vaeg_x11_capture_selftest vaeg_x11_matrix_selftest PROPERTIES
         LABELS "romless;frontend;local-qa;m132")
     # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
     # answers PRINT 1+1, draws a painted circle and round-trips a program

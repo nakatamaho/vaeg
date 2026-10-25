@@ -153,9 +153,80 @@ repository history. Selftests start from passing synthetic fixtures, mutate one
 invariant with an exact error code, and retain a final file/CLI integration.
 CTest runs only those synthetic tests, never private reference images.
 
-The remaining G132 work is the trusted real-client capture adapter and private
-reference/case matrix. The OS title bar is outside final-client pixels: title
-nonduplication needs a window-title API assertion or a separately bound
-whole-window capture. Tooltip cases need deterministic pointer placement and
-timing; CPU-speed menus need controlled UI actions and observed state. These
-are automation tasks, not evidence supplied by the comparator alone.
+## Executable X11 capture and reference workflow
+
+`x11_capture.py` now supplies the X11 capture adapter. It starts an explicitly
+identified worker with copied private inputs, discovers its visible window by
+PID, checks ownership and executable path, and reads geometry/title/fullscreen
+state from the X server. It injects actual X11 keyboard events, verifies its
+source BASIC readiness marker in the final TVRAM dump, and checks the settings
+saved by the application. It suspends the worker while `xwd` reads the mapped
+client; RGB/DirectColor LUT decoding produces the comparison PNG. It does not
+read guest-only framebuffer pixels or substitute a requested state for observed
+fullscreen/renderer state. Title nonduplication is checked through the X11
+window property, outside the PNG. There is no emulator-side validator bypass.
+
+Do not add `--headless-input-script` or `--debug-script` to this adapter: the
+production frontend forces the dummy video driver for those options. External
+input is required for a real X11 window. ROM inputs must resolve inside the
+read-only mount; if original symlinks use host-absolute targets, make separately
+hashed regular-file copies in task scratch without altering the originals.
+
+`x11_matrix.py` defines a closed 32-case set: SDL software/OpenGL × normal,
+320-pixel narrow, fullscreen, 200% GUI font scale × the four status/panel toggle
+combinations. Large GUI font scale is **not** a claim of true HiDPI rendering;
+these X11 targets use measured 1:1 client/framebuffer dimensions. Footer/menu
+rectangles are fixed by the pinned font/layout contract, not inferred from
+candidate pixels to hide a changed layout. FPS/FRAME fields are disabled and
+the guest cursor is disabled, so these cases require exact, unmasked matches.
+
+Use an existing X11 server/window manager. `x11-qa.dockerfile` defines a minimal
+local integration-QA environment; build using the project-local Docker daemon
+and stdin as build context (never send private assets as Docker build context).
+Bind the repository read-only, scratch read/write and private inputs read-only.
+Record image ID and package inventory. Configure QA-only binaries with explicit
+`VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF`; this is not a maintainer personal build.
+Recording/native-CRT OFF builds only cover their actual tested profile.
+
+For example, inside the dedicated environment, start independent display
+servers for baseline and candidate to avoid focus/event interference:
+
+```sh
+Xvfb :132 -screen 0 1280x960x24 -dpi 96 -nolisten tcp > "$SCRATCH/xvfb.log" 2>&1 &
+DISPLAY=:132 openbox > "$SCRATCH/openbox.log" 2>&1 &
+python3 tools/qa/x11_capture.py --selftest
+python3 tools/qa/x11_matrix.py selftest
+python3 tools/qa/x11_matrix.py capture \
+  --worker "$BASELINE_WORKER" --evaluated-commit "$BASELINE_COMMIT" \
+  --roms "$READ_ONLY_ROM_COPIES" --backup-seed "$V1_SEED" \
+  --display :132 --display-kind virtual-x11 --output-dir "$NEW_BASELINE_CAPTURE"
+python3 tools/qa/x11_matrix.py prepare \
+  --capture-dir "$NEW_BASELINE_CAPTURE" --output-dir "$NEW_DRAFT_REFERENCE"
+```
+
+Capture the candidate with the same command and its own worker/commit/display/
+new output path. `prepare` always creates **DRAFT**, including `index.html`,
+reference PNGs and hash-bound policies. Freeze the manifest before comparison:
+
+```sh
+python3 tools/qa/x11_matrix.py compare \
+  --capture-dir "$CANDIDATE_CAPTURE" --reference-dir "$FROZEN_REFERENCE" \
+  --manifest-sha256 "$FROZEN_MANIFEST_DIGEST" --output-dir "$NEW_COMPARISON"
+```
+
+A complete match to a draft returns **2 / APPROVAL_REQUIRED**, not PASS. Actual
+mismatches return 1 / FAIL. Only a genuinely approved reference manifest with
+its approval record and newly frozen digest can yield suite PASS; no command
+approves or regenerates a reference automatically. Suite PASS is still not
+whole G132 approval. Preserve `matrix.json`, per-case reports/diffs and input/
+worker/adapter/output identities. New output paths prevent reference overwrite;
+completed unchanged captures can be prepared/compared again without rerunning
+the emulator.
+
+An Xvfb/Openbox client is a real SDL X11 window, not dummy output, but its
+coverage is **virtual X11 with software/Mesa**, not a physical GPU, macOS Cocoa,
+Windows, true HiDPI or the separate native CRT presenter. Those targets remain
+separate automation work/environment blockers. Tooltip cases still need fixed
+pointer placement/timing and reviewed masks for measured FPS digits; CPU-speed
+menus need controlled UI actions and observed state. Do not infer those from
+the static toggle matrix or ask a human to repeat them instead.
