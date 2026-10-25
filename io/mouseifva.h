@@ -14,6 +14,7 @@ typedef struct {
 enum {
 	MOUSEIFVA_JOYPAD = 0,
 	MOUSEIFVA_MOUSE,
+	MOUSEIFVA_NONE, // M136: nothing connected (the default)
 };
 
 #ifdef __cplusplus

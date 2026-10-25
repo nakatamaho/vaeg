@@ -359,7 +359,7 @@ static void usage(const char *progname) {
 	printf("\t--effect unfiltered|linear|scanline|crt-lite\n");
 	printf("\t--rotate none|right\n");
 	printf("\t--scaling native|fit|fit-8dot|integer|stretch\n");
-	printf("\t--controller joystick|mouse\n");
+	printf("\t--controller none|joystick|mouse\n");
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
@@ -996,7 +996,9 @@ static BYTE cli_scaling(UINT value) {
 }
 
 static UINT8 cli_controller(UINT value) {
-	return ((value == VAEG_CLI_CONTROLLER_MOUSE) ? MOUSEIFVA_MOUSE : MOUSEIFVA_JOYPAD);
+	return ((value == VAEG_CLI_CONTROLLER_MOUSE)      ? MOUSEIFVA_MOUSE
+	        : (value == VAEG_CLI_CONTROLLER_JOYSTICK) ? MOUSEIFVA_JOYPAD
+	                                                  : MOUSEIFVA_NONE);
 }
 
 static const char *cli_keyboard_layout(UINT value) {

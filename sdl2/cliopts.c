@@ -543,9 +543,11 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				options->controller = VAEG_CLI_CONTROLLER_JOYSTICK;
 			} else if (name_equal(value, "mouse")) {
 				options->controller = VAEG_CLI_CONTROLLER_MOUSE;
+			} else if (name_equal(value, "none")) {
+				options->controller = VAEG_CLI_CONTROLLER_NONE;
 			} else {
-				return (set_error(error, error_size, "--controller accepts only joystick or mouse",
-				                  value));
+				return (set_error(error, error_size,
+				                  "--controller accepts only none, joystick or mouse", value));
 			}
 		} else if (!strcmp(argument, "--keyboard-layout")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);

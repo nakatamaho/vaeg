@@ -1590,6 +1590,21 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M136 — cursor keys assigned to an absent joystick or mouse were lost
+
+- **Symptom/scope:** with カーソル割り当て set to ジョイスティック (or マウス)
+  while the controller port held the other device, the cursor keys (and
+  keypad 8/4/6/2) reached neither the keyboard nor the guest.
+- **Demonstrated cause:** `keystat_keydown()` diverted those keys to the
+  joystick/mouse state whenever the assignment was set, but only the
+  matching device on the port reads that state.
+- **Correction:** the keys are diverted only while the matching device is on
+  the port; otherwise they stay keys.
+- **Verification:** selftest `controller port` (one mutation caught).
+- **Milestone/task/commit:** M136,
+  [M136 task](../agents/tasks/M136_controller_port_none.md),
+  [db0d78cb](https://github.com/nakatamaho/vaeg/commit/db0d78cba992c6a434c05b491f1728c581189afa).
+
 ### M135 — compatible-mode code ran at the Z80's clock counts
 
 - **Symptom/scope:** compatible (uPD70008) mode code ran up to about 1.5 times too fast in vaeg on both models. Branches, memory accesses and CALL/RET were too fast; register instructions such as `ADD HL,rr`, `INC rr` and `EXX` were too slow by up to about 4 times. Software tuned in vaeg, such as a port running Z80 programs in compatible mode, ran slower on the machines (issue #62).
@@ -1604,6 +1619,7 @@ separate parity correction or move it to Open Defects.
 
   ctest 119/119; `--selftest` passes.
 - **Milestone/task/commit:** M135, [M135 task](../agents/tasks/M135_compat_mode_timing.md).
+
 ### M134 — hidden text blanked the V1/V2 monochrome graphics; the VA's blank key blocks were missing
 
 - **Symptom/scope:** V1/V2 software that hides the text with `OUT 53h` bit 0
