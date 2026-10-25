@@ -1605,6 +1605,21 @@ separate parity correction or move it to Open Defects.
   [M136 task](../agents/tasks/M136_controller_port_none.md),
   [db0d78cb](https://github.com/nakatamaho/vaeg/commit/db0d78cba992c6a434c05b491f1728c581189afa).
 
+### M135 — compatible-mode code ran at the Z80's clock counts
+
+- **Symptom/scope:** compatible (uPD70008) mode code ran up to about 1.5 times too fast in vaeg on both models. Branches, memory accesses and CALL/RET were too fast; register instructions such as `ADD HL,rr`, `INC rr` and `EXX` were too slow by up to about 4 times. Software tuned in vaeg, such as a port running Z80 programs in compatible mode, ran slower on the machines (issue #62).
+- **Demonstrated cause:** the adapter charged the vendored core's Z80 cycle counts. It also charged one memory wait for every byte, code and 16-bit operands included. Z80TIME 1 and 2 on the PC-88VA and PC-88VA2 show:
+  - instruction times close to the V30's microcode, not the Z80's;
+  - one wait per aligned code word and per 16-bit operand;
+  - BRKEM, CALLN and RETEM 9-10 clocks longer than charged.
+- **Correction:** `cpu/upd9002_upd70008.cpp` charges the measured cost of each instruction class (prefix, opcode, taken or not), keeping the core's cycles for I/O, HALT and interrupt acknowledge. Memory waits are charged word-wise. BRKEM and CALLN cost 47 clocks, RETEM 37. M132's H/S scale applies on top.
+- **Verification:** vaeg divided by the photographs, per row:
+  - Z80TIME 2: 0.98-1.03 on both models for every compatible-mode row (were 0.57-3.9 per instruction);
+  - Z80TIME 1: 0.96-1.02.
+
+  ctest 119/119; `--selftest` passes.
+- **Milestone/task/commit:** M135, [M135 task](../agents/tasks/M135_compat_mode_timing.md).
+
 ### M134 — hidden text blanked the V1/V2 monochrome graphics; the VA's blank key blocks were missing
 
 - **Symptom/scope:** V1/V2 software that hides the text with `OUT 53h` bit 0
