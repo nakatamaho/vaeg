@@ -1664,6 +1664,19 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M138 — the Windows-native build failed on a Japanese system
+
+- **Symptom/scope:** the MSYS2 MINGW64 build on Japanese Windows stopped in
+  `tools/release/build-static-librashader.py` with a decode error.
+- **Demonstrated cause:** the script read UTF-8 license files and Cargo
+  output with Python's default encoding, the locale code page (cp932).
+- **Correction:** every text read, write and command output names UTF-8;
+  BUILD.md documents MSYS2's rustup (the build needs Rust 1.88.0 exactly).
+- **Verification:** reporter's MSYS2 build (gate G138).
+- **Milestone/task/commit:** M138,
+  [M138 task](../agents/tasks/M138_msys2_native_build.md),
+  [f4ff0629](https://github.com/nakatamaho/vaeg/commit/f4ff0629355882f67f63979643e336fc5d8f617b).
+
 ### M136 — cursor keys assigned to an absent joystick or mouse were lost
 
 - **Symptom/scope:** with カーソル割り当て set to ジョイスティック (or マウス)
