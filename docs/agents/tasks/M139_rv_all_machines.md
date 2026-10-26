@@ -54,3 +54,15 @@ lines on white on the VA, the VA2 and the PC-8801mkIISR model.
 - Linux release, the demonstration with `--nowait`: CARIGRAPH is black lines
   on white booted as the VA and as the PC-8801mkIISR model (a ROM set under
   `extra/`), frames 19800 and 20600.
+- `tools/release/build-mingw-static-container.sh --commit
+  ef3557f96e8bca47bf76cd57ee4d7cd4edca93bd`: exit 0, Windows system DLL
+  imports only; `vaeg.exe` SHA-256
+  `643119193f714fe9cdb753409cf2f35965b0a027347751ab20037635e287e79f`.
+
+## Note on the reference emulators
+
+The maintainer (2026-10-25): M88, X88000 (and QUASI88, whose colour-mode
+condition M129 followed) are therefore wrong on this point too. Behaviour
+taken from them is a hypothesis until hardware confirms it; M134's PC-8801
+hidden-text rule (backgrounds hidden, colours kept) also rests on M88 and
+remains unconfirmed on a real PC-8801.
