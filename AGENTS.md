@@ -23,7 +23,7 @@ is abandoned; this fork is the living tree.
 
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
-uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
+uses `cpu/upd9002/` for the VA native CPU instruction core, the built-in CPU
 register model in `io/upd9002_regs.*`, the uPD70008-compatible main-CPU
 adapter in `cpu/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
 `io/subsystem.cpp`, the shared suzukiplan-backed instruction implementation

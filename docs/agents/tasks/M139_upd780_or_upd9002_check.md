@@ -29,7 +29,10 @@ CPU-role implementation and local unit/state validation complete. Final G139
 is BLOCKED: the private guest passes CPU identification but stops later; demo
 compatibility, media regression and clean MinGW handoff are not accepted.
 Branch: `topic/m139-upd780-or-upd9002-check`.
-Base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
+Investigation base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
+Implementation source: [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
+The development worker was built from the implementation working tree before
+that commit; its embedded base identity is not relabeled as a clean build.
 
 ## Implementation authorization
 

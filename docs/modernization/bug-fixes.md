@@ -1686,8 +1686,9 @@ separate parity correction or move it to Open Defects.
   fatal stop remains unresolved below: this fixes the identity condition,
   not complete demo compatibility or physical-device timing equivalence.
 - **Milestone/task:** [M139 implementation validation](../agents/tasks/M139_upd780_or_upd9002_check.md#implementation-validation).
-  [Investigation commit f9dc961d](https://github.com/nakatamaho/vaeg/commit/f9dc961d423b31d3b6c652530d2091b7255d73e4);
-  implementation gate remains blocked, not accepted.
+  [Investigation commit f9dc961d](https://github.com/nakatamaho/vaeg/commit/f9dc961d423b31d3b6c652530d2091b7255d73e4).
+- **Fixing commit:** [3053ee65](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
+  The implementation gate remains blocked, not accepted.
 
 ### M136 — cursor keys assigned to an absent joystick or mouse were lost
 
