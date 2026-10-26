@@ -45,7 +45,7 @@ table at 7E00h.
 | 2 ORDER | aliens and chequered sprites over G1's blue stripes, grey G0 bars across them; order 1 G0 > sprites > G1, 2 sprites > G0 > G1, 3 G0 > G1 > sprites (port 0106h) | UP or DOWN: the order |
 | 3 LINE | N sprites on the same 16 lines (from line 120), each with G1 marks of its colour above and below where its left edge should be: a sprite missing shows its marks only. Sprite 0 (in front) is on the right; each shows at least its left part. Kinds, by bytes of image a line: C16 (16 colours, 16 sprite dots: a shot, 8 bytes), C32 (32 dots: a 16-dot alien, 16 bytes), C64 (two aliens, 32 bytes), M32 (one colour, 32 dots, 4 bytes), M64 (8 bytes), M128 (16 bytes). The first line gives SPROV (bit 6 sprite over, bit 5 collision, bits 4-0 the first sprite over; FF: no result) and the TSP status's SC (20) at each VRTC | LEFT, RIGHT: N (1-31); UP or DOWN: the kind; H: HSPN 31, 15, 7, 3 |
 | 4 MOVE | N sprites (24 at first) moving, the descriptors written at each VRTC | as on 3 |
-| 5 TVRAM | 1024-byte blocks in 600 VRTCs (more is faster): CPU byte writes and reads of TVRAM with 31 sprites shown, writes with the sprites off (SPROFF), and G1 writes for comparison | |
+| 5 TVRAM | 1024-byte blocks in 600 VRTCs (more is faster), about 100 s: A-D byte loops (MOV and a loop): TVRAM writes and reads with 31 sprites shown, writes with SPROFF, G1 writes; E-G word writes (REP MOVSW from main RAM): TVRAM with 31 sprites, with SPROFF, G1; H, I 128-byte REP MOVSW chunks done only while the TSP status's VB (bit 6) is set, TVRAM and G1; J word writes to TVRAM with the text display on (DSPON, kept on afterwards). G1, with GVRAM's one wait, is the yardstick | |
 
 SPACE goes to the next screen, after 5 to 1 again. J, L, I and K work as
 the arrows. The program needs a 15 kHz screen and memory up to segment
@@ -74,7 +74,11 @@ directory (the FreeDOS-88VA msdos4-va.2 disk, MIT, with TSPSPR.COM added).
   separate a cost a sprite from a cost a byte (M64 and C16, M128 and C32
   have the same bytes a line), and D (the text display on) shows what
   the text's accesses take.
-- What a TVRAM access costs the CPU with sprites shown (screen 5).
+- What a TVRAM access costs the CPU (screen 5): the manual gives at least
+  2 waits, normally 7-13; by bytes and by words, with sprites shown or
+  off, with the text display on, and in the vertical blank only.
 
 vaeg (main, 2026-10-26) draws every sprite of a line (no per-line limit),
-returns no SPROV result (FF) and gives TVRAM the speed of GVRAM.
+returns no SPROV result (FF) and gives TVRAM no wait (rows A-G, J:
+2492, 2460, 2492, 2432, 16266, 16267, 15056, 16267 on both models); its
+VB bit lasts about 5 chunks a frame (H, I: 3005).

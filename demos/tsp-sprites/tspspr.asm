@@ -74,6 +74,7 @@ mx		equ	tab + 256	; screen 4: places and steps
 my		equ	mx + MAX * 2
 mdx		equ	my + MAX * 2
 mdy		equ	mdx + MAX * 2
+ZEROS		equ	0c400h		; screen 5: 1024 bytes of zeros
 
 start:		cld
 		mov	dx,s_banner
@@ -642,22 +643,8 @@ frame:		mov	ax,[tick]
 		and	al,ah
 		test	al,K_DSPON
 		jz	.h
-		cmp	byte [dspon],0
-		jne	.h
 		push	ax
-		mov	byte [dspon],1
-		mov	al,12h			; DSPON: the table at 7F00h
-		call	tsp_cmd
-		mov	al,7fh
-		call	tsp_prm
-		xor	al,al
-		call	tsp_prm
-		xor	al,al
-		call	tsp_prm
-		mov	al,15h			; the cursor off again
-		call	tsp_cmd
-		mov	al,0f8h
-		call	tsp_prm
+		call	dspon_once
 		pop	ax
 .h:		test	al,K_HSPN
 		jz	.r
@@ -670,6 +657,24 @@ frame:		mov	ax,[tick]
 .set:		mov	[hspn],al
 		call	spron
 		pop	ax
+.r:		ret
+
+; DSPON (the table at 7F00h, the text cleared by the BIOS) unless sent.
+dspon_once:	cmp	byte [dspon],0
+		jne	.r
+		mov	byte [dspon],1
+		mov	al,12h
+		call	tsp_cmd
+		mov	al,7fh
+		call	tsp_prm
+		xor	al,al
+		call	tsp_prm
+		xor	al,al
+		call	tsp_prm
+		mov	al,15h			; the cursor off again
+		call	tsp_cmd
+		mov	al,0f8h
+		jmp	tsp_prm
 .r:		ret
 
 ; ---------------------------------------------------------------------------
@@ -1265,26 +1270,44 @@ sprov:		mov	al,81h
 		ret
 
 ; ---------------------------------------------------------------------------
-; 5 TVRAM: 1024-byte blocks in FRAMES VRTCs (more is faster).
+; 5 TVRAM: 1024-byte blocks in FRAMES VRTCs (more is faster), as bytes
+; (B: MOV, a loop) or words (W: REP MOVSW from main RAM); TVRAM with 31
+; aliens shown, without sprites (SPROFF) and with the text display on
+; (DSPON, kept after), G1 for comparison; and VB rows: 128-byte REP MOVSW
+; chunks done while the TSP status's VB (bit 6) is set, in FRAMES VRTCs.
 
-N_TESTS		equ	4
+N_TESTS		equ	10
+M_OFF		equ	1		; row modes: SPROFF before, SPRON after
+M_DSPON		equ	2		; DSPON before
+M_VB		equ	4		; the value: [vb_chunks]
 tvram_screen:	mov	si,s_tvram
 		mov	dx,s_tvram_help
 		call	screen
+		mov	di,ZEROS		; the source of the word rows
+		xor	ax,ax
+		mov	cx,512
+		rep	stosw
 		mov	word [n],MAX		; 31 aliens standing
 		mov	byte [kind],0
 		mov	byte [moving],0
 		call	layout
 		xor	bx,bx
 .test:		push	bx
-		cmp	bx,2 * 2		; the third row: sprites off
-		jne	.on
+		mov	word [vb_chunks],0
+		test	byte [test_modes + bx],M_OFF
+		jz	.text
 		mov	al,83h
 		call	tsp_cmd
-.on:		mov	bx,[tests + bx]
+.text:		test	byte [test_modes + bx],M_DSPON
+		jz	.run
+		call	dspon_once
+.run:		mov	bx,[tests + bx]
 		call	run
 		pop	bx
-		push	bx
+		test	byte [test_modes + bx],M_VB
+		jz	.show
+		mov	ax,[vb_chunks]
+.show:		push	bx
 		push	ax
 		mov	di,line
 		mov	si,[test_names + bx]
@@ -1296,8 +1319,8 @@ tvram_screen:	mov	si,s_tvram
 		add	bx,4
 		call	put_line
 		pop	bx
-		cmp	bx,2 * 2
-		jne	.next
+		test	byte [test_modes + bx],M_OFF
+		jz	.next
 		push	bx
 		call	spron
 		pop	bx
@@ -1306,7 +1329,7 @@ tvram_screen:	mov	si,s_tvram
 		jb	.test
 		mov	si,s_tvram_done
 		mov	byte [colour],RED
-		mov	bx,9
+		mov	bx,3
 		call	text_line
 .frame:		call	frame
 		test	al,K_NEXT
@@ -1360,9 +1383,53 @@ t_tv_read:	call	map_tvram
 .loop:		LOOP1K	[cs:tv_seg], 0
 t_g1_write:	LOOP1K	[cs:g1_seg], 1
 
+%macro MOVSW1K 1			; segment: 512 words from ZEROS
+		push	es
+		mov	es,%1
+		xor	di,di
+		mov	si,ZEROS
+		mov	cx,512
+		rep	movsw
+		pop	es
+%endmacro
+t_tv_movsw:	call	map_tvram
+		MOVSW1K	[cs:tv_seg]
+		jmp	map_gvram
+t_g1_movsw:	MOVSW1K	[cs:g1_seg]
+		ret
+
+; The next VB, then 128-byte chunks (REP MOVSW) while it lasts, counted
+; in vb_chunks (interrupts disabled meanwhile).
+%macro VB_CHUNKS 1			; segment
+		push	es
+		mov	es,%1
+		mov	dx,0142h
+%%wait:		in	al,dx
+		test	al,40h
+		jz	%%wait
+%%chunk:	xor	di,di
+		mov	si,ZEROS
+		mov	cx,64
+		rep	movsw
+		inc	word [vb_chunks]
+		in	al,dx
+		test	al,40h
+		jnz	%%chunk
+		pop	es
+%endmacro
+t_tv_vb:	call	map_tvram
+		VB_CHUNKS [cs:tv_seg]
+		jmp	map_gvram
+t_g1_vb:	cli
+		VB_CHUNKS [cs:g1_seg]
+		sti
+		ret
+
 ; ---------------------------------------------------------------------------
-tests		dw	t_tv_write, t_tv_read, t_tv_write, t_g1_write
-test_names	dw	s_ta, s_tb, s_tc, s_td
+tests		dw	t_tv_write, t_tv_read, t_tv_write, t_g1_write, t_tv_movsw
+		dw	t_tv_movsw, t_g1_movsw, t_tv_vb, t_g1_vb, t_tv_movsw
+test_modes	dw	0, 0, M_OFF, 0, 0, M_OFF, 0, M_VB, M_VB, M_DSPON
+test_names	dw	s_ta, s_tb, s_tc, s_td, s_te, s_tf, s_tg, s_th, s_ti, s_tj
 orders		dw	0b9ah, 0ba9h, 09bah
 order_names	dw	s_order1, s_order2, s_order3
 N_KINDS		equ	6
@@ -1382,7 +1449,7 @@ s_order_help	db	'UP OR DOWN: ORDER  SPACE NEXT', 0
 s_line		db	'TSPSPR 3 LINE', 0
 s_move		db	'TSPSPR 4 MOVE', 0
 s_line_help	db	'LEFT RIGHT N  UP KIND  H HSPN  SPACE NEXT', 0
-s_tvram		db	'TSPSPR 5 TVRAM 600 VRTC', 0
+s_tvram		db	'TSPSPR 5 TVRAM 600 VRTC (ABOUT 100 S)', 0
 s_tvram_help	db	'1024-BYTE BLOCKS: MORE IS FASTER', 0
 s_tvram_done	db	'SPACE: AGAIN FROM 1', 0
 s_d		db	'D ', 0
@@ -1403,10 +1470,16 @@ s_m32		db	'M32', 0
 s_c64		db	'C64', 0
 s_m64		db	'M64', 0
 s_m128		db	'M128', 0
-s_ta		db	'TV WRITE 31 ON   ', 0
-s_tb		db	'TV READ 31 ON    ', 0
-s_tc		db	'TV WRITE OFF     ', 0
-s_td		db	'G1 WRITE         ', 0
+s_ta		db	'A TV B WRITE 31 ON  ', 0
+s_tb		db	'B TV B READ 31 ON   ', 0
+s_tc		db	'C TV B WRITE OFF    ', 0
+s_td		db	'D G1 B WRITE        ', 0
+s_te		db	'E TV W WRITE 31 ON  ', 0
+s_tf		db	'F TV W WRITE OFF    ', 0
+s_tg		db	'G G1 W WRITE        ', 0
+s_th		db	'H TV W VB 128-BYTE  ', 0
+s_ti		db	'I G1 W VB 128-BYTE  ', 0
+s_tj		db	'J TV W TEXT ON      ', 0
 
 sync224		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0e0h,0,2,4
 		align	2
@@ -1419,6 +1492,7 @@ g1_seg		dw	GV_G1 + (LINES - 7) * LINE_BYTES / 16	; (G1's last lines)
 tick		dw	0
 t0		dw	0
 count		dw	0
+vb_chunks	dw	0
 ink		dw	0
 order		dw	0
 xoff		dw	0
