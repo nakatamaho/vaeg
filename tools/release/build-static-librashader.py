@@ -48,7 +48,8 @@ def read_notice(path):
 
 
 def run(args, cwd):
-    return subprocess.check_output(args, cwd=cwd, text=True)
+    # UTF-8 whatever the host code page (cp932 on Japanese Windows).
+    return subprocess.check_output(args, cwd=cwd, text=True, encoding="utf-8")
 
 
 def mingw_gcc_release(source):
@@ -70,7 +71,8 @@ def mingw_gcc_release(source):
             try:
                 package_version = subprocess.check_output(
                     [dpkg_query, "-W", "-f=${Version}", package],
-                    cwd=source, text=True, stderr=subprocess.DEVNULL).strip()
+                    cwd=source, text=True, encoding="utf-8",
+                    stderr=subprocess.DEVNULL).strip()
             except subprocess.CalledProcessError:
                 package_version = ""
             match = re.match(r"([0-9]+\.[0-9]+\.[0-9]+)", package_version)
@@ -126,14 +128,14 @@ def main():
             except UnicodeDecodeError:
                 continue
         if package["name"].startswith("librashader"):
-            texts = [("LICENSE.md (MPL selected)", (source / "LICENSE.md").read_text())]
+            texts = [("LICENSE.md (MPL selected)", (source / "LICENSE.md").read_text(encoding="utf-8"))]
         # Some crates omit workspace-root licenses from their source archive.
         # Retrieve only at the source revision recorded by Cargo, never at HEAD.
         if not texts:
             vcs_file = root / ".cargo_vcs_info.json"
             repository = (package.get("repository") or "").removesuffix(".git")
             if vcs_file.exists() and repository.startswith("https://github.com/"):
-                revision = json.loads(vcs_file.read_text())["git"]["sha1"]
+                revision = json.loads(vcs_file.read_text(encoding="utf-8"))["git"]["sha1"]
                 prefix = repository.replace("https://github.com/", "https://raw.githubusercontent.com/") + "/" + revision + "/"
                 for name in ("LICENSE-MIT", "LICENSE-APACHE", "LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING", "LICENSES/MIT.txt", "LICENSES/Apache-2.0.txt"):
                     cached = output / "upstream-notices" / (package["name"] + "-" + revision + "-" + name.replace("/", "_"))
@@ -153,8 +155,8 @@ def main():
             # no standalone notice, including at their recorded Git revisions.
             # Preserve the declaration and source reference, without inventing
             # a copyright holder, and include the standard MIT grant text.
-            mit = (pathlib.Path(__file__).resolve().parents[2] / "external/imgui/LICENSE.txt").read_text()
-            texts.append(("Package license declaration", (root / "Cargo.toml.orig").read_text()))
+            mit = (pathlib.Path(__file__).resolve().parents[2] / "external/imgui/LICENSE.txt").read_text(encoding="utf-8")
+            texts.append(("Package license declaration", (root / "Cargo.toml.orig").read_text(encoding="utf-8")))
             texts.append(("MIT license text (no standalone upstream notice)", mit[mit.index("Permission is hereby granted"):]))
         if not texts:
             unresolved.append(package["name"] + " " + package["version"])
@@ -190,7 +192,7 @@ def main():
     if rust_notice is None:
         raise SystemExit("LIBRA_RUST_LIBRARY_NOTICE_MISSING")
     notices.append(rust_version + "\nRust standard library: https://github.com/rust-lang/rust\n" +
-                   html.unescape(re.sub(r"<[^>]*>", "", rust_notice.read_text())))
+                   html.unescape(re.sub(r"<[^>]*>", "", rust_notice.read_text(encoding="utf-8"))))
     if args.target == "x86_64-pc-windows-gnu":
         gcc_version = mingw_gcc_release(source)
         for name in ("COPYING3", "COPYING.RUNTIME"):
@@ -212,7 +214,7 @@ def main():
                 "cargo_lock_sha256": hashlib.sha256((source / "Cargo.lock").read_bytes()).hexdigest(),
                 "unresolved_notices": unresolved}
     manifest["notices_sha256"] = hashlib.sha256((output / "third-party-notices.txt").read_bytes()).hexdigest()
-    (output / "static-build.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (output / "static-build.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     if unresolved:
         raise SystemExit("LIBRA_MISSING_NOTICES: " + ", ".join(unresolved))
 
