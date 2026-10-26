@@ -43,7 +43,8 @@
 
 BENCH_SEG	equ	2000h		; this program, copied
 MEMORY_TOP	equ	3000h
-FRAMES		equ	600		; VRTCs a speed test (10 s)
+FRAMES		equ	300		; VRTCs a measurement (5 s)
+AUTO_FRAMES	equ	120		; screen 3's sweep: VRTCs a step
 LINE_BYTES	equ	160
 LINES		equ	224
 GV_G0		equ	0a000h
@@ -75,9 +76,36 @@ my		equ	mx + MAX * 2
 mdx		equ	my + MAX * 2
 mdy		equ	mdx + MAX * 2
 ZEROS		equ	0c400h		; screen 5: 1024 bytes of zeros
+RAMBUF		equ	0c800h		; and a main RAM target
+st_count	equ	0cc00h		; and the rows' statistics: count,
+st_first	equ	st_count + 2 * N_TESTS	; first value, sum of the
+st_sum		equ	st_first + 2 * N_TESTS	; deviations, minimum, maximum,
+st_min		equ	st_sum + 2 * N_TESTS	; sum of the squared deviations
+st_max		equ	st_min + 2 * N_TESTS	; (dwords)
+st_sq		equ	st_max + 2 * N_TESTS
+ST_WORDS	equ	7 * N_TESTS
 
 start:		cld
-		mov	dx,s_banner
+		mov	si,81h			; TSPSPR [P]: screen 5's passes (1-99)
+		xor	bx,bx
+.arg:		lodsb
+		cmp	al,' '
+		je	.arg
+.digit:		sub	al,'0'
+		cmp	al,9
+		ja	.argend
+		imul	bx,bx,10
+		xor	ah,ah
+		add	bx,ax
+		lodsb
+		jmp	.digit
+.argend:	or	bx,bx
+		jz	.banner
+		cmp	bx,99
+		jbe	.p
+		mov	bx,99
+.p:		mov	[passes],bx
+.banner:	mov	dx,s_banner
 		mov	ah,09h
 		int	21h
 		mov	dx,01cbh		; 15 kHz only (port 1CBh bit 3 is 1
@@ -581,6 +609,7 @@ K_DOWN		equ	08h
 K_NEXT		equ	10h
 K_DSPON		equ	20h
 K_HSPN		equ	40h
+K_AUTO		equ	80h
 scan_keys:	push	bx
 		push	dx
 		xor	bl,bl
@@ -622,8 +651,11 @@ scan_keys:	push	bx
 .ll:		test	al,10h
 		jz	.dk
 		or	bl,K_RIGHT
-.dk:		in	al,02h			; D (bit 4)
-		test	al,10h
+.dk:		in	al,02h			; A (bit 1), D (bit 4)
+		test	al,02h
+		jnz	.dd
+		or	bl,K_AUTO
+.dd:		test	al,10h
 		jnz	.done
 		or	bl,K_DSPON
 .done:		mov	al,bl
@@ -1087,7 +1119,30 @@ line_screen:	mov	si,s_line
 		mov	bx,1
 		call	put_line
 		pop	ax
-		test	al,K_NEXT
+		test	al,K_AUTO		; A: the sweep on or off
+		jz	.auto
+		xor	byte [auto],1
+		mov	word [n],1
+		mov	byte [kind],0
+		mov	word [auto_cnt],0
+		jmp	.layout
+.auto:		cmp	byte [auto],0		; the sweep: N 1-31 of each kind,
+		je	.keys			; AUTO_FRAMES each
+		inc	word [auto_cnt]
+		cmp	word [auto_cnt],AUTO_FRAMES
+		jb	.keys
+		mov	word [auto_cnt],0
+		inc	word [n]
+		cmp	word [n],MAX
+		jbe	.layout
+		mov	word [n],1
+		inc	byte [kind]
+		cmp	byte [kind],N_KINDS
+		jb	.layout
+		mov	byte [kind],0
+		mov	byte [auto],0
+		jmp	.layout
+.keys:		test	al,K_NEXT
 		jnz	.done
 		test	al,K_UP | K_DOWN
 		jz	.n
@@ -1108,7 +1163,8 @@ line_screen:	mov	si,s_line
 		jae	.frame
 		inc	word [n]
 		jmp	.layout
-.done:		call	none
+.done:		mov	byte [auto],0
+		call	none
 		jmp	flush
 
 ; Sprite i's colour (i mod 14 + 1) to CL and design (i mod 3), for BX = i.
@@ -1136,12 +1192,15 @@ colour_of:	push	ax
 layout:		call	none
 		cmp	byte [moving],0
 		jne	move_step
-		mov	dx,0			; G1's lines BAND - 8 to + 23 cleared
+		cmp	byte [marks],0		; G1's lines BAND - 8 to + 23 cleared
+		je	.clear
+		mov	dx,0
 		mov	bx,BAND - 8
 		mov	cx,LINE_BYTES
 		mov	si,32
 		xor	al,al
 		call	g1_fill
+.clear:
 		mov	bl,[kind]
 		xor	bh,bh
 		shl	bx,1
@@ -1161,8 +1220,10 @@ layout:		call	none
 		mov	dx,ax
 		xor	bx,bx
 .spr:		call	colour_of
-		mov	ax,BAND
+		mov	ax,[band]
 		call	sprite
+		cmp	byte [marks],0
+		je	.nomark
 		push	bx
 		mov	al,cl			; marks: 2 dots wide
 		shl	al,4
@@ -1177,7 +1238,7 @@ layout:		call	none
 		call	g1_fill
 		pop	cx
 		pop	bx
-		sub	dx,[space]
+.nomark:	sub	dx,[space]
 		inc	bx
 		cmp	bx,[n]
 		jb	.spr
@@ -1270,72 +1331,312 @@ sprov:		mov	al,81h
 		ret
 
 ; ---------------------------------------------------------------------------
-; 5 TVRAM: 1024-byte blocks in FRAMES VRTCs (more is faster), as bytes
-; (B: MOV, a loop) or words (W: REP MOVSW from main RAM); TVRAM with 31
-; aliens shown, without sprites (SPROFF) and with the text display on
-; (DSPON, kept after), G1 for comparison; and VB rows: 128-byte REP MOVSW
-; chunks done while the TSP status's VB (bit 6) is set, in FRAMES VRTCs.
+; 5 MEASURE: every row [passes] times (8, or TSPSPR P), the rows in turn
+; in each pass, a row's value the blocks done in FRAMES VRTCs (more is
+; faster) unless said otherwise; the table gives each row's mean, minimum,
+; maximum and standard deviation (tenths) so far. Each row sets up its
+; sprites first (layout on the band: OFF SPROFF, 31 or 8 C32, 31 M32, 31
+; C64). The text rows (DSPON) come after the others' passes, the text
+; display staying on.
 
-N_TESTS		equ	10
-M_OFF		equ	1		; row modes: SPROFF before, SPRON after
-M_DSPON		equ	2		; DSPON before
-M_VB		equ	4		; the value: [vb_chunks]
+F_VB		equ	1		; the value: [vb_chunks]
+F_ONCE		equ	2		; called once, the value in AX
+F_TEXT		equ	4		; with the text display on
+N_TESTS		equ	24
 tvram_screen:	mov	si,s_tvram
 		mov	dx,s_tvram_help
 		call	screen
+		mov	si,s_tvram_head
+		mov	byte [colour],YELLOW
+		mov	bx,1
+		call	text_line
+		mov	word [band],LINES - 16	; the sprites under rows 26-27,
+		mov	byte [marks],0		; clear of the table
 		mov	di,ZEROS		; the source of the word rows
 		xor	ax,ax
 		mov	cx,512
 		rep	stosw
-		mov	word [n],MAX		; 31 aliens standing
-		mov	byte [kind],0
-		mov	byte [moving],0
-		call	layout
+		mov	di,st_count		; the statistics
+		mov	cx,ST_WORDS
+		rep	stosw
+		xor	bx,bx			; the rows' names
+.name:		push	bx
+		call	show_row
+		pop	bx
+		add	bx,2
+		cmp	bx,N_TESTS * 2
+		jb	.name
+		mov	byte [phase],0		; 0 the rows without text, 1 with
+.phase:		mov	word [pass],0
+.pass:		inc	word [pass]
+		call	show_pass
 		xor	bx,bx
-.test:		push	bx
-		mov	word [vb_chunks],0
-		test	byte [test_modes + bx],M_OFF
-		jz	.text
-		mov	al,83h
-		call	tsp_cmd
-.text:		test	byte [test_modes + bx],M_DSPON
-		jz	.run
-		call	dspon_once
-.run:		mov	bx,[tests + bx]
-		call	run
-		pop	bx
-		test	byte [test_modes + bx],M_VB
-		jz	.show
-		mov	ax,[vb_chunks]
-.show:		push	bx
-		push	ax
-		mov	di,line
-		mov	si,[test_names + bx]
-		call	put_str
-		pop	ax
-		call	put_dec
-		mov	byte [colour],WHITE
-		shr	bx,1
-		add	bx,4
-		call	put_line
-		pop	bx
-		test	byte [test_modes + bx],M_OFF
-		jz	.next
+.test:		mov	al,[test_flags + bx]
+		and	al,F_TEXT
+		jz	.notext
+		mov	al,1
+.notext:	cmp	al,[phase]
+		jne	.next
 		push	bx
-		call	spron
+		call	measure			; AX: the value of row BX
+		pop	bx
+		push	bx
+		call	add_value
+		call	show_row
 		pop	bx
 .next:		add	bx,2
 		cmp	bx,N_TESTS * 2
 		jb	.test
-		mov	si,s_tvram_done
+		mov	ax,[pass]
+		cmp	ax,[passes]
+		jb	.pass
+		cmp	byte [phase],0
+		jne	.end
+		mov	byte [phase],1
+		call	dspon_once
+		jmp	.phase
+.end:		mov	si,s_tvram_done
 		mov	byte [colour],RED
-		mov	bx,3
+		xor	bx,bx
 		call	text_line
+		call	spron
 .frame:		call	frame
 		test	al,K_NEXT
 		jz	.frame
+		mov	word [band],BAND
+		mov	byte [marks],1
 		call	none
 		jmp	flush
+
+; Row BX: its sprites, then its value in AX.
+measure:	push	bx
+		mov	al,[test_spr + bx]
+		call	setup_sprites
+		pop	bx
+		mov	word [vb_chunks],0
+		test	byte [test_flags + bx],F_ONCE
+		jz	.run
+		jmp	[tests + bx]
+.run:		push	bx
+		mov	bx,[tests + bx]
+		call	run
+		pop	bx
+		test	byte [test_flags + bx],F_VB
+		jz	.r
+		mov	ax,[vb_chunks]
+.r:		ret
+
+; The sprites of a row: AL 0 none (SPROFF), else an index of spr_n and
+; spr_kind, standing on the band.
+setup_sprites:	or	al,al
+		jnz	.on
+		call	none
+		call	flush
+		mov	al,83h
+		jmp	tsp_cmd
+.on:		xor	ah,ah
+		mov	bx,ax
+		mov	al,[spr_n + bx]
+		mov	[n],ax
+		mov	al,[spr_kind + bx]
+		mov	[kind],al
+		mov	byte [moving],0
+		call	layout
+		jmp	spron
+
+; Row BX's statistics with value AX: deviations from the first value.
+add_value:	cmp	word [st_count + bx],0
+		jne	.more
+		mov	[st_first + bx],ax
+		mov	[st_min + bx],ax
+		mov	[st_max + bx],ax
+.more:		inc	word [st_count + bx]
+		cmp	ax,[st_min + bx]
+		jae	.mn
+		mov	[st_min + bx],ax
+.mn:		cmp	ax,[st_max + bx]
+		jbe	.mx
+		mov	[st_max + bx],ax
+.mx:		sub	ax,[st_first + bx]	; d (signed)
+		add	[st_sum + bx],ax
+		imul	ax			; d * d
+		push	bx
+		shl	bx,1
+		add	[st_sq + bx],ax
+		adc	[st_sq + bx + 2],dx
+		pop	bx
+		ret
+
+; Row BX's line: name, mean, minimum, maximum, SD (tenths).
+show_row:	mov	di,line
+		mov	si,[test_names + bx]
+		call	put_str
+		mov	cx,[st_count + bx]
+		jcxz	.out
+		mov	ax,[st_sum + bx]	; mean: first + sum / n
+		cwd
+		idiv	cx
+		add	ax,[st_first + bx]
+		call	put_dec6
+		mov	ax,[st_min + bx]
+		call	put_dec6
+		mov	ax,[st_max + bx]
+		call	put_dec6
+		call	row_sd			; AX: SD x 10, CF overflow
+		jc	.over
+		mov	cx,10
+		xor	dx,dx
+		div	cx
+		push	dx
+		mov	byte [di],' '
+		inc	di
+		push	ax			; the integer part in four columns
+		mov	al,' '
+		stosb
+		stosb
+		stosb
+		pop	ax
+		push	di
+		mov	cx,10
+.sdd:		xor	dx,dx
+		div	cx
+		add	dl,'0'
+		dec	di
+		mov	[di],dl
+		or	ax,ax
+		jnz	.sdd
+		pop	di
+		mov	al,'.'
+		stosb
+		pop	ax
+		add	al,'0'
+		stosb
+		jmp	.out
+.over:		mov	si,s_over
+		call	put_str
+.out:		mov	byte [colour],WHITE
+		shr	bx,1
+		add	bx,2
+		jmp	put_line
+
+; AX in six columns, right-aligned.
+put_dec6:	push	cx
+		push	dx
+		push	si
+		push	ax
+		mov	al,' '
+		mov	cx,6
+		rep	stosb
+		pop	ax
+		push	di
+		mov	si,10
+.d:		xor	dx,dx
+		div	si
+		add	dl,'0'
+		dec	di
+		mov	[di],dl
+		or	ax,ax
+		jnz	.d
+		pop	di
+		pop	si
+		pop	dx
+		pop	cx
+		ret
+
+; AX = 10 x the sample SD of row BX: sqrt(100 (n sum d^2 - (sum d)^2) /
+; (n (n - 1))); 0 for one value; CF set if too large.
+row_sd:		push	bx
+		mov	cx,[st_count + bx]
+		xor	ax,ax
+		cmp	cx,2
+		jb	.ok
+		mov	si,bx
+		shl	si,1
+		mov	ax,[st_sq + si]		; n sum d^2: 32 x 16 bits
+		mul	cx
+		mov	[t32],ax
+		mov	[t32 + 2],dx
+		mov	ax,[st_sq + si + 2]
+		mul	cx
+		or	dx,dx
+		jnz	.over
+		add	[t32 + 2],ax
+		jc	.over
+		mov	ax,[st_sum + bx]	; - (sum d)^2
+		imul	ax
+		sub	[t32],ax
+		sbb	[t32 + 2],dx
+		cmp	word [t32 + 2],0200h	; 100 x that must fit 32 bits
+		jae	.over
+		mov	ax,[t32 + 2]		; x 100
+		mov	dx,100
+		mul	dx
+		mov	si,ax
+		mov	ax,[t32]
+		mov	dx,100
+		mul	dx
+		add	dx,si
+		mov	si,cx			; / n (n - 1), 32-bit quotient
+		dec	si
+		push	ax
+		mov	ax,cx
+		mul	si
+		mov	si,ax
+		pop	ax
+		push	ax
+		mov	ax,dx
+		xor	dx,dx
+		div	si
+		mov	cx,ax			; the high word
+		pop	ax
+		div	si
+		mov	dx,cx
+		call	isqrt32
+.ok:		clc
+		pop	bx
+		ret
+.over:		stc
+		pop	bx
+		ret
+
+; AX = floor(sqrt(DX:AX)) (DX:AX below 2^31): Newton's method from above.
+isqrt32:	mov	[t32],ax
+		mov	[t32 + 2],dx
+		or	ax,dx
+		jz	.r
+		mov	bx,0ffffh
+.step:		mov	ax,[t32]
+		mov	dx,[t32 + 2]
+		div	bx			; n / x (below 46341 from above)
+		add	ax,bx
+		rcr	ax,1			; (x + n / x) / 2
+		cmp	ax,bx
+		jae	.done
+		mov	bx,ax
+		jmp	.step
+.done:		mov	ax,bx
+.r:		ret
+
+; The title line: the pass.
+show_pass:	mov	di,line
+		mov	si,s_tvram
+		call	put_str
+		mov	si,s_pass
+		call	put_str
+		mov	ax,[pass]
+		call	put_dec
+		mov	si,s_of
+		call	put_str
+		mov	ax,[passes]
+		call	put_dec
+		mov	si,s_text_phase
+		cmp	byte [phase],0
+		jne	.t
+		mov	si,s_empty
+.t:		call	put_str
+		mov	byte [colour],RED
+		xor	bx,bx
+		jmp	put_line
 
 ; AX = blocks of the test at BX in FRAMES VRTCs.
 run:		mov	ax,[tick]
@@ -1383,6 +1684,7 @@ t_tv_read:	call	map_tvram
 .loop:		LOOP1K	[cs:tv_seg], 0
 t_g1_write:	LOOP1K	[cs:g1_seg], 1
 
+
 %macro MOVSW1K 1			; segment: 512 words from ZEROS
 		push	es
 		mov	es,%1
@@ -1425,11 +1727,113 @@ t_g1_vb:	cli
 		sti
 		ret
 
+t_cpu:		mov	cx,1024			; ADD, DEC, JNZ (the CPU's clock)
+.l:		add	ax,bx
+		dec	cx
+		jnz	.l
+		ret
+t_ram_movsw:	push	es			; main RAM to main RAM
+		push	cs
+		pop	es
+		mov	si,ZEROS
+		mov	di,RAMBUF
+		mov	cx,512
+		rep	movsw
+		pop	es
+		ret
+t_tv_attr:	call	map_tvram		; the attribute side
+		MOVSW1K	[cs:tv_attr_seg]
+		jmp	map_gvram
+t_tv_rdw:	call	map_tvram		; TVRAM to main RAM
+		push	ds
+		push	es
+		push	cs
+		pop	es
+		mov	ds,[cs:tv_seg]
+		xor	si,si
+		mov	di,RAMBUF
+		mov	cx,512
+		rep	movsw
+		pop	es
+		pop	ds
+		jmp	map_gvram
+t_tv_stosw:	call	map_tvram
+		push	es
+		mov	es,[cs:tv_seg]
+		xor	di,di
+		xor	ax,ax
+		mov	cx,512
+		rep	stosw
+		pop	es
+		jmp	map_gvram
+t_spron:	jmp	spron			; one SPRON (4 bytes to the TSP)
+
+; AX = the vertical blank's share of a frame in thousandths, the mean of
+; VB_FRAMES frames: status polls with VB set against all polls from one
+; VB's start to the next (interrupts disabled).
+VB_FRAMES	equ	60
+t_vb_permille:	cli
+		mov	dx,0142h
+		mov	word [vb_sum],0
+		mov	cx,VB_FRAMES
+.w0:		in	al,dx			; the start of a VB
+		test	al,40h
+		jnz	.w0
+.w1:		in	al,dx
+		test	al,40h
+		jz	.w1
+.frame:		xor	si,si			; SI: polls in VB
+		xor	di,di			; DI: polls outside
+.in:		inc	si
+		in	al,dx
+		test	al,40h
+		jnz	.in
+.out:		inc	di
+		in	al,dx
+		test	al,40h
+		jz	.out
+		mov	ax,si			; 1000 SI / (SI + DI)
+		mov	bx,1000
+		mul	bx
+		add	di,si
+		div	di
+		add	[vb_sum],ax
+		mov	dx,0142h		; (MUL and DIV took DX)
+		loop	.frame
+		sti
+		mov	ax,[vb_sum]
+		xor	dx,dx
+		mov	bx,VB_FRAMES
+		div	bx
+		ret
+
 ; ---------------------------------------------------------------------------
-tests		dw	t_tv_write, t_tv_read, t_tv_write, t_g1_write, t_tv_movsw
-		dw	t_tv_movsw, t_g1_movsw, t_tv_vb, t_g1_vb, t_tv_movsw
-test_modes	dw	0, 0, M_OFF, 0, 0, M_OFF, 0, M_VB, M_VB, M_DSPON
+; Screen 5's rows: function, flags, sprites (0 off, 1 31 C32, 2 8 C32,
+; 3 31 M32, 4 31 C64), name.
+tests		dw	t_cpu, t_ram_movsw, t_g1_write, t_g1_movsw
+		dw	t_tv_write, t_tv_write, t_tv_read, t_tv_read
+		dw	t_tv_movsw, t_tv_movsw, t_tv_attr, t_tv_rdw, t_tv_stosw
+		dw	t_tv_movsw, t_tv_movsw, t_tv_movsw
+		dw	t_tv_vb, t_g1_vb, t_vb_permille, t_spron
+		dw	t_tv_movsw, t_tv_write, t_tv_vb, t_vb_permille
+test_flags	dw	0, 0, 0, 0
+		dw	0, 0, 0, 0
+		dw	0, 0, 0, 0, 0
+		dw	0, 0, 0
+		dw	F_VB, F_VB, F_ONCE, 0
+		dw	F_TEXT, F_TEXT, F_TEXT | F_VB, F_TEXT | F_ONCE
+test_spr	dw	0, 0, 0, 0
+		dw	0, 1, 0, 1
+		dw	0, 1, 1, 1, 1
+		dw	2, 3, 4
+		dw	1, 1, 1, 1
+		dw	1, 1, 1, 1
+		align	2
 test_names	dw	s_ta, s_tb, s_tc, s_td, s_te, s_tf, s_tg, s_th, s_ti, s_tj
+		dw	s_tk, s_tl, s_tm, s_tn, s_to, s_tp, s_tq, s_tr, s_ts, s_tt
+		dw	s_tu, s_tv, s_tw, s_tx
+spr_n		db	0, MAX, 8, MAX, MAX
+spr_kind	db	0, 0, 0, 2, 3
 orders		dw	0b9ah, 0ba9h, 09bah
 order_names	dw	s_order1, s_order2, s_order3
 N_KINDS		equ	6
@@ -1448,10 +1852,10 @@ s_order		db	'TSPSPR 2 ORDER', 0
 s_order_help	db	'UP OR DOWN: ORDER  SPACE NEXT', 0
 s_line		db	'TSPSPR 3 LINE', 0
 s_move		db	'TSPSPR 4 MOVE', 0
-s_line_help	db	'LEFT RIGHT N  UP KIND  H HSPN  SPACE NEXT', 0
-s_tvram		db	'TSPSPR 5 TVRAM 600 VRTC (ABOUT 100 S)', 0
-s_tvram_help	db	'1024-BYTE BLOCKS: MORE IS FASTER', 0
-s_tvram_done	db	'SPACE: AGAIN FROM 1', 0
+s_line_help	db	'LEFT RIGHT N  UP KIND  H HSPN  A SWEEP  SPACE NEXT', 0
+s_tvram		db	'TSPSPR 5 MEASURE', 0
+s_tvram_help	db	0
+s_tvram_done	db	'TSPSPR 5 DONE  SPACE: AGAIN FROM 1', 0
 s_d		db	'D ', 0
 s_l		db	' L ', 0
 s_x		db	' X ', 0
@@ -1470,16 +1874,36 @@ s_m32		db	'M32', 0
 s_c64		db	'C64', 0
 s_m64		db	'M64', 0
 s_m128		db	'M128', 0
-s_ta		db	'A TV B WRITE 31 ON  ', 0
-s_tb		db	'B TV B READ 31 ON   ', 0
-s_tc		db	'C TV B WRITE OFF    ', 0
-s_td		db	'D G1 B WRITE        ', 0
-s_te		db	'E TV W WRITE 31 ON  ', 0
-s_tf		db	'F TV W WRITE OFF    ', 0
-s_tg		db	'G G1 W WRITE        ', 0
-s_th		db	'H TV W VB 128-BYTE  ', 0
-s_ti		db	'I G1 W VB 128-BYTE  ', 0
-s_tj		db	'J TV W TEXT ON      ', 0
+s_ta		db	'A CPU ADD LOOP    ', 0
+s_tb		db	'B RAM W MOVSW     ', 0
+s_tc		db	'C G1 B WRITE      ', 0
+s_td		db	'D G1 W MOVSW      ', 0
+s_te		db	'E TV B WRITE OFF  ', 0
+s_tf		db	'F TV B WRITE 31   ', 0
+s_tg		db	'G TV B READ OFF   ', 0
+s_th		db	'H TV B READ 31    ', 0
+s_ti		db	'I TV W MOVSW OFF  ', 0
+s_tj		db	'J TV W MOVSW 31   ', 0
+s_tk		db	'K TV W ATTR 31    ', 0
+s_tl		db	'L TV W READ 31    ', 0
+s_tm		db	'M TV W STOSW 31   ', 0
+s_tn		db	'N TV W MOVSW 8    ', 0
+s_to		db	'O TV W MOVSW 31M32', 0
+s_tp		db	'P TV W MOVSW 31C64', 0
+s_tq		db	'Q TV VB 128B 31   ', 0
+s_tr		db	'R G1 VB 128B      ', 0
+s_ts		db	'S VB 1/1000 FRM 31', 0
+s_tt		db	'T SPRON CMDS 31   ', 0
+s_tu		db	'U TV W MOVSW TEXT ', 0
+s_tv		db	'V TV B WRITE TEXT ', 0
+s_tw		db	'W TV VB 128B TEXT ', 0
+s_tx		db	'X VB 1/1000 TEXT  ', 0
+s_tvram_head	db	'ROW: 1 KB BLOCKS    MEAN   MIN   MAX     SD', 0
+s_pass		db	'  PASS ', 0
+s_of		db	' OF ', 0
+s_text_phase	db	'  TEXT ON', 0
+s_empty		db	0
+s_over		db	' *****', 0
 
 sync224		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0e0h,0,2,4
 		align	2
@@ -1488,6 +1912,13 @@ frames4		dw	0,0,160,447,0,0,0,0,0,224,0,0,0,0,0,0
 		dw	0,0,160,0,0,0,0,0,0,224,0,0,0,0,0,0
 palette		dw	PALETTE32
 tv_seg		dw	0a000h + SCRATCH / 16
+tv_attr_seg	dw	0a000h + (8000h + SCRATCH) / 16
+passes		dw	8
+band		dw	BAND
+pass		dw	0
+vb_sum		dw	0
+auto_cnt	dw	0
+t32		dw	0, 0
 g1_seg		dw	GV_G1 + (LINES - 7) * LINE_BYTES / 16	; (G1's last lines)
 tick		dw	0
 t0		dw	0
@@ -1505,6 +1936,9 @@ keys		db	0
 kind		db	0
 moving		db	0
 dspon		db	0
+marks		db	1
+auto		db	0
+phase		db	0
 hspn		db	31
 ov		db	0
 sc		db	0
