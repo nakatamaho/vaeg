@@ -354,6 +354,8 @@ static int memory_mode_selftest(void) {
 }
 #endif
 
+int upd780_main_role_selftest(void);
+
 int upd9002_brkem_upd70008_main(void) {
 #if defined(VAEG_UPD9002_M76_TESTING)
 	if (upd9002_upd70008_compat_selftest() != SUCCESS) {
@@ -362,6 +364,9 @@ int upd9002_brkem_upd70008_main(void) {
 	}
 	if (upd9002_upd70008_alt_regs_selftest() != SUCCESS) {
 		fprintf(stderr, "upd9002-brkem-upd70008: alternate register storage failed\n");
+		return FAILURE;
+	}
+	if (upd780_main_role_selftest() != SUCCESS) {
 		return FAILURE;
 	}
 	if (upd9002_upd70008_cpu_speed_selftest() != SUCCESS) {

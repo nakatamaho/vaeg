@@ -23,12 +23,159 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M139 — uPD780 or uPD9002 identification investigation
 
-Status: investigation complete; G139 findings review pending. No emulator
-correction authorized or implemented in this task.
+Status: findings accepted; implementation authorized by the maintainer's
+subsequent request to select uPD9002 on VA/VA2 and uPD780 on other machines.
+CPU-role implementation and local unit/state validation complete. Final G139
+is BLOCKED: the private guest passes CPU identification but stops later; demo
+compatibility, media regression and clean MinGW handoff are not accepted.
 Branch: `topic/m139-upd780-or-upd9002-check`.
 Base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
 
-## Request and scope
+## Implementation authorization
+
+The maintainer accepted the diagnosis and explicitly extended M139 to automatic
+CPU-role selection: VA/VA2 use uPD9002 native/compatible execution plus the FDC
+uPD780; other selected machines use a separate main uPD780 plus the FDC uPD780.
+The two uPD780 instances share instruction semantics, not registers, buses or
+clocks. Preserve VA native firmware bootstrap/device bridging where the existing
+board implementation needs it; do not expose VA-only instructions as guest
+uPD780 instructions. Validate role selection, flags, timing, reset and real
+state-file round trips, then reproduce the unmodified guest progressing beyond
+its rejection. The standard implementation/media/clean-build gate applies;
+no gate acceptance is inferred from the investigation's PASS results below.
+
+## Implemented CPU roles
+
+| Selected/applied machine | Main guest instruction core | FDC instruction core |
+| --- | --- | --- |
+| VA / VA2, including their extra-ROM entries | uPD9002 native and its independent uPD70008-compatible instance | independent uPD780 |
+| PC-8801 / PC-8001 family | independent main uPD780 | independent FDC uPD780 |
+
+`MainCpuBridge` retains the existing board firmware bootstrap/device bridge,
+but owns separate compatible and main-uPD780 instances. The main uPD780 calls
+exactly the FDC's `Upd780ConfigureCore`; it does not share the FDC's registers,
+bus, clock counter or interrupt state. Selection uses the successfully applied
+machine flags, not a pending configuration name; VA fallback after a failed
+ROM selection therefore remains VA. Reset clears both main instances; state
+load initializes the appropriate instance from the applied machine.
+
+Non-VA guest instructions use ordinary core T states instead of M135's VA
+cost table. H/S, CPU multiplier and speed remain in the main clock domain;
+FDC timing is unchanged. Byte-bus accesses do not share the VA word-fetch wait.
+VA-only CALLN/RETEM interception is disabled on the main uPD780; undefined ED
+instructions use the same behavior as the FDC rather than M102's native-vector
+reads. VA/VA2 retain their measured profiles and native transition handling.
+This does not replace the entire ROM-substituted board with an independent
+PC-8801 chipset or establish physical-device timing equivalence for its
+remaining VA firmware services.
+
+`MCPUROLE` is a new one-byte, version-1 state section. Preflight rejects a
+present malformed section with `M139_MAIN_CPU_STATE_PAYLOAD`, or a different
+current CPU family with `M139_MAIN_CPU_STATE_MACHINE_MISMATCH`, before any
+machine state is reset. It identifies CPU family, not an exact ROM/machine
+revision. The `UPD9Z80` name/layout remain unchanged. Legacy files without
+`MCPUROLE` continue using the currently applied machine, so callers must still
+select the same machine/ROMs; their missing identity cannot prove a match.
+
+## Implementation validation
+
+### Local build and tests
+
+A new out-of-tree macOS Release build succeeds with recording ON, static
+FFmpeg ON, local bundled MP4 encoders OFF and tests/integration trace ON.
+It uses the already reviewed minimal recording SDK. Librashader is OFF in this
+software-integration build; no CRT/GPU/presenter coverage is claimed.
+
+```sh
+PKG_CONFIG_PATH="$RECORDING_SDK/lib/pkgconfig" cmake -S . -B "$BUILD" \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=26.6 \
+  -DVAEG_ENABLE_RECORDING=ON -DVAEG_STATIC_FFMPEG=ON \
+  -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF -DVAEG_ENABLE_LIBRASHADER=OFF \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON
+cmake --build "$BUILD" -j 8
+ctest --test-dir "$BUILD" -j 8 --output-on-failure
+```
+
+Build/configure exit 0. The initial configure omitted required integration
+trace and correctly failed; enabling the required test instrumentation resolved
+that setup failure without disabling tests. Full CTest exits 0: **138 PASS,
+10 SKIP, 0 FAIL** (148 registered tests, 97.50 s). Skips are the unbound
+private BASIC case, optional assembler probes/SST corpus/hardware encoder
+probe and unavailable shell compression fixtures, not compatibility passes.
+
+New `main_cpu_roles.c` fixtures exercise VA → PC-8801 → PC-8001 → VA → PC-8801
+reset selection, BIT/H, four-T-state NOP, S scaling to eight clocks, S plus
+50% speed to sixteen, undefined ED isolation and no CALLN/RETEM on uPD780.
+The final H/S/speed fixture additions are followed by a focused rebuild and
+CTest of `vaeg_upd9002_brkem_upd70008` and `vaeg_romless_tests`: both PASS,
+exit 0 (30.26 s). Other emulator instruction inputs were unchanged. A final
+post-format focused recheck also passes, exit 0 (30.27 s); the bounded guest
+probe is repeated on that development worker rather than silently promoting
+an earlier worker's private results.
+
+New ROM-less integration cases write and load actual state files for both
+CPU families, execute BIT after restoration, and compare FDC state before and
+after main-CPU execution/restoration. Each cross-family negative first passes
+preflight, changes only the current CPU role, requires the exact stable mismatch
+code, and proves failed load did not reset the PC. Legacy same-machine files
+with only `MCPUROLE` removed also load. Existing VA CALLN/RETEM, flags, timing,
+FDC, state and recording checks remain in the full suite.
+
+### Private guest: CPU identity PASS; demo drawing FAIL
+
+The unmodified fixture is run with MA selected and staged inputs. A bounded
+existing M74 debug script observes the guest's own check, rather than injecting
+replacement identification code. It captures H=1 after BIT, and its trace
+records the identification routine writing **16** instead of the original 0.
+Thus the specific VA-rejection condition is corrected in actual guest execution,
+not just in an isolated core probe. The capture then reaches a later guest
+fatal-stop path. All scripts, raw traces/registers/captures, worker digest and
+exact commands remain in task scratch outside Git. The final development
+worker SHA-256 is
+`710171ed4aaf4ecab06d4224895b7c17ebf6230118b2254b1d7ffd07abad7bdd`;
+its bounded probe exits 0 with both H=1/result=16 checks passing and the
+later stop captured. These are development-run results, not clean-candidate
+or complete-guest acceptance. Earlier worker results remain separately bound
+to their own digests.
+
+The later screen remains solid red at frames 5400, 9000 and 12000. A bounded
+trace establishes that the guest is in its own terminal self-loop, not merely
+waiting for the next animation frame. Explicitly requesting three BASIC file
+channels instead of accepting the boot prompt's default does not resolve it.
+The cause of this later stop is **not established**; it is not attributed to
+the FDC, ROMs, timer, I/O bridge or CPU timing without further evidence.
+No disk/ROM patch or guest-check bypass was used. The staged disk remains
+byte-identical to the original after these probes. This is SDL dummy/software
+content evidence, not an actual presenter/window or physical-display check.
+
+One diagnostic script attempt lacked an event-bound capture and another lacked
+a pre-created output directory; both setup failures are retained. The corrected
+bounded script exits 0 and captures both the successful CPU check and later
+stop; zero exit is not promoted to a demo PASS.
+
+### Implementation repository checks
+
+Encoding, EOL, case, Markdown-comment, strict milestone selftest (49 cases),
+milestone audit and `git diff --cached --check` all pass with exit 0. The full
+clang-format manifest check exits 1 on pre-existing baseline violations. A
+line-mapped comparison against investigation commit `f9dc961d` establishes zero
+new formatting findings in the changed source files; the new test is fully
+formatted with clang-format-mp-22. Unrelated baseline lines are not reformatted.
+That is not a claim that the full formatter passes.
+
+### Gate still blocked
+
+Do not merge or call M139 complete. Continue investigating the later guest
+stop locally; no routine screenshot inspection or diagnosis is delegated to
+the maintainer. The implementation gate still requires private-guest drawing,
+the standard VA/V3/demo/OS checks, bundled demo/media build regressions, and a
+clean static MinGW handoff of the pushed candidate. Those checks have not been
+replaced by the CPU/unit PASS results above. No hosted CI, release publication,
+private-asset upload or milestone-directory cleanup is requested. Progress
+commits use `[skip ci]` because this is not yet a gate-ready review candidate;
+do not use hosted CI to investigate the private guest stop.
+
+## Original investigation request and scope
 
 Investigate why private fixture `ma-detect-01` rejects the selected PC-8801MA
 machine as a VA. The maintainer proposes `upd780_or_upd9002_check` as the task
@@ -46,15 +193,15 @@ name; it is a working hypothesis, not an established defective subsystem.
 - Do not patch the disk, bypass its check, alter emulation, change the release
   or start implementation. A later correction needs evidence and approval.
 
-## Investigation gate
+## Original investigation gate (findings accepted)
 
-G139 is human review of the findings and proposed correction boundary.
+The original G139 checkpoint was human review of the findings and proposed correction boundary.
 This report-only checkpoint is not an emulator-change/build acceptance gate.
 Run repository encoding/EOL/case/comment and milestone checks for the report;
 record actual executed probes separately from static deductions. Do not
 request hosted CI or repeat unrelated expensive media/CPU tests for docs.
 
-## Findings
+## Findings at the investigation baseline
 
 ### Conclusion
 
@@ -174,7 +321,7 @@ of the staged disk against the original exits 0: the reproduction did not
 change its contents either. No private outputs or identities are committed
 or uploaded.
 
-### Proposed correction boundary — not implemented
+### Original proposed correction boundary — subsequently authorized
 
 Do not remove R3 globally, special-case this program, patch its disk, or change
 the FDC CPU. A later approved correction should give the selected PC-8801

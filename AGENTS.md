@@ -37,6 +37,12 @@ The hardware-facing names are deliberately distinct:
 - `cpu/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
   compatible mode. It is not the FDC CPU.
 - `io/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
+- Non-VA PC-8801/8001 selections use an independent main `UPD780C`
+  instance, with the same `Upd780ConfigureCore` instruction configuration
+  as the FDC but separate state, bus and clock. The existing main-CPU
+  bridge in `cpu/upd9002_upd70008.cpp` selects it from the applied ROM
+  machine flags; VA/VA2 keep their separate uPD70008-compatible instance.
+  VA firmware still supplies the existing board bootstrap/device bridge.
 - `cpu/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
   `z80_compat_state.*` are the common Z80 compatibility implementation and
   compatibility layer shared by those two adapters. `cpu/upd780/upd780_disasm.*`

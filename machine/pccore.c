@@ -124,8 +124,8 @@ PCCORE pccore = {PCBASECLOCK25,
                  0,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
-/* uPD70008-compatible mode: the same uPD9002 clock (multiplier and CPU speed)
- * as native V30 mode. */
+/* Main 8-bit execution: VA uPD70008-compatible mode or the independent
+ * PC-8801/8001 uPD780. H/S is applied at instruction boundaries below. */
 CLOCKSCALE pccore_compat_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
 UPD8087_STATE upd8087;
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
@@ -223,6 +223,12 @@ UINT32 pccore_cpu_clock(void) {
 /* Use the restored/live input, rather than a pending reset preference. */
 BOOL pccore_88_standard(void) {
 	return (sysportva.a & 0x20) ? FALSE : TRUE;
+}
+
+/* Use the machine whose ROMs were actually applied, not a pending menu name
+ * or an extra/ scan that fell back to VA ROMs. */
+BOOL pccore_main_cpu_is_upd780(void) {
+	return memoryva_pc8801 || memoryva_pc8001;
 }
 
 /* Configured compatible clock, excluding CPU speed percent and host pace. */

@@ -1664,6 +1664,31 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M139 — ROM-substituted MA exposed the VA main-CPU flag identity
+
+- **Symptom/scope:** neutral fixture `ma-detect-01` rejected execution as VA
+  with PC-8801MA selected. The correction selects the main uPD780 for applied
+  PC-8801/8001 machines, not for VA/VA2 or failed-ROM VA fallbacks.
+- **Demonstrated cause:** the guest captures H after BIT. Documented Z80 BIT
+  sets H, whereas measured uPD9002 R3 clears it. M113 substituted ROMs but
+  retained the unconditional uPD9002 main-CPU profile. The identification
+  routine does not use I/O or ROM-identity reads; the FDC is not its source.
+- **Correction:** the board bridge owns independent main-uPD780 and VA
+  compatible instances. Main uPD780 uses the FDC's instruction configuration,
+  ordinary T states and byte-bus accesses, without native-vector ED behavior
+  or CALLN/RETEM. FDC state/clocks and measured VA/VA2 semantics stay separate.
+  Reset/load select from applied machine flags. New state CPU-family metadata
+  rejects cross-family loads before mutation; legacy same-machine state
+  behavior and `UPD9Z80` layout/name remain available.
+- **Verification:** local CTest 138 PASS/10 SKIP/0 FAIL, then final focused
+  role/timing/state tests PASS. Actual MA guest captures H=1 and writes result
+  16 instead of the old 0, progressing beyond the rejection. A later guest
+  fatal stop remains unresolved below: this fixes the identity condition,
+  not complete demo compatibility or physical-device timing equivalence.
+- **Milestone/task:** [M139 implementation validation](../agents/tasks/M139_upd780_or_upd9002_check.md#implementation-validation).
+  [Investigation commit f9dc961d](https://github.com/nakatamaho/vaeg/commit/f9dc961d423b31d3b6c652530d2091b7255d73e4);
+  implementation gate remains blocked, not accepted.
+
 ### M136 — cursor keys assigned to an absent joystick or mouse were lost
 
 - **Symptom/scope:** with カーソル割り当て set to ジョイスティック (or マウス)
@@ -4102,30 +4127,24 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
-### M139 — selected PC-8801MA still exposes the VA main-CPU flag identity
+### M139 — guest reaches a fatal stop after successful CPU identification
 
-- **Symptom/scope:** neutral fixture `ma-detect-01` rejects execution as VA
-  despite PC-8801MA being selected. This is a demonstrated selected-MA
-  compatibility limitation, not a claim that all substituted models or
-  programs have been tested.
-- **Demonstrated cause:** the guest's main-CPU identification routine captures
-  H after BIT. Documented Z80 BIT sets H, whereas measured uPD9002 rule R3
-  clears it. M113 substitutes the MA ROMs over VA V1/V2 execution; the main
-  adapter still unconditionally selects the uPD9002 flag profile. The guest
-  consequently detects that retained CPU behavior. Its identification routine
-  does not use I/O or ROM-identity reads; changing the separate FDC uPD780C
-  would not correct this branch.
-- **Verification:** sixteen independently authored, isolated CPU-probe cases
-  reproduce the profile distinction without I/O. The unchanged published
-  macOS worker, with MA selected and staged private inputs, shows the VA
-  rejection and a zero identification result, then returns to BASIC. SDL
-  dummy evidence verifies guest text/state only, not display acceptance.
-- **Correction:** not implemented or authorized. Preserve correct VA/VA2 R3
-  and FDC behavior; review selected-machine CPU semantics, the VA boot bridge,
-  reset/state restore and timing before a separate approved implementation.
-- **Task/evidence/commit:** [M139 findings](../agents/tasks/M139_upd780_or_upd9002_check.md#findings),
-  evaluated at [5d4dafff](https://github.com/nakatamaho/vaeg/commit/5d4dafffd4e1fe07422f940a6e51dea09b677ab5).
-  No fixing commit exists; G139 findings review is pending.
+- **Observed scope:** `ma-detect-01` under selected MA now passes its main-CPU
+  identification, writes the non-VA result, then reaches a later fatal-stop
+  path and a solid red screen. Captures at three later frame points and a
+  bounded CPU trace establish a terminal guest self-loop, not an animation
+  capture mistaken for a frozen screen. Explicit BASIC file-channel allocation
+  does not resolve it.
+- **Cause/correction:** unresolved. CPU identity is independently verified as
+  corrected above, but that does not establish the cause of this subsequent
+  stop. No FDC, ROM, interrupt, timer, firmware-bridge or timing hypothesis is
+  promoted to a root cause. No guest patch or check bypass is recommended.
+- **Verification/gate:** actual private guest text/register/trace evidence
+  stays outside Git; dummy/software output is not display acceptance. Demo
+  drawing remains FAIL and blocks the implementation gate despite passing
+  CPU-role/unit/state checks.
+- **Task/evidence:** [M139 private-guest result](../agents/tasks/M139_upd780_or_upd9002_check.md#private-guest-cpu-identity-pass-demo-drawing-fail).
+  The correction branch remains under review; no milestone merge is accepted.
 
 ### M132 — T88 LOAD waits while the raw cassette control loads
 

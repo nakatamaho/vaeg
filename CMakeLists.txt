@@ -529,6 +529,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd780/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
         tests/upd9002/brkem_upd70008.c
+        tests/upd9002/main_cpu_roles.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
