@@ -6025,9 +6025,9 @@ static int test_8801_display(void) {
 }
 
 /* M129: the TSP SYNC global reverse (RV, byte 1 bit 3) on a blank text cell,
- * in the native renderer and the uPD3301 emulation; a PC-8801 model ignores
- * it while port 31h selects monochrome graphics. Returns the colour of the
- * first visible text dot, or -1 when the frame was not set up. */
+ * in the native renderer and the uPD3301 emulation, on every machine and in
+ * every graphics mode (M139). Returns the colour of the first visible text
+ * dot, or -1 when the frame was not set up. */
 static int sync_reverse_dot(BOOL emul) {
 	BOOL scrn200;
 
@@ -6071,7 +6071,7 @@ static int test_tsp_sync_reverse(void) {
 	} cases[] = {
 	    {FALSE, FALSE, 0x00, TRUE, "the VA ignored RV with monochrome graphics"},
 	    {FALSE, FALSE, 0x10, TRUE, "the VA ignored RV with colour graphics"},
-	    {TRUE, FALSE, 0x00, FALSE, "a PC-8801 applied RV with monochrome graphics"},
+	    {TRUE, FALSE, 0x00, TRUE, "a PC-8801 ignored RV with monochrome graphics"},
 	    {TRUE, FALSE, 0x10, TRUE, "a PC-8801 ignored RV with colour graphics"},
 	    {FALSE, TRUE, 0x05, TRUE, "a PC-8001 ignored RV"},
 	};
