@@ -21,13 +21,16 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M139 — uPD780 or uPD9002 identification investigation
+# M139 — main CPU roles and FDC uPD780 conformance
 
 Status: findings accepted; implementation authorized by the maintainer's
 subsequent request to select uPD9002 on VA/VA2 and uPD780 on other machines.
 CPU-role implementation and local unit/state validation complete. Final G139
 is BLOCKED: the private guest passes CPU identification but stops later; demo
 compatibility, media regression and clean MinGW handoff are not accepted.
+The maintainer additionally requested FDC-uPD780 ZEXALL, instruction-difference
+documentation/upstream implementation and speed measurements in this milestone;
+the physical-FDC harness and measurements are not yet implemented or accepted.
 Branch: `topic/m139-upd780-or-upd9002-check`.
 Investigation base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
 Implementation source: [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
@@ -46,6 +49,102 @@ uPD780 instructions. Validate role selection, flags, timing, reset and real
 state-file round trips, then reproduce the unmodified guest progressing beyond
 its rejection. The standard implementation/media/clean-build gate applies;
 no gate acceptance is inferred from the investigation's PASS results below.
+
+## Additional authorization: physical FDC uPD780 conformance and speed
+
+The maintainer explicitly notes that the uPD780 available for this physical
+measurement is in the FDC. Running CP/MVA on the uPD9002, a main-CPU guest on
+an emulated non-VA model, or a flat-memory host runner does **not** measure
+that physical uPD780. Keep the existing software-role selection and its
+validation separate from silicon identification and physical measurements.
+
+Deliverables, all still open unless an explicit result below says otherwise:
+
+1. Preserve the stock 67-group ZEXALL host baseline with the production
+   `Upd780ConfigureCore`, pinned corpus and expectation identities. This tests
+   the current Zilog-model contract, not NEC hardware. Preserve/reuse matching
+   completed expensive evidence rather than rerunning unchanged workers.
+2. Establish a safe RAM upload, launch, result retrieval and recovery protocol
+   on the actual FDC. The current emulator maps 8 KiB ROM at 0000h–1FFFh and
+   16 KiB RAM at 4000h–7FFFh; this is source evidence, not an independently
+   verified physical memory specification. The prior RAM-upload observation
+   in [M103i](M103i_v1_mode.md#v1-a-demonstration-disk-io-error-at-its-second-bload-real-va-too)
+   is a lead, not a complete execution/recovery contract. Respect live firmware
+   work areas, stack and mailbox ownership. Do not patch or replace ROMs, and
+   do not conduct drive writes during a diagnostic takeover. A main-CPU loader
+   may save returned records only after the normal FDC service is restored.
+3. Build a reproducible FDC-resident ZEXALL adaptation, or explicitly classified
+   split variants if necessary. Stock ZEXALL assumes writable low memory,
+   CP/M vectors/stack and the fixed `msbt` state address. Verify every generated
+   read/write/fetch and stack footprint fits the usable FDC map. Reassembly or
+   relocation can change register/operand addresses, undocumented flags and
+   CRCs: never classify a relocated/stock CRC difference alone as a NEC rule.
+   Use byte-identical target images on hardware and host, retain stock/ported
+   coverage correspondence, independent Zilog reference checks and all 67
+   group outcomes. Preserve ZEX's GPL notices; do not modify the vendored
+   original or silently reduce masks/vectors to obtain a match.
+4. Add focused flag, undocumented-opcode and boundary probes where ZEXALL has
+   known gaps. Use explicit initial states and complete final-state records;
+   observed crashes/incomplete output are not successful group comparisons.
+5. Measure speed with separate bounded, RAM-resident kernels. Report ZEXALL
+   elapsed time separately from instruction timings. Keep upload, CRC/log
+   output and disk I/O outside the timed interval; calibrate completion and
+   notification overhead with the same empty path. Use several iteration
+   counts, repetitions and timer resolution/error bounds to separate slope
+   from fixed overhead. Include register/ALU, memory, taken/untaken branch,
+   stack and prefix cases, without uncontrolled device accesses. Use an
+   independently specified board timer/reference, not the emulated CPU's
+   nominal MHz or host wall time. Check main H/S/CPU-speed changes alter the
+   observer overhead rather than being mistaken for FDC-clock changes.
+6. Document observations separately for physical FDC uPD780, physical uPD9002,
+   stock Zilog expectations and host models. Reduce each demonstrated mismatch
+   to an isolated regression before changing suzukiplan. Work in an out-of-tree
+   upstream checkout and reproduce vendored changes through the pinned
+   provenance/patch procedure; never hand-edit `external/`. Preserve Zilog and
+   uPD9002 behavior and keep any NEC rule per-instance. FDC measurements alone
+   do not identify every non-VA main-CPU silicon variant or authorize silently
+   applying newly found FDC quirks to another role through the shared helper.
+
+Physical-FDC execution, timing reference and recovery remain **BLOCKED / not
+established**. No real uPD780 result, speed figure or upstream correction is
+claimed. The executable harness is **NOT_RUN / not implemented**. See the
+[Z80-family QA contract](../../modernization/qa/z80-family.md#m139-fdc-upd780)
+for the comparison and timing distinctions. This extension does not remove the
+existing red-screen, media-regression or clean-build gate requirements.
+
+### Stock host ZEXALL baseline result
+
+The existing role runner is byte-identical to the preserved M138 runner
+(SHA-256 below), but no reusable completed local role-ZEXALL run was found.
+A bounded run is therefore performed once for this newly requested baseline.
+Evaluated source: `24ad2f0c6e3a1d3c4a75bd90cca075121b00f331`;
+subsequent scope/report edits do not change its build inputs or worker.
+
+```sh
+python3 tests/z80_compat/fetch_zex.py --output-dir "$CORPUS"
+"$BUILD/vaeg_z80_compat_role_zex_runner" --role upd780 \
+  --expect tests/z80_compat/upd780_zexall_expected.txt \
+  --max-seconds 600 "$CORPUS/zexall.cim"
+```
+
+Both exit 0. The pinned stock corpus completes with **67/67 groups OK**,
+`Tests complete`, and `PASS expectations=67 clocks=46740000000`.
+The clocks are the runner's model accounting, not physical FDC timing.
+Host wall time is 98.25 s and is **not** a uPD780 speed measurement.
+
+| Evidence identity | SHA-256 |
+| --- | --- |
+| Host role runner | `40dc2655e2b139e0b0ba37fcf761fe8d48fc520287b21fd530f436fdd5b25aaa` |
+| Stock ZEXALL corpus | `fbb1bb5d46f61c33ea6841a71f2b23c49b9b62410ce6ed4e57b7d9b2e7b437e0` |
+| uPD780 role expectation contract | `82e2be848c4fdb4c7278d6cb504338d38c268b2b39d15639dbfd4fca8d3230c2` |
+| Standard output | `f827ef78cbdbbf5dc35000a44e9fc74ac5662010ec61cce63f5dd50786529f67` |
+| Standard error (empty) | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+
+The exact command, worker/corpus/contract identities, flat-64-KiB host target
+policy, exit status, duration and output digests are retained in task scratch.
+This is **PASS for the current host Zilog-model contract only**. FDC-mapped
+execution, physical uPD780 matching and physical speed remain NOT_RUN/BLOCKED
+as classified above. No real-machine difference has been inferred from it.
 
 ## Implemented CPU roles
 
