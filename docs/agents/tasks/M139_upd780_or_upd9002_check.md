@@ -156,6 +156,115 @@ file contents and the post-return DIR/prompt; zero exit or a screenshot alone
 is insufficient. Current exact identities/results are recorded in the follow-up
 validation record. These additions do not resolve the broader blocked G139.
 
+### FDC implementation software-validation record
+
+Evaluated hardware-tool source:
+[aa76276241476d317a323c428256336d769117fc](https://github.com/nakatamaho/vaeg/commit/aa76276241476d317a323c428256336d769117fc).
+The final private handoff is generated from that pushed commit and is
+byte-identical to the tested working image, all five added files and all three
+subsystem BINs. Its image/private-input digests, exact commands, assembler
+identity and raw captures remain outside Git. No ROM, original input media or
+vendored instruction implementation is changed.
+
+Commands (neutral explicit bindings):
+
+```sh
+python3 tools/hardware/upd780/build.py --source-disk "$PRIVATE_INPUT" \
+  --output-dir "$HANDOFF" --cache-dir "$ARCHIVE_CACHE"
+cmake --build "$BUILD" --target vaeg_upd780_fdc_probe_runner
+ctest --test-dir "$BUILD" -R '^vaeg_upd780_fdc_' --output-on-failure
+"$BUILD/vaeg_upd780_fdc_probe_runner" "$HANDOFF/fdczex.bin"
+python3 tools/hardware/upd780/integration.py --worker "$WORKER" \
+  --roms "$STAGED_ROMS" --image "$WORKING_IMAGE" \
+  --build-report "$RECIPE" --output "$CASE_OUTPUT" \
+  --case probe --standard false
+# Also probe/standard=true, smoke/standard=true, and an existing-log case.
+```
+
+Build and final focused CTest exit 0: **2/2 PASS**, 2.79 s; the content and
+allocator suite has **16 passing tests**. The payload integration checks the
+256-row independent Zilog AF formula, all 67 exact model-T timing rows, NEG
+smoke and a passing mapped-write fixture with one unmapped-address mutation.
+Content negatives isolate missing/duplicate/corrupt rows, completion/recovery,
+inactive/nonlinear timers, invalid timer reference and terminal contracts;
+allocator checks include second-half directory ownership, multi-extent text,
+existing-name refusal and one geometry mutation. Error-code assertions use the
+smallest content/map layer and do not depend on current Git history.
+
+The production-configured mapped full ZEX worker exits 0 after **all 67 actual
+CRC records** and `Tests complete`: 104.40 s host wall time, model clock
+`46736000002`. This is **not 67 stock-CRC PASSes or physical timing**. No
+out-of-map access occurs. Its output is byte-identical to the earlier exploratory
+mapped worker's output; the production-configured worker was evaluated once
+because that worker identity changed. The unchanged stock baseline above is
+not rerun.
+
+| Public software identity | SHA-256 |
+| --- | --- |
+| Production mapped worker | `4f8a14266448b76d82490d87dd48cc4733f42e8b46ff77b135647f9f49541fce` |
+| Full mapped ZEX payload | `e674749a5caf28e83dc00cd8a1f2265f2db672e271516b90e3768a0039783e57` |
+| AF/speed payload | `ac9bd9245aed4b9c767b5a878197770d4f861c13564d452e8569140f7cc8ef09` |
+| NEG-only payload | `f854b305b214259b813ed736a4b8b10404bd121feb5bfdefd479c7d544446f7b` |
+| Mapped full-ZEX stdout | `ee6271acc2df49b4e773227a728a06afa552d0eaaf5f72eaed1e54503073ee6d` |
+
+Private-input integration uses the unchanged development application worker
+`710171ed4aaf4ecab06d4224895b7c17ebf6230118b2254b1d7ffd07abad7bdd`
+from the earlier implementation record. No emulator execution source changes
+in this hardware-tool increment; a changed tool/document does not justify
+repeating unchanged emulator builds or the earlier expensive tests. This
+worker's embedded pre-commit identity remains explicitly **not a clean gate
+candidate**. Target: VA2, 88-mode CP/M, CPU_Speed=100, isolated config/home,
+no second FDD/SASI, SDL dummy video/audio, a ROM set matching MAME's `pc88va2`.
+
+| Software case | Semantic result |
+| --- | --- |
+| AF/speed, standard=true (S) | Complete 256 AF/67 timing rows, zero model AF differences; recovered, saved, existing files unchanged, healthy DIR/prompt; PASS after contract-only revalidation below |
+| AF/speed, standard=false (H) | Same checks PASS; no physical timing claim |
+| NEG smoke | One explicitly classified CRC (`d638dd6a`), recovered/persisted, existing files unchanged, healthy DIR/prompt; PASS after terminal-contract revalidation below |
+| Existing-log refusal | Refusal before takeover; all files/log bytes unchanged and DIR/prompt healthy; PASS |
+
+S/H fitted slopes differ by at most **0.10 VRTC edges per 60000-iteration N
+unit**, within the analytic 8/15-edge comparison bound. This checks observer
+coupling in this software target at CPU_Speed=100; other CPU-speed settings,
+physical H/S behavior, a physical reference frequency, real uPD780 speed and
+physical recovery remain NOT_RUN. No dummy output is promoted to physical or
+presenter/window coverage.
+
+Development failures are preserved, not relabeled or discarded:
+
+- The first mapped full run exposed the stock `LD r,n` descriptor's ROM write;
+  the declared 0339h → 7339h operand port removes it without dropping a group,
+  opcode vector or flag mask. This is a portability adaptation, not a NEC rule.
+- A prototype borrowed the caller's main stack and produced unhealthy
+  post-return DIR output. The final image-backed private stack and common DMA
+  cleanup give a healthy return in the semantic cases. No untraced exact
+  overwrite address or emulator root cause is asserted.
+- An initial two-edge middle-residual contract incorrectly treated the two
+  VRTC transitions as uniform. The independent nonuniform-phase derivation is
+  ±2 edges per measurement, four-edge middle residual, **tighter** repeat
+  bound 8/15. An analytic passing boundary fixture plus one-edge negative
+  exercises that bound. The S run's original FAIL and exact original validator
+  source are retained; unchanged digest-bound captures are revalidated rather
+  than rerunning the guest.
+- The initial terminal checker used BASIC's F3C8h layout instead of the
+  fixture's F300h CP/M layout. Both original rejection records remain; the
+  fixed-layout passing/one-mutation test and the same unchanged captures
+  establish the corrected DIR/prompt verdict. Revalidation is a new report,
+  not an overwrite of original failed evidence.
+- Initial setup used a legacy assembler helper that placed a compiled helper
+  in the shared archive cache. The new builder isolates compilation/executables
+  in task output and uses the shared cache for locked archives only. The
+  initially generated cached executable is retained pending explicit cleanup
+  approval; no shared-cache deletion or private-input modification is performed.
+
+Final repository checks exit 0: encoding, LF, case (0 findings), Markdown
+comments (0 findings), 49-case strict milestone selftest, milestone audit,
+new C++ clang-format and staged diff checks. The prior whole-manifest baseline
+formatting failure is not promoted to PASS. No hosted CI or source-unchanged
+full-emulator/media rerun is requested. The standard G139 remains BLOCKED by
+the later private guest stop, physical/independent conformance work and the
+uncompleted standard demo/media/clean-MinGW acceptance requirements.
+
 ### Stock host ZEXALL baseline result
 
 The existing role runner is byte-identical to the preserved M138 runner
