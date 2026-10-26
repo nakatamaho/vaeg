@@ -21,6 +21,7 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+-->
 
 # TSP hardware sprites over two screens
 
@@ -58,7 +59,8 @@ demos/tsp-sprites/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 `gen_data.py` writes the font, the palettes and the images. With
 `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
 `tsp-sprites-msdos4.d88`, a vanilla MS-DOS 4.0 copy with the program;
-type `TSPSPR`.
+type `TSPSPR`. `tsp-sprites-msdos4.d88.xz` is that disk, built from this
+directory (the FreeDOS-88VA msdos4-va.2 disk, MIT, with TSPSPR.COM added).
 
 ## Questions for the machines
 
