@@ -30,7 +30,9 @@ is BLOCKED: the private guest passes CPU identification but stops later; demo
 compatibility, media regression and clean MinGW handoff are not accepted.
 The maintainer additionally requested FDC-uPD780 ZEXALL, instruction-difference
 documentation/upstream implementation and speed measurements in this milestone;
-the physical-FDC harness and measurements are not yet implemented or accepted.
+the hardware-facing harness/images and speed kernels are now implemented and
+software-validated; physical execution/reference approval/measurements remain
+NOT_RUN, and no NEC-specific upstream correction is established.
 Branch: `topic/m139-upd780-or-upd9002-check`.
 Investigation base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
 Implementation source: [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
@@ -105,12 +107,54 @@ Deliverables, all still open unless an explicit result below says otherwise:
    do not identify every non-VA main-CPU silicon variant or authorize silently
    applying newly found FDC quirks to another role through the shared helper.
 
-Physical-FDC execution, timing reference and recovery remain **BLOCKED / not
-established**. No real uPD780 result, speed figure or upstream correction is
-claimed. The executable harness is **NOT_RUN / not implemented**. See the
+Physical-FDC execution, physical reference approval and hardware recovery remain
+**BLOCKED / not established**. No real uPD780 result, speed figure or upstream
+correction is claimed. The executable harness is **implemented** and its mapped
+host/ROM-backed software integration is described below, not hardware accepted. See the
 [Z80-family QA contract](../../modernization/qa/z80-family.md#m139-fdc-upd780)
 for the comparison and timing distinctions. This extension does not remove the
 existing red-screen, media-regression or clean-build gate requirements.
+
+### Implemented FDC controller, mapped images and speed kernels
+
+The maintainer subsequently requested implementation and supplied private input
+`fdc-cpm-01`. [Build/run instructions](../../../tools/hardware/upd780/README.md)
+and [canonical monitor ABI analysis](../../bios/fdc_monitor.md) accompany the
+new reproducible tool. It adds `FDCONE.COM`, `FDCPRB.COM`, `FDCZEX.COM`, help
+and the pinned GPL license to a **copy**, preserving all original files.
+The existing main-CPU ZEXALL remains untouched and is not FDC evidence.
+
+- The real monitor transport uses commands 0Bh/0Ch/0Dh and its output/command
+  service vectors, not test-only RAM injection. Save 4000h–7EFFh, upload the
+  bounded image and zero the rest of that diagnostic range for deterministic
+  initial RAM, stop motors during execution, receive records, restore and
+  byte-verify the saved range, then permit BDOS log creation. ROM and the live
+  7Fxx work/monitor-stack area are not replaced. An unknown-state error halts
+  without disk I/O and requires reset. The main controller owns its own stack
+  and restores original SP/default DMA on ordinary return.
+- Full mapped ZEX retains all 67 groups, flag masks and scan vectors. The
+  explicit descriptor-base operand change 0339h → 7339h avoids an FDC-ROM
+  write; this and relocation change the comparison contract. Every actual
+  CRC is printed alongside `STOCK=`, never relabeled as stock conformance.
+  `FDCONE` is separately labeled NEG-only smoke, not full coverage.
+- The AF probe records requested/readback AF and full BIT/AND/SCF/CCF results
+  for 256 input pairs. Further focused undocumented-opcode/boundary cases,
+  independent mapped Zilog controls and physical NEC rules remain open.
+- Eleven separate timing bodies use 60000×N iterations, N=1/4/16, two
+  repetitions, plus an empty control: 67 timing records. They cover register,
+  ALU, memory, loop branch, stack pair, indexed BIT, SCF/CCF and NOP/NOP8.
+  This is not a complete independent taken/untaken opcode matrix. Both VRTC
+  edges are counted on the main CPU; no reference Hz or physical MHz is
+  guessed. Affine slopes, a branch baseline and explicit nonuniform-edge
+  quantization bounds separate loop/notification overhead. An independently
+  approved physical timer contract is still required for absolute conversion.
+
+The mapped worker, private-input runner and content/allocator negatives are
+independently callable. Software integration checks actual upload/launch,
+completion, verified recovery, persisted complete records, unchanged existing
+file contents and the post-return DIR/prompt; zero exit or a screenshot alone
+is insufficient. Current exact identities/results are recorded in the follow-up
+validation record. These additions do not resolve the broader blocked G139.
 
 ### Stock host ZEXALL baseline result
 
@@ -143,8 +187,8 @@ Host wall time is 98.25 s and is **not** a uPD780 speed measurement.
 The exact command, worker/corpus/contract identities, flat-64-KiB host target
 policy, exit status, duration and output digests are retained in task scratch.
 This is **PASS for the current host Zilog-model contract only**. FDC-mapped
-execution, physical uPD780 matching and physical speed remain NOT_RUN/BLOCKED
-as classified above. No real-machine difference has been inferred from it.
+execution was subsequently implemented and software-validated as described
+above; physical uPD780 matching and physical speed remain NOT_RUN/BLOCKED. No real-machine difference has been inferred from it.
 
 ## Implemented CPU roles
 

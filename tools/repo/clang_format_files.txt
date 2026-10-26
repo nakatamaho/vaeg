@@ -338,6 +338,7 @@ tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd780/disasm.cpp
+tests/upd780/fdc_probe_runner.cpp
 tests/upd780/subsystem_integration.cpp
 tests/upd780/subsystem_integration.h
 tests/upd9002/abi.c
