@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M139 — Whole-screen reverse on every machine
 
-Status: **implemented; G139 human gate pending.**
+Status: **G139 human gate passed on 2026-10-26.**
 
 Branch `milestone/m139-rv-all-machines`; commit prefix `M139:`.
 
@@ -66,3 +66,9 @@ condition M129 followed) are therefore wrong on this point too. Behaviour
 taken from them is a hypothesis until hardware confirms it; M134's PC-8801
 hidden-text rule (backgrounds hidden, colours kept) also rests on M88 and
 remains unconfirmed on a real PC-8801.
+
+## G139 passed
+
+The maintainer stated **G139 passed** on 2026-10-26 with the static Windows
+build of `ef3557f96e8bca47bf76cd57ee4d7cd4edca93bd`: CARIGRAPH black lines
+on white on the VA, the VA2 and the PC-8801mkIISR model; standard V3 gate.
