@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M138 — Windows-native (MSYS2) build fixes
 
-Status: **implemented; G138 human gate pending.**
+Status: **G138 human gate passed on 2026-10-26.**
 
 Branch `milestone/m138-msys2-build`; commit prefix `M138:`.
 
@@ -69,3 +69,10 @@ completes `tools/release/build-mingw-static-librashader.sh` and the
   change keeps that path working; commit embedded, Windows system DLL
   imports only; `vaeg.exe` SHA-256
   `5cb2abbdaa9229b4f4d0ccc9b3c0eaa2dd26a2e6ffe8b45a668eae67ae63d198`.
+
+## G138 passed
+
+The reporter checked out this branch and the MSYS2 MINGW64 build went
+through (2026-10-26, relayed by the maintainer); rustup had to replace
+MSYS2's Rust first, as now documented in BUILD.md. The maintainer accepted
+this as **G138 passed**, with the standard V3 gate.
