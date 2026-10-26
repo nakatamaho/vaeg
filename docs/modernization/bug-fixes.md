@@ -1664,6 +1664,22 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M139 — PC-8801 models ignored the whole-screen reverse with monochrome graphics
+
+- **Symptom/scope:** on the PC-8801 models from `extra/`, the
+  PC-8801mkIISR demonstration's CARIGRAPH was white lines on black; on a
+  real PC-8801mkIISR it is black lines on white, as on the VA (recording
+  reported on PR #31, 2026-10-25).
+- **Demonstrated cause:** M129 ignored `SYNC.RV` on PC-8801 models while
+  port 31h selected monochrome graphics, based on an earlier recording that
+  showed the scene white on black.
+- **Correction:** `SYNC.RV` applies on every machine and in every graphics
+  mode (V1/V2 decision X9).
+- **Verification:** selftest `TSP SYNC reverse` (the PC-8801 monochrome case
+  now expects the reverse); the demonstration on the PC-8801mkIISR model.
+- **Milestone/task/commit:** M139,
+  [M139 task](../agents/tasks/M139_rv_all_machines.md),
+  [47a84768](https://github.com/nakatamaho/vaeg/commit/47a847688d0ad695f741055e6ff38d6d6ed73de3).
 ### M138 — the Windows-native build failed on a Japanese system
 
 - **Symptom/scope:** the MSYS2 MINGW64 build on Japanese Windows stopped in
