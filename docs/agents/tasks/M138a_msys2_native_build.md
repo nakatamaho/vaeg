@@ -22,11 +22,14 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M138 — Windows-native (MSYS2) build fixes
+# M138a — Windows-native (MSYS2) build fixes
 
-Status: **G138 human gate passed on 2026-10-26.**
+Renumbered from M138 on 2026-10-26: the Rel.20261025 release task also
+used M138. The branch and commit subjects keep the original `M138:` prefix.
 
-Branch `milestone/m138-msys2-build`; commit prefix `M138:`.
+Status: **G138a human gate passed on 2026-10-26.**
+
+Branch `milestone/m138-msys2-build` (merged and removed).
 
 ## Request
 
@@ -52,7 +55,7 @@ removed and `mingw-w64-x86_64-rustup` installed), and
 - [2d5a88b9](https://github.com/nakatamaho/vaeg/commit/2d5a88b9a1ad331397c205a5ff58e15b9afbcd58): BUILD.md and
   README: remove `mingw-w64-x86_64-rust`, install `mingw-w64-x86_64-rustup`.
 
-## Gate G138 (human)
+## Gate G138a (human)
 
 The reporter's MSYS2 MINGW64 build (Japanese Windows) follows BUILD.md and
 completes `tools/release/build-mingw-static-librashader.sh` and the
@@ -70,9 +73,9 @@ completes `tools/release/build-mingw-static-librashader.sh` and the
   imports only; `vaeg.exe` SHA-256
   `5cb2abbdaa9229b4f4d0ccc9b3c0eaa2dd26a2e6ffe8b45a668eae67ae63d198`.
 
-## G138 passed
+## G138a passed
 
 The reporter checked out this branch and the MSYS2 MINGW64 build went
 through (2026-10-26, relayed by the maintainer); rustup had to replace
 MSYS2's Rust first, as now documented in BUILD.md. The maintainer accepted
-this as **G138 passed**, with the standard V3 gate.
+this as **G138a passed**, with the standard V3 gate.
