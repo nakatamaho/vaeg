@@ -62,3 +62,10 @@ completes `tools/release/build-mingw-static-librashader.sh` and the
 
 - No local Rust or MSYS2 here. The script compiles (`py_compile`); no text
   read, write or command output without an encoding remains.
+- `tools/release/build-mingw-static-container.sh --commit
+  d8836a63b6c1c1138754dc563d2467b795d00b69`: exit 0. It builds librashader
+  fresh through `build-mingw-static-librashader.sh` and the changed
+  `build-static-librashader.py` (Linux container, UTF-8 locale), so the
+  change keeps that path working; commit embedded, Windows system DLL
+  imports only; `vaeg.exe` SHA-256
+  `5cb2abbdaa9229b4f4d0ccc9b3c0eaa2dd26a2e6ffe8b45a668eae67ae63d198`.
