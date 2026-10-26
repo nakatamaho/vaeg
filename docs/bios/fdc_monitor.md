@@ -24,7 +24,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # Intelligent FDC monitor: RAM diagnostics interface
 
-M139 independently written analysis, not a NEC manual reproduction.
+M140 independently written analysis (initial preparation recorded under M139),
+not a NEC manual reproduction.
 This is a subsystem protocol, not a main-CPU BIOS interrupt ABI.
 
 ## Evidence boundaries
@@ -38,9 +39,9 @@ This is a subsystem protocol, not a main-CPU BIOS interrupt ABI.
   about every intelligent FDD ROM or board revision.
 - **Emulator runtime:** a ROM set matching MAME's `pc88va2` supports upload,
   execution, return to command service, RAM readback and subsequent CP/M disk
-  operations in the M139 local software-integration cases. Exact evidence and
-  evaluated tool identities are in the [task](../agents/tasks/M139_upd780_or_upd9002_check.md).
-- **Physical hardware:** not yet measured by M139. Do not promote the source
+  operations in the inherited local software-integration cases. Exact evidence
+  and evaluated identities are linked from [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
+- **Physical hardware:** not yet measured by M140. Do not promote the source
   model, synthetic monitor or main-CPU CP/M execution to physical FDC evidence.
 
 ## Byte transport

@@ -1,0 +1,21 @@
+{
+  "schema": "vaeg-zex-fdc-patches-v1",
+  "metadata_copyright": "Copyright (c) 2026 Nakata Maho",
+  "metadata_license": "BSD-2-Clause",
+  "upstream_sha256": "a263efc67ed6f890268c6f9e00f7911d9376a6bc6ddaec5ce04e33a5f483733c",
+  "translation": "tools/cpmva/zex/zexbuild.py translate_zmac; pinned stock source then exact patches",
+  "patches": [
+    {
+      "file": "m140-fdc-zexall.patch",
+      "input_sha256": "aeb71dcdda797bc65763f3e684d229173f062691c669b3b7f2e316f4aa771cb1",
+      "patch_sha256": "95cd9170f4f7e3f31eb72fc6c15a2c80f44a03aa6f427f35253975e23aa37378",
+      "output_sha256": "0c184e40fd6626597ab332e7c8a11df368536720b6988afe84513e94946bc98a"
+    },
+    {
+      "file": "m140-fdc-neg-smoke.patch",
+      "input_sha256": "0c184e40fd6626597ab332e7c8a11df368536720b6988afe84513e94946bc98a",
+      "patch_sha256": "dc1f2f61865b3045f21b8f95ea310c27a6df484aebe0d97862c6839f1ca68272",
+      "output_sha256": "03c146edd5de30f2cf062f7665e0e731f83790821d5f7ab8b3b0983c56bdbc06"
+    }
+  ]
+}

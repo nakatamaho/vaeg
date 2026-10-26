@@ -126,6 +126,36 @@ class Content(unittest.TestCase):
         self.assertEqual(caught.exception.code,'M139_ZEX_COMPLETION')
 
 
+class PatchContent(unittest.TestCase):
+    def fixture(self):
+        source='before\n'
+        patch='--- a/fixture\n+++ b/fixture\n@@ -1 +1 @@\n-before\n+after\n'
+        entry={'file':'fixture.patch','input_sha256':build.digest(source.encode()),
+               'patch_sha256':build.digest(patch.encode()),
+               'output_sha256':build.digest(b'after\n')}
+        self.assertEqual(build.apply_fdc_patch(source,patch,entry),'after\n')
+        return source,patch,entry
+
+    def test_patch_digest(self):
+        source,patch,entry=self.fixture()
+        with self.assertRaises(build.BuildError) as caught:
+            build.apply_fdc_patch(source,patch+'# altered\n',entry)
+        self.assertEqual(caught.exception.code,'M140_ZEX_PATCH_DIGEST')
+
+    def test_patch_input(self):
+        source,patch,entry=self.fixture()
+        with self.assertRaises(build.BuildError) as caught:
+            build.apply_fdc_patch(source.replace('before','Before'),patch,entry)
+        self.assertEqual(caught.exception.code,'M140_ZEX_PATCH_INPUT')
+
+    def test_patch_output(self):
+        source,patch,entry=self.fixture()
+        changed=dict(entry,output_sha256='0'*64)
+        with self.assertRaises(build.BuildError) as caught:
+            build.apply_fdc_patch(source,patch,changed)
+        self.assertEqual(caught.exception.code,'M140_ZEX_PATCH_OUTPUT')
+
+
 class Allocator(unittest.TestCase):
     def fixture(self):
         files=build.cpm.pad_cpm_records({'KEEP.COM':b'private-input-placeholder'})
@@ -166,7 +196,7 @@ class Allocator(unittest.TestCase):
 
 
 def payloads(runner,assembler):
-    with tempfile.TemporaryDirectory(prefix='m139-payload-') as td:
+    with tempfile.TemporaryDirectory(prefix='m140-payload-') as td:
         work=Path(td)
         build.assemble_images(assembler,work)
         for kind in ('fdcprb','fdcone'):

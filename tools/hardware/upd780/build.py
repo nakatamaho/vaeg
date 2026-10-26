@@ -86,57 +86,36 @@ def probe_source() -> str:
     source = replace_once(source, 'TIMING_KERNELS:', '\n'.join(calls))
     return source + '\n' + '\n'.join(routines + labels) + '\n'
 
+PATCH_DIR = ROOT / 'external/zex/patches'
+PATCH_NAMES = ('m140-fdc-zexall.patch', 'm140-fdc-neg-smoke.patch')
+
+
+def apply_fdc_patch(source: str, patch: str, entry: dict) -> str:
+    """Content-only integrity/context validation; no Git or evidence dependency."""
+    require(digest(patch.encode('ascii')) == entry['patch_sha256'], 'M140_ZEX_PATCH_DIGEST')
+    require(digest(source.encode('ascii')) == entry['input_sha256'], 'M140_ZEX_PATCH_INPUT')
+    try:
+        output = zex.apply_unified_patch(source, patch, entry['file'])
+    except zex.BuildError as exc:
+        raise BuildError('M140_ZEX_PATCH_CONTEXT') from exc
+    require(digest(output.encode('ascii')) == entry['output_sha256'], 'M140_ZEX_PATCH_OUTPUT')
+    return output
+
+
 def zex_source(smoke: bool = False) -> str:
-    # Transform the pinned GPL source, never the vendored file. Preserve its
-    # notices, all groups, masks and scan vectors. The one declared base
-    # operand adjustment below means this is NOT stock-address ZEX.
+    # M140 owns this port. Retain v1 M139 wire tokens and exact program bytes.
+    # Original third-party sources/notices stay unmodified; all adaptations,
+    # including the explicit NEG-only reduction, live in external patches.
+    manifest = json.loads((PATCH_DIR / 'm140-fdc.json').read_text())
+    require(manifest['schema'] == 'vaeg-zex-fdc-patches-v1' and
+            tuple(x['file'] for x in manifest['patches']) == PATCH_NAMES,
+            'M140_ZEX_PATCH_MANIFEST')
     raw = zex.read_zex_source('zexall')
-    # LD r,n includes LD (HL),n with an untracked fixed 0339h operand.
-    # In an FDC this would be ROM. Relocate only that base address into
-    # scratch RAM; preserve opcode, masks and all increment/shift vectors.
-    raw = replace_once(raw, '0d13dh,00339h,0de89h', '0d13dh,07339h,0de89h')
+    require(digest(raw.encode('ascii')) == manifest['upstream_sha256'], 'M140_ZEX_UPSTREAM')
     source = zex.translate_zmac(raw)
-    source = replace_once(source, '\torg\t100h', '\torg\t4000h')
-    source = replace_once(source, 'ld\thl,(6)', 'di\n\tld sp,7effh\n\tld\thl,7effh\n\txor a\n\tout (0f8h),a\n\tld (7f09h),a\n\tld a,5\n\trst 18h')
-    source = replace_once(source, 'jp\t0\t\t; warm boot', 'jp\tfdc_done')
-    source = replace_once(source, 'call\t5', 'call\tfdc_bdos')
-    source = replace_once(source, 'ei\t\t\t; enable interrupts', 'di\t\t\t; FDC: no asynchronous device interrupts')
-    # Print every actual CRC, even if it equals the stock-address expectation.
-    source = replace_once(source, 'jp\tz,tlpok', 'nop\n\tnop\n\tnop')
-    source = replace_once(source, '  ERROR **** crc expected:', '  STOCK=')
-    source = replace_once(source, ' found:', ' CRC=')
-    source = replace_once(source, 'Z80all instruction exerciser', 'M139 FDC relocated ZEXALL')
-    if smoke:
-        begin = source.index('tests:')
-        end = source.index('\n\tdw\t0', begin) + len('\n\tdw\t0')
-        source = source[:begin] + 'tests:\n\tdw negop\n\tdw 0' + source[end:]
-        source = replace_once(source, 'M139 FDC relocated ZEXALL', 'M139 FDC NEG SMOKE ONLY')
-    return source + '''
-fdc_bdos:
-    ld a,c
-    cp 2
-    jr z,fdc_char
-    cp 9
-    jr nz,fdc_bad_bdos
-fdc_string:
-    ld a,(de)
-    cp '$'
-    ret z
-    rst 18h
-    inc de
-    jr fdc_string
-fdc_char:
-    ld a,e
-    rst 18h
-    ret
-fdc_bad_bdos:
-    halt
-    jr fdc_bad_bdos
-fdc_done:
-    ld a,4
-    rst 18h
-    jp 2ah
-'''
+    for entry in manifest['patches'][:2 if smoke else 1]:
+        source = apply_fdc_patch(source, (PATCH_DIR / entry['file']).read_text(encoding='ascii'), entry)
+    return source
 
 def assemble_images(assembler: str, output: Path) -> dict[str, bytes]:
     images = {}
@@ -278,7 +257,7 @@ def main() -> None:
               'files_sha256':{n:digest(d) for n,d in images.items()},
               'files_size':{n:len(d) for n,d in images.items()},
               'payload_sha256':{p.name:digest(p.read_bytes()) for p in args.output_dir.glob('fdc*.bin')},
-              'source_sha256':{str(p.relative_to(ROOT)):digest(p.read_bytes()) for p in [HERE/'build.py',HERE/'loader.asm',HERE/'probe.asm',HERE/'help.txt',ROOT/'external/zex/zexall.src',ROOT/'tools/cpmva/zex/zexbuild.py']},
+              'source_sha256':{str(p.relative_to(ROOT)):digest(p.read_bytes()) for p in [HERE/'build.py',HERE/'loader.asm',HERE/'probe.asm',HERE/'help.txt',ROOT/'external/zex/zexall.src',ROOT/'tools/cpmva/zex/zexbuild.py',PATCH_DIR/'m140-fdc.json',*[PATCH_DIR/name for name in PATCH_NAMES]]},
               'command':sys.argv,
               'status':'BUILT_NOT_HARDWARE_ACCEPTED','physical_target':'FDC monitor family; not main-CPU CP/M execution'}
     (args.output_dir/'build-report.json').write_text(json.dumps(report,indent=2)+'\n')

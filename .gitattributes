@@ -29,6 +29,11 @@ docs/agents/reports/m35_suzukiplan_irq_extension.patch -diff
 # Unified source patch retains upstream tab-indented context as patch data
 tools/cpmva/patches/cpm22-64k.patch -diff
 
+# M140 unified-diff context is byte-exact patch data, not source indentation.
+# Keep these patches text-diffable; relax only context-specific whitespace.
+external/zex/patches/m140-fdc-zexall.patch whitespace=-blank-at-eol,-space-before-tab
+external/zex/patches/m140-fdc-neg-smoke.patch whitespace=-blank-at-eol,-space-before-tab
+
 # Byte-identical legal evidence retains its historical line whitespace
 LICENSES/legacy-vaeg.txt whitespace=-blank-at-eol
 

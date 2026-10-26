@@ -22,7 +22,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M139 physical-FDC diagnostic preparation
+# M140 physical-FDC diagnostic preparation
+
+The maintainer separated this work from M139 into M140. Existing v1 `M139`
+banners, stable error codes and JSON schema IDs are retained as legacy protocol
+identifiers so tested binaries/evidence are not changed merely to rename a task.
+ZEX adaptations are versioned in [external patches](../../../external/zex/patches/README.md),
+not hidden string substitutions or hand-edited upstream source.
 
 **Implemented hardware-facing loader and RAM programs; physical acceptance is
 NOT_RUN until actual FDC records are collected.** Main-CPU CP/M is only the
@@ -217,5 +223,5 @@ Its CP/M text contract is F300h/120-byte rows/80 characters, not N88-BASIC's
 F3C8h layout. Outputs contain private identities and must remain out of Git.
 Dummy-video integration does not establish physical FDC timing, independent
 Zilog conformance, presenter inspection or any physical display acceptance.
-See [M139](../../../docs/agents/tasks/M139_upd780_or_upd9002_check.md) for
+See [M140](../../../docs/agents/tasks/M140_fdc_upd780_conformance.md) for
 current evidence and the still-blocked broader milestone gate.

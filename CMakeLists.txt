@@ -2286,7 +2286,7 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
     endif()
 
-    # M139: mapped FDC RAM payload checks with a synthetic monitor transport.
+    # M140: mapped FDC RAM payload checks with a synthetic monitor transport.
     # This does not execute a private ROM or establish physical CPU timing.
     add_executable(vaeg_upd780_fdc_probe_runner
         tests/upd780/fdc_probe_runner.cpp
