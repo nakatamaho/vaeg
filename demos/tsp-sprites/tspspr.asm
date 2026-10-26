@@ -61,8 +61,12 @@ PAT_BOX		equ	1000h		; 16x16 dots, white outline
 PAT_CHECK	equ	1100h		; chequered (2x2) grey
 PAT_ALIEN	equ	1200h		; 3 aliens x colours 1-14, 256 bytes each
 PAT_SHOT	equ	3c00h		; colours 1-14, 8x16 dots, 128 bytes each
-PAT_MONO	equ	4400h		; alien 0 in one colour, 64 bytes
+PAT_MONO	equ	4400h		; alien 0 in one colour: 32 dots (64 bytes),
+PAT_MONO64	equ	4440h		; twice side by side (64 dots, 128 bytes),
+PAT_MONO128	equ	44c0h		; four times (128 dots, 256 bytes)
 SCRATCH		equ	5000h
+PAT_WIDE	equ	5400h		; alien 0 twice (32x16 dots), colours 1-14,
+					; 512 bytes each (to 7000h)
 TABLE		equ	7e00h
 ; Work area (this segment)
 tab		equ	0c000h		; the descriptors (256 bytes)
@@ -383,8 +387,22 @@ images:		call	map_tvram
 		inc	al
 		cmp	al,15
 		jb	.shot
+		mov	di,PAT_WIDE		; alien 0 twice: colours 1-14
+		mov	al,1
+.wide:		mov	si,ALIEN_IMAGES
+		mov	dx,16
+.wrow:		mov	cx,16
+		call	recolour
+		sub	si,16
+		mov	cx,16
+		call	recolour
+		dec	dx
+		jnz	.wrow
+		inc	al
+		cmp	al,15
+		jb	.wide
 		mov	si,ALIEN_IMAGES		; monochrome: alien 0's shape, each
-		mov	di,PAT_MONO		; dot two sprite dots
+		mov	bx,monobuf		; dot two sprite dots
 		mov	cx,16 * 4
 .mono:		mov	ah,[si]			; four dots a byte
 		call	.pair
@@ -395,8 +413,32 @@ images:		call	map_tvram
 		mov	ah,[si + 3]
 		call	.pair
 		add	si,4
-		stosb
+		mov	[bx],al
+		inc	bx
 		loop	.mono
+		mov	si,monobuf		; once, twice, four times a line
+		mov	di,PAT_MONO
+		mov	cx,64
+		rep	movsb
+		mov	si,monobuf
+		mov	dx,16
+.m64:		movsw
+		movsw
+		sub	si,4
+		movsw
+		movsw
+		dec	dx
+		jnz	.m64
+		mov	si,monobuf
+		mov	dx,16
+.m128:		mov	cx,4
+.m128r:		movsw
+		movsw
+		sub	si,4
+		loop	.m128r
+		add	si,4
+		dec	dx
+		jnz	.m128
 		pop	es
 		jmp	map_gvram
 .pair:		shl	al,2
@@ -454,7 +496,9 @@ flush:		call	map_tvram
 ; negative), of [kind]: 0 an alien (C32: 16 colours, 32 sprite dots; image
 ; [design], colour CL 1-14, or [image] when not 0), 1 a shot (C16: 16
 ; colours, 16 dots, colour CL), 2 the alien in one colour (M32: 32 dots,
-; colour CL). Sprite X = 2 x dot + [xoff], Y = line + [yoff].
+; colour CL), 3 two aliens (C64: 16 colours, 64 dots), 4 and 5 two and four
+; aliens in one colour (M64, M128). Sprite X = 2 x dot + [xoff], Y = line +
+; [yoff].
 sprite:		push	ax
 		push	bx
 		push	cx
@@ -474,7 +518,14 @@ sprite:		push	ax
 		mov	al,[kind]
 		cmp	al,1
 		je	.shot
-		ja	.mono
+		cmp	al,2
+		je	.mono32
+		cmp	al,3
+		je	.wide
+		cmp	al,4
+		je	.mono64
+		cmp	al,5
+		je	.mono128
 		or	dx,3 << 11		; 32 dots
 		mov	ax,[image]
 		or	ax,ax
@@ -494,11 +545,22 @@ sprite:		push	ax
 		shl	ax,7
 		add	ax,PAT_SHOT
 		jmp	.spda
-.mono:		or	dx,1 << 10		; 32 dots, monochrome
+.wide:		or	dx,7 << 11		; 64 dots
+		mov	ax,cx
+		shl	ax,9
+		add	ax,PAT_WIDE
+		jmp	.spda
+.mono32:	mov	ax,PAT_MONO		; monochrome: 32, 64, 128 dots
+		jmp	.mono
+.mono64:	or	dx,1 << 11
+		mov	ax,PAT_MONO64
+		jmp	.mono
+.mono128:	or	dx,3 << 11
+		mov	ax,PAT_MONO128
+.mono:		or	dx,1 << 10
 		inc	cx
 		shl	cl,4
 		mov	[di + 6],cl
-		mov	ax,PAT_MONO
 .spda:		mov	[di + 2],dx
 		shr	ax,1			; TSP word address
 		mov	[di + 4],ax
@@ -1025,7 +1087,7 @@ line_screen:	mov	si,s_line
 		test	al,K_UP | K_DOWN
 		jz	.n
 		inc	byte [kind]
-		cmp	byte [kind],3
+		cmp	byte [kind],N_KINDS
 		jb	.layout
 		mov	byte [kind],0
 		jmp	.layout
@@ -1062,8 +1124,10 @@ colour_of:	push	ax
 		pop	ax
 		ret
 
-; Standing: sprite i at dot 8 + spacing x i (spacing 296 / N, at most 16,
-; even), its marks at lines BAND - 6 to - 3 and BAND + 18 to + 21.
+; Standing: sprite i at dot 8 + spacing x (N - 1 - i) (spacing (304 -
+; width) / N, at most 16, even: the sprites inside the screen, each
+; showing at least its left spacing dots), its marks at lines BAND - 6 to
+; - 3 and BAND + 18 to + 21.
 layout:		call	none
 		cmp	byte [moving],0
 		jne	move_step
@@ -1073,7 +1137,11 @@ layout:		call	none
 		mov	si,32
 		xor	al,al
 		call	g1_fill
-		mov	ax,296
+		mov	bl,[kind]
+		xor	bh,bh
+		shl	bx,1
+		mov	ax,304
+		sub	ax,[kind_width + bx]
 		xor	dx,dx
 		div	word [n]
 		cmp	ax,16
@@ -1081,8 +1149,12 @@ layout:		call	none
 		mov	ax,16
 .s:		and	al,0feh
 		mov	[space],ax
+		mov	ax,[n]			; the first (in front) on the right
+		dec	ax
+		mul	word [space]
+		add	ax,8
+		mov	dx,ax
 		xor	bx,bx
-		mov	dx,8
 .spr:		call	colour_of
 		mov	ax,BAND
 		call	sprite
@@ -1100,7 +1172,7 @@ layout:		call	none
 		call	g1_fill
 		pop	cx
 		pop	bx
-		add	dx,[space]
+		sub	dx,[space]
 		inc	bx
 		cmp	bx,[n]
 		jb	.spr
@@ -1293,7 +1365,9 @@ tests		dw	t_tv_write, t_tv_read, t_tv_write, t_g1_write
 test_names	dw	s_ta, s_tb, s_tc, s_td
 orders		dw	0b9ah, 0ba9h, 09bah
 order_names	dw	s_order1, s_order2, s_order3
-kind_names	dw	s_c32, s_c16, s_m32
+N_KINDS		equ	6
+kind_names	dw	s_c32, s_c16, s_m32, s_c64, s_m64, s_m128
+kind_width	dw	16, 8, 16, 32, 32, 64	; dots
 pos_dot		dw	152, 0, 304, 0, 304, 80, 224, -8, 312, 152, 240, 272
 pos_line	dw	120, TOP, TOP, 208, 208, 72, 72, 120, 120, 216, -8, -8
 bar_line	dw	54, 118, 182
@@ -1326,6 +1400,9 @@ s_sc		db	' SC ', 0
 s_c32		db	'C32', 0
 s_c16		db	'C16', 0
 s_m32		db	'M32', 0
+s_c64		db	'C64', 0
+s_m64		db	'M64', 0
+s_m128		db	'M128', 0
 s_ta		db	'TV WRITE 31 ON   ', 0
 s_tb		db	'TV READ 31 ON    ', 0
 s_tc		db	'TV WRITE OFF     ', 0
@@ -1359,6 +1436,7 @@ ov		db	0
 sc		db	0
 colour		db	0
 ink_body	db	0
+monobuf		times	64 db 0
 line		times	64 db 0
 		align	2
 image_end:
