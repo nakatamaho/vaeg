@@ -42,6 +42,15 @@ pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
   mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf python git
 ```
 
+Rust must come from rustup: the build checks for exactly Rust 1.88.0, which
+MSYS2's own Rust package does not provide. Remove that package if it is
+installed, then install MSYS2's rustup:
+
+```sh
+pacman -R mingw-w64-x86_64-rust   # only if it is installed
+pacman -S --needed mingw-w64-x86_64-rustup
+```
+
 Install Rust 1.88.0 with the GNU Windows target. Prepare librashader's
 static archive and dependency notices, then configure and build:
 
