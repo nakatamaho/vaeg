@@ -34,8 +34,11 @@ aliens and the shot are drawn in `gen_data.py`.
 
 The TSP's colours 1-15 are the sprite class (port 0110h), all but 0
 opaque (012Eh); sprite 31, the BIOS's text cursor, is not used and CURDEF
-turns the cursor off. The program sends SYNC (as the port) and SPRON but
-no DSPON: D sends DSPON once, should the sprites need the text display.
+turns the cursor off. The program sends SYNC (as the port), then DSPON
+and SPRON: with SYNC and SPRON alone the PC-88VA and PC-88VA2 showed no
+sprite at all (2026-10-27), where vaeg shows them. S switches the SYNC
+between the 224-line vector and the BIOS's 200-line one (DSPON and SPRON
+again after it); screen 1's first line ends with S224 or S200.
 Sprite images are in TVRAM's character side from 1000h, the descriptor
 table at 7E00h.
 
@@ -66,7 +69,7 @@ main RAM; OFF: SPROFF, 31: 31 C32 aliens shown, 8: 8 C32, 31M32 and
 | Q, R | 128-byte W chunks done only while the TSP status's VB is set, TVRAM and G1 |
 | S | the vertical blank's share of a frame, thousandths (status polls) |
 | T | SPRON commands (4 bytes each, waiting on the status) |
-| U-X | J, F, Q and S with the text display on (DSPON), after the other rows' passes |
+| U-X | J, F, Q and S with the BIOS's 200-line SYNC (a longer vertical blank), after the other rows' passes |
 
 `TSPSPR P` sets the passes (1-99). SPACE goes to the next screen, after 5
 to 1 again. The arrows held repeat (after 24 VRTCs, every 4); screen 1's
