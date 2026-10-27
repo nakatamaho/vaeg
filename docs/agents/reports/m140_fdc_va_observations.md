@@ -91,6 +91,8 @@ unconditional OR of old-F/A X/Y is also not a rule fitting the entire capture.
 Do not change the emulator or globally propagate a new FDC profile to non-VA
 main CPUs based on these records alone. Next work is a minimal history-controlled
 SCF/CCF probe and independent Zilog control, not another unchanged full ZEX run.
+The [FDCHIST/FDCFLAG r2 disk](../tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2)
+is now prepared and software-validated; its physical results remain pending.
 
 ## Returned-image intake correction
 

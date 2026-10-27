@@ -185,6 +185,60 @@ keeps writable-media geometry strict. Tests: 24/24 unit, 2/2 focused CTest PASS;
 encoding/LF/case/Markdown/milestone/diff checks all exit 0. Private
 snapshot/log/contract/output identities and exact commands remain outside Git.
 
+## History-controlled follow-up disk (r2)
+
+The maintainer requests additional probes and a D88 while the physical VA2
+measurement is running. Do not interrupt that run. New **FDCHIST** and
+**FDCFLAG** programs/log names preserve the existing full-ZEX/FDCPRB results.
+Use a fresh writable copy per machine/setting; run the two new commands in
+that order, waiting for recovery and `A>` after each, then return both logs.
+Current physical VA2 results and physical execution of these new probes remain
+pending, not PASS.
+
+The [history-suite instructions](../../../tools/hardware/upd780/README.md#scfccf-instruction-history-follow-up-history-suite)
+describe both 512-record matrices. Each span seeds `DI; XOR A; PUSH BC; POP AF`,
+then one of eight predecessors immediately followed by SCF/CCF. A separate
+identical-prefix control captures pre-AF; snapshots/CALL/dispatch/monitor I/O
+never interrupt predecessor/IUT adjacency. This controls instruction history,
+not a known internal Q value or an independent Zilog oracle. All three spans
+complete before output. Both generated ASM and actual instruction bytes are
+checked, including DI, seed, predecessor, IUT and capture order.
+
+Verification: **35/35 unit tests PASS**, **2/2 focused CTest PASS**, 2.88 s.
+Each mapped production-worker run emits 512 records (11319 bytes before the
+loader recovery line); host arithmetic comparisons and bounded-map execution
+pass. Program bytes are unchanged between prototype r1 and final r2. The
+old three programs and default legacy D88 also remain byte-identical to the
+previous handoff; no unchanged full mapped/stock run is repeated.
+
+Private-input software integration with the existing worker and a ROM set
+matching MAME's `pc88va2` passes upload/launch/verified recovery, 512 persisted
+records per program, original-file preservation and post-return DIR/prompt.
+Both individual r1 runs pass. The first all-tools same-disk sequence then
+fails while saving the second log: the guest reports `M139_LOG_WRITE_FAILED`,
+leaves a closed partial file and returns to CP/M; content validation correctly
+fails `M139_RECOVERY_RECORD`. This is demonstrated allocation exhaustion, not
+an FDC instruction failure. The original failure, disk and captures are kept.
+
+Final `--suite history` omits the three extra legacy FDC COMs/FDCHELP from the
+new disk (but preserves every original input file and the GPL license). It
+has **55296 bytes free**, reserving **24576 bytes** plus two directory entries
+for both maximum-size logs. A new content-only headroom guard rejects an
+under-budget build before writing the D88. Passing-fixture single-mutation
+block/directory/budget negatives assert stable codes. Default `--suite legacy`
+retains the original disk without adding these new tools.
+
+The final r2 **same-boot FDCHIST then FDCFLAG PASS**: both complete 512-record
+logs persist and guest DIR/prompt succeeds. A separate restarted-worker,
+same-disk sequence also passes, preserving the first log and all original files. This remains SDL-dummy software integration,
+not a physical display or new physical-silicon PASS. Exact worker/corpus/recipe/
+contract/command/output identities and initial failed evidence stay out of Git.
+No CPU profile or shared backend change follows from these software controls.
+Implementation and capacity correction:
+[1560faac6d1f2689c86614d3b6c26f76ea1388b0](https://github.com/nakatamaho/vaeg/commit/1560faac6d1f2689c86614d3b6c26f76ea1388b0).
+Repository encoding/LF/case/Markdown, 49 strict milestone checks, milestone audit
+and staged scope/diff checks exit 0. Hosted CI/private uploads are not requested.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

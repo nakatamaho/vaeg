@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M140 — all-tools prototype exhausted space on the second history log
+
+- **Symptom/scope:** an internal all-tools history disk completed both FDC
+  programs but saving the second history log reported `M139_LOG_WRITE_FAILED`.
+  The loader closed the partial file and returned to CP/M; the content validator
+  rejected the incomplete persisted log. This prototype was not handed off.
+- **Demonstrated cause:** bundling the three legacy FDC COMs/help, two new COMs,
+  license and original CP/M files left too few allocation blocks for both new
+  logs. Each program passed alone; the second same-disk log stopped at 10240
+  bytes. Complete computation/recovery was visible separately from failed save.
+- **Correction:** separate legacy/history suites, preserve original files and
+  reserve block-rounded maximum log sizes plus directory entries before image
+  output. The final history disk has 55296 free bytes with 24576 reserved.
+  No loader, CPU semantics or log-length bounds are weakened.
+- **Verification:** 35 unit tests and two focused CTest pass, including isolated
+  block/directory/budget negatives. Final ROM-backed software checks run both
+  programs in one boot, persist two complete 512-record logs, preserve original
+  files and return a healthy DIR/prompt. The first log also survives a separate
+  restarted-worker sequence. Initial prototype failure and artifacts remain
+  outside Git; the default legacy D88 remains byte-identical.
+- **Evidence/task:** [M140 history-disk record](../agents/tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2).
+- **Fixing commit:**
+  [1560faac6d1f2689c86614d3b6c26f76ea1388b0](https://github.com/nakatamaho/vaeg/commit/1560faac6d1f2689c86614d3b6c26f76ea1388b0).
+
 ### M140 — returned 2D diagnostic captures rejected by the result reader
 
 - **Symptom/scope:** a returned physical FDC result image failed intake with
@@ -4162,6 +4186,8 @@ backend defect. Hidden Q/history is uncontrolled in the current probe and is
 not modeled by the arithmetic helper; its causal contribution is unproved.
 Do not change profiles until a history-controlled reduction and independent
 Zilog control establish the rule. No fixing CPU commit or root cause is claimed.
+The controlled FDCHIST/FDCFLAG probes are now software-validated and prepared
+for physical collection; those physical results are not yet available.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification
