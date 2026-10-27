@@ -37,6 +37,21 @@ typedef struct {
 	UINT32 spda; // 次回表示データ(TVRAM先頭からの相対アドレス)
 } _SPRVA, *SPRVA;
 
+/*
+ * M141, measured with demos/tsp-sprites (TSPSPR) on the PC-88VA and
+ * PC-88VA2 (photographs 2026-10-27, issue #67): a raster line shows the
+ * sprites, from sprite 0 (the front) on, whose image bytes on that line
+ * (4 x (XSIZE + 1) each) plus SPRVA_LINE_COST a sprite add up to at most
+ * SPRVA_LINE_BYTES; the rest of that line's sprites are not drawn. N
+ * sprites side by side showed about 24 of 8 bytes a line, 15 of 16, 8 of
+ * 32 and all 31 of 4, the same on both machines and for 16-colour and
+ * monochrome images of the same bytes.
+ */
+enum {
+	SPRVA_LINE_BYTES = 300,
+	SPRVA_LINE_COST = 4,
+};
+
 typedef struct {
 	UINT screeny; // 現在処理中のラスタ(画面共通の座標系で)
 	UINT y;       // 現在処理中のラスタ(スプライトの座標系で)
@@ -54,6 +69,23 @@ void makesprva_initialize(void) {
 	/*
 	tsp.sprtable = 0x7e00;
 */
+}
+
+/* Collisions (two opaque sprite pixels on a line; with SPRON.GR only of
+ * different groups, colours 1-7 and 8-15) and sprite-over (more than HSPN +
+ * 1 sprites on a line) of the frame being drawn, published to the status
+ * and SPROV at the next frame's start (makesprva_begin). */
+static UINT8 frame_hit;
+static UINT8 frame_ovs;
+
+static void sprpixel(UINT xp, BYTE c) {
+	BYTE old;
+
+	old = sprraster[xp];
+	if (old && (xp < 640) && (!tsp.gr || ((old ^ c) & 8))) {
+		frame_hit |= 0x20;
+	}
+	sprraster[xp] = c;
 }
 
 static void drawraster(SPRVA s, BYTE *sprinfo) {
@@ -84,7 +116,7 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 				d = *sprdata;
 				sprdata++;
 				for (bitcount = 0; bitcount < 8; bitcount++) {
-					sprraster[xp] = d & 0x80 ? fg : bg;
+					sprpixel(xp, d & 0x80 ? fg : bg);
 					d <<= 1;
 					xp = (xp + 1) & 0x3ff;
 				}
@@ -96,7 +128,7 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 				sprdata++;
 				for (bitcount = 0; bitcount < 8; bitcount++) {
 					if (d & 0x80)
-						sprraster[xp] = fg;
+						sprpixel(xp, fg);
 					d <<= 1;
 					xp = (xp + 1) & 0x3ff;
 				}
@@ -109,10 +141,10 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 			sprdata++;
 			// ToDo: 0以外の透明色の場合に重ねがきしないようにする
 			if (d & 0xf0)
-				sprraster[xp] = d >> 4;
+				sprpixel(xp, (BYTE)(d >> 4));
 			xp = (xp + 1) & 0x3ff;
 			if (d &= 0x0f)
-				sprraster[xp] = (BYTE)d;
+				sprpixel(xp, (BYTE)d);
 			xp = (xp + 1) & 0x3ff;
 		}
 	}
@@ -185,6 +217,15 @@ void makesprva_begin(void) {
 	int i;
 	BYTE *sprinfo;
 
+	/* The last frame's collision and sprite-over: the status's SC (until
+	 * SPROV reads it) and SPROV's byte. */
+	if (frame_hit) {
+		tsp.status |= 0x20;
+		tsp.sprov = (UINT8)(frame_hit | (frame_ovs & 0x1f));
+	}
+	frame_hit = 0;
+	frame_ovs = 0;
+
 	work.y = 0;
 	work.screeny = 0;
 
@@ -228,7 +269,9 @@ void makesprva_raster(void) {
 	BOOL mg;
 
 	mg = tsp.mg && !((tsp.syncparam[0] & 0xc0) == 0x40);
-	if (!tsp.spron) {
+	/* SYNC stops the display; the sprites, as the text, show only after
+	 * DSPON (TSPSPR on the VA and VA2: SYNC and SPRON alone showed none). */
+	if (!tsp.spron || !tsp.dspon) {
 		ZeroMemory(sprraster, sizeof(sprraster));
 		if (!mg || (work.screeny & 1) == 0) {
 			work.y++;
@@ -238,15 +281,44 @@ void makesprva_raster(void) {
 	}
 
 	if (!mg || (work.screeny & 1) == 0) {
+		BOOL shown[SPRVA_SPRS];
+		UINT bytes;
+		UINT count;
+
+		/* The line's sprites from the front: those within the line's
+		 * bytes are drawn; more than HSPN + 1 is a sprite-over. */
+		bytes = 0;
+		count = 0;
+		sprinfo = textmem + tsp.sprtable;
+		for (i = 0; i < SPRVA_SPRS; i++) {
+			s = &work._spr[i];
+			shown[i] = FALSE;
+			if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
+				UINT cost;
+
+				cost = ((LOADINTELWORD(sprinfo + i * 8 + 2) >> 11) + 1) * 4 + SPRVA_LINE_COST;
+				if (bytes + cost <= SPRVA_LINE_BYTES) {
+					shown[i] = TRUE;
+				}
+				bytes += cost;
+				if (++count == (UINT)tsp.hspn + 2 && !(frame_hit & 0x40)) {
+					frame_hit |= 0x40;
+					frame_ovs = (UINT8)i;
+				}
+			}
+		}
 		ZeroMemory(sprraster, sizeof(sprraster));
 		sprinfo = textmem + tsp.sprtable + SPRVA_SPRS * 8;
 		s = &work._spr[SPRVA_SPRS];
-		for (i = 0; i < SPRVA_SPRS; i++) {
+		for (i = SPRVA_SPRS - 1; i >= 0; i--) {
 			s--;
 			sprinfo -= 8;
 
-			if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
+			if (shown[i]) {
 				drawraster(s, sprinfo);
+			} else if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
+				/* (not drawn: its rows still advance) */
+				s->spda += ((LOADINTELWORD(sprinfo + 2) >> 11) + 1) * 4;
 			}
 		}
 

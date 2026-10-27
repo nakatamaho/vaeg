@@ -2568,6 +2568,81 @@ static int test_va_cursor_sprite_enable(void) {
 	return (result);
 }
 
+/* M141: sprites need DSPON; a raster line takes SPRVA_LINE_BYTES (300) of
+ * image and a cost of 4 a sprite, from the front; collisions reach the
+ * status's SC and SPROV at the next frame (TSPSPR, issue #67). */
+static int test_va_sprite_line(void) {
+	_TSP saved_tsp;
+	BYTE saved_sprites[0x100];
+	BYTE saved_pattern[0x100];
+	BYTE saved_raster[0x400];
+	BOOL saved_textmem_dirty;
+	const UINT16 sprite_table = 0x4000;
+	const UINT16 pattern = 0x2000;
+	int result;
+	int i;
+
+	saved_tsp = tsp;
+	CopyMemory(saved_sprites, textmem + sprite_table, sizeof(saved_sprites));
+	CopyMemory(saved_pattern, textmem + pattern, sizeof(saved_pattern));
+	CopyMemory(saved_raster, sprraster, sizeof(saved_raster));
+	saved_textmem_dirty = textmem_dirty;
+
+	/* 20 sprites of 32 dots, 16 colours (16 bytes a line), side by side
+	 * on line 0: 15 x (16 + 4) = 300 fit, the 16th does not. */
+	ZeroMemory(textmem + sprite_table, sizeof(saved_sprites));
+	FillMemory(textmem + pattern, sizeof(saved_pattern), 0x11);
+	for (i = 0; i < 20; i++) {
+		STOREINTELWORD(textmem + sprite_table + i * 8, (3 << 10) | 0x0200);
+		STOREINTELWORD(textmem + sprite_table + i * 8 + 2, (3 << 11) | (i * 32));
+		STOREINTELWORD(textmem + sprite_table + i * 8 + 4, pattern / 2);
+	}
+	ZeroMemory(&tsp, sizeof(tsp));
+	tsp.spron = TRUE;
+	tsp.dspon = TRUE;
+	tsp.sprtable = sprite_table;
+	tsp.hspn = 31;
+	tsp.curn = 31;
+	makesprva_blankraster();
+	makesprva_begin();
+	makesprva_raster();
+	result = (sprraster[14 * 32] == 1 && sprraster[15 * 32] == 0 && sprraster[19 * 32] == 0)
+	             ? SUCCESS
+	             : fail("VA sprite line", "the line's bytes did not stop the 16th sprite");
+
+	if (result == SUCCESS) {
+		tsp.dspon = FALSE;
+		makesprva_blankraster();
+		makesprva_begin();
+		makesprva_raster();
+		if (sprraster[0] != 0) {
+			result = fail("VA sprite line", "a sprite showed without DSPON");
+		}
+	}
+
+	if (result == SUCCESS) {
+		/* Sprite 1 over sprite 0: a collision, reported at the next frame. */
+		tsp.dspon = TRUE;
+		STOREINTELWORD(textmem + sprite_table + 8 + 2, (3 << 11) | 8);
+		makesprva_begin();
+		makesprva_raster();
+		makesprva_begin();
+		if (!(tsp.status & 0x20) || !(tsp.sprov & 0x20)) {
+			result = fail("VA sprite line", "a collision did not set SC and SPROV");
+		}
+	}
+
+	tsp = saved_tsp;
+	CopyMemory(textmem + sprite_table, saved_sprites, sizeof(saved_sprites));
+	CopyMemory(textmem + pattern, saved_pattern, sizeof(saved_pattern));
+	CopyMemory(sprraster, saved_raster, sizeof(saved_raster));
+	textmem_dirty = saved_textmem_dirty;
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: VA sprite line ok\n");
+	}
+	return (result);
+}
+
 static int test_framedisp(void) {
 	VAEG_FRAMEDISP state;
 
@@ -8933,6 +9008,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_va_cursor_sprite_enable() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_va_sprite_line() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_framedisp() != SUCCESS) {

@@ -440,9 +440,24 @@ static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
 	sysmword_write[sysm_bank()](address, value);
 }
 
+/*
+ * M141: a CPU word access to TVRAM (A0000h, bank 1) costs TVRAM_WORD_WAIT
+ * clocks more than one to main RAM (13 on the PC-88VA, 12 on the PC-88VA2);
+ * byte accesses cost nothing more.
+ * Measured with demos/tsp-sprites (TSPSPR, issue #67) on the PC-88VA and
+ * PC-88VA2: REP STOSW 18.8 and REP MOVSW 24 clocks a word (VA2 18 and 23),
+ * main RAM's MOVSW 9.2, whether sprites, the attribute side or text; a
+ * byte loop writing or reading TVRAM as fast as one writing main RAM.
+ * Machine clocks, as GVRAM's waits.
+ */
+#define TVRAM_WORD_WAIT_VA 13
+#define TVRAM_WORD_WAIT_VA2 12
+#define TVRAM_WORD_WAIT ((pccore.model_va == PCMODEL_VA2) ? TVRAM_WORD_WAIT_VA2 : TVRAM_WORD_WAIT_VA)
+
 static void MEMCALL tvramw_wt(UINT32 address, REG16 value) {
 	UINT32 offset;
 
+	CPU_REMCLOCK -= TVRAM_WORD_WAIT;
 	offset = address - CPUADDR_SYSM;
 	if (offset >= tvram_size()) {
 		return;
@@ -647,6 +662,7 @@ static REG16 MEMCALL tvramw_rd(UINT32 address) {
 	UINT32 offset;
 	REG16 ret;
 
+	CPU_REMCLOCK -= TVRAM_WORD_WAIT;
 	offset = address - CPUADDR_SYSM;
 	if (offset >= tvram_size()) {
 		return (0xffff);
