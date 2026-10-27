@@ -66,6 +66,12 @@ using the hardware sprites.
   - selftest `VA sprite line`; `idp_m69_status_composition` reads the
     status after the IBF hold.
 - Merge of `demos/tsp-sprites` (PR #68).
+- [c3c238de](https://github.com/nakatamaho/vaeg/commit/c3c238de): state
+  thumbnails (quick saves) turned as the screen is shown; save times shown
+  to the second (maintainer's request during G141). Selftest: the
+  screenshot rotation case also checks a turned thumbnail.
+- [f8a74126](https://github.com/nakatamaho/vaeg/commit/f8a74126abe8dfbb0abd7613cc60f2e4e30f20b2):
+  debug script `load-state RESOURCE`.
 - `upd72022-tsp.md` section 13.5, the ledger.
 
 ## vaeg divided by the photographs (TSPSPR screen 5, means)
@@ -85,7 +91,8 @@ M128 14 in vaeg; the photographs about 24-25, 15-16, 31, 7-8, 23-24, 15-16.
 
 ## Gate G141 (human)
 
-Standard V3 gate, plus TSPSPR from `demos/tsp-sprites` on the VA and VA2
+Standard V3 gate, plus: with the screen turned 90 degrees a quick save's
+thumbnail is upright, and the state list shows seconds; plus TSPSPR from `demos/tsp-sprites` on the VA and VA2
 models: screen 1 boxes aligned, screen 3 sprites missing past the line's
 limit as above with OV 20, screen 5 as in the table.
 
@@ -105,5 +112,12 @@ limit as above with OV 20, screen 5 as in the table.
 ## Clean-checkout build
 
 `tools/release/build-mingw-static-container.sh --commit
-a750ed28c6638e4c786f529987e1b5b59e72763b`: exit 0; `vaeg.exe` SHA-256
-`e3e16b38d0bc7b54a92df105c856980af7d0568ae756495bba43f69450bf8b89`.
+f8a74126abe8dfbb0abd7613cc60f2e4e30f20b2`: exit 0; `vaeg.exe` SHA-256
+`494dd379ccd83804cf97a0a20b008d745c65f613e081059ad2cbf09c8911e09f`
+(a750ed28's, `e3e16b38...`, before the thumbnail change).
+
+## Open (found during G141)
+
+- A state saved by the Windows build does not load in the Linux build: the
+  DISK section's paths are `MAX_PATH` bytes (260 on Windows, 4096 on Linux),
+  so the section sizes differ and the check fails. Not fixed here.
