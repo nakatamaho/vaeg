@@ -101,3 +101,9 @@ limit as above with OV 20, screen 5 as in the table.
   (recorded in M134); since then `demos/z80-timing` (M135) and
   `demos/tsp-sprites` (here) were added, both on no committed disk;
   `demos/tsp-sprites/build.sh` builds (exit 0).
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+a750ed28c6638e4c786f529987e1b5b59e72763b`: exit 0; `vaeg.exe` SHA-256
+`e3e16b38d0bc7b54a92df105c856980af7d0568ae756495bba43f69450bf8b89`.
