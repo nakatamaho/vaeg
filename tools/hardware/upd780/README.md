@@ -31,9 +31,12 @@ ZEX adaptations are versioned in [external patches](../../../external/zex/patche
 not hidden string substitutions or hand-edited upstream source.
 
 **Implemented hardware-facing loader and RAM programs; full physical acceptance
-remains BLOCKED.** An operator-supplied VA photo shows NEG-only smoke completion,
-CRC d638dd6a, reported RAM restoration and persisted log readback; this does not
-accept full ZEX/AF/speed coverage (see M140 for identity/evidence limitations). Main-CPU CP/M is only the
+remains BLOCKED.** Returned physical VA logs contain all 67 ZEX groups (matching
+identical-image mapped host CRCs), 256 AF pairs and 67 timing rows. SCF/CCF X/Y
+differences need history controls; absolute timing and physical H/S remain open.
+See [observations](../../../docs/agents/reports/m140_fdc_va_observations.md).
+`results.disk_files()` accepts validated 2D double-step capture tables using
+an in-memory header-only normalization; the media builder remains strict. Main-CPU CP/M is only the
 controller. Running the original disk's `ZEXALL.COM` still tests its **main
 CPU**, not the FDC. Use the new names below.
 

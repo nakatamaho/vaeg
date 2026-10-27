@@ -41,11 +41,13 @@ This is a subsystem protocol, not a main-CPU BIOS interrupt ABI.
   execution, return to command service, RAM readback and subsequent CP/M disk
   operations in the inherited local software-integration cases. Exact evidence
   and evaluated identities are linked from [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
-- **Physical hardware:** an operator-supplied VA photo now shows the NEG-only
-  smoke completing with CRC d638dd6a, reported RAM restoration and subsequent
-  persisted log readback/prompt; see M140 for identity/evidence limitations.
-  Full-suite/AF/speed results remain uncollected. Do not promote the source
-  model, synthetic monitor or main-CPU CP/M execution to physical FDC evidence.
+- **Physical hardware:** returned VA media contains completed full-suite,
+  AF and raw timing logs with recovery markers. All 67 mapped-host CRCs match;
+  35 AF pairs differ in SCF/CCF X/Y and need instruction-history controls.
+  Original files/programs and system sectors match the handoff. See
+  [physical observations](../agents/reports/m140_fdc_va_observations.md) for
+  evidence limits; reference/calibration, H/S and independent Zilog controls
+  remain open. Do not promote synthetic or main-CPU runs to physical evidence.
 
 ## Byte transport
 

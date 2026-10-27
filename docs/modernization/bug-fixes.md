@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M140 — returned 2D diagnostic captures rejected by the result reader
+
+- **Symptom/scope:** a returned physical FDC result image failed intake with
+  `M139_D88_TRACKS` before CP/M log extraction; this was a tooling limitation,
+  not a guest disk corruption or CPU failure.
+- **Demonstrated cause:** the image uses the 2D double-step track-table layout
+  `4*C+H` while sector C/H remain logical. The reader reused the writable
+  builder's contiguous `2*C+H` assumption. Header-only normalization permits
+  the same exact sector bytes to pass the existing strict geometry checks.
+- **Correction:** accept only the enumerated 2D double-step layout on readback,
+  validate geometry/bounds/order and normal sector status, and normalize a
+  header copy in memory. Keep original captures and writable-builder rules
+  unchanged; reject other layouts rather than adding a bypass.
+- **Verification:** 24/24 unit and 2/2 focused CTest PASS, with passing-fixture
+  single-mutation track/media/sector/status negatives and exact stable codes.
+  The returned media yields complete three-program logs, unchanged original
+  files/programs/system sectors and 67/67 mapped-host full-ZEX CRC matches.
+  Original failure and subsequent normalized/production reports are retained.
+- **Evidence/task:** [M140 analysis](../agents/reports/m140_fdc_va_observations.md),
+  [M140 task](../agents/tasks/M140_fdc_upd780_conformance.md).
+- **Fixing commit:**
+  [26108cb2c3701b8511ba8a76064cb1db187bf74d](https://github.com/nakatamaho/vaeg/commit/26108cb2c3701b8511ba8a76064cb1db187bf74d).
+
 ### M138 — Matroska fixture cleanup aborted on Windows
 
 - **Symptom/scope:** native Windows recording tests aborted at directory
@@ -4127,6 +4150,19 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M140 — physical AF probe disagrees on SCF/CCF undocumented X/Y bits
+
+The [returned VA observations](../agents/reports/m140_fdc_va_observations.md)
+contain 35 distinct input pairs differing from the current host arithmetic
+baseline: 34 SCF, 35 CCF. A and documented flags agree; POP AF, BIT and AND
+show no differences. The same mapped full ZEX image agrees in all 67 CRCs.
+This is an unresolved diagnostic discrepancy, not yet a demonstrated NEC-only
+backend defect. Hidden Q/history is uncontrolled in the current probe and is
+not modeled by the arithmetic helper; its causal contribution is unproved.
+Do not change profiles until a history-controlled reduction and independent
+Zilog control establish the rule. No fixing CPU commit or root cause is claimed.
+Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification
 

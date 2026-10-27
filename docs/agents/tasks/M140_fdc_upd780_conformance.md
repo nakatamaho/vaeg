@@ -25,11 +25,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Status: maintainer-authorized separation from M139 because the milestones
 would otherwise overlap. Harness and mapped images implemented; inherited
-software checks pass within their stated scope. Operator-supplied VA photo
-now shows the physical NEG-only smoke completing, reported RAM recovery and
-subsequent log readback. **G140 BLOCKED**: full physical ZEX/AF/speed coverage,
-approved timing reference, independent mapped Zilog controls and
-evidence-supported NEC corrections remain unestablished.
+software checks pass within their stated scope. Returned VA media now contains
+complete full ZEX/AF/timing observations: 67/67 mapped-host CRCs match, while
+35 AF input pairs expose SCF/CCF undocumented-bit discrepancies. All original
+files/programs and boot/system sectors are preserved. **G140 BLOCKED**:
+history-controlled discrepancy reduction, independent Zilog controls, approved
+timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
 Base: `d483636a70c427953bfa13cce0b27ca27216829e`.
 
@@ -155,11 +156,31 @@ Raw photo/derived display copy and transcription stay outside Git under a
 neutral observation ID. The intended handoff source is
 [8931ea75ea2e5e0a110ebc27bd37595ceb624789](https://github.com/nakatamaho/vaeg/commit/8931ea75ea2e5e0a110ebc27bd37595ceb624789),
 but physical-media program hashes, firmware revision and machine configuration
-are not independently established from this photo. There is no raw off-device
-log yet. No claims are made for unchanged original files, a post-run DIR,
+are not independently established from this photo. At this initial photo-only
+stage there was no raw off-device log; the subsequent returned-media case below
+supplies complete records and matching returned-program identities. No claims are made for unchanged original files, a post-run DIR,
 VA2, full 67-group conformance, the AF matrix, H/S timing or physical MHz.
 The next staged collection is FDCPRB and its persisted log; the full FDCZEX
 run remains separate. No G140 acceptance or emulator correction follows.
+
+## Returned physical VA media — hw-fdc-va-02
+
+See the [analysis and verification report](../reports/m140_fdc_va_observations.md).
+All 67 full-ZEX CRCs match the preserved identical-image mapped host. The 29
+stock-address mismatches also occur in that host and are not NEC differences.
+All 256 AF pairs and 67 timing records validate structurally; 35 AF pairs differ
+only in SCF/CCF X/Y bits (34 SCF, 35 CCF). Hidden Q/history is uncontrolled,
+so a minimal controlled probe and independent Zilog control are needed before
+any backend/profile change. No absolute speed conversion or physical H/S
+comparison is justified yet; no unchanged full run needs repeating.
+
+The received D88 uses a double-step track table. The original strict-intake
+failure is preserved separately from header-only normalization and production
+reader validation; sector headers/payloads and the supplied original are not
+modified. The [readback correction](https://github.com/nakatamaho/vaeg/commit/26108cb2c3701b8511ba8a76064cb1db187bf74d)
+keeps writable-media geometry strict. Tests: 24/24 unit, 2/2 focused CTest PASS;
+encoding/LF/case/Markdown/milestone/diff checks all exit 0. Private
+snapshot/log/contract/output identities and exact commands remain outside Git.
 
 ## G140 acceptance
 
