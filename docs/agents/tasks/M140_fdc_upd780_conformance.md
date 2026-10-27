@@ -166,6 +166,9 @@ run remains separate. No G140 acceptance or emulator correction follows.
 ## Returned physical VA media — hw-fdc-va-02
 
 See the [analysis and verification report](../reports/m140_fdc_va_observations.md).
+The maintainer subsequently confirms the setting as **VA / V2 / H**, not VA2.
+This annotates the existing capture; it is not a second run or an independently
+measured FDC clock. The S-setting comparison remains unrun.
 All 67 full-ZEX CRCs match the preserved identical-image mapped host. The 29
 stock-address mismatches also occur in that host and are not NEC differences.
 All 256 AF pairs and 67 timing records validate structurally; 35 AF pairs differ

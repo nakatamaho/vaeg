@@ -26,9 +26,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Scope and identities
 
 Neutral observation ID: `hw-fdc-va-02`. The maintainer identifies the target as
-physical VA. Firmware/board revision, main H/S setting, elapsed wall time and
-an independently approved VRTC reference have not been supplied. VA2 coverage
-is not established. This is not a ROM-set comparison claim.
+physical **VA, V2 mode, H setting**, subsequently confirmed by the maintainer
+as `VA V2 H`. This means a VA in V2/H, not a VA2 machine. Firmware/board
+revision, elapsed wall time and an independently approved VRTC reference have
+not been supplied. VA2 and S-setting coverage are not established. This is
+operator-supplied configuration metadata, not an independent ROM-set comparison
+or a measurement of the FDC clock.
 
 The returned media contains all three complete diagnostic logs. All original
 files, including the three COM programs, are byte-identical to the handoff;
@@ -60,8 +63,8 @@ the worker still matches, and no emulator execution source changes here.
 All three reader CLI invocations exit 0 with `COMPLETE_OBSERVATIONS`, not a
 silicon-conformance verdict. Raw edge measurements have **no physical MHz or
 seconds conversion** without an independently approved reference. There is only
-one unclassified main H/S setting; physical H/S observer-coupling coverage
-remains open. Do not substitute host model cycles or nominal clock for this.
+one operator-confirmed main V2/H setting; an S-setting comparison and physical
+H/S observer-coupling coverage remain open. Do not substitute host model cycles or nominal clock for this.
 
 ### AF discrepancy is restricted to SCF/CCF undocumented bits
 
