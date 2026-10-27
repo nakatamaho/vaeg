@@ -51,7 +51,7 @@ def main():
     p.add_argument('--image', type=Path, required=True)
     p.add_argument('--build-report', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--case', choices=('probe', 'smoke', 'existing'), required=True)
+    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair'), required=True)
     p.add_argument('--standard', choices=('true', 'false'), default='true')
     a = p.parse_args()
     out = a.output.resolve()
@@ -70,13 +70,19 @@ def main():
     cfg = out / 'config.ini'
     cfg.write_text('[NekoProjectII]\nMain_RAM=640\nMain_RAM_Auto=false\n'
                    'CPU_Speed=100\nBootMode=1\nV1V2_Standard=' + a.standard + '\n')
-    name = 'FDCONE' if a.case == 'smoke' else 'FDCPRB'
+    name = {'smoke':'FDCONE','history':'FDCHIST','flags':'FDCFLAG','history-pair':'FDCFLAG'}.get(a.case,'FDCPRB')
     wait, frames = (24000, 30000) if a.case == 'probe' else (9000, 13000)
+    if a.case in ('history','flags'):
+        wait, frames = 12000, 16000
     if a.case == 'existing':
         results.need(name + '.TXT' in before, 'M139_INTEGRATION_EXISTING_FIXTURE')
         wait, frames = 3000, 7000
     script = out / 'input.txt'
     script.write_text(f'@wait 1600\n@text {name}\n@enter\n@wait {wait}\n@text DIR\n@enter\n')
+    if a.case=='history-pair':
+        frames=30000
+        script.write_text('@wait 1600\n@text FDCHIST\n@enter\n@wait 12000\n'
+                          '@text FDCFLAG\n@enter\n@wait 12000\n@text DIR\n@enter\n')
     tvram = out / 'tvram.bin'
     command = [str(worker), '--roms', str(a.roms.resolve()), '--cfg', str(cfg),
                '--no-bkupmem', '--model', 'va2', '--nowait', '--mute',
@@ -118,6 +124,14 @@ def main():
             if a.case == 'probe':
                 report['content'] = results.probe(data, unit='E')
                 results.need(not report['content']['zilog_difference_records'], 'M139_INTEGRATION_HOST_AF')
+            elif a.case in ('history','flags'):
+                report['content'] = results.history(data,profile=name,host_model=True)
+            elif a.case=='history-pair':
+                report['content']={}
+                for profile in build.HISTORY_PROFILES:
+                    results.need(profile+'.TXT' in after,'M140_HISTORY_PAIR_LOG_MISSING')
+                    (out/(profile+'.TXT')).write_bytes(after[profile+'.TXT'])
+                    report['content'][profile]=results.history(after[profile+'.TXT'],profile=profile,host_model=True)
             else:
                 report['content'] = results.zex(data, smoke=True)
         rows = results.cpm_screen(tvram.read_bytes())

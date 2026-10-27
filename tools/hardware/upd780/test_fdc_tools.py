@@ -156,6 +156,107 @@ class PatchContent(unittest.TestCase):
         self.assertEqual(caught.exception.code,'M140_ZEX_PATCH_OUTPUT')
 
 
+class LogHeadroom(unittest.TestCase):
+    def fixture(self):
+        files=build.cpm.pad_cpm_records({'FILL.BIN':b'X'*(146*2048)})
+        raw,_=build.cpm.build_cpm_raw(files)
+        image=build.cpm.wrap_cpm_d88(raw)
+        self.assertEqual(build.log_headroom(image,{'NEW.TXT':6144})['free_bytes'],8192)
+        return image
+
+    def test_insufficient_blocks(self):
+        image=self.fixture()
+        with self.assertRaises(build.BuildError) as caught:
+            build.log_headroom(image,{'NEW.TXT':12288})
+        self.assertEqual(caught.exception.code,'M140_LOG_HEADROOM')
+
+    def test_directory_full(self):
+        files=build.cpm.pad_cpm_records({f'{i:07d}.BIN':b'X' for i in range(127)})
+        raw,_=build.cpm.build_cpm_raw(files)
+        image=build.cpm.wrap_cpm_d88(raw)
+        self.assertEqual(build.log_headroom(image,{'NEW.TXT':2048})['free_directory_slots'],1)
+        raw=bytearray(raw)
+        raw[0x4000+127*32:0x4000+128*32]=b'\0EMPTY   BIN'+bytes(20)
+        changed=build.cpm.wrap_cpm_d88(bytes(raw))
+        with self.assertRaises(build.BuildError) as caught:
+            build.log_headroom(changed,{'NEW.TXT':2048})
+        self.assertEqual(caught.exception.code,'M140_LOG_HEADROOM')
+
+    def test_invalid_budget(self):
+        image=self.fixture()
+        with self.assertRaises(build.BuildError) as caught:
+            build.log_headroom(image,{'NEW.TXT':0})
+        self.assertEqual(caught.exception.code,'M140_LOG_BUDGET')
+
+
+class HistoryContent(unittest.TestCase):
+    def fixture(self,profile='FDCHIST'):
+        rows=['M140 FDC HISTORY 1 '+profile]
+        av,fv=build.HISTORY_PROFILES[profile]
+        for a in av:
+            for f in fv:
+                requested=a<<8|f
+                for h in range(8):
+                    before=results.history_before(requested,h)
+                    for op,i in (('S',3),('C',4)):
+                        after=results.zilog_af(before>>8,before&255)[i]
+                        rows.append(f'Q {h} {op} {requested:04X} {before:04X} {after:04X}')
+        rows+=['M140_FDC_HISTORY_COMPLETE','M139_FDC_RAM_RESTORED']
+        data=('\r\n'.join(rows)+'\r\n').encode()
+        self.assertEqual(results.history(data,profile=profile,host_model=True)['records'],512)
+        self.assertLess(len(data),12288)
+        return data
+
+    def test_both_profiles(self):
+        for name in build.HISTORY_PROFILES:self.fixture(name)
+
+    def test_missing_row(self):
+        data=self.fixture();rows=data.splitlines(keepends=True);del rows[1]
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(b''.join(rows),profile='FDCHIST')
+        self.assertEqual(caught.exception.code,'M140_HISTORY_SET')
+
+    def test_duplicate(self):
+        data=self.fixture()
+        # Keep recovery final so the duplicate, not recovery, is the mutation.
+        changed=data.replace(b'M140_FDC_HISTORY_COMPLETE',data.splitlines(keepends=True)[1]+b'M140_FDC_HISTORY_COMPLETE')
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(changed,profile='FDCHIST')
+        self.assertEqual(caught.exception.code,'M140_HISTORY_DUPLICATE')
+
+    def test_precondition(self):
+        data=self.fixture();changed=data.replace(b'Q 0 S 0000 0000',b'Q 0 S 0000 0001',1)
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(changed,profile='FDCHIST')
+        self.assertEqual(caught.exception.code,'M140_HISTORY_PRECONDITION')
+
+    def test_host_mismatch_is_observation_on_hardware(self):
+        data=self.fixture();changed=data.replace(b'Q 0 S 0000 0000 0001',b'Q 0 S 0000 0000 0009',1)
+        self.assertEqual(len(results.history(changed,profile='FDCHIST')['host_baseline_difference_records']),1)
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(changed,profile='FDCHIST',host_model=True)
+        self.assertEqual(caught.exception.code,'M140_HISTORY_HOST_MISMATCH')
+
+    def test_control_repeat(self):
+        data=self.fixture();changed=data.replace(b'Q 6 S 0000 0001',b'Q 6 S 0000 0009',1)
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(changed,profile='FDCHIST')
+        self.assertEqual(caught.exception.code,'M140_HISTORY_PRECONDITION_REPEAT')
+
+    def test_recovery(self):
+        data=self.fixture();changed=data.replace(b'M139_FDC_RAM_RESTORED',b'M139_FDC_RAM_UNKNOWN')
+        with self.assertRaises(results.RecordError) as caught:
+            results.history(changed,profile='FDCHIST')
+        self.assertEqual(caught.exception.code,'M139_RECOVERY_RECORD')
+
+    def test_straight_line_adjacency(self):
+        source=build.history_source('FDCHIST')
+        for h,pred in enumerate(('', 'nop', 'ld a,a', 'or a', 'and a', 'cp a', 'scf', 'ccf')):
+            for op in ('scf','ccf'):
+                span=source.split(f'h{h}_{op}:\n',1)[1].split('\nret',1)[0]
+                self.assertEqual(span,'\n'.join(('di','xor a','push bc','pop af',pred,op,'push af','pop de')))
+
+
 class CaptureContent(unittest.TestCase):
     def fixture(self):
         files=build.cpm.pad_cpm_records({'OWN.COM':b'\xc9'})
@@ -256,11 +357,20 @@ def payloads(runner,assembler):
     with tempfile.TemporaryDirectory(prefix='m140-payload-') as td:
         work=Path(td)
         build.assemble_images(assembler,work)
-        for kind in ('fdcprb','fdcone'):
+        for kind in ('fdcprb','fdcone','fdchist','fdcflag'):
             run=subprocess.run([runner,str(work/(kind+'.bin'))],capture_output=True,timeout=60)
             if run.returncode:raise AssertionError(run.stderr.decode())
             if kind=='fdcprb':results.probe(run.stdout,unit='MODEL_T',recovery=False,host_model=True)
-            else:results.zex(run.stdout,smoke=True,recovery=False)
+            elif kind=='fdcone':results.zex(run.stdout,smoke=True,recovery=False)
+            else:
+                results.history(run.stdout,profile=kind.upper(),recovery=False,host_model=True)
+                binary=(work/(kind+'.bin')).read_bytes()
+                _,symbols=build.zex.assemble_with_symbols(build.history_source(kind.upper()),assembler,kind+'-check')
+                for h,pred in enumerate(((),(0x00,),(0x7f,),(0xb7,),(0xa7,),(0xbf,),(0x37,),(0x3f,))):
+                    for op,code in (('scf',0x37),('ccf',0x3f)):
+                        offset=symbols[f'h{h}_{op}']-0x4000
+                        expected=bytes((0xf3,0xaf,0xc5,0xf1)+pred+(code,0xf5,0xd1,0xc9))
+                        assert binary[offset:offset+len(expected)]==expected
         # Passing RAM map -> one instruction operand mutation: mapped write to
         # scratch 7339h becomes an unmapped write. No real evidence dependency.
         good=build.zex.assemble('org 4000h\nld sp,7effh\nxor a\nout (0f8h),a\nld (7339h),a\nld a,4\nrst 18h\njp 2ah\n',assembler,'map-fixture')

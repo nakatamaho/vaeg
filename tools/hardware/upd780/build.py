@@ -86,6 +86,35 @@ def probe_source() -> str:
     source = replace_once(source, 'TIMING_KERNELS:', '\n'.join(calls))
     return source + '\n' + '\n'.join(routines + labels) + '\n'
 
+HISTORY_PROFILES = {
+    'FDCHIST': ((0,8,32,40), (0,1,8,9,32,33,40,41)),
+    'FDCFLAG': ((85,127,170,255), (0,7,15,64,127,128,170,255)),
+}
+HISTORY_PREDECESSORS = ('', 'nop', 'ld a,a', 'or a', 'and a', 'cp a', 'scf', 'ccf')
+
+
+def history_source(profile: str) -> str:
+    require(profile in HISTORY_PROFILES, 'M140_HISTORY_PROFILE')
+    calls,routines=[],[]
+    for h,predecessor in enumerate(HISTORY_PREDECESSORS):
+        for suffix,instruction in (('pre',''),('scf','scf'),('ccf','ccf')):
+            routines += [f'h{h}_{suffix}:', 'di', 'xor a', 'push bc', 'pop af',
+                         predecessor, instruction, 'push af', 'pop de', 'ret']
+        calls += [f'call h{h}_pre', 'ld (before_af),de',
+                  f'call h{h}_scf', 'ld (scf_af),de',
+                  f'call h{h}_ccf', 'ld (ccf_af),de',
+                  f'ld a,{h}', 'ld (history_id),a',
+                  "ld a,'S'", 'ld de,(scf_af)', 'call printrow',
+                  "ld a,'C'", 'ld de,(ccf_af)', 'call printrow']
+    av,fv=HISTORY_PROFILES[profile]
+    source=(HERE/'history.asm').read_text()
+    source=replace_once(source,'PROFILE',profile)
+    source=replace_once(source,'HISTORY_CALLS:', '\n'.join(calls))
+    source=replace_once(source,'HISTORY_DATA:',
+                        'a_values: db '+','.join(map(str,av))+'\nf_values: db '+','.join(map(str,fv)))
+    return replace_once(source,'HISTORY_ROUTINES:', '\n'.join(routines))
+
+
 PATCH_DIR = ROOT / 'external/zex/patches'
 PATCH_NAMES = ('m140-fdc-zexall.patch', 'm140-fdc-neg-smoke.patch')
 
@@ -119,7 +148,9 @@ def zex_source(smoke: bool = False) -> str:
 
 def assemble_images(assembler: str, output: Path) -> dict[str, bytes]:
     images = {}
-    for name, source in [('FDCPRB', probe_source()), ('FDCZEX', zex_source()), ('FDCONE', zex_source(True))]:
+    sources=[('FDCPRB',probe_source()),('FDCZEX',zex_source()),('FDCONE',zex_source(True))]
+    sources += [(name,history_source(name)) for name in HISTORY_PROFILES]
+    for name, source in sources:
         payload, symbols = zex.assemble_with_symbols(source, assembler, name.lower())
         require(0 < len(payload) < 0x3000, 'M139_PAYLOAD_SIZE')
         (output / (name.lower() + '.asm')).write_text(source)
@@ -219,12 +250,31 @@ def add_files(image: bytes, files: dict[str, bytes]) -> bytes:
     require(unpack(bytes(result))[0] == bytes(raw), 'M139_D88_ROUNDTRIP')
     return bytes(result)
 
+def log_headroom(image: bytes, budgets: dict[str,int]) -> dict:
+    """Check CP/M data blocks/directory slots reserved for all planned logs."""
+    require(bool(budgets) and all(0<size<=12288 for size in budgets.values()),'M140_LOG_BUDGET')
+    raw,_=unpack(image)
+    used,slots=set(),0
+    for i in range(128):
+        e=raw[0x4000+32*i:0x4020+32*i]
+        if e[0]==0xe5:slots+=1
+        elif e[0]<=15:
+            records=(e[12]&1)*128+e[15]
+            used.update(e[16:16+(records*128+2047)//2048])
+    free_blocks=len(set(range(2,152))-used)
+    required_blocks=sum((size+2047)//2048 for size in budgets.values())
+    require(free_blocks>=required_blocks and slots>=len(budgets),'M140_LOG_HEADROOM')
+    return {'free_bytes':free_blocks*2048,'reserved_log_bytes':required_blocks*2048,
+            'free_directory_slots':slots,'budgets':budgets}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-disk', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--cache-dir', type=Path, required=True)
     parser.add_argument('--assembler')
+    parser.add_argument('--suite',choices=('legacy','history'),default='legacy')
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True,exist_ok=True)
     destination = args.output_dir/args.source_disk.name
@@ -244,20 +294,25 @@ def main() -> None:
         assembler = str(executable)
         provenance = {'origin':'locked source, out-of-tree tool build','source_sha256':lock['assembler']['source_sha256']}
     provenance['executable_sha256'] = digest(Path(assembler).read_bytes())
-    images = assemble_images(assembler,args.output_dir)
-    images['FDCHELP.TXT'] = HERE.joinpath('help.txt').read_bytes().replace(b'\n',b'\r\n') + b'\x1a'
+    assembled = assemble_images(assembler,args.output_dir)
+    selected=tuple(HISTORY_PROFILES) if args.suite=='history' else ('FDCPRB','FDCZEX','FDCONE')
+    images={name+'.COM':assembled[name+'.COM'] for name in selected}
+    help_name,help_source=('HISTHELP.TXT','history-help.txt') if args.suite=='history' else ('FDCHELP.TXT','help.txt')
+    images[help_name] = HERE.joinpath(help_source).read_bytes().replace(b'\n',b'\r\n') + b'\x1a'
     images['ZEXLIC.TXT'] = (ROOT/'external/zex/LICENSE.txt').read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n') + b'\x1a'
     for name,data in images.items():
         (args.output_dir/name).write_bytes(data)
     result = add_files(original,images)
+    budgets={name+'.TXT':12288 for name in selected} if args.suite=='history' else {'FDCPRB.TXT':12288,'FDCZEX.TXT':8192,'FDCONE.TXT':2048}
+    space=log_headroom(result,budgets)
     require(args.source_disk.read_bytes() == original, 'M139_SOURCE_DISK_CHANGED')
     destination.write_bytes(result)
-    report = {'schema':'vaeg-m139-fdc-build-v1','input_sha256':digest(original),'output_sha256':digest(result),
+    report = {'schema':'vaeg-m139-fdc-build-v1','suite':args.suite,'log_headroom':space,'input_sha256':digest(original),'output_sha256':digest(result),
               'assembler':provenance,'program_sha256':{n:digest(d) for n,d in images.items() if n.endswith('.COM')},
               'files_sha256':{n:digest(d) for n,d in images.items()},
               'files_size':{n:len(d) for n,d in images.items()},
               'payload_sha256':{p.name:digest(p.read_bytes()) for p in args.output_dir.glob('fdc*.bin')},
-              'source_sha256':{str(p.relative_to(ROOT)):digest(p.read_bytes()) for p in [HERE/'build.py',HERE/'loader.asm',HERE/'probe.asm',HERE/'help.txt',ROOT/'external/zex/zexall.src',ROOT/'tools/cpmva/zex/zexbuild.py',PATCH_DIR/'m140-fdc.json',*[PATCH_DIR/name for name in PATCH_NAMES]]},
+              'source_sha256':{str(p.relative_to(ROOT)):digest(p.read_bytes()) for p in [HERE/'build.py',HERE/'loader.asm',HERE/'probe.asm',HERE/'history.asm',HERE/'history-help.txt',HERE/'help.txt',ROOT/'external/zex/zexall.src',ROOT/'tools/cpmva/zex/zexbuild.py',PATCH_DIR/'m140-fdc.json',*[PATCH_DIR/name for name in PATCH_NAMES]]},
               'command':sys.argv,
               'status':'BUILT_NOT_HARDWARE_ACCEPTED','physical_target':'FDC monitor family; not main-CPU CP/M execution'}
     (args.output_dir/'build-report.json').write_text(json.dumps(report,indent=2)+'\n')

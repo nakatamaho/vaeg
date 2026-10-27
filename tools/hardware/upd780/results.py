@@ -132,6 +132,55 @@ def probe(data: bytes, *, unit: str, recovery: bool = True, host_model: bool = F
             'unit':unit,'ticks_per_60000_iterations':slopes,'zilog_difference_records':differences,
             'physical_cpu_frequency':'NOT_ESTABLISHED','recovery_record':recovery}
 
+def history_before(af: int, h: int) -> int:
+    """Arithmetic precondition control; undocumented bits are not an oracle."""
+    a,f=af>>8,af&255
+    logical=(a&0xa8)|(0x40 if a==0 else 0)|(4 if bin(a).count('1')%2==0 else 0)
+    if h<=2:return af
+    flags={3:logical,4:logical|16,5:0x42|(a&40),
+           6:(f&0xc4)|(a&40)|1,
+           7:(f&0xc4)|(a&40)|(16 if f&1 else 1)}[h]
+    return (a<<8)|flags
+
+
+def history(data: bytes, *, profile: str, recovery: bool = True, host_model: bool = False) -> dict:
+    need(profile in contract.HISTORY_PROFILES,'M140_HISTORY_PROFILE')
+    rows=lines(data,recovery)
+    need('M140 FDC HISTORY 1 '+profile in rows and 'M140_FDC_HISTORY_COMPLETE' in rows,
+         'M140_HISTORY_COMPLETION')
+    records={}
+    av,fv=contract.HISTORY_PROFILES[profile]
+    for row in rows:
+        if not row.startswith('Q '):continue
+        m=re.fullmatch(r'Q ([0-7]) ([SC]) ([0-9A-F]{4}) ([0-9A-F]{4}) ([0-9A-F]{4})',row)
+        need(m is not None,'M140_HISTORY_FORMAT')
+        h,op,requested,before,after=m.groups()
+        h,requested,before,after=int(h),int(requested,16),int(before,16),int(after,16)
+        key=(requested,h,op)
+        need(key not in records,'M140_HISTORY_DUPLICATE')
+        mask=0xffff if h<=2 else 0xffd7
+        need((before&mask)==(history_before(requested,h)&mask),'M140_HISTORY_PRECONDITION')
+        need(after>>8==requested>>8,'M140_HISTORY_ACCUMULATOR')
+        records[key]=(before,after)
+    expected={(a<<8|f,h,op) for a in av for f in fv for h in range(8) for op in ('S','C')}
+    need(set(records)==expected,'M140_HISTORY_SET')
+    differences=[]
+    for (requested,h,op),(before,after) in sorted(records.items()):
+        need(records[(requested,h,'S')][0]==records[(requested,h,'C')][0],
+             'M140_HISTORY_PRECONDITION_REPEAT')
+        baseline=zilog_af(before>>8,before&255)[3 if op=='S' else 4]
+        if after!=baseline:
+            differences.append({'requested_af':f'{requested:04X}','history':h,'operation':op,
+                                'before_af':f'{before:04X}','after_af':f'{after:04X}',
+                                'host_baseline':f'{baseline:04X}','xor':f'{after^baseline:04X}'})
+    if host_model:need(not differences,'M140_HISTORY_HOST_MISMATCH')
+    return {'status':'COMPLETE_OBSERVATIONS','profile':profile,'records':len(records),
+            'predecessors':list(contract.HISTORY_PREDECESSORS),
+            'host_baseline_difference_records':differences,
+            'reference_class':'controlled instruction adjacency, not independently verified Q/silicon conformance',
+            'recovery_record':recovery}
+
+
 def zex(data: bytes, *, smoke: bool = False, recovery: bool = True) -> dict:
     rows=lines(data,recovery)
     banner='M139 FDC NEG SMOKE ONLY' if smoke else 'M139 FDC relocated ZEXALL'
@@ -247,7 +296,8 @@ def calibrate(report: dict, vrtc_hz: float, reference_id: str) -> None:
 def main() -> None:
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('input',type=Path)
-    p.add_argument('--kind',choices=('probe','zex','smoke'),required=True)
+    p.add_argument('--kind',choices=('probe','zex','smoke','history'),required=True)
+    p.add_argument('--profile',choices=tuple(contract.HISTORY_PROFILES),default='FDCHIST')
     p.add_argument('--unit',choices=('E','MODEL_T'),default='E')
     p.add_argument('--host-model',action='store_true',help='require synthetic Zilog AF and exact model-cycle contracts; not for hardware observations')
     p.add_argument('--output',type=Path,required=True)
@@ -255,7 +305,10 @@ def main() -> None:
     p.add_argument('--reference-id',help='identity of the approved timer/reference contract')
     a=p.parse_args()
     data=a.input.read_bytes()
-    result=probe(data,unit=a.unit,recovery=not a.host_model,host_model=a.host_model) if a.kind=='probe' else zex(data,smoke=a.kind=='smoke',recovery=not a.host_model)
+    if a.kind=='history':
+        result=history(data,profile=a.profile,recovery=not a.host_model,host_model=a.host_model)
+    else:
+        result=probe(data,unit=a.unit,recovery=not a.host_model,host_model=a.host_model) if a.kind=='probe' else zex(data,smoke=a.kind=='smoke',recovery=not a.host_model)
     if a.vrtc_hz is not None:
         need(not a.host_model, 'M139_VRTC_REFERENCE')
         calibrate(result,a.vrtc_hz,a.reference_id)

@@ -189,6 +189,54 @@ A complete host run is not an independent silicon oracle. Unrun groups,
 unsupported firmware, missing recovery, incomplete records and timing failures
 must remain FAIL/BLOCKED/NOT_RUN as appropriate.
 
+## SCF/CCF instruction-history follow-up (history suite)
+
+The new disk uses `--suite history`; default `--suite legacy` retains the
+byte-identical original FDCPRB/FDCONE/FDCZEX disk. The history disk contains
+**FDCHIST.COM**, **FDCFLAG.COM**, HISTHELP.TXT and the GPL license, alongside
+unchanged original CP/M files. It intentionally does not add the three legacy
+FDC COMs: the first all-tools prototype exhausted storage while saving the
+second history log. That failure is retained. The builder now checks both
+free allocation blocks and directory entries against planned maximum logs
+before producing an image. The history suite reserves 24 KiB for its two logs.
+
+Run **FDCHIST**, wait for `M139_FDC_RAM_RESTORED` and `A>`, then run **FDCFLAG**.
+Each produces 512 records in its own same-base `.TXT` file. Use a fresh writable
+disk copy for each machine/setting; existing logs are refused, not overwritten.
+Do not interrupt the current VA2 full-ZEX run or change H/S mid-run. Full ZEX
+need not be repeated unchanged just for these new probes. Record model, V1/V2,
+H/S and run order. Computation is short; physical transfer/display/save duration
+has not been measured. On unknown-state errors, reset without further disk I/O.
+
+Each history uses an explicit `DI; XOR A; PUSH BC; POP AF` seed, then one of:
+no extra instruction, NOP, LD A,A, OR A, AND A, CP A, SCF or CCF. SCF/CCF
+immediately follows that predecessor: no CALL, dispatch, monitor I/O or AF
+snapshot is inserted between them. A separate identical-prefix control span
+captures pre-AF; all three spans finish before any record output. This controls
+instruction adjacency, **not an independently verified internal Q value**.
+
+FDCHIST covers all X/Y/carry combinations across four A patterns. FDCFLAG
+covers broader A and S/Z/PV/N/H flag patterns, including prior discrepant cases.
+A record is `Q history operation requested-AF before-AF after-AF` (S=SCF,
+C=CCF). Content validation checks exact coverage, duplicate/missing records,
+control preconditions, repeated pre-AF and completion/recovery. Hardware
+post-AF differences are observations, not forced to match the current model.
+
+```sh
+python3 tools/hardware/upd780/build.py --suite history \
+  --source-disk "$PRIVATE_INPUT" --output-dir "$OUT" --cache-dir "$ARCHIVE_CACHE"
+python3 tools/hardware/upd780/results.py "$FDCHIST_TXT" --kind history \
+  --profile FDCHIST --output "$HISTORY_REPORT"
+python3 tools/hardware/upd780/results.py "$FDCFLAG_TXT" --kind history \
+  --profile FDCFLAG --output "$FLAGS_REPORT"
+```
+
+Both programs pass the production mapped worker and actual ROM-backed software
+upload/launch/recovery/persistence/DIR checks. The final reduced disk also passes
+the same-disk sequence, preserving the first log while creating the second.
+These are not physical acceptance, an independent Zilog oracle, or grounds
+to change the FDC/non-VA-main CPU profile yet.
+
 ## Local tests and evidence separation
 
 ```sh

@@ -1,0 +1,48 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+M140 FDC HISTORY PROBES - supported VA/VA2 monitor only
+
+Use a WRITABLE COPY, with no other disk work during FDC takeover.
+Keep the running VA2 measurement undisturbed; use this disk AFTER it ends.
+
+First FDCHIST, then FDCFLAG, waiting for A> after EACH command.
+Results are FDCHIST.TXT and FDCFLAG.TXT. Both have 512 Q records.
+Wait for M139_FDC_RAM_RESTORED AND A> before any disk operation.
+M139 is the compatible v1 transport identifier, not the milestone name.
+Never rerun over an existing log: it is refused, not overwritten.
+Return the result disk with model, V1/V2, H/S and run order recorded.
+Do not change settings while a diagnostic is running.
+
+Q h op requested-AF before-AF after-AF
+h: 0=no extra instruction, 1=NOP, 2=LD A,A, 3=OR A,
+   4=AND A, 5=CP A, 6=SCF, 7=CCF
+op: S=SCF, C=CCF
+Every span begins DI; XOR A; PUSH BC; POP AF.
+A separate identical-prefix control captures before-AF. No snapshot,
+CALL, monitor/output or dispatch interrupts predecessor/IUT adjacency.
+This controls instruction history, NOT an independently verified Q value.
+FDCHIST covers X/Y and carry combinations; FDCFLAG covers broad S/Z/PV/N/H.
+No physical MHz is inferred. No NEC-specific flag correction is assumed.
+
+TIMEOUT/RECOVERY_FAILED/TIMER_WRAP/LOG_CAPACITY: no more disk work; RESET.
+Full FDCZEX need not be repeated unchanged just to collect these new cases.
+Keep existing VA/VA2 full-ZEX and FDCPRB logs on their original result disks.
