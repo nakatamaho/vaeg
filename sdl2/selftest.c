@@ -3006,7 +3006,7 @@ static int test_screenshot_rotation(void) {
 		return fail("screenshot rotation", "fixture directory exhausted");
 	if (scrnmng_screenshot_rotation_selftest(root) != SUCCESS)
 		return fail("screenshot rotation", "SCREENSHOT_ROTATION_MISMATCH");
-	fprintf(stderr, "selftest: screenshot rotation PNG/BMP 18 cases ok\n");
+	fprintf(stderr, "selftest: screenshot rotation PNG/BMP 18 cases and state thumbnail ok\n");
 	return SUCCESS;
 }
 

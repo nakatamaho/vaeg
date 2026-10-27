@@ -6374,8 +6374,8 @@ static std::string state_file_time(const std::string &path) {
 	localtime_r(&seconds, &local);
 #endif
 	char text[32];
-	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d", local.tm_mon + 1, local.tm_mday,
-	              local.tm_hour, local.tm_min);
+	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d:%02d", local.tm_mon + 1,
+	              local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
 	return text;
 }
 
