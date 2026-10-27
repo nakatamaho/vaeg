@@ -71,7 +71,9 @@ main RAM; OFF: SPROFF, 31: 31 C32 aliens shown, 8: 8 C32, 31M32 and
 `TSPSPR P` sets the passes (1-99). SPACE goes to the next screen, after 5
 to 1 again. The arrows held repeat (after 24 VRTCs, every 4); screen 1's
 first line ends with KEY, the keys read (bits: 01 left, 02 right, 04 up,
-08 down, 10 SPACE, 20 D, 40 H, 80 A). J, L, I and K work as
+08 down, 10 SPACE, 20 D, 40 H, 80 A). Every title line ends with the machine,
+from the ROM's word at F000:FFFE: VA (FFFFh), VA2/3 (FFFEh), VA+91
+(FFFDh, the PC-88VA-91 board), or ? and the word. J, L, I and K work as
 the arrows. The program needs a 15 kHz screen and memory up to segment
 3000h, copies itself to 2000:0000 and does not return: restart the machine
 to leave.

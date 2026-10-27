@@ -141,6 +141,7 @@ main:		mov	ax,cs
 		mov	es,ax
 		mov	ss,ax
 		mov	sp,0fffeh
+		call	model_id
 		sti
 		call	video_init
 		cli
@@ -845,10 +846,51 @@ screen:		push	dx
 		mov	byte [colour],RED
 		xor	bx,bx
 		call	text_line
+		call	show_model
 		pop	si
 		mov	byte [colour],YELLOW
 		mov	bx,2
 		jmp	text_line
+
+; The machine from the ROM's word at F000:FFFE (FFFFh PC-88VA, FFFEh
+; PC-88VA2 or VA3, FFFDh PC-88VA with the PC-88VA-91 board), as a string.
+model_id:	push	es
+		mov	ax,0f000h
+		mov	es,ax
+		mov	ax,[es:0fffeh]
+		pop	es
+		mov	[model_word],ax
+		mov	si,s_va
+		cmp	ax,0ffffh
+		je	.set
+		mov	si,s_va2
+		cmp	ax,0fffeh
+		je	.set
+		mov	si,s_va91
+		cmp	ax,0fffdh
+		je	.set
+		mov	di,s_unknown + 1	; ? and the word in hexadecimal
+		mov	al,ah
+		call	put_hex
+		mov	al,[model_word]
+		call	put_hex
+		mov	si,s_unknown
+.set:		mov	[model_str],si
+		ret
+
+; The machine at the right of the title line (cell 48: clear of screen
+; 1's top boxes and screen 5's title), in yellow.
+show_model:	push	si
+		push	di
+		push	bx
+		mov	si,[model_str]
+		mov	byte [colour],YELLOW
+		mov	di,48 * 3
+		call	text_at
+		pop	bx
+		pop	di
+		pop	si
+		ret
 
 ; G1 dot DX, line BX: colour CL (clipped to the screen).
 plot:		cmp	dx,320
@@ -1457,6 +1499,7 @@ tvram_screen:	mov	si,s_tvram
 		mov	byte [colour],RED
 		xor	bx,bx
 		call	text_line
+		call	show_model
 		call	spron
 .frame:		call	frame
 		test	al,K_NEXT
@@ -1694,7 +1737,8 @@ show_pass:	mov	di,line
 .t:		call	put_str
 		mov	byte [colour],RED
 		xor	bx,bx
-		jmp	put_line
+		call	put_line
+		jmp	show_model
 
 ; AX = blocks of the test at BX in FRAMES VRTCs.
 run:		mov	ax,[tick]
@@ -1919,6 +1963,10 @@ s_l		db	' L ', 0
 s_x		db	' X ', 0
 s_y		db	' Y ', 0
 s_k		db	'  KEY ', 0
+s_va		db	'VA', 0
+s_va2		db	'VA2/3', 0
+s_va91		db	'VA+91', 0
+s_unknown	db	'?0000', 0
 s_order_n	db	'ORDER ', 0
 s_order1	db	'1 G0 > SPRITES > G1', 0
 s_order2	db	'2 SPRITES > G0 > G1', 0
@@ -1978,6 +2026,8 @@ pass		dw	0
 vb_sum		dw	0
 auto_cnt	dw	0
 held		dw	0
+model_word	dw	0
+model_str	dw	s_va
 t32		dw	0, 0
 ruler		db	'00', 0
 g1_seg		dw	GV_G1 + (LINES - 7) * LINE_BYTES / 16	; (G1's last lines)
