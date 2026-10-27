@@ -30,8 +30,10 @@ identifiers so tested binaries/evidence are not changed merely to rename a task.
 ZEX adaptations are versioned in [external patches](../../../external/zex/patches/README.md),
 not hidden string substitutions or hand-edited upstream source.
 
-**Implemented hardware-facing loader and RAM programs; physical acceptance is
-NOT_RUN until actual FDC records are collected.** Main-CPU CP/M is only the
+**Implemented hardware-facing loader and RAM programs; full physical acceptance
+remains BLOCKED.** An operator-supplied VA photo shows NEG-only smoke completion,
+CRC d638dd6a, reported RAM restoration and persisted log readback; this does not
+accept full ZEX/AF/speed coverage (see M140 for identity/evidence limitations). Main-CPU CP/M is only the
 controller. Running the original disk's `ZEXALL.COM` still tests its **main
 CPU**, not the FDC. Use the new names below.
 

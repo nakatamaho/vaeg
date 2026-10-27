@@ -25,9 +25,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Status: maintainer-authorized separation from M139 because the milestones
 would otherwise overlap. Harness and mapped images implemented; inherited
-software checks pass within their stated scope. **G140 BLOCKED**: physical
-execution/recovery, approved physical timing reference, independent mapped
-Zilog controls and evidence-supported NEC corrections remain unestablished.
+software checks pass within their stated scope. Operator-supplied VA photo
+now shows the physical NEG-only smoke completing, reported RAM recovery and
+subsequent log readback. **G140 BLOCKED**: full physical ZEX/AF/speed coverage,
+approved timing reference, independent mapped Zilog controls and
+evidence-supported NEC corrections remain unestablished.
 Branch: `topic/m140-fdc-upd780-conformance`.
 Base: `d483636a70c427953bfa13cce0b27ca27216829e`.
 
@@ -126,6 +128,38 @@ context tabs/blank lines remain intact, with closed-path whitespace attributes
 for the two patch files only; the patches remain text-diffable.
 No hosted CI or unchanged expensive CPU/media run is requested for this
 administrative separation and byte-identical patch-storage refactor.
+
+## Initial physical VA smoke observation — hw-fdc-va-01
+
+The maintainer identifies the target as a physical VA. An operator-supplied
+photo shows `FDCONE` producing:
+
+```text
+M139 FDC NEG SMOKE ONLY
+neg... STOCK=d638dd6a CRC=d638dd6a
+Tests complete
+M139_FDC_RAM_RESTORED
+```
+
+The photo also shows a subsequent successful `TYPE FDCONE.TXT` reading the
+same records and returning to `A>`. Thus **NEG-only execution/CRC observation
+and post-return persisted log readback PASS within this photographed case**.
+The CRC agrees with the displayed stock expectation; it is not a new NEC
+instruction difference. Recovery is reported by the controller, whose intended
+implementation verifies RAM readback; this is not an independent physical
+RAM dump comparison. The image additionally shows an earlier unsuccessful
+TYPE of another filename, followed by the successful correct-name readback;
+that is not evidence of a failed persisted `FDCONE.TXT`.
+
+Raw photo/derived display copy and transcription stay outside Git under a
+neutral observation ID. The intended handoff source is
+[8931ea75ea2e5e0a110ebc27bd37595ceb624789](https://github.com/nakatamaho/vaeg/commit/8931ea75ea2e5e0a110ebc27bd37595ceb624789),
+but physical-media program hashes, firmware revision and machine configuration
+are not independently established from this photo. There is no raw off-device
+log yet. No claims are made for unchanged original files, a post-run DIR,
+VA2, full 67-group conformance, the AF matrix, H/S timing or physical MHz.
+The next staged collection is FDCPRB and its persisted log; the full FDCZEX
+run remains separate. No G140 acceptance or emulator correction follows.
 
 ## G140 acceptance
 
