@@ -665,15 +665,35 @@ scan_keys:	push	bx
 
 ; A frame: wait for the next VRTC; AL = the keys newly pressed. D and H
 ; are done here.
+; The arrows held repeat: after REPEAT_FIRST VRTCs, every REPEAT_NEXT.
+REPEAT_FIRST	equ	24
+REPEAT_NEXT	equ	4
 frame:		mov	ax,[tick]
 .w:		cmp	ax,[tick]
 		je	.w
 		call	scan_keys
 		mov	ah,[keys]
 		mov	[keys],al
-		not	ah
+		cmp	al,ah			; the same keys held: count
+		jne	.change
+		inc	word [held]
+		jmp	.edge
+.change:	mov	word [held],0
+.edge:		not	ah
 		and	al,ah
-		test	al,K_DSPON
+		mov	ah,[keys]		; arrows held long enough: again
+		and	ah,K_LEFT | K_RIGHT | K_UP | K_DOWN
+		jz	.d
+		cmp	word [held],REPEAT_FIRST
+		jb	.d
+		push	ax
+		mov	ax,[held]
+		sub	ax,REPEAT_FIRST
+		and	ax,REPEAT_NEXT - 1
+		pop	ax
+		jnz	.d
+		or	al,ah
+.d:		test	al,K_DSPON
 		jz	.h
 		push	ax
 		call	dspon_once
@@ -960,6 +980,10 @@ position:	mov	si,s_pos
 		mov	ax,[tab]
 		and	ax,01ffh
 		call	put_dec
+		mov	si,s_k			; the keys read (K_* bits)
+		call	put_str
+		mov	al,[keys]
+		call	put_hex
 		mov	byte [colour],WHITE
 		mov	bx,1
 		call	put_line
@@ -1894,6 +1918,7 @@ s_d		db	'D ', 0
 s_l		db	' L ', 0
 s_x		db	' X ', 0
 s_y		db	' Y ', 0
+s_k		db	'  KEY ', 0
 s_order_n	db	'ORDER ', 0
 s_order1	db	'1 G0 > SPRITES > G1', 0
 s_order2	db	'2 SPRITES > G0 > G1', 0
@@ -1952,6 +1977,7 @@ band		dw	BAND
 pass		dw	0
 vb_sum		dw	0
 auto_cnt	dw	0
+held		dw	0
 t32		dw	0, 0
 ruler		db	'00', 0
 g1_seg		dw	GV_G1 + (LINES - 7) * LINE_BYTES / 16	; (G1's last lines)
