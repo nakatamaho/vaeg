@@ -61,10 +61,12 @@ def lines(data: bytes, recovery: bool) -> list[str]:
     return rows
 
 def zilog_af(a: int, f: int) -> list[int]:
-    """Independent documented/register-BIT Zilog expectation for this matrix.
+    """Independent arithmetic expectation for the current Zilog host profile.
 
-    POP AF precedes each instruction; Q is not inherited across the samples.
-    This is a host-model contract, not an assertion about unmeasured NEC parts.
+    POP AF precedes each instruction, but hidden Q/instruction history is not
+    explicitly controlled by this diagnostic or modeled by this arithmetic.
+    This is a host-model contract, not an independent Zilog silicon oracle or
+    an assertion about NEC parts; SCF/CCF differences need history controls.
     """
     bit = (a<<8) | (f&1) | 16 | (a&40) | (0 if a&1 else 0x44)
     value = a&0x55
@@ -150,9 +152,34 @@ def zex(data: bytes, *, smoke: bool = False, recovery: bool = True) -> dict:
             'records':[{'group':i+1,'name':n,'stock_crc':s,'actual_crc':a} for i,(n,s,a) in enumerate(records)],
             'reference_class':'relocated target observations, not a stock-address conformance verdict'}
 
+def normalize_capture_image(image: bytes) -> bytes:
+    """Accept a closed 2D double-step table layout without changing sectors.
+
+    The writable-media builder remains strict. Returned 40-cylinder captures
+    may index C/H at 4*C+H instead of 2*C+H; sector C/H remain logical.
+    Preserve the received image and normalize only an in-memory header copy.
+    """
+    try:
+        contract.unpack(image)
+        return image
+    except contract.BuildError as exc:
+        if exc.code != 'M139_D88_TRACKS':
+            raise
+    tracks=struct.unpack_from('<164I',image,32)
+    indices=[4*c+h for c in range(40) for h in range(2)]
+    need(image[27]==0 and [i for i,x in enumerate(tracks) if x]==indices,
+         'M140_D88_CAPTURE_TRACKS')
+    normalized=bytearray(image)
+    struct.pack_into('<164I',normalized,32,*([tracks[i] for i in indices]+[0]*84))
+    normalized=bytes(normalized)
+    _,locations=contract.unpack(normalized)  # exact bounds, order and C/H/R/N
+    need(all(normalized[pos-8]==0 for pos,size in locations), 'M140_D88_CAPTURE_STATUS')
+    return normalized
+
+
 def disk_files(image: bytes) -> dict[str,bytes]:
-    """Read the supported 2D/2DD, EXM=1, 2-KiB-block, user-zero CP/M layout."""
-    raw,_=contract.unpack(image)
+    """Read supported user-zero CP/M, including validated double-step captures."""
+    raw,_=contract.unpack(normalize_capture_image(image))
     records={}
     for i in range(128):
         e=raw[0x4000+32*i:0x4020+32*i]

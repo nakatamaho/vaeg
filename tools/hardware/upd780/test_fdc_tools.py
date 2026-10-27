@@ -156,6 +156,63 @@ class PatchContent(unittest.TestCase):
         self.assertEqual(caught.exception.code,'M140_ZEX_PATCH_OUTPUT')
 
 
+class CaptureContent(unittest.TestCase):
+    def fixture(self):
+        files=build.cpm.pad_cpm_records({'OWN.COM':b'\xc9'})
+        raw,_=build.cpm.build_cpm_raw(files)
+        original=bytearray(build.cpm.wrap_cpm_d88(raw))
+        original[27]=0  # this fixture is a 2D capture, not the helper's 2DD default
+        original=bytes(original)
+        tracks=struct.unpack_from('<164I',original,32)
+        table=[0]*164
+        for c in range(40):
+            for h in range(2):table[4*c+h]=tracks[2*c+h]
+        capture=bytearray(original)
+        struct.pack_into('<164I',capture,32,*table)
+        capture=bytes(capture)
+        self.assertEqual(results.normalize_capture_image(capture),original)
+        self.assertEqual(results.disk_files(capture),results.disk_files(original))
+        return original,capture
+
+    def test_roundtrip_and_immutable_source(self):
+        original,capture=self.fixture()
+        saved=bytes(capture)
+        normalized=results.normalize_capture_image(capture)
+        self.assertEqual(normalized[:32],capture[:32])
+        self.assertEqual(normalized[688:],capture[688:])
+        self.assertEqual(capture,saved)
+        self.assertEqual(results.normalize_capture_image(original),original)
+
+    def test_one_extra_track(self):
+        original,capture=self.fixture()
+        changed=bytearray(capture)
+        struct.pack_into('<I',changed,32+2*4,688)
+        with self.assertRaises(results.RecordError) as caught:
+            results.normalize_capture_image(bytes(changed))
+        self.assertEqual(caught.exception.code,'M140_D88_CAPTURE_TRACKS')
+
+    def test_one_media_type(self):
+        original,capture=self.fixture()
+        changed=bytearray(capture);changed[27]=0x10
+        with self.assertRaises(results.RecordError) as caught:
+            results.normalize_capture_image(bytes(changed))
+        self.assertEqual(caught.exception.code,'M140_D88_CAPTURE_TRACKS')
+
+    def test_one_sector_id(self):
+        original,capture=self.fixture()
+        changed=bytearray(capture);changed[688+2]=17
+        with self.assertRaises(build.BuildError) as caught:
+            results.normalize_capture_image(bytes(changed))
+        self.assertEqual(caught.exception.code,'M139_D88_GEOMETRY')
+
+    def test_one_sector_status(self):
+        original,capture=self.fixture()
+        changed=bytearray(capture);changed[688+8]=0xb0
+        with self.assertRaises(results.RecordError) as caught:
+            results.normalize_capture_image(bytes(changed))
+        self.assertEqual(caught.exception.code,'M140_D88_CAPTURE_STATUS')
+
+
 class Allocator(unittest.TestCase):
     def fixture(self):
         files=build.cpm.pad_cpm_records({'KEEP.COM':b'private-input-placeholder'})
