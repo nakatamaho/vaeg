@@ -721,7 +721,12 @@ text_line:	push	es
 		xor	ax,ax
 		rep	stosw
 		pop	di
-		mov	al,[colour]
+		jmp	text_go
+; The text at SI from G0 byte DI (no clearing), colour [colour].
+text_at:	push	es
+		mov	ax,GV_G0
+		mov	es,ax
+text_go:	mov	al,[colour]
 		mov	ah,al
 		shl	ah,4
 		mov	[ink],ax		; AL low nibble, AH high nibble
@@ -1071,7 +1076,7 @@ line_screen:	mov	si,s_line
 		mov	si,s_move
 .t:		mov	dx,s_line_help
 		call	screen
-		mov	word [n],6
+		mov	word [n],MAX		; standing: all 31 at first
 		cmp	byte [moving],0
 		je	.k
 		mov	word [n],24
@@ -1200,7 +1205,12 @@ layout:		call	none
 		mov	si,32
 		xor	al,al
 		call	g1_fill
-.clear:
+.clear:		cmp	byte [marks],0		; the index ruler's text line
+		je	.noruler
+		mov	si,s_empty
+		mov	bx,(BAND + 24) / 8
+		call	text_line
+.noruler:
 		mov	bl,[kind]
 		xor	bh,bh
 		shl	bx,1
@@ -1237,6 +1247,30 @@ layout:		call	none
 		mov	si,4
 		call	g1_fill
 		pop	cx
+		pop	bx
+		mov	ax,bx			; every fifth sprite: its number
+		push	dx			; under its left edge
+		xor	dx,dx
+		mov	cx,5
+		div	cx
+		mov	ax,dx			; (the remainder)
+		pop	dx
+		or	ax,ax
+		jnz	.nomark
+		push	bx
+		push	dx
+		mov	ax,bx
+		mov	cl,10
+		div	cl
+		add	ax,'00'
+		mov	[ruler],ax
+		mov	byte [colour],WHITE
+		mov	si,ruler
+		mov	di,dx
+		shr	di,1
+		add	di,(BAND + 24) * LINE_BYTES
+		call	text_at
+		pop	dx
 		pop	bx
 .nomark:	sub	dx,[space]
 		inc	bx
@@ -1919,6 +1953,7 @@ pass		dw	0
 vb_sum		dw	0
 auto_cnt	dw	0
 t32		dw	0, 0
+ruler		db	'00', 0
 g1_seg		dw	GV_G1 + (LINES - 7) * LINE_BYTES / 16	; (G1's last lines)
 tick		dw	0
 t0		dw	0
