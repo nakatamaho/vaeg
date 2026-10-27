@@ -1,0 +1,7 @@
+debug-script 1
+limit-frame 30000
+wait-frame 700
+input-line FDDSUB 2
+enter
+wait-frame 29000
+capture f screen

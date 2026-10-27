@@ -1,0 +1,75 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+-->
+
+# FDD subsystem as a coprocessor
+
+`FDDSUB.COM` (`fddsub.asm`), an MS-DOS program for a PC-88VA or PC-88VA2
+(and vaeg), measures the FDD subsystem (a uPD780C at 4 MHz with its own
+RAM, joined to the main CPU by a pair of 8255s) used as a coprocessor:
+how fast bytes pass through the subsystem monitor's commands and through
+a program of its own run in the subsystem's RAM, and how fast that CPU
+runs. Synthetic data only; the subsystem program is assembled by
+`gen_data.py`. The protocol is vaeg's
+[`docs/bios/fdc_monitor.md`](../../docs/bios/fdc_monitor.md) (M140):
+8255 mode 91h on both sides, DAV/RFD/DAC handshake, monitor commands 0Ch
+(store), 0Bh (return) and 0Dh (execute).
+
+Each row is measured in turn, every pass (`FDDSUB P`, 8 passes by
+default, about 7 minutes), with mean, minimum, maximum and standard
+deviation; a value is the blocks done in 300 VRTCs unless said otherwise:
+
+| Row | Work |
+|---|---|
+| A, J | CPU loop (ADD, DEC, JNZ): the clock's yardstick, first and last |
+| B, C | monitor commands 0Ch and 0Bh: 256 bytes to and from 6000h |
+| D, E | the program at 4000h (stored by 0Ch, started by 0Dh): 256 bytes to it (and its answer), 256 bytes back |
+| F | a round trip: one byte out, one back |
+| G | a frame's exchange: 64 bytes out, 32 back |
+| H | the subsystem counts 256-step DJNZ loops while the main CPU waits 300 VRTCs (at 4 MHz a loop is about 3360 states) |
+| I | bytes of E different from those D sent (0 is right) |
+
+After each pass the program returns to the monitor (`JP 002Ah`). The
+program needs a 15 kHz screen and memory up to segment 3000h, copies
+itself to 2000:0000 and does not return: restart the machine to leave. A
+subsystem that does not answer stops it with a message.
+
+```sh
+demos/fdd-subsystem/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
+```
+
+With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
+`fdd-subsystem-msdos4.d88`, a vanilla MS-DOS 4.0 copy with the program;
+type `FDDSUB`.
+
+## vaeg (main 719b4d4a), both models, 2 passes
+
+| A | B | C | D | E | F | G | H | I | J |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1768 | 194 | 228 | 302 | 290 | 36180 | 867 | 5930 | 0 | 1768 |
+
+A byte through the program's handshake takes about 520-540 main-CPU
+clocks, a round trip about 1100, a 64 + 32-byte exchange about 46000 (a
+third of a 60 Hz frame); the subsystem runs at about 4.0 MHz. Whether the
+machines agree is the question for them.

@@ -1,0 +1,1 @@
+Error: FDD image not found: fdd-subsystem-msdos4.d88
