@@ -30,6 +30,21 @@ adapter in `cpu/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
 in `cpu/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
 `OPNGENX86`), and `memoryva/memoryva.c` for the VA memory layer.
 
+## Measurements on the machines
+
+Software written to measure the PC-88VA, PC-88VA2 or PC-88VA3 (benchmarks,
+probes, timing tests) is, as far as possible:
+
+- free: synthetic data only, no ROM, game or other copyrighted data, so
+  that it can be published and also serve vaeg's corrections (vaeg's
+  `demos/`);
+- an MS-DOS 4.0 program, run from the FreeDOS-88VA project's msdos4-va.2
+  disk (a self-booting test disk only where MS-DOS cannot be used);
+- able to tell the machine and show it on its screen, so that every
+  photograph names its machine: the ROM word at F000:FFFE is FFFFh on a
+  PC-88VA, FFFEh on a PC-88VA2 or VA3, and FFFDh on a PC-88VA with the
+  PC-88VA-91 board.
+
 ## CPU role and file naming
 
 The hardware-facing names are deliberately distinct:
