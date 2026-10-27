@@ -42,13 +42,18 @@ deviation; a value is the blocks done in 300 VRTCs unless said otherwise:
 
 | Row | Work |
 |---|---|
-| A, J | CPU loop (ADD, DEC, JNZ): the clock's yardstick, first and last |
+| A, M | CPU loop (ADD, DEC, JNZ): the clock's yardstick, first and last |
 | B, C | monitor commands 0Ch and 0Bh: 256 bytes to and from 6000h |
 | D, E | the program at 4000h (stored by 0Ch, started by 0Dh): 256 bytes to it (and its answer), 256 bytes back |
 | F | a round trip: one byte out, one back |
 | G | a frame's exchange: 64 bytes out, 32 back |
-| H | the subsystem counts 256-step DJNZ loops while the main CPU waits 300 VRTCs (at 4 MHz a loop is about 3360 states) |
-| I | bytes of E different from those D sent (0 is right) |
+| H-J | D, E and G two-phase: the sender puts a byte out and inverts its DAV, the receiver reads it and inverts its DAC (the command byte four-phase) |
+| K | the subsystem counts 256-step DJNZ loops while the main CPU waits 300 VRTCs (at 4 MHz a loop is about 3360 states) |
+| L | bytes of E and I different from those D and H sent (0 is right) |
+
+The title line ends with the machine, from the ROM's word at F000:FFFE:
+VA (FFFFh), VA2/3 (FFFEh), VA+91 (FFFDh, the PC-88VA-91 board), or ? and
+the word.
 
 After each pass the program returns to the monitor (`JP 002Ah`). The
 program needs a 15 kHz screen and memory up to segment 3000h, copies
@@ -65,11 +70,12 @@ type `FDDSUB`.
 
 ## vaeg (main 719b4d4a), both models, 2 passes
 
-| A | B | C | D | E | F | G | H | I | J |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1768 | 194 | 228 | 302 | 290 | 36180 | 867 | 5930 | 0 | 1768 |
+| A | B | C | D | E | F | G | H | I | J | K | L | M |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1768 | 194 | 228 | 292 | 290 | 38664 | 841 | 743 | 719 | 1922 | 5930 | 0 | 1768 |
 
-A byte through the program's handshake takes about 520-540 main-CPU
-clocks, a round trip about 1100, a 64 + 32-byte exchange about 46000 (a
-third of a 60 Hz frame); the subsystem runs at about 4.0 MHz. Whether the
-machines agree is the question for them.
+A byte through the program's four-phase handshake takes about 520-540
+main-CPU clocks, two-phase about 210; a round trip about 1000; a 64 +
+32-byte exchange about 48000 four-phase, 21000 two-phase (a sixth of a
+60 Hz frame); the subsystem runs at about 4.0 MHz. Whether the machines
+agree is the question for them.

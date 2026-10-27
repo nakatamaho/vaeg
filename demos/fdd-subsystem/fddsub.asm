@@ -55,7 +55,7 @@ RED		equ	2
 YELLOW		equ	3
 SLOW_MAX	equ	60		; 65536-poll rounds before a timeout
 BUF		equ	0c000h		; 256 bytes to send, then received
-N_TESTS		equ	10
+N_TESTS		equ	13
 st_count	equ	0cc00h		; the rows' statistics
 st_first	equ	st_count + 2 * N_TESTS
 st_sum		equ	st_first + 2 * N_TESTS
@@ -120,6 +120,7 @@ main:		mov	ax,cs
 		mov	es,ax
 		mov	ss,ax
 		mov	sp,0fffeh
+		call	model_id
 		sti
 		call	video_init
 		cli
@@ -147,6 +148,7 @@ main:		mov	ax,cs
 		mov	byte [colour],RED
 		xor	bx,bx
 		call	text_line
+		call	show_model
 		mov	si,s_head
 		mov	byte [colour],YELLOW
 		mov	bx,1
@@ -160,13 +162,13 @@ main:		mov	ax,cs
 		jb	.name
 		mov	si,s_notes
 		mov	byte [colour],YELLOW
-		mov	bx,14
+		mov	bx,17
 		call	text_line
 		mov	si,s_notes2
-		mov	bx,15
+		mov	bx,18
 		call	text_line
 		mov	si,s_notes3
-		mov	bx,16
+		mov	bx,19
 		call	text_line
 		mov	word [pass],0
 .pass:		inc	word [pass]
@@ -196,6 +198,7 @@ main:		mov	ax,cs
 		mov	byte [colour],RED
 		xor	bx,bx
 		call	text_line
+		call	show_model
 .halt:		hlt
 		jmp	.halt
 
@@ -423,7 +426,7 @@ fdc_slow:	inc	byte [slow]
 		ret
 .dead:		mov	si,s_timeout
 		mov	byte [colour],RED
-		mov	bx,17
+		mov	bx,20
 		call	text_line
 .halt:		hlt
 		jmp	.halt
@@ -448,6 +451,59 @@ fdc_upload:	mov	al,0ch
 ; ---------------------------------------------------------------------------
 ; The rows. A block: 256 bytes, a round trip or a frame's exchange; the
 ; value is the blocks done in FRAMES VRTCs (more is faster) but row I's.
+
+; Two-phase (see gen_data.py): DX pairs from SI out, or into DI.
+send2:		lodsb
+		out	0fdh,al
+		mov	al,09h			; DAV inverted (to 1)
+		out	0ffh,al
+		FWAIT	4, nz			; its DAC follows
+		lodsb
+		out	0fdh,al
+		mov	al,08h			; (to 0)
+		out	0ffh,al
+		FWAIT	4, z
+		dec	dx
+		jnz	send2
+		ret
+recv2:		FWAIT	1, nz			; its DAV inverted
+		in	al,0fch
+		stosb
+		mov	al,0dh			; DAC follows
+		out	0ffh,al
+		FWAIT	1, z
+		in	al,0fch
+		stosb
+		mov	al,0ch
+		out	0ffh,al
+		dec	dx
+		jnz	recv2
+		ret
+t_write2:	mov	al,7			; two-phase: 256 bytes, an answer
+		call	fdc_send
+		mov	byte [slow],0
+		mov	si,BUF
+		mov	dx,128
+		call	send2
+		call	fdc_recv
+		cmp	al,0aah
+		jne	fdc_bad
+		ret
+t_read2:	mov	al,8			; two-phase: 256 bytes back
+		call	fdc_send
+		mov	byte [slow],0
+		mov	di,BUF + 512
+		mov	dx,128
+		jmp	recv2
+t_frame2:	mov	al,9			; two-phase: 64 out, 32 back
+		call	fdc_send
+		mov	byte [slow],0
+		mov	si,BUF
+		mov	dx,32
+		call	send2
+		mov	di,BUF + 768
+		mov	dx,16
+		jmp	recv2
 
 t_cpu:		mov	cx,1024			; ADD, DEC, JNZ (the CPU's clock)
 .l:		add	ax,bx
@@ -522,7 +578,7 @@ t_frame:	mov	al,6			; 64 bytes out, 32 back
 .i:		call	fdc_recv
 		loop	.i
 		ret
-; Row H: the subsystem counts 256-step DJNZ loops for FRAMES VRTCs (the
+; Row K: the subsystem counts 256-step DJNZ loops for FRAMES VRTCs (the
 ; value: loops; at 4 MHz a loop is 256 x 13 + 37 states).
 t_loops:	mov	al,4
 		call	fdc_send
@@ -542,12 +598,14 @@ t_loops:	mov	al,4
 		out	0ffh,al
 		mov	ax,bx
 		ret
-; Row I: the received bytes of row E (256 from 5000h, as row D stored
-; them): mismatches.
-t_verify:	mov	si,BUF
+; Row L: the bytes received by rows E and I (256 from 5000h each, as
+; rows D and H stored them) different from those sent.
+t_verify:	xor	ax,ax
 		mov	di,BUF + 256
+		call	.cmp
+		mov	di,BUF + 512
+.cmp:		mov	si,BUF
 		mov	cx,256
-		xor	ax,ax
 .c:		cmpsb
 		je	.n
 		inc	ax
@@ -556,7 +614,7 @@ t_verify:	mov	si,BUF
 
 fdc_bad:	mov	si,s_bad
 		mov	byte [colour],RED
-		mov	bx,17
+		mov	bx,20
 		call	text_line
 .halt:		hlt
 		jmp	.halt
@@ -777,7 +835,47 @@ show_pass:	mov	di,line
 		call	put_dec
 		mov	byte [colour],RED
 		xor	bx,bx
-		jmp	put_line
+		call	put_line
+		jmp	show_model
+
+; The machine from the ROM's word at F000:FFFE (FFFFh PC-88VA, FFFEh
+; PC-88VA2 or VA3, FFFDh PC-88VA with the PC-88VA-91 board), as a string.
+model_id:	push	es
+		mov	ax,0f000h
+		mov	es,ax
+		mov	ax,[es:0fffeh]
+		pop	es
+		mov	[model_word],ax
+		mov	si,s_va
+		cmp	ax,0ffffh
+		je	.set
+		mov	si,s_va2
+		cmp	ax,0fffeh
+		je	.set
+		mov	si,s_va91
+		cmp	ax,0fffdh
+		je	.set
+		mov	di,s_unknown + 1	; ? and the word in hexadecimal
+		mov	al,ah
+		call	put_hex
+		mov	al,[model_word]
+		call	put_hex
+		mov	si,s_unknown
+.set:		mov	[model_str],si
+		ret
+
+; The machine at the right of the title line (cell 48), in yellow.
+show_model:	push	si
+		push	di
+		push	bx
+		mov	si,[model_str]
+		mov	byte [colour],YELLOW
+		mov	di,48 * 3
+		call	text_at
+		pop	bx
+		pop	di
+		pop	si
+		ret
 
 ; Text on G0 in 6x8-dot cells (3 bytes), 53 a line: text line BX (lines
 ; 8 BX to 8 BX + 7, cleared first), string SI, colour [colour].
@@ -898,10 +996,11 @@ put_line:	mov	al,' '
 ; ---------------------------------------------------------------------------
 UPLOAD_ROW	equ	3		; rows from D: the program's
 tests		dw	t_cpu, t_mon_write, t_mon_read, t_write, t_read, t_ping
-		dw	t_frame, t_loops, t_verify, t_cpu
-test_flags	dw	0, 0, 0, 0, 0, 0, 0, F_ONCE, F_ONCE, 0
+		dw	t_frame, t_write2, t_read2, t_frame2, t_loops, t_verify, t_cpu
+test_flags	dw	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, F_ONCE, F_ONCE, 0
 		align	2
 test_names	dw	s_ta, s_tb, s_tc, s_td, s_te, s_tf, s_tg, s_th, s_ti, s_tj
+		dw	s_tk, s_tl, s_tm
 
 s_banner	db	'FDD SUBSYSTEM: restart the machine to leave.',13,10,'$'
 s_24khz		db	'Select 15 kHz (DIP switch SW1 off) before starting.',13,10,'$'
@@ -922,12 +1021,19 @@ s_td		db	'D OWN WRITE 256  ', 0
 s_te		db	'E OWN READ 256   ', 0
 s_tf		db	'F ROUND TRIP     ', 0
 s_tg		db	'G FRAME 64+32    ', 0
-s_th		db	'H FDC LOOPS      ', 0
-s_ti		db	'I READ ERRORS    ', 0
-s_tj		db	'J CPU ADD LOOP   ', 0
-s_notes		db	'A-G J: BLOCKS IN 300 VRTC (MORE IS FASTER)', 0
-s_notes2	db	'H: 256-STEP DJNZ LOOPS OF THE FDD CPU IN 300 VRTC', 0
-s_notes3	db	'I: BYTES OF E DIFFERENT FROM D (0 = RIGHT)', 0
+s_th		db	'H 2PH WRITE 256  ', 0
+s_ti		db	'I 2PH READ 256   ', 0
+s_tj		db	'J 2PH FRAME 64+32', 0
+s_tk		db	'K FDC LOOPS      ', 0
+s_tl		db	'L READ ERRORS    ', 0
+s_tm		db	'M CPU ADD LOOP   ', 0
+s_notes		db	'A-J M: BLOCKS IN 300 VRTC (MORE IS FASTER)', 0
+s_notes2	db	'K: 256-STEP DJNZ LOOPS OF THE FDD CPU IN 300 VRTC', 0
+s_notes3	db	'L: BYTES OF E AND I WRONG (0 = RIGHT)', 0
+s_va		db	'VA', 0
+s_va2		db	'VA2/3', 0
+s_va91		db	'VA+91', 0
+s_unknown	db	'?0000', 0
 
 sync224		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0e0h,0,2,4
 		align	2
@@ -942,6 +1048,8 @@ ink		dw	0
 passes		dw	8
 pass		dw	0
 t32		dw	0, 0
+model_word	dw	0
+model_str	dw	s_va
 slow		db	0
 colour		db	0
 line		times	64 db 0

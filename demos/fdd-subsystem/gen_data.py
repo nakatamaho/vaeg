@@ -110,23 +110,89 @@ PALETTE1 = [palette_word(*c) for c in (
 #   4                    count 256-step DJNZ loops until the main CPU's ATN
 #                        (port C bit 3), then send the count (low, high)
 #   6 64 bytes           then send 32 bytes (a frame's exchange)
+#   7 256 bytes          two-phase: store at 5000h, then send AAh (four-phase)
+#   8                    two-phase: send 256 bytes from 5000h
+#   9 64 bytes           two-phase, then 32 bytes back two-phase
 #   other                back to the monitor (JP 002Ah)
+# Two-phase transfers keep the four-phase start (all signals clear): the
+# sender puts a byte on B and inverts its DAV; the receiver, seeing DAV
+# change, reads it and inverts its DAC; the sender waits for DAC to follow.
+# An even number of bytes leaves every signal clear again.
 FDC_ORG = 0x4000
 
 PROGRAM = """
 start:  ld sp,7effh
 main:   call recv
         cp 1
-        jr z,opw
+        jp z,opw
         cp 2
-        jr z,opr
+        jp z,opr
         cp 3
-        jr z,opp
+        jp z,opp
         cp 4
-        jr z,opc
+        jp z,opc
         cp 6
-        jr z,opx
+        jp z,opx
+        cp 7
+        jp z,op7
+        cp 8
+        jp z,op8
+        cp 9
+        jp z,op9
         jp 002ah
+op7:    ld hl,5000h
+        ld b,128
+        call rx2
+        ld a,0aah
+        call send
+        jp main
+op8:    ld hl,5000h
+        ld b,128
+        call tx2
+        jp main
+op9:    ld hl,5000h
+        ld b,32
+        call rx2
+        ld hl,5000h
+        ld b,16
+        call tx2
+        jp main
+rx2:    in a,(0feh)
+        rrca
+        jr nc,rx2
+        in a,(0fch)
+        ld (hl),a
+        inc hl
+        ld a,0dh
+        out (0ffh),a
+rx2b:   in a,(0feh)
+        rrca
+        jr c,rx2b
+        in a,(0fch)
+        ld (hl),a
+        inc hl
+        ld a,0ch
+        out (0ffh),a
+        djnz rx2
+        ret
+tx2:    ld a,(hl)
+        inc hl
+        out (0fdh),a
+        ld a,9
+        out (0ffh),a
+tx2a:   in a,(0feh)
+        bit 2,a
+        jr z,tx2a
+        ld a,(hl)
+        inc hl
+        out (0fdh),a
+        ld a,8
+        out (0ffh),a
+tx2b:   in a,(0feh)
+        bit 2,a
+        jr nz,tx2b
+        djnz tx2
+        ret
 opw:    call recv
         ld c,a
         call recv
@@ -141,7 +207,7 @@ w1:     call recv
         jr nz,w1
         ld a,0aah
         call send
-        jr main
+        jp main
 opr:    call recv
         ld c,a
         call recv
@@ -154,10 +220,10 @@ r1:     ld a,(hl)
         ld a,b
         or c
         jr nz,r1
-        jr main
+        jp main
 opp:    ld a,55h
         call send
-        jr main
+        jp main
 opc:    ld hl,0
 c1:     ld b,0
 c2:     djnz c2
@@ -169,7 +235,7 @@ c2:     djnz c2
         call send
         ld a,h
         call send
-        jr main
+        jp main
 opx:    ld b,64
 x1:     call recv
         djnz x1
@@ -177,7 +243,7 @@ x1:     call recv
 x2:     ld a,b
         call send
         djnz x2
-        jr main
+        jp main
 recv:   ld a,0bh
         out (0ffh),a
 rv1:    in a,(0feh)
@@ -265,6 +331,9 @@ def assemble(source: str, org: int) -> bytes:
             if final and not -128 <= disp <= 127:
                 raise SystemExit(f'jump too far: {op} {args}')
             return bytes([base, disp & 0xff])
+        if op == 'jp' and len(args) == 2:
+            v = target(args[1])
+            return bytes([0xc2 | CC[args[0]] << 3, v & 0xff, v >> 8])
         if op in ('jp', 'call'):
             v = target(args[0])
             return bytes([0xc3 if op == 'jp' else 0xcd, v & 0xff, v >> 8])
