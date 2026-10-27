@@ -51,13 +51,15 @@ pacman -R mingw-w64-x86_64-rust   # only if it is installed
 pacman -S --needed mingw-w64-x86_64-rustup
 ```
 
-Install Rust 1.88.0 with the GNU Windows target. Prepare librashader's
-static archive and dependency notices, then configure and build:
+Install and select the GNU-host Rust 1.88.0 toolchain by its full name
+(`stable` is a newer release and fails the build's version check). Prepare
+librashader's static archive and dependency notices, then configure and
+build:
 
 ```sh
-rustup toolchain install 1.88.0 --profile minimal \
-  --target x86_64-pc-windows-gnu
-rustup default 1.88.0
+rustup toolchain install 1.88.0-x86_64-pc-windows-gnu --profile minimal
+rustup default 1.88.0-x86_64-pc-windows-gnu
+rustc --version   # rustc 1.88.0 ...
 tools/release/build-mingw-static-librashader.sh
 cmake --preset mingw-release
 cmake --build --preset mingw-release

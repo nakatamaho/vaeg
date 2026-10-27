@@ -589,8 +589,10 @@ cmake --build --preset linux-release
 ```sh
 # Windows, from an MSYS2 MINGW64 shell (Rust from mingw-w64-x86_64-rustup,
 # not MSYS2's mingw-w64-x86_64-rust; see BUILD.md)
-rustup toolchain install 1.88.0 --profile minimal --target x86_64-pc-windows-gnu
-rustup default 1.88.0
+pacman -R mingw-w64-x86_64-rust   # only if it is installed
+pacman -S --needed mingw-w64-x86_64-rustup
+rustup toolchain install 1.88.0-x86_64-pc-windows-gnu --profile minimal
+rustup default 1.88.0-x86_64-pc-windows-gnu
 tools/release/build-mingw-static-librashader.sh
 cmake --preset mingw-release
 cmake --build --preset mingw-release
