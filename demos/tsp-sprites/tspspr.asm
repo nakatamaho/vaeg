@@ -860,9 +860,20 @@ put_hex:	push	ax			; AL: two digits
 		add	al,'A' - '9' - 1
 .s:		stosb
 		ret
-put_line:	mov	byte [di],0		; text line BX in [colour]
+; Text line BX in [colour], overwritten in place, not cleared first
+; (cleared, a line redrawn each frame shows only what was drawn before
+; the beam passed): padded with spaces to LINE_CELLS cells, short of the
+; machine's name at cell 48.
+LINE_CELLS	equ	47
+put_line:	mov	al,' '
+.pad:		cmp	di,line + LINE_CELLS
+		jae	.end
+		stosb
+		jmp	.pad
+.end:		mov	byte [di],0
 		mov	si,line
-		jmp	text_line
+		imul	di,bx,8 * LINE_BYTES
+		jmp	text_at
 
 ; G0 and G1 cleared, the sprites off, the title SI and help DX (lines 0
 ; and 2).
