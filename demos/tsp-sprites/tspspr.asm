@@ -27,14 +27,16 @@
 ; Synthetic images only. Five screens; SPACE goes to the next, after the
 ; last to the first. Never returns: restart the machine to leave.
 ;
-; Keys: SPACE next screen; arrows (or J L I K) left, right, up, down; D sends
-; DSPON once; H changes SPRON's HSPN (31, 15, 7, 3).
+; Keys: SPACE next screen; arrows (or J L I K) left, right, up, down; S the
+; SYNC (224 or 200 lines); H changes SPRON's HSPN (31, 15, 7, 3); A screen
+; 3's sweep.
 ;
 ; TVRAM (CPU offsets in A0000h-A7FFFh, the character side; TSP word
 ; address = offset / 2): images from 1000h, screen 5's blocks at 5000h, the
 ; descriptor table at 7E00h (SPRON 7Eh). Sprite 31 (the BIOS's text cursor)
-; is not used and CURDEF turns the cursor off. No DSPON unless D is pressed:
-; the text display stays off after the SYNC.
+; is not used and CURDEF turns the cursor off. DSPON follows every SYNC:
+; without it the VA and VA2 showed no sprite (2026-10-27), where vaeg
+; showed them.
 
 		cpu	186
 		org	100h
@@ -158,11 +160,7 @@ main:		mov	ax,cs
 		call	images
 		call	none
 		call	flush
-		mov	al,15h			; CURDEF: sprite 31, cursor off
-		call	tsp_cmd
-		mov	al,0f8h
-		call	tsp_prm
-		call	spron
+		call	tsp_start		; DSPON (CURDEF off), SPRON
 		call	scan_keys
 		mov	[keys],al
 .screens:	call	position
@@ -270,15 +268,35 @@ video_init:	mov	ax,1702h
 		out	dx,ax
 		add	dx,2
 		loop	.fb
-		mov	si,sync224
-		mov	al,10h
+		call	send_sync
+		sti
+		ret
+
+; SYNC: the 224-line vector, or the BIOS's 200-line one if [sync200].
+send_sync:	mov	si,sync224
+		cmp	byte [sync200],0
+		je	.s
+		mov	si,sync200v
+.s:		mov	al,10h
 		call	tsp_cmd
 		mov	cx,14
 .sync:		lodsb
 		call	tsp_prm
 		loop	.sync
-		sti
 		ret
+
+; The TSP started: DSPON (SYNC stops the display, and on the machines the
+; sprites with it), the cursor off, SPRON.
+tsp_start:	mov	byte [dspon],0
+		call	dspon_once
+		jmp	spron
+
+; S: the other SYNC, then the TSP started again.
+toggle_sync:	xor	byte [sync200],1
+		cli
+		call	send_sync
+		sti
+		jmp	tsp_start
 
 clear_gvram:	push	es
 		mov	bx,0a000h
@@ -694,7 +712,18 @@ frame:		mov	ax,[tick]
 		pop	ax
 		jnz	.d
 		or	al,ah
-.d:		test	al,K_DSPON
+.d:		push	ax			; S (port 04h bit 3): the SYNC
+		in	al,04h
+		not	al
+		and	al,08h
+		mov	ah,[s_prev]
+		mov	[s_prev],al
+		not	ah
+		and	al,ah
+		jz	.nos
+		call	toggle_sync
+.nos:		pop	ax
+		test	al,K_DSPON
 		jz	.h
 		push	ax
 		call	dspon_once
@@ -1026,6 +1055,11 @@ position:	mov	si,s_pos
 		call	put_str
 		mov	al,[keys]
 		call	put_hex
+		mov	si,s_s224		; the SYNC
+		cmp	byte [sync200],0
+		je	.s224
+		mov	si,s_s200
+.s224:		call	put_str
 		mov	byte [colour],WHITE
 		mov	bx,1
 		call	put_line
@@ -1436,12 +1470,12 @@ sprov:		mov	al,81h
 ; faster) unless said otherwise; the table gives each row's mean, minimum,
 ; maximum and standard deviation (tenths) so far. Each row sets up its
 ; sprites first (layout on the band: OFF SPROFF, 31 or 8 C32, 31 M32, 31
-; C64). The text rows (DSPON) come after the others' passes, the text
-; display staying on.
+; C64). Rows U-X, with the BIOS's 200-line SYNC, come after the others'
+; passes; the SYNC chosen before is restored at the end.
 
 F_VB		equ	1		; the value: [vb_chunks]
 F_ONCE		equ	2		; called once, the value in AX
-F_TEXT		equ	4		; with the text display on
+F_TEXT		equ	4		; with the BIOS's 200-line SYNC
 N_TESTS		equ	24
 tvram_screen:	mov	si,s_tvram
 		mov	dx,s_tvram_help
@@ -1492,10 +1526,17 @@ tvram_screen:	mov	si,s_tvram
 		jb	.pass
 		cmp	byte [phase],0
 		jne	.end
-		mov	byte [phase],1
-		call	dspon_once
+		mov	byte [phase],1		; the last rows with the BIOS's
+		mov	al,[sync200]		; 200-line SYNC
+		mov	[sync_saved],al
+		or	al,al
+		jnz	.phase
+		call	toggle_sync
 		jmp	.phase
-.end:		mov	si,s_tvram_done
+.end:		cmp	byte [sync_saved],0	; the SYNC chosen before
+		jne	.kept
+		call	toggle_sync
+.kept:		mov	si,s_tvram_done
 		mov	byte [colour],RED
 		xor	bx,bx
 		call	text_line
@@ -1949,7 +1990,7 @@ s_banner	db	'TSP SPRITES: restart the machine to leave.',13,10,'$'
 s_24khz		db	'Select 15 kHz (DIP switch SW1 off) before starting.',13,10,'$'
 s_memory	db	'Not enough memory (needs 3000h; load below 2000h).',13,10,'$'
 s_pos		db	'TSPSPR 1 POSITION', 0
-s_pos_help	db	'ARROWS MOVE THE SPRITES  SPACE NEXT', 0
+s_pos_help	db	'ARROWS MOVE THE SPRITES  S SYNC  SPACE NEXT', 0
 s_order		db	'TSPSPR 2 ORDER', 0
 s_order_help	db	'UP OR DOWN: ORDER  SPACE NEXT', 0
 s_line		db	'TSPSPR 3 LINE', 0
@@ -1963,6 +2004,8 @@ s_l		db	' L ', 0
 s_x		db	' X ', 0
 s_y		db	' Y ', 0
 s_k		db	'  KEY ', 0
+s_s224		db	' S224', 0
+s_s200		db	' S200', 0
 s_va		db	'VA', 0
 s_va2		db	'VA2/3', 0
 s_va91		db	'VA+91', 0
@@ -2001,18 +2044,19 @@ s_tq		db	'Q TV VB 128B 31   ', 0
 s_tr		db	'R G1 VB 128B      ', 0
 s_ts		db	'S VB 1/1000 FRM 31', 0
 s_tt		db	'T SPRON CMDS 31   ', 0
-s_tu		db	'U TV W MOVSW TEXT ', 0
-s_tv		db	'V TV B WRITE TEXT ', 0
-s_tw		db	'W TV VB 128B TEXT ', 0
-s_tx		db	'X VB 1/1000 TEXT  ', 0
+s_tu		db	'U TV W MOVSW S200 ', 0
+s_tv		db	'V TV B WRITE S200 ', 0
+s_tw		db	'W TV VB 128B S200 ', 0
+s_tx		db	'X VB 1/1000 S200  ', 0
 s_tvram_head	db	'ROW: 1 KB BLOCKS    MEAN   MIN   MAX     SD', 0
 s_pass		db	'  PASS ', 0
 s_of		db	' OF ', 0
-s_text_phase	db	'  TEXT ON', 0
+s_text_phase	db	'  S200', 0
 s_empty		db	0
 s_over		db	' *****', 0
 
 sync224		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0e0h,0,2,4
+sync200v	db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0c8h,0,0fh,8	; (the BIOS's)
 		align	2
 fb_bios		dw	4,320,224,0,0,0
 frames4		dw	0,0,160,447,0,0,0,0,0,224,0,0,0,0,0,0
@@ -2047,6 +2091,9 @@ keys		db	0
 kind		db	0
 moving		db	0
 dspon		db	0
+sync200		db	0
+sync_saved	db	0
+s_prev		db	0
 marks		db	1
 auto		db	0
 phase		db	0
