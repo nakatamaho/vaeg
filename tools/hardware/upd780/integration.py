@@ -38,6 +38,7 @@ import time
 
 import build
 import results
+import seed
 
 
 def sha(data):
@@ -51,7 +52,7 @@ def main():
     p.add_argument('--image', type=Path, required=True)
     p.add_argument('--build-report', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair'), required=True)
+    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair', 'seed', 'seed-existing'), required=True)
     p.add_argument('--standard', choices=('true', 'false'), default='true')
     a = p.parse_args()
     out = a.output.resolve()
@@ -70,12 +71,15 @@ def main():
     cfg = out / 'config.ini'
     cfg.write_text('[NekoProjectII]\nMain_RAM=640\nMain_RAM_Auto=false\n'
                    'CPU_Speed=100\nBootMode=1\nV1V2_Standard=' + a.standard + '\n')
-    name = {'smoke':'FDCONE','history':'FDCHIST','flags':'FDCFLAG','history-pair':'FDCFLAG'}.get(a.case,'FDCPRB')
+    name = {'smoke':'FDCONE','history':'FDCHIST','flags':'FDCFLAG','history-pair':'FDCFLAG',
+            'seed':'FDCSEED','seed-existing':'FDCSEED'}.get(a.case,'FDCPRB')
+    extension = 'DAT' if a.case in ('seed','seed-existing') else 'TXT'
+    existing = a.case in ('existing','seed-existing')
     wait, frames = (24000, 30000) if a.case == 'probe' else (9000, 13000)
     if a.case in ('history','flags'):
         wait, frames = 12000, 16000
-    if a.case == 'existing':
-        results.need(name + '.TXT' in before, 'M139_INTEGRATION_EXISTING_FIXTURE')
+    if existing:
+        results.need(name + '.' + extension in before, 'M139_INTEGRATION_EXISTING_FIXTURE')
         wait, frames = 3000, 7000
     script = out / 'input.txt'
     script.write_text(f'@wait 1600\n@text {name}\n@enter\n@wait {wait}\n@text DIR\n@enter\n')
@@ -101,7 +105,7 @@ def main():
         'input_sha256': sha(original),
         'recipe_sha256': sha(a.build_report.read_bytes()),
         'rom_files': {x.name: sha(x.read_bytes()) for x in sorted(a.roms.iterdir()) if x.is_file()},
-        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__))},
+        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__), Path(seed.__file__))},
         'target_policy': 'VA2 CP/M protocol/persistence integration; SDL dummy; NOT physical FDC or presenter acceptance',
         'config_standard': a.standard,
     }
@@ -114,14 +118,19 @@ def main():
         after = results.disk_files(disk.read_bytes())
         results.need(all(after.get(n) == data for n, data in before.items()),
                      'M139_INTEGRATION_EXISTING_FILES_CHANGED')
-        logname = name + '.TXT'
-        if a.case == 'existing':
+        system_before = build.unpack(results.normalize_capture_image(original))[0][:0x4000]
+        system_after = build.unpack(results.normalize_capture_image(disk.read_bytes()))[0][:0x4000]
+        results.need(system_after == system_before, 'M140_INTEGRATION_SYSTEM_CHANGED')
+        logname = name + '.' + extension
+        if existing:
             results.need(after == before, 'M139_INTEGRATION_REFUSAL_CHANGED_FILES')
         else:
             results.need(logname in after, 'M139_INTEGRATION_LOG_MISSING')
             data = after[logname]
             (out / logname).write_bytes(data)
-            if a.case == 'probe':
+            if a.case == 'seed':
+                report['content'] = seed.content(data, host_model=True)
+            elif a.case == 'probe':
                 report['content'] = results.probe(data, unit='E')
                 results.need(not report['content']['zilog_difference_records'], 'M139_INTEGRATION_HOST_AF')
             elif a.case in ('history','flags'):
@@ -136,7 +145,7 @@ def main():
                 report['content'] = results.zex(data, smoke=True)
         rows = results.cpm_screen(tvram.read_bytes())
         (out / 'screen-rows.json').write_text(json.dumps(rows, ensure_ascii=True, indent=2) + '\n')
-        results.terminal(rows, name, existing=a.case == 'existing')
+        results.terminal(rows, name, existing=existing, extension=extension)
         results.need(a.image.read_bytes() == original, 'M139_INTEGRATION_SOURCE_CHANGED')
         report['status'] = 'PASS_SOFTWARE_INTEGRATION_ONLY'
     except results.RecordError as exc:

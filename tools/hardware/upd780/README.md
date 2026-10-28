@@ -237,6 +237,65 @@ the same-disk sequence, preserving the first log while creating the second.
 These are not physical acceptance, an independent Zilog oracle, or grounds
 to change the FDC/non-VA-main CPU profile yet.
 
+## Seed and raw-readback follow-up (FDCSEED)
+
+This is a new bounded probe, not a request to repeat the completed four-setting
+FDCHIST/FDCFLAG matrix. `seed.py build` creates a separate private disk copy with
+`FDCSEED.COM` and `SEEDHELP.TXT`, preserving all original input files/system data.
+It requires an explicitly supplied, verified z80asm 1.8 and reserves 4096 bytes
+for `FDCSEED.DAT`. The old builder, loader source and all five earlier programs
+are unchanged; the new loader is derived by exact-context insertion only.
+
+```sh
+python3 tools/hardware/upd780/seed.py build --source-disk "$PRIVATE_INPUT" \
+  --output-dir "$NEW_SEED_OUTPUT" --assembler "$VERIFIED_Z80ASM_1_8"
+python3 tools/hardware/upd780/test_seed.py
+python3 tools/hardware/upd780/test_seed.py --runner "$MAPPED_WORKER" \
+  --assembler "$VERIFIED_Z80ASM_1_8"
+```
+
+There are **80 operation rows**: A=00h/55h, F=08h/0Fh/28h/29h, five seed
+recipes, SCF/CCF. Seed 0 preserves the previous `DI; XOR A; PUSH BC; POP AF`
+anchor; seed 1 substitutes `LD A,0; OR A` (same arithmetic flags, different
+opcode history). Seeds 2–4 use `LD A,08h/20h/28h; OR A` before loading the
+same target AF. A separate same-prefix control captures pre-AF; no snapshot,
+CALL or output interrupts seed/POP AF/IUT adjacency. These are controlled
+instruction sequences, **not known physical Q values or a proven Q reset**.
+
+All snapshots are stored before result formatting. The FDC prints ASCII from
+the captured table, then returns to the monitor. Before restoring RAM, the main
+controller reads the exact 652-byte table at 7000h–728Bh using command 0Bh and
+appends those bytes directly to its log buffer, without hexadecimal conversion.
+The new read is capacity-checked and uses the original bounded handshake. The
+original full 4000h–7EFFh backup/restore/readback verification still precedes any
+result-file creation. Unknown-state errors still halt without disk I/O.
+
+The resulting **FDCSEED.DAT is mixed text/binary; do not TYPE it**. Run FDCSEED,
+wait for `M139_FDC_RAM_RESTORED` and `A>`, then DIR and return the entire image.
+Use a fresh writable copy per run; existing DAT is refused before takeover.
+Record machine/V2/H-or-S explicitly. Initial useful targets are original VA and
+VA2 in the same V2 setting; repeating all four H/S conditions is not required
+for this new seed/transport question.
+
+```sh
+python3 tools/hardware/upd780/seed.py check "$FDCSEED_DAT" --output "$PRIVATE_REPORT"
+python3 tools/hardware/upd780/integration.py --worker "$WORKER" --roms "$STAGED_ROMS" \
+  --image "$SEED_DISK" --build-report "$SEED_BUILD_REPORT" \
+  --output "$PRIVATE_CASE" --case seed --standard true
+# Also --standard false; --case seed-existing takes a completed output disk.
+```
+
+Validation requires closed descriptor coverage, exact control AF, A/documented
+flags, ASCII/raw agreement, binary framing, restored marker and CP/M padding.
+X/Y differences and seed dependence remain observations; `--host-model` additionally
+requires the present worker's A-only baseline, not physical conformance. The two
+paths share captured RAM and the device/link: agreement checks formatting and
+readback consistency, **not two independent silicon captures**, a physical Q read,
+firmware identity or absolute timing. The mapped worker's optional second argument
+saves diagnostic RAM only after successful execution; no guest instruction is
+added. Native/ROM integration and this new RAM-dump worker are not a clean
+application gate or independent Zilog silicon reference.
+
 ## Offline SCF/CCF model reduction
 
 `reduction.py` validates completed physical logs and compares A-only,

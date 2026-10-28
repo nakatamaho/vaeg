@@ -320,6 +320,23 @@ No worker, probe, loader, CPU profile or vendored implementation is changed;
 unchanged expensive execution evidence is reused. Raw inputs, exact commands,
 contract/tool identities and generated analysis stay outside Git.
 
+## New seed/readback control prepared; physical execution not yet collected
+
+The [FDCSEED follow-up](../tasks/M140_fdc_upd780_conformance.md#bounded-seed--raw-readback-probe-fdcseed)
+is now implemented and software-validated: 80 rows vary target AF and flag-writer
+seed, retaining the original XOR-A anchor. An OR-A zero seed separates opcode
+history from the same nominal arithmetic flags, with three additional seed X/Y
+patterns. No claim is made that those instructions establish a physical Q value.
+
+All control/IUT snapshots precede formatting. The FDC's ASCII is compared with
+a raw table read through monitor 0Bh before full verified RAM recovery and file
+save. This controls formatting/readback paths sharing the same capture RAM,
+not an independent second silicon observation. No root cause is established by
+software success. Mapped execution and ROM-backed H/S persistence/refusal checks
+pass, and old distribution/history disks rebuild byte-identically. Physical
+execution of this **new** probe remains NOT_RUN; no earlier capture is relabeled
+or promoted. Do not repeat unchanged full ZEX or the completed history matrix.
+
 ## Returned-image intake correction
 
 The first strict reader attempt failed `M139_D88_TRACKS`; that original failure

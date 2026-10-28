@@ -4210,6 +4210,9 @@ both programs. Pinned Ares-derived SingleStepTests supply a separate software
 A/F/Q control, not independent Zilog silicon. Neither choosing a whole-instruction
 OR/A-only rule nor copying that reference establishes a NEC correction. Physical
 Q, the root cause and a justified CPU/profile fix remain unresolved.
+A [new bounded seed/readback probe](../agents/tasks/M140_fdc_upd780_conformance.md#bounded-seed--raw-readback-probe-fdcseed)
+is software-validated but has no physical observations yet; it does not close
+this defect or justify changing a CPU profile.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

@@ -1,0 +1,42 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+M140 FDC seed and independent RAM-readback follow-up
+
+Use a fresh writable copy. Run FDCSEED once, wait for
+M139_FDC_RAM_RESTORED and A>, then run DIR.
+Return the entire disk image with FDCSEED.DAT.
+Do NOT TYPE FDCSEED.DAT: it contains binary data as well as text.
+An existing FDCSEED.DAT is refused before takeover.
+If timeout or recovery failure is reported: RESET, do not do disk operations.
+
+Report VA or VA2, V2 and H/S explicitly; a filename is not configuration proof.
+This is a NEW bounded probe, not a repeat of FDCHIST/FDCFLAG or full ZEX.
+It measures 80 operation rows (8 AF targets, 5 seed recipes, SCF/CCF).
+Seed 0 repeats XOR A; seed 1 uses LD A,0 / OR A; seeds 2-4 use OR A
+with A=08h/20h/28h before loading the same target AF with PUSH BC / POP AF.
+The seed sequence does not prove an internal Q value or Q reset.
+
+All AF snapshots are stored before any result formatting. FDC ASCII is
+compared off-device with the same RAM table read by monitor command 0Bh.
+These are two result-transport paths, not two independent silicon captures.
+RAM is restored and readback-verified BEFORE CP/M writes the result file.
+There is no physical timing/MHz measurement or automatic conformance PASS.

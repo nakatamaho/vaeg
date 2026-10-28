@@ -311,6 +311,54 @@ encoding/EOL/case/Markdown checks, 49 strict milestone selftests and the milesto
 audit exit 0. No new hardware request, merge, release, cleanup or G140 acceptance
 follows.
 
+## Bounded seed / raw-readback probe (FDCSEED)
+
+The [new probe and usage](../../../tools/hardware/upd780/README.md#seed-and-raw-readback-follow-up-fdcseed)
+implements the next distinct control without changing the completed history
+matrix or prescribing a NEC rule. There are 80 rows: two A values, four F
+values (including the reduced `0029` case), five seed recipes and SCF/CCF.
+The original XOR-A anchor is retained alongside zero/nonzero OR-A seeds.
+A separate control span captures pre-AF without perturbing IUT adjacency;
+source and all 160 assembled control/IUT spans are checked. Physical Q is not
+read or assigned by the seed descriptions.
+
+All results are captured in RAM before formatting. FDC ASCII and a subsequent
+monitor-0Bh binary read of the same 652-byte table must agree. The main controller
+appends binary bytes directly before full RAM restoration/readback verification;
+only after that may BDOS create `FDCSEED.DAT`. This mixed text/binary file is not
+for TYPE. The new loader retains bounded handshake, capacity checks, stack/DMA
+cleanup, existing-log refusal and unknown-state halt behavior. Shared captured
+RAM means two transport paths, not independent silicon observations.
+
+Local validation:
+
+- **13/13 new content/source tests PASS**, with passing fixtures, single-mutation
+  negatives and exact stable codes; **46/46 existing direct tests PASS**.
+- **4/4 focused FDC CTests PASS**, including source/machine-code adjacency and
+  mapped execution with post-execution diagnostic-RAM dump. All 80 raw/text AF
+  rows match the production host baseline. This is not physical conformance.
+- ROM-backed **H and S integration PASS** with a ROM set matching MAME's
+  `pc88va2`: 80 persisted rows, raw/text equality, reported full RAM restoration
+  with byte-verified readback, source/original-file/system-area preservation,
+  2560-byte DAT and post-return DIR/A>. SDL dummy, not display/silicon coverage.
+- A completed H disk **existing-DAT refusal PASS**: complete file set unchanged,
+  refusal visible and healthy DIR/A>. No earlier physical capture is regraded.
+- Fresh legacy and history disk rebuilds are **whole-image byte-identical** to
+  their previous masters. No original payload, patch, loader or CPU core changes.
+  The separate seed disk has 94208 free bytes and reserves 4096 for its result.
+
+Repository encoding/EOL/case/Markdown checks, 49 strict milestone selftests,
+milestone audit, changed C++ formatting and staged diff checks all exit 0.
+
+The old mapped worker is retained at its previous digest for unchanged expensive
+full/stock evidence. The new worker adds only an optional post-success RAM dump;
+its new digest is recorded separately. Production application worker remains
+unchanged. Exact commands, worker/recipe/corpus/contracts, produced image hashes
+and generated captures/results stay out of Git in task-specific directories.
+No private inputs or generated media are uploaded to CI. No full-ZEX rerun is
+needed for this distinct probe; physical FDCSEED execution is still NOT_RUN.
+G140, independent Zilog silicon, absolute timing and broader gates remain open.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

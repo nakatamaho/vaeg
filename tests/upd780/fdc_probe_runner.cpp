@@ -112,8 +112,8 @@ struct Machine final : IMemoryAccess, IIOAccess, IClock, IClockCounter {
 	}
 };
 int main(int argc, char **argv) {
-	if (argc != 2) {
-		std::cerr << "usage: fdc_probe_runner payload.bin\n";
+	if (argc != 2 && argc != 3) {
+		std::cerr << "usage: fdc_probe_runner payload.bin [diagnostic-ram.bin]\n";
 		return 2;
 	}
 	Machine m;
@@ -148,6 +148,16 @@ int main(int argc, char **argv) {
 	    m.motor_stops != 1) {
 		std::cerr << "M139_FDC_HOST_EXEC_FAILED pc=" << std::hex << m.cpu.GetPC() << "\n";
 		return 1;
+	}
+	if (argc == 3) {
+		// Post-execution RAM only: no added guest instruction or monitor output.
+		std::ofstream dump(argv[2], std::ios::binary);
+		dump.write(reinterpret_cast<const char *>(m.memory.data() + 0x4000), 0x3f00);
+		dump.close();
+		if (!dump) {
+			std::cerr << "M140_FDC_DUMP_WRITE\n";
+			return 1;
+		}
 	}
 	std::cerr << "M139_FDC_HOST_COMPLETE clock=" << m.consumed << " timing_records=" << m.frames
 	          << "\n";

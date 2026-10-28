@@ -261,14 +261,14 @@ def cpm_screen(data: bytes) -> list[str]:
     return [''.join(chr(x) if 32<=x<127 else ' ' for x in memory[0x6300+i*120:0x6300+i*120+80]).rstrip() for i in range(25)]
 
 
-def terminal(rows: list[str], name: str, *, existing: bool = False) -> None:
+def terminal(rows: list[str], name: str, *, existing: bool = False, extension: str = 'TXT') -> None:
     commands=[i for i,row in enumerate(rows) if row.startswith('A>DIR')]
     need(bool(commands), 'M139_INTEGRATION_DIR_COMMAND')
     tail=rows[commands[-1]+1:]
     prompts=[i for i,row in enumerate(tail) if row.startswith('A>')]
     need(bool(prompts), 'M139_INTEGRATION_PROMPT')
     directory='\n'.join(tail[:prompts[0]])
-    need(re.search(r'\b'+re.escape(name)+r'\s+TXT\b',directory) is not None, 'M139_INTEGRATION_DIR_RESULT')
+    need(re.search(r'\b'+re.escape(name)+r'\s+'+re.escape(extension)+r'\b',directory) is not None, 'M139_INTEGRATION_DIR_RESULT')
     if existing:
         need(any('M139_LOG_EXISTS' in row for row in rows[:commands[-1]]), 'M139_INTEGRATION_REFUSAL_MESSAGE')
 
