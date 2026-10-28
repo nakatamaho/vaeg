@@ -237,6 +237,34 @@ the same-disk sequence, preserving the first log while creating the second.
 These are not physical acceptance, an independent Zilog oracle, or grounds
 to change the FDC/non-VA-main CPU profile yet.
 
+## Offline SCF/CCF model reduction
+
+`reduction.py` validates completed physical logs and compares A-only,
+unconditional old-F/A OR, and an explicitly labeled software-history candidate.
+It also checks the A/F/Q slice of the public SingleStepTests/z80 software corpus,
+commit `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`, files `v1/37.json` and
+`v1/3f.json`. Obtain those pinned files out of tree; the CLI verifies their
+SHA-256 identities and requires 1000 records each. It does not download anything.
+
+```sh
+python3 tools/hardware/upd780/reduction.py \
+  --scf-reference "$SST_37_JSON" --ccf-reference "$SST_3F_JSON" \
+  --capture hw-case-01 FDCHIST "$FDCHIST_TXT" \
+  --capture hw-case-01 FDCFLAG "$FDCFLAG_TXT" \
+  --output "$PRIVATE_ANALYSIS"
+```
+
+Repeat `--capture CASE_ID PROFILE LOG` for additional retained settings. Keep
+inputs, output and exact command/identity records outside Git. Output includes
+private log digests. `COMPLETE_ANALYSIS_NOT_CONFORMANCE` means analysis completed,
+not silicon or milestone acceptance. These Ares-derived software tests are not
+physical Zilog observations; no full-core/cycle SST run is performed. A log's
+separate control AF is not a direct read of hidden Q at the instruction under
+test. Content functions and reference identity checks are independently callable
+for focused tests and do not depend on Git history or private assets. See the
+[derived reduction and its limits](../../../docs/agents/reports/m140_fdc_va_observations.md#offline-reduction-and-separate-software-q-controls).
+No unchanged physical history/full-ZEX rerun is required.
+
 ## Local tests and evidence separation
 
 ```sh

@@ -271,6 +271,46 @@ Implementation and capacity correction:
 Repository encoding/LF/case/Markdown, 49 strict milestone checks, milestone audit
 and staged scope/diff checks exit 0. Hosted CI/private uploads are not requested.
 
+## Offline discrepancy reduction and software-reference control
+
+The [derived reduction](../reports/m140_fdc_va_observations.md#offline-reduction-and-separate-software-q-controls)
+now compares all 4096 retained history operation rows without new hardware runs.
+VA's FDCHIST has six post cases outside both A-only and old-F/A OR, reducing to
+AF `0029`, three predecessors and SCF/CCF. VA2 has none. A MAME-source-informed
+software history candidate leaves VA FDCHIST six post/four shared-control row
+mismatches, but also leaves FDCFLAG 24 post/16 control row mismatches on both
+machines. No candidate is a demonstrated NEC rule, and physical Q is not read.
+
+New `tools/hardware/upd780/reduction.py` checks pinned SingleStepTests/z80
+SCF/CCF inputs (1000 each): all agree with the corpus Q formula, while the
+current A-only expression differs on 229/219. This is a separate Ares-derived
+software A/F/Q control, **not Zilog silicon, full-core SST or bus/cycle coverage**.
+No external code/corpus is vendored and no emulator/profile/program bytes change.
+The physical root cause and independent silicon control remain open.
+
+Commands, exit status and generated output identities are retained out of tree:
+
+```sh
+python3 tools/hardware/upd780/test_fdc_tools.py
+ctest --test-dir "$BUILD" -R '^vaeg_upd780_fdc_' --output-on-failure
+python3 tools/hardware/upd780/reduction.py \
+  --scf-reference "$SST_37_JSON" --ccf-reference "$SST_3F_JSON" \
+  --capture hw-case-01 FDCHIST "$FDCHIST_TXT" \
+  --capture hw-case-01 FDCFLAG "$FDCFLAG_TXT" --output "$PRIVATE_ANALYSIS"
+```
+
+All exit 0: **46 direct unit tests and 2 focused CTests PASS**; production
+analysis includes all eight logs and the pinned 2000 reference records. Focused
+single-mutation negatives assert exact codes without Git or corpus dependencies;
+combined reference identity/content plus complete-history analysis is also tested.
+An exploratory F-only/complete-AF comparison mistake and initial download 404s
+remain preserved and explicitly superseded. Corrected counts preserve A and
+include a nonzero-A regression. Unchanged expensive worker/full-ZEX evidence is
+reused; raw private identities and generated analysis remain untracked. Repository
+encoding/EOL/case/Markdown checks, 49 strict milestone selftests and the milestone
+audit exit 0. No new hardware request, merge, release, cleanup or G140 acceptance
+follows.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

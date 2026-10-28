@@ -4203,6 +4203,13 @@ new VA2/V2/H capture also matches VA2/S byte-for-byte and current host in all
 captures, but CPU variant/firmware/history causality and a general rule remain
 unestablished. No current host-backend correction is established. A corrected filename does not
 supply H evidence, and these S results do not establish a fixing CPU rule.
+The [offline reduction](../agents/reports/m140_fdc_va_observations.md#offline-reduction-and-separate-software-q-controls)
+now isolates six VA post cases outside both A-only and old-F/A OR to one AF
+input and three predecessors. A software history candidate does not explain
+both programs. Pinned Ares-derived SingleStepTests supply a separate software
+A/F/Q control, not independent Zilog silicon. Neither choosing a whole-instruction
+OR/A-only rule nor copying that reference establishes a NEC correction. Physical
+Q, the root cause and a justified CPU/profile fix remain unresolved.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

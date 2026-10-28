@@ -237,6 +237,89 @@ reconfirm this complete matrix. Next work is agent-side discrepancy reduction,
 explicit seed/history reasoning and independent controls before proposing a
 profile or upstream fix; physical timing/reference work remains separate.
 
+## Offline reduction and separate software Q controls
+
+`tools/hardware/upd780/reduction.py` reuses all eight controlled logs without
+executing the emulator or requesting another physical run. It validates each
+complete log before comparing **complete AF**, preserving A even when nonzero.
+Differences remain observations; its completion status is not conformance PASS.
+
+The separate software reference is SingleStepTests/z80 at commit
+[`ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`](https://github.com/SingleStepTests/z80/tree/ebe1875d48f374bcfd4b505d8eb8ee751568b5f7),
+files `v1/37.json` and `v1/3f.json`, 1000 records each. The tool pins their public
+SHA-256 values and checks only the A/F/Q slice. Its
+[README](https://github.com/SingleStepTests/z80/blob/ebe1875d48f374bcfd4b505d8eb8ee751568b5f7/README.MD)
+states that the tests were generated from a translated, corrected Ares core;
+these are **software-generated references, not measured Zilog silicon**. They
+are independent of this fork's arithmetic helper, not an independent physical
+oracle. Downloads, license and acquisition manifests remain out of tree; no
+third-party code or corpus is newly vendored.
+
+All 2000 records agree with `XY = ((F XOR Q) OR A) AND 28h`, with initial
+Q restricted to zero or F in this corpus, A preserved and final Q equal to final
+F. The current core's A-only X/Y expression differs on **229 SCF + 219 CCF =
+448** reference records. This is an algebraic comparison of the A/F/Q contract,
+not 2000 new worker executions, bus/cycle validation or a full-core SST result.
+It does not authorize replacing the measured NEC behavior with the corpus model.
+
+As a separate source-level cross-check, MAME 0.280, commit
+[`ec9abd86c6c9029f67e9cf4908ef5426b78d3eab`](https://github.com/mamedev/mame/tree/ec9abd86c6c9029f67e9cf4908ef5426b78d3eab),
+uses per-instruction Q/QT in
+[`z80.lst`](https://github.com/mamedev/mame/blob/ec9abd86c6c9029f67e9cf4908ef5426b78d3eab/src/devices/cpu/z80/z80.lst).
+Its POP AF/set_f path does not classify POP AF as an arithmetic flag writer.
+For these straight-line spans, that suggests OR after histories 0–2, and A-only
+after histories 3–7. The tool reports this as a **software history candidate**,
+not a measurement of physical Q. MAME itself was not built or executed here.
+
+Per setting, using the separately captured control AF as the input:
+
+| Reported machine | Program | A-only post mismatches | Unconditional-OR post mismatches | Software-history post / pre mismatches | Post results outside both A-only and OR |
+|---|---|---:|---:|---:|---:|
+| VA, either H or S | FDCHIST | 84 | 62 | 6 / 4 | 6 |
+| VA, either H or S | FDCFLAG | 0 | 24 | 24 / 16 | 0 |
+| VA2, either H or S | FDCHIST | 0 | 84 | 84 / 56 | 0 |
+| VA2, either H or S | FDCFLAG | 0 | 24 | 24 / 16 | 0 |
+
+Pre counts are operation rows sharing control spans, not additional independent
+executions. In particular, the software history candidate improves the VA
+FDCHIST comparison but **does not explain FDCFLAG**; it is not a fitted NEC rule.
+
+The six VA post counterexamples reduce to one requested/control AF, `0029`,
+with the three predecessors none, NOP and LD A,A, each followed by SCF or CCF:
+
+| Operation | Measured VA AF | A-only prediction | OR prediction |
+|---|---:|---:|---:|
+| SCF | `0021` | `0001` | `0029` |
+| CCF | `0030` | `0010` | `0038` |
+
+These are minimal derived observations, not a raw log reproduction. They recur
+in the retained H and S cases. Here A has neither X/Y bit and old F has both;
+VA retains Y but drops X. Even choosing A-only versus OR separately for every
+instruction cannot produce that partial result. This rules out that two-choice
+shortcut, **not every possible bitwise/internal-Q model**. Physical Q was never
+read, and a richer latch, firmware, transport or harness cause is not excluded.
+Do not infer a silicon revision, a universal NEC rule or a CPU correction.
+
+Next useful new work would hold target AF fixed while independently varying
+last flag-writer seed X/Y and use a distinct result-readback control; the current
+fixed seed and common output path do not supply those controls. Such a bounded,
+distinct probe must be designed and software-validated before asking for new
+hardware execution. The existing four-setting histories/full ZEX need no rerun.
+Timing/reference work remains separate.
+
+Validation: **46/46 direct unit tests PASS**, **2/2 focused CTest PASS**. Tests
+include nonzero-A preservation, the partial-X/Y reduction, reference identity,
+and passing-fixture single-mutation content negatives with exact stable codes.
+The production analysis CLI checks the pinned 2000 reference rows and all 4096
+physical operation rows, exit 0. An initial exploratory comparison accidentally
+compared complete AF against F-only, producing invalid counts for nonzero A;
+that output is retained as invalid and superseded, not used in this table. The
+corrected tool preserves A and has an explicit nonzero-A regression. Initial
+reference-download 404s and resolved pinned identities are also retained.
+No worker, probe, loader, CPU profile or vendored implementation is changed;
+unchanged expensive execution evidence is reused. Raw inputs, exact commands,
+contract/tool identities and generated analysis stay outside Git.
+
 ## Returned-image intake correction
 
 The first strict reader attempt failed `M139_D88_TRACKS`; that original failure

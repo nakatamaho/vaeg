@@ -24,6 +24,8 @@
 from __future__ import annotations
 import argparse
 import copy
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import struct
@@ -31,6 +33,7 @@ import tempfile
 import unittest
 import build
 import results
+import reduction
 
 
 def fixture(unit='MODEL_T'):
@@ -255,6 +258,97 @@ class HistoryContent(unittest.TestCase):
             for op in ('scf','ccf'):
                 span=source.split(f'h{h}_{op}:\n',1)[1].split('\nret',1)[0]
                 self.assertEqual(span,'\n'.join(('di','xor a','push bc','pop af',pred,op,'push af','pop de')))
+
+
+class ReductionContent(unittest.TestCase):
+    def reference_fixture(self, op='S'):
+        # Independently specified synthetic examples, including nonzero A.
+        vectors = ((0, 0x28, 0, 0x29, 0x29), (0, 0x28, 0x28, 1, 1),
+                   (0, 0x29, 0, 0x29, 0x38), (0x55, 8, 0, 9, 9))
+        records = []
+        for i, (a, f, q, scf, ccf) in enumerate(vectors):
+            ff = scf if op == 'S' else ccf
+            records.append({'name': str(i), 'initial': {'a': a, 'f': f, 'q': q},
+                            'final': {'a': a, 'f': ff, 'q': ff}})
+        self.assertEqual(reduction.reference_content(records, op, 4)['records'], 4)
+        return records
+
+    def test_reference_and_capture_integration(self):
+        for op in ('S', 'C'):
+            data = json.dumps(self.reference_fixture(op)).encode()
+            digest = hashlib.sha256(data).hexdigest()
+            self.assertEqual(reduction.reference_input(data, op, digest, 4)
+                             ['a_only_mismatches'], 3)
+        capture = HistoryContent().fixture()
+        report = reduction.history_content(capture, 'FDCHIST')
+        self.assertEqual(report['records'], 512)
+        self.assertEqual(report['a_only_mismatches'], 0)
+        self.assertEqual(report['software_history_post_mismatches'], 84)
+        self.assertEqual(report['software_history_pre_mismatches'], 56)
+        self.assertEqual(report['outside_both'], [])
+
+    def check_reference_mutation(self, mutate, code):
+        records = self.reference_fixture()
+        mutate(records)
+        with self.assertRaises(results.RecordError) as caught:
+            reduction.reference_content(records, 'S', 4)
+        self.assertEqual(caught.exception.code, code)
+
+    def test_reference_count(self):
+        self.check_reference_mutation(lambda r: r.pop(), 'M140_REDUCTION_REFERENCE_COUNT')
+
+    def test_reference_format(self):
+        self.check_reference_mutation(lambda r: r[0]['initial'].pop('q'),
+                                      'M140_REDUCTION_REFERENCE_FORMAT')
+
+    def test_reference_duplicate(self):
+        self.check_reference_mutation(lambda r: r[1].update(name='0'),
+                                      'M140_REDUCTION_REFERENCE_DUPLICATE')
+
+    def test_reference_q_domain(self):
+        self.check_reference_mutation(lambda r: r[0]['initial'].update(q=1),
+                                      'M140_REDUCTION_REFERENCE_Q_DOMAIN')
+
+    def test_reference_flags(self):
+        self.check_reference_mutation(lambda r: r[0]['final'].update(f=1),
+                                      'M140_REDUCTION_REFERENCE_AF')
+
+    def test_reference_accumulator(self):
+        self.check_reference_mutation(lambda r: r[3]['final'].update(a=0),
+                                      'M140_REDUCTION_REFERENCE_AF')
+
+    def test_reference_final_q(self):
+        self.check_reference_mutation(lambda r: r[0]['final'].update(q=0),
+                                      'M140_REDUCTION_REFERENCE_AF')
+
+    def test_reference_digest(self):
+        data = json.dumps(self.reference_fixture()).encode()
+        digest = hashlib.sha256(data).hexdigest()
+        reduction.reference_input(data, 'S', digest, 4)
+        with self.assertRaises(results.RecordError) as caught:
+            reduction.reference_input(data + b' ', 'S', digest, 4)
+        self.assertEqual(caught.exception.code, 'M140_REDUCTION_REFERENCE_DIGEST')
+
+    def test_partial_xy_counterexample(self):
+        data = HistoryContent().fixture()
+        for h in range(3):
+            for op, old, new in (('S', '0001', '0021'), ('C', '0010', '0030')):
+                original = f'Q {h} {op} 0029 0029 {old}'.encode()
+                self.assertEqual(data.count(original), 1)
+                data = data.replace(original, f'Q {h} {op} 0029 0029 {new}'.encode())
+        report = reduction.history_content(data, 'FDCHIST')
+        self.assertEqual(report['a_only_mismatches'], 6)
+        self.assertEqual(len(report['outside_both']), 6)
+        self.assertEqual({r['requested_af'] for r in report['outside_both']}, {'0029'})
+        self.assertEqual({r['history'] for r in report['outside_both']}, {0, 1, 2})
+
+    def test_capture_requires_recovery(self):
+        data = HistoryContent().fixture()
+        reduction.history_content(data, 'FDCHIST')
+        with self.assertRaises(results.RecordError) as caught:
+            reduction.history_content(data.replace(b'M139_FDC_RAM_RESTORED', b'UNKNOWN'),
+                                      'FDCHIST')
+        self.assertEqual(caught.exception.code, 'M139_RECOVERY_RECORD')
 
 
 class CaptureContent(unittest.TestCase):
