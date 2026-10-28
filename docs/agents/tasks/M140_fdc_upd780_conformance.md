@@ -391,6 +391,63 @@ Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged scope
 checks exit 0. Next work is address-controlled repeated minimal-probe design,
 not an unchanged physical rerun. No CPU fix, merge or gate acceptance follows.
 
+## Fixed-address repeated control prepared (FDCFIX)
+
+The [new bounded control](../../../tools/hardware/upd780/README.md#fixed-address-repeated-follow-up-fdcfix)
+reduces the unrolled-address confound without changing previous programs/results.
+A single RAM sampler at 40D8h, IUT at **40DEh**, and measured call at 404Ah serve
+all SCF/CCF cases. Verified self-modification selects seed immediate/ALU and IUT
+before entry; no patching/dispatch/output occurs inside the measured span.
+Control capture substitutes NOP at that IUT, rather than taking a snapshot
+before the actual instruction. All results are captured before formatting.
+
+160 rows cover AF=0028h/0029h, five seeds, SCF/CCF and eight passes, alternating
+forward/reverse case order. Both zero seeds now start LD A,0, so XOR/OR share
+instruction count/positions and nominal arithmetic flags. This is a **new**
+seed-0 byte sequence, not relabeled old XOR-only evidence. The protocol compares
+ASCII with the same captured RAM via monitor 0Bh (1452 bytes), followed by full
+verified RAM recovery and only then file creation. It is not independent CPU
+capture, physical-Q reset/readout, all-context isolation or an instruction-fetch
+trace. One fixed address also does not constitute a code-address sweep.
+
+Verification and evidence:
+
+- **16/16 new unit/content/source tests PASS**, including closed repeat/seed
+  coverage, forward/reverse order, repeat variation as observation, exact-error
+  single-mutation negatives and the one-byte fault-fixture generator.
+- **6/6 focused FDC CTests PASS** (3.12 s): all existing cases, new mapped
+  self-modification execution, common-call/IUT machine bytes, final patched RAM
+  image, 160 raw/text AF rows and the dedicated error-byte failure path.
+- ROM-backed **H and S integration PASS** with a ROM set matching MAME's
+  `pc88va2`: 160 persisted rows, raw/text agreement, reported readback-verified
+  RAM restoration, all pre-existing files/system region unchanged, 5760-byte
+  DAT and final DIR/A>. SDL dummy, not physical/presenter coverage.
+- Completed H image **existing-DAT refusal PASS**, all files unchanged and
+  refusal/DIR/prompt present.
+- A digest-bound passing H fixture is reused for **one-opcode fault QA**:
+  CP (HL) becomes OR (HL) in seed-patch verification. The guest displays
+  `M140_FIXED_PATCH_VERIFY`, and the fault disk is byte-identical after execution.
+  This is dedicated-message/no-write software safety, not a physical halt-state
+  readout. No repeated positive worker run is needed for that negative.
+
+The new COM is 3567 bytes; the new disk has 96256 free bytes and reserves 8192
+for FDCFIX.DAT. Loader capacity, timeout, restoration/readback, stack/DMA cleanup
+and unknown-state halt policy remain intact. New diagnostic control byte 03 is
+handled only by the new derived loader; the old loaders/programs are unchanged.
+An initial standalone payload-test invocation used a relative assembler path
+and failed before assembly in its temporary directory. Its failure is retained;
+the corrected absolute-path invocation passes, with no guest/core workaround.
+Repository encoding/EOL/case/Markdown, 49 strict milestone checks, milestone
+audit and staged diff/scope checks exit 0.
+
+Private recipes, exact commands/exit status, worker/program/contracts/output
+identities and generated media/captures stay outside Git. The application worker
+and RAM-dump worker digests are unchanged. Existing full/stock, legacy/history/
+seed media and completed physical observations are reused under their original
+identities; no core/profile/source-emitter change to those programs occurred.
+Physical FDCFIX execution is **NOT_RUN**. G140, independent silicon, broader
+boundary/timing, demo/media regression and clean handoff acceptance remain open.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

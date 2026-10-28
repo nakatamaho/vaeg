@@ -1,0 +1,47 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+M140 FDC fixed-address seed/repetition control
+
+Use a fresh writable copy. Run FDCFIX once; wait for
+M139_FDC_RAM_RESTORED and A>, then DIR. Return the entire disk image
+containing FDCFIX.DAT. Do NOT TYPE the mixed text/binary DAT.
+Report actual VA/VA2, V2 and H/S explicitly, not just a filename.
+An existing FDCFIX.DAT is refused before takeover.
+On timeout, patch-verify or recovery failure: RESET, no disk operations.
+
+160 rows: AF=0028h/0029h, five seed recipes, SCF/CCF, eight passes.
+Passes alternate forward and reversed case order. One shared sampler
+executes every seed and SCF/CCF at the SAME addresses and CALL site.
+Live RAM patches are readback-checked before entry, never while sampling.
+Control capture substitutes NOP at the common IUT address.
+
+Seeds: 0=LD A,0/XOR A; 1=LD A,0/OR A; 2-4=LD A,08h/20h/28h/OR A.
+Both zero seeds have the same instruction count and nominal arithmetic flags.
+Seed 0 now includes LD A,0: it is not byte-identical to the old XOR-only seed.
+Seed/IUT adjacency remains DI; LD A,n; ALU; PUSH BC; POP AF; IUT; PUSH AF.
+This does NOT prove a physical Q value/reset or every context independent.
+
+All captures precede formatted output. The main controller separately reads
+the raw RAM table via monitor 0Bh, then restores/readback-verifies all saved
+RAM BEFORE creating the result file. ASCII/raw share captured RAM; they are
+transport controls, not independent CPU measurements or timing/MHz evidence.
+This is a NEW probe; do not repeat full ZEX or the completed older histories.

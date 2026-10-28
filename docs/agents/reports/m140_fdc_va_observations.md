@@ -393,13 +393,30 @@ they do not independently validate the original AF capture, eliminate common
 capture/RAM faults, establish firmware identity or supply a Zilog silicon oracle.
 No CPU/profile correction, general NEC rule or G140 acceptance follows.
 
-Next agent-side work is an address-controlled, repeated minimal experiment
-before proposing further physical collection: avoid confounding seed/opcode
-changes with different IUT locations. Do not request an unchanged full ZEX,
+This motivates the address-controlled, repeated minimal experiment prepared
+below: avoid confounding seed/opcode changes with different IUT locations. Do not request an unchanged full ZEX,
 four-setting history or FDCSEED rerun merely to reproduce these completed logs.
 Timing/reference work is separate. Software execution evidence from the
 unchanged preparation commit is reused under the same program, worker and
 content-contract identities; new physical intake is not a new software test run.
+
+## Fixed-address repetition control preparation
+
+[FDCFIX](../tasks/M140_fdc_upd780_conformance.md#fixed-address-repeated-control-prepared-fdcfix)
+now implements the distinct next control: all 160 measured operations use IUT
+address 40DEh and the same caller, across eight forward/reversed passes. A fixed
+LD-A/ALU prefix permits zero XOR/OR and three nonzero OR seeds without moving
+the sampler. Self-modified bytes are readback-checked before entry. The zero
+XOR recipe now includes LD A,0 and is not byte-identical to the older seed.
+
+Software tests pass for shared instruction placement, 160 raw/text records,
+ROM-backed H/S persistence/recovery, existing-log refusal and a one-byte patch-
+verification fault that produces the dedicated guest error without disk writes.
+These do not upgrade the prior physical data or demonstrate a NEC correction.
+FDCFIX physical execution remains NOT_RUN. The same captured-RAM limitation,
+unmeasured Q, code-fetch/context and independent-silicon questions remain open.
+No unchanged histories/full ZEX/seed replay is requested; this is a new bounded
+fixed-address/repetition experiment, not a repeat of completed measurements.
 
 ## Returned-image intake correction
 

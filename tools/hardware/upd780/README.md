@@ -296,6 +296,73 @@ saves diagnostic RAM only after successful execution; no guest instruction is
 added. Native/ROM integration and this new RAM-dump worker are not a clean
 application gate or independent Zilog silicon reference.
 
+## Fixed-address repeated follow-up (FDCFIX)
+
+FDCFIX is a distinct experiment for the remaining seed-versus-code-address
+confound, not an unchanged FDCSEED/history/full-ZEX rerun. It uses **one sampler
+and one IUT address** for both SCF and CCF, eight passes over target AF=0028h/
+0029h and five seeds (160 rows). Passes alternate forward/reversed case order.
+Seed and IUT bytes are patched and readback-checked **before** calling the shared
+sampler. Control capture substitutes NOP at the IUT; the measured span is exactly
+`DI; LD A,n; XOR A/OR A; PUSH BC; POP AF; SCF/CCF; PUSH AF; POP DE; RET`.
+Every measured call also has the same call site. No dispatch/capture/output is
+inserted between seed, POP AF and the actual IUT.
+
+Seed 0 is now `LD A,0; XOR A`, not the earlier XOR-only byte sequence. Seed 1 is
+`LD A,0; OR A`; both have the same instruction count and nominal arithmetic flags.
+Seeds 2–4 use OR A after loading 08h/20h/28h. This controls positions and adds
+repeat/order observations, **not all prior context, physical Q or self-modifying
+fetch independently**. Readback checks memory bytes; they are not a silicon
+instruction-fetch trace. The common address itself is not swept across pages.
+
+```sh
+python3 tools/hardware/upd780/fixed.py build --source-disk "$PRIVATE_INPUT" \
+  --output-dir "$NEW_FIXED_OUTPUT" --assembler "$VERIFIED_Z80ASM_1_8"
+python3 tools/hardware/upd780/test_fixed.py
+python3 tools/hardware/upd780/test_fixed.py --runner "$MAPPED_WORKER" \
+  --assembler "$ABSOLUTE_Z80ASM_1_8"
+```
+
+The new private disk contains FDCFIX.COM/FIXHELP.TXT and reserves 8192 bytes for
+**FDCFIX.DAT**, a mixed text/binary file. Use fresh writable copies; run FDCFIX,
+wait for `M139_FDC_RAM_RESTORED` and `A>`, then DIR. **Do not TYPE the DAT.**
+Return the whole disk and explicitly identify actual machine/V2/H-or-S. Initial
+VA and VA2 runs in the same V2/H setting suffice for this question; a new four-
+setting matrix is not requested. Existing DAT is refused before takeover.
+
+Raw/text recovery uses the seed transport: after all snapshots/formatting, the
+main controller reads 1452 bytes at 7000h–75ABh using monitor 0Bh, then restores
+and readback-verifies all saved RAM before any result-file creation. Control
+byte 03 is specific to this diagnostic stream, not a new firmware opcode: a
+patch-readback failure makes the new controller print `M140_FIXED_PATCH_VERIFY`
+and take the existing unknown-state fatal halt, with no disk operation. Timeout,
+patch or recovery failure requires RESET. Legacy/seed loaders stay unchanged.
+
+```sh
+python3 tools/hardware/upd780/fixed.py check "$FDCFIX_DAT" --output "$PRIVATE_REPORT"
+python3 tools/hardware/upd780/integration.py --worker "$WORKER" --roms "$STAGED_ROMS" \
+  --image "$FIXED_DISK" --build-report "$FIXED_RECIPE" \
+  --output "$PRIVATE_PASSING_CASE" --case fixed --standard true
+# Also --standard false; --case fixed-existing uses a completed output disk.
+python3 tools/hardware/upd780/test_fixed.py --rom-worker "$WORKER" \
+  --roms "$STAGED_ROMS" --source-image "$FIXED_DISK" --build-report "$FIXED_RECIPE" \
+  --passing-integration "$PASSING_RUN_JSON" --output "$PRIVATE_FAULT_CASE"
+```
+
+The last command reuses a passing, digest-bound ROM integration fixture rather
+than rerunning it. Exactly one COM opcode is mutated (`CP (HL)` to `OR (HL)` in
+patch verification). It requires the dedicated guest error and a byte-identical
+post-run disk; a zero worker exit alone is not PASS. Outputs are private, out of
+tree; this is SDL-dummy software fault-safety evidence, not physical halt-state
+readout. Unit negatives isolate content from media/worker identity checks.
+
+Content validation requires all repeat/seed/operation/target descriptors,
+exact control AF, documented flags, raw/text agreement, framing, recovery marker
+and CP/M padding. Repeat-varying groups and differing per-seed result sets are
+reported as observations, not rejected or fitted into a NEC rule. `--host-model`
+adds the present worker's A-only baseline requirement. No Q value, silicon cause,
+physical repeatability or timing is established by software success.
+
 ## Offline SCF/CCF model reduction
 
 `reduction.py` validates completed physical logs and compares A-only,

@@ -39,6 +39,7 @@ import time
 import build
 import results
 import seed
+import fixed
 
 
 def sha(data):
@@ -52,7 +53,7 @@ def main():
     p.add_argument('--image', type=Path, required=True)
     p.add_argument('--build-report', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair', 'seed', 'seed-existing'), required=True)
+    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair', 'seed', 'seed-existing', 'fixed', 'fixed-existing'), required=True)
     p.add_argument('--standard', choices=('true', 'false'), default='true')
     a = p.parse_args()
     out = a.output.resolve()
@@ -72,9 +73,10 @@ def main():
     cfg.write_text('[NekoProjectII]\nMain_RAM=640\nMain_RAM_Auto=false\n'
                    'CPU_Speed=100\nBootMode=1\nV1V2_Standard=' + a.standard + '\n')
     name = {'smoke':'FDCONE','history':'FDCHIST','flags':'FDCFLAG','history-pair':'FDCFLAG',
-            'seed':'FDCSEED','seed-existing':'FDCSEED'}.get(a.case,'FDCPRB')
-    extension = 'DAT' if a.case in ('seed','seed-existing') else 'TXT'
-    existing = a.case in ('existing','seed-existing')
+            'seed':'FDCSEED','seed-existing':'FDCSEED',
+            'fixed':'FDCFIX','fixed-existing':'FDCFIX'}.get(a.case,'FDCPRB')
+    extension = 'DAT' if a.case in ('seed','seed-existing','fixed','fixed-existing') else 'TXT'
+    existing = a.case in ('existing','seed-existing','fixed-existing')
     wait, frames = (24000, 30000) if a.case == 'probe' else (9000, 13000)
     if a.case in ('history','flags'):
         wait, frames = 12000, 16000
@@ -105,7 +107,7 @@ def main():
         'input_sha256': sha(original),
         'recipe_sha256': sha(a.build_report.read_bytes()),
         'rom_files': {x.name: sha(x.read_bytes()) for x in sorted(a.roms.iterdir()) if x.is_file()},
-        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__), Path(seed.__file__))},
+        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__), Path(seed.__file__), Path(fixed.__file__))},
         'target_policy': 'VA2 CP/M protocol/persistence integration; SDL dummy; NOT physical FDC or presenter acceptance',
         'config_standard': a.standard,
     }
@@ -128,7 +130,9 @@ def main():
             results.need(logname in after, 'M139_INTEGRATION_LOG_MISSING')
             data = after[logname]
             (out / logname).write_bytes(data)
-            if a.case == 'seed':
+            if a.case == 'fixed':
+                report['content'] = fixed.content(data, host_model=True)
+            elif a.case == 'seed':
                 report['content'] = seed.content(data, host_model=True)
             elif a.case == 'probe':
                 report['content'] = results.probe(data, unit='E')

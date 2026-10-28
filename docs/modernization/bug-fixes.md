@@ -4217,6 +4217,9 @@ between nominally equivalent XOR-A/zero-OR-A seeds, but seed/opcode and IUT
 address/context are confounded. A formatter-only explanation is insufficient;
 shared capture/RAM and internal-history causes remain open. No fixing CPU
 commit, deterministic NEC rule or gate acceptance is established.
+The [fixed-address repetition probe](../agents/tasks/M140_fdc_upd780_conformance.md#fixed-address-repeated-control-prepared-fdcfix)
+now passes software/ROM-backed safety and persistence checks but has no physical
+results yet; it does not establish a fixing CPU rule.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification
