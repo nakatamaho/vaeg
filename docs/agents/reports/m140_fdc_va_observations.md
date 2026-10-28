@@ -413,10 +413,76 @@ Software tests pass for shared instruction placement, 160 raw/text records,
 ROM-backed H/S persistence/recovery, existing-log refusal and a one-byte patch-
 verification fault that produces the dedicated guest error without disk writes.
 These do not upgrade the prior physical data or demonstrate a NEC correction.
-FDCFIX physical execution remains NOT_RUN. The same captured-RAM limitation,
-unmeasured Q, code-fetch/context and independent-silicon questions remain open.
+At preparation FDCFIX physical execution was NOT_RUN; returned results are
+recorded separately below. The captured-RAM limitation, unmeasured Q,
+code-fetch/context and independent-silicon questions remain open.
 No unchanged histories/full ZEX/seed replay is requested; this is a new bounded
 fixed-address/repetition experiment, not a repeat of completed measurements.
+
+## Returned fixed-address repetition controls
+
+Cases `hw-fdc-va-06` and `hw-fdc-va2-05` were returned under **VA/V2/H** and
+**VA2/V2/H** labels, consistent with the requested targets. These labels are
+operator-supplied filenames, not independently encoded machine/mode identities.
+The second case was received after the first intake; the initial local absence
+is preserved as a delivery state, not a failed guest measurement.
+
+Both unchanged `fixed.py check` commands exit 0 with **160 complete operation
+rows** (320 total): closed repeat/seed/operation/target descriptors, exact control
+AF, preserved A/documented flags, raw/text agreement, binary framing, loader
+restoration marker and padding. All complete master files, the exact generated
+COM and boot/system region are preserved in each image. The received images are
+unmodified; snapshots, DAT files and input/program/contract/output manifests
+stay outside Git. Restoration is reported by the loader's verified-recovery
+marker, not an independent physical full-RAM dump. No final DIR/A> capture is
+provided by these images alone.
+
+| Returned label | Rows | Present-host post-AF differences | Repeat-varying groups | Per-seed differing result-set groups |
+|---|---:|---:|---:|---:|
+| VA/V2/H | 160 | 160 (80 SCF, 80 CCF), only X/Y | 1 | 1 |
+| VA2/V2/H | 160 | 0 | 0 | 0 |
+
+There are 40 rows for each target/operation pair (five seeds, eight passes):
+
+| Target AF / operation | VA results | VA2 results |
+|---|---|---|
+| `0028` / SCF | `0029` in all 40 | `0001` in all 40 |
+| `0028` / CCF | `0029` in all 40 | `0001` in all 40 |
+| `0029` / SCF | `0029` in 39; `0021` in one | `0001` in all 40 |
+| `0029` / CCF | `0038` in all 40 | `0010` in all 40 |
+
+For this VA sample, an unconditional old-F/A OR predicts **159/160**, not all
+160. The exception is repeat ID 6 (the seventh, forward-order pass), seed ID 3
+(`LD A,20h; OR A`), target/control AF `0029`, SCF: observed `0021` instead of
+OR's `0029`, with X bit 3 clear. The same group gives `0029` in its other seven
+passes, including the other forward-order passes. Thus neither the seed alone
+nor forward/reverse order alone is a deterministic explanation. The two group
+counts in the table are consequences of this **same single outlier**, not two
+independent causal findings. All VA CCF groups now give `0038`; the earlier
+unrolled program's XOR/zero-OR CCF contrast is not a stable universal named-seed
+rule. Seed 0's prefix changed to LD-A/zero-XOR, and other context also changed;
+this is not a controlled address-only comparison with the older executable.
+
+The new program has one sampler/IUT address and measured call site, eliminating
+the previous per-seed IUT-location difference within this experiment. However,
+**each row uses different result-storage cells**. The outlier's post-F byte is
+stored at diagnostic RAM address `74D7h`. Both output paths read that captured
+RAM, so agreement excludes a solely hexadecimal-rendering account but does not
+exclude capture-stack, common storage/readback or other shared-path faults.
+No independent RAM-integrity test or original-register readout was made. This
+address identifies the probe's storage location, not a demonstrated bad cell.
+
+VA2's 160 rows match the current A-only host expression with no seed/repeat
+variation. That is bounded observational agreement, not proof of universal NEC
+or Zilog behavior. VA's one OR exception and the earlier matrices still prevent
+adopting OR as a backend rule. No physical Q value, silicon revision, root cause,
+physical timing, CPU correction or G140 acceptance is established.
+
+Next agent-side design should separate capture and storage effects (for example,
+independent capture/storage checks), not request an unchanged fixed/history/seed/
+full-ZEX rerun. Unchanged software execution evidence from the preparation commit
+is reused under its original worker, program and content-contract identities;
+this intake changes reports only and does not retroactively upgrade that evidence.
 
 ## Returned-image intake correction
 

@@ -36,7 +36,10 @@ controlled logs match VA/S byte-for-byte; newly received VA2/H also matches
 VA2/S byte-for-byte. All four controlled settings are collected. The new seed
 probe is also returned under VA/V2/H and VA2/V2/H labels: 80 rows each, raw/text
 agreement throughout, 30 versus zero host differences; one VA CCF group varies
-across seed recipes, with address/context still confounded. **G140 BLOCKED**:
+across seed recipes, with address/context still confounded. Fixed-address
+follow-ups now have 160 rows each: VA has 160 host differences and one repeat
+outlier against OR; VA2 has zero host differences and no repeat variation.
+Shared capture/storage effects remain unisolated. **G140 BLOCKED**:
 history-controlled discrepancy reduction, independent Zilog controls, approved
 timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
@@ -445,8 +448,40 @@ identities and generated media/captures stay outside Git. The application worker
 and RAM-dump worker digests are unchanged. Existing full/stock, legacy/history/
 seed media and completed physical observations are reused under their original
 identities; no core/profile/source-emitter change to those programs occurred.
-Physical FDCFIX execution is **NOT_RUN**. G140, independent silicon, broader
-boundary/timing, demo/media regression and clean handoff acceptance remain open.
+Physical FDCFIX execution was NOT_RUN at preparation; returned results below
+are separate observations. G140, independent silicon, broader boundary/timing,
+demo/media regression and clean handoff acceptance remain open.
+
+## Returned fixed-address controls
+
+[Returned analysis](../reports/m140_fdc_va_observations.md#returned-fixed-address-repetition-controls):
+`hw-fdc-va-06` and `hw-fdc-va2-05`, labeled VA/V2/H and VA2/V2/H. Labels follow
+the returned filenames/requested settings, not an independently encoded hardware
+identity. Both images contain 160 valid rows with raw/text agreement, exact
+control AF, preserved A/documented flags, framing, padding and loader recovery
+marker. Both production content CLIs exit 0. All master files, exact COM and
+boot/system region are preserved. No independent full-RAM or DIR/A> capture is
+supplied by these returned images alone.
+
+VA differs from present host in all 160 X/Y-only post results (80 SCF/80 CCF).
+OR predicts 159/160. Repeat ID 6, seed 3, AF `0029`, SCF gives `0021`, while
+its seven other repetitions give `0029`. This single outlier causes both the
+repeat-variation and differing-per-seed-set flags; it is not two independent
+findings or a deterministic seed/order rule. The post-F storage byte is at
+`74D7h`; the common IUT/caller does not make result storage identical per row.
+No defective cell, captured-register cause or physical Q value is demonstrated.
+VA2 matches all 160 current-host results without seed/repeat variation.
+
+Unchanged preparation evidence from
+[5ed80876e909d3a6f4187a84c05ab8ba8e44a227](https://github.com/nakatamaho/vaeg/commit/5ed80876e909d3a6f4187a84c05ab8ba8e44a227)
+is reused: no emulator, program, worker, test or content-contract changes in this
+report-only intake. Snapshots, CLI commands/exit status, comparison and evaluated/
+worker/program/contract/output identities remain out of tree. Initial local VA2
+absence is retained as delivery status, then superseded by its actual capture;
+it is not a failed guest run. Encoding/EOL/case/Markdown checks, 49 strict
+milestone checks, audit and staged diff/scope checks exit 0.
+Next work is independent capture/storage-control design, not an unchanged
+physical replay or a speculative core/profile fix. G140 remains BLOCKED.
 
 ## G140 acceptance
 
