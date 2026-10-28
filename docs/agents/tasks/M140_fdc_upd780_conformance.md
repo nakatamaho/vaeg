@@ -32,8 +32,8 @@ files/programs and boot/system sectors are preserved in that VA case. VA2/V2/S
 follow-ups now match all 67 legacy CRCs and both 512-row controlled-history
 sets, with zero legacy AF differences. Original VA/V2/S now has both controlled
 logs: FDCHIST has 84 X/Y post-AF differences, while FDCFLAG matches. The VA/V2/H
-controlled logs now match VA/S byte-for-byte; only VA2/H is missing from this
-controlled matrix. **G140 BLOCKED**:
+controlled logs match VA/S byte-for-byte; newly received VA2/H also matches
+VA2/S byte-for-byte. All four controlled settings are collected. **G140 BLOCKED**:
 history-controlled discrepancy reduction, independent Zilog controls, approved
 timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
@@ -200,9 +200,9 @@ that order, waiting for recovery and `A>` after each, then return both logs.
 At preparation time physical VA2/new-probe results were pending. Subsequent
 VA2/V2/S captures now validate all legacy records and both 512-row history
 sets; every history control/result row matches the same-image mapped host.
-A temporary H-looking filename was corrected to S before intake: there is no
-VA2/V2/H result yet. VA/V2/H controlled histories have now arrived and match
-the original-VA/V2/S logs byte-for-byte. See the
+A temporary H-looking filename was corrected to S before intake; that earlier
+case remains S. A separate newly supplied VA2/V2/H result now matches VA2/S
+byte-for-byte. VA/V2/H also matches original-VA/V2/S byte-for-byte. See the
 [updated physical matrix](../reports/m140_fdc_va_observations.md#va2--v2--s-follow-ups).
 The VA/H legacy AF discrepancy is still unresolved, not a fixed NEC rule.
 A further original-VA/V2/S capture (`hw-fdc-va-03`) completes both history logs:
@@ -216,10 +216,16 @@ remain unestablished. The subsequent VA/V2/H capture (`hw-fdc-va-04`) has the
 same 84 post-AF/56 pre-AF FDCHIST row differences and zero FDCFLAG differences;
 both persisted logs are byte-identical to VA/S. This isolates equal observed
 controlled flags across H/S on the reported VA, not equal timings or clocks.
-Only VA2/V2/H controlled data is still missing. Original files/programs/system
-region are preserved in both new VA cases; the two supplementary text mismatches
-are not silently classified as full-package identity. See the report; no backend
-change is made.
+The final VA2/V2/H case (`hw-fdc-va2-03`) completes both 512-row logs with zero
+mapped-host control/result differences; both logs are byte-identical to VA2/S.
+The four-setting matrix now contains 4096 operation rows. Both machines' H/S
+flags agree within that reported machine; the discrepancy tracks machine in
+these samples, not H/S. Original files/programs/system regions are preserved;
+the two supplementary text mismatches in these follow-ups are not silently
+classified as full-package identity. Configuration remains operator metadata.
+Do not request unchanged repeat histories/full ZEX: next work is discrepancy
+reduction and independent controls, with timing calibration separate. See the
+report; no backend change or G140 acceptance is made.
 
 The [history-suite instructions](../../../tools/hardware/upd780/README.md#scfccf-instruction-history-follow-up-history-suite)
 describe both 512-record matrices. Each span seeds `DI; XOR A; PUSH BC; POP AF`,

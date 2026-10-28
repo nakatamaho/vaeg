@@ -94,7 +94,8 @@ main CPUs based on these records alone. Next work is a minimal history-controlle
 SCF/CCF probe and independent Zilog control, not another unchanged full ZEX run.
 The [FDCHIST/FDCFLAG r2 disk](../tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2)
 was prepared and software-validated. VA2/V2/S physical results are now recorded
-below, followed by original-VA/V2/S and V2/H results. VA2/V2/H remains pending.
+below, followed by original-VA/V2/S and V2/H results and a newly supplied
+VA2/V2/H capture. All four controlled-history settings are now collected.
 
 ## VA2 / V2 / S follow-ups
 
@@ -125,9 +126,9 @@ The VA/V2/H legacy probe had 35 differing AF inputs; the VA2/V2/S legacy probe
 has zero. This is a **cross-machine and cross-setting** comparison, not an
 isolated machine or H/S effect. The VA2/S controlled histories also match the
 current mapped host. Subsequent original-VA S/H controlled-history cases are
-recorded below; VA2/H follow-up is still absent. No NEC-specific rule, hidden-Q
-root cause, mode-dependent FDC clock or absolute MHz is established. No backend
-change follows.
+recorded below, followed by a separate newly supplied VA2/H capture. No
+NEC-specific rule, hidden-Q root cause, mode-dependent FDC clock or absolute
+MHz is established. No backend change follows.
 
 Current physical matrix:
 
@@ -135,13 +136,13 @@ Current physical matrix:
 | --- | --- | --- |
 | VA / V2 / H | Complete; 35 AF input discrepancies | Both 512/512; byte-identical to VA/S history logs, including 84 FDCHIST post-AF differences |
 | VA / V2 / S | Not collected | FDCHIST 512/512 with 84 post-AF differences; FDCFLAG 512/512 matches mapped host |
-| VA2 / V2 / H | Not collected | Pending, not inferred from renamed file |
+| VA2 / V2 / H | Not collected | Both 512/512; all mapped-host rows match and logs are byte-identical to VA2/S |
 | VA2 / V2 / S | Complete; zero AF discrepancies | FDCHIST 512/512 + FDCFLAG 512/512; all mapped-host rows match |
 
-Use a fresh copy of the same r2 history image for VA2/V2/H next.
-The existing full-ZEX and original-VA controlled histories need not be repeated.
-Original-VA controlled S/H flags now compare equal; timing reference/calibration,
-VA2 controlled H/S and same-machine legacy timing comparisons remain open; all hashes/private filenames stay
+All four controlled-history settings are now collected; no unchanged rerun
+of these histories or full ZEX is needed. Both reported machines' controlled
+S/H flags compare equal within that machine. Timing reference/calibration,
+same-machine legacy timing comparisons and independent silicon controls remain open; all hashes/private filenames stay
 in the out-of-tree evidence, not this report. No emulator or validator source
 changes in this report-only follow-up, so unchanged expensive software runs
 are reused rather than repeated.
@@ -183,7 +184,7 @@ even in the restricted FDCHIST matrix. Do not implement that shortcut.
 The earlier VA/H legacy difference count (35 distinct requested AF inputs)
 and this count (84 operation/history rows in a different matrix) are not the
 same unit of coverage and must not be compared as an increase. The VA/H
-controlled follow-up below is now received; VA2/H remains the next collection.
+controlled follow-up and the separate VA2/H follow-up below are now received.
 Neither full ZEX nor new emulator builds are needed. The current evidence
 supports a measured difference, not a tested backend fix or G140 acceptance. This follow-up changes reports only and reuses unchanged
 software/host execution evidence.
@@ -203,10 +204,38 @@ This establishes equal observed controlled flag results for operator-labeled
 S/H captures on the same reported VA. It is **not a timing comparison**, a
 physical clock measurement or a general claim that H/S cannot affect other
 observer paths. Configuration/execution assignment is operator metadata, not
-a machine identity encoded in the deterministic logs. VA2/V2/H remains absent.
-No file named H in the earlier corrected S submission supplies that missing
-case. Next collection is only the two new programs on VA2/V2/H, using a fresh
-copy; repeated original-VA or full-ZEX runs are not needed for this comparison.
+a machine identity encoded in the deterministic logs. The separate VA2/V2/H
+follow-up below is now received; the earlier corrected S submission is still
+S and is not retroactively relabeled. Repeated original-VA or full-ZEX runs
+are not needed for this comparison.
+
+## VA2 / V2 / H controlled-history follow-up and complete matrix
+
+Case `hw-fdc-va2-03` is newly supplied and explicitly identified as VA2 / V2 / H.
+It is saved as a separate snapshot, without relabeling the earlier corrected
+S capture that temporarily used an H-looking name. Both 512-row logs pass
+coverage, precondition, completion and recovery checks. Their entire persisted
+bytes equal the respective VA2/V2/S logs. Requested/control/result AF all match
+the identical-image mapped host; against original-VA/H there are 140 differing
+FDCHIST rows (56 pre-AF only, 84 post-AF only), and zero FDCFLAG differences.
+
+Both exact COMs, all original CP/M input files and the boot/system region are
+preserved. Two supplementary package texts differ, so complete-package identity
+is not asserted. The received file is read-only to the analysis; snapshots,
+normalization copies, raw records and identity/command/output manifests remain
+outside Git. Configuration/execution assignment is operator metadata, not a
+nonce or hardware identity encoded in the deterministic logs.
+
+The controlled matrix is now complete for both reported machines in V2/H
+and V2/S, 512 rows per program per setting (4096 operation rows in total).
+Each machine's two persisted logs match between H and S. The observed difference
+tracks the reported machine in these samples, not the H/S label. This does not
+identify a CPU revision, firmware cause or universal NEC behavior. It does not
+validate timing, observer frequency, V1, independent Zilog silicon or any new
+backend correction. Do not rerun unchanged histories or full ZEX merely to
+reconfirm this complete matrix. Next work is agent-side discrepancy reduction,
+explicit seed/history reasoning and independent controls before proposing a
+profile or upstream fix; physical timing/reference work remains separate.
 
 ## Returned-image intake correction
 

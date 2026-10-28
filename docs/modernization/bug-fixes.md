@@ -4189,16 +4189,19 @@ Zilog control establish the rule. No fixing CPU commit or root cause is claimed.
 The controlled probes now have VA2/V2/S physical results: both 512-row logs
 match mapped-host input/control/output AF completely, and that machine/setting's
 legacy AF matrix has zero differences. The original discrepancy is VA/V2/H;
-changing both machine and speed setting does not isolate its cause. VA2/H
-controlled data remains absent. A subsequent original-VA/V2/S
+changing both machine and speed setting initially did not isolate its cause.
+The four-setting controlled matrix is now complete. A subsequent original-VA/V2/S
 capture reproduces a controlled difference: FDCHIST has 84 post-AF X/Y rows
 (42 SCF, 42 CCF) and 56 pre-AF rows, while FDCFLAG matches. VA2/S has zero
 in both matrices with identical COMs. H/S mismatch alone therefore cannot
 explain this same-setting observation; CPU variant/firmware/internal-history
 causality and a general flag rule remain unproved. Original-VA/V2/H then gives
 byte-identical controlled logs to VA/S, so this reported VA's controlled flag
-results agree across H/S; that is not a timing/clock comparison. No current
-host-backend correction is established. A corrected filename does not
+results agree across H/S; that is not a timing/clock comparison. The final
+new VA2/V2/H capture also matches VA2/S byte-for-byte and current host in all
+1024 rows. The observation tracks reported machine, not H/S, across these four
+captures, but CPU variant/firmware/history causality and a general rule remain
+unestablished. No current host-backend correction is established. A corrected filename does not
 supply H evidence, and these S results do not establish a fixing CPU rule.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
