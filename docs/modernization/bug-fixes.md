@@ -4186,8 +4186,12 @@ backend defect. Hidden Q/history is uncontrolled in the current probe and is
 not modeled by the arithmetic helper; its causal contribution is unproved.
 Do not change profiles until a history-controlled reduction and independent
 Zilog control establish the rule. No fixing CPU commit or root cause is claimed.
-The controlled FDCHIST/FDCFLAG probes are now software-validated and prepared
-for physical collection; those physical results are not yet available.
+The controlled probes now have VA2/V2/S physical results: both 512-row logs
+match mapped-host input/control/output AF completely, and that machine/setting's
+legacy AF matrix has zero differences. The original discrepancy is VA/V2/H;
+changing both machine and speed setting does not isolate its cause. VA/H and
+VA2/H controlled comparisons remain pending. A corrected filename does not
+supply H evidence, and these S results do not establish a fixing CPU rule.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

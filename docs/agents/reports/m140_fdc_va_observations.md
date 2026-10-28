@@ -21,7 +21,7 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M140 — returned physical VA FDC observations
+# M140 — returned physical VA/VA2 FDC observations
 
 ## Scope and identities
 
@@ -29,8 +29,9 @@ Neutral observation ID: `hw-fdc-va-02`. The maintainer identifies the target as
 physical **VA, V2 mode, H setting**, subsequently confirmed by the maintainer
 as `VA V2 H`. This means a VA in V2/H, not a VA2 machine. Firmware/board
 revision, elapsed wall time and an independently approved VRTC reference have
-not been supplied. VA2 and S-setting coverage are not established. This is
-operator-supplied configuration metadata, not an independent ROM-set comparison
+not been supplied. This initial case does not establish VA2 or S coverage;
+separate VA2/V2/S follow-ups are recorded below. This is operator-supplied
+configuration metadata, not an independent ROM-set comparison
 or a measurement of the FDC clock.
 
 The returned media contains all three complete diagnostic logs. All original
@@ -92,7 +93,56 @@ Do not change the emulator or globally propagate a new FDC profile to non-VA
 main CPUs based on these records alone. Next work is a minimal history-controlled
 SCF/CCF probe and independent Zilog control, not another unchanged full ZEX run.
 The [FDCHIST/FDCFLAG r2 disk](../tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2)
-is now prepared and software-validated; its physical results remain pending.
+was prepared and software-validated. VA2/V2/S physical results are now recorded
+below; VA/V2/H and VA2/V2/H controlled-history results remain pending.
+
+## VA2 / V2 / S follow-ups
+
+The maintainer supplies two distinct captures, both explicitly identified as
+**VA2 hardware, V2 mode, S setting**:
+
+| Neutral case | Received coverage | Result |
+| --- | --- | --- |
+| `hw-fdc-va2-01` | Original NEG/full-ZEX/AF/timing suite | NEG 1/1 and full ZEX 67/67 complete; actual full CRCs match both the mapped host and VA/V2/H exactly; 256 AF pairs and 67 timing rows validate, with zero current-host AF differences |
+| `hw-fdc-va2-02` | New FDCHIST/FDCFLAG suite | Both 512-record logs complete, with zero mapped-host differences in requested AF, control pre-AF or post-AF across all 1024 rows |
+
+The second capture is not a duplicate of the first; it contains the new
+history logs rather than the legacy logs. A temporary H-looking filename was
+explicitly corrected by the maintainer to S before intake. **Neither capture
+is evidence for VA2/V2/H.** Do not infer settings from filenames or reclassify
+these as two H/S measurements.
+
+All original CP/M input files and the boot/system region are preserved in both
+captures. The first contains the three exact legacy COMs; two supplementary
+text files do not match the complete legacy handoff, so not every packaged
+file is claimed unchanged. The second matches every file of the intended r2
+history package, including both exact COMs. Every received diagnostic log
+passes completion/recovery validation. The corrected S snapshot, normalized
+copy, raw logs, per-program comparisons and private identity manifests are
+retained outside Git; the supplied files are not modified.
+
+The VA/V2/H legacy probe had 35 differing AF inputs; the VA2/V2/S legacy probe
+has zero. This is a **cross-machine and cross-setting** comparison, not an
+isolated machine or H/S effect. The VA2/S controlled histories also match the
+current mapped host, but VA/H controlled-history data and VA2/H follow-up are
+not available yet. No NEC-specific rule, hidden-Q root cause, mode-dependent
+FDC clock or absolute MHz is established. No backend change follows.
+
+Current physical matrix:
+
+| Machine/setting | Legacy suite | Controlled history suite |
+| --- | --- | --- |
+| VA / V2 / H | Complete; 35 AF input discrepancies | Pending |
+| VA / V2 / S | Not collected | Not collected |
+| VA2 / V2 / H | Not collected | Pending, not inferred from renamed file |
+| VA2 / V2 / S | Complete; zero AF discrepancies | FDCHIST 512/512 + FDCFLAG 512/512; all mapped-host rows match |
+
+Use fresh copies of the same r2 history image for VA2/V2/H and VA/V2/H next.
+The existing full-ZEX captures need not be repeated. Reference/calibration and
+a same-machine H/S comparison remain open; all hashes/private filenames stay
+in the out-of-tree evidence, not this report. No emulator or validator source
+changes in this report-only follow-up, so unchanged expensive software runs
+are reused rather than repeated.
 
 ## Returned-image intake correction
 
