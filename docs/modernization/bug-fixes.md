@@ -4224,6 +4224,9 @@ agreement holds, but result-storage cells differ per row. The one outlier causes
 both repeat and per-seed-set variation flags, not a deterministic seed/order law
 or a demonstrated bad RAM cell. Capture/storage effects, internal state and the
 root cause remain unresolved; no fixing CPU/profile commit is established.
+The [new capture/storage control](../agents/tasks/M140_fdc_upd780_conformance.md#capturestackstorage-control-prepared-fdccap)
+passes bounded software/ROM safety and diagnostic-mutation checks, but physical
+results are NOT_RUN; it does not prove a defective RAM cell or CPU correction.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

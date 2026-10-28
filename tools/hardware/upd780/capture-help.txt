@@ -1,0 +1,49 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+M140 FDCCAP capture/stack/storage control
+
+Fresh writable copy per machine. Run FDCCAP, wait for
+M139_FDC_RAM_RESTORED and A>, then DIR. Return the whole image
+with FDCCAP.DAT. Do NOT TYPE this mixed text/binary file.
+Report actual machine, V2 and H/S explicitly. On timeout, patch-verify
+or recovery failure RESET; no disk operations in unknown state.
+
+96 rows: AF=0028h/0029h, SCF/CCF, seeds 0/1/3, eight forward/reverse passes.
+Seed 0=LD A,0/XOR A; 1=LD A,0/OR A; 3=LD A,20h/OR A.
+All IUTs share address 4806h (NEW address, not the older fixed program).
+Three PUSH AF snapshots use adjacent different stack cells, then POP into
+DE/BC/HL BEFORE any comparison changes flags. NOP is the control IUT.
+Triples are compared in registers and copied to code-RAM mailboxes and rows.
+The primary post word also has a duplicate and inverted copy. Every word
+store is immediately read back; a final scan checks mirror relations.
+
+Before captures, the result region 7000h-7857h (including 74D7h) is filled
+then read with 00/FF/55/AA/29/21 and low-address XOR high-address patterns.
+This is bounded result-RAM testing, NOT exhaustive RAM/stack/code testing.
+Code-RAM mailboxes, the CPU and later output/readback remain shared paths.
+Agreement does NOT prove original CPU flags, physical Q or a universal rule.
+
+All captures precede formatting. The main controller separately reads the
+2136-byte raw table through monitor 0Bh, then restores and verifies all saved
+RAM BEFORE file creation. No physical timing or MHz measurement is made.
+New diagnostic findings are preserved, not silently fitted into a CPU model.
+Older full ZEX, history, seed and fixed tests need no unchanged rerun.

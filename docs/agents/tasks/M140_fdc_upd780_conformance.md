@@ -483,6 +483,64 @@ milestone checks, audit and staged diff/scope checks exit 0.
 Next work is independent capture/storage-control design, not an unchanged
 physical replay or a speculative core/profile fix. G140 remains BLOCKED.
 
+## Capture/stack/storage control prepared (FDCCAP)
+
+The [new diagnostic](../../../tools/hardware/upd780/README.md#capturestackstorage-follow-up-fdccap)
+addresses the remaining capture/storage confound. OR remains a strong candidate
+within the earlier VA instruction sequence (159/160); this work does not mean
+that no regularity is visible. Selected A=0 targets are not a complete A/F truth
+table or a unique discriminator among every rule agreeing on those inputs.
+
+96 rows cover AF=0028h/0029h, seed IDs 0/1/3, SCF/CCF and eight forward/reverse
+passes. The shared sampler/IUT is now 4800h/4806h, not the older addresses; this
+new executable does not hold all context constant versus FDCFIX. Three PUSH-AF
+snapshots occupy different adjacent stack cells, then POP into HL/BC/DE before
+comparisons change flags. NOP substitutes for the control IUT. Comparisons in
+registers are reported separately from stores through code-RAM mailboxes, row
+words, duplicate/inverted post-primary words and their immediate readbacks.
+A final delayed scan checks row mirror relations before formatting.
+
+The result region 7000h–7857h, including earlier storage location 74D7h, is filled
+then read using six constant patterns (00/FF/55/AA/29/21) and low/high-address XOR.
+Counts, first mismatch addresses, completion, immediate/triple flags and delayed
+scan observations are retained. This is bounded result-RAM testing, not exhaustive
+RAM/stack/code testing. Repeated PUSH AF, code-RAM mailboxes, CPU and later output
+remain shared paths. No findings is not an independent original-register/Q read
+or proof that the previous exception was caused by RAM.
+
+Validation:
+
+- **16/16 new direct content/source tests PASS**, including diagnostic findings
+  preserved without treating complete data as integrity/conformance PASS.
+- **8/8 focused FDC CTests PASS**, 3.27 s. Mapped tests verify common sampler/
+  caller bytes, three exported words, raw/text rows and the patch-failure signal.
+  Each of four further one-byte mutants starts from the same passing payload
+  and exercises the actual RAM-error counter, register-triple comparison,
+  immediate store readback or delayed mirror scan, checking the intended decoded
+  findings/counts rather than an unrelated nonzero exit.
+- ROM-backed **H and S integration PASS**, with a ROM set matching MAME's
+  `pc88va2`: 96 persisted rows, no findings in the tested integrity contract,
+  raw/text agreement, full reported readback-verified RAM recovery, original
+  files/system preservation, 7936-byte DAT and DIR/A>. SDL dummy only.
+- **Existing-DAT refusal PASS**, unchanged file set and refusal/DIR/prompt.
+- **One-byte patch-verification fault safety PASS**: a digest-bound passing H
+  fixture is reused; dedicated `M140_CAPTURE_PATCH_VERIFY` is visible and the
+  fault image remains byte-identical. Not physical halt-state readout.
+
+The COM is 5963 bytes. The private disk has 94208 free bytes and reserves 12288
+for FDCCAP.DAT. Main-side raw collection is 2136 bytes, followed by original
+full saved-RAM restoration/readback before file creation. Patch/timeout/recovery
+errors retain unknown-state halt/reset policy. Older loaders and programs stay
+unchanged. The test-only fault helper gains static program/case/message parameters
+with old defaults; no production validator bypass or historical evidence upgrade.
+
+Exact commands, worker/program/corpus/contracts, image hashes, initial/intermediate
+results and generated media/captures remain out of tree. Unchanged application/
+RAM-dump workers and old expensive evidence are retained under their original
+identities. Physical FDCCAP execution is **NOT_RUN**. G140, independent silicon,
+absolute timing, broader boundary cases and final regression/handoff acceptance
+remain open; no core/profile fix, merge, release or cleanup follows.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

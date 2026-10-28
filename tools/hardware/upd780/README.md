@@ -363,6 +363,80 @@ reported as observations, not rejected or fitted into a NEC rule. `--host-model`
 adds the present worker's A-only baseline requirement. No Q value, silicon cause,
 physical repeatability or timing is established by software success.
 
+## Capture/stack/storage follow-up (FDCCAP)
+
+The VA fixed-address results strongly support old-F/A OR **in that instruction
+sequence** (159/160), with one outlier. FDCCAP tests capture/storage alternatives;
+it is not a claim that no flag rule is visible, nor an unchanged FDCFIX replay.
+There are **96 rows**: target AF=0028h/0029h, SCF/CCF, seed IDs 0/1/3 and eight
+forward/reversed passes. Seed 3 retains the earlier outlier's OR-A/20h recipe.
+A common sampler/IUT is used, at **new** addresses 4800h/4806h. Other code/context
+changed too; comparison with the previous executable is not address-only. A is
+zero in these targets, so this is not a full A/F truth table or a way to uniquely
+distinguish OR from every other rule agreeing on those selected inputs.
+
+After each IUT, three consecutive PUSH AF instructions use different adjacent
+stack cells. POP HL/BC/DE exports the three words before any comparisons change
+flags. A NOP substitutes for the control IUT. The three words are compared in
+registers, then copied through code-RAM mailboxes into the result row. Primary
+post-AF also gets duplicate/inverted copies from the mailbox, not from reading
+back the primary row. Snapshot/mirror word stores have immediate comparisons;
+a final scan checks the duplicate/inverse relations before formatting.
+
+Before captures, 7000h–7857h (including the previous outlier's 74D7h cell) is
+filled then read with 00h/FFh/55h/AAh/29h/21h and low-address XOR high-address
+patterns. Pretest counts/first address, immediate-store/triple status and delayed
+scan counts are retained. This is a bounded result-RAM check, **not exhaustive
+RAM qualification**. It does not test stack/code RAM in the same way. Mailboxes,
+CPU, repeated PUSH-AF export and output/readback remain shared paths. Agreement
+is not an independent original-register/Q readout or proof that old RAM was bad.
+
+```sh
+python3 tools/hardware/upd780/capture.py build --source-disk "$PRIVATE_INPUT" \
+  --output-dir "$NEW_CAPTURE_OUTPUT" --assembler "$ABSOLUTE_Z80ASM_1_8"
+python3 tools/hardware/upd780/test_capture.py
+python3 tools/hardware/upd780/test_capture.py --runner "$MAPPED_WORKER" \
+  --assembler "$ABSOLUTE_Z80ASM_1_8"
+```
+
+The new private disk contains FDCCAP.COM/CAPHELP.TXT and reserves 12288 bytes
+for **FDCCAP.DAT**. Use a fresh writable copy, run FDCCAP, wait for
+`M139_FDC_RAM_RESTORED` and `A>`, then DIR and return the whole image. **Do not
+TYPE the mixed text/binary DAT.** Initially use VA/V2/H and VA2/V2/H, explicitly
+reporting actual settings. Timeout, patch-verify or recovery failure requires
+RESET without disk operations. Existing DAT is refused before takeover.
+
+The controller reads the 2136-byte table through monitor 0Bh, then restores and
+readback-verifies all saved RAM before file creation. The new loader alone uses
+`M140_CAPTURE_PATCH_VERIFY`; old programs/loaders stay unchanged.
+
+```sh
+python3 tools/hardware/upd780/capture.py check "$FDCCAP_DAT" --output "$PRIVATE_REPORT"
+python3 tools/hardware/upd780/integration.py --worker "$WORKER" --roms "$STAGED_ROMS" \
+  --image "$CAPTURE_DISK" --build-report "$CAPTURE_RECIPE" \
+  --output "$PRIVATE_CASE" --case capture --standard true
+# Also --standard false; --case capture-existing takes a completed output image.
+python3 tools/hardware/upd780/test_capture.py --rom-worker "$WORKER" \
+  --roms "$STAGED_ROMS" --source-image "$CAPTURE_DISK" --build-report "$CAPTURE_RECIPE" \
+  --passing-integration "$PASSING_CAPTURE_RUN_JSON" --output "$PRIVATE_FAULT_CASE"
+```
+
+Container/descriptor/transport/framing/recovery validation is separate from
+**diagnostic findings**. A coherent triple, control, documented-flag, mirror,
+pretest or delayed-summary problem is retained in `record_findings` or
+`header_findings`, not silently fitted into a CPU rule. `COMPLETE_OBSERVATIONS`
+and exit 0 mean complete diagnostic data, **not integrity PASS**: inspect
+`integrity_status`. `--host-model` rejects findings, then requires the current
+A-only baseline. Primary host/OR counts are exploratory if integrity findings
+exist. Even `NO_FINDINGS_IN_TESTED_CONTRACT` is not a physical conformance gate.
+
+Pure content negatives have passing synthetic fixtures and exact stable codes.
+Mapped single-byte mutants additionally exercise the actual RAM-error counter,
+register-triple comparison, immediate store verification and delayed mirror scan.
+The ROM fault test reuses a digest-bound passing fixture, verifies a dedicated
+error and unchanged disk, and does not rerun an unchanged positive case. No
+hosted CI/private-input upload, physical timing or CPU/profile fix is implied.
+
 ## Offline SCF/CCF model reduction
 
 `reduction.py` validates completed physical logs and compares A-only,

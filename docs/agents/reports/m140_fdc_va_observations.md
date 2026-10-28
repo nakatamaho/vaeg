@@ -452,7 +452,8 @@ There are 40 rows for each target/operation pair (five seeds, eight passes):
 | `0029` / CCF | `0038` in all 40 | `0010` in all 40 |
 
 For this VA sample, an unconditional old-F/A OR predicts **159/160**, not all
-160. The exception is repeat ID 6 (the seventh, forward-order pass), seed ID 3
+160: a strong candidate within this instruction sequence, not absence of a
+visible regularity. The exception is repeat ID 6 (the seventh, forward-order pass), seed ID 3
 (`LD A,20h; OR A`), target/control AF `0029`, SCF: observed `0021` instead of
 OR's `0029`, with X bit 3 clear. The same group gives `0029` in its other seven
 passes, including the other forward-order passes. Thus neither the seed alone
@@ -483,6 +484,28 @@ independent capture/storage checks), not request an unchanged fixed/history/seed
 full-ZEX rerun. Unchanged software execution evidence from the preparation commit
 is reused under its original worker, program and content-contract identities;
 this intake changes reports only and does not retroactively upgrade that evidence.
+
+## Capture/storage control preparation
+
+[FDCCAP](../tasks/M140_fdc_upd780_conformance.md#capturestackstorage-control-prepared-fdccap)
+now targets the remaining capture/storage alternatives: three PUSH-AF snapshots
+at different adjacent stack cells, register comparisons, code-RAM mailboxes,
+duplicate/inverted result words, immediate readbacks and a delayed relation scan.
+The raw result region, including 74D7h, also receives six constant-pattern and
+an address-dependent fill/read pass before data collection. This is a new
+96-row experiment, not an unchanged fixed/history/seed/full-ZEX replay.
+
+The shared sampler/IUT is at a new address, and repeated PUSH AF plus mailboxes/
+CPU/output remain common mechanisms. The tests are not independent original-AF
+readout or exhaustive RAM qualification. Findings will be retained as diagnostic
+data, not silently converted into a new CPU rule; no findings also cannot prove
+the old outlier was caused by RAM. OR remains a strong bounded candidate while
+its full applicability and exception cause are unresolved.
+
+Software/native and ROM-backed H/S persistence/refusal/fault-safety checks pass;
+four native one-byte mutations also exercise each diagnostic mechanism's failure
+reporting. Physical FDCCAP is NOT_RUN. No earlier physical result or software
+coverage is reclassified by this preparation; G140 remains BLOCKED.
 
 ## Returned-image intake correction
 

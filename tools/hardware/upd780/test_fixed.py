@@ -152,14 +152,16 @@ class FixedContent(unittest.TestCase):
         self.assertIn('    jp nc,log_overflow', text[text.index('restore:'):text.index('seed_read_loop:')])
 
 
-def fault_image(image, offset):
+def fault_image(image, offset, filename='FDCFIX.COM'):
     """Exactly one COM opcode byte; not a relaxed package/content validator."""
     files = results.disk_files(image)
-    results.need('FDCFIX.COM' in files and 0 <= offset < len(files['FDCFIX.COM'])
-                 and files['FDCFIX.COM'][offset] == 0xbe, 'M140_FIXED_FAULT_SOURCE')
+    results.need(filename in files and 0 <= offset < len(files[filename])
+                 and files[filename][offset] == 0xbe, 'M140_FIXED_FAULT_SOURCE')
     raw, locations = build.unpack(image)
+    stem, extension = filename.split('.')
+    packed_name = (stem.ljust(8)+extension.ljust(3)).encode('ascii')
     entries = [raw[p:p+32] for p in range(0x4000, 0x5000, 32)
-               if raw[p] == 0 and raw[p+1:p+12] == b'FDCFIX  COM']
+               if raw[p] == 0 and raw[p+1:p+12] == packed_name]
     results.need(len(entries) == 1 and offset < 16384, 'M140_FIXED_FAULT_LAYOUT')
     block = entries[0][16+offset//2048]
     rawpos = 0x4000 + block*2048 + offset%2048
@@ -170,7 +172,7 @@ def fault_image(image, offset):
     return bytes(mutated)
 
 
-def fault_qa(args):
+def fault_qa(args, *, case='fixed', program='FDCFIX', message='M140_FIXED_PATCH_VERIFY'):
     """Reuse a digest-bound passing ROM fixture, then test ONE opcode mutation."""
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -178,7 +180,7 @@ def fault_qa(args):
     original = args.source_image.read_bytes()
     recipe = json.loads(args.build_report.read_text())
     passed = json.loads(args.passing_integration.read_text())
-    results.need(passed['status'] == 'PASS_SOFTWARE_INTEGRATION_ONLY' and passed['case'] == 'fixed'
+    results.need(passed['status'] == 'PASS_SOFTWARE_INTEGRATION_ONLY' and passed['case'] == case
                  and passed['input_sha256'] == digest(args.source_image)
                  and passed['worker_sha256'] == digest(args.rom_worker)
                  and passed['recipe_sha256'] == digest(args.build_report), 'M140_FIXED_FAULT_PASSING_IDENTITY')
@@ -186,7 +188,7 @@ def fault_qa(args):
         results.need(digest(build.HERE/name) == value, 'M140_FIXED_FAULT_PASSING_IDENTITY')
     results.need({p.name: digest(p) for p in args.roms.iterdir() if p.is_file()} == passed['rom_files'],
                  'M140_FIXED_FAULT_PASSING_IDENTITY')
-    mutated = fault_image(original, recipe['patch_check_file_offset'])
+    mutated = fault_image(original, recipe['patch_check_file_offset'], program+'.COM')
     results.need(sum(a != b for a, b in zip(original, mutated)) == 1, 'M140_FIXED_FAULT_MUTATION_COUNT')
     disk = out/'fault.d88'
     disk.write_bytes(mutated)
@@ -196,7 +198,7 @@ def fault_qa(args):
     positive_command = passed['command']
     cfg.write_bytes(Path(positive_command[positive_command.index('--cfg')+1]).read_bytes())
     script = out/'input.txt'
-    script.write_text('@wait 1600\n@text FDCFIX\n@enter\n')
+    script.write_text(f'@wait 1600\n@text {program}\n@enter\n')
     tvram = out/'tvram.bin'
     cmd = list(positive_command)
     for flag, value in {'--fdd1':disk, '--cfg':cfg, '--roms':args.roms.resolve(),
@@ -218,7 +220,7 @@ def fault_qa(args):
         results.need(run.returncode == 0, 'M140_FIXED_FAULT_WORKER_EXIT')
         rows = results.cpm_screen(tvram.read_bytes())
         (out/'screen-rows.json').write_text(json.dumps(rows, indent=2)+'\n')
-        results.need(any('M140_FIXED_PATCH_VERIFY' in r for r in rows), 'M140_FIXED_FAULT_MESSAGE')
+        results.need(any(message in r for r in rows), 'M140_FIXED_FAULT_MESSAGE')
         results.need(disk.read_bytes() == mutated, 'M140_FIXED_FAULT_DISK_CHANGED')
         results.need(args.source_image.read_bytes() == original, 'M140_FIXED_FAULT_SOURCE_CHANGED')
         report['status'] = 'PASS_SOFTWARE_FAULT_SAFETY_ONLY'
