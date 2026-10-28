@@ -94,7 +94,7 @@ main CPUs based on these records alone. Next work is a minimal history-controlle
 SCF/CCF probe and independent Zilog control, not another unchanged full ZEX run.
 The [FDCHIST/FDCFLAG r2 disk](../tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2)
 was prepared and software-validated. VA2/V2/S physical results are now recorded
-below; VA/V2/H and VA2/V2/H controlled-history results remain pending.
+below, followed by original-VA/V2/S and V2/H results. VA2/V2/H remains pending.
 
 ## VA2 / V2 / S follow-ups
 
@@ -124,25 +124,89 @@ retained outside Git; the supplied files are not modified.
 The VA/V2/H legacy probe had 35 differing AF inputs; the VA2/V2/S legacy probe
 has zero. This is a **cross-machine and cross-setting** comparison, not an
 isolated machine or H/S effect. The VA2/S controlled histories also match the
-current mapped host, but VA/H controlled-history data and VA2/H follow-up are
-not available yet. No NEC-specific rule, hidden-Q root cause, mode-dependent
-FDC clock or absolute MHz is established. No backend change follows.
+current mapped host. Subsequent original-VA S/H controlled-history cases are
+recorded below; VA2/H follow-up is still absent. No NEC-specific rule, hidden-Q
+root cause, mode-dependent FDC clock or absolute MHz is established. No backend
+change follows.
 
 Current physical matrix:
 
 | Machine/setting | Legacy suite | Controlled history suite |
 | --- | --- | --- |
-| VA / V2 / H | Complete; 35 AF input discrepancies | Pending |
-| VA / V2 / S | Not collected | Not collected |
+| VA / V2 / H | Complete; 35 AF input discrepancies | Both 512/512; byte-identical to VA/S history logs, including 84 FDCHIST post-AF differences |
+| VA / V2 / S | Not collected | FDCHIST 512/512 with 84 post-AF differences; FDCFLAG 512/512 matches mapped host |
 | VA2 / V2 / H | Not collected | Pending, not inferred from renamed file |
 | VA2 / V2 / S | Complete; zero AF discrepancies | FDCHIST 512/512 + FDCFLAG 512/512; all mapped-host rows match |
 
-Use fresh copies of the same r2 history image for VA2/V2/H and VA/V2/H next.
-The existing full-ZEX captures need not be repeated. Reference/calibration and
-a same-machine H/S comparison remain open; all hashes/private filenames stay
+Use a fresh copy of the same r2 history image for VA2/V2/H next.
+The existing full-ZEX and original-VA controlled histories need not be repeated.
+Original-VA controlled S/H flags now compare equal; timing reference/calibration,
+VA2 controlled H/S and same-machine legacy timing comparisons remain open; all hashes/private filenames stay
 in the out-of-tree evidence, not this report. No emulator or validator source
 changes in this report-only follow-up, so unchanged expensive software runs
 are reused rather than repeated.
+
+## Original VA / V2 / S controlled-history follow-up
+
+Neutral case `hw-fdc-va-03` is assigned **original VA / V2 / S** from the
+maintainer-supplied filename. Both exact r2 COMs, all original CP/M input files
+and the boot/system region match their source. Two supplementary text files
+do not match the complete r2 package, so full-package identity is not claimed.
+Both logs pass completion/recovery and all documented precondition checks;
+the received image remains unchanged and raw evidence stays outside Git.
+
+| Comparison against mapped host and VA2/V2/S | FDCHIST | FDCFLAG |
+| --- | ---: | ---: |
+| Complete rows | 512 | 512 |
+| Rows with post-AF differences | 84 (42 SCF, 42 CCF) | 0 |
+| Rows with pre-AF differences | 56 | 0 |
+| Rows differing in either column | 140 | 0 |
+
+Every post-AF differing bit is X/Y (F bits 3/5); A and the documented flags
+match. The 84 differences occur only after history 0 (no extra instruction),
+1 (NOP) and 2 (LD A,A), 28 rows per history. Histories 3 through 7 have no
+post-AF differences. The 56 pre-AF differences occur in the separate control
+spans for histories 6 (SCF) and 7 (CCF), 28 rows per history. A control result
+is shared by the two operation rows: 56 rows are **28 distinct control spans**,
+not 56 independent repetitions. Pre- and post-differing row sets are disjoint.
+FDCFLAG is byte-identical to the VA2/S log; all its control/result rows also
+match the mapped host.
+
+Thus **same-labeled V2/S configurations now show a cross-machine observation
+difference** with identical programs. It cannot be dismissed solely as an H
+versus S mismatch. This does not identify the physical CPU variant, firmware
+revision, hidden-Q behavior or a universal NEC rule. The actual internal Q
+value was not measured; the seed provides a fixed instruction sequence, not a
+proven Q reset. An unconditional OR of old-F/A X/Y does not fit all observations,
+even in the restricted FDCHIST matrix. Do not implement that shortcut.
+
+The earlier VA/H legacy difference count (35 distinct requested AF inputs)
+and this count (84 operation/history rows in a different matrix) are not the
+same unit of coverage and must not be compared as an increase. The VA/H
+controlled follow-up below is now received; VA2/H remains the next collection.
+Neither full ZEX nor new emulator builds are needed. The current evidence
+supports a measured difference, not a tested backend fix or G140 acceptance. This follow-up changes reports only and reuses unchanged
+software/host execution evidence.
+
+## Original VA / V2 / H controlled-history follow-up
+
+Case `hw-fdc-va-04` is explicitly identified by the maintainer as original
+VA / V2 / H. Both programs produce complete 512-row logs. Each entire persisted
+log is **byte-identical to its original-VA/V2/S counterpart**, not just equal
+in an aggregate discrepancy count. Thus FDCHIST again has 84 post-AF X/Y
+rows (42 SCF, 42 CCF), 56 pre-AF rows and 140 differing rows in total against
+mapped host; FDCFLAG has zero differences. Program bytes, all original CP/M
+input files and system region match; two supplementary package texts differ,
+so full-package identity is not asserted. The supplied image is untouched.
+
+This establishes equal observed controlled flag results for operator-labeled
+S/H captures on the same reported VA. It is **not a timing comparison**, a
+physical clock measurement or a general claim that H/S cannot affect other
+observer paths. Configuration/execution assignment is operator metadata, not
+a machine identity encoded in the deterministic logs. VA2/V2/H remains absent.
+No file named H in the earlier corrected S submission supplies that missing
+case. Next collection is only the two new programs on VA2/V2/H, using a fresh
+copy; repeated original-VA or full-ZEX runs are not needed for this comparison.
 
 ## Returned-image intake correction
 

@@ -30,7 +30,10 @@ complete full ZEX/AF/timing observations: 67/67 mapped-host CRCs match, while
 35 AF input pairs expose SCF/CCF undocumented-bit discrepancies. All original
 files/programs and boot/system sectors are preserved in that VA case. VA2/V2/S
 follow-ups now match all 67 legacy CRCs and both 512-row controlled-history
-sets, with zero legacy AF differences. **G140 BLOCKED**:
+sets, with zero legacy AF differences. Original VA/V2/S now has both controlled
+logs: FDCHIST has 84 X/Y post-AF differences, while FDCFLAG matches. The VA/V2/H
+controlled logs now match VA/S byte-for-byte; only VA2/H is missing from this
+controlled matrix. **G140 BLOCKED**:
 history-controlled discrepancy reduction, independent Zilog controls, approved
 timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
@@ -198,9 +201,25 @@ At preparation time physical VA2/new-probe results were pending. Subsequent
 VA2/V2/S captures now validate all legacy records and both 512-row history
 sets; every history control/result row matches the same-image mapped host.
 A temporary H-looking filename was corrected to S before intake: there is no
-VA2/V2/H result yet. VA/V2/H controlled histories also remain pending. See the
+VA2/V2/H result yet. VA/V2/H controlled histories have now arrived and match
+the original-VA/V2/S logs byte-for-byte. See the
 [updated physical matrix](../reports/m140_fdc_va_observations.md#va2--v2--s-follow-ups).
 The VA/H legacy AF discrepancy is still unresolved, not a fixed NEC rule.
+A further original-VA/V2/S capture (`hw-fdc-va-03`) completes both history logs:
+FDCHIST has 84 post-AF X/Y differences (42 SCF, 42 CCF), plus 56 distinct-row
+pre-AF differences in shared controls; FDCFLAG fully matches mapped host and
+VA2/S. This now compares the same V2/S labels across machines, so H/S mismatch
+alone cannot explain the observations. Both exact COMs, original CP/M input
+files and system region are preserved; two supplementary texts do not match
+the complete package. Hidden Q, CPU variant/firmware and a universal flag rule
+remain unestablished. The subsequent VA/V2/H capture (`hw-fdc-va-04`) has the
+same 84 post-AF/56 pre-AF FDCHIST row differences and zero FDCFLAG differences;
+both persisted logs are byte-identical to VA/S. This isolates equal observed
+controlled flags across H/S on the reported VA, not equal timings or clocks.
+Only VA2/V2/H controlled data is still missing. Original files/programs/system
+region are preserved in both new VA cases; the two supplementary text mismatches
+are not silently classified as full-package identity. See the report; no backend
+change is made.
 
 The [history-suite instructions](../../../tools/hardware/upd780/README.md#scfccf-instruction-history-follow-up-history-suite)
 describe both 512-record matrices. Each span seeds `DI; XOR A; PUSH BC; POP AF`,
