@@ -320,7 +320,7 @@ No worker, probe, loader, CPU profile or vendored implementation is changed;
 unchanged expensive execution evidence is reused. Raw inputs, exact commands,
 contract/tool identities and generated analysis stay outside Git.
 
-## New seed/readback control prepared; physical execution not yet collected
+## Seed/readback control preparation record
 
 The [FDCSEED follow-up](../tasks/M140_fdc_upd780_conformance.md#bounded-seed--raw-readback-probe-fdcseed)
 is now implemented and software-validated: 80 rows vary target AF and flag-writer
@@ -333,9 +333,73 @@ a raw table read through monitor 0Bh before full verified RAM recovery and file
 save. This controls formatting/readback paths sharing the same capture RAM,
 not an independent second silicon observation. No root cause is established by
 software success. Mapped execution and ROM-backed H/S persistence/refusal checks
-pass, and old distribution/history disks rebuild byte-identically. Physical
-execution of this **new** probe remains NOT_RUN; no earlier capture is relabeled
-or promoted. Do not repeat unchanged full ZEX or the completed history matrix.
+pass, and old distribution/history disks rebuild byte-identically. At this
+preparation stage physical execution of the new probe was NOT_RUN; returned
+results are recorded separately below. No earlier capture is relabeled or
+promoted. Do not repeat unchanged full ZEX or the completed history matrix.
+
+## Returned FDCSEED seed/readback controls
+
+New cases `hw-fdc-va-05` and `hw-fdc-va2-04` were returned under the labels
+**VA/V2/H** and **VA2/V2/H**, consistent with the requested initial settings.
+These are the labels supplied through the returned filenames, not independently
+encoded machine/mode/speed identities. No firmware or silicon revision is
+established by those names. Captures, normalization copies, raw mixed-format
+DAT files, exact commands and input/program/contract/output identities remain
+outside Git; the received images are unmodified.
+
+Both DAT files contain **80 complete operation rows**, all expected descriptors,
+exact target/control AF, preserved A/documented flags, valid binary framing and
+restoration marker. FDC ASCII and subsequent monitor-0Bh binary readback agree
+on every result. Each complete master file (including program and help), the
+exact generated COM, and the boot/system region are preserved. Both production
+`seed.py check` commands exit 0 with `COMPLETE_OBSERVATIONS`. This is completion
+of the diagnostic contract, not physical CPU conformance PASS. The restoration
+marker reports the loader's full readback-verified recovery; there is no separate
+physical full-RAM dump or captured post-return DIR/A> in these submissions.
+
+| Returned label | Rows | Post-AF differences from present host | Seed-dependent target/operation groups |
+|---|---:|---:|---:|
+| VA/V2/H | 80 | 30 (15 SCF, 15 CCF), only X/Y | 1 |
+| VA2/V2/H | 80 | 0 | 0 |
+
+VA has six host-differing operation rows for each of the five seed recipes.
+For the XOR-A anchor, all eight rows overlapping the earlier H controlled
+capture agree in requested/control/result AF, on each reported machine. The
+new program thus retains the earlier reduced anchor result within that overlap;
+it does not retroactively extend the coverage of the earlier capture.
+
+The VA seed-dependent group is **CCF with target/control AF `0029`**:
+
+| Seed recipe | VA post-AF | VA2 post-AF |
+|---|---:|---:|
+| `XOR A` | `0030` | `0010` |
+| `LD A,0; OR A` | `0038` | `0010` |
+| `LD A,08h; OR A` | `0030` | `0010` |
+| `LD A,20h; OR A` | `0030` | `0010` |
+| `LD A,28h; OR A` | `0030` | `0010` |
+
+VA's SCF at that AF yields `0021` for all five recipes; VA2 yields `0001`
+throughout. XOR-A and zero OR-A have the same nominal arithmetic A/F result
+before loading target AF, yet that one VA CCF row differs. This is one observed
+group, **not a demonstrated deterministic seed rule or a physical Q read**.
+Each straight-line seed/IUT span has its own code address and preceding context;
+this run does not isolate opcode history from address/context or repeatability.
+
+Because the raw bytes and ASCII agree, a solely FDC hexadecimal-rendering
+explanation does not account for the observed values, assuming the supported
+monitor readback contract. Both paths still share captured RAM and the device;
+they do not independently validate the original AF capture, eliminate common
+capture/RAM faults, establish firmware identity or supply a Zilog silicon oracle.
+No CPU/profile correction, general NEC rule or G140 acceptance follows.
+
+Next agent-side work is an address-controlled, repeated minimal experiment
+before proposing further physical collection: avoid confounding seed/opcode
+changes with different IUT locations. Do not request an unchanged full ZEX,
+four-setting history or FDCSEED rerun merely to reproduce these completed logs.
+Timing/reference work is separate. Software execution evidence from the
+unchanged preparation commit is reused under the same program, worker and
+content-contract identities; new physical intake is not a new software test run.
 
 ## Returned-image intake correction
 

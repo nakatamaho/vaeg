@@ -4210,9 +4210,13 @@ both programs. Pinned Ares-derived SingleStepTests supply a separate software
 A/F/Q control, not independent Zilog silicon. Neither choosing a whole-instruction
 OR/A-only rule nor copying that reference establishes a NEC correction. Physical
 Q, the root cause and a justified CPU/profile fix remain unresolved.
-A [new bounded seed/readback probe](../agents/tasks/M140_fdc_upd780_conformance.md#bounded-seed--raw-readback-probe-fdcseed)
-is software-validated but has no physical observations yet; it does not close
-this defect or justify changing a CPU profile.
+The [returned seed/readback cases](../agents/reports/m140_fdc_va_observations.md#returned-fdcseed-seedreadback-controls)
+have 80 complete rows each: VA-labeled data differs in 30 X/Y rows, VA2-labeled
+data matches host. Both paths agree on captured RAM. One VA CCF group differs
+between nominally equivalent XOR-A/zero-OR-A seeds, but seed/opcode and IUT
+address/context are confounded. A formatter-only explanation is insufficient;
+shared capture/RAM and internal-history causes remain open. No fixing CPU
+commit, deterministic NEC rule or gate acceptance is established.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

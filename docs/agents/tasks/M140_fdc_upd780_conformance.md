@@ -33,7 +33,10 @@ follow-ups now match all 67 legacy CRCs and both 512-row controlled-history
 sets, with zero legacy AF differences. Original VA/V2/S now has both controlled
 logs: FDCHIST has 84 X/Y post-AF differences, while FDCFLAG matches. The VA/V2/H
 controlled logs match VA/S byte-for-byte; newly received VA2/H also matches
-VA2/S byte-for-byte. All four controlled settings are collected. **G140 BLOCKED**:
+VA2/S byte-for-byte. All four controlled settings are collected. The new seed
+probe is also returned under VA/V2/H and VA2/V2/H labels: 80 rows each, raw/text
+agreement throughout, 30 versus zero host differences; one VA CCF group varies
+across seed recipes, with address/context still confounded. **G140 BLOCKED**:
 history-controlled discrepancy reduction, independent Zilog controls, approved
 timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
@@ -356,8 +359,37 @@ its new digest is recorded separately. Production application worker remains
 unchanged. Exact commands, worker/recipe/corpus/contracts, produced image hashes
 and generated captures/results stay out of Git in task-specific directories.
 No private inputs or generated media are uploaded to CI. No full-ZEX rerun is
-needed for this distinct probe; physical FDCSEED execution is still NOT_RUN.
-G140, independent Zilog silicon, absolute timing and broader gates remain open.
+needed for this distinct probe. Physical FDCSEED execution was NOT_RUN at
+preparation; the separate returned cases below do not change those software-run
+identities. G140, independent Zilog silicon, absolute timing and broader gates
+remain open.
+
+## Returned seed/readback cases
+
+See the [new observations](../reports/m140_fdc_va_observations.md#returned-fdcseed-seedreadback-controls):
+`hw-fdc-va-05` and `hw-fdc-va2-04`, returned with VA/V2/H and VA2/V2/H labels.
+Configuration labels follow the returned filenames/requested targets, not an
+independently encoded hardware identity. Both 80-row DAT files pass the unchanged
+production content CLI (exit 0), including control AF, documented flags, raw/text
+agreement, framing and loader restoration marker. All complete master files,
+exact generated COM and boot/system region are preserved. No separate physical
+full-RAM dump or final DIR/prompt capture is provided by these images alone.
+
+VA has 30 X/Y-only post differences (15 SCF/15 CCF) from current host; VA2 has
+zero. VA CCF at AF `0029` gives `0030` after XOR-A and `0038` after zero OR-A,
+with `0030` for the other three seed recipes. This one observed group is not
+a deterministic rule: the unrolled IUTs occupy different addresses/contexts.
+Both machines' eight overlapping XOR-anchor rows match their earlier H history
+captures. Agreement of raw RAM and ASCII argues against a formatter-only cause,
+not against a shared capture/RAM issue or every possible internal-Q mechanism.
+
+Snapshots, CLI commands/exit status, input/program/contracts and output digests
+are retained outside Git. Unchanged unit/mapped/ROM software evidence from
+[21e7dcb513ab2ccef20fdada3c6eee25151fe67e](https://github.com/nakatamaho/vaeg/commit/21e7dcb513ab2ccef20fdada3c6eee25151fe67e)
+is reused; no code, program, worker or content contract changes in this intake.
+Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged scope
+checks exit 0. Next work is address-controlled repeated minimal-probe design,
+not an unchanged physical rerun. No CPU fix, merge or gate acceptance follows.
 
 ## G140 acceptance
 
