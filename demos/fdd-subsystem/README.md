@@ -68,14 +68,31 @@ With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
 `fdd-subsystem-msdos4.d88`, a vanilla MS-DOS 4.0 copy with the program;
 type `FDDSUB`.
 
-## vaeg (main 719b4d4a), both models, 2 passes
+## The machines and vaeg (2026-10-28)
 
-| A | B | C | D | E | F | G | H | I | J | K | L | M |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1768 | 194 | 228 | 292 | 290 | 38664 | 841 | 743 | 719 | 1922 | 5930 | 0 | 1768 |
+Means of 8 passes, photographed on a PC-88VA and a PC-88VA2 (SD at most
+2.9); vaeg (main 719b4d4a, the same on both models) with 2 passes:
 
-A byte through the program's four-phase handshake takes about 520-540
-main-CPU clocks, two-phase about 210; a round trip about 1000; a 64 +
-32-byte exchange about 48000 four-phase, 21000 two-phase (a sixth of a
-60 Hz frame); the subsystem runs at about 4.0 MHz. Whether the machines
-agree is the question for them.
+| Row | VA | VA2 | vaeg | vaeg / machines |
+|---|---:|---:|---:|---:|
+| A CPU loop | 1827 | 1843 | 1768 | 0.96-0.97 |
+| B monitor write | 195 | 194 | 194 | 1.00 |
+| C monitor read | 228 | 228 | 228 | 1.00 |
+| D own write | 284 | 284 | 292 | 1.03 |
+| E own read | 275 | 273 | 290 | 1.05-1.06 |
+| F round trip | 35246 | 35343 | 38664 | 1.09-1.10 |
+| G frame, four-phase | 805 | 808 | 841 | 1.04 |
+| H two-phase write | 683 | 683 | 743 | 1.09 |
+| I two-phase read | 646 | 662 | 719 | 1.09-1.11 |
+| J frame, two-phase | 1755 | 1766 | 1922 | 1.09-1.10 |
+| K subsystem loops | 5938 | 5929 | 5930 | 1.00 |
+| L read errors | 0 | 0 | 0 | |
+
+- The subsystem CPU runs at vaeg's speed (K), and the monitor's own
+  transfers match (B, C).
+- The rows the main CPU paces with tight polling loops run 3-11 % fast in
+  vaeg, while its CPU loop (A, M) runs 3-4 % slow: vaeg's main-CPU cost of
+  a loop of 8255 accesses at FCh-FFh is low.
+- A 64 + 32-byte exchange costs the main CPU about 22800 clocks two-phase
+  and 49700 four-phase on the machines: too much to hand a 60 Hz program's
+  work to the subsystem a frame.
