@@ -42,6 +42,7 @@ import seed
 import fixed
 import capture
 import xadr
+import pref
 
 
 def sha(data):
@@ -55,7 +56,7 @@ def main():
     p.add_argument('--image', type=Path, required=True)
     p.add_argument('--build-report', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair', 'seed', 'seed-existing', 'fixed', 'fixed-existing', 'capture', 'capture-existing', 'xadr', 'xadr-existing'), required=True)
+    p.add_argument('--case', choices=('probe', 'smoke', 'existing', 'history', 'flags', 'history-pair', 'seed', 'seed-existing', 'fixed', 'fixed-existing', 'capture', 'capture-existing', 'xadr', 'xadr-existing', 'pref', 'pref-existing'), required=True)
     p.add_argument('--standard', choices=('true', 'false'), default='true')
     a = p.parse_args()
     out = a.output.resolve()
@@ -78,9 +79,10 @@ def main():
             'seed':'FDCSEED','seed-existing':'FDCSEED',
             'fixed':'FDCFIX','fixed-existing':'FDCFIX',
             'capture':'FDCCAP','capture-existing':'FDCCAP',
-            'xadr':'FDCXADR','xadr-existing':'FDCXADR'}.get(a.case,'FDCPRB')
-    extension = 'DAT' if a.case in ('seed','seed-existing','fixed','fixed-existing','capture','capture-existing','xadr','xadr-existing') else 'TXT'
-    existing = a.case in ('existing','seed-existing','fixed-existing','capture-existing','xadr-existing')
+            'xadr':'FDCXADR','xadr-existing':'FDCXADR',
+            'pref':'FDCPREF','pref-existing':'FDCPREF'}.get(a.case,'FDCPRB')
+    extension = 'DAT' if a.case in ('seed','seed-existing','fixed','fixed-existing','capture','capture-existing','xadr','xadr-existing','pref','pref-existing') else 'TXT'
+    existing = a.case in ('existing','seed-existing','fixed-existing','capture-existing','xadr-existing','pref-existing')
     wait, frames = (24000, 30000) if a.case == 'probe' else (9000, 13000)
     if a.case in ('history','flags'):
         wait, frames = 12000, 16000
@@ -111,7 +113,7 @@ def main():
         'input_sha256': sha(original),
         'recipe_sha256': sha(a.build_report.read_bytes()),
         'rom_files': {x.name: sha(x.read_bytes()) for x in sorted(a.roms.iterdir()) if x.is_file()},
-        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__), Path(seed.__file__), Path(fixed.__file__), Path(capture.__file__), Path(xadr.__file__))},
+        'contracts': {x.name: sha(x.read_bytes()) for x in (Path(__file__), Path(results.__file__), Path(build.__file__), Path(seed.__file__), Path(fixed.__file__), Path(capture.__file__), Path(xadr.__file__), Path(pref.__file__))},
         'target_policy': 'VA2 CP/M protocol/persistence integration; SDL dummy; NOT physical FDC or presenter acceptance',
         'config_standard': a.standard,
     }
@@ -134,7 +136,9 @@ def main():
             results.need(logname in after, 'M139_INTEGRATION_LOG_MISSING')
             data = after[logname]
             (out / logname).write_bytes(data)
-            if a.case == 'xadr':
+            if a.case == 'pref':
+                report['content'] = pref.content(data, host_model=True)
+            elif a.case == 'xadr':
                 report['content'] = xadr.content(data, host_model=True)
             elif a.case == 'capture':
                 report['content'] = capture.content(data, host_model=True)

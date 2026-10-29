@@ -740,6 +740,65 @@ G140 or promise a correction for the unrelated M139 guest stop. Existing costly
 evidence is retained; unchanged worker digests and comment-stripped production
 configurator bytes prove reuse, rather than rerunning full ZEX/ROM observations.
 
+## External review and FDCPREF preparation
+
+The pinned hoglet report above includes a 2026 update: DD/FD before SCF/CCF
+lose the previous flag-writer information in the reported Zilog behavior.
+This is a distinct test from relocating the sampler/caller or replaying the
+old POP-AF predecessor grid. Additional source comparisons:
+
+- [MAME 0.280 SCF/CCF](https://github.com/mamedev/mame/blob/ec9abd86c6c9029f67e9cf4908ef5426b78d3eab/src/devices/cpu/z80/z80.lst#L6405-L6450)
+  implement `(oldXY & Qmask) | A`; Q/QT change at opcode fetch. These mask-valued
+  internals are not a physical NEC readout or literally the SST Q-byte encoding.
+- [floooh/chips](https://github.com/floooh/chips/blob/9e88298ce56319953ac7a43213a1120359f7a3a6/chips/z80.h#L681-L688)
+  uses A-only for both instructions.
+- [openMSX](https://github.com/openMSX/openMSX/blob/ceb0a321d4ab8575c01f8673878cd1e3bf0d3b25/src/cpu/CPUCore.cc#L4141-L4227)
+  uses OR for its shown NMOS path without Q; its CMOS and R800 branches differ.
+  It is not NEC-specific silicon data. Implementations disagree; a majority vote
+  is not a hardware oracle.
+
+Public sources, pinned wiki checkout, retrieval digests and initial failed
+openMSX filename fetch remain out of tree; no vendor code is copied or changed.
+Known observations remain regression evidence, not a private-input lookup table
+or random X-bit implementation. VA2 baseline freezing does not wait for VA.
+
+[FDCPREF protocol](../../../tools/hardware/upd780/README.md#fixed-position-historyprefix-discriminator-fdcpref):
+128 rows with CP B's operand fixed at 28h, A=00/28, four immediate-writer/NOP/DD/FD
+modes × SCF/CCF × eight passes. IUT opcode480A, CALL4904/return4907 remain fixed.
+CP/NOP placement and prefixed instruction-start deliberately differ. The
+A=00 case distinguishes A-only, Zilog Q, reported ST mixed and OR; A=28 is a
+preservation control. CP's independently predicted control AF=00BB/286A is
+checked in three captures; a discrepancy is retained as findings, not converted
+into a positive candidate fit. Candidate counts are descriptive and are not
+model/conformance acceptance, especially if integrity findings exist.
+
+Validation:
+
+- 13 pure source/content tests PASS, including distinct candidate fixtures,
+  one controlled mutation per negative and exact error codes. All 14 focused
+  FDC/VA2 CTests PASS (4.37 s), including the 393216-case software VA2 contract.
+- Full 128-row production payload PASS; four passing one-row mode fixtures
+  inspect installed 18-byte sampler, CP/prefix order and fixed CALL. Single CP
+  operand-opcode mutation produces control-target findings; separate verifier
+  mutation and invalid-mode mutation halt through dedicated stream03. No
+  physical Q/fetch/SP readout is claimed.
+- ROM H/S: 128 persisted rows each, no findings, A-only candidate128/128,
+  raw/text/recovery checks and final DIR/A> PASS, files/system preserved.
+  Existing-DAT refusal PASS; dedicated patch-error/unchanged-disk safety PASS
+  from a digest-bound passing H fixture. ROM set matches MAME's pc88va2;
+  SDL dummy software scope only, not physical or presenter acceptance.
+- Encoding/EOL/case/Markdown, 49 milestone checks, audit and scope checks PASS.
+  Changed C++ format PASS. The whole-manifest format check FAILS on 27 pre-existing
+  files, each byte-identical to the parent; the full failure and identity proof
+  are retained. No unrelated reformat is made. The initial stale outer-Make
+  target failure is retained separately from the succeeding build/test.
+
+All generated assets, exact commands/status, workers/program/contracts and
+output identities remain private/out of tree. Existing expensive full-ZEX/ROM
+and physical evidence is retained, not rerun or retroactively upgraded.
+FDCPREF physical is **NOT_RUN**. No CPU behavior, main-role, vendor, state or
+clock change is made, and G140 remains BLOCKED despite the scoped VA2 freeze.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

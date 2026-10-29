@@ -474,6 +474,46 @@ Source/input digests, commands and counterexample witnesses go in the private
 JSON. The current audit does not establish an OR/Q rule or authorize a new CPU
 profile, relocation fix or unchanged hardware replay.
 
+## Fixed-position history/prefix discriminator (FDCPREF)
+
+VA2's confirmed A-only baseline is frozen independently of the original-VA
+question. This new control tests external flag-history candidates, not another
+relocation grid or an unchanged history rerun. Build with `pref.py build
+--source-disk <private-input> --output-dir <new-out-of-tree-dir> --assembler
+<z80asm-1.8>`; decode with `pref.py check <FDCPREF.DAT> --output <new-json>`.
+
+128 rows: A=00/28, four modes, SCF/CCF and eight forward/reverse passes.
+`LD B,28h; CP B` establishes expected control AF=00BB/286A. Mode0 places a NOP
+before CP, so CP immediately precedes IUT; modes1/2/3 put NOP/DD/FD after CP.
+The final opcode is always 480Ah, caller CALL4904h/return4907h. CP/NOP positions
+and prefix instruction-start intentionally differ; this is not PC-bit isolation,
+a physical Q readout or proof of equal physical cycles.
+
+| Candidate / A=00 SCF,CCF | Mode0 | Modes1–3 |
+|---|---|---|
+| NEC NMOS / A-only | 0081,0090 | 0081,0090 |
+| Zilog Q-history | 0081,0090 | 00A9,00B8 |
+| reported ST CMOS mixed variant | 0081,0090 | 00A1,00B0 |
+| unconditional OR | 00A9,00B8 | 00A9,00B8 |
+
+A=28 is a preservation/control case (2869 for either operation). These are
+independently specified hypotheses from the
+[reference review](../../../docs/agents/tasks/M140_fdc_upd780_conformance.md#external-review-and-fdcpref-preparation),
+not a manufacturer identification lookup or proof that these exhaust all chips.
+Unexpected CP control AF is retained as an integrity finding; candidate counts
+must then be treated as diagnostic only, never a conformance/model selection.
+The current software host-model check is A-only, not modern Zilog Q.
+
+All four 18-byte sampler templates and the fixed 12-byte caller are copied and
+readback-verified. Mode range and live opcode writes fail closed. Triple PUSH-AF,
+seven result-RAM patterns, immediate checks, mirrors/inverse and delayed scan
+remain. Main collects 2840 bytes, then restores/readback-verifies saved RAM before
+creating FDCPREF.DAT (12288-byte budget). Existing DAT is refused. Dedicated
+`M140_PREF_PATCH_VERIFY`, timeout or recovery errors require RESET without disk
+I/O. **Do not TYPE the mixed binary DAT.** Fresh writable copies only; run
+FDCPREF once, wait for M139_FDC_RAM_RESTORED and A>, DIR, return whole images and
+actual settings. No old probe needs rerunning. Physical FDCPREF is NOT_RUN.
+
 ## Crossed sampler/caller relocation (FDCXADR)
 
 FDCXADR separates the two placement axes that covaried in FDCFIX/FDCCAP.

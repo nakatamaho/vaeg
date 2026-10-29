@@ -1,0 +1,53 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+FDCPREF r1: CP B flag-writer / NOP / DD / FD history discriminator
+
+Use one fresh writable copy per machine. Initially VA/V2/H and VA2/V2/H.
+Run FDCPREF once. Wait for M139_FDC_RAM_RESTORED and A>, then DIR.
+Return the whole disk and actual settings. Do NOT TYPE FDCPREF.DAT:
+it contains text and binary. Timeout/patch/recovery errors require RESET;
+no disk I/O while FDC RAM state is unknown. Existing DAT is refused.
+
+128 rows: two A cases, four modes, SCF/CCF, eight alternating passes.
+CP B with B=28h immediately establishes the pre-IUT flags. A=00h should
+produce AF=00BBh; A=28h should produce AF=286Ah. Three NOP-control captures
+check those expectations; unexpected CP flags are retained as findings.
+Modes:
+  0: NOP; CP B; SCF/CCF
+  1: CP B; NOP; SCF/CCF
+  2: CP B; DD SCF/CCF
+  3: CP B; FD SCF/CCF
+The final opcode is always 480Ah, CALL4904h/return4907h. CP/NOP placement
+and prefix instruction-start deliberately differ. This is not a PC-bit test.
+
+For A=00h, expected SCF/CCF pairs under external software hypotheses:
+  NEC/A-only:       0081/0090 in all modes.
+  Zilog/Q:          0081/0090 in mode0; 00A9/00B8 in modes1-3.
+  ST CMOS variant:  0081/0090 in mode0; 00A1/00B0 in modes1-3.
+  OR-only:          00A9/00B8 in all modes.
+A=28h is an A-preservation/control case, not a discriminator.
+These are hypotheses, not a universal manufacturer identification test.
+
+Triple PUSH AF capture, result-RAM patterns, mirrored/inverted words,
+immediate and delayed checks remain. Saved RAM is restored and read back
+before DAT creation. There is no independent physical Q/fetch/SP readout.
+Keep all returned files; no old history, ZEX or address tests need rerunning.

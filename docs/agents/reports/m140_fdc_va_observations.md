@@ -676,7 +676,10 @@ baseline separately from the original-VA discrepancy. The
 retain current A-only SCF/CCF behavior, add 393216 software regression cases and
 make no instruction, main-CPU, reset/state or timing change. Public NEC NMOS
 findings agree with the VA2 observations; neither those reports nor software
-exhaustiveness establish complete physical conformance. G140 remains open.
+exhaustiveness establish complete physical conformance. G140 remains open. The subsequent
+[reference review and FDCPREF preparation](../tasks/M140_fdc_upd780_conformance.md#external-review-and-fdcpref-preparation)
+compare NEC A-only, Zilog Q, ST mixed and OR at fixed IUT/caller positions using
+CP-writer/NOP/DD/FD boundaries; software safety is validated, physical NOT_RUN.
 
 ## Returned FDCXADR controls
 
