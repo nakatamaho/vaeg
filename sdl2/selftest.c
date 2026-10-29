@@ -2686,8 +2686,8 @@ static int test_framedisp(void) {
 			vaeg_framedisp_reset(&state, 0, 0);
 			if (!vaeg_framedisp_update(&state, 10000, rates[i]) || state.fps_tenths != rates[i])
 				return fail("framedisp", "M142_FPS_MEASUREMENT");
-			machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS,
-			                    state.fps_tenths, 0);
+			machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, state.fps_tenths,
+			                    0);
 			snprintf(expected, sizeof(expected), " | %u.%uFPS", rates[i] / 10, rates[i] % 10);
 			if (!strstr(text, expected))
 				return fail("framedisp", "M142_FPS_DIGITS");
@@ -4080,8 +4080,8 @@ static int strip_statsave_section(const char *source, const char *destination, c
 
 /* Independent fixture writer: convert v1 DISK bytes to historic wire widths,
  * optionally change exactly one invariant. All other state sections survive. */
-static int rewrite_disk_state(const char *source, const char *destination,
-                              UINT pathbytes, UINT version, UINT mutation) {
+static int rewrite_disk_state(const char *source, const char *destination, UINT pathbytes,
+                              UINT version, UINT mutation) {
 	BYTE *data = NULL, *result = NULL;
 	UINT size, pos = 0x30, oldpad, newsize = (pathbytes + 12) * 10;
 	UINT newpad = (newsize + 15) & ~15U, total, i;
@@ -4117,8 +4117,7 @@ static int rewrite_disk_state(const char *source, const char *destination,
 		if (i == 0)
 			record[pathbytes] |= 1; /* RO and multi-image index must both survive. */
 	}
-	CopyMemory(result + pos + 16 + newpad, data + pos + 16 + oldpad,
-	           size - pos - 16 - oldpad);
+	CopyMemory(result + pos + 16 + newpad, data + pos + 16 + oldpad, size - pos - 16 - oldpad);
 	if (mutation == 1) {
 		STOREINTELWORD(result + pos + 10, 2);
 	} else if (mutation == 2) {
@@ -4136,7 +4135,7 @@ static int rewrite_disk_state(const char *source, const char *destination,
 			ret = SUCCESS;
 		file_close(file);
 	}
- done:
+done:
 	if (result)
 		_MFREE(result);
 	if (data)
@@ -4146,8 +4145,12 @@ static int rewrite_disk_state(const char *source, const char *destination,
 
 static int test_disk_state_formats(const char *source, const char *disk) {
 	static const UINT widths[] = {4096, 260, 1024, 4096};
-	static const char *codes[] = {"", "M142_DISK_VERSION", "M142_DISK_SIZE", "M142_DISK_PATH",
-	                             "M142_DISK_FLAGS", "M142_DISK_FLAGS"};
+	static const char *codes[] = {"",
+	                              "M142_DISK_VERSION",
+	                              "M142_DISK_SIZE",
+	                              "M142_DISK_PATH",
+	                              "M142_DISK_FLAGS",
+	                              "M142_DISK_FLAGS"};
 	char converted[MAX_PATH], saved[MAX_PATH], local[MAX_PATH], error[512];
 	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
 	UINT i, mutation;
@@ -4155,7 +4158,8 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 
 	file_cpyname(saved, np2oscfg.fdd_image[0], sizeof(saved));
 	file_cpyname(np2oscfg.fdd_image[0], disk, sizeof(np2oscfg.fdd_image[0]));
-	snprintf(converted, sizeof(converted), "vaeg-selftest-%lu-portable.sts", (unsigned long)getpid());
+	snprintf(converted, sizeof(converted), "vaeg-selftest-%lu-portable.sts",
+	         (unsigned long)getpid());
 	if (np2_state_disk_resolve("Q:\\foreign\\missing.d88", local, sizeof(local)) ||
 	    np2_state_disk_resolve("Q:\\foreign\\", local, sizeof(local)))
 		problem = "M142_DISK_RESOLVER_EMPTY_NAME";
@@ -4169,8 +4173,8 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 		fdd_eject(1);
 		if (statsave_load(converted) != STATFLAG_SUCCESS || fdd_diskimage(0) != 1 ||
 		    fddfile[0].inf.d88.head.fd_name[0] != 'B' || fdd_diskimage(1) != 0 ||
-		    fddfile[1].inf.d88.base != 0 || strcmp(fdd_diskname(0), disk) ||
-		    !fdd_diskprotect(0) || fdd_diskprotect(1)) {
+		    fddfile[1].inf.d88.base != 0 || strcmp(fdd_diskname(0), disk) || !fdd_diskprotect(0) ||
+		    fdd_diskprotect(1)) {
 			problem = "M142_DISK_CROSS_HOST_LOAD";
 			break;
 		}
@@ -4227,7 +4231,9 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 	file_delete(converted);
 	if (problem)
 		return fail("portable disk state", problem);
-	fprintf(stderr, "selftest: portable DISK v1 and legacy 260/1024/4096, remap/ambiguity and 5 negatives ok\n");
+	fprintf(
+	    stderr,
+	    "selftest: portable DISK v1 and legacy 260/1024/4096, remap/ambiguity and 5 negatives ok\n");
 	return SUCCESS;
 }
 

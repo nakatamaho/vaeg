@@ -959,7 +959,11 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 
 // ---- disk
 
-enum { STATDISK_PATH_BYTES = 4096, STATDISK_RECORD_BYTES = 4108, STATDISK_COUNT = 10 };
+enum {
+	STATDISK_PATH_BYTES = 4096,
+	STATDISK_RECORD_BYTES = 4108,
+	STATDISK_COUNT = 10
+};
 
 typedef struct {
 	char path[STATDISK_PATH_BYTES];
