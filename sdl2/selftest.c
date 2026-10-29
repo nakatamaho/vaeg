@@ -4175,6 +4175,35 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 			break;
 		}
 	}
+	if (!problem) {
+		char directory[MAX_PATH], alias[MAX_PATH], foreign[MAX_PATH], saved_other[MAX_PATH];
+		FILEH file;
+		snprintf(directory, sizeof(directory), "vaeg-selftest-%lu-alias", (unsigned long)getpid());
+		file_cpyname(alias, directory, sizeof(alias));
+		file_setseparator(alias, sizeof(alias));
+		file_catname(alias, disk, sizeof(alias));
+		snprintf(foreign, sizeof(foreign), "Q:\\foreign\\%s", disk);
+		file_cpyname(saved_other, np2oscfg.fdd_image[1], sizeof(saved_other));
+		if (file_dircreate(directory) != SUCCESS)
+			problem = "M142_DISK_ALIAS_FIXTURE";
+		file = file_create(alias);
+		if (file == FILEH_INVALID) {
+			problem = "M142_DISK_ALIAS_FIXTURE";
+		} else {
+			file_close(file);
+			file_cpyname(np2oscfg.fdd_image[1], alias, sizeof(np2oscfg.fdd_image[1]));
+			if (!np2_state_disk_resolve(disk, local, sizeof(local)) || strcmp(local, disk) ||
+			    np2_state_disk_resolve(foreign, local, sizeof(local)))
+				problem = "M142_DISK_AMBIGUOUS_SELECTION";
+		}
+		file_cpyname(np2oscfg.fdd_image[1], saved_other, sizeof(np2oscfg.fdd_image[1]));
+		file_delete(alias);
+#if defined(WIN32)
+		_rmdir(directory);
+#else
+		rmdir(directory);
+#endif
+	}
 	for (mutation = 1; !problem && mutation < NELEMENTS(codes); mutation++) {
 		UINT16 ip = CPU_IP;
 		/* Re-establish a passing fixture before each single mutation. */
@@ -4198,7 +4227,7 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 	file_delete(converted);
 	if (problem)
 		return fail("portable disk state", problem);
-	fprintf(stderr, "selftest: portable DISK v1 and legacy 260/1024/4096, remap and 5 negatives ok\n");
+	fprintf(stderr, "selftest: portable DISK v1 and legacy 260/1024/4096, remap/ambiguity and 5 negatives ok\n");
 	return SUCCESS;
 }
 
