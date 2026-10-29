@@ -109,6 +109,37 @@ MinGW ASan is not enabled in this tree;
 sanitizer availability depends on the MinGW runtime/package set, so G11
 keeps sanitizer acceptance on Linux and macOS.
 
+## Windows cross-build on macOS (MacPorts; no Colima)
+
+The complete static Windows handoff can be built directly on macOS using
+MacPorts' `x86_64-w64-mingw32-gcc` and `g++`. Prerequisites: MacPorts MinGW-w64
+GCC/binutils, CMake, Ninja, pkgconfig, Python 3, Git, make and tar. No port is
+installed or modified by the helper. Do not use host SDL2/FFmpeg packages as
+Windows dependencies.
+
+```sh
+export PATH="/opt/local/bin:$PATH"
+python3 tools/release/build-mingw-macports.py --commit <full-sha> \
+  --work-dir ../vaeg-mingw-macports-<short-sha> \
+  --sdk-dir ../tmp/m142/mingw-sdk --jobs 2
+```
+
+`--work-dir` must not exist. The helper creates a clean source clone, installs
+checksum-pinned Rust 1.88.0 components into the isolated SDK, and builds pinned
+librashader and minimal LGPL FFmpeg 8.1.2 there. Only audited dependency SDKs
+are reused, never application objects. Cargo/downloads stay in the specified
+SDK; no global rustup/default toolchain or container configuration is changed.
+The `mingw-macports` preset uses a target-only toolchain and pkg-config search
+path; inherited host package paths cannot supply Windows libraries.
+
+Recording, native Windows Media Foundation MP4, static shaders and archive
+support are retained. Bundled H.264/AAC encoders are explicitly OFF. Encoder
+archive and Windows-system-DLL import audits must pass. Output is
+`output/vaeg.exe`, `output/BUILD-REPORT.md` and detailed logs/identities under
+the new work directory. Cross-compilation is not Windows runtime validation.
+A missing dependency or failed build stops the helper; it never falls back
+to Colima, a shared daemon, encoder-OFF recording, or shader-OFF builds.
+
 ## Maintainer Local Handoff
 
 For the maintainer, "the usual place" means:
