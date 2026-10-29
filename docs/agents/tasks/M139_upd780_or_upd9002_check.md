@@ -26,8 +26,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 Status: findings accepted; implementation authorized by the maintainer's
 subsequent request to select uPD9002 on VA/VA2 and uPD780 on other machines.
 CPU-role implementation and local unit/state validation complete. Final G139
-is BLOCKED: the private guest passes CPU identification but stops later; demo
-compatibility, media regression and clean MinGW handoff are not accepted.
+is BLOCKED: the private guest passes CPU identification but stops later.
+The subsequently requested bundled-demo/media guest-content checks and clean
+static MinGW build/import handoff now PASS within the explicit limits in the
+[QA/handoff record](../reports/m139_demo_media_handoff.md); they do not accept
+the private guest, Windows runtime/presenter or the remaining overall gate.
 The maintainer subsequently reassigned the separately requested FDC-uPD780
 ZEXALL, hardware harness, instruction-difference/upstream work and speed
 measurements to M140. Their inherited software evidence is preserved separately;
@@ -180,14 +183,53 @@ new formatting findings in the changed source files; the new test is fully
 formatted with clang-format-mp-22. Unrelated baseline lines are not reformatted.
 That is not a claim that the full formatter passes.
 
+### Requested demo/media QA and clean handoff completed
+
+Per the maintainer's explicit request, items3/4/5 are machine-checked locally;
+routine execution is not delegated back to the maintainer. Evaluated pushed
+source is584bfcbf0ce6c635a9198ac868fe606498e87434. Separate initially clean clones
+provide the media build and new static Windows application objects. The
+[full result/commands/image hashes](../reports/m139_demo_media_handoff.md)
+record nine distribution payload comparisons, **34/34** all-demos drawing cases
+(17 per PC-Engine/MS-DOS4), unmodified MANDEL via `BASIC /87` with source-derived
+points and6-to12-row progress, utility FDD and both standalone model-specific
+SASI boots, and the self-booting SGP build/menu. All pass their bounded contracts.
+SASI boot uses ROM-initialized backup settings and explicit fixed-disk/auto-RAM
+selection; cold/uninitialized failures are retained, not promoted to PASS.
+The six additional standalone/fixture builds also pass. Media generation uses
+NASM2.16.01/PSD-tools for the byte-identical payloads; initial NASM3/decoder
+differences, early asset-loading captures and setup/content false negatives
+remain separate. Missing pinned CP/M licenses are fetched into task scratch;
+the failed automatic offline branch is not relabeled as passing. All produced
+image/command/worker/corpus/contract/output digests remain out of tree where
+private; public source-distribution hashes are in the linked report.
+
+Reusable content-only checker `tools/qa/all_demos_draw.py --selftest` passes
+six profiles and25 exact-code single-mutation negatives. It checks guest-visible
+drawing, computed BASIC progress and live TSP directory/menu text rather than
+worker exits or arbitrary RAM strings. Native execution is macOS SDL dummy
+**guest-content only**, not actual presenter/window/fullscreen or Windows
+runtime. The retained development worker is bound to equivalent instruction
+sources without relabeling its embedded older base as a clean candidate.
+No application/vendor instruction behavior changes for this QA work.
+
+Static handoff: `../vaeg-mingw-584bfcbf/output/vaeg.exe`,
+SHA-256 `94532066a420219a734c993628766e72bf3e5e5ee7232383ec13ddd22e6d9091`;
+`BUILD-REPORT.md` is in that output directory. Clean build exits0, recording ON,
+local bundled H.264/AAC OFF; identity/static-system-import/minimal-encoder audits
+PASS. The maintainer receives absolute paths. The application is not rebuilt
+for QA/report-only edits and is not claimed to embed their future commit.
+No hosted CI, release, private-asset upload, main merge or cleanup occurs.
+
 ### Gate still blocked
 
 Do not merge or call M139 complete. Continue investigating the later guest
 stop locally; no routine screenshot inspection or diagnosis is delegated to
-the maintainer. The implementation gate still requires private-guest drawing,
-the standard VA/V3/demo/OS checks, bundled demo/media build regressions, and a
-clean static MinGW handoff of the pushed candidate. Those checks have not been
-replaced by the CPU/unit PASS results above. No hosted CI, release publication,
+the maintainer. The implementation gate still requires private-guest drawing
+and remaining standard VA/V3/demo/OS/final acceptance. The requested local
+bundled-demo/media and clean static MinGW build/import checks are now recorded
+above, not inferred from earlier CPU/unit results. They do not resolve the
+private-guest stop or establish Windows runtime/presenter acceptance. No hosted CI, release publication,
 private-asset upload or milestone-directory cleanup is requested. Progress
 commits use `[skip ci]` because this is not yet a gate-ready review candidate;
 do not use hosted CI to investigate the private guest stop.
