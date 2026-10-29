@@ -407,9 +407,10 @@ area. M90 connects the retained four 16KB windows at `C0000H`, `C4000H`,
 `C8000H`, and `CC000H` to the active VA I/O dispatcher. In vaeg, select
 `Device / EMS Board...` immediately below I/O Bank Memory and install memory
 in 1MB units; zero disables the board and 1 through 13MB are supported.
-Clean configurations use the full 13MB (`ExMemory=13`) by default. As with
-BMS, an explicitly saved capacity or disabled value in an existing
-configuration is preserved.
+M142 clean configurations leave EMS uninstalled (`ExMemory=0`) and BMS
+disabled, avoiding unused expansion-memory payloads in save states. Capacities
+remain selectable; an explicitly saved capacity or disabled value in an
+existing configuration is preserved.
 
 [EMMVA15A](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=351)
 is an adapter, not a complete EMM manager. Its included `EMMVA150.DOC` says

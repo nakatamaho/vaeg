@@ -541,9 +541,10 @@ A post-G90 follow-up preserves M52's bank-zero/pass-through policy while
 retaining the clean capacity defaults. The current model exposes 640KB of
 conventional RAM through `9FFFFH`: selector zero restores ordinary main RAM at
 `80000H-9FFFFH`, selectors 1 through N map the N independent 128KB BMS banks,
-and invalid nonzero selectors remain open bus. Clean configurations enable
-128 banks (16MB) at `01D0H` and 13MB of EMS. Existing persisted values remain
-explicit user choices. The correction is
+and invalid nonzero selectors remain open bus. That follow-up enabled
+128 banks (16MB) at `01D0H` and 13MB of EMS for clean configurations.
+M142 changes fresh defaults to both boards absent to avoid unnecessary state
+payloads; explicit persisted capacities/enables remain user choices. The correction is
 [c52bd8d](https://github.com/nakatamaho/vaeg/commit/c52bd8dbc62dfabc5d7bbbc50b4fbfe7bd6deef4).
 
 M53 adds an optional `PacingMs` host delay in Configure. The implementation
