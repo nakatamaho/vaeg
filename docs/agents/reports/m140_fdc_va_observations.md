@@ -668,8 +668,79 @@ regenerate identically, and the shared checker preserves both old capture JSON
 results exactly (192 rows), with negative codes tested. No emulator CPU/profile
 fix, historical evidence upgrade, new timing result or G140 acceptance follows.
 
-## Returned-image intake correction
+## Returned FDCXADR controls
 
+`hw-fdc-va-08` and `hw-fdc-va2-07` are returned with VA/V2/H and VA2/V2/H
+filename/request labels, not independently encoded machine/mode identities.
+Both have **128 complete rows**, production CLI exit 0 and
+`NO_FINDINGS_IN_TESTED_CONTRACT`. All three control captures equal requested AF;
+all three post captures agree, including the varying CCF values. Raw/text rows,
+framing/padding/recovery marker, zero immediate/triple status, duplicate/inverse
+relations and zero delayed scan errors validate. Seven RAM patterns complete
+(`7Fh`) with zero mismatches/first address. All master files, exact generated COM
+and boot/system region are preserved. There is no independent physical full-RAM
+recovery dump, code-fetch/SP trace or final DIR/A> capture in these images alone.
+
+### Four-site results
+
+**Each of the four sites has exactly the same counts** below (eight repetitions
+per target/operation/site):
+
+| Target AF / operation | VA, per site | VA2, per site |
+|---|---|---|
+| `0028` / SCF | `0029` ×8 | `0001` ×8 |
+| `0028` / CCF | `0029` ×8 | `0001` ×8 |
+| `0029` / SCF | `0021` ×8 | `0001` ×8 |
+| `0029` / CCF | `0030` ×7, `0038` ×1 | `0010` ×8 |
+
+VA differs from current host in **128/128**, exclusively X/Y. Old-F/A OR fits
+**68/128**; the remaining 60 (32 SCF plus 28 CCF) lie outside both whole-A-only
+and OR predictions. VA2 matches host in all 128 with no repeat variation. All
+128 paired VA/VA2 primary results differ. A and documented flags are preserved.
+
+The four VA AF0029 CCF groups each vary at fixed selected addresses. Their
+single `0038` occurs at these zero-based pass IDs:
+
+| Site | IUT / CALL return | Pass ID producing `0038` | Other seven passes |
+|---|---|---|---|
+| 0 | `4806h` / `4907h` | 2 | `0030` |
+| 1 | `4806h` / `490Fh` | 7 | `0030` |
+| 2 | `480Eh` / `4907h` | 6 | `0030` |
+| 3 | `480Eh` / `490Fh` | 1 | `0030` |
+
+The parser's descriptive pairs differ in **4/64 sampler-axis pairs** and
+**4/64 caller-axis pairs**; VA2 differs in zero on both axes. Those VA pair
+counts arise from the four `0038` events occurring in different passes, not
+from different per-site histograms. Both directions have `0030` ×14 and `0038`
+×2 for AF0029 CCF. Thus neither a site nor direction fixes the result here.
+Serial matched-descriptor pairs are not observations of simultaneous identical
+hidden state, so the field name `paired_effects` is **not a causal estimate**.
+
+### Interpretation and scope
+
+This run does not show a systematic frequency preference for either relocation
+axis: all four site histograms coincide, and SCF's `0021` persists across both
+IUT and return-address bit-3 choices. The simple proposal that choosing one of
+those bit values restores OR does not describe these observations. Identical
+finite histograms do **not** prove statistical equivalence, absence of every
+address interaction, or invariance under all histories/phase conditions.
+
+Compared with FDCCAP, the capture-consistent CCF variation remains, with 4/32
+`0038` rather than 8/24; FDCFIX previously had 40/40 AF0029 CCF at `0038`.
+These are different executable/context samples, not a controlled time-series,
+randomness proof or evidence of a change in the machine. Shared CPU/export,
+internal history/phase and capture-protocol context remain unresolved. No bad
+RAM cell, unique physical Q law, general full-A/F rule or CPU fix is established.
+
+This intake changes reports only. Preparation tests at
+[182c55928744e001a9f81c5fe29769e8bc077d0e](https://github.com/nakatamaho/vaeg/commit/182c55928744e001a9f81c5fe29769e8bc077d0e)
+are retained under unchanged worker/program/content-source identities, not rerun
+or upgraded. Private receipts, CLI commands/status, comparison/count witnesses
+and evaluated/worker/program/contract/output manifests remain out of tree.
+Next is agent-side shared-path/history analysis, not an unchanged hardware replay
+or an address-specific workaround. G140 remains BLOCKED.
+
+## Returned-image intake correction
 The first strict reader attempt failed `M139_D88_TRACKS`; that original failure
 and capture are retained. The D88 stores 40 cylinders/two heads with active
 track-table slots `4*C+H`, but sector C/H remain logical. The builder expects

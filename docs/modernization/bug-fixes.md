@@ -4238,10 +4238,14 @@ primary stack placement is unchanged between fixed/capture. IUT/caller address
 bits still covary. Repeated results and explicit counterexamples reject literal
 address-bit copying/static-input-only rules, not richer context/phase mechanisms.
 No address-based workaround or root cause is established.
-The [crossed relocation control](../agents/tasks/M140_fdc_upd780_conformance.md#crossed-relocation-control-prepared-fdcxadr)
-is now software/ROM-validated, with 128 rows and separate sampler/caller axes;
-physical results remain NOT_RUN. It is not a fixing commit or proof of PC-bit
-causality, and the old program bytes/capture analyses remain unchanged.
+The [returned crossed relocation controls](../agents/reports/m140_fdc_va_observations.md#returned-fdcxadr-controls)
+have 128 rows per label, with clean bounded RAM/triple/mirror checks. All four
+VA sites have identical counts: AF0029 SCF=0021 eight times and CCF=0030 seven/
+0038 once per site, with the rare value at different pass IDs. VA has 128 host
+differences, OR fits 68; VA2 matches host throughout. Four differing descriptive
+pairs per axis are not a causal effect or differing site frequencies. No simple
+address-bit/site rule, unique Q law, bad cell or fixing CPU commit follows;
+finite equal counts also do not exclude every context/address interaction.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

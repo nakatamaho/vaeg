@@ -655,9 +655,42 @@ with closed capture/xadr wrappers, not a CLI bypass. Old seed/fixed/capture
 BIN/COMs regenerate byte-identically; old capture JSON results for all 192 rows
 are exactly equal and old negative tests retain their codes. Archived expensive
 evidence remains under its original implementation/worker identity, not upgraded.
-No emulator/core/profile or older loader bytes change. Physical FDCXADR is
-**NOT_RUN**; causal interpretation, independent silicon, timing and all broader
-G140 obligations remain open. No merge/release/cleanup or gate acceptance.
+No emulator/core/profile or older loader bytes change. At preparation physical
+FDCXADR was **NOT_RUN**; returned observations below are separate. Causal
+interpretation, independent silicon, timing and all broader G140 obligations
+remain open. No merge/release/cleanup or gate acceptance.
+
+## Returned FDCXADR controls
+
+[Analysis](../reports/m140_fdc_va_observations.md#returned-fdcxadr-controls):
+`hw-fdc-va-08` and `hw-fdc-va2-07`, filename/request labels VA/V2/H and VA2/V2/H,
+not independent device/mode identities. Both contain 128 complete rows, CLI exit
+0, no findings in bounded RAM/triple/mirror checks, raw/text agreement, preserved
+A/documented flags and valid framing/padding/recovery marker. All master files,
+exact COM and boot/system region are preserved. These images do not independently
+capture physical full-RAM recovery, fetched PC/SP or final DIR/A>.
+
+All four sites have identical histograms. Per site, VA gives AF0028 SCF/CCF=0029
+all eight times, AF0029 SCF=0021 all eight, and AF0029 CCF=0030 seven/0038 once.
+The latter's 0038 pass IDs are site0→2, site1→7, site2→6, site3→1 (zero-based).
+VA differs from host in all 128 X/Y-only results; OR predicts 68/128, with 60
+outside both whole-A-only and OR. VA2 matches all 128 without repeat variation.
+
+Descriptive comparisons differ in 4/64 pairs on each VA axis and zero for VA2.
+This is not a causal effect: the same per-site frequencies occur at different
+pass IDs. Forward/reverse counts are also equal (AF0029 CCF: 14/2 each).
+No selected address bit/site alone explains the outcome. Finite equal counts
+are not statistical equivalence or proof excluding every address interaction.
+All three exports agree even on the four varying groups; there is no new
+isolated store/cell/format signature, but shared CPU/export/history/phase remains.
+
+Preparation evidence from 182c55928744e001a9f81c5fe29769e8bc077d0e is reused under
+unchanged worker/program/content-source identities. No source, CPU/profile or
+probe change in this report-only intake. Private snapshots, CLI commands/exit
+status, row/pair count witnesses and identity manifests remain out of tree.
+Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged diff/
+scope checks pass. Next is agent-side shared-path/history analysis, not an
+unchanged physical replay or speculative address fix. G140 remains BLOCKED.
 
 ## G140 acceptance
 
