@@ -2676,6 +2676,24 @@ static int test_framedisp(void) {
 	if (vaeg_framedisp_update(NULL, 0, 0) != FALSE) {
 		return (fail("framedisp", "NULL state was accepted"));
 	}
+	/* M142: neither measurement nor decimal output may lose a hundreds digit. */
+	{
+		static const UINT32 rates[] = {320, 999, 1000, 1320, 9999, 10000};
+		UINT i;
+		for (i = 0; i < NELEMENTS(rates); i++) {
+			VAEG_MACHINE_STATUS status;
+			char text[256], expected[32];
+			ZeroMemory(&status, sizeof(status));
+			vaeg_framedisp_reset(&state, 0, 0);
+			if (!vaeg_framedisp_update(&state, 10000, rates[i]) || state.fps_tenths != rates[i])
+				return fail("framedisp", "M142_FPS_MEASUREMENT");
+			machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS,
+			                    state.fps_tenths, 0);
+			snprintf(expected, sizeof(expected), " | %u.%uFPS", rates[i] / 10, rates[i] % 10);
+			if (!strstr(text, expected))
+				return fail("framedisp", "M142_FPS_DIGITS");
+		}
+	}
 	vaeg_framedisp_reset(NULL, 0, 0);
 	fprintf(stderr, "selftest: frame display ok\n");
 	return (SUCCESS);
