@@ -504,8 +504,81 @@ its full applicability and exception cause are unresolved.
 
 Software/native and ROM-backed H/S persistence/refusal/fault-safety checks pass;
 four native one-byte mutations also exercise each diagnostic mechanism's failure
-reporting. Physical FDCCAP is NOT_RUN. No earlier physical result or software
-coverage is reclassified by this preparation; G140 remains BLOCKED.
+reporting. Physical FDCCAP was NOT_RUN at preparation. Returned observations
+below do not reclassify that software evidence; G140 remains BLOCKED.
+
+## Returned FDCCAP controls
+
+`hw-fdc-va-07` and `hw-fdc-va2-06` are returned under VA/V2/H and VA2/V2/H
+labels. These follow the filenames/requested settings, not independently encoded
+machine/mode identities. Both contain **96 complete rows** and production content
+CLI exit 0, with raw/text row agreement, valid descriptors/framing/padding and
+the loader's verified-recovery marker. Every master file, exact generated COM
+and boot/system region is preserved. These images alone do not supply an
+independent full-RAM recovery dump or final physical DIR/A> capture.
+
+### Integrity observations
+
+Both report `NO_FINDINGS_IN_TESTED_CONTRACT`:
+
+- Seven result-region fill/read patterns complete (`7Fh`), zero mismatches and
+  zero first-error address, including the earlier location 74D7h.
+- All three NOP-control captures equal requested AF, and all three post captures
+  agree in every row, **including the varying VA CCF results**.
+- Immediate store/triple status bytes are zero throughout. Duplicate/inverse
+  words agree with the primary, and the delayed scan reports zero mismatches,
+  consistent with decoded relations. A and documented flags are preserved.
+- At 74D7h the new row 55's control-C low byte is `29h`, agreeing with its other
+  control captures; no persistent stuck-low bit-3 signature appears in this run.
+
+This is bounded evidence against an isolated stack-cell/row-store/hex-rendering
+account of the **current** results. It does not establish that all RAM is good,
+explain the historical outlier, or exclude common CPU/PUSH-AF export, mailbox,
+firmware or other context effects. Three repeated exports are not independent
+original-register/Q readouts.
+
+### Flag observations
+
+Each aggregate below has 3 seeds × 8 passes = 24 rows:
+
+| Target AF / operation | VA post AF | VA2 post AF |
+|---|---|---|
+| `0028` / SCF | `0029` ×24 | `0001` ×24 |
+| `0028` / CCF | `0029` ×24 | `0001` ×24 |
+| `0029` / SCF | `0021` ×24 | `0001` ×24 |
+| `0029` / CCF | `0030` ×16, `0038` ×8 | `0010` ×24 |
+
+VA differs from current host in **96/96**, exclusively X/Y. Old-F/A OR fits
+**56/96**, not the earlier executable's 159/160. The remaining **40 rows**
+(24 SCF plus 16 CCF) are outside both whole-instruction A-only and OR predictions.
+Thus a simple universal OR rule is contradicted by coherent repeated captures;
+the earlier strong fit remains a result of its own instruction sequence, not
+something to erase or silently extend to this new program.
+
+VA `0029` CCF values by pass ID 0–7:
+
+| Seed | Post AF in pass order |
+|---|---|
+| 0 | `0030 0030 0030 0038 0038 0030 0030 0038` |
+| 1 | `0030 0038 0030 0030 0030 0038 0030 0030` |
+| 3 | `0038 0030 0038 0030 0030 0030 0038 0030` |
+
+Every seed has both CCF values. Forward and reverse passes each have eight
+`0030` and four `0038`; neither seed nor direction alone is a deterministic
+explanation. All SCF results are repeat-stable in this experiment. VA2 matches
+the current host in 96/96 with no repeat variation. All 96 paired VA/VA2 primary
+results differ. Restricting prior FDCFIX to the same 96 descriptors gives 39
+changed VA values and zero changed VA2 values; this is **not** a controlled
+isolation, since code addresses, surrounding execution and capture machinery
+changed together.
+
+The next agent-side work is shared-path/context analysis, not another unchanged
+physical run. No root cause, physical Q value, unique full-A/F law, timing claim
+or CPU/profile correction follows. Preparation evidence at
+[62e839c1dc714a0d6c53c7770b6b37660d88effd](https://github.com/nakatamaho/vaeg/commit/62e839c1dc714a0d6c53c7770b6b37660d88effd)
+is reused under unchanged worker/program/content-contract identities; this intake
+changes documentation only. Private snapshots, CLI commands/status and identity/
+comparison manifests remain out of tree. G140 remains BLOCKED.
 
 ## Returned-image intake correction
 

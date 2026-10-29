@@ -39,7 +39,10 @@ agreement throughout, 30 versus zero host differences; one VA CCF group varies
 across seed recipes, with address/context still confounded. Fixed-address
 follow-ups now have 160 rows each: VA has 160 host differences and one repeat
 outlier against OR; VA2 has zero host differences and no repeat variation.
-Shared capture/storage effects remain unisolated. **G140 BLOCKED**:
+FDCCAP returns add 96 rows each: both have no findings in bounded RAM/triple/
+mirror checks. VA has 96 host differences, OR fits 56, and three CCF groups vary
+coherently across all three captures; VA2 matches host throughout. Common CPU/
+export/context effects remain unisolated. **G140 BLOCKED**:
 history-controlled discrepancy reduction, independent Zilog controls, approved
 timing reference, physical H/S and remaining gate obligations are open.
 Branch: `topic/m140-fdc-upd780-conformance`.
@@ -537,9 +540,43 @@ with old defaults; no production validator bypass or historical evidence upgrade
 Exact commands, worker/program/corpus/contracts, image hashes, initial/intermediate
 results and generated media/captures remain out of tree. Unchanged application/
 RAM-dump workers and old expensive evidence are retained under their original
-identities. Physical FDCCAP execution is **NOT_RUN**. G140, independent silicon,
-absolute timing, broader boundary cases and final regression/handoff acceptance
-remain open; no core/profile fix, merge, release or cleanup follows.
+identities. At preparation physical FDCCAP was **NOT_RUN**; returned data below
+is separate. G140, independent silicon, absolute timing, broader boundary cases
+and final regression/handoff acceptance remain open; no core/profile fix, merge,
+release or cleanup follows.
+
+## Returned FDCCAP controls
+
+[Analysis](../reports/m140_fdc_va_observations.md#returned-fdccap-controls):
+`hw-fdc-va-07` / `hw-fdc-va2-06`, filename/request labels VA/V2/H and VA2/V2/H,
+not independently encoded hardware identities. Both have 96 complete rows,
+production CLI exit 0, exact control AF, raw/text row agreement, preserved A/
+documented flags, framing/padding/recovery marker, all master files/exact COM
+and boot/system region preserved. No independent physical full-RAM or final
+DIR/A> capture is supplied by these images alone.
+
+Both have zero RAM-pattern mismatches (`7Fh` completion), zero immediate/triple
+status, equal control/post triples, correct duplicates/inverses and zero delayed
+scan discrepancies. The old 74D7h cell also contains `29h` as the new row 55
+control-C low byte. These observations do not show a defective cell and do not
+prove exhaustive RAM/stack/code integrity or explain the old outlier.
+
+VA differs from host in all 96 X/Y-only results. OR predicts 56/96; 24 SCF plus
+16 CCF rows lie outside both whole-instruction A-only and OR. For AF0029 SCF,
+all 24 results are 0021; CCF gives 0030 sixteen times and 0038 eight times.
+Each of three seeds varies across repeats for CCF, but all three exported words
+agree on each row. Both directions contain both CCF results, eight/four each;
+seed or direction alone is not a deterministic rule. AF0028 gives 0029 for both
+operations throughout. VA2 matches current host in all 96 without variation.
+Earlier FDCFIX's 159/160 OR fit is retained, not generalized across changed
+executable/context; 39 of 96 overlapping VA descriptors change value, VA2 zero.
+
+This report-only intake reuses unchanged program/worker/contracts and preparation
+checks from 62e839c1dc714a0d6c53c7770b6b37660d88effd. Private commands, exit status,
+snapshots and worker/program/corpus/contract/output identities remain out of tree.
+Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged scope/
+diff checks pass. Next is agent-side shared export/context analysis, not an
+unchanged hardware rerun or speculative core rule. G140 remains BLOCKED.
 
 ## G140 acceptance
 

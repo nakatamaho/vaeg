@@ -4224,9 +4224,14 @@ agreement holds, but result-storage cells differ per row. The one outlier causes
 both repeat and per-seed-set variation flags, not a deterministic seed/order law
 or a demonstrated bad RAM cell. Capture/storage effects, internal state and the
 root cause remain unresolved; no fixing CPU/profile commit is established.
-The [new capture/storage control](../agents/tasks/M140_fdc_upd780_conformance.md#capturestackstorage-control-prepared-fdccap)
-passes bounded software/ROM safety and diagnostic-mutation checks, but physical
-results are NOT_RUN; it does not prove a defective RAM cell or CPU correction.
+The [returned FDCCAP controls](../agents/reports/m140_fdc_va_observations.md#returned-fdccap-controls)
+have 96 rows per label, with no findings in bounded RAM/triple/mirror checks.
+VA differs from host in 96; OR fits 56 and three CCF groups vary, with each row's
+three exports agreeing. VA2 matches all 96 host results. The current variation
+has no isolated store/stack-cell signature, but common CPU/export/mailbox/context
+paths remain; neither a defective RAM cell nor a universal OR/Q law or CPU
+correction is demonstrated. Earlier FDCFIX's 159/160 fit is context-bounded,
+not retroactively erased or generalized across the changed executable.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification
