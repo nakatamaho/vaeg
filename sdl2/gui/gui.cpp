@@ -3978,7 +3978,7 @@ static void draw_cpu_clock_menu(void) {
 	}
 	/* Numeric choices refer to the active domain, not to a hidden H/S
 	 * multiplier. Higher entries replace the old x2/x4/x8-only labels. */
-	for (const UINT mhz : {2u, 4u, 6u, 8u, 10u, 12u, 16u, 32u, 64u}) {
+	for (const UINT mhz : {4u, 8u, 10u, 12u, 20u}) {
 		UINT preset_multiple, preset_speed;
 		if (!machine_status_clock_settings(mhz, status.compatible && pccore_88_standard(),
 		                                   &preset_multiple, &preset_speed))

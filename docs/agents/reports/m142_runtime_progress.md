@@ -81,8 +81,9 @@ fresh-versus-enabled state-file-size comparison is not recorded in this run.
 
 ## C — numeric clock choices
 
-The GUI now offers **2, 4, 6, 8, 10, 12, 16, 32 and 64 MHz**, explicitly
-nominal. The common resolver chooses CPU multiplier and 50%/100% CPU speed
+The evaluated checkpoint offered **2, 4, 6, 8, 10, 12, 16, 32 and 64 MHz**,
+explicitly nominal. The maintainer's later menu-only follow-up narrows this to
+**4, 8, 10, 12 and 20 MHz**; see the task record for the new handoff. The common resolver chooses CPU multiplier and 50%/100% CPU speed
 against the active H/native or compatible S domain. All nine choices in both
 domains and invalid inputs pass the software contract tests. Existing main/
 FDC-role and lifecycle tests also pass; no FDC/peripheral clock assignment was

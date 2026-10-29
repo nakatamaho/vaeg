@@ -38,8 +38,9 @@ old reports do not substitute for available, identity-bound evidence.
 - **A** Investigate Information → FPS above 100 FPS, including formatting,
   measurement and actual bar width. Do not assume `32.0` means `132.0`.
 - **B** Fresh settings omit EMS and bank memory; explicit saved choices survive.
-- **C** Add 2, 4, 6, 8, 10 and 12 MHz clock choices and numeric higher choices
-  instead of multiplier-only labels. Preserve machine/FDC clock separation.
+- **C** Offer 4, 8, 10, 12 and 20 MHz clock choices. The maintainer's follow-up
+  removes 2, 6, 16, 32 and 64 MHz from the menu and adds 20 MHz. Existing saved
+  multiplier/speed settings and machine/FDC clock separation remain unchanged.
 - **D** Investigate [#75](https://github.com/nakatamaho/vaeg/issues/75): identify
   what limits VA2 VB-time TVRAM writes on hardware before modeling it. Preserve
   other TSPSPR rows. Q/S observations (28.0 VA, 30.1 VA2, 41.7 emulated VA2)
@@ -83,7 +84,7 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   of pushed `6f94fcb8467c0cf5beb196ea26de0c2e571ced55` now includes runtime fixes.
   Recording/shaders/static dependencies ON, local encoders OFF, no Colima;
   imports/encoder archive/embedded identity audits pass, command exit 0.
-  Final executable SHA-256:
+  Checkpoint executable SHA-256:
   `795ef24174fdc0b040d07715038c7e15c74d9a6ef312228c0acc6563749893d6`.
 - **A:** high-digit measurement/format tests pass; no production digit defect
   is demonstrated. Actual reported overclock/presenter-width case unresolved.

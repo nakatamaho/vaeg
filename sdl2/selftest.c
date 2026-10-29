@@ -6030,7 +6030,7 @@ static int test_machine_status(void) {
 		}
 	}
 	{
-		static const UINT mhz[] = {2, 4, 6, 8, 10, 12, 16, 32, 64};
+		static const UINT mhz[] = {4, 8, 10, 12, 20};
 		UINT domain, index;
 		for (domain = 0; domain < 2; domain++) {
 			for (index = 0; index < NELEMENTS(mhz); index++) {
