@@ -33,6 +33,8 @@ tools/cpmva/patches/cpm22-64k.patch -diff
 # Keep these patches text-diffable; relax only context-specific whitespace.
 external/zex/patches/m140-fdc-zexall.patch whitespace=-blank-at-eol,-space-before-tab
 external/zex/patches/m140-fdc-neg-smoke.patch whitespace=-blank-at-eol,-space-before-tab
+# M140 mail-patch context/signature whitespace is data; keep the patch diffable.
+docs/agents/reports/m140_upstream_upd780c1_profile.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 
 # Byte-identical legal evidence retains its historical line whitespace
 LICENSES/legacy-vaeg.txt whitespace=-blank-at-eol

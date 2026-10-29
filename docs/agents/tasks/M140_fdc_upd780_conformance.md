@@ -871,6 +871,11 @@ Source/patch provenance, exact commands/status, initial strict diagnostic,
 passing and negative logs, scope and digests remain in private task evidence.
 VA2 is not held for unresolved VA cases; G140 remains BLOCKED and no vaeg
 merge/release/cleanup, vendor refresh or broad conformance acceptance follows.
+The initial repository whitespace check flags mail-patch context/tabs/signature
+as source whitespace; that failure is retained. An exact-path `.gitattributes`
+exception preserves the generated patch byte-for-byte and text-diffable, without
+relaxing source-file checks. Affected repository/commit-chain checks are rerun;
+unchanged upstream behavior tests are reused, not repeated.
 
 ## G140 acceptance
 
