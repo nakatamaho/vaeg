@@ -580,6 +580,71 @@ is reused under unchanged worker/program/content-contract identities; this intak
 changes documentation only. Private snapshots, CLI commands/status and identity/
 comparison manifests remain out of tree. G140 remains BLOCKED.
 
+## Offline binary/context audit
+
+The [reusable audit](../../../tools/hardware/upd780/README.md#offline-binary-context-audit)
+now binds emitted payloads to their COMs and validates selected opcode spans
+against symbol maps. It reprocesses the six returned seed/fixed/capture cases,
+**672 rows**, without a new guest execution or hardware request. Entry/SP,
+seed/control/snapshot spans, CALL targets, capture BC reloads, mailbox order and
+save calls pass. This is not a full control-flow proof or physical fetch trace.
+
+| Context | FDCSEED | FDCFIX | FDCCAP |
+|---|---|---|---|
+| IUT address | row-dependent | `40DEh` | `4806h` |
+| Measured CALL | none (inline) | `404Ah` | `407Dh` |
+| CALL return | not applicable | `404Dh` | `4080h` |
+| PUSH-AF instruction | row-dependent | `40DFh` | `4807h`, `4808h`, `4809h` |
+| Nominal AF stack low byte | `7EFDh` | `7EFBh` | `7EFBh`, `7EF9h`, `7EF7h` |
+| Control IUT | omitted | NOP substitution | NOP substitution |
+
+Stack positions assume balanced, interrupt-free normal flow from SP=7EFFh;
+they are **not measured physical SP**. The first fixed/capture stack cell is
+therefore nominally unchanged, not a new row-storage location. Seed's inline
+control and XOR-only seed 0 are not instruction-identical to later samplers.
+Capture's POP BC is paired with explicit target-BC reloads before both sampler
+calls; exported DE/BC/HL words are saved before comparison code can clobber them.
+No missing-reload or interleaved flag-changing instruction appears in those
+checked capture spans. Other flow, live patches and physical effects remain
+outside this static claim; previous patch-readback evidence is not upgraded.
+
+The old/new **IUT bit 3 and CALL-return bit 3 change together**, from 1/1 to
+0/0. Existing program comparison cannot isolate these two variables. Conversely,
+any deterministic rule over target AF, seed, operation and static addresses
+alone cannot explain the within-program repeat differences already captured.
+It may still depend on hidden history/phase or address jointly with other state.
+
+For explicit, narrow falsification, the tool counts mismatches to three literal
+bit-copy hypotheses. These are **not CPU conformance failures or fitted NEC
+models**:
+
+| Case | F3 = IUT address bit 3 | F3 = CALL-return bit 3 | F3 = current PUSH address bit 3 |
+|---|---|---|---|
+| VA seed | 47/80 | not applicable | 47/80 |
+| VA2 seed | 40/80 | not applicable | 40/80 |
+| VA fixed | 1/160 | 1/160 | 1/160 |
+| VA2 fixed | 160/160 | 160/160 | 160/160 |
+| VA capture | 56/96 | 56/96 | 136/288 |
+| VA2 capture | 0/96 | 0/96 | 192/288 |
+
+Zero only means not falsified in that dataset: VA2 capture has zero F3 and the
+two addresses also have zero bit 3, not a causal discovery. Its fixed cases
+contradict the same literal hypotheses. In capture, PUSH PCs cross a bit-3
+boundary (0/1/1), yet all three exported words agree. Simply copying the current
+PUSH address bit cannot explain those data. Counted counterexamples do not
+exclude all address sensitivity, internal CPU state or common export effects.
+
+**16 new independent tests PASS; nine focused FDC CTests PASS (3.30 s).**
+Passing synthetic binary/content fixtures precede single controlled mutations
+with exact stable rejection codes. Missing return addresses are explicitly
+NOT_APPLICABLE; capture integrity findings cannot masquerade as original flags
+in this hypothesis layer. Existing emulator, loader and probe bytes are unchanged.
+No new ROM integration/full-ZEX or physical run is warranted by this audit-only
+change; old expensive evidence stays bound to its original inputs/worker.
+A future crossed-address experiment must independently vary IUT/caller while
+preserving capture machinery and retaining repetitions; it is **not implemented
+or requested here**. No root cause, CPU correction or G140 acceptance follows.
+
 ## Returned-image intake correction
 
 The first strict reader attempt failed `M139_D88_TRACKS`; that original failure

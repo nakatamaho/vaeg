@@ -578,6 +578,35 @@ Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged scope/
 diff checks pass. Next is agent-side shared export/context analysis, not an
 unchanged hardware rerun or speculative core rule. G140 remains BLOCKED.
 
+## Offline binary/context audit
+
+[Analysis](../reports/m140_fdc_va_observations.md#offline-binarycontext-audit) and
+[tool](../../../tools/hardware/upd780/README.md#offline-binary-context-audit):
+selected spans and existing observations from six seed/fixed/capture cases
+(672 rows) are audited without new guest/hardware execution. COM/payload binding,
+entry/SP, CALLs, snapshot order and capture BC reload/mailbox/save spans pass.
+A nominal balanced, interrupt-free stack puts the first fixed/capture AF word
+at the same 7EFBh low byte; inline seed uses 7EFDh. No physical SP/fetch trace or
+whole-program correctness proof is implied.
+
+IUT 40DEh→4806h and measured return 404Dh→4080h both flip bit 3 from 1 to 0;
+those covariates are not separated by current data. Literal IUT/return-bit copy
+has counterexamples, and fixed-address repeat variation already contradicts
+any deterministic function of target AF/seed/op/static addresses alone. Current
+PUSH-PC bit 3 is 0/1/1 for the capture triple, yet exported words agree. This
+rejects literal current-PUSH-bit copying, not every richer address/history or
+common CPU/export mechanism. No address-specific CPU workaround is justified.
+
+16 new content/layout tests and nine focused CTests pass (3.30 s). Each negative
+starts from a passing synthetic fixture, changes one controlled invariant and
+checks a stable error code. Content, binary layout and observation analysis are
+independently callable, without private assets or Git history. NOT_APPLICABLE
+and NOT_FALSIFIED_IN_DATA are not PASS. Generators require a new out-of-tree
+output. Existing worker/probe/loader inputs and expensive evidence remain under
+their original identities; no ROM/full-ZEX/hardware rerun or backend change.
+A crossed IUT/caller experiment is only a future design requirement, not built,
+validated or requested in this phase. G140 remains BLOCKED.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

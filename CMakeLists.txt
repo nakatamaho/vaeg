@@ -2321,6 +2321,12 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd780_fdc_capture_selftest PROPERTIES
         LABELS "romless;compatibility;upd780;host-only")
 
+    add_test(NAME vaeg_upd780_fdc_context_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_context.py")
+    set_tests_properties(vaeg_upd780_fdc_context_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
     # M101/M102 probe programs per role: built with z80asm 1.8 and run by
     # vaeg_cpm_runner with each role's production core configuration.
     find_program(VAEG_Z80ASM_EXECUTABLE z80asm)

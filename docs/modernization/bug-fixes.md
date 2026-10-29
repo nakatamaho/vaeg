@@ -4232,6 +4232,12 @@ has no isolated store/stack-cell signature, but common CPU/export/mailbox/contex
 paths remain; neither a defective RAM cell nor a universal OR/Q law or CPU
 correction is demonstrated. Earlier FDCFIX's 159/160 fit is context-bounded,
 not retroactively erased or generalized across the changed executable.
+The [offline context audit](../agents/reports/m140_fdc_va_observations.md#offline-binarycontext-audit)
+checks selected binary spans and finds no missing capture BC reload; nominal
+primary stack placement is unchanged between fixed/capture. IUT/caller address
+bits still covary. Repeated results and explicit counterexamples reject literal
+address-bit copying/static-input-only rules, not richer context/phase mechanisms.
+No address-based workaround or root cause is established.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

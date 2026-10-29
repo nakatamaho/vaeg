@@ -437,6 +437,43 @@ The ROM fault test reuses a digest-bound passing fixture, verifies a dedicated
 error and unchanged disk, and does not rerun an unchanged positive case. No
 hosted CI/private-input upload, physical timing or CPU/profile fix is implied.
 
+## Offline binary context audit
+
+`context.py` audits the existing seed/fixed/capture binaries without regenerating
+or executing them. It checks entry/SP setup, measured/control opcode spans,
+CALL destinations, snapshot push/pop order and stores; capture additionally
+requires both BC reloads, mailbox word order and immediate save calls. It is
+**not a full control-flow verifier or physical instruction/SP trace**. A nominal
+stack diagram assumes balanced calls without interrupts. Seed's XOR-only seed 0,
+inline/no-CALL capture and omitted (not substituted) control IUT differ from
+later programs and are reported explicitly.
+
+```sh
+python3 tools/hardware/upd780/context.py --kind capture \
+  --payload "$FDCCAP_BIN" --symbols "$FDCCAP_SYMBOLS_JSON" --program "$FDCCAP_COM" \
+  --log "$RETURNED_FDCCAP_DAT" --output "$NEW_OUT_OF_TREE_AUDIT_JSON"
+python3 tools/hardware/upd780/test_context.py
+```
+
+`--log` is optional for static-only auditing. Output must be new and outside
+the source tree. The complete payload must occur exactly once in the supplied
+COM; deployment identity still comes from the intake/master recipe. Existing
+content validators run before observations are decoded. Capture integrity
+findings block this hypothesis layer (`M140_CONTEXT_INTEGRITY`) rather than
+being silently interpreted as original CPU flags. No Git history, private input
+or assembler is needed for the synthetic unit fixtures.
+
+Literal F3=IUT-address-bit3, F3=CALL-return-bit3 and F3=current-PUSH-address-bit3
+are **closed falsification probes**, not fitted NEC models. Counts have explicit
+denominators; an inline program's missing return address is `NOT_APPLICABLE`,
+not a zero-error PASS. An uncontradicted constant-bit coincidence is only
+`NOT_FALSIFIED_IN_DATA`. Repeated results at the same target-AF/seed/op/static
+addresses can falsify determinism over those inputs alone, but do not exclude
+hidden history, phase or address-dependent effects jointly with other state.
+Source/input digests, commands and counterexample witnesses go in the private
+JSON. The current audit does not establish an OR/Q rule or authorize a new CPU
+profile, relocation fix or unchanged hardware replay.
+
 ## Offline SCF/CCF model reduction
 
 `reduction.py` validates completed physical logs and compares A-only,
