@@ -23,18 +23,20 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M139 — main CPU role selection
 
-Status: findings accepted; implementation authorized by the maintainer's
-subsequent request to select uPD9002 on VA/VA2 and uPD780 on other machines.
-CPU-role implementation and local unit/state validation complete. Final G139
-is BLOCKED: the private guest passes CPU identification but stops later.
+Status: **G139 SCOPED_ACCEPTED** by the maintainer's explicit confirmation that
+the MA VA-identification rejection is resolved and `G139 passed`. See the
+[acceptance and historical-ID supplement](../reports/m139_cpu_role_acceptance.md).
+This is CPU-role/identification acceptance, not a claim that the later MA
+red-screen stop is fixed. That stop remains OPEN outside the accepted scope.
 The subsequently requested bundled-demo/media guest-content checks and clean
 static MinGW build/import handoff now PASS within the explicit limits in the
 [QA/handoff record](../reports/m139_demo_media_handoff.md); they do not accept
-the private guest, Windows runtime/presenter or the remaining overall gate.
+full private-guest drawing or broader Windows runtime/presenter coverage.
 The maintainer subsequently reassigned the separately requested FDC-uPD780
 ZEXALL, hardware harness, instruction-difference/upstream work and speed
 measurements to M140. Their inherited software evidence is preserved separately;
-M139 no longer owns that work. This does not accept G139 or change its CPU code.
+M139 no longer owns that work. That reassignment alone did not accept either
+gate or change its CPU code; the subsequent scoped acceptances are separate.
 Branch: `topic/m139-upd780-or-upd9002-check`.
 Investigation base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
 Implementation source: [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
@@ -236,20 +238,24 @@ that the CPU-role candidate regressed at its later red-screen stop.
 The retained candidate worker still has a digest-bound CPU-identity PASS and
 later-drawing FAIL; input/worker/capture identities are revalidated, not
 relabelled as a fresh run of9b60f9c1. That Windows build is not executed locally
-in this recheck. The gate remains on hold pending candidate reconciliation and
+in this recheck. At that checkpoint the gate was held pending candidate reconciliation and
 actual MA drawing verification; no pass record, main merge or cleanup was made.
+The subsequent explicit acceptance narrows the accepted CPU scope to resolved
+identification; it does not turn the retained later drawing FAIL into PASS.
 The newer main's separately named M139 whole-screen-reverse task/gate is a
 different scope and must not be overwritten or interpreted as CPU-role acceptance.
 Preserve M141's TSP/state work when preparing integration; do not blindly replace
 new main with this older branch. Details are in the
 [handoff/source reconciliation](../reports/m139_demo_media_handoff.md#reported-m141-build-and-ma-rejection).
 
-### Gate still blocked
+### Previous broad gate block — superseded by scoped acceptance
 
-Do not merge or call M139 complete. Continue investigating the later guest
+Before the explicit scope acceptance, M139 was not merge-ready. The following
+historical requirements are not retroactively marked passed. Continue investigating the later guest
 stop locally; no routine screenshot inspection or diagnosis is delegated to
-the maintainer. The implementation gate still requires private-guest drawing
-and remaining standard VA/V3/demo/OS/final acceptance. The requested local
+the maintainer. The original implementation gate required private-guest drawing
+and remaining standard VA/V3/demo/OS/final acceptance. Full drawing is now a
+carry-forward rather than a condition asserted satisfied by the scoped gate. The requested local
 bundled-demo/media and clean static MinGW build/import checks are now recorded
 above, not inferred from earlier CPU/unit results. They do not resolve the
 private-guest stop or establish Windows runtime/presenter acceptance. No hosted CI, release publication,

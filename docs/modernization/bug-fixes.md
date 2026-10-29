@@ -1735,7 +1735,8 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task:** [M139 implementation validation](../agents/tasks/M139_upd780_or_upd9002_check.md#implementation-validation).
   [Investigation commit f9dc961d](https://github.com/nakatamaho/vaeg/commit/f9dc961d423b31d3b6c652530d2091b7255d73e4).
 - **Fixing commit:** [3053ee65](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
-  The implementation gate remains blocked, not accepted.
+  The maintainer subsequently [accepted the resolved identification scope](../agents/reports/m139_cpu_role_acceptance.md),
+  while the later guest fatal stop remains OPEN, not fixed or passed.
 
 ### M136 — cursor keys assigned to an absent joystick or mouse were lost
 

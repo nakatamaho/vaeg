@@ -28,8 +28,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 Evaluated application/media source:
 [584bfcbf0ce6c635a9198ac868fe606498e87434](https://github.com/nakatamaho/vaeg/commit/584bfcbf0ce6c635a9198ac868fe606498e87434),
 already pushed before the clean clones. This completes the maintainer-requested
-local build/guest-content/media checks and static executable delivery, **not
-G139 acceptance**. The private MA guest's later red-screen stop remains unresolved.
+local build/guest-content/media checks and static executable delivery. The
+subsequent [G139 scoped acceptance](m139_cpu_role_acceptance.md) confirms the
+resolved MA identification rejection; it does not establish full MA drawing.
+The private MA guest's later red-screen stop remains unresolved.
 M142's memory defaults, clock menu and MH-demo investigation are not implemented
 or included in this executable.
 
@@ -179,8 +181,9 @@ That exact commit was fetched and its source/history inspected:
   still validate its earlier CPU-identity PASS / drawing FAIL; this is reuse,
   not a new9b60f9c1 runtime test or a Windows PASS.
 
-No final CPU-role gate/integration/cleanup is recorded after the conflicting
-build report. Latest main also has a separately named M139 whole-screen-reverse
+At that checkpoint no final CPU-role gate/integration/cleanup was recorded.
+The maintainer has since explicitly accepted the resolved identification scope;
+the [acceptance supplement](m139_cpu_role_acceptance.md) records that amendment. Latest main also has a separately named M139 whole-screen-reverse
 milestone: its acceptance is not transferred to this CPU work, nor overwritten.
 Reconciliation must preserve the newer M141 TSP/state implementation and avoid
 blindly merging stale milestone records. The all-demos34-case result does not
@@ -218,5 +221,6 @@ uses OS APIs rather than bundled encoders.
 
 The maintainer receives absolute paths separately. This is a candidate handoff,
 not a new public release. Windows execution and presenter inspection are not
-implied by compile/import PASS. G139 still needs the MA guest stop resolved and
-remaining standard acceptance; no main merge, cleanup or release is performed.
+implied by compile/import PASS. G139 is subsequently accepted at the resolved
+MA identification scope, with the later stop retained OPEN. This report does
+not itself assert that integration, cleanup or a release has occurred.
