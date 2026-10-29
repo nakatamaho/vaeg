@@ -27,7 +27,14 @@ Status: **G140 SCOPED_ACCEPTED — confirmed VA2 uPD780C-1 instruction/flag
 contract only**, by explicit maintainer direction. See the
 [scoped acceptance and deferred-work record](../reports/m140_g140_va2_acceptance.md).
 Original-VA differences and all remaining verification are carried forward,
-not marked PASS. No main merge, release, vendor update or cleanup follows.
+not marked PASS. That closure alone did not authorize integration of its
+then-unaccepted CPU ancestry. After the separate CPU identification gate was
+explicitly accepted, both histories were integrated by
+[non-fast-forward merge a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c),
+preserving current M141 code; see the
+[CPU acceptance/integration supplement](../reports/m139_cpu_role_acceptance.md).
+No G140 coverage expansion, release or vendor update follows. Historical
+no-merge/block statements below describe their original checkpoints.
 
 Historical status before this scope amendment: maintainer-authorized separation
 from M139 because the milestones would otherwise overlap. Harness and mapped images implemented; inherited

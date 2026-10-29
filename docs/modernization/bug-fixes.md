@@ -4341,10 +4341,13 @@ Tracking/carry-forward: [M140](../agents/tasks/M140_fdc_upd780_conformance.md#g1
   promoted to a root cause. No guest patch or check bypass is recommended.
 - **Verification/gate:** actual private guest text/register/trace evidence
   stays outside Git; dummy/software output is not display acceptance. Demo
-  drawing remains FAIL and blocks the implementation gate despite passing
-  CPU-role/unit/state checks.
+  drawing remains FAIL, not fixed. It blocked the former broad gate; the
+  maintainer subsequently [accepted the narrower resolved-identification scope](../agents/reports/m139_cpu_role_acceptance.md)
+  without promoting this drawing defect to PASS.
 - **Task/evidence:** [M139 private-guest result](../agents/tasks/M139_upd780_or_upd9002_check.md#private-guest-cpu-identity-pass-demo-drawing-fail).
-  The correction branch remains under review; no milestone merge is accepted.
+  [Merge a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c)
+  integrates that accepted CPU work with M141. The merged native worker again
+  passes identification; its later red capture remains outside that acceptance.
 
 ### M132 — T88 LOAD waits while the raw cassette control loads
 

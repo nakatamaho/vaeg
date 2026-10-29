@@ -98,7 +98,14 @@ a nonblocking administrative follow-up, not a fabricated upstream PASS.
 
 ## Integration and retention boundaries
 
-M139/G139 remains separate and unaccepted. The current topic branch contains
+Subsequent integration note: the maintainer has since explicitly accepted the
+CPU identification scope in the [separate G139 supplement](m139_cpu_role_acceptance.md).
+[Merge a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c)
+integrates both accepted histories while preserving M141; it does not enlarge
+the G140 contract or settle its deferred work. The following paragraphs retain
+the restrictions **at this original G140 closure**, not a current merge status.
+
+At that closure M139/G139 remained separate and unaccepted. The current topic branch contains
 pending M139 main-CPU changes as well as M140 work; scoped G140 acceptance is
 **not authorization to merge that ancestry into main** or relabel its application
 as a clean handoff. No main merge, release, vendor update or new executable is

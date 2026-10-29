@@ -213,9 +213,15 @@ The CPU candidate's later MA red-screen stop remains OPEN outside that scope.
 The [local QA/handoff](reports/m139_demo_media_handoff.md) covers nine distribution
 payload maps,34 bounded demo draws, BASIC computation/progress, four native boot
 contracts and a clean static MinGW audit under their original identities and
-limits. Both accepted histories are being reconciled with current M141 code;
-no stale branch replaces current main, no new milestone is silently assigned,
-and no full-demo, physical-timing or broader Windows coverage is inferred.
+limits. Both accepted histories are integrated with preserved M141 code by
+[non-fast-forward merge a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c).
+The merged native profile passes154 CTests/8 SKIP/0 FAIL,34 new demo draw
+contracts, BASIC computation/progress, four boot contracts and MA H=1/result16.
+TSPSPR rebuilds byte-identically; unchanged earlier media-generation inputs
+retain their digest-bound results. No stale branch replaces current main,
+no new milestone is silently assigned, and no full-demo, physical-timing or
+broader Windows coverage is inferred. See the acceptance supplement for the
+new clean static MinGW handoff and retained evidence.
 
 Planned series (ADR-0016; rows are added when each task file exists;
 hardware model and milestone table in

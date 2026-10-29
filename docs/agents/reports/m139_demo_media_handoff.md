@@ -23,6 +23,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M139 — local demo/media regression and clean MinGW handoff
 
+Current integrated handoff: see the [accepted main merge and new MinGW build](m139_cpu_role_acceptance.md#new-clean-static-mingw-handoff).
+The584bfcbf build and its original evidence below retain their own identity.
+
 ## Evaluated source and scope
 
 Evaluated application/media source:

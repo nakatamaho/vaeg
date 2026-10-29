@@ -98,3 +98,74 @@ Retain user-supplied inputs, remote branches, existing handoffs, shared caches,
 M140-dependent workers/master programs and evidence for the open MA defect.
 Do not delete another milestone's assets to satisfy this cleanup. M142 A–F are
 assigned follow-up work, not implementation or acceptance in this session.
+
+## Completed integration and local revalidation
+
+Accepted-record commit:
+[0eb5b0d0](https://github.com/nakatamaho/vaeg/commit/0eb5b0d00ff0b89661c9611501809136f2259c93).
+The actual non-fast-forward main merge is
+[a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c),
+with parents c598d661 (current M141 main) and0eb5b0d0 (accepted CPU/FDC history).
+The separately accepted reverse-screen task and original roadmap row remain
+intact; a historical-ID note links this additional CPU task instead of replacing
+that milestone. The conflict resolution keeps both correctness-ledger histories.
+M141's TSP/TVRAM, sprite sources/image, state UI/load-state and UTF-8 build fix
+are byte-identical at the merge in an explicit23-path preservation manifest.
+The shared pccore/selftest edits are additive; no accepted M141 code is reverted.
+
+A new native worker built from the clean merged commit gives:
+
+- **CTest154 PASS /8 SKIP /0 FAIL**,162 total,101.20 seconds. Skips remain
+  explicitly unrun: hardware encoder probe, optional SST corpus, private BASIC
+  boot binding and five upstream xz shell tests. They are not passed by this gate.
+- **34/34 new demo draw contracts** on the two OS images, plus unmodified
+  MANDEL source-point matches and6-to12 red-prefix-row progress.
+- **Four new native boot contracts**: utility FDD, each initialized standalone
+  SASI image on its configured model, and self-booting SGP menu.
+- **MA identification PASS** again: the guest exports H=1 and stores16, with
+  its input disk unchanged. Its later screenshot is red; complete MA drawing
+  remains outside the acceptance and the known defect remains OPEN.
+- Six content profiles /25 exact-code single-mutation negatives; encoding,
+  LF/case/Markdown,49 strict milestone checks, audit and Git whitespace checks
+  pass. The full C/C++ formatter still FAILS with659 diagnostics in29 files:
+  every diagnostic maps to the existing c598d661 baseline, **zero new findings**.
+  Unrelated main formatting is not silently fixed or claimed passing.
+
+The old media-generation inputs are byte-identical under an explicitly closed
+set of demo/builder prefixes, so their image/command/hash evidence is retained,
+not expensively regenerated for unchanged sources. Newly inherited TSPSPR is
+rebuilt and its7338-byte payload exactly equals the committed distribution.
+New guest executions use the merged worker rather than relabeling the old
+worker's captures. Runtime/worker/commands/corpus/contract/output digests and
+raw private evidence stay in task scratch outside Git and hosted CI.
+
+The execution target remains **macOS SDL dummy guest content**, not physical
+GPU/Cocoa presenter/Windows execution. Previous firmware qualification and
+initialized-backup limits remain unchanged. No hosted CI is used for iteration.
+
+## New clean static MinGW handoff
+
+```sh
+tools/release/build-mingw-static-container.sh \
+  --commit a9b1d6c02fdbcec5781565a626a0bffa939bf01c --recording \
+  --shader-sdk "$AUDITED_WINDOWS_SHADER_SDK"
+```
+
+Exit0 on the dedicated Colima daemon, pinned Ubuntu24.04 image. The clean clone
+and fresh application objects include **both** the accepted CPU-role work and
+current M141 TSP/state changes, unlike the older584bfcbf handoff. Only the
+reviewed shader dependency SDK is reused. Recording ON, local bundled H.264/AAC
+OFF; static FFmpeg registration audit accepts FFV1/PCM only. Embedded source
+identity, Windows-system-DLL-only import audit and output/build-artifact equality
+all pass. This is compile/link/audit, not a Windows runtime or presenter receipt.
+
+- Executable: `../vaeg-mingw-a9b1d6c0/output/vaeg.exe`.
+- SHA-256: `cd5013ebf83c68335a25b65ad910bcbf04044308d7404c9018973fb94dbda115`.
+- Size:59263609 bytes.
+- Report: `../vaeg-mingw-a9b1d6c0/output/BUILD-REPORT.md`, with imports,
+  toolchain/encoder audit logs, source/relinking material and notices retained.
+
+Absolute paths are supplied to the maintainer separately. Documentation-only
+closure commits do not relabel this executable as their own build. The older
+handoff remains available for identity comparison. No release tag or published
+package is changed.

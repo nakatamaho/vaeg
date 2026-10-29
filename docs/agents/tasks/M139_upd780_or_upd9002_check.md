@@ -37,11 +37,14 @@ ZEXALL, hardware harness, instruction-difference/upstream work and speed
 measurements to M140. Their inherited software evidence is preserved separately;
 M139 no longer owns that work. That reassignment alone did not accept either
 gate or change its CPU code; the subsequent scoped acceptances are separate.
-Branch: `topic/m139-upd780-or-upd9002-check`.
+Historical implementation branch: `topic/m139-upd780-or-upd9002-check`.
+Integrated with preserved M141 code by
+[merge a9b1d6c0](https://github.com/nakatamaho/vaeg/commit/a9b1d6c02fdbcec5781565a626a0bffa939bf01c);
+new merged-worker validation is in the acceptance supplement.
 Investigation base: `5d4dafffd4e1fe07422f940a6e51dea09b677ab5`.
 Implementation source: [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
-The development worker was built from the implementation working tree before
-that commit; its embedded base identity is not relabeled as a clean build.
+The original development worker was built from the implementation working tree
+before that commit; its embedded base identity is not relabeled as a clean build.
 
 ## Implementation authorization
 
