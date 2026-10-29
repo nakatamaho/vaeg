@@ -324,7 +324,7 @@ static UINT waitcnt;
 static UINT framemax = 1;
 
 static void usage(const char *progname) {
-	printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
+	printf("88VA Eternal Grafx %s\n", VAEGREL_DISPLAY);
 	printf("Usage: %s [options]\n", progname);
 	printf("Machine and sound (session only):\n");
 	printf("\t--model va|va2\n");
@@ -2103,7 +2103,7 @@ int main(int argc, char **argv) {
 		return (SUCCESS);
 	}
 	if (options.version) {
-		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
+		printf("88VA Eternal Grafx %s\n", VAEGREL_DISPLAY);
 		return (SUCCESS);
 	}
 	{

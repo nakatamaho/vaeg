@@ -255,6 +255,15 @@ def main():
             "MACPORTS_BUILD_IDENTITY", "source identity must be embedded")
     shutil.copy2(binary, out / "vaeg.exe")
     shutil.copy2(info, out / info.name)
+    identity_file = source / "build/mingw-macports/generated/release-identity.json"
+    if (source / "cmake/release_identity.cmake").is_file():
+        display = output([sys.executable, source / "tools/release/package-identity.py",
+                          "--identity", identity_file, "--field", "display"], source, env)
+        shutil.copy2(identity_file, out / "release-identity.json")
+    else:
+        release = next(line.split('"')[1] for line in info.read_text().splitlines()
+                       if line.startswith("#define VAEG_BUILD_RELEASE "))
+        display = "Rel." + release + " (legacy milestone metadata unavailable)"
     shutil.copy2(notices, out / "third-party-notices.txt")
     shutil.copy2(sdk / "windows-audit/static-build.json", out / "shader-sdk.json")
     imports = output(["x86_64-w64-mingw32-objdump", "-p", binary], source, env)
@@ -263,12 +272,13 @@ def main():
     versions = {tool: output([tool, "--version"], source, env).splitlines()[0]
                 for tool in ("x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-g++",
                              "x86_64-w64-mingw32-ld", "cmake", "ninja", "rustc")}
-    report = {"commit": commit, "platform": platform.platform(), "tools": versions,
+    report = {"commit": commit, "display": display, "platform": platform.platform(), "tools": versions,
               "binary_sha256": digest(binary), "size": binary.stat().st_size,
               "recording": True, "local_mp4_encoders": False, "sdk": str(sdk)}
     (out / "build.json").write_text(json.dumps(report, indent=2) + "\n")
     (out / "BUILD-REPORT.md").write_text(
-        "# MacPorts static MinGW build\n\n- Source: `" + commit + "` (new clean clone).\n"
+        "# MacPorts static MinGW build\n\n- Display: `" + display + "`\n"
+        "- Source: `" + commit + "` (new clean clone).\n"
         "- No container, Colima, application-object reuse or system-port changes.\n"
         "- Static SDL2, archive/zlib/xz, pinned librashader/Rust and minimal FFmpeg 8.1.2.\n"
         "- Recording ON; native Windows Media Foundation MP4; bundled encoders OFF.\n"

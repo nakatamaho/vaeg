@@ -6214,7 +6214,7 @@ static void draw_about_dialog(void) {
 			ImGui::TableSetupColumn("buttons", ImGuiTableColumnFlags_WidthFixed, 88.0f);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text("88VA Eternal Grafx  %s", VAEGREL_CORE);
+			ImGui::Text("88VA Eternal Grafx  %s", VAEGREL_DISPLAY);
 			ImGui::TableNextColumn();
 			close_about = ImGui::Button("OK", ImVec2(-1.0f, 0.0f));
 			ImGui::TableNextRow();

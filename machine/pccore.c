@@ -50,7 +50,7 @@
 #include "subsystemmx.h"
 #include "va91.h"
 
-const OEMCHAR np2version[] = OEMTEXT(VAEGREL_CORE);
+const OEMCHAR np2version[] = OEMTEXT(VAEGREL_DISPLAY);
 
 #define PCBASEMULTIPLE PCCORE_STANDARD_MULTIPLE
 

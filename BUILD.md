@@ -185,6 +185,26 @@ cmake --preset macos-asan
 cmake --build --preset macos-asan
 ```
 
+## Release display and archive identity
+
+`cmake/release_identity.cmake` explicitly declares the source milestone; the
+current development series is `M142-dev`. CMake generates a shared header and
+`generated/release-identity.json`. The window title, About, `--version` and
+clean-build reports show, for example, `Rel.20261029 (M142-dev, 2e662105)`.
+The date remains the release number; the actual source SHA is not inferred
+from a branch name or a milestone commit message.
+
+After explicit gate acceptance, release preparation changes the declaration
+to the accepted milestone, for example `M141`. The formal display is then
+`Rel.20261029 (M141)` and the Windows archive is
+`vaeg-20261029-m141-windows-x64.zip`; the executable inside remains `vaeg.exe`.
+Development archive stems additionally contain the short SHA. The release
+workflow validates this generated identity and rejects `-dev` before expensive
+builds/publication. Date-only `rel-*` tags and `CHANGES.<date>.md` remain as
+before. Published historical releases/tags/assets are not renamed or replaced.
+The fixed-size legacy operation-record version remains date-only; this is a
+presentation/packaging change, not a state-format version change.
+
 ## Runtime State And Config
 
 `vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are normally

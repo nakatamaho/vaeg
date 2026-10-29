@@ -130,7 +130,16 @@ if(VAEG_BUILD_TAG_RESULT EQUAL 0 AND VAEG_BUILD_TAG_OUTPUT)
         endif()
     endforeach()
 endif()
-message(STATUS "vaeg release name: Rel.${VAEG_BUILD_RELEASE}")
+include(cmake/release_identity.cmake)
+vaeg_release_identity("${VAEG_BUILD_RELEASE}" "${VAEG_SOURCE_MILESTONE}" "${VAEG_BUILD_COMMIT}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/release-identity.json"
+    "{\n  \"release\": \"${VAEG_BUILD_RELEASE}\",\n"
+    "  \"milestone\": \"${VAEG_BUILD_MILESTONE}\",\n"
+    "  \"commit\": \"${VAEG_BUILD_COMMIT}\",\n"
+    "  \"short_commit\": \"${VAEG_BUILD_SHORT_COMMIT}\",\n"
+    "  \"display\": \"${VAEG_BUILD_DISPLAY}\",\n"
+    "  \"package_stem\": \"${VAEG_PACKAGE_STEM}\"\n}\n")
+message(STATUS "vaeg release name: ${VAEG_BUILD_DISPLAY}")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vaeg_build_info.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"
@@ -1036,6 +1045,10 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_mingw_macports_sdk
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_mingw_macports.py")
+    add_test(NAME vaeg_release_identity
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_release_identity.py")
     add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)
     target_include_directories(vaeg_recording_mp4_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
     target_compile_features(vaeg_recording_mp4_test PRIVATE cxx_std_17)
