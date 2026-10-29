@@ -1049,6 +1049,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_mingw_macports.py")
     add_test(NAME vaeg_release_identity
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_release_identity.py")
+    add_test(NAME vaeg_tvram_vb_builder
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/tvram_vb/test_build.py")
     add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)
     target_include_directories(vaeg_recording_mp4_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
     target_compile_features(vaeg_recording_mp4_test PRIVATE cxx_std_17)
