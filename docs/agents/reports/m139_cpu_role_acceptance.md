@@ -169,3 +169,19 @@ Absolute paths are supplied to the maintainer separately. Documentation-only
 closure commits do not relabel this executable as their own build. The older
 handoff remains available for identity comparison. No release tag or published
 package is changed.
+
+## Post-merge cleanup
+
+After the gate record, merge and roadmap/integration record were pushed, the
+clean temporary merge worktree and local
+`topic/m139-upd780-or-upd9002-check` branch were removed, after proving their
+commits are contained in origin/main. The evaluated source is retained in a
+frozen standalone archive; the former source path is now only an alias to it,
+not a registered worktree, so recorded build/test commands remain resolvable.
+
+Both requested MinGW handoffs and their reports remain available. M139 scratch,
+hardware masters and original workers are retained because accepted M140
+receipts/assembler/program identities and the open MA-stop investigation depend
+on them. The M140 local branch and all remote branches are kept. No private
+input, shared download cache, supplied media/photo or other milestone's assets
+are removed. No release or M142 implementation occurs as part of this closure.
