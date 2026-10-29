@@ -133,6 +133,12 @@ static int m69_check_exhaustive(void) {
 	return (0);
 }
 
+/* M141: IBF stays set for a while after each byte written (TSPSPR's SPRON
+ * timing, issue #67); the composition is read after it. */
+static void m69_past_ibf(void) {
+	CPU_REMCLOCK -= 4000;
+}
+
 static int m69_check_busy_lifecycle(void) {
 	unsigned int i;
 	REG8 actual;
@@ -142,6 +148,7 @@ static int m69_check_busy_lifecycle(void) {
 	m69_prepare_io();
 	tsp.vsync = 0;
 	iocore_out8(M69_PORT_STATUS, M69_CMD_SYNC);
+	m69_past_ibf();
 	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != M69_STATUS_BUSY) {
 		fprintf(stderr, "idp-m69-status: busy-vb0 expected=%02x actual=%02x\n", M69_STATUS_BUSY,
@@ -151,6 +158,7 @@ static int m69_check_busy_lifecycle(void) {
 	for (i = 0; i < M69_SYNC_PARAM_COUNT; i++) {
 		iocore_out8(M69_PORT_PARAMETER, 0);
 	}
+	m69_past_ibf();
 	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != 0) {
 		fprintf(stderr, "idp-m69-status: busy-clear-vb0 expected=00 actual=%02x\n", actual);
@@ -160,6 +168,7 @@ static int m69_check_busy_lifecycle(void) {
 	m69_prepare_io();
 	tsp.vsync = M69_VSYNC_ACTIVE;
 	iocore_out8(M69_PORT_STATUS, M69_CMD_SYNC);
+	m69_past_ibf();
 	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != (M69_STATUS_BUSY | M69_STATUS_VB)) {
 		fprintf(stderr, "idp-m69-status: busy-vb1 expected=%02x actual=%02x\n",
@@ -169,6 +178,7 @@ static int m69_check_busy_lifecycle(void) {
 	for (i = 0; i < M69_SYNC_PARAM_COUNT; i++) {
 		iocore_out8(M69_PORT_PARAMETER, 0);
 	}
+	m69_past_ibf();
 	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != M69_STATUS_VB) {
 		fprintf(stderr, "idp-m69-status: busy-clear-vb1 expected=%02x actual=%02x\n", M69_STATUS_VB,

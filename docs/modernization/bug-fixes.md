@@ -1664,6 +1664,40 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M141 — TSP sprites shown without DSPON, with no line limit; TVRAM without waits
+
+- **Symptom/scope:** a program that sent SYNC and SPRON but no DSPON showed
+  its sprites in vaeg and none on the PC-88VA and PC-88VA2; vaeg drew every
+  sprite of a raster line, where the machines drop those beyond about 300
+  bytes of image; SPROV returned nothing (the program read FFh); CPU word
+  accesses to TVRAM ran at main RAM's speed, about 2.5 times as fast as on
+  the machines; the status's VB on the VA lasted a quarter of the
+  machine's; a SPRON took 0.7 times as long. A port using the hardware
+  sprites, tuned in vaeg, would have shown nothing and run slower on the
+  machines (issue #67).
+- **Demonstrated cause:** TSPSPR (demos/tsp-sprites) photographed on both
+  machines: SYNC stops the sprites until DSPON; a line's limit counts image
+  bytes plus about 4 a sprite (same bytes, same count, monochrome or 16
+  colours); TVRAM words cost about 13 (VA) / 12 (VA2) clocks more and bytes
+  nothing; the VA's VB is about 23 rasters whatever the SYNC; vaeg had no
+  model of any of these, nor SC, SPROV's result, OBF or IBF.
+- **Correction:** `makesprva.c` shows sprites only while `dspon`, draws a
+  line's sprites from the front while they fit 300 bytes (4 a sprite), and
+  reports collisions and HSPN sprite-over to SC and SPROV; `tsp.c` returns
+  SPROV through 146h with OBF, holds IBF after each byte (814 / 884 clocks)
+  and extends the VA's VB to 23 rasters; `memoryva.c` charges TVRAM word
+  accesses. The test `idp_m69_status_composition` reads the status after
+  the IBF hold.
+- **Verification:** TSPSPR in vaeg divided by the photographs: TVRAM word
+  rows 0.97-1.01 (VA) and 1.01-1.03 (VA2), VB rows 0.99-1.06, SPRON 1.00,
+  sprites a line within one of the photographs for all six kinds; selftest
+  `VA sprite line` (16th sprite of 16 bytes dropped, none without DSPON,
+  a collision reported); ctest 120/120. Open: the VA2's TVRAM writes in VB
+  (row Q 1.45).
+- **Milestone/task/commit:** M141,
+  [M141 task](../agents/tasks/M141_tsp_sprite_timing.md),
+  [442364c1](https://github.com/nakatamaho/vaeg/commit/442364c162ae1a6f520c51d9896c78a18eb76650).
+
 ### M139 — PC-8801 models ignored the whole-screen reverse with monochrome graphics
 
 - **Symptom/scope:** on the PC-8801 models from `extra/`, the

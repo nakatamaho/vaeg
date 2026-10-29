@@ -6352,7 +6352,10 @@ static std::string state_thumbnail_path(const std::string &state) {
 	return fs::u8path(state).replace_extension(".png").u8string();
 }
 
-/* "MM-DD HH:MM" of a file, or an empty string when it does not exist. */
+/* "MM-DD HH:MM:SS" of a file, or an empty string when it does not exist.
+ * The file clock's offset from the system clock is taken once: taken at
+ * each call (each frame), it moved by the calls' time apart and a time
+ * near a second's edge flickered between two seconds. */
 static std::string state_file_time(const std::string &path) {
 	std::error_code ec;
 	const fs::path file = fs::u8path(path);
@@ -6364,8 +6367,14 @@ static std::string state_file_time(const std::string &path) {
 	if (ec) {
 		return std::string();
 	}
-	const auto system = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-	    written - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+	static const auto offset =
+	    std::chrono::duration_cast<std::chrono::system_clock::duration>(
+	        std::chrono::system_clock::now().time_since_epoch()) -
+	    std::chrono::duration_cast<std::chrono::system_clock::duration>(
+	        fs::file_time_type::clock::now().time_since_epoch());
+	const std::chrono::system_clock::time_point system(
+	    std::chrono::duration_cast<std::chrono::system_clock::duration>(written.time_since_epoch()) +
+	    offset);
 	const std::time_t seconds = std::chrono::system_clock::to_time_t(system);
 	std::tm local{};
 #if defined(_WIN32)
@@ -6374,8 +6383,8 @@ static std::string state_file_time(const std::string &path) {
 	localtime_r(&seconds, &local);
 #endif
 	char text[32];
-	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d", local.tm_mon + 1, local.tm_mday,
-	              local.tm_hour, local.tm_min);
+	std::snprintf(text, sizeof(text), "%02d-%02d %02d:%02d:%02d", local.tm_mon + 1,
+	              local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
 	return text;
 }
 

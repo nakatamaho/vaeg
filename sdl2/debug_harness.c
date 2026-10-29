@@ -31,6 +31,7 @@
 #include "gvramva.h"
 #include "kbdpaste.h"
 #include "sdlapi.h"
+#include "statsave.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -61,6 +62,7 @@ typedef enum {
 	DEBUG_ACTION_INPUT_LINE,
 	DEBUG_ACTION_ENTER,
 	DEBUG_ACTION_MOUNT_FDD,
+	DEBUG_ACTION_LOAD_STATE,
 	DEBUG_ACTION_WAIT_PC,
 	DEBUG_ACTION_TRACE,
 	DEBUG_ACTION_CAPTURE,
@@ -404,6 +406,18 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		    (debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
 			goto invalid;
 		}
+		*event_context = FALSE;
+		return SUCCESS;
+	}
+	if (!strcmp(command, "load-state")) {
+		/* M141: a state saved in the GUI (quick save), to reproduce a scene */
+		first = debug_next_token(&cursor);
+		if ((first == NULL) || (debug_next_token(&cursor) != NULL) ||
+		    ((resource = debug_find_resource(first)) < 0) ||
+		    (debug_add_action(DEBUG_ACTION_LOAD_STATE, &action) != SUCCESS)) {
+			goto invalid;
+		}
+		action->value = (UINT32)resource;
 		*event_context = FALSE;
 		return SUCCESS;
 	}
@@ -751,6 +765,7 @@ BOOL debug_harness_active(void) {
 static BOOL debug_execute_ready(UINT32 frames) {
 	DEBUG_ACTION *action;
 	DEBUG_RESOURCE *resource;
+	int loaded;
 	char *text;
 	size_t length;
 
@@ -795,6 +810,30 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			resource = &harness.resources[action->value];
 			diskdrv_setfdd((REG8)action->argument, resource->none ? NULL : resource->path, 0);
 			debug_log("mount-fdd", frames, action->id, action->argument + 1);
+			harness.action_index++;
+			break;
+		case DEBUG_ACTION_LOAD_STATE:
+			resource = &harness.resources[action->value];
+			if (!resource->none) {
+				char why[1024];
+
+				why[0] = '\0';
+				(void)statsave_check(resource->path, why, sizeof(why));
+				if (why[0] != '\0') {
+					fprintf(stderr, "load-state: %s\n", why);
+				}
+			}
+			/* (as the GUI: a missing or changed disk only noted) */
+			loaded = resource->none ? STATFLAG_FAILURE : statsave_load(resource->path);
+			if (!resource->none && ((loaded & ~STATFLAG_DISKCHG) != STATFLAG_SUCCESS)) {
+				/* (as the GUI offers: another host's HOSTFAT folder) */
+				loaded = statsave_load_hostfat_override(resource->path);
+			}
+			if ((loaded & ~STATFLAG_DISKCHG) != STATFLAG_SUCCESS) {
+				fprintf(stderr, "Error: load-state failed (%d)\n", loaded);
+				return FAILURE;
+			}
+			debug_log("load-state", frames, NULL, 0);
 			harness.action_index++;
 			break;
 		case DEBUG_ACTION_WAIT_PC:
@@ -879,9 +918,11 @@ BOOL debug_harness_selftest(void) {
 	static const char valid[] = "debug-script 1\n"
 	                            "limit-frame 1000\n"
 	                            "resource boot local-only.d88\n"
+	                            "resource state local-only.sav\n"
 	                            "counter dispatch e000:002a\n"
 	                            "wait-frame 120\n"
 	                            "input-line basic\n"
+	                            "load-state state\n"
 	                            "mount-fdd 1 boot\n"
 	                            "wait-pc e000:0180 2\n"
 	                            "trace service 16\n"
@@ -903,9 +944,10 @@ BOOL debug_harness_selftest(void) {
 		return FAILURE;
 	}
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
-	         (harness.resource_count == 1) && (harness.counter_count == 1) &&
-	         (harness.action_count == 7) && (harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 15);
+	         (harness.resource_count == 2) && (harness.counter_count == 1) &&
+	         (harness.action_count == 8) && (harness.actions[2].type == DEBUG_ACTION_LOAD_STATE) &&
+	         (harness.actions[4].type == DEBUG_ACTION_WAIT_PC) &&
+	         (harness.actions[5].type == DEBUG_ACTION_TRACE) && (harness.actions[6].argument == 15);
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);

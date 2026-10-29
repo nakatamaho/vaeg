@@ -51,7 +51,10 @@ typedef struct {
 	UINT8 vsync;      // bit5: 1.VSYNC期間
 	UINT8 sysp4vsync; // bit5: 1.システムポート4 VSYNC期間
 
-	BYTE dmy1[64];
+	/* M141, in the reserved bytes (the state's size unchanged): */
+	UINT8 sprov;  // SPROV's byte: bit6 sprite-over, bit5 collision, bits4-0 the first sprite over
+	UINT8 result; // the byte port 146h returns while OBF is set
+	BYTE dmy1[62];
 
 	// paramfunc_generic 用
 
@@ -91,6 +94,7 @@ void tsp_reset(void);
 void tsp_bind(void);
 
 void tsp_updateclock(void);
+void tsp_display_started(void);
 
 extern _TSP tsp;
 extern BOOL tsp_dirty;

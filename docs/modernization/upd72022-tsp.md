@@ -972,6 +972,50 @@ monochrome grouping as per sprite, but does not unambiguously resolve a sprite
 whose `FG` and opaque `BC=1` background fall in different groups. Using the
 foreground high bit is only a hypothesis.
 
+### 13.5 Measured on the PC-88VA and PC-88VA2 (M141)
+
+`[MEAS]` `demos/tsp-sprites` (TSPSPR), photographed on both machines on
+2026-10-27 (issue #67), on two graphics screens at 15.98 kHz and 224 lines:
+
+- After SYNC, SPRON alone shows no sprite: the sprites, as the text, need
+  DSPON. vaeg shows sprites only while `dspon` is set (SYNC and DSPOFF
+  clear it).
+- Sprite X is twice the 320-dot graphics dot and Y the line, with no
+  offset. The TSP clips all four edges itself; at the top the descriptor
+  needs no address change (the manual's rule of section 13.3 drew the
+  wrong rows).
+- Port 0106h places the sprites between or around the graphics screens as
+  written.
+- A raster line takes about 300 bytes of image, counting 4 bytes a sprite
+  besides its `4 x (XSIZE + 1)`: N sprites side by side showed about 24 of
+  8 bytes a line, 15 of 16, 8 of 32 and all 31 of 4 (monochrome), the same
+  on both machines and for monochrome and 16-colour images of the same
+  bytes. The line's later sprites are not drawn; the rest of the line is
+  intact. SPROV gave 20h (collision) with overlapping sprites and no
+  sprite-over with HSPN 31. vaeg draws a line's sprites from sprite 0 while
+  they fit (`SPRVA_LINE_BYTES` 300, `SPRVA_LINE_COST` 4).
+- The status's VB lasts 8.6 % of a frame on the PC-88VA, with the
+  224-line and with the BIOS's 200-line SYNC alike (about 23 rasters), and
+  2.0 % on the PC-88VA2 with the 224-line SYNC (its vertical sync).
+- A SPRON, each byte awaited on the status, takes about 3.4k clocks on the
+  VA and 3.7k on the VA2: vaeg holds IBF for 814 (VA) and 884 (VA2) clocks
+  after each command or parameter byte.
+
+- A CPU word access to TVRAM costs about 13 clocks (VA) and 12 (VA2) more
+  than one to main RAM: REP STOSW 18.8 and REP MOVSW 24 clocks a word on
+  the VA, whatever the number or kind of sprites shown, the side
+  (character or attribute) or the SYNC; byte loops reading or writing
+  TVRAM run as fast as to main RAM. vaeg charges the word accesses
+  (`memoryva.c`, `TVRAM_WORD_WAIT`). While the CPU wrote TVRAM without a
+  break the VA2 showed sprites flickering (VALT left at 0).
+- Open: on the VA2, 128-byte chunks written to TVRAM only while VB is set
+  came to 2.0 a frame, where its VB length and TVRAM speed give 2.9 (vaeg).
+
+`[MODEL]` Collisions and sprite-over (more than HSPN + 1 sprites on a
+line) of a frame set SC and SPROV's byte at the next frame's start; SPROV
+returns the byte through 146h with OBF and clears SC. Whether HSPN also
+limits the display is not measured.
+
 ## 14. Board-level composition
 
 These controls are outside the generic μPD72022 command registers.
@@ -1295,8 +1339,8 @@ already uses the intended grouping:
 
 The remaining gaps are:
 
-1. `IBF`, `OBF`, `ER`, `EMEN`, `SC`, command-result reads at `0146h`, and
-   output streaming are absent.
+1. `ER`, `EMEN` and output streaming are absent; `IBF` is a fixed hold
+   after each byte, `OBF` and 146h serve SPROV only (M141).
 2. `DSPDEF.PITCH` is commented out, and only the low 16 bits of signed 19-bit
    `ATROFF` are retained.
 3. Blink uses a heuristic shift rather than a verified hardware correction.
@@ -1304,8 +1348,9 @@ The remaining gaps are:
    as TODOs; mode 3 cannot yet retain independent color and shape state.
 5. Screen rendering does not enforce the complete `VSA/VH` virtual-buffer
    contract.
-6. Sprite rendering lacks `HSPN` overflow, collision groups, `SC/SPROV`, and
-   complete clipping.
+6. Sprite rendering has the measured line limit, collisions and HSPN
+   sprite-over (M141); the partly drawn sprite at a line's limit seen on
+   the machines is not modelled.
 7. Port `0148h` forces bit 0 to one and only warns on the path labeled 256KiB
    TVRAM mode, so VA2/VA3 is not yet a complete TSP display profile.
 

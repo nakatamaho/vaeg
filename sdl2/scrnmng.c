@@ -3787,26 +3787,38 @@ BOOL scrnmng_save_guest_frame(const char *path) {
  * M110: a thumbnail of the guest frame (no host effects) for a saved state,
  * `width` pixels wide with the frame's aspect, written as PNG.
  */
+/* The state's thumbnail, WIDTH dots wide; turned as the screen is shown
+ * (M141: a turned screen's quick saves had sideways thumbnails). */
 BOOL scrnmng_save_guest_thumbnail(const char *path, int width) {
 	SDL_Surface *source;
 	SDL_Surface *full;
 	SDL_Surface *thumb;
 	SDL_Rect rect;
 	BOOL result = FAILURE;
+	int w;
+	int h;
 
 	if ((path == NULL) || (path[0] == '\0') || (scrnmng.shadow == NULL) || (width <= 0) ||
 	    (scrnmng.width <= 0) || (scrnmng.height <= 0)) {
 		return (FAILURE);
 	}
-	source = SDL_CreateRGBSurfaceWithFormatFrom(scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
-	                                            scrnmng.width, scrnmng.height, 16,
-	                                            scrnmng.shadow_pitch, SDL_PIXELFORMAT_RGB565);
-	full = SDL_CreateRGBSurfaceWithFormat(0, scrnmng.width, scrnmng.height, 32,
-	                                      SDL_PIXELFORMAT_ARGB8888);
+	if (scrnmng.rotation == VAEG_ROTATE_RIGHT) {
+		w = scrnmng.height;
+		h = scrnmng.width;
+		source = SDL_CreateRGBSurfaceWithFormatFrom((void *)scrnmng_turn_shadow(), w, h, 16, w * 2,
+		                                            SDL_PIXELFORMAT_RGB565);
+	} else {
+		w = scrnmng.width;
+		h = scrnmng.height;
+		source = SDL_CreateRGBSurfaceWithFormatFrom(
+		    scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2), w, h, 16, scrnmng.shadow_pitch,
+		    SDL_PIXELFORMAT_RGB565);
+	}
+	full = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
 	rect.x = 0;
 	rect.y = 0;
 	rect.w = width;
-	rect.h = (scrnmng.height * width + scrnmng.width / 2) / scrnmng.width;
+	rect.h = (h * width + w / 2) / w;
 	if (rect.h <= 0) {
 		rect.h = 1;
 	}
@@ -4164,6 +4176,32 @@ BOOL scrnmng_screenshot_rotation_selftest(const char *directory) {
 		}
 		free(baseline);
 		baseline = NULL;
+	}
+	/* M141: the state thumbnail turns with the screen (1:1, so exact). */
+	for (turn = 0; turn < 2; ++turn) {
+		char path[MAX_PATH];
+		const int n = snprintf(path, sizeof(path), "%s/thumbnail-%d.png", directory, turn);
+		if (n < 0 || (size_t)n >= sizeof(path))
+			goto cleanup;
+		scrnmng.rotation = turn ? VAEG_ROTATE_RIGHT : VAEG_ROTATE_NONE;
+		if (scrnmng_save_guest_thumbnail(path, turn ? h : w) != SUCCESS ||
+		    scrnmng_load_stored_png(path, &width, &height, &pixels) != SUCCESS ||
+		    width != (turn ? h : w) || height != (turn ? w : h))
+			goto cleanup;
+		if (turn == 0) {
+			baseline = pixels;
+			pixels = NULL;
+			continue;
+		}
+		for (y = 0; y < h; ++y) {
+			for (x = 0; x < w; ++x) {
+				if (memcmp(pixels + ((size_t)x * width + (h - 1 - y)) * 4,
+				           baseline + ((size_t)y * w + x) * 4, 4) != 0)
+					goto cleanup;
+			}
+		}
+		free(pixels);
+		pixels = NULL;
 	}
 	ok = SUCCESS;
 cleanup:

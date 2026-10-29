@@ -755,6 +755,7 @@ void screendispva(NEVENTITEM item) {
 	/*	Moved to sysp4vsyncstart.
 	screendispflag = 0;
 */
+	tsp_display_started();
 	drawscreenva(TRUE);
 	/*
 	pi = &pic.pi[0];

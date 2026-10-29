@@ -19,6 +19,7 @@ enum {
 	CMD_CURDEF = 0x15,
 	CMD_ACTSCR = 0x16,
 	CMD_CURS = 0x1e,
+	CMD_SPROV = 0x81,
 	CMD_SPRON = 0x82,
 	CMD_SPROFF = 0x83,
 	CMD_SPRDEF = 0x84,
@@ -35,7 +36,10 @@ enum {
 	CMD_TVWRITE = 0x97,
 
 	// TSP status bits.
+	STATUS_IBF = 0x01,
+	STATUS_OBF = 0x02,
 	STATUS_BUSY = 0x04,
+	STATUS_SC = 0x20,
 	STATUS_VB = 0x40,
 
 	// paramfunc
@@ -409,16 +413,78 @@ static void paramfunc_generic(REG8 dat) {
 // ---- I/O
 
 /*
+ * M141, measured with demos/tsp-sprites (TSPSPR, issue #67):
+ *
+ * - IBF stays set for TSP_IBF_CLOCKS after a command or parameter byte is
+ *   written (a SPRON, four bytes each awaited on the status, took about
+ *   3.4k clocks on the PC-88VA and 3.7k on the PC-88VA2, 2.6k in vaeg
+ *   without it);
+ * - the status's VB lasts TSP_VA_VB_LINES rasters from the vertical sync's
+ *   start on the PC-88VA whatever the SYNC (8.6 % of a frame with a
+ *   224-line and with the BIOS's 200-line SYNC); on the PC-88VA2 it is the
+ *   TSP's vertical sync, as vaeg had it (2.0 % with the 224-line SYNC).
+ */
+#define TSP_IBF_CLOCKS_VA 814
+#define TSP_IBF_CLOCKS_VA2 884
+#define TSP_VA_VB_LINES 23
+
+static UINT32 ibf_until;
+static UINT32 vb_until;
+static BOOL ibf_held;
+static BOOL vb_held;
+
+static UINT32 tsp_now(void) {
+	return (UINT32)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK);
+}
+
+static void tsp_byte_written(void) {
+	ibf_until = tsp_now() + ((pccore.model_va == PCMODEL_VA2) ? TSP_IBF_CLOCKS_VA2 : TSP_IBF_CLOCKS_VA);
+	ibf_held = TRUE;
+}
+
+/* The display period begins (pccore.c, screendispva): on the PC-88VA the
+ * status's VB lasts on to TSP_VA_VB_LINES rasters from the sync's start. */
+void tsp_display_started(void) {
+	UINT32 lines;
+
+	lines = tsp.rasterclock * TSP_VA_VB_LINES;
+	vb_held = FALSE;
+	if ((pccore.model_va != PCMODEL_VA2) && (lines > tsp.vsyncclock)) {
+		vb_until = tsp_now() + (lines - tsp.vsyncclock);
+		vb_held = TRUE;
+	}
+}
+
+/*
 Read the TSP status register.
 */
 static REG8 IOINPCALL tsp_i142(UINT port) {
 	REG8 dat;
+	UINT32 now;
 
 	dat = tsp.status;
-	if (tsp.vsync) {
+	now = tsp_now();
+	if (vb_held && ((SINT32)(vb_until - now) <= 0)) {
+		vb_held = FALSE;
+	}
+	if (ibf_held && ((SINT32)(ibf_until - now) <= 0)) {
+		ibf_held = FALSE;
+	}
+	if (tsp.vsync || vb_held) {
 		dat |= STATUS_VB;
 	}
+	if (ibf_held) {
+		dat |= STATUS_IBF;
+	}
 	return dat;
+}
+
+/*
+Read a result byte (SPROV): OBF cleared.
+*/
+static REG8 IOINPCALL tsp_i146(UINT port) {
+	tsp.status &= ~STATUS_OBF;
+	return tsp.result;
 }
 
 /*
@@ -438,9 +504,21 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 	//tsp.datap = tsp.parambuf;
 	tsp.paramindex = 0;
 	tsp.status |= STATUS_BUSY;
+	tsp.status &= ~STATUS_OBF; /* a new command drops an unread result */
 	tsp_dirty = TRUE;
+	tsp_byte_written();
 
 	switch (dat) {
+	case CMD_SPROV:
+		/* The last frame's sprite-over and collision (makesprva.c); the
+		 * read clears SC. */
+		tsp.recvdatacnt = 0;
+		tsp.paramfunc = PARAMFUNC_NOP;
+		tsp.result = tsp.sprov;
+		tsp.sprov = 0;
+		tsp.status &= ~(STATUS_SC | STATUS_BUSY);
+		tsp.status |= STATUS_OBF;
+		break;
 	case CMD_SYNC:
 		tsp.emul = 0;
 		tsp.recvdatacnt = 14;
@@ -550,6 +628,7 @@ static void IOOUTCALL tsp_o146(UINT port, REG8 dat) {
 	}
 */
 	tsp_dirty = TRUE;
+	tsp_byte_written();
 	//tsp.paramfunc(dat);
 	switch (tsp.paramfunc) {
 	case PARAMFUNC_GENERIC:
@@ -573,6 +652,8 @@ static void IOOUTCALL tsp_o146(UINT port, REG8 dat) {
 // ---- I/F
 
 void tsp_reset(void) {
+	ibf_held = FALSE;
+	vb_held = FALSE;
 	ZeroMemory(&tsp, sizeof(tsp));
 	//tsp.paramfunc = paramfunc_nop;
 	tsp.paramfunc = PARAMFUNC_NOP;
@@ -591,6 +672,7 @@ void tsp_bind(void) {
 	*/
 	iocore_attachinp(0x142, tsp_i142);
 	iocore_attachinp(0x143, tsp_i143);
+	iocore_attachinp(0x146, tsp_i146);
 	iocore_attachout(0x142, tsp_o142);
 	iocore_attachout(0x146, tsp_o146);
 }
