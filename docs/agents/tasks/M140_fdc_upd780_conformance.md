@@ -833,6 +833,45 @@ intake. Private receipts, CLI commands/status, comparison witnesses and final
 evaluation/output identities remain out of tree. G140 remains BLOCKED; no merge,
 release, cleanup or broad silicon/timing acceptance follows from this checkpoint.
 
+## Upstream contribution prepared: explicit uPD780C-1 contract
+
+[English PR body and applicable patch](../reports/m140_upstream_upd780c1_pr.md)
+are prepared against current upstream c6204813558cd515fc100ea97f6a21dbdb5a4905.
+Candidate
+[0a927f456ce9717e5bdf8205f50c7df81dcb435c](https://github.com/nakatamaho/z80/commit/0a927f456ce9717e5bdf8205f50c7df81dcb435c)
+is pushed to `nakatamaho/z80:m140-upd780c1-flags`; **GitHub PR NOT_SUBMITTED**.
+No PR number, merge or upstream acceptance is claimed.
+
+The change appends `FlagProfile::Upd780C1`, preserving enum values/default and
+both existing profiles; it names and tests the confirmed A-only contract.
+It does **not** correct NEC arithmetic (already matching VA2), implement Zilog Q,
+solve original-VA discrepancies, alter strict exception policy or update vaeg's
+vendored files. A future Zilog Q change must preserve this separate NEC contract.
+Other NEC instructions/variants/timing are not fully qualified by this profile.
+
+Source review corrected an initial interpretation: default strict DD37 throws
+by documented policy; `Z80_NO_EXCEPTION` already executes ignored prefixes.
+PR63 is closed without merge metadata, but the relevant compatibility decoder
+is present. No duplicate prefix "fix" is proposed. An untouched-source
+compatibility reproducer matches A-only in8/8 cases, while differing from the
+published Zilog-Q prediction in6/8; this is software comparison, not physical
+Zilog reference evidence.
+
+Local upstream C++11 warning-as-error tests pass: strict131072 AF cases +8 CP
+boundaries, compatibility393216+16, lean/callback393216+16. These repeat software
+coverage across configurations, not additional physical inputs. Full upstream
+`make -C test all` exit0, including existing uPD9002/default tests. A passing
+fixture followed by one isolated SCF XY=A→A|F mutation fails with exact code
+`UPD780C1_AF` at AF0008. Patch application to an independent base export passes.
+Only header/API documentation, README, test Makefile and the new BSD-2-Clause
+test are in the four-file upstream commit. Existing MIT/license/copyrights stay
+unchanged. No private asset/capture/log/identity is included.
+
+Source/patch provenance, exact commands/status, initial strict diagnostic,
+passing and negative logs, scope and digests remain in private task evidence.
+VA2 is not held for unresolved VA cases; G140 remains BLOCKED and no vaeg
+merge/release/cleanup, vendor refresh or broad conformance acceptance follows.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.

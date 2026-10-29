@@ -1,0 +1,199 @@
+From 0a927f456ce9717e5bdf8205f50c7df81dcb435c Mon Sep 17 00:00:00 2001
+From: Nakata Maho <maho.nakata@gmail.com>
+Date: Thu, 29 Oct 2026 12:13:19 +0900
+Subject: [PATCH] M140: add an explicit uPD780C-1 flag profile and regression
+ tests
+
+---
+ README.md                      |  10 ++-
+ test/Makefile                  |  10 +++
+ test/test-upd780c1-profile.cpp | 107 +++++++++++++++++++++++++++++++++
+ z80.hpp                        |   7 ++-
+ 4 files changed, 132 insertions(+), 2 deletions(-)
+ create mode 100644 test/test-upd780c1-profile.cpp
+
+diff --git a/README.md b/README.md
+index 914ae19..e2b5292 100644
+--- a/README.md
++++ b/README.md
+@@ -382,7 +382,15 @@ ReturnHandler will be called back immediately **before** a branch by a RET instr
+ 
+ ### Flag profile (NEC uPD9002 Z80 emulation mode)
+ 
+-By default the flags follow the Zilog Z80, including the undocumented bits 5 and 3 (`Z80::FlagProfile::Zilog`).
++By default the flags follow the existing `Z80::FlagProfile::Zilog` implementation. Its SCF/CCF currently copy undocumented bits 5 and 3 from A; it does not yet model the Zilog Q-history distinction.
++
++`Z80::FlagProfile::Upd780C1` explicitly selects the confirmed NEC NMOS uPD780C-1 SCF/CCF baseline: bits 5 and 3 come from A, S/Z/PV are retained, SCF clears H/N and sets C, and CCF clears N, copies old C to H and toggles C. It currently shares the non-Upd9002 implementation without changing either existing profile. It is a separate contract so a future Zilog Q implementation must preserve NEC A-only behavior. Other instructions retain the existing normal implementation; complete NEC variant/timing conformance is not claimed. The original-VA observations are not all explained by this profile.
++
++```cpp
++z80.setFlagProfile(Z80::FlagProfile::Upd780C1);
++```
++
++Published NEC/Zilog distinctions: [Undocumented Flags](https://github.com/hoglet67/Z80Decoder/wiki/Undocumented-Flags/49e542dd40c36ef7367cb5806292764416dc987a). Bounded physical comparisons and their limits: [VA2 baseline and CP/NOP/DD/FD observations](https://github.com/nakatamaho/vaeg/blob/cb050b2607064525748f01a1a356c0dd8ef49b08/docs/agents/reports/m140_fdc_va_observations.md#returned-fdcpref-controls). Software exhaustive regression coverage must not be confused with exhaustive physical coverage. DD/FD cases use the documented `Z80_NO_EXCEPTION` compatibility decoder; strict-build unknown-opcode exceptions are unchanged.
+ 
+ The NEC uPD9002 used in the PC-88VA has a Z80 emulation mode whose flags differ.
+ `Z80::FlagProfile::Upd9002` is a compatibility profile based on
+diff --git a/test/Makefile b/test/Makefile
+index 71eb643..b2ebf06 100644
+--- a/test/Makefile
++++ b/test/Makefile
+@@ -28,6 +28,7 @@ all:
+ 	make test-adc-sbc-16
+ 	make test-add-hl-wz
+ 	make test-flag-profile
++	make test-upd780c1-profile
+ 
+ test-execute:
+ 	clang $(CFLAGS) test-execute.cpp -lstdc++
+@@ -93,6 +94,15 @@ test-add-hl-wz:
+ 	clang $(CFLAGS) test-add-hl-wz.cpp -lstdc++
+ 	./a.out
+ 
++.PHONY: test-upd780c1-profile
++test-upd780c1-profile:
++	clang $(CFLAGS) test-upd780c1-profile.cpp -lstdc++
++	./a.out
++	clang $(CFLAGS) -DZ80_NO_EXCEPTION -fno-exceptions test-upd780c1-profile.cpp -lstdc++
++	./a.out
++	clang $(CFLAGS) -DZ80_NO_EXCEPTION -fno-exceptions -DZ80_NO_FUNCTIONAL -DZ80_DISABLE_DEBUG -DZ80_DISABLE_BREAKPOINT -DZ80_DISABLE_NESTCHECK -DZ80_CALLBACK_PER_INSTRUCTION test-upd780c1-profile.cpp -lstdc++
++	./a.out
++
+ .PHONY: test-undefined
+ test-undefined:
+ 	clang $(CFLAGS) test-undefined.cpp -lstdc++
+diff --git a/test/test-upd780c1-profile.cpp b/test/test-upd780c1-profile.cpp
+new file mode 100644
+index 0000000..69569f9
+--- /dev/null
++++ b/test/test-upd780c1-profile.cpp
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2026 Nakata Maho
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ * 1. Redistributions of source code must retain the above copyright notice,
++ *    this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright notice,
++ *    this list of conditions and the following disclaimer in the documentation
++ *    and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
++ * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++#include "z80.hpp"
++#include <array>
++#include <cstdio>
++#include <cstdlib>
++#include <vector>
++
++struct Bus { std::array<unsigned char,65536> memory{}; };
++static unsigned char Read(void* p,unsigned short a) { return static_cast<Bus*>(p)->memory[a]; }
++static void Write(void* p,unsigned short a,unsigned char v) { static_cast<Bus*>(p)->memory[a]=v; }
++static unsigned char Input(void*,unsigned short) { return 0xff; }
++static void Output(void*,unsigned short,unsigned char) {}
++
++static unsigned short Expected(unsigned af,unsigned op) {
++    unsigned f=af&255u;
++    return static_cast<unsigned short>((af&0xff00u)|(f&0xc4u)|((af>>8)&0x28u)|
++                                      (op==0x37u?1u:(f&1u?0x10u:1u)));
++}
++
++struct Harness {
++    Bus bus;
++    Z80 cpu;
++    Harness():cpu(Read,Write,Input,Output,&bus) {
++        cpu.setFlagProfile(Z80::FlagProfile::Upd780C1);
++        if(cpu.getFlagProfile()!=Z80::FlagProfile::Upd780C1) std::exit(1);
++    }
++    unsigned short Run(const std::vector<unsigned char>& code) {
++        cpu.reg=Z80::Register{};
++        cpu.reg.PC=0x100;
++        cpu.reg.SP=0x7eff;
++        cpu.reg.IX=0x1357;
++        cpu.reg.IY=0x2468;
++        for(std::size_t i=0;i<code.size();++i) bus.memory[0x100u+i]=code[i];
++        const unsigned end=0x100u+static_cast<unsigned>(code.size());
++        for(unsigned guard=0;guard<32&&cpu.reg.PC!=end;++guard) cpu.execute(1);
++        const unsigned short af=static_cast<unsigned short>((cpu.reg.pair.A<<8)|cpu.reg.pair.F);
++        const unsigned short de=static_cast<unsigned short>((cpu.reg.pair.D<<8)|cpu.reg.pair.E);
++        if(cpu.reg.PC!=end||cpu.reg.SP!=0x7eff||cpu.reg.IX!=0x1357||cpu.reg.IY!=0x2468||af!=de) {
++            std::fputs("UPD780C1_EXPORT_OR_FLOW\n",stderr);std::exit(1);
++        }
++        return de;
++    }
++};
++
++int main() {
++    static_assert(static_cast<int>(Z80::FlagProfile::Zilog)==0,"existing enum value");
++    static_assert(static_cast<int>(Z80::FlagProfile::Upd9002)==1,"existing enum value");
++    Harness h;
++    unsigned cases=0;
++    const unsigned prefixes[]={0,0xdd,0xfd};
++#ifdef Z80_NO_EXCEPTION
++    const unsigned prefixCount=3;
++#else
++    // Default strict builds intentionally reject ignored DD/FD opcodes.
++    const unsigned prefixCount=1;
++#endif
++    for(unsigned af=0;af<65536;++af) for(unsigned which=0;which<2;++which) {
++        const unsigned op=which?0x3fu:0x37u;
++        for(unsigned p=0;p<prefixCount;++p) {
++            std::vector<unsigned char> code={0x01,static_cast<unsigned char>(af),static_cast<unsigned char>(af>>8),0xc5,0xf1,static_cast<unsigned char>(prefixes[p]),static_cast<unsigned char>(op),0xf5,0xd1};
++            const unsigned short actual=h.Run(code),expected=Expected(af,op);
++            if(actual!=expected) {
++                std::fprintf(stderr,"UPD780C1_AF af=%04X op=%02X prefix=%02X got=%04X expected=%04X\n",af,op,prefixes[p],actual,expected);return 1;
++            }
++            ++cases;
++        }
++    }
++    unsigned cpCases=0;
++#ifdef Z80_NO_EXCEPTION
++    const unsigned modeCount=4;
++#else
++    const unsigned modeCount=2;
++#endif
++    for(unsigned a: {0u,0x28u}) for(unsigned mode=0;mode<modeCount;++mode) for(unsigned op: {0x37u,0x3fu}) {
++        std::vector<unsigned char> code={0x3e,static_cast<unsigned char>(a),0x06,0x28};
++        if(mode==0) code.push_back(0); // NOP before CP: CP is immediately before IUT.
++        code.push_back(0xb8); // CP B
++        if(mode) code.push_back(mode==1?0:mode==2?0xdd:0xfd);
++        code.push_back(static_cast<unsigned char>(op));code.push_back(0xf5);code.push_back(0xd1);
++        const unsigned short expected=Expected(a?0x286au:0x00bbu,op);
++        if(h.Run(code)!=expected) {std::fputs("UPD780C1_CP_BOUNDARY\n",stderr);return 1;}
++        ++cpCases;
++    }
++    std::printf("UPD780C1_PASS software_AF_cases=%u CP_boundary_cases=%u (not exhaustive physical coverage)\n",cases,cpCases);
++    return 0;
++}
+diff --git a/z80.hpp b/z80.hpp
+index 6e208ea..82a2691 100644
+--- a/z80.hpp
++++ b/z80.hpp
+@@ -122,9 +122,14 @@ class Z80
+     // Upd9002: NEC uPD9002 Z80 emulation mode (PC-88VA V1/V2 mode). Rules
+     // R1-R13 were measured on a real PC-88VA2 (ZEXDOC/ZEXALL, direct flag
+     // probes and exhaustive DAA/CPL/SCF/CCF and DDCB/FDCB probes).
++    // Upd780C1: explicit NEC NMOS uPD780C-1 baseline. SCF/CCF copy X/Y
++    // from A; this currently shares the non-Upd9002 implementation. Keeping
++    // a separate selection protects this contract from future Zilog Q work.
++    // This is not a claim of complete NEC variant or timing conformance.
+     enum class FlagProfile {
+         Zilog,
+-        Upd9002
++        Upd9002,
++        Upd780C1
+     };
+     void setFlagProfile(FlagProfile profile)
+     {
+-- 
+2.55.0
+
