@@ -730,7 +730,7 @@ static int test_va_bms_window(void) {
 	result = SUCCESS;
 
 	bmsiocfg.enabled = FALSE;
-	if ((BMSIO_DEFAULT_ENABLED != TRUE) || (BMSIO_PORT_DEFAULT != 0x01d0) ||
+	if ((BMSIO_DEFAULT_ENABLED != FALSE) || (BMSIO_PORT_DEFAULT != 0x01d0) ||
 	    (BMSIO_PORT_COMPAT != 0x00ec) || (BMSIO_BANK_BYTES != 0x20000) ||
 	    (BMSIO_DEFAULT_BANKS != 0x80) ||
 	    (((UINT32)BMSIO_DEFAULT_BANKS * BMSIO_BANK_BYTES) != 0x01000000)) {
@@ -903,7 +903,7 @@ static int test_va_ems_board(void) {
 		goto ems_test_cleanup;
 	}
 
-	if ((EMSIO_DEFAULT_MEGABYTES != 13) || (EMSIO_MIN_MEGABYTES != 1) ||
+	if ((EMSIO_DEFAULT_MEGABYTES != 0) || (EMSIO_MIN_MEGABYTES != 1) ||
 	    (EMSIO_MAX_MEGABYTES != 13)) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
@@ -2153,6 +2153,12 @@ static int test_profile_ini(void) {
 	read_ndp8087_enable = 0;
 	read_ndp8087_clock_hz = 0;
 	ZeroMemory(&read_bms, sizeof(read_bms));
+
+	read_bms.enabled = BMSIO_DEFAULT_ENABLED;
+	read_ems_megabytes = EMSIO_DEFAULT_MEGABYTES;
+	ini_read(path, "selftest-bms", read_bms_tbl, NELEMENTS(read_bms_tbl));
+	if (read_bms.enabled || read_ems_megabytes)
+		return fail("ini", "M142_ABSENT_MEMORY_SETTINGS");
 
 	profile_iniwrite(path, "selftest", write_tbl, NELEMENTS(write_tbl), NULL);
 	profile_iniread(path, "selftest", read_tbl, NELEMENTS(read_tbl), NULL);
