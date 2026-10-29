@@ -641,9 +641,32 @@ NOT_APPLICABLE; capture integrity findings cannot masquerade as original flags
 in this hypothesis layer. Existing emulator, loader and probe bytes are unchanged.
 No new ROM integration/full-ZEX or physical run is warranted by this audit-only
 change; old expensive evidence stays bound to its original inputs/worker.
-A future crossed-address experiment must independently vary IUT/caller while
-preserving capture machinery and retaining repetitions; it is **not implemented
-or requested here**. No root cause, CPU correction or G140 acceptance follows.
+At that checkpoint a crossed-address experiment was a future requirement, not
+an implementation or hardware request. No root cause, CPU correction or G140
+acceptance follows from the audit alone.
+
+## Crossed relocation preparation
+
+[FDCXADR](../tasks/M140_fdc_upd780_conformance.md#crossed-relocation-control-prepared-fdcxadr)
+now crosses two sampler banks with two caller banks, while retaining the triple/
+mirror/RAM diagnostics. Its 128 rows use AF0028/0029, SCF/CCF, eight forward/
+reverse passes and only the zero-XOR seed. IUTs 4806h/480Eh and CALL returns
+4907h/490Fh form all four combinations, breaking the prior two-axis covariance.
+Complete active templates are copied/readback-verified; inactive alternatives
+overlap. Caller code clears DE/HL, and a JP dispatch retains nominal primary
+stack location 7EFBh. No physical fetch/SP/Q trace is claimed.
+
+This is **sampler/caller relocation**, not unique IUT-PC-bit isolation. Entire
+bank instructions and bus context move, and hidden history/phase may interact.
+Paired same-repeat/AF/op comparisons are descriptive, not causal estimates or
+proof of simultaneous identical CPU state. The physical result, including whether
+the earlier discrepancy survives this new context, is **NOT_RUN**.
+
+13 direct tests, eleven focused CTests and ROM H/S persistence/recovery/refusal/
+fault-safety checks pass within software scope. Old three BIN/COM payloads
+regenerate identically, and the shared checker preserves both old capture JSON
+results exactly (192 rows), with negative codes tested. No emulator CPU/profile
+fix, historical evidence upgrade, new timing result or G140 acceptance follows.
 
 ## Returned-image intake correction
 

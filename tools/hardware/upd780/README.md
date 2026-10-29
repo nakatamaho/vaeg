@@ -474,6 +474,69 @@ Source/input digests, commands and counterexample witnesses go in the private
 JSON. The current audit does not establish an OR/Q rule or authorize a new CPU
 profile, relocation fix or unchanged hardware replay.
 
+## Crossed sampler/caller relocation (FDCXADR)
+
+FDCXADR separates the two placement axes that covaried in FDCFIX/FDCCAP.
+There are **128 rows**: 4 sites × AF0028h/0029h × SCF/CCF × eight alternating
+forward/reverse passes. The only seed is LD A,0/XOR A; **site is not seed ID**.
+
+| Site | Sampler / IUT | CALL / return |
+|---|---|---|
+| 0 | 4800h / 4806h | 4904h / 4907h |
+| 1 | 4800h / 4806h | 490Ch / 490Fh |
+| 2 | 4808h / 480Eh | 4904h / 4907h |
+| 3 | 4808h / 480Eh | 490Ch / 490Fh |
+
+A byte-identical 14-byte sampler and 12-byte caller are installed with full
+byte readback before use. Alternatives overlap; only the active bank is used.
+The caller zeros DE/HL, CALLs the selected sampler and JPs to a common capture
+continuation. Control and measurement use the **same selected caller**; dispatch
+uses JP, not an extra CALL. Under balanced, interrupt-free nominal flow, primary
+AF still uses stack low byte 7EFBh. The sampler retains triple PUSH AF and POP
+HL/BC/DE, and the original register/mirror/immediate/delayed diagnostics remain.
+The result region 7000h–7B17h receives the seven pretest patterns, and the main
+controller collects 2840 raw bytes before verified recovery and file creation.
+
+This crosses **sampler-bank and caller-bank relocation**, not a uniquely isolated
+IUT-PC bit or CALL-return cause. All instructions in each moved bank relocate;
+bus context and hidden history/phase need not be identical. Verified code bytes
+are not an independent physical fetch/SP/Q trace. Matched-descriptor comparisons
+in `paired_effects` are descriptive, not simultaneous-state or causal tests.
+Interpret them only with the separate integrity findings in view. A remains zero,
+so this is not a full A/F truth table or universal OR-law test.
+
+```sh
+python3 tools/hardware/upd780/xadr.py build --source-disk "$PRIVATE_INPUT" \
+  --output-dir "$NEW_XADR_OUTPUT" --assembler "$ABSOLUTE_Z80ASM_1_8"
+python3 tools/hardware/upd780/test_xadr.py
+python3 tools/hardware/upd780/test_xadr.py --runner "$MAPPED_WORKER" \
+  --assembler "$ABSOLUTE_Z80ASM_1_8"
+python3 tools/hardware/upd780/xadr.py check "$FDCXADR_DAT" --output "$PRIVATE_REPORT"
+```
+
+Builds contain FDCXADR.COM/XADRHELP.TXT, reserve 12288 bytes for FDCXADR.DAT and
+refuse an existing DAT before takeover. On fresh writable copies under VA/V2/H
+and VA2/V2/H, run FDCXADR once, await `M139_FDC_RAM_RESTORED`/`A>`, then DIR and
+return the whole images with actual settings reported. **Do not TYPE the binary
+DAT.** Timeout, patch-verification or recovery failure: RESET without disk I/O.
+The new dedicated patch error is `M140_XADR_PATCH_VERIFY`.
+
+`integration.py --case xadr` and `xadr-existing` use the same explicit bindings
+as capture integration; the ROM fault invocation uses `test_xadr.py` with
+`--rom-worker`, `--roms`, `--source-image`, `--build-report`,
+`--passing-integration` and `--output`. Private cases stay out of hosted CI.
+Native tests include the full production frame, four one-row installation
+fixtures (not valid production frames), a single template POP mutation yielding
+triple findings and a single verification-opcode mutation yielding stream 03.
+The latter's ROM case must show the dedicated error and unchanged disk.
+
+Derivation checks a pinned parent capture.asm and closed replacement regions.
+The 22-byte diagnostic row checker is shared between two closed public format
+contracts; the original capture wrapper, errors and seed naming stay compatible.
+Old seed/fixed/capture BIN/COM bytes and both old capture JSON results are checked
+for equality. No emulator/core/profile or older loader bytes are changed.
+Complete observations or zero exit is never silicon/gate acceptance.
+
 ## Offline SCF/CCF model reduction
 
 `reduction.py` validates completed physical logs and compares A-only,

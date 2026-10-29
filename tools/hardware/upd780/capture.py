@@ -87,6 +87,16 @@ def assemble(assembler: str, output: Path) -> dict[str, bytes]:
 
 
 def content(data: bytes, *, recovery: bool = True, host_model: bool = False) -> dict:
+    return row_content(data, rows=ROWS, magic=MAGIC, marker=MARKER,
+                       banner='M140 FDC CAPTURE 1', tag='D', descriptor='seed',
+                       recovery=recovery, host_model=host_model)
+
+
+def row_content(data, *, rows, magic, marker, banner, tag, descriptor,
+                recovery=True, host_model=False):
+    """Shared 22-byte diagnostic transport; callers supply closed format contracts."""
+    ROWS, MAGIC, MARKER = rows, magic, marker
+    RAW_SIZE = 20 + 22*len(ROWS) + 4
     results.need(data.count(MARKER) == 1, 'M140_CAPTURE_RAW_MARKER')
     text, raw = data.split(MARKER)
     results.need(len(raw) >= RAW_SIZE and raw[:8] == MAGIC and raw[RAW_SIZE-4:RAW_SIZE] == b'END!',
@@ -101,14 +111,14 @@ def content(data: bytes, *, recovery: bool = True, host_model: bool = False) -> 
     results.need(all(x == 0x1a for x in tail), 'M140_CAPTURE_PADDING')
     try:lines = text.decode('ascii').splitlines()
     except UnicodeError:raise results.RecordError('M140_CAPTURE_TEXT_FORMAT') from None
-    results.need(len(lines) == len(ROWS)+1 and lines[0] == 'M140 FDC CAPTURE 1', 'M140_CAPTURE_TEXT_SET')
+    results.need(len(lines) == len(ROWS)+1 and lines[0] == banner, 'M140_CAPTURE_TEXT_SET')
     findings, host_diff, or_diff, mirror_bad, groups = [], [], [], [], {}
     for i,(r,s,op,af) in enumerate(ROWS):
         rr,ss,oo,*values,status = struct.unpack_from('<BBB9HB',raw,20+22*i)
         results.need((rr,ss,oo,values[0]) == (r,s,ord(op),af), 'M140_CAPTURE_DESCRIPTOR')
         results.need(status & ~7 == 0, 'M140_CAPTURE_STATUS')
         encoded = ' '.join(f'{v:04X}' for v in values)
-        results.need(lines[i+1] == f'D {r:02X} {s:02X} {op} {encoded} {status:02X}',
+        results.need(lines[i+1] == f'{tag} {r:02X} {s:02X} {op} {encoded} {status:02X}',
                      'M140_CAPTURE_PATH_MISMATCH')
         v = dict(zip(FIELDS,values))
         control_equal = v['before_a'] == v['before_b'] == v['before_c']
@@ -129,7 +139,7 @@ def content(data: bytes, *, recovery: bool = True, host_model: bool = False) -> 
         if not mirror_equal:
             kinds.append('mirror_relation')
             mirror_bad.append(i)
-        identity = {'repeat':r,'seed':s,'operation':op,'af':f'{af:04X}'}
+        identity = {'repeat':r,descriptor:s,'operation':op,'af':f'{af:04X}'}
         if kinds:findings.append({**identity,'kinds':kinds,'words':{k:f'{x:04X}' for k,x in v.items()},'status':status})
         for expected, destination in ((predicted,host_diff),
                                       (flag_result(op,af>>8,af&255,(af>>8)|(af&255)),or_diff)):
@@ -152,7 +162,7 @@ def content(data: bytes, *, recovery: bool = True, host_model: bool = False) -> 
             'delayed_scan':{'reported_failures':delayed,'first_address':f'{delayed_addr:04X}','decoded_mirror_failures':len(mirror_bad)},
             'header_findings':header_findings, 'record_findings':findings,
             'primary_host_differences':host_diff, 'primary_or_differences':or_diff,
-            'primary_repeat_varying_groups':[{'af':f'{af:04X}','operation':op,'seed':s,'values':[f'{x:04X}' for x in vs]}
+            'primary_repeat_varying_groups':[{'af':f'{af:04X}','operation':op,descriptor:s,'values':[f'{x:04X}' for x in vs]}
                                              for (af,op,s),vs in groups.items() if len(set(vs))>1],
             'reference_class':'three PUSH-AF stack cells, code-RAM mailboxes and row-specific mirrors; no independent CPU/Q readout or exhaustive RAM qualification'}
 

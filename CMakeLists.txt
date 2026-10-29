@@ -2327,6 +2327,12 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd780_fdc_context_selftest PROPERTIES
         LABELS "romless;compatibility;upd780;host-only")
 
+    add_test(NAME vaeg_upd780_fdc_xadr_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_xadr.py")
+    set_tests_properties(vaeg_upd780_fdc_xadr_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
     # M101/M102 probe programs per role: built with z80asm 1.8 and run by
     # vaeg_cpm_runner with each role's production core configuration.
     find_program(VAEG_Z80ASM_EXECUTABLE z80asm)
@@ -2351,6 +2357,11 @@ if(VAEG_ENABLE_TESTS)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_capture.py"
                 --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
                 --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_xadr_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_xadr.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
     else()
         add_test(NAME vaeg_upd780_fdc_payloads
             COMMAND "${Python3_EXECUTABLE}"
@@ -2368,11 +2379,17 @@ if(VAEG_ENABLE_TESTS)
             COMMAND "${Python3_EXECUTABLE}"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
                 --reason "z80asm 1.8 unavailable; capture/storage payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_xadr_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; crossed-address payload tests NOT_RUN")
         set_tests_properties(vaeg_upd780_fdc_payloads vaeg_upd780_fdc_seed_payloads
-            vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads PROPERTIES SKIP_RETURN_CODE 77)
+            vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads
+            vaeg_upd780_fdc_xadr_payloads PROPERTIES SKIP_RETURN_CODE 77)
     endif()
     set_tests_properties(vaeg_upd780_fdc_payloads vaeg_upd780_fdc_seed_payloads
-        vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads PROPERTIES
+        vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads
+        vaeg_upd780_fdc_xadr_payloads PROPERTIES
         LABELS "romless;compatibility;upd780;host-only" TIMEOUT 180)
     add_test(NAME vaeg_z80_role_probes_selftest
         COMMAND "${Python3_EXECUTABLE}"

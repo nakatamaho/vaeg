@@ -604,8 +604,60 @@ independently callable, without private assets or Git history. NOT_APPLICABLE
 and NOT_FALSIFIED_IN_DATA are not PASS. Generators require a new out-of-tree
 output. Existing worker/probe/loader inputs and expensive evidence remain under
 their original identities; no ROM/full-ZEX/hardware rerun or backend change.
-A crossed IUT/caller experiment is only a future design requirement, not built,
-validated or requested in this phase. G140 remains BLOCKED.
+At that audit checkpoint, a crossed IUT/caller experiment was only a future
+design requirement, not built, validated or requested. G140 remains BLOCKED.
+
+## Crossed relocation control prepared (FDCXADR)
+
+[Protocol and limits](../../../tools/hardware/upd780/README.md#crossed-samplercaller-relocation-fdcxadr).
+The new probe independently selects sampler and caller banks, rather than
+extending an address-only CPU hypothesis. It has 128 rows: four sites × AF0028/
+0029 × SCF/CCF × eight forward/reverse passes, with only LD A,0/XOR A seed.
+Site IDs encode sampler/caller axes, not the older seed enum.
+
+Sampler bases 4800h/4808h put IUTs at 4806h/480Eh. Caller bases 48FEh/4906h put
+CALLs at 4904h/490Ch and returns at 4907h/490Fh, forming all four combinations.
+The 14-byte sampler and 12-byte caller are installed/readback-verified before
+use; inactive alternatives overlap. The caller clears DE/HL and CALLs the
+selected sampler, then JPs to common capture code. Dispatch itself uses JP, not
+an extra CALL; control and measurement use the same selected caller and nominal
+primary stack low byte 7EFBh. Nominal balanced/interrupt-free flow is not a
+physical fetch/SP trace. Relocation moves entire instruction banks and changes
+bus/context, not only one independently observable PC bit or hidden Q state.
+
+Triple export/register comparisons, snapshot/mirror immediate checks, inverse
+copy, delayed scan and seven pretest patterns remain active. Result RAM is
+7000h–7B17h. Main collects 2840 raw bytes and restores/readback-verifies the
+original saved RAM before creating FDCXADR.DAT. Dedicated patch error:
+M140_XADR_PATCH_VERIFY; unknown-state timeout/patch/recovery errors require RESET
+without disk I/O. Existing DAT is refused before takeover.
+
+Validation:
+
+- 13 new direct content/source tests PASS; closed row/site coverage, descriptive
+  axis pairing, diagnostic findings and exact single-mutation codes are checked.
+- Eleven focused FDC CTests PASS (3.50 s). Full 128-row native production data
+  passes host/integrity checks. Four explicit one-row installation fixtures
+  inspect both live code banks and selectors; those are not production frames
+  or physical execution traces. A single POP-template mutation yields intended
+  triple findings; a separate verification-opcode mutation yields stream 03.
+- ROM H/S integration PASS with a ROM set matching MAME's `pc88va2`: 128 persisted
+  rows each, no findings in the tested integrity contract, original files/system
+  preserved, verified recovery and DIR/A>, 10496-byte DAT. SDL dummy only.
+- Existing-DAT refusal PASS; dedicated patch-error/byte-identical-disk fault
+  safety PASS, reusing the digest-bound passing H fixture, not physical halt
+  readout or an unchanged positive-case rerun.
+
+COM size 6950; free bytes 92160; reserved DAT budget 12288. All generated images,
+commands/status, digests, fixtures, private captures and identity manifests stay
+out of tree. The diagnostic row checker was factored into a shared function
+with closed capture/xadr wrappers, not a CLI bypass. Old seed/fixed/capture
+BIN/COMs regenerate byte-identically; old capture JSON results for all 192 rows
+are exactly equal and old negative tests retain their codes. Archived expensive
+evidence remains under its original implementation/worker identity, not upgraded.
+No emulator/core/profile or older loader bytes change. Physical FDCXADR is
+**NOT_RUN**; causal interpretation, independent silicon, timing and all broader
+G140 obligations remain open. No merge/release/cleanup or gate acceptance.
 
 ## G140 acceptance
 

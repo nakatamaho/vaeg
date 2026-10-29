@@ -1,0 +1,50 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+M140 FDCXADR sampler/caller relocation factorial
+
+Fresh writable copy per machine, VA/V2/H and VA2/V2/H initially.
+Run FDCXADR once. Wait for M139_FDC_RAM_RESTORED and A>, then DIR.
+Return the whole image with FDCXADR.DAT and explicitly report actual settings.
+Do NOT TYPE this mixed text/binary DAT. On timeout, patch verification or
+recovery error RESET; no disk operations in unknown state.
+
+128 rows: 4 sites x AF0028/0029 x SCF/CCF x 8 forward/reverse passes.
+Only seed LD A,0/XOR A. Site is NOT the older seed ID:
+site 0: IUT4806, CALL4904, return4907
+site 1: IUT4806, CALL490C, return490F
+site 2: IUT480E, CALL4904, return4907
+site 3: IUT480E, CALL490C, return490F
+
+Both complete code templates are copied/readback verified before use.
+Active overlays overlap inactive alternatives; only the selected one is used.
+The caller zeros DE/HL and CALLs the selected byte-identical sampler.
+Both control and measured calls use the same selected caller/stack depth.
+Three adjacent-stack PUSH-AF exports, register comparisons, snapshot/mirror
+immediate store checks, inverse copy and delayed scan remain active.
+7000-7B17 result RAM receives six constant and one address-dependent patterns.
+Main reads the 2840-byte raw table, restores and readback-verifies saved RAM,
+THEN creates the DAT. Existing DAT is refused before takeover.
+
+This crosses sampler and caller placement, not a unique CPU-PC-bit cause.
+Relocation changes bus/context and may interact with hidden history/phase.
+No physical fetch/SP/Q trace or exhaustive stack/code RAM test is claimed.
+Previous programs are not rerun; no emulator CPU/profile rule is changed.
