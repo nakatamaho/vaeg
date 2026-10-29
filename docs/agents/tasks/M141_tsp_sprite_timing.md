@@ -25,7 +25,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M141 — TSP sprites and TVRAM as on the machines
 
-Status: **G141 human gate pending.**
+Status: **G141 human gate passed on 2026-10-29** (the maintainer's
+"gate passed", with TSPSPR screen 5 on the VA and VA2/3 models from the
+9b60f9c1 static build, every row as in the table below).
 
 Branch `milestone/m141-tsp-sprite-timing`; commit prefix `M141:`.
 
