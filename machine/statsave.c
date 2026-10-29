@@ -959,12 +959,81 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 
 // ---- disk
 
+enum { STATDISK_PATH_BYTES = 4096, STATDISK_RECORD_BYTES = 4108, STATDISK_COUNT = 10 };
+
 typedef struct {
-	char path[MAX_PATH];
+	char path[STATDISK_PATH_BYTES];
 	int readonly;
 	DOSDATE date;
 	DOSTIME time;
 } STATDISK;
+
+static STATSAVE_DISK_RESOLVER disk_resolver;
+
+STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolver) {
+	STATSAVE_DISK_RESOLVER previous = disk_resolver;
+	disk_resolver = resolver;
+	return previous;
+}
+
+/* v1 is an explicit little-endian wire record, never a native structure.
+ * v0 accepted layouts are the historical Windows/POSIX/macOS path widths;
+ * all used a 32-bit int, four date bytes, three time bytes and one pad byte. */
+static UINT diskrecord_size(STFLAGH sfh) {
+	UINT size;
+
+	if (sfh->hdr.ver == 1) {
+		if (sfh->hdr.size == STATDISK_COUNT * STATDISK_RECORD_BYTES)
+			return STATDISK_RECORD_BYTES;
+	} else if (sfh->hdr.ver == 0) {
+		size = sfh->hdr.size / STATDISK_COUNT;
+		if (sfh->hdr.size == size * STATDISK_COUNT &&
+		    (size == 260 + 12 || size == 1024 + 12 || size == 4096 + 12))
+			return size;
+	} else {
+		statflag_seterr(sfh, "M142_DISK_VERSION");
+		return 0;
+	}
+	statflag_seterr(sfh, "M142_DISK_SIZE");
+	return 0;
+}
+
+static int diskrecord_read(STFLAGH sfh, STATDISK *st) {
+	BYTE wire[STATDISK_RECORD_BYTES];
+	UINT size = diskrecord_size(sfh);
+	UINT pathbytes;
+
+	ZeroMemory(st, sizeof(*st));
+	if (!size || statflag_read(sfh, wire, size) != STATFLAG_SUCCESS)
+		return STATFLAG_FAILURE;
+	pathbytes = size - 12;
+	if (!memchr(wire, 0, pathbytes)) {
+		statflag_seterr(sfh, "M142_DISK_PATH");
+		return STATFLAG_FAILURE;
+	}
+	CopyMemory(st->path, wire, pathbytes);
+	st->readonly = (int)LOADINTELDWORD(wire + pathbytes);
+	if ((st->readonly & ~0xff01) || (sfh->hdr.ver == 1 && wire[size - 1] != 0)) {
+		statflag_seterr(sfh, "M142_DISK_FLAGS");
+		return STATFLAG_FAILURE;
+	}
+	st->date.year = LOADINTELWORD(wire + pathbytes + 4);
+	st->date.month = wire[pathbytes + 6];
+	st->date.day = wire[pathbytes + 7];
+	st->time.hour = wire[pathbytes + 8];
+	st->time.minute = wire[pathbytes + 9];
+	st->time.second = wire[pathbytes + 10];
+	return STATFLAG_SUCCESS;
+}
+
+static BOOL diskrecord_resolve(STATDISK *st) {
+	char local[STATDISK_PATH_BYTES];
+
+	if (st->path[0] && disk_resolver && disk_resolver(st->path, local, sizeof(local)))
+		file_cpyname(st->path, local, sizeof(st->path));
+	/* Do not truncate a foreign path into a different locally valid name. */
+	return strlen(st->path) < MAX_PATH;
+}
 
 static const char str_fddx[] = "FDD%u";
 static const char str_sasix[] = "SASI%u";
@@ -978,10 +1047,16 @@ STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
 
 static int disksave(STFLAGH sfh, const char *path, int readonly) {
 	STATDISK st;
+	BYTE wire[STATDISK_RECORD_BYTES];
 	FILEH fh;
 
 	ZeroMemory(&st, sizeof(st));
-	if ((path) && (path[0])) {
+	ZeroMemory(wire, sizeof(wire));
+	if (path && path[0]) {
+		if (strlen(path) >= STATDISK_PATH_BYTES) {
+			statflag_seterr(sfh, "M142_DISK_PATH");
+			return STATFLAG_FAILURE;
+		}
 		file_cpyname(st.path, path, sizeof(st.path));
 		st.readonly = readonly;
 		fh = file_open_rb(path);
@@ -990,7 +1065,15 @@ static int disksave(STFLAGH sfh, const char *path, int readonly) {
 			file_close(fh);
 		}
 	}
-	return (statflag_write(sfh, &st, sizeof(st)));
+	CopyMemory(wire, st.path, STATDISK_PATH_BYTES);
+	STOREINTELDWORD(wire + STATDISK_PATH_BYTES, st.readonly);
+	STOREINTELWORD(wire + STATDISK_PATH_BYTES + 4, st.date.year);
+	wire[STATDISK_PATH_BYTES + 6] = st.date.month;
+	wire[STATDISK_PATH_BYTES + 7] = st.date.day;
+	wire[STATDISK_PATH_BYTES + 8] = st.time.hour;
+	wire[STATDISK_PATH_BYTES + 9] = st.time.minute;
+	wire[STATDISK_PATH_BYTES + 10] = st.time.second;
+	return statflag_write(sfh, wire, sizeof(wire));
 }
 
 static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
@@ -1023,7 +1106,14 @@ static int diskcheck(STFLAGH sfh, const char *name) {
 	DOSDATE date;
 	DOSTIME time;
 
-	ret = statflag_read(sfh, &st, sizeof(st));
+	ret = diskrecord_read(sfh, &st);
+	if (ret != STATFLAG_SUCCESS)
+		return ret;
+	if (!diskrecord_resolve(&st)) {
+		SPRINTF(buf, str_notfound, name);
+		statflag_seterr(sfh, buf);
+		return STATFLAG_DISKCHG;
+	}
 	if (st.path[0]) {
 		fh = file_open_rb(st.path);
 		if (fh != FILEH_INVALID) {
@@ -1049,6 +1139,8 @@ static int flagcheck_disk(STFLAGH sfh, const SFENTRY *tbl) {
 	int i;
 	char buf[8];
 
+	if (!diskrecord_size(sfh))
+		return STATFLAG_FAILURE;
 	ret = 0;
 	for (i = 0; i < 4; i++) {
 		SPRINTF(buf, str_fddx, i + 1);
@@ -1074,7 +1166,12 @@ static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
 
 	ret = 0;
 	for (i = 0; i < 4; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
+		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
+			return STATFLAG_FAILURE;
+		if (!diskrecord_resolve(&st)) {
+			st.path[0] = 0;
+			ret |= STATFLAG_DISKCHG;
+		}
 		if (st.path[0]) {
 #if defined(SUPPORT_OPRECORD)
 			if (flagload_disk_hook) {
@@ -1095,13 +1192,23 @@ static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
 		}
 	}
 	for (i = 0x00; i < 0x02; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
+		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
+			return STATFLAG_FAILURE;
+		if (!diskrecord_resolve(&st)) {
+			st.path[0] = 0;
+			ret |= STATFLAG_DISKCHG;
+		}
 		if (st.path[0]) {
 			sxsi_hddopen(i, st.path);
 		}
 	}
 	for (i = 0x20; i < 0x24; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
+		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
+			return STATFLAG_FAILURE;
+		if (!diskrecord_resolve(&st)) {
+			st.path[0] = 0;
+			ret |= STATFLAG_DISKCHG;
+		}
 		if (st.path[0]) {
 			sxsi_hddopen(i, st.path);
 		}

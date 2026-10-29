@@ -2153,7 +2153,6 @@ static int test_profile_ini(void) {
 	read_ndp8087_enable = 0;
 	read_ndp8087_clock_hz = 0;
 	ZeroMemory(&read_bms, sizeof(read_bms));
-
 	read_bms.enabled = BMSIO_DEFAULT_ENABLED;
 	read_ems_megabytes = EMSIO_DEFAULT_MEGABYTES;
 	ini_read(path, "selftest-bms", read_bms_tbl, NELEMENTS(read_bms_tbl));
@@ -4079,6 +4078,130 @@ static int strip_statsave_section(const char *source, const char *destination, c
 	return (ret);
 }
 
+/* Independent fixture writer: convert v1 DISK bytes to historic wire widths,
+ * optionally change exactly one invariant. All other state sections survive. */
+static int rewrite_disk_state(const char *source, const char *destination,
+                              UINT pathbytes, UINT version, UINT mutation) {
+	BYTE *data = NULL, *result = NULL;
+	UINT size, pos = 0x30, oldpad, newsize = (pathbytes + 12) * 10;
+	UINT newpad = (newsize + 15) & ~15U, total, i;
+	FILEH file;
+	int ret = FAILURE;
+
+	if (read_whole_file(source, &data, &size) != SUCCESS)
+		return FAILURE;
+	while (pos + 16 <= size && memcmp(data + pos, "DISK", 4))
+		pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U);
+	if (pos + 16 > size || LOADINTELWORD(data + pos + 10) != 1 ||
+	    LOADINTELDWORD(data + pos + 12) != 41080)
+		goto done;
+	oldpad = (41080 + 15) & ~15U;
+	if (pos + 16 + oldpad > size)
+		goto done;
+	total = size - oldpad + newpad;
+	result = (BYTE *)_MALLOC(total, "portable-disk-fixture");
+	if (!result)
+		goto done;
+	CopyMemory(result, data, pos + 16);
+	STOREINTELWORD(result + pos + 10, version);
+	STOREINTELDWORD(result + pos + 12, newsize);
+	ZeroMemory(result + pos + 16, newpad);
+	for (i = 0; i < 10; i++) {
+		const BYTE *old = data + pos + 16 + i * 4108;
+		BYTE *record = result + pos + 16 + i * (pathbytes + 12);
+		if (old[0]) {
+			/* The local files are relative names in this synthetic fixture. */
+			snprintf((char *)record, pathbytes, "Q:\\foreign\\%s", (const char *)old);
+		}
+		CopyMemory(record + pathbytes, old + 4096, 12);
+		if (i == 0)
+			record[pathbytes] |= 1; /* RO and multi-image index must both survive. */
+	}
+	CopyMemory(result + pos + 16 + newpad, data + pos + 16 + oldpad,
+	           size - pos - 16 - oldpad);
+	if (mutation == 1) {
+		STOREINTELWORD(result + pos + 10, 2);
+	} else if (mutation == 2) {
+		STOREINTELDWORD(result + pos + 12, newsize - 1);
+	} else if (mutation == 3) {
+		memset(result + pos + 16, 'x', pathbytes);
+	} else if (mutation == 4) {
+		result[pos + 16 + pathbytes] |= 2;
+	} else if (mutation == 5) {
+		result[pos + 16 + pathbytes + 11] = 1;
+	}
+	file = file_create(destination);
+	if (file != FILEH_INVALID) {
+		if (file_write(file, result, total) == total)
+			ret = SUCCESS;
+		file_close(file);
+	}
+ done:
+	if (result)
+		_MFREE(result);
+	if (data)
+		_MFREE(data);
+	return ret;
+}
+
+static int test_disk_state_formats(const char *source, const char *disk) {
+	static const UINT widths[] = {4096, 260, 1024, 4096};
+	static const char *codes[] = {"", "M142_DISK_VERSION", "M142_DISK_SIZE", "M142_DISK_PATH",
+	                             "M142_DISK_FLAGS", "M142_DISK_FLAGS"};
+	char converted[MAX_PATH], saved[MAX_PATH], local[MAX_PATH], error[512];
+	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
+	UINT i, mutation;
+	const char *problem = NULL;
+
+	file_cpyname(saved, np2oscfg.fdd_image[0], sizeof(saved));
+	file_cpyname(np2oscfg.fdd_image[0], disk, sizeof(np2oscfg.fdd_image[0]));
+	snprintf(converted, sizeof(converted), "vaeg-selftest-%lu-portable.sts", (unsigned long)getpid());
+	if (np2_state_disk_resolve("Q:\\foreign\\missing.d88", local, sizeof(local)) ||
+	    np2_state_disk_resolve("Q:\\foreign\\", local, sizeof(local)))
+		problem = "M142_DISK_RESOLVER_EMPTY_NAME";
+	for (i = 0; !problem && i < NELEMENTS(widths); i++) {
+		if (rewrite_disk_state(source, converted, widths[i], i ? 0 : 1, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "M142_DISK_FIXTURE_PREFLIGHT";
+			break;
+		}
+		fdd_eject(0);
+		fdd_eject(1);
+		if (statsave_load(converted) != STATFLAG_SUCCESS || fdd_diskimage(0) != 1 ||
+		    fddfile[0].inf.d88.head.fd_name[0] != 'B' || fdd_diskimage(1) != 0 ||
+		    fddfile[1].inf.d88.base != 0 || strcmp(fdd_diskname(0), disk) ||
+		    !fdd_diskprotect(0) || fdd_diskprotect(1)) {
+			problem = "M142_DISK_CROSS_HOST_LOAD";
+			break;
+		}
+	}
+	for (mutation = 1; !problem && mutation < NELEMENTS(codes); mutation++) {
+		UINT16 ip = CPU_IP;
+		/* Re-establish a passing fixture before each single mutation. */
+		if (rewrite_disk_state(source, converted, 4096, 1, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "M142_DISK_NEGATIVE_BASELINE";
+			break;
+		}
+		if (rewrite_disk_state(source, converted, 4096, 1, mutation) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE) {
+			problem = "M142_DISK_NEGATIVE_ACCEPTED";
+			break;
+		}
+		error[strcspn(error, "\r\n")] = 0;
+		if (strcmp(error, codes[mutation]) || statsave_load(converted) != STATFLAG_FAILURE ||
+		    CPU_IP != ip || fdd_diskimage(0) != 1 || strcmp(fdd_diskname(0), disk))
+			problem = "M142_DISK_NEGATIVE_CODE_OR_SIDE_EFFECT";
+	}
+	file_cpyname(np2oscfg.fdd_image[0], saved, sizeof(np2oscfg.fdd_image[0]));
+	statsave_set_disk_resolver(previous);
+	file_delete(converted);
+	if (problem)
+		return fail("portable disk state", problem);
+	fprintf(stderr, "selftest: portable DISK v1 and legacy 260/1024/4096, remap and 5 negatives ok\n");
+	return SUCCESS;
+}
+
 /* M120: a state keeps the disk of a multi-image D88 in each drive. */
 static int test_fdd_multi_image_state(void) {
 	char disk[MAX_PATH];
@@ -4118,6 +4241,8 @@ static int test_fdd_multi_image_state(void) {
 			problem = "the disks in the drives were not restored";
 		}
 	}
+	if (problem == NULL && test_disk_state_formats(path, disk) != SUCCESS)
+		problem = "portable/legacy disk formats failed";
 	fdd_eject(0);
 	fdd_eject(1);
 	fddfile[0].num = 0;

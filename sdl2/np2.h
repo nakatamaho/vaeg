@@ -135,6 +135,7 @@ UINT16 np2_sound_for_model_selection(const char *model, UINT16 sound);
 const char *np2_cli_boot_model(const char *value);
 BOOL np2_select_boot_model(const char *model);
 BOOL np2_cli_override_selftest(void);
+BOOL np2_state_disk_resolve(const char *saved, char *local, UINT size);
 
 #ifdef __cplusplus
 }

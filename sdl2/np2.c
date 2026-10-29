@@ -42,6 +42,7 @@
 #include "sgp.h"
 #include "cmt.h"
 #include "diskdrv.h"
+#include "fddfile.h"
 #include "sxsi.h"
 #include "newdisk.h"
 #include "fdc.h"
@@ -468,6 +469,67 @@ static int create_scsi_hdd_cli(int argc, char **argv) {
 	}
 	dosio_term();
 	return (SUCCESS);
+}
+
+static const char *state_disk_basename(const char *path) {
+	const char *name = path;
+
+	while (*path) {
+		if (*path == '/' || *path == '\\')
+			name = path + 1;
+		path++;
+	}
+	return name;
+}
+
+static BOOL state_disk_exists(const char *path) {
+	const short attr = file_attr(path);
+	return attr >= 0 && !(attr & FILEATTR_DIRECTORY);
+}
+
+/* All GUI and debug loads use this same resolver through the state seam.
+ * Search only configured media folders, never recursively or by a fitted
+ * private filename. Conflicting same-name candidates are not guessed. */
+BOOL np2_state_disk_resolve(const char *saved, char *local, UINT size) {
+	const char *configured[15];
+	const char *name = state_disk_basename(saved);
+	char found[MAX_PATH] = {0};
+	char candidate[MAX_PATH];
+	UINT i;
+
+	if (!*name || !size)
+		return FALSE;
+	if (strlen(saved) < size && state_disk_exists(saved)) {
+		file_cpyname(local, saved, size);
+		return TRUE;
+	}
+	for (i = 0; i < 4; i++)
+		configured[i] = fdd_diskname(i);
+	for (i = 0; i < 2; i++) {
+		configured[4 + i] = np2oscfg.fdd_image[i];
+		configured[6 + i] = np2cfg.sasihdd[i];
+	}
+	for (i = 0; i < 7; i++)
+		configured[8 + i] = np2cfg.scsihdd[i];
+	for (i = 0; i < NELEMENTS(configured); i++) {
+		size_t prefix;
+		if (!configured[i] || !*configured[i])
+			continue;
+		prefix = (size_t)(state_disk_basename(configured[i]) - configured[i]);
+		if (prefix + strlen(name) >= sizeof(candidate))
+			continue;
+		CopyMemory(candidate, configured[i], prefix);
+		file_cpyname(candidate + prefix, name, sizeof(candidate) - prefix);
+		if (!state_disk_exists(candidate))
+			continue;
+		if (found[0] && strcmp(found, candidate))
+			return FALSE;
+		file_cpyname(found, candidate, sizeof(found));
+	}
+	if (!found[0] || strlen(found) >= size)
+		return FALSE;
+	file_cpyname(local, found, size);
+	return TRUE;
 }
 
 static void smoke_configure_va(const char *model) {
@@ -2115,6 +2177,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	upd9002_perf_start_from_env();
+	statsave_set_disk_resolver(np2_state_disk_resolve);
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
 		upd9002_perf_stop();

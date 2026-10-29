@@ -42,6 +42,10 @@ int statsave_save(const char *filename);
 int statsave_check(const char *filename, char *buf, int size);
 /* Explicit UI-confirmed override; all non-HOSTFAT checks remain active. */
 int statsave_check_hostfat_override(const char *filename, char *buf, int size);
+/* Optional frontend remapping, shared by preflight and actual load. The
+ * callback returns TRUE only for an existing, unambiguous local file. */
+typedef BOOL (*STATSAVE_DISK_RESOLVER)(const char *saved, char *local, UINT size);
+STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolver);
 int statsave_load(const char *filename);
 /* Retains the current HOSTFAT mount state and read-only snapshot. */
 int statsave_load_hostfat_override(const char *filename);
