@@ -918,6 +918,7 @@ BOOL debug_harness_selftest(void) {
 	static const char valid[] = "debug-script 1\n"
 	                            "limit-frame 1000\n"
 	                            "resource boot local-only.d88\n"
+	                            "resource state local-only.sav\n"
 	                            "counter dispatch e000:002a\n"
 	                            "wait-frame 120\n"
 	                            "input-line basic\n"
@@ -943,9 +944,10 @@ BOOL debug_harness_selftest(void) {
 		return FAILURE;
 	}
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
-	         (harness.resource_count == 1) && (harness.counter_count == 1) &&
-	         (harness.action_count == 7) && (harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 15);
+	         (harness.resource_count == 2) && (harness.counter_count == 1) &&
+	         (harness.action_count == 8) && (harness.actions[2].type == DEBUG_ACTION_LOAD_STATE) &&
+	         (harness.actions[4].type == DEBUG_ACTION_WAIT_PC) &&
+	         (harness.actions[5].type == DEBUG_ACTION_TRACE) && (harness.actions[6].argument == 15);
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);
