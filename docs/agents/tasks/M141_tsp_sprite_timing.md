@@ -72,6 +72,12 @@ using the hardware sprites.
   screenshot rotation case also checks a turned thumbnail.
 - [f8a74126](https://github.com/nakatamaho/vaeg/commit/f8a74126abe8dfbb0abd7613cc60f2e4e30f20b2):
   debug script `load-state RESOURCE`.
+- [14864dc9](https://github.com/nakatamaho/vaeg/commit/14864dc9): the
+  debug harness selftest declares the `load-state` line's resource and
+  counts the action (f8a74126 left `--selftest` failing).
+- [9b60f9c1](https://github.com/nakatamaho/vaeg/commit/9b60f9c1): save
+  times no longer flicker between two seconds (the file clock's offset
+  from the system clock taken once, not each frame; found during G141).
 - `upd72022-tsp.md` section 13.5, the ledger.
 
 ## vaeg divided by the photographs (TSPSPR screen 5, means)
@@ -112,12 +118,13 @@ limit as above with OV 20, screen 5 as in the table.
 ## Clean-checkout build
 
 `tools/release/build-mingw-static-container.sh --commit
-f8a74126abe8dfbb0abd7613cc60f2e4e30f20b2`: exit 0; `vaeg.exe` SHA-256
-`494dd379ccd83804cf97a0a20b008d745c65f613e081059ad2cbf09c8911e09f`
-(a750ed28's, `e3e16b38...`, before the thumbnail change).
+9b60f9c1`: exit 0; `vaeg.exe` SHA-256
+`9004e88ed6371734aaeb020856065eafb0f10e6a5d6eb1773d87d4b3d67905e7`
+(earlier: f8a74126's `494dd379...`, a750ed28's `e3e16b38...`).
 
 ## Open (found during G141)
 
+- The VRTC interrupt and the TSP status's VB are out of phase (issue #74).
 - A state saved by the Windows build does not load in the Linux build: the
   DISK section's paths are `MAX_PATH` bytes (260 on Windows, 4096 on Linux),
   so the section sizes differ and the check fails. Not fixed here.
