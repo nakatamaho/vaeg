@@ -21,14 +21,14 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M142 — Runtime settings, MH reset, TVRAM investigation and portable states
+# M142 — Runtime settings, TVRAM investigation and portable states
 
 ## Assignment and scope
 
 Base: `75ad3b9129038c3c54a834283ac709b8c02a6ce9`.
 
-The maintainer assigns A–F and additionally requires the Windows handoff to
-build on macOS using MacPorts MinGW, **without Colima**. Establish that build
+The current assignment covers A–D, portable states and the Windows handoff
+on macOS using MacPorts MinGW, **without Colima**. Establish that build
 first; if it cannot be built, stop and report the precise blocker. Otherwise
 report results together at the end. Do not install/change system ports or
 reuse a default container daemon. Keep generated SDKs and evidence out of Git
@@ -40,16 +40,18 @@ old reports do not substitute for available, identity-bound evidence.
 - **B** Fresh settings omit EMS and bank memory; explicit saved choices survive.
 - **C** Add 2, 4, 6, 8, 10 and 12 MHz clock choices and numeric higher choices
   instead of multiplier-only labels. Preserve machine/FDC clock separation.
-- **D** Reproduce and correct the MH demo's delayed reset on non-VA machines
-  using the maintainer-provided unchanged private fixture and BASIC
-  `LOAD "DEMOMH",R`. Do not conflate this with the separate MA red-screen stop.
-- **E** Investigate [#75](https://github.com/nakatamaho/vaeg/issues/75): identify
+- **D** Investigate [#75](https://github.com/nakatamaho/vaeg/issues/75): identify
   what limits VA2 VB-time TVRAM writes on hardware before modeling it. Preserve
   other TSPSPR rows. Q/S observations (28.0 VA, 30.1 VA2, 41.7 emulated VA2)
   are not a demonstrated root cause or permission for a fitted slowdown.
-- **F** Correct [#76](https://github.com/nakatamaho/vaeg/issues/76): a
-  host-independent DISK record, same-host legacy loading, GUI-equivalent path
+- **Portable states** Correct [#76](https://github.com/nakatamaho/vaeg/issues/76):
+  a host-independent DISK record, same-host legacy loading, GUI-equivalent path
   remapping and positive/negative selftests.
+
+The original assignment called #75 E and portable states F. Its MH reset
+item is superseded: the maintainer reported the CPU-role change fixed MH.
+No duplicate MH investigation/new MH correction is required; the separate
+later MA red-screen stop is not being closed.
 
 ## Verification and gate
 
@@ -72,7 +74,38 @@ causal measurement can be obtained.
 
 ## Progress
 
-- MacPorts GCC/G++ 15.2.0 compile and statically link a C++17 thread/mutex
-  probe; only Windows system DLL imports. This is a toolchain prerequisite,
-  **not** a successful vaeg build.
-- Implementation and full verification pending. G142 **NOT_READY**.
+[Implementation/evidence checkpoint](../reports/m142_runtime_progress.md)
+contains the complete published issue #75 E–W comparison table, commands,
+exits, identities, skip/reuse boundaries and remaining gate checks.
+
+- **MacPorts complete Windows build: PASS (cross-build only).** First complete
+  prerequisite at `2e662105164d69948d312c673045b406b8e8f59d`; a fresh clean clone
+  of pushed `6f94fcb8467c0cf5beb196ea26de0c2e571ced55` now includes runtime fixes.
+  Recording/shaders/static dependencies ON, local encoders OFF, no Colima;
+  imports/encoder archive/embedded identity audits pass, command exit 0.
+  Final executable SHA-256:
+  `795ef24174fdc0b040d07715038c7e15c74d9a6ef312228c0acc6563749893d6`.
+- **A:** high-digit measurement/format tests pass; no production digit defect
+  is demonstrated. Actual reported overclock/presenter-width case unresolved.
+- **B/C:** absent expansion defaults and numeric nominal clock choices are
+  implemented; native configuration, domain and existing main/FDC tests pass.
+  Remaining GUI/restart/save-size checks are not silently marked passed.
+- **D/#75: BLOCKED.** No physical limiter has been demonstrated and no fitted
+  emulator slowdown is applied. The source-built chunk/entry diagnostic kit
+  is ready; its nine COMs assemble, stock TSPSPR matches the distribution and
+  pinned MS-DOS system/payload content checks pass. Hardware results NOT_RUN.
+- **#76:** explicit DISK v1/legacy layouts and shared remapping implemented;
+  real synthetic state loads, image/read-only preservation, ambiguity and
+  exact-code malformed-input tests pass. Native Windows/Linux exchange NOT_RUN.
+- Approved release identity is implemented/tested as explicit `M142-dev`
+  metadata shared by UI/CLI/reports and future package names; legacy operation
+  records retain their date-only compatibility field. No release published.
+- Native suite ran all 165 entries: 148 PASS / 16 SKIP / 1 FAIL; the sole
+  failure was the new preset missing from the static invariant's closed list.
+  That one-name correction passes on focused rerun, giving **149 PASS / 16
+  SKIP / 0 FAIL with unchanged-worker reuse**, not a new all-suite execution.
+- Repository checks pass; formatting has zero new findings and the same 659
+  baseline diagnostics in 29 files. Full M142 demo/media/live-guest regression
+  remains NOT_RUN. Windows execution and final acceptance remain NOT_RUN.
+- **M142 IN_PROGRESS; G142 NOT_READY.** This checkpoint does not authorize a
+  merge or reopen the accepted G139/G140 scopes.

@@ -35,32 +35,6 @@ land.
 
 ## Maintenance Rules
 
-### M142 — host-sized DISK records prevented cross-host state loading
-
-- **Symptom/scope:** #76: Windows and POSIX states fail the DISK section
-  check because their native path fields have different widths.
-- **Demonstrated cause:** `STATDISK` was written as `sizeof(struct)` with
-  `path[MAX_PATH]`: Windows 260 bytes, Linux 4096, macOS 1024; ten records
-  consequently occupy different section sizes. Original host paths also do
-  not necessarily exist on the receiving host.
-- **Correction:** DISK v1 has ten explicit 4108-byte little-endian records:
-  4096 path bytes, a 32-bit read-only/D88-image field, four date bytes, three
-  time bytes and a reserved byte. No native structure layout is serialized.
-  The reader also accepts the three historical v0 widths. A shared frontend
-  resolver serves both GUI and debug loads, using existing paths or unique
-  same-basename files in configured media folders, with no recursive search
-  or private-name table. Missing/ambiguous media remain disk-change warnings;
-  an overlong unmapped path is not truncated into another filename.
-- **Verification:** native full selftest writes a real two-image D88 state,
-  loads independent v1 and Windows/macOS/Linux v0 fixtures through preflight
-  and actual load, remaps Windows-style paths and preserves disk index and
-  read-only flags. Five single-mutation negatives require exact stable
-  version/size/path/flags error codes and nondestructive rejection. These are
-  cross-layout fixtures, not a claim of native Windows/Linux execution.
-- **Evidence/task:** [M142](../agents/tasks/M142_runtime_portability.md).
-- **Fixing commit:**
-  [033992d943409d607a9931b9ba90096449708ce5](https://github.com/nakatamaho/vaeg/commit/033992d943409d607a9931b9ba90096449708ce5).
-
 ### M140 — all-tools prototype exhausted space on the second history log
 
 - **Symptom/scope:** an internal all-tools history disk completed both FDC
@@ -1736,6 +1710,33 @@ found. If the human reproduction still fails, retain the finding as a
 separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
+
+### M142 — host-sized DISK records prevented cross-host state loading
+
+- **Symptom/scope:** #76: Windows and POSIX states fail the DISK section
+  check because their native path fields have different widths.
+- **Demonstrated cause:** `STATDISK` was written as `sizeof(struct)` with
+  `path[MAX_PATH]`: Windows 260 bytes, Linux 4096, macOS 1024; ten records
+  consequently occupy different section sizes. Original host paths also do
+  not necessarily exist on the receiving host.
+- **Correction:** DISK v1 has ten explicit 4108-byte little-endian records:
+  4096 path bytes, a 32-bit read-only/D88-image field, four date bytes, three
+  time bytes and a reserved byte. No native structure layout is serialized.
+  The reader also accepts the three historical v0 widths. A shared frontend
+  resolver serves both GUI and debug loads, using existing paths or unique
+  same-basename files in configured media folders, with no recursive search
+  or private-name table. Missing/ambiguous media remain disk-change warnings;
+  an overlong unmapped path is not truncated into another filename.
+- **Verification:** native full selftest writes a real two-image D88 state,
+  loads independent v1 and Windows/macOS/Linux v0 fixtures through preflight
+  and actual load, remaps Windows-style paths and preserves disk index and
+  read-only flags. Five single-mutation negatives require exact stable
+  version/size/path/flags error codes and nondestructive rejection. These are
+  cross-layout fixtures, not a claim of native Windows/Linux execution.
+- **Evidence/task:** [M142](../agents/tasks/M142_runtime_portability.md),
+  [verification checkpoint](../agents/reports/m142_runtime_progress.md).
+- **Fixing commit:**
+  [033992d943409d607a9931b9ba90096449708ce5](https://github.com/nakatamaho/vaeg/commit/033992d943409d607a9931b9ba90096449708ce5).
 
 ### M141 — TSP sprites shown without DSPON, with no line limit; TVRAM without waits
 
@@ -4264,6 +4265,30 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M142 — VA2 short-VB TVRAM chunk count exceeds hardware (#75)
+
+- **Observed scope:** the published TSPSPR Q row is 602 on the VA2 versus
+  875 in vaeg (1.45); S is 20 versus 21. Q/S is 30.1 versus 41.7, while the
+  VA control is about 28.0 and the other published rows are 0.92–1.09.
+- **Cause/correction:** unresolved. Chunk quantization, entry/poll phase and
+  memory arbitration are hypotheses, not demonstrated hardware mechanisms.
+  No generic TVRAM slowdown or fitted 1.45 adjustment is justified.
+- **Verification/status:** the [M142 checkpoint and complete published table](../agents/reports/m142_runtime_progress.md#d--75-published-screen-5-measurements-not-a-new-hardware-run)
+  retain the controls and limits. A [source-built chunk/entry kit](../../tools/hardware/tvram_vb/README.md)
+  is ready; physical measurements and an evidence-based correction remain
+  BLOCKED/NOT_IMPLEMENTED. No fixing commit or gate pass is claimed.
+
+### M142 — reported Information FPS versus high-digit display
+
+- **Observed scope:** the maintainer reports `32.0FPS` under overclocking
+  where `132.0FPS` was suspected. A 132-to-32 truncation has not been reproduced.
+- **Cause/correction:** unresolved as a reported runtime case; unrestricted
+  formatting and measurement tests pass through 1000 FPS. Actual render rate,
+  emulated MHz and final-client clipping must not be conflated. No guessed
+  production correction is claimed.
+- **Verification/status:** [M142 FPS findings](../agents/reports/m142_runtime_progress.md#a--fps-measurement-and-digits);
+  the real overclock/presenter-width case remains NOT_RUN, not a format-fix PASS.
 
 ### M140 — physical AF probe disagrees on SCF/CCF undocumented X/Y bits
 
