@@ -23,6 +23,16 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M140 — returned physical VA/VA2 FDC observations
 
+## Current gate disposition
+
+The maintainer has closed **G140 only for the confirmed VA2 uPD780C-1
+instruction/flag checkpoint**. The [scoped acceptance record](m140_g140_va2_acceptance.md)
+separates that evidence from the original-VA discrepancy and all deferred
+reference/timing/boundary/application checks. Historical BLOCKED statements
+below describe their original checkpoints; they are not rewritten. No unresolved
+VA defect is marked fixed, no full-silicon or standard application gate is passed,
+and no additional physical run or CPU behavior correction is inferred.
+
 ## Scope and identities
 
 Neutral observation ID: `hw-fdc-va-02`. The maintainer identifies the target as

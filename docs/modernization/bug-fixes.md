@@ -4258,7 +4258,10 @@ with byte-identical logs and no bounded integrity findings. VA2 is corroborated;
 VA is not universally different. Earlier VA observations remain unresolved:
 producer, input F/S/H/N, code and history changed together, so neither a POP-AF
 root cause nor a general Q/OR correction follows. No fixing CPU commit is claimed.
-Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
+The maintainer subsequently accepted the [scoped VA2 G140 checkpoint](../agents/reports/m140_g140_va2_acceptance.md).
+**This original-VA discrepancy remains OPEN and is carried forward**; scoped
+VA2 acceptance is neither a fixing commit nor broader gate acceptance.
+Tracking/carry-forward: [M140](../agents/tasks/M140_fdc_upd780_conformance.md#g140-scoped-closure-and-carry-forward).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification
 

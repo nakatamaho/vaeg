@@ -23,8 +23,14 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M140 — physical FDC uPD780 conformance and speed probes
 
-Status: maintainer-authorized separation from M139 because the milestones
-would otherwise overlap. Harness and mapped images implemented; inherited
+Status: **G140 SCOPED_ACCEPTED — confirmed VA2 uPD780C-1 instruction/flag
+contract only**, by explicit maintainer direction. See the
+[scoped acceptance and deferred-work record](../reports/m140_g140_va2_acceptance.md).
+Original-VA differences and all remaining verification are carried forward,
+not marked PASS. No main merge, release, vendor update or cleanup follows.
+
+Historical status before this scope amendment: maintainer-authorized separation
+from M139 because the milestones would otherwise overlap. Harness and mapped images implemented; inherited
 software checks pass within their stated scope. Returned VA media now contains
 complete full ZEX/AF/timing observations: 67/67 mapped-host CRCs match, while
 35 AF input pairs expose SCF/CCF undocumented-bit discrepancies. All original
@@ -877,8 +883,32 @@ exception preserves the generated patch byte-for-byte and text-diffable, without
 relaxing source-file checks. Affected repository/commit-chain checks are rerun;
 unchanged upstream behavior tests are reused, not repeated.
 
-## G140 acceptance
+## G140 scoped closure and carry-forward
 
+The maintainer explicitly directed: “VA2 μPD780C-1の確認済み範囲でG140を締め、VA側の未解決差と残りの検証を後続課題へ分離する”.
+**G140 is SCOPED_ACCEPTED for that confirmed VA2 checkpoint.** This is a scope
+amendment, not a retroactive PASS of the original broad gate. The
+[acceptance record](../reports/m140_g140_va2_acceptance.md) enumerates accepted
+contracts, evidence reuse and each deferred obligation. The original-VA defect
+remains OPEN; independent Zilog silicon, absolute timing/H/S coupling, additional
+boundaries and broad application/demo/media/clean-MinGW validation are deferred,
+not accepted. Upstream PR posting is still NOT_SUBMITTED and nonblocking to
+this evidence checkpoint. G139 is unchanged; pending M139 ancestry is not
+approved for merge. No follow-up milestone, release or cleanup is started.
+
+Closure content revalidation binds eight retained VA2 receipt sets to their
+prior digests and checks 2896 AF/history rows plus all67 mapped-host ZEX CRCs.
+Extracted logs match saved bytes. Production test/source and worker digests,
+and probe/content source contracts, match the original passing evidence;
+393216 software cases, 14 focused tests and costly ROM/ZEX runs are reused,
+not rerun or upgraded. Historical supplementary-file package mismatches and
+initial failures remain intact. Repository/scope checks validate the record;
+private corpus/output/command identities remain out of tree.
+
+## Original broad G140 acceptance — deferred, not passed
+
+The requirements below are retained for future integration/conformance work;
+they are outside the newly accepted checkpoint, not silently waived as PASS.
 Human acceptance is required after local QA, not just a worker exit or screenshot.
 Collect actual FDC full-group/AF records and verified recovery; establish the
 independent physical reference and relocation/Zilog controls; classify incomplete,
