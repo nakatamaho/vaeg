@@ -4252,6 +4252,12 @@ is now frozen separately: current A-only behavior is retained and locked by
 Public NEC NMOS findings corroborate the bounded VA2 records; no instruction
 correction is needed there. This narrows the unresolved original-VA discrepancy,
 not a claim of complete chip/timing conformance or G140 acceptance.
+[Returned FDCPREF controls](../agents/reports/m140_fdc_va_observations.md#returned-fdcpref-controls)
+now match A-only on both labels in all128 CP-produced immediate/NOP/DD/FD cases,
+with byte-identical logs and no bounded integrity findings. VA2 is corroborated;
+VA is not universally different. Earlier VA observations remain unresolved:
+producer, input F/S/H/N, code and history changed together, so neither a POP-AF
+root cause nor a general Q/OR correction follows. No fixing CPU commit is claimed.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

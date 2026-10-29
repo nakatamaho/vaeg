@@ -681,6 +681,73 @@ exhaustiveness establish complete physical conformance. G140 remains open. The s
 compare NEC A-only, Zilog Q, ST mixed and OR at fixed IUT/caller positions using
 CP-writer/NOP/DD/FD boundaries; software safety is validated, physical NOT_RUN.
 
+## Returned FDCPREF controls
+
+`hw-fdc-va-09` and `hw-fdc-va2-08` have the returned filename/request labels
+VA/V2/H and VA2/V2/H, not independently encoded machine/mode/chip/firmware
+identities. **Both have 128 complete rows and byte-identical 10496-byte DATs.**
+Production CLI and the explicit A-only host-contract checks exit 0 for both.
+Raw/text framing, padding and recovery marker validate; all master files, exact
+COM and boot/system region are preserved. Seven result-RAM patterns complete
+(mask7Fh, zero mismatches/first address), all three CP-control captures match the
+expected AF, and all three post captures agree. Immediate/triple status, mirror/
+inverse relations and delayed scan have no findings. This bounded contract is
+not independent full-RAM recovery, physical Q/fetch/SP or final DIR/A> capture.
+
+### Observations
+
+For A=00, CP B with B=28h has expected control AF=00BB. Every cell below is the
+same result in all eight passes, on **both** returned targets:
+
+| Mode | Boundary before final opcode480Ah | SCF AF | CCF AF |
+|---|---|---|---|
+| 0 | CP B immediately before IUT (NOP before CP) | 0081 | 0090 |
+| 1 | CP B; NOP; IUT | 0081 | 0090 |
+| 2 | CP B; DD IUT | 0081 | 0090 |
+| 3 | CP B; FD IUT | 0081 | 0090 |
+
+For A=28, expected CP-control AF=286A and **all modes/operations/passes give
+2869**. A and documented flags are preserved. Neither target has a varying
+repeat group, an outside-candidate-union row or a current-host difference.
+There are zero paired primary differences between the targets.
+
+| Published/software candidate | Matches /128, each target | A=00 subset /64 |
+|---|---|---|
+| NEC A-only | **128** | **64** |
+| Zilog Q-history | 80 | 16 |
+| reported ST CMOS mixed | 80 | 16 |
+| unconditional OR | 64 | 0 |
+
+The A=28 preservation half contributes 64 common matches and does not itself
+discriminate the candidates. A=00 after NOP/DD/FD rejects the tested Zilog-Q and
+ST mixed predictions; immediate CP also rejects OR. Thus adding standard Zilog
+Q globally is not supported by these observations. The current A-only
+implementation needs **no correction for this contract on either target**.
+
+### Relation to earlier VA discrepancies
+
+This corroborates the frozen VA2 baseline and adds 128 observations (2896
+AF/history rows total across the recorded VA2 sets, not unique input coverage).
+It also establishes a positive A-only match on the original-VA label, rather
+than treating every VA SCF/CCF use as different. Earlier FDCFIX OR159/160,
+FDCCAP OR56/96 and FDCXADR OR68/128 remain valid context-bounded observations;
+no earlier discrepancy or coherent repeated capture is erased.
+
+These programs differ in the flag-producing CP sequence, input F values
+(00BB/286A here versus 0028/0029 in the earlier fixed/capture controls), S/H/N,
+code and history/context. Therefore this is **not an isolated proof that POP AF
+is faulty**, that CP alone explains the change, or that all remaining VA cases
+obey A-only. Hardware-Q, common export and other history/phase mechanisms remain
+unresolved. No private-input lookup, random flag, blanket OR or PC workaround
+is justified. No unchanged physical rerun is requested.
+
+This is a report-only intake. Preparation evidence from
+[240844378c60df876a049c84d698ee230aea12bf](https://github.com/nakatamaho/vaeg/commit/240844378c60df876a049c84d698ee230aea12bf)
+is retained under identical program, source-contract and worker digests, not
+rerun or upgraded. Private receipts, full CLI commands/status, count witnesses
+and evaluated/worker/program/contract/output identities stay out of tree. The
+VA2 checkpoint remains separate; broader G140 acceptance is still BLOCKED.
+
 ## Returned FDCXADR controls
 
 `hw-fdc-va-08` and `hw-fdc-va2-07` are returned with VA/V2/H and VA2/V2/H

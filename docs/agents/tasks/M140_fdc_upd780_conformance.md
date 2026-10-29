@@ -796,8 +796,42 @@ Validation:
 All generated assets, exact commands/status, workers/program/contracts and
 output identities remain private/out of tree. Existing expensive full-ZEX/ROM
 and physical evidence is retained, not rerun or retroactively upgraded.
-FDCPREF physical is **NOT_RUN**. No CPU behavior, main-role, vendor, state or
-clock change is made, and G140 remains BLOCKED despite the scoped VA2 freeze.
+At preparation FDCPREF physical was **NOT_RUN**; returned observations are
+recorded separately below. No CPU behavior, main-role, vendor, state or clock
+change is made, and G140 remains BLOCKED despite the scoped VA2 freeze.
+
+## Returned FDCPREF controls
+
+[Detailed observations](../reports/m140_fdc_va_observations.md#returned-fdcpref-controls):
+`hw-fdc-va-09` and `hw-fdc-va2-08`, returned filename/request labels VA/V2/H and
+VA2/V2/H, not independent machine/mode/chip identities. Both have **128 complete
+rows, byte-identical 10496-byte DATs**, valid raw/text/recovery framing and no
+findings in the bounded RAM/triple/mirror contract. All master files, exact COM
+and boot/system region are preserved. These images do not independently capture
+physical full-RAM recovery, Q/fetch/SP or final DIR/A>.
+
+Both targets match A-only in all128: A=00/expected CP-control AF00BB gives SCF0081
+and CCF0090 in every immediate-CP/NOP/DD/FD mode and all eight passes. A=28/
+control286A gives2869 throughout. No repeat variation or paired primary target
+difference. Candidate matches each: A-only128, Zilog Q80, ST mixed80, OR64;
+the A=00 discriminating subset is64,16,16,0 respectively, while64 A=28 rows
+are common controls. Production CLI and explicit `--host-model` checks exit0.
+
+This reinforces the frozen VA2 baseline (128 additional observations;2896
+AF/history rows in its recorded sets, not unique/full physical coverage). VA
+also matches in this CP-based context, so no global Q/OR replacement is justified.
+Earlier VA differences remain open: flag producer, input F/S/H/N, code and
+history/context changed jointly. Do not label this an isolated POP-AF defect,
+a universal VA rule or a change in the hardware. No CPU change or new physical
+rerun is requested; next analysis uses the existing bound records.
+
+Program, content-source and both worker identities match preparation exactly;
+13 direct/14 focused tests and expensive ROM/full-ZEX evidence are retained under
+original scope without repetition or upgrade. Encoding/EOL/case/Markdown,
+49 milestone checks, audit and staged diff/scope checks pass for this report-only
+intake. Private receipts, CLI commands/status, comparison witnesses and final
+evaluation/output identities remain out of tree. G140 remains BLOCKED; no merge,
+release, cleanup or broad silicon/timing acceptance follows from this checkpoint.
 
 ## G140 acceptance
 

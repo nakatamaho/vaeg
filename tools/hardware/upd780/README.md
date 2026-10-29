@@ -512,7 +512,12 @@ creating FDCPREF.DAT (12288-byte budget). Existing DAT is refused. Dedicated
 `M140_PREF_PATCH_VERIFY`, timeout or recovery errors require RESET without disk
 I/O. **Do not TYPE the mixed binary DAT.** Fresh writable copies only; run
 FDCPREF once, wait for M139_FDC_RAM_RESTORED and A>, DIR, return whole images and
-actual settings. No old probe needs rerunning. Physical FDCPREF is NOT_RUN.
+actual settings. No old probe needs rerunning. Returned FDCPREF observations now
+have 128 rows per label, byte-identical DATs and no bounded integrity findings;
+both targets match A-only throughout, with no repeat variation. See the
+[returned-data analysis](../../../docs/agents/reports/m140_fdc_va_observations.md#returned-fdcpref-controls).
+This supports the scoped VA2 freeze and the measured VA CP-based context, not a
+universal VA rule or an isolated POP-AF cause. No new rerun is requested.
 
 ## Crossed sampler/caller relocation (FDCXADR)
 
