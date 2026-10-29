@@ -199,9 +199,23 @@ M36–M41 archive status.
 | M137 | tasks/M137_va_nmode_option.md | N mode on VA/VA2 boots only when enabled in 詳細設定 (off by default); greyed 起動 items with a tooltip | **G137 human gate passed on 2026-10-25; M137 complete: N mode for VA/VA2 boots behind 詳細設定 (off by default), greyed 起動 items with a tooltip; merged to `main` at [21b16211](https://github.com/nakatamaho/vaeg/commit/21b16211caf4b88352df3066b00e64e69e8bb253)** |
 | M138a | tasks/M138a_msys2_native_build.md | Windows-native MSYS2 build: UTF-8 in build-static-librashader.py; MSYS2 rustup documented | **G138a human gate passed on 2026-10-26; M138a complete (renumbered from M138, which the Rel.20261025 release also used): UTF-8 in build-static-librashader.py and MSYS2 rustup documented; the reporter's MSYS2 build of the branch succeeded; merged to `main` at [65a6b5f7](https://github.com/nakatamaho/vaeg/commit/65a6b5f79fcbd73190ff4d72c6b67e04dd699165)** |
 | M139 | tasks/M139_rv_all_machines.md | TSP SYNC.RV on every machine: M129's PC-8801 monochrome exception removed (a real SR reverses too) | **G139 human gate passed on 2026-10-26; M139 complete: SYNC.RV on every machine and graphics mode, M129's PC-8801 exception removed; merged to `main` at [0310a8f1](https://github.com/nakatamaho/vaeg/commit/0310a8f101b09c1f35888bd74d7286ff007c4a7f)** |
+| M140 | tasks/M140_fdc_upd780_conformance.md | FDC-uPD780 probes, preserved physical observations, VA2 instruction/flag contract and upstream selector proposal | **G140 SCOPED_ACCEPTED**, confirmed VA2 uPD780C-1 instruction/flag contract only; [acceptance/deferred obligations](reports/m140_g140_va2_acceptance.md). Retained2896 VA2 AF/history rows and67 mapped ZEX CRCs validate;393216 software cases freeze the existing A-only behavior without a vendor or instruction change. Original-VA discrepancies, independent silicon controls, absolute timing/H/S and broader boundaries remain OPEN/DEFERRED. Upstream candidate is pushed but PR NOT_SUBMITTED. The inherited CPU-role ancestry is now separately accepted as described below; integration does not enlarge either scope. |
 | M141 | tasks/M141_tsp_sprite_timing.md | TSP sprites and TVRAM as on the PC-88VA and PC-88VA2 (issue #67, demos/tsp-sprites) | **G141 human gate passed on 2026-10-29; M141 complete: sprites only after DSPON, the line's limit of about 300 image bytes, SPROV, IBF held after each byte (SPRON 3.4k VA / 3.7k VA2 clocks), the VA's VB of 23 rasters, TVRAM word waits; TSPSPR screen 5 within 0.92-1.09 of both machines except VA2 row Q (1.45, #75); state thumbnails turned, save times with seconds, debug script load-state; merged to `main` at [f6977770](https://github.com/nakatamaho/vaeg/commit/f6977770). Open: #74 (VRTC interrupt and VB out of phase), #75 (VA2 row Q), #76 (states not portable between Windows and Linux)** |
 | M141 | tasks/M141_tsp_sprite_timing.md | TSP sprites and TVRAM as on the PC-88VA and PC-88VA2 (issue #67, TSPSPR): sprites only after DSPON, a line's image limit, SC/SPROV, IBF hold, the VA's VB length, TVRAM word waits | **G141 human gate pending** |
 | M99999 | tasks/M99999_readme_attribution.md | Record the maintained-fork attribution and original project link in the top-level README | **G99999 passed** (documentation check) |
+
+Historical parallel ID assignment: the [main-CPU role task](tasks/M139_upd780_or_upd9002_check.md)
+also used M139/G139 on its separate branch. The maintainer explicitly accepts
+its resolved MA identification scope as **G139 SCOPED_ACCEPTED**; see the
+[acceptance supplement](reports/m139_cpu_role_acceptance.md). This is additional
+to, not a replacement for, the unchanged whole-screen-reverse M139 row above.
+The CPU candidate's later MA red-screen stop remains OPEN outside that scope.
+The [local QA/handoff](reports/m139_demo_media_handoff.md) covers nine distribution
+payload maps,34 bounded demo draws, BASIC computation/progress, four native boot
+contracts and a clean static MinGW audit under their original identities and
+limits. Both accepted histories are being reconciled with current M141 code;
+no stale branch replaces current main, no new milestone is silently assigned,
+and no full-demo, physical-timing or broader Windows coverage is inferred.
 
 Planned series (ADR-0016; rows are added when each task file exists;
 hardware model and milestone table in

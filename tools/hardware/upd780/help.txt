@@ -1,0 +1,62 @@
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+M139 FDC uPD780 diagnostic controller, CP/M 2.2
+
+Run these programs on the VA/VA2 monitor family documented in the source.
+Do not use an unknown subsystem ROM revision. Main CPU CP/M is only the
+loader/recorder: the diagnostic instructions execute on the FDC CPU.
+Use a COPY of the disk, leave it inserted, and keep normal peripherals idle.
+
+FDCONE  : NEG-only smoke test. NOT full ZEXALL. Try this first.
+FDCPRB  : 256 AF input pairs, readback and BIT/AND/SCF/CCF observations;
+          separate RAM-resident timing loops, two repetitions, N=1/4/16.
+FDCZEX  : All 67 relocated ZEXALL groups. This can take HOURS.
+
+Wait for M139_FDC_RAM_RESTORED and the A> prompt.
+Logs are FDCONE.TXT, FDCPRB.TXT and FDCZEX.TXT. Disk writes occur ONLY
+AFTER diagnostic completion and byte-verified restoration of 4000-7EFF.
+The existing output filename is refused: rename a previous log first.
+Main CPU code uses a private stack, restores default DMA and returns to CP/M.
+
+F records: requested AF, actual readback AF, BIT 0,A, AND 55h, SCF, CCF.
+Each AF field has four hex digits, concatenated in that order.
+E=XXXX counts BOTH edges of Port 40h bit 5 (VRTC). It is not MHz or us.
+No reference frequency is guessed. Calibration requires an independently
+approved VRTC frequency, its identity and the host-side results.py tool.
+Timed loops contain no protocol or disk I/O. Branch baseline and empty
+notification measurements separate loop/control and fixed overhead.
+
+ZEX rows print STOCK= and CRC=. Relocation and the LD r,n scratch-address
+change mean stock CRC mismatches ALONE are NOT evidence of NEC differences.
+Compare the identical mapped image on host and FDC, then minimize any delta.
+FDCZEX/FDCONE derive from GPL-2.0-or-later ZEX code; this build selects GPLv3.
+See ZEXLIC.TXT and generated sources beside this private image.
+Independent tools/controllers are BSD-2-Clause.
+This image also contains private input system files: DO NOT REDISTRIBUTE.
+
+During takeover, ordinary FDC disk service is suspended and motors are off.
+Do not remove the disk, invoke another disk utility, or interrupt the probe.
+To abort or on M139_FDC_TIMEOUT/RECOVERY_FAILED/TIMER_WRAP/LOG_CAPACITY,
+RESET THE MACHINE. Do not attempt to save through an unknown FDC state.
+The controller intentionally halts rather than issue unsafe disk writes.
+A completed log is an observation, NOT physical conformance acceptance.

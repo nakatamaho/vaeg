@@ -26,6 +26,6 @@
 #include "cpu/upd780/upd780_core_config.h"
 
 void Upd780ConfigureCore(UPD780C *cpu) {
-	// Zilog flags. Whether the NEC uPD780C matches is unverified.
+	// Legacy backend label: A-only SCF/CCF matches bounded VA2 uPD780C-1 evidence (M140).
 	cpu->SetFlagProfile(Z80CompatFlagProfile::kZilog);
 }

@@ -85,6 +85,7 @@ enum {
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
 	STATFLAG_UPD8087,
+	STATFLAG_MAIN_CPU,
 };
 
 typedef struct {
@@ -506,6 +507,27 @@ static int flagload_upd9002_mode(STFLAGH sfh, const SFENTRY *tbl) {
 		return STATFLAG_FAILURE;
 	}
 	return upd9002_core_mode_state_load(state) == SUCCESS ? STATFLAG_SUCCESS : STATFLAG_FAILURE;
+}
+
+/* Keep UPD9Z80's layout/name. This additional section identifies which main
+ * CPU owns that payload. Old files without it retain current-machine selection. */
+static int flagsave_main_cpu(STFLAGH sfh) {
+	const UINT8 role = pccore_main_cpu_is_upd780() ? 1 : 0;
+	return statflag_write(sfh, &role, sizeof(role));
+}
+
+static int flagcheck_main_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+	UINT8 role;
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != 1) ||
+	    (statflag_read(sfh, &role, sizeof(role)) != STATFLAG_SUCCESS) || role > 1) {
+		statflag_seterr(sfh, "M139_MAIN_CPU_STATE_PAYLOAD");
+		return STATFLAG_FAILURE;
+	}
+	if (role != (pccore_main_cpu_is_upd780() ? 1 : 0)) {
+		statflag_seterr(sfh, "M139_MAIN_CPU_STATE_MACHINE_MISMATCH");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
 }
 
 /* A nonzero UPD9Z80 payload is written only while compatible code is active. */
@@ -1400,6 +1422,10 @@ int statsave_save(const char *filename) {
 			ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_MAIN_CPU:
+			ret |= flagsave_main_cpu(&sffh->sfh);
+			break;
+
 		case STATFLAG_UPD9002_ALT:
 			ret |= flagsave_common(&sffh->sfh, tbl);
 			break;
@@ -1509,6 +1535,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 
 			case STATFLAG_UPD9002_COMPAT:
 				ret |= flagcheck_upd9002_compat(&sffh->sfh, tbl, &compat_active_seen);
+				break;
+
+			case STATFLAG_MAIN_CPU:
+				ret |= flagcheck_main_cpu(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_UPD9002_MODE: {
@@ -1680,6 +1710,10 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 			case STATFLAG_UPD9002_COMPAT:
 				ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_MAIN_CPU:
+				ret |= flagcheck_main_cpu(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_UPD9002_ALT:

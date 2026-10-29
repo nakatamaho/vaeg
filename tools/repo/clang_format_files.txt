@@ -338,8 +338,10 @@ tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd780/disasm.cpp
+tests/upd780/fdc_probe_runner.cpp
 tests/upd780/subsystem_integration.cpp
 tests/upd780/subsystem_integration.h
+tests/upd780/va2_flags.cpp
 tests/upd9002/abi.c
 tests/upd9002/brkem_upd70008.c
 tests/upd9002/brkem_upd70008.h
@@ -371,6 +373,7 @@ tests/upd9002/m70_prefix_string.c
 tests/upd9002/m70_prefix_string.h
 tests/upd9002/m96d_nop.c
 tests/upd9002/m96d_nop.h
+tests/upd9002/main_cpu_roles.c
 tests/upd9002/mov_imm_register.c
 tests/upd9002/mov_imm_register.h
 tests/upd9002/rep0f_diagnostic_stop.c

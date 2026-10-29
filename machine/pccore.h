@@ -200,6 +200,8 @@ UINT pccore_cpu_speed(void);
 void pccore_set_cpu_speed(UINT percent);
 UINT32 pccore_cpu_clock(void);
 UINT32 pccore_compat_cpu_clock(void);
+/* Applied PC-8801/8001 machine: independent main uPD780, not VA emulation. */
+BOOL pccore_main_cpu_is_upd780(void);
 BOOL pccore_88_standard(void);
 UINT64 pccore_compat_clocks(UINT32 clocks, BOOL native_wait);
 UINT16 pccore_mainram_kb(void);

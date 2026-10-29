@@ -529,6 +529,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd780/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
         tests/upd9002/brkem_upd70008.c
+        tests/upd9002/main_cpu_roles.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
@@ -2285,9 +2286,140 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
     endif()
 
+    # M140: freeze the bounded VA2 NEC/A-only flags contract, not Zilog Q.
+    add_executable(vaeg_upd780_va2_flags
+        tests/upd780/va2_flags.cpp
+        cpu/upd780/upd780_core_config.cpp)
+    target_link_libraries(vaeg_upd780_va2_flags PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_features(vaeg_upd780_va2_flags PRIVATE cxx_std_17)
+    target_compile_options(vaeg_upd780_va2_flags PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_upd780_va2_flags PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_upd780_va2_flags COMMAND vaeg_upd780_va2_flags)
+    set_tests_properties(vaeg_upd780_va2_flags PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only" TIMEOUT 60)
+
+    # M140: mapped FDC RAM payload checks with a synthetic monitor transport.
+    # This does not execute a private ROM or establish physical CPU timing.
+    add_executable(vaeg_upd780_fdc_probe_runner
+        tests/upd780/fdc_probe_runner.cpp
+        cpu/upd780/upd780_core_config.cpp)
+    target_link_libraries(vaeg_upd780_fdc_probe_runner PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_features(vaeg_upd780_fdc_probe_runner PRIVATE cxx_std_17)
+    target_compile_options(vaeg_upd780_fdc_probe_runner PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_upd780_fdc_probe_runner PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_upd780_fdc_tools_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_fdc_tools.py")
+    set_tests_properties(vaeg_upd780_fdc_tools_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_seed_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_seed.py")
+    set_tests_properties(vaeg_upd780_fdc_seed_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_fixed_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_fixed.py")
+    set_tests_properties(vaeg_upd780_fdc_fixed_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_capture_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_capture.py")
+    set_tests_properties(vaeg_upd780_fdc_capture_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_context_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_context.py")
+    set_tests_properties(vaeg_upd780_fdc_context_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_xadr_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_xadr.py")
+    set_tests_properties(vaeg_upd780_fdc_xadr_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
+    add_test(NAME vaeg_upd780_fdc_pref_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_pref.py")
+    set_tests_properties(vaeg_upd780_fdc_pref_selftest PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only")
+
     # M101/M102 probe programs per role: built with z80asm 1.8 and run by
     # vaeg_cpm_runner with each role's production core configuration.
     find_program(VAEG_Z80ASM_EXECUTABLE z80asm)
+    if(VAEG_Z80ASM_EXECUTABLE)
+        add_test(NAME vaeg_upd780_fdc_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_fdc_tools.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_seed_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_seed.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_fixed_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_fixed.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_capture_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_capture.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_xadr_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_xadr.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+        add_test(NAME vaeg_upd780_fdc_pref_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/upd780/test_pref.py"
+                --runner "$<TARGET_FILE:vaeg_upd780_fdc_probe_runner>"
+                --assembler "${VAEG_Z80ASM_EXECUTABLE}")
+    else()
+        add_test(NAME vaeg_upd780_fdc_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; FDC payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_seed_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; seed payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_fixed_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; fixed-address payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_capture_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; capture/storage payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_xadr_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; crossed-address payload tests NOT_RUN")
+        add_test(NAME vaeg_upd780_fdc_pref_payloads
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" skip
+                --reason "z80asm 1.8 unavailable; prefix/history payload tests NOT_RUN")
+        set_tests_properties(vaeg_upd780_fdc_payloads vaeg_upd780_fdc_seed_payloads
+            vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads
+            vaeg_upd780_fdc_xadr_payloads vaeg_upd780_fdc_pref_payloads PROPERTIES SKIP_RETURN_CODE 77)
+    endif()
+    set_tests_properties(vaeg_upd780_fdc_payloads vaeg_upd780_fdc_seed_payloads
+        vaeg_upd780_fdc_fixed_payloads vaeg_upd780_fdc_capture_payloads
+        vaeg_upd780_fdc_xadr_payloads vaeg_upd780_fdc_pref_payloads PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only" TIMEOUT 180)
     add_test(NAME vaeg_z80_role_probes_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/z80_role_probes.py" selftest)

@@ -32,6 +32,7 @@
 #include "memoryva/memoryva.h"
 #include "cpu/upd9002_upd70008.h"
 #include "cpu/upd9002_upd70008_core_config.h"
+#include "cpu/upd780/upd780_core_config.h"
 #include "cpu/z80_compat_cpu.h"
 
 #include <cstdint>
@@ -447,13 +448,16 @@ class CompatClock final : public IClock {
 	}
 };
 
-class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
+// VA firmware remains the board bootstrap/device bridge. The main uPD780
+// has its own state, distinct from VA compatible mode and the FDC uPD780.
+class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
   public:
 	void Reset() {
-		if (initialized_) {
-			upd70008_.Reset();
-		}
+		upd70008_.Reset();
+		main_upd780_.Reset();
 		upd70008_.SetMemoryBases(0, 0);
+		main_upd780_.SetMemoryBases(0, 0);
+		main_upd780_active_ = false;
 		initialized_ = false;
 		have_compatible_state_ = false;
 		counter_.SetRemainclock(0);
@@ -463,15 +467,21 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	// Shared by Enter() and StateLoad() so that a state loaded before the
 	// first mode entry also gets the native vector reader (M102 fix).
 	bool InitializeCore() {
-		// Undefined ED 00-3F/74/75/77 read the native-side physical
-		// page 0 (the x86 IVT); measured on a real PC-88VA2 (M102).
-		Upd9002Upd70008ConfigureCore(
-		    &upd70008_,
-		    [](void *, std::uint8_t index) -> std::uint8_t {
-			    return static_cast<std::uint8_t>(upd9002_memoryread_nowait(index));
-		    },
-		    nullptr);
-		initialized_ = upd70008_.Init(this, this, &clock_, &counter_, kInterruptAcknowledgePort);
+		main_upd780_active_ = pccore_main_cpu_is_upd780() != FALSE;
+		if (main_upd780_active_) {
+			// Share the FDC's instruction configuration, not its state/bus/clock.
+			Upd780ConfigureCore(&main_upd780_);
+		} else {
+			// Undefined ED 00-3F/74/75/77 read the native-side physical
+			// page 0 (the x86 IVT); measured on a PC-88VA2 (M102).
+			Upd9002Upd70008ConfigureCore(
+			    &upd70008_,
+			    [](void *, std::uint8_t index) -> std::uint8_t {
+				    return static_cast<std::uint8_t>(upd9002_memoryread_nowait(index));
+			    },
+			    nullptr);
+		}
+		initialized_ = Cpu().Init(this, this, &clock_, &counter_, kInterruptAcknowledgePort);
 		return initialized_;
 	}
 
@@ -482,7 +492,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			}
 		}
 		SetMemoryBases();
-		UPD70008Reg state = *upd70008_.GetReg();
+		Z80CompatReg state = *Cpu().GetReg();
 		state.af = static_cast<std::uint16_t>((static_cast<std::uint16_t>(CPU_AL) << 8) |
 		                                      (CPU_FLAG & 0xff));
 		state.bc = CPU_CX;
@@ -495,9 +505,9 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		state.iff1 = (CPU_FLAG & I_FLAG) != 0;
 		state.iff2 = state.iff1;
 		if (have_compatible_state_) {
-			upd70008_.SetMainReg(state);
+			Cpu().SetMainReg(state);
 		} else {
-			upd70008_.SetReg(state);
+			Cpu().SetReg(state);
 			have_compatible_state_ = true;
 		}
 		LoadAltFromNative();
@@ -511,7 +521,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return;
 		}
 		counter_.SetRemainclock(CPU_REMCLOCK);
-		const std::uint16_t pc = static_cast<std::uint16_t>(upd70008_.GetPC());
+		const std::uint16_t pc = static_cast<std::uint16_t>(Cpu().GetPC());
 		const std::uint32_t code_address = (CPU_CS << 4) + pc;
 		// (looking ahead at the instruction: not bus cycles of their own)
 		const std::uint8_t op0 = static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address));
@@ -527,7 +537,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		if (op0 == 0xed && (((op1 & 0xc6) == 0x40) || ((op1 & 0xe6) == 0xa2))) {
 			plain_io = true;
 			input = (op1 & 1) == 0;
-			port = static_cast<UINT8>(upd70008_.GetReg()->bc);
+			port = static_cast<UINT8>(Cpu().GetReg()->bc);
 		}
 		if (plain_io && (upd9002_iotrap.control & (input ? 1 : 2))) {
 			for (unsigned range = 0; range < 8; range += 4) {
@@ -544,18 +554,18 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			}
 		}
 
-		if ((op0 == 0xed) && (op1 == 0xed)) {
+		if (!main_upd780_active_ && (op0 == 0xed) && (op1 == 0xed)) {
 			const std::uint8_t vector =
 			    static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address + 2));
-			upd70008_.SetPC(static_cast<std::uint16_t>(pc + 3));
+			Cpu().SetPC(static_cast<std::uint16_t>(pc + 3));
 			SyncToNative();
 			upd9002_core_compat_calln(vector, static_cast<REG16>(pc + 3));
 			counter_.SetRemainclock(CPU_REMCLOCK);
 			compat_trace("calln", trace_slot, op0, op1);
 			return;
 		}
-		if ((op0 == 0xed) && (op1 == 0xfd)) {
-			upd70008_.SetPC(static_cast<std::uint16_t>(pc + 2));
+		if (!main_upd780_active_ && (op0 == 0xed) && (op1 == 0xfd)) {
+			Cpu().SetPC(static_cast<std::uint16_t>(pc + 2));
 			SyncToNative();
 			upd9002_core_compat_retem();
 			counter_.SetRemainclock(CPU_REMCLOCK);
@@ -563,20 +573,20 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return;
 		}
 
-		const bool was_enabled = upd70008_.GetReg()->iff1 != 0;
+		const bool was_enabled = Cpu().GetReg()->iff1 != 0;
 		const std::uint8_t op3 =
 		    static_cast<std::uint8_t>(upd9002_memoryread_nowait(code_address + 3));
 		const CompatCost cost = CompatInstructionCost(op0, op1, op3);
-		const bool halted = upd70008_.Halted();
+		const bool halted = Cpu().Halted();
 		acknowledged_ = false;
 		last_data_ = kNoAddress;
 		counter_.BeginMeasured();
-		upd70008_.ExecOne();
-		bool use_core = cost.fallback || acknowledged_ || halted;
+		Cpu().ExecOne();
+		bool use_core = main_upd780_active_ || cost.fallback || acknowledged_ || halted;
 		std::uint32_t clocks = cost.taken;
 		if (!use_core && cost.conditional) {
 			const std::uint16_t next = static_cast<std::uint16_t>(pc + cost.length);
-			if (static_cast<std::uint16_t>(upd70008_.GetPC()) == next) {
+			if (static_cast<std::uint16_t>(Cpu().GetPC()) == next) {
 				clocks = cost.not_taken;
 			}
 		}
@@ -587,7 +597,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		// (pic_irq). As the native STI does, end the slice one instruction
 		// after EI (or a RETI/RETN restoring IFF1) when a request is waiting,
 		// so it is taken in the enabled window instead of the next slice.
-		if (!was_enabled && (upd70008_.GetReg()->iff1 != 0) && PICEXISTINTR && (CPU_REMCLOCK > 1)) {
+		if (!was_enabled && (Cpu().GetReg()->iff1 != 0) && PICEXISTINTR && (CPU_REMCLOCK > 1)) {
 			CPU_BASECLOCK += 1 - CPU_REMCLOCK;
 			CPU_REMCLOCK = 1;
 		}
@@ -595,7 +605,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	}
 
 	void SyncToNative() {
-		const UPD70008Reg *state = upd70008_.GetReg();
+		const Z80CompatReg *state = Cpu().GetReg();
 		StoreAltToNative();
 		CPU_AL = static_cast<UINT8>(state->af >> 8);
 		CPU_FLAG = static_cast<UINT16>((CPU_FLAG & 0xfc00) | (state->af & 0xff) |
@@ -611,7 +621,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
 	void Resume() {
 		SetMemoryBases();
-		UPD70008Reg state = *upd70008_.GetReg();
+		Z80CompatReg state = *Cpu().GetReg();
 		state.af = static_cast<std::uint16_t>((static_cast<std::uint16_t>(CPU_AL) << 8) |
 		                                      (CPU_FLAG & 0xff));
 		state.bc = CPU_CX;
@@ -623,7 +633,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 		state.pc = CPU_IP;
 		state.iff1 = (CPU_FLAG & I_FLAG) != 0;
 		state.iff2 = state.iff1;
-		upd70008_.SetMainReg(state);
+		Cpu().SetMainReg(state);
 		LoadAltFromNative();
 		counter_.SetRemainclock(CPU_REMCLOCK);
 	}
@@ -631,16 +641,16 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	// M103a: the alternate set lives in machine-owned storage
 	// (upd9002_alt_regs); the compat core holds a working copy.
 	void LoadAltFromNative() {
-		UPD70008Reg state = *upd70008_.GetReg();
+		Z80CompatReg state = *Cpu().GetReg();
 		state.r_af = upd9002_alt_regs.af;
 		state.r_bc = upd9002_alt_regs.bc;
 		state.r_de = upd9002_alt_regs.de;
 		state.r_hl = upd9002_alt_regs.hl;
-		upd70008_.SetAltReg(state);
+		Cpu().SetAltReg(state);
 	}
 
 	void StoreAltToNative() {
-		const UPD70008Reg *state = upd70008_.GetReg();
+		const Z80CompatReg *state = Cpu().GetReg();
 		upd9002_alt_regs.af = state->r_af;
 		upd9002_alt_regs.bc = state->r_bc;
 		upd9002_alt_regs.de = state->r_de;
@@ -648,12 +658,12 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	}
 
 	void LeaveHalt() {
-		upd70008_.LeaveHalt();
+		Cpu().LeaveHalt();
 	}
 
 	void Irq(bool asserted) {
 		if (initialized_) {
-			upd70008_.IRQ(0, asserted ? 1 : 0);
+			Cpu().IRQ(0, asserted ? 1 : 0);
 		}
 	}
 
@@ -662,7 +672,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 			return FAILURE;
 		}
 		counter_.SetRemainclock(CPU_REMCLOCK);
-		return upd70008_.SaveStatus(buffer) ? SUCCESS : FAILURE;
+		return Cpu().SaveStatus(buffer) ? SUCCESS : FAILURE;
 	}
 
 	int StateLoad(const UINT8 *buffer, UINT size) {
@@ -674,7 +684,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 				return FAILURE;
 			}
 		}
-		if (!upd70008_.LoadStatus(buffer)) {
+		if (!Cpu().LoadStatus(buffer)) {
 			return FAILURE;
 		}
 		SetMemoryBases();
@@ -701,7 +711,11 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	// above 40000h adds about half a clock a byte; LD HL,(nn), PUSH and POP
 	// add one wait, as LD A,(nn) does.
 	bool SharesBusCycle(std::uint32_t address, bool write) {
-		if (upd70008_.CodeRead()) {
+		// The uPD780 has an 8-bit bus, not the VA's aligned word fetches.
+		if (main_upd780_active_) {
+			return false;
+		}
+		if (Cpu().CodeRead()) {
 			return (address & 1) != 0;
 		}
 		const bool shared = ((address & 1) != 0) && (last_data_ == address - 1) &&
@@ -741,7 +755,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	std::uint32_t IFCALL In(std::uint32_t port) override {
 		if (port == kInterruptAcknowledgePort) {
 			acknowledged_ = true; // (the core's cycles for that step, M135)
-			upd70008_.IRQ(0, 0);
+			Cpu().IRQ(0, 0);
 			return pic8214_acknowledge_compat();
 		}
 		const SINT32 before = CPU_REMCLOCK;
@@ -764,11 +778,17 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 
   private:
 	void SetMemoryBases() {
-		upd70008_.SetMemoryBases(static_cast<std::uint32_t>(CPU_CS) << 4,
-		                         static_cast<std::uint32_t>(CPU_DS) << 4);
+		Cpu().SetMemoryBases(static_cast<std::uint32_t>(CPU_CS) << 4,
+		                     static_cast<std::uint32_t>(CPU_DS) << 4);
+	}
+
+	Z80CompatCpu &Cpu() {
+		return main_upd780_active_ ? main_upd780_ : upd70008_;
 	}
 
 	UPD70008C upd70008_;
+	UPD780C main_upd780_;
+	bool main_upd780_active_ = false;
 	static constexpr std::uint32_t kNoAddress = 0xffffffffU;
 	bool acknowledged_ = false;
 	std::uint32_t last_data_ = kNoAddress;
@@ -779,7 +799,7 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 	bool have_compatible_state_ = false;
 };
 
-Upd9002Upd70008Compat compat;
+MainCpuBridge compat;
 
 void compat_reset() {
 	compat.Reset();

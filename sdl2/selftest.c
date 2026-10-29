@@ -4209,6 +4209,108 @@ static int test_compat_mode_state(void) {
 	return (SUCCESS);
 }
 
+static int test_main_cpu_state(void) {
+	static const BYTE entry[] = {0x0f, 0xff, 0xe1};
+	static const BYTE bits[] = {0xcb, 0x47, 0xcb, 0x47};
+	const BOOL saved_pc8801 = memoryva_pc8801;
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	BYTE fdc_before[256], fdc_after[256];
+	char path[MAX_PATH], legacy[MAX_PATH], err[512];
+	const char *problem = NULL;
+	UINT role;
+	SPRINTF(path, "vaeg-selftest-%lu-maincpu.sts", (unsigned long)getpid());
+	SPRINTF(legacy, "vaeg-selftest-%lu-maincpu-old.sts", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	for (role = 0; role < 2 && problem == NULL; role++) {
+		UINT n;
+		pccore_reset();
+		soundmng_stop();
+		/* Synthetic applied-machine fixture: no private ROMs are required. */
+		memoryva_pc8801 = role != 0;
+		memoryva_pc8001 = FALSE;
+		n = subsystem_getcpustatussize();
+		if (n > sizeof(fdc_before) || !subsystem_savecpustatus(fdc_before)) {
+			problem = "FDC fixture could not be saved";
+			break;
+		}
+		STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+		STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+		CopyMemory(mem + 0x20100, entry, sizeof(entry));
+		CopyMemory(mem + 0x21000, bits, sizeof(bits));
+		CPU_CS = CPU_DS = 0x2000;
+		CS_BASE = DS_BASE = 0x20000;
+		CPU_SS = 0x3000;
+		SS_BASE = 0x30000;
+		CPU_IP = 0x100;
+		CPU_SP = 0x100;
+		CPU_BP = 0x200;
+		CPU_AL = 1;
+		CPU_FLAG = 0xf000;
+		CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+		upd9002_core_step();
+		upd9002_core_step();
+		if ((CPU_FLAG & 0x10) != (role ? 0x10 : 0) || !subsystem_savecpustatus(fdc_after) ||
+		    memcmp(fdc_before, fdc_after, n)) {
+			problem = "selected main CPU flags or FDC isolation failed";
+			break;
+		}
+		err[0] = '\0';
+		if (statsave_save(path) != STATFLAG_SUCCESS ||
+		    statsave_check(path, err, sizeof(err)) != STATFLAG_SUCCESS) {
+			problem = "passing main-CPU state fixture failed";
+			break;
+		}
+		/* One mutation: the selected CPU role. Preflight must reject this
+		 * exact invariant before resetting or loading any machine state. */
+		memoryva_pc8801 = !role;
+		err[0] = '\0';
+		if (statsave_check(path, err, sizeof(err)) != STATFLAG_FAILURE) {
+			problem = "wrong main-CPU state role accepted";
+		} else {
+			err[strcspn(err, "\r\n")] = '\0';
+			if (strcmp(err, "M139_MAIN_CPU_STATE_MACHINE_MISMATCH") != 0 ||
+			    statsave_load(path) != STATFLAG_FAILURE || CPU_IP != 0x1002) {
+				problem = "wrong-role state failure masked or mutated machine";
+			}
+		}
+		memoryva_pc8801 = role != 0;
+		if (problem != NULL) {
+			break;
+		}
+		CPU_RESET();
+		if (statsave_load(path) != STATFLAG_SUCCESS || CPU_IP != 0x1002 ||
+		    (CPU_FLAG & 0x10) != (role ? 0x10 : 0) || !subsystem_savecpustatus(fdc_after) ||
+		    memcmp(fdc_before, fdc_after, n)) {
+			problem = "main/FDC state-file round trip failed";
+			break;
+		}
+		upd9002_core_step();
+		if (CPU_IP != 0x1004 || (CPU_FLAG & 0x10) != (role ? 0x10 : 0)) {
+			problem = "restored main CPU executed with wrong profile";
+			break;
+		}
+		if (strip_statsave_section(path, legacy, "MCPUROLE") != SUCCESS ||
+		    statsave_load(legacy) != STATFLAG_SUCCESS) {
+			problem = "legacy same-machine state without CPU identity failed";
+		}
+	}
+	memoryva_pc8801 = saved_pc8801;
+	memoryva_pc8001 = saved_pc8001;
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(legacy);
+	if (problem != NULL) {
+		return fail("main CPU state", problem);
+	}
+	fprintf(
+	    stderr,
+	    "selftest: main CPU state files, role negatives, legacy restore and FDC isolation ok\n");
+	return SUCCESS;
+}
+
 static int test_statsave(void) {
 	char path1[MAX_PATH];
 	char path2[MAX_PATH];
@@ -9076,6 +9178,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_main_cpu_state() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_v1v2_state_sections() != SUCCESS) {

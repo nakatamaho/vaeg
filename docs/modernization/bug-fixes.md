@@ -35,6 +35,53 @@ land.
 
 ## Maintenance Rules
 
+### M140 — all-tools prototype exhausted space on the second history log
+
+- **Symptom/scope:** an internal all-tools history disk completed both FDC
+  programs but saving the second history log reported `M139_LOG_WRITE_FAILED`.
+  The loader closed the partial file and returned to CP/M; the content validator
+  rejected the incomplete persisted log. This prototype was not handed off.
+- **Demonstrated cause:** bundling the three legacy FDC COMs/help, two new COMs,
+  license and original CP/M files left too few allocation blocks for both new
+  logs. Each program passed alone; the second same-disk log stopped at 10240
+  bytes. Complete computation/recovery was visible separately from failed save.
+- **Correction:** separate legacy/history suites, preserve original files and
+  reserve block-rounded maximum log sizes plus directory entries before image
+  output. The final history disk has 55296 free bytes with 24576 reserved.
+  No loader, CPU semantics or log-length bounds are weakened.
+- **Verification:** 35 unit tests and two focused CTest pass, including isolated
+  block/directory/budget negatives. Final ROM-backed software checks run both
+  programs in one boot, persist two complete 512-record logs, preserve original
+  files and return a healthy DIR/prompt. The first log also survives a separate
+  restarted-worker sequence. Initial prototype failure and artifacts remain
+  outside Git; the default legacy D88 remains byte-identical.
+- **Evidence/task:** [M140 history-disk record](../agents/tasks/M140_fdc_upd780_conformance.md#history-controlled-follow-up-disk-r2).
+- **Fixing commit:**
+  [1560faac6d1f2689c86614d3b6c26f76ea1388b0](https://github.com/nakatamaho/vaeg/commit/1560faac6d1f2689c86614d3b6c26f76ea1388b0).
+
+### M140 — returned 2D diagnostic captures rejected by the result reader
+
+- **Symptom/scope:** a returned physical FDC result image failed intake with
+  `M139_D88_TRACKS` before CP/M log extraction; this was a tooling limitation,
+  not a guest disk corruption or CPU failure.
+- **Demonstrated cause:** the image uses the 2D double-step track-table layout
+  `4*C+H` while sector C/H remain logical. The reader reused the writable
+  builder's contiguous `2*C+H` assumption. Header-only normalization permits
+  the same exact sector bytes to pass the existing strict geometry checks.
+- **Correction:** accept only the enumerated 2D double-step layout on readback,
+  validate geometry/bounds/order and normal sector status, and normalize a
+  header copy in memory. Keep original captures and writable-builder rules
+  unchanged; reject other layouts rather than adding a bypass.
+- **Verification:** 24/24 unit and 2/2 focused CTest PASS, with passing-fixture
+  single-mutation track/media/sector/status negatives and exact stable codes.
+  The returned media yields complete three-program logs, unchanged original
+  files/programs/system sectors and 67/67 mapped-host full-ZEX CRC matches.
+  Original failure and subsequent normalized/production reports are retained.
+- **Evidence/task:** [M140 analysis](../agents/reports/m140_fdc_va_observations.md),
+  [M140 task](../agents/tasks/M140_fdc_upd780_conformance.md).
+- **Fixing commit:**
+  [26108cb2c3701b8511ba8a76064cb1db187bf74d](https://github.com/nakatamaho/vaeg/commit/26108cb2c3701b8511ba8a76064cb1db187bf74d).
+
 ### M138 — Matroska fixture cleanup aborted on Windows
 
 - **Symptom/scope:** native Windows recording tests aborted at directory
@@ -1727,6 +1774,32 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task/commit:** M138a (first numbered M138),
   [M138a task](../agents/tasks/M138a_msys2_native_build.md),
   [f4ff0629](https://github.com/nakatamaho/vaeg/commit/f4ff0629355882f67f63979643e336fc5d8f617b).
+### M139 — ROM-substituted MA exposed the VA main-CPU flag identity
+
+- **Symptom/scope:** neutral fixture `ma-detect-01` rejected execution as VA
+  with PC-8801MA selected. The correction selects the main uPD780 for applied
+  PC-8801/8001 machines, not for VA/VA2 or failed-ROM VA fallbacks.
+- **Demonstrated cause:** the guest captures H after BIT. Documented Z80 BIT
+  sets H, whereas measured uPD9002 R3 clears it. M113 substituted ROMs but
+  retained the unconditional uPD9002 main-CPU profile. The identification
+  routine does not use I/O or ROM-identity reads; the FDC is not its source.
+- **Correction:** the board bridge owns independent main-uPD780 and VA
+  compatible instances. Main uPD780 uses the FDC's instruction configuration,
+  ordinary T states and byte-bus accesses, without native-vector ED behavior
+  or CALLN/RETEM. FDC state/clocks and measured VA/VA2 semantics stay separate.
+  Reset/load select from applied machine flags. New state CPU-family metadata
+  rejects cross-family loads before mutation; legacy same-machine state
+  behavior and `UPD9Z80` layout/name remain available.
+- **Verification:** local CTest 138 PASS/10 SKIP/0 FAIL, then final focused
+  role/timing/state tests PASS. Actual MA guest captures H=1 and writes result
+  16 instead of the old 0, progressing beyond the rejection. A later guest
+  fatal stop remains unresolved below: this fixes the identity condition,
+  not complete demo compatibility or physical-device timing equivalence.
+- **Milestone/task:** [M139 implementation validation](../agents/tasks/M139_upd780_or_upd9002_check.md#implementation-validation).
+  [Investigation commit f9dc961d](https://github.com/nakatamaho/vaeg/commit/f9dc961d423b31d3b6c652530d2091b7255d73e4).
+- **Fixing commit:** [3053ee65](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305).
+  The maintainer subsequently [accepted the resolved identification scope](../agents/reports/m139_cpu_role_acceptance.md),
+  while the later guest fatal stop remains OPEN, not fixed or passed.
 
 ### M136 — cursor keys assigned to an absent joystick or mouse were lost
 
@@ -4165,6 +4238,113 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M140 — physical AF probe disagrees on SCF/CCF undocumented X/Y bits
+
+The [returned VA observations](../agents/reports/m140_fdc_va_observations.md)
+contain 35 distinct input pairs differing from the current host arithmetic
+baseline: 34 SCF, 35 CCF. A and documented flags agree; POP AF, BIT and AND
+show no differences. The same mapped full ZEX image agrees in all 67 CRCs.
+This is an unresolved diagnostic discrepancy, not yet a demonstrated NEC-only
+backend defect. Hidden Q/history is uncontrolled in the current probe and is
+not modeled by the arithmetic helper; its causal contribution is unproved.
+Do not change profiles until a history-controlled reduction and independent
+Zilog control establish the rule. No fixing CPU commit or root cause is claimed.
+The controlled probes now have VA2/V2/S physical results: both 512-row logs
+match mapped-host input/control/output AF completely, and that machine/setting's
+legacy AF matrix has zero differences. The original discrepancy is VA/V2/H;
+changing both machine and speed setting initially did not isolate its cause.
+The four-setting controlled matrix is now complete. A subsequent original-VA/V2/S
+capture reproduces a controlled difference: FDCHIST has 84 post-AF X/Y rows
+(42 SCF, 42 CCF) and 56 pre-AF rows, while FDCFLAG matches. VA2/S has zero
+in both matrices with identical COMs. H/S mismatch alone therefore cannot
+explain this same-setting observation; CPU variant/firmware/internal-history
+causality and a general flag rule remain unproved. Original-VA/V2/H then gives
+byte-identical controlled logs to VA/S, so this reported VA's controlled flag
+results agree across H/S; that is not a timing/clock comparison. The final
+new VA2/V2/H capture also matches VA2/S byte-for-byte and current host in all
+1024 rows. The observation tracks reported machine, not H/S, across these four
+captures, but CPU variant/firmware/history causality and a general rule remain
+unestablished. No current host-backend correction is established. A corrected filename does not
+supply H evidence, and these S results do not establish a fixing CPU rule.
+The [offline reduction](../agents/reports/m140_fdc_va_observations.md#offline-reduction-and-separate-software-q-controls)
+now isolates six VA post cases outside both A-only and old-F/A OR to one AF
+input and three predecessors. A software history candidate does not explain
+both programs. Pinned Ares-derived SingleStepTests supply a separate software
+A/F/Q control, not independent Zilog silicon. Neither choosing a whole-instruction
+OR/A-only rule nor copying that reference establishes a NEC correction. Physical
+Q, the root cause and a justified CPU/profile fix remain unresolved.
+The [returned seed/readback cases](../agents/reports/m140_fdc_va_observations.md#returned-fdcseed-seedreadback-controls)
+have 80 complete rows each: VA-labeled data differs in 30 X/Y rows, VA2-labeled
+data matches host. Both paths agree on captured RAM. One VA CCF group differs
+between nominally equivalent XOR-A/zero-OR-A seeds, but seed/opcode and IUT
+address/context are confounded. A formatter-only explanation is insufficient;
+shared capture/RAM and internal-history causes remain open. No fixing CPU
+commit, deterministic NEC rule or gate acceptance is established.
+The [returned fixed-address controls](../agents/reports/m140_fdc_va_observations.md#returned-fixed-address-repetition-controls)
+now supply 160 rows per label. VA has 160 host differences, with OR fitting
+159 rows and one SCF repeat outlier; VA2 matches all 160 host results. Raw/text
+agreement holds, but result-storage cells differ per row. The one outlier causes
+both repeat and per-seed-set variation flags, not a deterministic seed/order law
+or a demonstrated bad RAM cell. Capture/storage effects, internal state and the
+root cause remain unresolved; no fixing CPU/profile commit is established.
+The [returned FDCCAP controls](../agents/reports/m140_fdc_va_observations.md#returned-fdccap-controls)
+have 96 rows per label, with no findings in bounded RAM/triple/mirror checks.
+VA differs from host in 96; OR fits 56 and three CCF groups vary, with each row's
+three exports agreeing. VA2 matches all 96 host results. The current variation
+has no isolated store/stack-cell signature, but common CPU/export/mailbox/context
+paths remain; neither a defective RAM cell nor a universal OR/Q law or CPU
+correction is demonstrated. Earlier FDCFIX's 159/160 fit is context-bounded,
+not retroactively erased or generalized across the changed executable.
+The [offline context audit](../agents/reports/m140_fdc_va_observations.md#offline-binarycontext-audit)
+checks selected binary spans and finds no missing capture BC reload; nominal
+primary stack placement is unchanged between fixed/capture. IUT/caller address
+bits still covary. Repeated results and explicit counterexamples reject literal
+address-bit copying/static-input-only rules, not richer context/phase mechanisms.
+No address-based workaround or root cause is established.
+The [returned crossed relocation controls](../agents/reports/m140_fdc_va_observations.md#returned-fdcxadr-controls)
+have 128 rows per label, with clean bounded RAM/triple/mirror checks. All four
+VA sites have identical counts: AF0029 SCF=0021 eight times and CCF=0030 seven/
+0038 once per site, with the rare value at different pass IDs. VA has 128 host
+differences, OR fits 68; VA2 matches host throughout. Four differing descriptive
+pairs per axis are not a causal effect or differing site frequencies. No simple
+address-bit/site rule, unique Q law, bad cell or fixing CPU commit follows;
+finite equal counts also do not exclude every context/address interaction.
+The [VA2 uPD780C-1 baseline](../agents/tasks/M140_fdc_upd780_conformance.md#va2-upd780c-1-instructionflag-baseline-frozen)
+is now frozen separately: current A-only behavior is retained and locked by
+393216 software cases through production configuration and guest flag export.
+Public NEC NMOS findings corroborate the bounded VA2 records; no instruction
+correction is needed there. This narrows the unresolved original-VA discrepancy,
+not a claim of complete chip/timing conformance or G140 acceptance.
+[Returned FDCPREF controls](../agents/reports/m140_fdc_va_observations.md#returned-fdcpref-controls)
+now match A-only on both labels in all128 CP-produced immediate/NOP/DD/FD cases,
+with byte-identical logs and no bounded integrity findings. VA2 is corroborated;
+VA is not universally different. Earlier VA observations remain unresolved:
+producer, input F/S/H/N, code and history changed together, so neither a POP-AF
+root cause nor a general Q/OR correction follows. No fixing CPU commit is claimed.
+The maintainer subsequently accepted the [scoped VA2 G140 checkpoint](../agents/reports/m140_g140_va2_acceptance.md).
+**This original-VA discrepancy remains OPEN and is carried forward**; scoped
+VA2 acceptance is neither a fixing commit nor broader gate acceptance.
+Tracking/carry-forward: [M140](../agents/tasks/M140_fdc_upd780_conformance.md#g140-scoped-closure-and-carry-forward).
+
+### M139 — guest reaches a fatal stop after successful CPU identification
+
+- **Observed scope:** `ma-detect-01` under selected MA now passes its main-CPU
+  identification, writes the non-VA result, then reaches a later fatal-stop
+  path and a solid red screen. Captures at three later frame points and a
+  bounded CPU trace establish a terminal guest self-loop, not an animation
+  capture mistaken for a frozen screen. Explicit BASIC file-channel allocation
+  does not resolve it.
+- **Cause/correction:** unresolved. CPU identity is independently verified as
+  corrected above, but that does not establish the cause of this subsequent
+  stop. No FDC, ROM, interrupt, timer, firmware-bridge or timing hypothesis is
+  promoted to a root cause. No guest patch or check bypass is recommended.
+- **Verification/gate:** actual private guest text/register/trace evidence
+  stays outside Git; dummy/software output is not display acceptance. Demo
+  drawing remains FAIL and blocks the implementation gate despite passing
+  CPU-role/unit/state checks.
+- **Task/evidence:** [M139 private-guest result](../agents/tasks/M139_upd780_or_upd9002_check.md#private-guest-cpu-identity-pass-demo-drawing-fail).
+  The correction branch remains under review; no milestone merge is accepted.
 
 ### M132 — T88 LOAD waits while the raw cassette control loads
 

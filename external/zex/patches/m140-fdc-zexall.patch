@@ -1,0 +1,143 @@
+; zexall.src - Z80 instruction set exerciser
+; Original Copyright (C) 1994  Frank D. Cringle
+; Changes at 03-Nov-2002 Copyright (C) 2002 J.G.Harston
+; + Source syntax tweeked to assemble with ZMAC Z80 Macro Assembler
+;   and MAXAM Assembler, marked in the source with 'jgh:'
+; + labels on equates mustn't have trailing colon
+; + macros don't understand <...> sequence, so parameters are passed
+;   explicitly
+; + ds n,c not supported, so strings are set to full explicity length
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation; either version 2
+; of the License, or (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+; ported to FDC RAM by Nakata Maho, 2026 (M140)
+; Derived patch: GPL-2.0-or-later; see ../LICENSE.txt (GPLv3 option).
+
+--- a/zexall-z80asm.asm
++++ b/fdczex.asm
+@@ -25,7 +25,7 @@
+ ; Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ 
+ ;	aseg
+-	org	100h
++	org	4000h
+ 
+ 	jp	start
+ 
+@@ -87,7 +87,14 @@
+ ; hand using a binary search of the test space.
+ 
+ 
+-start:	ld	hl,(6)
++start:	di
++	ld sp,7effh
++	ld	hl,7effh
++	xor a
++	out (0f8h),a
++	ld (7f09h),a
++	ld a,5
++	rst 18h
+ 	ld	sp,hl
+ 	ld	de,msg1
+ 	ld	c,9
+@@ -105,7 +112,7 @@
+ done:	ld	de,msg2
+ 	ld	c,9
+ 	call	bdos
+-	jp	0		; warm boot
++	jp	fdc_done
+ 
+ tests:
+ 	dw	adc16
+@@ -1092,7 +1099,7 @@
+ ; ld <b,c,d,e,h,l,(hl),a>,nn (64 cycles)
+ ld8im:	db	0ffh		; flag mask
+ 	db	6,0,0,0
+-	dw	0c407h,0f49dh,0d13dh,00339h,0de89h,07455h
++	dw	0c407h,0f49dh,0d13dh,07339h,0de89h,07455h
+ 	db	053h
+ 	db	0c0h
+ 	dw	05509h
+@@ -1647,7 +1654,9 @@
+ 	add	hl,de		; point to expected crc
+ 	call	cmpcrc
+ 	ld	de,okmsg
+-	jp	z,tlpok
++	nop
++	nop
++	nop
+ 	ld	de,ermsg1
+ 	ld	c,9
+ 	call	bdos
+@@ -1946,7 +1955,7 @@
+ 	push	ix
+ 	push	iy
+ 	ld	sp,(spsav)	; restore stack pointer
+-	ei			; enable interrupts
++	di			; FDC: no asynchronous device interrupts
+ 	ld	hl,(msbt)	; copy memory operand
+ 	ld	(msat),hl
+ 	ld	hl,flgsat	; flags after test
+@@ -2032,18 +2041,18 @@
+ 	push	bc
+ 	push	de
+ 	push	hl
+-	call	5
++	call	fdc_bdos
+ 	pop	hl
+ 	pop	de
+ 	pop	bc
+ 	pop	af
+ 	ret
+ 
+-msg1:	db	'Z80all instruction exerciser',13,10,'$'
++msg1:	db	'M139 FDC relocated ZEXALL',13,10,'$'
+ msg2:	db	'Tests complete',13,10,'$'
+ okmsg:	db	'  OK',13,10,'$'
+-ermsg1:	db	'  ERROR **** crc expected:$'
+-ermsg2:	db	' found:$'
++ermsg1:	db	'  STOCK=$'
++ermsg2:	db	' CRC=$'
+ crlf:	db	13,10,'$'
+ 
+ ; compare crc
+@@ -2374,3 +2383,28 @@
+ 	db	05ah,005h,0dfh,01bh
+ 	db	02dh,002h,0efh,08dh
+ 
++
++fdc_bdos:
++    ld a,c
++    cp 2
++    jr z,fdc_char
++    cp 9
++    jr nz,fdc_bad_bdos
++fdc_string:
++    ld a,(de)
++    cp '$'
++    ret z
++    rst 18h
++    inc de
++    jr fdc_string
++fdc_char:
++    ld a,e
++    rst 18h
++    ret
++fdc_bad_bdos:
++    halt
++    jr fdc_bad_bdos
++fdc_done:
++    ld a,4
++    rst 18h
++    jp 2ah

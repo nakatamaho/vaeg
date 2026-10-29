@@ -72,6 +72,7 @@ static const PROCTBL dmaproc[] = {
 
 static const SFENTRY np2tbl[] = {
 	{"PCCORE",		0,	STATFLAG_BIN,	&pccore,		sizeof(pccore)},
+	{"MCPUROLE",     1,  STATFLAG_MAIN_CPU,NULL,         1},
 
 	{UPD9002_STATE_SECTION, UPD9002_STATE_VERSION,
 					STATFLAG_UPD9002_CPU,NULL,			sizeof(Upd9002StateImage)},

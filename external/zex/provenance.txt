@@ -19,8 +19,9 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# This provenance file is vaeg-authored metadata. The other files in this
-# directory are unmodified third-party files and keep their own licenses.
+# This provenance file is vaeg-authored metadata. The stock zexall.src,
+# zexdoc.src and LICENSE.txt are unmodified third-party files. Separately
+# stored derived patches keep GPL notices; patches/README.md describes them.
 
 name=zex
 description=Z80 instruction set exercisers ZEXDOC and ZEXALL
@@ -40,10 +41,21 @@ license=GPL-2.0-or-later (source notices); the bundled LICENSE.txt is the GPLv3 
 imported_milestone=M101
 imported_date=2026-09-29
 
-Policy: these files are used only by the user-run CP/MVA disk installer and
-by host tests. They are never compiled into, linked into, or packaged with a
+Policy: these files are used only by the user-run CP/MVA disk installer,
+M140 FDC diagnostic builder and host tests. They are never compiled into, linked into, or packaged with a
 vaeg executable or release archive. The stock .cim binaries are not imported;
 tools/cpmva rebuilds them from these sources with z80asm 1.8 and verifies the
 result against the stock binary hashes above.
 
-The files were copied byte-for-byte from the URLs above and were not edited.
+The stock files were copied byte-for-byte from the URLs above and were not edited.
+
+fdc_patch_milestone=M140
+fdc_patch_manifest=patches/m140-fdc.json
+fdc_patch_application=translate unmodified zexall.src with zexbuild.translate_zmac, then apply exact unified diffs
+fdc_full_patch=patches/m140-fdc-zexall.patch
+fdc_full_patch_sha256=95cd9170f4f7e3f31eb72fc6c15a2c80f44a03aa6f427f35253975e23aa37378
+fdc_neg_smoke_patch=patches/m140-fdc-neg-smoke.patch
+fdc_neg_smoke_patch_sha256=dc1f2f61865b3045f21b8f95ea310c27a6df484aebe0d97862c6839f1ca68272
+fdc_patch_license=GPL-2.0-or-later derived patches; diagnostic build selects GPLv3
+fdc_patch_reference=patches/README.md
+fdc_compatibility=Legacy v1 M139 wire/schema/error identifiers retained; milestone ownership is M140, not a new physical result
