@@ -160,6 +160,32 @@ explicit Linux toolchain result is separate, not a universal cross-toolchain
 byte-reproducibility claim. Other initial harness/setup and overly broad
 content-threshold failures are also retained, not silently overwritten.
 
+## Reported M141 build and MA rejection
+
+Following a `G139 pass` message, the maintainer reported that MA still displays
+its early VA-identification rejection, naming build
+[9b60f9c1d5fea360ecbb955bf27c71b47454d4c0](https://github.com/nakatamaho/vaeg/commit/9b60f9c1d5fea360ecbb955bf27c71b47454d4c0).
+That exact commit was fetched and its source/history inspected:
+
+- It is the M141 state-time change, **not** the584bfcbf handoff above.
+- It does not descend from
+  [3053ee657eecf0c20aca3b967fa864620b1a2305](https://github.com/nakatamaho/vaeg/commit/3053ee657eecf0c20aca3b967fa864620b1a2305),
+  the main-CPU role implementation. Their shared base is5d4dafff.
+- Its main adapter/configurator still have the pre-M139 code; the independent
+  non-VA main-uPD780 selector/instance is absent. This explains why the original
+  identification correction cannot be assumed present in that build.
+- The user's rejection is distinct from the **later** terminal red screen in
+  the retained M139 candidate. That candidate's worker/input/capture identities
+  still validate its earlier CPU-identity PASS / drawing FAIL; this is reuse,
+  not a new9b60f9c1 runtime test or a Windows PASS.
+
+No final CPU-role gate/integration/cleanup is recorded after the conflicting
+build report. Latest main also has a separately named M139 whole-screen-reverse
+milestone: its acceptance is not transferred to this CPU work, nor overwritten.
+Reconciliation must preserve the newer M141 TSP/state implementation and avoid
+blindly merging stale milestone records. The all-demos34-case result does not
+include or imply a passing MA fixture. M142 A–F remain separate and unstarted.
+
 ## Repository validation
 
 The content selftest, UTF-8/no-BOM, LF, lowercase-path, Markdown-comment,

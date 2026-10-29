@@ -221,6 +221,29 @@ PASS. The maintainer receives absolute paths. The application is not rebuilt
 for QA/report-only edits and is not claimed to embed their future commit.
 No hosted CI, release, private-asset upload, main merge or cleanup occurs.
 
+### Reported M141 build is not the CPU-role candidate
+
+After the maintainer's `G139 pass` message, they reported that the MA fixture
+still rejects the machine as VA, identifying build
+[9b60f9c1d5fea360ecbb955bf27c71b47454d4c0](https://github.com/nakatamaho/vaeg/commit/9b60f9c1d5fea360ecbb955bf27c71b47454d4c0).
+Fetching that exact public commit establishes that it does **not** contain
+implementation3053ee657eecf0c20aca3b967fa864620b1a2305. Its main adapter and
+uPD70008 core configurator are unchanged from the pre-M139 base; neither
+`pccore_main_cpu_is_upd780` nor the independent `main_upd780_` exists there.
+Thus this is the early, still-unfixed identification rejection, not evidence
+that the CPU-role candidate regressed at its later red-screen stop.
+
+The retained candidate worker still has a digest-bound CPU-identity PASS and
+later-drawing FAIL; input/worker/capture identities are revalidated, not
+relabelled as a fresh run of9b60f9c1. That Windows build is not executed locally
+in this recheck. The gate remains on hold pending candidate reconciliation and
+actual MA drawing verification; no pass record, main merge or cleanup was made.
+The newer main's separately named M139 whole-screen-reverse task/gate is a
+different scope and must not be overwritten or interpreted as CPU-role acceptance.
+Preserve M141's TSP/state work when preparing integration; do not blindly replace
+new main with this older branch. Details are in the
+[handoff/source reconciliation](../reports/m139_demo_media_handoff.md#reported-m141-build-and-ma-rejection).
+
 ### Gate still blocked
 
 Do not merge or call M139 complete. Continue investigating the later guest
