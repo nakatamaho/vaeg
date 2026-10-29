@@ -2286,6 +2286,20 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_cpm_runner PRIVATE -Werror)
     endif()
 
+    # M140: freeze the bounded VA2 NEC/A-only flags contract, not Zilog Q.
+    add_executable(vaeg_upd780_va2_flags
+        tests/upd780/va2_flags.cpp
+        cpu/upd780/upd780_core_config.cpp)
+    target_link_libraries(vaeg_upd780_va2_flags PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_features(vaeg_upd780_va2_flags PRIVATE cxx_std_17)
+    target_compile_options(vaeg_upd780_va2_flags PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_upd780_va2_flags PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_upd780_va2_flags COMMAND vaeg_upd780_va2_flags)
+    set_tests_properties(vaeg_upd780_va2_flags PROPERTIES
+        LABELS "romless;compatibility;upd780;host-only" TIMEOUT 60)
+
     # M140: mapped FDC RAM payload checks with a synthetic monitor transport.
     # This does not execute a private ROM or establish physical CPU timing.
     add_executable(vaeg_upd780_fdc_probe_runner

@@ -668,6 +668,16 @@ regenerate identically, and the shared checker preserves both old capture JSON
 results exactly (192 rows), with negative codes tested. No emulator CPU/profile
 fix, historical evidence upgrade, new timing result or G140 acceptance follows.
 
+## Confirmed VA2 baseline
+
+The maintainer requested freezing the confirmed VA2 uPD780C-1 instruction/flag
+baseline separately from the original-VA discrepancy. The
+[scoped checkpoint and public-reference review](../tasks/M140_fdc_upd780_conformance.md#va2-upd780c-1-instructionflag-baseline-frozen)
+retain current A-only SCF/CCF behavior, add 393216 software regression cases and
+make no instruction, main-CPU, reset/state or timing change. Public NEC NMOS
+findings agree with the VA2 observations; neither those reports nor software
+exhaustiveness establish complete physical conformance. G140 remains open.
+
 ## Returned FDCXADR controls
 
 `hw-fdc-va-08` and `hw-fdc-va2-07` are returned with VA/V2/H and VA2/V2/H

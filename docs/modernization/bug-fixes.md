@@ -4246,6 +4246,12 @@ differences, OR fits 68; VA2 matches host throughout. Four differing descriptive
 pairs per axis are not a causal effect or differing site frequencies. No simple
 address-bit/site rule, unique Q law, bad cell or fixing CPU commit follows;
 finite equal counts also do not exclude every context/address interaction.
+The [VA2 uPD780C-1 baseline](../agents/tasks/M140_fdc_upd780_conformance.md#va2-upd780c-1-instructionflag-baseline-frozen)
+is now frozen separately: current A-only behavior is retained and locked by
+393216 software cases through production configuration and guest flag export.
+Public NEC NMOS findings corroborate the bounded VA2 records; no instruction
+correction is needed there. This narrows the unresolved original-VA discrepancy,
+not a claim of complete chip/timing conformance or G140 acceptance.
 Tracking task: [M140](../agents/tasks/M140_fdc_upd780_conformance.md).
 
 ### M139 — guest reaches a fatal stop after successful CPU identification

@@ -692,6 +692,54 @@ Encoding/EOL/case/Markdown, 49 strict milestone checks, audit and staged diff/
 scope checks pass. Next is agent-side shared-path/history analysis, not an
 unchanged physical replay or speculative address fix. G140 remains BLOCKED.
 
+## VA2 uPD780C-1 instruction/flag baseline frozen
+
+Maintainer requested that the confirmed VA2 target be frozen independently of
+the unresolved original-VA X/Y observations. **No instruction-behavior change is
+needed for this checkpoint.** The current production FDC configurator selects
+the legacy-named `kZilog` backend, whose SCF/CCF implement X/Y from A, not modern
+Zilog Q-history semantics. The previously blanket "unverified" source comment
+is narrowed to the confirmed VA2 scope; the selector and executable code stay
+unchanged. This does not change main-CPU selection, original-VA behavior, buses,
+clocks, reset or save-state interfaces.
+
+External corroboration is specific, not an emulator vote:
+
+- [hoglet's published flag findings, revision
+  49e542dd40c36ef7367cb5806292764416dc987a](https://github.com/hoglet67/Z80Decoder/wiki/Undocumented-Flags/49e542dd40c36ef7367cb5806292764416dc987a)
+  describe NEC NMOS A-only, Zilog previous-flag-writer behavior and an ST CMOS
+  mixed variant. This is a published sample/model report, not our independent
+  physical silicon or evidence that every NEC specimen is identical.
+- [redcode/Z80, pinned source](https://github.com/redcode/Z80/blob/dcc3f28d3a344b3080e7ae6f1e7b694b45b370d9/sources/Z80.c#L1568-L1624)
+  explicitly distinguishes those three models and cites the physical report.
+  It is software corroboration, not another independent silicon measurement.
+- MAME 0.280's generic Z80 uses Q/QT and assumes Zilog NMOS. Its pinned PC-88VA
+  driver leaves the FDC-CPU ROM region commented out; it is not an FDC-uPD780
+  execution oracle. The previously reduced 2000 SST vectors are Ares-derived
+  software data, not NEC physical vectors. None overrides the VA2 observations.
+
+Returned VA2 records match the current mapped host: legacy 67-group CRCs and
+256 AF rows; 2048 controlled-history rows across two reported settings; 80 seed,
+160 fixed, 96 capture and 128 crossed rows. These 2768 AF/history rows are not
+2768 unique inputs or full physical opcode/boundary/timing coverage. The latest
+captured labels do not independently encode machine/mode/chip identity.
+
+`vaeg_upd780_va2_flags` locks the independently specified A-only rule through the
+production configurator and real guest POP AF / SCF-or-CCF / PUSH AF / POP DE.
+All 65536 AF words × two operations × NOP/DD/FD neutral boundaries = **393216
+software cases PASS**, including A preservation, documented flags, SP/PC and
+export agreement. This software exhaustiveness must not upgrade physical
+coverage or imply all histories. It would reject OR-only, the VA-main profile
+or a Q-dependent change on those neutral-boundary cases. No vendor code edit,
+lookup fitted to private rows, arbitrary random bit or address workaround.
+
+Only the confirmed VA2 instruction/flag baseline is frozen. Original-VA X/Y,
+independent Zilog physical reference, timing/MHz, broader boundaries and standard
+media/clean-build acceptance remain separate. This checkpoint does not accept
+G140 or promise a correction for the unrelated M139 guest stop. Existing costly
+evidence is retained; unchanged worker digests and comment-stripped production
+configurator bytes prove reuse, rather than rerunning full ZEX/ROM observations.
+
 ## G140 acceptance
 
 Human acceptance is required after local QA, not just a worker exit or screenshot.
