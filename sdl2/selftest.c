@@ -5851,6 +5851,30 @@ static int test_machine_status(void) {
 			}
 		}
 	}
+	{
+		static const UINT mhz[] = {2, 4, 6, 8, 10, 12, 16, 32, 64};
+		UINT domain, index;
+		for (domain = 0; domain < 2; domain++) {
+			for (index = 0; index < NELEMENTS(mhz); index++) {
+				UINT multiple = 0, speed = 0;
+				if (!machine_status_clock_settings(mhz[index], domain, &multiple, &speed) ||
+				    (domain ? 2 : 4) * multiple * speed != mhz[index] * 100) {
+					problem = "M142_CLOCK_PRESET_DOMAIN";
+					goto done;
+				}
+			}
+		}
+		{
+			UINT multiple, speed;
+			if (machine_status_clock_settings(3, FALSE, &multiple, &speed) ||
+			    machine_status_clock_settings(0, TRUE, &multiple, &speed) ||
+			    machine_status_clock_settings(256, FALSE, &multiple, &speed) ||
+			    machine_status_clock_settings(8, FALSE, NULL, &speed)) {
+				problem = "M142_CLOCK_PRESET_INVALID";
+				goto done;
+			}
+		}
+	}
 	for (i = 0; i < NELEMENTS(clocks); i++) {
 		machine_status_clock(clock, sizeof(clock), clocks[i].hz);
 		if (strcmp(clock, clocks[i].text)) {

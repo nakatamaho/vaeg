@@ -155,6 +155,23 @@ void machine_status_clock(char *text, size_t size, UINT32 hz) {
 	}
 }
 
+BOOL machine_status_clock_settings(UINT mhz, BOOL standard, UINT *multiple, UINT *speed) {
+	UINT factor, percent;
+
+	if (multiple == NULL || speed == NULL || mhz < 2 || (mhz & 1))
+		return FALSE;
+	/* The S compatible domain has a 1.9968 MHz base; H/native 3.9936.
+	 * Half an odd multiplier expresses 2, 6 and 10 MHz without rounding
+	 * the speed slider or changing the peripheral clock. */
+	factor = standard ? mhz / 2 : ((mhz & 2) ? mhz / 2 : mhz / 4);
+	percent = !standard && (mhz & 2) ? 50 : 100;
+	if (!pccore_cpu_multiple_valid(factor))
+		return FALSE;
+	*multiple = factor;
+	*speed = percent;
+	return TRUE;
+}
+
 static void status_append(char *text, size_t size, const char *format, ...) {
 	const size_t used = strlen(text);
 	va_list args;

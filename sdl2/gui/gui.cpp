@@ -3928,7 +3928,7 @@ static void draw_speed_control(void) {
  * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
  * speed; both apply at once, without a reset. In 88 mode the H/S input
  * selects the base; native V3 BRKEM is independent of that selection.
- * Retain historical presets as additional adjustments, not H/S aliases.
+ * Nominal MHz presets resolve against that live base, not an H/S alias.
  */
 struct CpuClockPreset {
 	const char *label;
@@ -3938,12 +3938,7 @@ struct CpuClockPreset {
 
 static const CpuClockPreset kCpuClockPresets[] = {
     {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
-    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
-    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
     {nullptr, 0, 0},
-    {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
-    {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
-    {"8倍", PCCORE_STANDARD_MULTIPLE * 8, 100},
 };
 
 static void set_cpu_clock(UINT multiple, UINT speed) {
@@ -3981,6 +3976,20 @@ static void draw_cpu_clock_menu(void) {
 			set_cpu_clock(preset.multiple, preset.speed);
 		}
 	}
+	/* Numeric choices refer to the active domain, not to a hidden H/S
+	 * multiplier. Higher entries replace the old x2/x4/x8-only labels. */
+	for (const UINT mhz : {2u, 4u, 6u, 8u, 10u, 12u, 16u, 32u, 64u}) {
+		UINT preset_multiple, preset_speed;
+		if (!machine_status_clock_settings(mhz, status.compatible && pccore_88_standard(),
+		                                   &preset_multiple, &preset_speed))
+			continue;
+		char label[32];
+		std::snprintf(label, sizeof(label), "%u MHz", mhz);
+		const bool selected = !matched && multiple * speed == preset_multiple * preset_speed;
+		matched = matched || selected;
+		if (ImGui::MenuItem(label, nullptr, selected))
+			set_cpu_clock(preset_multiple, preset_speed);
+	}
 	if (ImGui::BeginMenu("任意", true)) {
 		int value = static_cast<int>(multiple);
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
@@ -3997,7 +4006,7 @@ static void draw_cpu_clock_menu(void) {
 		ImGui::EndMenu();
 	}
 	ImGui::Separator();
-	ImGui::TextDisabled("88 モードは H/S が基準。速度 50%% はさらに半速です。");
+	ImGui::TextDisabled("MHz は公称値です。88 モードの H/S 切替で基準も変わります。");
 	ImGui::EndMenu();
 }
 
