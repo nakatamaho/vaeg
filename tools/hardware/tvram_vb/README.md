@@ -111,6 +111,40 @@ never relabel an A result as the original measurement. Changing entry policy
 necessarily changes executed polling history: it is a controlled intervention,
 not a direct oscilloscope observation.
 
+## Local instruction-trace reduction
+
+`trace.py` is a content-only analyzer for the existing native
+`upd9002-trace-v1` output around Q/R/W's `VB_CHUNKS` loops. Start a bounded
+trace at the function entry (`t_tv_vb` for Q/W, `t_g1_vb` for R); the demo
+relocates to segment `2000h`. Bind worker, program, disk, configuration and
+script identities separately in local evidence. Do not upload ROMs, private
+traces or their identities. The analyzer does not run Git/history checks or
+certify an evidence commit, hardware timing, screenshots or a milestone gate.
+
+```sh
+python3 tools/hardware/tvram_vb/test_build.py
+python3 tools/hardware/tvram_vb/trace.py "$SCRATCH/r.trace.log" \
+  --chunk-bytes 128 > "$SCRATCH/r-summary.json"
+```
+
+Generated summaries stay out of tree. They retain actual REP dispatch costs,
+fully bracketed polling windows, entry-poll brackets and leading/trailing
+partials. `cost_histogram` includes all observed complete REPs;
+`complete_window_cost_histogram` restricts them to fully bracketed windows.
+External IRQ events remain counted, but no untraced IRQ clocks are invented.
+Coordinates are sums of dispatched instruction costs with polls at IN's
+beginning, not physical time or exact bus-edge measurements. Incomplete
+windows never become complete just because the worker exits zero.
+
+Stable `M142_TVVB_TRACE_*` errors reject invalid records/order, malformed or
+mismatched chunk/REP progress, unexpected scope, IRQs in a copy window and
+inconsistent poll counts. Synthetic tests call the content layer directly,
+start from passing fixtures and check exact codes after single mutations;
+the CLI integration also checks JSON error codes. The existing
+`vaeg_tvram_vb_builder` CTest runs these tests without rebuilding vaeg.
+See the [G1/long-blank comparison](../../../docs/agents/reports/m142_tvram_vb_events.md#g1-and-long-blank-controls)
+for the current measured software constraints and their limits.
+
 ## Acceptance boundary
 
 A correction requires a demonstrated mechanism with predictions that survive

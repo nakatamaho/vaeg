@@ -4291,7 +4291,14 @@ separate parity correction or move it to Open Defects.
   S on VA2 without a VA hold; this is an alternative condition, not proof
   of the historical VA's key/SYNC history or the physical cause. Nine local
   diagnostic executions complete with the unchanged worker; one earlier
-  incomplete script attempt is retained. No timing correction is selected.
+  incomplete script attempt is retained. Subsequent
+  [G1/long-blank controls and all-row register returns](../agents/reports/m142_tvram_vb_events.md#g1-and-long-blank-controls)
+  add four successful diagnostic executions. A common earlier cutoff cannot
+  reduce 256-byte Q while retaining the five-chunk G1 window under unchanged
+  traced costs/phase; it is not a modified-scheduler test or physical cause
+  proof. Reusable trace analysis has passing content/CLI negative tests.
+  No timing correction is selected; ordinary-row and VA-condition constraints
+  remain in force.
 
 ### M142 — reported Information FPS versus high-digit display
 

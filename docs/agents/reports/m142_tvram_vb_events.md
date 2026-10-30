@@ -202,7 +202,7 @@ two completed divisions use **100/4449 → 22** and **97/4446 → 21**; the
 60-frame function returns 21. Neither S=21 nor hardware S=20 specifies an
 exact edge, clock frequency or wait-state correction.
 
-## Failed attempt, checks and next decision
+## First follow-up: failed attempt and checks
 
 One earlier selected-SYNC control ends at frame limit 12000 with worker exit
 0 but **missing the S trace/result**; its runner exits 1 with
@@ -222,9 +222,132 @@ GUI/media regression, binary build, hosted CI, Windows execution, merge or
 human acceptance is claimed. The unchanged Windows handoff remains valid
 for its previously stated scope; this report does not relabel its source.
 
-Next, distinguish status-window/poll timing from transfer/arbitration costs
-using the established threshold locations and G1/long-blank controls. The
-prior-200-line-selection alternative must be retained when evaluating the
-VA hold, but is not permission to delete it speculatively. Until a mechanism
-predicts the existing hardware controls without fitting Q, leave #75's
-cause OPEN and correction NOT_IMPLEMENTED.
+The next step at this checkpoint was to distinguish status-window/poll timing
+from transfer/arbitration costs with G1/long-blank controls. The following
+second follow-up executes that step without changing the worker or guest.
+
+## G1 and long-blank controls
+
+Repository HEAD for this second campaign is
+[dfb03fe7db63bf57c8d11b2c4b2e6518d155d119](https://github.com/nakatamaho/vaeg/commit/dfb03fe7db63bf57c8d11b2c4b2e6518d155d119).
+The evaluated source, worker digest and isolated 8 MHz/15 kHz execution
+contract above are unchanged. Three new VA2 runs use **V032E, V128A and
+V256E**, with no SPACE/S selection. Each script captures the first
+`t_g1_vb` entry and 40000 R dispatches, then the next `t_tv_vb` entry (W,
+after the program selects 200-line SYNC) and 40000 W dispatches. All three
+worker/runner exits are 0. Six new traces contain **18 fully bracketed
+windows**; these are not full R/W DONE-screen readouts. The matching three
+Q traces are reused, not rerun, giving 27 bracketed windows in this comparison.
+
+| Program | B/chunk | Q chunks in three windows (reused) | R/G1 chunks in three windows | R complete REP costs | W/long-blank chunks in three windows | W complete REP costs |
+|---|---:|---|---|---|---|---|
+| V032E | 32 | 7, 7, 7 | 13, 13, 13 | 172, 187 | 27, 27, 27 | 359, 372, 385 |
+| V128A | 128 | 3, 3, 3 | 5, 5, 5 | 649, 664, 679 | 8, 8, 8 | 1410, 1423, 1436, 1449 |
+| V256E | 256 | 2, 2, 2 | 3, 3, 3 | 1285, 1300, 1315 | 4, 4, 4 | 2807, 2820, 2833 |
+
+These cost lists restrict copies to fully bracketed windows. Each W trace
+also starts with an unbracketed high interval: E waits for low, whereas A can
+accept a remaining tail. Partial intervals and their observed copies remain
+in the raw evidence and analyzer output, not silently promoted to complete
+windows or removed from the guest's count. Every retained window is IRQ-free,
+with IF clear during REP. Entry low-to-high polls are **28 modeled clocks**
+apart in all 27 windows; this brackets observation, not the physical VB edge.
+
+W TVRAM costs still obey the earlier `20 * words + 13 * dispatches` equation.
+They do not reveal a different long-blank word wait. Different scheduler
+budgets can add dispatches, so equal bytes do not imply an identical charged
+cost on every entry. R copies are substantially cheaper, but that difference
+alone is not a newly measured physical TVRAM limiter.
+
+### A common-cutoff counterexample, with explicit assumptions
+
+A frozen-timeline test asks whether one earlier end cutoff, **keeping the
+observed copy/poll costs and rising-edge phase unchanged**, can reduce
+256-byte Q to one chunk while preserving the matched G1 control. It must not
+be confused with running a modified scheduler or measuring a hardware edge.
+
+- V256E Q's first post-copy high poll is at **2863**. To make it low and
+  count only one chunk, the common cutoff can be at most **2863 + 28 = 2891**,
+  conservatively allowing the whole entry-poll bracket.
+- V128A R's fourth post-copy high poll in its first window is at **2926**.
+  It authorizes the fifth chunk. Preserving that five-chunk window requires
+  a cutoff **greater than 2926**, even with zero entry-detection latency.
+- Those necessary intervals do not overlap: there is a **35-clock gap**.
+  The unchanged full-run R=1505 already agrees with hardware; losing R copies
+  is not an acceptable correction merely because Q improves.
+
+This rejects the simple common cutoff **in this frozen-cost/phase contract**.
+It does not prove that every rescheduled or phase-dependent VB model fails:
+changing event placement can change REP budgets and costs, and the hardware
+screens provide aggregate counts, not per-window traces. Nor does it prove a
+specific arbitration mechanism or authorize TVRAM-only extra waits. Any
+proposed mechanism must predict R as well as Q and W, not just fit Q's ratio.
+
+### Ordinary-row controls from actual register returns
+
+One additional V128A/VA2 run executes all A–X measurements with argument 1
+and no S/SPACE selection. It captures AX immediately before `measure`'s
+source/listing-bound final RET for the 22 ordinary rows, and before the
+unique final divide/RET of `t_vb_permille` for S/X. Worker/runner exits are 0;
+all **24 intended return snapshots** exist. This is a register-observation
+contract, not another screenshot/presenter pass or an inference from exit 0.
+The same kit payload is again checked byte-identical after reassembly.
+
+Hardware below is the existing neutral receipt 09, not a new hardware run.
+The fresh software run's Q is **902**; the earlier matched DONE screen's
+**901** remains unchanged. They are distinct runs with different scripted
+entry/capture histories; a one-count difference is not attributed to a cause
+without a control. The R/S/W/X values agree with that earlier software row.
+
+| Row | Hardware | Fresh vaeg AX | Row | Hardware | Fresh vaeg AX |
+|---|---:|---:|---|---:|---:|
+| A | 1841 | 1767 | M | 4281 | 4408 |
+| B | 8831 | 8569 | N | 3365 | 3454 |
+| C | 1232 | 1215 | O | 3347 | 3454 |
+| D | 7676 | 7649 | P | 3364 | 3454 |
+| E | 1196 | 1246 | Q | 602 | 902 |
+| F | 1253 | 1246 | R | 1505 | 1505 |
+| G | 1220 | 1234 | S | 20 | 21 |
+| H | 1197 | 1234 | T | 10825 | 10751 |
+| I | 3368 | 3454 | U | 3282 | 3363 |
+| J | 3359 | 3454 | V | 1311 | 1335 |
+| K | 3359 | 3403 | W | 2407 | 2407 |
+| L | 3348 | 3398 | X | 86 | 87 |
+
+In particular, ordinary word transfers differ by only a few percent, not Q's
+roughly 1.5 factor. A/B are lower in software while most TVRAM word rows are
+higher. A single global clock/throughput rescaling cannot be justified as a
+Q correction from these controls. These numbers also do not independently
+calibrate hardware MHz, per-word waits or bus arbitration.
+
+### Reusable content analysis and verification
+
+[`trace.py`](../../../tools/hardware/tvram_vb/trace.py) now exposes the content
+reduction independently of runner, private bindings and Git topology. It
+checks record ordering, complete REP/CX/DI/IP progress, IRQ-free copy windows
+and poll/copy counts. It preserves external events without invented IRQ
+charges, reports partials explicitly and emits machine-readable errors.
+It does not certify protected history, evidence-commit scope, hardware timing
+or a milestone gate. Summaries and all private bindings stay outside Git.
+
+- `python3 tools/hardware/tvram_vb/test_build.py`: exit 0, **6 tests**,
+  including 12 new exact-code content negatives and two new exact-code CLI
+  negatives, each starting from a passing fixture with one mutation.
+- `ctest --test-dir "$SCRATCH/native" -R '^vaeg_tvram_vb_builder$'
+  --output-on-failure`: exit 0, **1/1**; it runs the current Python tests,
+  without rebuilding or relabeling the existing native executable.
+- The analyzer runs on all nine comparison traces (three reused Q, six new
+  R/W), each with 40000 dispatches and three complete windows. Input/output
+  and analyzer digests, exact commands, return-snapshot bindings and the
+  conservative cutoff calculation are retained locally.
+- An initial synthetic test exposed a draft analyzer's premature poll-count
+  check on an unbracketed leading interval (`M142_TVVB_TRACE_POLL_COUNT`).
+  The failed test log is retained; the analyzer now reports that interval as
+  partial and validates poll counts only for fully bracketed windows. This
+  is not a failed hardware run or a discarded guest result.
+
+No emulator/COM, TVRAM wait, REP implementation, VB phase/length or VA hold
+changes. No new worker build, full suite/media campaign, hosted CI, Windows
+execution, merge or gate acceptance. The earlier VA S=20 versus S=86 conflict
+and prior-200-line alternative remain unresolved. **#75 OPEN; correction
+NOT_IMPLEMENTED; G142 NOT_READY.** No additional hardware work is requested.

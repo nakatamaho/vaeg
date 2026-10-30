@@ -104,7 +104,15 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   prior 200-line selection is an alternative explanation for a large S even
   without a VA hold. It does not establish historical key/SYNC conditions or
   a physical limiter. Nine capture runs complete; one earlier script attempt
-  is retained as incomplete. No additional photographs are requested.
+  is retained as incomplete. A subsequent three R/W trace runs and one all-row
+  register-return run complete with the same worker. The frozen-cost/phase
+  common-cutoff test cannot both reduce 256-byte Q and preserve G1's five-chunk
+  control; this is not a hardware-cause proof or a modified-scheduler result.
+  Ordinary A–X controls and reusable trace analysis are recorded in the same
+  report. Python tests: 6 PASS (14 new exact-code content/CLI negatives);
+  focused `vaeg_tvram_vb_builder` CTest: 1/1 PASS. Three matching Q traces are
+  reused, not rerun; no emulator/COM change or binary rebuild. No additional
+  photographs are requested. Cause OPEN; correction NOT_IMPLEMENTED.
 - **#76:** explicit DISK v1/legacy layouts and shared remapping implemented;
   real synthetic state loads, image/read-only preservation, ambiguity and
   exact-code malformed-input tests pass. Native Windows/Linux exchange NOT_RUN.

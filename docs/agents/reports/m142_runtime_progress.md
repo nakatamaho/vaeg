@@ -161,7 +161,14 @@ Q traces and three control executions using the unchanged worker. Extra
 redispatch changes charged costs. A preselected 200-line SYNC also yields
 S/X=87/87 on VA2 without a VA hold, but does not prove the older VA's initial
 selection or key history. Cause OPEN; correction NOT_IMPLEMENTED; no new
-hardware request or binary build.
+hardware request or binary build. The same report's later
+[G1/long-blank controls](m142_tvram_vb_events.md#g1-and-long-blank-controls)
+add three R/W trace runs, reuse matching Q traces and capture one full set of
+A–X register returns. A frozen-timeline common cutoff cannot preserve the
+matched G1 control while reducing 256-byte Q; rescheduled execution and
+physical timing are not covered by that test. A reusable content analyzer
+passes six Python tests and the focused builder CTest (1/1), not a new full
+emulator suite. No waits, VB/REP implementation or VA hold change.
 
 ## Portable states — #76
 
