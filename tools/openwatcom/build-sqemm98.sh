@@ -29,6 +29,7 @@ program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 engine=${CONTAINER_ENGINE:-docker}
+backend=${VAEG_OPENWATCOM_BACKEND:-container}
 image_tag=${VAEG_OPENWATCOM_IMAGE_TAG:-vaeg/openwatcom:2026-08-01}
 cache_dir=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc88va-utilities-cache}
 output=
@@ -53,7 +54,9 @@ usage() {
 		'  --source DIR           Build the pinned commit from a local Git checkout.' \
 		'  --cache DIR            Select the download cache.' \
 		'' \
-		'Build the PC-88VA SQEMM98 MAX driver with the pinned Open Watcom image.'
+		'Build with the pinned Open Watcom release.' \
+		'VAEG_OPENWATCOM_BACKEND=dosbox selects its DOS tools (default: container).' \
+		'For dosbox, set VAEG_OPENWATCOM_DOS_ARCHIVE to the pinned release archive.'
 }
 
 die() {
@@ -115,7 +118,12 @@ done
 if [[ -n ${license_output} ]]; then
 	[[ ! -e ${license_output} ]] || die 'license output already exists; refusing to overwrite it'
 fi
-for required_command in "$engine" python3 sha256sum tar; do
+case $backend in
+container) command -v "$engine" >/dev/null 2>&1 || die "required command is missing: $engine" ;;
+dosbox) [[ -n ${VAEG_OPENWATCOM_DOS_ARCHIVE:-} ]] || die 'OWDOS_ARCHIVE: VAEG_OPENWATCOM_DOS_ARCHIVE is required' ;;
+*) die 'OWDOS_BACKEND: expected container or dosbox' ;;
+esac
+for required_command in python3 sha256sum tar; do
 	command -v "$required_command" >/dev/null 2>&1 || die "required command is missing: $required_command"
 done
 
@@ -152,14 +160,19 @@ fi
 
 python3 "$script_dir/prepare-sqemm98.py" "$source_root"
 
-"$engine" build \
-	--platform linux/amd64 \
-	--file "$script_dir/containerfile" \
-	--tag "$image_tag" \
-	"$script_dir"
-"$engine" run --rm --platform linux/amd64 \
-	-v "$source_root:/src" -w /src "$image_tag" \
-	sh -c 'wasm -zcm=tasm -fo=sqemm98.obj sqemm.asm && wlink format dos com name sqemm98.sys file sqemm98.obj'
+if [[ $backend == dosbox ]]; then
+	python3 "$script_dir/dos-build.py" --archive "$VAEG_OPENWATCOM_DOS_ARCHIVE" \
+		--source-dir "$source_root" --source sqemm.asm --output sqemm98.sys
+else
+	"$engine" build \
+		--platform linux/amd64 \
+		--file "$script_dir/containerfile" \
+		--tag "$image_tag" \
+		"$script_dir"
+	"$engine" run --rm --platform linux/amd64 \
+		-v "$source_root:/src" -w /src "$image_tag" \
+		sh -c 'wasm -zcm=tasm -fo=sqemm98.obj sqemm.asm && wlink format dos com name sqemm98.sys file sqemm98.obj'
+fi
 
 python3 "$script_dir/check-sqemm98.py" "$source_root/sqemm98.sys"
 output_tmp=$(mktemp "$output.tmp.XXXXXX")

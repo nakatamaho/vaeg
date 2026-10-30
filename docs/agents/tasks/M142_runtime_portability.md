@@ -391,3 +391,33 @@ add an explicit, checked DOSBox backend with focused tests, then generate the
 utility FDD and both SASI images from a clean pushed checkout and perform their
 model-specific boot contracts. Do not substitute these successful standalone
 builds for full media regression. G142 remains NOT_READY.
+
+## Explicit DOS Open Watcom backend
+
+The production `build-sqemm98.sh` and `build-view480.sh` now accept
+`VAEG_OPENWATCOM_BACKEND=dosbox` and the explicit pinned release binding
+`VAEG_OPENWATCOM_DOS_ARCHIVE`. Default container behavior is unchanged;
+invalid backend/archive/compiler states never fall back to a container.
+The shared Python runner verifies the complete archive, extracts only four
+named DOS tool files, stages an isolated source copy and retains command,
+source/tool/output identities and logs under TMPDIR. Both compiler stages
+must pass DOS error-level/output checks, independently of process exit.
+
+- Synthetic backend tests: **7 PASS**, including exact-code single mutations
+  for digest, names, mount path, archive members, guest status and output
+  presence. The composed passing fixture tests source preservation, output
+  non-overwrite and the batch control-flow contract. Added CTest entry:
+  `vaeg_openwatcom_dos_backend` (no DOSBox/archive required for unit tests).
+- Actual production shell entry points produce SQEMM98 and VIEW480 matching
+  the preceding independently retained output hashes. A single invalid-opcode
+  insertion into the passing VIEW480 source returns **OWDOS_GUEST_STATUS**,
+  exit 1, and creates no caller output. Original input remains unchanged.
+- First integration attempt assembles/links but times out because directly
+  invoking a BAT transfers AUTOEXEC control and skips the later exit command.
+  The runner now uses **CALL VABUILD.BAT**; a fresh run of both entry points
+  succeeds. Original timeout/log/evidence remain, not relabeled as success.
+
+This changes host-side build tooling/test registration only, not emulator
+behavior. No unchanged CPU corpus, vaeg application or Windows executable is
+rebuilt for this tool change. Clean pushed-source utility-media generation
+and guest boot contracts are the next checks; **G142 NOT_READY**.

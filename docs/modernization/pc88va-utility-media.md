@@ -561,8 +561,34 @@ On Debian or Ubuntu, install the host-side build dependencies with:
 sudo apt-get install curl lhasa dosbox nasm python3 coreutils tar unzip
 ```
 
-Docker or Podman is also required to build `SQEMM98.SYS` with the pinned Open
-Watcom environment. Select Podman by setting `CONTAINER_ENGINE=podman`.
+The default Open Watcom backend uses Docker or Podman for `SQEMM98.SYS` and
+`VIEW480.COM`. Select Podman by setting `CONTAINER_ENGINE=podman`.
+Alternatively, select the explicit **container-free DOSBox backend**:
+
+```sh
+# OPENWATCOM_ARCHIVE: local copy of the exact release archive pinned below.
+export VAEG_OPENWATCOM_BACKEND=dosbox
+export VAEG_OPENWATCOM_DOS_ARCHIVE="$OPENWATCOM_ARCHIVE"
+# On the maintainer's macOS arm64 host, use the isolated local DOSBox launcher.
+export PATH="$HOME/work/pc88va/dosbox/bin:$PATH"
+# Keep generated evidence under the approved work-tree temporary directory.
+export TMPDIR="$HOME/work/pc88va/tmp"
+```
+
+The archive is the same `2026-08-01-Build/open-watcom-2_0-c-linux-x64` release
+used by [`containerfile`](../../tools/openwatcom/containerfile), not a different
+compiler distribution: it also contains DOS `binw/wasm.exe`, `wlink.exe`,
+`wlink.lnk` and `dos4gw.exe`. Its required SHA-256 is
+`e1bc4e88fa47191118f29e53731e7f4542803c7f4c503e15d72f1f571ac0832f`.
+Keep the archive, extracted tools and their upstream licenses outside Git.
+The backend verifies the full archive before closed-member extraction, builds
+in an isolated source copy and retains `vaeg-watcom-dos-*` evidence directories
+under TMPDIR. A DOS batch checks both assembler/linker error levels and output
+presence; a zero DOSBox process exit alone is never success. Missing tools,
+wrong hashes or compilation failures stop the build without container fallback.
+The default backend remains unchanged; DOSBox selection must be explicit.
+See [`test_dos_build.py`](../../tools/openwatcom/test_dos_build.py) for the
+synthetic content, single-mutation negative and composed backend tests.
 
 To create only the vanilla system disk, run:
 
@@ -581,8 +607,8 @@ tools/pc88va/build-utility-disk.sh \
 ```
 
 The destination must not already exist. Public input archives are fetched and
-verified in the shared `~/.cache/vaeg/auto-generated-pc88va-utility-media/`
-directory. Every public input archive is pinned by SHA-256 in the script. An
+verified in the shared `~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache/`
+directory (`VAEG_CACHE_DIR` overrides it). Every public input archive is pinned by SHA-256 in the script. An
 existing cache file with different contents is rejected rather than replaced.
 
 For maintainer-local preservation, verified copies of the public inputs used

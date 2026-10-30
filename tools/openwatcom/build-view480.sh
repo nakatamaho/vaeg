@@ -29,6 +29,7 @@ program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 engine=${CONTAINER_ENGINE:-docker}
+backend=${VAEG_OPENWATCOM_BACKEND:-container}
 image_tag=${VAEG_OPENWATCOM_IMAGE_TAG:-vaeg/openwatcom:2026-08-01}
 source_file=
 output_file=
@@ -39,7 +40,9 @@ usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source VIEW480.ASM --output VIEW480.COM" \
 		'' \
-		'Assemble and link VIEW480 with the pinned Open Watcom image.'
+		'Assemble and link VIEW480 with the pinned Open Watcom release.' \
+		'VAEG_OPENWATCOM_BACKEND=dosbox selects its DOS tools (default: container).' \
+		'For dosbox, set VAEG_OPENWATCOM_DOS_ARCHIVE to the pinned release archive.'
 }
 
 die() {
@@ -85,7 +88,11 @@ done
 [[ -f ${source_file} && -r ${source_file} ]] || die 'source file is not readable'
 [[ ! -e ${output_file} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_file%/*} || ${output_file} != */* ]] || die 'output directory does not exist'
-command -v "$engine" >/dev/null 2>&1 || die "required command is missing: $engine"
+case $backend in
+container) command -v "$engine" >/dev/null 2>&1 || die "required command is missing: $engine" ;;
+dosbox) [[ -n ${VAEG_OPENWATCOM_DOS_ARCHIVE:-} ]] || die 'OWDOS_ARCHIVE: VAEG_OPENWATCOM_DOS_ARCHIVE is required' ;;
+*) die 'OWDOS_BACKEND: expected container or dosbox' ;;
+esac
 
 source_name=${source_file##*/}
 build_name=${source_name%.*}
@@ -93,13 +100,18 @@ mkdir -p -- "$repo_root/build"
 work_dir=$(mktemp -d "$repo_root/build/view480.XXXXXX")
 cp -- "$source_file" "$work_dir/$source_name"
 
-DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-0} "$engine" build --platform linux/amd64 \
-	--file "$script_dir/containerfile" \
-	--tag "$image_tag" "$script_dir"
+if [[ $backend == dosbox ]]; then
+	python3 "$script_dir/dos-build.py" --archive "$VAEG_OPENWATCOM_DOS_ARCHIVE" \
+		--source-dir "$work_dir" --source "$source_name" --output "${build_name}.com"
+else
+	DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-0} "$engine" build --platform linux/amd64 \
+		--file "$script_dir/containerfile" \
+		--tag "$image_tag" "$script_dir"
 
-"$engine" run --rm --platform linux/amd64 -v "$work_dir:/src" -w /src \
-	"$image_tag" sh -c \
-	"wasm -zcm=tasm -fo=${build_name}.obj ${source_name} && wlink format dos com name ${build_name}.com file ${build_name}.obj"
+	"$engine" run --rm --platform linux/amd64 -v "$work_dir:/src" -w /src \
+		"$image_tag" sh -c \
+		"wasm -zcm=tasm -fo=${build_name}.obj ${source_name} && wlink format dos com name ${build_name}.com file ${build_name}.obj"
+fi
 
 compiled_file=$work_dir/${build_name}.com
 [[ -s ${compiled_file} ]] || die 'Open Watcom did not create a COM executable'
