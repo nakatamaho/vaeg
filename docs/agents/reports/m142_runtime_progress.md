@@ -25,8 +25,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **M142 is IN_PROGRESS; G142 is NOT_READY.** The complete MacPorts Windows
 build succeeds, and the settings/state implementations have software tests.
-The hardware mechanism for #75 is **BLOCKED**, not fixed. The reported FPS
-example and final GUI/presenter width are not reproduced/verified. The full
+The hardware mechanism for #75 was **BLOCKED** at this checkpoint, not fixed.
+The later [ten-screen hardware follow-up](m142_tvram_vb_hardware.md) lifts the
+missing-results blocker; cause and correction remain OPEN/NOT_IMPLEMENTED.
+The reported FPS example and final GUI/presenter width are not reproduced/verified. The full
 milestone media/guest regression and acceptance are still outstanding.
 
 Task: [M142](../tasks/M142_runtime_portability.md). This is a progress record,
@@ -148,8 +150,11 @@ readout contract or physical timing result. The first run correctly returned
 the demo's 24.8-kHz rejection until the explicit 15-kHz setting was supplied.
 The initial generator attempt failed its fixed-label-width guard and is
 retained; the corrected final output uses fixed-width labels/autostart and
-retains the variant ID at DONE. No physical results have been returned.
-**Hardware limiter: BLOCKED; emulator correction: NOT_IMPLEMENTED.**
+retains the variant ID at DONE. At this checkpoint no physical results had
+been returned. **Checkpoint hardware limiter: BLOCKED; correction:
+NOT_IMPLEMENTED.** The later [hardware follow-up](m142_tvram_vb_hardware.md)
+retains all 240 returned rows and ten matched software observations separately
+from this historical issue table; it does not claim a cause or correction.
 
 ## Portable states — #76
 

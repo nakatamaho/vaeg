@@ -91,10 +91,13 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
 - **B/C:** absent expansion defaults and numeric nominal clock choices are
   implemented; native configuration, domain and existing main/FDC tests pass.
   Remaining GUI/restart/save-size checks are not silently marked passed.
-- **D/#75: BLOCKED.** No physical limiter has been demonstrated and no fitted
-  emulator slowdown is applied. The source-built chunk/entry diagnostic kit
-  is ready; its nine COMs assemble, stock TSPSPR matches the distribution and
-  pinned MS-DOS system/payload content checks pass. Hardware results NOT_RUN.
+- **D/#75: OPEN; hardware results received.** Ten DONE photographs now cover
+  VA and VA2/3 labels, with all 240 A–X rows transcribed; ten matched native
+  software executions are also recorded in the [hardware follow-up](../reports/m142_tvram_vb_hardware.md).
+  VA2/3 32-byte Q nearly matches vaeg, but 128/256-byte counts do not; the new
+  VA S=20 also conflicts with the earlier VA S=86 condition. The missing-input
+  blocker is lifted, not the unresolved-cause/correction requirement. No fitted
+  slowdown, physical-limiter claim or automatic gate PASS is applied.
 - **#76:** explicit DISK v1/legacy layouts and shared remapping implemented;
   real synthetic state loads, image/read-only preservation, ambiguity and
   exact-code malformed-input tests pass. Native Windows/Linux exchange NOT_RUN.

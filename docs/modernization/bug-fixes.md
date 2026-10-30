@@ -4275,9 +4275,16 @@ separate parity correction or move it to Open Defects.
   memory arbitration are hypotheses, not demonstrated hardware mechanisms.
   No generic TVRAM slowdown or fitted 1.45 adjustment is justified.
 - **Verification/status:** the [M142 checkpoint and complete published table](../agents/reports/m142_runtime_progress.md#d--75-published-screen-5-measurements-not-a-new-hardware-run)
-  retain the controls and limits. A [source-built chunk/entry kit](../../tools/hardware/tvram_vb/README.md)
-  is ready; physical measurements and an evidence-based correction remain
-  BLOCKED/NOT_IMPLEMENTED. No fixing commit or gate pass is claimed.
+  retain the controls and limits. The [returned hardware follow-up](../agents/reports/m142_tvram_vb_hardware.md)
+  records ten DONE screens, all 240 rows and ten matched native software runs:
+  VA2/3 32-byte Q nearly agrees, whereas 128/256-byte counts have large ratios.
+  Completed-chunk thresholds can amplify a small timing difference; the
+  responsible timing error is not yet established. The returned VA first-phase
+  S=20 versus long-blank X=86 also conflicts with the older VA S=86 condition
+  and the current unconditional VA 23-raster extension; retain both corpora
+  until their conditions are reconciled. Missing physical results no longer
+  block analysis; cause remains OPEN and correction NOT_IMPLEMENTED. No
+  fixing commit, speculative phase adjustment or gate pass is claimed.
 
 ### M142 — reported Information FPS versus high-digit display
 
