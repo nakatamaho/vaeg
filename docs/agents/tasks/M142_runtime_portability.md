@@ -110,3 +110,30 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   remains NOT_RUN. Windows execution and final acceptance remain NOT_RUN.
 - **M142 IN_PROGRESS; G142 NOT_READY.** This checkpoint does not authorize a
   merge or reopen the accepted G139/G140 scopes.
+
+## Clock-menu follow-up
+
+The maintainer removes 2, 6, 16, 32 and 64 MHz menu entries and adds 20 MHz.
+The numeric menu now contains exactly **4, 8, 10, 12 and 20 MHz**. Machine
+default/custom controls, saved settings, resolver capability and peripheral/
+FDC clocks are unchanged. The prior checkpoint's nine-choice results remain
+historical, not relabeled as tests of this five-choice revision.
+
+- Evaluated source: `30bceba24c102eb3ee60bdfcf90e0e4b93836b3c`.
+- Native configure/build exit 0. `ctest --test-dir "$SCRATCH/native" -R
+  '^vaeg_romless_tests$' --output-on-failure` exits 0 (1/1); the clock test
+  checks all five choices including 20 MHz in both active clock domains.
+- Native worker SHA-256:
+  `8ee71b64e92175b4e965902b4f29bb7112d3318a949ec6f997524a57ca7358be`.
+- `python3 tools/release/build-mingw-macports.py --commit
+  30bceba24c102eb3ee60bdfcf90e0e4b93836b3c --work-dir
+  "$SCRATCH/mingw-clock-menu" --sdk-dir "$SCRATCH/mingw-sdk" --jobs 4`
+  exits 0, fresh clone/application objects with audited SDK reuse, no Colima.
+  Recording/shaders ON, local encoders OFF; encoder archive, embedded source
+  identity and system-DLL import checks PASS.
+- Windows display: `Rel.20261030 (M142-dev, 30bceba2)`; output `vaeg.exe`
+  SHA-256 `e82b049e95610e0da3ed4a046e9370b33ef693c1bf874ec067e544700fe46f57`.
+  `BUILD-REPORT.md` is beside it in `mingw-clock-menu/output/` outside Git.
+- The unaffected expensive CPU profiles are not rerun for this menu change;
+  this is a focused test/build result, not a new full-suite or Windows-runtime
+  claim. Other M142 blockers and G142 NOT_READY remain unchanged.
