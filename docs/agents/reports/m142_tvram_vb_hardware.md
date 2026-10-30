@@ -219,8 +219,12 @@ for 32/128/256-byte work. A time difference below 4% then looks like 50% or
 100% in selected counts. **These arbitrary constants are not calibrated,
 are not emulator parameters and authorize no wait or phase correction.**
 
-Next work is local timing/event analysis of the existing programs and controls,
-including the contradictory VA SYNC observation. A physical limiter, corrected
-VB specification and tested emulator correction are still **unresolved**.
+The subsequent [instruction-cost/SYNC follow-up](m142_tvram_vb_events.md)
+records nine completed diagnostic executions with this unchanged worker:
+128/256-byte extra copies are authorized near the short-window threshold;
+REP redispatch affects charged costs; selecting 200-line SYNC before screen 5
+also yields a large S on the VA2 model without a VA hold. That is an alternative
+condition, not proof of the historical VA key/SYNC history. A physical limiter,
+corrected VB specification and tested emulator correction remain **unresolved**.
 No source/binary rebuild, hosted CI, milestone merge or gate acceptance is
-inferred from this documentation/evidence follow-up.
+inferred from these documentation/evidence follow-ups.

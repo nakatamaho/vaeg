@@ -4285,6 +4285,13 @@ separate parity correction or move it to Open Defects.
   until their conditions are reconciled. Missing physical results no longer
   block analysis; cause remains OPEN and correction NOT_IMPLEMENTED. No
   fixing commit, speculative phase adjustment or gate pass is claimed.
+  The [instruction-cost/SYNC follow-up](../agents/reports/m142_tvram_vb_events.md)
+  observes late polls authorizing whole extra copies and scheduler-dependent
+  REP costs. Selecting 200-line SYNC before screen 5 also produces a large
+  S on VA2 without a VA hold; this is an alternative condition, not proof
+  of the historical VA's key/SYNC history or the physical cause. Nine local
+  diagnostic executions complete with the unchanged worker; one earlier
+  incomplete script attempt is retained. No timing correction is selected.
 
 ### M142 — reported Information FPS versus high-digit display
 

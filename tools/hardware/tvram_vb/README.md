@@ -28,7 +28,18 @@ This kit is synthetic, source-built MS-DOS software, **not a timing fix**.
 No hardware run or causal explanation is implied by generating the disk.
 The committed TSPSPR source and distribution are not changed by this tool.
 
-## Why another measurement is necessary
+## Current receipt and investigation
+
+[Ten returned DONE screens](../../../docs/agents/reports/m142_tvram_vb_hardware.md)
+provide all 240 A–X rows; no additional photographs or hardware runs are
+currently requested. The missing-input blocker is lifted. The
+[instruction-cost/SYNC follow-up](../../../docs/agents/reports/m142_tvram_vb_events.md)
+uses the unchanged worker to locate extra-copy thresholds and distinguish a
+prior 200-line selection from an unconditional VA hold. The cause remains
+OPEN and correction NOT_IMPLEMENTED. The protocol below documents the kit;
+it is not a renewed request to run every variant.
+
+## Why chunk and entry controls matter
 
 The published VA2 Q/S values, 602/20 versus 875/21, do not identify a memory
 wait cost. Q counts **completed 128-byte chunks**, checking VB only after each
@@ -103,8 +114,9 @@ not a direct oscilloscope observation.
 ## Acceptance boundary
 
 A correction requires a demonstrated mechanism with predictions that survive
-both machines, short/long blank and the non-Q controls. Fresh hardware results
-must be returned and analyzed before that correction can be selected. Emulator
-runs only establish software execution/readout contracts, not hardware timing.
-No fitted 1.45 slowdown, random phase adjustment or private-input lookup is
-permitted. M142's hardware-dependent item is BLOCKED until that evidence exists.
+both machines, short/long blank and the non-Q controls. The returned hardware
+results are now available and analyzed, but do not yet establish that mechanism.
+Emulator runs only establish software execution/readout contracts, not hardware
+timing. No fitted 1.45 slowdown, random phase adjustment or private-input lookup
+is permitted. Missing photographs no longer block analysis; the unresolved
+cause/correction requirement still blocks completion of this M142 item.

@@ -98,6 +98,13 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   VA S=20 also conflicts with the earlier VA S=86 condition. The missing-input
   blocker is lifted, not the unresolved-cause/correction requirement. No fitted
   slowdown, physical-limiter claim or automatic gate PASS is applied.
+  The [instruction-cost/SYNC follow-up](../reports/m142_tvram_vb_events.md)
+  adds six Q traces and three controls with the unchanged worker: late polls
+  authorize whole extra copies, REP redispatch affects modeled cost, and a
+  prior 200-line selection is an alternative explanation for a large S even
+  without a VA hold. It does not establish historical key/SYNC conditions or
+  a physical limiter. Nine capture runs complete; one earlier script attempt
+  is retained as incomplete. No additional photographs are requested.
 - **#76:** explicit DISK v1/legacy layouts and shared remapping implemented;
   real synthetic state loads, image/read-only preservation, ambiguity and
   exact-code malformed-input tests pass. Native Windows/Linux exchange NOT_RUN.

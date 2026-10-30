@@ -155,6 +155,13 @@ been returned. **Checkpoint hardware limiter: BLOCKED; correction:
 NOT_IMPLEMENTED.** The later [hardware follow-up](m142_tvram_vb_hardware.md)
 retains all 240 returned rows and ten matched software observations separately
 from this historical issue table; it does not claim a cause or correction.
+The later [instruction-cost/SYNC analysis](m142_tvram_vb_events.md) records six
+Q traces and three control executions using the unchanged worker. Extra
+128/256-byte copies are authorized near the short-window threshold; REP
+redispatch changes charged costs. A preselected 200-line SYNC also yields
+S/X=87/87 on VA2 without a VA hold, but does not prove the older VA's initial
+selection or key history. Cause OPEN; correction NOT_IMPLEMENTED; no new
+hardware request or binary build.
 
 ## Portable states — #76
 
