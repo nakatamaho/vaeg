@@ -343,3 +343,51 @@ GUI-tested application. WSP/DIET/JWasm and complete utility regeneration are
 NOT_RUN at this checkpoint. Open Watcom SQEMM98/VIEW480 container recipes
 remain separate blockers. BUPDATE Python replacement stays deferred; #75
 remains unresolved and G142 NOT_READY.
+
+## DOS utility-tool execution follow-up
+
+Using the isolated DOSBox, source `8140c2645dbc2400ef8c2dd3e4f5549d05004d4d`
+now has the following **new, scoped local results**, retained under task
+scratch `dos-tools-r1/`. These are prerequisite executions, not a utility
+FDD/SASI generation or boot PASS. The #75 deferral above remains in force.
+
+- The exact six BUPDATE/WSP commands from `build-utility-disk.sh` execute on
+  copies of checksum-verified cached packages. All **ten** existing
+  `verify_generated` output SHA-256 values match, including MSE, BMS,
+  K-Launcher, LHA, PCPLUS and both TSCLVA files. No expected hash is changed.
+- DIET runs `diet -b *.exe` and `diet -b -xc *.com` on a three-program subset
+  (DIET.EXE, KLVA.EXE, KLL.COM). Every file has its expected processing-log
+  entry and does not grow; compression actually reduces at least one file.
+  Packed-program runtime and the complete FDD payload set are **NOT_RUN**.
+- The unmodified `stage-softlib-additions.py --packages "$PACKAGES" --output
+  "$OUT/softlib"` exits 0 and stages **22 files**. Its pinned DOS JWasm builds
+  VA3DDEMO.EXE and PCODE.COM and verifies both existing output hashes. This is
+  compilation/content coverage, not a VA3DDEMO rendering claim.
+- The exact Open Watcom release archive pinned by `tools/openwatcom/containerfile`
+  is downloaded over HTTPS and matches
+  `e1bc4e88fa47191118f29e53731e7f4542803c7f4c503e15d72f1f571ac0832f`.
+  Its **DOS `binw/wasm.exe` and `wlink.exe`** run under DOSBox; no container or
+  system installation is used. The pinned SQEMM source is prepared with the
+  existing `prepare-sqemm98.py`, then assembled/linked using the same arguments
+  as the existing recipe. `check-sqemm98.py` passes, size **13253**, SHA-256
+  **`eb3d443d7c12b6eb204e03a7ebac4b68a69d4690d0899ca93a37ad7a546d4930`**,
+  exactly the existing guest-driver bundle expectation.
+- The same DOS Open Watcom tools assemble/link VIEW480 from its hash-verified
+  source archive: command exit 0, linker reports a DOS COM, size **368**,
+  SHA-256 `7717775e1ad5d45c4cfebccc65be702b8c849878a566deb5a0bb08ead908862c`.
+  This is a fresh build identity, not yet a comparison with an independently
+  retained prior VIEW480 binary or a runtime PASS.
+
+The local patch adapter's first attempt fails before DOS execution because
+Python zipfile cannot decode a legacy ZIP compression method. It is corrected
+to use `unzip`, as the production recipe already does. Original source/log/exit
+are retained; the corrected attempt exits 0. No production archive decoder or
+expected output is weakened to hide the failure.
+
+A non-container Open Watcom route is therefore demonstrated for both required
+sources, rather than merely proposed. **Integration into the production media
+builders is still pending**: they still select the container backend. Next,
+add an explicit, checked DOSBox backend with focused tests, then generate the
+utility FDD and both SASI images from a clean pushed checkout and perform their
+model-specific boot contracts. Do not substitute these successful standalone
+builds for full media regression. G142 remains NOT_READY.
