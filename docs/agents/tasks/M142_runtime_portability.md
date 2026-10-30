@@ -41,10 +41,12 @@ old reports do not substitute for available, identity-bound evidence.
 - **C** Offer 4, 8, 10, 12 and 20 MHz clock choices. The maintainer's follow-up
   removes 2, 6, 16, 32 and 64 MHz from the menu and adds 20 MHz. Existing saved
   multiplier/speed settings and machine/FDC clock separation remain unchanged.
-- **D** Investigate [#75](https://github.com/nakatamaho/vaeg/issues/75): identify
-  what limits VA2 VB-time TVRAM writes on hardware before modeling it. Preserve
-  other TSPSPR rows. Q/S observations (28.0 VA, 30.1 VA2, 41.7 emulated VA2)
-  are not a demonstrated root cause or permission for a fitted slowdown.
+- **D** Investigate [#75](https://github.com/nakatamaho/vaeg/issues/75).
+  **Maintainer-approved scope revision: investigation complete for M142;
+  cause identification and correction deferred.** Keep issue #75 OPEN and
+  preserve other TSPSPR rows. Q/S observations (28.0 VA, 30.1 VA2, 41.7
+  emulated VA2) are not a demonstrated root cause or permission for a fitted
+  slowdown. The deferral below supersedes earlier mandatory-fix statements.
 - **Portable states** Correct [#76](https://github.com/nakatamaho/vaeg/issues/76):
   a host-independent DISK record, same-host legacy loading, GUI-equivalent path
   remapping and positive/negative selftests.
@@ -72,6 +74,24 @@ a successful build. Windows execution is distinct from cross-compilation.
 The standard human acceptance is still required; prior G139/G140 acceptances
 are not reopened. A hardware-dependent item remains BLOCKED, not PASS, if no
 causal measurement can be obtained.
+
+## Maintainer-approved #75 investigation closure
+
+The maintainer explicitly directs: “#75は調査部分を完了扱い、原因特定・修正を延期で”.
+This accepts the investigation deliverable only. Existing hardware comparisons,
+Q/R/W controls, REP accounting and event-budget exclusions are retained;
+no timing change, verified physical cause or reduced impact is claimed.
+Issue #75 stays OPEN in the permanent bug-fix ledger, with cause identification
+and correction deferred to separately assigned follow-up work. Do not start a
+new milestone or request additional hardware measurements implicitly.
+
+Under this revised scope, #75 correction is no longer an M142 gate prerequisite.
+Earlier reports and the Claude handoff describing it as mandatory are historical
+checkpoints, superseded by this decision rather than retroactively rewritten.
+Other M142 obligations remain: utility-media generation/boots, actual GUI/FPS
+and clock/settings checks, cross-OS state exchange, Windows execution and the
+required human gate. **M142 IN_PROGRESS; G142 NOT_READY.** This is not gate
+acceptance, issue closure, release authorization or approval to merge.
 
 ## Progress
 

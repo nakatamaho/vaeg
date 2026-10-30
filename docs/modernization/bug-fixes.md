@@ -4349,6 +4349,11 @@ separate parity correction or move it to Open Defects.
   reuses the nine traces: odd-address GVRAM continuations incur a two-clock
   modeled prefetch stall absent from even-address TVRAM. The 1422 dispatches
   explain software residuals, not a physical limiter or a selected correction.
+- **Maintainer disposition:** [M142 scope revision](../agents/tasks/M142_runtime_portability.md#maintainer-approved-75-investigation-closure)
+  accepts the investigation as complete for M142 and defers cause identification
+  and correction. Issue #75 remains OPEN here; no fixing commit or evidence of
+  negligible impact exists. This removes the correction from M142's gate
+  prerequisites, not the other gate obligations, and does not accept G142.
 
 ### M142 — reported Information FPS versus high-digit display
 
