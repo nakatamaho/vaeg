@@ -447,6 +447,8 @@ login-shell PATH:
 
 ```sh
 PATH="$HOME/work/pc88va/dosbox/bin:$PATH" \
+  VAEG_OPENWATCOM_BACKEND=dosbox \
+  VAEG_OPENWATCOM_DOS_ARCHIVE="$OPENWATCOM_ARCHIVE" \
   tools/pc88va/build-utility-disk.sh --source "$SYSTEM_01" --output "$UTILITY_FDD"
 ```
 
@@ -455,9 +457,12 @@ not a GUI-tested application or a fully static executable. Keep the whole
 `~/work/pc88va/dosbox/` installation together; its launcher confines HOME
 and configuration to that directory. Source/build identities and logs are
 recorded in its `BUILD-REPORT.md` and `build-manifest.json` outside Git.
-DOS command execution and BUPDATE's PCPLUS output hash are verified;
-WSP/DIET/JWasm and complete utility-media generation require their own checks.
-DOSBox availability does not resolve the separate Open Watcom build dependency.
+The compiler archive binding is the exact release pinned by
+`tools/openwatcom/containerfile`; the DOS backend verifies it before using
+its `binw` tools. See `docs/modernization/pc88va-utility-media.md` for the
+backend contract and `docs/agents/reports/m142_utility_media_regression.md`
+for the subsequent WSP/DIET/JWasm, compiler, media and scoped boot results.
+Tool availability alone is not a complete utility-media or runtime PASS.
 If this local installation is unavailable, report it rather than silently
 installing system packages or falling back to a container.
 

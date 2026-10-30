@@ -50,9 +50,12 @@ land.
   configuration. Keep its driver/manual unchanged, document explicit opt-in
   after BMS installation, and preserve ordinary main RAM when BMS is absent.
   The controlled live mutation passes; two focused producer tests cover the
-  FDD policy and eight SASI configurations. Full clean-source regeneration
-  and model-specific boot results are recorded in the follow-up evidence.
-- **Evidence/task:** [M142 media correction](../agents/tasks/M142_runtime_portability.md#utility-media-rdbms-load-policy-correction).
+  FDD policy and eight SASI configurations. Fresh pushed-source FDD/both SASI
+  generation and four VA/VA2 default-off directory/Ready boot contracts pass.
+  Recursive readback confirms CONFIG.SYS is the only changed file payload;
+  CPU/input implementations and all driver binaries are unchanged.
+- **Evidence/task:** [utility regression](../agents/reports/m142_utility_media_regression.md),
+  [M142 media correction](../agents/tasks/M142_runtime_portability.md#utility-media-rdbms-load-policy-correction).
 - **Fixing commit:** [826eb848b37720aa6de1c89b1b40e56f296c1179](https://github.com/nakatamaho/vaeg/commit/826eb848b37720aa6de1c89b1b40e56f296c1179).
 
 ### M142 — state QA rejected valid disabled-expansion saves

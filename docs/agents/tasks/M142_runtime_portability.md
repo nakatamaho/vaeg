@@ -429,8 +429,8 @@ utility FDD and both SASI images successfully with the DOS backend. FDD DIET
 validation covers **50 executables / 407,478 bytes saved**. The first SASI
 attempt stops on **OFFLINE_MISS cpm_license**. A separate task-local CP/M
 cache is seeded from shared input archives, the pinned notice is downloaded
-and verified by the existing installer, and three fresh CP/M disks are built
-there. Its tools/work/licenses never write into the shared private cache.
+and verified by the existing installer, and six CP/M-related disks are built
+there (three are consumed by SASI). Its tools/work/licenses never write into the shared private cache.
 The SASI retry supplies those three explicit images and succeeds. The original
 failed attempt remains separate.
 
@@ -451,3 +451,40 @@ change the default-off boards, the bank aperture, CPU clocks, keyboard/paste
 implementation or issue #75. Two focused tests cover the FDD generated
 configuration/retained files and eight SASI policy combinations. Clean
 pushed-source regeneration and final default-off boot checks follow.
+
+## Utility-media regression closure
+
+The [utility-media record](../reports/m142_utility_media_regression.md) now
+supersedes the earlier pending utility-build/boot checkpoints, without
+relabeling their failed or NOT_RUN attempts. A fresh clone of pushed fix
+`826eb848b37720aa6de1c89b1b40e56f296c1179` generates all three utility
+images with the local DOS backend, exit 0. Recursive readback has 129 / 632 /
+623 regular files; only CONFIG.SYS differs from the first generated FDD / VA
+SASI / VA2 SASI payload maps. Driver/manual/packed program bytes remain
+identical. Six CP/M prerequisite outputs and all three final utility-image
+sizes/SHA-256 values, commands and failure/recovery details are in the record.
+
+- **Four final live boot contracts PASS:** FDD on VA and VA2, VA SASI alone
+  and VA2 SASI alone. Both boards remain absent. Explicit fresh per-case
+  backup RAM, automatic main RAM and fixed-disk boot settings are bound.
+  The unchanged validator checks actual directory content and Ready, not
+  merely worker exit or a screenshot.
+- Packed DIET 1.44 usage and nonredirected LHA member/size listing return
+  successfully. Two redirected LHA queries still produce `no file`; these
+  auxiliary semantic checks remain **FAIL/unclassified**, not fixed or
+  upgraded by the nonredirected success. Not all 50 packed utilities execute.
+- **24 actual guest attempts** across initial controls, final boots and
+  packed checks; all process exits 0, semantic failures retained. Final
+  identity/content recheck exits 0 with no new workers.
+- Native worker remains `0d02bc849b5c4fb4f45d21c13716735e77578d37`; its
+  application C/C++/headers are unchanged. Existing Windows artifact remains
+  bound to `ea62eda1eb2d1d3abed11f72af2e5e7899868652`, not relabeled.
+  No unnecessary application/Windows/CPU-corpus rebuild or hosted CI.
+
+**M142 IN_PROGRESS / G142 NOT_READY.** Required utility build/boot coverage
+is complete, but actual GUI/settings/FPS/presenter inspection, main/FDC clock
+matrix and genuine Windows/Linux state exchange remain uncompleted or
+blocked on the missing execution targets. The extra redirected-tool result
+also remains unclassified. Issue #75 investigation is accepted; cause/fix
+remain deferred, not an M142 correction prerequisite. No human-gate request,
+acceptance, merge or release is authorized by this record.
