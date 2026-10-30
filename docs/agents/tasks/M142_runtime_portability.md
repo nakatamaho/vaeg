@@ -284,3 +284,12 @@ historical, not relabeled as tests of this five-choice revision.
 - The unaffected expensive CPU profiles are not rerun for this menu change;
   this is a focused test/build result, not a new full-suite or Windows-runtime
   claim. Other M142 blockers and G142 NOT_READY remain unchanged.
+
+## Claude handoff
+
+The maintainer requests [a two-part handoff](../reports/m142_claude_handoff.md):
+continue the existing M142, especially unresolved #75, and replace host-side
+BUPDATE patch execution with a small Python tool. No replacement is implemented
+by this documentation checkpoint. WSP/DIET/JWasm DOSBox uses and Open Watcom
+container backends remain separate dependencies; a BUPDATE-only replacement
+must not be reported as complete utility-media regeneration or G142 readiness.
