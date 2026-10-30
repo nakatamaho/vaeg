@@ -27,6 +27,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [task](../tasks/M142_runtime_portability.md), not human acceptance. No merge,
 release, hosted CI or additional physical measurement is performed.
 
+The later [fresh demo/media follow-up](m142_demo_media_regression.md) adds nine
+distribution closures, 34 drawing cases, MANDEL progress and the self-boot SGP
+menu. It retains utility generation/boot as BLOCKED/NOT_RUN and does not change
+the evaluated worker/build identities or historical results below.
+
 ## Identities and boundaries
 
 - Native worker: clean pushed source

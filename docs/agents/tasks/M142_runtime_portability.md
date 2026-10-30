@@ -125,8 +125,9 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   That one-name correction passes on focused rerun, giving **149 PASS / 16
   SKIP / 0 FAIL with unchanged-worker reuse**, not a new all-suite execution.
 - Repository checks pass; formatting has zero new findings and the same 659
-  baseline diagnostics in 29 files. Full M142 demo/media/live-guest regression
-  remains NOT_RUN. Windows execution and final acceptance remain NOT_RUN.
+  baseline diagnostics in 29 files. Demo/media/live regression was NOT_RUN at
+  this original checkpoint; the later follow-up below records the new subset.
+  Windows execution and final acceptance remain NOT_RUN.
 - **M142 IN_PROGRESS; G142 NOT_READY.** This checkpoint does not authorize a
   merge or reopen the accepted G139/G140 scopes.
 
@@ -157,8 +158,105 @@ prefetch after scheduler yields. It is not a hardware-cause proof or correction.
 Local macOS API preflight reports zero active displays, no screen-capture
 permission and no accessibility trust; actual Cocoa FPS/layout automation is
 BLOCKED, not replaced by SDL dummy. No Windows execution target was found.
-GUI-driven settings, actual Windows/Linux exchange and full media/demo/live
-regressions remain outstanding. #75 OPEN; G142 remains NOT_READY.
+GUI-driven settings and actual Windows/Linux exchange remain outstanding.
+The following media follow-up runs the demo subset; utility generation/boot
+still block the complete mandatory regression. #75 OPEN; G142 NOT_READY.
+
+## Demo and media regression follow-up
+
+The [fresh media/live report](../reports/m142_demo_media_regression.md) records
+new execution, not historical G139 reuse. Media builders run from a fresh,
+initially clean clone of pushed
+[`33dcb8ba9091cdf93eab8e1399478d5508c3e593`](https://github.com/nakatamaho/vaeg/commit/33dcb8ba9091cdf93eab8e1399478d5508c3e593).
+The actual native worker remains source `0d02bc849b5c4fb4f45d21c13716735e77578d37`,
+SHA-256 `24f53861e4a81f0914d489c353921113cc81e0aa1f730f00b9a9b07deea70700`.
+Application inputs are unchanged; no emulator/Windows rebuild or relabeling.
+
+Isolated NASM 2.16.01, Python 3.12.13, psd-tools 1.26.0, Pillow 13.0.0 and
+NumPy 2.5.4 reproduce all nine distributions. Installed ports are untouched;
+no Colima/container or ImageMagick rendering fallback is used. The following
+checkout-relative commands substitute neutral read-only local input bindings
+and task output paths for the exact private argv retained outside Git.
+`SYSTEM_01` is the boot-template binding, `SYSTEM_02` the pinned MS-DOS input,
+and `SOURCE_ASSET_01` the approved external source asset. **All ten image-build
+commands below exit 0.**
+
+```sh
+demos/glass-orbit/build-d88.sh "$SYSTEM_01" "$OUT/images/m142-glass-orbit.d88"
+demos/neon3/build-d88.sh "$SYSTEM_01" "$OUT/images/m142-neon3-distribution.d88"
+demos/neon4/build-d88.sh "$SYSTEM_01" "$OUT/images/m142-neon4-distribution.d88"
+demos/sgp-pseudo-sprite/build-d88.sh "$SYSTEM_01" "$OUT/images/m142-sgp-pseudo-sprite.d88"
+demos/sgp-wireframe/build-d88.sh "$SYSTEM_01" "$OUT/images/m142-sgp-wireframe.d88"
+demos/zundamon-orbit/build-from-psd.sh --python "$PSD_PYTHON" \
+  "$SOURCE_ASSET_01" "$SYSTEM_01" "$OUT/images/m142-zundamon-orbit.d88"
+# The binding adapter copies these new archives, never the old references.
+for name in glass-orbit neon3-distribution neon4-distribution \
+  sgp-pseudo-sprite sgp-wireframe zundamon-orbit; do
+  cp "demos/disks/m142-$name.d88.xz" "$OUT/distributions/$name.d88.xz"
+done
+python3 tools/pc88va/build-all-demos-distribution-disk.py --source "$SYSTEM_01" \
+  --distribution-dir "$OUT/distributions" --output "$OUT/images/all-demos.d88" \
+  --compressed-output "$OUT/distributions/all-demos.d88.xz"
+python3 tools/pc88va/build-all-demos-msdos4-disk.py --source "$SYSTEM_02" \
+  --distribution-dir "$OUT/distributions" --output "$OUT/images/all-demos-msdos4.d88" \
+  --compressed-output "$OUT/distributions/all-demos-msdos4.d88.xz"
+python3 demos/sgp-boot/build-boot-d88.py --output "$OUT/images/sgp-boot.d88" \
+  --compressed-output "$OUT/distributions/sgp-boot.d88.xz"
+python3 tools/pc88va/build-all-demos-bootable-disk.py --source "$SYSTEM_01" \
+  --distribution-dir "$OUT/distributions" --output "$LIVE_BOOT_01"
+```
+
+All compressed outputs round-trip to their new raw D88. Eight recursive
+payload maps and the whole self-boot image match their committed references;
+**all-demos-msdos4 and sgp-boot also match the entire raw image**. Other rows
+claim payload equality, not whole-image equality. Public generated identities:
+
+| Distribution | Raw D88 SHA-256 | Compressed D88.xz SHA-256 |
+|---|---|---|
+| glass-orbit | `f51be19912043be77370049bbcb4b1af224ac0f990826fa69797cf889f2b1f1c` | `5ed800f01327bf3fd1e33bc3039ec24948c104c2d876d751de6c6e3974ce446e` |
+| neon3-distribution | `36cebf5bc7bb01458a2223524a3a5325bf5e13253f08568566f5edaefb2a9299` | `31b5b61e8b3dbda59166c8c0422cde399ae8f8c741738d95d2e46607adbfee04` |
+| neon4-distribution | `b0d934955da56128e2010933d8eabc0346e378905b78e50609166fc6dc93c806` | `9a1bf1b3a30be0e4312013be7326ddfe5b3071b9fa64c8c266a18edcb6fe9c52` |
+| sgp-pseudo-sprite | `ad9f9dcf349718e19077b2beb718ac8d6481f40e0f29b991973a7ffbb16faf9a` | `25ad559a7dccde9afad838c6cafaad01ac9a7cd5bba39e5978dc109739f672ca` |
+| sgp-wireframe | `60b5690bd04367e1b16bc42f00c5f9983fcb52933e153470dfbc4d32f36cb071` | `dab2f6ff971f4c2cb9e27a767b23c5801babfb7a7c7294ae0ff21bc3c20e66c6` |
+| zundamon-orbit | `c3ddf0395f72a670423b0500d8bbb2731110728fb40bb5618f994ce9c41578f3` | `abbc8d6a3d71b0d61801dd4fb1a4172524df84aa9c9d49964b1335892c3a5ac7` |
+| all-demos | `dacaf718a1d8c6daff1958164d842b49bc6a69f43e587f706b85b0ed97626ae4` | `bc55d62f3fda857bf34ec3666c0f2ddec6e4980bb1f3fc9492ba11360a478b43` |
+| all-demos-msdos4 | `e88c0e0332094048bcf55b334cd0430fc1c77e158344b00e57946ad9bbc84a78` | `67ddb64012bc89464cdaa2809c62a2a9c2460c52ecec7f815dc45a6193eef241` |
+| sgp-boot | `67ead94dba0cee7aa9d9a0268cf1987bf3a2764fe1275e092b2e5ece06337154` | `657f91e25d9417b0b4fd9948d40caeec7f2daa6db6d2218b6f709be62b5238c5` |
+
+The nonredistributable live boot overlay and private input identities are
+bound locally, not published. Original inputs/archives remain unchanged.
+Ten supplementary source-build entries also exit 0, including stock TSPSPR,
+SGP contention, Z80 timing, both VA Voyage builds and all SGP scans.
+
+- **34/34 live drawing cases PASS:** all 17 COM programs under each of PC-Engine
+  and MS-DOS 4.0, using fresh generated disks, isolated INIs and pre/post frames.
+  Existing source-derived scene/sphere24 contracts apply; no tolerance change.
+- **MANDEL.BAS PASS_PROGRESS_CONTRACT:** unmodified source, `BASIC /87`, LOAD/RUN;
+  expected first-row colours and 12→23 qualifying rows at frames 10000/16000.
+- **Self-boot SGP PASS_BOOT_CONTRACT:** live native TSP menu at frame 900.
+- Capture target is native macOS SDL dummy/software guest drawing, **not** Cocoa,
+  Windows, final-client/layout, fullscreen, physical GPU or HiDPI acceptance.
+- Original adapter failures remain: PNG argument type, initial missing MS-DOS
+  program launch, wrong SGP655S profile and direct execution of a bash script.
+  The corrected MS-DOS input schedule is rerun once; unchanged successful
+  workers/captures/builds are reused and revalidated. The original full drawing
+  and supplementary invocations exit 1; final reductions/recovery exit 0.
+  Content selftest: six profiles/25 exact-code single-mutation negatives PASS.
+
+The actual utility command is:
+
+```sh
+tools/pc88va/build-utility-disk.sh --source "$SYSTEM_01" --output "$UTILITY_FDD"
+```
+
+It exits **1**, `required host command is missing: dosbox`; no image is produced.
+Host probing confirms DOSBox is absent. The recipe additionally requires the
+Open Watcom container backend, not invoked under current M142 policy. Both
+SASI generations and all utility boots are **NOT_RUN**, not PASS. Thus the
+complete media gate remains **BLOCKED**, despite the demo subset passing.
+Actual GUI/FPS, Windows execution and Windows/Linux state exchange remain
+pending/blocked. #75 OPEN/correction NOT_IMPLEMENTED; **G142 NOT_READY**, no
+human-gate request, merge, release or hosted CI.
 
 ## Clock-menu follow-up
 

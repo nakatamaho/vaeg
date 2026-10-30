@@ -43,6 +43,12 @@ recording/shader-enabled MacPorts Windows build. It does not mark GUI, real
 Windows/Linux exchange, full media regressions or #75 passed. The original
 checkpoint identities/results below remain historical, not relabeled.
 
+The subsequent [fresh demo/media follow-up](m142_demo_media_regression.md)
+completes nine distribution closures, 34 live drawing cases, MANDEL progress
+and self-boot menu validation. Utility generation is BLOCKED by missing DOSBox,
+SASI generation/boots remain NOT_RUN, and the complete media gate is not passed.
+No emulator model change or new Windows executable accompanies that evidence.
+
 ## Evaluated identities and reuse
 
 - Clean Windows source:
