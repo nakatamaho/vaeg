@@ -438,6 +438,29 @@ function instead.
   tag `archive/frozen-win9x-i286x-g56`; it is not a current build target and
   has no CI or compile-guarantee coverage.
 
+### Local DOSBox on macOS arm64
+
+On the maintainer's macOS arm64 setup, use the isolated DOSBox build at
+`~/work/pc88va/dosbox/bin/dosbox` for DOS-based media build tools. Add it to
+PATH for the child command only; do not install a system port or change the
+login-shell PATH:
+
+```sh
+PATH="$HOME/work/pc88va/dosbox/bin:$PATH" \
+  tools/pc88va/build-utility-disk.sh --source "$SYSTEM_01" --output "$UTILITY_FDD"
+```
+
+This is DOSBox 0.74-3 with a console entry point and local SDL libraries,
+not a GUI-tested application or a fully static executable. Keep the whole
+`~/work/pc88va/dosbox/` installation together; its launcher confines HOME
+and configuration to that directory. Source/build identities and logs are
+recorded in its `BUILD-REPORT.md` and `build-manifest.json` outside Git.
+DOS command execution and BUPDATE's PCPLUS output hash are verified;
+WSP/DIET/JWasm and complete utility-media generation require their own checks.
+DOSBox availability does not resolve the separate Open Watcom build dependency.
+If this local installation is unavailable, report it rather than silently
+installing system packages or falling back to a container.
+
 ### Colima and Docker storage
 
 Create a dedicated directory under the current working directory for Colima
