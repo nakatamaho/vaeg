@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M142 — utility media autoloaded a bank RAM disk without a BMS board
+
+- **Symptom/scope:** newly generated utility FDD and VA2 SASI boot to Ready,
+  but with BMS uninstalled the tested VA2 profile turns `DIR` input into only
+  `R`. The default-off M142 machine settings exposed the unsafe media policy.
+- **Demonstrated cause:** generated CONFIG.SYS unconditionally loads the
+  BMS-dependent RDBMS RAM disk. Enabling BMS fixes the same image; removing
+  only that directive also restores the directory/prompt with BMS absent,
+  with every other stored file unchanged. Longer waits, held keys, EMS and
+  disabling MSE do not fix the control. No internal RDBMS corruption address
+  or CPU/keyboard timing cause is inferred.
+- **Correction/verification:** do not autoload RDBMS in either default media
+  configuration. Keep its driver/manual unchanged, document explicit opt-in
+  after BMS installation, and preserve ordinary main RAM when BMS is absent.
+  The controlled live mutation passes; two focused producer tests cover the
+  FDD policy and eight SASI configurations. Full clean-source regeneration
+  and model-specific boot results are recorded in the follow-up evidence.
+- **Evidence/task:** [M142 media correction](../agents/tasks/M142_runtime_portability.md#utility-media-rdbms-load-policy-correction).
+- **Fixing commit:** [826eb848b37720aa6de1c89b1b40e56f296c1179](https://github.com/nakatamaho/vaeg/commit/826eb848b37720aa6de1c89b1b40e56f296c1179).
+
 ### M142 — state QA rejected valid disabled-expansion saves
 
 - **Symptom/scope:** actual native state continuations passed, but the new local
