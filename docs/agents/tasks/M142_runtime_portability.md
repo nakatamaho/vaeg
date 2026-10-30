@@ -293,3 +293,12 @@ BUPDATE patch execution with a small Python tool. No replacement is implemented
 by this documentation checkpoint. WSP/DIET/JWasm DOSBox uses and Open Watcom
 container backends remain separate dependencies; a BUPDATE-only replacement
 must not be reported as complete utility-media regeneration or G142 readiness.
+
+The maintainer subsequently defers BUPDATE work and prioritizes #75 cause
+identification/correction. The [event-budget follow-up](../reports/m142_tvram_vb_events.md#event-budget-and-bus-wait-exclusion-follow-up)
+reuses nine digest-checked Q/R/W traces: all three 128-byte extra-copy polls
+finish with positive remaining scheduler budget (21/20/35 clocks), excluding
+simple deadline-overrun stale VB as their explanation. Device waits already
+reach the prefetch bus accounting through the memory wrapper; no missing-wait
+fix is justified by that code path. No emulator change, guest rerun or timing
+correction is claimed. #75 OPEN; G142 NOT_READY.

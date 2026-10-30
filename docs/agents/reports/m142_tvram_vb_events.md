@@ -398,3 +398,65 @@ An exploratory reduction initially expected CX on `begin` records; the trace
 provides it on preceding `end` records. That analysis failure is retained and
 did not launch or invalidate a guest run. **#75 remains OPEN; no timing-core,
 wait, VB or VA-hold correction is implemented.**
+
+## Event-budget and bus-wait exclusion follow-up
+
+After the handoff, the maintainer prioritizes #75 again and defers the Python
+BUPDATE replacement. A read-only reduction reuses the same nine source-bound
+VA2 Q/R/W traces above. It verifies their digests against the original run
+records before parsing them with `tools/hardware/tvram_vb/trace.py`; no guest,
+CPU build, hardware capture or modified timing model is run. The local adapter
+and its JSON/log are retained under task scratch `tvram-vb-arbitration-r1/`.
+
+The question is narrower than the earlier common-cutoff test: **did an expired
+scheduler budget leave a stale VB=1 visible at the particular poll authorizing
+the extra Q copy?** `machine/pccore.c` dispatches native instructions while
+`CPU_REMCLOCK > 0`, then calls `nevent_progress()`. The trace records remaining
+budget at dispatch end. Every observed `IN AL,DX` at `0142h` in these nine traces
+costs 10 clocks (instruction 8 plus I/O bus 2). A positive end budget therefore
+rules out crossing the currently scheduled next event during that dispatch;
+a negative value alone does not identify which event was crossed.
+
+The following table selects the **last high poll in each of the first three
+fully bracketed windows**, not every later/partial high interval in the trace.
+Offsets remain sums of dispatch costs measured at instruction beginnings,
+not physical I/O timestamps. Budget is signed clocks remaining after dispatch.
+
+| Chunk bytes | Row | Last-high offsets, three windows | Remaining budgets, three windows |
+|---|---|---|---|
+| 32 | Q | 2579 / 2553 / 2566 | 124 / 38 / 65 |
+| 32 | R | 2939 / 2939 / 2939 | 48 / 24 / 12 |
+| 32 | W | 11183 / 11235 / 11235 | 48 / 118 / 80 |
+| 128 | Q | 2942 / 2968 / 2942 | **21 / 20 / 35** |
+| 128 | R | 2926 / 2866 / 2881 | 47 / 46 / 73 |
+| 128 | W | 10426 / 10426 / 10387 | 57 / 47 / 48 |
+| 256 | Q | 2863 / 2876 / 2876 | **125 / -1 / 55** |
+| 256 | R | 2715 / 2730 / 2700 | -1 / 39 / 112 |
+| 256 | W | 8648 / 8661 / 8648 | 50 / 13 / 2 |
+
+Thus all three 128-byte extra-copy decisions, and two of the three 256-byte
+ones, occur with positive budget. **A poll that merely runs past the pending
+scheduler deadline cannot explain their extra copies.** The remaining
+256-byte Q poll crosses a deadline by one clock, but the trace does not name
+that pending event; it is not evidence that VB expiry itself was delayed.
+Do not promote this exclusion into a proof that every scheduler phase or the
+hardware VB duration is correct.
+
+A second source audit rules out a simple missing-device-wait bookkeeping
+claim. `tvramw_wt()` subtracts the model's TVRAM wait from `CPU_REMCLOCK`, and
+`upd9002_memorywrite_w()` brackets the mapped VA write and adds that decrement
+to `upd9002_bus_waits`. `upd9002_queue_account()` uses that value when holding
+the prefetch bus. The read wrapper does the corresponding accounting. The
+absence of a direct `upd9002_bus_waits` assignment inside `tvramw_wt()` is not
+a missing wait: adding it there would double-account the wrapper's increment.
+This establishes the code path, not cycle-exact physical arbitration.
+
+The earlier read-only VALT audit also remains scoped: three retained VA2
+state profiles have text control `03h` (VALT zero/disabled). The documented
+per-horizontal-period quota cannot be assumed enabled in those software
+profiles. Neither those states nor the photographs establish an independently
+measured hardware bus-grant schedule. Fixed per-word waits approximate an
+average; whether phase-dependent access latency explains Q while preserving
+R/W and ordinary transfers still needs evidence. **No fitted wait, speculative
+quota, changed blanking duration or VA-hold deletion is introduced. #75 remains
+OPEN; correction NOT_IMPLEMENTED; G142 NOT_READY.**
