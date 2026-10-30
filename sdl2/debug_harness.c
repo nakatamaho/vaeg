@@ -28,6 +28,8 @@
 #include "cpu/upd9002/upd9002_trace.h"
 #include "fdd/diskdrv.h"
 #include "g75_screen.h"
+#include "dosio.h"
+#include "soundmng.h"
 #include "gvramva.h"
 #include "kbdpaste.h"
 #include "sdlapi.h"
@@ -63,6 +65,7 @@ typedef enum {
 	DEBUG_ACTION_ENTER,
 	DEBUG_ACTION_MOUNT_FDD,
 	DEBUG_ACTION_LOAD_STATE,
+	DEBUG_ACTION_SAVE_STATE,
 	DEBUG_ACTION_WAIT_PC,
 	DEBUG_ACTION_TRACE,
 	DEBUG_ACTION_CAPTURE,
@@ -137,6 +140,23 @@ static BOOL debug_id_valid(const char *value) {
 		}
 	}
 	return TRUE;
+}
+
+static const char *debug_state_id_error(const char *value) {
+	size_t length;
+
+	if (!debug_id_valid(value)) {
+		return "M142_DEBUG_STATE_ID";
+	}
+	length = strlen(value);
+	/* Windows treats these basenames as devices, including with .state. */
+	if (!strcmp(value, "con") || !strcmp(value, "prn") || !strcmp(value, "aux") ||
+	    !strcmp(value, "nul") ||
+	    ((length == 4) && (!strncmp(value, "com", 3) || !strncmp(value, "lpt", 3)) &&
+	     (value[3] >= '1') && (value[3] <= '9'))) {
+		return "M142_DEBUG_STATE_ID";
+	}
+	return NULL;
 }
 
 static char *debug_string_duplicate(const char *value) {
@@ -406,6 +426,19 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		    (debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
 			goto invalid;
 		}
+		*event_context = FALSE;
+		return SUCCESS;
+	}
+	if (!strcmp(command, "save-state")) {
+		first = debug_next_token(&cursor);
+		if ((debug_state_id_error(first) != NULL) || (debug_next_token(&cursor) != NULL)) {
+			fprintf(stderr, "M142_DEBUG_STATE_ID\n");
+			goto invalid;
+		}
+		if (debug_add_action(DEBUG_ACTION_SAVE_STATE, &action) != SUCCESS) {
+			goto invalid;
+		}
+		strcpy(action->id, first);
 		*event_context = FALSE;
 		return SUCCESS;
 	}
@@ -812,6 +845,29 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			debug_log("mount-fdd", frames, action->id, action->argument + 1);
 			harness.action_index++;
 			break;
+		case DEBUG_ACTION_SAVE_STATE: {
+			char path[MAX_PATH];
+
+			if (debug_make_path(path, sizeof(path), action->id, ".state") != SUCCESS) {
+				fprintf(stderr, "M142_DEBUG_STATE_PATH\n");
+				return FAILURE;
+			}
+			if (file_attr(path) != -1) {
+				fprintf(stderr, "M142_DEBUG_STATE_EXISTS\n");
+				return FAILURE;
+			}
+			/* Use the GUI's audio boundary and production serializer. */
+			soundmng_stop();
+			loaded = statsave_save(path);
+			soundmng_play();
+			if (loaded != STATFLAG_SUCCESS) {
+				fprintf(stderr, "M142_DEBUG_STATE_SAVE\n");
+				return FAILURE;
+			}
+			debug_log("save-state", frames, action->id, 0);
+			harness.action_index++;
+			break;
+		}
 		case DEBUG_ACTION_LOAD_STATE:
 			resource = &harness.resources[action->value];
 			if (!resource->none) {
@@ -922,6 +978,7 @@ BOOL debug_harness_selftest(void) {
 	                            "counter dispatch e000:002a\n"
 	                            "wait-frame 120\n"
 	                            "input-line basic\n"
+	                            "save-state initial\n"
 	                            "load-state state\n"
 	                            "mount-fdd 1 boot\n"
 	                            "wait-pc e000:0180 2\n"
@@ -937,7 +994,20 @@ BOOL debug_harness_selftest(void) {
 	size_t extended_size;
 	UINT index;
 	BOOL passed;
+	static const char *const bad_state_ids[] = {"../initial", "initial.state", "con",
+	                                            "nul",        "com1",          "lpt9"};
 
+	for (index = 0; index < NELEMENTS(bad_state_ids); index++) {
+		const char *error;
+
+		if (debug_state_id_error("initial") != NULL) {
+			return FAILURE;
+		}
+		error = debug_state_id_error(bad_state_ids[index]);
+		if ((error == NULL) || strcmp(error, "M142_DEBUG_STATE_ID")) {
+			return FAILURE;
+		}
+	}
 	debug_harness_clear();
 	buffer = debug_string_duplicate(valid);
 	if (buffer == NULL) {
@@ -945,9 +1015,11 @@ BOOL debug_harness_selftest(void) {
 	}
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
 	         (harness.resource_count == 2) && (harness.counter_count == 1) &&
-	         (harness.action_count == 8) && (harness.actions[2].type == DEBUG_ACTION_LOAD_STATE) &&
-	         (harness.actions[4].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[5].type == DEBUG_ACTION_TRACE) && (harness.actions[6].argument == 15);
+	         (harness.action_count == 9) && (harness.actions[2].type == DEBUG_ACTION_SAVE_STATE) &&
+	         !strcmp(harness.actions[2].id, "initial") &&
+	         (harness.actions[3].type == DEBUG_ACTION_LOAD_STATE) &&
+	         (harness.actions[5].type == DEBUG_ACTION_WAIT_PC) &&
+	         (harness.actions[6].type == DEBUG_ACTION_TRACE) && (harness.actions[7].argument == 15);
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);

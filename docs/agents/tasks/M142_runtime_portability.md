@@ -129,6 +129,18 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
 - **M142 IN_PROGRESS; G142 NOT_READY.** This checkpoint does not authorize a
   merge or reopen the accepted G139/G140 scopes.
 
+## Gate-preparation automation
+
+A bounded `save-state ID` debug action and reusable
+`tools/qa/runtime_state_roundtrip.py` now provide an actual full-state,
+expansion-size and process-restart contract; the content selftest is independent
+of private inputs and Git history. Integration results will be recorded against
+a clean pushed-commit worker, not inferred from a successful compile. This does
+not close the GUI or Windows/Linux exchange requirements. Local macOS API
+preflight reports zero active displays, no screen-capture permission and no
+accessibility trust; actual Cocoa FPS/layout automation is BLOCKED, not replaced
+by SDL dummy captures. No Windows runtime was found. G142 remains NOT_READY.
+
 ## Clock-menu follow-up
 
 The maintainer removes 2, 6, 16, 32 and 64 MHz menu entries and adds 20 MHz.
