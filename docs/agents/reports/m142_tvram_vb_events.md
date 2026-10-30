@@ -351,3 +351,50 @@ changes. No new worker build, full suite/media campaign, hosted CI, Windows
 execution, merge or gate acceptance. The earlier VA S=20 versus S=86 conflict
 and prior-200-line alternative remain unresolved. **#75 OPEN; correction
 NOT_IMPLEMENTED; G142 NOT_READY.** No additional hardware work is requested.
+
+## REP alignment accounting
+
+A later source/content reduction reuses exactly these nine Q/R/W traces;
+there is no new guest execution or hardware measurement. Across all three
+chunk sizes, **1422 REP dispatches / 223 observed copy starts** have the same
+residuals after subtracting the modeled per-word cost. Seven of the starts
+belong to the previously disclosed leading partial W interval; they are not
+promoted into the 216 copies in fully bracketed windows.
+
+| Row | REP IP | Word cost | First-dispatch residual | Continuation residual |
+|---|---|---:|---:|---:|
+| Q/W TVRAM | `1604h` (even) | 20 | 13 | 13 |
+| R GVRAM | `162fh` (odd) | 9 | 13 | 15 |
+
+Thus, for these VA2 traces with `n` words and `d` dispatches, full-copy costs
+are `20*n + 13*d` for Q/W and **`9*n + 15*d - 2`** for R. The latter explains
+all previously reported R costs: for example, 64 words in six entries cost
+`576 + 90 - 2 = 664`. This does not infer a new hardware wait from a ratio.
+
+Source accounting separates three effects:
+
+- `upd9002_rep_movsw()` charges 11 on each entry; `_repe()` charges the prefix
+  2 again. Its word loop charges 8; single-plane GVRAM writes add 1, whereas
+  VA2 TVRAM words add 12. The GVRAM five-clock write-spacing floor adds no
+  extra term in these copies: the ordinary eight-clock body already exceeds
+  that spacing. It is not the source of the 11-clock word-cost difference.
+- A budget yield rewinds IP. `upd9002_queue_account()` treats that as a
+  nonsequential transfer and flushes the modeled queue. At the odd R address,
+  the flushed queue initially has one byte. The second byte of `F3 A5` arrives
+  four clocks later; prefix accounting supplies two, leaving a two-clock
+  fetch stall on every continuation. Initial copies enter with prefetched
+  bytes and show no such extra stall. Even-aligned Q/W show no extra stall.
+- Different memory costs also exhaust different scheduler budgets and yield
+  different dispatch counts. Neither an equal chunk size nor an unchanged
+  instruction encoding implies equal total modeled REP overhead.
+
+This explains the **software** R/Q residual difference and strengthens the
+need to distinguish scheduler/prefetch behavior from physical arbitration.
+It does not identify the hardware limiter, authorize removing prefix/queue
+costs, or supersede the frozen-cost/phase cutoff counterexample. An altered
+scheduler model needs new execution evidence rather than recalculated old
+windows. The returned VA S=20 / historical S=86 conflict remains unresolved.
+An exploratory reduction initially expected CX on `begin` records; the trace
+provides it on preceding `end` records. That analysis failure is retained and
+did not launch or invalidate a guest run. **#75 remains OPEN; no timing-core,
+wait, VB or VA-hold correction is implemented.**

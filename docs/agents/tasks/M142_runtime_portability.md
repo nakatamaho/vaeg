@@ -90,7 +90,8 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
   is demonstrated. Actual reported overclock/presenter-width case unresolved.
 - **B/C:** absent expansion defaults and numeric nominal clock choices are
   implemented; native configuration, domain and existing main/FDC tests pass.
-  Remaining GUI/restart/save-size checks are not silently marked passed.
+  The later gate-preparation checks below establish synthetic save size and
+  process restart, not GUI-driven changes or presenter acceptance.
 - **D/#75: OPEN; hardware results received.** Ten DONE photographs now cover
   VA and VA2/3 labels, with all 240 A–X rows transcribed; ten matched native
   software executions are also recorded in the [hardware follow-up](../reports/m142_tvram_vb_hardware.md).
@@ -131,15 +132,33 @@ exits, identities, skip/reuse boundaries and remaining gate checks.
 
 ## Gate-preparation automation
 
-A bounded `save-state ID` debug action and reusable
-`tools/qa/runtime_state_roundtrip.py` now provide an actual full-state,
-expansion-size and process-restart contract; the content selftest is independent
-of private inputs and Git history. Integration results will be recorded against
-a clean pushed-commit worker, not inferred from a successful compile. This does
-not close the GUI or Windows/Linux exchange requirements. Local macOS API
-preflight reports zero active displays, no screen-capture permission and no
-accessibility trust; actual Cocoa FPS/layout automation is BLOCKED, not replaced
-by SDL dummy captures. No Windows runtime was found. G142 remains NOT_READY.
+The [gate-preparation record](../reports/m142_gate_preparation.md) adds actual
+native full-state continuation and process-restart checks for absent, explicit
+OFF and EMS 13 MiB/BMS 16 MiB configurations. All three continuation/restart
+pairs pass, with registers and TVRAM/GVRAM restored. States are 2111040 bytes
+when disabled versus 32519776 enabled: the delta is 29 MiB plus two section
+headers. A passing save fixture and two exact-code live rejection cases verify
+non-overwrite/path safety. The content selftest has 10 single-mutation negatives;
+failed validator assumptions and completed-run reuse are explicitly retained.
+Evaluated native worker: pushed `0d02bc849b5c4fb4f45d21c13716735e77578d37`.
+
+The complete local CTest run has 166 entries, initially 148 PASS/16 SKIP/2 FAIL.
+Roadmap gate-label ambiguity and parallel full-selftest shared scratch are
+corrected; the four affected CTest entries pass. Aggregate **150 PASS/16 SKIP/0
+FAIL with unchanged-worker reuse**, not a second fresh full run. A new clean
+MacPorts Windows build of pushed `ea62eda1eb2d1d3abed11f72af2e5e7899868652`
+succeeds with recording/shaders ON and bundled encoders OFF; its SHA-256 is
+`d9c3bbdc36d88e5cc23a3587f2cbe7870594af2c55634dfe97e4e6f32b2b132a`.
+It remains a cross-build, not Windows execution or final gate acceptance.
+
+The [REP alignment accounting](../reports/m142_tvram_vb_events.md#rep-alignment-accounting)
+reuses nine old traces and explains R's extra continuation cost by odd-address
+prefetch after scheduler yields. It is not a hardware-cause proof or correction.
+Local macOS API preflight reports zero active displays, no screen-capture
+permission and no accessibility trust; actual Cocoa FPS/layout automation is
+BLOCKED, not replaced by SDL dummy. No Windows execution target was found.
+GUI-driven settings, actual Windows/Linux exchange and full media/demo/live
+regressions remain outstanding. #75 OPEN; G142 remains NOT_READY.
 
 ## Clock-menu follow-up
 

@@ -35,6 +35,53 @@ land.
 
 ## Maintenance Rules
 
+### M142 — state QA rejected valid disabled-expansion saves
+
+- **Symptom/scope:** actual native state continuations passed, but the new local
+  QA rejected their expansion/configuration/size evidence. This was a validator
+  defect, not a serializer or guest-state failure.
+- **Demonstrated cause:** the validator assumed zero-payload sections existed,
+  absent INI keys were always written on exit, and enabled/disabled sizes
+  differed only by RAM bytes. The writer omits empty sections, an unchanged
+  config need not be rewritten, and enabled sections add two 16-byte headers.
+- **Correction/verification:** validate absent payloads as zero, distinguish
+  effective absent defaults from required explicit keys, and include headers.
+  Ten passing-fixture single-mutation content negatives pass; three actual
+  save/load continuations and three process restarts pass by rechecking the
+  retained worker/output identities. Two live save-guard negatives preserve
+  the existing file. Earlier validation failures remain recorded, not relabeled.
+- **Evidence/task:** [M142 gate preparation](../agents/reports/m142_gate_preparation.md),
+  [M142 task](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [ea62eda1eb2d1d3abed11f72af2e5e7899868652](https://github.com/nakatamaho/vaeg/commit/ea62eda1eb2d1d3abed11f72af2e5e7899868652).
+
+### M142 — roadmap bank label misread as a gate identifier
+
+- **Symptom/scope:** full CTest milestone discovery rejected the M142 roadmap
+  row with `gate ID mismatch`; separate selftest/audit commands had not exercised
+  discovery. The canonical gate validator itself was correct.
+- **Demonstrated cause/correction:** the status used `G1/long-blank` as a GVRAM
+  bank label, also lexically a gate ID. Use unambiguous `GVRAM/long-blank`; do
+  not weaken validation or change historical gates. Complete discovery and
+  the affected CTest pass after correction.
+- **Evidence/task:** [M142 recovery](../agents/reports/m142_gate_preparation.md#full-local-ctest-and-focused-recovery).
+- **Fixing commit:** [f8b570127a9d7656bd19fda6c21f8d50b788a0c4](https://github.com/nakatamaho/vaeg/commit/f8b570127a9d7656bd19fda6c21f8d50b788a0c4).
+
+### M142 — complete selftest runners lacked shared scratch exclusion
+
+- **Symptom/scope:** parallel CTest launched trace-equivalence full selftests
+  alongside the romless worker, which failed in dropmedia. The exact failing
+  archive assertion is not logged; no guest archive defect is claimed.
+- **Demonstrated hazard:** the trace test omitted the resource lock already
+  shared by the other two complete-selftest entries. Their dropmedia tests
+  create/remove the same temporary directory, so overlapping workers can
+  delete each other's scratch. This is a test-scheduling/data-integrity risk.
+- **Correction/verification:** put trace equivalence under the existing lock.
+  All three full-selftest CTest entries now run serially; the four affected
+  tests pass with `-j4`. Worker digest remains unchanged. This protects this
+  CTest suite, not independently launched external selftests.
+- **Evidence/task:** [M142 recovery](../agents/reports/m142_gate_preparation.md#full-local-ctest-and-focused-recovery).
+- **Fixing commit:** [cb64067b520c1a3535c24122156afb858489868e](https://github.com/nakatamaho/vaeg/commit/cb64067b520c1a3535c24122156afb858489868e).
+
 ### M140 — all-tools prototype exhausted space on the second history log
 
 - **Symptom/scope:** an internal all-tools history disk completed both FDC
@@ -4298,7 +4345,10 @@ separate parity correction or move it to Open Defects.
   traced costs/phase; it is not a modified-scheduler test or physical cause
   proof. Reusable trace analysis has passing content/CLI negative tests.
   No timing correction is selected; ordinary-row and VA-condition constraints
-  remain in force.
+  remain in force. Later [REP alignment accounting](../agents/reports/m142_tvram_vb_events.md#rep-alignment-accounting)
+  reuses the nine traces: odd-address GVRAM continuations incur a two-clock
+  modeled prefetch stall absent from even-address TVRAM. The 1422 dispatches
+  explain software residuals, not a physical limiter or a selected correction.
 
 ### M142 — reported Information FPS versus high-digit display
 

@@ -36,6 +36,13 @@ not a gate-pass or release authorization. The maintainer reported the MH demo
 fixed by the CPU-role change; it is no longer an M142 investigation and no new
 MH fix is claimed here. The separate later MA stop is also not closed.
 
+The later [gate-preparation record](m142_gate_preparation.md) adds actual
+three-profile full-state/restart and size checks, save-path negatives, a complete
+166-entry local CTest campaign with disclosed focused recovery, and a fresh
+recording/shader-enabled MacPorts Windows build. It does not mark GUI, real
+Windows/Linux exchange, full media regressions or #75 passed. The original
+checkpoint identities/results below remain historical, not relabeled.
+
 ## Evaluated identities and reuse
 
 - Clean Windows source:
