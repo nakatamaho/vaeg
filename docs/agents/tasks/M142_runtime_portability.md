@@ -302,3 +302,24 @@ simple deadline-overrun stale VB as their explanation. Device waits already
 reach the prefetch bus accounting through the memory wrapper; no missing-wait
 fix is justified by that code path. No emulator change, guest rerun or timing
 correction is claimed. #75 OPEN; G142 NOT_READY.
+
+## Isolated DOSBox build follow-up
+
+At the maintainer's request, DOSBox 0.74-3 is now built outside Git in the
+specified local tools directory, with isolated SDL 2.32.10 and sdl12-compat
+1.2.68. No system ports or containers are changed/used. The macOS arm64
+console-entry build executes a DOS echo and the original BUPDATE PCPLUS
+patch; exit 0 and the existing expected output SHA-256 both pass. The first
+Cocoa startup timed out without a display; a separate console entry resolves
+that startup dependency without modifying upstream sources. An unnecessary
+forced autotools regeneration failed before an ordinary relink succeeded;
+both failures are retained in the local build report/logs.
+
+Executable SHA-256:
+`7c6d49fe06292d14507133ad438b9a9591ab31563f4098698730abb37ac619a3`.
+The local launcher confines HOME/configuration to the tools directory. It
+requires its adjacent SDK libraries and is not a static executable or a
+GUI-tested application. WSP/DIET/JWasm and complete utility regeneration are
+NOT_RUN at this checkpoint. Open Watcom SQEMM98/VIEW480 container recipes
+remain separate blockers. BUPDATE Python replacement stays deferred; #75
+remains unresolved and G142 NOT_READY.
