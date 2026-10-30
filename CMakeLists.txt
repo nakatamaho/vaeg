@@ -1911,7 +1911,9 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
         # This invokes the complete selftest three times.  The M55 64 MiB
         # snapshot identity checks are intentionally expensive under ASan.
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 420
+        # Complete selftests share SCSI fixtures and the dropmedia temp directory.
+        RESOURCE_LOCK vaeg_sxsi_image_selftest)
 
     if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
         add_test(NAME vaeg_m74_debug_harness
