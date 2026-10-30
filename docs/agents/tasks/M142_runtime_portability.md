@@ -421,3 +421,33 @@ This changes host-side build tooling/test registration only, not emulator
 behavior. No unchanged CPU corpus, vaeg application or Windows executable is
 rebuilt for this tool change. Clean pushed-source utility-media generation
 and guest boot contracts are the next checks; **G142 NOT_READY**.
+
+## Utility-media RDBMS load-policy correction
+
+Fresh source `3551f034e61c7780845c8117a624c4cf6ae51751` generates the
+utility FDD and both SASI images successfully with the DOS backend. FDD DIET
+validation covers **50 executables / 407,478 bytes saved**. The first SASI
+attempt stops on **OFFLINE_MISS cpm_license**. A separate task-local CP/M
+cache is seeded from shared input archives, the pinned notice is downloaded
+and verified by the existing installer, and three fresh CP/M disks are built
+there. Its tools/work/licenses never write into the shared private cache.
+The SASI retry supplies those three explicit images and succeeds. The original
+failed attempt remains separate.
+
+Live native checks reveal a new load-policy defect: on VA2 with BMS absent,
+`DIR` becomes only `R`; a returned Ready alone is not a filesystem PASS.
+Longer startup waits, split text, held keys, lowercase, disabled backup
+persistence, EMS installation, removal of MSE switches and removal of MSE
+itself do not correct that profile. BMS installation alone does. A controlled
+CONFIG-only mutation removing **RDBMS autoload alone** passes the unchanged
+boot directory/prompt contract with BMS absent; all other file payloads are
+identical. A split-text attempt also omits the explicit `@enter` directive;
+that caller error is retained, not treated as an independent guest defect.
+
+The utility FDD and SASI default configs now omit RDBMS autoload, while
+retaining the unchanged driver/manual payloads. The documented bank-memory
+opt-in remains available after explicit BMS installation. This does not
+change the default-off boards, the bank aperture, CPU clocks, keyboard/paste
+implementation or issue #75. Two focused tests cover the FDD generated
+configuration/retained files and eight SASI policy combinations. Clean
+pushed-source regeneration and final default-off boot checks follow.

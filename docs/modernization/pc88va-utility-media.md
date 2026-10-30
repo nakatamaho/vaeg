@@ -168,7 +168,6 @@ DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
-DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
 DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
@@ -385,8 +384,9 @@ selector zero, so CPU and SGP access continues to reach main RAM. This
 one-based mapping matches RDBMS, which selects a nonzero bank for each transfer
 and writes zero afterward to restore conventional memory.
 
-A clean VAEG configuration enables BMS with 128 banks (16MB) at the native
-PC-88VA `01D0H` port. The corresponding persisted values are
+M142 clean configurations leave BMS uninstalled. An explicitly installed
+128-bank (16MB) BMS board can use the native PC-88VA `01D0H` port.
+The corresponding persisted values are
 `Use_BMS_=true`, `BMS_Port=01d0`, and `BMS_Size=128`; `BMS_Size` is a bank
 count, not a megabyte count. The `00ECH` PC-9801-compatible port and smaller
 capacities remain selectable. Explicit values in an existing `vaeg.cfg`,
@@ -865,7 +865,6 @@ DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
-DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
 DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
@@ -878,9 +877,26 @@ PCEPAT, JFPPAT, RESET, and TSCLVA all precede MSE. JFPPAT is the optional
 PC-Engine patch layer and is loaded immediately after PCEPAT. MSE uses `/A` for BMS-backed Alias
 data and `/B` for partial BMS code-data swap; `/X` remains omitted because no
 XMS manager is installed.
-RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
+
+### RDBMS requires explicit bank-memory installation
+
+RDBMS remains on both FDD and SASI media, but **is not autoloaded**. M142
+clean configurations have no BMS board. In the tested VA2 profile, the old
+unconditional RDBMS load caused `DIR` input to become only `R`; enabling
+BMS or removing only the RDBMS directive restored the directory and prompt.
+Longer waits, held keys and disabling MSE did not correct that counterexample.
+This is a guest load-policy correction, not a CPU/input-timing adjustment.
+
+Only after explicitly installing BMS, an operator may add this line after
+MSE in `CONFIG.SYS`:
+
+```dos
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
+```
+
+The line explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
 documented defaults start at bank 1 and use 15 banks when `-S` and the bank
-count are omitted. The development disk passes `-S2` so bank 1 remains
+count are omitted. This optional line passes `-S2` so bank 1 remains
 reserved for MSE's `/A /B` code and Alias swap, while RDBMS uses banks 2
 through 16. With VAEG's default 640KB main RAM, selector zero restores
 the ordinary `80000H`-`9FFFFH` upper 128KB after every RDBMS transfer, while
@@ -1066,7 +1082,6 @@ DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
-DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
 DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```

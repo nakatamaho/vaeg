@@ -671,14 +671,16 @@ printf '%s\r\n' \
 	'DEVICE = A:\SYS\RESET.SYS' \
 	'DEVICE = A:\SYS\TSCLVA.SYS' \
 	'DEVICE = A:\SYS\MSE352B.COM /A /B' \
-	'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2' \
 	'DEVICE = A:\SYS\RDEMS.SYS -P128 -A' \
 	'DEVICE = A:\SYS\RDPCM.SYS' >"$payload_dir/root/CONFIG.SYS"
 
 grep -Fqx $'DEVICE = A:\\SYS\\MSE352B.COM /A /B\r' "$payload_dir/root/CONFIG.SYS" ||
 	die 'generated CONFIG.SYS is missing the MSE BMS /A /B switches'
-grep -Fqx $'DEVICE = A:\\SYS\\RDBMS.SYS -P1D0 -S2\r' "$payload_dir/root/CONFIG.SYS" ||
-	die 'generated CONFIG.SYS is missing the RDBMS bank-start switch'
+# RDBMS requires an installed bank-memory board. Keep its files available,
+# but never autoload it on the default, BMS-uninstalled machine profile.
+if grep -Fq 'RDBMS.SYS' "$payload_dir/root/CONFIG.SYS"; then
+	die 'unsafe RDBMS autoload in default CONFIG.SYS'
+fi
 grep -Fqx $'DEVICE = A:\\SYS\\RDEMS.SYS -P128 -A\r' "$payload_dir/root/CONFIG.SYS" ||
 	die 'generated CONFIG.SYS is missing the 2MB RDEMS setting'
 
