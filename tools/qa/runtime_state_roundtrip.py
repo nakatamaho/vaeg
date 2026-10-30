@@ -69,7 +69,10 @@ def expansion_sizes(data, ems, bms):
     sizes = {}
     for name, expected in ((b'EXTMEM\0\0\0\0', ems * 1024 * 1024),
                            (b'BMSMEM\0\0\0\0', 128 * 128 * 1024 if bms else 0)):
-        require(name in parsed and len(parsed[name][1]) == expected, 'M142_STATE_EXPANSION_SIZE')
+        # The production writer omits sections with zero payload; absence is
+        # the canonical disabled-board representation, not a truncated state.
+        actual = len(parsed[name][1]) if name in parsed else 0
+        require(actual == expected, 'M142_STATE_EXPANSION_SIZE')
         sizes[name.rstrip(b'\0').decode()] = expected
     require(b'DISK\0\0\0\0\0\0' in parsed and
             parsed[b'DISK\0\0\0\0\0\0'][0] == 1 and
@@ -96,28 +99,37 @@ def tvram_content(data):
     return data[start:]
 
 
-def config_values(text, ems, bms):
+def config_values(text, ems, bms, explicit=True):
     parser = configparser.ConfigParser(interpolation=None)
     parser.read_string(text)
     require(parser.has_section('NekoProjectII'), 'M142_STATE_CONFIG')
     section = parser['NekoProjectII']
-    require(section.getint('ExMemory', -1) == ems and
-            section.getboolean('Use_BMS_', fallback=not bms) == bms,
+    require(not explicit or ('ExMemory' in section and 'Use_BMS_' in section), 'M142_STATE_CONFIG')
+    require(section.getint('ExMemory', 0) == ems and
+            section.getboolean('Use_BMS_', fallback=False) == bms,
             'M142_STATE_CONFIG')
     if bms:
         require(section.getint('BMS_Size', -1) == 128 and
                 int(section.get('BMS_Port', '0'), 16) == 0x1d0, 'M142_STATE_CONFIG')
 
 
+def size_delta(profiles):
+    absent_size = profiles['absent']['baseline_size']
+    require(profiles['explicit-off']['baseline_size'] == absent_size, 'M142_STATE_DISABLED_SIZE')
+    delta = profiles['enabled']['baseline_size'] - absent_size
+    # Disabled sections are omitted; enabled ones each add a 16-byte header.
+    require(delta == (13 + 16) * 1024 * 1024 + 32, 'M142_STATE_ENABLED_SIZE_DELTA')
+    return delta
+
+
 def selftest():
     def section(name, version, body):
         return struct.pack('<10sHI', name, version, len(body)) + body + b'\0' * (-len(body) % 16)
-    fixture = HEADER + section(b'EXTMEM', 0, b'') + section(b'BMSMEM', 0, b'')
-    fixture += section(b'DISK', 1, b'\0' * 41080)
+    fixture = HEADER + section(b'DISK', 1, b'\0' * 41080)
     expansion_sizes(fixture, 0, False)
     cases = [('M142_STATE_HEADER', bytes([fixture[0] ^ 1]) + fixture[1:]),
              ('M142_STATE_CONTAINER', fixture[:-1]),
-             ('M142_STATE_DUPLICATE', fixture + section(b'EXTMEM', 0, b''))]
+             ('M142_STATE_DUPLICATE', fixture + section(b'DISK', 1, b''))]
     for code, changed in cases:
         expansion_sizes(fixture, 0, False)
         try:
@@ -137,11 +149,14 @@ def selftest():
         raise QaError('M142_STATE_SELFTEST_ACCEPTED')
     text = '[NekoProjectII]\nExMemory=0\nUse_BMS_=false\n'
     tvram = b'VAEGSCN1' + struct.pack('<II7I', 1, 0, *([0] * 7))
+    config_values('[NekoProjectII]\n', 0, False, explicit=False)
     extra = [
         ('M142_STATE_EXPANSION_SIZE', lambda: expansion_sizes(fixture, 0, False),
          lambda: expansion_sizes(fixture, 1, False)),
         ('M142_STATE_CONFIG', lambda: config_values(text, 0, False),
          lambda: config_values(text.replace('ExMemory=0', 'ExMemory=1'), 0, False)),
+        ('M142_STATE_CONFIG', lambda: config_values(text, 0, False),
+         lambda: config_values(text.replace('ExMemory=0\n', ''), 0, False)),
         ('M142_STATE_TVRAM_FORMAT', lambda: tvram_content(tvram),
          lambda: tvram_content(tvram[:8] + struct.pack('<I', 2) + tvram[12:])),
     ]
@@ -153,7 +168,20 @@ def selftest():
             require(error.code == code, 'M142_STATE_SELFTEST_MASKED')
         else:
             raise QaError('M142_STATE_SELFTEST_ACCEPTED')
-    print('runtime-state-selftest: PASS (7 exact-code single-mutation content negatives)')
+    profiles = {'absent': {'baseline_size': 100}, 'explicit-off': {'baseline_size': 100},
+                'enabled': {'baseline_size': 100 + 29 * 1024 * 1024 + 32}}
+    for name, code in [('explicit-off', 'M142_STATE_DISABLED_SIZE'),
+                       ('enabled', 'M142_STATE_ENABLED_SIZE_DELTA')]:
+        size_delta(profiles)
+        changed = {key: dict(value) for key, value in profiles.items()}
+        changed[name]['baseline_size'] += 1
+        try:
+            size_delta(changed)
+        except QaError as error:
+            require(error.code == code, 'M142_STATE_SELFTEST_MASKED')
+        else:
+            raise QaError('M142_STATE_SELFTEST_ACCEPTED')
+    print('runtime-state-selftest: PASS (10 exact-code single-mutation content negatives)')
 
 
 def execute(args, folder, config, script, disk):
@@ -251,13 +279,13 @@ def run(args):
                 (capture / 'restored.gvram.bin').read_bytes(), 'M142_STATE_MEMORY')
         sizes = expansion_sizes(save.read_bytes(), ems, bms)
         expansion_sizes((capture / 'restored.state').read_bytes(), ems, bms)
-        config_values(config.read_text(), ems, bms)
+        config_values(config.read_text(), ems, bms, explicit=name != 'absent')
         restart = execute(args, case / 'restart', config,
                           'debug-script 1\nlimit-frame 20\nwait-frame 5\nsave-state restarted\nexit\n', None)
         require(restart['exit'] == 0, 'M142_STATE_RESTART_EXIT')
         restarted = case / 'restart/capture/restarted.state'
         expansion_sizes(restarted.read_bytes(), ems, bms)
-        config_values(config.read_text(), ems, bms)
+        config_values(config.read_text(), ems, bms, explicit=name != 'absent')
         manifest['profiles'][name] = {'status': 'PASS_STATE_CONFIG_CONTRACT',
                                      'baseline_size': save.stat().st_size, 'sections': sizes,
                                      'continuation_clock_samples': [read('expected')['clock'],
@@ -266,12 +294,12 @@ def run(args):
                                      'run_sha256': digest(case / 'roundtrip/run.json'),
                                      'restart_run_sha256': digest(case / 'restart/run.json')}
         (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    absent_size = manifest['profiles']['absent']['baseline_size']
-    require(manifest['profiles']['explicit-off']['baseline_size'] == absent_size,
-            'M142_STATE_DISABLED_SIZE')
-    manifest['enabled_size_delta'] = manifest['profiles']['enabled']['baseline_size'] - absent_size
-    require(manifest['enabled_size_delta'] == (13 + 16) * 1024 * 1024,
-            'M142_STATE_ENABLED_SIZE_DELTA')
+    finish(args, out, manifest)
+
+
+def finish(args, out, manifest):
+    """Finalize already validated profiles; no guest rerun is needed here."""
+    manifest['enabled_size_delta'] = size_delta(manifest['profiles'])
     guard_script = ('debug-script 1\nlimit-frame 20\nwait-frame 5\n'
                     'save-state first\nsave-state second\nexit\n')
     guard_config = out / 'absent/vaeg.cfg'
@@ -293,6 +321,7 @@ def run(args):
     require(existing_path.read_bytes() == original, 'M142_STATE_OVERWRITE')
     require(not (out / 'guard-id/escape.state').exists(), 'M142_STATE_PATH_ESCAPE')
     manifest['save_guards'] = ['M142_DEBUG_STATE_EXISTS', 'M142_DEBUG_STATE_ID']
+    manifest['content_validator_sha256'] = digest(Path(__file__))
     manifest['status'] = 'PASS_STATE_CONFIG_CONTRACT_NOT_GUI_OR_CROSS_OS'
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps({'status': manifest['status'], 'profiles': manifest['profiles']}, indent=2))
