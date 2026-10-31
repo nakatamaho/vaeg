@@ -2684,6 +2684,9 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_x11_matrix_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_matrix.py" selftest)
+    add_test(NAME vaeg_runtime_clock_matrix_contract
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_clock_matrix.py" --selftest)
     add_test(NAME vaeg_x11_gate_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_gate.py" --selftest)
@@ -2692,7 +2695,7 @@ if(VAEG_ENABLE_TESTS)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/guest_start_qa.py" --selftest)
     set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest
         vaeg_x11_capture_selftest vaeg_x11_matrix_selftest vaeg_x11_gate_selftest
-        vaeg_guest_start_qa_selftest PROPERTIES
+        vaeg_guest_start_qa_selftest vaeg_runtime_clock_matrix_contract PROPERTIES
         LABELS "romless;frontend;local-qa;m132")
     # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
     # answers PRINT 1+1, draws a painted circle and round-trips a program
