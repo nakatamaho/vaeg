@@ -75,6 +75,20 @@ FFV1/PCM codec configuration. The local-only development profile is pinned to:
   This profile uses the GPL package locally, not a commercial license. Its
   `libx264.a` SHA-256 is
   `1a688333a67165dfb53a6562f6dcd2ea45b1d641ee9b9b32c7192e65bfc75b27`.
+- M142 adds the **amd64** variant of that same Ubuntu 24.04 x264 package for
+  the requested x86-64 Linux personal build, before linking it. Its version is
+  also **2:0.164.3108+git31e19f9-1**, with package SHA-256
+  `8afbd0e460c11a9b6bee90e09116aae1b1d5f5ba038bbdc3408f16083c7c1356`
+  and `libx264.a` SHA-256
+  `bfd778c54a8f6a992d8fec7633ec117f839eb571e6645f0abcb10727d90fe9e0`.
+  The published package metadata and its copyright file have been reviewed:
+  the implementation remains GPL-2-or-later, with ISC-licensed x86 assembly
+  support and the same separate commercial-license alternative. Select the
+  exact isolated static archive; do not install a newer encoder implicitly or
+  let pkg-config select a shared library. This architecture variant does not
+  expand the ordinary encoder allow-list or permit a public codec-enabled
+  artifact. A separate encoder-OFF Linux software-integration QA build is not
+  a substitute for the explicitly opted-in personal build.
 - AAC is FFmpeg's native `aac` encoder, not libfdk-aac or a downloaded AAC SDK.
 
 These are public upstream/package identifiers, not private integration assets.
