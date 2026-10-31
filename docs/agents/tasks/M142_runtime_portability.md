@@ -812,7 +812,20 @@ Private inputs, exact argv, logs, snapshots and output digests stay outside Git.
   above 100; its saved configuration records a 380-pixel window width,
   not independent pixel-geometry validation.
 
-Remaining obligations include the clock/input failure, actual above-100 FPS
+A further mapped software/no-wait/full-draw probe selects 4MHz after starting
+an actual BASIC redraw loop. Its three 960-pixel-wide samples show **149.5,
+149.3 and 147.8 FPS**; the actual **380×480** client capture shows **170.9 FPS**
+with the following FRAME field intact. PNG headers independently establish
+960×692 and 380×480 capture dimensions. Guest counter 1319→4810 and strictly
+increasing captured FRAME counts establish continued guest/draw activity.
+The text/geometry validation is
+`PASS_SCOPED_ABOVE_100_FPS_TEXT_AND_380PX_CAPTURE_NOT_FROZEN_REFERENCE_APPROVAL`.
+No forced measurement value or synthetic text replaces the real rendered
+footer. The originally reported 132→32 defect is **NOT_REPRODUCED** here;
+this is virtual-X11/software coverage, not Cocoa/Windows/physical-GPU evidence
+or independent approval of the full layout.
+
+Remaining obligations include the clock/input failure, target-specific FPS
 and approved layout contracts, redirected-LHA classification, and unavailable
 agent Windows/Cocoa/true-HiDPI targets. Do not repeat accepted human work or
 promote virtual/translated execution to those unavailable targets.
