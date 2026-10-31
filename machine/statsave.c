@@ -1331,7 +1331,9 @@ enum {
 static BOOL bms_state_header_valid(const BYTE *wire, UINT32 size) {
 	UINT32 bytes = wire[0] ? (UINT32)wire[1] * BMSIO_BANK_BYTES : 0;
 	UINT8 nomem = wire[2] && (!wire[0] || wire[2] > wire[1]);
-	return wire[0] <= 1 && wire[3] == nomem && (wire[0] ? wire[1] != 0 : wire[1] == 0) &&
+	UINT16 port = LOADINTELWORD(wire + 4);
+	return (port == BMSIO_PORT_DEFAULT || port == BMSIO_PORT_COMPAT) && wire[0] <= 1 &&
+	       wire[3] == nomem && (wire[0] ? wire[1] != 0 : wire[1] == 0) &&
 	       LOADINTELWORD(wire + 6) == BMSIO_PORT_MASK && LOADINTELDWORD(wire + 8) == bytes &&
 	       LOADINTELDWORD(wire + 12) == 0 && size == BMS_STATE_HEADER_SIZE + bytes;
 }

@@ -4356,12 +4356,15 @@ static int test_hdd_state_restore(void) {
 /* Saved BMS device/RAM must win over reset preferences, including resize,
  * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
 static int test_bms_state_restore(void) {
-	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1};
-	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128};
-	static const UINT offsets[] = {10, 16, 17, 24, 28};
+	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1, 1, 1};
+	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128, 2, 0};
+	static const UINT8 selected_bank[] = {0, 128, 1, 2, 1, 2, 0};
+	static const UINT offsets[] = {10, 16, 17, 24, 28, 20, 19, 18};
 	static const char *codes[] = {"M142_BMS_VERSION", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD",
+	                              "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD",
 	                              "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD"};
 	_BMSIOCFG preference = bmsiocfg;
+	UINT8 absent_compat;
 	char path[MAX_PATH], again[MAX_PATH], bad[MAX_PATH], error[512];
 	const char *problem = NULL;
 	UINT i, j, size, size2, pos, pos2, section = 0;
@@ -4372,16 +4375,26 @@ static int test_bms_state_restore(void) {
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
+	bmsiocfg.enabled = FALSE;
 	pccore_reset();
 	soundmng_stop();
+	/* With BMS absent, 00ECh belongs to the normal Kanji-ROM interface;
+	 * it is not an unbound FFh port. Capture that independent bus baseline. */
+	absent_compat = (UINT8)iocore_inp8(BMSIO_PORT_COMPAT);
 	for (i = 0; i < NELEMENTS(saved_banks) && !problem; i++) {
+		UINT8 absent_bank = selected_bank[i] && selected_bank[i] > saved_banks[i];
+		UINT8 expected = absent_bank        ? 0xff
+		                 : selected_bank[i] ? (BYTE)((selected_bank[i] - 1) ^ 0x5a)
+		                                    : 0x36;
 		bmsiocfg.enabled = saved_banks[i] != 0;
 		bmsiocfg.numbanks = saved_banks[i];
 		bmsiocfg.port = BMSIO_PORT_COMPAT;
 		bmsiocfg.portmask = BMSIO_PORT_MASK;
 		bmsio_set();
 		bmsio_reset();
-		bmsio.bank = saved_banks[i];
+		bmsio.bank = selected_bank[i];
+		bmsio.nomem = absent_bank;
+		mem[0x080000] = 0x36;
 		for (j = 0; j < bmsiowork.bmsmemsize; j++)
 			bmsiowork.bmsmem[j] = (BYTE)(j ^ (j >> 17) ^ 0x5a);
 		if (statsave_save(path) != STATFLAG_SUCCESS ||
@@ -4395,8 +4408,8 @@ static int test_bms_state_restore(void) {
 		bmsio_set();
 		bmsio_reset();
 		if (statsave_load(path) != STATFLAG_SUCCESS || bmsio.cfg.enabled != (saved_banks[i] != 0) ||
-		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != saved_banks[i] || bmsio.nomem ||
-		    bmsio.cfg.port != BMSIO_PORT_COMPAT ||
+		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != selected_bank[i] ||
+		    bmsio.nomem != absent_bank || bmsio.cfg.port != BMSIO_PORT_COMPAT ||
 		    bmsiowork.bmsmemsize != (UINT32)saved_banks[i] * BMSIO_BANK_BYTES ||
 		    (saved_banks[i] && !bmsiowork.bmsmem) || (!saved_banks[i] && bmsiowork.bmsmem) ||
 		    bmsiocfg.enabled != (reader_banks[i] != 0) || bmsiocfg.numbanks != reader_banks[i] ||
@@ -4410,11 +4423,16 @@ static int test_bms_state_restore(void) {
 				break;
 			}
 		}
-		if (saved_banks[i] &&
-		    (iocore_inp8(BMSIO_PORT_COMPAT) != saved_banks[i] ||
-		     iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
-		     upd9002_memoryread_va(0x080000) != (BYTE)((saved_banks[i] - 1) ^ 0x5a)))
+		if (iocore_inp8(BMSIO_PORT_COMPAT) != (saved_banks[i] ? selected_bank[i] : absent_compat) ||
+		    iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
+		    upd9002_memoryread_va(0x080000) != expected) {
+			fprintf(
+			    stderr,
+			    "BMS case=%u banks=%u bank=%u nomem=%u compat=%02x native=%02x memory=%02x expected=%02x\n",
+			    i, saved_banks[i], bmsio.bank, bmsio.nomem, iocore_inp8(BMSIO_PORT_COMPAT),
+			    iocore_inp8(BMSIO_PORT_DEFAULT), upd9002_memoryread_va(0x080000), expected);
 			problem = "guest-visible BMS bank/window/port was not restored";
+		}
 		if (statsave_save(again) != STATFLAG_SUCCESS ||
 		    read_whole_file(path, &data, &size) != SUCCESS ||
 		    read_whole_file(again, &data2, &size2) != SUCCESS) {
@@ -4449,7 +4467,7 @@ static int test_bms_state_restore(void) {
 			problem = "negative BMS fixture was not initially valid";
 			break;
 		}
-		data[section + offsets[i]] ^= (i == 1 ? 3 : 1);
+		data[section + offsets[i]] ^= (offsets[i] == 16 ? 3 : offsets[i] == 18 ? 2 : 1);
 		if (write_state_fixture(bad, data, size) != SUCCESS ||
 		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
 		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, codes[i])) ||
@@ -4588,7 +4606,7 @@ static int test_bms_state_restore(void) {
 		return fail("BMS state restore", problem);
 	fprintf(
 	    stderr,
-	    "selftest: BMS state restore ok (5 transitions, bank access/re-save, 8 load guards, read-only/atomic-save guards)\n");
+	    "selftest: BMS state restore ok (7 transitions, bank-zero/absent-bank access/re-save, 11 load guards, read-only/atomic-save guards)\n");
 	return SUCCESS;
 }
 
