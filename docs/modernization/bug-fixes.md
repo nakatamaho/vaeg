@@ -4435,6 +4435,23 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M142 — VA-compatible 4MHz clipboard paste loses characters
+
+**OPEN; correction DEFERRED by the maintainer's G142 scope revision.** A mapped
+Linux/X11 run of the VA/V1H profile at nominal 4MHz loses characters during
+clipboard paste and fails its BASIC result contract. The independently selected
+PC-8801mkIISR main-uPD780C baseline at nominal 4MHz passes actual multiline paste,
+repeated-digit arithmetic and subsequent variable use. These are distinct CPU
+roles; the passing baseline does not repair the VA-compatible path.
+
+Root cause is **not established**. Separate timing of mapped Shift/key events
+makes the clock runner's keyboard path work, but that is not a clipboard-paste
+fix. No production change or fixing commit is claimed. Evidence and the bounded
+follow-up contract are tracked as M142-R1 in the
+[G142 issue definitions](../agents/tasks/M142_runtime_portability.md#g142-closure-and-redefined-issues).
+The PC-Engine LHA/PCEPAT prerequisite question and OCR/target-coverage gaps are
+tracked there separately, not represented as proven emulator defects.
+
 ### M142 — VA2 short-VB TVRAM chunk count exceeds hardware (#75)
 
 - **Observed scope:** the published TSPSPR Q row is 602 on the VA2 versus

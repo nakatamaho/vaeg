@@ -23,6 +23,15 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M142 — Runtime settings, TVRAM investigation and portable states
 
+## Final status
+
+**M142 COMPLETE; G142 PASSED under the maintainer-approved reduced scope.**
+The [closure and remaining-issue definitions](#g142-closure-and-redefined-issues)
+are authoritative. Earlier IN_PROGRESS/NOT_READY statements below remain
+historical checkpoints, not the current gate status. This closes the assigned
+gate, not every open defect; no release, merge, cleanup or next milestone is
+performed by this record.
+
 ## Assignment and scope
 
 Base: `75ad3b9129038c3c54a834283ac709b8c02a6ce9`.
@@ -829,3 +838,125 @@ Remaining obligations include the clock/input failure, target-specific FPS
 and approved layout contracts, redirected-LHA classification, and unavailable
 agent Windows/Cocoa/true-HiDPI targets. Do not repeat accepted human work or
 promote virtual/translated execution to those unavailable targets.
+
+## G142 closure and redefined issues
+
+The maintainer revised the gate explicitly: “8801基底で通ればＯＫ” for the
+4MHz paste check; the PC-Engine LHA redirection check was identified as an
+additional test requiring PCEPAT, not mandatory utility-media QA; then
+“ちょっと整理しほかのは積み残しで”, followed by approval of the enumerated
+scope and “issue定義しなおして、G142まで完遂”. These approvals defer the
+remaining items below rather than requiring them to be marked PASS.
+The previously received **“human gate passed”** remains the human acceptance
+for application source `666c7746b6f34f617f22ce4ce1f35623b3173875` and its
+recorded Windows handoff. No repeated human checklist or private upload is
+required. Later changes in this closure concern QA and documentation only;
+the accepted application and handoff identities are unchanged.
+
+### Final mandatory PC-8801 4MHz paste check
+
+[`tools/qa/pc8801_paste.py`](https://github.com/nakatamaho/vaeg/commit/7a01bfb7df79edb443d7aabce654d78b908ce23e)
+runs a mapped SDL/X11 client with the PC-8801mkIISR
+extra-machine profile (MAME machine name `pc8801mk2sr`), standard-speed
+compatible execution and multiplier/speed `(2, 100)`. Saved `MCPUROLE=1`
+establishes the independent main uPD780C role, not VA/VA2 uPD70008-compatible
+execution; the saved standard-speed latch plus actual clock settings establish
+the nominal 4MHz domain (3.9936MHz). The same checks run before and after paste.
+
+```sh
+python3 tools/qa/pc8801_paste.py --selftest
+python3 tools/qa/pc8801_paste.py --worker "$WORKER_01" --roms "$ROMS_01" \
+  --backup-seed "$BACKUP_01" --display "$DISPLAY_01" \
+  --evaluated-commit 666c7746b6f34f617f22ce4ce1f35623b3173875 \
+  --output-dir "$OUT/pc8801-paste"
+```
+
+Both commands exit **0**. Five passing-control/single-mutation negatives
+check role, multiplier, standard-speed latch and both guest results. The real
+clipboard-paste program produces `PASTE142=3100` and `REPEAT142=333` from
+`100+3000` and `111+222`. A subsequent real paste produces `AFTER142=3100`
+from the retained variables, confirming continued guest operation. Queue
+release, actual worker exit 0, captured text/state and retained-input hashes
+are recorded privately. Status:
+**`PASS_PC8801_4MHZ_PASTE_GUEST_RESULTS_NOT_VA_COMPAT_OR_LAYOUT`**.
+Worker SHA-256 remains
+`fe84729ebbad7435f486747da230cb8c9b88565b1892d71b95acdf3d4d11af9e`.
+The earlier exploratory probe also passes; it is not relabeled as execution
+of the final reusable runner. This is virtual-X11 software integration, not
+physical-machine, Cocoa or native Windows automation.
+
+### Closed gate obligations
+
+- Accepted clean Windows handoff, standard human boot/demo/OS/new-SAV
+  checklist: **PASSED_MAINTAINER_REPORTED**, under the recorded conditions.
+- Default expansion settings, explicit OFF preservation, PCG/N-mode requested
+  defaults, checked new-format state/media fixes and native regression:
+  **PASS within the recorded contracts**; old-SAV migration remains waived.
+- Fresh demo/utility generation, payload readback, drawing/boot contracts:
+  **PASS as recorded in the linked media reports**, not a new rerun.
+- Actual Darwin/Linux SAV exchange, Linux suite and personal x86_64 MP4
+  checks: **PASS within their explicit virtual/translated target scopes**.
+- Numeric clock choices: all **40 execution/state cases PASS**, including
+  unchanged PIT configuration and board domain. Actual restart plus GUI
+  save/load restores the guest variable and machine latches. The campaign's
+  original aggregate remains FAIL because **37 OCR checks pass and 3 fail**;
+  only that remaining text-recognition obligation is deferred below.
+- Actual above-100 FPS and 380-pixel client text/geometry: **scoped PASS** as
+  recorded above; the originally reported digit-loss defect is not reproduced.
+- Final PC-8801 4MHz paste: **PASS**, satisfying the explicitly revised check.
+
+### Remaining issue definitions (not G142 blockers)
+
+These are repository-local tracking IDs, not newly created GitHub issue numbers.
+No speculative production correction or new milestone is authorized.
+
+| ID | Status and bounded problem | Follow-up acceptance contract |
+| --- | --- | --- |
+| M142-R1 | OPEN / DEFERRED: VA/V1H 4MHz clipboard paste loses characters; PC-8801 baseline passes. Root cause unproven. | Reproduce with fixed guest input and role/clock observations; correct the demonstrated cause; compare baseline and changed worker, including repeated digits, Shift and queue release. |
+| M142-R2 | OPEN / DEFERRED: clock-footer OCR loses digits/letters in three of 40 original captures. Uniform enlargement fixes those but fails eight others; experiment and failures retained outside Git. | Reliable text recognition with independently specified expected strings, controlled negative fixtures and all retained images; no per-case expected-value substitution or rewriting old results. |
+| M142-R3 | BLOCKED / DEFERRED: 32 mapped X11 captures are DRAFT without independently approved frozen references. | Reference approval, fixed target/settings/DPI/backend, bounded masks and machine comparison. DRAFT is never visual acceptance. |
+| M142-R4 | NOT_RUN/BLOCKED / DEFERRED: agent Windows execution/exchange and Cocoa, physical-GPU and true-HiDPI coverage. | Actual target-specific execution and evidence; cross-builds, translated Linux and virtual X11 cannot substitute. Existing maintainer-reported Windows acceptance remains valid. |
+| M142-R5 | OPTIONAL / EXCLUDED: PC-Engine redirected LHA query; PCEPAT prerequisite not established. Not a demonstrated emulator defect. | Only if separately assigned: bind and verify the required patch/version, establish OS/tool controls, then classify. No more investigation is required for M142. |
+| #75 | OPEN / DEFERRED correction; M142 investigation COMPLETE by earlier explicit approval. | Separately assigned causal investigation and verified correction; no fitted slowdown. |
+
+**G142 PASSED** is the combination of the prior human acceptance, the explicit
+scope revision and the now-passing final PC-8801 check. Deferred failures remain
+failures, missing coverage remains missing, and no universal conformance claim
+is made. Keep the accepted `M142-dev` artifact unchanged; this is not an official
+release publication, merge/cleanup execution or authorization to begin M143.
+
+### Closure validation and evidence reuse
+
+Final local commands all exit **0**:
+
+```sh
+python3 tools/qa/pc8801_paste.py --selftest
+python3 tools/qa/runtime_clock_matrix.py --selftest
+python3 tools/qa/cross_os_state.py selftest
+python3 tools/qa/x11_capture.py --selftest
+python3 tools/qa/x11_matrix.py selftest
+python3 tests/frontend/test_release_identity.py
+python3 tests/frontend/test_mingw_macports.py
+python3 tools/repo/check_encoding.py --expect utf8
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+python3 tools/repo/check_md_comments.py
+python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
+git diff --check
+```
+
+Content negatives: PC-8801 paste **5**, clock **8**, cross-OS **14**, plus
+passing X11 capture/matrix contracts. Release identity **4** and MacPorts
+builder **3** tests pass. Encoding/EOL/case report zero findings; Markdown
+and whitespace checks pass. Milestone selftest reports **49** checks;
+discovery reports **223 tasks / 177 reports / 164 roadmap rows** and audit
+passes. CTest registration is added for the pure paste contract; this is not
+a claim of rerunning the full application suite at the closure commit.
+
+The fresh real PC-8801 campaign and its preceding exploratory control both
+exit 0. Previous full application, utility/demo, cross-OS, mapped display and
+MP4 campaigns remain bound to their actual workers and source revisions.
+No C/C++ application input, SDK or accepted binary changes in this closure;
+therefore unchanged expensive builds and guest campaigns are reused rather
+than relabeled or rerun. The failed OCR enlargement experiment is preserved
+privately and not applied to the committed runner. No hosted CI was requested.

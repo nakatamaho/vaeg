@@ -23,7 +23,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M142 — gate preparation and actual full-state checks
 
-**M142 IN_PROGRESS; G142 NOT_READY.** This advances the
+**Historical checkpoint: M142 IN_PROGRESS; G142 NOT_READY at this report's
+original evaluation.** The later [G142 closure and redefined remaining issues](../tasks/M142_runtime_portability.md#g142-closure-and-redefined-issues)
+record scoped completion after maintainer approval and the final PC-8801
+4MHz paste check. Original failures and missing coverage below are not
+retroactively changed to PASS. This advances the
 [task](../tasks/M142_runtime_portability.md), not human acceptance. No merge,
 release, hosted CI or additional physical measurement is performed.
 
