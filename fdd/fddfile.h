@@ -86,6 +86,8 @@ BOOL fdd_diskprotect(REG8 drv);
 UINT fdd_diskimage(REG8 drv);
 
 BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro);
+BOOL fdd_validate(const char *fname, UINT image, int ro);
+BOOL fdd_flush(void);
 BOOL fdd_eject(REG8 drv);
 
 BOOL fdd_diskaccess(void);

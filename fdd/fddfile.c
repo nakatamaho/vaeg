@@ -57,13 +57,8 @@ UINT fdd_diskimage(REG8 drv) {
 
 // --------------------------------------------------------------------------
 
-BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {
-	FDDFILE fdd;
+static BOOL fdd_set_device(FDDFILE fdd, const char *fname, UINT ftype, int ro) {
 	const char *p;
-
-	if (drv >= MAX_FDDFILE) {
-		return (FAILURE);
-	}
 	if (ftype == FTYPE_NONE) {
 		p = file_getext((char *)fname);
 		if ((!milstr_cmp(p, str_d88)) || (!milstr_cmp(p, str_88d)) || (!milstr_cmp(p, str_d98)) ||
@@ -75,7 +70,6 @@ BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {
 			ftype = FTYPE_BETA;
 		}
 	}
-	fdd = fddfile + drv;
 	switch (ftype) {
 	case FTYPE_FDI:
 		if (fddxdf_setfdi(fdd, fname, ro) == SUCCESS) {
@@ -89,6 +83,24 @@ BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {
 		return (fddd88_set(fdd, fname, ro));
 	}
 	return (FAILURE);
+}
+
+BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {
+	if (drv >= MAX_FDDFILE) return FAILURE;
+	return fdd_set_device(fddfile + drv, fname, ftype, ro);
+}
+
+BOOL fdd_validate(const char *fname, UINT image, int ro) {
+	_FDDFILE candidate;
+	ZeroMemory(&candidate, sizeof(candidate));
+	candidate.num = (BYTE)image;
+	return fdd_set_device(&candidate, fname, FTYPE_NONE, ro) == SUCCESS &&
+	       (image == 0 || candidate.type == DISKTYPE_D88) &&
+	       candidate.protect == (ro ? TRUE : FALSE) ? SUCCESS : FAILURE;
+}
+
+BOOL fdd_flush(void) {
+	return fddd88_flush();
 }
 
 BOOL fdd_eject(REG8 drv) {

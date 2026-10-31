@@ -491,7 +491,7 @@ static BOOL state_disk_exists(const char *path) {
  * Search only configured media folders, never recursively or by a fitted
  * private filename. Conflicting same-name candidates are not guessed. */
 BOOL np2_state_disk_resolve(const char *saved, char *local, UINT size) {
-	const char *configured[15];
+	const char *configured[24];
 	const char *name = state_disk_basename(saved);
 	char found[MAX_PATH] = {0};
 	char candidate[MAX_PATH];
@@ -511,6 +511,10 @@ BOOL np2_state_disk_resolve(const char *saved, char *local, UINT size) {
 	}
 	for (i = 0; i < 7; i++)
 		configured[8 + i] = np2cfg.scsihdd[i];
+	for (i = 0; i < 2; i++)
+		configured[15 + i] = sxsi_getname((REG8)i);
+	for (i = 0; i < 7; i++)
+		configured[17 + i] = sxsi_getname((REG8)(0x20 + i));
 	for (i = 0; i < NELEMENTS(configured); i++) {
 		size_t prefix;
 		if (!configured[i] || !*configured[i])

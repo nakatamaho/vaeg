@@ -46,7 +46,7 @@ BOOL fddxdf_set(FDDFILE fdd, const char *fname, int ro) {
 	if (attr & 0x18) {
 		return (FAILURE);
 	}
-	fh = file_open(fname);
+	fh = file_open_rb(fname);
 	if (fh == FILEH_INVALID) {
 		return (FAILURE);
 	}

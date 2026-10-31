@@ -18,6 +18,7 @@
 #include "beep.h"
 #include "font.h"
 #include "fddfile.h"
+#include "common/sha256.h"
 #include "fdd_mtr.h"
 #include "sxsi.h"
 #include "hostfat.h"
@@ -969,16 +970,16 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 // ---- disk
 
 enum {
-	STATDISK_PATH_BYTES = 4096,
-	STATDISK_RECORD_BYTES = 4108,
-	STATDISK_COUNT = 10
+	STATDISK_PATH_BYTES = STATSAVE_DISK_PATH_BYTES,
+	STATDISK_RECORD_BYTES = STATSAVE_DISK_RECORD_BYTES,
+	STATDISK_COUNT = STATSAVE_DISK_COUNT
 };
 
 typedef struct {
 	char path[STATDISK_PATH_BYTES];
 	int readonly;
-	DOSDATE date;
-	DOSTIME time;
+	UINT64 size;
+	BYTE identity[32];
 } STATDISK;
 
 static STATSAVE_DISK_RESOLVER disk_resolver;
@@ -989,53 +990,54 @@ STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolve
 	return previous;
 }
 
-/* v1 is an explicit little-endian wire record, never a native structure.
- * v0 accepted layouts are the historical Windows/POSIX/macOS path widths;
- * all used a 32-bit int, four date bytes, three time bytes and one pad byte. */
+/* v2: path[4096], flags/u32, file size/u64, SHA-256[32], reserved[20].
+ * Timestamps and native structures are not media identities. */
 static UINT diskrecord_size(STFLAGH sfh) {
-	UINT size;
-
-	if (sfh->hdr.ver == 1) {
-		if (sfh->hdr.size == STATDISK_COUNT * STATDISK_RECORD_BYTES)
-			return STATDISK_RECORD_BYTES;
-	} else if (sfh->hdr.ver == 0) {
-		size = sfh->hdr.size / STATDISK_COUNT;
-		if (sfh->hdr.size == size * STATDISK_COUNT &&
-		    (size == 260 + 12 || size == 1024 + 12 || size == 4096 + 12))
-			return size;
-	} else {
+	if (sfh->hdr.ver != 2) {
 		statflag_seterr(sfh, "M142_DISK_VERSION");
 		return 0;
 	}
-	statflag_seterr(sfh, "M142_DISK_SIZE");
-	return 0;
+	if (sfh->hdr.size != STATDISK_COUNT * STATDISK_RECORD_BYTES) {
+		statflag_seterr(sfh, "M142_DISK_SIZE");
+		return 0;
+	}
+	return STATDISK_RECORD_BYTES;
 }
 
 static int diskrecord_read(STFLAGH sfh, STATDISK *st) {
 	BYTE wire[STATDISK_RECORD_BYTES];
 	UINT size = diskrecord_size(sfh);
-	UINT pathbytes;
+	UINT i;
+	const BYTE *nul;
 
 	ZeroMemory(st, sizeof(*st));
 	if (!size || statflag_read(sfh, wire, size) != STATFLAG_SUCCESS)
 		return STATFLAG_FAILURE;
-	pathbytes = size - 12;
-	if (!memchr(wire, 0, pathbytes)) {
+	nul = (const BYTE *)memchr(wire, 0, STATDISK_PATH_BYTES);
+	if (!nul) {
 		statflag_seterr(sfh, "M142_DISK_PATH");
 		return STATFLAG_FAILURE;
 	}
-	CopyMemory(st->path, wire, pathbytes);
-	st->readonly = (int)LOADINTELDWORD(wire + pathbytes);
-	if ((st->readonly & ~0xff01) || (sfh->hdr.ver == 1 && wire[size - 1] != 0)) {
+	for (i = (UINT)(nul - wire); i < STATDISK_PATH_BYTES; i++) {
+		if (wire[i]) {
+			statflag_seterr(sfh, "M142_DISK_PATH");
+			return STATFLAG_FAILURE;
+		}
+	}
+	CopyMemory(st->path, wire, STATDISK_PATH_BYTES);
+	st->readonly = (int)LOADINTELDWORD(wire + 4096);
+	st->size = LOADINTELDWORD(wire + 4100) | ((UINT64)LOADINTELDWORD(wire + 4104) << 32);
+	CopyMemory(st->identity, wire + 4108, sizeof(st->identity));
+	for (i = st->path[0] ? 4140 : 4096; i < sizeof(wire); i++) {
+		if (wire[i]) {
+			statflag_seterr(sfh, "M142_DISK_FLAGS");
+			return STATFLAG_FAILURE;
+		}
+	}
+	if (st->readonly & ~0xff01) {
 		statflag_seterr(sfh, "M142_DISK_FLAGS");
 		return STATFLAG_FAILURE;
 	}
-	st->date.year = LOADINTELWORD(wire + pathbytes + 4);
-	st->date.month = wire[pathbytes + 6];
-	st->date.day = wire[pathbytes + 7];
-	st->time.hour = wire[pathbytes + 8];
-	st->time.minute = wire[pathbytes + 9];
-	st->time.second = wire[pathbytes + 10];
 	return STATFLAG_SUCCESS;
 }
 
@@ -1048,11 +1050,49 @@ static BOOL diskrecord_resolve(STATDISK *st) {
 	return strlen(st->path) < MAX_PATH;
 }
 
-static const char str_fddx[] = "FDD%u";
-static const char str_sasix[] = "SASI%u";
-static const char str_scsix[] = "SCSI%u";
-static const char str_updated[] = "%s: updated";
-static const char str_notfound[] = "%s: not found";
+static int diskrecord_identify(const char *path, UINT64 *size, BYTE identity[32]) {
+	BYTE buffer[65536];
+	UINT64 total = 0;
+	UINT got;
+	FILEH file = file_open_rb(path);
+	VAEG_SHA256 sha;
+	if (file == FILEH_INVALID) return STATFLAG_FAILURE;
+	*size = file_getsize64(file);
+	vaeg_sha256_initialize(&sha);
+	while ((got = file_read(file, buffer, sizeof(buffer))) != 0) {
+		total += got;
+		vaeg_sha256_update(&sha, buffer, got);
+	}
+	file_close(file);
+	if (total != *size) return STATFLAG_FAILURE;
+	vaeg_sha256_finish(&sha, identity);
+	return STATFLAG_SUCCESS;
+}
+
+static int diskrecord_validate(STFLAGH sfh, STATDISK *st, UINT slot) {
+	UINT64 size;
+	BYTE identity[32];
+	if (!st->path[0]) return STATFLAG_SUCCESS;
+	if (slot >= 4 && st->readonly) {
+		statflag_seterr(sfh, "M142_DISK_FLAGS");
+		return STATFLAG_FAILURE;
+	}
+	if (!diskrecord_resolve(st) ||
+	    diskrecord_identify(st->path, &size, identity) != STATFLAG_SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_MISSING");
+		return STATFLAG_FAILURE;
+	}
+	if (size != st->size || memcmp(identity, st->identity, sizeof(identity))) {
+		statflag_seterr(sfh, "M142_DISK_IDENTITY");
+		return STATFLAG_FAILURE;
+	}
+	if ((slot < 4 ? fdd_validate(st->path, (st->readonly >> 8) & 0xff, st->readonly & 1) :
+	     slot < 6 ? sxsi_hddvalidate_sasi(st->path) : sxsi_hddvalidate_scsi(st->path)) != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_MEDIA");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
 
 #if defined(SUPPORT_OPRECORD)
 STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
@@ -1061,7 +1101,6 @@ STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
 static int disksave(STFLAGH sfh, const char *path, int readonly) {
 	STATDISK st;
 	BYTE wire[STATDISK_RECORD_BYTES];
-	FILEH fh;
 
 	ZeroMemory(&st, sizeof(st));
 	ZeroMemory(wire, sizeof(wire));
@@ -1072,20 +1111,16 @@ static int disksave(STFLAGH sfh, const char *path, int readonly) {
 		}
 		file_cpyname(st.path, path, sizeof(st.path));
 		st.readonly = readonly;
-		fh = file_open_rb(path);
-		if (fh != FILEH_INVALID) {
-			file_getdatetime(fh, &st.date, &st.time);
-			file_close(fh);
+		if (diskrecord_identify(path, &st.size, st.identity) != STATFLAG_SUCCESS) {
+			statflag_seterr(sfh, "M142_DISK_MISSING");
+			return STATFLAG_FAILURE;
 		}
 	}
 	CopyMemory(wire, st.path, STATDISK_PATH_BYTES);
-	STOREINTELDWORD(wire + STATDISK_PATH_BYTES, st.readonly);
-	STOREINTELWORD(wire + STATDISK_PATH_BYTES + 4, st.date.year);
-	wire[STATDISK_PATH_BYTES + 6] = st.date.month;
-	wire[STATDISK_PATH_BYTES + 7] = st.date.day;
-	wire[STATDISK_PATH_BYTES + 8] = st.time.hour;
-	wire[STATDISK_PATH_BYTES + 9] = st.time.minute;
-	wire[STATDISK_PATH_BYTES + 10] = st.time.second;
+	STOREINTELDWORD(wire + 4096, st.readonly);
+	STOREINTELDWORD(wire + 4100, (UINT32)st.size);
+	STOREINTELDWORD(wire + 4104, (UINT32)(st.size >> 32));
+	CopyMemory(wire + 4108, st.identity, sizeof(st.identity));
 	return statflag_write(sfh, wire, sizeof(wire));
 }
 
@@ -1093,10 +1128,13 @@ static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
 	BYTE i;
 
+	if (fdd_flush() != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_FLUSH");
+		return STATFLAG_FAILURE;
+	}
 	sxsi_flash();
 	ret = STATFLAG_SUCCESS;
-	/* M120: bits 15-8 of `readonly` hold the disk of a multi-image D88
-	 * (states saved before hold 0 there: the first disk). */
+	/* Bits 15-8 of flags hold the selected image of a multi-image D88. */
 	for (i = 0; i < 4; i++) {
 		ret |= disksave(sfh, fdd_diskname(i),
 		                (fdd_diskprotect(i) ? 1 : 0) | (int)(fdd_diskimage(i) << 8));
@@ -1104,130 +1142,76 @@ static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
 	for (i = 0x00; i < 0x02; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
-	for (i = 0x20; i < 0x24; i++) {
+	for (i = 0x20; i < 0x20 + SCSIHDD_MAX; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
 	(void)tbl;
 	return (ret);
 }
 
-static int diskcheck(STFLAGH sfh, const char *name) {
-	int ret;
-	FILEH fh;
-	STATDISK st;
-	char buf[256];
-	DOSDATE date;
-	DOSTIME time;
-
-	ret = diskrecord_read(sfh, &st);
-	if (ret != STATFLAG_SUCCESS)
-		return ret;
-	if (!diskrecord_resolve(&st)) {
-		SPRINTF(buf, str_notfound, name);
-		statflag_seterr(sfh, buf);
-		return STATFLAG_DISKCHG;
+static int diskcheck(STFLAGH sfh, UINT slot, STATDISK *st) {
+	int ret = diskrecord_read(sfh, st);
+	if (ret == STATFLAG_SUCCESS) ret = diskrecord_validate(sfh, st, slot);
+	if (ret != STATFLAG_SUCCESS) {
+		char name[32];
+		if (slot < 4) SPRINTF(name, "FDD%u", slot + 1);
+		else if (slot < 6) SPRINTF(name, "SASI%u", slot - 3);
+		else SPRINTF(name, "SCSI ID %u", slot - 6);
+		statflag_seterr(sfh, name);
 	}
-	if (st.path[0]) {
-		fh = file_open_rb(st.path);
-		if (fh != FILEH_INVALID) {
-			file_getdatetime(fh, &date, &time);
-			file_close(fh);
-			if ((memcmp(&st.date, &date, sizeof(date))) ||
-			    (memcmp(&st.time, &time, sizeof(time)))) {
-				ret |= STATFLAG_DISKCHG;
-				SPRINTF(buf, str_updated, name);
-				statflag_seterr(sfh, buf);
-			}
-		} else {
-			ret |= STATFLAG_DISKCHG;
-			SPRINTF(buf, str_notfound, name);
-			statflag_seterr(sfh, buf);
-		}
-	}
-	return (ret);
+	return ret;
 }
 
 static int flagcheck_disk(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-	int i;
-	char buf[8];
-
-	if (!diskrecord_size(sfh))
+	UINT i;
+	STATDISK st;
+	(void)tbl;
+	if (!diskrecord_size(sfh)) return STATFLAG_FAILURE;
+	if (fdd_flush() != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_FLUSH");
 		return STATFLAG_FAILURE;
-	ret = 0;
-	for (i = 0; i < 4; i++) {
-		SPRINTF(buf, str_fddx, i + 1);
-		ret |= diskcheck(sfh, buf);
 	}
 	sxsi_flash();
-	for (i = 0; i < 2; i++) {
-		SPRINTF(buf, str_sasix, i + 1);
-		ret |= diskcheck(sfh, buf);
-	}
-	for (i = 0; i < 4; i++) {
-		SPRINTF(buf, str_scsix, i);
-		ret |= diskcheck(sfh, buf);
-	}
-	(void)tbl;
-	return (ret);
+	for (i = 0; i < STATDISK_COUNT; i++)
+		if (diskcheck(sfh, i, &st) != STATFLAG_SUCCESS) return STATFLAG_FAILURE;
+	return STATFLAG_SUCCESS;
 }
 
 static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-	UINT8 i;
-	STATDISK st;
-
-	ret = 0;
+	STATDISK *prepared = (STATDISK *)_MALLOC(sizeof(STATDISK) * STATDISK_COUNT, "state media");
+	UINT i;
+	int ret = STATFLAG_FAILURE;
+	(void)tbl;
+	if (!prepared) return STATFLAG_FAILURE;
+	/* Resolve every reference while the reader's existing mounts still exist.
+	 * Never resolve drive N after changing the search context for drive N-1. */
+	for (i = 0; i < STATDISK_COUNT; i++)
+		if (diskcheck(sfh, i, prepared + i) != STATFLAG_SUCCESS) goto done;
 	for (i = 0; i < 4; i++) {
-		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
-			return STATFLAG_FAILURE;
-		if (!diskrecord_resolve(&st)) {
-			st.path[0] = 0;
-			ret |= STATFLAG_DISKCHG;
-		}
-		if (st.path[0]) {
+		STATDISK *st = prepared + i;
 #if defined(SUPPORT_OPRECORD)
-			if (flagload_disk_hook) {
-				flagload_disk_hook(i, st.path, sizeof(st.path), &st.readonly);
-			}
-			if (st.path[0]) {
-				fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
-				fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
-			} else {
-				fdd_eject(i);
-			}
-#else
-			fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
-			fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
+		if (st->path[0] && flagload_disk_hook) {
+			flagload_disk_hook(i, st->path, sizeof(st->path), &st->readonly);
+			if (!st->path[0] || diskrecord_validate(sfh, st, i) != STATFLAG_SUCCESS) goto done;
+		}
 #endif
+		if (st->path[0]) {
+			fddfile[i].num = (BYTE)((st->readonly >> 8) & 0xff);
+			if (fdd_set(i, st->path, FTYPE_NONE, st->readonly & 1) != SUCCESS) goto done;
 		} else {
 			fdd_eject(i);
 		}
 	}
-	for (i = 0x00; i < 0x02; i++) {
-		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
-			return STATFLAG_FAILURE;
-		if (!diskrecord_resolve(&st)) {
-			st.path[0] = 0;
-			ret |= STATFLAG_DISKCHG;
-		}
-		if (st.path[0]) {
-			sxsi_hddopen(i, st.path);
-		}
+	/* Empty records are an instruction to detach, not to retain stale disks. */
+	sxsi_trash();
+	for (i = 4; i < STATDISK_COUNT; i++) {
+		UINT8 drive = (UINT8)(i < 6 ? i - 4 : 0x20 + i - 6);
+		if (prepared[i].path[0] && sxsi_hddopen(drive, prepared[i].path) != SUCCESS) goto done;
 	}
-	for (i = 0x20; i < 0x24; i++) {
-		if (diskrecord_read(sfh, &st) != STATFLAG_SUCCESS)
-			return STATFLAG_FAILURE;
-		if (!diskrecord_resolve(&st)) {
-			st.path[0] = 0;
-			ret |= STATFLAG_DISKCHG;
-		}
-		if (st.path[0]) {
-			sxsi_hddopen(i, st.path);
-		}
-	}
-	(void)tbl;
-	return (ret);
+	ret = STATFLAG_SUCCESS;
+done:
+	_MFREE(prepared);
+	return ret;
 }
 
 // ---- com
@@ -1862,7 +1846,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	vaeg_recording_native_session_epoch_change();
 	rs232c_midipanic();
 	mpu98ii_midipanic();
-	sxsi_trash();
+	/* Keep current HDD directories available until all saved references have
+	 * been resolved; flagload_disk replaces/detaches the complete device set. */
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
 	{

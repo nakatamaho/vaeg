@@ -4078,12 +4078,12 @@ static int strip_statsave_section(const char *source, const char *destination, c
 	return (ret);
 }
 
-/* Independent fixture writer: convert v1 DISK bytes to historic wire widths,
- * optionally change exactly one invariant. All other state sections survive. */
+/* Independent v2 fixture writer. Change foreign path spelling/RO in the
+ * passing control, then exactly one invariant in each negative. */
 static int rewrite_disk_state(const char *source, const char *destination, UINT pathbytes,
                               UINT version, UINT mutation) {
 	BYTE *data = NULL, *result = NULL;
-	UINT size, pos = 0x30, oldpad, newsize = (pathbytes + 12) * 10;
+	UINT size, pos = 0x30, oldpad, newsize = STATSAVE_DISK_RECORD_BYTES * STATSAVE_DISK_COUNT;
 	UINT newpad = (newsize + 15) & ~15U, total, i;
 	FILEH file;
 	int ret = FAILURE;
@@ -4092,10 +4092,10 @@ static int rewrite_disk_state(const char *source, const char *destination, UINT 
 		return FAILURE;
 	while (pos + 16 <= size && memcmp(data + pos, "DISK", 4))
 		pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U);
-	if (pos + 16 > size || LOADINTELWORD(data + pos + 10) != 1 ||
-	    LOADINTELDWORD(data + pos + 12) != 41080)
+	if (pathbytes != STATSAVE_DISK_PATH_BYTES || pos + 16 > size ||
+	    LOADINTELWORD(data + pos + 10) != 2 || LOADINTELDWORD(data + pos + 12) != newsize)
 		goto done;
-	oldpad = (41080 + 15) & ~15U;
+	oldpad = (newsize + 15) & ~15U;
 	if (pos + 16 + oldpad > size)
 		goto done;
 	total = size - oldpad + newpad;
@@ -4106,20 +4106,20 @@ static int rewrite_disk_state(const char *source, const char *destination, UINT 
 	STOREINTELWORD(result + pos + 10, version);
 	STOREINTELDWORD(result + pos + 12, newsize);
 	ZeroMemory(result + pos + 16, newpad);
-	for (i = 0; i < 10; i++) {
-		const BYTE *old = data + pos + 16 + i * 4108;
-		BYTE *record = result + pos + 16 + i * (pathbytes + 12);
+	for (i = 0; i < STATSAVE_DISK_COUNT; i++) {
+		const BYTE *old = data + pos + 16 + i * STATSAVE_DISK_RECORD_BYTES;
+		BYTE *record = result + pos + 16 + i * STATSAVE_DISK_RECORD_BYTES;
 		if (old[0]) {
 			/* The local files are relative names in this synthetic fixture. */
 			snprintf((char *)record, pathbytes, "Q:\\foreign\\%s", (const char *)old);
 		}
-		CopyMemory(record + pathbytes, old + 4096, 12);
-		if (i == 0)
+		CopyMemory(record + pathbytes, old + pathbytes, STATSAVE_DISK_RECORD_BYTES - pathbytes);
+		if (i == 0 && old[0])
 			record[pathbytes] |= 1; /* RO and multi-image index must both survive. */
 	}
 	CopyMemory(result + pos + 16 + newpad, data + pos + 16 + oldpad, size - pos - 16 - oldpad);
 	if (mutation == 1) {
-		STOREINTELWORD(result + pos + 10, 2);
+		STOREINTELWORD(result + pos + 10, 3);
 	} else if (mutation == 2) {
 		STOREINTELDWORD(result + pos + 12, newsize - 1);
 	} else if (mutation == 3) {
@@ -4127,7 +4127,16 @@ static int rewrite_disk_state(const char *source, const char *destination, UINT 
 	} else if (mutation == 4) {
 		result[pos + 16 + pathbytes] |= 2;
 	} else if (mutation == 5) {
-		result[pos + 16 + pathbytes + 11] = 1;
+		result[pos + 16 + 4140] = 1;
+	} else if (mutation == 6) {
+		result[pos + 16 + 4108] ^= 1;
+	} else if (mutation == 7) {
+		ZeroMemory(result + pos + 16, pathbytes);
+		strcpy((char *)result + pos + 16, "Q:\\foreign\\missing.d88");
+	} else if (mutation == 8) {
+		result[pos + 16 + pathbytes + 1] = 0xff;
+	} else if (mutation == 9 || mutation == 10) {
+		STOREINTELWORD(result + pos + 10, mutation - 9);
 	}
 	file = file_create(destination);
 	if (file != FILEH_INVALID) {
@@ -4144,13 +4153,18 @@ done:
 }
 
 static int test_disk_state_formats(const char *source, const char *disk) {
-	static const UINT widths[] = {4096, 260, 1024, 4096};
+	static const UINT widths[] = {4096};
 	static const char *codes[] = {"",
 	                              "M142_DISK_VERSION",
 	                              "M142_DISK_SIZE",
 	                              "M142_DISK_PATH",
 	                              "M142_DISK_FLAGS",
-	                              "M142_DISK_FLAGS"};
+	                              "M142_DISK_FLAGS",
+	                              "M142_DISK_IDENTITY",
+	                              "M142_DISK_MISSING",
+	                              "M142_DISK_MEDIA",
+	                              "M142_DISK_VERSION",
+	                              "M142_DISK_VERSION"};
 	char converted[MAX_PATH], saved[MAX_PATH], local[MAX_PATH], error[512];
 	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
 	UINT i, mutation;
@@ -4164,7 +4178,7 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 	    np2_state_disk_resolve("Q:\\foreign\\", local, sizeof(local)))
 		problem = "M142_DISK_RESOLVER_EMPTY_NAME";
 	for (i = 0; !problem && i < NELEMENTS(widths); i++) {
-		if (rewrite_disk_state(source, converted, widths[i], i ? 0 : 1, 0) != SUCCESS ||
+		if (rewrite_disk_state(source, converted, widths[i], 2, 0) != SUCCESS ||
 		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
 			problem = "M142_DISK_FIXTURE_PREFLIGHT";
 			break;
@@ -4211,12 +4225,12 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 	for (mutation = 1; !problem && mutation < NELEMENTS(codes); mutation++) {
 		UINT16 ip = CPU_IP;
 		/* Re-establish a passing fixture before each single mutation. */
-		if (rewrite_disk_state(source, converted, 4096, 1, 0) != SUCCESS ||
+		if (rewrite_disk_state(source, converted, 4096, 2, 0) != SUCCESS ||
 		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
 			problem = "M142_DISK_NEGATIVE_BASELINE";
 			break;
 		}
-		if (rewrite_disk_state(source, converted, 4096, 1, mutation) != SUCCESS ||
+		if (rewrite_disk_state(source, converted, 4096, 2, mutation) != SUCCESS ||
 		    statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE) {
 			problem = "M142_DISK_NEGATIVE_ACCEPTED";
 			break;
@@ -4226,6 +4240,33 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 		    CPU_IP != ip || fdd_diskimage(0) != 1 || strcmp(fdd_diskname(0), disk))
 			problem = "M142_DISK_NEGATIVE_CODE_OR_SIDE_EFFECT";
 	}
+	if (!problem) {
+		FILEH file;
+		BYTE original = 0, changed;
+		UINT16 ip = CPU_IP;
+		if (rewrite_disk_state(source, converted, 4096, 2, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_DISK_MEDIA_MUTATION_BASELINE";
+		file = file_open(disk);
+		if (file == FILEH_INVALID) problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+		else {
+			if (file_read(file, &original, 1) != 1 || file_seek(file, 0, FSEEK_SET) != 0)
+				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+			changed = original ^ 0x20;
+			if (!problem && file_write(file, &changed, 1) != 1)
+				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+			file_close(file);
+			if (!problem && (statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE ||
+			    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_DISK_IDENTITY")) ||
+			    statsave_load(converted) != STATFLAG_FAILURE || CPU_IP != ip))
+				problem = "M142_DISK_REAL_MEDIA_CHANGE_ACCEPTED";
+			file = file_open(disk);
+			if (file == FILEH_INVALID) problem = "M142_DISK_MEDIA_RESTORE";
+			else { if (file_write(file, &original, 1) != 1) problem = "M142_DISK_MEDIA_RESTORE"; file_close(file); }
+			if (!problem && statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
+				problem = "M142_DISK_MEDIA_RESTORE";
+		}
+	}
 	file_cpyname(np2oscfg.fdd_image[0], saved, sizeof(np2oscfg.fdd_image[0]));
 	statsave_set_disk_resolver(previous);
 	file_delete(converted);
@@ -4233,7 +4274,7 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 		return fail("portable disk state", problem);
 	fprintf(
 	    stderr,
-	    "selftest: portable DISK v1 and legacy 260/1024/4096, remap/ambiguity and 5 negatives ok\n");
+	    "selftest: DISK v2 identity/foreign remap/RO/multi-image, ambiguity and 10 exact negatives ok\n");
 	return SUCCESS;
 }
 
@@ -4248,6 +4289,43 @@ static int write_state_fixture(const char *path, const BYTE *data, UINT size) {
 
 /* Saved BMS device/RAM must win over reset preferences, including resize,
  * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
+static int test_hdd_state_restore(void) {
+	char empty[MAX_PATH], attached[MAX_PATH], foreign[MAX_PATH], hdi[MAX_PATH], vhd[MAX_PATH];
+	const char *problem = NULL;
+	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
+	UINT i;
+	SPRINTF(empty, "vaeg-selftest-%lu-empty.sts", (unsigned long)getpid());
+	SPRINTF(attached, "vaeg-selftest-%lu-hdds.sts", (unsigned long)getpid());
+	SPRINTF(foreign, "vaeg-selftest-%lu-hdds-foreign.sts", (unsigned long)getpid());
+	SPRINTF(hdi, "vaeg-selftest-%lu-state.hdi", (unsigned long)getpid());
+	SPRINTF(vhd, "vaeg-selftest-%lu-state.hdd", (unsigned long)getpid());
+	soundmng_initialize(); commng_initialize(); pccore_init(); pccore_reset(); soundmng_stop();
+	sxsi_trash();
+	if (statsave_save(empty) != STATFLAG_SUCCESS) problem = "empty-media fixture failed";
+	newdisk_hdi(hdi, 0);
+	if (newdisk_vhd_create(vhd, 2048, 512, FALSE) != SUCCESS ||
+	    sxsi_hddopen(0, hdi) != SUCCESS) problem = "synthetic HDD fixture failed";
+	for (i = 0; i < 7 && !problem; i++)
+		if (sxsi_hddopen((REG8)(0x20 + i), vhd) != SUCCESS) problem = "SCSI fixture failed";
+	if (!problem && (statsave_save(attached) != STATFLAG_SUCCESS ||
+	    rewrite_disk_state(attached, foreign, 4096, 2, 0) != SUCCESS)) problem = "HDD save/foreign fixture failed";
+	sxsi_trash();
+	if (sxsi_hddopen(1, hdi) != SUCCESS) problem = "stale-drive control failed";
+	if (!problem && (statsave_load(foreign) != STATFLAG_SUCCESS ||
+	    strcmp(sxsi_getname(0), hdi) || sxsi_getname(1)[0])) problem = "SASI restore/detach failed";
+	for (i = 0; i < 7 && !problem; i++)
+		if (strcmp(sxsi_getname((REG8)(0x20 + i)), vhd)) problem = "SCSI ID was omitted";
+	if (!problem && statsave_load(empty) != STATFLAG_SUCCESS) problem = "empty-media load failed";
+	for (i = 0; i < 9 && !problem; i++)
+		if (sxsi_getname((REG8)(i < 2 ? i : 0x20 + i - 2))[0]) problem = "stale HDD retained";
+	sxsi_trash(); pccore_term(); soundmng_deinitialize();
+	statsave_set_disk_resolver(previous);
+	file_delete(empty); file_delete(attached); file_delete(foreign); file_delete(hdi); file_delete(vhd);
+	if (problem) return fail("HDD state restore", problem);
+	fprintf(stderr, "selftest: HDD state restore ok (SASI, all 7 SCSI IDs, 9 empty detachments)\n");
+	return SUCCESS;
+}
+
 static int test_bms_state_restore(void) {
 	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1};
 	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128};
@@ -9376,7 +9454,7 @@ static int test_opn_backends(void) {
 int vaeg_selftest_run(void) {
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
 		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-		    test_fdd_multi_image_state() != SUCCESS) return FAILURE;
+		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS) return FAILURE;
 		return SUCCESS;
 	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
@@ -9509,7 +9587,8 @@ int vaeg_selftest_run(void) {
 	if (test_opn_backends() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS) {
+	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+	    test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {

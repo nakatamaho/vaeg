@@ -2,6 +2,11 @@
 
 /* M142: incompatible new container; old host-dependent saves are rejected. */
 #define VAEG_STATE_FILE_VERSION UINT32_C(0x261031)
+enum {
+	STATSAVE_DISK_PATH_BYTES = 4096,
+	STATSAVE_DISK_RECORD_BYTES = 4160,
+	STATSAVE_DISK_COUNT = 13 /* four FDDs, two SASI, all seven SCSI IDs */
+};
 
 enum {
 	STATFLAG_SUCCESS = 0,

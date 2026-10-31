@@ -284,6 +284,7 @@ set(VAEG_INCLUDE_DIRS
 
 set(VAEG_COMMON_SOURCES
     common/strres.c
+    common/sha256.c
     common/milstr.c
     common/_memory.c
     common/textfile.c
@@ -1055,6 +1056,11 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    add_executable(vaeg_sha256_test tests/common/sha256.c common/sha256.c)
+    target_include_directories(vaeg_sha256_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_sha256_test PRIVATE c_std_99)
+    add_test(NAME vaeg_sha256 COMMAND vaeg_sha256_test)
+    set_tests_properties(vaeg_sha256 PROPERTIES LABELS "romless;state;storage")
     add_test(NAME vaeg_runtime_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
     add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)

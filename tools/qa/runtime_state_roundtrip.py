@@ -81,8 +81,8 @@ def expansion_sizes(data, ems, bms):
             ram == banks * 128 * 1024 and len(body) == 16 + ram, 'M142_STATE_BMS')
     sizes['BMSRAM'] = ram
     require(b'DISK\0\0\0\0\0\0' in parsed and
-            parsed[b'DISK\0\0\0\0\0\0'][0] == 1 and
-            len(parsed[b'DISK\0\0\0\0\0\0'][1]) == 41080, 'M142_STATE_DISK_V1')
+            parsed[b'DISK\0\0\0\0\0\0'][0] == 2 and
+            len(parsed[b'DISK\0\0\0\0\0\0'][1]) == 13 * 4160, 'M142_STATE_DISK_V2')
     return sizes
 
 
@@ -133,11 +133,11 @@ def selftest():
         return struct.pack('<10sHI', name, version, len(body)) + body + b'\0' * (-len(body) % 16)
     bms_header = struct.pack('<BBBBHHII', 0, 0, 0, 0, 0x1d0, 0xffff, 0, 0)
     bms_section = section(b'BMSSTATE', 1, bms_header)
-    fixture = HEADER + section(b'DISK', 1, b'\0' * 41080) + bms_section
+    fixture = HEADER + section(b'DISK', 2, b'\0' * (13 * 4160)) + bms_section
     expansion_sizes(fixture, 0, False)
     cases = [('M142_STATE_HEADER', bytes([fixture[0] ^ 1]) + fixture[1:]),
              ('M142_STATE_CONTAINER', fixture[:-1]),
-             ('M142_STATE_DUPLICATE', fixture + section(b'DISK', 1, b'')),
+             ('M142_STATE_DUPLICATE', fixture + section(b'DISK', 2, b'')),
              ('M142_STATE_BMS', fixture[:-len(bms_section)]),
              ('M142_STATE_BMS', fixture[:-4] + b'\1' + fixture[-3:])]
     for code, changed in cases:
