@@ -800,9 +800,17 @@ Private inputs, exact argv, logs, snapshots and output digests stay outside Git.
   coverage remains pending; the first probe's script-path error is retained.
 - **Clock integration remains unfinished:** the new mapped-menu runner
   detects guest input loss at its first 4MHz case. Clipboard paste and the
-  first paced-key adapters fail; this is not a passing clock matrix or a
-  demonstrated emulator root cause. Explicit held-Shift input is under test.
-  No CPU/peripheral timing correction has been made to fit these failures.
+  first paced-key adapters fail; this is not a demonstrated emulator root
+  cause. Separately timed Shift press/release makes mapped keyboard execution
+  pass at 4, 8 and 10MHz in the first VA/V1H group. The 10MHz screenshot shows
+  the correct text, but OCR omits its digits and the rendered-text assertion
+  fails; the group is not declared PASS. Further execution/state cases run
+  independently while retaining that failing text contract, which fails the
+  aggregate. Clipboard-paste failure remains separate. No CPU/peripheral
+  timing correction has been made to fit these failures.
+  An additional full-draw/no-wait FPS probe observes 63.4–81.0 FPS, still not
+  above 100; its saved configuration records a 380-pixel window width,
+  not independent pixel-geometry validation.
 
 Remaining obligations include the clock/input failure, actual above-100 FPS
 and approved layout contracts, redirected-LHA classification, and unavailable
