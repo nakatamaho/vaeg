@@ -751,3 +751,60 @@ inputs are unchanged from the tested `666c7746` source; preserve/reuse the
 recorded native four-test campaign and clean Windows artifact under their
 actual identities rather than rebuilding or rerunning unchanged expensive
 profiles for this record.
+
+## Post-acceptance machine QA checkpoint
+
+The human acceptance above remains complete. **G142 is still NOT_READY**;
+this checkpoint adds machine evidence, not permission to merge or release.
+Application workers remain source `666c7746b6f34f617f22ce4ce1f35623b3173875`.
+Private inputs, exact argv, logs, snapshots and output digests stay outside Git.
+
+- **Linux arm64 software integration:** Ubuntu glibc 2.43-2ubuntu2.4,
+  isolated QEMU/HVF VM, no Colima. Full local suite: **140 PASS / 11 SKIP /
+  0 FAIL**, 151 entries, exit 0. Skipped prerequisites are not PASS.
+  Worker SHA-256: `fe84729ebbad7435f486747da230cb8c9b88565b1892d71b95acdf3d4d11af9e`.
+- **Personal Linux x86_64:** separate cross-build with recording, static
+  FFmpeg, explicitly opted-in local H.264/AAC and static librashader enabled.
+  The reviewed encoder pin is recorded in ADR-0018. This executable is
+  maintainer-local only, **not for distribution or CI artifacts**. Actual
+  execution uses QEMU user CPU translation on Linux arm64, not native x86
+  hardware. Worker SHA-256:
+  `20accddfc61c807d08cdf67cf030c5b7393645fadbb041dc942960543cb5c933`.
+  Three codec unit/contracts pass. The actual MP4 native-timing runner also
+  passes three cases (60-frame contract), exit 0, using the Matroska writer
+  and MP4 worker. Its first exit-1 attempt specified a nonexistent writer
+  executable; that failed invocation is retained, not reported as a codec bug.
+- **Actual cross-OS SAV exchange:** Darwin arm64 to/from Linux arm64 and
+  Darwin arm64 to/from translated Linux x86_64 all pass. The
+  [attested exchange runner](https://github.com/nakatamaho/vaeg/commit/f424111633d80617d4b4ab722dc73cfd7b53dfbe)
+  binds unchanged app-written SAVs to writer receipts, compares full marked
+  BMS RAM, content-bound fixture media, registers and video continuation,
+  and re-saves on the foreign OS. Readers start BMS OFF or with a smaller
+  allocation/other port. Four directions are
+  `PASS_ACTUAL_CROSS_OS_STATE_NOT_GUI_OR_UNIVERSAL_ABI`; this is not Windows
+  exchange, universal native-structure ABI or every model/media type.
+  Pure content selftests pass 14 exact-code single-mutation negatives.
+- **Mapped X11 capture:** all 32 software/OpenGL, normal/narrow/fullscreen/
+  large-UI and status/panel combinations are `CAPTURED_UNREVIEWED`. Eleven
+  verified successful cases are reused with their original adapter identities;
+  21 are newly captured. Boot synchronization now observes Copy Screen text
+  rather than a fixed delay or an exit-only TVRAM dump. The non-ASCII cursor
+  after `Ok` is normalized without accepting ASCII error text. Failed earlier
+  captures remain retained. Reference preparation exits 0 with 32 **DRAFT**
+  entries; no independently approved frozen reference is available. This
+  does not establish visual acceptance, physical GPU, Cocoa or true HiDPI.
+- **FPS observation:** mapped virtual X11/software at 20MHz shows measured
+  56.0–56.7 FPS and advancing frame counts in wide and requested narrow-window
+  observations. This is not an above-100-FPS reproduction or proof that the
+  requested narrow size was applied. Actual high-digit/presenter-width
+  coverage remains pending; the first probe's script-path error is retained.
+- **Clock integration remains unfinished:** the new mapped-menu runner
+  detects guest input loss at its first 4MHz case. Clipboard paste and the
+  first paced-key adapters fail; this is not a passing clock matrix or a
+  demonstrated emulator root cause. Explicit held-Shift input is under test.
+  No CPU/peripheral timing correction has been made to fit these failures.
+
+Remaining obligations include the clock/input failure, actual above-100 FPS
+and approved layout contracts, redirected-LHA classification, and unavailable
+agent Windows/Cocoa/true-HiDPI targets. Do not repeat accepted human work or
+promote virtual/translated execution to those unavailable targets.
