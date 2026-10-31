@@ -603,9 +603,34 @@ mutations reject exactly `M142_DISK_MISSING` and `M142_DISK_IDENTITY`. Total:
 expected guard rejections, not 18 restoration PASSes. Private inputs and the
 frozen corrected worker are retained unchanged under `STATE_FIX_NATIVE_01`.
 
-The old `72118426` Windows artifact remains an unfixed historical build; a
-corrected-source fresh handoff is still required. No Windows/Linux execution,
+The old `72118426` Windows artifact remains an unfixed historical build; the
+corrected-source fresh handoff is recorded below. No Windows/Linux execution,
 Cocoa/window/HiDPI check or genuine cross-OS exchange is inferred from the
 native SDL-dummy checks. Existing media-generation results retain their original
 source/worker identities. The withdrawn cfg proposal and approved #75 deferral
 remain unchanged. **M142 IN_PROGRESS / G142 NOT_READY**.
+
+### Corrected-source fresh Windows handoff
+
+The tested correction chain is pushed before the clean build. Exact command:
+
+```sh
+python3 tools/release/build-mingw-macports.py \
+  --commit 0f3cbe20190ccca6524dda59301303583f535c0a \
+  --work-dir "$WINDOWS_WORK" --sdk-dir "$SDK" --jobs 4
+```
+
+Exit **0**; new clean source/application objects, audited dependency SDK reuse
+only. Recording/shaders ON, bundled encoders OFF. Archive/import/embedded full
+source and display, copied executable equality and clean-source checks PASS.
+Display `Rel.20261031 (M142-dev, 0f3cbe20)`; output `vaeg.exe`, **73318779**
+bytes; SHA-256
+**`9d413f8bdd3902fe8942c5dd89bd7201f3a708c7529bd55573a4f3f79d031a92`**.
+`BUILD-REPORT.md`, `build.json`, import/policy logs and `third-party-notices.txt`
+remain beside the executable. Transfer the notices too, not an SDK/DLL bundle.
+
+[The handoff evidence](../reports/m142_save_portability_audit.md#corrected-source-windows-clean-build-handoff)
+also confirms all 62 current macOS/Windows compiled state-table entries match;
+this remains table ABI only, not complete payload or runtime portability.
+Windows execution and the requested Linux build/exchange are NOT_RUN. This
+replaces the old artifact for correction testing; it does not accept G142.

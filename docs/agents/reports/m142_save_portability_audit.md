@@ -40,7 +40,8 @@ failures and then-current conclusions. In those sections, “current”, “unfi
 and v0/v1 compatibility refer to that historical checkpoint, not the corrected
 application. In particular, the previously supplied `72118426` Windows
 executable still contains the BMS defect; do not overwrite original SAVs with
-that old build. No past failure has been relabeled as a correction PASS.
+that old build. A [fresh corrected-source Windows handoff](#corrected-source-windows-clean-build-handoff)
+is now available. No past failure has been relabeled as a correction PASS.
 
 ## Conclusion and evaluated identities
 
@@ -452,3 +453,43 @@ between operating systems. The historical table-size audit is not upgraded
 to those results. The withdrawn OS-specific cfg proposal remains withdrawn;
 #75's approved correction deferral is unchanged. **M142 IN_PROGRESS /
 G142 NOT_READY**; no acceptance, merge or release is implied.
+
+## Corrected-source Windows clean-build handoff
+
+After the tested correction/documentation chain is pushed, a fresh clean clone
+and fresh application objects are built from the pushed corrected source:
+
+```sh
+python3 tools/release/build-mingw-macports.py \
+  --commit 0f3cbe20190ccca6524dda59301303583f535c0a \
+  --work-dir "$WINDOWS_WORK" --sdk-dir "$SDK" --jobs 4
+```
+
+Exit **0**. Audited isolated dependencies are reused, not application objects;
+no Colima, container, global port/toolchain change or codec-enabled artifact.
+Recording, static minimal FFmpeg and librashader ON; native Windows Media
+Foundation MP4 support ON, bundled H.264/AAC encoders OFF. Static encoder archive,
+system-DLL import, full embedded source/display identity, output/build executable
+byte equality and clean source checks all pass.
+
+- Source: **`0f3cbe20190ccca6524dda59301303583f535c0a`**.
+- Display: **`Rel.20261031 (M142-dev, 0f3cbe20)`**.
+- Output: **`$WINDOWS_WORK/output/vaeg.exe`**, **73318779 bytes**.
+- SHA-256:
+  **`9d413f8bdd3902fe8942c5dd89bd7201f3a708c7529bd55573a4f3f79d031a92`**.
+- Build report: `$WINDOWS_WORK/output/BUILD-REPORT.md`; exact commands/exits,
+  tool/SDK and policy/import identities remain alongside it. Transfer
+  `third-party-notices.txt` with the executable. No additional SDK/SDL/FFmpeg/
+  MinGW DLL bundle is required; local ROM/media/config remain separate.
+
+A new object-level comparison finds all **62 current compiled state-table
+entries** identical between macOS arm64 and Windows x86-64, including BMSSTATE
+v1 and DISK v2. It reuses only the old parser functions without executing or
+overwriting the historical audit. Status is
+`PASS_TABLE_ABI_ONLY_NOT_CROSS_OS_RUNTIME`: not every native member layout,
+Linux ABI, or actual Windows save/load execution.
+
+This artifact contains the correction; the earlier `72118426` artifact does
+not. Windows execution/presenter/HiDPI, the requested Linux build and genuine
+OS-to-OS state exchange remain **NOT_RUN**. Native evidence is not relabeled
+as Windows evidence. M142 stays **IN_PROGRESS / G142 NOT_READY**.
