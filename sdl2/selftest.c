@@ -4237,6 +4237,128 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 	return SUCCESS;
 }
 
+static int write_state_fixture(const char *path, const BYTE *data, UINT size) {
+	FILEH fh = file_create(path);
+	int ret;
+	if (fh == FILEH_INVALID) return FAILURE;
+	ret = file_write(fh, data, size) == size ? SUCCESS : FAILURE;
+	file_close(fh);
+	return ret;
+}
+
+/* Saved BMS device/RAM must win over reset preferences, including resize,
+ * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
+static int test_bms_state_restore(void) {
+	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1};
+	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128};
+	static const UINT offsets[] = {10, 16, 17, 24, 28};
+	static const char *codes[] = {"M142_BMS_VERSION", "M142_BMS_PAYLOAD",
+	    "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD"};
+	_BMSIOCFG preference = bmsiocfg;
+	char path[MAX_PATH], again[MAX_PATH], bad[MAX_PATH], error[512];
+	const char *problem = NULL;
+	UINT i, j, size, size2, pos, pos2, section = 0;
+	BYTE *data = NULL, *data2 = NULL;
+	SPRINTF(path, "vaeg-selftest-%lu-bms.sts", (unsigned long)getpid());
+	SPRINTF(again, "vaeg-selftest-%lu-bms-again.sts", (unsigned long)getpid());
+	SPRINTF(bad, "vaeg-selftest-%lu-bms-bad.sts", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	soundmng_stop();
+	for (i = 0; i < NELEMENTS(saved_banks) && !problem; i++) {
+		bmsiocfg.enabled = saved_banks[i] != 0;
+		bmsiocfg.numbanks = saved_banks[i];
+		bmsiocfg.port = BMSIO_PORT_COMPAT;
+		bmsiocfg.portmask = BMSIO_PORT_MASK;
+		bmsio_set();
+		bmsio_reset();
+		bmsio.bank = saved_banks[i];
+		for (j = 0; j < bmsiowork.bmsmemsize; j++)
+			bmsiowork.bmsmem[j] = (BYTE)(j ^ (j >> 17) ^ 0x5a);
+		if (statsave_save(path) != STATFLAG_SUCCESS ||
+		    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "positive BMS fixture did not pass";
+			break;
+		}
+		bmsiocfg.enabled = reader_banks[i] != 0;
+		bmsiocfg.numbanks = reader_banks[i];
+		bmsiocfg.port = BMSIO_PORT_DEFAULT;
+		bmsio_set();
+		bmsio_reset();
+		if (statsave_load(path) != STATFLAG_SUCCESS ||
+		    bmsio.cfg.enabled != (saved_banks[i] != 0) ||
+		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != saved_banks[i] ||
+		    bmsio.nomem || bmsio.cfg.port != BMSIO_PORT_COMPAT ||
+		    bmsiowork.bmsmemsize != (UINT32)saved_banks[i] * BMSIO_BANK_BYTES ||
+		    (saved_banks[i] && !bmsiowork.bmsmem) ||
+		    (!saved_banks[i] && bmsiowork.bmsmem) ||
+		    bmsiocfg.enabled != (reader_banks[i] != 0) ||
+		    bmsiocfg.numbanks != reader_banks[i] || bmsiocfg.port != BMSIO_PORT_DEFAULT) {
+			problem = "saved allocation/device or reset preferences were not restored correctly";
+			break;
+		}
+		for (j = 0; j < bmsiowork.bmsmemsize; j++) {
+			if (bmsiowork.bmsmem[j] != (BYTE)(j ^ (j >> 17) ^ 0x5a)) {
+				problem = "BMS RAM differs after load";
+				break;
+			}
+		}
+		if (saved_banks[i] && (iocore_inp8(BMSIO_PORT_COMPAT) != saved_banks[i] ||
+		    iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
+		    upd9002_memoryread_va(0x080000) != (BYTE)((saved_banks[i] - 1) ^ 0x5a)))
+			problem = "guest-visible BMS bank/window/port was not restored";
+		if (statsave_save(again) != STATFLAG_SUCCESS ||
+		    read_whole_file(path, &data, &size) != SUCCESS ||
+		    read_whole_file(again, &data2, &size2) != SUCCESS) {
+			problem = "could not inspect the actual BMS re-save";
+			break;
+		}
+		for (pos = 0x30; pos + 16 <= size; pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "BMSSTATE\0\0", 10)) break;
+		for (pos2 = 0x30; pos2 + 16 <= size2; pos2 += 16 + ((LOADINTELDWORD(data2 + pos2 + 12) + 15) & ~15U))
+			if (!memcmp(data2 + pos2, "BMSSTATE\0\0", 10)) break;
+		if (pos + 32 > size || pos2 + 32 > size2 ||
+		    LOADINTELDWORD(data + pos + 12) != LOADINTELDWORD(data2 + pos2 + 12) ||
+		    memcmp(data + pos + 16, data2 + pos2 + 16, LOADINTELDWORD(data + pos + 12)))
+			problem = "re-saved BMS section differs";
+		section = pos;
+		if (i + 1 != NELEMENTS(saved_banks)) { _MFREE(data); data = NULL; }
+		_MFREE(data2); data2 = NULL;
+	}
+	for (i = 0; i < NELEMENTS(offsets) && !problem; i++) {
+		BYTE saved = data[section + offsets[i]];
+		BYTE *memory = bmsiowork.bmsmem;
+		UINT16 ip = CPU_IP;
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "negative BMS fixture was not initially valid"; break;
+		}
+		data[section + offsets[i]] ^= (i == 1 ? 3 : 1);
+		if (write_state_fixture(bad, data, size) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, codes[i])) ||
+		    statsave_load(bad) != STATFLAG_FAILURE || CPU_IP != ip ||
+		    bmsiowork.bmsmem != memory || memory[0] != 0x5a)
+			problem = "BMS negative missed its exact guard or mutated the running machine";
+		data[section + offsets[i]] = saved;
+	}
+	if (!problem && (strip_statsave_section(path, bad, "BMSSTATE") != SUCCESS ||
+	    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+	    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_REQUIRED"))))
+		problem = "missing BMS state was accepted";
+	if (data) _MFREE(data);
+	if (data2) _MFREE(data2);
+	bmsiocfg = preference;
+	pccore_reset();
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path); file_delete(again); file_delete(bad);
+	if (problem) return fail("BMS state restore", problem);
+	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, guest bank access, re-save, 6 exact guards)\n");
+	return SUCCESS;
+}
+
 /* M120: a state keeps the disk of a multi-image D88 in each drive. */
 static int test_fdd_multi_image_state(void) {
 	char disk[MAX_PATH];
@@ -9252,6 +9374,11 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
+		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+		    test_fdd_multi_image_state() != SUCCESS) return FAILURE;
+		return SUCCESS;
+	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
 		return test_screenshot_rotation();
 	if (SDL_getenv("VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY") != NULL) {
@@ -9382,7 +9509,7 @@ int vaeg_selftest_run(void) {
 	if (test_opn_backends() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_statsave() != SUCCESS) {
+	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {

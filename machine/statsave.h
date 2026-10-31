@@ -1,5 +1,8 @@
 #include "dosio.h"
 
+/* M142: incompatible new container; old host-dependent saves are rejected. */
+#define VAEG_STATE_FILE_VERSION UINT32_C(0x261031)
+
 enum {
 	STATFLAG_SUCCESS = 0,
 	STATFLAG_DISKCHG = 0x0001,

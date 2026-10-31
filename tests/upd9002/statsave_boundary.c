@@ -175,8 +175,11 @@ static int check_rejection(const char *path, const char *message, const STATE_SN
 	char error[256];
 
 	error[0] = '\0';
-	if ((statsave_check(path, error, sizeof(error)) != STATFLAG_FAILURE) ||
-	    (strstr(error, message) == NULL)) {
+	int checked = statsave_check(path, error, sizeof(error));
+	error[strcspn(error, "\r\n")] = '\0';
+	if ((checked != STATFLAG_FAILURE) ||
+	    (!strncmp(message, "M142_", 5) ? strcmp(error, message) != 0 :
+	                                   strstr(error, message) == NULL)) {
 		fprintf(stderr, "upd9002-statsave-boundary: unexpected error: %s\n", error);
 		return FAILURE;
 	}
@@ -275,7 +278,7 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	current_version = read_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32));
 	write_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32), current_version - 1);
 	if ((write_file(invalid_path, data, data_size) != SUCCESS) ||
-	    (check_rejection(invalid_path, "", &snapshot) != SUCCESS)) {
+	    (check_rejection(invalid_path, "M142_STATE_FORMAT_OR_OPEN", &snapshot) != SUCCESS)) {
 		goto done;
 	}
 	write_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32), current_version);
@@ -305,7 +308,7 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 
 	truncated_size = body + sizeof(Upd9002StateImage) - 7;
 	if ((write_file(truncated_path, data, truncated_size) != SUCCESS) ||
-	    (check_rejection(truncated_path, "uPD9002 payload is truncated", &snapshot) != SUCCESS)) {
+	    (check_rejection(truncated_path, "M142_STATE_CONTAINER", &snapshot) != SUCCESS)) {
 		goto done;
 	}
 

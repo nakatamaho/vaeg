@@ -191,6 +191,9 @@ sfo_err2:
 	file_close(fh);
 
 sfo_err1:
+	if (err && errlen > 0) {
+		milstr_ncpy(err, "M142_STATE_FORMAT_OR_OPEN", errlen);
+	}
 	return (NULL);
 }
 
@@ -240,6 +243,12 @@ static int statflag_readsection(SFFILEH sffh) {
 	}
 	if ((sffh->stat == 0) &&
 	    (file_read(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr)) == sizeof(sffh->sfh.hdr))) {
+		UINT64 end = (UINT64)sffh->secpos + sizeof(sffh->sfh.hdr) +
+		             (((UINT64)sffh->sfh.hdr.size + 15) & ~(UINT64)15);
+		if (end > file_getsize64(sffh->fh) || end > INT32_MAX) {
+			sffh->stat = SFFILEH_ERROR;
+			return STATFLAG_FAILURE;
+		}
 		sffh->stat = SFFILEH_BLOCK;
 		sffh->sfh.pos = 0;
 		return (STATFLAG_SUCCESS);
@@ -1309,26 +1318,86 @@ flcom_err1:
 
 // ---- bms
 
-static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
+enum { BMS_STATE_HEADER_SIZE = 16 };
 
-	ret = STATFLAG_SUCCESS;
-	if (bmsiowork.bmsmem) {
-		ret = statflag_write(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
+/* Device configuration and its RAM are a single, explicit little-endian
+ * section. Never infer the saved allocation from the reader's reset prefs. */
+static BOOL bms_state_header_valid(const BYTE *wire, UINT32 size) {
+	UINT32 bytes = wire[0] ? (UINT32)wire[1] * BMSIO_BANK_BYTES : 0;
+	UINT8 nomem = wire[2] && (!wire[0] || wire[2] > wire[1]);
+	return wire[0] <= 1 && wire[3] == nomem &&
+	       (wire[0] ? wire[1] != 0 : wire[1] == 0) &&
+	       LOADINTELWORD(wire + 6) == BMSIO_PORT_MASK &&
+	       LOADINTELDWORD(wire + 8) == bytes && LOADINTELDWORD(wire + 12) == 0 &&
+	       size == BMS_STATE_HEADER_SIZE + bytes;
+}
+
+static int flagcheck_bms(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE wire[BMS_STATE_HEADER_SIZE];
+	if (sfh->hdr.ver != tbl->ver) {
+		statflag_seterr(sfh, "M142_BMS_VERSION");
+		return STATFLAG_FAILURE;
 	}
+	if (statflag_read(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS ||
+	    !bms_state_header_valid(wire, sfh->hdr.size)) {
+		statflag_seterr(sfh, "M142_BMS_PAYLOAD");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE wire[BMS_STATE_HEADER_SIZE] = {0};
+	UINT32 bytes;
 	(void)tbl;
-	return (ret);
+	wire[0] = bmsio.cfg.enabled ? 1 : 0;
+	wire[1] = bmsio.cfg.numbanks;
+	wire[2] = bmsio.bank;
+	wire[3] = bmsio.nomem;
+	STOREINTELWORD(wire + 4, bmsio.cfg.port);
+	STOREINTELWORD(wire + 6, bmsio.cfg.portmask);
+	bytes = wire[0] ? (UINT32)wire[1] * BMSIO_BANK_BYTES : 0;
+	STOREINTELDWORD(wire + 8, bytes);
+	if (!bms_state_header_valid(wire, sizeof(wire) + bytes) ||
+	    bmsiowork.bmsmemsize != bytes || (bytes && !bmsiowork.bmsmem)) {
+		statflag_seterr(sfh, "M142_BMS_LIVE_STATE");
+		return STATFLAG_FAILURE;
+	}
+	if (statflag_write(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS)
+		return STATFLAG_FAILURE;
+	return bytes ? statflag_write(sfh, bmsiowork.bmsmem, bytes) : STATFLAG_SUCCESS;
 }
 
 static int flagload_bms(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-
-	ret = STATFLAG_SUCCESS;
-	if (bmsiowork.bmsmem) {
-		ret = statflag_read(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
+	BYTE wire[BMS_STATE_HEADER_SIZE];
+	BYTE *memory = NULL;
+	UINT32 bytes;
+	_BMSIO restored;
+	if (sfh->hdr.ver != tbl->ver ||
+	    statflag_read(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS ||
+	    !bms_state_header_valid(wire, sfh->hdr.size))
+		return STATFLAG_FAILURE;
+	bytes = LOADINTELDWORD(wire + 8);
+	if (bytes) {
+		memory = (BYTE *)_MALLOC(bytes, "BMS state RAM");
+		if (!memory || statflag_read(sfh, memory, bytes) != STATFLAG_SUCCESS) {
+			if (memory) _MFREE(memory);
+			return STATFLAG_FAILURE;
+		}
 	}
-	(void)tbl;
-	return (ret);
+	ZeroMemory(&restored, sizeof(restored));
+	restored.cfg.enabled = wire[0];
+	restored.cfg.numbanks = wire[1];
+	restored.bank = wire[2];
+	restored.nomem = wire[3];
+	restored.cfg.port = LOADINTELWORD(wire + 4);
+	restored.cfg.portmask = LOADINTELWORD(wire + 6);
+	if (bmsiowork.bmsmem) _MFREE(bmsiowork.bmsmem);
+	bmsiowork.bmsmem = memory;
+	bmsiowork.bmsmemsize = bytes;
+	bmsio = restored;
+	/* bmsiocfg remains the user's next-reset preference. */
+	return STATFLAG_SUCCESS;
 }
 
 // ---- FD sub system CPU
@@ -1605,6 +1674,8 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	BOOL upd9002_format_marker_seen;
 	BOOL compat_active_seen;
 	BOOL mode_state_seen;
+	BOOL bms_seen = FALSE;
+	BOOL disk_seen = FALSE;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
@@ -1621,7 +1692,11 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	mode_state_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
 	while ((!done) && (ret != STATFLAG_FAILURE)) {
-		ret |= statflag_readsection(sffh);
+		if (statflag_readsection(sffh) != STATFLAG_SUCCESS) {
+			statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+			ret = STATFLAG_FAILURE;
+			break;
+		}
 		if (statflag_is_upd9002_format_marker(&sffh->sfh)) {
 			upd9002_format_marker_seen = TRUE;
 		}
@@ -1673,6 +1748,11 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				break;
 
 			case STATFLAG_TERM:
+				if (sffh->sfh.hdr.ver != tbl->ver || sffh->sfh.hdr.size ||
+				    (UINT64)sffh->secpos + sizeof(sffh->sfh.hdr) != file_getsize64(sffh->fh)) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+					ret = STATFLAG_FAILURE;
+				}
 				done = TRUE;
 				break;
 
@@ -1680,7 +1760,6 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_DMA:
 			case STATFLAG_EVT:
 			case STATFLAG_EXT:
-			case STATFLAG_BMS:
 			case STATFLAG_SUBCPU:
 				ret |= flagcheck_veronly(&sffh->sfh, tbl);
 				break;
@@ -1689,8 +1768,24 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_fm(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_BMS:
+				if (bms_seen) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+					ret = STATFLAG_FAILURE;
+				} else {
+					bms_seen = TRUE;
+					ret |= flagcheck_bms(&sffh->sfh, tbl);
+				}
+				break;
+
 			case STATFLAG_DISK:
-				ret |= flagcheck_disk(&sffh->sfh, tbl);
+				if (disk_seen) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+					ret = STATFLAG_FAILURE;
+				} else {
+					disk_seen = TRUE;
+					ret |= flagcheck_disk(&sffh->sfh, tbl);
+				}
 				break;
 
 			default:
@@ -1705,6 +1800,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= STATFLAG_WARNING;
 			}
 		}
+	}
+	if (ret != STATFLAG_FAILURE && (!bms_seen || !disk_seen)) {
+		statflag_seterr(&sffh->sfh, "M142_STATE_REQUIRED");
+		ret = STATFLAG_FAILURE;
 	}
 	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen && !upd9002_format_marker_seen) {
 		statflag_seterr(&sffh->sfh, UPD9002_STATE_ERROR_LEGACY_MARKER);

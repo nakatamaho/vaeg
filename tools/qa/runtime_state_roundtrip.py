@@ -41,7 +41,7 @@ import sys
 from screen_compare import QaError, require
 
 ROOT = Path(__file__).resolve().parents[2]
-HEADER = struct.pack('<16s28sI', b'VA-EG', b'created by VAEG.EXE', 0x08060a)
+HEADER = struct.pack('<16s28sI', b'VA-EG', b'created by VAEG.EXE', 0x261031)
 PROFILES = {'absent': (0, False), 'explicit-off': (0, False), 'enabled': (13, True)}
 
 
@@ -67,13 +67,19 @@ def sections(data):
 def expansion_sizes(data, ems, bms):
     parsed = sections(data)
     sizes = {}
-    for name, expected in ((b'EXTMEM\0\0\0\0', ems * 1024 * 1024),
-                           (b'BMSMEM\0\0\0\0', 128 * 128 * 1024 if bms else 0)):
-        # The production writer omits sections with zero payload; absence is
-        # the canonical disabled-board representation, not a truncated state.
-        actual = len(parsed[name][1]) if name in parsed else 0
-        require(actual == expected, 'M142_STATE_EXPANSION_SIZE')
-        sizes[name.rstrip(b'\0').decode()] = expected
+    name, expected = b'EXTMEM\0\0\0\0', ems * 1024 * 1024
+    actual = len(parsed[name][1]) if name in parsed else 0
+    require(actual == expected, 'M142_STATE_EXPANSION_SIZE')
+    sizes['EXTMEM'] = actual
+    require(b'BMSSTATE\0\0' in parsed, 'M142_STATE_BMS')
+    version, body = parsed[b'BMSSTATE\0\0']
+    require(version == 1 and len(body) >= 16, 'M142_STATE_BMS')
+    enabled, banks, bank, nomem, port, mask, ram, reserved = struct.unpack_from('<BBBBHHII', body)
+    require(enabled in (0, 1) and enabled == bms and
+            banks == (128 if bms else 0) and mask == 0xffff and not reserved and
+            nomem == bool(bank and (not enabled or bank > banks)) and
+            ram == banks * 128 * 1024 and len(body) == 16 + ram, 'M142_STATE_BMS')
+    sizes['BMSRAM'] = ram
     require(b'DISK\0\0\0\0\0\0' in parsed and
             parsed[b'DISK\0\0\0\0\0\0'][0] == 1 and
             len(parsed[b'DISK\0\0\0\0\0\0'][1]) == 41080, 'M142_STATE_DISK_V1')
@@ -117,19 +123,23 @@ def size_delta(profiles):
     absent_size = profiles['absent']['baseline_size']
     require(profiles['explicit-off']['baseline_size'] == absent_size, 'M142_STATE_DISABLED_SIZE')
     delta = profiles['enabled']['baseline_size'] - absent_size
-    # Disabled sections are omitted; enabled ones each add a 16-byte header.
-    require(delta == (13 + 16) * 1024 * 1024 + 32, 'M142_STATE_ENABLED_SIZE_DELTA')
+    # BMSSTATE always includes its device header; only EXTMEM adds a section.
+    require(delta == (13 + 16) * 1024 * 1024 + 16, 'M142_STATE_ENABLED_SIZE_DELTA')
     return delta
 
 
 def selftest():
     def section(name, version, body):
         return struct.pack('<10sHI', name, version, len(body)) + body + b'\0' * (-len(body) % 16)
-    fixture = HEADER + section(b'DISK', 1, b'\0' * 41080)
+    bms_header = struct.pack('<BBBBHHII', 0, 0, 0, 0, 0x1d0, 0xffff, 0, 0)
+    bms_section = section(b'BMSSTATE', 1, bms_header)
+    fixture = HEADER + section(b'DISK', 1, b'\0' * 41080) + bms_section
     expansion_sizes(fixture, 0, False)
     cases = [('M142_STATE_HEADER', bytes([fixture[0] ^ 1]) + fixture[1:]),
              ('M142_STATE_CONTAINER', fixture[:-1]),
-             ('M142_STATE_DUPLICATE', fixture + section(b'DISK', 1, b''))]
+             ('M142_STATE_DUPLICATE', fixture + section(b'DISK', 1, b'')),
+             ('M142_STATE_BMS', fixture[:-len(bms_section)]),
+             ('M142_STATE_BMS', fixture[:-4] + b'\1' + fixture[-3:])]
     for code, changed in cases:
         expansion_sizes(fixture, 0, False)
         try:
@@ -169,7 +179,7 @@ def selftest():
         else:
             raise QaError('M142_STATE_SELFTEST_ACCEPTED')
     profiles = {'absent': {'baseline_size': 100}, 'explicit-off': {'baseline_size': 100},
-                'enabled': {'baseline_size': 100 + 29 * 1024 * 1024 + 32}}
+                'enabled': {'baseline_size': 100 + 29 * 1024 * 1024 + 16}}
     for name, code in [('explicit-off', 'M142_STATE_DISABLED_SIZE'),
                        ('enabled', 'M142_STATE_ENABLED_SIZE_DELTA')]:
         size_delta(profiles)
@@ -181,7 +191,7 @@ def selftest():
             require(error.code == code, 'M142_STATE_SELFTEST_MASKED')
         else:
             raise QaError('M142_STATE_SELFTEST_ACCEPTED')
-    print('runtime-state-selftest: PASS (10 exact-code single-mutation content negatives)')
+    print('runtime-state-selftest: PASS (12 exact-code single-mutation content negatives)')
 
 
 def execute(args, folder, config, script, disk):
