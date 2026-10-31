@@ -6498,13 +6498,11 @@ static void state_thumbnail_tooltip(const std::string &state) {
 	}
 }
 
-/* Write a state and its thumbnail; a failed state is removed. */
+/* The serializer commits atomically; a failed replacement keeps the old SAV. */
 static bool state_write(const std::string &path) {
 	soundmng_stop();
 	const bool ok = statsave_save(path.c_str()) == STATFLAG_SUCCESS;
-	if (!ok) {
-		file_delete(path.c_str());
-	} else {
+	if (ok) {
 		const std::string thumbnail = state_thumbnail_path(path);
 		(void)scrnmng_save_guest_thumbnail(thumbnail.c_str(), kStateThumbnailWidth);
 	}
@@ -6533,7 +6531,7 @@ static const char *state_apply_load_result(const std::string &path, int result, 
 	return nullptr;
 }
 
-static void state_load(const std::string &path) {
+static bool state_load(const std::string &path) {
 	char error[1024] = {0};
 	char override_error[1024] = {0};
 	const int ret = statsave_check(path.c_str(), error, sizeof(error));
@@ -6545,14 +6543,15 @@ static void state_load(const std::string &path) {
 			g_gui.state_force_hostfat_available = true;
 			g_gui.state_force_hostfat_path = path;
 		}
-		return;
+		return false;
 	}
 	taskmng_clear_fast_forward();
 	const int loaded = statsave_load_checked(path.c_str(), error, sizeof(error));
-	if (state_apply_load_result(path, loaded, error)) return;
+	if (state_apply_load_result(path, loaded, error)) return false;
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
+	return true;
 }
 
 // ---- M125: quick saves, quick1 (newest) to quick5, and the state before
@@ -6633,7 +6632,7 @@ static void quick_save(void) {
 	show_osd(g_gui.state_status);
 }
 
-static void state_load(const std::string &path);
+static bool state_load(const std::string &path);
 
 /* Load quick save `index`; the state before it is kept as quickundo. */
 static void quick_load(int index) {
@@ -6646,9 +6645,13 @@ static void quick_load(int index) {
 		show_osd(g_gui.state_status);
 		return;
 	}
-	(void)state_write(quick_undo_file(dir));
-	state_load(path);
-	show_osd((g_gui.state_status.rfind("読み込みました", 0) == 0)
+	if (!state_write(quick_undo_file(dir))) {
+		g_gui.state_status = "読み込みを中止しました [M142_STATE_UNDO_SAVE]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	const bool loaded = state_load(path);
+	show_osd(loaded
 	             ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
 	             : g_gui.state_status);
 }
@@ -6662,11 +6665,27 @@ static void quick_undo(void) {
 	if (!fs::is_regular_file(fs::u8path(undo), ec)) {
 		return;
 	}
-	// swap: the state now becomes the undo, so a second undo returns
-	quick_rename(undo, held);
-	quick_rename(state_thumbnail_path(undo), state_thumbnail_path(held));
-	(void)state_write(undo);
-	state_load(held);
+	// Keep both snapshots if either saving or loading fails. An earlier held
+	// snapshot is never overwritten by another undo attempt.
+	if (fs::exists(fs::u8path(held), ec) || ec ||
+	    file_rename_atomic(undo.c_str(), held.c_str(), TRUE) != 0) {
+		g_gui.state_status = "取り消し用の状態を保護できません [M142_STATE_UNDO_HOLD]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	(void)file_rename_atomic(state_thumbnail_path(undo).c_str(), state_thumbnail_path(held).c_str(), TRUE);
+	if (!state_write(undo)) {
+		(void)file_rename_atomic(held.c_str(), undo.c_str(), TRUE);
+		(void)file_rename_atomic(state_thumbnail_path(held).c_str(), state_thumbnail_path(undo).c_str(), TRUE);
+		g_gui.state_status = "取り消し用の保存に失敗しました [M142_STATE_UNDO_SAVE]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	if (!state_load(held)) {
+		/* held is the requested target, undo is the pre-load machine. */
+		show_osd(g_gui.state_status + " (両方の状態を保存しています)");
+		return;
+	}
 	file_delete(held.c_str());
 	file_delete(state_thumbnail_path(held).c_str());
 	show_osd("クイックロードの前に戻しました");

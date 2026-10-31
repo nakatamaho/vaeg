@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <limits.h>
+#include <fcntl.h>
 #include "dosio.h"
 #include <SDL.h>
 #if defined(WIN32)
@@ -243,6 +244,28 @@ FILEH file_open_rb(const char *path) {
 
 FILEH file_create(const char *path) {
 	return (file_fopen_raw(path, "wb+"));
+}
+
+FILEH file_create_exclusive(const char *path) {
+	int descriptor;
+	FILEH result;
+#if defined(WIN32)
+	wchar_t *wide = winutf_from_utf8(path);
+	if (!wide) return FILEH_INVALID;
+	descriptor = _wopen(wide, _O_CREAT | _O_EXCL | _O_RDWR | _O_BINARY | _O_NOINHERIT,
+	                    _S_IREAD | _S_IWRITE);
+	winutf_free(wide);
+	if (descriptor < 0) return FILEH_INVALID;
+	result = _fdopen(descriptor, "wb+");
+	if (!result) _close(descriptor);
+#else
+	descriptor = open(path, O_CREAT | O_EXCL | O_RDWR, 0600);
+	if (descriptor < 0) return FILEH_INVALID;
+	result = fdopen(descriptor, "wb+");
+	if (!result) close(descriptor);
+#endif
+	if (!result) file_delete(path); /* Only our exclusively created file. */
+	return result;
 }
 
 long file_seek(FILEH handle, long pointer, int method) {

@@ -97,6 +97,7 @@ void dosio_term(void);
 FILEH file_open(const char *path);
 FILEH file_open_rb(const char *path);
 FILEH file_create(const char *path);
+FILEH file_create_exclusive(const char *path);
 long file_seek(FILEH handle, long pointer, int method);
 UINT file_read(FILEH handle, void *data, UINT length);
 UINT file_write(FILEH handle, const void *data, UINT length);

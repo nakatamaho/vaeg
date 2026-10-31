@@ -47,6 +47,7 @@ int statflag_write(STFLAGH sfh, const void *ptr, UINT size);
 void statflag_seterr(STFLAGH sfh, const char *str);
 
 int statsave_save(const char *filename);
+int statsave_save_checked(const char *filename, char *error, int error_size);
 int statsave_check(const char *filename, char *buf, int size);
 /* Explicit UI-confirmed override; all non-HOSTFAT checks remain active. */
 int statsave_check_hostfat_override(const char *filename, char *buf, int size);

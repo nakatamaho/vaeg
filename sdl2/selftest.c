@@ -4287,8 +4287,8 @@ static int write_state_fixture(const char *path, const BYTE *data, UINT size) {
 	return ret;
 }
 
-/* Saved BMS device/RAM must win over reset preferences, including resize,
- * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
+/* Every HDD slot is restored/detached, including the three formerly omitted
+ * SCSI IDs. Foreign paths can use currently mounted media directories. */
 static int test_hdd_state_restore(void) {
 	char empty[MAX_PATH], attached[MAX_PATH], foreign[MAX_PATH], hdi[MAX_PATH], vhd[MAX_PATH];
 	const char *problem = NULL;
@@ -4326,6 +4326,8 @@ static int test_hdd_state_restore(void) {
 	return SUCCESS;
 }
 
+/* Saved BMS device/RAM must win over reset preferences, including resize,
+ * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
 static int test_bms_state_restore(void) {
 	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1};
 	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128};
@@ -4464,6 +4466,56 @@ static int test_bms_state_restore(void) {
 			if (wrote != 0) problem = "M142_STATE_READ_ONLY";
 		}
 	}
+	if (!problem) {
+		UINT32 bytes = bmsiowork.bmsmemsize;
+		int saved_result;
+		/* The existing valid save is the protected positive fixture. Mutate
+		 * only the live allocation length; a failed replacement must keep it. */
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_ATOMIC_BASELINE";
+		bmsiowork.bmsmemsize = bytes - 1;
+		saved_result = statsave_save_checked(path, error, sizeof(error));
+		bmsiowork.bmsmemsize = bytes;
+		if (saved_result != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_BMS_LIVE_STATE")) ||
+		    read_whole_file(path, &data2, &size2) != SUCCESS || size2 != size ||
+		    memcmp(data, data2, size)) problem = "M142_STATE_ATOMIC_REPLACEMENT";
+		if (data2) { _MFREE(data2); data2 = NULL; }
+	}
+	if (!problem) {
+		char collision[MAX_PATH], directory[MAX_PATH];
+		FILEH existing;
+		BOOL owned_collision, owned_directory = FALSE;
+		BYTE marker = 0xa7, observed = 0;
+		SPRINTF(collision, "%s.tmp-%lu-0", again, (unsigned long)getpid());
+		SPRINTF(directory, "vaeg-selftest-%lu-state-commit", (unsigned long)getpid());
+		existing = file_create_exclusive(collision);
+		owned_collision = existing != FILEH_INVALID;
+		if (existing == FILEH_INVALID) problem = "M142_STATE_EXCLUSIVE_BASELINE";
+		else { file_write(existing, &marker, 1); file_close(existing); }
+		if (!problem && statsave_save_checked(again, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_EXCLUSIVE_COLLISION";
+		existing = file_open_rb(collision);
+		if (existing == FILEH_INVALID) problem = "M142_STATE_EXCLUSIVE_COLLISION";
+		else {
+			if (file_read(existing, &observed, 1) != 1 || observed != marker || file_getsize(existing) != 1)
+				problem = "M142_STATE_EXCLUSIVE_COLLISION";
+			file_close(existing);
+		}
+		if (owned_collision) file_delete(collision);
+		if (!problem) {
+			owned_directory = file_dircreate(directory) == SUCCESS;
+			if (!owned_directory) problem = "M142_STATE_COMMIT_BASELINE";
+		}
+		if (!problem && (statsave_save_checked(directory, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_COMMIT")) ||
+		    !(file_attr(directory) & FILEATTR_DIRECTORY))) problem = "M142_STATE_COMMIT_GUARD";
+#if defined(WIN32)
+		if (owned_directory) _rmdir(directory);
+#else
+		if (owned_directory) rmdir(directory);
+#endif
+	}
 	if (data) _MFREE(data);
 	if (data2) _MFREE(data2);
 	bmsiocfg = preference;
@@ -4472,7 +4524,7 @@ static int test_bms_state_restore(void) {
 	soundmng_deinitialize();
 	file_delete(path); file_delete(again); file_delete(bad);
 	if (problem) return fail("BMS state restore", problem);
-	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, guest bank access, re-save, 8 exact guards)\n");
+	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, bank access/re-save, 8 load guards, read-only/atomic-save guards)\n");
 	return SUCCESS;
 }
 

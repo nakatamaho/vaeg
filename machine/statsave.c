@@ -282,7 +282,7 @@ static SFFILEH statflag_create(const char *filename) {
 	if (ret == NULL) {
 		goto sfc_err1;
 	}
-	fh = file_create(filename);
+	fh = file_create_exclusive(filename);
 	if (fh == FILEH_INVALID) {
 		goto sfc_err2;
 	}
@@ -355,12 +355,14 @@ sfw_err1:
 	return (STATFLAG_FAILURE);
 }
 
-static void statflag_close(SFFILEH sffh) {
-	if (sffh) {
-		statflag_closesection(sffh);
-		file_close(sffh->fh);
-		_MFREE(sffh);
-	}
+static int statflag_close(SFFILEH sffh) {
+	int ret;
+	if (!sffh) return STATFLAG_FAILURE;
+	ret = statflag_closesection(sffh);
+	if (sffh->stat & SFFILEH_ERROR) ret = STATFLAG_FAILURE;
+	if (file_close(sffh->fh) != 0) ret = STATFLAG_FAILURE;
+	_MFREE(sffh);
+	return ret;
 }
 
 void statflag_seterr(STFLAGH sfh, const char *str) {
@@ -1556,22 +1558,34 @@ static int flagcheck_legacy_cpu_state(STFLAGH sfh) {
 
 // ----
 
-int statsave_save(const char *filename) {
-	SFFILEH sffh;
+int statsave_save_checked(const char *filename, char *error, int error_size) {
+	SFFILEH sffh = NULL;
+	char temporary[MAX_PATH];
+	UINT attempt;
 	int ret;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
-
-	sffh = statflag_create(filename);
-	if (sffh == NULL) {
-		return (STATFLAG_FAILURE);
+	if (error && error_size > 0) error[0] = 0;
+	if (filename && filename[0]) {
+		for (attempt = 0; attempt < 64; attempt++) {
+			int length = snprintf(temporary, sizeof(temporary), "%s.tmp-%lu-%u", filename,
+			                      (unsigned long)getpid(), attempt);
+			if (length < 0 || (UINT)length >= sizeof(temporary)) break;
+			sffh = statflag_create(temporary);
+			if (sffh || file_attr(temporary) == -1) break;
+		}
 	}
-
+	if (!sffh) {
+		if (error && error_size > 0) milstr_ncpy(error, "M142_STATE_CREATE", error_size);
+		return STATFLAG_FAILURE;
+	}
+	if (error && error_size > 0) { sffh->sfh.err = error; sffh->sfh.errlen = error_size; }
 	ret = STATFLAG_SUCCESS;
 	tbl = np2tbl;
 	tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
-	while (tbl < tblterm) {
-		ret |= statflag_createsection(sffh, tbl);
+	while (tbl < tblterm && ret == STATFLAG_SUCCESS) {
+		ret = statflag_createsection(sffh, tbl);
+		if (ret != STATFLAG_SUCCESS) break;
 		switch (tbl->type) {
 		case STATFLAG_BIN:
 		case STATFLAG_TERM:
@@ -1644,8 +1658,21 @@ int statsave_save(const char *filename) {
 		}
 		tbl++;
 	}
-	statflag_close(sffh);
-	return (ret);
+	ret |= statflag_close(sffh);
+	if (ret == STATFLAG_SUCCESS && file_rename_atomic(temporary, filename, TRUE) != 0) {
+		ret = STATFLAG_FAILURE;
+		if (error && error_size > 0) milstr_ncpy(error, "M142_STATE_COMMIT", error_size);
+	}
+	if (ret != STATFLAG_SUCCESS) {
+		file_delete(temporary);
+		if (error && error_size > 0 && !error[0])
+			milstr_ncpy(error, "M142_STATE_WRITE", error_size);
+	}
+	return ret;
+}
+
+int statsave_save(const char *filename) {
+	return statsave_save_checked(filename, NULL, 0);
 }
 
 static int statsave_check_internal(const char *filename, char *buf, int size,
