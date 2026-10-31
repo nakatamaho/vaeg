@@ -42,6 +42,15 @@ mismatches. Old SAV compatibility is intentionally removed. The identities,
 relabelled as corrected-source results. Windows/Linux exchange, actual
 presenter checks and G142 acceptance remain unestablished.
 
+The maintainer subsequently reports **“human gate passed”** for the offered
+`666c7746` handoff and its human checklist. The [acceptance record and exact
+scope](../tasks/M142_runtime_portability.md#maintainer-reported-human-acceptance)
+mark that human portion complete, not the still-pending machine QA or full
+G142. Do not relabel these older workers/results, infer machine-owned visual/
+clock/cross-OS coverage, or rerun unchanged expensive evidence for this
+acceptance-only update. No merge, release, cleanup or next milestone follows
+from this scoped record.
+
 ## Identities and boundaries
 
 - Native worker: clean pushed source

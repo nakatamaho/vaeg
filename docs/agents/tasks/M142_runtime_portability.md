@@ -701,3 +701,53 @@ SHA-256:
 identities are retained together outside Git. Historical handoffs and private
 inputs are preserved. This is a new handoff, not Windows execution or G142
 acceptance.
+
+## Maintainer-reported human acceptance
+
+After the human checklist for the latest handoff is presented, the maintainer
+replies exactly **“human gate passed”**. Record the **human acceptance portion
+as PASSED, maintainer-reported**, for the offered candidate:
+
+- Source: [666c7746b6f34f617f22ce4ce1f35623b3173875](https://github.com/nakatamaho/vaeg/commit/666c7746b6f34f617f22ce4ce1f35623b3173875).
+- Display: `Rel.20261031 (M142-dev, 666c7746)`.
+- Windows handoff SHA-256:
+  `79b881a5af84a622d0b7a947e3115ebe78f4db7dce3b6d999a2bed236b3618b0`.
+
+The presented checklist covers V3 startup, the bundled VA demo, OS directory/
+program/input/exit/restart operations, acceptance of PCG/VA-N-mode defaults
+and the five CPU-clock menu choices, new-SAV continuation and process-restart
+loading. PCG/N-BASIC program use and BMS-ON-save/reader-OFF loading are
+conditional on their use. Acceptance is reported for the checklist as a whole;
+no individual conditional-case results, software/model matrix, OS version,
+renderer, DPI, timings or raw evidence are supplied or invented. No additional
+private SAV, cfg, ROM/media or screenshot upload is required for this record.
+This adds maintainer-reported interactive acceptance, **not agent-run Windows
+automation or independently captured presenter evidence**. Earlier NOT_RUN
+build checkpoints retain their original source identities and execution scope.
+
+The checklist explicitly separates the following unfinished machine-owned QA;
+the acceptance message does not state a waiver or a scope revision for them:
+
+1. Above-100 FPS/information-bar width and actual final-client windowed,
+   fullscreen and HiDPI comparison contracts; missing display targets remain
+   BLOCKED, not substituted by SDL dummy or by this general human acceptance.
+2. Remaining settings/restart and main-CPU/FDC/peripheral clock integration
+   matrix. Existing focused native tests retain their actual narrower coverage.
+3. A policy-compliant requested Linux build and genuine Windows/Linux/macOS
+   producer/consumer SAV exchange; these remain NOT_RUN.
+4. Classification/correction or explicitly approved disposition of the
+   redirected-LHA auxiliary semantic failure; it is not relabeled PASS.
+
+**M142 remains IN_PROGRESS / G142 NOT_READY, with human acceptance complete.**
+Do not repeat the accepted human checklist merely because the machine work
+remains. Do not infer milestone completion, machine-case PASS, a merge,
+release authorization or a next milestone. Keep the declared development
+identity, branch/worktree, SDKs, handoffs and private evidence; the post-merge
+cleanup conditions are not met. The approved #75 deferral, old-SAV compatibility
+waiver and accepted G139/G140 scopes are unchanged.
+
+This is a documentation-only acceptance record. Application/build/runner
+inputs are unchanged from the tested `666c7746` source; preserve/reuse the
+recorded native four-test campaign and clean Windows artifact under their
+actual identities rather than rebuilding or rerunning unchanged expensive
+profiles for this record.
