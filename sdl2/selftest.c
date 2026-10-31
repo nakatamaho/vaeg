@@ -2190,6 +2190,8 @@ static int test_persistence_controls(void) {
 	const BYTE saved_machine_status = np2oscfg.machine_status;
 	const BYTE saved_front_panel = np2oscfg.front_panel;
 	const BYTE saved_info = np2oscfg.DISPCLK;
+	const UINT8 saved_pcg = np2cfg.pcg_enable;
+	const UINT8 saved_nmode = np2cfg.v1v2_nmode_enable;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2211,6 +2213,9 @@ static int test_persistence_controls(void) {
 
 	initsetpath(config_path);
 	initsetenabled(TRUE);
+	initload();
+	if (np2cfg.pcg_enable != saved_pcg || np2cfg.v1v2_nmode_enable != saved_nmode)
+		detail = "M142_COMPAT_MISSING_CONFIG";
 	milstr_ncpy(saved_crt, np2oscfg.gui_shader_parameters, sizeof(saved_crt));
 	milstr_ncpy(np2oscfg.gui_shader_parameters,
 	            "VAEG_SHADER_PARAMETERS 1;SCREEN_SIZE=96.5;CURVATURE=0.0299999993;",
@@ -2252,6 +2257,19 @@ static int test_persistence_controls(void) {
 			detail = "recording source did not survive configuration reload";
 		}
 	}
+	/* Requested defaults must not replace explicit ON/OFF selections. */
+	for (UINT8 pcg = 0; pcg < 2; pcg++) {
+		for (UINT8 nmode = 0; nmode < 2; nmode++) {
+			np2cfg.pcg_enable = pcg;
+			np2cfg.v1v2_nmode_enable = nmode;
+			initsave();
+			np2cfg.pcg_enable = !pcg;
+			np2cfg.v1v2_nmode_enable = !nmode;
+			initload();
+			if (np2cfg.pcg_enable != pcg || np2cfg.v1v2_nmode_enable != nmode)
+				detail = "M142_COMPAT_EXPLICIT_SETTINGS";
+		}
+	}
 	np2oscfg.recording_source = 255;
 	initsave();
 	np2oscfg.recording_source = VAEG_RECORDING_SOURCE_DISPLAYED;
@@ -2274,7 +2292,11 @@ static int test_persistence_controls(void) {
 			np2oscfg.machine_status = 1;
 			np2oscfg.front_panel = saved_front_panel;
 			np2oscfg.DISPCLK = saved_info;
+			np2cfg.pcg_enable = saved_pcg;
+			np2cfg.v1v2_nmode_enable = saved_nmode;
 			initload();
+			if (np2cfg.pcg_enable != saved_pcg || np2cfg.v1v2_nmode_enable != saved_nmode)
+				detail = "M142_COMPAT_ABSENT_KEYS";
 			if (np2oscfg.machine_status != 1 || np2oscfg.front_panel != saved_front_panel ||
 			    np2oscfg.DISPCLK != saved_info)
 				detail = "legacy config changed footer defaults or existing choices";
@@ -2287,6 +2309,8 @@ static int test_persistence_controls(void) {
 	np2oscfg.machine_status = saved_machine_status;
 	np2oscfg.front_panel = saved_front_panel;
 	np2oscfg.DISPCLK = saved_info;
+	np2cfg.pcg_enable = saved_pcg;
+	np2cfg.v1v2_nmode_enable = saved_nmode;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -9625,6 +9649,10 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	/* --selftest runs before initload: inspect actual startup initializers. */
+	if (np2cfg.pcg_enable != 1 || np2cfg.v1v2_nmode_enable != 1 ||
+	    np2cfg.boot_mode != BOOTMODE_AUTO)
+		return fail("startup defaults", "M142_COMPAT_FEATURE_DEFAULTS");
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
 		if (!gui_state_load_result_selftest())
 			return fail("GUI state result", "M142_STATE_LOAD_RESULT");

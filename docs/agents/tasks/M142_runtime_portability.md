@@ -634,3 +634,40 @@ also confirms all 62 current macOS/Windows compiled state-table entries match;
 this remains table ABI only, not complete payload or runtime portability.
 Windows execution and the requested Linux build/exchange are NOT_RUN. This
 replaces the old artifact for correction testing; it does not accept G142.
+
+## PCG and VA N-mode startup defaults
+
+The maintainer requests PCG and “N モード（88VA/VA2）” enabled by default.
+Change only the startup initializers for `PCG` and `V1V2_NModeEnable` to ON.
+Missing configuration files/keys retain these defaults; explicit persisted
+OFF remains OFF. Existing installations with either key explicitly false
+must opt in through the GUI or change that key to true; no private cfg is
+silently rewritten. Boot selection stays 自動 (`BootMode=0`), and a separate
+user-supplied N-BASIC ROM is still required. EMS/BMS defaults, PCG volume,
+ROM payloads, the SAV format and actual PCG/N-mode device implementations
+are unchanged. This is a requested policy change, not a newly claimed bug fix;
+the accepted historical M137 default-OFF record remains historical.
+
+The real startup initializer assertion fails on the old-default build with
+`M142_COMPAT_FEATURE_DEFAULTS` (focused CTest exit 8), then passes after the
+two defaults change. Production `initload`/`initsave` coverage checks a missing
+file, absent keys and all four explicit PCG/N-mode ON/OFF combinations, restoring
+both preferences afterward. Existing synthetic PCG, N-BASIC ROM presence/OFF
+and absent-ROM tests also pass inside the complete ROM-less selftest.
+
+```sh
+cmake -S "$SOURCE" -B "$NATIVE_BUILD" -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+cmake --build "$NATIVE_BUILD" -j4
+ctest --test-dir "$NATIVE_BUILD" \
+  -R '^vaeg_(romless_tests|state_storage|runtime_state_contract|state_restore_matrix_contract)$' \
+  --output-on-failure
+```
+
+Configure/build exit 0; focused **4/4 PASS**, exit 0. Recording/static FFmpeg
+remain ON and bundled encoders OFF. Private `COMPAT_DEFAULTS_01` evidence
+retains source/patch/worker identities and before/after commands/logs/exits.
+No unchanged expensive CPU corpus or media-generation campaign is repeated;
+prior results retain their actual evaluated identities, not this follow-up's.
+A new pushed-source static Windows handoff follows; the earlier `0f3cbe20`
+executable does not contain these requested defaults. Actual window/presenter,
+Windows runtime and OS-to-OS exchange are not inferred. **G142 NOT_READY**.
