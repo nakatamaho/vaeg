@@ -1063,6 +1063,10 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_sha256 PROPERTIES LABELS "romless;state;storage")
     add_test(NAME vaeg_runtime_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
+    add_test(NAME vaeg_state_restore_matrix_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/state_restore_matrix.py" --selftest)
+    set_tests_properties(vaeg_state_restore_matrix_contract PROPERTIES
+        LABELS "romless;state;storage")
     add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)
     target_include_directories(vaeg_recording_mp4_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
     target_compile_features(vaeg_recording_mp4_test PRIVATE cxx_std_17)
