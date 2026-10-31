@@ -251,20 +251,26 @@ FILEH file_create_exclusive(const char *path) {
 	FILEH result;
 #if defined(WIN32)
 	wchar_t *wide = winutf_from_utf8(path);
-	if (!wide) return FILEH_INVALID;
-	descriptor = _wopen(wide, _O_CREAT | _O_EXCL | _O_RDWR | _O_BINARY | _O_NOINHERIT,
-	                    _S_IREAD | _S_IWRITE);
+	if (!wide)
+		return FILEH_INVALID;
+	descriptor =
+	    _wopen(wide, _O_CREAT | _O_EXCL | _O_RDWR | _O_BINARY | _O_NOINHERIT, _S_IREAD | _S_IWRITE);
 	winutf_free(wide);
-	if (descriptor < 0) return FILEH_INVALID;
+	if (descriptor < 0)
+		return FILEH_INVALID;
 	result = _fdopen(descriptor, "wb+");
-	if (!result) _close(descriptor);
+	if (!result)
+		_close(descriptor);
 #else
 	descriptor = open(path, O_CREAT | O_EXCL | O_RDWR, 0600);
-	if (descriptor < 0) return FILEH_INVALID;
+	if (descriptor < 0)
+		return FILEH_INVALID;
 	result = fdopen(descriptor, "wb+");
-	if (!result) close(descriptor);
+	if (!result)
+		close(descriptor);
 #endif
-	if (!result) file_delete(path); /* Only our exclusively created file. */
+	if (!result)
+		file_delete(path); /* Only our exclusively created file. */
 	return result;
 }
 

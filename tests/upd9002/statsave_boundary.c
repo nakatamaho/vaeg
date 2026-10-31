@@ -178,8 +178,8 @@ static int check_rejection(const char *path, const char *message, const STATE_SN
 	int checked = statsave_check(path, error, sizeof(error));
 	error[strcspn(error, "\r\n")] = '\0';
 	if ((checked != STATFLAG_FAILURE) ||
-	    (!strncmp(message, "M142_", 5) ? strcmp(error, message) != 0 :
-	                                   strstr(error, message) == NULL)) {
+	    (!strncmp(message, "M142_", 5) ? strcmp(error, message) != 0
+	                                   : strstr(error, message) == NULL)) {
 		fprintf(stderr, "upd9002-statsave-boundary: unexpected error: %s\n", error);
 		return FAILURE;
 	}

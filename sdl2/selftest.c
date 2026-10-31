@@ -4248,7 +4248,8 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
 			problem = "M142_DISK_MEDIA_MUTATION_BASELINE";
 		file = file_open(disk);
-		if (file == FILEH_INVALID) problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+		if (file == FILEH_INVALID)
+			problem = "M142_DISK_MEDIA_MUTATION_SETUP";
 		else {
 			if (file_read(file, &original, 1) != 1 || file_seek(file, 0, FSEEK_SET) != 0)
 				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
@@ -4256,13 +4257,19 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 			if (!problem && file_write(file, &changed, 1) != 1)
 				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
 			file_close(file);
-			if (!problem && (statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE ||
-			    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_DISK_IDENTITY")) ||
-			    statsave_load(converted) != STATFLAG_FAILURE || CPU_IP != ip))
+			if (!problem &&
+			    (statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE ||
+			     (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_DISK_IDENTITY")) ||
+			     statsave_load(converted) != STATFLAG_FAILURE || CPU_IP != ip))
 				problem = "M142_DISK_REAL_MEDIA_CHANGE_ACCEPTED";
 			file = file_open(disk);
-			if (file == FILEH_INVALID) problem = "M142_DISK_MEDIA_RESTORE";
-			else { if (file_write(file, &original, 1) != 1) problem = "M142_DISK_MEDIA_RESTORE"; file_close(file); }
+			if (file == FILEH_INVALID)
+				problem = "M142_DISK_MEDIA_RESTORE";
+			else {
+				if (file_write(file, &original, 1) != 1)
+					problem = "M142_DISK_MEDIA_RESTORE";
+				file_close(file);
+			}
 			if (!problem && statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
 				problem = "M142_DISK_MEDIA_RESTORE";
 		}
@@ -4281,7 +4288,8 @@ static int test_disk_state_formats(const char *source, const char *disk) {
 static int write_state_fixture(const char *path, const BYTE *data, UINT size) {
 	FILEH fh = file_create(path);
 	int ret;
-	if (fh == FILEH_INVALID) return FAILURE;
+	if (fh == FILEH_INVALID)
+		return FAILURE;
 	ret = file_write(fh, data, size) == size ? SUCCESS : FAILURE;
 	file_close(fh);
 	return ret;
@@ -4299,29 +4307,48 @@ static int test_hdd_state_restore(void) {
 	SPRINTF(foreign, "vaeg-selftest-%lu-hdds-foreign.sts", (unsigned long)getpid());
 	SPRINTF(hdi, "vaeg-selftest-%lu-state.hdi", (unsigned long)getpid());
 	SPRINTF(vhd, "vaeg-selftest-%lu-state.hdd", (unsigned long)getpid());
-	soundmng_initialize(); commng_initialize(); pccore_init(); pccore_reset(); soundmng_stop();
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	soundmng_stop();
 	sxsi_trash();
-	if (statsave_save(empty) != STATFLAG_SUCCESS) problem = "empty-media fixture failed";
+	if (statsave_save(empty) != STATFLAG_SUCCESS)
+		problem = "empty-media fixture failed";
 	newdisk_hdi(hdi, 0);
-	if (newdisk_vhd_create(vhd, 2048, 512, FALSE) != SUCCESS ||
-	    sxsi_hddopen(0, hdi) != SUCCESS) problem = "synthetic HDD fixture failed";
+	if (newdisk_vhd_create(vhd, 2048, 512, FALSE) != SUCCESS || sxsi_hddopen(0, hdi) != SUCCESS)
+		problem = "synthetic HDD fixture failed";
 	for (i = 0; i < 7 && !problem; i++)
-		if (sxsi_hddopen((REG8)(0x20 + i), vhd) != SUCCESS) problem = "SCSI fixture failed";
+		if (sxsi_hddopen((REG8)(0x20 + i), vhd) != SUCCESS)
+			problem = "SCSI fixture failed";
 	if (!problem && (statsave_save(attached) != STATFLAG_SUCCESS ||
-	    rewrite_disk_state(attached, foreign, 4096, 2, 0) != SUCCESS)) problem = "HDD save/foreign fixture failed";
+	                 rewrite_disk_state(attached, foreign, 4096, 2, 0) != SUCCESS))
+		problem = "HDD save/foreign fixture failed";
 	sxsi_trash();
-	if (sxsi_hddopen(1, hdi) != SUCCESS) problem = "stale-drive control failed";
-	if (!problem && (statsave_load(foreign) != STATFLAG_SUCCESS ||
-	    strcmp(sxsi_getname(0), hdi) || sxsi_getname(1)[0])) problem = "SASI restore/detach failed";
+	if (sxsi_hddopen(1, hdi) != SUCCESS)
+		problem = "stale-drive control failed";
+	if (!problem && (statsave_load(foreign) != STATFLAG_SUCCESS || strcmp(sxsi_getname(0), hdi) ||
+	                 sxsi_getname(1)[0]))
+		problem = "SASI restore/detach failed";
 	for (i = 0; i < 7 && !problem; i++)
-		if (strcmp(sxsi_getname((REG8)(0x20 + i)), vhd)) problem = "SCSI ID was omitted";
-	if (!problem && statsave_load(empty) != STATFLAG_SUCCESS) problem = "empty-media load failed";
+		if (strcmp(sxsi_getname((REG8)(0x20 + i)), vhd))
+			problem = "SCSI ID was omitted";
+	if (!problem && statsave_load(empty) != STATFLAG_SUCCESS)
+		problem = "empty-media load failed";
 	for (i = 0; i < 9 && !problem; i++)
-		if (sxsi_getname((REG8)(i < 2 ? i : 0x20 + i - 2))[0]) problem = "stale HDD retained";
-	sxsi_trash(); pccore_term(); soundmng_deinitialize();
+		if (sxsi_getname((REG8)(i < 2 ? i : 0x20 + i - 2))[0])
+			problem = "stale HDD retained";
+	sxsi_trash();
+	pccore_term();
+	soundmng_deinitialize();
 	statsave_set_disk_resolver(previous);
-	file_delete(empty); file_delete(attached); file_delete(foreign); file_delete(hdi); file_delete(vhd);
-	if (problem) return fail("HDD state restore", problem);
+	file_delete(empty);
+	file_delete(attached);
+	file_delete(foreign);
+	file_delete(hdi);
+	file_delete(vhd);
+	if (problem)
+		return fail("HDD state restore", problem);
 	fprintf(stderr, "selftest: HDD state restore ok (SASI, all 7 SCSI IDs, 9 empty detachments)\n");
 	return SUCCESS;
 }
@@ -4332,8 +4359,8 @@ static int test_bms_state_restore(void) {
 	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1};
 	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128};
 	static const UINT offsets[] = {10, 16, 17, 24, 28};
-	static const char *codes[] = {"M142_BMS_VERSION", "M142_BMS_PAYLOAD",
-	    "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD"};
+	static const char *codes[] = {"M142_BMS_VERSION", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD",
+	                              "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD"};
 	_BMSIOCFG preference = bmsiocfg;
 	char path[MAX_PATH], again[MAX_PATH], bad[MAX_PATH], error[512];
 	const char *problem = NULL;
@@ -4367,15 +4394,13 @@ static int test_bms_state_restore(void) {
 		bmsiocfg.port = BMSIO_PORT_DEFAULT;
 		bmsio_set();
 		bmsio_reset();
-		if (statsave_load(path) != STATFLAG_SUCCESS ||
-		    bmsio.cfg.enabled != (saved_banks[i] != 0) ||
-		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != saved_banks[i] ||
-		    bmsio.nomem || bmsio.cfg.port != BMSIO_PORT_COMPAT ||
+		if (statsave_load(path) != STATFLAG_SUCCESS || bmsio.cfg.enabled != (saved_banks[i] != 0) ||
+		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != saved_banks[i] || bmsio.nomem ||
+		    bmsio.cfg.port != BMSIO_PORT_COMPAT ||
 		    bmsiowork.bmsmemsize != (UINT32)saved_banks[i] * BMSIO_BANK_BYTES ||
-		    (saved_banks[i] && !bmsiowork.bmsmem) ||
-		    (!saved_banks[i] && bmsiowork.bmsmem) ||
-		    bmsiocfg.enabled != (reader_banks[i] != 0) ||
-		    bmsiocfg.numbanks != reader_banks[i] || bmsiocfg.port != BMSIO_PORT_DEFAULT) {
+		    (saved_banks[i] && !bmsiowork.bmsmem) || (!saved_banks[i] && bmsiowork.bmsmem) ||
+		    bmsiocfg.enabled != (reader_banks[i] != 0) || bmsiocfg.numbanks != reader_banks[i] ||
+		    bmsiocfg.port != BMSIO_PORT_DEFAULT) {
 			problem = "saved allocation/device or reset preferences were not restored correctly";
 			break;
 		}
@@ -4385,9 +4410,10 @@ static int test_bms_state_restore(void) {
 				break;
 			}
 		}
-		if (saved_banks[i] && (iocore_inp8(BMSIO_PORT_COMPAT) != saved_banks[i] ||
-		    iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
-		    upd9002_memoryread_va(0x080000) != (BYTE)((saved_banks[i] - 1) ^ 0x5a)))
+		if (saved_banks[i] &&
+		    (iocore_inp8(BMSIO_PORT_COMPAT) != saved_banks[i] ||
+		     iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
+		     upd9002_memoryread_va(0x080000) != (BYTE)((saved_banks[i] - 1) ^ 0x5a)))
 			problem = "guest-visible BMS bank/window/port was not restored";
 		if (statsave_save(again) != STATFLAG_SUCCESS ||
 		    read_whole_file(path, &data, &size) != SUCCESS ||
@@ -4395,37 +4421,46 @@ static int test_bms_state_restore(void) {
 			problem = "could not inspect the actual BMS re-save";
 			break;
 		}
-		for (pos = 0x30; pos + 16 <= size; pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
-			if (!memcmp(data + pos, "BMSSTATE\0\0", 10)) break;
-		for (pos2 = 0x30; pos2 + 16 <= size2; pos2 += 16 + ((LOADINTELDWORD(data2 + pos2 + 12) + 15) & ~15U))
-			if (!memcmp(data2 + pos2, "BMSSTATE\0\0", 10)) break;
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "BMSSTATE\0\0", 10))
+				break;
+		for (pos2 = 0x30; pos2 + 16 <= size2;
+		     pos2 += 16 + ((LOADINTELDWORD(data2 + pos2 + 12) + 15) & ~15U))
+			if (!memcmp(data2 + pos2, "BMSSTATE\0\0", 10))
+				break;
 		if (pos + 32 > size || pos2 + 32 > size2 ||
 		    LOADINTELDWORD(data + pos + 12) != LOADINTELDWORD(data2 + pos2 + 12) ||
 		    memcmp(data + pos + 16, data2 + pos2 + 16, LOADINTELDWORD(data + pos + 12)))
 			problem = "re-saved BMS section differs";
 		section = pos;
-		if (i + 1 != NELEMENTS(saved_banks)) { _MFREE(data); data = NULL; }
-		_MFREE(data2); data2 = NULL;
+		if (i + 1 != NELEMENTS(saved_banks)) {
+			_MFREE(data);
+			data = NULL;
+		}
+		_MFREE(data2);
+		data2 = NULL;
 	}
 	for (i = 0; i < NELEMENTS(offsets) && !problem; i++) {
 		BYTE saved = data[section + offsets[i]];
 		BYTE *memory = bmsiowork.bmsmem;
 		UINT16 ip = CPU_IP;
 		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
-			problem = "negative BMS fixture was not initially valid"; break;
+			problem = "negative BMS fixture was not initially valid";
+			break;
 		}
 		data[section + offsets[i]] ^= (i == 1 ? 3 : 1);
 		if (write_state_fixture(bad, data, size) != SUCCESS ||
 		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
 		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, codes[i])) ||
-		    statsave_load(bad) != STATFLAG_FAILURE || CPU_IP != ip ||
-		    bmsiowork.bmsmem != memory || memory[0] != 0x5a)
+		    statsave_load(bad) != STATFLAG_FAILURE || CPU_IP != ip || bmsiowork.bmsmem != memory ||
+		    memory[0] != 0x5a)
 			problem = "BMS negative missed its exact guard or mutated the running machine";
 		data[section + offsets[i]] = saved;
 	}
 	if (!problem && (strip_statsave_section(path, bad, "BMSSTATE") != SUCCESS ||
-	    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
-	    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_REQUIRED"))))
+	                 statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+	                 (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_REQUIRED"))))
 		problem = "missing BMS state was accepted";
 	for (i = 0; i < 2 && !problem; i++) {
 		UINT extra = i ? 16 + ((LOADINTELDWORD(data + section + 12) + 15) & ~15U) : 16;
@@ -4434,20 +4469,24 @@ static int test_bms_state_restore(void) {
 		UINT16 ip = CPU_IP;
 		const char *code = i ? "M142_STATE_DUPLICATE" : "M142_STATE_UNSUPPORTED_SECTION";
 		if (!changed || statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
-			if (changed) _MFREE(changed);
-			problem = "section mutation has no passing fixture"; break;
+			if (changed)
+				_MFREE(changed);
+			problem = "section mutation has no passing fixture";
+			break;
 		}
 		CopyMemory(changed, data, size - 16);
 		ZeroMemory(changed + size - 16, extra);
-		if (i) CopyMemory(changed + size - 16, data + section, extra);
-		else CopyMemory(changed + size - 16, "UNKNOWN", 7);
+		if (i)
+			CopyMemory(changed + size - 16, data + section, extra);
+		else
+			CopyMemory(changed + size - 16, "UNKNOWN", 7);
 		CopyMemory(changed + size - 16 + extra, data + size - 16, 16);
 		if (write_state_fixture(bad, changed, size + extra) != SUCCESS ||
 		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
 		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) ||
 		    statsave_load_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
-		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) ||
-		    CPU_IP != ip || bmsiowork.bmsmem != memory || memory[0] != 0x5a)
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) || CPU_IP != ip ||
+		    bmsiowork.bmsmem != memory || memory[0] != 0x5a)
 			problem = "section negative missed its exact guard or mutated the machine";
 		_MFREE(changed);
 	}
@@ -4457,13 +4496,15 @@ static int test_bms_state_restore(void) {
 		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
 			problem = "M142_STATE_READ_ONLY_BASELINE";
 		readonly = file_open_rb(path);
-		if (readonly == FILEH_INVALID) problem = "M142_STATE_READ_ONLY_OPEN";
+		if (readonly == FILEH_INVALID)
+			problem = "M142_STATE_READ_ONLY_OPEN";
 		else {
 			/* Same existing byte: a broken writable open is detected without
 			 * corrupting even this synthetic fixture. */
 			wrote = file_write(readonly, data, 1);
 			file_close(readonly);
-			if (wrote != 0) problem = "M142_STATE_READ_ONLY";
+			if (wrote != 0)
+				problem = "M142_STATE_READ_ONLY";
 		}
 	}
 	if (!problem) {
@@ -4479,8 +4520,12 @@ static int test_bms_state_restore(void) {
 		if (saved_result != STATFLAG_FAILURE ||
 		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_BMS_LIVE_STATE")) ||
 		    read_whole_file(path, &data2, &size2) != SUCCESS || size2 != size ||
-		    memcmp(data, data2, size)) problem = "M142_STATE_ATOMIC_REPLACEMENT";
-		if (data2) { _MFREE(data2); data2 = NULL; }
+		    memcmp(data, data2, size))
+			problem = "M142_STATE_ATOMIC_REPLACEMENT";
+		if (data2) {
+			_MFREE(data2);
+			data2 = NULL;
+		}
 	}
 	if (!problem) {
 		char collision[MAX_PATH], directory[MAX_PATH];
@@ -4491,40 +4536,59 @@ static int test_bms_state_restore(void) {
 		SPRINTF(directory, "vaeg-selftest-%lu-state-commit", (unsigned long)getpid());
 		existing = file_create_exclusive(collision);
 		owned_collision = existing != FILEH_INVALID;
-		if (existing == FILEH_INVALID) problem = "M142_STATE_EXCLUSIVE_BASELINE";
-		else { file_write(existing, &marker, 1); file_close(existing); }
+		if (existing == FILEH_INVALID)
+			problem = "M142_STATE_EXCLUSIVE_BASELINE";
+		else {
+			file_write(existing, &marker, 1);
+			file_close(existing);
+		}
 		if (!problem && statsave_save_checked(again, error, sizeof(error)) != STATFLAG_SUCCESS)
 			problem = "M142_STATE_EXCLUSIVE_COLLISION";
 		existing = file_open_rb(collision);
-		if (existing == FILEH_INVALID) problem = "M142_STATE_EXCLUSIVE_COLLISION";
+		if (existing == FILEH_INVALID)
+			problem = "M142_STATE_EXCLUSIVE_COLLISION";
 		else {
-			if (file_read(existing, &observed, 1) != 1 || observed != marker || file_getsize(existing) != 1)
+			if (file_read(existing, &observed, 1) != 1 || observed != marker ||
+			    file_getsize(existing) != 1)
 				problem = "M142_STATE_EXCLUSIVE_COLLISION";
 			file_close(existing);
 		}
-		if (owned_collision) file_delete(collision);
+		if (owned_collision)
+			file_delete(collision);
 		if (!problem) {
 			owned_directory = file_dircreate(directory) == SUCCESS;
-			if (!owned_directory) problem = "M142_STATE_COMMIT_BASELINE";
+			if (!owned_directory)
+				problem = "M142_STATE_COMMIT_BASELINE";
 		}
-		if (!problem && (statsave_save_checked(directory, error, sizeof(error)) != STATFLAG_FAILURE ||
-		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_COMMIT")) ||
-		    !(file_attr(directory) & FILEATTR_DIRECTORY))) problem = "M142_STATE_COMMIT_GUARD";
+		if (!problem &&
+		    (statsave_save_checked(directory, error, sizeof(error)) != STATFLAG_FAILURE ||
+		     (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_COMMIT")) ||
+		     !(file_attr(directory) & FILEATTR_DIRECTORY)))
+			problem = "M142_STATE_COMMIT_GUARD";
 #if defined(WIN32)
-		if (owned_directory) _rmdir(directory);
+		if (owned_directory)
+			_rmdir(directory);
 #else
-		if (owned_directory) rmdir(directory);
+		if (owned_directory)
+			rmdir(directory);
 #endif
 	}
-	if (data) _MFREE(data);
-	if (data2) _MFREE(data2);
+	if (data)
+		_MFREE(data);
+	if (data2)
+		_MFREE(data2);
 	bmsiocfg = preference;
 	pccore_reset();
 	pccore_term();
 	soundmng_deinitialize();
-	file_delete(path); file_delete(again); file_delete(bad);
-	if (problem) return fail("BMS state restore", problem);
-	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, bank access/re-save, 8 load guards, read-only/atomic-save guards)\n");
+	file_delete(path);
+	file_delete(again);
+	file_delete(bad);
+	if (problem)
+		return fail("BMS state restore", problem);
+	fprintf(
+	    stderr,
+	    "selftest: BMS state restore ok (5 transitions, bank access/re-save, 8 load guards, read-only/atomic-save guards)\n");
 	return SUCCESS;
 }
 
@@ -9544,9 +9608,11 @@ static int test_opn_backends(void) {
 
 int vaeg_selftest_run(void) {
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
-		if (!gui_state_load_result_selftest()) return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+		if (!gui_state_load_result_selftest())
+			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
 		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS) return FAILURE;
+		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS)
+			return FAILURE;
 		return SUCCESS;
 	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
@@ -9679,7 +9745,8 @@ int vaeg_selftest_run(void) {
 	if (test_opn_backends() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (!gui_state_load_result_selftest()) return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+	if (!gui_state_load_result_selftest())
+		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
 	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
 	    test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);

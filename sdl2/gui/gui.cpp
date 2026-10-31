@@ -6522,7 +6522,8 @@ static const char *state_apply_load_result(const std::string &path, int result, 
 	g_gui.state_force_hostfat_path.clear();
 	if (result != STATFLAG_SUCCESS) {
 		g_gui.state_status = "読み込めませんでした: " + path + " [M142_STATE_LOAD_RESULT]";
-		if (error && error[0]) g_gui.state_status += std::string(" (") + error + ")";
+		if (error && error[0])
+			g_gui.state_status += std::string(" (") + error + ")";
 		g_gui.state_error_request = true;
 		return "M142_STATE_LOAD_RESULT";
 	}
@@ -6547,7 +6548,8 @@ static bool state_load(const std::string &path) {
 	}
 	taskmng_clear_fast_forward();
 	const int loaded = statsave_load_checked(path.c_str(), error, sizeof(error));
-	if (state_apply_load_result(path, loaded, error)) return false;
+	if (state_apply_load_result(path, loaded, error))
+		return false;
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
@@ -6651,9 +6653,8 @@ static void quick_load(int index) {
 		return;
 	}
 	const bool loaded = state_load(path);
-	show_osd(loaded
-	             ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
-	             : g_gui.state_status);
+	show_osd(loaded ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
+	                : g_gui.state_status);
 }
 
 static void quick_undo(void) {
@@ -6673,10 +6674,12 @@ static void quick_undo(void) {
 		show_osd(g_gui.state_status);
 		return;
 	}
-	(void)file_rename_atomic(state_thumbnail_path(undo).c_str(), state_thumbnail_path(held).c_str(), TRUE);
+	(void)file_rename_atomic(state_thumbnail_path(undo).c_str(), state_thumbnail_path(held).c_str(),
+	                         TRUE);
 	if (!state_write(undo)) {
 		(void)file_rename_atomic(held.c_str(), undo.c_str(), TRUE);
-		(void)file_rename_atomic(state_thumbnail_path(held).c_str(), state_thumbnail_path(undo).c_str(), TRUE);
+		(void)file_rename_atomic(state_thumbnail_path(held).c_str(),
+		                         state_thumbnail_path(undo).c_str(), TRUE);
 		g_gui.state_status = "取り消し用の保存に失敗しました [M142_STATE_UNDO_SAVE]";
 		show_osd(g_gui.state_status);
 		return;
@@ -7043,8 +7046,8 @@ extern "C" BOOL gui_state_load_result_selftest(void) {
 	const auto force_path = g_gui.state_force_hostfat_path;
 	const bool request = g_gui.state_error_request;
 	const bool available = g_gui.state_force_hostfat_available;
-	const int results[] = {STATFLAG_FAILURE, STATFLAG_DISKCHG, STATFLAG_VERCHG,
-	                       STATFLAG_WARNING, STATFLAG_VERSION};
+	const int results[] = {STATFLAG_FAILURE, STATFLAG_DISKCHG, STATFLAG_VERCHG, STATFLAG_WARNING,
+	                       STATFLAG_VERSION};
 	bool passed = true;
 	auto fixture = [] {
 		g_gui.state_status = "fixture";
@@ -7057,15 +7060,15 @@ extern "C" BOOL gui_state_load_result_selftest(void) {
 		fixture();
 		if (state_apply_load_result("fixture.sav", STATFLAG_SUCCESS, "synthetic detail") ||
 		    g_gui.state_error_request || g_gui.state_force_hostfat_available ||
-		    !g_gui.state_force_hostfat_path.empty() || g_gui.state_status.rfind("読み込みました", 0) != 0) {
+		    !g_gui.state_force_hostfat_path.empty() ||
+		    g_gui.state_status.rfind("読み込みました", 0) != 0) {
 			passed = false;
 			break;
 		}
 		fixture();
 		const char *code = state_apply_load_result("fixture.sav", result, "synthetic detail");
-		if (!code || strcmp(code, "M142_STATE_LOAD_RESULT") != 0 ||
-		    !g_gui.state_error_request || g_gui.state_force_hostfat_available ||
-		    !g_gui.state_force_hostfat_path.empty() ||
+		if (!code || strcmp(code, "M142_STATE_LOAD_RESULT") != 0 || !g_gui.state_error_request ||
+		    g_gui.state_force_hostfat_available || !g_gui.state_force_hostfat_path.empty() ||
 		    g_gui.state_status.rfind("読み込めませんでした", 0) != 0) {
 			passed = false;
 			break;
@@ -7075,7 +7078,10 @@ extern "C" BOOL gui_state_load_result_selftest(void) {
 	g_gui.state_force_hostfat_path = force_path;
 	g_gui.state_error_request = request;
 	g_gui.state_force_hostfat_available = available;
-	if (passed) fprintf(stderr, "selftest: GUI state-result controller ok (5 exact result guards; no window inspection)\n");
+	if (passed)
+		fprintf(
+		    stderr,
+		    "selftest: GUI state-result controller ok (5 exact result guards; no window inspection)\n");
 	return passed ? TRUE : FALSE;
 }
 

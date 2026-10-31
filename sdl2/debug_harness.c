@@ -871,11 +871,12 @@ static BOOL debug_execute_ready(UINT32 frames) {
 		case DEBUG_ACTION_LOAD_STATE: {
 			char why[1024] = {0};
 			resource = &harness.resources[action->value];
-			loaded = resource->none ? STATFLAG_FAILURE :
-			    statsave_load_checked(resource->path, why, sizeof(why));
+			loaded = resource->none ? STATFLAG_FAILURE
+			                        : statsave_load_checked(resource->path, why, sizeof(why));
 			/* No implicit media/HOSTFAT override and no success from a warning. */
 			if (loaded != STATFLAG_SUCCESS) {
-				if (why[0]) fprintf(stderr, "load-state: %s\n", why);
+				if (why[0])
+					fprintf(stderr, "load-state: %s\n", why);
 				fprintf(stderr, "Error: load-state failed (%d)\n", loaded);
 				return FAILURE;
 			}

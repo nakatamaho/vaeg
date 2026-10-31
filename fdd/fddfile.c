@@ -86,7 +86,8 @@ static BOOL fdd_set_device(FDDFILE fdd, const char *fname, UINT ftype, int ro) {
 }
 
 BOOL fdd_set(REG8 drv, const char *fname, UINT ftype, int ro) {
-	if (drv >= MAX_FDDFILE) return FAILURE;
+	if (drv >= MAX_FDDFILE)
+		return FAILURE;
 	return fdd_set_device(fddfile + drv, fname, ftype, ro);
 }
 
@@ -95,8 +96,10 @@ BOOL fdd_validate(const char *fname, UINT image, int ro) {
 	ZeroMemory(&candidate, sizeof(candidate));
 	candidate.num = (BYTE)image;
 	return fdd_set_device(&candidate, fname, FTYPE_NONE, ro) == SUCCESS &&
-	       (image == 0 || candidate.type == DISKTYPE_D88) &&
-	       candidate.protect == (ro ? TRUE : FALSE) ? SUCCESS : FAILURE;
+	               (image == 0 || candidate.type == DISKTYPE_D88) &&
+	               candidate.protect == (ro ? TRUE : FALSE)
+	           ? SUCCESS
+	           : FAILURE;
 }
 
 BOOL fdd_flush(void) {
