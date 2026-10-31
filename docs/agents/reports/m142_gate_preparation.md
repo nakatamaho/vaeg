@@ -86,6 +86,11 @@ two 16-byte section headers: exactly **30408736 bytes**. Explicit settings
 remain present/effective on restart; absent settings remain valid without
 forcing a configuration rewrite. This does not test changing/saving controls
 through the GUI, all memory sizes, all media types or Windows/Linux exchange.
+The restart workers above check configuration/expansion persistence after a
+fresh boot; they do not load the earlier saved file in that new process.
+The subsequent [save audit](m142_save_portability_audit.md) adds four explicit
+new-process prior-file loads under its own source/evidence identity, without
+retroactively enlarging this earlier contract.
 
 A separate passing two-save fixture precedes two single-mutation integration
 negatives: pre-existing destination and invalid/path ID. They reject with

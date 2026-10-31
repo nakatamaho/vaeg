@@ -1804,7 +1804,10 @@ separate parity correction or move it to Open Defects.
   version/size/path/flags error codes and nondestructive rejection. These are
   cross-layout fixtures, not a claim of native Windows/Linux execution.
 - **Evidence/task:** [M142](../agents/tasks/M142_runtime_portability.md),
-  [verification checkpoint](../agents/reports/m142_runtime_progress.md).
+  [verification checkpoint](../agents/reports/m142_runtime_progress.md),
+  [later save audit](../agents/reports/m142_save_portability_audit.md)
+  (four new-process macOS layout restores, induced missing-media warning and
+  exact version rejection; genuine foreign-producer exchange still NOT_RUN).
 - **Fixing commit:**
   [033992d943409d607a9931b9ba90096449708ce5](https://github.com/nakatamaho/vaeg/commit/033992d943409d607a9931b9ba90096449708ce5).
 

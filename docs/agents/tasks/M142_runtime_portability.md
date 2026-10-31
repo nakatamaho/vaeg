@@ -488,3 +488,46 @@ blocked on the missing execution targets. The extra redirected-tool result
 also remains unclassified. Issue #75 investigation is accepted; cause/fix
 remain deferred, not an M142 correction prerequisite. No human-gate request,
 acceptance, merge or release is authorized by this record.
+
+## Save-portability audit and requested Windows rebuild
+
+The maintainer requests a fresh MinGW executable for save checks. Clean
+pushed source `721184268d42424de4a7abc0f5ac0bf4e5630ea2` is rebuilt with
+`build-mingw-macports.py --commit 721184268d42424de4a7abc0f5ac0bf4e5630ea2
+--work-dir "$WINDOWS_WORK" --sdk-dir "$SDK" --jobs 4`: exit 0. Only audited
+SDK dependencies are reused; checkout/application objects are fresh. Display
+is `Rel.20261031 (M142-dev, 72118426)`; executable SHA-256 is
+`e2d1f45bdf82bc979ecd94858ba7b7d277c3f3bb9aa247716bba3e160bf332a9`.
+Recording/shaders ON, bundled encoders OFF, archive/import/embedded-source
+identity checks PASS. The artifact is not a Windows execution result.
+MacPorts/release-identity focused tests pass (3 and 4); no source changes,
+Colima or hosted CI are involved in the build request.
+
+The Linux request identifies x86-64/Ubuntu glibc 2.43, but the maintainer
+then pauses build provisioning to ask what is actually broken, including
+macOS. The [save audit](../reports/m142_save_portability_audit.md) separates
+the demonstrated old DISK widths from the corrected M142 format and genuine
+cross-OS NOT_RUN scope. No current failing foreign-producer save has been
+supplied; lack of a Linux worker is not itself a save-format failure.
+The OS-specific cfg proposal is withdrawn; no implementation/task M143 is
+started and existing config selection remains unchanged.
+
+New out-of-tree C/object probes confirm Windows/macOS old widths and find
+zero differences across 63 compiled state-table entries (name/version/kind/
+size), not universal payload-layout equivalence. Six fresh native macOS
+workers explicitly load an earlier file in a new process: four v1/legacy
+layout cases restore the expected guest registers/TVRAM/GVRAM and local
+medium; an induced missing-medium case restores CPU/video but logs a warning
+and leaves FDD1 empty; one version-only mutation rejects with exact
+`M142_DISK_VERSION` (expected exit 1). All six meet their scoped expectations,
+not six complete-restoration PASSes. Original inputs/worker remain unchanged.
+The earlier fresh-process checks covered config/expansion persistence, not
+loading the previous snapshot; only the new cases add that explicit load.
+
+Evidence remains task-local as `SAVE_AUDIT_01`; scripts/logs/exits and private
+snapshots are untracked. Native worker remains source
+`0d02bc849b5c4fb4f45d21c13716735e77578d37`, identity-bound reuse with no
+application-source changes. This is not a foreign Windows/Linux producer,
+Cocoa/GUI acceptance or a new emulator fix. GUI warning/status and slot/root
+selection findings are source analysis, not an invented current cross-OS
+failure. **M142 IN_PROGRESS / G142 NOT_READY** remains unchanged.
