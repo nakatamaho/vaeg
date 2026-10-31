@@ -4339,6 +4339,38 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
+
+- **Symptom/scope:** reproduced on the native macOS M142 worker: a save with
+  16 MiB BMS RAM loads and reaches the expected guest PC with process exit 0,
+  but BMS-OFF startup leaves that RAM unrestored. A subsequent new save omits
+  BMSMEM while its BMSIO payload still declares the saved enabled device.
+  The original input save is unchanged. The shared C path is present in the
+  supplied Windows and Linux sources; native execution there is NOT_RUN.
+- **Demonstrated cause:** working BMS memory is reset from the reader's
+  current configuration before the state table loads BMSMEM. `flagload_bms()`
+  silently succeeds if that buffer is NULL. BMSIO is restored later, without
+  allocating the saved bank count and reloading the skipped RAM. This is a
+  latent configuration-transition defect, not the corrected DISK-width bug;
+  changing the fresh BMS default back to ON is not a correction.
+- **Verification:** one marked input snapshot and otherwise identical reader
+  settings: matching BMS ON preserves the 16777216-byte section and marker;
+  changing only `Use_BMS_` to OFF loses the marker and the whole section.
+  Both actual load/re-save workers exit 0; the OFF result is a reproduced
+  defect, not PASS. No BMS-dependent guest access or host crash is claimed.
+- **Correction/status:** NOT_IMPLEMENTED. Restore allocation from the saved
+  device configuration before RAM, validate payload consistency and test
+  enabled/disabled/bank-count transitions. The matching-ON control is only
+  a tested workaround. No current supplied Windows/Linux failure has been
+  attributed to this defect without its actual file/configuration evidence.
+- **Evidence/task:** [save audit](../agents/reports/m142_save_portability_audit.md#current-bms-restore-defect-reproduced-and-unfixed),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+  Evaluated native application source:
+  [0d02bc849b5c4fb4f45d21c13716735e77578d37](https://github.com/nakatamaho/vaeg/commit/0d02bc849b5c4fb4f45d21c13716735e77578d37);
+  application inputs remain unchanged in the Windows handoff source
+  [721184268d42424de4a7abc0f5ac0bf4e5630ea2](https://github.com/nakatamaho/vaeg/commit/721184268d42424de4a7abc0f5ac0bf4e5630ea2).
+  No fixing commit exists.
+
 ### M142 — VA2 short-VB TVRAM chunk count exceeds hardware (#75)
 
 - **Observed scope:** the published TSPSPR Q row is 602 on the VA2 versus

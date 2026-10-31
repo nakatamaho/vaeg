@@ -531,3 +531,28 @@ application-source changes. This is not a foreign Windows/Linux producer,
 Cocoa/GUI acceptance or a new emulator fix. GUI warning/status and slot/root
 selection findings are source analysis, not an invented current cross-OS
 failure. **M142 IN_PROGRESS / G142 NOT_READY** remains unchanged.
+
+### Current BMS restore defect reproduced after the layout audit
+
+Two further native workers use the retained enabled-expansion snapshot with
+a known synthetic marker in its 16 MiB BMS payload. The passing fixture starts
+with matching BMS ON. Changing only `Use_BMS_` to OFF still returns success
+and reaches the expected guest PC, but a new save has no BMSMEM/marker while
+BMSIO still declares the enabled saved device. Original input/worker/media
+remain unchanged. The [current defect and demonstrated cause](../reports/m142_save_portability_audit.md#current-bms-restore-defect-reproduced-and-unfixed)
+are now recorded in the [open ledger](../../modernization/bug-fixes.md#open-defects).
+
+The loader allocates/resets the working bank RAM before reading the saved
+BMSIO configuration; BMSMEM is earlier in the state table and silently skipped
+when that buffer is NULL. This is a current configuration-transition/data-loss
+defect reproduced within macOS, not merely an unexecuted cross-OS case or
+proof of the cause of a specific unsupplied Windows/Linux failure. Both worker
+exits are 0, but the OFF result is a reproduced defect, not a restoration PASS.
+The matching-ON control is a workaround for this case, not a correction.
+No bank-dependent guest access/crash or all-bank-count claim is made.
+
+Evidence is private `BMS_LOAD_AUDIT_01`; total new workers across both audits
+are eight. No emulator change is made because this follow-up is investigation.
+The BMS defect remains OPEN/NOT_IMPLEMENTED and is a remaining restoration
+correctness obligation. No default-board reversal, gate acceptance or merge
+is inferred. **M142 IN_PROGRESS / G142 NOT_READY**.

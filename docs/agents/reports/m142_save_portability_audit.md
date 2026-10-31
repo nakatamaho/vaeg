@@ -32,6 +32,10 @@ Linux/macOS builds**. The known old DISK-layout defect is corrected in M142;
 actual native foreign-producer exchange remains **NOT_RUN**, not a demonstrated
 failure and not a PASS. macOS is not intentionally excluded from save loading.
 Do not describe lack of a Linux build/test target as a save-format failure.
+**A separate current defect is now reproduced on macOS: loading a BMS-enabled
+snapshot while the reader starts with BMS OFF loses the saved bank-memory
+payload.** Thus the audit does not conclude that current state restoration
+is defect-free merely because the old DISK layout was corrected.
 
 - Evaluated source: `721184268d42424de4a7abc0f5ac0bf4e5630ea2`.
 - Fresh clean Windows build of that pushed source: display
@@ -52,6 +56,61 @@ Do not describe lack of a Linux build/test target as a save-format failure.
 The maintainer paused Linux provisioning/build work to request this audit.
 No application behavior, save format, configuration selection or release
 acceptance is changed here. The OS-specific cfg proposal was withdrawn.
+
+## Current BMS restore defect: reproduced and unfixed
+
+A follow-up uses the retained enabled-expansion snapshot, with EMS 13 MiB
+and BMS 128 banks/16 MiB at port 01D0h. A known 16-byte synthetic marker is
+placed in BMSMEM without changing its length; the same marked save is used
+for both cases. All reader settings are identical except `Use_BMS_`:
+
+| Reader at startup | Production load/continuation | Re-saved BMSMEM | Synthetic marker |
+|---|---|---:|---|
+| BMS ON, matching the snapshot | exit 0, reaches the expected guest PC | 16777216 bytes | Preserved |
+| Only BMS changed to OFF | exit 0, reaches the expected guest PC | Section absent, 0 bytes | Lost |
+
+The re-saved BMSIO device payload still declares BMS enabled and is identical
+to the input in both cases. The second result is therefore **a reproduced
+restoration/data-loss defect, not a PASS**. The original input save remains
+byte-identical; it is the restored machine and a subsequent new save that
+lose the RAM. No guest BMS-dependent application or invalid-bank access was
+run, so a host crash or a particular application's symptom is not claimed.
+
+The demonstrated cause is in the shared C loader:
+
+1. `statsave_load_internal()` calls `cbuscore_reset()` before reading the
+   saved device sections. The working BMS allocation follows the reader's
+   current configuration at that point.
+2. The state table places BMSMEM before BMSIO. `flagload_bms()` reads into
+   the current working buffer **only if it is non-NULL**, otherwise returning
+   success and skipping the saved RAM.
+3. BMSIO is restored later as a raw device structure. No allocation/reload
+   reconciles its enabled/size fields with the already skipped BMSMEM.
+4. `flagsave_bms()` omits the section when that working buffer is NULL.
+
+This is not an OS-specific DISK ABI mismatch: it occurs within macOS alone.
+The same shared loader exists in the supplied Windows source and in Linux
+sources, but those native targets have not been executed here. M142's new
+BMS-OFF default makes the transition from a BMS-enabled older configuration
+particularly relevant. It is **not** proof of the cause of an unsupplied
+specific Windows/Linux failure.
+
+Two additional native workers ran. The matching-ON fixture passes before
+the single configuration mutation reproduces the defect. Both process
+exits are 0, which must not be interpreted as two restoration PASSes.
+Original save/media and worker identities are rechecked unchanged. Evidence
+is retained privately as `BMS_LOAD_AUDIT_01` (`probe.py`, `results.json`,
+per-case `run.json`, config-before text and actual re-saved state files).
+`python3 "$BMS_OUT/probe.py"` exits 0 because its expected result is to
+**demonstrate the defect**, status
+`REPRODUCED_OPEN_DEFECT_NOT_A_FIX_OR_CROSS_OS_PASS`.
+
+No correction is implemented. Matching BMS enabled/size settings is a
+passing workaround for this tested case, not a general restoration guarantee.
+A correction must establish the saved BMS configuration/allocation before
+restoring RAM, check payload consistency, and cover configuration/size
+transitions. Keep this in the [open-defect ledger](../../modernization/bug-fixes.md#open-defects)
+until a tested correction exists. Total new workers across both audits: eight.
 
 ## Demonstrated old defect
 
@@ -192,7 +251,8 @@ upgrade that older campaign.
 
 | Question | Current evidence |
 |---|---|
-| Can current macOS save/load its own files? | PASS for the scoped native continuation profiles; explicit new-process loading added above |
+| Can current macOS save/load its own files? | PASS for the scoped matching-configuration profiles; explicit new-process loading added above |
+| Is restoration correct when BMS settings differ? | FAIL reproduced: BMS-enabled save into BMS-OFF startup loses bank RAM |
 | Can current macOS parse the supported old host DISK layouts? | PASS for the four native probe/continuation cases above |
 | Does the current Windows binary contain the DISK correction? | Yes: clean source/build and matching compiled table audited |
 | Has current Windows actually produced/loaded a save here? | NOT_RUN |
@@ -206,6 +266,7 @@ one private save only if that information is insufficient. Keep its contents
 and any captures outside Git/CI; ROMs, media and complete cfg files are not
 default diagnostic uploads.
 
-M142 remains **IN_PROGRESS / G142 NOT_READY**. This investigation is not
-acceptance, a merge, a release, or a new fix for a demonstrated native
-Windows/Linux exchange failure.
+M142 remains **IN_PROGRESS / G142 NOT_READY**. The current BMS restoration
+defect is OPEN/unfixed in addition to genuine cross-OS execution being NOT_RUN.
+This investigation is not acceptance, a merge, a release, or a correction of
+that newly demonstrated data loss.
