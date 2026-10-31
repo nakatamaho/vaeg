@@ -32,6 +32,16 @@ distribution closures, 34 drawing cases, MANDEL progress and the self-boot SGP
 menu. It retains utility generation/boot as BLOCKED/NOT_RUN and does not change
 the evaluated worker/build identities or historical results below.
 
+Subsequent [utility closure](m142_utility_media_regression.md) completes required
+FDD/both SASI generation, readback and four standalone boot contracts. The later
+[authorized save-restoration correction](m142_save_portability_audit.md#authorized-restoration-correction-and-verification)
+changes application/format behavior: source `0f3cbe20`, fresh complete
+**155 PASS / 16 SKIP / 0 FAIL**, and actual earlier-file loads with BMS-setting
+mismatches. Old SAV compatibility is intentionally removed. The identities,
+166-entry recovery and old format/sizes below are historical and are not
+relabelled as corrected-source results. Windows/Linux exchange, actual
+presenter checks and G142 acceptance remain unestablished.
+
 ## Identities and boundaries
 
 - Native worker: clean pushed source

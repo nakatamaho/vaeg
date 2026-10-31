@@ -35,6 +35,102 @@ land.
 
 ## Maintenance Rules
 
+### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
+
+- **Symptom/scope:** the historical native load reaches the guest PC and exits
+  0, but an enabled snapshot loaded with BMS-OFF startup loses all 16 MiB of
+  bank RAM; re-save omits BMSMEM while BMSIO still declares the enabled device.
+- **Demonstrated cause:** reset allocates from reader preferences before loading
+  BMSMEM; that loader silently skips a NULL buffer, then later raw BMSIO restore
+  does not reconcile allocation. Reverting the absent-board default is not a fix.
+- **Correction:** mandatory explicit BMSSTATE v1 restores saved device/allocation
+  and complete RAM together, validates metadata and supported ports, then binds
+  the saved device. The user's next-reset preference remains separate. The new
+  container deliberately rejects old SAV files, as authorized by the maintainer.
+- **Verification:** seven production-path bank/configuration transitions and 11
+  exact-code rejection guards pass. Fresh-process enabled snapshots loaded with
+  reader OFF, smaller size or opposite port preserve all marked RAM and re-save
+  bytes; saved OFF into reader ON also passes guest continuation and restoration.
+  Native tests close this defect; Windows/Linux runtime is not inferred.
+- **Evidence/task:** [historical reproduction and corrected evidence](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commits:** [714f6084bb0b23ffbd15d946b1d2650521800426](https://github.com/nakatamaho/vaeg/commit/714f6084bb0b23ffbd15d946b1d2650521800426),
+  [098e9568906338a418180b14fe6b1a3ebba9897d](https://github.com/nakatamaho/vaeg/commit/098e9568906338a418180b14fe6b1a3ebba9897d).
+
+### M142 — missing or wrong saved media and incomplete HDD-slot restoration
+
+- **Symptom/scope:** a missing FDD can yield CPU/video continuation with exit 0
+  and an empty restored drive. Timestamp/basename records cannot establish disk
+  content identity; four-of-seven SCSI serialization and ignored empty HDD slots
+  also lose saved or retain stale mounts. Mount failures were not all consumed.
+- **Demonstrated cause:** old DISK records lack size/content hashes, missing media
+  is only a warning, resolution context can be discarded before restore, the
+  SCSI loop stops early, and empty HDD records do not detach old devices.
+- **Correction:** DISK v2 binds all 13 slots by full size/SHA-256 and explicit
+  protection/image flags. Flush dirty D88 data before identification, validate
+  all candidates before mount changes, check mount results and detach all empty
+  HDD slots. Missing/ambiguous/changed media and invalid selections are failures.
+  External media is not embedded or rolled back by SAV loading.
+- **Verification:** metadata/real-byte negatives, foreign remap, multi-image and
+  protection checks, SASI/all seven SCSI IDs and nine empty HDD detachments pass.
+  Fresh-process controls restore actual local media; single mutations reject
+  exactly M142_DISK_MISSING and M142_DISK_IDENTITY instead of claiming success.
+- **Evidence/task:** [current contract and native verification](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [540b9800074639acf1d8c396c33be3c32da9b1de](https://github.com/nakatamaho/vaeg/commit/540b9800074639acf1d8c396c33be3c32da9b1de).
+
+### M142 — GUI and debug callers ignored actual state-load failures
+
+- **Symptom/scope:** a passed preliminary check could be followed by a failed
+  restore while GUI callers still displayed success; debug loads also accepted
+  media warnings or silently retried a HOSTFAT override.
+- **Demonstrated cause:** actual loader results were discarded or every
+  non-fatal warning treated as successful restoration, independently of what
+  required machine/media state had actually been restored.
+- **Correction:** checked load APIs return actual errors to GUI/debug callers;
+  only exact success updates the success path. Explicit HOSTFAT override remains
+  separate and cannot bypass required disk validation. Unsupported, duplicate,
+  missing required and malformed container sections are rejected.
+- **Verification:** five exact GUI-controller result mutations pass after their
+  passing controls; actual worker negatives return the expected codes and no
+  restored output. This is headless/controller coverage, not window inspection.
+- **Evidence/task:** [load-result contract](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [b8bbe14c0edf358f2dfe4b727898f1fee4beb84b](https://github.com/nakatamaho/vaeg/commit/b8bbe14c0edf358f2dfe4b727898f1fee4beb84b).
+
+### M142 — read-only state/media input helper opened writable streams
+
+- **Symptom/scope:** file_open_rb allowed writes and required update permissions
+  for nominally read-only state/media/ROM consumers.
+- **Demonstrated cause:** the shared SDL helper used rb+ rather than rb.
+- **Correction:** use a genuine read-only rb stream.
+- **Verification:** after its passing fixture, the probe detects the forbidden
+  successful write before correction with M142_STATE_READ_ONLY (CTest exit 8).
+  After correction the write is refused and the probe passes; original input
+  bytes remain unchanged.
+- **Evidence/task:** [before/after read-only probe](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [1cf19a8ad21f13aab22caa91872be9f8b531c946](https://github.com/nakatamaho/vaeg/commit/1cf19a8ad21f13aab22caa91872be9f8b531c946).
+
+### M142 — failed save or quick undo could discard an existing snapshot
+
+- **Symptom/scope:** a failed replacement could truncate/delete the prior SAV;
+  quick load/undo could proceed despite missing protection or discard a held
+  snapshot after failed restoration.
+- **Demonstrated cause:** direct destination creation precedes serialization,
+  close errors are ignored, GUI cleanup deletes the destination on failure,
+  and undo callers do not consistently gate later steps on successful save/load.
+- **Correction:** exclusive sibling temporary creation, checked serialization
+  and close, then atomic replacement. Preserve old destination on failure;
+  refuse unprotected quick load and retain both snapshots after failed undo.
+- **Verification:** failed save preserves a prior SAV byte-for-byte, exclusive
+  collision data survives, and rename-to-directory rejects with
+  M142_STATE_COMMIT without removing the directory. Actual window interaction,
+  every late load rollback and power-loss durability are not claimed.
+- **Evidence/task:** [snapshot-protection checks](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [108b30aacba6b07387685a18d4bc07414ca34332](https://github.com/nakatamaho/vaeg/commit/108b30aacba6b07387685a18d4bc07414ca34332).
+
 ### M142 — utility media autoloaded a bank RAM disk without a BMS board
 
 - **Symptom/scope:** newly generated utility FDD and VA2 SASI boot to Ready,
@@ -4338,38 +4434,6 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
-
-### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
-
-- **Symptom/scope:** reproduced on the native macOS M142 worker: a save with
-  16 MiB BMS RAM loads and reaches the expected guest PC with process exit 0,
-  but BMS-OFF startup leaves that RAM unrestored. A subsequent new save omits
-  BMSMEM while its BMSIO payload still declares the saved enabled device.
-  The original input save is unchanged. The shared C path is present in the
-  supplied Windows and Linux sources; native execution there is NOT_RUN.
-- **Demonstrated cause:** working BMS memory is reset from the reader's
-  current configuration before the state table loads BMSMEM. `flagload_bms()`
-  silently succeeds if that buffer is NULL. BMSIO is restored later, without
-  allocating the saved bank count and reloading the skipped RAM. This is a
-  latent configuration-transition defect, not the corrected DISK-width bug;
-  changing the fresh BMS default back to ON is not a correction.
-- **Verification:** one marked input snapshot and otherwise identical reader
-  settings: matching BMS ON preserves the 16777216-byte section and marker;
-  changing only `Use_BMS_` to OFF loses the marker and the whole section.
-  Both actual load/re-save workers exit 0; the OFF result is a reproduced
-  defect, not PASS. No BMS-dependent guest access or host crash is claimed.
-- **Correction/status:** NOT_IMPLEMENTED. Restore allocation from the saved
-  device configuration before RAM, validate payload consistency and test
-  enabled/disabled/bank-count transitions. The matching-ON control is only
-  a tested workaround. No current supplied Windows/Linux failure has been
-  attributed to this defect without its actual file/configuration evidence.
-- **Evidence/task:** [save audit](../agents/reports/m142_save_portability_audit.md#current-bms-restore-defect-reproduced-and-unfixed),
-  [M142](../agents/tasks/M142_runtime_portability.md).
-  Evaluated native application source:
-  [0d02bc849b5c4fb4f45d21c13716735e77578d37](https://github.com/nakatamaho/vaeg/commit/0d02bc849b5c4fb4f45d21c13716735e77578d37);
-  application inputs remain unchanged in the Windows handoff source
-  [721184268d42424de4a7abc0f5ac0bf4e5630ea2](https://github.com/nakatamaho/vaeg/commit/721184268d42424de4a7abc0f5ac0bf4e5630ea2).
-  No fixing commit exists.
 
 ### M142 — VA2 short-VB TVRAM chunk count exceeds hardware (#75)
 

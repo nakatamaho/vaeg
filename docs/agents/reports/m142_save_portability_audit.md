@@ -23,7 +23,24 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M142 — save portability: old defect, current format and actual coverage
+# M142 — save portability: historical audit and authorized correction
+
+## Current disposition
+
+**The authorized BMS/media correction is implemented and native-tested.**
+See [the correction and current evidence](#authorized-restoration-correction-and-verification).
+The evaluated corrected application is
+[0f3cbe20190ccca6524dda59301303583f535c0a](https://github.com/nakatamaho/vaeg/commit/0f3cbe20190ccca6524dda59301303583f535c0a).
+The new container deliberately rejects old SAV files; backward compatibility
+was explicitly waived. Genuine cross-OS execution and G142 acceptance remain
+NOT_RUN / NOT_READY.
+
+The audit sections below preserve the **pre-correction** source, workers,
+failures and then-current conclusions. In those sections, “current”, “unfixed”
+and v0/v1 compatibility refer to that historical checkpoint, not the corrected
+application. In particular, the previously supplied `72118426` Windows
+executable still contains the BMS defect; do not overwrite original SAVs with
+that old build. No past failure has been relabeled as a correction PASS.
 
 ## Conclusion and evaluated identities
 
@@ -266,7 +283,172 @@ one private save only if that information is insufficient. Keep its contents
 and any captures outside Git/CI; ROMs, media and complete cfg files are not
 default diagnostic uploads.
 
-M142 remains **IN_PROGRESS / G142 NOT_READY**. The current BMS restoration
-defect is OPEN/unfixed in addition to genuine cross-OS execution being NOT_RUN.
-This investigation is not acceptance, a merge, a release, or a correction of
-that newly demonstrated data loss.
+At this historical checkpoint, M142 remained **IN_PROGRESS / G142 NOT_READY**,
+with the reproduced BMS defect OPEN/unfixed. That investigation was not a
+correction, acceptance, merge or release. The following authorized correction
+supersedes its defect status, not its retained observations.
+
+## Authorized restoration correction and verification
+
+### Format, device and media contract
+
+The maintainer subsequently authorized all demonstrated BMS/media restoration
+corrections and explicitly waived compatibility with old SAV files.
+
+- Container version is now `0x261031`; old `0x08060a` files reject with
+  `M142_STATE_FORMAT_OR_OPEN`. DISK v0/v1 inside the new container reject
+  with `M142_DISK_VERSION`. Do not use an old SAV as a passing new-format fixture.
+- Mandatory **BMSSTATE v1** replaces separate raw BMSIO/BMSMEM sections.
+  A 16-byte explicit little-endian device/allocation header precedes the
+  complete saved RAM. Enabled/bank/nomem/port/mask/length/reserved consistency
+  is checked. Load allocates and reads saved RAM before replacing the active
+  device and rebinds its selected port. The user's `bmsiocfg` remains the
+  separate next-reset preference. OFF, bank zero and unavailable selected
+  banks retain their distinct memory-window semantics.
+- **DISK v2** contains 13 explicit 4160-byte records: four FDDs, two SASI
+  drives and all seven SCSI IDs. Each stores a zero-padded 4096-byte UTF-8
+  path, flags, 64-bit file length, SHA-256 and reserved zero bytes. FDD flags
+  preserve protection and the selected multi-image D88 member.
+- A filename locates a candidate; full byte length and SHA-256 establish
+  identity. Existing-path/unique configured-basename resolution remains
+  bounded: no recursive guessing or accepting a different same-named file.
+  Missing, ambiguous, changed or unsupported media and invalid image selection
+  fail preflight. This also applies when HOSTFAT override is requested.
+- Dirty D88 track data is flushed before identification; flush failure fails
+  the save and retains dirty-cache ownership for retry. Every saved reference
+  is resolved before mount context changes. All mount results are checked;
+  empty saved HDD slots detach stale devices. SAV files **do not embed or roll
+  back media contents**: changing an external disk after saving intentionally
+  causes identity rejection, rather than an apparently successful wrong-disk
+  restoration.
+- Required BMS/DISK sections, known-section duplicates, unsupported sections,
+  truncation and noncanonical termination are rejected. GUI/debug callers
+  consume actual checked-loader results, not only a prior preflight result.
+  The debug harness no longer turns media warnings or an implicit HOSTFAT
+  retry into success. Explicit HOSTFAT override remains a separate action.
+- `file_open_rb()` now really uses `rb`, not `rb+`. Read-only inputs do not
+  require an update stream. Saving uses an exclusive sibling temporary file,
+  checked serialization/close and atomic replacement; failure preserves the
+  prior destination. Quick-load refuses to proceed without a saved undo;
+  failed quick undo retains both snapshots instead of deleting the held one.
+
+The correction does **not** claim global machine rollback after every possible
+late I/O/allocation failure, fsync/power-loss durability, or a universal wire
+ABI for all remaining native-structure sections. GUI controller checks below
+are not window inspection or a complete interactive quick-undo test.
+
+Fixing commits:
+[BMS](https://github.com/nakatamaho/vaeg/commit/714f6084bb0b23ffbd15d946b1d2650521800426),
+[media identity and all slots](https://github.com/nakatamaho/vaeg/commit/540b9800074639acf1d8c396c33be3c32da9b1de),
+[actual load-result propagation](https://github.com/nakatamaho/vaeg/commit/b8bbe14c0edf358f2dfe4b727898f1fee4beb84b),
+[read-only input](https://github.com/nakatamaho/vaeg/commit/1cf19a8ad21f13aab22caa91872be9f8b531c946),
+[atomic save/undo protection](https://github.com/nakatamaho/vaeg/commit/108b30aacba6b07387685a18d4bc07414ca34332),
+[BMS port validation and bank-edge coverage](https://github.com/nakatamaho/vaeg/commit/098e9568906338a418180b14fe6b1a3ebba9897d).
+[The fresh-process runner](https://github.com/nakatamaho/vaeg/commit/0f3cbe20190ccca6524dda59301303583f535c0a)
+is independently callable; its content negatives do not depend on Git history.
+
+### Corrected native evidence
+
+Private evidence binding **STATE_FIX_NATIVE_01** retains exact commands,
+source/worker/runner/corpus/contract identities, input/output hashes, logs,
+exit codes and immutable producer inputs. No original ROM, state, media,
+config, raw capture or private asset identity is committed.
+
+- Evaluated source: **`0f3cbe20190ccca6524dda59301303583f535c0a`**.
+- Native arm64 application: **`Rel.20261031 (M142-dev, 0f3cbe20)`**;
+  worker SHA-256
+  **`380c8199441e63b707a2edf735e43fc3e9b8413a64e890ab82d825b8e19200eb`**.
+  Recording ON, bundled encoders OFF; separate corrected application objects
+  with audited isolated FFmpeg dependency reuse. The frozen worker copy is
+  byte-identical to the tested build executable.
+- Final complete CTest: **155 PASS / 16 SKIP / 0 FAIL**, 171 entries,
+  exit **0**, 165.28 seconds. This is a fresh complete campaign, not a
+  composed recovery. Earlier two 170-entry campaigns at `aefaa756` remain
+  retained under their own worker identity; they are not relabeled `0f3cbe20`.
+- Production-path BMS tests cover **seven** saved/reader transitions, full
+  patterned RAM comparison, next-reset preference preservation, real port
+  and bank-window reads, bank-zero/absent-bank semantics, actual re-save
+  payload equality, and **11 exact-code** BMS/container rejection guards.
+  DISK tests cover multi-image/protection/remapping, ten exact metadata guards
+  plus real media-byte identity mutation, SASI and all seven SCSI IDs, and
+  nine stale-HDD detachments. SHA-256 passes 16 vector/streaming checks.
+- Save-failure tests preserve an existing SAV byte-for-byte, preserve a
+  pre-existing exclusive-temp collision, and reject rename-to-directory with
+  `M142_STATE_COMMIT`. The read-only probe fails before the mode correction
+  with `M142_STATE_READ_ONLY` (CTest exit 8), then passes afterward. GUI result
+  controller tests apply five exact non-success results after passing controls;
+  these are explicitly headless, not visual checks.
+- Updated runtime-state content tests pass **12 exact-code single-mutation
+  negatives**; the new prior-file comparator passes **four**. Every negative
+  starts with its relevant passing fixture and asserts its intended code.
+- Three actual absent/explicit-OFF/enabled profiles pass same-process guest
+  save/advance/load continuation and separate config-persistence restarts:
+  `PASS_STATE_CONFIG_CONTRACT_NOT_GUI_OR_CROSS_OS`. New state sizes are
+  **2124032 / 2124032 / 32532752** bytes. Enabled RAM remains EMS 13 MiB and
+  BMS 16 MiB; the size delta is now 29 MiB + 16 bytes. Config restarts still
+  do not themselves load the prior SAV.
+- The additional prior-file matrix **does** explicitly load that earlier SAV
+  in fresh processes. Seven successful loads cover matching ON, reader OFF,
+  smaller reader allocation, the opposite reader port, saved OFF into reader
+  ON, and two passing media controls. Full marked BMSSTATE bytes survive
+  re-save; independently retained guest register/TVRAM/GVRAM continuation and
+  the actual resolved drive path/content identity match. Two single-mutation
+  fresh-process negatives reject exactly `M142_DISK_MISSING` and
+  `M142_DISK_IDENTITY`, with no restored output. Status:
+  **`PASS_PRIOR_FILE_BMS_AND_MEDIA_CONTRACT_NOT_CROSS_OS_OR_GUI`**.
+  Together these runners execute **18** new workers: 14 ordinary successful
+  exits and four expected guard rejections, not 18 successful restorations.
+- An initial added OFF-port assertion failed because 00ECh normally belongs
+  to the Kanji-ROM interface, not an unbound FFh port. The independent
+  BMS-absent bus baseline corrects that test assumption; production code was
+  not altered to fit it. Both failed attempts remain in private evidence.
+- Repository encoding/EOL/case/Markdown/whitespace checks and milestone
+  selftest/discovery/audit pass. The formatting checker still reports **659
+  inherited diagnostics** in 29 files; **zero intersect changed lines**
+  relative to the pre-correction source. This is not whole-tree format PASS.
+
+Exact final local command contracts (bindings are private and explicit):
+
+```sh
+cmake -S "$SOURCE" -B "$NATIVE_BUILD" -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+cmake --build "$NATIVE_BUILD" -j4
+ctest --test-dir "$NATIVE_BUILD" -j4 --output-on-failure
+python3 tools/qa/runtime_state_roundtrip.py --worker "$WORKER" --roms "$ROMS" \
+  --kit "$KIT" --evaluated-commit 0f3cbe20190ccca6524dda59301303583f535c0a \
+  --output-dir "$PRODUCER_OUTPUT"
+python3 tools/qa/state_restore_matrix.py --worker "$WORKER" --roms "$ROMS" \
+  --producer-output "$PRODUCER_OUTPUT" --output-dir "$PRIOR_LOAD_OUTPUT"
+```
+
+All five commands exit **0**. The retained build configuration also explicitly
+enables recording, tests, static FFmpeg, public-build policy and integration
+trace; librashader is OFF for this native test target. No Colima, global SDK
+change, private CI upload or local bundled encoder is used.
+
+The 16 skipped CTest entries are explicit, not counted as PASS:
+
+```text
+vaeg_recording_h264_hardware_probe
+vaeg_sst_v20_ci
+vaeg_upd780_fdc_payloads
+vaeg_upd780_fdc_seed_payloads
+vaeg_upd780_fdc_fixed_payloads
+vaeg_upd780_fdc_capture_payloads
+vaeg_upd780_fdc_xadr_payloads
+vaeg_upd780_fdc_pref_payloads
+vaeg_upd70008_probes
+test_suffix.sh
+test_compress_generated_abc
+test_compress_generated_text
+vaeg_upd780_probes
+test_compress_generated_random
+test_files.sh
+vaeg_m103b_basic_boot
+```
+
+Native SDL-dummy evidence does not establish Cocoa/window/HiDPI inspection,
+Windows execution, a Linux build, or genuine producer/consumer exchange
+between operating systems. The historical table-size audit is not upgraded
+to those results. The withdrawn OS-specific cfg proposal remains withdrawn;
+#75's approved correction deferral is unchanged. **M142 IN_PROGRESS /
+G142 NOT_READY**; no acceptance, merge or release is implied.

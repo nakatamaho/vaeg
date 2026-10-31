@@ -49,6 +49,14 @@ and self-boot menu validation. Utility generation is BLOCKED by missing DOSBox,
 SASI generation/boots remain NOT_RUN, and the complete media gate is not passed.
 No emulator model change or new Windows executable accompanies that evidence.
 
+Later [utility closure](m142_utility_media_regression.md) resolves its required
+build/boot blockage. The [authorized BMS/media correction](m142_save_portability_audit.md#authorized-restoration-correction-and-verification)
+supersedes the DISK v1/old-format description below with intentionally
+incompatible SAV/BMSSTATE/DISK v2, checked callers and snapshot protection;
+source `0f3cbe20` passes 155 CTest entries with 16 explicit skips and actual
+fresh-process prior-file BMS-setting transitions. Historical worker identities
+remain unchanged; this is not genuine cross-OS, presenter or G142 acceptance.
+
 ## Evaluated identities and reuse
 
 - Clean Windows source:

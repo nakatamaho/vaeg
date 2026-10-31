@@ -534,13 +534,16 @@ failure. **M142 IN_PROGRESS / G142 NOT_READY** remains unchanged.
 
 ### Current BMS restore defect reproduced after the layout audit
 
+**Historical investigation checkpoint:** the subsequent authorized correction
+below supersedes the OPEN/NOT_IMPLEMENTED status, not these observations.
+
 Two further native workers use the retained enabled-expansion snapshot with
 a known synthetic marker in its 16 MiB BMS payload. The passing fixture starts
 with matching BMS ON. Changing only `Use_BMS_` to OFF still returns success
 and reaches the expected guest PC, but a new save has no BMSMEM/marker while
 BMSIO still declares the enabled saved device. Original input/worker/media
 remain unchanged. The [current defect and demonstrated cause](../reports/m142_save_portability_audit.md#current-bms-restore-defect-reproduced-and-unfixed)
-are now recorded in the [open ledger](../../modernization/bug-fixes.md#open-defects).
+are recorded in the [permanent ledger](../../modernization/bug-fixes.md#m142--bms-snapshot-ram-is-skipped-when-the-reader-starts-with-bms-disabled).
 
 The loader allocates/resets the working bank RAM before reading the saved
 BMSIO configuration; BMSMEM is earlier in the state table and silently skipped
@@ -553,6 +556,56 @@ No bank-dependent guest access/crash or all-bank-count claim is made.
 
 Evidence is private `BMS_LOAD_AUDIT_01`; total new workers across both audits
 are eight. No emulator change is made because this follow-up is investigation.
-The BMS defect remains OPEN/NOT_IMPLEMENTED and is a remaining restoration
-correctness obligation. No default-board reversal, gate acceptance or merge
-is inferred. **M142 IN_PROGRESS / G142 NOT_READY**.
+At that checkpoint the BMS defect was OPEN/NOT_IMPLEMENTED. No default-board
+reversal, gate acceptance or merge was inferred.
+
+## Authorized BMS and saved-media restoration correction
+
+The maintainer authorizes the demonstrated BMS/media corrections and explicitly
+waives old-SAV compatibility. The new `0x261031` container, mandatory BMSSTATE
+v1 and 13-slot/content-bound DISK v2 are implemented. Saved BMS device/RAM is
+restored independently of next-reset preferences; required media mismatches
+are errors, not successful partial loads. Checked GUI/debug results, genuine
+read-only input, atomic SAV replacement and guarded quick undo are included.
+Old SAV files are intentionally rejected; original files must be preserved.
+
+Evaluated corrected source:
+**`0f3cbe20190ccca6524dda59301303583f535c0a`**. Native display:
+`Rel.20261031 (M142-dev, 0f3cbe20)`; worker SHA-256:
+`380c8199441e63b707a2edf735e43fc3e9b8413a64e890ab82d825b8e19200eb`.
+Fresh complete CTest: **155 PASS / 16 SKIP / 0 FAIL** (171 entries), exit 0.
+The [corrected evidence and fixing commits](../reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification)
+record seven BMS transitions, exact-code negatives, complete disk-slot tests,
+read-only before/after evidence, atomic-save protection and the explicit skips.
+The permanent ledger moves BMS out of Open Defects and records the other fixes.
+
+Exact final contracts, with explicit private/out-of-tree bindings:
+
+```sh
+cmake -S "$SOURCE" -B "$NATIVE_BUILD" -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF
+cmake --build "$NATIVE_BUILD" -j4
+ctest --test-dir "$NATIVE_BUILD" -j4 --output-on-failure
+python3 tools/qa/runtime_state_roundtrip.py --worker "$WORKER" --roms "$ROMS" \
+  --kit "$KIT" --evaluated-commit 0f3cbe20190ccca6524dda59301303583f535c0a \
+  --output-dir "$PRODUCER_OUTPUT"
+python3 tools/qa/state_restore_matrix.py --worker "$WORKER" --roms "$ROMS" \
+  --producer-output "$PRODUCER_OUTPUT" --output-dir "$PRIOR_LOAD_OUTPUT"
+```
+
+All exit **0**. Build also explicitly keeps recording/tests/static FFmpeg/public
+policy/trace ON and librashader OFF. The first runner's three config restarts
+still do not load the prior file. The new second runner does: seven actual
+fresh-process loads preserve complete BMS payload/re-save bytes, independently
+retained guest continuation and resolved disk identity, including reader OFF,
+smaller/opposite-port settings and saved OFF into reader ON. Two controlled
+mutations reject exactly `M142_DISK_MISSING` and `M142_DISK_IDENTITY`. Total:
+18 new workers across both runners, 14 ordinary successful exits and four
+expected guard rejections, not 18 restoration PASSes. Private inputs and the
+frozen corrected worker are retained unchanged under `STATE_FIX_NATIVE_01`.
+
+The old `72118426` Windows artifact remains an unfixed historical build; a
+corrected-source fresh handoff is still required. No Windows/Linux execution,
+Cocoa/window/HiDPI check or genuine cross-OS exchange is inferred from the
+native SDL-dummy checks. Existing media-generation results retain their original
+source/worker identities. The withdrawn cfg proposal and approved #75 deferral
+remain unchanged. **M142 IN_PROGRESS / G142 NOT_READY**.
