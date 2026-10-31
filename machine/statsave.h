@@ -55,8 +55,10 @@ int statsave_check_hostfat_override(const char *filename, char *buf, int size);
 typedef BOOL (*STATSAVE_DISK_RESOLVER)(const char *saved, char *local, UINT size);
 STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolver);
 int statsave_load(const char *filename);
+int statsave_load_checked(const char *filename, char *error, int error_size);
 /* Retains the current HOSTFAT mount state and read-only snapshot. */
 int statsave_load_hostfat_override(const char *filename);
+int statsave_load_hostfat_override_checked(const char *filename, char *error, int error_size);
 
 #if defined(SUPPORT_OPRECORD)
 typedef void (*STATSAVE_LOAD_DISK_HOOK)(int drv, char *path, UINT size, int *readonly);

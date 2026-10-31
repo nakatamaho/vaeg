@@ -1660,6 +1660,7 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	BOOL mode_state_seen;
 	BOOL bms_seen = FALSE;
 	BOOL disk_seen = FALSE;
+	BOOL seen[sizeof(np2tbl) / sizeof(np2tbl[0])] = {0};
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
@@ -1693,6 +1694,12 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			tbl++;
 		}
 		if (tbl < tblterm) {
+			if (seen[tbl - np2tbl]) {
+				statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+				ret = STATFLAG_FAILURE;
+				break;
+			}
+			seen[tbl - np2tbl] = TRUE;
 			switch (tbl->type) {
 			case STATFLAG_BIN:
 			case STATFLAG_MEM:
@@ -1804,6 +1811,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 		statflag_seterr(&sffh->sfh, "saved state has no HOSTFAT snapshot identity");
 		ret = STATFLAG_FAILURE;
 	}
+	if (ret != STATFLAG_SUCCESS && ret != STATFLAG_FAILURE) {
+		statflag_seterr(&sffh->sfh, "M142_STATE_UNSUPPORTED_SECTION");
+		ret = STATFLAG_FAILURE;
+	}
 	statflag_close(sffh);
 	return (ret);
 }
@@ -1816,21 +1827,18 @@ int statsave_check_hostfat_override(const char *filename, char *buf, int size) {
 	return (statsave_check_internal(filename, buf, size, TRUE));
 }
 
-static int statsave_load_internal(const char *filename, BOOL allow_hostfat_mismatch) {
+static int statsave_load_internal(const char *filename, BOOL allow_hostfat_mismatch,
+                                 char *error, int error_size) {
 	SFFILEH sffh;
-	char error[256];
 	int ret;
 	BOOL done;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
-	error[0] = '\0';
-	ret = statsave_check_internal(filename, error, sizeof(error), allow_hostfat_mismatch);
-	if (ret == STATFLAG_FAILURE) {
-		return (STATFLAG_FAILURE);
-	}
+	ret = statsave_check_internal(filename, error, error_size, allow_hostfat_mismatch);
+	if (ret != STATFLAG_SUCCESS) return STATFLAG_FAILURE;
 
-	sffh = statflag_open(filename, NULL, 0);
+	sffh = statflag_open(filename, error, error_size);
 	if (sffh == NULL) {
 		return (STATFLAG_FAILURE);
 	}
@@ -1884,7 +1892,11 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 	done = FALSE;
 	while ((!done) && (ret != STATFLAG_FAILURE)) {
-		ret |= statflag_readsection(sffh);
+		if (statflag_readsection(sffh) != STATFLAG_SUCCESS) {
+			statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+			ret = STATFLAG_FAILURE;
+			break;
+		}
 		tbl = np2tbl + 1;
 		tblterm = np2tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
 		while (tbl < tblterm) {
@@ -1990,7 +2002,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 	// Rebuild the native VA I/O map after restoring device state.
 	upd9002_memorymap_va();
-	iocore_build();
+	if (iocore_build() != SUCCESS) ret = STATFLAG_FAILURE;
 	iocore_bind();
 	cbuscore_bind();
 	fmboard_bind();
@@ -2004,16 +2016,28 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	}
 
 	soundmng_play();
+	if (ret != STATFLAG_SUCCESS) {
+		if (error && error_size > 0 && !error[0])
+			milstr_ncpy(error, "M142_STATE_RESTORE", error_size);
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
 
-	return (ret);
+int statsave_load_checked(const char *filename, char *error, int error_size) {
+	return statsave_load_internal(filename, FALSE, error, error_size);
 }
 
 int statsave_load(const char *filename) {
-	return (statsave_load_internal(filename, FALSE));
+	return statsave_load_checked(filename, NULL, 0);
+}
+
+int statsave_load_hostfat_override_checked(const char *filename, char *error, int error_size) {
+	return statsave_load_internal(filename, TRUE, error, error_size);
 }
 
 int statsave_load_hostfat_override(const char *filename) {
-	return (statsave_load_internal(filename, TRUE));
+	return statsave_load_hostfat_override_checked(filename, NULL, 0);
 }
 
 #if defined(SUPPORT_OPRECORD)

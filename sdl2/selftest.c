@@ -4425,6 +4425,30 @@ static int test_bms_state_restore(void) {
 	    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
 	    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_REQUIRED"))))
 		problem = "missing BMS state was accepted";
+	for (i = 0; i < 2 && !problem; i++) {
+		UINT extra = i ? 16 + ((LOADINTELDWORD(data + section + 12) + 15) & ~15U) : 16;
+		BYTE *changed = (BYTE *)_MALLOC(size + extra, "state section mutation");
+		BYTE *memory = bmsiowork.bmsmem;
+		UINT16 ip = CPU_IP;
+		const char *code = i ? "M142_STATE_DUPLICATE" : "M142_STATE_UNSUPPORTED_SECTION";
+		if (!changed || statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			if (changed) _MFREE(changed);
+			problem = "section mutation has no passing fixture"; break;
+		}
+		CopyMemory(changed, data, size - 16);
+		ZeroMemory(changed + size - 16, extra);
+		if (i) CopyMemory(changed + size - 16, data + section, extra);
+		else CopyMemory(changed + size - 16, "UNKNOWN", 7);
+		CopyMemory(changed + size - 16 + extra, data + size - 16, 16);
+		if (write_state_fixture(bad, changed, size + extra) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) ||
+		    statsave_load_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) ||
+		    CPU_IP != ip || bmsiowork.bmsmem != memory || memory[0] != 0x5a)
+			problem = "section negative missed its exact guard or mutated the machine";
+		_MFREE(changed);
+	}
 	if (data) _MFREE(data);
 	if (data2) _MFREE(data2);
 	bmsiocfg = preference;
@@ -4433,7 +4457,7 @@ static int test_bms_state_restore(void) {
 	soundmng_deinitialize();
 	file_delete(path); file_delete(again); file_delete(bad);
 	if (problem) return fail("BMS state restore", problem);
-	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, guest bank access, re-save, 6 exact guards)\n");
+	fprintf(stderr, "selftest: BMS state restore ok (5 transitions, guest bank access, re-save, 8 exact guards)\n");
 	return SUCCESS;
 }
 
@@ -9453,6 +9477,7 @@ static int test_opn_backends(void) {
 
 int vaeg_selftest_run(void) {
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
+		if (!gui_state_load_result_selftest()) return fail("GUI state result", "M142_STATE_LOAD_RESULT");
 		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
 		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS) return FAILURE;
 		return SUCCESS;
@@ -9587,6 +9612,7 @@ int vaeg_selftest_run(void) {
 	if (test_opn_backends() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (!gui_state_load_result_selftest()) return fail("GUI state result", "M142_STATE_LOAD_RESULT");
 	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
 	    test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);

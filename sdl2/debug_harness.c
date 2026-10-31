@@ -868,30 +868,21 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			harness.action_index++;
 			break;
 		}
-		case DEBUG_ACTION_LOAD_STATE:
+		case DEBUG_ACTION_LOAD_STATE: {
+			char why[1024] = {0};
 			resource = &harness.resources[action->value];
-			if (!resource->none) {
-				char why[1024];
-
-				why[0] = '\0';
-				(void)statsave_check(resource->path, why, sizeof(why));
-				if (why[0] != '\0') {
-					fprintf(stderr, "load-state: %s\n", why);
-				}
-			}
-			/* (as the GUI: a missing or changed disk only noted) */
-			loaded = resource->none ? STATFLAG_FAILURE : statsave_load(resource->path);
-			if (!resource->none && ((loaded & ~STATFLAG_DISKCHG) != STATFLAG_SUCCESS)) {
-				/* (as the GUI offers: another host's HOSTFAT folder) */
-				loaded = statsave_load_hostfat_override(resource->path);
-			}
-			if ((loaded & ~STATFLAG_DISKCHG) != STATFLAG_SUCCESS) {
+			loaded = resource->none ? STATFLAG_FAILURE :
+			    statsave_load_checked(resource->path, why, sizeof(why));
+			/* No implicit media/HOSTFAT override and no success from a warning. */
+			if (loaded != STATFLAG_SUCCESS) {
+				if (why[0]) fprintf(stderr, "load-state: %s\n", why);
 				fprintf(stderr, "Error: load-state failed (%d)\n", loaded);
 				return FAILURE;
 			}
 			debug_log("load-state", frames, NULL, 0);
 			harness.action_index++;
 			break;
+		}
 		case DEBUG_ACTION_WAIT_PC:
 			if (!harness.wait_armed) {
 				if (upd9002_debug_wait_arm(action->cs, action->ip, action->value) != SUCCESS) {

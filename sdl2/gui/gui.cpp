@@ -6517,42 +6517,42 @@ static void state_save(const std::string &path) {
 	g_gui.state_status += display_file_name(path.c_str());
 }
 
-static void state_load(const std::string &path) {
-	char error[1024];
-	char override_error[1024];
-
-	error[0] = '\0';
-	override_error[0] = '\0';
+/* The actual loader result owns the success status, not the earlier check.
+ * Kept independent of drawing/window APIs for a headless controller test. */
+static const char *state_apply_load_result(const std::string &path, int result, const char *error) {
 	g_gui.state_force_hostfat_available = false;
 	g_gui.state_force_hostfat_path.clear();
+	if (result != STATFLAG_SUCCESS) {
+		g_gui.state_status = "読み込めませんでした: " + path + " [M142_STATE_LOAD_RESULT]";
+		if (error && error[0]) g_gui.state_status += std::string(" (") + error + ")";
+		g_gui.state_error_request = true;
+		return "M142_STATE_LOAD_RESULT";
+	}
+	g_gui.state_status = "読み込みました: " + display_file_name(path.c_str());
+	g_gui.state_error_request = false;
+	return nullptr;
+}
+
+static void state_load(const std::string &path) {
+	char error[1024] = {0};
+	char override_error[1024] = {0};
 	const int ret = statsave_check(path.c_str(), error, sizeof(error));
-	if ((ret & ~STATFLAG_DISKCHG) != 0) {
+	if (ret != STATFLAG_SUCCESS) {
+		state_apply_load_result(path, ret, error);
 		const int override_ret =
 		    statsave_check_hostfat_override(path.c_str(), override_error, sizeof(override_error));
-		g_gui.state_status = "読み込めませんでした: ";
-		g_gui.state_status += path;
-		if (error[0] != '\0') {
-			g_gui.state_status += " (";
-			g_gui.state_status += error;
-			g_gui.state_status += ")";
-		}
-		if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
+		if (override_ret == STATFLAG_SUCCESS) {
 			g_gui.state_force_hostfat_available = true;
 			g_gui.state_force_hostfat_path = path;
 		}
-		g_gui.state_error_request = true;
 		return;
 	}
 	taskmng_clear_fast_forward();
-	statsave_load(path.c_str());
+	const int loaded = statsave_load_checked(path.c_str(), error, sizeof(error));
+	if (state_apply_load_result(path, loaded, error)) return;
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
-	g_gui.state_status = "読み込みました: ";
-	g_gui.state_status += display_file_name(path.c_str());
-	if ((ret & STATFLAG_DISKCHG) != 0) {
-		g_gui.state_status += " (ディスクの違いを無視)";
-	}
 }
 
 // ---- M125: quick saves, quick1 (newest) to quick5, and the state before
@@ -7005,25 +7005,60 @@ static void draw_state_error_dialog(void) {
 	}
 	if (force_load) {
 		taskmng_clear_fast_forward();
-		int ret = statsave_load_hostfat_override(force_path.c_str());
-		if (ret == STATFLAG_FAILURE) {
-			g_gui.state_status = "Forced state load failed: ";
-			g_gui.state_status += force_path;
-			g_gui.state_error_request = true;
-		} else {
+		char error[1024] = {0};
+		int ret = statsave_load_hostfat_override_checked(force_path.c_str(), error, sizeof(error));
+		if (!state_apply_load_result(force_path, ret, error)) {
 			sdlkbd_reset_state();
 			mousemng_reset();
 			scrndrawva_redraw();
 			g_gui.state_status = "State loaded with HOSTFAT override: ";
 			g_gui.state_status += force_path;
-			if ((ret & STATFLAG_DISKCHG) != 0) {
-				g_gui.state_status += " (disk warning ignored)";
-			}
 		}
 	}
 }
 
 } // namespace
+
+extern "C" BOOL gui_state_load_result_selftest(void) {
+	const auto status = g_gui.state_status;
+	const auto force_path = g_gui.state_force_hostfat_path;
+	const bool request = g_gui.state_error_request;
+	const bool available = g_gui.state_force_hostfat_available;
+	const int results[] = {STATFLAG_FAILURE, STATFLAG_DISKCHG, STATFLAG_VERCHG,
+	                       STATFLAG_WARNING, STATFLAG_VERSION};
+	bool passed = true;
+	auto fixture = [] {
+		g_gui.state_status = "fixture";
+		g_gui.state_error_request = false;
+		g_gui.state_force_hostfat_available = true;
+		g_gui.state_force_hostfat_path = "fixture.sav";
+	};
+	for (int result : results) {
+		/* Identical context/arguments except the single loader-result mutation. */
+		fixture();
+		if (state_apply_load_result("fixture.sav", STATFLAG_SUCCESS, "synthetic detail") ||
+		    g_gui.state_error_request || g_gui.state_force_hostfat_available ||
+		    !g_gui.state_force_hostfat_path.empty() || g_gui.state_status.rfind("読み込みました", 0) != 0) {
+			passed = false;
+			break;
+		}
+		fixture();
+		const char *code = state_apply_load_result("fixture.sav", result, "synthetic detail");
+		if (!code || strcmp(code, "M142_STATE_LOAD_RESULT") != 0 ||
+		    !g_gui.state_error_request || g_gui.state_force_hostfat_available ||
+		    !g_gui.state_force_hostfat_path.empty() ||
+		    g_gui.state_status.rfind("読み込めませんでした", 0) != 0) {
+			passed = false;
+			break;
+		}
+	}
+	g_gui.state_status = status;
+	g_gui.state_force_hostfat_path = force_path;
+	g_gui.state_error_request = request;
+	g_gui.state_force_hostfat_available = available;
+	if (passed) fprintf(stderr, "selftest: GUI state-result controller ok (5 exact result guards; no window inspection)\n");
+	return passed ? TRUE : FALSE;
+}
 
 extern "C" void gui_session_end(void) {
 	history_note_session_display();
