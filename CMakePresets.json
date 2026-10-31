@@ -144,6 +144,13 @@
       }
     },
     {
+      "name": "mingw-macports",
+      "displayName": "Windows MinGW Release (MacPorts cross, no container)",
+      "inherits": "mingw-cross",
+      "binaryDir": "${sourceDir}/build/mingw-macports",
+      "toolchainFile": "${sourceDir}/cmake/mingw-macports.cmake"
+    },
+    {
       "name": "mingw-ci",
       "displayName": "Windows MinGW CI Release (MSYS2 native)",
       "inherits": "mingw-static-dependencies",
@@ -260,6 +267,10 @@
     {
       "name": "mingw-cross",
       "configurePreset": "mingw-cross"
+    },
+    {
+      "name": "mingw-macports",
+      "configurePreset": "mingw-macports"
     },
     {
       "name": "mingw-ci",

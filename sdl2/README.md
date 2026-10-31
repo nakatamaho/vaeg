@@ -247,6 +247,23 @@ pre-instruction register state plus optional TVRAM and rendered BMP before the
 CPU resumes. `mount-fdd` accepts only a previously declared neutral resource
 identifier; `none` ejects the selected drive.
 
+`save-state ID` writes `ID.state` under the debug output directory using the
+same audio boundary and serializer as the GUI. IDs use the capture-ID grammar;
+paths and existing destinations are rejected (`M142_DEBUG_STATE_ID`,
+`M142_DEBUG_STATE_EXISTS`). `load-state RESOURCE` loads a declared resource
+using the shared state/disk-remapping path. Neither action needs a PC event.
+Generated states and private bindings stay outside Git.
+
+`tools/qa/runtime_state_roundtrip.py --selftest` tests the independent content
+layer. Its local integration mode accepts explicit `--worker`, `--roms`,
+`--kit` (the source-built TVRAM kit), `--evaluated-commit` and a new out-of-tree
+`--output-dir`. It checks actual save/load continuation registers, TVRAM/GVRAM,
+expansion payload sizes, config/process restart and save-path guards. Clock
+samples are retained, but cycle-exact prefetch-queue restoration is not its
+contract. SDL dummy results do not establish GUI, presenter or cross-OS
+interoperability acceptance. Input paths/hashes and raw output remain local;
+this runner must not upload private assets or their identities to hosted CI.
+
 Capture IDs become deterministic filenames under the output directory:
 `.registers.tsv`, `.tvram.bin`, `.screen.bmp`, and `.trace.log`. `events.tsv`
 contains event and final counter rows. The logs contain neutral IDs rather than

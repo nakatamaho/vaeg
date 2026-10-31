@@ -1,0 +1,47 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+set(VAEG_MACPORTS_PREFIX "/opt/local" CACHE PATH "MacPorts installation prefix")
+set(VAEG_MINGW_DEPENDENCY_PREFIX "" CACHE PATH "Target-only static recording SDK")
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
+    VAEG_MACPORTS_PREFIX VAEG_MINGW_DEPENDENCY_PREFIX)
+set(CMAKE_C_COMPILER "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-gcc")
+set(CMAKE_CXX_COMPILER "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-g++")
+set(CMAKE_RC_COMPILER "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-windres")
+set(CMAKE_AR "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-ar")
+set(CMAKE_RANLIB "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-ranlib")
+set(CMAKE_NM "${VAEG_MACPORTS_PREFIX}/bin/x86_64-w64-mingw32-nm")
+set(CMAKE_FIND_ROOT_PATH "${VAEG_MACPORTS_PREFIX}/x86_64-w64-mingw32")
+if(VAEG_MINGW_DEPENDENCY_PREFIX)
+    list(APPEND CMAKE_FIND_ROOT_PATH "${VAEG_MINGW_DEPENDENCY_PREFIX}")
+    set(ENV{PKG_CONFIG_LIBDIR} "${VAEG_MINGW_DEPENDENCY_PREFIX}/lib/pkgconfig")
+else()
+    # Deliberately empty of host packages, even before an SDK is supplied.
+    set(ENV{PKG_CONFIG_LIBDIR} "${CMAKE_FIND_ROOT_PATH}/lib/pkgconfig")
+endif()
+set(ENV{PKG_CONFIG_PATH} "")
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "")
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)

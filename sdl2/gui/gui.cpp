@@ -3928,7 +3928,7 @@ static void draw_speed_control(void) {
  * time. A preset is a multiplier of the 3.9936 MHz base and a 10-100 %
  * speed; both apply at once, without a reset. In 88 mode the H/S input
  * selects the base; native V3 BRKEM is independent of that selection.
- * Retain historical presets as additional adjustments, not H/S aliases.
+ * Nominal MHz presets resolve against that live base, not an H/S alias.
  */
 struct CpuClockPreset {
 	const char *label;
@@ -3938,12 +3938,7 @@ struct CpuClockPreset {
 
 static const CpuClockPreset kCpuClockPresets[] = {
     {"機種の既定", PCCORE_STANDARD_MULTIPLE, 100},
-    {"PC-8801 標準速度相当", PCCORE_STANDARD_MULTIPLE, 50},
-    {"PC-8801 高速相当", PCCORE_STANDARD_MULTIPLE, 100},
     {nullptr, 0, 0},
-    {"2倍", PCCORE_STANDARD_MULTIPLE * 2, 100},
-    {"4倍", PCCORE_STANDARD_MULTIPLE * 4, 100},
-    {"8倍", PCCORE_STANDARD_MULTIPLE * 8, 100},
 };
 
 static void set_cpu_clock(UINT multiple, UINT speed) {
@@ -3981,6 +3976,20 @@ static void draw_cpu_clock_menu(void) {
 			set_cpu_clock(preset.multiple, preset.speed);
 		}
 	}
+	/* Numeric choices refer to the active domain, not to a hidden H/S
+	 * multiplier. Higher entries replace the old x2/x4/x8-only labels. */
+	for (const UINT mhz : {4u, 8u, 10u, 12u, 20u}) {
+		UINT preset_multiple, preset_speed;
+		if (!machine_status_clock_settings(mhz, status.compatible && pccore_88_standard(),
+		                                   &preset_multiple, &preset_speed))
+			continue;
+		char label[32];
+		std::snprintf(label, sizeof(label), "%u MHz", mhz);
+		const bool selected = !matched && multiple * speed == preset_multiple * preset_speed;
+		matched = matched || selected;
+		if (ImGui::MenuItem(label, nullptr, selected))
+			set_cpu_clock(preset_multiple, preset_speed);
+	}
 	if (ImGui::BeginMenu("任意", true)) {
 		int value = static_cast<int>(multiple);
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
@@ -3997,7 +4006,7 @@ static void draw_cpu_clock_menu(void) {
 		ImGui::EndMenu();
 	}
 	ImGui::Separator();
-	ImGui::TextDisabled("88 モードは H/S が基準。速度 50%% はさらに半速です。");
+	ImGui::TextDisabled("MHz は公称値です。88 モードの H/S 切替で基準も変わります。");
 	ImGui::EndMenu();
 }
 
@@ -6205,7 +6214,7 @@ static void draw_about_dialog(void) {
 			ImGui::TableSetupColumn("buttons", ImGuiTableColumnFlags_WidthFixed, 88.0f);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text("88VA Eternal Grafx  %s", VAEGREL_CORE);
+			ImGui::Text("88VA Eternal Grafx  %s", VAEGREL_DISPLAY);
 			ImGui::TableNextColumn();
 			close_about = ImGui::Button("OK", ImVec2(-1.0f, 0.0f));
 			ImGui::TableNextRow();
@@ -6489,13 +6498,11 @@ static void state_thumbnail_tooltip(const std::string &state) {
 	}
 }
 
-/* Write a state and its thumbnail; a failed state is removed. */
+/* The serializer commits atomically; a failed replacement keeps the old SAV. */
 static bool state_write(const std::string &path) {
 	soundmng_stop();
 	const bool ok = statsave_save(path.c_str()) == STATFLAG_SUCCESS;
-	if (!ok) {
-		file_delete(path.c_str());
-	} else {
+	if (ok) {
 		const std::string thumbnail = state_thumbnail_path(path);
 		(void)scrnmng_save_guest_thumbnail(thumbnail.c_str(), kStateThumbnailWidth);
 	}
@@ -6508,42 +6515,45 @@ static void state_save(const std::string &path) {
 	g_gui.state_status += display_file_name(path.c_str());
 }
 
-static void state_load(const std::string &path) {
-	char error[1024];
-	char override_error[1024];
-
-	error[0] = '\0';
-	override_error[0] = '\0';
+/* The actual loader result owns the success status, not the earlier check.
+ * Kept independent of drawing/window APIs for a headless controller test. */
+static const char *state_apply_load_result(const std::string &path, int result, const char *error) {
 	g_gui.state_force_hostfat_available = false;
 	g_gui.state_force_hostfat_path.clear();
+	if (result != STATFLAG_SUCCESS) {
+		g_gui.state_status = "読み込めませんでした: " + path + " [M142_STATE_LOAD_RESULT]";
+		if (error && error[0])
+			g_gui.state_status += std::string(" (") + error + ")";
+		g_gui.state_error_request = true;
+		return "M142_STATE_LOAD_RESULT";
+	}
+	g_gui.state_status = "読み込みました: " + display_file_name(path.c_str());
+	g_gui.state_error_request = false;
+	return nullptr;
+}
+
+static bool state_load(const std::string &path) {
+	char error[1024] = {0};
+	char override_error[1024] = {0};
 	const int ret = statsave_check(path.c_str(), error, sizeof(error));
-	if ((ret & ~STATFLAG_DISKCHG) != 0) {
+	if (ret != STATFLAG_SUCCESS) {
+		state_apply_load_result(path, ret, error);
 		const int override_ret =
 		    statsave_check_hostfat_override(path.c_str(), override_error, sizeof(override_error));
-		g_gui.state_status = "読み込めませんでした: ";
-		g_gui.state_status += path;
-		if (error[0] != '\0') {
-			g_gui.state_status += " (";
-			g_gui.state_status += error;
-			g_gui.state_status += ")";
-		}
-		if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
+		if (override_ret == STATFLAG_SUCCESS) {
 			g_gui.state_force_hostfat_available = true;
 			g_gui.state_force_hostfat_path = path;
 		}
-		g_gui.state_error_request = true;
-		return;
+		return false;
 	}
 	taskmng_clear_fast_forward();
-	statsave_load(path.c_str());
+	const int loaded = statsave_load_checked(path.c_str(), error, sizeof(error));
+	if (state_apply_load_result(path, loaded, error))
+		return false;
 	sdlkbd_reset_state();
 	mousemng_reset();
 	scrndrawva_redraw();
-	g_gui.state_status = "読み込みました: ";
-	g_gui.state_status += display_file_name(path.c_str());
-	if ((ret & STATFLAG_DISKCHG) != 0) {
-		g_gui.state_status += " (ディスクの違いを無視)";
-	}
+	return true;
 }
 
 // ---- M125: quick saves, quick1 (newest) to quick5, and the state before
@@ -6624,7 +6634,7 @@ static void quick_save(void) {
 	show_osd(g_gui.state_status);
 }
 
-static void state_load(const std::string &path);
+static bool state_load(const std::string &path);
 
 /* Load quick save `index`; the state before it is kept as quickundo. */
 static void quick_load(int index) {
@@ -6637,11 +6647,14 @@ static void quick_load(int index) {
 		show_osd(g_gui.state_status);
 		return;
 	}
-	(void)state_write(quick_undo_file(dir));
-	state_load(path);
-	show_osd((g_gui.state_status.rfind("読み込みました", 0) == 0)
-	             ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
-	             : g_gui.state_status);
+	if (!state_write(quick_undo_file(dir))) {
+		g_gui.state_status = "読み込みを中止しました [M142_STATE_UNDO_SAVE]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	const bool loaded = state_load(path);
+	show_osd(loaded ? "クイックセーブ " + std::to_string(index) + " を読み込みました"
+	                : g_gui.state_status);
 }
 
 static void quick_undo(void) {
@@ -6653,11 +6666,29 @@ static void quick_undo(void) {
 	if (!fs::is_regular_file(fs::u8path(undo), ec)) {
 		return;
 	}
-	// swap: the state now becomes the undo, so a second undo returns
-	quick_rename(undo, held);
-	quick_rename(state_thumbnail_path(undo), state_thumbnail_path(held));
-	(void)state_write(undo);
-	state_load(held);
+	// Keep both snapshots if either saving or loading fails. An earlier held
+	// snapshot is never overwritten by another undo attempt.
+	if (fs::exists(fs::u8path(held), ec) || ec ||
+	    file_rename_atomic(undo.c_str(), held.c_str(), TRUE) != 0) {
+		g_gui.state_status = "取り消し用の状態を保護できません [M142_STATE_UNDO_HOLD]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	(void)file_rename_atomic(state_thumbnail_path(undo).c_str(), state_thumbnail_path(held).c_str(),
+	                         TRUE);
+	if (!state_write(undo)) {
+		(void)file_rename_atomic(held.c_str(), undo.c_str(), TRUE);
+		(void)file_rename_atomic(state_thumbnail_path(held).c_str(),
+		                         state_thumbnail_path(undo).c_str(), TRUE);
+		g_gui.state_status = "取り消し用の保存に失敗しました [M142_STATE_UNDO_SAVE]";
+		show_osd(g_gui.state_status);
+		return;
+	}
+	if (!state_load(held)) {
+		/* held is the requested target, undo is the pre-load machine. */
+		show_osd(g_gui.state_status + " (両方の状態を保存しています)");
+		return;
+	}
 	file_delete(held.c_str());
 	file_delete(state_thumbnail_path(held).c_str());
 	show_osd("クイックロードの前に戻しました");
@@ -6996,25 +7027,63 @@ static void draw_state_error_dialog(void) {
 	}
 	if (force_load) {
 		taskmng_clear_fast_forward();
-		int ret = statsave_load_hostfat_override(force_path.c_str());
-		if (ret == STATFLAG_FAILURE) {
-			g_gui.state_status = "Forced state load failed: ";
-			g_gui.state_status += force_path;
-			g_gui.state_error_request = true;
-		} else {
+		char error[1024] = {0};
+		int ret = statsave_load_hostfat_override_checked(force_path.c_str(), error, sizeof(error));
+		if (!state_apply_load_result(force_path, ret, error)) {
 			sdlkbd_reset_state();
 			mousemng_reset();
 			scrndrawva_redraw();
 			g_gui.state_status = "State loaded with HOSTFAT override: ";
 			g_gui.state_status += force_path;
-			if ((ret & STATFLAG_DISKCHG) != 0) {
-				g_gui.state_status += " (disk warning ignored)";
-			}
 		}
 	}
 }
 
 } // namespace
+
+extern "C" BOOL gui_state_load_result_selftest(void) {
+	const auto status = g_gui.state_status;
+	const auto force_path = g_gui.state_force_hostfat_path;
+	const bool request = g_gui.state_error_request;
+	const bool available = g_gui.state_force_hostfat_available;
+	const int results[] = {STATFLAG_FAILURE, STATFLAG_DISKCHG, STATFLAG_VERCHG, STATFLAG_WARNING,
+	                       STATFLAG_VERSION};
+	bool passed = true;
+	auto fixture = [] {
+		g_gui.state_status = "fixture";
+		g_gui.state_error_request = false;
+		g_gui.state_force_hostfat_available = true;
+		g_gui.state_force_hostfat_path = "fixture.sav";
+	};
+	for (int result : results) {
+		/* Identical context/arguments except the single loader-result mutation. */
+		fixture();
+		if (state_apply_load_result("fixture.sav", STATFLAG_SUCCESS, "synthetic detail") ||
+		    g_gui.state_error_request || g_gui.state_force_hostfat_available ||
+		    !g_gui.state_force_hostfat_path.empty() ||
+		    g_gui.state_status.rfind("読み込みました", 0) != 0) {
+			passed = false;
+			break;
+		}
+		fixture();
+		const char *code = state_apply_load_result("fixture.sav", result, "synthetic detail");
+		if (!code || strcmp(code, "M142_STATE_LOAD_RESULT") != 0 || !g_gui.state_error_request ||
+		    g_gui.state_force_hostfat_available || !g_gui.state_force_hostfat_path.empty() ||
+		    g_gui.state_status.rfind("読み込めませんでした", 0) != 0) {
+			passed = false;
+			break;
+		}
+	}
+	g_gui.state_status = status;
+	g_gui.state_force_hostfat_path = force_path;
+	g_gui.state_error_request = request;
+	g_gui.state_force_hostfat_available = available;
+	if (passed)
+		fprintf(
+		    stderr,
+		    "selftest: GUI state-result controller ok (5 exact result guards; no window inspection)\n");
+	return passed ? TRUE : FALSE;
+}
 
 extern "C" void gui_session_end(void) {
 	history_note_session_display();

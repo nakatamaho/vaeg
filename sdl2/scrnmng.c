@@ -123,7 +123,7 @@ typedef struct {
 	UINT32 fps_tenths;
 } VAEG_SPEEDMETER;
 
-static const char app_name[] = "88VA Eternal Grafx " VAEGREL_CORE;
+static const char app_name[] = "88VA Eternal Grafx " VAEGREL_DISPLAY;
 static const UINT32 vaeg_nominal_frame_rate = 60;
 enum {
 	SCRNMNG_CANVAS_WIDTH = 640,

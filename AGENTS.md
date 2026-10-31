@@ -438,6 +438,34 @@ function instead.
   tag `archive/frozen-win9x-i286x-g56`; it is not a current build target and
   has no CI or compile-guarantee coverage.
 
+### Local DOSBox on macOS arm64
+
+On the maintainer's macOS arm64 setup, use the isolated DOSBox build at
+`~/work/pc88va/dosbox/bin/dosbox` for DOS-based media build tools. Add it to
+PATH for the child command only; do not install a system port or change the
+login-shell PATH:
+
+```sh
+PATH="$HOME/work/pc88va/dosbox/bin:$PATH" \
+  VAEG_OPENWATCOM_BACKEND=dosbox \
+  VAEG_OPENWATCOM_DOS_ARCHIVE="$OPENWATCOM_ARCHIVE" \
+  tools/pc88va/build-utility-disk.sh --source "$SYSTEM_01" --output "$UTILITY_FDD"
+```
+
+This is DOSBox 0.74-3 with a console entry point and local SDL libraries,
+not a GUI-tested application or a fully static executable. Keep the whole
+`~/work/pc88va/dosbox/` installation together; its launcher confines HOME
+and configuration to that directory. Source/build identities and logs are
+recorded in its `BUILD-REPORT.md` and `build-manifest.json` outside Git.
+The compiler archive binding is the exact release pinned by
+`tools/openwatcom/containerfile`; the DOS backend verifies it before using
+its `binw` tools. See `docs/modernization/pc88va-utility-media.md` for the
+backend contract and `docs/agents/reports/m142_utility_media_regression.md`
+for the subsequent WSP/DIET/JWasm, compiler, media and scoped boot results.
+Tool availability alone is not a complete utility-media or runtime PASS.
+If this local installation is unavailable, report it rather than silently
+installing system packages or falling back to a container.
+
 ### Colima and Docker storage
 
 Create a dedicated directory under the current working directory for Colima
@@ -516,6 +544,36 @@ the copy.
 This is a maintainer-local directory outside Git. Unless explicitly requested,
 replace only `vaeg` and `vaeg.exe`; do not alter or inventory its ROMs, disk
 images, configuration, save data, or other private integration assets.
+
+## Release identity and artifact names
+
+Maintainer-approved policy (M142): keep the date as the release number and
+append the milestone as separate build identity. Development/check builds
+also show the short source commit SHA.
+
+- Official release display: `Rel.20261029 (M141)` — includes work through the
+  explicitly accepted M141 scope, not a claim about every open issue.
+- Development/check display: `Rel.20261029 (M142-dev, 2e662105)` — keep `-dev`
+  until the milestone's required gate is explicitly accepted. The SHA is the
+  actual built source commit's first eight hexadecimal characters.
+- Official Windows archive: `vaeg-20261029-m141-windows-x64.zip`.
+- Keep the executable inside the archive named `vaeg.exe` (native Unix/macOS:
+  `vaeg`); do not append the date, milestone or SHA to the executable name.
+- Declare the source milestone explicitly in tracked build metadata. Never
+  infer it from the latest commit subject, the highest task filename, or the
+  most recently merged branch: later documentation commits can carry an older
+  milestone ID, and historical parallel IDs do not establish release scope.
+- Use the same generated identity for the window title, About, `--version`
+  and build report. Keep the date-only release value available separately for
+  existing format/version compatibility; the descriptive suffix is not a
+  reason to change state or operation-record wire formats.
+- Release packaging must use that declared milestone and distinguish official
+  releases from `-dev` candidates. Do not publish a development milestone as
+  accepted merely because its build succeeded. Development archive names must
+  also distinguish the source SHA when more than one candidate is produced.
+- Existing published tags, releases and asset names are immutable. Apply this
+  naming policy to future builds/releases; do not rename or replace old assets
+  or publish a new release without the maintainer's release authorization.
 
 ## Commit messages
 

@@ -564,16 +564,20 @@ BootMode=0
 - `sgp_mode`: Model default (0), Follow CPU (1), or Custom (2) with
   `sgp_mult=1..16`, set in 模擬 -> 詳細設定….
 - `BootMode`: 自動 (0), V1/V2 (1), or N (2). `NDP8087=1` enables the 8087
-  (the default), `PCG=1` the PCG-8100/8800, and `ExtraMachine` names a
+  (the default), `PCG=1` the PCG-8100/8800 (also the default), and `ExtraMachine` names a
   PC-8801 or PC-8001 model under `extra/`.
 
 In the GUI, `模擬 -> 起動 -> PC-88VA2/VA3 / PC-88VA` selects the machine and
 its mode (自動, V2 H/S, V1 H/S, or N with a found N-BASIC ROM; N needs
-`模擬 -> 詳細設定…` > N モード, off by default as the VA has no N-BASIC), and the
+`模擬 -> 詳細設定…` > N モード, enabled by default with
+`V1V2_NModeEnable=true`; a user-supplied N-BASIC ROM is still required), and the
 PC-8801 and PC-8001 models found under `extra/` follow below. Changing the
 model selects its default sound hardware and ROM set and resets the guest
 while keeping the FDD and SASI media. `模擬 -> CPU クロック` holds the clock
 presets, and `音 -> FM 音源ボード` can add Sound Board II to a VA.
+PCG and VA/VA2 N-mode availability default to ON only when their configuration
+keys are absent; explicit `PCG=false` or `V1V2_NModeEnable=false` remain OFF.
+The default boot selection remains 自動 (`BootMode=0`), not forced N mode.
 
 ## Quick Build
 

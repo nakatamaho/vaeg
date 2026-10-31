@@ -40,7 +40,6 @@ static BOOL d88trk_flushdata(D88TRK trk) {
 	FILEH fh;
 
 	fdd = trk->fdd;
-	trk->fdd = NULL;
 	if ((fdd == NULL) || (trk->size == 0) || (!trk->write)) {
 		goto dtfd_exit;
 	}
@@ -56,6 +55,7 @@ static BOOL d88trk_flushdata(D88TRK trk) {
 	trk->write = FALSE;
 
 dtfd_exit:
+	trk->fdd = NULL;
 	return (SUCCESS);
 
 dtfd_err2:
@@ -196,6 +196,12 @@ static BOOL rpmcheck(D88SEC sec) {
 
 // ----
 
+/* Save/load identity must include guest writes still in the track cache.
+ * A failed flush retains its owner and dirty flag for a subsequent retry. */
+BOOL fddd88_flush(void) {
+	return d88trk_flushdata(&d88trk);
+}
+
 static void drvflush(FDDFILE fdd) {
 	D88TRK trk;
 
@@ -327,7 +333,7 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	if (attr & 0x18) {
 		goto fdst_err;
 	}
-	fh = file_open(fname);
+	fh = file_open_rb(fname);
 	if (fh == FILEH_INVALID) {
 		goto fdst_err;
 	}
@@ -387,7 +393,7 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 		}
 	}
 	if (fdd->inf.d88.fdtype_major == DISKTYPE_2D) {
-		fh = file_open(fname);
+		fh = file_open_rb(fname);
 		if (fh != FILEH_INVALID) {
 			for (track = 2; track < 164; track++) {
 				UINT32 offset = fdd->inf.d88.ptr[track];

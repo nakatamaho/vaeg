@@ -40,7 +40,7 @@ import subprocess
 import sys
 
 import screen_compare as screen
-from x11_capture import default_cases, digest
+from x11_capture import default_cases, digest, GUEST_LINES
 
 CONTRACT = "g132-x11-matrix-v1"
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,10 +58,52 @@ def case_set(cases):
     screen.require(isinstance(cases, dict) and set(cases) == expected, "M132_UI_MATRIX_CASE_SET")
 
 
+def reusable_capture(report, case, expected):
+    worker_binding(report, expected)
+    screen.require(report.get('status') == 'CAPTURED_UNREVIEWED' and report.get('case') == case,
+                   'M132_UI_MATRIX_INCOMPLETE')
+    screen.require(all(report.get(key) == expected[key] for key in
+                       ('rom_files', 'backup_seed_sha256', 'display_kind')) and
+                   report.get('output_digests', {}).get('input.txt') ==
+                   hashlib.sha256(('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest(),
+                   'M132_UI_REUSE_INPUTS')
+
+
 def capture(args):
+    prior_path = getattr(args, 'retry_from', None)
+    prior = None
+    expected = {'worker_sha256': digest(args.worker), 'evaluated_commit': args.evaluated_commit,
+                'backup_seed_sha256': digest(args.backup_seed), 'display_kind': args.display_kind,
+                'rom_files': {str(path.relative_to(args.roms)): digest(path)
+                              for path in sorted(args.roms.rglob('*'))
+                              if path.is_file() and path.suffix.lower() == '.rom'}}
+    if prior_path is not None:
+        prior_path = prior_path.resolve()
+        requested = args.output_dir.resolve()
+        screen.require(prior_path != requested and prior_path not in requested.parents and
+                       requested not in prior_path.parents, 'M132_UI_REUSE_INPUTS')
+        prior = json.loads((prior_path / 'matrix.json').read_text())
+        case_set(prior.get('cases'))
+        worker_binding(prior, expected)
     output = new_output(args.output_dir)
-    results = {}
+    results, reused = {}, []
     for case in default_cases():
+        name = case['id']
+        previous = prior['cases'][name] if prior is not None else None
+        if previous and previous['exit_status'] == 0 and previous['status'] == 'CAPTURED_UNREVIEWED':
+            root = prior_path / name
+            screen.require(digest(root / 'result.json') == previous['report_sha256'],
+                           'M132_UI_MATRIX_CAPTURE_BINDING')
+            report = json.loads((root / 'result.json').read_text())
+            reusable_capture(report, case, expected)
+            for filename, value in report['output_digests'].items():
+                screen.require(Path(filename).name == filename and '\\' not in filename and
+                               digest(root / filename) == value, 'M132_UI_MATRIX_CAPTURE_BINDING')
+            shutil.copytree(root, output / name)
+            results[name] = previous
+            reused.append(name)
+            print(name, 'REUSED_CAPTURED_UNREVIEWED', flush=True)
+            continue
         case_path = output / (case["id"] + ".json")
         case_path.write_text(json.dumps(case, indent=2) + "\n")
         argv = [sys.executable, str(Path(__file__).with_name("x11_capture.py")),
@@ -80,7 +122,8 @@ def capture(args):
     complete = all(row["exit_status"] == 0 and row["status"] == "CAPTURED_UNREVIEWED" for row in results.values())
     report = {"contract": CONTRACT, "status": "CAPTURED_UNREVIEWED" if complete else "FAIL",
               "gate_pass": False, "evaluated_commit": args.evaluated_commit, "worker_sha256": digest(args.worker),
-              "tool_sha256": digest(__file__), "cases": results}
+              "tool_sha256": digest(__file__), "cases": results, "reused_cases": reused,
+              "reused_matrix_sha256": digest(prior_path / 'matrix.json') if prior_path is not None else None}
     (output / "matrix.json").write_text(json.dumps(report, indent=2) + "\n")
     return 0 if complete else 1
 
@@ -276,6 +319,17 @@ def selftest():
     worker_binding(identity, identity)
     rejects(lambda: worker_binding({**identity, "worker_sha256": "1" * 64}, identity),
             "M132_UI_MATRIX_WORKER_BINDING")
+    expected = {**identity, 'rom_files': {'ROM_01': 'a' * 64},
+                'backup_seed_sha256': 'b' * 64, 'display_kind': 'virtual-x11'}
+    capture_fixture = {**expected, 'case': case, 'status': 'CAPTURED_UNREVIEWED',
+                       'output_digests': {'input.txt': hashlib.sha256(
+                           ('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest()}}
+    for mutation in ({'rom_files': {'ROM_01': 'c' * 64}},
+                     {'backup_seed_sha256': 'd' * 64},
+                     {'output_digests': {'input.txt': 'e' * 64}}):
+        reusable_capture(capture_fixture, case, expected)
+        rejects(lambda: reusable_capture({**capture_fixture, **mutation}, case, expected),
+                'M132_UI_REUSE_INPUTS')
     draft = {"approval": {"status": "DRAFT", "record": None}}
     approved = {"approval": {"status": "APPROVED", "record": "synthetic fixture approval"}}
     screen.require(not reference_approval(draft) and reference_approval(approved), "M132_UI_SELFTEST")
@@ -292,7 +346,7 @@ def selftest():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("capture", "prepare", "compare", "selftest"))
-    for name in ("worker", "roms", "backup-seed", "capture-dir", "reference-dir", "output-dir"):
+    for name in ("worker", "roms", "backup-seed", "capture-dir", "reference-dir", "output-dir", "retry-from"):
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--evaluated-commit")
     parser.add_argument("--display")

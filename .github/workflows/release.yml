@@ -49,6 +49,8 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
           fetch-depth: 0
+      - name: Reject an unaccepted development milestone
+        run: cmake -P cmake/release_identity.cmake
       - name: Validate release recording contract
         run: python3 tools/release/check-recording-release.py
       - name: Install dependencies
@@ -105,15 +107,15 @@ jobs:
       - name: Package
         run: |
           set -euo pipefail
-          release_id="${RELEASE_TAG//-/}"
           release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
-          package="vaeg-${release_id}-linux-x86_64"
+          package="$(python3 tools/release/package-identity.py --identity build/linux-ci-gcc/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform linux-x86_64)"
           asset="${package}.tar.gz"
           test -f "${release_notes}"
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
+          cp build/linux-ci-gcc/generated/release-identity.json "dist-package/${package}/build-identity.json"
           bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
@@ -141,13 +143,12 @@ jobs:
           set -euo pipefail
           release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
           test -f "${release_notes}"
+          release_title="$(python3 tools/release/package-identity.py --identity build/linux-ci-gcc/generated/release-identity.json --tag "$RELEASE_TAG" --field title)"
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release edit "${RELEASE_TAG}" \
               --title "${release_title}" \
               --notes-file "${release_notes}"
           else
-            release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release create "${RELEASE_TAG}" \
               --draft \
               --verify-tag \
@@ -159,9 +160,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          release_id="${RELEASE_TAG//-/}"
+          package="$(python3 tools/release/package-identity.py --identity build/linux-ci-gcc/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform linux-x86_64)"
           gh release upload "${RELEASE_TAG}" \
-            "vaeg-${release_id}-linux-x86_64.tar.gz" \
+            "${package}.tar.gz" \
             docs/images/vaeg-20261025-192336-0000017427-000.png \
             docs/images/vaeg-20261025-192522-0000123417-000.png \
             docs/images/vaeg-20261025-203526-0000090924-000.png \
@@ -258,13 +259,13 @@ jobs:
       - name: Stage package
         run: |
           set -euo pipefail
-          release_id="${RELEASE_TAG//-/}"
           release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
-          package="vaeg-${release_id}-win-x86_64"
+          package="$(python3 tools/release/package-identity.py --identity build/mingw-ci/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform windows-x64)"
           test -f "${release_notes}"
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
+          cp build/mingw-ci/generated/release-identity.json "dist-package/${package}/build-identity.json"
           bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           cp assets/OFL.txt "dist-package/${package}/assets/"
@@ -284,8 +285,8 @@ jobs:
       - name: Zip package
         shell: pwsh
         run: |
-          $releaseId = $env:RELEASE_TAG -replace '-', ''
-          $package = "vaeg-$releaseId-win-x86_64"
+          $package = python tools/release/package-identity.py --identity build/mingw-ci/generated/release-identity.json --tag $env:RELEASE_TAG --field package --platform windows-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $asset = "$package.zip"
           if (Test-Path $asset) {
             Remove-Item $asset
@@ -298,8 +299,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $releaseId = $env:RELEASE_TAG -replace '-', ''
-          gh release upload $env:RELEASE_TAG "vaeg-$releaseId-win-x86_64.zip" --clobber
+          $package = python tools/release/package-identity.py --identity build/mingw-ci/generated/release-identity.json --tag $env:RELEASE_TAG --field package --platform windows-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $env:RELEASE_TAG "$package.zip" --clobber
 
   macos:
     name: macos fetch-sdl2 release
@@ -363,15 +365,15 @@ jobs:
           set -euo pipefail
           file build/macos-ci/sdl2/vaeg | tee vaeg-file.txt
           grep -q 'arm64' vaeg-file.txt
-          release_id="${RELEASE_TAG//-/}"
           release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
-          package="vaeg-${release_id}-macos-arm64"
+          package="$(python3 tools/release/package-identity.py --identity build/macos-ci/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform macos-arm64)"
           asset="${package}.tar.gz"
           test -f "${release_notes}"
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
+          cp build/macos-ci/generated/release-identity.json "dist-package/${package}/build-identity.json"
           bash tools/release/stage-recording-assets.sh build/recording-sdk "dist-package/${package}"
           cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
@@ -405,9 +407,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          release_id="${RELEASE_TAG//-/}"
+          package="$(python3 tools/release/package-identity.py --identity build/macos-ci/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform macos-arm64)"
           gh release upload "${RELEASE_TAG}" \
-            "vaeg-${release_id}-macos-arm64.tar.gz" \
+            "${package}.tar.gz" \
             --clobber
 
   publish:

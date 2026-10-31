@@ -4,6 +4,7 @@ extern "C" {
 #endif
 
 BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro);
+BOOL fddd88_flush(void);
 /* M120: a D88 file may hold several disks back to back. */
 enum {
 	FDDD88_NAME_SIZE = 18,

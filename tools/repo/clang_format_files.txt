@@ -55,6 +55,8 @@ common/rect.c
 common/rect.h
 common/resize.c
 common/resize.h
+common/sha256.c
+common/sha256.h
 common/strres.c
 common/strres.h
 common/textfile.c
@@ -332,6 +334,7 @@ sound/vermouth/midvoice.c
 sound/vermouth/midvoice.h
 sound/vermouth/vermouth.h
 sound/ymfmbridge.h
+tests/common/sha256.c
 tests/frontend/recording/test_mp4_windows_probe.cpp
 tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp

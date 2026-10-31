@@ -730,7 +730,7 @@ static int test_va_bms_window(void) {
 	result = SUCCESS;
 
 	bmsiocfg.enabled = FALSE;
-	if ((BMSIO_DEFAULT_ENABLED != TRUE) || (BMSIO_PORT_DEFAULT != 0x01d0) ||
+	if ((BMSIO_DEFAULT_ENABLED != FALSE) || (BMSIO_PORT_DEFAULT != 0x01d0) ||
 	    (BMSIO_PORT_COMPAT != 0x00ec) || (BMSIO_BANK_BYTES != 0x20000) ||
 	    (BMSIO_DEFAULT_BANKS != 0x80) ||
 	    (((UINT32)BMSIO_DEFAULT_BANKS * BMSIO_BANK_BYTES) != 0x01000000)) {
@@ -903,7 +903,7 @@ static int test_va_ems_board(void) {
 		goto ems_test_cleanup;
 	}
 
-	if ((EMSIO_DEFAULT_MEGABYTES != 13) || (EMSIO_MIN_MEGABYTES != 1) ||
+	if ((EMSIO_DEFAULT_MEGABYTES != 0) || (EMSIO_MIN_MEGABYTES != 1) ||
 	    (EMSIO_MAX_MEGABYTES != 13)) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
@@ -2153,6 +2153,11 @@ static int test_profile_ini(void) {
 	read_ndp8087_enable = 0;
 	read_ndp8087_clock_hz = 0;
 	ZeroMemory(&read_bms, sizeof(read_bms));
+	read_bms.enabled = BMSIO_DEFAULT_ENABLED;
+	read_ems_megabytes = EMSIO_DEFAULT_MEGABYTES;
+	ini_read(path, "selftest-bms", read_bms_tbl, NELEMENTS(read_bms_tbl));
+	if (read_bms.enabled || read_ems_megabytes)
+		return fail("ini", "M142_ABSENT_MEMORY_SETTINGS");
 
 	profile_iniwrite(path, "selftest", write_tbl, NELEMENTS(write_tbl), NULL);
 	profile_iniread(path, "selftest", read_tbl, NELEMENTS(read_tbl), NULL);
@@ -2185,6 +2190,8 @@ static int test_persistence_controls(void) {
 	const BYTE saved_machine_status = np2oscfg.machine_status;
 	const BYTE saved_front_panel = np2oscfg.front_panel;
 	const BYTE saved_info = np2oscfg.DISPCLK;
+	const UINT8 saved_pcg = np2cfg.pcg_enable;
+	const UINT8 saved_nmode = np2cfg.v1v2_nmode_enable;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2206,6 +2213,9 @@ static int test_persistence_controls(void) {
 
 	initsetpath(config_path);
 	initsetenabled(TRUE);
+	initload();
+	if (np2cfg.pcg_enable != saved_pcg || np2cfg.v1v2_nmode_enable != saved_nmode)
+		detail = "M142_COMPAT_MISSING_CONFIG";
 	milstr_ncpy(saved_crt, np2oscfg.gui_shader_parameters, sizeof(saved_crt));
 	milstr_ncpy(np2oscfg.gui_shader_parameters,
 	            "VAEG_SHADER_PARAMETERS 1;SCREEN_SIZE=96.5;CURVATURE=0.0299999993;",
@@ -2247,6 +2257,19 @@ static int test_persistence_controls(void) {
 			detail = "recording source did not survive configuration reload";
 		}
 	}
+	/* Requested defaults must not replace explicit ON/OFF selections. */
+	for (UINT8 pcg = 0; pcg < 2; pcg++) {
+		for (UINT8 nmode = 0; nmode < 2; nmode++) {
+			np2cfg.pcg_enable = pcg;
+			np2cfg.v1v2_nmode_enable = nmode;
+			initsave();
+			np2cfg.pcg_enable = !pcg;
+			np2cfg.v1v2_nmode_enable = !nmode;
+			initload();
+			if (np2cfg.pcg_enable != pcg || np2cfg.v1v2_nmode_enable != nmode)
+				detail = "M142_COMPAT_EXPLICIT_SETTINGS";
+		}
+	}
 	np2oscfg.recording_source = 255;
 	initsave();
 	np2oscfg.recording_source = VAEG_RECORDING_SOURCE_DISPLAYED;
@@ -2269,7 +2292,11 @@ static int test_persistence_controls(void) {
 			np2oscfg.machine_status = 1;
 			np2oscfg.front_panel = saved_front_panel;
 			np2oscfg.DISPCLK = saved_info;
+			np2cfg.pcg_enable = saved_pcg;
+			np2cfg.v1v2_nmode_enable = saved_nmode;
 			initload();
+			if (np2cfg.pcg_enable != saved_pcg || np2cfg.v1v2_nmode_enable != saved_nmode)
+				detail = "M142_COMPAT_ABSENT_KEYS";
 			if (np2oscfg.machine_status != 1 || np2oscfg.front_panel != saved_front_panel ||
 			    np2oscfg.DISPCLK != saved_info)
 				detail = "legacy config changed footer defaults or existing choices";
@@ -2282,6 +2309,8 @@ static int test_persistence_controls(void) {
 	np2oscfg.machine_status = saved_machine_status;
 	np2oscfg.front_panel = saved_front_panel;
 	np2oscfg.DISPCLK = saved_info;
+	np2cfg.pcg_enable = saved_pcg;
+	np2cfg.v1v2_nmode_enable = saved_nmode;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -2669,6 +2698,24 @@ static int test_framedisp(void) {
 	}
 	if (vaeg_framedisp_update(NULL, 0, 0) != FALSE) {
 		return (fail("framedisp", "NULL state was accepted"));
+	}
+	/* M142: neither measurement nor decimal output may lose a hundreds digit. */
+	{
+		static const UINT32 rates[] = {320, 999, 1000, 1320, 9999, 10000};
+		UINT i;
+		for (i = 0; i < NELEMENTS(rates); i++) {
+			VAEG_MACHINE_STATUS status;
+			char text[256], expected[32];
+			ZeroMemory(&status, sizeof(status));
+			vaeg_framedisp_reset(&state, 0, 0);
+			if (!vaeg_framedisp_update(&state, 10000, rates[i]) || state.fps_tenths != rates[i])
+				return fail("framedisp", "M142_FPS_MEASUREMENT");
+			machine_status_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, state.fps_tenths,
+			                    0);
+			snprintf(expected, sizeof(expected), " | %u.%uFPS", rates[i] / 10, rates[i] % 10);
+			if (!strstr(text, expected))
+				return fail("framedisp", "M142_FPS_DIGITS");
+		}
 	}
 	vaeg_framedisp_reset(NULL, 0, 0);
 	fprintf(stderr, "selftest: frame display ok\n");
@@ -4055,6 +4102,538 @@ static int strip_statsave_section(const char *source, const char *destination, c
 	return (ret);
 }
 
+/* Independent v2 fixture writer. Change foreign path spelling/RO in the
+ * passing control, then exactly one invariant in each negative. */
+static int rewrite_disk_state(const char *source, const char *destination, UINT pathbytes,
+                              UINT version, UINT mutation) {
+	BYTE *data = NULL, *result = NULL;
+	UINT size, pos = 0x30, oldpad, newsize = STATSAVE_DISK_RECORD_BYTES * STATSAVE_DISK_COUNT;
+	UINT newpad = (newsize + 15) & ~15U, total, i;
+	FILEH file;
+	int ret = FAILURE;
+
+	if (read_whole_file(source, &data, &size) != SUCCESS)
+		return FAILURE;
+	while (pos + 16 <= size && memcmp(data + pos, "DISK", 4))
+		pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U);
+	if (pathbytes != STATSAVE_DISK_PATH_BYTES || pos + 16 > size ||
+	    LOADINTELWORD(data + pos + 10) != 2 || LOADINTELDWORD(data + pos + 12) != newsize)
+		goto done;
+	oldpad = (newsize + 15) & ~15U;
+	if (pos + 16 + oldpad > size)
+		goto done;
+	total = size - oldpad + newpad;
+	result = (BYTE *)_MALLOC(total, "portable-disk-fixture");
+	if (!result)
+		goto done;
+	CopyMemory(result, data, pos + 16);
+	STOREINTELWORD(result + pos + 10, version);
+	STOREINTELDWORD(result + pos + 12, newsize);
+	ZeroMemory(result + pos + 16, newpad);
+	for (i = 0; i < STATSAVE_DISK_COUNT; i++) {
+		const BYTE *old = data + pos + 16 + i * STATSAVE_DISK_RECORD_BYTES;
+		BYTE *record = result + pos + 16 + i * STATSAVE_DISK_RECORD_BYTES;
+		if (old[0]) {
+			/* The local files are relative names in this synthetic fixture. */
+			snprintf((char *)record, pathbytes, "Q:\\foreign\\%s", (const char *)old);
+		}
+		CopyMemory(record + pathbytes, old + pathbytes, STATSAVE_DISK_RECORD_BYTES - pathbytes);
+		if (i == 0 && old[0])
+			record[pathbytes] |= 1; /* RO and multi-image index must both survive. */
+	}
+	CopyMemory(result + pos + 16 + newpad, data + pos + 16 + oldpad, size - pos - 16 - oldpad);
+	if (mutation == 1) {
+		STOREINTELWORD(result + pos + 10, 3);
+	} else if (mutation == 2) {
+		STOREINTELDWORD(result + pos + 12, newsize - 1);
+	} else if (mutation == 3) {
+		memset(result + pos + 16, 'x', pathbytes);
+	} else if (mutation == 4) {
+		result[pos + 16 + pathbytes] |= 2;
+	} else if (mutation == 5) {
+		result[pos + 16 + 4140] = 1;
+	} else if (mutation == 6) {
+		result[pos + 16 + 4108] ^= 1;
+	} else if (mutation == 7) {
+		ZeroMemory(result + pos + 16, pathbytes);
+		strcpy((char *)result + pos + 16, "Q:\\foreign\\missing.d88");
+	} else if (mutation == 8) {
+		result[pos + 16 + pathbytes + 1] = 0xff;
+	} else if (mutation == 9 || mutation == 10) {
+		STOREINTELWORD(result + pos + 10, mutation - 9);
+	}
+	file = file_create(destination);
+	if (file != FILEH_INVALID) {
+		if (file_write(file, result, total) == total)
+			ret = SUCCESS;
+		file_close(file);
+	}
+done:
+	if (result)
+		_MFREE(result);
+	if (data)
+		_MFREE(data);
+	return ret;
+}
+
+static int test_disk_state_formats(const char *source, const char *disk) {
+	static const UINT widths[] = {4096};
+	static const char *codes[] = {"",
+	                              "M142_DISK_VERSION",
+	                              "M142_DISK_SIZE",
+	                              "M142_DISK_PATH",
+	                              "M142_DISK_FLAGS",
+	                              "M142_DISK_FLAGS",
+	                              "M142_DISK_IDENTITY",
+	                              "M142_DISK_MISSING",
+	                              "M142_DISK_MEDIA",
+	                              "M142_DISK_VERSION",
+	                              "M142_DISK_VERSION"};
+	char converted[MAX_PATH], saved[MAX_PATH], local[MAX_PATH], error[512];
+	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
+	UINT i, mutation;
+	const char *problem = NULL;
+
+	file_cpyname(saved, np2oscfg.fdd_image[0], sizeof(saved));
+	file_cpyname(np2oscfg.fdd_image[0], disk, sizeof(np2oscfg.fdd_image[0]));
+	snprintf(converted, sizeof(converted), "vaeg-selftest-%lu-portable.sts",
+	         (unsigned long)getpid());
+	if (np2_state_disk_resolve("Q:\\foreign\\missing.d88", local, sizeof(local)) ||
+	    np2_state_disk_resolve("Q:\\foreign\\", local, sizeof(local)))
+		problem = "M142_DISK_RESOLVER_EMPTY_NAME";
+	for (i = 0; !problem && i < NELEMENTS(widths); i++) {
+		if (rewrite_disk_state(source, converted, widths[i], 2, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "M142_DISK_FIXTURE_PREFLIGHT";
+			break;
+		}
+		fdd_eject(0);
+		fdd_eject(1);
+		if (statsave_load(converted) != STATFLAG_SUCCESS || fdd_diskimage(0) != 1 ||
+		    fddfile[0].inf.d88.head.fd_name[0] != 'B' || fdd_diskimage(1) != 0 ||
+		    fddfile[1].inf.d88.base != 0 || strcmp(fdd_diskname(0), disk) || !fdd_diskprotect(0) ||
+		    fdd_diskprotect(1)) {
+			problem = "M142_DISK_CROSS_HOST_LOAD";
+			break;
+		}
+	}
+	if (!problem) {
+		char directory[MAX_PATH], alias[MAX_PATH], foreign[MAX_PATH], saved_other[MAX_PATH];
+		FILEH file;
+		snprintf(directory, sizeof(directory), "vaeg-selftest-%lu-alias", (unsigned long)getpid());
+		file_cpyname(alias, directory, sizeof(alias));
+		file_setseparator(alias, sizeof(alias));
+		file_catname(alias, disk, sizeof(alias));
+		snprintf(foreign, sizeof(foreign), "Q:\\foreign\\%s", disk);
+		file_cpyname(saved_other, np2oscfg.fdd_image[1], sizeof(saved_other));
+		if (file_dircreate(directory) != SUCCESS)
+			problem = "M142_DISK_ALIAS_FIXTURE";
+		file = file_create(alias);
+		if (file == FILEH_INVALID) {
+			problem = "M142_DISK_ALIAS_FIXTURE";
+		} else {
+			file_close(file);
+			file_cpyname(np2oscfg.fdd_image[1], alias, sizeof(np2oscfg.fdd_image[1]));
+			if (!np2_state_disk_resolve(disk, local, sizeof(local)) || strcmp(local, disk) ||
+			    np2_state_disk_resolve(foreign, local, sizeof(local)))
+				problem = "M142_DISK_AMBIGUOUS_SELECTION";
+		}
+		file_cpyname(np2oscfg.fdd_image[1], saved_other, sizeof(np2oscfg.fdd_image[1]));
+		file_delete(alias);
+#if defined(WIN32)
+		_rmdir(directory);
+#else
+		rmdir(directory);
+#endif
+	}
+	for (mutation = 1; !problem && mutation < NELEMENTS(codes); mutation++) {
+		UINT16 ip = CPU_IP;
+		/* Re-establish a passing fixture before each single mutation. */
+		if (rewrite_disk_state(source, converted, 4096, 2, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "M142_DISK_NEGATIVE_BASELINE";
+			break;
+		}
+		if (rewrite_disk_state(source, converted, 4096, 2, mutation) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE) {
+			problem = "M142_DISK_NEGATIVE_ACCEPTED";
+			break;
+		}
+		error[strcspn(error, "\r\n")] = 0;
+		if (strcmp(error, codes[mutation]) || statsave_load(converted) != STATFLAG_FAILURE ||
+		    CPU_IP != ip || fdd_diskimage(0) != 1 || strcmp(fdd_diskname(0), disk))
+			problem = "M142_DISK_NEGATIVE_CODE_OR_SIDE_EFFECT";
+	}
+	if (!problem) {
+		FILEH file;
+		BYTE original = 0, changed;
+		UINT16 ip = CPU_IP;
+		if (rewrite_disk_state(source, converted, 4096, 2, 0) != SUCCESS ||
+		    statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_DISK_MEDIA_MUTATION_BASELINE";
+		file = file_open(disk);
+		if (file == FILEH_INVALID)
+			problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+		else {
+			if (file_read(file, &original, 1) != 1 || file_seek(file, 0, FSEEK_SET) != 0)
+				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+			changed = original ^ 0x20;
+			if (!problem && file_write(file, &changed, 1) != 1)
+				problem = "M142_DISK_MEDIA_MUTATION_SETUP";
+			file_close(file);
+			if (!problem &&
+			    (statsave_check(converted, error, sizeof(error)) != STATFLAG_FAILURE ||
+			     (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_DISK_IDENTITY")) ||
+			     statsave_load(converted) != STATFLAG_FAILURE || CPU_IP != ip))
+				problem = "M142_DISK_REAL_MEDIA_CHANGE_ACCEPTED";
+			file = file_open(disk);
+			if (file == FILEH_INVALID)
+				problem = "M142_DISK_MEDIA_RESTORE";
+			else {
+				if (file_write(file, &original, 1) != 1)
+					problem = "M142_DISK_MEDIA_RESTORE";
+				file_close(file);
+			}
+			if (!problem && statsave_check(converted, error, sizeof(error)) != STATFLAG_SUCCESS)
+				problem = "M142_DISK_MEDIA_RESTORE";
+		}
+	}
+	file_cpyname(np2oscfg.fdd_image[0], saved, sizeof(np2oscfg.fdd_image[0]));
+	statsave_set_disk_resolver(previous);
+	file_delete(converted);
+	if (problem)
+		return fail("portable disk state", problem);
+	fprintf(
+	    stderr,
+	    "selftest: DISK v2 identity/foreign remap/RO/multi-image, ambiguity and 10 exact negatives ok\n");
+	return SUCCESS;
+}
+
+static int write_state_fixture(const char *path, const BYTE *data, UINT size) {
+	FILEH fh = file_create(path);
+	int ret;
+	if (fh == FILEH_INVALID)
+		return FAILURE;
+	ret = file_write(fh, data, size) == size ? SUCCESS : FAILURE;
+	file_close(fh);
+	return ret;
+}
+
+/* Every HDD slot is restored/detached, including the three formerly omitted
+ * SCSI IDs. Foreign paths can use currently mounted media directories. */
+static int test_hdd_state_restore(void) {
+	char empty[MAX_PATH], attached[MAX_PATH], foreign[MAX_PATH], hdi[MAX_PATH], vhd[MAX_PATH];
+	const char *problem = NULL;
+	STATSAVE_DISK_RESOLVER previous = statsave_set_disk_resolver(np2_state_disk_resolve);
+	UINT i;
+	SPRINTF(empty, "vaeg-selftest-%lu-empty.sts", (unsigned long)getpid());
+	SPRINTF(attached, "vaeg-selftest-%lu-hdds.sts", (unsigned long)getpid());
+	SPRINTF(foreign, "vaeg-selftest-%lu-hdds-foreign.sts", (unsigned long)getpid());
+	SPRINTF(hdi, "vaeg-selftest-%lu-state.hdi", (unsigned long)getpid());
+	SPRINTF(vhd, "vaeg-selftest-%lu-state.hdd", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	soundmng_stop();
+	sxsi_trash();
+	if (statsave_save(empty) != STATFLAG_SUCCESS)
+		problem = "empty-media fixture failed";
+	newdisk_hdi(hdi, 0);
+	if (newdisk_vhd_create(vhd, 2048, 512, FALSE) != SUCCESS || sxsi_hddopen(0, hdi) != SUCCESS)
+		problem = "synthetic HDD fixture failed";
+	for (i = 0; i < 7 && !problem; i++)
+		if (sxsi_hddopen((REG8)(0x20 + i), vhd) != SUCCESS)
+			problem = "SCSI fixture failed";
+	if (!problem && (statsave_save(attached) != STATFLAG_SUCCESS ||
+	                 rewrite_disk_state(attached, foreign, 4096, 2, 0) != SUCCESS))
+		problem = "HDD save/foreign fixture failed";
+	sxsi_trash();
+	if (sxsi_hddopen(1, hdi) != SUCCESS)
+		problem = "stale-drive control failed";
+	if (!problem && (statsave_load(foreign) != STATFLAG_SUCCESS || strcmp(sxsi_getname(0), hdi) ||
+	                 sxsi_getname(1)[0]))
+		problem = "SASI restore/detach failed";
+	for (i = 0; i < 7 && !problem; i++)
+		if (strcmp(sxsi_getname((REG8)(0x20 + i)), vhd))
+			problem = "SCSI ID was omitted";
+	if (!problem && statsave_load(empty) != STATFLAG_SUCCESS)
+		problem = "empty-media load failed";
+	for (i = 0; i < 9 && !problem; i++)
+		if (sxsi_getname((REG8)(i < 2 ? i : 0x20 + i - 2))[0])
+			problem = "stale HDD retained";
+	sxsi_trash();
+	pccore_term();
+	soundmng_deinitialize();
+	statsave_set_disk_resolver(previous);
+	file_delete(empty);
+	file_delete(attached);
+	file_delete(foreign);
+	file_delete(hdi);
+	file_delete(vhd);
+	if (problem)
+		return fail("HDD state restore", problem);
+	fprintf(stderr, "selftest: HDD state restore ok (SASI, all 7 SCSI IDs, 9 empty detachments)\n");
+	return SUCCESS;
+}
+
+/* Saved BMS device/RAM must win over reset preferences, including resize,
+ * OFF->ON, ON->OFF and selected-port changes. No private inputs needed. */
+static int test_bms_state_restore(void) {
+	static const UINT8 saved_banks[] = {0, 128, 1, 2, 1, 1, 1};
+	static const UINT8 reader_banks[] = {2, 0, 0, 1, 128, 2, 0};
+	static const UINT8 selected_bank[] = {0, 128, 1, 2, 1, 2, 0};
+	static const UINT offsets[] = {10, 16, 17, 24, 28, 20, 19, 18};
+	static const char *codes[] = {"M142_BMS_VERSION", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD",
+	                              "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD",
+	                              "M142_BMS_PAYLOAD", "M142_BMS_PAYLOAD"};
+	_BMSIOCFG preference = bmsiocfg;
+	UINT8 absent_compat;
+	char path[MAX_PATH], again[MAX_PATH], bad[MAX_PATH], error[512];
+	const char *problem = NULL;
+	UINT i, j, size, size2, pos, pos2, section = 0;
+	BYTE *data = NULL, *data2 = NULL;
+	SPRINTF(path, "vaeg-selftest-%lu-bms.sts", (unsigned long)getpid());
+	SPRINTF(again, "vaeg-selftest-%lu-bms-again.sts", (unsigned long)getpid());
+	SPRINTF(bad, "vaeg-selftest-%lu-bms-bad.sts", (unsigned long)getpid());
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	bmsiocfg.enabled = FALSE;
+	pccore_reset();
+	soundmng_stop();
+	/* With BMS absent, 00ECh belongs to the normal Kanji-ROM interface;
+	 * it is not an unbound FFh port. Capture that independent bus baseline. */
+	absent_compat = (UINT8)iocore_inp8(BMSIO_PORT_COMPAT);
+	for (i = 0; i < NELEMENTS(saved_banks) && !problem; i++) {
+		UINT8 absent_bank = selected_bank[i] && selected_bank[i] > saved_banks[i];
+		UINT8 expected = absent_bank        ? 0xff
+		                 : selected_bank[i] ? (BYTE)((selected_bank[i] - 1) ^ 0x5a)
+		                                    : 0x36;
+		bmsiocfg.enabled = saved_banks[i] != 0;
+		bmsiocfg.numbanks = saved_banks[i];
+		bmsiocfg.port = BMSIO_PORT_COMPAT;
+		bmsiocfg.portmask = BMSIO_PORT_MASK;
+		bmsio_set();
+		bmsio_reset();
+		bmsio.bank = selected_bank[i];
+		bmsio.nomem = absent_bank;
+		mem[0x080000] = 0x36;
+		for (j = 0; j < bmsiowork.bmsmemsize; j++)
+			bmsiowork.bmsmem[j] = (BYTE)(j ^ (j >> 17) ^ 0x5a);
+		if (statsave_save(path) != STATFLAG_SUCCESS ||
+		    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "positive BMS fixture did not pass";
+			break;
+		}
+		bmsiocfg.enabled = reader_banks[i] != 0;
+		bmsiocfg.numbanks = reader_banks[i];
+		bmsiocfg.port = BMSIO_PORT_DEFAULT;
+		bmsio_set();
+		bmsio_reset();
+		if (statsave_load(path) != STATFLAG_SUCCESS || bmsio.cfg.enabled != (saved_banks[i] != 0) ||
+		    bmsio.cfg.numbanks != saved_banks[i] || bmsio.bank != selected_bank[i] ||
+		    bmsio.nomem != absent_bank || bmsio.cfg.port != BMSIO_PORT_COMPAT ||
+		    bmsiowork.bmsmemsize != (UINT32)saved_banks[i] * BMSIO_BANK_BYTES ||
+		    (saved_banks[i] && !bmsiowork.bmsmem) || (!saved_banks[i] && bmsiowork.bmsmem) ||
+		    bmsiocfg.enabled != (reader_banks[i] != 0) || bmsiocfg.numbanks != reader_banks[i] ||
+		    bmsiocfg.port != BMSIO_PORT_DEFAULT) {
+			problem = "saved allocation/device or reset preferences were not restored correctly";
+			break;
+		}
+		for (j = 0; j < bmsiowork.bmsmemsize; j++) {
+			if (bmsiowork.bmsmem[j] != (BYTE)(j ^ (j >> 17) ^ 0x5a)) {
+				problem = "BMS RAM differs after load";
+				break;
+			}
+		}
+		if (iocore_inp8(BMSIO_PORT_COMPAT) != (saved_banks[i] ? selected_bank[i] : absent_compat) ||
+		    iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff ||
+		    upd9002_memoryread_va(0x080000) != expected) {
+			fprintf(
+			    stderr,
+			    "BMS case=%u banks=%u bank=%u nomem=%u compat=%02x native=%02x memory=%02x expected=%02x\n",
+			    i, saved_banks[i], bmsio.bank, bmsio.nomem, iocore_inp8(BMSIO_PORT_COMPAT),
+			    iocore_inp8(BMSIO_PORT_DEFAULT), upd9002_memoryread_va(0x080000), expected);
+			problem = "guest-visible BMS bank/window/port was not restored";
+		}
+		if (statsave_save(again) != STATFLAG_SUCCESS ||
+		    read_whole_file(path, &data, &size) != SUCCESS ||
+		    read_whole_file(again, &data2, &size2) != SUCCESS) {
+			problem = "could not inspect the actual BMS re-save";
+			break;
+		}
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "BMSSTATE\0\0", 10))
+				break;
+		for (pos2 = 0x30; pos2 + 16 <= size2;
+		     pos2 += 16 + ((LOADINTELDWORD(data2 + pos2 + 12) + 15) & ~15U))
+			if (!memcmp(data2 + pos2, "BMSSTATE\0\0", 10))
+				break;
+		if (pos + 32 > size || pos2 + 32 > size2 ||
+		    LOADINTELDWORD(data + pos + 12) != LOADINTELDWORD(data2 + pos2 + 12) ||
+		    memcmp(data + pos + 16, data2 + pos2 + 16, LOADINTELDWORD(data + pos + 12)))
+			problem = "re-saved BMS section differs";
+		section = pos;
+		if (i + 1 != NELEMENTS(saved_banks)) {
+			_MFREE(data);
+			data = NULL;
+		}
+		_MFREE(data2);
+		data2 = NULL;
+	}
+	for (i = 0; i < NELEMENTS(offsets) && !problem; i++) {
+		BYTE saved = data[section + offsets[i]];
+		BYTE *memory = bmsiowork.bmsmem;
+		UINT16 ip = CPU_IP;
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			problem = "negative BMS fixture was not initially valid";
+			break;
+		}
+		data[section + offsets[i]] ^= (offsets[i] == 16 ? 3 : offsets[i] == 18 ? 2 : 1);
+		if (write_state_fixture(bad, data, size) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, codes[i])) ||
+		    statsave_load(bad) != STATFLAG_FAILURE || CPU_IP != ip || bmsiowork.bmsmem != memory ||
+		    memory[0] != 0x5a)
+			problem = "BMS negative missed its exact guard or mutated the running machine";
+		data[section + offsets[i]] = saved;
+	}
+	if (!problem && (strip_statsave_section(path, bad, "BMSSTATE") != SUCCESS ||
+	                 statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+	                 (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_REQUIRED"))))
+		problem = "missing BMS state was accepted";
+	for (i = 0; i < 2 && !problem; i++) {
+		UINT extra = i ? 16 + ((LOADINTELDWORD(data + section + 12) + 15) & ~15U) : 16;
+		BYTE *changed = (BYTE *)_MALLOC(size + extra, "state section mutation");
+		BYTE *memory = bmsiowork.bmsmem;
+		UINT16 ip = CPU_IP;
+		const char *code = i ? "M142_STATE_DUPLICATE" : "M142_STATE_UNSUPPORTED_SECTION";
+		if (!changed || statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+			if (changed)
+				_MFREE(changed);
+			problem = "section mutation has no passing fixture";
+			break;
+		}
+		CopyMemory(changed, data, size - 16);
+		ZeroMemory(changed + size - 16, extra);
+		if (i)
+			CopyMemory(changed + size - 16, data + section, extra);
+		else
+			CopyMemory(changed + size - 16, "UNKNOWN", 7);
+		CopyMemory(changed + size - 16 + extra, data + size - 16, 16);
+		if (write_state_fixture(bad, changed, size + extra) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) ||
+		    statsave_load_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, code)) || CPU_IP != ip ||
+		    bmsiowork.bmsmem != memory || memory[0] != 0x5a)
+			problem = "section negative missed its exact guard or mutated the machine";
+		_MFREE(changed);
+	}
+	if (!problem) {
+		FILEH readonly;
+		UINT wrote;
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_READ_ONLY_BASELINE";
+		readonly = file_open_rb(path);
+		if (readonly == FILEH_INVALID)
+			problem = "M142_STATE_READ_ONLY_OPEN";
+		else {
+			/* Same existing byte: a broken writable open is detected without
+			 * corrupting even this synthetic fixture. */
+			wrote = file_write(readonly, data, 1);
+			file_close(readonly);
+			if (wrote != 0)
+				problem = "M142_STATE_READ_ONLY";
+		}
+	}
+	if (!problem) {
+		UINT32 bytes = bmsiowork.bmsmemsize;
+		int saved_result;
+		/* The existing valid save is the protected positive fixture. Mutate
+		 * only the live allocation length; a failed replacement must keep it. */
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_ATOMIC_BASELINE";
+		bmsiowork.bmsmemsize = bytes - 1;
+		saved_result = statsave_save_checked(path, error, sizeof(error));
+		bmsiowork.bmsmemsize = bytes;
+		if (saved_result != STATFLAG_FAILURE ||
+		    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_BMS_LIVE_STATE")) ||
+		    read_whole_file(path, &data2, &size2) != SUCCESS || size2 != size ||
+		    memcmp(data, data2, size))
+			problem = "M142_STATE_ATOMIC_REPLACEMENT";
+		if (data2) {
+			_MFREE(data2);
+			data2 = NULL;
+		}
+	}
+	if (!problem) {
+		char collision[MAX_PATH], directory[MAX_PATH];
+		FILEH existing;
+		BOOL owned_collision, owned_directory = FALSE;
+		BYTE marker = 0xa7, observed = 0;
+		SPRINTF(collision, "%s.tmp-%lu-0", again, (unsigned long)getpid());
+		SPRINTF(directory, "vaeg-selftest-%lu-state-commit", (unsigned long)getpid());
+		existing = file_create_exclusive(collision);
+		owned_collision = existing != FILEH_INVALID;
+		if (existing == FILEH_INVALID)
+			problem = "M142_STATE_EXCLUSIVE_BASELINE";
+		else {
+			file_write(existing, &marker, 1);
+			file_close(existing);
+		}
+		if (!problem && statsave_save_checked(again, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_EXCLUSIVE_COLLISION";
+		existing = file_open_rb(collision);
+		if (existing == FILEH_INVALID)
+			problem = "M142_STATE_EXCLUSIVE_COLLISION";
+		else {
+			if (file_read(existing, &observed, 1) != 1 || observed != marker ||
+			    file_getsize(existing) != 1)
+				problem = "M142_STATE_EXCLUSIVE_COLLISION";
+			file_close(existing);
+		}
+		if (owned_collision)
+			file_delete(collision);
+		if (!problem) {
+			owned_directory = file_dircreate(directory) == SUCCESS;
+			if (!owned_directory)
+				problem = "M142_STATE_COMMIT_BASELINE";
+		}
+		if (!problem &&
+		    (statsave_save_checked(directory, error, sizeof(error)) != STATFLAG_FAILURE ||
+		     (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M142_STATE_COMMIT")) ||
+		     !(file_attr(directory) & FILEATTR_DIRECTORY)))
+			problem = "M142_STATE_COMMIT_GUARD";
+#if defined(WIN32)
+		if (owned_directory)
+			_rmdir(directory);
+#else
+		if (owned_directory)
+			rmdir(directory);
+#endif
+	}
+	if (data)
+		_MFREE(data);
+	if (data2)
+		_MFREE(data2);
+	bmsiocfg = preference;
+	pccore_reset();
+	pccore_term();
+	soundmng_deinitialize();
+	file_delete(path);
+	file_delete(again);
+	file_delete(bad);
+	if (problem)
+		return fail("BMS state restore", problem);
+	fprintf(
+	    stderr,
+	    "selftest: BMS state restore ok (7 transitions, bank-zero/absent-bank access/re-save, 11 load guards, read-only/atomic-save guards)\n");
+	return SUCCESS;
+}
+
 /* M120: a state keeps the disk of a multi-image D88 in each drive. */
 static int test_fdd_multi_image_state(void) {
 	char disk[MAX_PATH];
@@ -4094,6 +4673,8 @@ static int test_fdd_multi_image_state(void) {
 			problem = "the disks in the drives were not restored";
 		}
 	}
+	if (problem == NULL && test_disk_state_formats(path, disk) != SUCCESS)
+		problem = "portable/legacy disk formats failed";
 	fdd_eject(0);
 	fdd_eject(1);
 	fddfile[0].num = 0;
@@ -5842,6 +6423,30 @@ static int test_machine_status(void) {
 					problem = "footer toggles changed the HiDPI guest picture";
 					goto done;
 				}
+			}
+		}
+	}
+	{
+		static const UINT mhz[] = {4, 8, 10, 12, 20};
+		UINT domain, index;
+		for (domain = 0; domain < 2; domain++) {
+			for (index = 0; index < NELEMENTS(mhz); index++) {
+				UINT multiple = 0, speed = 0;
+				if (!machine_status_clock_settings(mhz[index], domain, &multiple, &speed) ||
+				    (domain ? 2 : 4) * multiple * speed != mhz[index] * 100) {
+					problem = "M142_CLOCK_PRESET_DOMAIN";
+					goto done;
+				}
+			}
+		}
+		{
+			UINT multiple, speed;
+			if (machine_status_clock_settings(3, FALSE, &multiple, &speed) ||
+			    machine_status_clock_settings(0, TRUE, &multiple, &speed) ||
+			    machine_status_clock_settings(256, FALSE, &multiple, &speed) ||
+			    machine_status_clock_settings(8, FALSE, NULL, &speed)) {
+				problem = "M142_CLOCK_PRESET_INVALID";
+				goto done;
 			}
 		}
 	}
@@ -9044,6 +9649,18 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	/* --selftest runs before initload: inspect actual startup initializers. */
+	if (np2cfg.pcg_enable != 1 || np2cfg.v1v2_nmode_enable != 1 ||
+	    np2cfg.boot_mode != BOOTMODE_AUTO)
+		return fail("startup defaults", "M142_COMPAT_FEATURE_DEFAULTS");
+	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
+		if (!gui_state_load_result_selftest())
+			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS)
+			return FAILURE;
+		return SUCCESS;
+	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
 		return test_screenshot_rotation();
 	if (SDL_getenv("VAEG_SELFTEST_DISPLAY_CAPTURE_ONLY") != NULL) {
@@ -9174,7 +9791,10 @@ int vaeg_selftest_run(void) {
 	if (test_opn_backends() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_statsave() != SUCCESS) {
+	if (!gui_state_load_result_selftest())
+		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+	    test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {

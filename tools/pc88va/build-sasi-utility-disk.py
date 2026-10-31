@@ -142,7 +142,7 @@ CONFIG_LINES = (
     r"DEVICE = A:\SYS\RESET.SYS",
     r"DEVICE = A:\SYS\TSCLVA.SYS",
     r"DEVICE = A:\SYS\MSE352B.COM /A /B",
-    r"DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2",
+    # RDBMS remains installed, but requires explicit BMS hardware opt-in.
     r"DEVICE = A:\SYS\RDEMS.SYS -P128 -A",
     r"DEVICE = A:\SYS\RDPCM.SYS",
 )

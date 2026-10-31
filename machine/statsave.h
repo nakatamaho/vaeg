@@ -1,5 +1,13 @@
 #include "dosio.h"
 
+/* M142: incompatible new container; old host-dependent saves are rejected. */
+#define VAEG_STATE_FILE_VERSION UINT32_C(0x261031)
+enum {
+	STATSAVE_DISK_PATH_BYTES = 4096,
+	STATSAVE_DISK_RECORD_BYTES = 4160,
+	STATSAVE_DISK_COUNT = 13 /* four FDDs, two SASI, all seven SCSI IDs */
+};
+
 enum {
 	STATFLAG_SUCCESS = 0,
 	STATFLAG_DISKCHG = 0x0001,
@@ -39,12 +47,19 @@ int statflag_write(STFLAGH sfh, const void *ptr, UINT size);
 void statflag_seterr(STFLAGH sfh, const char *str);
 
 int statsave_save(const char *filename);
+int statsave_save_checked(const char *filename, char *error, int error_size);
 int statsave_check(const char *filename, char *buf, int size);
 /* Explicit UI-confirmed override; all non-HOSTFAT checks remain active. */
 int statsave_check_hostfat_override(const char *filename, char *buf, int size);
+/* Optional frontend remapping, shared by preflight and actual load. The
+ * callback returns TRUE only for an existing, unambiguous local file. */
+typedef BOOL (*STATSAVE_DISK_RESOLVER)(const char *saved, char *local, UINT size);
+STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolver);
 int statsave_load(const char *filename);
+int statsave_load_checked(const char *filename, char *error, int error_size);
 /* Retains the current HOSTFAT mount state and read-only snapshot. */
 int statsave_load_hostfat_override(const char *filename);
+int statsave_load_hostfat_override_checked(const char *filename, char *error, int error_size);
 
 #if defined(SUPPORT_OPRECORD)
 typedef void (*STATSAVE_LOAD_DISK_HOOK)(int drv, char *path, UINT size, int *readonly);

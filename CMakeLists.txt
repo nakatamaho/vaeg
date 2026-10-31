@@ -130,7 +130,16 @@ if(VAEG_BUILD_TAG_RESULT EQUAL 0 AND VAEG_BUILD_TAG_OUTPUT)
         endif()
     endforeach()
 endif()
-message(STATUS "vaeg release name: Rel.${VAEG_BUILD_RELEASE}")
+include(cmake/release_identity.cmake)
+vaeg_release_identity("${VAEG_BUILD_RELEASE}" "${VAEG_SOURCE_MILESTONE}" "${VAEG_BUILD_COMMIT}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/release-identity.json"
+    "{\n  \"release\": \"${VAEG_BUILD_RELEASE}\",\n"
+    "  \"milestone\": \"${VAEG_BUILD_MILESTONE}\",\n"
+    "  \"commit\": \"${VAEG_BUILD_COMMIT}\",\n"
+    "  \"short_commit\": \"${VAEG_BUILD_SHORT_COMMIT}\",\n"
+    "  \"display\": \"${VAEG_BUILD_DISPLAY}\",\n"
+    "  \"package_stem\": \"${VAEG_PACKAGE_STEM}\"\n}\n")
+message(STATUS "vaeg release name: ${VAEG_BUILD_DISPLAY}")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vaeg_build_info.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"
@@ -275,6 +284,7 @@ set(VAEG_INCLUDE_DIRS
 
 set(VAEG_COMMON_SOURCES
     common/strres.c
+    common/sha256.c
     common/milstr.c
     common/_memory.c
     common/textfile.c
@@ -1036,6 +1046,29 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_mingw_macports_sdk
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_mingw_macports.py")
+    add_test(NAME vaeg_release_identity
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_release_identity.py")
+    add_test(NAME vaeg_tvram_vb_builder
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hardware/tvram_vb/test_build.py")
+    add_test(NAME vaeg_openwatcom_dos_backend
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
+    add_test(NAME vaeg_utility_default_config
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    add_executable(vaeg_sha256_test tests/common/sha256.c common/sha256.c)
+    target_include_directories(vaeg_sha256_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_sha256_test PRIVATE c_std_99)
+    add_test(NAME vaeg_sha256 COMMAND vaeg_sha256_test)
+    set_tests_properties(vaeg_sha256 PROPERTIES LABELS "romless;state;storage")
+    add_test(NAME vaeg_runtime_state_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
+    add_test(NAME vaeg_state_restore_matrix_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/state_restore_matrix.py" --selftest)
+    add_test(NAME vaeg_cross_os_state_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/cross_os_state.py" selftest)
+    set_tests_properties(vaeg_state_restore_matrix_contract vaeg_cross_os_state_contract PROPERTIES
+        LABELS "romless;state;storage")
     add_executable(vaeg_recording_mp4_test tests/frontend/recording/test_recording_mp4.cpp)
     target_include_directories(vaeg_recording_mp4_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
     target_compile_features(vaeg_recording_mp4_test PRIVATE cxx_std_17)
@@ -1894,7 +1927,9 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
         # This invokes the complete selftest three times.  The M55 64 MiB
         # snapshot identity checks are intentionally expensive under ASan.
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 420
+        # Complete selftests share SCSI fixtures and the dropmedia temp directory.
+        RESOURCE_LOCK vaeg_sxsi_image_selftest)
 
     if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
         add_test(NAME vaeg_m74_debug_harness
@@ -2618,6 +2653,12 @@ if(VAEG_ENABLE_TESTS)
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
     endif()
+    add_test(NAME vaeg_state_storage COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_state_storage PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_STATE_ONLY=1"
+        LABELS "romless;state;storage" TIMEOUT 120
+        RESOURCE_LOCK vaeg_sxsi_image_selftest)
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
@@ -2643,6 +2684,12 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_x11_matrix_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_matrix.py" selftest)
+    add_test(NAME vaeg_pc8801_paste_contract
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/pc8801_paste.py" --selftest)
+    add_test(NAME vaeg_runtime_clock_matrix_contract
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_clock_matrix.py" --selftest)
     add_test(NAME vaeg_x11_gate_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/x11_gate.py" --selftest)
@@ -2651,7 +2698,7 @@ if(VAEG_ENABLE_TESTS)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/guest_start_qa.py" --selftest)
     set_tests_properties(vaeg_local_basic_qa_selftest vaeg_screen_compare_selftest
         vaeg_x11_capture_selftest vaeg_x11_matrix_selftest vaeg_x11_gate_selftest
-        vaeg_guest_start_qa_selftest PROPERTIES
+        vaeg_guest_start_qa_selftest vaeg_runtime_clock_matrix_contract vaeg_pc8801_paste_contract PROPERTIES
         LABELS "romless;frontend;local-qa;m132")
     # M103b-M103d: V2 disk BASIC boots through automatic FDD selection,
     # answers PRINT 1+1, draws a painted circle and round-trips a program

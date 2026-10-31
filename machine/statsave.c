@@ -18,6 +18,7 @@
 #include "beep.h"
 #include "font.h"
 #include "fddfile.h"
+#include "common/sha256.h"
 #include "fdd_mtr.h"
 #include "sxsi.h"
 #include "hostfat.h"
@@ -191,6 +192,9 @@ sfo_err2:
 	file_close(fh);
 
 sfo_err1:
+	if (err && errlen > 0) {
+		milstr_ncpy(err, "M142_STATE_FORMAT_OR_OPEN", errlen);
+	}
 	return (NULL);
 }
 
@@ -240,6 +244,12 @@ static int statflag_readsection(SFFILEH sffh) {
 	}
 	if ((sffh->stat == 0) &&
 	    (file_read(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr)) == sizeof(sffh->sfh.hdr))) {
+		UINT64 end = (UINT64)sffh->secpos + sizeof(sffh->sfh.hdr) +
+		             (((UINT64)sffh->sfh.hdr.size + 15) & ~(UINT64)15);
+		if (end > file_getsize64(sffh->fh) || end > INT32_MAX) {
+			sffh->stat = SFFILEH_ERROR;
+			return STATFLAG_FAILURE;
+		}
 		sffh->stat = SFFILEH_BLOCK;
 		sffh->sfh.pos = 0;
 		return (STATFLAG_SUCCESS);
@@ -272,7 +282,7 @@ static SFFILEH statflag_create(const char *filename) {
 	if (ret == NULL) {
 		goto sfc_err1;
 	}
-	fh = file_create(filename);
+	fh = file_create_exclusive(filename);
 	if (fh == FILEH_INVALID) {
 		goto sfc_err2;
 	}
@@ -345,12 +355,17 @@ sfw_err1:
 	return (STATFLAG_FAILURE);
 }
 
-static void statflag_close(SFFILEH sffh) {
-	if (sffh) {
-		statflag_closesection(sffh);
-		file_close(sffh->fh);
-		_MFREE(sffh);
-	}
+static int statflag_close(SFFILEH sffh) {
+	int ret;
+	if (!sffh)
+		return STATFLAG_FAILURE;
+	ret = statflag_closesection(sffh);
+	if (sffh->stat & SFFILEH_ERROR)
+		ret = STATFLAG_FAILURE;
+	if (file_close(sffh->fh) != 0)
+		ret = STATFLAG_FAILURE;
+	_MFREE(sffh);
+	return ret;
 }
 
 void statflag_seterr(STFLAGH sfh, const char *str) {
@@ -959,18 +974,134 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 
 // ---- disk
 
+enum {
+	STATDISK_PATH_BYTES = STATSAVE_DISK_PATH_BYTES,
+	STATDISK_RECORD_BYTES = STATSAVE_DISK_RECORD_BYTES,
+	STATDISK_COUNT = STATSAVE_DISK_COUNT
+};
+
 typedef struct {
-	char path[MAX_PATH];
+	char path[STATDISK_PATH_BYTES];
 	int readonly;
-	DOSDATE date;
-	DOSTIME time;
+	UINT64 size;
+	BYTE identity[32];
 } STATDISK;
 
-static const char str_fddx[] = "FDD%u";
-static const char str_sasix[] = "SASI%u";
-static const char str_scsix[] = "SCSI%u";
-static const char str_updated[] = "%s: updated";
-static const char str_notfound[] = "%s: not found";
+static STATSAVE_DISK_RESOLVER disk_resolver;
+
+STATSAVE_DISK_RESOLVER statsave_set_disk_resolver(STATSAVE_DISK_RESOLVER resolver) {
+	STATSAVE_DISK_RESOLVER previous = disk_resolver;
+	disk_resolver = resolver;
+	return previous;
+}
+
+/* v2: path[4096], flags/u32, file size/u64, SHA-256[32], reserved[20].
+ * Timestamps and native structures are not media identities. */
+static UINT diskrecord_size(STFLAGH sfh) {
+	if (sfh->hdr.ver != 2) {
+		statflag_seterr(sfh, "M142_DISK_VERSION");
+		return 0;
+	}
+	if (sfh->hdr.size != STATDISK_COUNT * STATDISK_RECORD_BYTES) {
+		statflag_seterr(sfh, "M142_DISK_SIZE");
+		return 0;
+	}
+	return STATDISK_RECORD_BYTES;
+}
+
+static int diskrecord_read(STFLAGH sfh, STATDISK *st) {
+	BYTE wire[STATDISK_RECORD_BYTES];
+	UINT size = diskrecord_size(sfh);
+	UINT i;
+	const BYTE *nul;
+
+	ZeroMemory(st, sizeof(*st));
+	if (!size || statflag_read(sfh, wire, size) != STATFLAG_SUCCESS)
+		return STATFLAG_FAILURE;
+	nul = (const BYTE *)memchr(wire, 0, STATDISK_PATH_BYTES);
+	if (!nul) {
+		statflag_seterr(sfh, "M142_DISK_PATH");
+		return STATFLAG_FAILURE;
+	}
+	for (i = (UINT)(nul - wire); i < STATDISK_PATH_BYTES; i++) {
+		if (wire[i]) {
+			statflag_seterr(sfh, "M142_DISK_PATH");
+			return STATFLAG_FAILURE;
+		}
+	}
+	CopyMemory(st->path, wire, STATDISK_PATH_BYTES);
+	st->readonly = (int)LOADINTELDWORD(wire + 4096);
+	st->size = LOADINTELDWORD(wire + 4100) | ((UINT64)LOADINTELDWORD(wire + 4104) << 32);
+	CopyMemory(st->identity, wire + 4108, sizeof(st->identity));
+	for (i = st->path[0] ? 4140 : 4096; i < sizeof(wire); i++) {
+		if (wire[i]) {
+			statflag_seterr(sfh, "M142_DISK_FLAGS");
+			return STATFLAG_FAILURE;
+		}
+	}
+	if (st->readonly & ~0xff01) {
+		statflag_seterr(sfh, "M142_DISK_FLAGS");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static BOOL diskrecord_resolve(STATDISK *st) {
+	char local[STATDISK_PATH_BYTES];
+
+	if (st->path[0] && disk_resolver && disk_resolver(st->path, local, sizeof(local)))
+		file_cpyname(st->path, local, sizeof(st->path));
+	/* Do not truncate a foreign path into a different locally valid name. */
+	return strlen(st->path) < MAX_PATH;
+}
+
+static int diskrecord_identify(const char *path, UINT64 *size, BYTE identity[32]) {
+	BYTE buffer[65536];
+	UINT64 total = 0;
+	UINT got;
+	FILEH file = file_open_rb(path);
+	VAEG_SHA256 sha;
+	if (file == FILEH_INVALID)
+		return STATFLAG_FAILURE;
+	*size = file_getsize64(file);
+	vaeg_sha256_initialize(&sha);
+	while ((got = file_read(file, buffer, sizeof(buffer))) != 0) {
+		total += got;
+		vaeg_sha256_update(&sha, buffer, got);
+	}
+	file_close(file);
+	if (total != *size)
+		return STATFLAG_FAILURE;
+	vaeg_sha256_finish(&sha, identity);
+	return STATFLAG_SUCCESS;
+}
+
+static int diskrecord_validate(STFLAGH sfh, STATDISK *st, UINT slot) {
+	UINT64 size;
+	BYTE identity[32];
+	if (!st->path[0])
+		return STATFLAG_SUCCESS;
+	if (slot >= 4 && st->readonly) {
+		statflag_seterr(sfh, "M142_DISK_FLAGS");
+		return STATFLAG_FAILURE;
+	}
+	if (!diskrecord_resolve(st) ||
+	    diskrecord_identify(st->path, &size, identity) != STATFLAG_SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_MISSING");
+		return STATFLAG_FAILURE;
+	}
+	if (size != st->size || memcmp(identity, st->identity, sizeof(identity))) {
+		statflag_seterr(sfh, "M142_DISK_IDENTITY");
+		return STATFLAG_FAILURE;
+	}
+	if ((slot < 4   ? fdd_validate(st->path, (st->readonly >> 8) & 0xff, st->readonly & 1)
+	     : slot < 6 ? sxsi_hddvalidate_sasi(st->path)
+	                : sxsi_hddvalidate_scsi(st->path)) != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_MEDIA");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
 
 #if defined(SUPPORT_OPRECORD)
 STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
@@ -978,29 +1109,41 @@ STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
 
 static int disksave(STFLAGH sfh, const char *path, int readonly) {
 	STATDISK st;
-	FILEH fh;
+	BYTE wire[STATDISK_RECORD_BYTES];
 
 	ZeroMemory(&st, sizeof(st));
-	if ((path) && (path[0])) {
+	ZeroMemory(wire, sizeof(wire));
+	if (path && path[0]) {
+		if (strlen(path) >= STATDISK_PATH_BYTES) {
+			statflag_seterr(sfh, "M142_DISK_PATH");
+			return STATFLAG_FAILURE;
+		}
 		file_cpyname(st.path, path, sizeof(st.path));
 		st.readonly = readonly;
-		fh = file_open_rb(path);
-		if (fh != FILEH_INVALID) {
-			file_getdatetime(fh, &st.date, &st.time);
-			file_close(fh);
+		if (diskrecord_identify(path, &st.size, st.identity) != STATFLAG_SUCCESS) {
+			statflag_seterr(sfh, "M142_DISK_MISSING");
+			return STATFLAG_FAILURE;
 		}
 	}
-	return (statflag_write(sfh, &st, sizeof(st)));
+	CopyMemory(wire, st.path, STATDISK_PATH_BYTES);
+	STOREINTELDWORD(wire + 4096, st.readonly);
+	STOREINTELDWORD(wire + 4100, (UINT32)st.size);
+	STOREINTELDWORD(wire + 4104, (UINT32)(st.size >> 32));
+	CopyMemory(wire + 4108, st.identity, sizeof(st.identity));
+	return statflag_write(sfh, wire, sizeof(wire));
 }
 
 static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
 	BYTE i;
 
+	if (fdd_flush() != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_FLUSH");
+		return STATFLAG_FAILURE;
+	}
 	sxsi_flash();
 	ret = STATFLAG_SUCCESS;
-	/* M120: bits 15-8 of `readonly` hold the disk of a multi-image D88
-	 * (states saved before hold 0 there: the first disk). */
+	/* Bits 15-8 of flags hold the selected image of a multi-image D88. */
 	for (i = 0; i < 4; i++) {
 		ret |= disksave(sfh, fdd_diskname(i),
 		                (fdd_diskprotect(i) ? 1 : 0) | (int)(fdd_diskimage(i) << 8));
@@ -1008,106 +1151,87 @@ static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
 	for (i = 0x00; i < 0x02; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
-	for (i = 0x20; i < 0x24; i++) {
+	for (i = 0x20; i < 0x20 + SCSIHDD_MAX; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
 	(void)tbl;
 	return (ret);
 }
 
-static int diskcheck(STFLAGH sfh, const char *name) {
-	int ret;
-	FILEH fh;
-	STATDISK st;
-	char buf[256];
-	DOSDATE date;
-	DOSTIME time;
-
-	ret = statflag_read(sfh, &st, sizeof(st));
-	if (st.path[0]) {
-		fh = file_open_rb(st.path);
-		if (fh != FILEH_INVALID) {
-			file_getdatetime(fh, &date, &time);
-			file_close(fh);
-			if ((memcmp(&st.date, &date, sizeof(date))) ||
-			    (memcmp(&st.time, &time, sizeof(time)))) {
-				ret |= STATFLAG_DISKCHG;
-				SPRINTF(buf, str_updated, name);
-				statflag_seterr(sfh, buf);
-			}
-		} else {
-			ret |= STATFLAG_DISKCHG;
-			SPRINTF(buf, str_notfound, name);
-			statflag_seterr(sfh, buf);
-		}
+static int diskcheck(STFLAGH sfh, UINT slot, STATDISK *st) {
+	int ret = diskrecord_read(sfh, st);
+	if (ret == STATFLAG_SUCCESS)
+		ret = diskrecord_validate(sfh, st, slot);
+	if (ret != STATFLAG_SUCCESS) {
+		char name[32];
+		if (slot < 4)
+			SPRINTF(name, "FDD%u", slot + 1);
+		else if (slot < 6)
+			SPRINTF(name, "SASI%u", slot - 3);
+		else
+			SPRINTF(name, "SCSI ID %u", slot - 6);
+		statflag_seterr(sfh, name);
 	}
-	return (ret);
+	return ret;
 }
 
 static int flagcheck_disk(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-	int i;
-	char buf[8];
-
-	ret = 0;
-	for (i = 0; i < 4; i++) {
-		SPRINTF(buf, str_fddx, i + 1);
-		ret |= diskcheck(sfh, buf);
+	UINT i;
+	STATDISK st;
+	(void)tbl;
+	if (!diskrecord_size(sfh))
+		return STATFLAG_FAILURE;
+	if (fdd_flush() != SUCCESS) {
+		statflag_seterr(sfh, "M142_DISK_FLUSH");
+		return STATFLAG_FAILURE;
 	}
 	sxsi_flash();
-	for (i = 0; i < 2; i++) {
-		SPRINTF(buf, str_sasix, i + 1);
-		ret |= diskcheck(sfh, buf);
-	}
-	for (i = 0; i < 4; i++) {
-		SPRINTF(buf, str_scsix, i);
-		ret |= diskcheck(sfh, buf);
-	}
-	(void)tbl;
-	return (ret);
+	for (i = 0; i < STATDISK_COUNT; i++)
+		if (diskcheck(sfh, i, &st) != STATFLAG_SUCCESS)
+			return STATFLAG_FAILURE;
+	return STATFLAG_SUCCESS;
 }
 
 static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-	UINT8 i;
-	STATDISK st;
-
-	ret = 0;
+	STATDISK *prepared = (STATDISK *)_MALLOC(sizeof(STATDISK) * STATDISK_COUNT, "state media");
+	UINT i;
+	int ret = STATFLAG_FAILURE;
+	(void)tbl;
+	if (!prepared)
+		return STATFLAG_FAILURE;
+	/* Resolve every reference while the reader's existing mounts still exist.
+	 * Never resolve drive N after changing the search context for drive N-1. */
+	for (i = 0; i < STATDISK_COUNT; i++)
+		if (diskcheck(sfh, i, prepared + i) != STATFLAG_SUCCESS)
+			goto done;
 	for (i = 0; i < 4; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
-		if (st.path[0]) {
+		STATDISK *st = prepared + i;
 #if defined(SUPPORT_OPRECORD)
-			if (flagload_disk_hook) {
-				flagload_disk_hook(i, st.path, sizeof(st.path), &st.readonly);
-			}
-			if (st.path[0]) {
-				fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
-				fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
-			} else {
-				fdd_eject(i);
-			}
-#else
-			fddfile[i].num = (BYTE)((st.readonly >> 8) & 0xff);
-			fdd_set(i, st.path, FTYPE_NONE, st.readonly & 1);
+		if (st->path[0] && flagload_disk_hook) {
+			flagload_disk_hook(i, st->path, sizeof(st->path), &st->readonly);
+			if (!st->path[0] || diskrecord_validate(sfh, st, i) != STATFLAG_SUCCESS)
+				goto done;
+		}
 #endif
+		if (st->path[0]) {
+			fddfile[i].num = (BYTE)((st->readonly >> 8) & 0xff);
+			if (fdd_set(i, st->path, FTYPE_NONE, st->readonly & 1) != SUCCESS)
+				goto done;
 		} else {
 			fdd_eject(i);
 		}
 	}
-	for (i = 0x00; i < 0x02; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
-		if (st.path[0]) {
-			sxsi_hddopen(i, st.path);
-		}
+	/* Empty records are an instruction to detach, not to retain stale disks. */
+	sxsi_trash();
+	for (i = 4; i < STATDISK_COUNT; i++) {
+		UINT8 drive = (UINT8)(i < 6 ? i - 4 : 0x20 + i - 6);
+		if (prepared[i].path[0] && sxsi_hddopen(drive, prepared[i].path) != SUCCESS)
+			goto done;
 	}
-	for (i = 0x20; i < 0x24; i++) {
-		ret |= statflag_read(sfh, &st, sizeof(st));
-		if (st.path[0]) {
-			sxsi_hddopen(i, st.path);
-		}
-	}
-	(void)tbl;
-	return (ret);
+	ret = STATFLAG_SUCCESS;
+done:
+	_MFREE(prepared);
+	return ret;
 }
 
 // ---- com
@@ -1198,26 +1322,89 @@ flcom_err1:
 
 // ---- bms
 
-static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
+enum {
+	BMS_STATE_HEADER_SIZE = 16
+};
 
-	ret = STATFLAG_SUCCESS;
-	if (bmsiowork.bmsmem) {
-		ret = statflag_write(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
+/* Device configuration and its RAM are a single, explicit little-endian
+ * section. Never infer the saved allocation from the reader's reset prefs. */
+static BOOL bms_state_header_valid(const BYTE *wire, UINT32 size) {
+	UINT32 bytes = wire[0] ? (UINT32)wire[1] * BMSIO_BANK_BYTES : 0;
+	UINT8 nomem = wire[2] && (!wire[0] || wire[2] > wire[1]);
+	UINT16 port = LOADINTELWORD(wire + 4);
+	return (port == BMSIO_PORT_DEFAULT || port == BMSIO_PORT_COMPAT) && wire[0] <= 1 &&
+	       wire[3] == nomem && (wire[0] ? wire[1] != 0 : wire[1] == 0) &&
+	       LOADINTELWORD(wire + 6) == BMSIO_PORT_MASK && LOADINTELDWORD(wire + 8) == bytes &&
+	       LOADINTELDWORD(wire + 12) == 0 && size == BMS_STATE_HEADER_SIZE + bytes;
+}
+
+static int flagcheck_bms(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE wire[BMS_STATE_HEADER_SIZE];
+	if (sfh->hdr.ver != tbl->ver) {
+		statflag_seterr(sfh, "M142_BMS_VERSION");
+		return STATFLAG_FAILURE;
 	}
+	if (statflag_read(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS ||
+	    !bms_state_header_valid(wire, sfh->hdr.size)) {
+		statflag_seterr(sfh, "M142_BMS_PAYLOAD");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
+	BYTE wire[BMS_STATE_HEADER_SIZE] = {0};
+	UINT32 bytes;
 	(void)tbl;
-	return (ret);
+	wire[0] = bmsio.cfg.enabled ? 1 : 0;
+	wire[1] = bmsio.cfg.numbanks;
+	wire[2] = bmsio.bank;
+	wire[3] = bmsio.nomem;
+	STOREINTELWORD(wire + 4, bmsio.cfg.port);
+	STOREINTELWORD(wire + 6, bmsio.cfg.portmask);
+	bytes = wire[0] ? (UINT32)wire[1] * BMSIO_BANK_BYTES : 0;
+	STOREINTELDWORD(wire + 8, bytes);
+	if (!bms_state_header_valid(wire, sizeof(wire) + bytes) || bmsiowork.bmsmemsize != bytes ||
+	    (bytes && !bmsiowork.bmsmem)) {
+		statflag_seterr(sfh, "M142_BMS_LIVE_STATE");
+		return STATFLAG_FAILURE;
+	}
+	if (statflag_write(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS)
+		return STATFLAG_FAILURE;
+	return bytes ? statflag_write(sfh, bmsiowork.bmsmem, bytes) : STATFLAG_SUCCESS;
 }
 
 static int flagload_bms(STFLAGH sfh, const SFENTRY *tbl) {
-	int ret;
-
-	ret = STATFLAG_SUCCESS;
-	if (bmsiowork.bmsmem) {
-		ret = statflag_read(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
+	BYTE wire[BMS_STATE_HEADER_SIZE];
+	BYTE *memory = NULL;
+	UINT32 bytes;
+	_BMSIO restored;
+	if (sfh->hdr.ver != tbl->ver || statflag_read(sfh, wire, sizeof(wire)) != STATFLAG_SUCCESS ||
+	    !bms_state_header_valid(wire, sfh->hdr.size))
+		return STATFLAG_FAILURE;
+	bytes = LOADINTELDWORD(wire + 8);
+	if (bytes) {
+		memory = (BYTE *)_MALLOC(bytes, "BMS state RAM");
+		if (!memory || statflag_read(sfh, memory, bytes) != STATFLAG_SUCCESS) {
+			if (memory)
+				_MFREE(memory);
+			return STATFLAG_FAILURE;
+		}
 	}
-	(void)tbl;
-	return (ret);
+	ZeroMemory(&restored, sizeof(restored));
+	restored.cfg.enabled = wire[0];
+	restored.cfg.numbanks = wire[1];
+	restored.bank = wire[2];
+	restored.nomem = wire[3];
+	restored.cfg.port = LOADINTELWORD(wire + 4);
+	restored.cfg.portmask = LOADINTELWORD(wire + 6);
+	if (bmsiowork.bmsmem)
+		_MFREE(bmsiowork.bmsmem);
+	bmsiowork.bmsmem = memory;
+	bmsiowork.bmsmemsize = bytes;
+	bmsio = restored;
+	/* bmsiocfg remains the user's next-reset preference. */
+	return STATFLAG_SUCCESS;
 }
 
 // ---- FD sub system CPU
@@ -1392,22 +1579,42 @@ static int flagcheck_legacy_cpu_state(STFLAGH sfh) {
 
 // ----
 
-int statsave_save(const char *filename) {
-	SFFILEH sffh;
+int statsave_save_checked(const char *filename, char *error, int error_size) {
+	SFFILEH sffh = NULL;
+	char temporary[MAX_PATH];
+	UINT attempt;
 	int ret;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
-
-	sffh = statflag_create(filename);
-	if (sffh == NULL) {
-		return (STATFLAG_FAILURE);
+	if (error && error_size > 0)
+		error[0] = 0;
+	if (filename && filename[0]) {
+		for (attempt = 0; attempt < 64; attempt++) {
+			int length = snprintf(temporary, sizeof(temporary), "%s.tmp-%lu-%u", filename,
+			                      (unsigned long)getpid(), attempt);
+			if (length < 0 || (UINT)length >= sizeof(temporary))
+				break;
+			sffh = statflag_create(temporary);
+			if (sffh || file_attr(temporary) == -1)
+				break;
+		}
 	}
-
+	if (!sffh) {
+		if (error && error_size > 0)
+			milstr_ncpy(error, "M142_STATE_CREATE", error_size);
+		return STATFLAG_FAILURE;
+	}
+	if (error && error_size > 0) {
+		sffh->sfh.err = error;
+		sffh->sfh.errlen = error_size;
+	}
 	ret = STATFLAG_SUCCESS;
 	tbl = np2tbl;
 	tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
-	while (tbl < tblterm) {
-		ret |= statflag_createsection(sffh, tbl);
+	while (tbl < tblterm && ret == STATFLAG_SUCCESS) {
+		ret = statflag_createsection(sffh, tbl);
+		if (ret != STATFLAG_SUCCESS)
+			break;
 		switch (tbl->type) {
 		case STATFLAG_BIN:
 		case STATFLAG_TERM:
@@ -1480,8 +1687,22 @@ int statsave_save(const char *filename) {
 		}
 		tbl++;
 	}
-	statflag_close(sffh);
-	return (ret);
+	ret |= statflag_close(sffh);
+	if (ret == STATFLAG_SUCCESS && file_rename_atomic(temporary, filename, TRUE) != 0) {
+		ret = STATFLAG_FAILURE;
+		if (error && error_size > 0)
+			milstr_ncpy(error, "M142_STATE_COMMIT", error_size);
+	}
+	if (ret != STATFLAG_SUCCESS) {
+		file_delete(temporary);
+		if (error && error_size > 0 && !error[0])
+			milstr_ncpy(error, "M142_STATE_WRITE", error_size);
+	}
+	return ret;
+}
+
+int statsave_save(const char *filename) {
+	return statsave_save_checked(filename, NULL, 0);
 }
 
 static int statsave_check_internal(const char *filename, char *buf, int size,
@@ -1494,6 +1715,9 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	BOOL upd9002_format_marker_seen;
 	BOOL compat_active_seen;
 	BOOL mode_state_seen;
+	BOOL bms_seen = FALSE;
+	BOOL disk_seen = FALSE;
+	BOOL seen[sizeof(np2tbl) / sizeof(np2tbl[0])] = {0};
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
@@ -1510,7 +1734,11 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	mode_state_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
 	while ((!done) && (ret != STATFLAG_FAILURE)) {
-		ret |= statflag_readsection(sffh);
+		if (statflag_readsection(sffh) != STATFLAG_SUCCESS) {
+			statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+			ret = STATFLAG_FAILURE;
+			break;
+		}
 		if (statflag_is_upd9002_format_marker(&sffh->sfh)) {
 			upd9002_format_marker_seen = TRUE;
 		}
@@ -1523,6 +1751,12 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			tbl++;
 		}
 		if (tbl < tblterm) {
+			if (seen[tbl - np2tbl]) {
+				statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+				ret = STATFLAG_FAILURE;
+				break;
+			}
+			seen[tbl - np2tbl] = TRUE;
 			switch (tbl->type) {
 			case STATFLAG_BIN:
 			case STATFLAG_MEM:
@@ -1562,6 +1796,11 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				break;
 
 			case STATFLAG_TERM:
+				if (sffh->sfh.hdr.ver != tbl->ver || sffh->sfh.hdr.size ||
+				    (UINT64)sffh->secpos + sizeof(sffh->sfh.hdr) != file_getsize64(sffh->fh)) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+					ret = STATFLAG_FAILURE;
+				}
 				done = TRUE;
 				break;
 
@@ -1569,7 +1808,6 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_DMA:
 			case STATFLAG_EVT:
 			case STATFLAG_EXT:
-			case STATFLAG_BMS:
 			case STATFLAG_SUBCPU:
 				ret |= flagcheck_veronly(&sffh->sfh, tbl);
 				break;
@@ -1578,8 +1816,24 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_fm(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_BMS:
+				if (bms_seen) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+					ret = STATFLAG_FAILURE;
+				} else {
+					bms_seen = TRUE;
+					ret |= flagcheck_bms(&sffh->sfh, tbl);
+				}
+				break;
+
 			case STATFLAG_DISK:
-				ret |= flagcheck_disk(&sffh->sfh, tbl);
+				if (disk_seen) {
+					statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
+					ret = STATFLAG_FAILURE;
+				} else {
+					disk_seen = TRUE;
+					ret |= flagcheck_disk(&sffh->sfh, tbl);
+				}
 				break;
 
 			default:
@@ -1594,6 +1848,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= STATFLAG_WARNING;
 			}
 		}
+	}
+	if (ret != STATFLAG_FAILURE && (!bms_seen || !disk_seen)) {
+		statflag_seterr(&sffh->sfh, "M142_STATE_REQUIRED");
+		ret = STATFLAG_FAILURE;
 	}
 	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen && !upd9002_format_marker_seen) {
 		statflag_seterr(&sffh->sfh, UPD9002_STATE_ERROR_LEGACY_MARKER);
@@ -1610,6 +1868,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 		statflag_seterr(&sffh->sfh, "saved state has no HOSTFAT snapshot identity");
 		ret = STATFLAG_FAILURE;
 	}
+	if (ret != STATFLAG_SUCCESS && ret != STATFLAG_FAILURE) {
+		statflag_seterr(&sffh->sfh, "M142_STATE_UNSUPPORTED_SECTION");
+		ret = STATFLAG_FAILURE;
+	}
 	statflag_close(sffh);
 	return (ret);
 }
@@ -1622,21 +1884,19 @@ int statsave_check_hostfat_override(const char *filename, char *buf, int size) {
 	return (statsave_check_internal(filename, buf, size, TRUE));
 }
 
-static int statsave_load_internal(const char *filename, BOOL allow_hostfat_mismatch) {
+static int statsave_load_internal(const char *filename, BOOL allow_hostfat_mismatch, char *error,
+                                  int error_size) {
 	SFFILEH sffh;
-	char error[256];
 	int ret;
 	BOOL done;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
-	error[0] = '\0';
-	ret = statsave_check_internal(filename, error, sizeof(error), allow_hostfat_mismatch);
-	if (ret == STATFLAG_FAILURE) {
-		return (STATFLAG_FAILURE);
-	}
+	ret = statsave_check_internal(filename, error, error_size, allow_hostfat_mismatch);
+	if (ret != STATFLAG_SUCCESS)
+		return STATFLAG_FAILURE;
 
-	sffh = statflag_open(filename, NULL, 0);
+	sffh = statflag_open(filename, error, error_size);
 	if (sffh == NULL) {
 		return (STATFLAG_FAILURE);
 	}
@@ -1652,7 +1912,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	vaeg_recording_native_session_epoch_change();
 	rs232c_midipanic();
 	mpu98ii_midipanic();
-	sxsi_trash();
+	/* Keep current HDD directories available until all saved references have
+	 * been resolved; flagload_disk replaces/detaches the complete device set. */
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
 	{
@@ -1689,7 +1950,11 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 	done = FALSE;
 	while ((!done) && (ret != STATFLAG_FAILURE)) {
-		ret |= statflag_readsection(sffh);
+		if (statflag_readsection(sffh) != STATFLAG_SUCCESS) {
+			statflag_seterr(&sffh->sfh, "M142_STATE_CONTAINER");
+			ret = STATFLAG_FAILURE;
+			break;
+		}
 		tbl = np2tbl + 1;
 		tblterm = np2tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
 		while (tbl < tblterm) {
@@ -1795,7 +2060,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 	// Rebuild the native VA I/O map after restoring device state.
 	upd9002_memorymap_va();
-	iocore_build();
+	if (iocore_build() != SUCCESS)
+		ret = STATFLAG_FAILURE;
 	iocore_bind();
 	cbuscore_bind();
 	fmboard_bind();
@@ -1809,16 +2075,28 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	}
 
 	soundmng_play();
+	if (ret != STATFLAG_SUCCESS) {
+		if (error && error_size > 0 && !error[0])
+			milstr_ncpy(error, "M142_STATE_RESTORE", error_size);
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
 
-	return (ret);
+int statsave_load_checked(const char *filename, char *error, int error_size) {
+	return statsave_load_internal(filename, FALSE, error, error_size);
 }
 
 int statsave_load(const char *filename) {
-	return (statsave_load_internal(filename, FALSE));
+	return statsave_load_checked(filename, NULL, 0);
+}
+
+int statsave_load_hostfat_override_checked(const char *filename, char *error, int error_size) {
+	return statsave_load_internal(filename, TRUE, error, error_size);
 }
 
 int statsave_load_hostfat_override(const char *filename) {
-	return (statsave_load_internal(filename, TRUE));
+	return statsave_load_hostfat_override_checked(filename, NULL, 0);
 }
 
 #if defined(SUPPORT_OPRECORD)

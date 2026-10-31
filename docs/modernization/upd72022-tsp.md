@@ -1011,6 +1011,15 @@ foreground high bit is only a hypothesis.
 - Open: on the VA2, 128-byte chunks written to TVRAM only while VB is set
   came to 2.0 a frame, where its VB length and TVRAM speed give 2.9 (vaeg).
 
+`[CONFLICT, M142]` The [later ten-screen receipt](../agents/reports/m142_tvram_vb_hardware.md)
+shows VA-label S=20 and long-blank X=86, unlike the historical VA S=86
+above. Do not generalize the older observation to SYNC-independent VA VB.
+The [unchanged-worker instruction/SYNC follow-up](../agents/reports/m142_tvram_vb_events.md)
+confirms that selecting the 200-line SYNC before screen 5 can also produce
+S/X=87/87 on VA2 without a VA-specific hold. Historical selection/key history
+is unknown; this alternative does not resolve the physical conflict. The
+current 23-raster VA hold is under investigation, not silently removed.
+
 `[MODEL]` Collisions and sprite-over (more than HSPN + 1 sprites on a
 line) of a frame set SC and SPROV's byte at the next frame's start; SPROV
 returns the byte through 146h with OBF and clears SC. Whether HSPN also

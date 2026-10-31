@@ -41,6 +41,7 @@ BOOL gui_save_screenshot(void);
 void gui_quick_save(void);
 void gui_quick_load(void);
 BOOL gui_quick_rotate_selftest(const char *root, char *problem, size_t size);
+BOOL gui_state_load_result_selftest(void);
 void gui_new_frame(void);
 void gui_draw(void);
 /* Logical window units, independent of guest scaling and HiDPI pixels. */

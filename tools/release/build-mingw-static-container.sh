@@ -145,6 +145,14 @@ if ! grep -q "VAEG_BUILD_COMMIT \"$(git rev-parse HEAD)\"" build/mingw-cross/gen
 	exit 1
 fi
 cp build/mingw-cross/generated/vaeg_build_info.h /work/output/
+if [[ -f cmake/release_identity.cmake ]]; then
+	cp build/mingw-cross/generated/release-identity.json /work/output/
+	python3 tools/release/package-identity.py --identity /work/output/release-identity.json \
+		--field display > /work/output/release-display.txt
+else
+	awk '/^#define VAEG_BUILD_RELEASE / {gsub(/"/, "", $3); print "Rel." $3 " (legacy milestone metadata unavailable)"}' \
+		build/mingw-cross/generated/vaeg_build_info.h > /work/output/release-display.txt
+fi
 cp build/mingw-cross/sdl2/vaeg.exe /work/output/vaeg.exe
 cp "${shader_audit}/third-party-notices.txt" /work/output/
 {
@@ -173,6 +181,7 @@ size="$(python3 -c 'import os,sys; print(os.path.getsize(sys.argv[1]))' "${exe}"
 {
 	echo "# VAEG MinGW-w64 fully static build"
 	echo
+	printf '%s' '- Display: '; head -1 "${work_dir}/output/release-display.txt"
 	echo "- Source commit: \`${commit}\`"
 	echo "- Remote branches containing it: ${branches:-none}"
 	echo "- Clean clone in \`${work_dir}/source\`; no existing build tree was reused."

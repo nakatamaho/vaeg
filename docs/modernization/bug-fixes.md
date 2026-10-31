@@ -35,6 +35,172 @@ land.
 
 ## Maintenance Rules
 
+### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
+
+- **Symptom/scope:** the historical native load reaches the guest PC and exits
+  0, but an enabled snapshot loaded with BMS-OFF startup loses all 16 MiB of
+  bank RAM; re-save omits BMSMEM while BMSIO still declares the enabled device.
+- **Demonstrated cause:** reset allocates from reader preferences before loading
+  BMSMEM; that loader silently skips a NULL buffer, then later raw BMSIO restore
+  does not reconcile allocation. Reverting the absent-board default is not a fix.
+- **Correction:** mandatory explicit BMSSTATE v1 restores saved device/allocation
+  and complete RAM together, validates metadata and supported ports, then binds
+  the saved device. The user's next-reset preference remains separate. The new
+  container deliberately rejects old SAV files, as authorized by the maintainer.
+- **Verification:** seven production-path bank/configuration transitions and 11
+  exact-code rejection guards pass. Fresh-process enabled snapshots loaded with
+  reader OFF, smaller size or opposite port preserve all marked RAM and re-save
+  bytes; saved OFF into reader ON also passes guest continuation and restoration.
+  Native tests close this defect; Windows/Linux runtime is not inferred.
+- **Evidence/task:** [historical reproduction and corrected evidence](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commits:** [714f6084bb0b23ffbd15d946b1d2650521800426](https://github.com/nakatamaho/vaeg/commit/714f6084bb0b23ffbd15d946b1d2650521800426),
+  [098e9568906338a418180b14fe6b1a3ebba9897d](https://github.com/nakatamaho/vaeg/commit/098e9568906338a418180b14fe6b1a3ebba9897d).
+
+### M142 — missing or wrong saved media and incomplete HDD-slot restoration
+
+- **Symptom/scope:** a missing FDD can yield CPU/video continuation with exit 0
+  and an empty restored drive. Timestamp/basename records cannot establish disk
+  content identity; four-of-seven SCSI serialization and ignored empty HDD slots
+  also lose saved or retain stale mounts. Mount failures were not all consumed.
+- **Demonstrated cause:** old DISK records lack size/content hashes, missing media
+  is only a warning, resolution context can be discarded before restore, the
+  SCSI loop stops early, and empty HDD records do not detach old devices.
+- **Correction:** DISK v2 binds all 13 slots by full size/SHA-256 and explicit
+  protection/image flags. Flush dirty D88 data before identification, validate
+  all candidates before mount changes, check mount results and detach all empty
+  HDD slots. Missing/ambiguous/changed media and invalid selections are failures.
+  External media is not embedded or rolled back by SAV loading.
+- **Verification:** metadata/real-byte negatives, foreign remap, multi-image and
+  protection checks, SASI/all seven SCSI IDs and nine empty HDD detachments pass.
+  Fresh-process controls restore actual local media; single mutations reject
+  exactly M142_DISK_MISSING and M142_DISK_IDENTITY instead of claiming success.
+- **Evidence/task:** [current contract and native verification](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [540b9800074639acf1d8c396c33be3c32da9b1de](https://github.com/nakatamaho/vaeg/commit/540b9800074639acf1d8c396c33be3c32da9b1de).
+
+### M142 — GUI and debug callers ignored actual state-load failures
+
+- **Symptom/scope:** a passed preliminary check could be followed by a failed
+  restore while GUI callers still displayed success; debug loads also accepted
+  media warnings or silently retried a HOSTFAT override.
+- **Demonstrated cause:** actual loader results were discarded or every
+  non-fatal warning treated as successful restoration, independently of what
+  required machine/media state had actually been restored.
+- **Correction:** checked load APIs return actual errors to GUI/debug callers;
+  only exact success updates the success path. Explicit HOSTFAT override remains
+  separate and cannot bypass required disk validation. Unsupported, duplicate,
+  missing required and malformed container sections are rejected.
+- **Verification:** five exact GUI-controller result mutations pass after their
+  passing controls; actual worker negatives return the expected codes and no
+  restored output. This is headless/controller coverage, not window inspection.
+- **Evidence/task:** [load-result contract](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [b8bbe14c0edf358f2dfe4b727898f1fee4beb84b](https://github.com/nakatamaho/vaeg/commit/b8bbe14c0edf358f2dfe4b727898f1fee4beb84b).
+
+### M142 — read-only state/media input helper opened writable streams
+
+- **Symptom/scope:** file_open_rb allowed writes and required update permissions
+  for nominally read-only state/media/ROM consumers.
+- **Demonstrated cause:** the shared SDL helper used rb+ rather than rb.
+- **Correction:** use a genuine read-only rb stream.
+- **Verification:** after its passing fixture, the probe detects the forbidden
+  successful write before correction with M142_STATE_READ_ONLY (CTest exit 8).
+  After correction the write is refused and the probe passes; original input
+  bytes remain unchanged.
+- **Evidence/task:** [before/after read-only probe](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [1cf19a8ad21f13aab22caa91872be9f8b531c946](https://github.com/nakatamaho/vaeg/commit/1cf19a8ad21f13aab22caa91872be9f8b531c946).
+
+### M142 — failed save or quick undo could discard an existing snapshot
+
+- **Symptom/scope:** a failed replacement could truncate/delete the prior SAV;
+  quick load/undo could proceed despite missing protection or discard a held
+  snapshot after failed restoration.
+- **Demonstrated cause:** direct destination creation precedes serialization,
+  close errors are ignored, GUI cleanup deletes the destination on failure,
+  and undo callers do not consistently gate later steps on successful save/load.
+- **Correction:** exclusive sibling temporary creation, checked serialization
+  and close, then atomic replacement. Preserve old destination on failure;
+  refuse unprotected quick load and retain both snapshots after failed undo.
+- **Verification:** failed save preserves a prior SAV byte-for-byte, exclusive
+  collision data survives, and rename-to-directory rejects with
+  M142_STATE_COMMIT without removing the directory. Actual window interaction,
+  every late load rollback and power-loss durability are not claimed.
+- **Evidence/task:** [snapshot-protection checks](../agents/reports/m142_save_portability_audit.md#authorized-restoration-correction-and-verification),
+  [M142](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [108b30aacba6b07387685a18d4bc07414ca34332](https://github.com/nakatamaho/vaeg/commit/108b30aacba6b07387685a18d4bc07414ca34332).
+
+### M142 — utility media autoloaded a bank RAM disk without a BMS board
+
+- **Symptom/scope:** newly generated utility FDD and VA2 SASI boot to Ready,
+  but with BMS uninstalled the tested VA2 profile turns `DIR` input into only
+  `R`. The default-off M142 machine settings exposed the unsafe media policy.
+- **Demonstrated cause:** generated CONFIG.SYS unconditionally loads the
+  BMS-dependent RDBMS RAM disk. Enabling BMS fixes the same image; removing
+  only that directive also restores the directory/prompt with BMS absent,
+  with every other stored file unchanged. Longer waits, held keys, EMS and
+  disabling MSE do not fix the control. No internal RDBMS corruption address
+  or CPU/keyboard timing cause is inferred.
+- **Correction/verification:** do not autoload RDBMS in either default media
+  configuration. Keep its driver/manual unchanged, document explicit opt-in
+  after BMS installation, and preserve ordinary main RAM when BMS is absent.
+  The controlled live mutation passes; two focused producer tests cover the
+  FDD policy and eight SASI configurations. Fresh pushed-source FDD/both SASI
+  generation and four VA/VA2 default-off directory/Ready boot contracts pass.
+  Recursive readback confirms CONFIG.SYS is the only changed file payload;
+  CPU/input implementations and all driver binaries are unchanged.
+- **Evidence/task:** [utility regression](../agents/reports/m142_utility_media_regression.md),
+  [M142 media correction](../agents/tasks/M142_runtime_portability.md#utility-media-rdbms-load-policy-correction).
+- **Fixing commit:** [826eb848b37720aa6de1c89b1b40e56f296c1179](https://github.com/nakatamaho/vaeg/commit/826eb848b37720aa6de1c89b1b40e56f296c1179).
+
+### M142 — state QA rejected valid disabled-expansion saves
+
+- **Symptom/scope:** actual native state continuations passed, but the new local
+  QA rejected their expansion/configuration/size evidence. This was a validator
+  defect, not a serializer or guest-state failure.
+- **Demonstrated cause:** the validator assumed zero-payload sections existed,
+  absent INI keys were always written on exit, and enabled/disabled sizes
+  differed only by RAM bytes. The writer omits empty sections, an unchanged
+  config need not be rewritten, and enabled sections add two 16-byte headers.
+- **Correction/verification:** validate absent payloads as zero, distinguish
+  effective absent defaults from required explicit keys, and include headers.
+  Ten passing-fixture single-mutation content negatives pass; three actual
+  save/load continuations and three process restarts pass by rechecking the
+  retained worker/output identities. Two live save-guard negatives preserve
+  the existing file. Earlier validation failures remain recorded, not relabeled.
+- **Evidence/task:** [M142 gate preparation](../agents/reports/m142_gate_preparation.md),
+  [M142 task](../agents/tasks/M142_runtime_portability.md).
+- **Fixing commit:** [ea62eda1eb2d1d3abed11f72af2e5e7899868652](https://github.com/nakatamaho/vaeg/commit/ea62eda1eb2d1d3abed11f72af2e5e7899868652).
+
+### M142 — roadmap bank label misread as a gate identifier
+
+- **Symptom/scope:** full CTest milestone discovery rejected the M142 roadmap
+  row with `gate ID mismatch`; separate selftest/audit commands had not exercised
+  discovery. The canonical gate validator itself was correct.
+- **Demonstrated cause/correction:** the status used `G1/long-blank` as a GVRAM
+  bank label, also lexically a gate ID. Use unambiguous `GVRAM/long-blank`; do
+  not weaken validation or change historical gates. Complete discovery and
+  the affected CTest pass after correction.
+- **Evidence/task:** [M142 recovery](../agents/reports/m142_gate_preparation.md#full-local-ctest-and-focused-recovery).
+- **Fixing commit:** [f8b570127a9d7656bd19fda6c21f8d50b788a0c4](https://github.com/nakatamaho/vaeg/commit/f8b570127a9d7656bd19fda6c21f8d50b788a0c4).
+
+### M142 — complete selftest runners lacked shared scratch exclusion
+
+- **Symptom/scope:** parallel CTest launched trace-equivalence full selftests
+  alongside the romless worker, which failed in dropmedia. The exact failing
+  archive assertion is not logged; no guest archive defect is claimed.
+- **Demonstrated hazard:** the trace test omitted the resource lock already
+  shared by the other two complete-selftest entries. Their dropmedia tests
+  create/remove the same temporary directory, so overlapping workers can
+  delete each other's scratch. This is a test-scheduling/data-integrity risk.
+- **Correction/verification:** put trace equivalence under the existing lock.
+  All three full-selftest CTest entries now run serially; the four affected
+  tests pass with `-j4`. Worker digest remains unchanged. This protects this
+  CTest suite, not independently launched external selftests.
+- **Evidence/task:** [M142 recovery](../agents/reports/m142_gate_preparation.md#full-local-ctest-and-focused-recovery).
+- **Fixing commit:** [cb64067b520c1a3535c24122156afb858489868e](https://github.com/nakatamaho/vaeg/commit/cb64067b520c1a3535c24122156afb858489868e).
+
 ### M140 — all-tools prototype exhausted space on the second history log
 
 - **Symptom/scope:** an internal all-tools history disk completed both FDC
@@ -1710,6 +1876,36 @@ found. If the human reproduction still fails, retain the finding as a
 separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
+
+### M142 — host-sized DISK records prevented cross-host state loading
+
+- **Symptom/scope:** #76: Windows and POSIX states fail the DISK section
+  check because their native path fields have different widths.
+- **Demonstrated cause:** `STATDISK` was written as `sizeof(struct)` with
+  `path[MAX_PATH]`: Windows 260 bytes, Linux 4096, macOS 1024; ten records
+  consequently occupy different section sizes. Original host paths also do
+  not necessarily exist on the receiving host.
+- **Correction:** DISK v1 has ten explicit 4108-byte little-endian records:
+  4096 path bytes, a 32-bit read-only/D88-image field, four date bytes, three
+  time bytes and a reserved byte. No native structure layout is serialized.
+  The reader also accepts the three historical v0 widths. A shared frontend
+  resolver serves both GUI and debug loads, using existing paths or unique
+  same-basename files in configured media folders, with no recursive search
+  or private-name table. Missing/ambiguous media remain disk-change warnings;
+  an overlong unmapped path is not truncated into another filename.
+- **Verification:** native full selftest writes a real two-image D88 state,
+  loads independent v1 and Windows/macOS/Linux v0 fixtures through preflight
+  and actual load, remaps Windows-style paths and preserves disk index and
+  read-only flags. Five single-mutation negatives require exact stable
+  version/size/path/flags error codes and nondestructive rejection. These are
+  cross-layout fixtures, not a claim of native Windows/Linux execution.
+- **Evidence/task:** [M142](../agents/tasks/M142_runtime_portability.md),
+  [verification checkpoint](../agents/reports/m142_runtime_progress.md),
+  [later save audit](../agents/reports/m142_save_portability_audit.md)
+  (four new-process macOS layout restores, induced missing-media warning and
+  exact version rejection; genuine foreign-producer exchange still NOT_RUN).
+- **Fixing commit:**
+  [033992d943409d607a9931b9ba90096449708ce5](https://github.com/nakatamaho/vaeg/commit/033992d943409d607a9931b9ba90096449708ce5).
 
 ### M141 — TSP sprites shown without DSPON, with no line limit; TVRAM without waits
 
@@ -4238,6 +4434,76 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M142 — VA-compatible 4MHz clipboard paste loses characters
+
+**OPEN; correction DEFERRED by the maintainer's G142 scope revision.** A mapped
+Linux/X11 run of the VA/V1H profile at nominal 4MHz loses characters during
+clipboard paste and fails its BASIC result contract. The independently selected
+PC-8801mkIISR main-uPD780C baseline at nominal 4MHz passes actual multiline paste,
+repeated-digit arithmetic and subsequent variable use. These are distinct CPU
+roles; the passing baseline does not repair the VA-compatible path.
+
+Root cause is **not established**. Separate timing of mapped Shift/key events
+makes the clock runner's keyboard path work, but that is not a clipboard-paste
+fix. No production change or fixing commit is claimed. Evidence and the bounded
+follow-up contract are tracked as M142-R1 in the
+[G142 issue definitions](../agents/tasks/M142_runtime_portability.md#g142-closure-and-redefined-issues).
+The PC-Engine LHA/PCEPAT prerequisite question and OCR/target-coverage gaps are
+tracked there separately, not represented as proven emulator defects.
+
+### M142 — VA2 short-VB TVRAM chunk count exceeds hardware (#75)
+
+- **Observed scope:** the published TSPSPR Q row is 602 on the VA2 versus
+  875 in vaeg (1.45); S is 20 versus 21. Q/S is 30.1 versus 41.7, while the
+  VA control is about 28.0 and the other published rows are 0.92–1.09.
+- **Cause/correction:** unresolved. Chunk quantization, entry/poll phase and
+  memory arbitration are hypotheses, not demonstrated hardware mechanisms.
+  No generic TVRAM slowdown or fitted 1.45 adjustment is justified.
+- **Verification/status:** the [M142 checkpoint and complete published table](../agents/reports/m142_runtime_progress.md#d--75-published-screen-5-measurements-not-a-new-hardware-run)
+  retain the controls and limits. The [returned hardware follow-up](../agents/reports/m142_tvram_vb_hardware.md)
+  records ten DONE screens, all 240 rows and ten matched native software runs:
+  VA2/3 32-byte Q nearly agrees, whereas 128/256-byte counts have large ratios.
+  Completed-chunk thresholds can amplify a small timing difference; the
+  responsible timing error is not yet established. The returned VA first-phase
+  S=20 versus long-blank X=86 also conflicts with the older VA S=86 condition
+  and the current unconditional VA 23-raster extension; retain both corpora
+  until their conditions are reconciled. Missing physical results no longer
+  block analysis; cause remains OPEN and correction NOT_IMPLEMENTED. No
+  fixing commit, speculative phase adjustment or gate pass is claimed.
+  The [instruction-cost/SYNC follow-up](../agents/reports/m142_tvram_vb_events.md)
+  observes late polls authorizing whole extra copies and scheduler-dependent
+  REP costs. Selecting 200-line SYNC before screen 5 also produces a large
+  S on VA2 without a VA hold; this is an alternative condition, not proof
+  of the historical VA's key/SYNC history or the physical cause. Nine local
+  diagnostic executions complete with the unchanged worker; one earlier
+  incomplete script attempt is retained. Subsequent
+  [G1/long-blank controls and all-row register returns](../agents/reports/m142_tvram_vb_events.md#g1-and-long-blank-controls)
+  add four successful diagnostic executions. A common earlier cutoff cannot
+  reduce 256-byte Q while retaining the five-chunk G1 window under unchanged
+  traced costs/phase; it is not a modified-scheduler test or physical cause
+  proof. Reusable trace analysis has passing content/CLI negative tests.
+  No timing correction is selected; ordinary-row and VA-condition constraints
+  remain in force. Later [REP alignment accounting](../agents/reports/m142_tvram_vb_events.md#rep-alignment-accounting)
+  reuses the nine traces: odd-address GVRAM continuations incur a two-clock
+  modeled prefetch stall absent from even-address TVRAM. The 1422 dispatches
+  explain software residuals, not a physical limiter or a selected correction.
+- **Maintainer disposition:** [M142 scope revision](../agents/tasks/M142_runtime_portability.md#maintainer-approved-75-investigation-closure)
+  accepts the investigation as complete for M142 and defers cause identification
+  and correction. Issue #75 remains OPEN here; no fixing commit or evidence of
+  negligible impact exists. This removes the correction from M142's gate
+  prerequisites, not the other gate obligations, and does not accept G142.
+
+### M142 — reported Information FPS versus high-digit display
+
+- **Observed scope:** the maintainer reports `32.0FPS` under overclocking
+  where `132.0FPS` was suspected. A 132-to-32 truncation has not been reproduced.
+- **Cause/correction:** unresolved as a reported runtime case; unrestricted
+  formatting and measurement tests pass through 1000 FPS. Actual render rate,
+  emulated MHz and final-client clipping must not be conflated. No guessed
+  production correction is claimed.
+- **Verification/status:** [M142 FPS findings](../agents/reports/m142_runtime_progress.md#a--fps-measurement-and-digits);
+  the real overclock/presenter-width case remains NOT_RUN, not a format-fix PASS.
 
 ### M140 — physical AF probe disagrees on SCF/CCF undocumented X/Y bits
 

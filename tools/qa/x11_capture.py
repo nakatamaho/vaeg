@@ -49,6 +49,7 @@ from screen_compare import png_bytes, require, QaError
 
 ROOT = Path(__file__).resolve().parents[2]
 CASE_KEYS = {"id", "width", "height", "status", "panel", "fullscreen", "ui_scale", "renderer"}
+GUEST_LINES = ['10 CLS:LOCATE 0,0,0:PRINT "LOCAL DISPLAY QA"', '20 GOTO 20', 'RUN']
 
 
 def digest(path):
@@ -154,9 +155,51 @@ def command(argv, env, timeout=10):
                           stderr=subprocess.PIPE, timeout=timeout).stdout
 
 
+def basic_boot_action(rows):
+    # Copy Screen can include the non-ASCII blinking cursor after ASCII Ok.
+    # Normalize as the interactive adapter does, without ignoring ASCII errors.
+    rows = [''.join(c if 32 <= ord(c) < 127 else ' ' for c in row) for row in rows]
+    if any(row.strip() == 'Ok' for row in rows):
+        return 'ready'
+    if any(re.search(r'How\s+many\s+files\s*\(0-15\)\?', row, re.I) for row in rows):
+        return 'enter'
+    return 'wait'
+
+
+def clipboard_rows(env):
+    # --screen-tvram-dump is an exit-time dump, not a live observation.
+    # Use the real Copy Screen shortcut; a fresh sentinel prevents accepting
+    # another client's stale clipboard when this SDL client has not replied.
+    sentinel = 'X11_BOOT_QUERY_' + str(time.monotonic_ns())
+    subprocess.run(['xclip', '-selection', 'clipboard', '-i'], input=sentinel.encode(),
+                   env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+    command(['xdotool', 'key', '--clearmodifiers', 'ctrl+shift+c'], env)
+    deadline = time.monotonic() + 1
+    while time.monotonic() < deadline:
+        value = command(['xclip', '-selection', 'clipboard', '-o'], env)
+        if value != sentinel:
+            return value.splitlines()
+        time.sleep(0.05)
+    return []
+
+
+def wait_basic_boot(worker, env, enter, timeout):
+    deadline, answered, action = time.monotonic() + timeout, False, 'wait'
+    while worker.poll() is None and time.monotonic() < deadline:
+        action = basic_boot_action(clipboard_rows(env))
+        if action == 'ready':
+            return answered
+        if action == 'enter' and not answered:
+            enter()
+            answered = True
+        time.sleep(0.1)
+    require(worker.poll() is None, 'M132_UI_WORKER_EARLY_EXIT')
+    raise QaError('M132_UI_BOOT_NOT_READY')
+
+
 def capture(args):
     require(args.display and args.display_kind in ("virtual-x11", "physical-x11"), "M132_UI_DISPLAY_REQUIRED")
-    for tool in ("xdotool", "xwininfo", "xprop", "xwd"):
+    for tool in ("xdotool", "xwininfo", "xprop", "xwd", "xclip"):
         require(shutil.which(tool) is not None, "M132_UI_DEPENDENCY_MISSING")
     case = validate_case(json.loads(args.case.read_text()))
     output = args.output_dir.resolve()
@@ -177,7 +220,7 @@ def capture(args):
               f"GUI_win_cx={case['width']}\nGUI_win_cy={case['height']}\nGUI_ui_scale={case['ui_scale']}\n")
     (output / "config.ini").write_text(config)
     (output / "config.initial.ini").write_text(config)
-    lines = ['10 CLS:LOCATE 0,0,0:PRINT "LOCAL DISPLAY QA"', '20 GOTO 20', 'RUN']
+    lines = GUEST_LINES
     (output / "input.txt").write_text("\n".join(lines) + "\n")
     argv = [str(args.worker.resolve()), "--roms", str(args.roms.resolve()), "--cfg", str(output / "config.ini"),
             "--bkupmem", str(output / "backup.bin"), "--model", "va2", "--mute", "--nowait", "--debug",
@@ -214,9 +257,11 @@ def capture(args):
                 time.sleep(0.10)
                 command(["xdotool", "keyup", "Return"], env)
                 time.sleep(0.10)
-            time.sleep(2)
-            enter()
-            time.sleep(0.5)
+            # A fixed delay can consume program line 10 as the file-count
+            # response on a slower presenter. Observe both guest transitions.
+            report['boot_prompt_answered'] = wait_basic_boot(
+                worker, env, enter, args.timeout)
+            report['boot_ready'] = True
             for line in lines:
                 command(["xdotool", "type", "--clearmodifiers", "--delay", "100", line], env)
                 enter()
@@ -280,6 +325,13 @@ def capture(args):
 
 
 def selftest():
+    require(basic_boot_action(['How many files(0-15)?']) == 'enter' and
+            basic_boot_action(['How many files(0-15)?', 'Ok']) == 'ready' and
+            basic_boot_action(['booting']) == 'wait' and
+            basic_boot_action(['NotOk']) == 'wait' and
+            basic_boot_action(['Ok\ufffd']) == 'ready' and
+            basic_boot_action(['NotOk\ufffd']) == 'wait' and
+            basic_boot_action(['OkA']) == 'wait', 'M132_UI_BOOT_SELFTEST')
     cases = default_cases()
     require(len(cases) == 32 and len({case["id"] for case in cases}) == 32, "M132_UI_SELFTEST")
     header = [100, 7, 2, 24, 2, 1, 0, 0, 32, 0, 32, 32, 8, 4, 0xff0000, 0xff00, 0xff, 8, 256, 0, 2, 1, 0, 0, 0]
