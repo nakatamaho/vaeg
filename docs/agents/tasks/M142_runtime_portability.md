@@ -665,9 +665,39 @@ ctest --test-dir "$NATIVE_BUILD" \
 
 Configure/build exit 0; focused **4/4 PASS**, exit 0. Recording/static FFmpeg
 remain ON and bundled encoders OFF. Private `COMPAT_DEFAULTS_01` evidence
-retains source/patch/worker identities and before/after commands/logs/exits.
+retains source/patch and final worker identities, plus before/after commands,
+logs and exits (the initial red build's binary digest was not captured).
 No unchanged expensive CPU corpus or media-generation campaign is repeated;
 prior results retain their actual evaluated identities, not this follow-up's.
-A new pushed-source static Windows handoff follows; the earlier `0f3cbe20`
-executable does not contain these requested defaults. Actual window/presenter,
-Windows runtime and OS-to-OS exchange are not inferred. **G142 NOT_READY**.
+The earlier `0f3cbe20` executable does not contain these requested defaults.
+Actual window/presenter, Windows runtime and OS-to-OS exchange are not inferred.
+**G142 NOT_READY**.
+
+Final evaluated/pushed source:
+**`666c7746b6f34f617f22ce4ce1f35623b3173875`**. Reconfigured native display
+`Rel.20261031 (M142-dev, 666c7746)`; frozen worker SHA-256:
+`120c83e726b1d57a967821c5a695935ed3df1bd2b5dfc3e5ab36d2f5f7478466`.
+The same exact focused CTest command above again passes **4/4**, exit 0,
+37.21 seconds, on this identity-correct binary. Whole-tree format retains
+659 inherited diagnostics; none intersects this follow-up's changed lines.
+Encoding/EOL/case/Markdown/whitespace, 49 milestone selftests and discovery/
+audit pass; MacPorts builder/release-identity unit tests pass 3 and 4.
+
+A fresh clean clone/application-object Windows build of that pushed source:
+
+```sh
+python3 tools/release/build-mingw-macports.py \
+  --commit 666c7746b6f34f617f22ce4ce1f35623b3173875 \
+  --work-dir "$WINDOWS_WORK" --sdk-dir "$SDK" --jobs 4
+```
+
+Exit **0**. Recording/shaders ON, bundled encoders OFF; audited isolated SDK
+reuse only, no container/Colima/global toolchain changes. Static archive,
+system-DLL import, embedded source/display, output-copy equality and clean
+source checks PASS. Display `Rel.20261031 (M142-dev, 666c7746)`; executable
+SHA-256:
+**`79b881a5af84a622d0b7a947e3115ebe78f4db7dce3b6d999a2bed236b3618b0`**.
+`vaeg.exe`, `third-party-notices.txt`, `BUILD-REPORT.md` and build/policy/import
+identities are retained together outside Git. Historical handoffs and private
+inputs are preserved. This is a new handoff, not Windows execution or G142
+acceptance.
