@@ -4449,6 +4449,21 @@ static int test_bms_state_restore(void) {
 			problem = "section negative missed its exact guard or mutated the machine";
 		_MFREE(changed);
 	}
+	if (!problem) {
+		FILEH readonly;
+		UINT wrote;
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			problem = "M142_STATE_READ_ONLY_BASELINE";
+		readonly = file_open_rb(path);
+		if (readonly == FILEH_INVALID) problem = "M142_STATE_READ_ONLY_OPEN";
+		else {
+			/* Same existing byte: a broken writable open is detected without
+			 * corrupting even this synthetic fixture. */
+			wrote = file_write(readonly, data, 1);
+			file_close(readonly);
+			if (wrote != 0) problem = "M142_STATE_READ_ONLY";
+		}
+	}
 	if (data) _MFREE(data);
 	if (data2) _MFREE(data2);
 	bmsiocfg = preference;
