@@ -976,3 +976,45 @@ required SDKs, build inputs and evidence until release validation/publication
 has completed; retain private-docs, shared cache, supplied materials and the
 remote branch. The primary repository checkout is not a disposable milestone
 worktree and must remain available.
+
+### Release handoff checkpoint
+
+Release source:
+[`3604904c7f4f49dc71ffbd3453882cb7ee1b261b`](https://github.com/nakatamaho/vaeg/commit/3604904c7f4f49dc71ffbd3453882cb7ee1b261b).
+Annotated tag `rel-20261101` (tag object
+`49df89dcb786267a492f8bfcd9debfd4d414e81c`) is pushed and immutable.
+A new clean MacPorts MinGW clone/build exits **0**, with static dependencies,
+recording/shaders ON, public policy ON and local bundled encoders OFF. Full
+source/display identity, encoder archive and Windows system-DLL import audits
+pass. Display is `Rel.20261101 (M142)`; executable size is **73319349 bytes**,
+SHA-256 `47490f3b2f3cfad7348aa06d15b20255240e68cbe45bf68b57e8c020e24ce4a9`.
+The package identity helper validates `vaeg-20261101-m142-windows-x64` against
+the new tag. An identical handoff executable, build report and notices are
+preserved outside task scratch. This is a cross-build, not new Windows runtime
+acceptance or a complete published multi-platform release.
+
+**Publication remains BLOCKED, not complete.** Public API checks show no
+release for this tag (HTTP 404) and no workflow run for its source commit.
+The release-preparation commit retained `[skip ci]`, which suppresses the
+push-triggered workflow; no tag is moved or replaced to work around that
+mistake. No API authentication token is available to dispatch the existing
+release workflow from this agent. The authorized recovery is a single
+manual dispatch of the unchanged tag from an authenticated maintainer session:
+
+```sh
+gh workflow run release.yml --repo nakatamaho/vaeg --ref main \
+  -f tag_name=rel-20261101
+```
+
+Pure release identity (4), MacPorts builder (3), recording-release contract,
+repository checks and milestone audit all pass locally before this request.
+Actual release publication and per-platform asset success must still be
+verified; no hosted success is claimed.
+
+Cleanup so far: the local `topic/m142-fixes` branch was deleted only after
+verifying containment in `origin/main`, with a clean checkout switched to
+main. There was no separate milestone or merge worktree. The primary checkout,
+remote branch, private-docs, shared cache and supplied materials remain.
+Task builds/SDKs, hardware handoff and private evidence are deliberately retained
+until publication and final artifact checks finish. Do not delete the active
+VM's backing storage while its task-local processes are running.
