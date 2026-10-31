@@ -960,3 +960,19 @@ No C/C++ application input, SDK or accepted binary changes in this closure;
 therefore unchanged expensive builds and guest campaigns are reused rather
 than relabeled or rerun. The failed OCR enlargement experiment is preserved
 privately and not applied to the committed runner. No hosted CI was requested.
+
+## Authorized merge and release preparation
+
+After G142 closure, the maintainer explicitly requested merge, release and
+working-directory cleanup. The accepted branch was merged with `--no-ff` at
+[`0bc7be5d286afa8974bba2bb2504244694166a05`](https://github.com/nakatamaho/vaeg/commit/0bc7be5d286afa8974bba2bb2504244694166a05)
+and pushed to main. Release preparation declares **M142**, without `-dev`,
+and adds `CHANGES.20261101.md` for **Rel.20261101 (M142)**. This authorization
+supersedes the earlier no-merge/no-release checkpoint wording; it does not
+change deferred-test results or authorize another milestone.
+
+Publication and cleanup are not implied by this preparation record. Keep
+required SDKs, build inputs and evidence until release validation/publication
+has completed; retain private-docs, shared cache, supplied materials and the
+remote branch. The primary repository checkout is not a disposable milestone
+worktree and must remain available.
