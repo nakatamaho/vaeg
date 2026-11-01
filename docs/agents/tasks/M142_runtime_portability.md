@@ -1018,3 +1018,46 @@ remote branch, private-docs, shared cache and supplied materials remain.
 Task builds/SDKs, hardware handoff and private evidence are deliberately retained
 until publication and final artifact checks finish. Do not delete the active
 VM's backing storage while its task-local processes are running.
+
+### Post-handoff command-line startup investigation
+
+The maintainer reported V3 startup without HDD access, then confirmed that
+Explorer double-click starts normally. Do not classify this as an EXE loader
+failure. Publication/cleanup remain held while clarifying the command-line
+behavior; the immutable release tag is not changed.
+
+Static inspection establishes different search policies: `select_config_path()`
+in `sdl2/ini.c` chooses relative `vaeg.cfg` by default; default backup-memory
+paths and relative media paths are also working-directory-relative. In contrast,
+`resolve_model_rompath()` tries beside the executable before the working
+directory. Calling an absolute EXE path does not change the working directory.
+The existing SDL2 README describes this policy; BUILD.md's contradictory
+user-directory/executable-local config description is corrected. No config
+selection or compatibility policy is changed.
+
+A private three-process control with the unchanged native `666c7746` worker,
+ROMs beside its copied executable, an absolute fixture HDD path in its config,
+and two distinct working directories reproduces the HDD selection difference:
+
+| Invocation | Actual saved DISK v2 SASI slot 1 |
+| --- | --- |
+| Working directory is the application folder | Fixture HDD attached |
+| Same executable, unrelated working directory, implicit config | Empty |
+| Unrelated directory, explicit absolute `--cfg` | Fixture HDD attached |
+
+All three workers exit 0. The actual saved slot contents, not exit status alone,
+establish `PASS_CWD_CONFIG_HDD_SELECTION_REPRODUCED_NOT_WINDOWS_EXECUTION`.
+The first two probe attempts had caller errors (missing output directory and
+wrong section-key type); they are retained and not reported as application bugs.
+Mode at the five-frame snapshot is native in all three runs, so this probe does
+not claim to reproduce the final visible V3 screen or the maintainer's exact
+Windows command. The full command and original working directory were not yet
+provided. Evidence uses only task copies; original ROM/media/settings are not
+modified.
+
+Safe immediate workaround: change to the existing installation directory before
+invoking its EXE. Explicit `--cfg` alone is insufficient when backup-memory or
+configured media paths are relative. No settings deletion, HDD initialization,
+new OS-specific config policy or speculative emulator patch is warranted by
+this result. The observation is consistent with pre-existing path semantics,
+not a demonstrated M142 application-code regression.

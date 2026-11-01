@@ -207,19 +207,35 @@ presentation/packaging change, not a state-format version change.
 
 ## Runtime State And Config
 
-`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are normally
-stored in the portable per-user state directory:
+The SDL2 frontend reads and writes `vaeg.cfg` in the **process working
+directory**, not automatically beside the executable or in a user directory.
+VA backup memory defaults to `vabkupmem.dat`; VA2/VA3 defaults to
+`va2bkupmem.dat`, also relative to the working directory. `--cfg path` and
+`--bkupmem path` select explicit files. Relative media paths remain relative
+to the working directory, not to the selected config file.
 
-- Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
-- Windows: `%APPDATA%\vaeg`
-- macOS: `~/Library/Application Support/vaeg`
+ROM discovery is different: it tries beside the executable, then the working
+directory (unless `--roms` is explicit). Thus an absolute EXE invocation from
+another directory can find ROMs but miss the usual configuration, backup
+memory and HDD paths, starting with defaults and no configured HDD.
 
-An executable-local `vaeg.cfg` overrides the user-state configuration. An
-existing executable-local `vabkupmem.dat` similarly overrides the
-user-state backup memory, and saves return to the selected file. Save
-states and keyboard sidecars remain in the user directory.
+For the same portable installation behavior as starting in its folder, first
+change to that folder. In PowerShell, for example:
 
-`vabkupmem.dat` does not fall back to the ROM path.
+```powershell
+Set-Location 'D:\Emulators\vaeg'
+& .\vaeg.exe
+```
+
+No settings reset or media migration is needed. Merely specifying `--cfg`
+does not relocate relative media paths or the default backup-memory file.
+See [configuration details](sdl2/README.md#configuration).
+
+Managed `states`, `screenshots`, `recordings` and `vaeg-cache` directories
+prefer the executable directory when writable, falling back to the user
+directory (`%APPDATA%\vaeg` on Windows, the XDG config directory on Linux,
+or `~/Library/Application Support/vaeg` on macOS). That managed-directory
+policy is not the config/backup-memory search policy.
 
 ROMs are read beside the active executable. VA uses unsuffixed names, while
 VA2/VA3 uses MAME-compatible suffixed names:

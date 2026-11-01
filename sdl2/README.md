@@ -707,6 +707,15 @@ file starts from built-in defaults and is created when settings are normally
 saved. Use `--no-cfg` to disable both configuration reads and writes for the
 session. `--cfg` and `--no-cfg` are mutually exclusive.
 
+An absolute command-line path to `vaeg.exe` does not change the working
+directory. To use a portable installation's existing config and relative HDD
+paths, run `Set-Location 'D:\Emulators\vaeg'` followed by `& .\vaeg.exe`
+in PowerShell (substitute the actual installation directory). ROM discovery
+can still succeed beside the EXE when the config is absent in the working
+directory; seeing a V3 boot with no HDD access is therefore not evidence that
+the EXE failed to start. `--cfg` alone does not rebase relative media paths or
+select the backup memory beside that config.
+
 Backup memory also defaults to the current working directory and is separated
 by boot model: VA uses `vabkupmem.dat`, while VA2/VA3 uses `va2bkupmem.dat`.
 Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
