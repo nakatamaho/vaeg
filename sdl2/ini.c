@@ -416,6 +416,7 @@ static const INITBL iniitem[] = {
     {"optSPBVL", INITYPE_UINT8, &np2cfg.spb_vrl, 0},
     {"optSPB_X", INITYPE_BOOL, &np2cfg.spb_x, 0},
     {"optMPU98", INITYPE_HEX8, &np2cfg.mpuopt, 0},
+    {"WSRE", INITYPE_BOOL, &np2cfg.wsreenable, 0},
 
     {"volume_F", INITYPE_UINT8, &np2cfg.vol_fm, 0},
     {"volume_S", INITYPE_UINT8, &np2cfg.vol_ssg, 0},

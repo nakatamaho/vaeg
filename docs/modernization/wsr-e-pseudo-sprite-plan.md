@@ -288,8 +288,9 @@ as in M130 and M141, is vaeg/machine within 0.9-1.1 for the same COM.
   absent nothing changes, including the state file; when present a new
   state section is saved.
 - Records: each vaeg task file keeps a "vaeg divided by the photographs"
-  table in the M141 form; photographs go to
-  `docs/modernization/m<id>-photos/`.
+  table in the M141 form. Raw photographs, hardware logs and private asset
+  identities remain outside Git in task-specific scratch under `~/work`,
+  as required by AGENTS.md; publish independently written analysis only.
 
 ## 9. Hardware facts and their evidence
 
@@ -299,7 +300,8 @@ as in M130 and M141, is vaeg/machine within 0.9-1.1 for the same COM.
 | E area release | port 152h bit 3 = 1 sends E0000-EFFFFh to the expansion slot | `[DOC]` PC-88VA Technical Manual 3.3 |
 | Port 152h | readable (the ROM reads it as a word with `IN AX,DX`); INT 80h/81h/83h, INT 87h's extended driver and INT 94h save it and restore the saved value | `[DOC]` ROM disassembly |
 | VA I/O blocks | 1000h-FEFFh is the user area for expansion boards | `[DOC]` Technical Manual 2.2 |
-| Low-byte partners | E0h/E1h unused by the VA; E2h/E3h, E4h/E6h, E8h/E9h/ECh/EDh are V1/V2-mode only | `[DOC]` Technical Manual, vaeg |
+| Low-byte partners | E0h/E1h unused by the VA; E2h/E3h, E4h/E6h, E8h/E9h/ECh/EDh are V1/V2-mode only | `[DOC]` Technical Manual; current vaeg E8h decode differs (W1 finding below) |
+| Current vaeg V3 E8h | Compatible Kanji reads are registered without a V3 guard; W1PORT reports a driven low-byte port with the new board disabled | `[CODE]` existing `io/cgromva.c`; local guest observation, not hardware measurement. See the W1 task's open scope conflict. |
 | Port map | VGA 3C0h+n at 4nE0h; Melco and I-O DATA share it | `[OTHER-BOARD]` AGS_CLGD.COM, `[EMULATOR]` NP2kai |
 | E window | E0000-E7FFFh (32 KiB), banked by GR09/GR0A | `[OTHER-BOARD]` AGS_CLGD.COM draws at E000h, `[EMULATOR]` |
 | Word OUT | `OUT DX,AX` to 4nE0h with even n writes index (AL) and data (AH) | `[OTHER-BOARD]` AGS_CLGD.COM |

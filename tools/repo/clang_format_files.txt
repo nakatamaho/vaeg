@@ -36,6 +36,8 @@ cbus/scsicmd.c
 cbus/scsicmd.h
 cbus/scsiio.c
 cbus/scsiio.h
+cbus/wsre.c
+cbus/wsre.h
 common.h
 common/_memory.c
 common/_memory.h
@@ -338,6 +340,7 @@ tests/common/sha256.c
 tests/frontend/recording/test_mp4_windows_probe.cpp
 tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
+tests/frontend/wsre_selftest.h
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd780/disasm.cpp
@@ -404,6 +407,8 @@ tests/z80_compat/legacy_contract.cpp
 tests/z80_compat/wrapper.cpp
 tests/z80_compat/wrapper_zex_runner.cpp
 tests/z80_compat/zex_runner.cpp
+vram/gd5428.c
+vram/gd5428.h
 vram/makegrphva.c
 vram/makegrphva.h
 vram/makesprva.c

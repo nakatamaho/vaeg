@@ -342,6 +342,7 @@ set(VAEG_CORE_SOURCES
     io/serial.c
     io/upd4990.c
     cbus/cbuscore.c
+    cbus/wsre.c
     cbus/sasiio.c
     cbus/scsiio.c
     cbus/scsicmd.c
@@ -423,6 +424,7 @@ set(VAEG_VA_SOURCES
     io/upd9002_regs.c
     io/va91.c
     io/videova.c
+    vram/gd5428.c
     vram/makegrphva.c
     vram/makesprva.c
     vram/maketextva.c
@@ -1059,6 +1061,8 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_wsre_log_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/wsre/test_compare_logs.py")
     add_test(NAME vaeg_mingw_macports_sdk
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/test_mingw_macports.py")
     add_test(NAME vaeg_release_identity

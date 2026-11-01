@@ -45,7 +45,7 @@ machine from F000:FFFE, the VA display rate, the board and CR27. Timing
 rows count completions in 600 VRTCs; R0 runs three times, about 30 s.
 
 Exit codes: 0 pass, 1 a check failed, 2 cannot measure (no board for
-W1PROBE, or no VRTC interrupt), 3 stopped with ESC (later stages).
+W1PROBE, no VRTC interrupt, or log I/O failure), 3 stopped with ESC (later stages).
 
 ## Running on a machine
 
@@ -57,8 +57,8 @@ W1PROBE, or no VRTC interrupt), 3 stopped with ESC (later stages).
    disagree, the log is right.
 
 W1PORT writes port 152h with interrupts off for a few instructions and
-restores it. W1PROBE leaves the board awake (46E8h = 08h) with SR06
-locked and GR09/GR0A at 00h.
+restores it. W1PROBE restores the incoming 46E8h and GR09/GR0A values
+and leaves SR06 locked. It never writes the relay port 40E1h.
 
 ## Build
 
@@ -83,3 +83,14 @@ python3 demos/wsr-e-pseudo-sprite/smoke.py /tmp/wsre/W1PROBE.COM --board
 `smoke.py` checks control flow, the CSV lines, the exit code and that the
 IRQ2 vector, the PIC mask and port 152h are restored. Its port models are
 guesses and its timings mean nothing; vaeg and the machines are the tests.
+The script returns the guest exit code (including 2 for no board) and fails
+on missing/invalid CSV or failed cleanup. `--log PATH` saves its synthetic
+CSV output. The four required models are default, `--float self`,
+`--float next`, and `--board`.
+
+Host comparison: `python3 tools/wsre/compare_logs.py MACHINE_LOG VAEG_LOG`.
+This compares row identities and metadata (excluding build id), reports each
+check value, and reports vaeg/machine timing ratios and repeat variation.
+`FF` and `FLOAT ...` probe results are the same undriven class. Only for
+emulator fixture comparisons, `--ignore-r0-counts` suppresses R0 timing
+judgment; that result is explicitly not a hardware timing PASS.

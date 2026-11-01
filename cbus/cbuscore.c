@@ -15,6 +15,7 @@
 #include "scsiio.h"
 #include "mpu98ii.h"
 #include "bmsio.h"
+#include "wsre.h"
 
 static const IOCBFN resetfn[] = {
     sasiio_reset,
@@ -32,8 +33,10 @@ static const IOCBFN bindfn[] = {
 
 void cbuscore_reset(void) {
 	iocore_cb(resetfn, sizeof(resetfn) / sizeof(IOCBFN));
+	wsre_reset();
 }
 
 void cbuscore_bind(void) {
 	iocore_cb(bindfn, sizeof(bindfn) / sizeof(IOCBFN));
+	wsre_bind();
 }

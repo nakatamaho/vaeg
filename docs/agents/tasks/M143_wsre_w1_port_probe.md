@@ -25,9 +25,13 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — WSR-E stage W1: the VA side of the port path and the board probe
 
-Status: **draft; not started.** Starts only when the maintainer assigns
-it. The number is provisional (M142 is the last completed milestone);
-renumber the file, branch and prefix if the maintainer chooses another.
+Status: **IN_PROGRESS; G143 NOT_READY.** Assigned explicitly as M143 WSR-E
+W1. Base: `origin/main` at `950efef393196497ed2a9f1c017a3f0ae30f5323`.
+The separate runtime-speed branch is not included and its human acceptance
+does not accept this WSR-E task. W2 remains out of scope.
+
+The first commit preserves all delivered drafts unchanged:
+[2ad997fc421a05d1f2b3cb259d762fbd49665a40](https://github.com/nakatamaho/vaeg/commit/2ad997fc421a05d1f2b3cb259d762fbd49665a40).
 
 Branch `milestone/m143-wsre-w1`; commit prefix `M143:`.
 
@@ -126,10 +130,10 @@ display and relay (W5).
 | W1PORT B152 SAME, SLOT, RESTORE | PASS | PASS | PASS |
 | W1PORT R0 counts | photograph | photograph | 0.9-1.1 of the machine (M130 calibrated) |
 | W1PROBE SR06B 12 / 00 | 12 / 0F | 12 / 0F | 12 / 0F |
-| W1PROBE SR06W 12 / 00 | photograph | photograph | as the machine |
-| W1PROBE CR27 | photograph | photograph | as the machine |
-| W1PROBE GR09B/GR0AB, GR09W/GR0AW | photograph | photograph | as the machine |
-| W1PROBE P 40E1h ... 5BE1h | photograph | photograph | as the machine |
+| W1PROBE SR06W 12 / 00 | [OPEN] | [OPEN] | provisional index/data alias; await logs |
+| W1PROBE CR27 | [OPEN] | [OPEN] | [OPEN] 98h provisional |
+| W1PROBE GR09B/GR0AB, GR09W/GR0AW | [OPEN] | [OPEN] | provisional read-back; await logs |
+| W1PROBE P 40E1h ... 5BE1h | [OPEN] | [OPEN] | [OPEN] FFh until hardware logs |
 
 Fill the VA and VA2 columns from the logs; a row that differs from the
 expectation is a finding, not a failure of the task: record it here and
@@ -164,11 +168,74 @@ monitor stays on the VA.
 
 ## Local verification (to fill)
 
-- `build.sh` exit status, NASM version, SHA-256 of both COMs.
+- Development COM/media build: `NASM=nasm demos/wsr-e-pseudo-sprite/build.sh
+  --msdos4 "$MSDOS4_SOURCE" "$TASK_SCRATCH/media-r1"`, exit **0**, NASM
+  **3.01**. The input is the pinned FreeDOS-88VA `msdos4-va.2` system disk.
+  These artifacts embed draft-source id `2ad997fc` plus the working-tree
+  program corrections, not a final clean candidate. A later comment-only
+  source edit was rebuilt and both COMs compared byte-identical with `cmp`.
+  Development SHA-256 values:
+  - W1PORT.COM: `732a4e5348349407b58cd56d239d3e9fe6568cbe82fb534c79810227aea473ff`
+  - W1PROBE.COM: `a5d67c4af7f929874c324148964926918b1638ccf3f2377c24967d71ff008d6c`
+  - MS-DOS D88: `08ce0bb1f3df1a06fc3c12dcb4b79ac4ce06cf93ed53f6d5036f975409cc0608`
+  Final candidate hashes must be recorded after the scope conflict below is
+  resolved and the sources are built from their pushed commit.
 - `smoke.py` with the default, `--float self`, `--float next` and `--board`
-  models: exit codes 0/0/0 (W1PORT) and 2/2/0 (W1PROBE).
-- vaeg: unit tests, headless runs, ctest totals, clean static MinGW build
-  (absolute path of `vaeg.exe` for the gate).
+  models: required exit codes **0/0/0/0** (W1PORT) and **2/2/2/0** (W1PROBE).
+  All eight development runs meet these exit codes. NASM 3.01 assembles both
+  sources under `cpu 186`; no CPU directive is relaxed. The draft smoke
+  driver printed guest status but always exited 0; it now propagates guest
+  status and validates CSV/cleanup. This is synthetic control-flow evidence,
+  not timing or hardware validation.
+- `python3 tools/wsre/test_compare_logs.py`: exit **0**, six tests.
+- `ctest --test-dir "$NATIVE_BUILD" --output-on-failure -R
+  'vaeg_state_storage|vaeg_wsre_log_contract'`: exit **0**, **2/2 PASS**.
+  This includes live port dispatch, optional-state round trips and four
+  exact-code invalid-state controls. Full CTest totals and the clean static
+  MinGW gate executable are still pending; no handoff is claimed.
+- Headless MS-DOS batch execution (each case on a copied disk, SDL dummy):
+  W1PORT board off **guest exit 1 / FAIL**, W1PROBE board off **guest exit 2**.
+  Guest `EXIT.TXT` and `WSRLOG.TXT` are read back from the produced D88;
+  worker exit 0 alone is not treated as a program PASS. These observations
+  are not mapped-screen validation. Exact commands and private bindings are
+  retained in task scratch, not in Git.
+
+## Development findings and remaining local work
+
+- `compare_logs.py` compares row/session identities, metadata apart from
+  build id, undriven classes and timing ratios; six focused tests pass,
+  including passing controls and exact-code mutation negatives. Its explicit
+  R0-ignore mode is only for emulator fixtures, not a timing PASS.
+- Program review found missing restoration of 46E8h and incoming GR09/GR0A.
+  W1PROBE now restores them and locks SR06 on exit without touching 40E1h.
+  Logging errors no longer silently return success, and a denied log open
+  cannot truncate an existing file. CSV column order and CRLF are unchanged.
+- Register-only board implementation and optional WSRE v1 save section are
+  present. Existing global state version and PCCORE payload are unchanged.
+  Reader reset preferences are preserved; an absent section restores an
+  absent live board. Focused ROM-less state/port checks pass, including
+  four single-mutation wire guards with exact `M143_WSRE_STATE` codes.
+- **Blocking contract conflict:** a native V3/MS-DOS W1PORT run with WSRE
+  disabled exits **1**, not the required 0. The log reports `00E8h` as
+  `DRIVEN 00`, with `SUM ... FAIL 1`; `00E0h`/`00E1h` are `FF` and the
+  152h checks pass. W1PROBE without the board exits **2** as required.
+  `cgromva_bind()` currently binds the E8h/E9h compatible Kanji handlers
+  unconditionally; their reads have no V3-mode guard. This source is
+  unchanged from origin/main. The new board's isolation test therefore
+  compares E8h with its pre-enable baseline rather than inventing FFh.
+  The actual W1PORT failure remains a failure. Do not change the expected
+  probe contract, suppress this row, or silently change disabled-board
+  behavior to hide the conflict. Resolving it needs a scope decision on a
+  V3-compatible-port correction versus the explicit unchanged-disabled
+  requirement, followed by baseline/regression checks.
+- Native runs and raw logs/captures remain in task scratch. Short scripted
+  probes did not always finish/close the log before capture; those are not
+  semantic passes. Board-on runs, checked-in expected log comparisons,
+  actual M142-produced SAV compatibility, the complete CTest/media/demo
+  regression and clean MinGW handoff are not yet accepted or complete.
+- The initial native configure correctly refused tests without integration
+  tracing; the subsequent tracing-enabled configure/build succeeded with
+  an isolated recording SDK and local bundled MP4 encoders OFF.
 
 ## Open
 

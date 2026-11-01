@@ -26,7 +26,7 @@
 ; V3 mode.
 ;
 ; Writes only: 46E8h, 42E0h, 5AE0h (wake-up as AGS_CLGD.COM), SR06,
-; GR09, GR0A (restored to 00h), and the CRTC index. Never 40E1h: the
+; GR09, GR0A (incoming values restored), and the CRTC index. Never 40E1h: the
 ; monitor stays on the VA.
 ;
 ;   PRE     probes of 45E0h and 4FE0h before the wake-up
@@ -48,6 +48,7 @@
 
     jmp main
 
+%define WSRE_PROBE 1
 %include "wsre.inc"
 
 stage_str   db 'W1', 0
@@ -77,6 +78,11 @@ s_no_board  db 'NO-BOARD', 0
 board_found     db 0
 sr06_unlocked   db 0
 sr06_locked     db 0
+board_woken     db 0
+saved_setup     db 0
+saved_gr09      db 0
+saved_gr0a      db 0
+banks_saved     db 0
 
 main:
     push cs
@@ -107,6 +113,7 @@ main:
 .board:
     mov word [board_str], s_yes
     call read_cr27
+    call save_banks
     call run_r0
     call emit_sr06_byte
     call test_sr06_word
@@ -150,6 +157,9 @@ probe_pre_ports:
 wake_board:
     pusha
     mov dx, WSRE_SETUP
+    in al, dx
+    mov [saved_setup], al
+    mov byte [board_woken], 1
     mov al, 0x18
     out dx, al
     mov dx, WSRE_MISC
@@ -394,6 +404,49 @@ lock_board:
     mov ah, 0x00
     call sr06_byte
     pop ax
+    ret
+
+; Preserve the incoming bank registers; W1 never maps or touches VRAM.
+save_banks:
+    pusha
+    mov dx, WSRE_GC_INDEX
+    mov al, 9
+    out dx, al
+    inc dh
+    in al, dx
+    mov [saved_gr09], al
+    dec dh
+    mov al, 10
+    out dx, al
+    inc dh
+    in al, dx
+    mov [saved_gr0a], al
+    mov byte [banks_saved], 1
+    popa
+    ret
+
+; Called by common_exit on every path, including no-board and logging errors.
+probe_cleanup:
+    pusha
+    cmp byte [board_woken], 0
+    je .done
+    cmp byte [banks_saved], 0
+    je .lock
+    mov ah, 0x12
+    call sr06_byte
+    mov bl, 9
+    mov ah, [saved_gr09]
+    call gr_byte
+    mov bl, 10
+    mov ah, [saved_gr0a]
+    call gr_byte
+.lock:
+    call lock_board
+    mov dx, WSRE_SETUP
+    mov al, [saved_setup]
+    out dx, al
+.done:
+    popa
     ret
 
 cr27_value  db 0

@@ -728,6 +728,11 @@ lb_emit:
     mov dx, lb_buf
     mov ah, 0x40
     int 0x21
+    jc .failed
+    cmp ax, cx
+    je .reset
+.failed:
+    mov byte [log_error], 1
 .reset:
     call lb_reset
     popa
@@ -751,6 +756,8 @@ log_open:
     mov ax, 0x3d02
     int 0x21
     jnc .opened
+    cmp ax, 2                 ; create only when missing, never truncate on denied access
+    jne .failed
     mov dx, s_logname
     xor cx, cx
     mov ah, 0x3c
@@ -762,6 +769,9 @@ log_open:
     mov cx, s_header_end - s_header
     mov ah, 0x40
     int 0x21
+    jc .error
+    cmp ax, cx
+    jne .error
     jmp .done
 .opened:
     mov [log_handle], ax
@@ -770,9 +780,13 @@ log_open:
     xor cx, cx
     xor dx, dx
     int 0x21
+    jnc .done
+.error:
+    mov byte [log_error], 1
     jmp .done
 .failed:
     mov word [log_handle], 0
+    mov byte [log_error], 1
 .done:
     popa
     ret
@@ -815,9 +829,16 @@ common_start:
 ; AL = exit code. Restores the VRTC vector and mask, closes the log.
 common_exit:
     push ax
+%ifdef WSRE_PROBE
+    call probe_cleanup
+%endif
     call vrtc_remove
     call log_close
     pop ax
+    cmp byte [log_error], 0
+    je .exit
+    mov al, 2
+.exit:
     mov ah, 0x4c
     int 0x21
 
@@ -876,6 +897,7 @@ old_mask        db 0
 row_mask        db 0
 row_run         db 0
 vrtc_installed  db 0
+log_error       db 0
 probe_class     db 0
 probe_values    times 6 db 0
 cr27_str        db '--', 0

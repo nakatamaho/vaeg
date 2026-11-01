@@ -128,6 +128,7 @@ typedef struct {
 	UINT8 vol_rhythm;
 
 	UINT8 mpuenable;
+	UINT8 wsreenable;
 	UINT8 mpuopt;
 
 	UINT8 fddequip;

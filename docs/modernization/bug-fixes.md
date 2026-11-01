@@ -4435,6 +4435,23 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M143 WSR-E W1 — V3 E8h probe is driven by the compatible Kanji handler
+
+**OPEN; no correction applied.** Native V3/MS-DOS W1PORT with WSR-E disabled
+returns guest exit 1: the low-byte E8h row is `DRIVEN 00`, whereas the W1
+contract expects an undriven port. E0h/E1h and the 152h checks pass. The current
+`cgromva_bind()` unconditionally registers the compatible E8h/E9h handlers;
+the read callbacks lack a V3 guard. These files are unchanged from the
+[M142 main baseline](https://github.com/nakatamaho/vaeg/commit/950efef393196497ed2a9f1c017a3f0ae30f5323).
+This establishes the software dispatch path, not a measured hardware value.
+
+The [W1 task](../agents/tasks/M143_wsre_w1_port_probe.md#development-findings-and-remaining-local-work)
+also explicitly requires disabled-board behavior to remain unchanged. Resolve
+that scope conflict before modifying the existing decoder. Keep the probe
+failure and the original expected undriven contract; do not fit the expected
+log to this result. VA/VA2 hardware logs, a correction and its fixing commit
+remain outstanding.
+
 ### M142 — VA-compatible 4MHz clipboard paste loses characters
 
 **OPEN; correction DEFERRED by the maintainer's G142 scope revision.** A mapped

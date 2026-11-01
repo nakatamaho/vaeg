@@ -4634,6 +4634,8 @@ static int test_bms_state_restore(void) {
 	return SUCCESS;
 }
 
+#include "../tests/frontend/wsre_selftest.h"
+
 /* M120: a state keeps the disk of a multi-image D88 in each drive. */
 static int test_fdd_multi_image_state(void) {
 	char disk[MAX_PATH];
@@ -9656,8 +9658,9 @@ int vaeg_selftest_run(void) {
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
 		if (!gui_state_load_result_selftest())
 			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS)
+		if (test_wsre_w1() != SUCCESS || test_statsave() != SUCCESS ||
+		    test_bms_state_restore() != SUCCESS || test_hdd_state_restore() != SUCCESS ||
+		    test_fdd_multi_image_state() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
 	}
@@ -9793,8 +9796,8 @@ int vaeg_selftest_run(void) {
 	}
 	if (!gui_state_load_result_selftest())
 		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-	    test_hdd_state_restore() != SUCCESS) {
+	if (test_wsre_w1() != SUCCESS || test_statsave() != SUCCESS ||
+	    test_bms_state_restore() != SUCCESS || test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {

@@ -39,6 +39,9 @@ F000:FFFE = FFFEh, an IRQ2 every N instructions, port 152h, and:
                  word OUT to 44E0h/4EE0h/54E0h = index + data)
 It checks control flow, CSV output and cleanup only; timings mean nothing.
 """
+import csv
+import io
+from pathlib import Path
 import sys
 from unicorn import Uc, UC_ARCH_X86, UC_MODE_16, UC_HOOK_INTR, UC_HOOK_INSN, UcError
 from unicorn.x86_const import *
@@ -76,7 +79,7 @@ class Dos:
         self.sr, self.gr, self.cr = [0] * 256, [0] * 256, [0] * 256
         self.sr_i = self.gr_i = self.cr_i = 0
         self.cr[0x27] = 0x98
-        self.setup = 0x18
+        self.setup = 0x00
 
     # --- DOS ---------------------------------------------------------------
     def flags(self, cf):
@@ -143,6 +146,14 @@ class Dos:
         if port == 0x153:
             return 0x00
         if self.board:
+            if port in (0x40e0, 0x5ae0):
+                return 0
+            if port == 0x44e0:
+                return self.sr_i
+            if port == 0x4ee0:
+                return self.gr_i
+            if port == 0x54e0:
+                return self.cr_i
             if port == 0x45e0:
                 v = self.sr[self.sr_i]
                 if self.sr_i == 6:
@@ -232,7 +243,19 @@ def main():
         for p in d.io_log:
             if p[0] not in (0x188,):
                 print('OUT %04X size %d %04X' % p)
+    if '--log' in args:
+        Path(args[args.index('--log') + 1]).write_bytes(d.log)
+    header = b'stage,build,machine,khz,board,cr27,row,param,run,count,vrtc,result\r\n'
+    rows = list(csv.reader(io.StringIO(d.log.decode('ascii'))))
+    if (d.exit_code is None or not d.log.startswith(header) or
+            any(len(row) != 12 for row in rows if row and not row[0].startswith('#'))):
+        raise RuntimeError('WSRE_SMOKE_CSV_OR_TIMEOUT')
+    if d.mask != 0xbf or d.rom_bank != 0 or bytes(v) != b'\x00\x05\x00\x00':
+        raise RuntimeError('WSRE_SMOKE_CLEANUP')
+    if d.board and (d.setup != 0x00 or d.sr[6] not in (0, 0x0f) or d.gr[9:11] != [0, 0]):
+        raise RuntimeError('WSRE_SMOKE_BOARD_CLEANUP')
+    return d.exit_code
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

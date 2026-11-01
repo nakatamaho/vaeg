@@ -26,6 +26,7 @@
 #include "machine/keystat.h"
 
 #include "bmsio.h"
+#include "cbus/wsre.h"
 
 #include <string.h>
 
@@ -83,6 +84,7 @@ enum {
 	STATFLAG_FM,
 	STATFLAG_MEM,
 	STATFLAG_BMS,
+	STATFLAG_WSRE,
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
 	STATFLAG_UPD8087,
@@ -1612,11 +1614,21 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 	tbl = np2tbl;
 	tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
 	while (tbl < tblterm && ret == STATFLAG_SUCCESS) {
+		if (tbl->type == STATFLAG_WSRE && !wsre.enabled) {
+			tbl++;
+			continue;
+		}
+		if (tbl->type == STATFLAG_WSRE && !wsre_state_valid(&wsre)) {
+			statflag_seterr(&sffh->sfh, "M143_WSRE_STATE");
+			ret = STATFLAG_FAILURE;
+			break;
+		}
 		ret = statflag_createsection(sffh, tbl);
 		if (ret != STATFLAG_SUCCESS)
 			break;
 		switch (tbl->type) {
 		case STATFLAG_BIN:
+		case STATFLAG_WSRE:
 		case STATFLAG_TERM:
 			ret |= flagsave_common(&sffh->sfh, tbl);
 			break;
@@ -1816,6 +1828,17 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_fm(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_WSRE: {
+				WSRE_STATE image;
+				if (sffh->sfh.hdr.ver != tbl->ver || sffh->sfh.hdr.size != sizeof(image) ||
+				    statflag_read(&sffh->sfh, &image, sizeof(image)) != STATFLAG_SUCCESS ||
+				    !wsre_state_valid(&image)) {
+					statflag_seterr(&sffh->sfh, "M143_WSRE_STATE");
+					ret = STATFLAG_FAILURE;
+				}
+				break;
+			}
+
 			case STATFLAG_BMS:
 				if (bms_seen) {
 					statflag_seterr(&sffh->sfh, "M142_STATE_DUPLICATE");
@@ -1946,6 +1969,9 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	/* A state without UPD9WCU predates the programmed memory waits (M130). */
 	upd9002_wcu_legacy();
 	cbuscore_reset();
+	/* Optional WSRE section owns live presence, not the reader's reset
+	 * preference. M142 files omit it and load with the board absent. */
+	memset(&wsre, 0, sizeof(wsre));
 	fmboard_reset(pccore.sound);
 
 	done = FALSE;
@@ -1967,6 +1993,14 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 			switch (tbl->type) {
 			case STATFLAG_BIN:
 				ret |= flagload_common(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_WSRE:
+				ret |= flagload_common(&sffh->sfh, tbl);
+				if (!wsre_state_valid(&wsre)) {
+					statflag_seterr(&sffh->sfh, "M143_WSRE_STATE");
+					ret = STATFLAG_FAILURE;
+				}
 				break;
 
 			case STATFLAG_UPD9002_CPU:
