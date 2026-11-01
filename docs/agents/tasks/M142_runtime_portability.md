@@ -1024,7 +1024,13 @@ VM's backing storage while its task-local processes are running.
 The maintainer reported V3 startup without HDD access, then confirmed that
 Explorer double-click starts normally. Do not classify this as an EXE loader
 failure. Publication/cleanup remain held while clarifying the command-line
-behavior; the immutable release tag is not changed.
+behavior at that checkpoint; the immutable release tag is not changed.
+**Subsequent resolution:** the maintainer confirmed “こちらの間違い。ちがうdirにvaegいれてた。”
+The actual incident was a different executable directory, not an established
+WSL-specific or M142 startup defect. The preceding Windows log showed config
+and SASI mounting succeeded but VA2 ROM discovery was incomplete. The generic
+working-directory control below remains valid, but is not the demonstrated
+cause of that particular incident.
 
 Static inspection establishes different search policies: `select_config_path()`
 in `sdl2/ini.c` chooses relative `vaeg.cfg` by default; default backup-memory
@@ -1061,3 +1067,48 @@ configured media paths are relative. No settings deletion, HDD initialization,
 new OS-specific config policy or speculative emulator patch is warranted by
 this result. The observation is consistent with pre-existing path semantics,
 not a demonstrated M142 application-code regression.
+
+## Final cleanup and CI-only handoff
+
+The maintainer subsequently directed: “作業片付けお願いします。releaseはしなくていいです。CIまでで。”
+This cancels the pending publication work. **Do not dispatch release.yml.**
+The existing immutable `rel-20261101` tag stays in place; no published release
+is claimed, and the ordinary build CI does not authorize release publication.
+G142 remains accepted. No new milestone or additional human gate is needed.
+
+Completed cleanup:
+
+- The local milestone branch was already removed after merge containment
+  verification. The primary repository is the sole worktree and remains on
+  main; it is not removed. The remote milestone branch is retained.
+- The dedicated M142 QEMU/HVF VM was shut down with QMP `system_powerdown`;
+  process exit was verified before touching its backing storage. No unrelated
+  daemon, container or machine was stopped.
+- Private Linux QA evidence was archived before shutdown and the compressed
+  archive integrity checked. Host evidence, supplied-material copies and
+  hardware handoff contents were archived separately; **16853 file members**
+  were read back and verified against their source sizes and SHA-256 values.
+  The intentionally excluded generated build trees, SDKs, downloaded VM OS
+  images/firmware and temporary SSH material are listed in the private manifest.
+- Removed only M142's task scratch and hardware-handoff directories, including
+  their static Windows build trees, local SDKs and VM disk. There was no separate
+  M142 merge worktree or private directory to remove. Other milestones were
+  untouched.
+- Retained approximately **1.1 GiB** of private compressed evidence outside Git
+  rather than approximately **23 GiB** of working directories. It includes
+  sensitive state/capture/media data and personal-codec worker copies:
+  **never upload it as a public or CI artifact**. Source archives and identities
+  preserve useful evidence without retaining active toolchains/VM storage.
+- The separately preserved Windows handoff executable was rehashed before
+  cleanup and still matches the release-preparation digest above. Its build
+  report and notices remain beside it. This is a local artifact, not a newly
+  published release.
+- Private-docs, the shared download cache, supplied materials, the immutable
+  tag, the remote branch, the primary checkout and other milestone resources
+  are retained. No global environment was changed.
+
+The final cleanup/incident-resolution commit requests **ordinary build CI only**
+by omitting the skip marker. Local repository checks and focused pure contracts
+precede that push. Hosted completion is not implied merely by requesting the
+run; record its actual result separately. No release workflow or new tag push
+is part of this final handoff.
