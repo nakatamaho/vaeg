@@ -120,8 +120,9 @@ screenshots, media, archives). Report what was removed and what was kept.
 ## Demos stay buildable
 
 Every milestone must leave every bundled demo buildable from a clean
-checkout with the repository's own sources and tools. Before a milestone's
-gate:
+checkout with the repository's own sources and tools. The full demo build,
+payload comparison and guest-execution campaign below runs only when the
+maintainer explicitly requests it, not automatically at a milestone or release:
 
 - build each demo under `demos/` (GLASS, NEON3, NEON4, the pseudo-sprite and
   wireframe sets, sgp-scan, the self-booting SGP disk) and check that the
@@ -130,17 +131,21 @@ gate:
   distribution, all-demos and all-demos-msdos4 disks in the same milestone;
 - start every program of the all-demos disk in vaeg (PC-Engine and MS-DOS
   4.0) and confirm it draws, and run `MANDEL.BAS` from N88-BASIC;
-- record the result in the task file.
+- record the result in the relevant task or QA report.
+
+For an ordinary milestone, run focused checks for changed demo/media sources
+or tools and update affected distributable payloads as needed. Do not require
+the full campaign merely to complete or merge that milestone.
 
 `zundamon-orbit` is rebuilt with `demos/zundamon-orbit/build-from-psd.sh`
 from the freely distributable "ずんだもん立ち絵素材2.3.psd" (a user-supplied
 input, like the PC-Engine system disk); its profile tables are tracked under
 `demos/zundamon-orbit/256/ida/` (M109).
 
-## Media build regression before every gate
+## Media build regression on explicit request
 
-Every milestone gate includes this machine check, run locally from a
-clean clone of the pushed commit (the PC-Engine and MS-DOS system disks
+Run this campaign only when explicitly requested by the maintainer, locally
+from a clean clone of the pushed candidate (the PC-Engine and MS-DOS system disks
 are private inputs, so hosted CI cannot run it). Downloads come from the
 shared cache `~/work/pc88va/pc88va-private-docs/pc88va-utilities-cache/`
 (the utility-media archives at its top, the CP/M archives in `cpm/`, and
@@ -158,14 +163,43 @@ mismatch fails.
   all-demos-msdos4 and self-booting SGP disks build, and their payloads are
   byte-identical to the committed `demos/disks/*.d88.xz` (see "Demos stay
   buildable").
-- Record in the task file the commit, the commands, their exit status and
-  the SHA-256 of each produced image. Generated images stay outside Git
+- Record in the relevant task or QA report the commit, the commands,
+  their exit status and the SHA-256 of each produced image. Generated images stay outside Git
   except the distributable `.d88.xz` files already allowed.
 
-A failure blocks the gate. Fix it in the milestone (and record it in the
-bug-fix ledger), as in M110 when the utility FDD had stopped building.
+When the campaign is requested as a gate, a failure or missing required
+evidence blocks that gate until corrected or explicitly deferred by the
+maintainer. Otherwise, absence of this campaign is not itself a milestone
+or release blocker. Fix demonstrated defects and record corrections in the
+bug-fix ledger, as in M110 when the utility FDD had stopped building.
 
-## Local QA before human review
+## Local QA and explicitly requested integration campaigns
+
+Maintainer direction during M143: run the full media/demo regression and
+actual presenter/screen automation (including F11/No Wait interaction,
+window/fullscreen captures and frozen visual-reference comparisons) only
+when explicitly instructed. Neither a milestone nor a release automatically
+triggers these campaigns. This supersedes older per-milestone or release-only
+requirements, including M143's task wording.
+
+Before every milestone's merge into main, explicitly ask the maintainer
+whether to run these two campaigns for that milestone and wait for the answer.
+A general completion/merge instruction or human-gate pass is not an instruction
+to run them. If the answer explicitly requests or skips either campaign,
+record that decision in the task; do not ask again for the same unchanged
+merge candidate unless the maintainer changes the decision. If requested,
+complete the specified checks before merging or obtain explicit deferral.
+If skipped, record NOT_RUN / maintainer opted out, never PASS; this does not
+block the otherwise accepted milestone. Preserve existing evidence and
+useful handoff artifacts during cleanup.
+
+Ordinary milestones still require applicable builds, unit/contract tests,
+repository validators, focused verification of changed behavior and their
+specified human gate. Pure formatting/font/layout contract tests do not
+require a real display and remain applicable to UI changes. Requested
+integration campaigns must bind their evidence to the evaluated candidate,
+with reuse only under the identity rules below. A passed milestone or a QA
+opt-out does not authorize release publication.
 
 Maintainer direction during M132: automate reproducible gate checks as local QA
 instead of repeatedly asking the human to execute them. Private-input tests run
