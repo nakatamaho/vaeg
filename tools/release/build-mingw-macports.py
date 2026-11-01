@@ -195,6 +195,7 @@ def main():
     parser.add_argument("--sdk-dir", type=Path, required=True, help="isolated reusable target SDK directory")
     parser.add_argument("--ports-prefix", type=Path, default=Path("/opt/local"))
     parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument("--build-track", help="main or lowercase milestone; preserved across the detached clean clone")
     args = parser.parse_args()
     require(platform.system() == "Darwin", "MACPORTS_HOST", "macOS required; no container fallback")
     require(args.jobs > 0, "MACPORTS_JOBS", "positive job count required")
@@ -227,6 +228,12 @@ def main():
     env["TMPDIR"] = str(work / "tmp")
     Path(env["TMPDIR"]).mkdir()
     commit = output(["git", "rev-parse", args.commit + "^{commit}"], REPO, env)
+    track = args.build_track
+    branch = subprocess.run(["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+                            cwd=REPO, env=env, text=True, capture_output=True).stdout.strip()
+    if track is None and branch == "main" and commit == output(["git", "rev-parse", "HEAD"], REPO, env):
+        track = "main"
+    track_args = ["-DVAEG_BUILD_TRACK=" + track] if track is not None else []
     source = work / "source"
     invoke(["git", "clone", "--quiet", "--no-local", "--no-checkout", REPO, source], work, env, log)
     invoke(["git", "checkout", "--detach", commit], source, env, log)
@@ -243,7 +250,7 @@ def main():
             "-DVAEG_ENABLE_RECORDING=ON", "-DVAEG_STATIC_FFMPEG=ON",
             "-DVAEG_PUBLIC_BUILD=ON", "-DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF",
             "-DVAEG_LIBRASHADER_STATIC_LIBRARY=" + str(shader),
-            "-DVAEG_LIBRASHADER_STATIC_NOTICES=" + str(notices)], source, env, out / "configure.log")
+            "-DVAEG_LIBRASHADER_STATIC_NOTICES=" + str(notices), *track_args], source, env, out / "configure.log")
     invoke(["cmake", "--build", "--preset", "mingw-macports", "--parallel", str(args.jobs)],
            source, env, out / "build.log")
     binary = source / "build/mingw-macports/sdl2/vaeg.exe"

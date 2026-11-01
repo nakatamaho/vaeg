@@ -187,17 +187,22 @@ cmake --build --preset macos-asan
 
 ## Release display and archive identity
 
-`cmake/release_identity.cmake` explicitly declares the source milestone; the
-current development series is `M142-dev`. CMake generates a shared header and
-`generated/release-identity.json`. The window title, About, `--version` and
-clean-build reports show, for example, `Rel.20261029 (M142-dev, 2e662105)`.
-The date remains the release number; the actual source SHA is not inferred
-from a branch name or a milestone commit message.
+`cmake/release_identity.cmake` explicitly declares the source milestone;
+accepted scope and build track are separate. CMake generates a shared header
+and `generated/release-identity.json`. The window title, About, `--version`
+and clean-build reports always include the track and eight-digit source SHA:
+`Rel.20261101 (main, 8f24e727)` or `Rel.20261101 (m142, 2bad38ce)`.
+Use `-DVAEG_BUILD_TRACK=main` or `-DVAEG_BUILD_TRACK=m142` for explicit selection,
+particularly with detached checkouts. The MacPorts clean-clone helper accepts
+`--build-track`; both clean-clone helpers carry current main HEAD's track
+across detachment. The date remains the release number, and the SHA always
+comes from the actual built source, not a branch label or commit message.
 
 After explicit gate acceptance, release preparation changes the declaration
-to the accepted milestone, for example `M141`. The formal display is then
-`Rel.20261029 (M141)` and the Windows archive is
-`vaeg-20261029-m141-windows-x64.zip`; the executable inside remains `vaeg.exe`.
+to the accepted milestone, for example `M142`. This acceptance marker remains
+in metadata and package names independently of the displayed track. An official
+Windows archive is `vaeg-20261101-m142-windows-x64.zip`; the executable inside
+remains `vaeg.exe`. Even an accepted main build displays `main` and its SHA.
 Development archive stems additionally contain the short SHA. The release
 workflow validates this generated identity and rejects `-dev` before expensive
 builds/publication. Date-only `rel-*` tags and `CHANGES.<date>.md` remain as

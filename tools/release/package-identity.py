@@ -43,7 +43,7 @@ def require(value, code):
 
 def validate(data, tag=None):
     fields = {"release", "milestone", "commit", "short_commit", "display", "package_stem"}
-    require(isinstance(data, dict) and set(data) == fields and
+    require(isinstance(data, dict) and set(data) in (fields, fields | {"track"}) and
             all(isinstance(value, str) for value in data.values()), "RELEASE_ID_SCHEMA")
     release, milestone, commit = data["release"], data["milestone"], data["commit"]
     require(re.fullmatch(r"[0-9]{8}(?:\.[1-9][0-9]*)?|unknown", release), "RELEASE_ID_DATE")
@@ -54,6 +54,10 @@ def validate(data, tag=None):
     require(data["short_commit"] == short, "RELEASE_ID_SHORT_COMMIT")
     dev = milestone.endswith("-dev")
     display = "Rel." + release + " (" + milestone + (", " + short if dev else "") + ")"
+    if "track" in data:
+        require(re.fullmatch(r"main|m(?:0|[1-9][0-9]*(?:[a-z](?:[1-9][0-9]*)?)?)", data["track"]),
+                "RELEASE_ID_TRACK")
+        display = "Rel." + release + " (" + data["track"] + ", " + short + ")"
     stem = "vaeg-" + release + "-" + milestone.lower() + ("-g" + short if dev else "")
     require(data["display"] == display and data["package_stem"] == stem, "RELEASE_ID_FORMAT")
     if tag is not None:

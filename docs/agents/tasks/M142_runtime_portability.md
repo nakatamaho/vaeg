@@ -1112,3 +1112,23 @@ by omitting the skip marker. Local repository checks and focused pure contracts
 precede that push. Hosted completion is not implied merely by requesting the
 run; record its actual result separately. No release workflow or new tag push
 is part of this final handoff.
+
+## Maintainer-requested build-track display follow-up
+
+After the main-build handoff, the maintainer requested that main builds show
+`main`, milestone builds show the lowercase milestone (`m142`, etc.), and both
+show the source SHA. The established short SHA remains **eight hexadecimal
+digits**, not six. This updates future display identity only; historical tags,
+artifacts and accepted records are unchanged. No release publication is
+requested by this follow-up.
+
+Build track is now explicit generated metadata, separate from accepted release
+scope and its `-dev` marker. Main HEAD clean-clone helpers preserve `main`
+across detachment; explicit overrides support historical/milestone builds.
+Window title, About, CLI and build reports use the same generated display.
+The manifest validator also continues to accept historical six-field identity
+manifests without rewriting their original display contract. Package names and
+legacy operation-record/state formats are unchanged. AGENTS.md and BUILD.md
+state the amended policy. Focused identity tests cover main and milestone
+tracks, mandatory eight-digit SHA, malformed track rejection and historical
+manifest compatibility.

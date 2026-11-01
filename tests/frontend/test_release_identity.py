@@ -121,6 +121,32 @@ class ReleaseIdentity(unittest.TestCase):
             identity.validate(data)
         self.assertEqual(str(error.exception), "RELEASE_ID_SCHEMA")
 
+    def test_build_track_and_sha(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            script, result = root / 'track.cmake', root / 'display.txt'
+            for track, milestone in (('main', 'M142'), ('m142', 'M142-dev'), ('m62b1', 'M62b1-dev')):
+                script.write_text('include("' + (ROOT / 'cmake/release_identity.cmake').as_posix() + '")\n'
+                                  'vaeg_release_identity("20261029" "' + milestone + '" "' + SHA + '" "' + track + '")\n'
+                                  'file(WRITE "' + result.as_posix() + '" "${VAEG_BUILD_DISPLAY}")\n')
+                subprocess.run(['cmake', '-P', str(script)], check=True, capture_output=True)
+                data = fixture(milestone)
+                data.update(track=track, display='Rel.20261029 (' + track + ', 2e662105)')
+                identity.validate(data)
+                self.assertEqual(result.read_text(), data['display'])
+                for field, value, code in (('track', 'm0142', 'RELEASE_ID_TRACK'),
+                                           ('display', 'Rel.20261029 (' + track + ')', 'RELEASE_ID_FORMAT'),
+                                           ('short_commit', '2e6621', 'RELEASE_ID_SHORT_COMMIT')):
+                    identity.validate(data)
+                    with self.assertRaises(identity.IdentityError) as error:
+                        identity.validate({**data, field: value})
+                    self.assertEqual(str(error.exception), code)
+            script.write_text('include("' + (ROOT / 'cmake/release_identity.cmake').as_posix() + '")\n'
+                              'vaeg_release_identity("20261029" "M142" "' + SHA + '" "m0142")\n')
+            bad = subprocess.run(['cmake', '-P', str(script)], capture_output=True, text=True)
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertEqual(re.findall(r'RELEASE_ID_[A-Z_]+', bad.stderr), ['RELEASE_ID_TRACK'])
+
     def test_legacy_record_identity(self):
         # Fixed 16-byte operation-record versions must not receive long UI text.
         header = (ROOT / "np2ver.h").read_text()

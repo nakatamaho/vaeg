@@ -57,6 +57,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 commit="$(git -C "${repo_root}" rev-parse --verify "${revision}^{commit}")"
+build_track="${VAEG_BUILD_TRACK:-}"
+if [[ -z "${build_track}" && "$(git -C "${repo_root}" branch --show-current)" == main &&
+      "${commit}" == "$(git -C "${repo_root}" rev-parse HEAD)" ]]; then
+	build_track=main
+fi
 if [[ -z "${work_dir}" ]]; then
 	work_dir="$(dirname "${repo_root}")/vaeg-mingw-${commit:0:8}"
 fi
@@ -133,7 +138,7 @@ if [[ "${RECORDING}" == ON ]]; then
 	cmake_args+=(-DVAEG_MINGW_DEPENDENCY_PREFIX=/work/ffmpeg-stage)
 fi
 cmake --preset mingw-cross -DVAEG_ENABLE_RECORDING="${RECORDING}" \
-	-DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF "${cmake_args[@]}" > /work/output/configure.log 2>&1
+	-DVAEG_PUBLIC_BUILD=ON -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF -DVAEG_BUILD_TRACK="${BUILD_TRACK}" "${cmake_args[@]}" > /work/output/configure.log 2>&1
 cmake --build --preset mingw-cross > /work/output/build.log 2>&1
 python3 tools/release/check-static-windows-imports.py --binary build/mingw-cross/sdl2/vaeg.exe \
 	> /work/output/import-audit.txt 2>&1
@@ -172,7 +177,7 @@ docker_args=()
 if [[ -n "${shader_sdk}" ]]; then
 	docker_args+=(-v "${shader_sdk}:/shader-sdk:ro")
 fi
-docker run --rm ${docker_args[@]+"${docker_args[@]}"} -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" \
+docker run --rm ${docker_args[@]+"${docker_args[@]}"} -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" -e RECORDING="${recording}" -e BUILD_TRACK="${build_track}" \
 	-v "${work_dir}:/work" "${image}" /work/inner.sh
 
 exe="${work_dir}/output/vaeg.exe"

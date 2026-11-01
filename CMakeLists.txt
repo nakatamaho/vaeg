@@ -131,10 +131,23 @@ if(VAEG_BUILD_TAG_RESULT EQUAL 0 AND VAEG_BUILD_TAG_OUTPUT)
     endforeach()
 endif()
 include(cmake/release_identity.cmake)
-vaeg_release_identity("${VAEG_BUILD_RELEASE}" "${VAEG_SOURCE_MILESTONE}" "${VAEG_BUILD_COMMIT}")
+set(VAEG_BUILD_TRACK "" CACHE STRING "Build track: main or lowercase milestone (m142, m60a, ...)")
+if(VAEG_BUILD_TRACK STREQUAL "")
+    execute_process(COMMAND git symbolic-ref --quiet --short HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE VAEG_SOURCE_BRANCH OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(VAEG_SOURCE_BRANCH STREQUAL "main")
+        set(VAEG_BUILD_TRACK "main")
+    else()
+        string(REGEX REPLACE "-dev$" "" VAEG_BUILD_TRACK "${VAEG_SOURCE_MILESTONE}")
+        string(TOLOWER "${VAEG_BUILD_TRACK}" VAEG_BUILD_TRACK)
+    endif()
+endif()
+vaeg_release_identity("${VAEG_BUILD_RELEASE}" "${VAEG_SOURCE_MILESTONE}" "${VAEG_BUILD_COMMIT}" "${VAEG_BUILD_TRACK}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/release-identity.json"
     "{\n  \"release\": \"${VAEG_BUILD_RELEASE}\",\n"
     "  \"milestone\": \"${VAEG_BUILD_MILESTONE}\",\n"
+    "  \"track\": \"${VAEG_BUILD_TRACK}\",\n"
     "  \"commit\": \"${VAEG_BUILD_COMMIT}\",\n"
     "  \"short_commit\": \"${VAEG_BUILD_SHORT_COMMIT}\",\n"
     "  \"display\": \"${VAEG_BUILD_DISPLAY}\",\n"

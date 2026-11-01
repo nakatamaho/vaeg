@@ -547,15 +547,26 @@ images, configuration, save data, or other private integration assets.
 
 ## Release identity and artifact names
 
-Maintainer-approved policy (M142): keep the date as the release number and
-append the milestone as separate build identity. Development/check builds
-also show the short source commit SHA.
+Maintainer-approved policy (M142, amended after the main-build handoff): keep
+the date as the release number and always display BOTH the build track and
+the actual source commit's first **eight** hexadecimal characters, not six.
 
-- Official release display: `Rel.20261029 (M141)` — includes work through the
-  explicitly accepted M141 scope, not a claim about every open issue.
-- Development/check display: `Rel.20261029 (M142-dev, 2e662105)` — keep `-dev`
-  until the milestone's required gate is explicitly accepted. The SHA is the
-  actual built source commit's first eight hexadecimal characters.
+- Main build display: `Rel.20261101 (main, 8f24e727)`.
+- Milestone build display: `Rel.20261101 (m142, 2bad38ce)`; use the canonical
+  lowercase milestone label (`m60a`, `m62b1`, etc.) for other milestone builds.
+- Build track and accepted release scope are distinct. A main build can contain
+  accepted work through M142; displaying `main` must not erase that separately
+  declared milestone. Keep the source milestone's `-dev` acceptance marker in
+  metadata/package identity until the gate is accepted, even though the display
+  track itself is `m142`. Neither track nor a successful build grants acceptance.
+- Configure with `-DVAEG_BUILD_TRACK=main` or `-DVAEG_BUILD_TRACK=m142` when the
+  checkout is detached or the build track must be explicit. Attached main
+  checkouts select `main`; other checkouts default to the explicitly declared
+  source milestone without `-dev`, never the highest task filename. Clean-clone
+  build helpers must carry the intended track across checkout/detachment.
+  MacPorts accepts `--build-track`; the container helper accepts the process-local
+  `VAEG_BUILD_TRACK` environment variable. Both preserve current main HEAD's
+  track automatically. Historical/tag/milestone builds should declare it explicitly.
 - Official Windows archive: `vaeg-20261029-m141-windows-x64.zip`.
 - Keep the executable inside the archive named `vaeg.exe` (native Unix/macOS:
   `vaeg`); do not append the date, milestone or SHA to the executable name.
