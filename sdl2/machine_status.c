@@ -183,6 +183,51 @@ static void status_append(char *text, size_t size, const char *format, ...) {
 	va_end(args);
 }
 
+void machine_status_speed_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status,
+                               UINT flags, UINT32 draw_fps, UINT32 frames,
+                               const VAEG_RUNTIME_SPEED *speed, BOOL accelerated, BOOL paused,
+                               UINT compact) {
+	char clock[32];
+	if (text == NULL || size == 0 || status == NULL || speed == NULL)
+		return;
+	if (!accelerated && !paused && compact == 0) {
+		machine_status_line(text, size, status, flags, draw_fps, frames);
+		return;
+	}
+	text[0] = '\0';
+	if (compact < 2)
+		snprintf(text, size, "%s | %s", status->machine, status->mode);
+	if ((flags & VAEG_DISPINFO_CPU_CLOCK) && compact < 3) {
+		machine_status_clock(clock, sizeof(clock), status->cpu_hz);
+		status_append(text, size, "%sCPU %s", text[0] ? " | " : "", clock);
+		if (accelerated && !paused && speed->valid && compact == 0)
+			status_append(text, size, " → 約%.1fMHz相当", speed->equivalent_mhz);
+	}
+	if (paused)
+		status_append(text, size, "%s一時停止", text[0] ? " | " : "");
+	else if (accelerated) {
+		if (speed->valid)
+			status_append(text, size, "%s▶▶ %.1f倍", text[0] ? " | " : "", speed->speed);
+		else
+			status_append(text, size, "%s▶▶ 計測中", text[0] ? " | " : "");
+	}
+	if ((flags & VAEG_DISPINFO_SGP_CLOCK) && status->has_sgp && compact == 0) {
+		machine_status_clock(clock, sizeof(clock), status->sgp_hz);
+		status_append(text, size, "%sSGP %s", text[0] ? " | " : "", clock);
+	}
+	if (flags & VAEG_DISPINFO_FPS) {
+		if (paused)
+			status_append(text, size, "%s描画 -- FPS", text[0] ? " | " : "");
+		else
+			status_append(text, size, "%s描画 %u.%u FPS", text[0] ? " | " : "",
+			              (unsigned)(draw_fps / 10), (unsigned)(draw_fps % 10));
+	}
+	if ((flags & VAEG_DISPINFO_FRAME) && compact == 0)
+		status_append(text, size, " | FRAME %u", (unsigned)frames);
+	if (!text[0])
+		snprintf(text, size, "%s", status->mode);
+}
+
 void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status, UINT flags,
                          UINT32 fps_tenths, UINT32 frames) {
 	char clock[32];

@@ -2672,6 +2672,79 @@ static int test_va_sprite_line(void) {
 	return (result);
 }
 
+static int test_runtime_speed(void) {
+	VAEG_RUNTIME_SPEED speed;
+	VAEG_MACHINE_STATUS status;
+	char text[256], normal[256];
+	UINT i;
+	ZeroMemory(&status, sizeof(status));
+	milstr_ncpy(status.machine, "PC-88VA2", sizeof(status.machine));
+	milstr_ncpy(status.mode, "V2H", sizeof(status.mode));
+	status.cpu_hz = 8000000;
+	status.sgp_hz = 8000000;
+	status.has_sgp = TRUE;
+	vaeg_runtime_speed_reset(&speed);
+	if (vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1) || speed.valid ||
+	    vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1))
+		return fail("runtime speed", "M143_WARMUP");
+	if (!vaeg_runtime_speed_update(&speed, 1000, 64000000, 8000000, 8000000, 1) || !speed.valid ||
+	    speed.speed != 8.0 || speed.equivalent_mhz != 64.0)
+		return fail("runtime speed", "M143_GUEST_TIME_RATIO");
+	machine_status_speed_line(text, sizeof(text), &status,
+	                          VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_FPS, 300, 480, &speed, TRUE,
+	                          FALSE, 0);
+	if (!strstr(text, "CPU 8MHz") || !strstr(text, "約64.0MHz相当") || !strstr(text, "8.0倍") ||
+	    !strstr(text, "描画 30.0 FPS"))
+		return fail("runtime speed", "M143_DISTINCT_DRAW_SPEED");
+	machine_status_speed_line(text, sizeof(text), &status,
+	                          VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_FPS, 300, 480, &speed, TRUE,
+	                          FALSE, 2);
+	if (strstr(text, "相当") || strstr(text, "PC-88VA2") || !strstr(text, "8.0倍"))
+		return fail("runtime speed", "M143_COMPACT");
+	machine_status_speed_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, 300, 480, &speed,
+	                          TRUE, TRUE, 0);
+	if (!strstr(text, "一時停止") || strstr(text, "8.0倍") || strstr(text, "64.0"))
+		return fail("runtime speed", "M143_PAUSED");
+	machine_status_line(normal, sizeof(normal), &status, VAEG_DISPINFO_FPS, 600, 0);
+	machine_status_speed_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, 600, 0, &speed, FALSE,
+	                          FALSE, 0);
+	if (strcmp(text, normal))
+		return fail("runtime speed", "M143_NORMAL_COMPATIBILITY");
+	/* Policy/CPU/domain transitions start a fresh window, never stale MHz. */
+	for (i = 0; i < 3; ++i) {
+		vaeg_runtime_speed_reset(&speed);
+		vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1);
+		vaeg_runtime_speed_update(&speed, 1000, 64000000, 8000000, 8000000, 1);
+		if (vaeg_runtime_speed_update(&speed, 1100, 65000000, i == 0 ? 4000000 : 8000000,
+		                              i == 1 ? 4000000 : 8000000, i == 2 ? 0 : 1) ||
+		    speed.valid)
+			return fail("runtime speed", "M143_MIXED_EPOCH");
+	}
+	vaeg_runtime_speed_reset(&speed);
+	vaeg_runtime_speed_update(&speed, UINT32_MAX - 499, 1000, 1000, 8000000, 0);
+	if (!vaeg_runtime_speed_update(&speed, 500, 2000, 1000, 8000000, 0) || speed.speed != 1.0)
+		return fail("runtime speed", "M143_HOST_WRAP");
+	if (vaeg_runtime_speed_update(&speed, 1500, 0, 1000, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_CLOCK_REWIND");
+	if (vaeg_runtime_speed_update(&speed, 2500, 1000, 0, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_ZERO_CLOCK");
+	vaeg_runtime_speed_reset(&speed);
+	vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 0);
+	/* Irregular guest-time increments; no frame-count/rate assumption. */
+	vaeg_runtime_speed_update(&speed, 200, 1000000, 8000000, 8000000, 0);
+	vaeg_runtime_speed_update(&speed, 600, 6000000, 8000000, 8000000, 0);
+	if (!vaeg_runtime_speed_update(&speed, 1000, 8000000, 8000000, 8000000, 0) ||
+	    speed.speed != 1.0)
+		return fail("runtime speed", "M143_VARIABLE_FRAMES");
+	if (vaeg_runtime_speed_update(&speed, 12000, 16000000, 8000000, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_STALE_WINDOW");
+	vaeg_runtime_speed_reset(&speed);
+	if (speed.valid || speed.started || speed.speed != 0.0)
+		return fail("runtime speed", "M143_RESET");
+	fprintf(stderr, "selftest: M143 runtime speed contracts ok\n");
+	return SUCCESS;
+}
+
 static int test_framedisp(void) {
 	VAEG_FRAMEDISP state;
 
@@ -2718,6 +2791,8 @@ static int test_framedisp(void) {
 		}
 	}
 	vaeg_framedisp_reset(NULL, 0, 0);
+	if (test_runtime_speed() != SUCCESS)
+		return FAILURE;
 	fprintf(stderr, "selftest: frame display ok\n");
 	return (SUCCESS);
 }

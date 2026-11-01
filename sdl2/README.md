@@ -920,7 +920,8 @@ without that key) independently shows/hides the bottom information bar. It is
 separate from the moved lamp toggle and works in windowed/fullscreen SDL and
 native-presenter paths; headless runs reserve neither bar. Windowed toggles add
 or remove their own rows without resizing the guest picture. Narrow windows
-clip the regular line; hovering reveals its full text and English details.
+progressively omit equivalent MHz, SGP/FRAME and machine/mode text before
+nominal CPU and draw FPS; hovering reveals the complete line and details.
 
 `情報 -> FPS を表示`, `CPU クロックを表示`, `SGP クロックを表示`, and `フレームを表示`
 independently control that bar's fields, not window-title suffixes. A new config
@@ -930,6 +931,18 @@ names replace backend VA/VA2 names; SGP is shown only for the PC-88VA family.
 CPU/SGP MHz are configured nominal clocks, rounded for the short line and
 independent of host pacing/No Wait. The tooltip gives exact MHz, base,
 multiplier, CPU speed %, CPU domain and measured draw/guest-frame FPS.
+M143 adds a separate measured guest-time/host-time ratio. While F11 is held or
+No Wait is enabled, the bar shows `▶▶ 8.0倍` and, when space permits,
+`CPU 8MHz → 約63.9MHz相当` (illustrative values, not a benchmark). The estimate
+is nominal CPU Hz multiplied by guest-time speed, not instruction throughput
+or a changed CPU/device clock. Guest time comes from `pccore_guest_clock()`
+and `pccore.realclock`; neither a fixed 60Hz frame rate nor draw FPS is used.
+The one-second measurement window restarts on reset/load, pause/resume,
+clock/mode/pacing transitions, clock regression or host gaps over ten seconds.
+Until a new window completes, speed is `計測中`; pause is explicitly labeled.
+F11's existing one-in-16 draw policy is unchanged. The tooltip distinguishes
+its requested draw-skip from automatic skipping and actual measured draws
+(recording can independently require every frame).
 Regular FPS measures completed guest draws per host second; FRAME is the
 cumulative draw count since reset, not the number of host presents. Neither
 changes guest timing. The title keeps the application name and optional FDD

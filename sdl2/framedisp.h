@@ -31,12 +31,28 @@ typedef struct {
 	UINT32 fps_tenths;
 } VAEG_FRAMEDISP;
 
+/* Guest-time speed is independent of frame frequency and draw skipping. */
+typedef struct {
+	UINT32 tick;
+	UINT64 guest_ticks;
+	UINT32 clock_hz;
+	UINT32 cpu_hz;
+	UINT32 policy;
+	BOOL started;
+	BOOL valid;
+	double speed;
+	double equivalent_mhz;
+} VAEG_RUNTIME_SPEED;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void vaeg_framedisp_reset(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws);
 BOOL vaeg_framedisp_update(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws);
+void vaeg_runtime_speed_reset(VAEG_RUNTIME_SPEED *state);
+BOOL vaeg_runtime_speed_update(VAEG_RUNTIME_SPEED *state, UINT32 tick, UINT64 guest_ticks,
+                               UINT32 clock_hz, UINT32 cpu_hz, UINT32 policy);
 
 #ifdef __cplusplus
 }
