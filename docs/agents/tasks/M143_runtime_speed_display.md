@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**IN_PROGRESS; G143 NOT_READY.** Branch: `topic/m143-runtime-speed`.
+**IN_PROGRESS; G143 human gate PASSED; machine QA pending.** Branch: `topic/m143-runtime-speed`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
 ## Authorized scope
@@ -112,5 +112,22 @@ Display: `Rel.20261101 (m143, acee8dd6)`; declared milestone remains `M143-dev`.
 These are local test/cross-build results, not Windows execution or real
 presenter validation. Actual mapped F11/No Wait guest observations, approved
 visual references and the standard media/demo regression remain pending.
-G143 is NOT_READY; this is a development candidate, not a request to repeat
-M142 acceptance. No merge, hosted-CI success or release publication is claimed.
+The maintainer subsequently accepted the human gate as recorded below.
+Outstanding machine checks are not retroactively promoted to PASS. No merge,
+hosted-CI success or release publication is claimed.
+
+## Human gate acceptance
+
+The maintainer explicitly stated **“passed”**, followed by **“human gate
+passed”**, in response to the candidate handoff above. G143's human gate is
+therefore **PASSED** for implementation
+`acee8dd6ccd813f0af1f08f2f90986e9ab3a8992` and the handed-off executable with
+SHA-256 `f9bc6b8db78e2d6080fb458cf9045b5d4cce5d9c5bcf230fab1ae835cdfaa684`.
+Do not request that human acceptance again.
+
+This acceptance does not supply per-case automated presenter evidence,
+approve a frozen reference corpus, or waive the still-unperformed standard
+media/demo regression. Those machine obligations remain pending; M143 is
+not yet recorded COMPLETE. Keep the branch, builds, evidence and handoff
+until those obligations are resolved and the gate/merge/roadmap records are
+pushed. No new milestone or release is authorized by this acceptance.
