@@ -75,3 +75,27 @@ mode, a PC-8801 model.
   Testament (both disks) reach their screens.
 - `linux-ci-gcc` ctest: 146 of 146 after the BRKEM test reads 70h/5Ch in
   V1/V2 mode (it had read them in V3 mode right after a reset).
+
+## Media build regression
+
+Clean clone of `844010d1541fbd0a2d4d0d0287fd4e88db481939` (the media
+builders changed since M134's run), cache `pc88va-utilities-cache`:
+
+- `build-utility-disk.sh` exit 0 (4096 bytes free), FDD SHA-256
+  `7dee102b1ce3e0397f031001b05d450425dc1bdde95943ee8170cbc34f3f962a`;
+  `build-sasi-utility-disks.sh` exit 0, VA
+  `799b0231011dccb9ddb051cf70b67279e3a901ecaa6cc912d1f1d4528bffdc1a`, VA2
+  `8c65b0b02432e28e9d8cc4e807f1f0f6cbd12998004e90db70ac827f332095b5`. In
+  vaeg the FDD boots PC-Engine 1.1 on the VA2 and each SASI image alone
+  boots PC-Engine on its model.
+- The five demo `build-d88.sh`, `build-from-psd.sh` and all-demos: exit 0,
+  every file identical to the committed images; all-demos-msdos4 and the
+  SGP boot disk: exit 0, `.xz` byte-identical.
+
+## Clean-checkout build
+
+`tools/release/build-mingw-static-container.sh --commit
+7bcf8f1c7729193f1f59ea4fe278d365522cc02a`: exit 0, Windows system DLL
+imports only; `vaeg.exe` SHA-256
+`462be85b7195be24bbf01058a5e724c3d21f247f27466a27c7b504121db4b033`. Later
+commits change only `tests/` and documentation, not the executable.
