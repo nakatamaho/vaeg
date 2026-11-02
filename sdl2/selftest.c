@@ -5255,12 +5255,25 @@ static BOOL v1v2_state_is_nondefault(void) {
 	       upd9002_iotrap.control == 0x13;
 }
 
+/* M144: the V1/V2-only ports are not decoded in V3 mode; read the state
+ * they hold as V1/V2 mode would. */
+static REG8 v1v2_port_state(UINT port) {
+	const UINT8 mode = memoryva_88_mode;
+	REG8 value;
+
+	memoryva_88_mode = 1;
+	value = iocore_inp8(port);
+	memoryva_88_mode = mode;
+	return value;
+}
+
 static BOOL v1v2_state_is_default(void) {
 	static const BYTE zero[8] = {0};
 
 	return memoryva_88_mode == 0 && (iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0 &&
-	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 && iocore_inp8(0x05c) == 0xf8 &&
-	       iocore_inp8(0x034) == 0 && iocore_inp8(0x035) == 0 && !memoryva_88_alu.gvam &&
+	       v1v2_port_state(0x071) == 0xff && v1v2_port_state(0x070) == 0x80 &&
+	       v1v2_port_state(0x05c) == 0xf8 && v1v2_port_state(0x034) == 0 &&
+	       v1v2_port_state(0x035) == 0 && !memoryva_88_alu.gvam &&
 	       !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) && upd9002_iotrap.control == 0;
 }
 
@@ -5365,6 +5378,7 @@ static int test_pic8214_mode(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	memoryva_88_mode = 1; /* M144: E4h and E6h are V1/V2-only ports */
 	problem = NULL;
 
 	/* Reset: 8214 mode, nothing enabled, general timer 2 idle. */
@@ -6952,6 +6966,73 @@ static void text_hide_dots(BYTE *reversed_text, BYTE *glyph_text, BYTE *normal_c
 	*normal_colour = textcolorraster[10 * 8];
 }
 
+/* M144: the manual's V1/V2-only ports are not decoded in V3 mode: reads
+ * are not driven (FFh) and writes have no effect; in V1/V2 mode they work
+ * as before. */
+static int test_v1v2_port_decode(void) {
+	static const UINT16 inputs[] = {0x034, 0x035, 0x05c, 0x070, 0x071, 0x0e2,
+	                                0x0e3, 0x0e8, 0x0e9, 0x0ec, 0x0ed};
+	const UINT8 saved_mode = memoryva_88_mode;
+	const char *problem = NULL;
+	UINT8 saved_font[2];
+	REG8 v1v2_value;
+	UINT i;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	/* V3 mode: nothing answers and nothing changes. */
+	memoryva_88_mode = 0;
+	for (i = 0; (problem == NULL) && (i < NELEMENTS(inputs)); i++) {
+		if (iocore_inp8(inputs[i]) != 0xff) {
+			problem = "a V1/V2-only port was driven in V3 mode";
+		}
+	}
+	if (problem == NULL) {
+		const UINT8 xerom = memoryva_88_xerom;
+		const UINT8 port31 = memoryva_88_port31;
+
+		iocore_out8(0x071, (REG8)(xerom ^ 1));
+		iocore_out8(0x031, (REG8)(port31 ^ 0x10));
+		if ((memoryva_88_xerom != xerom) || (memoryva_88_port31 != port31)) {
+			problem = "a V1/V2-only port took a write in V3 mode";
+		}
+	}
+	/* V1/V2 mode: the kanji ports read the font through the address set by
+	 * E8h/E9h; a V3-mode write of E8h does not move that address. */
+	if (problem == NULL) {
+		memoryva_88_mode = 1;
+		saved_font[0] = fontmem[0x40];
+		saved_font[1] = fontmem[0x41];
+		fontmem[0x40] = 0x12;
+		fontmem[0x41] = 0x34;
+		iocore_out8(0x0e8, 0x20);
+		iocore_out8(0x0e9, 0x00);
+		v1v2_value = iocore_inp8(0x0e9);
+		memoryva_88_mode = 0;
+		iocore_out8(0x0e8, 0x00);
+		memoryva_88_mode = 1;
+		if ((v1v2_value != 0x12) || (iocore_inp8(0x0e9) != 0x12) || (iocore_inp8(0x0e8) != 0x34)) {
+			problem = "kanji ports in V1/V2 mode, or a V3-mode write moved them";
+		}
+		iocore_out8(0x071, 0x00);
+		if ((problem == NULL) && (memoryva_88_xerom != 0)) {
+			problem = "a V1/V2-only port ignored a write in V1/V2 mode";
+		}
+		fontmem[0x40] = saved_font[0];
+		fontmem[0x41] = saved_font[1];
+	}
+	memoryva_88_mode = saved_mode;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem != NULL) {
+		return (fail("V1/V2 port decode", problem));
+	}
+	fprintf(stderr, "selftest: V1/V2 port decode ok\n");
+	return (SUCCESS);
+}
+
 static int test_tsp_text_hide(void) {
 	static const struct {
 		UINT8 mode88;
@@ -7640,6 +7721,7 @@ static int test_extra_machine(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	memoryva_88_mode = 1; /* M144: the PC-8801 ports below are V1/V2-only */
 	romva_machine_hook = extrarom_apply;
 
 	/* mkIISR: every role but jisyo. */
@@ -7792,6 +7874,7 @@ static int test_pc8001_machine(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	memoryva_88_mode = 1; /* M144: the PC-8801 ports below are V1/V2-only */
 	romva_machine_hook = extrarom_apply;
 	if (problem == NULL) {
 		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
@@ -9914,6 +9997,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_tsp_text_hide() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_v1v2_port_decode() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_port040_sound() != SUCCESS) {

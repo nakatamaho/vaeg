@@ -309,28 +309,69 @@ void memctrlva_reset(void) {
 	memctrlva_o198(0, 0);
 }
 
+/*
+ * M144: the technical manual marks 31h, 34h, 35h, 5Ch-5Fh, 70h, 71h, 78h,
+ * E2h-E4h, E6h, E8h, E9h, ECh and EDh "V1/V2 モード専用". In V3 mode the
+ * main unit leaves them undecoded: a read is not driven (FFh here) and a
+ * write has no effect, so that boards in the slots can use those addresses
+ * (and V3 software sees no PC-8801 device). The decision follows the live
+ * mode (port 153h bit 6) at each access. vaeg's own reset code calls the
+ * handlers directly.
+ */
+static IOOUT v1v2_out[0x100];
+static IOINP v1v2_inp[0x100];
+
+static void IOOUTCALL v1v2_gate_out(UINT port, REG8 dat) {
+	if (memoryva_88_mode) {
+		v1v2_out[port & 0xff](port, dat);
+	}
+}
+
+static REG8 IOINPCALL v1v2_gate_inp(UINT port) {
+	if (memoryva_88_mode) {
+		return v1v2_inp[port & 0xff](port);
+	}
+	return 0xff;
+}
+
+BOOL memctrlva_attachout_v1v2(UINT port, void (*func)(UINT port, REG8 dat)) {
+	if ((port > 0xff) || (func == NULL)) {
+		return FAILURE;
+	}
+	v1v2_out[port] = func;
+	return iocore_attachout(port, v1v2_gate_out);
+}
+
+BOOL memctrlva_attachinp_v1v2(UINT port, REG8 (*func)(UINT port)) {
+	if ((port > 0xff) || (func == NULL)) {
+		return FAILURE;
+	}
+	v1v2_inp[port] = func;
+	return iocore_attachinp(port, v1v2_gate_inp);
+}
+
 void memctrlva_bind(void) {
-	iocore_attachout(0x031, memctrlva_o031);
-	iocore_attachout(0x05c, memctrlva_o05c);
-	iocore_attachout(0x05d, memctrlva_o05c);
-	iocore_attachout(0x05e, memctrlva_o05c);
-	iocore_attachout(0x05f, memctrlva_o05c);
-	iocore_attachinp(0x05c, memctrlva_i05c);
-	iocore_attachout(0x034, memctrlva_o034);
-	iocore_attachout(0x035, memctrlva_o035);
-	iocore_attachinp(0x034, memctrlva_i034);
-	iocore_attachinp(0x035, memctrlva_i035);
-	iocore_attachout(0x0f0, memctrlva_o0f0);
-	iocore_attachout(0x0f1, memctrlva_o0f1);
-	iocore_attachout(0x0e2, memctrlva_o0e2);
-	iocore_attachinp(0x0e2, memctrlva_i0e2);
-	iocore_attachout(0x0e3, memctrlva_o0e3);
-	iocore_attachinp(0x0e3, memctrlva_i0e3);
-	iocore_attachout(0x070, memctrlva_o070);
-	iocore_attachinp(0x070, memctrlva_i070);
-	iocore_attachout(0x078, memctrlva_o078);
-	iocore_attachout(0x071, memctrlva_o071);
-	iocore_attachinp(0x071, memctrlva_i071);
+	memctrlva_attachout_v1v2(0x031, memctrlva_o031);
+	memctrlva_attachout_v1v2(0x05c, memctrlva_o05c);
+	memctrlva_attachout_v1v2(0x05d, memctrlva_o05c);
+	memctrlva_attachout_v1v2(0x05e, memctrlva_o05c);
+	memctrlva_attachout_v1v2(0x05f, memctrlva_o05c);
+	memctrlva_attachinp_v1v2(0x05c, memctrlva_i05c);
+	memctrlva_attachout_v1v2(0x034, memctrlva_o034);
+	memctrlva_attachout_v1v2(0x035, memctrlva_o035);
+	memctrlva_attachinp_v1v2(0x034, memctrlva_i034);
+	memctrlva_attachinp_v1v2(0x035, memctrlva_i035);
+	memctrlva_attachout_v1v2(0x0f0, memctrlva_o0f0);
+	memctrlva_attachout_v1v2(0x0f1, memctrlva_o0f1);
+	memctrlva_attachout_v1v2(0x0e2, memctrlva_o0e2);
+	memctrlva_attachinp_v1v2(0x0e2, memctrlva_i0e2);
+	memctrlva_attachout_v1v2(0x0e3, memctrlva_o0e3);
+	memctrlva_attachinp_v1v2(0x0e3, memctrlva_i0e3);
+	memctrlva_attachout_v1v2(0x070, memctrlva_o070);
+	memctrlva_attachinp_v1v2(0x070, memctrlva_i070);
+	memctrlva_attachout_v1v2(0x078, memctrlva_o078);
+	memctrlva_attachout_v1v2(0x071, memctrlva_o071);
+	memctrlva_attachinp_v1v2(0x071, memctrlva_i071);
 	iocore_attachout(0x152, memctrlva_o152);
 	iocore_attachout(0x153, memctrlva_o153);
 	iocore_attachout(0x180, memctrlva_o180);
