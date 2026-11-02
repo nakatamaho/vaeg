@@ -99,3 +99,13 @@ builders changed since M134's run), cache `pc88va-utilities-cache`:
 imports only; `vaeg.exe` SHA-256
 `462be85b7195be24bbf01058a5e724c3d21f247f27466a27c7b504121db4b033`. Later
 commits change only `tests/` and documentation, not the executable.
+
+## Hardware probe
+
+`tools/hardware/v1v2ports/` builds `V1V2PORT.COM` and a bootable MS-DOS 4.0
+test disk (outside Git). In V3 mode it reads 153h (control), E0h-E3h,
+E8h, E9h, ECh, EDh, 31h, 34h, 35h, 5Ch, 70h, 71h, F0h, F1h and WSR-E's
+46E8h, 4EE0h, 4FE0h, 40E1h, 5AE0h, each four times followed by two different
+code patterns, and classifies them FLOAT (undriven), DRV xx or UNSTABLE;
+read only. In vaeg (M144 build) 153h reads 41h, 31h F9h (DIP switches,
+not V1/V2-only for reads) and every other port FFh.
