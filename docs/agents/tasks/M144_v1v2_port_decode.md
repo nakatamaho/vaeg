@@ -151,3 +151,12 @@ In V3 mode the machines read 70h = 00h where vaeg's reset left 80h
 the BRKEM test now sets the identity origin itself. ctest 146 of 146; the
 VA/VA2 V3 and V1/V2 boots, MS-DOS 4.0, the PC-8801mkIISR demonstration, N
 mode, the PC-8801MA model and Testament start as before.
+
+## Gate build (after the revert and the 70h change)
+
+`tools/release/build-mingw-static-container.sh --commit
+d529fa77f3567d4cb7542b4ac2c15ba824b406d6`: exit 0, Windows system DLL
+imports only; `vaeg.exe` SHA-256
+`877efcf8aa99060b0c6f244b464ab33aeb18a46ceee8f98216aba9ea8237b755`.
+The media regression above (at `844010d1`) is reused: no media builder or
+demo input changed since.
