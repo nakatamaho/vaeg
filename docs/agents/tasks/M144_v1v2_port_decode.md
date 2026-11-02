@@ -73,3 +73,5 @@ mode, a PC-8801 model.
 - Linux release: VA and VA2 V3 PC-Engine boots, VA2 V1/V2 BASIC, the
   PC-8801mkIISR demonstration, MS-DOS 4.0, N mode, the PC-8801MA model and
   Testament (both disks) reach their screens.
+- `linux-ci-gcc` ctest: 146 of 146 after the BRKEM test reads 70h/5Ch in
+  V1/V2 mode (it had read them in V3 mode right after a reset).
