@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M144 — V1/V2-only ports in V3 mode (measured; no change)
 
-Status: **measured; the undecoding change reverted; G144 human gate pending.**
+Status: **measured; the undecoding change reverted; port 70h reset to 00h; G144 human gate pending.**
 
 Branch `milestone/m144-v1v2-port-decode`; commit prefix `M144:`. (M143 is
 used twice, by `topic/m143-runtime-speed` and `milestone/m143-wsre-w1`.)
@@ -142,5 +142,12 @@ returned by the maintainer, kept outside Git):
 `ddf9a3b6` and `a3db604a`; the ledger entry is withdrawn; decision T4 now
 records the measurement. V1V2PORT stays as a hardware probe.
 
-Open: in V3 mode the machines read 70h = 00h where vaeg's reset leaves 80h
-(decision M2, reset origin `[POLICY]`); in V1/V2 N88-BASIC both read 00h.
+## Port 70h reset origin
+
+In V3 mode the machines read 70h = 00h where vaeg's reset left 80h
+(decision M2, reset origin `[POLICY]`). The maintainer also read
+`PRINT HEX$(INP(&H70))` = 0 in V2 N88-BASIC on the VA (photograph, private).
+[9b468201](https://github.com/nakatamaho/vaeg/commit/9b4682010ddedef4c2ff9ab60354233e654e2303) resets it to 00h;
+the BRKEM test now sets the identity origin itself. ctest 146 of 146; the
+VA/VA2 V3 and V1/V2 boots, MS-DOS 4.0, the PC-8801mkIISR demonstration, N
+mode, the PC-8801MA model and Testament start as before.
