@@ -1877,6 +1877,24 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M144 — V1/V2-only I/O ports answered in V3 mode
+
+- **Symptom/scope:** in V3 mode vaeg answered the ports the technical
+  manual marks V1/V2-only; reading E8h returned the kanji ROM's data (00h,
+  recorded by the W1PORT probe), so V3 software or a slot board decoding
+  only the low byte saw a PC-8801 device that is not there.
+- **Demonstrated cause:** the handlers were registered without regard to
+  the mode and none checked it.
+- **Correction:** those ports (and vaeg's F0h/F1h) are decoded only in V1/V2
+  mode, following port 153h bit 6 at each access (V1/V2 decision T4).
+- **Verification:** selftest `V1/V2 port decode` (two mutations caught); no
+  V3-mode access to these ports in traces of the VA/VA2 V3 and V1/V2 boots,
+  PC-Engine, MS-DOS 4.0, the PC-8801mkIISR demonstration and N mode; those
+  and the PC-8801MA model and Testament still boot.
+- **Milestone/task/commit:** M144,
+  [M144 task](../agents/tasks/M144_v1v2_port_decode.md),
+  [ddf9a3b6](https://github.com/nakatamaho/vaeg/commit/ddf9a3b6a1aa8ef6d2fba0c945abc09f789728ae).
+
 ### M142 — host-sized DISK records prevented cross-host state loading
 
 - **Symptom/scope:** #76: Windows and POSIX states fail the DISK section

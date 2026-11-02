@@ -97,6 +97,7 @@ PC-8001 (N-BASIC) mode is described in full in
 | T1 | Compatible-mode trap matching uses the low port byte; native matching uses byte or word ports per FFEFh bit 4; FFE0h–FFFFh are never trapped. | `[VA-TM]` registers; `[POLICY]` for compatible low-byte matching | Approved G103b | `cpu/upd9002_upd70008.cpp`, `cpu/upd9002/` | — |
 | T2 | A trapped compatible instruction transfers to vector 7Ch/7Dh with the instruction's own IP; the ROM handler advances IP. | `[ROM]` handler at F000:1944 | Approved G103b | same | — |
 | T3 | DD/FD-prefixed compatible I/O and trap timing are not modelled. | — | Open | — | — |
+| T4 | The ports the manual marks "V1/V2 モード専用" (31h, 34h, 35h, 5Ch–5Fh, 70h, 71h, 78h, E2h–E4h, E6h, E8h, E9h, ECh, EDh), and vaeg's F0h/F1h, are decoded only in V1/V2 mode (port 153h bit 6 clear, checked at each access): in V3 mode a read is not driven (FFh in vaeg) and a write has no effect (M144). | `[VA-TM]` I/O port descriptions; the I/O map gives 1000h–FEFFh to the user (expansion) area; trace of VA/VA2 V3 and V1/V2 boots: no V3-mode access to these ports; F0h/F1h `[POLICY]` | M144; G144 human gate pending | `io/memctrlva.c`, `io/cgromva.c`, `io/pic.c` | V3 `IN` of E0h/E8h with differing trailing code (floating-bus test), and a slot board on those low bytes |
 
 ## 4. Interrupts, timers and keyboard
 
