@@ -286,12 +286,12 @@ void cgromva_bind(void) {
 
 	iocore_attachinp(0x14e, cgromva_i14e);
 
-	memctrlva_attachout_v1v2(0x0e8, cgrom88_o_low);
-	memctrlva_attachout_v1v2(0x0e9, cgrom88_o_high);
-	memctrlva_attachout_v1v2(0x0ec, cgrom88_o_low);
-	memctrlva_attachout_v1v2(0x0ed, cgrom88_o_high);
-	memctrlva_attachinp_v1v2(0x0e8, cgrom88_i_right);
-	memctrlva_attachinp_v1v2(0x0e9, cgrom88_i_left);
-	memctrlva_attachinp_v1v2(0x0ec, cgrom88_i_right);
-	memctrlva_attachinp_v1v2(0x0ed, cgrom88_i_left);
+	iocore_attachout(0x0e8, cgrom88_o_low);
+	iocore_attachout(0x0e9, cgrom88_o_high);
+	iocore_attachout(0x0ec, cgrom88_o_low);
+	iocore_attachout(0x0ed, cgrom88_o_high);
+	iocore_attachinp(0x0e8, cgrom88_i_right);
+	iocore_attachinp(0x0e9, cgrom88_i_left);
+	iocore_attachinp(0x0ec, cgrom88_i_right);
+	iocore_attachinp(0x0ed, cgrom88_i_left);
 }

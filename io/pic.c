@@ -629,7 +629,7 @@ void pic_bind(void) {
 	iocore_attachinp(0x188, picva_i188);
 	iocore_attachinp(0x18a, picva_i18a);
 	// 8214 mode and the mode switch
-	memctrlva_attachout_v1v2(0x0e4, pic8214_oe4);
-	memctrlva_attachout_v1v2(0x0e6, pic8214_oe6);
+	iocore_attachout(0x0e4, pic8214_oe4);
+	iocore_attachout(0x0e6, pic8214_oe6);
 	iocore_attachout(0x158, pic8214_o158);
 }
