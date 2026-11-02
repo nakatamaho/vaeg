@@ -9655,12 +9655,13 @@ int vaeg_selftest_run(void) {
 	if (np2cfg.pcg_enable != 1 || np2cfg.v1v2_nmode_enable != 1 ||
 	    np2cfg.boot_mode != BOOTMODE_AUTO)
 		return fail("startup defaults", "M142_COMPAT_FEATURE_DEFAULTS");
+	if (SDL_getenv("VAEG_SELFTEST_WSRE_ONLY"))
+		return test_wsre_w1();
 	if (SDL_getenv("VAEG_SELFTEST_STATE_ONLY")) {
 		if (!gui_state_load_result_selftest())
 			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-		if (test_wsre_w1() != SUCCESS || test_statsave() != SUCCESS ||
-		    test_bms_state_restore() != SUCCESS || test_hdd_state_restore() != SUCCESS ||
-		    test_fdd_multi_image_state() != SUCCESS)
+		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
 	}
@@ -9796,8 +9797,8 @@ int vaeg_selftest_run(void) {
 	}
 	if (!gui_state_load_result_selftest())
 		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-	if (test_wsre_w1() != SUCCESS || test_statsave() != SUCCESS ||
-	    test_bms_state_restore() != SUCCESS || test_hdd_state_restore() != SUCCESS) {
+	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+	    test_hdd_state_restore() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_compat_mode_state() != SUCCESS) {

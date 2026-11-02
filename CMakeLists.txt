@@ -2670,6 +2670,12 @@ if(VAEG_ENABLE_TESTS)
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
     endif()
+    add_test(NAME vaeg_wsre_w1 COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_wsre_w1 PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_WSRE_ONLY=1"
+        LABELS "romless;state;wsre" TIMEOUT 120
+        RESOURCE_LOCK vaeg_sxsi_image_selftest)
     add_test(NAME vaeg_state_storage COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_state_storage PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
