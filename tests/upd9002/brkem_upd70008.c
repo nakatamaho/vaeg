@@ -188,6 +188,18 @@ static int iotrap_register_selftest(void) {
 	return passed ? SUCCESS : FAILURE;
 }
 
+
+/* M144: the V1/V2-only ports are not decoded in V3 mode; read the state
+ * they hold as V1/V2 mode would. */
+static REG8 v1v2_port_state(UINT port) {
+	const UINT8 mode = memoryva_88_mode;
+	REG8 value;
+
+	memoryva_88_mode = 1;
+	value = iocore_inp8(port);
+	memoryva_88_mode = mode;
+	return value;
+}
 static int memory_mode_selftest(void) {
 	int passed;
 
@@ -319,14 +331,14 @@ static int memory_mode_selftest(void) {
 	iocore_out8(0x153, 0x41);
 	passed = passed && upd9002_memoryread_va(0x18000) == 0x66;
 	memctrlva_reset();
-	passed = passed && iocore_inp8(0x70) == 0x80;
+	passed = passed && v1v2_port_state(0x70) == 0x80;
 	{
 		UINT plane;
 		upd9002_memorywrite_va(0x1bfff, 0x11);
 		upd9002_memorywrite_va(0x1c000, 0x22);
 		upd9002_memorywrite_va(0x1ffff, 0x33);
 		upd9002_memorywrite_va(0x20000, 0x44);
-		passed = passed && iocore_inp8(0x5c) == 0xf8;
+		passed = passed && v1v2_port_state(0x5c) == 0xf8;
 		iocore_out8(0x153, 0x01);
 		for (plane = 0; plane < 3; plane++) {
 			iocore_out8(0x5c + plane, 0xff);
@@ -346,7 +358,7 @@ static int memory_mode_selftest(void) {
 		iocore_out8(0x153, 0x41);
 		passed = passed && upd9002_memoryread_va(0x1c000) == 0x22;
 		memctrlva_reset();
-		passed = passed && iocore_inp8(0x5c) == 0xf8;
+		passed = passed && v1v2_port_state(0x5c) == 0xf8;
 	}
 	passed = passed && (memoryva_88_mode == 0) && (iocore_inp8(0x153) == 0x41);
 	iocore_destroy();
