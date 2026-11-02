@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M144 — V1/V2-only ports in V3 mode (measured; no change)
 
-Status: **measured; the undecoding change reverted; port 70h reset to 00h; G144 human gate pending.**
+Status: **G144 human gate passed on 2026-11-02.**
 
 Branch `milestone/m144-v1v2-port-decode`; commit prefix `M144:`. (M143 is
 used twice, by `topic/m143-runtime-speed` and `milestone/m143-wsre-w1`.)
@@ -160,3 +160,8 @@ imports only; `vaeg.exe` SHA-256
 `877efcf8aa99060b0c6f244b464ab33aeb18a46ceee8f98216aba9ea8237b755`.
 The media regression above (at `844010d1`) is reused: no media builder or
 demo input changed since.
+
+## G144 passed
+
+The maintainer stated **G144 passed** on 2026-11-02 with the static Windows
+build of `d529fa77f3567d4cb7542b4ac2c15ba824b406d6`.
