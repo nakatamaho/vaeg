@@ -22,9 +22,9 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M144 — V1/V2-only ports undecoded in V3 mode
+# M144 — V1/V2-only ports in V3 mode (measured; no change)
 
-Status: **implemented; G144 human gate pending.**
+Status: **measured; the undecoding change reverted; G144 human gate pending.**
 
 Branch `milestone/m144-v1v2-port-decode`; commit prefix `M144:`. (M143 is
 used twice, by `topic/m143-runtime-speed` and `milestone/m143-wsre-w1`.)
@@ -109,3 +109,38 @@ E8h, E9h, ECh, EDh, 31h, 34h, 35h, 5Ch, 70h, 71h, F0h, F1h and WSR-E's
 code patterns, and classifies them FLOAT (undriven), DRV xx or UNSTABLE;
 read only. In vaeg (M144 build) 153h reads 41h, 31h F9h (DIP switches,
 not V1/V2-only for reads) and every other port FFh.
+
+## Hardware result (2026-11-02): the change is reverted
+
+V1V2PORT on PC-88VA and PC-88VA2 hardware, V3 mode, no board (disk images
+returned by the maintainer, kept outside Git):
+
+| Port | VA | VA2 |
+|---|---|---|
+| 153h | 41 | 41 |
+| E0h, E1h, E2h | FF | FF |
+| E3h | F0 | F0 |
+| E8h, E9h | 00, 00 | 00, 00 |
+| ECh, EDh | FF, 7F | 86, 20 |
+| 31h | 79 | F9 |
+| 34h, 35h | FF | FF |
+| 5Ch | F8 | F8 |
+| 70h | 00 | 00 |
+| 71h, F0h, F1h | FF | FF |
+| 46E8h, 4EE0h, 4FE0h, 40E1h, 5AE0h | FF | FF |
+
+- An undriven I/O read returns FFh on the machines (not the last bus value
+  as for memory), so every row read the same both ways and FFh rows are
+  undetermined.
+- E3h, E8h, E9h, ECh, EDh, 5Ch and 70h are answered in V3 mode: the
+  manual's "V1/V2 モード専用" does not mean undecoded in V3. vaeg's former
+  E8h = 00h (W1PORT) matched the hardware.
+- 46E8h reads FFh where E8h reads 00h: the I/O address is decoded in full,
+  so WSR-E's ports do not alias the main unit's.
+
+[17c099e1](https://github.com/nakatamaho/vaeg/commit/17c099e1214ccedfa699e565d827e3bd3128186e) reverts
+`ddf9a3b6` and `a3db604a`; the ledger entry is withdrawn; decision T4 now
+records the measurement. V1V2PORT stays as a hardware probe.
+
+Open: in V3 mode the machines read 70h = 00h where vaeg's reset leaves 80h
+(decision M2, reset origin `[POLICY]`); in V1/V2 N88-BASIC both read 00h.
