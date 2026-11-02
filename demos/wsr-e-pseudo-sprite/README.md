@@ -63,11 +63,13 @@ and leaves SR06 locked. It never writes the relay port 40E1h.
 ## Build
 
 ```sh
-NASM=nasm demos/wsr-e-pseudo-sprite/build.sh /tmp/wsre
-NASM=nasm demos/wsr-e-pseudo-sprite/build.sh --msdos4 msdos4-pc88va-2hd.d88 /tmp/wsre
+TASK_SCRATCH="$HOME/work/pc88va/tmp/m143-wsre-w1"
+NASM=nasm demos/wsr-e-pseudo-sprite/build.sh "$TASK_SCRATCH/media"
+NASM=nasm demos/wsr-e-pseudo-sprite/build.sh --msdos4 "$MSDOS4_SOURCE" "$TASK_SCRATCH/media"
 ```
 
-The second form also writes `/tmp/wsre/wsr-e-pseudo-sprite-msdos4.d88`, a
+Bind `MSDOS4_SOURCE` to the pinned system disk before using the second form.
+It also writes `$TASK_SCRATCH/media/wsr-e-pseudo-sprite-msdos4.d88`, a
 vanilla copy of the FreeDOS-88VA `msdos4-va.2` disk with the programs in
 its root. `BUILD_ID` overrides the build id. Generated files stay out of
 Git.
@@ -75,9 +77,10 @@ Git.
 ## Smoke run without hardware
 
 ```sh
-pip install unicorn
-python3 demos/wsr-e-pseudo-sprite/smoke.py /tmp/wsre/W1PORT.COM --float next
-python3 demos/wsr-e-pseudo-sprite/smoke.py /tmp/wsre/W1PROBE.COM --board
+python3 -m venv "$TASK_SCRATCH/venv"
+"$TASK_SCRATCH/venv/bin/pip" install --cache-dir "$TASK_SCRATCH/pip-cache" unicorn==2.1.4
+"$TASK_SCRATCH/venv/bin/python" demos/wsr-e-pseudo-sprite/smoke.py "$TASK_SCRATCH/media/W1PORT.COM" --float next
+"$TASK_SCRATCH/venv/bin/python" demos/wsr-e-pseudo-sprite/smoke.py "$TASK_SCRATCH/media/W1PROBE.COM" --board
 ```
 
 `smoke.py` checks control flow, the CSV lines, the exit code and that the
@@ -94,3 +97,18 @@ check value, and reports vaeg/machine timing ratios and repeat variation.
 `FF` and `FLOAT ...` probe results are the same undriven class. Only for
 emulator fixture comparisons, `--ignore-r0-counts` suppresses R0 timing
 judgment; that result is explicitly not a hardware timing PASS.
+
+`tests/wsre/expected/*.csv` are synthetic VA2/V3/15kHz contracts, not
+hardware logs. Their CR27, board-read and word-alias values remain `[OPEN]`.
+They can be regenerated out of tree with:
+
+```sh
+python3 tools/wsre/expected_logs.py "$TASK_SCRATCH/expected"
+python3 tools/wsre/test_compare_logs.py
+python3 tools/wsre/compare_logs.py tests/wsre/expected/w1probe-on.csv VAEG_LOG --ignore-r0-counts
+```
+
+R0 counts in these fixtures are placeholders. Their E8h expectation is still
+undriven; it is deliberately not fitted to vaeg's existing V3 Kanji-port
+binding. See the [M143 task](../../docs/agents/tasks/M143_wsre_w1_port_probe.md)
+for the unresolved local failures and gate status.

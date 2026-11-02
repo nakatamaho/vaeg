@@ -126,10 +126,10 @@ display and relay (W5).
 
 | Row | VA | VA2 | vaeg |
 | --- | --- | --- | --- |
-| W1PORT P 00E0, 00E1, 00E8 (no board) | FF or FLOAT | FF or FLOAT | FF |
-| W1PORT B152 SAME, SLOT, RESTORE | PASS | PASS | PASS |
-| W1PORT R0 counts | photograph | photograph | 0.9-1.1 of the machine (M130 calibrated) |
-| W1PROBE SR06B 12 / 00 | 12 / 0F | 12 / 0F | 12 / 0F |
+| W1PORT P 00E0, 00E1, 00E8 (no board) | [OPEN] FF or FLOAT expected | [OPEN] FF or FLOAT expected | FF required; E8h finding below |
+| W1PORT B152 SAME, SLOT, RESTORE | [OPEN] PASS expected | [OPEN] PASS expected | PASS |
+| W1PORT R0 counts | [OPEN] logs needed | [OPEN] logs needed | 0.9-1.1 of the machine (M130 calibrated) |
+| W1PROBE SR06B 12 / 00 | [OPEN] 12 / 0F expected | [OPEN] 12 / 0F expected | 12 / 0F |
 | W1PROBE SR06W 12 / 00 | [OPEN] | [OPEN] | provisional index/data alias; await logs |
 | W1PROBE CR27 | [OPEN] | [OPEN] | [OPEN] 98h provisional |
 | W1PROBE GR09B/GR0AB, GR09W/GR0AW | [OPEN] | [OPEN] | provisional read-back; await logs |
@@ -166,44 +166,102 @@ W1PORT writes port 152h with interrupts off for a few instructions. W1PROBE
 writes 46E8h, 42E0h, 5AE0h, SR06, GR09 and GR0A, never 40E1h, so the
 monitor stays on the VA.
 
-## Local verification (to fill)
+## Local verification
 
-- Development COM/media build: `NASM=nasm demos/wsr-e-pseudo-sprite/build.sh
-  --msdos4 "$MSDOS4_SOURCE" "$TASK_SCRATCH/media-r1"`, exit **0**, NASM
-  **3.01**. The input is the pinned FreeDOS-88VA `msdos4-va.2` system disk.
-  These artifacts embed draft-source id `2ad997fc` plus the working-tree
-  program corrections, not a final clean candidate. A later comment-only
-  source edit was rebuilt and both COMs compared byte-identical with `cmp`.
-  Development SHA-256 values:
-  - W1PORT.COM: `732a4e5348349407b58cd56d239d3e9fe6568cbe82fb534c79810227aea473ff`
-  - W1PROBE.COM: `a5d67c4af7f929874c324148964926918b1638ccf3f2377c24967d71ff008d6c`
-  - MS-DOS D88: `08ce0bb1f3df1a06fc3c12dcb4b79ac4ce06cf93ed53f6d5036f975409cc0608`
-  Final candidate hashes must be recorded after the scope conflict below is
-  resolved and the sources are built from their pushed commit.
-- `smoke.py` with the default, `--float self`, `--float next` and `--board`
-  models: required exit codes **0/0/0/0** (W1PORT) and **2/2/2/0** (W1PROBE).
-  All eight development runs meet these exit codes. NASM 3.01 assembles both
-  sources under `cpu 186`; no CPU directive is relaxed. The draft smoke
-  driver printed guest status but always exited 0; it now propagates guest
-  status and validates CSV/cleanup. This is synthetic control-flow evidence,
-  not timing or hardware validation.
-- `python3 tools/wsre/test_compare_logs.py`: exit **0**, six tests.
-- `ctest --test-dir "$NATIVE_BUILD" --output-on-failure -R
-  'vaeg_state_storage|vaeg_wsre_log_contract'`: exit **0**, **2/2 PASS**.
-  This includes live port dispatch, optional-state round trips and four
-  exact-code invalid-state controls. Full CTest totals and the clean static
-  MinGW gate executable are still pending; no handoff is claimed.
-- Headless MS-DOS batch execution (each case on a copied disk, SDL dummy):
-  W1PORT board off **guest exit 1 / FAIL**, W1PROBE board off **guest exit 2**.
-  Guest `EXIT.TXT` and `WSRLOG.TXT` are read back from the produced D88;
-  worker exit 0 alone is not treated as a program PASS. These observations
-  are not mapped-screen validation. Exact commands and private bindings are
-  retained in task scratch, not in Git.
+Evaluated application/program source:
+[26b60fcee5b74261b373951bd5b8b3fc60713c18](https://github.com/nakatamaho/vaeg/commit/26b60fcee5b74261b373951bd5b8b3fc60713c18).
+Earlier development results remain in task scratch and Git history; they are
+not relabeled as this candidate's results. No hosted-CI result is claimed.
+
+### Builds and control tests
+
+- `NASM=nasm demos/wsr-e-pseudo-sprite/build.sh --msdos4 "$MSDOS4_SOURCE"
+  "$TASK_SCRATCH/media-26b60fce"`: exit **0**, NASM **3.01**, pinned
+  FreeDOS-88VA `msdos4-va.2` input. Both sources retain `cpu 186`.
+- `"$SMOKE_PYTHON" demos/wsr-e-pseudo-sprite/smoke.py "$COM" [MODEL]
+  --log "$LOG"`: Unicorn **2.1.4** in an isolated venv. Default,
+  `--float self`, `--float next`, `--board` return **0/0/0/0** for W1PORT
+  and **2/2/2/0** for W1PROBE. All eight final runs meet the required
+  statuses and CSV/cleanup controls. These are synthetic control-flow
+  results, not timing or hardware measurements.
+- `python3 tools/wsre/test_compare_logs.py`: exit **0**, **8 tests**,
+  including generated-versus-checked expected logs and exact-code negatives.
+- Native Darwin arm64 Debug: recording ON, isolated static FFV1/PCM SDK,
+  bundled local MP4 encoders OFF, librashader OFF, integration tracing ON.
+  `cmake --build "$NATIVE_BUILD" --parallel 4`: exit **0**.
+  `ctest --test-dir "$NATIVE_BUILD" --output-on-failure -j4`: exit **0**,
+  **176 registered: 160 PASS / 16 SKIP / 0 FAIL**, 215.21 seconds.
+  Native worker SHA-256:
+  `bfa629a5b1eceac5140abf510db56a5c1db4ff0b6cc5d6ecc7e186b55b4b0b85`.
+  CTest log SHA-256:
+  `f1c6a70ba1759af596ba3277b7911d2ec76206a6cffc5ab5196e5883c8ec08e9`.
+- The first full run had one canonical-trace failure from the new fixture's
+  extra I/O. [63b796aa](https://github.com/nakatamaho/vaeg/commit/63b796aa74a0531f20719d5540aa3f9400d3ae24)
+  isolates it in `vaeg_wsre_w1`; no golden trace was changed. Focused tests
+  passed 3/3, and the final full run above includes the correction.
+- Repository checks, all exit **0**: `check_encoding.py --expect utf8`
+  (0 violations), `check_eol.py`, `check_case.py` (0 findings),
+  `check_md_comments.py`, `git diff --check`; milestone-ID selftest/audit
+  **49** checks (224 tasks, 177 reports, 165 roadmap rows); release identity
+  **5** tests; MacPorts helper **3** tests; recording-release policy **PASS**.
+  `clang-format-mp-19 --dry-run --Werror` passes for the new board/chip
+  sources/headers and W1 selftest header. This is not a claim that unrelated
+  legacy formatting debt was reformatted or eliminated.
+
+### Four actual guest cases
+
+Each case boots a copied MS-DOS image on the VA2/V3/15kHz target with SDL
+dummy video/audio, `WSRE=false/true`, and a batch file recording the COM's
+exit status. Frame budget: **50,000**. The worker exits **0** in all four
+cases; that is not the guest result. Read-back logs are compared using:
+
+`python3 tools/wsre/compare_logs.py tests/wsre/expected/CASE.csv "$GUEST_LOG"
+--ignore-r0-counts`
+
+| Case | Guest result | Comparator exit | Local result |
+| --- | --- | --- | --- |
+| W1PORT, board off | 1, SUM FAIL 1 (E8h) | 1 | **FAIL** |
+| W1PROBE, board off | 2, NO-BOARD | 0 | **PASS checks only** |
+| W1PORT, board on | no exit file; unclosed zero-length log | NOT_RUN | **FAIL: incomplete** |
+| W1PROBE, board on | 0, SUM PASS | 0 | **PASS checks only** |
+
+R0 timing is explicitly ignored here; none of these comparisons is a
+hardware timing PASS. The expected logs are independently generated from
+the provisional register contract, not copied from captures. E8h remains
+FF in the fixture despite the observed failure. Commands, configs, worker
+identity, logs, raw disks and screenshots remain in task scratch. These
+are not mapped-presenter or approved-reference results.
+
+### Checkpoint artifacts (not a ready G143 handoff)
+
+| Artifact | SHA-256 |
+| --- | --- |
+| W1PORT.COM | `7750898ea96238c1292b75946316d4b84eae46fe60ff6bd1374c0491ecea94d0` |
+| W1PROBE.COM | `fec0b8d3939799aa09321fe63662957cc275482cdfb5d632f56629fb5f2d4880` |
+| Separate MS-DOS D88 | `fe3d7149e0a7541b5b187fea57e3b87966e725f56f2e21b2c5c40a7fc7a1d33e` |
+| Static Windows executable | `011237eeccda78218b108ec331c1a34e657a233fd72b0a47b2c9fc1dc3e12595` |
+
+`python3 tools/release/build-mingw-macports.py --commit
+26b60fcee5b74261b373951bd5b8b3fc60713c18 --work-dir "$MINGW_BUILD"
+--sdk-dir "$REVIEWED_SDK" --build-track m143 --jobs 2`: exit **0**, new
+clean clone, no reused application objects or container. Recording/native
+Windows MP4/librashader ON; bundled encoders OFF; encoder/archive and
+Windows system-DLL import audits PASS. Display:
+`Rel.20261102 (m143, 26b60fce)`. Windows execution is **NOT_RUN**.
+
+Verified copies (all compared with `cmp`):
+
+- `/Users/maho/work/pc88va/release-handoff/m143-wsre-w1-26b60fce/vaeg.exe`
+- `/Users/maho/work/pc88va/release-handoff/m143-wsre-w1-26b60fce/BUILD-REPORT.md`
+- COMs and D88 in the same directory's `probes/` subdirectory.
+
+This is a retained implementation checkpoint, not release authorization,
+software-gate completion or a request for human acceptance.
 
 ## Development findings and remaining local work
 
 - `compare_logs.py` compares row/session identities, metadata apart from
-  build id, undriven classes and timing ratios; six focused tests pass,
+  build id, undriven classes and timing ratios; eight focused tests pass,
   including passing controls and exact-code mutation negatives. Its explicit
   R0-ignore mode is only for emulator fixtures, not a timing PASS.
 - Program review found missing restoration of 46E8h and incoming GR09/GR0A.
@@ -228,11 +286,25 @@ monitor stays on the VA.
   behavior to hide the conflict. Resolving it needs a scope decision on a
   V3-compatible-port correction versus the explicit unchanged-disabled
   requirement, followed by baseline/regression checks.
-- Native runs and raw logs/captures remain in task scratch. Short scripted
-  probes did not always finish/close the log before capture; those are not
-  semantic passes. Board-on runs, checked-in expected log comparisons,
-  actual M142-produced SAV compatibility, the complete CTest/media/demo
-  regression and clean MinGW handoff are not yet accepted or complete.
+- **Board-on W1PORT remains incomplete:** after 50,000 frames, the screen
+  ends partway through the 44E0h result and no guest exit status is written.
+  This repeats the shorter development observation. Cause is **OPEN**;
+  do not infer that the E8h correction would fix it. W1PROBE completes and
+  matches the provisional fixture with the board on.
+- **Actual M142-produced SAV compatibility is not proven.** A clean,
+  unchanged writer built from main `950efef3` writes a snapshot at a
+  synthetic guest checkpoint. Both the current reader and the unchanged
+  writer's self-load control fail with `M142_STATE_RESTORE` (reader frame
+  10, repeated at frame 3000). Because the control itself fails, this is
+  not a qualified passing fixture and does not establish an M143
+  regression. The attempted witness and controls are retained privately;
+  root cause/fixture qualification and a successful real-state exchange
+  remain required. Current-build optional-section round-trip tests are
+  passing but do not substitute for this check.
+- Full demo/media regression is **NOT_RUN**; the separate W1 disk build
+  and full CTest campaign do not cover it. Hardware logs, R0 ratios and
+  the human gate remain pending. No merge, main push, cleanup or W2 work
+  is authorized by these local results.
 - The initial native configure correctly refused tests without integration
   tracing; the subsequent tracing-enabled configure/build succeeded with
   an isolated recording SDK and local bundled MP4 encoders OFF.

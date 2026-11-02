@@ -35,6 +35,22 @@ land.
 
 ## Maintenance Rules
 
+### M143 — W1 test I/O polluted the canonical CPU trace
+
+- **Symptom/scope:** the first W1-enabled full CTest run failed
+  `vaeg_upd9002_trace_equivalence`; the CPU golden file itself was unchanged.
+- **Demonstrated cause:** invoking the new W1 fixture from the general
+  selftest emitted its live I/O operations before the first canonical CPU
+  instruction. A captured trace diff shows the extra W1 port reads/writes;
+  this was test-harness contamination, not an opcode correction.
+- **Correction:** run the fixture through a separate `vaeg_wsre_w1` CTest
+  selector, leaving the existing general/state selftests and golden contract
+  unchanged. No trace events are filtered out or added to the approved golden.
+- **Verification:** focused W1/log/trace tests 3/3 PASS, followed by the final
+  176-test campaign: 160 PASS, 16 SKIP, 0 FAIL. See the
+  [M143 W1 verification](../agents/tasks/M143_wsre_w1_port_probe.md#local-verification).
+- **Fix:** [63b796aa74a0531f20719d5540aa3f9400d3ae24](https://github.com/nakatamaho/vaeg/commit/63b796aa74a0531f20719d5540aa3f9400d3ae24).
+
 ### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
 
 - **Symptom/scope:** the historical native load reaches the guest PC and exits
@@ -4434,6 +4450,21 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M143 WSR-E W1 — board-on W1PORT does not complete
+
+With the register-only board enabled at
+[26b60fce](https://github.com/nakatamaho/vaeg/commit/26b60fcee5b74261b373951bd5b8b3fc60713c18),
+the VA2/V3/MS-DOS W1PORT case has not returned after 50,000 guest frames.
+Its screen ends partway through the 44E0h result, its log is unclosed and
+its batch exit-status file is absent. Worker exit 0 from the scheduled
+capture is not a guest PASS. W1PROBE with the same board setting completes
+and matches the provisional register fixture (R0 counts explicitly ignored).
+
+Cause and correction remain **OPEN**. Do not attribute this to the E8h
+finding or to the new register backend without a demonstrated causal test.
+Raw state/debug/capture evidence remains outside Git; see the
+[M143 W1 task](../agents/tasks/M143_wsre_w1_port_probe.md#development-findings-and-remaining-local-work).
 
 ### M143 WSR-E W1 — V3 E8h probe is driven by the compatible Kanji handler
 
