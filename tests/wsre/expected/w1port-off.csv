@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Synthetic fixture, NOT measured hardware. CR27/board/word values [OPEN].
+stage,build,machine,khz,board,cr27,row,param,run,count,vrtc,result
+# W1PORT VA2/3 FFFE 00000000 15kHz
+W1,00000000,VA2/3,15,-,--,R0,LOOP1024,1,1,600,
+W1,00000000,VA2/3,15,-,--,R0,LOOP1024,2,1,600,
+W1,00000000,VA2/3,15,-,--,R0,LOOP1024,3,1,600,
+W1,00000000,VA2/3,15,-,--,P,00E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,00E1,,,,FF
+W1,00000000,VA2/3,15,-,--,P,00E8,,,,FF
+W1,00000000,VA2/3,15,-,--,P,40E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,40E1,,,,FF
+W1,00000000,VA2/3,15,-,--,P,44E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,45E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,46E8,,,,FF
+W1,00000000,VA2/3,15,-,--,P,4EE0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,4FE0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,54E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,55E0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,5AE0,,,,FF
+W1,00000000,VA2/3,15,-,--,P,42E1,,,,FF
+W1,00000000,VA2/3,15,-,--,P,51E1,,,,FF
+W1,00000000,VA2/3,15,-,--,P,59E1,,,,FF
+W1,00000000,VA2/3,15,-,--,P,5BE1,,,,FF
+W1,00000000,VA2/3,15,-,--,B152,READ,,,,4100
+W1,00000000,VA2/3,15,-,--,B152,SAME,,,,R=00 E=00 PASS
+W1,00000000,VA2/3,15,-,--,B152,SLOT,,,,R=08 E=08 PASS
+W1,00000000,VA2/3,15,-,--,B152,RESTORE,,,,R=00 E=00 PASS
+W1,00000000,VA2/3,15,-,--,SUM,W1PORT,,,,PASS

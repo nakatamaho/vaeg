@@ -25,6 +25,7 @@ import tempfile
 from pathlib import Path
 import unittest
 import compare_logs as c
+import expected_logs
 
 
 def fixture():
@@ -87,6 +88,29 @@ class CompareTests(unittest.TestCase):
     def test_timing_variation(self):
         other = c.parse_log(self.data.replace(b',2,4000,', b',2,4080,'))
         self.assertEqual(c.compare_logs(self.control, other)[1], ['WSRE_LOG_TIMING_VARIATION'])
+
+    def test_checked_expected_logs(self):
+        committed = Path(__file__).resolve().parents[2] / 'tests/wsre/expected'
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'expected'
+            expected_logs.generate(output)
+            self.assertEqual(len(list(output.glob('*.csv'))), 4)
+            for generated in output.glob('*.csv'):
+                self.assertEqual(generated.read_bytes(), (committed / generated.name).read_bytes())
+                rows = c.parse_log(generated.read_bytes())
+                reports, errors = c.compare_logs(rows, rows, True)
+                self.assertEqual(errors, [])
+                if any(row.fields[6] == 'R0' for row in rows):
+                    self.assertIn('IGNORED_NOT_TIMING_PASS', '\n'.join(reports))
+
+    def test_expected_e8_is_not_fitted_to_current_decoder(self):
+        data = expected_logs.expected('W1PORT', False).encode('ascii')
+        control = c.parse_log(data)
+        self.assertEqual(c.compare_logs(control, control, True)[1], [])
+        mutated = data.replace(b',P,00E8,,,,FF', b',P,00E8,,,,DRIVEN 00')
+        self.assertNotEqual(mutated, data)
+        self.assertEqual(c.compare_logs(control, c.parse_log(mutated), True)[1],
+                         ['WSRE_LOG_CHECK_MISMATCH'])
 
     def test_cli_integration(self):
         with tempfile.TemporaryDirectory() as tmp:

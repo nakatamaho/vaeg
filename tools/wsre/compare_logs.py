@@ -53,6 +53,9 @@ def parse_log(data):
     except UnicodeDecodeError as exc:
         raise LogError('WSRE_LOG_ENCODING') from exc
     lines = text.splitlines()
+    # Comments may precede the CSV header (e.g. fixture license notices).
+    while lines and lines[0].startswith('#'):
+        lines.pop(0)
     if not lines or lines[0] != HEADER:
         raise LogError('WSRE_LOG_HEADER')
     result, seen = [], set()

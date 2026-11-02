@@ -144,7 +144,7 @@ class Dos:
         if port == 0x152:
             return self.rom_bank & 0xff
         if port == 0x153:
-            return 0x00
+            return 0x41  # vaeg's standard native reset latch, not a hardware measurement
         if self.board:
             if port in (0x40e0, 0x5ae0):
                 return 0
