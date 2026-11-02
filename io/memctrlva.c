@@ -298,7 +298,9 @@ void memctrlva_nmode_compat_entry(void) {
 void memctrlva_reset(void) {
 	memoryva_88_port31 = 0;
 	memoryva_88_xerom = 1;
-	memoryva_88_window = 0x80;
+	/* M144: 00h, as read in V3 mode after power-on on PC-88VA and PC-88VA2
+	 * hardware (decision M2); V1/V2 N88-BASIC also reads 00h. */
+	memoryva_88_window = 0x00;
 	memoryva_88_plane = 3;
 	ZeroMemory(&memoryva_88_alu, sizeof(memoryva_88_alu));
 	ZeroMemory(&memoryva_88_eram, sizeof(memoryva_88_eram));

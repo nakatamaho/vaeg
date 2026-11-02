@@ -220,6 +220,7 @@ static int memory_mode_selftest(void) {
 		upd9002_memorywrite_va(0x18000, 0x44);
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0x22);
 		iocore_out8(0x153, 0x01);
+		iocore_out8(0x70, 0x80); /* identity RAM window (the reset origin is 00h) */
 		passed = passed && (upd9002_memoryread_va(0x10000) == 0xa5) &&
 		         (upd9002_memoryread_va_w(0x0ffff) == 0xa511) &&
 		         (upd9002_memoryread_va_w(0x17fff) == 0x445a);
@@ -319,7 +320,7 @@ static int memory_mode_selftest(void) {
 	iocore_out8(0x153, 0x41);
 	passed = passed && upd9002_memoryread_va(0x18000) == 0x66;
 	memctrlva_reset();
-	passed = passed && iocore_inp8(0x70) == 0x80;
+	passed = passed && iocore_inp8(0x70) == 0x00;
 	{
 		UINT plane;
 		upd9002_memorywrite_va(0x1bfff, 0x11);
