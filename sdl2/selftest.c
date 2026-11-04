@@ -5261,7 +5261,7 @@ static BOOL v1v2_state_is_default(void) {
 	static const BYTE zero[8] = {0};
 
 	return memoryva_88_mode == 0 && (iocore_inp8(0x153) & 0x40) && memoryva_88_port31 == 0 &&
-	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x80 && iocore_inp8(0x05c) == 0xf8 &&
+	       iocore_inp8(0x071) == 0xff && iocore_inp8(0x070) == 0x00 && iocore_inp8(0x05c) == 0xf8 &&
 	       iocore_inp8(0x034) == 0 && iocore_inp8(0x035) == 0 && !memoryva_88_alu.gvam &&
 	       !memcmp(upd9002_iotrap.ranges, zero, sizeof(zero)) && upd9002_iotrap.control == 0;
 }

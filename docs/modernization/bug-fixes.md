@@ -1893,6 +1893,21 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### M144 — port 70h reset to 80h instead of 00h
+
+- **Symptom/scope:** V3-mode software reading port 70h after power-on got
+  80h in vaeg; PC-88VA and PC-88VA2 hardware return 00h (V1V2PORT), as V2
+  N88-BASIC also shows.
+- **Demonstrated cause:** `memctrlva_reset()` set the RAM-window origin to
+  80h by policy (decision M2).
+- **Correction:** the origin resets to 00h.
+- **Verification:** V1V2PORT on both machines; selftest and ctest; the VA/VA2
+  V3 and V1/V2 boots, MS-DOS 4.0, the PC-8801mkIISR demonstration, N mode,
+  the PC-8801MA model and Testament still start.
+- **Milestone/task/commit:** M144,
+  [M144 task](../agents/tasks/M144_v1v2_port_decode.md),
+  [9b468201](https://github.com/nakatamaho/vaeg/commit/9b4682010ddedef4c2ff9ab60354233e654e2303).
+
 ### M142 — host-sized DISK records prevented cross-host state loading
 
 - **Symptom/scope:** #76: Windows and POSIX states fail the DISK section
