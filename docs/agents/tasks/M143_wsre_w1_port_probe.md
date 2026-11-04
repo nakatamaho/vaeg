@@ -355,6 +355,67 @@ above supplies its control evidence. With BUILD_ID=26b60fce the original
 W1PORT/W1PROBE COMs remain byte-identical to the prior handoff. Final media
 identity and guest checks are recorded separately below when complete.
 
+### Scanner candidate verification
+
+Evaluated scanner source:
+[3657c64ee421066a78fd7e41154bc9b62b9724ee](https://github.com/nakatamaho/vaeg/commit/3657c64ee421066a78fd7e41154bc9b62b9724ee).
+The main-to-work-branch merge is
+[dcf69959672baa5c03e1a2466ebe9f2066238647](https://github.com/nakatamaho/vaeg/commit/dcf69959672baa5c03e1a2466ebe9f2066238647).
+No milestone-to-main merge is authorized or performed.
+
+Commands (private bindings and generated evidence kept out of tree):
+
+```sh
+python3 tools/wsre/build_scan.py --source "$MSDOS4_SOURCE" --output-dir "$NEW_OUTPUT_DIR"
+"$TASK_VENV/bin/python" tools/wsre/test_scan.py
+python3 tools/wsre/test_compare_logs.py
+cmake --build "$NATIVE_BUILD" --parallel 4
+ctest --test-dir "$NATIVE_BUILD" --output-on-failure -R 'vaeg_wsre_|brkem|vaeg_state_storage|vaeg_romless_tests'
+```
+
+Both scanner media builds returned 0 and their D88s were byte-identical.
+The model controls returned 0 (9 PASS) and comparator tests returned 0
+(8 PASS). Native/focused check exits and the optional skip are recorded
+above. Repository encoding/EOL/case/Markdown, diff checks and the milestone
+49-case validator passed. Hosted CI was not requested for this hardware
+probe handoff; commits use the CI skip marker.
+
+Pristine generated artifact SHA-256 values (public source-built probe and
+pinned freely distributable MS-DOS system files, no private media content):
+
+- W1SCAN.COM: `7437caa325c3edb9d62cded7bb9884f77f48edea3b46834c42086e6c5ecf8149`
+- wsr-e-address-scan-msdos4.d88: `fa38a159ce6ebf05a4e34afebd5ef1ef063d98392ca5f29346f5b8ac9d59ccd9`
+
+Five actual MS-DOS guest cases completed on the **VA2/V3 software target,
+SDL dummy**, checking guest exit files, complete 12-column log rows and
+final summary rather than using worker exit alone:
+
+| Model | Command | Guest exit | Summary | Contract result |
+|---|---|---:|---|---|
+| OFF | W1SCAN | 0 | READ_ONLY | PASS |
+| OFF | W1SCAN /P | 2 | NONE_INCONCLUSIVE | PASS |
+| ON, fixed setting 0 | W1SCAN /P | 0 | MATCH 0 | PASS |
+| ON, fixed setting 0 | W1SCAN /W 0 | 0 | MATCH 0 | PASS |
+| ON, fixed setting 0 | W1SCAN /W 7 | 2 | NONE_INCONCLUSIVE | PASS |
+
+Worker SHA-256:
+`da5623aee2a5f8f86611757230e051b637839f2f2e42445f1c92c3831f9eb2ee`.
+It was built after the main merge with the new CTest registration present;
+the scanner does not change application/core behavior. Temporary guest
+fixtures replace AUTOEXEC for automation; the delivered image retains its
+pinned original and runs no probe automatically. Fixture preparation first
+hit the install helper's non-vanilla-input rejection, before any guest ran;
+rebuilding the fixtures from vanilla and inserting the identical COM resolved
+that test-setup error. The candidate D88 remained unchanged, and handoff
+copies were checked with `cmp`. Worker, case commands, log digests and raw
+evidence are retained privately.
+
+This confirms software execution and negative classification, **not**
+physical setting 7, WSR-E wake-up correctness, timing, presenter layout or
+Windows runtime. No new application executable is handed off here. Hardware
+W1SCAN execution is NOT_RUN; G143 remains NOT_READY, with no W2/release or
+full media/demo/presenter campaign performed.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?
