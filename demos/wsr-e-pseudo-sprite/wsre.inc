@@ -874,7 +874,10 @@ s_pass          db 'PASS', 0
 s_pass_sp       db ' PASS', 0
 s_fail_sp       db ' FAIL', 0
 s_fail_n        db 'FAIL ', 0
-s_logname       db 'WSRLOG.TXT', 0
+%ifndef WSRE_LOG_NAME
+%define WSRE_LOG_NAME 'WSRLOG.TXT'
+%endif
+s_logname       db WSRE_LOG_NAME, 0
 s_header        db 'stage,build,machine,khz,board,cr27,row,param,run,count,vrtc,result', 13, 10
 s_header_end:
 

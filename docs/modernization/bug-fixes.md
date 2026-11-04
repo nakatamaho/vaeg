@@ -4483,7 +4483,16 @@ Raw state/debug/capture evidence remains outside Git; see the
 
 ### M143 WSR-E W1 — V3 E8h probe is driven by the compatible Kanji handler
 
-**OPEN; no correction applied.** Native V3/MS-DOS W1PORT with WSR-E disabled
+**WITHDRAWN as an emulator defect after hardware measurement.** The original
+finding below describes the pre-measurement expectation. Returned VA W1PORT
+logs and the accepted [M144 measurements](../agents/tasks/M144_v1v2_port_decode.md#hardware-result-2026-11-02-the-change-is-reverted)
+show E8h=00h in V3 on hardware. The undecoding change was reverted in
+[17c099e1214ccedfa699e565d827e3bd3128186e](https://github.com/nakatamaho/vaeg/commit/17c099e1214ccedfa699e565d827e3bd3128186e).
+The old W1PORT expectation must be reviewed against hardware; it is not a
+reason to force the emulator to return FFh. No WSR-E-specific workaround
+is appropriate.
+
+Historical observation: native V3/MS-DOS W1PORT with WSR-E disabled
 returns guest exit 1: the low-byte E8h row is `DRIVEN 00`, whereas the W1
 contract expects an undriven port. E0h/E1h and the 152h checks pass. The current
 `cgromva_bind()` unconditionally registers the compatible E8h/E9h handlers;
@@ -4492,11 +4501,10 @@ the read callbacks lack a V3 guard. These files are unchanged from the
 This establishes the software dispatch path, not a measured hardware value.
 
 The [W1 task](../agents/tasks/M143_wsre_w1_port_probe.md#development-findings-and-remaining-local-work)
-also explicitly requires disabled-board behavior to remain unchanged. Resolve
-that scope conflict before modifying the existing decoder. Keep the probe
-failure and the original expected undriven contract; do not fit the expected
-log to this result. VA/VA2 hardware logs, a correction and its fixing commit
-remain outstanding.
+also explicitly requires disabled-board behavior to remain unchanged. The
+former scope conflict is superseded by the hardware evidence above. Historical
+FAIL logs remain intact; W1PORT and its old fixture have not been silently
+reclassified as passing.
 
 ### M142 — VA-compatible 4MHz clipboard paste loses characters
 

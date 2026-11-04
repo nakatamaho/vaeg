@@ -309,6 +309,52 @@ software-gate completion or a request for human acceptance.
   tracing; the subsequent tracing-enabled configure/build succeeded with
   an isolated recording SDK and local bundled MP4 encoders OFF.
 
+## Address scanner follow-up
+
+The maintainer requested importing accepted M144 from main and a separate
+rotary-address probe disk. Main was merged into this branch at
+`dcf69959` (M143 is not merged to main). The accepted M144 port-70h reset
+origin and measurement record are retained; E8h is **not** gated off in V3.
+The earlier E8h scope-conflict text above is historical and superseded by
+actual VA W1PORT results and M144: E8h=00h also occurs on hardware.
+
+Returned VA observations (raw disks/photos stay private): the no-board
+15kHz run gives R0 4770/4770/4770; the later reportedly seated-board 24kHz
+run gives 5196/5196/5196. Different display rates prohibit treating the
+count difference as a board speed effect. Both have E8h=00, expansion probe
+reads FF and passing 152h restore checks. The later W1PROBE returns FF
+for both SR06 values and NO-BOARD. This is not proof of absence or failure.
+Photos identify CL-GD5428-80QC-A and a rotary address selector. The supplied
+setting table defines 0/1/2/3/5/6/7, with low even byte E0+2*n and common
+46E8h; setting 4 is forbidden. Do not infer the selected position from the
+fixed printed zero: the rotary pointer interpretation is unresolved.
+
+`tests/w1scan.asm` adds W1SCAN (cpu 186) with separate WSRSCAN.TXT output:
+read-only default, `/P` repeated SR06 signatures at all seven settings,
+and `/W n` explicit provisional wake at just one setting. No relay, VRAM,
+GR-bank, CRTC, 152h or interrupt-vector writes. Unknown prior misc/setup
+reads are not restored as FF; wake can leave setup/misc enabled. The
+[scanner instructions](../../../demos/wsr-e-pseudo-sprite/README.md#w1scan-rotary-address-setting-probe)
+spell out this limitation and the four exit statuses. A missing response
+remains inconclusive, and the GA-98NB-derived wake is still unverified for
+WSR-E. No Hyper Frame+ implementation or W2 work is included.
+
+`tools/wsre/build_scan.py` builds a separate pinned MS-DOS disk, preserving
+all system files including AUTOEXEC and LICENSE; it verifies their hashes
+and exact added payload readback. It never runs the probe automatically.
+An initial development build correctly failed the system-file audit when
+its help batch replaced AUTOEXEC; the builder now adds SCANHELP.BAT instead.
+
+Validation before the scanner source commit: isolated Unicorn controls
+**9 tests PASS** (all seven settings, constant false replies, multiple/no
+responders, wake selection, cleanup, target/argument/log-error controls).
+Native build exit 0; focused CTest **5 PASS / 1 SKIP / 0 FAIL** (48.73 s):
+WSR-E, BRKEM, state storage and general ROM-less checks. The optional scanner
+CTest skips when the selected Python lacks Unicorn; the isolated venv run
+above supplies its control evidence. With BUILD_ID=26b60fce the original
+W1PORT/W1PROBE COMs remain byte-identical to the prior handoff. Final media
+identity and guest checks are recorded separately below when complete.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?

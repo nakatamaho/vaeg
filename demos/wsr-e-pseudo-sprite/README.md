@@ -112,3 +112,56 @@ R0 counts in these fixtures are placeholders. Their E8h expectation is still
 undriven; it is deliberately not fitted to vaeg's existing V3 Kanji-port
 binding. See the [M143 task](../../docs/agents/tasks/M143_wsre_w1_port_probe.md)
 for the unresolved local failures and gate status.
+
+## W1SCAN: rotary address-setting probe
+
+The supplied WSR-E setting table defines seven legal settings: 0, 1, 2,
+3, 5, 6 and 7; 4 is forbidden. The low even byte is E0h + 2*setting,
+with the corresponding odd byte one higher. Setup stays at 46E8h.
+For example, the SR index/data pair is 44E0h/45E0h at setting 0 and
+44EEh/45EEh at setting 7. The board photo confirms CL-GD5428; the rotary
+pointer's setting must not be inferred just from the fixed printed zero.
+
+Build the separate scanner disk (the output directory must be new):
+
+```sh
+python3 tools/wsre/build_scan.py --source "$MSDOS4_SOURCE" --output-dir "$TASK_SCRATCH/scan-disk"
+"$TASK_SCRATCH/venv/bin/python" tools/wsre/test_scan.py
+```
+
+The builder validates the pinned MS-DOS image, boot sector and all original
+system/license files, and reads back the exact added payload. It leaves the
+original AUTOEXEC unchanged. At the DOS prompt, `SCANHELP` displays usage.
+No hardware probe runs automatically. Use V3 on VA/VA2 with VA video and
+no other board claiming the candidate ports. Do not use this against
+Hyper Frame+. New results append to **WSRSCAN.TXT**, not WSRLOG.TXT.
+
+- `W1SCAN`: read-only data-port survey of all seven settings. This does
+  not detect an uninitialized board and is not a board PASS.
+- `W1SCAN /P`: tests SR06 at all seven candidates, requiring **12/0F twice**.
+  Does not wake the board. Only candidate SR index/data ports are written.
+- `W1SCAN /W 7`: explicitly applies the **provisional, GA-98NB-derived**
+  wake-up at setting 7, then tests only that candidate. Substitute another
+  legal setting only deliberately; this is not automatic write scanning.
+  It writes common 46E8h, selected misc/status and SR06 ports. It can change
+  clock/polarity/setup. This wake-up is still unverified for WSR-E.
+
+No mode writes relay, GR banks, CRTC or VRAM, changes port 152h or hooks
+interrupts. SR06's prior unlocked state and readable index are restored;
+otherwise SR06 is locked and an unreadable index cannot be restored.
+For `/W`, prior misc/setup reads of FFh are **unknown** and are **not**
+written back: setup may remain 08h and misc E3h until reset/power-off.
+The log explicitly marks that limitation; this is not full restoration.
+
+Results: `MATCH n` means that candidate passed the repeated SR06 signature,
+not complete board validation. `MULTIPLE` means more than one candidate
+responded; `NONE_INCONCLUSIVE` cannot distinguish absent/disabled hardware,
+a different initialization requirement or another mismatch. Exit codes:
+0 read-only completed or one match, 1 multiple matches, 2 no match,
+3 argument/target/log error. The program does not measure R0 timing.
+The original log comparator does not parse W1SCAN sessions.
+
+The Unicorn controls cover all seven settings, read-only/no-OUT, no board,
+constant false signatures, multiple responders, single-candidate wake,
+wrong wake address, cleanup, bad arguments/target and log errors. They
+are synthetic contracts, not physical-board or timing verification.
