@@ -462,6 +462,41 @@ disassemblies, asset identities and synthetic traces remain outside Git.
 No emulator/probe implementation or new D88 is changed by this analysis;
 G143 remains NOT_READY.
 
+### WSR-E-specific Windows driver cross-check
+
+A second supplied package explicitly binds WSR-E's display device to its
+16-bit display driver and E-bank mini-VDD; its separate sound-device INF
+must not be mistaken for the graphics setup. Original packages, extracted
+modules, converted text, hashes and disassembly remain private. Nothing is
+installed or executed against the host OS or physical hardware.
+
+Parsing the NE code segments and LE objects, then resolving the local port
+table, finds an additional difference from the current scanner. A wake
+routine writes common setup 18h, selected misc 01h, common setup 08h,
+**01h twice to 43E0h+offset**, selected misc E3h, then selected status 00h.
+At setting 7 the additional port is 43EEh. The 16-bit display driver has
+this same sequence in a path entered when its initial CR27 read is FF;
+the mini-VDD also contains the sequence. The scanner currently omits the
+two 43E0h+offset writes. Their hardware effect and restoration semantics
+remain to be verified; the observed software sequence alone does not prove
+the cause of the VA's FF results.
+
+This also narrows the previous interpretation: **E3h is used by the
+WSR-E-assigned Windows driver**, so the DOS driver's EFh versus our E3h
+is not by itself proof of an incorrect misc value. Keep these distinct
+software paths rather than assembling an unverified hybrid initialization.
+The Windows driver also uses 7Ah/7Bh at the board-control port during display
+setup; those broader routines are not a safe minimal detection probe.
+
+Two isolated Unicorn controls, settings 0 and 7 with synthetic port-table
+selection and identification reads of FF, execute only the mini-VDD wake
+routine. Both return and produce exactly the expected seven byte writes,
+including the duplicate enable-port write. These are instruction/port-table
+checks, not Windows execution, hardware enable verification, or relay safety
+proof. No new D88 or probe/core change is made. Review a minimal enable-only
+experiment before considering the broader board-control handshake; the old
+no-relay scope is not silently lifted. G143 remains NOT_READY.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?
