@@ -464,6 +464,11 @@ G143 remains NOT_READY.
 
 ### WSR-E-specific Windows driver cross-check
 
+The independently written [detailed initialization analysis](../../modernalization/wsr-e.md)
+collects the DOS/Windows paths, port tables, observed hardware results,
+probe differences and unresolved side-effect/cleanup questions. Its path
+uses the spelling explicitly requested by the maintainer.
+
 A second supplied package explicitly binds WSR-E's display device to its
 16-bit display driver and E-bank mini-VDD; its separate sound-device INF
 must not be mistaken for the graphics setup. Original packages, extracted
