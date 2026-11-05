@@ -196,9 +196,9 @@ commands, exits, generated-image SHA-256 values, worker identities and limits.
   frozen first set remains **DRAFT / APPROVAL_REQUIRED**. Reference approval is
   human work; routine capture/comparison has already been automated.
 - Native Cocoa capture is **BLOCKED** by the absent display/permission. Windows
-  execution and physical-GPU/HiDPI targets are **NOT_RUN**. The new standard clean
-  MinGW handoff is **BLOCKED** by the unavailable dedicated container socket;
-  there is no fallback or newly produced `vaeg.exe` for this candidate.
+  execution and physical-GPU/HiDPI targets are **NOT_RUN**. The initial container
+  build attempt exited 1; calling that a macOS MinGW blocker was incorrect.
+  The available MacPorts standard route now passes, as recorded below.
 - QA-only changes are in
   [b8137fd1b49f7cac72e793792470a1f114bde5a8](https://github.com/nakatamaho/vaeg/commit/b8137fd1b49f7cac72e793792470a1f114bde5a8).
   The new content contracts pass 16 text/semantic and seven evidence negatives;
@@ -210,3 +210,25 @@ commands, exits, generated-image SHA-256 values, worker identities and limits.
 resolve or defer the remaining requested targets before merging. Do not ask for
 G143's original human acceptance again. No hosted-CI run, release or cleanup is
 claimed; WSR-E/M145 work and supplied assets remain preserved.
+
+## MacPorts standard-route correction and handoff
+
+The maintainer reaffirmed that macOS uses its installed MacPorts MinGW-w64,
+not Docker/Colima, for the standard clean static Windows build. AGENTS.md and
+BUILD.md now say so, with process-local PATH selection, an isolated reviewed SDK,
+a fresh clone/application build, and unchanged recording/shader/encoder audits.
+Policy commit:
+[757e880730bd0fc0f29269935b35876e3552f788](https://github.com/nakatamaho/vaeg/commit/757e880730bd0fc0f29269935b35876e3552f788).
+
+A new clean MacPorts build of pushed
+[1b7e6cbc6defabf240d4c5f3a9a4572021305b36](https://github.com/nakatamaho/vaeg/commit/1b7e6cbc6defabf240d4c5f3a9a4572021305b36)
+completes with **exit 0**. Recording, native Windows MP4 and librashader are ON;
+bundled local encoders are OFF. Static encoder and Windows-system-DLL import
+audits PASS. Display is `Rel.20261105 (m143, 1b7e6cbc)`; `vaeg.exe` SHA-256 is
+`fb952336ffa06a56d12d6512c406cf08d25754cf1e66894349d1ec29260c3c31`.
+The [follow-up report](../reports/m143_runtime_integration_qa.md#standard-macos-mingw-route-correction-and-completed-handoff)
+records commands, tools, checks and evidence reuse. The earlier container
+failure remains preserved; it is not a missing-toolchain diagnosis.
+
+This closes the clean MinGW handoff blocker, not Windows execution or visual
+reference approval. Main remains unmerged, with no new release or cleanup.

@@ -49,8 +49,8 @@ original identities, not the later QA or documentation commit's identity.
 | Mapped runtime-speed text/interaction | **PASS**, ten cases including actual quick-save/load guest restoration and reset |
 | Mapped layout | Two independent 32-case captures; **32/32 exact matches**, no dynamic masks; **APPROVAL_REQUIRED**, comparator exit 2, not a visual gate PASS |
 | Native Cocoa capture | **BLOCKED**: no active display; screen-capture permission unavailable |
-| Windows execution | **NOT_RUN**; the old accepted Windows executable is not relabeled as an integrated-source test |
-| New standard clean MinGW handoff | **BLOCKED**, dedicated container wrapper exit 1 before the build; no daemon fallback or runtime startup |
+| Windows execution | **NOT_RUN**; the new cross-build/import audit is not Windows execution |
+| New standard clean MinGW handoff | **PASS**, fresh MacPorts build of `1b7e6cbc`; recording/OS MP4/shaders ON, static encoder and system-DLL import audits PASS; earlier container-route failure retained below |
 | Physical GPU / true HiDPI | **NOT_RUN**; virtual X11 and 200% UI scale do not establish either |
 
 The maintainer must approve the frozen references and explicitly resolve/defer
@@ -59,7 +59,7 @@ repeat the already accepted G143 human gate.
 
 ## Build profiles
 
-Both new workers are non-personal QA builds: recording ON, isolated static
+The two native runtime workers are non-personal QA builds: recording ON, isolated static
 FFV1/PCM FFmpeg, public-build policy ON, bundled local MP4 encoders explicitly
 OFF, tests/integration tracing ON, librashader OFF. The macOS build uses static
 SDL2; Linux uses the distribution's SDL2. Neither is the shader-enabled Windows
@@ -79,6 +79,47 @@ separate records, not a claim that the canonical binary ran all 174 tests.
 Subsequent QA-only edits re-run affected Python contracts, not unchanged
 emulator/media workloads. Exact commands, source-tree proofs, worker/log digests,
 input bindings and failures remain in the private campaign manifest.
+
+## Standard macOS MinGW route: correction and completed handoff
+
+The earlier container wrapper exited 1 because its dedicated socket was absent.
+That failed attempt remains retained, but treating it as a macOS MinGW capability
+blocker was incorrect: the installed MacPorts toolchain and reviewed target SDK
+were available. The maintainer explicitly reaffirmed MacPorts as the standard
+macOS route, now recorded in [the policy change](https://github.com/nakatamaho/vaeg/commit/757e880730bd0fc0f29269935b35876e3552f788).
+Docker/Colima is not required or started for this build.
+
+Fresh clean-clone source:
+[1b7e6cbc6defabf240d4c5f3a9a4572021305b36](https://github.com/nakatamaho/vaeg/commit/1b7e6cbc6defabf240d4c5f3a9a4572021305b36).
+The exact command, with private work/SDK bindings represented by variables, is:
+
+```sh
+PATH="/opt/local/bin:$PATH" \
+  python3 -B tools/release/build-mingw-macports.py \
+  --commit 1b7e6cbc6defabf240d4c5f3a9a4572021305b36 \
+  --work-dir "$NEW_WORK" --sdk-dir "$MINGW_SDK" --build-track m143 --jobs 4
+```
+
+- Helper, configure, compile/link and audits: **exit 0**. The clone is clean;
+  no application objects or executable were reused. Only validated target SDK
+  dependencies were reused, without system-port/global Rust changes.
+- MacPorts GCC/G++ 15.2.0, GNU binutils 2.45, CMake 3.31.12, Ninja 1.13.2 and
+  isolated Rust 1.88.0. Static SDL2, LibArchive/zlib/xz, librashader and FFmpeg.
+- Recording, native Windows Media Foundation MP4 and shaders ON; public policy
+  ON and bundled local MP4 encoders OFF. The static encoder allow-list remains
+  only `ff_ffv1_encoder` and `ff_pcm_s16le_encoder`; PE imports are system DLLs.
+- Embedded identity: `Rel.20261105 (m143, 1b7e6cbc)`, source milestone `M143-dev`.
+  `vaeg.exe`: 73,333,448 bytes, SHA-256
+  `fb952336ffa06a56d12d6512c406cf08d25754cf1e66894349d1ec29260c3c31`.
+- MacPorts helper fixtures **3 PASS**, release-identity tests **5 PASS**;
+  encoding/EOL/case/Markdown checks and 49 milestone-ID checks pass.
+
+The helper's `output/vaeg.exe`, `BUILD-REPORT.md`, manifests, audit logs and
+source identities are retained outside Git. The source delta from `0acfa7dc`
+contains only QA tools/documentation, not emulator or build-configuration
+changes. Existing native/Linux/media evidence is retained under `0acfa7dc` and
+its actual worker digests; it is not relabeled or unnecessarily rerun. Windows
+runtime, frozen-reference approval and other missing targets remain distinct.
 
 ## Demo and utility media
 
