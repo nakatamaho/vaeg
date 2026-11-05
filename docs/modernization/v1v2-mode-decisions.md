@@ -83,7 +83,7 @@ PC-8001 (N-BASIC) mode is described in full in
 | ID | Decision | Basis | Status | Where | Real-machine check |
 |---|---|---|---|---|---|
 | M1 | The 64 KiB 88-mode space is VA physical 10000h–1FFFFh, RAM-backed there. | `[NEC-GIHO]` memory figures | Approved G103b | `memoryva/memoryva.c` | — |
-| M2 | The 1 KiB RAM window (ports 70h/78h) sits at 8000h–83FFh, backed at 18000h; its origin resets to 80h. | `[NEC-GIHO]` for the location; `[POLICY]` for the reset origin | Approved G103b | `io/memctrlva.c` | read 70h after power-on |
+| M2 | The 1 KiB RAM window (ports 70h/78h) sits at 8000h–83FFh, backed at 18000h; its origin resets to 00h (80h before M144). | `[NEC-GIHO]` for the location; `[MEAS]` V1V2PORT (M144): 70h reads 00h in V3 mode after power-on on the VA and VA2, and 00h in V2 N88-BASIC on the VA | Approved G103b; reset origin M144 | `io/memctrlva.c` | — |
 | M3 | RMODE (31h bit 2) maps only 6000h–7FFFh to the Debug 8800 bank (varom00 1E000h); 0000h–5FFFh stays N88-BASIC. | `[ROM]` MON keeps executing below 6000h after setting RMODE `[DERIVED]` | Approved G103c | `memoryva/memoryva.c` | dump 0000h–5FFFh with RMODE set |
 | M4 | Extended RAM: E2h holds RE (bit 0) / WE (bit 4) and reads back inverted; E3h holds page (bits 3–2) and bank (bits 1–0). | Both manuals print the page/bank field under E2h and RE/WE under E3h; `[X88000]` and a PC-8801MA2 loader use the PC-8801 numbering, which the manuals' fields match with the port numbers exchanged `[DERIVED]` | Approved by the maintainer (2026-10-04, G103e review) | `io/memctrlva.c` | write E3h, read E2h and E3h |
 | M5 | Page p, bank b of extended RAM is VA RAM `20000h + p·20000h + b·8000h`; page 3 exists only with the RAM board. | `[NEC-GIHO]`, BNN V1/V2 memory map | Approved by the maintainer (2026-10-04, G103e review) | `memoryva/memoryva.c` | write through ERAM, read the VA address in V3 |
@@ -97,6 +97,7 @@ PC-8001 (N-BASIC) mode is described in full in
 | T1 | Compatible-mode trap matching uses the low port byte; native matching uses byte or word ports per FFEFh bit 4; FFE0h–FFFFh are never trapped. | `[VA-TM]` registers; `[POLICY]` for compatible low-byte matching | Approved G103b | `cpu/upd9002_upd70008.cpp`, `cpu/upd9002/` | — |
 | T2 | A trapped compatible instruction transfers to vector 7Ch/7Dh with the instruction's own IP; the ROM handler advances IP. | `[ROM]` handler at F000:1944 | Approved G103b | same | — |
 | T3 | DD/FD-prefixed compatible I/O and trap timing are not modelled. | — | Open | — | — |
+| T4 | The ports the manual marks "V1/V2 モード専用" stay decoded in V3 mode, as before M144: V1/V2 software uses them, but the main unit answers them in either mode. The I/O address is decoded in full (46E8h is not E8h). | `[MEAS]` V1V2PORT (M144) on PC-88VA and PC-88VA2, V3 mode, no board: E3h F0h, E8h/E9h 00h, ECh/EDh FFh/7Fh (VA) and 86h/20h (VA2), 5Ch F8h, 70h 00h, 153h 41h; E0h, E1h, E2h, 34h, 35h, 71h, F0h, F1h, 46E8h, 4EE0h, 4FE0h, 40E1h, 5AE0h FFh (an undriven I/O read is FFh, so these are undetermined) | M144 (an undecoding change was made and reverted) | `io/memctrlva.c`, `io/cgromva.c`, `io/pic.c` | — |
 
 ## 4. Interrupts, timers and keyboard
 

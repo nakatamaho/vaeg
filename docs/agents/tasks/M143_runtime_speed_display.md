@@ -23,7 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**G143 human gate PASSED; awaiting pre-merge QA choice.** Branch: `topic/m143-runtime-speed`.
+**G143 human gate PASSED; requested pre-merge campaigns IN_PROGRESS.** Branch: `topic/m143-runtime-speed`;
+integration candidate: `topic/m143-runtime-integration`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
 ## Authorized scope
@@ -148,3 +149,28 @@ is not a request to run these campaigns or an explicit opt-out. Obtain and
 record the M143 pre-merge choice before merging. Unperformed checks must
 remain NOT_RUN, never PASS. Preserve existing evidence and handoff artifacts
 when carrying out the authorized cleanup.
+
+## Explicit pre-merge campaign request
+
+The maintainer confirmed the proposed scope, **merge only the accepted runtime-speed
+work into main and leave the provisional WSR-E implementation on its paused branch**,
+and explicitly requested **both** the full demo/media regression and actual-screen QA.
+This resolves the preceding pending choice; do not ask that choice or the original
+human acceptance again. Requested checks must finish, or their exact blockers must
+be reported and explicitly deferred, before the main merge.
+
+The integration candidate combines the accepted runtime branch at
+[7543bac56390e4ecb732f2bea55f35ea275430ea](https://github.com/nakatamaho/vaeg/commit/7543bac56390e4ecb732f2bea55f35ea275430ea)
+with accepted main/M144 at
+[cb4edc1a05221971c5a048236eeeb172d2abf73e](https://github.com/nakatamaho/vaeg/commit/cb4edc1a05221971c5a048236eeeb172d2abf73e).
+The roadmap conflict retains both task records. It includes no WSR-E board/model,
+WSRE state section, hardware probe, M145 work or new release authorization.
+The source milestone remains development-marked until separate release preparation.
+
+Use fresh out-of-tree outputs and a clean clone of the pushed media-source candidate.
+Bind every runtime result to the actual worker, source, inputs and comparison contract.
+Prior 158-PASS evidence remains historical, not a result for the integrated source.
+Actual presenter capture is distinct from SDL dummy guest-frame tests. Frozen visual
+references still need independent approval; earlier unapproved drafts are not accepted
+merely because this QA was requested. Preserve WSR-E/M145 directories and all supplied
+inputs throughout this task; shared M143 names are not a cleanup allow-list.

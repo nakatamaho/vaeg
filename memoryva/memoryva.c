@@ -66,7 +66,7 @@ _MEMORYVA memoryva;
 UINT8 memoryva_88_mode;
 UINT8 memoryva_88_port31;
 UINT8 memoryva_88_xerom = 1;
-UINT8 memoryva_88_window = 0x80;
+UINT8 memoryva_88_window = 0x00;
 UINT8 memoryva_88_plane = 3;
 _MEMORYVA88ALU memoryva_88_alu;
 _MEMORYVA88ERAM memoryva_88_eram;
