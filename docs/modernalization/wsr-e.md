@@ -474,7 +474,44 @@ CONTROL_GATE、CR27_PRE_WAKE、CR27_POST_WAKE、SR06を分けて解析し、
 [詳しい使用条件とビルド方法](../../demos/wsr-e-pseudo-sprite/README.md#w1init-separated-enable-and-dos-detection-experiments)
 を参照。エミュレータ本体の挙動は変更しておらず、G143はNOT_READYのままである。
 
-## 11. 関連記録
+## 11. NP21/W系の実装との照合
+
+関連実装は存在する。今回確認した公開ソースはNP21/Wのミラー
+`mrhso/np21w`のコミット
+[e609e6569a9cee28b46c303cf2d5e2e67daf98fa](https://github.com/mrhso/np21w/tree/e609e6569a9cee28b46c303cf2d5e2e67daf98fa)
+である。これは確認したスナップショットの特定であり、公式最新版や実機仕様と
+同一だという主張ではない。初期計画書にもNP2kaiの関連実装を参照先として挙げていた。
+
+主な参照箇所は
+[`wab/cirrus_vga.c`](https://github.com/mrhso/np21w/blob/e609e6569a9cee28b46c303cf2d5e2e67daf98fa/wab/cirrus_vga.c)
+と
+[`wab/cirrus_vga_extern.h`](https://github.com/mrhso/np21w/blob/e609e6569a9cee28b46c303cf2d5e2e67daf98fa/wab/cirrus_vga_extern.h)
+である。確認した識別子はWAB、WSNなどで、これらのファイルにWSR-E専用の
+識別子は見つからなかった。CL-GD5428とWAB系の互換実装として参照し、
+WSR-Eの全機能を固有に実装したものと断定しない。PCM部分の同一性も未確認である。
+
+| 確認箇所 | スナップショットでの実装 | 今回の調査との関係 |
+|---|---|---|
+| WAB系I/O変換・登録 | ポートオフセットを含めて4xE0hなどをVGAポートへ変換 | ロータリー対応のポート配置と照合できる |
+| 40E1h+offsetの入出力 | 書いた値を保持し、読み戻す | DOS参照D1の7Ahハンドシェイクを成立させるモデルがある |
+| 同ポートbit 0 | 内部リレー状態へ反映 | 7Ah/7Bhを無害な検出データとして扱えない根拠になる |
+| WAB系の初期値 | 制御値7Bh、setup値18hを設定する箇所がある | 未初期化の実物と同じ出発状態とは限らない |
+| CL-GD5428のチップ識別 | 98h相当の識別値を扱う | 実物のCR27生値を実測したことにはならない |
+| 46E8h | 値を保持し、読み戻すハンドラがある | vaeg現行モデル・実機ログとの比較点になる |
+
+今回確認したVGA入出力処理には、43E0h相当の3C3hに対する専用の有効化状態処理は
+見つからなかった。従って、このエミュレータでレジスタが読めることを、
+実物でも43E0hの有効化が不要だという証拠にしてはいけない。
+確認した入出力処理にV30を理由とする応答拒否は見つかっていないが、
+全機種選択・起動条件を調べ尽くしたわけではない。
+
+一方、vaegの現在のW1モデルはMelco側のボードポート読み取りをFF固定としている。
+W1INITのDOS式成功経路がvaegで成立しない理由はこの既知の実装範囲であり、
+NP21/W系に同等の読み戻し実装がないためではない。実機確認前にプローブを通す
+目的だけでモデルを変えず、ドライバの期待、他エミュレータの実装、実機結果を
+三つの独立した証拠として比較する。
+
+## 12. 関連記録
 
 - [M143 W1タスク・検証記録](../agents/tasks/M143_wsre_w1_port_probe.md)
 - [WSR-E全体計画](../modernization/wsr-e-pseudo-sprite-plan.md)
