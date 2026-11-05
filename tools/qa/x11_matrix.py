@@ -63,7 +63,7 @@ def reusable_capture(report, case, expected):
     screen.require(report.get('status') == 'CAPTURED_UNREVIEWED' and report.get('case') == case,
                    'M132_UI_MATRIX_INCOMPLETE')
     screen.require(all(report.get(key) == expected[key] for key in
-                       ('rom_files', 'backup_seed_sha256', 'display_kind')) and
+                       ('rom_files', 'backup_seed_sha256', 'display_kind', 'adapter_sha256')) and
                    report.get('output_digests', {}).get('input.txt') ==
                    hashlib.sha256(('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest(),
                    'M132_UI_REUSE_INPUTS')
@@ -73,6 +73,7 @@ def capture(args):
     prior_path = getattr(args, 'retry_from', None)
     prior = None
     expected = {'worker_sha256': digest(args.worker), 'evaluated_commit': args.evaluated_commit,
+                'adapter_sha256': digest(Path(__file__).with_name('x11_capture.py')),
                 'backup_seed_sha256': digest(args.backup_seed), 'display_kind': args.display_kind,
                 'rom_files': {str(path.relative_to(args.roms)): digest(path)
                               for path in sorted(args.roms.rglob('*'))
@@ -320,12 +321,14 @@ def selftest():
     rejects(lambda: worker_binding({**identity, "worker_sha256": "1" * 64}, identity),
             "M132_UI_MATRIX_WORKER_BINDING")
     expected = {**identity, 'rom_files': {'ROM_01': 'a' * 64},
-                'backup_seed_sha256': 'b' * 64, 'display_kind': 'virtual-x11'}
+                'backup_seed_sha256': 'b' * 64, 'display_kind': 'virtual-x11',
+                'adapter_sha256': 'f' * 64}
     capture_fixture = {**expected, 'case': case, 'status': 'CAPTURED_UNREVIEWED',
                        'output_digests': {'input.txt': hashlib.sha256(
                            ('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest()}}
     for mutation in ({'rom_files': {'ROM_01': 'c' * 64}},
                      {'backup_seed_sha256': 'd' * 64},
+                     {'adapter_sha256': '0' * 64},
                      {'output_digests': {'input.txt': 'e' * 64}}):
         reusable_capture(capture_fixture, case, expected)
         rejects(lambda: reusable_capture({**capture_fixture, **mutation}, case, expected),
