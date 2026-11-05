@@ -591,8 +591,47 @@ logs, captures and their digests stay private. Test images replace AUTOEXEC
 for automation; the pristine handoff retains the pinned original and never
 auto-runs a probe. Both candidate image and worker digests remained unchanged.
 No expensive rerun of the unchanged worker is needed to preserve these facts.
-Hardware W1INIT execution is NOT_RUN and G143 remains NOT_READY. This is an
-experimental DOS-probe handoff, not an application build or milestone gate.
+At this handoff, hardware W1INIT execution was NOT_RUN and G143 remained
+NOT_READY. This is an experimental DOS-probe handoff, not an application
+build or milestone gate. The subsequent intake below updates execution status.
+
+### W1INIT hardware return (input I1)
+
+The maintainer returned the revised probe disk. Its W1INIT.COM is byte-identical
+to the d6fadd34 handoff above. A separate snapshot and extraction preserve the
+input unchanged; raw media/logs, receipt and hashes remain private. The log
+identifies **VA / FFFFh / 24kHz / d6fadd34**. All four session banners and all
+46 data rows satisfy the 12-column schema and metadata checks; each session
+has its expected terminal summary. No guest ERRORLEVEL file was returned.
+
+| Recorded path | Observations | Terminal summary |
+|---|---|---|
+| Read-only survey | All seven legal candidates return FF from the current SR data port | READ_ONLY |
+| `/E 7` | CR27 pre/post FF; wake performed, including the two enable writes; SR06 before and all four signature reads FF | NONE_INCONCLUSIVE |
+| `/D 7` | Prior control FF, 7Ah write followed by ACK=FF; rejected before VGA wake | NONE_INCONCLUSIVE |
+| `/D ALL` | Candidates 0/1/2/3/5/6/7 all have prior control FF and ACK=FF after the 7Ah write | NONE_INCONCLUSIVE |
+
+Every DOS-path candidate records REJECT_NO_WAKE; there are no DOS-path
+CR27, SR06 or wake rows. Thus its EFh-ending VGA initialization was **not
+reached**, not independently tested and found ineffective. `/E 7` reaches
+both CR27 observations without relying on an SR06 signature, but still
+produces no chip candidate. Other `/E` candidates are not represented in
+this return. Cleanup rows report unknown saved values and skipped writeback,
+not readback-proven restoration. Power-cycle boundaries and the physical
+selector position are not established by these appended sessions.
+
+Hardware W1INIT execution is now observed, superseding the handoff's NOT_RUN
+status, but board detection remains **NOT_ESTABLISHED** and G143 NOT_READY.
+A complete summary does not establish the measured DOS exit status. All-FF
+control reads narrow the observed failure to the handshake stage under these
+conditions; they do not prove bus incompatibility, CPU-based rejection,
+incorrect switch position, contact failure or a faulty board. In particular,
+do not promote the emulator's existing provisional FF behavior to a validated
+functional-board model merely because it matches this unsuccessful intake.
+Pause additional write experiments and compare the documented board I/O-enable
+conditions and VA slot decode/signals before designing another hardware test.
+No probe/emulator/media change, new application build, expensive behavioral
+rerun, W2 work or gate acceptance accompanies this evidence-only update.
 
 ## Open
 
