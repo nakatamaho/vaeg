@@ -165,3 +165,71 @@ The Unicorn controls cover all seven settings, read-only/no-OUT, no board,
 constant false signatures, multiple responders, single-candidate wake,
 wrong wake address, cleanup, bad arguments/target and log errors. They
 are synthetic contracts, not physical-board or timing verification.
+
+## W1INIT: separated enable and DOS detection experiments
+
+W1INIT is a **new** cpu-186 program; W1SCAN and its existing disks remain
+unchanged. It uses byte I/O, not 386 instructions, a CPU capability test or
+PC-98 BIOS calls. This isolates software prerequisites, but does not prove
+that a VA slot supplies every bus condition required by WSR-E.
+
+```sh
+python3 tools/wsre/build_scan.py --probe init --source "$MSDOS4_SOURCE" --output-dir "$TASK_SCRATCH/init-disk"
+"$TASK_SCRATCH/venv/bin/python" tools/wsre/test_init.py
+```
+
+The separate image is `wsr-e-init-probe-msdos4.d88`; `INITHELP` shows usage.
+Original system files/AUTOEXEC are preserved, and **no probe auto-runs**.
+The added files are W1INIT.COM, INITHELP.TXT/BAT and INITLIC.TXT. Results
+append to **WSRINIT.TXT**, separate from both earlier probe logs.
+
+- `W1INIT`: read-only SR-data survey of all seven legal candidates.
+- `W1INIT /E 7`: selected-address enable experiment. It reads CR27 before
+  wake and, if FF, uses the Windows-reference sequence, including **01h
+  twice to 43EEh**, E3h misc and 00h status. A non-FF pre-read skips wake,
+  as in the inspected local driver routine; this is not proof of identity.
+  It then reads CR27 again and observes SR06 separately. No board/relay
+  control write is made by `/E`. Another legal setting can replace 7.
+- `W1INIT /D 7`: **writes board/relay control** at the selected address,
+  reading its prior value, writing 7Ah, and requiring a 7Ah readback before
+  proceeding. On acceptance it records pre-CR27, uses the DOS-reference
+  setup/misc sequence ending in EFh, records post-CR27, then observes SR06.
+  It does not insert the `/E` enable/status writes into the DOS sequence.
+- `W1INIT /D ALL`: explicitly opt into that DOS-style address enumeration
+  for 0/1/2/3/5/6/7. Each candidate is cleaned up as far as possible before
+  the next; setting 4 is never selected. A rejected handshake skips VGA
+  wake and indexed-register writes for that candidate.
+
+**Use `/D` only with known exclusive ownership of all requested candidate
+ports. It can switch video. Do not use it for Hyper Frame+, other boards,
+or PC-98 machines.** Prefer `/E 7` first with VA video and unchanged rotary
+position. Compare `/E` and `/D` in separate power-on sessions; their residual
+state can otherwise affect each other. A single candidate may also be
+specified for `/D` instead of enumerating all. Do not force a board into a
+slot or change switches while powered.
+
+`CHIP_CANDIDATE n` means post-CR27 masked by FC is 98, **not** a complete
+board PASS. SR06's repeated 12/0F observation is independent, not the gate
+for reaching CR27 or accepting that candidate. A constant CR27 response
+alone is not proof of a working chip. `MULTIPLE` requires alias/conflict
+investigation; `NONE_INCONCLUSIVE` is not evidence of a faulty/absent board
+or CPU-based rejection. The log retains the gate, pre/post ID and SR data
+for diagnosis. Exits: 0 read-only completed or one chip candidate, 1 multiple,
+2 none, 3 argument/target/log error.
+
+Cleanup is **partial**, not a state-save guarantee. SR06 is restored to
+prior unlocked state when known, otherwise locked; readable SR/CR indices
+are restored only within the interpreted ranges. Saved setup/misc FF values
+are never written back. `/E` restores enable only for prior 00h/01h and does
+not restore its status write; `/D` restores control only for prior 7Ah/7Bh.
+Otherwise enable may remain 01h, control may remain 7Ah, and setup/misc may
+remain changed. All restoration messages are **attempts based on prior
+reads**, not verified post-restoration readbacks. No VRAM, GR-bank, CRTC-data,
+word-I/O, timing or IRQ-hook test is performed; misc can change clock/polarity.
+
+The control suite checks exact separate I/O sequences, all seven settings,
+no implicit relay writes, rejected gates, CR27/SR06 independence, fake
+partial/multiple/absent responses, interpretable versus unknown cleanup,
+every log-write failure point, argument/target guards and the executed
+instruction/DOS-interrupt subset. The fake wake requirements are deliberate
+fixtures, **not an emulator or hardware specification**.

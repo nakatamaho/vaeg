@@ -1061,6 +1061,10 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vaeg_wsre_init_control
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/wsre/test_init.py")
+    set_tests_properties(vaeg_wsre_init_control PROPERTIES
+        SKIP_RETURN_CODE 77 LABELS "romless;wsre;contract" TIMEOUT 60)
     add_test(NAME vaeg_wsre_scan_control
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/wsre/test_scan.py")
     set_tests_properties(vaeg_wsre_scan_control PROPERTIES

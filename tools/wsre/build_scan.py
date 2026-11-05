@@ -58,6 +58,31 @@ Do not run the WSR-E probe against Hyper Frame+.
 '''
 
 
+INIT_HELP = '''W1INIT - V3 VA initialization probe (cpu 186) - build {build}
+Use VA video. No test runs automatically. Log: WSRINIT.TXT (appended).
+W1INIT          Read-only survey of 0 1 2 3 5 6 7. Setting 4 is forbidden.
+W1INIT /E 7     Selected enable-only path; NO board/relay control writes.
+W1INIT /D 7     DOS-reference handshake at setting 7, then EF misc wake.
+W1INIT /D ALL   Explicit DOS enumeration of all seven legal candidates.
+WARNING: /D writes 7A to BOARD/RELAY CONTROL and can switch video!
+Use /D only with WSR-E and exclusive ownership of ALL requested ports.
+Do not run on Hyper Frame+ or PC-98; no PC-98 BIOS or CPU detection used.
+/E wakes only if pre-CR27 is FF: includes two 01 writes to 43E0+2*n.
+/D requires 7A readback before VGA wake; does NOT add the /E enable writes.
+CHIP_CANDIDATE n: post-CR27 & FC = 98, not complete board validation.
+SR06 is observed separately (12/0F twice); it is not a prerequisite.
+MULTIPLE needs investigation. NONE_INCONCLUSIVE does NOT mean defective.
+Cleanup is PARTIAL. No FF writeback; no proof of hardware restoration.
+/E restores enable only if prior 00/01; status write is not restored.
+/D restores control only if prior 7A/7B; otherwise 7A may remain.
+Prior misc/setup FF cannot be restored. Other writes may leave state too.
+Use separate power-on runs to compare /E and /D; leave rotary unchanged.
+No VRAM, GR-bank, CRTC-data, word I/O, timing or interrupt-hook tests.
+Exit: 0 read-only or one candidate; 1 multiple; 2 none; 3 target/log/args.
+Return used D88 and screen photo. This is NOT a hardware-verified init.
+'''
+
+
 def module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     obj = importlib.util.module_from_spec(spec)
@@ -74,6 +99,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--build-id')
+    parser.add_argument('--probe', choices=('scan', 'init'), default='scan')
     args = parser.parse_args()
     policy = module('msdos_policy', ROOT/'tools/pc88va/build-all-demos-msdos4-disk.py')
     disktool = module('scan_disk', ROOT/'tools/pc88va/pcengine_disk.py')
@@ -89,15 +115,23 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     payload = output/'payload/root'
     payload.mkdir(parents=True)
-    binary = output/'W1SCAN.COM'
+    program = 'W1INIT' if args.probe == 'init' else 'W1SCAN'
+    help_name = 'INITHELP' if args.probe == 'init' else 'SCANHELP'
+    help_text = INIT_HELP if args.probe == 'init' else HELP
+    binary = output/(program+'.COM')
     command = [os.environ.get('NASM', 'nasm'), '-f', 'bin',
                '-I'+str(ROOT/'demos/wsr-e-pseudo-sprite')+'/', f"-DBUILD_ID='{build}'",
-               str(ROOT/'demos/wsr-e-pseudo-sprite/tests/w1scan.asm'), '-o', str(binary)]
+               str(ROOT/'demos/wsr-e-pseudo-sprite/tests'/(program.lower()+'.asm')), '-o', str(binary)]
     subprocess.run(command, check=True)
-    (payload/'W1SCAN.COM').write_bytes(binary.read_bytes())
-    (payload/'SCANHELP.TXT').write_bytes(HELP.format(build=build).replace('\n', '\r\n').encode('ascii'))
-    (payload/'SCANHELP.BAT').write_bytes(b'@ECHO OFF\r\nTYPE SCANHELP.TXT\r\n')
-    image = output/'wsr-e-address-scan-msdos4.d88'
+    (payload/(program+'.COM')).write_bytes(binary.read_bytes())
+    (payload/(help_name+'.TXT')).write_bytes(help_text.format(build=build).replace('\n', '\r\n').encode('ascii'))
+    (payload/(help_name+'.BAT')).write_bytes(f'@ECHO OFF\r\nTYPE {help_name}.TXT\r\n'.encode('ascii'))
+    if args.probe == 'init':
+        source = (ROOT/'demos/wsr-e-pseudo-sprite/tests/w1init.asm').read_text()
+        license_text = '\r\n'.join(line.removeprefix(';').lstrip() for line in source.splitlines()[:20])+'\r\n'
+        (payload/'INITLIC.TXT').write_bytes(license_text.encode('ascii'))
+    image_name = 'wsr-e-init-probe-msdos4.d88' if args.probe == 'init' else 'wsr-e-address-scan-msdos4.d88'
+    image = output/image_name
     disktool.fat_now = lambda: (0, 0x5c21)  # fixed 2026-01-01 FAT timestamp
     disktool.create_vanilla(args.source, image)
     disktool.install_payload(image, output/'payload')
@@ -111,7 +145,7 @@ def main():
     expected = {p.name: p.read_bytes() for p in payload.iterdir()}
     if stored != expected:
         raise ValueError('WSRE_SCAN_PAYLOAD_MISMATCH')
-    report = {'source_commit': commit, 'embedded_build': build,
+    report = {'source_commit': commit, 'embedded_build': build, 'probe': program,
               'nasm_command': command, 'exit': 0,
               'validation': 'pinned boot/system/license hashes and exact payload readback',
               'com_sha256': sha(binary.read_bytes()), 'd88_sha256': sha(image.read_bytes()),

@@ -502,6 +502,45 @@ proof. No new D88 or probe/core change is made. Review a minimal enable-only
 experiment before considering the broader board-control handshake; the old
 no-relay scope is not silently lifted. G143 remains NOT_READY.
 
+### W1INIT probe preparation
+
+The maintainer requested a new D88 probe taking the DOS driver's candidate
+search and possible V30-only machine constraints into account. W1INIT is an
+independently authored cpu-186 COM, with byte I/O and DOS INT 21h only; it
+uses no PC-98 BIOS or CPU-type test. This removes those software dependencies,
+not the unresolved physical slot/bus requirements. It is still a VA/V3 tool,
+not an assertion of compatibility with PC-98 V30 machines.
+
+W1SCAN is preserved. W1INIT defaults to read-only, writes WSRINIT.TXT, and
+separates `/E n` (CR27-pre-FF conditional enable sequence, including duplicate
+43E0h+offset writes) from `/D n` or explicit `/D ALL` (7Ah board-control
+handshake, then the DOS EFh sequence, without the `/E` writes). `/D` is a
+new, conspicuously warned board/relay-write opt-in; it is not silently added
+to old modes. All requested ports must be exclusively assigned to WSR-E.
+Unknown control/enable values are not restored by guessing. The original
+relay-free scope continues for `/E`. No VRAM, GR-bank, CRTC-data, word-I/O,
+timing or IRQ-hook test is included.
+
+CR27 is read before/after wake and classifies a masked-98h chip candidate;
+SR06 is observed independently, not required for reaching the ID read.
+Candidate, multiple and inconclusive outcomes are not a hardware PASS.
+Restoration messages describe write attempts, not readback-proven complete
+restoration. [Detailed usage](../../../demos/wsr-e-pseudo-sprite/README.md#w1init-separated-enable-and-dos-detection-experiments)
+and the [analysis supplement](../../modernalization/wsr-e.md#10-改訂プローブw1init)
+state the residual-state and separate-power-on comparison requirements.
+
+Before the source commit, `tools/wsre/test_init.py` passes **13 tests** in
+the isolated Unicorn environment, including exact separate output sequences,
+all seven settings, false/partial/multiple responses, CR27/SR independence,
+cleanup, every log-write failure point, invalid arguments/target, and checks
+of the executed instruction/interrupt subset. The old scanner controls
+pass 9 tests and original comparator passes 8. `build_scan.py --probe init`
+passes the pinned-system and exact-payload audit. With explicit historical
+build ID 3657c64e, default scanner generation remains byte-identical to its
+prior D88. No existing emulator source behavior is changed; old application
+worker evidence can be reused with its original binary identity. Final probe
+media and guest verification are recorded separately after the source commit.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?
