@@ -525,12 +525,15 @@ collisions. Do not rename or recreate an existing runtime without approval.
 On the maintainer's macOS setup, `~/work/tmp/vaeg-container` is a local-only
 wrapper for the existing vaeg runtime. It sets `COLIMA_HOME` and `DOCKER_HOST`
 for its child command, clears inherited context/TLS overrides, and leaves the
-global context untouched. Use it when present, for example:
+global context untouched. Use it when an explicitly needed container workflow
+runs on this setup, for example:
 
 ```sh
 ~/work/tmp/vaeg-container docker info
-~/work/tmp/vaeg-container tools/release/build-mingw-static-container.sh --commit <full-sha>
 ```
+
+The standard macOS MinGW build does **not** use this wrapper, Docker or Colima;
+it uses the installed MacPorts cross-toolchain as described below.
 
 The wrapper stays outside Git. On other setups, apply the same process-local
 selection to that checkout's dedicated runtime; do not assume this local
@@ -540,20 +543,50 @@ wrapper exists. Verify that `docker context show` is unchanged after use.
 
 Whenever a clean build is needed, including the "build from clean
 checkout" step of a human gate, produce a fully static MinGW-w64 build of
-the pushed commit with:
+the pushed commit using the host-specific standard path below.
+
+**On macOS, use the already installed MacPorts MinGW-w64 toolchain.** This is
+not a container fallback: it is the standard macOS build and handoff path.
+Select MacPorts' `x86_64-w64-mingw32-gcc`, `g++` and binutils from `/opt/local/bin`
+for the child command only. A stopped or unavailable Docker/Colima daemon is
+not a macOS MinGW build blocker. Do not start a container, install or modify
+system ports, or change the login-shell PATH for this build.
+
+Bind `MINGW_SDK` to the existing reviewed, isolated target-dependency SDK under
+`~/work`; keep it separate from the new work directory. Use `main` or the
+canonical lowercase milestone for the explicit build track:
 
 ```sh
-tools/release/build-mingw-static-container.sh --commit <full-sha>
+PATH="/opt/local/bin:$PATH" \
+  python3 tools/release/build-mingw-macports.py --commit <full-sha> \
+  --work-dir ../vaeg-mingw-<short-sha> --sdk-dir "$MINGW_SDK" \
+  --build-track <track> --jobs 4
 ```
 
-The script clones the commit into a new `../vaeg-mingw-<short-sha>/`
-directory, builds in a pinned Ubuntu 24.04 container with the `mingw-cross`
-preset (static SDL2, LibArchive, zlib, xz, librashader, and MinGW runtimes),
-verifies that the commit and date are embedded, and audits the PE imports
-down to Windows system DLLs. Never reuse an existing build tree for this.
-Hand the maintainer the absolute path of the resulting `vaeg.exe`, its
-SHA-256, and the absolute path of `BUILD-REPORT.md` in the same `output/`
-directory.
+The helper creates a fresh clean clone and application build with the
+`mingw-macports` preset. Only hash-validated target dependencies may be reused;
+never application objects or an old executable. Recording, native Windows
+Media Foundation MP4 and librashader remain ON; bundled local H.264/AAC
+encoders remain explicitly OFF. If the MacPorts tools or SDK are unavailable
+or fail validation, report that precise cause rather than substituting a
+container or a recording/shader-OFF build. See `BUILD.md` for prerequisites.
+
+**On Linux, use the dedicated container build path:**
+
+```sh
+tools/release/build-mingw-static-container.sh --commit <full-sha> --recording
+```
+
+This helper also creates a new `../vaeg-mingw-<short-sha>/` clone/build directory,
+using pinned Ubuntu 24.04 and the `mingw-cross` preset. The container storage
+and daemon-isolation rules above still apply to container workflows.
+
+Both paths keep SDL2, LibArchive, zlib, xz, librashader, FFmpeg and MinGW runtimes
+static, verify the embedded source/date/track identity, audit the FFmpeg encoder
+archive, and restrict PE imports to Windows system DLLs. Never reuse an existing
+application build tree. Hand the maintainer the absolute path of `output/vaeg.exe`,
+its SHA-256 and the absolute path of `output/BUILD-REPORT.md`. Cross-build/import
+success does not establish Windows execution or presenter coverage.
 
 ### Maintainer release handoff
 
