@@ -374,6 +374,11 @@ It does not authorize publishing a codec-enabled executable.
   support (`VAEG_ENABLE_RECORDING=ON`), using AVFoundation/Media Foundation.
   Keep `VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF` there: that option is Linux-only and
   must not replace the preferred OS encoder with bundled implementations.
+  Maintainer-confirmed Windows local QA configuration: recording/OS-native MP4
+  and librashader ON, application dependency libraries static, bundled encoders
+  OFF. OFF here does not disable OS-native H.264/AAC export; Media Foundation
+  and its encoder implementations are supplied by Windows, not statically
+  bundled into vaeg. This does not waive the separate Windows runtime check.
 - **Every non-personal-local build MUST explicitly set
   `VAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF`.** This includes all CI, public/release,
   packaging, clean-build handoff and distribution builds, even when executed on

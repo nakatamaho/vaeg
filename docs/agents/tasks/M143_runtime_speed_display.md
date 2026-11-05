@@ -232,3 +232,11 @@ failure remains preserved; it is not a missing-toolchain diagnosis.
 
 This closes the clean MinGW handoff blocker, not Windows execution or visual
 reference approval. Main remains unmerged, with no new release or cleanup.
+
+The maintainer subsequently confirmed that Windows uses OS-provided H.264/AAC
+and explicitly accepted bundled encoders remaining OFF for local QA. Recording,
+native MP4 and librashader stay ON, with static application dependencies. This
+clarifies the existing configuration; no code/build-setting change or rebuild is
+needed. The above executable is reused with its source identity and SHA-256
+unchanged. This configuration confirmation does not approve frozen references,
+claim Windows execution, or authorize a main merge/release.
