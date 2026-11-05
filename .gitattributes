@@ -8,6 +8,8 @@
 *.vcxproj text eol=crlf
 *.vcxproj.filters text eol=crlf
 *.bat  text eol=crlf
+# M145 source stays LF; the isolated DOS build stages a CRLF batch copy.
+tools/hardware/hyperframe-plus/build.bat text eol=lf
 
 # Binary payloads - never renormalize, never diff as text
 *.rom binary
