@@ -43,6 +43,8 @@ PC-88VA/V30 は後段の実現可能性調査であり、このツールを VA �
 caller、分岐、命令幅、未解決点を [逆ASMの保存記録](reverse_engineering.md) に集約する。
 `[HARDWARE-TESTED]` は依然 **ない**。原本のソフトウェア trace と、自作 EXE の
 生成命令検査・mock は別証拠であり、どちらも実機測定の代用ではない。
+後続の [基板 decode 調査](board_decode.md)では写真所見を `[PHOTO]` と別記する。
+SW1/ジャンパの意味や、EC 非使用時の窓無応答はまだ確定していない。
 
 ## 公開資料 P1
 

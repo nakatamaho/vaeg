@@ -46,6 +46,7 @@ DOS backend の名前は、実 DOS の 8.3 制約のため `hf_dos_io.c` では�
 |---|---|
 | [docs/hyper_frame_plus_spec.md](docs/hyper_frame_plus_spec.md) | 根拠区分、画素 I/O、バンク・segment 算術、安全境界 |
 | [docs/reverse_engineering.md](docs/reverse_engineering.md) | 三原本の入力台帳、caller/条件/offset、初期化・画素・表示切替・終了、使い方と未解決点の集約 |
+| [docs/board_decode.md](docs/board_decode.md) | 表裏写真で追える SW1/ジャンパ/選択回路、EC 非使用経路と VA 実行を分ける成立条件、未実施の確認点 |
 | [docs/test_plan.md](docs/test_plan.md) | ソフトウェア検証、実機条件、判定基準、未実行項目 |
 | `src/hf_io.h`, `src/hf_io.c` | デバイス API、検査、復元、pattern、純粋なバンク計算 |
 | `src/hf_dos.c` | 16-bit DOS の `inp/outp/outpw` と非ブロッキング DOS キー入力 |

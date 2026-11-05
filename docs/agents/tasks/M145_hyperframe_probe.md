@@ -271,3 +271,42 @@ Repository checks は `check_encoding.py --expect utf8`、`check_eol.py`、
 違反/所見 0、milestone selftest 49、225 tasks / 177 reports / 166 rows。
 Python syntax/header/ASCII、相対 link/anchor、九ファイルだけの scope も確認した。
 出力・exit と最終 commit の source identity を private report に保持する。
+
+## VA 向け EC 非使用構成と基板写真の追跡
+
+maintainer から VA 診断 D88 の依頼があったが、続く system-port 競合の指摘を受け、
+最初に提案した D0/D3 の read-only probe は実装前に撤回した。
+IN を無害とみなさず、今回は「配線をさらに追い、EC 非使用の最小構成を絞る」
+調査だけを進める。詳細は
+[基板 decode 調査](../../../tools/hardware/hyperframe-plus/docs/board_decode.md)に集約した。
+
+- 表裏写真 B1/B2 を原本とバイト照合して保全し、切出しと裏面反転で対応を確認した。
+  遠隔側の hash/転送は未実施。先の標準 Python の Pillow import 失敗後、既存の
+  別 Python/Pillow 環境で作成した。新しい package installation はない。
+- SW1 直下の RA1 に対応する四つのパッドから、四本の線を IC1/LISA の領域内の
+  ビア列まで視認した。それ以降のピン対応・ASIC 機能は確定できていない。
+  SW1 を I/O アドレス設定と断定しない。
+- SW1 と別に J0〜J6、IC2 の 74HC273、IC3 の 74HC85、IC27/28 と IC29/30 を
+  調査対象として識別した。部品の近接だけで接続や EC decode を確定しない。
+  `/CLR`・clock・比較入力/出力・decoder enable へ確認箇所を絞った。
+  J3 の見た目の差は故障判断やキャップ追加の指示ではない。
+- 既存の 53-case trace 全件、原本、runner/validator、Unicorn libraries の hash と
+  集計を照合し、その限定 trace の EC アクセスがゼロであることを再集計した（exit 0）。
+  七つの座標/RGB byte ポートによる転送経路は候補として残るが、冷間表示には
+  D0/D3/EE・特殊座標・本体 BIOS 依存などの別調査が必要。原本実行は再走していない。
+- EC は VA の漢字 ROM ポートと重なる。M144 の V3 読出し結果を、未測定の OUT
+  動作や D0/D3 の衝突証明に拡大しない。00D0 と 01D0 も同一視しない。
+- EC を書かない自作プログラムでも、power-on 時や firmware/OS の EC 書込み後に
+  HF+ の窓が有効なら、既存 RAM と競合する可能性が残る。実装済み RAM の構成、
+  HF+ の reset/decode/output-enable、I/O を残した窓無効化の可否は未確定。
+- **スイッチ変更、導通測定、実機 I/O、診断プログラム/D88 作成は NOT_RUN。**
+  写真から解けない ASIC 内部や隠れた配線を、VA の未知ポート走査で埋めない。
+  結論は「EC 非使用の転送方式は候補、VA 実行可否は BLOCKED」である。
+  `init` / `banktest`、VA 実行禁止、G145 NOT_READY、WSR-E の休止は維持する。
+
+文書だけの追記で、HFTEST の DOS 入力が d321baa6 とバイト一致し、引渡し EXE の
+SHA-256 も既存記録と一致することを確認した。新しい build/behavioral campaign、
+full media/demo、hosted CI、release/merge は行わない。写真・原本・資料と hash 台帳は
+Git 外の独立した長期保管 bundle に保存し、先行する三原本 bundle の記録は変更しない。
+Repository checks は encoding/EOL/case/Markdown、milestone selftest/discovery/audit、
+staged/unstaged diff check を使用し、command/output/exit を私的報告へ保持する。
