@@ -49,7 +49,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | 生成 I/O 命令 | 自作 DOS backend の WDIS listing | PASS、EC / EE / EF の実命令を検査 |
 | 生成 backend 限定実行 | MZ 内と完全一致する leaf code、Unicorn 2.1.4、最大 256 instructions/case | PASS、25 cases、全 IN/OUT 捕捉 |
 | DOS smoke | DOSBox 0.74-3、dummy video、ボード操作を許可しない経路のみ | PASS、6 cases、guest exit と結果文字列を検査 |
-| JPGVHF 入力・MZ・制御フロー | 原本欠落 | BLOCKED、`HFRE_INPUT_MISSING` / exit 2 |
+| JPGVHF 初回入力 | 当時は原本欠落 | 歴史的 BLOCKED、`HFRE_INPUT_MISSING` / exit 2 を保持 |
+| 三原本の後続解析 | DOC、J1 MZ/hash と J1/H1/D1 の限定制御フロー | J1 入力 exit 0、限定 trace 53 cases PASS、下記参照 |
+| trace 検証器 | 原本不要の合格 fixture と一変更負例 | 12 tests PASS（Unicorn 2.1.4） |
 | Open Watcom 1.9 | compiler が PATH 上になかった | NOT_TESTED |
 | PC-9801 本体・HyPER-FRAME+ | 機材での実行なし | NOT_RUN |
 | PC-88VA/V30、VA D88 | 本段階の対象外 | NOT_RUN |
@@ -137,6 +139,48 @@ SDK header の intrinsic 条件を確認し、backend のみ `-oi` を明示し�
 座標を再選択する実装にした。以前の単一選択・RGB 連続転送の開発生成物は
 最終版ではなく、保持を仮定しない最終実装で検査を更新した。
 
+## 原本三件の逆ASMを裏付ける後続検証
+
+[操作経路の保存記録](reverse_engineering.md)を技術説明の集約先とする。
+J1/H1/D1 の原 archive を保全し、member の hash と CP932 DOC を確認した。
+J1 の archive/EXE/DOC は既提示 hash と一致し、MZ の header/entry/relocation と
+二点の明示 byte landmark の検証は exit 0 / `BYTE_CHECK_PASS`。
+遠隔側との identity 照合は認証で BLOCKED。解析したのはローカルに存在したコピーである。
+初回の入力欠落、今回の認証失敗、51-case 開発 trace、最終 53-case をすべて保持する。
+
+原本の code/data 境界、caller、option/global、分岐を静的に追跡した後、
+`trace_reference.py` で **53 cases** を限定実行した（exit 0）。
+`instructions` の合計 5393136 は stub 境界を含む code-hook 訪問数で、実機命令数ではない。
+全 IN/OUT を捕捉し、方向・port・幅・値・順序を期待列と完全比較した。
+返り値、出力寸法/global、読出し buffer、外部関数 stub の順序も該当ケースで検査した。
+対象は J1 の初期化 17、word 縦更新 12、byte 縦更新 2、停止/終了 4、行描画 2、
+D1 F1 検出 4 と leaf 7、H1 prefix/書戻し 5。機械生成・ソフト動作の一致のみである。
+
+```sh
+python3 -B verify_reference.py --references "$REFERENCE_DIR" --output "$NEW_INPUT_REPORT"
+python3 -B tests/test_trace.py
+python3 -B trace_reference.py --bindings "$PRIVATE_BINDINGS" --output "$NEW_TRACE_OUTPUT"
+```
+
+Unicorn 2.1.4 の環境で 12 fixture tests も exit 0。
+各負例は先に合格する独立命令 fixture/content から一項目だけを変え、
+`HFRE_TRACE_MISMATCH`、`HFRE_READ_SCRIPT`、`HFRE_EXECUTION_RANGE`、
+`HFRE_RETURN_MISSING`、`HFRE_UNEXPECTED_INTERRUPT` の該当コードを照合する。
+初回 IN 不一致 fixture の ctypes 補助警告は、整数の callback return と
+停止エラー通知を分離して修正した。元の警告ログも保持し、最終検査は警告なし。
+content と worker を分離し、最後に合成検査を行う。Git history/private corpus を
+負例の前提にしない。Unicorn がなければ worker 試験は SKIP/NOT_RUN、campaign は exit 77。
+
+入力・runner/validator・Unicorn library・比較契約・出力の digest は Git 外の
+report/manifest に保持する。完全な EXE/COM entry、DOS/BIOS、実機 I/O、
+H1 の全 VRAM/palette、D1 の全 dispatcher、J1 の EMS round trip は実行していない。
+block-scroll I:7B64 等の静的所見を、この 53 ケースに含めたとは報告しない。
+
+HFTEST の `src/`、DOS build inputs、既配布 MZ は変更していない。
+`d321baa6` と source digest が不変であることを照合し、前節の C89/sanitizer/DOS
+結果は再利用する。今回それらや vaeg 本体、全 demo/media/presenter を再実行したとの
+主張はしない。原本 trace の PASS は G145 や `init`/bank aperture の許可ではない。
+
 ## 実機前提チェック — 現在すべて未資格/未実施
 
 - 本体型番・CPU・DOS 版・メモリ構成・常駐プログラム・拡張カードを記録する。
@@ -166,11 +210,11 @@ SDK header の intrinsic 条件を確認し、backend のみ `-oi` を明示し�
 
 ### 1. 必要なら元 viewer を別枠の基準にする
 
-これは**今すぐ実行する指示ではない**。J1 原本を入手・照合し、対象カードと
-DOC を確認した後、互換性が確認できる PC-9801 実機でのみ別途判断する。
+これは**今すぐ実行する指示ではない**。J1 原本と DOC は今回照合したが、対象カード、
+初期状態、機材の互換性が確認できる PC-9801 実機でのみ別途判断する。
 候補操作は `JPGVHF -m6 TEST.JPG`、画像は自作の小さな synthetic JPEG とする。
-ESC が画像表示を維持し、他の終了キーが出力を停止して画像データを保持するという
-依頼記載も、原文・実機でまだ再確認していない。
+原文の ESC による表示維持と、他の終了キーによる出力停止の説明は確認した。
+命令側の停止列の呼出し有無も一致したが、実際の映像・画像保持はまだ確認していない。
 HyPER-FRAME III の `-3` 対応から「+ と同一」とは結論しない。
 本作業では viewer 全体は実行していない。
 
@@ -192,6 +236,7 @@ HyPER-FRAME III の `-3` 対応から「+ と同一」とは結論しない。
 原本照合後の `off` は別 command として前後の表示を比較する。
 全画面、word、初期化はそれぞれ別の実験であり、小領域 PASS に含めない。
 
-`init` は条件付き制御フローが資格を得るまで BLOCKED。
+`init` は原本の限定制御フローを確認しても、冷間起動・機材・初期状態等の
+実機前提が資格を得るまで BLOCKED。
 `banktest` は窓の予約と memory map を証明できるまで BLOCKED。
 PC-88VA は、別途 bus/port/enable/CPU/表示の適合を調べた後の後段である。

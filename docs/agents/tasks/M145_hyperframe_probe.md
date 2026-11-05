@@ -107,8 +107,8 @@ mechanical contact or power integrity.
 汎用 graphics driver、実 bank mapping、BLT、PCM、性能、エミュレータへの board 実装、
 VA 用 D88、release 公開は対象外。原本確認がない初期化は実行不可とする。
 
-G145 は **NOT_READY**。原本の条件付き制御フロー、初期状態・SW1・I/O 所有権、
-実機結果が未資格である。引渡しやビルド成功は gate 承認ではなく、後段の媒体作成や
+G145 は **NOT_READY**。後続解析で原本の限定制御フローを確認したが、
+初期状態・冷間初期化・SW1・I/O 所有権・実機結果は未資格である。引渡しやビルド成功は gate 承認ではなく、後段の媒体作成や
 リポジトリ全体の gate checks を免除しない。full media/demo/presenter campaign、
 新しい vaeg application build、M143/main の merge は行わない。
 
@@ -221,3 +221,53 @@ checkout 外の handoff に EXE、BSD license、build/限定命令検査 JSON、
 記録は worker digest、source/比較契約 hash、command/exit、出力 digest を含む。
 原資料・SDK・失敗ログ・開発版は保持。hosted CI、release 公開、main merge、
 full media/demo/presenter campaign は実施しない。**実機は NOT_RUN、G145 NOT_READY。**
+
+## 三原本の逆ASM・操作経路の保存チェックポイント
+
+利用可能になった三つの archive と原本 DOC を保全し、maintainer の
+「逆ASMから使い方を習得し、詳しい document として散逸を防ぐ」という追加依頼を受けた。
+[逆ASM・操作経路の保存記録](../../../tools/hardware/hyperframe-plus/docs/reverse_engineering.md)
+を集約先とし、README・暫定仕様・試験計画から参照する。
+原資料名/hash、転送元、raw 逆ASM、DOC 全文、trace は私的台帳に保持する。
+参照 ID は J1（専用 JPEG viewer）、H1（HF から本体へのディザ変換）、
+D1（従来の multi-board viewer）を継続使用し、M143 の別 D1 と混同しない。
+
+- 遠隔側の hash 照合は SSH 認証で BLOCKED。手元に存在した提供コピーを解析した。
+  J1 は既提示 archive/EXE/DOC の三 hash と一致。原本 validator は exit 0 /
+  BYTE_CHECK_PASS。D1 本体も先行 M145 解析のものとバイト一致した。
+- J1 の caller/option globals と I:54CF の初期化を追跡した。
+  EE/D0/D3 の出力だけでなく、条件付き画素ゼロ出力、Y=0191 の八点、
+  Y=0193 の 32 点、幅依存位置更新がある。c1 の分岐は縮小後の
+  `w<640 OR h<400`。-3 でも特殊座標初期化自体は省かない。
+- D0=E5 は単成分描画中の経路で E1 に戻す。停止関数は D0=00→EE=00、
+  正常終了時の ESC はそれを呼ばない。幅 638/639 の縦更新式と byte/word の
+  命令幅、実 offset、caller、未確認の bit 定義も記録した。
+- H1 は既存 HF 画素を本体画面へ変換する道具であり、JPEG loader や無変更 probe
+  ではない。D0/D3 の保存・切替・書戻し、EE の残存、ソフト座標 zoom を区別した。
+- D1 の HF-family 検出は制御値と画素を書き換える。D0=FF 同士は最初の gate を通り、
+  画素照合失敗側は旧値を出力しない。別 protocol への fallback と本体依存も記録し、
+  全検出の移植を正当化しない。行読出しの実格納順 G,R,B も限定実行で確認した。
+- 独立した `trace_reference.py` は原本 hash を binding して閉じた経路だけを実行し、
+  全 I/O と必要な値・状態・外部関数 stub の順を照合する。Unicorn 2.1.4 で
+  **53 cases PASS / exit 0**、code-hook 訪問数合計 5393136（stub 境界を含む）。
+  原本なしの合格 fixture / 一変更負例 **12 tests PASS / exit 0**。
+  最初の IN 不一致負例の ctypes 補助警告は、整数 return と停止通知の分離で解消した。
+  警告ログ、51-case 開発記録、最終 53-case の両方を残す。
+- 以上は原本ソフトウェアの `[BINARY]` / 限定 trace 所見。
+  全 EXE/COM entry、PC-9801 runtime、実カード、画像、EMS round trip は NOT_RUN。
+  HFTEST の C/DOS build inputs は d321baa6 と不変で、既配布 MZ と過去の
+  C89/sanitizer/DOS 検証を再利用する。新しい DOS/vaeg build、D88、全 media/demo、
+  hosted CI、release/main merge、WSR-E 再開は行わない。
+- `init` と `banktest` は維持。正式な register 定義、冷間状態、SW1、所有権、
+  timing、VA 互換性は未解決であり、**G145 NOT_READY**。
+
+再現 command、比較契約、入力/worker/出力 digest は checkout 外の manifest に保存。
+原本と解析証拠は長期保管用の私的 bundle も作り、通常の task scratch cleanup と分離する。
+この保存依頼に属する原本・解析記録は、将来の gate 後も自動廃棄の対象にしない。
+既存 emulator の guest-visible 修正ではないため、bug-fix ledger へ架空の修正を追加しない。
+Repository checks は `check_encoding.py --expect utf8`、`check_eol.py`、
+`check_case.py`、`check_md_comments.py`、`milestone_ids.py --root . --selftest
+--discover --audit`、staged/unstaged `git diff --check` がすべて exit 0。
+違反/所見 0、milestone selftest 49、225 tasks / 177 reports / 166 rows。
+Python syntax/header/ASCII、相対 link/anchor、九ファイルだけの scope も確認した。
+出力・exit と最終 commit の source identity を private report に保持する。

@@ -25,7 +25,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **M145 / 実験段階 / G145 NOT_READY。PC-9801 系が先、PC-88VA は後段。**
 公開論文の byte 画素 I/O を独立実装した C89 プログラムである。
-原本 JPGVHF は今回未入手のため、初期化の逆解析は BLOCKED。
+後続の原本三件の逆ASMで、初期化・画素・特殊座標・終了の限定経路を確認した。
+**操作解析の集約先は [逆ASM・操作経路の保存記録](docs/reverse_engineering.md)。**
+原本の限定 I/O trace は 53 cases PASS だが、実機適合は未確認であり、
 メーカーソフトなしで電源投入直後から動く完成ドライバではない。
 
 実機カードは動作未確認であり、カードの存在や健全性を自動判定できない。
@@ -43,7 +45,7 @@ DOS backend の名前は、実 DOS の 8.3 制約のため `hf_dos_io.c` では�
 | ファイル | 内容 |
 |---|---|
 | [docs/hyper_frame_plus_spec.md](docs/hyper_frame_plus_spec.md) | 根拠区分、画素 I/O、バンク・segment 算術、安全境界 |
-| [docs/reverse_engineering.md](docs/reverse_engineering.md) | 入力台帳、未照合ランドマーク、MZ 検証・追跡手順 |
+| [docs/reverse_engineering.md](docs/reverse_engineering.md) | 三原本の入力台帳、caller/条件/offset、初期化・画素・表示切替・終了、使い方と未解決点の集約 |
 | [docs/test_plan.md](docs/test_plan.md) | ソフトウェア検証、実機条件、判定基準、未実行項目 |
 | `src/hf_io.h`, `src/hf_io.c` | デバイス API、検査、復元、pattern、純粋なバンク計算 |
 | `src/hf_dos.c` | 16-bit DOS の `inp/outp/outpw` と非ブロッキング DOS キー入力 |
@@ -53,6 +55,7 @@ DOS backend の名前は、実 DOS の 8.3 制約のため `hf_dos_io.c` では�
 | `tests/test_reference.py` | 原本不要の MZ/hash/landmark 合格 fixture と単一変更負例 |
 | `tests/test_dos_backend.py` | 自作 MZ と一致する生成命令の限定実行、I/O はすべて捕捉 |
 | `verify_reference.py` | 原本を変更しない入力検証。欠落は BLOCKED |
+| `trace_reference.py`, `tests/test_trace.py` | hash-bound な原本の限定 I/O 捕捉、独立 fixture と一変更負例。全プログラムは起動しない |
 | `build.bat`, `build_dos.py`, `Makefile` | DOS / host ビルドと検査 |
 
 C ソース・コメント・CLI・テスト・スクリプトは英語、説明文書は日本語。
@@ -142,13 +145,17 @@ python3 -B tests/test_dos_backend.py \
 
 | コマンド | 許可条件・内容 |
 |---|---|
-| `HFTEST off` | `PC98-HF` の入力が必要。D0=00 → EE=00 の停止候補。原本未照合と警告する |
+| `HFTEST off` | `PC98-HF` の入力が必要。D0=00 → EE=00。後続解析で J1 の列と一致を確認したが、停止の実機確認はない |
 | `HFTEST readback` | `PC98-HF` と `PIXEL-READY` が必要。二画素保存→相異なる RGB→照合→復元→再照合 |
 | `HFTEST readback word` | 上記に加え `WORD-OUT`。座標を word OUT にする実験で、実機同値性は未確認 |
 | `HFTEST pattern` | `PC98-HF`, `PIXEL-READY`, `DRAW-32`。32×32 のみを上書き |
 | `HFTEST pattern full` | 最後の確認は `FULL-FRAME`。640×400 を上書き。小領域の確認より先に使わない |
-| `HFTEST init` | BLOCKED。未確認の初期化を強制実行する裏口はない |
+| `HFTEST init` | BLOCKED。原本の条件付き経路の解析は実機での初期化資格ではなく、強制実行する裏口はない |
 | `HFTEST banktest` | BLOCKED。実 backend の EC 出力も拒否。窓への memory access は実装しない |
+
+今回の解析では HFTEST の C source / DOS EXE を変更していない。
+既配布 `d321baa6` の `off` が原本未照合と表示するのは、ビルド時点の保守的な警告である。
+列の一致確認は後続の文書記録にあり、実機成功へは昇格していない。
 
 pattern は行単位で進捗と非ブロッキング ESC 中断を扱う。
 中断後も書いた範囲は残り、**元画像は復元しない**。

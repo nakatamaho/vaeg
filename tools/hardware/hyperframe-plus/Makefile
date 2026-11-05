@@ -53,3 +53,4 @@ test: all
 	$(BUILD)/test_hf
 	$(PYTHON) -B tests/test_cli.py $(BUILD)/hftest_mock
 	$(PYTHON) -B -m unittest discover -s tests -p test_reference.py -v
+	$(PYTHON) -B -m unittest discover -s tests -p test_trace.py -v
