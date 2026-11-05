@@ -35,9 +35,10 @@ reference corpus has not been independently approved.
 
 Reusable QA implementation:
 [b8137fd1b49f7cac72e793792470a1f114bde5a8](https://github.com/nakatamaho/vaeg/commit/b8137fd1b49f7cac72e793792470a1f114bde5a8).
-Only QA tools changed after the evaluated source; no emulator/build input changed.
-Workers and expensive evidence retain their original identities, not the later
-QA or documentation commit's identity.
+Only QA tools and documentation changed after the evaluated source; emulator
+sources, build configuration and dependency inputs are unchanged. Git build
+identity metadata naturally differs. Workers and expensive evidence retain their
+original identities, not the later QA or documentation commit's identity.
 
 | Check | Result and boundary |
 | --- | --- |
@@ -249,4 +250,11 @@ snapshots of failed adapters. Unchanged emulator workers, media results and
 layout captures are reused rather than rebuilt after QA/report-only changes.
 No private capture, ROM/media input identity, supplied asset, VM image or raw
 state file is staged, committed or uploaded to hosted CI. WSR-E/M145 work and
-retained evidence are untouched; no cleanup is authorized by this checkpoint.
+retained evidence are untouched; no worktree/build/input cleanup was performed.
+
+After transfer, the task VM was shut down, including both task Xvfb instances.
+The full campaign, stopped VM/base images, workers, source snapshots and failures
+have a separate private copy: every regular file's SHA-256 and every symlink's
+text were verified, with independent file inodes. An offline comparison from
+that retained copy again returns 32/32 matched / **APPROVAL_REQUIRED**, exit 2.
+Retention and repeatability do not approve references or waive missing targets.
