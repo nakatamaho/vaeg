@@ -74,6 +74,16 @@ python3 -B verify_reference.py --references "$REFERENCE_DIR" \
 後続の文書・報告だけの変更では、source file hash が変わらないことを照合し、
 既に得た挙動試験を再利用する。SDK や実行物を Git/CI に載せない。
 
+確定 source は
+[`d321baa646c24da99d36afc2fb545a5633a82056`](https://github.com/nakatamaho/vaeg/commit/d321baa646c24da99d36afc2fb545a5633a82056)。
+同じ command の `--build-id d321baa6` と新しい出力先で exit 0。
+`HFTEST.EXE` は **17312 bytes**、SHA-256
+`b8501af0d237cde9d7dd551d02acc6eccd0cd5e08329c6ead380c593e102c775`。
+MZ header 48 bytes、relocation 4、entry 0000:122Ah、overlay 0 を検査した。
+最終 EXE で上記六件の DOS smoke と 25 件の限定命令実行を再確認した。
+開発版との byte 差は八文字の build label のみで、source/worker identity が
+不変の host 試験は保持した証拠を再利用した。これは実機 PASS や G145 承認ではない。
+
 ### 六つの C 試験群
 
 1. **画素順序・読値**: 各成分で D7→D6→D5→D4 を出し、D8/DA/DC の

@@ -201,3 +201,23 @@ Repository checks は `check_encoding.py --expect utf8`、`check_eol.py`、
 BSD header、コード/スクリプトの ASCII、開発 QA と最終 source の build-input hash
 一致も確認した。新しい batch の source は限定した `.gitattributes` 指定で LF を保ち、
 DOS 用の作業コピーだけを CRLF 化する。元の source・資料は変更しない。
+
+### 確定 source の DOS 引渡し
+
+評価 source は
+[`d321baa646c24da99d36afc2fb545a5633a82056`](https://github.com/nakatamaho/vaeg/commit/d321baa646c24da99d36afc2fb545a5633a82056)。
+この commit の clean な対象 source を、新しい出力ツリーで `--build-id d321baa6`
+としてビルドした（exit 0）。生成 `HFTEST.EXE` は **17312 bytes**、SHA-256 は
+`b8501af0d237cde9d7dd551d02acc6eccd0cd5e08329c6ead380c593e102c775`。
+MZ header は 48 bytes、relocation 4、entry 0000:122Ah、overlay 0。
+
+最終 EXE で無 I/O DOS smoke 六件と、実 MZ に一致する backend の限定実行 25 件を
+再確認した（各 exit 0）。開発版との EXE 差分は build label の八 bytes だけ。
+host C/CLI/validator の評価済み source と worker の digest は保持・照合して再利用した。
+後続変更はこの引渡し記録だけであり、再び同じ挙動試験を回したとは報告しない。
+
+checkout 外の handoff に EXE、BSD license、build/限定命令検査 JSON、
+日本語 BUILD-REPORT を配置し、コピー先と build artifact の hash を照合した。
+記録は worker digest、source/比較契約 hash、command/exit、出力 digest を含む。
+原資料・SDK・失敗ログ・開発版は保持。hosted CI、release 公開、main merge、
+full media/demo/presenter campaign は実施しない。**実機は NOT_RUN、G145 NOT_READY。**
