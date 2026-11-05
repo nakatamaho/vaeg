@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**G143 human gate PASSED; requested pre-merge campaigns IN_PROGRESS.** Branch: `topic/m143-runtime-speed`;
+**G143 human gate PASSED; integration QA recorded, reference approval pending.** Branch: `topic/m143-runtime-speed`;
 integration candidate: `topic/m143-runtime-integration`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
@@ -52,10 +52,9 @@ pacing/draw-skip, save formats, accepted M142 scope or deferred M142 issues.
   `m143`/eight-digit source identity. Public policy keeps local encoders OFF.
 - Explicit-request QA: actual mapped presenter (normal, F11 held/released,
   No Wait, pause/resume, reset/load, narrow window and tooltip), frozen
-  visual-reference comparison and the full demo/media regression. These
-  remain NOT_RUN for M143. Under the updated AGENTS.md policy, ask the
-  maintainer before merging whether to run these campaigns and record the
-  answer. Do not claim missing targets passed.
+  visual-reference comparison and the full demo/media regression. The
+  maintainer explicitly requested both; results and remaining blockers are
+  recorded below. Do not claim missing targets or unapproved references passed.
 - Repository checks remain required; retain expensive unchanged evidence
   under its original source/worker identity.
 - G143 human gate required and now passed. The maintainer has requested
@@ -115,8 +114,8 @@ Display: `Rel.20261101 (m143, acee8dd6)`; declared milestone remains `M143-dev`.
   and the CTest command inventory remain in task scratch.
 
 These are local test/cross-build results, not Windows execution or real
-presenter validation. Actual mapped F11/No Wait guest observations, approved
-visual references and the standard media/demo regression remain pending.
+presenter validation. At that checkpoint, actual mapped F11/No Wait guest
+observations, approved visual references and the media/demo regression were pending.
 The maintainer subsequently accepted the human gate as recorded below.
 Outstanding machine checks are not retroactively promoted to PASS. No merge,
 hosted-CI success or release publication is claimed.
@@ -174,3 +173,40 @@ Actual presenter capture is distinct from SDL dummy guest-frame tests. Frozen vi
 references still need independent approval; earlier unapproved drafts are not accepted
 merely because this QA was requested. Preserve WSR-E/M145 directories and all supplied
 inputs throughout this task; shared M143 names are not a cleanup allow-list.
+
+## Integration QA checkpoint (2026-11-05)
+
+Evaluated source:
+[0acfa7dc8931d58d7a4731880401e24cda351aba](https://github.com/nakatamaho/vaeg/commit/0acfa7dc8931d58d7a4731880401e24cda351aba).
+The [integration QA report](../reports/m143_runtime_integration_qa.md) records
+commands, exits, generated-image SHA-256 values, worker identities and limits.
+
+- Native integrated-tree CTest: **158 PASS / 16 SKIP / 0 FAIL**. The precommit
+  tree matches the committed candidate; its old embedded build label is not
+  relabeled. The rebuilt canonical worker passes five focused checks. A separate
+  Linux arm64 worker builds and passes three focused checks.
+- Fresh clean-clone media regression: **PASS**. Nine distribution payload
+  closures; 34 PC-Engine/MS-DOS drawing contracts; MANDEL and self-booting SGP;
+  utility FDD/two SASI generation, payload readback and four boot contracts.
+- Actual mapped virtual-X11 runtime checks: **10-case PASS** for rendered speed,
+  nominal clock separation, F11/No Wait, pause/resume, narrow tooltip, actual
+  quick-save/load guest restoration and reset. This does not qualify the first
+  post-load sample, physical timing, Cocoa, Windows or true HiDPI.
+- Layout: two independent 32-case captures match exactly with no masks, but the
+  frozen first set remains **DRAFT / APPROVAL_REQUIRED**. Reference approval is
+  human work; routine capture/comparison has already been automated.
+- Native Cocoa capture is **BLOCKED** by the absent display/permission. Windows
+  execution and physical-GPU/HiDPI targets are **NOT_RUN**. The new standard clean
+  MinGW handoff is **BLOCKED** by the unavailable dedicated container socket;
+  there is no fallback or newly produced `vaeg.exe` for this candidate.
+- QA-only changes are in
+  [b8137fd1b49f7cac72e793792470a1f114bde5a8](https://github.com/nakatamaho/vaeg/commit/b8137fd1b49f7cac72e793792470a1f114bde5a8).
+  The new content contracts pass 16 text/semantic and seven evidence negatives;
+  existing X11/repository checks pass. Emulator workers/media are unchanged and
+  reused with their actual identities. Failed Openbox/OCR attempts remain in
+  private evidence; they are not emulator fixes or retroactive PASS results.
+
+**Main remains unmerged.** Approve the new frozen reference set and explicitly
+resolve or defer the remaining requested targets before merging. Do not ask for
+G143's original human acceptance again. No hosted-CI run, release or cleanup is
+claimed; WSR-E/M145 work and supplied assets remain preserved.
