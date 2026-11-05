@@ -416,6 +416,52 @@ Windows runtime. No new application executable is handed off here. Hardware
 W1SCAN execution is NOT_RUN; G143 remains NOT_READY, with no W2/release or
 full media/demo/presenter campaign performed.
 
+### Hardware scanner return and driver analysis
+
+The returned scanner COM matches the evaluated candidate byte-for-byte.
+The VA/24kHz read-only and `/P` sessions return FF at all seven candidates.
+A subsequent `/W 7` session, confirmed in both the returned log and screen
+photograph, reaches its final NONE_INCONCLUSIVE summary and DOS prompt:
+prior setup/misc reads are FF, and all four SR06 reads after provisional
+wake are FF. The earlier two sessions remain an exact prefix of the new
+log. Hardware execution is now observed, superseding the earlier NOT_RUN
+entry, but successful detection, selector position and wake correctness
+remain unestablished. No guest exit file was returned; do not infer a
+measured ERRORLEVEL from the summary. Originals/extractions stay private.
+
+Analysis of the supplied CL-GD54xx driver (its documentation lists WSR-E)
+finds a materially different detection path. These are independently
+summarized **static software findings**, not verified hardware requirements:
+
+- The board-family path enumerates offsets 0,2,4,6,10,12,14, skipping 8.
+  It first writes 7Ah to 40E1h+offset and requires a 7Ah readback before
+  entering that candidate's VGA setup. An earlier, distinct family path
+  instead checks an identification port; it must not be conflated with this
+  handshake path.
+- After the handshake, it writes 18h to common 46E8h, 01h to
+  42E0h+offset, 08h to 46E8h, then EFh to 42E0h+offset. Our provisional
+  scanner omits the handshake, uses E3h rather than EFh for the last misc
+  write, and adds a status-port write not present in this detection path.
+- It then selects CR27 at 54E0h+offset and reads 55E0h+offset. A value
+  whose FC-mask is FC is rejected; masked 98h selects a distinct chip
+  branch. There is no preceding SR06 signature test in this path.
+- A bounded Unicorn execution of just the private detection routine,
+  with controlled I/O callbacks, reproduces the setting-7 path and its
+  return classification. Removing the handshake response or replacing
+  the chip response with FF takes the failure path. All three controls
+  complete with expected returns. This checks instruction/port-table
+  interpretation only, not physical I/O or the validity of the fake chip.
+
+This is a concrete omission relative to the inspected driver, **not yet a
+proven cause** of the hardware failure. In particular, 40E1h+offset overlaps
+board/relay control excluded from the original probe's write scope; do not
+silently add it to `/P` or `/W`, or run the whole multi-board driver on VA.
+A revised, explicitly scoped control-port probe requires side-effect and
+cleanup review. Raw binaries, documents, addresses within their code,
+disassemblies, asset identities and synthetic traces remain outside Git.
+No emulator/probe implementation or new D88 is changed by this analysis;
+G143 remains NOT_READY.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?
