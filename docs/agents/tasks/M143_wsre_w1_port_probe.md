@@ -541,6 +541,59 @@ prior D88. No existing emulator source behavior is changed; old application
 worker evidence can be reused with its original binary identity. Final probe
 media and guest verification are recorded separately after the source commit.
 
+### W1INIT candidate media and guest checks
+
+Evaluated source:
+[d6fadd3469a6736355ced97050af8dd6ec0d0273](https://github.com/nakatamaho/vaeg/commit/d6fadd3469a6736355ced97050af8dd6ec0d0273).
+`build_scan.py --probe init --source "$MSDOS4_SOURCE" --output-dir "$NEW_OUTPUT_DIR"`
+returned 0 twice; raw D88s were byte-identical. Pinned boot/system/license
+hashes and added COM/help/license payload readback passed. Copies into the
+private handoff were verified with `cmp`. Public generated payload identities:
+
+- W1INIT.COM: `a6e15bdc51d017fbab160a6eb36766347ed3462f6fa00d9003a0b6eca56671c1`
+- wsr-e-init-probe-msdos4.d88: `23b92eabbb00261e5eb9230da3b97657d4e7913ab1fc59af795de56c1164f332`
+
+The isolated controls passed 13 W1INIT tests (exit 0, 1.114 s), 9 scanner
+tests and 8 comparator tests. Encoding/EOL/case/Markdown, diff and milestone
+49-case checks passed. There is no application behavior change; diff of the
+application/core directories against the retained worker's main-merge source
+is empty. The CMake change only registers the optional new control test.
+The retained worker digest is unchanged:
+`da5623aee2a5f8f86611757230e051b637839f2f2e42445f1c92c3831f9eb2ee`.
+
+Eight actual VA2/V3 MS-DOS guest runs under SDL dummy completed. Initial
+integration assertions are **6 PASS / 2 FAIL**, not an all-PASS campaign:
+
+| Model | Command | Actual exit | Actual summary | Initial assertion |
+|---|---|---:|---|---|
+| OFF | W1INIT | 0 | READ_ONLY | PASS |
+| OFF | W1INIT /E 7 | 2 | NONE_INCONCLUSIVE | PASS |
+| OFF | W1INIT /D ALL | 2 | NONE_INCONCLUSIVE | PASS |
+| ON, setting 0 | W1INIT /E 0 | 0 | CHIP_CANDIDATE 0 | PASS |
+| ON, setting 0 | W1INIT /E 7 | 2 | NONE_INCONCLUSIVE | PASS |
+| ON, setting 0 | W1INIT /D 0 | 2 | NONE_INCONCLUSIVE | FAIL: assumed positive handshake |
+| ON, setting 0 | W1INIT /D ALL | 2 | NONE_INCONCLUSIVE | FAIL: assumed positive handshake |
+| ON, setting 0 | W1INIT /D 7 | 2 | NONE_INCONCLUSIVE | PASS |
+
+The two failed assumptions are explained by the unchanged
+[`wsre_inp`](../../../cbus/wsre.c): Melco board-port reads intentionally return
+FF pending hardware evidence, including 40E1h after a 7Ah write. Both logs
+therefore show ACK=FF / REJECT_NO_WAKE. The probe refuses further candidate
+initialization as designed. No physical expectation, emulator behavior or
+original failed report is changed to fit these results. DOS positive-handshake
+integration is **BLOCKED by the current model**, with that success path tested
+only in the independent synthetic fixtures. This is not a claim about the
+real board's 7Ah readback.
+
+Checks include guest exit files, COM identity, complete CSV rows/build ID,
+gate and CR27/SR06 observations and final summaries. Raw per-case commands,
+logs, captures and their digests stay private. Test images replace AUTOEXEC
+for automation; the pristine handoff retains the pinned original and never
+auto-runs a probe. Both candidate image and worker digests remained unchanged.
+No expensive rerun of the unchanged worker is needed to preserve these facts.
+Hardware W1INIT execution is NOT_RUN and G143 remains NOT_READY. This is an
+experimental DOS-probe handoff, not an application build or milestone gate.
+
 ## Open
 
 - Does the VA slot pass 16-bit I/O cycles (SR06W, GR09W rows)?
