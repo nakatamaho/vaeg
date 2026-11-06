@@ -54,7 +54,7 @@ land.
   fails with `M144A_PCG_STATE_GUARD`; the mutation is reverted. Native build and
   seven focused CTests pass. This is not audio-phase or whole-machine acceptance.
 - **Task/evidence:** [M144a PCG state-domain contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-state-domain-preflight).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [b325e7f6b17fae2d68aa2d02b0ada10ef6f4e85d](https://github.com/nakatamaho/vaeg/commit/b325e7f6b17fae2d68aa2d02b0ada10ef6f4e85d).
 
 ### M144a — PCG configuration re-enable leaves blank text asleep
 
