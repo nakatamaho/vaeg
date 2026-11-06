@@ -29,6 +29,33 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Guest PCG I/O and state continuation
+
+Enabled PCG writes on the independent mkII/SR main CPU now bypass an overlapping
+VA compatible-I/O trap. The earlier N80 direct-I/O allow-list covered memory and
+digital video, but omitted PCG. A RAM-resident instruction fixture demonstrated
+that the first PCG OUT instead entered native mode at the configured trap vector.
+The correction admits only writes to 00h–03h and 0Ch–0Fh when PCG is enabled;
+reads, disabled PCG, neighbouring ports, other model roles and inactive 88 mode
+retain their existing routing. See the [bug-fix ledger](../../modernization/bug-fixes.md).
+
+The instruction-routing matrix now has 1,440 cases, including immediate, ED and
+block I/O, enabled/disabled PCG and six role/mode settings. Its PCG callbacks
+check the port, data and exact write count. Removing only the enabled guard is
+rejected with `M144A_N80_PCG_GUEST_ROUTE` for a disabled-PCG control case.
+
+The pending-write fixture now uses guest LD/OUT instructions, not host controller
+writes, for programming and continuation. It saves at IP C03Ah, advances to
+C040h, resets the controller and trap state, then loads the state file. It checks
+restored CPU IP/A, trap configuration and PCG state before resuming the pending
+OUT. Both model variants must complete the intended store and display-bank
+switch without host reconstruction of the pending data or address.
+
+The native build and seven focused CTest checks pass. The 65,536-case compositor
+matrix remains passing. These are instruction-dispatch, controller and state-file
+contracts; frame-boundary timing, audio-phase continuity and whole-machine
+acceptance remain separate. G144a is pending.
+
 ## Pending PCG write state contract
 
 The state-file fixture now covers pending PCG programming for both N80 model

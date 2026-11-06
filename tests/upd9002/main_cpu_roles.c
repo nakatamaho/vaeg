@@ -33,11 +33,26 @@
 #include "io/upd9002_regs.h"
 #include "io/videova.h"
 
+static UINT n80_pcg_port;
+static REG8 n80_pcg_data;
+static unsigned n80_pcg_writes;
+
+static void IOOUTCALL n80_pcg_output(UINT port, REG8 data) {
+	n80_pcg_port = port;
+	n80_pcg_data = data;
+	n80_pcg_writes++;
+}
+
 /* Real immediate, ED and block I/O with a deliberately overlapping VA trap.
  * Controls use the identical instruction/port, changing only model or mode. */
 static int n80_guest_io_selftest(void) {
-	static const UINT8 ports[] = {0x31, 0x33, 0x34, 0x35, 0x5c, 0x5d, 0x5e, 0x5f, 0x71, 0x50,
-	                              0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b};
+	/* Bit 8 is a fixture option (PCG enabled), not a port-address bit.
+	 * 04h and 0Bh are neighbouring non-PCG controls. */
+	static const UINT16 ports[] = {
+	    0x31, 0x33, 0x34,  0x35,  0x5c,  0x5d,  0x5e,  0x5f,  0x71,  0x50,  0x52,  0x53, 0x54, 0x55,
+	    0x56, 0x57, 0x58,  0x59,  0x5a,  0x5b,  0x00,  0x01,  0x02,  0x03,  0x0c,  0x0d, 0x0e, 0x0f,
+	    0x04, 0x0b, 0x100, 0x101, 0x102, 0x103, 0x10c, 0x10d, 0x10e, 0x10f, 0x104, 0x10b};
+	const UINT8 saved_pcg = np2cfg.pcg_enable;
 	const _MEMORYN80 saved = memoryn80;
 	const UINT8 saved_video[2] = {memoryn80_video[0], memoryn80_video[1]};
 	WORD saved_palette[8];
@@ -54,16 +69,24 @@ static int n80_guest_io_selftest(void) {
 		return FAILURE;
 	}
 	memctrlva_bind();
+	for (index = 0; index <= 0x0f; index++)
+		if (index <= 3 || index >= 0x0c)
+			iocore_attachout(index, n80_pcg_output);
 	for (role = 0; role < 6 && result == SUCCESS; role++) {
 		for (index = 0; index < NELEMENTS(ports) && result == SUCCESS; index++) {
 			for (form = 0; form < 3 && result == SUCCESS; form++) {
 				for (input = 0; input < 2 && result == SUCCESS; input++) {
-					const UINT8 port = ports[index];
+					const UINT8 port = (UINT8)ports[index];
+					const BOOL pcg = port <= 3 || (port >= 0x0c && port <= 0x0f);
+					const BOOL enabled = (ports[index] & 0x100) != 0;
 					const BOOL n80 = role == 3 || role == 4;
-					const BOOL direct = n80 && (input ?
-					    (port == 0x5c || port == 0x71 || (role == 4 && port == 0x33)) :
-					    (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
-					     (role == 4 && port >= 0x33 && port <= 0x35)));
+					const BOOL direct =
+					    n80 &&
+					    (input ? (port == 0x5c || port == 0x71 || (role == 4 && port == 0x33))
+					           : (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
+					              (role == 4 && port >= 0x33 && port <= 0x35) || (enabled && pcg)));
+					np2cfg.pcg_enable = enabled;
+					n80_pcg_writes = 0;
 					memoryva_pc8801 = role == 1;
 					memoryva_pc8001 = role >= 2;
 					memoryva_88_mode = 0;
@@ -129,15 +152,24 @@ static int n80_guest_io_selftest(void) {
 					           memoryva_88_alu.port034 || memoryva_88_alu.port035) {
 						result = FAILURE;
 					}
+					if (direct && !input && pcg) {
+						if (n80_pcg_writes != 1 || n80_pcg_port != port || n80_pcg_data != 0xc1)
+							result = FAILURE;
+					} else if (n80_pcg_writes) {
+						result = FAILURE;
+					}
 					cases++;
 					if (result != SUCCESS)
-						fprintf(stderr, "M144A_N80_GUEST_IO role=%u port=%02x form=%u input=%u ip=%04x\n",
-						        role, port, form, input, CPU_IP);
+						fprintf(stderr,
+						        "%s role=%u port=%02x form=%u input=%u enabled=%u ip=%04x\n",
+						        port <= 0x0f ? "M144A_N80_PCG_GUEST_ROUTE" : "M144A_N80_GUEST_IO",
+						        role, port, form, input, enabled, CPU_IP);
 				}
 			}
 		}
 	}
 	ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+	np2cfg.pcg_enable = saved_pcg;
 	memoryn80 = saved;
 	CopyMemory(memoryn80_video, saved_video, sizeof(saved_video));
 	CopyMemory(videova.palette, saved_palette, sizeof(saved_palette));

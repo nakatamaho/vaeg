@@ -781,15 +781,18 @@ class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
 
   private:
 	bool N80DirectIO(UINT8 port, bool input) const {
-		// Only implemented independent N80 memory and digital video controls
-		// bypass the VA firmware bridge. CRTC/text-command I/O stays trapped;
-		// 52h-5Bh supplies background, visibility and digital palette state.
+		// Implemented independent N80 memory/video controls and enabled PCG
+		// writes bypass the VA firmware bridge. CRTC/text-command I/O stays
+		// trapped; disabled PCG and PCG reads retain the existing bridge.
 		if (!main_upd780_active_ || !memoryva_pc8001 || !memoryva_88_mode ||
 		    memoryn80.model < 1 || memoryn80.model > 2) {
 			return false;
 		}
 		if (input) {
 			return port == 0x5c || port == 0x71 || (port == 0x33 && memoryn80.model == 2);
+		}
+		if (np2cfg.pcg_enable && (port <= 0x03 || (port >= 0x0c && port <= 0x0f))) {
+			return true;
 		}
 		return port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
 		       (memoryn80.model == 2 && port >= 0x33 && port <= 0x35);

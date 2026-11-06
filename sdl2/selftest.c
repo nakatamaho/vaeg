@@ -8011,6 +8011,7 @@ static int test_pc8001_banks(void) {
 	_MEMORYN80 saved_bank;
 	_PCG88 saved_pcg;
 	const UINT8 saved_pcg_enable = np2cfg.pcg_enable;
+	const UPD9002_IOTRAP saved_pcg_trap = upd9002_iotrap;
 	unsigned model;
 	SPRINTF(root, "vaeg-selftest-%lu-n80banks", (unsigned long)getpid());
 	SPRINTF(path, "vaeg-selftest-%lu-n80banks.sav", (unsigned long)getpid());
@@ -8231,27 +8232,60 @@ static int test_pc8001_banks(void) {
 				iocore_out8(0x53, 7);
 			}
 			if (!problem) {
-				unsigned bank;
+				/* Original RAM program: program both banks, leave an OUT
+				 * pending, then select the completed glyph after restoration. */
+				static const BYTE pcg_code[] = {0x3e, 0x08, 0xd3, 0x03, 0x3e, 0x3c, 0xd3, 0x00,
+				                                0x3e, 0x3f, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x1c, 0xd3, 0x03, 0x3e, 0xc3, 0xd3, 0x00,
+				                                0x3e, 0x3f, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x18, 0xd3, 0x03, 0x3e, 0x96, 0xd3, 0x00,
+				                                0x3e, 0x37, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x01, 0xd3, 0x00, 0x3e, 0x3f, 0xd3, 0x01,
+				                                0x3e, 0x12, /* save before the following OUT */
+				                                0xd3, 0x02, 0x3e, 0x1c, 0xd3, 0x03, 0x76};
+				unsigned step;
 				np2cfg.pcg_enable = 1;
 				pcg88_reset();
-				for (bank = 0; bank < 2; bank++) {
-					iocore_out8(0x03, bank ? 0x1c : 0x08);
-					iocore_out8(0x00, bank ? 0xc3 : 0x3c);
-					iocore_out8(0x01, 0x3f);
-					iocore_out8(0x02, 0x12);
+				CPU_RESET();
+				memoryva_88_mode = FALSE;
+				ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+				upd9002_iotrap.control = 2;
+				upd9002_iotrap.ranges[2] = 0x0f;
+				STOREINTELWORD(mem + 0x7d * 4, 0x3000);
+				STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
+				CopyMemory(mem + 0x1c000, pcg_code, sizeof(pcg_code));
+				mem[0x20100] = 0x0f;
+				mem[0x20101] = 0xff;
+				mem[0x20102] = 0x40;
+				STOREINTELWORD(mem + 0x100, 0xc000);
+				STOREINTELWORD(mem + 0x102, 0x1000);
+				CPU_CS = 0x2000;
+				CS_BASE = 0x20000;
+				CPU_DS = 0x1000;
+				DS_BASE = 0x10000;
+				CPU_SS = 0x3000;
+				SS_BASE = 0x30000;
+				CPU_IP = CPU_SP = 0x100;
+				CPU_BP = 0xd000;
+				CPU_FLAG = 0xf000;
+				CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+				upd9002_core_step();
+				memoryva_88_mode = TRUE;
+				for (step = 0; step < 29 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
+					upd9002_core_step();
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03a) {
+					fprintf(stderr, "selftest: PCG guest mode=%u ip=%04x steps=%u\n",
+					        CPU_COMPAT_MODE, CPU_IP, step);
+					problem = "M144A_N80_PCG_GUEST_CHECKPOINT";
 				}
-				/* Display bank 0 while programming bank 1. Keep the write
-				 * bit set, then change data/address without another 02h write. */
-				iocore_out8(0x03, 0x18);
-				iocore_out8(0x00, 0x96);
-				iocore_out8(0x01, 0x37);
-				iocore_out8(0x02, 0x12);
-				iocore_out8(0x00, 0xa7);
-				iocore_out8(0x01, 0x3f);
-				if (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xc3 ||
-				    pcg88.ram[1][0x237] != 0x96 || pcg88.address != 0x123f || pcg88.data != 0xa7 ||
-				    pcg88.setbank != 1)
-					problem = "M144A_N80_PCG_PENDING_SETUP";
+				if (!problem && (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xc3 ||
+				                 pcg88.ram[1][0x237] != 0x96 || pcg88.address != 0x123f ||
+				                 pcg88.data != 0x01 || pcg88.setbank != 1)) {
+					fprintf(stderr,
+					        "selftest: PCG guest data=%02x expected=01 grmode=%04x ip=%04x\n",
+					        pcg88.data, videova.grmode, CPU_IP);
+					problem = "M144A_N80_PCG_GUEST_SETUP";
+				}
 				CopyMemory(&saved_pcg, &pcg88, sizeof(saved_pcg));
 			}
 			saved_bank = memoryn80;
@@ -8259,12 +8293,21 @@ static int test_pc8001_banks(void) {
 			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
 				problem = "bank SAV save/preflight";
 			if (!problem) {
+				/* Advance beyond the checkpoint so a no-op CPU restore cannot pass. */
+				upd9002_core_step();
+				upd9002_core_step();
+				upd9002_core_step();
+				if (CPU_IP != 0xc040 || CPU_AL != 0x1c || pcg88.ram[1][0x23f] != 0x01)
+					problem = "M144A_N80_PCG_GUEST_PROGRESS";
+			}
+			if (!problem) {
 				iocore_out8(0x31, 2);
 				iocore_out8(0x52, 0);
 				iocore_out8(0x53, 0);
 				iocore_out8(0x55, 7);
 				iocore_out8(0x33, 0);
 				iocore_out8(0x71, 1);
+				ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
 				pcg88_reset();
 				if (statsave_load(path) != STATFLAG_SUCCESS ||
 				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
@@ -8276,21 +8319,32 @@ static int test_pc8001_banks(void) {
 				scrndrawva_compose_raster();
 				if (!problem && vabitmap[0] != 0x03ff)
 					problem = "M144A_N80_VIDEO_RESTORE";
+				if (!problem && (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03a ||
+				                 CPU_AL != 0x12))
+					problem = "M144A_N80_PCG_GUEST_CPU_STATE";
+				if (!problem && (upd9002_iotrap.control != 2 || upd9002_iotrap.ranges[0] != 0 ||
+				                 upd9002_iotrap.ranges[2] != 0x0f))
+					problem = "M144A_N80_PCG_GUEST_TRAP_STATE";
 				if (!problem && memcmp(&saved_pcg, &pcg88, sizeof(pcg88)))
 					problem = "M144A_N80_PCG_PENDING_STATE";
 			}
 			if (!problem) {
 				const BYTE *glyph;
-				/* Only the write port is issued again: restored data, low
-				 * address and write-bank latches must determine the store. */
-				iocore_out8(0x02, 0x12);
+				/* Resume the pending guest OUT without reloading its data,
+				 * address or bank from the host. */
+				upd9002_core_step();
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c)
+					problem = "M144A_N80_PCG_GUEST_CONTINUATION";
 				glyph = pcg88_glyph(0xc7);
-				if (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xa7 ||
-				    pcg88.ram[1][0x237] != 0x96 || !glyph || glyph[7] != 0x3c)
+				if (!problem && (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0x01 ||
+				                 pcg88.ram[1][0x237] != 0x96 || !glyph || glyph[7] != 0x3c))
 					problem = "M144A_N80_PCG_PENDING_CONTINUATION";
-				iocore_out8(0x03, 0x1c);
+				upd9002_core_step(); /* LD A,1Ch */
+				upd9002_core_step(); /* OUT (03h),A */
+				if (!problem && CPU_IP != 0xc040)
+					problem = "M144A_N80_PCG_GUEST_CONTINUATION";
 				glyph = pcg88_glyph(0xc7);
-				if (!problem && (!glyph || glyph[7] != 0xa7))
+				if (!problem && (!glyph || glyph[7] != 0x01))
 					problem = "M144A_N80_PCG_PENDING_DISPLAY";
 			}
 			if (!problem) {
@@ -8374,6 +8428,7 @@ static int test_pc8001_banks(void) {
 	pccore_term();
 	soundmng_deinitialize();
 	np2cfg.pcg_enable = saved_pcg_enable;
+	upd9002_iotrap = saved_pcg_trap;
 	if (problem)
 		return fail("N80 ROM banks", problem);
 	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");

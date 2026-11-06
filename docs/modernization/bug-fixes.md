@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M144a — N80 PCG writes intercepted by the VA bridge
+
+- **Symptom/scope:** with an overlapping VA compatible-I/O trap, an enabled
+  mkII/SR PCG write could leave the independent main CPU for the native trap
+  vector before reaching the controller. This is a bounded N80 routing-contract
+  correction; broader compatibility and human-gate acceptance remain pending.
+- **Demonstrated root cause:** `N80DirectIO` admitted memory and digital-video
+  controls but not PCG ports. The compatible instruction precheck consequently
+  took the inherited VA trap before executing the PCG OUT. The RAM instruction
+  fixture stopped in native mode after its first LD/OUT pair instead of reaching
+  its pending-write checkpoint.
+- **Correction:** admit writes to 00h–03h and 0Ch–0Fh only for enabled PCG on the
+  independent mkII/SR main CPU in 88 mode. Preserve reads, disabled PCG,
+  neighbouring ports and other role/mode routing.
+- **Verification:** 1,440 instruction/trap/configuration cases check immediate,
+  ED and block I/O. A guard-removal mutation fails specifically with
+  `M144A_N80_PCG_GUEST_ROUTE`. The guest program's PCG write, CPU progress,
+  state-file restoration and continuation pass on both model profiles; the
+  native build and seven focused CTest checks pass. No audio-phase or
+  frame-boundary timing qualification is inferred.
+- **Task/evidence:** [M144a guest PCG contract](../agents/tasks/M144a_x88000_compat_review.md#guest-pcg-io-and-state-continuation).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — compatible GVAM selection and unmask request transitions
 
 - **Scope/status:** implementation candidate, human gate pending. This corrects
