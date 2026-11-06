@@ -161,6 +161,39 @@ qualification. No private-media boot, final-client image comparison, Windows
 handoff or full G144a acceptance is claimed. In particular, a successful banking
 SAV round trip does not qualify the still-unimplemented SR display state.
 
+## Guest instruction I/O checkpoint
+
+The next M144a checkpoint implements a closed direct-I/O route in the existing
+main CPU adapter. It requires the independent main uPD780C, an applied mkII/SR
+model and 88 compatibility mode. Writes to 31h, 71h and 5Ch-5Fh are direct;
+SR additionally owns writes to 33h-35h. Reads are direct only for 5Ch, 71h,
+and SR's 33h. All other ports retain the VA firmware trap policy, including
+CRTC/text/palette control. Direct bus dispatch uses the low eight address bits,
+not the A/B high address byte of a Z80 I/O instruction. No trap registers are
+rewritten and no global trap-disable option is introduced.
+
+`tests/upd9002/main_cpu_roles.c` adds 360 actual instruction cases with an
+intentionally overlapping enabled VA trap: immediate IN/OUT, ED IN A,(C)/
+OUT (C),A and INI/OUTI; ten ports including an unimplemented 50h control;
+VA, PC-8801, original PC-8001, mkII, SR and compatibility-disabled controls.
+The direct cases check register/memory input results or real bank/ALU/plane
+side effects, compatible PC advancement and unchanged native stack. Trapped
+controls check the native handler entry/stack and unchanged controller state.
+This matrix does not cover every ED register form, ignored prefixes, repeated
+block instructions or interrupt-boundary interactions.
+
+The matrix is invoked by **`vaeg_upd9002_brkem_upd70008`**, not by the ordinary
+ROM-less test. Both have been run; the CPU log explicitly reports all 360 cases.
+A single mutation restoring the former unconditional trap branch fails at
+`M144A_N80_GUEST_IO` (mkII, immediate OUT 31h). Restoring the implementation
+passes again. A first build missing the I/O-trap declaration header failed;
+that log is retained separately from successful builds.
+
+This supersedes the earlier NOT_RUN status only for the instruction forms and
+ports above. It is not a BASIC boot, full graphics result or private-media test.
+The next dependencies are raster/palette/text-priority integration and
+state-transition contracts.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request

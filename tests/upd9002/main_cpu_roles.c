@@ -28,6 +28,120 @@
 #include "cpu/upd9002_upd70008.h"
 #include "memoryva/memoryva.h"
 #include "io/sysportva.h"
+#include "io/iocore.h"
+#include "io/memctrlva.h"
+#include "io/upd9002_regs.h"
+#include "io/videova.h"
+
+/* Real immediate, ED and block I/O with a deliberately overlapping VA trap.
+ * Controls use the identical instruction/port, changing only model or mode. */
+static int n80_guest_io_selftest(void) {
+	static const UINT8 ports[] = {0x31, 0x33, 0x34, 0x35, 0x5c, 0x5d, 0x5e, 0x5f, 0x71, 0x50};
+	const _MEMORYN80 saved = memoryn80;
+	const UINT8 saved_plane = memoryva_88_plane, saved31 = memoryva_88_port31;
+	const UINT8 saved71 = memoryva_88_xerom;
+	const UINT8 saved34 = memoryva_88_alu.port034, saved35 = memoryva_88_alu.port035;
+	const WORD saved_grmode = videova.grmode, saved_grres = videova.grres;
+	unsigned role, index, form, input, cases = 0;
+	int result = SUCCESS;
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return FAILURE;
+	}
+	memctrlva_bind();
+	for (role = 0; role < 6 && result == SUCCESS; role++) {
+		for (index = 0; index < NELEMENTS(ports) && result == SUCCESS; index++) {
+			for (form = 0; form < 3 && result == SUCCESS; form++) {
+				for (input = 0; input < 2 && result == SUCCESS; input++) {
+					const UINT8 port = ports[index];
+					const BOOL n80 = role == 3 || role == 4;
+					const BOOL direct = n80 && (input ?
+					    (port == 0x5c || port == 0x71 || (role == 4 && port == 0x33)) :
+					    (port == 0x31 || port == 0x71 || (port >= 0x5c && port <= 0x5f) ||
+					     (role == 4 && port >= 0x33 && port <= 0x35)));
+					memoryva_pc8801 = role == 1;
+					memoryva_pc8001 = role >= 2;
+					memoryva_88_mode = 0;
+					upd9002_core_initialize();
+					upd9002_upd70008_register();
+					upd9002_core_reset();
+					ZeroMemory(mem, 0x40000);
+					STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+					STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+					STOREINTELWORD(mem + (input ? 0x7c : 0x7d) * 4, 0x3000);
+					STOREINTELWORD(mem + (input ? 0x7c : 0x7d) * 4 + 2, 0x2000);
+					mem[0x20100] = 0x0f;
+					mem[0x20101] = 0xff;
+					mem[0x20102] = 0xe1;
+					mem[0x21000] = form == 0 ? (input ? 0xdb : 0xd3) : 0xed;
+					mem[0x21001] = form == 0 ? port : form == 1 ? (input ? 0x78 : 0x79) :
+					                                                          (input ? 0xa2 : 0xa3);
+					mem[0x21100] = 0xc1;
+					CPU_CS = CPU_DS = 0x2000;
+					CS_BASE = DS_BASE = 0x20000;
+					CPU_SS = 0x3000;
+					SS_BASE = 0x30000;
+					CPU_SP = 0x100;
+					CPU_BP = 0x200;
+					CPU_IP = 0x100;
+					CPU_AL = 0xc1;
+					CPU_CX = (UINT16)(0xa500 | port);
+					CPU_BX = 0x1100;
+					CPU_FLAG = 0xf000;
+					CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+					upd9002_core_step();
+					memoryva_88_mode = role != 5;
+					memoryn80.model = role == 3 ? 1 : role >= 4 ? 2 : 0;
+					memoryn80.port31 = 0;
+					memoryn80.port33 = 0x94;
+					memoryn80.port71 = 0;
+					memoryva_88_plane = 3;
+					memoryva_88_alu.port034 = memoryva_88_alu.port035 = 0;
+					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+					upd9002_iotrap.control = 3;
+					upd9002_iotrap.ranges[0] = upd9002_iotrap.ranges[2] = port;
+					upd9002_core_step();
+					if (direct) {
+						UINT8 expected = port == 0x33 ? 0x94 : port == 0x71 ? 0xfe : 0xf8;
+						if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0x1002 ||
+						    CPU_SP != 0xfa ||
+						    (input && (form == 2 ? mem[0x21100] : CPU_AL) != expected) ||
+						    (!input && ((port == 0x31 && memoryn80.port31 != 0xc1) ||
+						                (port == 0x33 && memoryn80.port33 != 0xc1) ||
+						                (port == 0x34 && memoryva_88_alu.port034 != 0xc1) ||
+						                (port == 0x35 && memoryva_88_alu.port035 != 0xc1) ||
+						                (port == 0x71 && memoryn80.port71 != 1) ||
+						                (port >= 0x5c && port <= 0x5f && memoryva_88_plane != port - 0x5c))))
+							result = FAILURE;
+					} else if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
+					           CPU_SP != 0xf4 || memoryn80.port31 != 0 || memoryn80.port33 != 0x94 ||
+					           memoryn80.port71 != 0 || memoryva_88_plane != 3 ||
+					           memoryva_88_alu.port034 || memoryva_88_alu.port035) {
+						result = FAILURE;
+					}
+					cases++;
+					if (result != SUCCESS)
+						fprintf(stderr, "M144A_N80_GUEST_IO role=%u port=%02x form=%u input=%u ip=%04x\n",
+						        role, port, form, input, CPU_IP);
+				}
+			}
+		}
+	}
+	ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+	memoryn80 = saved;
+	memoryva_88_plane = saved_plane;
+	memoryva_88_port31 = saved31;
+	memoryva_88_xerom = saved71;
+	memoryva_88_alu.port034 = saved34;
+	memoryva_88_alu.port035 = saved35;
+	videova.grmode = saved_grmode;
+	videova.grres = saved_grres;
+	iocore_destroy();
+	if (result == SUCCESS)
+		fprintf(stderr, "N80 guest I/O: %u instruction/trap/model cases PASS\n", cases);
+	return result;
+}
 
 /* Independent instruction fixture, never copied from private guest software. */
 int upd780_main_role_selftest(void) {
@@ -129,6 +243,8 @@ int upd780_main_role_selftest(void) {
 			break;
 		}
 	}
+	if (result == SUCCESS)
+		result = n80_guest_io_selftest();
 	memoryva_pc8801 = saved_pc8801;
 	memoryva_pc8001 = saved_pc8001;
 	memoryva_88_mode = saved_mode;
