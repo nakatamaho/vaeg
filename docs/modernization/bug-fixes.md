@@ -54,7 +54,7 @@ land.
   Native build and seven focused CTests pass. Actual menu-click/presenter
   automation, audio-phase continuity and hardware timing are not qualified.
 - **Task/evidence:** [M144a configuration-toggle contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-configuration-toggle-refresh).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [f96fb6e1dfc19cdc9b6cb4910fcc5d631a2cea6e](https://github.com/nakatamaho/vaeg/commit/f96fb6e1dfc19cdc9b6cb4910fcc5d631a2cea6e).
 
 ### M144a — programmable blank glyphs omitted or not refreshed
 
