@@ -8350,6 +8350,8 @@ static int test_n80_pcg_composition(void) {
 	 * index one is black: priority must depend on indices, not RGB. */
 	static const BYTE packed[8] = {0, 0, 1, 1, 2, 2, 3, 3};
 	static const BYTE planar[8] = {1, 4, 7, 2, 6, 3, 0, 5};
+	/* Second page: A5h/93h/39h, with a different transparent position. */
+	static const BYTE second_page[8] = {3, 0, 5, 6, 4, 1, 2, 7};
 	static const WORD colors[8] = {0x001f, 0, 0x03ff, 0x03e0, 0xfc1f, 0xfc00, 0xffff, 0xffe0};
 	const UINT8 saved_enable = np2cfg.pcg_enable;
 	const BOOL saved_88 = memoryva_88_mode;
@@ -8396,26 +8398,31 @@ static int test_n80_pcg_composition(void) {
 	tsp.emul_rows = 25;
 	videova.txtmode = 0;
 
-	for (test = 0; test < 32768 && !problem; test++) {
+	for (test = 0; test < 65536 && !problem; test++) {
+		/* The upper half is a separate SR 320-dot profile. Bits formerly
+		 * selecting model/colour select front page/page-1 visibility there. */
+		const BOOL paged = (test >> 15) & 1;
 		const unsigned flags = test & 31;
 		const BOOL blink = (test >> 5) & 1;
 		const BOOL global = (test >> 6) & 1;
 		const BOOL hidden = (test >> 7) & 1;
 		const BOOL graphics = (test >> 8) & 1;
 		const BOOL wide = (test >> 9) & 1;
-		const unsigned model = 1 + ((test >> 10) & 1);
+		const unsigned model = paged ? 2 : 1 + ((test >> 10) & 1);
+		const unsigned front_page = paged ? (test >> 10) & 1 : 0;
 		const unsigned bank = (test >> 11) & 1;
-		const BOOL color = (test >> 12) & 1;
+		const BOOL color = paged || ((test >> 12) & 1);
+		const BOOL page1_hidden = paged && ((test >> 12) & 1);
 		const BOOL behind = (test >> 13) & 1;
 		const BOOL graphic_hidden = (test >> 14) & 1;
 		const BOOL reverse = ((flags & 4) != 0) != global;
 		const BOOL secret = (flags & 1) || ((flags & 2) && blink);
 		const BYTE invert = bank ? 0xff : 0;
 		memoryn80.model = (UINT8)model;
-		iocore_out8(0x31, color ? (model == 1 ? 0x1c : 0x18) : 8);
-		iocore_out8(0x33, model == 2 ? (0x90 | (behind ? 8 : 0)) : 0);
+		iocore_out8(0x31, color ? (model == 1 || paged ? 0x1c : 0x18) : 8);
+		iocore_out8(0x33, model == 2 ? (0x90 | (behind ? 8 : 0) | (front_page << 2)) : 0);
 		iocore_out8(0x52, 0);
-		iocore_out8(0x53, hidden | (graphic_hidden ? 2 : 0));
+		iocore_out8(0x53, hidden | (graphic_hidden ? 2 : 0) | (page1_hidden ? 4 : 0));
 		for (r = 0; r < 8; r++)
 			iocore_out8(0x54 + r, r ^ 1);
 		iocore_out8(0x03, bank ? 0x1c : 0x08);
@@ -8433,9 +8440,18 @@ static int test_n80_pcg_composition(void) {
 			const BYTE first = graphics ? (color && model == 1 ? 0x1b : 0xa5) : 0;
 			const BYTE second = graphics && color && model == 2 ? 0x3c : 0;
 			const BYTE third = graphics && color && model == 2 ? 0x69 : 0;
-			grphmem[0x4000 + r * 80 + 2] = grphmem[0x4000 + r * 80 + 3] = first;
-			grphmem[0x14000 + r * 80 + 2] = grphmem[0x14000 + r * 80 + 3] = second;
-			grphmem[0x24000 + r * 80 + 2] = grphmem[0x24000 + r * 80 + 3] = third;
+			if (paged) {
+				grphmem[0x4000 + r * 40 + 1] = first;
+				grphmem[0x14000 + r * 40 + 1] = second;
+				grphmem[0x24000 + r * 40 + 1] = third;
+				grphmem[0x6000 + r * 40 + 1] = graphics ? 0xa5 : 0;
+				grphmem[0x16000 + r * 40 + 1] = graphics ? 0x93 : 0;
+				grphmem[0x26000 + r * 40 + 1] = graphics ? 0x39 : 0;
+			} else {
+				grphmem[0x4000 + r * 80 + 2] = grphmem[0x4000 + r * 80 + 3] = first;
+				grphmem[0x14000 + r * 80 + 2] = grphmem[0x14000 + r * 80 + 3] = second;
+				grphmem[0x24000 + r * 80 + 2] = grphmem[0x24000 + r * 80 + 3] = third;
+			}
 		}
 		v1v2_render_to(0, 0, 0xb002);
 		tsp.emul = 0;
@@ -8459,17 +8475,28 @@ static int test_n80_pcg_composition(void) {
 				const BOOL lit = hidden ? dot : ((dot || ink) != reverse);
 				WORD expected = lit ? 0xffff : 0;
 				if (color) {
-					const unsigned index = graphics && !graphic_hidden
-					                           ? (model == 1 ? packed[x % 8] : planar[x % 8])
-					                           : 0;
-					expected = graphic_hidden ? 0 : colors[index];
+					unsigned index = graphics && !graphic_hidden
+					                     ? (model == 1 ? packed[x % 8] : planar[x % 8])
+					                     : 0;
+					BOOL disabled = graphic_hidden;
+					if (paged) {
+						const unsigned page0 = graphics && !graphic_hidden ? planar[x / 2] : 0;
+						const unsigned page1 = graphics && !page1_hidden ? second_page[x / 2] : 0;
+						/* Select the visible front value, then the other page if zero. */
+						index = front_page ? page1 : page0;
+						if (!index)
+							index = front_page ? page0 : page1;
+						disabled = graphic_hidden && page1_hidden;
+					}
+					expected = disabled ? 0 : colors[index];
 					if (!hidden && (ink != reverse) && !(model == 2 && behind && index))
 						expected = 0xffff;
 				}
 				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
 					fprintf(stderr, "selftest: N80 PCG case=%u raster=%u pixel=%u\n", test, r, x);
-					problem =
-					    color ? "M144A_N80_PCG_COLOR_COMPOSITION" : "M144A_N80_PCG_COMPOSITION";
+					problem = paged   ? "M144A_N80_PCG_PAGE_COMPOSITION"
+					          : color ? "M144A_N80_PCG_COLOR_COMPOSITION"
+					                  : "M144A_N80_PCG_COMPOSITION";
 					break;
 				}
 			}
@@ -8485,7 +8512,7 @@ static int test_n80_pcg_composition(void) {
 	CopyMemory(cgromva_n80sr_font + 0xc00, saved_font, sizeof(saved_font));
 	if (problem)
 		return fail("N80 PCG composition", problem);
-	fprintf(stderr, "selftest: N80 PCG composition 32768 cases ok\n");
+	fprintf(stderr, "selftest: N80 PCG composition 65536 cases ok\n");
 	return SUCCESS;
 }
 

@@ -29,6 +29,23 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## SR two-page composition contract
+
+The matrix now adds 32,768 SR 320-dot combinations, for 65,536 total cases
+and 16,777,216 final-pixel comparisons. The new profile crosses front-page
+selection, independent page visibility, text-behind priority, programmable
+banks, 40/80-column text, all decoration combinations, blink, global reverse
+and graphics pattern presence. The two pages have different transparent
+positions and different overlapping colours, with independent expected-index
+tables. Disabling both pages must select the backdrop; an enabled zero-valued
+page must retain the separate palette-zero behaviour.
+
+A single mutation treats a visible front page as opaque even at colour index
+zero while preserving fallback from a disabled front page. The new profile
+rejects it with `M144A_N80_PCG_PAGE_COMPOSITION`. The mutation is not retained.
+This expands component coverage; it is not whole-machine or timing acceptance.
+Programming-time state transitions remain separate work. G144a remains pending.
+
 ## Colour and visibility composition contract
 
 The PCG/attribute/compositor matrix now specifies 32,768 combinations and
