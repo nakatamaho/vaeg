@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**G143 human gate PASSED; main merge authorized with explicit reference/target deferrals.** Branch: `topic/m143-runtime-speed`;
+**COMPLETE; G143 human gate PASSED; runtime-only main merge pushed with explicit reference/target deferrals.** Branch: `topic/m143-runtime-speed`;
 integration candidate: `topic/m143-runtime-integration`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
@@ -303,3 +303,31 @@ After the no-ff merge and closure records are pushed, remove only contained,
 clean runtime worktrees/local branches and verified task-owned build/scratch
 outputs under the gate cleanup rules. Retained evidence, supplied originals,
 shared caches/SDKs, remote branches, WSR-E and M145 are not cleanup targets.
+
+## Runtime-only main merge
+
+Pushed `--no-ff` merge:
+[cf9fdac14e2c34c018f58a2da58235f584a87c24](https://github.com/nakatamaho/vaeg/commit/cf9fdac14e2c34c018f58a2da58235f584a87c24).
+Its parents are accepted main
+[cb4edc1a05221971c5a048236eeeb172d2abf73e](https://github.com/nakatamaho/vaeg/commit/cb4edc1a05221971c5a048236eeeb172d2abf73e)
+and the runtime-only gate/deferral record
+[944111ed9733d4e279cebc49ff267f3cfb459ffb](https://github.com/nakatamaho/vaeg/commit/944111ed9733d4e279cebc49ff267f3cfb459ffb).
+The merge tree is exactly the locally checked topic tree; no conflict resolution
+or new emulator change was needed. WSR-E/M145 implementation commits are not
+ancestors, and their device/probe paths are absent.
+
+Runtime-speed and X11 contract selftests, release-identity and MacPorts helper
+tests, encoding/EOL/case/Markdown checks, all 49 milestone-ID selftests/audit and
+Git whitespace checks exit 0. A closed-path source comparison proves emulator,
+build and dependency inputs unchanged since `0acfa7dc`; the native, Linux and
+accepted Windows worker digests are rechecked. Git identity metadata naturally
+differs. Expensive behavior/media evidence is reused, not rerun or relabeled.
+No new executable, hosted-CI result or release is claimed for the merge commit.
+
+Before cleanup, 16,344 source file/link entries across the integration campaign,
+MacPorts records/output and Issue draft were verified against independent retained
+copies. The original frozen campaign remains unchanged; 546 later scratch-record
+versions are preserved separately rather than overwriting historical evidence.
+The accepted `1b7e6cbc` executable/report remain available in the retained handoff.
+Cleanup uses an explicit runtime-only path list after this merge/roadmap record
+is pushed; protected inputs, evidence, shared SDKs and other milestones remain.
