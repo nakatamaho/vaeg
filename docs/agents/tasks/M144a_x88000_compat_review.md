@@ -29,6 +29,26 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## PCG composition contract refinement
+
+Added a self-contained component matrix for PCG programming, character
+attribute decoding and final monochrome composition. The fixture writes
+synthetic patterns through ports 00h–03h and supplies character/attribute
+memory; it does not inject prepared text or colour rasters. A contrasting
+alternate glyph checks programmable-character selection priority.
+
+The matrix specifies 4,096 combinations: two model variants, 40/80-column
+layout, two programmable banks, all 32 decoration combinations, both blink
+phases, global reverse, graphics pattern presence and text-plane visibility.
+It checks 1,048,576 final pixel values. The restored implementation passes
+all seven focused checks. A single controlled bypass of programmable glyph
+selection fails with the exact code `M144A_N80_PCG_COMPOSITION`; that mutation
+is not retained in production code. No production behaviour change was needed.
+
+This extends component coverage, not whole-machine acceptance. Colour-mode
+layer priority, state transitions during programming and broader timing
+contracts remain separate work. G144a is still pending.
+
 ## Authorized implementation extension
 
 After receiving the source review, the maintainer explicitly requested implementation

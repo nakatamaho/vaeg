@@ -8340,6 +8340,130 @@ static int test_pc8001_banks(void) {
  * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
  * loads, BCD, short counts silent), the tone output, and nothing while the
  * PCG is disabled or outside 88 mode. */
+/* Synthetic PCG -> attribute decoder -> monochrome compositor contract.
+ * No prepared text raster is injected: both colours and glyph pixels must
+ * come from the production character path. */
+static int test_n80_pcg_composition(void) {
+	static const BYTE pattern[8] = {0x81, 0x42, 0x24, 0x18, 0xa5, 0x5a, 0xc3, 0x3c};
+	const UINT8 saved_enable = np2cfg.pcg_enable;
+	const BOOL saved_88 = memoryva_88_mode;
+	const BOOL saved_machine = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const BOOL saved_font_present = cgromva_n80sr_font_present;
+	BYTE saved_font[8];
+	const char *problem = NULL;
+	unsigned test, r, x;
+	BOOL scrn200;
+
+	CopyMemory(saved_font, cgromva_n80sr_font + 0xc00, sizeof(saved_font));
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	np2cfg.pcg_enable = 1;
+	memoryva_88_mode = TRUE;
+	memoryva_pc8001 = TRUE;
+	pcg88_reset();
+	cgromva_n80sr_font_present = TRUE;
+	FillMemory(cgromva_n80sr_font + 0xc00, sizeof(saved_font), 0xe7);
+	ZeroMemory(grphmem, sizeof(grphmem));
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002);
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	textmem[0x63ca] = textmem[0x63cb] = 0x80;
+	textmem[0x6418] = 0;
+	textmem[0x6419] = 0xe8;
+	textmem[0x641a] = 2;
+	for (r = 2; r < 20; r++)
+		textmem[0x6418 + r * 2] = 80;
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.textmg = 0;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode = 0;
+
+	for (test = 0; test < 4096 && !problem; test++) {
+		const unsigned flags = test & 31;
+		const BOOL blink = (test >> 5) & 1;
+		const BOOL global = (test >> 6) & 1;
+		const BOOL hidden = (test >> 7) & 1;
+		const BOOL graphics = (test >> 8) & 1;
+		const BOOL wide = (test >> 9) & 1;
+		const unsigned model = 1 + ((test >> 10) & 1);
+		const unsigned bank = (test >> 11) & 1;
+		const BOOL reverse = ((flags & 4) != 0) != global;
+		const BOOL secret = (flags & 1) || ((flags & 2) && blink);
+		const BYTE invert = bank ? 0xff : 0;
+		memoryn80.model = (UINT8)model;
+		iocore_out8(0x31, 8);
+		iocore_out8(0x33, model == 2 ? 0x90 : 0);
+		iocore_out8(0x52, 0);
+		iocore_out8(0x53, hidden);
+		iocore_out8(0x03, bank ? 0x1c : 0x08);
+		for (r = 0; r < 8; r++) {
+			iocore_out8(0x00, pattern[r] ^ invert);
+			iocore_out8(0x01, r);
+			iocore_out8(0x02, 0x10);
+		}
+		textmem[0x641b] = (BYTE)((flags & 7) | ((flags & 24) << 1));
+		tsp.blinkcnt2 = blink ? 8 : 0;
+		tsp.syncparam[1] = global ? 8 : 0;
+		videova.txtmode8 = wide ? 0 : 1;
+		videova.palette[15] = 0xffff;
+		for (r = 0; r < 16; r++) {
+			grphmem[0x4000 + r * 80 + 2] = graphics ? 0xa5 : 0;
+			grphmem[0x4000 + r * 80 + 3] = graphics ? 0xa5 : 0;
+		}
+		v1v2_render_to(0, 0, 0xb002);
+		tsp.emul = 0;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		tsp.emul = 1;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		scrndrawva_compose_begin();
+		for (r = 0; r < 16 && !problem; r++) {
+			const BOOL line = ((flags & 8) && r == 0) || ((flags & 16) && r == 15);
+			if (r)
+				makegrphva_raster();
+			maketextva_raster();
+			scrndrawva_compose_raster();
+			for (x = 0; x < 16; x++) {
+				const BOOL dot = graphics && ((0xa5 >> (7 - x % 8)) & 1);
+				const BOOL glyph =
+				    ((pattern[r / 2] ^ invert) >> (7 - (x / (wide ? 2 : 1)) % 8)) & 1;
+				const BOOL ink = line || (!secret && glyph);
+				const BOOL lit = hidden ? dot : ((dot || ink) != reverse);
+				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != (lit ? 0xffff : 0)) {
+					fprintf(stderr, "selftest: N80 PCG case=%u raster=%u pixel=%u\n", test, r, x);
+					problem = "M144A_N80_PCG_COMPOSITION";
+					break;
+				}
+			}
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	np2cfg.pcg_enable = saved_enable;
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_machine;
+	memoryn80 = saved_bank;
+	cgromva_n80sr_font_present = saved_font_present;
+	CopyMemory(cgromva_n80sr_font + 0xc00, saved_font, sizeof(saved_font));
+	if (problem)
+		return fail("N80 PCG composition", problem);
+	fprintf(stderr, "selftest: N80 PCG composition 4096 cases ok\n");
+	return SUCCESS;
+}
+
 static int test_pcg88(void) {
 	const UINT8 saved_enable = np2cfg.pcg_enable;
 	const BOOL saved_88 = memoryva_88_mode;
@@ -10348,6 +10472,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pcg88() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_n80_pcg_composition() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_tsp_attribute_modes() != SUCCESS) {
