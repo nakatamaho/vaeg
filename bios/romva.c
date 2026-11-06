@@ -240,6 +240,7 @@ void romva_initialize(void) {
 
 	memoryva_pc8001 = FALSE;
 	ZeroMemory(&memoryn80, sizeof(memoryn80));
+	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
 	memoryn80.port71 = 1;
 	memoryn80_sr_present = FALSE;
 	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);

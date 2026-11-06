@@ -36,14 +36,18 @@
 /* Real immediate, ED and block I/O with a deliberately overlapping VA trap.
  * Controls use the identical instruction/port, changing only model or mode. */
 static int n80_guest_io_selftest(void) {
-	static const UINT8 ports[] = {0x31, 0x33, 0x34, 0x35, 0x5c, 0x5d, 0x5e, 0x5f, 0x71, 0x50};
+	static const UINT8 ports[] = {0x31, 0x33, 0x34, 0x35, 0x5c, 0x5d, 0x5e, 0x5f, 0x71, 0x50,
+	                              0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b};
 	const _MEMORYN80 saved = memoryn80;
+	const UINT8 saved_video[2] = {memoryn80_video[0], memoryn80_video[1]};
+	WORD saved_palette[8];
 	const UINT8 saved_plane = memoryva_88_plane, saved31 = memoryva_88_port31;
 	const UINT8 saved71 = memoryva_88_xerom;
 	const UINT8 saved34 = memoryva_88_alu.port034, saved35 = memoryva_88_alu.port035;
 	const WORD saved_grmode = videova.grmode, saved_grres = videova.grres;
 	unsigned role, index, form, input, cases = 0;
 	int result = SUCCESS;
+	CopyMemory(saved_palette, videova.palette, sizeof(saved_palette));
 	iocore_create();
 	if (iocore_build() != SUCCESS) {
 		iocore_destroy();
@@ -58,7 +62,7 @@ static int n80_guest_io_selftest(void) {
 					const BOOL n80 = role == 3 || role == 4;
 					const BOOL direct = n80 && (input ?
 					    (port == 0x5c || port == 0x71 || (role == 4 && port == 0x33)) :
-					    (port == 0x31 || port == 0x71 || (port >= 0x5c && port <= 0x5f) ||
+					    (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
 					     (role == 4 && port >= 0x33 && port <= 0x35)));
 					memoryva_pc8801 = role == 1;
 					memoryva_pc8001 = role >= 2;
@@ -97,6 +101,7 @@ static int n80_guest_io_selftest(void) {
 					memoryn80.port33 = 0x94;
 					memoryn80.port71 = 0;
 					memoryva_88_plane = 3;
+					memoryn80_video[0] = memoryn80_video[1] = 0;
 					memoryva_88_alu.port034 = memoryva_88_alu.port035 = 0;
 					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
 					upd9002_iotrap.control = 3;
@@ -112,11 +117,15 @@ static int n80_guest_io_selftest(void) {
 						                (port == 0x34 && memoryva_88_alu.port034 != 0xc1) ||
 						                (port == 0x35 && memoryva_88_alu.port035 != 0xc1) ||
 						                (port == 0x71 && memoryn80.port71 != 1) ||
+						                (port == 0x52 && memoryn80_video[0] != 0xc1) ||
+						                (port == 0x53 && memoryn80_video[1] != 0xc1) ||
+						                (port >= 0x54 && port <= 0x5b && videova.palette[port - 0x54] != 0x001f) ||
 						                (port >= 0x5c && port <= 0x5f && memoryva_88_plane != port - 0x5c))))
 							result = FAILURE;
 					} else if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
 					           CPU_SP != 0xf4 || memoryn80.port31 != 0 || memoryn80.port33 != 0x94 ||
 					           memoryn80.port71 != 0 || memoryva_88_plane != 3 ||
+					           memoryn80_video[0] || memoryn80_video[1] ||
 					           memoryva_88_alu.port034 || memoryva_88_alu.port035) {
 						result = FAILURE;
 					}
@@ -130,6 +139,8 @@ static int n80_guest_io_selftest(void) {
 	}
 	ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
 	memoryn80 = saved;
+	CopyMemory(memoryn80_video, saved_video, sizeof(saved_video));
+	CopyMemory(videova.palette, saved_palette, sizeof(saved_palette));
 	memoryva_88_plane = saved_plane;
 	memoryva_88_port31 = saved31;
 	memoryva_88_xerom = saved71;

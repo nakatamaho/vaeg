@@ -194,6 +194,47 @@ ports above. It is not a BASIC boot, full graphics result or private-media test.
 The next dependencies are raster/palette/text-priority integration and
 state-transition contracts.
 
+## N80 colour raster and composition checkpoint
+
+Connected the mkII/SR **colour** path to production `makegrphva_raster` and
+`scrndrawva_compose_raster`, rather than merely exposing the earlier pixel
+helpers. The SR pixel helper now accepts a plane stride so CPU access and
+raster reads use the same persisted VA-bridge GVRAM storage, without a stale
+frame copy. The non-N80 compositor branch remains unchanged.
+
+Implemented in this checkpoint:
+
+- mkII packed 320-dot four-colour and 640-dot one-bit colour-index output;
+  SR planar 640-dot eight-colour and 320-dot two-page colour output;
+- direct guest output to 52h (background), 53h (visibility), 54h-5Bh (digital
+  palette); the closed guest-I/O matrix now contains 720 cases;
+- mkII automatic 31h palette selection, without replacing a custom palette
+  on identical mode writes;
+- SR 33h bit 2 front-page selection with zero-index transparency and 53h
+  page disable; bit 3 places text behind nonzero graphics in SR colour mode;
+- existing text raster/colour indices participate in composition; 53h bit 0
+  disables text; no fictitious N80 sprite layer is inserted;
+- existing layer toggles and video-output enable are respected;
+- `N80VIDEO` version 1 stores the two raw video-control bytes; palettes remain
+  in the existing `VIDEOVA` state section. Missing `N80VIDEO` starts at zero.
+
+Synthetic tests inspect actual final `vabitmap` pixels after production raster
+and compositor calls: automatic palette, text foreground, SR page/text priority,
+front-page disable and backdrop. Actual SAV load restores video controls,
+modified palette and resulting compositor pixel, in addition to the earlier
+bank tests. A passing-fixture single mutation disabling text-behind priority
+fails specifically with `M144A_N80_VIDEO_PRIORITY`; the mutation is reverted.
+A first build used `sizeof` on an incomplete raster declaration and failed;
+that log is preserved, followed by corrected builds using `SURFACE_WIDTH`.
+
+**Coverage boundary:** these are final emulator-buffer checks with synthetic
+text/VRAM, not an approved final-client screenshot or a running BASIC/game.
+Monochrome N80-specific attribute composition, border timing, alternate SR fonts,
+full CRTC/text commands, reset into SR BASIC and a live mid-frame mode switch
+remain unqualified. In particular the colour path does not claim completion
+of those other modes. Further mode and state-transition contracts remain
+separate work. No human gate or main merge is authorized here.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request

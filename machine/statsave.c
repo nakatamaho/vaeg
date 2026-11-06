@@ -1952,6 +1952,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	iocore_reset(); // Sound-board reset calls the native PIC interface.
 	/* Missing N80BANK is an older N80-only state: preserve the applied
 	 * model/ROM inputs and reproduce its unbanked upper BASIC selection. */
+	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
 	memoryn80.port31 = 1;
 	memoryn80.port33 = 0;
 	memoryn80.port71 = 1;

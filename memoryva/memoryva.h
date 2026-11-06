@@ -86,6 +86,8 @@ typedef struct {
 	UINT8 port71;
 } _MEMORYN80;
 extern _MEMORYN80 memoryn80;
+extern UINT8 memoryn80_video[2]; /* raw ports 52h, 53h; separate optional SAV section */
+BOOL memoryva_n80_color(void);
 extern BYTE memoryn80_srrom[0xa000];
 extern BYTE memoryn80_fourth[0x2000];
 extern BOOL memoryn80_sr_present;

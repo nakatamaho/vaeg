@@ -409,6 +409,13 @@ MAME標準名や実機検証済み仕様とは表記しない。SRの40 KiB ROM�
 BASIC起動や描画をPASSにするものではない。
 [ゲストI/Oチェックポイント](../agents/tasks/M144a_x88000_compat_review.md#guest-instruction-io-checkpoint)。
 
+カラー表示の後続実装では、mkIIの4色、SRの2ページ／8色出力を本体ラスタへ接続した。
+52h–5Bhのデジタルパレット・表示制御をゲストI/O経路へ追加し、命令試験は720ケースに
+拡大した。SRのページ優先、透明色0、文字を背面へ置く33h bit 3は最終`vabitmap`画素で
+検査する。文字・ページ表示禁止、背景色、パレットと表示制御のSAV復元も合成入力で
+確認する。これはモノクロ固有属性、SRフォント、実媒体起動やホスト画面の確認までを
+意味しない。[カラー接続の範囲](../agents/tasks/M144a_x88000_compat_review.md#n80-colour-raster-and-composition-checkpoint)。
+
 以下の非主張は元の調査チェックポイントに関するもの。
 今回の結果は**SOURCE_REVIEW**であって、実機・ゲスト・画面・音声のPASSではない。
 新しいビルド、ROM／媒体実行、描画キャプチャ、実機I/O、修正コミットは存在しない。

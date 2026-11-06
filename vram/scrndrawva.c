@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include "memoryva.h"
 #include "scrnmng.h"
 #include "machine/pccore.h"
 #include "iocore.h"
@@ -198,6 +199,28 @@ void scrndrawva_compose_raster(void) {
 	WORD xparhigh;
 	int blinkfreq;
 	BOOL merge;
+
+	if (memoryva_n80_color()) {
+		const BOOL graphics = layer_enabled[VAEG_VA_LAYER_GRAPHICS0] && !grph0_noraster;
+		const BOOL text = layer_enabled[VAEG_VA_LAYER_TEXT] && !(memoryn80_video[1] & 1);
+		const BOOL text_behind = memoryn80.model == 2 && (memoryn80.port33 & 0x80) &&
+		                         (memoryn80.port33 & 8);
+		const unsigned background = (memoryn80_video[0] >> 4) & 7;
+		const WORD backdrop = (WORD)(((background & 1) ? 0x001f : 0) |
+		                             ((background & 2) ? 0x03e0 : 0) |
+		                             ((background & 4) ? 0xfc00 : 0));
+		for (x = 0; x < SURFACE_WIDTH; x++) {
+			const unsigned graphic = graphics ? grph0_raster[x] & 7 : 0;
+			const unsigned character = text ? textraster[x] & 15 : 0;
+			WORD color = graphics ? videova.palette[graphic] : backdrop;
+			if (character && (!text_behind || !graphic))
+				color = videova.palette[character];
+			work.bp[x] = (videova.grmode & 0x3000) == 0x3000 ? color : 0;
+		}
+		work.bp += SURFACE_WIDTH;
+		work.y++;
+		return;
+	}
 
 	// テキストとスプライトの出力を重ね合わせ、
 	// テキスト/スプライト判別境界カラーで分離する

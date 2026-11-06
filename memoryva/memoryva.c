@@ -74,6 +74,13 @@ _MEMORYVA88ERAM memoryva_88_eram;
 BYTE memoryva_n80[0x8000];
 BOOL memoryva_pc8001;
 _MEMORYN80 memoryn80;
+UINT8 memoryn80_video[2];
+
+BOOL memoryva_n80_color(void) {
+	return memoryva_88_mode && memoryva_pc8001 && memoryn80.model &&
+	       ((memoryn80.model == 2 && (memoryn80.port33 & 0x80)) ?
+	        (memoryn80.port31 & 0x10) != 0 : (memoryn80.port31 & 0x14) != 0);
+}
 BYTE memoryn80_srrom[0xa000];
 BYTE memoryn80_fourth[0x2000];
 BOOL memoryn80_sr_present;

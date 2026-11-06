@@ -121,9 +121,44 @@ static REG8 IOINPCALL memctrlva_i071(UINT port) {
 	return 0xfe | ((memoryva_pc8001 && memoryn80.model) ? memoryn80.port71 : memoryva_88_xerom);
 }
 
+static WORD n80_digital_color(REG8 color) {
+	return (WORD)(((color & 1) ? 0x001f : 0) | ((color & 2) ? 0x03e0 : 0) |
+	              ((color & 4) ? 0xfc00 : 0));
+}
+
+static void n80_mode_palette(void) {
+	unsigned i;
+	if (!memoryva_pc8001 || !memoryn80.model ||
+	    (memoryn80.model == 2 && (memoryn80.port33 & 0x80)))
+		return;
+	/* N80 320-dot mode assigns three fixed colours and the 31h colour. */
+	if (memoryn80.port31 & 0x10) {
+		for (i = 0; i < 8; i++) {
+			unsigned color = (i & 3) == 3 ? memoryn80.port31 >> 5 :
+			                 ((i & 3) * 2 + ((memoryn80.port31 & 4) ? 1 : 0));
+			videova.palette[i] = n80_digital_color(color);
+		}
+	} else if (memoryn80.port31 & 4) {
+		for (i = 0; i < 8; i++)
+			videova.palette[i] = n80_digital_color(i & 1 ? memoryn80.port31 >> 5 : 0);
+	}
+}
+
+static void IOOUTCALL memctrlva_o_n80video(UINT port, REG8 dat) {
+	if (!memoryva_pc8001 || !memoryn80.model)
+		return;
+	if (port == 0x52 || port == 0x53)
+		memoryn80_video[port - 0x52] = (UINT8)dat;
+	else if (port >= 0x54 && port <= 0x5b)
+		videova.palette[port - 0x54] = n80_digital_color(dat);
+}
+
 static void IOOUTCALL memctrlva_o033(UINT port, REG8 dat) {
 	if (memoryva_pc8001 && memoryn80.model == 2) {
+		const UINT8 changed = memoryn80.port33 ^ (UINT8)dat;
 		memoryn80.port33 = (UINT8)dat;
+		if (changed & 0x80)
+			n80_mode_palette();
 	}
 	(void)port;
 }
@@ -139,10 +174,14 @@ static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
 	 * and bits 0, 2 and 4 are its own bank and graphics bits (X88000
 	 * WriteIO_31_N80), not the 200-line, N/N88 ROM and colour bits of a
 	 * PC-8801: keep N-BASIC and the 200-line display the PC-8001 family
-	 * always has. The mkII's own graphics modes are not modelled.
+	 * always has. M144a keeps the raw value for the independent N80 colour
+	 * raster path; the translated value still serves the VA bootstrap bridge.
 	 */
 	if (memoryva_pc8001) {
+		const UINT8 changed = memoryn80.port31 ^ (UINT8)dat;
 		memoryn80.port31 = (UINT8)dat;
+		if (changed & 0xf4)
+			n80_mode_palette();
 		dat = (REG8)((dat & 0x0a) | 0x05);
 	}
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
@@ -328,6 +367,9 @@ void memctrlva_reset(void) {
 }
 
 void memctrlva_bind(void) {
+	UINT port;
+	for (port = 0x52; port <= 0x5b; port++)
+		iocore_attachout(port, memctrlva_o_n80video);
 	iocore_attachout(0x031, memctrlva_o031);
 	iocore_attachout(0x033, memctrlva_o033);
 	iocore_attachinp(0x033, memctrlva_i033);

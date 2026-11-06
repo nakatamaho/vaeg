@@ -63,33 +63,39 @@ unsigned pc8001_mkii_pixel(const uint8_t *vram, unsigned x, unsigned y, int dots
 	return (vram[offset] >> (7 - (x & 7))) & 1;
 }
 
-static unsigned planar_pixel(const uint8_t *vram, unsigned offset, unsigned bit) {
+static unsigned planar_pixel(const uint8_t *vram, unsigned stride, unsigned offset, unsigned bit) {
 	unsigned colour = 0;
 	unsigned plane;
 	for (plane = 0; plane < 3; plane++) {
-		colour |= ((vram[plane * PC8001_PLANE_BYTES + offset] >> bit) & 1U) << plane;
+		colour |= ((vram[plane * stride + offset] >> bit) & 1U) << plane;
 	}
 	return colour;
 }
 
 unsigned pc8001_sr_pixel(const uint8_t *vram, unsigned x, unsigned y,
                         int dots320, unsigned front_page, uint8_t port53) {
+	return pc8001_sr_pixel_strided(vram, PC8001_PLANE_BYTES, x, y, dots320, front_page, port53);
+}
+
+unsigned pc8001_sr_pixel_strided(const uint8_t *vram, unsigned stride,
+                                unsigned x, unsigned y, int dots320,
+                                unsigned front_page, uint8_t port53) {
 	unsigned front;
 	unsigned back;
 	unsigned offset;
 	unsigned bit;
-	if (!vram || x >= 640 || y >= 200 || front_page > 1) {
+	if (!vram || stride < PC8001_PLANE_BYTES || x >= 640 || y >= 200 || front_page > 1) {
 		return 0;
 	}
 	if (!dots320) {
-		return (port53 & 2) ? 0 : planar_pixel(vram, y * 80 + x / 8, 7 - (x & 7));
+		return (port53 & 2) ? 0 : planar_pixel(vram, stride, y * 80 + x / 8, 7 - (x & 7));
 	}
 	x /= 2;
 	offset = y * 40 + x / 8;
 	bit = 7 - (x & 7);
 	front = (port53 & (2U << front_page)) ? 0 :
-	        planar_pixel(vram, offset + front_page * 0x2000, bit);
+	        planar_pixel(vram, stride, offset + front_page * 0x2000, bit);
 	back = (port53 & (2U << (1 - front_page))) ? 0 :
-	       planar_pixel(vram, offset + (1 - front_page) * 0x2000, bit);
+	       planar_pixel(vram, stride, offset + (1 - front_page) * 0x2000, bit);
 	return front ? front : back;
 }

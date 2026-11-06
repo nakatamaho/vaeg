@@ -8097,18 +8097,76 @@ static int test_pc8001_banks(void) {
 							problem = "N80SR latched ALU copy";
 				}
 			}
+			if (!problem) {
+				/* Final compositor pixels, not a reimplementation of the decoder. */
+				iocore_out8(0x31, 0x1c);
+				iocore_out8(0x53, 0);
+				if (model == 1 && (videova.palette[0] != 0x001f ||
+				                  videova.palette[1] != 0x03ff || videova.palette[2] != 0xfc1f ||
+				                  videova.palette[3] != 0))
+					problem = "M144A_N80_VIDEO_AUTO_PALETTE";
+				ZeroMemory(grphmem, sizeof(grphmem));
+				grphmem[0x4000] = model == 1 ? 0xc0 : 0x80;
+				grphmem[0x16000] = 0x80;
+				iocore_out8(0x54, 0);
+				iocore_out8(0x55, 1);
+				iocore_out8(0x56, 2);
+				iocore_out8(0x57, 4);
+				iocore_out8(0x31, 0x1c);
+				iocore_out8(0x33, memoryn80.port33);
+				if (videova.palette[1] != 0x001f)
+					problem = "M144A_N80_VIDEO_PALETTE_PERSIST";
+				videova.palette[15] = 0xffff;
+				ZeroMemory(textraster, SURFACE_WIDTH);
+				textraster[0] = 15;
+				v1v2_render_to(0, 0, 0xb002);
+				if (grph0_noraster || grph0_raster[0] != (model == 1 ? 3 : 1))
+					problem = "M144A_N80_VIDEO_RASTER";
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (vabitmap[0] != 0xffff || vabitmap[1] != (model == 1 ? 0xfc00 : 0x001f))
+					problem = "M144A_N80_VIDEO_TEXT_FRONT";
+				if (model == 2) {
+					iocore_out8(0x33, 0xcc);
+					v1v2_render_to(0, 0, 0xb002);
+					scrndrawva_compose_begin();
+					scrndrawva_compose_raster();
+					if (grph0_raster[0] != 2 || vabitmap[0] != 0x03e0)
+						problem = "M144A_N80_VIDEO_PRIORITY";
+					iocore_out8(0x53, 4);
+					v1v2_render_to(0, 0, 0xb002);
+					if (grph0_raster[0] != 1)
+						problem = "M144A_N80_VIDEO_PAGE_DISABLE";
+				}
+				iocore_out8(0x52, 0x30);
+				iocore_out8(0x53, 7);
+				v1v2_render_to(0, 0, 0xb002);
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (vabitmap[0] != 0x03ff)
+					problem = "M144A_N80_VIDEO_BACKGROUND";
+			}
 			saved_bank = memoryn80;
 			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
 			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
 				problem = "bank SAV save/preflight";
 			if (!problem) {
 				iocore_out8(0x31, 2);
+				iocore_out8(0x52, 0);
+				iocore_out8(0x53, 0);
+				iocore_out8(0x55, 7);
 				iocore_out8(0x33, 0);
 				iocore_out8(0x71, 1);
 				if (statsave_load(path) != STATFLAG_SUCCESS ||
 				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
+				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 || videova.palette[1] != 0x001f ||
 				    upd9002_memoryread_va(0x16000) != (model == 2 ? memoryn80_srrom[0x8000] : 0x72))
 					problem = "bank SAV restore and mapped byte";
+				v1v2_render_to(0, 0, 0xb002);
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (!problem && vabitmap[0] != 0x03ff)
+					problem = "M144A_N80_VIDEO_RESTORE";
 			}
 			if (!problem) {
 				BYTE *data = NULL;

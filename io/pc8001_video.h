@@ -59,6 +59,9 @@ int pc8001_gvram_window(uint16_t address, unsigned plane, int gvam, int gam);
  * The input is three consecutive 16 KiB B/R/G planes. Invalid coordinates
  * return zero without reading the input. */
 unsigned pc8001_mkii_pixel(const uint8_t *vram, unsigned x, unsigned y, int dots320);
+unsigned pc8001_sr_pixel_strided(const uint8_t *vram, unsigned stride,
+                                unsigned x, unsigned y, int dots320,
+                                unsigned front_page, uint8_t port53);
 unsigned pc8001_sr_pixel(const uint8_t *vram, unsigned x, unsigned y,
                         int dots320, unsigned front_page, uint8_t port53);
 

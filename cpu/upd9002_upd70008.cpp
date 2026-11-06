@@ -781,9 +781,9 @@ class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
 
   private:
 	bool N80DirectIO(UINT8 port, bool input) const {
-		// Only the implemented independent N80 memory controller bypasses
-		// the VA firmware bridge. In particular, CRTC/text/palette I/O stays
-		// trapped until those devices have their own qualified implementation.
+		// Only implemented independent N80 memory and digital video controls
+		// bypass the VA firmware bridge. CRTC/text-command I/O stays trapped;
+		// 52h-5Bh supplies background, visibility and digital palette state.
 		if (!main_upd780_active_ || !memoryva_pc8001 || !memoryva_88_mode ||
 		    memoryn80.model < 1 || memoryn80.model > 2) {
 			return false;
@@ -791,7 +791,7 @@ class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
 		if (input) {
 			return port == 0x5c || port == 0x71 || (port == 0x33 && memoryn80.model == 2);
 		}
-		return port == 0x31 || port == 0x71 || (port >= 0x5c && port <= 0x5f) ||
+		return port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
 		       (memoryn80.model == 2 && port >= 0x33 && port <= 0x35);
 	}
 

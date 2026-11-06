@@ -7,6 +7,8 @@
 #include "gvramva.h"
 #include "videova.h"
 #include "makegrphva.h"
+#include "memoryva.h"
+#include "io/pc8001_video.h"
 
 enum {
 	GRPHVA_SCREENS = 2,
@@ -1088,6 +1090,29 @@ void makegrphva_setwindow(const struct videova_graphics_window *window) {
 }
 
 static void readline(void) {
+	if (memoryva_n80_color()) {
+		const unsigned y = work.screen[0].y++;
+		const BOOL sr = memoryn80.model == 2 && (memoryn80.port33 & 0x80);
+		unsigned x;
+		grph1_noraster = TRUE;
+		grph0_noraster = y >= 200 || !(memoryn80.port31 & 8) ||
+		    ((sr && (memoryn80.port31 & 4)) ? (memoryn80_video[1] & 6) == 6 :
+		                                              (memoryn80_video[1] & 2) != 0);
+		for (x = 0; x < SURFACE_WIDTH; x++) {
+			unsigned color = 0;
+			if (!grph0_noraster && x < 640) {
+				if (sr)
+					color = pc8001_sr_pixel_strided(grphmem + 0x4000, 0x10000, x, y,
+					    (memoryn80.port31 & 4) != 0, (memoryn80.port33 >> 2) & 1,
+					    memoryn80_video[1]);
+				else if (!(memoryn80_video[1] & 2))
+					color = pc8001_mkii_pixel(grphmem + 0x4000, x, y,
+					    (memoryn80.port31 & 0x10) != 0);
+			}
+			grph0_raster[x] = (WORD)color;
+		}
+		return;
+	}
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();
