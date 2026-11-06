@@ -90,6 +90,24 @@ static BYTE pcg88_rom(UINT address) {
 	return fontmem[0x41000 + (address & 0x7ff)];
 }
 
+BOOL pcg88_state_valid(const _PCG88 *state) {
+	UINT i;
+	if (!state || state->setbank > 1)
+		return FALSE;
+	for (i = 0; i < 2; i++) {
+		if (state->bank[i] > 1 || state->display[i] > 1)
+			return FALSE;
+	}
+	for (i = 0; i < 3; i++) {
+		if (state->sound_on[i] > 1 || state->rl[i] > 3 || state->mode[i] > 5 ||
+		    state->msb[i] > 1 || state->bcd[i] > 1)
+			return FALSE;
+	}
+	/* RAM, data, address and raw counters accept every bit pattern written
+	 * by the guest, including nondecimal nibbles in a BCD counter. */
+	return TRUE;
+}
+
 void pcg88_reset(void) {
 	UINT i;
 

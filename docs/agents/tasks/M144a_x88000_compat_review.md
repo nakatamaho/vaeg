@@ -28,6 +28,31 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## PCG state-domain preflight
+
+The PCG state section previously received version/size checks but no field-domain
+validation. A generated SAV with a bank selector changed to 2 passed preflight,
+although glyph lookup and programming index a two-bank array with these selectors.
+The test stops before applying an accepted malformed fixture; it does not execute
+an out-of-bounds access or claim a reproduced crash.
+
+`pcg88_state_valid()` checks the 20 selector/flag/mode bytes independently of
+file I/O and live device state. State preflight calls it before machine reset or
+state application and rejects violations with `M144A_PCG_STATE`. Every raw RAM,
+data, address and counter bit pattern remains allowed, including nondecimal BCD
+counter nibbles. This is bounded field-domain validation, not a proof that every
+accepted combination is historically reachable. The section layout/version and
+optional-section handling are unchanged.
+
+For both model profiles, all 256 values of each constrained byte are classified
+(10,240 checks). Eighty generated SAV negatives each change one byte of an
+initially passing fixture to either the first invalid value or FFh. They require
+the exact error and failed load, with CPU IP, controller state, N80 banking and
+a RAM sample unchanged. Removing only the preflight validator call fails with
+`M144A_PCG_STATE_GUARD`, independently of the passing pure domain checks. The
+mutation is reverted; native build and seven focused CTests pass. See the
+[bug-fix ledger](../../modernization/bug-fixes.md). G144a remains pending.
+
 ## PCG configuration-toggle refresh
 
 The menu's direct configuration assignment did not notify text refresh. For

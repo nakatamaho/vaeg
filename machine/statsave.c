@@ -1771,6 +1771,15 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 						ret = STATFLAG_FAILURE;
 					}
 				}
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &pcg88) {
+					_PCG88 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    !pcg88_state_valid(&candidate)) {
+						statflag_seterr(&sffh->sfh, "M144A_PCG_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
 				break;
 
 			case STATFLAG_UPD9002_CPU:

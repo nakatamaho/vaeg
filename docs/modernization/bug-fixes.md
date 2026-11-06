@@ -35,6 +35,27 @@ land.
 
 ## Maintenance Rules
 
+### M144a — malformed PCG state selectors accepted before load
+
+- **Symptom/scope:** a correctly sized PCG state payload could contain bank
+  selectors outside the two-bank array. Accepting these values risks out-of-bounds
+  glyph reads or programming writes after loading. The shared PCG state section
+  is affected, not just one machine selection; no crash is claimed as reproduced.
+- **Demonstrated root cause:** preflight checked only version and payload size
+  for the binary PCG section. Its selector values later serve directly as array
+  indices. A generated fixture with selector 2 was accepted before the fix.
+- **Correction:** validate bank selectors and bounded flag/mode fields in a pure
+  helper, invoked by preflight before machine reset/state application. Report
+  `M144A_PCG_STATE`. Keep raw RAM/address/data/counter bits unrestricted and do
+  not change the section version, structure or optional-section handling.
+- **Verification:** 10,240 field-domain classifications and 80 single-byte SAV
+  negatives across both N80 profiles. Rejection checks include unchanged live
+  CPU IP, PCG state, banking and a RAM sample. Bypassing only the preflight call
+  fails with `M144A_PCG_STATE_GUARD`; the mutation is reverted. Native build and
+  seven focused CTests pass. This is not audio-phase or whole-machine acceptance.
+- **Task/evidence:** [M144a PCG state-domain contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-state-domain-preflight).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — PCG configuration re-enable leaves blank text asleep
 
 - **Symptom/scope:** disabling and re-enabling PCG through configuration could

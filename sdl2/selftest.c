@@ -24,6 +24,7 @@
  */
 #include "compiler.h"
 #include <errno.h>
+#include <stddef.h>
 #if defined(_WIN32)
 #include <direct.h>
 #else
@@ -8380,6 +8381,86 @@ static int test_pc8001_banks(void) {
 				if (data)
 					_MFREE(data);
 			}
+			if (!problem) {
+				static const struct {
+					size_t offset;
+					UINT count;
+					BYTE maximum;
+				} fields[] = {{offsetof(_PCG88, bank), 2, 1},    {offsetof(_PCG88, display), 2, 1},
+				              {offsetof(_PCG88, setbank), 1, 1}, {offsetof(_PCG88, sound_on), 3, 1},
+				              {offsetof(_PCG88, rl), 3, 3},      {offsetof(_PCG88, mode), 3, 5},
+				              {offsetof(_PCG88, msb), 3, 1},     {offsetof(_PCG88, bcd), 3, 1}};
+				BYTE *data = NULL;
+				UINT size = 0, pos, field, byte, mutation;
+				_PCG88 before;
+				const UINT16 before_ip = CPU_IP;
+				const BYTE before_ram = mem[0x1c000];
+				CopyMemory(&before, &pcg88, sizeof(before));
+				{
+					_PCG88 candidate;
+					BYTE *bytes = (BYTE *)&candidate;
+					UINT value;
+					FillMemory(&candidate, sizeof(candidate), 0xff);
+					for (field = 0; field < NELEMENTS(fields); field++)
+						FillMemory(bytes + fields[field].offset, fields[field].count,
+						           fields[field].maximum);
+					if (pcg88_state_valid(NULL) || !pcg88_state_valid(&candidate))
+						problem = "M144A_PCG_STATE_DOMAIN_FIXTURE";
+					for (field = 0; field < NELEMENTS(fields) && !problem; field++) {
+						for (byte = 0; byte < fields[field].count && !problem; byte++) {
+							for (value = 0; value < 256 && !problem; value++) {
+								bytes[fields[field].offset + byte] = (BYTE)value;
+								if (!!pcg88_state_valid(&candidate) !=
+								    (value <= fields[field].maximum))
+									problem = "M144A_PCG_STATE_DOMAIN";
+								bytes[fields[field].offset + byte] = fields[field].maximum;
+							}
+						}
+					}
+				}
+				if (!problem && read_whole_file(path, &data, &size) != SUCCESS) {
+					problem = "M144A_PCG_STATE_FIXTURE";
+				} else if (!problem) {
+					for (pos = 0x30; pos + 16 <= size;
+					     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+						if (!memcmp(data + pos, "PCG88\0\0\0\0\0", 10))
+							break;
+					if (pos + 16 + sizeof(pcg88) > size ||
+					    LOADINTELDWORD(data + pos + 12) != sizeof(pcg88))
+						problem = "M144A_PCG_STATE_FIXTURE";
+					for (field = 0; field < NELEMENTS(fields) && !problem; field++) {
+						for (byte = 0; byte < fields[field].count && !problem; byte++) {
+							const size_t offset = pos + 16 + fields[field].offset + byte;
+							const BYTE original = data[offset];
+							for (mutation = 0; mutation < 2 && !problem; mutation++) {
+								if (statsave_check(path, error, sizeof(error)) !=
+								    STATFLAG_SUCCESS) {
+									problem = "M144A_PCG_STATE_POSITIVE";
+									break;
+								}
+								data[offset] = mutation ? 0xff : fields[field].maximum + 1;
+								if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+								    statsave_check(oldpath, error, sizeof(error)) !=
+								        STATFLAG_FAILURE ||
+								    (error[strcspn(error, "\r\n")] = 0,
+								     strcmp(error, "M144A_PCG_STATE")) ||
+								    statsave_load(oldpath) != STATFLAG_FAILURE ||
+								    CPU_IP != before_ip || mem[0x1c000] != before_ram ||
+								    memcmp(&before, &pcg88, sizeof(before)) ||
+								    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80))) {
+									fprintf(stderr,
+									        "selftest: PCG state field=%u byte=%u mutation=%u\n",
+									        field, byte, mutation);
+									problem = "M144A_PCG_STATE_GUARD";
+								}
+								data[offset] = original;
+							}
+						}
+					}
+				}
+				if (data)
+					_MFREE(data);
+			}
 			if (!problem && (strip_statsave_section(path, oldpath, "N80BANK") != SUCCESS ||
 			                 statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80.model != model ||
 			                 memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
@@ -8432,6 +8513,7 @@ static int test_pc8001_banks(void) {
 	if (problem)
 		return fail("N80 ROM banks", problem);
 	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");
+	fprintf(stderr, "selftest: PCG state domains 10240 and malformed SAV cases 80 ok\n");
 	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
 	return SUCCESS;
 }
