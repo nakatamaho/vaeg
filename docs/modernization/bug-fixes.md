@@ -56,7 +56,7 @@ land.
   native build and seven focused CTest checks pass. No audio-phase or
   frame-boundary timing qualification is inferred.
 - **Task/evidence:** [M144a guest PCG contract](../agents/tasks/M144a_x88000_compat_review.md#guest-pcg-io-and-state-continuation).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [fdc34a969870ae9ebe452a4dbf8e4fb22e3ba334](https://github.com/nakatamaho/vaeg/commit/fdc34a969870ae9ebe452a4dbf8e4fb22e3ba334).
 
 ### M144a — compatible GVAM selection and unmask request transitions
 
