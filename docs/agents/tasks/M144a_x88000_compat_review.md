@@ -22,8 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M144a — X88000 compatibility-feature source review
 
-Status: **IMPLEMENTATION_IN_PROGRESS; G144a human gate PENDING;
-publication remains BLOCKED_AUTHENTICATION_NOT_PUSHED.**
+Status: **IMPLEMENTATION_IN_PROGRESS; G144a human gate PENDING.**
 Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 [dc023c9b7ce62c7334d797ba1934ad95b51fd3fd](https://github.com/nakatamaho/vaeg/commit/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd).
 This is a read-only compatibility follow-up to accepted M144, separate from

@@ -56,7 +56,7 @@ land.
   The native build and seven focused CTest checks pass. Hardware sampling-cycle,
   audio-phase and whole-machine acceptance are not inferred.
 - **Task/evidence:** [M144a programmable blank glyph contract](../agents/tasks/M144a_x88000_compat_review.md#programmable-blank-glyphs-and-frame-refresh).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [06e75085bb3c0483b005029681ac3044f111c322](https://github.com/nakatamaho/vaeg/commit/06e75085bb3c0483b005029681ac3044f111c322).
 
 ### M144a — N80 PCG writes intercepted by the VA bridge
 
