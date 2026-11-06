@@ -26,6 +26,7 @@
 #define VAEG_SDL2_SCRNMNG_H
 
 #include "viewport.h"
+#include "framedisp.h"
 #include "recording/recording.h"
 #include "recording/recording_displayed_capture.h"
 #include "recording/recording_native_composition.h"
@@ -155,6 +156,7 @@ BOOL scrnmng_load_stored_png(const char *path, int *width, int *height, BYTE **p
 BOOL scrnmng_thumbnail_png_selftest(const char *path);
 BOOL scrnmng_screenshot_rotation_selftest(const char *directory);
 void scrnmng_set_framedisp(BOOL enabled);
+const VAEG_RUNTIME_SPEED *scrnmng_runtime_speed(void);
 void scrnmng_reset_metrics(void);
 void scrnmng_refresh_title(void);
 BOOL scrnmng_status_visible(void);

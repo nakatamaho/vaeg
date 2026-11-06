@@ -4450,6 +4450,23 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### VA2/V2H demo scene transitions briefly show reported text-like garbage
+
+- **Status:** OPEN; correction explicitly DEFERRED by the maintainer during
+  M143 runtime-integration review. This is not a fixed defect.
+- **Reported symptom/scope:** the PC-8801mkIISR demo briefly shows text-like
+  garbage when scenes change under the VA2 model in V2H mode.
+- **Cause/correction:** not investigated; no demonstrated root cause, production
+  change or fixing commit. Do not attribute this to timing, text-memory clearing
+  or the presenter without evidence.
+- **Verification:** maintainer-reported only; no agent reproduction or attached
+  capture. Exact executed build, host/backend, media revision, scene pair and
+  frequency have not been bound. No behavior on other model/mode pairs is claimed.
+- **Evidence/task:** [M143 carry-forward record](../agents/tasks/M143_runtime_speed_display.md#carried-forward-demo-transition-artifact).
+  A GitHub Issue was requested; filing is pending task-scoped authentication,
+  and no Issue number is claimed. The closed [boot/function-key issue #50](https://github.com/nakatamaho/vaeg/issues/50)
+  is a different reported symptom, not an established common cause or regression.
+
 ### M142 — VA-compatible 4MHz clipboard paste loses characters
 
 **OPEN; correction DEFERRED by the maintainer's G142 scope revision.** A mapped

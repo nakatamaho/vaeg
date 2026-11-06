@@ -2074,6 +2074,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 		fm_backend_restore_size = 0;
 	}
 
+	/* A restored timeline must never be compared with pre-load wall time. */
+	scrnmng_reset_metrics();
 	soundmng_play();
 	if (ret != STATFLAG_SUCCESS) {
 		if (error && error_size > 0 && !error[0])

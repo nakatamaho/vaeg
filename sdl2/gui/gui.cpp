@@ -5995,16 +5995,36 @@ static void draw_pause_overlay(void) {
 	ImGui::End();
 }
 
+static bool fit_machine_status_line(char *line, size_t size, const VAEG_MACHINE_STATUS &status,
+                                    UINT flags, UINT32 fps, UINT32 frames,
+                                    const VAEG_RUNTIME_SPEED &speed, BOOL accelerated, BOOL paused,
+                                    float width) {
+	for (UINT compact = 0; compact <= 3; ++compact) {
+		machine_status_speed_line(line, size, &status, flags, fps, frames, &speed, accelerated,
+		                          paused, compact);
+		if (ImGui::CalcTextSize(line).x <= width)
+			return true;
+	}
+	return false;
+}
+
 static void draw_machine_status(void) {
 	RECT_T rect;
 	VAEG_MACHINE_STATUS status;
-	char line[256];
+	char line[256], full_line[256];
 
 	if (!scrnmng_status_rect(&rect))
 		return;
 	machine_status_get(&status);
-	machine_status_line(line, sizeof(line), &status, np2oscfg.DISPCLK, scrnmng_draw_fps_tenths(),
-	                    drawcount);
+	const BOOL accelerated = taskmng_effective_nowait(np2oscfg.NOWAIT);
+	const BOOL paused = taskmng_ispaused();
+	VAEG_RUNTIME_SPEED measured = *scrnmng_runtime_speed();
+	if ((measured.policy & 1u) != (accelerated ? 1u : 0u) || measured.cpu_hz != status.cpu_hz ||
+	    !!(measured.policy & (1u << 15)) != !!taskmng_effective_nowait(FALSE))
+		measured.valid = FALSE;
+	machine_status_speed_line(full_line, sizeof(full_line), &status, np2oscfg.DISPCLK,
+	                          scrnmng_draw_fps_tenths(), drawcount, &measured, accelerated, paused,
+	                          0);
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + rect.left, viewport->Pos.y + rect.top));
 	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(rect.right - rect.left),
@@ -6018,15 +6038,37 @@ static void draw_machine_status(void) {
 	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse |
 	                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
 	                     ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+		fit_machine_status_line(line, sizeof(line), status, np2oscfg.DISPCLK,
+		                        scrnmng_draw_fps_tenths(), drawcount, measured, accelerated, paused,
+		                        ImGui::GetContentRegionAvail().x);
 		ImGui::TextUnformatted(line);
 		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
 			ImGui::BeginTooltip();
 			const float wrap = std::max(
 			    96.0f, std::min(560.0f * g_gui.ui_scale, ImGui::GetIO().DisplaySize.x - 24.0f));
 			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
-			ImGui::TextUnformatted(line); // complete text, even in a narrow window
+			ImGui::TextUnformatted(full_line); // complete text, even in a narrow window
 			ImGui::Separator();
-			ImGui::Text("CPU: %.6f MHz", status.cpu_hz / 1000000.0);
+			ImGui::Text("CPU: %.6f MHz (設定)", status.cpu_hz / 1000000.0);
+			if (paused) {
+				ImGui::TextUnformatted("実行速度: 一時停止");
+			} else if (measured.valid) {
+				ImGui::Text("実行速度: %.2f倍 (%.0f%%)", measured.speed, measured.speed * 100.0);
+				ImGui::Text("実効クロック換算: 約%.2f MHz相当", measured.equivalent_mhz);
+			} else {
+				ImGui::TextUnformatted("実行速度: 計測中");
+			}
+			ImGui::TextUnformatted("実効換算はゲスト時間の進行率から求めた目安です。"
+			                       "CPUや周辺機器の設定クロックは変更しません。");
+			if (accelerated) {
+				const UINT skip = taskmng_effective_drawskip(np2oscfg.DRAW_SKIP);
+				ImGui::Text("早送り: %s",
+				            taskmng_effective_nowait(FALSE) ? "キー押下中" : "No Wait");
+				if (skip)
+					ImGui::Text("設定上の描画間引き: 1/%u", skip);
+				else
+					ImGui::TextUnformatted("設定上の描画間引き: 自動");
+			}
 			ImGui::Text("Base: %.6f MHz", status.base_hz / 1000000.0);
 			ImGui::Text("Multiplier: x%.2f",
 			            status.cpu_multiple / double(PCCORE_STANDARD_MULTIPLE));
@@ -7110,6 +7152,22 @@ extern "C" BOOL gui_save_screenshot(void) {
 	return save_screenshot(FALSE);
 }
 
+static ImFont *load_gui_font(ImGuiIO &io) {
+	ImFontConfig font_config;
+	font_config.FontDataOwnedByAtlas = false;
+	/* The default Japanese range omits the runtime-speed arrow/triangle. */
+	static ImVector<ImWchar> font_ranges;
+	font_ranges.clear();
+	ImFontGlyphRangesBuilder ranges;
+	ranges.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+	ranges.AddChar(0x2192);
+	ranges.AddChar(0x25b6);
+	ranges.BuildRanges(&font_ranges);
+	return io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char *>(vaeg_gui_font_ttf),
+	                                      static_cast<int>(vaeg_gui_font_ttf_size), kGuiFontSize,
+	                                      &font_config, font_ranges.Data);
+}
+
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	(void)argv0;
 	if ((window == nullptr) || ((renderer == nullptr) && !scrnmng_native_active())) {
@@ -7122,11 +7180,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	io.IniFilename = nullptr;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-	ImFontConfig font_config;
-	font_config.FontDataOwnedByAtlas = false;
-	ImFont *font = io.Fonts->AddFontFromMemoryTTF(
-	    const_cast<unsigned char *>(vaeg_gui_font_ttf), static_cast<int>(vaeg_gui_font_ttf_size),
-	    kGuiFontSize, &font_config, io.Fonts->GetGlyphRangesJapanese());
+	ImFont *font = load_gui_font(io);
 	if (font == nullptr) {
 		std::fprintf(stderr, "Error: failed to load embedded GUI font\n");
 		ImGui::DestroyContext();
@@ -8051,7 +8105,53 @@ static BOOL compression_notification_selftest(void) {
 	return result;
 }
 
+static BOOL runtime_speed_layout_selftest(void) {
+	ImGuiContext *saved = ImGui::GetCurrentContext();
+	ImGuiContext *context = ImGui::CreateContext();
+	ImGui::SetCurrentContext(context);
+	ImGuiIO &io = ImGui::GetIO();
+	io.IniFilename = nullptr;
+	io.DisplaySize = ImVec2(960, 720);
+	ImFont *font = load_gui_font(io);
+	BOOL result = SUCCESS;
+	if (!font || !io.Fonts->Build() || !font->IsGlyphInFont(0x2192) ||
+	    !font->IsGlyphInFont(0x25b6)) {
+		std::fprintf(stderr, "selftest: M143_SPEED_GLYPHS\n");
+		result = FAILURE;
+	} else {
+		ImGui::NewFrame();
+		VAEG_MACHINE_STATUS status = {};
+		std::strcpy(status.machine, "PC-88VA2");
+		std::strcpy(status.mode, "V2H");
+		status.cpu_hz = status.sgp_hz = 7987200;
+		status.has_sgp = TRUE;
+		VAEG_RUNTIME_SPEED speed = {};
+		speed.valid = TRUE;
+		speed.speed = 8.0;
+		speed.equivalent_mhz = 63.8976;
+		for (float width : {380.0f, 640.0f, 960.0f}) {
+			for (BOOL fast : {FALSE, TRUE}) {
+				char text[256];
+				if (!fit_machine_status_line(text, sizeof(text), status,
+				                             VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK |
+				                                 VAEG_DISPINFO_FPS | VAEG_DISPINFO_FRAME,
+				                             300, 1234567890, speed, fast, FALSE, width - 16.0f) ||
+				    !strstr(text, "FPS") || (fast && !strstr(text, "8.0倍"))) {
+					std::fprintf(stderr, "selftest: M143_SPEED_LAYOUT\n");
+					result = FAILURE;
+				}
+			}
+		}
+		ImGui::EndFrame();
+	}
+	ImGui::DestroyContext(context);
+	ImGui::SetCurrentContext(saved);
+	return result;
+}
+
 BOOL gui_overlay_selftest(void) {
+	if (runtime_speed_layout_selftest() != SUCCESS)
+		return FAILURE;
 	if (compression_notification_selftest() != SUCCESS)
 		return FAILURE;
 	if (recording_controls_selftest() != SUCCESS)

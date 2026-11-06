@@ -238,6 +238,7 @@ void taskmng_exit(void) {
 
 void taskmng_toggle_pause(void) {
 	task_paused = task_paused ? FALSE : TRUE;
+	scrnmng_reset_metrics();
 	/* Drop wall-clock debt so resuming does not catch up skipped time. */
 	timing_reset();
 	if (task_paused) {

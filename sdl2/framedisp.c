@@ -29,6 +29,43 @@ enum {
 	VAEG_FRAMEDISP_INTERVAL_MS = 2000
 };
 
+void vaeg_runtime_speed_reset(VAEG_RUNTIME_SPEED *state) {
+	if (state != NULL)
+		memset(state, 0, sizeof(*state));
+}
+
+BOOL vaeg_runtime_speed_update(VAEG_RUNTIME_SPEED *state, UINT32 tick, UINT64 guest_ticks,
+                               UINT32 clock_hz, UINT32 cpu_hz, UINT32 policy) {
+	UINT32 elapsed;
+	if (state == NULL)
+		return FALSE;
+	elapsed = tick - state->tick;
+	/* Reset/load and pauses reset explicitly. Also reject a regressing clock,
+	 * changed domain/pacing, or a long suspension rather than mixing epochs. */
+	if (!clock_hz || !cpu_hz || !state->started || guest_ticks < state->guest_ticks ||
+	    clock_hz != state->clock_hz || cpu_hz != state->cpu_hz || policy != state->policy ||
+	    elapsed > 10000) {
+		vaeg_runtime_speed_reset(state);
+		state->started = clock_hz != 0 && cpu_hz != 0;
+		state->tick = tick;
+		state->guest_ticks = guest_ticks;
+		state->clock_hz = clock_hz;
+		state->cpu_hz = cpu_hz;
+		state->policy = policy;
+		return FALSE;
+	}
+	if (elapsed < 1000)
+		return FALSE;
+	/* Divide in floating point before scaling: UINT64 guest ticks must not
+	 * overflow in an intermediate integer multiplication. No 60FPS constant. */
+	state->speed = ((double)(guest_ticks - state->guest_ticks) / clock_hz) * 1000.0 / elapsed;
+	state->equivalent_mhz = ((double)cpu_hz / 1000000.0) * state->speed;
+	state->valid = TRUE;
+	state->tick = tick;
+	state->guest_ticks = guest_ticks;
+	return TRUE;
+}
+
 void vaeg_framedisp_reset(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws) {
 	if (state == NULL) {
 		return;

@@ -215,15 +215,17 @@ def capture(args):
     output.mkdir(parents=True)
     shutil.copyfile(args.backup_seed, output / "backup.bin")
     config = ("[NekoProjectII]\nMain_RAM=640\nMain_RAM_Auto=false\nBootMode=1\nCPU_Speed=100\n"
-              "V1V2_Standard=false\nDspClock=5\nF12_bind=8\nNativeCRT=false\n"
+              "V1V2_Standard=false\ns_NOWAIT=false\nDspClock=5\nF12_bind=8\nNativeCRT=false\n"
               f"MachineStatus={int(case['status'])}\nFrontPanelMode={int(case['panel'])}\n"
               f"GUI_win_cx={case['width']}\nGUI_win_cy={case['height']}\nGUI_ui_scale={case['ui_scale']}\n")
     (output / "config.ini").write_text(config)
     (output / "config.initial.ini").write_text(config)
     lines = GUEST_LINES
     (output / "input.txt").write_text("\n".join(lines) + "\n")
+    # The layout fixture uses paced execution: M143 deliberately displays a
+    # changing measurement in No Wait. Acceleration has a separate text runner.
     argv = [str(args.worker.resolve()), "--roms", str(args.roms.resolve()), "--cfg", str(output / "config.ini"),
-            "--bkupmem", str(output / "backup.bin"), "--model", "va2", "--mute", "--nowait", "--debug",
+            "--bkupmem", str(output / "backup.bin"), "--model", "va2", "--mute", "--debug",
             "--fullscreen" if case["fullscreen"] else "--windowed", "--cpumult", "2",
             "--keyboard-layout", "us", "--screen-tvram-dump", str(output / "tvram.bin")]
     for slot in ["fdd1", "fdd2", "sasi1", "sasi2", *(f"scsi{i}" for i in range(7))]:

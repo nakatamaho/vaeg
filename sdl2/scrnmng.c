@@ -28,6 +28,7 @@
 #include "sdlapi.h"
 #include "dosio.h"
 #include "scrnmng.h"
+#include "taskmng.h"
 #include "np2.h"
 #include "np2ver.h"
 #include "machine/pccore.h"
@@ -140,6 +141,7 @@ static SCRNSTAT scrnstat;
 static UINT16 scrnmng_turned[SCRNMNG_CANVAS_WIDTH * SCRNMNG_CANVAS_MAX_HEIGHT];
 static SCRNSURF scrnsurf;
 static VAEG_SPEEDMETER speedmeter;
+static VAEG_RUNTIME_SPEED runtime_speed;
 
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
@@ -649,6 +651,10 @@ UINT32 scrnmng_draw_fps_tenths(void) {
 
 UINT32 scrnmng_guest_fps_tenths(void) {
 	return speedmeter.fps_tenths;
+}
+
+const VAEG_RUNTIME_SPEED *scrnmng_runtime_speed(void) {
+	return &runtime_speed;
 }
 
 static void scrnmng_update_speedmeter(UINT32 tick, UINT32 frames) {
@@ -4226,6 +4232,8 @@ void scrnmng_set_framedisp(BOOL enabled) {
 void scrnmng_reset_metrics(void) {
 	vaeg_framedisp_reset(&scrnmng.framedisp, SDL_GetTicks(), drawcount);
 	speedmeter.valid = FALSE;
+	speedmeter.fps_tenths = 0;
+	vaeg_runtime_speed_reset(&runtime_speed);
 	scrnmng_update_title();
 }
 
@@ -4234,6 +4242,19 @@ void scrnmng_refresh_title(void) {
 }
 
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames) {
+	VAEG_MACHINE_STATUS status;
+	UINT32 policy;
+	machine_status_get(&status);
+	policy = (taskmng_effective_nowait(np2oscfg.NOWAIT) ? 1u : 0u) |
+	         (taskmng_effective_drawskip(np2oscfg.DRAW_SKIP) << 1) | ((UINT32)status.mode_id << 9) |
+	         (pccore_88_standard() ? 1u << 13 : 0u) | (status.compatible ? 1u << 14 : 0u) |
+	         (taskmng_effective_nowait(FALSE) ? 1u << 15 : 0u);
+	if (runtime_speed.started &&
+	    (runtime_speed.clock_hz != pccore.realclock || runtime_speed.cpu_hz != status.cpu_hz ||
+	     runtime_speed.policy != policy))
+		scrnmng_reset_metrics();
+	(void)vaeg_runtime_speed_update(&runtime_speed, tick, pccore_guest_clock(), pccore.realclock,
+	                                status.cpu_hz, policy);
 	/* FPS measurement is independent of the frame-counter visibility switch. */
 	(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
 	scrnmng_update_speedmeter(tick, frames);

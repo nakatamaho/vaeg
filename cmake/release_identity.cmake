@@ -22,7 +22,7 @@
 # Explicit source identity, NOT inferred from commit subjects, task filenames,
 # the highest milestone number or the last merged documentation branch.
 # Remove -dev only in an explicitly accepted release-preparation commit.
-set(VAEG_SOURCE_MILESTONE "M142")
+set(VAEG_SOURCE_MILESTONE "M143-dev")
 
 function(vaeg_release_identity release milestone commit)
     if(NOT milestone MATCHES "^M(0|[1-9][0-9]*([a-z]([1-9][0-9]*)?)?)(-dev)?$")
