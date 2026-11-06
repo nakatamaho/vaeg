@@ -127,6 +127,14 @@ and SR planar/page composition. At this checkpoint only the unit test target
 links them; production device/ROM/state integration remains unfinished.
 No third-party file or ROM/font data is copied into the tree.
 
+The next M144a checkpoint connects ROM-source selection to the memory bus,
+adds optional fourth-ROM input and the SR BASIC/IE buffers, relocates the N80
+GVRAM aperture and persists model/bank registers in `N80BANK`. The maintainer
+approved `e8.rom` explicitly as an optional X88000-compatible input name after
+its non-MAME-qualified provenance was explained. Banking/SAV tests exercise
+production dispatch, not guest CPU I/O-trap routing; display and full SR
+startup remain unfinished. See the task's production banking checkpoint.
+
 Each choice and its status is listed in
 [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).
 

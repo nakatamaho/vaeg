@@ -77,6 +77,18 @@ extern BYTE memoryva_n80[0x8000];
 extern BOOL memoryva_n80_exist;
 /* M114: a PC-8001 model runs in N mode; port 31h has its PC-8001mkII meaning. */
 extern BOOL memoryva_pc8001;
+/* M144a: independent N80-family raw banking state; byte-only SAV payload.
+ * model: 0 legacy/VA, 1 mkII, 2 mkIISR. ROMs are host inputs, not SAV data. */
+typedef struct {
+	UINT8 model;
+	UINT8 port31;
+	UINT8 port33;
+	UINT8 port71;
+} _MEMORYN80;
+extern _MEMORYN80 memoryn80;
+extern BYTE memoryn80_srrom[0xa000];
+extern BYTE memoryn80_fourth[0x2000];
+extern BOOL memoryn80_sr_present;
 /* M129: a PC-8801 model (not the PC-88VA/VA2 sets) started from extra/. */
 extern BOOL memoryva_pc8801;
 extern char memoryva_n80_file[32]; /* file loaded, empty without a ROM */

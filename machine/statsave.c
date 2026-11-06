@@ -1761,6 +1761,16 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_BIN:
 			case STATFLAG_MEM:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80) {
+					_MEMORYN80 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) != STATFLAG_SUCCESS ||
+					    candidate.model > 2 || candidate.model != memoryn80.model ||
+					    candidate.port71 > 1 ||
+					    (candidate.model != 2 && candidate.port33 != 0)) {
+						statflag_seterr(&sffh->sfh, "M144A_N80_BANK_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
 				break;
 
 			case STATFLAG_UPD9002_CPU:
@@ -1940,6 +1950,11 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	fddmtrsnd_bind();
 
 	iocore_reset(); // Sound-board reset calls the native PIC interface.
+	/* Missing N80BANK is an older N80-only state: preserve the applied
+	 * model/ROM inputs and reproduce its unbanked upper BASIC selection. */
+	memoryn80.port31 = 1;
+	memoryn80.port33 = 0;
+	memoryn80.port71 = 1;
 	/* A state without PIC8214 predates 8214 mode: those builds always
 	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
 	pic8214.mode8259 = 1;

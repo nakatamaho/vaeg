@@ -106,6 +106,61 @@ state decode before modifying live state. ROM payloads must remain private
 inputs, never new tracked assets. A state codec's unit round trip alone cannot
 substitute for save/load through `machine/statsave.c`.
 
+## Production N80 ROM/banking checkpoint
+
+The maintainer explicitly approved accepting `e8.rom` after clarification that
+this name and the fourth-ROM mapping were verified in X88000 1.5.3 source,
+not independently qualified as a MAME filename or physical-machine result.
+It is an **optional X88000-compatible 8 KiB input**, not a required machine ROM.
+Its role is appended to preserve existing role IDs. No ROM data is distributed.
+
+Production changes (following the earlier primitive-only checkpoint):
+
+- `extrarom_apply` now records applied mkII versus SR identity, loads the
+  optional fourth ROM and SR's complete 40 KiB BASIC/IE image into separate
+  read-only host buffers, and initializes absent optional ROMs to FFh.
+- Native I/O-dispatch handlers retain raw N80 31h/33h and the 71h bank bit;
+  the memory read path selects N80, fourth ROM, SR BASIC or SR IE, without
+  copying/overwriting ROM buffers during a bank transition. Non-N80 models
+  retain their existing selection path.
+- mkII/SR independent GVRAM access is now decoded at 8000h-BFFFh rather
+  than C000h-FFFFh. SR extended access takes GVAM from 33h bit 6 and reuses
+  the tested ALU/latch backend and existing persisted plane storage. Its
+  lower aperture does not suppress the upper VA-bridge text window. VA
+  32h GVAM edges no longer reset the independent N80 plane selection.
+- `N80BANK` version 1 adds a four-byte, endian-independent state section
+  (model, 31h, 33h, 71h). Preflight rejects invalid models, a different applied
+  model, invalid 71h state and SR-only state on a non-SR model with
+  `M144A_N80_BANK_STATE`, before resetting the live machine. Older files without
+  the section restore the original unbanked N80 upper BASIC selection.
+  Existing GVRAM/ALU/plane sections remain the backing storage.
+
+Synthetic production-path tests create their own ROM fixtures for both models,
+exercise real `iocore_out8` and byte/word memory access, save actual SAV files,
+change live banks, load, and check restored bank state and mapped bytes. They
+also test the legacy missing-section path and three single-mutation negatives
+per model, requiring the exact error code and unchanged live bank/CPU state.
+GVRAM tests cover all three planes, C000h RAM isolation, BFFFh/C000h word
+crossings and SR ALU write/latch copy. The ordinary ROM-less suite and the
+primitive target pass (2/2 CTest tests; full ROM-less suite about 43 seconds).
+A further eight focused state tests pass: runtime-state contract, restore-matrix
+contract, cross-OS contract, uPD9002 boundary, payload probe, M66a verification,
+compatibility state regression and actual state-storage tests. The contract
+selftests are not cross-OS executable or guest-display coverage.
+
+Preserved intermediate failures: the first selftest build used an incorrect
+memory-read symbol and failed compilation; corrected to the real VA bus API.
+An anchored CTest selector matched no test and was **NOT_RUN**, not PASS;
+subsequent runs use the discovered `vaeg_romless_tests` name/pattern.
+
+**Still unfinished:** guest-instruction I/O-trap routing (the checks above call
+production port dispatch directly), palette and raster/compositor connection,
+SR text/page priority and fonts, reset entry into SR BASIC, and precise GUI mode
+labels. ROM writes/write protection and extra RAM interactions still require
+qualification. No private-media boot, final-client image comparison, Windows
+handoff or full G144a acceptance is claimed. In particular, a successful banking
+SAV round trip does not qualify the still-unimplemented SR display state.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request

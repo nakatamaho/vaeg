@@ -50,13 +50,13 @@ char extrarom_last_error[160];
 
 const char *const extrarom_role_names[EXTRAROM_ROLES] = {
     "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr", "n80_3",
-    "disk", "kanji1", "kanji2", "jisyo", "cdbios", "font", "font80sr", "fonthira"};
+    "disk", "kanji1", "kanji2", "jisyo", "cdbios", "font", "font80sr", "fonthira", "e8"};
 
 /* Accepted sizes of each role (0 ends the list). */
 static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
     {0x8000, 0},  {0x2000, 0},  {0x2000, 0}, {0x2000, 0},     {0x2000, 0},  {0x6000, 0x8000},
     {0x8000, 0},  {0x8000, 0},  {0xa000, 0}, {0x800, 0x2000}, {0x20000, 0}, {0x20000, 0},
-    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0}};
+    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0}, {0x2000, 0}};
 
 /*
  * Models and the roles each needs; "a|b" accepts either. Requirements
@@ -887,6 +887,18 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	(void)apply_role(machine, EXTRAROM_ROLE_FONT, fontmem + 0x41000, 0x800);
 	np2cfg.boot_mode = BOOTMODE_N;
 	memoryva_pc8001 = TRUE;
+	memoryn80.model = n_role == EXTRAROM_ROLE_N80_2SR ? 2 :
+	                  n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
+	memoryn80.port31 = 0;
+	memoryn80.port33 = 0;
+	memoryn80.port71 = 1;
+	FillMemory(memoryn80_fourth, sizeof(memoryn80_fourth), 0xff);
+	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);
+	(void)apply_role(machine, EXTRAROM_ROLE_N80_4, memoryn80_fourth, sizeof(memoryn80_fourth));
+	memoryn80_sr_present = memoryn80.model == 2 &&
+	    apply_role(machine, EXTRAROM_ROLE_N80_3, memoryn80_srrom, sizeof(memoryn80_srrom));
+	/* Keep the accepted N80 startup until the SR device/display path is
+	 * fully connected; explicit port 33h writes can select the loaded ROM. */
 	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
 	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
 	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */

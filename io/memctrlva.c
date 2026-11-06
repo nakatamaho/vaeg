@@ -109,13 +109,28 @@ static void IOOUTCALL memctrlva_o078(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL memctrlva_o071(UINT port, REG8 dat) {
+	if (memoryva_pc8001 && memoryn80.model) {
+		memoryn80.port71 = (UINT8)(dat & 1);
+	}
 	memoryva_88_xerom = dat & 1;
 	(void)port;
 }
 
 static REG8 IOINPCALL memctrlva_i071(UINT port) {
 	(void)port;
-	return 0xfe | memoryva_88_xerom;
+	return 0xfe | ((memoryva_pc8001 && memoryn80.model) ? memoryn80.port71 : memoryva_88_xerom);
+}
+
+static void IOOUTCALL memctrlva_o033(UINT port, REG8 dat) {
+	if (memoryva_pc8001 && memoryn80.model == 2) {
+		memoryn80.port33 = (UINT8)dat;
+	}
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i033(UINT port) {
+	(void)port;
+	return memoryva_pc8001 && memoryn80.model == 2 ? (memoryn80.port33 & 0xde) : 0xff;
 }
 
 static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
@@ -127,6 +142,7 @@ static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
 	 * always has. The mkII's own graphics modes are not modelled.
 	 */
 	if (memoryva_pc8001) {
+		memoryn80.port31 = (UINT8)dat;
 		dat = (REG8)((dat & 0x0a) | 0x05);
 	}
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
@@ -313,6 +329,8 @@ void memctrlva_reset(void) {
 
 void memctrlva_bind(void) {
 	iocore_attachout(0x031, memctrlva_o031);
+	iocore_attachout(0x033, memctrlva_o033);
+	iocore_attachinp(0x033, memctrlva_i033);
 	iocore_attachout(0x05c, memctrlva_o05c);
 	iocore_attachout(0x05d, memctrlva_o05c);
 	iocore_attachout(0x05e, memctrlva_o05c);

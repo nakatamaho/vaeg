@@ -69,12 +69,21 @@ extra/
 | `n80` | 32 KiB (24 KiB on the PC-8001) | N-BASIC |
 | `n80_2` | 32 KiB | PC-8001mkII ROM (N-BASIC and N80-BASIC) |
 | `n80_2sr` | 32 KiB | PC-8001mkIISR ROM |
-| `n80_3` | 40 KiB | N80SR-BASIC |
+| `n80_3` | 40 KiB | N80SR-BASIC (32 KiB) and its IE bank (8 KiB) |
+| `e8` | 8 KiB | Optional mkII/SR fourth-ROM socket input; X88000-compatible name, not a verified MAME filename |
 | `disk` | 2 or 8 KiB | FDD unit ROM |
 | `kanji1`, `kanji2` | 128 KiB each | JIS level 1 and level 2 kanji |
 | `jisyo` | 512 KiB | kana-kanji dictionary |
 | `cdbios` | 64 KiB | CD-ROM BIOS (PC-8801MC) |
 | `font`, `font80sr`, `fonthira` | 2, 4, 2 KiB | 8x8 character ROMs of the PC-8001 family and the PC-8801 |
+
+M144a accepts optional `e8.rom` by explicit maintainer approval. The source
+reference is X88000 1.5.3's fourth-ROM loading and 6000h–7FFFh bank mapping,
+not an independent physical-machine qualification. An absent socket reads FFh;
+it does not fall back to unrelated ROM contents. It is not added to the
+required-role lists or the MAME identity table. M144a's production banking
+integration is under development; loading these ROMs does not yet qualify
+full SR graphics, guest I/O trapping or SR startup.
 
 ### Roles each model needs
 

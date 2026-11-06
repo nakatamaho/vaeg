@@ -7999,6 +7999,187 @@ static int test_pc8001_machine(void) {
 	return (SUCCESS);
 }
 
+/* M144a: synthetic production ROM/I/O/banking and real SAV-file boundary.
+ * This is not yet a guest-executed SR startup/display qualification. */
+static int test_pc8001_banks(void) {
+	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
+	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	char error[256];
+	const char *problem = NULL;
+	_MEMORYN80 saved_bank;
+	unsigned model;
+	SPRINTF(root, "vaeg-selftest-%lu-n80banks", (unsigned long)getpid());
+	SPRINTF(path, "vaeg-selftest-%lu-n80banks.sav", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-n80legacy.sav", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	romva_machine_hook = extrarom_apply;
+	for (model = 1; model <= 2 && !problem; model++) {
+		const char *name = model == 1 ? "PC-8001mkII" : "PC-8001mkIISR";
+		const char *basic = model == 1 ? "n80_2.rom" : "n80_2sr.rom";
+		file_cpyname(dir, base, sizeof(dir));
+		file_setseparator(dir, sizeof(dir));
+		file_catname(dir, name, sizeof(dir));
+		file_dircreate(dir);
+		if (!selftest_put_rom(dir, basic, 0x8000, 0x61) ||
+		    !selftest_put_rom(dir, "e8.rom", 0x2000, 0x72) ||
+		    !selftest_put_rom(dir, "n80_3.rom", 0xa000, 0x83) ||
+		    !selftest_put_rom(dir, "font.rom", 0x800, 0x94)) {
+			problem = "synthetic ROM creation";
+		} else {
+			milstr_ncpy(np2cfg.extra_machine, name, sizeof(np2cfg.extra_machine));
+			romva_initialize();
+			memoryva_88_mode = TRUE;
+			iocore_out8(0x31, 1);
+			if (memoryn80.model != model || sizeof(memoryn80) != 4 ||
+			    memoryn80_sr_present != (model == 2) ||
+			    memoryva_n80[0] != 0x61 || memoryn80_fourth[0] != 0x72 ||
+			    upd9002_memoryread_va(0x10000) != 0x61 ||
+			    upd9002_memoryread_va(0x16000) != memoryva_n80[0x6000])
+				problem = "applied model or BASIC bank";
+			iocore_out8(0x31, 0);
+			if (!problem && (upd9002_memoryread_va(0x16000) != 0x72 ||
+			                 upd9002_memoryread_va(0x17fff) != memoryn80_fourth[0x1fff]))
+				problem = "fourth ROM bank";
+			if (model == 2) {
+				iocore_out8(0x33, 0x80);
+				iocore_out8(0x71, 1);
+				if (!problem && (upd9002_memoryread_va(0x10000) != 0x83 ||
+				                 upd9002_memoryread_va(0x16000) != memoryn80_srrom[0x6000]))
+					problem = "SR BASIC bank";
+				iocore_out8(0x71, 0);
+				if (!problem && upd9002_memoryread_va(0x16000) != memoryn80_srrom[0x8000])
+					problem = "SR IE bank";
+			}
+			/* Production aperture/plane/word-edge paths, not just the pure
+			 * decoder. C000h must remain ordinary RAM on these models. */
+			{
+				unsigned plane;
+				for (plane = 0; plane < 3 && !problem; plane++) {
+					iocore_out8(0x5c + plane, 0);
+					upd9002_memorywrite_va(0x18000, (REG8)(0xa0 + plane));
+					upd9002_memorywrite_va(0x1c000, (REG8)(0xb0 + plane));
+					if (grphmem[(plane << 16) + 0x4000] != 0xa0 + plane ||
+					    upd9002_memoryread_va(0x18000) != 0xa0 + plane ||
+					    upd9002_memoryread_va(0x1c000) != 0xb0 + plane)
+						problem = "N80 GVRAM lower aperture or C000h isolation";
+					upd9002_memorywrite_va_w(0x1bfff, 0x5137);
+					if (grphmem[(plane << 16) + 0x7fff] != 0x37 ||
+					    upd9002_memoryread_va_w(0x1bfff) != 0x5137 ||
+					    upd9002_memoryread_va(0x1c000) != 0x51)
+						problem = "N80 GVRAM word boundary";
+				}
+				if (model == 2 && !problem) {
+					iocore_out8(0x33, 0xc0);
+					iocore_out8(0x35, 0x80);
+					iocore_out8(0x34, 0x07);
+					upd9002_memorywrite_va(0x18001, 0x5a);
+					for (plane = 0; plane < 3; plane++)
+						if ((grphmem[(plane << 16) + 0x4001] & 0x5a) != 0x5a)
+							problem = "N80SR extended ALU aperture";
+					(void)upd9002_memoryread_va(0x18001);
+					iocore_out8(0x35, 0x90);
+					upd9002_memorywrite_va(0x18002, 0);
+					for (plane = 0; plane < 3; plane++)
+						if (grphmem[(plane << 16) + 0x4002] != memoryva_88_alu.latch[plane])
+							problem = "N80SR latched ALU copy";
+				}
+			}
+			saved_bank = memoryn80;
+			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
+				problem = "bank SAV save/preflight";
+			if (!problem) {
+				iocore_out8(0x31, 2);
+				iocore_out8(0x33, 0);
+				iocore_out8(0x71, 1);
+				if (statsave_load(path) != STATFLAG_SUCCESS ||
+				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
+				    upd9002_memoryread_va(0x16000) != (model == 2 ? memoryn80_srrom[0x8000] : 0x72))
+					problem = "bank SAV restore and mapped byte";
+			}
+			if (!problem) {
+				BYTE *data = NULL;
+				UINT size = 0, pos = 0, mutation;
+				if (read_whole_file(path, &data, &size) != SUCCESS) {
+					problem = "read bank SAV fixture";
+				} else {
+					for (pos = 0x30; pos + 16 <= size;
+					     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+						if (!memcmp(data + pos, "N80BANK\0\0\0", 10))
+							break;
+					if (pos + 20 > size || LOADINTELDWORD(data + pos + 12) != 4)
+						problem = "bank SAV section layout";
+				}
+				for (mutation = 0; mutation < 3 && !problem; mutation++) {
+					const UINT offset = pos + 16 + (mutation == 2 ? 3 : 0);
+					const BYTE original = data[offset];
+					const UINT16 saved_ip = CPU_IP;
+					if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+						problem = "bank negative fixture is not initially valid";
+						break;
+					}
+					data[offset] = mutation == 0 ? 3 : mutation == 1 ? (BYTE)(3 - model) : 2;
+					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+					    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_N80_BANK_STATE")) ||
+					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != saved_ip ||
+					    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)))
+						problem = "bank invalid state guard or live state mutation";
+					data[offset] = original;
+				}
+				if (data)
+					_MFREE(data);
+			}
+			if (!problem && (strip_statsave_section(path, oldpath, "N80BANK") != SUCCESS ||
+			                 statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80.model != model ||
+			                 memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
+				problem = "legacy state bank baseline";
+		}
+		selftest_delete_rom(dir, basic);
+		selftest_delete_rom(dir, "e8.rom");
+		selftest_delete_rom(dir, "n80_3.rom");
+		selftest_delete_rom(dir, "font.rom");
+#if defined(_WIN32)
+		_rmdir(dir);
+#else
+		rmdir(dir);
+#endif
+	}
+	file_delete(path);
+	file_delete(oldpath);
+#if defined(_WIN32)
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem)
+		return fail("N80 ROM banks", problem);
+	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
+	return SUCCESS;
+}
+
 /* M115: PCG-8100/8800: character writes and ROM copies into the two banks,
  * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
  * loads, BCD, short counts silent), the tone output, and nothing while the
@@ -10005,6 +10186,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_pc8001_machine() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_pc8001_banks() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_pcg88() != SUCCESS) {

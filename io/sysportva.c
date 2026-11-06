@@ -59,7 +59,8 @@ static void IOOUTCALL sysp_o032(UINT port, REG8 dat) {
 	/* M144a: X88000 1.5.3 WriteIO_32 (public domain) resets the
 	 * independent access selection on either GVAM transition, not on a
 	 * same-value write. Retain the VA's native-mode latch behavior. */
-	if (memoryva_88_mode && memoryva_88_alu.gvam != ((dat & 0x40) ? 1 : 0)) {
+	if (memoryva_88_mode && !(memoryva_pc8001 && memoryn80.model) &&
+	    memoryva_88_alu.gvam != ((dat & 0x40) ? 1 : 0)) {
 		memoryva_88_plane = 3;
 	}
 	sysportva.port032 = dat & 0xbf; // V3 forces legacy GVAM low; port 510H controls native access.

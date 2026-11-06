@@ -392,6 +392,15 @@ GVRAM窓、mkIIの640ドット1bit/320ドット2bit形式、SRの640ドット3�
 [進捗と残作業](../agents/tasks/M144a_x88000_compat_review.md#pc-8001mkiisr-implementation-checkpoint)。
 PC-PR201/PDFとFDDクロック確認はこの作業中は保留。
 
+その後、ROM読み込み・実I/Oディスパッチ・メモリ読出し・GVRAM窓・SAVファイルへの
+接続を追加した。`e8.rom`はメンテナ承認の**X88000互換の任意入力名**であり、
+MAME標準名や実機検証済み仕様とは表記しない。SRの40 KiB ROMはN80 ROMと
+別バッファで保持し、31h/33h/71hによって参照先だけを切り替える。
+`N80BANK`は機種とバンク状態を保存し、不正状態・別機種への復元はロード前に拒否する。
+合成ROMでの実ファイルSAV往復と不正状態の拒否、GVRAMの8000h–BFFFhアクセスは通過。
+ただし**ゲスト命令のI/Oトラップ経路、実画面への接続、媒体からの起動は未完了**。
+[本体接続チェックポイント](../agents/tasks/M144a_x88000_compat_review.md#production-n80-rombanking-checkpoint)を参照。
+
 以下の非主張は元の調査チェックポイントに関するもの。
 今回の結果は**SOURCE_REVIEW**であって、実機・ゲスト・画面・音声のPASSではない。
 新しいビルド、ROM／媒体実行、描画キャプチャ、実機I/O、修正コミットは存在しない。
