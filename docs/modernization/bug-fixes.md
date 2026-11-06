@@ -54,7 +54,8 @@ land.
   I/O handlers. Existing interrupt delivery and state tests pass. Tests were not
   yet mutation-checked; broader model/runtime validation remains pending.
 - **Task/evidence:** [M144a implementation checkpoint](../agents/tasks/M144a_x88000_compat_review.md#initial-port-implementation-checkpoint).
-  Fixing commit link will be recorded after the candidate commit is created.
+  Candidate correction: [8393f1823dfec5bd562208818d7ae1929b5eb8e4](https://github.com/nakatamaho/vaeg/commit/8393f1823dfec5bd562208818d7ae1929b5eb8e4)
+  (local commit; publication blocked by authentication).
 
 
 ### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
