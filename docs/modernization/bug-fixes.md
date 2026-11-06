@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M144a — PCG BCD zero reload uses the binary divisor
+
+- **Symptom/scope:** a mode-3 PCG counter programmed with BCD reload 0000h used
+  divisor 65,536 instead of the four-digit BCD modulus 10,000. The shared PCG
+  frequency query returned 60 rather than 399 Hz at the existing model clock;
+  the same decoder supplied the PCM generator. All three PCG channels are affected.
+- **Demonstrated root cause:** after BCD digit conversion, the count helper
+  unconditionally replaced zero with the binary modulus. The zero exception
+  therefore discarded the selected counting representation.
+- **Correction:** choose the zero modulus by the BCD flag. Leave the input
+  clock, binary zero, nonzero decoding, mute policy and serialized state unchanged.
+- **Verification:** 60,003 frequency cases plus three-channel PCM equality
+  against binary 10,000 after equal gate resets. Independent integer-phase sign
+  checks guard against equal but wrong PCM periods. Separate one-change negatives
+  fail with `M144A_PCG_COUNT_ENCODING`, `M144A_PCG_BCD_ZERO_PCM` and
+  `M144A_PCG_PCM_PERIOD`. Mutations are reverted; native build and seven focused
+  CTests pass. Physical clock/analog output and save/replay phase are unqualified.
+- **Task/evidence:** [M144a BCD zero-reload contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-bcd-zero-reload-interpretation).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — malformed PCG state selectors accepted before load
 
 - **Symptom/scope:** a correctly sized PCG state payload could contain bank

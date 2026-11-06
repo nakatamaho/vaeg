@@ -28,6 +28,32 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## PCG BCD zero-reload interpretation
+
+The 8253 reload contract uses zero for the selected counting modulus: 65,536
+in binary, 10,000 in four-digit BCD. The shared PCG decoder previously mapped
+both to 65,536. At the unchanged model clock of 3,993,600 Hz, the BCD-zero
+integer frequency query therefore returned 60 instead of 399 Hz. The correction
+selects the modulus by the BCD flag; binary zero and nonzero decoding retain
+their existing behavior. This does not retune the input clock or change state
+formats, timer load sequencing or the short-count mute policy.
+
+The fixture checks 60,003 mode-3 frequency cases: all 10,000 valid BCD words
+and equivalent binary reloads on three channels, plus binary zero separately.
+For each channel, 1,024 stereo PCM frames at 44,100 Hz compare BCD zero with
+binary 10,000 after equal gate resets. An independent integer-phase calculation
+also checks the reference waveform's sign and stereo agreement, so two equally
+wrong generated buffers cannot by themselves pass the period contract.
+
+Three single-mutation negatives reject a shared wrong modulus
+(`M144A_PCG_COUNT_ENCODING`), a wrong modulus only in BCD PCM generation
+(`M144A_PCG_BCD_ZERO_PCM`), and the same wrong PCM period for both encodings
+(`M144A_PCG_PCM_PERIOD`). All start from passing fixtures and are reverted.
+Native build and seven focused CTests pass. These are deterministic model/PCM
+checks, not physical clock, analog waveform, output-device or save/replay phase
+qualification. The FDC clock work remains paused. See the
+[bug-fix ledger](../../modernization/bug-fixes.md); G144a remains pending.
+
 ## PCG state-domain preflight
 
 The PCG state section previously received version/size checks but no field-domain

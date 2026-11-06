@@ -8968,6 +8968,71 @@ static int test_pcg88(void) {
 		}
 	}
 	if (problem == NULL) {
+		static const BYTE gates[3] = {0x08, 0x40, 0x80};
+		UINT channel, decimal, bcd;
+		/* The 8253 zero reload denotes the modulus: 65536 in binary,
+		 * 10000 in four-digit BCD. Preserve the existing short-count mute. */
+		for (channel = 0; channel < 3 && !problem; channel++) {
+			iocore_out8(0x02, gates[channel]);
+			iocore_out8(0x0f, (channel << 6) | 0x36);
+			iocore_out8(0x0c + channel, 0);
+			iocore_out8(0x0c + channel, 0);
+			if (pcg88_frequency(channel) != 3993600 / 65536)
+				problem = "M144A_PCG_BINARY_ZERO";
+			for (decimal = 0; decimal < 10000 && !problem; decimal++) {
+				const UINT divisor = decimal ? decimal : 10000;
+				const UINT expected = divisor > 266 ? 3993600 / divisor : 0;
+				const UINT packed = ((decimal / 1000) << 12) | (((decimal / 100) % 10) << 8) |
+				                    (((decimal / 10) % 10) << 4) | (decimal % 10);
+				for (bcd = 0; bcd < 2 && !problem; bcd++) {
+					const UINT raw = bcd ? packed : divisor;
+					iocore_out8(0x0f, (channel << 6) | 0x36 | bcd);
+					iocore_out8(0x0c + channel, raw & 0xff);
+					iocore_out8(0x0c + channel, raw >> 8);
+					if (pcg88.counter[channel] != raw || pcg88_frequency(channel) != expected) {
+						fprintf(
+						    stderr,
+						    "selftest: PCG count channel=%u decimal=%u bcd=%u got=%u expected=%u\n",
+						    channel, decimal, bcd, pcg88_frequency(channel), expected);
+						problem = "M144A_PCG_COUNT_ENCODING";
+					}
+				}
+			}
+		}
+		/* Check the actual generator as well as its integer-Hz query. */
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		for (channel = 0; channel < 3 && !problem; channel++) {
+			SINT32 reference[2 * 1024], actual[2 * 1024];
+			BOOL audible = FALSE;
+			for (bcd = 0; bcd < 2; bcd++) {
+				SINT32 *samples = bcd ? actual : reference;
+				iocore_out8(0x02, 0);
+				iocore_out8(0x0f, (channel << 6) | 0x36 | bcd);
+				iocore_out8(0x0c + channel, bcd ? 0 : 0x10);
+				iocore_out8(0x0c + channel, bcd ? 0 : 0x27);
+				iocore_out8(0x02, gates[channel]);
+				ZeroMemory(samples, sizeof(reference));
+				pcg88_getpcm(NULL, samples, 1024);
+			}
+			for (i = 0; i < NELEMENTS(reference); i++)
+				audible = audible || reference[i] != 0;
+			/* Exact integer phase predicts the sign of an even mode-3
+			 * waveform. No noninitial sample in this window hits an edge. */
+			for (i = 1; i < 1024 && !problem; i++) {
+				const UINT64 phase = ((UINT64)i * 3993600) % 441000000;
+				if (!reference[2 * i] || (reference[2 * i] > 0) != (phase < 220500000) ||
+				    reference[2 * i] != reference[2 * i + 1])
+					problem = "M144A_PCG_PCM_PERIOD";
+			}
+			if (!problem && (!audible || memcmp(reference, actual, sizeof(reference))))
+				problem = "M144A_PCG_BCD_ZERO_PCM";
+		}
+		if (!problem)
+			fprintf(stderr,
+			        "selftest: PCG counter encodings 60003 and zero-reload PCM 3 channels ok\n");
+	}
+	if (problem == NULL) {
 		np2cfg.pcg_enable = 0;
 		iocore_out8(0x00, 0x11);
 		iocore_out8(0x01, 0x08);

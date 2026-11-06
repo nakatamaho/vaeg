@@ -52,7 +52,7 @@
  *        (bit 1/3) number (bit 0/2); bit 4 selects the bank written
  *   0Ch-0Eh  8253 counters 0-2, 0Fh  8253 mode
  * A counter in mode 3 sounds a square wave of 3.9936 MHz / count while its
- * gate is set (count > 266; 0 is 65536).
+ * gate is set (count > 266; zero reload is 65536 in binary, 10000 in BCD).
  */
 
 #include "compiler.h"
@@ -243,7 +243,7 @@ static UINT pcg88_count(UINT channel) {
 		count = ((count >> 12) & 0x0f) * 1000 + ((count >> 8) & 0x0f) * 100 +
 		        ((count >> 4) & 0x0f) * 10 + (count & 0x0f);
 	}
-	return (count == 0) ? 0x10000 : count;
+	return (count == 0) ? (pcg88.bcd[channel] ? 10000 : 0x10000) : count;
 }
 
 /* The tone of a counter in Hz, 0 when silent. */
