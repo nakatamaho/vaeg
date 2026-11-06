@@ -29,6 +29,26 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Pending PCG write state contract
+
+The state-file fixture now covers pending PCG programming for both N80 model
+variants. It displays bank 0 while programming bank 1, leaves the write bit
+set, then changes data and the low address without issuing another write-port
+operation. Distinct bytes at the target and adjacent glyph rows detect premature
+writes, a stale address, the wrong bank and the wrong source data.
+
+The contract saves that state, resets the PCG, loads the state file, and compares
+the complete serialized PCG structure. Issuing only port 02h must then complete
+the pending store into bank 1 without altering bank 0 or the previous row.
+Switching the displayed bank must select the newly written glyph byte. A
+single-bit mutation of the restored data latch is rejected specifically with
+`M144A_N80_PCG_PENDING_STATE`; the mutation is not retained.
+
+This checks controller-I/O and state-file semantics, not guest-instruction timing,
+audio-phase continuity or whole-machine visual replay. No production correction
+was necessary. The native build and seven focused CTest checks pass. Earlier
+checkpoint limitations below retain their historical scope; G144a remains pending.
+
 ## SR two-page composition contract
 
 The matrix now adds 32,768 SR 320-dot combinations, for 65,536 total cases

@@ -8009,6 +8009,8 @@ static int test_pc8001_banks(void) {
 	char error[256];
 	const char *problem = NULL;
 	_MEMORYN80 saved_bank;
+	_PCG88 saved_pcg;
+	const UINT8 saved_pcg_enable = np2cfg.pcg_enable;
 	unsigned model;
 	SPRINTF(root, "vaeg-selftest-%lu-n80banks", (unsigned long)getpid());
 	SPRINTF(path, "vaeg-selftest-%lu-n80banks.sav", (unsigned long)getpid());
@@ -8228,6 +8230,30 @@ static int test_pc8001_banks(void) {
 				iocore_out8(0x52, 0x30);
 				iocore_out8(0x53, 7);
 			}
+			if (!problem) {
+				unsigned bank;
+				np2cfg.pcg_enable = 1;
+				pcg88_reset();
+				for (bank = 0; bank < 2; bank++) {
+					iocore_out8(0x03, bank ? 0x1c : 0x08);
+					iocore_out8(0x00, bank ? 0xc3 : 0x3c);
+					iocore_out8(0x01, 0x3f);
+					iocore_out8(0x02, 0x12);
+				}
+				/* Display bank 0 while programming bank 1. Keep the write
+				 * bit set, then change data/address without another 02h write. */
+				iocore_out8(0x03, 0x18);
+				iocore_out8(0x00, 0x96);
+				iocore_out8(0x01, 0x37);
+				iocore_out8(0x02, 0x12);
+				iocore_out8(0x00, 0xa7);
+				iocore_out8(0x01, 0x3f);
+				if (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xc3 ||
+				    pcg88.ram[1][0x237] != 0x96 || pcg88.address != 0x123f || pcg88.data != 0xa7 ||
+				    pcg88.setbank != 1)
+					problem = "M144A_N80_PCG_PENDING_SETUP";
+				CopyMemory(&saved_pcg, &pcg88, sizeof(saved_pcg));
+			}
 			saved_bank = memoryn80;
 			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
 			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
@@ -8239,6 +8265,7 @@ static int test_pc8001_banks(void) {
 				iocore_out8(0x55, 7);
 				iocore_out8(0x33, 0);
 				iocore_out8(0x71, 1);
+				pcg88_reset();
 				if (statsave_load(path) != STATFLAG_SUCCESS ||
 				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
 				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 || videova.palette[1] != 0x001f ||
@@ -8249,6 +8276,22 @@ static int test_pc8001_banks(void) {
 				scrndrawva_compose_raster();
 				if (!problem && vabitmap[0] != 0x03ff)
 					problem = "M144A_N80_VIDEO_RESTORE";
+				if (!problem && memcmp(&saved_pcg, &pcg88, sizeof(pcg88)))
+					problem = "M144A_N80_PCG_PENDING_STATE";
+			}
+			if (!problem) {
+				const BYTE *glyph;
+				/* Only the write port is issued again: restored data, low
+				 * address and write-bank latches must determine the store. */
+				iocore_out8(0x02, 0x12);
+				glyph = pcg88_glyph(0xc7);
+				if (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xa7 ||
+				    pcg88.ram[1][0x237] != 0x96 || !glyph || glyph[7] != 0x3c)
+					problem = "M144A_N80_PCG_PENDING_CONTINUATION";
+				iocore_out8(0x03, 0x1c);
+				glyph = pcg88_glyph(0xc7);
+				if (!problem && (!glyph || glyph[7] != 0xa7))
+					problem = "M144A_N80_PCG_PENDING_DISPLAY";
 			}
 			if (!problem) {
 				BYTE *data = NULL;
@@ -8330,8 +8373,10 @@ static int test_pc8001_banks(void) {
 	romva_initialize();
 	pccore_term();
 	soundmng_deinitialize();
+	np2cfg.pcg_enable = saved_pcg_enable;
 	if (problem)
 		return fail("N80 ROM banks", problem);
+	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");
 	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
 	return SUCCESS;
 }
