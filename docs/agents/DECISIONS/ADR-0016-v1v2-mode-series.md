@@ -116,7 +116,16 @@ M144a implementation follow-up uses the same pinned 1.5.3 archive for
 already offered vector transaction. These are independently implemented
 port contracts, not new physical-VA measurements. The maintainer also
 requests independent PC-8001mkII/SR emulation and PC-PR201 PDF output;
-those additions remain in progress, not covered by this derivation entry.
+those additions remain in progress.
+
+The subsequent M144a `io/pc8001_video.c` primitives independently reimplement
+`PC88Z80Main.cpp::MemBankRomRamMode_N80`, `MemBankIERomMode_N80`,
+`MemBankGVRamMode_N80/Ex_N80`, and `X88ScreenDrawer.cpp::DrawGraphics`
+N80 colour addressing rules from the same pinned 1.5.3 archive. They cover
+ROM-source/offset selection, the 8000h-BFFFh VRAM aperture, packed mkII pixels
+and SR planar/page composition. At this checkpoint only the unit test target
+links them; production device/ROM/state integration remains unfinished.
+No third-party file or ROM/font data is copied into the tree.
 
 Each choice and its status is listed in
 [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).

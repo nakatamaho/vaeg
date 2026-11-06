@@ -1069,6 +1069,12 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    # M144a: independently test the N80 bank/pixel rules before machine wiring.
+    add_executable(vaeg_pc8001_video_test tests/pc8001/video.c io/pc8001_video.c)
+    target_include_directories(vaeg_pc8001_video_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc8001_video_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc8001_video COMMAND vaeg_pc8001_video_test)
+    set_tests_properties(vaeg_pc8001_video PROPERTIES LABELS "romless;pc8001;video")
     add_executable(vaeg_sha256_test tests/common/sha256.c common/sha256.c)
     target_include_directories(vaeg_sha256_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(vaeg_sha256_test PRIVATE c_std_99)

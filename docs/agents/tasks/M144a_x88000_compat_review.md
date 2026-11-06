@@ -61,6 +61,51 @@ human acceptance are still required before the implementation gate passes.
 Full media/presenter campaigns require a separate explicit request. No merge,
 release, hardware probe, deletion or resumption of WSR-E/M145 is authorized.
 
+## PC-8001mkII/SR implementation checkpoint
+
+The maintainer subsequently prioritized PC-8001mkII/SR graphics, ROM banks,
+mode switching and state persistence. PR201/PDF and FDC clock verification
+are paused while this work proceeds; neither is silently dropped or completed.
+
+Added `io/pc8001_video.c/.h` with independently testable N80 address and raw
+pixel primitives, and `tests/pc8001/video.c` / CTest `vaeg_pc8001_video`.
+The source is currently linked **only into that test target**, not the emulator.
+This intentional integration boundary prevents partially implemented N80SR
+selection from replacing the accepted N-mode startup.
+
+Implemented primitive contracts:
+
+- ROM/RAM selection below 8000h; N80 fourth-ROM socket versus BASIC upper
+  bank from 31h bit 0; N80SR upper BASIC versus IE ROM from 71h bit 0.
+  Missing ROM handling and qualified model/mode selection remain caller-owned.
+- GVRAM window at 8000h-BFFFh, independent-plane versus extended-access enable.
+- mkII 640x200 one-bit and 320x200 packed two-bit pixels (doubled to 640 dots).
+- SR 640x200 B/R/G pixels and 320x200 two-page B/R/G composition, transparent
+  front colour zero, selectable front page and each page's 53h disable bit.
+- Bounds rejection without reading input for invalid coordinates/null buffers.
+
+Verification: 2,879,495 assertions PASS in the normal target and independently
+compiled C99 `-Wall -Wextra -Werror -fsanitize=address,undefined` target. The
+nonuniform coordinate fixtures check stride, bit order, page offset and doubling;
+solid-colour cases cover all colour/priority/page-disable combinations. Exhaustive
+ROM-address and mode-bit cases include every 16-bit address. Seven task-local
+single-mutation checks start from the passing baseline and reject ROM edge,
+IE polarity, GVRAM edge, packed colour, priority, page-offset and stride mutations
+with `PC8001_VIDEO_CONTRACT`. Raw logs/copies remain outside Git.
+
+**Not yet integrated:** production ROM loading (including 4TH/IE assets), raw
+31h/33h/35h/53h/71h state, I/O-trap interaction, main CPU memory read/write
+and write protection, ALU backing, palette/monochrome/text priority, display timing,
+font selection, runtime mode detection/GUI and save-state serialization. In
+particular these primitive tests are not a machine boot, screenshot, or SAV
+round trip. The requested four-part feature remains IN_PROGRESS, not complete.
+
+Next integration must qualify machine type from applied ROMs, preserve the old
+N-mode fallback, avoid using VA aliases to represent SR pages, and validate
+state decode before modifying live state. ROM payloads must remain private
+inputs, never new tracked assets. A state codec's unit round trip alone cannot
+substitute for save/load through `machine/statsave.c`.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request
