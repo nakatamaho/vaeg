@@ -22,13 +22,70 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M144a — X88000 compatibility-feature source review
 
-Status: **SOURCE_REVIEW_RECORDED; G144a human review PENDING;
-investigation only, no implementation authorization; publication
-BLOCKED_AUTHENTICATION_NOT_PUSHED.**
+Status: **IMPLEMENTATION_IN_PROGRESS; G144a human gate PENDING;
+publication remains BLOCKED_AUTHENTICATION_NOT_PUSHED.**
 Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 [dc023c9b7ce62c7334d797ba1934ad95b51fd3fd](https://github.com/nakatamaho/vaeg/commit/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd).
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
+
+## Authorized implementation extension
+
+After receiving the source review, the maintainer explicitly requested implementation
+of the 32h GVAM transition and E6h unmask-request changes, PC-8001mkII/SR
+emulation, a main-clock-independent nominal 4 MHz FDD CPU, and PC-PR201 output
+to PDF (including operation with an 8 MHz main CPU). This extends this same
+milestone; it does not declare the previous review accepted or start another gate.
+The earlier investigation-only restrictions below describe the completed review
+checkpoint, not this newly authorized implementation phase.
+
+Keep separate commits for independently testable concerns. PC-8001 graphics,
+ROM banks, mode selection and state persistence must be implemented together
+rather than merely adding model names. PR201 requires a guest printer input
+path, bounded command/page processing and actual PDF content validation, not
+renaming a raw print stream. No ROM/font payload may be bundled. Keep VA
+hardware behavior distinct from independent PC-8001/8801 selections.
+
+The FDD clock report is a requested verification/correction, not yet a diagnosed
+vaeg defect: current `Subsystem::Reset` scales FDC cycles by the fixed machine
+multiple, independently of the configurable main CPU multiple. Verify guest
+execution at 4/8 MHz before deciding whether a production correction is needed.
+Nominal 4 MHz in the VA clock domain means 3.9936 MHz, not changing the crystal
+base to 4,000,000 Hz without evidence.
+
+Required implementation checks: focused synthetic I/O/memory/interrupt tests,
+FDC execution-count comparison, model/reset/state regression, printer parser
+bounds and PDF page/content/error cases, applicable CMake/CTest builds and
+repository checks. Preserve failed tests. A clean static Windows handoff and
+human acceptance are still required before the implementation gate passes.
+Full media/presenter campaigns require a separate explicit request. No merge,
+release, hardware probe, deletion or resumption of WSR-E/M145 is authorized.
+
+## Initial port implementation checkpoint
+
+Implemented compatible-mode GVAM edge reset and E6h newly permitted request
+clearing. Native GVAM latch behavior is unchanged. E6h does not revoke a vector
+already offered to the CPU: that existing acknowledge transaction remains
+owned by the CPU bridge. This is an explicit VA-adapter boundary, not a claim
+of byte-for-byte transplantation of X88000's interrupt model.
+
+Added 32 GVAM transition/mode/plane cases and 256 E6h mask/pending cases to
+production-path ROM-less selftests. Updated the state fixture to select its
+nondefault plane after the GVAM edge. No state format changes.
+
+Local QA: fresh native Debug configure/build exit 0 (recording ON, static
+FFmpeg, bundled MP4 encoders OFF; QA-only profile with shaders OFF).
+`ctest --test-dir <task-native-build> -R vaeg_romless --output-on-failure`:
+1/1 PASS, 41.66 seconds. Log contains `8214 mode ok` and
+`GVAM transitions 32 cases ok`. Initial configure rejected missing trace
+instrumentation; corrected with `VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON`, with
+both logs preserved. No mutation check, full CTest, Windows build, new guest
+media execution or hardware verification has yet been performed.
+
+**Remaining:** full PC-8001mkII/SR graphics/ROM/bank/state integration,
+production FDC execution-count verification, PC-PR201 command/parser/port
+integration and PDF export. None of these is marked implemented by this
+port-only checkpoint. Main/WSR-E/M145 remain unchanged.
 
 ## Request and scope
 

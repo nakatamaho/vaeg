@@ -109,6 +109,15 @@ Re-implemented from X88000 1.5.3 (public domain; source archive
 | M114 | `io/memctrlva.c` (port 31h on a PC-8001 model) | `PC88Z80Main.cpp`, `WriteIO_31_N80` | PC-8001mkII meaning of port 31h bits (all-RAM, graphics enable) |
 | M115 | `io/pcg88.c` | `PC88Pcg.cpp` (`Reset`, `WritePcgPort`, `WriteITimerPort`, `GetITimerCounterValue`), `X88000.cpp` (`PcgSoundOutput`), `PC88Z80Main.cpp` (port map) | PCG-8100/8800 character RAM, banks, ports 00h-03h, 8253 counters at 0Ch-0Fh and the 4 MHz/count tone |
 
+M144a implementation follow-up uses the same pinned 1.5.3 archive for
+`PC88Z80Main.cpp::WriteIO_32` and `PC88Z80Main.h::Set*InterruptMask`:
+`io/sysportva.c` resets independent selection on compatible GVAM edges;
+`io/pic.c` clears newly unmasked source latches, retaining the VA bridge's
+already offered vector transaction. These are independently implemented
+port contracts, not new physical-VA measurements. The maintainer also
+requests independent PC-8001mkII/SR emulation and PC-PR201 PDF output;
+those additions remain in progress, not covered by this derivation entry.
+
 Each choice and its status is listed in
 [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).
 

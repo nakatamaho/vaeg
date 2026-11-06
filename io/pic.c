@@ -185,7 +185,22 @@ static void IOOUTCALL pic8214_oe4(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL pic8214_oe6(UINT port, REG8 dat) {
+	const REG8 enabled = (REG8)(dat & ~pic8214.mask & 0x07);
+	UINT level;
+
+	/* M144a: X88000 1.5.3 Set*InterruptMask (public domain): clear
+	 * requests only on prohibited -> permitted transitions. The VA bridge
+	 * owns the latch here, rather than in each peripheral. A vector already
+	 * offered to the CPU is left to the existing acknowledge transaction. */
+	if (!pic8214.mode8259) {
+		for (level = 0; level < 3; level++) {
+			if ((enabled & pic8214_maskbit[level]) && pic8214.pending != level) {
+				pic8214.irr &= (REG8)~(1 << level);
+			}
+		}
+	}
 	pic8214.mask = dat & 0x07;
+	pic8214_update();
 	if (!pic8214.mode8259 && (pic8214.mask & pic8214_maskbit[PIC8214_TIMER2]) &&
 	    !nevent_iswork(NEVENT_GENTIMER2)) {
 		nevent_set(NEVENT_GENTIMER2, (SINT32)pic8214_timer2_period(), pic8214_timer2,

@@ -35,6 +35,28 @@ land.
 
 ## Maintenance Rules
 
+### M144a — compatible GVAM selection and unmask request transitions
+
+- **Scope/status:** implementation candidate, human gate pending. This corrects
+  the maintainer-requested compatible-port contract, not a demonstrated cause
+  of the deferred demo scene-transition artifact or a new physical-VA finding.
+- **Symptom/root cause:** changing GVAM retained the previously selected
+  independent VRAM plane; the 32h handler only assigned the GVAM latch.
+  E6h prohibited-to-permitted transitions retained unacknowledged request
+  latches because the mask handler only assigned the mask and scheduled the
+  timer. Both differ from the pinned X88000 1.5.3 contract.
+- **Correction:** either GVAM edge in 88 mode resets independent selection
+  to main RAM; same-value writes and native-mode latch behavior are unchanged.
+  E6h clears only newly permitted source latches, preserving unrelated sources
+  and already offered CPU vector transactions, then updates the controller output.
+- **Verification:** native Debug build and `vaeg_romless_tests` pass; 32 GVAM
+  combinations and 256 E6h transition/pending combinations exercise production
+  I/O handlers. Existing interrupt delivery and state tests pass. Tests were not
+  yet mutation-checked; broader model/runtime validation remains pending.
+- **Task/evidence:** [M144a implementation checkpoint](../agents/tasks/M144a_x88000_compat_review.md#initial-port-implementation-checkpoint).
+  Fixing commit link will be recorded after the candidate commit is created.
+
+
 ### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
 
 - **Symptom/scope:** the historical native load reaches the guest PC and exits

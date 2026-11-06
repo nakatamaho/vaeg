@@ -5314,6 +5314,8 @@ static void v1v2_state_set_nondefault(void) {
 	iocore_out8(0x034, 0x41);
 	iocore_out8(0x035, 0x95);
 	iocore_out8(0x032, iocore_inp8(0x032) | 0x40);
+	/* GVAM transitions reset the plane; explicitly select the state fixture. */
+	iocore_out8(0x05d, 0x00);
 	for (i = 0; i < 8; i++) {
 		iocore_out8(0xffe0 + i, ranges[i]);
 	}
@@ -5328,6 +5330,46 @@ static BOOL v1v2_state_is_nondefault(void) {
 	       iocore_inp8(0x034) == 0x41 && iocore_inp8(0x035) == 0x95 &&
 	       (iocore_inp8(0x032) & 0x40) && !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
 	       upd9002_iotrap.control == 0x13;
+}
+
+static int test_gvam_transition(void) {
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_plane = memoryva_88_plane;
+	const UINT8 saved_gvam = memoryva_88_alu.gvam;
+	const REG8 saved_port = iocore_inp8(0x032);
+	const char *problem = NULL;
+	UINT native;
+	UINT old;
+	UINT next;
+	UINT plane;
+
+	/* Exercise the real port handler: both edges, both same-value writes,
+	 * every independent selection, and unchanged native-mode behavior. */
+	for (native = 0; native < 2; native++) {
+		memoryva_88_mode = native ? 0 : 1;
+		for (old = 0; old < 2; old++) {
+			for (next = 0; next < 2; next++) {
+				for (plane = 0; plane < 4; plane++) {
+					const UINT expected = (!native && old != next) ? 3 : plane;
+					memoryva_88_alu.gvam = (UINT8)old;
+					iocore_out8(0x05c + plane, 0);
+					iocore_out8(0x032, (saved_port & ~0x40) | (next << 6));
+					if (memoryva_88_plane != expected || memoryva_88_alu.gvam != next) {
+						problem = "GVAM transition/same-write/native selection mismatch";
+					}
+				}
+			}
+		}
+	}
+	iocore_out8(0x032, saved_port);
+	memoryva_88_mode = saved_mode;
+	memoryva_88_plane = saved_plane;
+	memoryva_88_alu.gvam = saved_gvam;
+	if (problem != NULL) {
+		return fail("GVAM transitions", problem);
+	}
+	fprintf(stderr, "selftest: GVAM transitions 32 cases ok\n");
+	return SUCCESS;
 }
 
 static BOOL v1v2_state_is_default(void) {
@@ -5448,6 +5490,39 @@ static int test_pic8214_mode(void) {
 		problem = "reset state is not idle 8214 mode";
 	}
 	pic8214_test_icu_init();
+	/* All E6h transitions: only newly permitted source latches clear;
+	 * unrelated levels, same-value writes and already offered vectors stay. */
+	if (problem == NULL) {
+		UINT old;
+		UINT next;
+		UINT pending;
+		for (pending = 0; pending < 4; pending++) {
+			for (old = 0; old < 8; old++) {
+				for (next = 0; next < 8; next++) {
+					REG8 expected = 0xff;
+					UINT level;
+					pic8214.mask = (UINT8)old;
+					pic8214.irr = 0xff;
+					pic8214.pending = pending < 3 ? (UINT8)pending : PIC8214_NONE;
+					for (level = 0; level < 3; level++) {
+						const UINT bit = 1U << (2 - level);
+						if ((next & ~old & bit) && pending != level) {
+							expected &= (REG8)~(1U << level);
+						}
+					}
+					iocore_out8(0xe6, (REG8)next);
+					if (pic8214.irr != expected || pic8214.mask != next ||
+					    pic8214.pending != (pending < 3 ? pending : PIC8214_NONE)) {
+						problem = "E6h transition cleared wrong request or pending vector";
+					}
+				}
+			}
+		}
+		/* Return to the ordinary production-path interrupt fixture. */
+		pic8214.irr = 0;
+		pic8214.pending = PIC8214_NONE;
+		iocore_out8(0xe6, 0);
+	}
 	/* E6h masks levels 0-2 at the request input. */
 	if (problem == NULL) {
 		pic_setirq(0x02);
@@ -9901,6 +9976,9 @@ int vaeg_selftest_run(void) {
 	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
 	    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
 		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
+	}
+	if (test_gvam_transition() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_v1v2_graphics() != SUCCESS) {
 		return (FAILURE);
