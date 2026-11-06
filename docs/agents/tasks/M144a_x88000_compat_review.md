@@ -271,6 +271,38 @@ It checks the production raster/compositor with injected attribute rasters;
 it is **not** an end-to-end secret/blink/underline/attribute-parser matrix.
 Earlier real-file SAV, colour-priority, CPU-role and I/O regressions still run.
 
+## N80 runtime continuation and input qualification checkpoint
+
+### Hiragana input relationship
+
+The loader accepts `fonthira` as a fallback for the second 2 KiB glyph
+bank when the complete font80sr input is absent. The complete font has
+precedence, and ordinary ANK is never replaced by hiragana. Required-role
+checks accept `font80sr|fonthira`. These are supported-interface rules,
+not a statement about a particular input or an execution result.
+Synthetic fixtures deliberately give the two inputs different bytes to check
+precedence, then remove only the generated complete-font fixture to exercise
+the fallback and return to normal ANK.
+
+### Guest mode continuation
+
+A synthetic program now executes from guest C000h RAM, performs actual OUT 33h
+instructions selecting SR -> N80 -> SR, reads address 0000h after each switch,
+and stores the three distinct ROM witnesses back to guest RAM. It must remain
+in compatible execution and reach the expected instruction boundary. This is
+a live guest CPU/ROM mapping test, not just port dispatch. It does not imply
+that switching ROM underneath a currently executing BASIC interpreter is safe;
+software must use an appropriate RAM transition routine.
+
+### State comparison contract
+
+`tools/qa/n80_state_contract.py` provides content validation for required
+state sections, dynamic progress and restored state/frame equality. PNG
+structure, bounds and CRCs are checked. EVENT and BEEP are excluded by
+this contract, so it must not be presented as all-state or audio equivalence.
+Equal outputs alone do not establish equal execution intervals. Its
+selftest uses passing fixtures and single-mutation exact-code negatives.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request

@@ -89,7 +89,7 @@ static const struct {
 } machine_table[] = {
     {"PC-8001", "n80 font", 2, 0, 0, EXTRAROM_ROLE_N80},
     {"PC-8001mkII", "n80_2 font", 2, 0, 0, EXTRAROM_ROLE_N80_2},
-    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira", 2, 0, 0, EXTRAROM_ROLE_N80_2SR},
+    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr|fonthira", 2, 0, 0, EXTRAROM_ROLE_N80_2SR},
     {"PC-8801", "n88 n88_0 n80 font|kanji1", 2, 0, 0},
     {"PC-8801mkII", "n88 n88_0 n80 disk kanji1", 2, 0, 0},
     {"PC-8801mkIISR", PC8801_V2_ROLES, 2, 1, 0},
@@ -891,6 +891,15 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	                  n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
 	cgromva_n80sr_font_present = memoryn80.model == 2 &&
 	    apply_role(machine, EXTRAROM_ROLE_FONT80SR, cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
+	/* In the MAME pc8001mk2sr set, fonthira is byte-identical to bank 1
+	 * of font80sr. Accept it as that bank when the complete font is absent;
+	 * never let a second input silently overwrite an explicitly chosen font. */
+	if (memoryn80.model == 2 && !cgromva_n80sr_font_present) {
+		CopyMemory(cgromva_n80sr_font, fontmem + 0x41000, 0x800);
+		CopyMemory(cgromva_n80sr_font + 0x800, fontmem + 0x41000, 0x800);
+		cgromva_n80sr_font_present =
+		    apply_role(machine, EXTRAROM_ROLE_FONTHIRA, cgromva_n80sr_font + 0x800, 0x800);
+	}
 	memoryn80.port31 = 0;
 	memoryn80.port33 = 0;
 	memoryn80.port71 = 1;

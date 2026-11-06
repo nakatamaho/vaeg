@@ -85,6 +85,13 @@ required-role lists or the MAME identity table. M144a's production banking
 integration is under development; loading these ROMs does not yet qualify
 full SR graphics, guest I/O trapping or SR startup.
 
+For SR glyphs, the complete `font80sr` input takes precedence. If it is
+absent, the loader accepts `fonthira` for the second 2 KiB glyph bank. Port 33h bit 4 selects it while
+ordinary ANK and PCG precedence remain unchanged. This accepted-input alternative
+is not a claim that MAME's complete set omits either file. Disk BASIC also needs
+the optional external FDD-unit `disk` ROM; mounting a disk image alone does not
+supply that device's firmware.
+
 ### Roles each model needs
 
 The requirements follow MAME's ROM definitions, with two maintainer
@@ -96,7 +103,7 @@ carries the FDD ROM; a model 10 runs a drive once one is fitted).
 |---|---|
 | PC-8001 | `n80`, `font` |
 | PC-8001mkII | `n80_2`, `font` |
-| PC-8001mkIISR | `n80_2sr`, `n80_3`, `font`, `font80sr`, `fonthira` |
+| PC-8001mkIISR | `n80_2sr`, `n80_3`, `font`, either `font80sr` or `fonthira` |
 | PC-8801 | `n88`, `n88_0`, `n80`, `font` or `kanji1` |
 | PC-8801mkII | `n88`, `n88_0`, `n80`, `disk`, `kanji1` |
 | PC-8801mkIISR, mkIITR, mkIIFR | `n88`, `n88_0`-`n88_3`, `n80`, `disk`, `kanji1` |

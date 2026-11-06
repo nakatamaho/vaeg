@@ -8037,6 +8037,7 @@ static int test_pc8001_banks(void) {
 		    !selftest_put_rom(dir, "e8.rom", 0x2000, 0x72) ||
 		    !selftest_put_rom(dir, "n80_3.rom", 0xa000, 0x83) ||
 		    !selftest_put_rom(dir, "font80sr.rom", 0x1000, 0xb2) ||
+		    !selftest_put_rom(dir, "fonthira.rom", 0x800, 0xc3) ||
 		    !selftest_put_rom(dir, "font.rom", 0x800, 0x94)) {
 			problem = "synthetic ROM creation";
 		} else {
@@ -8184,6 +8185,43 @@ static int test_pc8001_banks(void) {
 									problem = "M144A_N80_MONO_REVERSE_COMPOSE";
 							}
 				}
+				if (model == 2 && !problem) {
+					/* Execute entirely from guest RAM while changing the ROM
+					 * underneath address zero: SR -> N80 -> SR, with readback. */
+					static const BYTE switch_code[] = {
+					    0x3e,0x80,0xd3,0x33,0x3a,0,0,0x32,0,0xc1,
+					    0x3e,0x00,0xd3,0x33,0x3a,0,0,0x32,1,0xc1,
+					    0x3e,0x80,0xd3,0x33,0x3a,0,0,0x32,2,0xc1};
+					unsigned step;
+					CPU_RESET();
+					memoryva_88_mode = FALSE;
+					STOREINTELWORD(mem + 0xe1 * 4, 0xc000);
+					STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x1000);
+					mem[0x20100] = 0x0f;
+					mem[0x20101] = 0xff;
+					mem[0x20102] = 0xe1;
+					CopyMemory(mem + 0x1c000, switch_code, sizeof(switch_code));
+					CPU_CS = 0x2000;
+					CS_BASE = 0x20000;
+					CPU_DS = 0x1000;
+					DS_BASE = 0x10000;
+					CPU_SS = 0x3000;
+					SS_BASE = 0x30000;
+					CPU_IP = 0x100;
+					CPU_SP = 0x100;
+					CPU_BP = 0xd000;
+					CPU_FLAG = 0xf000;
+					CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+					upd9002_core_step();
+					memoryva_88_mode = TRUE;
+					iocore_out8(0x31, 1);
+					for (step = 0; step < 12; step++)
+						upd9002_core_step();
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc01e ||
+					    mem[0x1c100] != 0x83 || mem[0x1c101] != 0x61 || mem[0x1c102] != 0x83 ||
+					    memoryn80.port33 != 0x80)
+						problem = "M144A_N80_GUEST_MODE_CONTINUATION";
+				}
 				iocore_out8(0x33, port33);
 				iocore_out8(0x31, port31);
 				iocore_out8(0x55, 1);
@@ -8250,10 +8288,25 @@ static int test_pc8001_banks(void) {
 			                 memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
 				problem = "legacy state bank baseline";
 		}
+		if (!problem && model == 2) {
+			/* Test-only fixture removal: the complete-font precedence was
+			 * exercised above with a deliberately different fallback input. */
+			selftest_delete_rom(dir, "font80sr.rom");
+			romva_initialize();
+			memoryva_88_mode = TRUE;
+			iocore_out8(0x33, 0x90);
+			if (!cgromva_n80sr_font_present || cgromva_ank8(0)[0] != 0xc3 ||
+			    cgromva_n80sr_font[0] != fontmem[0x41000])
+				problem = "M144A_N80_HIRA_FALLBACK";
+			iocore_out8(0x33, 0x80);
+			if (cgromva_ank8(0) != fontmem + 0x41000)
+				problem = "M144A_N80_HIRA_FALLBACK_NORMAL";
+		}
 		selftest_delete_rom(dir, basic);
 		selftest_delete_rom(dir, "e8.rom");
 		selftest_delete_rom(dir, "n80_3.rom");
 		selftest_delete_rom(dir, "font80sr.rom");
+		selftest_delete_rom(dir, "fonthira.rom");
 		selftest_delete_rom(dir, "font.rom");
 #if defined(_WIN32)
 		_rmdir(dir);

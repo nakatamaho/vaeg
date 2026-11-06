@@ -1081,6 +1081,9 @@ if(VAEG_ENABLE_TESTS)
     target_compile_features(vaeg_sha256_test PRIVATE c_std_99)
     add_test(NAME vaeg_sha256 COMMAND vaeg_sha256_test)
     set_tests_properties(vaeg_sha256 PROPERTIES LABELS "romless;state;storage")
+    add_test(NAME vaeg_n80_state_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_state_contract.py" --selftest)
+    set_tests_properties(vaeg_n80_state_contract PROPERTIES LABELS "romless;state;pc8001")
     add_test(NAME vaeg_runtime_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
     add_test(NAME vaeg_state_restore_matrix_contract
