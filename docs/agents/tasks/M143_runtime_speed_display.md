@@ -331,3 +331,28 @@ versions are preserved separately rather than overwriting historical evidence.
 The accepted `1b7e6cbc` executable/report remain available in the retained handoff.
 Cleanup uses an explicit runtime-only path list after this merge/roadmap record
 is pushed; protected inputs, evidence, shared SDKs and other milestones remain.
+
+## Scoped cleanup record
+
+After the gate, no-ff merge and roadmap records were pushed, the runtime
+integration worktree and the two local runtime branches were removed only after
+clean-worktree and `origin/main` containment checks. The `1b7e6cbc` static build
+and three runtime integration/MacPorts/Issue-draft scratch directories were
+removed after the complete byte/link retention check; no retained originals
+were overwritten. All remote branches remain.
+
+The canonical private retained bundles now hold the full integration campaign,
+accepted Windows executable/report, build/check logs and pending Issue draft.
+The accepted Windows SHA-256 remains
+`fb952336ffa06a56d12d6512c406cf08d25754cf1e66894349d1ec29260c3c31`;
+its embedded source is still `1b7e6cbc`, not the main merge. The VM remains stopped.
+Its retained overlay may name its former backing-image path: reconstruct only
+with a new writable copy and retained base image, never by altering retained data.
+
+The primary WSR-E worktree/branch and supplied ZIP, M145 worktree/branch and
+retained inputs, all supplied originals, the private reference tree, shared
+caches/SDKs and earlier SDK-bearing scratch remain untouched. No other
+milestone's build or worktree is removed. The temporary merge worktree/branch
+is removed after this final record is pushed; exact deletion and final-ref
+verification receipts are retained outside Git. Main's local ref is advanced
+only by a checked fast-forward. No release or next milestone is started.
