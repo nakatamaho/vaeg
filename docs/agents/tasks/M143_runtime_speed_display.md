@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**G143 human gate PASSED; integration QA recorded, reference approval pending.** Branch: `topic/m143-runtime-speed`;
+**G143 human gate PASSED, including the integration handoff; reference/target disposition pending.** Branch: `topic/m143-runtime-speed`;
 integration candidate: `topic/m143-runtime-integration`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
@@ -240,3 +240,35 @@ clarifies the existing configuration; no code/build-setting change or rebuild is
 needed. The above executable is reused with its source identity and SHA-256
 unchanged. This configuration confirmation does not approve frozen references,
 claim Windows execution, or authorize a main merge/release.
+
+## Carried-forward demo transition artifact
+
+The maintainer reports that, with the VA2 model in V2H mode, the PC-8801mkIISR
+demo briefly displays text-like garbage at scene transitions, and explicitly
+requests carry-forward and a GitHub Issue. Correction is **DEFERRED**, not fixed;
+no investigation or speculative emulator change is part of this task. The
+[open ledger entry](../../modernization/bug-fixes.md#va2v2h-demo-scene-transitions-briefly-show-reported-text-like-garbage)
+retains the observation and limits. The exact executed build, host/backend,
+media revision and scene pair are not yet bound; no agent reproduction is claimed.
+
+Public Issue triage found no matching reported scene-transition issue. Closed
+[issue #50](https://github.com/nakatamaho/vaeg/issues/50) concerns boot-time blank
+function-key blocks; no common cause or regression is established. A filing
+body is prepared outside Git, but the task-local GitHub CLI has no usable
+credentials: creation is **BLOCKED_AUTHENTICATION**, not completed. No Issue
+number, media identity or raw capture is invented or published.
+
+## Integration human acceptance
+
+After the Windows encoder configuration confirmation and the above carry-forward
+request, the maintainer explicitly states **"human gate passed"**. This records
+human acceptance of the presented runtime-only integration handoff built from
+`1b7e6cbc6defabf240d4c5f3a9a4572021305b36`; the original runtime G143 acceptance
+also remains valid. The scene-transition observation stays open and deferred.
+
+This is not new automated Windows execution evidence or approval of the frozen
+32-case reference manifest. The references remain DRAFT; native Cocoa and other
+unavailable platform/physical-GPU/true-HiDPI coverage retain their prior statuses.
+Their explicit disposition is still required before the main merge. No repeated
+human gate run is requested, and no main merge, release, next milestone or cleanup
+is inferred. WSR-E and M145 remain separate and preserved.
