@@ -29,6 +29,29 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Colour and visibility composition contract
+
+The PCG/attribute/compositor matrix now specifies 32,768 combinations and
+8,388,608 final-pixel comparisons. It retains the monochrome cases and adds
+mkII packed 320-dot colour, SR planar 640-dot colour, SR text-behind priority
+and graphics-plane visibility. All four packed and all eight planar colour
+indices occur in the independent expected patterns.
+
+The fixture deliberately maps index zero to blue and index one to black.
+This distinguishes index-based transparency from RGB-based transparency, and
+checks that disabling graphics selects the backdrop instead of palette zero.
+The matrix combines these cases with the existing character attributes,
+blink phases, global reverse, programmable banks and 40/80-column layouts.
+A single-mutation negative replaces index-based priority with RGB-based
+priority and must fail specifically with `M144A_N80_PCG_COLOR_COMPOSITION`.
+The mutation is reverted; no production behaviour correction was necessary.
+The native build and all seven focused CTest checks pass.
+
+This is component coverage, not whole-machine acceptance. SR 320-dot page
+composition with the full attribute matrix, programming-time state transitions
+and timing boundaries remain separate work. The earlier monochrome-only
+checkpoint below retains its original scope. G144a remains pending.
+
 ## PCG composition contract refinement
 
 Added a self-contained component matrix for PCG programming, character

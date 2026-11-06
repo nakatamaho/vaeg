@@ -8340,11 +8340,17 @@ static int test_pc8001_banks(void) {
  * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
  * loads, BCD, short counts silent), the tone output, and nothing while the
  * PCG is disabled or outside 88 mode. */
-/* Synthetic PCG -> attribute decoder -> monochrome compositor contract.
+/* Synthetic PCG -> attribute decoder -> colour/monochrome compositor contract.
  * No prepared text raster is injected: both colours and glyph pixels must
  * come from the production character path. */
 static int test_n80_pcg_composition(void) {
 	static const BYTE pattern[8] = {0x81, 0x42, 0x24, 0x18, 0xa5, 0x5a, 0xc3, 0x3c};
+	/* Independent expected indices: packed 00/01/10/11 pairs, or three
+	 * planes A5h/3Ch/69h. Palette zero is deliberately nonblack, while
+	 * index one is black: priority must depend on indices, not RGB. */
+	static const BYTE packed[8] = {0, 0, 1, 1, 2, 2, 3, 3};
+	static const BYTE planar[8] = {1, 4, 7, 2, 6, 3, 0, 5};
+	static const WORD colors[8] = {0x001f, 0, 0x03ff, 0x03e0, 0xfc1f, 0xfc00, 0xffff, 0xffe0};
 	const UINT8 saved_enable = np2cfg.pcg_enable;
 	const BOOL saved_88 = memoryva_88_mode;
 	const BOOL saved_machine = memoryva_pc8001;
@@ -8390,7 +8396,7 @@ static int test_n80_pcg_composition(void) {
 	tsp.emul_rows = 25;
 	videova.txtmode = 0;
 
-	for (test = 0; test < 4096 && !problem; test++) {
+	for (test = 0; test < 32768 && !problem; test++) {
 		const unsigned flags = test & 31;
 		const BOOL blink = (test >> 5) & 1;
 		const BOOL global = (test >> 6) & 1;
@@ -8399,14 +8405,19 @@ static int test_n80_pcg_composition(void) {
 		const BOOL wide = (test >> 9) & 1;
 		const unsigned model = 1 + ((test >> 10) & 1);
 		const unsigned bank = (test >> 11) & 1;
+		const BOOL color = (test >> 12) & 1;
+		const BOOL behind = (test >> 13) & 1;
+		const BOOL graphic_hidden = (test >> 14) & 1;
 		const BOOL reverse = ((flags & 4) != 0) != global;
 		const BOOL secret = (flags & 1) || ((flags & 2) && blink);
 		const BYTE invert = bank ? 0xff : 0;
 		memoryn80.model = (UINT8)model;
-		iocore_out8(0x31, 8);
-		iocore_out8(0x33, model == 2 ? 0x90 : 0);
+		iocore_out8(0x31, color ? (model == 1 ? 0x1c : 0x18) : 8);
+		iocore_out8(0x33, model == 2 ? (0x90 | (behind ? 8 : 0)) : 0);
 		iocore_out8(0x52, 0);
-		iocore_out8(0x53, hidden);
+		iocore_out8(0x53, hidden | (graphic_hidden ? 2 : 0));
+		for (r = 0; r < 8; r++)
+			iocore_out8(0x54 + r, r ^ 1);
 		iocore_out8(0x03, bank ? 0x1c : 0x08);
 		for (r = 0; r < 8; r++) {
 			iocore_out8(0x00, pattern[r] ^ invert);
@@ -8419,8 +8430,12 @@ static int test_n80_pcg_composition(void) {
 		videova.txtmode8 = wide ? 0 : 1;
 		videova.palette[15] = 0xffff;
 		for (r = 0; r < 16; r++) {
-			grphmem[0x4000 + r * 80 + 2] = graphics ? 0xa5 : 0;
-			grphmem[0x4000 + r * 80 + 3] = graphics ? 0xa5 : 0;
+			const BYTE first = graphics ? (color && model == 1 ? 0x1b : 0xa5) : 0;
+			const BYTE second = graphics && color && model == 2 ? 0x3c : 0;
+			const BYTE third = graphics && color && model == 2 ? 0x69 : 0;
+			grphmem[0x4000 + r * 80 + 2] = grphmem[0x4000 + r * 80 + 3] = first;
+			grphmem[0x14000 + r * 80 + 2] = grphmem[0x14000 + r * 80 + 3] = second;
+			grphmem[0x24000 + r * 80 + 2] = grphmem[0x24000 + r * 80 + 3] = third;
 		}
 		v1v2_render_to(0, 0, 0xb002);
 		tsp.emul = 0;
@@ -8437,14 +8452,24 @@ static int test_n80_pcg_composition(void) {
 			maketextva_raster();
 			scrndrawva_compose_raster();
 			for (x = 0; x < 16; x++) {
-				const BOOL dot = graphics && ((0xa5 >> (7 - x % 8)) & 1);
+				const BOOL dot = graphics && !graphic_hidden && ((0xa5 >> (7 - x % 8)) & 1);
 				const BOOL glyph =
 				    ((pattern[r / 2] ^ invert) >> (7 - (x / (wide ? 2 : 1)) % 8)) & 1;
 				const BOOL ink = line || (!secret && glyph);
 				const BOOL lit = hidden ? dot : ((dot || ink) != reverse);
-				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != (lit ? 0xffff : 0)) {
+				WORD expected = lit ? 0xffff : 0;
+				if (color) {
+					const unsigned index = graphics && !graphic_hidden
+					                           ? (model == 1 ? packed[x % 8] : planar[x % 8])
+					                           : 0;
+					expected = graphic_hidden ? 0 : colors[index];
+					if (!hidden && (ink != reverse) && !(model == 2 && behind && index))
+						expected = 0xffff;
+				}
+				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
 					fprintf(stderr, "selftest: N80 PCG case=%u raster=%u pixel=%u\n", test, r, x);
-					problem = "M144A_N80_PCG_COMPOSITION";
+					problem =
+					    color ? "M144A_N80_PCG_COLOR_COMPOSITION" : "M144A_N80_PCG_COMPOSITION";
 					break;
 				}
 			}
@@ -8460,7 +8485,7 @@ static int test_n80_pcg_composition(void) {
 	CopyMemory(cgromva_n80sr_font + 0xc00, saved_font, sizeof(saved_font));
 	if (problem)
 		return fail("N80 PCG composition", problem);
-	fprintf(stderr, "selftest: N80 PCG composition 4096 cases ok\n");
+	fprintf(stderr, "selftest: N80 PCG composition 32768 cases ok\n");
 	return SUCCESS;
 }
 
