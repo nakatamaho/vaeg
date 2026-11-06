@@ -53,7 +53,7 @@ land.
   `M144A_PCG_PCM_PERIOD`. Mutations are reverted; native build and seven focused
   CTests pass. Physical clock/analog output and save/replay phase are unqualified.
 - **Task/evidence:** [M144a BCD zero-reload contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-bcd-zero-reload-interpretation).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [a6e6bf50ef0ecb68302132d39f5cebea0e30864b](https://github.com/nakatamaho/vaeg/commit/a6e6bf50ef0ecb68302132d39f5cebea0e30864b).
 
 ### M144a — malformed PCG state selectors accepted before load
 
