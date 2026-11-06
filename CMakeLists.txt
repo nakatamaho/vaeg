@@ -1084,6 +1084,12 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_n80_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_state_contract.py" --selftest)
     set_tests_properties(vaeg_n80_state_contract PROPERTIES LABELS "romless;state;pc8001")
+    add_test(NAME vaeg_n80_attributes_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_attributes.py" --selftest)
+    add_test(NAME vaeg_n80_media_survey_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_media_survey.py" --selftest)
+    set_tests_properties(vaeg_n80_attributes_contract vaeg_n80_media_survey_contract PROPERTIES
+        LABELS "romless;pc8001")
     add_test(NAME vaeg_runtime_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
     add_test(NAME vaeg_state_restore_matrix_contract

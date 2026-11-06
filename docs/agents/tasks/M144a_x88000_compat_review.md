@@ -303,6 +303,23 @@ this contract, so it must not be presented as all-state or audio equivalence.
 Equal outputs alone do not establish equal execution intervals. Its
 selftest uses passing fixtures and single-mutation exact-code negatives.
 
+## Attribute and capture contracts
+
+[n80_attributes.py](../../../tools/qa/n80_attributes.py) generates
+BASIC attribute patterns and defines a fixed-region pixel oracle. Its
+parameters cover 40/80-column layout, character 65, ordinary ANK and
+semigraphics, all 32 decoration combinations, both blink phases and
+global reverse. The rectangle contract specifies an inclusive 51-by-21
+dot box and a blank border. These describe test capabilities, not
+execution results.
+
+[n80_media_survey.py](../../../tools/qa/n80_media_survey.py) accepts an
+explicit plan, isolates per-case configuration and records execution
+status. Zero worker exit yields `UNASSESSED`, never a semantic PASS.
+It rejects in-tree output and worker-identity changes; intermediate
+capture scheduling is optional. Its selftest uses synthetic plumbing
+fixtures. The two Python content suites are registered with CTest.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request
