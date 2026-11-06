@@ -315,11 +315,34 @@ Release notes may summarize the ledger but do not replace it.
   absolute paths, or hashes unless the maintainer explicitly authorizes that
   exact metadata. Keep raw private screenshots, logs, traces, and save files
   outside Git, and never stage, commit, or push them.
-- Refer to commercial-machine ROMs only by MAME's published set and file
-  names and SHA-1 values. Do not state who owns, dumped, or holds a ROM,
-  where a ROM came from, or that it was checked on hardware; describe a
-  ROM-based check as "with a ROM set matching MAME's `<set>`". Existing VA
-  dump notes stay as historical records.
+- **Prior consent for statements about using ROMs, disks, tapes or supplied
+  media:** unless the maintainer explicitly authorizes the specific disclosure,
+  do not state or imply that these inputs were obtained, available, used,
+  loaded, booted, tested, compared or captured. This applies to commit subjects
+  and bodies, all committed documentation (including task files, reports and
+  ledgers), PR descriptions, release notes and other published records.
+  Neutral case IDs, anonymized descriptions, counts and phrases such as
+  "private inputs", "provided media" or "a ROM set matching MAME" do not
+  exempt a statement that reveals use.
+  Before each such disclosure, ask the maintainer, showing the exact proposed
+  wording and destination, and wait for explicit approval. Permission to run
+  a test, access an input, commit code or push a branch is not permission to
+  disclose its use. Prior approval for another statement is not blanket
+  approval. Without approval, keep those details outside Git and describe
+  implementation changes or reusable test capabilities only; do not invent
+  synthetic evidence, deny actual use, or imply an unapproved test result.
+  Audit both messages and file contents before committing or publishing.
+  Existing use disclosures are not grandfathered: flag them and request
+  approval for removal or history rewriting rather than silently retaining
+  them or rewriting unrelated history. General technical descriptions of
+  supported hardware, formats and interfaces are distinct from claims that
+  particular inputs were used.
+- Technical references to commercial-machine ROM specifications use only
+  MAME's published set and file names and SHA-1 values. This naming rule does
+  not authorize disclosure of actual use; the prior-consent rule above takes
+  precedence. Do not state who owns, dumped, or holds a ROM, where it came
+  from, or that it was checked on hardware. Historical notes are subject to
+  the same disclosure review, not an automatic exception.
 - The maintainer's private reference tree (`pc88va-private-docs/`) is
   read-only for agents, except its `pc88va-utilities-cache/` directory,
   where the repository's tools may store archives they download (nothing
