@@ -29,6 +29,36 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Programmable blank glyphs and frame refresh
+
+The text decoder's blank-code shortcut ran before PCG selection, suppressing
+programmable glyphs at 00h and 20h on an ordinary transparent background.
+PCG selection now precedes that shortcut; conventional blank handling remains
+when no programmable glyph is selected. The matrix covers 80h, 00h and 20h,
+for 196,608 combinations and 50,331,648 final-pixel comparisons.
+
+A second refresh defect affected text-only operation: after PCG display was
+disabled on an otherwise blank frame, re-enabling it did not wake text decoding.
+Port 03h now marks text refresh pending when display or selected-bank state
+changes. Data/address and write-bank-only changes do not acquire that new
+notification. This preserves the existing character-row cache policy.
+
+The live fixture checks 112 frame starts across the two models, both column
+widths, both blank codes and graphics-enabled/disabled settings. Seven phases
+exercise a zero glyph, a rewrite, display-bank switching, an inactive-bank
+rewrite, disabling and re-enabling display. It checks the first character-row
+pixels without caller-forced text refresh after the initial frame. A separate
+SR case checks front-page, palette, visibility and background changes at
+subsequent raster calls. These are renderer API boundaries, not independently
+qualified hardware sampling cycles or final-client presentation.
+
+Starting from passing fixtures, removing the PCG qualification from the blank
+shortcut fails with `M144A_N80_PCG_LOW_CODES`; suppressing the refresh notification
+fails with `M144A_N80_PCG_LIVE_FRAME`. Both mutations are reverted. The native
+build and seven focused CTest checks pass. Fine within-character-row PCG timing,
+audio-phase continuity and G144a remain unqualified/pending. The corrections are
+recorded in the [bug-fix ledger](../../modernization/bug-fixes.md).
+
 ## Guest PCG I/O and state continuation
 
 Enabled PCG writes on the independent mkII/SR main CPU now bypass an overlapping

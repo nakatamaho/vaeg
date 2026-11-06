@@ -135,8 +135,14 @@ static void IOOUTCALL pcg88_o_pcg(UINT port, REG8 dat) {
 	case 0x03:
 		for (half = 0; half < 2; half++) {
 			const UINT mode = (UINT)dat >> (2 * half);
-			pcg88.display[half] = (mode & 2) ? 1 : 0;
-			pcg88.bank[half] = (UINT8)(mode & 1);
+			const UINT8 display = (mode & 2) ? 1 : 0;
+			const UINT8 bank = (UINT8)(mode & 1);
+			/* A previously blank text frame may be asleep. A display or
+			 * visible-bank change must wake decoding at the next frame. */
+			if (pcg88.display[half] != display || pcg88.bank[half] != bank)
+				textmem_dirty = TRUE;
+			pcg88.display[half] = display;
+			pcg88.bank[half] = bank;
 		}
 		pcg88.setbank = (dat & 0x10) ? 1 : 0;
 		break;

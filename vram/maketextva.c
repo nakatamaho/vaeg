@@ -499,6 +499,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		UINT8 d;
 		BYTE code;
 		const BYTE *font;
+		const BYTE *pcg;
 		UINT fonth;
 		UINT r;
 		int x;
@@ -507,6 +508,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			continue;
 		}
 		code = row[c];
+		pcg = pcg88_glyph(code);
 		d = deco[c];
 		fg = (UINT8)(8 + (color[c] & 0x07));
 		bg = work.frame->bg;
@@ -517,7 +519,8 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		}
 		FillMemory(linecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
 		FillMemory(linebasecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, 8 + (color[c] & 7));
-		if ((code == 0 || ((code == 0x20) && !(color[c] & EMU3301_GRAPHIC))) && (bg == 0) &&
+		/* PCG may replace conventional blank codes too. */
+		if (!pcg && (code == 0 || ((code == 0x20) && !(color[c] & EMU3301_GRAPHIC))) && (bg == 0) &&
 		    !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
 			continue;
 		}
@@ -532,7 +535,6 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 				glyphfg = bg;
 			}
 			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one. */
-			const BYTE *pcg = pcg88_glyph(code);
 			const BOOL ank8 =
 			    videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04));
 			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));

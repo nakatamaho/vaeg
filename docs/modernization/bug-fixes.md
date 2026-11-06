@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M144a — programmable blank glyphs omitted or not refreshed
+
+- **Symptom/scope:** the uPD3301-emulated text path omitted PCG glyphs at codes
+  00h and 20h on a transparent background. In text-only operation, switching
+  PCG display off and then on could also leave the character row blank.
+  The path is shared with other PC-88-compatible models; the expanded fixture
+  explicitly covers the mkII/SR model variants.
+- **Demonstrated root causes:** the blank-code fast path preceded PCG lookup,
+  even when the selected programmable glyph contained nonzero rows. Separately,
+  display/bank changes in port 03h did not notify text refresh, so the renderer's
+  blank-frame sleep decision could survive re-enabling programmable display.
+- **Correction:** qualify the blank shortcut with absence of a selected PCG
+  glyph. Notify text refresh when the displayed-bank or display-enable fields
+  change; leave write-bank-only updates and character-row caching unchanged.
+- **Verification:** 196,608 composition cases include codes 80h, 00h and 20h.
+  Another fixture checks 112 frame starts, including zero-to-nonzero rewrites,
+  inactive-bank writes and display off/on. Independent single-mutation negatives
+  fail with `M144A_N80_PCG_LOW_CODES` and `M144A_N80_PCG_LIVE_FRAME` respectively.
+  The native build and seven focused CTest checks pass. Hardware sampling-cycle,
+  audio-phase and whole-machine acceptance are not inferred.
+- **Task/evidence:** [M144a programmable blank glyph contract](../agents/tasks/M144a_x88000_compat_review.md#programmable-blank-glyphs-and-frame-refresh).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — N80 PCG writes intercepted by the VA bridge
 
 - **Symptom/scope:** with an overlapping VA compatible-I/O trap, an enabled

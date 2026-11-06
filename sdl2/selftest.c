@@ -8445,6 +8445,7 @@ static int test_pc8001_banks(void) {
  * come from the production character path. */
 static int test_n80_pcg_composition(void) {
 	static const BYTE pattern[8] = {0x81, 0x42, 0x24, 0x18, 0xa5, 0x5a, 0xc3, 0x3c};
+	static const BYTE codes[3] = {0x80, 0x00, 0x20};
 	/* Independent expected indices: packed 00/01/10/11 pairs, or three
 	 * planes A5h/3Ch/69h. Palette zero is deliberately nonblack, while
 	 * index one is black: priority must depend on indices, not RGB. */
@@ -8458,12 +8459,13 @@ static int test_n80_pcg_composition(void) {
 	const BOOL saved_machine = memoryva_pc8001;
 	const _MEMORYN80 saved_bank = memoryn80;
 	const BOOL saved_font_present = cgromva_n80sr_font_present;
-	BYTE saved_font[8];
+	BYTE saved_font[3][8];
 	const char *problem = NULL;
 	unsigned test, r, x;
 	BOOL scrn200;
 
-	CopyMemory(saved_font, cgromva_n80sr_font + 0xc00, sizeof(saved_font));
+	for (r = 0; r < NELEMENTS(codes); r++)
+		CopyMemory(saved_font[r], cgromva_n80sr_font + 0x800 + codes[r] * 8, 8);
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
@@ -8473,7 +8475,8 @@ static int test_n80_pcg_composition(void) {
 	memoryva_pc8001 = TRUE;
 	pcg88_reset();
 	cgromva_n80sr_font_present = TRUE;
-	FillMemory(cgromva_n80sr_font + 0xc00, sizeof(saved_font), 0xe7);
+	for (r = 0; r < NELEMENTS(codes); r++)
+		FillMemory(cgromva_n80sr_font + 0x800 + codes[r] * 8, 8, 0xe7);
 	ZeroMemory(grphmem, sizeof(grphmem));
 	ZeroMemory(textmem, 0x8000);
 	STOREINTELWORD(textmem + 0x08, 240);
@@ -8498,8 +8501,10 @@ static int test_n80_pcg_composition(void) {
 	tsp.emul_rows = 25;
 	videova.txtmode = 0;
 
-	for (test = 0; test < 65536 && !problem; test++) {
-		/* The upper half is a separate SR 320-dot profile. Bits formerly
+	for (test = 0; test < 196608 && !problem; test++) {
+		const unsigned code_case = test >> 16;
+		const BYTE code = codes[code_case];
+		/* Each code has a separate SR 320-dot profile. Bits formerly
 		 * selecting model/colour select front page/page-1 visibility there. */
 		const BOOL paged = (test >> 15) & 1;
 		const unsigned flags = test & 31;
@@ -8525,12 +8530,14 @@ static int test_n80_pcg_composition(void) {
 		iocore_out8(0x53, hidden | (graphic_hidden ? 2 : 0) | (page1_hidden ? 4 : 0));
 		for (r = 0; r < 8; r++)
 			iocore_out8(0x54 + r, r ^ 1);
-		iocore_out8(0x03, bank ? 0x1c : 0x08);
+		iocore_out8(0x03, code < 0x80 ? (bank ? 0x13 : 0x02) : (bank ? 0x1c : 0x08));
 		for (r = 0; r < 8; r++) {
+			const unsigned address = (code & 0x7f) * 8 + r;
 			iocore_out8(0x00, pattern[r] ^ invert);
-			iocore_out8(0x01, r);
-			iocore_out8(0x02, 0x10);
+			iocore_out8(0x01, address & 0xff);
+			iocore_out8(0x02, 0x10 | (address >> 8));
 		}
+		textmem[0x63ca] = textmem[0x63cb] = code;
 		textmem[0x641b] = (BYTE)((flags & 7) | ((flags & 24) << 1));
 		tsp.blinkcnt2 = blink ? 8 : 0;
 		tsp.syncparam[1] = global ? 8 : 0;
@@ -8594,9 +8601,127 @@ static int test_n80_pcg_composition(void) {
 				}
 				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
 					fprintf(stderr, "selftest: N80 PCG case=%u raster=%u pixel=%u\n", test, r, x);
-					problem = paged   ? "M144A_N80_PCG_PAGE_COMPOSITION"
-					          : color ? "M144A_N80_PCG_COLOR_COMPOSITION"
-					                  : "M144A_N80_PCG_COMPOSITION";
+					if (code_case) {
+						const BYTE *glyph_data = pcg88_glyph(code);
+						fprintf(stderr, "selftest: PCG code=%02x selected=%u row=%02x\n", code,
+						        glyph_data != NULL, glyph_data ? glyph_data[r / 2] : 0);
+					}
+					problem = code_case ? "M144A_N80_PCG_LOW_CODES"
+					          : paged   ? "M144A_N80_PCG_PAGE_COMPOSITION"
+					          : color   ? "M144A_N80_PCG_COLOR_COMPOSITION"
+					                    : "M144A_N80_PCG_COMPOSITION";
+					break;
+				}
+			}
+		}
+	}
+	/* Consecutive frame starts, with no caller-forced text refresh after
+	 * the first frame. A zero glyph must not put a live PCG row to sleep. */
+	for (test = 0; test < 16 && !problem; test++) {
+		static const BYTE expected_byte[7] = {0, 0x3c, 0x81, 0x81, 0x66, 0, 0x66};
+		const BYTE code = (test & 4) ? 0x20 : 0;
+		const BOOL wide = (test & 2) != 0;
+		const BOOL graphics = (test & 8) != 0;
+		unsigned frame;
+		memoryn80.model = 1 + (test & 1);
+		iocore_out8(0x31, graphics ? 0x1c : 0x14);
+		iocore_out8(0x33, memoryn80.model == 2 ? 0x90 : 0);
+		iocore_out8(0x52, 0);
+		iocore_out8(0x53, 6);
+		pcg88_reset();
+		iocore_out8(0x03, 0x13); /* prepare bank 1; bank 0 remains zero */
+		for (r = 0; r < 8; r++) {
+			const unsigned address = code * 8 + r;
+			iocore_out8(0x00, 0x81);
+			iocore_out8(0x01, address & 0xff);
+			iocore_out8(0x02, 0x10 | (address >> 8));
+		}
+		textmem[0x63ca] = textmem[0x63cb] = code;
+		textmem[0x641b] = 0;
+		tsp.blinkcnt2 = tsp.syncparam[1] = 0;
+		videova.txtmode8 = wide ? 0 : 1;
+		videova.palette[15] = 0xffff;
+		tsp.emul = 0;
+		textmem_dirty = tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		tsp.emul = 1;
+		for (frame = 0; frame < 7 && !problem; frame++) {
+			/* Bank 0 is always the write bank, even while bank 1 is shown. */
+			if (frame == 0 || frame == 2 || frame >= 4)
+				iocore_out8(0x03, frame == 5 ? 0 : frame == 2 ? 0x03 : 0x02);
+			if (frame == 1 || frame == 3) {
+				for (r = 0; r < 8; r++) {
+					const unsigned address = code * 8 + r;
+					iocore_out8(0x00, frame == 1 ? 0x3c : 0x66);
+					iocore_out8(0x01, address & 0xff);
+					iocore_out8(0x02, 0x10 | (address >> 8));
+				}
+			}
+			if (!frame)
+				tsp_dirty = TRUE;
+			v1v2_render_to(0, 0, graphics ? 0xb002 : 0x3002);
+			maketextva_begin(&scrn200);
+			scrndrawva_compose_begin();
+			for (r = 0; r < 16 && !problem; r++) {
+				if (r)
+					makegrphva_raster();
+				maketextva_raster();
+				scrndrawva_compose_raster();
+				for (x = 0; x < 16; x++) {
+					const unsigned bit = 7 - (x / (wide ? 2 : 1)) % 8;
+					const WORD expected = (expected_byte[frame] >> bit) & 1 ? 0xffff : 0;
+					if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
+						fprintf(stderr, "selftest: PCG live profile=%u frame=%u row=%u x=%u\n",
+						        test, frame, r, x);
+						problem = "M144A_N80_PCG_LIVE_FRAME";
+						break;
+					}
+				}
+			}
+		}
+	}
+	/* Graphics controls are sampled at subsequent raster calls. This is
+	 * not a claim about the hardware's within-raster sampling cycle. */
+	if (!problem) {
+		memoryn80.model = 2;
+		iocore_out8(0x31, 0x1c);
+		iocore_out8(0x33, 0x90);
+		iocore_out8(0x52, 0x30);
+		iocore_out8(0x53, 1);
+		iocore_out8(0x55, 1);
+		iocore_out8(0x56, 2);
+		for (r = 0; r < 16; r++) {
+			grphmem[0x4000 + r * 40 + 1] = 0xff;
+			grphmem[0x14000 + r * 40 + 1] = grphmem[0x24000 + r * 40 + 1] = 0;
+			grphmem[0x6000 + r * 40 + 1] = grphmem[0x26000 + r * 40 + 1] = 0;
+			grphmem[0x16000 + r * 40 + 1] = 0xff;
+		}
+		v1v2_render_to(0, 0, 0xb002);
+		maketextva_begin(&scrn200);
+		scrndrawva_compose_begin();
+		for (r = 0; r < 16 && !problem; r++) {
+			const WORD expected = r < 4    ? 0x001f
+			                      : r < 6  ? 0x03e0
+			                      : r < 8  ? 0xfc00
+			                      : r < 12 ? 0x001f
+			                               : 0xfc1f;
+			if (r == 4)
+				iocore_out8(0x33, 0x94);
+			if (r == 6)
+				iocore_out8(0x56, 4);
+			if (r == 8)
+				iocore_out8(0x53, 5);
+			if (r == 10)
+				iocore_out8(0x52, 0x50);
+			if (r == 12)
+				iocore_out8(0x53, 7);
+			if (r)
+				makegrphva_raster();
+			maketextva_raster();
+			scrndrawva_compose_raster();
+			for (x = 0; x < 16; x++) {
+				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
+					problem = "M144A_N80_LIVE_RASTER_CONTROLS";
 					break;
 				}
 			}
@@ -8609,10 +8734,12 @@ static int test_n80_pcg_composition(void) {
 	memoryva_pc8001 = saved_machine;
 	memoryn80 = saved_bank;
 	cgromva_n80sr_font_present = saved_font_present;
-	CopyMemory(cgromva_n80sr_font + 0xc00, saved_font, sizeof(saved_font));
+	for (r = 0; r < NELEMENTS(codes); r++)
+		CopyMemory(cgromva_n80sr_font + 0x800 + codes[r] * 8, saved_font[r], 8);
 	if (problem)
 		return fail("N80 PCG composition", problem);
-	fprintf(stderr, "selftest: N80 PCG composition 65536 cases ok\n");
+	fprintf(stderr, "selftest: N80 PCG composition 196608 cases ok\n");
+	fprintf(stderr, "selftest: N80 PCG 112 frame starts and SR raster controls ok\n");
 	return SUCCESS;
 }
 
