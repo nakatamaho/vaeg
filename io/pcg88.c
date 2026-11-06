@@ -71,6 +71,16 @@ static struct {
 	SINT32 level;
 } pcgsnd;
 
+void pcg88_set_enabled(BOOL enabled) {
+	const UINT8 value = enabled ? 1 : 0;
+	if (np2cfg.pcg_enable != value) {
+		np2cfg.pcg_enable = value;
+		/* Configuration toggles bypass port 03h, but must wake a blank
+		 * text frame just like a guest display-selection change. */
+		textmem_dirty = TRUE;
+	}
+}
+
 static BOOL pcg88_active(void) {
 	return memoryva_88_mode && np2cfg.pcg_enable;
 }

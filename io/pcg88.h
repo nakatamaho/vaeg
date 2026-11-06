@@ -53,6 +53,8 @@ extern "C" {
 
 extern _PCG88 pcg88;
 
+/* Change configuration without resetting glyph RAM or timer registers. */
+void pcg88_set_enabled(BOOL enabled);
 void pcg88_reset(void);
 void pcg88_initfont(void);
 void pcg88_bind(void);

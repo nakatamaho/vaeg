@@ -8618,7 +8618,7 @@ static int test_n80_pcg_composition(void) {
 	/* Consecutive frame starts, with no caller-forced text refresh after
 	 * the first frame. A zero glyph must not put a live PCG row to sleep. */
 	for (test = 0; test < 16 && !problem; test++) {
-		static const BYTE expected_byte[7] = {0, 0x3c, 0x81, 0x81, 0x66, 0, 0x66};
+		static const BYTE expected_byte[9] = {0, 0x3c, 0x81, 0x81, 0x66, 0, 0x66, 0, 0x66};
 		const BYTE code = (test & 4) ? 0x20 : 0;
 		const BOOL wide = (test & 2) != 0;
 		const BOOL graphics = (test & 8) != 0;
@@ -8645,10 +8645,35 @@ static int test_n80_pcg_composition(void) {
 		textmem_dirty = tsp_dirty = TRUE;
 		maketextva_begin(&scrn200);
 		tsp.emul = 1;
-		for (frame = 0; frame < 7 && !problem; frame++) {
+		for (frame = 0; frame < 9 && !problem; frame++) {
 			/* Bank 0 is always the write bank, even while bank 1 is shown. */
-			if (frame == 0 || frame == 2 || frame >= 4)
+			if (frame == 0 || frame == 2 || (frame >= 4 && frame <= 6))
 				iocore_out8(0x03, frame == 5 ? 0 : frame == 2 ? 0x03 : 0x02);
+			if (frame == 7) {
+				/* A complete counter and a pending low-byte load must survive. */
+				iocore_out8(0x0f, 0x36);
+				iocore_out8(0x0c, 0x34);
+				iocore_out8(0x0c, 0x12);
+				iocore_out8(0x0f, 0x76);
+				iocore_out8(0x0d, 0x78);
+			}
+			if (frame >= 7) {
+				_PCG88 before_toggle;
+				CopyMemory(&before_toggle, &pcg88, sizeof(pcg88));
+				/* The menu's configuration change must not reset the board. */
+				pcg88_set_enabled(frame == 8);
+				if (memcmp(&before_toggle, &pcg88, sizeof(pcg88))) {
+					problem = "M144A_N80_PCG_CONFIG_PRESERVATION";
+					break;
+				}
+				if (frame == 8) {
+					iocore_out8(0x0d, 0x9a);
+					if (pcg88.counter[0] != 0x1234 || pcg88.counter[1] != 0x9a78 || pcg88.msb[1]) {
+						problem = "M144A_N80_PCG_CONFIG_TIMER_CONTINUATION";
+						break;
+					}
+				}
+			}
 			if (frame == 1 || frame == 3) {
 				for (r = 0; r < 8; r++) {
 					const unsigned address = code * 8 + r;
@@ -8673,7 +8698,8 @@ static int test_n80_pcg_composition(void) {
 					if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
 						fprintf(stderr, "selftest: PCG live profile=%u frame=%u row=%u x=%u\n",
 						        test, frame, r, x);
-						problem = "M144A_N80_PCG_LIVE_FRAME";
+						problem = frame >= 7 ? "M144A_N80_PCG_CONFIG_REFRESH"
+						                     : "M144A_N80_PCG_LIVE_FRAME";
 						break;
 					}
 				}
@@ -8739,7 +8765,7 @@ static int test_n80_pcg_composition(void) {
 	if (problem)
 		return fail("N80 PCG composition", problem);
 	fprintf(stderr, "selftest: N80 PCG composition 196608 cases ok\n");
-	fprintf(stderr, "selftest: N80 PCG 112 frame starts and SR raster controls ok\n");
+	fprintf(stderr, "selftest: N80 PCG 144 frame starts and SR raster controls ok\n");
 	return SUCCESS;
 }
 

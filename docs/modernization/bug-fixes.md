@@ -35,6 +35,27 @@ land.
 
 ## Maintenance Rules
 
+### M144a — PCG configuration re-enable leaves blank text asleep
+
+- **Symptom/scope:** disabling and re-enabling PCG through configuration could
+  leave programmable blank-code glyphs invisible in an otherwise blank text-only
+  frame. The renderer/controller path is shared; explicit fixture coverage is
+  mkII/SR, both text widths and both graphics-enable settings.
+- **Demonstrated root cause:** the menu assigned `np2cfg.pcg_enable` directly.
+  Its redraw call did not invalidate the blank-frame sleep decision, and the
+  port 03h notification was not involved in this configuration-only transition.
+- **Correction:** route the menu through `pcg88_set_enabled()`, which notifies
+  text refresh on an option change without resetting RAM, selection or timer
+  registers. Existing configuration-save and redraw requests are retained.
+- **Verification:** the expanded 144-frame-start fixture checks option off/on,
+  unchanged controller state and continuation of a pending counter-byte load.
+  Single-mutation negatives reject missing refresh and unintended reset with
+  `M144A_N80_PCG_CONFIG_REFRESH` and `M144A_N80_PCG_CONFIG_PRESERVATION`.
+  Native build and seven focused CTests pass. Actual menu-click/presenter
+  automation, audio-phase continuity and hardware timing are not qualified.
+- **Task/evidence:** [M144a configuration-toggle contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-configuration-toggle-refresh).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — programmable blank glyphs omitted or not refreshed
 
 - **Symptom/scope:** the uPD3301-emulated text path omitted PCG glyphs at codes

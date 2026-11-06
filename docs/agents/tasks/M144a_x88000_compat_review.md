@@ -28,6 +28,30 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## PCG configuration-toggle refresh
+
+The menu's direct configuration assignment did not notify text refresh. For
+an otherwise blank text-only frame, disabling and then re-enabling PCG could
+therefore leave the renderer asleep, independently of the port 03h correction.
+The menu now uses `pcg88_set_enabled()`, which changes the option and requests
+text refresh without resetting the board. Configuration persistence and the
+existing redraw call remain in the menu handler.
+
+The live fixture extends the previous 112 frame starts to 144 by adding option
+off/on for each profile. It checks the same first-character-row pixels and
+byte-for-byte preservation of controller state. A completed counter and a
+pending low-byte counter load survive both transitions; the next high-byte
+write completes the latter after re-enabling. This does not qualify audio phase
+continuity or physical timer timing.
+
+The shared setter and renderer contracts pass the native build and seven
+focused CTest checks. Removing the setter's refresh notification fails with
+`M144A_N80_PCG_CONFIG_REFRESH`; resetting the board during the toggle fails with
+`M144A_N80_PCG_CONFIG_PRESERVATION`. Both mutations start from passing fixtures
+and are reverted. Actual ImGui click/presenter automation is NOT_RUN; this is
+backend coverage of the menu's shared setter, not a claim of GUI interaction
+coverage. G144a remains pending. See the [bug-fix ledger](../../modernization/bug-fixes.md).
+
 ## Programmable blank glyphs and frame refresh
 
 The text decoder's blank-code shortcut ran before PCG selection, suppressing

@@ -4415,7 +4415,7 @@ static void draw_machine_config_menu(void) {
 	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
 	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
 	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
-		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		pcg88_set_enabled(np2cfg.pcg_enable == 0);
 		sysmng_update(SYS_UPDATECFG);
 		pccore_redraw();
 	}
