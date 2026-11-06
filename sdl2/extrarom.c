@@ -889,6 +889,8 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	memoryva_pc8001 = TRUE;
 	memoryn80.model = n_role == EXTRAROM_ROLE_N80_2SR ? 2 :
 	                  n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
+	cgromva_n80sr_font_present = memoryn80.model == 2 &&
+	    apply_role(machine, EXTRAROM_ROLE_FONT80SR, cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
 	memoryn80.port31 = 0;
 	memoryn80.port33 = 0;
 	memoryn80.port71 = 1;
@@ -897,8 +899,8 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	(void)apply_role(machine, EXTRAROM_ROLE_N80_4, memoryn80_fourth, sizeof(memoryn80_fourth));
 	memoryn80_sr_present = memoryn80.model == 2 &&
 	    apply_role(machine, EXTRAROM_ROLE_N80_3, memoryn80_srrom, sizeof(memoryn80_srrom));
-	/* Keep the accepted N80 startup until the SR device/display path is
-	 * fully connected; explicit port 33h writes can select the loaded ROM. */
+	/* The one-shot N-mode bootstrap handoff selects SR if its complete
+	 * ROM is present. Before that handoff the VA bridge still uses N80. */
 	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
 	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
 	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */

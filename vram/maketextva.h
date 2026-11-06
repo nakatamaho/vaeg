@@ -5,6 +5,7 @@ extern "C" {
 
 extern BYTE textraster[];
 extern BYTE textcolorraster[];
+extern BYTE textbasecolorraster[]; /* foreground before reverse, for hidden N80 text */
 
 void maketextva_initialize(void);
 void maketextva(void);

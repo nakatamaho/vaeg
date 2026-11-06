@@ -119,7 +119,16 @@ BYTE *cgromva_font(UINT16 hccode) {
  *   bits 6-0 contain the first JIS byte minus 20H.
  */
 /* The 8x8 ANK glyph of code (8 bytes from 41000H), whatever ANKM selects. */
+BYTE cgromva_n80sr_font[0x1000];
+BOOL cgromva_n80sr_font_present;
+
 BYTE *cgromva_ank8(BYTE code) {
+	/* X88000's HIRAGANA glyph set is bank 1 (offset 0800h), not
+	 * the separately named MAME fonthira dump. PCG selection precedes
+	 * this function in the text renderer. Keep the ordinary ANK intact. */
+	if (memoryva_pc8001 && memoryn80.model == 2 && memoryva_88_mode &&
+	    (memoryn80.port33 & 0x10) && cgromva_n80sr_font_present)
+		return cgromva_n80sr_font + 0x800 + ((UINT)code << 3);
 	return fontmem + 0x41000 + ((UINT)code << 3);
 }
 

@@ -8036,6 +8036,7 @@ static int test_pc8001_banks(void) {
 		if (!selftest_put_rom(dir, basic, 0x8000, 0x61) ||
 		    !selftest_put_rom(dir, "e8.rom", 0x2000, 0x72) ||
 		    !selftest_put_rom(dir, "n80_3.rom", 0xa000, 0x83) ||
+		    !selftest_put_rom(dir, "font80sr.rom", 0x1000, 0xb2) ||
 		    !selftest_put_rom(dir, "font.rom", 0x800, 0x94)) {
 			problem = "synthetic ROM creation";
 		} else {
@@ -8146,6 +8147,49 @@ static int test_pc8001_banks(void) {
 				if (vabitmap[0] != 0x03ff)
 					problem = "M144A_N80_VIDEO_BACKGROUND";
 			}
+			if (!problem) {
+				unsigned bit, reverse, glyph, hidden;
+				const UINT8 port31 = memoryn80.port31, port33 = memoryn80.port33;
+				unsigned code;
+				for (code = 0; code < 256; code++) {
+					iocore_out8(0x33, 0x90);
+					if (cgromva_n80sr_font_present != (model == 2) ||
+					    (model == 2 && cgromva_n80sr_font[0] != 0xb2) ||
+					    cgromva_ank8((BYTE)code) != (model == 2 ? cgromva_n80sr_font + 0x800 + code * 8 :
+					                                                 fontmem + 0x41000 + code * 8))
+						problem = "M144A_N80_SR_FONT_BANK";
+					iocore_out8(0x33, 0x80);
+					if (cgromva_ank8((BYTE)code) != fontmem + 0x41000 + code * 8)
+						problem = "M144A_N80_NORMAL_FONT_BANK";
+					if (model == 2 && machine_status_mode() != VAEG_MODE_N80SR)
+						problem = "M144A_N80_SR_MODE_STATUS";
+				}
+				iocore_out8(0x31, model == 2 ? 0x0c : 8);
+				for (bit = 0; bit < 2; bit++) {
+					ZeroMemory(grphmem, sizeof(grphmem));
+					grphmem[model == 2 ? 0x26000 : 0x4000] = bit ? 0x80 : 0;
+					for (reverse = 0; reverse < 2; reverse++)
+						for (glyph = 0; glyph < 2; glyph++)
+							for (hidden = 0; hidden < 2; hidden++) {
+								const BOOL lit = hidden ? bit != 0 : ((bit || glyph) != reverse);
+								iocore_out8(0x52, 0);
+								iocore_out8(0x53, hidden);
+								textraster[0] = (glyph != reverse) ? 15 : 0;
+								textcolorraster[0] = reverse ? 0 : 15;
+								textbasecolorraster[0] = 15;
+								v1v2_render_to(0, 0, 0xb002);
+								scrndrawva_compose_begin();
+								scrndrawva_compose_raster();
+								if (grph0_raster[0] != bit || vabitmap[0] != (lit ? 0xffff : 0))
+									problem = "M144A_N80_MONO_REVERSE_COMPOSE";
+							}
+				}
+				iocore_out8(0x33, port33);
+				iocore_out8(0x31, port31);
+				iocore_out8(0x55, 1);
+				iocore_out8(0x52, 0x30);
+				iocore_out8(0x53, 7);
+			}
 			saved_bank = memoryn80;
 			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
 			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
@@ -8209,6 +8253,7 @@ static int test_pc8001_banks(void) {
 		selftest_delete_rom(dir, basic);
 		selftest_delete_rom(dir, "e8.rom");
 		selftest_delete_rom(dir, "n80_3.rom");
+		selftest_delete_rom(dir, "font80sr.rom");
 		selftest_delete_rom(dir, "font.rom");
 #if defined(_WIN32)
 		_rmdir(dir);

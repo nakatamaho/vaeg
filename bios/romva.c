@@ -239,6 +239,8 @@ void romva_initialize(void) {
 	}
 
 	memoryva_pc8001 = FALSE;
+	cgromva_n80sr_font_present = FALSE;
+	ZeroMemory(cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
 	ZeroMemory(&memoryn80, sizeof(memoryn80));
 	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
 	memoryn80.port71 = 1;

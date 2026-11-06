@@ -200,7 +200,8 @@ void scrndrawva_compose_raster(void) {
 	int blinkfreq;
 	BOOL merge;
 
-	if (memoryva_n80_color()) {
+	if (memoryva_88_mode && memoryva_pc8001 && memoryn80.model) {
+		const BOOL mono = !memoryva_n80_color();
 		const BOOL graphics = layer_enabled[VAEG_VA_LAYER_GRAPHICS0] && !grph0_noraster;
 		const BOOL text = layer_enabled[VAEG_VA_LAYER_TEXT] && !(memoryn80_video[1] & 1);
 		const BOOL text_behind = memoryn80.model == 2 && (memoryn80.port33 & 0x80) &&
@@ -213,7 +214,14 @@ void scrndrawva_compose_raster(void) {
 			const unsigned graphic = graphics ? grph0_raster[x] & 7 : 0;
 			const unsigned character = text ? textraster[x] & 15 : 0;
 			WORD color = graphics ? videova.palette[graphic] : backdrop;
-			if (character && (!text_behind || !graphic))
+			if (mono) {
+				/* The post-reverse foreground combined with the already decorated
+				 * glyph implements OR-before-reverse. SECRET/blink hide glyphs,
+				 * not GVRAM. With text disabled, colour remains but reverse does not. */
+				const unsigned index = graphic ?
+				    (text ? textcolorraster[x] : textbasecolorraster[x]) : character;
+				color = index ? videova.palette[index & 15] : backdrop;
+			} else if (character && (!text_behind || !graphic))
 				color = videova.palette[character];
 			work.bp[x] = (videova.grmode & 0x3000) == 0x3000 ? color : 0;
 		}

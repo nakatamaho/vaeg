@@ -45,6 +45,8 @@ VAEG_MACHINE_MODE machine_status_mode(void) {
 	UINT i, count = 0, selected = 0;
 
 	if (machine_status_n_selected()) {
+		if (memoryva_pc8001 && memoryn80.model == 2 && (memoryn80.port33 & 0x80))
+			return VAEG_MODE_N80SR;
 		if (extrarom_profile(np2cfg.extra_machine, &profile) &&
 		    (profile.n_role == EXTRAROM_ROLE_N80_2 || profile.n_role == EXTRAROM_ROLE_N80_2SR)) {
 			return VAEG_MODE_N_FAMILY;

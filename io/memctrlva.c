@@ -344,6 +344,10 @@ void memctrlva_nmode_compat_entry(void) {
 	iocore_out8(0x148, (REG8)(videova.txtmode & 0x7f));
 	/* M114: a PC-8001 never writes port 31h; start at 200 lines. */
 	if (memoryva_pc8001) {
+		/* Select SR only at the one-shot bootstrap handoff and only with
+		 * its complete ROM input. Later trap returns must not reset banks. */
+		if (memoryn80.model == 2 && memoryn80_sr_present)
+			memctrlva_o033(0x33, 0x80);
 		memctrlva_o031(0x31, 0x00);
 	}
 }

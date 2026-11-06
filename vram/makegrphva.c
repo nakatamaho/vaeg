@@ -1090,18 +1090,29 @@ void makegrphva_setwindow(const struct videova_graphics_window *window) {
 }
 
 static void readline(void) {
-	if (memoryva_n80_color()) {
+	if (memoryva_88_mode && memoryva_pc8001 && memoryn80.model) {
+		const BOOL mono = !memoryva_n80_color();
 		const unsigned y = work.screen[0].y++;
 		const BOOL sr = memoryn80.model == 2 && (memoryn80.port33 & 0x80);
 		unsigned x;
 		grph1_noraster = TRUE;
-		grph0_noraster = y >= 200 || !(memoryn80.port31 & 8) ||
+		grph0_noraster = y >= 200 || !(memoryn80.port31 & 8) || (!mono &&
 		    ((sr && (memoryn80.port31 & 4)) ? (memoryn80_video[1] & 6) == 6 :
-		                                              (memoryn80_video[1] & 2) != 0);
+		                                              (memoryn80_video[1] & 2) != 0));
 		for (x = 0; x < SURFACE_WIDTH; x++) {
 			unsigned color = 0;
 			if (!grph0_noraster && x < 640) {
-				if (sr)
+				if (mono) {
+					const BOOL narrow = sr && (memoryn80.port31 & 4);
+					const unsigned dot = narrow ? x / 2 : x;
+					const unsigned offset = y * (narrow ? 40 : 80) + dot / 8;
+					unsigned p;
+					for (p = 0; p < (sr ? (narrow ? 6U : 3U) : 1U); p++) {
+						if (!(memoryn80_video[1] & (2U << p)))
+							color |= (grphmem[0x4000 + (p % 3) * 0x10000 +
+							                  (p / 3) * 0x2000 + offset] >> (7 - dot % 8)) & 1;
+					}
+				} else if (sr)
 					color = pc8001_sr_pixel_strided(grphmem + 0x4000, 0x10000, x, y,
 					    (memoryn80.port31 & 4) != 0, (memoryn80.port33 >> 2) & 1,
 					    memoryn80_video[1]);

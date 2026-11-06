@@ -235,6 +235,42 @@ remain unqualified. In particular the colour path does not claim completion
 of those other modes. Further mode and state-transition contracts remain
 separate work. No human gate or main merge is authorized here.
 
+## N80 monochrome, SR glyph bank and BASIC startup checkpoint
+
+Extended the production N80 raster path to monochrome: mkII's one plane,
+SR's three 640-dot planes, and SR's six independently masked 320-dot
+plane/page bits. Monochrome composition applies graphics before text reverse,
+using the existing decorated text raster and post-reverse foreground. A second,
+derived foreground raster retains the pre-reverse colour so disabling text with
+53h removes reverse/glyphs but retains the graphics attribute colour. Both
+80-column raster extraction and 40-column duplication carry that derived colour.
+No new text buffer is persisted: the renderer regenerates it from saved text state.
+
+`font80sr.rom` is now loaded into a separate 4 KiB host-input buffer. 33h bit 4
+selects the eight-row glyphs at offset 0800h, following X88000's explicit
+HIRAGANA glyph-bank access. Normal ANK bytes are not overwritten, and PCG still
+has precedence at the renderer call site. Missing SR font input falls back to
+ordinary ANK; native/other-machine selections retain the original path. Do not
+confuse X88000's optional 512-byte `hirafont.rom` fallback with MAME's separate
+2 KiB `fonthira.rom`: the latter's relationship remains unqualified and it is
+**not** silently substituted. MAME tag `mame0280`, `src/mame/nec/pc8001.cpp`,
+corroborates the 4 KiB font80sr input size but does not establish the selection
+logic; the X88000 loader asks for 8 KiB while the glyph bank used here lies
+within the first 4 KiB. No source or font payload was imported into Git.
+
+The one-shot VA-bootstrap handoff now selects SR ROM only when the applied
+machine is SR and its complete BASIC/IE ROM is loaded. Subsequent trap returns
+do not reselect it. Live 33h bit 7 drives the `N80SR` status label; the older
+ambiguous N/N80 label remains for the fallback family mode rather than guessing
+an internal BASIC variant.
+
+Synthetic coverage adds all 256 normal/hiragana glyph address selections on
+both models and a 32-case final-pixel truth table across GVRAM bit, glyph bit,
+reverse and hidden text, using the sixth SR plane/page as an aperture witness.
+It checks the production raster/compositor with injected attribute rasters;
+it is **not** an end-to-end secret/blink/underline/attribute-parser matrix.
+Earlier real-file SAV, colour-priority, CPU-role and I/O regressions still run.
+
 ## Initial port implementation checkpoint
 
 Implemented compatible-mode GVAM edge reset and E6h newly permitted request
