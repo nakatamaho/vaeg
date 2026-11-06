@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M143 — Measured runtime speed and fast-forward display
 
-**G143 human gate PASSED, including the integration handoff; reference/target disposition pending.** Branch: `topic/m143-runtime-speed`;
+**G143 human gate PASSED; main merge authorized with explicit reference/target deferrals.** Branch: `topic/m143-runtime-speed`;
 integration candidate: `topic/m143-runtime-integration`.
 Base: `950efef393196497ed2a9f1c017a3f0ae30f5323`.
 
@@ -272,3 +272,34 @@ unavailable platform/physical-GPU/true-HiDPI coverage retain their prior statuse
 Their explicit disposition is still required before the main merge. No repeated
 human gate run is requested, and no main merge, release, next milestone or cleanup
 is inferred. WSR-E and M145 remain separate and preserved.
+
+## Authorized main merge and deferred coverage
+
+In direct response to the question identifying the remaining reference approval,
+Cocoa/Windows actual-screen automation and physical-GPU/true-HiDPI checks, the
+maintainer explicitly requests **"main にいれてください。"** This authorizes
+runtime-only integration with those checks carried forward; it is not a new
+request to repeat the already completed media/runtime campaigns or human gate.
+
+- The frozen 32-case reference manifest remains DRAFT, SHA-256
+  `8a69e2037cdf961c65ad26fa4918dbcf0edaa4a8ec4893d4832020a99ac585e7`.
+  Its 32/32 repeat comparison remains APPROVAL_REQUIRED, not visual gate PASS.
+  Independent reference approval is explicitly deferred for this merge.
+- Native Cocoa actual-screen capture remains BLOCKED by the unavailable display
+  and permission. Windows automated runtime/presenter, physical-GPU and true-HiDPI
+  coverage remain NOT_RUN. These target checks are explicitly deferred, not passed.
+- The reported VA2/V2H demo transition artifact remains OPEN/DEFERRED. Its GitHub
+  filing remains BLOCKED_AUTHENTICATION; the ledger and private filing draft are
+  preserved. No root cause or fixing commit is claimed.
+- Existing native/Linux/media evidence remains bound to `0acfa7dc`; the accepted
+  Windows executable remains bound to `1b7e6cbc` and its recorded digest. Subsequent
+  changes are QA/documentation only, not emulator/build/dependency changes; the
+  merge reuses this evidence without relabeling or rerunning unchanged behavior.
+- WSR-E and M145 are excluded. No release, next milestone or additional hardware
+  work is authorized. The source retains its existing `M143-dev` package marker
+  until separate release preparation; merge acceptance is recorded here instead.
+
+After the no-ff merge and closure records are pushed, remove only contained,
+clean runtime worktrees/local branches and verified task-owned build/scratch
+outputs under the gate cleanup rules. Retained evidence, supplied originals,
+shared caches/SDKs, remote branches, WSR-E and M145 are not cleanup targets.

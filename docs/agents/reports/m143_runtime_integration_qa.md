@@ -29,9 +29,11 @@ Evaluated integration source:
 [0acfa7dc8931d58d7a4731880401e24cda351aba](https://github.com/nakatamaho/vaeg/commit/0acfa7dc8931d58d7a4731880401e24cda351aba).
 It combines the accepted runtime-speed branch with accepted main/M144. It does
 not include WSR-E's provisional model, optional state section or hardware probes,
-and does not include M145. **No main merge, new human acceptance or release is
-claimed.** The original runtime-speed human acceptance remains valid; the new
-reference corpus has not been independently approved.
+and does not include M145. This report preserves the QA checkpoint and its
+actual coverage. Subsequent human acceptance and the explicitly authorized
+merge with deferred reference/target checks are recorded in the
+[task closure](../tasks/M143_runtime_speed_display.md#authorized-main-merge-and-deferred-coverage).
+The reference corpus remains unapproved; no release is authorized.
 
 Reusable QA implementation:
 [b8137fd1b49f7cac72e793792470a1f114bde5a8](https://github.com/nakatamaho/vaeg/commit/b8137fd1b49f7cac72e793792470a1f114bde5a8).
@@ -53,9 +55,10 @@ original identities, not the later QA or documentation commit's identity.
 | New standard clean MinGW handoff | **PASS**, fresh MacPorts build of `1b7e6cbc`; recording/OS MP4/shaders ON, static encoder and system-DLL import audits PASS; earlier container-route failure retained below |
 | Physical GPU / true HiDPI | **NOT_RUN**; virtual X11 and 200% UI scale do not establish either |
 
-The maintainer must approve the frozen references and explicitly resolve/defer
-remaining requested targets before the main merge. This is not a request to
-repeat the already accepted G143 human gate.
+At this checkpoint, reference approval and disposition of missing targets were
+pending. The maintainer subsequently explicitly authorized carrying them forward
+for the main merge, as linked above. This does not change the comparison result,
+qualify missing targets, or require repeating the already accepted human gate.
 
 ## Build profiles
 
