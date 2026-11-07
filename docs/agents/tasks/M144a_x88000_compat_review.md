@@ -46,6 +46,40 @@ performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
 
+## Explicit N80 BASIC startup selection
+
+Implemented requested configuration versus applied startup state versus live ROM
+banking as separate values. The model menu offers N/N80 and, on SR, N80SR when
+its role is available. `N80BasicMode=0..3` retains automatic as the default.
+Port 30h reads the applied choice; one-shot bootstrap selects SR only for an
+applied SR start. Pending preferences and subsequent port-33 writes do not change
+those startup bits. Optional `N80BOOT` version 0 saves the applied byte without
+altering `N80BANK`; preflight rejects invalid values before mutation. Missing
+sections preserve automatic legacy behavior. Unsupported configuration requests
+are explicitly warned and fall back to automatic after ROM-role loading.
+
+Public implementation references distinguish the input contract from hardware
+claims: MAME's published [pc8001 driver](https://github.com/mamedev/mame/blob/mame0280/src/mame/nec/pc8001.cpp)
+has the N/N80/N80SR input choices and
+combined N/N80 ROM roles; the mkII manual's SW8 behavior is already recorded
+below. The existing source-model SR bank polarity is unchanged. No physical
+reset-key timing or new WAIT model is inferred.
+
+Synthetic tests exercise all four requests on each model, including the mkII
+unsupported-SR fallback; applied switches and bootstrap mapping; pending setting
+and live-bank independence; eight SAV round trips, eight invalid-state mutations
+and eight legacy-section omissions. Configuration uses the real INI reader/writer.
+Recent-history tests cover all four new field values, old row lengths, malformed
+field normalization, retained display metadata and mode-sensitive record equality.
+These history tests exercise production serialization and the new field parser,
+not actual presenter interaction or a full history-file restart campaign.
+
+Reverted single mutations use pending configuration for port 30h and omit the SAV
+value guard; they fail exactly `M144A_N80_STARTUP_PENDING` and
+`M144A_N80_STARTUP_SAV_GUARD`. Focused final build/testing remains part of this
+checkpoint; full milestone regression, presenter checks and G144a remain pending.
+See [configuration and compatibility behavior](../../modernization/extra-roms.md#pc-8001-basic-startup-selection).
+
 ## PCG active-phase SAV continuation
 
 The generated-input regression isolates a missing mixer state: `PCG88` saved

@@ -74,7 +74,25 @@ _MEMORYVA88ERAM memoryva_88_eram;
 BYTE memoryva_n80[0x8000];
 BOOL memoryva_pc8001;
 _MEMORYN80 memoryn80;
+UINT8 memoryn80_boot;
 UINT8 memoryn80_video[2];
+
+BOOL memoryva_n80_boot_valid(UINT8 mode) {
+	if (mode == N80_BOOT_AUTO)
+		return TRUE;
+	if (!memoryva_pc8001 || memoryn80.model > 2)
+		return FALSE;
+	return mode == N80_BOOT_N || (mode == N80_BOOT_N80 && memoryn80.model != 0) ||
+	       (mode == N80_BOOT_SR && memoryn80.model == 2 && memoryn80_sr_present);
+}
+
+UINT8 memoryva_n80_boot_selection(void) {
+	if (memoryn80_boot != N80_BOOT_AUTO && memoryva_n80_boot_valid(memoryn80_boot))
+		return memoryn80_boot;
+	if (!memoryn80.model)
+		return N80_BOOT_N;
+	return memoryn80.model == 2 && memoryn80_sr_present ? N80_BOOT_SR : N80_BOOT_N80;
+}
 
 BOOL memoryva_n80_color(void) {
 	return memoryva_88_mode && memoryva_pc8001 && memoryn80.model &&

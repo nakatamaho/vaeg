@@ -86,6 +86,17 @@ typedef struct {
 	UINT8 port71;
 } _MEMORYN80;
 extern _MEMORYN80 memoryn80;
+enum {
+	N80_BOOT_AUTO = 0,
+	N80_BOOT_N = 1,
+	N80_BOOT_N80 = 2,
+	N80_BOOT_SR = 3
+};
+/* Applied startup choice, independent of pending configuration and live banks.
+ * Zero is the legacy/automatic fallback when the optional SAV section is absent. */
+extern UINT8 memoryn80_boot;
+BOOL memoryva_n80_boot_valid(UINT8 mode);
+UINT8 memoryva_n80_boot_selection(void);
 extern UINT8 memoryn80_video[2]; /* raw ports 52h, 53h; separate optional SAV section */
 BOOL memoryva_n80_color(void);
 extern BYTE memoryn80_srrom[0xa000];

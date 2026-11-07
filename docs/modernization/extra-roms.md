@@ -173,6 +173,32 @@ An 88 KiB file ends before 16000h and has no `n80`. Blank parts are not
 used. The original PC-88VA's ROM file of the same 112 KiB size does not
 follow this layout; do not place it here.
 
+## PC-8001 BASIC startup selection
+
+The mkII model submenu offers **N** and **N80**; mkIISR additionally offers
+**N80SR**, disabled when the SR ROM role is missing. Selecting an entry resets
+the machine. This is an explicit startup choice, not emulation of the physical
+SHIFT/CTRL reset-key sampling interval or a claim about SR DIP electrical polarity.
+
+`N80BasicMode` in the configuration selects `0` (automatic, the default), `1`
+(N), `2` (N80), or `3` (N80SR). Automatic retains the previous policy: base
+PC-8001 uses N, mkII uses N80, and mkIISR uses SR when its full SR role is present,
+otherwise N80. The required base BASIC role must still be supplied. An unsupported
+request after role loading emits a warning and applies automatic selection; it
+must not be interpreted as successfully starting the requested unavailable mode.
+`BootMode=2` remains the internal VA-to-N-family bootstrap route, not the choice
+between these interpreters.
+
+The applied choice is independent of later configuration changes and guest ROM
+bank switching. Port 30h reports the applied startup switches; port 33h remains
+the live SR bank/mask latch. SAV uses an optional one-byte `N80BOOT` section;
+files without it retain historical automatic selection. Recent-boot records
+retain the applied choice in an additional final field; older records default
+to automatic. Older application versions may ignore the extended history rows.
+The running-mode status still distinguishes live SR mapping from the ambiguous
+shared N/N80 ROM family; it does not infer the current interpreter solely from
+the startup choice.
+
 ## Selecting revisions
 
 `模擬 -> 起動 -> PC-8801/8001 -> <model> -> ROM` lists the model's missing

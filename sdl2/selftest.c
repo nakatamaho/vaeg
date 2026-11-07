@@ -2234,6 +2234,7 @@ static int test_persistence_controls(void) {
 	const BYTE saved_info = np2oscfg.DISPCLK;
 	const UINT8 saved_pcg = np2cfg.pcg_enable;
 	const UINT8 saved_nmode = np2cfg.v1v2_nmode_enable;
+	const UINT8 saved_n80_basic = np2cfg.n80_basic_mode;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2299,6 +2300,15 @@ static int test_persistence_controls(void) {
 			detail = "recording source did not survive configuration reload";
 		}
 	}
+	for (UINT8 mode = N80_BOOT_AUTO; mode <= N80_BOOT_SR; mode++) {
+		np2cfg.n80_basic_mode = mode;
+		initsave();
+		np2cfg.n80_basic_mode = 0xff;
+		initload();
+		if (np2cfg.n80_basic_mode != mode)
+			detail = "M144A_N80_BOOT_CONFIG";
+	}
+	np2cfg.n80_basic_mode = saved_n80_basic;
 	/* Requested defaults must not replace explicit ON/OFF selections. */
 	for (UINT8 pcg = 0; pcg < 2; pcg++) {
 		for (UINT8 nmode = 0; nmode < 2; nmode++) {
@@ -2353,6 +2363,7 @@ static int test_persistence_controls(void) {
 	np2oscfg.DISPCLK = saved_info;
 	np2cfg.pcg_enable = saved_pcg;
 	np2cfg.v1v2_nmode_enable = saved_nmode;
+	np2cfg.n80_basic_mode = saved_n80_basic;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -8350,6 +8361,83 @@ static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
 	return problem;
 }
 
+static const char *test_n80_startup_sav(const char *path, const char *oldpath) {
+	const UINT8 saved_request = np2cfg.n80_basic_mode;
+	const UINT8 model = memoryn80.model;
+	const char *problem = NULL;
+	char error[256];
+	UINT requested;
+	for (requested = 0; requested <= 3 && !problem; requested++) {
+		UINT value;
+		const UINT8 expected = requested == N80_BOOT_N                   ? N80_BOOT_N
+		                       : requested == N80_BOOT_N80 || model == 1 ? N80_BOOT_N80
+		                                                                 : N80_BOOT_SR;
+		const UINT8 bits = expected == N80_BOOT_N ? 2 : expected == N80_BOOT_N80 ? 3 : 1;
+		np2cfg.n80_basic_mode = requested;
+		romva_initialize();
+		memctrlva_nmode_reset();
+		memoryva_88_mode = TRUE;
+		memctrlva_nmode_compat_entry();
+		if (memoryn80_boot != expected || (iocore_inp8(0x30) & 3) != bits ||
+		    !!(memoryn80.port33 & 0x80) != (expected == N80_BOOT_SR))
+			problem = "M144A_N80_STARTUP_APPLY";
+		for (value = 0; value < 256 && !problem; value++) {
+			const BOOL valid = value == 0 || value == 1 || value == 2 || (value == 3 && model == 2);
+			if (!!memoryva_n80_boot_valid((UINT8)value) != valid)
+				problem = "M144A_N80_STARTUP_DOMAIN";
+		}
+		/* Pending settings and live ROM-bank writes must not rewrite switches. */
+		np2cfg.n80_basic_mode = expected == N80_BOOT_N ? N80_BOOT_AUTO : N80_BOOT_N;
+		if (model == 2)
+			iocore_out8(0x33, expected == N80_BOOT_SR ? 0 : 0x80);
+		if (!problem && (iocore_inp8(0x30) & 3) != bits)
+			problem = "M144A_N80_STARTUP_PENDING";
+		if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+		                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
+			problem = "M144A_N80_STARTUP_SAV_SEED";
+		memoryn80_boot = expected == N80_BOOT_N ? N80_BOOT_N80 : N80_BOOT_N;
+		if (!problem && (statsave_load(path) != STATFLAG_SUCCESS || memoryn80_boot != expected ||
+		                 (iocore_inp8(0x30) & 3) != bits))
+			problem = "M144A_N80_STARTUP_RESTORE";
+		if (!problem) {
+			BYTE *data = NULL;
+			UINT size = 0, pos;
+			const UINT16 ip = CPU_IP;
+			if (read_whole_file(path, &data, &size) != SUCCESS)
+				problem = "M144A_N80_STARTUP_SAV_SEED";
+			if (!problem) {
+				for (pos = 0x30; pos + 16 <= size;
+				     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+					if (!memcmp(data + pos, "N80BOOT\0\0\0", 10))
+						break;
+				if (pos + 17 > size || LOADINTELDWORD(data + pos + 12) != 1)
+					problem = "M144A_N80_STARTUP_SAV_SEED";
+				else {
+					data[pos + 16] = 0xff;
+					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+					    (error[strcspn(error, "\r\n")] = 0,
+					     strcmp(error, "M144A_N80_BOOT_STATE")) ||
+					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != ip ||
+					    memoryn80_boot != expected)
+						problem = "M144A_N80_STARTUP_SAV_GUARD";
+				}
+			}
+			if (data)
+				_MFREE(data);
+		}
+		if (!problem &&
+		    (strip_statsave_section(path, oldpath, "N80BOOT") != SUCCESS ||
+		     statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80_boot != N80_BOOT_AUTO ||
+		     memoryva_n80_boot_selection() != (model == 2 ? N80_BOOT_SR : N80_BOOT_N80)))
+			problem = "M144A_N80_STARTUP_LEGACY";
+	}
+	np2cfg.n80_basic_mode = saved_request;
+	romva_initialize();
+	memoryva_88_mode = TRUE;
+	return problem;
+}
+
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -8420,7 +8508,9 @@ static int test_pc8001_banks(void) {
 			if (!problem) {
 				const BYTE saved_switch = backupmem[0x1fc2];
 				const BOOL saved_present = memoryn80_sr_present;
+				const UINT8 saved_selection = memoryn80_boot;
 				unsigned value, present;
+				memoryn80_boot = N80_BOOT_AUTO;
 				for (present = 0; present < 2 && !problem; present++) {
 					memoryn80_sr_present = present;
 					for (value = 0; value < 256 && !problem; value++) {
@@ -8444,6 +8534,7 @@ static int test_pc8001_banks(void) {
 				}
 				backupmem[0x1fc2] = saved_switch;
 				memoryn80_sr_present = saved_present;
+				memoryn80_boot = saved_selection;
 			}
 			/* Production aperture/plane/word-edge paths, not just the pure
 			 * decoder. C000h must remain ordinary RAM on these models. */
@@ -8926,6 +9017,8 @@ static int test_pc8001_banks(void) {
 		}
 		if (!problem)
 			problem = test_pcg_phase_sav(path, oldpath);
+		if (!problem)
+			problem = test_n80_startup_sav(path, oldpath);
 		if (!problem && model == 2) {
 			/* Test-only fixture removal: the complete-font precedence was
 			 * exercised above with a deliberately different fallback input. */

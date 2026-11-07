@@ -72,6 +72,7 @@ typedef struct {
 	UINT8 v1v2_standard;
 	/* vaeg extension: start in N-BASIC (needs a user-supplied n80.rom). */
 	UINT8 boot_mode; /* BOOTMODE_*: how reset chooses V3 or V1/V2 (M111) */
+	UINT8 n80_basic_mode; /* N80_BOOT_*: requested PC-8001-family startup */
 	/* N-BASIC ROM file chosen in the menu; empty selects the first found. */
 	OEMCHAR v1v2_n80rom[32];
 	/* M137: N mode (N-BASIC) for VA/VA2 boots; off by default, as the VA has

@@ -908,13 +908,25 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	(void)apply_role(machine, EXTRAROM_ROLE_N80_4, memoryn80_fourth, sizeof(memoryn80_fourth));
 	memoryn80_sr_present = memoryn80.model == 2 &&
 	    apply_role(machine, EXTRAROM_ROLE_N80_3, memoryn80_srrom, sizeof(memoryn80_srrom));
-	/* The one-shot N-mode bootstrap handoff selects SR if its complete
-	 * ROM is present. Before that handoff the VA bridge still uses N80. */
+	/* Resolve configuration only at reset, after the actual ROM roles are
+	 * known. Unsupported requests are reported and fall back to automatic;
+	 * the applied choice, not this pending setting, is saved with the VM. */
+	memoryn80_boot = np2cfg.n80_basic_mode;
+	if (!memoryva_n80_boot_valid(memoryn80_boot)) {
+		fprintf(stderr, "WARNING: N80 BASIC selection %u unavailable; using automatic startup\n",
+		        (unsigned)memoryn80_boot);
+		memoryn80_boot = N80_BOOT_AUTO;
+	}
+	memoryn80_boot = memoryva_n80_boot_selection();
+	/* Before the one-shot SR handoff the VA bridge still uses N80. */
 	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
 	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
 	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */
 	videova.crtmode = 0;
-	fprintf(stderr, "INFO: PC-8001 machine %s (N mode)\n", machine->name);
+	fprintf(stderr, "INFO: PC-8001 machine %s (startup %s)\n", machine->name,
+	        memoryn80_boot == N80_BOOT_SR    ? "N80SR"
+	        : memoryn80_boot == N80_BOOT_N80 ? "N80"
+	                                         : "N");
 }
 
 /*

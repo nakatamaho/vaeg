@@ -1793,6 +1793,15 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 						ret = STATFLAG_FAILURE;
 					}
 				}
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80_boot) {
+					UINT8 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    !memoryva_n80_boot_valid(candidate)) {
+						statflag_seterr(&sffh->sfh, "M144A_N80_BOOT_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
 				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &pcg88) {
 					_PCG88 candidate;
 					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
@@ -1993,6 +2002,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	memoryn80.port31 = 1;
 	memoryn80.port33 = 0;
 	memoryn80.port71 = 1;
+	/* States predating explicit startup selection always used automatic. */
+	memoryn80_boot = N80_BOOT_AUTO;
 	/* A state without PIC8214 predates 8214 mode: those builds always
 	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
 	pic8214.mode8259 = 1;

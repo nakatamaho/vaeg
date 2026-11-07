@@ -245,6 +245,7 @@ void romva_initialize(void) {
 	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
 	memoryn80.port71 = 1;
 	memoryn80_sr_present = FALSE;
+	memoryn80_boot = N80_BOOT_AUTO;
 	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);
 	FillMemory(memoryn80_fourth, sizeof(memoryn80_fourth), 0xff);
 	memoryva_pc8801 = FALSE;
