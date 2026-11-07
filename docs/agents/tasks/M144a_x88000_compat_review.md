@@ -76,7 +76,10 @@ Reverted production mutations fail exactly `M144A_N80_PCG_PHASE_RESTORE`
 (omit phase application) and `M144A_PCG_PHASE_SAV_GUARD` (omit preflight payload
 validation), starting from the passing fixture. This is synthetic mixer/SAV
 coverage, not speaker, cross-platform PCM equivalence, hardware timing or G144a
-acceptance. Final build/test receipts are retained out of tree.
+acceptance. The native build and nine focused CTests pass: ROM-less, PC8001
+video, main-CPU bridge, state storage, N80 state/attributes/media-survey
+contracts, sound generation and sound capture. Build/test receipts are retained
+out of tree; this is not the final milestone-wide regression campaign.
 
 ## N80SR FM interrupt-mask checkpoint
 

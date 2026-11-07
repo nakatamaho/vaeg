@@ -48,12 +48,12 @@ land.
 - **Verification:** 24,576 codec classifications, numeric/endian and atomicity
   controls, full SAV continuation on two models with three unequal binary/BCD
   reloads, exact 512-value PCM comparisons, 16 malformed SAV rejections and
-  missing-section legacy controls. The native ROM-less suite passes. Reverted
+  missing-section legacy controls. Native build and nine focused CTests pass. Reverted
   mutations report `M144A_N80_PCG_PHASE_RESTORE` and `M144A_PCG_PHASE_SAV_GUARD`.
   Scope is synthetic mixer continuity at matching rate/volume, not device queues,
   actual speakers, hardware timing or cross-platform bit-identical synthesis.
 - **Task/evidence:** [M144a active-phase continuation](../agents/tasks/M144a_x88000_compat_review.md#pcg-active-phase-sav-continuation).
-- **Fix commit:** recorded with the correction; full SHA follows after commit.
+- **Fix commit:** [d0546525b6e463e8070d554b215b4c358d9724c8](https://github.com/nakatamaho/vaeg/commit/d0546525b6e463e8070d554b215b4c358d9724c8).
 
 ### M144a — N80SR FM interrupt mask has no effect on timer gating
 
