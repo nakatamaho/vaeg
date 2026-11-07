@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M144a — independent N80 composition drops the blinking cursor
+
+- **Symptom/scope:** the independent PC-8001mkII/SR framebuffer has no cursor,
+  even when the existing CURDEF sprite generator produces its visible phase.
+- **Demonstrated root cause:** the N80 branch of `scrndrawva_compose_raster`
+  composes text/graphics and returns before generic sprite composition. It never
+  consumed the cursor raster; the blink clock was not the demonstrated defect.
+- **Correction:** export a separate derived CURDEF cursor raster and merge it in
+  the N80 branch under the existing text/graphics priority and layer visibility.
+  Do not expose other native sprites. Preserve the VA sprite raster, collision
+  handling, line budget and blink timing; do not change SAV formats.
+- **Verification:** 256 synthetic cursor/phase/model/mode/enable combinations,
+  unrelated-sprite exclusion, layer hiding and raster clearing. Reverted single
+  mutations fail with `M144A_N80_CURSOR_COMPOSITION` and
+  `M144A_N80_CURSOR_RASTER`. Native full suite: 162 PASS, 16 SKIP, zero FAIL;
+  not Windows presenter or physical-machine qualification.
+- **Task/evidence:** [M144a cursor correction](../agents/tasks/M144a_x88000_compat_review.md#independent-n80-cursor-composition-correction).
+- **Fix commit:** [e3adf0af83ddeee6ccdd3f2bee87477f06e43091](https://github.com/nakatamaho/vaeg/commit/e3adf0af83ddeee6ccdd3f2bee87477f06e43091).
+
 ### M144a — active PCG sound restarts its phase after SAV load
 
 - **Symptom/scope:** synthetic mkII/SR SAV round trips restore matching PCG

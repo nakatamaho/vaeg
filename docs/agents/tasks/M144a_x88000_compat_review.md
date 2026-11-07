@@ -56,6 +56,36 @@ performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
 
+## Independent N80 cursor composition correction
+
+[Fix `e3adf0af83ddeee6ccdd3f2bee87477f06e43091`](https://github.com/nakatamaho/vaeg/commit/e3adf0af83ddeee6ccdd3f2bee87477f06e43091)
+corrects an omitted cursor in the independent mkII/SR compositor. The existing
+CURDEF sprite machinery generated the cursor and applied its blink phase, but
+the independent N80 branch composed only text and graphics and returned before
+the generic text/sprite composition. Consequently the cursor never reached the
+final framebuffer even when its raster was visible.
+
+The sprite generator now exposes a separate derived cursor raster, populated only
+by the enabled CURDEF cursor and cleared alongside the ordinary sprite raster.
+The independent N80 compositor consumes it subject to text visibility, sprite
+layer visibility and the existing text/graphics priority. Other native sprites
+are not admitted. The original VA sprite raster, collision processing, clipping,
+line budget and blink clock are unchanged; no SAV section or timing change is
+introduced.
+
+Synthetic source-built fixtures cover 256 combinations of mkII/SR, colour/mono,
+blink phase, blink enable, cursor enable, DSPON, SPRON and text hiding. They check
+both cursor pixels and exclusion of an unrelated native sprite, layer hiding and
+raster clearing. Two independent reverted mutations fail as intended:
+`M144A_N80_CURSOR_COMPOSITION` when the compositor omits the cursor and
+`M144A_N80_CURSOR_RASTER` when the blink suppression is removed. The restored,
+identity-refreshed native worker reports `Rel.20261108 (m144a, e3adf0af)`.
+The complete configured CTest suite passes: **178 registered, 162 PASS, 16 SKIP,
+zero FAIL**, 375.31 seconds. Skips remain skips; this checkpoint does not claim
+Windows execution, presenter qualification, hardware agreement or G144a acceptance.
+Private-input observations remain outside Git under the existing publication rule.
+The separate variable-attribute guest-input correction remains incomplete.
+
 ## Authorized X05 geometry correction
 
 The maintainer approved the following qualification statement:
