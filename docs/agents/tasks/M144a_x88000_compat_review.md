@@ -28,6 +28,22 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## BASIC mode selection documentation checkpoint
+
+The maintainer-supplied public-source excerpts are summarized in
+[BASIC mode selection review](../../modernization/x88000-compatibility-review.md#basic-mode-selection-review).
+This records the N/N80/N80SR machine matrix, reset-time DIP/key selection,
+separate BASIC/clock/wait settings, the unresolved 33h bit-7 polarity question,
+and the order of UI, mapping, banner and disk-boot verification. Related PC-8801
+reset operations are reference material, not an added implementation mandate.
+The additional mkII DIP account is explicitly unverified hearsay: SW1 unused,
+SW2 memory-read wait, SW3–7 unpublished, SW8 N/N80 selection. It is not sufficient
+evidence to change timing or infer the unpublished switches' behavior.
+
+This checkpoint changes documentation only. No linked-page full-text audit,
+hardware qualification, private-media result or new boot PASS is asserted.
+It does not establish the cause of a disk I/O error. G144a remains pending.
+
 ## Guest timer continuation through SAV
 
 The generated RAM program now initializes all three PCG timer channels through
