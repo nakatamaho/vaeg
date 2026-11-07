@@ -4666,6 +4666,11 @@ separate parity correction or move it to Open Defects.
   Public qualification must cover variable counts, row addressing, interrupted
   parameter sequences, reset and SAV continuation. This entry records the public
   source boundary, not private-input execution or emulator-comparison outcomes.
+  The maintainer has approved an X88000-source compatibility model, corroborated
+  by M88M source, with physical-machine agreement unknown. The
+  [geometry packet foundation](../agents/tasks/M144a_x88000_compat_review.md#geometry-packet-foundation-not-yet-the-guest-path-correction)
+  now has synthetic packet/pitch/codec tests, but is not connected to guest I/O,
+  drawing or the machine SAV container. This entry remains OPEN, not fixed.
 
 ### VA2/V2H demo scene transitions briefly show reported text-like garbage
 

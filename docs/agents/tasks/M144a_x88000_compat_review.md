@@ -54,6 +54,55 @@ performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
 
+## Authorized X05 geometry correction
+
+The maintainer approved the following qualification statement:
+**「X88000ソースに基づく互換モデル。M88Mソースでも整合。実機一致は未確認」**
+The requested correction is scoped to independent PC-8001mkII/SR: propagate the
+CRTC attribute-pair count to drawing, use `80 + 2 * pairs` bytes per 80-character
+row, retain the 20-pair baseline and check 2/5/10 pairs, including interrupted
+parameter packets, reset and actual SAV restoration. This does not authorize
+changing VA/VA2 native TSP behavior, WAIT constants or SR port polarity.
+
+### Geometry packet foundation (not yet the guest-path correction)
+
+[961f0e97d0274909867115cc077567e6ddebbfdf](https://github.com/nakatamaho/vaeg/commit/961f0e97d0274909867115cc077567e6ddebbfdf)
+adds a pure C99 geometry packet layer to `io/pc8001_video.*`. It consumes RESET
+command/parameter packets, applies R4 only after the fifth parameter, and retains
+the preceding applied geometry until that point. A different command cancels an
+incomplete packet. Machine reset removes the applied geometry. Transparent mono
+and colour modes report the specified pair count and 80-byte-character-region
+pitch; other modes return an explicit unavailable result, not an invented layout.
+
+The eight-byte, pointer-free representation retains the partial packet and the
+previous applied R4 separately. Validation rejects noncanonical flags, indices,
+unreceived bytes and invalid sizes before loading any state. This is a packet
+codec, **not yet an `N80CRTC` SAV section or an actual machine save/load test**.
+There is no new global device state or guest I/O interception in this checkpoint.
+
+Synthetic tests cover 32 counts, eight mode fields and all six parameter-packet
+boundaries (1,536 combinations), including the requested 2/5/10/20 counts.
+They test continuation through a codec round trip, pending-versus-applied state,
+command cancellation, ignored unrelated ports/data, machine reset and atomic
+invalid-load rejection. The existing pixel/address suite plus these checks
+passes 2,900,774 assertions in normal and ASan/UBSan standalone C99 builds;
+the production CMake `vaeg_pc8001_video` target also passes.
+
+Four isolated source mutations, each starting from the passing fixture, fail
+with their intended stable codes: fixed count → `M144A_N80_CRTC_PAIRS`, fixed pitch
+→ `M144A_N80_CRTC_PITCH`, lost packet position → `M144A_N80_CRTC_CONTINUATION`,
+and omitted index guard → `M144A_N80_CRTC_STATE_GUARD`. Mutations remain outside
+the repository. These files are outside the closed clang-format manifest; no
+unrelated formatting or copyright-header changes are made.
+
+**Still required:** connect real guest I/O (including block-I/O semantics without
+duplicate bus accesses), the renderer/text-copy row addressing, model/reset guards
+and actual SAV preflight/restore. The existing VA firmware bridge must not be
+silently bypassed for commands this layer does not implement. The previously
+identified guest-path issue is not fixed by these primitive tests; the old native
+worker and previous integration evidence are not promoted to a corrected build.
+G144a remains pending and push remains held.
+
 ## Native regression and assembler follow-up
 
 Evaluated repository state:
