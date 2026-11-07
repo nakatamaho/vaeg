@@ -4648,6 +4648,25 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### M144a — independent N80 CRTC geometry remains unresolved
+
+- **Status/scope:** OPEN; PC-8001mkII/SR guest CRTC command/parameter handling,
+  variable attribute-pair counts and the corresponding byte-row pitch. No fixing
+  commit or completed guest-interface qualification is claimed.
+- **Public-source finding:** at
+  [47af24d17138613af9d5e810ba1ae5cf3c9fa36e](https://github.com/nakatamaho/vaeg/commit/47af24d17138613af9d5e810ba1ae5cf3c9fa36e),
+  the main-CPU bridge's `N80DirectIO` excludes ports 50h/51h. These retain the VA
+  firmware trap path, rather than an independently modeled N80 CRTC. Variable
+  attribute support in the TSP renderer is not proof of the complete guest path.
+- **Cause/correction:** unresolved; this source-level boundary does not identify
+  a particular firmware's behavior as the root cause. Do not hardcode a row pitch,
+  patch private firmware addresses or mark the interface corrected without a
+  tested controller/renderer/state contract.
+- **Verification/task:** [M144a remaining gate work](../agents/tasks/M144a_x88000_compat_review.md#remaining-gate-work-not-promoted-by-this-sweep).
+  Public qualification must cover variable counts, row addressing, interrupted
+  parameter sequences, reset and SAV continuation. This entry records the public
+  source boundary, not private-input execution or emulator-comparison outcomes.
+
 ### VA2/V2H demo scene transitions briefly show reported text-like garbage
 
 - **Status:** OPEN; correction explicitly DEFERRED by the maintainer during

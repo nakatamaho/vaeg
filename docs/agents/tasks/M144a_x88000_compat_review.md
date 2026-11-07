@@ -42,9 +42,10 @@ final regression and clean Windows handoff, then G144a.
 Accepted M144/G144 remains complete; M144a/G144a is not accepted by this request.
 PCG phase persistence and explicit startup selection now have focused software
 checkpoints below. The fixed-clock FDC execution check also passes without a
-production clock change. Display/timing qualification, final regression and the
-handoff are not completed by those checkpoints. Creating M144b does not start
-its implementation or mark either human gate passed.
+production clock change. The native synthetic regression sweep and assembler
+follow-up below extend those checkpoints; they do not complete the media,
+presenter, display/timing qualification or clean Windows handoff. Creating M144b
+does not start its implementation or mark either human gate passed.
 Physical-machine comparison is excluded, not passed. M88M v1.2.4 is a reference
 candidate, not an executed comparison claim. Push remains held.
 
@@ -52,6 +53,96 @@ Public records contain public-source analysis and synthetic tests actually
 performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
+
+## Native regression and assembler follow-up
+
+Evaluated repository state:
+[47af24d17138613af9d5e810ba1ae5cf3c9fa36e](https://github.com/nakatamaho/vaeg/commit/47af24d17138613af9d5e810ba1ae5cf3c9fa36e).
+The native worker remains the built
+[fe5d87f0368f76ef453dd3d57a72a41e33975533](https://github.com/nakatamaho/vaeg/commit/fe5d87f0368f76ef453dd3d57a72a41e33975533)
+worker, SHA-256
+`86dc1ec99749c9efac3bc05db78a3d927d3317240e11a8b97e9343523710e4aa`.
+The intervening changes are exactly four Markdown paths under `docs/`; emulator,
+build and test-source inputs are unchanged. This is explicit identity-bound reuse,
+not a claim that the worker displays the later documentation commit.
+
+The complete configured native suite was run, not only the nine focused tests:
+
+```sh
+ctest --test-dir "$BUILD" --output-on-failure -j 4 --timeout 900
+```
+
+Exit **0**, 367.54 seconds: **178 registered, 162 PASS, 16 SKIP, zero FAIL**.
+CTest's aggregate success line does not turn skipped tests into passes.
+Additionally, `vaeg_cpmva_zexbuild` initially passed with three inner unittest
+cases skipped. The suite covers synthetic/local contracts, not the mandatory
+media rebuild/guest campaign or actual window, speaker or Windows execution.
+
+Eight skips were caused by the missing z80asm 1.8 executable. Built that exact
+upstream version locally, without installing a system package, from Debian's
+[`z80asm_1.8.orig.tar.gz`](https://deb.debian.org/debian/pool/main/z/z80asm/z80asm_1.8.orig.tar.gz).
+The archive SHA-256
+`67fba9940582cddfa70113235818fb52d81e5be3db483dfb0816acb330515f64`
+matches the publisher's source descriptor retrieved over HTTPS; this does not
+claim an independently verified OpenPGP signature. Build and upstream tests exit 0.
+Using that assembler and Python 3.12, the following direct supplemental commands
+all exit **0**:
+
+```sh
+for name in fdc_tools seed fixed capture xadr pref; do
+  python3.12 -B "$REPO/tools/hardware/upd780/test_${name}.py" \
+    --runner "$BUILD/vaeg_upd780_fdc_probe_runner" --assembler "$Z80ASM"
+done
+for role in upd70008 upd780; do
+  python3.12 -B "$REPO/tools/qa/z80_role_probes.py" run \
+    --manifest "$REPO/tests/z80_compat/${role}_probes.json" \
+    --runner "$BUILD/vaeg_cpm_runner" --assembler "$Z80ASM" \
+    --jobs 2 --work "$OUT/${role}-probes"
+done
+PATH="$(dirname "$Z80ASM"):$PATH" \
+  python3.12 -B "$REPO/tools/cpmva/tests/test_zexbuild.py"
+```
+
+The six FDC payload suites and both CPU-role probe manifests PASS; the CP/M build
+suite now executes all **14 tests, no inner skips**. These are separate executions
+of the same test entry points with an explicitly bound assembler and Python 3.12,
+not a retroactively edited CTest result. The synthetic
+FDC checks do not establish physical fetch/SP/Q behavior or silicon timing.
+Assembler sources, binaries, generated payloads and exact receipts stay out of tree.
+
+Eight original CTest entries remain **NOT_RUN/SKIP** in this sweep:
+
+- `vaeg_recording_h264_hardware_probe`: no hardware-encoder coverage inferred;
+- `vaeg_sst_v20_ci`: external corpus binding not configured;
+- `vaeg_m103b_basic_boot`: required integration bindings not configured;
+- upstream xz's `test_suffix.sh`, `test_files.sh` and three
+  `test_compress_generated_*` cases: the xz command-line program was not built.
+
+### Remaining gate work, not promoted by this sweep
+
+- M1/display-DMA/GVRAM WAIT equivalence and physical SR port-33 polarity remain
+  unqualified. Preserve the existing source-model polarity, VA timing profile and
+  fixed FDC domain; do not infer numerical corrections from these software tests.
+- X05's guest CRTC-to-renderer connection remains open. In the current public
+  [main-CPU bridge source](https://github.com/nakatamaho/vaeg/blob/47af24d17138613af9d5e810ba1ae5cf3c9fa36e/cpu/upd9002_upd70008.cpp),
+  ports 50h/51h are outside `N80DirectIO` and retain the VA firmware trap path.
+  Variable-pair support in the TSP renderer alone is not an independently modeled
+  N80 CRTC command/parameter interface. Qualify variable attribute counts, byte-row
+  pitch, partial command state and reset/SAV behavior before closing this item;
+  do not patch a private firmware address or hardcode one observed row layout.
+- X07 remains the original optional international-font review finding, not an
+  implemented `optfont` switch. SR glyph-bank/fallback support must not be relabeled
+  as that separate feature; the authorized implementation extension below lists
+  the N80 work rather than an international-font implementation.
+- Complete the applicable display/font and startup/history presenter checks on an
+  available capture target. A mapped software-X11 target is valid only under its
+  explicit target label; dummy video is not a substitute. Routine visual checks
+  remain machine-owned, not reassigned wholesale to the maintainer.
+- Complete the required clean-commit demo/utility media and guest regression,
+  recording/shader-enabled static Windows handoff and its stated runtime scope.
+  This native sweep does not satisfy those campaigns.
+- Push remains held; G144a remains PENDING. No M144b implementation, acceptance,
+  merge, release or cleanup follows from these test results.
 
 ## FDC main-clock independence verification
 
