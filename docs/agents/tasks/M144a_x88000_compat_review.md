@@ -66,6 +66,41 @@ row, retain the 20-pair baseline and check 2/5/10 pairs, including interrupted
 parameter packets, reset and actual SAV restoration. This does not authorize
 changing VA/VA2 native TSP behavior, WAIT constants or SR port polarity.
 
+### Guest-output dispatch qualification (geometry intake still unconnected)
+
+[Test commit `90c85fee150ab5fc0843eeb9d721e841cd5b042b`](https://github.com/nakatamaho/vaeg/commit/90c85fee150ab5fc0843eeb9d721e841cd5b042b)
+adds 168 synthetic instruction cases to `tests/upd9002/main_cpu_roles.c`:
+both independent models, ports 50h/51h, trap enabled/disabled, immediate output,
+all eight ordinary ED output encodings, and OUTI/OUTD/OTIR/OTDR. Block fixtures
+use B=1/3/0 and source offsets that cross the 16-bit boundary in both directions;
+repeat B=0 must produce exactly 256 writes. Synthetic byte sequences, not ROM
+or guest-program payloads, supply the expected data.
+
+With the trap enabled, these instructions enter the native handler before a
+monitored device write, with original HL/BC/A and the instruction address retained
+in the native return frame. With the trap disabled, the monitor receives the
+expected port, byte sequence and exact write count; final PC/HL/BC are checked.
+This qualifies dispatch, not firmware execution or CRTC behavior: the monitor
+replaces the output device, and the test stops at trapped handler entry.
+
+Two single production mutations were applied and restored independently:
+bypassing the 51h trap fails `M144A_N80_CRTC_TRAP_BOUNDARY`; aliasing its output to
+50h fails `M144A_N80_CRTC_OUTPUT_DATA`. Both begin from the passing fixture and
+reach the intended failure without an earlier test masking it. The restored,
+identity-refreshed worker reports `Rel.20261108 (m144a, 90c85fee)`; nine focused
+CTests pass. The earlier complete regression belongs to its recorded worker,
+not to this new test-only candidate. No full-sweep result is relabeled.
+
+**Implementation consequence:** attaching geometry only to the adapter's normal
+`Out()` callback misses enabled traps. Conversely, pre-reading a trapped block's
+source buffer is not a proven substitute: `upd9002_memoryread_nowait()` still
+enters the memory decoder, and a repeat's later reads must not be assumed to have
+happened at trap entry. A safe connection must preserve the existing firmware
+command path, actual byte-delivery order and partial-state semantics without
+inventing a second read stream. No speculative observer, trap bypass, WAIT change
+or ROM-address workaround was introduced. Guest geometry intake and the original
+display defect remain OPEN; this checkpoint is test-only, not a correction.
+
 ### Renderer and machine-SAV connection checkpoint
 
 [Implementation `1a827742a3442211e7cdefa5074e971fcadd921a`](https://github.com/nakatamaho/vaeg/commit/1a827742a3442211e7cdefa5074e971fcadd921a).
