@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M144a — active PCG sound restarts its phase after SAV load
+
+- **Symptom/scope:** synthetic mkII/SR SAV round trips restore matching PCG
+  controller registers but restart active tones instead of continuing their PCM.
+- **Demonstrated root cause:** `PCG88` serializes controller/glyph state only;
+  the separate `pcgsnd.phase[3]` is reset on load and was never serialized.
+- **Correction:** an optional version-1 `PCGPHASE` section stores three normalized
+  phases as 24 little-endian binary64 bytes, without changing `PCG88`. Preflight
+  validates size/version and each phase before state mutation. Legacy SAVs lacking
+  the section preserve the old phase-zero behavior; they cannot recover lost phase.
+- **Verification:** 24,576 codec classifications, numeric/endian and atomicity
+  controls, full SAV continuation on two models with three unequal binary/BCD
+  reloads, exact 512-value PCM comparisons, 16 malformed SAV rejections and
+  missing-section legacy controls. The native ROM-less suite passes. Reverted
+  mutations report `M144A_N80_PCG_PHASE_RESTORE` and `M144A_PCG_PHASE_SAV_GUARD`.
+  Scope is synthetic mixer continuity at matching rate/volume, not device queues,
+  actual speakers, hardware timing or cross-platform bit-identical synthesis.
+- **Task/evidence:** [M144a active-phase continuation](../agents/tasks/M144a_x88000_compat_review.md#pcg-active-phase-sav-continuation).
+- **Fix commit:** recorded with the correction; full SHA follows after commit.
+
 ### M144a — N80SR FM interrupt mask has no effect on timer gating
 
 - **Symptom/scope:** in generated compatible-mode SR cases, port 33h bit 1

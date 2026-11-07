@@ -57,6 +57,13 @@ extern _PCG88 pcg88;
 void pcg88_set_enabled(BOOL enabled);
 /* Validate serialized selector/flag domains without changing live state. */
 BOOL pcg88_state_valid(const _PCG88 *state);
+/* Optional SAV extension: three little-endian IEEE binary64 phases in [0,1). */
+enum {
+	PCG88_PHASE_STATE_SIZE = 24
+};
+BOOL pcg88_phase_state_valid(const BYTE *data, UINT size);
+BOOL pcg88_phase_state_save(BYTE *data, UINT size);
+BOOL pcg88_phase_state_load(const BYTE *data, UINT size);
 void pcg88_reset(void);
 void pcg88_initfont(void);
 void pcg88_bind(void);

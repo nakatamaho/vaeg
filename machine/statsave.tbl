@@ -134,6 +134,7 @@ static const SFENTRY np2tbl[] = {
 	{"CGROMVA",		0,	STATFLAG_BIN,	&cgromva,		sizeof(cgromva)},
 	{"CGROM88",		0,	STATFLAG_BIN,	&cgrom88,		sizeof(cgrom88)},
 	{"PCG88",		0,	STATFLAG_BIN,	&pcg88,			sizeof(pcg88)},
+	{"PCGPHASE",	1,	STATFLAG_PCG_PHASE,	NULL,		PCG88_PHASE_STATE_SIZE},
 	{"SGP",			0,	STATFLAG_BIN,	&sgp,			sizeof(sgp)},
 	{"MOUSEVA",		0,	STATFLAG_BIN,	&mouseifva,		sizeof(mouseifva)},
 	{"SUBSYSIF",	0,	STATFLAG_BIN,	&subsystemif,	sizeof(subsystemif)},

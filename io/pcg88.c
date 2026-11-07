@@ -56,6 +56,7 @@
  */
 
 #include "compiler.h"
+#include <float.h>
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "memoryva.h"
@@ -105,6 +106,56 @@ BOOL pcg88_state_valid(const _PCG88 *state) {
 	}
 	/* RAM, data, address and raw counters accept every bit pattern written
 	 * by the guest, including nondecimal nibbles in a BCD counter. */
+	return TRUE;
+}
+
+static UINT64 pcg88_phase_bits(const BYTE *data) {
+	UINT64 bits = 0;
+	UINT i;
+	for (i = 0; i < 8; i++)
+		bits |= (UINT64)data[i] << (8 * i);
+	return bits;
+}
+
+BOOL pcg88_phase_state_valid(const BYTE *data, UINT size) {
+	UINT i;
+	if (!data || size != PCG88_PHASE_STATE_SIZE || sizeof(double) != 8 || FLT_RADIX != 2 ||
+	    DBL_MANT_DIG != 53 || DBL_MAX_EXP != 1024)
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		/* Reject negatives (including -0), infinities and NaNs as bits,
+		 * before any floating-point operation on untrusted state. */
+		if (pcg88_phase_bits(data + 8 * i) >= ((UINT64)0x3ff00000 << 32))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+BOOL pcg88_phase_state_save(BYTE *data, UINT size) {
+	UINT i, j;
+	BYTE candidate[PCG88_PHASE_STATE_SIZE];
+	if (!data || size != PCG88_PHASE_STATE_SIZE || sizeof(double) != 8)
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		UINT64 bits;
+		CopyMemory(&bits, &pcgsnd.phase[i], sizeof(bits));
+		for (j = 0; j < 8; j++)
+			candidate[8 * i + j] = (BYTE)(bits >> (8 * j));
+	}
+	if (!pcg88_phase_state_valid(candidate, sizeof(candidate)))
+		return FALSE;
+	CopyMemory(data, candidate, sizeof(candidate));
+	return TRUE;
+}
+
+BOOL pcg88_phase_state_load(const BYTE *data, UINT size) {
+	UINT i;
+	if (!pcg88_phase_state_valid(data, size))
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		const UINT64 bits = pcg88_phase_bits(data + 8 * i);
+		CopyMemory(&pcgsnd.phase[i], &bits, sizeof(bits));
+	}
 	return TRUE;
 }
 

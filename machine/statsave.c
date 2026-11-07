@@ -87,6 +87,7 @@ enum {
 	STATFLAG_HOSTFAT,
 	STATFLAG_UPD8087,
 	STATFLAG_MAIN_CPU,
+	STATFLAG_PCG_PHASE,
 };
 
 typedef struct {
@@ -417,6 +418,16 @@ static int flagload_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
 
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return (statflag_read(sfh, tbl->arg1, tbl->arg2));
+}
+
+static int flagread_pcg_phase(STFLAGH sfh, BYTE *data) {
+	if (sfh->hdr.ver != 1 || sfh->hdr.size != PCG88_PHASE_STATE_SIZE ||
+	    statflag_read(sfh, data, PCG88_PHASE_STATE_SIZE) != STATFLAG_SUCCESS ||
+	    !pcg88_phase_state_valid(data, PCG88_PHASE_STATE_SIZE)) {
+		statflag_seterr(sfh, "M144A_PCG_PHASE_STATE");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
 }
 
 static BOOL statflag_index_equals(const char index[10], const char *name) {
@@ -1669,6 +1680,17 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 			ret |= flagsave_fm(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_PCG_PHASE: {
+			BYTE data[PCG88_PHASE_STATE_SIZE];
+			if (!pcg88_phase_state_save(data, sizeof(data))) {
+				statflag_seterr(&sffh->sfh, "M144A_PCG_PHASE_STATE");
+				ret = STATFLAG_FAILURE;
+			} else {
+				ret |= statflag_write(&sffh->sfh, data, sizeof(data));
+			}
+			break;
+		}
+
 		case STATFLAG_MEM:
 			ret |= flagsave_mem(&sffh->sfh, tbl);
 			break;
@@ -1834,6 +1856,12 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_FM:
 				ret |= flagcheck_fm(&sffh->sfh, tbl);
 				break;
+
+			case STATFLAG_PCG_PHASE: {
+				BYTE data[PCG88_PHASE_STATE_SIZE];
+				ret |= flagread_pcg_phase(&sffh->sfh, data);
+				break;
+			}
 
 			case STATFLAG_BMS:
 				if (bms_seen) {
@@ -2045,6 +2073,18 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 			case STATFLAG_FM:
 				ret |= flagload_fm(&sffh->sfh, tbl);
 				break;
+
+			case STATFLAG_PCG_PHASE: {
+				BYTE data[PCG88_PHASE_STATE_SIZE];
+				int phase_result = flagread_pcg_phase(&sffh->sfh, data);
+				if (phase_result == STATFLAG_SUCCESS &&
+				    !pcg88_phase_state_load(data, sizeof(data))) {
+					statflag_seterr(&sffh->sfh, "M144A_PCG_PHASE_STATE");
+					phase_result = STATFLAG_FAILURE;
+				}
+				ret |= phase_result;
+				break;
+			}
 
 			case STATFLAG_MEM:
 				ret |= flagload_mem(&sffh->sfh, tbl);

@@ -8162,6 +8162,194 @@ static int test_n80_fm_mask(void) {
 	return SUCCESS;
 }
 
+static int test_pcg_phase_codec(void) {
+	BYTE saved[PCG88_PHASE_STATE_SIZE], data[PCG88_PHASE_STATE_SIZE];
+	BYTE actual[PCG88_PHASE_STATE_SIZE];
+	const char *problem = NULL;
+	UINT channel, sign, exponent, fraction, byte, cases = 0;
+	if (!pcg88_phase_state_save(saved, sizeof(saved)))
+		return fail("PCG phase codec", "M144A_PCG_PHASE_CODEC_SEED");
+	for (channel = 0; channel < 3 && !problem; channel++)
+		for (sign = 0; sign < 2 && !problem; sign++)
+			for (exponent = 0; exponent < 2048 && !problem; exponent++)
+				for (fraction = 0; fraction < 2 && !problem; fraction++) {
+					UINT64 bits = ((UINT64)sign << 63) | ((UINT64)exponent << 52);
+					if (fraction)
+						bits |= ((UINT64)1 << 52) - 1;
+					ZeroMemory(data, sizeof(data));
+					for (byte = 0; byte < 8; byte++)
+						data[channel * 8 + byte] = (BYTE)(bits >> (byte * 8));
+					if (!!pcg88_phase_state_valid(data, sizeof(data)) != (!sign && exponent < 1023))
+						problem = "M144A_PCG_PHASE_CODEC_DOMAIN";
+					cases++;
+				}
+	ZeroMemory(data, sizeof(data));
+	/* Independently specified LE encodings: 0.5, 0.25, 0.75. */
+	data[6] = 0xe0;
+	data[7] = 0x3f;
+	data[14] = 0xd0;
+	data[15] = 0x3f;
+	data[22] = 0xe8;
+	data[23] = 0x3f;
+	if (!problem &&
+	    (!pcg88_phase_state_load(data, sizeof(data)) ||
+	     !pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data))))
+		problem = "M144A_PCG_PHASE_CODEC_ENDIAN";
+	if (!problem) {
+		BYTE candidate[PCG88_PHASE_STATE_SIZE] = {0};
+		if (!pcg88_phase_state_valid(candidate, sizeof(candidate)))
+			problem = "M144A_PCG_PHASE_CODEC_SEED";
+		candidate[23] = 0x80; /* one mutation: -0 in the last channel */
+		if (!problem &&
+		    (pcg88_phase_state_load(candidate, sizeof(candidate)) ||
+		     !pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data))))
+			problem = "M144A_PCG_PHASE_CODEC_ATOMIC";
+		for (byte = 0; byte < 49 && !problem; byte++)
+			if (byte != sizeof(data) &&
+			    (pcg88_phase_state_valid(data, byte) || pcg88_phase_state_load(data, byte) ||
+			     pcg88_phase_state_save(actual, byte)))
+				problem = "M144A_PCG_PHASE_CODEC_LENGTH";
+		if (pcg88_phase_state_valid(NULL, sizeof(data)) ||
+		    pcg88_phase_state_load(NULL, sizeof(data)) ||
+		    pcg88_phase_state_save(NULL, sizeof(data)))
+			problem = "M144A_PCG_PHASE_CODEC_NULL";
+	}
+	if (!problem) {
+		const _PCG88 saved_controller = pcg88;
+		const UINT32 saved_rate = soundcfg.rate;
+		const UINT8 saved_enable = np2cfg.pcg_enable;
+		const BOOL saved_mode = memoryva_88_mode;
+		SINT32 pcm[2] = {0};
+		np2cfg.pcg_enable = 1;
+		memoryva_88_mode = TRUE;
+		soundcfg.rate = 200;
+		pcg88_setvol(64);
+		for (channel = 0; channel < 3; channel++) {
+			pcg88.sound_on[channel] = 1;
+			pcg88.mode[channel] = 3;
+			pcg88.bcd[channel] = 0;
+			pcg88.counter[channel] = 39936;
+		}
+		/* 3,993,600 / 39,936 / 200 = exactly half a cycle per sample.
+		 * This checks numeric meaning, not just encode/decode symmetry. */
+		pcg88_getpcm(NULL, pcm, 1);
+		ZeroMemory(data, 8);
+		data[14] = 0xe8;
+		data[22] = 0xd0;
+		if (!pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data)))
+			problem = "M144A_PCG_PHASE_CODEC_NUMERIC";
+		pcg88 = saved_controller;
+		soundcfg.rate = saved_rate;
+		np2cfg.pcg_enable = saved_enable;
+		memoryva_88_mode = saved_mode;
+		pcg88_setvol(np2cfg.pcg_vol);
+	}
+	pcg88_phase_state_load(saved, sizeof(saved));
+	if (problem)
+		return fail("PCG phase codec", problem);
+	fprintf(stderr, "selftest: PCG phase codec %u classifications, endian and atomic guards ok\n",
+	        cases);
+	return SUCCESS;
+}
+
+static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
+	SINT32 fresh[512], continued[512], restored[512], warmup[346];
+	BYTE before_phase[PCG88_PHASE_STATE_SIZE], after_phase[PCG88_PHASE_STATE_SIZE];
+	_PCG88 before;
+	const UINT32 saved_rate = soundcfg.rate;
+	const UINT reloads[3] = {10000, 0x1234, 0};
+	const char *problem = NULL;
+	char error[256];
+	BYTE *data = NULL;
+	UINT channel, size = 0, pos, mutation;
+	pcg88_reset();
+	memoryva_88_mode = TRUE;
+	soundcfg.rate = 44100;
+	pcg88_setvol(64);
+	for (channel = 0; channel < 3; channel++) {
+		iocore_out8(0x0f, (channel << 6) | 0x36 | (channel == 1));
+		iocore_out8(0x0c + channel, reloads[channel] & 0xff);
+		iocore_out8(0x0c + channel, reloads[channel] >> 8);
+	}
+	iocore_out8(0x02, 0xc8);
+	ZeroMemory(fresh, sizeof(fresh));
+	pcg88_getpcm(NULL, fresh, 256);
+	iocore_out8(0x02, 0);
+	iocore_out8(0x02, 0xc8);
+	ZeroMemory(warmup, sizeof(warmup));
+	pcg88_getpcm(NULL, warmup, 173);
+	before = pcg88;
+	if (statsave_save(path) != STATFLAG_SUCCESS ||
+	    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS ||
+	    !pcg88_phase_state_save(before_phase, sizeof(before_phase)))
+		problem = "M144A_N80_PCG_PHASE_FIXTURE";
+	ZeroMemory(continued, sizeof(continued));
+	pcg88_getpcm(NULL, continued, 256);
+	ZeroMemory(warmup, sizeof(warmup));
+	pcg88_getpcm(NULL, warmup, 173);
+	if (!problem &&
+	    (statsave_load(path) != STATFLAG_SUCCESS || memcmp(&before, &pcg88, sizeof(before)) ||
+	     !pcg88_phase_state_save(after_phase, sizeof(after_phase)) ||
+	     memcmp(before_phase, after_phase, sizeof(before_phase))))
+		problem = "M144A_N80_PCG_PHASE_RESTORE";
+	soundcfg.rate = 44100;
+	pcg88_setvol(64);
+	ZeroMemory(restored, sizeof(restored));
+	pcg88_getpcm(NULL, restored, 256);
+	if (!problem &&
+	    (!memcmp(fresh, continued, sizeof(fresh)) || memcmp(continued, restored, sizeof(restored))))
+		problem = "M144A_N80_PCG_PHASE_PCM";
+	if (!problem && read_whole_file(path, &data, &size) != SUCCESS)
+		problem = "M144A_PCG_PHASE_SAV_FIXTURE";
+	if (!problem) {
+		const UINT16 before_ip = CPU_IP;
+		pcg88_phase_state_save(before_phase, sizeof(before_phase));
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "PCGPHASE\0\0", 10))
+				break;
+		if (pos + 16 + PCG88_PHASE_STATE_SIZE > size ||
+		    LOADINTELDWORD(data + pos + 12) != PCG88_PHASE_STATE_SIZE)
+			problem = "M144A_PCG_PHASE_SAV_FIXTURE";
+		for (mutation = 0; mutation < 8 && !problem; mutation++) {
+			const UINT offset = pos + (mutation < 6    ? 16 + (mutation / 2) * 8 + 7
+			                           : mutation == 6 ? 10
+			                                           : 12);
+			const BYTE original = data[offset];
+			if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+				problem = "M144A_PCG_PHASE_SAV_SEED";
+				break;
+			}
+			data[offset] = mutation < 6 ? (mutation & 1 ? 0x7f : 0xbf) : mutation == 6 ? 2 : 23;
+			if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+			    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+			    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_PCG_PHASE_STATE")) ||
+			    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != before_ip ||
+			    memcmp(&before, &pcg88, sizeof(before)) ||
+			    !pcg88_phase_state_save(after_phase, sizeof(after_phase)) ||
+			    memcmp(before_phase, after_phase, sizeof(before_phase)))
+				problem = "M144A_PCG_PHASE_SAV_GUARD";
+			data[offset] = original;
+		}
+	}
+	if (data)
+		_MFREE(data);
+	if (!problem && (strip_statsave_section(path, oldpath, "PCGPHASE") != SUCCESS ||
+	                 statsave_load(oldpath) != STATFLAG_SUCCESS))
+		problem = "M144A_PCG_PHASE_LEGACY_LOAD";
+	if (!problem) {
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		ZeroMemory(restored, sizeof(restored));
+		pcg88_getpcm(NULL, restored, 256);
+		if (memcmp(fresh, restored, sizeof(fresh)))
+			problem = "M144A_PCG_PHASE_LEGACY_RESET";
+	}
+	soundcfg.rate = saved_rate;
+	pcg88_setvol(np2cfg.pcg_vol);
+	return problem;
+}
+
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -8736,6 +8924,8 @@ static int test_pc8001_banks(void) {
 			                 memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
 				problem = "legacy state bank baseline";
 		}
+		if (!problem)
+			problem = test_pcg_phase_sav(path, oldpath);
 		if (!problem && model == 2) {
 			/* Test-only fixture removal: the complete-font precedence was
 			 * exercised above with a deliberately different fallback input. */
@@ -8786,6 +8976,9 @@ static int test_pc8001_banks(void) {
 	fprintf(stderr, "selftest: N80 guest PCG timer SAV continuation 2 models ok\n");
 	fprintf(stderr, "selftest: PCG state domains 10240 and malformed SAV cases 80 ok\n");
 	fprintf(stderr, "selftest: N80 boot switches 1024 cases and native/other/base guards ok\n");
+	fprintf(
+	    stderr,
+	    "selftest: PCG phase SAV PCM continuation, 16 malformed states and legacy reset, 2 models ok\n");
 	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
 	return SUCCESS;
 }
@@ -11196,6 +11389,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_n80_fm_mask() != SUCCESS) {
+		return FAILURE;
+	}
+	if (test_pcg_phase_codec() != SUCCESS) {
 		return FAILURE;
 	}
 	if (test_pc8001_banks() != SUCCESS) {

@@ -25,8 +25,58 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 Status: **IMPLEMENTATION_IN_PROGRESS; G144a human gate PENDING.**
 Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 [dc023c9b7ce62c7334d797ba1934ad95b51fd3fd](https://github.com/nakatamaho/vaeg/commit/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd).
-This is a read-only compatibility follow-up to accepted M144, separate from
-paused WSR-E and M145 work.
+This implementation follow-up extends the original source review of accepted
+M144, separately from paused WSR-E and M145 work. Earlier checkpoints below
+record their own scope at the time; they are not current completion declarations.
+
+## Current completion scope
+
+The maintainer requested completion of the entire M144a implementation, not
+only N80 demo execution. Resume the previously paused FDC-clock verification
+and PR201/PDF work after the N80 fixes; neither may be silently omitted. The
+remaining sequence is PCG phase persistence, explicit BASIC startup selection
+and applied-state persistence, remaining display/timing review, FDC execution
+checks, PR201/PDF, final regression and clean Windows handoff, then G144a.
+Accepted M144/G144 remains complete; M144a/G144a is not accepted by this request.
+Physical-machine comparison is excluded, not passed. M88M v1.2.4 is a reference
+candidate, not an executed comparison claim. Push remains held.
+
+Public records contain public-source analysis and synthetic tests actually
+performed. Private-input tests and emulator-comparison results are not published
+or relabeled as public-specification-only tests. Conversation reporting and
+out-of-tree test work remain separate from this publication boundary.
+
+## PCG active-phase SAV continuation
+
+The generated-input regression isolates a missing mixer state: `PCG88` saved
+controller registers and glyph RAM, but not the separate three `pcgsnd.phase`
+values. Load reset those phases, restarting active square waves even when the
+controller bytes matched. The correction adds optional `PCGPHASE` version 1:
+24 bytes, three little-endian IEEE binary64 normalized phases. The existing
+`PCG88` payload is unchanged. Old SAVs without the extension retain deterministic
+phase-zero reset; phase continuity cannot be recovered from their registers alone.
+
+Preflight rejects wrong version/size, negative values (including negative zero),
+values at least one, infinities and NaNs with `M144A_PCG_PHASE_STATE`, before
+changing live state. The codec rejects unsupported floating-point representations
+and validates all channels before applying any. Mixer volume, output-device
+queues and sample-rate configuration are not part of this extension.
+
+Synthetic checks cover 24,576 sign/exponent/fraction/channel classifications,
+known little-endian encodings, independently known half-cycle arithmetic,
+null/length guards and failed-load atomicity. Full SAV tests on both N80 models
+program three unequal binary/BCD counters through guest-facing I/O, warm the
+oscillators, save, render the reference continuation, perturb, restore and compare
+all 512 stereo sample values at the same rate and volume. Fresh/reset PCM must
+differ from continuation. Sixteen independently mutated SAVs test payload,
+version and size rejection with unchanged sampled CPU/controller/phase state.
+Removing only `PCGPHASE` tests the legacy reset behavior.
+
+Reverted production mutations fail exactly `M144A_N80_PCG_PHASE_RESTORE`
+(omit phase application) and `M144A_PCG_PHASE_SAV_GUARD` (omit preflight payload
+validation), starting from the passing fixture. This is synthetic mixer/SAV
+coverage, not speaker, cross-platform PCM equivalence, hardware timing or G144a
+acceptance. Final build/test receipts are retained out of tree.
 
 ## N80SR FM interrupt-mask checkpoint
 
