@@ -28,6 +28,31 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Guest timer continuation through SAV
+
+The generated RAM program now initializes all three PCG timer channels through
+CPU-executed OUT instructions before the existing glyph checkpoint. It leaves
+binary reload 10,000 on channel 0, a pending low-byte BCD load on channel 1,
+and binary zero on channel 2. The main checkpoint remains at C03Ah.
+
+After saving, guest execution advances to C048h, completing the pending timer
+write and enabling the gates. The controller is then reset before SAV load.
+The restored CPU mode/IP/A, trap configuration and complete PCG state must match
+the checkpoint. Guest instructions—not host reconstruction—then select the completed
+glyph, finish BCD 1234 and enable all three gates. Raw reload/latch checks
+and the three expected frequency queries verify continuation on both models.
+
+Two single-bit negatives are applied after the existing full-state equality
+check, to exercise the continuation assertions independently. Clearing the
+pending-high-byte latch fails with `M144A_N80_PCG_TIMER_CONTINUATION`; clearing
+the BCD flag fails with `M144A_N80_PCG_TIMER_TONES`. Both start from a passing
+fixture and are reverted. The native build and seven focused CTests pass.
+
+No emulator behavior or state format correction was needed. The saved gates
+are off and are enabled by the resumed guest, so this does not qualify active
+oscillator phase preservation, audio queues, elapsed timer timing or complete
+visual replay. G144a remains pending.
+
 ## PCG BCD zero-reload interpretation
 
 The 8253 reload contract uses zero for the selected counting modulus: 65,536

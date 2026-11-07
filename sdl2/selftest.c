@@ -8233,8 +8233,15 @@ static int test_pc8001_banks(void) {
 				iocore_out8(0x53, 7);
 			}
 			if (!problem) {
-				/* Original RAM program: program both banks, leave an OUT
-				 * pending, then select the completed glyph after restoration. */
+				/* Original RAM programs: prepare timers, then program both glyph
+				 * banks. Resume glyph and pending timer writes after restoration. */
+				static const BYTE timer_code[] = {
+				    0x3e, 0x36, 0xd3, 0x0f, 0x3e, 0x10, 0xd3, 0x0c,
+				    0x3e, 0x27, 0xd3, 0x0c,                         /* counter 0: binary 10000 */
+				    0x3e, 0x77, 0xd3, 0x0f, 0x3e, 0x34, 0xd3, 0x0d, /* counter 1: pending BCD */
+				    0x3e, 0xb6, 0xd3, 0x0f, 0x3e, 0x00, 0xd3, 0x0e,
+				    0x3e, 0x00, 0xd3, 0x0e, /* counter 2: binary zero */
+				    0xc3, 0x00, 0xc0};      /* JP C000h */
 				static const BYTE pcg_code[] = {0x3e, 0x08, 0xd3, 0x03, 0x3e, 0x3c, 0xd3, 0x00,
 				                                0x3e, 0x3f, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
 				                                0x3e, 0x1c, 0xd3, 0x03, 0x3e, 0xc3, 0xd3, 0x00,
@@ -8243,7 +8250,9 @@ static int test_pc8001_banks(void) {
 				                                0x3e, 0x37, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
 				                                0x3e, 0x01, 0xd3, 0x00, 0x3e, 0x3f, 0xd3, 0x01,
 				                                0x3e, 0x12, /* save before the following OUT */
-				                                0xd3, 0x02, 0x3e, 0x1c, 0xd3, 0x03, 0x76};
+				                                0xd3, 0x02, 0x3e, 0x1c, 0xd3, 0x03, 0x3e, 0x12,
+				                                0xd3, 0x0d,                    /* finish BCD 1234 */
+				                                0x3e, 0xc8, 0xd3, 0x02, 0x76}; /* enable tones */
 				unsigned step;
 				np2cfg.pcg_enable = 1;
 				pcg88_reset();
@@ -8255,10 +8264,11 @@ static int test_pc8001_banks(void) {
 				STOREINTELWORD(mem + 0x7d * 4, 0x3000);
 				STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
 				CopyMemory(mem + 0x1c000, pcg_code, sizeof(pcg_code));
+				CopyMemory(mem + 0x1c100, timer_code, sizeof(timer_code));
 				mem[0x20100] = 0x0f;
 				mem[0x20101] = 0xff;
 				mem[0x20102] = 0x40;
-				STOREINTELWORD(mem + 0x100, 0xc000);
+				STOREINTELWORD(mem + 0x100, 0xc100);
 				STOREINTELWORD(mem + 0x102, 0x1000);
 				CPU_CS = 0x2000;
 				CS_BASE = 0x20000;
@@ -8272,7 +8282,7 @@ static int test_pc8001_banks(void) {
 				CPU_REMCLOCK = CPU_BASECLOCK = 100000;
 				upd9002_core_step();
 				memoryva_88_mode = TRUE;
-				for (step = 0; step < 29 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
+				for (step = 0; step < 46 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
 					upd9002_core_step();
 				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03a) {
 					fprintf(stderr, "selftest: PCG guest mode=%u ip=%04x steps=%u\n",
@@ -8287,6 +8297,13 @@ static int test_pc8001_banks(void) {
 					        pcg88.data, videova.grmode, CPU_IP);
 					problem = "M144A_N80_PCG_GUEST_SETUP";
 				}
+				if (!problem && (pcg88.counter[0] != 10000 || pcg88.counter[1] != 0x34 ||
+				                 pcg88.counter[2] != 0 || pcg88.msb[0] || !pcg88.msb[1] ||
+				                 pcg88.msb[2] || pcg88.bcd[0] || !pcg88.bcd[1] || pcg88.bcd[2]))
+					problem = "M144A_N80_PCG_TIMER_SETUP";
+				for (step = 0; step < 3 && !problem; step++)
+					if (pcg88.rl[step] != 3 || pcg88.mode[step] != 3 || pcg88.sound_on[step])
+						problem = "M144A_N80_PCG_TIMER_SETUP";
 				CopyMemory(&saved_pcg, &pcg88, sizeof(saved_pcg));
 			}
 			saved_bank = memoryn80;
@@ -8300,6 +8317,15 @@ static int test_pc8001_banks(void) {
 				upd9002_core_step();
 				if (CPU_IP != 0xc040 || CPU_AL != 0x1c || pcg88.ram[1][0x23f] != 0x01)
 					problem = "M144A_N80_PCG_GUEST_PROGRESS";
+				if (!problem) {
+					upd9002_core_step();
+					upd9002_core_step();
+					upd9002_core_step();
+					upd9002_core_step();
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc048 ||
+					    pcg88.counter[1] != 0x1234 || pcg88.msb[1])
+						problem = "M144A_N80_PCG_TIMER_PROGRESS";
+				}
 			}
 			if (!problem) {
 				iocore_out8(0x31, 2);
@@ -8347,6 +8373,23 @@ static int test_pc8001_banks(void) {
 				glyph = pcg88_glyph(0xc7);
 				if (!problem && (!glyph || glyph[7] != 0x01))
 					problem = "M144A_N80_PCG_PENDING_DISPLAY";
+			}
+			if (!problem) {
+				upd9002_core_step(); /* LD A,12h */
+				upd9002_core_step(); /* OUT (0Dh),A: pending high byte */
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc044 ||
+				    pcg88.counter[0] != 10000 || pcg88.counter[1] != 0x1234 ||
+				    pcg88.counter[2] != 0 || pcg88.msb[1])
+					problem = "M144A_N80_PCG_TIMER_CONTINUATION";
+				if (!problem) {
+					upd9002_core_step(); /* LD A,C8h */
+					upd9002_core_step(); /* OUT (02h),A: all three gates */
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc048 ||
+					    pcg88_frequency(0) != 3993600 / 10000 ||
+					    pcg88_frequency(1) != 3993600 / 1234 ||
+					    pcg88_frequency(2) != 3993600 / 65536)
+						problem = "M144A_N80_PCG_TIMER_TONES";
+				}
 			}
 			if (!problem) {
 				BYTE *data = NULL;
@@ -8513,6 +8556,7 @@ static int test_pc8001_banks(void) {
 	if (problem)
 		return fail("N80 ROM banks", problem);
 	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");
+	fprintf(stderr, "selftest: N80 guest PCG timer SAV continuation 2 models ok\n");
 	fprintf(stderr, "selftest: PCG state domains 10240 and malformed SAV cases 80 ok\n");
 	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
 	return SUCCESS;
