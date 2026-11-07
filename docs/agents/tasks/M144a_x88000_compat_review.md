@@ -28,6 +28,23 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## mkII primary-manual mode and WAIT checkpoint
+
+[Five-page image verification](../../modernization/x88000-compatibility-review.md#pc-8001mkii-user-manual-verification)
+of the public mkII user's manual now supports the SW8/CTRL four-case startup
+matrix. Appendix 3 documents SW1 as unused and SW3–7 as unavailable to users,
+not as electrically unused. Its SW2 condition concerns slow **ROM**, correcting
+the earlier hearsay's RAM wording. Section 12.2 separately documents the normal
+M1 wait and the selectable memory-read wait; their overlap and actual timing
+remain unqualified. The disk-startup instructions require a matching BASIC
+selection even when an incorrect combination appears to start.
+
+This is documentation-only primary-source verification, not a mode-selector
+implementation or a timing correction. The mkIISR user's guide was not located
+in the bounded search; no global absence claim is made. No private-media result,
+new runtime PASS or G144a acceptance is asserted. Existing source-model evidence
+remains reusable because emulator and test sources are unchanged.
+
 ## Port 33 readback and primary-manual checkpoint
 
 The guest RAM mode-switch fixture now performs OUT/IN/ROM reads with an active

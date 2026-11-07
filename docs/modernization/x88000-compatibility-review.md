@@ -468,8 +468,8 @@ I/O命令で行うROM切替は別経路であり、リセット専用に制限�
 
 ### Unverified PC-8001mkII DIP information
 
-以下は上記投稿の伝聞情報を記録するもので、確定仕様ではない。
-PC-8001mkIISRのDIP番号と混同しない。
+以下は最初に記録した上記投稿の伝聞情報であり、当時の未検証分類を保持する。
+後続の一次資料による照合・訂正は次節を参照。PC-8001mkIISRのDIP番号と混同しない。
 
 | mkIIのDIP | 投稿に記された内容 | 扱い |
 |---|---|---|
@@ -483,6 +483,50 @@ SW2のメモリーリード待ちを、CPUクロック変更、表示DMA待ち�
 関する条件であり、追加WAITそのものの長さと断定しない。OFFという既定値も
 この投稿の主張として保持する。一次資料または独立した検証が得られるまでは、
 この情報だけを根拠にタイミング実装や非公開スイッチの挙動を変更しない。
+
+### PC-8001mkII user-manual verification
+
+[PC-8001mkII User's Manualの公開スキャン](https://archive.org/details/PC8001mk-II-users-manual)
+から、以下の5ページを画像で照合した。OCRはページ探索の補助にのみ使用した。
+これはmkIIの資料確認であり、mkIISRの仕様への自動的な拡張や実機測定ではない。
+今回の限定的なArchive.org検索ではmkIISRユーザーズガイドを特定できなかったが、
+他所にも存在しないとは主張しない。
+
+| 本文ページ | スキャン参照 | 確認範囲 |
+|---|---|---|
+| 5–3 | [leaf 62](https://archive.org/details/PC8001mk-II-users-manual/page/n62/mode/1up) | 表5.1のSW8とCTRLによる起動選択 |
+| 5–4 | [leaf 63](https://archive.org/details/PC8001mk-II-users-manual/page/n63/mode/1up) | CTRLによる反転、ROM/DISK BASICの区別 |
+| 8–6 | [leaf 105](https://archive.org/details/PC8001mk-II-users-manual/page/n105/mode/1up) | システムディスクとSW8の対応、不適切な組合せへの注意 |
+| 12–3 | [leaf 194](https://archive.org/details/PC8001mk-II-users-manual/page/n194/mode/1up) | M1の通常WAITと追加メモリーリードWAIT |
+| 付–2 | [leaf 231](https://archive.org/details/PC8001mk-II-users-manual/page/n231/mode/1up) | 付録3のDIPスイッチ説明 |
+
+mkIIの起動選択は次の4組を確認できた。CTRLを使う操作は電源投入とリセットの両方が
+表に記載されているが、キーをサンプルする時刻や保持時間まではこの表で確定しない。
+
+| SW8 | 起動時CTRL | 選択されるBASIC |
+|---|---|---|
+| OFF | なし | N80 |
+| ON | なし | N |
+| OFF | あり | N |
+| ON | あり | N80 |
+
+付録3はSW1を未使用、SW3–7をユーザー使用不可としている。SW3–7の機能や電気的な
+無効性は不明のままであり、未使用扱いにはしない。SW2はONでメモリーリードに
+1 WAIT、OFFが通常。速度条件に挙げられているのは**アクセス時間が300 nsより遅い
+ROM**であり、先の伝聞表にあるRAMとは異なる。付録3にはPC-8012-03使用時にSW2を
+ONとする注意もある。通常という説明を、個々の機体の出荷設定を調べた結果とはしない。
+
+12.2節では、通常のM1サイクルに自動で1 WAITが入ることと、SW2のONまたは拡張スロットの
+MWAIT信号をLOWにすることでメモリーリードWAITを追加できることを区別している。
+300 nsはROMのアクセス時間条件であり、WAIT幅ではない。M1と追加WAITの重なり・累積、
+表示DMA等との競合、機種間の相違は別途照合する。CPUクロックの変更や、メモリー書込み・
+I/O・FDC CPUを含む全アクセスへの一律加算に置き換えない。この記録だけでタイミングを
+変更したり、既存の待ち実装を適合済みと認定したりしない。
+
+8–6ページはN80 DISK-BASIC用ならSW8をOFF、N系DISK-BASIC用ならONとし、誤った組合せで
+起動したように見えても使用しないよう注意している。したがって、起動メッセージが出る
+ことだけで互換性をPASSにせず、選択したBASIC系統とシステムの対応も検査対象にする。
+これはマニュアル上の注意の要約であり、特定の媒体や報告されたI/Oエラーの診断ではない。
 
 ### Related PC-8801 reset operations
 
