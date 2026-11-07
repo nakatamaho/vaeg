@@ -196,6 +196,132 @@ static int n80_guest_io_selftest(void) {
 	return result;
 }
 
+static UINT crtc_output_count;
+static UINT crtc_output_ports[256];
+static BYTE crtc_output_data[256];
+
+static void IOOUTCALL crtc_output_probe(UINT port, REG8 data) {
+	if (crtc_output_count < NELEMENTS(crtc_output_data)) {
+		crtc_output_ports[crtc_output_count] = port;
+		crtc_output_data[crtc_output_count] = (BYTE)data;
+	}
+	crtc_output_count++;
+}
+
+/* Probe the existing dispatch boundary, not the CRTC geometry implementation.
+ * Trapped instructions must still reach the firmware before a device write;
+ * untrapped instructions must deliver each byte exactly once, including wraps. */
+static int n80_crtc_dispatch_selftest(void) {
+	static const BYTE ops[] = {0xd3, 0x41, 0x49, 0x51, 0x59, 0x61, 0x69,
+	                           0x71, 0x79, 0xa3, 0xab, 0xb3, 0xbb};
+	static const BYTE counts[] = {1, 3, 0};
+	const _MEMORYN80 saved_bank = memoryn80;
+	const BOOL saved_8001 = memoryva_pc8001, saved_8801 = memoryva_pc8801;
+	const BOOL saved_mode = memoryva_88_mode;
+	const UPD9002_IOTRAP saved_trap = upd9002_iotrap;
+	UINT model, port, trap, form, count, cases = 0;
+	const char *problem = NULL;
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		iocore_destroy();
+		return FAILURE;
+	}
+	iocore_attachout(0x50, crtc_output_probe);
+	iocore_attachout(0x51, crtc_output_probe);
+	for (model = 1; model <= 2 && !problem; model++)
+		for (port = 0x50; port <= 0x51 && !problem; port++)
+			for (trap = 0; trap < 2 && !problem; trap++)
+				for (form = 0; form < NELEMENTS(ops) && !problem; form++)
+					for (count = 0; count < (form >= 9 ? NELEMENTS(counts) : 1) && !problem;
+					     count++) {
+						const BOOL block = form >= 9, repeat = form >= 11;
+						const BOOL decrement = form == 10 || form == 12;
+						const UINT8 b = block ? counts[count] : 3;
+						const UINT length = repeat ? (b ? b : 256) : 1;
+						const UINT16 hl = block ? (decrement ? 1 : 0xfffe) : 0x4d7a;
+						const BYTE register_data[] = {0xc1, b,    (BYTE)port, 0x64, 0x29,
+						                              0x4d, 0x7a, 0,          0xc1};
+						UINT i, steps;
+						memoryva_pc8801 = FALSE;
+						memoryva_pc8001 = TRUE;
+						memoryva_88_mode = FALSE;
+						upd9002_core_initialize();
+						upd9002_upd70008_register();
+						upd9002_core_reset();
+						ZeroMemory(mem, 0x40000);
+						STOREINTELWORD(mem + 0xe1 * 4, 0x1000);
+						STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x2000);
+						STOREINTELWORD(mem + 0x7d * 4, 0x3000);
+						STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
+						mem[0x20100] = 0x0f;
+						mem[0x20101] = 0xff;
+						mem[0x20102] = 0xe1;
+						mem[0x21000] = form ? 0xed : 0xd3;
+						mem[0x21001] = form ? ops[form] : (BYTE)port;
+						if (block)
+							for (i = 0; i < length; i++)
+								mem[0x20000 + (UINT16)(decrement ? hl - i : hl + i)] =
+								    (BYTE)(0x93 + 37 * i);
+						CPU_CS = CPU_DS = 0x2000;
+						CS_BASE = DS_BASE = 0x20000;
+						CPU_SS = 0x3000;
+						SS_BASE = 0x30000;
+						CPU_SP = 0x100;
+						CPU_BP = 0x200;
+						CPU_IP = 0x100;
+						CPU_AL = 0xc1;
+						CPU_CX = (UINT16)((b << 8) | port);
+						CPU_DX = 0x6429;
+						CPU_BX = hl;
+						CPU_FLAG = 0xf000;
+						CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+						upd9002_core_step();
+						memoryva_88_mode = TRUE;
+						memoryn80.model = (UINT8)model;
+						ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+						upd9002_iotrap.control = trap ? 2 : 0;
+						upd9002_iotrap.ranges[0] = upd9002_iotrap.ranges[2] = (UINT8)port;
+						crtc_output_count = 0;
+						upd9002_core_step();
+						if (trap) {
+							if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
+							    CPU_SP != 0xf4 || crtc_output_count || CPU_BX != hl ||
+							    CPU_CX != (UINT16)((b << 8) | port) || CPU_AL != 0xc1 ||
+							    upd9002_memoryread_w(0x300f4) != 0x1000)
+								problem = "M144A_N80_CRTC_TRAP_BOUNDARY";
+						} else {
+							for (steps = 1; steps < 256 && CPU_IP == 0x1000; steps++)
+								upd9002_core_step();
+							if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0x1002 ||
+							    CPU_SP != 0xfa || crtc_output_count != length ||
+							    CPU_BX != (block ? (UINT16)(decrement ? hl - length : hl + length)
+							                     : hl) ||
+							    CPU_CX !=
+							        (UINT16)((((UINT8)(b - (block ? length : 0))) << 8) | port))
+								problem = "M144A_N80_CRTC_OUTPUT_SEQUENCE";
+							for (i = 0; i < length && !problem; i++)
+								if (crtc_output_ports[i] != port ||
+								    crtc_output_data[i] !=
+								        (block ? (BYTE)(0x93 + 37 * i) : register_data[form]))
+									problem = "M144A_N80_CRTC_OUTPUT_DATA";
+						}
+						cases++;
+						if (problem)
+							fprintf(stderr,
+							        "%s model=%u port=%02x trap=%u op=%02x b=%u writes=%u\n",
+							        problem, model, port, trap, ops[form], b, crtc_output_count);
+					}
+	memoryn80 = saved_bank;
+	memoryva_pc8001 = saved_8001;
+	memoryva_pc8801 = saved_8801;
+	memoryva_88_mode = saved_mode;
+	upd9002_iotrap = saved_trap;
+	iocore_destroy();
+	if (!problem)
+		fprintf(stderr, "N80 CRTC dispatch: %u instruction/trap/wrap cases PASS\n", cases);
+	return problem ? FAILURE : SUCCESS;
+}
+
 /* Independent instruction fixture, never copied from private guest software. */
 int upd780_main_role_selftest(void) {
 	static const UINT8 code[] = {
@@ -298,6 +424,8 @@ int upd780_main_role_selftest(void) {
 	}
 	if (result == SUCCESS)
 		result = n80_guest_io_selftest();
+	if (result == SUCCESS)
+		result = n80_crtc_dispatch_selftest();
 	memoryva_pc8801 = saved_pc8801;
 	memoryva_pc8001 = saved_pc8001;
 	memoryva_88_mode = saved_mode;
