@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M144a — N80 automatic startup reads VA BASIC-switch bits
+
+- **Symptom/scope:** generated mkII/SR input cases returned the VA backup byte's
+  low mode bits rather than the N80/SR choice used by automatic startup. Guest
+  IN 30h also remained on the VA trap path when input trapping was enabled.
+- **Demonstrated root cause:** `memctrlva_i030` returned B1FC2h unconditionally,
+  and the independent N80 direct-input list omitted port 30h. The existing
+  handoff selected SR ROM for model 2 with a complete SR input, but that alone
+  did not supply matching startup-switch bits.
+- **Correction:** in mkII/SR compatible mode, derive bits 0/1 from that same
+  automatic N80/SR policy using X88000's non-N/non-SR readback convention, preserving
+  the upper bits and backing byte. Add only IN 30h to N80 direct routing.
+  Native, PC-8801 and base-PC-8001 behavior, OUT 30h and state formats are unchanged.
+- **Verification:** 1,024 input combinations and native/other/base controls;
+  1,476 instruction/trap/model cases; guest startup-bit stability across live
+  ROM switches. The readback fixture now enables input as well as output traps;
+  its earlier output-only setting was not proof of input interception behavior.
+  Separate bit/route negatives fail with `M144A_N80_BOOT_SWITCH_BITS` and
+  `M144A_N80_MODE_READ_ROUTE`. Mutations are reverted; native build and seven
+  focused CTests pass. This is model-contract verification, not hardware or
+  disk-boot qualification, and does not implement an explicit BASIC-mode selector.
+- **Task/evidence:** [M144a automatic startup-switch input](../agents/tasks/M144a_x88000_compat_review.md#automatic-n80-startup-switch-input-checkpoint).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — PCG BCD zero reload uses the binary divisor
 
 - **Symptom/scope:** a mode-3 PCG counter programmed with BCD reload 0000h used

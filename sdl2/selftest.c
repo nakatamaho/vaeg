@@ -8069,6 +8069,34 @@ static int test_pc8001_banks(void) {
 				if (!problem && upd9002_memoryread_va(0x16000) != memoryn80_srrom[0x8000])
 					problem = "SR IE bank";
 			}
+			if (!problem) {
+				const BYTE saved_switch = backupmem[0x1fc2];
+				const BOOL saved_present = memoryn80_sr_present;
+				unsigned value, present;
+				for (present = 0; present < 2 && !problem; present++) {
+					memoryn80_sr_present = present;
+					for (value = 0; value < 256 && !problem; value++) {
+						const REG8 expected = (value & 0xfc) | ((model == 2 && present) ? 1 : 3);
+						backupmem[0x1fc2] = (BYTE)value;
+						if (iocore_inp8(0x30) != expected)
+							problem = "M144A_N80_BOOT_SWITCH_BITS";
+						memoryva_88_mode = FALSE;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_NATIVE";
+						memoryva_88_mode = TRUE;
+						memoryva_pc8001 = FALSE;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_OTHER";
+						memoryva_pc8001 = TRUE;
+						memoryn80.model = 0;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_BASE";
+						memoryn80.model = model;
+					}
+				}
+				backupmem[0x1fc2] = saved_switch;
+				memoryn80_sr_present = saved_present;
+			}
 			/* Production aperture/plane/word-edge paths, not just the pure
 			 * decoder. C000h must remain ordinary RAM on these models. */
 			{
@@ -8194,10 +8222,11 @@ static int test_pc8001_banks(void) {
 					 * write 33h, read it with IN, and read the selected ROM.
 					 * Bits 0/5 exercise the current read mask independently. */
 					static const BYTE switch_code[] = {
-					    0x3e, 0xa1, 0xd3, 0x33, 0xdb, 0x33, 0x32, 0x10, 0xc1, 0x3a, 0,    0,
-					    0x32, 0,    0xc1, 0x3e, 0x21, 0xd3, 0x33, 0xdb, 0x33, 0x32, 0x11, 0xc1,
-					    0x3a, 0,    0,    0x32, 1,    0xc1, 0x3e, 0x80, 0xd3, 0x33, 0xdb, 0x33,
-					    0x32, 0x12, 0xc1, 0x3a, 0,    0,    0x32, 2,    0xc1};
+					    0x3e, 0xa1, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x20, 0xc1, 0xdb, 0x33, 0x32,
+					    0x10, 0xc1, 0x3a, 0,    0,    0x32, 0,    0xc1, 0x3e, 0x21, 0xd3, 0x33,
+					    0xdb, 0x30, 0x32, 0x21, 0xc1, 0xdb, 0x33, 0x32, 0x11, 0xc1, 0x3a, 0,
+					    0,    0x32, 1,    0xc1, 0x3e, 0x80, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x22,
+					    0xc1, 0xdb, 0x33, 0x32, 0x12, 0xc1, 0x3a, 0,    0,    0x32, 2,    0xc1};
 					unsigned step;
 					CPU_RESET();
 					memoryva_88_mode = FALSE;
@@ -8209,9 +8238,12 @@ static int test_pc8001_banks(void) {
 					CopyMemory(mem + 0x1c000, switch_code, sizeof(switch_code));
 					FillMemory(mem + 0x1c100, 3, 0xee);
 					FillMemory(mem + 0x1c110, 3, 0xee);
+					FillMemory(mem + 0x1c120, 3, 0xee);
 					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
-					upd9002_iotrap.control = 2;
+					upd9002_iotrap.control = 3;
 					upd9002_iotrap.ranges[2] = 0xff;
+					STOREINTELWORD(mem + 0x7c * 4, 0x3000);
+					STOREINTELWORD(mem + 0x7c * 4 + 2, 0x2000);
 					STOREINTELWORD(mem + 0x7d * 4, 0x3000);
 					STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
 					CPU_CS = 0x2000;
@@ -8228,10 +8260,13 @@ static int test_pc8001_banks(void) {
 					upd9002_core_step();
 					memoryva_88_mode = TRUE;
 					iocore_out8(0x31, 1);
-					for (step = 0; step < 18 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
+					for (step = 0; step < 24 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
 						upd9002_core_step();
-					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc02d)
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c)
 						problem = "M144A_N80_MODE_READ_ROUTE";
+					for (step = 0; step < 3 && !problem; step++)
+						if (mem[0x1c120 + step] != ((backupmem[0x1fc2] & 0xfc) | 1))
+							problem = "M144A_N80_BOOT_SWITCH_LIVE_MAP";
 					if (!problem &&
 					    (mem[0x1c110] != 0x80 || mem[0x1c111] != 0 || mem[0x1c112] != 0x80))
 						problem = "M144A_N80_MODE_READBACK";
@@ -8575,6 +8610,7 @@ static int test_pc8001_banks(void) {
 	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");
 	fprintf(stderr, "selftest: N80 guest PCG timer SAV continuation 2 models ok\n");
 	fprintf(stderr, "selftest: PCG state domains 10240 and malformed SAV cases 80 ok\n");
+	fprintf(stderr, "selftest: N80 boot switches 1024 cases and native/other/base guards ok\n");
 	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
 	return SUCCESS;
 }

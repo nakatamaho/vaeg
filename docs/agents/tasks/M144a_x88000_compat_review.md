@@ -28,6 +28,30 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Automatic N80 startup-switch input checkpoint
+
+[Port-30 automatic-startup readback](../../modernization/x88000-compatibility-review.md#automatic-n80-startup-switch-readback)
+now overrides only bits 0/1 for mkII/SR in compatible mode, using the same applied
+model/input predicate as the existing automatic handoff. Previously the VA
+backup-memory byte was returned unchanged. Upper bits and the backing byte are
+preserved, and native, non-PC-8001 and base-PC-8001 behavior is retained. IN 30h
+joins the independent main CPU's direct N80 input path; OUT 30h does not.
+
+Verification covers 1,024 input combinations with three guard controls each,
+1,476 instruction/trap/model cases, and guest IN 30h remaining stable while
+OUT/IN 33h and ROM reads traverse SR/N80/SR. The earlier readback fixture enabled
+only output traps; this checkpoint enables both directions and does not
+retroactively promote its earlier result to input-trap coverage. Baseline bit
+failure and the controller-only/input-trap failure were reproduced. From the
+passing fixture, bit inversion and route removal fail with exactly
+`M144A_N80_BOOT_SWITCH_BITS` and `M144A_N80_MODE_READ_ROUTE`; both are reverted.
+Native build and seven focused CTests pass. A changed worker digest prevented
+reuse after the role-test expectation edit, so the focused tests were rerun.
+
+No configurable N/N80/N80SR selector, key timing, 33h polarity correction,
+clock change, state-format change or disk-boot PASS is implied. Explicit startup
+selection and its applied-state representation remain work to do. G144a is pending.
+
 ## mkII primary-manual mode and WAIT checkpoint
 
 [Five-page image verification](../../modernization/x88000-compatibility-review.md#pc-8001mkii-user-manual-verification)

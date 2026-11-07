@@ -49,10 +49,12 @@ static int n80_guest_io_selftest(void) {
 	/* Bit 8 is a fixture option (PCG enabled), not a port-address bit.
 	 * 04h and 0Bh are neighbouring non-PCG controls. */
 	static const UINT16 ports[] = {
-	    0x31, 0x33, 0x34,  0x35,  0x5c,  0x5d,  0x5e,  0x5f,  0x71,  0x50,  0x52,  0x53, 0x54, 0x55,
-	    0x56, 0x57, 0x58,  0x59,  0x5a,  0x5b,  0x00,  0x01,  0x02,  0x03,  0x0c,  0x0d, 0x0e, 0x0f,
-	    0x04, 0x0b, 0x100, 0x101, 0x102, 0x103, 0x10c, 0x10d, 0x10e, 0x10f, 0x104, 0x10b};
+	    0x30, 0x31, 0x33, 0x34,  0x35,  0x5c,  0x5d,  0x5e,  0x5f,  0x71,  0x50,  0x52,  0x53, 0x54,
+	    0x55, 0x56, 0x57, 0x58,  0x59,  0x5a,  0x5b,  0x00,  0x01,  0x02,  0x03,  0x0c,  0x0d, 0x0e,
+	    0x0f, 0x04, 0x0b, 0x100, 0x101, 0x102, 0x103, 0x10c, 0x10d, 0x10e, 0x10f, 0x104, 0x10b};
 	const UINT8 saved_pcg = np2cfg.pcg_enable;
+	const BYTE saved_boot_switch = backupmem[0x1fc2];
+	const BOOL saved_sr_present = memoryn80_sr_present;
 	const _MEMORYN80 saved = memoryn80;
 	const UINT8 saved_video[2] = {memoryn80_video[0], memoryn80_video[1]};
 	WORD saved_palette[8];
@@ -82,7 +84,8 @@ static int n80_guest_io_selftest(void) {
 					const BOOL n80 = role == 3 || role == 4;
 					const BOOL direct =
 					    n80 &&
-					    (input ? (port == 0x5c || port == 0x71 || (role == 4 && port == 0x33))
+					    (input ? (port == 0x30 || port == 0x5c || port == 0x71 ||
+					              (role == 4 && port == 0x33))
 					           : (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
 					              (role == 4 && port >= 0x33 && port <= 0x35) || (enabled && pcg)));
 					np2cfg.pcg_enable = enabled;
@@ -122,6 +125,8 @@ static int n80_guest_io_selftest(void) {
 					memoryn80.model = role == 3 ? 1 : role >= 4 ? 2 : 0;
 					memoryn80.port31 = 0;
 					memoryn80.port33 = 0x94;
+					backupmem[0x1fc2] = 0xa4;
+					memoryn80_sr_present = role == 4;
 					memoryn80.port71 = 0;
 					memoryva_88_plane = 3;
 					memoryn80_video[0] = memoryn80_video[1] = 0;
@@ -131,7 +136,10 @@ static int n80_guest_io_selftest(void) {
 					upd9002_iotrap.ranges[0] = upd9002_iotrap.ranges[2] = port;
 					upd9002_core_step();
 					if (direct) {
-						UINT8 expected = port == 0x33 ? 0x94 : port == 0x71 ? 0xfe : 0xf8;
+						UINT8 expected = port == 0x30   ? (role == 4 ? 0xa5 : 0xa7)
+						                 : port == 0x33 ? 0x94
+						                 : port == 0x71 ? 0xfe
+						                                : 0xf8;
 						if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0x1002 ||
 						    CPU_SP != 0xfa ||
 						    (input && (form == 2 ? mem[0x21100] : CPU_AL) != expected) ||
@@ -170,6 +178,8 @@ static int n80_guest_io_selftest(void) {
 	}
 	ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
 	np2cfg.pcg_enable = saved_pcg;
+	backupmem[0x1fc2] = saved_boot_switch;
+	memoryn80_sr_present = saved_sr_present;
 	memoryn80 = saved;
 	CopyMemory(memoryn80_video, saved_video, sizeof(saved_video));
 	CopyMemory(videova.palette, saved_palette, sizeof(saved_palette));

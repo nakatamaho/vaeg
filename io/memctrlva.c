@@ -268,7 +268,17 @@ static void IOOUTCALL memctrlva_o19a(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL memctrlva_i030(UINT port) {
-	return backupmem[0x1fc2];
+	REG8 value = backupmem[0x1fc2];
+	(void)port;
+	if (memoryva_88_mode && memoryva_pc8001 && (memoryn80.model == 1 || memoryn80.model == 2)) {
+		/* Current automatic startup chooses N80, or SR with its complete
+		 * input, just as the one-shot handoff below does. X88000's 30h
+		 * input reports that startup choice, not the live 33h ROM mapping:
+		 * bit 0 = non-N, bit 1 = non-SR. Preserve the other VA switch bits.
+		 * Explicit N/N80/SR DIP selection remains a separate frontend task. */
+		value = (value & 0xfc) | ((memoryn80.model == 2 && memoryn80_sr_present) ? 1 : 3);
+	}
+	return value;
 }
 
 /*
