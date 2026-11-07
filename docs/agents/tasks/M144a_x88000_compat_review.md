@@ -38,6 +38,10 @@ remaining sequence is PCG phase persistence, explicit BASIC startup selection
 and applied-state persistence, remaining display/timing review, FDC execution
 checks, PR201/PDF, final regression and clean Windows handoff, then G144a.
 Accepted M144/G144 remains complete; M144a/G144a is not accepted by this request.
+PCG phase persistence and explicit startup selection now have focused software
+checkpoints below. The fixed-clock FDC execution check also passes without a
+production clock change. Display/timing qualification, PR201/PDF, final regression
+and the handoff are not completed by those checkpoints.
 Physical-machine comparison is excluded, not passed. M88M v1.2.4 is a reference
 candidate, not an executed comparison claim. Push remains held.
 
@@ -70,6 +74,10 @@ of 3.9936 MHz; no crystal, WAIT, PIO sleep or instruction timing is changed.
 This bounded contract does not qualify disk mechanics, physical elapsed time,
 firmware workloads or hardware WAIT behavior. Existing wrapper WAIT/debt tests
 remain their legacy software contract, not newly established physical timing.
+
+Native configure/build and the same nine focused CTests pass at
+[fe5d87f0368f76ef453dd3d57a72a41e33975533](https://github.com/nakatamaho/vaeg/commit/fe5d87f0368f76ef453dd3d57a72a41e33975533).
+This verification adds tests, not a new timing correction or bug-fix ledger entry.
 
 ## Explicit N80 BASIC startup selection
 
