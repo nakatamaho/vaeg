@@ -381,7 +381,8 @@ fast TVRAMのM1はwaitemu ONなら全モードで待つ特例もある。
 ## BASIC mode selection review
 
 M144aの起動経路・UI見直し用の整理。以下はメンテナが提示した公開資料の抜粋に
-基づく仕様候補であり、リンク先全文の独立照合、実機検証、起動試験の結果ではない。
+基づく仕様候補であり、それ自体はリンク先全文の独立照合、実機検証、起動試験の
+結果ではない。後続の一次資料・公開ソース照合は下記で区別する。
 実装済み項目と未確認事項を混同せず、個別媒体の起動可否はこの節では扱わない。
 
 ### References
@@ -397,6 +398,20 @@ M144aの起動経路・UI見直し用の整理。以下はメンテナが提示�
 - [PC-8001mkIIのDIP情報を紹介する投稿](https://x.com/konekodensetsu/status/947261270960377856)：
   2002年の2ch情報を紹介したとする投稿の、メンテナ提示の抜粋。
   元スレッド・一次資料との照合はできておらず、投稿自体も正確性を留保している。
+
+### Primary manual intake
+
+[NEC PC-8001mkIISR N80SR-BASIC REFERENCE MANUALの公開スキャン](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul)
+を追加資料とする。Archive.orgの登録名にはN88SRとあるが、
+[表紙（leaf 0）](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul/page/n0/mode/1up)
+を画像で確認し、N80SR-BASIC、冊子番号PC-8001SR-RMと識別した。
+
+[まえがき（leaf 4）](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul/page/n4/mode/1up)
+も画像で確認した。N80SRを主言語とし、互換用にN80とNを備えることが明記され、
+基本操作については別冊のPC-8001mkIISRユーザーズガイドを参照する構成である。
+この確認は3種類のBASICの存在を裏付けるが、DIP極性・キー受付時刻・33h bit 7の
+確定根拠にはしない。OCRは検索補助とし、全文に該当記述がないとも断定しない。
+スキャン・OCRそのものはGitへ追加せず、独立した要約と公開ページ参照のみを記録する。
 
 ### Machine, BASIC and speed are separate settings
 
@@ -506,6 +521,33 @@ N・8・0はモード解説ではフルキー側を指定している。CMD SING
 適用対象機種を分離し、値を機械的に反転しない。30hの起動設定と、実行中の
 ROMマッピングも同一視しない。PC-8801系列の31h/6Ehのモード・クロック判別を
 PC-8001系列へそのまま適用しない。
+
+### Port 33 source-model readback checkpoint
+
+後続のソース照合では、X88000 1.5.3の`PC88Z80Main.cpp`にある
+`WriteIO_33_N80`がbit 7の1をSR ROM選択として扱い、`ReadIO_33_N80`も同じ状態を
+bit 7の1として返していることを確認した。vaegの`memctrlva_o033`／`memctrlva_i033`
+もこの向きであり、現在の実装に「読出しだけを反転する」処理はない。
+これは上記Web解説との不一致を解消する実機証拠ではない。
+
+[MAME 0.280のpc8001.cpp](https://github.com/mamedev/mame/blob/mame0280/src/mame/nec/pc8001.cpp)
+の`port33_w`内にもbit 7の1でSR側を選ぶコードがあるが、当該本体は
+`#ifdef UNUSED_FUNCTION`で囲まれている。動作する実装の検証結果や、独立した
+ハードウェア根拠として数えてはならない。
+
+vaegの生成RAMプログラムを拡張し、33hへのOUT、33hからのIN、0000hのROM読出しを
+3回連続で実行する。I/Oトラップ範囲は33hを含めて有効にし、実際のゲスト命令が
+対象機種の直接I/O経路を通ることも確認する。現在のソースモデルでは、出力値
+A1h/21h/80hに対し入力値80h/00h/80hとなり、識別用合成ROMはSR/N80/SRの順になる。
+bit 0/5の読出しマスクも含むが、この期待値を実機仕様の独立オラクルとは呼ばない。
+読出しbit 7だけを反転する単一変異は`M144A_N80_MODE_READBACK`で失敗する。
+変異は復元済みで、通常構成のビルドと7本の関連テストを確認する。
+
+別途、X88000の`ReadIO_30`は、ROM選択状態とは別の起動モードからbit 0とbit 1を
+生成している。vaegのN80直接I/O対象に30hは含まれておらず、現段階ではVA側の
+既存ブリッジ経路に残る。したがって33hの読戻しが通るだけでは、DIP相当の起動選択や
+30hの値が正しいとは言えない。起動設定・現在のマッピング・UI表示を分離する調査を
+継続し、33hの極性を根拠なしに反転したり、Disk BASIC起動をPASSにしたりしない。
 
 ### Implementation and acceptance work
 

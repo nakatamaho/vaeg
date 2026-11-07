@@ -8190,12 +8190,14 @@ static int test_pc8001_banks(void) {
 							}
 				}
 				if (model == 2 && !problem) {
-					/* Execute entirely from guest RAM while changing the ROM
-					 * underneath address zero: SR -> N80 -> SR, with readback. */
+					/* Source-model consistency, not a hardware polarity oracle:
+					 * write 33h, read it with IN, and read the selected ROM.
+					 * Bits 0/5 exercise the current read mask independently. */
 					static const BYTE switch_code[] = {
-					    0x3e,0x80,0xd3,0x33,0x3a,0,0,0x32,0,0xc1,
-					    0x3e,0x00,0xd3,0x33,0x3a,0,0,0x32,1,0xc1,
-					    0x3e,0x80,0xd3,0x33,0x3a,0,0,0x32,2,0xc1};
+					    0x3e, 0xa1, 0xd3, 0x33, 0xdb, 0x33, 0x32, 0x10, 0xc1, 0x3a, 0,    0,
+					    0x32, 0,    0xc1, 0x3e, 0x21, 0xd3, 0x33, 0xdb, 0x33, 0x32, 0x11, 0xc1,
+					    0x3a, 0,    0,    0x32, 1,    0xc1, 0x3e, 0x80, 0xd3, 0x33, 0xdb, 0x33,
+					    0x32, 0x12, 0xc1, 0x3a, 0,    0,    0x32, 2,    0xc1};
 					unsigned step;
 					CPU_RESET();
 					memoryva_88_mode = FALSE;
@@ -8205,6 +8207,13 @@ static int test_pc8001_banks(void) {
 					mem[0x20101] = 0xff;
 					mem[0x20102] = 0xe1;
 					CopyMemory(mem + 0x1c000, switch_code, sizeof(switch_code));
+					FillMemory(mem + 0x1c100, 3, 0xee);
+					FillMemory(mem + 0x1c110, 3, 0xee);
+					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+					upd9002_iotrap.control = 2;
+					upd9002_iotrap.ranges[2] = 0xff;
+					STOREINTELWORD(mem + 0x7d * 4, 0x3000);
+					STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
 					CPU_CS = 0x2000;
 					CS_BASE = 0x20000;
 					CPU_DS = 0x1000;
@@ -8219,12 +8228,20 @@ static int test_pc8001_banks(void) {
 					upd9002_core_step();
 					memoryva_88_mode = TRUE;
 					iocore_out8(0x31, 1);
-					for (step = 0; step < 12; step++)
+					for (step = 0; step < 18 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
 						upd9002_core_step();
-					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc01e ||
-					    mem[0x1c100] != 0x83 || mem[0x1c101] != 0x61 || mem[0x1c102] != 0x83 ||
-					    memoryn80.port33 != 0x80)
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc02d)
+						problem = "M144A_N80_MODE_READ_ROUTE";
+					if (!problem &&
+					    (mem[0x1c110] != 0x80 || mem[0x1c111] != 0 || mem[0x1c112] != 0x80))
+						problem = "M144A_N80_MODE_READBACK";
+					if (!problem && (mem[0x1c100] != 0x83 || mem[0x1c101] != 0x61 ||
+					                 mem[0x1c102] != 0x83 || memoryn80.port33 != 0x80))
 						problem = "M144A_N80_GUEST_MODE_CONTINUATION";
+					if (!problem)
+						fprintf(
+						    stderr,
+						    "selftest: N80 port33 guest OUT/IN/map 3 transitions ok (source-model contract)\n");
 				}
 				iocore_out8(0x33, port33);
 				iocore_out8(0x31, port31);

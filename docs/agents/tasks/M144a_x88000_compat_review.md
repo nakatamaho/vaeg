@@ -28,6 +28,24 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Port 33 readback and primary-manual checkpoint
+
+The guest RAM mode-switch fixture now performs OUT/IN/ROM reads with an active
+trap range covering port 33h. Three transitions check current source-model
+readback, the bit-0/5 read mask and distinct generated ROM contents. Inverting
+only input bit 7 fails with `M144A_N80_MODE_READBACK`; the mutation is reverted.
+Native build and seven focused CTests pass. This extends coverage, not hardware
+polarity qualification; no emulator behavior or state-format change is made.
+
+[Source comparison](../../modernization/x88000-compatibility-review.md#port-33-source-model-readback-checkpoint)
+separates X88000's set-bit SR read/write convention, MAME's disabled code, the
+contradictory Web table and the still-unverified 30h startup path.
+[Primary-manual intake](../../modernization/x88000-compatibility-review.md#primary-manual-intake)
+records image checks of the public N80SR-BASIC reference manual's cover and
+preface. These support the three-BASIC distinction, not DIP/key timing or port
+polarity. Basic operation is referred to a separate user's guide. No disk-boot
+PASS or G144a acceptance follows from this checkpoint.
+
 ## BASIC mode selection documentation checkpoint
 
 The maintainer-supplied public-source excerpts are summarized in
