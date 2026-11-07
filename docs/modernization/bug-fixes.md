@@ -57,7 +57,7 @@ land.
   focused CTests pass. This is model-contract verification, not hardware or
   disk-boot qualification, and does not implement an explicit BASIC-mode selector.
 - **Task/evidence:** [M144a automatic startup-switch input](../agents/tasks/M144a_x88000_compat_review.md#automatic-n80-startup-switch-input-checkpoint).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [a5a59c205e47d5838cb9de45e0610f45c0072678](https://github.com/nakatamaho/vaeg/commit/a5a59c205e47d5838cb9de45e0610f45c0072678).
 
 ### M144a — PCG BCD zero reload uses the binary divisor
 
