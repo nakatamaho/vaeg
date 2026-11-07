@@ -4669,8 +4669,11 @@ separate parity correction or move it to Open Defects.
   The maintainer has approved an X88000-source compatibility model, corroborated
   by M88M source, with physical-machine agreement unknown. The
   [geometry packet foundation](../agents/tasks/M144a_x88000_compat_review.md#geometry-packet-foundation-not-yet-the-guest-path-correction)
-  now has synthetic packet/pitch/codec tests, but is not connected to guest I/O,
-  drawing or the machine SAV container. This entry remains OPEN, not fixed.
+  has synthetic packet/pitch/codec tests. The subsequent
+  [renderer and machine-SAV connection](../agents/tasks/M144a_x88000_compat_review.md#renderer-and-machine-sav-connection-checkpoint)
+  checks the shared raster/text-copy stride, partial packets through actual SAV
+  files, reset, legacy fallback and preflight rejection. Guest I/O remains
+  unconnected; this entry stays OPEN, not fixed.
 
 ### VA2/V2H demo scene transitions briefly show reported text-like garbage
 

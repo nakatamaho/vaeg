@@ -47,7 +47,9 @@ follow-up below extend those checkpoints; they do not complete the media,
 presenter, display/timing qualification or clean Windows handoff. Creating M144b
 does not start its implementation or mark either human gate passed.
 Physical-machine comparison is excluded, not passed. M88M v1.2.4 is a reference
-candidate, not an executed comparison claim. Push remains held.
+candidate, not an executed comparison claim. Push is now authorized, but the
+HTTPS attempt failed because credentials were unavailable. No publication or
+merge is inferred; earlier checkpoint statements retain their historical scope.
 
 Public records contain public-source analysis and synthetic tests actually
 performed. Private-input tests and emulator-comparison results are not published
@@ -63,6 +65,59 @@ CRTC attribute-pair count to drawing, use `80 + 2 * pairs` bytes per 80-characte
 row, retain the 20-pair baseline and check 2/5/10 pairs, including interrupted
 parameter packets, reset and actual SAV restoration. This does not authorize
 changing VA/VA2 native TSP behavior, WAIT constants or SR port polarity.
+
+### Renderer and machine-SAV connection checkpoint
+
+[Implementation `1a827742a3442211e7cdefa5074e971fcadd921a`](https://github.com/nakatamaho/vaeg/commit/1a827742a3442211e7cdefa5074e971fcadd921a).
+The core now owns `memoryn80_crtc`, with writes and geometry use gated to the
+applied mkII/SR machine in compatible mode. Raster rendering and text-copy row
+addressing share the independent byte pitch. The native TSP frame table is not
+rewritten; VA/VA2, base PC-8001, other machines, native mode and unavailable
+geometry retain their existing paths.
+
+Optional `N80CRTC` version 1 stores the eight packet bytes. Its section-level
+preflight reports `M144A_N80_CRTC_STATE` for invalid version/size, noncanonical
+payload or incompatible applied-machine content, before mutation. Whole-container
+CPU/machine checks can reject an incompatible machine earlier. Machine reset clears both
+applied and partial geometry. Missing legacy sections select the saved TSP
+layout; lost partial-command information is not reconstructed. Older readers
+that reject unknown sections may reject newly written states, including states
+whose new section contains inactive geometry.
+
+Synthetic model fixtures exercise real SAV files for 2/5/10/20 pairs, at all six
+parameter boundaries: 24 continuations per model, 48 total. Each continuation
+checks a three-row, differently coloured raster and the corresponding text-copy
+addresses while deliberately keeping the native table at a 120-byte stride.
+Fourteen malformed-file cases cover flags, active-state consistency, packet
+index, pending bytes, version and size. Legacy omission, production ROM-reset
+clearing, inactive-model/native-mode guards and the content-level machine guard
+are checked separately.
+
+Four single reverted production mutations fail with the intended codes:
+`M144A_N80_CRTC_RASTER_PITCH`, `M144A_N80_CRTC_TEXT_PITCH`,
+`M144A_N80_CRTC_SAV_GUARD` and `M144A_N80_CRTC_SAV_CONTINUATION`.
+The restored native build and nine focused CTests pass. The complete configured
+suite also passes with **162 PASS, 16 SKIP, zero FAIL** (178 registered; 367.33
+seconds). That sweep used the final implementation with pre-commit build
+identity. After regenerating identity for `1a827742`, all 25 CTests whose commands
+bind the application were rerun and passed (365.89 seconds); hashes of all other
+build-local command artifacts remained unchanged. The qualified application
+reports `Rel.20261107 (m144a, 1a827742)`. Skips retain their declared scope;
+the assembler-dependent direct runs
+recorded below are separate evidence, not reclassified results of this sweep.
+
+Preserved fixture-development failures: an incorrectly ordered `FillMemory`
+argument pair initially produced the wrong synthetic characters; corrected the
+fixture. An attempted whole-SAV machine-guard negative was intercepted earlier
+by `M139_MAIN_CPU_STATE_MACHINE_MISMATCH`; isolated the production content/profile
+validator instead, so an unrelated validator cannot mask the intended check.
+Neither failure is represented as a diagnosed emulator defect.
+
+**Guest I/O remains unconnected.** These tests call the controller API, not guest
+50h/51h instructions. The full guest-visible defect remains OPEN until that route,
+including block output and existing command behavior, is connected and verified.
+No private-input execution result, real-window coverage or human acceptance is
+claimed by this checkpoint.
 
 ### Geometry packet foundation (not yet the guest-path correction)
 
