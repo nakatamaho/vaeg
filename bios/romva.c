@@ -243,6 +243,7 @@ void romva_initialize(void) {
 	ZeroMemory(cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
 	ZeroMemory(&memoryn80, sizeof(memoryn80));
 	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
+	pc8001_crtc_geometry_reset(&memoryn80_crtc);
 	memoryn80.port71 = 1;
 	memoryn80_sr_present = FALSE;
 	memoryn80_boot = N80_BOOT_AUTO;

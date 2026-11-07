@@ -8438,6 +8438,180 @@ static const char *test_n80_startup_sav(const char *path, const char *oldpath) {
 	return problem;
 }
 
+/* Synthetic controller API -> actual SAV -> renderer/text-copy contract.
+ * Guest instruction interception is deliberately a separate integration check. */
+static const char *test_n80_crtc_sav(const char *path, const char *oldpath) {
+	static const UINT counts[] = {20, 2, 5, 10};
+	static const BYTE prefix[] = {78, 19, 9, 39};
+	const char *problem = NULL;
+	char error[256];
+	UINT c, received, i, row;
+	BOOL scrn200;
+	for (c = 0; c < NELEMENTS(counts) && !problem; c++) {
+		for (received = 0; received <= 5 && !problem; received++) {
+			PC8001_CRTC_GEOMETRY expected;
+			pc8001_crtc_geometry_reset(&memoryn80_crtc);
+			memoryva_n80_crtc_write(0x51, 0);
+			for (i = 0; i < 4; i++)
+				memoryva_n80_crtc_write(0x50, prefix[i]);
+			memoryva_n80_crtc_write(0x50, 0x53); /* old applied 20-pair layout */
+			memoryva_n80_crtc_write(0x51, 0);
+			for (i = 0; i < received; i++)
+				memoryva_n80_crtc_write(0x50, i == 4 ? 0x40 + counts[c] - 1 : prefix[i]);
+			expected = memoryn80_crtc;
+			if (statsave_save(path) != STATFLAG_SUCCESS ||
+			    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+				problem = "M144A_N80_CRTC_SAV_FIXTURE";
+				break;
+			}
+			pc8001_crtc_geometry_reset(&memoryn80_crtc);
+			if (statsave_load(path) != STATFLAG_SUCCESS ||
+			    memcmp(&expected, &memoryn80_crtc, sizeof(expected))) {
+				problem = "M144A_N80_CRTC_SAV_CONTINUATION";
+				break;
+			}
+			for (i = received; i < 5; i++)
+				memoryva_n80_crtc_write(0x50, i == 4 ? 0x40 + counts[c] - 1 : prefix[i]);
+			if (memoryva_n80_crtc_pairs() != counts[c] ||
+			    memoryva_n80_crtc_pitch(120) != 80 + 2 * counts[c]) {
+				problem = "M144A_N80_CRTC_SAV_GEOMETRY";
+				break;
+			}
+			/* The native frame deliberately retains its old 120-byte stride.
+			 * Only the independent N80 geometry may select the new row stride. */
+			ZeroMemory(textmem, sizeof(textmem));
+			STOREINTELWORD(textmem + 0x08, 240);
+			STOREINTELWORD(textmem + 0x0a, 0xf002);
+			STOREINTELWORD(textmem + 0x10, 0x65fc);
+			STOREINTELWORD(textmem + 0x14, 400);
+			STOREINTELWORD(textmem + 0x16, 656);
+			STOREINTELWORD(textmem + 0x1a, 1008);
+			for (row = 0; row < 3; row++) {
+				BYTE *p = textmem + 0x6300 + row * (80 + 2 * counts[c]);
+				FillMemory(p, 80, 'A' + row);
+				for (i = 0; i < counts[c]; i++) {
+					p[80 + 2 * i] = i < 2 ? 0 : 80;
+					/* First pair selects a row-specific colour; the second
+					 * selects overline, independent of any ROM glyph. */
+					p[81 + 2 * i] = i ? 0x10 : row == 0 ? 0xe8 : row == 1 ? 0x48 : 0x88;
+				}
+			}
+			tsp.dspon = TRUE;
+			tsp.texttable = 0;
+			tsp.lineheight = 16;
+			tsp.hlinepos = 0;
+			tsp.emul_frame = 0;
+			tsp.emul_chars = 80;
+			tsp.emul_attrs = 20;
+			tsp.emul_rows = 3;
+			tsp.textmg = FALSE;
+			tsp.syncparam[1] &= (UINT8)~0x08;
+			videova.txtmode = 0;
+			videova.txtmode8 = 1;
+			tsp.emul = 0;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			tsp.emul = 1;
+			tsp_dirty = TRUE;
+			maketextva_begin(&scrn200);
+			maketextva_raster();
+			for (row = 0; row < 3 && !problem; row++) {
+				const BYTE *p = maketextva_3301_text(row);
+				if (!p || p[0] != 'A' + row || p[79] != 'A' + row)
+					problem = "M144A_N80_CRTC_TEXT_PITCH";
+			}
+			for (row = 0; row < 3 && !problem; row++) {
+				const BYTE color = row == 0 ? 15 : row == 1 ? 10 : 12;
+				if (row) {
+					for (i = 0; i < 16; i++)
+						maketextva_raster();
+				}
+				/* The second pair takes effect at column one. */
+				for (i = 8; i < 640 && !problem; i++)
+					if (textraster[i] != color)
+						problem = "M144A_N80_CRTC_RASTER_PITCH";
+			}
+			if (!problem && LOADINTELWORD(textmem + 8) != 240)
+				problem = "M144A_N80_CRTC_NATIVE_TABLE";
+		}
+	}
+	/* A malformed live-packet byte is rejected before any state mutation. */
+	if (!problem) {
+		BYTE *data = NULL;
+		UINT size = 0, pos;
+		const UINT16 ip = CPU_IP;
+		const PC8001_CRTC_GEOMETRY before = memoryn80_crtc;
+		if (read_whole_file(path, &data, &size) != SUCCESS)
+			problem = "M144A_N80_CRTC_SAV_FIXTURE";
+		if (!problem) {
+			for (pos = 0x30; pos + 16 <= size;
+			     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+				if (!memcmp(data + pos, "N80CRTC\0\0\0", 10))
+					break;
+			if (pos + 24 > size || LOADINTELDWORD(data + pos + 12) != 8)
+				problem = "M144A_N80_CRTC_SAV_FIXTURE";
+			else {
+				static const UINT offsets[] = {16, 16, 18, 19, 23, 10, 12};
+				static const BYTE values[] = {2, 0, 6, 1, 1, 2, 7};
+				for (i = 0; i < NELEMENTS(offsets) && !problem; i++) {
+					const UINT at = pos + offsets[i];
+					const BYTE original = data[at];
+					data[at] = values[i];
+					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+					    (error[strcspn(error, "\r\n")] = 0,
+					     strcmp(error, "M144A_N80_CRTC_STATE")) ||
+					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != ip ||
+					    memcmp(&before, &memoryn80_crtc, sizeof(before)))
+						problem = "M144A_N80_CRTC_SAV_GUARD";
+					data[at] = original;
+				}
+			}
+		}
+		if (data)
+			_MFREE(data);
+	}
+	if (!problem) {
+		const BOOL old_pc8001 = memoryva_pc8001, old_mode = memoryva_88_mode;
+		const UINT8 old_model = memoryn80.model;
+		const PC8001_CRTC_GEOMETRY before = memoryn80_crtc;
+		UINT guard;
+		for (guard = 0; guard < 4 && !problem; guard++) {
+			memoryva_pc8001 = guard == 0 ? FALSE : old_pc8001;
+			memoryva_88_mode = guard == 3 ? FALSE : old_mode;
+			memoryn80.model = guard == 1 ? 0 : guard == 2 ? 3 : old_model;
+			memoryva_n80_crtc_write(0x51, 0);
+			memoryva_n80_crtc_write(0x50, 1);
+			if (memoryva_n80_crtc_pairs() || memoryva_n80_crtc_pitch(120) != 120 ||
+			    memcmp(&before, &memoryn80_crtc, sizeof(before)))
+				problem = "M144A_N80_CRTC_MODEL_GUARD";
+			/* Isolate content/profile validation: the full SAV machine-binding
+			 * validator rejects a changed CPU model before this section. */
+			if (!problem && !!memoryva_n80_crtc_state_valid(&before) != (guard == 3))
+				problem = "M144A_N80_CRTC_STATE_MODEL";
+		}
+		memoryva_pc8001 = old_pc8001;
+		memoryva_88_mode = old_mode;
+		memoryn80.model = old_model;
+	}
+	if (!problem && (strip_statsave_section(path, oldpath, "N80CRTC") != SUCCESS ||
+	                 statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80_crtc.bytes[0] ||
+	                 memoryn80_crtc.bytes[2] != 5 || memoryva_n80_crtc_pitch(120) != 120))
+		problem = "M144A_N80_CRTC_LEGACY";
+	memoryva_n80_crtc_write(0x51, 0);
+	memoryva_n80_crtc_write(0x50, 78);
+	romva_initialize();
+	memoryva_88_mode = TRUE;
+	if (!problem && (memoryn80_crtc.bytes[0] || memoryn80_crtc.bytes[2] != 5))
+		problem = "M144A_N80_CRTC_RESET";
+	if (!problem)
+		fprintf(
+		    stderr,
+		    "selftest: N80 CRTC model %u: 24 SAV continuations, raster/text pitch, seven malformed states, guards and legacy reset ok\n",
+		    memoryn80.model);
+	return problem;
+}
+
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -9019,6 +9193,8 @@ static int test_pc8001_banks(void) {
 			problem = test_pcg_phase_sav(path, oldpath);
 		if (!problem)
 			problem = test_n80_startup_sav(path, oldpath);
+		if (!problem)
+			problem = test_n80_crtc_sav(path, oldpath);
 		if (!problem && model == 2) {
 			/* Test-only fixture removal: the complete-font precedence was
 			 * exercised above with a deliberately different fallback input. */

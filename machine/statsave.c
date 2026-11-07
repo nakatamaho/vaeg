@@ -1783,6 +1783,9 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_BIN:
 			case STATFLAG_MEM:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
+				if (tbl->arg1 == &memoryn80_crtc &&
+				    flagcheck_versize(&sffh->sfh, tbl) != STATFLAG_SUCCESS)
+					statflag_seterr(&sffh->sfh, "M144A_N80_CRTC_STATE");
 				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80) {
 					_MEMORYN80 candidate;
 					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) != STATFLAG_SUCCESS ||
@@ -1799,6 +1802,15 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 					        STATFLAG_SUCCESS ||
 					    !memoryva_n80_boot_valid(candidate)) {
 						statflag_seterr(&sffh->sfh, "M144A_N80_BOOT_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80_crtc) {
+					PC8001_CRTC_GEOMETRY candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    !memoryva_n80_crtc_state_valid(&candidate)) {
+						statflag_seterr(&sffh->sfh, "M144A_N80_CRTC_STATE");
 						ret = STATFLAG_FAILURE;
 					}
 				}
@@ -1999,6 +2011,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	/* Missing N80BANK is an older N80-only state: preserve the applied
 	 * model/ROM inputs and reproduce its unbanked upper BASIC selection. */
 	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
+	/* Old SAVs have no independent CRTC packet: use their saved TSP layout. */
+	pc8001_crtc_geometry_reset(&memoryn80_crtc);
 	memoryn80.port31 = 1;
 	memoryn80.port33 = 0;
 	memoryn80.port71 = 1;

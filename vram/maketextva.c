@@ -422,16 +422,20 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	UINT8 curdeco;
 	BYTE *b;
 
-	chars = tsp.emul_chars;
+	/* The independent N80 transparent layout uses an 80-byte character
+	 * region, even in 40-column display. Native VA frame geometry is untouched. */
+	chars = memoryva_n80_crtc_pairs() ? 80 : tsp.emul_chars;
 	if (chars > EMU3301_MAXCHARS) {
 		chars = EMU3301_MAXCHARS;
 	}
-	npairs = tsp.emul_attrs;
+	npairs = memoryva_n80_crtc_pairs();
+	if (!npairs)
+		npairs = tsp.emul_attrs;
 	if (npairs > EMU3301_MAXPAIRS) {
 		npairs = EMU3301_MAXPAIRS;
 	}
 	row = v + 2;
-	pairs = row + tsp.emul_chars;
+	pairs = row + (memoryva_n80_crtc_pairs() ? 80 : tsp.emul_chars);
 	shifted = (npairs > 0) && (pairs[0] != 0);
 	if (shifted) {
 		n = -1;
@@ -796,7 +800,8 @@ const BYTE *maketextva_3301_text(UINT row) {
 		return NULL;
 	}
 	frame = textmem + ((tsp.texttable + tsp.emul_frame * 32) & (sizeof(textmem) - 32));
-	local = (LOADINTELWORD(frame + 0x10) >> 1) + (LOADINTELWORD(frame + 0x08) >> 1) * row;
+	local = (LOADINTELWORD(frame + 0x10) >> 1) +
+	        memoryva_n80_crtc_pitch(LOADINTELWORD(frame + 0x08) >> 1) * row;
 	if (!maketextva_bytelocal_usable(local)) {
 		return NULL;
 	}
@@ -874,7 +879,8 @@ void maketextva_raster(void) {
 			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
 				/* Byte mode: the table's address and pitch are twice the
 				 * local byte values; see maketextva_bytelocal(). */
-				const UINT32 local = (f->rsa >> 1) + (f->vw >> 1) * work.texty;
+				const UINT32 local =
+				    (f->rsa >> 1) + memoryva_n80_crtc_pitch(f->vw >> 1) * work.texty;
 
 				if ((work.texty < tsp.emul_rows) && maketextva_bytelocal_usable(local)) {
 					v = (BYTE *)maketextva_3301_row(maketextva_bytelocal(local));

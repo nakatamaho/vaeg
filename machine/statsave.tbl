@@ -127,6 +127,7 @@ static const SFENTRY np2tbl[] = {
 	{"N80BANK",    1, STATFLAG_BIN, &memoryn80, sizeof(memoryn80)},
 	{"N80BOOT",    0, STATFLAG_BIN, &memoryn80_boot, sizeof(memoryn80_boot)},
 	{"N80VIDEO",   1, STATFLAG_BIN, memoryn80_video, sizeof(memoryn80_video)},
+	{"N80CRTC",    1, STATFLAG_BIN, &memoryn80_crtc, sizeof(memoryn80_crtc)},
 
 	{"SYSPORTVA",	0,	STATFLAG_BIN,	&sysportva,		sizeof(sysportva)},
 	{"VIDEOVA",		0,	STATFLAG_BIN,	&videova,		sizeof(videova)},
