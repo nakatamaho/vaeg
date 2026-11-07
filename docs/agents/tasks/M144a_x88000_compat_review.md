@@ -76,8 +76,11 @@ not actual presenter interaction or a full history-file restart campaign.
 
 Reverted single mutations use pending configuration for port 30h and omit the SAV
 value guard; they fail exactly `M144A_N80_STARTUP_PENDING` and
-`M144A_N80_STARTUP_SAV_GUARD`. Focused final build/testing remains part of this
-checkpoint; full milestone regression, presenter checks and G144a remain pending.
+`M144A_N80_STARTUP_SAV_GUARD`. Native configure/build and all nine focused CTests
+pass on [71a959a8005ba4c764ebaf2d9fdec2df65ad8a73](https://github.com/nakatamaho/vaeg/commit/71a959a8005ba4c764ebaf2d9fdec2df65ad8a73).
+This includes ROM-less, PC8001 video, main-CPU bridge, state storage, the three
+N80 QA contracts and sound-generation/capture tests. Full milestone regression,
+presenter checks and G144a remain pending.
 See [configuration and compatibility behavior](../../modernization/extra-roms.md#pc-8001-basic-startup-selection).
 
 ## PCG active-phase SAV continuation
