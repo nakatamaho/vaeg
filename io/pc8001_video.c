@@ -26,6 +26,63 @@
  * X88ScreenDrawer.cpp DrawGraphics N80 colour modes. Archive identity and
  * derivation are recorded in ADR-0016. This is not a VA hardware model. */
 #include "pc8001_video.h"
+#include <string.h>
+
+/* Only the RESET parameter packet owns transparent attribute geometry.
+ * Other commands cancel an unfinished packet without becoming parameter bytes.
+ * Applying R4 after its receipt follows X88000; no timing constants are inferred. */
+void pc8001_crtc_geometry_reset(PC8001_CRTC_GEOMETRY *state) {
+	memset(state->bytes, 0, sizeof(state->bytes));
+	state->bytes[2] = 5;
+}
+
+void pc8001_crtc_geometry_write(PC8001_CRTC_GEOMETRY *state, unsigned port, uint8_t data) {
+	uint8_t *s = state->bytes;
+	if (port == 0x51) {
+		s[2] = (data & 0xe0) == 0 ? 0 : 5;
+		memset(s + 3, 0, 5);
+	} else if (port == 0x50 && s[2] < 5) {
+		s[3 + s[2]] = data;
+		if (++s[2] == 5) {
+			s[0] = 1;
+			s[1] = s[7];
+			memset(s + 3, 0, 5);
+		}
+	}
+}
+
+unsigned pc8001_crtc_geometry_pairs(const PC8001_CRTC_GEOMETRY *state) {
+	const unsigned mode = state->bytes[1] >> 5;
+	if (!state->bytes[0] || (mode != 0 && mode != 2))
+		return 0;
+	return (state->bytes[1] & 31) + 1;
+}
+
+unsigned pc8001_crtc_geometry_pitch(const PC8001_CRTC_GEOMETRY *state) {
+	const unsigned pairs = pc8001_crtc_geometry_pairs(state);
+	return pairs ? 80 + pairs * 2 : 0;
+}
+
+int pc8001_crtc_geometry_valid(const uint8_t *data, size_t size) {
+	unsigned i;
+	if (data == NULL || size != PC8001_CRTC_GEOMETRY_SIZE || data[0] > 1 ||
+	    (!data[0] && data[1]) || data[2] > 5)
+		return 0;
+	/* No pending bytes survive cancellation/completion. While receiving,
+	 * only parameters strictly before the next index may contain data. */
+	for (i = data[2] == 5 ? 0 : data[2]; i < 5; i++) {
+		if (data[3 + i])
+			return 0;
+	}
+	return 1;
+}
+
+int pc8001_crtc_geometry_load(PC8001_CRTC_GEOMETRY *state, const uint8_t *data, size_t size) {
+	if (state == NULL || !pc8001_crtc_geometry_valid(data, size))
+		return 0;
+	memmove(state->bytes, data, sizeof(state->bytes));
+	return 1;
+}
 
 PC8001_ROM_ADDRESS pc8001_rom_address(uint16_t address, uint8_t port31,
                                     uint8_t port71, int sr) {

@@ -30,9 +30,100 @@ static unsigned checks;
 
 static uint8_t pixels[3 * PC8001_PLANE_BYTES];
 
+#define GEOMETRY_REQUIRE(condition, code) do { checks++; if (!(condition)) { \
+	fprintf(stderr, "%s line=%d\n", code, __LINE__); return 1; } } while (0)
+#define GEOMETRY_CHECK(condition) GEOMETRY_REQUIRE(condition, "M144A_N80_CRTC_GEOMETRY")
+
+static int geometry_contract(void) {
+	static const uint8_t parameters[5] = {78, 19, 9, 39, 0x53};
+	unsigned pairs, mode, received, i;
+	PC8001_CRTC_GEOMETRY state, restored, before;
+	uint8_t wire[PC8001_CRTC_GEOMETRY_SIZE];
+	for (pairs = 1; pairs <= 32; pairs++) {
+		for (mode = 0; mode < 8; mode++) {
+			for (received = 0; received <= 5; received++) {
+				pc8001_crtc_geometry_reset(&state);
+				GEOMETRY_CHECK(pc8001_crtc_geometry_valid(state.bytes, sizeof(state.bytes)));
+				GEOMETRY_CHECK(pc8001_crtc_geometry_pitch(&state) == 0);
+				pc8001_crtc_geometry_write(&state, 0x51, 0);
+				for (i = 0; i < 5; i++)
+					pc8001_crtc_geometry_write(&state, 0x50, parameters[i]);
+				GEOMETRY_CHECK(pc8001_crtc_geometry_pairs(&state) == 20);
+				GEOMETRY_CHECK(pc8001_crtc_geometry_pitch(&state) == 120);
+				pc8001_crtc_geometry_write(&state, 0x51, 0);
+				for (i = 0; i < received; i++)
+					pc8001_crtc_geometry_write(&state, 0x50,
+					    i == 4 ? (uint8_t)(mode * 32 + pairs - 1) : parameters[i]);
+				if (received < 5)
+					GEOMETRY_CHECK(pc8001_crtc_geometry_pairs(&state) == 20);
+				memcpy(wire, state.bytes, sizeof(wire));
+				pc8001_crtc_geometry_reset(&restored);
+				GEOMETRY_CHECK(pc8001_crtc_geometry_load(&restored, wire, sizeof(wire)));
+				GEOMETRY_REQUIRE(memcmp(&state, &restored, sizeof(state)) == 0,
+				    "M144A_N80_CRTC_CONTINUATION");
+				for (i = received; i < 5; i++) {
+					const uint8_t value = i == 4 ? (uint8_t)(mode * 32 + pairs - 1) : parameters[i];
+					pc8001_crtc_geometry_write(&state, 0x50, value);
+					pc8001_crtc_geometry_write(&restored, 0x50, value);
+				}
+				GEOMETRY_CHECK(memcmp(&state, &restored, sizeof(state)) == 0);
+				GEOMETRY_REQUIRE(pc8001_crtc_geometry_pairs(&state) ==
+				    ((mode == 0 || mode == 2) ? pairs : 0), "M144A_N80_CRTC_PAIRS");
+				GEOMETRY_REQUIRE(pc8001_crtc_geometry_pitch(&state) ==
+				    ((mode == 0 || mode == 2) ? 80 + 2 * pairs : 0), "M144A_N80_CRTC_PITCH");
+				/* Other ports and data outside a RESET packet have no effect. */
+				before = state;
+				pc8001_crtc_geometry_write(&state, 0x50, 0xff);
+				pc8001_crtc_geometry_write(&state, 0x52, 0);
+				pc8001_crtc_geometry_write(&state, 0x150, 0);
+				GEOMETRY_CHECK(memcmp(&state, &before, sizeof(state)) == 0);
+				/* A new command cancels partial parameters, not applied geometry. */
+				pc8001_crtc_geometry_write(&state, 0x51, 0);
+				pc8001_crtc_geometry_write(&state, 0x50, 78);
+				pc8001_crtc_geometry_write(&state, 0x51, 0x20);
+				pc8001_crtc_geometry_write(&state, 0x50, 0xff);
+				GEOMETRY_CHECK(memcmp(&state, &before, sizeof(state)) == 0);
+				/* Invalid packet load is atomic. */
+				memcpy(wire, state.bytes, sizeof(wire));
+				wire[2] = 6;
+				GEOMETRY_REQUIRE(!pc8001_crtc_geometry_load(&state, wire, sizeof(wire)),
+				    "M144A_N80_CRTC_STATE_GUARD");
+				GEOMETRY_CHECK(memcmp(&state, &before, sizeof(state)) == 0);
+			}
+		}
+	}
+	pc8001_crtc_geometry_reset(&state);
+	GEOMETRY_CHECK(pc8001_crtc_geometry_pairs(&state) == 0);
+	GEOMETRY_CHECK(!pc8001_crtc_geometry_valid(NULL, sizeof(wire)));
+	GEOMETRY_CHECK(!pc8001_crtc_geometry_load(NULL, state.bytes, sizeof(state.bytes)));
+	for (i = 0; i <= sizeof(wire) + 1; i++)
+		GEOMETRY_CHECK(pc8001_crtc_geometry_valid(state.bytes, i) == (i == sizeof(wire)));
+	for (i = 0; i < sizeof(wire); i++) {
+		memcpy(wire, state.bytes, sizeof(wire));
+		wire[i] = i == 0 ? 2 : i == 2 ? 6 : 1;
+		GEOMETRY_CHECK(!pc8001_crtc_geometry_valid(wire, sizeof(wire)));
+	}
+	/* A future parameter byte cannot appear in a partially received packet. */
+	for (received = 0; received < 5; received++) {
+		pc8001_crtc_geometry_reset(&state);
+		pc8001_crtc_geometry_write(&state, 0x51, 0);
+		for (i = 0; i < received; i++)
+			pc8001_crtc_geometry_write(&state, 0x50, parameters[i]);
+		before = state;
+		memcpy(wire, state.bytes, sizeof(wire));
+		wire[3 + received] = 1;
+		GEOMETRY_CHECK(!pc8001_crtc_geometry_load(&state, wire, sizeof(wire)));
+		GEOMETRY_CHECK(memcmp(&state, &before, sizeof(state)) == 0);
+	}
+	fprintf(stderr, "M144A_N80_CRTC_GEOMETRY: 32 counts x 8 modes x 6 packet boundaries ok\n");
+	return 0;
+}
+
 int main(void) {
 	unsigned address, p31, p71, sr, x, y, front, mask, a, b, plane;
 	PC8001_ROM_ADDRESS mapped;
+	if (geometry_contract())
+		return 1;
 	for (address = 0; address < 65536; address++) {
 		for (sr = 0; sr < 2; sr++) {
 			for (p31 = 0; p31 < 4; p31++) {

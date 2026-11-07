@@ -23,6 +23,7 @@
 #ifndef VAEG_PC8001_VIDEO_H
 #define VAEG_PC8001_VIDEO_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -45,6 +46,24 @@ typedef struct {
 	unsigned source;
 	unsigned offset;
 } PC8001_ROM_ADDRESS;
+
+/* Transparent-text geometry contract derived from X88000, corroborated by
+ * M88M; physical-machine agreement is unknown. This packet layer does not
+ * implement display timing, interrupts, cursor commands or the VA bridge.
+ * Wire bytes: valid, applied R4, next reset parameter (5 = idle), five pending
+ * parameters. Idle/unreceived parameter bytes are canonical zeroes. */
+enum { PC8001_CRTC_GEOMETRY_SIZE = 8 };
+typedef struct {
+	uint8_t bytes[PC8001_CRTC_GEOMETRY_SIZE];
+} PC8001_CRTC_GEOMETRY;
+void pc8001_crtc_geometry_reset(PC8001_CRTC_GEOMETRY *state);
+void pc8001_crtc_geometry_write(PC8001_CRTC_GEOMETRY *state, unsigned port, uint8_t data);
+/* Returns zero until configured, or for non-transparent modes. Width is the
+ * 80-byte character region, including when the displayed text is 40 columns. */
+unsigned pc8001_crtc_geometry_pairs(const PC8001_CRTC_GEOMETRY *state);
+unsigned pc8001_crtc_geometry_pitch(const PC8001_CRTC_GEOMETRY *state);
+int pc8001_crtc_geometry_valid(const uint8_t *data, size_t size);
+int pc8001_crtc_geometry_load(PC8001_CRTC_GEOMETRY *state, const uint8_t *data, size_t size);
 
 /* Inputs are the raw N80 ports, not translated VA port 31h.
  * sr is the qualified effective N80SR ROM mode (33h bit 7 on an SR model).
