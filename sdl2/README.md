@@ -71,7 +71,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--rotate none|right`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--headless-audio`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
@@ -190,8 +190,16 @@ BASIC enter N-BASIC with `NEW ON 1`. N-BASIC boots a disk left in drive 1.
 See `docs/modernization/v1v2-n-basic-mode.md`.
 
 `--headless-input-script path` starts the emulator with dummy SDL video/audio
-drivers and injects commands through the normal guest keyboard path. Each
-nonempty script line is submitted with Return appended; blank lines and lines
+drivers and injects commands through the normal guest keyboard path.
+Scripted input and the debug harness default to muted audio. Add
+`--headless-audio` to retain configured mixer output for software audio checks,
+including Native PCM recording; explicit `--mute` still wins regardless of
+argument order. The flag requires one of the two script options and does not
+switch away from dummy SDL devices or override disabled sound in the config.
+It is not evidence of actual speaker output. Without this opt-in, silence in a
+scripted recording cannot establish a guest sound-device defect.
+
+Each nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected

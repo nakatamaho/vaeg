@@ -28,6 +28,23 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## Scripted audio opt-in checkpoint
+
+Added the explicit `--headless-audio` CLI option for software mixer/capture QA
+with either input scripts or the debug harness. Scripted execution remains
+muted by default, and explicit `--mute` wins in either argument order. Dummy
+SDL video/audio remain in use; the option is not a physical-output test and
+must not override a disabled sound configuration. Without a script it fails
+with `HEADLESS_AUDIO_REQUIRES_SCRIPT`.
+
+ROM-less CLI checks cover 24 combinations of script type, opt-in, explicit mute
+and argument order, with a passing seed before rejection cases. A single
+mutation overriding explicit mute with the opt-in fails with exactly
+`HEADLESS_AUDIO_POLICY`; it is reverted. Native build and the seven focused
+CTests pass on the restored sources. This is an automation feature, not an FM
+emulation correction or a change to normal interactive audio. This checkpoint
+contains no media-execution claims. G144a remains pending.
+
 ## Automatic N80 startup-switch input checkpoint
 
 [Port-30 automatic-startup readback](../../modernization/x88000-compatibility-review.md#automatic-n80-startup-switch-readback)

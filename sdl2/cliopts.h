@@ -137,6 +137,7 @@ typedef struct {
 	BOOL scsitrace_jitter;
 	BOOL pacelog;
 	BOOL mute;
+	BOOL headless_audio; /* Opt in to mixer output with scripted dummy SDL I/O. */
 	BOOL nowait;
 	BOOL no_config;
 	BOOL no_bkupmem;

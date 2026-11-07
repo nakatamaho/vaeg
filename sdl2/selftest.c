@@ -180,6 +180,47 @@ static int test_cli_boot_model(void) {
 	return (SUCCESS);
 }
 
+static int test_headless_audio_cli(void) {
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+	char *seed[] = {"vaeg", "--headless-input-script", "fixture.txt", "--headless-audio"};
+	unsigned kind, audio, mute, order;
+	/* Establish the passing context before testing removal of the script binding. */
+	if (vaeg_cli_parse((int)NELEMENTS(seed), seed, &options, error, sizeof(error)) != SUCCESS ||
+	    options.mute || !options.headless_audio)
+		return fail("headless audio", "HEADLESS_AUDIO_SEED");
+	for (kind = 0; kind < 3; kind++) {
+		for (audio = 0; audio < 2; audio++) {
+			for (mute = 0; mute < 2; mute++) {
+				for (order = 0; order < 2; order++) {
+					char *argv[12] = {"vaeg"};
+					int argc = 1, result;
+					if (kind != 0) {
+						argv[argc++] = kind == 1 ? "--headless-input-script" : "--debug-script";
+						argv[argc++] = "fixture.txt";
+					}
+					if (mute && !order)
+						argv[argc++] = "--mute";
+					if (audio)
+						argv[argc++] = "--headless-audio";
+					if (mute && order)
+						argv[argc++] = "--mute";
+					result = vaeg_cli_parse(argc, argv, &options, error, sizeof(error));
+					if (audio && !kind) {
+						if (result == SUCCESS || strcmp(error, "HEADLESS_AUDIO_REQUIRES_SCRIPT"))
+							return fail("headless audio", "HEADLESS_AUDIO_CONTEXT");
+					} else if (result != SUCCESS || options.headless_audio != audio ||
+					           !!options.mute != !!(mute || (kind && !audio))) {
+						return fail("headless audio", "HEADLESS_AUDIO_POLICY");
+					}
+				}
+			}
+		}
+	}
+	fprintf(stderr, "selftest: headless audio CLI 24 policy cases ok\n");
+	return SUCCESS;
+}
+
 static int test_cli_options(void) {
 	char *valid[] = {"vaeg",
 	                 "--model",
@@ -10850,6 +10891,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_cli_boot_model() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_headless_audio_cli() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_cli_options() != SUCCESS) {
 		return (FAILURE);
