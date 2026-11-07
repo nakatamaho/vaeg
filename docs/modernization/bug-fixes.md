@@ -56,7 +56,7 @@ land.
   including sound-generation/capture checks. These are source-model contracts,
   not hardware-timing or media-execution claims.
 - **Task/evidence:** [M144a FM interrupt-mask checkpoint](../agents/tasks/M144a_x88000_compat_review.md#n80sr-fm-interrupt-mask-checkpoint).
-- **Fix commit:** pending identity link in the immediately following metadata commit.
+- **Fix commit:** [bbf991e3566c77189ccc028e09644209e82e1c36](https://github.com/nakatamaho/vaeg/commit/bbf991e3566c77189ccc028e09644209e82e1c36).
 
 ### M144a — N80 automatic startup reads VA BASIC-switch bits
 
