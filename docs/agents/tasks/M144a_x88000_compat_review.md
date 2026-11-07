@@ -46,6 +46,31 @@ performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
 
+## FDC main-clock independence verification
+
+Added a production-reset execution check, not a nominal-frequency-only check.
+The ordinary FDC integration fixture deliberately uses multiplier one; this
+new case calls `subsystem_reset()` after setting the real clock configuration,
+so `Subsystem::Reset` installs the fixed `pccore.multiple`. It varies main CPU
+multipliers 1/2 and S/H, covering nominal 2/4/8 MHz main clocks, including the
+requested 4-versus-8 comparison. The shared machine timeline remains fixed.
+
+An independently counted synthetic guest loop increments HL and stores it to
+FDC RAM: 10 initial T-states plus 100 iterations of 32 T-states. Production
+main-clock conversion supplies the corresponding shared-clock budgets. Batch
+and instruction-loop-sized deliveries must both produce RAM counter 100,
+HL=100, the expected PC, zero remaining credit and identical complete CPU save
+images across all eight cases. The FDC executes instructions; this is not a
+comparison of two printed frequency fields.
+
+The positive case passes without a production clock correction. A single
+reverted mutation replacing the fixed multiplier with `pccore_cpu_multiple()`
+fails exactly `M144A_FDC_MAIN_CLOCK_COUPLING`. Retain the nominal 4 MHz FDC domain
+of 3.9936 MHz; no crystal, WAIT, PIO sleep or instruction timing is changed.
+This bounded contract does not qualify disk mechanics, physical elapsed time,
+firmware workloads or hardware WAIT behavior. Existing wrapper WAIT/debt tests
+remain their legacy software contract, not newly established physical timing.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM

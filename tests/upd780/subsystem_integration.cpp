@@ -35,6 +35,8 @@
 #include "machine/pccore.h"
 #include "io/iocore.h"
 #include "io/subsystemif.h"
+#include "io/sysportva.h"
+#include "memoryva/memoryva.h"
 
 namespace {
 
@@ -172,6 +174,72 @@ void TestOrdinaryAndStateBridge() {
 	Require(subsystem_loadcpustatus(retained.data()) == FALSE,
 	        "unsupported revision was silently accepted");
 	Require(Save() == before_invalid, "failed state load mutated production CPU state");
+}
+
+void TestMainClockIndependence() {
+	const PCCORE saved_core = pccore;
+	const auto saved_multiple = np2cfg.multiple;
+	const auto saved_speed = np2cfg.cpu_speed;
+	const auto saved_mode = memoryva_88_mode;
+	const auto saved_port = sysportva.a;
+	Status reference{};
+	unsigned cases = 0;
+	for (unsigned multiple : {1u, 2u}) {
+		for (bool standard : {false, true}) {
+			for (bool split : {false, true}) {
+				pccore.baseclock = PCBASECLOCK40;
+				np2cfg.multiple = multiple;
+				np2cfg.cpu_speed = 100;
+				memoryva_88_mode = TRUE;
+				sysportva.a = standard ? 0 : 0x20;
+				pccore_clockrestore();
+				Require(pccore.multiple == PCCORE_STANDARD_MULTIPLE &&
+				            pccore.realclock == PCBASECLOCK40 * PCCORE_STANDARD_MULTIPLE &&
+				            pccore_compat_cpu_clock() ==
+				                PCBASECLOCK40 * multiple / (standard ? 2 : 1),
+				        "M144A_FDC_CLOCK_FIXTURE");
+				Reset();
+				// Unlike TestReset's unit-scale fixture, use the production
+				// reset to install the actual fixed machine-clock multiplier.
+				subsystem_reset();
+				// LD HL,0 (10T); loop INC HL (6T), LD (4000h),HL (16T), JP loop (10T).
+				Install(0, {0x21, 0, 0, 0x23, 0x22, 0, 0x40, 0xc3, 3, 0});
+				std::uint32_t now = 0;
+				auto advance = [&](unsigned fdc_cycles) {
+					const unsigned main_cycles = fdc_cycles * multiple / (standard ? 2 : 1);
+					now += static_cast<std::uint32_t>(pccore_compat_clocks(main_cycles, FALSE));
+					ExecAt(now);
+				};
+				if (split) {
+					advance(10);
+					for (unsigned i = 0; i < 100; i++)
+						advance(32);
+				} else {
+					advance(10 + 100 * 32);
+				}
+				const auto state = State();
+				Require(now == (10 + 100 * 32) * PCCORE_STANDARD_MULTIPLE && state.hl == 100 &&
+				            state.live_pc == 3 && state.remainclock == 0 &&
+				            subsystem_readmem(0x4000) == 100 && subsystem_readmem(0x4001) == 0,
+				        "M144A_FDC_MAIN_CLOCK_COUPLING");
+				const Status current = Save();
+				if (!cases)
+					reference = current;
+				Require(current == reference, "M144A_FDC_CLOCK_STATE_DIVERGENCE");
+				cases++;
+			}
+		}
+	}
+	pccore = saved_core;
+	np2cfg.multiple = saved_multiple;
+	np2cfg.cpu_speed = saved_speed;
+	memoryva_88_mode = saved_mode;
+	sysportva.a = saved_port;
+	pccore_clockrestore();
+	std::fprintf(
+	    stderr,
+	    "subsystem-integration[%s]: FDC fixed-clock execution %u main-clock/cadence cases ok\n",
+	    kCoreName, cases);
 }
 
 void TestClockStateAndWait() {
@@ -399,6 +467,7 @@ extern "C" int vaeg_upd780_subsystem_integration_test(void) {
 	subsystem_initialize();
 	TestOrdinaryAndStateBridge();
 	TestClockStateAndWait();
+	TestMainClockIndependence();
 	TestHaltAndIrqState();
 	TestProductionIrqAcknowledge();
 	TestSleepPath(0x1732, 1, true);
