@@ -31,17 +31,20 @@ record their own scope at the time; they are not current completion declarations
 
 ## Current completion scope
 
-The maintainer requested completion of the entire M144a implementation, not
-only N80 demo execution. Resume the previously paused FDC-clock verification
-and PR201/PDF work after the N80 fixes; neither may be silently omitted. The
-remaining sequence is PCG phase persistence, explicit BASIC startup selection
-and applied-state persistence, remaining display/timing review, FDC execution
-checks, PR201/PDF, final regression and clean Windows handoff, then G144a.
+The maintainer requested completion of M144a, not only N80 demo execution,
+then explicitly separated PR201/PDF into [M144b](M144b_pr201_pdf.md).
+This is an authorized scope transfer, not completion or silent omission of the
+printer work. PR201/PDF is no longer a G144a requirement; its implementation,
+printer-specific tests and acceptance belong to G144b. FDC clock verification
+remains in M144a, along with PCG phase persistence, explicit BASIC startup
+selection and applied-state persistence, remaining display/timing review,
+final regression and clean Windows handoff, then G144a.
 Accepted M144/G144 remains complete; M144a/G144a is not accepted by this request.
 PCG phase persistence and explicit startup selection now have focused software
 checkpoints below. The fixed-clock FDC execution check also passes without a
-production clock change. Display/timing qualification, PR201/PDF, final regression
-and the handoff are not completed by those checkpoints.
+production clock change. Display/timing qualification, final regression and the
+handoff are not completed by those checkpoints. Creating M144b does not start
+its implementation or mark either human gate passed.
 Physical-machine comparison is excluded, not passed. M88M v1.2.4 is a reference
 candidate, not an executed comparison claim. Push remains held.
 
@@ -501,6 +504,10 @@ layer priority, state transitions during programming and broader timing
 contracts remain separate work. G144a is still pending.
 
 ## Authorized implementation extension
+
+Historical authorization: the printer requirements below are now carried by
+[M144b](M144b_pr201_pdf.md), following the maintainer's explicit scope split.
+The N80 and FDC requirements remain in M144a.
 
 After receiving the source review, the maintainer explicitly requested implementation
 of the 32h GVAM transition and E6h unmask-request changes, PC-8001mkII/SR
