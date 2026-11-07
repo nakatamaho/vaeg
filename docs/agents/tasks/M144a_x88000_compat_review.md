@@ -28,6 +28,26 @@ Branch: `milestone/m144a-x88000-review`. Evaluated vaeg main:
 This is a read-only compatibility follow-up to accepted M144, separate from
 paused WSR-E and M145 work.
 
+## N80SR FM interrupt-mask checkpoint
+
+[FM mask ownership and transition checks](../../modernization/x88000-compatibility-review.md#n80sr-fm-interrupt-mask-ownership)
+connect SR port 33h bit 1 to the effective timer-interrupt gate. The old code
+saved/read the bit but used only the VA mask to decide timer requests. The
+baseline generated-input failure is `M144A_N80_FM_MASK_SELECTION`.
+
+The effective SR gate is derived from the existing N80 latch, not duplicated
+in a new state field. Its transitions use the existing FM/PIC mechanism;
+latched/offered PIC semantics and clocks are not changed. Native and other
+machine selections retain the VA gate. Checks cover 6,144 selections,
+A/B timers under both controller modes, native setter controls, guest OUT/IN
+with both trap directions enabled, and SR-mask versus VA-mask SAV restoration.
+The two reverted mutations report exactly `M144A_N80_FM_MASK_SELECTION` and
+`M144A_N80_FM_UNMASK_PENDING`. Native build and nine focused CTests pass,
+including the sound-generation and sound-capture checks.
+
+This checkpoint records only public-source and synthetic-device evidence,
+not media execution, physical IRQ timing, M88 comparison or G144a acceptance.
+
 ## Scripted audio opt-in checkpoint
 
 Added the explicit `--headless-audio` CLI option for software mixer/capture QA

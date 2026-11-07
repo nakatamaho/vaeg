@@ -53,6 +53,8 @@ void fmboard_fmrestore(REG8 chbase, UINT bank);
 void fmboard_rhyrestore(RHYTHM rhy, UINT bank);
 
 void fmboard_setintmask(BYTE mask);
+/* Notify an effective mask transition after changing its owning register. */
+void fmboard_updateintmask(BYTE previous);
 BYTE fmboard_getintmask(void);
 
 #ifdef __cplusplus

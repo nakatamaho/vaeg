@@ -79,7 +79,7 @@
 #include "beep.h"
 #include "cmt.h"
 extern BEEPCFG beepcfg;
-#include "opngen.h"
+#include "fmboard.h"
 #include "profile.h"
 #include "romcheck.h"
 #include "romankana.h"
@@ -8043,6 +8043,125 @@ static int test_pc8001_machine(void) {
 
 /* M144a: synthetic production ROM/I/O/banking and real SAV-file boundary.
  * This is not yet a guest-executed SR startup/display qualification. */
+static int test_n80_fm_mask(void) {
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const BYTE saved_mode = memoryva_88_mode;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const char *problem = NULL;
+	unsigned model, active, family, legacy, value, controller, timer, cases = 0;
+	_NEVENTITEM item;
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	for (model = 0; model < 3 && !problem; model++)
+		for (active = 0; active < 2 && !problem; active++)
+			for (family = 0; family < 2 && !problem; family++)
+				for (legacy = 0; legacy < 2 && !problem; legacy++)
+					for (value = 0; value < 256 && !problem; value++) {
+						const BYTE expected = model == 2 && active && family
+						                          ? ((value & 2) ? 0x80 : 0)
+						                          : legacy * 0x80;
+						memoryn80.model = model;
+						memoryn80.port33 = value;
+						memoryva_88_mode = active;
+						memoryva_pc8001 = family;
+						fmboardva.sintm = legacy * 0x80;
+						if (fmboard_getintmask() != expected)
+							problem = "M144A_N80_FM_MASK_SELECTION";
+						cases++;
+					}
+	for (controller = 0; controller < 2 && !problem; controller++) {
+		for (timer = 0; timer < 2 && !problem; timer++) {
+			pccore_reset();
+			memoryva_pc8001 = TRUE;
+			memoryva_88_mode = TRUE;
+			memoryn80.model = 2;
+			memoryn80.port33 = 0;
+			pic8214.mode8259 = controller;
+			pic8214.inte = 0; /* inspect queued requests, not CPU delivery */
+			fmtimer_reset(0xc0);
+			fmtimer_setreg(0x27, timer ? 8 : 4);
+			fmboard_setintmask(0);
+			iocore_out8(0x33, 2);
+			iocore_out8(0x33, 0);
+			if (pic8214.irr || pic.pi[1].irr)
+				problem = "M144A_N80_FM_EMPTY_UNMASK";
+			iocore_out8(0x33, 2);
+			ZeroMemory(&item, sizeof(item));
+			item.flag = NEVENT_SETEVENT;
+			if (timer)
+				fmport_b(&item);
+			else
+				fmport_a(&item);
+			if (!problem && (fmtimer.status != (timer ? 2 : 1) || pic8214.irr || pic.pi[1].irr))
+				problem = "M144A_N80_FM_MASKED_TIMER";
+			if (!problem) {
+				iocore_out8(0x33, 0);
+				if ((controller ? pic.pi[1].irr : pic8214.irr) != 0x10 ||
+				    fmtimer.status != (timer ? 2 : 1))
+					problem = "M144A_N80_FM_UNMASK_PENDING";
+			}
+			if (!problem) {
+				fmboard_setintmask(0x80); /* VA's saved mask must not own SR's gate. */
+				if (fmboard_getintmask() || (controller ? pic.pi[1].irr : pic8214.irr) != 0x10)
+					problem = "M144A_N80_FM_MASK_OWNER";
+			}
+			if (!problem) {
+				pic8214.irr = pic.pi[1].irr = 0;
+				iocore_out8(0x33, 1); /* unrelated bit: do not re-offer a consumed request */
+				if (pic8214.irr || pic.pi[1].irr)
+					problem = "M144A_N80_FM_UNCHANGED_MASK";
+				if (timer)
+					fmport_b(&item);
+				else
+					fmport_a(&item);
+				if (!controller)
+					pic8214.pending = PIC8214_SOUND;
+			}
+			if (!problem) {
+				iocore_out8(0x33, 2);
+				/* Retain the existing PIC semantics: 8214 requests already
+				 * latched are not revoked by the legacy reset-IRQ helper. */
+				if (fmboard_getintmask() != 0x80 || pic.pi[1].irr ||
+				    pic8214.irr != (controller ? 0 : 0x10) ||
+				    (!controller && pic8214.pending != PIC8214_SOUND))
+					problem = "M144A_N80_FM_REMASK";
+			}
+		}
+	}
+	if (!problem) {
+		memoryva_pc8001 = FALSE;
+		memoryva_88_mode = FALSE;
+		pic8214.mode8259 = TRUE;
+		fmtimer.irq = 0x0c;
+		fmtimer.status = 1;
+		fmboardva.sintm = 0;
+		pic.pi[1].irr = 0x10;
+		fmboard_setintmask(0x80);
+		if (fmboard_getintmask() != 0x80 || pic.pi[1].irr)
+			problem = "M144A_N80_FM_LEGACY_MASK";
+		fmboard_setintmask(0);
+		if (!problem && (fmboard_getintmask() || pic.pi[1].irr != 0x10))
+			problem = "M144A_N80_FM_LEGACY_UNMASK";
+		pic.pi[1].irr = 0;
+		fmboard_setintmask(1); /* reserved bits still do not change the VA gate */
+		if (!problem && (fmboard_getintmask() || pic.pi[1].irr))
+			problem = "M144A_N80_FM_LEGACY_UNCHANGED";
+	}
+	nevent_reset(NEVENT_FMTIMERA);
+	nevent_reset(NEVENT_FMTIMERB);
+	memoryva_pc8001 = saved_pc8001;
+	memoryva_88_mode = saved_mode;
+	memoryn80 = saved_bank;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem)
+		return fail("N80 FM mask", problem);
+	fprintf(stderr, "selftest: N80 FM mask %u selections and 4 timer/controller cases ok\n", cases);
+	return SUCCESS;
+}
+
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -8263,10 +8382,10 @@ static int test_pc8001_banks(void) {
 					 * write 33h, read it with IN, and read the selected ROM.
 					 * Bits 0/5 exercise the current read mask independently. */
 					static const BYTE switch_code[] = {
-					    0x3e, 0xa1, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x20, 0xc1, 0xdb, 0x33, 0x32,
+					    0x3e, 0xa3, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x20, 0xc1, 0xdb, 0x33, 0x32,
 					    0x10, 0xc1, 0x3a, 0,    0,    0x32, 0,    0xc1, 0x3e, 0x21, 0xd3, 0x33,
 					    0xdb, 0x30, 0x32, 0x21, 0xc1, 0xdb, 0x33, 0x32, 0x11, 0xc1, 0x3a, 0,
-					    0,    0x32, 1,    0xc1, 0x3e, 0x80, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x22,
+					    0,    0x32, 1,    0xc1, 0x3e, 0x82, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x22,
 					    0xc1, 0xdb, 0x33, 0x32, 0x12, 0xc1, 0x3a, 0,    0,    0x32, 2,    0xc1};
 					unsigned step;
 					CPU_RESET();
@@ -8301,18 +8420,24 @@ static int test_pc8001_banks(void) {
 					upd9002_core_step();
 					memoryva_88_mode = TRUE;
 					iocore_out8(0x31, 1);
-					for (step = 0; step < 24 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
+					for (step = 0;
+					     step < 24 && !problem && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008;
+					     step++) {
 						upd9002_core_step();
-					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c)
+						if ((step & 7) == 7 && fmboard_getintmask() != (step == 15 ? 0 : 0x80))
+							problem = "M144A_N80_FM_GUEST_MASK";
+					}
+					if (!problem &&
+					    (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c))
 						problem = "M144A_N80_MODE_READ_ROUTE";
 					for (step = 0; step < 3 && !problem; step++)
 						if (mem[0x1c120 + step] != ((backupmem[0x1fc2] & 0xfc) | 1))
 							problem = "M144A_N80_BOOT_SWITCH_LIVE_MAP";
 					if (!problem &&
-					    (mem[0x1c110] != 0x80 || mem[0x1c111] != 0 || mem[0x1c112] != 0x80))
+					    (mem[0x1c110] != 0x82 || mem[0x1c111] != 0 || mem[0x1c112] != 0x82))
 						problem = "M144A_N80_MODE_READBACK";
 					if (!problem && (mem[0x1c100] != 0x83 || mem[0x1c101] != 0x61 ||
-					                 mem[0x1c102] != 0x83 || memoryn80.port33 != 0x80))
+					                 mem[0x1c102] != 0x83 || memoryn80.port33 != 0x82))
 						problem = "M144A_N80_GUEST_MODE_CONTINUATION";
 					if (!problem)
 						fprintf(
@@ -8399,6 +8524,12 @@ static int test_pc8001_banks(void) {
 						problem = "M144A_N80_PCG_TIMER_SETUP";
 				CopyMemory(&saved_pcg, &pcg88, sizeof(saved_pcg));
 			}
+			if (!problem && model == 2) {
+				fmboard_setintmask(0);
+				iocore_out8(0x33, memoryn80.port33 | 2);
+				if (fmboard_getintmask() != 0x80)
+					problem = "M144A_N80_FM_SAV_SETUP";
+			}
 			saved_bank = memoryn80;
 			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
 			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
@@ -8434,6 +8565,9 @@ static int test_pc8001_banks(void) {
 				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 || videova.palette[1] != 0x001f ||
 				    upd9002_memoryread_va(0x16000) != (model == 2 ? memoryn80_srrom[0x8000] : 0x72))
 					problem = "bank SAV restore and mapped byte";
+				if (!problem && model == 2 &&
+				    (fmboard_getintmask() != 0x80 || fmboardva.sintm != 0))
+					problem = "M144A_N80_FM_SAV_RESTORE";
 				v1v2_render_to(0, 0, 0xb002);
 				scrndrawva_compose_begin();
 				scrndrawva_compose_raster();
@@ -11060,6 +11194,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_pc8001_machine() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_n80_fm_mask() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_pc8001_banks() != SUCCESS) {
 		return (FAILURE);

@@ -35,6 +35,29 @@ land.
 
 ## Maintenance Rules
 
+### M144a — N80SR FM interrupt mask has no effect on timer gating
+
+- **Symptom/scope:** in generated compatible-mode SR cases, port 33h bit 1
+  could read back as masked while FM timer requests were still permitted by
+  the VA mask. Conversely, the VA mask could suppress requests when SR allowed them.
+- **Demonstrated root cause:** `memctrlva_o033` only stored the latch and updated
+  ROM/palette selection; `fmboard_getintmask` returned `fmboardva.sintm` without
+  considering the SR latch. No SR mask-transition notification reached FM/PIC handling.
+- **Correction:** derive the effective gate from the existing SR latch in
+  compatible mode and notify the shared FM transition helper after port-33 writes.
+  Keep the VA mask separately, retain other machine/native behavior, and do not
+  change timer clocks, PIC latching/offered-request semantics or save-state formats.
+- **Verification:** 6,144 generated mask selections, A/B timers in 8214 and 8259
+  modes, empty/pending unmask, unchanged gate, re-mask and native setter controls;
+  guest OUT/IN under active traps; SAV restoration with opposing SR/VA masks.
+  Restoring VA-only selection fails with `M144A_N80_FM_MASK_SELECTION`; removing
+  the port-33 transition notification fails with `M144A_N80_FM_UNMASK_PENDING`.
+  Both mutations are reverted; native build and nine focused CTests pass,
+  including sound-generation/capture checks. These are source-model contracts,
+  not hardware-timing or media-execution claims.
+- **Task/evidence:** [M144a FM interrupt-mask checkpoint](../agents/tasks/M144a_x88000_compat_review.md#n80sr-fm-interrupt-mask-checkpoint).
+- **Fix commit:** pending identity link in the immediately following metadata commit.
+
 ### M144a — N80 automatic startup reads VA BASIC-switch bits
 
 - **Symptom/scope:** generated mkII/SR input cases returned the VA backup byte's

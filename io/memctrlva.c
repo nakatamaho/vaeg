@@ -12,6 +12,8 @@
 #include "va91.h"
 #include "cpu/upd9002/memory.h"
 #include "bkupmemva.h"
+#include "sound.h"
+#include "fmboard.h"
 
 // ---- I/O
 
@@ -156,7 +158,9 @@ static void IOOUTCALL memctrlva_o_n80video(UINT port, REG8 dat) {
 static void IOOUTCALL memctrlva_o033(UINT port, REG8 dat) {
 	if (memoryva_pc8001 && memoryn80.model == 2) {
 		const UINT8 changed = memoryn80.port33 ^ (UINT8)dat;
+		const BYTE previous_mask = fmboard_getintmask();
 		memoryn80.port33 = (UINT8)dat;
+		fmboard_updateintmask(previous_mask);
 		if (changed & 0x80)
 			n80_mode_palette();
 	}

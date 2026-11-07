@@ -11,6 +11,7 @@
 #include "cmt.h"
 #include "pcg88.h"
 #include "machine/keystat.h"
+#include "memoryva.h"
 
 #include "boardsb2.h"
 
@@ -175,9 +176,9 @@ void fmboard_rhyrestore(RHYTHM rhy, UINT bank) {
 	rhythm_setreg(rhy, 0x1d, reg[0x1d]);
 }
 
-void fmboard_setintmask(BYTE mask) {
-	mask &= 0x80;
-	if ((fmboardva.sintm ^ mask) & 0x80) {
+void fmboard_updateintmask(BYTE previous) {
+	const BYTE mask = fmboard_getintmask();
+	if ((previous ^ mask) & 0x80) {
 		if (mask) {
 			// マスク
 			//			TRACEOUT(("fmboard: SINTM set: reset irq"));
@@ -200,9 +201,18 @@ void fmboard_setintmask(BYTE mask) {
 			}
 		}
 	}
-	fmboardva.sintm = mask;
+}
+
+void fmboard_setintmask(BYTE mask) {
+	const BYTE previous = fmboard_getintmask();
+	fmboardva.sintm = mask & 0x80;
+	fmboard_updateintmask(previous);
 }
 
 BYTE fmboard_getintmask(void) {
+	/* SR's 33h bit 1 owns the gate even when its live ROM bank is N80.
+	 * Derive it from the existing saved latch, not a second shadow mask. */
+	if (memoryva_88_mode && memoryva_pc8001 && memoryn80.model == 2)
+		return (memoryn80.port33 & 2) ? 0x80 : 0;
 	return fmboardva.sintm;
 }
