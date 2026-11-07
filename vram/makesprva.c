@@ -62,6 +62,9 @@ typedef struct {
 static _SPRVAWORK work;
 //		BYTE sprraster[SURFACE_WIDTH];
 BYTE sprraster[TEXTSPR_WIDTH];
+/* The independent N80 text bridge consumes only the CURDEF cursor, not
+ * arbitrary native VA sprites. This is derived raster data, not SAV state. */
+BYTE cursorraster[TEXTSPR_WIDTH];
 // 1ラスタ分のピクセルデータ
 // 各ピクセルはパレット番号(0～15)
 
@@ -78,7 +81,7 @@ void makesprva_initialize(void) {
 static UINT8 frame_hit;
 static UINT8 frame_ovs;
 
-static void sprpixel(UINT xp, BYTE c) {
+static void sprpixel(UINT xp, BYTE c, BOOL cursor) {
 	BYTE old;
 
 	old = sprraster[xp];
@@ -86,9 +89,11 @@ static void sprpixel(UINT xp, BYTE c) {
 		frame_hit |= 0x20;
 	}
 	sprraster[xp] = c;
+	if (cursor)
+		cursorraster[xp] = c;
 }
 
-static void drawraster(SPRVA s, BYTE *sprinfo) {
+static void drawraster(SPRVA s, BYTE *sprinfo, BOOL cursor) {
 	WORD d;
 	int bitcount;
 	//	int bytecount;
@@ -116,7 +121,7 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 				d = *sprdata;
 				sprdata++;
 				for (bitcount = 0; bitcount < 8; bitcount++) {
-					sprpixel(xp, d & 0x80 ? fg : bg);
+					sprpixel(xp, d & 0x80 ? fg : bg, cursor);
 					d <<= 1;
 					xp = (xp + 1) & 0x3ff;
 				}
@@ -128,7 +133,7 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 				sprdata++;
 				for (bitcount = 0; bitcount < 8; bitcount++) {
 					if (d & 0x80)
-						sprpixel(xp, fg);
+						sprpixel(xp, fg, cursor);
 					d <<= 1;
 					xp = (xp + 1) & 0x3ff;
 				}
@@ -141,10 +146,10 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 			sprdata++;
 			// ToDo: 0以外の透明色の場合に重ねがきしないようにする
 			if (d & 0xf0)
-				sprpixel(xp, (BYTE)(d >> 4));
+				sprpixel(xp, (BYTE)(d >> 4), cursor);
 			xp = (xp + 1) & 0x3ff;
 			if (d &= 0x0f)
-				sprpixel(xp, (BYTE)d);
+				sprpixel(xp, (BYTE)d, cursor);
 			xp = (xp + 1) & 0x3ff;
 		}
 	}
@@ -259,6 +264,7 @@ void makesprva_begin(void) {
 }
 
 void makesprva_blankraster(void) {
+	ZeroMemory(cursorraster, sizeof(cursorraster));
 	ZeroMemory(sprraster, sizeof(sprraster));
 }
 
@@ -272,7 +278,7 @@ void makesprva_raster(void) {
 	/* SYNC stops the display; the sprites, as the text, show only after
 	 * DSPON (TSPSPR on the VA and VA2: SYNC and SPRON alone showed none). */
 	if (!tsp.spron || !tsp.dspon) {
-		ZeroMemory(sprraster, sizeof(sprraster));
+		makesprva_blankraster();
 		if (!mg || (work.screeny & 1) == 0) {
 			work.y++;
 		}
@@ -307,7 +313,7 @@ void makesprva_raster(void) {
 				}
 			}
 		}
-		ZeroMemory(sprraster, sizeof(sprraster));
+		makesprva_blankraster();
 		sprinfo = textmem + tsp.sprtable + SPRVA_SPRS * 8;
 		s = &work._spr[SPRVA_SPRS];
 		for (i = SPRVA_SPRS - 1; i >= 0; i--) {
@@ -315,7 +321,7 @@ void makesprva_raster(void) {
 			sprinfo -= 8;
 
 			if (shown[i]) {
-				drawraster(s, sprinfo);
+				drawraster(s, sprinfo, i == tsp.curn && makesprva_cursor_shown());
 			} else if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
 				/* (not drawn: its rows still advance) */
 				s->spda += ((LOADINTELWORD(sprinfo + 2) >> 11) + 1) * 4;

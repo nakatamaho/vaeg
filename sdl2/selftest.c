@@ -9585,6 +9585,84 @@ static int test_n80_pcg_composition(void) {
 	return SUCCESS;
 }
 
+/* Independently generated cursor and ordinary-sprite patterns: only the
+ * CURDEF cursor may enter the independent N80 composition path. */
+static int test_n80_cursor_composition(void) {
+	const BOOL saved_88 = memoryva_88_mode, saved_machine = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const char *problem = NULL;
+	UINT test;
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	memoryva_88_mode = memoryva_pc8001 = TRUE;
+	ZeroMemory(textmem, sizeof(textmem));
+	/* Cursor 31 at x=0; an unrelated native sprite at x=8. */
+	STOREINTELWORD(textmem + 0x4000, 0x0200);
+	STOREINTELWORD(textmem + 0x4002, 8);
+	STOREINTELWORD(textmem + 0x4004, 0x1080);
+	STOREINTELWORD(textmem + 0x40fc, 0x1000);
+	textmem[0x2000] = 0x40;
+	textmem[0x2100] = 0x60;
+	videova.grmode = 0x3000;
+	videova.palette[15] = 0x1111;
+	videova.palette[4] = 0x03e0;
+	videova.palette[6] = 0x03ff;
+	grph0_noraster = TRUE;
+	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_TEXT, TRUE);
+	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
+	for (test = 0; test < 256 && !problem; test++) {
+		const UINT flags = test >> 2;
+		const BOOL hidden = (flags & 8) != 0;
+		BOOL shown;
+		WORD expected;
+		ZeroMemory(&tsp, sizeof(tsp));
+		tsp.sprtable = 0x4000;
+		tsp.curn = 31;
+		tsp.ce = (flags & 1) != 0;
+		tsp.dspon = (flags & 2) != 0;
+		tsp.spron = (flags & 4) != 0;
+		tsp.be = (flags & 16) != 0;
+		tsp.blinkcnt2 = (test & 2) ? 8 : 0;
+		memoryn80.model = (test & 1) + 1;
+		memoryn80.port31 = (flags & 32) ? 0x10 : 0;
+		memoryn80.port33 = 0x80;
+		memoryn80_video[0] = 0;
+		memoryn80_video[1] = hidden;
+		FillMemory(textraster, SURFACE_WIDTH, 15);
+		makesprva_begin();
+		makesprva_raster();
+		shown = tsp.ce && tsp.dspon && tsp.spron && !(tsp.be && tsp.blinkcnt2);
+		if (cursorraster[0] != (shown ? 4 : 0) || cursorraster[8])
+			problem = "M144A_N80_CURSOR_RASTER";
+		scrndrawva_compose_begin();
+		scrndrawva_compose_raster();
+		expected = hidden ? 0 : shown ? 0x03e0 : 0x1111;
+		if (!problem && (vabitmap[0] != expected || vabitmap[8] != (hidden ? 0 : 0x1111)))
+			problem = "M144A_N80_CURSOR_COMPOSITION";
+		/* Debug-layer hiding must not expose a cached cursor. */
+		scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, FALSE);
+		scrndrawva_compose_begin();
+		scrndrawva_compose_raster();
+		if (!problem && vabitmap[0] != (hidden ? 0 : 0x1111))
+			problem = "M144A_N80_CURSOR_LAYER";
+		scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
+		makesprva_blankraster();
+		if (!problem && cursorraster[0])
+			problem = "M144A_N80_CURSOR_CLEAR";
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_machine;
+	memoryn80 = saved_bank;
+	if (problem)
+		return fail("N80 cursor composition", problem);
+	fprintf(stderr, "selftest: N80 cursor composition 256 cases PASS\n");
+	return SUCCESS;
+}
+
 static int test_pcg88(void) {
 	const UINT8 saved_enable = np2cfg.pcg_enable;
 	const BOOL saved_88 = memoryva_88_mode;
@@ -11668,6 +11746,9 @@ int vaeg_selftest_run(void) {
 	}
 	if (test_pcg88() != SUCCESS) {
 		return (FAILURE);
+	}
+	if (test_n80_cursor_composition() != SUCCESS) {
+		return FAILURE;
 	}
 	if (test_n80_pcg_composition() != SUCCESS) {
 		return (FAILURE);

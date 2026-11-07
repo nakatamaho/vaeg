@@ -223,6 +223,11 @@ void scrndrawva_compose_raster(void) {
 				color = index ? videova.palette[index & 15] : backdrop;
 			} else if (character && (!text_behind || !graphic))
 				color = videova.palette[character];
+			/* The firmware supplies the compatible cursor through CURDEF.
+			 * Preserve its blink raster without exposing native VA sprites. */
+			if (text && layer_enabled[VAEG_VA_LAYER_SPRITE] && cursorraster[x] &&
+			    (!text_behind || !graphic))
+				color = videova.palette[cursorraster[x] & 15];
 			work.bp[x] = (videova.grmode & 0x3000) == 0x3000 ? color : 0;
 		}
 		work.bp += SURFACE_WIDTH;
