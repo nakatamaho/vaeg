@@ -68,6 +68,10 @@ int pc88_text_dma_peek(const PC88_TEXT_DMA *dma, const PC88_TEXT_MEMORY *memory,
 	size_t size;
 	if (!dma || !memory || !value)
 		return 0;
+	if (memory->peek) {
+		*value = memory->peek(memory->peek_opaque, (uint32_t)((dma->address + offset) & 0xffff));
+		return 1;
+	}
 	address = pc88_text_dma_resolve(dma, offset, memory->fast_active);
 	source = address.fast ? memory->fast_ram : memory->main_ram;
 	size = address.fast ? memory->fast_size : memory->main_size;

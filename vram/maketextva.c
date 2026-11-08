@@ -607,17 +607,20 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 			    work.glyphs_hidden) {
 				glyphfg = bg;
 			}
-			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one. */
-			const BOOL ank8 =
-			    videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04));
+			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one.
+			 * The independent N80 route shows its 8-row font one-to-one on the
+		 * device scanlines; the VA-state 8801 doubling does not apply. */
+			const BOOL ank8 = !independent && (videova_8801_display() ||
+			                                   ((pcg != NULL) && !(videova.txtmode & 0x04)));
 			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));
-			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
+			fonth = independent ? 8 : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
 				const BOOL line =
 				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
 				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
-				/* PC-8801 style: each 8x8 row on two rasters. */
+				/* PC-8801 style: each 8x8 row on two rasters; the independent
+				 * route maps its 8-row font one-to-one. */
 				const UINT fontrow = ank8 ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
@@ -797,7 +800,10 @@ void maketextva_begin(BOOL *scrn200) {
 	}
 	if (independent_text_active()) {
 		/* The independent route carries its own attribute state and takes
-		 * the character height from the device, not from stale TSP state. */
+		 * the character height from the device, not from stale TSP state.
+		 * A 200-line screen occupies the doubled surface, as the VA route's
+		 * 200-line modes do (X88000: a scanline count divisible by eight and
+		 * 25 rows is the 400-line screen). */
 		independent_carry = 0xe0;
 		work.lineheight = (int)upd3301_scanlines(&n80_crtc);
 		if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {

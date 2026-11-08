@@ -322,6 +322,41 @@ programmed directly (guest port routing is the CPU-role selftests' contract).
 The full native suite passes 183/183. Real-SAV round trips on a running
 machine remain part of the runtime qualification step.
 
+### Runtime qualification on the private N80 disks (first pass)
+
+The private-disk runtime pass found and fixed two integration defects, and
+identified one open device-behavior gap.
+
+Fixed: (1) the text-DMA memory view now supports a read-through callback,
+and the board adapter reads the guest F000h-FFFFh text window from the N80
+model's TVRAM image (textmem 6000h-6FFFh) where vaeg's N80 memory map places
+it, instead of the flat main-RAM view the X88000 model assumes; (2) the
+independent route renders its 8-row font one-to-one on the device scanlines
+(the VA-state 8801 doubling applied only half the glyph), with the 200-line
+screen occupying the doubled surface like the VA route's 200-line modes.
+After the fixes the mkII and SR boot screens render the full banner through
+the independent device (offline decode of the captured buffer reproduces
+"NEC N-80 BASIC Ver 1.0" cell-for-cell), WIDTH 80,25 clears and re-formats
+the screen, and the boot cursor is the full 16-dot doubled cell.
+
+Open: **WIDTH 40,25 on the PC-8001mkII stops the display and does not
+restart it.** The device state after the command shows the ROM re-programmed
+the controller to the 80-column, 25-row, 16-scanline geometry with C_B
+(character mode) cleared, then issued STOP DISPLAY; the screen freezes on the
+pre-command content. The same command on the same ROM worked under the old
+firmware route. The ROM's WIDTH sequence evidently waits for something the
+independent device does not provide while display is stopped (a status bit,
+an interrupt-acknowledge detail or a DMA completion condition); the N80SR
+manual's 3301 status-bit documentation is the next research step. This is a
+genuine device-behavior gap, not a rendering defect; the display-restart
+behavior while STOPPED is unqualified.
+
+Also observed: the demo tape/disk playback cases in this pass did not reach
+playback (the input scripts did not answer the disk BASIC "How many files"
+prompt); they need re-running with corrected scripts. The boot/width
+screenshots remain private evidence under the publication policy. The full
+native suite passes 183/183 after the fixes.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |

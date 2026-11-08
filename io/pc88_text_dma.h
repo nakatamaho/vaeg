@@ -40,12 +40,19 @@ typedef struct {
 	uint8_t high_next, mode;
 } PC88_TEXT_DMA;
 
+typedef uint8_t (*PC88_TEXT_PEEK)(void *opaque, uint32_t address);
+
 typedef struct {
 	const uint8_t *main_ram;
 	size_t main_size;
 	const uint8_t *fast_ram;
 	size_t fast_size;
 	int fast_active;
+	/* Optional read-through view over a non-flat backing (e.g. a memory
+	 * window). When set it serves every 16-bit guest address and the flat
+	 * buffers are ignored. */
+	PC88_TEXT_PEEK peek;
+	void *peek_opaque;
 } PC88_TEXT_MEMORY;
 
 typedef struct {
@@ -61,7 +68,8 @@ PC88_TEXT_ADDRESS pc88_text_dma_resolve(const PC88_TEXT_DMA *dma, uint32_t offse
 /* A read-only backing-memory view, not a CPU-bus access or DMA transfer.
  * Independent of DMA enable so display-copy/debug consumers can inspect data.
  * Return zero on a missing/short selected source; leave output unchanged.
- * Never silently fall back from selected fast RAM to main RAM. */
+ * Never silently fall back from selected fast RAM to main RAM. When a peek
+ * callback is present it serves the address and cannot be short. */
 int pc88_text_dma_peek(const PC88_TEXT_DMA *dma, const PC88_TEXT_MEMORY *memory, uint32_t offset,
                        uint8_t *value);
 #ifdef __cplusplus

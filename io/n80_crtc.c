@@ -146,12 +146,25 @@ void n80_crtc_irq_acknowledge(void) {
 	}
 }
 
+/* The N80 model maps the guest F000h-FFFFh text window into the TVRAM
+ * image (textmem 6000h-6FFFh); the real device DMA reads that memory.
+ * Addresses below F000h read the main-RAM backing without side effects. */
+static uint8_t n80_crtc_text_peek(void *opaque, uint32_t address) {
+	(void)opaque;
+	if (address >= 0xf000) {
+		return textmem[0x6000 + (address & 0x0fff)];
+	}
+	return upd9002_mainram_read(0x10000 + address);
+}
+
 const PC88_TEXT_MEMORY *n80_crtc_memory(void) {
-	n80_crtc_text.main_ram = mem;
-	n80_crtc_text.main_size = 0x10000;
+	n80_crtc_text.main_ram = NULL;
+	n80_crtc_text.main_size = 0;
 	n80_crtc_text.fast_ram = NULL;
 	n80_crtc_text.fast_size = 0;
 	n80_crtc_text.fast_active = 0;
+	n80_crtc_text.peek = n80_crtc_text_peek;
+	n80_crtc_text.peek_opaque = NULL;
 	return &n80_crtc_text;
 }
 
