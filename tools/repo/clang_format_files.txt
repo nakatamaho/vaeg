@@ -344,6 +344,7 @@ tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
+tests/upd3301/clock.c
 tests/upd3301/controller.c
 tests/upd3301/text.c
 tests/upd3301/text_dma.c

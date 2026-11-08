@@ -27,6 +27,63 @@
 #include "upd3301.h"
 #include <string.h>
 
+/* X88000 1.5.3 PC88Crtc.h UpdateTimings/PassClock/IsVSync. These are
+ * source-model microsecond tables, not hardware measurements. Preserve the
+ * remaining countdown across R2 writes, as UpdateTimings does. */
+unsigned upd3301_cycle_us(const UPD3301 *c) {
+	const int height25 = upd3301_scanlines(c) % 8 == 0;
+	return c->hires ? (height25 ? 18050 : 17720) : (height25 ? 16020 : 16270);
+}
+
+unsigned upd3301_sync_us(const UPD3301 *c) {
+	const int height25 = upd3301_scanlines(c) % 8 == 0;
+	return c->hires ? (height25 ? 1933 : 1611) : (height25 ? 3505 : 3755);
+}
+
+static void reset_counter(UPD3301 *c) {
+	c->frames = 0;
+	c->clock_remaining = (uint64_t)c->clock_hz * upd3301_cycle_us(c);
+}
+
+int upd3301_clock_configure(UPD3301 *c, uint32_t clock_hz, int hires) {
+	if (!c || !clock_hz || (hires != 0 && hires != 1))
+		return 0;
+	c->clock_hz = clock_hz;
+	c->hires = (uint8_t)hires;
+	reset_counter(c);
+	return 1;
+}
+
+int upd3301_clock_valid(const UPD3301 *c) {
+	/* A profile change may leave a countdown longer than the new period. */
+	return c && c->clock_hz && c->hires <= 1 && c->clock_remaining &&
+	       c->clock_remaining <= (uint64_t)c->clock_hz * 18050;
+}
+
+int upd3301_in_vsync(const UPD3301 *c) {
+	return upd3301_clock_valid(c) &&
+	       c->clock_remaining > (uint64_t)c->clock_hz * (upd3301_cycle_us(c) - upd3301_sync_us(c));
+}
+
+int upd3301_advance(UPD3301 *c, uint32_t ticks, uint64_t *frames) {
+	uint64_t delta = (uint64_t)ticks * 1000000;
+	uint64_t count = 0;
+	if (!frames || !upd3301_clock_valid(c))
+		return 0;
+	if (delta < c->clock_remaining) {
+		c->clock_remaining -= delta;
+	} else {
+		const uint64_t cycle = (uint64_t)c->clock_hz * upd3301_cycle_us(c);
+		delta -= c->clock_remaining;
+		count = 1 + delta / cycle;
+		c->clock_remaining = cycle - delta % cycle;
+		c->frames = (uint16_t)(c->frames + (uint16_t)count);
+		c->interrupt_request |= 1;
+	}
+	*frames = count;
+	return 1;
+}
+
 void upd3301_reset(UPD3301 *c) {
 	memset(c, 0, sizeof(*c));
 	c->reset[0] = 78;
@@ -38,6 +95,7 @@ void upd3301_reset(UPD3301 *c) {
 	c->width80 = 1;
 	c->interrupt_mask = 3;
 	c->last_attribute = 0xe0;
+	upd3301_clock_configure(c, 4000000, 1);
 }
 
 void upd3301_command(UPD3301 *c, uint8_t value) {
@@ -52,7 +110,7 @@ void upd3301_command(UPD3301 *c, uint8_t value) {
 	case 0x20:
 		c->display_started = 1;
 		c->reverse = value & 1;
-		c->frames = 0;
+		reset_counter(c);
 		c->last_attribute = 0xe0;
 		c->interrupt_request = 0;
 		break;
@@ -74,7 +132,7 @@ void upd3301_command(UPD3301 *c, uint8_t value) {
 		c->interrupt_request = 0;
 		break;
 	case 0xc0:
-		c->frames = 0;
+		reset_counter(c);
 		c->interrupt_request = 0;
 		break;
 	default:
@@ -112,6 +170,7 @@ uint8_t upd3301_status(const UPD3301 *c) {
 }
 
 void upd3301_frame_boundary(UPD3301 *c) {
+	c->clock_remaining = (uint64_t)c->clock_hz * upd3301_cycle_us(c);
 	c->frames = (uint16_t)(c->frames + 1);
 	c->interrupt_request |= 1;
 }

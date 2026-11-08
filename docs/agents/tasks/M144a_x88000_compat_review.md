@@ -137,6 +137,41 @@ between rows (`PC88_TEXT_LINE_DECORATION_RESET`) and partial output on a failed
 read (`PC88_TEXT_ATOMIC_SOURCE`). No application runtime or machine-SAV PASS
 is inferred; the emulator binary and existing VA implementation are unchanged.
 
+### Independent vertical clock and sync interval
+
+The independent `UPD3301` now owns a device-domain countdown and resolution
+profile. X88000's four vertical cycle/sync tables are explicitly source-model
+values, not measured hardware timing. Integer scaled-tick arithmetic preserves
+fractional phase at non-integer-MHz rates and makes elapsed time independent
+of dispatch batch size. Multiple frame boundaries are counted without a
+per-frame loop; the frame counter wraps to 16 bits while the returned boundary
+count remains 64-bit. A boundary latches the vertical interrupt request even
+when display/DMA is stopped, matching the source's no-WAIT clock path.
+
+R2 timing changes preserve the remaining countdown, including when it exceeds
+the new cycle length. START and RESET COUNTERS restart the countdown and frame
+counter; interrupt acknowledge leaves phase intact. Invalid clock configuration
+or advance leaves state and output unchanged. This numerical component guard
+does not substitute for machine/SAV binding or whole-controller validation.
+
+Synthetic tests cover 320 profile/rate combinations, 2,880 advances, 320
+bulk-versus-partition comparisons, sync/frame edges, pending-RESET copied-state
+continuation, command effects and invalid-state guards. Rates of one Hz and
+UINT32_MAX Hz are arithmetic stress fixtures, not supported machine claims.
+A composed test drives the 40-column cursor from elapsed device ticks through
+the display/DMA gates, row decoder and glyph mask: frame eight is hidden and
+frame nine has a full sixteen-dot mask, with the adjacent cell unchanged.
+C99 warnings-as-errors, ASan/UBSan and the four independent CTests pass.
+Single mutations are detected as `UPD3301_CLOCK_VSYNC_EDGE`,
+`UPD3301_CLOCK_R2_CONTINUITY`, `UPD3301_CLOCK_COMMAND_RESET` and
+`UPD3301_CLOCK_ADVANCE` (truncated multi-frame count).
+
+Horizontal scanout, WAIT/DMA arbitration, board clock-domain mapping, IRQ
+routing and actual machine SAV remain unimplemented. The emulator application
+still does not link the independent components; existing VA/M135/FDC timing
+and the retained application worker are unchanged. No new runtime gate or
+physical-timing qualification is claimed.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |

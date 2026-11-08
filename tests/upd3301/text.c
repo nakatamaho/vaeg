@@ -215,6 +215,27 @@ int main(void) {
 	CHECK(pc88_text_decode_row(&c, &dma, &memory, 0, 0xff, &out) == PC88_TEXT_OK &&
 	          out.carry == 0xe0 && out.cells[0].character == 'A' && !out.cells[0].flags,
 	      "PC88_TEXT_NO_ATTRIBUTES");
-	puts("pc88 text: 3200 pitched rows, 8192 cursor cases, 65536 raster cases PASS");
+	/* Compose device time, display/DMA gates, row decoding and the 40-column
+	 * cursor mask without a host frame callback or a VA cursor sprite. */
+	{
+		uint64_t crossed;
+		upd3301_reset(&c);
+		c.reset[4] = 32;
+		c.width80 = 0;
+		pc88_text_dma_write(&dma, 0x68, 0x84);
+		c.dma_started = (uint8_t)pc88_text_dma_enabled(&dma);
+		upd3301_command(&c, 0x20);
+		CHECK(upd3301_display_active(&c) && upd3301_advance(&c, 577600, &crossed) && crossed == 8 &&
+		          pc88_text_decode_row(&c, &dma, &memory, 0, 0xe0, &out) == PC88_TEXT_OK &&
+		          pc88_text_raster_bits(&out.cells[0], 0, 4, 8, out.cell_width) == 0,
+		      "PC88_TEXT_CLOCK_CURSOR");
+		CHECK(upd3301_advance(&c, 72200, &crossed) && crossed == 1 &&
+		          pc88_text_decode_row(&c, &dma, &memory, 0, 0xe0, &out) == PC88_TEXT_OK &&
+		          pc88_text_raster_bits(&out.cells[0], 0, 4, 8, out.cell_width) == 0xffff &&
+		          pc88_text_raster_bits(&out.cells[1], 0, 4, 8, out.cell_width) == 0,
+		      "PC88_TEXT_CLOCK_CURSOR");
+	}
+	puts(
+	    "pc88 text: 3200 pitched rows, 8192 cursor cases, 65536 raster cases, clock/cursor composition PASS");
 	return 0;
 }

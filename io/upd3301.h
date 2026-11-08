@@ -51,6 +51,10 @@ typedef struct {
 	uint8_t display_started, dma_started, reverse, width80;
 	uint8_t interrupt_mask, interrupt_request, last_attribute;
 	uint16_t frames;
+	/* Device-domain ticks scaled by 1,000,000, not host time or CPU batches. */
+	uint32_t clock_hz;
+	uint64_t clock_remaining;
+	uint8_t hires;
 } UPD3301;
 
 void upd3301_reset(UPD3301 *crtc);
@@ -58,8 +62,19 @@ void upd3301_command(UPD3301 *crtc, uint8_t value);
 void upd3301_parameter_write(UPD3301 *crtc, uint8_t value);
 uint8_t upd3301_parameter_read(UPD3301 *crtc);
 uint8_t upd3301_status(const UPD3301 *crtc);
-/* Boundary notification only, not a clock/timing implementation. */
+/* Explicit boundary notification resets the vertical countdown. Normal
+ * clocked operation uses upd3301_advance instead; never call both for a frame. */
 void upd3301_frame_boundary(UPD3301 *crtc);
+/* Source-model vertical timings only: no horizontal scanout or WAIT costs.
+ * Configure restarts the countdown and frame counter, retaining IRQ latches.
+ * Invalid configuration/advance is atomic (including the frames output). */
+int upd3301_clock_configure(UPD3301 *crtc, uint32_t clock_hz, int hires);
+/* Numeric clock guard only, not full controller/model/SAV validation. */
+int upd3301_clock_valid(const UPD3301 *crtc);
+unsigned upd3301_cycle_us(const UPD3301 *crtc);
+unsigned upd3301_sync_us(const UPD3301 *crtc);
+int upd3301_in_vsync(const UPD3301 *crtc);
+int upd3301_advance(UPD3301 *crtc, uint32_t ticks, uint64_t *frames);
 unsigned upd3301_columns(const UPD3301 *crtc);
 unsigned upd3301_rows(const UPD3301 *crtc);
 unsigned upd3301_scanlines(const UPD3301 *crtc);

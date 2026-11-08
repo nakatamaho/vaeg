@@ -116,9 +116,10 @@ identified command/state adaptation. It is not an as-is vendoring of the C++
 class. The source page identifies the source as PDS (Public Domain Software).
 No ROM, private execution result or private disassembly is incorporated.
 
-This first subset is compiled only into its standalone test. Timing tables,
-VRAM WAIT estimates, interrupt delivery, DMA bus traffic, pixel rendering and
-machine-SAV integration are not yet ported or connected. In particular, a
+At the initial command-state checkpoint, only the standalone test compiled
+this subset. Timing tables, VRAM WAIT estimates, interrupt delivery, DMA bus
+traffic, pixel rendering and machine-SAV integration were not yet ported or
+connected. In particular, a
 caller-provided frame boundary is not a clock implementation, and the source's
 shared status bit for two interrupt requests is preserved as a source-model
 contract, not declared verified hardware behavior.
@@ -156,6 +157,24 @@ A separately written glyph-row mask helper applies decoration/reverse and
 palette/graphics priority, display blanking and clocked scanout remain caller
 responsibilities. This is not a complete renderer or qualification of physical
 cursor shape/mode bits. VA CURDEF and VA text rendering are untouched.
+
+The vertical clock extension adapts `PC88Crtc.h::UpdateTimings`, `PassClock`,
+`ResetCounter` and `IsVSync`, without the source's VRAM WAIT estimator or
+horizontal scan counters. The source-model cycle/sync microseconds are
+16270/3755 (low/20), 16020/3505 (low/25), 17720/1611 (high/20) and
+18050/1933 (high/25). As in the source, a scanline count divisible by eight
+selects the 25-line timing table. These values are not hardware measurements.
+
+The C implementation keeps a 64-bit countdown in device ticks scaled by
+1,000,000, preserving fractional ticks at non-integer-MHz clock rates. Bulk
+advances use division rather than one loop per frame, retain the source's
+16-bit frame-counter wrap and latch the vertical request independently of
+display/DMA enable. R2 changes preserve the remaining countdown; START and
+RESET COUNTERS restart it; interrupt acknowledge does not reset it. The board
+adapter must supply an explicit device clock domain, not unscaled main-CPU
+batches, host frame callbacks or wall time. The numerical clock guard is not
+full SAV/model validation. All components still run only in standalone tests;
+no VA/M135/FDC timing, IRQ delivery or application scheduler is changed.
 
 ### Derivations
 
