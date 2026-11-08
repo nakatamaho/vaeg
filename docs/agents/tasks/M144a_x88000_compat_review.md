@@ -348,6 +348,31 @@ blinking cursor at exactly **16 dots at WIDTH 40,25 and 8 dots at WIDTH
 user-reported half-width 40-column cursor is resolved in the independent
 route.
 
+**WIDTH 40 root cause identified (system-call layer, not the device).**
+Controlled runs with the debug-script input (which verifiably reaches the
+N80 handoff: the boot-only probe holds `MCPUROLE=1`, `MEM88MODE=1`, the
+device in C_B character mode) show that typing `WIDTH 40,25` into the N80
+BASIC console transitions the machine out of the PC-8001 mode entirely
+(`MCPUROLE=0`, `MEM88MODE=0`, the device at its reset defaults, the display
+stopped); the later "40-column" screenshots are the re-booted N80, not the
+WIDTH-applied screen. The compat-side I/O logger captured **zero** OUT
+instructions from the N80 ROM during the sequence: the WIDTH statement does
+not reach the device (or the trap layer) as guest I/O at all — it goes
+through the ROM's system-call gate into the VA firmware's native WIDTH
+handler, whose implementation is the VA's N-mode width switch (the
+153h-mode re-entry). The "independent route" bypassed the direct I/O traps
+(50h/51h/64h/68h) but not the ROM's CALLN system-call layer.
+
+**Decision needed (maintainer)**: how the independent machines should
+resolve the WIDTH system call — (a) map the mkII system-call vectors to the
+mkII's own system ROM so the ROM's native WIDTH implementation runs, (b)
+intercept the WIDTH call for the independent models and implement the
+mkII's in-place CRTC switch on the independent device, or (c) accept the
+VA firmware's WIDTH behavior for now and qualify around it. This also
+gates the attribute-matrix re-qualification (the matrix program's WIDTH 40
+triggers the same transition, which is why its captured device state was
+stopped with an empty buffer).
+
 **Attribute matrix: open rendering defect.** The pixel validator now runs
 against the independent route's output and fails with `N80_ATTR_PIXELS`
 (26,952 mismatched pixels of 81,920; every pixel is still exactly black or
