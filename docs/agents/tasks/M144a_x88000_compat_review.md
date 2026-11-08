@@ -339,23 +339,44 @@ the independent device (offline decode of the captured buffer reproduces
 "NEC N-80 BASIC Ver 1.0" cell-for-cell), WIDTH 80,25 clears and re-formats
 the screen, and the boot cursor is the full 16-dot doubled cell.
 
-Open: **WIDTH 40,25 on the PC-8001mkII stops the display and does not
-restart it.** The device state after the command shows the ROM re-programmed
-the controller to the 80-column, 25-row, 16-scanline geometry with C_B
-(character mode) cleared, then issued STOP DISPLAY; the screen freezes on the
-pre-command content. The same command on the same ROM worked under the old
-firmware route. The ROM's WIDTH sequence evidently waits for something the
-independent device does not provide while display is stopped (a status bit,
-an interrupt-acknowledge detail or a DMA completion condition); the N80SR
-manual's 3301 status-bit documentation is the next research step. This is a
-genuine device-behavior gap, not a rendering defect; the display-restart
-behavior while STOPPED is unqualified.
+**WIDTH 40/80 cursor resolution**: re-running the width cases with the
+correct ROM set (an earlier diagnostic run had silently fallen back to the
+VA machine because the scratch ROM copy lacked the mkII BASIC ROM, which
+invalidated that diagnosis) shows the independent route rendering the
+blinking cursor at exactly **16 dots at WIDTH 40,25 and 8 dots at WIDTH
+80,25**, at column 0 with no other screen change between blink phases. The
+user-reported half-width 40-column cursor is resolved in the independent
+route.
 
-Also observed: the demo tape/disk playback cases in this pass did not reach
-playback (the input scripts did not answer the disk BASIC "How many files"
-prompt); they need re-running with corrected scripts. The boot/width
-screenshots remain private evidence under the publication policy. The full
-native suite passes 183/183 after the fixes.
+**Attribute matrix: open rendering defect.** The pixel validator now runs
+against the independent route's output and fails with `N80_ATTR_PIXELS`
+(26,952 mismatched pixels of 81,920; every pixel is still exactly black or
+white, so the failure is positional, not colour). The captured matrix frame
+shows the 'A' glyphs at roughly double the oracle's horizontal pitch with a
+diagonal drift, and the semigraphics groups landing at wrong offsets: a
+40-column position/widening bug in the independent raster path, to be
+debugged with the same offline device-state + buffer capture technique used
+for the boot banner (the decoder itself was verified cell-for-cell offline
+for the boot buffer).
+
+**Presentation path (architectural finding)**: in the M143 native pipeline,
+the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
+`drawframe` is set or a recording is active (`pccore.c` guard at
+drawscreenva entry); the presented frames between redraws come from the
+native presentation path. The headless screenshot frames force the redraw
+and therefore DO exercise the independent route (the cursor measurements
+above are the independent route's output), but a live presenter flow and the
+Windows build need explicit confirmation of which path presents the N80
+machines and that the independent route is on it.
+
+Also observed: the demo playback case did not reach playback (the input
+scripts did not answer the disk BASIC "How many files" prompt); it needs
+re-running with corrected scripts. A separate pre-existing observation: the
+`UPD9Z80` (compat CPU) SAV section saves an all-zero payload on the mkII
+run while the SR run saved a live state (`upd9002_core_compat_state_save`
+gates on the compat-mode flag); this predates the independent route and
+needs its own diagnosis. The boot/width screenshots remain private evidence
+under the publication policy. The full native suite passes 183/183.
 
 ### Migration and approved removal scope
 
