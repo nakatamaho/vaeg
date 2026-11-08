@@ -105,6 +105,38 @@ and view bounds; the required failures are `PC88_TEXT_DMA_MODE`,
 passing test fixture and changes only the intended implementation expression.
 The application still does not link either independent subset.
 
+### Independent text rows and full-cell cursor masks
+
+`vram/pc88_text.c/.h` now decodes bounded rows from the independent board
+memory view, using the pinned X88000 `RatchText` attribute-walk behavior.
+It supports transparent mono/color and no-attribute modes with 80 logical
+slots, packing those into 80 eight-pixel or 40 sixteen-pixel cells. The supplied
+carry is independent of TSP and output is committed only after all row reads
+succeed. Colour/decorations, secret/blink substitution, row carry and per-row
+line-decoration reset are explicit. Duplicate positions consume one pair per
+displayed cell. Forty-column mode skips alternate logical slots without
+consuming extra attribute pairs for those skipped slots.
+
+The cursor reverses its entire independent character cell; odd raw cursor
+positions do not match a 40-column cell, as in the source. Synthetic zero-glyph
+masks verify eight pixels at 80 columns and sixteen pixels at 40 columns, not
+a stretched VA sprite. This is **not yet a fix in the running application**.
+Font/PCG selection, vertical scaling, palette/graphics priority, display gating,
+clocked scanout and other cursor shapes still require integration/qualification.
+Nontransparent/reserved attribute modes and other logical widths fail explicitly;
+the source drawer's plain-text fallback is not presented as hardware support.
+
+Tests pass for 3,200 pitched rows (all 1-32 pair counts, both widths and
+transparent modes), 8,192 cursor cases, 65,536 glyph-row mask cases, start/end
+and duplicate attribute positions, carry/decorations, secret/blink boundaries,
+no-attribute mode and atomic failure. The row matrix includes 16-bit address
+wrap. C99 warnings-as-errors, ASan/UBSan and all three independent CTests pass.
+Single mutations detect fixed-20-pair pitch (`PC88_TEXT_PITCH`), half-width
+expanded cursor masks (`PC88_TEXT_CURSOR_WIDTH`), leaking line decoration
+between rows (`PC88_TEXT_LINE_DECORATION_RESET`) and partial output on a failed
+read (`PC88_TEXT_ATOMIC_SOURCE`). No application runtime or machine-SAV PASS
+is inferred; the emulator binary and existing VA implementation are unchanged.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |

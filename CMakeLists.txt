@@ -1085,6 +1085,13 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_pc88_text_dma COMMAND vaeg_pc88_text_dma_test)
     set_tests_properties(vaeg_pc88_text_dma PROPERTIES LABELS "romless;upd3301;video")
 
+    add_executable(vaeg_pc88_text_test tests/upd3301/text.c vram/pc88_text.c
+        io/pc88_text_dma.c io/upd3301.c)
+    target_include_directories(vaeg_pc88_text_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc88_text_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc88_text COMMAND vaeg_pc88_text_test)
+    set_tests_properties(vaeg_pc88_text PROPERTIES LABELS "romless;upd3301;video")
+
     add_executable(vaeg_pc8001_video_test tests/pc8001/video.c io/pc8001_video.c)
     target_include_directories(vaeg_pc8001_video_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(vaeg_pc8001_video_test PRIVATE c_std_99)

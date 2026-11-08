@@ -345,6 +345,7 @@ tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd3301/controller.c
+tests/upd3301/text.c
 tests/upd3301/text_dma.c
 tests/upd780/disasm.cpp
 tests/upd780/fdc_probe_runner.cpp
@@ -416,6 +417,8 @@ vram/makesprva.c
 vram/makesprva.h
 vram/maketextva.c
 vram/maketextva.h
+vram/pc88_text.c
+vram/pc88_text.h
 vram/scrndraw.h
 vram/scrndrawva.c
 vram/scrndrawva.h

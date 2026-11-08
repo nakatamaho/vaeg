@@ -137,8 +137,25 @@ before selecting main RAM or the fast-text F000h window. Read-only views use
 explicit buffer lengths and reject a missing/short selected source without
 falling back to a different memory bank. They do not invoke the CPU memory
 bus, apply CPU ROM/bank switching, or alias VA TVRAM/TSP state. These views are
-not DMA bus transactions. Both independent subsets remain test-only until
+not DMA bus transactions. These independent subsets remain test-only until
 board wiring, clocking, rendering and machine-state integration are qualified.
+
+`vram/pc88_text.c/.h` next derives row decoding from the pinned
+`X88ScreenDrawer.cpp::RatchText`: transparent mono/color attribute walks,
+start/end-position lists, one pair per displayed cell, packed carry between
+rows, and the source's full-cell reverse cursor. The C implementation uses a
+bounded row snapshot and returns packed 40-cell or 80-cell output instead of
+80 records with alternate placeholders. It does not perform the source's
+unused read beyond the final attribute pair. No-attribute mode has an 80-byte
+pitch; transparent modes have `80 + 2 * pairs` bytes.
+
+Nontransparent/reserved modes and non-80-logical-slot geometry are explicitly
+rejected rather than inheriting the source drawer's silent plain-text fallback.
+A separately written glyph-row mask helper applies decoration/reverse and
+8-to-16-pixel horizontal expansion. Vertical scaling, font/PCG selection,
+palette/graphics priority, display blanking and clocked scanout remain caller
+responsibilities. This is not a complete renderer or qualification of physical
+cursor shape/mode bits. VA CURDEF and VA text rendering are untouched.
 
 ### Derivations
 
