@@ -82,20 +82,6 @@ static BOOL n80_crtc_model(void) {
 	return memoryva_88_mode && memoryva_pc8001 && (memoryn80.model == 1 || memoryn80.model == 2);
 }
 
-void memoryva_n80_crtc_write(UINT port, UINT8 data) {
-	if (n80_crtc_model())
-		pc8001_crtc_geometry_write(&memoryn80_crtc, port, data);
-}
-
-UINT memoryva_n80_crtc_pairs(void) {
-	return n80_crtc_model() ? pc8001_crtc_geometry_pairs(&memoryn80_crtc) : 0;
-}
-
-UINT memoryva_n80_crtc_pitch(UINT fallback) {
-	const UINT pairs = memoryva_n80_crtc_pairs();
-	return pairs ? 80 + 2 * pairs : fallback;
-}
-
 BOOL memoryva_n80_crtc_state_valid(const PC8001_CRTC_GEOMETRY *state) {
 	if (state == NULL || !pc8001_crtc_geometry_valid(state->bytes, sizeof(state->bytes)))
 		return FALSE;
@@ -122,8 +108,8 @@ UINT8 memoryva_n80_boot_selection(void) {
 
 BOOL memoryva_n80_color(void) {
 	return memoryva_88_mode && memoryva_pc8001 && memoryn80.model &&
-	       ((memoryn80.model == 2 && (memoryn80.port33 & 0x80)) ?
-	        (memoryn80.port31 & 0x10) != 0 : (memoryn80.port31 & 0x14) != 0);
+	       ((memoryn80.model == 2 && (memoryn80.port33 & 0x80)) ? (memoryn80.port31 & 0x10) != 0
+	                                                            : (memoryn80.port31 & 0x14) != 0);
 }
 BYTE memoryn80_srrom[0xa000];
 BYTE memoryn80_fourth[0x2000];
@@ -508,7 +494,8 @@ static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
  */
 #define TVRAM_WORD_WAIT_VA 13
 #define TVRAM_WORD_WAIT_VA2 12
-#define TVRAM_WORD_WAIT ((pccore.model_va == PCMODEL_VA2) ? TVRAM_WORD_WAIT_VA2 : TVRAM_WORD_WAIT_VA)
+#define TVRAM_WORD_WAIT                                                                            \
+	((pccore.model_va == PCMODEL_VA2) ? TVRAM_WORD_WAIT_VA2 : TVRAM_WORD_WAIT_VA)
 
 static void MEMCALL tvramw_wt(UINT32 address, REG16 value) {
 	UINT32 offset;
@@ -831,19 +818,18 @@ static BOOL n80_memory_model(void) {
 }
 
 static BOOL n88_gvam(void) {
-	return n80_memory_model() ? (memoryn80.model == 2 && (memoryn80.port33 & 0x40)) != 0 :
-	                           memoryva_88_alu.gvam != 0;
+	return n80_memory_model() ? (memoryn80.model == 2 && (memoryn80.port33 & 0x40)) != 0
+	                          : memoryva_88_alu.gvam != 0;
 }
 
 static BOOL n88_gvram_aperture(UINT32 address) {
-	return n80_memory_model() ? (address >= 0x18000 && address < 0x1c000) :
-	                           (address >= 0x1c000 && address < 0x20000);
+	return n80_memory_model() ? (address >= 0x18000 && address < 0x1c000)
+	                          : (address >= 0x1c000 && address < 0x20000);
 }
 
 /* Independent-plane access, selected by ports 5Ch-5Fh. */
 static BOOL n88_gvram_selected(UINT32 address) {
-	return memoryva_88_mode && !n88_gvam() && memoryva_88_plane < 3 &&
-	       n88_gvram_aperture(address);
+	return memoryva_88_mode && !n88_gvam() && memoryva_88_plane < 3 && n88_gvram_aperture(address);
 }
 
 /*
@@ -919,8 +905,8 @@ static UINT32 n88_gvram_address(UINT32 address) {
  */
 static BOOL n88_tvram_selected(UINT32 address) {
 	/* N80 GVRAM is below C000h and cannot cover this upper text window. */
-	const BOOL gvram = !n80_memory_model() &&
-	    (n88_gvam() ? (memoryva_88_alu.port035 & 0x80) != 0 : (memoryva_88_plane < 3));
+	const BOOL gvram = !n80_memory_model() && (n88_gvam() ? (memoryva_88_alu.port035 & 0x80) != 0
+	                                                      : (memoryva_88_plane < 3));
 	return memoryva_88_mode && !gvram && !(sysportva.port032 & 0x10) && address >= 0x1f000 &&
 	       address < 0x20000;
 }
@@ -1046,9 +1032,9 @@ REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 	}
 	if (n88_rom_selected(address)) {
 		if (memoryva_pc8001 && memoryn80.model) {
-			const PC8001_ROM_ADDRESS bank = pc8001_rom_address(
-			    (UINT16)address, memoryn80.port31, memoryn80.port71,
-			    memoryn80.model == 2 && (memoryn80.port33 & 0x80));
+			const PC8001_ROM_ADDRESS bank =
+			    pc8001_rom_address((UINT16)address, memoryn80.port31, memoryn80.port71,
+			                       memoryn80.model == 2 && (memoryn80.port33 & 0x80));
 			switch (bank.source) {
 			case PC8001_ROM_N80:
 				return memoryva_n80[bank.offset];

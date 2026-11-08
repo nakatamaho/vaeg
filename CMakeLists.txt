@@ -343,6 +343,7 @@ set(VAEG_CORE_SOURCES
     io/upd3301.c
     io/pc88_text_dma.c
     io/pc88_display_state.c
+    vram/pc88_text.c
     io/pc8001_video.c
     io/serial.c
     io/upd4990.c

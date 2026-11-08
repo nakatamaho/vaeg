@@ -93,7 +93,8 @@ static int n80_guest_io_selftest(void) {
 					    (input ? ((port == 0x50 || port == 0x51) && family) ||
 					                 (n80 && (port == 0x30 || port == 0x5c || port == 0x71 ||
 					                          (role == 4 && port == 0x33)))
-					           : ((port == 0x50 || port == 0x51 || port == 0x64 || port == 0x68) &&
+					           : ((port == 0x30 || port == 0x50 || port == 0x51 || port == 0x64 ||
+					               port == 0x68) &&
 					              family) ||
 					                 (n80 && (port == 0x31 || port == 0x71 ||
 					                          (port >= 0x52 && port <= 0x5f) ||
@@ -185,7 +186,8 @@ static int n80_guest_io_selftest(void) {
 						      (port == 0x64 &&
 						       (n80_crtc_dma.address != 0xf3c1 || n80_crtc_dma.high_next != 1)) ||
 						      (port == 0x68 && (n80_crtc_dma.mode != 0xc1 ||
-						                        n80_crtc_dma.high_next || n80_crtc.dma_started)))))
+						                        n80_crtc_dma.high_next || n80_crtc.dma_started)) ||
+						      (port == 0x30 && n80_crtc.width80 != 1))))
 							result = FAILURE;
 					} else if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
 					           CPU_SP != 0xf4 || memoryn80.port31 != 0 ||

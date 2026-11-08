@@ -26,6 +26,8 @@ ToDo:
 #include "sysportva.h"
 #include "maketextva.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
+#include "pc88_text.h"
 
 //#define	USETABLE					// 返って遅くなってしまうようだ。
 //#define	USETABLE2					// 効果がなさそうだ。
@@ -92,11 +94,11 @@ typedef struct {
 	SYNATTRFN synattr; // アトリビュート合成ルーチン
 	TEXTVAFRAME frame; // 現在参照している分割画面へのポインタ
 	_TEXTVAFRAME _frame[TEXTVA_FRAMES];
-	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
-	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
-	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
+	UINT8 emu_color;     // uPD3301 emulation: colour carried to the next row
+	UINT8 emu_deco;      // uPD3301 emulation: decoration carried to the next row
+	UINT8 emu_active;    // emu_color/emu_deco are initialised for this emulation
 	UINT8 glyphs_hidden; // M134: VA text off in V1/V2 mode: cells keep their background
-	UINT8 m3_fg;      // attribute mode 3: colour and shape records in force (M117)
+	UINT8 m3_fg;         // attribute mode 3: colour and shape records in force (M117)
 	UINT8 m3_bg;
 	UINT8 m3_shape;
 } _TEXTVAWORK;
@@ -404,6 +406,63 @@ enum {
 	EMU3301_MAXPAIRS = 32
 };
 
+/* The independent uPD3301 route: geometry, attributes and cursor come from
+ * the device and its text-DMA view, not from the TSP EMUL state. The
+ * attribute carry restarts each frame at the source model's E0h. */
+static UINT8 independent_carry;
+static PC88_TEXT_ROW independent_row;
+static UINT8 independent_color[80];
+static UINT8 independent_deco[80];
+static BYTE independent_code[80];
+
+static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color, const UINT8 *deco,
+                                 UINT16 rwchar, BOOL independent);
+
+static BOOL independent_text_active(void) {
+	return n80_crtc_active() && upd3301_display_active(&n80_crtc) != 0;
+}
+
+static void makeline_independent(void) {
+	const unsigned rows = upd3301_rows(&n80_crtc);
+	unsigned chars;
+	unsigned i;
+	int status;
+
+	if (work.texty >= rows) {
+		ZeroMemory(linebitmap, sizeof(linebitmap));
+		ZeroMemory(linecolor, sizeof(linecolor));
+		ZeroMemory(linebasecolor, sizeof(linebasecolor));
+		return;
+	}
+	status = pc88_text_decode_row(&n80_crtc, &n80_crtc_dma, n80_crtc_memory(), work.texty,
+	                              independent_carry, &independent_row);
+	if (status != PC88_TEXT_OK) {
+		ZeroMemory(linebitmap, sizeof(linebitmap));
+		ZeroMemory(linecolor, sizeof(linecolor));
+		ZeroMemory(linebasecolor, sizeof(linebasecolor));
+		return;
+	}
+	independent_carry = independent_row.carry;
+	chars = independent_row.count;
+	for (i = 0; i < chars; i++) {
+		independent_code[i] = independent_row.cells[i].character;
+	}
+	for (i = 0; i < chars; i++) {
+		const unsigned flags = independent_row.cells[i].flags;
+		/* The decoder already substituted secret/blink-hidden characters,
+		 * applied the device reverse display and the full-cell cursor. */
+		independent_color[i] = (UINT8)((independent_row.cells[i].color & 7) |
+		                               ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
+		independent_deco[i] = (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
+		                              ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
+		                              ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+	}
+	/* The VA byte-mode route shows two hidden lead cells; keep the same
+	 * surface placement for the independent route. */
+	makeline_3301_raster(independent_code, chars, independent_color, independent_deco,
+	                     (UINT16)(chars + 2), TRUE);
+}
+
 static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	UINT8 color[EMU3301_MAXCHARS];
 	UINT8 deco[EMU3301_MAXCHARS];
@@ -422,20 +481,16 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	UINT8 curdeco;
 	BYTE *b;
 
-	/* The independent N80 transparent layout uses an 80-byte character
-	 * region, even in 40-column display. Native VA frame geometry is untouched. */
-	chars = memoryva_n80_crtc_pairs() ? 80 : tsp.emul_chars;
+	chars = tsp.emul_chars;
 	if (chars > EMU3301_MAXCHARS) {
 		chars = EMU3301_MAXCHARS;
 	}
-	npairs = memoryva_n80_crtc_pairs();
-	if (!npairs)
-		npairs = tsp.emul_attrs;
+	npairs = tsp.emul_attrs;
 	if (npairs > EMU3301_MAXPAIRS) {
 		npairs = EMU3301_MAXPAIRS;
 	}
 	row = v + 2;
-	pairs = row + (memoryva_n80_crtc_pairs() ? 80 : tsp.emul_chars);
+	pairs = row + tsp.emul_chars;
 	shifted = (npairs > 0) && (pairs[0] != 0);
 	if (shifted) {
 		n = -1;
@@ -489,9 +544,20 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	work.emu_color = curcolor;
 	work.emu_deco = curdeco;
 
-	if (rwchar > TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH) {
-		rwchar = TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH;
-	}
+	makeline_3301_raster(row, chars, color, deco, rwchar, FALSE);
+}
+
+/*
+ * Shared 3301 character-raster loop: glyphs, PCG, semigraphics, decorations
+ * and reverse for both the VA TSP route and the independent device route.
+ * The VA route folds the TSP global reverse into every cell; the independent
+ * route's cells already carry the device reverse and its full-cell cursor.
+ */
+static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color, const UINT8 *deco,
+                                 UINT16 rwchar, BOOL independent) {
+	UINT i;
+	BYTE *b;
+
 	ZeroMemory(linebitmap, sizeof(linebitmap));
 	ZeroMemory(linecolor, sizeof(linecolor));
 	ZeroMemory(linebasecolor, sizeof(linebasecolor));
@@ -515,8 +581,11 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		pcg = pcg88_glyph(code);
 		d = deco[c];
 		fg = (UINT8)(8 + (color[c] & 0x07));
-		bg = work.frame->bg;
-		if (((d & EMU3301_REVERSE) ? TRUE : FALSE) != textva_global_reverse()) {
+		/* The 8801-family text background is black; only the VA TSP route
+		 * has a per-frame background colour. */
+		bg = independent ? 0 : work.frame->bg;
+		if (independent ? ((d & EMU3301_REVERSE) != 0)
+		                : (((d & EMU3301_REVERSE) ? TRUE : FALSE) != textva_global_reverse())) {
 			const UINT8 t = fg;
 			fg = bg;
 			bg = t;
@@ -545,9 +614,9 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
-				const BOOL line = !work.glyphs_hidden &&
-				                  (((d & EMU3301_UPPER) && (r == 0)) ||
-				                   ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
+				const BOOL line =
+				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
+				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
 				/* PC-8801 style: each 8x8 row on two rasters. */
 				const UINT fontrow = ank8 ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
@@ -722,10 +791,18 @@ void maketextva_begin(BOOL *scrn200) {
 		/* uPD3301 attributes carry across frames while emulating. */
 		work.emu_active = 0;
 	}
-
 	work.lineheight = tsp.lineheight;
 	if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
 		work.lineheight = TEXTVA_LINEHEIGHTMAX;
+	}
+	if (independent_text_active()) {
+		/* The independent route carries its own attribute state and takes
+		 * the character height from the device, not from stale TSP state. */
+		independent_carry = 0xe0;
+		work.lineheight = (int)upd3301_scanlines(&n80_crtc);
+		if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
+			work.lineheight = TEXTVA_LINEHEIGHTMAX;
+		}
 	}
 
 	// 分割画面制御テーブルの情報をコピー
@@ -793,15 +870,35 @@ static const BYTE *maketextva_3301_row(UINT32 offset) {
  * bytes follow.
  */
 const BYTE *maketextva_3301_text(UINT row) {
+	static BYTE independent_text[80];
 	const BYTE *frame;
+	const unsigned rows = upd3301_rows(&n80_crtc);
+	unsigned i;
+	int status;
 	UINT32 local;
 
+	if (independent_text_active()) {
+		if (row >= rows || upd3301_columns(&n80_crtc) != 80) {
+			return NULL;
+		}
+		status = pc88_text_decode_row(&n80_crtc, &n80_crtc_dma, n80_crtc_memory(), row, 0xe0,
+		                              &independent_row);
+		if (status != PC88_TEXT_OK) {
+			return NULL;
+		}
+		for (i = 0; i < independent_row.count; i++) {
+			/* The GUI copy shows the stored character, not the blink phase. */
+			independent_text[i] = (independent_row.cells[i].character == 0)
+			                          ? 0x20
+			                          : independent_row.cells[i].character;
+		}
+		return independent_text;
+	}
 	if (!tsp.emul || (row >= tsp.emul_rows)) {
 		return NULL;
 	}
 	frame = textmem + ((tsp.texttable + tsp.emul_frame * 32) & (sizeof(textmem) - 32));
-	local = (LOADINTELWORD(frame + 0x10) >> 1) +
-	        memoryva_n80_crtc_pitch(LOADINTELWORD(frame + 0x08) >> 1) * row;
+	local = (LOADINTELWORD(frame + 0x10) >> 1) + (LOADINTELWORD(frame + 0x08) >> 1) * row;
 	if (!maketextva_bytelocal_usable(local)) {
 		return NULL;
 	}
@@ -828,8 +925,9 @@ void maketextva_raster(void) {
 	BOOL text_hidden = FALSE;
 	BOOL blank_text = FALSE;
 	const BOOL pc88family = memoryva_pc8801 || memoryva_pc8001;
+	const BOOL independent = independent_text_active();
 
-	if (!tsp.dspon) {
+	if (!independent && !tsp.dspon) {
 		maketextva_blankraster();
 		return;
 	}
@@ -876,11 +974,16 @@ void maketextva_raster(void) {
 		f = work.frame;
 
 		if (!work.linebitmap_ready) {
-			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
+			if (independent) {
+				makeline_independent();
+				if (!n80_crtc.width80) {
+					/* The port 30h switch doubles each of the 40 cells. */
+					widen40_3301((UINT16)(upd3301_columns(&n80_crtc) + 2));
+				}
+			} else if (tsp.emul && (work.frameno == tsp.emul_frame)) {
 				/* Byte mode: the table's address and pitch are twice the
 				 * local byte values; see maketextva_bytelocal(). */
-				const UINT32 local =
-				    (f->rsa >> 1) + memoryva_n80_crtc_pitch(f->vw >> 1) * work.texty;
+				const UINT32 local = (f->rsa >> 1) + (f->vw >> 1) * work.texty;
 
 				if ((work.texty < tsp.emul_rows) && maketextva_bytelocal_usable(local)) {
 					v = (BYTE *)maketextva_3301_row(maketextva_bytelocal(local));
@@ -941,8 +1044,7 @@ void maketextva_raster(void) {
 		}
 		/* Hidden text without the VA's kept backgrounds: the PC-8801 models,
 		 * and split screens outside the uPD3301 emulation. */
-		blank_text = text_hidden &&
-		             (pc88family || !tsp.emul || (work.frameno != tsp.emul_frame));
+		blank_text = text_hidden && (pc88family || !tsp.emul || (work.frameno != tsp.emul_frame));
 		if (blank_text) {
 			ZeroMemory(textraster, sizeof(textraster));
 		}

@@ -9,6 +9,7 @@
 #include "iocoreva.h"
 #include "memoryva.h"
 #include "cmt.h"
+#include "n80_crtc.h"
 
 #define SETLOWBYTE(x, y) (x) = ((x) & 0xff00 | (y))
 #define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
@@ -50,6 +51,7 @@ static void IOOUTCALL videova_o030(UINT port, REG8 dat) {
 	if (memoryva_88_mode) {
 		cmt_port30(dat);
 	}
+	n80_crtc_notify_port30(dat);
 }
 
 // Display-screen control register.

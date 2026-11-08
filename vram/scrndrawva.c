@@ -204,12 +204,12 @@ void scrndrawva_compose_raster(void) {
 		const BOOL mono = !memoryva_n80_color();
 		const BOOL graphics = layer_enabled[VAEG_VA_LAYER_GRAPHICS0] && !grph0_noraster;
 		const BOOL text = layer_enabled[VAEG_VA_LAYER_TEXT] && !(memoryn80_video[1] & 1);
-		const BOOL text_behind = memoryn80.model == 2 && (memoryn80.port33 & 0x80) &&
-		                         (memoryn80.port33 & 8);
+		const BOOL text_behind =
+		    memoryn80.model == 2 && (memoryn80.port33 & 0x80) && (memoryn80.port33 & 8);
 		const unsigned background = (memoryn80_video[0] >> 4) & 7;
-		const WORD backdrop = (WORD)(((background & 1) ? 0x001f : 0) |
-		                             ((background & 2) ? 0x03e0 : 0) |
-		                             ((background & 4) ? 0xfc00 : 0));
+		const WORD backdrop =
+		    (WORD)(((background & 1) ? 0x001f : 0) | ((background & 2) ? 0x03e0 : 0) |
+		           ((background & 4) ? 0xfc00 : 0));
 		for (x = 0; x < SURFACE_WIDTH; x++) {
 			const unsigned graphic = graphics ? grph0_raster[x] & 7 : 0;
 			const unsigned character = text ? textraster[x] & 15 : 0;
@@ -218,16 +218,11 @@ void scrndrawva_compose_raster(void) {
 				/* The post-reverse foreground combined with the already decorated
 				 * glyph implements OR-before-reverse. SECRET/blink hide glyphs,
 				 * not GVRAM. With text disabled, colour remains but reverse does not. */
-				const unsigned index = graphic ?
-				    (text ? textcolorraster[x] : textbasecolorraster[x]) : character;
+				const unsigned index =
+				    graphic ? (text ? textcolorraster[x] : textbasecolorraster[x]) : character;
 				color = index ? videova.palette[index & 15] : backdrop;
 			} else if (character && (!text_behind || !graphic))
 				color = videova.palette[character];
-			/* The firmware supplies the compatible cursor through CURDEF.
-			 * Preserve its blink raster without exposing native VA sprites. */
-			if (text && layer_enabled[VAEG_VA_LAYER_SPRITE] && cursorraster[x] &&
-			    (!text_behind || !graphic))
-				color = videova.palette[cursorraster[x] & 15];
 			work.bp[x] = (videova.grmode & 0x3000) == 0x3000 ? color : 0;
 		}
 		work.bp += SURFACE_WIDTH;

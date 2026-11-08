@@ -52,6 +52,8 @@ void n80_crtc_advance_machine(SINT32 machine_clocks);
 /* The compat CPU acknowledged the VRTC level: clear the device's vsync
  * request (X88000 DoInterrupt case 0x02). No effect on VA machines. */
 void n80_crtc_irq_acknowledge(void);
+/* Port 30h (VA video/cassette handler owns the port) bit 0: 80/40 switch. */
+void n80_crtc_notify_port30(BYTE dat);
 /* The independent machine's text-source view for rendering/state code. */
 const PC88_TEXT_MEMORY *n80_crtc_memory(void);
 /* Component codec gate; machine-identity guards stay with the SAV layer. */

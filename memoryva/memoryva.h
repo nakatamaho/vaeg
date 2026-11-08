@@ -42,8 +42,8 @@ extern _MEMORYVA memoryva;
 /* Independent of CPU execution mode: zero = V3, one = 88-mode request. */
 extern UINT8 memoryva_88_mode;
 extern UINT8 memoryva_88_port31;
-extern UINT8 memoryva_88_xerom;  /* 71h bit 0: one disables extension ROM. */
-extern UINT8 memoryva_88_plane;  /* 0..2 selected, 3 disables GVRAM access. */
+extern UINT8 memoryva_88_xerom; /* 71h bit 0: one disables extension ROM. */
+extern UINT8 memoryva_88_plane; /* 0..2 selected, 3 disables GVRAM access. */
 
 /*
  * V1/V2-mode GVRAM extended access (BNN manual and tekumani, ports 32h,
@@ -101,9 +101,6 @@ BOOL memoryva_n80_boot_valid(UINT8 mode);
 UINT8 memoryva_n80_boot_selection(void);
 extern UINT8 memoryn80_video[2]; /* raw ports 52h, 53h; separate optional SAV section */
 extern PC8001_CRTC_GEOMETRY memoryn80_crtc;
-void memoryva_n80_crtc_write(UINT port, UINT8 data);
-UINT memoryva_n80_crtc_pairs(void);
-UINT memoryva_n80_crtc_pitch(UINT fallback);
 BOOL memoryva_n80_crtc_state_valid(const PC8001_CRTC_GEOMETRY *state);
 BOOL memoryva_n80_color(void);
 extern BYTE memoryn80_srrom[0xa000];

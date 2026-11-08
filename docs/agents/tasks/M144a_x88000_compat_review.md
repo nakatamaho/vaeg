@@ -267,14 +267,44 @@ the trace-equivalence test passes with the extended baseline. The full
 native suite passes 183/183. IRQ delivery to guest firmware and rendering
 consumption remain unqualified at runtime.
 
+### Independent text rendering and CURDEF-bridge removal
+
+The independent machines now render text from the device: `maketextva` uses
+`pc88_text_decode_row` over the text-DMA view (`n80_crtc_memory`), with the
+device's row pitch, character height (`upd3301_scanlines`), 25/20 rows,
+start/end and duplicate attribute positions, packed carry and full-cell
+cursor. The shared 3301 raster loop (fonts, PCG, semigraphics, decorations)
+serves both routes; the VA route keeps the TSP global reverse and TSP blink,
+while the independent route's cells carry the device reverse and the device
+phases, and its background is black. The 40-column switch flows from port
+30h (bit 0, X88000 `WriteIO_30`): the VA video/cassette handler keeps port
+ownership and notifies the device (`n80_crtc_notify_port30`), and the
+widening doubles the 40 cells so the cursor covers the full 16-dot cell.
+The GUI text copy decodes the same way.
+
+Removed as approved: the TSP pitch/pairs geometry overrides
+(`memoryva_n80_crtc_pitch`/`_pairs` are gone with their accessors), the
+CURDEF cursor bridge (`cursorraster` and its N80 consumption), and the old
+`N80CRTC`-geometry renderer test (`test_n80_crtc_sav`), whose rendering and
+text-copy contracts no longer exist. `memoryn80_crtc` still loads for the
+legacy SAV section until the state step rebuilds the contracts. The new
+`test_n80_text_composition` programs the device through its own ports
+(RESET/START/DMA/cursor/frames) and asserts the full-cell cursor in both
+widths from main-RAM text through `maketextva`'s textraster.
+
+The full native suite passes 183/183. Runtime qualification on the private
+N80 disks (boot screen, WIDTH 40/80, attributes, demo playback) is the next
+step, together with the device SAV codec registration and the legacy
+`N80CRTC` state policy.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
 | --- | --- |
-| `maketextva.c` independent N80 pair/pitch overrides | Remove from VA text emulation when the independent DMA/text renderer is connected; keep VA native frame-table behavior. |
-| `makesprva.c/.h` exported `cursorraster` and its N80 consumption in `scrndrawva.c` | Replace with the independent 3301 cursor. Preserve VA CURDEF, sprite collision/budget and its established 40-column behavior. |
-| Non-VA glyph/attribute selection inside VA text emulation | Move the model-specific choices to independent text rendering; do not indiscriminately remove accepted VA glyph/PCG support. |
-| `memoryn80_crtc` geometry-only state and its rendering helpers | Replace with independent controller ownership; define explicit old-state handling rather than interpreting an old packet as a complete device. |
+| `maketextva.c` independent N80 pair/pitch overrides | **Done**: overrides and `memoryva_n80_crtc_pairs/pitch/write` removed; VA native frame-table behavior kept. |
+| `makesprva.c/.h` exported `cursorraster` and its N80 consumption in `scrndrawva.c` | **Done**: bridge removed; the independent 3301 cursor renders through the text decoder. VA CURDEF and sprite collision/budget untouched. |
+| Non-VA glyph/attribute selection inside VA text emulation | **Done**: the independent route decodes and renders separately; the VA route keeps its accepted glyph/PCG support. |
+| `memoryn80_crtc` geometry-only state and its rendering helpers | **Render use removed**; the legacy SAV section still loads for old states and its policy is rebuilt with the device codec in the state step. |
 | Firmware trapping of independent 50h/51h and width/DMA controls | **Done for 50h/51h/64h/68h** (`io/n80_crtc.c`): direct delivery with block I/O; VA trap retained for VA models. Width/other controls and rendering consumption remain. |
 
 Remaining work includes machine wiring of DMA/source addressing, the independent scan/clock path,

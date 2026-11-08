@@ -360,8 +360,8 @@ static int test_cli_options(void) {
 	    strcmp(options.headless_input_script, "input.txt") || (options.debug_script == NULL) ||
 	    strcmp(options.debug_script, "debug.txt") || (options.debug_output_dir == NULL) ||
 	    strcmp(options.debug_output_dir, "debug-output") || (options.screen_dump_path == NULL) ||
-	    strcmp(options.screen_dump_path, "rendered.bmp") ||
-	    (options.screenshot_count != 2) || (options.screenshot_requests[0].frame != 1800) ||
+	    strcmp(options.screen_dump_path, "rendered.bmp") || (options.screenshot_count != 2) ||
+	    (options.screenshot_requests[0].frame != 1800) ||
 	    strcmp(options.screenshot_requests[0].path, "frame.BMP") ||
 	    (options.screenshot_requests[0].format != VAEG_SCREENSHOT_FORMAT_BMP) ||
 	    (options.screenshot_requests[1].frame != 600) ||
@@ -407,17 +407,17 @@ static int test_cli_options(void) {
 	    (vaeg_cli_parse((int)NELEMENTS(config_conflict), config_conflict, &options, error,
 	                    sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(bkupmem_conflict), bkupmem_conflict, &options, error,
-                    sizeof(error)) == SUCCESS) ||
+	                    sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_frame), invalid_screenshot_frame,
-                    &options, error, sizeof(error)) == SUCCESS) ||
+	                    &options, error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(zero_screenshot_frame), zero_screenshot_frame, &options,
-                    error, sizeof(error)) == SUCCESS) ||
+	                    error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(negative_screenshot_frame), negative_screenshot_frame,
-                    &options, error, sizeof(error)) == SUCCESS) ||
+	                    &options, error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(empty_screenshot_path), empty_screenshot_path, &options,
-                    error, sizeof(error)) == SUCCESS) ||
+	                    error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_format), invalid_screenshot_format,
-                    &options, error, sizeof(error)) == SUCCESS)) {
+	                    &options, error, sizeof(error)) == SUCCESS)) {
 		return (fail("CLI options", "invalid input was accepted"));
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
@@ -431,7 +431,7 @@ typedef struct {
 } SCREENSHOT_TEST_CAPTURE;
 
 static BOOL test_screenshot_capture(UINT32 frame, const VAEG_SCREENSHOT_REQUEST *request,
-	                                   void *opaque) {
+                                    void *opaque) {
 	SCREENSHOT_TEST_CAPTURE *capture = (SCREENSHOT_TEST_CAPTURE *)opaque;
 
 	if ((capture == NULL) || (request == NULL) || (capture->count >= NELEMENTS(capture->frames))) {
@@ -445,10 +445,10 @@ static BOOL test_screenshot_capture(UINT32 frame, const VAEG_SCREENSHOT_REQUEST 
 
 static int test_screenshot_scheduler(void) {
 	VAEG_SCREENSHOT_REQUEST requests[] = {
-		{11, "eleven.png", VAEG_SCREENSHOT_FORMAT_PNG},
-		{3, "three.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
-		{7, "seven-a.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
-		{7, "seven-b.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {11, "eleven.png", VAEG_SCREENSHOT_FORMAT_PNG},
+	    {3, "three.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {7, "seven-a.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {7, "seven-b.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
 	};
 	VAEG_SCREENSHOT_SCHEDULER scheduler;
 	SCREENSHOT_TEST_CAPTURE capture;
@@ -458,27 +458,29 @@ static int test_screenshot_scheduler(void) {
 	ZeroMemory(&capture, sizeof(capture));
 	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
 	if (!vaeg_screenshot_scheduler_wants_frame(&scheduler, 3) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 3, test_screenshot_capture,
-	                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 3, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 7) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 7, test_screenshot_capture,
-                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 7, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 11) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 11, test_screenshot_capture,
-                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 11, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_done(&scheduler) || (capture.count != 4)) {
 		return (fail("screenshot scheduler", "frame ordering or completion failed"));
 	}
 	for (i = 0; i < capture.count; i++) {
-		if ((capture.frames[i] != ((i == 0) ? 3 : (i < 3) ? 7 : 11)) ||
+		if ((capture.frames[i] != ((i == 0)  ? 3
+		                           : (i < 3) ? 7
+		                                     : 11)) ||
 		    strcmp(capture.paths[i], expected_paths[i])) {
 			return (fail("screenshot scheduler", "capture order was not stable"));
 		}
 	}
 	ZeroMemory(&capture, sizeof(capture));
 	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
-	if (vaeg_screenshot_scheduler_after_frame(&scheduler, 4, test_screenshot_capture,
-	                                          &capture) == SUCCESS) {
+	if (vaeg_screenshot_scheduler_after_frame(&scheduler, 4, test_screenshot_capture, &capture) ==
+	    SUCCESS) {
 		return (fail("screenshot scheduler", "missed frame was accepted"));
 	}
 	fprintf(stderr, "selftest: screenshot scheduler ok\n");
@@ -1041,7 +1043,8 @@ static int test_va_ems_board(void) {
 			pattern ^= 0xff;
 		}
 		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), pattern);
-		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) || (*page_ptr != pattern)) {
+		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) ||
+		    (*page_ptr != pattern)) {
 			*page_ptr = saved_page;
 			result = fail("VA EMS", "13MB native page-frame test failed");
 			goto ems_test_cleanup;
@@ -1350,14 +1353,14 @@ typedef struct {
 } SELFTESTFDDPROFILE;
 
 static const SELFTESTFDDPROFILE selftest_fdd_profiles[] = {
-	{"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0, 2},
-	{"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0, 2},
-	{"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0, 2},
-	{"2d-320-double-step", 0x00, 40, 8, 512, 2, 0, 0, 0, 4},
-	{"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0, 2},
-	{"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0, 2},
-	{"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1, 2},
-	{"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1, 2}};
+    {"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0, 2},
+    {"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0, 2},
+    {"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0, 2},
+    {"2d-320-double-step", 0x00, 40, 8, 512, 2, 0, 0, 0, 4},
+    {"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0, 2},
+    {"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0, 2},
+    {"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1, 2},
+    {"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1, 2}};
 
 static SINT32 selftest_fdc_profile_interval(const SELFTESTFDDPROFILE *profile) {
 	const int data = profile->sector_size;
@@ -1434,13 +1437,13 @@ static BOOL selftest_fdd_create_profile(const char *path, const SELFTESTFDDPROFI
 }
 
 static BYTE selftest_fdc_mode(const SELFTESTFDDPROFILE *profile, UINT drive, UINT density_96) {
-	return (BYTE)((profile->dskctl_2hd ? (1 << drive) : 0) |
-	              (density_96 ? (4 << drive) : 0) | (profile->clock_8mhz ? 0x20 : 0));
+	return (BYTE)((profile->dskctl_2hd ? (1 << drive) : 0) | (density_96 ? (4 << drive) : 0) |
+	              (profile->clock_8mhz ? 0x20 : 0));
 }
 
 static BOOL selftest_fdd_profile_read(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
-	                                  UINT head, UINT sector, UINT physical_cylinder,
-	                                  UINT density_96, BOOL changed_data) {
+                                      UINT head, UINT sector, UINT physical_cylinder,
+                                      UINT density_96, BOOL changed_data) {
 	UINT index;
 	UINT track;
 	BYTE expected;
@@ -1461,22 +1464,20 @@ static BOOL selftest_fdd_profile_read(const SELFTESTFDDPROFILE *profile, UINT dr
 		return (FAILURE);
 	}
 	if (fdd_seek() != SUCCESS) {
-		fprintf(stderr,
-		        "selftest: %s seek failed: CHS=%u/%u/%u physical=%u TPI=%u\n", profile->name,
-		        cylinder, head, sector, physical_cylinder, density_96 ? 96 : 48);
+		fprintf(stderr, "selftest: %s seek failed: CHS=%u/%u/%u physical=%u TPI=%u\n",
+		        profile->name, cylinder, head, sector, physical_cylinder, density_96 ? 96 : 48);
 		return (FAILURE);
 	}
 	if ((fdd_read() != SUCCESS) || (fdc.bufcnt != profile->sector_size)) {
-		fprintf(stderr,
-		        "selftest: %s read failed: spt=%u CHS=%u/%u/%u physical=%u TPI=%u\n",
+		fprintf(stderr, "selftest: %s read failed: spt=%u CHS=%u/%u/%u physical=%u TPI=%u\n",
 		        profile->name, profile->sectors, cylinder, head, sector, physical_cylinder,
 		        density_96 ? 96 : 48);
 		return (FAILURE);
 	}
 	track = cylinder * 2 + head;
 	for (index = 0; index < profile->sector_size; index++) {
-		expected = changed_data ? (BYTE)(0x69 ^ (index * 7)) :
-		                          selftest_fdd_profile_byte(track, sector, index);
+		expected = changed_data ? (BYTE)(0x69 ^ (index * 7))
+		                        : selftest_fdd_profile_byte(track, sector, index);
 		if (fdc.buf[index] != expected) {
 			return (FAILURE);
 		}
@@ -1518,18 +1519,18 @@ static BOOL selftest_fdc_take_result(BYTE expected_st0, BYTE expected_st1) {
 	for (index = 0; index < NELEMENTS(result); index++) {
 		result[index] = fdc_dataread();
 	}
-	if (result[1] != expected_st1 || (!expected_st1 &&
-	                                  ((result[0] != expected_st0) || (result[2] != 0)))) {
-		fprintf(stderr, "selftest: unexpected FDC result ST0=%02x ST1=%02x ST2=%02x expected ST1=%02x\n",
+	if (result[1] != expected_st1 ||
+	    (!expected_st1 && ((result[0] != expected_st0) || (result[2] != 0)))) {
+		fprintf(stderr,
+		        "selftest: unexpected FDC result ST0=%02x ST1=%02x ST2=%02x expected ST1=%02x\n",
 		        result[0], result[1], result[2], expected_st1);
 		return (FAILURE);
 	}
 	return (SUCCESS);
 }
 
-
 static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, UINT head,
-	                            UINT physical_cylinder, UINT density_96) {
+                                 UINT physical_cylinder, UINT density_96) {
 	const BYTE specify[] = {0x03, 0xdf, 0x01};
 	BYTE seek[] = {0x0f, (BYTE)((head << 2) | drive), (BYTE)physical_cylinder};
 
@@ -1551,8 +1552,8 @@ static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, 
 }
 
 static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
-	                                 UINT head, UINT sector, UINT physical_cylinder,
-	                                 UINT density_96, BYTE *data, BYTE expected_st1) {
+                                      UINT head, UINT sector, UINT physical_cylinder,
+                                      UINT density_96, BYTE *data, BYTE expected_st1) {
 	BYTE command[9];
 	UINT index;
 
@@ -1574,8 +1575,7 @@ static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT dr
 	}
 	if (selftest_fdc_wait_rqm() != SUCCESS) {
 		fprintf(stderr, "selftest: %s FDC read request wait failed status=%02x event=%d count=%d\n",
-		        profile->name,
-		        fdc.status, fdc.event, fdc.bufcnt);
+		        profile->name, fdc.status, fdc.event, fdc.bufcnt);
 		return (FAILURE);
 	}
 	if (fdc.bufcnt == 7) {
@@ -1609,10 +1609,9 @@ static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT dr
 	return (SUCCESS);
 }
 
-static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive,
-	                                  UINT cylinder, UINT head, UINT sector,
-	                                  UINT physical_cylinder, UINT density_96, const BYTE *data,
-	                                  BYTE expected_st1) {
+static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
+                                       UINT head, UINT sector, UINT physical_cylinder,
+                                       UINT density_96, const BYTE *data, BYTE expected_st1) {
 	BYTE command[9];
 	UINT index;
 
@@ -1887,15 +1886,14 @@ static int test_fdd_d88_production_path(void) {
 				goto fdd_2d_cleanup;
 			}
 		}
-		if ((selftest_fdc_read_profile(profile, 0, profile->cylinders - 1, 1,
-		                               profile->sectors, profile->cylinders - 1, density,
-		                               fdc_data, 0) != SUCCESS)) {
+		if ((selftest_fdc_read_profile(profile, 0, profile->cylinders - 1, 1, profile->sectors,
+		                               profile->cylinders - 1, density, fdc_data, 0) != SUCCESS)) {
 			result = fail("fdd-media", "FDC READ DATA rejected the last track/head/sector");
 			goto fdd_2d_cleanup;
 		}
 		for (index = 0; index < profile->sector_size; index++) {
-			if (fdc_data[index] != selftest_fdd_profile_byte(profile->cylinders * 2 - 1,
-			                                               profile->sectors, index)) {
+			if (fdc_data[index] !=
+			    selftest_fdd_profile_byte(profile->cylinders * 2 - 1, profile->sectors, index)) {
 				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
 				goto fdd_2d_cleanup;
 			}
@@ -1929,11 +1927,11 @@ static int test_fdd_d88_production_path(void) {
 		for (index = 0; index < profile->sector_size; index++) {
 			data[index] = (BYTE)(0x69 ^ (index * 7));
 		}
-		if ((selftest_fdc_write_profile(profile, 0, write_cylinder, 0, write_sector,
-		                                write_cylinder, density, data, 0) != SUCCESS) ||
+		if ((selftest_fdc_write_profile(profile, 0, write_cylinder, 0, write_sector, write_cylinder,
+		                                density, data, 0) != SUCCESS) ||
 		    (fdd_eject(0) != SUCCESS) || (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
-		    (selftest_fdc_read_profile(profile, 0, write_cylinder, 0, write_sector,
-		                               write_cylinder, density, fdc_data, 0) != SUCCESS)) {
+		    (selftest_fdc_read_profile(profile, 0, write_cylinder, 0, write_sector, write_cylinder,
+		                               density, fdc_data, 0) != SUCCESS)) {
 			result = fail("fdd-media", "FDC write did not persist after eject and reopen");
 			goto fdd_2d_cleanup;
 		}
@@ -1974,17 +1972,18 @@ static int test_fdd_d88_production_path(void) {
 			    (selftest_fdd_create_profile(path_b, profile_b) != SUCCESS) ||
 			    (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
 			    (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS)) {
-				result = fail("fdd-drives", "different-format synthetic media could not be mounted");
+				result =
+				    fail("fdd-drives", "different-format synthetic media could not be mounted");
 				goto fdd_2d_cleanup;
 			}
-			if ((selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			if ((selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0)) ||
 			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
 			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
-			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0))) {
 				result = fail("fdd-drives", "alternating FDC selection mixed independent media");
 				goto fdd_2d_cleanup;
@@ -1992,14 +1991,14 @@ static int test_fdd_d88_production_path(void) {
 			for (index = 0; index < profile_b->sector_size; index++) {
 				data[index] = (BYTE)(0x36 + index * 9);
 			}
-			if ((selftest_fdc_write_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                                cylinder_b, profile_b->density_96, data, 0) != SUCCESS) ||
+			if ((selftest_fdc_write_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                                profile_b->density_96, data, 0) != SUCCESS) ||
 			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
 			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
 			    (fdd_eject(1) != SUCCESS) || (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS) ||
-			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS)) {
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS)) {
 				result = fail("fdd-drives", "FDD2 writeback or non-target preservation failed");
 				goto fdd_2d_cleanup;
 			}
@@ -2219,8 +2218,7 @@ static int test_profile_ini(void) {
 	if ((read_bms.enabled != TRUE) || (read_bms.port != BMSIO_PORT_COMPAT) ||
 	    (read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms) ||
 	    (read_ems_megabytes != ems_megabytes) || (read_main_ram != main_ram) ||
-	    (read_ndp8087_enable != ndp8087_enable) ||
-	    (read_ndp8087_clock_hz != ndp8087_clock_hz)) {
+	    (read_ndp8087_enable != ndp8087_enable) || (read_ndp8087_clock_hz != ndp8087_clock_hz)) {
 		return (fail("ini", "BMS/EMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
@@ -2292,7 +2290,8 @@ static int test_persistence_controls(void) {
 		}
 	}
 	/* Exercise the production table and loader, not a parallel preference table. */
-	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT; source++) {
+	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT;
+	     source++) {
 		np2oscfg.recording_source = source;
 		initsave();
 		np2oscfg.recording_source = (BYTE)(1 - source);
@@ -2615,8 +2614,9 @@ static int test_va_cursor_sprite_enable(void) {
 	makesprva_blankraster();
 	makesprva_begin();
 	makesprva_raster();
-	result = sprraster[0] == 4 ? SUCCESS
-	                         : fail("VA cursor sprite", "CURDEF.CE did not enable the selected sprite");
+	result = sprraster[0] == 4
+	             ? SUCCESS
+	             : fail("VA cursor sprite", "CURDEF.CE did not enable the selected sprite");
 
 	if (result == SUCCESS) {
 		tsp.ce = FALSE;
@@ -2624,7 +2624,8 @@ static int test_va_cursor_sprite_enable(void) {
 		makesprva_begin();
 		makesprva_raster();
 		if (sprraster[0] != 0) {
-			result = fail("VA cursor sprite", "disabled cursor remained visible with descriptor SW clear");
+			result = fail("VA cursor sprite",
+			              "disabled cursor remained visible with descriptor SW clear");
 		}
 	}
 
@@ -2636,7 +2637,8 @@ static int test_va_cursor_sprite_enable(void) {
 		makesprva_begin();
 		makesprva_raster();
 		if (sprraster[0] != 4) {
-			result = fail("VA cursor sprite", "cursor blink state changed an ordinary enabled sprite");
+			result =
+			    fail("VA cursor sprite", "cursor blink state changed an ordinary enabled sprite");
 		}
 	}
 
@@ -3187,14 +3189,17 @@ static int test_screenshot_rotation(void) {
 }
 
 static int test_viewport(void) {
-	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
-	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (splash_selftest() != SUCCESS)
+		return fail("splash", "fit geometry failed");
+	if (scrnmng_display_capture_selftest() != SUCCESS)
+		return FAILURE;
 	if (test_screenshot_rotation() != SUCCESS)
 		return FAILURE;
 	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
 		return (fail("state thumbnail", "PNG did not read back"));
 	}
-	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
+	if (gui_overlay_selftest() != SUCCESS)
+		return FAILURE;
 	if (gui_file_filter_selftest() != SUCCESS)
 		return FAILURE;
 	{
@@ -3235,7 +3240,8 @@ static int test_viewport(void) {
 		selftest_remove_dir(root);
 		fprintf(stderr, "selftest: quick save ok\n");
 	}
-	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
+	if (scrnmng_window_rebind_selftest() != SUCCESS)
+		return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
 	BOOL masked;
@@ -3588,34 +3594,27 @@ static BOOL test_8087_documented_slot(unsigned opcode, unsigned modrm) {
 
 	/* Keep this membership predicate independent from upd8087_classify().
 	 * It is the production-CPU coverage side of the frozen P01 inventory. */
-#define MEMORY_FORM(op, r) \
-	(((op) == 0xd8) || ((op) == 0xda) || ((op) == 0xdc) || \
-	 ((op) == 0xde) || \
-	 (((op) == 0xd9) && ((r) != 1)) || \
-	 (((op) == 0xdb) && ((r) == 0 || (r) == 2 || (r) == 3 || \
-	                    (r) == 5 || (r) == 7)) || \
-	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3 || \
-	                    (r) == 4 || (r) == 6 || (r) == 7)) || \
+#define MEMORY_FORM(op, r)                                                                         \
+	(((op) == 0xd8) || ((op) == 0xda) || ((op) == 0xdc) || ((op) == 0xde) ||                       \
+	 (((op) == 0xd9) && ((r) != 1)) ||                                                             \
+	 (((op) == 0xdb) && ((r) == 0 || (r) == 2 || (r) == 3 || (r) == 5 || (r) == 7)) ||             \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3 || (r) == 4 || (r) == 6 || (r) == 7)) || \
 	 (((op) == 0xdf) && ((r) != 1)))
-#define REGISTER_FORM(op, r, m) \
-	(((op) == 0xd8) || \
-	 (((op) == 0xd9) && \
-	  (((r) == 0) || ((r) == 1) || ((r) == 2 && (m) == 0) || \
-	   ((r) == 4 && ((m) == 0 || (m) == 1 || (m) == 4 || (m) == 5)) || \
-	   ((r) == 5 && (m) <= 6) || \
-	   ((r) == 6 && ((m) <= 4 || (m) >= 6)) || \
-	   ((r) == 7 && ((m) == 0 || (m) == 1 || (m) == 2 || \
-	                (m) == 4 || (m) == 5)))) || \
-	 (((op) == 0xdb) && (r) == 4 && (m) <= 3) || \
-	 (((op) == 0xdc) && ((r) == 0 || (r) == 1 || (r) == 4 || \
-	                    (r) == 5 || (r) == 6 || (r) == 7)) || \
-	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3)) || \
-	 (((op) == 0xde) && ((r) == 0 || (r) == 1 || (r) == 4 || \
-	                    (r) == 5 || (r) == 6 || (r) == 7 || \
-	                    ((r) == 3 && (m) == 1))))
+#define REGISTER_FORM(op, r, m)                                                                    \
+	(((op) == 0xd8) ||                                                                             \
+	 (((op) == 0xd9) &&                                                                            \
+	  (((r) == 0) || ((r) == 1) || ((r) == 2 && (m) == 0) ||                                       \
+	   ((r) == 4 && ((m) == 0 || (m) == 1 || (m) == 4 || (m) == 5)) || ((r) == 5 && (m) <= 6) ||   \
+	   ((r) == 6 && ((m) <= 4 || (m) >= 6)) ||                                                     \
+	   ((r) == 7 && ((m) == 0 || (m) == 1 || (m) == 2 || (m) == 4 || (m) == 5)))) ||               \
+	 (((op) == 0xdb) && (r) == 4 && (m) <= 3) ||                                                   \
+	 (((op) == 0xdc) && ((r) == 0 || (r) == 1 || (r) == 4 || (r) == 5 || (r) == 6 || (r) == 7)) || \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3)) ||                                     \
+	 (((op) == 0xde) && ((r) == 0 || (r) == 1 || (r) == 4 || (r) == 5 || (r) == 6 || (r) == 7 ||   \
+	                     ((r) == 3 && (m) == 1))))
 
-	BOOL result = ((modrm & 0xc0) != 0xc0) ?
-		MEMORY_FORM(opcode, reg) : REGISTER_FORM(opcode, reg, rm);
+	BOOL result =
+	    ((modrm & 0xc0) != 0xc0) ? MEMORY_FORM(opcode, reg) : REGISTER_FORM(opcode, reg, rm);
 
 #undef MEMORY_FORM
 #undef REGISTER_FORM
@@ -3645,12 +3644,10 @@ static int test_8087_production_inventory(void) {
 			}
 			memory_form = (modrm & 0xc0) != 0xc0;
 			rewrites_saved_opcode =
-				(memory_form && (((opcode == 0xd9) || (opcode == 0xdd)) &&
-				                 (((modrm >> 3) & 7) == 4))) ||
-				(memory_form && (opcode == 0xdd) &&
-				                 (((modrm >> 3) & 7) == 6)) ||
-				((opcode == 0xdb) && (((modrm >> 3) & 7) == 4) &&
-				 (((modrm & 7) == 3)));
+			    (memory_form &&
+			     (((opcode == 0xd9) || (opcode == 0xdd)) && (((modrm >> 3) & 7) == 4))) ||
+			    (memory_form && (opcode == 0xdd) && (((modrm >> 3) & 7) == 6)) ||
+			    ((opcode == 0xdb) && (((modrm >> 3) & 7) == 4) && (((modrm & 7) == 3)));
 			if (!memory_form) {
 				expected_ip = 2U;
 			} else {
@@ -3702,10 +3699,8 @@ static int test_8087_production_inventory(void) {
 				fprintf(stderr,
 				        "selftest: 8087 production inventory failed at %02x:%02x "
 				        "ip=%u/%u op=%03x/%03x ndp=%u cpuclk=%u rem=%d\n",
-				        opcode, modrm, (unsigned)CPU_IP, expected_ip,
-				        (unsigned)upd8087.opcode,
-				        (unsigned)(((opcode & 7U) << 8) | modrm),
-				        (unsigned)upd8087.last_ndp_cycles,
+				        opcode, modrm, (unsigned)CPU_IP, expected_ip, (unsigned)upd8087.opcode,
+				        (unsigned)(((opcode & 7U) << 8) | modrm), (unsigned)upd8087.last_ndp_cycles,
 				        (unsigned)pccore_cpu_clock(), (int)CPU_REMCLOCK);
 				upd9002_test_flat_memory_set(FALSE);
 				np2cfg = saved_config;
@@ -3728,10 +3723,10 @@ static int test_8087_production_inventory(void) {
 
 static int test_8087_production_path(void) {
 	static const BYTE program[] = {
-		0xd9, 0xe8,             /* FLD1 */
-		0xd9, 0xe8,             /* FLD1 */
-		0xd8, 0xc1,             /* FADD ST(0),ST(1) */
-		0x2e, 0xd9, 0x1e, 0x00, 0x03 /* CS:FSTP dword ptr [0300h] */
+	    0xd9, 0xe8,                  /* FLD1 */
+	    0xd9, 0xe8,                  /* FLD1 */
+	    0xd8, 0xc1,                  /* FADD ST(0),ST(1) */
+	    0x2e, 0xd9, 0x1e, 0x00, 0x03 /* CS:FSTP dword ptr [0300h] */
 	};
 	NP2CFG saved_config;
 	UINT32 ticks_at_5mhz;
@@ -3770,8 +3765,8 @@ static int test_8087_production_path(void) {
 	for (index = 0; index < program_steps; index++) {
 		upd9002_core_step();
 	}
-	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
-	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) || (mem[0x302] != 0x00) ||
+	    (mem[0x303] != 0x40)) {
 		upd9002_test_flat_memory_set(FALSE);
 		np2cfg = saved_config;
 		pccore_reset();
@@ -3791,8 +3786,8 @@ static int test_8087_production_path(void) {
 	for (index = 0; index < program_steps; index++) {
 		upd9002_core_step();
 	}
-	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
-	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) || (mem[0x302] != 0x00) ||
+	    (mem[0x303] != 0x40)) {
 		upd9002_test_flat_memory_set(FALSE);
 		np2cfg = saved_config;
 		pccore_reset();
@@ -3831,14 +3826,13 @@ static int test_8087_cpu_decode_seams(void) {
 	/* A disabled FPO1 register form must consume only its native bytes and
 	 * must not call the NDP or read an operand bus. */
 	mem[0] = 0xd9;
-	mem[1] = 0xe8;             /* FLD1 */
+	mem[1] = 0xe8; /* FLD1 */
 	upd9002_test_flat_memory_reset_counters();
 	upd8087.last_ndp_cycles = 0;
 	upd8087.service_remainder = 0;
 	upd9002_core_step();
 	if (upd8087.enabled || (CPU_IP != 2) || upd8087.last_ndp_cycles != 0 ||
-	    upd8087.service_remainder != 0 ||
-	    upd9002_test_flat_memory_read_count() != 2 ||
+	    upd8087.service_remainder != 0 || upd9002_test_flat_memory_read_count() != 2 ||
 	    upd9002_test_flat_memory_write_count() != 0) {
 		result = fail("8087 CPU decode seams", "disabled native FPO1 form reached the NDP");
 		goto cleanup;
@@ -3847,16 +3841,16 @@ static int test_8087_cpu_decode_seams(void) {
 	/* A disabled memory form still advances through the native EA decoder, but
 	 * it must not perform the NDP first-word latch or a device-bus read. */
 	mem[0] = 0xd9;
-	mem[1] = 0x06;             /* direct disp16 ModR/M */
+	mem[1] = 0x06; /* direct disp16 ModR/M */
 	mem[2] = 0x34;
 	mem[3] = 0x12;
 	upd9002_test_flat_memory_reset_counters();
 	CPU_IP = 0;
 	upd9002_core_step();
 	if ((CPU_IP != 4) || upd8087.last_ndp_cycles != 0 ||
-	    upd9002_test_flat_memory_read_count() != 4 ||
-	    upd9002_test_flat_memory_write_count() != 0) {
-		result = fail("8087 CPU decode seams", "disabled memory FPO1 form performed an NDP bus access");
+	    upd9002_test_flat_memory_read_count() != 4 || upd9002_test_flat_memory_write_count() != 0) {
+		result =
+		    fail("8087 CPU decode seams", "disabled memory FPO1 form performed an NDP bus access");
 		goto cleanup;
 	}
 
@@ -3869,9 +3863,9 @@ static int test_8087_cpu_decode_seams(void) {
 	CPU_REMCLOCK = 1000;
 	upd9002_core_step();
 	if ((CPU_IP != 1) || (CPU_REMCLOCK <= 0) || upd8087_wait_blocked(&upd8087) ||
-	    upd9002_test_flat_memory_read_count() != 1 ||
-	    upd9002_test_flat_memory_write_count() != 0) {
-		result = fail("8087 CPU decode seams", "absent-device POLL/FWAIT waited on a nonexistent BUSY source");
+	    upd9002_test_flat_memory_read_count() != 1 || upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams",
+		              "absent-device POLL/FWAIT waited on a nonexistent BUSY source");
 		goto cleanup;
 	}
 
@@ -3892,8 +3886,7 @@ static int test_8087_cpu_decode_seams(void) {
 	upd8087.service_remainder = 0;
 	upd9002_core_step();
 	if (!upd8087.enabled || (CPU_IP != 1) || upd8087.last_ndp_cycles != 0 ||
-	    upd8087.service_remainder != 0 ||
-	    upd9002_test_flat_memory_read_count() != 1 ||
+	    upd8087.service_remainder != 0 || upd9002_test_flat_memory_read_count() != 1 ||
 	    upd9002_test_flat_memory_write_count() != 0) {
 		result = fail("8087 CPU decode seams", "native FPO2 byte reached the 8087");
 		goto cleanup;
@@ -3902,22 +3895,23 @@ static int test_8087_cpu_decode_seams(void) {
 	/* An unmasked ESC exception keeps the CPU-side POLL/FWAIT seam blocked
 	 * until the guest recovery path clears the 8087 condition. */
 	mem[0] = 0xd9;
-	mem[1] = 0xc0;             /* FLD ST(0): unmasked empty-stack fault */
+	mem[1] = 0xc0; /* FLD ST(0): unmasked empty-stack fault */
 	CPU_IP = 0;
 	CPU_REMCLOCK = 1000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	upd9002_core_step();
 	if (!upd8087_interrupt_pending(&upd8087) || !upd8087_wait_blocked(&upd8087)) {
-		result = fail("8087 CPU decode seams", "unmasked ESC exception did not arm the POLL/FWAIT seam");
+		result =
+		    fail("8087 CPU decode seams", "unmasked ESC exception did not arm the POLL/FWAIT seam");
 		goto cleanup;
 	}
-	mem[0] = 0x9b;             /* POLL/FWAIT */
+	mem[0] = 0x9b; /* POLL/FWAIT */
 	CPU_IP = 0;
 	CPU_REMCLOCK = 1000;
 	upd9002_core_step();
 	if ((CPU_IP != 1) || (CPU_REMCLOCK != 0)) {
-		result = fail("8087 CPU decode seams", "POLL/FWAIT did not yield to the pending 8087 condition");
+		result =
+		    fail("8087 CPU decode seams", "POLL/FWAIT did not yield to the pending 8087 condition");
 		goto cleanup;
 	}
 
@@ -3931,8 +3925,7 @@ static int test_8087_cpu_decode_seams(void) {
 	saved_cycles = upd8087.last_ndp_cycles;
 	upd9002_test_flat_memory_reset_counters();
 	upd9002_core_step();
-	if (upd8087.service_remainder != saved_remainder ||
-	    upd8087.last_ndp_cycles != saved_cycles) {
+	if (upd8087.service_remainder != saved_remainder || upd8087.last_ndp_cycles != saved_cycles) {
 		result = fail("8087 CPU decode seams", "8080-compatible path reached the 8087");
 		goto cleanup;
 	}
@@ -3948,13 +3941,13 @@ cleanup:
 
 static int test_8087_guest_interrupt_route(void) {
 	static const BYTE handler[] = {
-		0xdb, 0xe2,             /* FCLEX */
-		0xb0, 0x20,             /* MOV AL,20H */
-		0xba, 0x84, 0x01,       /* MOV DX,0184H */
-		0xee,                   /* OUT DX,AL: slave EOI */
-		0xba, 0x88, 0x01,       /* MOV DX,0188H */
-		0xee,                   /* OUT DX,AL: master EOI */
-		0xcf                    /* IRET */
+	    0xdb, 0xe2,       /* FCLEX */
+	    0xb0, 0x20,       /* MOV AL,20H */
+	    0xba, 0x84, 0x01, /* MOV DX,0184H */
+	    0xee,             /* OUT DX,AL: slave EOI */
+	    0xba, 0x88, 0x01, /* MOV DX,0188H */
+	    0xee,             /* OUT DX,AL: master EOI */
+	    0xcf              /* IRET */
 	};
 	NP2CFG saved_config;
 	unsigned index;
@@ -3976,17 +3969,17 @@ static int test_8087_guest_interrupt_route(void) {
 	SS_BASE = 0;
 	CPU_FLAG |= I_FLAG;
 	CPU_REMCLOCK = 1000000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
-	if (((pic.pi[1].icw[1] & 0xf8) != 0x10) ||
-	    ((pic.pi[1].icw[2] & 7) != 7) || !(pic.pi[0].icw[2] & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "default VA PIC cascade is not PIC2 IR6 through PIC1 IR7");
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	if (((pic.pi[1].icw[1] & 0xf8) != 0x10) || ((pic.pi[1].icw[2] & 7) != 7) ||
+	    !(pic.pi[0].icw[2] & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route",
+		              "default VA PIC cascade is not PIC2 IR6 through PIC1 IR7");
 		goto cleanup;
 	}
 
 	/* The default VA PIC maps slave IRQ6 (IRQ14) to vector 16H. */
 	mem[0x0100] = 0xd9;
-	mem[0x0101] = 0xc0;       /* FLD ST(0): masked-off empty-stack fault */
+	mem[0x0101] = 0xc0; /* FLD ST(0): masked-off empty-stack fault */
 	mem[0x0016 * 4 + 0] = 0x00;
 	mem[0x0016 * 4 + 1] = 0x02;
 	mem[0x0016 * 4 + 2] = 0x00;
@@ -3996,8 +3989,7 @@ static int test_8087_guest_interrupt_route(void) {
 	iocore_out8(0x0186, (REG8)(pic.pi[1].imr & (REG8)~PIC_NDP));
 
 	upd9002_core_step();
-	if (!upd8087_interrupt_pending(&upd8087) || !PICEXISTINTR ||
-	    !(pic.pi[1].irr & PIC_NDP)) {
+	if (!upd8087_interrupt_pending(&upd8087) || !PICEXISTINTR || !(pic.pi[1].irr & PIC_NDP)) {
 		result = fail("8087 guest interrupt route", "NDP exception did not reach the PIC");
 		goto cleanup;
 	}
@@ -4007,7 +3999,8 @@ static int test_8087_guest_interrupt_route(void) {
 	CPU_FLAG &= (UINT16)~I_FLAG;
 	pic_irq();
 	if ((CPU_IP != 0x0102) || !PICEXISTINTR) {
-		result = fail("8087 guest interrupt route", "CPU interrupt masking did not defer the NDP request");
+		result = fail("8087 guest interrupt route",
+		              "CPU interrupt masking did not defer the NDP request");
 		goto cleanup;
 	}
 	CPU_FLAG |= I_FLAG;
@@ -4016,9 +4009,9 @@ static int test_8087_guest_interrupt_route(void) {
 		result = fail("8087 guest interrupt route", "PIC did not vector the guest handler");
 		goto cleanup;
 	}
-	if ((pic.pi[1].irr & PIC_NDP) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "PIC acknowledgement did not separate IRR from ISR");
+	if ((pic.pi[1].irr & PIC_NDP) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+		result =
+		    fail("8087 guest interrupt route", "PIC acknowledgement did not separate IRR from ISR");
 		goto cleanup;
 	}
 	/* FCLEX releases the source input, but it is not a PIC EOI. */
@@ -4033,18 +4026,18 @@ static int test_8087_guest_interrupt_route(void) {
 	for (index = 1; index < 7; index++) {
 		upd9002_core_step();
 	}
-	if ((CPU_CS != 0) || (CPU_IP != 0x0102) || !CPU_isEI ||
-	    PICEXISTINTR || upd8087_interrupt_pending(&upd8087) ||
-	    upd8087_wait_blocked(&upd8087)) {
-		result = fail("8087 guest interrupt route", "guest handler did not clear and return from NDP IRQ");
+	if ((CPU_CS != 0) || (CPU_IP != 0x0102) || !CPU_isEI || PICEXISTINTR ||
+	    upd8087_interrupt_pending(&upd8087) || upd8087_wait_blocked(&upd8087)) {
+		result = fail("8087 guest interrupt route",
+		              "guest handler did not clear and return from NDP IRQ");
 		goto cleanup;
 	}
 	/* Edge-triggered PIC2 must not redeliver the held-high source after EOI. */
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0102) || (pic.pi[1].isr & PIC_NDP) ||
-	    (pic.pi[0].isr & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "held NDP INT generated a spurious edge redelivery");
+	if ((CPU_IP != 0x0102) || (pic.pi[1].isr & PIC_NDP) || (pic.pi[0].isr & PIC_SLAVE)) {
+		result =
+		    fail("8087 guest interrupt route", "held NDP INT generated a spurious edge redelivery");
 		goto cleanup;
 	}
 	fprintf(stderr, "selftest: 8087 guest interrupt route ok\n");
@@ -4080,12 +4073,11 @@ static int test_8087_pic_input_modes(void) {
 	SS_BASE = 0;
 	CPU_FLAG |= I_FLAG;
 	CPU_REMCLOCK = 1000000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	mem[0x0100] = 0xd9;
-	mem[0x0101] = 0xc0;         /* FLD ST(0): unmasked empty-stack fault */
+	mem[0x0101] = 0xc0; /* FLD ST(0): unmasked empty-stack fault */
 	mem[0x16 * 4 + 0] = 0x00;
-	mem[0x16 * 4 + 1] = 0x04;  /* Distinguish an illegal direct 16H route. */
+	mem[0x16 * 4 + 1] = 0x04; /* Distinguish an illegal direct 16H route. */
 	mem[0x46 * 4 + 0] = 0x00;
 	mem[0x46 * 4 + 1] = 0x03;
 	CPU_IP = 0x0100;
@@ -4101,15 +4093,14 @@ static int test_8087_pic_input_modes(void) {
 	}
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0300) ||
-	    !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "PIC2 base 40H did not produce vector 46H");
 		goto cleanup;
 	}
 	/* Source clear is separate from PIC acknowledgement, even after the
 	 * vector has been rebased. */
 	mem[0x0300] = 0xdb;
-	mem[0x0301] = 0xe2;         /* FCLEX */
+	mem[0x0301] = 0xe2; /* FCLEX */
 	upd9002_core_step();
 	if (upd8087_interrupt_pending(&upd8087) || !(pic.pi[1].isr & PIC_NDP) ||
 	    !(pic.pi[0].isr & PIC_SLAVE)) {
@@ -4136,7 +4127,7 @@ static int test_8087_pic_input_modes(void) {
 	mem[0x16 * 4 + 0] = 0x00;
 	mem[0x16 * 4 + 1] = 0x03;
 	CPU_IP = 0x0300;
-	iocore_out8(0x0184, 0x19);   /* ICW1 + LTIM + ICW4 */
+	iocore_out8(0x0184, 0x19); /* ICW1 + LTIM + ICW4 */
 	iocore_out8(0x0186, 0x10);
 	iocore_out8(0x0186, 0x07);
 	iocore_out8(0x0186, 0x09);
@@ -4144,8 +4135,7 @@ static int test_8087_pic_input_modes(void) {
 	pic_setirq_level(IRQ_NDP, TRUE);
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "level-triggered NDP input did not vector");
 		goto cleanup;
 	}
@@ -4158,8 +4148,7 @@ static int test_8087_pic_input_modes(void) {
 	CPU_FLAG |= I_FLAG;
 	CPU_IP = 0x0300;
 	pic_irq();
-	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "held level was not redelivered by PIC arbitration");
 		goto cleanup;
 	}
@@ -5067,11 +5056,10 @@ static int test_statsave(void) {
 	}
 	upd8087.service_remainder = 1234567;
 	upd8087.status |= UPD8087_STATUS_IE;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	if (!upd8087.busy || !upd8087.pending_interrupt ||
 	    (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
-	    (UPD8087_STATUS_IR | UPD8087_STATUS_B)) {
+	        (UPD8087_STATUS_IR | UPD8087_STATUS_B)) {
 		pccore_term();
 		soundmng_deinitialize();
 		return fail("8087 statsave", "pending exception was not armed");
@@ -5220,13 +5208,12 @@ static int test_statsave(void) {
 		np2cfg.upd8087_clock_hz = 5000000U;
 		ret = statsave_load(path1);
 	}
-	if ((ret == STATFLAG_SUCCESS) &&
-	    (!upd8087.enabled || upd8087.clock_hz != expected_8087_clock ||
-	     upd8087.service_remainder != expected_8087_remainder ||
-	     !upd8087.busy || !upd8087.pending_interrupt ||
-	     (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
-	     (UPD8087_STATUS_IR | UPD8087_STATUS_B) ||
-	     !(pic.pi[1].irr & PIC_NDP))) {
+	if ((ret == STATFLAG_SUCCESS) && (!upd8087.enabled || upd8087.clock_hz != expected_8087_clock ||
+	                                  upd8087.service_remainder != expected_8087_remainder ||
+	                                  !upd8087.busy || !upd8087.pending_interrupt ||
+	                                  (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
+	                                      (UPD8087_STATUS_IR | UPD8087_STATUS_B) ||
+	                                  !(pic.pi[1].irr & PIC_NDP))) {
 		ret = STATFLAG_FAILURE;
 	}
 #if defined(VAEG_UPD9002_M46_TESTING)
@@ -5561,7 +5548,7 @@ static int test_pic8214_mode(void) {
 					for (level = 0; level < 3; level++) {
 						const UINT bit = 1U << (2 - level);
 						if ((next & ~old & bit) && pending != level) {
-							expected &= (REG8)~(1U << level);
+							expected &= (REG8) ~(1U << level);
 						}
 					}
 					iocore_out8(0xe6, (REG8)next);
@@ -7165,7 +7152,8 @@ static int test_tsp_text_hide(void) {
 		BYTE colour; /* normal cell colour for monochrome graphics */
 		const char *problem;
 	} cases[] = {
-	    {1, FALSE, 0x09, 15, 15, "the VA did not keep backgrounds and colours with monochrome graphics"},
+	    {1, FALSE, 0x09, 15, 15,
+	     "the VA did not keep backgrounds and colours with monochrome graphics"},
 	    {1, FALSE, 0x19, 15, 15, "the VA lost backgrounds with colour graphics"},
 	    {1, TRUE, 0x09, 0, 15, "a PC-8801 model kept backgrounds or lost colours"},
 	    {1, TRUE, 0x19, 0, 0, "a PC-8801 model kept hidden text with colour graphics"},
@@ -8554,180 +8542,6 @@ static const char *test_n80_startup_sav(const char *path, const char *oldpath) {
 	return problem;
 }
 
-/* Synthetic controller API -> actual SAV -> renderer/text-copy contract.
- * Guest instruction interception is deliberately a separate integration check. */
-static const char *test_n80_crtc_sav(const char *path, const char *oldpath) {
-	static const UINT counts[] = {20, 2, 5, 10};
-	static const BYTE prefix[] = {78, 19, 9, 39};
-	const char *problem = NULL;
-	char error[256];
-	UINT c, received, i, row;
-	BOOL scrn200;
-	for (c = 0; c < NELEMENTS(counts) && !problem; c++) {
-		for (received = 0; received <= 5 && !problem; received++) {
-			PC8001_CRTC_GEOMETRY expected;
-			pc8001_crtc_geometry_reset(&memoryn80_crtc);
-			memoryva_n80_crtc_write(0x51, 0);
-			for (i = 0; i < 4; i++)
-				memoryva_n80_crtc_write(0x50, prefix[i]);
-			memoryva_n80_crtc_write(0x50, 0x53); /* old applied 20-pair layout */
-			memoryva_n80_crtc_write(0x51, 0);
-			for (i = 0; i < received; i++)
-				memoryva_n80_crtc_write(0x50, i == 4 ? 0x40 + counts[c] - 1 : prefix[i]);
-			expected = memoryn80_crtc;
-			if (statsave_save(path) != STATFLAG_SUCCESS ||
-			    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
-				problem = "M144A_N80_CRTC_SAV_FIXTURE";
-				break;
-			}
-			pc8001_crtc_geometry_reset(&memoryn80_crtc);
-			if (statsave_load(path) != STATFLAG_SUCCESS ||
-			    memcmp(&expected, &memoryn80_crtc, sizeof(expected))) {
-				problem = "M144A_N80_CRTC_SAV_CONTINUATION";
-				break;
-			}
-			for (i = received; i < 5; i++)
-				memoryva_n80_crtc_write(0x50, i == 4 ? 0x40 + counts[c] - 1 : prefix[i]);
-			if (memoryva_n80_crtc_pairs() != counts[c] ||
-			    memoryva_n80_crtc_pitch(120) != 80 + 2 * counts[c]) {
-				problem = "M144A_N80_CRTC_SAV_GEOMETRY";
-				break;
-			}
-			/* The native frame deliberately retains its old 120-byte stride.
-			 * Only the independent N80 geometry may select the new row stride. */
-			ZeroMemory(textmem, sizeof(textmem));
-			STOREINTELWORD(textmem + 0x08, 240);
-			STOREINTELWORD(textmem + 0x0a, 0xf002);
-			STOREINTELWORD(textmem + 0x10, 0x65fc);
-			STOREINTELWORD(textmem + 0x14, 400);
-			STOREINTELWORD(textmem + 0x16, 656);
-			STOREINTELWORD(textmem + 0x1a, 1008);
-			for (row = 0; row < 3; row++) {
-				BYTE *p = textmem + 0x6300 + row * (80 + 2 * counts[c]);
-				FillMemory(p, 80, 'A' + row);
-				for (i = 0; i < counts[c]; i++) {
-					p[80 + 2 * i] = i < 2 ? 0 : 80;
-					/* First pair selects a row-specific colour; the second
-					 * selects overline, independent of any ROM glyph. */
-					p[81 + 2 * i] = i ? 0x10 : row == 0 ? 0xe8 : row == 1 ? 0x48 : 0x88;
-				}
-			}
-			tsp.dspon = TRUE;
-			tsp.texttable = 0;
-			tsp.lineheight = 16;
-			tsp.hlinepos = 0;
-			tsp.emul_frame = 0;
-			tsp.emul_chars = 80;
-			tsp.emul_attrs = 20;
-			tsp.emul_rows = 3;
-			tsp.textmg = FALSE;
-			tsp.syncparam[1] &= (UINT8)~0x08;
-			videova.txtmode = 0;
-			videova.txtmode8 = 1;
-			tsp.emul = 0;
-			tsp_dirty = TRUE;
-			maketextva_begin(&scrn200);
-			tsp.emul = 1;
-			tsp_dirty = TRUE;
-			maketextva_begin(&scrn200);
-			maketextva_raster();
-			for (row = 0; row < 3 && !problem; row++) {
-				const BYTE *p = maketextva_3301_text(row);
-				if (!p || p[0] != 'A' + row || p[79] != 'A' + row)
-					problem = "M144A_N80_CRTC_TEXT_PITCH";
-			}
-			for (row = 0; row < 3 && !problem; row++) {
-				const BYTE color = row == 0 ? 15 : row == 1 ? 10 : 12;
-				if (row) {
-					for (i = 0; i < 16; i++)
-						maketextva_raster();
-				}
-				/* The second pair takes effect at column one. */
-				for (i = 8; i < 640 && !problem; i++)
-					if (textraster[i] != color)
-						problem = "M144A_N80_CRTC_RASTER_PITCH";
-			}
-			if (!problem && LOADINTELWORD(textmem + 8) != 240)
-				problem = "M144A_N80_CRTC_NATIVE_TABLE";
-		}
-	}
-	/* A malformed live-packet byte is rejected before any state mutation. */
-	if (!problem) {
-		BYTE *data = NULL;
-		UINT size = 0, pos;
-		const UINT16 ip = CPU_IP;
-		const PC8001_CRTC_GEOMETRY before = memoryn80_crtc;
-		if (read_whole_file(path, &data, &size) != SUCCESS)
-			problem = "M144A_N80_CRTC_SAV_FIXTURE";
-		if (!problem) {
-			for (pos = 0x30; pos + 16 <= size;
-			     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
-				if (!memcmp(data + pos, "N80CRTC\0\0\0", 10))
-					break;
-			if (pos + 24 > size || LOADINTELDWORD(data + pos + 12) != 8)
-				problem = "M144A_N80_CRTC_SAV_FIXTURE";
-			else {
-				static const UINT offsets[] = {16, 16, 18, 19, 23, 10, 12};
-				static const BYTE values[] = {2, 0, 6, 1, 1, 2, 7};
-				for (i = 0; i < NELEMENTS(offsets) && !problem; i++) {
-					const UINT at = pos + offsets[i];
-					const BYTE original = data[at];
-					data[at] = values[i];
-					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
-					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
-					    (error[strcspn(error, "\r\n")] = 0,
-					     strcmp(error, "M144A_N80_CRTC_STATE")) ||
-					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != ip ||
-					    memcmp(&before, &memoryn80_crtc, sizeof(before)))
-						problem = "M144A_N80_CRTC_SAV_GUARD";
-					data[at] = original;
-				}
-			}
-		}
-		if (data)
-			_MFREE(data);
-	}
-	if (!problem) {
-		const BOOL old_pc8001 = memoryva_pc8001, old_mode = memoryva_88_mode;
-		const UINT8 old_model = memoryn80.model;
-		const PC8001_CRTC_GEOMETRY before = memoryn80_crtc;
-		UINT guard;
-		for (guard = 0; guard < 4 && !problem; guard++) {
-			memoryva_pc8001 = guard == 0 ? FALSE : old_pc8001;
-			memoryva_88_mode = guard == 3 ? FALSE : old_mode;
-			memoryn80.model = guard == 1 ? 0 : guard == 2 ? 3 : old_model;
-			memoryva_n80_crtc_write(0x51, 0);
-			memoryva_n80_crtc_write(0x50, 1);
-			if (memoryva_n80_crtc_pairs() || memoryva_n80_crtc_pitch(120) != 120 ||
-			    memcmp(&before, &memoryn80_crtc, sizeof(before)))
-				problem = "M144A_N80_CRTC_MODEL_GUARD";
-			/* Isolate content/profile validation: the full SAV machine-binding
-			 * validator rejects a changed CPU model before this section. */
-			if (!problem && !!memoryva_n80_crtc_state_valid(&before) != (guard == 3))
-				problem = "M144A_N80_CRTC_STATE_MODEL";
-		}
-		memoryva_pc8001 = old_pc8001;
-		memoryva_88_mode = old_mode;
-		memoryn80.model = old_model;
-	}
-	if (!problem && (strip_statsave_section(path, oldpath, "N80CRTC") != SUCCESS ||
-	                 statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80_crtc.bytes[0] ||
-	                 memoryn80_crtc.bytes[2] != 5 || memoryva_n80_crtc_pitch(120) != 120))
-		problem = "M144A_N80_CRTC_LEGACY";
-	memoryva_n80_crtc_write(0x51, 0);
-	memoryva_n80_crtc_write(0x50, 78);
-	romva_initialize();
-	memoryva_88_mode = TRUE;
-	if (!problem && (memoryn80_crtc.bytes[0] || memoryn80_crtc.bytes[2] != 5))
-		problem = "M144A_N80_CRTC_RESET";
-	if (!problem)
-		fprintf(
-		    stderr,
-		    "selftest: N80 CRTC model %u: 24 SAV continuations, raster/text pitch, seven malformed states, guards and legacy reset ok\n",
-		    memoryn80.model);
-	return problem;
-}
-
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -8776,9 +8590,8 @@ static int test_pc8001_banks(void) {
 			memoryva_88_mode = TRUE;
 			iocore_out8(0x31, 1);
 			if (memoryn80.model != model || sizeof(memoryn80) != 4 ||
-			    memoryn80_sr_present != (model == 2) ||
-			    memoryva_n80[0] != 0x61 || memoryn80_fourth[0] != 0x72 ||
-			    upd9002_memoryread_va(0x10000) != 0x61 ||
+			    memoryn80_sr_present != (model == 2) || memoryva_n80[0] != 0x61 ||
+			    memoryn80_fourth[0] != 0x72 || upd9002_memoryread_va(0x10000) != 0x61 ||
 			    upd9002_memoryread_va(0x16000) != memoryva_n80[0x6000])
 				problem = "applied model or BASIC bank";
 			iocore_out8(0x31, 0);
@@ -8864,9 +8677,8 @@ static int test_pc8001_banks(void) {
 				/* Final compositor pixels, not a reimplementation of the decoder. */
 				iocore_out8(0x31, 0x1c);
 				iocore_out8(0x53, 0);
-				if (model == 1 && (videova.palette[0] != 0x001f ||
-				                  videova.palette[1] != 0x03ff || videova.palette[2] != 0xfc1f ||
-				                  videova.palette[3] != 0))
+				if (model == 1 && (videova.palette[0] != 0x001f || videova.palette[1] != 0x03ff ||
+				                   videova.palette[2] != 0xfc1f || videova.palette[3] != 0))
 					problem = "M144A_N80_VIDEO_AUTO_PALETTE";
 				ZeroMemory(grphmem, sizeof(grphmem));
 				grphmem[0x4000] = model == 1 ? 0xc0 : 0x80;
@@ -8917,8 +8729,9 @@ static int test_pc8001_banks(void) {
 					iocore_out8(0x33, 0x90);
 					if (cgromva_n80sr_font_present != (model == 2) ||
 					    (model == 2 && cgromva_n80sr_font[0] != 0xb2) ||
-					    cgromva_ank8((BYTE)code) != (model == 2 ? cgromva_n80sr_font + 0x800 + code * 8 :
-					                                                 fontmem + 0x41000 + code * 8))
+					    cgromva_ank8((BYTE)code) != (model == 2
+					                                     ? cgromva_n80sr_font + 0x800 + code * 8
+					                                     : fontmem + 0x41000 + code * 8))
 						problem = "M144A_N80_SR_FONT_BANK";
 					iocore_out8(0x33, 0x80);
 					if (cgromva_ank8((BYTE)code) != fontmem + 0x41000 + code * 8)
@@ -9131,7 +8944,8 @@ static int test_pc8001_banks(void) {
 				pcg88_reset();
 				if (statsave_load(path) != STATFLAG_SUCCESS ||
 				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
-				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 || videova.palette[1] != 0x001f ||
+				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 ||
+				    videova.palette[1] != 0x001f ||
 				    upd9002_memoryread_va(0x16000) != (model == 2 ? memoryn80_srrom[0x8000] : 0x72))
 					problem = "bank SAV restore and mapped byte";
 				if (!problem && model == 2 &&
@@ -9211,7 +9025,8 @@ static int test_pc8001_banks(void) {
 					data[offset] = mutation == 0 ? 3 : mutation == 1 ? (BYTE)(3 - model) : 2;
 					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
 					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
-					    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_N80_BANK_STATE")) ||
+					    (error[strcspn(error, "\r\n")] = 0,
+					     strcmp(error, "M144A_N80_BANK_STATE")) ||
 					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != saved_ip ||
 					    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)))
 						problem = "bank invalid state guard or live state mutation";
@@ -9300,17 +9115,16 @@ static int test_pc8001_banks(void) {
 				if (data)
 					_MFREE(data);
 			}
-			if (!problem && (strip_statsave_section(path, oldpath, "N80BANK") != SUCCESS ||
-			                 statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80.model != model ||
-			                 memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
+			if (!problem &&
+			    (strip_statsave_section(path, oldpath, "N80BANK") != SUCCESS ||
+			     statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80.model != model ||
+			     memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
 				problem = "legacy state bank baseline";
 		}
 		if (!problem)
 			problem = test_pcg_phase_sav(path, oldpath);
 		if (!problem)
 			problem = test_n80_startup_sav(path, oldpath);
-		if (!problem)
-			problem = test_n80_crtc_sav(path, oldpath);
 		if (!problem && model == 2) {
 			/* Test-only fixture removal: the complete-font precedence was
 			 * exercised above with a deliberately different fallback input. */
@@ -9701,81 +9515,93 @@ static int test_n80_pcg_composition(void) {
 	return SUCCESS;
 }
 
-/* Independently generated cursor and ordinary-sprite patterns: only the
- * CURDEF cursor may enter the independent N80 composition path. */
-static int test_n80_cursor_composition(void) {
+/* The independent uPD3301 text route: device-driven decode through the
+ * text-DMA view, with a full-cell cursor and no CURDEF bridge. The guest
+ * programs the device through its own ports. */
+static int test_n80_text_composition(void) {
 	const BOOL saved_88 = memoryva_88_mode, saved_machine = memoryva_pc8001;
 	const _MEMORYN80 saved_bank = memoryn80;
+	const WORD saved_grmode = videova.grmode;
+	const UINT8 saved_txtmode = videova.txtmode;
+	const UINT8 saved_pcg = np2cfg.pcg_enable;
 	const char *problem = NULL;
-	UINT test;
+	UINT width;
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
 	memoryva_88_mode = memoryva_pc8001 = TRUE;
+	memoryn80.model = 1;
+	/* Earlier tests leave PCG/VA text state behind; the independent route
+	 * must not observe it. */
+	np2cfg.pcg_enable = 0;
+	videova.txtmode = 0;
 	ZeroMemory(textmem, sizeof(textmem));
-	/* Cursor 31 at x=0; an unrelated native sprite at x=8. */
-	STOREINTELWORD(textmem + 0x4000, 0x0200);
-	STOREINTELWORD(textmem + 0x4002, 8);
-	STOREINTELWORD(textmem + 0x4004, 0x1080);
-	STOREINTELWORD(textmem + 0x40fc, 0x1000);
-	textmem[0x2000] = 0x40;
-	textmem[0x2100] = 0x60;
 	videova.grmode = 0x3000;
 	videova.palette[15] = 0x1111;
-	videova.palette[4] = 0x03e0;
-	videova.palette[6] = 0x03ff;
 	grph0_noraster = TRUE;
 	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_TEXT, TRUE);
 	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
-	for (test = 0; test < 256 && !problem; test++) {
-		const UINT flags = test >> 2;
-		const BOOL hidden = (flags & 8) != 0;
-		BOOL shown;
-		WORD expected;
-		ZeroMemory(&tsp, sizeof(tsp));
-		tsp.sprtable = 0x4000;
-		tsp.curn = 31;
-		tsp.ce = (flags & 1) != 0;
-		tsp.dspon = (flags & 2) != 0;
-		tsp.spron = (flags & 4) != 0;
-		tsp.be = (flags & 16) != 0;
-		tsp.blinkcnt2 = (test & 2) ? 8 : 0;
-		memoryn80.model = (test & 1) + 1;
-		memoryn80.port31 = (flags & 32) ? 0x10 : 0;
-		memoryn80.port33 = 0x80;
-		memoryn80_video[0] = 0;
-		memoryn80_video[1] = hidden;
-		FillMemory(textraster, SURFACE_WIDTH, 15);
+	for (width = 0; width < 2 && !problem; width++) {
+		/* Program the device as the guest would: RESET with 80 columns, 25
+		 * rows, 16 scanlines, nontransparent mode, START, DMA on, cursor to
+		 * cell 0 of row 0, and nine frames so the cursor phase is on. */
+		UINT i;
+		iocore_out8(0x51, 0x00);
+		iocore_out8(0x50, 0x4e);
+		iocore_out8(0x50, 0x18);
+		iocore_out8(0x50, 0x0f);
+		iocore_out8(0x50, 0x13);
+		iocore_out8(0x50, 0x34);
+		iocore_out8(0x51, 0x20);
+		iocore_out8(0x68, 0x84);
+		iocore_out8(0x30, width ? 0x00 : 0x01);
+		iocore_out8(0x51, 0x81);
+		iocore_out8(0x50, 0x00);
+		iocore_out8(0x50, 0x00);
+		for (i = 0; i < 9; i++) {
+			upd3301_frame_boundary(&n80_crtc);
+		}
+		for (i = 0; i < 80; i++) {
+			mem[0xf300 + i] = 0x20;
+		}
+		if (!problem) {
+			BOOL scrn200;
+			maketextva_begin(&scrn200);
+			for (i = 0; i < 16; i++) {
+				maketextva_raster();
+			}
+			/* The cursor reverses its whole cell: the eight (80-column) or
+			 * sixteen (40-column, widened) pixels of cell 0 are uniform
+			 * foreground while the neighbouring space stays background. */
+			const unsigned cell = 16;
+			const unsigned span = width ? 16 : 8;
+			for (i = 0; i < span; i++) {
+				if (textraster[cell + i] != 15) {
+					problem = "M144A_N80_TEXT_CURSOR_CELL";
+					break;
+				}
+			}
+			if (!problem && (textraster[0] || textraster[cell + span]))
+				problem = "M144A_N80_TEXT_CURSOR_CELL";
+		}
+	}
+	/* The CURDEF bridge is gone: no device, no cursor raster. */
+	if (!problem) {
 		makesprva_begin();
 		makesprva_raster();
-		shown = tsp.ce && tsp.dspon && tsp.spron && !(tsp.be && tsp.blinkcnt2);
-		if (cursorraster[0] != (shown ? 4 : 0) || cursorraster[8])
-			problem = "M144A_N80_CURSOR_RASTER";
-		scrndrawva_compose_begin();
-		scrndrawva_compose_raster();
-		expected = hidden ? 0 : shown ? 0x03e0 : 0x1111;
-		if (!problem && (vabitmap[0] != expected || vabitmap[8] != (hidden ? 0 : 0x1111)))
-			problem = "M144A_N80_CURSOR_COMPOSITION";
-		/* Debug-layer hiding must not expose a cached cursor. */
-		scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, FALSE);
-		scrndrawva_compose_begin();
-		scrndrawva_compose_raster();
-		if (!problem && vabitmap[0] != (hidden ? 0 : 0x1111))
-			problem = "M144A_N80_CURSOR_LAYER";
-		scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
-		makesprva_blankraster();
-		if (!problem && cursorraster[0])
-			problem = "M144A_N80_CURSOR_CLEAR";
 	}
 	pccore_term();
 	soundmng_deinitialize();
 	memoryva_88_mode = saved_88;
 	memoryva_pc8001 = saved_machine;
 	memoryn80 = saved_bank;
+	videova.grmode = saved_grmode;
+	videova.txtmode = saved_txtmode;
+	np2cfg.pcg_enable = saved_pcg;
 	if (problem)
-		return fail("N80 cursor composition", problem);
-	fprintf(stderr, "selftest: N80 cursor composition 256 cases PASS\n");
+		return fail("N80 text composition", problem);
+	fprintf(stderr, "selftest: N80 text composition full-cell cursor PASS\n");
 	return SUCCESS;
 }
 
@@ -11872,7 +11698,7 @@ int vaeg_selftest_run(void) {
 	if (test_pcg88() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_n80_cursor_composition() != SUCCESS) {
+	if (test_n80_text_composition() != SUCCESS) {
 		return FAILURE;
 	}
 	if (test_n80_pcg_composition() != SUCCESS) {

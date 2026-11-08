@@ -132,6 +132,14 @@ void n80_crtc_advance_machine(SINT32 machine_clocks) {
 	}
 }
 
+void n80_crtc_notify_port30(BYTE dat) {
+	if (n80_crtc_active()) {
+		/* X88000 WriteIO_30 bit 0: the 80/40-column switch. The port stays
+		 * owned by the VA video/cassette handler; the device is notified. */
+		n80_crtc.width80 = (uint8_t)(dat & 1);
+	}
+}
+
 void n80_crtc_irq_acknowledge(void) {
 	if (n80_crtc_active()) {
 		n80_crtc.interrupt_request &= (uint8_t)~1;
