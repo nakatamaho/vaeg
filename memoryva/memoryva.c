@@ -76,18 +76,6 @@ BOOL memoryva_pc8001;
 _MEMORYN80 memoryn80;
 UINT8 memoryn80_boot;
 UINT8 memoryn80_video[2];
-PC8001_CRTC_GEOMETRY memoryn80_crtc = {{0, 0, 5, 0, 0, 0, 0, 0}};
-
-static BOOL n80_crtc_model(void) {
-	return memoryva_88_mode && memoryva_pc8001 && (memoryn80.model == 1 || memoryn80.model == 2);
-}
-
-BOOL memoryva_n80_crtc_state_valid(const PC8001_CRTC_GEOMETRY *state) {
-	if (state == NULL || !pc8001_crtc_geometry_valid(state->bytes, sizeof(state->bytes)))
-		return FALSE;
-	return (memoryva_pc8001 && (memoryn80.model == 1 || memoryn80.model == 2)) ||
-	       (!state->bytes[0] && state->bytes[2] == 5);
-}
 
 BOOL memoryva_n80_boot_valid(UINT8 mode) {
 	if (mode == N80_BOOT_AUTO)

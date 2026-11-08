@@ -8542,6 +8542,92 @@ static const char *test_n80_startup_sav(const char *path, const char *oldpath) {
 	return problem;
 }
 
+/* The independent display device SAV: codec round trip with an interrupted
+ * command and clock phase, malformed-section rejection and the legacy
+ * missing-section behavior. Guest firmware compatibility is not claimed. */
+static const char *test_n80_disp_sav(const char *path, const char *oldpath) {
+	static const struct {
+		UINT offset;
+		BYTE value;
+	} mutations[] = {
+	    {26, 6},    /* undefined command */
+	    {27, 5},    /* RESET parameter out of range */
+	    {28, 4},    /* interrupt request out of range */
+	    {29, 0xe8}, /* attribute bit 3 */
+	    {43, 1},    /* clock phase beyond the cycle */
+	    {46, 2},    /* DMA byte phase out of range */
+	    {47, 0x81}, /* DMA mode and controller gate disagree */
+	    {10, 2},    /* header version */
+	    {12, 7},    /* header size */
+	};
+	char error[256];
+	const char *problem = NULL;
+	BYTE *data = NULL;
+	UINT size = 0, i, pos;
+	uint64_t crossed;
+	BOOL scrn200;
+	/* Interrupted RESET (two parameters), DMA byte phase mid-address, and a
+	 * clock countdown that must survive the round trip exactly. */
+	/* Programmed directly: guest port routing is covered by the CPU-role
+	 * selftests, and traced I/O events would depend on the chain. */
+	upd3301_command(&n80_crtc, 0x00);
+	upd3301_parameter_write(&n80_crtc, 0x4e);
+	upd3301_parameter_write(&n80_crtc, 0x18);
+	pc88_text_dma_write(&n80_crtc_dma, 0x68, 0x84);
+	n80_crtc.dma_started = (uint8_t)pc88_text_dma_enabled(&n80_crtc_dma);
+	pc88_text_dma_write(&n80_crtc_dma, 0x64, 0x37);
+	if (!upd3301_advance(&n80_crtc, 1000, &crossed) || crossed) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	/* Snapshot the exact state the file is written from. */
+	const UPD3301 before = n80_crtc;
+	const PC88_TEXT_DMA dma_before = n80_crtc_dma;
+	if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+	                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	if (!problem) {
+		n80_crtc_reset();
+		if (statsave_load(path) != STATFLAG_SUCCESS || memcmp(&before, &n80_crtc, sizeof(before)) ||
+		    memcmp(&dma_before, &n80_crtc_dma, sizeof(dma_before))) {
+			problem = "M144A_N80_DISP_SAV_CONTINUATION";
+		}
+	}
+	if (!problem && read_whole_file(path, &data, &size) != SUCCESS) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	if (!problem) {
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "N80DISP\0\0\0", 10))
+				break;
+		if (pos + 16 > size || LOADINTELDWORD(data + pos + 12) != N80_DISP_STATE_SIZE) {
+			problem = "M144A_N80_DISP_SAV_FIXTURE";
+		} else {
+			for (i = 0; i < NELEMENTS(mutations) && !problem; i++) {
+				const UINT at = pos + mutations[i].offset;
+				const BYTE original = data[at];
+				const UPD3301 guard = n80_crtc;
+				data[at] = mutations[i].value;
+				if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+				    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+				    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_N80_DISP_STATE")) ||
+				    statsave_load(oldpath) != STATFLAG_FAILURE ||
+				    memcmp(&guard, &n80_crtc, sizeof(guard))) {
+					problem = "M144A_N80_DISP_SAV_GUARD";
+				}
+				data[at] = original;
+			}
+		}
+	}
+	if (data)
+		_MFREE(data);
+	(void)scrn200;
+	romva_initialize();
+	memoryva_88_mode = TRUE;
+	return problem;
+}
+
 static int test_pc8001_banks(void) {
 	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
 	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
@@ -9125,6 +9211,8 @@ static int test_pc8001_banks(void) {
 			problem = test_pcg_phase_sav(path, oldpath);
 		if (!problem)
 			problem = test_n80_startup_sav(path, oldpath);
+		if (!problem)
+			problem = test_n80_disp_sav(path, oldpath);
 		if (!problem && model == 2) {
 			/* Test-only fixture removal: the complete-font precedence was
 			 * exercised above with a deliberately different fallback input. */
@@ -11589,206 +11677,205 @@ int vaeg_selftest_run(void) {
 	if (test_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_n80_crtc_irq() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_viewport() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_raster_guard() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (dropmedia_selftest() != SUCCESS) {
-		return (fail("dropmedia", "extension, path, or sorting policy failed"));
-	}
-	fprintf(stderr, "selftest: dropmedia ok\n");
-	if (test_mouse_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_sound_options() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_keyboard_mapping() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_opn_backends() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (!gui_state_load_result_selftest())
-		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-	    test_hdd_state_restore() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_compat_mode_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_main_cpu_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_v1v2_state_sections() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pic8214_mode() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_3301_emulation() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_sync_display() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_short_sync() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_emulation_speed() != SUCCESS) {
-		return (FAILURE);
-	}
-	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
-	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
-	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
-	    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
-		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
-	}
-	if (test_gvam_transition() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_v1v2_graphics() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_graphics_window() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_v1v2_rom_ports() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_88speed_identification() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_v1v2_memory_switch() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_n80_rom_files() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_extra_roms() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_extra_machine() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pc8001_machine() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_n80_fm_mask() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_n80_crtc_irq() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_n80_crtc_irq() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_pcg_phase_codec() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_pc8001_banks() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pcg88() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_n80_text_composition() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_n80_pcg_composition() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_attribute_modes() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_monitor_switch() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_cassette_tape() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_monitor_output_levels() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_app_directory() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_cursor_keys_as_mouse() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_controller_port_none() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_boot_mode_sw7() != SUCCESS) {
-		return (FAILURE);
-	}
 	{
-		/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
-		const int saved = soundmng_mastervolume();
-		soundmng_setmastervolume(0);
-		const int v0 = soundmng_mastervolume();
-		soundmng_setmastervolume(50);
-		const int v50 = soundmng_mastervolume();
-		soundmng_setmastervolume(100);
-		const int v100 = soundmng_mastervolume();
-		soundmng_setmastervolume(250);
-		const int v250 = soundmng_mastervolume();
-		soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
-		if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
-			return (fail("master volume", "percent to mixing volume"));
+		if (test_n80_crtc_irq() != SUCCESS) {
+			return FAILURE;
 		}
-		fprintf(stderr, "selftest: master volume ok\n");
-	}
-	if (test_scanline_fill() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_machine_status() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_front_panel() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_8801_display() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_sync_reverse() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_text_hide() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_port040_sound() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_beep_level() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_keyboard_matrix_pacing() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_letter_keypad() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_bms_window() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_ems_board() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_hostfat_transport() != SUCCESS) {
-		return (FAILURE);
-	}
+		if (test_viewport() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_raster_guard() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (dropmedia_selftest() != SUCCESS) {
+			return (fail("dropmedia", "extension, path, or sorting policy failed"));
+		}
+		fprintf(stderr, "selftest: dropmedia ok\n");
+		if (test_mouse_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_sound_options() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_keyboard_mapping() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_opn_backends() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (!gui_state_load_result_selftest())
+			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+		    test_hdd_state_restore() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_compat_mode_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_main_cpu_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_v1v2_state_sections() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pic8214_mode() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_3301_emulation() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_sync_display() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_short_sync() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_emulation_speed() != SUCCESS) {
+			return (FAILURE);
+		}
+		if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
+		    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
+		    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
+		    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
+			return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
+		}
+		if (test_gvam_transition() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_v1v2_graphics() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_graphics_window() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_v1v2_rom_ports() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_88speed_identification() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_v1v2_memory_switch() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_rom_files() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_extra_roms() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_extra_machine() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pc8001_machine() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_fm_mask() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_n80_crtc_irq() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_pcg_phase_codec() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_pc8001_banks() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pcg88() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_text_composition() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_n80_pcg_composition() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_attribute_modes() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_monitor_switch() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_cassette_tape() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_monitor_output_levels() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_app_directory() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_cursor_keys_as_mouse() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_controller_port_none() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_boot_mode_sw7() != SUCCESS) {
+			return (FAILURE);
+		}
+		{
+			/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
+			const int saved = soundmng_mastervolume();
+			soundmng_setmastervolume(0);
+			const int v0 = soundmng_mastervolume();
+			soundmng_setmastervolume(50);
+			const int v50 = soundmng_mastervolume();
+			soundmng_setmastervolume(100);
+			const int v100 = soundmng_mastervolume();
+			soundmng_setmastervolume(250);
+			const int v250 = soundmng_mastervolume();
+			soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
+			if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
+				return (fail("master volume", "percent to mixing volume"));
+			}
+			fprintf(stderr, "selftest: master volume ok\n");
+		}
+		if (test_scanline_fill() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_machine_status() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_front_panel() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_8801_display() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_sync_reverse() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_text_hide() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_port040_sound() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_beep_level() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_keyboard_matrix_pacing() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_letter_keypad() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_bms_window() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_ems_board() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_hostfat_transport() != SUCCESS) {
+			return (FAILURE);
+		}
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-	if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
-		return (fail("uPD780 subsystem integration", "production seam test failed"));
-	}
+		if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
+			return (fail("uPD780 subsystem integration", "production seam test failed"));
+		}
 #endif
-	fprintf(stderr, "selftest: all tests passed\n");
-	return (SUCCESS);
+		fprintf(stderr, "selftest: all tests passed\n");
+		return (SUCCESS);
+	}
 }

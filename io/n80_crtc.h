@@ -57,8 +57,13 @@ void n80_crtc_notify_port30(BYTE dat);
 /* The independent machine's text-source view for rendering/state code. */
 const PC88_TEXT_MEMORY *n80_crtc_memory(void);
 /* Component codec gate; machine-identity guards stay with the SAV layer. */
+#define N80_DISP_STATE_SIZE ((UINT)PC88_DISPLAY_STATE_BYTES)
 int n80_crtc_state_encode(uint8_t *output, size_t size);
 int n80_crtc_state_decode(const uint8_t *input, size_t size);
+/* SAV section helpers: encode/validate/commit without publishing the codec. */
+BOOL n80_crtc_disp_state_save(BYTE *out, UINT size);
+BOOL n80_crtc_disp_state_valid(const BYTE *in, UINT size);
+BOOL n80_crtc_disp_state_load(const BYTE *in, UINT size);
 #ifdef __cplusplus
 }
 #endif

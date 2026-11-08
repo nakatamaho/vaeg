@@ -164,3 +164,23 @@ int n80_crtc_state_decode(const uint8_t *input, size_t size) {
 	static const PC88_DISPLAY_CLOCK_BINDING binding = {N80_CRTC_CLOCK_HZ, 0};
 	return pc88_display_state_decode(&n80_crtc, &n80_crtc_dma, &binding, input, size);
 }
+
+BOOL n80_crtc_disp_state_save(BYTE *out, UINT size) {
+	return n80_crtc_state_encode(out, size) == PC88_STATE_OK;
+}
+
+BOOL n80_crtc_disp_state_valid(const BYTE *in, UINT size) {
+	UPD3301 candidate;
+	PC88_TEXT_DMA dma;
+	static const PC88_DISPLAY_CLOCK_BINDING binding = {N80_CRTC_CLOCK_HZ, 0};
+
+	if (!in || size != N80_DISP_STATE_SIZE) {
+		return FALSE;
+	}
+	/* Validate without committing. */
+	return pc88_display_state_decode(&candidate, &dma, &binding, in, size) == PC88_STATE_OK;
+}
+
+BOOL n80_crtc_disp_state_load(const BYTE *in, UINT size) {
+	return n80_crtc_state_decode(in, size) == PC88_STATE_OK;
+}

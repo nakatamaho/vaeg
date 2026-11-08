@@ -100,8 +100,6 @@ extern UINT8 memoryn80_boot;
 BOOL memoryva_n80_boot_valid(UINT8 mode);
 UINT8 memoryva_n80_boot_selection(void);
 extern UINT8 memoryn80_video[2]; /* raw ports 52h, 53h; separate optional SAV section */
-extern PC8001_CRTC_GEOMETRY memoryn80_crtc;
-BOOL memoryva_n80_crtc_state_valid(const PC8001_CRTC_GEOMETRY *state);
 BOOL memoryva_n80_color(void);
 extern BYTE memoryn80_srrom[0xa000];
 extern BYTE memoryn80_fourth[0x2000];

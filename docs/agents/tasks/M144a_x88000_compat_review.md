@@ -297,6 +297,31 @@ N80 disks (boot screen, WIDTH 40/80, attributes, demo playback) is the next
 step, together with the device SAV codec registration and the legacy
 `N80CRTC` state policy.
 
+### Device SAV section and N80CRTC retirement
+
+The device now persists: the `N80DISP` SAV section (version 1, the 32-byte
+little-endian codec payload) covers the controller, byte-phase DMA control
+and clock countdown. Save encodes the live device; check validates the
+version/size/content against the board's fixed clock binding without
+committing; load commits atomically. Malformed sections fail with
+`M144A_N80_DISP_STATE` and leave the destination unchanged.
+
+The maintainer authorized a SAV-compatibility break: the old `N80CRTC`
+geometry-packet section, `memoryn80_crtc` and its validator are removed.
+A state without `N80DISP` (pre-separation saves) loads cleanly and leaves
+the device with its pre-load state; the boot path's `iocore_reset` provides
+the reset-state default until the guest re-programs the device.
+
+`test_n80_disp_sav` covers: the round trip with an interrupted RESET, DMA
+byte phase and clock phase; nine malformed-section mutations (undefined
+command, out-of-range RESET parameter and interrupt request, attribute bit 3,
+clock phase beyond the cycle, DMA phase range, DMA/controller gate
+disagreement, and header version/size) each rejected by `check` and `load`
+with the device unchanged; and the missing-section behavior. The device is
+programmed directly (guest port routing is the CPU-role selftests' contract).
+The full native suite passes 183/183. Real-SAV round trips on a running
+machine remain part of the runtime qualification step.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
@@ -304,7 +329,7 @@ step, together with the device SAV codec registration and the legacy
 | `maketextva.c` independent N80 pair/pitch overrides | **Done**: overrides and `memoryva_n80_crtc_pairs/pitch/write` removed; VA native frame-table behavior kept. |
 | `makesprva.c/.h` exported `cursorraster` and its N80 consumption in `scrndrawva.c` | **Done**: bridge removed; the independent 3301 cursor renders through the text decoder. VA CURDEF and sprite collision/budget untouched. |
 | Non-VA glyph/attribute selection inside VA text emulation | **Done**: the independent route decodes and renders separately; the VA route keeps its accepted glyph/PCG support. |
-| `memoryn80_crtc` geometry-only state and its rendering helpers | **Render use removed**; the legacy SAV section still loads for old states and its policy is rebuilt with the device codec in the state step. |
+| `memoryn80_crtc` geometry-only state and its rendering helpers | **Done**: the `N80CRTC` section, global and validator are removed (maintainer-authorized SAV break); the device persists via `N80DISP`. |
 | Firmware trapping of independent 50h/51h and width/DMA controls | **Done for 50h/51h/64h/68h** (`io/n80_crtc.c`): direct delivery with block I/O; VA trap retained for VA models. Width/other controls and rendering consumption remain. |
 
 Remaining work includes machine wiring of DMA/source addressing, the independent scan/clock path,
