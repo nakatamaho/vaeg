@@ -32,6 +32,8 @@
 #include "io/memctrlva.h"
 #include "io/upd9002_regs.h"
 #include "io/videova.h"
+#include "io/n80_crtc.h"
+#include "io/upd3301.h"
 
 static UINT n80_pcg_port;
 static REG8 n80_pcg_data;
@@ -48,10 +50,11 @@ static void IOOUTCALL n80_pcg_output(UINT port, REG8 data) {
 static int n80_guest_io_selftest(void) {
 	/* Bit 8 is a fixture option (PCG enabled), not a port-address bit.
 	 * 04h and 0Bh are neighbouring non-PCG controls. */
-	static const UINT16 ports[] = {
-	    0x30, 0x31, 0x33, 0x34,  0x35,  0x5c,  0x5d,  0x5e,  0x5f,  0x71,  0x50,  0x52,  0x53, 0x54,
-	    0x55, 0x56, 0x57, 0x58,  0x59,  0x5a,  0x5b,  0x00,  0x01,  0x02,  0x03,  0x0c,  0x0d, 0x0e,
-	    0x0f, 0x04, 0x0b, 0x100, 0x101, 0x102, 0x103, 0x10c, 0x10d, 0x10e, 0x10f, 0x104, 0x10b};
+	static const UINT16 ports[] = {0x30,  0x31,  0x33,  0x34,  0x35,  0x5c,  0x5d,  0x5e,  0x5f,
+	                               0x71,  0x50,  0x52,  0x53,  0x54,  0x55,  0x56,  0x57,  0x58,
+	                               0x59,  0x5a,  0x5b,  0x00,  0x01,  0x02,  0x03,  0x0c,  0x0d,
+	                               0x0e,  0x0f,  0x04,  0x0b,  0x100, 0x101, 0x102, 0x103, 0x10c,
+	                               0x10d, 0x10e, 0x10f, 0x104, 0x10b, 0x64,  0x68};
 	const UINT8 saved_pcg = np2cfg.pcg_enable;
 	const BYTE saved_boot_switch = backupmem[0x1fc2];
 	const BOOL saved_sr_present = memoryn80_sr_present;
@@ -71,6 +74,7 @@ static int n80_guest_io_selftest(void) {
 		return FAILURE;
 	}
 	memctrlva_bind();
+	n80_crtc_bind();
 	for (index = 0; index <= 0x0f; index++)
 		if (index <= 3 || index >= 0x0c)
 			iocore_attachout(index, n80_pcg_output);
@@ -84,10 +88,12 @@ static int n80_guest_io_selftest(void) {
 					const BOOL n80 = role == 3 || role == 4;
 					const BOOL direct =
 					    n80 &&
-					    (input ? (port == 0x30 || port == 0x5c || port == 0x71 ||
-					              (role == 4 && port == 0x33))
-					           : (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
-					              (role == 4 && port >= 0x33 && port <= 0x35) || (enabled && pcg)));
+					    (input
+					         ? (port == 0x30 || port == 0x5c || port == 0x71 ||
+					            (role == 4 && port == 0x33) || port == 0x50 || port == 0x51)
+					         : (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
+					            (role == 4 && port >= 0x33 && port <= 0x35) || port == 0x50 ||
+					            port == 0x51 || port == 0x64 || port == 0x68 || (enabled && pcg)));
 					np2cfg.pcg_enable = enabled;
 					n80_pcg_writes = 0;
 					memoryva_pc8801 = role == 1;
@@ -105,8 +111,9 @@ static int n80_guest_io_selftest(void) {
 					mem[0x20101] = 0xff;
 					mem[0x20102] = 0xe1;
 					mem[0x21000] = form == 0 ? (input ? 0xdb : 0xd3) : 0xed;
-					mem[0x21001] = form == 0 ? port : form == 1 ? (input ? 0x78 : 0x79) :
-					                                                          (input ? 0xa2 : 0xa3);
+					mem[0x21001] = form == 0   ? port
+					               : form == 1 ? (input ? 0x78 : 0x79)
+					                           : (input ? 0xa2 : 0xa3);
 					mem[0x21100] = 0xc1;
 					CPU_CS = CPU_DS = 0x2000;
 					CS_BASE = DS_BASE = 0x20000;
@@ -131,6 +138,17 @@ static int n80_guest_io_selftest(void) {
 					memoryva_88_plane = 3;
 					memoryn80_video[0] = memoryn80_video[1] = 0;
 					memoryva_88_alu.port034 = memoryva_88_alu.port035 = 0;
+					n80_crtc_reset();
+					if (!input) {
+						/* Arm observable device state for the direct-route check. */
+						if (port == 0x50) {
+							n80_crtc.command = UPD3301_RESET;
+							n80_crtc.parameter = 2;
+						} else if (port == 0x51) {
+							n80_crtc.frames = 0x1234;
+							n80_crtc.interrupt_request = 1;
+						}
+					}
 					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
 					upd9002_iotrap.control = 3;
 					upd9002_iotrap.ranges[0] = upd9002_iotrap.ranges[2] = port;
@@ -139,24 +157,35 @@ static int n80_guest_io_selftest(void) {
 						UINT8 expected = port == 0x30   ? (role == 4 ? 0xa5 : 0xa7)
 						                 : port == 0x33 ? 0x94
 						                 : port == 0x71 ? 0xfe
-						                                : 0xf8;
+						                 : (port == 0x50 || port == 0x51) ? 0x00
+						                                                  : 0xf8;
 						if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0x1002 ||
 						    CPU_SP != 0xfa ||
 						    (input && (form == 2 ? mem[0x21100] : CPU_AL) != expected) ||
-						    (!input && ((port == 0x31 && memoryn80.port31 != 0xc1) ||
-						                (port == 0x33 && memoryn80.port33 != 0xc1) ||
-						                (port == 0x34 && memoryva_88_alu.port034 != 0xc1) ||
-						                (port == 0x35 && memoryva_88_alu.port035 != 0xc1) ||
-						                (port == 0x71 && memoryn80.port71 != 1) ||
-						                (port == 0x52 && memoryn80_video[0] != 0xc1) ||
-						                (port == 0x53 && memoryn80_video[1] != 0xc1) ||
-						                (port >= 0x54 && port <= 0x5b && videova.palette[port - 0x54] != 0x001f) ||
-						                (port >= 0x5c && port <= 0x5f && memoryva_88_plane != port - 0x5c))))
+						    (!input &&
+						     ((port == 0x31 && memoryn80.port31 != 0xc1) ||
+						      (port == 0x33 && memoryn80.port33 != 0xc1) ||
+						      (port == 0x34 && memoryva_88_alu.port034 != 0xc1) ||
+						      (port == 0x35 && memoryva_88_alu.port035 != 0xc1) ||
+						      (port == 0x71 && memoryn80.port71 != 1) ||
+						      (port == 0x52 && memoryn80_video[0] != 0xc1) ||
+						      (port == 0x53 && memoryn80_video[1] != 0xc1) ||
+						      (port >= 0x54 && port <= 0x5b &&
+						       videova.palette[port - 0x54] != 0x001f) ||
+						      (port >= 0x5c && port <= 0x5f && memoryva_88_plane != port - 0x5c) ||
+						      (port == 0x50 &&
+						       (n80_crtc.command != UPD3301_RESET || n80_crtc.parameter != 3 ||
+						        n80_crtc.reset[2] != 0xc1)) ||
+						      (port == 0x51 && (n80_crtc.frames || n80_crtc.interrupt_request)) ||
+						      (port == 0x64 &&
+						       (n80_crtc_dma.address != 0xf3c1 || n80_crtc_dma.high_next != 1)) ||
+						      (port == 0x68 && (n80_crtc_dma.mode != 0xc1 ||
+						                        n80_crtc_dma.high_next || n80_crtc.dma_started)))))
 							result = FAILURE;
 					} else if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
-					           CPU_SP != 0xf4 || memoryn80.port31 != 0 || memoryn80.port33 != 0x94 ||
-					           memoryn80.port71 != 0 || memoryva_88_plane != 3 ||
-					           memoryn80_video[0] || memoryn80_video[1] ||
+					           CPU_SP != 0xf4 || memoryn80.port31 != 0 ||
+					           memoryn80.port33 != 0x94 || memoryn80.port71 != 0 ||
+					           memoryva_88_plane != 3 || memoryn80_video[0] || memoryn80_video[1] ||
 					           memoryva_88_alu.port034 || memoryva_88_alu.port035) {
 						result = FAILURE;
 					}
@@ -283,13 +312,9 @@ static int n80_crtc_dispatch_selftest(void) {
 						upd9002_iotrap.ranges[0] = upd9002_iotrap.ranges[2] = (UINT8)port;
 						crtc_output_count = 0;
 						upd9002_core_step();
-						if (trap) {
-							if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != 0x3000 ||
-							    CPU_SP != 0xf4 || crtc_output_count || CPU_BX != hl ||
-							    CPU_CX != (UINT16)((b << 8) | port) || CPU_AL != 0xc1 ||
-							    upd9002_memoryread_w(0x300f4) != 0x1000)
-								problem = "M144A_N80_CRTC_TRAP_BOUNDARY";
-						} else {
+						/* The independent models bypass the armed VA firmware trap:
+						 * actual byte delivery per instruction, including block I/O. */
+						{
 							for (steps = 1; steps < 256 && CPU_IP == 0x1000; steps++)
 								upd9002_core_step();
 							if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0x1002 ||

@@ -200,6 +200,39 @@ skips the clock binding), `PC88_STATE_INTERRUPT` (decode skips candidate
 validation) and `PC88_STATE_EXHAUSTIVE` (encode truncates the frame counter).
 No application runtime or machine SAV PASS is claimed.
 
+### Guest I/O routing to the independent device
+
+`io/n80_crtc.c/.h` now binds the independent device into the application:
+the board adapter owns the global `UPD3301` and text-DMA control, resets them
+via the iocore reset table, and attaches 50h/51h (parameter read/write,
+status/command) and 64h/68h (text DMA address/control) handlers. Handlers
+gate on the live independent mkII/SR model, so binding order versus model
+selection does not matter. Port 68h keeps the controller's DMA gate in
+agreement with the mode byte, as X88000's `WriteIO_68` does, preserving the
+state-codec invariant.
+
+The CPU adapter's `N80DirectIO` now treats those ports as direct on
+independent models: immediate, ordinary ED and block I/O to 50h/51h are no
+longer intercepted by the VA firmware trap; the instruction itself delivers
+each byte through the compat bus to the device. This is the approved removal
+of the firmware-trap route for independent machines. The VA/VA2 firmware trap
+for 50h/51h remains armed and is still asserted for non-N80 roles.
+
+`tests/upd9002/main_cpu_roles.c` is updated deliberately: the guest-I/O
+selftest adds ports 64h/68h and asserts device-visible effects for direct
+50h/51h/64h/68h writes and device reads for 50h/51h inputs on mkII/SR roles,
+while retaining the native-trap expectations for the same ports on non-N80
+roles. The dispatch selftest now expects actual per-byte delivery with the
+firmware trap armed (`M144A_N80_CRTC_TRAP_BOUNDARY` no longer applies to
+independent models; `M144A_N80_CRTC_OUTPUT_SEQUENCE` and
+`M144A_N80_CRTC_OUTPUT_DATA` cover the delivery contract, 168 cases). The
+full native suite passes 183/183 after the change.
+
+Not yet wired: the independent vertical clock into the scheduler, IRQ
+delivery, rendering consumption of the device state, and the machine-SAV
+section. The retained application worker identity changes with this commit;
+new runtime and Windows qualification are still outstanding before any gate.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
@@ -208,7 +241,7 @@ No application runtime or machine SAV PASS is claimed.
 | `makesprva.c/.h` exported `cursorraster` and its N80 consumption in `scrndrawva.c` | Replace with the independent 3301 cursor. Preserve VA CURDEF, sprite collision/budget and its established 40-column behavior. |
 | Non-VA glyph/attribute selection inside VA text emulation | Move the model-specific choices to independent text rendering; do not indiscriminately remove accepted VA glyph/PCG support. |
 | `memoryn80_crtc` geometry-only state and its rendering helpers | Replace with independent controller ownership; define explicit old-state handling rather than interpreting an old packet as a complete device. |
-| Firmware trapping of independent 50h/51h and width/DMA controls | Route actual independent-machine bus transfers to the LSI/board adapters, including block output; retain the VA trap path. |
+| Firmware trapping of independent 50h/51h and width/DMA controls | **Done for 50h/51h/64h/68h** (`io/n80_crtc.c`): direct delivery with block I/O; VA trap retained for VA models. Width/other controls and rendering consumption remain. |
 
 Remaining work includes machine wiring of DMA/source addressing, the independent scan/clock path,
 interrupt wiring, text/attribute rendering, cursor width/position and state codec,

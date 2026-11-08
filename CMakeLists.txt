@@ -339,6 +339,10 @@ set(VAEG_CORE_SOURCES
     io/pit.c
     io/cmt.c
     io/pcg88.c
+    io/n80_crtc.c
+    io/upd3301.c
+    io/pc88_text_dma.c
+    io/pc88_display_state.c
     io/pc8001_video.c
     io/serial.c
     io/upd4990.c
