@@ -176,6 +176,19 @@ batches, host frame callbacks or wall time. The numerical clock guard is not
 full SAV/model validation. All components still run only in standalone tests;
 no VA/M135/FDC timing, IRQ delivery or application scheduler is changed.
 
+`io/pc88_display_state.c/.h` adds the explicit state codec for these
+dependent components: a 32-byte little-endian versioned payload covering the
+controller, the byte-phase DMA control and the clock countdown. It is not a
+native struct dump. Every field is validated (command/parameter consistency,
+binary flags, interrupt masks, attribute bit 3, DMA enable agreement with
+the mode byte, numeric clock bounds) against a caller-supplied clock binding
+before either direction commits; version/size/argument failures are distinct
+and outputs remain unchanged on rejection. The codec performs no machine
+identity check, no legacy migration and registers no SAV section; those
+belong to the future machine integration. The binding rule deliberately
+rejects a saved device whose clock profile differs from the board's current
+configuration rather than silently rescaling the countdown.
+
 ### Derivations
 
 The earlier table entries were re-implemented from X88000 1.5.3 (public domain; source archive

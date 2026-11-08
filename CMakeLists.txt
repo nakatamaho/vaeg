@@ -1078,6 +1078,13 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_upd3301 COMMAND vaeg_upd3301_test)
     set_tests_properties(vaeg_upd3301 PROPERTIES LABELS "romless;upd3301;video")
 
+    add_executable(vaeg_pc88_display_state_test tests/upd3301/state.c
+        io/pc88_display_state.c io/upd3301.c io/pc88_text_dma.c)
+    target_include_directories(vaeg_pc88_display_state_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc88_display_state_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc88_display_state COMMAND vaeg_pc88_display_state_test)
+    set_tests_properties(vaeg_pc88_display_state PROPERTIES LABELS "romless;upd3301;video")
+
     add_executable(vaeg_upd3301_clock_test tests/upd3301/clock.c io/upd3301.c)
     target_include_directories(vaeg_upd3301_clock_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(vaeg_upd3301_clock_test PRIVATE c_std_99)

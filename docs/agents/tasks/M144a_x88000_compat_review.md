@@ -172,6 +172,34 @@ still does not link the independent components; existing VA/M135/FDC timing
 and the retained application worker are unchanged. No new runtime gate or
 physical-timing qualification is claimed.
 
+### Independent display state codec
+
+`io/pc88_display_state.c/.h` serializes the independent controller, its
+byte-phase DMA control and the clock countdown as an explicit 32-byte
+little-endian versioned payload. Validation runs before any commit in both
+directions: command/parameter consistency per command mode, binary-only
+flags, interrupt mask/request bounds, attribute bit 3 (the source model's
+DMA-colour bit), DMA-enable agreement between the controller and the mode
+byte, numeric clock bounds and the board-supplied clock binding. A payload
+whose clock profile differs from the board is rejected (`PC88_STATE_BINDING`)
+instead of silently rescaled. Invalid input leaves the destination state and
+any output byte unchanged.
+
+This is a component codec, not a machine SAV: no section is registered in
+`statsave.tbl`, no machine identity is checked here, old `N80CRTC` geometry
+packets are not interpreted as complete device state, and no RAM/font payload
+is carried. Machine binding, legacy-state policy and atomic SAV integration
+are the next integration step, to be qualified against real saves.
+
+Synthetic tests pass for all 256 command-byte valid states, 38 flag/clock/
+DMA guard cases, the full 32-byte single-flip sweep (each flip either
+rejected or re-encoded bit-exactly) and interrupted-RESET continuation with
+clock phase. C99 warnings-as-errors, ASan/UBSan and five independent CTests
+pass. Single mutations are detected as `PC88_STATE_ENCODE_BINDING` (encode
+skips the clock binding), `PC88_STATE_INTERRUPT` (decode skips candidate
+validation) and `PC88_STATE_EXHAUSTIVE` (encode truncates the frame counter).
+No application runtime or machine SAV PASS is claimed.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
