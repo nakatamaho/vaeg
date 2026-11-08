@@ -83,6 +83,28 @@ boundary; they fail with `UPD3301_DECODE` and `UPD3301_PHASE`, respectively.
 The existing emulator executable is unchanged; no full-runtime sweep or new
 Windows handoff is claimed for this unconnected subset.
 
+### Independent board text-DMA control and memory view
+
+`io/pc88_text_dma.c/.h` now separates X88000's board-side 64h/68h control
+and text-source selection from the LSI command core. The board supplies the
+reset address; the device retains the partially written address and byte phase.
+68h resets that phase without clearing the address. Source selection wraps to
+16 bits before choosing ordinary RAM or an explicitly enabled fast-text window.
+The read-only view has no CPU memory-decoder callback and no VA/TSP dependency;
+missing/short selected buffers fail without modifying the output byte or silently
+falling back to another bank. This is not a timed transfer or a complete 8257.
+
+Synthetic tests pass for all 65,536 address-byte pairs, all 256 mode bytes,
+65,534 unsupported full-width port values, and 1,048,576 source lookups spanning
+wrap and window boundaries. Controller/DMA enable composition, copied partial
+state and invalid-view rejection are covered, but not actual machine routing
+or SAV. C99 warnings-as-errors, ASan/UBSan and both dedicated CTests pass.
+Three independent mutations break byte-phase reset, pre-window address wrap
+and view bounds; the required failures are `PC88_TEXT_DMA_MODE`,
+`PC88_TEXT_DMA_ADDRESS` and `PC88_TEXT_DMA_SHORT_SOURCE`. Each starts from the
+passing test fixture and changes only the intended implementation expression.
+The application still does not link either independent subset.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
@@ -93,7 +115,7 @@ Windows handoff is claimed for this unconnected subset.
 | `memoryn80_crtc` geometry-only state and its rendering helpers | Replace with independent controller ownership; define explicit old-state handling rather than interpreting an old packet as a complete device. |
 | Firmware trapping of independent 50h/51h and width/DMA controls | Route actual independent-machine bus transfers to the LSI/board adapters, including block output; retain the VA trap path. |
 
-Remaining work includes DMA/source addressing, the independent scan/clock path,
+Remaining work includes machine wiring of DMA/source addressing, the independent scan/clock path,
 interrupt wiring, text/attribute rendering, cursor width/position and state codec,
 then guest-port integration and removal of the approved couplings. `WIDTH 40,25`
 and 80-column cases must verify cursor width against the character cell on

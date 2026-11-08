@@ -161,6 +161,8 @@ io/mouseifva.c
 io/mouseifva.h
 io/np2sysp.c
 io/np2sysp.h
+io/pc88_text_dma.c
+io/pc88_text_dma.h
 io/pic.c
 io/pic.h
 io/pit.c
@@ -343,6 +345,7 @@ tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
 tests/upd3301/controller.c
+tests/upd3301/text_dma.c
 tests/upd780/disasm.cpp
 tests/upd780/fdc_probe_runner.cpp
 tests/upd780/subsystem_integration.cpp

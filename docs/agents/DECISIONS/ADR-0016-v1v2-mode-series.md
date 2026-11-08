@@ -123,6 +123,23 @@ caller-provided frame boundary is not a clock implementation, and the source's
 shared status bit for two interrupt requests is preserved as a source-model
 contract, not declared verified hardware behavior.
 
+The next subset, `io/pc88_text_dma.c/.h`, adapts the same archive's
+`PC88Z80Main.cpp::WriteIO_64/WriteIO_68` and `PC88Z80Main.h::GetTVRam`.
+This is board-side DMA control, not a register block inside the uPD3301:
+64h alternates address bytes; 68h resets the byte phase and supplies the
+source model's `(mode & 84h) == 84h` enable condition. It is not a complete
+8257 implementation: count/status/other-channel ports and timed transfers
+remain unimplemented, and the enable condition is a source-model contract.
+
+The C adaptation takes the reset address from its board caller, keeps address,
+mode and byte phase per instance, and resolves the 16-bit wrapped address
+before selecting main RAM or the fast-text F000h window. Read-only views use
+explicit buffer lengths and reject a missing/short selected source without
+falling back to a different memory bank. They do not invoke the CPU memory
+bus, apply CPU ROM/bank switching, or alias VA TVRAM/TSP state. These views are
+not DMA bus transactions. Both independent subsets remain test-only until
+board wiring, clocking, rendering and machine-state integration are qualified.
+
 ### Derivations
 
 The earlier table entries were re-implemented from X88000 1.5.3 (public domain; source archive
