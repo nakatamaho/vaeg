@@ -3,6 +3,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "scsiio.h"
+#include "n80_crtc.h"
 
 #include "iocoreva.h"
 
@@ -102,6 +103,14 @@ void pic8214_request(REG8 level) {
 	pic8214_update();
 }
 
+void pic8214_withdraw(REG8 level) {
+	if (pic8214.mode8259) {
+		return;
+	}
+	pic8214.irr &= (REG8) ~(1 << (level & 7));
+	pic8214_update();
+}
+
 REG8 pic8214_acknowledge_compat(void) {
 	int level;
 
@@ -111,6 +120,11 @@ REG8 pic8214_acknowledge_compat(void) {
 	}
 	pic8214.pending = PIC8214_NONE;
 	pic8214_accept(level);
+	if (level == PIC8214_VRTC) {
+		/* X88000 DoInterrupt case 0x02: the device clears its vsync request
+		 * when the CPU takes the vector (no effect on VA machines). */
+		n80_crtc_irq_acknowledge();
+	}
 	return (REG8)(level << 1);
 }
 

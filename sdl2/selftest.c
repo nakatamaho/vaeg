@@ -43,6 +43,7 @@
 #include "io/subsystem.h"
 #include "extrarom.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
 #include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
@@ -8052,6 +8053,121 @@ static int test_pc8001_machine(void) {
 	return (SUCCESS);
 }
 
+/* M144a: the independent uPD3301 owns the VRTC raise on the 8801/8001
+ * family. Synthetic clock/IRQ contract; not a guest firmware qualification. */
+static int test_n80_crtc_irq(void) {
+	/* One device frame = 18050us at 3993600Hz = 72083 device ticks;
+	 * pccore.realclock is baseclock x2, so one frame consumes 144166
+	 * machine clocks. */
+	const SINT32 frame_machine_clocks = 144166;
+	const BOOL saved_88 = memoryva_88_mode, saved_pc8001 = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const UINT16 saved_flag = CPU_FLAG;
+	const BYTE saved_compat = CPU_COMPAT_MODE;
+	const _PIC8214 saved_8214 = pic8214;
+	const REG8 saved_irr = pic.pi[0].irr, saved_isr = pic.pi[0].isr;
+	const char *problem = NULL;
+	pccore_init();
+	pccore_reset();
+	/* VA control: the display event owns VRTC, the device is inert. */
+	memoryva_88_mode = FALSE;
+	memoryva_pc8001 = TRUE;
+	memoryn80.model = 1;
+	n80_crtc_reset();
+	n80_crtc_advance_machine(frame_machine_clocks);
+	if (pic8214.irr || pic8214.pending != PIC8214_NONE || n80_crtc.interrupt_request) {
+		problem = "VA advance raised the independent device";
+	}
+	/* Active mkII: E6h enables VRTC; one frame raises the request. */
+	memoryva_88_mode = TRUE;
+	n80_crtc_reset();
+	pic8214.irr = 0;
+	pic8214.pending = PIC8214_NONE;
+	iocore_out8(0xe6, 0x02);
+	if (!problem) {
+		/* A half frame must not raise; the boundary raises exactly once. */
+		n80_crtc_advance_machine(frame_machine_clocks / 2);
+		if (pic8214.irr || n80_crtc.interrupt_request)
+			problem = "half frame raised VRTC";
+	}
+	if (!problem) {
+		n80_crtc_advance_machine(frame_machine_clocks - frame_machine_clocks / 2);
+		if (!(pic8214.irr & (1 << PIC8214_VRTC)) || !(n80_crtc.interrupt_request & 1))
+			problem = "frame boundary did not raise VRTC";
+	}
+	/* The compat acknowledge returns vector 2 and clears the device request.
+	 * pic_irq() arbitrates like the per-slice entry does (EI required). */
+	if (!problem) {
+		/* A programmed ICU in 8214 mode and the compatible-CPU mode, as the
+		 * per-slice pic_irq() arbitration sees them. */
+		CPU_FLAG |= I_FLAG;
+		CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+		pic8214.inte = 1;
+		pic8214.status = 0x08;
+		pic_irq();
+		if (pic8214.pending != PIC8214_VRTC)
+			problem = "offer not pending for acknowledge";
+	}
+	if (!problem) {
+		const REG8 vect = pic8214_acknowledge_compat();
+		if (vect != 0x02 || (n80_crtc.interrupt_request & 1))
+			problem = "acknowledge vector or request clear";
+	}
+	/* An empty acknowledge returns the idle bus without touching the device. */
+	if (!problem) {
+		pic8214.pending = PIC8214_NONE;
+		if (pic8214_acknowledge_compat() != 0xff)
+			problem = "idle acknowledge";
+	}
+	/* E6h mask: requests are dropped while prohibited. */
+	if (!problem) {
+		pic8214.irr = 0;
+		iocore_out8(0xe6, 0x00);
+		n80_crtc_reset();
+		n80_crtc_advance_machine(frame_machine_clocks);
+		if (pic8214.irr & (1 << PIC8214_VRTC))
+			problem = "masked VRTC raise";
+	}
+	/* Device command withdrawal: RESET after a raised request withdraws it. */
+	if (!problem) {
+		iocore_out8(0xe6, 0x02);
+		n80_crtc_reset();
+		pic8214.irr = 0;
+		n80_crtc_advance_machine(frame_machine_clocks);
+		if (!(pic8214.irr & (1 << PIC8214_VRTC)))
+			problem = "withdraw fixture";
+		iocore_out8(0x51, 0x00);
+		if ((pic8214.irr & (1 << PIC8214_VRTC)) || (n80_crtc.interrupt_request & 1) ||
+		    (pic.pi[0].irr & PIC_SLAVE))
+			problem = "RESET did not withdraw VRTC";
+	}
+	/* Command 0xa0 (RESET INTERRUPT) withdraws too. */
+	if (!problem) {
+		n80_crtc_reset();
+		pic8214.irr = 0;
+		n80_crtc_advance_machine(frame_machine_clocks);
+		iocore_out8(0x51, 0xa0);
+		if ((pic8214.irr & (1 << PIC8214_VRTC)) || (n80_crtc.interrupt_request & 1))
+			problem = "RESET INTERRUPT did not withdraw VRTC";
+	}
+	/* The traced selftest compares the canonical CPU trace: this test steps
+	 * no CPU, so every global it touches must be restored exactly. */
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_pc8001;
+	memoryn80 = saved_bank;
+	CPU_FLAG = saved_flag;
+	CPU_COMPAT_MODE = saved_compat;
+	pic8214 = saved_8214;
+	pic.pi[0].irr = saved_irr;
+	pic.pi[0].isr = saved_isr;
+	n80_crtc_reset();
+	if (problem != NULL) {
+		return (fail("N80 CRTC IRQ", problem));
+	}
+	fprintf(stderr, "selftest: N80 CRTC IRQ ok\n");
+	return (SUCCESS);
+}
+
 /* M144a: synthetic production ROM/I/O/banking and real SAV-file boundary.
  * This is not yet a guest-executed SR startup/display qualification. */
 static int test_n80_fm_mask(void) {
@@ -11647,6 +11763,9 @@ int vaeg_selftest_run(void) {
 	if (test_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_n80_crtc_irq() != SUCCESS) {
+		return FAILURE;
+	}
 	if (test_viewport() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -11736,6 +11855,12 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_n80_fm_mask() != SUCCESS) {
+		return FAILURE;
+	}
+	if (test_n80_crtc_irq() != SUCCESS) {
+		return FAILURE;
+	}
+	if (test_n80_crtc_irq() != SUCCESS) {
 		return FAILURE;
 	}
 	if (test_pcg_phase_codec() != SUCCESS) {

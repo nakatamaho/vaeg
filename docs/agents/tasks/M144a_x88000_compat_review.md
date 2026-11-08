@@ -236,6 +236,37 @@ delivery, rendering consumption of the device state, and the machine-SAV
 section. The retained application worker identity changes with this commit;
 new runtime and Windows qualification are still outstanding before any gate.
 
+### Device clock and VRTC interrupt integration
+
+The independent device is now clocked by consumed machine time: after each
+`pccore_exec` CPU slice, `n80_crtc_advance_machine()` converts consumed
+`CPU_REMCLOCK` machine clocks to device ticks (`3993600 Hz` device crystal
+over `pccore.realclock`) and advances the countdown. Each device frame
+boundary raises the VRTC interrupt through the established 8214 contract
+(`pic_setirq(2)` -> `PIC8214_VRTC` -> offered vector byte 2), gated by the
+E6h mask in `pic8214_request`. On independent machines the VA display event
+no longer raises VRTC (`sysp4vsyncint` is gated); the device owns the raise.
+
+The compat acknowledge transaction clears the device's vsync request
+(`n80_crtc_irq_acknowledge` from `pic8214_acknowledge_compat`), matching
+X88000 `DoInterrupt` case 0x02, and an idle acknowledge returns 0xff without
+touching the device. Device command cancellation (RESET, RESET INTERRUPT)
+withdraws a not-yet-offered request via the new `pic8214_withdraw`.
+The crystal-to-machine-clock mapping (4/8 MHz machine variants) is a
+source-model value pending qualification; the division is exact at the
+standard 2x machine multiplier.
+
+`test_n80_crtc_irq` in the selftest covers: VA-mode inertness, half-frame
+silence, exact boundary raise, E6h gating, acknowledge vector 2 + request
+clear, idle acknowledge, and both command withdrawals. It steps no CPU and
+restores every global it touches (CPU flags/compat mode, 8214, PIC latches).
+Two single mutations (dropped acknowledge clear, dropped raise) fail with the
+selftest's named problems. The traced-selftest baseline extends by exactly
+the five new deterministic device I/O events (E6h x3, 51h x2 at step 0);
+the trace-equivalence test passes with the extended baseline. The full
+native suite passes 183/183. IRQ delivery to guest firmware and rendering
+consumption remain unqualified at runtime.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |

@@ -70,7 +70,14 @@ static void IOOUTCALL n80_crtc_o_param(UINT port, REG8 dat) {
 static void IOOUTCALL n80_crtc_o_command(UINT port, REG8 dat) {
 	(void)port;
 	if (n80_crtc_active()) {
+		const BOOL pending = (n80_crtc.interrupt_request & 1) != 0;
 		upd3301_command(&n80_crtc, (uint8_t)dat);
+		if (pending && !(n80_crtc.interrupt_request & 1)) {
+			/* X88000: RESET/RESET INTERRUPT withdraw the request, so the CPU
+			 * must not take a stale vector. The 8214 edge model needs an
+			 * explicit withdrawal. */
+			pic8214_withdraw(PIC8214_VRTC);
+		}
 	}
 }
 
@@ -107,6 +114,28 @@ void n80_crtc_bind(void) {
 	iocore_attachinp(0x51, n80_crtc_i_status);
 	iocore_attachout(0x64, n80_crtc_o_dma_address);
 	iocore_attachout(0x68, n80_crtc_o_dma_control);
+}
+
+void n80_crtc_advance_machine(SINT32 machine_clocks) {
+	uint64_t crossed;
+	if (!n80_crtc_active() || machine_clocks <= 0 || pccore.realclock == 0) {
+		return;
+	}
+	/* Machine clocks run at pccore.realclock per second; the device counts
+	 * cycles at its own crystal. The absolute domain mapping (the 8801/8001
+	 * crystal versus the VA-derived machine clock) is pending qualification. */
+	if (upd3301_advance(&n80_crtc,
+	                    (uint32_t)((UINT64)machine_clocks * N80_CRTC_CLOCK_HZ / pccore.realclock),
+	                    &crossed) &&
+	    crossed > 0) {
+		pic_setirq(2);
+	}
+}
+
+void n80_crtc_irq_acknowledge(void) {
+	if (n80_crtc_active()) {
+		n80_crtc.interrupt_request &= (uint8_t)~1;
+	}
 }
 
 const PC88_TEXT_MEMORY *n80_crtc_memory(void) {

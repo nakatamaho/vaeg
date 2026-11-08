@@ -45,6 +45,13 @@ extern PC88_TEXT_DMA n80_crtc_dma;
 BOOL n80_crtc_active(void);
 void n80_crtc_reset(void);
 void n80_crtc_bind(void);
+/* Advance the device by machine-clock-domain time (pccore.realclock units)
+ * and raise the VRTC interrupt (pic_setirq(2)) on each device frame boundary,
+ * per the source model's unconditional per-frame request. */
+void n80_crtc_advance_machine(SINT32 machine_clocks);
+/* The compat CPU acknowledged the VRTC level: clear the device's vsync
+ * request (X88000 DoInterrupt case 0x02). No effect on VA machines. */
+void n80_crtc_irq_acknowledge(void);
 /* The independent machine's text-source view for rendering/state code. */
 const PC88_TEXT_MEMORY *n80_crtc_memory(void);
 /* Component codec gate; machine-identity guards stay with the SAV layer. */

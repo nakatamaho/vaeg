@@ -9,6 +9,7 @@
 #include "iocore.h"
 #include "cmt.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -807,7 +808,10 @@ void screenvsyncva2(NEVENTITEM item) {
 #endif
 
 void sysp4vsyncint(NEVENTITEM item) {
-	pic_setirq(2);
+	/* The independent uPD3301 raises VRTC from its own frame boundaries. */
+	if (!n80_crtc_active()) {
+		pic_setirq(2);
+	}
 }
 
 void sysp4vsyncstart(NEVENTITEM item) {
@@ -910,6 +914,8 @@ static void pccore_process_cpu_reset_request(void) {
 	}
 }
 
+static SINT32 slice_remclock;
+
 #if defined(VAEG_UPD9002_M42_TESTING)
 void upd9002_m42_process_cpu_reset_request(void) {
 	pccore_process_cpu_reset_request();
@@ -942,6 +948,7 @@ void pccore_exec(BOOL draw) {
 		pic_irq();
 		pccore_process_cpu_reset_request();
 
+		slice_remclock = CPU_REMCLOCK;
 		while (CPU_REMCLOCK > 0) {
 		debug_resume_cpu:
 			if (upd9002_debug_step_begin()) {
@@ -956,6 +963,11 @@ void pccore_exec(BOOL draw) {
 			subsystemmx_exec();
 			sgp_step();
 		}
+		/* The independent uPD3301 is clocked by consumed machine time; on the
+		 * independent 8801/8001 family it owns the VRTC raise instead of the
+		 * VA display event. Debug returns above freeze the device with the
+		 * CPU, matching the single-stepping contract. */
+		n80_crtc_advance_machine(slice_remclock - CPU_REMCLOCK);
 
 		nevent_progress();
 	}

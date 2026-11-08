@@ -91,6 +91,8 @@ void picmask(NEVENTITEM item);
 extern _PIC8214 pic8214;
 /* Raise an 8214-mode level; ignored in 8259 mode. */
 void pic8214_request(REG8 level);
+/* Withdraw a not-yet-offered 8214 request (device command cancellation). */
+void pic8214_withdraw(REG8 level);
 /* Acknowledge from compatible code: returns the uPD780 vector. */
 REG8 pic8214_acknowledge_compat(void);
 /* Port 158H: leave 8214 mode for 8259 mode until the next reset. */
