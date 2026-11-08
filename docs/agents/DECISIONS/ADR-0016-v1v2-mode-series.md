@@ -93,9 +93,39 @@ PC-88VA in compatibility mode.
   sub-ROMs) are already in the VA ROM set (`upd9002-upd70008-mode.md`
   §4.4–§4.6). No additional ROM image is introduced.
 
+### M144a amendment: independent LSI versus VA emulation
+
+The maintainer explicitly approved complete separation of the independent
+PC-8801/PC-8001 family's uPD3301 from the VA/VA2 firmware/TSP emulation path,
+and approved taking the independent model from X88000. The earlier
+"behavioural reference, not transplant" rule continues to apply to VA hardware;
+it does not prohibit this independently owned LSI model.
+
+The independent controller must own its commands, registers, cursor, timing,
+DMA connection and saved state. It must not obtain those from TSP fields or
+VA firmware working memory. Non-VA adaptations added to the VA 3301 emulation
+path are approved for removal as the independent route replaces them. Native
+VA compatibility behavior, including its 40-column cursor width, is retained.
+Shared pixel buffers or stateless glyph helpers are not shared device state.
+
+`io/upd3301.c/.h` starts the C99 port from the pinned 1.5.3 `PC88Crtc.cpp/.h`
+by Manuke: reset defaults, command/parameter handling, status and frame-based
+blink phase. Original attribution and the adaptation's BSD notice are retained.
+Unlike the earlier independent reimplementations, this is an explicitly
+identified command/state adaptation. It is not an as-is vendoring of the C++
+class. The source page identifies the source as PDS (Public Domain Software).
+No ROM, private execution result or private disassembly is incorporated.
+
+This first subset is compiled only into its standalone test. Timing tables,
+VRAM WAIT estimates, interrupt delivery, DMA bus traffic, pixel rendering and
+machine-SAV integration are not yet ported or connected. In particular, a
+caller-provided frame boundary is not a clock implementation, and the source's
+shared status bit for two interrupt requests is preserved as a source-model
+contract, not declared verified hardware behavior.
+
 ### Derivations
 
-Re-implemented from X88000 1.5.3 (public domain; source archive
+The earlier table entries were re-implemented from X88000 1.5.3 (public domain; source archive
 `x88_1_5_3_src.tar.gz`, SHA-256
 `66bc0b69d5a394e2195b5e277093eebcc045fbb3930c03637aa106394ae83cf3`,
 <https://quagma.sakura.ne.jp/manuke/x88src.html>); no code copied:

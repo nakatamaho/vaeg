@@ -179,6 +179,8 @@ io/sysportva.c
 io/sysportva.h
 io/tsp.c
 io/tsp.h
+io/upd3301.c
+io/upd3301.h
 io/upd4990.c
 io/upd4990.h
 io/upd9002_regs.c
@@ -340,6 +342,7 @@ tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
+tests/upd3301/controller.c
 tests/upd780/disasm.cpp
 tests/upd780/fdc_probe_runner.cpp
 tests/upd780/subsystem_integration.cpp

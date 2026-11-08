@@ -56,6 +56,52 @@ performed. Private-input tests and emulator-comparison results are not published
 or relabeled as public-specification-only tests. Conversation reporting and
 out-of-tree test work remain separate from this publication boundary.
 
+## Approved architecture: independent uPD3301, not VA emulation
+
+The maintainer superseded the narrow geometry workaround with complete device
+separation: retain VA/VA2's firmware/TSP 3301 emulation; use an independent
+X88000-derived uPD3301 for PC-8801/PC-8001 models. Removal of non-VA adaptations
+from the VA emulation path is approved; unrelated code/files are not deletion
+targets. See [ADR-0016 amendment](../DECISIONS/ADR-0016-v1v2-mode-series.md#m144a-amendment-independent-lsi-versus-va-emulation).
+No further non-VA workaround is to be added to the VA/TSP controller path.
+
+The first implementation subset is `io/upd3301.c/.h`, a per-instance C99
+command-state adaptation of the pinned X88000 1.5.3 sources. It has no VA/TSP,
+ROM, frontend, global-instance or CPU-clock dependency. RESET parameters take
+effect individually as in the source; interrupted RESET/cursor/light-pen commands
+and command cancellation retain their source behavior. Display-start status and
+DMA-enabled display activity are distinct. Blink phase preserves the source's
+strict boundary and 16-bit frame-counter wrap. This is **not yet a connected
+machine device**; the application does not link this subset yet.
+
+Synthetic standalone tests cover 1,280 parameter-position/value cases, all 256
+command bytes, 256 parameter decodes, 262,144 phase samples, copy continuation
+and independent instances. Copy continuation is not a machine-SAV qualification.
+C99 `-Wall -Wextra -Werror`, ASan/UBSan and the dedicated CTest pass. Independent
+single mutations force the attribute count to 20 and change the cursor phase
+boundary; they fail with `UPD3301_DECODE` and `UPD3301_PHASE`, respectively.
+The existing emulator executable is unchanged; no full-runtime sweep or new
+Windows handoff is claimed for this unconnected subset.
+
+### Migration and approved removal scope
+
+| Current coupling | Replacement/removal condition |
+| --- | --- |
+| `maketextva.c` independent N80 pair/pitch overrides | Remove from VA text emulation when the independent DMA/text renderer is connected; keep VA native frame-table behavior. |
+| `makesprva.c/.h` exported `cursorraster` and its N80 consumption in `scrndrawva.c` | Replace with the independent 3301 cursor. Preserve VA CURDEF, sprite collision/budget and its established 40-column behavior. |
+| Non-VA glyph/attribute selection inside VA text emulation | Move the model-specific choices to independent text rendering; do not indiscriminately remove accepted VA glyph/PCG support. |
+| `memoryn80_crtc` geometry-only state and its rendering helpers | Replace with independent controller ownership; define explicit old-state handling rather than interpreting an old packet as a complete device. |
+| Firmware trapping of independent 50h/51h and width/DMA controls | Route actual independent-machine bus transfers to the LSI/board adapters, including block output; retain the VA trap path. |
+
+Remaining work includes DMA/source addressing, the independent scan/clock path,
+interrupt wiring, text/attribute rendering, cursor width/position and state codec,
+then guest-port integration and removal of the approved couplings. `WIDTH 40,25`
+and 80-column cases must verify cursor width against the character cell on
+independent machines, while retaining the VA reference behavior. Do not reuse
+X88000's WAIT estimates as measured hardware constants or alter M135 VA timing
+as a side effect. All independent 8801/8001 models need coverage; mkII/SR are the
+initial integration targets, not the final architectural boundary.
+
 ## Independent N80 cursor composition correction
 
 [Fix `e3adf0af83ddeee6ccdd3f2bee87477f06e43091`](https://github.com/nakatamaho/vaeg/commit/e3adf0af83ddeee6ccdd3f2bee87477f06e43091)

@@ -1071,6 +1071,13 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
+    # Independent LSI command core; not wired into the VA/TSP device path.
+    add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)
+    target_include_directories(vaeg_upd3301_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_upd3301_test PRIVATE c_std_99)
+    add_test(NAME vaeg_upd3301 COMMAND vaeg_upd3301_test)
+    set_tests_properties(vaeg_upd3301 PROPERTIES LABELS "romless;upd3301;video")
+
     add_executable(vaeg_pc8001_video_test tests/pc8001/video.c io/pc8001_video.c)
     target_include_directories(vaeg_pc8001_video_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(vaeg_pc8001_video_test PRIVATE c_std_99)
