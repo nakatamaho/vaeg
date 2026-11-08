@@ -781,25 +781,37 @@ class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
 
   private:
 	bool N80DirectIO(UINT8 port, bool input) const {
-		// Implemented independent N80 startup/memory/video controls, the
-		// independent uPD3301 command/status ports (50h/51h) and its text DMA
-		// controls (64h/68h) bypass the VA firmware bridge. The VA/VA2
-		// firmware trap path stays unchanged; disabled PCG and PCG reads
-		// retain the existing bridge.
-		if (!main_upd780_active_ || !memoryva_pc8001 || !memoryva_88_mode ||
-		    memoryn80.model < 1 || memoryn80.model > 2) {
+		// Independent 88-mode family: the uPD3301 command/status ports
+		// (50h/51h) and its text DMA controls (64h/68h) are direct on PC-8801
+		// and PC-8001mkII/SR selections. The remaining implemented N80 controls
+		// stay PC-8001-only. The VA/VA2 firmware trap path stays unchanged;
+		// disabled PCG and PCG reads retain the existing bridge.
+		if (!main_upd780_active_ || !memoryva_88_mode) {
 			return false;
 		}
+		const bool n80 = memoryva_pc8001 && memoryn80.model >= 1 && memoryn80.model <= 2;
+		const bool family = memoryva_pc8801 || n80;
 		if (input) {
+			if (family && (port == 0x50 || port == 0x51)) {
+				return true;
+			}
+			if (!n80) {
+				return false;
+			}
 			return port == 0x30 || port == 0x5c || port == 0x71 ||
-			       (port == 0x33 && memoryn80.model == 2) || port == 0x50 || port == 0x51;
+			       (port == 0x33 && memoryn80.model == 2);
+		}
+		if (family && (port == 0x50 || port == 0x51 || port == 0x64 || port == 0x68)) {
+			return true;
+		}
+		if (!n80) {
+			return false;
 		}
 		if (np2cfg.pcg_enable && (port <= 0x03 || (port >= 0x0c && port <= 0x0f))) {
 			return true;
 		}
 		return port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
-		       (memoryn80.model == 2 && port >= 0x33 && port <= 0x35) || port == 0x50 ||
-		       port == 0x51 || port == 0x64 || port == 0x68;
+		       (memoryn80.model == 2 && port >= 0x33 && port <= 0x35);
 	}
 
 	void SetMemoryBases() {

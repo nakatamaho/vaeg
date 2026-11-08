@@ -206,23 +206,26 @@ No application runtime or machine SAV PASS is claimed.
 the board adapter owns the global `UPD3301` and text-DMA control, resets them
 via the iocore reset table, and attaches 50h/51h (parameter read/write,
 status/command) and 64h/68h (text DMA address/control) handlers. Handlers
-gate on the live independent mkII/SR model, so binding order versus model
-selection does not matter. Port 68h keeps the controller's DMA gate in
+gate on the live model, so binding order versus model selection does not
+matter. Port 68h keeps the controller's DMA gate in
 agreement with the mode byte, as X88000's `WriteIO_68` does, preserving the
 state-codec invariant.
 
-The CPU adapter's `N80DirectIO` now treats those ports as direct on
-independent models: immediate, ordinary ED and block I/O to 50h/51h are no
-longer intercepted by the VA firmware trap; the instruction itself delivers
-each byte through the compat bus to the device. This is the approved removal
-of the firmware-trap route for independent machines. The VA/VA2 firmware trap
-for 50h/51h remains armed and is still asserted for non-N80 roles.
+The maintainer confirmed the machine roles: in VA mode the uPD3301 is the
+firmware/TSP emulation; on the actual PC-8801/PC-8001 machines it is a real
+chip. `N80DirectIO` therefore enables the independent device for the whole
+8801/8001 family (PC-8801 selections and PC-8001mkII/SR models): immediate,
+ordinary ED and block I/O to 50h/51h/64h/68h are no longer intercepted by the
+VA firmware trap; the instruction itself delivers each byte through the compat
+bus to the device. This is the approved removal of the firmware-trap route for
+independent machines. The other implemented N80 controls stay PC-8001-only,
+and the VA/VA2 firmware trap remains armed and asserted for VA roles.
 
 `tests/upd9002/main_cpu_roles.c` is updated deliberately: the guest-I/O
 selftest adds ports 64h/68h and asserts device-visible effects for direct
-50h/51h/64h/68h writes and device reads for 50h/51h inputs on mkII/SR roles,
-while retaining the native-trap expectations for the same ports on non-N80
-roles. The dispatch selftest now expects actual per-byte delivery with the
+50h/51h/64h/68h writes and device reads for 50h/51h inputs on PC-8801 and
+mkII/SR roles, while retaining the native-trap expectations for the same ports
+on VA roles. The dispatch selftest now expects actual per-byte delivery with the
 firmware trap armed (`M144A_N80_CRTC_TRAP_BOUNDARY` no longer applies to
 independent models; `M144A_N80_CRTC_OUTPUT_SEQUENCE` and
 `M144A_N80_CRTC_OUTPUT_DATA` cover the delivery contract, 168 cases). The

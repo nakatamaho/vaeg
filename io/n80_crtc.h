@@ -30,9 +30,9 @@
 extern "C" {
 #endif
 
-/* Board adapter for the independent uPD3301 on the PC-8001mkII/SR models.
- * It owns no VA state: the VA/VA2 firmware/TSP path is separate. Ports
- * (X88000 1.5.3 PC88Z80Main.cpp ReadIO_50/WriteIO_50/51/68):
+/* Board adapter for the independent uPD3301 on the PC-8801 and
+ * PC-8001mkII/SR selections. It owns no VA state: the VA/VA2 firmware/TSP
+ * path is separate. Ports (X88000 1.5.3 PC88Z80Main.cpp ReadIO_50/WriteIO_50/51/68):
  *   IN  50h  CRTC parameter read      OUT 50h  CRTC parameter write
  *   IN  51h  CRTC status read         OUT 51h  CRTC command write
  *   OUT 64h  text DMA address byte    OUT 68h  text DMA control
@@ -41,7 +41,7 @@ extern "C" {
 extern UPD3301 n80_crtc;
 extern PC88_TEXT_DMA n80_crtc_dma;
 
-/* TRUE on the independent mkII/SR route in 88-mode guest execution. */
+/* TRUE on the independent 8801/8001-family route in 88-mode guest execution. */
 BOOL n80_crtc_active(void);
 void n80_crtc_reset(void);
 void n80_crtc_bind(void);

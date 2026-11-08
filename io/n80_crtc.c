@@ -42,7 +42,15 @@ static PC88_TEXT_MEMORY n80_crtc_text;
 #define N80_CRTC_CLOCK_HZ 3993600u
 
 BOOL n80_crtc_active(void) {
-	return memoryva_88_mode && memoryn80.model >= 1 && memoryn80.model <= 2;
+	if (!memoryva_88_mode) {
+		return FALSE;
+	}
+	/* Independent route for the whole 8801/8001 family: PC-8801 selections
+	 * and PC-8001mkII/SR models. VA/VA2 keep the firmware/TSP emulation. */
+	if (memoryva_pc8801) {
+		return TRUE;
+	}
+	return memoryva_pc8001 && memoryn80.model >= 1 && memoryn80.model <= 2;
 }
 
 void n80_crtc_reset(void) {

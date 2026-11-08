@@ -86,14 +86,19 @@ static int n80_guest_io_selftest(void) {
 					const BOOL pcg = port <= 3 || (port >= 0x0c && port <= 0x0f);
 					const BOOL enabled = (ports[index] & 0x100) != 0;
 					const BOOL n80 = role == 3 || role == 4;
+					/* role 1 is the PC-8801 selection: the independent uPD3301 is
+					 * family-wide, so the CRTC/DMA ports are direct there too. */
+					const BOOL family = role == 1 || n80;
 					const BOOL direct =
-					    n80 &&
-					    (input
-					         ? (port == 0x30 || port == 0x5c || port == 0x71 ||
-					            (role == 4 && port == 0x33) || port == 0x50 || port == 0x51)
-					         : (port == 0x31 || port == 0x71 || (port >= 0x52 && port <= 0x5f) ||
-					            (role == 4 && port >= 0x33 && port <= 0x35) || port == 0x50 ||
-					            port == 0x51 || port == 0x64 || port == 0x68 || (enabled && pcg)));
+					    (input ? ((port == 0x50 || port == 0x51) && family) ||
+					                 (n80 && (port == 0x30 || port == 0x5c || port == 0x71 ||
+					                          (role == 4 && port == 0x33)))
+					           : ((port == 0x50 || port == 0x51 || port == 0x64 || port == 0x68) &&
+					              family) ||
+					                 (n80 && (port == 0x31 || port == 0x71 ||
+					                          (port >= 0x52 && port <= 0x5f) ||
+					                          (role == 4 && port >= 0x33 && port <= 0x35) ||
+					                          (enabled && pcg))));
 					np2cfg.pcg_enable = enabled;
 					n80_pcg_writes = 0;
 					memoryva_pc8801 = role == 1;
