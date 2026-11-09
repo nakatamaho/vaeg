@@ -466,6 +466,25 @@ program's positions were updated to the slot-unit boundaries (8,16,24...)
 for the independent-route qualification, and the oracle stays as the
 pixel-level contract.
 
+**Attribute-bit propagation verified correct (X88000 reference
+agreement)**: the residual mismatch does not come from the upper/under
+attribute bits. The X88000 reference (`X88ScreenDrawer.cpp::RatchText`)
+defines the real 3301 attribute byte as overline = attr bit 4 (0x10),
+underline = attr bit 5 (0x20); the decoder (`vram/pc88_text.c`) reads
+exactly those bits and preserves the semigraphic state across non-colour
+attribute updates exactly as the reference does, and the render
+conversion (`makeline_independent`) maps PC88_TEXT_OVERLINE/UNDERLINE to
+EMU3301_UPPER/UNDER one-to-one. The unit suite covers the full chain
+(all 16 flag combinations through `pc88_text_raster_bits`: overline on
+scanline 0, underline on the last scanline, reverse inversion).
+Consequently the fixture program's translation from the oracle's flag
+bits to the real attribute byte must shift the upper/under bits up one
+position (`A=(N AND 7)+2*(N AND 24)`): oracle flag bit 3 (upper) becomes
+attribute bit 4 and flag bit 4 (under) becomes bit 5. An interim edit
+that removed the x2 shift was wrong — without it the upper flag lands in
+attribute bit 3, which the device interprets as a colour-attribute entry
+— and was reverted after the reference comparison.
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at
