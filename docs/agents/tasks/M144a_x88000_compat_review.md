@@ -378,16 +378,22 @@ gates the attribute-matrix re-qualification (the matrix program's WIDTH 40
 triggers the same transition, which is why its captured device state was
 stopped with an empty buffer).
 
-**Attribute matrix: open rendering defect.** The pixel validator now runs
-against the independent route's output and fails with `N80_ATTR_PIXELS`
-(26,952 mismatched pixels of 81,920; every pixel is still exactly black or
-white, so the failure is positional, not colour). The captured matrix frame
-shows the 'A' glyphs at roughly double the oracle's horizontal pitch with a
-diagonal drift, and the semigraphics groups landing at wrong offsets: a
-40-column position/widening bug in the independent raster path, to be
-debugged with the same offline device-state + buffer capture technique used
-for the boot banner (the decoder itself was verified cell-for-cell offline
-for the boot buffer).
+**Attribute matrix: decode verified, raster mismatch open.** A controlled
+capture (the debug-script input with the absolute ROM path — earlier probes
+had silently run on the VA fallback because of a relative `--roms` path)
+shows the matrix buffer and device state exactly as the program intends:
+rows 8-15 hold 80 'A' characters plus the ascending attribute pairs
+(0,0xE8),(2,0),(10,1),(18,2)... with the device active in C_B character
+mode, 40 columns. The offline C decoder decodes those rows correctly (the
+cells carry the intended secret/blink/reverse/upper/under groups). Two
+follow-ups from the capture: (1) the attribute semantics were unified with
+the validated VA-route behavior (bit 3 = colour in every attribute mode;
+the X88000 mode-2 gate was wrong for this device program), committed with
+the dedicated CTest passing; (2) the rendered screenshot still mismatches
+the pixel oracle (26,904/81,920), so the remaining delta is in the raster
+position/scale path (cell placement, widening or the blink-phase samples),
+not in the decode. The oracle requires an exact per-phase match; the next
+step compares the rendered cells against the oracle slot-by-slot.
 
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when

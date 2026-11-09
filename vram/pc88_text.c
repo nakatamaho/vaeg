@@ -75,7 +75,9 @@ int pc88_text_decode_row(const UPD3301 *c, const PC88_TEXT_DMA *dma, const PC88_
 			if (x >= trigger) {
 				const uint8_t attr = bytes[81 + next * 2];
 				next++;
-				if (mode == 2 && (attr & 8)) {
+				/* The validated VA-route semantics: bit 3 selects the colour
+				 * attribute in every attribute mode; bit 4 adds semigraphics. */
+				if (attr & 8) {
 					color = attr >> 5;
 					graphic = attr & 16;
 				} else {
@@ -84,8 +86,6 @@ int pc88_text_decode_row(const UPD3301 *c, const PC88_TEXT_DMA *dma, const PC88_
 					reverse = attr & 4;
 					overline = attr & 16;
 					underline = attr & 32;
-					if (mode == 0)
-						graphic = attr & 128;
 				}
 			}
 		}
