@@ -437,9 +437,21 @@ matching the offline probe). The CRTC parameter capture confirmed the
 WIDTH 40 reprograms the CRTC to the same 80-column parameters (the reset
 CE 93 69 BE 13 = 80 cols, 25 rows, 16 scan, the attribute mode 0, 20
 pairs) with four port 30h writes of 22h — the width switch is NOT in the
-CRTC params or the captured 30h writes. The remaining investigation: the
-secret-cell rendering drop in the strided render path, and the mkII's
-width-switch mechanism. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+CRTC params or the captured 30h writes. The remaining investigation has a critical finding: the
+pair-position semantics differ between the three implementations. (1) The
+X88000's slot-unit walk (my decoder's) = the REAL 3301's datasheet
+semantics; (2) the VA firmware's reformatting (the old route's validated
+rendering) applies a +6-slot offset; (3) the ORACLE's synthetic layout was
+designed to match the old route's firmware-mediated rendering. The
+independent route's decode = the X88000's = the REAL 3301's semantics —
+the correct semantics for the standalone PC-8001mkII hardware. The ORACLE
+and the fixture program were designed for the firmware's mapping — the
+ORACLE ≠ the correct semantics for the independent route. The +6-slot
+offset was tested and reverted (the mismatch count unchanged — the offset
+shifts the attrs without resolving the mismatch). The next session:
+redesign the fixture program and the oracle for the REAL 3301's
+slot-unit semantics (the attrs change at the logical slot positions 2,10,
+18,26 = the doubled cells 1,5,9,13), then re-qualify. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
