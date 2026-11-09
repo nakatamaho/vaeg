@@ -50,7 +50,7 @@ def input_script(model, columns, global_reverse=False):
              '20 FOR I=0 TO 79:POKE B+I,65:NEXT I',
              '30 FOR I=0 TO 19:POKE B+80+I*2,80:POKE B+81+I*2,0:NEXT I',
              '40 POKE B+80,0:POKE B+81,232+16*INT(R/4)',
-             '50 FOR C=0 TO 7:N=8*(R-4*INT(R/4))+C:A=(N AND 7)+2*(N AND 24)',
+             '50 FOR C=0 TO 7:N=8*(R-4*INT(R/4))+C:A=(N AND 7)+(N AND 24)',
              '60 POKE B+82+C*2,8+C*8:POKE B+83+C*2,A:NEXT C',
              '70 POKE B+98,66:POKE B+99,0:POKE B+100,68:POKE B+101,232:NEXT R',
              ('80 OUT &H51,&H21:PRINT "ATTRDONE"' if global_reverse else '80 PRINT "ATTRDONE"'), 'RUN']
