@@ -408,8 +408,8 @@ bytes of the cell N), which would shift every group by one cell and explain
 the mismatch exactly. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
-CRTC reprogramming at all — it enters a loop at the ROM ip=03be repeatedly
-issuing the LOAD CURSOR POSITION command (81h). The mkII's WIDTH 40
+CRTC reprogramming at all — it enters a loop inside its own
+code repeatedly issuing the LOAD CURSOR POSITION command (81h). The mkII's WIDTH 40
 therefore switches the display through a mechanism outside the captured
 ports (a firmware-mediated path or a port not yet identified), and the
 80-column device state observed in the matrix captures is the boot state,
