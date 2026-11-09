@@ -415,10 +415,20 @@ carry's graphic flag (the pair0's 0xF8 bit4) persists through the
 decoration attrs in my decoder, while the oracle's group 5 renders the
 semigraphic with the solid upper line at the cell's first raster — the
 upper line and the semigraphic block compete for the same rasters
-differently between my raster and the oracle. The bounded fix: the group
-4-7's upper/under/graphic interaction in the shared raster (the render's
-`line ? solid : glyph` precedence versus the oracle's layered
-expectation). Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+differently between my raster and the oracle. A critical finding: the
+attr-v3 device state shows `width80=1`, `cols=80`, `C_B=1` — the WIDTH 40
+typed into the N80 console did NOT switch the device to the 40-column mode;
+the ROM's WIDTH 40 handler reprogrammed the CRTC (the second RESET/mask/
+START sequence) but with the 80-column parameters. The oracle's expected =
+the 40-column doubled layout; the rendered = the 80-column layout — the
+mismatch is the WIDTH 40 not switching the mode. The mkII's WIDTH 40
+width-switch mechanism (the port 30h bit 0 equivalent) is outside the
+captured ports (the 30h writes: only 2, both the boot's 22h). The next
+session captures the CRTC parameters between the WIDTH's RESET and START
+(the param writes via port 50h) and identifies the mkII's width-switch
+mechanism (the C_B bit, the port 30h bit 0, or another port). The group
+4-7's upper/under/graphic interaction will resolve once the device is in
+the 40-column mode. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
