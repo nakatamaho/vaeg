@@ -397,10 +397,17 @@ old route's passing frame (`attributes-r3/mkii-40/f18024.png`) shows the new
 render's first four cells pixel-identical in position and width (the lit
 runs (2,13),(20,29),(34,45),(50,61) at the 16-dot doubled pitch) and the
 cells beyond the fourth missing: the next session debugs the application's
-row-8+ decode/render (the leading suspects are the live attribute phase in
-the application decode versus the offline probe, or the compose/copy path
-truncating at the stale TSP frame geometry), using the same absolute-roms
-debug-script capture that produced the verified buffer.
+row-8+ decode/render. The offline carry-chain decode of the captured buffer
+(all 16 rows, the application's exact carry evolution) is cell-correct —
+the remaining delta is the pair-position semantics: the decoder walks the
+pair positions as logical byte columns (the cell = position/2 in 40-column
+mode), and the rendered attrs change at the cells 1,5,9,13..., while the
+validated oracle's attribute groups change at the cells 0,4,8,12... — the
+pair positions may be character positions (the position N covers the two
+bytes of the cell N), which would shift every group by one cell and explain
+the mismatch exactly. Resolving this (testing the character-position walk
+against the oracle offline) is the next session's first task; the oracle
+itself was validated against the old route's rendering of the same program.
 
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
