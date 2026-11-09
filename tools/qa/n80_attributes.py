@@ -51,7 +51,7 @@ def input_script(model, columns, global_reverse=False):
              '30 FOR I=0 TO 19:POKE B+80+I*2,80:POKE B+81+I*2,0:NEXT I',
              '40 POKE B+80,0:POKE B+81,232+16*INT(R/4)',
              '50 FOR C=0 TO 7:N=8*(R-4*INT(R/4))+C:A=(N AND 7)+2*(N AND 24)',
-             '60 POKE B+82+C*2,2+C*8:POKE B+83+C*2,A:NEXT C',
+             '60 POKE B+82+C*2,8+C*8:POKE B+83+C*2,A:NEXT C',
              '70 POKE B+98,66:POKE B+99,0:POKE B+100,68:POKE B+101,232:NEXT R',
              ('80 OUT &H51,&H21:PRINT "ATTRDONE"' if global_reverse else '80 PRINT "ATTRDONE"'), 'RUN']
     return '@wait 5200\n@enter\n@wait 300\n' + ''.join('@text '+line+'\n@enter\n@wait 60\n' for line in lines)

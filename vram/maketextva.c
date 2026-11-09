@@ -444,18 +444,33 @@ static void makeline_independent(void) {
 	}
 	independent_carry = independent_row.carry;
 	chars = independent_row.count;
-	for (i = 0; i < chars; i++) {
-		independent_code[i] = independent_row.cells[i].character;
-	}
-	for (i = 0; i < chars; i++) {
-		const unsigned flags = independent_row.cells[i].flags;
-		/* The decoder already substituted secret/blink-hidden characters,
-		 * applied the device reverse display and the full-cell cursor. */
-		independent_color[i] = (UINT8)((independent_row.cells[i].color & 7) |
-		                               ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
-		independent_deco[i] = (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
-		                              ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
-		                              ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+	if (!n80_crtc.width80) {
+		/* 40-column cells double over their odd neighbours, as the VA byte
+		 * mode does: the cells occupy the even linebitmap columns and the
+		 * widening merges each pair. */
+		for (i = 0; i < chars; i++) {
+			const unsigned flags = independent_row.cells[i].flags;
+			independent_code[2 * i] = independent_row.cells[i].character;
+			independent_code[2 * i + 1] = 0;
+			independent_color[2 * i] = independent_color[2 * i + 1] =
+			    (UINT8)((independent_row.cells[i].color & 7) |
+			            ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
+			independent_deco[2 * i] = independent_deco[2 * i + 1] =
+			    (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
+			            ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
+			            ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+		}
+		chars *= 2;
+	} else {
+		for (i = 0; i < chars; i++) {
+			const unsigned flags = independent_row.cells[i].flags;
+			independent_code[i] = independent_row.cells[i].character;
+			independent_color[i] = (UINT8)((independent_row.cells[i].color & 7) |
+			                               ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
+			independent_deco[i] = (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
+			                              ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
+			                              ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+		}
 	}
 	/* The VA byte-mode route shows two hidden lead cells; keep the same
 	 * surface placement for the independent route. */
@@ -984,7 +999,7 @@ void maketextva_raster(void) {
 				makeline_independent();
 				if (!n80_crtc.width80) {
 					/* The port 30h switch doubles each of the 40 cells. */
-					widen40_3301((UINT16)(upd3301_columns(&n80_crtc) + 2));
+					widen40_3301((UINT16)(2 * upd3301_columns(&n80_crtc) + 2));
 				}
 			} else if (tsp.emul && (work.frameno == tsp.emul_frame)) {
 				/* Byte mode: the table's address and pitch are twice the

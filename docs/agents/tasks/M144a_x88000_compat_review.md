@@ -405,9 +405,20 @@ mode), and the rendered attrs change at the cells 1,5,9,13..., while the
 validated oracle's attribute groups change at the cells 0,4,8,12... — the
 pair positions may be character positions (the position N covers the two
 bytes of the cell N), which would shift every group by one cell and explain
-the mismatch exactly. Resolving this (testing the character-position walk
-against the oracle offline) is the next session's first task; the oracle
-itself was validated against the old route's rendering of the same program.
+the mismatch exactly. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+device-port logging): after the boot programming (RESET, the attribute
+mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
+CRTC reprogramming at all — it enters a loop at the ROM ip=03be repeatedly
+issuing the LOAD CURSOR POSITION command (81h). The mkII's WIDTH 40
+therefore switches the display through a mechanism outside the captured
+ports (a firmware-mediated path or a port not yet identified), and the
+80-column device state observed in the matrix captures is the boot state,
+not a WIDTH state. Separately, the matrix fixture program's pair positions
+were designed against the old route's firmware-mediated rendering and do
+not express the intent under the raw slot-unit semantics; the fixture
+program's positions were updated to the slot-unit boundaries (8,16,24...)
+for the independent-route qualification, and the oracle stays as the
+pixel-level contract.
 
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
