@@ -349,19 +349,24 @@ user-reported half-width 40-column cursor is resolved in the independent
 route.
 
 **WIDTH 40 root cause identified (system-call layer, not the device).**
-Controlled runs with the debug-script input (which verifiably reaches the
-N80 handoff: the boot-only probe holds `MCPUROLE=1`, `MEM88MODE=1`, the
-device in C_B character mode) show that typing `WIDTH 40,25` into the N80
-BASIC console transitions the machine out of the PC-8001 mode entirely
-(`MCPUROLE=0`, `MEM88MODE=0`, the device at its reset defaults, the display
-stopped); the later "40-column" screenshots are the re-booted N80, not the
-WIDTH-applied screen. The compat-side I/O logger captured **zero** OUT
-instructions from the N80 ROM during the sequence: the WIDTH statement does
-not reach the device (or the trap layer) as guest I/O at all — it goes
-through the ROM's system-call gate into the VA firmware's native WIDTH
-handler, whose implementation is the VA's N-mode width switch (the
-153h-mode re-entry). The "independent route" bypassed the direct I/O traps
-(50h/51h/64h/68h) but not the ROM's CALLN system-call layer.
+**Harness correction (supersedes the intermediate diagnoses)**: several
+manual diagnostic runs invoked the emulator with a relative `--roms roms`
+path that resolved to a nonexistent directory, silently falling back to the
+VA machine; their captured states (`MCPUROLE=0`, the device at reset
+defaults) were the VA fallback, not N80 behavior. The scripted runs with
+the absolute ROM path are the valid evidence. Their status: the boot-only
+probe holds `MCPUROLE=1`, `MEM88MODE=1`, the device in C_B character mode
+(the N80 handoff works); the WIDTH 40/80 cursor measurements (16/8 dots)
+are the independent route's output and stand.
+
+The remaining WIDTH 40 question, restated against valid evidence: the
+qualification width40 run's screenshot showed the 40-column content and the
+16-dot cursor, and the width-verify frames show a stable blinking cursor —
+consistent with WIDTH 40 working on the independent route. A definitive
+confirmation (the device state saved during a WIDTH-applied screen,
+`MCPUROLE=1` retained) still needs a scripted run whose SAV and screenshot
+come from the same correct-ROM invocation; the earlier probes mixed
+fallback and valid runs.
 
 **Decision needed (maintainer)**: how the independent machines should
 resolve the WIDTH system call — (a) map the mkII system-call vectors to the
