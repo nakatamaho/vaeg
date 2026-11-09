@@ -406,9 +406,16 @@ the groups 1,3,5,7 (the SECRET cells, hidden in both phases) show 108 lit
 pixels each — the SECRET attribute is not reaching the rendered output for
 those cells, while the offline decode of the same captured buffer applies
 it correctly. The fixture-cell 4's 372 adds the reverse-video group's
-difference. The remaining investigation: the application decode at the
-screenshot frame (the live device frames/carry versus the offline probe)
-or the strided render path dropping the secret-substituted cells. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+difference. The application-side instrumentation (the getenv-gated cell dump in
+`makeline_independent` at the screenshot frame) revealed the decode's
+parameters are correct (the count 40, the carry 0xE0) but the decoded
+cells are all zero at that moment — while the screenshot itself shows the
+matrix glyphs and the SAV's textmem holds the buffer. The leading
+explanation: the render-path decode's peek callback returns zeros at the
+screenshot moment (the textmem content or the peek's window mapping
+differs between the render and the SAV snapshot), or the shared
+`independent_row` global is clobbered between the decode and the strided
+build. The next session instruments the peek callback directly. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
