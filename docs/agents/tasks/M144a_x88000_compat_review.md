@@ -427,8 +427,19 @@ captured ports (the 30h writes: only 2, both the boot's 22h). The next
 session captures the CRTC parameters between the WIDTH's RESET and START
 (the param writes via port 50h) and identifies the mkII's width-switch
 mechanism (the C_B bit, the port 30h bit 0, or another port). The group
-4-7's upper/under/graphic interaction will resolve once the device is in
-the 40-column mode. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+4-7's upper/under/graphic interaction is secondary. The per-fixture-cell
+delta analysis pinned the remaining 6,880 px to the groups 1,3,5,7 (the
+secret cells, 108 lit px each) and the group 4 (372 px, the reverse-video
+group) — the secret attribute not reaching the rendered output for those
+cells, and the reverse-video group's rendering difference. The app-side
+cell dump verified the decode (the count 40, the carry 0xE0, the cells
+matching the offline probe). The CRTC parameter capture confirmed the
+WIDTH 40 reprograms the CRTC to the same 80-column parameters (the reset
+CE 93 69 BE 13 = 80 cols, 25 rows, 16 scan, the attribute mode 0, 20
+pairs) with four port 30h writes of 22h — the width switch is NOT in the
+CRTC params or the captured 30h writes. The remaining investigation: the
+secret-cell rendering drop in the strided render path, and the mkII's
+width-switch mechanism. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
