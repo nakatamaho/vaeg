@@ -392,8 +392,15 @@ the X88000 mode-2 gate was wrong for this device program), committed with
 the dedicated CTest passing; (2) the rendered screenshot still mismatches
 the pixel oracle (26,904/81,920), so the remaining delta is in the raster
 position/scale path (cell placement, widening or the blink-phase samples),
-not in the decode. The oracle requires an exact per-phase match; the next
-step compares the rendered cells against the oracle slot-by-slot.
+not in the decode. The oracle requires an exact per-phase match. The side-by-side against the
+old route's passing frame (`attributes-r3/mkii-40/f18024.png`) shows the new
+render's first four cells pixel-identical in position and width (the lit
+runs (2,13),(20,29),(34,45),(50,61) at the 16-dot doubled pitch) and the
+cells beyond the fourth missing: the next session debugs the application's
+row-8+ decode/render (the leading suspects are the live attribute phase in
+the application decode versus the offline probe, or the compose/copy path
+truncating at the stale TSP frame geometry), using the same absolute-roms
+debug-script capture that produced the verified buffer.
 
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
