@@ -49,8 +49,8 @@ def input_script(model, columns, global_reverse=False):
     lines = [f'WIDTH {columns}', f'10 {clear}:FOR R=0 TO 7:B={address}+120*(R+8)',
              '20 FOR I=0 TO 79:POKE B+I,65:NEXT I',
              '30 FOR I=0 TO 19:POKE B+80+I*2,80:POKE B+81+I*2,0:NEXT I',
-             '40 POKE B+80,0:POKE B+81,232+16*INT(R/4)',
-             '50 FOR C=0 TO 7:N=8*(R-4*INT(R/4))+C:A=(N AND 7)+2*(N AND 24)',
+             '40 POKE B+80,0:G=R-4*INT(R/4):IF R>3 THEN POKE B+81,248 ELSE IF G>0 THEN POKE B+81,16*G ELSE POKE B+81,232',
+             '50 FOR C=0 TO 7:N=8*(R-4*INT(R/4))+C+1:A=(N AND 7)+2*(N AND 24)',
              '60 POKE B+82+C*2,8+C*8:POKE B+83+C*2,A:NEXT C',
              '70 POKE B+98,66:POKE B+99,0:POKE B+100,68:POKE B+101,232:NEXT R',
              ('80 OUT &H51,&H21:PRINT "ATTRDONE"' if global_reverse else '80 PRINT "ATTRDONE"'), 'RUN']
@@ -82,7 +82,7 @@ def expected(glyph, columns, blink_off, global_reverse=False):
     scale = 2 if columns == 40 else 1
     for group in range(8):
         for cell in range(8):
-            flags = (group % 4) * 8 + cell
+            flags = 0 if (group >= 4 and cell == 0) else (group % 4) * 8 + cell
             secret, blink, reverse, upper, under = (bool(flags & (1 << bit)) for bit in range(5))
             for y in range(10):
                 if group < 4:
@@ -174,7 +174,7 @@ def main():
             for path in args.frames:
                 with Image.open(path) as image:
                     require(image.size == (640, 422), 'N80_ATTR_IMAGE_SIZE')
-                    area = image.crop((248, 280, 303, 325) if args.graphics else (16, 182, 528, 342)).convert('RGB')
+                    area = image.crop((248, 280, 303, 325) if args.graphics else (0, 182, 512, 342)).convert('RGB')
                 raw = area.tobytes()
                 colors = list(zip(raw[::3], raw[1::3], raw[2::3]))
                 require(all(c in ((0, 0, 0), (255, 254, 255)) for c in colors), 'N80_ATTR_COLOR')

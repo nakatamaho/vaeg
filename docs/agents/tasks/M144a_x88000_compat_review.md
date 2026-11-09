@@ -502,6 +502,46 @@ between the fixture/oracle design (the firmware-mediated mapping) and
 the independent route's slot-unit semantics; the attribute-bit plumbing
 itself is verified correct.
 
+**RESOLVED — N80_ATTR_PIXELS PASS (both blink phases, 40/80 columns and
+global reverse)**. Three stacked causes, each proven by evidence:
+
+1. Fixture attr off-by-one. The program's pair C carried the attr for
+   oracle fixture-cell C but landed on fixture-cell C+1 (the pair
+   positions start at one fixture-cell). The app-side decode dump and an
+   offline decode of the captured textmem (the pc88_text_decode_row path
+   with the captured buffer) confirmed the decode matched the intended
+   groups once line 50 became `N=8*(R-4*INT(R/4))+C+1`.
+2. Oracle crop offset (the decisive one). The validator cropped the
+   screenshot at x=16, which matched the OLD route's firmware-mediated
+   placement (the firmware table renders cell j one 16px block right of
+   the independent route). The independent route draws cell j at screen
+   x=16j (full-width 40 cells, consistent with the cursor-at-x-0
+   measurement). With a temporary getenv diagnostic in
+   makeline_independent (the strided arrays and the decode were both
+   verified correct, ruling out the render internals), the residual
+   pattern — every fixture-cell's 4th cell showing the NEXT cell's data
+   — pinned the shift to the crop. Moving the crop to (0,182,512,342)
+   dropped the mismatch 6,880 -> 416.
+3. Fixture-cell 0 expression limit. The remaining 416 px were the
+   upper/under lines the oracle expected on fixture-cell 0 of rows
+   g%4=1,2,3. A colour-attribute entry (bit 3) uses bit 4 as semigraphic,
+   a non-colour entry uses bit 4 as the overline, so a baseline cell
+   cannot be colour-7, semigraphic AND lined in one attribute byte. The
+   program now realizes fixture-cell 0 for the non-graphic rows with a
+   non-colour entry (0x10/0x20/0x30, colour from the verified carry-7
+   chain), and the oracle defines fixture-cell 0 of the semigraphic rows
+   (groups 4-7) as plain — the exact hardware limitation, not a
+   relaxation of the per-cell flag coverage, which cells 1-7 keep in
+   full (including graphic+upper/under via the semigraphic-state
+   persistence the decoder shares with the X88000 reference).
+
+Final evidence (headless-input-script runs, mkii, frames spanning both
+blink phases): 40 columns PASS_64_ATTRIBUTE_CELLS_BOTH_BLINK_PHASES, 80
+columns PASS, 40 columns with global reverse (OUT 51h=21h) PASS. The
+full native suite stays 183/183. The remaining presentation work is
+unchanged: live-presenter/Windows confirmation and the other 8801/8001
+models.
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at
