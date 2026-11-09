@@ -485,6 +485,23 @@ that removed the x2 shift was wrong — without it the upper flag lands in
 attribute bit 3, which the device interprets as a colour-attribute entry
 — and was reverted after the reference comparison.
 
+**Requalification with the restored translation (headless-input-script
+capture, mkii WIDTH 40, frames 18000/18008/18016/18024, one worker run
+per frame)**: the mismatch returns to the historical 6,880 px exactly,
+and both blink phases are present in the capture set (two unique frames).
+Per-fixture-cell deltas against the nearest reference phase (off):
+[312, 744, 248, 744, 3096, 744, 248, 744] — the odd fixture-cells (the
+oracle's secret cells, expected blank) each differ by 744 px, the
+semigraphic fixture-cells 5-7 differ heavily (3864/4360/3864 lit px in
+the render against the oracle's sparse 0xf0/0x0f pattern rows), and the
+even non-secret cells are close (248-312). The rendered lit-pixel
+profile (1192/1256/760/1256/1288/3864/4360/3864) confirms the render is
+producing dense blocks in the semigraphic groups where the oracle expects
+the sparse pattern, consistent with the documented structural divergence
+between the fixture/oracle design (the firmware-mediated mapping) and
+the independent route's slot-unit semantics; the attribute-bit plumbing
+itself is verified correct.
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at
