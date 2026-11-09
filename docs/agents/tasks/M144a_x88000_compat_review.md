@@ -407,15 +407,18 @@ pixels each — the SECRET attribute is not reaching the rendered output for
 those cells, while the offline decode of the same captured buffer applies
 it correctly. The fixture-cell 4's 372 adds the reverse-video group's
 difference. The application-side instrumentation (the getenv-gated cell dump in
-`makeline_independent` at the screenshot frame) revealed the decode's
-parameters are correct (the count 40, the carry 0xE0) but the decoded
-cells are all zero at that moment — while the screenshot itself shows the
-matrix glyphs and the SAV's textmem holds the buffer. The leading
-explanation: the render-path decode's peek callback returns zeros at the
-screenshot moment (the textmem content or the peek's window mapping
-differs between the render and the SAV snapshot), or the shared
-`independent_row` global is clobbered between the decode and the strided
-build. The next session instruments the peek callback directly. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+`makeline_independent`) then revealed the decode's parameters are correct
+(the count 40, the carry 0xE0) with the decoded cells matching the offline
+probe — the app-side decode is CORRECT. The remaining 6,880 px: the
+groups 4-7 (the upper/under/reverse/semigraphic interactions) — the
+carry's graphic flag (the pair0's 0xF8 bit4) persists through the
+decoration attrs in my decoder, while the oracle's group 5 renders the
+semigraphic with the solid upper line at the cell's first raster — the
+upper line and the semigraphic block compete for the same rasters
+differently between my raster and the oracle. The bounded fix: the group
+4-7's upper/under/graphic interaction in the shared raster (the render's
+`line ? solid : glyph` precedence versus the oracle's layered
+expectation). Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
