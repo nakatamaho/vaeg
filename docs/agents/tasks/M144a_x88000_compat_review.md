@@ -399,13 +399,16 @@ runs (2,13),(20,29),(34,45),(50,61) at the 16-dot doubled pitch) and the
 cells beyond the fourth missing: the next session debugs the application's
 row-8+ decode/render. The offline carry-chain decode of the captured buffer
 (all 16 rows, the application's exact carry evolution) is cell-correct —
-the remaining delta is the pair-position semantics: the decoder walks the
-pair positions as logical byte columns (the cell = position/2 in 40-column
-mode), and the rendered attrs change at the cells 1,5,9,13..., while the
-validated oracle's attribute groups change at the cells 0,4,8,12... — the
-pair positions may be character positions (the position N covers the two
-bytes of the cell N), which would shift every group by one cell and explain
-the mismatch exactly. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
+the remaining delta was identified by the per-fixture-cell delta analysis
+(the screenshot's 8 attribute groups against the oracle, per phase): the
+groups 0,2,4,6 match (the deltas 0, 36-108, 372, 36-108 by the phase) and
+the groups 1,3,5,7 (the SECRET cells, hidden in both phases) show 108 lit
+pixels each — the SECRET attribute is not reaching the rendered output for
+those cells, while the offline decode of the same captured buffer applies
+it correctly. The fixture-cell 4's 372 adds the reverse-video group's
+difference. The remaining investigation: the application decode at the
+screenshot frame (the live device frames/carry versus the offline probe)
+or the strided render path dropping the secret-substituted cells. Resolution: the ROM's own WIDTH 40 sequence was captured (the limited
 device-port logging): after the boot programming (RESET, the attribute
 mode, START, the port 30h=22h twice) the ROM's WIDTH 40 handler issues NO
 CRTC reprogramming at all — it enters a loop inside its own
