@@ -577,16 +577,12 @@ static void drawscreenva(BOOL guest_boundary) {
 		const unsigned crtcrasters = upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc);
 		lines = (UINT16)(crtcrasters *
 		                 ((videova_hsyncmode() == VIDEOVA_24_8KHZ && crtcrasters > 200) ? 1 : 2));
-	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
+	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ || text200 || grph200) {
+		/* The VA route at the 24 kHz CRT doubles the 200-line content
+		 * (the TSP text and the 200-line graphics), matching the real
+		 * machine's line-doubled presentation; the 400-line content
+		 * composes 1:1. */
 		lines *= 2;
-	}
-	/* At the 24 kHz CRT the VA route keeps the TSP display line count:
-	 * the 200-line content doubles per raster inside the text parity gate
-	 * and the graphics odd-raster blanking, so the compose stays at the
-	 * display height. */
-	if (n80_crtc_active() == FALSE && videova_hsyncmode() == VIDEOVA_24_8KHZ &&
-	    lines > (UINT16)400) {
-		lines = 400;
 	}
 	if (lines > SURFACE_HEIGHT)
 		lines = SURFACE_HEIGHT;
