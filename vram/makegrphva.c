@@ -905,12 +905,13 @@ static void drawraster_m4(SCREEN screen) {
 	endraster_m(screen);
 }
 
-/* The PC-8801 family at the 24 kHz geometry shows the 200-line graphics
- * frame on alternating rasters (the maintainer's real-machine report: the
- * scanlines are visible in the 640x200 mode). The odd raster is blank and
- * the GVRAM address does not advance, so each GVRAM line occupies one lit
- * raster. The 15 kHz geometry and the 400-line frames do not skip. */
-static BOOL n80_scanline_skip(void) {
+/* The independent-route 200-line graphics frame at the 24 kHz geometry
+ * spans the doubled compose rasters (drawscreenva interleaves one lit and
+ * one blank raster per GVRAM line, the maintainer's real-machine report:
+ * the scanlines are visible in the 640x200 mode), so the framebuffer
+ * display window covers the full doubled height. The 15 kHz geometry and
+ * the 400-line frames keep the single-height window. */
+static BOOL n80_doubled_window(void) {
 	if (!memoryva_88_mode || !n80_crtc_active()) {
 		return FALSE;
 	}
@@ -921,14 +922,11 @@ static BOOL n80_scanline_skip(void) {
 }
 
 static void drawraster(SCREEN screen) {
-	if (n80_scanline_skip() && (work.screeny & 1) != 0) {
-		*screen->noraster = TRUE;
-		return;
-	}
 	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
 	if (screen->framebuffer != NULL) {
 		// The 88MD 400-line layout shows the 200-line frame from two planes.
-		const UINT dsh = screen->framebuffer->dsh * (n88_400lines() ? 2 : 1);
+		const UINT dsh =
+		    screen->framebuffer->dsh * ((n88_400lines() || n80_doubled_window()) ? 2 : 1);
 
 		if (screen->framebuffer->dsp + dsh == screen->y) {
 			screen->framebuffer = NULL;
@@ -1116,9 +1114,10 @@ static void readline(void) {
 		const BOOL sr = memoryn80.model == 2 && (memoryn80.port33 & 0x80);
 		unsigned x;
 		grph1_noraster = TRUE;
-		grph0_noraster = y >= 200 || !(memoryn80.port31 & 8) || (!mono &&
-		    ((sr && (memoryn80.port31 & 4)) ? (memoryn80_video[1] & 6) == 6 :
-		                                              (memoryn80_video[1] & 2) != 0));
+		grph0_noraster =
+		    y >= 200 || !(memoryn80.port31 & 8) ||
+		    (!mono && ((sr && (memoryn80.port31 & 4)) ? (memoryn80_video[1] & 6) == 6
+		                                              : (memoryn80_video[1] & 2) != 0));
 		for (x = 0; x < SURFACE_WIDTH; x++) {
 			unsigned color = 0;
 			if (!grph0_noraster && x < 640) {
@@ -1129,16 +1128,18 @@ static void readline(void) {
 					unsigned p;
 					for (p = 0; p < (sr ? (narrow ? 6U : 3U) : 1U); p++) {
 						if (!(memoryn80_video[1] & (2U << p)))
-							color |= (grphmem[0x4000 + (p % 3) * 0x10000 +
-							                  (p / 3) * 0x2000 + offset] >> (7 - dot % 8)) & 1;
+							color |=
+							    (grphmem[0x4000 + (p % 3) * 0x10000 + (p / 3) * 0x2000 + offset] >>
+							     (7 - dot % 8)) &
+							    1;
 					}
 				} else if (sr)
-					color = pc8001_sr_pixel_strided(grphmem + 0x4000, 0x10000, x, y,
-					    (memoryn80.port31 & 4) != 0, (memoryn80.port33 >> 2) & 1,
-					    memoryn80_video[1]);
+					color = pc8001_sr_pixel_strided(
+					    grphmem + 0x4000, 0x10000, x, y, (memoryn80.port31 & 4) != 0,
+					    (memoryn80.port33 >> 2) & 1, memoryn80_video[1]);
 				else if (!(memoryn80_video[1] & 2))
-					color = pc8001_mkii_pixel(grphmem + 0x4000, x, y,
-					    (memoryn80.port31 & 0x10) != 0);
+					color =
+					    pc8001_mkii_pixel(grphmem + 0x4000, x, y, (memoryn80.port31 & 0x10) != 0);
 			}
 			grph0_raster[x] = (WORD)color;
 		}

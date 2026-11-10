@@ -641,13 +641,39 @@ Corrections:
   geometry (80 columns, 20 rows, 10 scanlines) and rasterizes exactly
   the 10 rasters of text row 0.
 
+### The compose-geometry model (the definitive scanline contract)
+
+The maintainer refined the model with the criterion: the scanline
+column records whether the emulator reproduces the inter-line gap look
+of the real CRT for that mode. The compose geometry now follows the
+device instead of the VA TSP:
+
+- `drawscreenva` composes exactly the CRTC raster count for the
+  independent-route machines: the double of the scanlines at the 15 kHz
+  CRT (the lit/blank interleave) and at the 24 kHz CRT with the
+  10-raster rows (the doubled presentation), and the plain 400 rasters
+  when the device runs the 20-raster rows. The VA route keeps its own
+  TSP-driven line count.
+- The 10-raster rows keep the 8x8 font one-to-one at every CRT rate
+  (the interim 10-raster stretch was removed): the 15 kHz CRT shows the
+  two blank rasters (the scanline look) and the 24 kHz CRT presents
+  each raster twice, which renders the doubled 16-of-20 look.
+- The independent route with the full 400-raster geometry rasterizes
+  the text on every compose raster; the 200-raster geometries
+  rasterize every other compose raster (each raster presented twice at
+  the 24 kHz CRT).
+- The 200-line graphics frame at the 24 kHz CRT interleaves (one lit
+  raster, one blank raster per GVRAM line) through the compose-level
+  blanking, and the framebuffer display window covers the doubled
+  height.
+
 Raster/font summary (the real-machine model the renderer now follows):
 
 | Machine/mode | Display rasters | Text rows | Text ANK font | Graphics 640x200 | Graphics 640x400 |
 | --- | --- | --- | --- | --- | --- |
-| PC-8001 family, 15 kHz (mkII/SR) | 200 | 20 x 10 rasters | 8x8 one-to-one (8 of 10) | one raster per line, no gaps | not available |
-| PC-8801 family, 15 kHz | 200 | 20 x 10 rasters | 8x8 one-to-one | one raster per line, no gaps | not available |
-| PC-8801 family, 24 kHz | 400 | 20 x 20 rasters | 8x8 doubled (16 of 20; not the 8x16 ROM glyph) | one lit raster + one blank raster per line (visible scanlines) | one raster per line, no gaps |
+| PC-8001 family, 15 kHz (mkII/SR) | 200 | 20 x 10 rasters | 8x8 one-to-one (8 of 10; the scanline look) | the natural per-line structure (the scanline look) | not available |
+| PC-8801 family, 15 kHz | 200 | 20 x 10 rasters | 8x8 one-to-one (the scanline look) | the natural per-line structure (the scanline look) | not available |
+| PC-8801 family, 24 kHz | 400 | 20 x 20 rasters | 8x8 doubled (16 of 20; not the 8x16 ROM glyph) | one lit raster + one blank raster per line (visible scanlines; the full-height interleave is still under verification in the headless captures) | one raster per line, no gaps |
 | VA, 24 kHz (reference) | 400 | 20 x 20 rasters | 8x16 ROM glyph one-to-one, clean, no visible scanlines (confirmed correct) | per VA behaviour (unchanged) | per VA behaviour (unchanged) |
 
 **Presentation path (architectural finding)**: in the M143 native pipeline,

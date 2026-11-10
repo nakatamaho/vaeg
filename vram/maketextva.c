@@ -633,6 +633,11 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 			const BOOL ank8 = !independent && (videova_8801_display() ||
 			                                   ((pcg != NULL) && !(videova.txtmode & 0x04)));
 			const BOOL indep_double = independent && (work.lineheight >= 16);
+			/* The 10-raster rows keep the 8x8 font one-to-one at every CRT
+			 * rate: the 15 kHz CRT shows the two blank rasters (the scanline
+			 * look) and the 24 kHz CRT presents each raster twice
+			 * (drawscreenva doubles the compose rasters), which already
+			 * renders the doubled 16-of-20 look without intra-glyph gaps. */
 			font = (pcg != NULL)
 			           ? pcg
 			           : ((ank8 || indep_double) ? cgromva_ank8(code) : cgromva_font(code));
@@ -644,7 +649,8 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
 				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
 				/* PC-8801 style: each 8x8 row on two rasters; the independent
-				 * route doubles the same way at the 24 kHz geometry. */
+				 * route doubles the same way at the 24 kHz geometry, where
+				 * drawscreenva also presents every raster twice. */
 				const UINT fontrow = (ank8 || indep_double) ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
@@ -992,7 +998,13 @@ void maketextva_raster(void) {
 	}
 #endif
 
-	if (!tsp.textmg || (work.screeny & 1) == 0) {
+	/* The independent route with the full 400-raster CRTC geometry (the
+	 * PC-8801 V1/V2 at 24 kHz) rasterizes every compose raster; the
+	 * 200-raster geometries rasterize every other compose raster and
+	 * drawscreenva presents the even raster twice at the 24 kHz CRT. */
+	if (!tsp.textmg || (work.screeny & 1) == 0 ||
+	    (independent && n80_crtc_active() &&
+	     upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc) > 200)) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 

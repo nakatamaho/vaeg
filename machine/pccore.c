@@ -564,8 +564,19 @@ static void drawscreenva(BOOL guest_boundary) {
 	}
 
 	lines = tsp.screenlines;
-	if (videova_hsyncmode() != VIDEOVA_24_8KHZ)
+	if (n80_crtc_active()) {
+		/* The independent route composes exactly the CRTC raster count:
+		 * the double of the scanlines at the 15 kHz CRT (the interleave)
+		 * and at the 24 kHz CRT when the device runs the 10-raster rows
+		 * (the doubled presentation), and the plain 400 rasters when the
+		 * device runs the 20-raster rows. The VA route keeps its own
+		 * TSP-driven line count. */
+		const unsigned crtcrasters = upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc);
+		lines = (UINT16)(crtcrasters *
+		                 ((videova_hsyncmode() == VIDEOVA_24_8KHZ && crtcrasters > 200) ? 1 : 2));
+	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
 		lines *= 2;
+	}
 	if (lines > SURFACE_HEIGHT)
 		lines = SURFACE_HEIGHT;
 
@@ -578,6 +589,8 @@ static void drawscreenva(BOOL guest_boundary) {
 	maketextva_begin(&text200);
 	makesprva_begin();
 	makegrphva_begin(&grph200);
+	{
+	}
 	if (tsp.screenlines != 0) {
 		VIDEOVA_GRAPHICS_WINDOW window;
 
@@ -586,6 +599,12 @@ static void drawscreenva(BOOL guest_boundary) {
 	}
 	scrndrawva_compose_begin();
 
+	/* The independent-route machines at the 24 kHz CRT show the 200-line
+	 * graphics frame interleaved (one lit raster, one blank raster per
+	 * GVRAM line; the maintainer's real-machine report), exactly like the
+	 * grph200 presentation below. */
+	const BOOL n80_200line_24k =
+	    n80_crtc_active() && (videova_hsyncmode() == VIDEOVA_24_8KHZ) && (videova.grmode & 0x0002);
 	if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
 		// 15.7 kHz output.
 		switch (videova.grmode & 0x00c0) {
@@ -673,7 +692,7 @@ static void drawscreenva(BOOL guest_boundary) {
 				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
-				if (grph200) {
+				if (grph200 || n80_200line_24k) {
 					makegrphva_blankraster();
 				} else {
 					makegrphva_raster();
@@ -724,8 +743,8 @@ static void drawscreenva(BOOL guest_boundary) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
 		drawcount++;
 		if (guest_boundary &&
-		    (vaeg_recording_native_tap_is_active() ||
-		     (vaeg_recording_native_session_is_active() && !vaeg_recording_session_is_displayed()))) {
+		    (vaeg_recording_native_tap_is_active() || (vaeg_recording_native_session_is_active() &&
+		                                               !vaeg_recording_session_is_displayed()))) {
 			VAEG_RECORDING_NATIVE_FRAME frame;
 			VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 			VAEG_RECORDING_NATIVE_TAP_ERROR error;
@@ -733,8 +752,7 @@ static void drawscreenva(BOOL guest_boundary) {
 			vaeg_recording_native_frame_initialize(&frame);
 			if (scrnmng_capture_native_recording_frame_with_snapshot(&frame, &snapshot) !=
 			    SUCCESS) {
-				vaeg_recording_native_tap_fail(
-				    VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
+				vaeg_recording_native_tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
 			} else {
 				error = vaeg_recording_native_session_submit_frame(
 				    (UINT64)drawcount, pccore_guest_clock(),
