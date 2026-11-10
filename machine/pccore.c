@@ -712,8 +712,13 @@ static void drawscreenva(BOOL guest_boundary) {
 				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
-				if (grph200) {
-					// Reuse the previous output raster.
+				if (grph200 || n80_200line_24k) {
+					/* The VA route reuses the previous output raster; the
+					 * independent route blanks it so the 200-line frame
+					 * interleaves (one lit raster, one blank raster). */
+					if (n80_200line_24k) {
+						makegrphva_blankraster();
+					}
 				} else {
 					makegrphva_raster();
 				}
