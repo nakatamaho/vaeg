@@ -563,25 +563,18 @@ static void drawscreenva(BOOL guest_boundary) {
 		return;
 	}
 
-	maketextva_begin(&text200);
-	makesprva_begin();
-	makegrphva_begin(&grph200);
-
 	lines = tsp.screenlines;
 	if (n80_crtc_active()) {
 		/* The independent route composes exactly the CRTC raster count:
 		 * the double of the scanlines at the 15 kHz CRT (the interleave)
 		 * and at the 24 kHz CRT when the device runs the 10-raster rows
 		 * (the doubled presentation), and the plain 400 rasters when the
-		 * device runs the 20-raster rows. */
+		 * device runs the 20-raster rows. The VA route keeps its own
+		 * TSP-driven line count. */
 		const unsigned crtcrasters = upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc);
 		lines = (UINT16)(crtcrasters *
 		                 ((videova_hsyncmode() == VIDEOVA_24_8KHZ && crtcrasters > 200) ? 1 : 2));
-	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ || text200 || grph200) {
-		/* The VA route at the 24 kHz CRT doubles the 200-line content
-		 * (the TSP text and the 200-line graphics), matching the real
-		 * machine's line-doubled presentation; the 400-line content
-		 * composes 1:1. */
+	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
 		lines *= 2;
 	}
 	if (lines > SURFACE_HEIGHT)
@@ -592,6 +585,10 @@ static void drawscreenva(BOOL guest_boundary) {
 		scrnmng_setheight(0, lines);
 		tsp.flag &= ~TSP_F_LINESCHANGED;
 	}
+
+	maketextva_begin(&text200);
+	makesprva_begin();
+	makegrphva_begin(&grph200);
 	{
 	}
 	if (tsp.screenlines != 0) {
@@ -715,13 +712,8 @@ static void drawscreenva(BOOL guest_boundary) {
 				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
-				if (grph200 || n80_200line_24k) {
-					/* The VA route reuses the previous output raster; the
-					 * independent route blanks it so the 200-line frame
-					 * interleaves (one lit raster, one blank raster). */
-					if (n80_200line_24k) {
-						makegrphva_blankraster();
-					}
+				if (grph200) {
+					// Reuse the previous output raster.
 				} else {
 					makegrphva_raster();
 				}

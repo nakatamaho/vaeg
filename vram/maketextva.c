@@ -1008,17 +1008,8 @@ void maketextva_raster(void) {
 	 * height already carries the per-raster presentation (the doubled
 	 * height at the 24 kHz CRT with the sub-16-raster rows, the
 	 * interleave otherwise, both driven by drawscreenva's blanking). The
-	 * VA route keeps the parity gate at the 24 kHz CRT: the 200-line
-	 * content doubles each raster (the model 0's N mode included; the
-	 * firmware's keyboard bridge leaves textmg unset there too), and the
-	 * 15 kHz CRT and the 400-line content rasterize 1:1. */
-	/* The 24 kHz parity applies to the VA route's model 0 (the original
-	 * PC-8001: the 8x8 ANK doubles like the real machine's line-doubled
-	 * presentation); the emul path and the 16-raster text rasterize
-	 * every compose raster. */
-	if (independent || videova_hsyncmode() != VIDEOVA_24_8KHZ ||
-	    (tsp.emul && (work.frameno == tsp.emul_frame)) || (memoryva_pc8001 && !memoryn80.model) ||
-	    (work.screeny & 1) == 0) {
+	 * VA route keeps its parity gate. */
+	if (independent || !tsp.textmg || (work.screeny & 1) == 0) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 
