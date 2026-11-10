@@ -647,6 +647,19 @@ in `kbdmap.c`). Other machines keep the host behaviour. The repeat
 synthesis is host-event-driven; the headless `@hold` input does not
 exercise it, so the interactive verification is pending.
 
+### The PC-8001 24 kHz upper-half regression (the maintainer report, round 2)
+
+The maintainer reports the PC-8001 24 kHz text stayed in the upper half
+after the first fix. The first fix gated the compose doubling on
+`text200 || grph200`, but `text200` is false by definition at the 24 kHz
+CRT (`(hsync != 24 kHz) && ...`), so the gate never fired. Fix: the
+doubling condition uses the sync mode instead — the 200-line sync mode
+(`(tsp.syncparam[0] & 0xc0) != 0x40`) doubles, and the 400-line sync
+mode composes 1:1. The compose height stays at the display line count
+(the doubling happens inside the text parity gate and the graphics
+odd-raster blanking). Verified headlessly: the PC-8001 24 kHz text rows
+stand 20 rasters apart.
+
 ### The PC-8001 (model 0) 24 kHz text and the status-bar CRT display
 
 The maintainer reports the PC-8001 24 kHz text stayed in the upper half
