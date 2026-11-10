@@ -920,6 +920,10 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 		memoryn80_boot = N80_BOOT_AUTO;
 	}
 	memoryn80_boot = memoryva_n80_boot_selection();
+	/* The PC-8001 family (N, N80, N80SR) runs at its 4 MHz default: the
+	 * VA's x2 clock multiplier is the 8 MHz hack for these machines. */
+	pccore.multiple = 1;
+	pccore.realclock = pccore.baseclock * pccore.multiple;
 	/* Before the one-shot SR handoff the VA bridge still uses N80. */
 	/* The PC-8001 family programs its CRTC for 10-raster rows at 200
 	 * lines. The compose side presents those rasters per the monitor

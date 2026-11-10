@@ -611,9 +611,12 @@ firmware-drawn half-width cursor.
 
 ### Machine clock defaults (maintainer note)
 
-The maintainer confirms the PC-8001, mkII and mkIISR run at 4 MHz by
-default and the 8 MHz selection is a hack. The device clock
-(`N80_CRTC_CLOCK_HZ` 3993600) is already 4 MHz based; no change.
+The maintainer confirms the PC-8001 family (N, N80, N80SR) runs at its
+4 MHz default and the 8 MHz selection is a hack. The device clock
+(`N80_CRTC_CLOCK_HZ` 3993600) is already 4 MHz based. The machine hook
+now pins the CPU multiple to 1 for the PC-8001 family (the VA's x2
+multiplier would run these guests at 8 MHz); the PC-8801 family keeps
+the V1/V2 clock (the V2-H 8 MHz).
 
 ### The monitor setting in charge for the PC-8001 family
 
