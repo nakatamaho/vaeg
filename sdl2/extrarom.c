@@ -926,11 +926,11 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	pccore.realclock = pccore.baseclock * pccore.multiple;
 	/* Before the one-shot SR handoff the VA bridge still uses N80. */
 	/* The PC-8001 family programs its CRTC for 10-raster rows at 200
-	 * lines, a 15 kHz monitor. Run at 15 kHz (SW1) for this machine: the
-	 * 24 kHz scanline model is deferred until the line-doubled
-	 * presentation is specified against the real machines. videova_reset()
-	 * ran before this hook. */
-	videova.crtmode = 0;
+	 * lines for a 15 kHz monitor. The monitor setting (the DIP switch and
+	 * Monitor15kHz, applied by videova_reset() before this hook) stays in
+	 * charge: the 24 kHz CRT is an emulation-only presentation (a hack; the
+	 * real machines have no 24 kHz output) that shows each CRTC raster
+	 * twice (docs/modernization/screen-mode-table.md). */
 	fprintf(stderr, "INFO: PC-8001 machine %s (startup %s)\n", machine->name,
 	        memoryn80_boot == N80_BOOT_SR    ? "N80SR"
 	        : memoryn80_boot == N80_BOOT_N80 ? "N80"

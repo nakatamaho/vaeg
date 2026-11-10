@@ -7053,12 +7053,18 @@ static int test_tsp_sync_reverse(void) {
 	const BOOL saved_pc8801 = memoryva_pc8801;
 	const BOOL saved_pc8001 = memoryva_pc8001;
 	const char *problem = NULL;
+	BYTE saved_ank8_blank[8];
 	UINT i;
 
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	/* The original PC-8001 at the 24 kHz CRT shows the 8x8 ANK glyph (the
+	 * M144a screen mode table); keep its code 00h glyph blank, as in a real
+	 * font ROM, whatever an earlier test or the romless fallback left. */
+	CopyMemory(saved_ank8_blank, fontmem + 0x41000, sizeof(saved_ank8_blank));
+	ZeroMemory(fontmem + 0x41000, sizeof(saved_ank8_blank));
 	/* Native (V3) text: a blank cell is the background, or the foreground
 	 * with RV. */
 	memoryva_88_mode = 0;
@@ -7093,6 +7099,7 @@ static int test_tsp_sync_reverse(void) {
 	memoryva_pc8801 = saved_pc8801;
 	memoryva_pc8001 = saved_pc8001;
 	ZeroMemory(textmem, 0x8000);
+	CopyMemory(fontmem + 0x41000, saved_ank8_blank, sizeof(saved_ank8_blank));
 	pccore_term();
 	soundmng_deinitialize();
 	if (problem != NULL) {
@@ -7948,9 +7955,10 @@ static int test_extra_machine(void) {
 
 /* M114: a PC-8001 model runs in N mode: its 24 KiB N-BASIC with the
  * 6000h-7FFFh socket reading FFh, the 8x8 characters from font.rom, no FDD
- * unit without disk.rom, a 15 kHz monitor, and port 31h with its PC-8001mkII
- * meaning (N-BASIC and 200 lines kept, bit 1 all-RAM and bit 3 graphics
- * passed on). Synthetic data only. */
+ * unit without disk.rom, the monitor setting in charge of the CRT rate (no
+ * 15 kHz forcing; 24 kHz is an emulation-only presentation), and port 31h
+ * with its PC-8001mkII meaning (N-BASIC and 200 lines kept, bit 1 all-RAM
+ * and bit 3 graphics passed on). Synthetic data only. */
 static int test_pc8001_machine(void) {
 	static BYTE expect[0x6000];
 	char root[MAX_PATH];
@@ -7988,7 +7996,13 @@ static int test_pc8001_machine(void) {
 	if (problem == NULL) {
 		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
 		np2cfg.boot_mode = BOOTMODE_V1V2;
+		/* A 24 kHz monitor setting must survive the machine hook. */
+		videova.crtmode = 1;
 		romva_initialize();
+		if (videova.crtmode != 1) {
+			problem = "the monitor setting keeps the 24 kHz CRT";
+		}
+		videova.crtmode = 0;
 		selftest_fill_rom(expect, 0x6000, 0x31, NULL);
 		if (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x6000) ||
 		    (memoryva_n80[0x6000] != 0xff) || (memoryva_n80[0x7fff] != 0xff)) {

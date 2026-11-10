@@ -422,6 +422,18 @@ static BOOL independent_text_active(void) {
 	return n80_crtc_active() && upd3301_display_active(&n80_crtc) != 0;
 }
 
+/* The original PC-8001 (model 0) stays on the VA firmware route. At the
+ * 24 kHz CRT (an emulation-only presentation: the real machine has a
+ * 15 kHz output only) its 10-raster rows show the 8x8 ANK font one-to-one
+ * and every raster is presented twice, the doubled 16-of-20 look of the
+ * screen mode table (docs/modernization/screen-mode-table.md). The
+ * firmware leaves the 8x16 ANK mode selected at 24 kHz, so the glyph
+ * source is overridden here. */
+static BOOL pc8001_va_route_24k(void) {
+	return memoryva_88_mode && memoryva_pc8001 && !n80_crtc_active() && tsp.emul &&
+	       (videova_hsyncmode() == VIDEOVA_24_8KHZ);
+}
+
 static void makeline_independent(void) {
 	const unsigned rows = upd3301_rows(&n80_crtc);
 	unsigned chars;
@@ -630,8 +642,9 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 			 * ANK font over the rasters instead of showing a clean 8x16
 			 * glyph (the maintainer's PC-8801MH observation), matching the
 			 * VA route's 8801-display doubling. */
-			const BOOL ank8 = !independent && (videova_8801_display() ||
-			                                   ((pcg != NULL) && !(videova.txtmode & 0x04)));
+			const BOOL n0_24k = !independent && pc8001_va_route_24k();
+			const BOOL ank8 = !independent && !n0_24k &&
+			                  (videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04)));
 			const BOOL indep_double = independent && (work.lineheight >= 16);
 			/* The 10-raster rows keep the 8x8 font one-to-one at every CRT
 			 * rate: the 15 kHz CRT shows the two blank rasters (the scanline
@@ -640,8 +653,9 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 			 * renders the doubled 16-of-20 look without intra-glyph gaps. */
 			font = (pcg != NULL)
 			           ? pcg
-			           : ((ank8 || indep_double) ? cgromva_ank8(code) : cgromva_font(code));
+			           : ((ank8 || indep_double || n0_24k) ? cgromva_ank8(code) : cgromva_font(code));
 			fonth = independent ? (indep_double ? 16 : 8)
+			        : n0_24k    ? 8
 			                    : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
@@ -652,7 +666,8 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 				 * route doubles the same way at the 24 kHz geometry, where
 				 * drawscreenva also presents every raster twice. */
 				const UINT fontrow = (ank8 || indep_double) ? (r >> 1) : r;
-				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
+				BYTE fontdata =
+				    (r < fonth) ? font[fontrow * ((ank8 || n0_24k) ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
 					/* 2x4 blocks: bits 0-3 left column, 4-7 right, top first. */
 					const UINT block = (r < fonth) ? (r * 4) / fonth : 4;
@@ -1008,8 +1023,10 @@ void maketextva_raster(void) {
 	 * height already carries the per-raster presentation (the doubled
 	 * height at the 24 kHz CRT with the sub-16-raster rows, the
 	 * interleave otherwise, both driven by drawscreenva's blanking). The
-	 * VA route keeps its parity gate. */
-	if (independent || !tsp.textmg || (work.screeny & 1) == 0) {
+	 * VA route keeps its parity gate; the original PC-8001 at the 24 kHz
+	 * CRT rasterizes the even compose rasters only, so the odd raster
+	 * repeats the previous one (each 200-line raster presented twice). */
+	if (independent || (!tsp.textmg && !pc8001_va_route_24k()) || (work.screeny & 1) == 0) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 
