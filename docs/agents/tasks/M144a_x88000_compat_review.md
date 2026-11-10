@@ -644,6 +644,25 @@ in `kbdmap.c`). Other machines keep the host behaviour. The repeat
 synthesis is host-event-driven; the headless `@hold` input does not
 exercise it, so the interactive verification is pending.
 
+### The N-mode 24 kHz text compose fix (the maintainer's real-machine report)
+
+The maintainer reports the PC-8001/mkII/mkIISR 24 kHz text still shows the
+scanlines with the text in the upper half. Root cause: the compose height
+was the CRTC raster count (400) while the text rasterizer advanced one text
+row per rasterize call, and the rasterize gate (`tsp.textmg` unset in the
+N mode) let every compose raster rasterize, so the 20 text rows consumed
+only the upper 200 compose rasters and the text rows stood 10 rasters
+apart. Fix: the independent route's compose height doubles for the
+sub-16-raster rows at the 24 kHz CRT (`work.lineheight` x2 in
+`maketextva_begin`), and the text rasterizes on every compose raster (the
+parity gate no longer applies to the independent route). The 10-raster
+rows keep the 8x8 font one-to-one; the doubled compose height doubles the
+presentation, giving the doubled 16-of-20 look without intra-glyph gaps.
+Verified headlessly: the 24 kHz text rows stand 20 rasters apart with
+14-16 lit rasters (the doubled font), and the 15 kHz CRT keeps the native
+raster gaps (the scanline look). The text-composition selftest pins the
+15 kHz CRT (the native-raster contract).
+
 ### PC-8801MH corrections (maintainer real-machine report)
 
 The maintainer reports from the PC-8801MH: at 24 kHz our text showed the
