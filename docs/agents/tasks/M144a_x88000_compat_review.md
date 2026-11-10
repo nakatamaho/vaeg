@@ -761,6 +761,53 @@ gates on the compat-mode flag); this predates the independent route and
 needs its own diagnosis. The boot/width screenshots remain private evidence
 under the publication policy. The full native suite passes 183/183.
 
+### Screen mode table implementation
+
+The maintainer asked to implement the screen mode table
+([screen-mode-table.md](../../modernization/screen-mode-table.md)) on top
+of the rollback (`05e2de0b`), with the 24 kHz CRT of the PC-8001, PC-8001mkII
+and PC-8001mkIISR declared an emulation-only hack. The rollback had removed
+the VA-route doubling of 96595359, which doubled the compose height for any
+200-line content on the VA route and therefore also reached the VA's own
+V1/V2 and V3 200-line frames; the new changes are scoped by route and model.
+
+- [d222a27e](https://github.com/nakatamaho/vaeg/commit/d222a27e1f85dd807a15554a0383bccde8b88705):
+  the 24 kHz non-interlaced mode 1 branch of `drawscreenva` blanks the odd
+  200-line graphics raster on the independent route (`n80_200line_24k`).
+  The firmware programs `grmode` B062h (mode 1) for every captured
+  PC-8801/PC-8001 model, so the earlier mode 0-only blanking never applied.
+  Ledger entry recorded.
+- [a9d4c934](https://github.com/nakatamaho/vaeg/commit/a9d4c934df717eaed51496985f0fd450cd54322d):
+  the PC-8001 machine hook no longer forces the 15 kHz CRT; the monitor
+  setting chooses it. The original PC-8001 (model 0, VA firmware route) at
+  24 kHz (`pc8001_va_route_24k()` in `maketextva.c`) shows the 8x8 ANK glyph
+  one-to-one and rasterizes the even compose rasters only, so each raster
+  is presented twice. The firmware selects the 8x16 ANK mode there (`txtmode`
+  09h, TSP 400 lines, 10-raster rows), which had left the text in the upper
+  half with truncated glyphs. The mkII/SR were already doubled through the
+  independent route's compose height. Selftests: the PC-8001 machine test
+  asserts that a 24 kHz monitor setting survives the hook; the TSP SYNC
+  reverse test keeps the 8x8 glyph of code 00h blank, as a real font ROM
+  does (it ran the PC-8001 case at 24 kHz with a leftover synthetic font).
+
+Verification (headless, ROM sets matching MAME's `pc8001`, `pc8001mk2`,
+`pc8001mk2sr`, `pc8801mh` and `pc8801fa`; evidence out of tree): a semantic
+checker passes 14/14 contracts: text scanlines at 15 kHz and doubled text at
+24 kHz for each model, the 640x200 graphics one lit + one blank raster at
+15 and 24 kHz (mkIISR, MH, FA), and the model 0 text reaching the lower half
+at 24 kHz. Byte-identical with the rollback build: VA V1/V2 at 15/24 kHz with the
+8801 display on and off, V3 (the SGP boot menu at 15/24 kHz, demos F and I,
+MS-DOS 4.0), and every 15 kHz PC-8001/8801 capture. The 24 kHz
+PC-8001/8801 captures are the only images that differ. `vaeg --selftest`
+passes; the full native suite passes. Under `-j8`, two unrelated tests
+(trace equivalence, M75 transfer) failed from load. Both pass when rerun.
+
+Observed, not changed: in N80SR BASIC `SCREEN 3`, `LINE(0,0)-(639,199)`
+ends half-way and a vertical `LINE(600,0)-(600,199)` draws nothing, while
+horizontal lines at Y=100 and Y=150 land on compose rasters 200 and 300.
+The renderer's line mapping is therefore correct. The diagonal and vertical
+results are guest BASIC behaviour still to be explained.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |

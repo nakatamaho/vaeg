@@ -35,6 +35,30 @@ land.
 
 ## Maintenance Rules
 
+### M144a — 24 kHz 640x200 graphics without scanlines on the independent route
+
+- **Symptom/scope:** the PC-8801 family on the independent uPD3301 route
+  (PC-8801MH, PC-8801FA and the other `extra/` PC-8801 models) at the 24 kHz
+  CRT showed the 200-line graphics line-doubled (every GVRAM line on two lit
+  rasters), while the real PC-8801MH shows one lit and one blank raster per
+  line (the maintainer's real-machine report, the M144a screen mode table).
+- **Demonstrated root cause:** the firmware programs these machines in
+  non-interlaced mode 1 (`grmode` B062h, measured). `drawscreenva` blanked
+  the odd graphics raster of the independent route (`n80_200line_24k`) only
+  in its 24 kHz non-interlaced mode 0 branch; the mode 1 branch reused the
+  previous raster for every 200-line frame, the VA's own line doubling.
+- **Correction:** the 24 kHz mode 1 branch blanks the odd graphics raster when
+  `n80_200line_24k` holds (independent route, 200-line graphics); the VA route
+  keeps its line doubling and the 400-line graphics stay one-to-one.
+- **Verification:** headless captures with ROM sets matching MAME's
+  `pc8801mh` and `pc8801fa`: `LINE(0,0)-(639,199)` ends on compose raster 398
+  with 397 and 399 blank at 24 kHz (before: 398 and 399 lit); the 15 kHz
+  captures and every VA V1/V2 (15/24 kHz, 8801 display on/off) and V3 capture
+  (SGP boot menu, demos F and I, MS-DOS 4.0) are byte-identical to the
+  previous build. Native suite passes.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#screen-mode-table-implementation).
+- **Fixing commit:** [d222a27e1f85dd807a15554a0383bccde8b88705](https://github.com/nakatamaho/vaeg/commit/d222a27e1f85dd807a15554a0383bccde8b88705).
+
 ### M144a — PC-8801 text rendered at the wrong width on the independent device
 
 - **Symptom/scope:** the PC-8801 models booted through the independent uPD3301
