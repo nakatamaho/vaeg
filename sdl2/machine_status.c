@@ -237,8 +237,7 @@ void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *sta
 
 	if (text == NULL || size == 0 || status == NULL)
 		return;
-	snprintf(text, size, "%s | %s | CRT %s", status->machine, status->mode,
-	         videova_hsyncmode() == VIDEOVA_24_8KHZ ? "24kHz" : "15kHz");
+	snprintf(text, size, "%s | %s", status->machine, status->mode);
 	if (flags & VAEG_DISPINFO_CPU_CLOCK) {
 		machine_status_clock(clock, sizeof(clock), status->cpu_hz);
 		status_append(text, size, " | CPU %s", clock);
@@ -247,6 +246,8 @@ void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *sta
 		machine_status_clock(clock, sizeof(clock), status->sgp_hz);
 		status_append(text, size, " | SGP %s", clock);
 	}
+	status_append(text, size, " | CRT %s",
+	              videova_hsyncmode() == VIDEOVA_24_8KHZ ? "24kHz" : "15kHz");
 	if (flags & VAEG_DISPINFO_FPS) {
 		status_append(text, size, " | %u.%uFPS", (unsigned)(fps_tenths / 10),
 		              (unsigned)(fps_tenths % 10));
