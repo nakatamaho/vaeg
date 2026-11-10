@@ -54,6 +54,8 @@ void n80_crtc_advance_machine(SINT32 machine_clocks);
 void n80_crtc_irq_acknowledge(void);
 /* Port 30h (VA video/cassette handler owns the port) bit 0: 80/40 switch. */
 void n80_crtc_notify_port30(BYTE dat);
+/* Derive the displayed width for the PC-8801 role from the device params. */
+void n80_crtc_sync_width(void);
 /* The independent machine's text-source view for rendering/state code. */
 const PC88_TEXT_MEMORY *n80_crtc_memory(void);
 /* Component codec gate; machine-identity guards stay with the SAV layer. */

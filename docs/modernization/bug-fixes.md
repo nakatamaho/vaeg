@@ -35,6 +35,32 @@ land.
 
 ## Maintenance Rules
 
+### M144a — PC-8801 text rendered at the wrong width on the independent device
+
+- **Symptom/scope:** the PC-8801 models booted through the independent uPD3301
+  route showed a nearly blank screen: the N88-BASIC sign-on lines rendered at
+  40-column strided positions instead of 80 columns (the "How many files(0-15)?"
+  prompt collapsed to a 148-lit-pixel band).
+- **Demonstrated root cause:** the displayed width came from the mkII's
+  firmware-mediated port 30h bit 0 flag alone. The PC-8001mkII/SR switch width
+  through that flag while the CRTC parameters stay at the 80-column geometry;
+  the PC-8801 instead rewrites the device parameters, so its width80 flag
+  never became set and the renderer treated the 80-column N88 text as the
+  doubled byte mode.
+- **Correction:** `n80_crtc_sync_width()` derives `width80` from the parameter
+  column count for the PC-8801 role (applied at reset and after every
+  parameter write), and the port 30h notification now only feeds the
+  PC-8001mkII/SR family, whose width switch is the captured firmware path.
+- **Verification:** PC-8801MA2 (a set matching MAME's `pc8801ma2` combined
+  `PC88.ROM`) boots through the firmware, echoes the typed files answer, and
+  renders "NEC N-88 BASIC Version 2.3", the copyright line and the free-byte
+  count at 80 columns through the independent device; the device state at the
+  prompt reads 80x20 columns, 20 scanlines, display and DMA started. The
+  mkII/SR width behaviour is unchanged (both models still pass the attribute
+  matrix pixel contract). Native full suite 183/183.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#model-qualification).
+- **Fixing commit:** recorded with the M144a model-qualification commit.
+
 ### M144a — independent N80 composition drops the blinking cursor
 
 - **Symptom/scope:** the independent PC-8001mkII/SR framebuffer has no cursor,
@@ -4669,9 +4695,11 @@ separate parity correction or move it to Open Defects.
 
 ### M144a — independent N80 CRTC geometry remains unresolved
 
-- **Status/scope:** OPEN; PC-8001mkII/SR guest CRTC command/parameter handling,
-  variable attribute-pair counts and the corresponding byte-row pitch. No fixing
-  commit or completed guest-interface qualification is claimed.
+- **Status/scope:** RESOLVED for the guest interface; the independent
+  controller/renderer/state contract (command/parameter handling, variable
+  attribute-pair counts, byte-row pitch, SAV continuation) is implemented and
+  validated, ending this open entry. Physical-machine agreement of the
+  source-derived model remains unknown and stays unclaimed.
 - **Public-source finding:** at
   [47af24d17138613af9d5e810ba1ae5cf3c9fa36e](https://github.com/nakatamaho/vaeg/commit/47af24d17138613af9d5e810ba1ae5cf3c9fa36e),
   the main-CPU bridge's `N80DirectIO` excludes ports 50h/51h. These retain the VA

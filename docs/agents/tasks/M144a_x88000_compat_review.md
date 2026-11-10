@@ -542,6 +542,40 @@ full native suite stays 183/183. The remaining presentation work is
 unchanged: live-presenter/Windows confirmation and the other 8801/8001
 models.
 
+## Model qualification
+
+### PC-8001mkIISR attribute matrix
+
+The SR passes the same pixel contract on the first run: 40 columns and
+80 columns both `PASS_64_ATTRIBUTE_CELLS_BOTH_BLINK_PHASES` (six frames
+per width spanning both blink phases). The mkII corrections carried
+over without SR-specific changes; the fixture program uses the SR
+attribute base (`&HF3C8`) and the SR font ROM.
+
+### PC-8801MA2 boot through the independent device
+
+A PC-8801MA2 model directory with a set matching MAME's `pc8801ma2`
+(the combined `PC88.ROM`, split by the loader's M88-layout table) boots
+through the VA firmware and reaches disk BASIC. First observation: the
+screen stayed nearly blank while the text window held the boot text.
+The device state at the prompt (the N80DISP payload of a save state)
+read 80x20 columns, 20 scanlines, display and DMA started, DMA address
+F3C8, `width80` 0 — the PC-8801 programs the device parameters and
+never sets the mkII's firmware width flag, so the renderer treated the
+80-column N88 text as the doubled byte mode.
+
+Correction (`io/n80_crtc.c/.h`): `n80_crtc_sync_width()` derives
+`width80` from the parameter column count for the PC-8801 role, called
+at reset and after every parameter write; the port 30h notification now
+applies only to the PC-8001mkII/SR family. After the fix the MA2
+renders the boot through the independent device at 80 columns: the
+typed files answer echoes on the prompt line, and "NEC N-88 BASIC
+Version 2.3", "Copyright (C) 1981 Microsoft" and "56810 Bytes free"
+appear on their own rows (the guest-area band profile shows five lit
+text rows and the cursor row). The bug-fix ledger records the defect;
+the ledger's open CRTC-geometry entry is marked resolved for the guest
+interface (physical-machine agreement stays unknown and unclaimed).
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at

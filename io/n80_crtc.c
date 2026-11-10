@@ -58,12 +58,29 @@ void n80_crtc_reset(void) {
 	upd3301_clock_configure(&n80_crtc, N80_CRTC_CLOCK_HZ, 0);
 	pc88_text_dma_reset(&n80_crtc_dma, N80_CRTC_DMA_RESET_ADDRESS);
 	ZeroMemory(&n80_crtc_text, sizeof(n80_crtc_text));
+	n80_crtc_sync_width();
+}
+
+/* The width state differs inside the family. The PC-8001mkII/SR switch the
+ * 40/80 display through the firmware-mediated port 30h bit 0 while the CRTC
+ * parameters stay at the 80-column geometry (the captured WIDTH 40
+ * reprogramming). The PC-8801 programs the real device instead: its WIDTH
+ * command rewrites the CRTC parameters, so the displayed width is the
+ * parameter column count. */
+void n80_crtc_sync_width(void) {
+	if (!n80_crtc_active()) {
+		return;
+	}
+	if (memoryva_pc8801) {
+		n80_crtc.width80 = (uint8_t)(upd3301_columns(&n80_crtc) >= 80);
+	}
 }
 
 static void IOOUTCALL n80_crtc_o_param(UINT port, REG8 dat) {
 	(void)port;
 	if (n80_crtc_active()) {
 		upd3301_parameter_write(&n80_crtc, (uint8_t)dat);
+		n80_crtc_sync_width();
 	}
 }
 
@@ -133,7 +150,7 @@ void n80_crtc_advance_machine(SINT32 machine_clocks) {
 }
 
 void n80_crtc_notify_port30(BYTE dat) {
-	if (n80_crtc_active()) {
+	if (n80_crtc_active() && !memoryva_pc8801) {
 		/* X88000 WriteIO_30 bit 0: the 80/40-column switch. The port stays
 		 * owned by the VA video/cassette handler; the device is notified. */
 		n80_crtc.width80 = (uint8_t)(dat & 1);
