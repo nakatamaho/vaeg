@@ -1007,9 +1007,12 @@ void maketextva_raster(void) {
 	/* The independent route rasterizes every compose raster: the compose
 	 * height already carries the per-raster presentation (the doubled
 	 * height at the 24 kHz CRT with the sub-16-raster rows, the
-	 * interleave otherwise, both driven by drawscreenva's blanking). The
-	 * VA route keeps its parity gate. */
-	if (independent || !tsp.textmg || (work.screeny & 1) == 0) {
+	 * interleave otherwise, both driven by drawscreenva's blanking).
+	 * The VA route keeps the parity gate at the 24 kHz CRT: the 200-line
+	 * content (the sync mode other than 0x40) doubles each raster there,
+	 * and the 400-line content and the 15 kHz CRT rasterize 1:1. */
+	if (independent || videova_hsyncmode() != VIDEOVA_24_8KHZ ||
+	    (tsp.syncparam[0] & 0xc0) != 0x40 || !tsp.textmg || (work.screeny & 1) == 0) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 
