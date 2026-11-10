@@ -31,6 +31,7 @@
 #include "memoryva.h"
 #include "sysportva.h"
 #include "sgp.h"
+#include "io/videova.h"
 
 #include <stdarg.h>
 
@@ -236,7 +237,8 @@ void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *sta
 
 	if (text == NULL || size == 0 || status == NULL)
 		return;
-	snprintf(text, size, "%s | %s", status->machine, status->mode);
+	snprintf(text, size, "%s | %s | CRT %s", status->machine, status->mode,
+	         videova_hsyncmode() == VIDEOVA_24_8KHZ ? "24kHz" : "15kHz");
 	if (flags & VAEG_DISPINFO_CPU_CLOCK) {
 		machine_status_clock(clock, sizeof(clock), status->cpu_hz);
 		status_append(text, size, " | CPU %s", clock);

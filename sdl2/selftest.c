@@ -6568,7 +6568,7 @@ static int test_machine_status(void) {
 			goto done;
 		}
 		if (i == 0 && (status.cpu_hz != 1996800 || status.base_hz != 3993600 ||
-		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
+		               strcmp(text, "PC-88VA2 | V2S | CRT 15kHz | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
 			problem = "nominal clock or short English status";
 			goto done;
 		}

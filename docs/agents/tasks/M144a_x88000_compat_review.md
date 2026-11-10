@@ -647,6 +647,21 @@ in `kbdmap.c`). Other machines keep the host behaviour. The repeat
 synthesis is host-event-driven; the headless `@hold` input does not
 exercise it, so the interactive verification is pending.
 
+### The PC-8001 (model 0) 24 kHz text and the status-bar CRT display
+
+The maintainer reports the PC-8001 24 kHz text stayed in the upper half
+with the 8x16-looking ANK (the mkII/mkIISR were fixed). The PC-8001
+original (model 0) stays on the VA route (the firmware text), and the
+VA route composed the 24 kHz CRT at the TSP line count without doubling
+the 200-line content. Fix: the VA route doubles the compose height at
+the 24 kHz CRT when the text or the graphics is the 200-line content
+(the line-doubled presentation, matching the VA's own line-doubled
+display); the 400-line content composes 1:1. Verified headlessly: the
+PC-8001 24 kHz text spans the full height with the 16-raster rows (the
+doubled 8x8 ANK) and the cursor lands in the lower region. The bottom
+status bar now shows the CRT rate ("CRT 15kHz"/"CRT 24kHz" from
+`videova_hsyncmode()`) after the mode.
+
 ### The N-mode 24 kHz text compose fix (the maintainer's real-machine report)
 
 The maintainer reports the PC-8001/mkII/mkIISR 24 kHz text still shows the

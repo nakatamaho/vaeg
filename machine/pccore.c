@@ -563,18 +563,25 @@ static void drawscreenva(BOOL guest_boundary) {
 		return;
 	}
 
+	maketextva_begin(&text200);
+	makesprva_begin();
+	makegrphva_begin(&grph200);
+
 	lines = tsp.screenlines;
 	if (n80_crtc_active()) {
 		/* The independent route composes exactly the CRTC raster count:
 		 * the double of the scanlines at the 15 kHz CRT (the interleave)
 		 * and at the 24 kHz CRT when the device runs the 10-raster rows
 		 * (the doubled presentation), and the plain 400 rasters when the
-		 * device runs the 20-raster rows. The VA route keeps its own
-		 * TSP-driven line count. */
+		 * device runs the 20-raster rows. */
 		const unsigned crtcrasters = upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc);
 		lines = (UINT16)(crtcrasters *
 		                 ((videova_hsyncmode() == VIDEOVA_24_8KHZ && crtcrasters > 200) ? 1 : 2));
-	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
+	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ || text200 || grph200) {
+		/* The VA route at the 24 kHz CRT doubles the 200-line content
+		 * (the TSP text and the 200-line graphics), matching the real
+		 * machine's line-doubled presentation; the 400-line content
+		 * composes 1:1. */
 		lines *= 2;
 	}
 	if (lines > SURFACE_HEIGHT)
@@ -584,19 +591,6 @@ static void drawscreenva(BOOL guest_boundary) {
 		// Apply a TSP line-count change only while SYNCEN is enabled.
 		scrnmng_setheight(0, lines);
 		tsp.flag &= ~TSP_F_LINESCHANGED;
-	}
-
-	maketextva_begin(&text200);
-	makesprva_begin();
-	makegrphva_begin(&grph200);
-	{
-		static int diag_done = 0;
-		if (diag_done < 2 && getenv("VAEG_DIAG_FMT")) {
-			diag_done++;
-			fprintf(stderr, "DIAGF hsync=%d tsp_lines=%d lines=%d grmode=%04x grph200=%d\n",
-			        videova_hsyncmode(), (int)tsp.screenlines, (int)lines, videova.grmode,
-			        grph200);
-		}
 	}
 	{
 	}
