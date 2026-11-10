@@ -808,6 +808,13 @@ horizontal lines at Y=100 and Y=150 land on compose rasters 200 and 300.
 The renderer's line mapping is therefore correct. The diagonal and vertical
 results are guest BASIC behaviour still to be explained.
 
+Clean-build handoff: `tools/release/build-mingw-static-container.sh --commit
+ce85a234ce4164ed90f21bcff49ebd33f47296c7` with `VAEG_BUILD_TRACK=m144a`
+exited 0 in a dedicated Colima runtime. It displays `Rel.20261110 (m144a,
+ce85a234)`, embeds the source commit and imports only Windows system DLLs.
+`vaeg.exe` SHA-256
+`d234fb7376fb4703647445c69875beae88581e6a9b68fbfb23fe63d4bbd1ea62`.
+
 ### Migration and approved removal scope
 
 | Current coupling | Replacement/removal condition |
