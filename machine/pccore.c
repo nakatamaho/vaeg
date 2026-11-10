@@ -590,6 +590,15 @@ static void drawscreenva(BOOL guest_boundary) {
 	makesprva_begin();
 	makegrphva_begin(&grph200);
 	{
+		static int diag_done = 0;
+		if (diag_done < 2 && getenv("VAEG_DIAG_FMT")) {
+			diag_done++;
+			fprintf(stderr, "DIAGF hsync=%d tsp_lines=%d lines=%d grmode=%04x grph200=%d\n",
+			        videova_hsyncmode(), (int)tsp.screenlines, (int)lines, videova.grmode,
+			        grph200);
+		}
+	}
+	{
 	}
 	if (tsp.screenlines != 0) {
 		VIDEOVA_GRAPHICS_WINDOW window;

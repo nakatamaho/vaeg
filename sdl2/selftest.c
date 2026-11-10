@@ -9615,6 +9615,7 @@ static int test_n80_text_composition(void) {
 	const WORD saved_grmode = videova.grmode;
 	const UINT8 saved_txtmode = videova.txtmode;
 	const UINT8 saved_pcg = np2cfg.pcg_enable;
+	const int saved_crtmode = videova.crtmode;
 	const char *problem = NULL;
 	UINT width;
 	soundmng_initialize();
@@ -9627,6 +9628,9 @@ static int test_n80_text_composition(void) {
 	 * must not observe it. */
 	np2cfg.pcg_enable = 0;
 	videova.txtmode = 0;
+	/* The native-raster contract: pin the 15 kHz CRT so the 10-raster
+	 * rows render one-to-one (the 24 kHz CRT doubles the compose height). */
+	videova.crtmode = 0;
 	ZeroMemory(textmem, sizeof(textmem));
 	videova.grmode = 0x3000;
 	videova.palette[15] = 0x1111;
@@ -9692,6 +9696,7 @@ static int test_n80_text_composition(void) {
 	memoryn80 = saved_bank;
 	videova.grmode = saved_grmode;
 	videova.txtmode = saved_txtmode;
+	videova.crtmode = saved_crtmode;
 	np2cfg.pcg_enable = saved_pcg;
 	if (problem)
 		return fail("N80 text composition", problem);

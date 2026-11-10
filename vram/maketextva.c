@@ -833,9 +833,15 @@ void maketextva_begin(BOOL *scrn200) {
 		 * the character height from the device, not from stale TSP state.
 		 * A 200-line screen occupies the doubled surface, as the VA route's
 		 * 200-line modes do (X88000: a scanline count divisible by eight and
-		 * 25 rows is the 400-line screen). */
+		 * 25 rows is the 400-line screen). At the 24 kHz CRT the
+		 * sub-16-raster rows present every raster twice (the doubled
+		 * 16-of-20 text look), so their compose height doubles too;
+		 * drawscreenva composes exactly this raster count. */
 		independent_carry = 0xe0;
 		work.lineheight = (int)upd3301_scanlines(&n80_crtc);
+		if (videova_hsyncmode() == VIDEOVA_24_8KHZ && upd3301_scanlines(&n80_crtc) < 16) {
+			work.lineheight *= 2;
+		}
 		if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
 			work.lineheight = TEXTVA_LINEHEIGHTMAX;
 		}
@@ -998,13 +1004,12 @@ void maketextva_raster(void) {
 	}
 #endif
 
-	/* The independent route with the full 400-raster CRTC geometry (the
-	 * PC-8801 V1/V2 at 24 kHz) rasterizes every compose raster; the
-	 * 200-raster geometries rasterize every other compose raster and
-	 * drawscreenva presents the even raster twice at the 24 kHz CRT. */
-	if (!tsp.textmg || (work.screeny & 1) == 0 ||
-	    (independent && n80_crtc_active() &&
-	     upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc) > 200)) {
+	/* The independent route rasterizes every compose raster: the compose
+	 * height already carries the per-raster presentation (the doubled
+	 * height at the 24 kHz CRT with the sub-16-raster rows, the
+	 * interleave otherwise, both driven by drawscreenva's blanking). The
+	 * VA route keeps its parity gate. */
+	if (independent || !tsp.textmg || (work.screeny & 1) == 0) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 
