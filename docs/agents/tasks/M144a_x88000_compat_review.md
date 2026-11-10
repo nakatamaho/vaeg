@@ -576,6 +576,45 @@ text rows and the cursor row). The bug-fix ledger records the defect;
 the ledger's open CRTC-geometry entry is marked resolved for the guest
 interface (physical-machine agreement stays unknown and unclaimed).
 
+### The 24 kHz scanline fill (maintainer report, corrected)
+
+The maintainer reports from the real machines that at 24 kHz the text
+glyphs fill the row's rasters. The M114 record already distinguishes the
+geometries: the PC-8001 family programs 10-raster rows at 200 lines
+(15 kHz, `CE 93 69 BE 13`) while the PC-8801 N-BASIC programs 20-raster
+rows (`CE 93 73 38 13`, 24 kHz). The independent route forced the 8-row
+font one-to-one at every height, which left the 24 kHz rows half-filled.
+The raster now selects the full 8x16 font ROM glyph when the row height
+is 16 rasters or more (`indep16` in `makeline_3301_raster`); the
+10-raster 15 kHz geometry is unchanged and the mkII attribute-matrix
+contract still passes on a fresh capture. The PC-8801MA2 boot now fills
+each 20-raster row with the 16 font rasters.
+
+### The plain PC-8001 (model 0) stays on the firmware path for now
+
+The maintainer reports the WIDTH 40,25 cursor is still half-width on the
+real PC-8001 while the mkIISR mode is correct — the plain PC-8001 is not
+on the independent route. Enabling it was attempted and reverted: with
+the ports direct the ROM then programs the device correctly (the
+captured state reads `CE 93 69 BE 13`, display and DMA started, DMA
+F300, cursor (0,4), width80 0), but the rendered text is wrong because
+the model 0 TVRAM organisation differs from the mkII's. The captured
+boot buffer at F300 reads as character/attribute interleaved pairs
+("NEC PC-8001 BASIC Ver 1.8" on the even bytes) with what looks like the
+standard (80h,0) attribute-pair fill further into the row, and the row
+pitch is not the mkII's 120 bytes (the copyright line appears 122 bytes
+in). Deciding the real PC-8001 layout (interleaved per-character
+attributes versus the pair list, and the exact pitch) needs the PC-8001
+documentation or a targeted capture before the decoder can grow a model
+0 variant; until then the plain PC-8001 keeps the firmware path and its
+firmware-drawn half-width cursor.
+
+### Machine clock defaults (maintainer note)
+
+The maintainer confirms the PC-8001, mkII and mkIISR run at 4 MHz by
+default and the 8 MHz selection is a hack. The device clock
+(`N80_CRTC_CLOCK_HZ` 3993600) is already 4 MHz based; no change.
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at

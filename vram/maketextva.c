@@ -623,19 +623,24 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 				glyphfg = bg;
 			}
 			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one.
-			 * The independent N80 route shows its 8-row font one-to-one on the
-		 * device scanlines; the VA-state 8801 doubling does not apply. */
+			 * The independent N80 route shows the 8-row font one-to-one on the
+			 * device scanlines at the 10-raster 15 kHz geometry (the PC-8001
+			 * family); at the 24 kHz geometry (16 or more rasters, the
+			 * PC-8801 N-BASIC programming) the row takes the full 8x16 font
+			 * ROM glyph, as the real machine fills the rasters. */
 			const BOOL ank8 = !independent && (videova_8801_display() ||
 			                                   ((pcg != NULL) && !(videova.txtmode & 0x04)));
+			const BOOL indep16 = independent && (work.lineheight >= 16);
 			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));
-			fonth = independent ? 8 : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
+			fonth =
+			    independent ? (indep16 ? 16 : 8) : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
 				const BOOL line =
 				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
 				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
 				/* PC-8801 style: each 8x8 row on two rasters; the independent
-				 * route maps its 8-row font one-to-one. */
+				 * route maps the font rows one-to-one at either height. */
 				const UINT fontrow = ank8 ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {

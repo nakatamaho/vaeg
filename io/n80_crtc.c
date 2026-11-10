@@ -45,8 +45,12 @@ BOOL n80_crtc_active(void) {
 	if (!memoryva_88_mode) {
 		return FALSE;
 	}
-	/* Independent route for the whole 8801/8001 family: PC-8801 selections
-	 * and PC-8001mkII/SR models. VA/VA2 keep the firmware/TSP emulation. */
+	/* Independent route for the 8801/8001 family: PC-8801 selections and
+	 * the PC-8001mkII/SR models. The plain PC-8001 (model 0) stays on the
+	 * firmware path: its TVRAM organisation differs from the mkII's (the
+	 * captured boot writes interleaved-looking text) and needs its own
+	 * decoder layout before the route can render it. VA/VA2 keep the
+	 * firmware/TSP emulation. */
 	if (memoryva_pc8801) {
 		return TRUE;
 	}
@@ -73,7 +77,13 @@ void n80_crtc_sync_width(void) {
 	}
 	if (memoryva_pc8801) {
 		n80_crtc.width80 = (uint8_t)(upd3301_columns(&n80_crtc) >= 80);
+	} else {
+		/* The PC-8001 family keeps the firmware width flag, but a
+		 * sub-80-column parameter geometry is always the doubled byte
+		 * mode. */
+		n80_crtc.width80 = (uint8_t)(n80_crtc.width80 && upd3301_columns(&n80_crtc) >= 80);
 	}
+	(void)0;
 }
 
 static void IOOUTCALL n80_crtc_o_param(UINT port, REG8 dat) {
@@ -154,6 +164,7 @@ void n80_crtc_notify_port30(BYTE dat) {
 		/* X88000 WriteIO_30 bit 0: the 80/40-column switch. The port stays
 		 * owned by the VA video/cassette handler; the device is notified. */
 		n80_crtc.width80 = (uint8_t)(dat & 1);
+		n80_crtc_sync_width();
 	}
 }
 
