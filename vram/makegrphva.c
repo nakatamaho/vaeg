@@ -7,6 +7,7 @@
 #include "gvramva.h"
 #include "videova.h"
 #include "makegrphva.h"
+#include "io/n80_crtc.h"
 #include "memoryva.h"
 #include "io/pc8001_video.h"
 
@@ -904,7 +905,26 @@ static void drawraster_m4(SCREEN screen) {
 	endraster_m(screen);
 }
 
+/* The PC-8801 family at the 24 kHz geometry shows the 200-line graphics
+ * frame on alternating rasters (the maintainer's real-machine report: the
+ * scanlines are visible in the 640x200 mode). The odd raster is blank and
+ * the GVRAM address does not advance, so each GVRAM line occupies one lit
+ * raster. The 15 kHz geometry and the 400-line frames do not skip. */
+static BOOL n80_scanline_skip(void) {
+	if (!memoryva_88_mode || !n80_crtc_active()) {
+		return FALSE;
+	}
+	if (!(videova.grmode & 0x0002)) {
+		return FALSE;
+	}
+	return upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc) > 200;
+}
+
 static void drawraster(SCREEN screen) {
+	if (n80_scanline_skip() && (work.screeny & 1) != 0) {
+		*screen->noraster = TRUE;
+		return;
+	}
 	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
 	if (screen->framebuffer != NULL) {
 		// The 88MD 400-line layout shows the 200-line frame from two planes.

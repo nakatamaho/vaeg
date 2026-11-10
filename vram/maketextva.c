@@ -626,22 +626,26 @@ static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color
 			 * The independent N80 route shows the 8-row font one-to-one on the
 			 * device scanlines at the 10-raster 15 kHz geometry (the PC-8001
 			 * family); at the 24 kHz geometry (16 or more rasters, the
-			 * PC-8801 N-BASIC programming) the row takes the full 8x16 font
-			 * ROM glyph, as the real machine fills the rasters. */
+			 * PC-8801 N-BASIC programming) the real machine doubles the 8x8
+			 * ANK font over the rasters instead of showing a clean 8x16
+			 * glyph (the maintainer's PC-8801MH observation), matching the
+			 * VA route's 8801-display doubling. */
 			const BOOL ank8 = !independent && (videova_8801_display() ||
 			                                   ((pcg != NULL) && !(videova.txtmode & 0x04)));
-			const BOOL indep16 = independent && (work.lineheight >= 16);
-			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));
-			fonth =
-			    independent ? (indep16 ? 16 : 8) : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
+			const BOOL indep_double = independent && (work.lineheight >= 16);
+			font = (pcg != NULL)
+			           ? pcg
+			           : ((ank8 || indep_double) ? cgromva_ank8(code) : cgromva_font(code));
+			fonth = independent ? (indep_double ? 16 : 8)
+			                    : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
 				const BOOL line =
 				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
 				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
 				/* PC-8801 style: each 8x8 row on two rasters; the independent
-				 * route maps the font rows one-to-one at either height. */
-				const UINT fontrow = ank8 ? (r >> 1) : r;
+				 * route doubles the same way at the 24 kHz geometry. */
+				const UINT fontrow = (ank8 || indep_double) ? (r >> 1) : r;
 				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
 					/* 2x4 blocks: bits 0-3 left column, 4-7 right, top first. */

@@ -615,6 +615,41 @@ The maintainer confirms the PC-8001, mkII and mkIISR run at 4 MHz by
 default and the 8 MHz selection is a hack. The device clock
 (`N80_CRTC_CLOCK_HZ` 3993600) is already 4 MHz based; no change.
 
+### PC-8801MH corrections (maintainer real-machine report)
+
+The maintainer reports from the PC-8801MH: at 24 kHz our text showed the
+clean 8x16 font, but the real machine does not; and in the 640x200
+graphics mode at 24 kHz the real machine shows the scanlines while ours
+did not. The VA mode's 24 kHz presentation (the clean 8x16 font, no
+visible scanlines) is confirmed correct and stays untouched.
+
+Corrections:
+- Text: the independent route's 24 kHz path (row height 16 rasters or
+  more) now doubles the 8x8 ANK font over the rasters
+  (`indep_double`, the same model as the VA route's 8801-display
+  doubling) instead of showing the 8x16 ROM glyph.
+- Graphics: `makegrphva`'s raster entry skips the odd rasters for the
+  independent-route machines when the CRTC geometry exceeds 200 rasters
+  and the 200-line graphics flag (`videova.grmode` bit 1) is set: the
+  GVRAM line occupies one lit raster, the alternating raster is blank
+  (the visible scanlines). The 15 kHz geometry and the 400-line frames
+  do not skip. The VA mode is not affected (`n80_crtc_active()` false).
+- The text-composition selftest programmed a synthetic 25x16 geometry
+  and rasterized exactly 16 lines; the doubling path reached the romless
+  8x8 stub font (whose space glyph is not blank) and broke the cursor
+  cell check. The test now programs the real PC-8001 family 15 kHz
+  geometry (80 columns, 20 rows, 10 scanlines) and rasterizes exactly
+  the 10 rasters of text row 0.
+
+Raster/font summary (the real-machine model the renderer now follows):
+
+| Machine/mode | Display rasters | Text rows | Text ANK font | Graphics 640x200 | Graphics 640x400 |
+| --- | --- | --- | --- | --- | --- |
+| PC-8001 family, 15 kHz (mkII/SR) | 200 | 20 x 10 rasters | 8x8 one-to-one (8 of 10) | one raster per line, no gaps | not available |
+| PC-8801 family, 15 kHz | 200 | 20 x 10 rasters | 8x8 one-to-one | one raster per line, no gaps | not available |
+| PC-8801 family, 24 kHz | 400 | 20 x 20 rasters | 8x8 doubled (16 of 20; not the 8x16 ROM glyph) | one lit raster + one blank raster per line (visible scanlines) | one raster per line, no gaps |
+| VA, 24 kHz (reference) | 400 | 20 x 20 rasters | 8x16 ROM glyph one-to-one, clean, no visible scanlines (confirmed correct) | per VA behaviour (unchanged) | per VA behaviour (unchanged) |
+
 **Presentation path (architectural finding)**: in the M143 native pipeline,
 the guest composition (`drawscreenva`/`maketextva_raster`) runs only when
 `drawframe` is set or a recording is active (`pccore.c` guard at

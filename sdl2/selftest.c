@@ -9631,14 +9631,15 @@ static int test_n80_text_composition(void) {
 	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_TEXT, TRUE);
 	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
 	for (width = 0; width < 2 && !problem; width++) {
-		/* Program the device as the guest would: RESET with 80 columns, 25
-		 * rows, 16 scanlines, nontransparent mode, START, DMA on, cursor to
-		 * cell 0 of row 0, and nine frames so the cursor phase is on. */
+		/* Program the device as the guest would: RESET with 80 columns, 20
+		 * rows, 10 scanlines (the PC-8001 family 15 kHz geometry),
+		 * nontransparent mode, START, DMA on, cursor to cell 0 of row 0, and
+		 * nine frames so the cursor phase is on. */
 		UINT i;
 		iocore_out8(0x51, 0x00);
 		iocore_out8(0x50, 0x4e);
-		iocore_out8(0x50, 0x18);
-		iocore_out8(0x50, 0x0f);
+		iocore_out8(0x50, 0x13);
+		iocore_out8(0x50, 0x69);
 		iocore_out8(0x50, 0x13);
 		iocore_out8(0x50, 0x34);
 		iocore_out8(0x51, 0x20);
@@ -9656,7 +9657,9 @@ static int test_n80_text_composition(void) {
 		if (!problem) {
 			BOOL scrn200;
 			maketextva_begin(&scrn200);
-			for (i = 0; i < 16; i++) {
+			/* Exactly the 10 rasters of text row 0: the cursor row must be
+			 * the last rasterized scanline. */
+			for (i = 0; i < 10; i++) {
 				maketextva_raster();
 			}
 			/* The cursor reverses its whole cell: the eight (80-column) or
