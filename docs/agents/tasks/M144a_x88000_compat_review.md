@@ -615,6 +615,35 @@ The maintainer confirms the PC-8001, mkII and mkIISR run at 4 MHz by
 default and the 8 MHz selection is a hack. The device clock
 (`N80_CRTC_CLOCK_HZ` 3993600) is already 4 MHz based; no change.
 
+### The monitor setting in charge for the PC-8001 family
+
+With the compose-geometry model in place, the M114-era forcing of the
+15 kHz crtmode in the PC-8001 machine hook was removed: the monitor
+setting (the DIP switch and `Monitor15kHz`) stays in charge of the CRT
+rate, and the 24 kHz CRT renders the doubled 16-of-20 text look (the
+maintainer's table row "N（エミュ独自の24kHz設定）"). The compose raster
+count for the independent route is the CRTC raster count (the double of
+the scanlines at the 15 kHz CRT and with the 10-raster rows at the 24
+kHz CRT; the plain 400 rasters with the 20-raster rows). The
+attribute-matrix contract pins `Monitor15kHz=true` (the native raster
+contract); at the 24 kHz CRT the odd compose rasters duplicate the even
+ones, so the same pixel oracle holds for both rates with the pinned
+configuration.
+
+### Key auto-repeat (maintainer report, PC-8001mkIISR)
+
+The maintainer reports the key auto-repeat is far too fast in the
+mkIISR mode. Cause: the host's SDL auto-repeat events pass straight
+through to the keyboard bridge (`kbdmap_keydown`'s normal path injected
+every repeat event), while the firmware's keyboard bridge does not
+repeat by itself (the headless hold test produced 1-2 characters in
+three seconds). The host repeats are now reshaped for the PC-8001
+family: held until the 500 ms repeat delay elapses, then injected at
+the 10 Hz guest repeat rate (`N80_REPEAT_DELAY_MS`/`N80_REPEAT_RATE_MS`
+in `kbdmap.c`). Other machines keep the host behaviour. The repeat
+synthesis is host-event-driven; the headless `@hold` input does not
+exercise it, so the interactive verification is pending.
+
 ### PC-8801MH corrections (maintainer real-machine report)
 
 The maintainer reports from the PC-8801MH: at 24 kHz our text showed the

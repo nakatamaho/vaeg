@@ -7998,9 +7998,12 @@ static int test_pc8001_machine(void) {
 		if ((problem == NULL) && memcmp(fontmem + 0x41000, expect, 0x800)) {
 			problem = "8x8 characters from font.rom";
 		}
-		if ((problem == NULL) && (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) ||
-		                          (videova.crtmode != 0) || !subsystemmxcfg.absent)) {
-			problem = "N mode, 15 kHz and no FDD unit";
+		/* The M144a compose model removed the 15 kHz crtmode forcing: the
+		 * monitor setting (the DIP switch and Monitor15kHz) stays in
+		 * charge of the CRT rate for the PC-8001 family too. */
+		if ((problem == NULL) &&
+		    (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) || !subsystemmxcfg.absent)) {
+			problem = "N mode and no FDD unit";
 		}
 	}
 	if (problem == NULL) {

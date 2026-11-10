@@ -49,14 +49,14 @@
 char extrarom_last_error[160];
 
 const char *const extrarom_role_names[EXTRAROM_ROLES] = {
-    "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr", "n80_3",
+    "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr",  "n80_3",
     "disk", "kanji1", "kanji2", "jisyo", "cdbios", "font", "font80sr", "fonthira", "e8"};
 
 /* Accepted sizes of each role (0 ends the list). */
 static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
     {0x8000, 0},  {0x2000, 0},  {0x2000, 0}, {0x2000, 0},     {0x2000, 0},  {0x6000, 0x8000},
     {0x8000, 0},  {0x8000, 0},  {0xa000, 0}, {0x800, 0x2000}, {0x20000, 0}, {0x20000, 0},
-    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0}, {0x2000, 0}};
+    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0},   {0x2000, 0}};
 
 /*
  * Models and the roles each needs; "a|b" accepts either. Requirements
@@ -822,7 +822,8 @@ const char *extrarom_machine_name(const char *name) {
 	UINT i;
 
 	for (i = 0; i < NELEMENTS(machine_table); i++) {
-		if (same_name(name, machine_table[i].name)) return machine_table[i].name;
+		if (same_name(name, machine_table[i].name))
+			return machine_table[i].name;
 	}
 	return NULL;
 }
@@ -887,9 +888,9 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	(void)apply_role(machine, EXTRAROM_ROLE_FONT, fontmem + 0x41000, 0x800);
 	np2cfg.boot_mode = BOOTMODE_N;
 	memoryva_pc8001 = TRUE;
-	memoryn80.model = n_role == EXTRAROM_ROLE_N80_2SR ? 2 :
-	                  n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
-	cgromva_n80sr_font_present = memoryn80.model == 2 &&
+	memoryn80.model = n_role == EXTRAROM_ROLE_N80_2SR ? 2 : n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
+	cgromva_n80sr_font_present =
+	    memoryn80.model == 2 &&
 	    apply_role(machine, EXTRAROM_ROLE_FONT80SR, cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
 	/* In the MAME pc8001mk2sr set, fonthira is byte-identical to bank 1
 	 * of font80sr. Accept it as that bank when the complete font is absent;
@@ -906,7 +907,8 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	FillMemory(memoryn80_fourth, sizeof(memoryn80_fourth), 0xff);
 	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);
 	(void)apply_role(machine, EXTRAROM_ROLE_N80_4, memoryn80_fourth, sizeof(memoryn80_fourth));
-	memoryn80_sr_present = memoryn80.model == 2 &&
+	memoryn80_sr_present =
+	    memoryn80.model == 2 &&
 	    apply_role(machine, EXTRAROM_ROLE_N80_3, memoryn80_srrom, sizeof(memoryn80_srrom));
 	/* Resolve configuration only at reset, after the actual ROM roles are
 	 * known. Unsupported requests are reported and fall back to automatic;
@@ -919,10 +921,12 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	}
 	memoryn80_boot = memoryva_n80_boot_selection();
 	/* Before the one-shot SR handoff the VA bridge still uses N80. */
-	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
-	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
-	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */
-	videova.crtmode = 0;
+	/* The PC-8001 family programs its CRTC for 10-raster rows at 200
+	 * lines. The compose side presents those rasters per the monitor
+	 * setting (the M144a compose-geometry model): the 15 kHz CRT shows
+	 * the native raster gaps and the 24 kHz CRT doubles every raster
+	 * (the doubled 16-of-20 text look). videova_reset() ran before this
+	 * hook; the DIP switch and the Monitor15kHz setting stay in charge. */
 	fprintf(stderr, "INFO: PC-8001 machine %s (startup %s)\n", machine->name,
 	        memoryn80_boot == N80_BOOT_SR    ? "N80SR"
 	        : memoryn80_boot == N80_BOOT_N80 ? "N80"
