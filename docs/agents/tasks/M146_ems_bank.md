@@ -102,3 +102,30 @@ d37b57540878810ef381d1e8d0a7b9e41c1d9be2` with `VAEG_BUILD_TRACK=m146` exited
 d37b5754)`, keeps the local-only encoders OFF and imports only Windows system
 DLLs. `vaeg.exe` SHA-256
 `10831ea0d7295d4d3c2d00e57633d130d81b967e014c6bfb162172e0908c9e72`.
+
+## GUI additions (maintainer request, 2026-11-11)
+
+- [347ff133](https://github.com/nakatamaho/vaeg/commit/347ff13330e40365209e8dab24318cb92b117236): the EMS
+  Board "Installed memory (MB)" and I/O Bank Memory "128KB banks" fields were
+  a fixed 120 pixels while their +/- buttons follow the GUI font, leaving no
+  room for the digits at larger scales. Their width now comes from the digit
+  width, frame padding and both buttons. A disabled EMS board offers 1MB.
+- [e6fc0851](https://github.com/nakatamaho/vaeg/commit/e6fc0851a39086bd149e4284c4d8205ce8b8a0b9): SASI1 and
+  SASI2 access lamps on a second front-panel row under FD1, in the V1/V2/V3
+  green, lit 120 ms after each sxsi drive 0x00/0x01 block access
+  (`sysmng_hddaccess()` was an empty macro). The panel is 26 dots per 640.
+- [621ddc41](https://github.com/nakatamaho/vaeg/commit/621ddc41ca8fa5ea90e174a48944610dd0cd2ae9): the layout
+  and speed QA follow the 26-dot panel. The M143 DRAFT layout references no
+  longer match; this is an intentional visual change.
+
+Verified on virtual X11 (Linux arm64 container, 960x640, software renderer):
+the EMS dialog shows "3" and "Capacity: 3MB" after enabling and two "+";
+booting the VA2 utility SASI image lights SASI1 while the drivers load, and
+PC-Engine reaches Ready. Selftest: panel height, SASI lamp timing and
+lit/dim pixels; turning the SASI lamp colour to the idle colour fails
+"simple panel SASI1 lamp is not lit green" (reverted). Native CTest 183/183;
+`x11_matrix.py` and `runtime_speed_qa.py` selftests pass. Not covered:
+Windows, Cocoa, physical GPU, HiDPI.
+
+At 960 pixels wide (scale 2) the V1/V2/V3 lamps are hidden to keep the
+REC/lock group, as before this change (main shows the same).
