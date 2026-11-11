@@ -185,3 +185,10 @@ handoff of `11ee790e489fcb51c591efad08bfba5fca5779fd` (`vaeg.exe` SHA-256
 `456dfe9e0df1b8e1fac269e2b8baf9c81e11dce63f381bdc7cc16419c43e24ac`), and
 asked for the main merge. The integration-campaign choice is asked before the
 merge as AGENTS.md requires.
+
+Integration campaigns: asked before the merge; the maintainer answered
+"省略" (skip) for both the media/demo regression and the presenter/screen
+automation. Both are **NOT_RUN (maintainer opted out)**, not PASS. The
+utility FDD/SASI rebuild and four boot contracts at `11ee790e` above are
+focused checks, not the full campaign. The two-row front panel no longer
+matches the M143 DRAFT layout references; that approval stays open.
