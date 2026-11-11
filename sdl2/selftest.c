@@ -919,6 +919,10 @@ static int test_va_ems_board(void) {
 	BYTE saved_main;
 	BYTE saved_high0;
 	BYTE saved_high1;
+	UINT8 saved_sysm_bank;
+	UINT8 saved_dma_sysm_bank;
+	UINT8 saved_dma_access;
+	UINT8 bank_index;
 	BYTE *page_ptr;
 	BYTE saved_page;
 	BYTE pattern;
@@ -941,6 +945,13 @@ static int test_va_ems_board(void) {
 	saved_main = mem[0xc0000];
 	saved_high0 = mem[0x100000];
 	saved_high1 = mem[0x104000];
+	saved_sysm_bank = memoryva.sysm_bank;
+	saved_dma_sysm_bank = memoryva.dma_sysm_bank;
+	saved_dma_access = memoryva.dma_access;
+	/* The EMS board is in the bus slot: select it in the system memory area. */
+	memoryva.sysm_bank = 0;
+	memoryva.dma_sysm_bank = 0;
+	memoryva.dma_access = 0;
 	result = SUCCESS;
 	iocore_create();
 	if (iocore_build() != SUCCESS) {
@@ -949,7 +960,7 @@ static int test_va_ems_board(void) {
 	}
 
 	if ((EMSIO_DEFAULT_MEGABYTES != 0) || (EMSIO_MIN_MEGABYTES != 1) ||
-	    (EMSIO_MAX_MEGABYTES != 13)) {
+	    (EMSIO_MAX_MEGABYTES != 15)) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
 	}
@@ -993,6 +1004,34 @@ static int test_va_ems_board(void) {
 		result = fail("VA EMS", "native VA page-frame access did not map");
 		goto ems_test_cleanup;
 	}
+	/* M146: TVRAM (1), GVRAM (4), kanji ROM #1 (8) and the dictionary ROM
+	 * (C) keep C0000h in their own banks; only the bus slot (0) shows the
+	 * frame. Byte and word accesses both. */
+	for (bank_index = 0; bank_index < 4; bank_index++) {
+		static const UINT8 banks[4] = {0x01, 0x04, 0x08, 0x0c};
+
+		memoryva.sysm_bank = banks[bank_index];
+		CPU_EXTMEM[0x10001] = 0x69;
+		if ((upd9002_memoryread_nowait(0x0c0000) == 0x96) ||
+		    (upd9002_memoryread_w(0x0c0000) == 0x6996)) {
+			result = fail("VA EMS", "a non-bus-slot bank read the EMS page frame");
+			goto ems_test_cleanup;
+		}
+		if (banks[bank_index] == 0x04) {
+			upd9002_memorywrite_nowait(0x0c0000, 0x00);
+			upd9002_memorywrite_w(0x0c0000, 0x0000);
+		}
+		if ((CPU_EXTMEM[0x10000] != 0x96) || (CPU_EXTMEM[0x10001] != 0x69)) {
+			result = fail("VA EMS", "a non-bus-slot bank wrote the EMS page");
+			goto ems_test_cleanup;
+		}
+	}
+	memoryva.sysm_bank = 0;
+	if ((upd9002_memoryread_nowait(0x0c0000) != 0x96) ||
+	    (upd9002_memoryread_w(0x0c0000) != 0x6996)) {
+		result = fail("VA EMS", "the bus slot lost the EMS page frame");
+		goto ems_test_cleanup;
+	}
 
 	iocore_out8(0x08e9, 1);
 	if (iocore_inp8(0x08e9) != 0) {
@@ -1034,7 +1073,7 @@ static int test_va_ems_board(void) {
 		iocore_out8(page_port, (i & 0x3f) << 2);
 		if ((iocore_inp8(0x08e9) != 0) || (emsio.addr[frame] != page_addr) ||
 		    (CPU_EMSPTR[frame] != page_ptr)) {
-			result = fail("VA EMS", "13MB page table did not map completely");
+			result = fail("VA EMS", "15MB page table did not map completely");
 			goto ems_test_cleanup;
 		}
 		saved_page = *page_ptr;
@@ -1046,12 +1085,12 @@ static int test_va_ems_board(void) {
 		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) ||
 		    (*page_ptr != pattern)) {
 			*page_ptr = saved_page;
-			result = fail("VA EMS", "13MB native page-frame test failed");
+			result = fail("VA EMS", "15MB native page-frame test failed");
 			goto ems_test_cleanup;
 		}
 		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), saved_page);
 		if (*page_ptr != saved_page) {
-			result = fail("VA EMS", "13MB page test did not restore memory");
+			result = fail("VA EMS", "15MB page test did not restore memory");
 			goto ems_test_cleanup;
 		}
 	}
@@ -1081,6 +1120,9 @@ ems_test_cleanup:
 		CPU_EMSPTR[i] = saved_ems[i];
 	}
 	CPU_REMCLOCK = saved_remclock;
+	memoryva.sysm_bank = saved_sysm_bank;
+	memoryva.dma_sysm_bank = saved_dma_sysm_bank;
+	memoryva.dma_access = saved_dma_access;
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA EMS board mapping/config lifecycle ok\n");
 	}
@@ -6697,8 +6739,8 @@ static int test_front_panel(void) {
 	UINT32 now;
 
 	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
-	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
-		problem = "lamp bar is not 14 rows per 640 dots";
+	if ((frontpanel_height(640) != 26) || (frontpanel_height(1280) != 52)) {
+		problem = "lamp bar is not 26 rows (two lamp rows) per 640 dots";
 	}
 	np2oscfg.front_panel = FRONTPANEL_OFF;
 	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
@@ -6710,9 +6752,9 @@ static int test_front_panel(void) {
 	input.guest_width = 640;
 	input.guest_height = 400;
 	input.drawable_width = 640;
-	input.drawable_height = 22 + 400 + 14;
+	input.drawable_height = 22 + 400 + frontpanel_height(640);
 	input.menu_inset = 22;
-	input.bottom_inset = 14;
+	input.bottom_inset = frontpanel_height(640);
 	input.scaling = VAEG_SCALING_FIT;
 	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	                          (viewport.y != 22) || (viewport.height != 400))) {
@@ -6737,6 +6779,14 @@ static int test_front_panel(void) {
 	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
 	                          frontpanel_drive_lit(0, now + 1000))) {
 		problem = "access lamp timing";
+	}
+	/* M146: SASI1/SASI2 follow sxsi drives 0x00/0x01; SCSI (0x20) has none */
+	frontpanel_hdd_access(0x00);
+	frontpanel_hdd_access(0x20);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_sasi_lit(0, now) || frontpanel_sasi_lit(0, now + 1000) ||
+	                          frontpanel_sasi_lit(2, now))) {
+		problem = "SASI lamp timing";
 	}
 	if ((problem == NULL) &&
 	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
@@ -6808,6 +6858,13 @@ static int test_front_panel(void) {
 			frontpanel_fdd_access(0);
 			if (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
 			                                  sizeof(problem_text)) != SUCCESS) {
+				problem = problem_text;
+			}
+			/* M146: SASI2 accessed: lit; SASI1 follows its own access */
+			frontpanel_hdd_access(0x01);
+			if ((problem == NULL) &&
+			    (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
+			                                   sizeof(problem_text)) != SUCCESS)) {
 				problem = problem_text;
 			}
 		}

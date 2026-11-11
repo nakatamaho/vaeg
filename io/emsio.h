@@ -4,7 +4,9 @@
 enum {
 	EMSIO_DEFAULT_MEGABYTES = 0,
 	EMSIO_MIN_MEGABYTES = 1,
-	EMSIO_MAX_MEGABYTES = 13
+	/* M146: the 4-bit target register (08E9h) selects 1MB targets 1-15;
+	 * 13 was NP2's ExMemory limit, not a PC-88VA board limit. */
+	EMSIO_MAX_MEGABYTES = 15
 };
 
 typedef struct {

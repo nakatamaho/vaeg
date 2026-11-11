@@ -24,8 +24,8 @@
 
 /*
  * Front panel lamp state (vaeg M106): the FDD access lamps, lit while a
- * drive is accessed (red for 2D/2DD media, green for 2HD), and the V1/V2/V3
- * mode lamps following port 1CDh. sdl2/scrnmng.c draws them as a slim bar
+ * drive is accessed (red for 2D/2DD media, green for 2HD), the SASI1/SASI2
+ * access lamps on a second row (M146), and the V1/V2/V3 mode lamps following port 1CDh. sdl2/scrnmng.c draws them as a slim bar
  * below the guest screen.
  */
 
@@ -43,6 +43,7 @@
 enum {
 	FRONTPANEL_DRIVES = 2,
 	FRONTPANEL_MODES = 3,
+	FRONTPANEL_SASI = 2, /* SASI1 and SASI2 (sxsi drives 0x00, 0x01) */
 	/* how long one sector access keeps the lamp lit */
 	FRONTPANEL_ACCESS_MS = 120
 };
@@ -51,6 +52,8 @@ static struct {
 	BOOL mode_on[FRONTPANEL_MODES];
 	UINT32 access_tick[FRONTPANEL_DRIVES];
 	BOOL accessed[FRONTPANEL_DRIVES];
+	UINT32 sasi_tick[FRONTPANEL_SASI];
+	BOOL sasi_accessed[FRONTPANEL_SASI];
 } panel;
 
 void frontpanel_set_modeled(UINT num, BOOL on) {
@@ -64,6 +67,20 @@ void frontpanel_fdd_access(UINT drv) {
 		panel.access_tick[drv] = SDL_GetTicks();
 		panel.accessed[drv] = TRUE;
 	}
+}
+
+void frontpanel_hdd_access(UINT drv) {
+	if (drv < FRONTPANEL_SASI) {
+		panel.sasi_tick[drv] = SDL_GetTicks();
+		panel.sasi_accessed[drv] = TRUE;
+	}
+}
+
+BOOL frontpanel_sasi_lit(UINT unit, UINT32 now) {
+	if ((unit >= FRONTPANEL_SASI) || !panel.sasi_accessed[unit]) {
+		return FALSE;
+	}
+	return ((UINT32)(now - panel.sasi_tick[unit]) < FRONTPANEL_ACCESS_MS) ? TRUE : FALSE;
 }
 
 BOOL frontpanel_raw_mode_lit(UINT num) {
@@ -139,5 +156,7 @@ int frontpanel_height(int width) {
 	if ((np2oscfg.front_panel == FRONTPANEL_OFF) || (width <= 0)) {
 		return 0;
 	}
-	return 14 * frontpanel_simple_scale(width);
+	/* two rows: drives/modes/REC/locks, then SASI1/SASI2 (M146) */
+	return FRONTPANEL_SIMPLE_ROWS * FRONTPANEL_SIMPLE_ROW_HEIGHT * frontpanel_simple_scale(width) +
+	       2 * frontpanel_simple_scale(width);
 }

@@ -35,6 +35,55 @@ land.
 
 ## Maintenance Rules
 
+### M146 — SQEMM98 printed the EMS size digits reversed
+
+- **Symptom/scope:** the generated `SQEMM98.SYS` reported "EMS Memory:
+  31.0 MB" for a 13MB EMS board (12MB as "21.0", 11MB as "11.0", 10MB as
+  " 1.0"); 1-9MB were right. The page count and the installed memory were
+  correct; only the message was wrong. Every SQEMM98 built since M90
+  (utility media, guest-driver bundle).
+- **Demonstrated root cause:** upstream SQEMM 0.8 `print_kb_ems_fourchar`
+  divides two-digit megabytes with `DIV` (tens in AL, units in AH) and then
+  runs the `XCHG AL,AH` meant for the one-digit path, so `STOSW` stores the
+  units first.
+- **Correction:** `tools/openwatcom/prepare-sqemm98.py` adds one `XCHG AL,AH`
+  on the two-digit path. `SQEMM98.SYS` is 13,255 bytes, SHA-256
+  `e8fd90f9e72788bc3a756ec883634a474b4c332427a36194af0f5d19c8225654`; the
+  guest-driver bundle pin follows.
+- **Verification:** reported by the maintainer (31.0 MB at 13MB); MS-DOS 4.0
+  `EMSBANK` disk on VA2 now prints "13.0 MB" at `ExMemory=13` and "10.0 MB"
+  at 10; `check-sqemm98.py` passes.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [27572df269e0d35d59f8b5bae46f012cde8a5e05](https://github.com/nakatamaho/vaeg/commit/27572df269e0d35d59f8b5bae46f012cde8a5e05).
+
+### M146 — EMS page frame replaced every system memory bank
+
+- **Symptom/scope:** with the EMS board enabled (`ExMemory` 1-13) and an EMM
+  loaded (EMMVA01, SQEMM98, EMMVA02, as on the utility media), CPU and DMA
+  accesses to `C0000h-CFFFFh` reached the EMS page in every system memory
+  bank: GVRAM, kanji ROM #1/#2, the dictionary ROM and TVRAM at those
+  addresses read and wrote the EMS page. Graphics or ROM reads there got EMS
+  data, and GVRAM writes there changed EMS pages (for example RDEMS RAM-disk
+  data). PC-88VA and PC-88VA2, V3 mode.
+- **Demonstrated root cause:** `ems_page_frame_active()` (M90) mapped the
+  frame whenever an EMS target was selected, independently of the memory map
+  register. On the machine the EMS board is in the bus slot, which the system
+  memory area reaches only with port 153h SMBC = 0 (BNN technical manual,
+  chapter 3); the PC-88VA EMM adapter EMMVA selects SMBC 0 for the EMM and
+  leaves it there after a mapping call for that reason. `EMSBANK` on
+  MS-DOS 4.0 showed the marker written with SMBC 0 at `C000:0000` both in
+  GVRAM (SMBC 4) and in kanji ROM #1 (SMBC 8): FAIL on VA and VA2.
+- **Correction:** the frame is active only when the selected system memory
+  bank (or the DMA bank during DMA) is 0, the bus slot.
+- **Verification:** `EMSBANK` PASS on VA and VA2 (MS-DOS 4.0 disk from
+  `tools/hardware/emsbank/build.sh`, and a PC-Engine 1.1 disk); the previous
+  build FAILs the same disks. Utility FDD with `ExMemory=13`: RDEMS `C:`
+  copy, type and dir work on VA and VA2. VA EMS selftest checks banks 1, 4,
+  8 and C, byte and word; removing the bank condition fails it with "a
+  non-bus-slot bank read the EMS page frame". Native suite 183/183.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [df87b814b1bbd3cfddcf737a9082a9e05114e0c3](https://github.com/nakatamaho/vaeg/commit/df87b814b1bbd3cfddcf737a9082a9e05114e0c3).
+
 ### M144a — PC-8001 family FDD CPU at half its clock
 
 - **Symptom/scope:** with a `disk.rom` FDD unit, the PC-8001mkIISR in N80SR

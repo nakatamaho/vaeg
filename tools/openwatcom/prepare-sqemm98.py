@@ -64,7 +64,7 @@ OVERLAYS = {
     "max/defs/lotech.asm": """VA_PAGE_REGISTER_0 = 08E1h
 VA_TARGET_REGISTER = 08E9h
 PAGE_FRAME_COUNT = 4
-MAX_PAGE_COUNT = 832
+MAX_PAGE_COUNT = 960
 DEFAULT_CONVENTIONAL_PAGE_COUNT = 0
 MAX_CONTEXT_COUNT = 0
 CHIPSET_PAGE_FRAME_COUNT = 4
@@ -169,7 +169,7 @@ VA_unmap_next_page:
   mov word ptr ds:[_RESIDENT_VARIABLE_page_frame_segment+1], 0C000h
 
   xor bx, bx
-  mov cx, 13
+  mov cx, 15
   mov dx, VA_TARGET_REGISTER
 VA_detect_next_megabyte:
   mov ax, bx
@@ -628,6 +628,16 @@ def prepare_init_output(root: Path) -> None:
         raise SystemExit(
             f"SQEMM98_PREPARE_CURSOR_FUNCTION: expected one match, found {function_count}"
         )
+    # M146: for 10 MB or more, DIV leaves the tens in AL and the units in AH,
+    # and the shared XCHG then stored the units first: 13 MB printed "31.0",
+    # 10 MB " 1.0". Exchange them once more on that path only.
+    text = replace_once(
+        text,
+        "   mov   dh, 10\n   div   dh\n   xor   dh, dh\none_character_ems_mb:\n",
+        "   mov   dh, 10\n   div   dh\n   xor   dh, dh\n   xchg  al, ah\n"
+        "one_character_ems_mb:\n",
+        "EMS_MB_DIGITS",
+    )
     path.write_text(text, encoding="utf-8")
 
 

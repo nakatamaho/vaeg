@@ -2299,7 +2299,9 @@ static BOOL scrnmng_update_window_size(void) {
 	return (FALSE);
 }
 
-/* The simple front panel: a dark bar with the drive and mode lamps. */
+/* The simple front panel: a dark bar with the drive and mode lamps; the
+ * second row (M146) has the SASI1/SASI2 access lamps under FD1, lit in the
+ * mode lamps' green. */
 static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording, BOOL finalizing,
                                             UINT64 ticks, UINT64 clock) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
@@ -2389,6 +2391,25 @@ static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording,
 		}
 		x += r.w + ((drive && bar->w < 344 * s) ? 4 : 12) * s;
 	}
+	/* M146: second row, from FD1's column. */
+	x = bar->x + 8 * s;
+	for (i = 0; i < 2; i++) {
+		const int row = FRONTPANEL_SIMPLE_ROW_HEIGHT * s;
+		const char *const sasi_labels[2] = {"SASI1", "SASI2"};
+
+		scrnmng_draw_text_glyphs(x, bar->y + row + 4 * s, s, sasi_labels[i], label);
+		x += 5 * 8 * s + 4 * s;
+		r.x = x;
+		r.y = bar->y + row + 5 * s;
+		r.w = 12 * s;
+		r.h = 6 * s;
+		if (frontpanel_sasi_lit((UINT)i, now)) {
+			scrnmng_panel_fill(&r, 120, 255, 130);
+		} else {
+			scrnmng_panel_fill(&r, 52, 60, 52);
+		}
+		x += r.w + 12 * s;
+	}
 	/* Keep KANA/CAPS right-aligned; REC, lamp and movie time sit just left. */
 	x = recording_x;
 	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "REC", label);
@@ -2470,7 +2491,7 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	bar.x = 0;
 	bar.y = 0;
 	bar.w = width;
-	bar.h = 14 * s;
+	bar.h = (FRONTPANEL_SIMPLE_ROWS * FRONTPANEL_SIMPLE_ROW_HEIGHT + 2) * s;
 	surface = SDL_CreateRGBSurfaceWithFormat(0, bar.w, bar.h, 32, SDL_PIXELFORMAT_ARGB8888);
 	renderer = (surface != NULL) ? SDL_CreateSoftwareRenderer(surface) : NULL;
 	if (renderer == NULL) {
@@ -2496,6 +2517,27 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	if (ok && ((r + g + b) > 250)) {
 		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
 		ok = FALSE;
+	}
+	/* M146: second row, SASI1 lamp at 52 and SASI2 at 120, green while
+	 * accessed and dim otherwise. */
+	{
+		static const int sasi_x[2] = {52, 120};
+		const UINT32 now = SDL_GetTicks();
+		UINT unit;
+
+		for (unit = 0; unit < 2 && ok; unit++) {
+			const BOOL lit = frontpanel_sasi_lit(unit, now);
+
+			SDL_GetRGB(px[((FRONTPANEL_SIMPLE_ROW_HEIGHT + 8) * s) * (surface->pitch / 4) +
+			              (sasi_x[unit] + 6) * s],
+			           surface->format, &r, &g, &b);
+			if (lit ? ((r != 120) || (g != 255) || (b != 130))
+			        : ((r != 52) || (g != 60) || (b != 52))) {
+				SDL_snprintf(problem, size, "simple panel SASI%u lamp is not %s", unit + 1,
+				             lit ? "lit green" : "dim");
+				ok = FALSE;
+			}
+		}
 	}
 	/* M109: the CAPS lamp ends 8 dots from the right edge (lit or not, it
 	 * differs from the bar's background) */

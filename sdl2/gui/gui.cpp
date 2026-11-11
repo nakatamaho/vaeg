@@ -1670,6 +1670,16 @@ static void draw_configure_dialog(void) {
 	}
 }
 
+/* M146: the width of an InputInt with +/- buttons that shows `digits`
+ * digits at the current font: text, frame padding and both step buttons. */
+static float step_input_width(int digits) {
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float text = ImGui::CalcTextSize("0").x * static_cast<float>(digits);
+
+	return text + style.FramePadding.x * 2.0f +
+	       (ImGui::GetFrameHeight() + style.ItemInnerSpacing.x) * 2.0f;
+}
+
 static void open_bms_config_dialog(void) {
 	g_gui.pending_bms_enabled = bmsiocfg.enabled != FALSE;
 	g_gui.pending_bms_port = (bmsiocfg.port == BMSIO_PORT_COMPAT) ? 1 : 0;
@@ -1718,7 +1728,7 @@ static void draw_bms_config_dialog(void) {
 		ImGui::SetNextItemWidth(220.0f);
 		ImGui::Combo("I/O port", &g_gui.pending_bms_port, ports,
 		             static_cast<int>(std::size(ports)));
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(step_input_width(10));
 		ImGui::InputInt("128KB banks", &g_gui.pending_bms_banks, 1, 16);
 		if (banks_valid) {
 			ImGui::Text("Capacity: %dKB (%.3fMiB)",
@@ -1787,7 +1797,8 @@ static void save_main_ram_settings(UINT16 capacity, bool automatic) {
 
 static void open_ems_config_dialog(void) {
 	g_gui.pending_ems_enabled = np2cfg.EXTMEM != 0;
-	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ? np2cfg.EXTMEM : EMSIO_DEFAULT_MEGABYTES;
+	/* M146: a disabled board offers the smallest valid capacity, not 0 */
+	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ? np2cfg.EXTMEM : EMSIO_MIN_MEGABYTES;
 	g_gui.ems_config_open = true;
 	g_gui.ems_config_request = true;
 }
@@ -1823,7 +1834,7 @@ static void draw_ems_config_dialog(void) {
 
 		ImGui::Checkbox("Use EMS Board", &g_gui.pending_ems_enabled);
 		ImGui::BeginDisabled(!g_gui.pending_ems_enabled);
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(step_input_width(10));
 		ImGui::InputInt("Installed memory (MB)", &g_gui.pending_ems_megabytes, 1, 1);
 		ImGui::EndDisabled();
 		if (capacity_valid && g_gui.pending_ems_enabled) {
