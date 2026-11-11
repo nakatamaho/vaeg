@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M146 — EMS page frame and the system memory bank
 
-Status: **implementation in progress; G146 human gate pending.**
+Status: **G146 human gate passed on 2026-11-12.**
 
 Branch `milestone/m146-ems-bank`; commit prefix `M146:`. (M145 is the paused
 `milestone/m145-hyperframe-probe`.)
@@ -177,3 +177,11 @@ encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
 Utility FDD and both SASI images were rebuilt from the same commit with the
 15MB SQEMM98 (`a8ef06d2...`); four boot contracts PASS and RDEMS `C:` works
 at `ExMemory=15` on VA and VA2.
+
+## G146 human gate
+
+The maintainer stated on 2026-11-12 that G146 passed, on the static MinGW
+handoff of `11ee790e489fcb51c591efad08bfba5fca5779fd` (`vaeg.exe` SHA-256
+`456dfe9e0df1b8e1fac269e2b8baf9c81e11dce63f381bdc7cc16419c43e24ac`), and
+asked for the main merge. The integration-campaign choice is asked before the
+merge as AGENTS.md requires.
