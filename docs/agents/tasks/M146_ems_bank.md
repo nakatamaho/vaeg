@@ -129,3 +129,10 @@ Windows, Cocoa, physical GPU, HiDPI.
 
 At 960 pixels wide (scale 2) the V1/V2/V3 lamps are hidden to keep the
 REC/lock group, as before this change (main shows the same).
+
+Gate build (replaces `d37b5754` for G146): `tools/release/build-mingw-static-container.sh
+--commit 84981ff9c7d2c02ebc48a4c8419575b7e0bfe586` with `VAEG_BUILD_TRACK=m146`
+exited 0 (the first attempt failed in apt on a local DNS outage; its log is
+kept). It displays `Rel.20261112 (m146, 84981ff9)`, keeps the local-only
+encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
+`ba447695ff6fba0af7ce5ce0922749240ef6b39c98037aaa43830186c15d73a0`.
