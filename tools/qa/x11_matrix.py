@@ -138,7 +138,8 @@ def policy_for(case, metadata):
     w, h = metadata["target"]["logical_size"]
     scale = case["ui_scale"] // 100
     status = 24 * scale if case["status"] else 0
-    panel = 14 * max(1, (w + 320) // 640) if case["panel"] and not case["fullscreen"] else 0
+    # M146: two lamp rows (SASI1/SASI2 under FD1): 26 dots per 640.
+    panel = 26 * max(1, (w + 320) // 640) if case["panel"] and not case["fullscreen"] else 0
     menu = 0 if case["fullscreen"] else 22 * scale
     if case["fullscreen"]:
         screen.require([w, h] == metadata["screen_size"], "M132_UI_FOOTER_GEOMETRY")
@@ -296,12 +297,12 @@ def selftest():
     case = next(case for case in cases if case["id"] == "software-normal-s1p1")
     metadata = {"image_sha256": "0" * 64, "screen_size": [1280, 960],
                 "target": {"platform": "fixture", "backend": "sdl-software", "video_driver": "x11",
-                           "dpi_scale": 1, "logical_size": [640, 460], "fullscreen": False,
+                           "dpi_scale": 1, "logical_size": [640, 472], "fullscreen": False,
                            "status_visible": True, "panel_visible": True}}
     policy = policy_for(case, metadata)
-    screen.require(policy["regions"][-1]["rect"] == [0, 446, 640, 14], "M132_UI_SELFTEST")
+    screen.require(policy["regions"][-1]["rect"] == [0, 446, 640, 26], "M132_UI_SELFTEST")
     try:
-        policy_for(case, {**metadata, "target": {**metadata["target"], "logical_size": [640, 459]}})
+        policy_for(case, {**metadata, "target": {**metadata["target"], "logical_size": [640, 471]}})
     except screen.QaError as error:
         screen.require(error.code == "M132_UI_FOOTER_GEOMETRY", "M132_UI_SELFTEST")
     else:

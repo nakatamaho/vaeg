@@ -116,7 +116,7 @@ def snapshot_tooltip(client, name):
     client.hover(300, 250)
     client.snapshot(name + '-before')
     width, height, _ = read_png((client.output / (name + '-before.png')).read_bytes())
-    panel = 14 * max(1, (width + 320) // 640)
+    panel = 26 * max(1, (width + 320) // 640)  # M146: two lamp rows
     client.hover(100, height - panel - 12)
     client.snapshot(name)
     return client.output / (name + '.png')
