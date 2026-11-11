@@ -1120,6 +1120,57 @@ Native configure/build and the same nine focused CTests pass at
 [fe5d87f0368f76ef453dd3d57a72a41e33975533](https://github.com/nakatamaho/vaeg/commit/fe5d87f0368f76ef453dd3d57a72a41e33975533).
 This verification adds tests, not a new timing correction or bug-fix ledger entry.
 
+## PC-8001 family FDD CPU clock
+
+The check above calls `subsystem_reset()` directly and so missed the
+production ordering on the PC-8001 family. `pccore_reset()` runs
+`iocore_reset()` (`Subsystem::Reset` takes `pccore.multiple`, 2) before
+`romva_initialize()` runs the machine hook that sets these models to x1.
+The FDD CPU then cost two machine clocks per cycle at a 3.9936 MHz machine
+clock: about 2 MHz.
+
+Observed with a `disk.rom` unit and the private system disks (neutral IDs:
+N-mode disk D1, N80SR disks D2 and D3; identities outside Git): the unit read a
+byte every 204 machine clocks against the FDC byte interval of 153, so the
+FDC pacing ran behind and the end-of-sector step followed the last byte at
+once. D2's 14-sector read to EOT (track 0, sectors 3-16) ended
+ST0=40h/ST1=80h (End of Cylinder) before the unit's TC (`IN F8h`), eight
+retries alike; the unit answered status 81h and the mkIISR stayed at the
+N80SR ROM BASIC prompt. D1 booted, with one such EOT failure retried.
+
+The earlier working hypothesis, that port C input bits must float high
+towards the peer (an `io/i8255.c` change), was disproved before commit: the
+unit and host both program mode 91h, whose upper port C nibble is an output
+that the existing code already delivers, and an A/B run without the i8255
+change showed identical handshakes and screens. That change and all
+temporary `DBGDISK`/`DBGFDC` instrumentation were dropped.
+
+Correction: `pccore_reset()` calls `subsystemmx_sync_clock()` after
+`romva_initialize()`, so the unit follows the final multiple (x1 on the
+PC-8001 family, x2 on VA/PC-8801, unchanged). The nominal 3.9936 MHz FDD
+domain is kept; no FDC, crystal or instruction timing is changed.
+
+Verification at
+[38225c0507ab5d71d9744b09c4b522c88e901169](https://github.com/nakatamaho/vaeg/commit/38225c0507ab5d71d9744b09c4b522c88e901169):
+
+- `PC-8001 machine` selftest: after a full `pccore_reset()` the unit
+  multiple equals `pccore.multiple` (1). Removing the re-sync fails it with
+  "the FDD CPU keeps its 4 MHz at the x1 machine clock" (reverted).
+- D2 on the PC-8001mkIISR (N80SR): "N80SR-BASIC Disk version" and the files
+  prompt; the EOT read ends ST0=00h. D1 on the PC-8001: disk BASIC, the EOT
+  read ends ST0=00h without retry. A second N80SR-type disk D3 on the
+  PC-8001mkII: its own boot sector prints "NON N-80 DISK BASIC" and returns
+  to N80-BASIC, as before the change.
+- VA and VA2 boots of `all-demos-msdos4` and `sgp-boot` (frames 1200 and
+  2400) are byte-identical to the previous build.
+- Native suite 183/183, `--selftest` passes; encoding, EOL, case and
+  Markdown-comment checks clean.
+
+Open, not changed here: the state-load path calls `pccore_clockrestore()`,
+which sets `pccore.multiple` to 2 regardless of the loaded PC-8001 machine;
+the FDD/machine ratio stays consistent, but the main clock after loading a
+PC-8001-family SAV has not been verified.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM

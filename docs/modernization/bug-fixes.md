@@ -35,6 +35,38 @@ land.
 
 ## Maintenance Rules
 
+### M144a — PC-8001 family FDD CPU at half its clock
+
+- **Symptom/scope:** with a `disk.rom` FDD unit, the PC-8001mkIISR in N80SR
+  mode did not load N80SR disk BASIC from its system disk: it fell back to
+  the ROM BASIC prompt. The PC-8001 in N mode booted but its end-of-track
+  read was intermittently retried. All PC-8001-family models (`extra/`) were
+  affected; VA and PC-8801 models were not.
+- **Demonstrated root cause:** `pccore_reset()` runs `iocore_reset()`, whose
+  `Subsystem::Reset()` sets the FDD CPU's cost per cycle from
+  `pccore.multiple` (2), before `romva_initialize()` runs the machine hook
+  that sets the PC-8001 family to x1 (3.9936 MHz machine clock). The FDD CPU
+  therefore ran at about 2 MHz: measured 204 machine clocks per byte against
+  the uPD765 byte interval of 153, so the FDC's byte pacing fell behind and
+  the end-of-sector step ran as soon as the last byte was read. A 14-sector
+  read ending on EOT then terminated with ST0=40h/ST1=80h (End of Cylinder)
+  before the unit's TC (`IN F8h`), eight retries alike, and the unit
+  returned status 81h.
+- **Correction:** `pccore_reset()` re-syncs the FDD CPU clock with the final
+  `pccore.multiple` after `romva_initialize()` (`subsystemmx_sync_clock()`),
+  so one FDD cycle costs one machine clock on the x1 machines and two on
+  VA/PC-8801 (unchanged).
+- **Verification:** the `PC-8001 machine` selftest checks the unit multiple
+  after a full `pccore_reset()`; removing the re-sync fails it with "the FDD
+  CPU keeps its 4 MHz at the x1 machine clock". With the private
+  PC-8001-family ROM sets and system disks: the N80SR system disk reaches
+  "N80SR-BASIC Disk version" (before: the ROM BASIC prompt), its EOT read
+  ends ST0=00h; the N-mode disk boots with no EOT retry. VA/VA2 boots of
+  the all-demos MS-DOS 4.0 and SGP boot disks are byte-identical to the
+  previous build at two frames each. Native suite 183/183, selftest passes.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#pc-8001-family-fdd-cpu-clock).
+- **Fixing commit:** [38225c0507ab5d71d9744b09c4b522c88e901169](https://github.com/nakatamaho/vaeg/commit/38225c0507ab5d71d9744b09c4b522c88e901169).
+
 ### M144a — 24 kHz 640x200 graphics without scanlines on the independent route
 
 - **Symptom/scope:** the PC-8801 family on the independent uPD3301 route
