@@ -1203,6 +1203,13 @@ Results on candidate `dc38adc876403504d2e3d5fc443f33db417616fb`
   layout 32/32 matched against DRAFT references, APPROVAL_REQUIRED;
 - Cocoa, Windows execution, physical GPU and true HiDPI NOT_RUN.
 
+On 2026-11-11 the maintainer explicitly deferred the incomplete items and
+authorized the main merge: approval of the layout references (DRAFT,
+APPROVAL_REQUIRED), the utility payload manifest comparison (NOT_RUN), Cocoa,
+Windows, physical GPU and true HiDPI (NOT_RUN), and the unreproduced MS-DOS
+stall (OPEN). They are carried forward as DEFERRED, not PASS. No release is
+authorized.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM
