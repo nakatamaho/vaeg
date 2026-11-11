@@ -1179,6 +1179,15 @@ displays `Rel.20261111 (m144a, 983d2db6)`, embeds the source commit, keeps the
 local-only encoders OFF and imports only Windows system DLLs. `vaeg.exe`
 SHA-256 `0def5f8cd90f9f413183eb5a15d55ff88f5691d9292a9e1040fcbe237c2e50ec`.
 
+## G144a human gate
+
+The maintainer stated on 2026-11-11 that G144a passed, on the static MinGW
+handoff of `983d2db6347d06b56875d936e9fb76300b1c58d1` (`vaeg.exe` SHA-256
+`0def5f8cd90f9f413183eb5a15d55ff88f5691d9292a9e1040fcbe237c2e50ec`). The gate
+pass is not an instruction to run the media/demo regression or the
+presenter/screen automation campaigns; that choice is asked separately before
+the main merge. No merge, release or cleanup is recorded here.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM
