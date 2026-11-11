@@ -339,6 +339,12 @@ set(VAEG_CORE_SOURCES
     io/pit.c
     io/cmt.c
     io/pcg88.c
+    io/n80_crtc.c
+    io/upd3301.c
+    io/pc88_text_dma.c
+    io/pc88_display_state.c
+    vram/pc88_text.c
+    io/pc8001_video.c
     io/serial.c
     io/upd4990.c
     cbus/cbuscore.c
@@ -1069,11 +1075,60 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    # M144a: independently test the N80 bank/pixel rules before machine wiring.
+    # Independent LSI command core; not wired into the VA/TSP device path.
+    add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)
+    target_include_directories(vaeg_upd3301_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_upd3301_test PRIVATE c_std_99)
+    add_test(NAME vaeg_upd3301 COMMAND vaeg_upd3301_test)
+    set_tests_properties(vaeg_upd3301 PROPERTIES LABELS "romless;upd3301;video")
+
+    add_executable(vaeg_pc88_display_state_test tests/upd3301/state.c
+        io/pc88_display_state.c io/upd3301.c io/pc88_text_dma.c)
+    target_include_directories(vaeg_pc88_display_state_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc88_display_state_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc88_display_state COMMAND vaeg_pc88_display_state_test)
+    set_tests_properties(vaeg_pc88_display_state PROPERTIES LABELS "romless;upd3301;video")
+
+    add_executable(vaeg_upd3301_clock_test tests/upd3301/clock.c io/upd3301.c)
+    target_include_directories(vaeg_upd3301_clock_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_upd3301_clock_test PRIVATE c_std_99)
+    add_test(NAME vaeg_upd3301_clock COMMAND vaeg_upd3301_clock_test)
+    set_tests_properties(vaeg_upd3301_clock PROPERTIES LABELS "romless;upd3301;video")
+
+    add_executable(vaeg_pc88_text_dma_test tests/upd3301/text_dma.c
+        io/pc88_text_dma.c io/upd3301.c)
+    target_include_directories(vaeg_pc88_text_dma_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc88_text_dma_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc88_text_dma COMMAND vaeg_pc88_text_dma_test)
+    set_tests_properties(vaeg_pc88_text_dma PROPERTIES LABELS "romless;upd3301;video")
+
+    add_executable(vaeg_pc88_text_test tests/upd3301/text.c vram/pc88_text.c
+        io/pc88_text_dma.c io/upd3301.c)
+    target_include_directories(vaeg_pc88_text_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc88_text_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc88_text COMMAND vaeg_pc88_text_test)
+    set_tests_properties(vaeg_pc88_text PROPERTIES LABELS "romless;upd3301;video")
+
+    add_executable(vaeg_pc8001_video_test tests/pc8001/video.c io/pc8001_video.c)
+    target_include_directories(vaeg_pc8001_video_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_pc8001_video_test PRIVATE c_std_99)
+    add_test(NAME vaeg_pc8001_video COMMAND vaeg_pc8001_video_test)
+    set_tests_properties(vaeg_pc8001_video PROPERTIES LABELS "romless;pc8001;video")
     add_executable(vaeg_sha256_test tests/common/sha256.c common/sha256.c)
     target_include_directories(vaeg_sha256_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_compile_features(vaeg_sha256_test PRIVATE c_std_99)
     add_test(NAME vaeg_sha256 COMMAND vaeg_sha256_test)
     set_tests_properties(vaeg_sha256 PROPERTIES LABELS "romless;state;storage")
+    add_test(NAME vaeg_n80_state_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_state_contract.py" --selftest)
+    set_tests_properties(vaeg_n80_state_contract PROPERTIES LABELS "romless;state;pc8001")
+    add_test(NAME vaeg_n80_attributes_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_attributes.py" --selftest)
+    add_test(NAME vaeg_n80_media_survey_contract
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/n80_media_survey.py" --selftest)
+    set_tests_properties(vaeg_n80_attributes_contract vaeg_n80_media_survey_contract PROPERTIES
+        LABELS "romless;pc8001")
     add_test(NAME vaeg_runtime_state_contract
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/runtime_state_roundtrip.py" --selftest)
     add_test(NAME vaeg_state_restore_matrix_contract

@@ -161,6 +161,10 @@ io/mouseifva.c
 io/mouseifva.h
 io/np2sysp.c
 io/np2sysp.h
+io/pc88_text_dma.c
+io/pc88_text_dma.h
+io/pc88_display_state.c
+io/pc88_display_state.h
 io/pic.c
 io/pic.h
 io/pit.c
@@ -179,6 +183,8 @@ io/sysportva.c
 io/sysportva.h
 io/tsp.c
 io/tsp.h
+io/upd3301.c
+io/upd3301.h
 io/upd4990.c
 io/upd4990.h
 io/upd9002_regs.c
@@ -340,6 +346,11 @@ tests/frontend/recording/test_recording_autorelease_pool.mm
 tests/frontend/recording/test_recording_mp4.cpp
 tests/idp/m69_status_composition.c
 tests/idp/m69_status_composition.h
+tests/upd3301/clock.c
+tests/upd3301/controller.c
+tests/upd3301/state.c
+tests/upd3301/text.c
+tests/upd3301/text_dma.c
 tests/upd780/disasm.cpp
 tests/upd780/fdc_probe_runner.cpp
 tests/upd780/subsystem_integration.cpp
@@ -410,6 +421,8 @@ vram/makesprva.c
 vram/makesprva.h
 vram/maketextva.c
 vram/maketextva.h
+vram/pc88_text.c
+vram/pc88_text.h
 vram/scrndraw.h
 vram/scrndrawva.c
 vram/scrndrawva.h

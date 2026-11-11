@@ -36,6 +36,8 @@ void subsystem_businportb(BYTE dat);
 void subsystem_businportc(BYTE dat);
 
 void subsystem_reset(void);
+void subsystem_sync_clock(void);
+UINT subsystem_clock_multiple(void);
 void subsystem_irq(BOOL irq);
 
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)

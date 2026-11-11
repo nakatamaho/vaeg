@@ -1,4 +1,9 @@
 upd9002-trace-v1
+event step=00000000 seq=00000000 origin=cpu kind=io-write address=000000e6 value=00000002 width=01
+event step=00000000 seq=00000001 origin=cpu kind=io-write address=000000e6 value=00000000 width=01
+event step=00000000 seq=00000002 origin=cpu kind=io-write address=000000e6 value=00000002 width=01
+event step=00000000 seq=00000003 origin=cpu kind=io-write address=00000051 value=00000000 width=01
+event step=00000000 seq=00000004 origin=cpu kind=io-write address=00000051 value=000000a0 width=01
 begin step=00000000 cs=0000 ip=2000 bytes=f6f0000000000000
 event step=00000000 seq=00000000 origin=cpu kind=fetch address=00002000 value=000000f6 width=01
 event step=00000000 seq=00000001 origin=dma kind=scheduler-checkpoint address=00000000 value=00000000 width=00

@@ -1,0 +1,751 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+# X88000互換機能の調査 — vaegとの比較
+
+## Scope and evidence
+
+M144aの**調査記録**。実装・修正の提案を採用した記録ではない。
+調査対象のvaegはmain
+[`dc023c9b7ce62c7334d797ba1934ad95b51fd3fd`](https://github.com/nakatamaho/vaeg/tree/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd)。
+[タスク／検証記録](../agents/tasks/M144a_x88000_compat_review.md)。
+
+証拠の区分を次のように分ける。
+
+- **HISTORY**: X88000作者サイトの変更履歴。
+- **SOURCE**: 特定版のソースから確認できる実装。
+- **DERIVED**: その式・状態代入から導いた例。エミュレータ実行ではない。
+- **HISTORICAL**: 既存vaegタスクに記録された過去の検証。今回の再実行ではない。
+- **UNKNOWN / NOT_RUN**: 実機仕様、ゲスト再現、未確認の条件。
+
+X88000はPC-8801エミュレータであり、VA/VA2の互換ハードウェアそのものではない。
+[ADR-0016](../agents/DECISIONS/ADR-0016-v1v2-mode-series.md)のとおり、相違があるだけで
+VA側の不具合とは断定しない。特にPC-8801機種選択時とVA2/V2Hは、主CPUもVA側の
+橋渡しも異なる。今回、ROM・媒体・実機は使用せず、X88000もvaegも実行していない。
+持ち越し中のデモのシーン切り替え時のごみについて、原因特定や修正効果は主張しない。
+
+## Reference versions
+
+1. [作者サイト／変更履歴](https://quagma.sakura.ne.jp/manuke/x88000.html)。
+   指定された2016-08-10/1.5.1、2018-08-10/1.5.3、2008-10-09/1.4.0、
+   2001-10-09/`1, 3, 2`を確認。以下では最後の版名を1.3.2と表記する。
+2. [作者のソース公開ページ](https://quagma.sakura.ne.jp/manuke/x88src.html)から取得した
+   [1.5.3ソース](https://quagma.sakura.ne.jp/manuke/x88_1_5_3_src.tar.gz)。SHA-256:
+   `66bc0b69d5a394e2195b5e277093eebcc045fbb3930c03637aa106394ae83cf3`。
+   既存ADRの参照と一致。公開ページと同梱`X88000Src.txt`にPDSの表明がある。
+3. [公開ミラーの固定版](https://github.com/nakatamaho/x88000/tree/1606677251c49c5d980953e13b42be5812ea99e7)
+   の`x88_1_5_1_src/`を1.5.1の比較対象とした。ミラーを1.5.3とは扱わない。
+4. 作者サイトで過去版名から組み立てた1.5.1、1.4.0、1.3.2の`*_src.tar.gz`
+   URLはいずれもHTTP 404だった。**過去版が他所にも存在しないという主張ではない**。
+   1.4.0/1.3.2の導入当時の細部は、履歴と現存1.5.3実装を分けて記す。
+
+行番号は原本から作ったUTF-8/LFの作業用ビューによる。原本の保存・変換記録・
+ファイル別ハッシュ・比較差分はGit外に保存し、第三者ソースはリポジトリへ追加しない。
+
+選定した10ファイルを1.5.1と1.5.3で比較すると、正規化ビュー上で
+`PC88Z80Main.cpp/.h`、`PC88Crtc.cpp/.h`、`PC88Pcg.cpp/.h`、`PC88.cpp/.h`、
+`PC88Z80Sub.cpp`の9ファイルは同一。`X88ScreenDrawer.cpp`の差は、属性数取得の追加、
+属性数上限2箇所、行末加算の4変更に限定される。これは**選定ファイルの比較**であり、
+全配布物の同一性や1.5.0以前からの変更点を証明するものではない。
+
+## Summary
+
+| ID | 履歴項目 | X88000で確認したこと | vaeg mainの状態 | 判断の限界 |
+| --- | --- | --- | --- | --- |
+| X01 | 1.5.1 / 32H GVAM切り替え | GVAMが変わる両方向で独立アクセス先を3=メインRAMへ | GVAM更新はあるが、独立プレーン選択は保存されたまま | **SOURCE差あり**。VAでの期待動作・デモとの関係は未検証 |
+| X02 | 1.5.1 / E6H許可時の要求クリア | タイマ/VRTC/USARTの禁止→許可で各要求を消去 | 禁止中の新規要求は捨てるが、許可への変更で既存要求を消さない | **SOURCE差あり**。要求を保持する場所も異なり、単純な移植は不可 |
+| X03 | 1.5.1 / モノクロ反転色 | グラフィックスと文字を合わせたドットをセル色／背景色で反転 | 反転後のセル色と文字ラスタを合成する実装がある | 通常の可視セルでは**式が対応**。全モード・過渡フレームの同等性は未検証 |
+| X04 | 1.5.1 / START DISPLAY DM | コマンドbit 0で全体反転、文字反転・カーソルと組み合わせる | TSP SYNCのRVを通常文字・3301互換文字の両方で使用 | **実装済み**。今回ゲストの20h/21h操作を再実行してはいない |
+| X05 | 1.5.3 / 属性数変更 | 描画側の固定20組／40バイト加算を設定値へ変更 | TSP EMULに属性数があり、描画側も使用。行ピッチは別の画面表から取得 | **主要処理は実装済み**。3301設定→ROM→EMUL＋ピッチ更新の通し確認は残る |
+| X06 | 1.4.0 / PCG-8800 | 2バンク文字RAM、00h–03h、8253の3音源 | **M115/M115aで実装済み**。書き込み条件と音源は後に意図的変更あり | 既存の人間受入あり。全8253動作の完全再現とは主張しない |
+| X07 | 1.4.0 / 海外版モード | `optfont`による追加8×8フォント選択。PCG初期化／ROMコピーにも作用 | 対応する独立設定・追加フォント合成はない | この機能としては**未実装**。機種別ROMフォントの利用とは別 |
+| X08 | 1.3.2 / ウェイト | M1、通常メモリ、表示DMA、GVRAMを条件別に遅延 | VA用実測命令コスト・WCU等はあるが、X88000と同じ選択式はない | **別方式／同等性未確立**。PC-8801用ウェイトをVAへ一括追加しない |
+
+## X01 — GVAM and independent access
+
+**SOURCE**: 1.5.3 `PC88Z80Main.cpp:2482–2502`、1.5.1の
+[`WriteIO_32`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.cpp#L2482-L2502)
+も同じ。32h bit 6の新旧を比較し、変化した場合だけ`m_nGVRamBank=3`にする。
+独立→拡張、拡張→独立の両方が対象。同じGVAM値の再書き込みでは初期化しない。
+その後、独立なら`MemBankGVRamMode`、拡張なら`MemBankGVRamModeEx`でアクセス関数を選ぶ。
+
+「メインRAMに選択」は**アクセス先の選択状態**を指す。RAM/VRAMを消す操作でも、
+画面を非表示にする操作でもない。PC-8001用`WriteIO_33_N80`には同じ3への代入がなく、
+32hの結果を33hへ広げて解釈しない。
+
+vaegの
+[`sysp_o032`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/io/sysportva.c#L57-L68)
+は`memoryva_88_alu.gvam`を更新するが、`memoryva_88_plane`を変更しない。
+独立選択は
+[`memctrlva_o05c`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/io/memctrlva.c#L17-L26)
+が5Ch–5Fhから設定する。リセット時は3だが、GVAM切り替え時の再選択はない。
+[`n88_gvram_selected` / `n88_gvram_ex_selected`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/memoryva/memoryva.c#L771-L785)
+はGVAMと独立選択を別々に参照する。
+
+**DERIVED**: 独立モードで5Dhによりplane 1を選び、32hのGVAMを0→1→0とした場合、
+X88000の最終選択は3、vaegは1。拡張中に独立選択を行ってからGVAMを1→0とする場合も、
+X88000はその切り替えで3へ戻す。ALU自体の動作や35hのGAM条件とは分ける。
+
+**UNKNOWN**: この差をVA/VA2のどちらにどう適用すべきか。後続の最小試験は、
+同値書き込み、両方向の切り替え、拡張中の選択変更、35hのアクセス許可の組み合わせ。
+今回ゲストメモリ破損や表示ごみの原因とは判定していない。
+
+## X02 — E6H unmask transition
+
+**SOURCE**: 1.5.3 `PC88Z80Main.cpp:2971–2976`および
+[`SetTimerInterruptMask`等](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.h#L732-L784)。
+E6hのbit 0=タイマ、bit 1=VRTC、bit 2=USART。**各ビットは1で許可、0で禁止**。
+内部の`*InterruptMask` booleanは逆極性（trueが禁止）。書き込みはリセット引数をtrueにする。
+
+要求を消す条件は「旧mask=true、次mask=false」。従って、E6hの対応ビットが
+0→1になったときだけ消す。1→1の再書き込み、1→0での禁止、他のビットの変更では
+その要求を消さない。対象はTimer/Crtc/Usartそれぞれの要求フラグであり、CPUのIFFや
+割り込みレベル設定を一律にクリアする実装ではない。その後ベクタを再評価する。
+
+vaegの
+[`pic8214_request` / `pic8214_oe6`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/io/pic.c#L92-L195)
+では、level 0/1/2をE6h bit 2/1/0に対応させる。
+禁止中に到着した要求は最初からラッチしない。一方、`pic8214_oe6`はマスクを代入し、
+必要なら600Hzタイマを起動するだけで、旧マスクとの比較、`irr`のクリア、
+`pic8214_update`の呼び出しをしない。
+
+**DERIVED**: 許可中にVRTC要求が入り、未受付のままE6hで禁止→許可とした場合、
+X88000の対応要求は許可への変更で消える。vaegの`irr`の対応ビットはE6h書き込みだけでは
+消えない。`pic8214_select`は既にラッチされた`irr`を参照し、現在のE6hマスクを再照合
+していない。禁止中に**新しく**発生した要求を捨てることとは別の差である。
+
+ただしvaegはVAの8214→8259接続、互換CPUへの`pending`、要求受付時の解除を持つ。
+X88000のデバイス別要求フラグと同じ保存構造ではない。後続確認では、タイマ/VRTC/USART
+別、到着と許可変更の順序、E4h、IFF、受付前後、既にofferedの`pending`を分ける。
+今回、物理VAの消去条件や既存ソフトへの影響は検証していない。
+
+## X03 — Monochrome reverse colour
+
+**SOURCE**: 1.5.3 `X88ScreenDrawer.cpp:550–694, 983–1060`。
+[`DrawGraphics`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/X88ScreenDrawer.cpp#L549-L693)
+はモノクロのGVRAMドットと反転属性からセル色／背景色の表を作る。
+[`DrawText`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/X88ScreenDrawer.cpp#L982-L1059)
+は反転モノクロの文字ドットを背景色で上書きする。単に文字の色番号だけをXORするのではない。
+
+vaegの
+[`makeline_3301`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/vram/maketextva.c#L406-L556)
+は文字反転と全体反転のXORでfg/bgを交換し、交換後のfgを`linecolor`へ保存する。
+[`scrndrawva_compose_raster`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/vram/scrndrawva.c#L202-L218)
+は多プレーン1bpp合成時、GVRAMドットありなら`textcolorraster`、なしなら
+`textraster`を選ぶ。色を作る層の配置は違うが、対応する処理は既に存在する。
+
+**DERIVED**: 可視の通常セル、カーソル・スプライト・線属性なし、合成対象の
+GVRAMドットをG、文字ドットをT、反転の有効値をRとする。C/Bはそれぞれセルの
+前景色／背景色という**役割**であり、双方のパレット番号そのものの一致ではない。
+
+| R | GまたはT | X88000の色の役割 | vaeg合成の色の役割 |
+| --- | --- | --- | --- |
+| 0 | 0 | B | B |
+| 0 | 1 | C | C |
+| 1 | 0 | C | C |
+| 1 | 1 | B | B |
+
+この範囲では、グラフィックスと文字をORしたドットが反転する式になり、
+「モノクロ反転機能がない」という状態ではない。ただし1.5.0の原本を取得していないので、
+変更履歴にいう修正前の誤色の詳細を差分から復元したとは主張しない。
+
+**HISTORICAL / UNKNOWN**: テキスト非表示時はVA/VA2とPC-8801で意図的に処理を分ける
+既存方針がある（[M133](../agents/tasks/M133_hidden_text_graphics_colour.md)、
+[M131の実機による訂正](../agents/tasks/M131_guest_start_display_corruption.md)）。
+X88000のTVRAM overlay無効時の処理へ一律に合わせてはならない。
+200/400ライン、文字属性のモノクロ／カラー、各パレット、反転カーソル、隠し文字、
+シーン途中の属性変更まで同等とは未確認。デモの一瞬の表示についての新しい証拠はない。
+
+## X04 — START DISPLAY DM and global reverse
+
+**SOURCE**: 1.5.3 `PC88Crtc.h:610–619`、
+[`WriteCommand`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Crtc.h#L610-L619)
+のSTART DISPLAYはbit 0を`m_bReverseDisp`に保存する。20hなら解除、21hなら反転。
+同時に表示開始、カウンタ、最終属性を初期化する。`RatchText`は文字反転・カーソル反転に
+さらに全体反転を加える。非透過属性の描画分岐にも適用がある。
+
+vaegには独立したPC-8801 CRTCモデルを同じ形で置くのではなく、VAファームウェアの
+3301互換処理がTSPへ橋渡しする。
+[`textva_global_reverse`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/vram/maketextva.c#L118-L132)
+はTSP SYNC第2バイトbit 3のRVを読み、通常文字と3301互換文字の双方で属性反転とXORする。
+現在はモノクロやPC-8801機種でもこの反転を除外していない。
+今回固定したX88000の`RatchText`にも、`IsReverseDisp`を色モードで除外する条件はない。
+過去記録の参照エミュレータ一般に対する評価と、この固定版の観察は同一視しない。
+
+**HISTORICAL**: `sdl2/selftest.c`の`test_tsp_sync_reverse`と
+[M139の反転訂正記録](../agents/tasks/M139_rv_all_machines.md)が既にある。
+従ってDM相当の全体反転は**実装済み**。ただし内部RVの描画試験は、ゲストが20h/21hを
+書いてROM経由で正しい時点に更新される通し試験の代わりにはならない。
+表示開始／停止、個別反転、カーソル、同フレーム中の変更を含めた今回の再実行はNOT_RUN。
+
+## X05 — Variable attribute count
+
+**SOURCE**: 1.5.3 `PC88Crtc.cpp:336–338`、1.5.1でも同じ
+[`WriteParam`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Crtc.cpp#L306-L346)
+はRESETの第5パラメータから
+`(値 & 1Fh)+1`で1〜32組を保存する。この保存処理自体は比較した1.5.1にもある。
+1.5.3の変更は`X88ScreenDrawer.cpp:334,352,360,416`の**利用側**だった。
+
+- 属性組を使い切る条件の固定19/20を、設定数−1／設定数へ変更。
+- 1行の80文字の後、固定40バイト進める代わりに属性数×2バイト進める。
+- 例えば属性1組なら次行は82バイト先、20組なら120、32組なら144。
+  属性数を保存するだけでは後半2点は直らない。
+
+vaegの
+[`exec_emul`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/io/tsp.c#L255-L267)
+はEMUL第3パラメータ＋1を`emul_attrs`に保存する。
+`makeline_3301`はその組数を使い（作業配列の上限32）、文字数に続く属性ペアを消費する。
+20組の固定ループではない。一方、
+[`maketextva_raster` / `maketextva_3301_text`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/vram/maketextva.c#L786-L889)
+は**別に設定されるTSP画面表のピッチ**を使う。EMULの属性数だけで次行を計算し直す
+設計ではない。2文字の隠し先頭とローカルbyte/wordアドレス変換もあるため、
+X88000の`80+2N`をVA画面表の生の値と直接比較しない。
+
+従って「CRTC属性数変更がまったく未実装」は不正確。**描画側は可変対応済み**であり、
+残る確認点はゲストの3301 RESET設定からVA ROMがEMULと画面表を整合して更新するか。
+既存`test_tsp_3301_emulation`は標準20組を中心にしたテストなので、これだけで1〜32組の
+全条件をPASSにはしない。後続では1/2/19/20/21/32組、先頭属性の列0／非0、
+行をまたぐ属性、画面終端、40/80桁を、文字列と色の両方で確認する。
+
+### X05後続 — 独立N80の描画・SAV接続（ゲストI/Oは未接続）
+
+[描画・SAV接続コミット](https://github.com/nakatamaho/vaeg/commit/1a827742a3442211e7cdefa5074e971fcadd921a)
+では、独立mkII/SRに限り、確定した属性組数と`80 + 2N`のbyteピッチを描画・
+テキストコピーへ渡す。VA/VA2のTSP画面表そのものは書き換えない。
+根拠の区分は「X88000ソースに基づく互換モデル。M88Mソースでも整合。実機一致は未確認」。
+
+任意の`N80CRTC`セクションは確定値と5パラメータの受信途中を保存する。
+合成モデルの実SAVで2/5/10/20組×6受信境界×2機種、計48件の継続と、
+3行の色付きラスタ・テキスト行頭を確認した。不正状態14件、旧形式の欠落時処理、
+リセット、対象モデルのガード、および4種類の単一変更による陰性試験も実施した。
+詳しくは[チェックポイント](../agents/tasks/M144a_x88000_compat_review.md#renderer-and-machine-sav-connection-checkpoint)
+を参照。**試験は制御APIを呼ぶものであり、ゲスト50h/51h命令の接続はまだない**。
+ゲスト経路、40/80桁全体、境界組数、実機・実ウィンドウの一致までをPASSとはしない。
+
+## X06 — HAL PCG-8800
+
+**SOURCE**: 1.5.3 `PC88Pcg.cpp:101–234`（
+[1.5.1の同一処理](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Pcg.cpp#L101-L234)
+）と`X88000.cpp:1341–1351`。
+2個の1KiB文字RAM、コード下半分／上半分ごとの表示元、書き込みバンク、
+00h–03hのデータ／アドレス／制御、0Ch–0Fhの8253カウンタを持つ。
+初期RAMとROMコピーには現在選択中の文字フォントを使用する。
+
+vaegの[`io/pcg88.c`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/io/pcg88.c)
+に対応実装がある。V1/V2の88モードかつPCG設定ONで有効、03hのバンク機能、
+8×8グリフ、3音、音量、`PCG88`状態保存、GUI/設定の接続もある。
+
+| 項目 | X88000 1.5.3 | 現在のvaeg |
+| --- | --- | --- |
+| 文字RAMへの書き込み | 00h/01h/02h書き込みの末尾で書き込みビットを判定 | 02h書き込み時だけ判定（M115aの意図的方針） |
+| ROMコピー・初期RAM | 通常／海外版の選択フォント | 読み込んだ8×8 ROMフォント |
+| MSBのみのカウンタ設定 | case 2からcase 3へfall-through | MSB設定後に終了（M115からの意図的差） |
+| 音源クロック | 4,000,000 Hzをカウンタで割る | 3,993,600 Hz |
+| 音を出す条件 | ゲート、カウンタ0または256超など | ゲート、mode 3、カウンタ266超。0は65536 |
+| 波形 | X88000の音声出力経路 | 奇数周期のduty、ゲート立上りで位相再開、PolyBLEP |
+| 初期設定 | 参照版ではPCG OFF | mainはPCG ON。明示的OFFは保存して尊重 |
+
+**HISTORICAL**: [M115](../agents/tasks/M115_pcg.md)、[M115a](../agents/tasks/M115a_pcg_quasi88.md)
+は受入済み。文字書き込み、バンク、音程／3音、後者の雑音改善と余分なドット解消が
+記録されている。[M142](../agents/tasks/M142_runtime_portability.md#pcg-and-va-n-mode-startup-defaults)
+でデフォルトONへ変更されたため、古いM115の「デフォルトOFF」を現在仕様として転記しない。
+
+結論は**既に取り込み済み、しかもその後に意図的な相違を導入済み**。
+8253の全モード／読み返し／出力端子まで完全再現するという意味ではない。
+今回、音声出力や保存復元を新しく実行したとは主張しない。1.4.0原本との差分は未取得。
+
+## X07 — International mode is an optional font
+
+**SOURCE**: `X88Resource.cpp`は海外版モードを`International Mode`と表示し、
+`X88Option.cpp:747–770`は設定名`optfont`を`SetOptionFont`に接続する。
+ホストUIの英語化は変更履歴でも別項目であり、この機能とは違う。
+
+1.5.3 `PC88.cpp:334–352`、1.5.1でも同じ
+[`CPC88::Initialize`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88.cpp#L334-L352)
+内の読み込みは次の流れ。
+
+1. 通常のANKフォント2048バイト（256字×8行）を追加フォント用バッファへコピー。
+2. 任意の追加フォント`optfont.rom`があれば2048バイトを読む。
+3. 各文字の8バイトのうち1バイトでも非ゼロなら、**その文字の8バイト全部**を置換。
+   8バイトともゼロなら通常フォントを残す。各ラスタの非ゼロ部分だけの合成ではない。
+4. `DrawText`はPCG有効ならPCG、そうでなければ追加フォント、ひらがな、通常の順で選ぶ。
+   セミグラフィックスの指定はさらに別の描画フォントを選ぶ。
+5. `GetCurTextFontRom`は追加フォント選択を参照するため、PCGの初期RAMとROMコピーにも
+   影響する。単なる画面フィルタではない。
+
+`OptionFont`の参照箇所を追った範囲では、このスイッチによるキーボード配列変更、
+英語BASIC ROMの切り替え、CPUやI/Oの海外モデル化は見つからない。
+従って**海外機全体のエミュレーション**と呼ぶのは広すぎる。
+追加ROMの中身やどの実機版に対応するかは今回調べておらず、配布・真正性も主張しない。
+
+vaegは`cgromva_ank8`と機種別の外部ROM適用経路を持ち、PCGも読み込んだフォントを使う。
+しかし`optfont`相当の独立設定、上記の文字単位フォールバック合成、PCGと連動した
+追加フォント選択はない。一般のフォント読み込みや英語キーボード設定を、
+この機能の実装済み証拠にはしない。**この機能としては未実装**。
+将来追加するなら、合成ゼロ文字、PCGとの優先順、リセット時点、保存復元と、
+フォントのライセンス／私有入力境界を別途仕様化する。
+
+## X08 — Wait emulation
+
+### X88000 source
+
+**HISTORY**: 1.3.2の説明は「V1-Sモード等の速度が実機に近づきました」。
+以下の詳細は**現存1.5.3の処理**であり、2001年版そのものを実行・復元した結果ではない。
+`waitemu`は初期値OFF。高速ROM処理、旧機種互換、ホストの待ち／描画間引きとは別設定。
+
+`CPC88::Reset`（`PC88.cpp:407–427`）が主CPU・サブCPUへ設定を渡し、主CPUの選択から
+CRTCのwaitを設定する。
+[`CPC88Z80Main::Reset`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Z80Main.cpp#L734-L882)
+（1.5.3 `PC88Z80Main.cpp:734–762`）はON時に次のフラグを選ぶ。
+
+| BASICモード | M1 wait | TVRAM DMA wait | GVRAM wait |
+| --- | --- | --- | --- |
+| N88 V2 | OFF | OFF | OFF |
+| N80 V1 | ON | ON | ON |
+| N80 V2 | OFF | ON | OFF |
+| その他のH | OFF | OFF | OFF |
+| その他のS（N88 V1Sなど） | ON | ON | ON |
+
+通常メモリの追加待ちは別条件`baseclock==8 && !Clock8MHzH`。
+通常アクセス用とM1用の関数表を分け、`*_Wait`が`AddExecClock(1)`を加える。
+fast TVRAMのM1はwaitemu ONなら全モードで待つ特例もある。
+「どのアクセスにも常に同じ待ちを足す」というモードではない。
+主CPUのI/Oハンドラ内には、このwaitemu用の`AddExecClock(1)`追加は見つからない。
+命令自身のIN/OUTサイクルや周辺機器の待ち状態とは区別する。
+
+[`PC88Crtc.h`の`PassClockVWait`](https://github.com/nakatamaho/x88000/blob/1606677251c49c5d980953e13b42be5812ea99e7/x88_1_5_1_src/PC88Crtc.h#L528-L591)
+では次の表示競合を近似する。
+
+- TVRAMはDMA開始かつ表示開始で有効。文字行境界ごとに`120*6`または`120*10`を加算。
+  後者はDMA側のwait指定による。可変属性数に比例する式にはなっていない。
+- GVRAMはグラフィックス有効かつCPUがGVRAMアクセス状態で有効。
+  TVRAM DMA待ちのactive／inactive、15/24kHz相当、20/25行で追加率を切り替え、
+  百分率の端数を繰り越す。
+  定数はL20=120/164、L25=112/170、H20=304/365、H25=263/337。
+  これはソース内の追加率であり、実機に対する実測比の引用ではない。
+- FDCサブCPUも別にM1 waitを選ぶ。`PC88Z80Sub::Reset`ではwaitemu ONかつ
+  2HD-ROM型でない場合にM1用の読み取りへ1を加える。主CPUの8MHz化とは別の条件。
+
+**参照自身の注意点**: `PC88.h:436–465`では、複数命令版
+`ExecuteMultiOpCodeMainVWait`は`PassClockVWait`の戻り値を実行時計へ足すが、
+1命令版`ExecuteOneOpCodeMainVWait`は戻り値を使わない。CRTC内部の更新は双方で行われるが、
+この差のため両経路の全デバイス時間が同じだと仮定できない。今回実行して影響を測っては
+いない。参考実装の式を絶対的な実機仕様として移植しない理由の一つである。
+
+### vaeg source
+
+- [`CompatCounter` / `MainCpuBridge`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/cpu/upd9002_upd70008.cpp#L384-L437)
+  は命令コストとnative waitを別勘定にする。
+  VA/VA2のuPD70008互換モードは[M135](../agents/tasks/M135_compat_mode_timing.md)の
+  実測クラス別コストを使い、WCU／デバイス待ちを重ねる。
+- 非VAのPC-8801/8001選択時は**独立した主uPD780C**を使用し、
+  [命令時間はコア側を採用](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/cpu/upd9002_upd70008.cpp#L575-L593)。
+  VA向けM135命令表をそのまま使うのではない。バスとVAファームウェアの橋渡しは共用する。
+- [`Read8` / `Write8`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/cpu/upd9002_upd70008.cpp#L705-L778)
+  は既存メモリ経路の待ちを回収する。VAでは整列したword busの共有を考慮するが、
+  主uPD780Cでは8bit busとしてその共有をしない。
+- [`pccore_compat_clocks`](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/machine/pccore.c#L231-L254)
+  はS設定で命令コストを伸ばす一方、既にnative単位で計上したwaitを再倍率化しない。
+  M143の実行速度表示やF11はこの待ち設定を追加する機能ではない。
+- nativeのGVRAM待ちとTVRAM word待ちは存在するが、
+  [`n88_gvram_ex_read/write`等](https://github.com/nakatamaho/vaeg/blob/dc023c9b7ce62c7334d797ba1934ad95b51fd3fd/memoryva/memoryva.c#L771-L840)
+  は互換ウィンドウから配列を直接読む／書く。この経路にX88000の`PassClockVWait`
+  相当の表示DMA競合モデルはない。呼び出し元のWCU等もあるため、これを
+  「互換メモリアクセスの待ちは全部ゼロ」と言い換えてはいけない。
+- FDCの`Subsystem::SetWait`は外部WAIT線を扱うもので、X88000のROM型に応じた
+  M1ごとの+1と同じ意味ではない。名称だけで対応済みとは判定しない。
+
+結論は、**待ちの仕組みはあるが、X88000のwaitemuと同じモデルではない**。
+特に非VAのPC-8801 V1SにおけるM1／表示DMA／GVRAMの等価性は未確立。
+一方、X88000用の+1や追加率をVAへ足すと、既存の実測命令時間・WCUと二重計上する恐れがある。
+具体的な不足量・原因・修正値は今回選定しない。
+
+## Follow-up priority and non-claims
+
+実装を許可された場合の順序案であり、着手指示ではない。
+
+1. **X01/X02**: 小さな状態遷移試験で差を固定し、PC-8801とVA/VA2の期待値を分離する。
+   回帰テストの失敗を確認してから、必要なら最小の訂正を検討する。
+2. **X05**: 可変属性数は処理済み部分が大きい。まずROM→EMUL→ピッチの通し確認。
+   デモが実際に何組へ変更しているかは、別途取得した実行トレースが必要。
+3. **X03/X04**: 通常の色式・RVは既にある。非表示／反転／属性carry／カーソル／
+   同フレーム変更の境界を観測し、既存の実機受入方針を壊さない。
+4. **X08**: N88 V1H/V1S/V2、VA/VA2とPC-8801主CPU、コード／データ／M1、
+   RAM／TVRAM／GVRAM、表示DMA有無を分けて測定する。ホストFPSから待ちを逆算しない。
+5. **X06/X07**: PCGは既存の意図的差を維持。海外フォントは新機能として別途仕様を決める。
+
+## BASIC mode selection review
+
+M144aの起動経路・UI見直し用の整理。以下はメンテナが提示した公開資料の抜粋に
+基づく仕様候補であり、それ自体はリンク先全文の独立照合、実機検証、起動試験の
+結果ではない。後続の一次資料・公開ソース照合は下記で区別する。
+実装済み項目と未確認事項を混同せず、個別媒体の起動可否はこの節では扱わない。
+
+### References
+
+- [PC-8000シリーズ（Wikipedia）](https://ja.wikipedia.org/wiki/PC-8000%E3%82%B7%E3%83%AA%E3%83%BC%E3%82%BA)：
+  mkIIのN/N80、mkIISRのN/N80/N80SRと互換モードの位置付け。
+- [PC-8001mkIISRのモード切替記事](https://pasopia700.blogspot.com/2013/09/pc-8001mkiisr.html)：
+  DIP1/DIP2と、SHIFTを離してCTRLを押すリセット時の操作例。
+- [PC-8001/8801のモード解説](https://www.kiwi-us.com/~ohta/pc88/mode.htm)：
+  機種別モード・クロック、キーによるDIP選択の反転、モード判別I/O。
+- [古いPCの各種特殊操作](https://www14.big.or.jp/~nijiyume/hard/jyoho/sousa.htm)：
+  mkIISRのDIP1/DIP2ともONの場合の起動例と、PC-8801系の機種別起動操作。
+- [PC-8001mkIIのDIP情報を紹介する投稿](https://x.com/konekodensetsu/status/947261270960377856)：
+  2002年の2ch情報を紹介したとする投稿の、メンテナ提示の抜粋。
+  元スレッド・一次資料との照合はできておらず、投稿自体も正確性を留保している。
+
+### Primary manual intake
+
+[NEC PC-8001mkIISR N80SR-BASIC REFERENCE MANUALの公開スキャン](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul)
+を追加資料とする。Archive.orgの登録名にはN88SRとあるが、
+[表紙（leaf 0）](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul/page/n0/mode/1up)
+を画像で確認し、N80SR-BASIC、冊子番号PC-8001SR-RMと識別した。
+
+[まえがき（leaf 4）](https://archive.org/details/pc-8001mk-iisr-n-88-sr-basic-reference-manaul/page/n4/mode/1up)
+も画像で確認した。N80SRを主言語とし、互換用にN80とNを備えることが明記され、
+基本操作については別冊のPC-8001mkIISRユーザーズガイドを参照する構成である。
+この確認は3種類のBASICの存在を裏付けるが、DIP極性・キー受付時刻・33h bit 7の
+確定根拠にはしない。OCRは検索補助とし、全文に該当記述がないとも断定しない。
+スキャン・OCRそのものはGitへ追加せず、独立した要約と公開ページ参照のみを記録する。
+
+### Machine, BASIC and speed are separate settings
+
+| 機種 | BASICモード | CPUクロック |
+|---|---|---|
+| PC-8001 | N | 4 MHz |
+| PC-8001mkII | N / N80 | 4 MHz |
+| PC-8001mkIISR | N / N80 / N80SR | 4 MHz |
+
+N80は初代PC-8001のBASIC名ではなく、mkIIで拡張されたBASICである。N80SRは
+mkIISR固有であり、N88 V1/V2とは別系統。N80とN88は中間コードも異なるため、
+片方での動作・ディスク操作をもう片方の互換性や起動成功の証拠にしない。
+逆に、系統が異なるというだけで個々のディスクI/Oエラーの原因を確定しない。
+
+mkIISRの「高速化」を8 MHz動作と解釈しない。PC-8801系でもBASICモード、
+V1S/V1Hの待ち制御、4 MHz/8 MHzS/8 MHzHは別の軸であり、機種ごとの利用可否を
+持たせる。V1Hは単なる8 MHzの別名ではない。N80系の高速化の具体的な選択条件と
+待ち制御は、今回の整理だけでは確定していない。
+
+実機VA系列にはN-BASICモードがない。vaegのVA向けNモード拡張を、実機仕様や
+PC-8001機種選択と同一視しない。
+
+### Reset-time selection
+
+提示されたmkIISRのDIP説明から、通常リセット時の選択は次のように整理できる。
+
+| DIP1 | DIP2 | BASIC |
+|---|---|---|
+| ON | 任意 | N80SR |
+| OFF | OFF | N80 |
+| OFF | ON | N |
+
+モード解説ではCTRLがmkII SW8／mkIISR SW2の選択を反転し、mkIISRのSHIFTが
+SW1の選択を反転するとされる。したがってSHIFTを常に「SW1をOFFに固定する」
+処理として扱わない。ON→OFFだけでなく逆方向も照合する。
+
+SHIFTを離してCTRLを押す操作例は、単純な同時押しと同一視できない。
+両キーの読取り順序・時点・保持期間、リセット時の入力保持と解除を確認する。
+特殊操作の資料には、DIP1=ON、DIP2=ONでの具体例がある。
+
+| 起動時の操作（DIP1=ON、DIP2=ON） | BASIC |
+|---|---|
+| キー操作なし | N80SR |
+| SHIFTを保持 | N |
+| SHIFTを押し、離してすぐCTRLを押す | N80 |
+
+先のブログのDIP2=OFFの例では、SHIFTでN80、続くCTRL操作でNとなる。
+この2例は初期設定が異なるため矛盾しない。ただし、SHIFTによるSW1の反転の
+OFF→ON側や、具体的な入力受付時間までをこれらの例から検証済みとはしない。
+
+利用者によるDIP／モード／クロック設定変更はリセット時に反映するものとし、
+動作中に設定値だけを変更して機械状態を部分的に切り替えない。一方、ゲストが
+I/O命令で行うROM切替は別経路であり、リセット専用に制限してはならない。
+
+### Unverified PC-8001mkII DIP information
+
+以下は最初に記録した上記投稿の伝聞情報であり、当時の未検証分類を保持する。
+後続の一次資料による照合・訂正は次節を参照。PC-8001mkIISRのDIP番号と混同しない。
+
+| mkIIのDIP | 投稿に記された内容 | 扱い |
+|---|---|---|
+| 1 | 未使用 | 未検証。「必ず無視される」と実装に固定しない |
+| 2 | ON: メモリリードサイクルで1 WAIT。300 nsより遅いRAMではON。OFF: 既定値 | 未検証のタイミング情報 |
+| 3–7 | 非公開 | 機能不明。「未使用」ではない |
+| 8 | ON: 起動時N-BASIC、OFF: 起動時N80-BASIC | 未検証。モード解説のSW8によるN/N80選択とは整合する |
+
+SW2のメモリーリード待ちを、CPUクロック変更、表示DMA待ち、全バスアクセスへの
+一律ウェイト、またはmkIISRの高速化と同一視しない。300 nsは投稿中のRAM速度に
+関する条件であり、追加WAITそのものの長さと断定しない。OFFという既定値も
+この投稿の主張として保持する。一次資料または独立した検証が得られるまでは、
+この情報だけを根拠にタイミング実装や非公開スイッチの挙動を変更しない。
+
+### PC-8001mkII user-manual verification
+
+[PC-8001mkII User's Manualの公開スキャン](https://archive.org/details/PC8001mk-II-users-manual)
+から、以下の5ページを画像で照合した。OCRはページ探索の補助にのみ使用した。
+これはmkIIの資料確認であり、mkIISRの仕様への自動的な拡張や実機測定ではない。
+今回の限定的なArchive.org検索ではmkIISRユーザーズガイドを特定できなかったが、
+他所にも存在しないとは主張しない。
+
+| 本文ページ | スキャン参照 | 確認範囲 |
+|---|---|---|
+| 5–3 | [leaf 62](https://archive.org/details/PC8001mk-II-users-manual/page/n62/mode/1up) | 表5.1のSW8とCTRLによる起動選択 |
+| 5–4 | [leaf 63](https://archive.org/details/PC8001mk-II-users-manual/page/n63/mode/1up) | CTRLによる反転、ROM/DISK BASICの区別 |
+| 8–6 | [leaf 105](https://archive.org/details/PC8001mk-II-users-manual/page/n105/mode/1up) | システムディスクとSW8の対応、不適切な組合せへの注意 |
+| 12–3 | [leaf 194](https://archive.org/details/PC8001mk-II-users-manual/page/n194/mode/1up) | M1の通常WAITと追加メモリーリードWAIT |
+| 付–2 | [leaf 231](https://archive.org/details/PC8001mk-II-users-manual/page/n231/mode/1up) | 付録3のDIPスイッチ説明 |
+
+mkIIの起動選択は次の4組を確認できた。CTRLを使う操作は電源投入とリセットの両方が
+表に記載されているが、キーをサンプルする時刻や保持時間まではこの表で確定しない。
+
+| SW8 | 起動時CTRL | 選択されるBASIC |
+|---|---|---|
+| OFF | なし | N80 |
+| ON | なし | N |
+| OFF | あり | N |
+| ON | あり | N80 |
+
+付録3はSW1を未使用、SW3–7をユーザー使用不可としている。SW3–7の機能や電気的な
+無効性は不明のままであり、未使用扱いにはしない。SW2はONでメモリーリードに
+1 WAIT、OFFが通常。速度条件に挙げられているのは**アクセス時間が300 nsより遅い
+ROM**であり、先の伝聞表にあるRAMとは異なる。付録3にはPC-8012-03使用時にSW2を
+ONとする注意もある。通常という説明を、個々の機体の出荷設定を調べた結果とはしない。
+
+12.2節では、通常のM1サイクルに自動で1 WAITが入ることと、SW2のONまたは拡張スロットの
+MWAIT信号をLOWにすることでメモリーリードWAITを追加できることを区別している。
+300 nsはROMのアクセス時間条件であり、WAIT幅ではない。M1と追加WAITの重なり・累積、
+表示DMA等との競合、機種間の相違は別途照合する。CPUクロックの変更や、メモリー書込み・
+I/O・FDC CPUを含む全アクセスへの一律加算に置き換えない。この記録だけでタイミングを
+変更したり、既存の待ち実装を適合済みと認定したりしない。
+
+8–6ページはN80 DISK-BASIC用ならSW8をOFF、N系DISK-BASIC用ならONとし、誤った組合せで
+起動したように見えても使用しないよう注意している。したがって、起動メッセージが出る
+ことだけで互換性をPASSにせず、選択したBASIC系統とシステムの対応も検査対象にする。
+これはマニュアル上の注意の要約であり、特定の媒体や報告されたI/Oエラーの診断ではない。
+
+### Related PC-8801 reset operations
+
+特殊操作の資料から、関連するPC-8801系の項目のみを参考として整理する。
+以下は実装・実行済みの一覧ではなく、M144aで全項目を実装するという追加の
+スコープ指定でもない。機種ごとの適用範囲を保持し、他機種へ一律適用しない。
+
+| 対象 | リセット／起動時の操作 | 資料に記された効果 |
+|---|---|---|
+| FH以降 | PCキーを保持 | セットアップ画面（内容は機種別） |
+| FH以降、MC/FE2以外 | V1SでN・8・0を保持 | N-BASICへ切替。4/8 MHzのどちらでも可 |
+| MC/FE2 | N・8・0を保持 | 資料ではどのモードからでもN-BASICへ切替可能 |
+| FH以降 | Dを保持 | EEPROM設定初期化 |
+| FH/MH/FA/MA | セットアップ中にB・C・G | 拡張メニューでCMD SING設定 |
+| MA2/FE/MC/FE2 | OまたはFを保持 | CMD SINGをそれぞれON／OFF |
+| MA2/FE/MC/FE2、98DO/DO+ | F8またはF9を保持 | それぞれ24 kHz／15 kHz表示へ切替 |
+| FE/FE2 | F10を保持 | コンポジット出力へ切替 |
+
+N・8・0はモード解説ではフルキー側を指定している。CMD SINGの既定値は特殊操作の
+資料ではONとされる。MC/FE2についての「どのモードからでも」という説明と、
+モード解説のV1H/V2からも可能という説明は、対象機種と前提を保って照合する。
+設定初期化は設定内容を失う操作なので、既存の利用者設定に対して自動試験しない。
+富士通・シャープの操作はこの調査の対象外とする。
+
+### I/O polarity needs independent verification
+
+モード解説に記されたPC-8001系の値は次のとおり。
+
+| ポート・ビット | 意味 | 0 | 1 |
+|---|---|---|---|
+| 30h bit 0 | 起動時のBASIC | N | N80 |
+| 33h bit 7 | ROMモード制御 | N80SR | N/N80 |
+
+特に33h bit 7は作業ブランチで用いてきた解釈との不一致が指摘されており、
+**未解決の照合事項**である。読出し値、書込みによる制御、内部状態の符号化、
+適用対象機種を分離し、値を機械的に反転しない。30hの起動設定と、実行中の
+ROMマッピングも同一視しない。PC-8801系列の31h/6Ehのモード・クロック判別を
+PC-8001系列へそのまま適用しない。
+
+### Port 33 source-model readback checkpoint
+
+後続のソース照合では、X88000 1.5.3の`PC88Z80Main.cpp`にある
+`WriteIO_33_N80`がbit 7の1をSR ROM選択として扱い、`ReadIO_33_N80`も同じ状態を
+bit 7の1として返していることを確認した。vaegの`memctrlva_o033`／`memctrlva_i033`
+もこの向きであり、現在の実装に「読出しだけを反転する」処理はない。
+これは上記Web解説との不一致を解消する実機証拠ではない。
+
+[MAME 0.280のpc8001.cpp](https://github.com/mamedev/mame/blob/mame0280/src/mame/nec/pc8001.cpp)
+の`port33_w`内にもbit 7の1でSR側を選ぶコードがあるが、当該本体は
+`#ifdef UNUSED_FUNCTION`で囲まれている。動作する実装の検証結果や、独立した
+ハードウェア根拠として数えてはならない。
+
+当初の読戻しチェックポイントでは、生成RAMプログラムを拡張し、33hへのOUT、33hからのIN、0000hのROM読出しを
+3回連続で実行する。当初は33hを含むトラップ範囲を設定したが、制御値は出力だけを
+有効にしていたため、入力トラップ回避の証拠にはならなかった。後述の30h対応で
+入力・出力の両方を有効にして再検査した。現在のソースモデルでは、出力値
+A1h/21h/80hに対し入力値80h/00h/80hとなり、識別用合成ROMはSR/N80/SRの順になる。
+bit 0/5の読出しマスクも含むが、この期待値を実機仕様の独立オラクルとは呼ばない。
+読出しbit 7だけを反転する単一変異は`M144A_N80_MODE_READBACK`で失敗する。
+変異は復元済みで、通常構成のビルドと7本の関連テストを確認する。
+
+別途、X88000の`ReadIO_30`は、ROM選択状態とは別の起動モードからbit 0とbit 1を
+生成している。このチェックポイントではvaegのN80直接I/O対象に30hは含まれず、
+VA側の既存ブリッジ経路に残っていた。したがって33hの読戻しが通るだけでは、DIP相当の起動選択や
+30hの値が正しいとは言えない。起動設定・現在のマッピング・UI表示を分離する調査を
+継続し、33hの極性を根拠なしに反転したり、Disk BASIC起動をPASSにしたりしない。
+
+### Automatic N80 startup-switch readback
+
+後続修正では30h入力の下位2ビットを、現在実装されている自動起動の選択に合わせる。
+従来はN80系でもVAのバックアップメモリーB1FC2hをそのまま返しており、生成入力で
+N80用の起動ビットを返さないケースを再現した。X88000の`ReadIO_30`に合わせ、bit 0は
+非N、bit 1は非SRを表す。現在の自動起動はmkIIならN80、mkIISRならSR入力が揃うとSR、
+そうでなければN80なので、下位2ビットはそれぞれ11bまたは01bとなる。
+上位6ビットは既存値を保持し、バックアップメモリー自体を書き換えない。
+
+この処理を88互換動作中のmkII/SRに限定し、独立主CPUのIN 30hを直接I/O対象へ加えた。
+OUT 30h、VAネイティブ動作、PC-8801、初代PC-8001の経路は変更しない。
+33hの現在のROM選択から起動設定を逆算せず、SR→N80→SRの切替中も30hの起動ビットは
+一定とする。33h bit 7の極性、クロック、SAV形式は変更していない。
+
+検査はバックアップ値全256通り、2機種、SR入力成立フラグ2通りの1,024ケースと、
+各ケースのネイティブ／他機種／初代PC-8001対照を含む。ゲストRAMプログラムでは
+入出力トラップの両方を有効にし、30h・33hの入力とROM読出しを確認する。
+即値・ED・ブロックI/O、機種・モード・方向の経路検査も1,476ケースへ拡大した。
+起動bit 0の反転は`M144A_N80_BOOT_SWITCH_BITS`、30hの直接入力経路の除去は
+`M144A_N80_MODE_READ_ROUTE`で失敗する。両変異は復元済み。
+
+これは**現在の自動起動経路の補正**であり、利用者がN/N80/N80SRを任意に選ぶDIP設定や
+キー受付タイミングの実装ではない。明示的な起動選択を実装するときには、30hもその
+適用済み設定に結び付ける必要がある。bit 1の根拠は上記公開実装であり、mkIISRの
+一次資料による電気的な検証とは扱わない。対象ディスクの起動やI/Oエラー解消は未判定。
+
+### N80SR FM interrupt-mask ownership
+
+X88000 1.5.3の`ReadIO_33_N80` / `WriteIO_33_N80`は33h bit 1をFM音源側の
+割込みマスクとして扱い、書込み後に割込みベクトルを再評価する。vaegはこのビットを
+既に保存・読戻ししていたが、タイマーA/Bの判定は`fmboardva.sintm`のみを参照していた。
+合成入力によって、33hで禁止してもその禁止が判定に反映されないことを再現した。
+
+修正は88互換動作中のPC-8001mkIISRに限定する。実効マスクを既存の
+`memoryn80.port33` bit 1から導出し、33hへの書込みで実効値が変化したときは既存の
+FMマスク遷移処理を適用する。禁止中もタイマー状態フラグは保持し、解除時に状態が
+立っていればPICへ要求する。VA用の保存マスクを書き換えてもSRの実効マスクを
+横取りしない。VAネイティブ、PC-8801、初代PC-8001、mkIIの選択は従来どおり。
+
+生成入力6,144通りで、機種・互換動作・VAマスク・33h全ビットを確認した。
+タイマーA/Bと8214/8259の4組では、禁止中の状態保持、空の解除、保留状態からの解除、
+無関係ビットの書込み、再禁止を検査する。PICの既発行・ラッチ済み要求の扱いは変更しない。
+既存8259側の禁止・解除・予約ビット無視も対照検査する。
+
+ゲストRAMプログラムの33h出力をA3h/21h/82hへ拡張し、読戻し82h/00h/82hと
+SR/N80/SRのROM識別に加え、各段階の実効マスク80h/00h/80hを確認する。
+IN/OUT両方向のトラップは有効。SAVではSRの禁止とVAの許可を意図的に併存させ、
+復元後もSR側が選択されることを検査する。新たな状態欄やSAV形式変更はない。
+
+VAマスクへ戻す単一変異は`M144A_N80_FM_MASK_SELECTION`、33hの遷移通知を除く変異は
+`M144A_N80_FM_UNMASK_PENDING`で失敗する。両変異は復元済み。
+これは公開実装に基づく合成デバイス検査であり、物理IRQタイミング、M88比較、実機比較や
+音色精度の認定ではない。33h bit 7の極性やFM/FDCクロックは変更しない。
+
+### Implementation and acceptance work
+
+`dc023c9b`の起動メニューはPC-8001系を一律に`N`と表示し、共通の内部起動経路
+`BOOTMODE_N`を選ぶ。この内部名は利用者向けBASICモード選択の代わりにはならない。
+表示が`N`であることだけでは実際にN-BASICで動作しているとも断定できない。
+
+今後の確認順序は以下とする。これは作業方針であり、実装・検証完了の記録ではない。
+
+1. 機種ごとの対応モードを明示し、設定値とリセット後の適用状態を区別する。
+2. DIP相当の設定と起動キーが、意図したROMマッピングへつながることを確認する。
+3. BASICバナーとマッピングを併せて調べ、設定名だけで実動作モードを決めない。
+   Nのバナーは`PC-8001 BASIC`、N80は`N-80 BASIC`、N80SRは`N80SR-BASIC`と
+   記されているため、文字列の違いも確認対象にする。
+4. 各対象モードのディスク起動を別途検査する。別系統のDisk BASICによる
+   ファイル操作を、対象モードでのブート検査の代用にしない。
+5. 設定保存、リセット、SAV復元と他機種の回帰を確認する。メニュー名の変更だけで
+   対応完了にせず、G144aの受入を別に行う。
+
+## Subsequent PC-8001 implementation work
+
+以下は上記の静的調査とは別の、後続の実装進捗である。メンテナの追加指示により
+PC-8001mkII/SRのグラフィックス・ROMバンク・モード切り替え・状態保存を優先する。
+`io/pc8001_video.c/.h`に、N80/SR ROMソース・オフセット判定、8000h–BFFFhの
+GVRAM窓、mkIIの640ドット1bit/320ドット2bit形式、SRの640ドット3プレーンと
+320ドット2ページの透明色／優先ページ合成を追加した。
+
+現段階ではテストターゲットだけに接続している。2,879,495 assertions、ASan/UBSan、
+7種類の単一変異検出を通過したが、**エミュレータ本体での起動・描画・SAV復元は未完了**。
+既存のVAベースNモードを、未完成のN80SR経路へ切り替えてはいない。
+[進捗と残作業](../agents/tasks/M144a_x88000_compat_review.md#pc-8001mkiisr-implementation-checkpoint)。
+このチェックポイント時点ではPC-PR201/PDFとFDDクロック確認を保留した。
+その後、FDCの固定クロック実行検査をM144aで実施し、PC-PR201/PDFはメンテナの
+明示指示で独立タスク[M144b](../agents/tasks/M144b_pr201_pdf.md)へ移管した。
+PR201/PDFはG144aの完了条件から外れるが、未実装のままであり、G144bで別に受け入れる。
+
+その後、ROM読み込み・実I/Oディスパッチ・メモリ読出し・GVRAM窓・SAVファイルへの
+接続を追加した。`e8.rom`はメンテナ承認の**X88000互換の任意入力名**であり、
+MAME標準名や実機検証済み仕様とは表記しない。SRの40 KiB ROMはN80 ROMと
+別バッファで保持し、31h/33h/71hによって参照先だけを切り替える。
+`N80BANK`は機種とバンク状態を保存し、不正状態・別機種への復元はロード前に拒否する。
+合成ROMでの実ファイルSAV往復と不正状態の拒否、GVRAMの8000h–BFFFhアクセスは通過。
+ただし**ゲスト命令のI/Oトラップ経路、実画面への接続、媒体からの起動は未完了**。
+[本体接続チェックポイント](../agents/tasks/M144a_x88000_compat_review.md#production-n80-rombanking-checkpoint)を参照。
+
+続くチェックポイントでは、独立した主CPUがmkII/SRのバンク制御を直接扱う
+限定的なI/O経路を追加した。VAトラップの設定自体は変更せず、未実装の文字・
+パレット・CRTC制御は従来のトラップ経路へ残す。実際の即値／ED／INI・OUTI命令と
+機種・モード対照からなる360ケースを確認し、トラップ例外を除く単一変異も検出した。
+これは前段の「ゲストI/O未確認」を対象ポート・命令形式に限って更新するもので、
+BASIC起動や描画をPASSにするものではない。
+[ゲストI/Oチェックポイント](../agents/tasks/M144a_x88000_compat_review.md#guest-instruction-io-checkpoint)。
+
+カラー表示の後続実装では、mkIIの4色、SRの2ページ／8色出力を本体ラスタへ接続した。
+52h–5Bhのデジタルパレット・表示制御をゲストI/O経路へ追加し、命令試験は720ケースに
+拡大した。SRのページ優先、透明色0、文字を背面へ置く33h bit 3は最終`vabitmap`画素で
+検査する。文字・ページ表示禁止、背景色、パレットと表示制御のSAV復元も合成入力で
+確認する。これはモノクロ固有属性、SRフォント、実媒体起動やホスト画面の確認までを
+意味しない。[カラー接続の範囲](../agents/tasks/M144a_x88000_compat_review.md#n80-colour-raster-and-composition-checkpoint)。
+
+続いてモノクロのプレーンORと反転前の文字合成、文字表示禁止時の色保持を接続した。
+SRの字形は`font80sr.rom`内0800hからの8行字形を33h bit 4で選び、PCG優先と
+通常ANKの内容を維持する。MAMEの別ファイル`fonthira.rom`の用途を同一視しない。
+SR ROMが揃う場合のみ、最初の起動引き渡しでSRを選ぶようにした。
+完全フォントを優先し、欠ける場合には`fonthira`を第2バンクの代替として
+受け付ける。通常ANKを置き換えず、PCGの優先順位を維持する。
+ゲストRAM上のモード遷移ルーチンと、必要な状態セクション・進行・復元後の
+同値性を検査する仕組みを追加した。状態比較の契約はEVENT/BEEPを除外するため、
+全状態や音声の同値性を保証するものではない。
+
+### 属性と画素比較のテスト仕様
+
+[`n80_attributes.py`](../../tools/qa/n80_attributes.py)は、文字コード65の
+通常ANK／セミグラフィックス、32種類の装飾属性、40／80桁、点滅位相、
+全画面反転をパラメータとする入力生成と画素検査を提供する。矩形の契約は
+51×21ドットと周辺の余白を対象とする。これはツールの仕様であり、
+実行結果の報告ではない。
+
+[`n80_media_survey.py`](../../tools/qa/n80_media_survey.py)は、明示的な計画と
+独立した設定を扱う実行補助ツールである。終了コード0は`UNASSESSED`とし、
+互換性PASSに変換しない。Git内への出力と途中のworker変更を拒否する。
+
+以下の非主張は元の調査チェックポイントに関するもの。
+今回の結果は**SOURCE_REVIEW**であって、実機・ゲスト・画面・音声のPASSではない。
+新しいビルド、ROM／媒体実行、描画キャプチャ、実機I/O、修正コミットは存在しない。
+未修正の表示ごみは既存台帳のままOPEN/DEFERRED。静的な相違だけで根本原因として
+bug-fix台帳へ追加したり、X88000からの移植が必要と断定したりしない。

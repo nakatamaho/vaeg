@@ -272,7 +272,7 @@ void makesprva_raster(void) {
 	/* SYNC stops the display; the sprites, as the text, show only after
 	 * DSPON (TSPSPR on the VA and VA2: SYNC and SPRON alone showed none). */
 	if (!tsp.spron || !tsp.dspon) {
-		ZeroMemory(sprraster, sizeof(sprraster));
+		makesprva_blankraster();
 		if (!mg || (work.screeny & 1) == 0) {
 			work.y++;
 		}
@@ -307,7 +307,7 @@ void makesprva_raster(void) {
 				}
 			}
 		}
-		ZeroMemory(sprraster, sizeof(sprraster));
+		makesprva_blankraster();
 		sprinfo = textmem + tsp.sprtable + SPRVA_SPRS * 8;
 		s = &work._spr[SPRVA_SPRS];
 		for (i = SPRVA_SPRS - 1; i >= 0; i--) {

@@ -9,6 +9,7 @@
 #include "upd9002_state.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "io/n80_crtc.h"
 #include "cbuscore.h"
 #include "sasiio.h"
 #include "scsiio.h"
@@ -87,6 +88,8 @@ enum {
 	STATFLAG_HOSTFAT,
 	STATFLAG_UPD8087,
 	STATFLAG_MAIN_CPU,
+	STATFLAG_PCG_PHASE,
+	STATFLAG_N80_DISP,
 };
 
 typedef struct {
@@ -417,6 +420,26 @@ static int flagload_upd8087(STFLAGH sfh, const SFENTRY *tbl) {
 
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return (statflag_read(sfh, tbl->arg1, tbl->arg2));
+}
+
+static int flagread_pcg_phase(STFLAGH sfh, BYTE *data) {
+	if (sfh->hdr.ver != 1 || sfh->hdr.size != PCG88_PHASE_STATE_SIZE ||
+	    statflag_read(sfh, data, PCG88_PHASE_STATE_SIZE) != STATFLAG_SUCCESS ||
+	    !pcg88_phase_state_valid(data, PCG88_PHASE_STATE_SIZE)) {
+		statflag_seterr(sfh, "M144A_PCG_PHASE_STATE");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static int flagread_n80_disp(STFLAGH sfh, BYTE *data) {
+	if (sfh->hdr.ver != 1 || sfh->hdr.size != N80_DISP_STATE_SIZE ||
+	    statflag_read(sfh, data, N80_DISP_STATE_SIZE) != STATFLAG_SUCCESS ||
+	    !n80_crtc_disp_state_valid(data, N80_DISP_STATE_SIZE)) {
+		statflag_seterr(sfh, "M144A_N80_DISP_STATE");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
 }
 
 static BOOL statflag_index_equals(const char index[10], const char *name) {
@@ -1669,6 +1692,28 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 			ret |= flagsave_fm(&sffh->sfh, tbl);
 			break;
 
+		case STATFLAG_N80_DISP: {
+			BYTE data[N80_DISP_STATE_SIZE];
+			if (!n80_crtc_disp_state_save(data, sizeof(data))) {
+				statflag_seterr(&sffh->sfh, "M144A_N80_DISP_STATE");
+				ret = STATFLAG_FAILURE;
+			} else {
+				ret |= statflag_write(&sffh->sfh, data, sizeof(data));
+			}
+			break;
+		}
+
+		case STATFLAG_PCG_PHASE: {
+			BYTE data[PCG88_PHASE_STATE_SIZE];
+			if (!pcg88_phase_state_save(data, sizeof(data))) {
+				statflag_seterr(&sffh->sfh, "M144A_PCG_PHASE_STATE");
+				ret = STATFLAG_FAILURE;
+			} else {
+				ret |= statflag_write(&sffh->sfh, data, sizeof(data));
+			}
+			break;
+		}
+
 		case STATFLAG_MEM:
 			ret |= flagsave_mem(&sffh->sfh, tbl);
 			break;
@@ -1761,6 +1806,34 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_BIN:
 			case STATFLAG_MEM:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80) {
+					_MEMORYN80 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    candidate.model > 2 || candidate.model != memoryn80.model ||
+					    candidate.port71 > 1 || (candidate.model != 2 && candidate.port33 != 0)) {
+						statflag_seterr(&sffh->sfh, "M144A_N80_BANK_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &memoryn80_boot) {
+					UINT8 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    !memoryva_n80_boot_valid(candidate)) {
+						statflag_seterr(&sffh->sfh, "M144A_N80_BOOT_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
+				if (ret == STATFLAG_SUCCESS && tbl->arg1 == &pcg88) {
+					_PCG88 candidate;
+					if (statflag_read(&sffh->sfh, &candidate, sizeof(candidate)) !=
+					        STATFLAG_SUCCESS ||
+					    !pcg88_state_valid(&candidate)) {
+						statflag_seterr(&sffh->sfh, "M144A_PCG_STATE");
+						ret = STATFLAG_FAILURE;
+					}
+				}
 				break;
 
 			case STATFLAG_UPD9002_CPU:
@@ -1786,9 +1859,9 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
 				break;
 
-				case STATFLAG_UPD8087:
-					ret |= flagcheck_upd8087(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_UPD8087:
+				ret |= flagcheck_upd8087(&sffh->sfh, tbl);
+				break;
 
 			case STATFLAG_HOSTFAT:
 				hostfat_seen = TRUE;
@@ -1815,6 +1888,18 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 			case STATFLAG_FM:
 				ret |= flagcheck_fm(&sffh->sfh, tbl);
 				break;
+
+			case STATFLAG_PCG_PHASE: {
+				BYTE data[PCG88_PHASE_STATE_SIZE];
+				ret |= flagread_pcg_phase(&sffh->sfh, data);
+				break;
+			}
+
+			case STATFLAG_N80_DISP: {
+				BYTE data[N80_DISP_STATE_SIZE];
+				ret |= flagread_n80_disp(&sffh->sfh, data);
+				break;
+			}
 
 			case STATFLAG_BMS:
 				if (bms_seen) {
@@ -1940,6 +2025,16 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	fddmtrsnd_bind();
 
 	iocore_reset(); // Sound-board reset calls the native PIC interface.
+	/* Missing N80BANK is an older N80-only state: preserve the applied
+	 * model/ROM inputs and reproduce its unbanked upper BASIC selection. */
+	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
+	/* Old SAVs have no independent display section: the device stays at its
+	 * reset state (iocore_reset above) until the guest re-programs it. */
+	memoryn80.port31 = 1;
+	memoryn80.port33 = 0;
+	memoryn80.port71 = 1;
+	/* States predating explicit startup selection always used automatic. */
+	memoryn80_boot = N80_BOOT_AUTO;
 	/* A state without PIC8214 predates 8214 mode: those builds always
 	 * behaved as 8259 mode, so keep that unless the section says otherwise. */
 	pic8214.mode8259 = 1;
@@ -2021,6 +2116,30 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 				ret |= flagload_fm(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_PCG_PHASE: {
+				BYTE data[PCG88_PHASE_STATE_SIZE];
+				int phase_result = flagread_pcg_phase(&sffh->sfh, data);
+				if (phase_result == STATFLAG_SUCCESS &&
+				    !pcg88_phase_state_load(data, sizeof(data))) {
+					statflag_seterr(&sffh->sfh, "M144A_PCG_PHASE_STATE");
+					phase_result = STATFLAG_FAILURE;
+				}
+				ret |= phase_result;
+				break;
+			}
+
+			case STATFLAG_N80_DISP: {
+				BYTE data[N80_DISP_STATE_SIZE];
+				int disp_result = flagread_n80_disp(&sffh->sfh, data);
+				if (disp_result == STATFLAG_SUCCESS &&
+				    !n80_crtc_disp_state_load(data, sizeof(data))) {
+					statflag_seterr(&sffh->sfh, "M144A_N80_DISP_STATE");
+					disp_result = STATFLAG_FAILURE;
+				}
+				ret |= disp_result;
+				break;
+			}
+
 			case STATFLAG_MEM:
 				ret |= flagload_mem(&sffh->sfh, tbl);
 				break;
@@ -2054,8 +2173,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 		/* The PIC section is restored before this point.  Rebind the
 		 * source-backed NDP input after the complete state image is present;
 		 * this does not acknowledge or clear the 8087 exception. */
-		pic_setirq_level(IRQ_NDP,
-		                 upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
+		pic_setirq_level(IRQ_NDP, upd8087_interrupt_pending(&upd8087) ? TRUE : FALSE);
 	}
 
 	// Rebuild the native VA I/O map after restoring device state.

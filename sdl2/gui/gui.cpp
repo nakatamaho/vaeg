@@ -39,6 +39,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <chrono>
 #include <ctime>
 #include <iterator>
@@ -2008,12 +2009,14 @@ static void select_boot(const char *model, int boot_mode, bool v1, bool standard
 
 /* M113: start a PC-8801 model from extra/<name>/ in the VA's V1/V2 mode
  * (V2/V1 with H or S, or N), on the VA model its profile names. */
-static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard) {
+static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard,
+                                 UINT8 n80_basic = N80_BOOT_AUTO) {
 	EXTRAROM_PROFILE profile;
 
 	if (!extrarom_profile(name, &profile) || !profile.startable) {
 		return;
 	}
+	np2cfg.n80_basic_mode = n80_basic;
 	select_boot(profile.base_model, boot_mode, v1, standard, nullptr, name);
 }
 
@@ -2476,6 +2479,7 @@ struct BootRecord {
 	bool v1 = false;
 	bool standard = false;
 	int mode = BOOTMODE_AUTO;
+	UINT8 n80_basic = N80_BOOT_AUTO;
 	std::string n80rom;
 	std::string fdd[2];
 	std::string sasi[2];
@@ -2497,8 +2501,8 @@ struct BootRecord {
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
-		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
-		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
+		       (mode == other.mode) && (n80_basic == other.n80_basic) && (n80rom == other.n80rom) &&
+		       (fdd[0] == other.fdd[0]) && (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
 		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra) &&
 		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]) &&
 		       (monitor_15khz == other.monitor_15khz);
@@ -2564,6 +2568,23 @@ static std::vector<std::string> history_split(const std::string &line) {
 	}
 }
 
+static UINT8 history_n80_basic(const std::vector<std::string> &fields) {
+	if (fields.size() == 15 && fields[14].size() == 1 && fields[14][0] >= '0' &&
+	    fields[14][0] <= '3')
+		return static_cast<UINT8>(fields[14][0] - '0');
+	return N80_BOOT_AUTO;
+}
+
+static void history_write_boot(std::ostream &output, const BootRecord &boot) {
+	output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t' << (boot.standard ? 1 : 0)
+	       << '\t' << boot.mode << '\t' << boot.n80rom << '\t' << boot.fdd[0] << '\t' << boot.fdd[1]
+	       << '\t' << boot.sasi[0] << '\t' << boot.sasi[1] << '\t' << boot.tape << '\t'
+	       << boot.extra << '\t' << boot.fdd_image[0] << ',' << boot.fdd_image[1] << '\t'
+	       << boot.monitor_15khz << ',' << boot.rotate << ',' << boot.renderer << ','
+	       << boot.scaling << ',' << boot.scale << ',' << boot.window_width << ','
+	       << boot.window_height << '\t' << static_cast<unsigned>(boot.n80_basic) << '\n';
+}
+
 static void history_save(void) {
 	std::ofstream output(fs::u8path(history_file()), std::ios::binary | std::ios::trunc);
 
@@ -2573,13 +2594,7 @@ static void history_save(void) {
 		}
 	}
 	for (const auto &boot : g_recent_boots) {
-		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
-		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
-		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
-		       << '\t' << boot.tape << '\t' << boot.extra << '\t' << boot.fdd_image[0] << ','
-		       << boot.fdd_image[1] << '\t' << boot.monitor_15khz << ',' << boot.rotate << ','
-		       << boot.renderer << ',' << boot.scaling << ',' << boot.scale << ','
-		       << boot.window_width << ',' << boot.window_height << '\n';
+		history_write_boot(output, boot);
 	}
 }
 
@@ -2635,7 +2650,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if ((fields.size() >= 11) && (fields.size() <= 14) && (fields[0] == "boot")) {
+		if ((fields.size() >= 11) && (fields.size() <= 15) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -2644,6 +2659,7 @@ static void history_load(void) {
 			if ((boot.mode < BOOTMODE_AUTO) || (boot.mode > BOOTMODE_N)) {
 				boot.mode = BOOTMODE_AUTO;
 			}
+			boot.n80_basic = history_n80_basic(fields);
 			boot.n80rom = fields[5];
 			boot.fdd[0] = fields[6];
 			boot.fdd[1] = fields[7];
@@ -2662,7 +2678,7 @@ static void history_load(void) {
 					boot.fdd_image[1] = (second < 255u) ? second : 0u;
 				}
 			}
-			if (fields.size() == 14) {
+			if (fields.size() >= 14) {
 				// M124: "monitor,rotation[,renderer,scaling,scale,width,height]"
 				int v[7] = {-1, -1, -1, -1, -1, -1, -1};
 				const int n = std::sscanf(fields[13].c_str(), "%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1],
@@ -2848,6 +2864,7 @@ static void history_record_boot(void) {
 	boot.mode = np2cfg.boot_mode;
 	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
 	boot.extra = np2cfg.extra_machine;
+	boot.n80_basic = memoryva_pc8001 ? memoryva_n80_boot_selection() : N80_BOOT_AUTO;
 	for (int drive = 0; drive < 2; drive++) {
 		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
 		if ((mounted == nullptr) || (mounted[0] == '\0')) {
@@ -2905,6 +2922,10 @@ static std::string history_boot_label(const BootRecord &boot) {
 		}
 	}
 	std::string mode = (boot.mode == BOOTMODE_N) ? "N" : (boot.v1 ? "V1" : "V2");
+	if (boot.mode == BOOTMODE_N && boot.n80_basic == N80_BOOT_N80)
+		mode = "N80";
+	else if (boot.mode == BOOTMODE_N && boot.n80_basic == N80_BOOT_SR)
+		mode = "N80SR";
 	if (boot.mode != BOOTMODE_N) {
 		mode += boot.standard ? " S" : " H";
 	}
@@ -4080,8 +4101,24 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
 		}
 	}
-	if (has_n80 &&
-	    ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
+	if (profile.n_role == EXTRAROM_ROLE_N80_2 || profile.n_role == EXTRAROM_ROLE_N80_2SR) {
+		static const struct {
+			const char *label;
+			UINT8 mode;
+		} basic_modes[] = {{"N", N80_BOOT_N}, {"N80", N80_BOOT_N80}, {"N80SR", N80_BOOT_SR}};
+		for (const auto &basic : basic_modes) {
+			if (basic.mode == N80_BOOT_SR && profile.n_role != EXTRAROM_ROLE_N80_2SR)
+				continue;
+			const bool available =
+			    ready && (basic.mode != N80_BOOT_SR ||
+			              extrarom_choice(&machine, EXTRAROM_ROLE_N80_3) != nullptr);
+			const bool selected =
+			    current && memoryva_pc8001 && memoryva_n80_boot_selection() == basic.mode;
+			if (ImGui::MenuItem(basic.label, nullptr, selected, available))
+				select_extra_machine(machine.name, BOOTMODE_N, v1, true, basic.mode);
+		}
+	} else if (has_n80 &&
+	           ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
 		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
 	}
 	if (!ready) {
@@ -4341,7 +4378,7 @@ static void boot_from_history(const BootRecord &chosen) {
 	}
 	restore_boot_display(boot);
 	if (!boot.extra.empty()) {
-		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
+		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard, boot.n80_basic);
 		return;
 	}
 	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
@@ -4415,7 +4452,7 @@ static void draw_machine_config_menu(void) {
 	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
 	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
 	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
-		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		pcg88_set_enabled(np2cfg.pcg_enable == 0);
 		sysmng_update(SYS_UPDATECFG);
 		pccore_redraw();
 	}
@@ -7904,6 +7941,31 @@ BOOL gui_recent_boot_media_selftest(const char *root, char *problem, size_t size
 	full.rotate = 1;
 	full.renderer = 2;
 	full.monitor_15khz = 1;
+	for (UINT8 mode = N80_BOOT_AUTO; mode <= N80_BOOT_SR && !failed; mode++) {
+		BootRecord selected = full;
+		selected.n80_basic = mode;
+		std::ostringstream encoded;
+		history_write_boot(encoded, selected);
+		std::string line = encoded.str();
+		line.pop_back(); // writer's newline, normally removed by getline
+		auto fields = history_split(line);
+		if (fields.size() != 15 || history_n80_basic(fields) != mode ||
+		    fields[13] != "1,1,2,-1,-1,-1,-1" || ((selected == full) != (mode == N80_BOOT_AUTO)))
+			failed = "M144A_N80_BOOT_HISTORY";
+		if (failed)
+			break;
+		for (const char *bad : {"4", "255", "-1", "03", "3x", ""}) {
+			fields[14] = bad;
+			if (history_n80_basic(fields) != N80_BOOT_AUTO)
+				failed = "M144A_N80_BOOT_HISTORY_INVALID";
+		}
+		for (std::size_t n = 11; n <= 14; n++) {
+			auto legacy = fields;
+			legacy.resize(n);
+			if (history_n80_basic(legacy) != N80_BOOT_AUTO)
+				failed = "M144A_N80_BOOT_HISTORY_LEGACY";
+		}
+	}
 	const HistoryBootPlan complete = history_boot_plan(full);
 	if (!complete.startable || !complete.missing.empty() || !(complete.boot == full) ||
 	    complete.boot.rotate != full.rotate || complete.boot.renderer != full.renderer) {

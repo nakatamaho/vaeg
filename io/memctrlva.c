@@ -12,6 +12,8 @@
 #include "va91.h"
 #include "cpu/upd9002/memory.h"
 #include "bkupmemva.h"
+#include "sound.h"
+#include "fmboard.h"
 
 // ---- I/O
 
@@ -109,13 +111,65 @@ static void IOOUTCALL memctrlva_o078(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL memctrlva_o071(UINT port, REG8 dat) {
+	if (memoryva_pc8001 && memoryn80.model) {
+		memoryn80.port71 = (UINT8)(dat & 1);
+	}
 	memoryva_88_xerom = dat & 1;
 	(void)port;
 }
 
 static REG8 IOINPCALL memctrlva_i071(UINT port) {
 	(void)port;
-	return 0xfe | memoryva_88_xerom;
+	return 0xfe | ((memoryva_pc8001 && memoryn80.model) ? memoryn80.port71 : memoryva_88_xerom);
+}
+
+static WORD n80_digital_color(REG8 color) {
+	return (WORD)(((color & 1) ? 0x001f : 0) | ((color & 2) ? 0x03e0 : 0) |
+	              ((color & 4) ? 0xfc00 : 0));
+}
+
+static void n80_mode_palette(void) {
+	unsigned i;
+	if (!memoryva_pc8001 || !memoryn80.model ||
+	    (memoryn80.model == 2 && (memoryn80.port33 & 0x80)))
+		return;
+	/* N80 320-dot mode assigns three fixed colours and the 31h colour. */
+	if (memoryn80.port31 & 0x10) {
+		for (i = 0; i < 8; i++) {
+			unsigned color = (i & 3) == 3 ? memoryn80.port31 >> 5 :
+			                 ((i & 3) * 2 + ((memoryn80.port31 & 4) ? 1 : 0));
+			videova.palette[i] = n80_digital_color(color);
+		}
+	} else if (memoryn80.port31 & 4) {
+		for (i = 0; i < 8; i++)
+			videova.palette[i] = n80_digital_color(i & 1 ? memoryn80.port31 >> 5 : 0);
+	}
+}
+
+static void IOOUTCALL memctrlva_o_n80video(UINT port, REG8 dat) {
+	if (!memoryva_pc8001 || !memoryn80.model)
+		return;
+	if (port == 0x52 || port == 0x53)
+		memoryn80_video[port - 0x52] = (UINT8)dat;
+	else if (port >= 0x54 && port <= 0x5b)
+		videova.palette[port - 0x54] = n80_digital_color(dat);
+}
+
+static void IOOUTCALL memctrlva_o033(UINT port, REG8 dat) {
+	if (memoryva_pc8001 && memoryn80.model == 2) {
+		const UINT8 changed = memoryn80.port33 ^ (UINT8)dat;
+		const BYTE previous_mask = fmboard_getintmask();
+		memoryn80.port33 = (UINT8)dat;
+		fmboard_updateintmask(previous_mask);
+		if (changed & 0x80)
+			n80_mode_palette();
+	}
+	(void)port;
+}
+
+static REG8 IOINPCALL memctrlva_i033(UINT port) {
+	(void)port;
+	return memoryva_pc8001 && memoryn80.model == 2 ? (memoryn80.port33 & 0xde) : 0xff;
 }
 
 static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
@@ -124,9 +178,14 @@ static void IOOUTCALL memctrlva_o031(UINT port, REG8 dat) {
 	 * and bits 0, 2 and 4 are its own bank and graphics bits (X88000
 	 * WriteIO_31_N80), not the 200-line, N/N88 ROM and colour bits of a
 	 * PC-8801: keep N-BASIC and the 200-line display the PC-8001 family
-	 * always has. The mkII's own graphics modes are not modelled.
+	 * always has. M144a keeps the raw value for the independent N80 colour
+	 * raster path; the translated value still serves the VA bootstrap bridge.
 	 */
 	if (memoryva_pc8001) {
+		const UINT8 changed = memoryn80.port31 ^ (UINT8)dat;
+		memoryn80.port31 = (UINT8)dat;
+		if (changed & 0xf4)
+			n80_mode_palette();
 		dat = (REG8)((dat & 0x0a) | 0x05);
 	}
 	/* Retain all bits; only MMODE/RMODE affect the initial ROM overlay. */
@@ -213,7 +272,15 @@ static void IOOUTCALL memctrlva_o19a(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL memctrlva_i030(UINT port) {
-	return backupmem[0x1fc2];
+	REG8 value = backupmem[0x1fc2];
+	(void)port;
+	if (memoryva_88_mode && memoryva_pc8001 && (memoryn80.model == 1 || memoryn80.model == 2)) {
+		/* Startup switches are independent of live 33h mapping and of a
+		 * pending frontend choice: bit 0 = non-N, bit 1 = non-SR. */
+		const UINT8 mode = memoryva_n80_boot_selection();
+		value = (value & 0xfc) | (mode == N80_BOOT_N ? 2 : mode == N80_BOOT_SR ? 1 : 3);
+	}
+	return value;
 }
 
 /*
@@ -289,6 +356,11 @@ void memctrlva_nmode_compat_entry(void) {
 	iocore_out8(0x148, (REG8)(videova.txtmode & 0x7f));
 	/* M114: a PC-8001 never writes port 31h; start at 200 lines. */
 	if (memoryva_pc8001) {
+		/* Select SR only at the one-shot bootstrap handoff and only with
+		 * its complete ROM input. Later trap returns must not reset banks. */
+		if (memoryn80.model == 2 && memoryn80_sr_present &&
+		    memoryva_n80_boot_selection() == N80_BOOT_SR)
+			memctrlva_o033(0x33, 0x80);
 		memctrlva_o031(0x31, 0x00);
 	}
 }
@@ -312,7 +384,12 @@ void memctrlva_reset(void) {
 }
 
 void memctrlva_bind(void) {
+	UINT port;
+	for (port = 0x52; port <= 0x5b; port++)
+		iocore_attachout(port, memctrlva_o_n80video);
 	iocore_attachout(0x031, memctrlva_o031);
+	iocore_attachout(0x033, memctrlva_o033);
+	iocore_attachinp(0x033, memctrlva_i033);
 	iocore_attachout(0x05c, memctrlva_o05c);
 	iocore_attachout(0x05d, memctrlva_o05c);
 	iocore_attachout(0x05e, memctrlva_o05c);

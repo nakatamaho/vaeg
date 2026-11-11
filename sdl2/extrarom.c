@@ -49,14 +49,14 @@
 char extrarom_last_error[160];
 
 const char *const extrarom_role_names[EXTRAROM_ROLES] = {
-    "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr", "n80_3",
-    "disk", "kanji1", "kanji2", "jisyo", "cdbios", "font", "font80sr", "fonthira"};
+    "n88",  "n88_0",  "n88_1",  "n88_2", "n88_3",  "n80",  "n80_2",    "n80_2sr",  "n80_3",
+    "disk", "kanji1", "kanji2", "jisyo", "cdbios", "font", "font80sr", "fonthira", "e8"};
 
 /* Accepted sizes of each role (0 ends the list). */
 static const UINT32 role_sizes[EXTRAROM_ROLES][2] = {
     {0x8000, 0},  {0x2000, 0},  {0x2000, 0}, {0x2000, 0},     {0x2000, 0},  {0x6000, 0x8000},
     {0x8000, 0},  {0x8000, 0},  {0xa000, 0}, {0x800, 0x2000}, {0x20000, 0}, {0x20000, 0},
-    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0}};
+    {0x80000, 0}, {0x10000, 0}, {0x800, 0},  {0x1000, 0},     {0x800, 0},   {0x2000, 0}};
 
 /*
  * Models and the roles each needs; "a|b" accepts either. Requirements
@@ -89,7 +89,7 @@ static const struct {
 } machine_table[] = {
     {"PC-8001", "n80 font", 2, 0, 0, EXTRAROM_ROLE_N80},
     {"PC-8001mkII", "n80_2 font", 2, 0, 0, EXTRAROM_ROLE_N80_2},
-    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr fonthira", 2, 0, 0, EXTRAROM_ROLE_N80_2SR},
+    {"PC-8001mkIISR", "n80_2sr n80_3 font font80sr|fonthira", 2, 0, 0, EXTRAROM_ROLE_N80_2SR},
     {"PC-8801", "n88 n88_0 n80 font|kanji1", 2, 0, 0},
     {"PC-8801mkII", "n88 n88_0 n80 disk kanji1", 2, 0, 0},
     {"PC-8801mkIISR", PC8801_V2_ROLES, 2, 1, 0},
@@ -822,7 +822,8 @@ const char *extrarom_machine_name(const char *name) {
 	UINT i;
 
 	for (i = 0; i < NELEMENTS(machine_table); i++) {
-		if (same_name(name, machine_table[i].name)) return machine_table[i].name;
+		if (same_name(name, machine_table[i].name))
+			return machine_table[i].name;
 	}
 	return NULL;
 }
@@ -887,11 +888,53 @@ static void apply_pc8001(const EXTRAROM_MACHINE *machine, UINT n_role) {
 	(void)apply_role(machine, EXTRAROM_ROLE_FONT, fontmem + 0x41000, 0x800);
 	np2cfg.boot_mode = BOOTMODE_N;
 	memoryva_pc8001 = TRUE;
-	/* The PC-8001 family programs its CRTC for a 15 kHz monitor (10-raster
-	 * rows at 200 lines); a 24 kHz VA shows them at half height. Run at
-	 * 15 kHz (SW1) for this machine; videova_reset() ran before this hook. */
-	videova.crtmode = 0;
-	fprintf(stderr, "INFO: PC-8001 machine %s (N mode)\n", machine->name);
+	memoryn80.model = n_role == EXTRAROM_ROLE_N80_2SR ? 2 : n_role == EXTRAROM_ROLE_N80_2 ? 1 : 0;
+	cgromva_n80sr_font_present =
+	    memoryn80.model == 2 &&
+	    apply_role(machine, EXTRAROM_ROLE_FONT80SR, cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
+	/* In the MAME pc8001mk2sr set, fonthira is byte-identical to bank 1
+	 * of font80sr. Accept it as that bank when the complete font is absent;
+	 * never let a second input silently overwrite an explicitly chosen font. */
+	if (memoryn80.model == 2 && !cgromva_n80sr_font_present) {
+		CopyMemory(cgromva_n80sr_font, fontmem + 0x41000, 0x800);
+		CopyMemory(cgromva_n80sr_font + 0x800, fontmem + 0x41000, 0x800);
+		cgromva_n80sr_font_present =
+		    apply_role(machine, EXTRAROM_ROLE_FONTHIRA, cgromva_n80sr_font + 0x800, 0x800);
+	}
+	memoryn80.port31 = 0;
+	memoryn80.port33 = 0;
+	memoryn80.port71 = 1;
+	FillMemory(memoryn80_fourth, sizeof(memoryn80_fourth), 0xff);
+	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);
+	(void)apply_role(machine, EXTRAROM_ROLE_N80_4, memoryn80_fourth, sizeof(memoryn80_fourth));
+	memoryn80_sr_present =
+	    memoryn80.model == 2 &&
+	    apply_role(machine, EXTRAROM_ROLE_N80_3, memoryn80_srrom, sizeof(memoryn80_srrom));
+	/* Resolve configuration only at reset, after the actual ROM roles are
+	 * known. Unsupported requests are reported and fall back to automatic;
+	 * the applied choice, not this pending setting, is saved with the VM. */
+	memoryn80_boot = np2cfg.n80_basic_mode;
+	if (!memoryva_n80_boot_valid(memoryn80_boot)) {
+		fprintf(stderr, "WARNING: N80 BASIC selection %u unavailable; using automatic startup\n",
+		        (unsigned)memoryn80_boot);
+		memoryn80_boot = N80_BOOT_AUTO;
+	}
+	memoryn80_boot = memoryva_n80_boot_selection();
+	/* The PC-8001 family (N, N80, N80SR) runs at its 4 MHz default: the
+	 * VA's x2 clock multiplier is the 8 MHz hack for these machines. */
+	pccore.multiple = 1;
+	pccore.realclock = pccore.baseclock * pccore.multiple;
+	/* Before the one-shot SR handoff the VA bridge still uses N80. */
+	/* The PC-8001 family programs its CRTC for 10-raster rows at 200
+	 * lines for a 15 kHz monitor. The monitor setting (the DIP switch and
+	 * Monitor15kHz, applied by videova_reset() before this hook) stays in
+	 * charge: the 24 kHz CRT is an emulation-only presentation (a hack; the
+	 * real machines have no 24 kHz output) that shows each CRTC raster
+	 * twice (docs/modernization/screen-mode-table.md). */
+	fprintf(stderr, "INFO: PC-8001 machine %s (startup %s)\n", machine->name,
+	        memoryn80_boot == N80_BOOT_SR    ? "N80SR"
+	        : memoryn80_boot == N80_BOOT_N80 ? "N80"
+	                                         : "N");
 }
 
 /*

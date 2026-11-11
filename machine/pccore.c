@@ -9,6 +9,7 @@
 #include "iocore.h"
 #include "cmt.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
 #include "memctrlva.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
@@ -533,6 +534,9 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	romva_initialize();
+	/* The machine hook may change pccore.multiple (the PC-8001 family runs
+	 * at x1) after iocore_reset() clocked the FDD CPU from it. */
+	subsystemmx_sync_clock();
 	memctrlva_nmode_reset();
 	va91_initialize();
 	CS_BASE = 0xf0000;
@@ -563,8 +567,19 @@ static void drawscreenva(BOOL guest_boundary) {
 	}
 
 	lines = tsp.screenlines;
-	if (videova_hsyncmode() != VIDEOVA_24_8KHZ)
+	if (n80_crtc_active()) {
+		/* The independent route composes exactly the CRTC raster count:
+		 * the double of the scanlines at the 15 kHz CRT (the interleave)
+		 * and at the 24 kHz CRT when the device runs the 10-raster rows
+		 * (the doubled presentation), and the plain 400 rasters when the
+		 * device runs the 20-raster rows. The VA route keeps its own
+		 * TSP-driven line count. */
+		const unsigned crtcrasters = upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc);
+		lines = (UINT16)(crtcrasters *
+		                 ((videova_hsyncmode() == VIDEOVA_24_8KHZ && crtcrasters > 200) ? 1 : 2));
+	} else if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
 		lines *= 2;
+	}
 	if (lines > SURFACE_HEIGHT)
 		lines = SURFACE_HEIGHT;
 
@@ -577,6 +592,8 @@ static void drawscreenva(BOOL guest_boundary) {
 	maketextva_begin(&text200);
 	makesprva_begin();
 	makegrphva_begin(&grph200);
+	{
+	}
 	if (tsp.screenlines != 0) {
 		VIDEOVA_GRAPHICS_WINDOW window;
 
@@ -585,6 +602,12 @@ static void drawscreenva(BOOL guest_boundary) {
 	}
 	scrndrawva_compose_begin();
 
+	/* The independent-route machines at the 24 kHz CRT show the 200-line
+	 * graphics frame interleaved (one lit raster, one blank raster per
+	 * GVRAM line; the maintainer's real-machine report), exactly like the
+	 * grph200 presentation below. */
+	const BOOL n80_200line_24k =
+	    n80_crtc_active() && (videova_hsyncmode() == VIDEOVA_24_8KHZ) && (videova.grmode & 0x0002);
 	if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
 		// 15.7 kHz output.
 		switch (videova.grmode & 0x00c0) {
@@ -672,7 +695,7 @@ static void drawscreenva(BOOL guest_boundary) {
 				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
-				if (grph200) {
+				if (grph200 || n80_200line_24k) {
 					makegrphva_blankraster();
 				} else {
 					makegrphva_raster();
@@ -692,8 +715,12 @@ static void drawscreenva(BOOL guest_boundary) {
 				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
-				if (grph200) {
-					// Reuse the previous output raster.
+				if (n80_200line_24k) {
+					/* The independent route interleaves the 200-line
+					 * graphics (one lit, one blank raster). */
+					makegrphva_blankraster();
+				} else if (grph200) {
+					// Reuse the previous output raster (the VA line doubling).
 				} else {
 					makegrphva_raster();
 				}
@@ -723,8 +750,8 @@ static void drawscreenva(BOOL guest_boundary) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
 		drawcount++;
 		if (guest_boundary &&
-		    (vaeg_recording_native_tap_is_active() ||
-		     (vaeg_recording_native_session_is_active() && !vaeg_recording_session_is_displayed()))) {
+		    (vaeg_recording_native_tap_is_active() || (vaeg_recording_native_session_is_active() &&
+		                                               !vaeg_recording_session_is_displayed()))) {
 			VAEG_RECORDING_NATIVE_FRAME frame;
 			VAEG_RECORDING_OSD_SNAPSHOT snapshot;
 			VAEG_RECORDING_NATIVE_TAP_ERROR error;
@@ -732,8 +759,7 @@ static void drawscreenva(BOOL guest_boundary) {
 			vaeg_recording_native_frame_initialize(&frame);
 			if (scrnmng_capture_native_recording_frame_with_snapshot(&frame, &snapshot) !=
 			    SUCCESS) {
-				vaeg_recording_native_tap_fail(
-				    VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
+				vaeg_recording_native_tap_fail(VAEG_RECORDING_NATIVE_TAP_ERROR_CAPTURE_FAILED);
 			} else {
 				error = vaeg_recording_native_session_submit_frame(
 				    (UINT64)drawcount, pccore_guest_clock(),
@@ -807,7 +833,10 @@ void screenvsyncva2(NEVENTITEM item) {
 #endif
 
 void sysp4vsyncint(NEVENTITEM item) {
-	pic_setirq(2);
+	/* The independent uPD3301 raises VRTC from its own frame boundaries. */
+	if (!n80_crtc_active()) {
+		pic_setirq(2);
+	}
 }
 
 void sysp4vsyncstart(NEVENTITEM item) {
@@ -910,6 +939,8 @@ static void pccore_process_cpu_reset_request(void) {
 	}
 }
 
+static SINT32 slice_remclock;
+
 #if defined(VAEG_UPD9002_M42_TESTING)
 void upd9002_m42_process_cpu_reset_request(void) {
 	pccore_process_cpu_reset_request();
@@ -942,6 +973,7 @@ void pccore_exec(BOOL draw) {
 		pic_irq();
 		pccore_process_cpu_reset_request();
 
+		slice_remclock = CPU_REMCLOCK;
 		while (CPU_REMCLOCK > 0) {
 		debug_resume_cpu:
 			if (upd9002_debug_step_begin()) {
@@ -956,6 +988,11 @@ void pccore_exec(BOOL draw) {
 			subsystemmx_exec();
 			sgp_step();
 		}
+		/* The independent uPD3301 is clocked by consumed machine time; on the
+		 * independent 8801/8001 family it owns the VRTC raise instead of the
+		 * VA display event. Debug returns above freeze the device with the
+		 * CPU, matching the single-stepping contract. */
+		n80_crtc_advance_machine(slice_remclock - CPU_REMCLOCK);
 
 		nevent_progress();
 	}

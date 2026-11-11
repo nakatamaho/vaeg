@@ -7,7 +7,6 @@ extern "C" {
 #endif
 
 extern BYTE sprraster[];
-
 void makesprva_initialize(void);
 
 void makesprva_begin(void);

@@ -7,6 +7,9 @@
 #include "gvramva.h"
 #include "videova.h"
 #include "makegrphva.h"
+#include "io/n80_crtc.h"
+#include "memoryva.h"
+#include "io/pc8001_video.h"
 
 enum {
 	GRPHVA_SCREENS = 2,
@@ -902,11 +905,28 @@ static void drawraster_m4(SCREEN screen) {
 	endraster_m(screen);
 }
 
+/* The independent-route 200-line graphics frame at the 24 kHz geometry
+ * spans the doubled compose rasters (drawscreenva interleaves one lit and
+ * one blank raster per GVRAM line, the maintainer's real-machine report:
+ * the scanlines are visible in the 640x200 mode), so the framebuffer
+ * display window covers the full doubled height. The 15 kHz geometry and
+ * the 400-line frames keep the single-height window. */
+static BOOL n80_doubled_window(void) {
+	if (!memoryva_88_mode || !n80_crtc_active()) {
+		return FALSE;
+	}
+	if (!(videova.grmode & 0x0002)) {
+		return FALSE;
+	}
+	return upd3301_rows(&n80_crtc) * upd3301_scanlines(&n80_crtc) > 200;
+}
+
 static void drawraster(SCREEN screen) {
 	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
 	if (screen->framebuffer != NULL) {
 		// The 88MD 400-line layout shows the 200-line frame from two planes.
-		const UINT dsh = screen->framebuffer->dsh * (n88_400lines() ? 2 : 1);
+		const UINT dsh =
+		    screen->framebuffer->dsh * ((n88_400lines() || n80_doubled_window()) ? 2 : 1);
 
 		if (screen->framebuffer->dsp + dsh == screen->y) {
 			screen->framebuffer = NULL;
@@ -1088,6 +1108,43 @@ void makegrphva_setwindow(const struct videova_graphics_window *window) {
 }
 
 static void readline(void) {
+	if (memoryva_88_mode && memoryva_pc8001 && memoryn80.model) {
+		const BOOL mono = !memoryva_n80_color();
+		const unsigned y = work.screen[0].y++;
+		const BOOL sr = memoryn80.model == 2 && (memoryn80.port33 & 0x80);
+		unsigned x;
+		grph1_noraster = TRUE;
+		grph0_noraster =
+		    y >= 200 || !(memoryn80.port31 & 8) ||
+		    (!mono && ((sr && (memoryn80.port31 & 4)) ? (memoryn80_video[1] & 6) == 6
+		                                              : (memoryn80_video[1] & 2) != 0));
+		for (x = 0; x < SURFACE_WIDTH; x++) {
+			unsigned color = 0;
+			if (!grph0_noraster && x < 640) {
+				if (mono) {
+					const BOOL narrow = sr && (memoryn80.port31 & 4);
+					const unsigned dot = narrow ? x / 2 : x;
+					const unsigned offset = y * (narrow ? 40 : 80) + dot / 8;
+					unsigned p;
+					for (p = 0; p < (sr ? (narrow ? 6U : 3U) : 1U); p++) {
+						if (!(memoryn80_video[1] & (2U << p)))
+							color |=
+							    (grphmem[0x4000 + (p % 3) * 0x10000 + (p / 3) * 0x2000 + offset] >>
+							     (7 - dot % 8)) &
+							    1;
+					}
+				} else if (sr)
+					color = pc8001_sr_pixel_strided(
+					    grphmem + 0x4000, 0x10000, x, y, (memoryn80.port31 & 4) != 0,
+					    (memoryn80.port33 >> 2) & 1, memoryn80_video[1]);
+				else if (!(memoryn80_video[1] & 2))
+					color =
+					    pc8001_mkii_pixel(grphmem + 0x4000, x, y, (memoryn80.port31 & 0x10) != 0);
+			}
+			grph0_raster[x] = (WORD)color;
+		}
+		return;
+	}
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();

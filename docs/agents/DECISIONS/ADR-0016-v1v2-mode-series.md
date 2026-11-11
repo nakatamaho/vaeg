@@ -93,9 +93,105 @@ PC-88VA in compatibility mode.
   sub-ROMs) are already in the VA ROM set (`upd9002-upd70008-mode.md`
   §4.4–§4.6). No additional ROM image is introduced.
 
+### M144a amendment: independent LSI versus VA emulation
+
+The maintainer explicitly approved complete separation of the independent
+PC-8801/PC-8001 family's uPD3301 from the VA/VA2 firmware/TSP emulation path,
+and approved taking the independent model from X88000. The earlier
+"behavioural reference, not transplant" rule continues to apply to VA hardware;
+it does not prohibit this independently owned LSI model.
+
+The independent controller must own its commands, registers, cursor, timing,
+DMA connection and saved state. It must not obtain those from TSP fields or
+VA firmware working memory. Non-VA adaptations added to the VA 3301 emulation
+path are approved for removal as the independent route replaces them. Native
+VA compatibility behavior, including its 40-column cursor width, is retained.
+Shared pixel buffers or stateless glyph helpers are not shared device state.
+
+`io/upd3301.c/.h` starts the C99 port from the pinned 1.5.3 `PC88Crtc.cpp/.h`
+by Manuke: reset defaults, command/parameter handling, status and frame-based
+blink phase. Original attribution and the adaptation's BSD notice are retained.
+Unlike the earlier independent reimplementations, this is an explicitly
+identified command/state adaptation. It is not an as-is vendoring of the C++
+class. The source page identifies the source as PDS (Public Domain Software).
+No ROM, private execution result or private disassembly is incorporated.
+
+At the initial command-state checkpoint, only the standalone test compiled
+this subset. Timing tables, VRAM WAIT estimates, interrupt delivery, DMA bus
+traffic, pixel rendering and machine-SAV integration were not yet ported or
+connected. In particular, a
+caller-provided frame boundary is not a clock implementation, and the source's
+shared status bit for two interrupt requests is preserved as a source-model
+contract, not declared verified hardware behavior.
+
+The next subset, `io/pc88_text_dma.c/.h`, adapts the same archive's
+`PC88Z80Main.cpp::WriteIO_64/WriteIO_68` and `PC88Z80Main.h::GetTVRam`.
+This is board-side DMA control, not a register block inside the uPD3301:
+64h alternates address bytes; 68h resets the byte phase and supplies the
+source model's `(mode & 84h) == 84h` enable condition. It is not a complete
+8257 implementation: count/status/other-channel ports and timed transfers
+remain unimplemented, and the enable condition is a source-model contract.
+
+The C adaptation takes the reset address from its board caller, keeps address,
+mode and byte phase per instance, and resolves the 16-bit wrapped address
+before selecting main RAM or the fast-text F000h window. Read-only views use
+explicit buffer lengths and reject a missing/short selected source without
+falling back to a different memory bank. They do not invoke the CPU memory
+bus, apply CPU ROM/bank switching, or alias VA TVRAM/TSP state. These views are
+not DMA bus transactions. These independent subsets remain test-only until
+board wiring, clocking, rendering and machine-state integration are qualified.
+
+`vram/pc88_text.c/.h` next derives row decoding from the pinned
+`X88ScreenDrawer.cpp::RatchText`: transparent mono/color attribute walks,
+start/end-position lists, one pair per displayed cell, packed carry between
+rows, and the source's full-cell reverse cursor. The C implementation uses a
+bounded row snapshot and returns packed 40-cell or 80-cell output instead of
+80 records with alternate placeholders. It does not perform the source's
+unused read beyond the final attribute pair. No-attribute mode has an 80-byte
+pitch; transparent modes have `80 + 2 * pairs` bytes.
+
+Nontransparent/reserved modes and non-80-logical-slot geometry are explicitly
+rejected rather than inheriting the source drawer's silent plain-text fallback.
+A separately written glyph-row mask helper applies decoration/reverse and
+8-to-16-pixel horizontal expansion. Vertical scaling, font/PCG selection,
+palette/graphics priority, display blanking and clocked scanout remain caller
+responsibilities. This is not a complete renderer or qualification of physical
+cursor shape/mode bits. VA CURDEF and VA text rendering are untouched.
+
+The vertical clock extension adapts `PC88Crtc.h::UpdateTimings`, `PassClock`,
+`ResetCounter` and `IsVSync`, without the source's VRAM WAIT estimator or
+horizontal scan counters. The source-model cycle/sync microseconds are
+16270/3755 (low/20), 16020/3505 (low/25), 17720/1611 (high/20) and
+18050/1933 (high/25). As in the source, a scanline count divisible by eight
+selects the 25-line timing table. These values are not hardware measurements.
+
+The C implementation keeps a 64-bit countdown in device ticks scaled by
+1,000,000, preserving fractional ticks at non-integer-MHz clock rates. Bulk
+advances use division rather than one loop per frame, retain the source's
+16-bit frame-counter wrap and latch the vertical request independently of
+display/DMA enable. R2 changes preserve the remaining countdown; START and
+RESET COUNTERS restart it; interrupt acknowledge does not reset it. The board
+adapter must supply an explicit device clock domain, not unscaled main-CPU
+batches, host frame callbacks or wall time. The numerical clock guard is not
+full SAV/model validation. All components still run only in standalone tests;
+no VA/M135/FDC timing, IRQ delivery or application scheduler is changed.
+
+`io/pc88_display_state.c/.h` adds the explicit state codec for these
+dependent components: a 32-byte little-endian versioned payload covering the
+controller, the byte-phase DMA control and the clock countdown. It is not a
+native struct dump. Every field is validated (command/parameter consistency,
+binary flags, interrupt masks, attribute bit 3, DMA enable agreement with
+the mode byte, numeric clock bounds) against a caller-supplied clock binding
+before either direction commits; version/size/argument failures are distinct
+and outputs remain unchanged on rejection. The codec performs no machine
+identity check, no legacy migration and registers no SAV section; those
+belong to the future machine integration. The binding rule deliberately
+rejects a saved device whose clock profile differs from the board's current
+configuration rather than silently rescaling the countdown.
+
 ### Derivations
 
-Re-implemented from X88000 1.5.3 (public domain; source archive
+The earlier table entries were re-implemented from X88000 1.5.3 (public domain; source archive
 `x88_1_5_3_src.tar.gz`, SHA-256
 `66bc0b69d5a394e2195b5e277093eebcc045fbb3930c03637aa106394ae83cf3`,
 <https://quagma.sakura.ne.jp/manuke/x88src.html>); no code copied:
@@ -108,6 +204,32 @@ Re-implemented from X88000 1.5.3 (public domain; source archive
 | M103e | `io/memctrlva.c` (`E2h`/`E3h`) | `PC88Z80Main.cpp`, `ReadIO_E2`/`WriteIO_E2`/`ReadIO_E3`/`WriteIO_E3` | Port numbering and bit layout of extended RAM control |
 | M114 | `io/memctrlva.c` (port 31h on a PC-8001 model) | `PC88Z80Main.cpp`, `WriteIO_31_N80` | PC-8001mkII meaning of port 31h bits (all-RAM, graphics enable) |
 | M115 | `io/pcg88.c` | `PC88Pcg.cpp` (`Reset`, `WritePcgPort`, `WriteITimerPort`, `GetITimerCounterValue`), `X88000.cpp` (`PcgSoundOutput`), `PC88Z80Main.cpp` (port map) | PCG-8100/8800 character RAM, banks, ports 00h-03h, 8253 counters at 0Ch-0Fh and the 4 MHz/count tone |
+
+M144a implementation follow-up uses the same pinned 1.5.3 archive for
+`PC88Z80Main.cpp::WriteIO_32` and `PC88Z80Main.h::Set*InterruptMask`:
+`io/sysportva.c` resets independent selection on compatible GVAM edges;
+`io/pic.c` clears newly unmasked source latches, retaining the VA bridge's
+already offered vector transaction. These are independently implemented
+port contracts, not new physical-VA measurements. The maintainer also
+requests independent PC-8001mkII/SR emulation and PC-PR201 PDF output;
+those additions remain in progress.
+
+The subsequent M144a `io/pc8001_video.c` primitives independently reimplement
+`PC88Z80Main.cpp::MemBankRomRamMode_N80`, `MemBankIERomMode_N80`,
+`MemBankGVRamMode_N80/Ex_N80`, and `X88ScreenDrawer.cpp::DrawGraphics`
+N80 colour addressing rules from the same pinned 1.5.3 archive. They cover
+ROM-source/offset selection, the 8000h-BFFFh VRAM aperture, packed mkII pixels
+and SR planar/page composition. At this checkpoint only the unit test target
+links them; production device/ROM/state integration remains unfinished.
+No third-party file or ROM/font data is copied into the tree.
+
+The next M144a checkpoint connects ROM-source selection to the memory bus,
+adds optional fourth-ROM input and the SR BASIC/IE buffers, relocates the N80
+GVRAM aperture and persists model/bank registers in `N80BANK`. The maintainer
+approved `e8.rom` explicitly as an optional X88000-compatible input name after
+its non-MAME-qualified provenance was explained. Banking/SAV tests exercise
+production dispatch, not guest CPU I/O-trap routing; display and full SR
+startup remain unfinished. See the task's production banking checkpoint.
 
 Each choice and its status is listed in
 [`v1v2-mode-decisions.md`](../../modernization/v1v2-mode-decisions.md).

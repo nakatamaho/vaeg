@@ -355,6 +355,8 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 			options->pacelog = TRUE;
 		} else if (!strcmp(argument, "--mute")) {
 			options->mute = TRUE;
+		} else if (!strcmp(argument, "--headless-audio")) {
+			options->headless_audio = TRUE;
 		} else if (!strcmp(argument, "--nowait")) {
 			options->nowait = TRUE;
 		} else if (!strcmp(argument, "--no-cfg")) {
@@ -670,5 +672,11 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 	if (options->record_source_set && !options->record) {
 		return (set_error(error, error_size, "--record-source requires --record", NULL));
 	}
+	if (options->headless_audio && !options->headless_input_script && !options->debug_script) {
+		return set_error(error, error_size, "HEADLESS_AUDIO_REQUIRES_SCRIPT", NULL);
+	}
+	/* Preserve the safe scripted default; explicit --mute always wins. */
+	if ((options->headless_input_script || options->debug_script) && !options->headless_audio)
+		options->mute = TRUE;
 	return (SUCCESS);
 }

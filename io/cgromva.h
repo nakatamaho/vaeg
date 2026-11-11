@@ -27,6 +27,8 @@ extern BYTE *cgrom88_kanji[2];
 
 BYTE *cgromva_font(UINT16 hccode);
 int cgromva_width(UINT16 hccode);
+extern BYTE cgromva_n80sr_font[0x1000];
+extern BOOL cgromva_n80sr_font_present;
 BYTE *cgromva_ank8(BYTE code);
 
 void cgromva_reset(void);
