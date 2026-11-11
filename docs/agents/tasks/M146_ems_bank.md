@@ -69,7 +69,7 @@ technical manual; bank switching does not work properly.
 - [df87b814](https://github.com/nakatamaho/vaeg/commit/df87b814b1bbd3cfddcf737a9082a9e05114e0c3):
   `ems_page_frame_active()` also requires `sysm_bank() == 0` (the bus slot,
   or the DMA bank during DMA). Ledger entry added.
-- [e60e0a85](https://github.com/nakatamaho/vaeg/commit/e60e0a8553e1cf3aaf0a0f01d1ecc23d5d32ac31):
+- [e60e0a85](https://github.com/nakatamaho/vaeg/commit/e60e0a854b51eb1171ada84d0acf93933505a15c):
   `tools/hardware/emsbank/` (probe, MS-DOS 4.0 disk builder, README).
 - Not changed: the I/O bank memory at `80000h-9FFFFh` (port 1D0h, BMS),
   which follows the manual already; the V1/V2 memory map.
