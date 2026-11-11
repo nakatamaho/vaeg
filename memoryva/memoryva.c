@@ -287,9 +287,14 @@ static UINT sysm_bank(void) {
 	return (bank & 0x0f);
 }
 
+/* The EMS board sits in the bus slot: its C0000h-CFFFFh page frame is seen
+ * only while the system memory area selects the bus slot (port 153h
+ * SMBC = 0, or the DMA bank of port 180h during DMA). TVRAM, GVRAM, the
+ * kanji and dictionary ROMs keep these addresses in their own banks. The
+ * PC-88VA EMM adapter (EMMVA01/EMMVA02) selects the bus slot for this. */
 static BOOL ems_page_frame_active(UINT32 address) {
 	return ((emsio.target != 0) && (emsio.target <= emsio.maxmem) && (address >= 0x0c0000) &&
-	        (address < 0x0d0000));
+	        (address < 0x0d0000) && (sysm_bank() == 0));
 }
 
 static void ems_page_frame_write(UINT32 address, REG8 value) {

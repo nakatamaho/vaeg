@@ -919,6 +919,10 @@ static int test_va_ems_board(void) {
 	BYTE saved_main;
 	BYTE saved_high0;
 	BYTE saved_high1;
+	UINT8 saved_sysm_bank;
+	UINT8 saved_dma_sysm_bank;
+	UINT8 saved_dma_access;
+	UINT8 bank_index;
 	BYTE *page_ptr;
 	BYTE saved_page;
 	BYTE pattern;
@@ -941,6 +945,13 @@ static int test_va_ems_board(void) {
 	saved_main = mem[0xc0000];
 	saved_high0 = mem[0x100000];
 	saved_high1 = mem[0x104000];
+	saved_sysm_bank = memoryva.sysm_bank;
+	saved_dma_sysm_bank = memoryva.dma_sysm_bank;
+	saved_dma_access = memoryva.dma_access;
+	/* The EMS board is in the bus slot: select it in the system memory area. */
+	memoryva.sysm_bank = 0;
+	memoryva.dma_sysm_bank = 0;
+	memoryva.dma_access = 0;
 	result = SUCCESS;
 	iocore_create();
 	if (iocore_build() != SUCCESS) {
@@ -991,6 +1002,34 @@ static int test_va_ems_board(void) {
 	upd9002_memorywrite_nowait(0x0c0000, 0x96);
 	if ((upd9002_memoryread_nowait(0x0c0000) != 0x96) || (CPU_EXTMEM[0x10000] != 0x96)) {
 		result = fail("VA EMS", "native VA page-frame access did not map");
+		goto ems_test_cleanup;
+	}
+	/* M146: TVRAM (1), GVRAM (4), kanji ROM #1 (8) and the dictionary ROM
+	 * (C) keep C0000h in their own banks; only the bus slot (0) shows the
+	 * frame. Byte and word accesses both. */
+	for (bank_index = 0; bank_index < 4; bank_index++) {
+		static const UINT8 banks[4] = {0x01, 0x04, 0x08, 0x0c};
+
+		memoryva.sysm_bank = banks[bank_index];
+		CPU_EXTMEM[0x10001] = 0x69;
+		if ((upd9002_memoryread_nowait(0x0c0000) == 0x96) ||
+		    (upd9002_memoryread_w(0x0c0000) == 0x6996)) {
+			result = fail("VA EMS", "a non-bus-slot bank read the EMS page frame");
+			goto ems_test_cleanup;
+		}
+		if (banks[bank_index] == 0x04) {
+			upd9002_memorywrite_nowait(0x0c0000, 0x00);
+			upd9002_memorywrite_w(0x0c0000, 0x0000);
+		}
+		if ((CPU_EXTMEM[0x10000] != 0x96) || (CPU_EXTMEM[0x10001] != 0x69)) {
+			result = fail("VA EMS", "a non-bus-slot bank wrote the EMS page");
+			goto ems_test_cleanup;
+		}
+	}
+	memoryva.sysm_bank = 0;
+	if ((upd9002_memoryread_nowait(0x0c0000) != 0x96) ||
+	    (upd9002_memoryread_w(0x0c0000) != 0x6996)) {
+		result = fail("VA EMS", "the bus slot lost the EMS page frame");
 		goto ems_test_cleanup;
 	}
 
@@ -1081,6 +1120,9 @@ ems_test_cleanup:
 		CPU_EMSPTR[i] = saved_ems[i];
 	}
 	CPU_REMCLOCK = saved_remclock;
+	memoryva.sysm_bank = saved_sysm_bank;
+	memoryva.dma_sysm_bank = saved_dma_sysm_bank;
+	memoryva.dma_access = saved_dma_access;
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA EMS board mapping/config lifecycle ok\n");
 	}
