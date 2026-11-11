@@ -95,3 +95,10 @@ Standard V3 gate (clean static MinGW build, V3 boot, bundled VA demo, an OS
 and simple operations), plus: EMS Board enabled, boot the utility FDD and use
 the RDEMS `C:` drive; boot the `EMSBANK` disk and run `EMSBANK` (PASS). On
 hardware with an EMS board, `EMSBANK` is the comparison.
+
+Gate build: `tools/release/build-mingw-static-container.sh --commit
+d37b57540878810ef381d1e8d0a7b9e41c1d9be2` with `VAEG_BUILD_TRACK=m146` exited
+0 in vaeg's dedicated Colima runtime. It displays `Rel.20261111 (m146,
+d37b5754)`, keeps the local-only encoders OFF and imports only Windows system
+DLLs. `vaeg.exe` SHA-256
+`10831ea0d7295d4d3c2d00e57633d130d81b967e014c6bfb162172e0908c9e72`.
