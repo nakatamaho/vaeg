@@ -1188,6 +1188,21 @@ pass is not an instruction to run the media/demo regression or the
 presenter/screen automation campaigns; that choice is asked separately before
 the main merge. No merge, release or cleanup is recorded here.
 
+## Pre-merge integration campaigns
+
+Asked before the main merge as AGENTS.md requires; the maintainer answered
+"run" for both the media/demo regression and the presenter/screen automation.
+Results on candidate `dc38adc876403504d2e3d5fc443f33db417616fb`
+([report](../reports/m144a_integration_qa.md)):
+
+- media/demo: closure 9/9, ten extra builds, 34/34 drawing cases (after one
+  retained, unreproduced MS-DOS stall left OPEN), MANDEL, SGP self-boot,
+  utility FDD/SASI builds and four boot contracts PASS; the utility payload
+  manifest comparison is NOT_RUN (manifest not retained);
+- presenter: mapped runtime-speed ten cases PASS_TEXT_AND_INTERACTION_ONLY;
+  layout 32/32 matched against DRAFT references, APPROVAL_REQUIRED;
+- Cocoa, Windows execution, physical GPU and true HiDPI NOT_RUN.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM
