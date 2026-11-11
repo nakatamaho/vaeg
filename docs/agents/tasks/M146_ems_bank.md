@@ -59,3 +59,39 @@ technical manual; bank switching does not work properly.
 2. If vaeg fails it, restrict the frame to the bus slot bank and add a
    selftest with a single-mutation negative.
 3. Check that the EMS stack and RDEMS still work (VA, VA2).
+
+## Findings and change
+
+- `[MEAS]` vaeg before the change, `EMSBANK` (EMMVA01 + SQEMM98 + EMMVA02,
+  `ExMemory=1`, VA and VA2, PC-Engine 1.1 and MS-DOS 4.0 disks): `bus` and
+  `bus-again` hold the marker, and so do `gvram-before` and `kanji`: FAIL.
+  EMMVA02 leaves SMBC 0 after AH=44h (`153h-after-map=40`).
+- [df87b814](https://github.com/nakatamaho/vaeg/commit/df87b814b1bbd3cfddcf737a9082a9e05114e0c3):
+  `ems_page_frame_active()` also requires `sysm_bank() == 0` (the bus slot,
+  or the DMA bank during DMA). Ledger entry added.
+- [e60e0a85](https://github.com/nakatamaho/vaeg/commit/e60e0a8553e1cf3aaf0a0f01d1ecc23d5d32ac31):
+  `tools/hardware/emsbank/` (probe, MS-DOS 4.0 disk builder, README).
+- Not changed: the I/O bank memory at `80000h-9FFFFh` (port 1D0h, BMS),
+  which follows the manual already; the V1/V2 memory map.
+
+## Local verification
+
+- `EMSBANK` after the change: PASS on VA and VA2 (both disks); `gvram-before`
+  is GVRAM, `kanji` is kanji ROM data, the marker survives. The previous
+  build FAILs the same disks.
+- Utility FDD, `ExMemory=13`, VA and VA2: SQEMM98 completes, RDEMS `C:`;
+  `copy a:config.sys c:m146.txt`, `type` and `dir c:` work.
+- `tools/hardware/emsbank/build.sh` exit 0 (DOSBox Open Watcom backend);
+  `SQEMM98.SYS` SHA-256 `eb3d443d7c12b6eb204e03a7ebac4b68a69d4690d0899ca93a37ad7a546d4930`
+  equals M90's; `EMSBANK.COM` SHA-256
+  `19d28db027d0cc02a257af99abebe7e8506ff3faaa59e88798d1108ee70f8e9c`.
+- `--selftest` passes; with the bank condition removed it fails with
+  "a non-bus-slot bank read the EMS page frame" (reverted). Native CTest
+  183/183.
+
+## Gate G146 (human)
+
+Standard V3 gate (clean static MinGW build, V3 boot, bundled VA demo, an OS
+and simple operations), plus: EMS Board enabled, boot the utility FDD and use
+the RDEMS `C:` drive; boot the `EMSBANK` disk and run `EMSBANK` (PASS). On
+hardware with an EMS board, `EMSBANK` is the comparison.

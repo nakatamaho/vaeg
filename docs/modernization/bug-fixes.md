@@ -35,6 +35,34 @@ land.
 
 ## Maintenance Rules
 
+### M146 — EMS page frame replaced every system memory bank
+
+- **Symptom/scope:** with the EMS board enabled (`ExMemory` 1-13) and an EMM
+  loaded (EMMVA01, SQEMM98, EMMVA02, as on the utility media), CPU and DMA
+  accesses to `C0000h-CFFFFh` reached the EMS page in every system memory
+  bank: GVRAM, kanji ROM #1/#2, the dictionary ROM and TVRAM at those
+  addresses read and wrote the EMS page. Graphics or ROM reads there got EMS
+  data, and GVRAM writes there changed EMS pages (for example RDEMS RAM-disk
+  data). PC-88VA and PC-88VA2, V3 mode.
+- **Demonstrated root cause:** `ems_page_frame_active()` (M90) mapped the
+  frame whenever an EMS target was selected, independently of the memory map
+  register. On the machine the EMS board is in the bus slot, which the system
+  memory area reaches only with port 153h SMBC = 0 (BNN technical manual,
+  chapter 3); the PC-88VA EMM adapter EMMVA selects SMBC 0 for the EMM and
+  leaves it there after a mapping call for that reason. `EMSBANK` on
+  MS-DOS 4.0 showed the marker written with SMBC 0 at `C000:0000` both in
+  GVRAM (SMBC 4) and in kanji ROM #1 (SMBC 8): FAIL on VA and VA2.
+- **Correction:** the frame is active only when the selected system memory
+  bank (or the DMA bank during DMA) is 0, the bus slot.
+- **Verification:** `EMSBANK` PASS on VA and VA2 (MS-DOS 4.0 disk from
+  `tools/hardware/emsbank/build.sh`, and a PC-Engine 1.1 disk); the previous
+  build FAILs the same disks. Utility FDD with `ExMemory=13`: RDEMS `C:`
+  copy, type and dir work on VA and VA2. VA EMS selftest checks banks 1, 4,
+  8 and C, byte and word; removing the bank condition fails it with "a
+  non-bus-slot bank read the EMS page frame". Native suite 183/183.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [df87b814b1bbd3cfddcf737a9082a9e05114e0c3](https://github.com/nakatamaho/vaeg/commit/df87b814b1bbd3cfddcf737a9082a9e05114e0c3).
+
 ### M144a — PC-8001 family FDD CPU at half its clock
 
 - **Symptom/scope:** with a `disk.rom` FDD unit, the PC-8001mkIISR in N80SR
