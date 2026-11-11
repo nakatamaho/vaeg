@@ -44,12 +44,20 @@ enum {
 
 void frontpanel_set_modeled(UINT num, BOOL on);
 void frontpanel_fdd_access(UINT drv);
+/* M146: a SASI/SCSI block access; sxsi drives 0x00/0x01 are SASI1/SASI2. */
+void frontpanel_hdd_access(UINT drv);
+BOOL frontpanel_sasi_lit(UINT unit, UINT32 now);
 /* Raw latch for the shared mode classifier; renderers use mode_lit. */
 BOOL frontpanel_raw_mode_lit(UINT num);
 BOOL frontpanel_mode_lit(UINT num);
 BOOL frontpanel_lock_lit(UINT lock);
 BOOL frontpanel_drive_lit(UINT drv, UINT32 now);
 BOOL frontpanel_drive_is_2hd(UINT drv);
+enum {
+	FRONTPANEL_SIMPLE_ROWS = 2,       /* M146: the SASI lamps on the second row */
+	FRONTPANEL_SIMPLE_ROW_HEIGHT = 12 /* dots at scale 1 */
+};
+
 /* Height of the panel drawn across width pixels; 0 when it is turned off. */
 int frontpanel_height(int width);
 /* Scale of the simple bar for a window width (1 at 640). */

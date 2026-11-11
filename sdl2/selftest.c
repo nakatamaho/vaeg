@@ -6739,8 +6739,8 @@ static int test_front_panel(void) {
 	UINT32 now;
 
 	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
-	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
-		problem = "lamp bar is not 14 rows per 640 dots";
+	if ((frontpanel_height(640) != 26) || (frontpanel_height(1280) != 52)) {
+		problem = "lamp bar is not 26 rows (two lamp rows) per 640 dots";
 	}
 	np2oscfg.front_panel = FRONTPANEL_OFF;
 	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
@@ -6752,9 +6752,9 @@ static int test_front_panel(void) {
 	input.guest_width = 640;
 	input.guest_height = 400;
 	input.drawable_width = 640;
-	input.drawable_height = 22 + 400 + 14;
+	input.drawable_height = 22 + 400 + frontpanel_height(640);
 	input.menu_inset = 22;
-	input.bottom_inset = 14;
+	input.bottom_inset = frontpanel_height(640);
 	input.scaling = VAEG_SCALING_FIT;
 	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	                          (viewport.y != 22) || (viewport.height != 400))) {
@@ -6779,6 +6779,14 @@ static int test_front_panel(void) {
 	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
 	                          frontpanel_drive_lit(0, now + 1000))) {
 		problem = "access lamp timing";
+	}
+	/* M146: SASI1/SASI2 follow sxsi drives 0x00/0x01; SCSI (0x20) has none */
+	frontpanel_hdd_access(0x00);
+	frontpanel_hdd_access(0x20);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_sasi_lit(0, now) || frontpanel_sasi_lit(0, now + 1000) ||
+	                          frontpanel_sasi_lit(2, now))) {
+		problem = "SASI lamp timing";
 	}
 	if ((problem == NULL) &&
 	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
@@ -6850,6 +6858,13 @@ static int test_front_panel(void) {
 			frontpanel_fdd_access(0);
 			if (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
 			                                  sizeof(problem_text)) != SUCCESS) {
+				problem = problem_text;
+			}
+			/* M146: SASI2 accessed: lit; SASI1 follows its own access */
+			frontpanel_hdd_access(0x01);
+			if ((problem == NULL) &&
+			    (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
+			                                   sizeof(problem_text)) != SUCCESS)) {
 				problem = problem_text;
 			}
 		}
