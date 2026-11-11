@@ -148,3 +148,23 @@ added. `tools/hardware/emsbank/build.sh` rebuilt with it: "13.0 MB" at 13,
 The 13MB ceiling (`EMSIO_MAX_MEGABYTES`) is inherited from NP2's `ExMemory`
 limit (PC-98 extended memory below 16MB); it is not a PC-88VA EMS board
 specification. No VA board capacity has been identified yet.
+
+## 15MB EMS (maintainer request, 2026-11-12)
+
+The maintainer asked for 15MB, the most the 4-bit target register selects
+(targets 1-15; 0 is off).
+
+- [1f82fac9](https://github.com/nakatamaho/vaeg/commit/1f82fac95768568109fc637239ad03816fe38256):
+  `EMSIO_MAX_MEGABYTES` 15; the selftest sweeps all 960 pages; current docs
+  updated (historical records keep 13MB).
+- [2b9ee78e](https://github.com/nakatamaho/vaeg/commit/2b9ee78e3b55430a41e437bde546d0606eef1299):
+  SQEMM98 probes targets 1-15 and sizes its page tables for 960 pages;
+  `check-sqemm98.py` checks the init save/restore sequences and the call
+  target instead of a fixed displacement (single-mutation negatives: a
+  broken restore and an out-of-driver target both fail
+  `SQEMM98_CHECK_CALLER_STATE`); bundle pin
+  `a8ef06d29d4558292ae89b7a5c5f9394abfd6cf1260c1d3871d63e116972fc08`.
+
+VA2, MS-DOS 4.0 `EMSBANK` disk: at `ExMemory=15` SQEMM98 tests all pages,
+reports "Page Count: 0960" and "15.0 MB", and `EMSBANK` PASSes; 14MB gives
+896 pages, "14.0 MB", PASS; 13MB unchanged. Native CTest 183/183.
