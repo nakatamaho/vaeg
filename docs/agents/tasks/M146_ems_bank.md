@@ -136,3 +136,15 @@ exited 0 (the first attempt failed in apt on a local DNS outage; its log is
 kept). It displays `Rel.20261112 (m146, 84981ff9)`, keeps the local-only
 encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
 `ba447695ff6fba0af7ce5ce0922749240ef6b39c98037aaa43830186c15d73a0`.
+
+## SQEMM98 size message (maintainer report, 2026-11-12)
+
+The maintainer saw "EMS Memory: 31.0 MB" with a 13MB board.
+[27572df2](https://github.com/nakatamaho/vaeg/commit/27572df269e0d35d59f8b5bae46f012cde8a5e05)
+fixes the upstream two-digit print in the PC-88VA preparation; ledger entry
+added. `tools/hardware/emsbank/build.sh` rebuilt with it: "13.0 MB" at 13,
+"10.0 MB" at 10 (VA2, MS-DOS 4.0).
+
+The 13MB ceiling (`EMSIO_MAX_MEGABYTES`) is inherited from NP2's `ExMemory`
+limit (PC-98 extended memory below 16MB); it is not a PC-88VA EMS board
+specification. No VA board capacity has been identified yet.

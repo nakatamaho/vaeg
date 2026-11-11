@@ -35,6 +35,27 @@ land.
 
 ## Maintenance Rules
 
+### M146 — SQEMM98 printed the EMS size digits reversed
+
+- **Symptom/scope:** the generated `SQEMM98.SYS` reported "EMS Memory:
+  31.0 MB" for a 13MB EMS board (12MB as "21.0", 11MB as "11.0", 10MB as
+  " 1.0"); 1-9MB were right. The page count and the installed memory were
+  correct; only the message was wrong. Every SQEMM98 built since M90
+  (utility media, guest-driver bundle).
+- **Demonstrated root cause:** upstream SQEMM 0.8 `print_kb_ems_fourchar`
+  divides two-digit megabytes with `DIV` (tens in AL, units in AH) and then
+  runs the `XCHG AL,AH` meant for the one-digit path, so `STOSW` stores the
+  units first.
+- **Correction:** `tools/openwatcom/prepare-sqemm98.py` adds one `XCHG AL,AH`
+  on the two-digit path. `SQEMM98.SYS` is 13,255 bytes, SHA-256
+  `e8fd90f9e72788bc3a756ec883634a474b4c332427a36194af0f5d19c8225654`; the
+  guest-driver bundle pin follows.
+- **Verification:** reported by the maintainer (31.0 MB at 13MB); MS-DOS 4.0
+  `EMSBANK` disk on VA2 now prints "13.0 MB" at `ExMemory=13` and "10.0 MB"
+  at 10; `check-sqemm98.py` passes.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [27572df269e0d35d59f8b5bae46f012cde8a5e05](https://github.com/nakatamaho/vaeg/commit/27572df269e0d35d59f8b5bae46f012cde8a5e05).
+
 ### M146 — EMS page frame replaced every system memory bank
 
 - **Symptom/scope:** with the EMS board enabled (`ExMemory` 1-13) and an EMM
