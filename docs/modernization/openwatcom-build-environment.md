@@ -100,8 +100,8 @@ tools/openwatcom/build-sqemm98.sh \
 
 The PC-88VA backend maps the four 16KB EMS windows through ports `08E1H`,
 `08E3H`, `08E5H`, and `08E7H`, with the 1MB target selected through
-`08E9H`. It detects the configured 1 through 13MB capacity and exposes up to
-832 logical EMS pages. Initialization and diagnostic text uses the PC-Engine
+`08E9H`. It detects the configured 1 through 15MB capacity and exposes up to
+960 logical EMS pages (13MB and 832 before M146). Initialization and diagnostic text uses the PC-Engine
 Text BIOS service `INT 83H/AH=02H`, with `DS:SI` addressing a NUL-terminated
 string and `DX=8000H`; it does not use IBM video BIOS `INT 10H` or DOS
 `AH=09H` string output.

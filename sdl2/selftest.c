@@ -960,7 +960,7 @@ static int test_va_ems_board(void) {
 	}
 
 	if ((EMSIO_DEFAULT_MEGABYTES != 0) || (EMSIO_MIN_MEGABYTES != 1) ||
-	    (EMSIO_MAX_MEGABYTES != 13)) {
+	    (EMSIO_MAX_MEGABYTES != 15)) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
 	}
@@ -1073,7 +1073,7 @@ static int test_va_ems_board(void) {
 		iocore_out8(page_port, (i & 0x3f) << 2);
 		if ((iocore_inp8(0x08e9) != 0) || (emsio.addr[frame] != page_addr) ||
 		    (CPU_EMSPTR[frame] != page_ptr)) {
-			result = fail("VA EMS", "13MB page table did not map completely");
+			result = fail("VA EMS", "15MB page table did not map completely");
 			goto ems_test_cleanup;
 		}
 		saved_page = *page_ptr;
@@ -1085,12 +1085,12 @@ static int test_va_ems_board(void) {
 		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) ||
 		    (*page_ptr != pattern)) {
 			*page_ptr = saved_page;
-			result = fail("VA EMS", "13MB native page-frame test failed");
+			result = fail("VA EMS", "15MB native page-frame test failed");
 			goto ems_test_cleanup;
 		}
 		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), saved_page);
 		if (*page_ptr != saved_page) {
-			result = fail("VA EMS", "13MB page test did not restore memory");
+			result = fail("VA EMS", "15MB page test did not restore memory");
 			goto ems_test_cleanup;
 		}
 	}

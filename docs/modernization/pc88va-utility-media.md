@@ -406,7 +406,8 @@ coexist. EMS exposes expansion RAM through a page frame in the expansion-ROM
 area. M90 connects the retained four 16KB windows at `C0000H`, `C4000H`,
 `C8000H`, and `CC000H` to the active VA I/O dispatcher. In vaeg, select
 `Device / EMS Board...` immediately below I/O Bank Memory and install memory
-in 1MB units; zero disables the board and 1 through 13MB are supported.
+in 1MB units; zero disables the board and 1 through 15MB are supported
+(13MB before M146).
 M142 clean configurations leave EMS uninstalled (`ExMemory=0`) and BMS
 disabled, avoiding unused expansion-memory payloads in save states. Capacities
 remain selectable; an explicitly saved capacity or disabled value in an
@@ -423,7 +424,7 @@ one example, but the M90 workflow does not use or distribute EMM4J.
 M90 instead provides `SQEMM98.SYS`, a PC-88VA port of the open-source SQEMM
 0.8 MAX driver. It is reproducibly built from pinned source with Open Watcom,
 drives vaeg's `08E1H` through `08E9H` EMS interface directly, and detects the
-configured 1 through 13MB capacity. Its startup, success, and error messages
+configured 1 through 15MB capacity (13MB before M146). Its startup, success, and error messages
 are displayed by the PC-Engine Text BIOS `INT 83H/AH=02H` service. PC-Engine
 does not provide SQEMM's DOS request-header command-tail contract, so this
 port deliberately uses its validated defaults: 255 handles, all detected EMS
