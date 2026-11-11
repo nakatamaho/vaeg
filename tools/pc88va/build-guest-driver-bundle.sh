@@ -36,7 +36,7 @@ sqemm_license=
 work_dir=
 
 hostfat_sha256=393226edcde6b0cc8648ce9f8b380804c44e2bec7c3d762cb60f0bc211b1767e
-sqemm_sha256=e8fd90f9e72788bc3a756ec883634a474b4c332427a36194af0f5d19c8225654
+sqemm_sha256=a8ef06d29d4558292ae89b7a5c5f9394abfd6cf1260c1d3871d63e116972fc08
 
 usage() {
 	printf '%s\n' \

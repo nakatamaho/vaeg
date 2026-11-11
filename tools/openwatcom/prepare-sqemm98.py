@@ -64,7 +64,7 @@ OVERLAYS = {
     "max/defs/lotech.asm": """VA_PAGE_REGISTER_0 = 08E1h
 VA_TARGET_REGISTER = 08E9h
 PAGE_FRAME_COUNT = 4
-MAX_PAGE_COUNT = 832
+MAX_PAGE_COUNT = 960
 DEFAULT_CONVENTIONAL_PAGE_COUNT = 0
 MAX_CONTEXT_COUNT = 0
 CHIPSET_PAGE_FRAME_COUNT = 4
@@ -169,7 +169,7 @@ VA_unmap_next_page:
   mov word ptr ds:[_RESIDENT_VARIABLE_page_frame_segment+1], 0C000h
 
   xor bx, bx
-  mov cx, 13
+  mov cx, 15
   mov dx, VA_TARGET_REGISTER
 VA_detect_next_megabyte:
   mov ax, bx
