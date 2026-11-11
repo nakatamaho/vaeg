@@ -8030,6 +8030,15 @@ static int test_pc8001_machine(void) {
 			problem = "port 31h passes all-RAM and graphics bits";
 		}
 	}
+	if (problem == NULL) {
+		/* A full machine reset: iocore_reset() clocks the FDD CPU before
+		 * the hook drops the machine to x1; the unit must follow it and
+		 * keep its nominal 4 MHz (one cycle per machine clock). */
+		pccore_reset();
+		if ((pccore.multiple != 1) || (subsystem_clock_multiple() != pccore.multiple)) {
+			problem = "the FDD CPU keeps its 4 MHz at the x1 machine clock";
+		}
+	}
 	selftest_delete_rom(dir, "n80.rom");
 	selftest_delete_rom(dir, "font.rom");
 #if defined(_WIN32)

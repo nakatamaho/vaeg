@@ -534,6 +534,9 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	romva_initialize();
+	/* The machine hook may change pccore.multiple (the PC-8001 family runs
+	 * at x1) after iocore_reset() clocked the FDD CPU from it. */
+	subsystemmx_sync_clock();
 	memctrlva_nmode_reset();
 	va91_initialize();
 	CS_BASE = 0xf0000;
