@@ -1171,6 +1171,14 @@ which sets `pccore.multiple` to 2 regardless of the loaded PC-8001 machine;
 the FDD/machine ratio stays consistent, but the main clock after loading a
 PC-8001-family SAV has not been verified.
 
+Gate build: `tools/release/build-mingw-static-container.sh --commit
+983d2db6347d06b56875d936e9fb76300b1c58d1` with `VAEG_BUILD_TRACK=m144a`
+exited 0 in the dedicated Colima runtime (restarted first: its Docker data
+disk had been remounted read-only after a host-disk-full write error). It
+displays `Rel.20261111 (m144a, 983d2db6)`, embeds the source commit, keeps the
+local-only encoders OFF and imports only Windows system DLLs. `vaeg.exe`
+SHA-256 `0def5f8cd90f9f413183eb5a15d55ff88f5691d9292a9e1040fcbe237c2e50ec`.
+
 ## Explicit N80 BASIC startup selection
 
 Implemented requested configuration versus applied startup state versus live ROM
