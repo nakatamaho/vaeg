@@ -168,3 +168,12 @@ The maintainer asked for 15MB, the most the 4-bit target register selects
 VA2, MS-DOS 4.0 `EMSBANK` disk: at `ExMemory=15` SQEMM98 tests all pages,
 reports "Page Count: 0960" and "15.0 MB", and `EMSBANK` PASSes; 14MB gives
 896 pages, "14.0 MB", PASS; 13MB unchanged. Native CTest 183/183.
+
+Gate build (replaces `84981ff9` for G146): `tools/release/build-mingw-static-container.sh
+--commit 11ee790e489fcb51c591efad08bfba5fca5779fd` with `VAEG_BUILD_TRACK=m146`
+exited 0. It displays `Rel.20261112 (m146, 11ee790e)`, keeps the local-only
+encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
+`456dfe9e0df1b8e1fac269e2b8baf9c81e11dce63f381bdc7cc16419c43e24ac`.
+Utility FDD and both SASI images were rebuilt from the same commit with the
+15MB SQEMM98 (`a8ef06d2...`); four boot contracts PASS and RDEMS `C:` works
+at `ExMemory=15` on VA and VA2.
