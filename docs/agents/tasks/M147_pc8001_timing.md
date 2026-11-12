@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M147 — PC-8001 family clock, sound and 40-column display
 
-Status: **implementation done; G147 human gate pending.**
+Status: **G147 human gate passed on 2026-11-12.**
 
 Branch `milestone/m147-pc8001-timing`; commit prefix `M147:`.
 
@@ -120,3 +120,11 @@ cc168b53` (full SHA in the build report) with `VAEG_BUILD_TRACK=m147`
 exited 0. It displays `Rel.20261112 (m147, cc168b53)`, keeps the local-only
 encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
 `e36542ed6efed86d4f97cf029078a7a7912708c37b20159d0dc012286680fd1d`.
+
+## G147 human gate
+
+The maintainer stated on 2026-11-12 that G147 passed, on the static MinGW
+handoff of `cc168b53` (`vaeg.exe` SHA-256
+`e36542ed6efed86d4f97cf029078a7a7912708c37b20159d0dc012286680fd1d`), and
+asked for the main merge. The integration-campaign choice is asked before the
+merge as AGENTS.md requires.
