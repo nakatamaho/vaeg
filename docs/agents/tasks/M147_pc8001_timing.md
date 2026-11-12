@@ -114,3 +114,9 @@ and CPU clock menu), sound without crackle, the N80SR demo
 (`load"demo1.nsr",r`) runs through; `WIDTH 40,25` on the PC-8001 (full-cell
 cursor) and on a PC-8801 model (full-width ANK and cursor), `WIDTH 80,25`
 back; a VA boot afterwards runs at 8 MHz.
+
+Gate build: `tools/release/build-mingw-static-container.sh --commit
+cc168b53` (full SHA in the build report) with `VAEG_BUILD_TRACK=m147`
+exited 0. It displays `Rel.20261112 (m147, cc168b53)`, keeps the local-only
+encoders OFF and imports only Windows system DLLs. `vaeg.exe` SHA-256
+`e36542ed6efed86d4f97cf029078a7a7912708c37b20159d0dc012286680fd1d`.
