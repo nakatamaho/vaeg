@@ -8088,13 +8088,38 @@ static int test_pc8001_machine(void) {
 		}
 	}
 	if (problem == NULL) {
-		/* A full machine reset: iocore_reset() clocks the FDD CPU before
-		 * the hook drops the machine to x1; the unit must follow it and
-		 * keep its nominal 4 MHz (one cycle per machine clock). */
+		/* M147: a full machine reset keeps the VA machine timeline (sound,
+		 * timers, memory waits and the FDD CPU), and runs the CPU at 4 MHz
+		 * through the CPU clock: the default x2 (the 8 MHz preset) maps to
+		 * x1, a leftover S selection does not halve it, and an explicit
+		 * higher multiple stays. */
+		const UINT8 saved_multiple = np2cfg.multiple;
+		const UINT8 saved_standard = np2cfg.v1v2_standard;
+
+		np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+		np2cfg.v1v2_standard = 1;
 		pccore_reset();
-		if ((pccore.multiple != 1) || (subsystem_clock_multiple() != pccore.multiple)) {
-			problem = "the FDD CPU keeps its 4 MHz at the x1 machine clock";
+		if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+		    (subsystem_clock_multiple() != pccore.multiple)) {
+			problem = "the PC-8001 family keeps the VA machine clock and FDD CPU";
+		} else if ((pccore_cpu_multiple() != 1) ||
+		           (pccore_compat_cpu_clock() != pccore.baseclock)) {
+			problem = "the PC-8001 family runs its CPU at 4 MHz";
 		}
+		np2cfg.multiple = 4;
+		pccore_clockrestore();
+		if ((problem == NULL) && (pccore_cpu_multiple() != 4)) {
+			problem = "an explicit higher CPU multiple is kept";
+		}
+		np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+		np2cfg.v1v2_standard = saved_standard;
+		/* back to the VA: x2 again, not a stale PC-8001 x1 */
+		milstr_ncpy(np2cfg.extra_machine, "", sizeof(np2cfg.extra_machine));
+		pccore_reset();
+		if ((problem == NULL) && (memoryva_pc8001 || (pccore_cpu_multiple() != 2))) {
+			problem = "the VA after a PC-8001 session runs at its default x2";
+		}
+		np2cfg.multiple = saved_multiple;
 	}
 	selftest_delete_rom(dir, "n80.rom");
 	selftest_delete_rom(dir, "font.rom");

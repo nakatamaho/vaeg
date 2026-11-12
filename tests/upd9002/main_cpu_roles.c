@@ -428,7 +428,11 @@ int upd780_main_role_selftest(void) {
 				pccore_set_cpu_speed(op ? 50 : 100);
 				before = CPU_REMCLOCK;
 				upd9002_core_step();
-				if (before - CPU_REMCLOCK != (op ? 16 : 8)) {
+				/* M147: S doubles the PC-8801's cost; the PC-8001 family
+				 * has no H/S input (it reaches 4 MHz through the CPU
+				 * multiple instead). */
+				const SINT32 expected = roles[i][1] ? (op ? 8 : 4) : (op ? 16 : 8);
+				if (before - CPU_REMCLOCK != expected) {
 					fprintf(stderr, "M139_MAIN_CPU_CLOCK_SCALE role=%u case=%u\n", i, op);
 					result = FAILURE;
 					break;
