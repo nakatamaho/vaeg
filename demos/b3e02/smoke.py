@@ -25,7 +25,8 @@
 
 usage: smoke.py COM [ARGS] [--machine va|va2] [--board|--deadchip]
                 [--needreg3 MASK] [--window b|a|both] [--bankmap]
-                [--otherbank N] [--float] [--expect N]
+                [--otherbank N] [--echo high|zero] [--bltlatch]
+                [--lowwin] [--float] [--expect N]
 
 Runs the COM under Unicorn with a minimal DOS and a fake board whose
 behaviour is the assumption of docs/agents/tasks/M148 (not a hardware
@@ -40,6 +41,12 @@ Other slot memory at A0000h-BFFFFh reads FFh. Port 1D0h = n > 0 sends
 CPU 80000h-9FFFFh to the slot: with --bankmap the slot address is
 n * 20000h + offset and meets the board window set by reg 01h; with
 --otherbank N another board's RAM answers in bank N; otherwise FFh.
+The chip has a VGA latch (CR22, loaded by VRAM reads through the board)
+and a BLT that fills (ROP 00h/0Eh); --bltlatch makes the BLT load the
+latch too. --echo makes the board see every CPU memory cycle at
+40000h-6FFFFh and A0000h-BFFFFh with A20-A23 = 1 (high) or 0 (zero),
+loading the latch / writing VRAM without giving data to the CPU.
+--lowwin opens a 4KB VRAM window at 0DF000h while reg 01h = 5Fh.
 Unconnected ports read FFh (as vaeg), or with --float the code
 byte that follows. It checks control flow, output and cleanup only.
 """
@@ -71,6 +78,9 @@ class Board:
         self.sr[0x0f] = 0x18
         self.window = ''
         self.vram = bytearray(0x100000)
+        self.latch = 0x00
+        self.bltlatch = False
+        self.lowwin = False
 
     def vram_addr(self, addr):
         """VRAM offset for a slot address, or None."""
@@ -86,6 +96,25 @@ class Board:
         else:
             return None
         return (self.gr[9] * 4096 + off) & 0xfffff
+
+    def blt(self):
+        g = self.gr
+        dst = g[0x28] | g[0x29] << 8 | g[0x2a] << 16
+        width = (g[0x20] | g[0x21] << 8) + 1
+        height = (g[0x22] | g[0x23] << 8) + 1
+        pitch = g[0x24] | g[0x25] << 8
+        value = {0x00: 0x00, 0x0e: 0xff}[g[0x32]]
+        for y in range(height):
+            for x in range(width):
+                self.vram[(dst + y * pitch + x) & 0xfffff] = value
+        if self.bltlatch:
+            self.latch = value
+        g[0x31] = 0
+
+    def low_addr(self, addr):
+        if self.lowwin and self.on() and self.regs.get(1) == 0x5f and 0xdf000 <= addr < 0xe0000:
+            return addr - 0xdf000
+        return None
 
     WINDOWS = {0x80: 0xf20000, 0xa0: 0xf00000, 0xc0: 0xf40000, 0xe0: 0xf60000,
                0x10: 0x0b0000}
@@ -133,6 +162,8 @@ class Board:
         if port == self.crtc():
             return self.cri
         if port == self.crtc() + 1:
+            if self.cri == 0x22:
+                return self.latch
             return self.cr[self.cri]
         if port in (0x0c52, 0x0c5a, 0x0c57, 0x0b5a, 0x0d5a):
             return 0x00
@@ -161,6 +192,8 @@ class Board:
             self.gri = v & 0x3f
         elif port == 0x0c5f:
             self.gr[self.gri] = v
+            if self.gri == 0x31 and v & 0x02:
+                self.blt()
         elif port == self.crtc():
             self.cri = v & 0x3f
         elif port == self.crtc() + 1:
@@ -185,6 +218,9 @@ class Dos:
                          0xa0000, 0xbffff)
         self.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self.bank_mem, None,
                          0x80000, 0x9ffff)
+        self.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self.low_mem, None,
+                         0xc0000, 0xe7fff)
+        self.echo = None
         self.p1d0 = 0
         self.bankmap = False
         self.otherbank = None
@@ -261,6 +297,10 @@ class Dos:
             self.board.write(port, value)
 
     def slot_mem(self, mu, access, addr, size, value, _):
+        for i in range(size):
+            self.slot_byte(mu, access, addr + i, (value >> (8 * i)) & 0xff)
+
+    def slot_byte(self, mu, access, addr, value):
         if self.p153 & 0x0f:
             return
         off = self.board.vram_addr(addr)
@@ -268,9 +308,45 @@ class Dos:
             if off is not None:
                 self.board.vram[off] = value & 0xff
             return
+        if off is not None:
+            self.board.latch = self.board.vram[off]
         mu.mem_write(addr, bytes([self.board.vram[off] if off is not None else 0xff]))
 
+    def low_mem(self, mu, access, addr, size, value, _):
+        for i in range(size):
+            self.low_byte(mu, access, addr + i, (value >> (8 * i)) & 0xff)
+
+    def low_byte(self, mu, access, addr, value):
+        if addr < 0xe0000 and self.p153 & 0x0f:
+            return
+        if addr >= 0xe0000 and not self.p152 & 0x08:
+            return
+        off = self.board.low_addr(addr)
+        if access == UC_MEM_WRITE:
+            if off is not None:
+                self.board.vram[off] = value & 0xff
+            return
+        mu.mem_write(addr, bytes([self.board.vram[off] if off is not None else 0xff]))
+
+    def echo_mem(self, mu, access, addr, size, value, _):
+        a24 = addr | (0xf00000 if self.echo == 'high' else 0)
+        off = self.board.match24(a24) if a24 >= 0x100000 else None
+        if off is None and a24 < 0x100000:
+            base = self.board.WINDOWS.get(self.board.regs.get(1, 0))
+            if self.board.on() and base is not None and base <= a24 < base + 0x10000:
+                off = (self.board.gr[9] * 4096 + a24 - base) & 0xfffff
+        if off is None:
+            return
+        if access == UC_MEM_WRITE:
+            self.board.vram[off] = value & 0xff
+        else:
+            self.board.latch = self.board.vram[off]
+
     def bank_mem(self, mu, access, addr, size, value, _):
+        for i in range(size):
+            self.bank_byte(mu, access, addr + i, (value >> (8 * i)) & 0xff)
+
+    def bank_byte(self, mu, access, addr, value):
         if self.p1d0 == 0:
             return
         off = addr - 0x80000
@@ -310,6 +386,9 @@ def main():
     ap.add_argument('--window', choices=('b', 'a', 'both'), default='')
     ap.add_argument('--bankmap', action='store_true')
     ap.add_argument('--otherbank', type=lambda s: int(s, 0))
+    ap.add_argument('--echo', choices=('high', 'zero'))
+    ap.add_argument('--bltlatch', action='store_true')
+    ap.add_argument('--lowwin', action='store_true')
     ap.add_argument('--float', action='store_true')
     ap.add_argument('--expect', type=lambda s: int(s, 0))
     a = ap.parse_args()
@@ -317,6 +396,11 @@ def main():
     board.window = 'ab' if a.window == 'both' else a.window
     dos = Dos(a.com, a.args, 0xffff if a.machine == 'va' else 0xfffe, board, a.float)
     dos.bankmap, dos.otherbank = a.bankmap, a.otherbank
+    board.bltlatch, board.lowwin = a.bltlatch, a.lowwin
+    if a.echo:
+        dos.echo = a.echo
+        for lo, hi in ((0x40000, 0x6ffff), (0xa0000, 0xbffff)):
+            dos.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, dos.echo_mem, None, lo, hi)
     if a.otherbank is not None:
         dos.other_ram[:] = bytes(i & 0xff for i in range(0x20000))
     dos.run()

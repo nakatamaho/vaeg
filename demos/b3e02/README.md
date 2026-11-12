@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # PC-9801B3-E02 on the PC-88VA — probes (M148)
 
-Probes for stages B0–B4b of
+Probes for stages B0–B4c of
 [`docs/agents/tasks/M148_b3e02_va_connection.md`](../../docs/agents/tasks/M148_b3e02_va_connection.md):
 does a PC-9801B3-E02 (CL-GD5428, C bus) answer in a PC-88VA slot? MS-DOS
 4.0 programs (msdos4-va.2), V3 mode. Synthetic data only.
@@ -38,9 +38,11 @@ does a PC-9801B3-E02 (CL-GD5428, C bus) answer in a PC-88VA slot? MS-DOS
 | `B3E3.COM` | B3 | present | VA | after the wake-up and a CR27 check: Misc, Feature, Input Status 0, DAC state, SR00–1F, GR00–3F, CR00–3F with SR06 unlocked | as B3E2, with the same options (SR06 unlocked for the dump, relocked) |
 | `B3E4.COM` | B4a | present | VA | VRAM through two windows that cannot overlap main RAM whatever slot pins A20–A23 carry: board reg 01h = 10h at B0000h, and the chip VGA window (GR06 = 05h) at A0000h, both with 153h SMBC = 0 and interrupts off. Pattern 0 in bank GR09 = 00h, pattern 1 in GR09 = 10h, read back after another bus access: PASS / NOBANK / NONE / OTHER | reg 03h bit 0, wake-up, chip set-up (SR00/02/04/06/07, Misc bit 1, GR01–0B; all restored and read back), reg 01h = 10h only during W1, the test bytes in the board VRAM |
 | `B3E5.COM` | B4b | present | VA | VRAM through the bank RAM path: RAM bank control port 1D0h = 01h–FFh sends CPU 80000h–9FFFFh to the slot. Three sweeps (board reg 01h = 00h baseline, E0h = F60000h, 10h = 0B0000h) read 8000:0000, 8000:8000 and 9000:0000 of every bank; banks that differ from the baseline get the B4a pattern test (at most four per window; banks where the baseline is not all FFh, another board, are listed and never written) | as B3E4; 1D0h (left 00h); reg 01h E0h/10h only inside the sweeps and tests |
+| `B3E6.COM` | B4c | present | VA | part L: does the board see CPU memory cycles even when no data comes back? The BLT fills VRAM 0–FFh with X and 10000h–100FFh with the complement, the CPU reads one byte at a candidate (reg 01h E0h at 6000:0, C0h at 4000:0, 10h at B000:0 with and without SMBC=0, the VGA window at A000:0), and CR22 (latch) must read X for X = 00h and FFh; a control with the window off must not. Where it does, a save/5Ah/restore write test. Part M: reads the 4KB blocks named by reg 01h = 40h–67h (the -85/-91 low memory-mapped I/O form) and the 15MB-mode blocks D3000h–DF000h | as B3E4; GR20–GR32 (restored); VRAM 0–FFh and 10000h–100FFh; the saved-and-restored test byte; reg 01h 40h–67h for single reads |
 
-None writes main RAM; only B3E4/B3E5 write the board VRAM and board reg
-01h (inside their tests); only `/RELAY` writes the relay bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
+Only B3E6 writes main RAM, one byte that it saves and restores with
+interrupts off; only B3E4–B3E6 write the board VRAM and board reg 01h
+(inside their tests); only `/RELAY` writes the relay bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
 six bytes (the reads differ: floating bus). Every line goes to the screen
 and is appended to `A:\B3LOG.TXT`; the header line names the build id,
 DOS date and time and the machine from F000:FFFE.
@@ -50,7 +52,9 @@ Exit codes: 0 pass, 1 option, 2 machine, 3 no board, 4 log not written,
 152h/153h not restored; B1: 10h ID, 11h index readback, 12h index not
 restored; B2: 10h CR27, 11h SR06, 12h not restored; B3: 10h CR27;
 B4a: 10h CR27, 11h no window, 12h not restored; B4b: 10h CR27, 11h no
-bank changed, 12h not restored, 13h banks changed but no test passed).
+bank changed, 12h not restored, 13h banks changed but no test passed;
+B4c: 10h CR27, 11h nothing, 12h not restored, 14h the latch control
+followed).
 
 ## Build
 
@@ -65,7 +69,7 @@ The disk stays out of Git.
 
 ## Smoke run without hardware
 
-`window.inc` holds the chip set-up shared by B3E4 and B3E5.
+`window.inc` holds the chip set-up shared by B3E4–B3E6.
 
 `smoke.py` runs one program under Unicorn with a minimal DOS and a fake
 board built on the task file's assumptions (not on measurements):
