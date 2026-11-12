@@ -4002,7 +4002,10 @@ static void draw_cpu_clock_menu(void) {
 			ImGui::Separator();
 			continue;
 		}
-		const bool selected = !matched && (multiple == preset.multiple) && (speed == preset.speed);
+		/* M147: the configured value, which the PC-8001 family runs at
+		 * 4 MHz (the default x2 maps to x1 there). */
+		const bool selected = !matched && (np2cfg.multiple == preset.multiple) &&
+		                      (speed == preset.speed);
 		matched = matched || selected;
 		if (ImGui::MenuItem(preset.label, nullptr, selected)) {
 			set_cpu_clock(preset.multiple, preset.speed);
@@ -4012,8 +4015,13 @@ static void draw_cpu_clock_menu(void) {
 	 * multiplier. Higher entries replace the old x2/x4/x8-only labels. */
 	for (const UINT mhz : {4u, 8u, 10u, 12u, 20u}) {
 		UINT preset_multiple, preset_speed;
-		if (!machine_status_clock_settings(mhz, status.compatible && pccore_88_standard(),
-		                                   &preset_multiple, &preset_speed))
+		/* M147: no 8 MHz for the PC-8001 family (it is the default x2,
+		 * run at 4 MHz there); no H/S on those machines either. */
+		if (memoryva_pc8001 && (mhz == 8u))
+			continue;
+		if (!machine_status_clock_settings(
+		        mhz, status.compatible && pccore_88_standard() && !memoryva_pc8001,
+		        &preset_multiple, &preset_speed))
 			continue;
 		char label[32];
 		std::snprintf(label, sizeof(label), "%u MHz", mhz);
