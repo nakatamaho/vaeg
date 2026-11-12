@@ -21,11 +21,18 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M146 — HyPER-FRAME+ 640×400 24bit 色 1 枚表示（VA 実機）
+# M149 — HyPER-FRAME+ 640×400 24bit 色 1 枚表示（VA 実機）
 
-Status: **PLANNING; G146 NOT_READY.**
+Status: **PLANNING; G149 NOT_READY.**
 Branch: `milestone/m145-hyperframe-probe`（M145 の解析成果の上に継続）;
-commit prefix `M146:`.
+commit prefix `M149:`.
+
+**ID の付け替え（2026-11-12）**: 本タスクは当初 `M146` として作成されたが、
+M146 は EMS バンクのタスク（`tasks/M146_ems_bank.md`）として main に merge
+済みで ID が衝突した。maintainer の確認により `M149` に付け替えた。
+[7c8eb6aa](https://github.com/nakatamaho/vaeg/commit/7c8eb6aa)〜
+[6dbe5c15](https://github.com/nakatamaho/vaeg/commit/6dbe5c15) の 4 コミットは
+`M146:` の接頭辞のまま残る（push 済みの履歴は書き換えない）。
 Base: [45f693ed](https://github.com/nakatamaho/vaeg/commit/45f693edf08e76fe8459529843908c101ae9a4a5)
 （M145: document board-decode limits for EC-free VA use）.
 
@@ -129,6 +136,6 @@ vaeg 側は既存の `io/bmsio.c` で模擬できる（`BMS_Port=00EC` は
 
 ## Gate
 
-**G146 NOT_READY。** 転送コスト算出、冷間初期化の実機実証、実機での
+**G149 NOT_READY。** 転送コスト算出、冷間初期化の実機実証、実機での
 パターン表示確認が揃うまで承認しない。M145 の init/banktest 実行禁止と
 G145 NOT_READY は変更しない。
