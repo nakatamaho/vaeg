@@ -188,6 +188,13 @@ void pccore_clockrestore(void) {
 	} else if (multiple > PCCORE_CPU_MULTIPLE_MAX) {
 		multiple = PCCORE_CPU_MULTIPLE_MAX;
 	}
+	/* M147: the PC-8001 family (N, N80, N80SR) runs at 4 MHz; the VA's
+	 * default x2 (also the 8 MHz preset) is the 8 MHz hack there. The
+	 * machine timeline stays at the VA's realclock, so sound, timers, the
+	 * FDD CPU and the calibrated memory waits keep their units. */
+	if (memoryva_pc8001 && (multiple == PCCORE_STANDARD_MULTIPLE)) {
+		multiple = 1;
+	}
 	pccore.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore.realclock = pccore.baseclock * pccore.multiple;
 	pccore_cpu_multiple_value = multiple;
@@ -235,7 +242,7 @@ BOOL pccore_main_cpu_is_upd780(void) {
 
 /* Configured compatible clock, excluding CPU speed percent and host pace. */
 UINT32 pccore_compat_cpu_clock(void) {
-	return pccore_cpu_clock() / ((memoryva_88_mode && pccore_88_standard()) ? 2 : 1);
+	return pccore_cpu_clock() / ((memoryva_88_mode && pccore_88_standard() && !memoryva_pc8001) ? 2 : 1);
 }
 
 UINT64 pccore_compat_clocks(UINT32 clocks, BOOL native_wait) {
@@ -246,8 +253,8 @@ UINT64 pccore_compat_clocks(UINT32 clocks, BOOL native_wait) {
 		return clocks;
 	}
 	elapsed = clockscale_apply(&pccore_compat_scale, clocks);
-	if (memoryva_88_mode && pccore_88_standard()) {
-		/* Two applications retain fractional carry without 32-bit doubling
+	if (memoryva_88_mode && pccore_88_standard() && !memoryva_pc8001) {
+		/* The PC-8001 family has no H/S input (M147). Two applications retain fractional carry without 32-bit doubling
 		 * overflow, and leave V3's compatible instructions at their base rate. */
 		elapsed += clockscale_apply(&pccore_compat_scale, clocks);
 	}
@@ -534,8 +541,10 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	romva_initialize();
-	/* The machine hook may change pccore.multiple (the PC-8001 family runs
-	 * at x1) after iocore_reset() clocked the FDD CPU from it. */
+	/* M147: the CPU clock follows the machine the hook applied (the PC-8001
+	 * family at 4 MHz); pccore_set() ran before the machine was known. */
+	pccore_clockrestore();
+	/* Keep the FDD CPU in step with the final machine clock multiple. */
 	subsystemmx_sync_clock();
 	memctrlva_nmode_reset();
 	va91_initialize();

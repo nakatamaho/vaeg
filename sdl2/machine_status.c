@@ -124,7 +124,8 @@ void machine_status_get(VAEG_MACHINE_STATUS *status) {
 	status->cpu_multiple = pccore_cpu_multiple();
 	status->cpu_speed = pccore_cpu_speed();
 	status->base_hz = pccore.baseclock * PCCORE_STANDARD_MULTIPLE;
-	if (status->compatible && pccore_88_standard())
+	/* The PC-8001 family has no H/S input (M147). */
+	if (status->compatible && pccore_88_standard() && !memoryva_pc8001)
 		status->base_hz /= 2;
 	status->cpu_hz =
 	    (UINT32)((UINT64)(status->compatible ? pccore_compat_cpu_clock() : pccore_cpu_clock()) *

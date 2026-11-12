@@ -35,6 +35,53 @@ land.
 
 ## Maintenance Rules
 
+### M147 — PC-8001 family sound fell behind and GVRAM waits doubled
+
+- **Symptom/scope:** PC-8001, mkII and mkIISR: crackling sound, N80SR
+  graphics slower than expected, and an "8 MHz" CPU clock shown while the CPU
+  ran at 4 MHz. A native recording stopped with `audio_discard_underflow`.
+- **Demonstrated root cause:** M144a reached 4 MHz by lowering the machine
+  clock in the machine hook, after `pccore_reset()` had set the sound and beep
+  clocks from the VA clock, and under VA memory waits counted in VA machine
+  clocks: the mixer produced too few samples for the guest time and each
+  GVRAM wait took twice as long.
+- **Correction:** the machine clock stays at the VA's; the PC-8001 family's
+  default x2 runs as x1 through the CPU clock, re-applied after the machine
+  hook; H/S does not apply to the family.
+- **Verification:** recordings complete on the PC-8001, mkII and mkIISR
+  (before: underflow); the mkIISR demo is further along at the same guest
+  frame; selftest with a single-mutation negative; CTest 183/183.
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [a55cb0638db628410ff22aa5dfef44e3bdc925ae](https://github.com/nakatamaho/vaeg/commit/a55cb0638db628410ff22aa5dfef44e3bdc925ae).
+
+### M147 — PC-8801 WIDTH 40 showed 80-column-width ANK and cursor
+
+- **Symptom/scope:** PC-8801 models on the independent route: after
+  N88-BASIC `WIDTH 40,25` the text showed 8-dot glyphs on alternate cells and
+  a half-width cursor.
+- **Demonstrated root cause:** M144a ignored port 30h on the PC-8801 and took
+  the width from the CRTC column count; `WIDTH 40` keeps 80 CRTC columns and
+  writes 22h to port 30h (measured on the PC-8801MA2).
+- **Correction:** the PC-8801 follows port 30h bit 0 like the mkII/SR.
+- **Verification:** PC-8801MA2 boot 80 columns, `WIDTH 40,25` doubled glyphs
+  and 16-dot cursor, `WIDTH 80,25` back; selftest "PC-8801 WIDTH 40" with a
+  single-mutation negative.
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [2fb6bbf926b166a2ac5dbc6c40cdf2003868ac37](https://github.com/nakatamaho/vaeg/commit/2fb6bbf926b166a2ac5dbc6c40cdf2003868ac37).
+
+### M147 — original PC-8001 40-column cursor at half width
+
+- **Symptom/scope:** the original PC-8001 (model 0): the cursor covered half
+  the 16-dot cell after `WIDTH 40,25`; mkII/mkIISR were right.
+- **Demonstrated root cause:** model 0 stays on the VA firmware route, whose
+  CURDEF cursor is 8 dots in 40 columns.
+- **Correction:** the cursor sprite is drawn at double width for model 0
+  while port 30h selects 40 columns; the VA's own V1/V2 is unchanged.
+- **Verification:** 16-dot cursor at columns 0 and 2, 8 dots after
+  `WIDTH 80,25`; mkII and VA2 V2 unchanged (headless captures).
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [8fdf815945113c877dbbe80186dd9e56c06d7659](https://github.com/nakatamaho/vaeg/commit/8fdf815945113c877dbbe80186dd9e56c06d7659).
+
 ### M146 — SQEMM98 printed the EMS size digits reversed
 
 - **Symptom/scope:** the generated `SQEMM98.SYS` reported "EMS Memory:
