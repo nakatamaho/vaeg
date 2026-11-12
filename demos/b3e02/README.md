@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # PC-9801B3-E02 on the PC-88VA — probes (M148)
 
-Probes for stages B0–B3 of
+Probes for stages B0–B4a of
 [`docs/agents/tasks/M148_b3e02_va_connection.md`](../../docs/agents/tasks/M148_b3e02_va_connection.md):
 does a PC-9801B3-E02 (CL-GD5428, C bus) answer in a PC-88VA slot? MS-DOS
 4.0 programs (msdos4-va.2), V3 mode. Synthetic data only.
@@ -36,9 +36,10 @@ does a PC-9801B3-E02 (CL-GD5428, C bus) answer in a PC-88VA slot? MS-DOS
 | `B3E1.COM` | B1 | present | VA | 0FA2h index 00h/01h/03h/04h, each read back; 0FA3h data; ID, window, relay/MMIO, DIP decoded | 0FA2h only; incoming index restored |
 | `B3E2.COM` | B2 | present | VA | ports, CR27 (0B55h and 0D55h) and the SR06 lock before and after the wake-up `0904h=00h, 0902h=01h, 0904h=20h`; the wake-up undone | CRTC/SR indexes (restored), SR06 (left locked), 0902h/0904h; `/MMIO` and `/RELAY` also board reg 03h bit 0 / bit 1 before the wake-up, restored at the end |
 | `B3E3.COM` | B3 | present | VA | after the wake-up and a CR27 check: Misc, Feature, Input Status 0, DAC state, SR00–1F, GR00–3F, CR00–3F with SR06 unlocked | as B3E2, with the same options (SR06 unlocked for the dump, relocked) |
+| `B3E4.COM` | B4a | present | VA | VRAM through two windows that cannot overlap main RAM whatever slot pins A20–A23 carry: board reg 01h = 10h at B0000h, and the chip VGA window (GR06 = 05h) at A0000h, both with 153h SMBC = 0 and interrupts off. Pattern 0 in bank GR09 = 00h, pattern 1 in GR09 = 10h, read back after another bus access: PASS / NOBANK / NONE / OTHER | reg 03h bit 0, wake-up, chip set-up (SR00/02/04/06/07, Misc bit 1, GR01–0B; all restored and read back), reg 01h = 10h only during W1, the test bytes in the board VRAM |
 
-None writes main RAM, the VRAM window or board reg 01h (window); only
-`/RELAY` writes the relay bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
+None writes main RAM; only B3E4 writes the board VRAM and board reg 01h
+(10h, inside its test); only `/RELAY` writes the relay bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
 six bytes (the reads differ: floating bus). Every line goes to the screen
 and is appended to `A:\B3LOG.TXT`; the header line names the build id,
 DOS date and time and the machine from F000:FFFE.
@@ -46,7 +47,8 @@ DOS date and time and the machine from F000:FFFE.
 Exit codes: 0 pass, 1 option, 2 machine, 3 no board, 4 log not written,
 10h and up stage failures (B0: 10h driven port, 11h floating port, 12h
 152h/153h not restored; B1: 10h ID, 11h index readback, 12h index not
-restored; B2: 10h CR27, 11h SR06, 12h not restored; B3: 10h CR27).
+restored; B2: 10h CR27, 11h SR06, 12h not restored; B3: 10h CR27;
+B4a: 10h CR27, 11h no window, 12h not restored).
 
 ## Build
 

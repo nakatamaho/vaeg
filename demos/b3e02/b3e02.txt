@@ -1,4 +1,4 @@
-PC-9801B3-E02 on the PC-88VA - probes B0 to B3 (vaeg M148)
+PC-9801B3-E02 on the PC-88VA - probes B0 to B4a (vaeg M148)
 
 Boot this disk in V3 mode on the PC-88VA. Keep it write-enabled:
 every program appends its lines to A:\B3LOG.TXT. If a photograph and
@@ -20,11 +20,15 @@ B3E2   stage B2. Wake-up (0904h/0902h), CR27, SR06 lock.
          B3E2 /MMIO      B3E2 /RELAY      B3E2 /MMIO /RELAY
 B3E3   stage B3. Register snapshot SR00-1F, GR00-3F, CR00-3F.
        Give it the options with which B3E2 passed.
+B3E4   stage B4a. VRAM windows that cannot overlap main RAM:
+       W1 board window 0B0000h (reg 01h = 10h) at B0000h, W2 the
+       chip's VGA window at A0000h. Sets reg 03h bit 0 itself.
+       PASS = both banks (GR09 00h/10h) read back.
 
 Exit codes (ERRORLEVEL): 0 pass, 1 option, 2 machine, 3 no board,
 4 log not written, 10h and up: stage failure (see the SUM line).
 Port values: FF = undriven, D:xx = driven xx, F:... = six differing
 reads (floating bus).
 
-No program writes main RAM, the VRAM window or the window register;
-only /RELAY writes the relay bit. Everything written is restored or undone.
+No program writes main RAM. Only B3E4 writes the board VRAM and the
+window register (10h during its test); only /RELAY writes the relay bit. Everything written is restored or undone.

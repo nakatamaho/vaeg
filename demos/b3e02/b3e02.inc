@@ -466,6 +466,26 @@ idx_read:
     pop bx
     ret
 
+; DX = index port, AH = index, AL = value; the incoming index is restored.
+idx_write:
+    push bx
+    push ax
+    in al, dx
+    mov bl, al
+    pop ax
+    push ax
+    xchg al, ah
+    out dx, al
+    inc dx
+    mov al, ah
+    out dx, al
+    dec dx
+    mov al, bl
+    out dx, al
+    pop ax
+    pop bx
+    ret
+
 ; ---------------------------------------------------------------------------
 ; Board control (0FA2h/0FA3h).
 

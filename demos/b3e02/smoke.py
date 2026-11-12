@@ -24,7 +24,7 @@
 """Developer smoke run of a B3-E02 probe COM (not a vaeg test).
 
 usage: smoke.py COM [ARGS] [--machine va|va2] [--board|--deadchip]
-                [--needreg3 MASK] [--float] [--expect N]
+                [--needreg3 MASK] [--window b|a|both] [--float] [--expect N]
 
 Runs the COM under Unicorn with a minimal DOS and a fake board whose
 behaviour is the assumption of docs/agents/tasks/M148 (not a hardware
@@ -32,13 +32,17 @@ measurement): board control 0FA2h/0FA3h (ID 60h), a chip that decodes
 only after 0902h bit 0 is set in setup (0904h=00h), CR27 = 9Ah, SR06
 lock. --deadchip has the board control but a chip that never answers;
 --needreg3 MASK makes the chip answer only while board reg 03h has
-every bit of MASK set.
+every bit of MASK set. --window gives the board 1MB of VRAM seen through
+SMBC=0 at B0000h when reg 01h = 10h (b), at A0000h when GR06 maps
+A0000h and Misc bit 1 is set (a), or both; GR09 selects 4KB banks.
+Other slot memory at A0000h-BFFFFh reads FFh.
 Unconnected ports read FFh (as vaeg), or with --float the code
 byte that follows. It checks control flow, output and cleanup only.
 """
 import argparse
 import sys
-from unicorn import Uc, UC_ARCH_X86, UC_MODE_16, UC_HOOK_INTR, UC_HOOK_INSN
+from unicorn import (Uc, UC_ARCH_X86, UC_MODE_16, UC_HOOK_INTR, UC_HOOK_INSN,
+                     UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE, UC_MEM_WRITE)
 from unicorn.x86_const import (UC_X86_REG_AX, UC_X86_REG_BX, UC_X86_REG_CX,
                                UC_X86_REG_DX, UC_X86_REG_DS, UC_X86_REG_CS,
                                UC_X86_REG_ES, UC_X86_REG_SS, UC_X86_REG_SP,
@@ -61,6 +65,21 @@ class Board:
         self.sri = self.gri = self.cri = 0
         self.cr[0x27] = 0x9a
         self.sr[0x0f] = 0x18
+        self.window = ''
+        self.vram = bytearray(0x100000)
+
+    def vram_addr(self, addr):
+        """VRAM offset for a slot address, or None."""
+        if not self.on():
+            return None
+        if 'b' in self.window and self.regs.get(1) == 0x10 and 0xb0000 <= addr < 0xc0000:
+            off = addr - 0xb0000
+        elif ('a' in self.window and (self.gr[6] & 0x0c) == 0x04 and self.misc & 2
+              and 0xa0000 <= addr < 0xb0000):
+            off = addr - 0xa0000
+        else:
+            return None
+        return (self.gr[9] * 4096 + off) & 0xfffff
 
     def on(self):
         return (self.present and self.chip and (self.pos & 1) and
@@ -145,6 +164,8 @@ class Dos:
         self.mu.hook_add(UC_HOOK_INTR, self.intr)
         self.mu.hook_add(UC_HOOK_INSN, self.io_in, None, 1, 0, UC_X86_INS_IN)
         self.mu.hook_add(UC_HOOK_INSN, self.io_out, None, 1, 0, UC_X86_INS_OUT)
+        self.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self.slot_mem, None,
+                         0xa0000, 0xbffff)
         self.board, self.floating = board, floating
         self.p152, self.p153 = 0x00, 0x41
         self.stdout, self.log = bytearray(), bytearray()
@@ -214,6 +235,16 @@ class Dos:
         else:
             self.board.write(port, value)
 
+    def slot_mem(self, mu, access, addr, size, value, _):
+        if self.p153 & 0x0f:
+            return
+        off = self.board.vram_addr(addr)
+        if access == UC_MEM_WRITE:
+            if off is not None:
+                self.board.vram[off] = value & 0xff
+            return
+        mu.mem_write(addr, bytes([self.board.vram[off] if off is not None else 0xff]))
+
     def run(self):
         self.mu.emu_start(BASE + 0x100, 0, count=2_000_000)
 
@@ -226,10 +257,12 @@ def main():
     ap.add_argument('--board', action='store_true')
     ap.add_argument('--deadchip', action='store_true')
     ap.add_argument('--needreg3', type=lambda s: int(s, 0), default=0)
+    ap.add_argument('--window', choices=('b', 'a', 'both'), default='')
     ap.add_argument('--float', action='store_true')
     ap.add_argument('--expect', type=lambda s: int(s, 0))
     a = ap.parse_args()
     board = Board(a.board or a.deadchip, not a.deadchip, a.needreg3)
+    board.window = 'ab' if a.window == 'both' else a.window
     dos = Dos(a.com, a.args, 0xffff if a.machine == 'va' else 0xfffe, board, a.float)
     dos.run()
     sys.stdout.write(dos.stdout.decode('ascii'))
@@ -249,6 +282,10 @@ def main():
             problems.append('SR06 left unlocked')
         if board.regs[3] != 0x00:
             problems.append('reg03 left %02X' % board.regs[3])
+        if board.regs.get(1, 0) != 0 or board.misc != 0:
+            problems.append('reg01 or Misc not restored')
+        if any(board.sr[i] for i in (0, 2, 4, 7)) or any(board.gr[i] for i in range(16)):
+            problems.append('SR/GR set-up not restored')
         if (board.sri, board.gri, board.cri) != (0, 0, 0):
             problems.append('VGA index left')
     print('exit=%s' % (dos.exit_code if dos.exit_code is None else '%02X' % dos.exit_code))
