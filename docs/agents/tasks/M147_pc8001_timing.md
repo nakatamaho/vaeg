@@ -128,3 +128,7 @@ handoff of `cc168b53` (`vaeg.exe` SHA-256
 `e36542ed6efed86d4f97cf029078a7a7912708c37b20159d0dc012286680fd1d`), and
 asked for the main merge. The integration-campaign choice is asked before the
 merge as AGENTS.md requires.
+
+Integration campaigns: asked before the merge; the maintainer answered
+"省略" (skip) for both the media/demo regression and the presenter/screen
+automation. Both are **NOT_RUN (maintainer opted out)**, not PASS.
