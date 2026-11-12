@@ -8016,6 +8016,41 @@ static int test_extra_machine(void) {
  * 15 kHz forcing; 24 kHz is an emulation-only presentation), and port 31h
  * with its PC-8001mkII meaning (N-BASIC and 200 lines kept, bit 1 all-RAM
  * and bit 3 graphics passed on). Synthetic data only. */
+/* M147: the PC-8801's 40/80-column display follows port 30h bit 0 with
+ * the CRTC kept at 80 columns (N88-BASIC WIDTH 40 writes 22h, the boot 23h),
+ * as on the PC-8001mkII/SR. */
+static int test_pc8801_width40(void) {
+	const BOOL saved_pc8801 = memoryva_pc8801;
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const UINT8 saved_mode = memoryva_88_mode;
+	const char *problem = NULL;
+
+	memoryva_pc8801 = TRUE;
+	memoryva_pc8001 = FALSE;
+	memoryva_88_mode = 1;
+	n80_crtc_reset();
+	if ((upd3301_columns(&n80_crtc) < 80) || !n80_crtc.width80) {
+		problem = "reset is not the 80-column display";
+	}
+	n80_crtc_notify_port30(0x22);
+	if ((problem == NULL) && (n80_crtc.width80 || upd3301_columns(&n80_crtc) < 80)) {
+		problem = "port 30h 22h did not select 40 columns over the 80-column CRTC";
+	}
+	n80_crtc_notify_port30(0x23);
+	if ((problem == NULL) && !n80_crtc.width80) {
+		problem = "port 30h 23h did not return to 80 columns";
+	}
+	memoryva_pc8801 = saved_pc8801;
+	memoryva_pc8001 = saved_pc8001;
+	memoryva_88_mode = saved_mode;
+	n80_crtc_reset();
+	if (problem != NULL) {
+		return (fail("PC-8801 WIDTH 40", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 WIDTH 40 ok\n");
+	return (SUCCESS);
+}
+
 static int test_pc8001_machine(void) {
 	static BYTE expect[0x6000];
 	char root[MAX_PATH];
@@ -11883,6 +11918,9 @@ int vaeg_selftest_run(void) {
 			return (FAILURE);
 		}
 		if (test_pc8001_machine() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pc8801_width40() != SUCCESS) {
 			return (FAILURE);
 		}
 		if (test_n80_fm_mask() != SUCCESS) {
