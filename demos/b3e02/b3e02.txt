@@ -13,14 +13,18 @@ B3E1   stage B1, board installed, VA only. Board control 0FA2h/0FA3h.
        PASS = ID 60h and every index read back.
 B3E2   stage B2. Wake-up (0904h/0902h), CR27, SR06 lock.
        PASS = CR27 98h-9Bh (CL-GD5428), SR06 12h/0Fh.
-       If it fails, also try B3E2 /MMIO (board reg 03h bit 0 set for
-       the run; the relay bit is never touched).
+       Options set board reg 03h before the wake-up and restore it:
+       /MMIO bit 0 (memory-mapped I/O), /RELAY bit 1 (relay: the
+       board's video output). The earlier probes wrote 03h (both).
+       If plain B3E2 fails, try in this order:
+         B3E2 /MMIO      B3E2 /RELAY      B3E2 /MMIO /RELAY
 B3E3   stage B3. Register snapshot SR00-1F, GR00-3F, CR00-3F.
+       Give it the options with which B3E2 passed.
 
 Exit codes (ERRORLEVEL): 0 pass, 1 option, 2 machine, 3 no board,
 4 log not written, 10h and up: stage failure (see the SUM line).
 Port values: FF = undriven, D:xx = driven xx, F:... = six differing
 reads (floating bus).
 
-No program writes main RAM, the VRAM window, the relay bit or the
-window register. Everything written is restored or undone.
+No program writes main RAM, the VRAM window or the window register;
+only /RELAY writes the relay bit. Everything written is restored or undone.

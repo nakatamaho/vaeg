@@ -34,11 +34,11 @@ does a PC-9801B3-E02 (CL-GD5428, C bus) answer in a PC-88VA slot? MS-DOS
 | --- | --- | --- | --- | --- | --- |
 | `B3E0.COM` | B0 | absent (optionally present) | VA, VA2/VA3 | every B3-E02 port with six code patterns; B0000h (153h SMBC=0) and E0000h (152h bit 3) through the slot, four offsets, two patterns | 152h/153h for a few reads with interrupts off, restored and read back |
 | `B3E1.COM` | B1 | present | VA | 0FA2h index 00h/01h/03h/04h, each read back; 0FA3h data; ID, window, relay/MMIO, DIP decoded | 0FA2h only; incoming index restored |
-| `B3E2.COM` | B2 | present | VA | ports, CR27 (0B55h and 0D55h) and the SR06 lock before and after the wake-up `0904h=00h, 0902h=01h, 0904h=20h`; the wake-up undone | CRTC/SR indexes (restored), SR06 (left locked), 0902h/0904h; `/MMIO` also board reg 03h bit 0 for the run |
-| `B3E3.COM` | B3 | present | VA | after the wake-up and a CR27 check: Misc, Feature, Input Status 0, DAC state, SR00–1F, GR00–3F, CR00–3F with SR06 unlocked | as B3E2 (SR06 unlocked for the dump, relocked) |
+| `B3E2.COM` | B2 | present | VA | ports, CR27 (0B55h and 0D55h) and the SR06 lock before and after the wake-up `0904h=00h, 0902h=01h, 0904h=20h`; the wake-up undone | CRTC/SR indexes (restored), SR06 (left locked), 0902h/0904h; `/MMIO` and `/RELAY` also board reg 03h bit 0 / bit 1 before the wake-up, restored at the end |
+| `B3E3.COM` | B3 | present | VA | after the wake-up and a CR27 check: Misc, Feature, Input Status 0, DAC state, SR00–1F, GR00–3F, CR00–3F with SR06 unlocked | as B3E2, with the same options (SR06 unlocked for the dump, relocked) |
 
-None writes main RAM, the VRAM window, board reg 01h (window) or the relay
-bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
+None writes main RAM, the VRAM window or board reg 01h (window); only
+`/RELAY` writes the relay bit. Ports print as `FF` (undriven), `D:xx` (six equal reads) or `F:` and
 six bytes (the reads differ: floating bus). Every line goes to the screen
 and is appended to `A:\B3LOG.TXT`; the header line names the build id,
 DOS date and time and the machine from F000:FFFE.

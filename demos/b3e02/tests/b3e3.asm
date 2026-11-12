@@ -31,6 +31,8 @@
 ; unlocked (12h). Writes: 0902h/0904h (wake-up, undone at the end), the
 ; SR/GR/CR indexes (restored after every read), SR06 (left locked unless
 ; it came in unlocked), and the board index 0FA2h (left 00h).
+; /MMIO and /RELAY set board reg 03h bit 0 / bit 1 for the run, as in
+; B3E2; use the options with which B3E2 passed.
 ;
 ; Exit: 0 snapshot taken; 3 no board; 10h CR27 not 98h-9Bh (stage B2 not
 ; passed; nothing dumped).
@@ -45,8 +47,10 @@
 
 stage_str   db 'B3', 0
 prog_str    db 'B3E3', 0
-opt_table   dw 0
-usage_str   db 'B3E3 (M148 B3): no options. CL-GD5428 register snapshot, VA only.', 13, 10, 0
+opt_table   dw s_opt_mmio, opt_mmio
+            dw s_opt_relay, opt_relay
+            dw 0
+usage_str   db 'B3E3 (M148 B3) [/MMIO] [/RELAY]: CL-GD5428 register snapshot, VA only.', 13, 10, 0
 
 s_state     db 'STATE', 0
 s_misc      db 'misc=', 0
@@ -91,6 +95,7 @@ main:
     mov al, 3
     jmp common_exit
 .board:
+    call reg3_apply
     call board_wake
     call crtc_port
     mov [crtc], dx
@@ -141,6 +146,7 @@ main:
     cmp al, 0x98
     je .chip
     call board_unwake
+    call reg3_restore
     call lb_reset
     mov si, s_sum
     call lb_tag
@@ -197,6 +203,7 @@ main:
 .relock:
     call idx_write
     call board_unwake
+    call reg3_restore
 
     call lb_reset
     mov si, s_sum

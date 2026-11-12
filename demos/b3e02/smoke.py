@@ -24,13 +24,15 @@
 """Developer smoke run of a B3-E02 probe COM (not a vaeg test).
 
 usage: smoke.py COM [ARGS] [--machine va|va2] [--board|--deadchip]
-                [--float] [--expect N]
+                [--needreg3 MASK] [--float] [--expect N]
 
 Runs the COM under Unicorn with a minimal DOS and a fake board whose
 behaviour is the assumption of docs/agents/tasks/M148 (not a hardware
 measurement): board control 0FA2h/0FA3h (ID 60h), a chip that decodes
 only after 0902h bit 0 is set in setup (0904h=00h), CR27 = 9Ah, SR06
-lock. --deadchip has the board control but a chip that never answers.
+lock. --deadchip has the board control but a chip that never answers;
+--needreg3 MASK makes the chip answer only while board reg 03h has
+every bit of MASK set.
 Unconnected ports read FFh (as vaeg), or with --float the code
 byte that follows. It checks control flow, output and cleanup only.
 """
@@ -48,8 +50,8 @@ BASE = SEG << 4
 
 
 class Board:
-    def __init__(self, present, chip):
-        self.present, self.chip = present, chip
+    def __init__(self, present, chip, needreg3=0):
+        self.present, self.chip, self.needreg3 = present, chip, needreg3
         self.idx = 0
         self.regs = {0: 0x60, 1: 0x00, 3: 0x00, 4: 0x10}
         self.setup = 0x00
@@ -61,7 +63,8 @@ class Board:
         self.sr[0x0f] = 0x18
 
     def on(self):
-        return self.present and self.chip and (self.pos & 1)
+        return (self.present and self.chip and (self.pos & 1) and
+                (self.regs[3] & self.needreg3) == self.needreg3)
 
     def crtc(self):
         return 0x0d54 if self.misc & 1 else 0x0b54
@@ -222,10 +225,11 @@ def main():
     ap.add_argument('--machine', choices=('va', 'va2'), default='va')
     ap.add_argument('--board', action='store_true')
     ap.add_argument('--deadchip', action='store_true')
+    ap.add_argument('--needreg3', type=lambda s: int(s, 0), default=0)
     ap.add_argument('--float', action='store_true')
     ap.add_argument('--expect', type=lambda s: int(s, 0))
     a = ap.parse_args()
-    board = Board(a.board or a.deadchip, not a.deadchip)
+    board = Board(a.board or a.deadchip, not a.deadchip, a.needreg3)
     dos = Dos(a.com, a.args, 0xffff if a.machine == 'va' else 0xfffe, board, a.float)
     dos.run()
     sys.stdout.write(dos.stdout.decode('ascii'))
@@ -243,7 +247,7 @@ def main():
             problems.append('chip left enabled')
         if board.sr[6] == 0x12:
             problems.append('SR06 left unlocked')
-        if board.regs[3] != 0:
+        if board.regs[3] != 0x00:
             problems.append('reg03 left %02X' % board.regs[3])
         if (board.sri, board.gri, board.cri) != (0, 0, 0):
             problems.append('VGA index left')

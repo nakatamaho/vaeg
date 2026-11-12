@@ -517,6 +517,82 @@ board_present:
     clc
     ret
 
+; /MMIO and /RELAY: board reg 03h bit 0 / bit 1 set before the wake-up,
+; as the earlier probes wrote reg 03h = 03h first. Emits
+; "REG3,in=xx set=xx". No-op without either option.
+reg3_apply:
+    pusha
+    mov al, [opt_mmio]
+    or al, [opt_relay]
+    jz .done
+    mov ah, 0x03
+    call board_read
+    mov [reg3_in], al
+    cmp byte [opt_mmio], 0
+    je .relay
+    or al, 0x01
+.relay:
+    cmp byte [opt_relay], 0
+    je .write
+    or al, 0x02
+.write:
+    call board_write
+    call board_read
+    mov [reg3_set], al
+    mov byte [reg3_used], 1
+    call lb_reset
+    mov si, s_reg3
+    call lb_tag
+    mov si, s_in_eq3
+    call lb_str
+    mov al, [reg3_in]
+    call lb_hex8
+    mov si, s_set_eq3
+    call lb_str
+    mov al, [reg3_set]
+    call lb_hex8
+    call lb_emit
+.done:
+    popa
+    ret
+
+; Write the incoming reg 03h back; emits "REG3,restored=xx OK|NG".
+; CF when it does not read back.
+reg3_restore:
+    pusha
+    cmp byte [reg3_used], 0
+    je .ok
+    mov ah, 0x03
+    mov al, [reg3_in]
+    call board_write
+    call board_read
+    mov [reg3_out], al
+    mov byte [reg3_used], 0
+    call lb_reset
+    mov si, s_reg3
+    call lb_tag
+    mov si, s_rest_eq3
+    call lb_str
+    mov al, [reg3_out]
+    call lb_hex8
+    mov al, [reg3_out]
+    cmp al, [reg3_in]
+    jne .ng
+    mov si, s_ok3
+    call lb_str
+    call lb_emit
+.ok:
+    popa
+    clc
+    ret
+.ng:
+    mov si, s_ng3
+    call lb_str
+    call lb_emit
+    popa
+    stc
+    ret
+
 ; Wake-up as the earlier probes: 0904h=00h, 0902h=01h, 0904h=20h.
 ; pos_in = 0902h read while 0904h=00h (before 01h is written).
 board_wake:
@@ -886,6 +962,14 @@ s_f             db 'F:', 0
 s_sr06          db ' SR06:in=', 0
 s_sr06_12       db ',12>', 0
 s_sr06_00       db ',00>', 0
+s_opt_mmio      db '/MMIO', 0
+s_opt_relay     db '/RELAY', 0
+s_reg3          db 'REG3', 0
+s_in_eq3        db 'in=', 0
+s_set_eq3       db ' set=', 0
+s_rest_eq3      db 'restored=', 0
+s_ok3           db ' OK', 0
+s_ng3           db ' NG', 0
 s_pass          db ' PASS', 0
 s_fail          db ' FAIL', 0
 
@@ -899,6 +983,12 @@ log_error       db 0
 probe_class     db 0
 probe_values    times 6 db 0
 woken           db 0
+opt_mmio        db 0
+opt_relay       db 0
+reg3_used       db 0
+reg3_in         db 0
+reg3_set        db 0
+reg3_out        db 0
 pos_in          db 0
 pos_set         db 0
 pos_out         db 0

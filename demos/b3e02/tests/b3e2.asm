@@ -34,8 +34,9 @@
 ; and SR06 reads 12h after 12h and 0Fh after 00h. Writes: the CRTC and
 ; Sequencer indexes (restored), SR06 (left locked unless it came in
 ; unlocked), 0902h/0904h, and the board index 0FA2h (left 00h).
-; /MMIO also sets board reg 03h bit 0 (memory-mapped I/O) for the run and
-; restores it; the relay bit is never changed.
+; /MMIO and /RELAY set board reg 03h bit 0 (memory-mapped I/O) and bit 1
+; (relay) before the wake-up, as the earlier probes wrote 03h, and restore
+; reg 03h at the end. Without them reg 03h is not written.
 ;
 ; Exit: 0 pass; 3 no board; 10h CR27 not a CL-GD5428; 11h SR06 lock not
 ; working (CR27 passed); 12h state not restored.
@@ -50,11 +51,10 @@
 
 stage_str   db 'B2', 0
 prog_str    db 'B3E2', 0
-opt_mmio    db 0
 opt_table   dw s_opt_mmio, opt_mmio
+            dw s_opt_relay, opt_relay
             dw 0
-s_opt_mmio  db '/MMIO', 0
-usage_str   db 'B3E2 (M148 B2) [/MMIO]: wake-up, CR27, SR06 lock. VA only.', 13, 10, 0
+usage_str   db 'B3E2 (M148 B2) [/MMIO] [/RELAY]: wake-up, CR27, SR06 lock. VA only.', 13, 10, 0
 
 snap_ports  dw B3_POS102, B3_SETUP, VGA_STAT0, VGA_SEQ_I
             dw VGA_MISC_R, VGA_GC_I, VGA_CRTC_MONO, VGA_CRTC_COLOR
@@ -64,16 +64,12 @@ s_pre       db 'PRE', 0
 s_post      db 'POST', 0
 s_after     db 'AFTER', 0
 s_wake      db 'WAKE', 0
-s_mmio      db 'MMIO', 0
 s_cr27      db 'CR27', 0
 s_sel       db ' sel=', 0
 s_sr06t     db 'SR06', 0
 s_pos_in    db '0902h-in-setup=', 0
 s_pos_set   db ' 0902h-after-01=', 0
 s_pos_out   db '0902h-restored=', 0
-s_reg3      db 'reg03 in=', 0
-s_set       db ' set=', 0
-s_back      db ' restored=', 0
 s_sum       db 'SUM', 0
 s_no_board  db 'NO-BOARD reg 00h is not 60h', 0
 s_pass_all  db 'PASS CR27=CL-GD5428 and SR06 lock', 0
@@ -86,9 +82,6 @@ gc_pre      db 0
 gc_pre_cls  db 0
 gc_after    db 0
 gc_after_cls db 0
-reg3_in     db 0
-reg3_set    db 0
-reg3_out    db 0
 cr27_val    db 0xff
 cr27_cls    db 0
 cr27_port   dw 0
@@ -113,17 +106,7 @@ main:
     mov al, 3
     jmp common_exit
 .board:
-    cmp byte [opt_mmio], 0
-    je .pre
-    mov ah, 0x03
-    call board_read
-    mov [reg3_in], al
-    or al, 0x01
-    mov ah, 0x03
-    call board_write
-    call board_read
-    mov [reg3_set], al
-.pre:
+    call reg3_apply
     mov word [cur_label], s_pre
     call snapshot
     mov al, [gc_snap]
@@ -192,34 +175,9 @@ main:
     mov byte [restore_ng], 1
 .gc_ok:
 
-    cmp byte [opt_mmio], 0
-    je .sum
-    mov ah, 0x03
-    mov al, [reg3_in]
-    call board_write
-    call board_read
-    mov [reg3_out], al
-    cmp al, [reg3_in]
-    je .mmio_line
+    call reg3_restore
+    jnc .sum
     mov byte [restore_ng], 1
-.mmio_line:
-    call lb_reset
-    mov si, s_mmio
-    call lb_tag
-    mov si, s_reg3
-    call lb_str
-    mov al, [reg3_in]
-    call lb_hex8
-    mov si, s_set
-    call lb_str
-    mov al, [reg3_set]
-    call lb_hex8
-    mov si, s_back
-    call lb_str
-    mov al, [reg3_out]
-    call lb_hex8
-    call lb_emit
-
 .sum:
     call lb_reset
     mov si, s_sum
