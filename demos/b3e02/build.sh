@@ -62,7 +62,7 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-b3e02.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 root=$work/payload/root
 mkdir -p "$root"
-for name in B3E0 B3E1 B3E2 B3E3 B3E4; do
+for name in B3E0 B3E1 B3E2 B3E3 B3E4 B3E5; do
 	lower=$(printf '%s' "$name" | tr 'A-Z' 'a-z')
 	"$nasm_command" -f bin -I"$script_dir/" "-DBUILD_ID='$build_id'" \
 		"$script_dir/tests/$lower.asm" -o "$outdir/$name.COM"
@@ -73,4 +73,4 @@ sed 's/$/\r/' "$script_dir/b3e02.txt" >"$root/B3E02.TXT"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" vanilla --source "$msdos4" --output "$image"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" install --image "$image" --payload "$work/payload"
 printf 'build id %s\n' "$build_id"
-(cd "$outdir" && sha256sum B3E0.COM B3E1.COM B3E2.COM B3E3.COM B3E4.COM b3e02-msdos4.d88)
+(cd "$outdir" && sha256sum B3E0.COM B3E1.COM B3E2.COM B3E3.COM B3E4.COM B3E5.COM b3e02-msdos4.d88)

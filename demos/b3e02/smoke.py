@@ -24,7 +24,8 @@
 """Developer smoke run of a B3-E02 probe COM (not a vaeg test).
 
 usage: smoke.py COM [ARGS] [--machine va|va2] [--board|--deadchip]
-                [--needreg3 MASK] [--window b|a|both] [--float] [--expect N]
+                [--needreg3 MASK] [--window b|a|both] [--bankmap]
+                [--otherbank N] [--float] [--expect N]
 
 Runs the COM under Unicorn with a minimal DOS and a fake board whose
 behaviour is the assumption of docs/agents/tasks/M148 (not a hardware
@@ -35,7 +36,10 @@ lock. --deadchip has the board control but a chip that never answers;
 every bit of MASK set. --window gives the board 1MB of VRAM seen through
 SMBC=0 at B0000h when reg 01h = 10h (b), at A0000h when GR06 maps
 A0000h and Misc bit 1 is set (a), or both; GR09 selects 4KB banks.
-Other slot memory at A0000h-BFFFFh reads FFh.
+Other slot memory at A0000h-BFFFFh reads FFh. Port 1D0h = n > 0 sends
+CPU 80000h-9FFFFh to the slot: with --bankmap the slot address is
+n * 20000h + offset and meets the board window set by reg 01h; with
+--otherbank N another board's RAM answers in bank N; otherwise FFh.
 Unconnected ports read FFh (as vaeg), or with --float the code
 byte that follows. It checks control flow, output and cleanup only.
 """
@@ -74,12 +78,25 @@ class Board:
             return None
         if 'b' in self.window and self.regs.get(1) == 0x10 and 0xb0000 <= addr < 0xc0000:
             off = addr - 0xb0000
+        elif addr >= 0x100000:
+            return self.match24(addr)
         elif ('a' in self.window and (self.gr[6] & 0x0c) == 0x04 and self.misc & 2
               and 0xa0000 <= addr < 0xb0000):
             off = addr - 0xa0000
         else:
             return None
         return (self.gr[9] * 4096 + off) & 0xfffff
+
+    WINDOWS = {0x80: 0xf20000, 0xa0: 0xf00000, 0xc0: 0xf40000, 0xe0: 0xf60000,
+               0x10: 0x0b0000}
+
+    def match24(self, a24):
+        """VRAM offset for a 24-bit slot address (bank path), or None."""
+        a24 &= 0xffffff
+        base = self.WINDOWS.get(self.regs.get(1, 0))
+        if not self.on() or base is None or not base <= a24 < base + 0x10000:
+            return None
+        return (self.gr[9] * 4096 + a24 - base) & 0xfffff
 
     def on(self):
         return (self.present and self.chip and (self.pos & 1) and
@@ -166,6 +183,12 @@ class Dos:
         self.mu.hook_add(UC_HOOK_INSN, self.io_out, None, 1, 0, UC_X86_INS_OUT)
         self.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self.slot_mem, None,
                          0xa0000, 0xbffff)
+        self.mu.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self.bank_mem, None,
+                         0x80000, 0x9ffff)
+        self.p1d0 = 0
+        self.bankmap = False
+        self.otherbank = None
+        self.other_ram = bytearray(0x20000)
         self.board, self.floating = board, floating
         self.p152, self.p153 = 0x00, 0x41
         self.stdout, self.log = bytearray(), bytearray()
@@ -228,7 +251,9 @@ class Dos:
 
     def io_out(self, mu, port, size, value, _):
         value &= 0xff
-        if port == 0x152:
+        if port == 0x1d0:
+            self.p1d0 = value
+        elif port == 0x152:
             self.p152 = value
         elif port == 0x153:
             self.p153 = value
@@ -245,6 +270,31 @@ class Dos:
             return
         mu.mem_write(addr, bytes([self.board.vram[off] if off is not None else 0xff]))
 
+    def bank_mem(self, mu, access, addr, size, value, _):
+        if self.p1d0 == 0:
+            return
+        off = addr - 0x80000
+        if self.p1d0 == self.otherbank:
+            if access == UC_MEM_WRITE:
+                self.other_ram[off] = value & 0xff
+            else:
+                mu.mem_write(addr, bytes([self.other_ram[off]]))
+            return
+        voff = None
+        if self.bankmap:
+            # the board sees n * 20000h + offset; a 24-bit address >= 1MB
+            a24 = (self.p1d0 << 17) + off
+            voff = self.board.match24(a24) if a24 >= 0x100000 else None
+            if voff is None and a24 < 0x100000:
+                base = self.board.WINDOWS.get(self.board.regs.get(1, 0))
+                if self.board.on() and base is not None and base <= a24 < base + 0x10000:
+                    voff = (self.board.gr[9] * 4096 + a24 - base) & 0xfffff
+        if access == UC_MEM_WRITE:
+            if voff is not None:
+                self.board.vram[voff] = value & 0xff
+            return
+        mu.mem_write(addr, bytes([self.board.vram[voff] if voff is not None else 0xff]))
+
     def run(self):
         self.mu.emu_start(BASE + 0x100, 0, count=2_000_000)
 
@@ -258,12 +308,17 @@ def main():
     ap.add_argument('--deadchip', action='store_true')
     ap.add_argument('--needreg3', type=lambda s: int(s, 0), default=0)
     ap.add_argument('--window', choices=('b', 'a', 'both'), default='')
+    ap.add_argument('--bankmap', action='store_true')
+    ap.add_argument('--otherbank', type=lambda s: int(s, 0))
     ap.add_argument('--float', action='store_true')
     ap.add_argument('--expect', type=lambda s: int(s, 0))
     a = ap.parse_args()
     board = Board(a.board or a.deadchip, not a.deadchip, a.needreg3)
     board.window = 'ab' if a.window == 'both' else a.window
     dos = Dos(a.com, a.args, 0xffff if a.machine == 'va' else 0xfffe, board, a.float)
+    dos.bankmap, dos.otherbank = a.bankmap, a.otherbank
+    if a.otherbank is not None:
+        dos.other_ram[:] = bytes(i & 0xff for i in range(0x20000))
     dos.run()
     sys.stdout.write(dos.stdout.decode('ascii'))
     problems = []
@@ -271,6 +326,8 @@ def main():
         problems.append('log differs from the screen')
     if any(b > 0x7e or (b < 0x20 and b not in (13, 10)) for b in dos.stdout):
         problems.append('non-printable output')
+    if dos.p1d0 != 0:
+        problems.append('1D0h left %02X' % dos.p1d0)
     if (dos.p152, dos.p153) != (0x00, 0x41):
         problems.append('152h/153h not restored: %02X %02X' % (dos.p152, dos.p153))
     if board.present:
