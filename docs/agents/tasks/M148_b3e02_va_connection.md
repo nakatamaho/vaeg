@@ -315,6 +315,7 @@ A0000h（GR06 のメモリマップ = 00b/01b）をチップ側の VGA 窓とし
 | 2026-11-12 | VA | B2 | FAIL（終了コード 10h）。reg03 = 00h のまま起こし。起こしの前後とも 0902h/0904h/0C5xh/0B54h/0D54h、CR27、SR06 がすべて FF | B3LOG 1 |
 | 2026-11-12 | VA | B3 | 停止（CR27 = FFh、終了コード 10h） | B3LOG 1 |
 | 2026-11-12 | VA | B2 | **PASS**（`/MMIO`、`/MMIO /RELAY` ×2）。CR27 = 9Bh（CL-GD5428）、SR06 12h→12h / 00h→0Fh。`/RELAY` だけは FAIL（全部 FF）。リレーの動作音あり | B3LOG 2 |
+| 2026-11-12 | VA | B3 | **取得**（`B3E3 /MMIO`、終了コード 0）。§8.4 | B3LOG 3 |
 | | | B4 | | |
 
 ## 7. 出典
@@ -435,3 +436,49 @@ B3E1〜B3E3 は 03 になるはず）。
   03h と起こしの組み合わせで再現した。
 
 B2 は合格。次は B3（`B3E3 /MMIO`）。
+
+### 8.4 VA 実機 3 回目: B3 のスナップショット（2026-11-12、build ad357e09）
+
+ログは Git の外（`~/work/pc88va/tmp/m148/B3LOG.va1-3.TXT`）。`B3E3 /MMIO`
+（reg03 = 01h、起こし、SR06 = 12h で解錠）。電源投入後、BIOS なしの
+値。SR06 の 12h は B3E3 自身の解錠。終了時に再施錠し、起こしと reg03
+を戻した（reg03 の読み戻し 00h）。
+
+`[MEASURED]`:
+
+```
+STATE misc=00 feat=00 stat0=10 dacstate=00 sr-idx=07 gr-idx=0F cr-idx=3F crtc=0B54 cr27=9B
+SR00  00 00 00 00 00 0F 12 00 00 00 00 66 5B 45 7E 44
+SR10  00 00 00 00 00 00 F0 39 00 01 00 3B 2F 30 33 1C
+GR00  0F 0F 0F 1F 03 73 0F 0F FF 00 00 00 FF 00 00 00
+GR10  FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+GR20  FF 07 00 00 FF 0F FF 0F 24 24 04 00 24 24 04 00
+GR30  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+CR00  FF FF FF FF FF FF FF FF 7F FF 3F 7F FF FF FF FF
+CR10  FF 00 FF FF 7F FF FF 6F FF 00 00 00 23 22 21 20
+CR20  1F 1E FF 00 00 51 1F 9B FF FF FF FF FF FF FF FF
+CR30  FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF
+```
+
+読み方（`[INFERRED]`、CL-GD542x の一般的なレジスタ定義による。本書の
+出典には含まれないので、vaeg に入れる前に資料で確かめる）:
+
+- SR00 = 00h: シーケンサはリセット中、SR02 = 00h: どのプレーンにも
+  書けない、SR07 = 00h: 拡張モード（線形・8bpp）はオフ。B4 の前に
+  モード設定が要る。
+- SR0B–SR0E = 66/5B/45/7E と SR1B–SR1E = 3B/2F/30/33 は VCLK0–3 の
+  分子・分母の標準初期値に見える。SR1F = 1Ch は MCLK（14.318 MHz × 28 /
+  8 ≈ 50 MHz）の標準値に見える。
+- SR0F = 44h（DRAM 制御）と SR17 = 39h（構成、bit5–3 = 111b）は、
+  VRAM 量とバス種別を判断する手がかり。意味は資料で確かめる。
+- GR06 = 0Fh: メモリマップ = 11b（B8000h、32KB）、odd/even、グラフィック。
+  GR09/GR0A/GR0B = 00h（バンク 0、4KB 粒度、単一バンク）。
+- GR20–GR2F（BLT の幅・ピッチ・アドレス）は不定値、GR30/GR31 = 00h
+  （BLT モード 0、停止中）。
+- CR00–CR18 の多くは FFh、CR11 = 00h（書き込み保護なし）。CR1C–CR21
+  は 23h, 22h, 21h, 20h, 1Fh, 1Eh と index とともに 1 ずつ減る（未実装
+  レジスタが index から決まる値を返すように見える）。CR25 = 51h、
+  CR26 = 1Fh、CR28–CR3F = FFh。
+
+B3 は取得済み。次の B4（窓）は B0.5（スロットの A20–A23）の結果で、
+使う窓（0B0000h、A0000h 系、または F0x0000h）を決める。
