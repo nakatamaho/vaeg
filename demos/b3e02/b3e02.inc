@@ -39,6 +39,12 @@
 %ifndef BUILD_ID
 %define BUILD_ID '00000000'
 %endif
+%ifndef LOG_NAME
+%define LOG_NAME 'A:\B3LOG.TXT'
+%endif
+%ifndef HDR_TAG
+%define HDR_TAG '#B3E02,'
+%endif
 
 PORT_ROMBANK    equ 0x0152
 PORT_SMBC       equ 0x0153
@@ -959,12 +965,12 @@ log_close:
 ; Data.
 
 build_str       db BUILD_ID, 0
-s_logname       db 'A:\B3LOG.TXT', 0
+s_logname       db LOG_NAME, 0
 s_va            db 'VA', 0
 s_va2           db 'VA2/3', 0
 s_va91          db 'VA+91', 0
 s_unknown       db '?', 0
-s_hash          db '#B3E02,', 0
+s_hash          db HDR_TAG, 0
 s_build_eq      db ',build=', 0
 s_date_eq       db ',date=', 0
 s_time_eq       db ',time=', 0
@@ -973,9 +979,9 @@ s_machine       db 'MACHINE', 0
 s_va_only       db 'not a PC-88VA (F000:FFFE<>FFFF); stage runs on the VA only', 0
 s_end           db 'END', 0
 s_exit_eq       db 'exit=', 0
-s_log_ok        db ' log=A:\B3LOG.TXT', 0
+s_log_ok        db ' log=', LOG_NAME, 0
 s_log_ng        db ' log=WRITE-FAILED', 0
-s_log_warn      db 'WARNING: A:\B3LOG.TXT could not be written', 13, 10, 0
+s_log_warn      db 'WARNING: ', LOG_NAME, ' could not be written', 13, 10, 0
 s_ff            db 'FF', 0
 s_d             db 'D:', 0
 s_f             db 'F:', 0

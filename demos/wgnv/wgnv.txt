@@ -1,0 +1,23 @@
+Melco WGN-V2/V4 (S3 Trio64V+) on the PC-88VA - probes V0, V1 (vaeg M148)
+
+Boot this disk in V3 mode. Keep it write-enabled: every program appends
+its lines to A:\WVLOG.TXT. If a photograph and the log disagree, the log
+is right.
+
+WV0    stage V0, read only (VA or VA2, with or without the board).
+       Board ports 51E1h, 59E1h, 53E0h-55E1h at every board offset,
+       and the E0000h window as it reads. PASS = 51E1h+n reads C3h/C4h
+       and 59E1h+n reads 04h/F4h.
+WV1    stage V1 (board installed). The Windows 95 driver's "E bank"
+       set-up (32KB window at E0000h, reached through port 152h bit 3),
+       S3 id CR2E/CR2D = 11h/88h, register values, and a VRAM pattern
+       through the window. Leaves the board set up: switch the machine
+       off and on afterwards.
+
+Exit codes (ERRORLEVEL): 0 pass, 1 option, 3 no board, 4 log not
+written, 10h no Trio64V+ in the window, 11h VRAM did not read back.
+Port values: FF = undriven, D:xx = driven xx, F:... = six differing
+reads (floating bus).
+
+No program writes main RAM. WV1 writes the board ports, its window
+and VRAM; it never writes port 6Ah or the board's video relay.
