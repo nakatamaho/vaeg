@@ -14,6 +14,8 @@
 #include "memoryva.h"
 #include "tsp.h"
 #include "makesprva.h"
+#include "videova.h"
+#include "io/n80_crtc.h"
 
 enum {
 	SPRVA_SPRS = 0x20,
@@ -78,7 +80,11 @@ void makesprva_initialize(void) {
 static UINT8 frame_hit;
 static UINT8 frame_ovs;
 
-static void sprpixel(UINT xp, BYTE c) {
+/* M147: the sprite being drawn at double width, from this origin. */
+static BOOL spr_wide;
+static UINT spr_origin;
+
+static void sprpixel1(UINT xp, BYTE c) {
 	BYTE old;
 
 	old = sprraster[xp];
@@ -86,6 +92,25 @@ static void sprpixel(UINT xp, BYTE c) {
 		frame_hit |= 0x20;
 	}
 	sprraster[xp] = c;
+}
+
+static void sprpixel(UINT xp, BYTE c) {
+	if (spr_wide) {
+		xp = (spr_origin + ((xp - spr_origin) & 0x3ff) * 2) & 0x3ff;
+		sprpixel1(xp, c);
+		sprpixel1((xp + 1) & 0x3ff, c);
+		return;
+	}
+	sprpixel1(xp, c);
+}
+
+/* M147: the original PC-8001 (model 0) stays on the VA firmware route, whose
+ * CURDEF cursor is 8 dots in the 40-column mode (as the VA's own V1/V2 shows
+ * it; not changed). The real PC-8001 covers the 16-dot 40-column cell, so its
+ * cursor is drawn at double width there. Port 30h bit 0 is the 80/40 switch. */
+static BOOL pc8001_wide_cursor(void) {
+	return memoryva_88_mode && memoryva_pc8001 && !n80_crtc_active() &&
+	       !(videova.txtmode8 & 1);
 }
 
 static void drawraster(SPRVA s, BYTE *sprinfo) {
@@ -108,6 +133,7 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 	bg = d & 0x0008;
 	sprdata = textmem + s->spda;
 	s->spda += xbytes;
+	spr_origin = xp;
 
 	if (md) {
 		if (bg) {
@@ -315,7 +341,9 @@ void makesprva_raster(void) {
 			sprinfo -= 8;
 
 			if (shown[i]) {
+				spr_wide = (i == tsp.curn) && makesprva_cursor_shown() && pc8001_wide_cursor();
 				drawraster(s, sprinfo);
+				spr_wide = FALSE;
 			} else if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
 				/* (not drawn: its rows still advance) */
 				s->spda += ((LOADINTELWORD(sprinfo + 2) >> 11) + 1) * 4;
