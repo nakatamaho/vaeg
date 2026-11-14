@@ -82,6 +82,9 @@ class ClockCounter : public IClockCounter {
 	std::int32_t IFCALL GetRemainclock();
 	void IFCALL SetRemainclock(std::int32_t clock);
 	void IFCALL SetMultiple(int multiple);
+	int GetMultiple() const {
+		return mul;
+	}
 
   private:
 	SINT32 remainclock;
@@ -113,6 +116,10 @@ class Subsystem : public IMemoryAccess, public IIOAccess {
 
 	void Initialize();
 	void Reset();
+	void SyncClock();
+	int ClockMultiple() const {
+		return clockcounter->GetMultiple();
+	}
 	void IRQ(BOOL irq);
 	void Exec();
 	void SetWait(bool wait, const char *source);
@@ -195,6 +202,10 @@ void Subsystem::Initialize() {
 	i8255cfg.busoutporta = subsystemif_businportb;
 	i8255cfg.busoutportb = subsystemif_businporta;
 	i8255cfg.busoutportc = subsystemif_businportc;
+}
+
+void Subsystem::SyncClock() {
+	clockcounter->SetMultiple(pccore.multiple);
 }
 
 void Subsystem::Reset() {
@@ -535,6 +546,18 @@ void subsystem_irq(BOOL irq) {
 
 void subsystem_exec(void) {
 	subsystemobj.Exec();
+}
+
+/* The FDD CPU runs at the nominal 4 MHz (3.9936 MHz) whatever the main
+ * clock: one FDD CPU cycle costs pccore.multiple machine clocks. Reset()
+ * samples the multiple before the machine hook may change it (the PC-8001
+ * family runs its machine at x1), so the reset path re-syncs it here. */
+void subsystem_sync_clock(void) {
+	subsystemobj.SyncClock();
+}
+
+UINT subsystem_clock_multiple(void) {
+	return (UINT)subsystemobj.ClockMultiple();
 }
 
 BYTE subsystem_readmem(WORD addr) {

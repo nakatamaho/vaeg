@@ -63,7 +63,7 @@ def reusable_capture(report, case, expected):
     screen.require(report.get('status') == 'CAPTURED_UNREVIEWED' and report.get('case') == case,
                    'M132_UI_MATRIX_INCOMPLETE')
     screen.require(all(report.get(key) == expected[key] for key in
-                       ('rom_files', 'backup_seed_sha256', 'display_kind')) and
+                       ('rom_files', 'backup_seed_sha256', 'display_kind', 'adapter_sha256')) and
                    report.get('output_digests', {}).get('input.txt') ==
                    hashlib.sha256(('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest(),
                    'M132_UI_REUSE_INPUTS')
@@ -73,6 +73,7 @@ def capture(args):
     prior_path = getattr(args, 'retry_from', None)
     prior = None
     expected = {'worker_sha256': digest(args.worker), 'evaluated_commit': args.evaluated_commit,
+                'adapter_sha256': digest(Path(__file__).with_name('x11_capture.py')),
                 'backup_seed_sha256': digest(args.backup_seed), 'display_kind': args.display_kind,
                 'rom_files': {str(path.relative_to(args.roms)): digest(path)
                               for path in sorted(args.roms.rglob('*'))
@@ -137,7 +138,8 @@ def policy_for(case, metadata):
     w, h = metadata["target"]["logical_size"]
     scale = case["ui_scale"] // 100
     status = 24 * scale if case["status"] else 0
-    panel = 14 * max(1, (w + 320) // 640) if case["panel"] and not case["fullscreen"] else 0
+    # M146: two lamp rows (SASI1/SASI2 under FD1): 26 dots per 640.
+    panel = 26 * max(1, (w + 320) // 640) if case["panel"] and not case["fullscreen"] else 0
     menu = 0 if case["fullscreen"] else 22 * scale
     if case["fullscreen"]:
         screen.require([w, h] == metadata["screen_size"], "M132_UI_FOOTER_GEOMETRY")
@@ -295,12 +297,12 @@ def selftest():
     case = next(case for case in cases if case["id"] == "software-normal-s1p1")
     metadata = {"image_sha256": "0" * 64, "screen_size": [1280, 960],
                 "target": {"platform": "fixture", "backend": "sdl-software", "video_driver": "x11",
-                           "dpi_scale": 1, "logical_size": [640, 460], "fullscreen": False,
+                           "dpi_scale": 1, "logical_size": [640, 472], "fullscreen": False,
                            "status_visible": True, "panel_visible": True}}
     policy = policy_for(case, metadata)
-    screen.require(policy["regions"][-1]["rect"] == [0, 446, 640, 14], "M132_UI_SELFTEST")
+    screen.require(policy["regions"][-1]["rect"] == [0, 446, 640, 26], "M132_UI_SELFTEST")
     try:
-        policy_for(case, {**metadata, "target": {**metadata["target"], "logical_size": [640, 459]}})
+        policy_for(case, {**metadata, "target": {**metadata["target"], "logical_size": [640, 471]}})
     except screen.QaError as error:
         screen.require(error.code == "M132_UI_FOOTER_GEOMETRY", "M132_UI_SELFTEST")
     else:
@@ -320,12 +322,14 @@ def selftest():
     rejects(lambda: worker_binding({**identity, "worker_sha256": "1" * 64}, identity),
             "M132_UI_MATRIX_WORKER_BINDING")
     expected = {**identity, 'rom_files': {'ROM_01': 'a' * 64},
-                'backup_seed_sha256': 'b' * 64, 'display_kind': 'virtual-x11'}
+                'backup_seed_sha256': 'b' * 64, 'display_kind': 'virtual-x11',
+                'adapter_sha256': 'f' * 64}
     capture_fixture = {**expected, 'case': case, 'status': 'CAPTURED_UNREVIEWED',
                        'output_digests': {'input.txt': hashlib.sha256(
                            ('\n'.join(GUEST_LINES) + '\n').encode()).hexdigest()}}
     for mutation in ({'rom_files': {'ROM_01': 'c' * 64}},
                      {'backup_seed_sha256': 'd' * 64},
+                     {'adapter_sha256': '0' * 64},
                      {'output_digests': {'input.txt': 'e' * 64}}):
         reusable_capture(capture_fixture, case, expected)
         rejects(lambda: reusable_capture({**capture_fixture, **mutation}, case, expected),

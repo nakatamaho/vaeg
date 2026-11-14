@@ -69,12 +69,14 @@ BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *vi
 
 	switch (input->scaling) {
 	case VAEG_SCALING_NATIVE:
-		viewport->height = min(input->guest_height, available_height);
-		viewport->width = (int)(((UINT64)viewport->height * ratio_width) / ratio_height);
-		if (viewport->width > available_width) {
-			viewport->width = available_width;
-			viewport->height = (int)(((UINT64)viewport->width * ratio_height) / ratio_width);
+		/* 等倍からの整数倍拡大: the window scale (拡大方法) magnifies the
+		 * content by whole multiples and keeps square pixels. */
+		scale = min(available_width / input->guest_width, available_height / input->guest_height);
+		if (scale < 1) {
+			scale = 1;
 		}
+		viewport->width = min(input->guest_width * scale, available_width);
+		viewport->height = min(input->guest_height * scale, available_height);
 		break;
 
 	case VAEG_SCALING_FIT:

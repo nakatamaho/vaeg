@@ -26,6 +26,8 @@ ToDo:
 #include "sysportva.h"
 #include "maketextva.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
+#include "pc88_text.h"
 
 //#define	USETABLE					// 返って遅くなってしまうようだ。
 //#define	USETABLE2					// 効果がなさそうだ。
@@ -92,11 +94,11 @@ typedef struct {
 	SYNATTRFN synattr; // アトリビュート合成ルーチン
 	TEXTVAFRAME frame; // 現在参照している分割画面へのポインタ
 	_TEXTVAFRAME _frame[TEXTVA_FRAMES];
-	UINT8 emu_color;  // uPD3301 emulation: colour carried to the next row
-	UINT8 emu_deco;   // uPD3301 emulation: decoration carried to the next row
-	UINT8 emu_active; // emu_color/emu_deco are initialised for this emulation
+	UINT8 emu_color;     // uPD3301 emulation: colour carried to the next row
+	UINT8 emu_deco;      // uPD3301 emulation: decoration carried to the next row
+	UINT8 emu_active;    // emu_color/emu_deco are initialised for this emulation
 	UINT8 glyphs_hidden; // M134: VA text off in V1/V2 mode: cells keep their background
-	UINT8 m3_fg;      // attribute mode 3: colour and shape records in force (M117)
+	UINT8 m3_fg;         // attribute mode 3: colour and shape records in force (M117)
 	UINT8 m3_bg;
 	UINT8 m3_shape;
 } _TEXTVAWORK;
@@ -113,7 +115,9 @@ BYTE textraster[SURFACE_WIDTH]; // 1ラスタ分のピクセルデータ
 // blink) for the current text row and raster; multiplane 1 bit/pixel
 // graphics are drawn in this colour.
 static BYTE linecolor[TEXTVA_SURFACE_WIDTH];
+static BYTE linebasecolor[TEXTVA_SURFACE_WIDTH];
 BYTE textcolorraster[SURFACE_WIDTH];
+BYTE textbasecolorraster[SURFACE_WIDTH];
 
 /*
  * uPD72022 SYNC byte 1 bit 3 (RV): reverse the foreground and background of
@@ -276,6 +280,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 
 	ZeroMemory(linebitmap, sizeof(linebitmap));
 	ZeroMemory(linecolor, sizeof(linecolor));
+	ZeroMemory(linebasecolor, sizeof(linebasecolor));
 	b = linebitmap;
 
 	for (x = 0; x < rwchar; x++) {
@@ -293,6 +298,7 @@ static void makeline(BYTE *v, UINT16 rwchar) {
 		}
 		ul = fg;
 		FillMemory(linecolor + x * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
+		FillMemory(linebasecolor + x * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, charattr.fg);
 		if (charattr.attr & TEXTVA_ATR_ST) {
 			fg = bg;
 			// アンダーラインは表示される(シークレットにならない)
@@ -400,6 +406,90 @@ enum {
 	EMU3301_MAXPAIRS = 32
 };
 
+/* The independent uPD3301 route: geometry, attributes and cursor come from
+ * the device and its text-DMA view, not from the TSP EMUL state. The
+ * attribute carry restarts each frame at the source model's E0h. */
+static UINT8 independent_carry;
+static PC88_TEXT_ROW independent_row;
+static UINT8 independent_color[80];
+static UINT8 independent_deco[80];
+static BYTE independent_code[80];
+
+static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color, const UINT8 *deco,
+                                 UINT16 rwchar, BOOL independent);
+
+static BOOL independent_text_active(void) {
+	return n80_crtc_active() && upd3301_display_active(&n80_crtc) != 0;
+}
+
+/* The original PC-8001 (model 0) stays on the VA firmware route. At the
+ * 24 kHz CRT (an emulation-only presentation: the real machine has a
+ * 15 kHz output only) its 10-raster rows show the 8x8 ANK font one-to-one
+ * and every raster is presented twice, the doubled 16-of-20 look of the
+ * screen mode table (docs/modernization/screen-mode-table.md). The
+ * firmware leaves the 8x16 ANK mode selected at 24 kHz, so the glyph
+ * source is overridden here. */
+static BOOL pc8001_va_route_24k(void) {
+	return memoryva_88_mode && memoryva_pc8001 && !n80_crtc_active() && tsp.emul &&
+	       (videova_hsyncmode() == VIDEOVA_24_8KHZ);
+}
+
+static void makeline_independent(void) {
+	const unsigned rows = upd3301_rows(&n80_crtc);
+	unsigned chars;
+	unsigned i;
+	int status;
+
+	if (work.texty >= rows) {
+		ZeroMemory(linebitmap, sizeof(linebitmap));
+		ZeroMemory(linecolor, sizeof(linecolor));
+		ZeroMemory(linebasecolor, sizeof(linebasecolor));
+		return;
+	}
+	status = pc88_text_decode_row(&n80_crtc, &n80_crtc_dma, n80_crtc_memory(), work.texty,
+	                              independent_carry, &independent_row);
+	if (status != PC88_TEXT_OK) {
+		ZeroMemory(linebitmap, sizeof(linebitmap));
+		ZeroMemory(linecolor, sizeof(linecolor));
+		ZeroMemory(linebasecolor, sizeof(linebasecolor));
+		return;
+	}
+	independent_carry = independent_row.carry;
+	chars = independent_row.count;
+	if (!n80_crtc.width80) {
+		/* 40-column cells double over their odd neighbours, as the VA byte
+		 * mode does: the cells occupy the even linebitmap columns and the
+		 * widening merges each pair. */
+		for (i = 0; i < chars; i++) {
+			const unsigned flags = independent_row.cells[i].flags;
+			independent_code[2 * i] = independent_row.cells[i].character;
+			independent_code[2 * i + 1] = 0;
+			independent_color[2 * i] = independent_color[2 * i + 1] =
+			    (UINT8)((independent_row.cells[i].color & 7) |
+			            ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
+			independent_deco[2 * i] = independent_deco[2 * i + 1] =
+			    (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
+			            ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
+			            ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+		}
+		chars *= 2;
+	} else {
+		for (i = 0; i < chars; i++) {
+			const unsigned flags = independent_row.cells[i].flags;
+			independent_code[i] = independent_row.cells[i].character;
+			independent_color[i] = (UINT8)((independent_row.cells[i].color & 7) |
+			                               ((flags & PC88_TEXT_GRAPHIC) ? EMU3301_GRAPHIC : 0));
+			independent_deco[i] = (UINT8)(((flags & PC88_TEXT_REVERSE) ? EMU3301_REVERSE : 0) |
+			                              ((flags & PC88_TEXT_OVERLINE) ? EMU3301_UPPER : 0) |
+			                              ((flags & PC88_TEXT_UNDERLINE) ? EMU3301_UNDER : 0));
+		}
+	}
+	/* The VA byte-mode route shows two hidden lead cells; keep the same
+	 * surface placement for the independent route. */
+	makeline_3301_raster(independent_code, chars, independent_color, independent_deco,
+	                     (UINT16)(chars + 2), TRUE);
+}
+
 static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	UINT8 color[EMU3301_MAXCHARS];
 	UINT8 deco[EMU3301_MAXCHARS];
@@ -481,11 +571,23 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 	work.emu_color = curcolor;
 	work.emu_deco = curdeco;
 
-	if (rwchar > TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH) {
-		rwchar = TEXTVA_SURFACE_WIDTH / TEXTVA_CHARWIDTH;
-	}
+	makeline_3301_raster(row, chars, color, deco, rwchar, FALSE);
+}
+
+/*
+ * Shared 3301 character-raster loop: glyphs, PCG, semigraphics, decorations
+ * and reverse for both the VA TSP route and the independent device route.
+ * The VA route folds the TSP global reverse into every cell; the independent
+ * route's cells already carry the device reverse and its full-cell cursor.
+ */
+static void makeline_3301_raster(const BYTE *row, UINT chars, const UINT8 *color, const UINT8 *deco,
+                                 UINT16 rwchar, BOOL independent) {
+	UINT i;
+	BYTE *b;
+
 	ZeroMemory(linebitmap, sizeof(linebitmap));
 	ZeroMemory(linecolor, sizeof(linecolor));
+	ZeroMemory(linebasecolor, sizeof(linebasecolor));
 	b = linebitmap;
 	for (i = 0; i < rwchar; i++, b += TEXTVA_CHARWIDTH) {
 		const int c = (int)i - 2;
@@ -494,6 +596,7 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 		UINT8 d;
 		BYTE code;
 		const BYTE *font;
+		const BYTE *pcg;
 		UINT fonth;
 		UINT r;
 		int x;
@@ -502,16 +605,22 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			continue;
 		}
 		code = row[c];
+		pcg = pcg88_glyph(code);
 		d = deco[c];
 		fg = (UINT8)(8 + (color[c] & 0x07));
-		bg = work.frame->bg;
-		if (((d & EMU3301_REVERSE) ? TRUE : FALSE) != textva_global_reverse()) {
+		/* The 8801-family text background is black; only the VA TSP route
+		 * has a per-frame background colour. */
+		bg = independent ? 0 : work.frame->bg;
+		if (independent ? ((d & EMU3301_REVERSE) != 0)
+		                : (((d & EMU3301_REVERSE) ? TRUE : FALSE) != textva_global_reverse())) {
 			const UINT8 t = fg;
 			fg = bg;
 			bg = t;
 		}
 		FillMemory(linecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, fg);
-		if ((code == 0 || ((code == 0x20) && !(color[c] & EMU3301_GRAPHIC))) && (bg == 0) &&
+		FillMemory(linebasecolor + i * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH, 8 + (color[c] & 7));
+		/* PCG may replace conventional blank codes too. */
+		if (!pcg && (code == 0 || ((code == 0x20) && !(color[c] & EMU3301_GRAPHIC))) && (bg == 0) &&
 		    !(d & (EMU3301_UPPER | EMU3301_UNDER))) {
 			continue;
 		}
@@ -525,20 +634,40 @@ static void makeline_3301(const BYTE *v, UINT16 rwchar) {
 			    work.glyphs_hidden) {
 				glyphfg = bg;
 			}
-			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one. */
-			const BYTE *pcg = pcg88_glyph(code);
-			const BOOL ank8 =
-			    videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04));
-			font = (pcg != NULL) ? pcg : (ank8 ? cgromva_ank8(code) : cgromva_font(code));
-			fonth = (ank8 || !(videova.txtmode & 0x04)) ? 16 : 8;
+			/* M115: a PCG character is an 8x8 glyph like the 8-dot ANK one.
+			 * The independent N80 route shows the 8-row font one-to-one on the
+			 * device scanlines at the 10-raster 15 kHz geometry (the PC-8001
+			 * family); at the 24 kHz geometry (16 or more rasters, the
+			 * PC-8801 N-BASIC programming) the real machine doubles the 8x8
+			 * ANK font over the rasters instead of showing a clean 8x16
+			 * glyph (the maintainer's PC-8801MH observation), matching the
+			 * VA route's 8801-display doubling. */
+			const BOOL n0_24k = !independent && pc8001_va_route_24k();
+			const BOOL ank8 = !independent && !n0_24k &&
+			                  (videova_8801_display() || ((pcg != NULL) && !(videova.txtmode & 0x04)));
+			const BOOL indep_double = independent && (work.lineheight >= 16);
+			/* The 10-raster rows keep the 8x8 font one-to-one at every CRT
+			 * rate: the 15 kHz CRT shows the two blank rasters (the scanline
+			 * look) and the 24 kHz CRT presents each raster twice
+			 * (drawscreenva doubles the compose rasters), which already
+			 * renders the doubled 16-of-20 look without intra-glyph gaps. */
+			font = (pcg != NULL)
+			           ? pcg
+			           : ((ank8 || indep_double || n0_24k) ? cgromva_ank8(code) : cgromva_font(code));
+			fonth = independent ? (indep_double ? 16 : 8)
+			        : n0_24k    ? 8
+			                    : ((ank8 || !(videova.txtmode & 0x04)) ? 16 : 8);
 			for (r = 0; r < work.lineheight; r++) {
 				BYTE *p = b + TEXTVA_SURFACE_WIDTH * r;
-				const BOOL line = !work.glyphs_hidden &&
-				                  (((d & EMU3301_UPPER) && (r == 0)) ||
-				                   ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
-				/* PC-8801 style: each 8x8 row on two rasters. */
-				const UINT fontrow = ank8 ? (r >> 1) : r;
-				BYTE fontdata = (r < fonth) ? font[fontrow * (ank8 ? 1 : cgromva_width(code))] : 0;
+				const BOOL line =
+				    !work.glyphs_hidden && (((d & EMU3301_UPPER) && (r == 0)) ||
+				                            ((d & EMU3301_UNDER) && (r == work.lineheight - 1)));
+				/* PC-8801 style: each 8x8 row on two rasters; the independent
+				 * route doubles the same way at the 24 kHz geometry, where
+				 * drawscreenva also presents every raster twice. */
+				const UINT fontrow = (ank8 || indep_double) ? (r >> 1) : r;
+				BYTE fontdata =
+				    (r < fonth) ? font[fontrow * ((ank8 || n0_24k) ? 1 : cgromva_width(code))] : 0;
 				if (color[c] & EMU3301_GRAPHIC) {
 					/* 2x4 blocks: bits 0-3 left column, 4-7 right, top first. */
 					const UINT block = (r < fonth) ? (r * 4) / fonth : 4;
@@ -582,6 +711,8 @@ static void widen40_3301(UINT16 rwchar) {
 	for (i = 0; i + 1 < rwchar; i += 2) {
 		FillMemory(linecolor + (i + 1) * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH,
 		           linecolor[i * TEXTVA_CHARWIDTH]);
+		FillMemory(linebasecolor + (i + 1) * TEXTVA_CHARWIDTH, TEXTVA_CHARWIDTH,
+		           linebasecolor[i * TEXTVA_CHARWIDTH]);
 	}
 }
 
@@ -708,10 +839,27 @@ void maketextva_begin(BOOL *scrn200) {
 		/* uPD3301 attributes carry across frames while emulating. */
 		work.emu_active = 0;
 	}
-
 	work.lineheight = tsp.lineheight;
 	if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
 		work.lineheight = TEXTVA_LINEHEIGHTMAX;
+	}
+	if (independent_text_active()) {
+		/* The independent route carries its own attribute state and takes
+		 * the character height from the device, not from stale TSP state.
+		 * A 200-line screen occupies the doubled surface, as the VA route's
+		 * 200-line modes do (X88000: a scanline count divisible by eight and
+		 * 25 rows is the 400-line screen). At the 24 kHz CRT the
+		 * sub-16-raster rows present every raster twice (the doubled
+		 * 16-of-20 text look), so their compose height doubles too;
+		 * drawscreenva composes exactly this raster count. */
+		independent_carry = 0xe0;
+		work.lineheight = (int)upd3301_scanlines(&n80_crtc);
+		if (videova_hsyncmode() == VIDEOVA_24_8KHZ && upd3301_scanlines(&n80_crtc) < 16) {
+			work.lineheight *= 2;
+		}
+		if (work.lineheight > TEXTVA_LINEHEIGHTMAX) {
+			work.lineheight = TEXTVA_LINEHEIGHTMAX;
+		}
 	}
 
 	// 分割画面制御テーブルの情報をコピー
@@ -779,9 +927,30 @@ static const BYTE *maketextva_3301_row(UINT32 offset) {
  * bytes follow.
  */
 const BYTE *maketextva_3301_text(UINT row) {
+	static BYTE independent_text[80];
 	const BYTE *frame;
+	const unsigned rows = upd3301_rows(&n80_crtc);
+	unsigned i;
+	int status;
 	UINT32 local;
 
+	if (independent_text_active()) {
+		if (row >= rows || upd3301_columns(&n80_crtc) != 80) {
+			return NULL;
+		}
+		status = pc88_text_decode_row(&n80_crtc, &n80_crtc_dma, n80_crtc_memory(), row, 0xe0,
+		                              &independent_row);
+		if (status != PC88_TEXT_OK) {
+			return NULL;
+		}
+		for (i = 0; i < independent_row.count; i++) {
+			/* The GUI copy shows the stored character, not the blink phase. */
+			independent_text[i] = (independent_row.cells[i].character == 0)
+			                          ? 0x20
+			                          : independent_row.cells[i].character;
+		}
+		return independent_text;
+	}
 	if (!tsp.emul || (row >= tsp.emul_rows)) {
 		return NULL;
 	}
@@ -800,6 +969,7 @@ BOOL maketextva_bytelocal_usable(UINT32 local) {
 void maketextva_blankraster(void) {
 	ZeroMemory(textraster, sizeof(textraster));
 	ZeroMemory(textcolorraster, sizeof(textcolorraster));
+	ZeroMemory(textbasecolorraster, sizeof(textbasecolorraster));
 }
 
 void maketextva_raster(void) {
@@ -812,8 +982,9 @@ void maketextva_raster(void) {
 	BOOL text_hidden = FALSE;
 	BOOL blank_text = FALSE;
 	const BOOL pc88family = memoryva_pc8801 || memoryva_pc8001;
+	const BOOL independent = independent_text_active();
 
-	if (!tsp.dspon) {
+	if (!independent && !tsp.dspon) {
 		maketextva_blankraster();
 		return;
 	}
@@ -848,7 +1019,14 @@ void maketextva_raster(void) {
 	}
 #endif
 
-	if (!tsp.textmg || (work.screeny & 1) == 0) {
+	/* The independent route rasterizes every compose raster: the compose
+	 * height already carries the per-raster presentation (the doubled
+	 * height at the 24 kHz CRT with the sub-16-raster rows, the
+	 * interleave otherwise, both driven by drawscreenva's blanking). The
+	 * VA route keeps its parity gate; the original PC-8001 at the 24 kHz
+	 * CRT rasterizes the even compose rasters only, so the odd raster
+	 * repeats the previous one (each 200-line raster presented twice). */
+	if (independent || (!tsp.textmg && !pc8001_va_route_24k()) || (work.screeny & 1) == 0) {
 		if (work.y >= SURFACE_HEIGHT)
 			return;
 
@@ -860,7 +1038,13 @@ void maketextva_raster(void) {
 		f = work.frame;
 
 		if (!work.linebitmap_ready) {
-			if (tsp.emul && (work.frameno == tsp.emul_frame)) {
+			if (independent) {
+				makeline_independent();
+				if (!n80_crtc.width80) {
+					/* The port 30h switch doubles each of the 40 cells. */
+					widen40_3301((UINT16)(2 * upd3301_columns(&n80_crtc) + 2));
+				}
+			} else if (tsp.emul && (work.frameno == tsp.emul_frame)) {
 				/* Byte mode: the table's address and pitch are twice the
 				 * local byte values; see maketextva_bytelocal(). */
 				const UINT32 local = (f->rsa >> 1) + (f->vw >> 1) * work.texty;
@@ -874,6 +1058,7 @@ void maketextva_raster(void) {
 				} else {
 					ZeroMemory(linebitmap, sizeof(linebitmap));
 					ZeroMemory(linecolor, sizeof(linecolor));
+					ZeroMemory(linebasecolor, sizeof(linebasecolor));
 				}
 			} else {
 				v = textmem + f->rsa + f->vw * work.texty;
@@ -907,6 +1092,7 @@ void maketextva_raster(void) {
 		if (f->rxp < SURFACE_WIDTH) {
 			for (; x < f->rxp; x++) {
 				textcolorraster[x] = linecolor[lb - lbs];
+				textbasecolorraster[x] = linebasecolor[lb - lbs];
 				*b = *lb;
 				b++;
 				lb++;
@@ -915,14 +1101,14 @@ void maketextva_raster(void) {
 		}
 		for (; x < SURFACE_WIDTH; x++) {
 			textcolorraster[x] = linecolor[lb - lbs];
+			textbasecolorraster[x] = linebasecolor[lb - lbs];
 			*b = *lb;
 			b++;
 			lb++;
 		}
 		/* Hidden text without the VA's kept backgrounds: the PC-8801 models,
 		 * and split screens outside the uPD3301 emulation. */
-		blank_text = text_hidden &&
-		             (pc88family || !tsp.emul || (work.frameno != tsp.emul_frame));
+		blank_text = text_hidden && (pc88family || !tsp.emul || (work.frameno != tsp.emul_frame));
 		if (blank_text) {
 			ZeroMemory(textraster, sizeof(textraster));
 		}

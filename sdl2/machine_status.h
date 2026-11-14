@@ -26,6 +26,7 @@
 #define VAEG_MACHINE_STATUS_H
 
 #include <stddef.h>
+#include "framedisp.h"
 
 typedef enum {
 	VAEG_MODE_V3,
@@ -67,6 +68,10 @@ void machine_status_clock(char *text, size_t size, UINT32 hz);
 BOOL machine_status_clock_settings(UINT mhz, BOOL standard, UINT *multiple, UINT *speed);
 void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status, UINT flags,
                          UINT32 fps_tenths, UINT32 frames);
+void machine_status_speed_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status,
+                               UINT flags, UINT32 draw_fps, UINT32 frames,
+                               const VAEG_RUNTIME_SPEED *speed, BOOL accelerated, BOOL paused,
+                               UINT compact);
 
 #ifdef __cplusplus
 }

@@ -51,12 +51,18 @@ def main() -> int:
         fail("SQEMM98_CHECK_DRIVER_ENTRY", "unexpected strategy/interrupt entry")
     if data[0x1F:0x22] != b"\x9c\x53\x1e":
         fail("SQEMM98_CHECK_CALLER_STATE", "interrupt entry does not save FLAGS/BX/DS")
-    init_return = (
-        b"\x1f\x5b\x1e\x06\x50\x51\x52\x53\x56\x57\x55"
-        b"\xe8\x08\x2f\x5d\x5f\x5e\x5b\x5a\x59\x58\x07\x1f\x9d\xcb"
-    )
-    if init_return not in data[:0x80]:
+    # The saves, CALL rel16 to the init routine and the restores. The call
+    # displacement follows the resident size (M146: 960 pages), so only its
+    # target is checked: inside the driver, past the entry stub.
+    init_saves = b"\x1f\x5b\x1e\x06\x50\x51\x52\x53\x56\x57\x55\xe8"
+    init_restores = b"\x5d\x5f\x5e\x5b\x5a\x59\x58\x07\x1f\x9d\xcb"
+    start = data.find(init_saves, 0, 0x80)
+    call_end = start + len(init_saves) + 2
+    if start < 0 or data[call_end:call_end + len(init_restores)] != init_restores:
         fail("SQEMM98_CHECK_CALLER_STATE", "init return does not restore registers")
+    target = (call_end + int.from_bytes(data[call_end - 2:call_end], "little")) & 0xFFFF
+    if not 0x80 <= target < len(data):
+        fail("SQEMM98_CHECK_CALLER_STATE", f"init call target {target:#x} is outside the driver")
     if b"\x8e\x1e\x57\x02\x33\xff\x33\xdb\x8b\xd3\x33\xc0" not in data:
         fail("SQEMM98_CHECK_MEMORY_TEST_OFFSET", "memory test does not clear DI")
     if data.count(b"\xcd\x83") != 1:

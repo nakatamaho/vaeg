@@ -28,6 +28,7 @@
 #include "sdlapi.h"
 #include "dosio.h"
 #include "scrnmng.h"
+#include "taskmng.h"
 #include "np2.h"
 #include "np2ver.h"
 #include "machine/pccore.h"
@@ -140,6 +141,7 @@ static SCRNSTAT scrnstat;
 static UINT16 scrnmng_turned[SCRNMNG_CANVAS_WIDTH * SCRNMNG_CANVAS_MAX_HEIGHT];
 static SCRNSURF scrnsurf;
 static VAEG_SPEEDMETER speedmeter;
+static VAEG_RUNTIME_SPEED runtime_speed;
 
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
@@ -649,6 +651,10 @@ UINT32 scrnmng_draw_fps_tenths(void) {
 
 UINT32 scrnmng_guest_fps_tenths(void) {
 	return speedmeter.fps_tenths;
+}
+
+const VAEG_RUNTIME_SPEED *scrnmng_runtime_speed(void) {
+	return &runtime_speed;
 }
 
 static void scrnmng_update_speedmeter(UINT32 tick, UINT32 frames) {
@@ -2293,7 +2299,9 @@ static BOOL scrnmng_update_window_size(void) {
 	return (FALSE);
 }
 
-/* The simple front panel: a dark bar with the drive and mode lamps. */
+/* The simple front panel: a dark bar with the drive and mode lamps; the
+ * second row (M146) has the SASI1/SASI2 access lamps under FD1, lit in the
+ * mode lamps' green. */
 static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording, BOOL finalizing,
                                             UINT64 ticks, UINT64 clock) {
 	static const char *const mode_labels[3] = {"V1", "V2", "V3"};
@@ -2383,6 +2391,25 @@ static void scrnmng_draw_simple_panel_state(const SDL_Rect *bar, BOOL recording,
 		}
 		x += r.w + ((drive && bar->w < 344 * s) ? 4 : 12) * s;
 	}
+	/* M146: second row, from FD1's column. */
+	x = bar->x + 8 * s;
+	for (i = 0; i < 2; i++) {
+		const int row = FRONTPANEL_SIMPLE_ROW_HEIGHT * s;
+		const char *const sasi_labels[2] = {"SASI1", "SASI2"};
+
+		scrnmng_draw_text_glyphs(x, bar->y + row + 4 * s, s, sasi_labels[i], label);
+		x += 5 * 8 * s + 4 * s;
+		r.x = x;
+		r.y = bar->y + row + 5 * s;
+		r.w = 12 * s;
+		r.h = 6 * s;
+		if (frontpanel_sasi_lit((UINT)i, now)) {
+			scrnmng_panel_fill(&r, 120, 255, 130);
+		} else {
+			scrnmng_panel_fill(&r, 52, 60, 52);
+		}
+		x += r.w + 12 * s;
+	}
 	/* Keep KANA/CAPS right-aligned; REC, lamp and movie time sit just left. */
 	x = recording_x;
 	scrnmng_draw_text_glyphs(x, bar->y + 4 * s, s, "REC", label);
@@ -2464,7 +2491,7 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	bar.x = 0;
 	bar.y = 0;
 	bar.w = width;
-	bar.h = 14 * s;
+	bar.h = (FRONTPANEL_SIMPLE_ROWS * FRONTPANEL_SIMPLE_ROW_HEIGHT + 2) * s;
 	surface = SDL_CreateRGBSurfaceWithFormat(0, bar.w, bar.h, 32, SDL_PIXELFORMAT_ARGB8888);
 	renderer = (surface != NULL) ? SDL_CreateSoftwareRenderer(surface) : NULL;
 	if (renderer == NULL) {
@@ -2490,6 +2517,27 @@ BOOL scrnmng_simple_panel_selftest(int width, const char *out_path, char *proble
 	if (ok && ((r + g + b) > 250)) {
 		SDL_snprintf(problem, size, "simple panel V1 lamp is lit");
 		ok = FALSE;
+	}
+	/* M146: second row, SASI1 lamp at 52 and SASI2 at 120, green while
+	 * accessed and dim otherwise. */
+	{
+		static const int sasi_x[2] = {52, 120};
+		const UINT32 now = SDL_GetTicks();
+		UINT unit;
+
+		for (unit = 0; unit < 2 && ok; unit++) {
+			const BOOL lit = frontpanel_sasi_lit(unit, now);
+
+			SDL_GetRGB(px[((FRONTPANEL_SIMPLE_ROW_HEIGHT + 8) * s) * (surface->pitch / 4) +
+			              (sasi_x[unit] + 6) * s],
+			           surface->format, &r, &g, &b);
+			if (lit ? ((r != 120) || (g != 255) || (b != 130))
+			        : ((r != 52) || (g != 60) || (b != 52))) {
+				SDL_snprintf(problem, size, "simple panel SASI%u lamp is not %s", unit + 1,
+				             lit ? "lit green" : "dim");
+				ok = FALSE;
+			}
+		}
 	}
 	/* M109: the CAPS lamp ends 8 dots from the right edge (lit or not, it
 	 * differs from the bar's background) */
@@ -4226,6 +4274,8 @@ void scrnmng_set_framedisp(BOOL enabled) {
 void scrnmng_reset_metrics(void) {
 	vaeg_framedisp_reset(&scrnmng.framedisp, SDL_GetTicks(), drawcount);
 	speedmeter.valid = FALSE;
+	speedmeter.fps_tenths = 0;
+	vaeg_runtime_speed_reset(&runtime_speed);
 	scrnmng_update_title();
 }
 
@@ -4234,6 +4284,19 @@ void scrnmng_refresh_title(void) {
 }
 
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames) {
+	VAEG_MACHINE_STATUS status;
+	UINT32 policy;
+	machine_status_get(&status);
+	policy = (taskmng_effective_nowait(np2oscfg.NOWAIT) ? 1u : 0u) |
+	         (taskmng_effective_drawskip(np2oscfg.DRAW_SKIP) << 1) | ((UINT32)status.mode_id << 9) |
+	         (pccore_88_standard() ? 1u << 13 : 0u) | (status.compatible ? 1u << 14 : 0u) |
+	         (taskmng_effective_nowait(FALSE) ? 1u << 15 : 0u);
+	if (runtime_speed.started &&
+	    (runtime_speed.clock_hz != pccore.realclock || runtime_speed.cpu_hz != status.cpu_hz ||
+	     runtime_speed.policy != policy))
+		scrnmng_reset_metrics();
+	(void)vaeg_runtime_speed_update(&runtime_speed, tick, pccore_guest_clock(), pccore.realclock,
+	                                status.cpu_hz, policy);
 	/* FPS measurement is independent of the frame-counter visibility switch. */
 	(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
 	scrnmng_update_speedmeter(tick, frames);

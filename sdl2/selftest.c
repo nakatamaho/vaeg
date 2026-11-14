@@ -24,6 +24,7 @@
  */
 #include "compiler.h"
 #include <errno.h>
+#include <stddef.h>
 #if defined(_WIN32)
 #include <direct.h>
 #else
@@ -42,6 +43,7 @@
 #include "io/subsystem.h"
 #include "extrarom.h"
 #include "pcg88.h"
+#include "io/n80_crtc.h"
 #include "n80rom.h"
 #include "memctrlva.h"
 #include "np2info.h"
@@ -78,7 +80,7 @@
 #include "beep.h"
 #include "cmt.h"
 extern BEEPCFG beepcfg;
-#include "opngen.h"
+#include "fmboard.h"
 #include "profile.h"
 #include "romcheck.h"
 #include "romankana.h"
@@ -177,6 +179,47 @@ static int test_cli_boot_model(void) {
 	}
 	fprintf(stderr, "selftest: CLI boot model ok\n");
 	return (SUCCESS);
+}
+
+static int test_headless_audio_cli(void) {
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+	char *seed[] = {"vaeg", "--headless-input-script", "fixture.txt", "--headless-audio"};
+	unsigned kind, audio, mute, order;
+	/* Establish the passing context before testing removal of the script binding. */
+	if (vaeg_cli_parse((int)NELEMENTS(seed), seed, &options, error, sizeof(error)) != SUCCESS ||
+	    options.mute || !options.headless_audio)
+		return fail("headless audio", "HEADLESS_AUDIO_SEED");
+	for (kind = 0; kind < 3; kind++) {
+		for (audio = 0; audio < 2; audio++) {
+			for (mute = 0; mute < 2; mute++) {
+				for (order = 0; order < 2; order++) {
+					char *argv[12] = {"vaeg"};
+					int argc = 1, result;
+					if (kind != 0) {
+						argv[argc++] = kind == 1 ? "--headless-input-script" : "--debug-script";
+						argv[argc++] = "fixture.txt";
+					}
+					if (mute && !order)
+						argv[argc++] = "--mute";
+					if (audio)
+						argv[argc++] = "--headless-audio";
+					if (mute && order)
+						argv[argc++] = "--mute";
+					result = vaeg_cli_parse(argc, argv, &options, error, sizeof(error));
+					if (audio && !kind) {
+						if (result == SUCCESS || strcmp(error, "HEADLESS_AUDIO_REQUIRES_SCRIPT"))
+							return fail("headless audio", "HEADLESS_AUDIO_CONTEXT");
+					} else if (result != SUCCESS || options.headless_audio != audio ||
+					           !!options.mute != !!(mute || (kind && !audio))) {
+						return fail("headless audio", "HEADLESS_AUDIO_POLICY");
+					}
+				}
+			}
+		}
+	}
+	fprintf(stderr, "selftest: headless audio CLI 24 policy cases ok\n");
+	return SUCCESS;
 }
 
 static int test_cli_options(void) {
@@ -317,8 +360,8 @@ static int test_cli_options(void) {
 	    strcmp(options.headless_input_script, "input.txt") || (options.debug_script == NULL) ||
 	    strcmp(options.debug_script, "debug.txt") || (options.debug_output_dir == NULL) ||
 	    strcmp(options.debug_output_dir, "debug-output") || (options.screen_dump_path == NULL) ||
-	    strcmp(options.screen_dump_path, "rendered.bmp") ||
-	    (options.screenshot_count != 2) || (options.screenshot_requests[0].frame != 1800) ||
+	    strcmp(options.screen_dump_path, "rendered.bmp") || (options.screenshot_count != 2) ||
+	    (options.screenshot_requests[0].frame != 1800) ||
 	    strcmp(options.screenshot_requests[0].path, "frame.BMP") ||
 	    (options.screenshot_requests[0].format != VAEG_SCREENSHOT_FORMAT_BMP) ||
 	    (options.screenshot_requests[1].frame != 600) ||
@@ -364,17 +407,17 @@ static int test_cli_options(void) {
 	    (vaeg_cli_parse((int)NELEMENTS(config_conflict), config_conflict, &options, error,
 	                    sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(bkupmem_conflict), bkupmem_conflict, &options, error,
-                    sizeof(error)) == SUCCESS) ||
+	                    sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_frame), invalid_screenshot_frame,
-                    &options, error, sizeof(error)) == SUCCESS) ||
+	                    &options, error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(zero_screenshot_frame), zero_screenshot_frame, &options,
-                    error, sizeof(error)) == SUCCESS) ||
+	                    error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(negative_screenshot_frame), negative_screenshot_frame,
-                    &options, error, sizeof(error)) == SUCCESS) ||
+	                    &options, error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(empty_screenshot_path), empty_screenshot_path, &options,
-                    error, sizeof(error)) == SUCCESS) ||
+	                    error, sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_format), invalid_screenshot_format,
-                    &options, error, sizeof(error)) == SUCCESS)) {
+	                    &options, error, sizeof(error)) == SUCCESS)) {
 		return (fail("CLI options", "invalid input was accepted"));
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
@@ -388,7 +431,7 @@ typedef struct {
 } SCREENSHOT_TEST_CAPTURE;
 
 static BOOL test_screenshot_capture(UINT32 frame, const VAEG_SCREENSHOT_REQUEST *request,
-	                                   void *opaque) {
+                                    void *opaque) {
 	SCREENSHOT_TEST_CAPTURE *capture = (SCREENSHOT_TEST_CAPTURE *)opaque;
 
 	if ((capture == NULL) || (request == NULL) || (capture->count >= NELEMENTS(capture->frames))) {
@@ -402,10 +445,10 @@ static BOOL test_screenshot_capture(UINT32 frame, const VAEG_SCREENSHOT_REQUEST 
 
 static int test_screenshot_scheduler(void) {
 	VAEG_SCREENSHOT_REQUEST requests[] = {
-		{11, "eleven.png", VAEG_SCREENSHOT_FORMAT_PNG},
-		{3, "three.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
-		{7, "seven-a.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
-		{7, "seven-b.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {11, "eleven.png", VAEG_SCREENSHOT_FORMAT_PNG},
+	    {3, "three.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {7, "seven-a.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	    {7, "seven-b.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
 	};
 	VAEG_SCREENSHOT_SCHEDULER scheduler;
 	SCREENSHOT_TEST_CAPTURE capture;
@@ -415,27 +458,29 @@ static int test_screenshot_scheduler(void) {
 	ZeroMemory(&capture, sizeof(capture));
 	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
 	if (!vaeg_screenshot_scheduler_wants_frame(&scheduler, 3) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 3, test_screenshot_capture,
-	                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 3, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 7) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 7, test_screenshot_capture,
-                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 7, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 11) ||
-	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 11, test_screenshot_capture,
-                                           &capture) != SUCCESS) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 11, test_screenshot_capture, &capture) !=
+	     SUCCESS) ||
 	    !vaeg_screenshot_scheduler_done(&scheduler) || (capture.count != 4)) {
 		return (fail("screenshot scheduler", "frame ordering or completion failed"));
 	}
 	for (i = 0; i < capture.count; i++) {
-		if ((capture.frames[i] != ((i == 0) ? 3 : (i < 3) ? 7 : 11)) ||
+		if ((capture.frames[i] != ((i == 0)  ? 3
+		                           : (i < 3) ? 7
+		                                     : 11)) ||
 		    strcmp(capture.paths[i], expected_paths[i])) {
 			return (fail("screenshot scheduler", "capture order was not stable"));
 		}
 	}
 	ZeroMemory(&capture, sizeof(capture));
 	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
-	if (vaeg_screenshot_scheduler_after_frame(&scheduler, 4, test_screenshot_capture,
-	                                          &capture) == SUCCESS) {
+	if (vaeg_screenshot_scheduler_after_frame(&scheduler, 4, test_screenshot_capture, &capture) ==
+	    SUCCESS) {
 		return (fail("screenshot scheduler", "missed frame was accepted"));
 	}
 	fprintf(stderr, "selftest: screenshot scheduler ok\n");
@@ -874,6 +919,10 @@ static int test_va_ems_board(void) {
 	BYTE saved_main;
 	BYTE saved_high0;
 	BYTE saved_high1;
+	UINT8 saved_sysm_bank;
+	UINT8 saved_dma_sysm_bank;
+	UINT8 saved_dma_access;
+	UINT8 bank_index;
 	BYTE *page_ptr;
 	BYTE saved_page;
 	BYTE pattern;
@@ -896,6 +945,13 @@ static int test_va_ems_board(void) {
 	saved_main = mem[0xc0000];
 	saved_high0 = mem[0x100000];
 	saved_high1 = mem[0x104000];
+	saved_sysm_bank = memoryva.sysm_bank;
+	saved_dma_sysm_bank = memoryva.dma_sysm_bank;
+	saved_dma_access = memoryva.dma_access;
+	/* The EMS board is in the bus slot: select it in the system memory area. */
+	memoryva.sysm_bank = 0;
+	memoryva.dma_sysm_bank = 0;
+	memoryva.dma_access = 0;
 	result = SUCCESS;
 	iocore_create();
 	if (iocore_build() != SUCCESS) {
@@ -904,7 +960,7 @@ static int test_va_ems_board(void) {
 	}
 
 	if ((EMSIO_DEFAULT_MEGABYTES != 0) || (EMSIO_MIN_MEGABYTES != 1) ||
-	    (EMSIO_MAX_MEGABYTES != 13)) {
+	    (EMSIO_MAX_MEGABYTES != 15)) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
 	}
@@ -948,6 +1004,34 @@ static int test_va_ems_board(void) {
 		result = fail("VA EMS", "native VA page-frame access did not map");
 		goto ems_test_cleanup;
 	}
+	/* M146: TVRAM (1), GVRAM (4), kanji ROM #1 (8) and the dictionary ROM
+	 * (C) keep C0000h in their own banks; only the bus slot (0) shows the
+	 * frame. Byte and word accesses both. */
+	for (bank_index = 0; bank_index < 4; bank_index++) {
+		static const UINT8 banks[4] = {0x01, 0x04, 0x08, 0x0c};
+
+		memoryva.sysm_bank = banks[bank_index];
+		CPU_EXTMEM[0x10001] = 0x69;
+		if ((upd9002_memoryread_nowait(0x0c0000) == 0x96) ||
+		    (upd9002_memoryread_w(0x0c0000) == 0x6996)) {
+			result = fail("VA EMS", "a non-bus-slot bank read the EMS page frame");
+			goto ems_test_cleanup;
+		}
+		if (banks[bank_index] == 0x04) {
+			upd9002_memorywrite_nowait(0x0c0000, 0x00);
+			upd9002_memorywrite_w(0x0c0000, 0x0000);
+		}
+		if ((CPU_EXTMEM[0x10000] != 0x96) || (CPU_EXTMEM[0x10001] != 0x69)) {
+			result = fail("VA EMS", "a non-bus-slot bank wrote the EMS page");
+			goto ems_test_cleanup;
+		}
+	}
+	memoryva.sysm_bank = 0;
+	if ((upd9002_memoryread_nowait(0x0c0000) != 0x96) ||
+	    (upd9002_memoryread_w(0x0c0000) != 0x6996)) {
+		result = fail("VA EMS", "the bus slot lost the EMS page frame");
+		goto ems_test_cleanup;
+	}
 
 	iocore_out8(0x08e9, 1);
 	if (iocore_inp8(0x08e9) != 0) {
@@ -989,7 +1073,7 @@ static int test_va_ems_board(void) {
 		iocore_out8(page_port, (i & 0x3f) << 2);
 		if ((iocore_inp8(0x08e9) != 0) || (emsio.addr[frame] != page_addr) ||
 		    (CPU_EMSPTR[frame] != page_ptr)) {
-			result = fail("VA EMS", "13MB page table did not map completely");
+			result = fail("VA EMS", "15MB page table did not map completely");
 			goto ems_test_cleanup;
 		}
 		saved_page = *page_ptr;
@@ -998,14 +1082,15 @@ static int test_va_ems_board(void) {
 			pattern ^= 0xff;
 		}
 		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), pattern);
-		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) || (*page_ptr != pattern)) {
+		if ((upd9002_memoryread_nowait(0x0c0000 + (frame << 14)) != pattern) ||
+		    (*page_ptr != pattern)) {
 			*page_ptr = saved_page;
-			result = fail("VA EMS", "13MB native page-frame test failed");
+			result = fail("VA EMS", "15MB native page-frame test failed");
 			goto ems_test_cleanup;
 		}
 		upd9002_memorywrite_nowait(0x0c0000 + (frame << 14), saved_page);
 		if (*page_ptr != saved_page) {
-			result = fail("VA EMS", "13MB page test did not restore memory");
+			result = fail("VA EMS", "15MB page test did not restore memory");
 			goto ems_test_cleanup;
 		}
 	}
@@ -1035,6 +1120,9 @@ ems_test_cleanup:
 		CPU_EMSPTR[i] = saved_ems[i];
 	}
 	CPU_REMCLOCK = saved_remclock;
+	memoryva.sysm_bank = saved_sysm_bank;
+	memoryva.dma_sysm_bank = saved_dma_sysm_bank;
+	memoryva.dma_access = saved_dma_access;
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA EMS board mapping/config lifecycle ok\n");
 	}
@@ -1307,14 +1395,14 @@ typedef struct {
 } SELFTESTFDDPROFILE;
 
 static const SELFTESTFDDPROFILE selftest_fdd_profiles[] = {
-	{"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0, 2},
-	{"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0, 2},
-	{"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0, 2},
-	{"2d-320-double-step", 0x00, 40, 8, 512, 2, 0, 0, 0, 4},
-	{"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0, 2},
-	{"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0, 2},
-	{"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1, 2},
-	{"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1, 2}};
+    {"2d-320", 0x00, 40, 8, 512, 2, 0, 0, 0, 2},
+    {"2d-320-256-sector", 0x00, 40, 16, 256, 1, 0, 0, 0, 2},
+    {"2d-360", 0x00, 40, 9, 512, 2, 0, 0, 0, 2},
+    {"2d-320-double-step", 0x00, 40, 8, 512, 2, 0, 0, 0, 4},
+    {"2dd-640", 0x10, 80, 8, 512, 2, 0, 1, 0, 2},
+    {"2dd-720", 0x10, 80, 9, 512, 2, 0, 1, 0, 2},
+    {"2hc-1200", 0x20, 80, 15, 512, 2, 1, 1, 1, 2},
+    {"2hd-1232", 0x20, 77, 8, 1024, 3, 1, 1, 1, 2}};
 
 static SINT32 selftest_fdc_profile_interval(const SELFTESTFDDPROFILE *profile) {
 	const int data = profile->sector_size;
@@ -1391,13 +1479,13 @@ static BOOL selftest_fdd_create_profile(const char *path, const SELFTESTFDDPROFI
 }
 
 static BYTE selftest_fdc_mode(const SELFTESTFDDPROFILE *profile, UINT drive, UINT density_96) {
-	return (BYTE)((profile->dskctl_2hd ? (1 << drive) : 0) |
-	              (density_96 ? (4 << drive) : 0) | (profile->clock_8mhz ? 0x20 : 0));
+	return (BYTE)((profile->dskctl_2hd ? (1 << drive) : 0) | (density_96 ? (4 << drive) : 0) |
+	              (profile->clock_8mhz ? 0x20 : 0));
 }
 
 static BOOL selftest_fdd_profile_read(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
-	                                  UINT head, UINT sector, UINT physical_cylinder,
-	                                  UINT density_96, BOOL changed_data) {
+                                      UINT head, UINT sector, UINT physical_cylinder,
+                                      UINT density_96, BOOL changed_data) {
 	UINT index;
 	UINT track;
 	BYTE expected;
@@ -1418,22 +1506,20 @@ static BOOL selftest_fdd_profile_read(const SELFTESTFDDPROFILE *profile, UINT dr
 		return (FAILURE);
 	}
 	if (fdd_seek() != SUCCESS) {
-		fprintf(stderr,
-		        "selftest: %s seek failed: CHS=%u/%u/%u physical=%u TPI=%u\n", profile->name,
-		        cylinder, head, sector, physical_cylinder, density_96 ? 96 : 48);
+		fprintf(stderr, "selftest: %s seek failed: CHS=%u/%u/%u physical=%u TPI=%u\n",
+		        profile->name, cylinder, head, sector, physical_cylinder, density_96 ? 96 : 48);
 		return (FAILURE);
 	}
 	if ((fdd_read() != SUCCESS) || (fdc.bufcnt != profile->sector_size)) {
-		fprintf(stderr,
-		        "selftest: %s read failed: spt=%u CHS=%u/%u/%u physical=%u TPI=%u\n",
+		fprintf(stderr, "selftest: %s read failed: spt=%u CHS=%u/%u/%u physical=%u TPI=%u\n",
 		        profile->name, profile->sectors, cylinder, head, sector, physical_cylinder,
 		        density_96 ? 96 : 48);
 		return (FAILURE);
 	}
 	track = cylinder * 2 + head;
 	for (index = 0; index < profile->sector_size; index++) {
-		expected = changed_data ? (BYTE)(0x69 ^ (index * 7)) :
-		                          selftest_fdd_profile_byte(track, sector, index);
+		expected = changed_data ? (BYTE)(0x69 ^ (index * 7))
+		                        : selftest_fdd_profile_byte(track, sector, index);
 		if (fdc.buf[index] != expected) {
 			return (FAILURE);
 		}
@@ -1475,18 +1561,18 @@ static BOOL selftest_fdc_take_result(BYTE expected_st0, BYTE expected_st1) {
 	for (index = 0; index < NELEMENTS(result); index++) {
 		result[index] = fdc_dataread();
 	}
-	if (result[1] != expected_st1 || (!expected_st1 &&
-	                                  ((result[0] != expected_st0) || (result[2] != 0)))) {
-		fprintf(stderr, "selftest: unexpected FDC result ST0=%02x ST1=%02x ST2=%02x expected ST1=%02x\n",
+	if (result[1] != expected_st1 ||
+	    (!expected_st1 && ((result[0] != expected_st0) || (result[2] != 0)))) {
+		fprintf(stderr,
+		        "selftest: unexpected FDC result ST0=%02x ST1=%02x ST2=%02x expected ST1=%02x\n",
 		        result[0], result[1], result[2], expected_st1);
 		return (FAILURE);
 	}
 	return (SUCCESS);
 }
 
-
 static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, UINT head,
-	                            UINT physical_cylinder, UINT density_96) {
+                                 UINT physical_cylinder, UINT density_96) {
 	const BYTE specify[] = {0x03, 0xdf, 0x01};
 	BYTE seek[] = {0x0f, (BYTE)((head << 2) | drive), (BYTE)physical_cylinder};
 
@@ -1508,8 +1594,8 @@ static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, 
 }
 
 static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
-	                                 UINT head, UINT sector, UINT physical_cylinder,
-	                                 UINT density_96, BYTE *data, BYTE expected_st1) {
+                                      UINT head, UINT sector, UINT physical_cylinder,
+                                      UINT density_96, BYTE *data, BYTE expected_st1) {
 	BYTE command[9];
 	UINT index;
 
@@ -1531,8 +1617,7 @@ static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT dr
 	}
 	if (selftest_fdc_wait_rqm() != SUCCESS) {
 		fprintf(stderr, "selftest: %s FDC read request wait failed status=%02x event=%d count=%d\n",
-		        profile->name,
-		        fdc.status, fdc.event, fdc.bufcnt);
+		        profile->name, fdc.status, fdc.event, fdc.bufcnt);
 		return (FAILURE);
 	}
 	if (fdc.bufcnt == 7) {
@@ -1566,10 +1651,9 @@ static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT dr
 	return (SUCCESS);
 }
 
-static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive,
-	                                  UINT cylinder, UINT head, UINT sector,
-	                                  UINT physical_cylinder, UINT density_96, const BYTE *data,
-	                                  BYTE expected_st1) {
+static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
+                                       UINT head, UINT sector, UINT physical_cylinder,
+                                       UINT density_96, const BYTE *data, BYTE expected_st1) {
 	BYTE command[9];
 	UINT index;
 
@@ -1844,15 +1928,14 @@ static int test_fdd_d88_production_path(void) {
 				goto fdd_2d_cleanup;
 			}
 		}
-		if ((selftest_fdc_read_profile(profile, 0, profile->cylinders - 1, 1,
-		                               profile->sectors, profile->cylinders - 1, density,
-		                               fdc_data, 0) != SUCCESS)) {
+		if ((selftest_fdc_read_profile(profile, 0, profile->cylinders - 1, 1, profile->sectors,
+		                               profile->cylinders - 1, density, fdc_data, 0) != SUCCESS)) {
 			result = fail("fdd-media", "FDC READ DATA rejected the last track/head/sector");
 			goto fdd_2d_cleanup;
 		}
 		for (index = 0; index < profile->sector_size; index++) {
-			if (fdc_data[index] != selftest_fdd_profile_byte(profile->cylinders * 2 - 1,
-			                                               profile->sectors, index)) {
+			if (fdc_data[index] !=
+			    selftest_fdd_profile_byte(profile->cylinders * 2 - 1, profile->sectors, index)) {
 				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
 				goto fdd_2d_cleanup;
 			}
@@ -1886,11 +1969,11 @@ static int test_fdd_d88_production_path(void) {
 		for (index = 0; index < profile->sector_size; index++) {
 			data[index] = (BYTE)(0x69 ^ (index * 7));
 		}
-		if ((selftest_fdc_write_profile(profile, 0, write_cylinder, 0, write_sector,
-		                                write_cylinder, density, data, 0) != SUCCESS) ||
+		if ((selftest_fdc_write_profile(profile, 0, write_cylinder, 0, write_sector, write_cylinder,
+		                                density, data, 0) != SUCCESS) ||
 		    (fdd_eject(0) != SUCCESS) || (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
-		    (selftest_fdc_read_profile(profile, 0, write_cylinder, 0, write_sector,
-		                               write_cylinder, density, fdc_data, 0) != SUCCESS)) {
+		    (selftest_fdc_read_profile(profile, 0, write_cylinder, 0, write_sector, write_cylinder,
+		                               density, fdc_data, 0) != SUCCESS)) {
 			result = fail("fdd-media", "FDC write did not persist after eject and reopen");
 			goto fdd_2d_cleanup;
 		}
@@ -1931,17 +2014,18 @@ static int test_fdd_d88_production_path(void) {
 			    (selftest_fdd_create_profile(path_b, profile_b) != SUCCESS) ||
 			    (fdd_set(0, path, FTYPE_NONE, 0) != SUCCESS) ||
 			    (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS)) {
-				result = fail("fdd-drives", "different-format synthetic media could not be mounted");
+				result =
+				    fail("fdd-drives", "different-format synthetic media could not be mounted");
 				goto fdd_2d_cleanup;
 			}
-			if ((selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			if ((selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0)) ||
 			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
 			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
-			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS) ||
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_b * 2 + head_b, sector_b, 0))) {
 				result = fail("fdd-drives", "alternating FDC selection mixed independent media");
 				goto fdd_2d_cleanup;
@@ -1949,14 +2033,14 @@ static int test_fdd_d88_production_path(void) {
 			for (index = 0; index < profile_b->sector_size; index++) {
 				data[index] = (BYTE)(0x36 + index * 9);
 			}
-			if ((selftest_fdc_write_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                                cylinder_b, profile_b->density_96, data, 0) != SUCCESS) ||
+			if ((selftest_fdc_write_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                                profile_b->density_96, data, 0) != SUCCESS) ||
 			    (selftest_fdc_read_profile(profile_a, 0, cylinder_a, 0, 1, cylinder_a,
 			                               profile_a->density_96, fdc_data, 0) != SUCCESS) ||
 			    (fdc_data[0] != selftest_fdd_profile_byte(cylinder_a * 2, 1, 0)) ||
 			    (fdd_eject(1) != SUCCESS) || (fdd_set(1, path_b, FTYPE_NONE, 0) != SUCCESS) ||
-			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b,
-			                               cylinder_b, profile_b->density_96, fdc_data, 0) != SUCCESS)) {
+			    (selftest_fdc_read_profile(profile_b, 1, cylinder_b, head_b, sector_b, cylinder_b,
+			                               profile_b->density_96, fdc_data, 0) != SUCCESS)) {
 				result = fail("fdd-drives", "FDD2 writeback or non-target preservation failed");
 				goto fdd_2d_cleanup;
 			}
@@ -2176,8 +2260,7 @@ static int test_profile_ini(void) {
 	if ((read_bms.enabled != TRUE) || (read_bms.port != BMSIO_PORT_COMPAT) ||
 	    (read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms) ||
 	    (read_ems_megabytes != ems_megabytes) || (read_main_ram != main_ram) ||
-	    (read_ndp8087_enable != ndp8087_enable) ||
-	    (read_ndp8087_clock_hz != ndp8087_clock_hz)) {
+	    (read_ndp8087_enable != ndp8087_enable) || (read_ndp8087_clock_hz != ndp8087_clock_hz)) {
 		return (fail("ini", "BMS/EMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
@@ -2192,6 +2275,7 @@ static int test_persistence_controls(void) {
 	const BYTE saved_info = np2oscfg.DISPCLK;
 	const UINT8 saved_pcg = np2cfg.pcg_enable;
 	const UINT8 saved_nmode = np2cfg.v1v2_nmode_enable;
+	const UINT8 saved_n80_basic = np2cfg.n80_basic_mode;
 	char read_crt[sizeof(np2oscfg.gui_shader_parameters)] = {0};
 	INITBL crt_table[] = {{"NativeCRTParameters", INITYPE_STR, read_crt, sizeof(read_crt)}};
 	char config_path[MAX_PATH];
@@ -2248,7 +2332,8 @@ static int test_persistence_controls(void) {
 		}
 	}
 	/* Exercise the production table and loader, not a parallel preference table. */
-	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT; source++) {
+	for (BYTE source = VAEG_RECORDING_SOURCE_NATIVE; source < VAEG_RECORDING_SOURCE_COUNT;
+	     source++) {
 		np2oscfg.recording_source = source;
 		initsave();
 		np2oscfg.recording_source = (BYTE)(1 - source);
@@ -2257,6 +2342,15 @@ static int test_persistence_controls(void) {
 			detail = "recording source did not survive configuration reload";
 		}
 	}
+	for (UINT8 mode = N80_BOOT_AUTO; mode <= N80_BOOT_SR; mode++) {
+		np2cfg.n80_basic_mode = mode;
+		initsave();
+		np2cfg.n80_basic_mode = 0xff;
+		initload();
+		if (np2cfg.n80_basic_mode != mode)
+			detail = "M144A_N80_BOOT_CONFIG";
+	}
+	np2cfg.n80_basic_mode = saved_n80_basic;
 	/* Requested defaults must not replace explicit ON/OFF selections. */
 	for (UINT8 pcg = 0; pcg < 2; pcg++) {
 		for (UINT8 nmode = 0; nmode < 2; nmode++) {
@@ -2311,6 +2405,7 @@ static int test_persistence_controls(void) {
 	np2oscfg.DISPCLK = saved_info;
 	np2cfg.pcg_enable = saved_pcg;
 	np2cfg.v1v2_nmode_enable = saved_nmode;
+	np2cfg.n80_basic_mode = saved_n80_basic;
 	milstr_ncpy(np2oscfg.gui_shader_parameters, saved_crt, sizeof(saved_crt));
 	file_delete(config_path);
 	initsetenabled(FALSE);
@@ -2561,8 +2656,9 @@ static int test_va_cursor_sprite_enable(void) {
 	makesprva_blankraster();
 	makesprva_begin();
 	makesprva_raster();
-	result = sprraster[0] == 4 ? SUCCESS
-	                         : fail("VA cursor sprite", "CURDEF.CE did not enable the selected sprite");
+	result = sprraster[0] == 4
+	             ? SUCCESS
+	             : fail("VA cursor sprite", "CURDEF.CE did not enable the selected sprite");
 
 	if (result == SUCCESS) {
 		tsp.ce = FALSE;
@@ -2570,7 +2666,8 @@ static int test_va_cursor_sprite_enable(void) {
 		makesprva_begin();
 		makesprva_raster();
 		if (sprraster[0] != 0) {
-			result = fail("VA cursor sprite", "disabled cursor remained visible with descriptor SW clear");
+			result = fail("VA cursor sprite",
+			              "disabled cursor remained visible with descriptor SW clear");
 		}
 	}
 
@@ -2582,7 +2679,8 @@ static int test_va_cursor_sprite_enable(void) {
 		makesprva_begin();
 		makesprva_raster();
 		if (sprraster[0] != 4) {
-			result = fail("VA cursor sprite", "cursor blink state changed an ordinary enabled sprite");
+			result =
+			    fail("VA cursor sprite", "cursor blink state changed an ordinary enabled sprite");
 		}
 	}
 
@@ -2672,6 +2770,79 @@ static int test_va_sprite_line(void) {
 	return (result);
 }
 
+static int test_runtime_speed(void) {
+	VAEG_RUNTIME_SPEED speed;
+	VAEG_MACHINE_STATUS status;
+	char text[256], normal[256];
+	UINT i;
+	ZeroMemory(&status, sizeof(status));
+	milstr_ncpy(status.machine, "PC-88VA2", sizeof(status.machine));
+	milstr_ncpy(status.mode, "V2H", sizeof(status.mode));
+	status.cpu_hz = 8000000;
+	status.sgp_hz = 8000000;
+	status.has_sgp = TRUE;
+	vaeg_runtime_speed_reset(&speed);
+	if (vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1) || speed.valid ||
+	    vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1))
+		return fail("runtime speed", "M143_WARMUP");
+	if (!vaeg_runtime_speed_update(&speed, 1000, 64000000, 8000000, 8000000, 1) || !speed.valid ||
+	    speed.speed != 8.0 || speed.equivalent_mhz != 64.0)
+		return fail("runtime speed", "M143_GUEST_TIME_RATIO");
+	machine_status_speed_line(text, sizeof(text), &status,
+	                          VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_FPS, 300, 480, &speed, TRUE,
+	                          FALSE, 0);
+	if (!strstr(text, "CPU 8MHz") || !strstr(text, "約64.0MHz相当") || !strstr(text, "8.0倍") ||
+	    !strstr(text, "描画 30.0 FPS"))
+		return fail("runtime speed", "M143_DISTINCT_DRAW_SPEED");
+	machine_status_speed_line(text, sizeof(text), &status,
+	                          VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_FPS, 300, 480, &speed, TRUE,
+	                          FALSE, 2);
+	if (strstr(text, "相当") || strstr(text, "PC-88VA2") || !strstr(text, "8.0倍"))
+		return fail("runtime speed", "M143_COMPACT");
+	machine_status_speed_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, 300, 480, &speed,
+	                          TRUE, TRUE, 0);
+	if (!strstr(text, "一時停止") || strstr(text, "8.0倍") || strstr(text, "64.0"))
+		return fail("runtime speed", "M143_PAUSED");
+	machine_status_line(normal, sizeof(normal), &status, VAEG_DISPINFO_FPS, 600, 0);
+	machine_status_speed_line(text, sizeof(text), &status, VAEG_DISPINFO_FPS, 600, 0, &speed, FALSE,
+	                          FALSE, 0);
+	if (strcmp(text, normal))
+		return fail("runtime speed", "M143_NORMAL_COMPATIBILITY");
+	/* Policy/CPU/domain transitions start a fresh window, never stale MHz. */
+	for (i = 0; i < 3; ++i) {
+		vaeg_runtime_speed_reset(&speed);
+		vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 1);
+		vaeg_runtime_speed_update(&speed, 1000, 64000000, 8000000, 8000000, 1);
+		if (vaeg_runtime_speed_update(&speed, 1100, 65000000, i == 0 ? 4000000 : 8000000,
+		                              i == 1 ? 4000000 : 8000000, i == 2 ? 0 : 1) ||
+		    speed.valid)
+			return fail("runtime speed", "M143_MIXED_EPOCH");
+	}
+	vaeg_runtime_speed_reset(&speed);
+	vaeg_runtime_speed_update(&speed, UINT32_MAX - 499, 1000, 1000, 8000000, 0);
+	if (!vaeg_runtime_speed_update(&speed, 500, 2000, 1000, 8000000, 0) || speed.speed != 1.0)
+		return fail("runtime speed", "M143_HOST_WRAP");
+	if (vaeg_runtime_speed_update(&speed, 1500, 0, 1000, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_CLOCK_REWIND");
+	if (vaeg_runtime_speed_update(&speed, 2500, 1000, 0, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_ZERO_CLOCK");
+	vaeg_runtime_speed_reset(&speed);
+	vaeg_runtime_speed_update(&speed, 0, 0, 8000000, 8000000, 0);
+	/* Irregular guest-time increments; no frame-count/rate assumption. */
+	vaeg_runtime_speed_update(&speed, 200, 1000000, 8000000, 8000000, 0);
+	vaeg_runtime_speed_update(&speed, 600, 6000000, 8000000, 8000000, 0);
+	if (!vaeg_runtime_speed_update(&speed, 1000, 8000000, 8000000, 8000000, 0) ||
+	    speed.speed != 1.0)
+		return fail("runtime speed", "M143_VARIABLE_FRAMES");
+	if (vaeg_runtime_speed_update(&speed, 12000, 16000000, 8000000, 8000000, 0) || speed.valid)
+		return fail("runtime speed", "M143_STALE_WINDOW");
+	vaeg_runtime_speed_reset(&speed);
+	if (speed.valid || speed.started || speed.speed != 0.0)
+		return fail("runtime speed", "M143_RESET");
+	fprintf(stderr, "selftest: M143 runtime speed contracts ok\n");
+	return SUCCESS;
+}
+
 static int test_framedisp(void) {
 	VAEG_FRAMEDISP state;
 
@@ -2718,6 +2889,8 @@ static int test_framedisp(void) {
 		}
 	}
 	vaeg_framedisp_reset(NULL, 0, 0);
+	if (test_runtime_speed() != SUCCESS)
+		return FAILURE;
 	fprintf(stderr, "selftest: frame display ok\n");
 	return (SUCCESS);
 }
@@ -3058,14 +3231,17 @@ static int test_screenshot_rotation(void) {
 }
 
 static int test_viewport(void) {
-	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
-	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
+	if (splash_selftest() != SUCCESS)
+		return fail("splash", "fit geometry failed");
+	if (scrnmng_display_capture_selftest() != SUCCESS)
+		return FAILURE;
 	if (test_screenshot_rotation() != SUCCESS)
 		return FAILURE;
 	if (scrnmng_thumbnail_png_selftest("vaeg-selftest-thumbnail.png") != SUCCESS) {
 		return (fail("state thumbnail", "PNG did not read back"));
 	}
-	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
+	if (gui_overlay_selftest() != SUCCESS)
+		return FAILURE;
 	if (gui_file_filter_selftest() != SUCCESS)
 		return FAILURE;
 	{
@@ -3106,7 +3282,8 @@ static int test_viewport(void) {
 		selftest_remove_dir(root);
 		fprintf(stderr, "selftest: quick save ok\n");
 	}
-	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
+	if (scrnmng_window_rebind_selftest() != SUCCESS)
+		return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
 	BOOL masked;
@@ -3459,34 +3636,27 @@ static BOOL test_8087_documented_slot(unsigned opcode, unsigned modrm) {
 
 	/* Keep this membership predicate independent from upd8087_classify().
 	 * It is the production-CPU coverage side of the frozen P01 inventory. */
-#define MEMORY_FORM(op, r) \
-	(((op) == 0xd8) || ((op) == 0xda) || ((op) == 0xdc) || \
-	 ((op) == 0xde) || \
-	 (((op) == 0xd9) && ((r) != 1)) || \
-	 (((op) == 0xdb) && ((r) == 0 || (r) == 2 || (r) == 3 || \
-	                    (r) == 5 || (r) == 7)) || \
-	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3 || \
-	                    (r) == 4 || (r) == 6 || (r) == 7)) || \
+#define MEMORY_FORM(op, r)                                                                         \
+	(((op) == 0xd8) || ((op) == 0xda) || ((op) == 0xdc) || ((op) == 0xde) ||                       \
+	 (((op) == 0xd9) && ((r) != 1)) ||                                                             \
+	 (((op) == 0xdb) && ((r) == 0 || (r) == 2 || (r) == 3 || (r) == 5 || (r) == 7)) ||             \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3 || (r) == 4 || (r) == 6 || (r) == 7)) || \
 	 (((op) == 0xdf) && ((r) != 1)))
-#define REGISTER_FORM(op, r, m) \
-	(((op) == 0xd8) || \
-	 (((op) == 0xd9) && \
-	  (((r) == 0) || ((r) == 1) || ((r) == 2 && (m) == 0) || \
-	   ((r) == 4 && ((m) == 0 || (m) == 1 || (m) == 4 || (m) == 5)) || \
-	   ((r) == 5 && (m) <= 6) || \
-	   ((r) == 6 && ((m) <= 4 || (m) >= 6)) || \
-	   ((r) == 7 && ((m) == 0 || (m) == 1 || (m) == 2 || \
-	                (m) == 4 || (m) == 5)))) || \
-	 (((op) == 0xdb) && (r) == 4 && (m) <= 3) || \
-	 (((op) == 0xdc) && ((r) == 0 || (r) == 1 || (r) == 4 || \
-	                    (r) == 5 || (r) == 6 || (r) == 7)) || \
-	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3)) || \
-	 (((op) == 0xde) && ((r) == 0 || (r) == 1 || (r) == 4 || \
-	                    (r) == 5 || (r) == 6 || (r) == 7 || \
-	                    ((r) == 3 && (m) == 1))))
+#define REGISTER_FORM(op, r, m)                                                                    \
+	(((op) == 0xd8) ||                                                                             \
+	 (((op) == 0xd9) &&                                                                            \
+	  (((r) == 0) || ((r) == 1) || ((r) == 2 && (m) == 0) ||                                       \
+	   ((r) == 4 && ((m) == 0 || (m) == 1 || (m) == 4 || (m) == 5)) || ((r) == 5 && (m) <= 6) ||   \
+	   ((r) == 6 && ((m) <= 4 || (m) >= 6)) ||                                                     \
+	   ((r) == 7 && ((m) == 0 || (m) == 1 || (m) == 2 || (m) == 4 || (m) == 5)))) ||               \
+	 (((op) == 0xdb) && (r) == 4 && (m) <= 3) ||                                                   \
+	 (((op) == 0xdc) && ((r) == 0 || (r) == 1 || (r) == 4 || (r) == 5 || (r) == 6 || (r) == 7)) || \
+	 (((op) == 0xdd) && ((r) == 0 || (r) == 2 || (r) == 3)) ||                                     \
+	 (((op) == 0xde) && ((r) == 0 || (r) == 1 || (r) == 4 || (r) == 5 || (r) == 6 || (r) == 7 ||   \
+	                     ((r) == 3 && (m) == 1))))
 
-	BOOL result = ((modrm & 0xc0) != 0xc0) ?
-		MEMORY_FORM(opcode, reg) : REGISTER_FORM(opcode, reg, rm);
+	BOOL result =
+	    ((modrm & 0xc0) != 0xc0) ? MEMORY_FORM(opcode, reg) : REGISTER_FORM(opcode, reg, rm);
 
 #undef MEMORY_FORM
 #undef REGISTER_FORM
@@ -3516,12 +3686,10 @@ static int test_8087_production_inventory(void) {
 			}
 			memory_form = (modrm & 0xc0) != 0xc0;
 			rewrites_saved_opcode =
-				(memory_form && (((opcode == 0xd9) || (opcode == 0xdd)) &&
-				                 (((modrm >> 3) & 7) == 4))) ||
-				(memory_form && (opcode == 0xdd) &&
-				                 (((modrm >> 3) & 7) == 6)) ||
-				((opcode == 0xdb) && (((modrm >> 3) & 7) == 4) &&
-				 (((modrm & 7) == 3)));
+			    (memory_form &&
+			     (((opcode == 0xd9) || (opcode == 0xdd)) && (((modrm >> 3) & 7) == 4))) ||
+			    (memory_form && (opcode == 0xdd) && (((modrm >> 3) & 7) == 6)) ||
+			    ((opcode == 0xdb) && (((modrm >> 3) & 7) == 4) && (((modrm & 7) == 3)));
 			if (!memory_form) {
 				expected_ip = 2U;
 			} else {
@@ -3573,10 +3741,8 @@ static int test_8087_production_inventory(void) {
 				fprintf(stderr,
 				        "selftest: 8087 production inventory failed at %02x:%02x "
 				        "ip=%u/%u op=%03x/%03x ndp=%u cpuclk=%u rem=%d\n",
-				        opcode, modrm, (unsigned)CPU_IP, expected_ip,
-				        (unsigned)upd8087.opcode,
-				        (unsigned)(((opcode & 7U) << 8) | modrm),
-				        (unsigned)upd8087.last_ndp_cycles,
+				        opcode, modrm, (unsigned)CPU_IP, expected_ip, (unsigned)upd8087.opcode,
+				        (unsigned)(((opcode & 7U) << 8) | modrm), (unsigned)upd8087.last_ndp_cycles,
 				        (unsigned)pccore_cpu_clock(), (int)CPU_REMCLOCK);
 				upd9002_test_flat_memory_set(FALSE);
 				np2cfg = saved_config;
@@ -3599,10 +3765,10 @@ static int test_8087_production_inventory(void) {
 
 static int test_8087_production_path(void) {
 	static const BYTE program[] = {
-		0xd9, 0xe8,             /* FLD1 */
-		0xd9, 0xe8,             /* FLD1 */
-		0xd8, 0xc1,             /* FADD ST(0),ST(1) */
-		0x2e, 0xd9, 0x1e, 0x00, 0x03 /* CS:FSTP dword ptr [0300h] */
+	    0xd9, 0xe8,                  /* FLD1 */
+	    0xd9, 0xe8,                  /* FLD1 */
+	    0xd8, 0xc1,                  /* FADD ST(0),ST(1) */
+	    0x2e, 0xd9, 0x1e, 0x00, 0x03 /* CS:FSTP dword ptr [0300h] */
 	};
 	NP2CFG saved_config;
 	UINT32 ticks_at_5mhz;
@@ -3641,8 +3807,8 @@ static int test_8087_production_path(void) {
 	for (index = 0; index < program_steps; index++) {
 		upd9002_core_step();
 	}
-	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
-	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) || (mem[0x302] != 0x00) ||
+	    (mem[0x303] != 0x40)) {
 		upd9002_test_flat_memory_set(FALSE);
 		np2cfg = saved_config;
 		pccore_reset();
@@ -3662,8 +3828,8 @@ static int test_8087_production_path(void) {
 	for (index = 0; index < program_steps; index++) {
 		upd9002_core_step();
 	}
-	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) ||
-	    (mem[0x302] != 0x00) || (mem[0x303] != 0x40)) {
+	if ((mem[0x300] != 0x00) || (mem[0x301] != 0x00) || (mem[0x302] != 0x00) ||
+	    (mem[0x303] != 0x40)) {
 		upd9002_test_flat_memory_set(FALSE);
 		np2cfg = saved_config;
 		pccore_reset();
@@ -3702,14 +3868,13 @@ static int test_8087_cpu_decode_seams(void) {
 	/* A disabled FPO1 register form must consume only its native bytes and
 	 * must not call the NDP or read an operand bus. */
 	mem[0] = 0xd9;
-	mem[1] = 0xe8;             /* FLD1 */
+	mem[1] = 0xe8; /* FLD1 */
 	upd9002_test_flat_memory_reset_counters();
 	upd8087.last_ndp_cycles = 0;
 	upd8087.service_remainder = 0;
 	upd9002_core_step();
 	if (upd8087.enabled || (CPU_IP != 2) || upd8087.last_ndp_cycles != 0 ||
-	    upd8087.service_remainder != 0 ||
-	    upd9002_test_flat_memory_read_count() != 2 ||
+	    upd8087.service_remainder != 0 || upd9002_test_flat_memory_read_count() != 2 ||
 	    upd9002_test_flat_memory_write_count() != 0) {
 		result = fail("8087 CPU decode seams", "disabled native FPO1 form reached the NDP");
 		goto cleanup;
@@ -3718,16 +3883,16 @@ static int test_8087_cpu_decode_seams(void) {
 	/* A disabled memory form still advances through the native EA decoder, but
 	 * it must not perform the NDP first-word latch or a device-bus read. */
 	mem[0] = 0xd9;
-	mem[1] = 0x06;             /* direct disp16 ModR/M */
+	mem[1] = 0x06; /* direct disp16 ModR/M */
 	mem[2] = 0x34;
 	mem[3] = 0x12;
 	upd9002_test_flat_memory_reset_counters();
 	CPU_IP = 0;
 	upd9002_core_step();
 	if ((CPU_IP != 4) || upd8087.last_ndp_cycles != 0 ||
-	    upd9002_test_flat_memory_read_count() != 4 ||
-	    upd9002_test_flat_memory_write_count() != 0) {
-		result = fail("8087 CPU decode seams", "disabled memory FPO1 form performed an NDP bus access");
+	    upd9002_test_flat_memory_read_count() != 4 || upd9002_test_flat_memory_write_count() != 0) {
+		result =
+		    fail("8087 CPU decode seams", "disabled memory FPO1 form performed an NDP bus access");
 		goto cleanup;
 	}
 
@@ -3740,9 +3905,9 @@ static int test_8087_cpu_decode_seams(void) {
 	CPU_REMCLOCK = 1000;
 	upd9002_core_step();
 	if ((CPU_IP != 1) || (CPU_REMCLOCK <= 0) || upd8087_wait_blocked(&upd8087) ||
-	    upd9002_test_flat_memory_read_count() != 1 ||
-	    upd9002_test_flat_memory_write_count() != 0) {
-		result = fail("8087 CPU decode seams", "absent-device POLL/FWAIT waited on a nonexistent BUSY source");
+	    upd9002_test_flat_memory_read_count() != 1 || upd9002_test_flat_memory_write_count() != 0) {
+		result = fail("8087 CPU decode seams",
+		              "absent-device POLL/FWAIT waited on a nonexistent BUSY source");
 		goto cleanup;
 	}
 
@@ -3763,8 +3928,7 @@ static int test_8087_cpu_decode_seams(void) {
 	upd8087.service_remainder = 0;
 	upd9002_core_step();
 	if (!upd8087.enabled || (CPU_IP != 1) || upd8087.last_ndp_cycles != 0 ||
-	    upd8087.service_remainder != 0 ||
-	    upd9002_test_flat_memory_read_count() != 1 ||
+	    upd8087.service_remainder != 0 || upd9002_test_flat_memory_read_count() != 1 ||
 	    upd9002_test_flat_memory_write_count() != 0) {
 		result = fail("8087 CPU decode seams", "native FPO2 byte reached the 8087");
 		goto cleanup;
@@ -3773,22 +3937,23 @@ static int test_8087_cpu_decode_seams(void) {
 	/* An unmasked ESC exception keeps the CPU-side POLL/FWAIT seam blocked
 	 * until the guest recovery path clears the 8087 condition. */
 	mem[0] = 0xd9;
-	mem[1] = 0xc0;             /* FLD ST(0): unmasked empty-stack fault */
+	mem[1] = 0xc0; /* FLD ST(0): unmasked empty-stack fault */
 	CPU_IP = 0;
 	CPU_REMCLOCK = 1000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	upd9002_core_step();
 	if (!upd8087_interrupt_pending(&upd8087) || !upd8087_wait_blocked(&upd8087)) {
-		result = fail("8087 CPU decode seams", "unmasked ESC exception did not arm the POLL/FWAIT seam");
+		result =
+		    fail("8087 CPU decode seams", "unmasked ESC exception did not arm the POLL/FWAIT seam");
 		goto cleanup;
 	}
-	mem[0] = 0x9b;             /* POLL/FWAIT */
+	mem[0] = 0x9b; /* POLL/FWAIT */
 	CPU_IP = 0;
 	CPU_REMCLOCK = 1000;
 	upd9002_core_step();
 	if ((CPU_IP != 1) || (CPU_REMCLOCK != 0)) {
-		result = fail("8087 CPU decode seams", "POLL/FWAIT did not yield to the pending 8087 condition");
+		result =
+		    fail("8087 CPU decode seams", "POLL/FWAIT did not yield to the pending 8087 condition");
 		goto cleanup;
 	}
 
@@ -3802,8 +3967,7 @@ static int test_8087_cpu_decode_seams(void) {
 	saved_cycles = upd8087.last_ndp_cycles;
 	upd9002_test_flat_memory_reset_counters();
 	upd9002_core_step();
-	if (upd8087.service_remainder != saved_remainder ||
-	    upd8087.last_ndp_cycles != saved_cycles) {
+	if (upd8087.service_remainder != saved_remainder || upd8087.last_ndp_cycles != saved_cycles) {
 		result = fail("8087 CPU decode seams", "8080-compatible path reached the 8087");
 		goto cleanup;
 	}
@@ -3819,13 +3983,13 @@ cleanup:
 
 static int test_8087_guest_interrupt_route(void) {
 	static const BYTE handler[] = {
-		0xdb, 0xe2,             /* FCLEX */
-		0xb0, 0x20,             /* MOV AL,20H */
-		0xba, 0x84, 0x01,       /* MOV DX,0184H */
-		0xee,                   /* OUT DX,AL: slave EOI */
-		0xba, 0x88, 0x01,       /* MOV DX,0188H */
-		0xee,                   /* OUT DX,AL: master EOI */
-		0xcf                    /* IRET */
+	    0xdb, 0xe2,       /* FCLEX */
+	    0xb0, 0x20,       /* MOV AL,20H */
+	    0xba, 0x84, 0x01, /* MOV DX,0184H */
+	    0xee,             /* OUT DX,AL: slave EOI */
+	    0xba, 0x88, 0x01, /* MOV DX,0188H */
+	    0xee,             /* OUT DX,AL: master EOI */
+	    0xcf              /* IRET */
 	};
 	NP2CFG saved_config;
 	unsigned index;
@@ -3847,17 +4011,17 @@ static int test_8087_guest_interrupt_route(void) {
 	SS_BASE = 0;
 	CPU_FLAG |= I_FLAG;
 	CPU_REMCLOCK = 1000000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
-	if (((pic.pi[1].icw[1] & 0xf8) != 0x10) ||
-	    ((pic.pi[1].icw[2] & 7) != 7) || !(pic.pi[0].icw[2] & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "default VA PIC cascade is not PIC2 IR6 through PIC1 IR7");
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	if (((pic.pi[1].icw[1] & 0xf8) != 0x10) || ((pic.pi[1].icw[2] & 7) != 7) ||
+	    !(pic.pi[0].icw[2] & PIC_SLAVE)) {
+		result = fail("8087 guest interrupt route",
+		              "default VA PIC cascade is not PIC2 IR6 through PIC1 IR7");
 		goto cleanup;
 	}
 
 	/* The default VA PIC maps slave IRQ6 (IRQ14) to vector 16H. */
 	mem[0x0100] = 0xd9;
-	mem[0x0101] = 0xc0;       /* FLD ST(0): masked-off empty-stack fault */
+	mem[0x0101] = 0xc0; /* FLD ST(0): masked-off empty-stack fault */
 	mem[0x0016 * 4 + 0] = 0x00;
 	mem[0x0016 * 4 + 1] = 0x02;
 	mem[0x0016 * 4 + 2] = 0x00;
@@ -3867,8 +4031,7 @@ static int test_8087_guest_interrupt_route(void) {
 	iocore_out8(0x0186, (REG8)(pic.pi[1].imr & (REG8)~PIC_NDP));
 
 	upd9002_core_step();
-	if (!upd8087_interrupt_pending(&upd8087) || !PICEXISTINTR ||
-	    !(pic.pi[1].irr & PIC_NDP)) {
+	if (!upd8087_interrupt_pending(&upd8087) || !PICEXISTINTR || !(pic.pi[1].irr & PIC_NDP)) {
 		result = fail("8087 guest interrupt route", "NDP exception did not reach the PIC");
 		goto cleanup;
 	}
@@ -3878,7 +4041,8 @@ static int test_8087_guest_interrupt_route(void) {
 	CPU_FLAG &= (UINT16)~I_FLAG;
 	pic_irq();
 	if ((CPU_IP != 0x0102) || !PICEXISTINTR) {
-		result = fail("8087 guest interrupt route", "CPU interrupt masking did not defer the NDP request");
+		result = fail("8087 guest interrupt route",
+		              "CPU interrupt masking did not defer the NDP request");
 		goto cleanup;
 	}
 	CPU_FLAG |= I_FLAG;
@@ -3887,9 +4051,9 @@ static int test_8087_guest_interrupt_route(void) {
 		result = fail("8087 guest interrupt route", "PIC did not vector the guest handler");
 		goto cleanup;
 	}
-	if ((pic.pi[1].irr & PIC_NDP) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "PIC acknowledgement did not separate IRR from ISR");
+	if ((pic.pi[1].irr & PIC_NDP) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+		result =
+		    fail("8087 guest interrupt route", "PIC acknowledgement did not separate IRR from ISR");
 		goto cleanup;
 	}
 	/* FCLEX releases the source input, but it is not a PIC EOI. */
@@ -3904,18 +4068,18 @@ static int test_8087_guest_interrupt_route(void) {
 	for (index = 1; index < 7; index++) {
 		upd9002_core_step();
 	}
-	if ((CPU_CS != 0) || (CPU_IP != 0x0102) || !CPU_isEI ||
-	    PICEXISTINTR || upd8087_interrupt_pending(&upd8087) ||
-	    upd8087_wait_blocked(&upd8087)) {
-		result = fail("8087 guest interrupt route", "guest handler did not clear and return from NDP IRQ");
+	if ((CPU_CS != 0) || (CPU_IP != 0x0102) || !CPU_isEI || PICEXISTINTR ||
+	    upd8087_interrupt_pending(&upd8087) || upd8087_wait_blocked(&upd8087)) {
+		result = fail("8087 guest interrupt route",
+		              "guest handler did not clear and return from NDP IRQ");
 		goto cleanup;
 	}
 	/* Edge-triggered PIC2 must not redeliver the held-high source after EOI. */
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0102) || (pic.pi[1].isr & PIC_NDP) ||
-	    (pic.pi[0].isr & PIC_SLAVE)) {
-		result = fail("8087 guest interrupt route", "held NDP INT generated a spurious edge redelivery");
+	if ((CPU_IP != 0x0102) || (pic.pi[1].isr & PIC_NDP) || (pic.pi[0].isr & PIC_SLAVE)) {
+		result =
+		    fail("8087 guest interrupt route", "held NDP INT generated a spurious edge redelivery");
 		goto cleanup;
 	}
 	fprintf(stderr, "selftest: 8087 guest interrupt route ok\n");
@@ -3951,12 +4115,11 @@ static int test_8087_pic_input_modes(void) {
 	SS_BASE = 0;
 	CPU_FLAG |= I_FLAG;
 	CPU_REMCLOCK = 1000000;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	mem[0x0100] = 0xd9;
-	mem[0x0101] = 0xc0;         /* FLD ST(0): unmasked empty-stack fault */
+	mem[0x0101] = 0xc0; /* FLD ST(0): unmasked empty-stack fault */
 	mem[0x16 * 4 + 0] = 0x00;
-	mem[0x16 * 4 + 1] = 0x04;  /* Distinguish an illegal direct 16H route. */
+	mem[0x16 * 4 + 1] = 0x04; /* Distinguish an illegal direct 16H route. */
 	mem[0x46 * 4 + 0] = 0x00;
 	mem[0x46 * 4 + 1] = 0x03;
 	CPU_IP = 0x0100;
@@ -3972,15 +4135,14 @@ static int test_8087_pic_input_modes(void) {
 	}
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0300) ||
-	    !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "PIC2 base 40H did not produce vector 46H");
 		goto cleanup;
 	}
 	/* Source clear is separate from PIC acknowledgement, even after the
 	 * vector has been rebased. */
 	mem[0x0300] = 0xdb;
-	mem[0x0301] = 0xe2;         /* FCLEX */
+	mem[0x0301] = 0xe2; /* FCLEX */
 	upd9002_core_step();
 	if (upd8087_interrupt_pending(&upd8087) || !(pic.pi[1].isr & PIC_NDP) ||
 	    !(pic.pi[0].isr & PIC_SLAVE)) {
@@ -4007,7 +4169,7 @@ static int test_8087_pic_input_modes(void) {
 	mem[0x16 * 4 + 0] = 0x00;
 	mem[0x16 * 4 + 1] = 0x03;
 	CPU_IP = 0x0300;
-	iocore_out8(0x0184, 0x19);   /* ICW1 + LTIM + ICW4 */
+	iocore_out8(0x0184, 0x19); /* ICW1 + LTIM + ICW4 */
 	iocore_out8(0x0186, 0x10);
 	iocore_out8(0x0186, 0x07);
 	iocore_out8(0x0186, 0x09);
@@ -4015,8 +4177,7 @@ static int test_8087_pic_input_modes(void) {
 	pic_setirq_level(IRQ_NDP, TRUE);
 	CPU_FLAG |= I_FLAG;
 	pic_irq();
-	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "level-triggered NDP input did not vector");
 		goto cleanup;
 	}
@@ -4029,8 +4190,7 @@ static int test_8087_pic_input_modes(void) {
 	CPU_FLAG |= I_FLAG;
 	CPU_IP = 0x0300;
 	pic_irq();
-	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) ||
-	    !(pic.pi[0].isr & PIC_SLAVE)) {
+	if ((CPU_IP != 0x0300) || !(pic.pi[1].isr & PIC_NDP) || !(pic.pi[0].isr & PIC_SLAVE)) {
 		result = fail("8087 PIC input modes", "held level was not redelivered by PIC arbitration");
 		goto cleanup;
 	}
@@ -4938,11 +5098,10 @@ static int test_statsave(void) {
 	}
 	upd8087.service_remainder = 1234567;
 	upd8087.status |= UPD8087_STATUS_IE;
-	upd8087_set_control(&upd8087,
-	                   (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
+	upd8087_set_control(&upd8087, (uint16_t)(upd8087.control & (uint16_t)~UPD8087_STATUS_IE));
 	if (!upd8087.busy || !upd8087.pending_interrupt ||
 	    (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
-	    (UPD8087_STATUS_IR | UPD8087_STATUS_B)) {
+	        (UPD8087_STATUS_IR | UPD8087_STATUS_B)) {
 		pccore_term();
 		soundmng_deinitialize();
 		return fail("8087 statsave", "pending exception was not armed");
@@ -5091,13 +5250,12 @@ static int test_statsave(void) {
 		np2cfg.upd8087_clock_hz = 5000000U;
 		ret = statsave_load(path1);
 	}
-	if ((ret == STATFLAG_SUCCESS) &&
-	    (!upd8087.enabled || upd8087.clock_hz != expected_8087_clock ||
-	     upd8087.service_remainder != expected_8087_remainder ||
-	     !upd8087.busy || !upd8087.pending_interrupt ||
-	     (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
-	     (UPD8087_STATUS_IR | UPD8087_STATUS_B) ||
-	     !(pic.pi[1].irr & PIC_NDP))) {
+	if ((ret == STATFLAG_SUCCESS) && (!upd8087.enabled || upd8087.clock_hz != expected_8087_clock ||
+	                                  upd8087.service_remainder != expected_8087_remainder ||
+	                                  !upd8087.busy || !upd8087.pending_interrupt ||
+	                                  (upd8087.status & (UPD8087_STATUS_IR | UPD8087_STATUS_B)) !=
+	                                      (UPD8087_STATUS_IR | UPD8087_STATUS_B) ||
+	                                  !(pic.pi[1].irr & PIC_NDP))) {
 		ret = STATFLAG_FAILURE;
 	}
 #if defined(VAEG_UPD9002_M46_TESTING)
@@ -5239,6 +5397,8 @@ static void v1v2_state_set_nondefault(void) {
 	iocore_out8(0x034, 0x41);
 	iocore_out8(0x035, 0x95);
 	iocore_out8(0x032, iocore_inp8(0x032) | 0x40);
+	/* GVAM transitions reset the plane; explicitly select the state fixture. */
+	iocore_out8(0x05d, 0x00);
 	for (i = 0; i < 8; i++) {
 		iocore_out8(0xffe0 + i, ranges[i]);
 	}
@@ -5253,6 +5413,46 @@ static BOOL v1v2_state_is_nondefault(void) {
 	       iocore_inp8(0x034) == 0x41 && iocore_inp8(0x035) == 0x95 &&
 	       (iocore_inp8(0x032) & 0x40) && !memcmp(upd9002_iotrap.ranges, ranges, sizeof(ranges)) &&
 	       upd9002_iotrap.control == 0x13;
+}
+
+static int test_gvam_transition(void) {
+	const UINT8 saved_mode = memoryva_88_mode;
+	const UINT8 saved_plane = memoryva_88_plane;
+	const UINT8 saved_gvam = memoryva_88_alu.gvam;
+	const REG8 saved_port = iocore_inp8(0x032);
+	const char *problem = NULL;
+	UINT native;
+	UINT old;
+	UINT next;
+	UINT plane;
+
+	/* Exercise the real port handler: both edges, both same-value writes,
+	 * every independent selection, and unchanged native-mode behavior. */
+	for (native = 0; native < 2; native++) {
+		memoryva_88_mode = native ? 0 : 1;
+		for (old = 0; old < 2; old++) {
+			for (next = 0; next < 2; next++) {
+				for (plane = 0; plane < 4; plane++) {
+					const UINT expected = (!native && old != next) ? 3 : plane;
+					memoryva_88_alu.gvam = (UINT8)old;
+					iocore_out8(0x05c + plane, 0);
+					iocore_out8(0x032, (saved_port & ~0x40) | (next << 6));
+					if (memoryva_88_plane != expected || memoryva_88_alu.gvam != next) {
+						problem = "GVAM transition/same-write/native selection mismatch";
+					}
+				}
+			}
+		}
+	}
+	iocore_out8(0x032, saved_port);
+	memoryva_88_mode = saved_mode;
+	memoryva_88_plane = saved_plane;
+	memoryva_88_alu.gvam = saved_gvam;
+	if (problem != NULL) {
+		return fail("GVAM transitions", problem);
+	}
+	fprintf(stderr, "selftest: GVAM transitions 32 cases ok\n");
+	return SUCCESS;
 }
 
 static BOOL v1v2_state_is_default(void) {
@@ -5373,6 +5573,39 @@ static int test_pic8214_mode(void) {
 		problem = "reset state is not idle 8214 mode";
 	}
 	pic8214_test_icu_init();
+	/* All E6h transitions: only newly permitted source latches clear;
+	 * unrelated levels, same-value writes and already offered vectors stay. */
+	if (problem == NULL) {
+		UINT old;
+		UINT next;
+		UINT pending;
+		for (pending = 0; pending < 4; pending++) {
+			for (old = 0; old < 8; old++) {
+				for (next = 0; next < 8; next++) {
+					REG8 expected = 0xff;
+					UINT level;
+					pic8214.mask = (UINT8)old;
+					pic8214.irr = 0xff;
+					pic8214.pending = pending < 3 ? (UINT8)pending : PIC8214_NONE;
+					for (level = 0; level < 3; level++) {
+						const UINT bit = 1U << (2 - level);
+						if ((next & ~old & bit) && pending != level) {
+							expected &= (REG8) ~(1U << level);
+						}
+					}
+					iocore_out8(0xe6, (REG8)next);
+					if (pic8214.irr != expected || pic8214.mask != next ||
+					    pic8214.pending != (pending < 3 ? pending : PIC8214_NONE)) {
+						problem = "E6h transition cleared wrong request or pending vector";
+					}
+				}
+			}
+		}
+		/* Return to the ordinary production-path interrupt fixture. */
+		pic8214.irr = 0;
+		pic8214.pending = PIC8214_NONE;
+		iocore_out8(0xe6, 0);
+	}
 	/* E6h masks levels 0-2 at the request input. */
 	if (problem == NULL) {
 		pic_setirq(0x02);
@@ -6377,7 +6610,7 @@ static int test_machine_status(void) {
 			goto done;
 		}
 		if (i == 0 && (status.cpu_hz != 1996800 || status.base_hz != 3993600 ||
-		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | 60.0FPS"))) {
+		               strcmp(text, "PC-88VA2 | V2S | CPU 2MHz | SGP 8MHz | CRT 15kHz | 60.0FPS"))) {
 			problem = "nominal clock or short English status";
 			goto done;
 		}
@@ -6506,8 +6739,8 @@ static int test_front_panel(void) {
 	UINT32 now;
 
 	np2oscfg.front_panel = FRONTPANEL_SIMPLE;
-	if ((frontpanel_height(640) != 14) || (frontpanel_height(1280) != 28)) {
-		problem = "lamp bar is not 14 rows per 640 dots";
+	if ((frontpanel_height(640) != 26) || (frontpanel_height(1280) != 52)) {
+		problem = "lamp bar is not 26 rows (two lamp rows) per 640 dots";
 	}
 	np2oscfg.front_panel = FRONTPANEL_OFF;
 	if ((problem == NULL) && (frontpanel_height(640) != 0)) {
@@ -6519,9 +6752,9 @@ static int test_front_panel(void) {
 	input.guest_width = 640;
 	input.guest_height = 400;
 	input.drawable_width = 640;
-	input.drawable_height = 22 + 400 + 14;
+	input.drawable_height = 22 + 400 + frontpanel_height(640);
 	input.menu_inset = 22;
-	input.bottom_inset = 14;
+	input.bottom_inset = frontpanel_height(640);
 	input.scaling = VAEG_SCALING_FIT;
 	if ((problem == NULL) && ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
 	                          (viewport.y != 22) || (viewport.height != 400))) {
@@ -6546,6 +6779,14 @@ static int test_front_panel(void) {
 	if ((problem == NULL) && (!frontpanel_drive_lit(0, now) || frontpanel_drive_lit(1, now) ||
 	                          frontpanel_drive_lit(0, now + 1000))) {
 		problem = "access lamp timing";
+	}
+	/* M146: SASI1/SASI2 follow sxsi drives 0x00/0x01; SCSI (0x20) has none */
+	frontpanel_hdd_access(0x00);
+	frontpanel_hdd_access(0x20);
+	now = SDL_GetTicks();
+	if ((problem == NULL) && (!frontpanel_sasi_lit(0, now) || frontpanel_sasi_lit(0, now + 1000) ||
+	                          frontpanel_sasi_lit(2, now))) {
+		problem = "SASI lamp timing";
 	}
 	if ((problem == NULL) &&
 	    (frontpanel_mode_lit(0) || !frontpanel_mode_lit(1) || frontpanel_mode_lit(2))) {
@@ -6617,6 +6858,13 @@ static int test_front_panel(void) {
 			frontpanel_fdd_access(0);
 			if (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
 			                                  sizeof(problem_text)) != SUCCESS) {
+				problem = problem_text;
+			}
+			/* M146: SASI2 accessed: lit; SASI1 follows its own access */
+			frontpanel_hdd_access(0x01);
+			if ((problem == NULL) &&
+			    (scrnmng_simple_panel_selftest(widths[i], NULL, problem_text,
+			                                   sizeof(problem_text)) != SUCCESS)) {
 				problem = problem_text;
 			}
 		}
@@ -6862,12 +7110,18 @@ static int test_tsp_sync_reverse(void) {
 	const BOOL saved_pc8801 = memoryva_pc8801;
 	const BOOL saved_pc8001 = memoryva_pc8001;
 	const char *problem = NULL;
+	BYTE saved_ank8_blank[8];
 	UINT i;
 
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	/* The original PC-8001 at the 24 kHz CRT shows the 8x8 ANK glyph (the
+	 * M144a screen mode table); keep its code 00h glyph blank, as in a real
+	 * font ROM, whatever an earlier test or the romless fallback left. */
+	CopyMemory(saved_ank8_blank, fontmem + 0x41000, sizeof(saved_ank8_blank));
+	ZeroMemory(fontmem + 0x41000, sizeof(saved_ank8_blank));
 	/* Native (V3) text: a blank cell is the background, or the foreground
 	 * with RV. */
 	memoryva_88_mode = 0;
@@ -6902,6 +7156,7 @@ static int test_tsp_sync_reverse(void) {
 	memoryva_pc8801 = saved_pc8801;
 	memoryva_pc8001 = saved_pc8001;
 	ZeroMemory(textmem, 0x8000);
+	CopyMemory(fontmem + 0x41000, saved_ank8_blank, sizeof(saved_ank8_blank));
 	pccore_term();
 	soundmng_deinitialize();
 	if (problem != NULL) {
@@ -6961,7 +7216,8 @@ static int test_tsp_text_hide(void) {
 		BYTE colour; /* normal cell colour for monochrome graphics */
 		const char *problem;
 	} cases[] = {
-	    {1, FALSE, 0x09, 15, 15, "the VA did not keep backgrounds and colours with monochrome graphics"},
+	    {1, FALSE, 0x09, 15, 15,
+	     "the VA did not keep backgrounds and colours with monochrome graphics"},
 	    {1, FALSE, 0x19, 15, 15, "the VA lost backgrounds with colour graphics"},
 	    {1, TRUE, 0x09, 0, 15, "a PC-8801 model kept backgrounds or lost colours"},
 	    {1, TRUE, 0x19, 0, 0, "a PC-8801 model kept hidden text with colour graphics"},
@@ -7756,9 +8012,45 @@ static int test_extra_machine(void) {
 
 /* M114: a PC-8001 model runs in N mode: its 24 KiB N-BASIC with the
  * 6000h-7FFFh socket reading FFh, the 8x8 characters from font.rom, no FDD
- * unit without disk.rom, a 15 kHz monitor, and port 31h with its PC-8001mkII
- * meaning (N-BASIC and 200 lines kept, bit 1 all-RAM and bit 3 graphics
- * passed on). Synthetic data only. */
+ * unit without disk.rom, the monitor setting in charge of the CRT rate (no
+ * 15 kHz forcing; 24 kHz is an emulation-only presentation), and port 31h
+ * with its PC-8001mkII meaning (N-BASIC and 200 lines kept, bit 1 all-RAM
+ * and bit 3 graphics passed on). Synthetic data only. */
+/* M147: the PC-8801's 40/80-column display follows port 30h bit 0 with
+ * the CRTC kept at 80 columns (N88-BASIC WIDTH 40 writes 22h, the boot 23h),
+ * as on the PC-8001mkII/SR. */
+static int test_pc8801_width40(void) {
+	const BOOL saved_pc8801 = memoryva_pc8801;
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const UINT8 saved_mode = memoryva_88_mode;
+	const char *problem = NULL;
+
+	memoryva_pc8801 = TRUE;
+	memoryva_pc8001 = FALSE;
+	memoryva_88_mode = 1;
+	n80_crtc_reset();
+	if ((upd3301_columns(&n80_crtc) < 80) || !n80_crtc.width80) {
+		problem = "reset is not the 80-column display";
+	}
+	n80_crtc_notify_port30(0x22);
+	if ((problem == NULL) && (n80_crtc.width80 || upd3301_columns(&n80_crtc) < 80)) {
+		problem = "port 30h 22h did not select 40 columns over the 80-column CRTC";
+	}
+	n80_crtc_notify_port30(0x23);
+	if ((problem == NULL) && !n80_crtc.width80) {
+		problem = "port 30h 23h did not return to 80 columns";
+	}
+	memoryva_pc8801 = saved_pc8801;
+	memoryva_pc8001 = saved_pc8001;
+	memoryva_88_mode = saved_mode;
+	n80_crtc_reset();
+	if (problem != NULL) {
+		return (fail("PC-8801 WIDTH 40", problem));
+	}
+	fprintf(stderr, "selftest: PC-8801 WIDTH 40 ok\n");
+	return (SUCCESS);
+}
+
 static int test_pc8001_machine(void) {
 	static BYTE expect[0x6000];
 	char root[MAX_PATH];
@@ -7796,7 +8088,13 @@ static int test_pc8001_machine(void) {
 	if (problem == NULL) {
 		milstr_ncpy(np2cfg.extra_machine, "PC-8001", sizeof(np2cfg.extra_machine));
 		np2cfg.boot_mode = BOOTMODE_V1V2;
+		/* A 24 kHz monitor setting must survive the machine hook. */
+		videova.crtmode = 1;
 		romva_initialize();
+		if (videova.crtmode != 1) {
+			problem = "the monitor setting keeps the 24 kHz CRT";
+		}
+		videova.crtmode = 0;
 		selftest_fill_rom(expect, 0x6000, 0x31, NULL);
 		if (!memoryva_n80_exist || memcmp(memoryva_n80, expect, 0x6000) ||
 		    (memoryva_n80[0x6000] != 0xff) || (memoryva_n80[0x7fff] != 0xff)) {
@@ -7806,9 +8104,12 @@ static int test_pc8001_machine(void) {
 		if ((problem == NULL) && memcmp(fontmem + 0x41000, expect, 0x800)) {
 			problem = "8x8 characters from font.rom";
 		}
-		if ((problem == NULL) && (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) ||
-		                          (videova.crtmode != 0) || !subsystemmxcfg.absent)) {
-			problem = "N mode, 15 kHz and no FDD unit";
+		/* The M144a compose model removed the 15 kHz crtmode forcing: the
+		 * monitor setting (the DIP switch and Monitor15kHz) stays in
+		 * charge of the CRT rate for the PC-8001 family too. */
+		if ((problem == NULL) &&
+		    (!memoryva_pc8001 || (np2cfg.boot_mode != BOOTMODE_N) || !subsystemmxcfg.absent)) {
+			problem = "N mode and no FDD unit";
 		}
 	}
 	if (problem == NULL) {
@@ -7820,6 +8121,40 @@ static int test_pc8001_machine(void) {
 		if ((problem == NULL) && (memoryva_88_port31 != 0x0f)) {
 			problem = "port 31h passes all-RAM and graphics bits";
 		}
+	}
+	if (problem == NULL) {
+		/* M147: a full machine reset keeps the VA machine timeline (sound,
+		 * timers, memory waits and the FDD CPU), and runs the CPU at 4 MHz
+		 * through the CPU clock: the default x2 (the 8 MHz preset) maps to
+		 * x1, a leftover S selection does not halve it, and an explicit
+		 * higher multiple stays. */
+		const UINT8 saved_multiple = np2cfg.multiple;
+		const UINT8 saved_standard = np2cfg.v1v2_standard;
+
+		np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+		np2cfg.v1v2_standard = 1;
+		pccore_reset();
+		if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+		    (subsystem_clock_multiple() != pccore.multiple)) {
+			problem = "the PC-8001 family keeps the VA machine clock and FDD CPU";
+		} else if ((pccore_cpu_multiple() != 1) ||
+		           (pccore_compat_cpu_clock() != pccore.baseclock)) {
+			problem = "the PC-8001 family runs its CPU at 4 MHz";
+		}
+		np2cfg.multiple = 4;
+		pccore_clockrestore();
+		if ((problem == NULL) && (pccore_cpu_multiple() != 4)) {
+			problem = "an explicit higher CPU multiple is kept";
+		}
+		np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+		np2cfg.v1v2_standard = saved_standard;
+		/* back to the VA: x2 again, not a stale PC-8001 x1 */
+		milstr_ncpy(np2cfg.extra_machine, "", sizeof(np2cfg.extra_machine));
+		pccore_reset();
+		if ((problem == NULL) && (memoryva_pc8001 || (pccore_cpu_multiple() != 2))) {
+			problem = "the VA after a PC-8001 session runs at its default x2";
+		}
+		np2cfg.multiple = saved_multiple;
 	}
 	selftest_delete_rom(dir, "n80.rom");
 	selftest_delete_rom(dir, "font.rom");
@@ -7849,10 +8184,1666 @@ static int test_pc8001_machine(void) {
 	return (SUCCESS);
 }
 
+/* M144a: the independent uPD3301 owns the VRTC raise on the 8801/8001
+ * family. Synthetic clock/IRQ contract; not a guest firmware qualification. */
+static int test_n80_crtc_irq(void) {
+	/* One device frame = 18050us at 3993600Hz = 72083 device ticks;
+	 * pccore.realclock is baseclock x2, so one frame consumes 144166
+	 * machine clocks. */
+	const SINT32 frame_machine_clocks = 144166;
+	const BOOL saved_88 = memoryva_88_mode, saved_pc8001 = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const UINT16 saved_flag = CPU_FLAG;
+	const BYTE saved_compat = CPU_COMPAT_MODE;
+	const _PIC8214 saved_8214 = pic8214;
+	const REG8 saved_irr = pic.pi[0].irr, saved_isr = pic.pi[0].isr;
+	const char *problem = NULL;
+	pccore_init();
+	pccore_reset();
+	/* VA control: the display event owns VRTC, the device is inert. */
+	memoryva_88_mode = FALSE;
+	memoryva_pc8001 = TRUE;
+	memoryn80.model = 1;
+	n80_crtc_reset();
+	n80_crtc_advance_machine(frame_machine_clocks);
+	if (pic8214.irr || pic8214.pending != PIC8214_NONE || n80_crtc.interrupt_request) {
+		problem = "VA advance raised the independent device";
+	}
+	/* Active mkII: E6h enables VRTC; one frame raises the request. */
+	memoryva_88_mode = TRUE;
+	n80_crtc_reset();
+	pic8214.irr = 0;
+	pic8214.pending = PIC8214_NONE;
+	iocore_out8(0xe6, 0x02);
+	if (!problem) {
+		/* A half frame must not raise; the boundary raises exactly once. */
+		n80_crtc_advance_machine(frame_machine_clocks / 2);
+		if (pic8214.irr || n80_crtc.interrupt_request)
+			problem = "half frame raised VRTC";
+	}
+	if (!problem) {
+		n80_crtc_advance_machine(frame_machine_clocks - frame_machine_clocks / 2);
+		if (!(pic8214.irr & (1 << PIC8214_VRTC)) || !(n80_crtc.interrupt_request & 1))
+			problem = "frame boundary did not raise VRTC";
+	}
+	/* The compat acknowledge returns vector 2 and clears the device request.
+	 * pic_irq() arbitrates like the per-slice entry does (EI required). */
+	if (!problem) {
+		/* A programmed ICU in 8214 mode and the compatible-CPU mode, as the
+		 * per-slice pic_irq() arbitration sees them. */
+		CPU_FLAG |= I_FLAG;
+		CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+		pic8214.inte = 1;
+		pic8214.status = 0x08;
+		pic_irq();
+		if (pic8214.pending != PIC8214_VRTC)
+			problem = "offer not pending for acknowledge";
+	}
+	if (!problem) {
+		const REG8 vect = pic8214_acknowledge_compat();
+		if (vect != 0x02 || (n80_crtc.interrupt_request & 1))
+			problem = "acknowledge vector or request clear";
+	}
+	/* An empty acknowledge returns the idle bus without touching the device. */
+	if (!problem) {
+		pic8214.pending = PIC8214_NONE;
+		if (pic8214_acknowledge_compat() != 0xff)
+			problem = "idle acknowledge";
+	}
+	/* E6h mask: requests are dropped while prohibited. */
+	if (!problem) {
+		pic8214.irr = 0;
+		iocore_out8(0xe6, 0x00);
+		n80_crtc_reset();
+		n80_crtc_advance_machine(frame_machine_clocks);
+		if (pic8214.irr & (1 << PIC8214_VRTC))
+			problem = "masked VRTC raise";
+	}
+	/* Device command withdrawal: RESET after a raised request withdraws it. */
+	if (!problem) {
+		iocore_out8(0xe6, 0x02);
+		n80_crtc_reset();
+		pic8214.irr = 0;
+		n80_crtc_advance_machine(frame_machine_clocks);
+		if (!(pic8214.irr & (1 << PIC8214_VRTC)))
+			problem = "withdraw fixture";
+		iocore_out8(0x51, 0x00);
+		if ((pic8214.irr & (1 << PIC8214_VRTC)) || (n80_crtc.interrupt_request & 1) ||
+		    (pic.pi[0].irr & PIC_SLAVE))
+			problem = "RESET did not withdraw VRTC";
+	}
+	/* Command 0xa0 (RESET INTERRUPT) withdraws too. */
+	if (!problem) {
+		n80_crtc_reset();
+		pic8214.irr = 0;
+		n80_crtc_advance_machine(frame_machine_clocks);
+		iocore_out8(0x51, 0xa0);
+		if ((pic8214.irr & (1 << PIC8214_VRTC)) || (n80_crtc.interrupt_request & 1))
+			problem = "RESET INTERRUPT did not withdraw VRTC";
+	}
+	/* The traced selftest compares the canonical CPU trace: this test steps
+	 * no CPU, so every global it touches must be restored exactly. */
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_pc8001;
+	memoryn80 = saved_bank;
+	CPU_FLAG = saved_flag;
+	CPU_COMPAT_MODE = saved_compat;
+	pic8214 = saved_8214;
+	pic.pi[0].irr = saved_irr;
+	pic.pi[0].isr = saved_isr;
+	n80_crtc_reset();
+	if (problem != NULL) {
+		return (fail("N80 CRTC IRQ", problem));
+	}
+	fprintf(stderr, "selftest: N80 CRTC IRQ ok\n");
+	return (SUCCESS);
+}
+
+/* M144a: synthetic production ROM/I/O/banking and real SAV-file boundary.
+ * This is not yet a guest-executed SR startup/display qualification. */
+static int test_n80_fm_mask(void) {
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const BYTE saved_mode = memoryva_88_mode;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const char *problem = NULL;
+	unsigned model, active, family, legacy, value, controller, timer, cases = 0;
+	_NEVENTITEM item;
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	for (model = 0; model < 3 && !problem; model++)
+		for (active = 0; active < 2 && !problem; active++)
+			for (family = 0; family < 2 && !problem; family++)
+				for (legacy = 0; legacy < 2 && !problem; legacy++)
+					for (value = 0; value < 256 && !problem; value++) {
+						const BYTE expected = model == 2 && active && family
+						                          ? ((value & 2) ? 0x80 : 0)
+						                          : legacy * 0x80;
+						memoryn80.model = model;
+						memoryn80.port33 = value;
+						memoryva_88_mode = active;
+						memoryva_pc8001 = family;
+						fmboardva.sintm = legacy * 0x80;
+						if (fmboard_getintmask() != expected)
+							problem = "M144A_N80_FM_MASK_SELECTION";
+						cases++;
+					}
+	for (controller = 0; controller < 2 && !problem; controller++) {
+		for (timer = 0; timer < 2 && !problem; timer++) {
+			pccore_reset();
+			memoryva_pc8001 = TRUE;
+			memoryva_88_mode = TRUE;
+			memoryn80.model = 2;
+			memoryn80.port33 = 0;
+			pic8214.mode8259 = controller;
+			pic8214.inte = 0; /* inspect queued requests, not CPU delivery */
+			fmtimer_reset(0xc0);
+			fmtimer_setreg(0x27, timer ? 8 : 4);
+			fmboard_setintmask(0);
+			iocore_out8(0x33, 2);
+			iocore_out8(0x33, 0);
+			if (pic8214.irr || pic.pi[1].irr)
+				problem = "M144A_N80_FM_EMPTY_UNMASK";
+			iocore_out8(0x33, 2);
+			ZeroMemory(&item, sizeof(item));
+			item.flag = NEVENT_SETEVENT;
+			if (timer)
+				fmport_b(&item);
+			else
+				fmport_a(&item);
+			if (!problem && (fmtimer.status != (timer ? 2 : 1) || pic8214.irr || pic.pi[1].irr))
+				problem = "M144A_N80_FM_MASKED_TIMER";
+			if (!problem) {
+				iocore_out8(0x33, 0);
+				if ((controller ? pic.pi[1].irr : pic8214.irr) != 0x10 ||
+				    fmtimer.status != (timer ? 2 : 1))
+					problem = "M144A_N80_FM_UNMASK_PENDING";
+			}
+			if (!problem) {
+				fmboard_setintmask(0x80); /* VA's saved mask must not own SR's gate. */
+				if (fmboard_getintmask() || (controller ? pic.pi[1].irr : pic8214.irr) != 0x10)
+					problem = "M144A_N80_FM_MASK_OWNER";
+			}
+			if (!problem) {
+				pic8214.irr = pic.pi[1].irr = 0;
+				iocore_out8(0x33, 1); /* unrelated bit: do not re-offer a consumed request */
+				if (pic8214.irr || pic.pi[1].irr)
+					problem = "M144A_N80_FM_UNCHANGED_MASK";
+				if (timer)
+					fmport_b(&item);
+				else
+					fmport_a(&item);
+				if (!controller)
+					pic8214.pending = PIC8214_SOUND;
+			}
+			if (!problem) {
+				iocore_out8(0x33, 2);
+				/* Retain the existing PIC semantics: 8214 requests already
+				 * latched are not revoked by the legacy reset-IRQ helper. */
+				if (fmboard_getintmask() != 0x80 || pic.pi[1].irr ||
+				    pic8214.irr != (controller ? 0 : 0x10) ||
+				    (!controller && pic8214.pending != PIC8214_SOUND))
+					problem = "M144A_N80_FM_REMASK";
+			}
+		}
+	}
+	if (!problem) {
+		memoryva_pc8001 = FALSE;
+		memoryva_88_mode = FALSE;
+		pic8214.mode8259 = TRUE;
+		fmtimer.irq = 0x0c;
+		fmtimer.status = 1;
+		fmboardva.sintm = 0;
+		pic.pi[1].irr = 0x10;
+		fmboard_setintmask(0x80);
+		if (fmboard_getintmask() != 0x80 || pic.pi[1].irr)
+			problem = "M144A_N80_FM_LEGACY_MASK";
+		fmboard_setintmask(0);
+		if (!problem && (fmboard_getintmask() || pic.pi[1].irr != 0x10))
+			problem = "M144A_N80_FM_LEGACY_UNMASK";
+		pic.pi[1].irr = 0;
+		fmboard_setintmask(1); /* reserved bits still do not change the VA gate */
+		if (!problem && (fmboard_getintmask() || pic.pi[1].irr))
+			problem = "M144A_N80_FM_LEGACY_UNCHANGED";
+	}
+	nevent_reset(NEVENT_FMTIMERA);
+	nevent_reset(NEVENT_FMTIMERB);
+	memoryva_pc8001 = saved_pc8001;
+	memoryva_88_mode = saved_mode;
+	memoryn80 = saved_bank;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem)
+		return fail("N80 FM mask", problem);
+	fprintf(stderr, "selftest: N80 FM mask %u selections and 4 timer/controller cases ok\n", cases);
+	return SUCCESS;
+}
+
+static int test_pcg_phase_codec(void) {
+	BYTE saved[PCG88_PHASE_STATE_SIZE], data[PCG88_PHASE_STATE_SIZE];
+	BYTE actual[PCG88_PHASE_STATE_SIZE];
+	const char *problem = NULL;
+	UINT channel, sign, exponent, fraction, byte, cases = 0;
+	if (!pcg88_phase_state_save(saved, sizeof(saved)))
+		return fail("PCG phase codec", "M144A_PCG_PHASE_CODEC_SEED");
+	for (channel = 0; channel < 3 && !problem; channel++)
+		for (sign = 0; sign < 2 && !problem; sign++)
+			for (exponent = 0; exponent < 2048 && !problem; exponent++)
+				for (fraction = 0; fraction < 2 && !problem; fraction++) {
+					UINT64 bits = ((UINT64)sign << 63) | ((UINT64)exponent << 52);
+					if (fraction)
+						bits |= ((UINT64)1 << 52) - 1;
+					ZeroMemory(data, sizeof(data));
+					for (byte = 0; byte < 8; byte++)
+						data[channel * 8 + byte] = (BYTE)(bits >> (byte * 8));
+					if (!!pcg88_phase_state_valid(data, sizeof(data)) != (!sign && exponent < 1023))
+						problem = "M144A_PCG_PHASE_CODEC_DOMAIN";
+					cases++;
+				}
+	ZeroMemory(data, sizeof(data));
+	/* Independently specified LE encodings: 0.5, 0.25, 0.75. */
+	data[6] = 0xe0;
+	data[7] = 0x3f;
+	data[14] = 0xd0;
+	data[15] = 0x3f;
+	data[22] = 0xe8;
+	data[23] = 0x3f;
+	if (!problem &&
+	    (!pcg88_phase_state_load(data, sizeof(data)) ||
+	     !pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data))))
+		problem = "M144A_PCG_PHASE_CODEC_ENDIAN";
+	if (!problem) {
+		BYTE candidate[PCG88_PHASE_STATE_SIZE] = {0};
+		if (!pcg88_phase_state_valid(candidate, sizeof(candidate)))
+			problem = "M144A_PCG_PHASE_CODEC_SEED";
+		candidate[23] = 0x80; /* one mutation: -0 in the last channel */
+		if (!problem &&
+		    (pcg88_phase_state_load(candidate, sizeof(candidate)) ||
+		     !pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data))))
+			problem = "M144A_PCG_PHASE_CODEC_ATOMIC";
+		for (byte = 0; byte < 49 && !problem; byte++)
+			if (byte != sizeof(data) &&
+			    (pcg88_phase_state_valid(data, byte) || pcg88_phase_state_load(data, byte) ||
+			     pcg88_phase_state_save(actual, byte)))
+				problem = "M144A_PCG_PHASE_CODEC_LENGTH";
+		if (pcg88_phase_state_valid(NULL, sizeof(data)) ||
+		    pcg88_phase_state_load(NULL, sizeof(data)) ||
+		    pcg88_phase_state_save(NULL, sizeof(data)))
+			problem = "M144A_PCG_PHASE_CODEC_NULL";
+	}
+	if (!problem) {
+		const _PCG88 saved_controller = pcg88;
+		const UINT32 saved_rate = soundcfg.rate;
+		const UINT8 saved_enable = np2cfg.pcg_enable;
+		const BOOL saved_mode = memoryva_88_mode;
+		SINT32 pcm[2] = {0};
+		np2cfg.pcg_enable = 1;
+		memoryva_88_mode = TRUE;
+		soundcfg.rate = 200;
+		pcg88_setvol(64);
+		for (channel = 0; channel < 3; channel++) {
+			pcg88.sound_on[channel] = 1;
+			pcg88.mode[channel] = 3;
+			pcg88.bcd[channel] = 0;
+			pcg88.counter[channel] = 39936;
+		}
+		/* 3,993,600 / 39,936 / 200 = exactly half a cycle per sample.
+		 * This checks numeric meaning, not just encode/decode symmetry. */
+		pcg88_getpcm(NULL, pcm, 1);
+		ZeroMemory(data, 8);
+		data[14] = 0xe8;
+		data[22] = 0xd0;
+		if (!pcg88_phase_state_save(actual, sizeof(actual)) || memcmp(data, actual, sizeof(data)))
+			problem = "M144A_PCG_PHASE_CODEC_NUMERIC";
+		pcg88 = saved_controller;
+		soundcfg.rate = saved_rate;
+		np2cfg.pcg_enable = saved_enable;
+		memoryva_88_mode = saved_mode;
+		pcg88_setvol(np2cfg.pcg_vol);
+	}
+	pcg88_phase_state_load(saved, sizeof(saved));
+	if (problem)
+		return fail("PCG phase codec", problem);
+	fprintf(stderr, "selftest: PCG phase codec %u classifications, endian and atomic guards ok\n",
+	        cases);
+	return SUCCESS;
+}
+
+static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
+	SINT32 fresh[512], continued[512], restored[512], warmup[346];
+	BYTE before_phase[PCG88_PHASE_STATE_SIZE], after_phase[PCG88_PHASE_STATE_SIZE];
+	_PCG88 before;
+	const UINT32 saved_rate = soundcfg.rate;
+	const UINT reloads[3] = {10000, 0x1234, 0};
+	const char *problem = NULL;
+	char error[256];
+	BYTE *data = NULL;
+	UINT channel, size = 0, pos, mutation;
+	pcg88_reset();
+	memoryva_88_mode = TRUE;
+	soundcfg.rate = 44100;
+	pcg88_setvol(64);
+	for (channel = 0; channel < 3; channel++) {
+		iocore_out8(0x0f, (channel << 6) | 0x36 | (channel == 1));
+		iocore_out8(0x0c + channel, reloads[channel] & 0xff);
+		iocore_out8(0x0c + channel, reloads[channel] >> 8);
+	}
+	iocore_out8(0x02, 0xc8);
+	ZeroMemory(fresh, sizeof(fresh));
+	pcg88_getpcm(NULL, fresh, 256);
+	iocore_out8(0x02, 0);
+	iocore_out8(0x02, 0xc8);
+	ZeroMemory(warmup, sizeof(warmup));
+	pcg88_getpcm(NULL, warmup, 173);
+	before = pcg88;
+	if (statsave_save(path) != STATFLAG_SUCCESS ||
+	    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS ||
+	    !pcg88_phase_state_save(before_phase, sizeof(before_phase)))
+		problem = "M144A_N80_PCG_PHASE_FIXTURE";
+	ZeroMemory(continued, sizeof(continued));
+	pcg88_getpcm(NULL, continued, 256);
+	ZeroMemory(warmup, sizeof(warmup));
+	pcg88_getpcm(NULL, warmup, 173);
+	if (!problem &&
+	    (statsave_load(path) != STATFLAG_SUCCESS || memcmp(&before, &pcg88, sizeof(before)) ||
+	     !pcg88_phase_state_save(after_phase, sizeof(after_phase)) ||
+	     memcmp(before_phase, after_phase, sizeof(before_phase))))
+		problem = "M144A_N80_PCG_PHASE_RESTORE";
+	soundcfg.rate = 44100;
+	pcg88_setvol(64);
+	ZeroMemory(restored, sizeof(restored));
+	pcg88_getpcm(NULL, restored, 256);
+	if (!problem &&
+	    (!memcmp(fresh, continued, sizeof(fresh)) || memcmp(continued, restored, sizeof(restored))))
+		problem = "M144A_N80_PCG_PHASE_PCM";
+	if (!problem && read_whole_file(path, &data, &size) != SUCCESS)
+		problem = "M144A_PCG_PHASE_SAV_FIXTURE";
+	if (!problem) {
+		const UINT16 before_ip = CPU_IP;
+		pcg88_phase_state_save(before_phase, sizeof(before_phase));
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "PCGPHASE\0\0", 10))
+				break;
+		if (pos + 16 + PCG88_PHASE_STATE_SIZE > size ||
+		    LOADINTELDWORD(data + pos + 12) != PCG88_PHASE_STATE_SIZE)
+			problem = "M144A_PCG_PHASE_SAV_FIXTURE";
+		for (mutation = 0; mutation < 8 && !problem; mutation++) {
+			const UINT offset = pos + (mutation < 6    ? 16 + (mutation / 2) * 8 + 7
+			                           : mutation == 6 ? 10
+			                                           : 12);
+			const BYTE original = data[offset];
+			if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+				problem = "M144A_PCG_PHASE_SAV_SEED";
+				break;
+			}
+			data[offset] = mutation < 6 ? (mutation & 1 ? 0x7f : 0xbf) : mutation == 6 ? 2 : 23;
+			if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+			    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+			    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_PCG_PHASE_STATE")) ||
+			    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != before_ip ||
+			    memcmp(&before, &pcg88, sizeof(before)) ||
+			    !pcg88_phase_state_save(after_phase, sizeof(after_phase)) ||
+			    memcmp(before_phase, after_phase, sizeof(before_phase)))
+				problem = "M144A_PCG_PHASE_SAV_GUARD";
+			data[offset] = original;
+		}
+	}
+	if (data)
+		_MFREE(data);
+	if (!problem && (strip_statsave_section(path, oldpath, "PCGPHASE") != SUCCESS ||
+	                 statsave_load(oldpath) != STATFLAG_SUCCESS))
+		problem = "M144A_PCG_PHASE_LEGACY_LOAD";
+	if (!problem) {
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		ZeroMemory(restored, sizeof(restored));
+		pcg88_getpcm(NULL, restored, 256);
+		if (memcmp(fresh, restored, sizeof(fresh)))
+			problem = "M144A_PCG_PHASE_LEGACY_RESET";
+	}
+	soundcfg.rate = saved_rate;
+	pcg88_setvol(np2cfg.pcg_vol);
+	return problem;
+}
+
+static const char *test_n80_startup_sav(const char *path, const char *oldpath) {
+	const UINT8 saved_request = np2cfg.n80_basic_mode;
+	const UINT8 model = memoryn80.model;
+	const char *problem = NULL;
+	char error[256];
+	UINT requested;
+	for (requested = 0; requested <= 3 && !problem; requested++) {
+		UINT value;
+		const UINT8 expected = requested == N80_BOOT_N                   ? N80_BOOT_N
+		                       : requested == N80_BOOT_N80 || model == 1 ? N80_BOOT_N80
+		                                                                 : N80_BOOT_SR;
+		const UINT8 bits = expected == N80_BOOT_N ? 2 : expected == N80_BOOT_N80 ? 3 : 1;
+		np2cfg.n80_basic_mode = requested;
+		romva_initialize();
+		memctrlva_nmode_reset();
+		memoryva_88_mode = TRUE;
+		memctrlva_nmode_compat_entry();
+		if (memoryn80_boot != expected || (iocore_inp8(0x30) & 3) != bits ||
+		    !!(memoryn80.port33 & 0x80) != (expected == N80_BOOT_SR))
+			problem = "M144A_N80_STARTUP_APPLY";
+		for (value = 0; value < 256 && !problem; value++) {
+			const BOOL valid = value == 0 || value == 1 || value == 2 || (value == 3 && model == 2);
+			if (!!memoryva_n80_boot_valid((UINT8)value) != valid)
+				problem = "M144A_N80_STARTUP_DOMAIN";
+		}
+		/* Pending settings and live ROM-bank writes must not rewrite switches. */
+		np2cfg.n80_basic_mode = expected == N80_BOOT_N ? N80_BOOT_AUTO : N80_BOOT_N;
+		if (model == 2)
+			iocore_out8(0x33, expected == N80_BOOT_SR ? 0 : 0x80);
+		if (!problem && (iocore_inp8(0x30) & 3) != bits)
+			problem = "M144A_N80_STARTUP_PENDING";
+		if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+		                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
+			problem = "M144A_N80_STARTUP_SAV_SEED";
+		memoryn80_boot = expected == N80_BOOT_N ? N80_BOOT_N80 : N80_BOOT_N;
+		if (!problem && (statsave_load(path) != STATFLAG_SUCCESS || memoryn80_boot != expected ||
+		                 (iocore_inp8(0x30) & 3) != bits))
+			problem = "M144A_N80_STARTUP_RESTORE";
+		if (!problem) {
+			BYTE *data = NULL;
+			UINT size = 0, pos;
+			const UINT16 ip = CPU_IP;
+			if (read_whole_file(path, &data, &size) != SUCCESS)
+				problem = "M144A_N80_STARTUP_SAV_SEED";
+			if (!problem) {
+				for (pos = 0x30; pos + 16 <= size;
+				     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+					if (!memcmp(data + pos, "N80BOOT\0\0\0", 10))
+						break;
+				if (pos + 17 > size || LOADINTELDWORD(data + pos + 12) != 1)
+					problem = "M144A_N80_STARTUP_SAV_SEED";
+				else {
+					data[pos + 16] = 0xff;
+					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+					    (error[strcspn(error, "\r\n")] = 0,
+					     strcmp(error, "M144A_N80_BOOT_STATE")) ||
+					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != ip ||
+					    memoryn80_boot != expected)
+						problem = "M144A_N80_STARTUP_SAV_GUARD";
+				}
+			}
+			if (data)
+				_MFREE(data);
+		}
+		if (!problem &&
+		    (strip_statsave_section(path, oldpath, "N80BOOT") != SUCCESS ||
+		     statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80_boot != N80_BOOT_AUTO ||
+		     memoryva_n80_boot_selection() != (model == 2 ? N80_BOOT_SR : N80_BOOT_N80)))
+			problem = "M144A_N80_STARTUP_LEGACY";
+	}
+	np2cfg.n80_basic_mode = saved_request;
+	romva_initialize();
+	memoryva_88_mode = TRUE;
+	return problem;
+}
+
+/* The independent display device SAV: codec round trip with an interrupted
+ * command and clock phase, malformed-section rejection and the legacy
+ * missing-section behavior. Guest firmware compatibility is not claimed. */
+static const char *test_n80_disp_sav(const char *path, const char *oldpath) {
+	static const struct {
+		UINT offset;
+		BYTE value;
+	} mutations[] = {
+	    {26, 6},    /* undefined command */
+	    {27, 5},    /* RESET parameter out of range */
+	    {28, 4},    /* interrupt request out of range */
+	    {29, 0xe8}, /* attribute bit 3 */
+	    {43, 1},    /* clock phase beyond the cycle */
+	    {46, 2},    /* DMA byte phase out of range */
+	    {47, 0x81}, /* DMA mode and controller gate disagree */
+	    {10, 2},    /* header version */
+	    {12, 7},    /* header size */
+	};
+	char error[256];
+	const char *problem = NULL;
+	BYTE *data = NULL;
+	UINT size = 0, i, pos;
+	uint64_t crossed;
+	BOOL scrn200;
+	/* Interrupted RESET (two parameters), DMA byte phase mid-address, and a
+	 * clock countdown that must survive the round trip exactly. */
+	/* Programmed directly: guest port routing is covered by the CPU-role
+	 * selftests, and traced I/O events would depend on the chain. */
+	upd3301_command(&n80_crtc, 0x00);
+	upd3301_parameter_write(&n80_crtc, 0x4e);
+	upd3301_parameter_write(&n80_crtc, 0x18);
+	pc88_text_dma_write(&n80_crtc_dma, 0x68, 0x84);
+	n80_crtc.dma_started = (uint8_t)pc88_text_dma_enabled(&n80_crtc_dma);
+	pc88_text_dma_write(&n80_crtc_dma, 0x64, 0x37);
+	if (!upd3301_advance(&n80_crtc, 1000, &crossed) || crossed) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	/* Snapshot the exact state the file is written from. */
+	const UPD3301 before = n80_crtc;
+	const PC88_TEXT_DMA dma_before = n80_crtc_dma;
+	if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+	                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	if (!problem) {
+		n80_crtc_reset();
+		if (statsave_load(path) != STATFLAG_SUCCESS || memcmp(&before, &n80_crtc, sizeof(before)) ||
+		    memcmp(&dma_before, &n80_crtc_dma, sizeof(dma_before))) {
+			problem = "M144A_N80_DISP_SAV_CONTINUATION";
+		}
+	}
+	if (!problem && read_whole_file(path, &data, &size) != SUCCESS) {
+		problem = "M144A_N80_DISP_SAV_FIXTURE";
+	}
+	if (!problem) {
+		for (pos = 0x30; pos + 16 <= size;
+		     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+			if (!memcmp(data + pos, "N80DISP\0\0\0", 10))
+				break;
+		if (pos + 16 > size || LOADINTELDWORD(data + pos + 12) != N80_DISP_STATE_SIZE) {
+			problem = "M144A_N80_DISP_SAV_FIXTURE";
+		} else {
+			for (i = 0; i < NELEMENTS(mutations) && !problem; i++) {
+				const UINT at = pos + mutations[i].offset;
+				const BYTE original = data[at];
+				const UPD3301 guard = n80_crtc;
+				data[at] = mutations[i].value;
+				if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+				    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+				    (error[strcspn(error, "\r\n")] = 0, strcmp(error, "M144A_N80_DISP_STATE")) ||
+				    statsave_load(oldpath) != STATFLAG_FAILURE ||
+				    memcmp(&guard, &n80_crtc, sizeof(guard))) {
+					problem = "M144A_N80_DISP_SAV_GUARD";
+				}
+				data[at] = original;
+			}
+		}
+	}
+	if (data)
+		_MFREE(data);
+	(void)scrn200;
+	romva_initialize();
+	memoryva_88_mode = TRUE;
+	return problem;
+}
+
+static int test_pc8001_banks(void) {
+	char root[MAX_PATH], base[MAX_PATH], dir[MAX_PATH], path[MAX_PATH], oldpath[MAX_PATH];
+	char saved_biospath[MAX_PATH], saved_machine[sizeof(np2cfg.extra_machine)];
+	const UINT8 saved_boot = np2cfg.boot_mode;
+	void (*const saved_hook)(void) = romva_machine_hook;
+	char error[256];
+	const char *problem = NULL;
+	_MEMORYN80 saved_bank;
+	_PCG88 saved_pcg;
+	const UINT8 saved_pcg_enable = np2cfg.pcg_enable;
+	const UPD9002_IOTRAP saved_pcg_trap = upd9002_iotrap;
+	unsigned model;
+	SPRINTF(root, "vaeg-selftest-%lu-n80banks", (unsigned long)getpid());
+	SPRINTF(path, "vaeg-selftest-%lu-n80banks.sav", (unsigned long)getpid());
+	SPRINTF(oldpath, "vaeg-selftest-%lu-n80legacy.sav", (unsigned long)getpid());
+	file_cpyname(base, root, sizeof(base));
+	file_setseparator(base, sizeof(base));
+	file_catname(base, "extra", sizeof(base));
+	file_dircreate(root);
+	file_dircreate(base);
+	file_cpyname(saved_biospath, np2cfg.biospath, sizeof(saved_biospath));
+	file_cpyname(np2cfg.biospath, root, sizeof(np2cfg.biospath));
+	milstr_ncpy(saved_machine, np2cfg.extra_machine, sizeof(saved_machine));
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	romva_machine_hook = extrarom_apply;
+	for (model = 1; model <= 2 && !problem; model++) {
+		const char *name = model == 1 ? "PC-8001mkII" : "PC-8001mkIISR";
+		const char *basic = model == 1 ? "n80_2.rom" : "n80_2sr.rom";
+		file_cpyname(dir, base, sizeof(dir));
+		file_setseparator(dir, sizeof(dir));
+		file_catname(dir, name, sizeof(dir));
+		file_dircreate(dir);
+		if (!selftest_put_rom(dir, basic, 0x8000, 0x61) ||
+		    !selftest_put_rom(dir, "e8.rom", 0x2000, 0x72) ||
+		    !selftest_put_rom(dir, "n80_3.rom", 0xa000, 0x83) ||
+		    !selftest_put_rom(dir, "font80sr.rom", 0x1000, 0xb2) ||
+		    !selftest_put_rom(dir, "fonthira.rom", 0x800, 0xc3) ||
+		    !selftest_put_rom(dir, "font.rom", 0x800, 0x94)) {
+			problem = "synthetic ROM creation";
+		} else {
+			milstr_ncpy(np2cfg.extra_machine, name, sizeof(np2cfg.extra_machine));
+			romva_initialize();
+			memoryva_88_mode = TRUE;
+			iocore_out8(0x31, 1);
+			if (memoryn80.model != model || sizeof(memoryn80) != 4 ||
+			    memoryn80_sr_present != (model == 2) || memoryva_n80[0] != 0x61 ||
+			    memoryn80_fourth[0] != 0x72 || upd9002_memoryread_va(0x10000) != 0x61 ||
+			    upd9002_memoryread_va(0x16000) != memoryva_n80[0x6000])
+				problem = "applied model or BASIC bank";
+			iocore_out8(0x31, 0);
+			if (!problem && (upd9002_memoryread_va(0x16000) != 0x72 ||
+			                 upd9002_memoryread_va(0x17fff) != memoryn80_fourth[0x1fff]))
+				problem = "fourth ROM bank";
+			if (model == 2) {
+				iocore_out8(0x33, 0x80);
+				iocore_out8(0x71, 1);
+				if (!problem && (upd9002_memoryread_va(0x10000) != 0x83 ||
+				                 upd9002_memoryread_va(0x16000) != memoryn80_srrom[0x6000]))
+					problem = "SR BASIC bank";
+				iocore_out8(0x71, 0);
+				if (!problem && upd9002_memoryread_va(0x16000) != memoryn80_srrom[0x8000])
+					problem = "SR IE bank";
+			}
+			if (!problem) {
+				const BYTE saved_switch = backupmem[0x1fc2];
+				const BOOL saved_present = memoryn80_sr_present;
+				const UINT8 saved_selection = memoryn80_boot;
+				unsigned value, present;
+				memoryn80_boot = N80_BOOT_AUTO;
+				for (present = 0; present < 2 && !problem; present++) {
+					memoryn80_sr_present = present;
+					for (value = 0; value < 256 && !problem; value++) {
+						const REG8 expected = (value & 0xfc) | ((model == 2 && present) ? 1 : 3);
+						backupmem[0x1fc2] = (BYTE)value;
+						if (iocore_inp8(0x30) != expected)
+							problem = "M144A_N80_BOOT_SWITCH_BITS";
+						memoryva_88_mode = FALSE;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_NATIVE";
+						memoryva_88_mode = TRUE;
+						memoryva_pc8001 = FALSE;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_OTHER";
+						memoryva_pc8001 = TRUE;
+						memoryn80.model = 0;
+						if (!problem && iocore_inp8(0x30) != value)
+							problem = "M144A_N80_BOOT_SWITCH_BASE";
+						memoryn80.model = model;
+					}
+				}
+				backupmem[0x1fc2] = saved_switch;
+				memoryn80_sr_present = saved_present;
+				memoryn80_boot = saved_selection;
+			}
+			/* Production aperture/plane/word-edge paths, not just the pure
+			 * decoder. C000h must remain ordinary RAM on these models. */
+			{
+				unsigned plane;
+				for (plane = 0; plane < 3 && !problem; plane++) {
+					iocore_out8(0x5c + plane, 0);
+					upd9002_memorywrite_va(0x18000, (REG8)(0xa0 + plane));
+					upd9002_memorywrite_va(0x1c000, (REG8)(0xb0 + plane));
+					if (grphmem[(plane << 16) + 0x4000] != 0xa0 + plane ||
+					    upd9002_memoryread_va(0x18000) != 0xa0 + plane ||
+					    upd9002_memoryread_va(0x1c000) != 0xb0 + plane)
+						problem = "N80 GVRAM lower aperture or C000h isolation";
+					upd9002_memorywrite_va_w(0x1bfff, 0x5137);
+					if (grphmem[(plane << 16) + 0x7fff] != 0x37 ||
+					    upd9002_memoryread_va_w(0x1bfff) != 0x5137 ||
+					    upd9002_memoryread_va(0x1c000) != 0x51)
+						problem = "N80 GVRAM word boundary";
+				}
+				if (model == 2 && !problem) {
+					iocore_out8(0x33, 0xc0);
+					iocore_out8(0x35, 0x80);
+					iocore_out8(0x34, 0x07);
+					upd9002_memorywrite_va(0x18001, 0x5a);
+					for (plane = 0; plane < 3; plane++)
+						if ((grphmem[(plane << 16) + 0x4001] & 0x5a) != 0x5a)
+							problem = "N80SR extended ALU aperture";
+					(void)upd9002_memoryread_va(0x18001);
+					iocore_out8(0x35, 0x90);
+					upd9002_memorywrite_va(0x18002, 0);
+					for (plane = 0; plane < 3; plane++)
+						if (grphmem[(plane << 16) + 0x4002] != memoryva_88_alu.latch[plane])
+							problem = "N80SR latched ALU copy";
+				}
+			}
+			if (!problem) {
+				/* Final compositor pixels, not a reimplementation of the decoder. */
+				iocore_out8(0x31, 0x1c);
+				iocore_out8(0x53, 0);
+				if (model == 1 && (videova.palette[0] != 0x001f || videova.palette[1] != 0x03ff ||
+				                   videova.palette[2] != 0xfc1f || videova.palette[3] != 0))
+					problem = "M144A_N80_VIDEO_AUTO_PALETTE";
+				ZeroMemory(grphmem, sizeof(grphmem));
+				grphmem[0x4000] = model == 1 ? 0xc0 : 0x80;
+				grphmem[0x16000] = 0x80;
+				iocore_out8(0x54, 0);
+				iocore_out8(0x55, 1);
+				iocore_out8(0x56, 2);
+				iocore_out8(0x57, 4);
+				iocore_out8(0x31, 0x1c);
+				iocore_out8(0x33, memoryn80.port33);
+				if (videova.palette[1] != 0x001f)
+					problem = "M144A_N80_VIDEO_PALETTE_PERSIST";
+				videova.palette[15] = 0xffff;
+				ZeroMemory(textraster, SURFACE_WIDTH);
+				textraster[0] = 15;
+				v1v2_render_to(0, 0, 0xb002);
+				if (grph0_noraster || grph0_raster[0] != (model == 1 ? 3 : 1))
+					problem = "M144A_N80_VIDEO_RASTER";
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (vabitmap[0] != 0xffff || vabitmap[1] != (model == 1 ? 0xfc00 : 0x001f))
+					problem = "M144A_N80_VIDEO_TEXT_FRONT";
+				if (model == 2) {
+					iocore_out8(0x33, 0xcc);
+					v1v2_render_to(0, 0, 0xb002);
+					scrndrawva_compose_begin();
+					scrndrawva_compose_raster();
+					if (grph0_raster[0] != 2 || vabitmap[0] != 0x03e0)
+						problem = "M144A_N80_VIDEO_PRIORITY";
+					iocore_out8(0x53, 4);
+					v1v2_render_to(0, 0, 0xb002);
+					if (grph0_raster[0] != 1)
+						problem = "M144A_N80_VIDEO_PAGE_DISABLE";
+				}
+				iocore_out8(0x52, 0x30);
+				iocore_out8(0x53, 7);
+				v1v2_render_to(0, 0, 0xb002);
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (vabitmap[0] != 0x03ff)
+					problem = "M144A_N80_VIDEO_BACKGROUND";
+			}
+			if (!problem) {
+				unsigned bit, reverse, glyph, hidden;
+				const UINT8 port31 = memoryn80.port31, port33 = memoryn80.port33;
+				unsigned code;
+				for (code = 0; code < 256; code++) {
+					iocore_out8(0x33, 0x90);
+					if (cgromva_n80sr_font_present != (model == 2) ||
+					    (model == 2 && cgromva_n80sr_font[0] != 0xb2) ||
+					    cgromva_ank8((BYTE)code) != (model == 2
+					                                     ? cgromva_n80sr_font + 0x800 + code * 8
+					                                     : fontmem + 0x41000 + code * 8))
+						problem = "M144A_N80_SR_FONT_BANK";
+					iocore_out8(0x33, 0x80);
+					if (cgromva_ank8((BYTE)code) != fontmem + 0x41000 + code * 8)
+						problem = "M144A_N80_NORMAL_FONT_BANK";
+					if (model == 2 && machine_status_mode() != VAEG_MODE_N80SR)
+						problem = "M144A_N80_SR_MODE_STATUS";
+				}
+				iocore_out8(0x31, model == 2 ? 0x0c : 8);
+				for (bit = 0; bit < 2; bit++) {
+					ZeroMemory(grphmem, sizeof(grphmem));
+					grphmem[model == 2 ? 0x26000 : 0x4000] = bit ? 0x80 : 0;
+					for (reverse = 0; reverse < 2; reverse++)
+						for (glyph = 0; glyph < 2; glyph++)
+							for (hidden = 0; hidden < 2; hidden++) {
+								const BOOL lit = hidden ? bit != 0 : ((bit || glyph) != reverse);
+								iocore_out8(0x52, 0);
+								iocore_out8(0x53, hidden);
+								textraster[0] = (glyph != reverse) ? 15 : 0;
+								textcolorraster[0] = reverse ? 0 : 15;
+								textbasecolorraster[0] = 15;
+								v1v2_render_to(0, 0, 0xb002);
+								scrndrawva_compose_begin();
+								scrndrawva_compose_raster();
+								if (grph0_raster[0] != bit || vabitmap[0] != (lit ? 0xffff : 0))
+									problem = "M144A_N80_MONO_REVERSE_COMPOSE";
+							}
+				}
+				if (model == 2 && !problem) {
+					/* Source-model consistency, not a hardware polarity oracle:
+					 * write 33h, read it with IN, and read the selected ROM.
+					 * Bits 0/5 exercise the current read mask independently. */
+					static const BYTE switch_code[] = {
+					    0x3e, 0xa3, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x20, 0xc1, 0xdb, 0x33, 0x32,
+					    0x10, 0xc1, 0x3a, 0,    0,    0x32, 0,    0xc1, 0x3e, 0x21, 0xd3, 0x33,
+					    0xdb, 0x30, 0x32, 0x21, 0xc1, 0xdb, 0x33, 0x32, 0x11, 0xc1, 0x3a, 0,
+					    0,    0x32, 1,    0xc1, 0x3e, 0x82, 0xd3, 0x33, 0xdb, 0x30, 0x32, 0x22,
+					    0xc1, 0xdb, 0x33, 0x32, 0x12, 0xc1, 0x3a, 0,    0,    0x32, 2,    0xc1};
+					unsigned step;
+					CPU_RESET();
+					memoryva_88_mode = FALSE;
+					STOREINTELWORD(mem + 0xe1 * 4, 0xc000);
+					STOREINTELWORD(mem + 0xe1 * 4 + 2, 0x1000);
+					mem[0x20100] = 0x0f;
+					mem[0x20101] = 0xff;
+					mem[0x20102] = 0xe1;
+					CopyMemory(mem + 0x1c000, switch_code, sizeof(switch_code));
+					FillMemory(mem + 0x1c100, 3, 0xee);
+					FillMemory(mem + 0x1c110, 3, 0xee);
+					FillMemory(mem + 0x1c120, 3, 0xee);
+					ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+					upd9002_iotrap.control = 3;
+					upd9002_iotrap.ranges[2] = 0xff;
+					STOREINTELWORD(mem + 0x7c * 4, 0x3000);
+					STOREINTELWORD(mem + 0x7c * 4 + 2, 0x2000);
+					STOREINTELWORD(mem + 0x7d * 4, 0x3000);
+					STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
+					CPU_CS = 0x2000;
+					CS_BASE = 0x20000;
+					CPU_DS = 0x1000;
+					DS_BASE = 0x10000;
+					CPU_SS = 0x3000;
+					SS_BASE = 0x30000;
+					CPU_IP = 0x100;
+					CPU_SP = 0x100;
+					CPU_BP = 0xd000;
+					CPU_FLAG = 0xf000;
+					CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+					upd9002_core_step();
+					memoryva_88_mode = TRUE;
+					iocore_out8(0x31, 1);
+					for (step = 0;
+					     step < 24 && !problem && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008;
+					     step++) {
+						upd9002_core_step();
+						if ((step & 7) == 7 && fmboard_getintmask() != (step == 15 ? 0 : 0x80))
+							problem = "M144A_N80_FM_GUEST_MASK";
+					}
+					if (!problem &&
+					    (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c))
+						problem = "M144A_N80_MODE_READ_ROUTE";
+					for (step = 0; step < 3 && !problem; step++)
+						if (mem[0x1c120 + step] != ((backupmem[0x1fc2] & 0xfc) | 1))
+							problem = "M144A_N80_BOOT_SWITCH_LIVE_MAP";
+					if (!problem &&
+					    (mem[0x1c110] != 0x82 || mem[0x1c111] != 0 || mem[0x1c112] != 0x82))
+						problem = "M144A_N80_MODE_READBACK";
+					if (!problem && (mem[0x1c100] != 0x83 || mem[0x1c101] != 0x61 ||
+					                 mem[0x1c102] != 0x83 || memoryn80.port33 != 0x82))
+						problem = "M144A_N80_GUEST_MODE_CONTINUATION";
+					if (!problem)
+						fprintf(
+						    stderr,
+						    "selftest: N80 port33 guest OUT/IN/map 3 transitions ok (source-model contract)\n");
+				}
+				iocore_out8(0x33, port33);
+				iocore_out8(0x31, port31);
+				iocore_out8(0x55, 1);
+				iocore_out8(0x52, 0x30);
+				iocore_out8(0x53, 7);
+			}
+			if (!problem) {
+				/* Original RAM programs: prepare timers, then program both glyph
+				 * banks. Resume glyph and pending timer writes after restoration. */
+				static const BYTE timer_code[] = {
+				    0x3e, 0x36, 0xd3, 0x0f, 0x3e, 0x10, 0xd3, 0x0c,
+				    0x3e, 0x27, 0xd3, 0x0c,                         /* counter 0: binary 10000 */
+				    0x3e, 0x77, 0xd3, 0x0f, 0x3e, 0x34, 0xd3, 0x0d, /* counter 1: pending BCD */
+				    0x3e, 0xb6, 0xd3, 0x0f, 0x3e, 0x00, 0xd3, 0x0e,
+				    0x3e, 0x00, 0xd3, 0x0e, /* counter 2: binary zero */
+				    0xc3, 0x00, 0xc0};      /* JP C000h */
+				static const BYTE pcg_code[] = {0x3e, 0x08, 0xd3, 0x03, 0x3e, 0x3c, 0xd3, 0x00,
+				                                0x3e, 0x3f, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x1c, 0xd3, 0x03, 0x3e, 0xc3, 0xd3, 0x00,
+				                                0x3e, 0x3f, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x18, 0xd3, 0x03, 0x3e, 0x96, 0xd3, 0x00,
+				                                0x3e, 0x37, 0xd3, 0x01, 0x3e, 0x12, 0xd3, 0x02,
+				                                0x3e, 0x01, 0xd3, 0x00, 0x3e, 0x3f, 0xd3, 0x01,
+				                                0x3e, 0x12, /* save before the following OUT */
+				                                0xd3, 0x02, 0x3e, 0x1c, 0xd3, 0x03, 0x3e, 0x12,
+				                                0xd3, 0x0d,                    /* finish BCD 1234 */
+				                                0x3e, 0xc8, 0xd3, 0x02, 0x76}; /* enable tones */
+				unsigned step;
+				np2cfg.pcg_enable = 1;
+				pcg88_reset();
+				CPU_RESET();
+				memoryva_88_mode = FALSE;
+				ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+				upd9002_iotrap.control = 2;
+				upd9002_iotrap.ranges[2] = 0x0f;
+				STOREINTELWORD(mem + 0x7d * 4, 0x3000);
+				STOREINTELWORD(mem + 0x7d * 4 + 2, 0x2000);
+				CopyMemory(mem + 0x1c000, pcg_code, sizeof(pcg_code));
+				CopyMemory(mem + 0x1c100, timer_code, sizeof(timer_code));
+				mem[0x20100] = 0x0f;
+				mem[0x20101] = 0xff;
+				mem[0x20102] = 0x40;
+				STOREINTELWORD(mem + 0x100, 0xc100);
+				STOREINTELWORD(mem + 0x102, 0x1000);
+				CPU_CS = 0x2000;
+				CS_BASE = 0x20000;
+				CPU_DS = 0x1000;
+				DS_BASE = 0x10000;
+				CPU_SS = 0x3000;
+				SS_BASE = 0x30000;
+				CPU_IP = CPU_SP = 0x100;
+				CPU_BP = 0xd000;
+				CPU_FLAG = 0xf000;
+				CPU_REMCLOCK = CPU_BASECLOCK = 100000;
+				upd9002_core_step();
+				memoryva_88_mode = TRUE;
+				for (step = 0; step < 46 && CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008; step++)
+					upd9002_core_step();
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03a) {
+					fprintf(stderr, "selftest: PCG guest mode=%u ip=%04x steps=%u\n",
+					        CPU_COMPAT_MODE, CPU_IP, step);
+					problem = "M144A_N80_PCG_GUEST_CHECKPOINT";
+				}
+				if (!problem && (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0xc3 ||
+				                 pcg88.ram[1][0x237] != 0x96 || pcg88.address != 0x123f ||
+				                 pcg88.data != 0x01 || pcg88.setbank != 1)) {
+					fprintf(stderr,
+					        "selftest: PCG guest data=%02x expected=01 grmode=%04x ip=%04x\n",
+					        pcg88.data, videova.grmode, CPU_IP);
+					problem = "M144A_N80_PCG_GUEST_SETUP";
+				}
+				if (!problem && (pcg88.counter[0] != 10000 || pcg88.counter[1] != 0x34 ||
+				                 pcg88.counter[2] != 0 || pcg88.msb[0] || !pcg88.msb[1] ||
+				                 pcg88.msb[2] || pcg88.bcd[0] || !pcg88.bcd[1] || pcg88.bcd[2]))
+					problem = "M144A_N80_PCG_TIMER_SETUP";
+				for (step = 0; step < 3 && !problem; step++)
+					if (pcg88.rl[step] != 3 || pcg88.mode[step] != 3 || pcg88.sound_on[step])
+						problem = "M144A_N80_PCG_TIMER_SETUP";
+				CopyMemory(&saved_pcg, &pcg88, sizeof(saved_pcg));
+			}
+			if (!problem && model == 2) {
+				fmboard_setintmask(0);
+				iocore_out8(0x33, memoryn80.port33 | 2);
+				if (fmboard_getintmask() != 0x80)
+					problem = "M144A_N80_FM_SAV_SETUP";
+			}
+			saved_bank = memoryn80;
+			if (!problem && (statsave_save(path) != STATFLAG_SUCCESS ||
+			                 statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS))
+				problem = "bank SAV save/preflight";
+			if (!problem) {
+				/* Advance beyond the checkpoint so a no-op CPU restore cannot pass. */
+				upd9002_core_step();
+				upd9002_core_step();
+				upd9002_core_step();
+				if (CPU_IP != 0xc040 || CPU_AL != 0x1c || pcg88.ram[1][0x23f] != 0x01)
+					problem = "M144A_N80_PCG_GUEST_PROGRESS";
+				if (!problem) {
+					upd9002_core_step();
+					upd9002_core_step();
+					upd9002_core_step();
+					upd9002_core_step();
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc048 ||
+					    pcg88.counter[1] != 0x1234 || pcg88.msb[1])
+						problem = "M144A_N80_PCG_TIMER_PROGRESS";
+				}
+			}
+			if (!problem) {
+				iocore_out8(0x31, 2);
+				iocore_out8(0x52, 0);
+				iocore_out8(0x53, 0);
+				iocore_out8(0x55, 7);
+				iocore_out8(0x33, 0);
+				iocore_out8(0x71, 1);
+				ZeroMemory(&upd9002_iotrap, sizeof(upd9002_iotrap));
+				pcg88_reset();
+				if (statsave_load(path) != STATFLAG_SUCCESS ||
+				    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)) ||
+				    memoryn80_video[0] != 0x30 || memoryn80_video[1] != 7 ||
+				    videova.palette[1] != 0x001f ||
+				    upd9002_memoryread_va(0x16000) != (model == 2 ? memoryn80_srrom[0x8000] : 0x72))
+					problem = "bank SAV restore and mapped byte";
+				if (!problem && model == 2 &&
+				    (fmboard_getintmask() != 0x80 || fmboardva.sintm != 0))
+					problem = "M144A_N80_FM_SAV_RESTORE";
+				v1v2_render_to(0, 0, 0xb002);
+				scrndrawva_compose_begin();
+				scrndrawva_compose_raster();
+				if (!problem && vabitmap[0] != 0x03ff)
+					problem = "M144A_N80_VIDEO_RESTORE";
+				if (!problem && (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03a ||
+				                 CPU_AL != 0x12))
+					problem = "M144A_N80_PCG_GUEST_CPU_STATE";
+				if (!problem && (upd9002_iotrap.control != 2 || upd9002_iotrap.ranges[0] != 0 ||
+				                 upd9002_iotrap.ranges[2] != 0x0f))
+					problem = "M144A_N80_PCG_GUEST_TRAP_STATE";
+				if (!problem && memcmp(&saved_pcg, &pcg88, sizeof(pcg88)))
+					problem = "M144A_N80_PCG_PENDING_STATE";
+			}
+			if (!problem) {
+				const BYTE *glyph;
+				/* Resume the pending guest OUT without reloading its data,
+				 * address or bank from the host. */
+				upd9002_core_step();
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc03c)
+					problem = "M144A_N80_PCG_GUEST_CONTINUATION";
+				glyph = pcg88_glyph(0xc7);
+				if (!problem && (pcg88.ram[0][0x23f] != 0x3c || pcg88.ram[1][0x23f] != 0x01 ||
+				                 pcg88.ram[1][0x237] != 0x96 || !glyph || glyph[7] != 0x3c))
+					problem = "M144A_N80_PCG_PENDING_CONTINUATION";
+				upd9002_core_step(); /* LD A,1Ch */
+				upd9002_core_step(); /* OUT (03h),A */
+				if (!problem && CPU_IP != 0xc040)
+					problem = "M144A_N80_PCG_GUEST_CONTINUATION";
+				glyph = pcg88_glyph(0xc7);
+				if (!problem && (!glyph || glyph[7] != 0x01))
+					problem = "M144A_N80_PCG_PENDING_DISPLAY";
+			}
+			if (!problem) {
+				upd9002_core_step(); /* LD A,12h */
+				upd9002_core_step(); /* OUT (0Dh),A: pending high byte */
+				if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc044 ||
+				    pcg88.counter[0] != 10000 || pcg88.counter[1] != 0x1234 ||
+				    pcg88.counter[2] != 0 || pcg88.msb[1])
+					problem = "M144A_N80_PCG_TIMER_CONTINUATION";
+				if (!problem) {
+					upd9002_core_step(); /* LD A,C8h */
+					upd9002_core_step(); /* OUT (02h),A: all three gates */
+					if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || CPU_IP != 0xc048 ||
+					    pcg88_frequency(0) != 3993600 / 10000 ||
+					    pcg88_frequency(1) != 3993600 / 1234 ||
+					    pcg88_frequency(2) != 3993600 / 65536)
+						problem = "M144A_N80_PCG_TIMER_TONES";
+				}
+			}
+			if (!problem) {
+				BYTE *data = NULL;
+				UINT size = 0, pos = 0, mutation;
+				if (read_whole_file(path, &data, &size) != SUCCESS) {
+					problem = "read bank SAV fixture";
+				} else {
+					for (pos = 0x30; pos + 16 <= size;
+					     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+						if (!memcmp(data + pos, "N80BANK\0\0\0", 10))
+							break;
+					if (pos + 20 > size || LOADINTELDWORD(data + pos + 12) != 4)
+						problem = "bank SAV section layout";
+				}
+				for (mutation = 0; mutation < 3 && !problem; mutation++) {
+					const UINT offset = pos + 16 + (mutation == 2 ? 3 : 0);
+					const BYTE original = data[offset];
+					const UINT16 saved_ip = CPU_IP;
+					if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS) {
+						problem = "bank negative fixture is not initially valid";
+						break;
+					}
+					data[offset] = mutation == 0 ? 3 : mutation == 1 ? (BYTE)(3 - model) : 2;
+					if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+					    statsave_check(oldpath, error, sizeof(error)) != STATFLAG_FAILURE ||
+					    (error[strcspn(error, "\r\n")] = 0,
+					     strcmp(error, "M144A_N80_BANK_STATE")) ||
+					    statsave_load(oldpath) != STATFLAG_FAILURE || CPU_IP != saved_ip ||
+					    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80)))
+						problem = "bank invalid state guard or live state mutation";
+					data[offset] = original;
+				}
+				if (data)
+					_MFREE(data);
+			}
+			if (!problem) {
+				static const struct {
+					size_t offset;
+					UINT count;
+					BYTE maximum;
+				} fields[] = {{offsetof(_PCG88, bank), 2, 1},    {offsetof(_PCG88, display), 2, 1},
+				              {offsetof(_PCG88, setbank), 1, 1}, {offsetof(_PCG88, sound_on), 3, 1},
+				              {offsetof(_PCG88, rl), 3, 3},      {offsetof(_PCG88, mode), 3, 5},
+				              {offsetof(_PCG88, msb), 3, 1},     {offsetof(_PCG88, bcd), 3, 1}};
+				BYTE *data = NULL;
+				UINT size = 0, pos, field, byte, mutation;
+				_PCG88 before;
+				const UINT16 before_ip = CPU_IP;
+				const BYTE before_ram = mem[0x1c000];
+				CopyMemory(&before, &pcg88, sizeof(before));
+				{
+					_PCG88 candidate;
+					BYTE *bytes = (BYTE *)&candidate;
+					UINT value;
+					FillMemory(&candidate, sizeof(candidate), 0xff);
+					for (field = 0; field < NELEMENTS(fields); field++)
+						FillMemory(bytes + fields[field].offset, fields[field].count,
+						           fields[field].maximum);
+					if (pcg88_state_valid(NULL) || !pcg88_state_valid(&candidate))
+						problem = "M144A_PCG_STATE_DOMAIN_FIXTURE";
+					for (field = 0; field < NELEMENTS(fields) && !problem; field++) {
+						for (byte = 0; byte < fields[field].count && !problem; byte++) {
+							for (value = 0; value < 256 && !problem; value++) {
+								bytes[fields[field].offset + byte] = (BYTE)value;
+								if (!!pcg88_state_valid(&candidate) !=
+								    (value <= fields[field].maximum))
+									problem = "M144A_PCG_STATE_DOMAIN";
+								bytes[fields[field].offset + byte] = fields[field].maximum;
+							}
+						}
+					}
+				}
+				if (!problem && read_whole_file(path, &data, &size) != SUCCESS) {
+					problem = "M144A_PCG_STATE_FIXTURE";
+				} else if (!problem) {
+					for (pos = 0x30; pos + 16 <= size;
+					     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+						if (!memcmp(data + pos, "PCG88\0\0\0\0\0", 10))
+							break;
+					if (pos + 16 + sizeof(pcg88) > size ||
+					    LOADINTELDWORD(data + pos + 12) != sizeof(pcg88))
+						problem = "M144A_PCG_STATE_FIXTURE";
+					for (field = 0; field < NELEMENTS(fields) && !problem; field++) {
+						for (byte = 0; byte < fields[field].count && !problem; byte++) {
+							const size_t offset = pos + 16 + fields[field].offset + byte;
+							const BYTE original = data[offset];
+							for (mutation = 0; mutation < 2 && !problem; mutation++) {
+								if (statsave_check(path, error, sizeof(error)) !=
+								    STATFLAG_SUCCESS) {
+									problem = "M144A_PCG_STATE_POSITIVE";
+									break;
+								}
+								data[offset] = mutation ? 0xff : fields[field].maximum + 1;
+								if (write_state_fixture(oldpath, data, size) != SUCCESS ||
+								    statsave_check(oldpath, error, sizeof(error)) !=
+								        STATFLAG_FAILURE ||
+								    (error[strcspn(error, "\r\n")] = 0,
+								     strcmp(error, "M144A_PCG_STATE")) ||
+								    statsave_load(oldpath) != STATFLAG_FAILURE ||
+								    CPU_IP != before_ip || mem[0x1c000] != before_ram ||
+								    memcmp(&before, &pcg88, sizeof(before)) ||
+								    memcmp(&saved_bank, &memoryn80, sizeof(memoryn80))) {
+									fprintf(stderr,
+									        "selftest: PCG state field=%u byte=%u mutation=%u\n",
+									        field, byte, mutation);
+									problem = "M144A_PCG_STATE_GUARD";
+								}
+								data[offset] = original;
+							}
+						}
+					}
+				}
+				if (data)
+					_MFREE(data);
+			}
+			if (!problem &&
+			    (strip_statsave_section(path, oldpath, "N80BANK") != SUCCESS ||
+			     statsave_load(oldpath) != STATFLAG_SUCCESS || memoryn80.model != model ||
+			     memoryn80.port31 != 1 || memoryn80.port33 || memoryn80.port71 != 1))
+				problem = "legacy state bank baseline";
+		}
+		if (!problem)
+			problem = test_pcg_phase_sav(path, oldpath);
+		if (!problem)
+			problem = test_n80_startup_sav(path, oldpath);
+		if (!problem)
+			problem = test_n80_disp_sav(path, oldpath);
+		if (!problem && model == 2) {
+			/* Test-only fixture removal: the complete-font precedence was
+			 * exercised above with a deliberately different fallback input. */
+			selftest_delete_rom(dir, "font80sr.rom");
+			romva_initialize();
+			memoryva_88_mode = TRUE;
+			iocore_out8(0x33, 0x90);
+			if (!cgromva_n80sr_font_present || cgromva_ank8(0)[0] != 0xc3 ||
+			    cgromva_n80sr_font[0] != fontmem[0x41000])
+				problem = "M144A_N80_HIRA_FALLBACK";
+			iocore_out8(0x33, 0x80);
+			if (cgromva_ank8(0) != fontmem + 0x41000)
+				problem = "M144A_N80_HIRA_FALLBACK_NORMAL";
+		}
+		selftest_delete_rom(dir, basic);
+		selftest_delete_rom(dir, "e8.rom");
+		selftest_delete_rom(dir, "n80_3.rom");
+		selftest_delete_rom(dir, "font80sr.rom");
+		selftest_delete_rom(dir, "fonthira.rom");
+		selftest_delete_rom(dir, "font.rom");
+#if defined(_WIN32)
+		_rmdir(dir);
+#else
+		rmdir(dir);
+#endif
+	}
+	file_delete(path);
+	file_delete(oldpath);
+#if defined(_WIN32)
+	_rmdir(base);
+	_rmdir(root);
+#else
+	rmdir(base);
+	rmdir(root);
+#endif
+	milstr_ncpy(np2cfg.extra_machine, saved_machine, sizeof(np2cfg.extra_machine));
+	np2cfg.boot_mode = saved_boot;
+	file_cpyname(np2cfg.biospath, saved_biospath, sizeof(np2cfg.biospath));
+	romva_machine_hook = saved_hook;
+	romva_initialize();
+	pccore_term();
+	soundmng_deinitialize();
+	np2cfg.pcg_enable = saved_pcg_enable;
+	upd9002_iotrap = saved_pcg_trap;
+	if (problem)
+		return fail("N80 ROM banks", problem);
+	fprintf(stderr, "selftest: N80 PCG pending-write SAV continuation 2 models ok\n");
+	fprintf(stderr, "selftest: N80 guest PCG timer SAV continuation 2 models ok\n");
+	fprintf(stderr, "selftest: PCG state domains 10240 and malformed SAV cases 80 ok\n");
+	fprintf(stderr, "selftest: N80 boot switches 1024 cases and native/other/base guards ok\n");
+	fprintf(
+	    stderr,
+	    "selftest: PCG phase SAV PCM continuation, 16 malformed states and legacy reset, 2 models ok\n");
+	fprintf(stderr, "selftest: N80 production ROM banks and SAV round trips ok\n");
+	return SUCCESS;
+}
+
 /* M115: PCG-8100/8800: character writes and ROM copies into the two banks,
  * the halves shown from PCG RAM, the 8253 counters and their tones (MSB-only
  * loads, BCD, short counts silent), the tone output, and nothing while the
  * PCG is disabled or outside 88 mode. */
+/* Synthetic PCG -> attribute decoder -> colour/monochrome compositor contract.
+ * No prepared text raster is injected: both colours and glyph pixels must
+ * come from the production character path. */
+static int test_n80_pcg_composition(void) {
+	static const BYTE pattern[8] = {0x81, 0x42, 0x24, 0x18, 0xa5, 0x5a, 0xc3, 0x3c};
+	static const BYTE codes[3] = {0x80, 0x00, 0x20};
+	/* Independent expected indices: packed 00/01/10/11 pairs, or three
+	 * planes A5h/3Ch/69h. Palette zero is deliberately nonblack, while
+	 * index one is black: priority must depend on indices, not RGB. */
+	static const BYTE packed[8] = {0, 0, 1, 1, 2, 2, 3, 3};
+	static const BYTE planar[8] = {1, 4, 7, 2, 6, 3, 0, 5};
+	/* Second page: A5h/93h/39h, with a different transparent position. */
+	static const BYTE second_page[8] = {3, 0, 5, 6, 4, 1, 2, 7};
+	static const WORD colors[8] = {0x001f, 0, 0x03ff, 0x03e0, 0xfc1f, 0xfc00, 0xffff, 0xffe0};
+	const UINT8 saved_enable = np2cfg.pcg_enable;
+	const BOOL saved_88 = memoryva_88_mode;
+	const BOOL saved_machine = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const BOOL saved_font_present = cgromva_n80sr_font_present;
+	BYTE saved_font[3][8];
+	const char *problem = NULL;
+	unsigned test, r, x;
+	BOOL scrn200;
+
+	for (r = 0; r < NELEMENTS(codes); r++)
+		CopyMemory(saved_font[r], cgromva_n80sr_font + 0x800 + codes[r] * 8, 8);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	np2cfg.pcg_enable = 1;
+	memoryva_88_mode = TRUE;
+	memoryva_pc8001 = TRUE;
+	pcg88_reset();
+	cgromva_n80sr_font_present = TRUE;
+	for (r = 0; r < NELEMENTS(codes); r++)
+		FillMemory(cgromva_n80sr_font + 0x800 + codes[r] * 8, 8, 0xe7);
+	ZeroMemory(grphmem, sizeof(grphmem));
+	ZeroMemory(textmem, 0x8000);
+	STOREINTELWORD(textmem + 0x08, 240);
+	STOREINTELWORD(textmem + 0x0a, 0xf002);
+	STOREINTELWORD(textmem + 0x10, 0x678c);
+	STOREINTELWORD(textmem + 0x14, 400);
+	STOREINTELWORD(textmem + 0x16, 656);
+	STOREINTELWORD(textmem + 0x1a, 1008);
+	textmem[0x63ca] = textmem[0x63cb] = 0x80;
+	textmem[0x6418] = 0;
+	textmem[0x6419] = 0xe8;
+	textmem[0x641a] = 2;
+	for (r = 2; r < 20; r++)
+		textmem[0x6418 + r * 2] = 80;
+	tsp.dspon = TRUE;
+	tsp.texttable = 0;
+	tsp.lineheight = 16;
+	tsp.textmg = 0;
+	tsp.emul_frame = 0;
+	tsp.emul_chars = 80;
+	tsp.emul_attrs = 20;
+	tsp.emul_rows = 25;
+	videova.txtmode = 0;
+
+	for (test = 0; test < 196608 && !problem; test++) {
+		const unsigned code_case = test >> 16;
+		const BYTE code = codes[code_case];
+		/* Each code has a separate SR 320-dot profile. Bits formerly
+		 * selecting model/colour select front page/page-1 visibility there. */
+		const BOOL paged = (test >> 15) & 1;
+		const unsigned flags = test & 31;
+		const BOOL blink = (test >> 5) & 1;
+		const BOOL global = (test >> 6) & 1;
+		const BOOL hidden = (test >> 7) & 1;
+		const BOOL graphics = (test >> 8) & 1;
+		const BOOL wide = (test >> 9) & 1;
+		const unsigned model = paged ? 2 : 1 + ((test >> 10) & 1);
+		const unsigned front_page = paged ? (test >> 10) & 1 : 0;
+		const unsigned bank = (test >> 11) & 1;
+		const BOOL color = paged || ((test >> 12) & 1);
+		const BOOL page1_hidden = paged && ((test >> 12) & 1);
+		const BOOL behind = (test >> 13) & 1;
+		const BOOL graphic_hidden = (test >> 14) & 1;
+		const BOOL reverse = ((flags & 4) != 0) != global;
+		const BOOL secret = (flags & 1) || ((flags & 2) && blink);
+		const BYTE invert = bank ? 0xff : 0;
+		memoryn80.model = (UINT8)model;
+		iocore_out8(0x31, color ? (model == 1 || paged ? 0x1c : 0x18) : 8);
+		iocore_out8(0x33, model == 2 ? (0x90 | (behind ? 8 : 0) | (front_page << 2)) : 0);
+		iocore_out8(0x52, 0);
+		iocore_out8(0x53, hidden | (graphic_hidden ? 2 : 0) | (page1_hidden ? 4 : 0));
+		for (r = 0; r < 8; r++)
+			iocore_out8(0x54 + r, r ^ 1);
+		iocore_out8(0x03, code < 0x80 ? (bank ? 0x13 : 0x02) : (bank ? 0x1c : 0x08));
+		for (r = 0; r < 8; r++) {
+			const unsigned address = (code & 0x7f) * 8 + r;
+			iocore_out8(0x00, pattern[r] ^ invert);
+			iocore_out8(0x01, address & 0xff);
+			iocore_out8(0x02, 0x10 | (address >> 8));
+		}
+		textmem[0x63ca] = textmem[0x63cb] = code;
+		textmem[0x641b] = (BYTE)((flags & 7) | ((flags & 24) << 1));
+		tsp.blinkcnt2 = blink ? 8 : 0;
+		tsp.syncparam[1] = global ? 8 : 0;
+		videova.txtmode8 = wide ? 0 : 1;
+		videova.palette[15] = 0xffff;
+		for (r = 0; r < 16; r++) {
+			const BYTE first = graphics ? (color && model == 1 ? 0x1b : 0xa5) : 0;
+			const BYTE second = graphics && color && model == 2 ? 0x3c : 0;
+			const BYTE third = graphics && color && model == 2 ? 0x69 : 0;
+			if (paged) {
+				grphmem[0x4000 + r * 40 + 1] = first;
+				grphmem[0x14000 + r * 40 + 1] = second;
+				grphmem[0x24000 + r * 40 + 1] = third;
+				grphmem[0x6000 + r * 40 + 1] = graphics ? 0xa5 : 0;
+				grphmem[0x16000 + r * 40 + 1] = graphics ? 0x93 : 0;
+				grphmem[0x26000 + r * 40 + 1] = graphics ? 0x39 : 0;
+			} else {
+				grphmem[0x4000 + r * 80 + 2] = grphmem[0x4000 + r * 80 + 3] = first;
+				grphmem[0x14000 + r * 80 + 2] = grphmem[0x14000 + r * 80 + 3] = second;
+				grphmem[0x24000 + r * 80 + 2] = grphmem[0x24000 + r * 80 + 3] = third;
+			}
+		}
+		v1v2_render_to(0, 0, 0xb002);
+		tsp.emul = 0;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		tsp.emul = 1;
+		tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		scrndrawva_compose_begin();
+		for (r = 0; r < 16 && !problem; r++) {
+			const BOOL line = ((flags & 8) && r == 0) || ((flags & 16) && r == 15);
+			if (r)
+				makegrphva_raster();
+			maketextva_raster();
+			scrndrawva_compose_raster();
+			for (x = 0; x < 16; x++) {
+				const BOOL dot = graphics && !graphic_hidden && ((0xa5 >> (7 - x % 8)) & 1);
+				const BOOL glyph =
+				    ((pattern[r / 2] ^ invert) >> (7 - (x / (wide ? 2 : 1)) % 8)) & 1;
+				const BOOL ink = line || (!secret && glyph);
+				const BOOL lit = hidden ? dot : ((dot || ink) != reverse);
+				WORD expected = lit ? 0xffff : 0;
+				if (color) {
+					unsigned index = graphics && !graphic_hidden
+					                     ? (model == 1 ? packed[x % 8] : planar[x % 8])
+					                     : 0;
+					BOOL disabled = graphic_hidden;
+					if (paged) {
+						const unsigned page0 = graphics && !graphic_hidden ? planar[x / 2] : 0;
+						const unsigned page1 = graphics && !page1_hidden ? second_page[x / 2] : 0;
+						/* Select the visible front value, then the other page if zero. */
+						index = front_page ? page1 : page0;
+						if (!index)
+							index = front_page ? page0 : page1;
+						disabled = graphic_hidden && page1_hidden;
+					}
+					expected = disabled ? 0 : colors[index];
+					if (!hidden && (ink != reverse) && !(model == 2 && behind && index))
+						expected = 0xffff;
+				}
+				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
+					fprintf(stderr, "selftest: N80 PCG case=%u raster=%u pixel=%u\n", test, r, x);
+					if (code_case) {
+						const BYTE *glyph_data = pcg88_glyph(code);
+						fprintf(stderr, "selftest: PCG code=%02x selected=%u row=%02x\n", code,
+						        glyph_data != NULL, glyph_data ? glyph_data[r / 2] : 0);
+					}
+					problem = code_case ? "M144A_N80_PCG_LOW_CODES"
+					          : paged   ? "M144A_N80_PCG_PAGE_COMPOSITION"
+					          : color   ? "M144A_N80_PCG_COLOR_COMPOSITION"
+					                    : "M144A_N80_PCG_COMPOSITION";
+					break;
+				}
+			}
+		}
+	}
+	/* Consecutive frame starts, with no caller-forced text refresh after
+	 * the first frame. A zero glyph must not put a live PCG row to sleep. */
+	for (test = 0; test < 16 && !problem; test++) {
+		static const BYTE expected_byte[9] = {0, 0x3c, 0x81, 0x81, 0x66, 0, 0x66, 0, 0x66};
+		const BYTE code = (test & 4) ? 0x20 : 0;
+		const BOOL wide = (test & 2) != 0;
+		const BOOL graphics = (test & 8) != 0;
+		unsigned frame;
+		memoryn80.model = 1 + (test & 1);
+		iocore_out8(0x31, graphics ? 0x1c : 0x14);
+		iocore_out8(0x33, memoryn80.model == 2 ? 0x90 : 0);
+		iocore_out8(0x52, 0);
+		iocore_out8(0x53, 6);
+		pcg88_reset();
+		iocore_out8(0x03, 0x13); /* prepare bank 1; bank 0 remains zero */
+		for (r = 0; r < 8; r++) {
+			const unsigned address = code * 8 + r;
+			iocore_out8(0x00, 0x81);
+			iocore_out8(0x01, address & 0xff);
+			iocore_out8(0x02, 0x10 | (address >> 8));
+		}
+		textmem[0x63ca] = textmem[0x63cb] = code;
+		textmem[0x641b] = 0;
+		tsp.blinkcnt2 = tsp.syncparam[1] = 0;
+		videova.txtmode8 = wide ? 0 : 1;
+		videova.palette[15] = 0xffff;
+		tsp.emul = 0;
+		textmem_dirty = tsp_dirty = TRUE;
+		maketextva_begin(&scrn200);
+		tsp.emul = 1;
+		for (frame = 0; frame < 9 && !problem; frame++) {
+			/* Bank 0 is always the write bank, even while bank 1 is shown. */
+			if (frame == 0 || frame == 2 || (frame >= 4 && frame <= 6))
+				iocore_out8(0x03, frame == 5 ? 0 : frame == 2 ? 0x03 : 0x02);
+			if (frame == 7) {
+				/* A complete counter and a pending low-byte load must survive. */
+				iocore_out8(0x0f, 0x36);
+				iocore_out8(0x0c, 0x34);
+				iocore_out8(0x0c, 0x12);
+				iocore_out8(0x0f, 0x76);
+				iocore_out8(0x0d, 0x78);
+			}
+			if (frame >= 7) {
+				_PCG88 before_toggle;
+				CopyMemory(&before_toggle, &pcg88, sizeof(pcg88));
+				/* The menu's configuration change must not reset the board. */
+				pcg88_set_enabled(frame == 8);
+				if (memcmp(&before_toggle, &pcg88, sizeof(pcg88))) {
+					problem = "M144A_N80_PCG_CONFIG_PRESERVATION";
+					break;
+				}
+				if (frame == 8) {
+					iocore_out8(0x0d, 0x9a);
+					if (pcg88.counter[0] != 0x1234 || pcg88.counter[1] != 0x9a78 || pcg88.msb[1]) {
+						problem = "M144A_N80_PCG_CONFIG_TIMER_CONTINUATION";
+						break;
+					}
+				}
+			}
+			if (frame == 1 || frame == 3) {
+				for (r = 0; r < 8; r++) {
+					const unsigned address = code * 8 + r;
+					iocore_out8(0x00, frame == 1 ? 0x3c : 0x66);
+					iocore_out8(0x01, address & 0xff);
+					iocore_out8(0x02, 0x10 | (address >> 8));
+				}
+			}
+			if (!frame)
+				tsp_dirty = TRUE;
+			v1v2_render_to(0, 0, graphics ? 0xb002 : 0x3002);
+			maketextva_begin(&scrn200);
+			scrndrawva_compose_begin();
+			for (r = 0; r < 16 && !problem; r++) {
+				if (r)
+					makegrphva_raster();
+				maketextva_raster();
+				scrndrawva_compose_raster();
+				for (x = 0; x < 16; x++) {
+					const unsigned bit = 7 - (x / (wide ? 2 : 1)) % 8;
+					const WORD expected = (expected_byte[frame] >> bit) & 1 ? 0xffff : 0;
+					if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
+						fprintf(stderr, "selftest: PCG live profile=%u frame=%u row=%u x=%u\n",
+						        test, frame, r, x);
+						problem = frame >= 7 ? "M144A_N80_PCG_CONFIG_REFRESH"
+						                     : "M144A_N80_PCG_LIVE_FRAME";
+						break;
+					}
+				}
+			}
+		}
+	}
+	/* Graphics controls are sampled at subsequent raster calls. This is
+	 * not a claim about the hardware's within-raster sampling cycle. */
+	if (!problem) {
+		memoryn80.model = 2;
+		iocore_out8(0x31, 0x1c);
+		iocore_out8(0x33, 0x90);
+		iocore_out8(0x52, 0x30);
+		iocore_out8(0x53, 1);
+		iocore_out8(0x55, 1);
+		iocore_out8(0x56, 2);
+		for (r = 0; r < 16; r++) {
+			grphmem[0x4000 + r * 40 + 1] = 0xff;
+			grphmem[0x14000 + r * 40 + 1] = grphmem[0x24000 + r * 40 + 1] = 0;
+			grphmem[0x6000 + r * 40 + 1] = grphmem[0x26000 + r * 40 + 1] = 0;
+			grphmem[0x16000 + r * 40 + 1] = 0xff;
+		}
+		v1v2_render_to(0, 0, 0xb002);
+		maketextva_begin(&scrn200);
+		scrndrawva_compose_begin();
+		for (r = 0; r < 16 && !problem; r++) {
+			const WORD expected = r < 4    ? 0x001f
+			                      : r < 6  ? 0x03e0
+			                      : r < 8  ? 0xfc00
+			                      : r < 12 ? 0x001f
+			                               : 0xfc1f;
+			if (r == 4)
+				iocore_out8(0x33, 0x94);
+			if (r == 6)
+				iocore_out8(0x56, 4);
+			if (r == 8)
+				iocore_out8(0x53, 5);
+			if (r == 10)
+				iocore_out8(0x52, 0x50);
+			if (r == 12)
+				iocore_out8(0x53, 7);
+			if (r)
+				makegrphva_raster();
+			maketextva_raster();
+			scrndrawva_compose_raster();
+			for (x = 0; x < 16; x++) {
+				if (vabitmap[r * SURFACE_WIDTH + 16 + x] != expected) {
+					problem = "M144A_N80_LIVE_RASTER_CONTROLS";
+					break;
+				}
+			}
+		}
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	np2cfg.pcg_enable = saved_enable;
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_machine;
+	memoryn80 = saved_bank;
+	cgromva_n80sr_font_present = saved_font_present;
+	for (r = 0; r < NELEMENTS(codes); r++)
+		CopyMemory(cgromva_n80sr_font + 0x800 + codes[r] * 8, saved_font[r], 8);
+	if (problem)
+		return fail("N80 PCG composition", problem);
+	fprintf(stderr, "selftest: N80 PCG composition 196608 cases ok\n");
+	fprintf(stderr, "selftest: N80 PCG 144 frame starts and SR raster controls ok\n");
+	return SUCCESS;
+}
+
+/* The independent uPD3301 text route: device-driven decode through the
+ * text-DMA view, with a full-cell cursor and no CURDEF bridge. The guest
+ * programs the device through its own ports. */
+static int test_n80_text_composition(void) {
+	const BOOL saved_88 = memoryva_88_mode, saved_machine = memoryva_pc8001;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const WORD saved_grmode = videova.grmode;
+	const UINT8 saved_txtmode = videova.txtmode;
+	const UINT8 saved_pcg = np2cfg.pcg_enable;
+	const int saved_crtmode = videova.crtmode;
+	const char *problem = NULL;
+	UINT width;
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	memoryva_88_mode = memoryva_pc8001 = TRUE;
+	memoryn80.model = 1;
+	/* Earlier tests leave PCG/VA text state behind; the independent route
+	 * must not observe it. */
+	np2cfg.pcg_enable = 0;
+	videova.txtmode = 0;
+	/* The native-raster contract: pin the 15 kHz CRT so the 10-raster
+	 * rows render one-to-one (the 24 kHz CRT doubles the compose height). */
+	videova.crtmode = 0;
+	ZeroMemory(textmem, sizeof(textmem));
+	videova.grmode = 0x3000;
+	videova.palette[15] = 0x1111;
+	grph0_noraster = TRUE;
+	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_TEXT, TRUE);
+	scrndrawva_set_layer_enabled(VAEG_VA_LAYER_SPRITE, TRUE);
+	for (width = 0; width < 2 && !problem; width++) {
+		/* Program the device as the guest would: RESET with 80 columns, 20
+		 * rows, 10 scanlines (the PC-8001 family 15 kHz geometry),
+		 * nontransparent mode, START, DMA on, cursor to cell 0 of row 0, and
+		 * nine frames so the cursor phase is on. */
+		UINT i;
+		iocore_out8(0x51, 0x00);
+		iocore_out8(0x50, 0x4e);
+		iocore_out8(0x50, 0x13);
+		iocore_out8(0x50, 0x69);
+		iocore_out8(0x50, 0x13);
+		iocore_out8(0x50, 0x34);
+		iocore_out8(0x51, 0x20);
+		iocore_out8(0x68, 0x84);
+		iocore_out8(0x30, width ? 0x00 : 0x01);
+		iocore_out8(0x51, 0x81);
+		iocore_out8(0x50, 0x00);
+		iocore_out8(0x50, 0x00);
+		for (i = 0; i < 9; i++) {
+			upd3301_frame_boundary(&n80_crtc);
+		}
+		for (i = 0; i < 80; i++) {
+			mem[0xf300 + i] = 0x20;
+		}
+		if (!problem) {
+			BOOL scrn200;
+			maketextva_begin(&scrn200);
+			/* Exactly the 10 rasters of text row 0: the cursor row must be
+			 * the last rasterized scanline. */
+			for (i = 0; i < 10; i++) {
+				maketextva_raster();
+			}
+			/* The cursor reverses its whole cell: the eight (80-column) or
+			 * sixteen (40-column, widened) pixels of cell 0 are uniform
+			 * foreground while the neighbouring space stays background. */
+			const unsigned cell = 16;
+			const unsigned span = width ? 16 : 8;
+			for (i = 0; i < span; i++) {
+				if (textraster[cell + i] != 15) {
+					problem = "M144A_N80_TEXT_CURSOR_CELL";
+					break;
+				}
+			}
+			if (!problem && (textraster[0] || textraster[cell + span]))
+				problem = "M144A_N80_TEXT_CURSOR_CELL";
+		}
+	}
+	/* The CURDEF bridge is gone: no device, no cursor raster. */
+	if (!problem) {
+		makesprva_begin();
+		makesprva_raster();
+	}
+	pccore_term();
+	soundmng_deinitialize();
+	memoryva_88_mode = saved_88;
+	memoryva_pc8001 = saved_machine;
+	memoryn80 = saved_bank;
+	videova.grmode = saved_grmode;
+	videova.txtmode = saved_txtmode;
+	videova.crtmode = saved_crtmode;
+	np2cfg.pcg_enable = saved_pcg;
+	if (problem)
+		return fail("N80 text composition", problem);
+	fprintf(stderr, "selftest: N80 text composition full-cell cursor PASS\n");
+	return SUCCESS;
+}
+
 static int test_pcg88(void) {
 	const UINT8 saved_enable = np2cfg.pcg_enable;
 	const BOOL saved_88 = memoryva_88_mode;
@@ -7968,6 +9959,71 @@ static int test_pcg88(void) {
 		if (!sound || !edge) {
 			problem = "band-limited tone output";
 		}
+	}
+	if (problem == NULL) {
+		static const BYTE gates[3] = {0x08, 0x40, 0x80};
+		UINT channel, decimal, bcd;
+		/* The 8253 zero reload denotes the modulus: 65536 in binary,
+		 * 10000 in four-digit BCD. Preserve the existing short-count mute. */
+		for (channel = 0; channel < 3 && !problem; channel++) {
+			iocore_out8(0x02, gates[channel]);
+			iocore_out8(0x0f, (channel << 6) | 0x36);
+			iocore_out8(0x0c + channel, 0);
+			iocore_out8(0x0c + channel, 0);
+			if (pcg88_frequency(channel) != 3993600 / 65536)
+				problem = "M144A_PCG_BINARY_ZERO";
+			for (decimal = 0; decimal < 10000 && !problem; decimal++) {
+				const UINT divisor = decimal ? decimal : 10000;
+				const UINT expected = divisor > 266 ? 3993600 / divisor : 0;
+				const UINT packed = ((decimal / 1000) << 12) | (((decimal / 100) % 10) << 8) |
+				                    (((decimal / 10) % 10) << 4) | (decimal % 10);
+				for (bcd = 0; bcd < 2 && !problem; bcd++) {
+					const UINT raw = bcd ? packed : divisor;
+					iocore_out8(0x0f, (channel << 6) | 0x36 | bcd);
+					iocore_out8(0x0c + channel, raw & 0xff);
+					iocore_out8(0x0c + channel, raw >> 8);
+					if (pcg88.counter[channel] != raw || pcg88_frequency(channel) != expected) {
+						fprintf(
+						    stderr,
+						    "selftest: PCG count channel=%u decimal=%u bcd=%u got=%u expected=%u\n",
+						    channel, decimal, bcd, pcg88_frequency(channel), expected);
+						problem = "M144A_PCG_COUNT_ENCODING";
+					}
+				}
+			}
+		}
+		/* Check the actual generator as well as its integer-Hz query. */
+		soundcfg.rate = 44100;
+		pcg88_setvol(64);
+		for (channel = 0; channel < 3 && !problem; channel++) {
+			SINT32 reference[2 * 1024], actual[2 * 1024];
+			BOOL audible = FALSE;
+			for (bcd = 0; bcd < 2; bcd++) {
+				SINT32 *samples = bcd ? actual : reference;
+				iocore_out8(0x02, 0);
+				iocore_out8(0x0f, (channel << 6) | 0x36 | bcd);
+				iocore_out8(0x0c + channel, bcd ? 0 : 0x10);
+				iocore_out8(0x0c + channel, bcd ? 0 : 0x27);
+				iocore_out8(0x02, gates[channel]);
+				ZeroMemory(samples, sizeof(reference));
+				pcg88_getpcm(NULL, samples, 1024);
+			}
+			for (i = 0; i < NELEMENTS(reference); i++)
+				audible = audible || reference[i] != 0;
+			/* Exact integer phase predicts the sign of an even mode-3
+			 * waveform. No noninitial sample in this window hits an edge. */
+			for (i = 1; i < 1024 && !problem; i++) {
+				const UINT64 phase = ((UINT64)i * 3993600) % 441000000;
+				if (!reference[2 * i] || (reference[2 * i] > 0) != (phase < 220500000) ||
+				    reference[2 * i] != reference[2 * i + 1])
+					problem = "M144A_PCG_PCM_PERIOD";
+			}
+			if (!problem && (!audible || memcmp(reference, actual, sizeof(reference))))
+				problem = "M144A_PCG_BCD_ZERO_PCM";
+		}
+		if (!problem)
+			fprintf(stderr,
+			        "selftest: PCG counter encodings 60003 and zero-reload PCM 3 channels ok\n");
 	}
 	if (problem == NULL) {
 		np2cfg.pcg_enable = 0;
@@ -9691,6 +11747,9 @@ int vaeg_selftest_run(void) {
 	if (test_cli_boot_model() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (test_headless_audio_cli() != SUCCESS) {
+		return FAILURE;
+	}
 	if (test_cli_options() != SUCCESS) {
 		return (FAILURE);
 	}
@@ -9769,179 +11828,208 @@ int vaeg_selftest_run(void) {
 	if (test_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
-	if (test_viewport() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_raster_guard() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (dropmedia_selftest() != SUCCESS) {
-		return (fail("dropmedia", "extension, path, or sorting policy failed"));
-	}
-	fprintf(stderr, "selftest: dropmedia ok\n");
-	if (test_mouse_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_sound_options() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_keyboard_mapping() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_opn_backends() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (!gui_state_load_result_selftest())
-		return fail("GUI state result", "M142_STATE_LOAD_RESULT");
-	if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
-	    test_hdd_state_restore() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_compat_mode_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_main_cpu_state() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_v1v2_state_sections() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pic8214_mode() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_3301_emulation() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_sync_display() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_short_sync() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_emulation_speed() != SUCCESS) {
-		return (FAILURE);
-	}
-	if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
-	    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
-	    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
-	    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
-		return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
-	}
-	if (test_v1v2_graphics() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_graphics_window() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_v1v2_rom_ports() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_88speed_identification() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_v1v2_memory_switch() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_n80_rom_files() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_extra_roms() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_extra_machine() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pc8001_machine() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_pcg88() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_attribute_modes() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_monitor_switch() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_cassette_tape() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_monitor_output_levels() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_app_directory() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_cursor_keys_as_mouse() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_controller_port_none() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_boot_mode_sw7() != SUCCESS) {
-		return (FAILURE);
-	}
 	{
-		/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
-		const int saved = soundmng_mastervolume();
-		soundmng_setmastervolume(0);
-		const int v0 = soundmng_mastervolume();
-		soundmng_setmastervolume(50);
-		const int v50 = soundmng_mastervolume();
-		soundmng_setmastervolume(100);
-		const int v100 = soundmng_mastervolume();
-		soundmng_setmastervolume(250);
-		const int v250 = soundmng_mastervolume();
-		soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
-		if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
-			return (fail("master volume", "percent to mixing volume"));
+		if (test_n80_crtc_irq() != SUCCESS) {
+			return FAILURE;
 		}
-		fprintf(stderr, "selftest: master volume ok\n");
-	}
-	if (test_scanline_fill() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_machine_status() != SUCCESS) {
-		return FAILURE;
-	}
-	if (test_front_panel() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_8801_display() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_sync_reverse() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_tsp_text_hide() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_port040_sound() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_beep_level() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_keyboard_matrix_pacing() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_letter_keypad() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_bms_window() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_va_ems_board() != SUCCESS) {
-		return (FAILURE);
-	}
-	if (test_hostfat_transport() != SUCCESS) {
-		return (FAILURE);
-	}
+		if (test_viewport() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_raster_guard() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (dropmedia_selftest() != SUCCESS) {
+			return (fail("dropmedia", "extension, path, or sorting policy failed"));
+		}
+		fprintf(stderr, "selftest: dropmedia ok\n");
+		if (test_mouse_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_sound_options() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_keyboard_mapping() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_opn_backends() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (!gui_state_load_result_selftest())
+			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
+		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
+		    test_hdd_state_restore() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_compat_mode_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_main_cpu_state() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_v1v2_state_sections() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pic8214_mode() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_3301_emulation() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_sync_display() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_short_sync() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_emulation_speed() != SUCCESS) {
+			return (FAILURE);
+		}
+		if ((maketextva_bytelocal(0x33c6) != 0x63c6) || (maketextva_bytelocal(0x3fff) != 0x6fff) ||
+		    (maketextva_bytelocal(0xb000) != 0x16000) || (maketextva_bytelocal(0x0800) != 0x0800) ||
+		    !maketextva_bytelocal_usable(0x33c6) || !maketextva_bytelocal_usable(0xbfff) ||
+		    maketextva_bytelocal_usable(0x0800) || maketextva_bytelocal_usable(0x4000)) {
+			return (fail("TSP byte mode", "local byte address does not follow BNN 8.2.1"));
+		}
+		if (test_gvam_transition() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_v1v2_graphics() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_graphics_window() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_v1v2_rom_ports() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_88speed_identification() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_v1v2_memory_switch() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_rom_files() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_extra_roms() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_extra_machine() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pc8001_machine() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pc8801_width40() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_fm_mask() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_n80_crtc_irq() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_pcg_phase_codec() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_pc8001_banks() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_pcg88() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_n80_text_composition() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_n80_pcg_composition() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_attribute_modes() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_monitor_switch() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_cassette_tape() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_monitor_output_levels() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_app_directory() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_cursor_keys_as_mouse() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_controller_port_none() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_boot_mode_sw7() != SUCCESS) {
+			return (FAILURE);
+		}
+		{
+			/* M110: 全体の音量 0-100 % maps onto SDL's mixing volume 0-128. */
+			const int saved = soundmng_mastervolume();
+			soundmng_setmastervolume(0);
+			const int v0 = soundmng_mastervolume();
+			soundmng_setmastervolume(50);
+			const int v50 = soundmng_mastervolume();
+			soundmng_setmastervolume(100);
+			const int v100 = soundmng_mastervolume();
+			soundmng_setmastervolume(250);
+			const int v250 = soundmng_mastervolume();
+			soundmng_setmastervolume((UINT)((saved * 100 + 64) / 128));
+			if ((v0 != 0) || (v50 != 64) || (v100 != 128) || (v250 != 128)) {
+				return (fail("master volume", "percent to mixing volume"));
+			}
+			fprintf(stderr, "selftest: master volume ok\n");
+		}
+		if (test_scanline_fill() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_machine_status() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_front_panel() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_8801_display() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_sync_reverse() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_tsp_text_hide() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_port040_sound() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_beep_level() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_keyboard_matrix_pacing() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_letter_keypad() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_bms_window() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_va_ems_board() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_hostfat_transport() != SUCCESS) {
+			return (FAILURE);
+		}
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-	if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
-		return (fail("uPD780 subsystem integration", "production seam test failed"));
-	}
+		if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
+			return (fail("uPD780 subsystem integration", "production seam test failed"));
+		}
 #endif
-	fprintf(stderr, "selftest: all tests passed\n");
-	return (SUCCESS);
+		fprintf(stderr, "selftest: all tests passed\n");
+		return (SUCCESS);
+	}
 }

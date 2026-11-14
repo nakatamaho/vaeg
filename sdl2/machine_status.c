@@ -31,6 +31,7 @@
 #include "memoryva.h"
 #include "sysportva.h"
 #include "sgp.h"
+#include "io/videova.h"
 
 #include <stdarg.h>
 
@@ -45,6 +46,8 @@ VAEG_MACHINE_MODE machine_status_mode(void) {
 	UINT i, count = 0, selected = 0;
 
 	if (machine_status_n_selected()) {
+		if (memoryva_pc8001 && memoryn80.model == 2 && (memoryn80.port33 & 0x80))
+			return VAEG_MODE_N80SR;
 		if (extrarom_profile(np2cfg.extra_machine, &profile) &&
 		    (profile.n_role == EXTRAROM_ROLE_N80_2 || profile.n_role == EXTRAROM_ROLE_N80_2SR)) {
 			return VAEG_MODE_N_FAMILY;
@@ -121,7 +124,8 @@ void machine_status_get(VAEG_MACHINE_STATUS *status) {
 	status->cpu_multiple = pccore_cpu_multiple();
 	status->cpu_speed = pccore_cpu_speed();
 	status->base_hz = pccore.baseclock * PCCORE_STANDARD_MULTIPLE;
-	if (status->compatible && pccore_88_standard())
+	/* The PC-8001 family has no H/S input (M147). */
+	if (status->compatible && pccore_88_standard() && !memoryva_pc8001)
 		status->base_hz /= 2;
 	status->cpu_hz =
 	    (UINT32)((UINT64)(status->compatible ? pccore_compat_cpu_clock() : pccore_cpu_clock()) *
@@ -183,6 +187,51 @@ static void status_append(char *text, size_t size, const char *format, ...) {
 	va_end(args);
 }
 
+void machine_status_speed_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status,
+                               UINT flags, UINT32 draw_fps, UINT32 frames,
+                               const VAEG_RUNTIME_SPEED *speed, BOOL accelerated, BOOL paused,
+                               UINT compact) {
+	char clock[32];
+	if (text == NULL || size == 0 || status == NULL || speed == NULL)
+		return;
+	if (!accelerated && !paused && compact == 0) {
+		machine_status_line(text, size, status, flags, draw_fps, frames);
+		return;
+	}
+	text[0] = '\0';
+	if (compact < 2)
+		snprintf(text, size, "%s | %s", status->machine, status->mode);
+	if ((flags & VAEG_DISPINFO_CPU_CLOCK) && compact < 3) {
+		machine_status_clock(clock, sizeof(clock), status->cpu_hz);
+		status_append(text, size, "%sCPU %s", text[0] ? " | " : "", clock);
+		if (accelerated && !paused && speed->valid && compact == 0)
+			status_append(text, size, " → 約%.1fMHz相当", speed->equivalent_mhz);
+	}
+	if (paused)
+		status_append(text, size, "%s一時停止", text[0] ? " | " : "");
+	else if (accelerated) {
+		if (speed->valid)
+			status_append(text, size, "%s▶▶ %.1f倍", text[0] ? " | " : "", speed->speed);
+		else
+			status_append(text, size, "%s▶▶ 計測中", text[0] ? " | " : "");
+	}
+	if ((flags & VAEG_DISPINFO_SGP_CLOCK) && status->has_sgp && compact == 0) {
+		machine_status_clock(clock, sizeof(clock), status->sgp_hz);
+		status_append(text, size, "%sSGP %s", text[0] ? " | " : "", clock);
+	}
+	if (flags & VAEG_DISPINFO_FPS) {
+		if (paused)
+			status_append(text, size, "%s描画 -- FPS", text[0] ? " | " : "");
+		else
+			status_append(text, size, "%s描画 %u.%u FPS", text[0] ? " | " : "",
+			              (unsigned)(draw_fps / 10), (unsigned)(draw_fps % 10));
+	}
+	if ((flags & VAEG_DISPINFO_FRAME) && compact == 0)
+		status_append(text, size, " | FRAME %u", (unsigned)frames);
+	if (!text[0])
+		snprintf(text, size, "%s", status->mode);
+}
+
 void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *status, UINT flags,
                          UINT32 fps_tenths, UINT32 frames) {
 	char clock[32];
@@ -198,6 +247,8 @@ void machine_status_line(char *text, size_t size, const VAEG_MACHINE_STATUS *sta
 		machine_status_clock(clock, sizeof(clock), status->sgp_hz);
 		status_append(text, size, " | SGP %s", clock);
 	}
+	status_append(text, size, " | CRT %s",
+	              videova_hsyncmode() == VIDEOVA_24_8KHZ ? "24kHz" : "15kHz");
 	if (flags & VAEG_DISPINFO_FPS) {
 		status_append(text, size, " | %u.%uFPS", (unsigned)(fps_tenths / 10),
 		              (unsigned)(fps_tenths % 10));

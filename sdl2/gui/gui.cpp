@@ -39,6 +39,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <chrono>
 #include <ctime>
 #include <iterator>
@@ -1669,6 +1670,16 @@ static void draw_configure_dialog(void) {
 	}
 }
 
+/* M146: the width of an InputInt with +/- buttons that shows `digits`
+ * digits at the current font: text, frame padding and both step buttons. */
+static float step_input_width(int digits) {
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const float text = ImGui::CalcTextSize("0").x * static_cast<float>(digits);
+
+	return text + style.FramePadding.x * 2.0f +
+	       (ImGui::GetFrameHeight() + style.ItemInnerSpacing.x) * 2.0f;
+}
+
 static void open_bms_config_dialog(void) {
 	g_gui.pending_bms_enabled = bmsiocfg.enabled != FALSE;
 	g_gui.pending_bms_port = (bmsiocfg.port == BMSIO_PORT_COMPAT) ? 1 : 0;
@@ -1717,7 +1728,7 @@ static void draw_bms_config_dialog(void) {
 		ImGui::SetNextItemWidth(220.0f);
 		ImGui::Combo("I/O port", &g_gui.pending_bms_port, ports,
 		             static_cast<int>(std::size(ports)));
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(step_input_width(10));
 		ImGui::InputInt("128KB banks", &g_gui.pending_bms_banks, 1, 16);
 		if (banks_valid) {
 			ImGui::Text("Capacity: %dKB (%.3fMiB)",
@@ -1786,7 +1797,8 @@ static void save_main_ram_settings(UINT16 capacity, bool automatic) {
 
 static void open_ems_config_dialog(void) {
 	g_gui.pending_ems_enabled = np2cfg.EXTMEM != 0;
-	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ? np2cfg.EXTMEM : EMSIO_DEFAULT_MEGABYTES;
+	/* M146: a disabled board offers the smallest valid capacity, not 0 */
+	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ? np2cfg.EXTMEM : EMSIO_MIN_MEGABYTES;
 	g_gui.ems_config_open = true;
 	g_gui.ems_config_request = true;
 }
@@ -1822,7 +1834,7 @@ static void draw_ems_config_dialog(void) {
 
 		ImGui::Checkbox("Use EMS Board", &g_gui.pending_ems_enabled);
 		ImGui::BeginDisabled(!g_gui.pending_ems_enabled);
-		ImGui::SetNextItemWidth(120.0f);
+		ImGui::SetNextItemWidth(step_input_width(10));
 		ImGui::InputInt("Installed memory (MB)", &g_gui.pending_ems_megabytes, 1, 1);
 		ImGui::EndDisabled();
 		if (capacity_valid && g_gui.pending_ems_enabled) {
@@ -2008,12 +2020,14 @@ static void select_boot(const char *model, int boot_mode, bool v1, bool standard
 
 /* M113: start a PC-8801 model from extra/<name>/ in the VA's V1/V2 mode
  * (V2/V1 with H or S, or N), on the VA model its profile names. */
-static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard) {
+static void select_extra_machine(const char *name, int boot_mode, bool v1, bool standard,
+                                 UINT8 n80_basic = N80_BOOT_AUTO) {
 	EXTRAROM_PROFILE profile;
 
 	if (!extrarom_profile(name, &profile) || !profile.startable) {
 		return;
 	}
+	np2cfg.n80_basic_mode = n80_basic;
 	select_boot(profile.base_model, boot_mode, v1, standard, nullptr, name);
 }
 
@@ -2476,6 +2490,7 @@ struct BootRecord {
 	bool v1 = false;
 	bool standard = false;
 	int mode = BOOTMODE_AUTO;
+	UINT8 n80_basic = N80_BOOT_AUTO;
 	std::string n80rom;
 	std::string fdd[2];
 	std::string sasi[2];
@@ -2497,8 +2512,8 @@ struct BootRecord {
 
 	bool operator==(const BootRecord &other) const {
 		return (model == other.model) && (v1 == other.v1) && (standard == other.standard) &&
-		       (mode == other.mode) && (n80rom == other.n80rom) && (fdd[0] == other.fdd[0]) &&
-		       (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
+		       (mode == other.mode) && (n80_basic == other.n80_basic) && (n80rom == other.n80rom) &&
+		       (fdd[0] == other.fdd[0]) && (fdd[1] == other.fdd[1]) && (sasi[0] == other.sasi[0]) &&
 		       (sasi[1] == other.sasi[1]) && (tape == other.tape) && (extra == other.extra) &&
 		       (fdd_image[0] == other.fdd_image[0]) && (fdd_image[1] == other.fdd_image[1]) &&
 		       (monitor_15khz == other.monitor_15khz);
@@ -2564,6 +2579,23 @@ static std::vector<std::string> history_split(const std::string &line) {
 	}
 }
 
+static UINT8 history_n80_basic(const std::vector<std::string> &fields) {
+	if (fields.size() == 15 && fields[14].size() == 1 && fields[14][0] >= '0' &&
+	    fields[14][0] <= '3')
+		return static_cast<UINT8>(fields[14][0] - '0');
+	return N80_BOOT_AUTO;
+}
+
+static void history_write_boot(std::ostream &output, const BootRecord &boot) {
+	output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t' << (boot.standard ? 1 : 0)
+	       << '\t' << boot.mode << '\t' << boot.n80rom << '\t' << boot.fdd[0] << '\t' << boot.fdd[1]
+	       << '\t' << boot.sasi[0] << '\t' << boot.sasi[1] << '\t' << boot.tape << '\t'
+	       << boot.extra << '\t' << boot.fdd_image[0] << ',' << boot.fdd_image[1] << '\t'
+	       << boot.monitor_15khz << ',' << boot.rotate << ',' << boot.renderer << ','
+	       << boot.scaling << ',' << boot.scale << ',' << boot.window_width << ','
+	       << boot.window_height << '\t' << static_cast<unsigned>(boot.n80_basic) << '\n';
+}
+
 static void history_save(void) {
 	std::ofstream output(fs::u8path(history_file()), std::ios::binary | std::ios::trunc);
 
@@ -2573,13 +2605,7 @@ static void history_save(void) {
 		}
 	}
 	for (const auto &boot : g_recent_boots) {
-		output << "boot\t" << boot.model << '\t' << (boot.v1 ? 1 : 0) << '\t'
-		       << (boot.standard ? 1 : 0) << '\t' << boot.mode << '\t' << boot.n80rom << '\t'
-		       << boot.fdd[0] << '\t' << boot.fdd[1] << '\t' << boot.sasi[0] << '\t' << boot.sasi[1]
-		       << '\t' << boot.tape << '\t' << boot.extra << '\t' << boot.fdd_image[0] << ','
-		       << boot.fdd_image[1] << '\t' << boot.monitor_15khz << ',' << boot.rotate << ','
-		       << boot.renderer << ',' << boot.scaling << ',' << boot.scale << ','
-		       << boot.window_width << ',' << boot.window_height << '\n';
+		history_write_boot(output, boot);
 	}
 }
 
@@ -2635,7 +2661,7 @@ static void history_load(void) {
 			line.pop_back();
 		}
 		const std::vector<std::string> fields = history_split(line);
-		if ((fields.size() >= 11) && (fields.size() <= 14) && (fields[0] == "boot")) {
+		if ((fields.size() >= 11) && (fields.size() <= 15) && (fields[0] == "boot")) {
 			BootRecord boot;
 			boot.model = fields[1];
 			boot.v1 = fields[2] == "1";
@@ -2644,6 +2670,7 @@ static void history_load(void) {
 			if ((boot.mode < BOOTMODE_AUTO) || (boot.mode > BOOTMODE_N)) {
 				boot.mode = BOOTMODE_AUTO;
 			}
+			boot.n80_basic = history_n80_basic(fields);
 			boot.n80rom = fields[5];
 			boot.fdd[0] = fields[6];
 			boot.fdd[1] = fields[7];
@@ -2662,7 +2689,7 @@ static void history_load(void) {
 					boot.fdd_image[1] = (second < 255u) ? second : 0u;
 				}
 			}
-			if (fields.size() == 14) {
+			if (fields.size() >= 14) {
 				// M124: "monitor,rotation[,renderer,scaling,scale,width,height]"
 				int v[7] = {-1, -1, -1, -1, -1, -1, -1};
 				const int n = std::sscanf(fields[13].c_str(), "%d,%d,%d,%d,%d,%d,%d", &v[0], &v[1],
@@ -2848,6 +2875,7 @@ static void history_record_boot(void) {
 	boot.mode = np2cfg.boot_mode;
 	boot.n80rom = (boot.mode == BOOTMODE_N) ? np2cfg.v1v2_n80rom : "";
 	boot.extra = np2cfg.extra_machine;
+	boot.n80_basic = memoryva_pc8001 ? memoryva_n80_boot_selection() : N80_BOOT_AUTO;
 	for (int drive = 0; drive < 2; drive++) {
 		const char *mounted = fdd_diskname(static_cast<REG8>(drive));
 		if ((mounted == nullptr) || (mounted[0] == '\0')) {
@@ -2905,6 +2933,10 @@ static std::string history_boot_label(const BootRecord &boot) {
 		}
 	}
 	std::string mode = (boot.mode == BOOTMODE_N) ? "N" : (boot.v1 ? "V1" : "V2");
+	if (boot.mode == BOOTMODE_N && boot.n80_basic == N80_BOOT_N80)
+		mode = "N80";
+	else if (boot.mode == BOOTMODE_N && boot.n80_basic == N80_BOOT_SR)
+		mode = "N80SR";
 	if (boot.mode != BOOTMODE_N) {
 		mode += boot.standard ? " S" : " H";
 	}
@@ -3970,7 +4002,10 @@ static void draw_cpu_clock_menu(void) {
 			ImGui::Separator();
 			continue;
 		}
-		const bool selected = !matched && (multiple == preset.multiple) && (speed == preset.speed);
+		/* M147: the configured value, which the PC-8001 family runs at
+		 * 4 MHz (the default x2 maps to x1 there). */
+		const bool selected = !matched && (np2cfg.multiple == preset.multiple) &&
+		                      (speed == preset.speed);
 		matched = matched || selected;
 		if (ImGui::MenuItem(preset.label, nullptr, selected)) {
 			set_cpu_clock(preset.multiple, preset.speed);
@@ -3980,8 +4015,13 @@ static void draw_cpu_clock_menu(void) {
 	 * multiplier. Higher entries replace the old x2/x4/x8-only labels. */
 	for (const UINT mhz : {4u, 8u, 10u, 12u, 20u}) {
 		UINT preset_multiple, preset_speed;
-		if (!machine_status_clock_settings(mhz, status.compatible && pccore_88_standard(),
-		                                   &preset_multiple, &preset_speed))
+		/* M147: no 8 MHz for the PC-8001 family (it is the default x2,
+		 * run at 4 MHz there); no H/S on those machines either. */
+		if (memoryva_pc8001 && (mhz == 8u))
+			continue;
+		if (!machine_status_clock_settings(
+		        mhz, status.compatible && pccore_88_standard() && !memoryva_pc8001,
+		        &preset_multiple, &preset_speed))
 			continue;
 		char label[32];
 		std::snprintf(label, sizeof(label), "%u MHz", mhz);
@@ -4080,8 +4120,24 @@ static void draw_extra_machine_start(const EXTRAROM_MACHINE &machine) {
 			select_extra_machine(machine.name, BOOTMODE_V1V2, mode.v1, mode.standard);
 		}
 	}
-	if (has_n80 &&
-	    ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
+	if (profile.n_role == EXTRAROM_ROLE_N80_2 || profile.n_role == EXTRAROM_ROLE_N80_2SR) {
+		static const struct {
+			const char *label;
+			UINT8 mode;
+		} basic_modes[] = {{"N", N80_BOOT_N}, {"N80", N80_BOOT_N80}, {"N80SR", N80_BOOT_SR}};
+		for (const auto &basic : basic_modes) {
+			if (basic.mode == N80_BOOT_SR && profile.n_role != EXTRAROM_ROLE_N80_2SR)
+				continue;
+			const bool available =
+			    ready && (basic.mode != N80_BOOT_SR ||
+			              extrarom_choice(&machine, EXTRAROM_ROLE_N80_3) != nullptr);
+			const bool selected =
+			    current && memoryva_pc8001 && memoryva_n80_boot_selection() == basic.mode;
+			if (ImGui::MenuItem(basic.label, nullptr, selected, available))
+				select_extra_machine(machine.name, BOOTMODE_N, v1, true, basic.mode);
+		}
+	} else if (has_n80 &&
+	           ImGui::MenuItem("N", nullptr, current && (np2cfg.boot_mode == BOOTMODE_N), ready)) {
 		select_extra_machine(machine.name, BOOTMODE_N, v1, profile.high ? standard : true);
 	}
 	if (!ready) {
@@ -4341,7 +4397,7 @@ static void boot_from_history(const BootRecord &chosen) {
 	}
 	restore_boot_display(boot);
 	if (!boot.extra.empty()) {
-		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard);
+		select_extra_machine(boot.extra.c_str(), boot.mode, boot.v1, boot.standard, boot.n80_basic);
 		return;
 	}
 	select_boot(boot.model.c_str(), boot.mode, boot.v1, boot.standard,
@@ -4415,7 +4471,7 @@ static void draw_machine_config_menu(void) {
 	// M115: PCG-8100/8800 (character generator and three tones) in V1/V2
 	// mode; ports 00h-03h and 0Ch-0Fh, no reset needed.
 	if (ImGui::MenuItem("PCG-8100/8800 (V1/V2)", nullptr, np2cfg.pcg_enable != 0)) {
-		np2cfg.pcg_enable = np2cfg.pcg_enable ? 0 : 1;
+		pcg88_set_enabled(np2cfg.pcg_enable == 0);
 		sysmng_update(SYS_UPDATECFG);
 		pccore_redraw();
 	}
@@ -5995,16 +6051,36 @@ static void draw_pause_overlay(void) {
 	ImGui::End();
 }
 
+static bool fit_machine_status_line(char *line, size_t size, const VAEG_MACHINE_STATUS &status,
+                                    UINT flags, UINT32 fps, UINT32 frames,
+                                    const VAEG_RUNTIME_SPEED &speed, BOOL accelerated, BOOL paused,
+                                    float width) {
+	for (UINT compact = 0; compact <= 3; ++compact) {
+		machine_status_speed_line(line, size, &status, flags, fps, frames, &speed, accelerated,
+		                          paused, compact);
+		if (ImGui::CalcTextSize(line).x <= width)
+			return true;
+	}
+	return false;
+}
+
 static void draw_machine_status(void) {
 	RECT_T rect;
 	VAEG_MACHINE_STATUS status;
-	char line[256];
+	char line[256], full_line[256];
 
 	if (!scrnmng_status_rect(&rect))
 		return;
 	machine_status_get(&status);
-	machine_status_line(line, sizeof(line), &status, np2oscfg.DISPCLK, scrnmng_draw_fps_tenths(),
-	                    drawcount);
+	const BOOL accelerated = taskmng_effective_nowait(np2oscfg.NOWAIT);
+	const BOOL paused = taskmng_ispaused();
+	VAEG_RUNTIME_SPEED measured = *scrnmng_runtime_speed();
+	if ((measured.policy & 1u) != (accelerated ? 1u : 0u) || measured.cpu_hz != status.cpu_hz ||
+	    !!(measured.policy & (1u << 15)) != !!taskmng_effective_nowait(FALSE))
+		measured.valid = FALSE;
+	machine_status_speed_line(full_line, sizeof(full_line), &status, np2oscfg.DISPCLK,
+	                          scrnmng_draw_fps_tenths(), drawcount, &measured, accelerated, paused,
+	                          0);
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + rect.left, viewport->Pos.y + rect.top));
 	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(rect.right - rect.left),
@@ -6018,15 +6094,37 @@ static void draw_machine_status(void) {
 	                     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse |
 	                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
 	                     ImGuiWindowFlags_NoBringToFrontOnFocus)) {
+		fit_machine_status_line(line, sizeof(line), status, np2oscfg.DISPCLK,
+		                        scrnmng_draw_fps_tenths(), drawcount, measured, accelerated, paused,
+		                        ImGui::GetContentRegionAvail().x);
 		ImGui::TextUnformatted(line);
 		if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
 			ImGui::BeginTooltip();
 			const float wrap = std::max(
 			    96.0f, std::min(560.0f * g_gui.ui_scale, ImGui::GetIO().DisplaySize.x - 24.0f));
 			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
-			ImGui::TextUnformatted(line); // complete text, even in a narrow window
+			ImGui::TextUnformatted(full_line); // complete text, even in a narrow window
 			ImGui::Separator();
-			ImGui::Text("CPU: %.6f MHz", status.cpu_hz / 1000000.0);
+			ImGui::Text("CPU: %.6f MHz (設定)", status.cpu_hz / 1000000.0);
+			if (paused) {
+				ImGui::TextUnformatted("実行速度: 一時停止");
+			} else if (measured.valid) {
+				ImGui::Text("実行速度: %.2f倍 (%.0f%%)", measured.speed, measured.speed * 100.0);
+				ImGui::Text("実効クロック換算: 約%.2f MHz相当", measured.equivalent_mhz);
+			} else {
+				ImGui::TextUnformatted("実行速度: 計測中");
+			}
+			ImGui::TextUnformatted("実効換算はゲスト時間の進行率から求めた目安です。"
+			                       "CPUや周辺機器の設定クロックは変更しません。");
+			if (accelerated) {
+				const UINT skip = taskmng_effective_drawskip(np2oscfg.DRAW_SKIP);
+				ImGui::Text("早送り: %s",
+				            taskmng_effective_nowait(FALSE) ? "キー押下中" : "No Wait");
+				if (skip)
+					ImGui::Text("設定上の描画間引き: 1/%u", skip);
+				else
+					ImGui::TextUnformatted("設定上の描画間引き: 自動");
+			}
 			ImGui::Text("Base: %.6f MHz", status.base_hz / 1000000.0);
 			ImGui::Text("Multiplier: x%.2f",
 			            status.cpu_multiple / double(PCCORE_STANDARD_MULTIPLE));
@@ -7110,6 +7208,22 @@ extern "C" BOOL gui_save_screenshot(void) {
 	return save_screenshot(FALSE);
 }
 
+static ImFont *load_gui_font(ImGuiIO &io) {
+	ImFontConfig font_config;
+	font_config.FontDataOwnedByAtlas = false;
+	/* The default Japanese range omits the runtime-speed arrow/triangle. */
+	static ImVector<ImWchar> font_ranges;
+	font_ranges.clear();
+	ImFontGlyphRangesBuilder ranges;
+	ranges.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+	ranges.AddChar(0x2192);
+	ranges.AddChar(0x25b6);
+	ranges.BuildRanges(&font_ranges);
+	return io.Fonts->AddFontFromMemoryTTF(const_cast<unsigned char *>(vaeg_gui_font_ttf),
+	                                      static_cast<int>(vaeg_gui_font_ttf_size), kGuiFontSize,
+	                                      &font_config, font_ranges.Data);
+}
+
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	(void)argv0;
 	if ((window == nullptr) || ((renderer == nullptr) && !scrnmng_native_active())) {
@@ -7122,11 +7236,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	io.IniFilename = nullptr;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-	ImFontConfig font_config;
-	font_config.FontDataOwnedByAtlas = false;
-	ImFont *font = io.Fonts->AddFontFromMemoryTTF(
-	    const_cast<unsigned char *>(vaeg_gui_font_ttf), static_cast<int>(vaeg_gui_font_ttf_size),
-	    kGuiFontSize, &font_config, io.Fonts->GetGlyphRangesJapanese());
+	ImFont *font = load_gui_font(io);
 	if (font == nullptr) {
 		std::fprintf(stderr, "Error: failed to load embedded GUI font\n");
 		ImGui::DestroyContext();
@@ -7850,6 +7960,31 @@ BOOL gui_recent_boot_media_selftest(const char *root, char *problem, size_t size
 	full.rotate = 1;
 	full.renderer = 2;
 	full.monitor_15khz = 1;
+	for (UINT8 mode = N80_BOOT_AUTO; mode <= N80_BOOT_SR && !failed; mode++) {
+		BootRecord selected = full;
+		selected.n80_basic = mode;
+		std::ostringstream encoded;
+		history_write_boot(encoded, selected);
+		std::string line = encoded.str();
+		line.pop_back(); // writer's newline, normally removed by getline
+		auto fields = history_split(line);
+		if (fields.size() != 15 || history_n80_basic(fields) != mode ||
+		    fields[13] != "1,1,2,-1,-1,-1,-1" || ((selected == full) != (mode == N80_BOOT_AUTO)))
+			failed = "M144A_N80_BOOT_HISTORY";
+		if (failed)
+			break;
+		for (const char *bad : {"4", "255", "-1", "03", "3x", ""}) {
+			fields[14] = bad;
+			if (history_n80_basic(fields) != N80_BOOT_AUTO)
+				failed = "M144A_N80_BOOT_HISTORY_INVALID";
+		}
+		for (std::size_t n = 11; n <= 14; n++) {
+			auto legacy = fields;
+			legacy.resize(n);
+			if (history_n80_basic(legacy) != N80_BOOT_AUTO)
+				failed = "M144A_N80_BOOT_HISTORY_LEGACY";
+		}
+	}
 	const HistoryBootPlan complete = history_boot_plan(full);
 	if (!complete.startable || !complete.missing.empty() || !(complete.boot == full) ||
 	    complete.boot.rotate != full.rotate || complete.boot.renderer != full.renderer) {
@@ -8051,7 +8186,53 @@ static BOOL compression_notification_selftest(void) {
 	return result;
 }
 
+static BOOL runtime_speed_layout_selftest(void) {
+	ImGuiContext *saved = ImGui::GetCurrentContext();
+	ImGuiContext *context = ImGui::CreateContext();
+	ImGui::SetCurrentContext(context);
+	ImGuiIO &io = ImGui::GetIO();
+	io.IniFilename = nullptr;
+	io.DisplaySize = ImVec2(960, 720);
+	ImFont *font = load_gui_font(io);
+	BOOL result = SUCCESS;
+	if (!font || !io.Fonts->Build() || !font->IsGlyphInFont(0x2192) ||
+	    !font->IsGlyphInFont(0x25b6)) {
+		std::fprintf(stderr, "selftest: M143_SPEED_GLYPHS\n");
+		result = FAILURE;
+	} else {
+		ImGui::NewFrame();
+		VAEG_MACHINE_STATUS status = {};
+		std::strcpy(status.machine, "PC-88VA2");
+		std::strcpy(status.mode, "V2H");
+		status.cpu_hz = status.sgp_hz = 7987200;
+		status.has_sgp = TRUE;
+		VAEG_RUNTIME_SPEED speed = {};
+		speed.valid = TRUE;
+		speed.speed = 8.0;
+		speed.equivalent_mhz = 63.8976;
+		for (float width : {380.0f, 640.0f, 960.0f}) {
+			for (BOOL fast : {FALSE, TRUE}) {
+				char text[256];
+				if (!fit_machine_status_line(text, sizeof(text), status,
+				                             VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK |
+				                                 VAEG_DISPINFO_FPS | VAEG_DISPINFO_FRAME,
+				                             300, 1234567890, speed, fast, FALSE, width - 16.0f) ||
+				    !strstr(text, "FPS") || (fast && !strstr(text, "8.0倍"))) {
+					std::fprintf(stderr, "selftest: M143_SPEED_LAYOUT\n");
+					result = FAILURE;
+				}
+			}
+		}
+		ImGui::EndFrame();
+	}
+	ImGui::DestroyContext(context);
+	ImGui::SetCurrentContext(saved);
+	return result;
+}
+
 BOOL gui_overlay_selftest(void) {
+	if (runtime_speed_layout_selftest() != SUCCESS)
+		return FAILURE;
 	if (compression_notification_selftest() != SUCCESS)
 		return FAILURE;
 	if (recording_controls_selftest() != SUCCESS)

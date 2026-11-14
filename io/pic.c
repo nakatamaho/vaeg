@@ -3,6 +3,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "scsiio.h"
+#include "n80_crtc.h"
 
 #include "iocoreva.h"
 
@@ -102,6 +103,14 @@ void pic8214_request(REG8 level) {
 	pic8214_update();
 }
 
+void pic8214_withdraw(REG8 level) {
+	if (pic8214.mode8259) {
+		return;
+	}
+	pic8214.irr &= (REG8) ~(1 << (level & 7));
+	pic8214_update();
+}
+
 REG8 pic8214_acknowledge_compat(void) {
 	int level;
 
@@ -111,6 +120,11 @@ REG8 pic8214_acknowledge_compat(void) {
 	}
 	pic8214.pending = PIC8214_NONE;
 	pic8214_accept(level);
+	if (level == PIC8214_VRTC) {
+		/* X88000 DoInterrupt case 0x02: the device clears its vsync request
+		 * when the CPU takes the vector (no effect on VA machines). */
+		n80_crtc_irq_acknowledge();
+	}
 	return (REG8)(level << 1);
 }
 
@@ -185,7 +199,22 @@ static void IOOUTCALL pic8214_oe4(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL pic8214_oe6(UINT port, REG8 dat) {
+	const REG8 enabled = (REG8)(dat & ~pic8214.mask & 0x07);
+	UINT level;
+
+	/* M144a: X88000 1.5.3 Set*InterruptMask (public domain): clear
+	 * requests only on prohibited -> permitted transitions. The VA bridge
+	 * owns the latch here, rather than in each peripheral. A vector already
+	 * offered to the CPU is left to the existing acknowledge transaction. */
+	if (!pic8214.mode8259) {
+		for (level = 0; level < 3; level++) {
+			if ((enabled & pic8214_maskbit[level]) && pic8214.pending != level) {
+				pic8214.irr &= (REG8)~(1 << level);
+			}
+		}
+	}
 	pic8214.mask = dat & 0x07;
+	pic8214_update();
 	if (!pic8214.mode8259 && (pic8214.mask & pic8214_maskbit[PIC8214_TIMER2]) &&
 	    !nevent_iswork(NEVENT_GENTIMER2)) {
 		nevent_set(NEVENT_GENTIMER2, (SINT32)pic8214_timer2_period(), pic8214_timer2,

@@ -1,6 +1,8 @@
 #ifndef VAEG_MEMORYVA_MEMORYVA_H
 #define VAEG_MEMORYVA_MEMORYVA_H
 
+#include "io/pc8001_video.h"
+
 #ifndef MEMCALL
 #define MEMCALL
 #endif
@@ -40,8 +42,8 @@ extern _MEMORYVA memoryva;
 /* Independent of CPU execution mode: zero = V3, one = 88-mode request. */
 extern UINT8 memoryva_88_mode;
 extern UINT8 memoryva_88_port31;
-extern UINT8 memoryva_88_xerom;  /* 71h bit 0: one disables extension ROM. */
-extern UINT8 memoryva_88_plane;  /* 0..2 selected, 3 disables GVRAM access. */
+extern UINT8 memoryva_88_xerom; /* 71h bit 0: one disables extension ROM. */
+extern UINT8 memoryva_88_plane; /* 0..2 selected, 3 disables GVRAM access. */
 
 /*
  * V1/V2-mode GVRAM extended access (BNN manual and tekumani, ports 32h,
@@ -77,6 +79,31 @@ extern BYTE memoryva_n80[0x8000];
 extern BOOL memoryva_n80_exist;
 /* M114: a PC-8001 model runs in N mode; port 31h has its PC-8001mkII meaning. */
 extern BOOL memoryva_pc8001;
+/* M144a: independent N80-family raw banking state; byte-only SAV payload.
+ * model: 0 legacy/VA, 1 mkII, 2 mkIISR. ROMs are host inputs, not SAV data. */
+typedef struct {
+	UINT8 model;
+	UINT8 port31;
+	UINT8 port33;
+	UINT8 port71;
+} _MEMORYN80;
+extern _MEMORYN80 memoryn80;
+enum {
+	N80_BOOT_AUTO = 0,
+	N80_BOOT_N = 1,
+	N80_BOOT_N80 = 2,
+	N80_BOOT_SR = 3
+};
+/* Applied startup choice, independent of pending configuration and live banks.
+ * Zero is the legacy/automatic fallback when the optional SAV section is absent. */
+extern UINT8 memoryn80_boot;
+BOOL memoryva_n80_boot_valid(UINT8 mode);
+UINT8 memoryva_n80_boot_selection(void);
+extern UINT8 memoryn80_video[2]; /* raw ports 52h, 53h; separate optional SAV section */
+BOOL memoryva_n80_color(void);
+extern BYTE memoryn80_srrom[0xa000];
+extern BYTE memoryn80_fourth[0x2000];
+extern BOOL memoryn80_sr_present;
 /* M129: a PC-8801 model (not the PC-88VA/VA2 sets) started from extra/. */
 extern BOOL memoryva_pc8801;
 extern char memoryva_n80_file[32]; /* file loaded, empty without a ROM */

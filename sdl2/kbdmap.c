@@ -30,6 +30,8 @@
 #include "kbdinject.h"
 #include "kbdmap.h"
 #include "romankana.h"
+#include "memoryva/memoryva.h"
+#include <SDL.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -443,6 +445,15 @@ static BOOL us_action_down[SDL_NUM_SCANCODES];
 static BOOL tenkey_overlay_down[SDL_NUM_SCANCODES];
 static BOOL letter_keypad_down[SDL_NUM_SCANCODES];
 static BOOL guest_shift_down[2];
+/* The PC-8001 family's BIOS auto-repeat does not exist in the firmware's
+ * keyboard bridge, and passing the host's auto-repeat events straight
+ * through repeats far faster than the real machine. Reshape the host
+ * repeats instead: hold them until the repeat delay has elapsed, then
+ * inject at the guest repeat rate. */
+static DWORD n80_repeat_press[SDL_NUM_SCANCODES];
+static DWORD n80_repeat_last[SDL_NUM_SCANCODES];
+#define N80_REPEAT_DELAY_MS 500
+#define N80_REPEAT_RATE_MS 100
 static BOOL kana_mirror;
 static BOOL trace_init;
 static BOOL trace_enabled;
@@ -1335,6 +1346,29 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL repeat)
 	}
 	data = kbdmap_lookup(scancode);
 	if (data != KBDMAP_NC) {
+		if (repeat) {
+			/* The host auto-repeat events arrive at the host rate; the
+			 * firmware's keyboard bridge does not repeat by itself.
+			 * Reshape them into the guest-appropriate delay and rate. */
+			const DWORD now = SDL_GetTicks();
+			const DWORD press = n80_repeat_press[scancode];
+			if (!memoryva_88_mode || !memoryva_pc8001) {
+				/* Other machines keep the host behaviour. */
+			} else if (press == 0 || now - press < N80_REPEAT_DELAY_MS) {
+				trace_key_event("down", scancode, keycode, mod, FALSE, repeat, NULL, TRUE,
+				                "repeat-delay-suppressed");
+				return TRUE;
+			} else if (n80_repeat_last[scancode] != 0 &&
+			           now - n80_repeat_last[scancode] < N80_REPEAT_RATE_MS) {
+				trace_key_event("down", scancode, keycode, mod, FALSE, repeat, NULL, TRUE,
+				                "repeat-rate-suppressed");
+				return TRUE;
+			}
+			n80_repeat_last[scancode] = now;
+		} else if (scancode < SDL_NUM_SCANCODES) {
+			n80_repeat_press[scancode] = SDL_GetTicks();
+			n80_repeat_last[scancode] = 0;
+		}
 		kbdinject_keydown(data);
 		shift_index = guest_shift_index(data);
 		if (shift_index >= 0) {
@@ -1344,7 +1378,8 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL repeat)
 		action.key = data;
 		action.modifier = 0;
 		action.name = (role >= 0) ? entries[role].label : "mapped";
-		trace_key_event("down", scancode, keycode, mod, FALSE, repeat, &action, TRUE, "keydown");
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat, &action, TRUE,
+		                repeat ? "repeat-keydown" : "keydown");
 		return TRUE;
 	}
 	trace_key_event("down", scancode, keycode, mod, FALSE, repeat, NULL, FALSE, NULL);
@@ -1354,6 +1389,10 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL repeat)
 BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 	BYTE data;
 	int role;
+	if (scancode < SDL_NUM_SCANCODES) {
+		n80_repeat_press[scancode] = 0;
+		n80_repeat_last[scancode] = 0;
+	}
 	int shift_index;
 	KBD_ACTION action;
 

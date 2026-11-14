@@ -334,6 +334,7 @@ static void usage(const char *progname) {
 	printf("\t--samplerate 11025|22050|44100\n");
 	printf("\t--soundbuffer 40..1000\n");
 	printf("\t--mute\n");
+	printf("\t--headless-audio (scripted dummy-device mixer output; --mute still wins)\n");
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--fdd1-image N      --fdd2-image N  (disk N of a multi-image D88)\n");
@@ -2142,7 +2143,7 @@ int main(int argc, char **argv) {
 		return (FAILURE);
 	}
 	if ((options.headless_input_script != NULL) || (options.debug_script != NULL)) {
-		options.mute = TRUE;
+		/* The CLI parser resolves scripted mute/explicit audio opt-in. */
 		options.nowait = TRUE;
 		SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
 		SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);

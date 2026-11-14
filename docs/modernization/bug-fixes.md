@@ -35,6 +35,401 @@ land.
 
 ## Maintenance Rules
 
+### M147 — PC-8001 family sound fell behind and GVRAM waits doubled
+
+- **Symptom/scope:** PC-8001, mkII and mkIISR: crackling sound, N80SR
+  graphics slower than expected, and an "8 MHz" CPU clock shown while the CPU
+  ran at 4 MHz. A native recording stopped with `audio_discard_underflow`.
+- **Demonstrated root cause:** M144a reached 4 MHz by lowering the machine
+  clock in the machine hook, after `pccore_reset()` had set the sound and beep
+  clocks from the VA clock, and under VA memory waits counted in VA machine
+  clocks: the mixer produced too few samples for the guest time and each
+  GVRAM wait took twice as long.
+- **Correction:** the machine clock stays at the VA's; the PC-8001 family's
+  default x2 runs as x1 through the CPU clock, re-applied after the machine
+  hook; H/S does not apply to the family.
+- **Verification:** recordings complete on the PC-8001, mkII and mkIISR
+  (before: underflow); the mkIISR demo is further along at the same guest
+  frame; selftest with a single-mutation negative; CTest 183/183.
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [a55cb0638db628410ff22aa5dfef44e3bdc925ae](https://github.com/nakatamaho/vaeg/commit/a55cb0638db628410ff22aa5dfef44e3bdc925ae).
+
+### M147 — PC-8801 WIDTH 40 showed 80-column-width ANK and cursor
+
+- **Symptom/scope:** PC-8801 models on the independent route: after
+  N88-BASIC `WIDTH 40,25` the text showed 8-dot glyphs on alternate cells and
+  a half-width cursor.
+- **Demonstrated root cause:** M144a ignored port 30h on the PC-8801 and took
+  the width from the CRTC column count; `WIDTH 40` keeps 80 CRTC columns and
+  writes 22h to port 30h (measured on the PC-8801MA2).
+- **Correction:** the PC-8801 follows port 30h bit 0 like the mkII/SR.
+- **Verification:** PC-8801MA2 boot 80 columns, `WIDTH 40,25` doubled glyphs
+  and 16-dot cursor, `WIDTH 80,25` back; selftest "PC-8801 WIDTH 40" with a
+  single-mutation negative.
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [2fb6bbf926b166a2ac5dbc6c40cdf2003868ac37](https://github.com/nakatamaho/vaeg/commit/2fb6bbf926b166a2ac5dbc6c40cdf2003868ac37).
+
+### M147 — original PC-8001 40-column cursor at half width
+
+- **Symptom/scope:** the original PC-8001 (model 0): the cursor covered half
+  the 16-dot cell after `WIDTH 40,25`; mkII/mkIISR were right.
+- **Demonstrated root cause:** model 0 stays on the VA firmware route, whose
+  CURDEF cursor is 8 dots in 40 columns.
+- **Correction:** the cursor sprite is drawn at double width for model 0
+  while port 30h selects 40 columns; the VA's own V1/V2 is unchanged.
+- **Verification:** 16-dot cursor at columns 0 and 2, 8 dots after
+  `WIDTH 80,25`; mkII and VA2 V2 unchanged (headless captures).
+- **Task/evidence:** [M147 task](../agents/tasks/M147_pc8001_timing.md).
+- **Fixing commit:** [8fdf815945113c877dbbe80186dd9e56c06d7659](https://github.com/nakatamaho/vaeg/commit/8fdf815945113c877dbbe80186dd9e56c06d7659).
+
+### M146 — SQEMM98 printed the EMS size digits reversed
+
+- **Symptom/scope:** the generated `SQEMM98.SYS` reported "EMS Memory:
+  31.0 MB" for a 13MB EMS board (12MB as "21.0", 11MB as "11.0", 10MB as
+  " 1.0"); 1-9MB were right. The page count and the installed memory were
+  correct; only the message was wrong. Every SQEMM98 built since M90
+  (utility media, guest-driver bundle).
+- **Demonstrated root cause:** upstream SQEMM 0.8 `print_kb_ems_fourchar`
+  divides two-digit megabytes with `DIV` (tens in AL, units in AH) and then
+  runs the `XCHG AL,AH` meant for the one-digit path, so `STOSW` stores the
+  units first.
+- **Correction:** `tools/openwatcom/prepare-sqemm98.py` adds one `XCHG AL,AH`
+  on the two-digit path. `SQEMM98.SYS` is 13,255 bytes, SHA-256
+  `e8fd90f9e72788bc3a756ec883634a474b4c332427a36194af0f5d19c8225654`; the
+  guest-driver bundle pin follows.
+- **Verification:** reported by the maintainer (31.0 MB at 13MB); MS-DOS 4.0
+  `EMSBANK` disk on VA2 now prints "13.0 MB" at `ExMemory=13` and "10.0 MB"
+  at 10; `check-sqemm98.py` passes.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [27572df269e0d35d59f8b5bae46f012cde8a5e05](https://github.com/nakatamaho/vaeg/commit/27572df269e0d35d59f8b5bae46f012cde8a5e05).
+
+### M146 — EMS page frame replaced every system memory bank
+
+- **Symptom/scope:** with the EMS board enabled (`ExMemory` 1-13) and an EMM
+  loaded (EMMVA01, SQEMM98, EMMVA02, as on the utility media), CPU and DMA
+  accesses to `C0000h-CFFFFh` reached the EMS page in every system memory
+  bank: GVRAM, kanji ROM #1/#2, the dictionary ROM and TVRAM at those
+  addresses read and wrote the EMS page. Graphics or ROM reads there got EMS
+  data, and GVRAM writes there changed EMS pages (for example RDEMS RAM-disk
+  data). PC-88VA and PC-88VA2, V3 mode.
+- **Demonstrated root cause:** `ems_page_frame_active()` (M90) mapped the
+  frame whenever an EMS target was selected, independently of the memory map
+  register. On the machine the EMS board is in the bus slot, which the system
+  memory area reaches only with port 153h SMBC = 0 (BNN technical manual,
+  chapter 3); the PC-88VA EMM adapter EMMVA selects SMBC 0 for the EMM and
+  leaves it there after a mapping call for that reason. `EMSBANK` on
+  MS-DOS 4.0 showed the marker written with SMBC 0 at `C000:0000` both in
+  GVRAM (SMBC 4) and in kanji ROM #1 (SMBC 8): FAIL on VA and VA2.
+- **Correction:** the frame is active only when the selected system memory
+  bank (or the DMA bank during DMA) is 0, the bus slot.
+- **Verification:** `EMSBANK` PASS on VA and VA2 (MS-DOS 4.0 disk from
+  `tools/hardware/emsbank/build.sh`, and a PC-Engine 1.1 disk); the previous
+  build FAILs the same disks. Utility FDD with `ExMemory=13`: RDEMS `C:`
+  copy, type and dir work on VA and VA2. VA EMS selftest checks banks 1, 4,
+  8 and C, byte and word; removing the bank condition fails it with "a
+  non-bus-slot bank read the EMS page frame". Native suite 183/183.
+- **Task/evidence:** [M146 task](../agents/tasks/M146_ems_bank.md).
+- **Fixing commit:** [df87b814b1bbd3cfddcf737a9082a9e05114e0c3](https://github.com/nakatamaho/vaeg/commit/df87b814b1bbd3cfddcf737a9082a9e05114e0c3).
+
+### M144a — PC-8001 family FDD CPU at half its clock
+
+- **Symptom/scope:** with a `disk.rom` FDD unit, the PC-8001mkIISR in N80SR
+  mode did not load N80SR disk BASIC from its system disk: it fell back to
+  the ROM BASIC prompt. The PC-8001 in N mode booted but its end-of-track
+  read was intermittently retried. All PC-8001-family models (`extra/`) were
+  affected; VA and PC-8801 models were not.
+- **Demonstrated root cause:** `pccore_reset()` runs `iocore_reset()`, whose
+  `Subsystem::Reset()` sets the FDD CPU's cost per cycle from
+  `pccore.multiple` (2), before `romva_initialize()` runs the machine hook
+  that sets the PC-8001 family to x1 (3.9936 MHz machine clock). The FDD CPU
+  therefore ran at about 2 MHz: measured 204 machine clocks per byte against
+  the uPD765 byte interval of 153, so the FDC's byte pacing fell behind and
+  the end-of-sector step ran as soon as the last byte was read. A 14-sector
+  read ending on EOT then terminated with ST0=40h/ST1=80h (End of Cylinder)
+  before the unit's TC (`IN F8h`), eight retries alike, and the unit
+  returned status 81h.
+- **Correction:** `pccore_reset()` re-syncs the FDD CPU clock with the final
+  `pccore.multiple` after `romva_initialize()` (`subsystemmx_sync_clock()`),
+  so one FDD cycle costs one machine clock on the x1 machines and two on
+  VA/PC-8801 (unchanged).
+- **Verification:** the `PC-8001 machine` selftest checks the unit multiple
+  after a full `pccore_reset()`; removing the re-sync fails it with "the FDD
+  CPU keeps its 4 MHz at the x1 machine clock". With the private
+  PC-8001-family ROM sets and system disks: the N80SR system disk reaches
+  "N80SR-BASIC Disk version" (before: the ROM BASIC prompt), its EOT read
+  ends ST0=00h; the N-mode disk boots with no EOT retry. VA/VA2 boots of
+  the all-demos MS-DOS 4.0 and SGP boot disks are byte-identical to the
+  previous build at two frames each. Native suite 183/183, selftest passes.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#pc-8001-family-fdd-cpu-clock).
+- **Fixing commit:** [38225c0507ab5d71d9744b09c4b522c88e901169](https://github.com/nakatamaho/vaeg/commit/38225c0507ab5d71d9744b09c4b522c88e901169).
+
+### M144a — 24 kHz 640x200 graphics without scanlines on the independent route
+
+- **Symptom/scope:** the PC-8801 family on the independent uPD3301 route
+  (PC-8801MH, PC-8801FA and the other `extra/` PC-8801 models) at the 24 kHz
+  CRT showed the 200-line graphics line-doubled (every GVRAM line on two lit
+  rasters), while the real PC-8801MH shows one lit and one blank raster per
+  line (the maintainer's real-machine report, the M144a screen mode table).
+- **Demonstrated root cause:** the firmware programs these machines in
+  non-interlaced mode 1 (`grmode` B062h, measured). `drawscreenva` blanked
+  the odd graphics raster of the independent route (`n80_200line_24k`) only
+  in its 24 kHz non-interlaced mode 0 branch; the mode 1 branch reused the
+  previous raster for every 200-line frame, the VA's own line doubling.
+- **Correction:** the 24 kHz mode 1 branch blanks the odd graphics raster when
+  `n80_200line_24k` holds (independent route, 200-line graphics); the VA route
+  keeps its line doubling and the 400-line graphics stay one-to-one.
+- **Verification:** headless captures with ROM sets matching MAME's
+  `pc8801mh` and `pc8801fa`: `LINE(0,0)-(639,199)` ends on compose raster 398
+  with 397 and 399 blank at 24 kHz (before: 398 and 399 lit); the 15 kHz
+  captures and every VA V1/V2 (15/24 kHz, 8801 display on/off) and V3 capture
+  (SGP boot menu, demos F and I, MS-DOS 4.0) are byte-identical to the
+  previous build. Native suite passes.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#screen-mode-table-implementation).
+- **Fixing commit:** [d222a27e1f85dd807a15554a0383bccde8b88705](https://github.com/nakatamaho/vaeg/commit/d222a27e1f85dd807a15554a0383bccde8b88705).
+
+### M144a — PC-8801 text rendered at the wrong width on the independent device
+
+- **Symptom/scope:** the PC-8801 models booted through the independent uPD3301
+  route showed a nearly blank screen: the N88-BASIC sign-on lines rendered at
+  40-column strided positions instead of 80 columns (the "How many files(0-15)?"
+  prompt collapsed to a 148-lit-pixel band).
+- **Demonstrated root cause:** the displayed width came from the mkII's
+  firmware-mediated port 30h bit 0 flag alone. The PC-8001mkII/SR switch width
+  through that flag while the CRTC parameters stay at the 80-column geometry;
+  the PC-8801 instead rewrites the device parameters, so its width80 flag
+  never became set and the renderer treated the 80-column N88 text as the
+  doubled byte mode.
+- **Correction:** `n80_crtc_sync_width()` derives `width80` from the parameter
+  column count for the PC-8801 role (applied at reset and after every
+  parameter write), and the port 30h notification now only feeds the
+  PC-8001mkII/SR family, whose width switch is the captured firmware path.
+- **Verification:** PC-8801MA2 (a set matching MAME's `pc8801ma2` combined
+  `PC88.ROM`) boots through the firmware, echoes the typed files answer, and
+  renders "NEC N-88 BASIC Version 2.3", the copyright line and the free-byte
+  count at 80 columns through the independent device; the device state at the
+  prompt reads 80x20 columns, 20 scanlines, display and DMA started. The
+  mkII/SR width behaviour is unchanged (both models still pass the attribute
+  matrix pixel contract). Native full suite 183/183.
+- **Task/evidence:** [M144a task](../agents/tasks/M144a_x88000_compat_review.md#model-qualification).
+- **Fixing commit:** recorded with the M144a model-qualification commit.
+
+### M144a — independent N80 composition drops the blinking cursor
+
+- **Symptom/scope:** the independent PC-8001mkII/SR framebuffer has no cursor,
+  even when the existing CURDEF sprite generator produces its visible phase.
+- **Demonstrated root cause:** the N80 branch of `scrndrawva_compose_raster`
+  composes text/graphics and returns before generic sprite composition. It never
+  consumed the cursor raster; the blink clock was not the demonstrated defect.
+- **Correction:** export a separate derived CURDEF cursor raster and merge it in
+  the N80 branch under the existing text/graphics priority and layer visibility.
+  Do not expose other native sprites. Preserve the VA sprite raster, collision
+  handling, line budget and blink timing; do not change SAV formats.
+- **Verification:** 256 synthetic cursor/phase/model/mode/enable combinations,
+  unrelated-sprite exclusion, layer hiding and raster clearing. Reverted single
+  mutations fail with `M144A_N80_CURSOR_COMPOSITION` and
+  `M144A_N80_CURSOR_RASTER`. Native full suite: 162 PASS, 16 SKIP, zero FAIL;
+  not Windows presenter or physical-machine qualification.
+- **Task/evidence:** [M144a cursor correction](../agents/tasks/M144a_x88000_compat_review.md#independent-n80-cursor-composition-correction).
+- **Fix commit:** [e3adf0af83ddeee6ccdd3f2bee87477f06e43091](https://github.com/nakatamaho/vaeg/commit/e3adf0af83ddeee6ccdd3f2bee87477f06e43091).
+
+### M144a — active PCG sound restarts its phase after SAV load
+
+- **Symptom/scope:** synthetic mkII/SR SAV round trips restore matching PCG
+  controller registers but restart active tones instead of continuing their PCM.
+- **Demonstrated root cause:** `PCG88` serializes controller/glyph state only;
+  the separate `pcgsnd.phase[3]` is reset on load and was never serialized.
+- **Correction:** an optional version-1 `PCGPHASE` section stores three normalized
+  phases as 24 little-endian binary64 bytes, without changing `PCG88`. Preflight
+  validates size/version and each phase before state mutation. Legacy SAVs lacking
+  the section preserve the old phase-zero behavior; they cannot recover lost phase.
+- **Verification:** 24,576 codec classifications, numeric/endian and atomicity
+  controls, full SAV continuation on two models with three unequal binary/BCD
+  reloads, exact 512-value PCM comparisons, 16 malformed SAV rejections and
+  missing-section legacy controls. Native build and nine focused CTests pass. Reverted
+  mutations report `M144A_N80_PCG_PHASE_RESTORE` and `M144A_PCG_PHASE_SAV_GUARD`.
+  Scope is synthetic mixer continuity at matching rate/volume, not device queues,
+  actual speakers, hardware timing or cross-platform bit-identical synthesis.
+- **Task/evidence:** [M144a active-phase continuation](../agents/tasks/M144a_x88000_compat_review.md#pcg-active-phase-sav-continuation).
+- **Fix commit:** [d0546525b6e463e8070d554b215b4c358d9724c8](https://github.com/nakatamaho/vaeg/commit/d0546525b6e463e8070d554b215b4c358d9724c8).
+
+### M144a — N80SR FM interrupt mask has no effect on timer gating
+
+- **Symptom/scope:** in generated compatible-mode SR cases, port 33h bit 1
+  could read back as masked while FM timer requests were still permitted by
+  the VA mask. Conversely, the VA mask could suppress requests when SR allowed them.
+- **Demonstrated root cause:** `memctrlva_o033` only stored the latch and updated
+  ROM/palette selection; `fmboard_getintmask` returned `fmboardva.sintm` without
+  considering the SR latch. No SR mask-transition notification reached FM/PIC handling.
+- **Correction:** derive the effective gate from the existing SR latch in
+  compatible mode and notify the shared FM transition helper after port-33 writes.
+  Keep the VA mask separately, retain other machine/native behavior, and do not
+  change timer clocks, PIC latching/offered-request semantics or save-state formats.
+- **Verification:** 6,144 generated mask selections, A/B timers in 8214 and 8259
+  modes, empty/pending unmask, unchanged gate, re-mask and native setter controls;
+  guest OUT/IN under active traps; SAV restoration with opposing SR/VA masks.
+  Restoring VA-only selection fails with `M144A_N80_FM_MASK_SELECTION`; removing
+  the port-33 transition notification fails with `M144A_N80_FM_UNMASK_PENDING`.
+  Both mutations are reverted; native build and nine focused CTests pass,
+  including sound-generation/capture checks. These are source-model contracts,
+  not hardware-timing or media-execution claims.
+- **Task/evidence:** [M144a FM interrupt-mask checkpoint](../agents/tasks/M144a_x88000_compat_review.md#n80sr-fm-interrupt-mask-checkpoint).
+- **Fix commit:** [bbf991e3566c77189ccc028e09644209e82e1c36](https://github.com/nakatamaho/vaeg/commit/bbf991e3566c77189ccc028e09644209e82e1c36).
+
+### M144a — N80 automatic startup reads VA BASIC-switch bits
+
+- **Symptom/scope:** generated mkII/SR input cases returned the VA backup byte's
+  low mode bits rather than the N80/SR choice used by automatic startup. Guest
+  IN 30h also remained on the VA trap path when input trapping was enabled.
+- **Demonstrated root cause:** `memctrlva_i030` returned B1FC2h unconditionally,
+  and the independent N80 direct-input list omitted port 30h. The existing
+  handoff selected SR ROM for model 2 with a complete SR input, but that alone
+  did not supply matching startup-switch bits.
+- **Correction:** in mkII/SR compatible mode, derive bits 0/1 from that same
+  automatic N80/SR policy using X88000's non-N/non-SR readback convention, preserving
+  the upper bits and backing byte. Add only IN 30h to N80 direct routing.
+  Native, PC-8801 and base-PC-8001 behavior, OUT 30h and state formats are unchanged.
+- **Verification:** 1,024 input combinations and native/other/base controls;
+  1,476 instruction/trap/model cases; guest startup-bit stability across live
+  ROM switches. The readback fixture now enables input as well as output traps;
+  its earlier output-only setting was not proof of input interception behavior.
+  Separate bit/route negatives fail with `M144A_N80_BOOT_SWITCH_BITS` and
+  `M144A_N80_MODE_READ_ROUTE`. Mutations are reverted; native build and seven
+  focused CTests pass. This is model-contract verification, not hardware or
+  disk-boot qualification, and does not implement an explicit BASIC-mode selector.
+- **Task/evidence:** [M144a automatic startup-switch input](../agents/tasks/M144a_x88000_compat_review.md#automatic-n80-startup-switch-input-checkpoint).
+- **Fix commit:** [a5a59c205e47d5838cb9de45e0610f45c0072678](https://github.com/nakatamaho/vaeg/commit/a5a59c205e47d5838cb9de45e0610f45c0072678).
+
+### M144a — PCG BCD zero reload uses the binary divisor
+
+- **Symptom/scope:** a mode-3 PCG counter programmed with BCD reload 0000h used
+  divisor 65,536 instead of the four-digit BCD modulus 10,000. The shared PCG
+  frequency query returned 60 rather than 399 Hz at the existing model clock;
+  the same decoder supplied the PCM generator. All three PCG channels are affected.
+- **Demonstrated root cause:** after BCD digit conversion, the count helper
+  unconditionally replaced zero with the binary modulus. The zero exception
+  therefore discarded the selected counting representation.
+- **Correction:** choose the zero modulus by the BCD flag. Leave the input
+  clock, binary zero, nonzero decoding, mute policy and serialized state unchanged.
+- **Verification:** 60,003 frequency cases plus three-channel PCM equality
+  against binary 10,000 after equal gate resets. Independent integer-phase sign
+  checks guard against equal but wrong PCM periods. Separate one-change negatives
+  fail with `M144A_PCG_COUNT_ENCODING`, `M144A_PCG_BCD_ZERO_PCM` and
+  `M144A_PCG_PCM_PERIOD`. Mutations are reverted; native build and seven focused
+  CTests pass. Physical clock/analog output and save/replay phase are unqualified.
+- **Task/evidence:** [M144a BCD zero-reload contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-bcd-zero-reload-interpretation).
+- **Fix commit:** [a6e6bf50ef0ecb68302132d39f5cebea0e30864b](https://github.com/nakatamaho/vaeg/commit/a6e6bf50ef0ecb68302132d39f5cebea0e30864b).
+
+### M144a — malformed PCG state selectors accepted before load
+
+- **Symptom/scope:** a correctly sized PCG state payload could contain bank
+  selectors outside the two-bank array. Accepting these values risks out-of-bounds
+  glyph reads or programming writes after loading. The shared PCG state section
+  is affected, not just one machine selection; no crash is claimed as reproduced.
+- **Demonstrated root cause:** preflight checked only version and payload size
+  for the binary PCG section. Its selector values later serve directly as array
+  indices. A generated fixture with selector 2 was accepted before the fix.
+- **Correction:** validate bank selectors and bounded flag/mode fields in a pure
+  helper, invoked by preflight before machine reset/state application. Report
+  `M144A_PCG_STATE`. Keep raw RAM/address/data/counter bits unrestricted and do
+  not change the section version, structure or optional-section handling.
+- **Verification:** 10,240 field-domain classifications and 80 single-byte SAV
+  negatives across both N80 profiles. Rejection checks include unchanged live
+  CPU IP, PCG state, banking and a RAM sample. Bypassing only the preflight call
+  fails with `M144A_PCG_STATE_GUARD`; the mutation is reverted. Native build and
+  seven focused CTests pass. This is not audio-phase or whole-machine acceptance.
+- **Task/evidence:** [M144a PCG state-domain contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-state-domain-preflight).
+- **Fix commit:** [b325e7f6b17fae2d68aa2d02b0ada10ef6f4e85d](https://github.com/nakatamaho/vaeg/commit/b325e7f6b17fae2d68aa2d02b0ada10ef6f4e85d).
+
+### M144a — PCG configuration re-enable leaves blank text asleep
+
+- **Symptom/scope:** disabling and re-enabling PCG through configuration could
+  leave programmable blank-code glyphs invisible in an otherwise blank text-only
+  frame. The renderer/controller path is shared; explicit fixture coverage is
+  mkII/SR, both text widths and both graphics-enable settings.
+- **Demonstrated root cause:** the menu assigned `np2cfg.pcg_enable` directly.
+  Its redraw call did not invalidate the blank-frame sleep decision, and the
+  port 03h notification was not involved in this configuration-only transition.
+- **Correction:** route the menu through `pcg88_set_enabled()`, which notifies
+  text refresh on an option change without resetting RAM, selection or timer
+  registers. Existing configuration-save and redraw requests are retained.
+- **Verification:** the expanded 144-frame-start fixture checks option off/on,
+  unchanged controller state and continuation of a pending counter-byte load.
+  Single-mutation negatives reject missing refresh and unintended reset with
+  `M144A_N80_PCG_CONFIG_REFRESH` and `M144A_N80_PCG_CONFIG_PRESERVATION`.
+  Native build and seven focused CTests pass. Actual menu-click/presenter
+  automation, audio-phase continuity and hardware timing are not qualified.
+- **Task/evidence:** [M144a configuration-toggle contract](../agents/tasks/M144a_x88000_compat_review.md#pcg-configuration-toggle-refresh).
+- **Fix commit:** [f96fb6e1dfc19cdc9b6cb4910fcc5d631a2cea6e](https://github.com/nakatamaho/vaeg/commit/f96fb6e1dfc19cdc9b6cb4910fcc5d631a2cea6e).
+
+### M144a — programmable blank glyphs omitted or not refreshed
+
+- **Symptom/scope:** the uPD3301-emulated text path omitted PCG glyphs at codes
+  00h and 20h on a transparent background. In text-only operation, switching
+  PCG display off and then on could also leave the character row blank.
+  The path is shared with other PC-88-compatible models; the expanded fixture
+  explicitly covers the mkII/SR model variants.
+- **Demonstrated root causes:** the blank-code fast path preceded PCG lookup,
+  even when the selected programmable glyph contained nonzero rows. Separately,
+  display/bank changes in port 03h did not notify text refresh, so the renderer's
+  blank-frame sleep decision could survive re-enabling programmable display.
+- **Correction:** qualify the blank shortcut with absence of a selected PCG
+  glyph. Notify text refresh when the displayed-bank or display-enable fields
+  change; leave write-bank-only updates and character-row caching unchanged.
+- **Verification:** 196,608 composition cases include codes 80h, 00h and 20h.
+  Another fixture checks 112 frame starts, including zero-to-nonzero rewrites,
+  inactive-bank writes and display off/on. Independent single-mutation negatives
+  fail with `M144A_N80_PCG_LOW_CODES` and `M144A_N80_PCG_LIVE_FRAME` respectively.
+  The native build and seven focused CTest checks pass. Hardware sampling-cycle,
+  audio-phase and whole-machine acceptance are not inferred.
+- **Task/evidence:** [M144a programmable blank glyph contract](../agents/tasks/M144a_x88000_compat_review.md#programmable-blank-glyphs-and-frame-refresh).
+- **Fix commit:** [06e75085bb3c0483b005029681ac3044f111c322](https://github.com/nakatamaho/vaeg/commit/06e75085bb3c0483b005029681ac3044f111c322).
+
+### M144a — N80 PCG writes intercepted by the VA bridge
+
+- **Symptom/scope:** with an overlapping VA compatible-I/O trap, an enabled
+  mkII/SR PCG write could leave the independent main CPU for the native trap
+  vector before reaching the controller. This is a bounded N80 routing-contract
+  correction; broader compatibility and human-gate acceptance remain pending.
+- **Demonstrated root cause:** `N80DirectIO` admitted memory and digital-video
+  controls but not PCG ports. The compatible instruction precheck consequently
+  took the inherited VA trap before executing the PCG OUT. The RAM instruction
+  fixture stopped in native mode after its first LD/OUT pair instead of reaching
+  its pending-write checkpoint.
+- **Correction:** admit writes to 00h–03h and 0Ch–0Fh only for enabled PCG on the
+  independent mkII/SR main CPU in 88 mode. Preserve reads, disabled PCG,
+  neighbouring ports and other role/mode routing.
+- **Verification:** 1,440 instruction/trap/configuration cases check immediate,
+  ED and block I/O. A guard-removal mutation fails specifically with
+  `M144A_N80_PCG_GUEST_ROUTE`. The guest program's PCG write, CPU progress,
+  state-file restoration and continuation pass on both model profiles; the
+  native build and seven focused CTest checks pass. No audio-phase or
+  frame-boundary timing qualification is inferred.
+- **Task/evidence:** [M144a guest PCG contract](../agents/tasks/M144a_x88000_compat_review.md#guest-pcg-io-and-state-continuation).
+- **Fix commit:** [fdc34a969870ae9ebe452a4dbf8e4fb22e3ba334](https://github.com/nakatamaho/vaeg/commit/fdc34a969870ae9ebe452a4dbf8e4fb22e3ba334).
+
+### M144a — compatible GVAM selection and unmask request transitions
+
+- **Scope/status:** implementation candidate, human gate pending. This corrects
+  the maintainer-requested compatible-port contract, not a demonstrated cause
+  of the deferred demo scene-transition artifact or a new physical-VA finding.
+- **Symptom/root cause:** changing GVAM retained the previously selected
+  independent VRAM plane; the 32h handler only assigned the GVAM latch.
+  E6h prohibited-to-permitted transitions retained unacknowledged request
+  latches because the mask handler only assigned the mask and scheduled the
+  timer. Both differ from the pinned X88000 1.5.3 contract.
+- **Correction:** either GVAM edge in 88 mode resets independent selection
+  to main RAM; same-value writes and native-mode latch behavior are unchanged.
+  E6h clears only newly permitted source latches, preserving unrelated sources
+  and already offered CPU vector transactions, then updates the controller output.
+- **Verification:** native Debug build and `vaeg_romless_tests` pass; 32 GVAM
+  combinations and 256 E6h transition/pending combinations exercise production
+  I/O handlers. Existing interrupt delivery and state tests pass. Tests were not
+  yet mutation-checked; broader model/runtime validation remains pending.
+- **Task/evidence:** [M144a implementation checkpoint](../agents/tasks/M144a_x88000_compat_review.md#initial-port-implementation-checkpoint).
+  Candidate correction: [8393f1823dfec5bd562208818d7ae1929b5eb8e4](https://github.com/nakatamaho/vaeg/commit/8393f1823dfec5bd562208818d7ae1929b5eb8e4)
+  (local commit; publication blocked by authentication).
+
+
 ### M142 — BMS snapshot RAM is skipped when the reader starts with BMS disabled
 
 - **Symptom/scope:** the historical native load reaches the guest PC and exits
@@ -4449,6 +4844,52 @@ separate parity correction or move it to Open Defects.
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
 ## Open Defects
+
+### M144a — independent N80 CRTC geometry remains unresolved
+
+- **Status/scope:** RESOLVED for the guest interface; the independent
+  controller/renderer/state contract (command/parameter handling, variable
+  attribute-pair counts, byte-row pitch, SAV continuation) is implemented and
+  validated, ending this open entry. Physical-machine agreement of the
+  source-derived model remains unknown and stays unclaimed.
+- **Public-source finding:** at
+  [47af24d17138613af9d5e810ba1ae5cf3c9fa36e](https://github.com/nakatamaho/vaeg/commit/47af24d17138613af9d5e810ba1ae5cf3c9fa36e),
+  the main-CPU bridge's `N80DirectIO` excludes ports 50h/51h. These retain the VA
+  firmware trap path, rather than an independently modeled N80 CRTC. Variable
+  attribute support in the TSP renderer is not proof of the complete guest path.
+- **Cause/correction:** unresolved; this source-level boundary does not identify
+  a particular firmware's behavior as the root cause. Do not hardcode a row pitch,
+  patch private firmware addresses or mark the interface corrected without a
+  tested controller/renderer/state contract.
+- **Verification/task:** [M144a remaining gate work](../agents/tasks/M144a_x88000_compat_review.md#remaining-gate-work-not-promoted-by-this-sweep).
+  Public qualification must cover variable counts, row addressing, interrupted
+  parameter sequences, reset and SAV continuation. This entry records the public
+  source boundary, not private-input execution or emulator-comparison outcomes.
+  The maintainer has approved an X88000-source compatibility model, corroborated
+  by M88M source, with physical-machine agreement unknown. The
+  [geometry packet foundation](../agents/tasks/M144a_x88000_compat_review.md#geometry-packet-foundation-not-yet-the-guest-path-correction)
+  has synthetic packet/pitch/codec tests. The subsequent
+  [renderer and machine-SAV connection](../agents/tasks/M144a_x88000_compat_review.md#renderer-and-machine-sav-connection-checkpoint)
+  checks the shared raster/text-copy stride, partial packets through actual SAV
+  files, reset, legacy fallback and preflight rejection. Guest I/O remains
+  unconnected; this entry stays OPEN, not fixed.
+
+### VA2/V2H demo scene transitions briefly show reported text-like garbage
+
+- **Status:** OPEN; correction explicitly DEFERRED by the maintainer during
+  M143 runtime-integration review. This is not a fixed defect.
+- **Reported symptom/scope:** the PC-8801mkIISR demo briefly shows text-like
+  garbage when scenes change under the VA2 model in V2H mode.
+- **Cause/correction:** not investigated; no demonstrated root cause, production
+  change or fixing commit. Do not attribute this to timing, text-memory clearing
+  or the presenter without evidence.
+- **Verification:** maintainer-reported only; no agent reproduction or attached
+  capture. Exact executed build, host/backend, media revision, scene pair and
+  frequency have not been bound. No behavior on other model/mode pairs is claimed.
+- **Evidence/task:** [M143 carry-forward record](../agents/tasks/M143_runtime_speed_display.md#carried-forward-demo-transition-artifact).
+  A GitHub Issue was requested; filing is pending task-scoped authentication,
+  and no Issue number is claimed. The closed [boot/function-key issue #50](https://github.com/nakatamaho/vaeg/issues/50)
+  is a different reported symptom, not an established common cause or regression.
 
 ### M142 — VA-compatible 4MHz clipboard paste loses characters
 

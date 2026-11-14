@@ -26,6 +26,7 @@
  */
 
 #include "compiler.h"
+#include "io/pc8001_video.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "memoryva.h"
@@ -72,6 +73,35 @@ _MEMORYVA88ALU memoryva_88_alu;
 _MEMORYVA88ERAM memoryva_88_eram;
 BYTE memoryva_n80[0x8000];
 BOOL memoryva_pc8001;
+_MEMORYN80 memoryn80;
+UINT8 memoryn80_boot;
+UINT8 memoryn80_video[2];
+
+BOOL memoryva_n80_boot_valid(UINT8 mode) {
+	if (mode == N80_BOOT_AUTO)
+		return TRUE;
+	if (!memoryva_pc8001 || memoryn80.model > 2)
+		return FALSE;
+	return mode == N80_BOOT_N || (mode == N80_BOOT_N80 && memoryn80.model != 0) ||
+	       (mode == N80_BOOT_SR && memoryn80.model == 2 && memoryn80_sr_present);
+}
+
+UINT8 memoryva_n80_boot_selection(void) {
+	if (memoryn80_boot != N80_BOOT_AUTO && memoryva_n80_boot_valid(memoryn80_boot))
+		return memoryn80_boot;
+	if (!memoryn80.model)
+		return N80_BOOT_N;
+	return memoryn80.model == 2 && memoryn80_sr_present ? N80_BOOT_SR : N80_BOOT_N80;
+}
+
+BOOL memoryva_n80_color(void) {
+	return memoryva_88_mode && memoryva_pc8001 && memoryn80.model &&
+	       ((memoryn80.model == 2 && (memoryn80.port33 & 0x80)) ? (memoryn80.port31 & 0x10) != 0
+	                                                            : (memoryn80.port31 & 0x14) != 0);
+}
+BYTE memoryn80_srrom[0xa000];
+BYTE memoryn80_fourth[0x2000];
+BOOL memoryn80_sr_present;
 BOOL memoryva_pc8801;
 BOOL memoryva_n80_exist;
 char memoryva_n80_file[32];
@@ -257,9 +287,14 @@ static UINT sysm_bank(void) {
 	return (bank & 0x0f);
 }
 
+/* The EMS board sits in the bus slot: its C0000h-CFFFFh page frame is seen
+ * only while the system memory area selects the bus slot (port 153h
+ * SMBC = 0, or the DMA bank of port 180h during DMA). TVRAM, GVRAM, the
+ * kanji and dictionary ROMs keep these addresses in their own banks. The
+ * PC-88VA EMM adapter (EMMVA01/EMMVA02) selects the bus slot for this. */
 static BOOL ems_page_frame_active(UINT32 address) {
 	return ((emsio.target != 0) && (emsio.target <= emsio.maxmem) && (address >= 0x0c0000) &&
-	        (address < 0x0d0000));
+	        (address < 0x0d0000) && (sysm_bank() == 0));
 }
 
 static void ems_page_frame_write(UINT32 address, REG8 value) {
@@ -452,7 +487,8 @@ static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
  */
 #define TVRAM_WORD_WAIT_VA 13
 #define TVRAM_WORD_WAIT_VA2 12
-#define TVRAM_WORD_WAIT ((pccore.model_va == PCMODEL_VA2) ? TVRAM_WORD_WAIT_VA2 : TVRAM_WORD_WAIT_VA)
+#define TVRAM_WORD_WAIT                                                                            \
+	((pccore.model_va == PCMODEL_VA2) ? TVRAM_WORD_WAIT_VA2 : TVRAM_WORD_WAIT_VA)
 
 static void MEMCALL tvramw_wt(UINT32 address, REG16 value) {
 	UINT32 offset;
@@ -768,10 +804,25 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address) {
 	return (LOADINTELWORD(va91rom1mem + offset));
 }
 
-/* Independent-plane access (port 32h GVAM clear), selected by ports 5Ch-5Fh. */
+/* The independent N80 model uses 8000h-BFFFh. Keep the VA bridge's
+ * existing plane storage; only CPU address decoding is model-specific. */
+static BOOL n80_memory_model(void) {
+	return memoryva_pc8001 && memoryn80.model != 0;
+}
+
+static BOOL n88_gvam(void) {
+	return n80_memory_model() ? (memoryn80.model == 2 && (memoryn80.port33 & 0x40)) != 0
+	                          : memoryva_88_alu.gvam != 0;
+}
+
+static BOOL n88_gvram_aperture(UINT32 address) {
+	return n80_memory_model() ? (address >= 0x18000 && address < 0x1c000)
+	                          : (address >= 0x1c000 && address < 0x20000);
+}
+
+/* Independent-plane access, selected by ports 5Ch-5Fh. */
 static BOOL n88_gvram_selected(UINT32 address) {
-	return memoryva_88_mode && !memoryva_88_alu.gvam && memoryva_88_plane < 3 &&
-	       address >= 0x1c000 && address < 0x20000;
+	return memoryva_88_mode && !n88_gvam() && memoryva_88_plane < 3 && n88_gvram_aperture(address);
 }
 
 /*
@@ -779,8 +830,8 @@ static BOOL n88_gvram_selected(UINT32 address) {
  * PC88Z80Main.cpp ReadMemoryGVRamEx / WriteMemoryGVRamEx*. Re-implemented.
  */
 static BOOL n88_gvram_ex_selected(UINT32 address) {
-	return memoryva_88_mode && memoryva_88_alu.gvam && (memoryva_88_alu.port035 & 0x80) &&
-	       address >= 0x1c000 && address < 0x20000;
+	return memoryva_88_mode && n88_gvam() && (memoryva_88_alu.port035 & 0x80) &&
+	       n88_gvram_aperture(address);
 }
 
 static UINT32 n88_plane_offset(UINT plane, UINT32 address) {
@@ -846,8 +897,9 @@ static UINT32 n88_gvram_address(UINT32 address) {
  * TMODE changes CPU banking, never the text display source (M131 hardware).
  */
 static BOOL n88_tvram_selected(UINT32 address) {
-	const BOOL gvram =
-	    memoryva_88_alu.gvam ? (memoryva_88_alu.port035 & 0x80) != 0 : (memoryva_88_plane < 3);
+	/* N80 GVRAM is below C000h and cannot cover this upper text window. */
+	const BOOL gvram = !n80_memory_model() && (n88_gvam() ? (memoryva_88_alu.port035 & 0x80) != 0
+	                                                      : (memoryva_88_plane < 3));
 	return memoryva_88_mode && !gvram && !(sysportva.port032 & 0x10) && address >= 0x1f000 &&
 	       address < 0x20000;
 }
@@ -972,6 +1024,23 @@ REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 		return upd9002_mainram_read(n88_eram_address(address));
 	}
 	if (n88_rom_selected(address)) {
+		if (memoryva_pc8001 && memoryn80.model) {
+			const PC8001_ROM_ADDRESS bank =
+			    pc8001_rom_address((UINT16)address, memoryn80.port31, memoryn80.port71,
+			                       memoryn80.model == 2 && (memoryn80.port33 & 0x80));
+			switch (bank.source) {
+			case PC8001_ROM_N80:
+				return memoryva_n80[bank.offset];
+			case PC8001_ROM_4TH:
+				return memoryn80_fourth[bank.offset];
+			case PC8001_ROM_SR:
+				return memoryn80_srrom[bank.offset];
+			case PC8001_ROM_SR_IE:
+				return memoryn80_srrom[0x8000 + bank.offset];
+			default:
+				return upd9002_mainram_read(address);
+			}
+		}
 		/*
 		 * vaeg extension: with an N-BASIC ROM supplied, RMODE selects it for
 		 * all of 0000h-7FFFh, as on a PC-8801 (N mode). Its top 8 KiB is the

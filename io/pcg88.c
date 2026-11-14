@@ -52,10 +52,11 @@
  *        (bit 1/3) number (bit 0/2); bit 4 selects the bank written
  *   0Ch-0Eh  8253 counters 0-2, 0Fh  8253 mode
  * A counter in mode 3 sounds a square wave of 3.9936 MHz / count while its
- * gate is set (count > 266; 0 is 65536).
+ * gate is set (count > 266; zero reload is 65536 in binary, 10000 in BCD).
  */
 
 #include "compiler.h"
+#include <float.h>
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "memoryva.h"
@@ -71,6 +72,16 @@ static struct {
 	SINT32 level;
 } pcgsnd;
 
+void pcg88_set_enabled(BOOL enabled) {
+	const UINT8 value = enabled ? 1 : 0;
+	if (np2cfg.pcg_enable != value) {
+		np2cfg.pcg_enable = value;
+		/* Configuration toggles bypass port 03h, but must wake a blank
+		 * text frame just like a guest display-selection change. */
+		textmem_dirty = TRUE;
+	}
+}
+
 static BOOL pcg88_active(void) {
 	return memoryva_88_mode && np2cfg.pcg_enable;
 }
@@ -78,6 +89,74 @@ static BOOL pcg88_active(void) {
 /* The 8x8 character ROM: codes 00h-FFh, 8 bytes each (VA font 41000h). */
 static BYTE pcg88_rom(UINT address) {
 	return fontmem[0x41000 + (address & 0x7ff)];
+}
+
+BOOL pcg88_state_valid(const _PCG88 *state) {
+	UINT i;
+	if (!state || state->setbank > 1)
+		return FALSE;
+	for (i = 0; i < 2; i++) {
+		if (state->bank[i] > 1 || state->display[i] > 1)
+			return FALSE;
+	}
+	for (i = 0; i < 3; i++) {
+		if (state->sound_on[i] > 1 || state->rl[i] > 3 || state->mode[i] > 5 ||
+		    state->msb[i] > 1 || state->bcd[i] > 1)
+			return FALSE;
+	}
+	/* RAM, data, address and raw counters accept every bit pattern written
+	 * by the guest, including nondecimal nibbles in a BCD counter. */
+	return TRUE;
+}
+
+static UINT64 pcg88_phase_bits(const BYTE *data) {
+	UINT64 bits = 0;
+	UINT i;
+	for (i = 0; i < 8; i++)
+		bits |= (UINT64)data[i] << (8 * i);
+	return bits;
+}
+
+BOOL pcg88_phase_state_valid(const BYTE *data, UINT size) {
+	UINT i;
+	if (!data || size != PCG88_PHASE_STATE_SIZE || sizeof(double) != 8 || FLT_RADIX != 2 ||
+	    DBL_MANT_DIG != 53 || DBL_MAX_EXP != 1024)
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		/* Reject negatives (including -0), infinities and NaNs as bits,
+		 * before any floating-point operation on untrusted state. */
+		if (pcg88_phase_bits(data + 8 * i) >= ((UINT64)0x3ff00000 << 32))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+BOOL pcg88_phase_state_save(BYTE *data, UINT size) {
+	UINT i, j;
+	BYTE candidate[PCG88_PHASE_STATE_SIZE];
+	if (!data || size != PCG88_PHASE_STATE_SIZE || sizeof(double) != 8)
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		UINT64 bits;
+		CopyMemory(&bits, &pcgsnd.phase[i], sizeof(bits));
+		for (j = 0; j < 8; j++)
+			candidate[8 * i + j] = (BYTE)(bits >> (8 * j));
+	}
+	if (!pcg88_phase_state_valid(candidate, sizeof(candidate)))
+		return FALSE;
+	CopyMemory(data, candidate, sizeof(candidate));
+	return TRUE;
+}
+
+BOOL pcg88_phase_state_load(const BYTE *data, UINT size) {
+	UINT i;
+	if (!pcg88_phase_state_valid(data, size))
+		return FALSE;
+	for (i = 0; i < 3; i++) {
+		const UINT64 bits = pcg88_phase_bits(data + 8 * i);
+		CopyMemory(&pcgsnd.phase[i], &bits, sizeof(bits));
+	}
+	return TRUE;
 }
 
 void pcg88_reset(void) {
@@ -135,8 +214,14 @@ static void IOOUTCALL pcg88_o_pcg(UINT port, REG8 dat) {
 	case 0x03:
 		for (half = 0; half < 2; half++) {
 			const UINT mode = (UINT)dat >> (2 * half);
-			pcg88.display[half] = (mode & 2) ? 1 : 0;
-			pcg88.bank[half] = (UINT8)(mode & 1);
+			const UINT8 display = (mode & 2) ? 1 : 0;
+			const UINT8 bank = (UINT8)(mode & 1);
+			/* A previously blank text frame may be asleep. A display or
+			 * visible-bank change must wake decoding at the next frame. */
+			if (pcg88.display[half] != display || pcg88.bank[half] != bank)
+				textmem_dirty = TRUE;
+			pcg88.display[half] = display;
+			pcg88.bank[half] = bank;
 		}
 		pcg88.setbank = (dat & 0x10) ? 1 : 0;
 		break;
@@ -209,7 +294,7 @@ static UINT pcg88_count(UINT channel) {
 		count = ((count >> 12) & 0x0f) * 1000 + ((count >> 8) & 0x0f) * 100 +
 		        ((count >> 4) & 0x0f) * 10 + (count & 0x0f);
 	}
-	return (count == 0) ? 0x10000 : count;
+	return (count == 0) ? (pcg88.bcd[channel] ? 10000 : 0x10000) : count;
 }
 
 /* The tone of a counter in Hz, 0 when silent. */

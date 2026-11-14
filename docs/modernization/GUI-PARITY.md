@@ -107,7 +107,7 @@ snapshot; that tier is absent from the current tree.
 | `IDD_SND14`, `IDD_SND26`, `IDD_SND86`, `IDD_SNDSPB`, `IDD_SNDPAD1` | `win9x/dialog/d_sound.cpp` | Board-specific volume/jumper/joystick pad settings | `later` |
 | S98 and WAV file selectors | `win9x/dialog/d_sound.cpp` | Audio logging and WAV recording | `later` |
 | `IDD_BMS` | `win9x/dialog/d_bms.cpp` | I/O bank memory enable, port, bank count | `done` (M52 plus post-G90 follow-up); legacy keys persist, clean configurations enable 128 banks (16MB) at `01D0H`, selector zero restores ordinary main RAM, selectors 1 through 128 select BMS storage, and changes apply through guest reset |
-| SDL2 EMS Board | `sdl2/gui/gui.cpp` | EMS enable and 1-13MB capacity | `done` (M90 plus post-G90 hotfix); `ExMemory` persists, clean configurations select 13MB, and changes apply through guest reset |
+| SDL2 EMS Board | `sdl2/gui/gui.cpp` | EMS enable and 1-15MB capacity (13MB before M146) | `done` (M90 plus post-G90 hotfix); `ExMemory` persists, clean configurations select 13MB, and changes apply through guest reset |
 | `IDD_CALENDAR` | `win9x/dialog/d_clnd.cpp` | Real/virtual calendar and BCD time fields | `later` |
 | `IDD_ABOUT` | `win9x/dialog/d_about.cpp` | About box | `later` |
 | `IDD_VIEW_ADDRESS`, `IDR_VIEW` | `win9x/debuguty/*.cpp` | Debug/viewer address, register, dump, disassembly, VA views | `later` |

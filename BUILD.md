@@ -111,17 +111,20 @@ keeps sanitizer acceptance on Linux and macOS.
 
 ## Windows cross-build on macOS (MacPorts; no Colima)
 
-The complete static Windows handoff can be built directly on macOS using
-MacPorts' `x86_64-w64-mingw32-gcc` and `g++`. Prerequisites: MacPorts MinGW-w64
+The standard static Windows handoff on macOS uses the installed
+MacPorts `x86_64-w64-mingw32-gcc` and `g++`, not Docker or Colima. A stopped
+container daemon is not a blocker for this path. Prerequisites: MacPorts MinGW-w64
 GCC/binutils, CMake, Ninja, pkgconfig, Python 3, Git, make and tar. No port is
 installed or modified by the helper. Do not use host SDL2/FFmpeg packages as
 Windows dependencies.
 
 ```sh
-export PATH="/opt/local/bin:$PATH"
-python3 tools/release/build-mingw-macports.py --commit <full-sha> \
-  --work-dir ../vaeg-mingw-macports-<short-sha> \
-  --sdk-dir ../tmp/m142/mingw-sdk --jobs 2
+# Bind MINGW_SDK to the existing reviewed target SDK under ~/work.
+# Choose main or the canonical lowercase milestone for <track>.
+PATH="/opt/local/bin:$PATH" \
+  python3 tools/release/build-mingw-macports.py --commit <full-sha> \
+  --work-dir ../vaeg-mingw-<short-sha> --sdk-dir "$MINGW_SDK" \
+  --build-track <track> --jobs 4
 ```
 
 `--work-dir` must not exist. The helper creates a clean source clone, installs

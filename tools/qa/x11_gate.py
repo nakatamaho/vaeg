@@ -319,10 +319,12 @@ class Client:
             metadata = observe(props, geom, self.process.pid)
             path = self.output / (name + ".xwd")
             command(["xwd", "-silent", "-id", self.window, "-out", str(path)], self.env)
-            (self.output / (name + ".png")).write_bytes(png_bytes(decode_xwd(path.read_bytes())))
-            (self.output / (name + ".json")).write_text(json.dumps(metadata, indent=2) + "\n")
         finally:
             os.kill(self.process.pid, signal.SIGCONT)
+        # Decode/encode the already frozen XWD after resuming. Keeping the guest
+        # stopped during Python pixel conversion perturbs measured runtime speed.
+        (self.output / (name + ".png")).write_bytes(png_bytes(decode_xwd(path.read_bytes())))
+        (self.output / (name + ".json")).write_text(json.dumps(metadata, indent=2) + "\n")
 
     def click(self, x, y):
         self.xdo("mousemove", "--window", self.window, x, y)

@@ -71,7 +71,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--rotate none|right`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--headless-audio`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
@@ -190,8 +190,16 @@ BASIC enter N-BASIC with `NEW ON 1`. N-BASIC boots a disk left in drive 1.
 See `docs/modernization/v1v2-n-basic-mode.md`.
 
 `--headless-input-script path` starts the emulator with dummy SDL video/audio
-drivers and injects commands through the normal guest keyboard path. Each
-nonempty script line is submitted with Return appended; blank lines and lines
+drivers and injects commands through the normal guest keyboard path.
+Scripted input and the debug harness default to muted audio. Add
+`--headless-audio` to retain configured mixer output for software audio checks,
+including Native PCM recording; explicit `--mute` still wins regardless of
+argument order. The flag requires one of the two script options and does not
+switch away from dummy SDL devices or override disabled sound in the config.
+It is not evidence of actual speaker output. Without this opt-in, silence in a
+scripted recording cannot establish a guest sound-device defect.
+
+Each nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
@@ -920,7 +928,8 @@ without that key) independently shows/hides the bottom information bar. It is
 separate from the moved lamp toggle and works in windowed/fullscreen SDL and
 native-presenter paths; headless runs reserve neither bar. Windowed toggles add
 or remove their own rows without resizing the guest picture. Narrow windows
-clip the regular line; hovering reveals its full text and English details.
+progressively omit equivalent MHz, SGP/FRAME and machine/mode text before
+nominal CPU and draw FPS; hovering reveals the complete line and details.
 
 `情報 -> FPS を表示`, `CPU クロックを表示`, `SGP クロックを表示`, and `フレームを表示`
 independently control that bar's fields, not window-title suffixes. A new config
@@ -930,6 +939,18 @@ names replace backend VA/VA2 names; SGP is shown only for the PC-88VA family.
 CPU/SGP MHz are configured nominal clocks, rounded for the short line and
 independent of host pacing/No Wait. The tooltip gives exact MHz, base,
 multiplier, CPU speed %, CPU domain and measured draw/guest-frame FPS.
+M143 adds a separate measured guest-time/host-time ratio. While F11 is held or
+No Wait is enabled, the bar shows `▶▶ 8.0倍` and, when space permits,
+`CPU 8MHz → 約63.9MHz相当` (illustrative values, not a benchmark). The estimate
+is nominal CPU Hz multiplied by guest-time speed, not instruction throughput
+or a changed CPU/device clock. Guest time comes from `pccore_guest_clock()`
+and `pccore.realclock`; neither a fixed 60Hz frame rate nor draw FPS is used.
+The one-second measurement window restarts on reset/load, pause/resume,
+clock/mode/pacing transitions, clock regression or host gaps over ten seconds.
+Until a new window completes, speed is `計測中`; pause is explicitly labeled.
+F11's existing one-in-16 draw policy is unchanged. The tooltip distinguishes
+its requested draw-skip from automatic skipping and actual measured draws
+(recording can independently require every frame).
 Regular FPS measures completed guest draws per host second; FRAME is the
 cumulative draw count since reset, not the number of host presents. Neither
 changes guest timing. The title keeps the application name and optional FDD

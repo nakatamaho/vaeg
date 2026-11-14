@@ -45,3 +45,8 @@ void sysmng_modeled(BYTE num, BYTE sw) {
 void sysmng_fddaccess(REG8 drv) {
 	frontpanel_fdd_access(drv);
 }
+
+/* M146: each SASI/SCSI block access (fdd/sxsi.c); the panel shows SASI1. */
+void sysmng_hddaccess(REG8 drv) {
+	frontpanel_hdd_access(drv);
+}

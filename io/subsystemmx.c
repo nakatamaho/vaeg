@@ -33,6 +33,14 @@ void subsystemmx_reset(void) {
 	}
 }
 
+/* Re-sync the FDD CPU clock with the machine's final clock multiple; call
+ * after the reset-time machine hook (romva_initialize()). */
+void subsystemmx_sync_clock(void) {
+	if (!subsystemmxcfg.mockup) {
+		subsystem_sync_clock();
+	}
+}
+
 void subsystemmx_bind(void) {
 	if (subsystemmxcfg.mockup) {
 		fdsubsys_bind();

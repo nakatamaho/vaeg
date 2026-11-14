@@ -239,6 +239,15 @@ void romva_initialize(void) {
 	}
 
 	memoryva_pc8001 = FALSE;
+	cgromva_n80sr_font_present = FALSE;
+	ZeroMemory(cgromva_n80sr_font, sizeof(cgromva_n80sr_font));
+	ZeroMemory(&memoryn80, sizeof(memoryn80));
+	ZeroMemory(memoryn80_video, sizeof(memoryn80_video));
+	memoryn80.port71 = 1;
+	memoryn80_sr_present = FALSE;
+	memoryn80_boot = N80_BOOT_AUTO;
+	FillMemory(memoryn80_srrom, sizeof(memoryn80_srrom), 0xff);
+	FillMemory(memoryn80_fourth, sizeof(memoryn80_fourth), 0xff);
 	memoryva_pc8801 = FALSE;
 	cgrom88_kanji[0] = NULL;
 	cgrom88_kanji[1] = NULL;
