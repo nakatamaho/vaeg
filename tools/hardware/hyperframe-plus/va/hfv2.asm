@@ -25,15 +25,15 @@
 ; is a pass-through/DAC mux (74HC4053 x2) whose select bit is unknown;
 ; with CN2 (main RGB input) unconnected the monitor shows "no signal"
 ; even after a successful draw. Writes bounded candidate values to the
-; control ports D0 and EE, holding each for about 5 seconds so the
+; control ports D0 and EE, holding each for 8 seconds so the
 ; monitor's behaviour can be watched and timed. VA, MS-DOS 4.0.
 ;
 ; Sequence: PRE probe, the JPGVHF initialisation without its PC-98 BIOS
 ; call (EE=C0, D0=A5, D3=00, 8 points at Y=0191, D0=A1, 32 points at
 ; Y=0193, D0=E1), colour bars on rows 0-63 (eight bars, eight rows
 ; each), then:
-;   phase 1, D0 = A1 A3 A5 A9 B1 E1 E5 21 61 FF   (5 s each)
-;   phase 2, D0 = E1 fixed, EE = C0 40 80 00 FF   (5 s each)
+;   phase 1, D0 = A1 A3 A5 A9 B1 E1 E5 21 61 FF   (8 s each)
+;   phase 2, D0 = E1 fixed, EE = C0 40 80 00 FF   (8 s each)
 ; Each write is logged with the DOS clock (the VA's clock starts at
 ; 2000-01-31 00:00:00 at power-on, so the log times match a stopwatch).
 ; The board is left at D0=E1, EE=C0 (displaying attempt); photograph the
@@ -81,7 +81,7 @@ s_sweep     db 'SWEEP', 0
 s_port_eq   db 'port=', 0
 s_val_eq    db ' value=', 0
 s_t_eq      db ' t=', 0
-s_hold      db ' hold=5s', 0
+s_hold      db ' hold=8s', 0
 s_done      db 'DONE', 0
 s_done_txt  db 'left D0=E1 EE=C0; photograph the monitor, then power off', 0
 s_off       db 'OFF', 0
@@ -251,30 +251,33 @@ log_sweep:
     popa
     ret
 
-; CX = seconds to hold, watching the DOS clock's seconds field.
+; BL = seconds to hold, watching the DOS clock's seconds field. The
+; count lives in memory: INT 21h AH=2Ch returns CX and DX, so a register
+; counter would be clobbered (the 1-second holds of the first run).
 wait_secs:
     pusha
+    mov byte [sec_cnt], 0
     mov ah, 0x2c
     int 0x21
-    mov bh, dh                  ; base second
-    mov bl, 0
+    mov al, dh
+    mov [last_sec], al
 .hold:
     mov ah, 0x2c
     int 0x21
-    cmp dh, bh
+    mov al, dh
+    cmp al, [last_sec]
     je .hold
-    mov bh, dh
-    inc bl
-    cmp bl, cl
+    mov [last_sec], al
+    inc byte [sec_cnt]
+    mov al, [sec_cnt]
+    cmp al, bl
     jb .hold
     popa
     ret
 
 wait5:
-    push cx
-    mov cx, 5
+    mov bl, 8
     call wait_secs
-    pop cx
     ret
 
 ; CX:DX = DOS 2Ch output.
@@ -386,3 +389,5 @@ draw_small:
 
 sweep_port  dw 0x00d0
 cur_val     db 0
+sec_cnt     db 0
+last_sec    db 0
