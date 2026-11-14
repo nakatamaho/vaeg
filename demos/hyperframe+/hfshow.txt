@@ -1,0 +1,19 @@
+HFSHOW - a ray-traced picture on the HyPER-FRAME+ (vaeg M149)
+
+V3 mode, MS-DOS 4.0, PC-88VA with a Digital Arts HyPER-FRAME+.
+
+  HFSHOW            send TETRA.RGB to the board, wait for a key, then
+                    stop the board (the main screen returns)
+  HFSHOW /STAY      leave the board displaying when the program ends
+  HFSHOW file       another 640x400x24 picture (R G B bytes, 768000)
+
+TETRA.RGB is a synthetic picture made by raytrace.py: a mirror sphere
+resting on red, green and blue spheres at the vertices of a regular
+tetrahedron, over a checkerboard tile floor, 640x400, drawn for a 4:3
+monitor. Everything goes through I/O ports D0, D3-D8, DA, DC and EE
+only.
+
+On the real board the picture appears on the monitor connected to the
+board's output only once its main RGB input (CN2) is connected; see
+docs/agents/tasks/M149. In vaeg, enable Device - HyPER-FRAME+... - and
+pick "HyperFrame+ ON" (full screen) or "右上に出力" (top right).

@@ -459,3 +459,47 @@ G149 は未受入れ、リリースは承認されていない。
    画素書き込み、IN 00D4–00D7）を確かめる。
 3. 別問題「Current drive is no longer valid」（HFV2 の後、ボードの有無に
    関係なし）の原因調査。実機でも起きるかの確認から。
+
+## 2026-11-15: レイトレースのサンプル（保守者の依頼）
+
+Checkpoint 4（1 枚表示プログラム）の表示側を、合成データで用意した。
+
+- `tools/hardware/hyperframe-plus/va/raytrace.py`: 標準ライブラリだけの
+  レイトレーサ。正四面体の頂点に半径 1 の玉を 4 つ、互いに接するように
+  置く（床に赤・緑・青、その上に鏡の玉）。白黒の市松模様のタイルの床
+  （少し光沢あり）、空のグラデーション、点光源 1 つと影、反射 5 段まで。
+  640×400、3×3 のスーパーサンプリング、4:3 のモニタ（画素の縦横比 1.2）
+  向けの構図。出力は R G B の 768000 バイト（`TETRA.RGB`）と PPM。
+  同じ引数なら同じ結果（SHA-256 で確認）。
+- `hfshow.asm` → `HFSHOW.COM`: 画像ファイルを 1 行（1920 バイト）ずつ
+  読み、JPGVHF の初期化の後、行ごとに Y、画素ごとに X → R G B を I/O で
+  送る（実機で読み戻しを確かめた方式）。送り終えたらキー待ち、キーで
+  停止手順（D0=00、EE=00）。`/STAY` で表示を残す。
+- `build-sample.sh`: 画像を描き、HFSHOW.COM を組み立て、msdos4-va.2 の
+  vanilla 複製に `HFSHOW.COM`、`TETRA.RGB`、`HFSHOW.TXT` を入れた D88 を
+  作る（Git の外）。
+- 確認: vaeg の headless 実行（VA、HyPER-FRAME+ 有効、表示モード
+  「HyperFrame+ ON」）で `HFSHOW` が画像を表示し、キー入力の後に本体の
+  画面へ戻ることを画面写真で確認した。実機では CN2 の入力が未接続なので
+  表示は未確認（「信号なし」のはず）。
+
+### demos/hyperframe+ への収録（保守者の指示、2026-11-15）
+
+サンプルを demo として `demos/hyperframe+/` に置いた。`raytrace.py`、
+`hfshow.asm`、`hfshow.txt` をここへ移し（移動だけのコミット）、
+`build-d88.py` で起動ディスクと `hfshow-msdos4.d88.xz` を作る。
+
+- `AGENTS.md` の MS-DOS 4.0 例外（M106）に従う: msdos4-va.2 の公開
+  SHA-256 で元イメージを確かめ、vanilla 複製が残すファイルだけ、
+  `LICENSE.TXT` あり、起動セクタとシステムファイルをハッシュで検査、
+  ほかは `HFSHOW.COM`・`HFSHOW.TXT`・`TETRA.RGB`（すべてこのディレクトリ
+  のソースから生成）のみ（エラーコード `M149_HFSHOW_*`）。ディレクトリ
+  の時刻は固定で、同じ入力から同じバイト列。`.xz` の往復も確認。
+  許可リストは `demos/hyperframe+/README.md`。
+- 2 回のビルドで同じ D88（SHA-256 `212ab6e9…`）、`--check` で committed
+  の `.xz` と一致。展開した committed イメージを vaeg で動かした画面写真
+  は、先の確認と同一。
+- 旧 `tools/hardware/hyperframe-plus/va/build-sample.sh` は、新しい
+  ビルダを呼ぶ薄いラッパにした（削除はしていない）。
+- 浮動小数点（`math.sqrt`、`**`）を使うので、libm の丸めが違うホストでは
+  `TETRA.RGB` の一部のバイトが変わりうる（committed は macOS arm64 で生成）。
