@@ -41,6 +41,7 @@
 #include "mouseifva.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "hfplus.h"
 #include "kbdmap.h"
 #include "recording/recording.h"
 
@@ -376,6 +377,7 @@ static const INITBL iniitem[] = {
     {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
     {"PCG", INITYPE_BOOL, &np2cfg.pcg_enable, 0},
     {"HyperFramePlus", INITYPE_BOOL, &np2cfg.hfplus_enable, 0},
+    {"HyperFramePlusView", INITYPE_UINT8, &hfplus_view, 0},
     {"PCG_vol", INITYPE_UINT8, &np2cfg.pcg_vol, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},
@@ -515,6 +517,11 @@ void initload(void) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid PacingMs=%u; using %u",
 		            np2oscfg.pacing_ms, VAEG_PACING_MS_MAX);
 		np2oscfg.pacing_ms = VAEG_PACING_MS_MAX;
+	}
+	if (hfplus_view >= HFPLUS_VIEW_COUNT) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid HyperFramePlusView=%u; using 0",
+		            hfplus_view);
+		hfplus_view = HFPLUS_VIEW_PIP;
 	}
 	if (np2cfg.EXTMEM > EMSIO_MAX_MEGABYTES) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid ExMemory=%u; using %u", np2cfg.EXTMEM,

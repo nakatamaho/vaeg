@@ -36,9 +36,8 @@
 ;   phase 2, D0 = E1 fixed, EE = C0 40 80 00 FF   (8 s each)
 ; Each write is logged with the DOS clock (the VA's clock starts at
 ; 2000-01-31 00:00:00 at power-on, so the log times match a stopwatch).
-; The board is left at D0=E1, EE=C0 (displaying attempt); photograph the
-; monitor, then power the machine off. /STOP writes only the stop
-; sequence D0=00, EE=00.
+; The run ends with the J1 stop sequence D0=00, EE=00, so the display
+; returns to the main screen. /STOP writes only that pair.
 ;
 ; Exit: 0 sweep done; 1 option; 2 machine; 4 log write failed.
 
@@ -83,7 +82,7 @@ s_val_eq    db ' value=', 0
 s_t_eq      db ' t=', 0
 s_hold      db ' hold=8s', 0
 s_done      db 'DONE', 0
-s_done_txt  db 'left D0=E1 EE=C0; photograph the monitor, then power off', 0
+s_done_txt  db 'sweep done, stopped with D0=00 EE=00', 0
 s_off       db 'OFF', 0
 s_off_txt   db 'D0=00 EE=00', 0
 s_sum       db 'SUM', 0
@@ -179,12 +178,11 @@ main:
     inc si
     loop .s1
 
-    ; leave in the active state for the photograph
+    ; the J1 stop sequence: back to the main screen
     mov dx, 0x00d0
-    mov al, 0xe1
+    xor al, al
     out dx, al
     mov dx, 0x00ee
-    mov al, 0xc0
     out dx, al
     call lb_reset
     mov si, s_done

@@ -36,8 +36,9 @@
 ; then draw 640x400: eight colour bars (y 0..299: white, yellow, cyan,
 ; green, magenta, red, blue, black, 80 pixels each) and a grey ramp
 ; (y 300..399), the J1 way: Y once per row, per pixel X then R, G, B.
-; Twelve pixels are read back (coordinates, then IN D8/DA/DC). The board
-; is left displaying; HFV1 /OFF writes the J1 stop sequence D0=00, EE=00.
+; Twelve pixels are read back (coordinates, then IN D8/DA/DC). The run
+; ends with the J1 stop sequence D0=00, EE=00 (OFF line), so the display
+; returns to the main screen; HFV1 /OFF writes only that pair.
 ;
 ; Options: /OFF stop only; /NOINIT skip the initialisation; /WORD select
 ; coordinates with word OUTs (D6, D4) as J1 does, instead of bytes in the
@@ -210,6 +211,19 @@ main:
     pop cx
     add si, 4
     loop .rb
+
+    ; the J1 stop sequence: back to the main screen
+    mov dx, 0x00d0
+    xor al, al
+    out dx, al
+    mov dx, 0x00ee
+    out dx, al
+    call lb_reset
+    mov si, s_off
+    call lb_tag
+    mov si, s_off_txt
+    call lb_str
+    call lb_emit
 
     call lb_reset
     mov si, s_sum
