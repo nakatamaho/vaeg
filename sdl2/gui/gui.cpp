@@ -52,6 +52,7 @@
 #include "gui/gui.h"
 #include "codecnv.h"
 #include "memoryva.h"
+#include "io/hfplus.h"
 #include "maketextva.h"
 #include "bkupmemva.h"
 #include "extrarom.h"
@@ -4488,6 +4489,20 @@ static void draw_machine_config_menu(void) {
 	                np2cfg.hfplus_enable != 0)) {
 		np2cfg.hfplus_enable = (np2cfg.hfplus_enable != 0) ? 0 : 1;
 		sysmng_update(SYS_UPDATECFG);
+	}
+	if (np2cfg.hfplus_enable != 0) {
+		// Tentative display view: PiP keeps the VA text screen (the
+		// probes' CSV log) visible while the board is driven.
+		static const char *const hfview[HFPLUS_VIEW_COUNT] = {
+		    "PiP（本体画面 + 右上にボード出力）",
+		    "全画面（ボード出力で置き換え）",
+		    "本体のみ（ボード出力を隠す）"};
+		char label[96];
+		snprintf(label, sizeof(label), "HyPER-FRAME+ 表示: %s",
+		        hfview[hfplus_view]);
+		if (ImGui::MenuItem(label)) {
+			hfplus_view = (UINT8)((hfplus_view + 1) % HFPLUS_VIEW_COUNT);
+		}
 	}
 	ImGui::EndMenu();
 }

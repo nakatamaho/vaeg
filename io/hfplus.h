@@ -29,6 +29,18 @@ enum {
     HFPLUS_FB_SIZE = 786432
 };
 
+/* How the tentative display shows the board's frame buffer in the vaeg
+ * window while the board is driven. PiP is the default so the VA text
+ * screen (the probes' CSV log) stays visible. */
+enum {
+    HFPLUS_VIEW_PIP = 0,
+    HFPLUS_VIEW_FULL,
+    HFPLUS_VIEW_OFF,
+    HFPLUS_VIEW_COUNT
+};
+
+extern UINT8 hfplus_view;
+
 typedef struct {
     UINT8 control; /* last OUT 00D0 */
     UINT8 d3;      /* last OUT 00D3 */

@@ -32,6 +32,8 @@
 
 _HFPLUS hfplus;
 
+UINT8 hfplus_view = HFPLUS_VIEW_PIP;
+
 static UINT8 hfplus_fb[HFPLUS_FB_SIZE];
 
 /* The probe logs show the ports undriven (FF) at power-on and after the
