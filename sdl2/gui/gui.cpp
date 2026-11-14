@@ -4485,14 +4485,14 @@ static void draw_machine_config_menu(void) {
 	// M149: Digital Arts HyPER-FRAME+ (C bus, 640x400 24-bit frame
 	// buffer). The ports stay attached; with the board off they answer
 	// like an empty slot, so the toggle takes effect immediately.
-	if (ImGui::BeginMenu("HyPER-FRAME+")) {
+	if (ImGui::BeginMenu("HyPER-FRAME+...")) {
 		BOOL enabled = (np2cfg.hfplus_enable != 0);
 		// Tentative display view: PiP keeps the VA text screen (the
 		// probes' CSV log) visible while the board is driven.
 		static const char *const hfview[HFPLUS_VIEW_COUNT] = {
-		    "PiP（本体画面 + 右上にボード出力）",
-		    "全画面（ボード出力で置き換え）",
-		    "本体のみ（ボード出力を隠す）"};
+		    "右上に出力",
+		    "HyperFrame+ ON",
+		    "HyperFrame+ OFF"};
 		if (ImGui::MenuItem("有効", nullptr, enabled)) {
 			np2cfg.hfplus_enable = enabled ? 0 : 1;
 			sysmng_update(SYS_UPDATECFG);
