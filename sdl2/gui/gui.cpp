@@ -4485,24 +4485,26 @@ static void draw_machine_config_menu(void) {
 	// M149: Digital Arts HyPER-FRAME+ (C bus, 640x400 24-bit frame
 	// buffer). The ports stay attached; with the board off they answer
 	// like an empty slot, so the toggle takes effect immediately.
-	if (ImGui::MenuItem("HyPER-FRAME+", nullptr,
-	                np2cfg.hfplus_enable != 0)) {
-		np2cfg.hfplus_enable = (np2cfg.hfplus_enable != 0) ? 0 : 1;
-		sysmng_update(SYS_UPDATECFG);
-	}
-	if (np2cfg.hfplus_enable != 0) {
+	if (ImGui::BeginMenu("HyPER-FRAME+")) {
+		BOOL enabled = (np2cfg.hfplus_enable != 0);
 		// Tentative display view: PiP keeps the VA text screen (the
 		// probes' CSV log) visible while the board is driven.
 		static const char *const hfview[HFPLUS_VIEW_COUNT] = {
 		    "PiP（本体画面 + 右上にボード出力）",
 		    "全画面（ボード出力で置き換え）",
 		    "本体のみ（ボード出力を隠す）"};
-		char label[96];
-		snprintf(label, sizeof(label), "HyPER-FRAME+ 表示: %s",
-		        hfview[hfplus_view]);
-		if (ImGui::MenuItem(label)) {
-			hfplus_view = (UINT8)((hfplus_view + 1) % HFPLUS_VIEW_COUNT);
+		if (ImGui::MenuItem("有効", nullptr, enabled)) {
+			np2cfg.hfplus_enable = enabled ? 0 : 1;
+			sysmng_update(SYS_UPDATECFG);
 		}
+		ImGui::Separator();
+		for (UINT view = 0; view < HFPLUS_VIEW_COUNT; view++) {
+			if (ImGui::MenuItem(hfview[view], nullptr,
+			                hfplus_view == view, enabled)) {
+				hfplus_view = (UINT8)view;
+			}
+		}
+		ImGui::EndMenu();
 	}
 	ImGui::EndMenu();
 }
