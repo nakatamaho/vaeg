@@ -40,6 +40,12 @@ HFV3            D3 sweep (D3 was never varied before): phase 1 writes
 Run in this order: HFV0, HFV0 /W, then HFV1. If HFV0 shows no
 response, HFV1 cannot display anything.
 
+The same disk runs in vaeg (Device menu, HyPER-FRAME+ on, reset):
+HFV0 shows the ports as undriven (FF) before the first write, the
+initialisation wakes them, HFV1 draws and its read-back matches, and
+while the board is driven the vaeg window shows the board's frame
+buffer (tentative model). HFV2 /STOP returns to the main screen.
+
 Exit codes: 0 pass, 1 option, 2 machine, 4 log not written;
 HFV0: 3 nothing driven, 11h the /W readbacks disagree;
 HFV1: 11h a pixel differed.
