@@ -235,7 +235,7 @@ vaeg に実装した。コミットは本節の追加と同時。
 - `io/hfplus.c` / `io/hfplus.h`: ボードモデル。ポート 00D0/00D3/00D4/
   00D5/00D6/00D7/00D8/00DA/00DC/00EE。測定された意味論:
   - 冷間（電源投入直後）は無駆動で IN は FF。停止手順 D0=00/EE=00 でも
-    無駄駆動に戻る。control/ee のどちらかが非ゼロで駆動（INIT 後の
+    無駆動に戻る。control/ee のどちらかが非ゼロで駆動（INIT 後の
     D0=E1/D3=00 読み戻しと一致）。
   - IN 00D0/00D3 は最後に書いた値を返す。IN 00D8/00DA/00DC は現在の座標
     の R/G/B を返す（12 点読み戻しと一致）。
@@ -310,9 +310,15 @@ vaeg で probe ディスクを動かした保守者の指摘:
    を書くように変更。
 
 `vram/scrndrawva.c` の駆動条件（駆動状態 = HF+ 表示、非駆動 = 本体画面
-スルー）は変更していない。smoke.py の模擬で HFV1/HFV2/HFV3 がすべて
-終了コード 0 で停止手順まで到達することを確認。CTest `vaeg_hfplus`
-111 checks / 0 failures。probe ディスクを作り直し。
+スルー）は変更していない。CTest `vaeg_hfplus` 111 checks / 0 failures。
+
+**訂正（2026-11-14、後述の「vaeg での実行結果」参照）**: 2 と 3 は、この
+時点では実際には入っていなかった。編集スクリプトが照合に失敗して何も
+書き込まず、それを見落としたまま修正済みと報告し、コミット
+[efb66f57](https://github.com/nakatamaho/vaeg/commit/efb66f57) にも
+`hfv1/2/3.asm` は含まれていない（smoke.py は終了時の状態を検査しない
+ので通っていた）。実際の修正は
+[ff30ea24](https://github.com/nakatamaho/vaeg/commit/ff30ea24)。
 
 ### 暫定表示の表示モード（保守者の指摘、2026-11-14 続き）
 
@@ -380,3 +386,61 @@ Y=0191/0193、X≦019F は 6 バンク内）、無効時は空きスロットと
 待ち）の終了後に MS-DOS が「Current drive is no longer valid」を出し、
 DIR が Extended Error 15 になる。ボードを無効（空きスロット）にしても
 同じなので、ボードモデルの問題ではない。原因は別途調査する。
+
+## 2026-11-14: vaeg での実行結果（保守者、build 1d5c6b64 のディスク）
+
+保守者が vaeg で probe ディスクを動かし、結果の D88 を渡した。ログは Git の
+外（`~/work/pc88va/tmp/m149/HFLOG.vaeg-1.TXT`）。機種は VA2（F000:FFFE =
+FFFEh）、HyPER-FRAME+ 有効。HFV0 → HFV1 → HFV2 の順。
+
+**実機ログとの比較**（同じ HFV 系、実機は VA）
+
+| 段階 | 実機（VA） | vaeg モデル | 一致 |
+|---|---|---|---|
+| 冷間の全ポート（HFV0 / HFV1 の PRE） | HFV1 PRE 全部 FF（HFV0 は実機未実行） | HFV0 の 10 ポート全部 FF、HFV1 PRE 全部 FF | ○ |
+| INIT 後の読み戻し 12 点（byte 座標） | 全部一致 | 全部一致 | ○ |
+| 2 本目の PRE（HFV1 の後） | D0=E1、D3=00、D8/DA/DC=FE、EE=FF | D0=E1、D3=00、D8/DA/DC=FE、EE=FF | ○（完全一致） |
+| HFV2 スイープ（D0 10 値、EE 5 値） | 映像出力の変化なし | 暫定表示のまま変化なし | — （モデルは表示の有効化を実装していない） |
+
+- `[MEASURED-vaeg]` 実機で測った意味論（冷間 FF、制御の保持、画素の
+  書き込み・読み戻し、IN EE = FF、最後の座標の画素値）を、モデルは
+  そのまま再現している。2 本目の PRE の FE は、HFV1 が最後に読んだ
+  (639,399) のグレー値。
+- このディスクの HFV1/HFV2 は旧版だった（HFV1 に OFF 行がなく、HFV2 が
+  `left D0=E1 EE=C0` で終わる）。原因は上記「訂正」のとおり、終了時の
+  停止手順の修正が入っていなかったこと。このため vaeg では、HFV1 の
+  後も HFV2 の後もボードが駆動のまま残り、暫定表示が本体画面を覆った
+  （保守者の「元の画面に戻らない」「上 1/4 パターンで終わり」）。
+  [ff30ea24](https://github.com/nakatamaho/vaeg/commit/ff30ea24) で
+  修正し、組み立てた COM に停止手順の文字列があることと、vaeg の
+  headless 実行で HFV1 が `OFF,D0=00 EE=00` を出して本体画面に戻り、
+  続く HFV0 で全ポート FF（停止状態）になることを確認した。probe
+  ディスクを作り直した（`~/work/pc88va/tmp/m148/hfv-probe.d88`、
+  SHA-256 `add8ddd5c127115bd35d96a5d5afd30547c9ca24fc8510d37f49572aca2d174d`）。
+- 「上 1/4 パターン」の見え方には、もう一つ原因があった。重ね合わせ
+  描画の番地計算の誤りで帯が斜めに崩れていた（「実装レビュー」の 1、
+  [7b523209](https://github.com/nakatamaho/vaeg/commit/7b523209) で修正）。
+
+**別問題: HFV2 の後の「Current drive is no longer valid」**
+
+保守者の vaeg で、HFV2 終了後に MS-DOS が「Current drive is no longer
+valid」をプロンプトに出した。headless 実行で再現し、切り分けた（いずれも
+旧版 HFV2、VA モデル）:
+
+| 条件 | 結果 |
+|---|---|
+| HyPER-FRAME+ 有効、HFV2 実行後に DIR | 再現。ボリュームラベルが読めず（「has no label」）、DIR が Extended Error 15（無効なドライブ） |
+| HyPER-FRAME+ **無効**（空きスロット）、HFV2 実行後に DIR | 同じく再現 |
+| プログラムを実行せず、同じ時間プロンプトで放置して DIR | 正常（ラベル MSDOS4-VA、ファイル一覧） |
+
+- `[MEASURED-vaeg]` ボードの有無に関係なく起きるので、HyPER-FRAME+
+  モデルの問題ではない。HFV2 は約 2 分間ログファイル `A:\HFLOG.TXT` を
+  開いたまま、8 秒ごとに 1 行ずつ書き足す。保存された D88 の中身
+  （ラベル、HFLOG.TXT）は正常なので、壊れているのは DOS のメモリ上の
+  ドライブ状態と考えられる。
+- `[INFERRED]` 長時間開いたままのファイルへの書き込みの間に、DOS が
+  ディスク交換を検出した（FDD のモーター停止や交換信号の扱い）可能性が
+  ある。実機の VA でも起きるのか、vaeg の FDD の扱いの差なのかは未確認。
+  実機の HFV2 実行後にこの表示が出たかは記録がない。
+- 調査は別に行う。probe 側の回避策（1 行ごとにログを開閉する）は、
+  原因が分かるまで入れない。
