@@ -272,6 +272,10 @@ vaeg に実装した。コミットは本節の追加と同時。
 `vaeg_hfplus` と `vaeg_sdl2` のビルドを通し（macOS, clang）、
 `vaeg_hfplus` は 111 checks / 0 failures。リポジトリチェック 4 種も通過。
 
+ビルド識別の宣言マイルストーンが WSR-E 時代の `M143-dev` のままだった
+ため、`cmake/release_identity.cmake` を `M149-dev` に更新した（ポリシー
+どおり、ゲート未受入れの間は -dev を保持）。
+
 次の一手（実機側）: テスタの電池交換 → CN2 ↔ D-sub 出力の抵抗マップ →
 CN2 ケーブル → 実機での表示確立。表示の有効化条件が実機で判明した場合、
 `vram/scrndrawva.c` の駆動条件を実測の意味論へ置き換える。
