@@ -22,41 +22,18 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Build the M149 HyPER-FRAME+ sample disk: ray-trace TETRA.RGB
-# (raytrace.py), assemble HFSHOW.COM and put both, with HFSHOW.TXT, on a
-# vanilla copy of the msdos4-va.2 MS-DOS 4.0 disk:
-#   build-sample.sh [--msdos4 msdos4-pc88va-2hd.d88] OUTPUT.d88
-# Also writes OUTPUT.ppm (the picture). Everything stays out of Git.
+# The HyPER-FRAME+ sample moved to demos/hyperframe+ (M149). This wrapper
+# builds a raw sample disk outside the repository with that builder, without
+# touching the committed .d88.xz:
+#   build-sample.sh OUTPUT.d88
 set -eu
-
-nasm_command=${NASM:-nasm}
-python_command=${PYTHON:-python3}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
-cache=${VAEG_CACHE_DIR:-${HOME}/work/pc88va/pc88va-private-docs/pc88va-utilities-cache}
-msdos4=$cache/msdos4-va.2/dl/msdos4-pc88va-2hd.d88
-if [ "${1:-}" = "--msdos4" ]; then
-	msdos4=$2
-	shift 2
-fi
 if [ "$#" -ne 1 ]; then
-	printf 'usage: %s [--msdos4 IMAGE] OUTPUT.d88\n' "$0" >&2
+	printf 'usage: %s OUTPUT.d88\n' "$0" >&2
 	exit 2
 fi
-output=$1
-[ ! -e "$output" ] || { printf 'error: %s exists\n' "$output" >&2; exit 1; }
-[ -f "$msdos4" ] || { printf 'error: MS-DOS 4.0 image not found: %s\n' "$msdos4" >&2; exit 1; }
-echo '7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0  '"$msdos4" |
-	sha256sum -c - >/dev/null || { printf 'error: not the msdos4-va.2 release image\n' >&2; exit 1; }
-
-work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-hfshow.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-hfshow-wrap.XXXXXX")
 trap 'rm -rf "$work"' EXIT
-root=$work/payload/root
-mkdir -p "$root"
-"$python_command" "$script_dir/raytrace.py" "$root/TETRA.RGB" \
-	--ppm "${output%.d88}.ppm" --samples 3
-"$nasm_command" -f bin -o "$root/HFSHOW.COM" "$script_dir/hfshow.asm"
-sed 's/$/\r/' "$script_dir/hfshow.txt" >"$root/HFSHOW.TXT"
-"$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" vanilla --source "$msdos4" --output "$output"
-"$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" install --image "$output" --payload "$work/payload"
-sha256sum "$root/HFSHOW.COM" "$root/TETRA.RGB" "$output"
+"${PYTHON:-python3}" "$repo_root/demos/hyperframe+/build-d88.py" \
+	--output "$1" --compressed-output "$work/unused.d88.xz"
