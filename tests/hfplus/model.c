@@ -267,6 +267,85 @@ int main(void) {
 		}
 	}
 
+	/* the board disabled = an empty slot: writes ignored, reads FF */
+	np2cfg.hfplus_enable = 0;
+	hfplus_reset();
+	init_sequence();
+	select_xy_byte(1, 1);
+	write_rgb(0x12, 0x34, 0x56);
+	check("disabled d0", hfplus_i_d0(0x00d0), 0xff);
+	check("disabled pixel", hfplus_i_pixel(0x00d8), 0xff);
+	check("disabled no state", hfplus.driven, 0);
+	check("disabled fb untouched", hfplus_framebuffer()[(640 + 1) * 3], 0);
+	check("disabled display", hfplus_display_active(), 0);
+
+	/* the tentative display: PiP / full / off into a surface whose pitch
+	 * is wider than its width (the vaeg shadow surface) */
+	np2cfg.hfplus_enable = 1;
+	hfplus_reset();
+	init_sequence();
+	{
+		enum { SW = 640, SH = 400, PITCH = (SW + 8) * 2 };
+		static UINT8 surf[PITCH * SH];
+		UINT16 *row;
+		int bad;
+		int y;
+		int x;
+		/* left half red, right half blue, a white top row */
+		for (y = 0; y < HFPLUS_H; y++) {
+			select_xy_word(0, (UINT16)y);
+			for (x = 0; x < HFPLUS_W; x++) {
+				select_xy_word((UINT16)x, (UINT16)y);
+				if (y == 0) {
+					write_rgb(0xff, 0xff, 0xff);
+				} else if (x < HFPLUS_W / 2) {
+					write_rgb(0xff, 0x00, 0x00);
+				} else {
+					write_rgb(0x00, 0x00, 0xff);
+				}
+			}
+		}
+		/* full: every row is the source row, no horizontal skew */
+		hfplus_view = HFPLUS_VIEW_FULL;
+		memset(surf, 0x55, sizeof(surf));
+		hfplus_compose_rgb565(surf, PITCH, SW, SH);
+		bad = 0;
+		for (y = 1; y < SH; y++) {
+			row = (UINT16 *)(surf + (size_t)y * PITCH);
+			if ((row[0] != 0xf800) || (row[SW / 2 - 1] != 0xf800) ||
+			    (row[SW / 2] != 0x001f) || (row[SW - 1] != 0x001f)) {
+				bad++;
+			}
+		}
+		check("full rows not skewed", bad, 0);
+		row = (UINT16 *)surf;
+		check("full top row white", row[100], 0xffff);
+		/* the padding after the width is not written */
+		check("full pitch padding", surf[SW * 2], 0x55);
+		/* PiP: top-right quarter, 8 pixels in; the rest untouched */
+		hfplus_view = HFPLUS_VIEW_PIP;
+		memset(surf, 0x55, sizeof(surf));
+		hfplus_compose_rgb565(surf, PITCH, SW, SH);
+		row = (UINT16 *)(surf + (size_t)100 * PITCH);
+		check("pip left untouched", row[10], 0x5555);
+		check("pip left edge red", row[SW - SW / 2 - 8], 0xf800);
+		check("pip right edge blue", row[SW - 9], 0x001f);
+		check("pip right margin untouched", row[SW - 4], 0x5555);
+		row = (UINT16 *)(surf + (size_t)(8 + SH / 2) * PITCH);
+		check("pip below untouched", row[SW - 100], 0x5555);
+		/* off: nothing drawn; stopped: nothing drawn */
+		hfplus_view = HFPLUS_VIEW_OFF;
+		memset(surf, 0x55, sizeof(surf));
+		hfplus_compose_rgb565(surf, PITCH, SW, SH);
+		check("off untouched", ((UINT16 *)surf)[100], 0x5555);
+		hfplus_view = HFPLUS_VIEW_FULL;
+		hfplus_o_d0(0x00d0, 0x00);
+		hfplus_o_ee(0x00ee, 0x00);
+		hfplus_compose_rgb565(surf, PITCH, SW, SH);
+		check("stopped untouched", ((UINT16 *)surf)[100], 0x5555);
+		hfplus_view = HFPLUS_VIEW_PIP;
+	}
+
 	printf("%d checks, %d failures\n", checks, failures);
 	return ((failures == 0) ? 0 : 1);
 }

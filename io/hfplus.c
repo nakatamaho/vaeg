@@ -34,7 +34,7 @@ _HFPLUS hfplus;
 
 UINT8 hfplus_view = HFPLUS_VIEW_PIP;
 
-static UINT8 hfplus_fb[HFPLUS_FB_SIZE];
+UINT8 hfplus_fb[HFPLUS_FB_SIZE];
 
 /* The probe logs show the ports undriven (FF) at power-on and after the
  * viewer's stop sequence D0=00 EE=00, and driven after the initialisation
@@ -215,6 +215,45 @@ void hfplus_bind(void) {
 
 UINT8 *hfplus_framebuffer(void) {
 	return (hfplus_fb);
+}
+
+BOOL hfplus_display_active(void) {
+	return ((np2cfg.hfplus_enable != 0) && (hfplus.driven != 0) &&
+	        (hfplus_view != HFPLUS_VIEW_OFF));
+}
+
+static void hfplus_compose_rect(UINT8 *dst, int pitch, int left, int top,
+                                int w, int h) {
+	int x;
+	int y;
+	for (y = 0; y < h; y++) {
+		UINT32 sy = ((UINT32)y * HFPLUS_H) / (UINT32)h;
+		const UINT8 *row = hfplus_fb + sy * HFPLUS_W * 3;
+		UINT16 *out = (UINT16 *)(dst + (size_t)(top + y) * (size_t)pitch) + left;
+		for (x = 0; x < w; x++) {
+			UINT32 sx = ((UINT32)x * HFPLUS_W) / (UINT32)w;
+			const UINT8 *px = row + sx * 3;
+			out[x] = (UINT16)(((px[0] & 0xf8) << 8) | ((px[1] & 0xfc) << 3) |
+			                  (px[2] >> 3));
+		}
+	}
+}
+
+void hfplus_compose_rgb565(UINT8 *dst, int pitch, int width, int height) {
+	int w;
+	int h;
+	if ((dst == NULL) || (width <= 0) || (height <= 0) || !hfplus_display_active()) {
+		return;
+	}
+	if (hfplus_view == HFPLUS_VIEW_PIP) {
+		w = width / 2;
+		h = height / 2;
+		if ((w >= 64) && (h >= 40) && (width - w - 8 >= 0) && (h + 8 <= height)) {
+			hfplus_compose_rect(dst, pitch, width - w - 8, 8, w, h);
+			return;
+		}
+	}
+	hfplus_compose_rect(dst, pitch, 0, 0, width, height);
 }
 
 int hfplus_write_ppm(const char *path) {

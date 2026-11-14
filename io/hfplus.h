@@ -15,10 +15,14 @@
  *     D5 D4 = X) and by word OUTs (D6, D4), and IN 00D8/00DA/00DC read
  *     the R/G/B byte at the current coordinate (12-point readback);
  *   - IN 00EE is not driven even after OUT 00EE (the probe read FF).
- * The video output is NOT modelled: on the real VA the board produced
- * no signal without the CN2 (main RGB) input cable, and no display
- * enable was found in D0/EE/D3. The frame buffer is exposed through
- * hfplus_framebuffer() and hfplus_write_ppm() for tests and debugging.
+ * Not measured, therefore assumptions of the model:
+ *   - pixel OUTs reach the frame buffer even while the ports are
+ *     undriven (no probe wrote pixels before the initialisation);
+ *   - the video output. On the real VA the board produced no signal
+ *     without the CN2 (main RGB) input cable, and no display enable
+ *     was found in D0/EE/D3. vaeg shows the frame buffer while the
+ *     board is driven (hfplus_compose_rgb565, the tentative display),
+ *     and the main screen otherwise.
  */
 
 enum {
@@ -56,11 +60,22 @@ extern "C" {
 #endif
 
 extern _HFPLUS hfplus;
+/* the frame buffer itself: RGB triples, row-major, 640 per row */
+extern UINT8 hfplus_fb[HFPLUS_FB_SIZE];
 
 void hfplus_reset(void);
 void hfplus_bind(void);
 UINT8 *hfplus_framebuffer(void);
 int hfplus_write_ppm(const char *path);
+/* TRUE while the tentative display shows the board (enabled, driven and
+ * a view other than HFPLUS_VIEW_OFF). */
+BOOL hfplus_display_active(void);
+/* Draw the visible 640x400 raster into an RGB565 surface for the current
+ * view: dst points at the surface's pixel (0,0), pitch is bytes per row,
+ * width/height the surface size in pixels. Nearest-neighbour scaling;
+ * HFPLUS_VIEW_PIP uses the top-right quarter (half width and height,
+ * 8 pixels in from the edges), HFPLUS_VIEW_FULL the whole surface. */
+void hfplus_compose_rgb565(UINT8 *dst, int pitch, int width, int height);
 
 #ifdef __cplusplus
 }

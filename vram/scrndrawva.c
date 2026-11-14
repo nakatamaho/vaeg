@@ -85,56 +85,12 @@ static void scrndrawva_makedrawcolor(void) {
 	}
 }
 
-/* M149: when the HyPER-FRAME+ is driven (the tentative display model:
- * the board's output replaces the main unit's video, as on a PC-9801
- * where the monitor hangs off the board's RGB OUT), blit the board's
- * 640x400 24-bit frame buffer over the composed VA screen, nearest
- * neighbour, as RGB565. When the board is idle the main screen shows
- * through (pass-through). The real board's display-enable condition is
- * not measured - see the task file for what the hardware did. */
-static void scrndrawva_hfplus_rect(const SCRNSURF *surf, int px, int py,
-		int pw, int ph) {
-	const UINT8 *fb = hfplus_framebuffer();
-	UINT8 *dst;
-	int stride = surf->xalign * surf->width;
-	int x;
-	int y;
-
-	for (y = 0; y < ph; y++) {
-		UINT16 sy = (UINT16)(((UINT32)y * HFPLUS_H) / (UINT32)ph);
-		const UINT8 *row = fb + (UINT32)sy * HFPLUS_W * 3;
-		dst = surf->ptr + (UINT32)(py + y) * stride + (UINT32)px * surf->xalign;
-		for (x = 0; x < pw; x++) {
-			UINT16 sx = (UINT16)(((UINT32)x * HFPLUS_W) / (UINT32)pw);
-			const UINT8 *p = row + (UINT32)sx * 3;
-			UINT16 rgb565 = (UINT16)(((p[0] & 0xf8) << 8) |
-			                         ((p[1] & 0xfc) << 3) |
-			                         (p[2] >> 3));
-			dst[x * surf->xalign] = (BYTE)(rgb565 & 0xff);
-			dst[x * surf->xalign + 1] = (BYTE)(rgb565 >> 8);
-		}
-	}
-}
-
+/* M149: the HyPER-FRAME+ tentative display (io/hfplus.c). The surface's
+ * pixel x of row y is at ptr + y * yalign + (x + 1) * xalign: sdrawva16
+ * keeps a one-pixel guard column on the left (SCRNMNG_SURFACE_GUARD_LEFT). */
 static void scrndrawva_hfplus(const SCRNSURF *surf) {
-	if (hfplus_view == HFPLUS_VIEW_OFF) {
-		return;
-	}
-	if (hfplus_view == HFPLUS_VIEW_FULL) {
-		scrndrawva_hfplus_rect(surf, 0, 0, surf->width, surf->height);
-		return;
-	}
-	/* PiP: the board output at half size in the top-right corner, so the
-	 * VA text screen (the probes' CSV log) stays visible. */
-	{
-		int pw = surf->width / 2;
-		int ph = surf->height / 2;
-		if ((pw < 64) || (ph < 40)) {
-			scrndrawva_hfplus_rect(surf, 0, 0, surf->width, surf->height);
-			return;
-		}
-		scrndrawva_hfplus_rect(surf, surf->width - pw - 8, 8, pw, ph);
-	}
+	hfplus_compose_rgb565(surf->ptr + surf->xalign, surf->yalign, surf->width,
+	                      surf->height);
 }
 
 BYTE scrndrawva_draw(BYTE redraw) {
@@ -167,8 +123,7 @@ BYTE scrndrawva_draw(BYTE redraw) {
 	sdraw.yalign = surf->yalign;
 	sdrawfn(&sdraw, height);
 
-	if ((np2cfg.hfplus_enable) && (hfplus.driven) && (surf->bpp == 16) &&
-	    (surf->width > 0) && (surf->height > 0)) {
+	if ((surf->bpp == 16) && (surf->xalign == 2) && hfplus_display_active()) {
 		scrndrawva_hfplus(surf);
 	}
 
