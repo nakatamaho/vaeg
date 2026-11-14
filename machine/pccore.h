@@ -104,6 +104,8 @@ typedef struct {
 	UINT8 pcg_vol;
 	/* M149: Digital Arts HyPER-FRAME+ on the C bus (default off). */
 	UINT8 hfplus_enable;
+	/* M150: PC-8801-17 Video Art Board in 88-compatible sessions (off). */
+	UINT8 vab_enable;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

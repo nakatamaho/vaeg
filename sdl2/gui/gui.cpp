@@ -53,6 +53,7 @@
 #include "codecnv.h"
 #include "memoryva.h"
 #include "io/hfplus.h"
+#include "io/vab.h"
 #include "maketextva.h"
 #include "bkupmemva.h"
 #include "extrarom.h"
@@ -4485,6 +4486,12 @@ static void draw_machine_config_menu(void) {
 	// M149: Digital Arts HyPER-FRAME+ (C bus, 640x400 24-bit frame
 	// buffer). The ports stay attached; with the board off they answer
 	// like an empty slot, so the toggle takes effect immediately.
+	// M150: PC-8801-17 Video Art Board (88-compatible sessions). The ports
+	// stay attached; off behaves as an empty slot, so no reset is needed.
+	if (ImGui::MenuItem("PC-8801-17 ビデオアートボード", nullptr, np2cfg.vab_enable != 0)) {
+		np2cfg.vab_enable = (np2cfg.vab_enable != 0) ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+	}
 	if (ImGui::BeginMenu("HyPER-FRAME+...")) {
 		BOOL enabled = (np2cfg.hfplus_enable != 0);
 		// Tentative display view: PiP keeps the VA text screen (the

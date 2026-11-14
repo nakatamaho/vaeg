@@ -89,6 +89,8 @@ static const SFENTRY np2tbl[] = {
     {"EMSIO", 0, STATFLAG_BIN, &emsio, sizeof(emsio)},
     {"HFPLUS", 0, STATFLAG_BIN, &hfplus, sizeof(hfplus)},
     {"HFPLUSFB", 0, STATFLAG_BIN, hfplus_fb, sizeof(hfplus_fb)},
+    {"VAB", 0, STATFLAG_BIN, &vab, sizeof(vab)},
+    {"VABRAM", 0, STATFLAG_BIN, vab_ram, sizeof(vab_ram)},
     {"PIT", 0, STATFLAG_BIN, &pit, sizeof(pit)},
     {"MOUSE", 0, STATFLAG_BIN, &mouseif, sizeof(mouseif)},
     {"NP2SYSPORT", 0, STATFLAG_BIN, &np2sysp, sizeof(np2sysp)},

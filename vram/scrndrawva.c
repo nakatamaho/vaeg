@@ -5,6 +5,7 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "io/hfplus.h"
+#include "io/vab.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
 #include "sdrawva.h"
@@ -125,6 +126,12 @@ BYTE scrndrawva_draw(BYTE redraw) {
 
 	if ((surf->bpp == 16) && (surf->xalign == 2) && hfplus_display_active()) {
 		scrndrawva_hfplus(surf);
+	}
+	/* M150: the Video Art Board's picture replaces the 88-mode screen
+	 * (X88000 swaps the whole bitmap). Same guard-column addressing. */
+	if ((surf->bpp == 16) && (surf->xalign == 2) && vab_display_active()) {
+		vab_compose_rgb565(surf->ptr + surf->xalign, surf->yalign, surf->width,
+		                   surf->height);
 	}
 
 sddr_exit2:

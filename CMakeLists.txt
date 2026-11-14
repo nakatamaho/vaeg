@@ -332,6 +332,7 @@ set(VAEG_CORE_SOURCES
     io/dmac.c
     io/emsio.c
     io/hfplus.c
+    io/vab.c
     io/fdc.c
     io/hostfat.c
     io/mouseif.c
@@ -1089,6 +1090,13 @@ if(VAEG_ENABLE_TESTS)
     target_compile_features(vaeg_hfplus_test PRIVATE c_std_99)
     add_test(NAME vaeg_hfplus COMMAND vaeg_hfplus_test)
     set_tests_properties(vaeg_hfplus PROPERTIES LABELS "romless;hfplus;video")
+
+    # M150: the PC-8801-17 Video Art Board model.
+    add_executable(vaeg_vab_test tests/vab/model.c io/vab.c)
+    target_include_directories(vaeg_vab_test PRIVATE ${VAEG_INCLUDE_DIRS})
+    target_compile_features(vaeg_vab_test PRIVATE c_std_99)
+    add_test(NAME vaeg_vab COMMAND vaeg_vab_test)
+    set_tests_properties(vaeg_vab PROPERTIES LABELS "romless;vab;video")
 
     add_executable(vaeg_pc88_display_state_test tests/upd3301/state.c
         io/pc88_display_state.c io/upd3301.c io/pc88_text_dma.c)
