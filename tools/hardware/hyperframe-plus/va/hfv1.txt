@@ -1,0 +1,27 @@
+HyPER-FRAME+ test pattern on the PC-88VA (vaeg M149, HFV1)
+
+V3 mode, MS-DOS 4.0. Writes A:\HFLOG.TXT. If the photograph and the
+log disagree, the log is right.
+
+HFV1            read the board ports (PRE line), run the JPGVHF
+                viewer's initialisation without its PC-98 BIOS call
+                (EE=C0, D0=A5, D3=00, 8 points at Y=0191, D0=A1,
+                32 points at Y=0193, D0=E1), draw 640x400 (eight
+                colour bars on y 0..299, a grey ramp on y 300..399),
+                and read 12 pixels back (RB lines). Leave the board
+                displaying; photograph the HF+ monitor after it ends.
+HFV1 /NOINIT    skip the initialisation (draw only).
+HFV1 /WORD      select coordinates with word OUTs (D6, D4), as the
+                viewer does, instead of bytes in the paper order
+                (D7, D6, D5, D4).
+HFV1 /OFF       write the viewer's stop sequence D0=00, EE=00.
+
+RB lines show expected vs. read-back RGB. MISMATCH only means the
+read path differs; look at the monitor regardless. The D8/DA/DC
+values in PRE before the pattern show what the board drives.
+
+Exit codes: 0 read-back matched (or /OFF), 1 option, 2 machine,
+4 log not written, 11h a pixel differed.
+
+Everything is drawn through I/O ports D0, D3-D8, DA, DC, EE only.
+Nothing touches EC, port 1D0h, or any memory window.

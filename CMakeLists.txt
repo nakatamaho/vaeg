@@ -331,6 +331,7 @@ set(VAEG_CORE_SOURCES
     io/bmsio.c
     io/dmac.c
     io/emsio.c
+    io/hfplus.c
     io/fdc.c
     io/hostfat.c
     io/mouseif.c
@@ -1082,6 +1083,12 @@ if(VAEG_ENABLE_TESTS)
     target_compile_features(vaeg_upd3301_test PRIVATE c_std_99)
     add_test(NAME vaeg_upd3301 COMMAND vaeg_upd3301_test)
     set_tests_properties(vaeg_upd3301 PROPERTIES LABELS "romless;upd3301;video")
+    # M149: the HyPER-FRAME+ board model against the VA-measured semantics.
+    add_executable(vaeg_hfplus_test tests/hfplus/model.c io/hfplus.c)
+    target_include_directories(vaeg_hfplus_test PRIVATE ${VAEG_INCLUDE_DIRS})
+    target_compile_features(vaeg_hfplus_test PRIVATE c_std_99)
+    add_test(NAME vaeg_hfplus COMMAND vaeg_hfplus_test)
+    set_tests_properties(vaeg_hfplus PROPERTIES LABELS "romless;hfplus;video")
 
     add_executable(vaeg_pc88_display_state_test tests/upd3301/state.c
         io/pc88_display_state.c io/upd3301.c io/pc88_text_dma.c)

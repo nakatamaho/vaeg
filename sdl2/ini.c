@@ -375,6 +375,7 @@ static const INITBL iniitem[] = {
     {"CMT_Fast", INITYPE_BOOL, &np2cfg.cmt_fast, 0},
     {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
     {"PCG", INITYPE_BOOL, &np2cfg.pcg_enable, 0},
+    {"HyperFramePlus", INITYPE_BOOL, &np2cfg.hfplus_enable, 0},
     {"PCG_vol", INITYPE_UINT8, &np2cfg.pcg_vol, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"NDP8087", INITYPE_BOOL, &np2cfg.upd8087_enable, 0},

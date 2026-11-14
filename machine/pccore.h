@@ -102,6 +102,8 @@ typedef struct {
 	/* M115: PCG-8100/8800 in V1/V2 mode, and its tone volume (0-128). */
 	UINT8 pcg_enable;
 	UINT8 pcg_vol;
+	/* M149: Digital Arts HyPER-FRAME+ on the C bus (default off). */
+	UINT8 hfplus_enable;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;
