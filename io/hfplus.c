@@ -42,6 +42,13 @@ static void hfplus_update_driven(void) {
 	hfplus.driven = (UINT8)((hfplus.control || hfplus.ee) ? 1 : 0);
 }
 
+/* With the board disabled the slot is empty: writes are ignored, reads
+ * return FF, exactly like the unattached ports of a VA without the
+ * board. The GUI toggle therefore needs no reset. */
+static BOOL hfplus_present(void) {
+	return (np2cfg.hfplus_enable != 0);
+}
+
 static BOOL hfplus_in_bounds(void) {
 	/* Rows 0-409 fit the 6-bank frame memory; the viewer's special
 	 * coordinates (Y=0191/0193, X up to 019F) stay inside. */
@@ -51,39 +58,60 @@ static BOOL hfplus_in_bounds(void) {
 }
 
 void IOOUTCALL hfplus_o_d0(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.control = (UINT8)dat;
 	hfplus_update_driven();
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_d3(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.d3 = (UINT8)dat;
 	hfplus_update_driven();
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_ee(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.ee = (UINT8)dat;
 	hfplus_update_driven();
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_xlow(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.x = (UINT16)((hfplus.x & 0xff00) | dat);
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_xhigh(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.x = (UINT16)((hfplus.x & 0x00ff) | (dat << 8));
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_ylow(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.y = (UINT16)((hfplus.y & 0xff00) | dat);
 	(void)port;
 }
 
 void IOOUTCALL hfplus_o_yhigh(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus.y = (UINT16)((hfplus.y & 0x00ff) | (dat << 8));
 	(void)port;
 }
@@ -103,20 +131,29 @@ static void hfplus_pixel(UINT port, REG8 dat) {
 }
 
 void IOOUTCALL hfplus_o_r(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus_pixel(port, dat);
 }
 
 void IOOUTCALL hfplus_o_g(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus_pixel(port, dat);
 }
 
 void IOOUTCALL hfplus_o_b(UINT port, REG8 dat) {
+	if (!hfplus_present()) {
+		return;
+	}
 	hfplus_pixel(port, dat);
 }
 
 REG8 IOINPCALL hfplus_i_d0(UINT port) {
 	(void)port;
-	if (!hfplus.driven) {
+	if (!hfplus_present() || !hfplus.driven) {
 		return (0xff);
 	}
 	return (hfplus.control);
@@ -124,7 +161,7 @@ REG8 IOINPCALL hfplus_i_d0(UINT port) {
 
 REG8 IOINPCALL hfplus_i_d3(UINT port) {
 	(void)port;
-	if (!hfplus.driven) {
+	if (!hfplus_present() || !hfplus.driven) {
 		return (0xff);
 	}
 	return (hfplus.d3);
@@ -133,7 +170,7 @@ REG8 IOINPCALL hfplus_i_d3(UINT port) {
 REG8 IOINPCALL hfplus_i_pixel(UINT port) {
 	UINT32 off;
 	(void)port;
-	if (!hfplus.driven || !hfplus_in_bounds()) {
+	if (!hfplus_present() || !hfplus.driven || !hfplus_in_bounds()) {
 		return (0xff);
 	}
 	off = ((UINT32)hfplus.y * HFPLUS_W + hfplus.x) * 3;
@@ -154,9 +191,9 @@ void hfplus_reset(void) {
 }
 
 void hfplus_bind(void) {
-	if (!np2cfg.hfplus_enable) {
-		return;
-	}
+	/* The ports stay attached whenever the model is compiled in; with the
+	 * board disabled (HyperFramePlus=0) every handler behaves as if the
+	 * slot were empty, so the GUI toggle works without a reset. */
 	iocore_attachout(0x00d0, hfplus_o_d0);
 	iocore_attachout(0x00d3, hfplus_o_d3);
 	iocore_attachout(0x00d4, hfplus_o_xlow);
