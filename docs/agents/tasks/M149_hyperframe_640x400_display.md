@@ -482,3 +482,24 @@ Checkpoint 4（1 枚表示プログラム）の表示側を、合成データで
   「HyperFrame+ ON」）で `HFSHOW` が画像を表示し、キー入力の後に本体の
   画面へ戻ることを画面写真で確認した。実機では CN2 の入力が未接続なので
   表示は未確認（「信号なし」のはず）。
+
+### demos/hyperframe+ への収録（保守者の指示、2026-11-15）
+
+サンプルを demo として `demos/hyperframe+/` に置いた。`raytrace.py`、
+`hfshow.asm`、`hfshow.txt` をここへ移し（移動だけのコミット）、
+`build-d88.py` で起動ディスクと `hfshow-msdos4.d88.xz` を作る。
+
+- `AGENTS.md` の MS-DOS 4.0 例外（M106）に従う: msdos4-va.2 の公開
+  SHA-256 で元イメージを確かめ、vanilla 複製が残すファイルだけ、
+  `LICENSE.TXT` あり、起動セクタとシステムファイルをハッシュで検査、
+  ほかは `HFSHOW.COM`・`HFSHOW.TXT`・`TETRA.RGB`（すべてこのディレクトリ
+  のソースから生成）のみ（エラーコード `M149_HFSHOW_*`）。ディレクトリ
+  の時刻は固定で、同じ入力から同じバイト列。`.xz` の往復も確認。
+  許可リストは `demos/hyperframe+/README.md`。
+- 2 回のビルドで同じ D88（SHA-256 `212ab6e9…`）、`--check` で committed
+  の `.xz` と一致。展開した committed イメージを vaeg で動かした画面写真
+  は、先の確認と同一。
+- 旧 `tools/hardware/hyperframe-plus/va/build-sample.sh` は、新しい
+  ビルダを呼ぶ薄いラッパにした（削除はしていない）。
+- 浮動小数点（`math.sqrt`、`**`）を使うので、libm の丸めが違うホストでは
+  `TETRA.RGB` の一部のバイトが変わりうる（committed は macOS arm64 で生成）。
