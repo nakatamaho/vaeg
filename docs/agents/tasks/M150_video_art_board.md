@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M150 — PC-8801-17 ビデオアートボード
 
-Status: **IMPLEMENTED; G150 PENDING.**
+Status: **COMPLETE; G150 human gate PASSED on 2026-11-14.**
 Branch: `milestone/m150-video-art-board`（origin/main
 [2ef14f6d](https://github.com/nakatamaho/vaeg/commit/2ef14f6d) から）;
 commit prefix `M150:`.
@@ -93,3 +93,10 @@ vaeg では 88 互換のセッション全般（M113 の PC-8801 機種と V1/V2
 
 G150: 保守者が vaeg（MinGW ビルド）で `shiori.d88` を PC-8801 機種で
 起動し、画像が表示されることを確認する。
+
+## G150 記録
+
+2026-11-14、保守者が G150 を passed とし、main への merge を指示した。
+ゲートで使ったビルドは `c9018afc`（MinGW、
+`Rel.20261114 (m150, c9018afc)`）。統合キャンペーン（メディア/デモの
+回帰）は実施していない（保守者の指示による）。リリースは承認されていない。
