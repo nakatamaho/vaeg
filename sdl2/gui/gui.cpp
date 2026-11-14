@@ -4481,6 +4481,13 @@ static void draw_machine_config_menu(void) {
 	if (ImGui::MenuItem("EMS ボード…", nullptr, np2cfg.EXTMEM != 0)) {
 		open_ems_config_dialog();
 	}
+	// M149: Digital Arts HyPER-FRAME+ (C bus, 640x400 24-bit frame
+	// buffer). The port bind happens at reset, so the toggle needs one.
+	if (ImGui::MenuItem("HyPER-FRAME+ (要リセット)", nullptr,
+	                np2cfg.hfplus_enable != 0)) {
+		np2cfg.hfplus_enable = (np2cfg.hfplus_enable != 0) ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+	}
 	ImGui::EndMenu();
 }
 

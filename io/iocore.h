@@ -16,6 +16,7 @@ typedef void (*IOCBFN)(void);
 
 #include "dmac.h"
 #include "emsio.h"
+#include "hfplus.h"
 #include "fdc.h"
 #include "mouseif.h"
 #include "np2sysp.h"

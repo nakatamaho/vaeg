@@ -4,6 +4,7 @@
 #include "machine/pccore.h"
 #include "iocore.h"
 #include "iocoreva.h"
+#include "io/hfplus.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
 #include "sdrawva.h"
@@ -84,6 +85,38 @@ static void scrndrawva_makedrawcolor(void) {
 	}
 }
 
+/* M149: when the HyPER-FRAME+ is driven (the tentative display model:
+ * the board's output replaces the main unit's video, as on a PC-9801
+ * where the monitor hangs off the board's RGB OUT), blit the board's
+ * 640x400 24-bit frame buffer over the composed VA screen, nearest
+ * neighbour, as RGB565. When the board is idle the main screen shows
+ * through (pass-through). The real board's display-enable condition is
+ * not measured - see the task file for what the hardware did. */
+static void scrndrawva_hfplus(const SCRNSURF *surf) {
+	const UINT8 *fb;
+	UINT8 *dst;
+	int stride;
+	int x;
+	int y;
+
+	fb = hfplus_framebuffer();
+	stride = surf->xalign * surf->width;
+	for (y = 0; y < surf->height; y++) {
+		UINT16 sy = (UINT16)(((UINT32)y * HFPLUS_H) / (UINT32)surf->height);
+		const UINT8 *row = fb + (UINT32)sy * HFPLUS_W * 3;
+		dst = surf->ptr + (UINT32)y * stride;
+		for (x = 0; x < surf->width; x++) {
+			UINT16 sx = (UINT16)(((UINT32)x * HFPLUS_W) / (UINT32)surf->width);
+			const UINT8 *px = row + (UINT32)sx * 3;
+			UINT16 rgb565 = (UINT16)(((px[0] & 0xf8) << 8) |
+			                         ((px[1] & 0xfc) << 3) |
+			                         (px[2] >> 3));
+			dst[x * surf->xalign] = (BYTE)(rgb565 & 0xff);
+			dst[x * surf->xalign + 1] = (BYTE)(rgb565 >> 8);
+		}
+	}
+}
+
 BYTE scrndrawva_draw(BYTE redraw) {
 	BYTE ret;
 	const SCRNSURF *surf;
@@ -113,6 +146,11 @@ BYTE scrndrawva_draw(BYTE redraw) {
 	sdraw.xalign = surf->xalign;
 	sdraw.yalign = surf->yalign;
 	sdrawfn(&sdraw, height);
+
+	if ((np2cfg.hfplus_enable) && (hfplus.driven) && (surf->bpp == 16) &&
+	    (surf->width > 0) && (surf->height > 0)) {
+		scrndrawva_hfplus(surf);
+	}
 
 sddr_exit2:
 	scrnmng_surfunlock(surf);
