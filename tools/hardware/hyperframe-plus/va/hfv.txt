@@ -17,12 +17,13 @@ HFV1            stage 1: the viewer's initialisation without its
                 bars on y 0..299, a grey ramp on y 300..399) and
                 reads 12 pixels back (RB lines; MISMATCH only means
                 the read path differs - look at the monitor anyway).
-                Leaves the board displaying; photograph the HF+
-                monitor after it ends.
+                Ends with the viewer's stop sequence D0=00, EE=00,
+                so the display returns to the main screen.
 HFV1 /NOINIT    skip the initialisation (draw only).
 HFV1 /WORD      select coordinates with word OUTs (D6, D4), as the
                 viewer does, instead of bytes in the paper order.
-HFV1 /OFF       the viewer's stop sequence D0=00, EE=00.
+HFV1 /OFF       the viewer's stop sequence D0=00, EE=00 (HFV1 and
+                HFV2/HFV3 already end with it).
 HFV2            display-enable sweep: after the init and colour bars
                 on rows 0-63, writes candidate values to D0 (A1 A3 A5
                 A9 B1 E1 E5 21 61 FF) and then to EE (C0 40 80 00 FF)
@@ -30,8 +31,7 @@ HFV2            display-enable sweep: after the init and colour bars
                 write is logged with the DOS clock time (the VA clock
                 starts at 2000-01-31 00:00 at power-on, so log times
                 match a stopwatch). Watch the monitor continuously;
-                note the log time of any change. Leaves D0=E1, EE=C0;
-                photograph the monitor, then power the machine off.
+                note the log time of any change. Ends stopped.
 HFV2 /STOP      only the stop sequence D0=00, EE=00.
 HFV3            D3 sweep (D3 was never varied before): phase 1 writes
                 D3 = 01 02 03 04 08 10 20 40 80 FF with D0=E1, phase 2
@@ -40,11 +40,12 @@ HFV3            D3 sweep (D3 was never varied before): phase 1 writes
 Run in this order: HFV0, HFV0 /W, then HFV1. If HFV0 shows no
 response, HFV1 cannot display anything.
 
-The same disk runs in vaeg (Device menu, HyPER-FRAME+ on, reset):
+The same disk runs in vaeg (Device menu, HyPER-FRAME+):
 HFV0 shows the ports as undriven (FF) before the first write, the
 initialisation wakes them, HFV1 draws and its read-back matches, and
 while the board is driven the vaeg window shows the board's frame
-buffer (tentative model). HFV2 /STOP returns to the main screen.
+buffer (tentative model). Every program ends with the stop sequence,
+so the main screen returns; the toggle needs no reset.
 
 Exit codes: 0 pass, 1 option, 2 machine, 4 log not written;
 HFV0: 3 nothing driven, 11h the /W readbacks disagree;
