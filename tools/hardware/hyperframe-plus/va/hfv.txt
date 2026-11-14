@@ -23,6 +23,16 @@ HFV1 /NOINIT    skip the initialisation (draw only).
 HFV1 /WORD      select coordinates with word OUTs (D6, D4), as the
                 viewer does, instead of bytes in the paper order.
 HFV1 /OFF       the viewer's stop sequence D0=00, EE=00.
+HFV2            display-enable sweep: after the init and colour bars
+                on rows 0-63, writes candidate values to D0 (A1 A3 A5
+                A9 B1 E1 E5 21 61 FF) and then to EE (C0 40 80 00 FF)
+                with D0=E1, holding each for about 5 seconds. Every
+                write is logged with the DOS clock time (the VA clock
+                starts at 2000-01-31 00:00 at power-on, so log times
+                match a stopwatch). Watch the monitor continuously;
+                note the log time of any change. Leaves D0=E1, EE=C0;
+                photograph the monitor, then power the machine off.
+HFV2 /STOP      only the stop sequence D0=00, EE=00.
 
 Run in this order: HFV0, HFV0 /W, then HFV1. If HFV0 shows no
 response, HFV1 cannot display anything.

@@ -134,6 +134,7 @@ class Dos:
         self.stdout, self.log = bytearray(), bytearray()
         self.exit_code = None
         self.log_open = False
+        self.ticks = 0
 
     def flags(self, cf):
         f = self.mu.reg_read(UC_X86_REG_EFLAGS)
@@ -149,8 +150,10 @@ class Dos:
             mu.reg_write(UC_X86_REG_CX, 2026)
             mu.reg_write(UC_X86_REG_DX, 0x0b0c)
         elif ah == 0x2c:
+            self.ticks += 1
+            sec = (self.ticks // 20) % 60
             mu.reg_write(UC_X86_REG_CX, 0x0a05)
-            mu.reg_write(UC_X86_REG_DX, 0x0700)
+            mu.reg_write(UC_X86_REG_DX, (sec << 8) | ((self.ticks * 5) % 100))
         elif ah == 0x3d:
             mu.reg_write(UC_X86_REG_AX, 2)
             self.flags(True)
