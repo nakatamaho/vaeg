@@ -23,16 +23,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M149 — HyPER-FRAME+ 640×400 24bit 色 1 枚表示（VA 実機）
 
-Status: **PLANNING; G149 NOT_READY.**
+Status: **PAUSED (temporary main merge on 2026-11-14, maintainer
+direction); G149 NOT accepted; no release authorized.**
 Branch: `milestone/m145-hyperframe-probe`（M145 の解析成果の上に継続）;
 commit prefix `M149:`.
-
-**ID の付け替え（2026-11-12）**: 本タスクは当初 `M146` として作成されたが、
-M146 は EMS バンクのタスク（`tasks/M146_ems_bank.md`）として main に merge
-済みで ID が衝突した。maintainer の確認により `M149` に付け替えた。
-[7c8eb6aa](https://github.com/nakatamaho/vaeg/commit/7c8eb6aa)〜
-[6dbe5c15](https://github.com/nakatamaho/vaeg/commit/6dbe5c15) の 4 コミットは
-`M146:` の接頭辞のまま残る（push 済みの履歴は書き換えない）。
 Base: [45f693ed](https://github.com/nakatamaho/vaeg/commit/45f693edf08e76fe8459529843908c101ae9a4a5)
 （M145: document board-decode limits for EC-free VA use）.
 
@@ -279,3 +273,24 @@ vaeg に実装した。コミットは本節の追加と同時。
 次の一手（実機側）: テスタの電池交換 → CN2 ↔ D-sub 出力の抵抗マップ →
 CN2 ケーブル → 実機での表示確立。表示の有効化条件が実機で判明した場合、
 `vram/scrndrawva.c` の駆動条件を実測の意味論へ置き換える。
+
+## 2026-11-14: main への一時 merge（保守者の指示）
+
+保守者の指示により、この時点での成果を main に `--no-ff` で merge して
+作業を一時停止する。G149 は未受入れ、リリースは承認されていない。
+
+main に入るもの:
+- M145〜M149 の解析文書（暫定仕様、逆 ASM 記録、基板 decode 調査、試験記録）
+- HFTEST（PC-9801 C89/DOS 試験ツール、init/banktest は実行不可のまま）
+- VA 用プローブ HFV0〜HFV3 と試験ディスク build.sh（D88 は Git の外）
+- vaeg のボードモデル `io/hfplus.c`（実機測定済みの意味論のみ）、暫定
+  映像出力（`vram/scrndrawva.c`）、設定 `HyperFramePlus`（既定 OFF）、
+  GUI メニュー、状態保存セクション、CTest `vaeg_hfplus`（111 checks）
+- ビルド識別の宣言マイルストーン `M149-dev`
+
+開いている項目（再開時の最初の一手）:
+1. テスタの電池交換 → CN2 ↔ D-sub 15 出力の抵抗マップ（パススルー状態
+   で測定）→ CN2 結線表 → CN2 入力ケーブル → 実機での表示確立
+2. 実機で表示の有効化条件が判明したら、vaeg の駆動条件を実測の意味論へ
+   置き換える
+3. 映像出力の検証（HF+ モニタでのカラーバー確認）
