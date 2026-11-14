@@ -34,6 +34,7 @@
 #include "va91.h"
 #include "bmsio.h"
 #include "emsio.h"
+#include "io/vab.h"
 #include "io/sysportva.h"
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value);
@@ -957,6 +958,10 @@ void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value) {
 		return;
 	}
 	if (n88_eram_selected(address, 0x10)) {
+		if (vab_card_selected(memoryva_88_eram.bank)) {
+			vab_ram[vab_ram_offset(memoryva_88_eram.bank, address)] = (UINT8)value;
+			return;
+		}
 		upd9002_mainram_write(n88_eram_address(address), value);
 		return;
 	}
@@ -1021,6 +1026,9 @@ REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 		return upd9002_mainram_read(n88_ram_window_address(address));
 	}
 	if (n88_eram_selected(address, 0x01)) {
+		if (vab_card_selected(memoryva_88_eram.bank)) {
+			return vab_ram[vab_ram_offset(memoryva_88_eram.bank, address)];
+		}
 		return upd9002_mainram_read(n88_eram_address(address));
 	}
 	if (n88_rom_selected(address)) {
