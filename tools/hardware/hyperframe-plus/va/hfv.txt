@@ -1,0 +1,32 @@
+HyPER-FRAME+ on the PC-88VA - probes (vaeg M149)
+
+V3 mode, MS-DOS 4.0. Writes A:\HFLOG.TXT. If the photograph and the
+log disagree, the log is right. Nothing here touches EC, port 1D0h,
+or any memory window; only I/O ports D0, D3-D8, DA, DC, EE.
+
+HFV0            stage 0: does the board answer at all? Read-only.
+                PROBE lines show every D0-family port read six ways
+                (FF = undriven, D:xx = driven, F:... = floating).
+HFV0 /W         adds a bounded write test: the first two writes of
+                the JPGVHF viewer's cold initialisation (EE=C0,
+                D0=A5), the control readback, and a two-pixel
+                write-read-restore at (0,0) and (1,0). Ends with the
+                viewer's stop sequence D0=00, EE=00.
+HFV1            stage 1: the viewer's initialisation without its
+                PC-98 BIOS call, then draws 640x400 (eight colour
+                bars on y 0..299, a grey ramp on y 300..399) and
+                reads 12 pixels back (RB lines; MISMATCH only means
+                the read path differs - look at the monitor anyway).
+                Leaves the board displaying; photograph the HF+
+                monitor after it ends.
+HFV1 /NOINIT    skip the initialisation (draw only).
+HFV1 /WORD      select coordinates with word OUTs (D6, D4), as the
+                viewer does, instead of bytes in the paper order.
+HFV1 /OFF       the viewer's stop sequence D0=00, EE=00.
+
+Run in this order: HFV0, HFV0 /W, then HFV1. If HFV0 shows no
+response, HFV1 cannot display anything.
+
+Exit codes: 0 pass, 1 option, 2 machine, 4 log not written;
+HFV0: 3 nothing driven, 11h the /W readbacks disagree;
+HFV1: 11h a pixel differed.

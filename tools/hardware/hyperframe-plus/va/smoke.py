@@ -52,6 +52,10 @@ class HF:
         self.ee = 0xff
         self.fb = bytearray(self.W * self.H * 3)
         self.io = []
+        self.touched = False
+
+    def touch(self):
+        self.touched = True
 
     def active(self):
         # D0 selects the coordinate width: A5 = byte, E5 = single-plane,
@@ -64,8 +68,10 @@ class HF:
         if port == 0x0ee:
             return self.ee
         if port == 0x0d0:
-            return self.control
+            return self.control if self.touched else None
         if port not in (0x0d3, 0x0d8, 0x0da, 0x0dc):
+            return None
+        if not self.touched:
             return None
         if not self.active() or port not in (0x0d8, 0x0da, 0x0dc):
             return 0xff
@@ -73,6 +79,7 @@ class HF:
         return self.fb[off + {0xd8: 0, 0xda: 1, 0xdc: 2}[port]]
 
     def write(self, port, v):
+        self.touch()
         if port == 0x0ee:
             self.ee = v
             return
@@ -212,7 +219,7 @@ def main():
     if (dos.p152, dos.p153) != (0x00, 0x41):
         problems.append('152h/153h not restored: %02X %02X' % (dos.p152, dos.p153))
     print('exit=%s' % (dos.exit_code if dos.exit_code is None else '%02X' % dos.exit_code))
-    if hasattr(board, 'fb') and dos.exit_code == 0 and not a.noinit and '/off' not in (a.args or '').lower() and not a.noinit:
+    if 'hfv1' in a.com.lower() and dos.exit_code == 0 and not a.noinit and '/off' not in (a.args or '').lower():
         fb = board.fb
         def px(x, y):
             o = (y * 640 + x) * 3

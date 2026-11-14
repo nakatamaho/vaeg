@@ -27,16 +27,18 @@ output=$1
 echo '7c4b141d31e0034120e0b07eb93b9bea808e1c54822e48e15189cc7398385db0  '"$msdos4" |
 	sha256sum -c - >/dev/null || { printf 'error: not the msdos4-va.2 release image\n' >&2; exit 1; }
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-hfv1.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-hfva.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 root=$work/payload/root
 mkdir -p "$root"
 build_id=${BUILD_ID:-$(git -C "$script_dir" rev-parse HEAD 2>/dev/null | cut -c1-8 || true)}
 [ -n "$build_id" ] || build_id=nogit000
 "$nasm_command" -f bin -I"$script_dir/" "-DBUILD_ID='$build_id'" \
+	"$script_dir/hfv0.asm" -o "$root/HFV0.COM"
+"$nasm_command" -f bin -I"$script_dir/" "-DBUILD_ID='$build_id'" \
 	"$script_dir/hfv1.asm" -o "$root/HFV1.COM"
-sed 's/$/\r/' "$script_dir/hfv1.txt" >"$root/HFV1.TXT"
+sed 's/$/\r/' "$script_dir/hfv.txt" >"$root/HFV.TXT"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" vanilla --source "$msdos4" --output "$output"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" install --image "$output" --payload "$work/payload"
 printf 'build id %s\n' "$build_id"
-sha256sum "$root/HFV1.COM" "$output"
+sha256sum "$root/HFV0.COM" "$root/HFV1.COM" "$output"
