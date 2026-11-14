@@ -33,6 +33,9 @@ HFV2            display-enable sweep: after the init and colour bars
                 note the log time of any change. Leaves D0=E1, EE=C0;
                 photograph the monitor, then power the machine off.
 HFV2 /STOP      only the stop sequence D0=00, EE=00.
+HFV3            D3 sweep (D3 was never varied before): phase 1 writes
+                D3 = 01 02 03 04 08 10 20 40 80 FF with D0=E1, phase 2
+                repeats the D0 sweep with D3=01. 8 s per value.
 
 Run in this order: HFV0, HFV0 /W, then HFV1. If HFV0 shows no
 response, HFV1 cannot display anything.

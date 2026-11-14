@@ -39,8 +39,10 @@ build_id=${BUILD_ID:-$(git -C "$script_dir" rev-parse HEAD 2>/dev/null | cut -c1
 	"$script_dir/hfv1.asm" -o "$root/HFV1.COM"
 "$nasm_command" -f bin -I"$script_dir/" "-DBUILD_ID='$build_id'" \
 	"$script_dir/hfv2.asm" -o "$root/HFV2.COM"
+"$nasm_command" -f bin -I"$script_dir/" "-DBUILD_ID='$build_id'" \
+	"$script_dir/hfv3.asm" -o "$root/HFV3.COM"
 sed 's/$/\r/' "$script_dir/hfv.txt" >"$root/HFV.TXT"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" vanilla --source "$msdos4" --output "$output"
 "$python_command" -I "$repo_root/tools/pc88va/pcengine_disk.py" install --image "$output" --payload "$work/payload"
 printf 'build id %s\n' "$build_id"
-sha256sum "$root/HFV0.COM" "$root/HFV1.COM" "$root/HFV2.COM" "$output"
+sha256sum "$root/HFV0.COM" "$root/HFV1.COM" "$root/HFV2.COM" "$root/HFV3.COM" "$output"
