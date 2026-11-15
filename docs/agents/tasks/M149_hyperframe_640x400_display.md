@@ -531,4 +531,5 @@ Checkpoint 4（1 枚表示プログラム）の表示側を、合成データで
   少なく、プログラム側の差（FindFirst）が原因とは言えない。上の
   「Current drive is no longer valid」（DOS がドライブ／ファイル状態を
   失う）と同じ系統の vaeg 側の問題である可能性が高いが、未確認
-  `[INFERRED]`。原因は未調査で、open のまま。
+  `[INFERRED]`。原因は未調査で、open のまま
+  （[#80](https://github.com/nakatamaho/vaeg/issues/80)）。
