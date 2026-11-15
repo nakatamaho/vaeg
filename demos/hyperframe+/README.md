@@ -29,8 +29,8 @@ Task: [`M149`](../../docs/agents/tasks/M149_hyperframe_640x400_display.md).
 
 | File | What |
 |---|---|
-| `raytrace.py` | Ray tracer (Python standard library only). A mirror sphere rests on red, green and blue spheres; the four touch at the vertices of a regular tetrahedron in the middle of a checkerboard tile floor. 640x400, 3x3 supersampling, composed for a 4:3 monitor. Writes `TETRA.RGB` (R G B bytes, rows top to bottom, 768000 bytes) and optionally a PPM. |
-| `mandel.py` | A Mandelbrot-set close-up of Seahorse valley (centre -0.743643887037151 + 0.131825904205330i, width 1.65e-4, 2400 iterations), smooth escape-count colouring through a blue-white-gold cyclic palette, 3x3 supersampling. Writes `MANDEL.RGB` in the same format. |
+| `raytrace.py` | Ray tracer (Python standard library only). A mirror sphere rests on red, green and blue spheres; the four touch at the vertices of a regular tetrahedron in the middle of a checkerboard tile floor. 640x400, 3x3 supersampling, composed for a 4:3 monitor. Writes `TETRA.RGB` (R G B bytes, rows top to bottom, 768000 bytes) and optionally a PPM. `--height 200` renders the same view at 640x200 for [`demos/native65536`](../native65536/README.md). |
+| `mandel.py` | A Mandelbrot-set close-up of Seahorse valley (centre -0.743643887037151 + 0.131825904205330i, width 1.65e-4, 2400 iterations), smooth escape-count colouring through a blue-white-gold cyclic palette, 3x3 supersampling. Writes `MANDEL.RGB` in the same format. `--height 200` as for `raytrace.py`. |
 | `hfshow.asm` | `HFSHOW.COM` (NASM). Initialises the board as the JPGVHF viewer does, sends the picture row by row (Y once per row; X, then R, G, B per pixel), waits for a key and stops the board (D0=00, EE=00). Without a file name it shows the first `*.RGB` of the current directory. `HFSHOW /STAY` leaves it displaying; `HFSHOW file` shows a given 640x400x24 picture. |
 | `hfshow.txt` | `HFSHOW.TXT` on the disk. |
 | `build-d88.py` | Builds both bootable disks and their `.d88.xz` (below). |

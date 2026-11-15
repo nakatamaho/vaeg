@@ -30,11 +30,14 @@ checkerboard with a little gloss, under a sky gradient, lit by one point
 light with hard shadows.
 
 usage: raytrace.py OUT.RGB [--ppm OUT.PPM] [--samples N] [--jobs N]
+                   [--height 400|200]
 
 OUT.RGB is 640 x 400 x 3 bytes, R G B per pixel, rows top to bottom (what
 HFSHOW.COM sends to the board, 768000 bytes). The picture is composed for
 a 640x400 screen shown at 4:3 (pixels 1.2 times as tall as wide). Pure
 standard library; deterministic for a given --samples.
+--height 200 renders 640 x 200 for the PC-88VA's own 640x200 65536-colour
+screen (demos/native65536), with pixels 2.4 times as tall as wide.
 """
 import argparse
 import math
@@ -210,14 +213,27 @@ def camera():
     return fwd, right, up, half_w, half_h
 
 
+def camera_for(height):
+    # same 4:3 picture at another line count
+    fwd = norm(sub(TARGET, EYE))
+    right = norm(cross((0.0, 1.0, 0.0), fwd))
+    up = cross(fwd, right)
+    half_h = math.tan(FOV_V / 2.0)
+    half_w = half_h * (4.0 / 3.0)
+    return fwd, right, up, half_w, half_h
+
+
 def to_byte(v):
     v = max(0.0, min(1.0, v))
     return int(round((v ** (1.0 / 2.2)) * 255.0))
 
 
 def render_row(args):
-    y, samples = args
-    fwd, right, up, half_w, half_h = camera()
+    y, samples, height = args
+    if height == H:
+        fwd, right, up, half_w, half_h = camera()
+    else:
+        fwd, right, up, half_w, half_h = camera_for(height)
     row = bytearray()
     n = samples
     for x in range(W):
@@ -225,7 +241,7 @@ def render_row(args):
         for sy in range(n):
             for sx in range(n):
                 u = ((x + (sx + 0.5) / n) / W) * 2.0 - 1.0
-                v = 1.0 - ((y + (sy + 0.5) / n) / H) * 2.0
+                v = 1.0 - ((y + (sy + 0.5) / n) / height) * 2.0
                 d = norm(add(fwd, add(mul(right, u * half_w), mul(up, v * half_h))))
                 acc = add(acc, trace(EYE, d, 0))
         acc = mul(acc, 1.0 / (n * n))
@@ -239,19 +255,21 @@ def main():
     ap.add_argument('--ppm')
     ap.add_argument('--samples', type=int, default=2, help='N x N rays per pixel')
     ap.add_argument('--jobs', type=int, default=0)
+    ap.add_argument('--height', type=int, choices=(400, 200), default=H)
     a = ap.parse_args()
     jobs = a.jobs or multiprocessing.cpu_count()
-    rows = [None] * H
+    rows = [None] * a.height
     with multiprocessing.Pool(jobs) as pool:
-        for y, data in pool.imap_unordered(render_row, [(y, a.samples) for y in range(H)]):
+        for y, data in pool.imap_unordered(render_row, [(y, a.samples, a.height)
+                                                        for y in range(a.height)]):
             rows[y] = data
     image = b''.join(rows)
-    assert len(image) == W * H * 3
+    assert len(image) == W * a.height * 3
     with open(a.out, 'wb') as f:
         f.write(image)
     if a.ppm:
         with open(a.ppm, 'wb') as f:
-            f.write(b'P6\n%d %d\n255\n' % (W, H))
+            f.write(b'P6\n%d %d\n255\n' % (W, a.height))
             f.write(image)
     return 0
 

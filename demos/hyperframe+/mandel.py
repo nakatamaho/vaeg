@@ -24,11 +24,14 @@
 """Render a Mandelbrot-set close-up for the HyPER-FRAME+ (synthetic data).
 
 usage: mandel.py OUT.RGB [--ppm OUT.PPM] [--samples N] [--jobs N]
+                 [--height 400|200]
 
 OUT.RGB is 640 x 400 x 3 bytes, R G B per pixel, rows top to bottom
 (768000 bytes), composed for a 640x400 screen shown at 4:3. Smooth
 (continuous) iteration colouring through a cyclic palette; the set itself
 is black. Pure standard library; deterministic for a given --samples.
+--height 200 renders the same view at 640 x 200 for the PC-88VA's own
+640x200 65536-colour screen (demos/native65536).
 """
 import argparse
 import math
@@ -84,8 +87,11 @@ def colour(cr, ci):
 
 
 def render_row(args):
-    y, samples = args
-    height = WIDTH * (H * PIXEL_ASPECT) / W
+    y, samples, lines = args
+    if lines == H:
+        height = WIDTH * (H * PIXEL_ASPECT) / W
+    else:
+        height = WIDTH * 3.0 / 4.0          # the same 4:3 view
     left = CENTRE_RE - WIDTH / 2.0
     top = CENTRE_IM + height / 2.0
     row = bytearray()
@@ -95,7 +101,7 @@ def render_row(args):
         for sy in range(n):
             for sx in range(n):
                 cr = left + (x + (sx + 0.5) / n) * WIDTH / W
-                ci = top - (y + (sy + 0.5) / n) * height / H
+                ci = top - (y + (sy + 0.5) / n) * height / lines
                 c = colour(cr, ci)
                 acc[0] += c[0]
                 acc[1] += c[1]
@@ -111,19 +117,21 @@ def main():
     ap.add_argument('--ppm')
     ap.add_argument('--samples', type=int, default=2, help='N x N samples per pixel')
     ap.add_argument('--jobs', type=int, default=0)
+    ap.add_argument('--height', type=int, choices=(400, 200), default=H)
     a = ap.parse_args()
     jobs = a.jobs or multiprocessing.cpu_count()
-    rows = [None] * H
+    rows = [None] * a.height
     with multiprocessing.Pool(jobs) as pool:
-        for y, data in pool.imap_unordered(render_row, [(y, a.samples) for y in range(H)]):
+        for y, data in pool.imap_unordered(render_row, [(y, a.samples, a.height)
+                                                        for y in range(a.height)]):
             rows[y] = data
     image = b''.join(rows)
-    assert len(image) == W * H * 3
+    assert len(image) == W * a.height * 3
     with open(a.out, 'wb') as f:
         f.write(image)
     if a.ppm:
         with open(a.ppm, 'wb') as f:
-            f.write(b'P6\n%d %d\n255\n' % (W, H))
+            f.write(b'P6\n%d %d\n255\n' % (W, a.height))
             f.write(image)
     return 0
 
