@@ -533,3 +533,28 @@ Checkpoint 4（1 枚表示プログラム）の表示側を、合成データで
   失う）と同じ系統の vaeg 側の問題である可能性が高いが、未確認
   `[INFERRED]`。原因は未調査で、open のまま
   （[#80](https://github.com/nakatamaho/vaeg/issues/80)）。
+
+### VA 本体の 640x200 65536 色版（保守者の指示、2026-11-15）
+
+同じ 2 枚の絵を、増設ボードなしの VA 本体のグラフィックで出すディスクを
+`demos/native65536/` に置いた。
+
+- `raytrace.py` と `mandel.py` に `--height 200` を足した（同じ 4:3 の
+  視野を 640x200 で描く。既定の 640x400 の出力は変わらず、
+  `demos/hyperframe+/build-d88.py --check` が一致）。
+- `build-d88.py` が G6 R5 B5 のワードへ 4x4 の組織的ディザ（整数演算）で
+  落とし、`TETRA.G16` / `MANDEL.G16`（256000 バイト）と `VASHOW.COM` で
+  `va65536-tetra-msdos4.d88.xz`、`va65536-mandel-msdos4.d88.xz` を作る。
+  検査は hyperframe+ のビルダの関数を使う（コード `M149_VASHOW_*`）。
+  `--check` で一致。
+- `VASHOW.COM`: `INT 8Fh` で ScnMode（`BX=A002h`、`CL=16`）、DefBuf
+  640x200、DefWin、Compose（G0 のみ）。その後 `GRMODE=B462h`、
+  `GRRES=0303h`、FB0 `FBW=1280`、`FBL=DSH=200`、直接色。32 KiB ずつ
+  読み、`153h=54h` の窓（`A0000h`）で GVRAM に写す。窓は写す間だけ
+  切り替え、DOS 呼び出しの前に戻す。キーで元の表示状態に戻す。
+- `[MEASURED-vaeg]` 2 枚とも全画面に出て、文字は重ならず、キーで MS-DOS
+  の画面に戻る。画面写真の 4 行 × 92 点 × 2 ラスタを G16 データと比べ、
+  差は最大 1/255。
+- `[INFERRED]` 実機は未確認。640 ドット 16 bpp（`GRRES` の HW0=0、
+  `FBW` 1280）は vaeg のモデルと 320x200 65536 色デモの実測済み設定から
+  組んだもので、実機がこの組み合わせを表示するかは確かめる必要がある。
