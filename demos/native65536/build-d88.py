@@ -2,13 +2,15 @@
 """Build the bootable MS-DOS 4.0 640x200 65536-colour picture disks.
 
 The PC-88VA's own graphics show the pictures of demos/hyperframe+ (a
-ray-traced still and a Mandelbrot close-up), rendered again at 640x200 for
+ray-traced still and a Mandelbrot close-up) and three fused HSV metaballs
+over the same floor (metaball.py), rendered at 640x200 for
 Graphic 0 single-plane 16 bpp, G6 R5 B5 words, with a 4x4 ordered dither.
 The system files come from the FreeDOS-88VA project's MIT-licensed MS-DOS 4.0
 for the PC-88VA (release msdos4-va.2, msdos4-pc88va-2hd.d88), checked by its
 published SHA-256, exactly as for demos/hyperframe+:
   va65536-tetra-msdos4.d88    TETRA.G16   (../hyperframe+/raytrace.py)
   va65536-mandel-msdos4.d88   MANDEL.G16  (../hyperframe+/mandel.py)
+  va65536-metaball-msdos4.d88 METABALL.G16 (metaball.py)
 each with VASHOW.COM (vashow.asm, NASM) and VASHOW.TXT. Directory entries get
 a fixed time stamp, so the same inputs give the same bytes. The raw D88s are
 written to --output-dir outside the repository; the compressed companions go
@@ -56,8 +58,9 @@ MSDOS4_BUILDER = REPOSITORY_ROOT / "tools" / "pc88va" / "build-all-demos-msdos4-
 WIDTH, HEIGHT = 640, 200
 # disk stem, picture generator, picture file name
 DISKS = (
-    ("va65536-tetra-msdos4", "raytrace.py", "TETRA.G16"),
-    ("va65536-mandel-msdos4", "mandel.py", "MANDEL.G16"),
+    ("va65536-tetra-msdos4", PICTURE_DIR / "raytrace.py", "TETRA.G16"),
+    ("va65536-mandel-msdos4", PICTURE_DIR / "mandel.py", "MANDEL.G16"),
+    ("va65536-metaball-msdos4", DEMO_DIR / "metaball.py", "METABALL.G16"),
 )
 BAYER4 = (
     (0, 8, 2, 10),
@@ -115,7 +118,7 @@ def build_payload(root, nasm, samples, generator, picture):
     root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="vaeg-va65536-render-") as temporary:
         rendered = Path(temporary) / "picture.rgb"
-        subprocess.run([sys.executable, str(PICTURE_DIR / generator), str(rendered),
+        subprocess.run([sys.executable, str(generator), str(rendered),
                         "--samples", str(samples), "--height", str(HEIGHT)], check=True)
         (root / picture).write_bytes(rgb_to_g16(rendered.read_bytes()))
     subprocess.run([nasm, "-f", "bin", "-o", str(root / "VASHOW.COM"),

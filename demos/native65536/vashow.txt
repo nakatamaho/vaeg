@@ -7,14 +7,17 @@ V3 mode, MS-DOS 4.0, any PC-88VA / VA2 / VA3. No extra board.
   VASHOW file       a given picture (640x200 words, G6 R5 B5,
                     little endian, rows top to bottom, 256000 bytes)
 
-The pictures are synthetic, the same scenes as the HyPER-FRAME+
-sample disks, rendered again at 640x200 for a 4:3 monitor and reduced
-to 65536 colours with a 4x4 ordered dither:
+The pictures are synthetic, rendered at 640x200 for a 4:3 monitor and
+reduced to 65536 colours with a 4x4 ordered dither. The first two are
+the scenes of the HyPER-FRAME+ sample disks:
 TETRA.G16 (on va65536-tetra-msdos4.d88): a mirror sphere resting on
 red, green and blue spheres at the vertices of a regular tetrahedron,
 over a checkerboard tile floor.
 MANDEL.G16 (on va65536-mandel-msdos4.d88): a Mandelbrot-set close-up
 of Seahorse valley, smooth colouring.
+METABALL.G16 (on va65536-metaball-msdos4.d88): three metaballs, each
+with the field (1 - r^2/R^2)^3, flowing into one another over the same
+checkerboard floor; HSV colouring, the hues blending across the necks.
 
 Sources: demos/native65536 and demos/hyperframe+ of vaeg
 (https://github.com/nakatamaho/vaeg). 2-clause BSD licence.

@@ -24,7 +24,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 640x200 65536-colour pictures (M149)
 
 The two pictures of [`demos/hyperframe+`](../hyperframe+/README.md) (the
-ray-traced spheres and the Mandelbrot close-up), shown by the PC-88VA's own
+ray-traced spheres and the Mandelbrot close-up) and three fused HSV
+metaballs over the same floor, shown by the PC-88VA's own
 graphics without any extra board: Graphic 0, single plane, 640x200, 16 bpp
 direct colour (G6 R5 B5 words), under MS-DOS 4.0 in V3 mode.
 Task: [`M149`](../../docs/agents/tasks/M149_hyperframe_640x400_display.md).
@@ -32,10 +33,12 @@ Task: [`M149`](../../docs/agents/tasks/M149_hyperframe_640x400_display.md).
 | File | What |
 |---|---|
 | `vashow.asm` | `VASHOW.COM` (NASM). Sets the 640x200 16-bpp Graphic 0 screen with the video BIOS (`INT 8Fh` ScnMode `BX=A002h`, `CL=16`; DefBuf 640x200; DefWin 200 lines; Compose G0 only), then `GRMODE=B462h`, `GRRES=0303h`, `FBW=1280`, `FBL=DSH=200`, direct colour. Reads the picture in 32 KiB pieces and copies each to GVRAM through the bank-4 window at `A0000h` (port `153h` = `54h`, write mode `580h` = `10h`), switching the window in only for the copy. A key restores the video state it found. Without a file name it shows the first `*.G16` of the current directory. |
+| `metaball.py` | Ray tracer for the third picture, with the floor, sky, light and camera of `../hyperframe+/raytrace.py`. Three balls (red, green, blue; the blue one rides up behind) each add the field (1 - r^2/R^2)^3, a degree-6 polynomial in r that is zero beyond R; the surface is where the sum reaches 0.25, found by Lipschitz-bounded marching and bisection, with the analytic gradient as the normal. Colour is HSV: the circular mean of the balls' hues weighted by 1 - r^2/R^2, so the necks pass through magenta, yellow and cyan. Glossy, slightly reflective, hard shadows. |
 | `vashow.txt` | `VASHOW.TXT` on the disks. |
-| `build-d88.py` | Renders the pictures with `../hyperframe+/raytrace.py` and `mandel.py --height 200` (the same 4:3 views at 640x200, pixels 2.4 times as tall as wide, 3x3 supersampling), reduces them to G6 R5 B5 with a 4x4 ordered dither (integer arithmetic) and builds both disks and their `.d88.xz`. |
+| `build-d88.py` | Renders the pictures with `../hyperframe+/raytrace.py`, `../hyperframe+/mandel.py` and `metaball.py`, `--height 200` (4:3 views at 640x200, pixels 2.4 times as tall as wide, 3x3 supersampling), reduces them to G6 R5 B5 with a 4x4 ordered dither (integer arithmetic) and builds the three disks and their `.d88.xz`. |
 | `va65536-tetra-msdos4.d88.xz` | Bootable disk with `TETRA.G16`. |
 | `va65536-mandel-msdos4.d88.xz` | Bootable disk with `MANDEL.G16`. |
+| `va65536-metaball-msdos4.d88.xz` | Bootable disk with `METABALL.G16`. |
 
 ## The disks
 
@@ -44,6 +47,7 @@ The allow-listed distribution images in this directory are:
 ```text
 va65536-tetra-msdos4.d88.xz
 va65536-mandel-msdos4.d88.xz
+va65536-metaball-msdos4.d88.xz
 ```
 
 Each boots by itself under the maintainer-approved MS-DOS 4.0 exception of
@@ -62,9 +66,10 @@ A:\VASHOW.COM                                     vashow.asm
 A:\VASHOW.TXT                                     vashow.txt
 A:\TETRA.G16      (va65536-tetra only)            raytrace.py --height 200
 A:\MANDEL.G16     (va65536-mandel only)           mandel.py --height 200
+A:\METABALL.G16   (va65536-metaball only)         metaball.py --height 200
 ```
 
-Rebuild both (the raw D88s must be outside the repository; NASM on the
+Rebuild all three (the raw D88s must be outside the repository; NASM on the
 PATH or in `NASM`):
 
 ```sh
@@ -85,7 +90,7 @@ Write a disk out, for example `xz -dc
 demos/native65536/va65536-mandel-msdos4.d88.xz > /tmp/va65536-mandel.d88`,
 boot it in drive 1 in V3 mode, then run `VASHOW`. A key returns to MS-DOS.
 
-- vaeg: the picture fills the screen; the rendered output matches the
+- vaeg: each picture fills the screen; the rendered output matches the
   dithered G6 R5 B5 data to within one level of 255 on every sampled pixel.
 - A real PC-88VA: not yet tried. The 640-dot 16-bpp setting (`GRRES`
   `0303h`, `FBW` 1280) follows vaeg's model and the 320x200 65536-colour
