@@ -26,8 +26,10 @@
 ;
 ;   HFSHOW [file] [/STAY]
 ;
+;
 ; file   640 x 400 x 3 bytes, R G B per pixel, rows top to bottom
-;        (default TETRA.RGB, the ray-traced sample of raytrace.py)
+;        (default: the first *.RGB file of the current directory, e.g.
+;        TETRA.RGB of raytrace.py or MANDEL.RGB of mandel.py)
 ; /STAY  leave the board displaying when the program ends
 ;
 ; The board is initialised as the JPGVHF viewer does (without its PC-98
@@ -50,17 +52,19 @@ ROW_BYTES   equ 640 * 3
 
 msg_usage   db 'HFSHOW (M149) [file] [/STAY]: 640x400x24 RGB picture to the HyPER-FRAME+.', 13, 10, '$'
 msg_open    db 'HFSHOW: cannot open the picture file.', 13, 10, '$'
+msg_none    db 'HFSHOW: no *.RGB picture in the current directory.', 13, 10, '$'
 msg_short   db 'HFSHOW: the picture file is shorter than 768000 bytes.', 13, 10, '$'
 msg_init    db 'HFSHOW: board initialised, sending 640x400 ...', 13, 10, '$'
 msg_done    db 'HFSHOW: done. Press a key to return to the main screen.', 13, 10, '$'
 msg_stay    db 'HFSHOW: done; the board keeps displaying (/STAY).', 13, 10, '$'
 msg_stop    db 'HFSHOW: stopped (D0=00 EE=00).', 13, 10, '$'
-def_name    db 'TETRA.RGB', 0
+rgb_mask    db '*.RGB', 0
 s_stay      db '/STAY'
 
 opt_stay    db 0
 handle      dw 0
 fname       times 80 db 0
+dta         times 43 db 0
 
 main:
     push cs
@@ -76,6 +80,34 @@ main:
     mov ax, 0x4c01
     int 0x21
 .args:
+    cmp byte [fname], 0
+    jne .named
+    ; no file given: the first *.RGB of the current directory
+    mov dx, dta
+    mov ah, 0x1a
+    int 0x21
+    mov dx, rgb_mask
+    xor cx, cx
+    mov ah, 0x4e
+    int 0x21
+    jnc .found
+    mov dx, msg_none
+    mov ah, 0x09
+    int 0x21
+    mov ax, 0x4c02
+    int 0x21
+.found:
+    mov si, dta + 0x1e
+    mov di, fname
+.fn:
+    lodsb
+    stosb
+    or al, al
+    jnz .fn
+    mov dx, 0x80                    ; back to the PSP's default DTA
+    mov ah, 0x1a
+    int 0x21
+.named:
     mov dx, fname
     mov ax, 0x3d00
     int 0x21
@@ -252,13 +284,7 @@ hf_stop:
 ; Command tail: optional file name and /STAY. CF on a bad option.
 parse:
     pusha
-    mov si, def_name
-    mov di, fname
-.cp:
-    lodsb
-    stosb
-    or al, al
-    jnz .cp
+    mov byte [fname], 0
     mov si, 0x81
     mov cl, [0x80]
     xor ch, ch

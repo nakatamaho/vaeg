@@ -21,29 +21,34 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# HyPER-FRAME+ sample (M149)
+# HyPER-FRAME+ samples (M149)
 
-A 640x400 full-colour picture for the Digital Arts HyPER-FRAME+ frame
-buffer, sent from a PC-88VA in V3 mode (MS-DOS 4.0) through I/O only.
+Two 640x400 full-colour pictures for the Digital Arts HyPER-FRAME+ frame
+buffer, each sent from a PC-88VA in V3 mode (MS-DOS 4.0) through I/O only.
 Task: [`M149`](../../docs/agents/tasks/M149_hyperframe_640x400_display.md).
 
 | File | What |
 |---|---|
 | `raytrace.py` | Ray tracer (Python standard library only). A mirror sphere rests on red, green and blue spheres; the four touch at the vertices of a regular tetrahedron in the middle of a checkerboard tile floor. 640x400, 3x3 supersampling, composed for a 4:3 monitor. Writes `TETRA.RGB` (R G B bytes, rows top to bottom, 768000 bytes) and optionally a PPM. |
-| `hfshow.asm` | `HFSHOW.COM` (NASM). Initialises the board as the JPGVHF viewer does, sends the picture row by row (Y once per row; X, then R, G, B per pixel), waits for a key and stops the board (D0=00, EE=00). `HFSHOW /STAY` leaves it displaying; `HFSHOW file` shows another 640x400x24 picture. |
+| `mandel.py` | A Mandelbrot-set close-up of Seahorse valley (centre -0.743643887037151 + 0.131825904205330i, width 1.65e-4, 2400 iterations), smooth escape-count colouring through a blue-white-gold cyclic palette, 3x3 supersampling. Writes `MANDEL.RGB` in the same format. |
+| `hfshow.asm` | `HFSHOW.COM` (NASM). Initialises the board as the JPGVHF viewer does, sends the picture row by row (Y once per row; X, then R, G, B per pixel), waits for a key and stops the board (D0=00, EE=00). Without a file name it shows the first `*.RGB` of the current directory. `HFSHOW /STAY` leaves it displaying; `HFSHOW file` shows a given 640x400x24 picture. |
 | `hfshow.txt` | `HFSHOW.TXT` on the disk. |
-| `build-d88.py` | Builds the bootable disk and its `.d88.xz` (below). |
-| `hfshow-msdos4.d88.xz` | The bootable disk. |
+| `build-d88.py` | Builds both bootable disks and their `.d88.xz` (below). |
+| `hfshow-msdos4.d88.xz` | Bootable disk with `TETRA.RGB`. |
+| `hfmandel-msdos4.d88.xz` | Bootable disk with `MANDEL.RGB`. |
 
-## The disk
+## The disks
 
-The allow-listed distribution image in this directory is:
+A picture is 768000 bytes, and a 2HD disk has room for one beside MS-DOS,
+so each picture has its own disk. The allow-listed distribution images in
+this directory are:
 
 ```text
 hfshow-msdos4.d88.xz
+hfmandel-msdos4.d88.xz
 ```
 
-It boots by itself under the maintainer-approved MS-DOS 4.0 exception of
+Each boots by itself under the maintainer-approved MS-DOS 4.0 exception of
 `AGENTS.md`, like [`demos/disks/all-demos-msdos4.d88.xz`](../disks/README.md):
 its system is the FreeDOS-88VA project's MIT-licensed MS-DOS 4.0 for the
 PC-88VA (release `msdos4-va.2`, `msdos4-pc88va-2hd.d88`, SHA-256
@@ -57,33 +62,37 @@ A:\AUTOEXEC.BAT, A:\CONFIG.SYS                    MS-DOS start-up files
 A:\LICENSE.TXT, A:\README.TXT                     MS-DOS release notices
 A:\HFSHOW.COM                                     hfshow.asm
 A:\HFSHOW.TXT                                     hfshow.txt
-A:\TETRA.RGB                                      raytrace.py --samples 3
+A:\TETRA.RGB      (hfshow-msdos4 only)             raytrace.py --samples 3
+A:\MANDEL.RGB     (hfmandel-msdos4 only)           mandel.py --samples 3
 ```
 
-Rebuild (the raw D88 must be outside the repository; NASM on the PATH or
-in `NASM`):
+Rebuild both (the raw D88s must be outside the repository; NASM on the
+PATH or in `NASM`):
 
 ```sh
-python3 demos/hyperframe+/build-d88.py --output /tmp/hfshow-msdos4.d88
+python3 demos/hyperframe+/build-d88.py --output-dir /tmp/hfshow-disks
 ```
 
 The builder refuses any other MS-DOS source image, gives directory entries
 a fixed time stamp, checks that the image holds only the release's boot
-sector and kept MS-DOS files plus `HFSHOW.COM`, `HFSHOW.TXT` and
-`TETRA.RGB` built here (error codes `M149_HFSHOW_*`), and checks the `.xz`
+sector and kept MS-DOS files plus `HFSHOW.COM`, `HFSHOW.TXT` and its
+picture, built here (error codes `M149_HFSHOW_*`), and checks the `.xz`
 round trip. `--check` rebuilds and compares with the committed image
-instead of writing it. The picture uses floating point (`math.sqrt`,
-`**`); the committed image was built on macOS arm64, and a host whose libm
-rounds differently could change single bytes of `TETRA.RGB`.
+instead of writing it. The pictures use floating point (`math.sqrt`,
+`math.log`, `**`); the committed images were built on macOS arm64, and a
+host whose libm rounds differently could change single bytes of a picture.
 
 ## Running it
 
-Write the disk out with `xz -dc demos/hyperframe+/hfshow-msdos4.d88.xz >
-/tmp/hfshow.d88` and boot it in drive 1 in V3 mode, then run `HFSHOW`.
+Write a disk out, for example `xz -dc
+demos/hyperframe+/hfmandel-msdos4.d88.xz > /tmp/hfmandel.d88`, boot it in
+drive 1 in V3 mode, then run `HFSHOW`.
 
 - vaeg: enable Device - HyPER-FRAME+... and choose "HyperFrame+ ON" (the
   board's output over the whole window) or "右上に出力" (top right). The
-  picture appears; a key returns to the MS-DOS screen.
+  picture appears; a key returns to the MS-DOS screen. In headless batch
+  runs, about 1 run in 24 ended with "the picture file is shorter than
+  768000 bytes" (a DOS read failure); see the M149 task file.
 - A real PC-88VA with the board: the transfer works (M149 measured the
   writes and read-backs), but the board's output needs its main RGB input
   (CN2) connected, which has not been done yet; see the task file.

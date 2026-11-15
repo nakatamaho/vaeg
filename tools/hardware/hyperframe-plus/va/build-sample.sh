@@ -23,17 +23,18 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # The HyPER-FRAME+ sample moved to demos/hyperframe+ (M149). This wrapper
-# builds a raw sample disk outside the repository with that builder, without
-# touching the committed .d88.xz:
-#   build-sample.sh OUTPUT.d88
+# builds the raw sample disks (hfshow-msdos4.d88, hfmandel-msdos4.d88) into a
+# directory outside the repository with that builder, without touching the
+# committed .d88.xz:
+#   build-sample.sh OUTPUT-DIR
 set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../../.." && pwd)
 if [ "$#" -ne 1 ]; then
-	printf 'usage: %s OUTPUT.d88\n' "$0" >&2
+	printf 'usage: %s OUTPUT-DIR\n' "$0" >&2
 	exit 2
 fi
 work=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-hfshow-wrap.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 "${PYTHON:-python3}" "$repo_root/demos/hyperframe+/build-d88.py" \
-	--output "$1" --compressed-output "$work/unused.d88.xz"
+	--output-dir "$1" --compressed-dir "$work"

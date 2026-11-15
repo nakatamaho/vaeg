@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Build the bootable MS-DOS 4.0 HyPER-FRAME+ sample disk and its .d88.xz.
+"""Build the bootable MS-DOS 4.0 HyPER-FRAME+ sample disks and their .d88.xz.
 
 The system files come from the FreeDOS-88VA project's MIT-licensed MS-DOS 4.0
 for the PC-88VA (release msdos4-va.2, msdos4-pc88va-2hd.d88), checked by its
-published SHA-256, exactly as for demos/disks/all-demos-msdos4.d88.xz.  The
-payload is built here from this directory's sources: HFSHOW.COM (hfshow.asm,
-NASM), TETRA.RGB (raytrace.py, a synthetic ray-traced picture) and
-HFSHOW.TXT.  Directory entries get a fixed time stamp, so the same inputs give
-the same bytes.  The raw D88 is written outside the repository; the compressed
-companion is demos/hyperframe+/hfshow-msdos4.d88.xz.
+published SHA-256, exactly as for demos/disks/all-demos-msdos4.d88.xz.  Each
+disk holds one 768000-byte picture (a 2HD disk has room for one), built here
+from this directory's sources, with HFSHOW.COM (hfshow.asm, NASM) and
+HFSHOW.TXT:
+  hfshow-msdos4.d88    TETRA.RGB   (raytrace.py, ray-traced spheres)
+  hfmandel-msdos4.d88  MANDEL.RGB  (mandel.py, Mandelbrot close-up)
+Directory entries get a fixed time stamp, so the same inputs give the same
+bytes.  The raw D88s are written to --output-dir outside the repository; the
+compressed companions go to demos/hyperframe+/.
 """
 
 # Copyright (c) 2026 Nakata Maho
@@ -47,8 +50,11 @@ from pathlib import Path
 DEMO_DIR = Path(__file__).resolve().parent
 REPOSITORY_ROOT = DEMO_DIR.parents[1]
 MSDOS4_BUILDER = REPOSITORY_ROOT / "tools" / "pc88va" / "build-all-demos-msdos4-disk.py"
-DEFAULT_COMPRESSED_OUTPUT = DEMO_DIR / "hfshow-msdos4.d88.xz"
-PAYLOAD_NAMES = ("HFSHOW.COM", "HFSHOW.TXT", "TETRA.RGB")
+# disk stem, picture generator, picture file name
+DISKS = (
+    ("hfshow-msdos4", "raytrace.py", "TETRA.RGB"),
+    ("hfmandel-msdos4", "mandel.py", "MANDEL.RGB"),
+)
 
 
 class BuildError(Exception):
@@ -64,20 +70,20 @@ def load_module(name, path):
     return module
 
 
-def build_payload(root, nasm, samples):
-    """Write HFSHOW.COM, HFSHOW.TXT and TETRA.RGB into root."""
+def build_payload(root, nasm, samples, generator, picture):
+    """Write HFSHOW.COM, HFSHOW.TXT and the picture into root."""
     root.mkdir(parents=True, exist_ok=True)
-    subprocess.run([sys.executable, str(DEMO_DIR / "raytrace.py"), str(root / "TETRA.RGB"),
+    subprocess.run([sys.executable, str(DEMO_DIR / generator), str(root / picture),
                     "--samples", str(samples)], check=True)
     subprocess.run([nasm, "-f", "bin", "-o", str(root / "HFSHOW.COM"),
                     str(DEMO_DIR / "hfshow.asm")], check=True)
     text = (DEMO_DIR / "hfshow.txt").read_bytes().replace(b"\r\n", b"\n")
     (root / "HFSHOW.TXT").write_bytes(text.replace(b"\n", b"\r\n"))
-    if (root / "TETRA.RGB").stat().st_size != 640 * 400 * 3:
-        raise BuildError("TETRA.RGB is not 640x400x3 bytes")
+    if (root / picture).stat().st_size != 640 * 400 * 3:
+        raise BuildError(f"{picture} is not 640x400x3 bytes")
 
 
-def validate_image(image, payload_root, msdos4):
+def validate_image(image, payload_root, msdos4, names):
     """Content check: stable error codes, empty when the image holds only the
     release's boot sector and kept MS-DOS files plus this demo's payload."""
     helper = load_module("pc88va_all_demos_bootable_builder", msdos4.BOOTABLE_BUILDER)
@@ -95,7 +101,7 @@ def validate_image(image, payload_root, msdos4):
            for (name, digest), contents in zip(msdos4.MSDOS4_FILES_SHA256.items(),
                                                system.values())):
         errors.append("M149_HFSHOW_SYSTEM_FILE_MISMATCH")
-    expected = {name: (payload_root / name).read_bytes() for name in PAYLOAD_NAMES}
+    expected = {name: (payload_root / name).read_bytes() for name in names}
     if stored != expected:
         errors.append("M149_HFSHOW_PAYLOAD_MISMATCH")
     return errors
@@ -123,55 +129,59 @@ def main(argv=None):
     parser.add_argument("--source", type=Path,
                         help=f"msdos4-pc88va-2hd.d88 of {msdos4.MSDOS4_RELEASE} (default: "
                              f"the shared cache, downloaded when missing)")
-    parser.add_argument("--output", required=True, type=Path,
-                        help="raw D88 to write, outside the repository")
-    parser.add_argument("--compressed-output", type=Path, default=DEFAULT_COMPRESSED_OUTPUT,
-                        help="compressed companion (default demos/hyperframe+/"
-                             "hfshow-msdos4.d88.xz)")
+    parser.add_argument("--output-dir", required=True, type=Path,
+                        help="directory for the raw D88s, outside the repository")
+    parser.add_argument("--compressed-dir", type=Path, default=DEMO_DIR,
+                        help="directory for the .d88.xz companions (default demos/hyperframe+)")
     parser.add_argument("--check", action="store_true",
-                        help="build, and compare the payload with the committed .d88.xz "
-                             "instead of writing it")
+                        help="build, and compare with the committed .d88.xz instead of "
+                             "writing them")
     parser.add_argument("--samples", type=int, default=3)
     args = parser.parse_args(argv)
     nasm = os.environ.get("NASM", "nasm")
-    output = args.output.resolve()
-    compressed_output = args.compressed_output.resolve()
+    output_dir = args.output_dir.resolve()
+    compressed_dir = args.compressed_dir.resolve()
+    results = []
     try:
-        if output == REPOSITORY_ROOT or REPOSITORY_ROOT in output.parents:
-            raise BuildError("the raw D88 must be written outside the repository")
-        if output.exists():
-            raise BuildError(f"output already exists: {output}")
-        if not args.check and compressed_output.exists():
-            raise BuildError(f"output already exists: {compressed_output}")
+        if output_dir == REPOSITORY_ROOT or REPOSITORY_ROOT in output_dir.parents:
+            raise BuildError("the raw D88s must be written outside the repository")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for stem, _, _ in DISKS:
+            if (output_dir / f"{stem}.d88").exists():
+                raise BuildError(f"output already exists: {output_dir / f'{stem}.d88'}")
+            if not args.check and (compressed_dir / f"{stem}.d88.xz").exists():
+                raise BuildError(f"output already exists: {compressed_dir / f'{stem}.d88.xz'}")
         source = args.source if args.source is not None else msdos4.cached_source()
-        with tempfile.TemporaryDirectory(prefix="vaeg-hfshow-payload-") as temporary:
-            payload_root = Path(temporary) / "root"
-            build_payload(payload_root, nasm, args.samples)
-            image = build_image(source.resolve(), payload_root, msdos4)
-            errors = validate_image(image, payload_root, msdos4)
-        if errors:
-            raise BuildError(" ".join(errors))
-        compressed = lzma.compress(image, format=lzma.FORMAT_XZ,
-                                   preset=lzma.PRESET_EXTREME | 9)
-        if lzma.decompress(compressed) != image:
-            raise BuildError("the compressed image does not round-trip")
-        if args.check:
-            committed = lzma.decompress(compressed_output.read_bytes())
-            if committed != image:
-                raise BuildError("M149_HFSHOW_COMMITTED_IMAGE_DIFFERS")
-        output.write_bytes(image)
-        if not args.check:
-            compressed_output.write_bytes(compressed)
+        for stem, generator, picture in DISKS:
+            names = ("HFSHOW.COM", "HFSHOW.TXT", picture)
+            with tempfile.TemporaryDirectory(prefix="vaeg-hfshow-payload-") as temporary:
+                payload_root = Path(temporary) / "root"
+                build_payload(payload_root, nasm, args.samples, generator, picture)
+                image = build_image(source.resolve(), payload_root, msdos4)
+                errors = validate_image(image, payload_root, msdos4, names)
+            if errors:
+                raise BuildError(f"{stem}: " + " ".join(errors))
+            compressed = lzma.compress(image, format=lzma.FORMAT_XZ,
+                                       preset=lzma.PRESET_EXTREME | 9)
+            if lzma.decompress(compressed) != image:
+                raise BuildError(f"{stem}: the compressed image does not round-trip")
+            xz = compressed_dir / f"{stem}.d88.xz"
+            if args.check:
+                if lzma.decompress(xz.read_bytes()) != image:
+                    raise BuildError(f"{stem}: M149_HFSHOW_COMMITTED_IMAGE_DIFFERS")
+            (output_dir / f"{stem}.d88").write_bytes(image)
+            if not args.check:
+                xz.write_bytes(compressed)
+            results.append((stem, hashlib.sha256(image).hexdigest(),
+                            hashlib.sha256(compressed).hexdigest()))
     except (BuildError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"error: {error}\n")
-    print("Created bootable MS-DOS 4.0 HyPER-FRAME+ sample D88")
-    print(f"output: {output}")
-    print(f"SHA-256: {hashlib.sha256(image).hexdigest()}")
-    if args.check:
-        print(f"matches: {compressed_output}")
-    else:
-        print(f"compressed: {compressed_output}")
-        print(f"compressed SHA-256: {hashlib.sha256(compressed).hexdigest()}")
+    for stem, image_sha, xz_sha in results:
+        print(f"{stem}.d88 SHA-256 {image_sha}")
+        if args.check:
+            print(f"  matches {compressed_dir / (stem + '.d88.xz')}")
+        else:
+            print(f"  {stem}.d88.xz SHA-256 {xz_sha}")
     return 0
 
 
