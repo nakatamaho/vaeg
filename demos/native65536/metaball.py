@@ -66,9 +66,9 @@ def ball(x, y, z, visible_radius, hue_deg):
 
 # (centre, influence radius R, R^2, cos hue, sin hue)
 BALLS = [
-    ball(-1.05, 1.00, -0.45, 1.05, 0.0),      # red, front left
-    ball(1.05, 0.92, -0.30, 0.95, 120.0),     # green, front right
-    ball(0.05, 1.75, 0.75, 1.10, 240.0),      # blue, back, riding up
+    ball(-1.05, 1.50, -0.45, 1.05, 60.0),     # yellow, front left
+    ball(1.05, 1.42, -0.30, 0.95, 180.0),     # cyan, front right
+    ball(0.05, 2.25, 0.75, 1.10, 300.0),      # magenta, back, riding up
 ]
 SATURATION = 0.88
 VALUE = 0.95

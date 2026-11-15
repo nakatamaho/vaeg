@@ -16,8 +16,9 @@ over a checkerboard tile floor.
 MANDEL.G16 (on va65536-mandel-msdos4.d88): a Mandelbrot-set close-up
 of Seahorse valley, smooth colouring.
 METABALL.G16 (on va65536-metaball-msdos4.d88): three metaballs, each
-with the field (1 - r^2/R^2)^3, flowing into one another over the same
-checkerboard floor; HSV colouring, the hues blending across the necks.
+with the field (1 - r^2/R^2)^3, yellow, cyan and magenta, flowing into
+one another above the same checkerboard floor; HSV colouring, the hues
+blending across the necks.
 
 Sources: demos/native65536 and demos/hyperframe+ of vaeg
 (https://github.com/nakatamaho/vaeg). 2-clause BSD licence.
