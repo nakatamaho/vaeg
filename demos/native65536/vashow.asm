@@ -24,14 +24,15 @@
 ;
 ;   VASHOW [file]
 ;
-; file   640 x 200 words, little endian, rows top to bottom (256000 bytes);
-;        default: the first *.G16 file of the current directory, e.g.
-;        TETRA.G16 or MANDEL.G16 made by build-d88.py.
+; file   640 x 200 words, little endian, rows top to bottom (256000 bytes).
+;        Without a file, every *.G16 of the current directory is shown in
+;        directory order (TETRA.G16, PAIR0.G16 ... made by build-d88.py): a
+;        key shows the next one, ESC stops; after the last one a key ends.
 ;
 ; The picture is read in 32 KiB pieces into a buffer after the program and
 ; copied to GVRAM through the bank-4 window at A0000h. The memory map is
 ; switched to GVRAM only for each copy and restored before every DOS call.
-; A key restores the video state the program found.
+; At the end the video state the program found is restored.
 
 bits 16
 cpu 186
@@ -76,7 +77,7 @@ org 0x100
 
     jmp main
 
-msg_usage   db 'VASHOW (M149) [file]: 640x200 65536-colour picture (G6 R5 B5 words).', 13, 10, '$'
+msg_usage   db 'VASHOW (M149) [file]: 640x200 65536-colour pictures (G6 R5 B5 words).', 13, 10, '$'
 msg_open    db 'VASHOW: cannot open the picture file.', 13, 10, '$'
 msg_none    db 'VASHOW: no *.G16 picture in the current directory.', 13, 10, '$'
 msg_memory  db 'VASHOW: not enough memory for the 32 KiB buffer.', 13, 10, '$'
@@ -99,7 +100,7 @@ saved_write_mode db 0
 saved_single_plane db 0
 video_mode_changed db 0
 line_doubling_set db 0
-read_failed db 0
+named_file  db 0
 fname       times 80 db 0
 dta         times 43 db 0
 
@@ -120,21 +121,21 @@ main:
     mov dx, msg_usage
     jmp fail1
 .args:
+    ; the buffer is the 64 KiB segment after the program
+    mov ax, cs
+    add ax, 0x1000
+    mov [buf_seg], ax
+    add ax, CHUNK_BYTES / 16
+    cmp [0x0002], ax
+    jae .memory_ok
+    mov dx, msg_memory
+    jmp fail2
+.memory_ok:
     cmp byte [fname], 0
     jne .named
-    ; no file given: the first *.G16 of the current directory
-    mov dx, dta
-    mov ah, 0x1a
-    int 0x21
-    mov dx, g16_mask
-    xor cx, cx
-    mov ah, 0x4e
-    int 0x21
-    pushf
-    mov dx, 0x80                    ; back to the PSP's default DTA
-    mov ah, 0x1a
-    int 0x21
-    popf
+    ; no file given: every *.G16 of the current directory in turn
+    mov ah, 0x4e                    ; FindFirst
+    call find
     jnc .found
     mov dx, msg_none
     jmp fail2
@@ -147,35 +148,77 @@ main:
     or al, al
     jnz .fn
 .named:
-    ; the buffer is the 64 KiB segment after the program
-    mov ax, cs
-    add ax, 0x1000
-    mov [buf_seg], ax
-    add ax, CHUNK_BYTES / 16
-    cmp [0x0002], ax
-    jae .memory_ok
-    mov dx, msg_memory
+    call show_file
+    jnc .shown
+    push dx
+    call restore_video_state
+    pop dx
     jmp fail2
-.memory_ok:
+.shown:
+    mov ah, 0x08                    ; wait for a key
+    int 0x21
+    cmp al, 0x1b
+    je .finish                      ; ESC
+    or al, al
+    jnz .key_done
+    mov ah, 0x08                    ; second byte of an extended key
+    int 0x21
+.key_done:
+    cmp byte [named_file], 0
+    jne .finish
+    mov ah, 0x4f                    ; FindNext
+    call find
+    jnc .found
+.finish:
+    call restore_video_state
+    mov dx, msg_done
+    mov ah, 0x09
+    int 0x21
+    mov ax, 0x4c00
+    int 0x21
+
+; AH = 4Eh (FindFirst *.G16) or 4Fh (FindNext) with the program's DTA, which
+; keeps the search state; the PSP's default DTA is restored. CF as DOS.
+find:
+    push ax
+    mov dx, dta
+    mov ah, 0x1a
+    int 0x21
+    pop ax
+    mov dx, g16_mask
+    xor cx, cx
+    int 0x21
+    pushf
+    mov dx, 0x80
+    mov ah, 0x1a
+    int 0x21
+    popf
+    ret
+
+; Load fname to GVRAM, setting the video mode the first time.
+; CF set with DX = message on an error (the file is closed).
+show_file:
     mov dx, fname
     mov ax, 0x3d00
     int 0x21
     jnc .opened
     mov dx, msg_open
-    jmp fail2
+    stc
+    ret
 .opened:
     mov [handle], ax
     mov word [remaining_lo], PICTURE_BYTES & 0xffff
     mov word [remaining_hi], PICTURE_BYTES >> 16
     mov word [gv_seg], 0xa000
+    cmp byte [video_mode_changed], 0
+    jne .load
     call save_video_state
     call initialize_video
     jnc .load
     call close_file
-    call restore_video_state
     mov dx, msg_video
-    jmp fail2
-
+    stc
+    ret
 .load:
     ; CX = min(remaining, CHUNK_BYTES)
     mov cx, CHUNK_BYTES
@@ -206,25 +249,14 @@ main:
     mov ax, [remaining_lo]
     or ax, [remaining_hi]
     jnz .load
-    jmp .loaded
-.short:
-    mov byte [read_failed], 1
-.loaded:
     call close_file
-    cmp byte [read_failed], 0
-    jne .failed_read
-    mov ah, 0x08                    ; wait for a key
-    int 0x21
-    call restore_video_state
-    mov dx, msg_done
-    mov ah, 0x09
-    int 0x21
-    mov ax, 0x4c00
-    int 0x21
-.failed_read:
-    call restore_video_state
+    clc
+    ret
+.short:
+    call close_file
     mov dx, msg_short
-    jmp fail2
+    stc
+    ret
 
 fail1:
     mov ah, 0x09
@@ -432,6 +464,8 @@ line_doubling_off:
     ret
 
 restore_video_state:
+    cmp byte [video_mode_changed], 0
+    je .done                        ; nothing was changed
     call line_doubling_off
     mov dx, PORT_MEMORY_MAP
     mov al, [saved_memory_map]
@@ -483,6 +517,7 @@ parse:
     loop .copy
 .end:
     mov byte [di], 0
+    mov byte [named_file], 1
 .ok:
     popa
     clc

@@ -24,21 +24,25 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 640x200 65536-colour pictures (M149)
 
 The two pictures of [`demos/hyperframe+`](../hyperframe+/README.md) (the
-ray-traced spheres and the Mandelbrot close-up) and three fused HSV
-metaballs over the same floor, shown by the PC-88VA's own
+ray-traced spheres and the Mandelbrot close-up), three fused HSV metaballs
+over the same floor, and ten frames of a red and a blue metaball coming
+together, shown by the PC-88VA's own
 graphics without any extra board: Graphic 0, single plane, 640x200, 16 bpp
 direct colour (G6 R5 B5 words), under MS-DOS 4.0 in V3 mode.
 Task: [`M149`](../../docs/agents/tasks/M149_hyperframe_640x400_display.md).
 
 | File | What |
 |---|---|
-| `vashow.asm` | `VASHOW.COM` (NASM). Sets the 640x200 16-bpp Graphic 0 screen with the video BIOS (`INT 8Fh` ScnMode `BX=A002h`, `CL=16`; DefBuf 640x200; DefWin 200 lines; Compose G0 only), then `GRMODE=B462h`, `GRRES=0303h`, `FBW=1280`, `FBL=DSH=200`, direct colour. Reads the picture in 32 KiB pieces and copies each to GVRAM through the bank-4 window at `A0000h` (port `153h` = `54h`, write mode `580h` = `10h`), switching the window in only for the copy. A key restores the video state it found. Without a file name it shows the first `*.G16` of the current directory. |
-| `metaball.py` | Ray tracer for the third picture, with the floor, sky, light and camera of `../hyperframe+/raytrace.py`. Three balls (yellow, cyan, magenta; they float a little above the floor, and the magenta one rides up behind) each add the field (1 - r^2/R^2)^3, a degree-6 polynomial in r that is zero beyond R; the surface is where the sum reaches 0.25, found by Lipschitz-bounded marching and bisection, with the analytic gradient as the normal. Colour is HSV: the circular mean of the balls' hues weighted by 1 - r^2/R^2, so the necks pass through red, green and blue. Glossy, slightly reflective, hard shadows. `--pair-frame 0..9` draws instead one frame of a ten-frame sequence: a red and a blue ball floating side by side, coming together from a centre distance of 5.0 to 1.2 until fused, magenta at the neck (not on a disk; the frames are made on request). |
+| `vashow.asm` | `VASHOW.COM` (NASM). Sets the 640x200 16-bpp Graphic 0 screen with the video BIOS (`INT 8Fh` ScnMode `BX=A002h`, `CL=16`; DefBuf 640x200; DefWin 200 lines; Compose G0 only), then `GRMODE=B462h`, `GRRES=0303h`, `FBW=1280`, `FBL=DSH=200`, direct colour. Reads the picture in 32 KiB pieces and copies each to GVRAM through the bank-4 window at `A0000h` (port `153h` = `54h`, write mode `580h` = `10h`), switching the window in only for the copy. Without a file name it shows every `*.G16` of the current directory in directory order: a key shows the next one, ESC stops, and after the last one a key ends. At the end it restores the video state it found. |
+| `metaball.py` | Ray tracer for the third picture, with the floor, sky, light and camera of `../hyperframe+/raytrace.py`. Three balls (yellow, cyan, magenta; they float a little above the floor, and the magenta one rides up behind) each add the field (1 - r^2/R^2)^3, a degree-6 polynomial in r that is zero beyond R; the surface is where the sum reaches 0.25, found by Lipschitz-bounded marching and bisection, with the analytic gradient as the normal. Colour is HSV: the circular mean of the balls' hues weighted by 1 - r^2/R^2, so the necks pass through red, green and blue. Glossy, slightly reflective, hard shadows. `--pair-frame 0..9` draws instead one frame of a ten-frame sequence: a red and a blue ball floating side by side, coming together from a centre distance of 5.0 to 1.2 until fused, magenta at the neck (the `fusion` disks). |
 | `vashow.txt` | `VASHOW.TXT` on the disks. |
-| `build-d88.py` | Renders the pictures with `../hyperframe+/raytrace.py`, `../hyperframe+/mandel.py` and `metaball.py`, `--height 200` (4:3 views at 640x200, pixels 2.4 times as tall as wide, 3x3 supersampling), reduces them to G6 R5 B5 with a 4x4 ordered dither (integer arithmetic) and builds the three disks and their `.d88.xz`. |
+| `build-d88.py` | Renders the pictures with `../hyperframe+/raytrace.py`, `../hyperframe+/mandel.py` and `metaball.py`, `--height 200` (4:3 views at 640x200, pixels 2.4 times as tall as wide, 3x3 supersampling), reduces them to G6 R5 B5 with a 4x4 ordered dither (integer arithmetic) and builds the six disks and their `.d88.xz`. |
 | `va65536-tetra-msdos4.d88.xz` | Bootable disk with `TETRA.G16`. |
 | `va65536-mandel-msdos4.d88.xz` | Bootable disk with `MANDEL.G16`. |
 | `va65536-metaball-msdos4.d88.xz` | Bootable disk with `METABALL.G16`. |
+| `va65536-fusion1-msdos4.d88.xz` | Bootable disk with `PAIR0.G16`-`PAIR3.G16` (frames 0-3). |
+| `va65536-fusion2-msdos4.d88.xz` | Bootable disk with `PAIR4.G16`-`PAIR7.G16` (frames 4-7). |
+| `va65536-fusion3-msdos4.d88.xz` | Bootable disk with `PAIR8.G16`-`PAIR9.G16` (frames 8-9). |
 
 ## The disks
 
@@ -48,7 +52,13 @@ The allow-listed distribution images in this directory are:
 va65536-tetra-msdos4.d88.xz
 va65536-mandel-msdos4.d88.xz
 va65536-metaball-msdos4.d88.xz
+va65536-fusion1-msdos4.d88.xz
+va65536-fusion2-msdos4.d88.xz
+va65536-fusion3-msdos4.d88.xz
 ```
+
+A 2HD disk holds four 256000-byte pictures beside MS-DOS, so the ten
+fusion frames are on three disks.
 
 Each boots by itself under the maintainer-approved MS-DOS 4.0 exception of
 `AGENTS.md`, like [`demos/disks/all-demos-msdos4.d88.xz`](../disks/README.md):
@@ -67,9 +77,12 @@ A:\VASHOW.TXT                                     vashow.txt
 A:\TETRA.G16      (va65536-tetra only)            raytrace.py --height 200
 A:\MANDEL.G16     (va65536-mandel only)           mandel.py --height 200
 A:\METABALL.G16   (va65536-metaball only)         metaball.py --height 200
+A:\PAIR0.G16-PAIR3.G16 (fusion1), PAIR4-7 (fusion2), PAIR8-9 (fusion3)
+                                                  metaball.py --height 200
+                                                  --pair-frame N
 ```
 
-Rebuild all three (the raw D88s must be outside the repository; NASM on the
+Rebuild all six (the raw D88s must be outside the repository; NASM on the
 PATH or in `NASM`):
 
 ```sh
@@ -79,7 +92,7 @@ python3 demos/native65536/build-d88.py --output-dir /tmp/va65536-disks
 The builder uses the checks of `demos/hyperframe+/build-d88.py`: it refuses
 any other MS-DOS source image, gives directory entries a fixed time stamp,
 checks that the image holds only the release's boot sector and kept MS-DOS
-files plus `VASHOW.COM`, `VASHOW.TXT` and its picture (error codes
+files plus `VASHOW.COM`, `VASHOW.TXT` and its pictures (error codes
 `M149_VASHOW_*`), and checks the `.xz` round trip. `--check` rebuilds and
 compares with the committed images instead of writing them. The rendering
 uses floating point; the committed images were built on macOS arm64.
@@ -88,7 +101,8 @@ uses floating point; the committed images were built on macOS arm64.
 
 Write a disk out, for example `xz -dc
 demos/native65536/va65536-mandel-msdos4.d88.xz > /tmp/va65536-mandel.d88`,
-boot it in drive 1 in V3 mode, then run `VASHOW`. A key returns to MS-DOS.
+boot it in drive 1 in V3 mode, then run `VASHOW`. On a fusion disk a key
+shows the next frame; after the last one a key returns to MS-DOS.
 
 - vaeg: each picture fills the screen; the rendered output matches the
   dithered G6 R5 B5 data to within one level of 255 on every sampled pixel.

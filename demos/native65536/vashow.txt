@@ -2,9 +2,11 @@ VASHOW - 640x200 65536-colour pictures on the PC-88VA (vaeg M149)
 
 V3 mode, MS-DOS 4.0, any PC-88VA / VA2 / VA3. No extra board.
 
-  VASHOW            show the first *.G16 picture of the current
-                    directory; a key restores the screen
-  VASHOW file       a given picture (640x200 words, G6 R5 B5,
+  VASHOW            show every *.G16 picture of the current
+                    directory in turn: a key shows the next one,
+                    ESC stops; after the last one a key restores
+                    the screen
+  VASHOW file       only a given picture (640x200 words, G6 R5 B5,
                     little endian, rows top to bottom, 256000 bytes)
 
 The pictures are synthetic, rendered at 640x200 for a 4:3 monitor and
@@ -19,6 +21,10 @@ METABALL.G16 (on va65536-metaball-msdos4.d88): three metaballs, each
 with the field (1 - r^2/R^2)^3, yellow, cyan and magenta, flowing into
 one another above the same checkerboard floor; HSV colouring, the hues
 blending across the necks.
+PAIR0.G16-PAIR9.G16 (on va65536-fusion1/2/3-msdos4.d88, four, four
+and two frames): a red and a blue metaball floating side by side,
+coming together from far apart until they have fused, magenta at the
+neck. Run VASHOW and press a key for each next frame.
 
 Sources: demos/native65536 and demos/hyperframe+ of vaeg
 (https://github.com/nakatamaho/vaeg). 2-clause BSD licence.
