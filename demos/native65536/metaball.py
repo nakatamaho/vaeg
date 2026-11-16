@@ -24,7 +24,7 @@
 """Ray-trace three fused metaballs over the checkerboard floor (synthetic).
 
 usage: metaball.py OUT.RGB [--ppm OUT.PPM] [--samples N] [--jobs N]
-                   [--height 400|200]
+                   [--height 400|200] [--pair-frame 0..9]
 
 The floor, sky, light and camera are those of ../hyperframe+/raytrace.py.
 Each ball contributes the sextic field (1 - r^2/R^2)^3 (a degree-6
@@ -32,6 +32,11 @@ polynomial in r, zero beyond R); the surface is where the sum reaches
 THRESHOLD, so the three balls flow into one another. The colour is HSV:
 every ball has a hue, and a surface point takes the circular mean of the
 hues weighted by 1 - r^2/R^2, so the necks run through the hues in between.
+
+--pair-frame N draws frame N of a ten-frame sequence instead: a red and a
+blue ball (the magenta between them where they meet), floating side by
+side, coming together from far apart (centre distance PAIR_DISTANCES[N])
+until they have fused.
 
 OUT.RGB is 640 x H x 3 bytes, R G B per pixel, rows top to bottom, composed
 for a 4:3 monitor. Pure standard library; deterministic for a given
@@ -78,7 +83,30 @@ SHININESS = 90.0
 REFLECT = 0.14
 FLOOR_REFLECT = rt.FLOOR_REFLECT
 # a bound on |grad field|: one ball's slope peaks at 6/(sqrt(5) R) * (4/5)^2
-LIPSCHITZ = sum(6.0 / (math.sqrt(5.0) * b[1]) * 0.64 for b in BALLS)
+
+
+def lipschitz(balls):
+    return sum(6.0 / (math.sqrt(5.0) * b[1]) * 0.64 for b in balls)
+
+
+LIPSCHITZ = lipschitz(BALLS)
+
+# --pair-frame: centre distances, far apart to fused (a lone ball's visible
+# radius is 1.0, so the surfaces would touch at 2.0 without the blending)
+PAIR_DISTANCES = (5.0, 4.2, 3.6, 3.2, 2.9, 2.6, 2.3, 2.0, 1.6, 1.2)
+
+
+def pair_balls(frame):
+    half = PAIR_DISTANCES[frame] / 2.0
+    return [ball(-half, 1.50, 0.0, 1.0, 0.0),        # red, left
+            ball(half, 1.50, 0.0, 1.0, 240.0)]       # blue, right
+
+
+def select_scene(pair_frame):
+    global BALLS, LIPSCHITZ
+    if pair_frame is not None:
+        BALLS = pair_balls(pair_frame)
+        LIPSCHITZ = lipschitz(BALLS)
 MIN_STEP = 2e-3
 
 
@@ -234,7 +262,8 @@ def trace(o, d, depth):
 
 
 def render_row(args):
-    y, samples, height = args
+    y, samples, height, pair_frame = args
+    select_scene(pair_frame)
     fwd, right, up, half_w, half_h = rt.camera_for(height)
     row = bytearray()
     n = samples
@@ -258,11 +287,12 @@ def main():
     ap.add_argument('--samples', type=int, default=2, help='N x N rays per pixel')
     ap.add_argument('--jobs', type=int, default=0)
     ap.add_argument('--height', type=int, choices=(400, 200), default=400)
+    ap.add_argument('--pair-frame', type=int, choices=range(len(PAIR_DISTANCES)))
     a = ap.parse_args()
     jobs = a.jobs or multiprocessing.cpu_count()
     rows = [None] * a.height
     with multiprocessing.Pool(jobs) as pool:
-        for y, data in pool.imap_unordered(render_row, [(y, a.samples, a.height)
+        for y, data in pool.imap_unordered(render_row, [(y, a.samples, a.height, a.pair_frame)
                                                         for y in range(a.height)]):
             rows[y] = data
     image = b''.join(rows)
