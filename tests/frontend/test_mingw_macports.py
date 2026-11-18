@@ -84,6 +84,22 @@ class SdkIdentity(unittest.TestCase):
                     self.assert_code("MACPORTS_FFMPEG_IDENTITY", build.validate_ffmpeg,
                                      data, identity, root)
 
+    def test_host_profile(self):
+        self.assertEqual(build.host_profile("Linux", "x86_64")[:2], ("x86_64-unknown-linux-gnu", "/usr"))
+        self.assertEqual(build.host_profile("Darwin", "arm64")[:2], ("aarch64-apple-darwin", "/opt/local"))
+        for host, _, _ in build.HOSTS.values():
+            self.assertEqual(set(build.RUST_HASHES[host]), {"rustc", "cargo", "rust-std"})
+        self.assert_code("MACPORTS_HOST", build.host_profile, "Windows", "x86_64")
+        self.assert_code("MACPORTS_ARCH", build.host_profile, "Linux", "aarch64")
+
+    def test_thread_model(self):
+        passing = "Target: x86_64-w64-mingw32\nThread model: posix\ngcc version 13-posix\n"
+        build.require_posix_threads("fixture-gcc", passing)
+        for verbose in (passing.replace("posix\ngcc", "win32\ngcc"), "Target: x86_64-w64-mingw32\n"):
+            with self.subTest(verbose=verbose):
+                self.assert_code("MACPORTS_THREAD_MODEL", build.require_posix_threads,
+                                 "fixture-gcc", verbose)
+
     def test_download(self):
         with tempfile.TemporaryDirectory() as name:
             archive = Path(name) / "archive"
