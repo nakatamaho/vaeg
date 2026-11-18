@@ -431,7 +431,7 @@ void keyboard_ctrl(REG8 data) {
 	}
 }
 
-void keyboard_send(REG8 data) {
+static void keyboard_send_event(REG8 data, BOOL frame_scheduled) {
 #if defined(SUPPORT_OPRECORD)
 	oprecord_record_key(data);
 #endif
@@ -439,7 +439,14 @@ void keyboard_send(REG8 data) {
 	data = convertmodeldependent(data);
 	if (data == 0xff)
 		return;
-	matrix_send(data);
+	if (frame_scheduled) {
+		/* Explicit guest-frame input needs no minimum host-tap duration.
+		 * Apply older queued transitions first to preserve input order. */
+		matrix_flush();
+		matrix_apply(data);
+	} else {
+		matrix_send(data);
+	}
 
 	if (keybrd.buffers < KB_BUF) {
 		keybrd.buf[(keybrd.bufpos + keybrd.buffers) & KB_BUFMASK] = data;
@@ -450,6 +457,14 @@ void keyboard_send(REG8 data) {
 	} else {
 		keybrd.status |= 0x10;
 	}
+}
+
+void keyboard_send(REG8 data) {
+	keyboard_send_event(data, FALSE);
+}
+
+void keyboard_send_frame_scheduled(REG8 data) {
+	keyboard_send_event(data, TRUE);
 }
 
 // ---- RS-232C

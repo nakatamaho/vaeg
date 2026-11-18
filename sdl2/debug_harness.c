@@ -31,9 +31,17 @@
 #include "dosio.h"
 #include "soundmng.h"
 #include "gvramva.h"
+#include "io/hfplus.h"
+#include "machine/pccore.h"
+#include "io/serial.h"
+#include "io/tsp.h"
+#include "io/vab.h"
+#include "io/videova.h"
+#include "kbdmap.h"
 #include "kbdpaste.h"
+#include "memoryva.h"
+#include "scrndrawva.h"
 #include "sdlapi.h"
-#include "statsave.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -56,13 +64,16 @@ enum {
 	DEBUG_CAPTURE_REGISTERS = 1,
 	DEBUG_CAPTURE_TVRAM = 2,
 	DEBUG_CAPTURE_SCREEN = 4,
-	DEBUG_CAPTURE_GVRAM = 8
+	DEBUG_CAPTURE_GVRAM = 8,
+	DEBUG_CAPTURE_VIDEO = 16
 };
 
 typedef enum {
 	DEBUG_ACTION_WAIT_FRAME,
 	DEBUG_ACTION_INPUT_LINE,
 	DEBUG_ACTION_ENTER,
+	DEBUG_ACTION_KEY_DOWN,
+	DEBUG_ACTION_KEY_UP,
 	DEBUG_ACTION_MOUNT_FDD,
 	DEBUG_ACTION_LOAD_STATE,
 	DEBUG_ACTION_SAVE_STATE,
@@ -106,6 +117,9 @@ typedef struct {
 	UINT action_count;
 	UINT resource_count;
 	UINT counter_count;
+	/* Indexed by the shared SDL table's guest make code; aliases share ownership. */
+	const char *held_keys[0x80];
+	UINT held_count;
 	DEBUG_ACTION actions[DEBUG_COMMAND_MAX];
 	DEBUG_RESOURCE resources[DEBUG_RESOURCE_MAX];
 	DEBUG_COUNTER counters[DEBUG_COUNTER_MAX];
@@ -314,6 +328,41 @@ static BOOL debug_add_counter(const char *id, const char *address) {
 	return debug_parse_address(address, &counter->cs, &counter->ip);
 }
 
+static const KBDMAP_ENTRY *debug_find_key(const char *name) {
+	static const struct {
+		const char *alias;
+		const char *canonical;
+	} aliases[] = {{"return", "returnl"}, {"bs", "backspace"},     {"shift", "shiftl"},
+	               {"grph", "graph"},     {"ins", "insert"},       {"del", "delete"},
+	               {"home/clr", "home"},  {"kp_enter", "returnr"}, {"xfer", "henkan"},
+	               {"nfer", "kettei"}};
+	char lower[32];
+	UINT i;
+	int index;
+
+	if ((name == NULL) || (strlen(name) >= sizeof(lower))) {
+		return NULL;
+	}
+	for (i = 0; name[i] != '\0'; i++) {
+		lower[i] = (name[i] >= 'A' && name[i] <= 'Z') ? name[i] + ('a' - 'A') : name[i];
+	}
+	lower[i] = '\0';
+	name = lower;
+	for (i = 0; i < NELEMENTS(aliases); i++) {
+		if (!strcmp(name, aliases[i].alias)) {
+			name = aliases[i].canonical;
+			break;
+		}
+	}
+	for (index = 0; index < kbdmap_entry_count(); index++) {
+		const KBDMAP_ENTRY *entry = kbdmap_entry(index);
+		if ((entry->guest_code < NELEMENTS(harness.held_keys)) && !strcmp(name, entry->id)) {
+			return entry;
+		}
+	}
+	return NULL;
+}
+
 static BOOL debug_parse_capture(DEBUG_ACTION *action, char *cursor) {
 	char *token;
 	UINT mask;
@@ -328,6 +377,8 @@ static BOOL debug_parse_capture(DEBUG_ACTION *action, char *cursor) {
 			mask |= DEBUG_CAPTURE_SCREEN;
 		} else if (!strcmp(token, "gvram")) {
 			mask |= DEBUG_CAPTURE_GVRAM;
+		} else if (!strcmp(token, "video")) {
+			mask |= DEBUG_CAPTURE_VIDEO;
 		} else {
 			return FAILURE;
 		}
@@ -426,6 +477,22 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		    (debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
 			goto invalid;
 		}
+		*event_context = FALSE;
+		return SUCCESS;
+	}
+	if (!strcmp(command, "key-down") || !strcmp(command, "key-up")) {
+		const KBDMAP_ENTRY *key = debug_find_key(debug_next_token(&cursor));
+		const DEBUG_ACTION_TYPE type =
+		    !strcmp(command, "key-down") ? DEBUG_ACTION_KEY_DOWN : DEBUG_ACTION_KEY_UP;
+		if (key == NULL) {
+			fprintf(stderr, "M152_DEBUG_KEY_NAME: line %u\n", line_number);
+			goto invalid;
+		}
+		if ((debug_next_token(&cursor) != NULL) || (debug_add_action(type, &action) != SUCCESS)) {
+			goto invalid;
+		}
+		action->argument = key->guest_code;
+		strcpy(action->id, key->id);
 		*event_context = FALSE;
 		return SUCCESS;
 	}
@@ -603,6 +670,61 @@ static BOOL debug_write_registers(const char *id, const UPD9002_DEBUG_SNAPSHOT *
 	return (fclose(fp) == 0) ? SUCCESS : FAILURE;
 }
 
+static BOOL debug_write_video(const char *id) {
+	char path[MAX_PATH];
+	FILE *fp;
+	UINT i;
+	BOOL failed;
+
+	if (debug_make_path(path, sizeof(path), id, ".video.tsv") != SUCCESS) {
+		return FAILURE;
+	}
+	fp = fopen(path, "wb");
+	if (fp == NULL) {
+		return FAILURE;
+	}
+	fprintf(fp,
+	        "schema\tvaeg-video-v1\n"
+	        "crtmode\t%02x\nhsync_mode\t%d\npalette_mode\t%d\n"
+	        "grmode\t%04x\ngrres\t%04x\ncolcomp\t%04x\nrgbcomp\t%04x\n"
+	        "mskmode\t%04x\npalmode\t%04x\ndropcol\t%04x\npagemsk\t%04x\n"
+	        "xpar_g0\t%04x\nxpar_g1\t%04x\nxpar_txtspr\t%04x\n"
+	        "mskleft\t%04x\nmskrit\t%04x\nmsktop\t%04x\nmskbot\t%04x\n"
+	        "txtmode8\t%02x\ntxtmode\t%02x\nblinkcnt\t%04x\n",
+	        videova.crtmode, videova_hsyncmode(), videova_palettemode(), videova.grmode,
+	        videova.grres, videova.colcomp, videova.rgbcomp, videova.mskmode, videova.palmode,
+	        videova.dropcol, videova.pagemsk, videova.xpar_g0, videova.xpar_g1, videova.xpar_txtspr,
+	        videova.mskleft, videova.mskrit, videova.msktop, videova.mskbot, videova.txtmode8,
+	        videova.txtmode, videova.blinkcnt);
+	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+		const _FRAMEBUFFER *f = &videova.framebuffer[i];
+		fprintf(fp,
+		        "fb.%u.fsa\t%08x\nfb.%u.fbw\t%04x\nfb.%u.fbl\t%04x\n"
+		        "fb.%u.dot\t%04x\nfb.%u.ofx\t%04x\nfb.%u.ofy\t%04x\n"
+		        "fb.%u.dsa\t%08x\nfb.%u.dsh\t%04x\nfb.%u.dsp\t%04x\n",
+		        i, f->fsa, i, f->fbw, i, f->fbl, i, f->dot, i, f->ofx, i, f->ofy, i, f->dsa, i,
+		        f->dsh, i, f->dsp);
+	}
+	for (i = 0; i < VIDEOVA_PALETTES; i++) {
+		fprintf(fp, "palette.%u\t%04x\n", i, videova.palette[i]);
+	}
+	for (i = 0; i < NELEMENTS(tsp.syncparam); i++) {
+		fprintf(fp, "tsp.syncparam.%u\t%02x\n", i, tsp.syncparam[i]);
+	}
+	for (i = 0; i < VAEG_VA_LAYER_COUNT; i++) {
+		fprintf(fp, "layer.%u.enabled\t%d\n", i, scrndrawva_layer_enabled(i) != FALSE);
+	}
+	fprintf(fp,
+	        "monitor_digital\t%d\nmode_88\t%d\npc8001\t%d\nn80.model\t%02x\n"
+	        "n80.color\t%d\nn80.port33\t%02x\nn80.video.0\t%02x\nn80.video.1\t%02x\n"
+	        "hfplus.active\t%d\nvab.active\t%d\n",
+	        np2cfg.monitor_digital != 0, memoryva_88_mode != 0, memoryva_pc8001 != FALSE,
+	        memoryn80.model, memoryva_n80_color() != FALSE, memoryn80.port33, memoryn80_video[0],
+	        memoryn80_video[1], hfplus_display_active() != FALSE, vab_display_active() != FALSE);
+	failed = ferror(fp) != 0;
+	return ((fclose(fp) == 0) && !failed) ? SUCCESS : FAILURE;
+}
+
 static BOOL debug_start_trace(const DEBUG_ACTION *action) {
 	char path[MAX_PATH];
 
@@ -638,6 +760,9 @@ static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSH
 
 	if ((action->argument & DEBUG_CAPTURE_REGISTERS) &&
 	    (debug_write_registers(action->id, snapshot) != SUCCESS)) {
+		return FAILURE;
+	}
+	if ((action->argument & DEBUG_CAPTURE_VIDEO) && (debug_write_video(action->id) != SUCCESS)) {
 		return FAILURE;
 	}
 	tvram_path = NULL;
@@ -681,9 +806,23 @@ static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSH
 	return SUCCESS;
 }
 
+static void debug_release_keys(UINT32 frames) {
+	UINT code;
+
+	for (code = 0; (harness.held_count != 0) && (code < NELEMENTS(harness.held_keys)); code++) {
+		if (harness.held_keys[code] != NULL) {
+			keyboard_send_frame_scheduled((REG8)(code | 0x80));
+			debug_log("key-release", frames, harness.held_keys[code], code);
+			harness.held_keys[code] = NULL;
+			harness.held_count--;
+		}
+	}
+}
+
 void debug_harness_clear(void) {
 	UINT index;
 
+	debug_release_keys(harness.last_frame);
 	if (harness.trace != NULL) {
 		upd9002_trace_stop();
 		(void)fclose(harness.trace);
@@ -795,7 +934,7 @@ BOOL debug_harness_active(void) {
 	return harness.loaded;
 }
 
-static BOOL debug_execute_ready(UINT32 frames) {
+static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 	DEBUG_ACTION *action;
 	DEBUG_RESOURCE *resource;
 	int loaded;
@@ -817,6 +956,10 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			break;
 		case DEBUG_ACTION_INPUT_LINE:
 		case DEBUG_ACTION_ENTER:
+			if (harness.held_count != 0) {
+				fprintf(stderr, "M152_DEBUG_KEY_PASTE_OVERLAP\n");
+				return FAILURE;
+			}
 			if (kbdpaste_active()) {
 				return SUCCESS;
 			}
@@ -839,6 +982,33 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			debug_log("input", frames, NULL, harness.action_index + 1);
 			harness.action_index++;
 			return SUCCESS;
+		case DEBUG_ACTION_KEY_DOWN:
+		case DEBUG_ACTION_KEY_UP: {
+			const UINT code = action->argument;
+			const BOOL down = action->type == DEBUG_ACTION_KEY_DOWN;
+			const BOOL held = harness.held_keys[code] != NULL;
+
+			if (!frame_boundary) {
+				return SUCCESS;
+			}
+			if (kbdpaste_active()) {
+				fprintf(stderr, "M152_DEBUG_KEY_PASTE_OVERLAP\n");
+				return FAILURE;
+			}
+			if (down && !held) {
+				keyboard_send_frame_scheduled((REG8)code);
+				harness.held_keys[code] = action->id;
+				harness.held_count++;
+				debug_log("key-down", frames, action->id, code);
+			} else if (!down && held) {
+				keyboard_send_frame_scheduled((REG8)(code | 0x80));
+				harness.held_keys[code] = NULL;
+				harness.held_count--;
+				debug_log("key-up", frames, action->id, code);
+			}
+			harness.action_index++;
+			break;
+		}
 		case DEBUG_ACTION_MOUNT_FDD:
 			resource = &harness.resources[action->value];
 			diskdrv_setfdd((REG8)action->argument, resource->none ? NULL : resource->path, 0);
@@ -898,12 +1068,14 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			fprintf(stderr, "Error: debug event action has no pending PC event\n");
 			return FAILURE;
 		case DEBUG_ACTION_EXIT:
+			debug_release_keys(frames);
 			harness.exit_requested = TRUE;
 			harness.action_index++;
 			debug_log("exit", frames, NULL, 0);
 			return SUCCESS;
 		}
 	}
+	debug_release_keys(frames);
 	return SUCCESS;
 }
 
@@ -915,8 +1087,9 @@ BOOL debug_harness_after_frame(UINT32 frames) {
 	}
 	harness.last_frame = frames;
 	debug_close_completed_trace();
-	result = debug_execute_ready(frames);
+	result = debug_execute_ready(frames, TRUE);
 	if ((result == SUCCESS) && !harness.exit_requested && (frames >= harness.frame_limit)) {
+		debug_release_keys(frames);
 		harness.exit_requested = TRUE;
 		debug_log("frame-limit", frames, NULL, harness.frame_limit);
 	}
@@ -955,7 +1128,7 @@ BOOL debug_harness_handle_pc_event(UINT32 frames) {
 		harness.action_index++;
 	}
 	upd9002_debug_event_resume();
-	return debug_execute_ready(frames);
+	return debug_execute_ready(frames, FALSE);
 }
 
 BOOL debug_harness_exit_requested(void) {
