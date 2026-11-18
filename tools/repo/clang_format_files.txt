@@ -161,10 +161,10 @@ io/mouseifva.c
 io/mouseifva.h
 io/np2sysp.c
 io/np2sysp.h
-io/pc88_text_dma.c
-io/pc88_text_dma.h
 io/pc88_display_state.c
 io/pc88_display_state.h
+io/pc88_text_dma.c
+io/pc88_text_dma.h
 io/pic.c
 io/pic.h
 io/pit.c
