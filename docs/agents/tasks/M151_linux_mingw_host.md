@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M151 — Linux ホストの MinGW-w64 によるクリーンビルド
 
-Status: **IN_PROGRESS; G151 NOT_READY.**
+Status: **COMPLETE; G151 human gate PASSED on 2026-11-19.**
 Branch: `milestone/m151-linux-mingw-host`（origin/main
 [b1ad18d0](https://github.com/nakatamaho/vaeg/commit/b1ad18d0f67adf6f550d4a089341432198b1abf4) から）;
 commit prefix `M151:`.
@@ -60,10 +60,21 @@ checkout」）を、Docker なしで、ディストリビューションの MinG
   クリーンクローンから `vaeg.exe` を生成。表示
   `Rel.20261115 (main, b1ad18d0)`、FFmpeg エンコーダ監査と Windows
   システム DLL インポート監査 PASS（`libwinpthread-1.dll` 依存なし）。
-- Windows 上での実行は NOT_RUN。
+- `5c2307ac` の Linux ホスト手順の `vaeg.exe` を、提供されたメディアを
+  使い、ダミー SDL 画面で起動した。MS-DOS 4.0 の起動、`dir`、`cd`、
+  同梱デモ GLASS の描画を確認した。Windows の実画面とウィンドウでの
+  確認は NOT_RUN（G151 で保守者が確認）。
 
 ## Gate
 
 G151: 保守者が、このブランチの先端から Linux ホスト手順で作った
 `vaeg.exe` を Windows で起動し、標準の human gate（V3 モードで起動、
 同梱 VA デモ、OS 起動と簡単な操作）を行う。
+
+## G151 記録
+
+2026-11-19、保守者が G151 を passed とした。ゲートで使ったビルドは
+`5c2307ac`（Linux ホスト MinGW、`Rel.20261118 (m151, 5c2307ac)`、
+SHA-256 `265ec473576cf271fa723f690907d98fb4b0ae5fdd07449e3ffb3cca7a459c0f`）。
+統合キャンペーン（メディア/デモの回帰、実画面の自動確認）は NOT_RUN
+（保守者の判断で見送り）。リリースは承認されていない。
