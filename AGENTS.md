@@ -599,15 +599,27 @@ encoders remain explicitly OFF. If the MacPorts tools or SDK are unavailable
 or fail validation, report that precise cause rather than substituting a
 container or a recording/shader-OFF build. See `BUILD.md` for prerequisites.
 
-**On Linux, use the dedicated container build path:**
+**On Linux x86_64, use the installed distribution MinGW-w64 toolchain** with
+the same helper, without Docker or another container. `x86_64-w64-mingw32-gcc`
+and `g++` under `/usr/bin` must use the posix thread model (on Debian/Ubuntu
+select the `-posix` alternatives); the helper fails with
+`MACPORTS_THREAD_MODEL` otherwise. A missing Docker daemon is not a Linux MinGW
+build blocker. Do not install or change system packages or alternatives for
+this build; report a missing tool instead. Bind `MINGW_SDK` to the isolated
+Linux target-dependency SDK, `~/work/pc88va/mingw-sdk-linux`:
 
 ```sh
-tools/release/build-mingw-static-container.sh --commit <full-sha> --recording
+python3 tools/release/build-mingw-macports.py --commit <full-sha> \
+  --work-dir ../vaeg-mingw-<short-sha> --sdk-dir "$MINGW_SDK" \
+  --build-track <track> --jobs 8
 ```
 
-This helper also creates a new `../vaeg-mingw-<short-sha>/` clone/build directory,
-using pinned Ubuntu 24.04 and the `mingw-cross` preset. The container storage
-and daemon-isolation rules above still apply to container workflows.
+The toolchain prefix defaults to `/usr` on Linux (`--ports-prefix` overrides it)
+and the `mingw-macports` preset is reused with that prefix. The container
+helper `tools/release/build-mingw-static-container.sh --commit <full-sha>
+--recording` (pinned Ubuntu 24.04, `mingw-cross` preset) remains available
+only when the maintainer explicitly asks for a container build; the container
+storage and daemon-isolation rules above then apply.
 
 Both paths keep SDL2, LibArchive, zlib, xz, librashader, FFmpeg and MinGW runtimes
 static, verify the embedded source/date/track identity, audit the FFmpeg encoder
