@@ -65,5 +65,71 @@ check passes on the VA and VA2 models. Existing debug-script behaviour unchanged
 harness self-tests pass). Push the branch; open no PR (the PR is opened after review).
 
 ## Status
-Implementation complete; G152 is blocked by inherited repository-wide format violations.
-See the [debug-script reference](../../../sdl2/README.md#held-keys).
+**Implementation complete; G152 BLOCKED.** The clean Linux build and executable
+checks passed. The repository-wide format gate did not. No branch push, PR,
+merge or release was performed. See the
+[debug-script reference](../../../sdl2/README.md#held-keys).
+
+Evaluated source: `7af1077c0339adf8319828ea5207757504262264`, based on
+`b1ad18d0f67adf6f550d4a089341432198b1abf4`. Commit chain:
+
+- `3aa3badddaf6447d3f6cf04cd4df6786b7c5a448` — scheduled keys and video capture.
+- `858d3be65301d75b6f5dac1feb4bb17f47c84825` — CLI contracts and native guest probe.
+- `bdb08442aaca4d38af478f24daf44e939b24253e` — restore sort order in the format manifest.
+- `2a0a295d8e6e2ff715e9afc9519111f1af42d7a9` — development build metadata.
+- `7af1077c0339adf8319828ea5207757504262264` — reference, task and roadmap.
+
+Commands from the M152 worktree (`b` was a fresh out-of-tree directory):
+
+```sh
+export TMPDIR=/home/maho/work/pc88va/tmp
+b=/home/maho/work/vaeg-m152-build/gate
+cmake -S . -B "$b" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON \
+  -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF -DVAEG_BUILD_TRACK=m152
+cmake --build "$b" -j 8
+ctest --test-dir "$b" -j 8 --output-on-failure
+```
+
+All three commands exited 0. Ninja finished at `[760/760] Linking CXX
+executable sdl2/vaeg`. CTest printed `100% tests passed, 0 tests failed out of
+160`: 150 passed, 10 skipped by the existing optional-test contracts, and
+one additional configured test was disabled. The M74 harness, ROM-less
+selftests and trace equivalence passed. The synthetic guest and parser results
+were:
+
+```text
+PASS M152 va: five consecutive VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1
+PASS M152 va2: five consecutive VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1
+PASS M152 parser: matrix names, line diagnostics, alias/idempotence, exit/end/limit cleanup
+```
+
+The executable is `gate/sdl2/vaeg` under `/home/maho/work/vaeg-m152-build`,
+reports `Rel.20261119 (m152, 7af1077c)`, and has SHA-256
+`71bc195397b50461c474f525b792002c9fa66d226c0703d60189b38223138d84`.
+The out-of-tree `gate-ctest.log` has SHA-256
+`693ca3897923fd58d4fb8b0fc1b391f4b48325e3d55ad21aa50bf95912c3c5cd`.
+The synthetic fixture and comparison contract are defined in
+`tests/m152/debug_script.py` at the evaluated SHA. SDL dummy execution is not
+presenter or physical-hardware coverage.
+
+Repository checks:
+
+| Command | Result |
+| --- | --- |
+| `python3 tools/repo/check_encoding.py` | exit 0 |
+| `python3 tools/repo/check_eol.py` | exit 0 |
+| `python3 tools/repo/check_case.py` | exit 0, `0 finding(s)` |
+| `python3 tools/repo/check_md_comments.py` | exit 0, `0 finding(s)` |
+| `git diff --check b1ad18d0 HEAD` | exit 0 |
+| `clang-format-mp-22 --dry-run --Werror --style=file --fallback-style=none io/serial.c io/serial.h sdl2/debug_harness.c` | exit 0 |
+| `python3 tools/repo/clang_format.py` (clang-format 22.1.8) | exit 1: 33 unchanged source files have format violations. First: `cpu/upd9002/upd9002_core.c:170:14`. |
+
+At the base SHA, the manifest validator stopped first on `manifest paths are
+not sorted`. Correcting the order exposed the source violations; `git diff
+--exit-code b1ad18d0 HEAD -- <the 33 paths from clang_format.log>` returned 0.
+The full diagnostic log is `/home/maho/work/vaeg-m152-build/clang_format.log`
+(SHA-256 `820861f85591fc6b4177ff4c6837262aa391a80f724953bde7e67ff3de011f69`).
+Unrelated source lines were not reformatted and the checker was not weakened.
+The build/test evidence applies to the evaluated SHA; this Status update is
+documentation-only.
