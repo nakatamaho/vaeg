@@ -32,8 +32,8 @@
 #include "soundmng.h"
 #include "gvramva.h"
 #include "io/hfplus.h"
+#include "machine/keystat.h"
 #include "machine/pccore.h"
-#include "io/serial.h"
 #include "io/tsp.h"
 #include "io/vab.h"
 #include "io/videova.h"
@@ -42,6 +42,7 @@
 #include "memoryva.h"
 #include "scrndrawva.h"
 #include "sdlapi.h"
+#include "statsave.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -74,6 +75,7 @@ typedef enum {
 	DEBUG_ACTION_ENTER,
 	DEBUG_ACTION_KEY_DOWN,
 	DEBUG_ACTION_KEY_UP,
+	DEBUG_ACTION_KEY_TAP,
 	DEBUG_ACTION_MOUNT_FDD,
 	DEBUG_ACTION_LOAD_STATE,
 	DEBUG_ACTION_SAVE_STATE,
@@ -102,6 +104,7 @@ typedef struct {
 	UINT16 cs;
 	UINT16 ip;
 	UINT argument;
+	UINT line_number;
 	char id[DEBUG_ID_MAX + 1];
 	char *text;
 } DEBUG_ACTION;
@@ -119,7 +122,9 @@ typedef struct {
 	UINT counter_count;
 	/* Indexed by the shared SDL table's guest make code; aliases share ownership. */
 	const char *held_keys[0x80];
+	UINT32 held_since[0x80];
 	UINT held_count;
+	BOOL tap_started;
 	DEBUG_ACTION actions[DEBUG_COMMAND_MAX];
 	DEBUG_RESOURCE resources[DEBUG_RESOURCE_MAX];
 	DEBUG_COUNTER counters[DEBUG_COUNTER_MAX];
@@ -465,6 +470,7 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		if (debug_add_action(DEBUG_ACTION_INPUT_LINE, &action) != SUCCESS) {
 			goto invalid;
 		}
+		action->line_number = line_number;
 		action->text = debug_string_duplicate(first);
 		if (action->text == NULL) {
 			goto invalid;
@@ -477,21 +483,35 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		    (debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
 			goto invalid;
 		}
+		action->line_number = line_number;
 		*event_context = FALSE;
 		return SUCCESS;
 	}
-	if (!strcmp(command, "key-down") || !strcmp(command, "key-up")) {
+	if (!strcmp(command, "key-down") || !strcmp(command, "key-up") || !strcmp(command, "key-tap")) {
 		const KBDMAP_ENTRY *key = debug_find_key(debug_next_token(&cursor));
-		const DEBUG_ACTION_TYPE type =
-		    !strcmp(command, "key-down") ? DEBUG_ACTION_KEY_DOWN : DEBUG_ACTION_KEY_UP;
+		const BOOL tap = !strcmp(command, "key-tap");
+		DEBUG_ACTION_TYPE type = DEBUG_ACTION_KEY_DOWN;
+		if (tap) {
+			type = DEBUG_ACTION_KEY_TAP;
+		} else if (!strcmp(command, "key-up")) {
+			type = DEBUG_ACTION_KEY_UP;
+		}
 		if (key == NULL) {
 			fprintf(stderr, "M152_DEBUG_KEY_NAME: line %u\n", line_number);
 			goto invalid;
 		}
-		if ((debug_next_token(&cursor) != NULL) || (debug_add_action(type, &action) != SUCCESS)) {
+		first = debug_next_token(&cursor);
+		number = 1;
+		if ((first != NULL) && (!tap || (debug_parse_uint32(first, &number) != SUCCESS) ||
+		                        (number == 0) || (debug_next_token(&cursor) != NULL))) {
+			fprintf(stderr, "M152_DEBUG_KEY_ARGUMENT: line %u\n", line_number);
+			goto invalid;
+		}
+		if (debug_add_action(type, &action) != SUCCESS) {
 			goto invalid;
 		}
 		action->argument = key->guest_code;
+		action->value = number;
 		strcpy(action->id, key->id);
 		*event_context = FALSE;
 		return SUCCESS;
@@ -671,6 +691,7 @@ static BOOL debug_write_registers(const char *id, const UPD9002_DEBUG_SNAPSHOT *
 }
 
 static BOOL debug_write_video(const char *id) {
+	const int hsync_mode = videova_hsyncmode();
 	char path[MAX_PATH];
 	FILE *fp;
 	UINT i;
@@ -685,17 +706,17 @@ static BOOL debug_write_video(const char *id) {
 	}
 	fprintf(fp,
 	        "schema\tvaeg-video-v1\n"
-	        "crtmode\t%02x\nhsync_mode\t%d\npalette_mode\t%d\n"
+	        "model_va\t%u\ncrtmode\t%02x\nhsync_mode\t%d\nhsync15khz\t%d\npalette_mode\t%d\n"
 	        "grmode\t%04x\ngrres\t%04x\ncolcomp\t%04x\nrgbcomp\t%04x\n"
 	        "mskmode\t%04x\npalmode\t%04x\ndropcol\t%04x\npagemsk\t%04x\n"
 	        "xpar_g0\t%04x\nxpar_g1\t%04x\nxpar_txtspr\t%04x\n"
 	        "mskleft\t%04x\nmskrit\t%04x\nmsktop\t%04x\nmskbot\t%04x\n"
 	        "txtmode8\t%02x\ntxtmode\t%02x\nblinkcnt\t%04x\n",
-	        videova.crtmode, videova_hsyncmode(), videova_palettemode(), videova.grmode,
-	        videova.grres, videova.colcomp, videova.rgbcomp, videova.mskmode, videova.palmode,
-	        videova.dropcol, videova.pagemsk, videova.xpar_g0, videova.xpar_g1, videova.xpar_txtspr,
-	        videova.mskleft, videova.mskrit, videova.msktop, videova.mskbot, videova.txtmode8,
-	        videova.txtmode, videova.blinkcnt);
+	        pccore.model_va, videova.crtmode, hsync_mode, hsync_mode != VIDEOVA_24_8KHZ,
+	        videova_palettemode(), videova.grmode, videova.grres, videova.colcomp, videova.rgbcomp,
+	        videova.mskmode, videova.palmode, videova.dropcol, videova.pagemsk, videova.xpar_g0,
+	        videova.xpar_g1, videova.xpar_txtspr, videova.mskleft, videova.mskrit, videova.msktop,
+	        videova.mskbot, videova.txtmode8, videova.txtmode, videova.blinkcnt);
 	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
 		const _FRAMEBUFFER *f = &videova.framebuffer[i];
 		fprintf(fp,
@@ -708,6 +729,10 @@ static BOOL debug_write_video(const char *id) {
 	for (i = 0; i < VIDEOVA_PALETTES; i++) {
 		fprintf(fp, "palette.%u\t%04x\n", i, videova.palette[i]);
 	}
+	fprintf(fp,
+	        "tsp.dspon\t%d\ntsp.spron\t%d\ntsp.texttable\t%04x\ntsp.sprtable\t%04x\n"
+	        "tsp.lineheight\t%02x\n",
+	        tsp.dspon != FALSE, tsp.spron != FALSE, tsp.texttable, tsp.sprtable, tsp.lineheight);
 	for (i = 0; i < NELEMENTS(tsp.syncparam); i++) {
 		fprintf(fp, "tsp.syncparam.%u\t%02x\n", i, tsp.syncparam[i]);
 	}
@@ -806,15 +831,32 @@ static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSH
 	return SUCCESS;
 }
 
+static void debug_key_down(UINT code, UINT32 frames, const char *id) {
+	keystat_frame_key((REG8)code);
+	harness.held_keys[code] = id;
+	harness.held_since[code] = frames;
+	harness.held_count++;
+	debug_log("key-down", frames, id, code);
+}
+
+static void debug_key_up(UINT code, UINT32 frames, const char *event) {
+	const char *id = harness.held_keys[code];
+
+	if (harness.held_since[code] == frames) {
+		debug_log("M152_WARN_KEY_SAME_FRAME", frames, id, code);
+	}
+	keystat_frame_key((REG8)(code | 0x80));
+	harness.held_keys[code] = NULL;
+	harness.held_count--;
+	debug_log(event, frames, id, code);
+}
+
 static void debug_release_keys(UINT32 frames) {
 	UINT code;
 
 	for (code = 0; (harness.held_count != 0) && (code < NELEMENTS(harness.held_keys)); code++) {
 		if (harness.held_keys[code] != NULL) {
-			keyboard_send_frame_scheduled((REG8)(code | 0x80));
-			debug_log("key-release", frames, harness.held_keys[code], code);
-			harness.held_keys[code] = NULL;
-			harness.held_count--;
+			debug_key_up(code, frames, "key-release");
 		}
 	}
 }
@@ -957,7 +999,7 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 		case DEBUG_ACTION_INPUT_LINE:
 		case DEBUG_ACTION_ENTER:
 			if (harness.held_count != 0) {
-				fprintf(stderr, "M152_DEBUG_KEY_PASTE_OVERLAP\n");
+				fprintf(stderr, "M152_DEBUG_KEY_PASTE_OVERLAP: line %u\n", action->line_number);
 				return FAILURE;
 			}
 			if (kbdpaste_active()) {
@@ -983,28 +1025,30 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 			harness.action_index++;
 			return SUCCESS;
 		case DEBUG_ACTION_KEY_DOWN:
-		case DEBUG_ACTION_KEY_UP: {
+		case DEBUG_ACTION_KEY_UP:
+		case DEBUG_ACTION_KEY_TAP: {
 			const UINT code = action->argument;
-			const BOOL down = action->type == DEBUG_ACTION_KEY_DOWN;
 			const BOOL held = harness.held_keys[code] != NULL;
 
-			if (!frame_boundary) {
+			if (!frame_boundary || kbdpaste_active()) {
 				return SUCCESS;
 			}
-			if (kbdpaste_active()) {
-				fprintf(stderr, "M152_DEBUG_KEY_PASTE_OVERLAP\n");
-				return FAILURE;
-			}
-			if (down && !held) {
-				keyboard_send_frame_scheduled((REG8)code);
-				harness.held_keys[code] = action->id;
-				harness.held_count++;
-				debug_log("key-down", frames, action->id, code);
-			} else if (!down && held) {
-				keyboard_send_frame_scheduled((REG8)(code | 0x80));
-				harness.held_keys[code] = NULL;
-				harness.held_count--;
-				debug_log("key-up", frames, action->id, code);
+			if (action->type == DEBUG_ACTION_KEY_TAP) {
+				if (harness.tap_started) {
+					if (frames - harness.held_since[code] < action->value) {
+						return SUCCESS;
+					}
+					debug_key_up(code, frames, "key-up");
+					harness.tap_started = FALSE;
+				} else if (!held) {
+					debug_key_down(code, frames, action->id);
+					harness.tap_started = TRUE;
+					return SUCCESS;
+				}
+			} else if (action->type == DEBUG_ACTION_KEY_DOWN && !held) {
+				debug_key_down(code, frames, action->id);
+			} else if (action->type == DEBUG_ACTION_KEY_UP && held) {
+				debug_key_up(code, frames, "key-up");
 			}
 			harness.action_index++;
 			break;
@@ -1068,6 +1112,9 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 			fprintf(stderr, "Error: debug event action has no pending PC event\n");
 			return FAILURE;
 		case DEBUG_ACTION_EXIT:
+			if (!frame_boundary && (harness.held_count != 0)) {
+				return SUCCESS;
+			}
 			debug_release_keys(frames);
 			harness.exit_requested = TRUE;
 			harness.action_index++;
@@ -1075,7 +1122,9 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 			return SUCCESS;
 		}
 	}
-	debug_release_keys(frames);
+	if (frame_boundary) {
+		debug_release_keys(frames);
+	}
 	return SUCCESS;
 }
 

@@ -68,24 +68,31 @@ def successful_run(worker, model, root, script):
     return rows[1:], output
 
 
+def make_case(work, label):
+    root = work / label
+    (root / "fixture").mkdir(parents=True)
+    return root
+
+
 def key_events(events):
     return [row for row in events if row[0].startswith("key-")]
 
 
 def parser_contract(worker, work):
-    for label in ("valid", "unknown", "host-only", "exit", "end", "limit"):
-        (work / label / "fixture").mkdir(parents=True)
     actions = "".join(f"key-down {key}\nkey-up {key}\n" for key in KEYS)
     good = HEADER + actions + "exit\n"
-    events, _ = successful_run(worker, "va", work / "valid", good)
+    events, _ = successful_run(worker, "va", make_case(work, "valid"), good)
     transitions = key_events(events)
     require(len(transitions) == 2 * len(KEYS) and all(
         make[:2] == ["key-down", "0"] and brk[:2] == ["key-up", "0"] and make[2:] == brk[2:]
         for make, brk in zip(transitions[::2], transitions[1::2])
     ), "M152_KEY_PARSE_ORDER", transitions)
+    warnings = [row for row in events if row[0] == "M152_WARN_KEY_SAME_FRAME"]
+    require(warnings == [["M152_WARN_KEY_SAME_FRAME", *row[1:]] for row in transitions[1::2]],
+            "M152_KEY_SAME_FRAME_WARNING", warnings)
     for label, name in (("unknown", "unknown-key"), ("host-only", "fast_forward")):
         bad = good.replace("key-down ESC\n", f"key-down {name}\n", 1)
-        result, output = run(worker, "va", work / label, bad)
+        result, output = run(worker, "va", make_case(work, label), bad)
         codes = re.findall(r"^(M152_DEBUG_\w+): line (\d+)$", result.stderr, re.M)
         require(result.returncode != 0 and codes == [("M152_DEBUG_KEY_NAME", "3")]
                 and not (output / "events.tsv").exists(), "M152_KEY_PARSE_ERROR", result.stderr)
@@ -96,11 +103,36 @@ def parser_contract(worker, work):
         ("limit", "wait-frame 11\n", "10", "frame-limit"),
     ):
         script = HEADER + "key-down SHIFT\nkey-down shiftl\nkey-up CTRL\n" + end
-        events, _ = successful_run(worker, "va", work / label, script)
+        events, _ = successful_run(worker, "va", make_case(work, label), script)
         require(key_events(events) == [["key-down", "0", "shiftl", "112"],
                                        ["key-release", expected_frame, "shiftl", "112"]]
                 and events[-1][0] == terminal, "M152_KEY_CLEANUP", events)
-    print("PASS M152 parser: matrix names, line diagnostics, alias/idempotence, exit/end/limit cleanup")
+    body = "key-tap A\nkey-tap RIGHT 3\nkey-tap LEFT 20\nexit\n"
+    events, _ = successful_run(worker, "va", make_case(work, "tap"), HEADER + body)
+    require(key_events(events) == [
+        ["key-down", "0", "a", "29"], ["key-up", "1", "a", "29"],
+        ["key-down", "1", "right", "60"], ["key-up", "4", "right", "60"],
+        ["key-down", "4", "left", "59"], ["key-release", "10", "left", "59"],
+    ] and events[-1][0] == "frame-limit", "M152_KEY_TAP_DURATION", events)
+    bad = HEADER + body.replace("RIGHT 3", "RIGHT 0")
+    result, output = run(worker, "va", make_case(work, "tap-zero"), bad)
+    codes = re.findall(r"^(M152_DEBUG_\w+): line (\d+)$", result.stderr, re.M)
+    require(result.returncode != 0 and codes == [("M152_DEBUG_KEY_ARGUMENT", "4")]
+            and not (output / "events.tsv").exists(), "M152_KEY_TAP_PARSE", result.stderr)
+
+    header = HEADER.replace("limit-frame 10", "limit-frame 40")
+    body = "input-line ab\nkey-down A\nwait-frame 30\nkey-up A\nexit\n"
+    events, _ = successful_run(worker, "va", make_case(work, "paste-then-key"), header + body)
+    keys = key_events(events)
+    require(len(keys) == 2 and 1 < int(keys[0][1]) < 30
+            and keys[0][0::2] == ["key-down", "a"] and keys[1] == ["key-up", "30", "a", "29"],
+            "M152_PASTE_THEN_KEY", events)
+    bad = header + "key-down A\n" + body
+    result, _ = run(worker, "va", make_case(work, "held-then-paste"), bad)
+    codes = re.findall(r"^(M152_DEBUG_\w+): line (\d+)$", result.stderr, re.M)
+    require(result.returncode != 0 and codes == [("M152_DEBUG_KEY_PASTE_OVERLAP", "4")],
+            "M152_HELD_THEN_PASTE", result.stderr)
+    print("PASS M152 parser: matrix names, same-frame warnings, tap, paste and cleanup contracts")
 
 
 def guest_fixture(root, model):
@@ -116,6 +148,11 @@ def guest_fixture(root, model):
                        (base + 0x10, i)))
     for port, value in writes:
         code += struct.pack("<BHBHB", 0xBA, port, 0xB8, value, 0xEF)  # MOV DX; MOV AX; OUT DX,AX
+    for command, params in ((0x14, [0, 0, 0, 12, 0, 0]),  # DSPDEF
+                            (0x12, [0x13, 0, 0]),         # DSPON
+                            (0x82, [0x24, 0, 0])):        # SPRON
+        for port, value in [(0x142, command), *((0x146, param) for param in params)]:
+            code += struct.pack("<BHBBB", 0xBA, port, 0xB0, value, 0xEE)  # OUT DX,AL
     loop = len(code)
     code += bytes.fromhex(
         "e440 a820 75fa"  # Wait while VRTC (port 40h bit 5) is high.
@@ -131,7 +168,7 @@ def guest_fixture(root, model):
     image[:len(code)] = code
     image[0xFFF0:0xFFF5] = bytes.fromhex("ea 0000 00f0")  # JMP FAR F000:0000
     fixture = root / "fixture"
-    fixture.mkdir()
+    fixture.mkdir(parents=True)
     filename = "varom1.rom" if model == "va" else "varom1_va2.rom"
     (fixture / filename).write_bytes(image)
     return f"f000:{sample_ready:04x}"
@@ -147,10 +184,12 @@ def read_tsv(path, code):
     return values
 
 
-def check_video(path):
+def check_video(path, model):
     code = "M152_VIDEO_SCHEMA"
     values = read_tsv(path, code)
-    sizes = {"crtmode": 2, "hsync_mode": 1, "palette_mode": 1}
+    sizes = {"model_va": 1, "crtmode": 2, "hsync_mode": 1, "hsync15khz": 1, "palette_mode": 1,
+             "tsp.dspon": 1, "tsp.spron": 1, "tsp.texttable": 4, "tsp.sprtable": 4,
+             "tsp.lineheight": 2}
     sizes.update(dict.fromkeys("""
         grmode grres colcomp rgbcomp mskmode palmode dropcol pagemsk xpar_g0
         xpar_g1 xpar_txtspr mskleft mskrit msktop mskbot blinkcnt
@@ -162,14 +201,18 @@ def check_video(path):
     sizes.update({f"palette.{i}": 4 for i in range(32)})
     sizes.update({f"tsp.syncparam.{i}": 2 for i in range(14)})
     sizes.update({f"layer.{i}.enabled": 1 for i in range(4)})
-    sizes.update(dict.fromkeys("monitor_digital mode_88 pc8001 n80.color hfplus.active vab.active".split(), 1))
+    sizes.update(dict.fromkeys(
+        "monitor_digital mode_88 pc8001 n80.color hfplus.active vab.active".split(), 1))
     sizes.update(dict.fromkeys("n80.model n80.port33 n80.video.0 n80.video.1".split(), 2))
     require(values.get("schema") == "vaeg-video-v1" and values.keys() == {"schema", *sizes},
             code, values.keys())
     for field, width in sizes.items():
         require(re.fullmatch(f"[0-9a-f]{{{width}}}", values[field]), code, field)
-    expected = {"crtmode": "01", "hsync_mode": "2", "palette_mode": "3", "palmode": "01c0",
-                "grmode": "3000", "colcomp": "008a", "rgbcomp": "0089", "palette.5": "6ebd"}
+    expected = {"model_va": "1" if model == "va" else "2", "crtmode": "01", "hsync_mode": "2",
+                "hsync15khz": "0", "palette_mode": "3", "palmode": "01c0", "grmode": "3000",
+                "colcomp": "008a", "rgbcomp": "0089", "palette.5": "6ebd", "tsp.dspon": "1",
+                "tsp.spron": "1", "tsp.texttable": "1300", "tsp.sprtable": "2400",
+                "tsp.lineheight": "0d"}
     for i in range(4):
         expected[f"fb.{i}.fbw"] = f"{0x140 + 4 * i:04x}"
         expected[f"fb.{i}.dsa"] = f"{(i << 16) + 0x1234 + 4 * i:08x}"
@@ -204,8 +247,58 @@ def guest_contract(worker, model, root):
     # Right Shift also clears the combined-SHIFT bit (port 08h bit 6).
     require(matrix == [("ffff", 0xFF), ("fdbb", 0xF7), ("fdff", 0xFF), ("fdff", 0xFF),
                        ("ffff", 0xFF)], "M152_GUEST_MATRIX_DURATION", matrix)
-    check_video(output / "sample-1.video.tsv")
-    print(f"PASS M152 {model}: five consecutive VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1")
+    check_video(output / "sample-1.video.tsv", model)
+    print(f"PASS M152 {model}: five VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1")
+
+
+def led_refs(path):
+    # KEYSTAT saves the same KEYCTRL fields that the keyboard LED reply reads.
+    data = path.read_bytes()
+    offset = 48  # Save-state container header.
+    while offset + 16 <= len(data):
+        tag, version, size = struct.unpack_from("<10sHI", data, offset)
+        offset += 16
+        if tag.rstrip(b"\0") == b"KEYSTAT":
+            require(version == 0 and size == 6 and offset + size <= len(data),
+                    "M152_LED_SECTION", (version, size))
+            return tuple(data[offset + 4:offset + 6])  # capsref, kanaref
+        offset += (size + 15) & ~15
+    raise AssertionError("M152_LED_SECTION: missing KEYSTAT")
+
+
+def keyboard_review_contract(worker, model, root):
+    reset = root / "reset"
+    address = guest_fixture(reset, model)
+    script = HEADER + f"key-down A\nwait-pc {address} 1\ncapture after-reset registers\n"
+    script += "key-up A\nexit\n"
+    events, output = successful_run(worker, model, reset, script)
+    regs = read_tsv(output / "after-reset.registers.tsv", "M152_RESET_REGISTERS")
+    require(key_events(events)[0] == ["key-down", "0", "a", "29"] and regs["bx"] == "fdff",
+            "M152_KEY_SURVIVES_RESET", (events, regs))
+
+    leds = make_case(root, "leds")
+    script = HEADER + ("save-state off\nkey-down KANA\nsave-state kana\nkey-down CAPS\n"
+                       "save-state both\nwait-frame 1\nkey-up KANA\nsave-state caps\n"
+                       "key-up CAPS\nsave-state released\nexit\n")
+    _, output = successful_run(worker, model, leds, script)
+    refs = [led_refs(output / f"{name}.state")
+            for name in ("off", "kana", "both", "caps", "released")]
+    require([tuple(ref != 0xff for ref in pair) for pair in refs] ==
+            [(False, False), (False, True), (True, True), (True, False), (False, False)],
+            "M152_KEY_LED_STATE", refs)
+
+    for label, end in (("end_after_pc", ""), ("exit_after_pc", "exit\n")):
+        case = root / label
+        address = guest_fixture(case, model)
+        script = (HEADER + f"wait-frame 2\nkey-down A\nwait-pc {address} 1\n"
+                  "capture before-release registers\n" + end)
+        events, output = successful_run(worker, model, case, script)
+        regs = read_tsv(output / "before-release.registers.tsv", "M152_RELEASE_REGISTERS")
+        require(regs["bx"] == "fdff" and ["pc", "2", "-", "1"] in events
+                and key_events(events) == [["key-down", "2", "a", "29"],
+                                           ["key-release", "3", "a", "29"]],
+                "M152_KEY_PC_BOUNDARY", (label, events, regs))
+    print(f"PASS M152 {model}: keyboard reset, CAPS/KANA LED bookkeeping and PC-stop cleanup")
 
 
 def main():
@@ -218,6 +311,7 @@ def main():
             parser_contract(args.worker, Path(work))
         else:
             guest_contract(args.worker, args.case, Path(work))
+            keyboard_review_contract(args.worker, args.case, Path(work))
 
 
 if __name__ == "__main__":

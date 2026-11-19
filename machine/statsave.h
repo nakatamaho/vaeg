@@ -1,3 +1,6 @@
+#ifndef VAEG_STATSAVE_H
+#define VAEG_STATSAVE_H
+
 #include "dosio.h"
 
 /* M142: incompatible new container; old host-dependent saves are rejected. */
@@ -71,3 +74,5 @@ void statsave_set_load_disk_hook(STATSAVE_LOAD_DISK_HOOK hook);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* VAEG_STATSAVE_H */

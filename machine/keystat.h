@@ -130,6 +130,7 @@ enum {
 	NKEYREF_uPD8255 = 0xf7,
 	NKEYREF_USER = 0xf8,
 	NKEYREF_SOFTKBD = 0xf9,
+	NKEYREF_HARNESS = 0xfa,
 	NKEYREF_NC = 0xff,
 	NKEYREF_INIT = 0xfe,
 
@@ -194,6 +195,7 @@ void keystat_resetjoykey(void);
 
 void keystat_down(const UINT8 *key, REG8 keys, REG8 ref);
 void keystat_up(const UINT8 *key, REG8 keys, REG8 ref);
+void keystat_frame_key(REG8 data);
 void keystat_resendstat(void);
 REG8 keystat_getjoy(void);
 REG8 keystat_getmouse(SINT16 *x, SINT16 *y);

@@ -323,6 +323,24 @@ void keystat_up(const UINT8 *key, REG8 keys, REG8 ref) {
 	}
 }
 
+void keystat_frame_key(REG8 data) {
+	const REG8 code = data & 0x7f;
+
+	/* Raw guest codes: bypass host remapping and host-tap pacing. */
+	if (data & 0x80) {
+		if (keystat.ref[code] != NKEYREF_HARNESS) {
+			return;
+		}
+		keystat.ref[code] = NKEYREF_NC;
+	} else {
+		keystat.ref[code] = NKEYREF_HARNESS;
+	}
+	if ((code == 0x71) || (code == 0x72)) {
+		reloadled();
+	}
+	keyboard_send_frame_scheduled(data);
+}
+
 void keystat_resendstat(void) {
 	REG8 i;
 
