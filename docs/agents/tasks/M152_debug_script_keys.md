@@ -65,7 +65,78 @@ check passes on the VA and VA2 models. Existing debug-script behaviour unchanged
 harness self-tests pass). Push the branch; open no PR (the PR is opened after review).
 
 ## Status
-**Implementation complete; G152 BLOCKED.** The clean Linux build and executable
+
+**G152 PASS under the review-round scope.** Fresh Linux configure/build,
+all enabled CTest cases (including the VA and VA2 guest checks), and the
+formatter on all M152-touched C sources and headers passed. The 33 inherited
+repository-wide format findings are out of scope, not a gate blocker. This
+is branch review evidence, not merge or release acceptance.
+
+Evaluated source: [6c40ac5d922164dd7ce5cb4385f6954be2fb90ea](https://github.com/nakatamaho/vaeg/commit/6c40ac5d922164dd7ce5cb4385f6954be2fb90ea),
+following the original commit chain and status commit `a8a9ad7d169eba49c3663b52a433f642e98ae71d`.
+The fix implements sequential `key-tap` (default 1 frame), paste backpressure,
+line-numbered held-key overlap errors, same-frame warnings, and release on a
+completed frame after a PC stop. Scripted transitions participate in the
+keyboard's reset-resend and CAPS/KANA LED bookkeeping. The expanded video
+schema stays at `vaeg-video-v1` because the initial draft never shipped;
+it adds the applied VA board model, 15 kHz status and five TSP fields.
+
+Commands from the worktree, with a new build directory:
+
+```sh
+export TMPDIR=/home/maho/work/pc88va/tmp
+b=/home/maho/work/vaeg-m152-build/gate-fix1
+cmake -S . -B "$b" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON \
+  -DVAEG_ENABLE_LOCAL_MP4_ENCODERS=OFF -DVAEG_BUILD_TRACK=m152
+cmake --build "$b" -j 6
+ctest --test-dir "$b" -j 6 --output-on-failure
+ctest --test-dir "$b" --output-on-failure -R '^vaeg_romless_tests$'
+ctest --test-dir "$b" --output-on-failure -R '^vaeg_m75_transfer_info_compiled$'
+```
+
+Configure and build exited 0. The first CTest invocation reached 159 of 161
+configured results before the command runner's 300-second build-and-test
+budget expired. The two outstanding tests were run separately on the same
+binary and both commands exited 0. Combined: **150 passed, 10 skipped by
+existing optional-test contracts, one disabled, zero failed**. The M74
+harness and trace equivalence passed. The three focused M152 cases also
+exited 0 when invoked directly from the build directory:
+
+```text
+PASS M152 parser: matrix names, same-frame warnings, tap, paste and cleanup contracts
+PASS M152 va: five VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1
+PASS M152 va: keyboard reset, CAPS/KANA LED bookkeeping and PC-stop cleanup
+PASS M152 va2: five VRTC samples; RIGHT/SHIFTR 1 frame, A 3 frames; live video v1
+PASS M152 va2: keyboard reset, CAPS/KANA LED bookkeeping and PC-stop cleanup
+```
+
+The executable (`gate-fix1/sdl2/vaeg`) reports `Rel.20261119 (m152, 6c40ac5d)`.
+Local SHA-256 identifiers (all paths relative to `gate-fix1`):
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `sdl2/vaeg` | `09c3be1501770a914672c20f983a9d11e0023768fabb86d6d39c67b832ef26b7` |
+| `ctest.log` | `a0f8160e4e0960af8567a618fc86aae5e72e7327d83646ce286ac434072a8d97` |
+| `ctest-romless.log` | `27a5352d842ca97329a703d5c3987e1aa30c7ab77a481bdb9ccd39ff25a52725` |
+| `ctest-transfer.log` | `8410c2844b905afbaa8b78c3dcfc5fed1f2de58e2e90c4b825afb5f6f57f444e` |
+| `m152.log` | `a8f9bff927a39c66c31e2204f8fa38d6add2da7847aeebb22672ce5931376434` |
+
+Encoding, the task's EOL check, path case, Markdown comments and `git diff
+--check` exited 0. clang-format 22.1.8 passed on `io/serial.c`, `io/serial.h`,
+`machine/keystat.c`, `machine/keystat.h`, `machine/statsave.h` and
+`sdl2/debug_harness.c`. The full `tools/repo/clang_format.py` exited 1 with the
+same 33 paths and diagnostic locations as `b1ad18d0` with a sorted manifest;
+those files and `.clang-format` are unchanged from that base. The full log
+matches the earlier format log digest below. An extra `check_eol.py --enforce`
+run reports one pre-existing mismatch: the checker expects CRLF by extension
+for `tools/hardware/hyperframe-plus/build.bat`, which `.gitattributes` explicitly
+sets to LF. Both files are unchanged from the base. No unrelated formatting
+or policy changes were made.
+
+### Original pre-review gate record
+
+**Implementation complete; G152 was BLOCKED at this checkpoint.** The clean Linux build and executable
 checks passed. The repository-wide format gate did not. No branch push, PR,
 merge or release was performed. See the
 [debug-script reference](../../../sdl2/README.md#held-keys).

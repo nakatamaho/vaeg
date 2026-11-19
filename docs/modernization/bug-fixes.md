@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M152 — Debug-script keyboard state diverged from guest input
+
+- **Symptom/scope:** In the debug harness, a key after `input-line` failed while
+  paste was active, a guest keyboard reset dropped scripted holds, CAPS/KANA
+  did not update the controller LED state, and script exhaustion after a PC
+  stop could release a key before the frame completed.
+- **Demonstrated root cause:** Scripted transitions bypassed keyboard ownership
+  and LED refs, paste overlap was treated as a hard error in both directions,
+  and the command executor released held keys even on its mid-frame PC path.
+- **Correction:** Track scripted refs in the keyboard layer while keeping exact
+  matrix timing, retry key actions after paste, and defer normal cleanup to a
+  completed frame.
+- **Verification:** Parser contracts and synthetic VA/VA2 probes cover paste
+  ordering, key state across guest reset, both LED refs and PC-stop cleanup.
+- **Task/evidence:** [M152 gate](../agents/tasks/M152_debug_script_keys.md#status).
+- **Fixing commit:** [6c40ac5d922164dd7ce5cb4385f6954be2fb90ea](https://github.com/nakatamaho/vaeg/commit/6c40ac5d922164dd7ce5cb4385f6954be2fb90ea).
+
 ### M147 — PC-8001 family sound fell behind and GVRAM waits doubled
 
 - **Symptom/scope:** PC-8001, mkII and mkIISR: crackling sound, N80SR
