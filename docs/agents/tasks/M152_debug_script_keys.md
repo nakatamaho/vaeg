@@ -204,3 +204,11 @@ The full diagnostic log is `/home/maho/work/vaeg-m152-build/clang_format.log`
 Unrelated source lines were not reformatted and the checker was not weakened.
 The build/test evidence applies to the evaluated SHA; this Status update is
 documentation-only.
+
+## G152 record
+
+2026-11-19: the maintainer stated that G152 passed. Gate build `8c6a2e44`
+(the M152 branch with main `8eac2218` merged in; Linux host MinGW clean build,
+`Rel.20261119 (m152, 8c6a2e44)`, SHA-256
+`016153f78d5e5b69d43a1fa400253e052b8fbf31821ed40c05960d3d6ea81cbc`; encoder
+and Windows system-DLL import audits PASS). No release is authorized.
