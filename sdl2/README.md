@@ -226,7 +226,9 @@ run.
 `--debug-script PATH --debug-output-dir DIRECTORY` runs the versioned M74
 sequential debug harness. The trace-enabled build is required when a script
 contains `trace`. The two options start dummy SDL video/audio and may not be
-combined with `--trace-cpu` or `--headless-input-script`. A minimal script is:
+combined with `--trace-cpu` or `--headless-input-script`. Use one script to own
+input ordering; the legacy headless scheduler is independent and does not
+coordinate key and paste ownership with the debug harness. A minimal script is:
 
 ```text
 debug-script 1
@@ -240,7 +242,7 @@ input-line basic
 mount-fdd 1 boot
 wait-pc e000:0180 1
 trace service-event 128
-capture service-event registers tvram screen
+capture service-event registers tvram screen video
 exit
 ```
 
@@ -254,6 +256,45 @@ contiguous `trace` begins with that instruction, while `capture` writes the
 pre-instruction register state plus optional TVRAM and rendered BMP before the
 CPU resumes. `mount-fdd` accepts only a previously declared neutral resource
 identifier; `none` ejects the selected drive.
+
+#### Held keys
+
+`key-down KEY` presses a guest key; `key-up KEY` releases it. These commands
+run in file order at completed guest-frame boundaries. For example,
+`wait-frame 120`, `key-down RIGHT`, `wait-frame 123`, `key-up RIGHT` holds
+RIGHT for three guest frames. `key-tap KEY [FRAMES]` presses the key, waits
+for `FRAMES` completed guest frames (a positive integer, default 1), then
+releases it before continuing the script. A tap on an already-held key is a
+no-op. A key command encountered at a mid-frame `wait-pc` pause waits for the
+next completed frame. Repeated downs and unmatched ups are no-ops, including
+when two names alias the same key. A down and release in the same frame enqueue
+both keyboard events but leave no held interval for guest matrix polling;
+`events.tsv` records `M152_WARN_KEY_SAME_FRAME`. Any keys left held at
+end-of-script, `exit`, or the frame limit are released at a frame boundary.
+
+Names are case-insensitive ASCII and refer to guest keys, independent of the
+host layout, remapping and joystick overlays. They use the same guest
+make/break codes and matrix mapping as the SDL frontend, without host-tap
+stretching. CAPS and KANA are physical make/break pairs here, not host toggle
+bindings; the keyboard LED state tracks their make/break transitions. A guest
+keyboard reset re-sends held keys. Key commands following `input-line` or
+`enter` wait until the paste finishes. Starting a paste while any scripted key
+is held fails with `M152_DEBUG_KEY_PASTE_OVERLAP` and the script line number.
+Unknown names fail parsing with `M152_DEBUG_KEY_NAME` and the script line
+number.
+
+| Group | Names (aliases in parentheses) |
+| --- | --- |
+| Letters and digits | `A` through `Z`, `0` through `9` |
+| Punctuation | `MINUS`, `CARET`, `YEN`, `AT`, `BRACKETLEFT`, `BRACKETRIGHT`, `SEMICOLON`, `COLON`, `COMMA`, `PERIOD`, `SLASH`, `UNDERSCORE` |
+| Basic keys | `ESC`, `RETURNL` (`RETURN`), `SPACE`, `TAB`, `BACKSPACE` (`BS`) |
+| Cursor and editing | `UP`, `LEFT`, `RIGHT`, `DOWN`, `INSERT` (`INS`), `DELETE` (`DEL`), `HOME` (`HOME/CLR`), `HELP`, `ROLLUP`, `ROLLDOWN` |
+| Number pad | `KP_0` through `KP_9`, `KP_SUB`, `KP_DIVIDE`, `KP_MULTIPLY`, `KP_ADD`, `KP_EQUAL`, `KP_COMMA`, `KP_PERIOD`, `RETURNR` (`KP_ENTER`) |
+| Function keys | `F1` through `F10`, `STOP`, `COPY` |
+| Modifiers | `SHIFTL` (`SHIFT`), `SHIFTR`, `CTRL`, `GRAPH` (`GRPH`), `KANA`, `CAPS` |
+| Other VA keys | `HENKAN` (`XFER`), `KETTEI` (`NFER`), `PC`, `ZENKAKU` |
+
+#### State and capture commands
 
 `save-state ID` writes `ID.state` under the debug output directory using the
 same audio boundary and serializer as the GUI. IDs use the capture-ID grammar;
@@ -273,12 +314,44 @@ interoperability acceptance. Input paths/hashes and raw output remain local;
 this runner must not upload private assets or their identities to hosted CI.
 
 Capture IDs become deterministic filenames under the output directory:
-`.registers.tsv`, `.tvram.bin`, `.screen.bmp`, and `.trace.log`. `events.tsv`
-contains event and final counter rows. The logs contain neutral IDs rather than
+`.registers.tsv`, `.tvram.bin`, `.screen.bmp`, `.gvram.bin`, `.video.tsv`, and
+`.trace.log` (for `trace`). `capture ID ITEM...` follows `wait-pc` as before;
+items may be `registers`, `tvram`, `screen`, `gvram`, and `video`. `events.tsv`
+contains event and final counter rows. Its capture bitmask assigns `video`
+value 16 (bit 4; other bits are unchanged). `key-down`, `key-up` and automatic
+`key-release` rows record the canonical key ID and decimal guest make code.
+The logs contain neutral IDs rather than
 resource paths. Keep scripts, media, ROMs, and generated captures outside Git.
 For repeatable local runs, `tools/m74-diagnostics/run_debug_case.sh` accepts one
 neutral case ID and resolves the worker, script directory, output root, model,
 and optional ROM directory from `VAEG_M74_*` environment variables.
+
+#### Video capture format: `vaeg-video-v1`
+
+`ID.video.tsv` describes current emulator state at the pre-instruction PC
+stop, before any requested screen redraw. It has one `key<TAB>value<LF>`
+row per field, beginning with `schema<TAB>vaeg-video-v1`. Indices are decimal.
+Raw byte, word and address values are lowercase hexadecimal with 2, 4 or 8
+digits, respectively; decoded modes and booleans are decimal (`0`/`1` for
+booleans). No values are inferred from pixels.
+
+| Fields | Meaning |
+| --- | --- |
+| `model_va` | Applied VA board model (1 = PC-88VA, 2 = PC-88VA2). For compatibility modes this is the underlying VA board model. |
+| `crtmode`, `hsync_mode`, `hsync15khz` | Reset-latched CRT selection (0 = 15 kHz, 1 = 24 kHz), effective sync (0 = 15.98 kHz, 1 = 15.73 kHz, 2 = 24.8 kHz), and whether the effective sync is in the 15 kHz family. |
+| `grmode`, `grres`, `colcomp`, `rgbcomp` | Display/output enables and scan mode, graphics resolution and pixel format, and palette/direct-colour layer priority selectors. |
+| `mskmode`, `mskleft`, `mskrit`, `msktop`, `mskbot` | Window mask mode and raw bounds. |
+| `palmode`, `palette_mode`, `palette.0` … `palette.31`, `blinkcnt` | Raw palette mode/blink controls, effective mode (0–3), internal colour words after palette component expansion (G6:R5:B5, not RGB565), and blink phase counter. |
+| `dropcol`, `pagemsk`, `xpar_g0`, `xpar_g1`, `xpar_txtspr` | Backdrop colour, plane mask and text/sprite split, and transparency masks. |
+| `fb.0.*` … `fb.3.*` | Framebuffers 0, 2, 3 form the G0 chain; framebuffer 1 is G1. Fields: framebuffer start `fsa`, pitch `fbw`, vertical wrap limit `fbl`, dot address `dot`, X/Y offsets `ofx`/`ofy`, display start `dsa`, sub-screen height `dsh` and position `dsp`. These are native framebuffer units; byte/plane interpretation is mode-dependent. |
+| `tsp.dspon`, `tsp.spron`, `tsp.texttable`, `tsp.sprtable`, `tsp.lineheight` | TSP text and sprite enables, text and sprite table offsets from TVRAM, and rasters per text row. |
+| `txtmode8`, `txtmode`, `tsp.syncparam.0` … `tsp.syncparam.13` | Text controls and TSP SYNC parameters used for display geometry. |
+| `layer.0.enabled` … `layer.3.enabled`, `monitor_digital` | Emulator layer switches (text, sprite, G0, G1) and digital monitor output selection. |
+| `mode_88`, `pc8001`, `n80.model`, `n80.color`, `n80.port33`, `n80.video.0`, `n80.video.1` | Compatibility compositor selectors, including the PC-8001 branch. |
+| `hfplus.active`, `vab.active` | Whether the corresponding display override is active; board VRAM is not included. |
+
+The file is a register/control snapshot, not a save state: raster buffers,
+VRAM bytes and output pixels are separate from this schema.
 
 `--screen-dump PATH` or `VAEG_SCREEN_DUMP=PATH` captures the final SDL
 render-target image after scaling, viewport, and display effects have been

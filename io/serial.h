@@ -47,6 +47,8 @@ void keyboard_bind(void);
 void keyboard_resetsignal(void);
 void keyboard_ctrl(REG8 data);
 void keyboard_send(REG8 data);
+/* Use at a completed guest-frame boundary; bypass only host-tap pacing. */
+void keyboard_send_frame_scheduled(REG8 data);
 /* Called at each VRTC start, before the VRTC interrupt (key-matrix pacing). */
 void keyboard_matrix_tick(void);
 

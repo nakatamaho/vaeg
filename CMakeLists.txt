@@ -2023,6 +2023,15 @@ if(VAEG_ENABLE_TESTS)
             LABELS "romless;upd9002;trace;harness;m74" TIMEOUT 60)
     endif()
 
+    foreach(case IN ITEMS parser va va2)
+        add_test(NAME vaeg_m152_debug_script_${case}
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/m152/debug_script.py"
+                "$<TARGET_FILE:vaeg_sdl2>" "${case}")
+        set_tests_properties(vaeg_m152_debug_script_${case} PROPERTIES
+            LABELS "harness;m152;synthetic" TIMEOUT 90)
+    endforeach()
+
     add_test(NAME vaeg_upd9002_ssts_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
