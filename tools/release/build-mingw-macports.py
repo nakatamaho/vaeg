@@ -20,13 +20,16 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Clean static Windows build on macOS/MacPorts, without Docker or Colima.
+"""Clean static Windows build with a host MinGW-w64 toolchain, without containers.
+
+macOS uses the MacPorts toolchain under /opt/local; Linux x86_64 uses the
+distribution toolchain under /usr, which must use the posix thread model.
 
 Only target dependency SDKs may be reused. A new clean clone and application
 build are required on every invocation. Recording and shaders are mandatory;
 no host FFmpeg, bundled H.264/AAC encoders or system-port installation fallback.
 Rust 1.88.0 is installed locally from checksum-pinned official components,
-not into the user's rustup or MacPorts installation.
+not into the user's rustup, MacPorts or distribution installation.
 """
 import argparse
 import hashlib
@@ -52,12 +55,23 @@ RUST_HASHES = {
         "cargo": "e7f672132591df180b58f8e7af875e1971a10fe71243f7d84f9b3f6742f998bc",
         "rust-std": "2570350a6651e60a2fe0aa438be5cd123ed3543b4b44c916284ff7e7e331d16a",
     },
+    "x86_64-unknown-linux-gnu": {
+        "rustc": "b049fd57fce274d10013e2cf0e05f215f68f6580865abc52178f66ae9bf43fd8",
+        "cargo": "856962610ee821648cee32e3d6abac667af7bb7ea6ec6f3d184cc31e66044f6b",
+        "rust-std": "36d7eacf46bd5199cb433e49a9ed9c9b380d82f8a0ebc05e89b43b51c070c955",
+    },
     RUST_TARGET: {
         "rust-std": "fe70e6ce7d0710c359e25762514f1247b66442ceed53d450d3f0287209d5ae95",
     },
 }
 SHADER_PIN = "87e8a97b50516d997defeaa168173dcd185d4022"
 FFMPEG_HASH = "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c"
+# (system, machine) -> (Rust host triple, default toolchain prefix, report label)
+HOSTS = {
+    ("Darwin", "arm64"): ("aarch64-apple-darwin", "/opt/local", "MacPorts"),
+    ("Darwin", "x86_64"): ("x86_64-apple-darwin", "/opt/local", "MacPorts"),
+    ("Linux", "x86_64"): ("x86_64-unknown-linux-gnu", "/usr", "Linux host"),
+}
 
 
 def require(condition, code, detail):
@@ -111,6 +125,27 @@ def install_rust(sdk, host, env, log):
     env["PATH"] = str(prefix / "bin") + os.pathsep + env["PATH"]
     require(output(["rustc", "--version"], sdk, env).startswith("rustc 1.88.0 "),
             "MACPORTS_RUST_VERSION", "pinned Rust not selected")
+
+
+def host_profile(system, machine):
+    require(system in {key[0] for key in HOSTS}, "MACPORTS_HOST",
+            "macOS or Linux required; no container fallback")
+    require((system, machine) in HOSTS, "MACPORTS_ARCH", system + " " + machine)
+    return HOSTS[(system, machine)]
+
+
+def thread_model(verbose):
+    """Return the thread model printed by `gcc -v`, or None."""
+    for line in verbose.splitlines():
+        if line.startswith("Thread model:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def require_posix_threads(compiler, verbose):
+    # std::thread (recording) needs posix; Debian/Ubuntu default to win32.
+    require(thread_model(verbose) == "posix", "MACPORTS_THREAD_MODEL",
+            compiler + " must use the posix thread model (update-alternatives)")
 
 
 def validate_shader(data, archive, notices):
@@ -193,17 +228,25 @@ def main():
     parser.add_argument("--commit", default="HEAD")
     parser.add_argument("--work-dir", type=Path, required=True, help="new clean-clone/output directory")
     parser.add_argument("--sdk-dir", type=Path, required=True, help="isolated reusable target SDK directory")
-    parser.add_argument("--ports-prefix", type=Path, default=Path("/opt/local"))
+    parser.add_argument("--ports-prefix", type=Path,
+                        help="MinGW-w64 toolchain prefix (default: /opt/local on macOS, /usr on Linux)")
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--build-track", help="main or lowercase milestone; preserved across the detached clean clone")
     args = parser.parse_args()
-    require(platform.system() == "Darwin", "MACPORTS_HOST", "macOS required; no container fallback")
+    host, default_prefix, label = host_profile(platform.system(), platform.machine())
+    if args.ports_prefix is None:
+        args.ports_prefix = Path(default_prefix)
     require(args.jobs > 0, "MACPORTS_JOBS", "positive job count required")
     require(not args.work_dir.exists(), "MACPORTS_WORK_EXISTS", str(args.work_dir))
     for name in ("gcc", "g++", "ar", "ranlib", "nm", "windres", "objdump"):
         tool = "x86_64-w64-mingw32-" + name
         require(shutil.which(tool) == str(args.ports_prefix / "bin" / tool),
-                "MACPORTS_TOOL", "select the MacPorts tool on PATH: " + tool)
+                "MACPORTS_TOOL", "select the " + label + " tool on PATH: " + tool)
+    if platform.system() == "Linux":
+        for name in ("gcc", "g++"):
+            tool = "x86_64-w64-mingw32-" + name
+            verbose = subprocess.run([tool, "-v"], text=True, capture_output=True).stderr
+            require_posix_threads(tool, verbose)
     for tool in ("cmake", "ninja", "pkg-config", "make", "git", "tar"):
         require(shutil.which(tool), "MACPORTS_TOOL", "missing " + tool)
     work, sdk = args.work_dir.resolve(), args.sdk_dir.resolve()
@@ -239,8 +282,6 @@ def main():
     invoke(["git", "checkout", "--detach", commit], source, env, log)
     require(not output(["git", "status", "--porcelain"], source, env),
             "MACPORTS_DIRTY", "clean clone required")
-    host = {"arm64": "aarch64-apple-darwin", "x86_64": "x86_64-apple-darwin"}.get(platform.machine())
-    require(host in RUST_HASHES, "MACPORTS_ARCH", platform.machine())
     install_rust(sdk, host, env, log)
     shader, notices = build_shader(sdk, env, log)
     ffmpeg = build_ffmpeg(sdk, env, log, args.jobs)
@@ -284,9 +325,10 @@ def main():
               "recording": True, "local_mp4_encoders": False, "sdk": str(sdk)}
     (out / "build.json").write_text(json.dumps(report, indent=2) + "\n")
     (out / "BUILD-REPORT.md").write_text(
-        "# MacPorts static MinGW build\n\n- Display: `" + display + "`\n"
+        "# " + label + " static MinGW build\n\n- Display: `" + display + "`\n"
         "- Source: `" + commit + "` (new clean clone).\n"
-        "- No container, Colima, application-object reuse or system-port changes.\n"
+        "- Toolchain prefix: `" + str(args.ports_prefix) + "`.\n"
+        "- No container, Colima, application-object reuse or system-package changes.\n"
         "- Static SDL2, archive/zlib/xz, pinned librashader/Rust and minimal FFmpeg 8.1.2.\n"
         "- Recording ON; native Windows Media Foundation MP4; bundled encoders OFF.\n"
         "- Encoder archive and Windows system-DLL import audits PASS.\n"

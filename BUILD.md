@@ -143,6 +143,33 @@ the new work directory. Cross-compilation is not Windows runtime validation.
 A missing dependency or failed build stops the helper; it never falls back
 to Colima, a shared daemon, encoder-OFF recording, or shader-OFF builds.
 
+## Windows cross-build on Linux (host MinGW-w64; no container)
+
+The standard static Windows handoff on Linux x86_64 uses the same helper with
+the distribution's `x86_64-w64-mingw32-gcc` and `g++` under `/usr/bin`; Docker
+is not required. Prerequisites: MinGW-w64 GCC/binutils with the **posix**
+thread model (on Debian/Ubuntu, `gcc-mingw-w64-x86-64-posix` and
+`g++-mingw-w64-x86-64-posix`, selected with
+`update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix`
+and likewise for `g++`), CMake, Ninja, pkg-config, Python 3, Git, make, tar.
+The win32 thread model lacks `std::thread`, which recording uses; the helper
+stops with `MACPORTS_THREAD_MODEL` rather than building with it.
+
+```sh
+# Bind MINGW_SDK to the isolated Linux target SDK under ~/work.
+python3 tools/release/build-mingw-macports.py --commit <full-sha> \
+  --work-dir ../vaeg-mingw-<short-sha> --sdk-dir "$MINGW_SDK" \
+  --build-track <track> --jobs 8
+```
+
+The toolchain prefix defaults to `/usr` (override with `--ports-prefix`).
+Rust 1.88.0 for `x86_64-unknown-linux-gnu` is installed from checksum-pinned
+official components into the SDK. Everything else (clean clone, pinned
+librashader and FFmpeg, encoder and import audits, outputs) is as described
+for macOS above. The container helper
+`tools/release/build-mingw-static-container.sh` remains available as an
+alternative.
+
 ## Maintainer Local Handoff
 
 For the maintainer, "the usual place" means:
