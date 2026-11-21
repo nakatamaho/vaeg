@@ -5638,6 +5638,22 @@ static int test_pic8214_mode(void) {
 			problem = "XSGS did not disable the status comparison";
 		}
 	}
+	/* M154: E6h prohibiting a latched level keeps the latch but stops
+	 * offering it, so it cannot take the vector of the sound level 4. */
+	if (problem == NULL) {
+		iocore_out8(0xe6, 0x00);
+		if ((pic8214.irr != 0x02) || pic8214_test_offered()) {
+			problem = "prohibited VRTC latch was dropped or offered";
+		}
+		pic_setirq(0x0c); /* sound: level 4 */
+		if ((problem == NULL) && !pic8214_test_offered()) {
+			problem = "sound level 4 was not offered past a prohibited VRTC latch";
+		}
+		/* Back to the delivery fixture: VRTC latched and permitted. */
+		pic8214.irr = 0x02;
+		pic8214.mask = 0x07;
+		iocore_out8(0xe4, 0x09);
+	}
 	/* Native delivery: V30 vector 40h + level, the lowest level first, AEOI. */
 	if (problem == NULL) {
 		pic_setirq(0x0c); /* sound: level 4 */
