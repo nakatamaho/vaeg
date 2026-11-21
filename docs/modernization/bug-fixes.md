@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M154 — V1/V2 sound interrupts stopped after E6h prohibited a latched VRTC
+
+- **Symptom/scope:** VA and VA2 in V1/V2 mode: a program that prohibits the
+  VRTC level in E6h and drives FM music from the OPN timer (sound level 4)
+  produced no FM music; earlier SSG sound was unaffected.
+- **Demonstrated root cause:** The 8214 model kept offering a level 0-2
+  request latched while E6h permitted it after E6h prohibited that level. The
+  next E4h write gave the CPU that VRTC vector; the program's VRTC handler did
+  not rewrite E4h, so the controller stayed disarmed and no sound-level request
+  was delivered again.
+- **Correction:** `pic8214_select` skips levels 0-2 whose E6h bit is clear,
+  as X88000 `CPC88::IntVectChangeMain` does; the latch and the clear-on-permit
+  transition are unchanged.
+- **Verification:** The 8214 selftest covers a prohibited latched VRTC beside a
+  sound request and fails without the correction.
+- **Task/evidence:** [M154 task](../agents/tasks/M154_v2_sound_interrupt.md).
+- **Fixing commit:** [bc0c9f64c6e7735b097d60249f71ed5ee7f70463](https://github.com/nakatamaho/vaeg/commit/bc0c9f64c6e7735b097d60249f71ed5ee7f70463).
+
 ### M152 — Debug-script keyboard state diverged from guest input
 
 - **Symptom/scope:** In the debug harness, a key after `input-line` failed while
