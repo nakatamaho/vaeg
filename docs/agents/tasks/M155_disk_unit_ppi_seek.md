@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M155 — PC-8801 のディスクユニットを独自に使うプログラムが起動しない
 
-Status: **IN_PROGRESS; G155 NOT_READY.**
+Status: **COMPLETE; G155 human gate PASSED on 2026-11-21.**
 Branch: `milestone/m155-boot-case`（origin/main
 [a29aad7e](https://github.com/nakatamaho/vaeg/commit/a29aad7e77d4ef932d6cf93260f82301544a3308) から）;
 commit prefix `M155:`.
@@ -75,3 +75,29 @@ commit prefix `M155:`.
 
 G155: 保守者が、このブランチの MinGW ビルドで、報告のプログラムを
 PC-8801MH として起動し、動くことを確認する。
+
+## G155 記録
+
+2026-11-21、保守者が G155 を passed とした（ゲームが進むことを確認）。
+ゲートで使ったビルドは `804e8c9e`（Linux ホスト MinGW、
+`Rel.20261121 (m155, 804e8c9e)`、SHA-256
+`d87123c4cb6744ba94e9dd7492bd02beac7475a98e63fb8a46a774a518baccfc`）。
+リリースは承認されていない。
+
+## 統合キャンペーン
+
+保守者の指示で、マージ前に両方のキャンペーン（メディア/デモの回帰、実画面の
+自動確認）を実施した。実画面の確認は保守者の判断で Linux の仮想 X11 での
+取り込みと配置の比較までとし、OCR による速度表示の検証は NOT_RUN。結果は
+[M155 integration QA](../reports/m155_integration_qa.md)。デモ媒体 9/9、
+全デモの描画 34/34、MANDEL.BAS、自己起動 SGP、ユーティリティ FDD と SASI の
+起動 4/4 が PASS。配置は 32/32 一致（参照未承認のため APPROVAL_REQUIRED）。
+
+キャンペーン中に見つかった CP/M インストーラの lhasa 0.5 一覧の読み違いを
+[36fd5bef](https://github.com/nakatamaho/vaeg/commit/36fd5bef0cfd971ee20c778427ad54c745485219) で直した（台帳に記録）。
+
+## ゲート後の変更
+
+保守者の依頼で、状態の詳細表示から実効換算の説明文（2 行）を削除した
+（[75ba032d](https://github.com/nakatamaho/vaeg/commit/75ba032dfa38c611c1217aade1328a24f0d4f90c)）。表示の他の行は
+変えていない。キャンペーンの取り込みはこの変更より前のコードで行った。

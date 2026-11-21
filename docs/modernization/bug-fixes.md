@@ -35,6 +35,22 @@ land.
 
 ## Maintenance Rules
 
+### M155 — CP/M installer misread lhasa 0.5 listings
+
+- **Symptom/scope:** `tools/cpmva/install_cpmva.py` on hosts whose `lha` is
+  lhasa 0.5: the CP/M prerequisite disks, and so the SASI utility media, did
+  not build (`ARCHIVE_FORMAT: cannot parse lha member size`).
+- **Demonstrated root cause:** lhasa 0.5 prints a UID/GID column
+  (`*****/*****`) before each member's size; the listing parser read the
+  second column as the size.
+- **Correction:** The parser skips that column; lha-1.14i listings are read
+  as before.
+- **Verification:** A fake lhasa 0.5 listing test fails without the correction;
+  a malformed size still fails with `ARCHIVE_FORMAT`. The M155 campaign then
+  built the CP/M and SASI media.
+- **Task/evidence:** [M155 integration QA](../agents/reports/m155_integration_qa.md).
+- **Fixing commit:** [36fd5bef0cfd971ee20c778427ad54c745485219](https://github.com/nakatamaho/vaeg/commit/36fd5bef0cfd971ee20c778427ad54c745485219).
+
 ### M155 — 8255 kept its output latches across a mode word
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program whose
