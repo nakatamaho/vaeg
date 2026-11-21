@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M156 — EOT より大きい R から始まる複数セクタ読み込み
 
-Status: **IN_PROGRESS; G156 NOT_READY.**
+Status: **COMPLETE; G156 human gate PASSED on 2026-11-21.**
 Branch: `milestone/m156-boot-case`（origin/main
 [a5a362c5](https://github.com/nakatamaho/vaeg/commit/a5a362c59eb4ceb10f1d1e8507756497ae92170f) から）;
 commit prefix `M156:`.
@@ -64,3 +64,12 @@ commit prefix `M156:`.
 
 G156: 保守者が、このブランチの MinGW ビルドで、報告のプログラムのプレイ画面が
 描かれ、キー操作できることを確認する。
+
+## G156 記録
+
+2026-11-21、保守者が G156 を passed とした（プレイ画面が描かれ、操作できる
+ことを確認）。ゲートで使ったビルドは `22a7cdbc`（Linux ホスト MinGW、
+`Rel.20261121 (m156, 22a7cdbc)`、SHA-256
+`419c460563bec242833700b2899ef7110861bf259dc6089ceea96a0698a53195`）。
+統合キャンペーン（メディア/デモの回帰、実画面の自動確認）は NOT_RUN
+（保守者の判断で見送り）。リリースは承認されていない。
