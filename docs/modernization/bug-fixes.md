@@ -35,6 +35,21 @@ land.
 
 ## Maintenance Rules
 
+### M156 — A read starting above EOT stopped after one sector
+
+- **Symptom/scope:** All FDC reads: a multi-sector READ DATA whose first R
+  is above EOT (for example R=11h, EOT=05h) ended after one sector with EN, or
+  with MT moved to head 1 sector 1 and reported No Data. A PC-8801 program that
+  reads whole tracks this way loaded wrong data and crashed after its title.
+- **Demonstrated root cause:** `inc_fdcR` ended the track when the incremented
+  R exceeded EOT; the uPD765 ends it after the sector whose R equals EOT.
+- **Correction:** The track end is the R == EOT comparison before the increment;
+  unchanged when R starts at or below EOT.
+- **Verification:** A selftest reading two sectors from R=2 with EOT=1 fails
+  without the correction.
+- **Task/evidence:** [M156 task](../agents/tasks/M156_fdc_read_above_eot.md).
+- **Fixing commit:** [22a7cdbc9d4bc0e6c766d0220ab448d4e9020298](https://github.com/nakatamaho/vaeg/commit/22a7cdbc9d4bc0e6c766d0220ab448d4e9020298).
+
 ### M155 — CP/M installer misread lhasa 0.5 listings
 
 - **Symptom/scope:** `tools/cpmva/install_cpmva.py` on hosts whose `lha` is
