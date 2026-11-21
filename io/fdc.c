@@ -524,11 +524,17 @@ static void get_eotgsldtl(void) {
 
 static BOOL inc_fdcR(void) {
 	BOOL over; // The transfer crossed a cylinder boundary.
+	/*
+	 * The track ends after the sector whose R equals EOT (uPD765; MAME
+	 * upd765). A read that starts above EOT, such as R=11h with EOT=05h,
+	 * keeps advancing until TC or a missing sector (M156).
+	 */
+	const BOOL track_end = (fdc.R == fdc.eot) ? TRUE : FALSE;
 
 	over = FALSE;
 
 	fdc.R++;
-	if (fdc.R > fdc.eot) {
+	if (track_end) {
 		if (fdc.cmd & 0x80) {
 			// MT=1
 			if (fdc.hd)

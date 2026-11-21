@@ -1679,6 +1679,47 @@ static BOOL selftest_fdc_read_profile(const SELFTESTFDDPROFILE *profile, UINT dr
 	return (SUCCESS);
 }
 
+/* M156: a multi-sector read that starts above EOT (R=2, EOT=1) does not end
+ * after its first sector; the next sector follows until TC. */
+static BOOL selftest_fdc_read_above_eot(const SELFTESTFDDPROFILE *profile) {
+	BYTE command[9];
+	UINT sector;
+	UINT index;
+
+	selftest_fdc_prepare(profile, 0, 0, 0, profile->density_96);
+	command[0] = 0x46;
+	command[1] = 0x00;
+	command[2] = 0x00;
+	command[3] = 0x00;
+	command[4] = 0x02; /* R */
+	command[5] = profile->sector_n;
+	command[6] = 0x01; /* EOT below R */
+	command[7] = 0x2a;
+	command[8] = 0xff;
+	selftest_fdc_send_command(command, NELEMENTS(command));
+	for (sector = 2; sector <= 3; sector++) {
+		if ((selftest_fdc_wait_rqm() != SUCCESS) || (fdc.bufcnt != profile->sector_size)) {
+			fprintf(stderr, "selftest: %s read above EOT stopped before sector %u count=%d\n",
+			        profile->name, sector, fdc.bufcnt);
+			return (FAILURE);
+		}
+		for (index = 0; index < profile->sector_size; index++) {
+			BYTE value;
+			if (selftest_fdc_wait_rqm() != SUCCESS) {
+				return (FAILURE);
+			}
+			value = fdc_dataread();
+			if (value != selftest_fdd_profile_byte(0, sector, index)) {
+				fprintf(stderr, "selftest: %s read above EOT sector %u byte %u wrong\n",
+				        profile->name, sector, index);
+				return (FAILURE);
+			}
+		}
+	}
+	fdcsubsys_o_tc();
+	return (selftest_fdc_take_result(0x00, 0));
+}
+
 static BOOL selftest_fdc_write_profile(const SELFTESTFDDPROFILE *profile, UINT drive, UINT cylinder,
                                        UINT head, UINT sector, UINT physical_cylinder,
                                        UINT density_96, const BYTE *data, BYTE expected_st1) {
@@ -1967,6 +2008,15 @@ static int test_fdd_d88_production_path(void) {
 				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
 				goto fdd_2d_cleanup;
 			}
+		}
+		if ((profile->sectors >= 3) && (selftest_fdc_read_above_eot(profile) != SUCCESS)) {
+			result = fail("fdd-media", "a read starting above EOT ended after one sector");
+			goto fdd_2d_cleanup;
+		}
+		/* The write checks below read the pacing left by the previous command. */
+		if (selftest_fdc_read_profile(profile, 0, 0, 0, 1, 0, density, fdc_data, 0) != SUCCESS) {
+			result = fail("fdd-media", "FDC READ DATA failed after the above-EOT read");
+			goto fdd_2d_cleanup;
 		}
 		{
 			const BYTE seek_head1[] = {0x0f, 0x04, 0x01};
