@@ -55,6 +55,10 @@ static const REG8 pic8214_maskbit[3] = {0x04, 0x02, 0x01};
  * or -1. Intel uPD8214 rule, consistent with the VA manual's E4h
  * description: after acceptance nothing is offered until E4h is written
  * again; with XSGS clear a request must be above the current status.
+ * A level 0-2 request latched while E6h permitted it stays latched after
+ * E6h prohibits it, but is not offered while prohibited (X88000
+ * CPC88::IntVectChangeMain): it must not take the vector, and the E4h
+ * re-arm, in place of a permitted level such as the sound level 4.
  */
 static int pic8214_select(void) {
 	int level;
@@ -63,6 +67,9 @@ static int pic8214_select(void) {
 		return -1;
 	}
 	for (level = 0; level < 8; level++) {
+		if ((level <= 2) && !(pic8214.mask & pic8214_maskbit[level])) {
+			continue;
+		}
 		if (pic8214.irr & (1 << level)) {
 			if ((pic8214.status & 0x08) || (level < (pic8214.status & 0x07))) {
 				return level;
