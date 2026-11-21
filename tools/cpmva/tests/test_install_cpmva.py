@@ -323,9 +323,10 @@ class InstallerTests(unittest.TestCase):
                 self.installer.ensure_assembler(None, lock, Path(directory), True, Path(directory))
         self.assertEqual(raised.exception.code, "OFFLINE_MISS")
 
-    def write_fake_lha(self, directory, name, banner):
+    def write_fake_lha(self, directory, name, banner, owner="", size_text="5"):
         # Each fake accepts only its own extraction syntax: lhasa "xw=DIR"
         # (lower-cased names), lha-1.14i "x -w=DIR" (names as stored).
+        # owner models lhasa 0.5's UID/GID column, e.g. "*****/*****".
         script = Path(directory) / name
         script.write_text(
             "from pathlib import Path\nimport sys\n"
@@ -333,8 +334,8 @@ class InstallerTests(unittest.TestCase):
             "args = sys.argv[1:]\n"
             "if not args:\n    print(banner)\n    raise SystemExit(0)\n"
             "if args[0] == 'l' and len(args) == 2:\n"
-            "    print('[generic]  5 100.0% Jan  1  1989 readme.doc')\n"
-            "    print('[generic]  3 100.0% Jan  1  1989 cpmva.exe')\n"
+            f"    print('[generic]  {owner} {size_text} 100.0% Jan  1  1989 readme.doc')\n"
+            f"    print('[generic]  {owner} 3 100.0% Jan  1  1989 cpmva.exe')\n"
             "    raise SystemExit(0)\n"
             "if lhasa and len(args) == 2 and args[0].startswith('xw='):\n"
             "    destination = Path(args[0][3:])\n"
@@ -346,12 +347,12 @@ class InstallerTests(unittest.TestCase):
         )
         return script
 
-    def extract_with_fake_lha(self, name, banner):
+    def extract_with_fake_lha(self, name, banner, **listing):
         lock = self.installer.load_lock(LOCK_PATH)
         with tempfile.TemporaryDirectory() as directory:
             tools = Path(directory) / "bin"
             tools.mkdir()
-            script = self.write_fake_lha(tools, name, banner)
+            script = self.write_fake_lha(tools, name, banner, **listing)
             archive = Path(directory) / "CPMVA.LZH"
             archive.write_bytes(b"not a real archive")
             real_run = subprocess.run
@@ -374,6 +375,18 @@ class InstallerTests(unittest.TestCase):
     def test_lhasa_found_under_its_own_name(self):
         members = self.extract_with_fake_lha("lhasa", "Lhasa v0.4.0 command line LHA tool")
         self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_lhasa_05_owner_column_is_skipped(self):
+        # M155: lhasa 0.5 prints "*****/*****" before the size.
+        members = self.extract_with_fake_lha("lha", "Lhasa v0.5.0 command line LHA tool",
+                                             owner="*****/*****")
+        self.assertEqual(sorted(members), ["CPMVA.EXE", "README.DOC"])
+
+    def test_lhasa_05_bad_size_still_fails(self):
+        with self.assertRaises(self.installer.InstallerError) as raised:
+            self.extract_with_fake_lha("lha", "Lhasa v0.5.0 command line LHA tool",
+                                       owner="*****/*****", size_text="five")
+        self.assertEqual(raised.exception.code, "ARCHIVE_FORMAT")
 
     def test_classic_lha_keeps_its_syntax(self):
         members = self.extract_with_fake_lha("lha", "LHa for UNIX version 1.14i")
