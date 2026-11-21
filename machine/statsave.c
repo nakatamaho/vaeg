@@ -75,6 +75,7 @@ enum {
 	STATFLAG_UPD9002_COMPAT,
 	STATFLAG_UPD9002_ALT,
 	STATFLAG_UPD9002_MODE,
+	STATFLAG_UPD9002_SHADOW,
 	STATFLAG_TERM,
 	STATFLAG_COM,
 	STATFLAG_DISK,
@@ -533,6 +534,16 @@ static int flagread_upd9002_mode(STFLAGH sfh, const SFENTRY *tbl, UINT8 *state) 
 	    (statflag_read(sfh, state, UPD9002_MODE_STATE_SIZE) != STATFLAG_SUCCESS) ||
 	    !upd9002_core_mode_state_valid(state)) {
 		statflag_seterr(sfh, "uPD9002 mode-transition payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	return STATFLAG_SUCCESS;
+}
+
+static int flagread_upd9002_shadow(STFLAGH sfh, const SFENTRY *tbl, UINT8 *shadow) {
+	if (sfh->hdr.ver != tbl->ver || sfh->hdr.size != tbl->arg2 ||
+	    statflag_read(sfh, shadow, sizeof(*shadow)) != STATFLAG_SUCCESS ||
+	    *shadow > UPD9002_SHADOW_SEGMENT) {
+		statflag_seterr(sfh, "M153_INTERRUPT_SHADOW_STATE");
 		return STATFLAG_FAILURE;
 	}
 	return STATFLAG_SUCCESS;
@@ -1635,6 +1646,10 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 	tbl = np2tbl;
 	tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
 	while (tbl < tblterm && ret == STATFLAG_SUCCESS) {
+		if (tbl->type == STATFLAG_UPD9002_SHADOW && !CPU_INTERRUPT_SHADOW) {
+			tbl++;
+			continue;
+		}
 		ret = statflag_createsection(sffh, tbl);
 		if (ret != STATFLAG_SUCCESS)
 			break;
@@ -1662,6 +1677,10 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 
 		case STATFLAG_UPD9002_MODE:
 			ret |= flagsave_upd9002_mode(&sffh->sfh, tbl);
+			break;
+
+		case STATFLAG_UPD9002_SHADOW:
+			ret |= statflag_write(&sffh->sfh, &CPU_INTERRUPT_SHADOW, tbl->arg2);
 			break;
 
 		case STATFLAG_UPD8087:
@@ -1855,6 +1874,12 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				break;
 			}
 
+			case STATFLAG_UPD9002_SHADOW: {
+				UINT8 shadow;
+				ret |= flagread_upd9002_shadow(&sffh->sfh, tbl, &shadow);
+				break;
+			}
+
 			case STATFLAG_UPD9002_ALT:
 				ret |= flagcheck_versize(&sffh->sfh, tbl);
 				break;
@@ -1974,6 +1999,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	SFFILEH sffh;
 	int ret;
 	BOOL done;
+	UINT8 shadow = UPD9002_SHADOW_NONE;
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
@@ -2084,6 +2110,10 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 				ret |= flagload_upd9002_mode(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_UPD9002_SHADOW:
+				ret |= flagread_upd9002_shadow(&sffh->sfh, tbl, &shadow);
+				break;
+
 			case STATFLAG_UPD8087:
 				ret |= flagload_upd8087(&sffh->sfh, tbl);
 				break;
@@ -2170,6 +2200,8 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	}
 	statflag_close(sffh);
 	if (ret != STATFLAG_FAILURE) {
+		CPU_INTERRUPT_SHADOW =
+		    CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE ? shadow : UPD9002_SHADOW_NONE;
 		/* The PIC section is restored before this point.  Rebind the
 		 * source-backed NDP input after the complete state image is present;
 		 * this does not acknowledge or clear the 8087 exception. */

@@ -262,8 +262,11 @@ static int run_pushf_case(const char *name, UINT16 flags, UINT16 ss, UINT16 sp) 
 
 	setup_state(instruction, sizeof(instruction), flags, ss, sp);
 	initial_ip = CPU_IP;
+	write_physical_word(4, 0x0300);
+	write_physical_word(6, 0);
 	upd9002_core_step();
-	if ((CPU_SP != (UINT16)(sp - 2)) || (CPU_IP != (UINT16)(initial_ip + 1)) ||
+	if ((CPU_SP != (UINT16)(sp - 8)) || (CPU_CS != 0) || (CPU_IP != 0x0300) ||
+	    (read_segment_word(ss, (UINT16)(sp - 8)) != (UINT16)(initial_ip + 1)) ||
 	    (read_segment_word(ss, (UINT16)(sp - 2)) != ((flags & 0x0fff) | 0xf002)) ||
 	    (CPU_AX != 0x1357) || (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
 		return fail_case(name, "ordinary PUSHF state differs");
@@ -390,7 +393,7 @@ static int run_sahf_case(const char *name, UINT16 initial_flags, UINT8 ah, UINT1
 }
 
 static int test_sahf(void) {
-	if (run_sahf_case("SAHF all bits", 0xffff, 0xff, 0xffd7) != SUCCESS ||
+	if (run_sahf_case("SAHF all low bits", 0xfeff, 0xff, 0xfed7) != SUCCESS ||
 	    run_sahf_case("SAHF reserved bits", 0xf402, 0x28, 0xf402) != SUCCESS ||
 	    run_sahf_case("SAHF copied bits", 0xfa02, 0xd5, 0xfad7) != SUCCESS) {
 		return FAILURE;

@@ -367,6 +367,7 @@ tests/upd9002/fixtures.c
 tests/upd9002/fixtures.h
 tests/upd9002/flags_materialization.c
 tests/upd9002/flags_materialization.h
+tests/upd9002/interrupt_shadow.c
 tests/upd9002/iret_restoration.c
 tests/upd9002/iret_restoration.h
 tests/upd9002/m64_semantics.c
