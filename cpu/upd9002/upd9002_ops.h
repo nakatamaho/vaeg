@@ -80,6 +80,8 @@ extern const UPD9002OP upd9002op_repnc[];
 extern const UPD9002OP upd9002op_repc[];
 extern UINT16 upd9002_step_start_cs;
 extern UINT16 upd9002_step_start_ip;
+void upd9002_restart_rep(void);
+void upd9002_mark_halt(void);
 extern UINT8 upd9002_current_opcode;
 
 #define UPD9002_8X static void CPUCALL

@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M153 — IRQ could corrupt the native stack during an SS:SP switch
+
+- **Symptom/scope:** On the native uPD9002 path, an IRQ between an SS load
+  and the following SP update could overwrite unrelated guest memory or
+  corrupt control flow.
+- **Demonstrated root cause:** SS-load handlers adjusted the remaining clock
+  budget, but PIC arbitration did not check for an inhibit before committing
+  the request and pushing the frame through new SS:old SP.
+- **Correction:** Track and persist an instruction-boundary interrupt shadow.
+  Leave the pending IRQ intact and defer the TF trap until the protected
+  instruction completes.
+- **Verification:** Synthetic native IRQ and TF cases check both SS load
+  opcodes, prefixed forms, and the frame on the new stack; the SAV boundary
+  cases check retention, clearing, and rejection of invalid shadow data.
+- **Task/evidence:** [M153 task](../agents/tasks/M153_mov_ss_shadow.md),
+  [implementation report](../agents/reports/m153_mov_ss_shadow.md).
+- **Fixing commit:** [2d44fab18afa18f6ac6517023b191974bc9e0800](https://github.com/nakatamaho/vaeg/commit/2d44fab18afa18f6ac6517023b191974bc9e0800).
+
 ### M152 — Debug-script keyboard state diverged from guest input
 
 - **Symptom/scope:** In the debug harness, a key after `input-line` failed while

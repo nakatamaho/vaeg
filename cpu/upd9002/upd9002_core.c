@@ -258,6 +258,22 @@ void upd9002_core_queue_reset(void) {
 	upd9002_queue.valid = 0;
 }
 
+static enum {
+	STEP_RETIRED,
+	STEP_REP_RESTART,
+	STEP_HALTED,
+	STEP_EXCEPTION
+} step_outcome;
+
+void upd9002_restart_rep(void) {
+	UPD9002_IP -= UPD9002_PREFIX + 1;
+	step_outcome = STEP_REP_RESTART;
+}
+
+void upd9002_mark_halt(void) {
+	step_outcome = STEP_HALTED;
+}
+
 void upd9002_core_step(void) {
 	UINT16 queue_ip;
 	UINT16 queue_cs;
@@ -275,11 +291,18 @@ void upd9002_core_step(void) {
 	BOOL preserve_state;
 	Upd9002RuntimeState state_before;
 	SINT32 remain_before_fetch;
+	UINT8 incoming_shadow;
+	BOOL single_step;
 
 	if (upd9002_diagnostic_pending()) {
 		return;
 	}
 
+	incoming_shadow = CPU_INTERRUPT_SHADOW;
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
+	/* POPF/IRET enabling TF step the instruction after the restore. */
+	single_step = (UPD9002_FLAG & T_FLAG) != 0;
+	step_outcome = STEP_RETIRED;
 	upd9002_guest_trace_step_begin();
 	upd9002_trace_step_begin();
 	upd9002_step_start_cs = UPD9002_CS;
@@ -322,6 +345,7 @@ void upd9002_core_step(void) {
 		if (preserve_state) {
 			upd9002_core_context.s = state_before;
 		}
+		CPU_INTERRUPT_SHADOW = incoming_shadow;
 		upd9002_guest_trace_step_end();
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "diagnostic-stop-rep0f", CS_BASE + UPD9002_IP,
 		                    opcode, 1);
@@ -333,8 +357,17 @@ void upd9002_core_step(void) {
 	} else {
 		upd9002_queue.valid = 0;
 	}
+	if (step_outcome == STEP_REP_RESTART) {
+		/* Yielding at the slice boundary did not complete the instruction. */
+		CPU_INTERRUPT_SHADOW = incoming_shadow;
+	}
 	upd9002_dmap();
 	upd9002_guest_trace_step_end();
+	if (single_step && (CPU_INTERRUPT_SHADOW != UPD9002_SHADOW_SEGMENT) &&
+	    (step_outcome != STEP_EXCEPTION) && (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE)) {
+		/* HLT leaves IP on its opcode for the existing hardware wake path. */
+		upd9002_intnum(1, (UINT16)(UPD9002_IP + (step_outcome == STEP_HALTED)));
+	}
 	upd9002_trace_step_end();
 }
 
@@ -344,6 +377,7 @@ void upd9002_core_reset(void) {
 	upd9002_dispatch_test_require_immutable();
 #endif
 	ZeroMemory(&upd9002_core_context.s, sizeof(upd9002_core_context.s));
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
@@ -369,6 +403,7 @@ void upd9002_core_shut(void) {
 	 * It is a regression fixture exception, not an 80286 execution mode.
 	 */
 	ZeroMemory(&upd9002_core_context.s, offsetof(Upd9002RuntimeState, cpu_type));
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	upd9002_diagnostic_clear();
 	upd9002_initreg();
 	upd9002_state_shut();
@@ -560,6 +595,8 @@ void CPUCALL upd9002_core_compat_iret_resume(void) {
 }
 
 void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
+	step_outcome = STEP_EXCEPTION;
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	upd9002_perf_record_exception((UINT8)vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception", (uint32_t)vect, (uint32_t)IP, 2);
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -583,6 +620,7 @@ void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 }
 
 void CPUCALL upd9002_core_interrupt(REG8 vect) {
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	upd9002_perf_record_interrupt(vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt", (uint32_t)vect,
 	                    (uint32_t)UPD9002_IP, 2);
