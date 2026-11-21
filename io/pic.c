@@ -320,13 +320,11 @@ void pic_irq(void) { // ver0.78
 	REG8 bit;
 	REG8 slave;
 
-#if 1 // Shinra log
-	// Do not arbitrate while maskable interrupts are disabled.
-	if (!CPU_isEI) {
-		//TRACEOUT(("pic: !CPU_EI"));
+	/* Do not acknowledge or mutate a pending request while the native
+	 * core is inhibited. The uPD70008-compatible path has its own timing. */
+	if (!CPU_isEI || (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && CPU_INTERRUPT_SHADOW)) {
 		return;
 	}
-#endif
 
 	p = &pic;
 	pic_apply_level_requests();

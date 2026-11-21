@@ -16,12 +16,6 @@
 
 #define MAX_PREFIX 8
 
-#define NEXT_OPCODE                                                                                \
-	if (UPD9002_REMCLOCK < 1) {                                                                    \
-		UPD9002_BASECLOCK += (1 - UPD9002_REMCLOCK);                                               \
-		UPD9002_REMCLOCK = 1;                                                                      \
-	}
-
 #define REMAIN_ADJUST(c)                                                                           \
 	if (UPD9002_REMCLOCK != (c)) {                                                                 \
 		UPD9002_BASECLOCK += ((c) - UPD9002_REMCLOCK);                                             \
@@ -223,6 +217,7 @@ UPD9002FN _pop_es(void) { // 07: pop es
 	REGPOP(tmp, 8)
 	UPD9002_ES = tmp;
 	ES_BASE = SEGSELECT(tmp);
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 }
 
 UPD9002FN _or_ea_r8(void) { // 08: or EA, REG8
@@ -457,7 +452,7 @@ UPD9002FN _pop_ss(void) { // 17: pop ss
 	UPD9002_SS = tmp;
 	SS_BASE = SEGSELECT(tmp);
 	SS_FIX = SS_BASE;
-	NEXT_OPCODE
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 }
 
 UPD9002FN _sbb_ea_r8(void) { // 18: sbb EA, REG8
@@ -581,6 +576,7 @@ UPD9002FN _pop_ds(void) { // 1f: pop ds
 	UPD9002_DS = tmp;
 	DS_BASE = SEGSELECT(tmp);
 	DS_FIX = DS_BASE;
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 }
 
 UPD9002FN _and_ea_r8(void) { // 20: and EA, REG8
@@ -2840,6 +2836,7 @@ UPD9002FN _hlt(void) { // F4:	hlt
 
 	UPD9002_REMCLOCK = -1;
 	UPD9002_IP--;
+	upd9002_mark_halt();
 }
 
 UPD9002FN _cmc(void) { // F5:	cmc
@@ -2886,23 +2883,11 @@ UPD9002FN _cli(void) { // FA:	cli
 UPD9002FN _sti(void) { // FB:	sti
 
 	UPD9002_WORKCLOCK(2);
-#if defined(INTR_FAST)
-	if (UPD9002_FLAG & I_FLAG) {
-		NEXT_OPCODE;
-		return; // No architectural state would change.
+	if (!(UPD9002_FLAG & I_FLAG)) {
+		CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_IRQ;
 	}
-#endif
 	UPD9002_FLAG |= I_FLAG;
 	UPD9002_TRAP = (UPD9002_FLAG & T_FLAG) >> 8;
-#if defined(INTR_FAST)
-	if ((UPD9002_TRAP) || (PICEXISTINTR)) {
-		REMAIN_ADJUST(1)
-	} else {
-		NEXT_OPCODE;
-	}
-#else
-	REMAIN_ADJUST(1)
-#endif
 }
 
 UPD9002FN _cld(void) { // FC:	cld
@@ -2953,6 +2938,7 @@ UPD9002FN _mov_seg_ea(void) { // 8E:	mov		segrem, EA
 	case 0x00: // es
 		UPD9002_ES = (UINT16)tmp;
 		ES_BASE = tmp << 4;
+		CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 		break;
 
 	case 0x08: // cs
@@ -2964,13 +2950,14 @@ UPD9002FN _mov_seg_ea(void) { // 8E:	mov		segrem, EA
 		UPD9002_SS = (UINT16)tmp;
 		SS_BASE = tmp << 4;
 		SS_FIX = SS_BASE;
-		NEXT_OPCODE
+		CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 		break;
 
 	case 0x18: // ds
 		UPD9002_DS = (UINT16)tmp;
 		DS_BASE = tmp << 4;
 		DS_FIX = DS_BASE;
+		CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
 		break;
 	}
 }

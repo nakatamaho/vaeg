@@ -136,6 +136,7 @@ static uint32_t hash_ram(uint32_t address, uint32_t size) {
 
 int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESULT *result) {
 	Upd9002RuntimeState saved_cpu;
+	UINT8 saved_shadow;
 	_DMAC saved_dmac;
 	UPD9002_WCU saved_wcu;
 	uint8_t *saved_ram;
@@ -154,6 +155,7 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 		return FAILURE;
 	}
 	saved_cpu = CPU_STATSAVE;
+	saved_shadow = CPU_INTERRUPT_SHADOW;
 	saved_dmac = dmac;
 	saved_wcu = upd9002_wcu;
 	/* Instruction-level cases: without the WCU's programmed waits (M130),
@@ -163,6 +165,7 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 	CopyMemory(saved_ram, mem, 0x10000);
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	ZeroMemory(&dmac, sizeof(dmac));
 	set_cpu(&input->cpu);
 	for (index = 0; index < input->ram_size; index++) {
@@ -179,6 +182,7 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESU
 	result->termination = (CPU_REMCLOCK < 0) ? 1 : 0;
 
 	CPU_STATSAVE = saved_cpu;
+	CPU_INTERRUPT_SHADOW = saved_shadow;
 	dmac = saved_dmac;
 	upd9002_wcu = saved_wcu;
 	upd9002_wcu_update();
@@ -208,6 +212,7 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input, UPD9002_SSTS_RESUL
 	}
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
 	ZeroMemory(&dmac, sizeof(dmac));
 	ZeroMemory(mem, 0x100000);
 	upd9002_core_queue_reset();

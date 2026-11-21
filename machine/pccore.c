@@ -990,12 +990,19 @@ void pccore_exec(BOOL draw) {
 				return;
 			}
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
+			const BOOL was_inhibited = CPU_INTERRUPT_SHADOW != UPD9002_SHADOW_NONE;
 			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {
 				return;
 			}
 			subsystemmx_exec();
 			sgp_step();
+			/* If the protected instruction completed within the slice, offer
+			 * the retained request before executing another instruction. At
+			 * a slice boundary the outer loop arbitrates as usual. */
+			if (was_inhibited && !CPU_INTERRUPT_SHADOW && CPU_REMCLOCK > 0) {
+				pic_irq();
+			}
 		}
 		/* The independent uPD3301 is clocked by consumed machine time; on the
 		 * independent 8801/8001 family it owns the VRTC raise instead of the

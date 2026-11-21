@@ -87,7 +87,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -120,7 +120,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -145,7 +145,7 @@ UPD9002EXT upd9002_rep_movsb(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -167,7 +167,7 @@ UPD9002EXT upd9002_rep_movsw(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -190,7 +190,7 @@ UPD9002EXT upd9002_rep_lodsb(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -210,7 +210,7 @@ UPD9002EXT upd9002_rep_lodsw(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -232,7 +232,7 @@ UPD9002EXT upd9002_rep_stosb(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -252,7 +252,7 @@ UPD9002EXT upd9002_rep_stosw(void) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}
@@ -558,7 +558,7 @@ static void upd9002_repeat_carry_string(UPD9002_CARRY_STRING_OP op, BOOL repeat_
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
-				UPD9002_IP -= UPD9002_PREFIX + 1;
+				upd9002_restart_rep();
 				break;
 			}
 		}

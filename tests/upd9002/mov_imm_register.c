@@ -77,7 +77,7 @@ static void setup_state(const UINT8 *instruction, UINT length) {
 	CPU_SS = 0x3000;
 	CPU_DS = 0x3333;
 	CPU_IP = 0x0100;
-	CPU_FLAG = 0x0fd7;
+	CPU_FLAG = 0x0ed7; /* Test the instruction body without a subsequent TF trap. */
 	ES_BASE = (UINT32)CPU_ES << 4;
 	CS_BASE = (UINT32)CPU_CS << 4;
 	SS_BASE = (UINT32)CPU_SS << 4;
@@ -130,7 +130,7 @@ static int test_c6_registers(void) {
 				return fail_case("C6 register map", "paired or unrelated register changed");
 			}
 		}
-		if ((CPU_FLAG != 0x0fd7) || (CPU_IP != 0x0103)) {
+		if ((CPU_FLAG != 0x0ed7) || (CPU_IP != 0x0103)) {
 			return fail_case("C6 register map", "FLAGS or IP changed");
 		}
 	}
@@ -159,7 +159,7 @@ static int test_c7_registers(void) {
 				return fail_case("C7 register map", "destination or unrelated register differs");
 			}
 		}
-		if ((CPU_FLAG != 0x0fd7) || (CPU_IP != 0x0104)) {
+		if ((CPU_FLAG != 0x0ed7) || (CPU_IP != 0x0104)) {
 			return fail_case("C7 register map", "FLAGS or IP changed");
 		}
 	}
@@ -196,7 +196,7 @@ static int run_memory_case(const char *name, const UINT8 *instruction, UINT leng
 			return fail_case(name, "register changed");
 		}
 	}
-	if ((CPU_FLAG != 0x0fd7) || (CPU_IP != (UINT16)(0x0100 + length))) {
+	if ((CPU_FLAG != 0x0ed7) || (CPU_IP != (UINT16)(0x0100 + length))) {
 		return fail_case(name, "FLAGS or IP changed");
 	}
 	return SUCCESS;

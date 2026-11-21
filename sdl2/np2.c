@@ -119,6 +119,7 @@
 #endif
 #if defined(VAEG_UPD9002_M96D_TESTING)
 #include "tests/upd9002/m96d_nop.h"
+int upd9002_interrupt_shadow_main(void);
 #endif
 #if defined(VAEG_UPD9002_M106_TESTING)
 #include "tests/upd9002/m106_near_jcc.h"
@@ -2057,6 +2058,9 @@ int main(int argc, char **argv) {
 	}
 #endif
 #if defined(VAEG_UPD9002_M96D_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-interrupt-shadow")) {
+		return upd9002_interrupt_shadow_main();
+	}
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m96d-nop")) {
 		return upd9002_m96d_nop_main();
 	}
