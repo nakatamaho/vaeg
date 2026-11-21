@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M157 — 8255 の入力ポートが相手の出力を取り逃す
 
-Status: **IN_PROGRESS; G157 NOT_READY.**
+Status: **COMPLETE; G157 human gate PASSED on 2026-11-21.**
 Branch: `milestone/m157-hang-case`（origin/main
 [20c8cba0](https://github.com/nakatamaho/vaeg/commit/20c8cba010cc21569364c6d648e1b4776fda53f6) から）;
 commit prefix `M157:`.
@@ -64,3 +64,18 @@ commit prefix `M157:`.
 
 G157: 保守者が、このブランチの MinGW ビルドで、報告のプログラムを VA と
 PC-8801MA2 で遊び、固まらないことを確認する。
+
+## G157 記録
+
+2026-11-21、保守者が G157 を passed とした。ゲートで使ったビルドは
+`d8f700b1`（Linux ホスト MinGW、`Rel.20261121 (m157, d8f700b1)`、SHA-256
+`65b3a1e7c383b3c79f8024b760a72aff6eb3c25b8dd0a976e9615917dd3553ce`）。
+リリースは承認されていない。
+
+## 統合キャンペーン
+
+保守者の指示で、メディア/デモの回帰だけを実施した（実画面の自動確認は
+NOT_RUN、保守者の判断）。結果は
+[M157 integration QA](../reports/m157_integration_qa.md)。デモ媒体 9/9、
+全デモの描画 34/34、MANDEL.BAS、自己起動 SGP、ユーティリティ FDD と SASI の
+起動 4/4 が PASS。
