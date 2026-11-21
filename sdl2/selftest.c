@@ -1571,6 +1571,34 @@ static BOOL selftest_fdc_take_result(BYTE expected_st0, BYTE expected_st1) {
 	return (SUCCESS);
 }
 
+/* M155: Seek/Recalibrate on head 1 end with ST0 = SE | drive, no head address. */
+static BOOL selftest_fdc_seek_end(const BYTE *command, UINT length, BYTE expected_pcn) {
+	const BYTE sense[] = {0x08};
+	BYTE st0;
+	BYTE pcn;
+
+	_NEVENTITEM item;
+
+	selftest_fdc_send_command(command, length);
+	/* Complete the seek's interrupt delay as the event queue would. */
+	nevent_reset(NEVENT_FDCINT);
+	ZeroMemory(&item, sizeof(item));
+	item.flag = NEVENT_SETEVENT;
+	fdc_intwait(&item);
+	selftest_fdc_send_command(sense, NELEMENTS(sense));
+	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) != (FDCSTAT_RQM | FDCSTAT_DIO)) {
+		return (FAILURE);
+	}
+	st0 = fdc_dataread();
+	pcn = fdc_dataread();
+	if ((st0 != 0x20) || (pcn != expected_pcn)) {
+		fprintf(stderr, "selftest: seek end ST0=%02x PCN=%02x expected 20/%02x\n", st0, pcn,
+		        expected_pcn);
+		return (FAILURE);
+	}
+	return (SUCCESS);
+}
+
 static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, UINT head,
                                  UINT physical_cylinder, UINT density_96) {
 	const BYTE specify[] = {0x03, 0xdf, 0x01};
@@ -1937,6 +1965,16 @@ static int test_fdd_d88_production_path(void) {
 			if (fdc_data[index] !=
 			    selftest_fdd_profile_byte(profile->cylinders * 2 - 1, profile->sectors, index)) {
 				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		{
+			const BYTE seek_head1[] = {0x0f, 0x04, 0x01};
+			const BYTE recalibrate_head1[] = {0x07, 0x04};
+			if ((selftest_fdc_seek_end(seek_head1, NELEMENTS(seek_head1), 0x01) != SUCCESS) ||
+			    (selftest_fdc_seek_end(recalibrate_head1, NELEMENTS(recalibrate_head1), 0x00) !=
+			     SUCCESS)) {
+				result = fail("fdd-media", "seek end ST0 carried the head address");
 				goto fdd_2d_cleanup;
 			}
 		}
@@ -5523,6 +5561,76 @@ static int test_v1v2_state_sections(void) {
 		return (fail("V1/V2 state sections", problem));
 	}
 	fprintf(stderr, "selftest: V1/V2 state sections ok\n");
+	return (SUCCESS);
+}
+
+/* M155: two 8255s wired as the PC-8801 main and disk-unit ports. */
+static _I8255CFG selftest_ppi_main_cfg;
+static _I8255CFG selftest_ppi_sub_cfg;
+static _I8255 selftest_ppi_main;
+static _I8255 selftest_ppi_sub;
+
+static void selftest_ppi_sub_to_main_a(BYTE dat) {
+	i8255_businportb(&selftest_ppi_main_cfg, dat);
+}
+
+static void selftest_ppi_sub_to_main_b(BYTE dat) {
+	i8255_businporta(&selftest_ppi_main_cfg, dat);
+}
+
+static void selftest_ppi_sub_to_main_c(BYTE dat) {
+	i8255_businportc(&selftest_ppi_main_cfg, (BYTE)(dat >> 4));
+}
+
+static void selftest_ppi_main_to_sub_c(BYTE dat) {
+	i8255_businportc(&selftest_ppi_sub_cfg, (BYTE)(dat >> 4));
+}
+
+/* A mode word resets the output latches and the peer sees the change. */
+static int test_i8255_mode_reset(void) {
+	const char *problem = NULL;
+
+	i8255_init(&selftest_ppi_main_cfg, &selftest_ppi_main);
+	i8255_init(&selftest_ppi_sub_cfg, &selftest_ppi_sub);
+	selftest_ppi_sub_cfg.busoutporta = selftest_ppi_sub_to_main_a;
+	selftest_ppi_sub_cfg.busoutportb = selftest_ppi_sub_to_main_b;
+	selftest_ppi_sub_cfg.busoutportc = selftest_ppi_sub_to_main_c;
+	selftest_ppi_main_cfg.busoutportc = selftest_ppi_main_to_sub_c;
+	i8255_reset(&selftest_ppi_main_cfg);
+	i8255_reset(&selftest_ppi_sub_cfg);
+	i8255_outctrl(&selftest_ppi_main_cfg, 0x93); /* A, B, C lower in */
+	i8255_outctrl(&selftest_ppi_sub_cfg, 0x81);  /* A, B, C upper out */
+	i8255_outportc(&selftest_ppi_sub_cfg, 0x10); /* PC4 */
+	i8255_outporta(&selftest_ppi_sub_cfg, 0x5a);
+	i8255_outportb(&selftest_ppi_sub_cfg, 0xa5);
+	if (((i8255_inportc(&selftest_ppi_main_cfg) & 0x01) != 0x01) ||
+	    (i8255_inportb(&selftest_ppi_main_cfg) != 0x5a) ||
+	    (i8255_inporta(&selftest_ppi_main_cfg) != 0xa5)) {
+		problem = "sub outputs did not reach the main inputs";
+	}
+	if (problem == NULL) {
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x91);
+		if ((i8255_inportc(&selftest_ppi_sub_cfg) & 0xf0) ||
+		    (i8255_inportc(&selftest_ppi_main_cfg) & 0x01) ||
+		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x00)) {
+			problem = "a mode word did not reset the output latches";
+		}
+	}
+	if (problem == NULL) {
+		/* Bit set/reset words leave the other latches alone. */
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x09); /* set PC4 */
+		i8255_outportb(&selftest_ppi_sub_cfg, 0x3c);
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x0b); /* set PC5 */
+		if (((i8255_inportc(&selftest_ppi_main_cfg) & 0x03) != 0x03) ||
+		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x3c)) {
+			problem = "a bit set/reset word changed another latch";
+		}
+	}
+	if (problem != NULL) {
+		fprintf(stderr, "selftest: i8255 mode failed: %s\n", problem);
+		return (FAILURE);
+	}
+	printf("selftest: i8255 mode reset ok\n");
 	return (SUCCESS);
 }
 
@@ -11886,6 +11994,9 @@ int vaeg_selftest_run(void) {
 			return (FAILURE);
 		}
 		if (test_pic8214_mode() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_i8255_mode_reset() != SUCCESS) {
 			return (FAILURE);
 		}
 		if (test_tsp_3301_emulation() != SUCCESS) {

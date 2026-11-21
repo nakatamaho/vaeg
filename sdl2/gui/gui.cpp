@@ -6146,8 +6146,6 @@ static void draw_machine_status(void) {
 			} else {
 				ImGui::TextUnformatted("実行速度: 計測中");
 			}
-			ImGui::TextUnformatted("実効換算はゲスト時間の進行率から求めた目安です。"
-			                       "CPUや周辺機器の設定クロックは変更しません。");
 			if (accelerated) {
 				const UINT skip = taskmng_effective_drawskip(np2oscfg.DRAW_SKIP);
 				ImGui::Text("早送り: %s",

@@ -403,14 +403,17 @@ def safe_extract_archive(path: Path, work: Path, lock: dict) -> dict[str, bytes]
                 if "[generic]" not in line:
                     continue
                 fields = line.split()
-                if len(fields) < 7:
+                # lhasa 0.5 prints a UID/GID column ("*****/*****") before
+                # the size; lha-1.14i prints none for generic members.
+                size_index = 2 if len(fields) > 1 and "/" in fields[1] else 1
+                if len(fields) < 6 + size_index:
                     fail("ARCHIVE_FORMAT", "cannot parse lha member listing")
                 name = validate_member_name(fields[-1])
                 if name in names:
                     fail("ARCHIVE_DUPLICATE", f"duplicate normalized member {name}")
                 names.add(name)
                 try:
-                    size = int(fields[1])
+                    size = int(fields[size_index])
                 except ValueError:
                     fail("ARCHIVE_FORMAT", "cannot parse lha member size")
                 if size > MAX_MEMBER_SIZE:
