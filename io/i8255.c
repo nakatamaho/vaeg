@@ -39,8 +39,39 @@ void i8255_outporta(I8255CFG p, BYTE dat) {
 	}
 }
 
+/*
+ * An input port reads its pins. When the peer drives them, that is the
+ * peer's output latch, even if the peer wrote it before this port became
+ * an input (M157); otherwise the last value latched from the bus.
+ */
+static BYTE i8255_input_pins(I8255_peek peek, BYTE latched) {
+	if (peek) {
+		BOOL driven = FALSE;
+		const BYTE value = peek(&driven);
+		if (driven) {
+			return value;
+		}
+	}
+	return latched;
+}
+
 BYTE i8255_inporta(I8255CFG p) {
+	I8255 s = p->s;
+
+	if (s->mode & CTRL_PORTADIR) {
+		s->porta = i8255_input_pins(p->peekporta, s->porta);
+	}
+	return s->porta;
+}
+
+BYTE i8255_drivenporta(I8255CFG p, BOOL *driven) {
+	*driven = (p->s->mode & CTRL_PORTADIR) ? FALSE : TRUE;
 	return p->s->porta;
+}
+
+BYTE i8255_drivenportb(I8255CFG p, BOOL *driven) {
+	*driven = (p->s->mode & CTRL_PORTBDIR) ? FALSE : TRUE;
+	return p->s->portb;
 }
 
 void i8255_outportb(I8255CFG p, BYTE dat) {
@@ -54,7 +85,12 @@ void i8255_outportb(I8255CFG p, BYTE dat) {
 }
 
 BYTE i8255_inportb(I8255CFG p) {
-	return p->s->portb;
+	I8255 s = p->s;
+
+	if (s->mode & CTRL_PORTBDIR) {
+		s->portb = i8255_input_pins(p->peekportb, s->portb);
+	}
+	return s->portb;
 }
 
 void i8255_outportc(I8255CFG p, BYTE dat) {

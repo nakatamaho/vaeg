@@ -17,6 +17,8 @@ extern _SUBSYSTEMIF subsystemif;
 void subsystemif_businporta(BYTE dat);
 void subsystemif_businportb(BYTE dat);
 void subsystemif_businportc(BYTE dat);
+BYTE subsystemif_drivenporta(BOOL *driven);
+BYTE subsystemif_drivenportb(BOOL *driven);
 
 void subsystemif_initialize(void);
 void subsystemif_reset(void);

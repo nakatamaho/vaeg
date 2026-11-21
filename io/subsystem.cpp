@@ -202,6 +202,8 @@ void Subsystem::Initialize() {
 	i8255cfg.busoutporta = subsystemif_businportb;
 	i8255cfg.busoutportb = subsystemif_businporta;
 	i8255cfg.busoutportc = subsystemif_businportc;
+	i8255cfg.peekporta = subsystemif_drivenportb;
+	i8255cfg.peekportb = subsystemif_drivenporta;
 }
 
 void Subsystem::SyncClock() {
@@ -518,6 +520,14 @@ void subsystem_businporta(BYTE dat) {
 
 void subsystem_businportb(BYTE dat) {
 	i8255_businportb(&i8255cfg, dat);
+}
+
+BYTE subsystem_drivenporta(BOOL *driven) {
+	return i8255_drivenporta(&i8255cfg, driven);
+}
+
+BYTE subsystem_drivenportb(BOOL *driven) {
+	return i8255_drivenportb(&i8255cfg, driven);
 }
 
 void subsystem_businportc(BYTE dat) {

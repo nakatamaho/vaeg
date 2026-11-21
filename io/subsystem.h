@@ -34,6 +34,8 @@ BOOL subsystem_loadcpustatus(const UINT8 *buf);
 void subsystem_businporta(BYTE dat);
 void subsystem_businportb(BYTE dat);
 void subsystem_businportc(BYTE dat);
+BYTE subsystem_drivenporta(BOOL *driven);
+BYTE subsystem_drivenportb(BOOL *driven);
 
 void subsystem_reset(void);
 void subsystem_sync_clock(void);
