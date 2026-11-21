@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M154 — V1/V2 モードの音源割り込みが止まる
 
-Status: **IN_PROGRESS; G154 NOT_READY.**
+Status: **COMPLETE; G154 human gate PASSED on 2026-11-21.**
 Branch: `milestone/m154-v2-fm-sound`（origin/main
 [5f3c71e9](https://github.com/nakatamaho/vaeg/commit/5f3c71e95a5f2ad5ec0aee972a50f55eead3b761) から）;
 commit prefix `M154:`.
@@ -63,3 +63,12 @@ commit prefix `M154:`.
 
 G154: 保守者が、このブランチの MinGW ビルドで、報告のプログラムを VA2 と VA
 の V2 モードで起動し、FM の曲が流れることを確認する。
+
+## G154 記録
+
+2026-11-21、保守者が G154 を passed とした（FM の曲が鳴り、問題なし）。
+ゲートで使ったビルドは `bc0c9f64`（Linux ホスト MinGW、
+`Rel.20261121 (m154, bc0c9f64)`、SHA-256
+`d093a61d3b89773c18d86bb8589623aad680df7eac3d99d07df30ab94723c74e`）。
+統合キャンペーン（メディア/デモの回帰、実画面の自動確認）は NOT_RUN
+（保守者の判断で見送り）。リリースは承認されていない。
