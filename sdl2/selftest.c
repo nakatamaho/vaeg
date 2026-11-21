@@ -5526,6 +5526,76 @@ static int test_v1v2_state_sections(void) {
 	return (SUCCESS);
 }
 
+/* M155: two 8255s wired as the PC-8801 main and disk-unit ports. */
+static _I8255CFG selftest_ppi_main_cfg;
+static _I8255CFG selftest_ppi_sub_cfg;
+static _I8255 selftest_ppi_main;
+static _I8255 selftest_ppi_sub;
+
+static void selftest_ppi_sub_to_main_a(BYTE dat) {
+	i8255_businportb(&selftest_ppi_main_cfg, dat);
+}
+
+static void selftest_ppi_sub_to_main_b(BYTE dat) {
+	i8255_businporta(&selftest_ppi_main_cfg, dat);
+}
+
+static void selftest_ppi_sub_to_main_c(BYTE dat) {
+	i8255_businportc(&selftest_ppi_main_cfg, (BYTE)(dat >> 4));
+}
+
+static void selftest_ppi_main_to_sub_c(BYTE dat) {
+	i8255_businportc(&selftest_ppi_sub_cfg, (BYTE)(dat >> 4));
+}
+
+/* A mode word resets the output latches and the peer sees the change. */
+static int test_i8255_mode_reset(void) {
+	const char *problem = NULL;
+
+	i8255_init(&selftest_ppi_main_cfg, &selftest_ppi_main);
+	i8255_init(&selftest_ppi_sub_cfg, &selftest_ppi_sub);
+	selftest_ppi_sub_cfg.busoutporta = selftest_ppi_sub_to_main_a;
+	selftest_ppi_sub_cfg.busoutportb = selftest_ppi_sub_to_main_b;
+	selftest_ppi_sub_cfg.busoutportc = selftest_ppi_sub_to_main_c;
+	selftest_ppi_main_cfg.busoutportc = selftest_ppi_main_to_sub_c;
+	i8255_reset(&selftest_ppi_main_cfg);
+	i8255_reset(&selftest_ppi_sub_cfg);
+	i8255_outctrl(&selftest_ppi_main_cfg, 0x93); /* A, B, C lower in */
+	i8255_outctrl(&selftest_ppi_sub_cfg, 0x81);  /* A, B, C upper out */
+	i8255_outportc(&selftest_ppi_sub_cfg, 0x10); /* PC4 */
+	i8255_outporta(&selftest_ppi_sub_cfg, 0x5a);
+	i8255_outportb(&selftest_ppi_sub_cfg, 0xa5);
+	if (((i8255_inportc(&selftest_ppi_main_cfg) & 0x01) != 0x01) ||
+	    (i8255_inportb(&selftest_ppi_main_cfg) != 0x5a) ||
+	    (i8255_inporta(&selftest_ppi_main_cfg) != 0xa5)) {
+		problem = "sub outputs did not reach the main inputs";
+	}
+	if (problem == NULL) {
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x91);
+		if ((i8255_inportc(&selftest_ppi_sub_cfg) & 0xf0) ||
+		    (i8255_inportc(&selftest_ppi_main_cfg) & 0x01) ||
+		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x00)) {
+			problem = "a mode word did not reset the output latches";
+		}
+	}
+	if (problem == NULL) {
+		/* Bit set/reset words leave the other latches alone. */
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x09); /* set PC4 */
+		i8255_outportb(&selftest_ppi_sub_cfg, 0x3c);
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x0b); /* set PC5 */
+		if (((i8255_inportc(&selftest_ppi_main_cfg) & 0x03) != 0x03) ||
+		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x3c)) {
+			problem = "a bit set/reset word changed another latch";
+		}
+	}
+	if (problem != NULL) {
+		fprintf(stderr, "selftest: i8255 mode failed: %s\n", problem);
+		return (FAILURE);
+	}
+	printf("selftest: i8255 mode reset ok\n");
+	return (SUCCESS);
+}
+
 /* M103c: program the ICU as the VA ROM does for 8214 mode (F000:1317). */
 static void pic8214_test_icu_init(void) {
 	iocore_out8(0x188, 0x11);
@@ -11886,6 +11956,9 @@ int vaeg_selftest_run(void) {
 			return (FAILURE);
 		}
 		if (test_pic8214_mode() != SUCCESS) {
+			return (FAILURE);
+		}
+		if (test_i8255_mode_reset() != SUCCESS) {
 			return (FAILURE);
 		}
 		if (test_tsp_3301_emulation() != SUCCESS) {

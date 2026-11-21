@@ -19,9 +19,12 @@ void i8255_init(I8255CFG p, I8255 s) {
 	p->s = s;
 }
 
+static void i8255_setmode(I8255CFG p, BYTE dat, BOOL notify);
+
 void i8255_reset(I8255CFG p) {
 	ZeroMemory(p->s, sizeof(_I8255));
-	i8255_outctrl(p, 0x80);
+	/* The peer resets itself; do not drive its inputs from here. */
+	i8255_setmode(p, 0x80, FALSE);
 }
 
 // ---- CPU との I/F
@@ -68,16 +71,41 @@ BYTE i8255_inportc(I8255CFG p) {
 	return p->s->portc;
 }
 
+static void i8255_setmode(I8255CFG p, BYTE dat, BOOL notify) {
+	I8255 s = p->s;
+
+	s->mode = dat;
+	s->portcinmask = 0;
+	if (s->mode & CTRL_PORTCHDIR)
+		s->portcinmask |= 0xf0;
+	if (s->mode & CTRL_PORTCLDIR)
+		s->portcinmask |= 0x0f;
+	/*
+	 * A mode set resets every output latch, port C's status bits included
+	 * (uPD8255/i8255 data sheet). PC-8801 disk software relies on it: one
+	 * loader's subsystem code sets PC4 for a transfer and drops it only by
+	 * rewriting the mode word (M155).
+	 */
+	if (!(s->mode & CTRL_PORTADIR)) {
+		s->porta = 0;
+		if (notify && p->busoutporta)
+			p->busoutporta(0);
+	}
+	if (!(s->mode & CTRL_PORTBDIR)) {
+		s->portb = 0;
+		if (notify && p->busoutportb)
+			p->busoutportb(0);
+	}
+	s->portc &= s->portcinmask;
+	if (notify && (s->portcinmask != 0xff) && p->busoutportc)
+		p->busoutportc(s->portc);
+}
+
 void i8255_outctrl(I8255CFG p, BYTE dat) {
 	I8255 s = p->s;
 
 	if (dat & 0x80) {
-		s->mode = dat;
-		s->portcinmask = 0;
-		if (s->mode & CTRL_PORTCHDIR)
-			s->portcinmask |= 0xf0;
-		if (s->mode & CTRL_PORTCLDIR)
-			s->portcinmask |= 0x0f;
+		i8255_setmode(p, dat, TRUE);
 	} else {
 		int bit = (dat >> 1) & 7;
 		BYTE pat = 1 << bit;
