@@ -35,6 +35,35 @@ land.
 
 ## Maintenance Rules
 
+### M155 — 8255 kept its output latches across a mode word
+
+- **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program whose
+  disk-unit code raises PC4 for a transfer and drops it by rewriting the
+  8255 mode word hung after its first transfer.
+- **Demonstrated root cause:** `i8255_outctrl` changed only the mode on a mode
+  set word; an 8255 resets every output latch there. PC4 stayed set and the
+  main CPU waited for it to fall.
+- **Correction:** A mode word clears the output latches and drives the cleared
+  values to the peer; a reset does not drive the peer.
+- **Verification:** A selftest wiring two 8255s as the main and disk-unit
+  ports fails without the correction.
+- **Task/evidence:** [M155 task](../agents/tasks/M155_disk_unit_ppi_seek.md).
+- **Fixing commit:** [f9e391ae4bc56d03b328088479224cb000c41f75](https://github.com/nakatamaho/vaeg/commit/f9e391ae4bc56d03b328088479224cb000c41f75).
+
+### M155 — Seek-end ST0 carried the head address
+
+- **Symptom/scope:** All FDC users: Sense Interrupt Status after Seek or
+  Recalibrate with head 1 returned ST0 24h instead of 20h; disk-unit code that
+  compares ST0 AND FCh with 20h recalibrated for ever.
+- **Demonstrated root cause:** `FDC_Seek` and `FDC_Recalibrate` put the
+  command's head address into ST0. The uPD765 reports only the unit, SE and
+  the interrupt code at seek end (as X88000 `BuildST0`).
+- **Correction:** Seek and Recalibrate build ST0 without the head address.
+- **Verification:** The FDC selftest checks both commands on head 1 and fails
+  without the correction.
+- **Task/evidence:** [M155 task](../agents/tasks/M155_disk_unit_ppi_seek.md).
+- **Fixing commit:** [804e8c9e361030a8ca46cdfe3866cbfdeb2330e9](https://github.com/nakatamaho/vaeg/commit/804e8c9e361030a8ca46cdfe3866cbfdeb2330e9).
+
 ### M154 — V1/V2 sound interrupts stopped after E6h prohibited a latched VRTC
 
 - **Symptom/scope:** VA and VA2 in V1/V2 mode: a program that prohibits the
