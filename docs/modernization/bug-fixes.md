@@ -35,6 +35,22 @@ land.
 
 ## Maintenance Rules
 
+### M157 — 8255 input ports missed data driven before a mode change
+
+- **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program whose
+  disk-unit code puts a transfer header on ports A/B before the main CPU
+  switches its ports to input read stale bytes, loaded data to the wrong
+  address and hung shortly after the game started.
+- **Demonstrated root cause:** An 8255 input port latched a value only when the
+  peer wrote it while the port was already an input; real input ports read the
+  pins the peer is driving.
+- **Correction:** Input ports A/B read the peer's output latch when the peer
+  drives them (connection peek callback); the saved 8255 state is unchanged.
+- **Verification:** An 8255 selftest that drives A/B before the receiver's mode
+  change fails without the correction.
+- **Task/evidence:** [M157 task](../agents/tasks/M157_ppi_input_pins.md).
+- **Fixing commit:** [d8f700b11c4a35e332810336f8508da754b5b041](https://github.com/nakatamaho/vaeg/commit/d8f700b11c4a35e332810336f8508da754b5b041).
+
 ### M156 — A read starting above EOT stopped after one sector
 
 - **Symptom/scope:** All FDC reads: a multi-sector READ DATA whose first R

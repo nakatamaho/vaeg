@@ -145,6 +145,14 @@ void subsystemif_businportc(BYTE dat) {
 	i8255_businportc(&i8255cfg, (BYTE)(dat >> 4));
 }
 
+BYTE subsystemif_drivenporta(BOOL *driven) {
+	return i8255_drivenporta(&i8255cfg, driven);
+}
+
+BYTE subsystemif_drivenportb(BOOL *driven) {
+	return i8255_drivenportb(&i8255cfg, driven);
+}
+
 // ---- I/F
 
 void subsystemif_initialize(void) {
@@ -153,6 +161,8 @@ void subsystemif_initialize(void) {
 	i8255cfg.busoutporta = subsystem_businportb;
 	i8255cfg.busoutportb = subsystem_businporta;
 	i8255cfg.busoutportc = subsystem_businportc;
+	i8255cfg.peekporta = subsystem_drivenportb;
+	i8255cfg.peekportb = subsystem_drivenporta;
 }
 
 void subsystemif_reset(void) {

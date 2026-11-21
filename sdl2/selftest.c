@@ -5636,6 +5636,14 @@ static void selftest_ppi_main_to_sub_c(BYTE dat) {
 	i8255_businportc(&selftest_ppi_sub_cfg, (BYTE)(dat >> 4));
 }
 
+static BYTE selftest_ppi_sub_driven_a(BOOL *driven) {
+	return i8255_drivenporta(&selftest_ppi_sub_cfg, driven);
+}
+
+static BYTE selftest_ppi_sub_driven_b(BOOL *driven) {
+	return i8255_drivenportb(&selftest_ppi_sub_cfg, driven);
+}
+
 /* A mode word resets the output latches and the peer sees the change. */
 static int test_i8255_mode_reset(void) {
 	const char *problem = NULL;
@@ -5674,6 +5682,23 @@ static int test_i8255_mode_reset(void) {
 		if (((i8255_inportc(&selftest_ppi_main_cfg) & 0x03) != 0x03) ||
 		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x3c)) {
 			problem = "a bit set/reset word changed another latch";
+		}
+	}
+	/* M157: the peer drives A/B before this side switches them to input;
+	 * the input ports then read the peer's pins, not a stale latch. */
+	if (problem == NULL) {
+		selftest_ppi_main_cfg.peekporta = selftest_ppi_sub_driven_b;
+		selftest_ppi_main_cfg.peekportb = selftest_ppi_sub_driven_a;
+		i8255_outctrl(&selftest_ppi_main_cfg, 0x80); /* all outputs */
+		i8255_outporta(&selftest_ppi_main_cfg, 0xc0);
+		i8255_outportb(&selftest_ppi_main_cfg, 0xf0);
+		i8255_outctrl(&selftest_ppi_sub_cfg, 0x81);
+		i8255_outporta(&selftest_ppi_sub_cfg, 0x12);
+		i8255_outportb(&selftest_ppi_sub_cfg, 0x34);
+		i8255_outctrl(&selftest_ppi_main_cfg, 0x93); /* A, B input now */
+		if ((i8255_inportb(&selftest_ppi_main_cfg) != 0x12) ||
+		    (i8255_inporta(&selftest_ppi_main_cfg) != 0x34)) {
+			problem = "an input port missed data the peer drove before the mode change";
 		}
 	}
 	if (problem != NULL) {
