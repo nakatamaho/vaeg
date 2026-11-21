@@ -810,7 +810,8 @@ static void FDC_Recalibrate(void) { // cmd: 07
 		get_hdus();
 		fdc_trace_update_fields();
 		fdc.ncn = 0;
-		fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
+		/* Seek end: ST0 carries no head address (M155; X88000 BuildST0). */
+		fdc.stat[fdc.us] = fdc.us;
 		fdc.stat[fdc.us] |= FDCRLT_SE;
 		if (!(fdc.equip & (1 << fdc.us))) {
 			fdc.stat[fdc.us] |= FDCRLT_NR | FDCRLT_IC0;
@@ -966,7 +967,8 @@ static void FDC_Seek(void) { // cmd: 0f
 		get_hdus();
 		fdc_trace_update_fields();
 		fdc.ncn = fdc.cmds[1];
-		fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
+		/* Seek end: ST0 carries no head address (M155; X88000 BuildST0). */
+		fdc.stat[fdc.us] = fdc.us;
 		fdc.stat[fdc.us] |= FDCRLT_SE;
 		if ((!(fdc.equip & (1 << fdc.us))) || (!fddfile[fdc.us].fname[0])) {
 			fdc.stat[fdc.us] |= FDCRLT_NR | FDCRLT_IC0;

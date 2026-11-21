@@ -1571,6 +1571,34 @@ static BOOL selftest_fdc_take_result(BYTE expected_st0, BYTE expected_st1) {
 	return (SUCCESS);
 }
 
+/* M155: Seek/Recalibrate on head 1 end with ST0 = SE | drive, no head address. */
+static BOOL selftest_fdc_seek_end(const BYTE *command, UINT length, BYTE expected_pcn) {
+	const BYTE sense[] = {0x08};
+	BYTE st0;
+	BYTE pcn;
+
+	_NEVENTITEM item;
+
+	selftest_fdc_send_command(command, length);
+	/* Complete the seek's interrupt delay as the event queue would. */
+	nevent_reset(NEVENT_FDCINT);
+	ZeroMemory(&item, sizeof(item));
+	item.flag = NEVENT_SETEVENT;
+	fdc_intwait(&item);
+	selftest_fdc_send_command(sense, NELEMENTS(sense));
+	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) != (FDCSTAT_RQM | FDCSTAT_DIO)) {
+		return (FAILURE);
+	}
+	st0 = fdc_dataread();
+	pcn = fdc_dataread();
+	if ((st0 != 0x20) || (pcn != expected_pcn)) {
+		fprintf(stderr, "selftest: seek end ST0=%02x PCN=%02x expected 20/%02x\n", st0, pcn,
+		        expected_pcn);
+		return (FAILURE);
+	}
+	return (SUCCESS);
+}
+
 static void selftest_fdc_prepare(const SELFTESTFDDPROFILE *profile, UINT drive, UINT head,
                                  UINT physical_cylinder, UINT density_96) {
 	const BYTE specify[] = {0x03, 0xdf, 0x01};
@@ -1937,6 +1965,16 @@ static int test_fdd_d88_production_path(void) {
 			if (fdc_data[index] !=
 			    selftest_fdd_profile_byte(profile->cylinders * 2 - 1, profile->sectors, index)) {
 				result = fail("fdd-media", "FDC READ DATA returned incorrect last-sector bytes");
+				goto fdd_2d_cleanup;
+			}
+		}
+		{
+			const BYTE seek_head1[] = {0x0f, 0x04, 0x01};
+			const BYTE recalibrate_head1[] = {0x07, 0x04};
+			if ((selftest_fdc_seek_end(seek_head1, NELEMENTS(seek_head1), 0x01) != SUCCESS) ||
+			    (selftest_fdc_seek_end(recalibrate_head1, NELEMENTS(recalibrate_head1), 0x00) !=
+			     SUCCESS)) {
+				result = fail("fdd-media", "seek end ST0 carried the head address");
 				goto fdd_2d_cleanup;
 			}
 		}
