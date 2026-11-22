@@ -32,3 +32,9 @@ This page moved. The CPU checks and their boundaries are documented in:
   uPD9002 native mode against the SingleStepTests V20 corpus;
 - [docs/modernization/qa/z80-family.md](qa/z80-family.md): the uPD9002
   uPD70008-compatible mode and the FDC uPD780C.
+
+[M159 mode-transition coverage](upd9002-upd70008-mode.md#21-the-md-flag)
+checks native PUSHF/interrupt high bits, compatible CALLN and interrupt
+frames, a nested native IRET, same-SP MD=1 and relocated MD=0 returns,
+RETEM, and DF across a saved-state round trip. The unknown behavior after
+BRKEM with DF=1 is diagnostic-only, not a conformance pass.

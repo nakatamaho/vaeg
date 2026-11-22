@@ -35,6 +35,25 @@ land.
 
 ## Maintenance Rules
 
+### M159 — uPD9002 saved PSW high bits and IRET mode selection
+
+- **Symptom/scope:** On the VA and VA2 main CPU, stack PSW images could
+  omit reserved high bits or mark compatible CALLN frames as native. A
+  native IRET used the original stack position instead of the saved MD bit.
+- **Demonstrated root cause:** PUSHF and mode-entry paths copied cached
+  high bits, native external interrupts suppressed them, and compatible
+  returns were keyed to a recorded SP.
+- **Correction:** Emit reserved bits 14–12 and the current MD when saving
+  PSW. Interpret MD during a compatible-mode native excursion, independently
+  of SP. Preserve DF and the compatible F byte. RETEM remains a native exit.
+- **Verification:** Instruction and SAV tests cover high PSW bits, nested
+  native IRQ return, compatible IRQ return, a relocated MD=0 frame, and an
+  MD=1 frame at the original SP.
+- **Open:** The subsequent hardware behavior of BRKEM with DF=1 is
+  unresolved. vaeg warns and leaves execution unchanged.
+- **Task:** [M159](../agents/tasks/M159_upd9002_df_psw.md).
+- **Fixing commit:** [5c172aa9c4a7861ba222bb4fe4eb218cf316a437](https://github.com/nakatamaho/vaeg/commit/5c172aa9c4a7861ba222bb4fe4eb218cf316a437).
+
 ### M157 — 8255 input ports missed data driven before a mode change
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program whose

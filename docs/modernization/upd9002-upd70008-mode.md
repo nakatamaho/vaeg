@@ -121,6 +121,23 @@ is not an ordinary writable flag bit: there is a write-enable condition
 around it. Model it as a latch with its own write rule, not as bit 15 of
 a plain flags word (§13 for how MAME splits this into two fields).
 
+**M159 implementation.** PUSHF and native-stack mode/interrupt frames
+materialize bits 14–12 as ones and bit 15 from the current decoder,
+not from the flag cache. BRKEM/BRKEM2 save MD=1; CALLN and native
+interrupt entry from compatible mode save MD=0. Nested native interrupt
+frames save MD=1. The compatible F byte remains unmodified in a saved
+PSW, and DF (bit 10) is independent of MD.
+
+After CALLN or a native interrupt from compatible mode, IRET honors the
+popped MD. An MD=0 frame can be dispatched from a different stack
+address; an MD=1 frame does not switch modes even at the original SP.
+Ordinary native IRET outside a compatible-mode excursion cannot enter
+compatible mode. RETEM ends the session, restoring native flags and
+returning to the native decoder. POPF behavior is unchanged by M159.
+The UPD9MODE section retains its size: the old SP word is now reserved.
+This does not reinterpret a pre-fix stack word saved with an incorrect
+MD bit as MD=0.
+
 ### 2.2 Mode-transition instructions
 
 Notation: `push(x)` is `SP ← SP − 2; (SS:SP) ← x`. `vec(n)` is the
@@ -2628,6 +2645,13 @@ photographs, per row.
 # Part IV — Open questions and tests
 
 ## 15. Open questions
+
+**BRKEM with DF=1 (M159).** The subsequent hardware instruction fetch
+and decoder state are unknown. vaeg retains normal compatible entry,
+logs one warning per process, and emits a `brkem-df-set` CPU trace
+event on each such BRKEM. A follow-up hardware probe should distinguish
+failure to fetch the target from a different fetch address or an altered
+decode path. BRKEM2 is not covered by this warning.
 
 ### 15.1 Resolvable from documents not yet obtained
 
