@@ -1287,11 +1287,13 @@ static int compat_block_df_selftest(void) {
 			CPU_REMCLOCK = 10000;
 			CPU_BX = 0x0600;
 			CPU_DX = 0x0700;
-			CPU_CX = ((suffix & 3) >= 2) ? 0x0250 : 2;
+			// The neighboring ED word transfers also use CX as a count.
+			const bool block = (suffix & 4) == 0;
+			CPU_CX = (block && (suffix & 3) >= 2) ? 0x0250 : 2;
 			CPU_AL = 0x42;
 			upd9002_iotrap = {};
 			mem[0x0600] = mem[0x0601] = mem[0x05ff] = 0x12;
-			// BRKEM2  e1; ED suffix; POP AF (F=0); NOP.
+			// BRKEM2 e1; ED suffix; POP AF (F=0).
 			mem[0x0100] = 0x0f;
 			mem[0x0101] = 0xfe;
 			mem[0x0102] = 0xe1;
@@ -1310,7 +1312,6 @@ static int compat_block_df_selftest(void) {
 			CS_BASE = DS_BASE = SS_BASE = 0;
 			upd9002_core_step();
 			upd9002_core_step();
-			const bool block = (suffix & 4) == 0;
 			const bool repeat = block && (suffix & 0x10);
 			const bool df = block ? (suffix & 8) != 0 : seed != 0;
 			passed = CPU_IP == (repeat ? 0x0200 : 0x0202) && !!(CPU_FLAG & D_FLAG) == df;
