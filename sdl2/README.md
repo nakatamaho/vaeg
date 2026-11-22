@@ -71,6 +71,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--rotate none|right`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
+| Printer and serial | `--printer-out PATH`, `--printer-busy-frames N`, `--serial-in PATH`, `--serial-out PATH`; see [file backend semantics](../docs/modernization/printer-serial-files.md) |
 | Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--headless-audio`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII

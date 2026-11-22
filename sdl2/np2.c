@@ -377,6 +377,8 @@ static void usage(const char *progname) {
 	printf("\t\tup|down|left|right|home|help|insert|delete|f1..f10|shift-f1..f10\n");
 	printf("\t\tshift-up|shift-down|shift-left|shift-right; @enter; @wait N\n");
 	printf("\t--debug-script path --debug-output-dir directory\n");
+	printf("\t--printer-out path --printer-busy-frames count\n");
+	printf("\t--serial-in path --serial-out path\n");
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
 	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
 	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
@@ -1686,6 +1688,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
+		commng_files_frame();
 		const VAEG_RECORDING_RUNTIME_RESULT recording_step =
 		    vaeg_recording_runtime_step(recording_batch_mode);
 		if (recording_step == VAEG_RECORDING_RUNTIME_BATCH_FAILED) {
@@ -2398,6 +2401,10 @@ int main(int argc, char **argv) {
 		splash_started = GETTICK();
 	}
 
+	if (commng_files_open(options.printer_out, options.printer_busy_frames, options.serial_in,
+	                      options.serial_out) != SUCCESS) {
+		goto np2main_err3;
+	}
 	soundmng_initialize();
 	soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
 	soundmng_setmastervolume(np2oscfg.master_volume);
@@ -2487,6 +2494,10 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
+	if (commng_files_close() != SUCCESS) {
+		fprintf(stderr, "Error: device file I/O failed\n");
+		run_ok = FAILURE;
+	}
 	scsiio_trace_census_report();
 	hostfat_manager_shutdown();
 	dropmedia_shutdown();

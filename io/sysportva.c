@@ -15,6 +15,7 @@
 #include "beep.h"
 #include "cmt.h"
 #include "sysmng.h"
+#include "commng.h"
 #include "memoryva.h"
 #include "memctrlva.h"
 #include "bkupmemva.h"
@@ -51,7 +52,6 @@ static void calendar_ondataset() {
 static void IOOUTCALL sysp_o010(UINT port, REG8 dat) {
 	sysportva.port010 = dat;
 	calendar_ondataset();
-	// The printer data output sharing port 010H is not yet modeled.
 }
 
 static void IOOUTCALL sysp_o032(UINT port, REG8 dat) {
@@ -86,10 +86,13 @@ static REG8 IOINPCALL sysp_i032(UINT port) {
  *   bit0	XPSTB
  */
 static void IOOUTCALL sysp_o040(UINT port, REG8 dat) {
+	/* XPSTB is active low (Technical Manual §2.2, system port 3). */
+	if ((sysportva.port040 & 1) && !(dat & 1)) {
+		commng_printer_strobe(sysportva.port010);
+	}
 	sysportva.port040 = dat;
 	calendar_ondataset();
 	mouseifva_outstrobe((UINT8)((dat & 0x40) >> 6));
-	// Bit 5 BEEP and bit 7 FBEEP; the printer strobe is not modelled.
 	beep_oneventset();
 	beep_portsoundset();
 }
@@ -114,15 +117,15 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	      ((uPD4990.cdat & 0x01) << 4) | // CDI: calendar serial data input.
 	      ((videova_hsyncmode() == VIDEOVA_24_8KHZ) ? 0 : 0x02) |
 	      // SW1: 0 for 24.8 kHz, 1 for 15.7 kHz.
-	      0x01; // PBSY: printer not busy in the current model.
+	      (commng_printer_busy() ? 0x01 : 0); // PBSY: 0 ready, 1 busy.
 	// SW7 OFF (skip the V3 boot search, enter V1/V2): only for the vaeg N
 	// mode, which must start without a disk, and only until compatible code
 	// starts, so that N-BASIC still boots a disk in drive 1.
 	if (memctrlva_nmode_boot_search()) {
 		ret |= 0x08;
 	}
-	// Bit 2: PC-8801 cassette carrier detect (vaeg cassette extension).
-	if (cmt_carrier()) {
+	// Bit 2: active-low DCD, or PC-8801 cassette carrier when selected.
+	if (cmt_selected() ? cmt_carrier() : (rs232c_stat() & 0x20) != 0) {
 		ret |= 0x04;
 	}
 
@@ -235,7 +238,7 @@ void systemportva_reset(void) {
 	sysportva.a = (sysportva.a & ~0x20) | 0xc1 | (np2cfg.v1v2_standard ? 0 : 0x20);
 	sysportva.c = 0xf9;
 	sysportva.port010 = 0;
-	sysportva.port040 = 0;
+	sysportva.port040 = 1;     // XPSTB idle.
 	sysportva.port190 &= 0x01; // Preserve only RSTMD.
 	sysportva.port190 |= 0x18; // Restore FBEN=1 and AVC=10b.
 	beep_oneventset();
