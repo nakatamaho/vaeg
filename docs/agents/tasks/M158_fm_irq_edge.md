@@ -69,6 +69,16 @@ commit prefix `M158:`.
 - `tools/repo/check_case.py`、`check_encoding.py`、`check_eol.py`、
   `check_md_comments.py` PASS。
 
+## 統合キャンペーン
+
+保守者の指示で、両方を実施した（2026-11-22、G158 の前）。結果は
+[M158 integration QA](../reports/m158_integration_qa.md)。デモ媒体と
+ユーティリティ媒体のビルドは、`demos/`、`tools/`、`external/` が M157 の評価
+コミットと同じなので M157 の結果を使った。全デモの描画 34/34、MANDEL.BAS、
+自己起動 SGP、ユーティリティ FDD と SASI の起動 4/4 が PASS。実画面の
+自動確認（仮想 X11）は、速度画面 10 ケースを撮影（OCR は NOT_RUN）、
+レイアウト 32/32 一致（APPROVAL_REQUIRED）。
+
 ## Gate
 
 G158: 保守者が、このブランチの MinGW ビルドで、報告のプログラムを VA と
