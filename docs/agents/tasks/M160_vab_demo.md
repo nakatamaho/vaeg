@@ -22,7 +22,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M160 — ビデオアートボードのサンプルディスク
 
-Status: **IN PROGRESS; awaiting G160.**
+Status: **COMPLETE; G160 human gate PASSED on 2026-11-22.**
 Branch: `milestone/m160-vab-demo`（origin/main
 [3c2c9cd0](https://github.com/nakatamaho/vaeg/commit/3c2c9cd0) から）;
 commit prefix `M160:`.
@@ -65,3 +65,15 @@ IPL は拡張 RAM のカード位置を順に選んで B4h の読み戻しでボ
 
 G160: 保守者が vaeg で `vab-samples.d88` を V2 モードで起動し、2 枚の画像が
 キーで切り替わることを確認する。
+
+## G160 記録
+
+2026-11-22、保守者が G160 を passed とし、main へのマージを指示した。
+対象は `6c70c25a`（`vab-samples.d88` SHA-256
+`38eec379e1a1e5d4b72c963483e86cd30a345024eb300cfaf763f6b6f6b124fb`）。
+リリースは承認されていない。
+
+## 統合キャンペーン
+
+保守者の判断で、両方とも実施しない（メディア/デモの回帰、実画面の自動
+確認とも NOT_RUN）。エミュレータ本体の変更はない。
