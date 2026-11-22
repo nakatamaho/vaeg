@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M158 — 音源割り込みが、フラグの残ったタイマーで再要求される
 
-Status: **IN PROGRESS; awaiting G158.**
+Status: **COMPLETE; G158 human gate PASSED on 2026-11-22.**
 Branch: `milestone/m158-stall-case`（origin/main
 [a913388f](https://github.com/nakatamaho/vaeg/commit/a913388fde308347394aaebec2648481f9c8b948) から）;
 commit prefix `M158:`.
@@ -68,6 +68,13 @@ commit prefix `M158:`.
 - `vaeg --selftest`（ダミー SDL）PASS。
 - `tools/repo/check_case.py`、`check_encoding.py`、`check_eol.py`、
   `check_md_comments.py` PASS。
+
+## G158 記録
+
+2026-11-22、保守者が G158 を passed とした。ゲートで使ったビルドは
+`d1fef621`（Linux ホスト MinGW、`Rel.20261122 (m158, d1fef621)`、SHA-256
+`241f9745c9d567ce52d0887a298328867b808bbcbe891b2f51e727194e7c8510`）。
+リリースは承認されていない。
 
 ## 統合キャンペーン
 
