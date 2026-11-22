@@ -8569,6 +8569,9 @@ static int test_n80_fm_mask(void) {
 				iocore_out8(0x33, 1); /* unrelated bit: do not re-offer a consumed request */
 				if (pic8214.irr || pic.pi[1].irr)
 					problem = "M144A_N80_FM_UNCHANGED_MASK";
+				/* Release the held /IRQ so that the next overflow is a new
+				 * request (M158: a flag still set issues none). */
+				fmtimer_setreg(0x27, timer ? 0x28 : 0x14);
 				if (timer)
 					fmport_b(&item);
 				else
@@ -8616,6 +8619,72 @@ static int test_n80_fm_mask(void) {
 	if (problem)
 		return fail("N80 FM mask", problem);
 	fprintf(stderr, "selftest: N80 FM mask %u selections and 4 timer/controller cases ok\n", cases);
+	return SUCCESS;
+}
+
+/* M158: the OPN /IRQ output is a level, so an overflow while a timer flag
+ * is still set issues no new 8214 request; resetting the flag re-arms it. */
+static int test_fm_irq_edge(void) {
+	const BOOL saved_pc8001 = memoryva_pc8001;
+	const BYTE saved_mode = memoryva_88_mode;
+	const _MEMORYN80 saved_bank = memoryn80;
+	const char *problem = NULL;
+	_NEVENTITEM item;
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	memoryva_pc8001 = TRUE;
+	memoryva_88_mode = TRUE;
+	memoryn80.model = 2;
+	memoryn80.port33 = 0;
+	pic8214.mode8259 = 0;
+	pic8214.inte = 0; /* inspect queued requests, not CPU delivery */
+	fmtimer_reset(0xc0);
+	fmtimer_setreg(0x27, 0x0c); /* enable the flags of timers A and B */
+	iocore_out8(0x33, 0);
+	ZeroMemory(&item, sizeof(item));
+	item.flag = NEVENT_SETEVENT;
+	pic8214.irr = 0;
+	fmport_b(&item);
+	if (fmtimer.status != 2 || pic8214.irr != 0x10)
+		problem = "M158_FM_IRQ_FIRST";
+	if (!problem) {
+		pic8214.irr = 0; /* accepted by the CPU */
+		fmport_b(&item);
+		if (fmtimer.status != 2 || pic8214.irr)
+			problem = "M158_FM_IRQ_HELD";
+	}
+	if (!problem) {
+		fmport_a(&item);
+		if (fmtimer.status != 3 || pic8214.irr)
+			problem = "M158_FM_IRQ_OTHER_FLAG";
+	}
+	if (!problem) {
+		fmtimer_setreg(0x27, 0x0c | 0x10); /* reset A only: /IRQ stays active */
+		fmport_a(&item);
+		if (fmtimer.status != 3 || pic8214.irr)
+			problem = "M158_FM_IRQ_PARTIAL_RESET";
+	}
+	if (!problem) {
+		fmtimer_setreg(0x27, 0x0c | 0x30);
+		if (fmtimer.status || pic8214.irr)
+			problem = "M158_FM_IRQ_RESET";
+		fmport_b(&item);
+		if (!problem && (fmtimer.status != 2 || pic8214.irr != 0x10))
+			problem = "M158_FM_IRQ_REARM";
+	}
+	pic8214.irr = 0;
+	nevent_reset(NEVENT_FMTIMERA);
+	nevent_reset(NEVENT_FMTIMERB);
+	memoryva_pc8001 = saved_pc8001;
+	memoryva_88_mode = saved_mode;
+	memoryn80 = saved_bank;
+	pccore_term();
+	soundmng_deinitialize();
+	if (problem)
+		return fail("FM IRQ edge", problem);
+	fprintf(stderr, "selftest: FM IRQ edge ok\n");
 	return SUCCESS;
 }
 
@@ -12126,6 +12195,9 @@ int vaeg_selftest_run(void) {
 			return (FAILURE);
 		}
 		if (test_n80_fm_mask() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_fm_irq_edge() != SUCCESS) {
 			return FAILURE;
 		}
 		if (test_n80_crtc_irq() != SUCCESS) {
