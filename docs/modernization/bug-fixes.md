@@ -35,6 +35,78 @@ land.
 
 ## Maintenance Rules
 
+### M159 — uPD9002 saved PSW high bits and IRET mode selection
+
+- **Symptom/scope:** On the VA and VA2 main CPU, stack PSW images could
+  omit reserved high bits or mark compatible CALLN frames as native. A
+  native IRET used the original stack position instead of the saved MD bit.
+- **Demonstrated root cause:** PUSHF and mode-entry paths copied cached
+  high bits, native external interrupts suppressed them, and compatible
+  returns were keyed to a recorded SP.
+- **Correction:** Emit reserved bits 14–12 and the current MD when saving
+  PSW. Interpret MD during a compatible-mode native excursion, independently
+  of SP. Preserve DF and the compatible F byte. RETEM remains a native exit.
+- **Verification:** Instruction and SAV tests cover high PSW bits, nested
+  native IRQ return, compatible IRQ return, a relocated MD=0 frame, and an
+  MD=1 frame at the original SP.
+- **Open:** The subsequent hardware behavior of BRKEM with DF=1 is
+  unresolved. vaeg warns and leaves execution unchanged.
+- **Task:** [M159](../agents/tasks/M159_upd9002_df_psw.md).
+- **Fixing commit:** [5c172aa9c4a7861ba222bb4fe4eb218cf316a437](https://github.com/nakatamaho/vaeg/commit/5c172aa9c4a7861ba222bb4fe4eb218cf316a437).
+
+### M159 follow-up — Debug script line numbers and paste scheduling
+
+- **Symptom/scope:** Debug script errors reported inflated line numbers for
+  CRLF input. A scripted key after `input-line` could run late or be dropped
+  at the frame limit, depending on host speed.
+- **Demonstrated root cause:** The parser overwrote CR before testing for
+  CRLF; the debug paste queue waited for host ticks as well as guest frames.
+- **Correction:** Treat CRLF as one delimiter and advance debug paste on
+  guest frames only. Ordinary clipboard and startup typing keep their host
+  pacing. The guest-frame minimum per make/break phase remains in effect.
+- **Verification:** The M152 parser contract checks equivalent LF/CRLF event
+  streams, one malformed key at its exact source line, and identical paste
+  completion frames in normal and No Wait modes.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [4dc2cb7b](https://github.com/nakatamaho/vaeg/commit/4dc2cb7b79371bddb38a4c39cb291a87cd54258b).
+
+### M159 follow-up — GVAM selftest used a torn-down I/O core
+
+- **Symptom/scope:** Full selftest and trace equivalence could crash on
+  Windows or under AddressSanitizer before exercising the GVAM assertions.
+- **Demonstrated root cause:** The test read port 32h after the preceding
+  fixture had freed the I/O dispatch tables.
+- **Correction/verification:** Give the 32 existing GVAM cases their own
+  initialized, reset and subsequently torn-down machine fixture, still
+  through the real port handlers.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [4dd94fc8](https://github.com/nakatamaho/vaeg/commit/4dd94fc80730acc8dbca7fcbba2d8c499c1fd850).
+
+### M159 follow-up — N80 CRTC selftest left its audio callback live
+
+- **Symptom/scope:** A later full selftest fixture could crash in the SDL
+  audio callback while reinitializing the sound stream.
+- **Demonstrated root cause:** The N80 CRTC IRQ test opened an audio device
+  via `pccore_init()` and did not terminate the machine. A later fixture
+  could clear the stream state while that callback was using it.
+- **Correction/verification:** Pair initialization and teardown in the
+  CRTC IRQ fixture. The full selftest still runs the same VRTC boundary,
+  mask, acknowledge and withdrawal assertions.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [e16934c8](https://github.com/nakatamaho/vaeg/commit/e16934c8c231a6450fb27dc6ba6884d2fb54e2d7).
+
+### M159 follow-up — Host playback advanced the PCG phase fixture
+
+- **Symptom/scope:** The PCG phase SAV guard could report lost atomicity in
+  the full selftest even though the rejected load did not change guest state.
+- **Demonstrated root cause:** The host audio callback could advance PCG
+  phase concurrently with the fixture's explicit PCM samples and state checks.
+- **Correction/verification:** Hold host playback off for the synchronous
+  fixture, including across state loads, then restore it. Keep the exact
+  malformed-state atomicity and PCM continuation comparisons.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [90eca3cd](https://github.com/nakatamaho/vaeg/commit/90eca3cd31b8e3099568b487ea009eae3e02c124).
+
 ### M158 — A held OPN timer flag re-requested the sound interrupt
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program that

@@ -110,8 +110,12 @@ class RecordedPatchTest(unittest.TestCase):
         self.assertEqual(inspect(members, checker.MODE_SOURCE), [])
 
     def test_modified_patch_content(self):
-        members = [PLAIN, (self.name, self.data + b"\n")]
-        self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_CONTENT"])
+        for name in checker.SOURCE_ARCHIVE_PATCHES:
+            with self.subTest(name=name):
+                data = (ROOT / name).read_bytes()
+                self.assertEqual(inspect([PLAIN, (name, data)], checker.MODE_SOURCE), [])
+                members = [PLAIN, (name, data + b"\n")]
+                self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_CONTENT"])
 
     def test_same_content_elsewhere(self):
         members = [PLAIN, ("docs/agents/reports/other.patch", self.data)]
@@ -122,7 +126,11 @@ class RecordedPatchTest(unittest.TestCase):
         self.assertEqual(codes(inspect(members, checker.MODE_SOURCE)), ["PATCH_WORK"])
 
     def test_reject_recorded_patch_in_release(self):
-        self.assertEqual(codes(inspect(self.fixture, checker.MODE_RELEASE)), ["PATCH_UNAPPROVED"])
+        self.assertEqual(inspect([PLAIN], checker.MODE_RELEASE), [])
+        for name in checker.SOURCE_ARCHIVE_PATCHES:
+            with self.subTest(name=name):
+                members = [PLAIN, (name, (ROOT / name).read_bytes())]
+                self.assertEqual(codes(inspect(members, checker.MODE_RELEASE)), ["PATCH_UNAPPROVED"])
 
 
 class ReleaseModeTest(unittest.TestCase):

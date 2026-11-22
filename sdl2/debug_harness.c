@@ -628,8 +628,10 @@ static BOOL debug_parse_buffer(char *buffer, UINT size) {
 			return FAILURE;
 		}
 		if (position < size) {
+			const char delimiter = buffer[position];
+
 			buffer[position++] = '\0';
-			if ((position < size) && (buffer[position - 1] == '\r') && (buffer[position] == '\n')) {
+			if ((position < size) && (delimiter == '\r') && (buffer[position] == '\n')) {
 				position++;
 			}
 		}
@@ -1016,7 +1018,7 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 					text[length + 1] = '\0';
 				}
 			}
-			if ((text == NULL) || !kbdpaste_start_text(text)) {
+			if ((text == NULL) || !kbdpaste_start_debug_text(text)) {
 				free(text);
 				return FAILURE;
 			}

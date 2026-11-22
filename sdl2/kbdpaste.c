@@ -62,6 +62,7 @@ typedef struct {
 	BOOL shift_down;
 	BOOL key_down;
 	BOOL scripted; /* from a script: not held by GUI keyboard focus */
+	BOOL frame_only; /* debug scripts are scheduled on the guest timeline */
 	char status[KBDPASTE_STATUS_SIZE];
 } KBDPASTE_STATE;
 
@@ -331,7 +332,7 @@ void kbdpaste_shutdown(void) {
 	clear_queue();
 }
 
-static BOOL kbdpaste_start(const char *text, BOOL scripted) {
+static BOOL kbdpaste_start(const char *text, BOOL scripted, BOOL frame_only) {
 	size_t capacity;
 	size_t count;
 	UINT skipped;
@@ -363,6 +364,7 @@ static BOOL kbdpaste_start(const char *text, BOOL scripted) {
 	}
 	paste.actions = actions;
 	paste.scripted = scripted;
+	paste.frame_only = frame_only;
 	paste.count = count;
 	paste.skipped = skipped;
 	paste.phase = actions[0].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
@@ -388,7 +390,7 @@ BOOL kbdpaste_start_clipboard(void) {
 		snprintf(paste.status, sizeof(paste.status), "Paste failed: %s", SDL_GetError());
 		return FALSE;
 	}
-	started = kbdpaste_start(text, FALSE);
+	started = kbdpaste_start(text, FALSE, FALSE);
 	SDL_free(text);
 	return started;
 }
@@ -398,24 +400,16 @@ BOOL kbdpaste_start_clipboard(void) {
  * dummy video driver that is at screenshot frames, so a stale capture could
  * hold a scripted paste for ever (M106). */
 BOOL kbdpaste_start_text(const char *text) {
-	return kbdpaste_start(text, TRUE);
+	return kbdpaste_start(text, TRUE, FALSE);
 }
 
-void kbdpaste_tick(UINT32 now, BOOL paused) {
-	KBDPASTE_ACTION *action;
-	BOOL cleanup_only;
+BOOL kbdpaste_start_debug_text(const char *text) {
+	return kbdpaste_start(text, TRUE, TRUE);
+}
 
-	if ((paste.actions == NULL) || ((SINT32)(now - paste.next_tick) < 0)) {
-		return;
-	}
-	action = &paste.actions[paste.index];
-	cleanup_only = FALSE;
-	if (paste.scripted) {
-		paused = FALSE;
-	}
-	if (!paused && (paste.frames < kbdpaste_frames_per_event())) {
-		return;
-	}
+static void kbdpaste_advance(UINT32 now, BOOL paused) {
+	KBDPASTE_ACTION *action = &paste.actions[paste.index];
+	BOOL cleanup_only = FALSE;
 	if (paused) {
 		if (paste.phase == KBDPASTE_PHASE_KEY_UP) {
 			kbdinject_keyup(action->guest_code);
@@ -492,10 +486,23 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 	paste.frames = 0;
 }
 
-/* Called after every guest frame. */
+void kbdpaste_tick(UINT32 now, BOOL paused) {
+	if ((paste.actions == NULL) || paste.frame_only || ((SINT32)(now - paste.next_tick) < 0)) {
+		return;
+	}
+	paused = paused && !paste.scripted;
+	if (paused || (paste.frames >= kbdpaste_frames_per_event())) {
+		kbdpaste_advance(now, paused);
+	}
+}
+
+/* Called after every guest frame, before the debug script's frame actions. */
 void kbdpaste_frame(void) {
 	if ((paste.actions != NULL) && (paste.frames < kbdpaste_frames_per_event())) {
 		paste.frames++;
+		if (paste.frame_only && (paste.frames >= kbdpaste_frames_per_event())) {
+			kbdpaste_advance(0, FALSE);
+		}
 	}
 }
 

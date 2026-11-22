@@ -97,6 +97,7 @@ static int run_interrupt_case(const char *name, const UINT8 *instruction, UINT i
 	const UINT16 initial_cs = 0x2000;
 	const UINT16 initial_ip = 0x0100;
 	UINT16 actual_saved_flags;
+	const UINT16 expected_flags = (flags & 0x0fff) | 0xf000;
 	UINT16 saved_ip;
 
 	setup_state(instruction, instruction_size, flags, ss, sp);
@@ -108,10 +109,10 @@ static int run_interrupt_case(const char *name, const UINT8 *instruction, UINT i
 		return fail_case(name, "final SP changed");
 	}
 	actual_saved_flags = read_segment_word(ss, (UINT16)(sp - 2));
-	if (actual_saved_flags != flags) {
+	if (actual_saved_flags != expected_flags) {
 		fprintf(stderr,
 		        "upd9002-flags-materialization: %s: saved FLAGS expected=%04x actual=%04x\n", name,
-		        flags, actual_saved_flags);
+		        expected_flags, actual_saved_flags);
 		return fail_case(name, "saved FLAGS image differs");
 	}
 	if (read_segment_word(ss, (UINT16)(sp - 4)) != initial_cs) {
@@ -263,8 +264,8 @@ static int run_pushf_case(const char *name, UINT16 flags, UINT16 ss, UINT16 sp) 
 	initial_ip = CPU_IP;
 	upd9002_core_step();
 	if ((CPU_SP != (UINT16)(sp - 2)) || (CPU_IP != (UINT16)(initial_ip + 1)) ||
-	    (read_segment_word(ss, (UINT16)(sp - 2)) != flags) || (CPU_AX != 0x1357) ||
-	    (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
+	    (read_segment_word(ss, (UINT16)(sp - 2)) != ((flags & 0x0fff) | 0xf000)) ||
+	    (CPU_AX != 0x1357) || (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
 		return fail_case(name, "ordinary PUSHF state differs");
 	}
 	return SUCCESS;

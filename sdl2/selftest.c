@@ -4987,7 +4987,7 @@ static int test_compat_mode_state(void) {
 		SS_BASE = 0x30000;
 		CPU_SP = 0x0100;
 		CPU_BP = 0x0200;
-		CPU_FLAG = 0xf002;
+		CPU_FLAG = 0x0442;   /* DF=1, with no high bits in the flag cache. */
 		upd9002_core_step(); /* BRKEM */
 		upd9002_core_step(); /* CALLN: native handler, return pending */
 		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) || !CPU_COMPAT_RETURN_PENDING ||
@@ -5004,15 +5004,20 @@ static int test_compat_mode_state(void) {
 	if (problem == NULL) {
 		pccore_reset();
 		if ((statsave_load(path) != STATFLAG_SUCCESS) || !CPU_COMPAT_RETURN_PENDING ||
-		    !upd9002_core_compat_iret_is_return()) {
+		    (LOADINTELWORD(mem + SS_BASE + CPU_SP + 4) != 0x7442)) {
 			problem = "pending CALLN return was not restored";
 		}
 	}
 	if (problem == NULL) {
-		mem[0x23000] = 0xcf; /* IRET */
+		mem[0x23000] = 0x9c; /* PUSHF */
+		mem[0x23001] = 0x58; /* POP AX */
+		mem[0x23002] = 0xcf; /* IRET */
 		upd9002_core_step();
-		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) || (CPU_IP != 0x1003)) {
-			problem = "restored handler did not return to compatible mode";
+		upd9002_core_step();
+		upd9002_core_step();
+		if ((CPU_AX != 0xf442) || (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
+		    (CPU_IP != 0x1003) || !(CPU_FLAG & D_FLAG)) {
+			problem = "restored handler did not preserve native PUSHF or compatible DF";
 		}
 	}
 	if ((problem == NULL) &&
@@ -5504,15 +5509,18 @@ static BOOL v1v2_state_is_nondefault(void) {
 }
 
 static int test_gvam_transition(void) {
-	const UINT8 saved_mode = memoryva_88_mode;
-	const UINT8 saved_plane = memoryva_88_plane;
-	const UINT8 saved_gvam = memoryva_88_alu.gvam;
-	const REG8 saved_port = iocore_inp8(0x032);
+	REG8 saved_port;
 	const char *problem = NULL;
 	UINT native;
 	UINT old;
 	UINT next;
 	UINT plane;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	saved_port = iocore_inp8(0x032);
 
 	/* Exercise the real port handler: both edges, both same-value writes,
 	 * every independent selection, and unchanged native-mode behavior. */
@@ -5532,10 +5540,8 @@ static int test_gvam_transition(void) {
 			}
 		}
 	}
-	iocore_out8(0x032, saved_port);
-	memoryva_88_mode = saved_mode;
-	memoryva_88_plane = saved_plane;
-	memoryva_88_alu.gvam = saved_gvam;
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return fail("GVAM transitions", problem);
 	}
@@ -8397,6 +8403,8 @@ static int test_n80_crtc_irq(void) {
 	const _PIC8214 saved_8214 = pic8214;
 	const REG8 saved_irr = pic.pi[0].irr, saved_isr = pic.pi[0].isr;
 	const char *problem = NULL;
+	soundmng_initialize();
+	commng_initialize();
 	pccore_init();
 	pccore_reset();
 	/* VA control: the display event owns VRTC, the device is inert. */
@@ -8491,6 +8499,8 @@ static int test_n80_crtc_irq(void) {
 	pic.pi[0].irr = saved_irr;
 	pic.pi[0].isr = saved_isr;
 	n80_crtc_reset();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("N80 CRTC IRQ", problem));
 	}
@@ -8783,11 +8793,14 @@ static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
 	BYTE before_phase[PCG88_PHASE_STATE_SIZE], after_phase[PCG88_PHASE_STATE_SIZE];
 	_PCG88 before;
 	const UINT32 saved_rate = soundcfg.rate;
+	const BOOL playback_enabled = soundmng_isenabled();
 	const UINT reloads[3] = {10000, 0x1234, 0};
 	const char *problem = NULL;
 	char error[256];
 	BYTE *data = NULL;
 	UINT channel, size = 0, pos, mutation;
+	/* Only the explicit PCM calls below should advance this fixture's phase. */
+	soundmng_setenabled(FALSE);
 	pcg88_reset();
 	memoryva_88_mode = TRUE;
 	soundcfg.rate = 44100;
@@ -8873,6 +8886,7 @@ static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
 	}
 	soundcfg.rate = saved_rate;
 	pcg88_setvol(np2cfg.pcg_vol);
+	soundmng_setenabled(playback_enabled);
 	return problem;
 }
 

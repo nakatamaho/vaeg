@@ -20,12 +20,6 @@ UINT16 upd9002_step_start_cs;
 UINT16 upd9002_step_start_ip;
 UINT8 upd9002_current_opcode;
 static Upd9002CompatHooks upd9002_compat_hooks;
-/*
- * A native CALLN can be interrupted before its final IRET.  Keep the
- * native-stack position of the CALLN frame so an interrupt IRET cannot be
- * mistaken for the compatibility return.
- */
-static UINT16 upd9002_compat_return_sp;
 
 const UINT8 iflags[512] = { // Z_FLAG, S_FLAG, P_FLAG
     0x44, 0x00, 0x00, 0x04, 0x00, 0x04, 0x04, 0x00, 0x00, 0x04, 0x04, 0x00, 0x04, 0x00, 0x00, 0x04,
@@ -128,7 +122,6 @@ void upd9002_core_initialize(void) {
 	upd9002_ea_initialize();
 #endif
 	ZeroMemory(&upd9002_core_context, sizeof(upd9002_core_context));
-	upd9002_compat_return_sp = 0;
 	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
@@ -140,7 +133,6 @@ void upd9002_core_deinitialize(void) {
 		CPU_EXTMEM = NULL;
 		CPU_EXTMEMSIZE = 0;
 	}
-	upd9002_compat_return_sp = 0;
 }
 
 static void upd9002_initreg(void) {
@@ -357,7 +349,6 @@ void upd9002_core_reset(void) {
 	upd9002_alt_regs_loaded = FALSE;
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
-	upd9002_compat_return_sp = 0;
 	if (upd9002_compat_hooks.reset != NULL) {
 		upd9002_compat_hooks.reset();
 	}
@@ -408,8 +399,11 @@ void upd9002_core_set_emm(UINT frame, UINT32 addr) {
 	upd9002_core_context.e.ems[frame] = ptr;
 }
 
-static UINT16 upd9002_materialize_interrupt_saved_flags(void) {
-	return (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) | (UPD9002_OV ? O_FLAG : 0));
+UINT16 CPUCALL upd9002_core_psw_image(void) {
+	/* The flag cache can carry stale high bits. MD comes from the decoder;
+	 * retain the low byte verbatim (compatible mode aliases it to F). */
+	return (UINT16)((UPD9002_FLAG & (0x0fff ^ O_FLAG)) | (UPD9002_OV ? O_FLAG : 0) | 0x7000 |
+	                (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE ? UPD9002_PSW_MD : 0));
 }
 
 void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks) {
@@ -435,7 +429,8 @@ int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
 void upd9002_core_mode_state_save(UINT8 *buffer) {
 	buffer[0] = CPU_COMPAT_MODE;
 	buffer[1] = CPU_COMPAT_RETURN_PENDING;
-	STOREINTELWORD(buffer + 2, upd9002_compat_return_sp);
+	/* Keep the UPD9MODE layout; the former return-SP word is reserved. */
+	STOREINTELWORD(buffer + 2, 0);
 }
 
 BOOL upd9002_core_mode_state_valid(const UINT8 *buffer) {
@@ -451,7 +446,6 @@ int upd9002_core_mode_state_load(const UINT8 *buffer) {
 	}
 	CPU_COMPAT_MODE = buffer[0];
 	CPU_COMPAT_RETURN_PENDING = buffer[1];
-	upd9002_compat_return_sp = LOADINTELWORD(buffer + 2);
 	return SUCCESS;
 }
 
@@ -481,7 +475,7 @@ void CPUCALL upd9002_core_brkem(REG8 vect) {
 		return;
 	}
 	return_ip = UPD9002_IP;
-	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+	REGPUSH0(upd9002_core_psw_image())
 	REGPUSH0(UPD9002_CS)
 	UPD9002_CS = upd9002_vector_segment(vect);
 	CS_BASE = UPD9002_CS << 4;
@@ -499,12 +493,11 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) {
 		return;
 	}
-	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+	REGPUSH0(upd9002_core_psw_image())
 	REGPUSH0(UPD9002_CS)
 	UPD9002_CS = upd9002_vector_segment(vect);
 	CS_BASE = UPD9002_CS << 4;
 	REGPUSH0(return_ip)
-	upd9002_compat_return_sp = UPD9002_SP;
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 1;
@@ -524,10 +517,6 @@ void CPUCALL upd9002_core_compat_irq(BOOL asserted) {
 	if (upd9002_compat_hooks.irq != NULL) {
 		upd9002_compat_hooks.irq(asserted);
 	}
-}
-
-BOOL CPUCALL upd9002_core_compat_iret_is_return(void) {
-	return (CPU_COMPAT_RETURN_PENDING != 0) && (UPD9002_SP == upd9002_compat_return_sp);
 }
 
 void CPUCALL upd9002_core_compat_retem(void) {
@@ -568,7 +557,7 @@ void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 
 	const BYTE *ptr;
 
-	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+	REGPUSH0(upd9002_core_psw_image())
 	REGPUSH0(UPD9002_CS)
 	REGPUSH0(IP)
 
@@ -594,10 +583,9 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 		if (upd9002_compat_hooks.sync_to_native != NULL) {
 			upd9002_compat_hooks.sync_to_native();
 		}
-		REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+		REGPUSH0(upd9002_core_psw_image())
 		REGPUSH0(UPD9002_CS)
 		REGPUSH0(UPD9002_IP)
-		upd9002_compat_return_sp = UPD9002_SP;
 		UPD9002_FLAG &= ~(T_FLAG | I_FLAG);
 		UPD9002_TRAP = 0;
 		ptr = mem + (vect * 4);
@@ -614,7 +602,7 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 	if (op == 0xf4) { // hlt
 		UPD9002_IP++;
 	}
-	REGPUSH0(REAL_FLAGREG) // preserve legacy interrupt flags
+	REGPUSH0(upd9002_core_psw_image())
 	REGPUSH0(UPD9002_CS)
 	REGPUSH0(UPD9002_IP)
 

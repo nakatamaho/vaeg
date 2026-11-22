@@ -1480,11 +1480,9 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	upd9002_core_step(); // CALLN -> native
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
 		return fail(__LINE__);
-	// UPD9MODE: the return-pending SP is what lets IRET resume compatible
-	// mode. Losing it (as UPD9CPU import alone did) breaks the return.
+	// UPD9MODE preserves MD write enable during a native excursion.
 	UINT8 mode_state[UPD9002_MODE_STATE_SIZE];
 	upd9002_core_mode_state_save(mode_state);
-	static const UINT8 lost_sp[UPD9002_MODE_STATE_SIZE] = {0, 1, 0, 0};
 	static const UINT8 invalid[][UPD9002_MODE_STATE_SIZE] = {
 	    {2, 0, 0, 0}, {0, 2, 0, 0}, {1, 1, 0, 0}};
 	for (const auto &bad : invalid) {
@@ -1492,17 +1490,47 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 			return fail(__LINE__);
 	}
 	if (mode_state[0] != UPD9002_COMPAT_NATIVE || mode_state[1] != 1 ||
-	    upd9002_core_mode_state_load(lost_sp) != SUCCESS || upd9002_core_compat_iret_is_return())
+	    LOADINTELWORD(mode_state + 2) != 0 || upd9002_core_mode_state_load(mode_state) != SUCCESS)
 		return fail(__LINE__);
-	if (upd9002_core_mode_state_load(mode_state) != SUCCESS ||
-	    !upd9002_core_compat_iret_is_return())
+
+	const UINT16 frame_sp = CPU_SP;
+	UINT8 *const frame = mem + native_stack_base + frame_sp;
+	if (LOADINTELWORD(frame + 4) != 0x7244 || LOADINTELWORD(frame + 10) != 0xf202)
 		return fail(__LINE__);
+
+	STOREINTELWORD(mem + 0xe2 * 4, native_offset + 1);
+	STOREINTELWORD(mem + 0xe2 * 4 + 2, code_segment);
+	mem[code_base + native_offset + 1] = 0xcf; // IRQ handler: IRET
+	upd9002_core_interrupt(0xe2);              // nested native IRQ
+	if (LOADINTELWORD(frame - 2) != 0xf244)
+		return fail(__LINE__);
+	upd9002_core_step();
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != native_offset || CPU_SP != frame_sp ||
+	    !CPU_COMPAT_RETURN_PENDING)
+		return fail(__LINE__);
+
+	// IRET with MD=1 must stay native even at the original frame's SP.
+	CopyMemory(frame + 0x100, frame, 12); // relocate CALLN and BRKEM frames
+	STOREINTELWORD(frame, native_offset);
+	STOREINTELWORD(frame + 4, 0xf244);
+	upd9002_core_step();
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != native_offset ||
+	    !CPU_COMPAT_RETURN_PENDING)
+		return fail(__LINE__);
+	CPU_SP = frame_sp + 0x100;
 	// Native code cannot address the alternate set, but the machine-owned
 	// storage is the authority: a change there is what the compat core sees
 	// when it resumes.
 	upd9002_alt_regs.bc = 0x3333;
 	upd9002_core_step(); // IRET -> resumes compatible mode
 	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008 || (CPU_FLAG & 0xff) != 0x44 || CPU_AL != 0)
+		return fail(__LINE__);
+	upd9002_core_interrupt(0xe2); // compatible IRQ saves MD=0 and raw F
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE ||
+	    LOADINTELWORD(mem + native_stack_base + CPU_SP + 4) != 0x7244)
+		return fail(__LINE__);
+	upd9002_core_step(); // IRQ IRET
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008)
 		return fail(__LINE__);
 	upd9002_core_step(); // EXX
 	if (CPU_CX != 0x3333 || upd9002_alt_regs.bc != 0x1111)
@@ -1512,7 +1540,8 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	if (CPU_BX != 0x2800)
 		return fail(__LINE__);
 	upd9002_core_step(); // RETEM
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE)
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != code_offset + 3 || CPU_SP != 0x0200 ||
+	    CPU_FLAG != 0x0202 || CPU_COMPAT_RETURN_PENDING)
 		return fail(__LINE__);
 
 	// Hardware reset sets the storage to all ones (M103c).
