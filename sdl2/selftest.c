@@ -8403,6 +8403,8 @@ static int test_n80_crtc_irq(void) {
 	const _PIC8214 saved_8214 = pic8214;
 	const REG8 saved_irr = pic.pi[0].irr, saved_isr = pic.pi[0].isr;
 	const char *problem = NULL;
+	soundmng_initialize();
+	commng_initialize();
 	pccore_init();
 	pccore_reset();
 	/* VA control: the display event owns VRTC, the device is inert. */
@@ -8497,6 +8499,8 @@ static int test_n80_crtc_irq(void) {
 	pic.pi[0].irr = saved_irr;
 	pic.pi[0].isr = saved_isr;
 	n80_crtc_reset();
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return (fail("N80 CRTC IRQ", problem));
 	}
