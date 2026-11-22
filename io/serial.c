@@ -489,16 +489,23 @@ void rs232c_open(void) {
 
 void rs232c_callback(void) {
 	BOOL interrupt;
+	const BOOL attached = commng_serial_attached();
 
+	if (attached && cmt_selected()) {
+		return;
+	}
 	interrupt = FALSE;
-	if ((cm_rs232c) && (cm_rs232c->read(cm_rs232c, &rs232c.data))) {
+	/* A file byte waits for RX enable and an empty receive register. Poll
+	 * only on character-clock events; do not advance input on status reads. */
+	if (cm_rs232c && (!attached || ((rs232c.cmd & 4) && !(rs232c.result & 2))) &&
+	    cm_rs232c->read(cm_rs232c, &rs232c.data)) {
 		rs232c.result |= 2;
 		/* 8214 mode: RXRDY is level 0; E6h bit 2 masks it. */
 		pic8214_request(PIC8214_RXRDY);
 		if (sysportva.c & 1) {
 			interrupt = TRUE;
 		}
-	} else {
+	} else if (!attached) {
 		rs232c.result &= (BYTE)~2;
 	}
 	if (sysportva.c & 4) {
@@ -532,6 +539,12 @@ static void IOOUTCALL rs232c_o30(UINT port, REG8 dat) {
 		cmt_write(dat);
 		return;
 	}
+	if (commng_serial_attached()) {
+		if (!(rs232c.cmd & 1)) {
+			return;
+		}
+		rs232c_open();
+	}
 	if (cm_rs232c) {
 		cm_rs232c->write(cm_rs232c, (UINT8)dat);
 	}
@@ -563,6 +576,9 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 			rs232c.mul = 10 * 16;
 		} else {
 			rs232c.mul = ((dat >> 1) & 6) + 10;
+			if (commng_serial_attached() && !cmt_selected()) {
+				rs232c.mul += 2; // Include the async start bit (units: half bits).
+			}
 			if (dat & 0x10) {
 				rs232c.mul += 2;
 			}
@@ -593,6 +609,12 @@ static void IOOUTCALL rs232c_o32(UINT port, REG8 dat) {
 		break;
 
 	case 0x02: // cmd
+		if (commng_serial_attached() && !cmt_selected() && (dat & 0x40)) {
+			rs232c.pos = 1;
+			rs232c.cmd = 0;
+			rs232c.result = 0x05;
+			break;
+		}
 		rs232c.cmd = dat;
 		cmt_command(dat);
 		if (cm_rs232c) {
@@ -607,6 +629,9 @@ static REG8 IOINPCALL rs232c_i30(UINT port) {
 	(void)port;
 	if (cmt_selected()) {
 		return cmt_read();
+	}
+	if (commng_serial_attached()) {
+		rs232c.result &= (BYTE)~2;
 	}
 	return (rs232c.data);
 }

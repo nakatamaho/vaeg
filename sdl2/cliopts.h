@@ -176,6 +176,10 @@ typedef struct {
 	const char *config_path;
 	const char *bkupmem_path;
 	const char *headless_input_script;
+	const char *printer_out;
+	UINT printer_busy_frames;
+	const char *serial_in;
+	const char *serial_out;
 	const char *debug_script;
 	const char *debug_output_dir;
 	const char *screen_dump_path;

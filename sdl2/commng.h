@@ -74,6 +74,16 @@ COMMNG commng_create(UINT device);
 void commng_destroy(COMMNG hdl);
 void commng_initialize(void);
 
+/* Session-scoped host files, independent of guest reset/save state. */
+BOOL commng_files_open(const char *printer, UINT busy_frames, const char *serial_in,
+                       const char *serial_out);
+BOOL commng_files_close(void);
+void commng_files_frame(void);
+BOOL commng_serial_attached(void);
+BOOL commng_printer_attached(void);
+BOOL commng_printer_busy(void);
+void commng_printer_strobe(BYTE data);
+
 #ifdef __cplusplus
 }
 #endif

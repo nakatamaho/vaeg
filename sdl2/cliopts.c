@@ -281,6 +281,25 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				    set_error(error, error_size, "--headless-input-script requires a path", value));
 			}
 			options->headless_input_script = value;
+		} else if (!strcmp(argument, "--printer-out") || !strcmp(argument, "--serial-in") ||
+		           !strcmp(argument, "--serial-out")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL || value[0] == '\0') {
+				return set_error(error, error_size, "device file option requires a path", argument);
+			}
+			if (!strcmp(argument, "--printer-out")) {
+				options->printer_out = value;
+			} else if (!strcmp(argument, "--serial-in")) {
+				options->serial_in = value;
+			} else {
+				options->serial_out = value;
+			}
+		} else if (!strcmp(argument, "--printer-busy-frames")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL || parse_uint(value, &options->printer_busy_frames) != SUCCESS) {
+				return set_error(error, error_size,
+				                 "--printer-busy-frames accepts an unsigned count", value);
+			}
 		} else if (!strcmp(argument, "--debug-script")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0')) {
@@ -665,6 +684,12 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 	if (options->no_bkupmem && (options->bkupmem_path != NULL)) {
 		return (
 		    set_error(error, error_size, "--bkupmem cannot be combined with --no-bkupmem", NULL));
+	}
+	if (options->serial_in != NULL &&
+	    ((options->serial_out != NULL && !strcmp(options->serial_in, options->serial_out)) ||
+	     (options->printer_out != NULL && !strcmp(options->serial_in, options->printer_out)))) {
+		return set_error(error, error_size, "--serial-in must be distinct from capture paths",
+		                 NULL);
 	}
 	if ((options->record_frame_limit != 0u) && !options->record) {
 		return (set_error(error, error_size, "--record-frames requires --record", NULL));

@@ -325,6 +325,13 @@ static int test_cli_options(void) {
 	char *negative_screenshot_frame[] = {"vaeg", "--screenshot", "-1:a.png"};
 	char *empty_screenshot_path[] = {"vaeg", "--screenshot", "1:"};
 	char *invalid_screenshot_format[] = {"vaeg", "--screenshot", "1:a.jpg"};
+	char *device_files[] = {"vaeg",  "--printer-out", "printer.bin", "--printer-busy-frames",
+	                        "42",    "--serial-in",   "rx.bin",      "--serial-out",
+	                        "tx.bin"};
+	char *empty_device_file[] = {"vaeg", "--printer-out", ""};
+	char *missing_serial_file[] = {"vaeg", "--serial-in", "--serial-out", "tx.bin"};
+	char *invalid_busy_frames[] = {"vaeg", "--printer-busy-frames", "-1"};
+	char *aliased_files[] = {"vaeg", "--serial-in", "rx.bin", "--serial-out", "rx.bin"};
 	VAEG_CLI_OPTIONS options;
 	char error[256];
 
@@ -419,6 +426,24 @@ static int test_cli_options(void) {
 	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_format), invalid_screenshot_format,
 	                    &options, error, sizeof(error)) == SUCCESS)) {
 		return (fail("CLI options", "invalid input was accepted"));
+	}
+	if (vaeg_cli_parse((int)NELEMENTS(device_files), device_files, &options, error,
+	                   sizeof(error)) != SUCCESS ||
+	    options.printer_out == NULL || strcmp(options.printer_out, "printer.bin") ||
+	    options.printer_busy_frames != 42 || options.serial_in == NULL ||
+	    strcmp(options.serial_in, "rx.bin") || options.serial_out == NULL ||
+	    strcmp(options.serial_out, "tx.bin")) {
+		return fail("CLI options", "device file options were not parsed");
+	}
+	if (vaeg_cli_parse((int)NELEMENTS(empty_device_file), empty_device_file, &options, error,
+	                   sizeof(error)) == SUCCESS ||
+	    vaeg_cli_parse((int)NELEMENTS(missing_serial_file), missing_serial_file, &options, error,
+	                   sizeof(error)) == SUCCESS ||
+	    vaeg_cli_parse((int)NELEMENTS(invalid_busy_frames), invalid_busy_frames, &options, error,
+	                   sizeof(error)) == SUCCESS ||
+	    vaeg_cli_parse((int)NELEMENTS(aliased_files), aliased_files, &options, error,
+	                   sizeof(error)) == SUCCESS) {
+		return fail("CLI options", "invalid device file options were accepted");
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
 	return (SUCCESS);
@@ -6758,10 +6783,15 @@ static int test_port040_sound(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	if (iocore_inp8(0x040) & 0x05) {
+		problem = "40h default PBSY and cassette carrier must be clear";
+	} else if (sysportva.port040 != 0) {
+		problem = "40h default output latch must reset to zero";
+	}
 	iocore_out8(0x1cf, 0x07); /* XBEEP off */
 	iocore_out8(0x190, 0x18); /* FBEN on */
 	iocore_out8(0x040, 0x20);
-	if (!beep.buz) {
+	if ((problem == NULL) && !beep.buz) {
 		problem = "40h bit 5 BEEP";
 	}
 	iocore_out8(0x040, 0x00);

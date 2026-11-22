@@ -5079,6 +5079,29 @@ separate parity correction or move it to Open Defects.
   [evaluated source, artifact and limitations](../recording-v1/recording-ui-followup.md).
 - **Fixing commit:** [8a7ca19a](https://github.com/nakatamaho/vaeg/commit/8a7ca19ab8fb0adb2a6740b4a327bedfc1b1b9a7).
 
+### M163 — VA printer status and host device I/O
+
+- **Symptom and scope:** the VA printer port always reported bit 0 set and
+  produced no observable printer data. SDL2 USART had no attached host
+  serial backend.
+- **Root cause:** `0040h` did not handle the XPSTB transition and supplied a
+  constant 1 for PBSY, which the VA I/O map defines as busy. The SDL2 serial
+  factory selected the disconnected stub; the receive path also did not
+  retain RXRDY until the pending byte was read.
+- **Correction:** sample the printer data latch on the active strobe edge,
+  default PBSY to ready, and add opt-in host files. For an attached serial
+  file backend, retain received data until read and use the existing PIT/IRQ
+  path with receive enable and the asynchronous start bit accounted for.
+- **Verification method (A1v):** parser selftests and the
+  [synthetic BIOS probe and payload contract](printer-serial-files.md#synthetic-guest-check).
+- **Fix:** [155b99112ed84b5388ccfc803215e78d98e27fe4](https://github.com/nakatamaho/vaeg/commit/155b99112ed84b5388ccfc803215e78d98e27fe4).
+- **A1v review follow-up:** the disconnected USART stub reported DCD high,
+  incorrectly setting `0040h` bit 2 with no backend. Gate DCD on serial
+  attachment and preserve the legacy cassette-carrier expression otherwise.
+  The default `0040h` output latch also retains its zero reset value when
+  printer capture is off. The port `0040h` selftest checks the default read
+  bits and reset latch; see the [default-behavior audit](printer-serial-files.md#pr-notes-default-behavior-audit).
+
 ## Open Defects
 
 ### M144a — independent N80 CRTC geometry remains unresolved
