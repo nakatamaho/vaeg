@@ -2640,18 +2640,48 @@ waits are still charged natively, word-wise. BRKEM and CALLN cost 47 clocks
 and RETEM 37. Z80TIME 1 and 2 in vaeg are within 0.96-1.03 of these
 photographs, per row.
 
+### Direction flag and live FLAGS (M162)
+
+DFPROBE v4 on the PC-88VA and PC-88VA2 reported the same results. All
+12 entry variants completed, including BRKEM with DF=1 at vectors 70h
+and E1h and BRKEM2. Variant 6 distinguished forward fetch: the RST return
+word was 8003h and B incremented. The v3 `A--` is an unexplained result
+of that harness, not evidence that DF=1 stalls BRKEM. vaeg leaves entry
+unchanged and retains only the `brkem-df-set` CPU trace event.
+
+The `/G` MD=0 IRET cases show that the 16 block operations write DF,
+independent of incoming DF. LDI/LDIR, CPI/CPIR, INI/INIR and OUTI/OTIR
+clear it; LDD/LDDR, CPD/CPDR, IND/INDR and OUTD/OTDR set it. LDD followed
+by VRTC saves DF=1 in the interrupt frame. A RETEM instead restores the
+original native DF from its entry frame. NOP, the other control cases,
+and the 46 ED word-transfer suffix cases do not set DF.
+
+vaeg commits DF after each executed iteration, including a repeat that
+backs up the IP. This models the DF seen by a native interrupt between
+iterations; the completed repeat and single-LDD IRQ results do not
+independently establish the first-iteration latch edge on hardware.
+A pre-execution I/O trap does not itself perform a block iteration.
+The independent main and FDC uPD780C instances do not have this DF latch.
+
+After EX AF,AF' or POP AF 0400 the compatible saved PSW has bit 1 clear,
+but native PUSHF reads bit 1 set (7000h versus F002h for DF=0, 7400h
+versus F402h for DF=1). vaeg materializes the fixed bit in native PUSHF
+and LAHF without normalizing the saved PSW or compatible F byte.
+
 ---
 
 # Part IV — Open questions and tests
 
 ## 15. Open questions
 
-**BRKEM with DF=1 (M159).** The subsequent hardware instruction fetch
-and decoder state are unknown. vaeg retains normal compatible entry,
-logs one warning per process, and emits a `brkem-df-set` CPU trace
-event on each such BRKEM. A follow-up hardware probe should distinguish
-failure to fetch the target from a different fetch address or an altered
-decode path. BRKEM2 is not covered by this warning.
+**Block I/O low flags (M162).** DFPROBE v4's D1h block input reads an
+unassigned port. The existing emulated FFh input accounts for the carry
+and half-carry in the backend calculation, but changing the port data
+alone cannot reproduce the hardware N=1, H=C=0 combination with that
+calculation. All four output cases also disagree in N and P/V, without
+any dependence on a port read. The probe does not establish complete
+block I/O flag equations or the hardware read byte; these flags remain
+unchanged pending controlled input/output operand measurements.
 
 ### 15.1 Resolvable from documents not yet obtained
 

@@ -36,5 +36,12 @@ This page moved. The CPU checks and their boundaries are documented in:
 [M159 mode-transition coverage](upd9002-upd70008-mode.md#21-the-md-flag)
 checks native PUSHF/interrupt high bits, compatible CALLN and interrupt
 frames, a nested native IRET, same-SP MD=1 and relocated MD=0 returns,
-RETEM, and DF across a saved-state round trip. The unknown behavior after
-BRKEM with DF=1 is diagnostic-only, not a conformance pass.
+RETEM, and DF across a saved-state round trip.
+
+[M162 direction and FLAGS coverage](upd9002-upd70008-mode.md#direction-flag-and-live-flags-m162)
+adds both DF seeds for all 16 compatible block opcodes, saved DF at a
+mode-switching IRQ between repeat iterations, and the distinction between
+native FLAGS bit 1 and saved PSW bit 1. DFPROBE v4 reported successful
+DF=1 entry for all 12 BRKEM/BRKEM2 variants on both VA models, including a
+forward-fetch control. The v3 stall remains unexplained. Low block I/O
+flags remain an open conformance gap, separate from block direction.

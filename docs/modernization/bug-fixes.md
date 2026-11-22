@@ -52,6 +52,24 @@ land.
   PR [#84](https://github.com/nakatamaho/vaeg/pull/84).
 - **Fixing commit:** [64e55e11b5ea739fa4d32713153611d15f766664](https://github.com/nakatamaho/vaeg/commit/64e55e11b5ea739fa4d32713153611d15f766664).
 
+### M162 — Compatible blocks left stale DF; native FLAGS could read bit 1 clear
+
+- **Symptom/scope:** On the VA and VA2 main CPU, compatible block instructions
+  left the incoming DF visible to native callbacks instead of the direction
+  of the last block operation. Native FLAGS reads after a compatible context
+  with F bit 1 clear also returned that bit clear.
+- **Demonstrated root cause:** The adapter copied only compatible F and IFF
+  back to the native flags and always preserved DF. Native flag reads did
+  not distinguish fixed live bit 1 from the raw saved PSW bit.
+- **Correction:** Latch DF per executed compatible block iteration. Force bit
+  1 on native PUSHF and LAHF reads, without changing saved PSW frames.
+- **Verification:** The synthetic adapter fixture checks both DF seeds,
+  undefined ED neighbors, IRQ/IRET in each repeat, and the live/saved flag
+  distinction after POP AF. Low block I/O flags are separately open.
+- **Task/evidence:** [M162](../agents/tasks/M162_upd9002_block_df.md),
+  [direction and FLAGS observations](upd9002-upd70008-mode.md#direction-flag-and-live-flags-m162).
+- **Fixing commit:** [ef5ff7bc6d1c8834adc59acea39c3e2d04dedaaa](https://github.com/nakatamaho/vaeg/commit/ef5ff7bc6d1c8834adc59acea39c3e2d04dedaaa).
+
 ### M159 — uPD9002 saved PSW high bits and IRET mode selection
 
 - **Symptom/scope:** On the VA and VA2 main CPU, stack PSW images could
@@ -66,8 +84,9 @@ land.
 - **Verification:** Instruction and SAV tests cover high PSW bits, nested
   native IRQ return, compatible IRQ return, a relocated MD=0 frame, and an
   MD=1 frame at the original SP.
-- **Open:** The subsequent hardware behavior of BRKEM with DF=1 is
-  unresolved. vaeg warns and leaves execution unchanged.
+- **M162 follow-up:** DFPROBE v4 confirms forward fetch and successful
+  DF=1 entry in the measured variants. The v3 harness's stall remains
+  unexplained. BRKEM execution is unchanged and the warning is trace-only.
 - **Task:** [M159](../agents/tasks/M159_upd9002_df_psw.md).
 - **Fixing commit:** [5c172aa9c4a7861ba222bb4fe4eb218cf316a437](https://github.com/nakatamaho/vaeg/commit/5c172aa9c4a7861ba222bb4fe4eb218cf316a437).
 
