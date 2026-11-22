@@ -265,8 +265,7 @@ static int run_pushf_case(const char *name, UINT16 flags, UINT16 ss, UINT16 sp) 
 	upd9002_core_step();
 	if ((CPU_SP != (UINT16)(sp - 2)) || (CPU_IP != (UINT16)(initial_ip + 1)) ||
 	    (read_segment_word(ss, (UINT16)(sp - 2)) != ((flags & 0x0fff) | 0xf000)) ||
-	    (CPU_AX != 0x1357) ||
-	    (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
+	    (CPU_AX != 0x1357) || (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
 		return fail_case(name, "ordinary PUSHF state differs");
 	}
 	return SUCCESS;

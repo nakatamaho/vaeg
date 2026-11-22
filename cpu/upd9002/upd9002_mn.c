@@ -3754,7 +3754,8 @@ UPD9002FN _ope0x0f(void) { // 0F:
 			upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "brkem-df-set", op, vector, 1);
 			if (!warned) {
 				fputs("warning: uPD9002 BRKEM with DF=1; subsequent hardware behavior "
-				      "is unresolved, using normal compatible entry\n", stderr);
+				      "is unresolved, using normal compatible entry\n",
+				      stderr);
 				warned = TRUE;
 			}
 		}

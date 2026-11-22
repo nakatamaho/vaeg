@@ -4987,7 +4987,7 @@ static int test_compat_mode_state(void) {
 		SS_BASE = 0x30000;
 		CPU_SP = 0x0100;
 		CPU_BP = 0x0200;
-		CPU_FLAG = 0x0442; /* DF=1, with no high bits in the flag cache. */
+		CPU_FLAG = 0x0442;   /* DF=1, with no high bits in the flag cache. */
 		upd9002_core_step(); /* BRKEM */
 		upd9002_core_step(); /* CALLN: native handler, return pending */
 		if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) || !CPU_COMPAT_RETURN_PENDING ||

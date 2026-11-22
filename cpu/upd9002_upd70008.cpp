@@ -1490,8 +1490,7 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 			return fail(__LINE__);
 	}
 	if (mode_state[0] != UPD9002_COMPAT_NATIVE || mode_state[1] != 1 ||
-	    LOADINTELWORD(mode_state + 2) != 0 ||
-	    upd9002_core_mode_state_load(mode_state) != SUCCESS)
+	    LOADINTELWORD(mode_state + 2) != 0 || upd9002_core_mode_state_load(mode_state) != SUCCESS)
 		return fail(__LINE__);
 
 	const UINT16 frame_sp = CPU_SP;
@@ -1502,12 +1501,12 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	STOREINTELWORD(mem + 0xe2 * 4, native_offset + 1);
 	STOREINTELWORD(mem + 0xe2 * 4 + 2, code_segment);
 	mem[code_base + native_offset + 1] = 0xcf; // IRQ handler: IRET
-	upd9002_core_interrupt(0xe2); // nested native IRQ
+	upd9002_core_interrupt(0xe2);              // nested native IRQ
 	if (LOADINTELWORD(frame - 2) != 0xf244)
 		return fail(__LINE__);
 	upd9002_core_step();
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != native_offset ||
-	    CPU_SP != frame_sp || !CPU_COMPAT_RETURN_PENDING)
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != native_offset || CPU_SP != frame_sp ||
+	    !CPU_COMPAT_RETURN_PENDING)
 		return fail(__LINE__);
 
 	// IRET with MD=1 must stay native even at the original frame's SP.
@@ -1541,8 +1540,8 @@ extern "C" int upd9002_upd70008_alt_regs_selftest(void) {
 	if (CPU_BX != 0x2800)
 		return fail(__LINE__);
 	upd9002_core_step(); // RETEM
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != code_offset + 3 ||
-	    CPU_SP != 0x0200 || CPU_FLAG != 0x0202 || CPU_COMPAT_RETURN_PENDING)
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE || CPU_IP != code_offset + 3 || CPU_SP != 0x0200 ||
+	    CPU_FLAG != 0x0202 || CPU_COMPAT_RETURN_PENDING)
 		return fail(__LINE__);
 
 	// Hardware reset sets the storage to all ones (M103c).
