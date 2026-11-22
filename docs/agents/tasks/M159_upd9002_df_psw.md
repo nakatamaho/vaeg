@@ -35,4 +35,15 @@ POSSIBILITY OF SUCH DAMAGE.
 - Run the focused uPD9002 tests and local CTest suite. Keep integration
   inputs and unapproved evidence outside Git.
 
+## Review follow-up
+
+- Integrate the M158 OPN /IRQ correction without changing either milestone's
+  hardware behavior. Keep the GVAM fixture's I/O dispatcher live while it
+  exercises the port handlers.
+- Derive EOL expectations from the effective Git attributes and validate
+  the retained M140 patches by exact path and digest in source archives only.
+- Treat CRLF as one debug-script delimiter and pace debug-script paste by
+  guest frames. The parser test checks exact error lines and makes the same
+  frame assertions with and without No Wait.
+
 G159 human gate pending. Draft review only; no merge or release.

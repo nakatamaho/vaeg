@@ -54,6 +54,34 @@ land.
 - **Task:** [M159](../agents/tasks/M159_upd9002_df_psw.md).
 - **Fixing commit:** [5c172aa9c4a7861ba222bb4fe4eb218cf316a437](https://github.com/nakatamaho/vaeg/commit/5c172aa9c4a7861ba222bb4fe4eb218cf316a437).
 
+### M159 follow-up — Debug script line numbers and paste scheduling
+
+- **Symptom/scope:** Debug script errors reported inflated line numbers for
+  CRLF input. A scripted key after `input-line` could run late or be dropped
+  at the frame limit, depending on host speed.
+- **Demonstrated root cause:** The parser overwrote CR before testing for
+  CRLF; the debug paste queue waited for host ticks as well as guest frames.
+- **Correction:** Treat CRLF as one delimiter and advance debug paste on
+  guest frames only. Ordinary clipboard and startup typing keep their host
+  pacing. The guest-frame minimum per make/break phase remains in effect.
+- **Verification:** The M152 parser contract checks equivalent LF/CRLF event
+  streams, one malformed key at its exact source line, and identical paste
+  completion frames in normal and No Wait modes.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [4dc2cb7b](https://github.com/nakatamaho/vaeg/commit/4dc2cb7b79371bddb38a4c39cb291a87cd54258b).
+
+### M159 follow-up — GVAM selftest used a torn-down I/O core
+
+- **Symptom/scope:** Full selftest and trace equivalence could crash on
+  Windows or under AddressSanitizer before exercising the GVAM assertions.
+- **Demonstrated root cause:** The test read port 32h after the preceding
+  fixture had freed the I/O dispatch tables.
+- **Correction/verification:** Give the 32 existing GVAM cases their own
+  initialized, reset and subsequently torn-down machine fixture, still
+  through the real port handlers.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [4dd94fc8](https://github.com/nakatamaho/vaeg/commit/4dd94fc80730acc8dbca7fcbba2d8c499c1fd850).
+
 ### M158 — A held OPN timer flag re-requested the sound interrupt
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program that
