@@ -10,14 +10,26 @@ static const UINT8 irqtable[4] = {0x03, 0x0d, 0x0a, 0x0c};
 static void set_fmtimeraevent(BOOL absolute);
 static void set_fmtimerbevent(BOOL absolute);
 
+/*
+ * The OPN/OPNA /IRQ output is a level: it stays active while a timer flag
+ * is set and is released only by the reset bits of register 27h.  The
+ * interrupt request is therefore its inactive-to-active transition; a timer
+ * that overflows again while its flag is still set does not issue another
+ * request.  Unmasking SINTM with an active output is handled in fmboard.c.
+ */
+static BOOL fmtimer_irqactive(void) {
+	return (fmtimer.status & 0x03) != 0;
+}
+
 void fmport_a(NEVENTITEM item) {
 	BOOL intreq = FALSE;
 
 	if (item->flag & NEVENT_SETEVENT) {
+		const BOOL irq_was_active = fmtimer_irqactive();
 		opngen_timerover(0);
 		if (fmtimer.reg & 0x04) {
 			fmtimer.status |= 0x01;
-			intreq = TRUE;
+			intreq = !irq_was_active;
 		}
 		if (intreq) {
 			if (!fmboard_getintmask()) {
@@ -38,10 +50,11 @@ void fmport_b(NEVENTITEM item) {
 	BOOL intreq = FALSE;
 
 	if (item->flag & NEVENT_SETEVENT) {
+		const BOOL irq_was_active = fmtimer_irqactive();
 		opngen_timerover(1);
 		if (fmtimer.reg & 0x08) {
 			fmtimer.status |= 0x02;
-			intreq = TRUE;
+			intreq = !irq_was_active;
 		}
 		if (intreq) {
 			if (!fmboard_getintmask()) {

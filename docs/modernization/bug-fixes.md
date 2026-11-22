@@ -54,6 +54,23 @@ land.
 - **Task:** [M159](../agents/tasks/M159_upd9002_df_psw.md).
 - **Fixing commit:** [5c172aa9c4a7861ba222bb4fe4eb218cf316a437](https://github.com/nakatamaho/vaeg/commit/5c172aa9c4a7861ba222bb4fe4eb218cf316a437).
 
+### M158 — A held OPN timer flag re-requested the sound interrupt
+
+- **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program that
+  loads data with the sound interrupt level held off, while an OPN timer flag
+  stays set, received a sound interrupt as soon as it re-enabled the level and
+  stopped when its sound handler read the overwritten data.
+- **Demonstrated root cause:** The OPN /IRQ output is a level that stays
+  active until the register 27h reset bits clear the flag, and the 8214 latches
+  a request and clears it on acceptance. `fmport_a`/`fmport_b` issued a new
+  request at every timer overflow even while the flag was still set.
+- **Correction:** Request only on the inactive-to-active transition of the
+  output; unmasking SINTM with an active output still re-requests.
+- **Verification:** The FM IRQ edge selftest fails without the correction
+  (`M158_FM_IRQ_HELD`).
+- **Task/evidence:** [M158 task](../agents/tasks/M158_fm_irq_edge.md).
+- **Fixing commit:** [70ffab6cbade0224f47a34de0395727546fb9e6f](https://github.com/nakatamaho/vaeg/commit/70ffab6cbade0224f47a34de0395727546fb9e6f).
+
 ### M157 — 8255 input ports missed data driven before a mode change
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program whose
