@@ -755,6 +755,8 @@ BOOL fdd_formating_d88(const BYTE *ID) {
 		d88sec->h = ID[1];
 		d88sec->r = ID[2];
 		d88sec->n = ID[3];
+		/* FDC MF is set for MFM; the D88 density bit is set for FM. */
+		d88sec->mfm_flg = (fdc.mf ^ 0x40) & 0x40;
 		STOREINTELWORD(d88sec->size, size);
 		if ((fdd->inf.d88.fdtype_major == DISKTYPE_2HD) && (fdd->inf.d88.fdtype_minor != 0)) {
 			d88sec->rpm_flg = fdc.rpm[fdc.us];
