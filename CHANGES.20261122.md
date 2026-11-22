@@ -104,7 +104,7 @@ Rel.20261025 said that the PC-8801mkIISR demonstration's line drawing
 (CARIGRAPH) is black on white on a VA but white on black on a PC-8801mkIISR,
 because PC-8801 models ignored the TSP whole-screen reverse with monochrome
 graphics. That was wrong: a real PC-8801mkIISR also shows it black on white
-(see this [recording of a real machine](https://www.youtube.com/watch?v=OVuNQ11xe9w&t=294s)).
+(see this [recording of a real machine](https://www.youtube.com/watch?v=OVuNQ11xe9w&t=465s)).
 The reverse now applies on every machine and in every graphics mode (M139,
 PR #70), so a PC-8801 model shows the drawing as the VA does. The
 "PC-8801mkIISR boot: white lines on black" picture of that release does not
