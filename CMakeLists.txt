@@ -2007,12 +2007,17 @@ if(VAEG_ENABLE_TESTS)
             "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
             "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
+    set(_vaeg_trace_equivalence_timeout 420)
+    if("${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}" MATCHES "-fsanitize=[^ ]*address")
+        # Three complete selftests take longer than 420 seconds under ASan on
+        # hosted runners. Retain all three runs and their exact comparisons.
+        set(_vaeg_trace_equivalence_timeout 900)
+    endif()
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
-        # This invokes the complete selftest three times.  The M55 64 MiB
-        # snapshot identity checks are intentionally expensive under ASan.
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 420
+        LABELS "romless;upd9002;trace;harness" TIMEOUT ${_vaeg_trace_equivalence_timeout}
         # Complete selftests share SCSI fixtures and the dropmedia temp directory.
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+    unset(_vaeg_trace_equivalence_timeout)
 
     if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
         add_test(NAME vaeg_m74_debug_harness

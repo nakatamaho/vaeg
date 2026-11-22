@@ -47,5 +47,7 @@ POSSIBILITY OF SUCH DAMAGE.
 - Treat CRLF as one debug-script delimiter and pace debug-script paste by
   guest frames. The parser test checks exact error lines and makes the same
   frame assertions with and without No Wait.
+- Allow the ASan trace-equivalence test enough host time to run all three
+  full selftests. The non-ASan timeout and every comparison are unchanged.
 
 G159 human gate pending. Draft review only; no merge or release.
