@@ -6783,10 +6783,15 @@ static int test_port040_sound(void) {
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
+	if (iocore_inp8(0x040) & 0x05) {
+		problem = "40h default PBSY and cassette carrier must be clear";
+	} else if (sysportva.port040 != 0) {
+		problem = "40h default output latch must reset to zero";
+	}
 	iocore_out8(0x1cf, 0x07); /* XBEEP off */
 	iocore_out8(0x190, 0x18); /* FBEN on */
 	iocore_out8(0x040, 0x20);
-	if (!beep.buz) {
+	if ((problem == NULL) && !beep.buz) {
 		problem = "40h bit 5 BEEP";
 	}
 	iocore_out8(0x040, 0x00);

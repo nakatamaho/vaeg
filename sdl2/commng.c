@@ -127,6 +127,10 @@ void commng_files_frame(void) {
 	}
 }
 
+BOOL commng_printer_attached(void) {
+	return printer_out != NULL;
+}
+
 BOOL commng_printer_busy(void) {
 	return printer_busy_frames != 0;
 }

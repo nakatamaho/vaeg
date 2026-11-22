@@ -124,8 +124,9 @@ static REG8 IOINPCALL sysp_i040(UINT port) {
 	if (memctrlva_nmode_boot_search()) {
 		ret |= 0x08;
 	}
-	// Bit 2: active-low DCD, or PC-8801 cassette carrier when selected.
-	if (cmt_selected() ? cmt_carrier() : (rs232c_stat() & 0x20) != 0) {
+	// Bit 2: use active-low DCD only with a serial backend and no cassette.
+	const BOOL use_serial_dcd = commng_serial_attached() && !cmt_selected();
+	if (use_serial_dcd ? ((rs232c_stat() & 0x20) != 0) : cmt_carrier()) {
 		ret |= 0x04;
 	}
 
@@ -238,7 +239,7 @@ void systemportva_reset(void) {
 	sysportva.a = (sysportva.a & ~0x20) | 0xc1 | (np2cfg.v1v2_standard ? 0 : 0x20);
 	sysportva.c = 0xf9;
 	sysportva.port010 = 0;
-	sysportva.port040 = 1;     // XPSTB idle.
+	sysportva.port040 = commng_printer_attached() ? 1 : 0; // XPSTB idle for capture.
 	sysportva.port190 &= 0x01; // Preserve only RSTMD.
 	sysportva.port190 |= 0x18; // Restore FBEN=1 and AVC=10b.
 	beep_oneventset();

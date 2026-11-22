@@ -5095,6 +5095,12 @@ separate parity correction or move it to Open Defects.
 - **Verification method (A1v):** parser selftests and the
   [synthetic BIOS probe and payload contract](printer-serial-files.md#synthetic-guest-check).
 - **Fix:** [155b99112ed84b5388ccfc803215e78d98e27fe4](https://github.com/nakatamaho/vaeg/commit/155b99112ed84b5388ccfc803215e78d98e27fe4).
+- **A1v review follow-up:** the disconnected USART stub reported DCD high,
+  incorrectly setting `0040h` bit 2 with no backend. Gate DCD on serial
+  attachment and preserve the legacy cassette-carrier expression otherwise.
+  The default `0040h` output latch also retains its zero reset value when
+  printer capture is off. The port `0040h` selftest checks the default read
+  bits and reset latch; see the [default-behavior audit](printer-serial-files.md#pr-notes-default-behavior-audit).
 
 ## Open Defects
 

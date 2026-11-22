@@ -72,3 +72,26 @@ The COM uses INT 89h raw output (AH=03h) and INT 8Ah timed receive and
 character transmit; it is not an AUX DOS driver test.
 
 Real hardware comparison and exact strobe timing: **NOT RUN**.
+
+## PR notes: default-behavior audit
+
+Compared with the pre-M163 branch base, with no printer or serial options:
+
+- `0040h` bit 0 (PBSY) now reads 0 instead of 1. This is the intentional
+  manual-backed ready/busy correction; see the [bug-fix ledger](bug-fixes.md#m163--va-printer-status-and-host-device-io).
+- `--help` lists the new options. No host device files are opened by default.
+
+Two unintended changes found in review were removed:
+
+- The disconnected serial stub returns `F0h`. Using its DCD bit at `0040h`
+  made bit 2 read as 1 and opened the stub on reads with the cassette
+  deselected. Without a serial backend the read once again uses only the
+  legacy cassette carrier expression. A selected cassette still takes
+  precedence even when a serial file is attached.
+- The `0040h` output latch is part of saved system-port state. Its reset
+  value remains zero unless printer capture is attached, in which case XPSTB
+  starts idle (1) to detect a first falling edge.
+
+The remaining USART changes (RX polling and RXRDY, TX enable, async timing,
+internal reset) are gated on attachment and preserve cassette routing. The
+printer strobe has no output side effect without a capture file.
