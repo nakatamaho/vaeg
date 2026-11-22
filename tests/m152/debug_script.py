@@ -45,22 +45,22 @@ def require(condition, code, detail):
         raise AssertionError(f"{code}: {detail}")
 
 
-def run(worker, model, root, script):
-    (root / "case.debug").write_text(script, encoding="ascii")
+def run(worker, model, root, script, *, eol="\n", nowait=False):
+    (root / "case.debug").write_bytes(script.replace("\n", eol).encode("ascii"))
     output = root / "out"
     output.mkdir()
     completed = subprocess.run(
         [worker, "--model", model, "--roms", str(root / "fixture"), "--no-cfg",
          "--no-bkupmem", "--debug-script", str(root / "case.debug"),
-         "--debug-output-dir", str(output)],
+         "--debug-output-dir", str(output), *(["--nowait"] if nowait else [])],
         cwd=root, capture_output=True, text=True, timeout=25,
         env={**os.environ, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"},
     )
     return completed, output
 
 
-def successful_run(worker, model, root, script):
-    result, output = run(worker, model, root, script)
+def successful_run(worker, model, root, script, **options):
+    result, output = run(worker, model, root, script, **options)
     require(result.returncode == 0, "M152_WORKER", result.stderr)
     with (output / "events.tsv").open(encoding="ascii", newline="") as events:
         rows = list(csv.reader(events, delimiter="\t"))
@@ -90,9 +90,13 @@ def parser_contract(worker, work):
     warnings = [row for row in events if row[0] == "M152_WARN_KEY_SAME_FRAME"]
     require(warnings == [["M152_WARN_KEY_SAME_FRAME", *row[1:]] for row in transitions[1::2]],
             "M152_KEY_SAME_FRAME_WARNING", warnings)
-    for label, name in (("unknown", "unknown-key"), ("host-only", "fast_forward")):
+    crlf_events, _ = successful_run(worker, "va", make_case(work, "valid-crlf"), good, eol="\r\n")
+    require(crlf_events == events, "M152_KEY_CRLF_ORDER", crlf_events)
+    for label, name, eol in (("unknown", "unknown-key", "\n"),
+                             ("unknown-crlf", "unknown-key", "\r\n"),
+                             ("host-only", "fast_forward", "\n")):
         bad = good.replace("key-down ESC\n", f"key-down {name}\n", 1)
-        result, output = run(worker, "va", make_case(work, label), bad)
+        result, output = run(worker, "va", make_case(work, label), bad, eol=eol)
         codes = re.findall(r"^(M152_DEBUG_\w+): line (\d+)$", result.stderr, re.M)
         require(result.returncode != 0 and codes == [("M152_DEBUG_KEY_NAME", "3")]
                 and not (output / "events.tsv").exists(), "M152_KEY_PARSE_ERROR", result.stderr)
@@ -122,11 +126,13 @@ def parser_contract(worker, work):
 
     header = HEADER.replace("limit-frame 10", "limit-frame 40")
     body = "input-line ab\nkey-down A\nwait-frame 30\nkey-up A\nexit\n"
-    events, _ = successful_run(worker, "va", make_case(work, "paste-then-key"), header + body)
-    keys = key_events(events)
-    require(len(keys) == 2 and 1 < int(keys[0][1]) < 30
-            and keys[0][0::2] == ["key-down", "a"] and keys[1] == ["key-up", "30", "a", "29"],
-            "M152_PASTE_THEN_KEY", events)
+    for nowait in (False, True):
+        root = make_case(work, f"paste-then-key-{nowait}")
+        events, _ = successful_run(worker, "va", root, header + body, nowait=nowait)
+        # Three unshifted keys (a, b, RETURN), each with two phases of two frames.
+        require(key_events(events) == [["key-down", "12", "a", "29"],
+                                       ["key-up", "30", "a", "29"]]
+                and events[-1][0] == "exit", "M152_PASTE_THEN_KEY", events)
     bad = header + "key-down A\n" + body
     result, _ = run(worker, "va", make_case(work, "held-then-paste"), bad)
     codes = re.findall(r"^(M152_DEBUG_\w+): line (\d+)$", result.stderr, re.M)
