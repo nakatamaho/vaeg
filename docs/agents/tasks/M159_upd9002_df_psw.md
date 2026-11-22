@@ -41,6 +41,7 @@ POSSIBILITY OF SUCH DAMAGE.
   hardware behavior. Keep the GVAM fixture's I/O dispatcher live while it
   exercises the port handlers, and pair the N80 CRTC fixture's machine
   initialization and teardown so it cannot leave a live audio callback.
+  Only explicit PCM reads advance the synchronous PCG phase fixture.
 - Derive EOL expectations from the effective Git attributes and validate
   the retained M140 patches by exact path and digest in source archives only.
 - Treat CRLF as one debug-script delimiter and pace debug-script paste by

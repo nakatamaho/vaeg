@@ -95,6 +95,18 @@ land.
 - **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
   [e16934c8](https://github.com/nakatamaho/vaeg/commit/e16934c8c231a6450fb27dc6ba6884d2fb54e2d7).
 
+### M159 follow-up — Host playback advanced the PCG phase fixture
+
+- **Symptom/scope:** The PCG phase SAV guard could report lost atomicity in
+  the full selftest even though the rejected load did not change guest state.
+- **Demonstrated root cause:** The host audio callback could advance PCG
+  phase concurrently with the fixture's explicit PCM samples and state checks.
+- **Correction/verification:** Hold host playback off for the synchronous
+  fixture, including across state loads, then restore it. Keep the exact
+  malformed-state atomicity and PCM continuation comparisons.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [90eca3cd](https://github.com/nakatamaho/vaeg/commit/90eca3cd31b8e3099568b487ea009eae3e02c124).
+
 ### M158 — A held OPN timer flag re-requested the sound interrupt
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program that
