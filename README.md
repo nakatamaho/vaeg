@@ -87,6 +87,37 @@ remains a useful historical reference.
 
 ## News
 
+### 2026-11-22 - Rel.20261122
+
+[Rel.20261122](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261122)
+covers the commits since Rel.20261025 through M161: PC-8001mkII and
+PC-8001mkIISR models, a uPD780C main CPU for the PC-8801 and PC-8001
+families, the NEC PC-8801-17 Video Art Board, an experimental Digital Arts
+HyPER-FRAME+, V1/V2 sound and disk-unit fixes, TSP sprites as on the VA and
+VA2, EMS up to 15 MB and a speed display. **Snapshots of earlier releases do
+not load in this release.** It also corrects Rel.20261025: a real
+PC-8801mkIISR draws the CARIGRAPH demonstration black on white, as the VA
+does.
+
+The four emulator screenshots below show the sample disks of
+`demos/hyperframe+` (top row, V3) and `demos/vab` (bottom row, V2).
+
+<div align="center">
+<table align="center" width="100%">
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/rel-20261122-hyperframe-raytrace.png" alt="Ray-traced spheres on the HyPER-FRAME+"><br><em>HyPER-FRAME+: ray-traced spheres</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/rel-20261122-hyperframe-mandelbrot.png" alt="Mandelbrot close-up on the HyPER-FRAME+"><br><em>HyPER-FRAME+: Mandelbrot set, Seahorse valley</em></td>
+</tr>
+<tr>
+<td align="center" width="50%"><img width="100%" src="docs/images/rel-20261122-vab-raytrace.png" alt="Ray-traced sphere ring on the Video Art Board"><br><em>Video Art Board: sphere ring</em></td>
+<td align="center" width="50%"><img width="100%" src="docs/images/rel-20261122-vab-mandelbrot.png" alt="Mandelbrot close-up on the Video Art Board"><br><em>Video Art Board: Mandelbrot set, Elephant valley</em></td>
+</tr>
+</table>
+</div>
+
+See [Rel.20261122 changes](CHANGES.20261122.md) for the complete release
+notes.
+
 ### 2026-10-25 - Rel.20261025
 
 [Rel.20261025](https://github.com/nakatamaho/vaeg/releases/tag/rel-20261025)
@@ -103,6 +134,10 @@ booted as a VA (top row) and as a PC-8801mkIISR (bottom row). The maintainer
 confirms that both match the respective real machines: the VA retains blank
 key blocks and draws black lines on white; the PC-8801mkIISR has no blank
 blocks and draws white lines on black.
+
+**Correction (Rel.20261122):** the bottom-right picture is wrong. A real
+PC-8801mkIISR also draws these lines black on white; see
+[Rel.20261122 changes](CHANGES.20261122.md#correction-to-rel20261025).
 
 <div align="center">
 <table align="center" width="100%">
