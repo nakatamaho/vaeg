@@ -8793,11 +8793,14 @@ static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
 	BYTE before_phase[PCG88_PHASE_STATE_SIZE], after_phase[PCG88_PHASE_STATE_SIZE];
 	_PCG88 before;
 	const UINT32 saved_rate = soundcfg.rate;
+	const BOOL playback_enabled = soundmng_isenabled();
 	const UINT reloads[3] = {10000, 0x1234, 0};
 	const char *problem = NULL;
 	char error[256];
 	BYTE *data = NULL;
 	UINT channel, size = 0, pos, mutation;
+	/* Only the explicit PCM calls below should advance this fixture's phase. */
+	soundmng_setenabled(FALSE);
 	pcg88_reset();
 	memoryva_88_mode = TRUE;
 	soundcfg.rate = 44100;
@@ -8883,6 +8886,7 @@ static const char *test_pcg_phase_sav(const char *path, const char *oldpath) {
 	}
 	soundcfg.rate = saved_rate;
 	pcg88_setvol(np2cfg.pcg_vol);
+	soundmng_setenabled(playback_enabled);
 	return problem;
 }
 
