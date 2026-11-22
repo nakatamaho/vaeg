@@ -85,6 +85,12 @@ SOURCE_ARCHIVE_ZEX_FILES = {
 # external/suzukiplan-z80/provenance.txt (e0c47ca4). Source archives only;
 # neither a directory-wide patch exception nor a runtime-package permission.
 SOURCE_ARCHIVE_PATCHES = {
+    "docs/agents/reports/m140_upstream_upd780c1_profile.patch":
+        "8143c2c3d59e8d8328a64aef923f905c5d57254314cb180abeccae2a808b6496",
+    "external/zex/patches/m140-fdc-neg-smoke.patch":
+        "dc1f2f61865b3045f21b8f95ea310c27a6df484aebe0d97862c6839f1ca68272",
+    "external/zex/patches/m140-fdc-zexall.patch":
+        "95cd9170f4f7e3f31eb72fc6c15a2c80f44a03aa6f427f35253975e23aa37378",
     "docs/agents/reports/upd9002_instruction_fetch_flag.patch":
         "424541f9d1136f7c0984363c549806ad41f4d17ca430294748c1778d6751125d",
 }
