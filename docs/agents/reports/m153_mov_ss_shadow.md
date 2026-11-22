@@ -23,7 +23,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M153 — Native interrupt shadow after loading SS
 
-[Task](../tasks/M153_mov_ss_shadow.md) · [Implementation](https://github.com/nakatamaho/vaeg/commit/2d44fab18afa18f6ac6517023b191974bc9e0800)
+[Task](../tasks/M153_mov_ss_shadow.md) · [Implementation](https://github.com/nakatamaho/vaeg/commit/e9b165affcf9bc2efc29a27d36b13eb56d5ad8ef)
 
 ## Cause and semantics
 

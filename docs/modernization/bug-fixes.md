@@ -269,7 +269,7 @@ land.
   cases check retention, clearing, and rejection of invalid shadow data.
 - **Task/evidence:** [M153 task](../agents/tasks/M153_mov_ss_shadow.md),
   [implementation report](../agents/reports/m153_mov_ss_shadow.md).
-- **Fixing commit:** [2d44fab18afa18f6ac6517023b191974bc9e0800](https://github.com/nakatamaho/vaeg/commit/2d44fab18afa18f6ac6517023b191974bc9e0800).
+- **Fixing commit:** [e9b165affcf9bc2efc29a27d36b13eb56d5ad8ef](https://github.com/nakatamaho/vaeg/commit/e9b165affcf9bc2efc29a27d36b13eb56d5ad8ef).
 
 ### M152 — Debug-script keyboard state diverged from guest input
 
