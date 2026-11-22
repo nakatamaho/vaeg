@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M161 — A D88 track formatted in FM was recorded as MFM
+
+- **Symptom/scope:** D88 images on every machine: after FORMAT TRACK with MF
+  clear (FM), READ ID and READ DATA in FM could not find the new sectors, so
+  for example copying a disk whose first track is FM failed its verification.
+- **Demonstrated root cause:** `fdd_formating_d88` cleared each new sector
+  header but never set its density byte, so every formatted sector carried
+  the MFM value (00h) while the read paths compare that byte with the FDC MF
+  bit.
+- **Correction:** Store the inverse of the MF bit (40h for FM, 00h for MFM),
+  matching the read paths.
+- **Verification:** The D88 format density selftest formats an FM and an MFM
+  track and fails without the correction (`M161_D88_FORMAT_FM_NOT_FM`).
+- **Task/evidence:** [M161 task](../agents/tasks/M161_d88_fm_format.md),
+  PR [#84](https://github.com/nakatamaho/vaeg/pull/84).
+- **Fixing commit:** [64e55e11b5ea739fa4d32713153611d15f766664](https://github.com/nakatamaho/vaeg/commit/64e55e11b5ea739fa4d32713153611d15f766664).
+
 ### M159 — uPD9002 saved PSW high bits and IRET mode selection
 
 - **Symptom/scope:** On the VA and VA2 main CPU, stack PSW images could
