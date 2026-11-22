@@ -82,6 +82,19 @@ land.
 - **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
   [4dd94fc8](https://github.com/nakatamaho/vaeg/commit/4dd94fc80730acc8dbca7fcbba2d8c499c1fd850).
 
+### M159 follow-up — N80 CRTC selftest left its audio callback live
+
+- **Symptom/scope:** A later full selftest fixture could crash in the SDL
+  audio callback while reinitializing the sound stream.
+- **Demonstrated root cause:** The N80 CRTC IRQ test opened an audio device
+  via `pccore_init()` and did not terminate the machine. A later fixture
+  could clear the stream state while that callback was using it.
+- **Correction/verification:** Pair initialization and teardown in the
+  CRTC IRQ fixture. The full selftest still runs the same VRTC boundary,
+  mask, acknowledge and withdrawal assertions.
+- **Task/fix:** [M159](../agents/tasks/M159_upd9002_df_psw.md),
+  [e16934c8](https://github.com/nakatamaho/vaeg/commit/e16934c8c231a6450fb27dc6ba6884d2fb54e2d7).
+
 ### M158 — A held OPN timer flag re-requested the sound interrupt
 
 - **Symptom/scope:** PC-8801 models and VA/VA2 V1/V2 mode: a program that
