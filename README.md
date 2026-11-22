@@ -40,8 +40,9 @@ remains a useful historical reference.
 - V1/V2 and N modes: PC-8801 software (N88-BASIC V1/V2, N88-DISK BASIC,
   uPD3301 text with semigraphics, graphics, buzzer and port sound) and
   N-BASIC run in the VA's compatibility modes, selected under 模擬 > 起動;
-- PC-8801 and PC-8001 machines started from user-supplied ROMs in
-  `extra/` (the VA ROM set is still needed);
+- PC-8801 and PC-8001 machines, including the PC-8001mkII and
+  PC-8001mkIISR, started from user-supplied ROMs in `extra/` (the VA ROM
+  set is still needed), each with its own uPD780C main CPU;
 - PCG-8100/8800 user-defined characters and three-voice tones in V1/V2
   mode (optional);
 - D88 files holding several disks: disk A in drive 1 and disk B in drive 2
@@ -58,7 +59,11 @@ remains a useful historical reference.
 - 8087 emulation, enabled by default, with its transcendental instructions
   on the host x87 on x86 hosts;
 - partial PC-9801-55-compatible SCSI support;
-- EMS support;
+- EMS up to 15 MB;
+- the NEC PC-8801-17 Video Art Board (320x200, 65536 colours) and an
+  experimental Digital Arts HyPER-FRAME+ (640x400, full colour), each with
+  a sample disk under `demos/`;
+- TSP sprites and text VRAM timing as on the VA and VA2;
 - main-memory and BMS compatibility;
 - host text copy and paste;
 - more hardware-like sound through [ymfm](https://github.com/aaronsgiles/ymfm);
@@ -81,7 +86,8 @@ remains a useful historical reference.
   and model-specific SGP timing and CPU/SGP contention;
 - five-generation quick saves on F12 and quick loads on Shift+F12, when
   that F12 assignment is selected;
-- an independently switchable machine/mode/clock information bar;
+- an independently switchable machine/mode/clock information bar, and a
+  speed display with the measured speed and an equivalent CPU clock;
 - substantially reorganized and simplified code;
 - a greatly reduced PC-98-only codebase.
 
@@ -115,8 +121,11 @@ The four emulator screenshots below show the sample disks of
 </table>
 </div>
 
-See [Rel.20261122 changes](CHANGES.20261122.md) for the complete release
-notes.
+Packages: Windows x64 (`vaeg-20261122-m161-windows-x64.zip`), Linux x86_64
+(`vaeg-20261122-m161-linux-x86_64.tar.gz`) and macOS arm64
+(`vaeg-20261122-m161-macos-arm64.tar.gz`). Public builds enable recording;
+Linux public builds do not include MP4 compression. See
+[Rel.20261122 changes](CHANGES.20261122.md) for the complete release notes.
 
 ### 2026-10-25 - Rel.20261025
 
@@ -545,6 +554,11 @@ local bootable-disk workflow.
 - [Zundamon Orbit](demos/disks/zundamon-orbit.d88.xz)
 - [Self-booting SGP demos and display tests](demos/disks/sgp-boot.d88.xz)
   (boots with no operating system; [details](demos/sgp-boot/README.md))
+- [Video Art Board samples](demos/vab/vab-samples.d88.xz): a self-booting
+  V1/V2 disk for the PC-8801-17 board ([details](demos/vab/README.md))
+- [HyPER-FRAME+ ray tracing](demos/hyperframe+/hfshow-msdos4.d88.xz) and
+  [Mandelbrot](demos/hyperframe+/hfmandel-msdos4.d88.xz): bootable MS-DOS 4.0
+  disks for the experimental HyPER-FRAME+ ([details](demos/hyperframe+/README.md))
 
 ## Runtime Files and Saved State
 

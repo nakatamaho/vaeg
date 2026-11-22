@@ -43,6 +43,19 @@ The pictures are emulator screenshots of the sample disks in
 `demos/hyperframe+` and `demos/vab`, whose programs and pictures are built
 from this repository.
 
+## Downloads
+
+| Platform | Package |
+| --- | --- |
+| Windows x64 | `vaeg-20261122-m161-windows-x64.zip` |
+| Linux x86_64 | `vaeg-20261122-m161-linux-x86_64.tar.gz` |
+| macOS arm64 | `vaeg-20261122-m161-macos-arm64.tar.gz` |
+
+Each package holds the `vaeg` executable (`vaeg.exe` on Windows), these
+notes, the PC-88VA guest drivers `HOSTFAT.SYS` and `SQEMM98.SYS`, the licence
+notices and the recording source materials. Public builds enable recording;
+Linux public builds do not include MP4 compression. ROMs are not included.
+
 ## Important: new save-state format
 
 **Snapshots saved by Rel.20261025 or earlier do not load in this release.**
