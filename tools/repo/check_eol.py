@@ -5,7 +5,7 @@ Usage:
   python tools/repo/check_eol.py --report    # census: LF / CRLF / MIXED
   python tools/repo/check_eol.py --enforce   # fail unless policy holds
 
-Policy (mirrors .gitattributes): LF everywhere, CRLF for CRLF_EXT,
+Policy: LF by default, with explicit eol rules in .gitattributes.
 MIXED never allowed. Binary files (NUL byte) and paths that .gitattributes
 marks binary (no text conversion), such as byte-exact evidence captured from
 CP/M, are skipped. Exit 0/1.
@@ -14,30 +14,26 @@ import argparse
 import subprocess
 import sys
 
-CRLF_EXT = {".dsp", ".dsw", ".sln", ".vcproj", ".vcxproj", ".filters", ".bat"}
-
-
 def tracked_files():
     out = subprocess.run(["git", "ls-files", "-z"], capture_output=True, check=True)
     return [p for p in out.stdout.decode("utf-8").split("\0") if p]
 
 
-def binary_attribute_paths(paths):
-    """Return the paths whose .gitattributes unset the text attribute."""
+def text_attributes(paths):
+    """Read the effective text/eol attributes, including path overrides."""
     if not paths:
-        return set()
+        return {}
     out = subprocess.run(
-        ["git", "check-attr", "-z", "--stdin", "text"],
+        ["git", "check-attr", "-z", "--stdin", "text", "eol"],
         input="\0".join(paths).encode("utf-8") + b"\0",
         capture_output=True,
         check=True,
     )
     fields = out.stdout.decode("utf-8").split("\0")
-    result = set()
+    result = {}
     for index in range(0, len(fields) - 2, 3):
-        path, _, value = fields[index : index + 3]
-        if value == "unset":
-            result.add(path)
+        path, attribute, value = fields[index : index + 3]
+        result.setdefault(path, {})[attribute] = value
     return result
 
 
@@ -54,11 +50,6 @@ def eol_class(data: bytes) -> str:
     return "LF"  # includes files with no newline at all
 
 
-def ext_of(path: str) -> str:
-    dot = path.rfind(".")
-    return path[dot:].lower() if dot >= 0 else ""
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", action="store_true")
@@ -67,16 +58,16 @@ def main() -> int:
 
     violations = 0
     paths = tracked_files()
-    binary = binary_attribute_paths(paths)
+    attributes = text_attributes(paths)
     for path in paths:
-        if path in binary:
+        if attributes[path]["text"] == "unset":
             continue
         with open(path, "rb") as f:
             data = f.read()
         if b"\0" in data:
             continue
         cls = eol_class(data)
-        want = "CRLF" if ext_of(path) in CRLF_EXT else "LF"
+        want = "CRLF" if attributes[path]["eol"] == "crlf" else "LF"
         if args.report:
             print(f"{cls:5s} {path}")
         if args.enforce and cls != want:
