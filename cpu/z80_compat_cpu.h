@@ -52,7 +52,8 @@ class Z80CompatCpu {
 	bool Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock, IClockCounter *clockcounter,
 	          int interrupt_acknowledge_port);
 	void Exec();
-	void ExecOne();
+	// Return the fetched ED suffix, or -1 for other instructions or no fetch.
+	int ExecOne();
 
 	void IOCALL Reset(std::uint32_t = 0, std::uint32_t = 0);
 	void IOCALL IRQ(std::uint32_t, std::uint32_t asserted);

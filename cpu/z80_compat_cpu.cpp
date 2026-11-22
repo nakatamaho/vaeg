@@ -183,10 +183,11 @@ void Z80CompatCpu::Exec() {
 	lastclock_ = SignedFromBits(now);
 }
 
-void Z80CompatCpu::ExecOne() {
+int Z80CompatCpu::ExecOne() {
 	if (impl_ == nullptr || clockcounter_ == nullptr) {
-		return;
+		return -1;
 	}
+	int ed_suffix = -1;
 	if (external_wait_) {
 		const std::int32_t remaining = clockcounter_->GetRemainclock();
 		if (remaining > 0) {
@@ -194,8 +195,12 @@ void Z80CompatCpu::ExecOne() {
 		}
 	} else {
 		ExecuteOne();
+		if (first_opcode_ == 0xed && !prefix_fetch_pending_) {
+			ed_suffix = prefixed_opcode_;
+		}
 	}
 	SynchronizePublicMirror();
+	return ed_suffix;
 }
 
 void IOCALL Z80CompatCpu::Reset(std::uint32_t, std::uint32_t) {

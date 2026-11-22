@@ -1862,7 +1862,8 @@ UPD9002FN _pushf(void) { // 9C:	pushf
 
 	UPD9002_WORKCLOCK(8);
 	UPD9002_SP -= 2;
-	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, upd9002_core_psw_image());
+	/* Live native FLAGS reads bit 1 as one; a saved PSW need not. */
+	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, upd9002_core_psw_image() | 2);
 }
 
 UPD9002FN _popf(void) { // 9D:	popf
@@ -1887,7 +1888,7 @@ UPD9002FN _sahf(void) { // 9E:	sahf
 UPD9002FN _lahf(void) { // 9F:	lahf
 
 	UPD9002_WORKCLOCK(2);
-	UPD9002_AH = UPD9002_FLAGL;
+	UPD9002_AH = UPD9002_FLAGL | 2;
 }
 
 UPD9002FN _mov_al_m8(void) { // A0:	mov		al, m8
@@ -3750,14 +3751,7 @@ UPD9002FN _ope0x0f(void) { // 0F:
 		UPD9002_IP++;
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
 		if ((op == 0xff) && (UPD9002_FLAG & D_FLAG)) {
-			static BOOL warned;
 			upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "brkem-df-set", op, vector, 1);
-			if (!warned) {
-				fputs("warning: uPD9002 BRKEM with DF=1; subsequent hardware behavior "
-				      "is unresolved, using normal compatible entry\n",
-				      stderr);
-				warned = TRUE;
-			}
 		}
 		upd9002_core_brkem(vector);
 		return;

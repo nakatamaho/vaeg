@@ -264,7 +264,7 @@ static int run_pushf_case(const char *name, UINT16 flags, UINT16 ss, UINT16 sp) 
 	initial_ip = CPU_IP;
 	upd9002_core_step();
 	if ((CPU_SP != (UINT16)(sp - 2)) || (CPU_IP != (UINT16)(initial_ip + 1)) ||
-	    (read_segment_word(ss, (UINT16)(sp - 2)) != ((flags & 0x0fff) | 0xf000)) ||
+	    (read_segment_word(ss, (UINT16)(sp - 2)) != ((flags & 0x0fff) | 0xf002)) ||
 	    (CPU_AX != 0x1357) || (CPU_BX != 0x2468) || (CPU_REMCLOCK < 0)) {
 		return fail_case(name, "ordinary PUSHF state differs");
 	}
@@ -413,7 +413,7 @@ static int run_lahf_case(const char *name, UINT16 flags, UINT8 expected_ah) {
 }
 
 static int test_lahf(void) {
-	if (run_lahf_case("LAHF fixed bits", 0xf002, 0x02) != SUCCESS ||
+	if (run_lahf_case("LAHF fixed bit from clear PSW", 0xf000, 0x02) != SUCCESS ||
 	    run_lahf_case("LAHF copied bits", 0xf0d7, 0xd7) != SUCCESS) {
 		return FAILURE;
 	}
