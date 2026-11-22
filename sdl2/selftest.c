@@ -5509,15 +5509,18 @@ static BOOL v1v2_state_is_nondefault(void) {
 }
 
 static int test_gvam_transition(void) {
-	const UINT8 saved_mode = memoryva_88_mode;
-	const UINT8 saved_plane = memoryva_88_plane;
-	const UINT8 saved_gvam = memoryva_88_alu.gvam;
-	const REG8 saved_port = iocore_inp8(0x032);
+	REG8 saved_port;
 	const char *problem = NULL;
 	UINT native;
 	UINT old;
 	UINT next;
 	UINT plane;
+
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	saved_port = iocore_inp8(0x032);
 
 	/* Exercise the real port handler: both edges, both same-value writes,
 	 * every independent selection, and unchanged native-mode behavior. */
@@ -5537,10 +5540,8 @@ static int test_gvam_transition(void) {
 			}
 		}
 	}
-	iocore_out8(0x032, saved_port);
-	memoryva_88_mode = saved_mode;
-	memoryva_88_plane = saved_plane;
-	memoryva_88_alu.gvam = saved_gvam;
+	pccore_term();
+	soundmng_deinitialize();
 	if (problem != NULL) {
 		return fail("GVAM transitions", problem);
 	}
