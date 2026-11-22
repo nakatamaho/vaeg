@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M161 — D88 のフォーマットで FM の密度が記録されない
 
-Status: **IN PROGRESS; awaiting G161.**
+Status: **COMPLETE; G161 human gate PASSED on 2026-11-22.**
 Branch: `milestone/m161-d88-fm-format`（PR
 [#84](https://github.com/nakatamaho/vaeg/pull/84) の
 [64e55e11](https://github.com/nakatamaho/vaeg/commit/64e55e11b5ea739fa4d32713153611d15f766664) から。その親は
@@ -63,3 +63,21 @@ MFM で、READ ID / READ DATA はこのバイトと FDC の MF ビットを比�
 
 G161: 保守者が PR #84 の取り込みを指示した（2026-11-22）。CI の結果と、
 保守者の指示による統合キャンペーンの結果を確認してから main にマージする。
+
+## G161 記録
+
+2026-11-22、保守者が PR #84 のマージを指示し（「84マージできます」）、
+G161 を passed とした。PR #84 の GitHub CI は 20 本すべて PASS。
+リリースは、保守者の指示による Rel.20261122 の準備で別に扱う。
+
+## 統合キャンペーン
+
+保守者の指示で両方を実施した。結果は
+[M161 integration QA](../reports/m161_integration_qa.md)。評価したのは
+main（M160 まで）に M161 をマージした候補 `1e3b7216`。全デモの描画
+34/34、MANDEL.BAS、自己起動 SGP、ユーティリティ FDD と SASI の起動 4/4 が
+PASS。実画面の自動確認（仮想 X11）は、速度画面 10 ケースを撮影（OCR は
+NOT_RUN）、レイアウト 32/32 一致（APPROVAL_REQUIRED）。同じ候補の
+`linux-ci-gcc` CTest は 160 本すべて PASS（1 本は無効）。最初の CTest は、
+止めたつもりのキャンペーン用スクリプトが同じビルドで並行して実行していて
+結果が混ざったため、単独で実行し直した。
