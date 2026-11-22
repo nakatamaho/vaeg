@@ -582,7 +582,14 @@ class MainCpuBridge final : public IMemoryAccess, public IIOAccess {
 		acknowledged_ = false;
 		last_data_ = kNoAddress;
 		counter_.BeginMeasured();
-		Cpu().ExecOne();
+		const int ed_suffix = Cpu().ExecOne();
+		// uPD9002 only: ED A0-A3/A8-AB/B0-B3/B8-BB latch the transfer
+		// direction in DF. Commit at each executed iteration, not at the
+		// final repeat, so a native interrupt sees the new direction.
+		if (!main_upd780_active_ && ed_suffix >= 0 && (ed_suffix & 0xe4) == 0xa0) {
+			CPU_FLAG = static_cast<UINT16>((CPU_FLAG & ~D_FLAG) |
+			                               ((ed_suffix & 8) ? D_FLAG : 0));
+		}
 		bool use_core = main_upd780_active_ || cost.fallback || acknowledged_ || halted;
 		std::uint32_t clocks = cost.taken;
 		if (!use_core && cost.conditional) {
@@ -1022,7 +1029,7 @@ static int compat_entry_selftest(UINT8 entry_opcode) {
 		                : block_io[form - 18];
 		upd9002_core_step();
 		bool ok = CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && CPU_IP == native_offset &&
-		          CPU_SP == 0x00f4 && !(CPU_FLAG & I_FLAG) && test_io_accesses == 0 &&
+		          CPU_SP == 0x00f4 && !(CPU_FLAG & (I_FLAG | D_FLAG)) && test_io_accesses == 0 &&
 		          upd9002_memoryread_w(native_stack_base + 0xf4) == compatible_offset + 2;
 		// The synthetic IRET handler deliberately retries the same IP so the
 		// next I/O form and then the original JR can reuse this location.
@@ -1259,7 +1266,86 @@ static int compat_split_fetch_selftest(void) {
 	return ok ? SUCCESS : FAILURE;
 }
 
+static int compat_block_df_selftest(void) {
+	upd9002_core_initialize();
+	upd9002_upd70008_register();
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		upd9002_core_deinitialize();
+		return FAILURE;
+	}
+	iocore_attachinp(0x50, test_trapped_in);
+	iocore_attachout(0x50, test_trapped_out);
+	bool passed = true;
+	for (unsigned seed = 0; seed < 2 && passed; seed++) {
+		for (unsigned suffix = 0xa0; suffix <= 0xbb && passed; suffix++) {
+			upd9002_core_reset();
+			CPU_SP = 0x0900;
+			CPU_BP = 0x0800;
+			CPU_IP = 0x0100;
+			CPU_FLAG = 0xf202 | (seed ? D_FLAG : 0);
+			CPU_REMCLOCK = 10000;
+			CPU_BX = 0x0600;
+			CPU_DX = 0x0700;
+			// The neighboring ED word transfers also use CX as a count.
+			const bool block = (suffix & 4) == 0;
+			CPU_CX = (block && (suffix & 3) >= 2) ? 0x0250 : 2;
+			CPU_AL = 0x42;
+			upd9002_iotrap = {};
+			mem[0x0600] = mem[0x0601] = mem[0x05ff] = 0x12;
+			// BRKEM2 e1; ED suffix; POP AF (F=0).
+			mem[0x0100] = 0x0f;
+			mem[0x0101] = 0xfe;
+			mem[0x0102] = 0xe1;
+			mem[0x0200] = 0xed;
+			mem[0x0201] = static_cast<UINT8>(suffix);
+			mem[0x0202] = 0xf1;
+			upd9002_memorywrite_w(0x0800, 0x0400);
+			upd9002_memorywrite_w(0xe1 * 4, 0x0200);
+			upd9002_memorywrite_w(0xe1 * 4 + 2, 0);
+			upd9002_memorywrite_w(0xe2 * 4, 0x0300);
+			upd9002_memorywrite_w(0xe2 * 4 + 2, 0);
+			mem[0x0300] = 0xcf; // IRET during a repeat.
+			mem[0x0310] = 0x9c; // PUSHF in the final interrupt handler.
+			mem[0x0311] = 0x9f; // LAHF.
+			CPU_CS = CPU_DS = CPU_SS = 0;
+			CS_BASE = DS_BASE = SS_BASE = 0;
+			upd9002_core_step();
+			upd9002_core_step();
+			const bool repeat = block && (suffix & 0x10);
+			const bool df = block ? (suffix & 8) != 0 : seed != 0;
+			passed = CPU_IP == (repeat ? 0x0200 : 0x0202) && !!(CPU_FLAG & D_FLAG) == df;
+			if (repeat && passed) {
+				upd9002_core_interrupt(0xe2);
+				passed = upd9002_memoryread_w(CPU_SP) == 0x0200 &&
+				         !!(upd9002_memoryread_w(CPU_SP + 4) & D_FLAG) == df;
+				upd9002_core_step();
+				upd9002_core_step();
+			}
+			passed = passed && CPU_IP == 0x0202 && !!(CPU_FLAG & D_FLAG) == df;
+			upd9002_core_step();
+			upd9002_memorywrite_w(0xe2 * 4, 0x0310);
+			upd9002_core_interrupt(0xe2);
+			const UINT16 saved = upd9002_memoryread_w(CPU_SP + 4);
+			passed = passed && (saved & 0xff) == 0 && !!(saved & D_FLAG) == df;
+			upd9002_core_step();
+			passed = passed && upd9002_memoryread_w(CPU_SP) == ((saved & ~I_FLAG) | 0x8002);
+			upd9002_core_step();
+			passed = passed && CPU_AH == 2;
+			if (!passed) {
+				std::fprintf(stderr, "M162_BLOCK_DF_PSW: ED %02X, DF seed %u\n", suffix, seed);
+			}
+		}
+	}
+	iocore_destroy();
+	upd9002_core_deinitialize();
+	return passed ? SUCCESS : FAILURE;
+}
+
 extern "C" int upd9002_upd70008_compat_selftest(void) {
+	if (compat_block_df_selftest() != SUCCESS) {
+		return FAILURE;
+	}
 	const UINT8 encodings[] = {0xff, 0xfe};
 	for (UINT8 encoding : encodings) {
 		if (compat_entry_selftest(encoding) != SUCCESS) {

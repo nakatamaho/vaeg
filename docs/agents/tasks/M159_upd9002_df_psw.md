@@ -30,8 +30,10 @@ POSSIBILITY OF SUCH DAMAGE.
 - Restore the IRET mode from MD while a compatible-mode session permits
   it, including a relocated return frame. Check nested native interrupts,
   the RETEM exit, DF preservation, and a pending return across save/load.
-- Warn on `BRKEM` with DF=1 without changing execution. The subsequent
-  hardware fetch/decoder behavior is an open question.
+- Historically added a `BRKEM` DF=1 warning without changing execution.
+  [M162](M162_upd9002_block_df.md) replaces the warning with trace-only
+  diagnostics: v4 distinguishes forward fetch and the older v3 stall is
+  not attributable to DF=1 entry.
 - Run the focused uPD9002 tests and local CTest suite. Keep integration
   inputs and unapproved evidence outside Git.
 
