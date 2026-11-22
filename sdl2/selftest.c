@@ -1791,6 +1791,83 @@ static BOOL selftest_d88_table_image(const char *path, UINT32 first, UINT32 entr
 }
 
 /* M103e: a 160-entry D88 table must not read track 0 data as pointers. */
+/* M161: formatting a D88 track records the FDC density.  FORMAT TRACK with
+ * MF clear (FM) must store the D88 FM flag (40h), so that READ ID in FM finds
+ * the new sectors and READ ID in MFM does not; an MFM format stays MFM. */
+static BOOL selftest_d88_format_track(UINT track, UINT8 mf, UINT8 n) {
+	BYTE id[4];
+	UINT r;
+
+	fdc.us = 0;
+	fdc.hd = (UINT8)(track & 1);
+	fdc.treg[0] = (UINT8)(track >> 1);
+	fdc.mf = mf;
+	fdc.N = n;
+	fdc.sc = 2;
+	fdc.d = 0xe5;
+	fdc.rpm[0] = 0;
+	if (fdd_formatinit_d88() != SUCCESS) {
+		return (FAILURE);
+	}
+	for (r = 1; r <= 2; r++) {
+		id[0] = (BYTE)(track >> 1);
+		id[1] = (BYTE)(track & 1);
+		id[2] = (BYTE)r;
+		id[3] = n;
+		if (fdd_formating_d88(id) != SUCCESS) {
+			return (FAILURE);
+		}
+	}
+	return (fdd_isformating_d88() ? FAILURE : SUCCESS);
+}
+
+static BOOL selftest_d88_readid(UINT track, UINT8 mf) {
+	fdc.us = 0;
+	fdc.hd = (UINT8)(track & 1);
+	fdc.treg[0] = (UINT8)(track >> 1);
+	fdc.mf = mf;
+	fdc.crcn = 0;
+	fdc.R = 0;
+	return ((fdd_readid_d88() == SUCCESS) && (fdc.R == 1)) ? SUCCESS : FAILURE;
+}
+
+static int test_fdd_d88_format_density(void) {
+	_FDC saved_fdc;
+	char path[MAX_PATH];
+	const char *problem = NULL;
+
+	SPRINTF(path, "vaeg-selftest-%lu-format-density.d88", (unsigned long)getpid());
+	file_delete(path);
+	CopyMemory(&saved_fdc, &fdc, sizeof(fdc));
+	CTRL_FDMEDIA[0] = DISKTYPE_2DD; /* a 2D disk in a 2DD/2D drive at 48 TPI */
+	fdc.trackdensity[0] = FDC_TRACKDENSITY_48TPI;
+	if (newdisk_fdd_msdos(path, NEWDISK_FDD_BLANK_2D_320) != SUCCESS) {
+		problem = "M161_D88_FORMAT_IMAGE";
+	} else if (fddd88_set(fddfile + 0, path, 0) != SUCCESS) {
+		problem = "M161_D88_FORMAT_MOUNT";
+	} else if (selftest_d88_format_track(2, 0x00, 0) != SUCCESS) {
+		problem = "M161_D88_FORMAT_FM_TRACK";
+	} else if (selftest_d88_readid(2, 0x00) != SUCCESS) {
+		problem = "M161_D88_FORMAT_FM_NOT_FM";
+	} else if (selftest_d88_readid(2, 0x40) != FAILURE) {
+		problem = "M161_D88_FORMAT_FM_READ_AS_MFM";
+	} else if (selftest_d88_format_track(3, 0x40, 1) != SUCCESS) {
+		problem = "M161_D88_FORMAT_MFM_TRACK";
+	} else if (selftest_d88_readid(3, 0x40) != SUCCESS) {
+		problem = "M161_D88_FORMAT_MFM_NOT_MFM";
+	} else if (selftest_d88_readid(3, 0x00) != FAILURE) {
+		problem = "M161_D88_FORMAT_MFM_READ_AS_FM";
+	}
+	fddd88_eject(fddfile + 0);
+	CopyMemory(&fdc, &saved_fdc, sizeof(fdc));
+	file_delete(path);
+	if (problem != NULL) {
+		return (fail("d88-format-density", problem));
+	}
+	printf("selftest: D88 format density ok\n");
+	return (SUCCESS);
+}
+
 static int test_fdd_d88_short_table(void) {
 	_FDDFILE parsed;
 	char path[MAX_PATH];
@@ -12080,6 +12157,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_fdd_d88_format_density() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_fdd_d88_short_table() != SUCCESS) {
