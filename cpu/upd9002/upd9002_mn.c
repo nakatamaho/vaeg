@@ -10,6 +10,7 @@
 #include "dmap.h"
 #include "upd9002_regs.h"
 #include "upd9002_ops.mcr"
+#include <stdio.h>
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include <stdlib.h>
 #endif
@@ -31,7 +32,6 @@
 static UINT16 upd9002_repnc_ipbak;
 static UINT16 upd9002_repc_ipbak;
 
-static UINT16 _materialize_pushf_image(void);
 static UINT8 _shift8(UINT8 value, UINT count, UINT subform);
 static UINT16 _shift16(UINT16 value, UINT count, UINT subform);
 static UINT8 _ea8_read(UINT op, UINT32 *madr);
@@ -1862,7 +1862,7 @@ UPD9002FN _pushf(void) { // 9C:	pushf
 
 	UPD9002_WORKCLOCK(8);
 	UPD9002_SP -= 2;
-	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, _materialize_pushf_image());
+	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, upd9002_core_psw_image());
 }
 
 UPD9002FN _popf(void) { // 9D:	popf
@@ -2358,10 +2358,12 @@ UPD9002FN _iret(void) { // CF: iret
 	UINT flag;
 	BOOL return_compat;
 
-	return_compat = upd9002_core_compat_iret_is_return();
 	REGPOP0(UPD9002_IP)
 	REGPOP0(UPD9002_CS)
 	REGPOP0(flag)
+	/* A compatible-mode native excursion permits restoring MD. Nested
+	 * native frames save MD=1; a relocated compatible frame still has MD=0. */
+	return_compat = CPU_COMPAT_RETURN_PENDING && !(flag & UPD9002_PSW_MD);
 	if (return_compat) {
 		CPU_COMPAT_RETURN_PENDING = 0;
 	}
@@ -2973,9 +2975,6 @@ UPD9002FN _mov_seg_ea(void) { // 8E:	mov		segrem, EA
 		DS_FIX = DS_BASE;
 		break;
 	}
-}
-static UINT16 _materialize_pushf_image(void) {
-	return (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) | (UPD9002_OV ? O_FLAG : 0));
 }
 static UINT8 _shift8(UINT8 value, UINT count, UINT subform) {
 	UINT8 result;
@@ -3750,6 +3749,15 @@ UPD9002FN _ope0x0f(void) { // 0F:
 		vector = upd9002_fetch(CS_BASE + UPD9002_IP);
 		UPD9002_IP++;
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "compat-entry", op, vector, 1);
+		if ((op == 0xff) && (UPD9002_FLAG & D_FLAG)) {
+			static BOOL warned;
+			upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "brkem-df-set", op, vector, 1);
+			if (!warned) {
+				fputs("warning: uPD9002 BRKEM with DF=1; subsequent hardware behavior "
+				      "is unresolved, using normal compatible entry\n", stderr);
+				warned = TRUE;
+			}
+		}
 		upd9002_core_brkem(vector);
 		return;
 	}

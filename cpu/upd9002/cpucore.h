@@ -244,13 +244,14 @@ enum {
 	UPD9002_COMPAT_UPD70008 = 1
 };
 
+#define UPD9002_PSW_MD 0x8000
+
 #define UPD9002_COMPAT_STATE_SIZE 68
 #define UPD9002_COMPAT_STATE_SECTION "UPD9Z80"
 /*
  * Mode-transition state that UPD9CPU does not carry: execution mode, the
- * CALLN/interrupt return-pending flag and the native SP that identifies the
- * returning IRET. Without it, a state saved while compatible code waits in a
- * native handler resumes that handler but never returns to compatible mode.
+ * native-excursion latch (IRET may restore MD after CALLN/interrupt), and
+ * a reserved word (formerly the saved return SP).
  */
 #define UPD9002_MODE_STATE_SECTION "UPD9MODE"
 #define UPD9002_MODE_STATE_SIZE 4
@@ -294,7 +295,7 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip);
 void CPUCALL upd9002_core_compat_iotrap(REG8 vect, REG16 instruction_ip);
 /* 8214 mode: drive the compatible core's INT line (vector on acknowledge). */
 void CPUCALL upd9002_core_compat_irq(BOOL asserted);
-BOOL CPUCALL upd9002_core_compat_iret_is_return(void);
+UINT16 CPUCALL upd9002_core_psw_image(void);
 void CPUCALL upd9002_core_compat_retem(void);
 void CPUCALL upd9002_core_compat_iret_resume(void);
 int upd9002_core_compat_state_save(UINT8 *buffer, UINT size);

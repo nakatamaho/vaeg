@@ -89,6 +89,9 @@ static int run_restoration_case(const char *name, UINT16 ss, UINT16 sp, UINT16 r
 	if (CPU_SP != (UINT16)(sp + 6)) {
 		return fail_case(name, "final SP differs");
 	}
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) {
+		return fail_case(name, "IRET outside a compatible excursion changed modes");
+	}
 	if (CPU_FLAG != expected_flags) {
 		fprintf(stderr, "upd9002-iret-restoration: %s: FLAGS expected=%04x actual=%04x\n", name,
 		        expected_flags, CPU_FLAG);
