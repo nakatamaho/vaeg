@@ -163,10 +163,6 @@ jobs:
           package="$(python3 tools/release/package-identity.py --identity build/linux-ci-gcc/generated/release-identity.json --tag "$RELEASE_TAG" --field package --platform linux-x86_64)"
           gh release upload "${RELEASE_TAG}" \
             "${package}.tar.gz" \
-            docs/images/vaeg-20261025-192336-0000017427-000.png \
-            docs/images/vaeg-20261025-192522-0000123417-000.png \
-            docs/images/vaeg-20261025-203526-0000090924-000.png \
-            docs/images/vaeg-20261025-203829-0000274378-000.png \
             --clobber
 
   windows:
@@ -305,7 +301,7 @@ jobs:
 
   macos:
     name: macos fetch-sdl2 release
-    runs-on: macos-14
+    runs-on: macos-15
     needs: linux
     steps:
       - uses: actions/checkout@v4
