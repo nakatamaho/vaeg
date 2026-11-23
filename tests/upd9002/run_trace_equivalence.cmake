@@ -63,6 +63,19 @@ function(run_trace output_variable)
         "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
         ""
         checkpoint_text "${checkpoint_text}")
+    # Sanitizer diagnostics (the documented UBSan backlog, for example in
+    # the PSG generator) can be printed by the host audio thread, so their
+    # position in stderr depends on host timing.  They are host diagnostics,
+    # not part of the CPU checkpoint contract; sanitizer failures still fail
+    # the selftest through its exit status.
+    string(REGEX REPLACE
+        "[^\n]*: runtime error: [^\n]*\n"
+        ""
+        checkpoint_text "${checkpoint_text}")
+    string(REGEX REPLACE
+        "SUMMARY: [A-Za-z]*Sanitizer[^\n]*\n"
+        ""
+        checkpoint_text "${checkpoint_text}")
     set(${output_variable}_checkpoints "${checkpoint_text}" PARENT_SCOPE)
 endfunction()
 
