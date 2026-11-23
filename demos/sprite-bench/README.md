@@ -210,6 +210,15 @@ measurements on the machine):
 | PC-88VA | 16 | `SGP` | 25 | 14 | 5 | 1 |
 | PC-88VA | 16 | `MIX` | 51 | 30 | 12 | 3 |
 
+## On the machines
+
+[results.md](results.md) holds the four tables as a PC-88VA and a
+PC-88VA2/VA3 showed them at 15 kHz, with vaeg's values for comparison.
+In short: the two machines draw with the CPU at the same speed; a GVRAM
+source makes the SGP faster on the PC-88VA2 and slightly slower on the
+PC-88VA; and with double buffering the CPU alone draws the most sprites
+on both.
+
 ## Building
 
 ```sh
