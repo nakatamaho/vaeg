@@ -39,15 +39,17 @@ if [ "${1:-}" = "--msdos4" ]; then
 fi
 outdir=${1:-.}
 mkdir -p "$outdir"
+outdir=$(CDPATH= cd -- "$outdir" && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 "$python_command" -I "$script_dir/gen_data.py" "$work/data.inc" --cpu "$outdir" \
 	${PREVIEW:+--preview "$PREVIEW"}
+# nasm looks in its current directory first: run it where data.inc is.
 for program in sgpbench cpubench; do
 	upper=$(printf '%s' "$program" | tr a-z A-Z)
-	"$nasm_command" -f bin -I"$work/" -I"$script_dir/" "$script_dir/$program.asm" \
-		-o "$outdir/$upper.COM"
+	(cd "$work" && "$nasm_command" -f bin -I"$work/" -I"$script_dir/" \
+		"$script_dir/$program.asm" -o "$outdir/$upper.COM")
 done
 if [ -n "$msdos4" ]; then
 	tool="$script_dir/../../tools/pc88va/pcengine_disk.py"
