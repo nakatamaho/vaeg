@@ -70,7 +70,12 @@ static void memwait_r(void) {
 
 static UINT32 memwait_last_write;
 
-static void memwait_w(void) {
+/* M165: the wait part of a write's bus time, 2.5 clocks (2 and 3 in turn). */
+#define MEMWAITVA_VRAM_WRITE_HOLD 2
+static UINT memwait_hold_half;
+extern UINT upd9002_bus_hold;
+
+static void memwait_w(BOOL word) {
 	int wait;
 	UINT32 now;
 	UINT32 since;
@@ -88,6 +93,15 @@ static void memwait_w(void) {
 	}
 	CPU_REMCLOCK -= wait;
 	memwait_last_write = now + (UINT32)wait;
+	/* M165: a word write holds the bus 6.5 clocks (REP STOSW's rate)
+	 * whether or not the CPU waits for it, so the BIU fetches no
+	 * instruction meanwhile (compiled sprites, CPUBENCH: 21 clocks a word
+	 * on the PC-88VA and VA2, 3 instruction words and the write). Byte
+	 * writes do not (demos/sgp-contention's write loops). */
+	memwait_hold_half ^= 1;
+	if (word && (wait < MEMWAITVA_VRAM_WRITE_HOLD)) {
+		upd9002_bus_hold += (UINT)(MEMWAITVA_VRAM_WRITE_HOLD - wait) + memwait_hold_half;
+	}
 }
 
 /*
@@ -228,7 +242,7 @@ static void _gvram_wt(UINT32 address, REG8 value) {
 }
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value) {
-	memwait_w();
+	memwait_w(FALSE);
 	_gvram_wt(address, value);
 }
 
@@ -308,7 +322,7 @@ void MEMCALL gvramw_wt(UINT32 address, REG16 value) {
 		gvram_wt(address, (REG8)(value & 0x00ff));
 		gvram_wt(address + 1, (REG8)(value >> 8));
 	} else {
-		memwait_w();
+		memwait_w(TRUE);
 		if (gactrlva.gmsp) {
 			// シングルプレーン
 			out = writevalue_s(address, value);
