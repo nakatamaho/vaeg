@@ -41,149 +41,29 @@
 %include "data.inc"			; PAL4, PAL8, PAL16, FONT, SPR_OFS, SPRITES
 
 %define PROGRAM	'CPUBENCH'
-DAT_PARAS	equ	2000h		; room for a .DAT file, at CS + 1000h
-MEM_PARAS	equ	1000h + DAT_PARAS
-ENTRY		equ	12		; a sprite: GVRAM segment and offset,
-					; code offset (0) and segment, data
-					; segment, width (bytes, dots or words)
+DAT_PARA	equ	1000h		; a .DAT file at CS + 1000h
+DAT_PARAS	equ	2000h		; its room
+MEM_PARAS	equ	DAT_PARA + DAT_PARAS
 
 %include "common.inc"
+%include "cpu.inc"
 
 ; ---------------------------------------------------------------------------
-; CPUn.DAT read to CS + 1000h; its header (32 entries: code and data
-; paragraphs, from the file's start) made segments. CF: not found.
-prepare_depth:	mov	ax,cs
-		add	ax,1000h
-		mov	[dat_seg],ax
-		xor	bx,bx
-		mov	bl,[depth_i]
-		shl	bx,1
-		mov	si,[dat_names + bx]			; the name, 0-terminated
-		mov	di,file_name
-.copy:		lodsb
-		cmp	al,'$'
-		je	.named
-		stosb
-		jmp	.copy
-.named:		mov	byte [di],0
-		mov	dx,file_name
-		mov	ax,3d00h		; open, read
-		int	21h
-		jc	.fail
-		mov	bx,ax
-		mov	cx,DAT_PARAS / 800h	; 32 KB blocks
-		mov	dx,[dat_seg]
-.read:		push	cx
-		push	dx
-		push	ds
-		mov	ds,dx
-		xor	dx,dx
-		mov	cx,8000h
-		mov	ah,3fh
-		int	21h
-		pop	ds
-		pop	dx
-		pop	cx
-		jc	.close_fail
-		cmp	ax,8000h
-		jb	.close
-		add	dx,800h
-		loop	.read
-.close:		mov	ah,3eh
-		int	21h
-		push	es
-		mov	es,[dat_seg]
-		xor	si,si
-		xor	di,di
-		mov	cx,32
-.entry:		mov	ax,[es:si]
-		add	ax,[dat_seg]
-		mov	[code_segs + di],ax
-		mov	ax,[es:si + 2]
-		add	ax,[dat_seg]
-		mov	[data_segs + di],ax
-		add	si,4
-		add	di,2
-		loop	.entry
-		pop	es
-		clc
-		ret
-.close_fail:	mov	ah,3eh
-		int	21h
-.fail:		mov	word [fail_msg],s_nofile
-		stc
-		ret
+; A depth's CPUn.DAT. CF: not found.
+prepare_depth:	jmp	load_dat
 
 ; ---------------------------------------------------------------------------
-; The sprites' table: for each, its GVRAM place (segment A000h + address /
-; 16, the rest in the offset), its routine and data (image size_i * 4 +
-; kind, parity at 4 bpp) and its width. Positions as SGPBENCH's.
-build_list:	call	slot_index
-		xor	bx,bx
-		mov	bl,[size_i]
-		mov	cl,bl
-		mov	ax,8
-		shl	ax,cl
-		mov	[size],ax
-		shl	bx,1
-		mov	ax,[count_tab + bx]
-		mov	[count],ax
-		mov	ax,[seed_tab + bx]
-		mov	[seed],ax
+; The sprites' table (cpu_entry), positions as SGPBENCH's; the line's
+; drawn bytes.
+build_list:	call	begin_list
 		mov	di,sprite_tab
 		xor	bp,bp
 .sprite:	call	random_xy		; CX x, DX y
-		mov	ax,dx			; DX:AX = y * pitch
-		mul	word [pitch]
-		xor	bx,bx			; BX: parity
-		mov	si,cx			; SI: x in bytes
-		cmp	byte [code],1
-		jne	.x8
-		and	bx,0			; 4 bpp: x / 2, parity x and 1
-		mov	bl,cl
-		and	bl,1
-		shr	si,1
-		jmp	.addr
-.x8:		cmp	byte [code],2
-		je	.addr
-		shl	si,1
-.addr:		add	ax,si
-		adc	dx,0
-		mov	si,ax			; segment and offset
-		and	si,0fh
-		shr	ax,4
-		shl	dx,12
-		or	ax,dx
-		add	ax,0a000h
-		mov	[di],ax
-		mov	[di + 2],si
-		mov	word [di + 4],0
-		xor	ax,ax			; entry (size_i * 4 + kind) * 2
-		mov	al,[size_i]		; + parity
-		shl	ax,2
-		mov	dx,bp
-		and	dx,3
-		add	ax,dx
-		shl	ax,1
-		add	ax,bx
-		mov	si,ax
-		shl	si,1
-		mov	ax,[code_segs + si]
-		mov	[di + 6],ax
-		mov	ax,[data_segs + si]
-		mov	[di + 8],ax
-		mov	ax,[size]		; width: 4 bpp size / 2 + parity
-		cmp	byte [code],1		; bytes, else size dots
-		jne	.width
-		shr	ax,1
-		add	ax,bx
-.width:		mov	[di + 10],ax
-		add	di,ENTRY
+		call	cpu_entry
 		inc	bp
 		cmp	bp,[count]
-		jae	.end
-		jmp	.sprite
-.end:		mov	cl,[code]		; the line's rest in bytes
+		jb	.sprite
+		mov	cl,[code]		; the line's rest in bytes
 		mov	ax,[size]
 		cmp	cl,1
 		jne	.bytes8
@@ -197,28 +77,7 @@ build_list:	call	slot_index
 ; ---------------------------------------------------------------------------
 ; The table's sprites in turn, again and again, for FRAMES VRTCs (counted
 ; by the VRTC interrupt, the only one unmasked): DX:AX sprites drawn.
-measure:	cli
-		push	es
-		xor	ax,ax
-		mov	es,ax
-		mov	ax,[es:0ah * 4]
-		mov	[old_vrtc],ax
-		mov	ax,[es:0ah * 4 + 2]
-		mov	[old_vrtc + 2],ax
-		mov	word [es:0ah * 4],vrtc
-		mov	[es:0ah * 4 + 2],cs
-		pop	es
-		mov	dx,18ah
-		in	al,dx
-		mov	[old_mask],al
-		mov	al,0fbh			; only VRTC (IR2)
-		out	dx,al
-		mov	word [ticks],0
-		sti
-.edge:		cmp	word [ticks],0
-		je	.edge
-		mov	ax,[ticks]
-		mov	[t0],ax
+measure:	call	vrtc_on
 		mov	word [drawn],0
 		mov	word [drawn + 2],0
 .list:		mov	si,sprite_tab
@@ -227,11 +86,7 @@ measure:	cli
 		push	si
 		cmp	byte [loc_i],0
 		jne	.loop
-		mov	di,[si + 2]		; COMPILED: DS:DI the place
-		push	ds
-		mov	ds,[si]
-		call	far [cs:si + 4]
-		pop	ds
+		DRAW_COMPILED
 		jmp	.drawn
 .loop:		call	draw_loop
 .drawn:		pop	si
@@ -245,34 +100,10 @@ measure:	cli
 		add	si,ENTRY
 		loop	.sprite
 		jmp	.list
-.end:		cli
-		push	es
-		xor	ax,ax
-		mov	es,ax
-		mov	ax,[old_vrtc]
-		mov	[es:0ah * 4],ax
-		mov	ax,[old_vrtc + 2]
-		mov	[es:0ah * 4 + 2],ax
-		pop	es
-		mov	dx,18ah
-		mov	al,[old_mask]
-		out	dx,al
-		sti
-		push	cs
-		pop	es
+.end:		call	vrtc_off
 		mov	ax,[drawn]
 		mov	dx,[drawn + 2]
 		ret
-
-vrtc:		push	ax
-		push	dx
-		inc	word [cs:ticks]
-		mov	al,20h
-		mov	dx,188h
-		out	dx,al
-		pop	dx
-		pop	ax
-		iret
 
 ; LOOP: the sprite at SI (its table entry) from its data.
 draw_loop:	mov	es,[si]
@@ -331,26 +162,13 @@ draw_loop:	mov	es,[si]
 ; ---------------------------------------------------------------------------
 s_banner	db	'CPUBENCH: CPU sprites, about 3 minutes. ESC stops.',13,10,'$'
 s_memory	db	'Not enough memory (needs 192 KB after the program).',13,10,'$'
-s_nofile	db	'CPU4.DAT, CPU8.DAT or CPU16.DAT not found or not read',13,10
-		db	'(run CPUBENCH where they are).',13,10,'$'
 s_head2		db	'SPRITES A VRTC, 180 VRTCS A TEST, CPU', 0
 s_head3		db	'SCREEN  COL.  WAY       8X8  16X16  32X32  64X64', 0
 s_loc0		db	'COMPLD', 0
 s_loc1		db	'LOOP', 0
-dat_names	dw	s_f4, s_f8, s_f16
-s_f4		db	'CPU4.DAT$'
-s_f8		db	'CPU8.DAT$'
-s_f16		db	'CPU16.DAT$'
 		align	2
-dat_seg		dw	0
 span_bytes	dw	0
-t0		dw	0
 drawn		dd	0
-old_vrtc	dd	0
-code_segs	times	32 dw 0
-data_segs	times	32 dw 0
-old_mask	db	0
-file_name	times	16 db 0
 		align	2
 sprite_tab	times	128 * ENTRY db 0
 image_end:

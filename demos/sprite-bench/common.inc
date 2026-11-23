@@ -21,7 +21,7 @@
 ; IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ; POSSIBILITY OF SUCH DAMAGE.
 ;
-; common.inc: the part SGPBENCH.COM and CPUBENCH.COM share (README.md): the
+; common.inc: the part the sprite benchmarks share (README.md): the
 ; tests' order, the screens (G0 only, single plane, 320 dots, 200 or 224
 ; lines), the titles, the positions and the table. The program defines
 ; PROGRAM, MEM_PARAS, prepare_depth, build_list, measure and the strings
@@ -417,6 +417,21 @@ slot_index:	mov	al,[res_i]
 		add	al,[size_i]
 		xor	ah,ah
 		mov	[slot],ax
+		ret
+
+; A test's slot, size, sprites a list and positions' seed.
+begin_list:	call	slot_index
+		xor	bx,bx
+		mov	bl,[size_i]
+		mov	cl,bl
+		mov	ax,8
+		shl	ax,cl
+		mov	[size],ax
+		shl	bx,1
+		mov	ax,[count_tab + bx]
+		mov	[count],ax
+		mov	ax,[seed_tab + bx]
+		mov	[seed],ax
 		ret
 
 mark_skipped:	mov	byte [loc_i],0
