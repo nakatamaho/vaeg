@@ -23,6 +23,23 @@ if(NOT DEFINED VAEG_EXECUTABLE OR NOT DEFINED TRACE_GOLDEN)
     message(FATAL_ERROR "VAEG_EXECUTABLE and TRACE_GOLDEN are required")
 endif()
 
+# Sanitizer diagnostics (the documented UBSan backlog, for example in the
+# PSG generator) can be printed by the host audio thread, so their position
+# in stderr depends on host timing.  They are host diagnostics, not part of
+# the CPU checkpoint contract; sanitizer failures still fail the selftest
+# through its exit status.
+function(strip_sanitizer_diagnostics text_variable)
+    string(REGEX REPLACE
+        "[^\n]*: runtime error: [^\n]*\n"
+        ""
+        text "${${text_variable}}")
+    string(REGEX REPLACE
+        "SUMMARY: [A-Za-z]*Sanitizer[^\n]*\n"
+        ""
+        text "${text}")
+    set(${text_variable} "${text}" PARENT_SCOPE)
+endfunction()
+
 function(run_trace output_variable)
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E env
@@ -63,19 +80,7 @@ function(run_trace output_variable)
         "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
         ""
         checkpoint_text "${checkpoint_text}")
-    # Sanitizer diagnostics (the documented UBSan backlog, for example in
-    # the PSG generator) can be printed by the host audio thread, so their
-    # position in stderr depends on host timing.  They are host diagnostics,
-    # not part of the CPU checkpoint contract; sanitizer failures still fail
-    # the selftest through its exit status.
-    string(REGEX REPLACE
-        "[^\n]*: runtime error: [^\n]*\n"
-        ""
-        checkpoint_text "${checkpoint_text}")
-    string(REGEX REPLACE
-        "SUMMARY: [A-Za-z]*Sanitizer[^\n]*\n"
-        ""
-        checkpoint_text "${checkpoint_text}")
+    strip_sanitizer_diagnostics(checkpoint_text)
     set(${output_variable}_checkpoints "${checkpoint_text}" PARENT_SCOPE)
 endfunction()
 
@@ -183,6 +188,7 @@ string(REGEX REPLACE
     "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
     ""
     untraced_error "${untraced_error}")
+strip_sanitizer_diagnostics(untraced_error)
 if(NOT first_checkpoints STREQUAL untraced_error)
     message(FATAL_ERROR
         "trace-enabled and trace-disabled final checkpoint streams differ")
