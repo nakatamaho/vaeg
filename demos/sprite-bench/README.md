@@ -23,11 +23,13 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# Sprite benchmarks: SGP and CPU
+# Sprite benchmarks: SGP, CPU and both
 
-Two MS-DOS programs with the same tests, screens, characters, positions
+Three MS-DOS programs with the same tests, screens, characters, positions
 and table: `SGPBENCH.COM` draws the sprites with the SGP, `CPUBENCH.COM`
-with the CPU (below). `common.inc` holds what they share.
+with the CPU, and `MIXBENCH.COM` with both at once (below). `common.inc`
+holds what they all share, `sgp.inc` the SGP's part and `cpu.inc` the
+CPU's.
 
 ## SGPBENCH
 
@@ -129,14 +131,48 @@ The code and data come from main RAM where MS-DOS loads the program; on
 the PC-88VA main RAM below 40000h has no programmed wait, so where MS-DOS
 puts the program can change the results.
 
+## MIXBENCH
+
+`MIXBENCH.COM` (`mixbench.asm`) shares each list between the SGP and the
+CPU, which draw at the same time. Instead of the sources it has three
+SGP shares (the `SHARE` column): a quarter, a half and three quarters of
+the list's sprites. The sprites go in blocks of four (one of each
+character, in list order): block b to the SGP when b mod 4 is below the
+share in quarters, so `SGP1/4` gives the SGP blocks 0, 4, 8 and so on.
+
+A round starts the SGP on its part (`BITBLT 0105h`, sources in main RAM,
+as SGPBENCH's `RAM`), then the CPU draws the rest with the compiled
+routines (as CPUBENCH's `COMPLD`), then waits until the SGP is idle. Only
+rounds that end inside the 180 VRTCs count, each with all the list's
+sprites; the result is again sprites a VRTC, so its rows compare
+directly with the other two programs' `RAM` and `COMPLD` rows. The SGP
+slows the CPU's GVRAM writes while it draws (`demos/sgp-contention`:
+on the machines about 0.73 times on the PC-88VA and 0.46 times on the
+PC-88VA2), so the best share differs by machine and depth, and a share
+can be slower than the CPU alone. Only the VRTC interrupt is unmasked
+during a test. The program reads `CPU4.DAT`, `CPU8.DAT` and `CPU16.DAT`
+as CPUBENCH does and needs 256 KB after itself.
+
+vaeg's PC-88VA2 at 15 kHz, 320x200, for comparison (not measurements on
+the machine):
+
+| Colours | Way | 8x8 | 16x16 | 32x32 | 64x64 |
+|---|---|---:|---:|---:|---:|
+| 16 | CPUBENCH `COMPLD` | 193.1 | 82.3 | 29.2 | 9.5 |
+| 16 | SGPBENCH `RAM` | 72.5 | 43.0 | 17.4 | 5.4 |
+| 16 | `SGP1/4` | 200.5 | 88.5 | 31.8 | 10.3 |
+| 16 | `SGP1/2` | 145.0 | 86.0 | 33.6 | 10.8 |
+| 16 | `SGP3/4` | 96.7 | 57.2 | 23.2 | 7.2 |
+
 ## Building
 
 ```sh
 demos/sprite-bench/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 ```
 
-This writes `SGPBENCH.COM`, `CPUBENCH.COM` and the three `.DAT` files.
-With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
-`sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy with all five files
-in its root; type `SGPBENCH` or `CPUBENCH`. `PREVIEW=chars.ppm` also writes
+This writes `SGPBENCH.COM`, `CPUBENCH.COM`, `MIXBENCH.COM` and the three
+`.DAT` files. With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the
+script also writes `sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy
+with all six files in its root; type `SGPBENCH`, `CPUBENCH` or
+`MIXBENCH`. `PREVIEW=chars.ppm` also writes
 the characters at four times their size.
