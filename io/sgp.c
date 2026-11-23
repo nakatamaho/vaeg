@@ -145,10 +145,10 @@ UINT64 sgp_scale_elapsed(UINT32 elapsed) {
  */
 #ifndef SGP_SCALE_VA_SETUP
 #define SGP_SCALE_VA_SETUP 370
-#define SGP_SCALE_VA_BLT 432
+#define SGP_SCALE_VA_BLT 452
 #define SGP_SCALE_VA_CLS 525
 #define SGP_SCALE_VA2_SETUP 541
-#define SGP_SCALE_VA2_BLT 497
+#define SGP_SCALE_VA2_BLT 519
 #define SGP_SCALE_VA2_CLS 443
 #endif
 enum { SGP_COST_SETUP = 0, SGP_COST_BLT, SGP_COST_CLS, SGP_COST_NOMINAL, SGP_COST_CLASSES };
@@ -556,6 +556,15 @@ static void sgp_charge_source(UINT32 address) {
 	sgp_src_half = halves & 1;
 }
 
+/* One BITBLT/PATBLT word: 10 (source colour 0 transparent) or 8 clocks. */
+static void sgp_charge_blt_word(void) {
+	if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
+		sgp_charge(SGP_COST_BLT, 10 * 2);
+	} else {
+		sgp_charge(SGP_COST_BLT, 8 * 2);
+	}
+}
+
 static void read_word(SGP_BLOCK block) {
 	UINT16 dat;
 
@@ -567,6 +576,13 @@ static void read_word(SGP_BLOCK block) {
 	}
 	if (block == &sgp.src) {
 		sgp_charge_source(block->nextaddress);
+		/* M165: a BITBLT word costs by the source words read, not by
+		 * the destination words written: a destination starting at any
+		 * dot costs the same on the machines (SGPBENCH against SGPMEM).
+		 * A 1-bpp source expanded is still charged per destination word. */
+		if (!((sgp.src.scrnmode == 0) && (sgp.dest.scrnmode != 0))) {
+			sgp_charge_blt_word();
+		}
 	}
 	block->buf = SWAPWORD(dat);
 	//block->nextaddress += 2;
@@ -1085,10 +1101,8 @@ static void exec_bitblt(void) {
 		sgp.dest.nextaddress += 2;
 		//@@1	read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
-		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp_charge(SGP_COST_BLT, 10 * 2);
-		} else {
-			sgp_charge(SGP_COST_BLT, 8 * 2);
+		if (EXTPIX) {
+			sgp_charge_blt_word();
 		}
 	}
 
@@ -1190,10 +1204,8 @@ static void exec_bitblt_hd(void) {
 		sgp.dest.nextaddress -= 2;
 		//@@1		read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
-		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp_charge(SGP_COST_BLT, 10 * 2);
-		} else {
-			sgp_charge(SGP_COST_BLT, 8 * 2);
+		if (EXTPIX) {
+			sgp_charge_blt_word();
 		}
 	}
 
