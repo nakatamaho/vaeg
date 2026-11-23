@@ -25,13 +25,17 @@
 ; tests' order, the screens (G0 only, single plane, 320 dots, 200 or 224
 ; lines), the titles, the positions and the table. The program defines
 ; PROGRAM, MEM_PARAS, prepare_depth, build_list, measure and the strings
-; s_banner, s_memory, s_head2, s_head3, s_loc0 and s_loc1.
+; s_banner, s_memory, s_head2, s_head3, s_loc0 and s_loc1 (and s_loc2 when
+; it sets N_WAYS, the second dimension's values, to 3).
 
 FRAMES		equ	180		; VRTCs a test (about 3 s)
 TOP		equ	10		; lines 0-9: the title
 WHITE		equ	2		; colour indices (gen_data.py)
 YELLOW		equ	9
-N_TESTS		equ	48		; 2 screens x 3 depths x 2 kinds x 4 sizes
+%ifndef N_WAYS
+N_WAYS		equ	2		; sources or ways
+%endif
+N_TESTS		equ	2 * 3 * N_WAYS * 4	; screens x depths x ways x sizes
 SKIPPED		equ	0ffffh		; a result's high word: not run
 
 start:		cld
@@ -97,7 +101,7 @@ start:		cld
 		cmp	byte [size_i],4
 		jb	.size
 		inc	byte [loc_i]
-		cmp	byte [loc_i],2
+		cmp	byte [loc_i],N_WAYS
 		jb	.loc
 .next_depth:	inc	byte [depth_i]
 		cmp	byte [depth_i],3
@@ -401,12 +405,13 @@ run_test:	call	clear_screen
 		mov	al,YELLOW
 		jmp	draw_text
 
-; slot = ((res * 3 + depth) * 2 + loc) * 4 + size
+; slot = ((res * 3 + depth) * N_WAYS + loc) * 4 + size
 slot_index:	mov	al,[res_i]
 		mov	ah,3
 		mul	ah
 		add	al,[depth_i]
-		shl	al,1
+		mov	ah,N_WAYS
+		mul	ah
 		add	al,[loc_i]
 		shl	al,2
 		add	al,[size_i]
@@ -425,7 +430,7 @@ mark_skipped:	mov	byte [loc_i],0
 		cmp	byte [size_i],4
 		jb	.size
 		inc	byte [loc_i]
-		cmp	byte [loc_i],2
+		cmp	byte [loc_i],N_WAYS
 		jb	.loc
 		ret
 
@@ -681,15 +686,21 @@ put_dot:	push	es
 
 ; ---------------------------------------------------------------------------
 ; The table: TABLE_LINES lines, each built at line by table_line (AX =
-; its number), 0-terminated; drawn on G0 or printed through DOS.
-TABLE_LINES	equ	17
+; its number), 0-terminated; drawn on G0 (LINE_STEP lines apart) or
+; printed through DOS.
+TABLE_LINES	equ	3 + N_TESTS / 4 + 2
+%if TABLE_LINES * 10 + 4 <= 200
+LINE_STEP	equ	10
+%else
+LINE_STEP	equ	8
+%endif
 
 draw_table:	xor	ax,ax
 .l:		push	ax
 		call	table_line
 		pop	ax
 		push	ax
-		mov	dx,10
+		mov	dx,LINE_STEP
 		mul	dx
 		add	ax,4
 		mov	dx,ax
@@ -766,7 +777,9 @@ table_line:	mov	di,line
 		pop	bx
 		push	bx
 		mov	ax,bx
-		shr	ax,3			; res * 3 + depth
+		mov	cl,4 * N_WAYS		; res * 3 + depth
+		div	cl
+		xor	ah,ah
 		mov	cl,3
 		div	cl
 		push	ax			; AH depth
@@ -788,11 +801,13 @@ table_line:	mov	di,line
 		push	bx
 		mov	ax,bx
 		shr	ax,2
-		and	ax,1
-		mov	si,s_loc0
-		jz	.loc
-		mov	si,s_loc1
-.loc:		call	append_pad6
+		mov	cl,N_WAYS
+		div	cl
+		mov	bl,ah
+		xor	bh,bh
+		shl	bx,1
+		mov	si,[loc_names + bx]
+		call	append_pad6
 		xor	cx,cx			; sizes
 .col:		pop	bx
 		push	bx
@@ -853,6 +868,9 @@ count_tab	dw	128, 64, 32, 16		; sprites a list: 8x8 ... 64x64
 seed_tab	dw	1234, 2345, 3456, 4567
 depth_names	dw	s_d16, s_d256, s_d64k
 loc_names	dw	s_loc0, s_loc1
+%if N_WAYS > 2
+		dw	s_loc2
+%endif
 size_names	dw	s_8, s_16, s_32, s_64
 sync224		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0e0h,0,2,4
 sync200		db	0c1h,57h,1ch,0,9fh,0,10h,0fh,25h,0,0c8h,0,0fh,8	; the BIOS's
