@@ -529,6 +529,33 @@ static void init_block(SGP_BLOCK block) {
 	block->ycount = block->height;
 }
 
+/*
+ * M165: a source word from GVRAM against one from main RAM, in SGP clocks
+ * (1/2 units). SGPBENCH on the machines: on the PC-88VA2 a GVRAM source is
+ * about 3 CPU clocks (6 SGP clocks) a word faster, on the PC-88VA about 1.5
+ * slower (M128's single 16x16 figures agree). The BITBLT costs above are
+ * those of a main RAM source.
+ */
+#define SGP_SRC_GVRAM_VA_HALVES 3   /* +1.5 */
+#define SGP_SRC_GVRAM_VA2_HALVES 12 /* -6 */
+static UINT32 sgp_src_half;
+
+static void sgp_charge_source(UINT32 address) {
+	UINT32 halves;
+
+	if ((address & 0x3c0000L) != 0x200000L) {
+		return;
+	}
+	if (pccore.model_va == PCMODEL_VA2) {
+		halves = SGP_SRC_GVRAM_VA2_HALVES + sgp_src_half;
+		sgp.remainclock += (SINT32)(halves >> 1);
+	} else {
+		halves = SGP_SRC_GVRAM_VA_HALVES + sgp_src_half;
+		sgp.remainclock -= (SINT32)(halves >> 1);
+	}
+	sgp_src_half = halves & 1;
+}
+
 static void read_word(SGP_BLOCK block) {
 	UINT16 dat;
 
@@ -537,6 +564,9 @@ static void read_word(SGP_BLOCK block) {
 		dat = 0xffff; /* M128: see sgp_fbw_undefined(); the first line is read */
 	} else {
 		dat = sgp_memoryread_w(block->nextaddress);
+	}
+	if (block == &sgp.src) {
+		sgp_charge_source(block->nextaddress);
 	}
 	block->buf = SWAPWORD(dat);
 	//block->nextaddress += 2;
