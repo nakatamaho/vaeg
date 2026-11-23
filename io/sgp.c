@@ -1661,13 +1661,37 @@ static void fetch_command(void) {
 #define SGP_CPU_SHARE_VA 80
 #define SGP_CPU_SHARE_VA2 142
 #endif
+/*
+ * M165: while a BITBLT or PATBLT reads its source from GVRAM the CPU loses
+ * much less (demos/sgp-contention SGPMEM, a register loop: it keeps 0.87
+ * on the PC-88VA and 0.75 on the PC-88VA2, against 0.70 and 0.46 with the
+ * source in main RAM): the SGP then takes main RAM only for its commands.
+ */
+#ifndef SGP_CPU_SHARE_GV_VA
+#define SGP_CPU_SHARE_GV_VA 30
+#define SGP_CPU_SHARE_GV_VA2 55
+#endif
+
+static BOOL sgp_source_in_gvram(void) {
+	switch (sgp.func) {
+	case FUNC_EXEC_BITBLT:
+	case FUNC_EXEC_BITBLT_HD:
+		return ((sgp.src.address & 0x3c0000L) == 0x200000L);
+	default:
+		return (FALSE);
+	}
+}
 
 static void sgp_cpu_share(UINT32 past) {
 	UINT32 share;
 	UINT32 work;
 	UINT64 scaled;
 
-	share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_VA2 : SGP_CPU_SHARE_VA;
+	if (sgp_source_in_gvram()) {
+		share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_GV_VA2 : SGP_CPU_SHARE_GV_VA;
+	} else {
+		share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_VA2 : SGP_CPU_SHARE_VA;
+	}
 	/* The clocks since the last step, less the delay charged then. */
 	work = (past > sgp.cpudelay) ? (past - sgp.cpudelay) : 0;
 	scaled = (UINT64)work * share * 256 / (256 - share) + sgp.cpudelayfrac;
