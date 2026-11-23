@@ -21,7 +21,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 
-# Build SGPBENCH.COM, CPUBENCH.COM and its CPU4.DAT, CPU8.DAT and
+# Build SGPBENCH.COM, CPUBENCH.COM, MIXBENCH.COM and CPU4.DAT, CPU8.DAT and
 # CPU16.DAT (README.md) into OUTDIR (default .). With --msdos4 IMAGE
 # (msdos4-pc88va-2hd.d88 of FreeDOS-88VA msdos4-va.2), also
 # OUTDIR/sprite-bench-msdos4.d88: a vanilla copy with the programs.
@@ -46,7 +46,7 @@ trap 'rm -rf "$work"' EXIT
 "$python_command" -I "$script_dir/gen_data.py" "$work/data.inc" --cpu "$outdir" \
 	${PREVIEW:+--preview "$PREVIEW"}
 # nasm looks in its current directory first: run it where data.inc is.
-for program in sgpbench cpubench; do
+for program in sgpbench cpubench mixbench; do
 	upper=$(printf '%s' "$program" | tr a-z A-Z)
 	(cd "$work" && "$nasm_command" -f bin -I"$work/" -I"$script_dir/" \
 		"$script_dir/$program.asm" -o "$outdir/$upper.COM")
@@ -54,7 +54,7 @@ done
 if [ -n "$msdos4" ]; then
 	tool="$script_dir/../../tools/pc88va/pcengine_disk.py"
 	mkdir -p "$work/payload/root"
-	for f in SGPBENCH.COM CPUBENCH.COM CPU4.DAT CPU8.DAT CPU16.DAT; do
+	for f in SGPBENCH.COM CPUBENCH.COM MIXBENCH.COM CPU4.DAT CPU8.DAT CPU16.DAT; do
 		cp "$outdir/$f" "$work/payload/root/"
 	done
 	rm -f "$outdir/sprite-bench-msdos4.d88"

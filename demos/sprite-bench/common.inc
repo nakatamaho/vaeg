@@ -33,7 +33,7 @@ TOP		equ	10		; lines 0-9: the title
 WHITE		equ	2		; colour indices (gen_data.py)
 YELLOW		equ	9
 %ifndef N_WAYS
-N_WAYS		equ	2		; sources or ways
+%define N_WAYS	2		; sources or ways
 %endif
 N_TESTS		equ	2 * 3 * N_WAYS * 4	; screens x depths x ways x sizes
 SKIPPED		equ	0ffffh		; a result's high word: not run
