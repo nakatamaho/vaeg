@@ -44,6 +44,7 @@ typedef struct {
 	PCCORE core;
 	UPD9002_REGS registers;
 	UINT32 memory_hash;
+	UINT8 shadow;
 } STATE_SNAPSHOT;
 
 static UINT32 read_u32(const BYTE *data) {
@@ -92,6 +93,7 @@ static void snapshot_capture(STATE_SNAPSHOT *snapshot) {
 	snapshot->core = pccore;
 	snapshot->registers = upd9002_regs;
 	snapshot->memory_hash = memory_hash();
+	snapshot->shadow = CPU_INTERRUPT_SHADOW;
 }
 
 static int snapshot_matches(const STATE_SNAPSHOT *snapshot) {
@@ -102,7 +104,7 @@ static int snapshot_matches(const STATE_SNAPSHOT *snapshot) {
 	       !memcmp(&snapshot->state_image, &compatibility, sizeof(snapshot->state_image)) &&
 	       !memcmp(&snapshot->core, &pccore, sizeof(snapshot->core)) &&
 	       !memcmp(&snapshot->registers, &upd9002_regs, sizeof(snapshot->registers)) &&
-	       (snapshot->memory_hash == memory_hash());
+	       (snapshot->memory_hash == memory_hash()) && (snapshot->shadow == CPU_INTERRUPT_SHADOW);
 }
 
 static int read_file(const char *path, BYTE **data, UINT *size) {
@@ -178,8 +180,9 @@ static int check_rejection(const char *path, const char *message, const STATE_SN
 	int checked = statsave_check(path, error, sizeof(error));
 	error[strcspn(error, "\r\n")] = '\0';
 	if ((checked != STATFLAG_FAILURE) ||
-	    (!strncmp(message, "M142_", 5) ? strcmp(error, message) != 0
-	                                   : strstr(error, message) == NULL)) {
+	    ((!strncmp(message, "M142_", 5) || !strncmp(message, "M153_", 5))
+	         ? strcmp(error, message) != 0
+	         : strstr(error, message) == NULL)) {
 		fprintf(stderr, "upd9002-statsave-boundary: unexpected error: %s\n", error);
 		return FAILURE;
 	}
@@ -349,10 +352,31 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	     SUCCESS)) {
 		goto done;
 	}
+	/* A nonzero shadow is saved separately from the protected CPU image. */
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_SEGMENT;
+	if ((statsave_save(roundtrip_path) != STATFLAG_SUCCESS) ||
+	    (statsave_check(roundtrip_path, NULL, 0) != STATFLAG_SUCCESS)) {
+		goto done;
+	}
+	CPU_INTERRUPT_SHADOW = UPD9002_SHADOW_NONE;
+	if ((statsave_load(roundtrip_path) != STATFLAG_SUCCESS) ||
+	    (CPU_INTERRUPT_SHADOW != UPD9002_SHADOW_SEGMENT) ||
+	    (read_file(roundtrip_path, &roundtrip, &roundtrip_size) != SUCCESS) ||
+	    (find_section(roundtrip, roundtrip_size, UPD9002_SHADOW_STATE_SECTION, &header, &body,
+	                  &body_size) != SUCCESS) ||
+	    (body_size != 1)) {
+		goto done;
+	}
+	snapshot_capture(&snapshot);
+	roundtrip[body] = UPD9002_SHADOW_SEGMENT + 1;
+	if ((write_file(invalid_path, roundtrip, roundtrip_size) != SUCCESS) ||
+	    (check_rejection(invalid_path, "M153_INTERRUPT_SHADOW_STATE", &snapshot) != SUCCESS)) {
+		goto done;
+	}
 	result = SUCCESS;
 
 done:
-	if (statsave_load(valid_path) == STATFLAG_FAILURE) {
+	if ((statsave_load(valid_path) != STATFLAG_SUCCESS) || CPU_INTERRUPT_SHADOW) {
 		result = FAILURE;
 	}
 	if (roundtrip != NULL) {

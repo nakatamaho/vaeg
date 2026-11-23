@@ -218,6 +218,7 @@ typedef struct {
 typedef struct {
 	Upd9002RuntimeState s;
 	Upd9002ExtendedState e;
+	UINT8 interrupt_shadow;
 } Upd9002CoreContext;
 
 #ifdef __cplusplus
@@ -255,6 +256,15 @@ enum {
  */
 #define UPD9002_MODE_STATE_SECTION "UPD9MODE"
 #define UPD9002_MODE_STATE_SIZE 4
+
+/* Native one-instruction interrupt inhibition, outside the legacy CPU image. */
+enum {
+	UPD9002_SHADOW_NONE = 0,
+	UPD9002_SHADOW_IRQ = 1,
+	UPD9002_SHADOW_SEGMENT = 2
+};
+#define UPD9002_SHADOW_STATE_SECTION "UPD9SHDW"
+#define CPU_INTERRUPT_SHADOW upd9002_core_context.interrupt_shadow
 
 /*
  * M103a: the Z80 emulation mode's alternate register set (AF', BC', DE',

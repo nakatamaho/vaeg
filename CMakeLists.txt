@@ -570,6 +570,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/m65d_ff6.c
         tests/upd9002/m65e_tail10.c
         tests/upd9002/m96d_nop.c
+        tests/upd9002/interrupt_shadow.c
         tests/upd9002/m106_near_jcc.c
         tests/upd9002/m68_segmented_memory.c
         tests/upd9002/m70_prefix_string.c
@@ -1865,6 +1866,9 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m65e-tail10)
     set_tests_properties(vaeg_upd9002_m65e_tail10 PROPERTIES
 		LABELS "romless;upd9002;m65e;semantics")
+
+    add_test(NAME vaeg_upd9002_interrupt_shadow
+        COMMAND vaeg_sdl2 --upd9002-interrupt-shadow)
 
     add_test(NAME vaeg_upd9002_m96d_nop
 		COMMAND vaeg_sdl2 --upd9002-m96d-nop)

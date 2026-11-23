@@ -23,6 +23,23 @@ if(NOT DEFINED VAEG_EXECUTABLE OR NOT DEFINED TRACE_GOLDEN)
     message(FATAL_ERROR "VAEG_EXECUTABLE and TRACE_GOLDEN are required")
 endif()
 
+# Sanitizer diagnostics (the documented UBSan backlog, for example in the
+# PSG generator) can be printed by the host audio thread, so their position
+# in stderr depends on host timing.  They are host diagnostics, not part of
+# the CPU checkpoint contract; sanitizer failures still fail the selftest
+# through its exit status.
+function(strip_sanitizer_diagnostics text_variable)
+    string(REGEX REPLACE
+        "[^\n]*: runtime error: [^\n]*\n"
+        ""
+        text "${${text_variable}}")
+    string(REGEX REPLACE
+        "SUMMARY: [A-Za-z]*Sanitizer[^\n]*\n"
+        ""
+        text "${text}")
+    set(${text_variable} "${text}" PARENT_SCOPE)
+endfunction()
+
 function(run_trace output_variable)
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -E env
@@ -63,25 +80,51 @@ function(run_trace output_variable)
         "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
         ""
         checkpoint_text "${checkpoint_text}")
+    strip_sanitizer_diagnostics(checkpoint_text)
     set(${output_variable}_checkpoints "${checkpoint_text}" PARENT_SCOPE)
 endfunction()
 
 run_trace(first)
 run_trace(second)
-if(NOT first STREQUAL second)
-    string(LENGTH first first_length)
-    string(LENGTH second second_length)
+# Report the lengths and the first differing line of two captured streams.
+function(report_difference what first_text second_text)
+    string(LENGTH "${first_text}" first_length)
+    string(LENGTH "${second_text}" second_length)
+    string(REPLACE ";" "\\;" first_escaped "${first_text}")
+    string(REPLACE ";" "\\;" second_escaped "${second_text}")
+    string(REPLACE "\n" ";" first_lines "${first_escaped}")
+    string(REPLACE "\n" ";" second_lines "${second_escaped}")
+    list(LENGTH first_lines first_count)
+    list(LENGTH second_lines second_count)
+    set(detail "")
+    set(index 0)
+    while(index LESS first_count OR index LESS second_count)
+        set(first_line "<end of stream>")
+        set(second_line "<end of stream>")
+        if(index LESS first_count)
+            list(GET first_lines ${index} first_line)
+        endif()
+        if(index LESS second_count)
+            list(GET second_lines ${index} second_line)
+        endif()
+        if(NOT first_line STREQUAL second_line)
+            math(EXPR line_number "${index} + 1")
+            set(detail "\nfirst difference at line ${line_number}:\n  first:  ${first_line}\n  second: ${second_line}")
+            break()
+        endif()
+        math(EXPR index "${index} + 1")
+    endwhile()
     message(FATAL_ERROR
-        "two identical trace-enabled runs differ "
-        "(first_length=${first_length} second_length=${second_length})")
+        "two ${what} differ "
+        "(first_length=${first_length} second_length=${second_length})${detail}")
+endfunction()
+
+if(NOT first STREQUAL second)
+    report_difference("identical trace-enabled runs" "${first}" "${second}")
 endif()
 if(NOT first_checkpoints STREQUAL second_checkpoints)
-    string(LENGTH first_checkpoints first_checkpoint_length)
-    string(LENGTH second_checkpoints second_checkpoint_length)
-    message(FATAL_ERROR
-        "two trace-enabled checkpoint streams differ "
-        "(first_length=${first_checkpoint_length} "
-        "second_length=${second_checkpoint_length})")
+    report_difference("trace-enabled checkpoint streams"
+        "${first_checkpoints}" "${second_checkpoints}")
 endif()
 foreach(origin cpu dma device)
     if(NOT first MATCHES "origin=${origin}")
@@ -145,6 +188,7 @@ string(REGEX REPLACE
     "[^\n]*INFO: Renderer switch: native window detached; new SDL window=[0-9]+\n"
     ""
     untraced_error "${untraced_error}")
+strip_sanitizer_diagnostics(untraced_error)
 if(NOT first_checkpoints STREQUAL untraced_error)
     message(FATAL_ERROR
         "trace-enabled and trace-disabled final checkpoint streams differ")
