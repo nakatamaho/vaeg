@@ -254,6 +254,19 @@ static void upd9002_queue_account(UINT16 start_ip, UINT16 start_cs, UINT32 start
 	upd9002_queue.cs = UPD9002_CS;
 }
 
+/* M165: CLOCKS lost to another bus master (the SGP): the BIU fetches
+ * nothing meanwhile either. */
+void upd9002_core_bus_stall(UINT32 clocks) {
+	UINT32 now;
+
+	if (!upd9002_queue.valid || (clocks == 0)) {
+		return;
+	}
+	now = upd9002_now();
+	upd9002_queue_fill(now);
+	upd9002_queue.next += clocks;
+}
+
 void upd9002_core_queue_reset(void) {
 	upd9002_queue.valid = 0;
 }

@@ -1631,6 +1631,7 @@ static void sgp_cpu_share(UINT32 past) {
 	scaled = (UINT64)work * share * 256 / (256 - share) + sgp.cpudelayfrac;
 	sgp.cpudelay = (UINT32)(scaled >> 8);
 	sgp.cpudelayfrac = (UINT32)(scaled & 0xff);
+	upd9002_core_bus_stall(sgp.cpudelay); /* M165: before the CPU's clock moves */
 	CPU_REMCLOCK -= (SINT32)sgp.cpudelay;
 }
 
