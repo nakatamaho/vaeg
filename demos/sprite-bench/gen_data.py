@@ -27,7 +27,15 @@ squid, a box robot and a star) drawn from circles, rectangles and polygons
 at 8x8, 16x16, 32x32 and 64x64 dots, 16 colours, colour 0 transparent.
 The program expands the 4-bpp images to 8 and 16 bpp with the tables here.
 
-Usage: gen_data.py OUTPUT.INC [PREVIEW.PPM]
+CPUBENCH.COM's drawing code is made here too (--cpu DIR): for each depth a
+file CPU4.DAT, CPU8.DAT or CPU16.DAT with, for every image and (4 bpp) dot
+parity, a compiled routine (as the CPU sprites of an arcade-game port for
+the VA: MOV of an immediate for opaque words, read-AND-OR-write for words
+with transparent dots, nothing for transparent ones; [DI + d16] from DS:DI,
+RETF) and the image as data for a plain loop (4 bpp: mask and dots a byte;
+8 and 16 bpp: the dots, 0 transparent).
+
+Usage: gen_data.py OUTPUT.INC [--preview PREVIEW.PPM] [--cpu DIR]
 """
 
 import math
@@ -334,10 +342,142 @@ def preview(path: str):
         out.write(bytes(v for row in img for p in row for v in p))
 
 
+PITCH = {4: 160, 8: 320, 16: 640}
+HEADER = 128            # 32 entries: code paragraph, data paragraph
+
+
+def bytes4(rows, parity):
+    """A 4-bpp image at dot parity 0 or 1: per row (keep mask, dots) bytes."""
+    out = []
+    for row in rows:
+        px = ([0] if parity else []) + list(row)
+        if len(px) % 2:
+            px.append(0)
+        masks, dots = [], []
+        for x in range(0, len(px), 2):
+            a, b = px[x], px[x + 1]
+            masks.append((0 if a else 0xf0) | (0 if b else 0x0f))
+            dots.append(a << 4 | b)
+        out.append((masks, dots))
+    return out
+
+
+def d16(v: int) -> bytes:
+    return bytes((v & 0xff, v >> 8 & 0xff))
+
+
+def compile_image(rows, bpp: int, parity: int) -> bytes:
+    """The far routine drawing the image at DS:DI."""
+    pitch = PITCH[bpp]
+    code = bytearray()
+    for y, row in enumerate(rows):
+        base = y * pitch
+        if bpp == 4:
+            masks, dots = bytes4([row], parity)[0]
+            i = 0
+            while i < len(masks):
+                if masks[i] == 0xff:
+                    i += 1
+                    continue
+                d = d16(base + i)
+                if i + 1 < len(masks) and masks[i + 1] != 0xff:
+                    m = masks[i] | masks[i + 1] << 8
+                    v = dots[i] | dots[i + 1] << 8
+                    if m == 0:
+                        code += b'\xc7\x85' + d + d16(v)          # MOV WORD [DI+d],v
+                    else:
+                        code += b'\x8b\x85' + d                   # MOV AX,[DI+d]
+                        code += b'\x25' + d16(m)                   # AND AX,m
+                        code += b'\x0d' + d16(v)                   # OR AX,v
+                        code += b'\x89\x85' + d                   # MOV [DI+d],AX
+                    i += 2
+                else:
+                    if masks[i] == 0:
+                        code += b'\xc6\x85' + d + bytes((dots[i],))
+                    else:
+                        code += b'\x8a\x85' + d                   # MOV AL,[DI+d]
+                        code += bytes((0x24, masks[i], 0x0c, dots[i]))
+                        code += b'\x88\x85' + d                   # MOV [DI+d],AL
+                    i += 1
+        elif bpp == 8:
+            v = [byte8(*COLOURS[c]) if c else 0 for c in row]
+            x = 0
+            while x < len(v):
+                if not v[x]:
+                    x += 1
+                    continue
+                d = d16(base + x)
+                if x + 1 < len(v) and v[x + 1]:
+                    code += b'\xc7\x85' + d + bytes((v[x], v[x + 1]))
+                    x += 2
+                else:
+                    code += b'\xc6\x85' + d + bytes((v[x],))
+                    x += 1
+        else:
+            for x, c in enumerate(row):
+                if c:
+                    code += b'\xc7\x85' + d16(base + 2 * x) + d16(word16(*COLOURS[c]))
+    code += b'\xcb'                                               # RETF
+    assert len(code) <= 0xfff0
+    return bytes(code)
+
+
+def loop_data(rows, bpp: int, parity: int) -> bytes:
+    out = bytearray()
+    if bpp == 4:
+        for masks, dots in bytes4(rows, parity):
+            for m, d in zip(masks, dots):
+                out += bytes((m, d))
+    elif bpp == 8:
+        for row in rows:
+            out += bytes(byte8(*COLOURS[c]) if c else 0 for c in row)
+    else:
+        for row in rows:
+            for c in row:
+                out += d16(word16(*COLOURS[c]) if c else 0)
+    return bytes(out)
+
+
+def cpu_file(bpp: int) -> bytes:
+    """Header (per image and parity: code and data paragraphs from the
+    file's start), then the blocks, each at a paragraph."""
+    header = bytearray()
+    body = bytearray()
+
+    def block(data: bytes) -> int:
+        nonlocal body
+        para = (HEADER + len(body)) // 16
+        body += data + bytes(-len(data) % 16)
+        return para
+    for s, k, rows in images():
+        for parity in (0, 1):
+            if parity and bpp != 4:     # one parity: the same blocks
+                header += header[-4:]
+                continue
+            header += d16(block(compile_image(rows, bpp, parity)))
+            header += d16(block(loop_data(rows, bpp, parity)))
+    assert len(header) == HEADER
+    return bytes(header + body)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) not in (2, 3):
-        sys.exit('usage: gen_data.py OUTPUT.INC [PREVIEW.PPM]')
-    with open(sys.argv[1], 'w', encoding='ascii', newline='\n') as out:
+    args = sys.argv[1:]
+    preview_path = cpu_dir = None
+    if '--preview' in args:
+        i = args.index('--preview')
+        preview_path = args[i + 1]
+        del args[i:i + 2]
+    if '--cpu' in args:
+        i = args.index('--cpu')
+        cpu_dir = args[i + 1]
+        del args[i:i + 2]
+    if len(args) != 1:
+        sys.exit('usage: gen_data.py OUTPUT.INC [--preview PREVIEW.PPM] [--cpu DIR]')
+    with open(args[0], 'w', encoding='ascii', newline='\n') as out:
         out.write(include())
-    if len(sys.argv) == 3:
-        preview(sys.argv[2])
+    if preview_path:
+        preview(preview_path)
+    if cpu_dir:
+        for bpp in (4, 8, 16):
+            with open(f'{cpu_dir}/CPU{bpp}.DAT', 'wb') as out:
+                out.write(cpu_file(bpp))

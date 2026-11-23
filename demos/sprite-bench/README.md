@@ -23,7 +23,13 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# SGP sprite benchmark
+# Sprite benchmarks: SGP and CPU
+
+Two MS-DOS programs with the same tests, screens, characters, positions
+and table: `SGPBENCH.COM` draws the sprites with the SGP, `CPUBENCH.COM`
+with the CPU (below). `common.inc` holds what they share.
+
+## SGPBENCH
 
 `SGPBENCH.COM` (`sgpbench.asm`), an MS-DOS program for a PC-88VA,
 PC-88VA2 or PC-88VA3 (and vaeg), measures how many sprites the SGP draws
@@ -91,11 +97,46 @@ sprites a second.
 The program needs 128 KB after itself (the expanded sources at CS +
 1000h) and returns to DOS.
 
+## CPUBENCH
+
+`CPUBENCH.COM` (`cpubench.asm`) runs the same 48 tests with the CPU
+drawing into G0 through the GVRAM window at A0000h, in two ways instead
+of the two sources (the `WAY` column):
+
+- `COMPLD`: compiled sprites, as the CPU sprites of an arcade-game port
+  for the VA. Each image (and, at 16 colours, each dot parity: an odd x
+  starts a nibble later) is a far routine that writes at `DS:[DI + d16]`:
+  `MOV` of an immediate word where both bytes are opaque, `MOV AX` /
+  `AND AX` / `OR AX` / `MOV` back where a word has transparent dots,
+  nothing for transparent bytes; the byte forms for a lone byte, then
+  `RETF`. At 256 and 65536 colours every dot is either opaque or
+  transparent, so the routines are only `MOV`s of immediates.
+- `LOOP`: a plain loop over the image's data: at 16 colours a keep mask
+  and the dots a byte (`LODSW`, `AND AL,[ES:DI]`, `OR AL,AH`, `STOSB`);
+  at 256 and 65536 colours the dots, each written unless 0.
+
+`gen_data.py --cpu DIR` makes both, for each depth, in `CPU4.DAT`,
+`CPU8.DAT` and `CPU16.DAT` (88960, 54992 and 109408 bytes: a header of
+32 code and data paragraph pairs, then the blocks); CPUBENCH reads the
+depth's file from the current directory to CS + 1000h, so run it where
+the files are. Only the VRTC interrupt (IR2) is unmasked during a test:
+its handler counts the VRTCs. The CPU draws the list's sprites in turn,
+over and over, and counts every sprite finished in the 180 VRTCs (the SGP
+program counts whole lists). It draws only: nothing is cleared between
+the passes. The program needs 192 KB after itself.
+
+The code and data come from main RAM where MS-DOS loads the program; on
+the PC-88VA main RAM below 40000h has no programmed wait, so where MS-DOS
+puts the program can change the results.
+
+## Building
+
 ```sh
-demos/sgp-sprite-bench/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
+demos/sprite-bench/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 ```
 
+This writes `SGPBENCH.COM`, `CPUBENCH.COM` and the three `.DAT` files.
 With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
-`sgp-sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy with the
-program; type `SGPBENCH`. `PREVIEW=chars.ppm` also writes the characters
-at four times their size.
+`sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy with all five files
+in its root; type `SGPBENCH` or `CPUBENCH`. `PREVIEW=chars.ppm` also writes
+the characters at four times their size.
