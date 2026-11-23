@@ -139,26 +139,29 @@ correction had the PC-88VA2's `MIX` above `CPU` at 16x16 to 64x64
 
 ## vaeg after M165's corrections
 
-M165 corrected vaeg's timing to these tables (see the
-[bug-fix ledger](../../docs/modernization/bug-fixes.md)): bus-bound CPU
-code, the SGP's share of the bus and the SGP's source in GVRAM. vaeg at 15
+M165 corrected vaeg's timing to these tables and to SGPMEM
+(`demos/sgp-contention`): straight-line instruction fetch, the SGP's share
+of the bus and its dependence on the SGP's source, the SGP's word cost and
+its GVRAM source, TVRAM byte waits. The model, the full comparison and what
+is still open are in
+[va-bus-timing.md](../../docs/modernization/va-bus-timing.md). vaeg at 15
 kHz, 320x200, PC-88VA (the PC-88VA2 the same where the machines are):
 
 | Program | Row | 8x8 | 16x16 | 32x32 | 64x64 | Machine |
 |---|---|---:|---:|---:|---:|---|
-| CPUBENCH | 16 `COMPLD` | 186.6 | 78.6 | 27.5 | 8.8 | 179.6 / 77.9 / 27.7 / 8.8 |
-| CPUBENCH | 256 `COMPLD` | 205.9 | 72.1 | 20.0 | 5.5 | 197.2 / 71.9 / 20.2 / 5.5 |
-| CPUBENCH | 65536 `COMPLD` | 151.3 | 47.4 | 12.5 | 3.2 | 143.0 / 45.4 / 12.0 / 3.0 |
-| CPUBENCH | 16 `LOOP` | 53.3 | 16.2 | 4.4 | 1.1 | 50.1 / 15.2 / 4.1 / 1.0 |
-| MIXBENCH | 16 `SGP1/4` | 194.8 | 83.9 | 29.3 | 9.2 | 189.1 / 82.8 / 29.3 / 9.1 |
-| MIXBENCH VA2 | 16 `SGP1/4` | 187.7 | 81.7 | 28.9 | 9.1 | 184.8 / 82.4 / 29.6 / 9.4 |
-| MIXBENCH VA2 | 16 `SGP1/2` | 145.0 | 80.3 | 29.6 | 9.3 | 147.9 / 82.4 / 30.9 / 9.6 |
+| CPUBENCH | 16 `COMPLD` | 183.8 | 77.0 | 27.0 | 8.7 | 179.6 / 77.9 / 27.7 / 8.8 |
+| CPUBENCH | 256 `COMPLD` | 205.2 | 71.3 | 19.7 | 5.4 | 197.2 / 71.9 / 20.2 / 5.5 |
+| CPUBENCH | 65536 `COMPLD` | 154.5 | 48.5 | 12.8 | 3.3 | 143.0 / 45.4 / 12.0 / 3.0 |
+| CPUBENCH | 16 `LOOP` | 54.3 | 16.5 | 4.5 | 1.1 | 50.1 / 15.2 / 4.1 / 1.0 |
+| SGPBENCH | 16 `RAM` | 51.9 | 28.0 | 10.6 | 3.1 | 51.2 / 28.0 / 10.8 / 3.2 |
+| SGPBENCH VA2 | 16 `RAM` | 76.8 | 44.8 | 17.7 | 5.4 | 76.0 / 44.4 / 17.7 / 5.5 |
+| SGPBENCH VA2 | 16 `GVRAM` | 78.9 | 48.0 | 19.9 | 6.2 | 78.9 / 48.0 / 20.0 / 6.3 |
+| MIXBENCH | 16 `SGP1/4` | 199.8 | 83.2 | 28.9 | 9.2 | 189.1 / 82.8 / 29.3 / 9.1 |
+| MIXBENCH VA2 | 16 `SGP1/4` | 188.4 | 81.0 | 28.6 | 9.0 | 184.8 / 82.4 / 29.6 / 9.4 |
+| MIXBENCH VA2 | 16 `SGP1/2` | 152.8 | 81.0 | 29.6 | 9.2 | 147.9 / 82.4 / 30.9 / 9.6 |
 | DBLBENCH | 16 `CPU` | 98 | 41 | 14 | 4 | 94 / 41 / 15 / 4 |
-| DBLBENCH VA2 | 16 `MIX` | 76 | 42 | 15 | 4 | 76 / 40 / 15 / 4 |
-| SGPBENCH VA2 | 16 `GVRAM` | 74.6 | 45.8 | 19.5 | 6.2 | 78.9 / 48.0 / 20.0 / 6.3 |
-
-The SGP's own speed is still about 5% slow on both models (M128's
-calibration, not changed here).
+| DBLBENCH | 16 `MIX` | 54 | 31 | 12 | 3 | 52 / 29 / 11 / 3 |
+| DBLBENCH VA2 | 16 `MIX` | 79 | 42 | 15 | 4 | 76 / 40 / 15 / 4 |
 
 ## vaeg at 24.8 kHz (for a measurement on the machines)
 
@@ -167,18 +170,18 @@ kHz). PC-88VA / PC-88VA2:
 
 | Program | Row | 8x8 | 16x16 | 32x32 | 64x64 |
 |---|---|---:|---:|---:|---:|
-| SGPBENCH | 16 `RAM` | 52.6 / 78.9 | 29.1 / 46.5 | 11.3 / 19.0 | 3.3 / 5.8 |
-| SGPBENCH | 16 `GVRAM` | 52.6 / 81.7 | 28.8 / 49.7 | 11.0 / 21.3 | 3.2 / 6.7 |
-| SGPBENCH | 256 `RAM` | 44.8 / 68.2 | 20.2 / 33.4 | 6.7 / 11.5 | 1.8 / 3.2 |
-| SGPBENCH | 65536 `RAM` | 34.1 / 54.0 | 12.8 / 21.3 | 3.7 / 6.4 | 0.9 / 1.6 |
-| CPUBENCH | 16 `COMPLD` | 203.3 | 85.6 | 30.0 | 9.6 |
-| CPUBENCH | 256 `COMPLD` | 224.2 | 78.5 | 21.8 | 5.9 |
-| CPUBENCH | 65536 `COMPLD` | 165.0 | 51.6 | 13.6 | 3.5 |
-| MIXBENCH | 16 `SGP1/4` | 212.6 / 204.8 | 91.3 / 88.8 | 32.0 / 31.6 | 10.1 / 9.9 |
-| MIXBENCH | 16 `SGP1/2` | 105.9 / 158.5 | 58.6 / 87.4 | 22.7 / 32.3 | 6.8 / 10.1 |
-| DBLBENCH | 16 `CPU` | 106 | 45 | 16 | 4 |
-| DBLBENCH | 16 `SGP` | 27 / 40 | 15 / 24 | 6 / 10 | 1 / 3 |
-| DBLBENCH | 16 `MIX` | 56 / 83 | 32 / 46 | 13 / 17 | 4 / 5 |
+| SGPBENCH | 16 `RAM` | 56.1 / 83.2 | 30.5 / 48.7 | 11.5 / 19.3 | 3.3 / 5.9 |
+| SGPBENCH | 16 `GVRAM` | 55.4 / 86.0 | 29.8 / 52.2 | 11.2 / 21.6 | 3.2 / 6.8 |
+| SGPBENCH | 256 `RAM` | 45.5 / 69.6 | 20.6 / 33.7 | 6.5 / 11.3 | 1.7 / 3.1 |
+| SGPBENCH | 65536 `RAM` | 33.4 / 52.6 | 12.0 / 20.6 | 3.5 / 6.0 | 0.8 / 1.6 |
+| CPUBENCH | 16 `COMPLD` | 200.2 | 83.8 | 29.4 | 9.5 |
+| CPUBENCH | 256 `COMPLD` | 223.5 | 77.7 | 21.5 | 5.9 |
+| CPUBENCH | 65536 `COMPLD` | 168.3 | 52.8 | 13.9 | 3.6 |
+| MIXBENCH | 16 `SGP1/4` | 217.6 / 205.5 | 90.6 / 88.1 | 31.6 / 31.2 | 10.0 / 9.8 |
+| MIXBENCH | 16 `SGP1/2` | 112.3 / 167.1 | 61.1 / 88.5 | 23.1 / 32.3 | 6.8 / 10.1 |
+| DBLBENCH | 16 `CPU` | 107 | 45 | 16 | 4 |
+| DBLBENCH | 16 `SGP` | 28 / 42 | 16 / 25 | 6 / 10 | 1 / 3 |
+| DBLBENCH | 16 `MIX` | 58 / 86 | 33 / 46 | 13 / 17 | 4 / 5 |
 
 CPUBENCH is the same on both models. A VRTC is longer at 24.8 kHz (56.4
 Hz against 61.5 Hz), so every value is about 9% higher than at 15 kHz.

@@ -813,6 +813,13 @@ work, GVRAM writes and for 16x16 to 128x128 transfers (VA2 0.42-0.57; VA
 0.27-0.34). The SGP is not slowed by the CPU (within 1%). Two screens
 (G0 over G1) do not slow the CPU's GVRAM accesses.
 
+M165 (`demos/sgp-contention` SGPMEM, `demos/sprite-bench`): a BITBLT
+costs by its source words (a destination at any start dot costs the
+same); a source in GVRAM is faster on the PC-88VA2 and slightly slower on
+the PC-88VA; and the CPU loses much less while the source is in GVRAM
+(0.13 against 0.30 of its time on the PC-88VA, 0.25 against 0.54 on the
+PC-88VA2). See [va-bus-timing.md](va-bus-timing.md).
+
 The Users Club material documents waits and contention involving TVRAM,
 character/Kanji resources, GVRAM, and display activity. CPU wait tables
 constrain relative costs but are not automatically SGP command-cycle counts.

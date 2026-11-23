@@ -39,29 +39,86 @@ land.
 
 - **Symptom/scope:** CPUBENCH's compiled sprites (`demos/sprite-bench`,
   long runs of `MOV [DI+d16],imm16` into GVRAM) drew 6-16% more sprites a
-  VRTC in vaeg than on both machines, the most at 65536 colours; its plain
-  loop 7-8% more. Short CPU loops (M130's calibration,
-  `demos/sgp-contention`) were not affected. The open part of #47 (bus-
-  bound CPU code too fast) is this case.
-- **Demonstrated cause:** the code is bus-bound: about 21 clocks a word on
-  both machines against 17.6 in vaeg, a constant difference at every size.
-  vaeg's prefetch queue took 4 clocks a word from main RAM (back-to-back
-  main RAM cycles take 4.5 on the machines: REP MOVSW 9.0 clocks a word,
-  M130) and a GVRAM write held the bus 5 clocks unless writes came back to
-  back.
-- **Correction:** instruction words the CPU waits for take 4.5 clocks from
-  main RAM (half a clock carried); a GVRAM word write holds the bus 6.5
-  clocks (REP STOSW's rate on the machines) without stalling the CPU. Byte
-  writes are unchanged (the write loops of `demos/sgp-contention` match
-  without it).
-- **Verification:** CPUBENCH within -1..+6% (`COMPLD`) and +4..+7% (`LOOP`)
-  of both machines (was +6..+16%), the two models equal as on the
-  machines; `demos/sgp-contention` rows A-K within 0.93-1.04 as before;
-  ctest 159/160 (the other a roadmap check, fixed).
+  VRTC in vaeg than on both machines, the most at 65536 colours. Short CPU
+  loops (M130's calibration, `demos/sgp-contention`) were not affected.
+  Part of #47 (bus-bound CPU code too fast).
+- **Demonstrated cause:** the code is bound by instruction fetch: about 21
+  clocks a 6-byte instruction on both machines against 17.6 in vaeg, a
+  constant difference at every sprite size; vaeg's prefetch queue took 4
+  clocks a word.
+- **Correction:** an instruction word the CPU waits for, from main RAM,
+  takes 5 clocks from the third word after a transfer on
+  ([775e2f08](https://github.com/nakatamaho/vaeg/commit/775e2f08ba4f502b7af921bca712c53bdd6d2ed6)). The first
+  correction ([e369c6cb](https://github.com/nakatamaho/vaeg/commit/e369c6cb7bb6edfc74b170f4635483cb8657928e):
+  4.5-clock waited-for words and a 6.5-clock bus hold for GVRAM word
+  writes) was replaced: SGPMEM showed a GVRAM word-write loop as fast as a
+  main RAM one (the hold made it 8% slow) and the 4.5-clock words slowed
+  the register loop.
+- **Verification:** CPUBENCH `COMPLD` within 0.97-1.04 of both machines at
+  16 and 256 colours and 1.06-1.10 at 65536 (was 1.06-1.16), the two models
+  equal as on the machines; SGPMEM's register, write and word-write loops
+  within 1-6%; `demos/sgp-contention` rows A-K unchanged; ctest 160/160.
+  Open: main RAM byte-read loops and CPUBENCH `LOOP` remain 7-13% fast
+  ([timing notes](va-bus-timing.md#open-questions)).
 - **Milestone/task/commit:** M165,
   [M165 task](../agents/tasks/M165_sgp_sprite_bench.md),
   [results](../../demos/sprite-bench/results.md),
-  [e369c6cb](https://github.com/nakatamaho/vaeg/commit/e369c6cb7bb6edfc74b170f4635483cb8657928e).
+  [775e2f08](https://github.com/nakatamaho/vaeg/commit/775e2f08ba4f502b7af921bca712c53bdd6d2ed6).
+
+### M165 — TVRAM byte accesses took no wait
+
+- **Symptom/scope:** a CPU loop reading TVRAM bytes ran 49% faster in vaeg
+  than on the PC-88VA and VA2, one writing bytes 14% faster.
+- **Demonstrated cause:** `memoryva/memoryva.c` charged TVRAM's wait to
+  word accesses only (M141); on the machines SGPMEM's TVRAM byte loops take
+  13 clocks a read and 4 a write more than the same loops in main RAM.
+- **Correction:** a TVRAM byte read waits 17 clocks and a byte write 4
+  ([2411c127](https://github.com/nakatamaho/vaeg/commit/2411c1279f69a16fcec3c1ea09787b2a481f099f)); 17 rather
+  than 13 because vaeg's main RAM byte-read loop is itself about 4 clocks
+  fast (open).
+- **Verification:** SGPMEM's TVRAM read, write and word-write loops within
+  1-2% of both machines; ctest 160/160.
+- **Milestone/task/commit:** M165,
+  [timing notes](va-bus-timing.md),
+  [2411c127](https://github.com/nakatamaho/vaeg/commit/2411c1279f69a16fcec3c1ea09787b2a481f099f).
+
+### M165 — an SGP sprite starting inside a word cost more than on the machines
+
+- **Symptom/scope:** SGPBENCH (sprites at any start dot) was about 5% slow
+  in vaeg and SGPMEM (sprites at dot 0) 4% fast, on both models.
+- **Demonstrated cause:** `io/sgp.c` charged a BITBLT word per destination
+  word written, so a destination starting inside a word cost one word a
+  line more; on the machines both cost the same (4646 and 4662 CPU clocks
+  for a 16x16 sprite on the PC-88VA).
+- **Correction:** the word cost is charged per source word read (a 1-bpp
+  source expanded keeps the destination count), and the BITBLT scale rises
+  4.6% to SGPMEM's lists
+  ([b00b3d05](https://github.com/nakatamaho/vaeg/commit/b00b3d05a28be4e365ba6f093899284a188f00ee)).
+- **Verification:** SGPBENCH at 16 colours within 0.94-1.02 (PC-88VA) and
+  0.98-1.01 (PC-88VA2), 256 and 65536 colours 0.91-1.02; SGPMEM's lists
+  alone within 1.5%.
+- **Milestone/task/commit:** M165,
+  [timing notes](va-bus-timing.md),
+  [b00b3d05](https://github.com/nakatamaho/vaeg/commit/b00b3d05a28be4e365ba6f093899284a188f00ee).
+
+### M165 — the CPU lost as much with the SGP's source in GVRAM as in main RAM
+
+- **Symptom/scope:** while the SGP copies from GVRAM the CPU keeps 0.87
+  (PC-88VA) and 0.75 (PC-88VA2) of its speed on the machines, against 0.70
+  and 0.46 with the source in main RAM (SGPMEM); vaeg charged the main RAM
+  share in both cases.
+- **Demonstrated cause:** M130's share was one value per model, measured
+  with sources in main RAM.
+- **Correction:** while a BITBLT reads its source from GVRAM the share is
+  30/256 (PC-88VA) and 55/256 (PC-88VA2) instead of 80 and 142
+  ([3e2023f6](https://github.com/nakatamaho/vaeg/commit/3e2023f684ea8ed85ee860fa336f922606422b43)).
+- **Verification:** SGPMEM's register loop keeps 0.867 / 0.737 in vaeg
+  (machines 0.870 / 0.747) with the GVRAM source and 0.695 / 0.449
+  (0.696 / 0.460) with the main RAM source. Open: loops that read keep
+  more on the machines than vaeg's single share gives.
+- **Milestone/task/commit:** M165,
+  [timing notes](va-bus-timing.md),
+  [3e2023f6](https://github.com/nakatamaho/vaeg/commit/3e2023f684ea8ed85ee860fa336f922606422b43).
 
 ### M165 — the SGP barely slowed bus-bound CPU code
 
