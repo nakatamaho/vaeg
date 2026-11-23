@@ -83,8 +83,13 @@ SPRITES A LIST: 128, 64, 32, 16
 (The row shown is vaeg's PC-88VA2, not a measurement on the machine. vaeg
 does not yet distinguish the two sources.)
 
-`SGPBENCH > RESULT.TXT` writes the table to a file instead. ESC between
-tests stops; the remaining rows are then 0.
+Each program also writes the table to its own file in the current
+directory (`SGPBENCH.TXT`, `CPUBENCH.TXT`, `MIXBENCH.TXT`,
+`DBLBENCH.TXT`), replacing an older one, as soon as the tests end. Redirected
+output (`SGPBENCH > RESULT.TXT`) is not needed: with msdos4-va.2 in vaeg
+the redirected file of these programs stayed empty (the cause is not yet
+known). ESC between tests stops; the remaining rows are
+then 0.
 
 The 320x224 screen uses the 224-line SYNC of `demos/tsp-sprites` and
 `demos/sgp-contention` (15.98 kHz, 267-line frame, 59.9 Hz; measured on

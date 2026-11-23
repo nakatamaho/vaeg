@@ -115,12 +115,13 @@ start:		cld
 		mov	byte [complete],1
 finish:		cmp	byte [failed],0
 		jne	.restore
-		mov	byte [res_i],0		; the table on a 320x200, 16-colour
+		call	write_results		; PROGRAM.TXT in the current directory
+.screen:	mov	byte [res_i],0		; the table on a 320x200, 16-colour
 		mov	byte [depth_i],0	; screen, until a key
 		call	select_mode
 		call	set_mode
 		call	draw_table
-		mov	ah,08h
+		mov	ah,07h			; a key, without a Ctrl-C check
 		int	21h
 .restore:	call	restore_video
 		cmp	byte [failed],0
@@ -130,7 +131,11 @@ finish:		cmp	byte [failed],0
 		mov	ax,4c02h
 		int	21h
 .table:		call	print_results
-		mov	ax,4c00h
+		cmp	byte [file_ok],0
+		jne	.exit
+		mov	dx,s_nowrite
+		call	dos_print
+.exit:		mov	ax,4c00h
 		int	21h
 
 dos_print:	mov	ah,09h
@@ -770,6 +775,50 @@ print_results:	mov	dx,s_crlf
 		jb	.l
 		ret
 
+; The table to PROGRAM.TXT (created or replaced): [file_ok] 1 if written.
+write_results:	mov	ah,3ch
+		xor	cx,cx
+		mov	dx,s_file
+		int	21h
+		jc	.ret
+		mov	[file_handle],ax
+		xor	ax,ax
+.l:		push	ax
+		call	table_line
+		cmp	byte [line],0
+		je	.next
+		mov	al,0			; 0 to CR LF
+		mov	di,line
+		mov	cx,96
+		repne	scasb
+		dec	di
+		mov	ax,0a0dh
+		stosw
+		mov	cx,di
+		sub	cx,line
+		mov	dx,line
+		mov	bx,[file_handle]
+		mov	ah,40h
+		int	21h
+		jc	.fail
+		cmp	ax,cx
+		jne	.fail
+.next:		pop	ax
+		inc	ax
+		cmp	ax,TABLE_LINES
+		jb	.l
+		mov	bx,[file_handle]
+		mov	ah,3eh
+		int	21h
+		jc	.ret
+		mov	byte [file_ok],1
+.ret:		ret
+.fail:		pop	ax
+		mov	bx,[file_handle]
+		mov	ah,3eh
+		int	21h
+		ret
+
 table_line:	mov	di,line
 		cmp	ax,3
 		jae	.body
@@ -917,6 +966,8 @@ s_va91		db	'PC-88VA + VA-91', 0
 s_unknown	db	'UNKNOWN MACHINE', 0
 s_crlf		db	13,10,'$'
 s_head1		db	PROGRAM, '  ', 0
+s_file		db	PROGRAM, '.TXT', 0
+s_nowrite	db	'(', PROGRAM, '.TXT could not be written)', 13, 10, '$'
 s_khz15		db	'  15 KHZ', 0
 s_khz24		db	'  24.8 KHZ', 0
 s_stopped	db	'(STOPPED BY ESC: LATER ROWS ARE 0)', 0
@@ -967,6 +1018,8 @@ doubled		db	0
 sync_sent	db	0
 complete	db	0
 failed		db	0
+file_ok		db	0
+file_handle	dw	0
 ink		db	0
 pd_c		db	0
 s_rate		times	12 db 0
