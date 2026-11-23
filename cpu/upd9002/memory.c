@@ -97,25 +97,19 @@ extern UINT upd9002_data_cycles;
 extern UINT upd9002_bus_waits;
 
 /*
- * M165: instruction words fetched back to back from main RAM, while the
- * CPU waits for them, take 4.5 clocks on average, not the manual's 4
- * (compiled sprites, CPUBENCH, with GVRAM writes; REP MOVSW from main RAM
- * to main RAM likewise takes 9.0 clocks a word on the PC-88VA2, M130). The
- * half clock is carried from word to word.
+ * M165: an instruction word the CPU waits for, from main RAM, from the
+ * third word after a transfer on (straight-line code that keeps the BIU
+ * busy): one clock more than the manual's 4 (upd9002_core.c). Compiled
+ * sprites (CPUBENCH) take about 21 clocks for a 6-byte MOV of an immediate
+ * word to GVRAM on the PC-88VA and VA2.
  */
 #define UPD9002_MAINRAM_END 0xa0000
 
-static UINT upd9002_ram_half;
-
 UINT upd9002_ram_fetch_extra(UINT32 address) {
-	UINT halves;
-
 	if (memoryva.dma_access || (address >= UPD9002_MAINRAM_END)) {
 		return 0;
 	}
-	halves = upd9002_ram_half + 1;
-	upd9002_ram_half = halves & 1;
-	return halves >> 1;
+	return 1;
 }
 
 static INLINE void upd9002_bus_wait(UINT32 address, UINT cycles) {
