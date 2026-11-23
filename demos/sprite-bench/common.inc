@@ -26,7 +26,10 @@
 ; lines), the titles, the positions and the table. The program defines
 ; PROGRAM, MEM_PARAS, prepare_depth, build_list, measure and the strings
 ; s_banner, s_memory, s_head2, s_head3, s_loc0 and s_loc1 (and s_loc2 when
-; it sets N_WAYS, the second dimension's values, to 3).
+; it sets N_WAYS, the second dimension's values, to 3). It may define
+; WHOLE_RESULT (results are whole numbers, not sprites a VRTC, and the
+; title has no list size) and FOOT_TEXT (the table's last line); measure
+; may return DX = SKIPPED for a test that cannot run.
 
 FRAMES		equ	180		; VRTCs a test (about 3 s)
 TOP		equ	10		; lines 0-9: the title
@@ -398,9 +401,12 @@ run_test:	call	clear_screen
 		shl	bx,2
 		mov	[results + bx],ax
 		mov	[results + bx + 2],dx
+		mov	si,s_skip
+		cmp	dx,SKIPPED
+		je	.show
 		call	format_rate		; s_rate: sprites a VRTC
 		mov	si,s_rate
-		mov	cx,320 - 8 * 6
+.show:		mov	cx,320 - 8 * 6
 		mov	dx,1
 		mov	al,YELLOW
 		jmp	draw_text
@@ -500,6 +506,7 @@ title:		mov	di,line
 		shl	bx,1
 		mov	si,[size_names + bx]
 		call	append
+%ifndef WHOLE_RESULT
 		mov	si,s_n
 		call	append
 		xor	bx,bx
@@ -507,6 +514,7 @@ title:		mov	di,line
 		shl	bx,1
 		mov	ax,[count_tab + bx]
 		call	append_dec
+%endif
 		mov	al,0
 		stosb
 		mov	si,line
@@ -559,6 +567,14 @@ random:		mov	ax,[seed]
 		mov	[seed],ax
 		ret
 
+%ifdef WHOLE_RESULT
+; s_rate = AX in decimal.
+format_rate:	mov	di,s_rate
+		call	append_dec
+		mov	al,0
+		stosb
+		ret
+%else
 ; s_rate = DX:AX * 10 / FRAMES as "nnnn.n" (sprites a VRTC).
 format_rate:	push	ax
 		mov	ax,dx
@@ -592,6 +608,7 @@ format_rate:	push	ax
 		mov	al,0
 		stosb
 		ret
+%endif
 
 ; ---------------------------------------------------------------------------
 ; Text: string SI from dot CX, line DX, colour index AL; 6x8 cells.
@@ -903,7 +920,10 @@ s_head1		db	PROGRAM, '  ', 0
 s_khz15		db	'  15 KHZ', 0
 s_khz24		db	'  24.8 KHZ', 0
 s_stopped	db	'(STOPPED BY ESC: LATER ROWS ARE 0)', 0
-s_foot		db	'SPRITES A LIST: 128, 64, 32, 16', 0
+%ifndef FOOT_TEXT
+%define FOOT_TEXT 'SPRITES A LIST: 128, 64, 32, 16'
+%endif
+s_foot		db	FOOT_TEXT, 0
 s_empty		db	0
 s_320x		db	'320X', 0
 s_d16		db	'16', 0

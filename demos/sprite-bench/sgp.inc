@@ -25,7 +25,10 @@
 ; sources at this depth, the list's commands and the list started. The
 ; program defines SRC_PARA (the sources' segment, from CS), LIST and WORK
 ; (the list and the SGP's work area, offsets in this segment) and sets
-; sgp_vram (0: sources in main RAM, else in GVRAM) before a list.
+; sgp_vram (0: sources in main RAM, else in GVRAM) before a list. A
+; program may also set page_lo and page_hi (added to the destinations) and
+; sgp_erase with zero_lo and zero_hi (BITBLT 0005h from zeros there: the
+; sprite's rectangle cleared).
 
 VSRC		equ	24000h		; GVRAM offset of the GVRAM sources
 VSRC_SEG	equ	0a000h + VSRC / 16
@@ -92,14 +95,21 @@ sgp_sources:	mov	ax,cs
 ; ---------------------------------------------------------------------------
 ; The list at LIST: sgp_begin (DI to LIST, SET_WORK), sgp_sprite for each
 ; sprite, sgp_end (END). After begin_list.
-sgp_begin:	mov	ax,[size]		; source pitch: size * bpp / 8
+sgp_begin:	call	sgp_pitch
+		mov	di,LIST
+		jmp	sgp_work
+
+; The source pitch: size * bpp / 8.
+sgp_pitch:	mov	ax,[size]
 		xor	cx,cx
 		mov	cl,[bpp]
 		mul	cx
 		shr	ax,3
 		mov	[src_pitch],ax
-		mov	di,LIST
-		mov	ax,3			; SET_WORK
+		ret
+
+; SET_WORK (WORK in this segment) at ES:DI.
+sgp_work:	mov	ax,3			; SET_WORK
 		stosw
 		mov	ax,WORK
 		xor	dx,dx
@@ -139,7 +149,12 @@ sgp_sprite:	mov	[sx],cx
 		rcl	dx,1
 		dec	cl
 		jnz	.sh
-.shifted:	cmp	byte [sgp_vram],0
+.shifted:	cmp	byte [sgp_erase],0
+		je	.image
+		mov	ax,[zero_lo]		; erasing: the zeros
+		mov	dx,[zero_hi]
+		jmp	.src
+.image:		cmp	byte [sgp_vram],0
 		jne	.vram
 		add	ax,[src_lo]		; main RAM: src_seg
 		adc	dx,[src_hi]
@@ -179,14 +194,20 @@ sgp_sprite:	mov	[sx],cx
 		shl	bx,1
 		pop	cx
 		add	ax,bx
-		adc	dx,20h			; SGP 200000h: GVRAM
+		adc	dx,0
+		add	ax,[page_lo]
+		adc	dx,[page_hi]
+		add	dx,20h			; SGP 200000h: GVRAM
 		stosw
 		mov	ax,dx
 		stosw
 		mov	ax,7			; BITBLT: copy, source 0 transparent
-		stosw
+		stosw				; (erasing: 0005h, an opaque copy)
 		mov	ax,0105h
-		stosw
+		cmp	byte [sgp_erase],0
+		je	.op
+		mov	ax,0005h
+.op:		stosw
 		ret
 
 sgp_end:	mov	ax,1			; END
@@ -199,12 +220,17 @@ cs_phys:	add	ax,[cs_lo]
 		ret
 
 ; The list at LIST started (SGP address CS:LIST).
-submit:		mov	dx,0580h
-		mov	al,10h
-		out	dx,al
-		mov	ax,LIST
+submit:		mov	ax,LIST
 		xor	dx,dx
 		call	cs_phys
+; The list at physical DX:AX started.
+submit_at:	push	ax
+		push	dx
+		mov	dx,0580h
+		mov	al,10h
+		out	dx,al
+		pop	dx
+		pop	ax
 		push	dx
 		mov	dx,0500h
 		out	dx,ax
@@ -241,5 +267,10 @@ src_hi		dw	0
 src_pitch	dw	0
 sx		dw	0
 sy		dw	0
+page_lo		dw	0
+page_hi		dw	0
+zero_lo		dw	0
+zero_hi		dw	0
 sgp_vram	db	0
+sgp_erase	db	0
 		align	2
