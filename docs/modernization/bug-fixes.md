@@ -35,6 +35,70 @@ land.
 
 ## Maintenance Rules
 
+### M165 — compiled sprites ran 6-16% faster than on the PC-88VA and VA2
+
+- **Symptom/scope:** CPUBENCH's compiled sprites (`demos/sprite-bench`,
+  long runs of `MOV [DI+d16],imm16` into GVRAM) drew 6-16% more sprites a
+  VRTC in vaeg than on both machines, the most at 65536 colours; its plain
+  loop 7-8% more. Short CPU loops (M130's calibration,
+  `demos/sgp-contention`) were not affected. The open part of #47 (bus-
+  bound CPU code too fast) is this case.
+- **Demonstrated cause:** the code is bus-bound: about 21 clocks a word on
+  both machines against 17.6 in vaeg, a constant difference at every size.
+  vaeg's prefetch queue took 4 clocks a word from main RAM (back-to-back
+  main RAM cycles take 4.5 on the machines: REP MOVSW 9.0 clocks a word,
+  M130) and a GVRAM write held the bus 5 clocks unless writes came back to
+  back.
+- **Correction:** instruction words the CPU waits for take 4.5 clocks from
+  main RAM (half a clock carried); a GVRAM word write holds the bus 6.5
+  clocks (REP STOSW's rate on the machines) without stalling the CPU. Byte
+  writes are unchanged (the write loops of `demos/sgp-contention` match
+  without it).
+- **Verification:** CPUBENCH within -1..+6% (`COMPLD`) and +4..+7% (`LOOP`)
+  of both machines (was +6..+16%), the two models equal as on the
+  machines; `demos/sgp-contention` rows A-K within 0.93-1.04 as before;
+  ctest 159/160 (the other a roadmap check, fixed).
+- **Milestone/task/commit:** M165,
+  [M165 task](../agents/tasks/M165_sgp_sprite_bench.md),
+  [results](../../demos/sprite-bench/results.md),
+  [e369c6cb](https://github.com/nakatamaho/vaeg/commit/e369c6cb7bb6edfc74b170f4635483cb8657928e).
+
+### M165 — the SGP barely slowed bus-bound CPU code
+
+- **Symptom/scope:** MIXBENCH with the CPU's part the longer (`SGP1/4`)
+  drew up to 17% more sprites a VRTC than both machines;
+  `demos/sgp-contention`'s RAM-with-SGP row was 1.13 (VA) and 1.11 (VA2)
+  of the machines.
+- **Demonstrated cause:** M130's contention charges the CPU a share of the
+  SGP's busy time, but the prefetch queue kept fetching meanwhile, so
+  bus-bound code got the delay back in prefetched words (raising the
+  share to 200/256 still left MIXBENCH 15% fast at 16x16).
+- **Correction:** the delay also delays the BIU's next word
+  (`upd9002_core_bus_stall`), charged before the CPU's clock moves.
+- **Verification:** MIXBENCH within 3% of both machines at every share;
+  DBLBENCH's `MIX` no longer above `CPU` on the PC-88VA2 (76/42/15/4
+  against 76/40/15/4); `demos/sgp-contention` N 1.00/0.95, P 0.89/0.93 (was
+  0.95/0.99).
+- **Milestone/task/commit:** M165,
+  [M165 task](../agents/tasks/M165_sgp_sprite_bench.md),
+  [27dfccda](https://github.com/nakatamaho/vaeg/commit/27dfccdaa67119d82336e5391624c38c942f3476).
+
+### M165 — SGP sources in GVRAM and main RAM took the same time
+
+- **Symptom/scope:** SGPBENCH's two source rows were equal in vaeg; on the
+  PC-88VA2 a GVRAM source is 4-15% faster, on the PC-88VA 1-6% slower
+  (M128's single 16x16 figures agree).
+- **Demonstrated cause:** `io/sgp.c` charged a BITBLT word the same for
+  any source address.
+- **Correction:** a source word from GVRAM (SGP addresses 200000h-23FFFFh)
+  costs 6 SGP clocks less on the PC-88VA2 and 1.5 more on the PC-88VA.
+- **Verification:** the GVRAM/RAM ratios of SGPBENCH within 0.04 of both
+  machines at every depth and size (PC-88VA2 16 colours 1.03/1.07/1.12/
+  1.15 against 1.04/1.08/1.13/1.15).
+- **Milestone/task/commit:** M165,
+  [M165 task](../agents/tasks/M165_sgp_sprite_bench.md),
+  [00004337](https://github.com/nakatamaho/vaeg/commit/00004337370d7132554a5c401407c2524e338a12).
+
 ### M161 — A D88 track formatted in FM was recorded as MFM
 
 - **Symptom/scope:** D88 images on every machine: after FORMAT TRACK with MF

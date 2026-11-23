@@ -136,3 +136,49 @@ On both machines `CPU` draws the most sprites at every size and depth;
 correction had the PC-88VA2's `MIX` above `CPU` at 16x16 to 64x64
 (16 colours (76) / (46) / (17) / (5)) and its `CPU` at (101) / (43) /
 (15) / (4) on both machines.
+
+## vaeg after M165's corrections
+
+M165 corrected vaeg's timing to these tables (see the
+[bug-fix ledger](../../docs/modernization/bug-fixes.md)): bus-bound CPU
+code, the SGP's share of the bus and the SGP's source in GVRAM. vaeg at 15
+kHz, 320x200, PC-88VA (the PC-88VA2 the same where the machines are):
+
+| Program | Row | 8x8 | 16x16 | 32x32 | 64x64 | Machine |
+|---|---|---:|---:|---:|---:|---|
+| CPUBENCH | 16 `COMPLD` | 186.6 | 78.6 | 27.5 | 8.8 | 179.6 / 77.9 / 27.7 / 8.8 |
+| CPUBENCH | 256 `COMPLD` | 205.9 | 72.1 | 20.0 | 5.5 | 197.2 / 71.9 / 20.2 / 5.5 |
+| CPUBENCH | 65536 `COMPLD` | 151.3 | 47.4 | 12.5 | 3.2 | 143.0 / 45.4 / 12.0 / 3.0 |
+| CPUBENCH | 16 `LOOP` | 53.3 | 16.2 | 4.4 | 1.1 | 50.1 / 15.2 / 4.1 / 1.0 |
+| MIXBENCH | 16 `SGP1/4` | 194.8 | 83.9 | 29.3 | 9.2 | 189.1 / 82.8 / 29.3 / 9.1 |
+| MIXBENCH VA2 | 16 `SGP1/4` | 187.7 | 81.7 | 28.9 | 9.1 | 184.8 / 82.4 / 29.6 / 9.4 |
+| MIXBENCH VA2 | 16 `SGP1/2` | 145.0 | 80.3 | 29.6 | 9.3 | 147.9 / 82.4 / 30.9 / 9.6 |
+| DBLBENCH | 16 `CPU` | 98 | 41 | 14 | 4 | 94 / 41 / 15 / 4 |
+| DBLBENCH VA2 | 16 `MIX` | 76 | 42 | 15 | 4 | 76 / 40 / 15 / 4 |
+| SGPBENCH VA2 | 16 `GVRAM` | 74.6 | 45.8 | 19.5 | 6.2 | 78.9 / 48.0 / 20.0 / 6.3 |
+
+The SGP's own speed is still about 5% slow on both models (M128's
+calibration, not changed here).
+
+## vaeg at 24.8 kHz (for a measurement on the machines)
+
+vaeg after the corrections, 320x200 (the 320x224 rows are `-` at 24.8
+kHz). PC-88VA / PC-88VA2:
+
+| Program | Row | 8x8 | 16x16 | 32x32 | 64x64 |
+|---|---|---:|---:|---:|---:|
+| SGPBENCH | 16 `RAM` | 52.6 / 78.9 | 29.1 / 46.5 | 11.3 / 19.0 | 3.3 / 5.8 |
+| SGPBENCH | 16 `GVRAM` | 52.6 / 81.7 | 28.8 / 49.7 | 11.0 / 21.3 | 3.2 / 6.7 |
+| SGPBENCH | 256 `RAM` | 44.8 / 68.2 | 20.2 / 33.4 | 6.7 / 11.5 | 1.8 / 3.2 |
+| SGPBENCH | 65536 `RAM` | 34.1 / 54.0 | 12.8 / 21.3 | 3.7 / 6.4 | 0.9 / 1.6 |
+| CPUBENCH | 16 `COMPLD` | 203.3 | 85.6 | 30.0 | 9.6 |
+| CPUBENCH | 256 `COMPLD` | 224.2 | 78.5 | 21.8 | 5.9 |
+| CPUBENCH | 65536 `COMPLD` | 165.0 | 51.6 | 13.6 | 3.5 |
+| MIXBENCH | 16 `SGP1/4` | 212.6 / 204.8 | 91.3 / 88.8 | 32.0 / 31.6 | 10.1 / 9.9 |
+| MIXBENCH | 16 `SGP1/2` | 105.9 / 158.5 | 58.6 / 87.4 | 22.7 / 32.3 | 6.8 / 10.1 |
+| DBLBENCH | 16 `CPU` | 106 | 45 | 16 | 4 |
+| DBLBENCH | 16 `SGP` | 27 / 40 | 15 / 24 | 6 / 10 | 1 / 3 |
+| DBLBENCH | 16 `MIX` | 56 / 83 | 32 / 46 | 13 / 17 | 4 / 5 |
+
+CPUBENCH is the same on both models. A VRTC is longer at 24.8 kHz (56.4
+Hz against 61.5 Hz), so every value is about 9% higher than at 15 kHz.
