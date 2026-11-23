@@ -98,3 +98,28 @@ SGPCONT photographed on the machines, and in vaeg after M130:
 - vaeg, divided by the machine and by its own row without the SGP (B, I):
   N 1.10 / 1.07, P 0.96 / 1.00 (VA / VA2); before M130's contention model
   1.23 / 1.57 and 1.08 / 1.51.
+
+## SGPMEM: the CPU's share by the memory it uses
+
+`SGPMEM.COM` (`sgpmem.asm`, M165) asks whether the CPU's loss while the
+SGP draws depends on the memory the CPU uses. SGPCONT's two rows with the
+SGP (main RAM 0.67, G1 0.73 on the PC-88VA) differ in their loops as well
+as in their memory; here one loop runs in each memory. Built and put on
+the disk by `build.sh` with SGPCONT; type `SGPMEM`. 15 kHz, memory up to
+segment 6100h; it takes about 4 minutes.
+
+Each CPU row repeats a chunk of 64 iterations for 300 VRTCs: register
+only (`ADD AX,BX`), byte reads, byte writes and word writes in main RAM at
+30000h (`RAM30`, standard RAM), main RAM at 60000h (`RAM60`, the
+PC-88VA's extended RAM with 1 wait), GVRAM (G1 lines 0-7) and TVRAM
+(offset 7000h, port 153h bank 1). Each row is measured three times: alone
+(`CHUNKS`), then while the SGP repeats a list of 30 16x16 sprites
+(BITBLT 0105h, drawn into G0 below the lines shown) with the sprite in
+main RAM, then with it in GVRAM. `RATIO` is the chunks done with the SGP
+over the chunks alone (1.000: no loss), `LISTS` the lists the SGP finished
+meanwhile; the last two rows give the lists with the CPU only polling.
+The table names the machine (F000:FFFE) and is also written to
+`SGPMEM.TXT`; then the program stops (restart the machine to leave).
+
+vaeg (M165) charges the CPU the same share whatever it uses: every ratio
+is 0.69-0.70 on the PC-88VA and 0.45-0.46 on the PC-88VA2.

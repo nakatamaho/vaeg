@@ -22,9 +22,9 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Build SGPCONT.COM (README.md) into OUTDIR (default .). With --msdos4
-# IMAGE (msdos4-pc88va-2hd.d88 of FreeDOS-88VA msdos4-va.2), also
-# OUTDIR/sgp-contention-msdos4.d88: a vanilla copy with the program.
+# Build SGPCONT.COM and SGPMEM.COM (README.md) into OUTDIR (default .).
+# With --msdos4 IMAGE (msdos4-pc88va-2hd.d88 of FreeDOS-88VA msdos4-va.2),
+# also OUTDIR/sgp-contention-msdos4.d88: a vanilla copy with the programs.
 
 set -eu
 
@@ -43,10 +43,11 @@ trap 'rm -rf "$work"' EXIT
 
 "$python_command" -I "$script_dir/gen_font.py" "$work/font.inc"
 "$nasm_command" -f bin -I"$work/" "$script_dir/sgpcont.asm" -o "$outdir/SGPCONT.COM"
+"$nasm_command" -f bin -I"$work/" "$script_dir/sgpmem.asm" -o "$outdir/SGPMEM.COM"
 if [ -n "$msdos4" ]; then
 	tool="$script_dir/../../tools/pc88va/pcengine_disk.py"
 	mkdir -p "$work/payload/root"
-	cp "$outdir/SGPCONT.COM" "$work/payload/root/"
+	cp "$outdir/SGPCONT.COM" "$outdir/SGPMEM.COM" "$work/payload/root/"
 	"$python_command" -I "$tool" vanilla --source "$msdos4" --output "$outdir/sgp-contention-msdos4.d88"
 	"$python_command" -I "$tool" install --image "$outdir/sgp-contention-msdos4.d88" --payload "$work/payload"
 fi
