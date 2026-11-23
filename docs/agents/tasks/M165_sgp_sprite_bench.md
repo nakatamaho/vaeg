@@ -21,7 +21,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M165 — スプライト・ベンチマーク（SGP、CPU、両方）
+# M165 — スプライト・ベンチマーク（SGP、CPU、両方、ダブルバッファ）
 
 Status: **IN PROGRESS.** 実機での測定は保守者が行う。
 Branch: `milestone/m165-sgp-sprite-bench`（origin/main
@@ -38,7 +38,8 @@ commit prefix `M165:`.
 CPU 描画の方式は、保守者の VA 向けアーケードゲーム移植の CPU スプライト
 （コンパイル済みスプライト）を参考にする。
 
-さらに続く依頼: SGP と CPU を混ぜて（同時に）描くテストも作る。
+さらに続く依頼: SGP と CPU を混ぜて（同時に）描くテストも作る。その後、
+ダブルバッファ（消去と描画を隠れたページで毎 VRTC 行う）のテストも作る。
 
 ## 内容
 
@@ -69,14 +70,27 @@ CPU 描画の方式は、保守者の VA 向けアーケードゲーム移植の
   始めさせ（主記憶の転送元、`BITBLT 0105h`）、CPU が残りをコンパイル済み
   ルーチンで描き、SGP の終わりを待つ。180 VRTC 内に終わったラウンドの
   スプライトを数える。
-- `common.inc`: 3 つのプログラムが共有する部分（テストの順、画面の設定、
+- `dblbench.asm`: `DBLBENCH.COM`。隠れたページに毎フレーム消去と描画を
+  行い、次の VRTC で FB0 の DSA を書き換えて表示する。1 VRTC に 1 フレーム
+  を保てる最大枚数を、0〜500 の二分探索（1 回 30 フレーム、遅れた
+  フレームで打ち切り）で求める。方式 3 種: `CPU`（2 ページ、CPU が矩形を
+  消してコンパイル済みルーチンで描く）、`SGP`（2 ページ、1 つのリストで
+  `BITBLT 0005h` によりゼロから消し、`BITBLT 0105h` で描く）、`MIX`
+  （3 ページ、前のフレームで表示したページを SGP が消す間に、CPU が前の
+  フレームで SGP の消したページに描く）。ページが 256 KB に入らない
+  320x224 の 65536 色と、65536 色の `MIX` は `-`。
+- `common.inc`: 4 つのプログラムが共有する部分（テストの順、画面の設定、
   見出し、位置、結果表）。2 番目の次元の数 `N_WAYS`（既定 2、MIXBENCH は
   3）を取り、表が 200 ラインに収まらないときは行間を 8 ラインにする。
+  `WHOLE_RESULT`（結果を整数で出す）と `FOOT_TEXT`（表の最後の行）も
+  プログラムが決められ、`measure` は実行できないテストに `SKIPPED` を
+  返せる。`sgp.inc` はページの先頭（`page_lo`/`page_hi`）と消去
+  （`sgp_erase`）、任意のアドレスのリストの起動（`submit_at`）も扱う。
   `sgp.inc` は SGP の部分（転送元、リストのコマンド、起動）、`cpu.inc` は
   CPU の部分（`.DAT` の読み込み、表の項目、コンパイル済みルーチンの呼び
   出し、VRTC の数え方）。
-- `build.sh`: 3 つのプログラムと `.DAT` を作る。`--msdos4` で msdos4-va.2
-  の MS-DOS 4.0 に 6 つのファイルを入れた `sprite-bench-msdos4.d88` も
+- `build.sh`: 4 つのプログラムと `.DAT` を作る。`--msdos4` で msdos4-va.2
+  の MS-DOS 4.0 に 7 つのファイルを入れた `sprite-bench-msdos4.d88` も
   作る。nasm はカレントディレクトリの `data.inc` を先に拾うため、作業
   ディレクトリで動かす（古い `data.inc` のある場所から実行するとカンマの
   ない古いフォントが入っていたのを直した）。
@@ -106,10 +120,17 @@ MIXBENCH（PC-88VA2 と PC-88VA、15 kHz）: 72 テストを実行し、表は 8
 後の SGPBENCH・CPUBENCH は分割前と同じ値（CPUBENCH は差 0.1 以内）を
 出す。
 
+DBLBENCH（PC-88VA2 と PC-88VA、15 kHz）: 表のとおり 56 テストを実行し、
+ページの入らない 16 テストは `-`。途中の画面で、どのページにもタイトルと
+スプライトが正しく出ることを確かめた。PC-88VA2 の 320x200・16 色で `CPU`
+101 / 43 / 15 / 4、`SGP` 37 / 22 / 9 / 2、`MIX` 76 / 46 / 17 / 5。
+`sgp.inc` を変えたあとも、SGPBENCH は同じ値、MIXBENCH は 1 か所が 0.2
+違うだけだった。
+
 vaeg では主記憶と GVRAM の転送元が同じ値になる（転送元の違いを時間に
 反映していない）。実機の値と比べて、違いがあれば別のマイルストーンで扱う。
 
 ## Gate G165
 
 標準の人間ゲート。加えて、保守者が実機（PC-88VA / VA2 / VA3）で
-`SGPBENCH`、`CPUBENCH`、`MIXBENCH` を動かし、結果表を記録する。
+`SGPBENCH`、`CPUBENCH`、`MIXBENCH`、`DBLBENCH` を動かし、結果表を記録する。

@@ -23,11 +23,12 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# Sprite benchmarks: SGP, CPU and both
+# Sprite benchmarks: SGP, CPU, both, and double-buffered
 
-Three MS-DOS programs with the same tests, screens, characters, positions
-and table: `SGPBENCH.COM` draws the sprites with the SGP, `CPUBENCH.COM`
-with the CPU, and `MIXBENCH.COM` with both at once (below). `common.inc`
+Four MS-DOS programs with the same screens, characters, positions and
+table: `SGPBENCH.COM` draws the sprites with the SGP, `CPUBENCH.COM`
+with the CPU, `MIXBENCH.COM` with both at once, and `DBLBENCH.COM`
+erases and draws them on a hidden page every VRTC (below). `common.inc`
 holds what they all share, `sgp.inc` the SGP's part and `cpu.inc` the
 CPU's.
 
@@ -164,15 +165,60 @@ the machine):
 | 16 | `SGP1/2` | 145.0 | 86.0 | 33.6 | 10.8 |
 | 16 | `SGP3/4` | 96.7 | 57.2 | 23.2 | 7.2 |
 
+## DBLBENCH
+
+`DBLBENCH.COM` (`dblbench.asm`) measures what a game sees: frames on a
+hidden page, shown at the next VRTC (FB0's display start address, DSA,
+ports 20Eh and 210h, as `demos/sgp-pseudo-sprite` does for FB1). A frame
+starts at a VRTC, erases the sprites drawn on that page two frames
+earlier, draws them again, and must end before the next VRTC, where its
+page is shown. The result is the most sprites at a frame every VRTC
+(about 60 frames a second at 15 kHz), found by halving between 0 and
+500: a trial of N sprites runs 30 frames and fails at the first frame
+that ends late. The positions are the other programs' and do not move,
+so each frame erases and redraws the same places; the cost is that of
+moving sprites. The `WAY` column:
+
+- `CPU`: two pages. The CPU clears the N rectangles (`REP STOSW` a line),
+  then draws the N sprites with the compiled routines (as CPUBENCH's
+  `COMPLD`).
+- `SGP`: two pages. One SGP list clears the N rectangles (`BITBLT 0005h`,
+  an opaque copy from 8 KB of zeros in main RAM, as `demos/sgp-contention`
+  clears) and then draws the N sprites (`BITBLT 0105h` from main RAM).
+- `MIX`: three pages, so that the two never touch the same page. While
+  the CPU draws on the page the SGP cleared during the previous frame,
+  the SGP clears the page shown during the previous frame; the frame ends
+  when both have finished.
+
+The pages must fit the 256 KB of GVRAM: 320x224 at 65536 colours has no
+room for two pages, and `MIX` at 65536 colours none for three; those
+cells are `-`. The program reads the `.DAT` files as CPUBENCH does and
+needs 320 KB after itself; it takes about 5 minutes.
+
+vaeg's values at 15 kHz, 320x200, sprites at a frame every VRTC (not
+measurements on the machine):
+
+| Machine | Colours | Way | 8x8 | 16x16 | 32x32 | 64x64 |
+|---|---|---|---:|---:|---:|---:|
+| PC-88VA2 | 16 | `CPU` | 101 | 43 | 15 | 4 |
+| PC-88VA2 | 16 | `SGP` | 37 | 22 | 9 | 2 |
+| PC-88VA2 | 16 | `MIX` | 76 | 46 | 17 | 5 |
+| PC-88VA2 | 256 | `CPU` | 90 | 33 | 9 | 2 |
+| PC-88VA2 | 256 | `SGP` | 32 | 16 | 5 | 1 |
+| PC-88VA2 | 256 | `MIX` | 67 | 35 | 12 | 3 |
+| PC-88VA | 16 | `CPU` | 101 | 43 | 15 | 4 |
+| PC-88VA | 16 | `SGP` | 25 | 14 | 5 | 1 |
+| PC-88VA | 16 | `MIX` | 51 | 30 | 12 | 3 |
+
 ## Building
 
 ```sh
 demos/sprite-bench/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 ```
 
-This writes `SGPBENCH.COM`, `CPUBENCH.COM`, `MIXBENCH.COM` and the three
-`.DAT` files. With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the
-script also writes `sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy
-with all six files in its root; type `SGPBENCH`, `CPUBENCH` or
-`MIXBENCH`. `PREVIEW=chars.ppm` also writes
+This writes `SGPBENCH.COM`, `CPUBENCH.COM`, `MIXBENCH.COM`,
+`DBLBENCH.COM` and the three `.DAT` files. With `--msdos4` (the
+FreeDOS-88VA msdos4-va.2 disk) the script also writes
+`sprite-bench-msdos4.d88`, a vanilla MS-DOS 4.0 copy with all seven files
+in its root; type `SGPBENCH`, `CPUBENCH`, `MIXBENCH` or `DBLBENCH`. `PREVIEW=chars.ppm` also writes
 the characters at four times their size.
