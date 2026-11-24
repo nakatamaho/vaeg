@@ -17,6 +17,9 @@ Locations inside the boundary used by the workflows below:
 - private inputs (system disks, ROMs, extra ROMs) are read from
   `~/work/pc88va/pc88va-private-docs/` and copied into task scratch when a
   tool needs a writable or renamed copy.
+- pi (the review tool below) keeps its configuration and credentials in
+  `~/.pi/`; the maintainer allows pi to use that directory (2026-11-24).
+  This exception is for pi only.
 
 PC-88VA emulator derived from Neko Project II. Upstream (project-vaeg)
 is abandoned; this fork is the living tree.
@@ -228,6 +231,14 @@ SDL dummy output; never promote it to physical-GPU, Cocoa, Windows or true-HiDPI
 coverage. Report exactly which checklist items an automated case covers; adding
 a runner does not mark unimplemented cases passed, retroactively upgrade prior
 manual checks, or authorize a milestone merge without its required gate acceptance.
+
+## Adversarial review
+
+When an adversarial (independent) review is called for, run it with pi:
+`pi -p --no-session --model openai-codex/gpt-6.2-sol --thinking high
+"<request>"` (maintainer direction, 2026-11-24). Give it the code or the
+diff to review, not the conclusion to confirm, and report its findings
+with your own verification of each.
 
 ## CI and expensive-test discipline
 
