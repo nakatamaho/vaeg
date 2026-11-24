@@ -23,7 +23,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M165 — スプライト・ベンチマーク（SGP、CPU、両方、ダブルバッファ）
 
-Status: **IN PROGRESS.** 実機での測定は保守者が行う。
+Status: **COMPLETE; G165 human gate PASSED on 2026-11-24.**
 Branch: `milestone/m165-sgp-sprite-bench`（origin/main
 [7aa05049](https://github.com/nakatamaho/vaeg/commit/7aa05049) から）;
 commit prefix `M165:`.
@@ -224,3 +224,19 @@ SGPCONT の P が 0.89 / 0.92、GVRAM 読みの待ち。
 
 標準の人間ゲート。加えて、保守者が実機（PC-88VA / VA2 / VA3）で
 `SGPBENCH`、`CPUBENCH`、`MIXBENCH`、`DBLBENCH` を動かし、結果表を記録する。
+
+### 結果（2026-11-24）
+
+- MinGW 静的ビルド: b423aa55 の新しいクローンから
+  `tools/release/build-mingw-macports.py --build-track m165`（Linux）。
+  表示 `Rel.20261124 (m165, b423aa55)`、`vaeg.exe` SHA-256
+  `6af94f05d5a2ce60164645aa0a51bac8abccda9947040e3be97f89e9d827a584`。
+  エンコーダ・PE インポートの検査 PASS。
+- 保守者が G165 の人間ゲートの通過を確認した（2026-11-24）。実機の結果は
+  [results.md](../../../demos/sprite-bench/results.md)、SGPMEM と CPUALIGN は
+  [va-bus-timing.md](../../modernization/va-bus-timing.md)。
+- 統合キャンペーン（メディアのビルド・デモの回帰、画面の自動確認）:
+  **NOT_RUN**（保守者の判断で見送り、2026-11-24）。
+- 残る速度のずれ（主記憶を読むループと奇数番地、表示中の 65536 色 GVRAM、
+  SGPCONT P）は va-bus-timing.md の Open questions に記録し、命令取り込み部
+  （BIU）のクロック単位のモデルを別のマイルストーンとして提案した。
