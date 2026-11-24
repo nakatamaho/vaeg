@@ -37,6 +37,7 @@ time.
 | Program | Directory | Measures |
 |---|---|---|
 | SGPCONT | [`demos/sgp-contention`](../../demos/sgp-contention/README.md) | 18 rows: CPU loops in main RAM, G0, G1 (read, write, AND-OR, REP STOSW, REP MOVSW); SGP lists; both at once; clearing by CPU and SGP (M130) |
+| CPUALIGN | [`demos/cpu-timing`](../../demos/cpu-timing/README.md) | the same CPU loops (register, main RAM, GVRAM, TVRAM reads and writes, CPUBENCH's `LOOP` body) and 64 straight `MOV`s, each at an even and an odd address (M165) |
 | SGPMEM | `demos/sgp-contention` | one 64-iteration loop each in main RAM below 40000h, main RAM at 60000h, GVRAM and TVRAM (read, byte write, word write) and a register loop; alone and while the SGP draws from main RAM or from GVRAM (M165) |
 | SGPBENCH, CPUBENCH, MIXBENCH, DBLBENCH | [`demos/sprite-bench`](../../demos/sprite-bench/README.md) | sprites a VRTC: SGP from main RAM/GVRAM; compiled and loop CPU sprites; both shared; double-buffered frames (M165) |
 | TSPSPR | `demos/tsp-sprites` | TVRAM word accesses (M141) |
@@ -193,14 +194,39 @@ more. DBLBENCH's largest differences are `MIX` at 256 colours.)
 
 ## Open questions
 
-- **Main RAM byte reads**: SGPMEM's read loop in main RAM takes 38.8-39.3
-  clocks an iteration on the machines, 34.9 in vaeg (the M130 calibration
-  loop with the same instructions measured 32.9 and is matched). The read
-  loop starts at an odd address (the byte-write loop, at an even one,
-  matches within 3%), so the cost of a branch to an odd address may be
-  what is missing. A benchmark with each loop at an even and an odd
-  address would separate the two. CPUBENCH's `LOOP` rows (reads from
-  main RAM and GVRAM) are 7-10% fast for the same reason or a related one.
+- **Main RAM reads and the BIU** (#47): SGPMEM's read loop in main RAM
+  takes 38.8-39.3 clocks an iteration on the machines, 34.9 in vaeg, and
+  CPUBENCH's `LOOP` rows are 7-10% fast. CPUALIGN
+  ([`demos/cpu-timing`](../../demos/cpu-timing/README.md)) measured the same
+  loops at even and odd addresses on both machines: at an even address
+  vaeg's main RAM reads are 3-5 clocks an iteration fast and its writes 2-3;
+  an odd address costs 3-5 clocks on the machines only in loops that do not
+  read memory early, while vaeg charges 3-4 clocks in every loop; and an
+  `ES:` prefix is free at an even address on the machines. Across
+  CPUALIGN's 32 counts vaeg is 7.2% off (root mean square, at most 16.8%).
+
+  Tried and not kept (M165, the effect on the other benchmarks in
+  parentheses):
+
+  | Change | CPUALIGN rms / max | Elsewhere |
+  |---|---|---|
+  | none (vaeg as committed) | 7.2% / 16.8% | SGPCONT A-K as M130; CPUBENCH `LOOP` 7-10% fast |
+  | a main RAM data read +4 clocks, a write +2, once an instruction, REP excluded | 5.8% / 14.0% | SGPCONT B 0.92 and N 0.84 (were 1.02 and 1.02); CPUBENCH `COMPLD` 8x8 7% slow |
+  | data cycles at the end of the instruction wait for a fetch in flight | 6.9% / 15.7% | GVRAM and TVRAM writes 3 clocks slow |
+  | the same with a read +2 | 6.3% / 10.9% | CPUBENCH `COMPLD` and `LOOP` within 3% at 16 and 256 colours; SGPCONT D and I 0.91 (were 1.00), P 0.82 |
+  | the same, read +3 and write +1, or read +2 and write +1 | 6.8% / 11.1%, 6.4% / 10.9% | as above |
+  | the wait for main RAM data only, read +2 | 5.8% / 12.1% | CPUBENCH `COMPLD` 6-8% slow |
+
+  Each fits some loops by unfitting others that the committed timing
+  already matches (SGPCONT's B and the CPUALIGN read loop are both main RAM
+  read loops; one fits only without the extra cost, the other only with it).
+  What decides it is where in each instruction the BIU's fetch and the data
+  cycle fall, which vaeg's queue model (instruction granularity, data
+  cycles accounted at the instruction's end) does not resolve. A
+  clock-level model of the uPD70116's BIU (fetch start, data request, the
+  queue's 2-byte threshold), checked against CPUALIGN, SGPMEM and SGPCONT
+  together, is the next step; M130 left cycle-exact bus timing out of its
+  scope.
 - **Reads lose less to the SGP than writes**: on both machines a CPU
   loop that reads (main RAM, GVRAM, TVRAM) keeps 0.08-0.19 more of its
   speed while the SGP draws from main RAM than a writing or register
@@ -212,7 +238,10 @@ more. DBLBENCH's largest differences are `MIX` at 256 colours.)
 - **SGPCONT P** (G1 writes while the SGP draws): 0.89 (PC-88VA) and
   0.92 (PC-88VA2) of the machines, from 0.95 and 0.99 before the BIU
   stall; the other contention rows are within 0.95-1.04.
-- **65536-colour compiled sprites** remain 6-10% fast.
+- **65536-colour compiled sprites** remain 6-10% fast. CPUALIGN's straight
+  `MOV`s into GVRAM, with the graphics not displayed, are within 1-4% of
+  the machines; CPUBENCH writes a GVRAM displayed at 16 bits a dot, so the
+  display's reads of GVRAM may be what slows the CPU there (not modelled).
 - **HLT while waiting for the SGP**: if halting the CPU (no instruction
   fetches) lets the SGP run faster on the machines, vaeg does not show it;
   not measured.

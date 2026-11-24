@@ -66,6 +66,67 @@ demos/cpu-timing/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 With `--msdos4` (the FreeDOS-88VA msdos4-va.2 disk) the script also writes
 `cpu-timing-msdos4.d88`, a vanilla MS-DOS 4.0 copy with the program.
 
+## On the machines (2026-11-23)
+
+PC-88VA and PC-88VA2/VA3, 15 kHz (24.8 kHz gives the same ratios, every
+count 1.09 times higher):
+
+```text
+CPUALIGN  PC-88VA  15 KHZ  CHUNKS IN 120 VRTC
+LOOP (64 TIMES)     EVEN   ODD  ODD/EVEN
+REG ADD             9781  8695  0.888
+RAM READ B ES:      6858  6138  0.895
+RAM READ B          6909  6886  0.996
+RAM READ W          6138  6138  1.000
+RAM WRITE B         7559  7084  0.937
+RAM WRITE W         6670  6324  0.948
+RAM LODSW AND OR    4408  4299  0.975
+GVRAM READ B        6138  6137  0.999
+GVRAM WRITE B       8085  7082  0.875
+GVRAM WRITE W       7057  6321  0.895
+GVRAM LODSW AND OR  3752  3749  0.999
+TVRAM READ B        5097  5033  0.987
+TVRAM WRITE B       7265  6341  0.872
+64 MOV AX,IMM      26921 26794  0.995
+64 MOV RAM,IMM     11196 12340  1.102
+64 MOV GVRAM,IMM   10696 11727  1.096
+```
+
+```text
+CPUALIGN  PC-88VA2/VA3  15 KHZ  CHUNKS IN 120 VRTC
+LOOP (64 TIMES)     EVEN   ODD  ODD/EVEN
+REG ADD             9834  8748  0.889
+RAM READ B ES:      6911  6210  0.898
+RAM READ B          6963  6930  0.995
+RAM READ W          6197  6183  0.997
+RAM WRITE B         7640  7159  0.937
+RAM WRITE W         6719  6347  0.944
+RAM LODSW AND OR    4411  4346  0.985
+GVRAM READ B        6215  6182  0.994
+GVRAM WRITE B       8147  7152  0.877
+GVRAM WRITE W       7072  6345  0.897
+GVRAM LODSW AND OR  3779  3777  0.999
+TVRAM READ B        5118  5070  0.990
+TVRAM WRITE B       7325  6384  0.871
+64 MOV AX,IMM      27076 26966  0.995
+64 MOV RAM,IMM     11276 12423  1.101
+64 MOV GVRAM,IMM   10763 11809  1.097
+```
+
+What they show (the two models within 1%):
+
+- An odd loop address costs 3-5 clocks an iteration in loops that do not
+  read memory early (register, byte and word writes), and almost nothing
+  in loops that read memory without a segment prefix (main RAM, GVRAM,
+  TVRAM): the wait for the data hides the late instruction bytes. With
+  an `ES:` prefix the read loop pays 4 clocks at an odd address.
+- A main RAM read without a prefix costs as much as one with it at an even
+  address (the prefix is free there).
+- A GVRAM byte write is faster than a main RAM one (29.9 against 31.9
+  clocks an iteration at an even address).
+- Straight 6-byte `MOV`s are 10% faster starting at an odd address (the
+  first 5 bytes of each instruction arrive in fewer bus cycles).
+
 ## vaeg (M165), 15 kHz
 
 The PC-88VA and the PC-88VA2 give the same table:
@@ -90,3 +151,10 @@ TVRAM WRITE B       7318  6546  0.894
 64 MOV RAM,IMM     11984 11937  0.996
 64 MOV GVRAM,IMM   11422 11379  0.996
 ```
+
+vaeg's odd-address cost is the same 3-4 clocks in every loop, and its
+even-address read loops are 3-5 clocks fast; across the 32 counts it is
+7.2% off (root mean square, at most 16.8%). See
+[va-bus-timing.md](../../docs/modernization/va-bus-timing.md#open-questions)
+for the corrections tried and why none was kept.
+
