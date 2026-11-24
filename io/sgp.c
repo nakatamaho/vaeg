@@ -145,10 +145,10 @@ UINT64 sgp_scale_elapsed(UINT32 elapsed) {
  */
 #ifndef SGP_SCALE_VA_SETUP
 #define SGP_SCALE_VA_SETUP 370
-#define SGP_SCALE_VA_BLT 432
+#define SGP_SCALE_VA_BLT 452
 #define SGP_SCALE_VA_CLS 525
 #define SGP_SCALE_VA2_SETUP 541
-#define SGP_SCALE_VA2_BLT 497
+#define SGP_SCALE_VA2_BLT 519
 #define SGP_SCALE_VA2_CLS 443
 #endif
 enum { SGP_COST_SETUP = 0, SGP_COST_BLT, SGP_COST_CLS, SGP_COST_NOMINAL, SGP_COST_CLASSES };
@@ -529,6 +529,42 @@ static void init_block(SGP_BLOCK block) {
 	block->ycount = block->height;
 }
 
+/*
+ * M165: a source word from GVRAM against one from main RAM, in SGP clocks
+ * (1/2 units). SGPBENCH on the machines: on the PC-88VA2 a GVRAM source is
+ * about 3 CPU clocks (6 SGP clocks) a word faster, on the PC-88VA about 1.5
+ * slower (M128's single 16x16 figures agree). The BITBLT costs above are
+ * those of a main RAM source.
+ */
+#define SGP_SRC_GVRAM_VA_HALVES 3   /* +1.5 */
+#define SGP_SRC_GVRAM_VA2_HALVES 12 /* -6 */
+static UINT32 sgp_src_half;
+
+static void sgp_charge_source(UINT32 address) {
+	UINT32 halves;
+
+	if ((address & 0x3c0000L) != 0x200000L) {
+		return;
+	}
+	if (pccore.model_va == PCMODEL_VA2) {
+		halves = SGP_SRC_GVRAM_VA2_HALVES + sgp_src_half;
+		sgp.remainclock += (SINT32)(halves >> 1);
+	} else {
+		halves = SGP_SRC_GVRAM_VA_HALVES + sgp_src_half;
+		sgp.remainclock -= (SINT32)(halves >> 1);
+	}
+	sgp_src_half = halves & 1;
+}
+
+/* One BITBLT/PATBLT word: 10 (source colour 0 transparent) or 8 clocks. */
+static void sgp_charge_blt_word(void) {
+	if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
+		sgp_charge(SGP_COST_BLT, 10 * 2);
+	} else {
+		sgp_charge(SGP_COST_BLT, 8 * 2);
+	}
+}
+
 static void read_word(SGP_BLOCK block) {
 	UINT16 dat;
 
@@ -537,6 +573,16 @@ static void read_word(SGP_BLOCK block) {
 		dat = 0xffff; /* M128: see sgp_fbw_undefined(); the first line is read */
 	} else {
 		dat = sgp_memoryread_w(block->nextaddress);
+	}
+	if (block == &sgp.src) {
+		sgp_charge_source(block->nextaddress);
+		/* M165: a BITBLT word costs by the source words read, not by
+		 * the destination words written: a destination starting at any
+		 * dot costs the same on the machines (SGPBENCH against SGPMEM).
+		 * A 1-bpp source expanded is still charged per destination word. */
+		if (!((sgp.src.scrnmode == 0) && (sgp.dest.scrnmode != 0))) {
+			sgp_charge_blt_word();
+		}
 	}
 	block->buf = SWAPWORD(dat);
 	//block->nextaddress += 2;
@@ -1055,10 +1101,8 @@ static void exec_bitblt(void) {
 		sgp.dest.nextaddress += 2;
 		//@@1	read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
-		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp_charge(SGP_COST_BLT, 10 * 2);
-		} else {
-			sgp_charge(SGP_COST_BLT, 8 * 2);
+		if (EXTPIX) {
+			sgp_charge_blt_word();
 		}
 	}
 
@@ -1160,10 +1204,8 @@ static void exec_bitblt_hd(void) {
 		sgp.dest.nextaddress -= 2;
 		//@@1		read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
-		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
-			sgp_charge(SGP_COST_BLT, 10 * 2);
-		} else {
-			sgp_charge(SGP_COST_BLT, 8 * 2);
+		if (EXTPIX) {
+			sgp_charge_blt_word();
 		}
 	}
 
@@ -1619,18 +1661,43 @@ static void fetch_command(void) {
 #define SGP_CPU_SHARE_VA 80
 #define SGP_CPU_SHARE_VA2 142
 #endif
+/*
+ * M165: while a BITBLT or PATBLT reads its source from GVRAM the CPU loses
+ * much less (demos/sgp-contention SGPMEM, a register loop: it keeps 0.87
+ * on the PC-88VA and 0.75 on the PC-88VA2, against 0.70 and 0.46 with the
+ * source in main RAM): the SGP then takes main RAM only for its commands.
+ */
+#ifndef SGP_CPU_SHARE_GV_VA
+#define SGP_CPU_SHARE_GV_VA 30
+#define SGP_CPU_SHARE_GV_VA2 55
+#endif
+
+static BOOL sgp_source_in_gvram(void) {
+	switch (sgp.func) {
+	case FUNC_EXEC_BITBLT:
+	case FUNC_EXEC_BITBLT_HD:
+		return ((sgp.src.address & 0x3c0000L) == 0x200000L);
+	default:
+		return (FALSE);
+	}
+}
 
 static void sgp_cpu_share(UINT32 past) {
 	UINT32 share;
 	UINT32 work;
 	UINT64 scaled;
 
-	share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_VA2 : SGP_CPU_SHARE_VA;
+	if (sgp_source_in_gvram()) {
+		share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_GV_VA2 : SGP_CPU_SHARE_GV_VA;
+	} else {
+		share = (pccore.model_va == PCMODEL_VA2) ? SGP_CPU_SHARE_VA2 : SGP_CPU_SHARE_VA;
+	}
 	/* The clocks since the last step, less the delay charged then. */
 	work = (past > sgp.cpudelay) ? (past - sgp.cpudelay) : 0;
 	scaled = (UINT64)work * share * 256 / (256 - share) + sgp.cpudelayfrac;
 	sgp.cpudelay = (UINT32)(scaled >> 8);
 	sgp.cpudelayfrac = (UINT32)(scaled & 0xff);
+	upd9002_core_bus_stall(sgp.cpudelay); /* M165: before the CPU's clock moves */
 	CPU_REMCLOCK -= (SINT32)sgp.cpudelay;
 }
 

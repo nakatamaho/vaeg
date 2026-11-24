@@ -396,7 +396,18 @@ static void MEMCALL sysm_wt(UINT32 address, REG8 value) {
 	sysmbyte_write[sysm_bank()](address, value);
 }
 
+/*
+ * M165: a CPU byte read of TVRAM waits 13 clocks and a byte write 4, on the
+ * PC-88VA and PC-88VA2 alike (demos/sgp-contention SGPMEM: TVRAM at offset
+ * 7000h against the same loops in main RAM, 52.1-52.6 against 38.8-39.3
+ * clocks a read, 37.5-37.7 against 33.7-34.0 a write). M141's word waits
+ * are unchanged.
+ */
+#define TVRAM_BYTE_READ_WAIT 17
+#define TVRAM_BYTE_WRITE_WAIT 4
+
 static void MEMCALL tvram_wt(UINT32 address, REG8 value) {
+	CPU_REMCLOCK -= TVRAM_BYTE_WRITE_WAIT;
 	if ((address - CPUADDR_SYSM) >= tvram_size()) {
 		return;
 	}
@@ -482,8 +493,9 @@ static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
  * byte accesses cost nothing more.
  * Measured with demos/tsp-sprites (TSPSPR, issue #67) on the PC-88VA and
  * PC-88VA2: REP STOSW 18.8 and REP MOVSW 24 clocks a word (VA2 18 and 23),
- * main RAM's MOVSW 9.2, whether sprites, the attribute side or text; a
- * byte loop writing or reading TVRAM as fast as one writing main RAM.
+ * main RAM's MOVSW 9.2, whether sprites, the attribute side or text. (Its
+ * byte loops seemed as fast as main RAM; M165's SGPMEM, one loop each in
+ * TVRAM and main RAM, showed the byte waits above.)
  * Machine clocks, as GVRAM's waits.
  */
 #define TVRAM_WORD_WAIT_VA 13
@@ -555,6 +567,7 @@ static REG8 MEMCALL sysm_rd(UINT32 address) {
 }
 
 static REG8 MEMCALL tvram_rd(UINT32 address) {
+	CPU_REMCLOCK -= TVRAM_BYTE_READ_WAIT;
 	if ((address - CPUADDR_SYSM) >= tvram_size()) {
 		return (0xff);
 	}

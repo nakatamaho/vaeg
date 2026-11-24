@@ -49,6 +49,7 @@ void MEMCALL upd9002_memorywrite_nowait(UINT32 address, REG8 value);
 /* Instruction fetch: a wait cycle a word. */
 REG8 MEMCALL upd9002_fetch(UINT32 address);
 REG16 MEMCALL upd9002_fetch_w(UINT32 address);
+UINT upd9002_ram_fetch_extra(UINT32 address);
 void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 value);
 
 REG8 MEMCALL meml_read8(UINT seg, UINT off);

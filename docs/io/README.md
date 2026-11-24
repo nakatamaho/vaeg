@@ -106,4 +106,5 @@ Read値が `FFH` になるスタブや、未接続時のエミュレータ値か
 - [PC-88VAの表示モード・フレームバッファ制御](../modernization/pc88va-video-modes.md)
 - [TSPの再構成仕様](../modernization/upd72022-tsp.md)
 - [SGPの再構成仕様](../modernization/upd92017-sgp.md)
+- [メイン CPU と SGP のタイミング（実機の測定とモデル）](../modernization/va-bus-timing.md)
 - [恒久的な不具合修正記録](../modernization/bug-fixes.md)

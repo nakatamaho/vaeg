@@ -164,6 +164,7 @@ static struct {
 	UINT16 cs;
 	UINT8 bytes;      /* bytes in the queue */
 	UINT8 valid;
+	UINT8 run;        /* words since the last transfer (M165, up to 2) */
 } upd9002_queue;
 UINT upd9002_fetched_bytes; /* by the current instruction (memory.c) */
 UINT upd9002_data_cycles;   /* its data bus cycles (memory.c) */
@@ -178,6 +179,18 @@ static UINT32 upd9002_bus_clocks(UINT32 clocks) {
 	return (UINT32)clockscale_apply(&pccore_cpu_scale, clocks);
 }
 
+/* A word the instruction waits for. M165: from main RAM, from the third
+ * word after a transfer on, 5 clocks (straight-line code that keeps the
+ * BIU busy, compiled sprites; loops are not slowed). */
+static UINT32 upd9002_fetch_word_clocks(void) {
+	if (upd9002_queue.run < 2) {
+		upd9002_queue.run++;
+		return upd9002_bus_clocks(4);
+	}
+	return upd9002_bus_clocks(4) +
+	       upd9002_ram_fetch_extra(CS_BASE + upd9002_queue.ip + upd9002_queue.bytes);
+}
+
 static void upd9002_queue_flush(UINT32 now) {
 	/* The first word of the target arrives as the transfer ends. */
 	upd9002_queue.ip = UPD9002_IP;
@@ -185,6 +198,7 @@ static void upd9002_queue_flush(UINT32 now) {
 	upd9002_queue.bytes = (UINT8)((UPD9002_IP & 1) ? 1 : 2);
 	upd9002_queue.next = now + upd9002_bus_clocks(4);
 	upd9002_queue.valid = 1;
+	upd9002_queue.run = 0;
 }
 
 /* The BIU's words up to clock NOW (queue limit 6 bytes). */
@@ -227,7 +241,7 @@ static void upd9002_queue_account(UINT16 start_ip, UINT16 start_cs, UINT32 start
 			start = at;
 		}
 		upd9002_queue.bytes += 2;
-		upd9002_queue.next += upd9002_bus_clocks(4);
+		upd9002_queue.next += upd9002_fetch_word_clocks();
 	}
 	upd9002_queue.bytes -= (UINT8)length;
 	if (stall) {
@@ -244,6 +258,19 @@ static void upd9002_queue_account(UINT16 start_ip, UINT16 start_cs, UINT32 start
 	}
 	upd9002_queue.ip = UPD9002_IP;
 	upd9002_queue.cs = UPD9002_CS;
+}
+
+/* M165: CLOCKS lost to another bus master (the SGP): the BIU fetches
+ * nothing meanwhile either. */
+void upd9002_core_bus_stall(UINT32 clocks) {
+	UINT32 now;
+
+	if (!upd9002_queue.valid || (clocks == 0)) {
+		return;
+	}
+	now = upd9002_now();
+	upd9002_queue_fill(now);
+	upd9002_queue.next += clocks;
 }
 
 void upd9002_core_queue_reset(void) {

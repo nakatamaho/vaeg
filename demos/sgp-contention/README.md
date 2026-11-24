@@ -98,3 +98,59 @@ SGPCONT photographed on the machines, and in vaeg after M130:
 - vaeg, divided by the machine and by its own row without the SGP (B, I):
   N 1.10 / 1.07, P 0.96 / 1.00 (VA / VA2); before M130's contention model
   1.23 / 1.57 and 1.08 / 1.51.
+
+## SGPMEM: the CPU's share by the memory it uses
+
+`SGPMEM.COM` (`sgpmem.asm`, M165) asks whether the CPU's loss while the
+SGP draws depends on the memory the CPU uses. SGPCONT's two rows with the
+SGP (main RAM 0.67, G1 0.73 on the PC-88VA) differ in their loops as well
+as in their memory; here one loop runs in each memory. Built and put on
+the disk by `build.sh` with SGPCONT; type `SGPMEM`. 15 kHz, memory up to
+segment 6100h; it takes about 4 minutes.
+
+Each CPU row repeats a chunk of 64 iterations for 300 VRTCs: register
+only (`ADD AX,BX`), byte reads, byte writes and word writes in main RAM at
+30000h (`RAM30`, standard RAM), main RAM at 60000h (`RAM60`, the
+PC-88VA's extended RAM with 1 wait), GVRAM (G1 lines 0-7) and TVRAM
+(offset 7000h, port 153h bank 1). Each row is measured three times: alone
+(`CHUNKS`), then while the SGP repeats a list of 30 16x16 sprites
+(BITBLT 0105h, drawn into G0 below the lines shown) with the sprite in
+main RAM, then with it in GVRAM. `RATIO` is the chunks done with the SGP
+over the chunks alone (1.000: no loss), `LISTS` the lists the SGP finished
+meanwhile; the last two rows give the lists with the CPU only polling.
+The table names the machine (F000:FFFE) and is also written to
+`SGPMEM.TXT`; then the program stops (restart the machine to leave).
+
+### SGPMEM on the machines (2026-11-23)
+
+The full tables, with vaeg's, are in
+[va-bus-timing.md](../../docs/modernization/va-bus-timing.md). In short:
+
+- Where the SGP reads its source matters most: with the sprite in GVRAM
+  a register loop keeps 0.87 (PC-88VA) and 0.75 (PC-88VA2) of its speed,
+  with it in main RAM 0.70 and 0.46. Even a loop without memory accesses
+  loses: the CPU's instruction fetches compete with the SGP's main RAM
+  reads. vaeg now charges the two cases differently (M165).
+- The memory the CPU uses matters less: reading loops keep 0.08-0.19
+  more than writing ones (not modelled).
+- Alone, TVRAM byte reads take 13 clocks more than main RAM byte reads
+  and byte writes 4 more; a GVRAM word write is as fast as a main RAM
+  one; the PC-88VA's main RAM at 60000h reads 1% slower than below
+  40000h.
+- The SGP alone: on the PC-88VA a GVRAM source is no faster (286 and 284
+  lists), on the PC-88VA2 8% faster (454 and 489).
+
+### SGPCONT in vaeg after M165
+
+Rows A-K are unchanged; the SGP rows and the contention rows moved
+(vaeg VA / VA2, read from the screen):
+
+| Row | VA | VA2 | vaeg VA | vaeg VA2 |
+|---|---:|---:|---:|---:|
+| L SGP 30 SPRITES | 562 | 908 | 580 | 921 |
+| M SGP WITH RAM | 568 | 899 | 573 | 933 |
+| N RAM WITH SGP | 958 | 674 | 977 | 674 |
+| O SGP WITH G1 | 571 | 900 | 577 | 916 |
+| P G1 WITH SGP | 1785 | 1125 | 1586 | 1030 |
+| Q CPU CLEAR 30 | 2478 | 2501 | 2516 | 2516 |
+| R SGP CLEAR 30 | 616 | 989 | 643 | 1011 |
