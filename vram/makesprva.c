@@ -16,10 +16,12 @@
 #include "makesprva.h"
 #include "videova.h"
 #include "io/n80_crtc.h"
+#include "va91.h"
 
 enum {
 	SPRVA_SPRS = 0x20,
 	SPRVA_MAXWIDTH = 0x400,
+	SPRVA_MAX_ROW_BYTES = 32 * 4,
 
 	TEXTSPR_WIDTH = SPRVA_MAXWIDTH,
 };
@@ -37,6 +39,7 @@ typedef struct {
 	UINT16 yp;     // 垂直表示位置
 
 	UINT32 spda; // 次回表示データ(TVRAM先頭からの相対アドレス)
+	BOOL missing_pattern;
 } _SPRVA, *SPRVA;
 
 /*
@@ -122,7 +125,8 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 	UINT8 fg;      // フォアグラウンドカラー
 	UINT8 bg;      // バックグラウンドカラー
 	BOOL md;       // モノクロモード
-	BYTE *sprdata; // スプライトデータ
+	const BYTE *sprdata; // スプライトデータ
+	BYTE missing_row[SPRVA_MAX_ROW_BYTES];
 
 	d = LOADINTELWORD(sprinfo + 2);
 	xbytes = ((d >> 11) + 1) * 4;
@@ -131,7 +135,13 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 	d = LOADINTELWORD(sprinfo + 6);
 	fg = (d & 0x00f0) >> 4;
 	bg = d & 0x0008;
-	sprdata = textmem + s->spda;
+	if (s->missing_pattern) {
+		/* Missing pattern data behaves as set bits, not a fixed RGB colour. */
+		FillMemory(missing_row, xbytes, 0xff);
+		sprdata = missing_row;
+	} else {
+		sprdata = textmem + s->spda;
+	}
 	s->spda += xbytes;
 	spr_origin = xp;
 
@@ -268,12 +278,14 @@ void makesprva_begin(void) {
 		}
 		d = LOADINTELWORD(sprinfo + 4);
 
-		// TSPアドレスをTVRAM先頭からの相対バイトアドレスに変換
-		if (d & 0x8000)
-			d = (d << 1) + 0x8000;
-		else
-			d <<= 1;
-		work._spr[i].spda = d;
+		/* SPDA 5500h must not alias 9500h (TVRAM byte AA00h).
+		 * Treat starts in that undecoded quarter alike on native VA/VA2/VA3.
+		 * Leave C000h-FFFFh, VA-91, and compatibility modes at legacy
+		 * behaviour; this is not a complete TSP memory map. Rows advance in
+		 * bytes from the decoded base as before, without 16-bit wrap. */
+		work._spr[i].missing_pattern = !memoryva_88_mode && !(va91.cfg.enabled & 1) &&
+		                               ((d & 0xc000) == 0x4000);
+		work._spr[i].spda = (((UINT32)d << 1) + ((d & 0x8000) ? 0x8000 : 0)) & 0xffff;
 
 		// カーソルの点滅
 		if ((i == tsp.curn) && makesprva_cursor_shown() && tsp.be && (tsp.blinkcnt2 & 0x08)) {
