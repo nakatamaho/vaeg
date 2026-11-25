@@ -24,10 +24,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M167 — JIS keys for guest Japanese input
 
-**Status:** Implemented; G167 pending. The maintainer has authorized
-implementation and candidate verification while G166 is pending; see the
-M167-only exception in [AGENTS.md](../../../AGENTS.md). This does not accept
-G166 or G167.
+**Status:** G167 human gate passed on 2026-11-25 at
+[`cc969a8f`](https://github.com/nakatamaho/vaeg/commit/cc969a8f178c02226cfc1a284ee10e1259b3b091).
+Merge is still pending. The [M167-only exception](../../../AGENTS.md)
+authorized implementation and candidate verification while G166 was pending;
+this record does not accept G166.
 
 ## Goal and scope
 
@@ -70,5 +71,10 @@ scope.
 - Run the applicable CMake build, CTest, repository checks and headless smoke.
 - Provide the clean static MinGW handoff for the standard human gate. Verify
   with a physical JIS keyboard that the three guest keys support entering,
-  converting and confirming Japanese text in a guest application. Keep
-  G167 pending until the maintainer accepts it.
+  converting and confirming Japanese text in a guest application. The
+  maintainer accepted G167 at the candidate above.
+
+## Pre-merge decisions
+
+- Full media/demo regression: requested by the maintainer.
+- Presenter/window/fullscreen automation: NOT_RUN; no decision recorded.
