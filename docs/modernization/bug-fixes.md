@@ -35,6 +35,21 @@ land.
 
 ## Maintenance Rules
 
+### M170 — US preset lacked a dedicated guest FULLWIDTH key
+
+- **Symptom/scope:** The US keyboard preset could not send a dedicated
+  全角 make/break for guest Japanese input.
+- **Demonstrated cause:** The US entry for guest `5Bh` had no scancode.
+  The existing host clipboard shortcuts also accepted SDL's Right Ctrl bit.
+- **Correction:** Bind Right Ctrl to `5Bh` and exclude it from Ctrl shortcut
+  modifier handling in US mode only. Reuse normal focus-loss cleanup.
+- **Verification:** The SDL event-queue selftest checks the whole matrix for
+  make, break and focus loss, rejects extra guest CTRL, and checks clipboard
+  chord routing and JIS/custom isolation. Dropping the single binding fails
+  with `M170_US_MAKE`.
+- **Milestone/task/commit:** [M170 task](../agents/tasks/M170_us_zenkaku.md),
+  [22e53642](https://github.com/nakatamaho/vaeg/commit/22e53642cd18fdf25f3f35ea771b786229d03622).
+
 ### M168 — Bad SPDA encoding incorrectly fetched a valid sprite pattern
 
 - **Symptom/scope:** Native-mode sprites could render the intended packed

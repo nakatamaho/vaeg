@@ -11604,28 +11604,35 @@ static BOOL dispatch_keyboard_event(SDL_Event *event) {
 	return TRUE;
 }
 
-static int test_jis_japanese_keys(void) {
+static int test_japanese_keys(void) {
 	static const struct {
+		const char *layout;
 		SDL_Scancode host;
 		SDL_Keymod mod;
 		BYTE guest;
-	} keys[] = {{SDL_SCANCODE_INTERNATIONAL5, KMOD_NONE, 0x51},
-	            {SDL_SCANCODE_INTERNATIONAL4, KMOD_NONE, 0x35},
-	            {SDL_SCANCODE_RALT, KMOD_RALT, 0x5b},
-	            {SDL_SCANCODE_LANG5, KMOD_NONE, 0x5b}};
+	} keys[] = {{"jis", SDL_SCANCODE_INTERNATIONAL5, KMOD_NONE, 0x51},
+	            {"jis", SDL_SCANCODE_INTERNATIONAL4, KMOD_NONE, 0x35},
+	            {"jis", SDL_SCANCODE_RALT, KMOD_RALT, 0x5b},
+	            {"jis", SDL_SCANCODE_LANG5, KMOD_NONE, 0x5b},
+	            {"jis", SDL_SCANCODE_RCTRL, KMOD_RCTRL, KBDMAP_NC},
+	            {"custom", SDL_SCANCODE_RCTRL, KMOD_RCTRL, KBDMAP_NC},
+	            {"custom", SDL_SCANCODE_LANG5, KMOD_NONE, 0x5b},
+	            {"custom", SDL_SCANCODE_F8, KMOD_NONE, 0x5b},
+	            {"us", SDL_SCANCODE_RCTRL, KMOD_RCTRL, 0x5b},
+	            {"us", SDL_SCANCODE_LCTRL, KMOD_LCTRL, 0x74}};
 	const NP2OSCFG saved = np2oscfg;
 	const BYTE saved_key_mode = np2cfg.KEY_MODE;
 	const char *problem = NULL;
 
 	if (SDL_InitSubSystem(SDL_INIT_EVENTS) < 0) {
-		return fail("JIS Japanese keys", "M167_EVENT_INIT");
+		return fail("Japanese keys", "M167_EVENT_INIT");
 	}
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
 	np2cfg.KEY_MODE = 0;
-	kbdmap_set_layout("jis");
+	np2oscfg.keyboard_custom_map[0] = '\0';
 	kbdmap_set_kana_input("roman");
 	kbdmap_initialize();
 	taskmng_initialize();
@@ -11635,10 +11642,19 @@ static int test_jis_japanese_keys(void) {
 		UINT8 released[sizeof(keybrd.keymap)];
 		SDL_Event key = {0};
 		SDL_Event focus = {0};
+		const BOOL mapped = keys[i].guest != KBDMAP_NC;
+		const BOOL us = !strcmp(keys[i].layout, "us");
+		if (keys[i].host == SDL_SCANCODE_F8) {
+			milstr_ncpy(np2oscfg.keyboard_custom_map, "zenkaku=F8;",
+			            sizeof(np2oscfg.keyboard_custom_map));
+		}
+		kbdmap_set_layout(keys[i].layout);
 		keystat_initialize();
 		keyboard_resetsignal();
 		memcpy(released, keybrd.keymap, sizeof(released));
-		keystat_senddata(keys[i].guest);
+		if (mapped) {
+			keystat_senddata(keys[i].guest);
+		}
 		memcpy(made, keybrd.keymap, sizeof(made));
 		keystat_initialize();
 		keyboard_resetsignal();
@@ -11651,11 +11667,11 @@ static int test_jis_japanese_keys(void) {
 			problem = "M167_EVENT_QUEUE";
 			break;
 		}
-		/* Whole-matrix comparison also rules out a second make (e.g. GRPH
-		 * from Alt). Roman-Kana must not see Right Alt as a KANA toggle. */
-		if (memcmp(made, released, sizeof(made)) == 0 ||
+		/* Whole-matrix comparison also rules out a second make, such as
+		 * GRPH from JIS Right Alt or guest CTRL from US Right Ctrl. */
+		if ((mapped && memcmp(made, released, sizeof(made)) == 0) ||
 		    memcmp(made, keybrd.keymap, sizeof(made)) != 0 || kbdmap_textinput("probe")) {
-			problem = "M167_JIS_MAKE";
+			problem = us ? "M170_US_MAKE" : "M167_JIS_MAKE";
 			break;
 		}
 		keyboard_matrix_tick();
@@ -11667,7 +11683,7 @@ static int test_jis_japanese_keys(void) {
 			break;
 		}
 		if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
-			problem = "M167_JIS_BREAK";
+			problem = us ? "M170_US_BREAK" : "M167_JIS_BREAK";
 			break;
 		}
 
@@ -11678,7 +11694,7 @@ static int test_jis_japanese_keys(void) {
 			break;
 		}
 		if (memcmp(made, keybrd.keymap, sizeof(made)) != 0) {
-			problem = "M167_JIS_REMAKE";
+			problem = us ? "M170_US_REMAKE" : "M167_JIS_REMAKE";
 			break;
 		}
 		keyboard_matrix_tick();
@@ -11690,8 +11706,43 @@ static int test_jis_japanese_keys(void) {
 			break;
 		}
 		if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
-			problem = "M167_JIS_FOCUS_RELEASE";
+			problem = us ? "M170_US_FOCUS_RELEASE" : "M167_JIS_FOCUS_RELEASE";
 			break;
+		}
+	}
+	/* A shortcut would consume V or Shift+C instead of delivering its make.
+	 * Set repeat so the test never reads/writes the host clipboard. */
+	for (int i = 0; i < 2 && problem == NULL; i++) {
+		UINT8 made[sizeof(keybrd.keymap)];
+		SDL_Event key = {0};
+		const BYTE guest = i ? 0x2b : 0x2c;
+		keystat_initialize();
+		keyboard_resetsignal();
+		keystat_senddata(0x5b);
+		keystat_senddata(guest);
+		memcpy(made, keybrd.keymap, sizeof(made));
+		keystat_initialize();
+		keyboard_resetsignal();
+
+		key.type = SDL_KEYDOWN;
+		key.key.keysym.scancode = SDL_SCANCODE_RCTRL;
+		key.key.keysym.mod = KMOD_RCTRL;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
+			break;
+		}
+		key.key.keysym.scancode = i ? SDL_SCANCODE_C : SDL_SCANCODE_V;
+		key.key.keysym.mod = KMOD_RCTRL | (i ? KMOD_LSHIFT : 0);
+		key.key.repeat = 1;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
+		} else if (memcmp(made, keybrd.keymap, sizeof(made)) != 0) {
+			problem = "M170_US_CTRL_SHORTCUT";
+		}
+		key.type = SDL_WINDOWEVENT;
+		key.window.event = SDL_WINDOWEVENT_FOCUS_LOST;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
 		}
 	}
 	taskmng_exit();
@@ -11702,9 +11753,9 @@ static int test_jis_japanese_keys(void) {
 	np2oscfg = saved;
 	kbdmap_initialize();
 	if (problem != NULL) {
-		return fail("JIS Japanese keys", problem);
+		return fail("Japanese keys", problem);
 	}
-	fprintf(stderr, "selftest: JIS Japanese keys ok\n");
+	fprintf(stderr, "selftest: JIS Japanese keys and US Right Ctrl ok\n");
 	return SUCCESS;
 }
 
@@ -12342,7 +12393,7 @@ int vaeg_selftest_run(void) {
 		return SUCCESS;
 	}
 	if (SDL_getenv("VAEG_SELFTEST_KEYBOARD_ONLY") != NULL) {
-		if (kbdmap_selftest() != SUCCESS || test_jis_japanese_keys() != SUCCESS)
+		if (kbdmap_selftest() != SUCCESS || test_japanese_keys() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
 	}

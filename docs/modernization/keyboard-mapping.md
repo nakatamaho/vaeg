@@ -106,6 +106,21 @@ is used, and the generated make/break bytes still go through
 `keystat_senddata()` via `sdl2/kbdinject.c`. No Unicode, BIOS/DOS buffer,
 RAM, VRAM, or SDL_TEXTINPUT character injection is used.
 
+| US host key | Guest key |
+| --- | --- |
+| Left Ctrl | CTRL |
+| Right Ctrl | 全角 (ZENKAKU/FULLWIDTH, `5Bh`) |
+| Left Alt | GRPH |
+| Right Alt | カナ (KANA) |
+| Application | 変換 |
+| F11 | 決定 (shadowed by the existing F11 fast-forward action) |
+
+US Right Ctrl is a guest make/break key, not a Ctrl modifier for host
+clipboard shortcuts or ImGui. Independently assigned host actions still
+work (for example, F12 quick save and Shift+F12 quick load when assigned).
+JIS and existing custom bindings are unchanged. Right Ctrl sends a guest
+key event, not a command to the host IME.
+
 If host Shift is physically held for a translated US symbol, the frontend
 temporarily releases mirrored guest Shift, sends the selected guest
 key/chord, and restores mirrored guest Shift. This avoids cases such as
@@ -276,7 +291,7 @@ Status values:
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | XFER/HENKAN | KEY88_HENKAN | none | 0x35 | International4 | Application | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | PC | KEY88_PC | none; F12 option | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c`, `sdl2/kbdmap.c` |
-| ZENKAKU | KEY88_ZENKAKU | none | 0x5b | RightAlt, alias Lang5 | unassigned | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
+| ZENKAKU | KEY88_ZENKAKU | none | 0x5b | RightAlt, alias Lang5 | RightCtrl | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
 | INSERT | KEY88_INS | Insert | 0x38 | Insert | Insert | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | DELETE | KEY88_DEL | Delete | 0x39 | Delete | Delete | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | UP | KEY88_UP | Up | 0x3a | Up | Up | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
