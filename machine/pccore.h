@@ -106,6 +106,10 @@ typedef struct {
 	UINT8 hfplus_enable;
 	/* M150: PC-8801-17 Video Art Board in 88-compatible sessions (off). */
 	UINT8 vab_enable;
+	/* M166: I-O DATA GA-98NBIV in the bus slot (default off), and a
+	 * deliberate fault for testing the probe (io/ga98nb.h, 0 none). */
+	UINT8 ga98nb_enable;
+	UINT8 ga98nb_fault;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;

@@ -32,6 +32,7 @@
 #include "memoryva.h"
 #include "gvramva.h"
 #include "va91.h"
+#include "ga98nb.h"
 #include "bmsio.h"
 #include "emsio.h"
 #include "io/vab.h"
@@ -148,6 +149,7 @@ static REG8 MEMCALL knj2_rd(UINT32 address);
 static REG8 MEMCALL dic1_rd(UINT32 address);
 static REG8 MEMCALL dic2_rd(UINT32 address);
 static REG8 MEMCALL rom0_rd(UINT32 address);
+static void MEMCALL rom0_wt(UINT32 address, REG8 value);
 static REG8 MEMCALL stdrom0_rd(UINT32 address);
 static REG8 MEMCALL rom1_rd(UINT32 address);
 static REG8 MEMCALL stdrom1_rd(UINT32 address);
@@ -169,6 +171,7 @@ static REG16 MEMCALL knj2w_rd(UINT32 address);
 static REG16 MEMCALL dic1w_rd(UINT32 address);
 static REG16 MEMCALL dic2w_rd(UINT32 address);
 static REG16 MEMCALL rom0w_rd(UINT32 address);
+static void MEMCALL rom0w_wt(UINT32 address, REG16 value);
 static REG16 MEMCALL stdrom0w_rd(UINT32 address);
 static REG16 MEMCALL rom1w_rd(UINT32 address);
 static REG16 MEMCALL stdrom1w_rd(UINT32 address);
@@ -189,7 +192,7 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address);
 static MEM8WRITE membyte_write[16] = {mainram_wt, mainram_wt, mainram_wt,  mainram_wt,
                                       mainram_wt, mainram_wt, mainram_wt,  mainram_wt,
                                       bms_wt_va,  bms_wt_va,  sysm_wt,     sysm_wt,
-                                      sysm_wt,    sysm_wt,    unmapped_wt, unmapped_wt};
+                                      sysm_wt,    sysm_wt,    rom0_wt,     unmapped_wt};
 
 static MEM8WRITE sysmbyte_write[16] = {unmapped_wt, tvram_wt,    unmapped_wt, unmapped_wt,
                                        gvram_wt_va, unmapped_wt, unmapped_wt, unmapped_wt,
@@ -204,7 +207,7 @@ static MEM8WRITE va91sysmbyte_write[16] = {unmapped_wt, unmapped_wt, unmapped_wt
 static MEM16WRITE memword_write[16] = {mainramw_wt, mainramw_wt, mainramw_wt,  mainramw_wt,
                                        mainramw_wt, mainramw_wt, mainramw_wt,  mainramw_wt,
                                        bmsw_wt_va,  bmsw_wt_va,  sysmw_wt,     sysmw_wt,
-                                       sysmw_wt,    sysmw_wt,    unmappedw_wt, unmappedw_wt};
+                                       sysmw_wt,    sysmw_wt,    rom0w_wt,     unmappedw_wt};
 
 static MEM16WRITE sysmword_write[16] = {unmappedw_wt, tvramw_wt,    unmappedw_wt, unmappedw_wt,
                                         gvramw_wt_va, unmappedw_wt, unmappedw_wt, unmappedw_wt,
@@ -600,8 +603,44 @@ static REG8 MEMCALL dic2_rd(UINT32 address) {
 	return (dicmem[address - (CPUADDR_SYSM - 0x40000)]);
 }
 
+/*
+ * M166: E0000h-EFFFFh while port 152h releases ROM0 to the bus slot: banks
+ * 8-F on the PC-88VA (BNN manual), A-F assumed on the PC-88VA2 (ROM0 banks
+ * 0-9 are internal there); a VA-91 board keeps bank F. Only the GA-98NBIV
+ * window answers there (io/ga98nb.h); otherwise the banks behave as before.
+ */
+static BOOL rom0_bus_slot(void) {
+	UINT bank;
+
+	bank = memoryva.rom0_bank & 0x1f;
+	if ((bank == 0x0f) && (va91.cfg.enabled & 1)) {
+		return (FALSE);
+	}
+	if (pccore.model_va == PCMODEL_VA1) {
+		return ((bank >= 0x08) && (bank <= 0x0f));
+	}
+	return ((bank >= 0x0a) && (bank <= 0x0f));
+}
+
+static BOOL rom0_card(UINT32 address, UINT32 *offset) {
+	return (rom0_bus_slot() && ga98nb_window(address, offset));
+}
+
 static REG8 MEMCALL rom0_rd(UINT32 address) {
+	UINT32 offset;
+
+	if (rom0_card(address, &offset)) {
+		return (ga98nb_window_read(offset));
+	}
 	return (rom0byte_read[memoryva.rom0_bank & 0x1f](address));
+}
+
+static void MEMCALL rom0_wt(UINT32 address, REG8 value) {
+	UINT32 offset;
+
+	if (rom0_card(address, &offset)) {
+		ga98nb_window_write(offset, value);
+	}
 }
 
 static REG8 MEMCALL stdrom0_rd(UINT32 address) {
@@ -747,7 +786,17 @@ static REG16 MEMCALL dic2w_rd(UINT32 address) {
 }
 
 static REG16 MEMCALL rom0w_rd(UINT32 address) {
+	UINT32 offset;
+
+	if (rom0_card(address, &offset)) {
+		return ((REG16)(ga98nb_window_read(offset) | (rom0_rd(address + 1) << 8)));
+	}
 	return (rom0word_read[memoryva.rom0_bank & 0x1f](address));
+}
+
+static void MEMCALL rom0w_wt(UINT32 address, REG16 value) {
+	rom0_wt(address, (REG8)value);
+	rom0_wt(address + 1, (REG8)(value >> 8));
 }
 
 static REG16 MEMCALL stdrom0w_rd(UINT32 address) {

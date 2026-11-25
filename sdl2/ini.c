@@ -377,6 +377,8 @@ static const INITBL iniitem[] = {
     {"CMT_vol", INITYPE_UINT8, &np2cfg.cmt_vol, 0},
     {"PCG", INITYPE_BOOL, &np2cfg.pcg_enable, 0},
     {"HyperFramePlus", INITYPE_BOOL, &np2cfg.hfplus_enable, 0},
+    {"GA98NBIV", INITYPE_BOOL, &np2cfg.ga98nb_enable, 0},
+    {"GA98NBFault", INITYPE_UINT8, &np2cfg.ga98nb_fault, 0},
     {"HyperFramePlusView", INITYPE_UINT8, &hfplus_view, 0},
     {"VideoArtBoard", INITYPE_BOOL, &np2cfg.vab_enable, 0},
     {"PCG_vol", INITYPE_UINT8, &np2cfg.pcg_vol, 0},

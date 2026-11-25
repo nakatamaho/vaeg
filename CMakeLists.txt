@@ -332,6 +332,7 @@ set(VAEG_CORE_SOURCES
     io/dmac.c
     io/emsio.c
     io/hfplus.c
+    io/ga98nb.c
     io/vab.c
     io/fdc.c
     io/hostfat.c
@@ -1091,6 +1092,12 @@ if(VAEG_ENABLE_TESTS)
     target_compile_features(vaeg_hfplus_test PRIVATE c_std_99)
     add_test(NAME vaeg_hfplus COMMAND vaeg_hfplus_test)
     set_tests_properties(vaeg_hfplus PROPERTIES LABELS "romless;hfplus;video")
+    # M166: the GA-98NBIV model (I/O, identification, window banks, faults).
+    add_executable(vaeg_ga98nb_test tests/ga98nb/model.c io/ga98nb.c)
+    target_include_directories(vaeg_ga98nb_test PRIVATE ${VAEG_INCLUDE_DIRS})
+    target_compile_features(vaeg_ga98nb_test PRIVATE c_std_99)
+    add_test(NAME vaeg_ga98nb COMMAND vaeg_ga98nb_test)
+    set_tests_properties(vaeg_ga98nb PROPERTIES LABELS "romless;ga98nb")
 
     # M150: the PC-8801-17 Video Art Board model.
     add_executable(vaeg_vab_test tests/vab/model.c io/vab.c)
