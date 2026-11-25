@@ -91,6 +91,29 @@ demos/tsp-sprites/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 type `TSPSPR`. `tsp-sprites-msdos4.d88.xz` is that disk, built from this
 directory (the FreeDOS-88VA msdos4-va.2 disk, MIT, with TSPSPR.COM added).
 
+## M168 SPDA probe
+
+Build the optional static diagnostic from the repository root. Set `out`
+to an absolute scratch directory (not the tree's distribution directory):
+
+```sh
+mkdir -p "$out/payload/root"
+python3 -I demos/tsp-sprites/gen_data.py "$out/data.inc"
+nasm -f bin -I"$out/" -dSPDA_PROBE=1 demos/tsp-sprites/tspspr.asm \
+  -o "$out/payload/root/SPDAPROB.COM"
+```
+
+Copy `SPDAPROB.COM` to an MS-DOS 4.0 test disk and run `SPDAPROB` on a
+15 kHz screen. In VAEG, set `Monitor15kHz = true` in `[NekoProjectII]`
+before reset. Photograph both labeled rows together with the machine label.
+Restart to exit. This build is opt-in and does not change `TSPSPR.COM`.
+
+The probe writes the same 32-dot, 16-row outline at TVRAM byte offsets
+`1000h`, `AA00h`, `FE00h` and `7C00h` (the latter two seed former alias
+locations). On VA and VA2 hardware, `0800h` and `9500h` show outlines;
+`4000h`, `5500h`, `7F00h`, `C000h`, `C800h` and `FE00h` fill. This is
+packed-color evidence at eight starting addresses, not a full SPDA map.
+
 ## Questions for the machines
 
 - Where a sprite lands against the graphics (screen 1), and how the top

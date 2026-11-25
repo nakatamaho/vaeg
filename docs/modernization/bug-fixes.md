@@ -35,6 +35,26 @@ land.
 
 ## Maintenance Rules
 
+### M168 — Bad SPDA encoding incorrectly fetched a valid sprite pattern
+
+- **Symptom/scope:** Native-mode sprites could render the intended packed
+  pattern instead of the solid rectangles described in
+  [PRJ_SP PR #2](https://github.com/mazone-ma3/PRJ_SP/pull/2).
+- **Demonstrated cause:** the old translation gave SPDA `5500h` and `9500h`
+  the same TVRAM byte base (`AA00h`). Only `9500h` is the documented encoding
+  for that byte address.
+- **Correction:** supply `FFh` pattern bytes for native VA/VA2/VA3 sprite
+  descriptors starting at `4000h–7FFFh` or `C000h–FFFFh` without VA-91.
+  The regular pixel decoder still chooses the palette index. Other quarters
+  and configurations retain their previous behavior.
+- **Verification:** the raster selftest checks both alias quarters with
+  seeded TVRAM, valid and legacy bases, row advancement and pixel modes.
+  The eight-address probe found the same outlines and fills on both VA and
+  VA2 hardware; see the task for the measured points and remaining limits.
+- **Milestone/task/commits:** [M168](../agents/tasks/M168_tsp_spda.md),
+  [initial correction](https://github.com/nakatamaho/vaeg/commit/6203479e8cd24cc98d891b9ec88fa46bcab926cf),
+  [both quarters](https://github.com/nakatamaho/vaeg/commit/410dbe79d7c4a5e135e17b67acb6ed91136cb6bf).
+
 ### M165 — compiled sprites ran 6-16% faster than on the PC-88VA and VA2
 
 - **Symptom/scope:** CPUBENCH's compiled sprites (`demos/sprite-bench`,

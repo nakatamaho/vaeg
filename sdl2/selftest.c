@@ -96,6 +96,7 @@ extern BEEPCFG beepcfg;
 #include "maketextva.h"
 #include "sdrawva.h"
 #include "makesprva.h"
+#include "va91.h"
 #include "soundmng.h"
 #include "soundopts.h"
 #include "strres.h"
@@ -2883,6 +2884,126 @@ static int test_va_cursor_sprite_enable(void) {
 		fprintf(stderr, "selftest: VA cursor sprite enable ok\n");
 	}
 	return (result);
+}
+
+/* M168: exercise the real descriptor-to-raster path. Each case seeds the
+ * legacy byte address, so a false alias cannot pass by reading blank TVRAM. */
+static int test_va_sprite_spda(void) {
+	static const struct {
+		UINT16 spda;
+		UINT16 bytes;
+		BOOL missing;
+	} cases[] = {
+	    {0x0000, 0x0000, FALSE}, {0x0800, 0x1000, FALSE}, {0x3ffe, 0x7ffc, FALSE},
+	    {0x4000, 0x8000, TRUE},  {0x5500, 0xaa00, TRUE},  {0x7f00, 0xfe00, TRUE},
+	    {0x7fff, 0xfffe, TRUE},  {0x8000, 0x8000, FALSE}, {0x9500, 0xaa00, FALSE},
+	    {0xbffe, 0xfffc, FALSE}, {0xc000, 0x0000, TRUE},  {0xc800, 0x1000, TRUE},
+	    {0xfe00, 0x7c00, TRUE},  {0xffff, 0x7ffe, TRUE},
+	};
+	const _TSP saved_tsp = tsp;
+	const UINT saved_model = pccore.model_va;
+	const BOOL saved_88 = memoryva_88_mode;
+	const BOOL saved_va91 = va91.cfg.enabled;
+	const UINT16 table = 0x4000;
+	BYTE saved_table[0x100], saved_raster[0x400];
+	const char *problem = NULL;
+	UINT model, i, md, row, x;
+
+	CopyMemory(saved_table, textmem + table, sizeof(saved_table));
+	CopyMemory(saved_raster, sprraster, sizeof(saved_raster));
+	ZeroMemory(textmem + table, sizeof(saved_table));
+	ZeroMemory(&tsp, sizeof(tsp));
+	tsp.sprtable = table;
+	tsp.spron = tsp.dspon = TRUE;
+	STOREINTELWORD(textmem + table, 0x0200);
+	STOREINTELWORD(textmem + table + 6, 0x0058); /* FG 5, BG 8 */
+
+	for (model = 0; model < 4 && !problem; model++) {
+		pccore.model_va = (model == 1) ? PCMODEL_VA2 : PCMODEL_VA1;
+		va91.cfg.enabled = (model == 2);
+		memoryva_88_mode = (model == 3);
+		for (i = 0; i < NELEMENTS(cases) && !problem; i++) {
+			BYTE *pattern = textmem + cases[i].bytes;
+			BYTE saved_pattern[16];
+			const BOOL missing = model < 2 && cases[i].missing;
+			CopyMemory(saved_pattern, pattern, sizeof(saved_pattern));
+			ZeroMemory(pattern, sizeof(saved_pattern));
+			for (row = 0; row < 4; row++) {
+				pattern[row * 4] = 0x80 >> row;
+				pattern[row * 4 + 1] = 0x03;
+			}
+			STOREINTELWORD(textmem + table + 4, cases[i].spda);
+			for (md = 0; md < 2 && !problem; md++) {
+				const UINT width = md ? 32 : 8;
+				STOREINTELWORD(textmem + table + 2, (md ? 0x0400 : 0) | 16);
+				makesprva_begin();
+				for (row = 0; row < 4 && !problem; row++) {
+					makesprva_raster();
+					for (x = 0; x < width; x++) {
+						BYTE expected;
+						if (md) {
+							expected = (missing || x == row || x == 14 || x == 15) ? 5 : 8;
+						} else {
+							expected = missing ? 15 : (x == 0 ? 8 >> row : (x == 3 ? 3 : 0));
+						}
+						if (sprraster[16 + x] != expected) {
+							fprintf(stderr, "SPDA %04x variant %u mode %u row %u x %u\n",
+							        cases[i].spda, model, md, row, x);
+							problem = missing ? "M168_SPDA_FALSE_ALIAS" : "M168_SPDA_VALID_FETCH";
+							break;
+						}
+					}
+					if (!problem && (sprraster[15] || sprraster[16 + width])) {
+						problem = "M168_SPDA_RASTER_EXTENT";
+					}
+				}
+			}
+			CopyMemory(pattern, saved_pattern, sizeof(saved_pattern));
+		}
+	}
+	if (!problem) {
+		const UINT16 back_pattern = 0x2000;
+		BYTE saved_back[16];
+		CopyMemory(saved_back, textmem + back_pattern, sizeof(saved_back));
+		FillMemory(textmem + back_pattern, sizeof(saved_back), 0x77);
+		pccore.model_va = PCMODEL_VA2;
+		va91.cfg.enabled = FALSE;
+		memoryva_88_mode = FALSE;
+		tsp.hspn = 31;
+		STOREINTELWORD(textmem + table + 2, 0x0400 | 16);
+		STOREINTELWORD(textmem + table + 4, 0x5500);
+		STOREINTELWORD(textmem + table + 8, 0x0200);
+		STOREINTELWORD(textmem + table + 10, 16);
+		STOREINTELWORD(textmem + table + 12, back_pattern / 2);
+		/* All-one mono data selects the transparent FG even if BC is on. */
+		for (i = 0; i < 2 && !problem; ++i) {
+			STOREINTELWORD(textmem + table + 6, i ? 8 : 0);
+			tsp.sprov = 0;
+			makesprva_begin();
+			makesprva_raster();
+			if (sprraster[16] != 7) {
+				problem = "M168_SPDA_MONO_TRANSPARENCY";
+			}
+			makesprva_begin();
+			if (!problem && (tsp.sprov & 0x20)) {
+				problem = "M168_SPDA_MONO_COLLISION";
+			}
+		}
+		CopyMemory(textmem + back_pattern, saved_back, sizeof(saved_back));
+	}
+	/* Publish/discard any fixture collision state before restoring tsp. */
+	makesprva_begin();
+	tsp = saved_tsp;
+	pccore.model_va = saved_model;
+	memoryva_88_mode = saved_88;
+	va91.cfg.enabled = saved_va91;
+	CopyMemory(textmem + table, saved_table, sizeof(saved_table));
+	CopyMemory(sprraster, saved_raster, sizeof(saved_raster));
+	if (problem) {
+		return fail("VA sprite SPDA", problem);
+	}
+	fprintf(stderr, "selftest: VA sprite SPDA ok\n");
+	return SUCCESS;
 }
 
 /* M141: sprites need DSPON; a raster line takes SPRVA_LINE_BYTES (300) of
@@ -12175,6 +12296,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_va_cursor_sprite_enable() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_va_sprite_spda() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_sprite_line() != SUCCESS) {
