@@ -161,6 +161,9 @@ main:		mov	ax,cs
 		call	none
 		call	flush
 		call	tsp_start		; DSPON (CURDEF off), SPRON
+%ifdef SPDA_PROBE
+		jmp	spda_probe
+%endif
 		call	scan_keys
 		mov	[keys],al
 .screens:	call	position
@@ -519,6 +522,46 @@ recolour:	push	ax
 		ret
 
 ; ---------------------------------------------------------------------------
+%ifdef SPDA_PROBE
+; Static SPDA probe. The same outline lives at CPU offsets 1000h and
+; AA00h; only the descriptor word changes. C800h explores an unknown
+; range, not an expected hardware result.
+spda_probe:	mov	si,spda_title
+		mov	dx,spda_help
+		call	screen
+		mov	si,spda_labels
+		mov	di,48 * LINE_BYTES + 20
+		call	text_at
+		call	map_tvram
+		mov	ax,0a000h
+		mov	es,ax
+		push	ds
+		mov	ds,ax
+		mov	si,PAT_BOX
+		mov	di,0aa00h
+		mov	cx,256 / 2
+		rep	movsw
+		pop	ds
+		push	cs
+		pop	es
+		mov	si,spda_descriptors
+		mov	di,tab
+		mov	cx,4 * 4
+		rep	movsw
+		call	flush
+.hold:		hlt
+		jmp	.hold
+
+spda_title	db	'SPDA PROBE',0
+spda_help	db	'RECORD THE SHAPE IN EACH COLUMN',0
+spda_labels	db	'0800      5500      9500      C800',0
+spda_descriptors:
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 80, 0800h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 200, 5500h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 320, 9500h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 440, 0c800h, 0
+%endif
+
 ; The descriptors (tab), every one off.
 none:		push	di
 		mov	di,tab

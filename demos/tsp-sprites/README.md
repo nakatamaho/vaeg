@@ -91,6 +91,30 @@ demos/tsp-sprites/build.sh [--msdos4 msdos4-pc88va-2hd.d88] [OUTDIR]
 type `TSPSPR`. `tsp-sprites-msdos4.d88.xz` is that disk, built from this
 directory (the FreeDOS-88VA msdos4-va.2 disk, MIT, with TSPSPR.COM added).
 
+## M168 SPDA probe
+
+Build the optional static diagnostic from the repository root. Set `out`
+to an absolute scratch directory (not the tree's distribution directory):
+
+```sh
+mkdir -p "$out/payload/root"
+python3 -I demos/tsp-sprites/gen_data.py "$out/data.inc"
+nasm -f bin -I"$out/" -dSPDA_PROBE=1 demos/tsp-sprites/tspspr.asm \
+  -o "$out/payload/root/SPDAPROB.COM"
+```
+
+Copy `SPDAPROB.COM` to an MS-DOS 4.0 test disk and run `SPDAPROB` on a
+15 kHz screen. In VAEG, set `Monitor15kHz = true` in `[NekoProjectII]`
+before reset. Photograph the four labeled columns together with the machine
+label. Restart to exit. This build is opt-in and does not change `TSPSPR.COM`.
+
+The probe writes identical 32-dot, 16-row outlines to CPU TVRAM byte offsets
+`1000h` and `AA00h`. The documented descriptors `0800h` and `9500h` should
+show outlines. M168 models `5500h` as a filled box in native VA/VA2/VA3
+mode without VA-91. Record `C800h` independently: VAEG retains the old
+alias there, but the hardware result is open. Record all four columns on
+each tested machine; don't infer the rest of SPDA from the four samples.
+
 ## Questions for the machines
 
 - Where a sprite lands against the graphics (screen 1), and how the top
