@@ -45,11 +45,14 @@
 ; /OFS=hhhh (window offset, default 0200), /A=hh /B=hh (banks, 00 and 01).
 ; Version 2: /INIT (window and scan modes: the full register set of the
 ; PC-98 initialisation, SR00-SR1F, CR00-CR1B, GR00-GR0B, before the window;
-; the card stays initialised; the display relay 40E1h is never written),
+; the card stays initialised; 40E1h is written only by /RELAY),
 ; /SR0F=hh (SR0F for /INIT, default 3D), /BOARD (identify and window modes:
 ; the board ports read again at the end), /R153=hh (port 153h restored by
 ; SCAN, default the value read; without a plausible value A0000h-DFFFFh is
-; not scanned).
+; not scanned). /RELAY=hh (window and scan modes: OUT 40E1h,hh and
+; 40E2h,00 as a 16-bit OUT 40E1h,00hh splits, after the registers and before
+; the window; 40E1h,00 and 40E2h,00 afterwards. On PC-98 the card's mode
+; writes 00B3h (card display) or 00B2h, and 0000h leaving it.)
 
 		cpu	186
 		org	100h
@@ -63,6 +66,8 @@ opt_set		db	0
 opt_word	db	0
 opt_win2	db	0
 opt_init	db	0
+opt_relay	db	0
+relay_given	db	0
 opt_board	db	0
 opt_sr0f	db	3dh
 opt_r153	db	0
@@ -241,7 +246,14 @@ parse:		mov	si,81h
 		mov	di,o_r153
 		call	match_flag
 		jnc	.r153
+		mov	di,o_relay
+		call	match_flag
+		jnc	.relay
 		jmp	.unknown
+.relay:		call	hex_value
+		mov	[opt_relay],al
+		mov	byte [relay_given],1
+		jmp	.token
 .init:		mov	byte [opt_init],1
 		jmp	.token
 .board:		mov	byte [opt_board],1
@@ -832,6 +844,17 @@ board_ports:	mov	si,s_board_p
 		jb	.p
 		ret
 
+; 40E1h <- AL, 40E2h <- 00 (a 16-bit OUT 40E1h,00xxh as two bytes).
+relay_out:	push	ax
+		mov	si,s_relay
+		call	put_line
+		pop	ax
+		mov	dx,40e1h
+		call	p_out8
+		mov	dx,40e2h
+		mov	al,0
+		jmp	p_out8
+
 ; ---------------------------------------------------------------------------
 ; /INIT: the full register set (PC-98 initialisation order), logged.
 init_full:	mov	si,s_init
@@ -905,7 +928,11 @@ do_window:	call	identify
 		jmp	.plan
 .asis:		mov	si,s_asis
 		call	put_line
-.plan:		mov	di,line
+.plan:		cmp	byte [relay_given],0
+		je	.plan2
+		mov	al,[opt_relay]
+		call	relay_out
+.plan2:		mov	di,line
 		mov	si,s_plan
 		call	put_str
 		mov	ax,[opt_ofs]
@@ -927,7 +954,11 @@ do_window:	call	identify
 		call	window_read
 		jmp	.restore
 .test:		call	window_test
-.restore:	cmp	byte [opt_init],0
+.restore:	cmp	byte [relay_given],0
+		je	.r2
+		mov	al,0
+		call	relay_out
+.r2:		cmp	byte [opt_init],0
 		je	.setback
 		mov	si,s_init_kept
 		jmp	put_line
@@ -1346,6 +1377,7 @@ o_init		db	'INIT', 0
 o_board		db	'BOARD', 0
 o_sr0f		db	'SR0F', 0
 o_r153		db	'R153', 0
+o_relay		db	'RELAY', 0
 m_base		db	'BASELINE', 0
 m_idw		db	'IDENTIFY-WORD', 0
 m_idb		db	'IDENTIFY-BYTE', 0
@@ -1384,11 +1416,11 @@ s_usage		db	'GAPROBE BASELINE [/BUS] | IDENTIFY-WORD | IDENTIFY-BYTE |',13,10
 		db	'        WINDOW-READ [/SET] | WINDOW-TEST [/SET] [/WIN2] |',13,10
 		db	'        BOARD | SCAN',13,10
 		db	'options: /INIT /SR0F=hh /BOARD /WORD /BANK=h /R152=hh',13,10
-		db	'         /R153=hh /OFS=hhhh /A=hh /B=hh',13,10
+		db	'         /R153=hh /RELAY=hh /OFS=hhhh /A=hh /B=hh',13,10
 		db	'See README.TXT. Logs to GAPROBE.LOG.',13,10,'$'
 s_nolog		db	'GAPROBE.LOG could not be opened: screen only.',13,10,'$'
 s_logname	db	'GAPROBE.LOG', 0
-s_title		db	'GAPROBE M166 v2  ', 0
+s_title		db	'GAPROBE M166 v3  ', 0
 s_va		db	'PC-88VA', 0
 s_va2		db	'PC-88VA2/VA3', 0
 s_va91		db	'PC-88VA+VA-91', 0
@@ -1443,7 +1475,8 @@ s_rest_fail	db	'RESTORE: FAILED (bytes differ from the saved ones)', 0
 s_end		db	'== END', 0
 s_board		db	'== BOARD: reads only', 0
 s_board_p	db	'-- board ports 40E1h-5FE1h', 0
-s_init		db	'-- /INIT: SR00-SR1F, CR00-CR1B, GR00-GR0B (relay untouched)', 0
+s_init		db	'-- /INIT: SR00-SR1F, CR00-CR1B, GR00-GR0B (40E1h only by /RELAY)', 0
+s_relay		db	'-- /RELAY: 40E1h (16-bit OUT as two bytes)', 0
 s_init_kept	db	'-- /INIT: the card stays initialised (power off to reset)', 0
 s_smbc		db	'IN8   0153 -> ', 0
 s_smbc_bus	db	', bus-slot value ', 0

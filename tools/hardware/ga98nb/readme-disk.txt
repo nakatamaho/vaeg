@@ -18,10 +18,20 @@ Version 2 (after a first run whose window read FF):
 6. Cold boot, then:    GAPROBE SCAN              (reads only, minimal setup)
 7. Then:               GAPROBE WINDOW-READ /INIT /BOARD
                        (full register initialisation first; the card stays
-                        initialised until power off; the display relay
-                        40E1h is never written, so the screen stays VA)
+                        initialised until power off; without /RELAY
+                        40E1h is not written, so the screen stays VA)
 8. Then:               GAPROBE SCAN /INIT
 9. Then:               GAPROBE WINDOW-TEST /INIT /WIN2
+
+Version 3: 40E1h. On PC-98 the card's mode writes OUT16 40E1h,00B3h (card
+display) or 00B2h, and 0000h when it leaves; bit 0 is the display relay,
+another bit may enable the window.
+10. Cold boot, then:   GAPROBE BOARD
+                       GAPROBE SCAN /INIT /RELAY=B2   (reads only)
+11. Then:              GAPROBE WINDOW-TEST /INIT /RELAY=B2 /WIN2
+12. Only if 11 fails:  GAPROBE WINDOW-TEST /INIT /RELAY=B3 /WIN2
+                       (B3 may switch the monitor to the card's output;
+                        the log is still written; power off to recover)
 
 Options: /BANK=h   port 152h ROM0 bank released to the bus slot (default F)
          /R152=hh  port 152h value restored afterwards (default 00)
@@ -30,6 +40,8 @@ Options: /BANK=h   port 152h ROM0 bank released to the bus slot (default F)
          /INIT     full register initialisation before the window or scan
          /SR0F=hh  SR0F for /INIT (default 3D)
          /BOARD    read the board ports 40E1h-5FE1h as well
+         /RELAY=hh 40E1h <- hh and 40E2h <- 00 before the window, both
+                   00 afterwards
          /R153=hh  port 153h value restored by SCAN (default: the value
                    read; A0000h-DFFFFh is not scanned if it is implausible)
 Port 152h is restored to the value it reads (00 if that is not a plausible
