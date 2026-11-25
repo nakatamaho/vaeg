@@ -143,6 +143,11 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 		sprdata = textmem + s->spda;
 	}
 	s->spda += xbytes;
+	/* In a missing mono row every bit selects FG. If FG is zero none
+	 * of those pixels may hide another sprite or register a collision. */
+	if (s->missing_pattern && md && !fg) {
+		return;
+	}
 	spr_origin = xp;
 
 	if (md) {

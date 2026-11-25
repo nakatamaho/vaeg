@@ -40,8 +40,10 @@ made both words fetch `AA00h`: `5500h * 2 = AA00h`, while
 The native VA/VA2/VA3 sprite renderer treats descriptors **starting** at
 `4000h–7FFFh` as fetching `FFh` per pattern byte with the VA-91 disabled.
 A packed sprite therefore uses palette index F; a monochrome sprite uses
-its foreground index. Palette, transparency rules, collision and line
-budget, and both drawn and skipped row advancement use the existing path.
+its foreground index. For the modeled all-one monochrome row, foreground
+index 0 is transparent even with the background-color bit set: it neither
+replaces a lower-priority pixel nor registers a collision. Valid pattern
+fetches, line budget and row advancement are unchanged.
 This affects only sprite pattern fetch; CPU TVRAM, text and descriptor
 fetch, and TSP command timing are unchanged. No state-file change.
 
@@ -59,6 +61,8 @@ VA2/VA3 TVRAM aperture alone does not establish TSP SPDA decoding.
 - ROM-less `--selftest` checks the exact alias pair with nonzero data,
   low and attribute quarters, endpoints, row contents and both pixel modes;
   it also pins the unchanged VA-91, V1/V2 and upper unknown-range fallbacks.
+  An overlap test checks that the missing monochrome row with foreground 0
+  preserves an opaque sprite behind it and does not report a collision.
   The predecessor plus the new test fails at `5500h` with
   `M168_SPDA_FALSE_ALIAS`. The existing line-limit/collision test remains
   applicable.
@@ -70,5 +74,10 @@ VA2/VA3 TVRAM aperture alone does not establish TSP SPDA decoding.
   that `0800h` and `9500h` are outlines, record whether `5500h` fills and
   record `C800h` without assuming a result. Record model and monitor setting;
   separate unavailable hardware variants from tested ones.
+- On the candidate emulator, compare the old and corrected PRJ_SP binaries
+  in the same gameplay scene and with the same VA2 and DOS settings. The TSP
+  startup-wait fix must be present in both. Expect filled rectangles from
+  the old encoding and the intended sprites from the corrected encoding.
+  Keep the game disks and comparison captures out of the repository.
 - Full media/demo and actual presenter campaigns are not implicit in this
   candidate verification. Ask the maintainer for decisions before merge.

@@ -2960,6 +2960,36 @@ static int test_va_sprite_spda(void) {
 			CopyMemory(pattern, saved_pattern, sizeof(saved_pattern));
 		}
 	}
+	if (!problem) {
+		const UINT16 back_pattern = 0x2000;
+		BYTE saved_back[16];
+		CopyMemory(saved_back, textmem + back_pattern, sizeof(saved_back));
+		FillMemory(textmem + back_pattern, sizeof(saved_back), 0x77);
+		pccore.model_va = PCMODEL_VA2;
+		va91.cfg.enabled = FALSE;
+		memoryva_88_mode = FALSE;
+		tsp.hspn = 31;
+		STOREINTELWORD(textmem + table + 2, 0x0400 | 16);
+		STOREINTELWORD(textmem + table + 4, 0x5500);
+		STOREINTELWORD(textmem + table + 8, 0x0200);
+		STOREINTELWORD(textmem + table + 10, 16);
+		STOREINTELWORD(textmem + table + 12, back_pattern / 2);
+		/* All-one mono data selects the transparent FG even if BC is on. */
+		for (i = 0; i < 2 && !problem; ++i) {
+			STOREINTELWORD(textmem + table + 6, i ? 8 : 0);
+			tsp.sprov = 0;
+			makesprva_begin();
+			makesprva_raster();
+			if (sprraster[16] != 7) {
+				problem = "M168_SPDA_MONO_TRANSPARENCY";
+			}
+			makesprva_begin();
+			if (!problem && (tsp.sprov & 0x20)) {
+				problem = "M168_SPDA_MONO_COLLISION";
+			}
+		}
+		CopyMemory(textmem + back_pattern, saved_back, sizeof(saved_back));
+	}
 	/* Publish/discard any fixture collision state before restoring tsp. */
 	makesprva_begin();
 	tsp = saved_tsp;
