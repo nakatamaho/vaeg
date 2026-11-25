@@ -24,10 +24,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M170 — Right Ctrl is 全角 in the US layout
 
-**Status:** assigned 2026-11-25 by the maintainer (requested from the
-FreeDOS-88VA MS-DOS work; the maintainer chose the number range and
-authorized starting it while other milestones are open). Branch
-`milestone/m170-us-zenkaku` from `main` (`d79a931f`).
+**Status:** G170 human gate passed on 2026-11-25 at [`413889d3`](https://github.com/nakatamaho/vaeg/commit/413889d3042964bad9f3367e5fcb64cceb86ec57) (maintainer: Windows host with the Japanese IME, US layout, Right Ctrl reaches the guest as 全角).
+Assigned 2026-11-25 by the maintainer from the FreeDOS-88VA MS-DOS work;
+branch `milestone/m170-us-zenkaku` from `main` (`d79a931f`).
 
 ## Why
 
