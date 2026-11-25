@@ -55,6 +55,36 @@ land.
   [initial correction](https://github.com/nakatamaho/vaeg/commit/6203479e8cd24cc98d891b9ec88fa46bcab926cf),
   [both quarters](https://github.com/nakatamaho/vaeg/commit/410dbe79d7c4a5e135e17b67acb6ed91136cb6bf).
 
+### M167 — held guest keys could remain pressed after focus loss
+
+- **Symptom/scope:** A held SDL2 keyboard key could remain down in the VA
+  keyboard matrix if window focus changed without a matching key-up.
+- **Demonstrated cause:** The SDL focus-loss handler canceled paste and
+  cleared host shortcut state but did not release guest keys held by
+  normal keyboard input.
+- **Correction:** Release non-lock guest keys and clear transient input
+  state on focus loss. Preserve the guest CAPS/KANA locks and the frontend
+  Roman-Kana mirror.
+- **Verification:** An SDL event-queue test compares the whole matrix after
+  key-down, key-up and focus loss without a key-up. Omitting the cleanup
+  makes the passing fixture fail with `M167_JIS_FOCUS_RELEASE`.
+- **Milestone/task/commit:** [M167 task](../agents/tasks/M167_jis_japanese_input.md),
+  [e379e701](https://github.com/nakatamaho/vaeg/commit/e379e7011081c1868c5ddcf5d815fcc9ff03519e).
+
+### M167 — unnamed JIS scancodes could not be saved as custom bindings
+
+- **Symptom/scope:** A custom assignment using an unnamed JIS scancode such
+  as `International4` could be missing after restarting the SDL2 frontend.
+- **Demonstrated cause:** SDL2 returned empty names for these scancodes.
+  The sidecar writer skipped bindings with empty names.
+- **Correction:** Use stable names for `International2`, `International4`,
+  `International5` and `Lang5` in the binding UI, serializer and loader.
+  Preserve legacy defaults for entries omitted from existing custom maps.
+- **Verification:** The keyboard selftest checks legacy custom routing and
+  parse/serialization of the new named binding alongside Right Alt.
+- **Milestone/task/commit:** [M167 task](../agents/tasks/M167_jis_japanese_input.md),
+  [e379e701](https://github.com/nakatamaho/vaeg/commit/e379e7011081c1868c5ddcf5d815fcc9ff03519e).
+
 ### M165 — compiled sprites ran 6-16% faster than on the PC-88VA and VA2
 
 - **Symptom/scope:** CPUBENCH's compiled sprites (`demos/sprite-bench`,

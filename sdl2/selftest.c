@@ -100,6 +100,7 @@ extern BEEPCFG beepcfg;
 #include "soundmng.h"
 #include "soundopts.h"
 #include "strres.h"
+#include "taskmng.h"
 #include "viewport.h"
 #include "frontpanel.h"
 #include "machine_status.h"
@@ -11595,6 +11596,118 @@ static int test_keyboard_matrix_pacing(void) {
 	return (SUCCESS);
 }
 
+static BOOL dispatch_keyboard_event(SDL_Event *event) {
+	if (SDL_PushEvent(event) != 1) {
+		return FALSE;
+	}
+	taskmng_rol();
+	return TRUE;
+}
+
+static int test_jis_japanese_keys(void) {
+	static const struct {
+		SDL_Scancode host;
+		SDL_Keymod mod;
+		BYTE guest;
+	} keys[] = {{SDL_SCANCODE_INTERNATIONAL5, KMOD_NONE, 0x51},
+	            {SDL_SCANCODE_INTERNATIONAL4, KMOD_NONE, 0x35},
+	            {SDL_SCANCODE_RALT, KMOD_RALT, 0x5b},
+	            {SDL_SCANCODE_LANG5, KMOD_NONE, 0x5b}};
+	const NP2OSCFG saved = np2oscfg;
+	const BYTE saved_key_mode = np2cfg.KEY_MODE;
+	const char *problem = NULL;
+
+	if (SDL_InitSubSystem(SDL_INIT_EVENTS) < 0) {
+		return fail("JIS Japanese keys", "M167_EVENT_INIT");
+	}
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	np2cfg.KEY_MODE = 0;
+	kbdmap_set_layout("jis");
+	kbdmap_set_kana_input("roman");
+	kbdmap_initialize();
+	taskmng_initialize();
+
+	for (size_t i = 0; i < NELEMENTS(keys); i++) {
+		UINT8 made[sizeof(keybrd.keymap)];
+		UINT8 released[sizeof(keybrd.keymap)];
+		SDL_Event key = {0};
+		SDL_Event focus = {0};
+		keystat_initialize();
+		keyboard_resetsignal();
+		memcpy(released, keybrd.keymap, sizeof(released));
+		keystat_senddata(keys[i].guest);
+		memcpy(made, keybrd.keymap, sizeof(made));
+		keystat_initialize();
+		keyboard_resetsignal();
+
+		key.type = SDL_KEYDOWN;
+		key.key.keysym.scancode = keys[i].host;
+		key.key.keysym.sym = SDL_GetKeyFromScancode(keys[i].host);
+		key.key.keysym.mod = keys[i].mod;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
+			break;
+		}
+		/* Whole-matrix comparison also rules out a second make (e.g. GRPH
+		 * from Alt). Roman-Kana must not see Right Alt as a KANA toggle. */
+		if (memcmp(made, released, sizeof(made)) == 0 ||
+		    memcmp(made, keybrd.keymap, sizeof(made)) != 0 || kbdmap_textinput("probe")) {
+			problem = "M167_JIS_MAKE";
+			break;
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		key.type = SDL_KEYUP;
+		key.key.keysym.mod = KMOD_NONE;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
+			break;
+		}
+		if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+			problem = "M167_JIS_BREAK";
+			break;
+		}
+
+		key.type = SDL_KEYDOWN;
+		key.key.keysym.mod = keys[i].mod;
+		if (!dispatch_keyboard_event(&key)) {
+			problem = "M167_EVENT_QUEUE";
+			break;
+		}
+		if (memcmp(made, keybrd.keymap, sizeof(made)) != 0) {
+			problem = "M167_JIS_REMAKE";
+			break;
+		}
+		keyboard_matrix_tick();
+		keyboard_matrix_tick();
+		focus.type = SDL_WINDOWEVENT;
+		focus.window.event = SDL_WINDOWEVENT_FOCUS_LOST;
+		if (!dispatch_keyboard_event(&focus)) {
+			problem = "M167_EVENT_QUEUE";
+			break;
+		}
+		if (memcmp(released, keybrd.keymap, sizeof(released)) != 0) {
+			problem = "M167_JIS_FOCUS_RELEASE";
+			break;
+		}
+	}
+	taskmng_exit();
+	SDL_QuitSubSystem(SDL_INIT_EVENTS);
+	pccore_term();
+	soundmng_deinitialize();
+	np2cfg.KEY_MODE = saved_key_mode;
+	np2oscfg = saved;
+	kbdmap_initialize();
+	if (problem != NULL) {
+		return fail("JIS Japanese keys", problem);
+	}
+	fprintf(stderr, "selftest: JIS Japanese keys ok\n");
+	return SUCCESS;
+}
+
 /* M127: test the real make/break route against independently injected VA
  * keypad codes, including US punctuation and active Roman-Kana. */
 static int test_letter_keypad(void) {
@@ -11629,8 +11742,9 @@ static int test_letter_keypad(void) {
 			kbdmap_initialize();
 			/* Activate the host's Roman-Kana mirror before enabling the
 			 * overlay: these letters must bypass the parser. */
-			kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, FALSE);
-			kbdmap_keyup(SDL_SCANCODE_RALT, 0, 0);
+			const SDL_Scancode kana = kbdmap_binding(KBDROLE_KANA);
+			kbdmap_keydown(kana, 0, 0, FALSE);
+			kbdmap_keyup(kana, 0, 0);
 			/* The oracle uses explicit VA codes through keystat, which
 			 * also materializes the active KANA lock in the matrix. */
 			keystat_senddata(keys[key].guest);
@@ -12224,6 +12338,11 @@ int vaeg_selftest_run(void) {
 			return fail("GUI state result", "M142_STATE_LOAD_RESULT");
 		if (test_statsave() != SUCCESS || test_bms_state_restore() != SUCCESS ||
 		    test_hdd_state_restore() != SUCCESS || test_fdd_multi_image_state() != SUCCESS)
+			return FAILURE;
+		return SUCCESS;
+	}
+	if (SDL_getenv("VAEG_SELFTEST_KEYBOARD_ONLY") != NULL) {
+		if (kbdmap_selftest() != SUCCESS || test_jis_japanese_keys() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
 	}

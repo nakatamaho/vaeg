@@ -5482,7 +5482,7 @@ static const char *binding_name(SDL_Scancode scancode) {
 	if (scancode == SDL_SCANCODE_UNKNOWN) {
 		return "(unassigned)";
 	}
-	name = SDL_GetScancodeName(scancode);
+	name = kbdmap_scancode_name(scancode);
 	if ((name == nullptr) || (name[0] == '\0')) {
 		return "(unknown)";
 	}

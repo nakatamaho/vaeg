@@ -88,9 +88,14 @@ keyup are consumed by the GUI.
 PC-88VA physical guest keys. This is the fidelity-first mode and is the
 better default for games or software that expects the original keyboard
 geometry. The preset accepts a small number of SDL backend aliases for
-keys whose reported scancode varies by host stack: `International3` is
-accepted as an additional Yen key, and `International2` is accepted as
-an additional KANA key.
+keys whose reported scancode varies by host stack. For guest Japanese
+input, 無変換 (`International5`) sends 決定, 変換 (`International4`)
+sends 変換, and Right Alt sends 全角, not GRPH or KANA. `Lang5` is
+also accepted for 全角. The ひらがな/カタカナ key (`International2`)
+sends KANA. These are guest key events, not host IME controls. Losing
+window focus releases held keys without toggling CAPS or KANA.
+Existing `custom` maps retain their bindings and their legacy defaults
+for omitted entries; the JIS preset change does not migrate them.
 
 `us` is the US keytop preset. It is text-entry friendly for BASIC, DOS,
 monitors, filenames, and shells on commodity US keyboards. Printable
@@ -265,13 +270,13 @@ Status values:
 | / | KEY88_SLASH | Slash | 0x32 | Slash | Slash | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | _ / RO | KEY88_UNDERSCORE | none | 0x33 | International1, alias NonUSHash | Grave | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | Shift right | KEY88_SHIFTR | RightShift as 0x70 | 0x58 | RightShift | RightShift | mapped-but-untested | `io/serial.c` |
-| KANA | KEY88_KANA | none | 0x72 | RightAlt, alias International2 | RightAlt | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
+| KANA | KEY88_KANA | none | 0x72 | International2 | RightAlt | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | GRPH | KEY88_GRAPH | LeftAlt/RightAlt | 0x73 | LeftAlt | LeftAlt | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 (when not used by Fast forward) | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | XFER/HENKAN | KEY88_HENKAN | none | 0x35 | International4 | Application | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | PC | KEY88_PC | none; F12 option | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c`, `sdl2/kbdmap.c` |
-| ZENKAKU | KEY88_ZENKAKU | none | 0x5b | Lang5 | unassigned | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
+| ZENKAKU | KEY88_ZENKAKU | none | 0x5b | RightAlt, alias Lang5 | unassigned | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
 | INSERT | KEY88_INS | Insert | 0x38 | Insert | Insert | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | DELETE | KEY88_DEL | Delete | 0x39 | Delete | Delete | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | UP | KEY88_UP | Up | 0x3a | Up | Up | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
