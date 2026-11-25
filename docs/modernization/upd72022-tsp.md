@@ -936,6 +936,13 @@ Decode the full field but retain a hardware-limit conformance test.
 `SPDA` uses the word-to-byte translation in section 9. A pattern must not cross
 the original-VA `A8000h` physical boundary.
 
+**VAEG policy ([M168](../agents/tasks/M168_tsp_spda.md)):** Native sprites
+with starting SPDA `4000h–7FFFh` and no VA-91 use `FFh` pattern bytes, rather
+than aliasing valid `8000h–BFFFh` bases. This models the reported `5500h`
+versus `9500h` distinction; the rest of the range and model coverage are
+extrapolation. The old `C000h–FFFFh` behavior is retained, not certified as
+hardware. This is not a change to the text fetch or CPU aperture.
+
 ### 13.3 Position, clipping, and magnification
 
 The sprite coordinate system is always 640 dots horizontally. Left, right, and
