@@ -24,10 +24,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M167 — JIS keys for guest Japanese input
 
-**Status:** Planned only. No implementation or G167 result. The maintainer
-has authorized implementation and candidate verification while G166 is pending;
-see the M167-only exception in [AGENTS.md](../../../AGENTS.md). G167 still
-requires maintainer acceptance.
+**Status:** Implemented; G167 pending. The maintainer has authorized
+implementation and candidate verification while G166 is pending; see the
+M167-only exception in [AGENTS.md](../../../AGENTS.md). This does not accept
+G166 or G167.
 
 ## Goal and scope
 
@@ -47,6 +47,21 @@ host IME action. Preserve the existing US layout and custom bindings; verify
 that consuming Right Alt in JIS mode does not leak an Alt modifier to the
 guest. Host IME integration and new US/F12 assignment options are out of
 scope.
+
+## Implementation and automated checks
+
+- The existing `International5` and `International4` bindings use VA codes
+  `51h` and `35h` (DECIDE and CONVERT in `io/serial.c`). Right Alt now uses
+  the existing `5Bh` FULLWIDTH key in JIS only. `Lang5` remains a JIS alias,
+  while `International2` still sends KANA. Other layouts retain their presets
+  and custom overrides. No archived reference-tier code or provenance changed.
+- `vaeg_jis_japanese_keys` checks the SDL event queue through the guest
+  matrix, including make, break and focus loss without key-up. It supplies
+  `KMOD_RALT` and checks for extra matrix bits or a Roman-Kana toggle. It
+  also exercises the US and custom mapping contracts and custom-name
+  serialization. Single mutations omitting focus cleanup or moving the JIS
+  Right Alt assignment fail with `M167_JIS_FOCUS_RELEASE` and
+  `M167_JIS_MAKE`, respectively.
 
 ## Checks and G167
 
