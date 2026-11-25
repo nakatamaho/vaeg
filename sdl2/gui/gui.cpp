@@ -4492,6 +4492,12 @@ static void draw_machine_config_menu(void) {
 		np2cfg.vab_enable = (np2cfg.vab_enable != 0) ? 0 : 1;
 		sysmng_update(SYS_UPDATECFG);
 	}
+	// M166: GA-98NBIV (CL-GD5434) in the bus slot. The ports stay
+	// attached; off behaves as an empty slot, so no reset is needed.
+	if (ImGui::MenuItem("GA-98NBIV", nullptr, np2cfg.ga98nb_enable != 0)) {
+		np2cfg.ga98nb_enable = (np2cfg.ga98nb_enable != 0) ? 0 : 1;
+		sysmng_update(SYS_UPDATECFG);
+	}
 	if (ImGui::BeginMenu("HyPER-FRAME+...")) {
 		BOOL enabled = (np2cfg.hfplus_enable != 0);
 		// Tentative display view: PiP keeps the VA text screen (the
