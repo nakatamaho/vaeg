@@ -20,6 +20,7 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+-->
 
 # M170 — Right Ctrl is 全角 in the US layout
 
@@ -77,3 +78,14 @@ have it, and it sits at the right end of the bottom row like 全角 on the VA.
   of `vaeg.exe`). The maintainer tests on Windows with the Japanese IME
   active: Right Ctrl reaches the guest.
 - Do not merge; push the branch and report SHAs.
+
+## Shortcut audit and follow-up
+
+The US preset masks only the Right Ctrl modifier bit before the frontend
+routes SDL key events. This avoids conflicts with Ctrl+V, Ctrl+Shift+C,
+and ImGui's Ctrl handling without changing Left Ctrl or other layouts.
+F12 quick save/load checks Shift, not Ctrl; US keytop chords likewise
+check Shift only. Right Ctrl does not disable independently assigned host
+keys. The existing F11 fast-forward action takes precedence over the US
+preset's F11 → 決定 guest binding; this conflict is unchanged. The
+pre-existing US bare-grave `^` translation is a separate follow-up.

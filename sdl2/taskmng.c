@@ -280,6 +280,12 @@ void taskmng_rol(void) {
 		if (dropmedia_process_event(&e)) {
 			continue;
 		}
+		/* In US mode Right Ctrl is a guest key, not a shortcut modifier.
+		 * Keep its scancode for guest dispatch and binding capture. */
+		if (((e.type == SDL_KEYDOWN) || (e.type == SDL_KEYUP)) &&
+		    !strcmp(kbdmap_layout_name(), "us")) {
+			e.key.keysym.mod &= ~KMOD_RCTRL;
+		}
 		shortcut = FALSE;
 		if (e.type == SDL_KEYDOWN) {
 			if (kbdmap_special_action((UINT)e.key.keysym.scancode) == KBDMAP_SPECIAL_FAST_FORWARD) {

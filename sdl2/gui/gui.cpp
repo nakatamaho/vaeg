@@ -5529,6 +5529,9 @@ static void draw_keyboard_config(void) {
 		if (ImGui::Button("Reset to US defaults")) {
 			reset_keyboard_to_us();
 		}
+		if (std::strcmp(kbdmap_layout_name(), "us") == 0) {
+			ImGui::TextUnformatted("US: Right Ctrl sends ZENKAKU; Left Ctrl remains CTRL.");
+		}
 		if (!g_gui.keyboard_status.empty()) {
 			ImGui::TextWrapped("%s", g_gui.keyboard_status.c_str());
 		}
@@ -7362,7 +7365,13 @@ BOOL gui_process_event(const void *event) {
 		return FALSE;
 	}
 	const SDL_Event *sdl_event = static_cast<const SDL_Event *>(event);
-	ImGui_ImplSDL2_ProcessEvent(sdl_event);
+	// taskmng has cleared KMOD_RCTRL in US mode. Don't press ImGui's
+	// Right Ctrl key, but still release it if held across a layout change.
+	if (!(sdl_event->type == SDL_KEYDOWN &&
+	      sdl_event->key.keysym.scancode == SDL_SCANCODE_RCTRL &&
+	      std::strcmp(kbdmap_layout_name(), "us") == 0)) {
+		ImGui_ImplSDL2_ProcessEvent(sdl_event);
+	}
 
 	if (g_gui.capture_binding >= 0) {
 		if ((sdl_event->type == SDL_KEYDOWN) && (!sdl_event->key.repeat)) {

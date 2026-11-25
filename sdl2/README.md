@@ -1128,6 +1128,10 @@ The Key menu exposes:
 JIS physical maps host scancode position to PC-88VA physical key
 position. US keytop maps printable US punctuation keytops/chords to
 guest keys or guest Shift chords that produce the intended ASCII symbol.
+In US mode, Right Ctrl sends the guest 全角 (ZENKAKU/FULLWIDTH) key and
+is not a host Ctrl shortcut modifier; Left Ctrl remains guest CTRL.
+Left Alt is GRPH, Right Alt is KANA, and Application is 変換. The existing
+F11 fast-forward action takes precedence over the F11 → 決定 guest binding.
 The tenkey overlay is a game-oriented mode for tenkeyless keyboards and
 is independent of the host layout preset. No Unicode or text-buffer
 injection is used. Set `VAEG_KBD_TRACE=1` to log keyboard event routing
@@ -1147,8 +1151,8 @@ guest keyboard make/break sequence as physical keys. It never injects
 Unicode, CP932, BIOS buffers, DOS buffers, RAM, or VRAM. When ImGui
 captures keyboard or text input, neither raw keys nor Roman Kana output
 reach the guest. The menu selects the kana input method only. Enter and
-leave guest kana mode with the assigned KANA key, which defaults to
-`RightAlt`: one press locks KANA, the next press unlocks it. When the
+leave guest kana mode with the assigned KANA key (`RightAlt` in US,
+`International2` in JIS): one press locks KANA, the next press unlocks it. When the
 menu is set to Roman Kana and KANA is locked, A-Z host scancodes feed the
 helper and are not sent as direct alphabetic guest keys; when KANA is
 unlocked, A-Z is normal guest input.
