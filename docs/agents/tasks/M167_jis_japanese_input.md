@@ -26,7 +26,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 **Status:** G167 human gate passed on 2026-11-25 at
 [`cc969a8f`](https://github.com/nakatamaho/vaeg/commit/cc969a8f178c02226cfc1a284ee10e1259b3b091).
-Merge is still pending. The [M167-only exception](../../../AGENTS.md)
+Merged to `main` with `--no-ff` at
+[`e1044390`](https://github.com/nakatamaho/vaeg/commit/e104439004054ab7356a9339921186f8c75311db).
+The [M167-only exception](../../../AGENTS.md)
 authorized implementation and candidate verification while G166 was pending;
 this record does not accept G166.
 
@@ -79,3 +81,5 @@ scope.
 - Full media/demo regression: requested by the maintainer.
 - Presenter/window/fullscreen automation: NOT_RUN; the maintainer selected
   only the media/demo campaign and authorized the merge.
+- Combined Linux merge tree (including M168): build, JIS event-queue test,
+  headless startup smoke, and ROM-less selftests passed. No release authorized.
