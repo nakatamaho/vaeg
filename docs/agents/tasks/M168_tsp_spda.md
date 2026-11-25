@@ -29,8 +29,11 @@ candidate commit `884f969f` changes documentation only.
 
 Earlier implementation and candidate verification were authorized before
 G167, based on `538877ee`. The G168 acceptance does not change G167 or
-authorize a release. Merge is pending the maintainer's decisions on the
-pre-merge media/demo and actual-presenter campaigns.
+authorize a release.
+
+The maintainer explicitly opted out of both additional campaigns:
+media/demo regression **NOT_RUN** and actual-presenter automation
+**NOT_RUN**. This does not change the focused checks or human gate.
 
 ## Evidence and scope
 
@@ -97,5 +100,5 @@ establish what hardware does when patterns cross a boundary.
   startup-wait fix must be present in both. Expect filled rectangles from
   the old encoding and the intended sprites from the corrected encoding.
   Keep the game disks and comparison captures out of the repository.
-- Full media/demo and actual presenter campaigns are not implicit in this
-  candidate verification. Ask the maintainer for decisions before merge.
+- The two additional pre-merge campaigns were skipped at the maintainer's
+  direction as recorded above.
