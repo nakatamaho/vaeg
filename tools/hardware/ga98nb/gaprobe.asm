@@ -22,7 +22,7 @@
 ; POSSIBILITY OF SUCH DAMAGE.
 ;
 ; GAPROBE.COM (M166): an I-O DATA GA-98NBIV (Cirrus Logic CL-GD5434) in a
-; PC-88VA bus slot, port set y=0 (README.md). Plain 8086/V30 code, no
+; PC-88VA bus slot, port set y=0 (readme-disk.txt). Plain 8086/V30 code, no
 ; PC-98 BIOS. Every card access is logged to GAPROBE.LOG (appended,
 ; committed line by line) and the screen before it runs, except inside the
 ; window sections, which run with interrupts off and are logged from
@@ -33,6 +33,9 @@
 ;   GAPROBE IDENTIFY-BYTE         the same with 8-bit OUTs
 ;   GAPROBE WINDOW-READ [/SET]    identify; banks A -> B -> A read at E000:OFS
 ;   GAPROBE WINDOW-TEST [/SET] [/WIN2]  identify; save, write, compare, restore
+;   GAPROBE BOARD                 reads only: the odd board ports 40E1h-5FE1h
+;   GAPROBE SCAN                  identify; reads E0000h-EFFFFh (port 152h) and
+;                                 A0000h-DFFFFh (port 153h) on the bus slot
 ;
 ; Options: /BUS (baseline also reads E0000h released to the bus slot),
 ; /SET (SR07=01h GR05=40h GR06=05h GR0B=2Dh for the window, restored after),
@@ -40,6 +43,13 @@
 ; also checks E4000h with GR0A), /BANK=h (port 152h ROM0 bank for the bus
 ; slot, default F), /R152=hh (port 152h value restored, default 00),
 ; /OFS=hhhh (window offset, default 0200), /A=hh /B=hh (banks, 00 and 01).
+; Version 2: /INIT (window and scan modes: the full register set of the
+; PC-98 initialisation, SR00-SR1F, CR00-CR1B, GR00-GR0B, before the window;
+; the card stays initialised; the display relay 40E1h is never written),
+; /SR0F=hh (SR0F for /INIT, default 3D), /BOARD (identify and window modes:
+; the board ports read again at the end), /R153=hh (port 153h restored by
+; SCAN, default the value read; without a plausible value A0000h-DFFFFh is
+; not scanned).
 
 		cpu	186
 		org	100h
@@ -52,6 +62,12 @@ opt_bus		db	0
 opt_set		db	0
 opt_word	db	0
 opt_win2	db	0
+opt_init	db	0
+opt_board	db	0
+opt_sr0f	db	3dh
+opt_r153	db	0
+r153_given	db	0
+r153_ok		db	0
 opt_bank	db	0fh
 opt_r152	db	00h		; set from port 152h unless /R152= is given
 r152_given	db	0
@@ -77,6 +93,8 @@ pat_a		db	0a5h, 5ah, 3ch, 0c3h
 pat_b		db	96h, 69h, 0fh, 0f0h
 failures	db	0
 r152_read	db	0
+r153_read	db	0
+smbc_known	db	00h, 01h, 04h, 08h, 09h, 0ch
 		align	2
 dump_seg	dw	0
 
@@ -91,6 +109,7 @@ PORT_CRT_D	equ	55e0h
 PORT_GR_I	equ	4ee0h
 PORT_GR_D	equ	4fe0h
 PORT_MEMMAP	equ	0152h
+PORT_SMBC	equ	0153h
 
 ; ---------------------------------------------------------------------------
 start:		cld
@@ -123,7 +142,15 @@ start:		cld
 		jne	.m5
 		call	do_window
 		jmp	.done
-.m5:		call	do_window
+.m5:		cmp	al,5
+		jne	.m6
+		call	do_window
+		jmp	.done
+.m6:		cmp	al,6
+		jne	.m7
+		call	do_board
+		jmp	.done
+.m7:		call	do_window
 .done:		mov	si,s_end
 		call	put_line
 		mov	bx,[handle]
@@ -202,7 +229,30 @@ parse:		mov	si,81h
 		mov	di,o_b
 		call	match_flag
 		jnc	.b
+		mov	di,o_init
+		call	match_flag
+		jnc	.init
+		mov	di,o_board
+		call	match_flag
+		jnc	.board
+		mov	di,o_sr0f
+		call	match_flag
+		jnc	.sr0f
+		mov	di,o_r153
+		call	match_flag
+		jnc	.r153
 		jmp	.unknown
+.init:		mov	byte [opt_init],1
+		jmp	.token
+.board:		mov	byte [opt_board],1
+		jmp	.token
+.sr0f:		call	hex_value
+		mov	[opt_sr0f],al
+		jmp	.token
+.r153:		call	hex_value
+		mov	[opt_r153],al
+		mov	byte [r153_given],1
+		jmp	.token
 .bus:		mov	byte [opt_bus],1
 		jmp	.token
 .set:		mov	byte [opt_set],1
@@ -760,7 +810,62 @@ identify:	mov	si,s_ident_w
 		call	p_in8
 		pop	bx
 		mov	[saved + bx],al
+		cmp	byte [mode],3		; the identify modes read the board
+		ja	.done			; ports here; the window modes later
+		cmp	byte [opt_board],0
+		je	.done
+		call	board_ports
+.done:		ret
+
+; ---------------------------------------------------------------------------
+; BOARD: the odd ports 40E1h-5FE1h read (no writes).
+do_board:	mov	si,s_board
+		call	put_line
+board_ports:	mov	si,s_board_p
+		call	put_line
+		mov	dx,40e1h
+.p:		push	dx
+		call	p_in8
+		pop	dx
+		add	dh,1
+		cmp	dh,60h
+		jb	.p
 		ret
+
+; ---------------------------------------------------------------------------
+; /INIT: the full register set (PC-98 initialisation order), logged.
+init_full:	mov	si,s_init
+		call	put_line
+		mov	si,init_seq		; SEQ pairs (index, value), FF ends
+		mov	dx,PORT_SEQ_I
+		call	write_list
+		mov	dx,PORT_SEQ_I		; SR0F as chosen
+		mov	al,0fh
+		mov	ah,[opt_sr0f]
+		call	write_reg
+		mov	dx,PORT_CRT_I		; CR11: unprotect CR00-CR07
+		mov	ax,0011h
+		call	write_reg
+		mov	si,init_crt
+		mov	dx,PORT_CRT_I
+		call	write_list
+		mov	si,init_gr
+		mov	dx,PORT_GR_I
+		call	write_list
+		mov	dx,PORT_MISC_R		; MISC as it is now
+		jmp	p_in8
+
+; Pairs at SI to index port DX (data DX + 100h), until index FFh.
+write_list:	lodsw
+		cmp	al,0ffh
+		je	.done
+		push	si
+		push	dx
+		call	write_reg
+		pop	dx
+		pop	si
+		jmp	write_list
+.done:		ret
 
 ; ---------------------------------------------------------------------------
 ; WINDOW-READ and WINDOW-TEST.
@@ -771,7 +876,17 @@ do_window:	call	identify
 		call	put_line
 		inc	byte [failures]
 		ret
-.go:		cmp	byte [opt_set],0
+.go:		cmp	byte [opt_init],0
+		je	.noinit
+		call	init_full
+		cmp	byte [opt_board],0
+		je	.plan
+		call	board_ports
+		jmp	.plan
+.noinit:	cmp	byte [opt_board],0
+		je	.noboard
+		call	board_ports
+.noboard:	cmp	byte [opt_set],0
 		je	.asis
 		mov	si,s_setting
 		call	put_line
@@ -803,12 +918,20 @@ do_window:	call	identify
 		mov	al,[opt_b]
 		call	put_hex8
 		call	line_end
-		cmp	byte [mode],5
+		cmp	byte [mode],7
+		jne	.notscan
+		call	scan
+		jmp	.restore
+.notscan:	cmp	byte [mode],5
 		je	.test
 		call	window_read
 		jmp	.restore
 .test:		call	window_test
-.restore:	cmp	byte [opt_set],0
+.restore:	cmp	byte [opt_init],0
+		je	.setback
+		mov	si,s_init_kept
+		jmp	put_line
+.setback:	cmp	byte [opt_set],0
 		je	.done
 		mov	si,s_restoring
 		call	put_line
@@ -1104,12 +1227,125 @@ window_test:	call	bus_on
 		inc	byte [failures]
 		jmp	put_line
 
+; ---------------------------------------------------------------------------
+; SCAN: 16 bytes at each 16 KiB of E0000h-EFFFFh (port 152h bank) and, if
+; port 153h reads plausibly, of A0000h-DFFFFh (153h low nibble 0: the bus
+; slot), GR09 = A. Reads only; interrupts off while released.
+scan:		mov	dx,PORT_SMBC		; 153h: restore value
+		in	al,dx
+		mov	[r153_read],al
+		cmp	byte [r153_given],0
+		jne	.given
+		mov	[opt_r153],al
+		mov	byte [r153_ok],0
+		test	al,40h			; VA mode (bit 6) and a known bank
+		jz	.say
+		and	al,0fh
+		mov	di,smbc_known
+		mov	cx,6
+		repne	scasb
+		jne	.say
+.given:		mov	byte [r153_ok],1
+.say:		mov	di,line
+		mov	si,s_smbc
+		call	put_str
+		mov	al,[r153_read]
+		call	put_hex8
+		mov	si,s_mm2
+		call	put_str
+		mov	al,[opt_r153]
+		call	put_hex8
+		mov	si,s_smbc_bus
+		call	put_str
+		mov	al,[opt_r153]
+		and	al,0f0h
+		call	put_hex8
+		mov	si,s_smbc_skip
+		cmp	byte [r153_ok],0
+		je	.s2
+		mov	si,s_close
+.s2:		call	put_str
+		call	line_end
+		mov	si,s_scan_e
+		call	put_line
+		call	bus_on
+		mov	al,[opt_a]
+		call	gr09
+		mov	ax,0e000h
+.e:		push	ax
+		xor	bx,bx
+		call	dump16
+		pop	ax
+		add	ax,0400h
+		cmp	ax,0f000h
+		jb	.e
+		mov	al,[saved + 7]
+		call	gr09
+		call	bus_off
+		call	flush_mem
+		cmp	byte [r153_ok],0
+		je	.done
+		mov	si,s_scan_a
+		call	put_line
+		mov	di,line			; logged before, interrupts on
+		mov	si,s_out8
+		call	put_str
+		mov	ax,PORT_SMBC
+		call	put_hex16
+		mov	si,s_arrow
+		call	put_str
+		mov	al,[opt_r153]
+		and	al,0f0h
+		call	put_hex8
+		call	line_end
+		cli
+		mov	byte [cli_mode],1
+		mov	al,[opt_r153]
+		and	al,0f0h
+		mov	dx,PORT_SMBC
+		out	dx,al
+		mov	al,[opt_a]
+		call	gr09
+		mov	ax,0a000h
+.a:		push	ax
+		xor	bx,bx
+		call	dump16
+		pop	ax
+		add	ax,0400h
+		cmp	ax,0e000h
+		jb	.a
+		mov	al,[saved + 7]
+		call	gr09
+		mov	al,[opt_r153]
+		mov	dx,PORT_SMBC
+		out	dx,al
+		mov	di,line
+		mov	si,s_out8
+		call	put_str
+		mov	ax,PORT_SMBC
+		call	put_hex16
+		mov	si,s_arrow
+		call	put_str
+		mov	al,[opt_r153]
+		call	put_hex8
+		call	line_end
+		mov	byte [cli_mode],0
+		sti
+		call	flush_mem
+.done:		ret
+
 cmp4:		mov	cx,4
 		repe	cmpsb
 		ret
 
 ; ---------------------------------------------------------------------------
-modes		dw	m_base, m_idw, m_idb, m_wr, m_wt, 0
+modes		dw	m_base, m_idw, m_idb, m_wr, m_wt, m_board, m_scan, 0
+m_board		db	'BOARD', 0
+m_scan		db	'SCAN', 0
+o_init		db	'INIT', 0
+o_board		db	'BOARD', 0
+o_sr0f		db	'SR0F', 0
+o_r153		db	'R153', 0
 m_base		db	'BASELINE', 0
 m_idw		db	'IDENTIFY-WORD', 0
 m_idb		db	'IDENTIFY-BYTE', 0
@@ -1129,14 +1365,30 @@ base_ports	dw	4ce0h, 5ae0h, 44e0h, 45e0h, 54e0h, 55e0h, 4ee0h, 4fe0h, 40e0h
 ; SEQ (AH 0) and GR (AH 1) indexes read after identification, in SAVED order
 reg_list	db	02h, 0, 04h, 0, 07h, 0, 17h, 0
 		db	05h, 1, 06h, 1, 08h, 1, 09h, 1, 0ah, 1, 0bh, 1, 0ffh, 0
+; /INIT tables: (index, value) pairs, FFh ends. SR0F comes from /SR0F.
+init_seq	db	00h, 02h, 00h, 03h, 01h, 01h, 02h, 0ffh, 03h, 00h, 04h, 0eh
+		db	06h, 12h, 07h, 01h, 08h, 00h, 0bh, 4ah, 0ch, 5bh, 0dh, 42h
+		db	0eh, 7eh, 10h, 00h, 11h, 00h, 12h, 00h, 13h, 3fh, 14h, 00h
+		db	15h, 00h, 16h, 71h, 17h, 35h, 18h, 02h, 19h, 01h, 1ah, 00h
+		db	1bh, 2bh, 1ch, 2fh, 1dh, 1fh, 1eh, 33h, 1fh, 1ch, 0ffh, 0
+init_crt	db	00h, 5fh, 01h, 4fh, 02h, 50h, 03h, 82h, 04h, 54h, 05h, 80h
+		db	06h, 0bh, 07h, 3eh, 08h, 00h, 09h, 40h, 0ah, 00h, 0bh, 00h
+		db	0ch, 00h, 0dh, 00h, 0eh, 00h, 0fh, 00h, 10h, 0eah, 11h, 0ch
+		db	12h, 0dfh, 13h, 50h, 14h, 00h, 15h, 0e1h, 16h, 0ah, 17h, 0e3h
+		db	18h, 0ffh, 19h, 32h, 1ah, 90h, 1bh, 22h, 0ffh, 0
+init_gr		db	00h, 00h, 01h, 00h, 02h, 00h, 03h, 00h, 04h, 00h, 05h, 40h
+		db	06h, 05h, 07h, 0fh, 08h, 0ffh, 09h, 00h, 0ah, 00h, 0bh, 2dh
+		db	0ffh, 0
 
 s_usage		db	'GAPROBE BASELINE [/BUS] | IDENTIFY-WORD | IDENTIFY-BYTE |',13,10
-		db	'        WINDOW-READ [/SET] | WINDOW-TEST [/SET] [/WIN2]',13,10
-		db	'options: /WORD /BANK=h /R152=hh /OFS=hhhh /A=hh /B=hh',13,10
+		db	'        WINDOW-READ [/SET] | WINDOW-TEST [/SET] [/WIN2] |',13,10
+		db	'        BOARD | SCAN',13,10
+		db	'options: /INIT /SR0F=hh /BOARD /WORD /BANK=h /R152=hh',13,10
+		db	'         /R153=hh /OFS=hhhh /A=hh /B=hh',13,10
 		db	'See README.TXT. Logs to GAPROBE.LOG.',13,10,'$'
 s_nolog		db	'GAPROBE.LOG could not be opened: screen only.',13,10,'$'
 s_logname	db	'GAPROBE.LOG', 0
-s_title		db	'GAPROBE M166  ', 0
+s_title		db	'GAPROBE M166 v2  ', 0
 s_va		db	'PC-88VA', 0
 s_va2		db	'PC-88VA2/VA3', 0
 s_va91		db	'PC-88VA+VA-91', 0
@@ -1189,9 +1441,19 @@ s_rest_a	db	'RESTORED A     :', 0
 s_rest_ok	db	'RESTORE: OK', 0
 s_rest_fail	db	'RESTORE: FAILED (bytes differ from the saved ones)', 0
 s_end		db	'== END', 0
+s_board		db	'== BOARD: reads only', 0
+s_board_p	db	'-- board ports 40E1h-5FE1h', 0
+s_init		db	'-- /INIT: SR00-SR1F, CR00-CR1B, GR00-GR0B (relay untouched)', 0
+s_init_kept	db	'-- /INIT: the card stays initialised (power off to reset)', 0
+s_smbc		db	'IN8   0153 -> ', 0
+s_smbc_bus	db	', bus-slot value ', 0
+s_smbc_skip	db	'; A0000h-DFFFFh NOT SCANNED: value not plausible)', 0
+s_close		db	')', 0
+s_scan_e	db	'-- SCAN E0000h-EFFFFh on the bus slot (port 152h), GR09=A', 0
+s_scan_a	db	'-- SCAN A0000h-DFFFFh on the bus slot (port 153h), GR09=A', 0
 
 		align	2
 cmdline		times	130 db 0
 line		times	160 db 0
-MEMLOG:		times	3072 db 0
+MEMLOG:		times	4096 db 0
 MEMLOG_END:

@@ -22,7 +22,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Build GAPROBE.COM (README.md) and a bootable MS-DOS 4.0 disk with it,
+# Build GAPROBE.COM (readme-disk.txt) and a bootable MS-DOS 4.0 disk with it,
 # from the FreeDOS-88VA msdos4-va.3 (preview 3) release image
 # ($VAEG_CACHE_DIR/msdos4-va.3/dl/msdos4-pc88va-2hd.d88). The disk stays
 # outside Git.
