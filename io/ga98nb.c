@@ -183,6 +183,13 @@ static void IOOUTCALL ga98nb_o_relay(UINT port, REG8 dat) {
 	(void)port;
 }
 
+/* 40E1h reads back the value written, before setup too (00h after reset);
+ * PC-98 software detects the card by writing 7Ah and reading it back. */
+static REG8 IOINPCALL ga98nb_i_relay(UINT port) {
+	(void)port;
+	return (np2cfg.ga98nb_enable ? ga98nb.relay : 0xff);
+}
+
 static void IOOUTCALL ga98nb_o(UINT port, REG8 dat) {
 	UINT vga;
 
@@ -271,6 +278,7 @@ void ga98nb_bind(void) {
 		iocore_attachinp((high << 8) | 0xe0, ga98nb_i);
 		if (high == 0x40) {
 			iocore_attachout(0x40e1, ga98nb_o_relay);
+			iocore_attachinp(0x40e1, ga98nb_i_relay);
 		} else {
 			iocore_attachout((high << 8) | 0xe1, ga98nb_o);
 			iocore_attachinp((high << 8) | 0xe1, ga98nb_i);

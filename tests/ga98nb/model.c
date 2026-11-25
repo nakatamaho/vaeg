@@ -140,7 +140,7 @@ int main(void) {
 	check("bound 4FE1h", outs[0x4fe1] != NULL, 1);
 	check("bound 55E0h in", inps[0x55e0] != NULL, 1);
 	check("bound 5AE0h in", inps[0x5ae0] != NULL, 1);
-	check("40E1h is the relay, no input", inps[0x40e1] == NULL, 1);
+	check("40E1h reads back", inps[0x40e1] != NULL, 1);
 	check("56E0h not bound", outs[0x56e0] == NULL, 1);
 
 	/* card off: an empty slot */
@@ -151,6 +151,9 @@ int main(void) {
 	/* card on, not set up: still silent */
 	fresh(GA98NB_FAULT_NONE);
 	check("before setup: SR06", sr06_word(), 0xff);
+	check("before setup: 40E1h after reset", in8(0x40e1), 0x00);
+	out8(0x40e1, 0x7a);
+	check("before setup: 40E1h read-back", in8(0x40e1), 0x7a);
 	out8(0x46e8, 0x18);
 	out8(0x44e0, 0x06);
 	check("in setup: SR06", in8(0x45e0), 0xff);
