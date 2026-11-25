@@ -94,6 +94,10 @@ run the bundled VA demo, boot an OS and perform simple operations.
 The clean-checkout build is the fully static MinGW build described under
 "Clean-build handoff"; give the maintainer the absolute path of `vaeg.exe`.
 Never begin milestone N+1 until the user states that gate N passed.
+Maintainer-approved exception for M167 only: implementation and candidate
+verification may begin while G166 is pending. This neither accepts G166 nor
+waives G167 or any merge or release approval. The one-task-per-session rule
+still applies.
 Always push the branch and report the exact commit SHAs when done.
 
 ### Cleanup after a passed human gate

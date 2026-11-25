@@ -24,9 +24,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M167 — JIS keys for guest Japanese input
 
-**Status:** Planned only. No implementation or G167 result. Start implementation
-only after the required predecessor gate is accepted and the maintainer asks
-for implementation.
+**Status:** Planned only. No implementation or G167 result. The maintainer
+has authorized implementation and candidate verification while G166 is pending;
+see the M167-only exception in [AGENTS.md](../../../AGENTS.md). G167 still
+requires maintainer acceptance.
 
 ## Goal and scope
 
