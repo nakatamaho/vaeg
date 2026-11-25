@@ -283,13 +283,12 @@ void makesprva_begin(void) {
 		}
 		d = LOADINTELWORD(sprinfo + 4);
 
-		/* SPDA 5500h must not alias 9500h (TVRAM byte AA00h).
-		 * Treat starts in that quarter alike on native VA/VA2/VA3.
-		 * Leave C000h-FFFFh, VA-91, and compatibility modes at legacy
-		 * behaviour; this is not a complete TSP memory map. Rows advance in
-		 * bytes from the decoded base as before, without 16-bit wrap. */
+		/* VA and VA2 packed-color probes fill at starts in both SPDA
+		 * quarters with bit 14 set rather than aliasing valid patterns.
+		 * Apply the same model to VA3; VA-91 and compatibility modes
+		 * retain the legacy mapping. Row advancement is unchanged. */
 		work._spr[i].missing_pattern =
-		    !memoryva_88_mode && !(va91.cfg.enabled & 1) && ((d & 0xc000) == 0x4000);
+		    !memoryva_88_mode && !(va91.cfg.enabled & 1) && (d & 0x4000);
 		work._spr[i].spda = (((UINT32)d << 1) + ((d & 0x8000) ? 0x8000 : 0)) & 0xffff;
 
 		// カーソルの点滅

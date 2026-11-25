@@ -339,9 +339,10 @@ static uint32_t tsp_word_to_va1_cpu_offset(uint16_t address)
 | `8000h` | `8001h / 8000h` | `8000h` |
 | `BFFFh` | `FFFFh / FFFEh` | `FFFEh` |
 
-Words are little-endian in CPU memory. `[UNKNOWN]` Original-VA behavior for
-TSP word ranges `4000h-7FFFh` and `C000h-FFFFh` is not determined; an emulator
-must not invent RAM or aliases there without a machine test.
+Words are little-endian in CPU memory. The manual does not map TSP word
+ranges `4000h-7FFFh` and `C000h-FFFFh`. For sprite-pattern fetches, see the
+packed-color hardware spot checks and emulation policy in section 13.2;
+other TSP uses of these addresses remain undetermined.
 
 The VA2 and VA3 install 256KiB of TVRAM and the current memory layer exposes a
 larger CPU bank-1 window. The product capacity is documented, but the full
@@ -937,11 +938,11 @@ Decode the full field but retain a hardware-limit conformance test.
 the original-VA `A8000h` physical boundary.
 
 **VAEG policy ([M168](../agents/tasks/M168_tsp_spda.md)):** Native sprites
-with starting SPDA `4000h–7FFFh` and no VA-91 use `FFh` pattern bytes, rather
-than aliasing valid `8000h–BFFFh` bases. This models the reported `5500h`
-versus `9500h` distinction; the rest of the range and model coverage are
-extrapolation. The old `C000h–FFFFh` behavior is retained, not certified as
-hardware. This is not a change to the text fetch or CPU aperture.
+with starting SPDA `4000h–7FFFh` or `C000h–FFFFh` and no VA-91 use `FFh`
+pattern bytes instead of the legacy alias. Packed-color spot checks on VA and
+VA2 found filled boxes in both quarters; full range coverage, monochrome,
+boundary crossings and VA3 have not been measured. This is not a change to
+text fetch or the CPU aperture.
 
 ### 13.3 Position, clipping, and magnification
 

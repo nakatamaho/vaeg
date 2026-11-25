@@ -523,22 +523,32 @@ recolour:	push	ax
 
 ; ---------------------------------------------------------------------------
 %ifdef SPDA_PROBE
-; Static SPDA probe. The same outline lives at CPU offsets 1000h and
-; AA00h; only the descriptor word changes. C800h explores an unknown
-; range, not an expected hardware result.
+; Two rows of SPDA samples. Seed the possible legacy alias targets
+; at AA00h, FE00h, and 7C00h with the outline from 1000h.
 spda_probe:	mov	si,spda_title
 		mov	dx,spda_help
 		call	screen
-		mov	si,spda_labels
+		mov	si,spda_labels_a
 		mov	di,48 * LINE_BYTES + 20
+		call	text_at
+		mov	si,spda_labels_b
+		mov	di,112 * LINE_BYTES + 20
 		call	text_at
 		call	map_tvram
 		mov	ax,0a000h
 		mov	es,ax
 		push	ds
 		mov	ds,ax
-		mov	si,PAT_BOX
 		mov	di,0aa00h
+		mov	si,PAT_BOX
+		mov	cx,256 / 2
+		rep	movsw
+		mov	di,0fe00h
+		mov	si,PAT_BOX
+		mov	cx,256 / 2
+		rep	movsw
+		mov	di,07c00h
+		mov	si,PAT_BOX
 		mov	cx,256 / 2
 		rep	movsw
 		pop	ds
@@ -546,20 +556,25 @@ spda_probe:	mov	si,spda_title
 		pop	es
 		mov	si,spda_descriptors
 		mov	di,tab
-		mov	cx,4 * 4
+		mov	cx,8 * 4
 		rep	movsw
 		call	flush
 .hold:		hlt
 		jmp	.hold
 
-spda_title	db	'SPDA PROBE',0
+spda_title	db	'SPDA RANGE PROBE',0
 spda_help	db	'RECORD THE SHAPE IN EACH COLUMN',0
-spda_labels	db	'0800      5500      9500      C800',0
+spda_labels_a	db	'0800      4000      5500      7F00',0
+spda_labels_b	db	'9500      C000      C800      FE00',0
 spda_descriptors:
 		dw	(3 << 10) | 0200h | 64, (3 << 11) | 80, 0800h, 0
-		dw	(3 << 10) | 0200h | 64, (3 << 11) | 200, 5500h, 0
-		dw	(3 << 10) | 0200h | 64, (3 << 11) | 320, 9500h, 0
-		dw	(3 << 10) | 0200h | 64, (3 << 11) | 440, 0c800h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 200, 4000h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 320, 5500h, 0
+		dw	(3 << 10) | 0200h | 64, (3 << 11) | 440, 7f00h, 0
+		dw	(3 << 10) | 0200h | 128, (3 << 11) | 80, 9500h, 0
+		dw	(3 << 10) | 0200h | 128, (3 << 11) | 200, 0c000h, 0
+		dw	(3 << 10) | 0200h | 128, (3 << 11) | 320, 0c800h, 0
+		dw	(3 << 10) | 0200h | 128, (3 << 11) | 440, 0fe00h, 0
 %endif
 
 ; The descriptors (tab), every one off.

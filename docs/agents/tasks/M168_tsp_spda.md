@@ -37,8 +37,21 @@ offsets `8000h–FFFFh` at TSP words `8000h–BFFFh`. In particular the CPU byte
 made both words fetch `AA00h`: `5500h * 2 = AA00h`, while
 `(9500h * 2 + 8000h) & FFFFh = AA00h`. The startup IBF waiter is separate.
 
+### Hardware result (15 kHz, packed color)
+
+| Probe point | `0800h` | `4000h` | `5500h` | `7F00h` | `9500h` | `C000h` | `C800h` | `FE00h` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| PC-88VA | Outline | Filled | Filled | Filled | Outline | Filled | Filled | Filled |
+| PC-88VA2 | Outline | Filled | Filled | Filled | Outline | Filled | Filled | Filled |
+
+The second machine is reported as VA2; its screen identifies the `VA2/3`
+ROM family. The initial candidate (`db27e8ef`) instead showed an outline
+at `C800h`. The maintainer also reproduced the old-SPDA PRJ_SP symptom on
+that candidate. The original hardware photos are kept out of Git.
+
 The native VA/VA2/VA3 sprite renderer treats descriptors **starting** at
-`4000h–7FFFh` as fetching `FFh` per pattern byte with the VA-91 disabled.
+`4000h–7FFFh` or `C000h–FFFFh` as fetching `FFh` per pattern byte with
+VA-91 disabled.
 A packed sprite therefore uses palette index F; a monochrome sprite uses
 its foreground index. For the modeled all-one monochrome row, foreground
 index 0 is transparent even with the background-color bit set: it neither
@@ -47,20 +60,18 @@ fetches, line budget and row advancement are unchanged.
 This affects only sprite pattern fetch; CPU TVRAM, text and descriptor
 fetch, and TSP command timing are unchanged. No state-file change.
 
-The common behavior across `4000h–7FFFh`, all rows of an affected descriptor,
-monochrome, and across native models is an extrapolation of the reported
-packed-colour symptom, not a measured address map or a claim about electrical
-open-bus behavior. VA-91 and V1/V2 paths retain predecessor behavior, as does
-`C000h–FFFFh` (legacy alias, not endorsed as hardware decode). Other valid or
-legacy bases retain linear byte advancement even at boundaries; this does
-not define hardware behavior for unsupported crossing patterns. The wider
-VA2/VA3 TVRAM aperture alone does not establish TSP SPDA decoding.
+Using the two full quarters (bit 14 set), filling every row of an affected
+pattern, monochrome behavior and VA3 coverage are model choices anchored by
+these spot checks, not a complete measured map or an electrical open-bus
+claim. VA-91 and V1/V2 paths retain predecessor behavior. Valid and legacy
+bases retain linear byte advancement even at boundaries; the probe does not
+establish what hardware does when patterns cross a boundary.
 
 ## Verification and gate
 
 - ROM-less `--selftest` checks the exact alias pair with nonzero data,
-  low and attribute quarters, endpoints, row contents and both pixel modes;
-  it also pins the unchanged VA-91, V1/V2 and upper unknown-range fallbacks.
+  both missing quarters, endpoints, row contents and both pixel modes;
+  it also pins the unchanged VA-91 and V1/V2 fallbacks.
   An overlap test checks that the missing monochrome row with foreground 0
   preserves an opaque sprite behind it and does not report a collision.
   The predecessor plus the new test fails at `5500h` with
@@ -70,10 +81,9 @@ VA2/VA3 TVRAM aperture alone does not establish TSP SPDA decoding.
   is the optional source-built, machine-labeled synthetic diagnostic. The
   default TSPSPR binary is byte-identical before and after the probe change.
 - G168 requires independent review, the standard clean static MinGW handoff
-  and human VA gate, plus a probe comparison on available hardware. Check
-  that `0800h` and `9500h` are outlines, record whether `5500h` fills and
-  record `C800h` without assuming a result. Record model and monitor setting;
-  separate unavailable hardware variants from tested ones.
+  and human VA gate. Compare the revised candidate probe against the
+  recorded VA and VA2 results above; do not claim VA3 or VA-91 hardware
+  coverage from these two machines.
 - On the candidate emulator, compare the old and corrected PRJ_SP binaries
   in the same gameplay scene and with the same VA2 and DOS settings. The TSP
   startup-wait fix must be present in both. Expect filled rectangles from

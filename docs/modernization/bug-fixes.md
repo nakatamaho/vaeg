@@ -44,13 +44,13 @@ land.
   the same TVRAM byte base (`AA00h`). Only `9500h` is the documented encoding
   for that byte address.
 - **Correction:** supply `FFh` pattern bytes for native VA/VA2/VA3 sprite
-  descriptors starting at `4000h–7FFFh` without VA-91. The regular pixel
-  decoder still chooses the palette index. Other quarters and configurations
-  retain their previous behavior; this does not establish a complete map.
-- **Verification:** the raster selftest checks the alias pair with seeded
-  TVRAM, valid and legacy bases, row advancement and pixel modes. The new
-  fixture rejects the predecessor at `5500h` (`M168_SPDA_FALSE_ALIAS`).
-  Hardware follow-up is pending.
+  descriptors starting at `4000h–7FFFh` or `C000h–FFFFh` without VA-91.
+  The regular pixel decoder still chooses the palette index. Other quarters
+  and configurations retain their previous behavior.
+- **Verification:** the raster selftest checks both alias quarters with
+  seeded TVRAM, valid and legacy bases, row advancement and pixel modes.
+  The eight-address probe found the same outlines and fills on both VA and
+  VA2 hardware; see the task for the measured points and remaining limits.
 - **Milestone/task/commit:** [M168](../agents/tasks/M168_tsp_spda.md),
   [6203479e](https://github.com/nakatamaho/vaeg/commit/6203479e8cd24cc98d891b9ec88fa46bcab926cf).
 

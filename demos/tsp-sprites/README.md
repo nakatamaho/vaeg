@@ -105,15 +105,14 @@ nasm -f bin -I"$out/" -dSPDA_PROBE=1 demos/tsp-sprites/tspspr.asm \
 
 Copy `SPDAPROB.COM` to an MS-DOS 4.0 test disk and run `SPDAPROB` on a
 15 kHz screen. In VAEG, set `Monitor15kHz = true` in `[NekoProjectII]`
-before reset. Photograph the four labeled columns together with the machine
-label. Restart to exit. This build is opt-in and does not change `TSPSPR.COM`.
+before reset. Photograph both labeled rows together with the machine label.
+Restart to exit. This build is opt-in and does not change `TSPSPR.COM`.
 
-The probe writes identical 32-dot, 16-row outlines to CPU TVRAM byte offsets
-`1000h` and `AA00h`. The documented descriptors `0800h` and `9500h` should
-show outlines. M168 models `5500h` as a filled box in native VA/VA2/VA3
-mode without VA-91. Record `C800h` independently: VAEG retains the old
-alias there, but the hardware result is open. Record all four columns on
-each tested machine; don't infer the rest of SPDA from the four samples.
+The probe writes the same 32-dot, 16-row outline at TVRAM byte offsets
+`1000h`, `AA00h`, `FE00h` and `7C00h` (the latter two seed former alias
+locations). On VA and VA2 hardware, `0800h` and `9500h` show outlines;
+`4000h`, `5500h`, `7F00h`, `C000h`, `C800h` and `FE00h` fill. This is
+packed-color evidence at eight starting addresses, not a full SPDA map.
 
 ## Questions for the machines
 
