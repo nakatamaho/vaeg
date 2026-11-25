@@ -295,6 +295,7 @@ void taskmng_rol(void) {
 			middle_shortcut_down = FALSE;
 			screenshot_shortcut_down = FALSE;
 			kbdpaste_cancel();
+			kbdmap_focus_lost();
 			mousemng_setfocus(FALSE);
 		} else if ((e.type == SDL_WINDOWEVENT) &&
 		           (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) {

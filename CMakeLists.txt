@@ -2765,6 +2765,12 @@ if(VAEG_ENABLE_TESTS)
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+    add_test(NAME vaeg_jis_japanese_keys COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_jis_japanese_keys PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_KEYBOARD_ONLY=1"
+        LABELS "romless;frontend;keyboard"
+        TIMEOUT 30)
     add_test(NAME vaeg_sdl_startup_viewport
         COMMAND vaeg_sdl2 --smoke --no-cfg --no-bkupmem)
     set_tests_properties(vaeg_sdl_startup_viewport PROPERTIES

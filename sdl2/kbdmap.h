@@ -188,6 +188,8 @@ BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod);
 BOOL kbdmap_textinput(const char *text);
 BYTE kbdmap_lookup(UINT scancode);
 void kbdmap_reset_frontend_state(void);
+void kbdmap_focus_lost(void);
+const char *kbdmap_scancode_name(SDL_Scancode scancode);
 void kbdmap_resetf12(void);
 void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL down,
                                BOOL repeat);

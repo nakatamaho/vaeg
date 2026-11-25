@@ -186,8 +186,8 @@ static const KBDMAP_ENTRY entries[] = {
       "win9x/winkbd.cpp:76-79; keystat.h:61"),
     E(KBDROLE_SHIFTR, "shiftr", "Shift right", "KEY88_SHIFTR", 0x58, SDL_SCANCODE_RSHIFT,
       SDL_SCANCODE_RSHIFT, KBDMAP_STATUS_MAPPED_UNTESTED, "io/serial.c:38 and :107-109"),
-    E(KBDROLE_KANA, "kana", "KANA", "KEY88_KANA", 0x72, SDL_SCANCODE_RALT, SDL_SCANCODE_RALT,
-      KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:82-87; keystat.h:118"),
+    E(KBDROLE_KANA, "kana", "KANA", "KEY88_KANA", 0x72, SDL_SCANCODE_INTERNATIONAL2,
+      SDL_SCANCODE_RALT, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:82-87; keystat.h:118"),
     E(KBDROLE_GRAPH, "graph", "GRPH", "KEY88_GRAPH", 0x73, SDL_SCANCODE_LALT, SDL_SCANCODE_LALT,
       KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:83; keystat.h:119"),
     E(KBDROLE_KETTEI, "kettei", "NFER/KETTEI", "KEY88_KETTEI", 0x51, SDL_SCANCODE_INTERNATIONAL5,
@@ -200,7 +200,7 @@ static const KBDMAP_ENTRY entries[] = {
       "win9x/winkbd.cpp:24-25; keystat.h:63"),
     E(KBDROLE_PC, "pc", "PC", "KEY88_PC", 0x5a, SDL_SCANCODE_SCROLLLOCK, SDL_SCANCODE_SCROLLLOCK,
       KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:40-42; io/serial.c:38 and :107-109"),
-    E(KBDROLE_ZENKAKU, "zenkaku", "ZENKAKU", "KEY88_ZENKAKU", 0x5b, SDL_SCANCODE_LANG5,
+    E(KBDROLE_ZENKAKU, "zenkaku", "ZENKAKU", "KEY88_ZENKAKU", 0x5b, SDL_SCANCODE_RALT,
       SDL_SCANCODE_UNKNOWN, KBDMAP_STATUS_MAPPED_UNTESTED,
       "win9x/winkbd.cpp:82-84; io/serial.c:38 and :107-109"),
     E(KBDROLE_INS, "insert", "INSERT", "KEY88_INS", 0x38, SDL_SCANCODE_INSERT, SDL_SCANCODE_INSERT,
@@ -582,7 +582,7 @@ static void trace_key_event(const char *phase, UINT scancode, SDL_Keycode keycod
 	if (!trace_on()) {
 		return;
 	}
-	scname = SDL_GetScancodeName((SDL_Scancode)scancode);
+	scname = kbdmap_scancode_name((SDL_Scancode)scancode);
 	keyname = SDL_GetKeyName(keycode);
 	describe_action(action, action_desc, sizeof(action_desc));
 	{
@@ -804,11 +804,18 @@ static void set_config_string(char *dst, size_t dst_size, const char *src) {
 
 static void set_layout_defaults(const char *layout) {
 	int i;
-	int use_us;
-
-	use_us = str_equal(layout, "us");
+	const int use_us = str_equal(layout, "us");
+	const int use_custom = str_equal(layout, "custom");
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
 		bindings[i] = use_us ? entries[i].us_scancode : entries[i].jis_scancode;
+		/* Partial custom maps inherit the pre-M167 defaults for omitted keys. */
+		if (use_custom) {
+			if (entries[i].role == KBDROLE_KANA) {
+				bindings[i] = SDL_SCANCODE_RALT;
+			} else if (entries[i].role == KBDROLE_ZENKAKU) {
+				bindings[i] = SDL_SCANCODE_LANG5;
+			}
+		}
 		if (entries[i].status == KBDMAP_STATUS_INTENTIONALLY_UNMAPPED) {
 			bind_status[i] = KBDMAP_STATUS_INTENTIONALLY_UNMAPPED;
 		} else if (bindings[i] == SDL_SCANCODE_UNKNOWN) {
@@ -852,7 +859,7 @@ static void apply_jis_aliases(void) {
 	set_scancode_alias(SDL_SCANCODE_NONUSHASH, KBDROLE_UNDERSCORE);
 	set_scancode_alias(SDL_SCANCODE_NONUSBACKSLASH, KBDROLE_UNDERSCORE);
 	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL3, KBDROLE_YEN);
-	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL2, KBDROLE_KANA);
+	set_scancode_alias(SDL_SCANCODE_LANG5, KBDROLE_ZENKAKU);
 }
 
 static int entry_index_from_id_len(const char *id, size_t len) {
@@ -866,9 +873,32 @@ static int entry_index_from_id_len(const char *id, size_t len) {
 	return -1;
 }
 
+/* SDL2 leaves these positions unnamed; keep stable names for custom maps. */
+static const struct {
+	SDL_Scancode scancode;
+	const char *name;
+} jis_scancode_names[] = {{SDL_SCANCODE_INTERNATIONAL2, "International2"},
+                          {SDL_SCANCODE_INTERNATIONAL4, "International4"},
+                          {SDL_SCANCODE_INTERNATIONAL5, "International5"},
+                          {SDL_SCANCODE_LANG5, "Lang5"}};
+
+const char *kbdmap_scancode_name(SDL_Scancode scancode) {
+	for (size_t i = 0; i < NELEMENTS(jis_scancode_names); i++) {
+		if (scancode == jis_scancode_names[i].scancode) {
+			return jis_scancode_names[i].name;
+		}
+	}
+	return SDL_GetScancodeName(scancode);
+}
+
 static SDL_Scancode scancode_from_name(const char *name) {
 	SDL_Scancode scancode;
 
+	for (size_t i = 0; i < NELEMENTS(jis_scancode_names); i++) {
+		if (str_equal(name, jis_scancode_names[i].name)) {
+			return jis_scancode_names[i].scancode;
+		}
+	}
 	scancode = SDL_GetScancodeFromName(name);
 	if (scancode != SDL_SCANCODE_UNKNOWN) {
 		return scancode;
@@ -1052,7 +1082,7 @@ static void write_custom_sidecar(void) {
 		return;
 	}
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
-		const char *name = SDL_GetScancodeName(bindings[i]);
+		const char *name = kbdmap_scancode_name(bindings[i]);
 		char line[256];
 		if ((bindings[i] == SDL_SCANCODE_UNKNOWN) || (name == NULL) || (name[0] == '\0')) {
 			continue;
@@ -1209,7 +1239,7 @@ void kbdmap_apply_config(void) {
 	np2oscfg.keyboard_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
 	np2oscfg.keyboard_letter_keypad = np2oscfg.keyboard_letter_keypad ? 1 : 0;
 
-	set_layout_defaults(str_equal(layout, "custom") ? "jis" : layout);
+	set_layout_defaults(layout);
 	if (str_equal(layout, "custom")) {
 		parse_custom_map();
 	}
@@ -1489,14 +1519,26 @@ BOOL kbdmap_textinput(const char *text) {
 	return TRUE;
 }
 
-void kbdmap_reset_frontend_state(void) {
-	kana_mirror = FALSE;
+static void reset_transient_keys(void) {
 	romankana_reset(&roman_state);
 	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
 	ZeroMemory(us_action_down, sizeof(us_action_down));
 	release_tenkey_overlay_keys();
 	release_letter_keypad_keys();
 	ZeroMemory(guest_shift_down, sizeof(guest_shift_down));
+	ZeroMemory(n80_repeat_press, sizeof(n80_repeat_press));
+	ZeroMemory(n80_repeat_last, sizeof(n80_repeat_last));
+}
+
+void kbdmap_focus_lost(void) {
+	reset_transient_keys();
+	/* Keep CAPS/KANA locks (and the Roman-Kana mirror) across focus changes. */
+	kbdinject_allrelease();
+}
+
+void kbdmap_reset_frontend_state(void) {
+	kana_mirror = FALSE;
+	reset_transient_keys();
 }
 
 void kbdmap_resetf12(void) {
@@ -1675,7 +1717,7 @@ void kbdmap_serialize_custom(char *dst, size_t size) {
 	}
 	dst[0] = '\0';
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
-		const char *name = SDL_GetScancodeName(bindings[i]);
+		const char *name = kbdmap_scancode_name(bindings[i]);
 		if ((bindings[i] == SDL_SCANCODE_UNKNOWN) || (name == NULL) || (name[0] == '\0')) {
 			continue;
 		}
@@ -1743,13 +1785,15 @@ int kbdmap_selftest(void) {
 	for (i = 0; i < (int)NELEMENTS(kana_combo_sequences); i++) {
 		if ((find_kana_sequence(kana_combo_sequences[i].base) == NULL) ||
 		    (find_kana_sequence(kana_combo_sequences[i].small_y) == NULL)) {
-			KBDMAP_SELFTEST_FAIL("Roman-Kana yoon sequence table");
+			fprintf(stderr, "selftest: keyboard-map detail: Roman-Kana yoon sequence table\n");
+			return FAILURE;
 		}
 	}
 	for (i = 0; i < (int)NELEMENTS(kana_pair_sequences); i++) {
 		if ((find_kana_sequence(kana_pair_sequences[i].first) == NULL) ||
 		    (find_kana_sequence(kana_pair_sequences[i].second) == NULL)) {
-			KBDMAP_SELFTEST_FAIL("Roman-Kana pair sequence table");
+			fprintf(stderr, "selftest: keyboard-map detail: Roman-Kana pair sequence table\n");
+			return FAILURE;
 		}
 	}
 
@@ -1782,11 +1826,11 @@ int kbdmap_selftest(void) {
 		BOOL kana_initial;
 		BOOL kana_repeat;
 
-		kana_initial =
-		    kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, FALSE) && kbdmap_textinput("repeat-probe");
-		kana_repeat =
-		    kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, TRUE) && kbdmap_textinput("repeat-probe");
-		kbdmap_keyup(SDL_SCANCODE_RALT, 0, 0);
+		kana_initial = kbdmap_keydown(SDL_SCANCODE_INTERNATIONAL2, 0, 0, FALSE) &&
+		               kbdmap_textinput("repeat-probe");
+		kana_repeat = kbdmap_keydown(SDL_SCANCODE_INTERNATIONAL2, 0, 0, TRUE) &&
+		              kbdmap_textinput("repeat-probe");
+		kbdmap_keyup(SDL_SCANCODE_INTERNATIONAL2, 0, 0);
 		kbdmap_reset_frontend_state();
 		kbdinject_forcerelease(kbdmap_guest_code(KBDROLE_KANA));
 		set_config_string(np2oscfg.keyboard_kana_input, sizeof(np2oscfg.keyboard_kana_input),
@@ -1808,6 +1852,14 @@ int kbdmap_selftest(void) {
 	kbdmap_apply_config();
 	if (!str_equal(kbdmap_layout_name(), "us")) {
 		KBDMAP_SELFTEST_FAIL("US layout persistence");
+	}
+	if ((kbdmap_lookup(SDL_SCANCODE_RALT) != 0x72) ||
+	    (kbdmap_lookup(SDL_SCANCODE_APPLICATION) != 0x35) ||
+	    (kbdmap_lookup(SDL_SCANCODE_F11) != 0x51) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL4) != KBDMAP_NC) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL5) != KBDMAP_NC) ||
+	    (kbdmap_lookup(SDL_SCANCODE_LANG5) != KBDMAP_NC)) {
+		KBDMAP_SELFTEST_FAIL("M167_US_MAPPING");
 	}
 	if ((selftest_expect_us_action(SDL_SCANCODE_2, KMOD_SHIFT, KBD_ACTION_GUEST_KEY, 0x1a, 0) !=
 	     SUCCESS) ||
@@ -1866,8 +1918,6 @@ int kbdmap_selftest(void) {
 	    (kbdmap_lookup(SDL_SCANCODE_RIGHTBRACKET) != 0x1b) ||
 	    (kbdmap_lookup(SDL_SCANCODE_BACKSLASH) != 0x28) ||
 	    (kbdmap_lookup(SDL_SCANCODE_NONUSHASH) != 0x33) ||
-	    (kbdmap_lookup(SDL_SCANCODE_RALT) != 0x72) ||
-	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL2) != 0x72) ||
 	    (kbdmap_lookup(SDL_SCANCODE_EQUALS) != 0x0c)) {
 		KBDMAP_SELFTEST_FAIL("JIS physical punctuation lookup");
 	}
@@ -1887,8 +1937,12 @@ int kbdmap_selftest(void) {
 	set_config_string(np2oscfg.keyboard_custom_map, sizeof(np2oscfg.keyboard_custom_map),
 	                  "kana=Right Alt;semicolon=;;caret==;");
 	kbdmap_apply_config();
-	if (kbdmap_binding(kana_index) != SDL_SCANCODE_RALT) {
-		KBDMAP_SELFTEST_FAIL("inline Right Alt parse");
+	if ((kbdmap_binding(kana_index) != SDL_SCANCODE_RALT) ||
+	    (kbdmap_lookup(SDL_SCANCODE_RALT) != 0x72) || (kbdmap_lookup(SDL_SCANCODE_LANG5) != 0x5b) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL2) != KBDMAP_NC) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL4) != 0x35) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL5) != 0x51)) {
+		KBDMAP_SELFTEST_FAIL("M167_LEGACY_CUSTOM_MAPPING");
 	}
 	if (kbdmap_binding(semicolon_index) != SDL_SCANCODE_SEMICOLON) {
 		KBDMAP_SELFTEST_FAIL("inline semicolon parse");
@@ -1910,6 +1964,16 @@ int kbdmap_selftest(void) {
 	}
 	set_config_string(np2oscfg.keyboard_host_layout, sizeof(np2oscfg.keyboard_host_layout),
 	                  "custom");
+	set_config_string(np2oscfg.keyboard_custom_map, sizeof(np2oscfg.keyboard_custom_map),
+	                  "kana=International2;zenkaku=Right Alt;");
+	kbdmap_apply_config();
+	kbdmap_serialize_custom(serialized, sizeof(serialized));
+	if ((kbdmap_lookup(SDL_SCANCODE_RALT) != 0x5b) ||
+	    (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL2) != 0x72) ||
+	    (strstr(serialized, "kana=International2;") == NULL) ||
+	    (strstr(serialized, "zenkaku=Right Alt;") == NULL)) {
+		KBDMAP_SELFTEST_FAIL("M167_CUSTOM_SCANCODE_NAMES");
+	}
 	set_config_string(np2oscfg.keyboard_custom_map, sizeof(np2oscfg.keyboard_custom_map),
 	                  "kana=Definitely Not A Scancode;");
 	kbdmap_apply_config();
