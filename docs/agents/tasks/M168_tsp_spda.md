@@ -22,9 +22,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M168 — TSP sprite-pattern address alias
 
-**G168: pending.** On 2026-11-25 the maintainer approved M168 implementation
-and candidate verification before G167, based on `538877ee`. This exception
-neither accepts G167 or G168 nor authorizes a merge.
+**G168: human gate passed on 2026-11-25.** The maintainer explicitly
+accepted updated Windows candidate `410dbe79d7c4a5e135e17b67acb6ed91136cb6bf`
+after confirming the eight-point probe in both VA and VA2 modes. The later
+candidate commit `884f969f` changes documentation only.
+
+Earlier implementation and candidate verification were authorized before
+G167, based on `538877ee`. The G168 acceptance does not change G167 or
+authorize a release. Merge is pending the maintainer's decisions on the
+pre-merge media/demo and actual-presenter campaigns.
 
 ## Evidence and scope
 
