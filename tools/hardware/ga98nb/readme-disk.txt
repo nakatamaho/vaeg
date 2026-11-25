@@ -33,6 +33,12 @@ another bit may enable the window.
                        (B3 may switch the monitor to the card's output;
                         the log is still written; power off to recover)
 
+Version 4: the window search of PC-98 software for this card (MISC EFh,
+40E1h written with 8-bit OUTs: FAh, then B2h).
+13. Cold boot, then:   GAPROBE SEARCH            (40E1h read-back check and
+                                                  the search, minimal setup)
+14. Then:              GAPROBE SEARCH /INIT
+
 Options: /BANK=h   port 152h ROM0 bank released to the bus slot (default F)
          /R152=hh  port 152h value restored afterwards (default 00)
          /OFS=hhhh window offset (default 0200)   /A=hh /B=hh banks (00, 01)

@@ -36,6 +36,9 @@
 ;   GAPROBE BOARD                 reads only: the odd board ports 40E1h-5FE1h
 ;   GAPROBE SCAN                  identify; reads E0000h-EFFFFh (port 152h) and
 ;                                 A0000h-DFFFFh (port 153h) on the bus slot
+;   GAPROBE SEARCH [/INIT]        identify, MISC EFh, 40E1h read-back check, then
+;                                 for 40E1h = FAh, B2h (and /RELAY=): write and
+;                                 compare 51h/15h at E000:0000 and E000:0004
 ;
 ; Options: /BUS (baseline also reads E0000h released to the bus slot),
 ; /SET (SR07=01h GR05=40h GR06=05h GR0B=2Dh for the window, restored after),
@@ -99,6 +102,9 @@ pat_b		db	96h, 69h, 0fh, 0f0h
 failures	db	0
 r152_read	db	0
 r153_read	db	0
+rb0		db	0
+rb1		db	0
+cur_val		db	0
 smbc_known	db	00h, 01h, 04h, 08h, 09h, 0ch
 		align	2
 dump_seg	dw	0
@@ -155,7 +161,11 @@ start:		cld
 		jne	.m7
 		call	do_board
 		jmp	.done
-.m7:		call	do_window
+.m7:		cmp	al,7
+		jne	.m8
+		call	do_window
+		jmp	.done
+.m8:		call	do_search
 .done:		mov	si,s_end
 		call	put_line
 		mov	bx,[handle]
@@ -1365,12 +1375,118 @@ scan:		mov	dx,PORT_SMBC		; 153h: restore value
 		call	flush_mem
 .done:		ret
 
+; ---------------------------------------------------------------------------
+; SEARCH: the window search of PC-98 software for this card. 40E1h is
+; written with 8-bit OUTs only; the probe bytes stay in the card's VRAM.
+do_search:	call	identify
+		cmp	byte [verdict],2
+		je	.go
+		mov	si,s_blocked
+		call	put_line
+		inc	byte [failures]
+		ret
+.go:		mov	dx,PORT_MISC_W		; MISC as the PC-98 software sets it
+		mov	al,0efh
+		call	p_out8
+		mov	si,s_rb
+		call	put_line
+		mov	dx,40e1h
+		call	p_in8
+		mov	[rb0],al
+		mov	dx,40e1h
+		mov	al,7ah
+		call	p_out8
+		mov	dx,40e1h
+		call	p_in8
+		mov	[rb1],al
+		mov	dx,40e1h
+		mov	al,[rb0]
+		call	p_out8
+		mov	si,s_rb_ok
+		cmp	byte [rb1],7ah
+		je	.rb
+		mov	si,s_rb_fail
+.rb:		call	put_line
+		cmp	byte [opt_init],0
+		je	.list
+		call	init_full
+.list:		mov	al,0fah
+		call	search_one
+		mov	al,0b2h
+		call	search_one
+		cmp	byte [relay_given],0
+		je	.end
+		mov	al,[opt_relay]
+		call	search_one
+.end:		mov	dx,40e1h
+		mov	al,0
+		jmp	p_out8
+
+; One 40E1h value AL: write it, GR09 = 0, then 51h/15h and 15h/51h at
+; E000:0000/0004 on the bus slot.
+search_one:	mov	[cur_val],al
+		mov	dx,40e1h
+		call	p_out8
+		mov	dx,40e1h
+		call	p_in8
+		mov	[rb1],al
+		call	bus_on
+		mov	al,0
+		call	gr09
+		push	es
+		mov	ax,0e000h
+		mov	es,ax
+		mov	byte [es:0],51h
+		mov	byte [es:4],15h
+		mov	al,[es:0]
+		mov	[rd4],al
+		mov	al,[es:4]
+		mov	[rd4 + 1],al
+		mov	byte [es:0],15h
+		mov	byte [es:4],51h
+		mov	al,[es:0]
+		mov	[rd4 + 2],al
+		mov	al,[es:4]
+		mov	[rd4 + 3],al
+		pop	es
+		mov	al,[saved + 7]
+		call	gr09
+		call	bus_off
+		call	flush_mem
+		mov	di,line
+		mov	si,s_sv
+		call	put_str
+		mov	al,[cur_val]
+		call	put_hex8
+		mov	si,s_sv2
+		call	put_str
+		mov	al,[rb1]
+		call	put_hex8
+		mov	si,s_sv3
+		call	put_str
+		mov	bx,rd4
+		mov	cx,4
+.b:		call	put_space
+		mov	al,[bx]
+		call	put_hex8
+		inc	bx
+		loop	.b
+		mov	si,s_found
+		cmp	word [rd4],1551h
+		jne	.no
+		cmp	word [rd4 + 2],5115h
+		je	.say
+.no:		mov	si,s_none
+.say:		call	put_str
+		jmp	line_end
+
 cmp4:		mov	cx,4
 		repe	cmpsb
 		ret
 
 ; ---------------------------------------------------------------------------
-modes		dw	m_base, m_idw, m_idb, m_wr, m_wt, m_board, m_scan, 0
+modes		dw	m_base, m_idw, m_idb, m_wr, m_wt, m_board, m_scan, m_search, 0
+m_search	db	'SEARCH', 0
 m_board		db	'BOARD', 0
 m_scan		db	'SCAN', 0
 o_init		db	'INIT', 0
@@ -1414,13 +1530,13 @@ init_gr		db	00h, 00h, 01h, 00h, 02h, 00h, 03h, 00h, 04h, 00h, 05h, 40h
 
 s_usage		db	'GAPROBE BASELINE [/BUS] | IDENTIFY-WORD | IDENTIFY-BYTE |',13,10
 		db	'        WINDOW-READ [/SET] | WINDOW-TEST [/SET] [/WIN2] |',13,10
-		db	'        BOARD | SCAN',13,10
+		db	'        BOARD | SCAN | SEARCH',13,10
 		db	'options: /INIT /SR0F=hh /BOARD /WORD /BANK=h /R152=hh',13,10
 		db	'         /R153=hh /RELAY=hh /OFS=hhhh /A=hh /B=hh',13,10
 		db	'See README.TXT. Logs to GAPROBE.LOG.',13,10,'$'
 s_nolog		db	'GAPROBE.LOG could not be opened: screen only.',13,10,'$'
 s_logname	db	'GAPROBE.LOG', 0
-s_title		db	'GAPROBE M166 v3  ', 0
+s_title		db	'GAPROBE M166 v4  ', 0
 s_va		db	'PC-88VA', 0
 s_va2		db	'PC-88VA2/VA3', 0
 s_va91		db	'PC-88VA+VA-91', 0
@@ -1473,6 +1589,14 @@ s_rest_a	db	'RESTORED A     :', 0
 s_rest_ok	db	'RESTORE: OK', 0
 s_rest_fail	db	'RESTORE: FAILED (bytes differ from the saved ones)', 0
 s_end		db	'== END', 0
+s_rb		db	'-- 40E1h read-back (the PC-98 detection writes 7Ah)', 0
+s_rb_ok		db	'40E1h READ-BACK: OK (7A)', 0
+s_rb_fail	db	'40E1h READ-BACK: FAIL (7A not read back)', 0
+s_sv		db	'40E1=', 0
+s_sv2		db	' (reads ', 0
+s_sv3		db	') E000:0/4 51/15, 15/51 ->', 0
+s_found		db	'  WINDOW FOUND', 0
+s_none		db	'  no window', 0
 s_board		db	'== BOARD: reads only', 0
 s_board_p	db	'-- board ports 40E1h-5FE1h', 0
 s_init		db	'-- /INIT: SR00-SR1F, CR00-CR1B, GR00-GR0B (40E1h only by /RELAY)', 0
