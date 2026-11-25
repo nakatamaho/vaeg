@@ -7367,8 +7367,7 @@ BOOL gui_process_event(const void *event) {
 	const SDL_Event *sdl_event = static_cast<const SDL_Event *>(event);
 	// taskmng has cleared KMOD_RCTRL in US mode. Don't press ImGui's
 	// Right Ctrl key, but still release it if held across a layout change.
-	if (!(sdl_event->type == SDL_KEYDOWN &&
-	      sdl_event->key.keysym.scancode == SDL_SCANCODE_RCTRL &&
+	if (!(sdl_event->type == SDL_KEYDOWN && sdl_event->key.keysym.scancode == SDL_SCANCODE_RCTRL &&
 	      std::strcmp(kbdmap_layout_name(), "us") == 0)) {
 		ImGui_ImplSDL2_ProcessEvent(sdl_event);
 	}
