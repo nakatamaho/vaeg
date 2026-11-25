@@ -120,13 +120,13 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 	WORD d;
 	int bitcount;
 	//	int bytecount;
+	const BYTE *sprdata;
+	BYTE missing_row[SPRVA_MAX_ROW_BYTES];
 	UINT16 xbytes; // スプライトの幅(バイト)
 	UINT16 xp;     // 水平座標
 	UINT8 fg;      // フォアグラウンドカラー
 	UINT8 bg;      // バックグラウンドカラー
 	BOOL md;       // モノクロモード
-	const BYTE *sprdata; // スプライトデータ
-	BYTE missing_row[SPRVA_MAX_ROW_BYTES];
 
 	d = LOADINTELWORD(sprinfo + 2);
 	xbytes = ((d >> 11) + 1) * 4;
@@ -279,12 +279,12 @@ void makesprva_begin(void) {
 		d = LOADINTELWORD(sprinfo + 4);
 
 		/* SPDA 5500h must not alias 9500h (TVRAM byte AA00h).
-		 * Treat starts in that undecoded quarter alike on native VA/VA2/VA3.
+		 * Treat starts in that quarter alike on native VA/VA2/VA3.
 		 * Leave C000h-FFFFh, VA-91, and compatibility modes at legacy
 		 * behaviour; this is not a complete TSP memory map. Rows advance in
 		 * bytes from the decoded base as before, without 16-bit wrap. */
-		work._spr[i].missing_pattern = !memoryva_88_mode && !(va91.cfg.enabled & 1) &&
-		                               ((d & 0xc000) == 0x4000);
+		work._spr[i].missing_pattern =
+		    !memoryva_88_mode && !(va91.cfg.enabled & 1) && ((d & 0xc000) == 0x4000);
 		work._spr[i].spda = (((UINT32)d << 1) + ((d & 0x8000) ? 0x8000 : 0)) & 0xffff;
 
 		// カーソルの点滅
