@@ -51,8 +51,9 @@ land.
   seeded TVRAM, valid and legacy bases, row advancement and pixel modes.
   The eight-address probe found the same outlines and fills on both VA and
   VA2 hardware; see the task for the measured points and remaining limits.
-- **Milestone/task/commit:** [M168](../agents/tasks/M168_tsp_spda.md),
-  [6203479e](https://github.com/nakatamaho/vaeg/commit/6203479e8cd24cc98d891b9ec88fa46bcab926cf).
+- **Milestone/task/commits:** [M168](../agents/tasks/M168_tsp_spda.md),
+  [initial correction](https://github.com/nakatamaho/vaeg/commit/6203479e8cd24cc98d891b9ec88fa46bcab926cf),
+  [both quarters](https://github.com/nakatamaho/vaeg/commit/410dbe79d7c4a5e135e17b67acb6ed91136cb6bf).
 
 ### M165 — compiled sprites ran 6-16% faster than on the PC-88VA and VA2
 

@@ -46,8 +46,9 @@ made both words fetch `AA00h`: `5500h * 2 = AA00h`, while
 
 The second machine is reported as VA2; its screen identifies the `VA2/3`
 ROM family. The initial candidate (`db27e8ef`) instead showed an outline
-at `C800h`. The maintainer also reproduced the old-SPDA PRJ_SP symptom on
-that candidate. The original hardware photos are kept out of Git.
+at `C800h`. The probe seeds the former aliases for `5500h`, `7F00h`,
+`C800h` and `FE00h`; `4000h` and `C000h` are visual spot checks without
+controlled alias targets. The original hardware photos are kept out of Git.
 
 The native VA/VA2/VA3 sprite renderer treats descriptors **starting** at
 `4000h–7FFFh` or `C000h–FFFFh` as fetching `FFh` per pattern byte with
@@ -74,8 +75,9 @@ establish what hardware does when patterns cross a boundary.
   it also pins the unchanged VA-91 and V1/V2 fallbacks.
   An overlap test checks that the missing monochrome row with foreground 0
   preserves an opaque sprite behind it and does not report a collision.
-  The predecessor plus the new test fails at `5500h` with
-  `M168_SPDA_FALSE_ALIAS`. The existing line-limit/collision test remains
+  The pre-M168 renderer fails at `5500h` with `M168_SPDA_FALSE_ALIAS`;
+  the initial M168 candidate with the expanded fixture fails at `C000h`
+  with the same diagnostic. The existing line-limit/collision test remains
   applicable.
 - [`SPDAPROB`](../../../demos/tsp-sprites/README.md#m168-spda-probe)
   is the optional source-built, machine-labeled synthetic diagnostic. The
