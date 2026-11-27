@@ -24,8 +24,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M173 — HOSTDRV read-only progress
 
 **Not ready for G173.** Stage 1 has the wire, shared-port and transient
-DOS CDS/SFT fixtures. There is no enabled emulator service. The archived
-reference tier and its provenance are unaffected.
+DOS CDS/SFT fixtures. Stage 2 has the Linux file authorization primitives;
+there is no enabled emulator service. The archived reference tier and its
+provenance are unaffected.
 
 | Check | Result | Scope |
 |---|---|---|
@@ -37,7 +38,8 @@ reference tier and its provenance are unaffected.
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
 | Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; there is no product TSR. |
-| Linux/Windows backend policy and functional checks | NOT RUN | Backends not implemented. |
+| `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
+| Linux service integration and Windows backend policy and functional checks | NOT RUN | No DOS namespace, service binding, or Windows adapter. |
 | `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
@@ -69,16 +71,28 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
 
 ## Next steps
 
-1. Implement the read-only service and platform adapters: start with anchored
-   metadata resolution and no-atime identity-verified same-object opens; then
-   add strict names/aliases, immutable searches, bounded handles and sharing.
-   Bind the opt-in only on profiles with proven transport exclusivity. Add
-   reset/revocation and save/load guards before exposing the mount option.
-2. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
+1. Continue Stage 2 from `6b64f99c378a70087014899f2237bf90cec3a798`:
+   `sdl2/hostdrv_linux.*` implements root-relative `openat2`, metadata-only
+   eligibility checks, verified procfs reopen with mandatory `O_NOATIME`,
+   positioned reads, capacity, and bounded raw directory scans. `enumerate`
+   returns names and inode hints, not authorized DOS entries. For each
+   published entry, revalidate the directory and entry from the root,
+   compare the enumeration identity, and only then retain identity pins.
+   The before/after parent checks are not an atomic directory snapshot;
+   review concurrent rename and replacement behavior before enabling service.
+2. Add the pinned CP932 mapping and DOS namespace (including byte-aware
+   wildcard matching, stable aliases, tombstones and bounded identity storage).
+   Implement immutable searches, bounded file handles/sharing, timestamps,
+   DOS error mapping and the generation/serial lifecycle. Bind the opt-in
+   only on profiles with proven transport exclusivity; add reset/revocation
+   and save/load guards before exposing the session option. Then complete the
+   Windows anchored metadata/reopen adapter and static MinGW build; keep
+   macOS disabled unless the full policy can be established.
+3. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
    point for CDS/SFT handling, not as install/ownership policy. Verify all
    verb and lifecycle cases, including the separate FCB probe and caller
    traces, under the approved design. Add guest-side packet validation and
    exercise the no-port-access busy/refusal path separately from the host
    dispatch guard.
-3. Complete the task's checklist and clean static MinGW candidate handoff.
+4. Complete the task's checklist and clean static MinGW candidate handoff.
    Windows execution remains G173; no acceptance is recorded here.
