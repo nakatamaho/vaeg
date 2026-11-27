@@ -20,11 +20,16 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+-->
 
 # M172 — HOSTDRV design: host-folder drive for MS-DOS 4.0 VA through the DOS redirector
 
-**Status:** assigned 2026-11-27 by the maintainer; branch
+**Status:** design ready for G172.
+Assigned 2026-11-27 by the maintainer; branch
 `milestone/m172-hostdrv-design` from `main` (`b3be1b9e`).
+
+- [Design](../research/m172_hostdrv_design.md)
+- [Research report and probe build](../reports/m172_hostdrv_research.md)
 **Maintainer-approved exception (2026-11-27):** M172 may begin while G171
 is pending. This neither accepts G171 nor waives G172 or any merge or
 release approval. The one-task-per-session rule still applies.
