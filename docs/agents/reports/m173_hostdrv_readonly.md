@@ -304,7 +304,18 @@ splits preflight selection from the emptiness check and reports API failures
 with Win32 or NTSTATUS codes, filesystem flags, and attributes and reparse
 tags for each opened path component. It also corrects a strict-casing issue
 in explicit mount selection, without relaxing guest lookup; its connection
-to the first run's failure is unconfirmed. The diagnostic rerun is pending.
+to the first run's failure is unconfirmed. The diagnostic rerun passed
+component validation but the selected-directory probe failed at
+`ReOpenFile` with `ERROR_ACCESS_DENIED`.
+
+[`0b62173f`](https://github.com/nakatamaho/vaeg/commit/0b62173f760cc5d58180481e00530f6c64d5d885)
+replaces `ReOpenFile` with `OpenFileById` on the checked local NTFS volume,
+using the live metadata handle as the volume hint and keeping it open to
+prevent file ID reuse. No pathname is retried. The data handle must pass
+identity and eligibility checks and accept per-handle access-time suppression
+before use. The fixture adds a renamed-root listing check to verify that
+replacing the original path does not retarget the selected object. The
+updated fixture cross-compiles; NTFS confirmation is pending.
 
 The fixture checks ancestor locking and replacement, fresh path identity, special and
 reparse rejection, timestamp preservation, and CP932 names. A timestamp pass

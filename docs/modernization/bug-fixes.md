@@ -5353,11 +5353,14 @@ separate parity correction or move it to Open Defects.
 
 ### M173 — Initial NTFS fixture preflight rejected a normal test directory
 
-The standalone test combined backend selection and empty-directory probing
-in one result, so the failed step and root cause have not been established.
-The [diagnostic follow-up](../agents/reports/m173_hostdrv_readonly.md#windows-adapter-checkpoint)
-separates the checks and reports the failure site and platform code on the
-next run.
+The maintainer's diagnostic rerun isolated the failure to `ReOpenFile`
+returning `ERROR_ACCESS_DENIED` during the mount probe, after component
+validation passed. The underlying reason for the denial is not established.
+[M173](../agents/tasks/M173_hostdrv_readonly.md) replaces that upgrade with
+`OpenFileById` using the held metadata handle and checked NTFS file ID
+([implementation](https://github.com/nakatamaho/vaeg/commit/0b62173f760cc5d58180481e00530f6c64d5d885)).
+The fixture cross-compiles; NTFS runtime confirmation is pending. See the
+[Windows adapter checkpoint](../agents/reports/m173_hostdrv_readonly.md#windows-adapter-checkpoint).
 
 ### M144a — independent N80 CRTC geometry remains unresolved
 
