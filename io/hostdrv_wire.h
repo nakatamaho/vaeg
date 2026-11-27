@@ -73,4 +73,10 @@ typedef unsigned (*hostdrv_dispatch)(void *context, const uint8_t request[HD_PAC
                                      uint8_t response[HD_PACKET]);
 uint32_t hostdrv_exchange(int *busy, uint8_t *ram, hostdrv_dispatch dispatch, void *context);
 
+/* Emulator-thread registration at a safe point, only after the caller has
+ * established the exclusive execution profile. NULL disables dispatch.
+ * Changing the adapter does not implement mount or DOS residency policy.
+ */
+void hostdrv_bind_exclusive_transport(hostdrv_dispatch dispatch, void *context);
+
 #endif

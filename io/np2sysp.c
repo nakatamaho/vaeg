@@ -6,6 +6,8 @@
 #include "iocore.h"
 #include "iocoreva.h"
 #include "hostfat.h"
+#include "hostdrv_wire.h"
+#include "memoryva/memoryva.h"
 #include "sxsibios.h"
 
 #define NP2SYSP_VER "C"
@@ -92,6 +94,44 @@ static const char str_scsibios[] = "scsibios";
 static const char str_scsidev[] = "scsi_dev";
 static const char str_hostfatcheck[] = "check_hostfat";
 static const char str_hostfatread[] = "read_hostfat1";
+static const char str_hostdrvcheck[] = "hostdrv?1";
+static const char str_hostdrvrequest[] = "hostdrv!1";
+
+static hostdrv_dispatch hostdrv_service;
+static void *hostdrv_context;
+static int hostdrv_busy;
+
+void hostdrv_bind_exclusive_transport(hostdrv_dispatch dispatch, void *context) {
+	if (!hostdrv_busy) {
+		hostdrv_service = dispatch;
+		hostdrv_context = context;
+	}
+}
+
+static BOOL hostdrv_native_enabled(void) {
+	return hostdrv_service && !pccore_main_cpu_is_upd780() && !memoryva_88_mode &&
+	       CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE;
+}
+
+static void np2sysp_hostdrvcheck(const void *arg1, long arg2) {
+	np2sysp_outstr(hostdrv_native_enabled() ? "HDR1" : str_null, 0);
+	(void)arg1;
+	(void)arg2;
+}
+
+static void np2sysp_hostdrvrequest(const void *arg1, long arg2) {
+	hostdrv_dispatch dispatch = hostdrv_native_enabled() ? hostdrv_service : NULL;
+	uint32_t address;
+	uint8_t *ram = NULL;
+
+	if (dispatch && !hostdrv_busy &&
+	    hostdrv_bounce_address(np2sysp.outval, pccore_mainram_limit(), &address)) {
+		ram = mem + address;
+	}
+	np2sysp.inpval = hostdrv_exchange(&hostdrv_busy, ram, dispatch, hostdrv_context);
+	(void)arg1;
+	(void)arg2;
+}
 
 static void np2sysp_hostfatcheck(const void *arg1, long arg2) {
 	np2sysp_outstr(hostfat_is_mounted() ? HOSTFAT_PROTOCOL_SIGNATURE : str_null, 0);
@@ -140,6 +180,8 @@ static const SYSPCMD np2spcmd[] = {
 
     {str_hostfatcheck, np2sysp_hostfatcheck, NULL, 0},
     {str_hostfatread, np2sysp_hostfatread, NULL, 0},
+    {str_hostdrvcheck, np2sysp_hostdrvcheck, NULL, 0},
+    {str_hostdrvrequest, np2sysp_hostdrvrequest, NULL, 0},
 };
 
 static BOOL np2syspcmp(const char *p) {
@@ -162,7 +204,7 @@ static BOOL np2syspcmp(const char *p) {
 }
 
 static void IOOUTCALL np2sysp_o7ed(UINT port, REG8 dat) {
-	np2sysp.outval = (dat << 24) + (np2sysp.outval >> 8);
+	np2sysp.outval = ((UINT32)dat << 24) + (np2sysp.outval >> 8);
 	(void)port;
 }
 
@@ -189,7 +231,7 @@ static REG8 IOINPCALL np2sysp_i7ed(UINT port) {
 	REG8 ret;
 
 	ret = (REG8)(np2sysp.inpval & 0xff);
-	np2sysp.inpval = (ret << 24) + (np2sysp.inpval >> 8);
+	np2sysp.inpval = ((UINT32)ret << 24) + (np2sysp.inpval >> 8);
 	(void)port;
 	return (ret);
 }

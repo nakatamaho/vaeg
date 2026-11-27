@@ -56,6 +56,7 @@
 #include "fdd_xdf.h"
 #include "framedisp.h"
 #include "hostfat.h"
+#include "hostdrv_wire.h"
 #include "hostfat_snapshot.h"
 #include "hostfat_manager.h"
 #include "ini.h"
@@ -533,6 +534,142 @@ static void hostfat_send_far_pointer(UINT32 value) {
 		iocore_out8(0x07ed, (REG8)value);
 		value >>= 8;
 	}
+}
+
+static void hostdrv_test_command(const char *text) {
+	iocore_out8(0x07ef, 0);
+	hostfat_send_string(text);
+}
+
+static uint32_t hostdrv_test_reply(void) {
+	uint32_t word = 0;
+	unsigned i;
+	for (i = 0; i < 4; ++i) {
+		word |= (uint32_t)iocore_inp8(0x07ed) << (8 * i);
+	}
+	return word;
+}
+
+static BOOL hostdrv_test_string(const char *text) {
+	do {
+		if (iocore_inp8(0x07ef) != (UINT8)*text) {
+			return FALSE;
+		}
+	} while (*text++);
+	return TRUE;
+}
+
+static unsigned hostdrv_test_dispatch(void *context, const uint8_t request[HD_PACKET],
+                                      uint8_t reply[HD_PACKET]) {
+	unsigned *calls = context;
+	++*calls;
+	if (request[HD_OPCODE] != HD_QUERY) {
+		return HD_BAD_PACKET;
+	}
+	hostdrv_response_init(reply, request, 0);
+	hostdrv_put32(reply + HD_GENERATION, 1);
+	hostdrv_put16(reply + HD_CAPS, 1);
+	return HD_COMPLETED;
+}
+
+static int test_hostdrv_transport(void) {
+	const uint32_t address = 0x10000;
+	const uint32_t pointer = 0x10000000;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_compat = CPU_COMPAT_MODE;
+	const SINT32 saved_clock = CPU_REMCLOCK;
+	uint8_t saved[HD_PACKET];
+	uint8_t request[HD_PACKET] = {0};
+	unsigned calls = 0;
+	uint32_t reply;
+	const char *error = "HD_PORT_SETUP";
+
+	memcpy(saved, mem + address, HD_PACKET);
+	memcpy(request, "HDR1", 4);
+	request[HD_VERSION] = 1;
+	hostdrv_put16(request + HD_SEQUENCE, 0xab12);
+	memcpy(mem + address, request, HD_PACKET);
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		goto cleanup;
+	}
+	np2sysp_reset();
+	np2sysp_bind();
+	iocore_bind();
+	memoryva_88_mode = 0;
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+
+	error = "HD_PORT_DEFAULT_ENABLED";
+	hostdrv_test_command("NP2");
+	if (!hostdrv_test_string("NP2")) {
+		goto cleanup;
+	}
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("")) {
+		goto cleanup;
+	}
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_DISABLED) ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+
+	/* No guest CPU or other writer is running in this synthetic fixture. */
+	hostdrv_bind_exclusive_transport(hostdrv_test_dispatch, &calls);
+	error = "HD_PORT_DISCOVERY";
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("HDR1")) {
+		goto cleanup;
+	}
+	error = "HD_PORT_QUERY";
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	reply = hostdrv_test_reply();
+	if (!hostdrv_response_valid(reply, request, mem + address) || calls != 1) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_STALE_SUCCESS";
+	memcpy(mem + address, request, HD_PACKET);
+	hostdrv_test_command("hostdrv!2");
+	reply = hostdrv_test_reply();
+	if (reply != (HD_REPLY_BASE | HD_COMPLETED) ||
+	    hostdrv_response_valid(reply, request, mem + address) || calls != 1) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_A20_ALIAS";
+	hostfat_send_far_pointer(UINT32_C(0xffff0010));
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_BAD_RANGE) || calls != 1 ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_COMPAT_ENABLED";
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("")) {
+		goto cleanup;
+	}
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_DISABLED) || calls != 1 ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+	error = NULL;
+
+cleanup:
+	hostdrv_bind_exclusive_transport(NULL, NULL);
+	iocore_destroy();
+	np2sysp_reset();
+	CPU_REMCLOCK = saved_clock;
+	CPU_COMPAT_MODE = saved_compat;
+	memoryva_88_mode = saved_88;
+	memcpy(mem + address, saved, HD_PACKET);
+	return error ? fail("HOSTDRV transport", error) : SUCCESS;
 }
 
 static int test_hostfat_transport(void) {
@@ -12396,6 +12533,12 @@ int vaeg_selftest_run(void) {
 		if (kbdmap_selftest() != SUCCESS || test_japanese_keys() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
+	}
+	if (SDL_getenv("VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY") != NULL) {
+		if (test_hostfat_transport() != SUCCESS) {
+			return FAILURE;
+		}
+		return test_hostdrv_transport();
 	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
 		return test_screenshot_rotation();

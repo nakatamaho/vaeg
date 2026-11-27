@@ -335,6 +335,7 @@ set(VAEG_CORE_SOURCES
     io/vab.c
     io/fdc.c
     io/hostfat.c
+    io/hostdrv_wire.c
     io/mouseif.c
     io/np2sysp.c
     io/pic.c
@@ -1082,6 +1083,10 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_hostdrv_wire_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     add_test(NAME vaeg_hostdrv_wire COMMAND vaeg_hostdrv_wire_test)
     set_tests_properties(vaeg_hostdrv_wire PROPERTIES LABELS "romless;hostdrv")
+    add_test(NAME vaeg_hostdrv_transport COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_hostdrv_transport PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY=1"
+        LABELS "romless;hostdrv;hostfat" TIMEOUT 30)
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
     # Independent LSI command core; not wired into the VA/TSP device path.
     add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)

@@ -23,8 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M173 — HOSTDRV read-only progress
 
-**Not ready for G173.** This is the isolated wire component of stage 1;
-it is not a guest driver or an enabled emulator service. The archived
+**Not ready for G173.** Stage 1 has the wire and shared-port components;
+it does not yet have a DOS ABI fixture or an enabled emulator service. The archived
 reference tier and its provenance are unaffected.
 
 | Check | Result | Scope |
@@ -32,7 +32,8 @@ reference tier and its provenance are unaffected.
 | `vaeg_hostdrv_wire` (CTest) | PASS | Exact request header lengths and masks; unassigned opcodes; reply marker, sequence and generation; stale success dword with unchanged request; staged publication; nested dispatch refusal; VA address arithmetic. |
 | Strict C99 build and UBSan run | PASS | Same wire fixture. |
 | MinGW compilation | PASS | Wire fixture only, no Windows execution or clean emulator handoff. |
-| Shared-channel exclusivity, discovery, port I/O and writable mapping | NOT RUN | The wire fixture does not drive the actual ports or prove the execution profile. |
+| Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
+| Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | DOS CDS/SFT fixture and caller traces | NOT RUN | No redirector fixture wired to the DOS ABI yet. |
 | Linux/Windows backend policy and functional checks | NOT RUN | Backends not implemented. |
 | `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
