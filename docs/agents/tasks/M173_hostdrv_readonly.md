@@ -32,10 +32,11 @@ DOS namespace are implemented, including the Shift-JIS alias amendment.
 The Linux wire service and lifecycle adapter are wired to `--hostdrv-dir`.
 The guarded 8086 wire helper, opcode-specific reply validator and transient
 DOS profile and CDS selection probes are implemented. The guarded
-resident-stack entry and CDS dependency scan are also implemented, but are
-not wired into a product redirector. Product installation, verb dispatch,
-the functional and lifecycle checklist, the Windows backend and static
-handoff remain outstanding. See the
+resident-stack entry and CDS dependency scan are wired into a development
+`HOSTDRV.COM` with opt-in install/remove, a CP932 profile check and owned
+chdir/attribute queries. File handles, enumeration, FCBs, the remaining
+functional and lifecycle checklist, the Windows backend and static handoff
+remain outstanding. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

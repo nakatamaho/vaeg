@@ -27,8 +27,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
 namespace and a Linux dispatcher with a tested lifecycle adapter enabled
 explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
-read-only DOS profile probe, but no product TSR. The archived reference
-tier and its provenance are unaffected.
+read-only DOS profile probe and a development TSR with install/removal and
+owned path checks. The archived reference tier and its provenance are
+unaffected.
 
 | Check | Result | Scope |
 |---|---|---|
@@ -39,7 +40,7 @@ tier and its provenance are unaffected.
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
-| Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; there is no product TSR. |
+| Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; production handle and search dispatch are outstanding. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
 | `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
 | Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
@@ -50,7 +51,8 @@ tier and its provenance are unaffected.
 | Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
-| `HOSTDRV.COM` and installed guest lifecycle/operations | NOT RUN | No product redirector. |
+| `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
+| Full installed guest lifecycle and operation checklist | OPEN | Development TSR does not yet offer handle or search verbs. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
@@ -152,13 +154,31 @@ passed. Encoding, EOL and case checks passed.
   fixture constructs synthetic interrupt frames; it neither installs a
   hook nor touches the ports.
 
+## Development TSR checkpoint
+
+- `HOSTDRV /VAEG [X:]` checks existing redirectors, DOS profile and free
+  CDS eligibility before touching the channel. Confirmed ATTACH publishes
+  the saved CDS replacement and INT 2Fh hook. `HOSTDRV /VAEG /U` checks the
+  private multiplex, vector, CDS and dependencies, then detaches, restores
+  the DOS state, frees the block and acknowledges teardown via UNREGISTER.
+  An ambiguous DETACH latches refusal; no retry or vector removal follows.
+- The installer checks DOS's active/system CP932 and the DOSGroup filename
+  casing and DBCS tables. The resident path handler rechecks the table
+  bytes, classifies by the exact CDS, and issues STAT for chdir and get
+  attributes. It denies its selected path mutations without a host call.
+  It does not claim handle, search or FCB verbs. The teardown preconditions
+  must grow as those resource tables are added.
+- The Linux release-preset target built; 13 HOSTDRV CTest entries and the
+  state-storage check passed. `vaeg_hostdrv_com_build` assembles the COM
+  but does not run it.
+
 ## Next steps and remaining gates
 
-1. Implement `HOSTDRV.COM`, using `hdprofile.inc`, `hdpacket.inc`,
-   `hdresident.inc` and the transient ABI fixture. Next implement the private
-   multiplex, resident install/teardown, and production classifier and worker.
-   Wire transaction failure latching, owned DOS verb dispatch, reference and
-   search lifetimes, and the minimal FCB paths. Exercise all task cases,
+1. Extend the resident classifier and worker with owned SFT allocation,
+   positioned reads, seek, reference retirement, capacity and extended open.
+   Then add search lifetimes, teardown draining, and the minimal FCB paths.
+   Check NLS changes while resident, and extend failure latching to new
+   resource-creating or resource-consuming transactions. Exercise all task cases,
    including busy and TF refusal with a no-port-I/O assertion, the FCB
    probe and distinct FCB caller traces. The product checklist is not yet
    complete; fixture status cannot substitute for it.
