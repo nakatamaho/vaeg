@@ -190,28 +190,36 @@ passed. Encoding, EOL and case checks passed.
   The Linux build and all 14 HOSTDRV CTests passed; the fixture CTest is
   assembly-only.
 
-## COMMAND TYPE/COPY design decision needed
+## COMMAND TYPE/COPY and upper RAM qualification
 
 The COMMAND source calls `5702h` for its code-page XA query before
 transferring file data (`CMD/COMMAND/TCMD1B.ASM`, `COPY.ASM`). For a remote
 SFT, `DOS/HANDLE.ASM` dispatches that call to `112Dh` with BL=2 and routes
-carry-set returns to `SYS_RET_ERR`. The approved design explicitly assigns
-invalid function to that verb. The local `DOS/EXTATTR.ASM:GetSet_XA` instead
-has an empty-list contract: return saved CX=2 for the size query; with at
-least two bytes of capacity, also store a zero entry count in the caller's
-buffer. Supporting that empty-list query on owned handles would need a design
-amendment. It would not need host extended attributes or host writes.
+carry-set returns to `SYS_RET_ERR`. The approved amendment now implements
+an empty list for owned `5702h`: return saved CX=2 for the size query; with
+at least two bytes of capacity, also store a zero entry count in the caller's
+buffer. Set-XA remains denied. No host XA access is involved. `HDFILE.COM`
+checks the size and list forms, adjacent sentinels, an unqualified aperture
+address, and set-XA denial. The 14 HOSTDRV CTests passed; the fixture CTest
+checks assembly only.
 
 The saved-frame bound is a separate issue: the DOS guest frame can sit in
 `80000h–9FFFFh`, which the VA decoder maps to ordinary RAM only when BMS
-bank zero is active. Do not simply raise the generic DOS span ceiling, and
-do not change the wire bounce window. Specify a bank-zero-aware bound for
-saved user frames and any XA result buffer, before using either for outputs.
+bank zero is active and installed main RAM covers the address. The
+[design amendment](../research/m172_hostdrv_design.md#m173-amendments-empty-xa-and-upper-dos-output-ram)
+requires affirmative proof. The BMS selector port is unbound when BMS is
+disabled. A read of `FFh` cannot distinguish unbound from selected `FFh`
+on the active BMS port, and the selector readback does not provide the
+active RAM ceiling. The existing v1 protocol provides neither piece of
+state. The conservative ceiling remains `80000h`, and the bounce window is
+unchanged. Resolving this for the default configuration requires an
+approved way to expose authoritative mapping state to the guest.
 
 ## Next steps and remaining gates
 
-1. Resolve the `112Dh` contract and upper guest-RAM safety before continuing
-   TYPE/COPY. Add the minimal FCB paths only with distinct
+1. Approve a read-only guest-visible mapping check for the upper output
+   span, then qualify that bound and verify TYPE/COPY and a nonzero BMS
+   selector negative. Add the minimal FCB paths only with distinct
    traces for allocation, positioned transfer, eviction and abort. Check
    NLS changes while resident, copied-DTA replay, remaining task cases, and
    busy and TF refusal with a no-port-I/O assertion.

@@ -110,14 +110,64 @@ hd_file_dispatch:
     cmp ax, 1121h
     je hd_seek_end
     cmp ax, 112dh
-    je .unsupported
+    je hd_file_xa
     mov ax, 5                     ; writes and locks are not supported
-    jmp hd_return_error
-.unsupported:
-    mov ax, 1
     jmp hd_return_error
 .invalid:
     mov ax, 6
+    jmp hd_return_error
+
+; HANDLE.ASM passes the subfunction in BL and the owned SFT in ES:DI.
+; The original result pointer and capacity are in the saved INT 21h frame.
+; Do not publish either output until both destinations are validated.
+hd_file_xa:
+    mov al, [es:bp+HD_R_BX]
+    cmp al, 4
+    je .denied
+    cmp al, 2
+    jne .unsupported
+    cmp byte [hd_latched], 0
+    jne hd_file_fault
+    push es
+    les di, [hd_sda]
+    cmp word [es:di+1ah], 5702h ; USER_IN_AX
+    jne .bad_frame
+    les di, [es:di+264h]        ; user_SP:user_SS
+    mov cx, 24                  ; user_environ
+    call hd_output_span
+    jc .bad_frame
+    cmp word [es:di], 5702h      ; user_AX
+    jne .bad_frame
+    mov si, di
+    mov bx, es
+    cmp word [es:di+4], 0       ; user_CX: size-only query
+    je .publish_size
+    cmp word [es:di+4], 1
+    je .short
+    mov ax, [es:di+16]          ; user_ES, not the SFT segment
+    mov di, [es:di+10]          ; user_DI
+    mov es, ax
+    mov cx, 2
+    call hd_output_span
+    jc .bad_frame
+    mov word [es:di], 0         ; empty entry count
+.publish_size:
+    mov es, bx
+    mov word [es:si+4], 2
+    pop es
+    jmp hd_dispatch.done
+.short:
+    pop es
+    mov ax, 8
+    jmp hd_return_error
+.bad_frame:
+    pop es
+    jmp hd_file_fault
+.denied:
+    mov ax, 5
+    jmp hd_return_error
+.unsupported:
+    mov ax, 1
     jmp hd_return_error
 
 ; DOS clears EXTOPEN_ON after our return, bypassing its own USER_CX
@@ -137,7 +187,7 @@ hd_extopen:
     mov [hd_ext_action], ax
     les di, [es:di+264h]         ; user_SP:user_SS, as in get_user_stack
     mov cx, 24                  ; user_environ
-    call hd_dos_span
+    call hd_output_span
     jc .bad_frame
     cmp word [es:di], 6c00h      ; user_AX
     jne .bad_frame
@@ -584,26 +634,37 @@ hd_read_file:
     jne .success
     jmp hd_return_error
 
-; CX = transfer size, return ES:DI = DMAADD on success. Never accept
-; writes into the resident image (including its private stack).
+; CX = transfer size, return ES:DI = DMAADD on success.
 hd_dma_span:
     les di, [hd_sda]
     les di, [es:di+0ch]
+    ; Fall through.
+
+; ES:DI and CX describe a DOS output. Exclude the resident image (including
+; the private stack). Preserves all registers except AX/DX and flags.
+hd_output_span:
     call hd_dos_span
     jc .bad
-    mov bx, es
-    mov dx, cs
     mov ax, di
     add ax, cx
     dec ax
-    mov cl, 4
-    shr ax, cl
-    add ax, bx
+    shr ax, 1
+    shr ax, 1
+    shr ax, 1
+    shr ax, 1
+    mov dx, es
+    add ax, dx
+    mov dx, cs
     cmp ax, dx
     jb .ok
     mov ax, di
-    shr ax, cl
-    add ax, bx
+    shr ax, 1
+    shr ax, 1
+    shr ax, 1
+    shr ax, 1
+    mov dx, es
+    add ax, dx
+    mov dx, cs
     add dx, (hd_resident_end-$$+100h+15)/16
     cmp ax, dx
     jb .bad

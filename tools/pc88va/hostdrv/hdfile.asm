@@ -24,11 +24,62 @@
 bits 16
 cpu 8086
 org 100h
+    ; Keep the fixture's saved INT 21h frame in its own allocation,
+    ; not at the top of the conventional address space.
+    mov sp,stack_top
     mov dx,path
     mov ax,3d40h
     int 21h
     jc bad
     mov bx,ax
+    mov di,xa
+    xor cx,cx
+    mov ax,5702h
+    int 21h
+    jc bad
+    cmp cx,2
+    jne bad
+    cmp word [xa],0a55ah
+    jne bad
+    mov ax,5702h
+    int 21h
+    jc bad
+    cmp cx,2
+    jne bad
+    cmp word [xa],0
+    jne bad
+    cmp word [xa+2],05aa5h
+    jne bad
+    push es
+    mov ax,8000h
+    mov es,ax
+    xor di,di
+    mov ax,5702h
+    int 21h
+    pop es
+    jnc bad
+    cmp ax,1                    ; DOS remaps 112Dh general failure for 57h
+    jne bad
+    push bx
+    xor bx,bx
+    mov ah,59h
+    int 21h
+    pop bx
+    cmp ax,31                   ; retained extended error
+    jne bad
+    mov di,xa
+    mov ax,5704h
+    int 21h
+    jnc bad
+    cmp ax,1
+    jne bad
+    push bx
+    xor bx,bx
+    mov ah,59h
+    int 21h
+    pop bx
+    cmp ax,5                    ; extended error distinguishes write denial
+    jne bad
     inc byte [step]
     mov ah,45h
     int 21h
@@ -147,7 +198,11 @@ emit:
 path db 'E:\DATA.BIN',0
 missing db 'E:\NOFILE.BIN',0
 dup dw 0
+xa dw 0a55ah,05aa5h
 pass db 'HDFILE PASS',13,10,'$'
 fail db 'HDFILE FAIL '
 step db '1',13,10,'$'
 buf times 6000 db 0
+align 2, db 0
+stack_space times 512 db 0
+stack_top:

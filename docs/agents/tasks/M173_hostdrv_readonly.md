@@ -36,8 +36,9 @@ resident-stack entry and CDS dependency scan are wired into a development
 `HOSTDRV.COM` with opt-in install/remove, a CP932 profile check and owned
 chdir/attribute queries, ordinary file handles, enumeration and capacity.
 Extended open now publishes the action in saved user CX under the approved
-DOS IFS contract. COMMAND TYPE/COPY require a decision on the design's
-`112Dh` invalid-function disposition and safe access to upper guest RAM.
+DOS IFS contract. The approved empty-list `112Dh` query is implemented.
+COMMAND TYPE/COPY remain blocked on a guest-visible proof of the active
+mapping for upper DOS output RAM; unqualified spans still fail closed.
 FCBs, the remaining functional and lifecycle checklist, the Windows backend
 and static handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.

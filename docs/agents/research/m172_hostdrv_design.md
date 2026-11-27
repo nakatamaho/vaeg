@@ -182,7 +182,7 @@ to owned calls.
 | 1122 | `CTRLC.ASM:633–652` process reset | Global redirector environment cleanup, despite legacy comment. No HOSTDRV global state to reset here; chain. |
 | 1123, 1124, 1125, 1126 | `MACRO2.ASM:357–367`, `CTRLC.ASM:226–229`, `SRVCALL.ASM:272–277` | Spool name check **before** canonicalization (original DS:SI name, ES:DI output buffer; `MACRO2.ASM:313–327,357–408`), spool close, spool control (AX/BX saved by caller, DOS server spool call context), echo check. Chain, never mark HOSTDRV an SFT spool device. |
 | 112B | `IOCTL.ASM:306–313,395–443` IFS IOCTL (including device control-string path) | SI:DX becomes DS:DX on dispatch; not a DS:SI device pointer. Preserve caller context when chaining; if explicitly owned, return invalid function. |
-| 112D | `HANDLE.ASM:580–623` extended attributes by handle | ES:DI SFT, BL=XA type, original DOS call context. Return invalid function; no host extended attributes. Ordinary time query uses SFT fields (not this verb). |
+| 112D | `HANDLE.ASM:580–623` extended attributes by handle | ES:DI SFT, BL=XA type. For owned BL=2 (`5702h`), return an empty XA list from the original DOS call context (M173 amendment below). Deny BL=4 (set XA); other forms remain unsupported. No host XA access. Ordinary time query uses SFT fields (not this verb). |
 | 112E | `OPEN.ASM:129–139,163–175`, `CREATE.ASM:115–124,151–152` extended open | Pushed create attrs, THISSFT/mode, WFP, EXTOPEN_FLAG (action input and result). See below. |
 | 112F | `IFS.ASM:490–516` IFS control | Pushed public AX and pass-through request registers. No HOSTDRV IFS-control provider, chain unless explicitly addressed, then invalid function. |
 
@@ -221,6 +221,27 @@ and widened sector bookkeeping support local volumes over 32 MiB
 still uses 16-bit counts and SFT size/position are still 32-bit. Do not
 wrap oversized files or invent FAT sector addresses. Validate FCB reads and
 close/abort recovery separately from 6C00h and ordinary handle operations.
+
+### M173 amendments: empty XA and upper DOS output RAM
+
+- `DOS/HANDLE.ASM:580–625` saves the input registers and dispatches remote
+  `5702h` to `112Dh` with BL=2 and ES:DI pointing to the SFT, not the result
+  buffer. Match the empty-list representation in `DOS/EXTATTR.ASM:104–124,
+  157–160`: return CX=2 for a size-only request and, when capacity is at
+  least two bytes, also store a zero entry-count word at the original
+  ES:DI. Return an error for a one-byte buffer, which cannot hold the
+  count. `INC/DOSSYM.INC:58–71` defines the saved `user_environ` layout.
+  Set-XA stays denied; no host attribute query or mutation is involved.
+- Before accepting a DOS output span (including the saved register frame)
+  touching `80000h–9FFFFh`, establish that the active BMS selector is zero
+  and the span is backed by installed main RAM. `io/bmsio.c` returns the
+  active selector from the configured port when BMS is bound (`01D0h` or
+  `00ECh`; see `io/bmsio.h`). `memoryva/memoryva.c:bms_wt_va` and
+  `bmsw_wt_va` use main RAM only for selector zero, and
+  `cpu/upd9002/memory.c:upd9002_mainram_write` also checks the active RAM
+  limit. An unbound I/O port returning `FFh` is not evidence of selector
+  zero. Without affirmative proof, reject the span. The wire bounce
+  window is unchanged.
 
 ## Proposed wire protocol v1
 
