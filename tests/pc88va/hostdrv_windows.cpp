@@ -56,7 +56,7 @@ int summary() {
     return failures ? 1 : 0;
 }
 
-std::string utf8(const std::wstring &name) {
+std::string utf8(std::wstring_view name) {
     const int len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, name.data(), int(name.size()),
                                         nullptr, 0, nullptr, nullptr);
     std::string result(len, '\0');
@@ -65,20 +65,35 @@ std::string utf8(const std::wstring &name) {
     return result;
 }
 
+void diagnostic(const char *stage, std::wstring_view name, DWORD code) {
+    std::printf("INFO %s [%s] 0x%08lx (%lu)\n", stage, utf8(name).c_str(),
+                static_cast<unsigned long>(code), static_cast<unsigned long>(code));
+}
+
 bool empty_dir(const std::wstring &path) {
     WIN32_FIND_DATAW info{};
     const HANDLE files = FindFirstFileW((path + L"\\*").c_str(), &info);
-    if (files == INVALID_HANDLE_VALUE) return GetLastError() == ERROR_FILE_NOT_FOUND;
+    if (files == INVALID_HANDLE_VALUE) {
+        const DWORD error = GetLastError();
+        diagnostic("FindFirstFileW Win32", path, error);
+        return error == ERROR_FILE_NOT_FOUND;
+    }
     bool empty = true;
     do {
         if (std::wcscmp(info.cFileName, L".") && std::wcscmp(info.cFileName, L"..")) {
+            diagnostic("FindFirstFileW/FindNextFileW directory is not empty (entry attributes)",
+                       info.cFileName, info.dwFileAttributes);
             empty = false;
             break;
         }
     } while (FindNextFileW(files, &info));
-    const bool result = empty && GetLastError() == ERROR_NO_MORE_FILES;
-    FindClose(files);
-    return result;
+    const DWORD error = empty ? GetLastError() : 0;
+    if (empty && error != ERROR_NO_MORE_FILES) diagnostic("FindNextFileW Win32", path, error);
+    if (!FindClose(files)) {
+        diagnostic("FindClose Win32", path, GetLastError());
+        return false;
+    }
+    return empty && error == ERROR_NO_MORE_FILES;
 }
 
 // Track only paths created by this executable. Remove junctions as directory
@@ -185,9 +200,16 @@ void run(Fixtures &fixtures, const std::wstring &base) {
                         fixtures.file(outside + L"\\DATA.TXT", 'O') && fixtures.file(jp, 'J');
     check("FIXTURES", seeded);
     if (!seeded) return;
-    auto root = WindowsRoot::select(utf8(path));
+    auto root = WindowsRoot::select(utf8(path), diagnostic);
     check("LOCAL_NTFS", bool(root));
     if (!root) return;
+    {
+        const auto mixed = WindowsRoot::select(utf8(base + L"\\ROOT"), diagnostic);
+        const auto exact = root->resolve("");
+        const auto folded = mixed ? mixed->resolve("") : std::nullopt;
+        check("MOUNT_PATH_CASE_FOLD_ONLY", exact && folded && exact->same_object(*folded) &&
+              root->resolve("PARENT") && !root->resolve("parent"));
+    }
 
     HKEY key = nullptr;
     DWORD setting = 0, type = 0, len = sizeof(setting);
@@ -301,10 +323,13 @@ int wmain(int argc, wchar_t **argv) {
     }
     std::wstring base(argv[1]);
     if (base.size() > 3 && (base.back() == L'\\' || base.back() == L'/')) base.pop_back();
-    if (!WindowsRoot::select(utf8(base)) || !empty_dir(base)) {
-        check("EMPTY_LOCAL_NTFS_DIRECTORY", false);
-        return summary();
-    }
+    for (auto &ch : base) if (ch == L'/') ch = L'\\';
+    const bool selected = bool(WindowsRoot::select(utf8(base), diagnostic));
+    check("SELECT_LOCAL_NTFS_DIRECTORY", selected);
+    if (!selected) return summary();
+    const bool empty = empty_dir(base);
+    check("EMPTY_LOCAL_NTFS_DIRECTORY", empty);
+    if (!empty) return summary();
     Fixtures fixtures;
     const auto work = base + L"\\vaeg-hostdrv-wintest";
     if (fixtures.dir(work)) run(fixtures, work);

@@ -36,6 +36,9 @@ namespace hostdrv {
 
 class WindowsRoot {
 public:
+    // Optional local diagnostics. Strings are borrowed only for the call;
+    // codes are labelled at the source (Win32, NTSTATUS or metadata).
+    using Diagnostic = void (*)(const char *stage, std::wstring_view component, DWORD code);
     class Handle {
         friend class WindowsRoot;
         explicit Handle(HANDLE handle) : handle_(handle) {}
@@ -48,11 +51,11 @@ public:
         Handle(const Handle &) = delete;
         Handle &operator=(const Handle &) = delete;
         bool close_checked() noexcept;
-        bool metadata(HostMetadata &info) const;
-        bool same_object(const Handle &other) const;
+        bool metadata(HostMetadata &info, Diagnostic diagnostic = nullptr) const;
+        bool same_object(const Handle &other, Diagnostic diagnostic = nullptr) const;
     };
 
-    static std::optional<WindowsRoot> select(const std::string &path);
+    static std::optional<WindowsRoot> select(const std::string &path, Diagnostic diagnostic = nullptr);
     std::optional<Handle> resolve(std::string_view raw, int *error = nullptr) const;
     std::optional<Handle> resolve_entry(std::string_view raw, const Handle &parent, int *error = nullptr) const;
     std::optional<Handle> open_file(std::string_view raw, const Handle &parent, const Handle &expected) const;
@@ -74,8 +77,9 @@ private:
         Handle leaf;
     };
     WindowsRoot(Handle root, std::wstring volume_path, std::uint64_t volume);
-    std::optional<Lookup> lookup(std::wstring_view raw, const Handle *parent, bool lock_leaf, int *error) const;
-    std::optional<Handle> upgrade(const Handle &metadata, bool directory) const;
+    std::optional<Lookup> lookup(std::wstring_view raw, const Handle *parent, bool lock_leaf, int *error,
+                                 bool selecting = false, Diagnostic diagnostic = nullptr) const;
+    std::optional<Handle> upgrade(const Handle &metadata, bool directory, Diagnostic diagnostic = nullptr) const;
     Handle root_;
     std::wstring volume_path_;
     std::uint64_t volume_;

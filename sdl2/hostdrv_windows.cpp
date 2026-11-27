@@ -81,40 +81,84 @@ bool component(std::wstring_view name) {
     });
 }
 
-// FileNameInfo supplies the filesystem spelling, not a case-insensitive or
-// short-name input alias. Verify only the leaf: the parent is a held object.
-bool exact_name(HANDLE handle, std::wstring_view name) {
+void trace(WindowsRoot::Diagnostic diagnostic, const char *stage, std::wstring_view name, DWORD code = 0) {
+    if (diagnostic) diagnostic(stage, name, code);
+}
+
+// Verify only the leaf: the parent is a held object. Explicit mount paths
+// can use Windows case folding, but never a short-name alias. Guest lookups
+// still require the exact spelling returned by filesystem enumeration.
+bool match_name(HANDLE handle, std::wstring_view name, bool selecting, WindowsRoot::Diagnostic diagnostic) {
     alignas(FILE_NAME_INFO) std::array<unsigned char, 65536 + sizeof(FILE_NAME_INFO)> buffer;
     if (!GetFileInformationByHandleEx(handle, FileNameInfo, buffer.data(), DWORD(buffer.size()))) {
+        trace(diagnostic, "GetFileInformationByHandleEx(FileNameInfo) Win32", name, GetLastError());
         return false;
     }
     const auto *info = reinterpret_cast<const FILE_NAME_INFO *>(buffer.data());
     if (info->FileNameLength % sizeof(wchar_t) ||
         info->FileNameLength > buffer.size() - offsetof(FILE_NAME_INFO, FileName)) {
+        trace(diagnostic, "FileNameInfo invalid length", name, info->FileNameLength);
         return false;
     }
     const std::wstring_view full(info->FileName, info->FileNameLength / sizeof(wchar_t));
-    return full.substr(full.rfind(L'\\') + 1) == name;
+    const auto actual = full.substr(full.rfind(L'\\') + 1);
+    if (actual == name) return true;
+    if (selecting) {
+        const auto order = CompareStringOrdinal(name.data(), int(name.size()), actual.data(), int(actual.size()), TRUE);
+        if (order == CSTR_EQUAL) return true;
+        if (!order) trace(diagnostic, "CompareStringOrdinal Win32", name, GetLastError());
+    }
+    trace(diagnostic, "FileNameInfo requested spelling", name);
+    trace(diagnostic, "FileNameInfo actual spelling", actual);
+    return false;
 }
 
-bool information(HANDLE handle, BY_HANDLE_FILE_INFORMATION &id, FILE_BASIC_INFO &basic) {
-    FILE_ATTRIBUTE_TAG_INFO tag{};
-    return GetFileType(handle) == FILE_TYPE_DISK &&
-        GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &tag, sizeof(tag)) &&
-        !(tag.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DEVICE)) && !tag.ReparseTag &&
-        GetFileInformationByHandle(handle, &id) &&
-        GetFileInformationByHandleEx(handle, FileBasicInfo, &basic, sizeof(basic)) &&
-        !(basic.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DEVICE));
-}
-
-bool eligible(HANDLE handle, std::uint64_t volume, bool require_directory) {
-    BY_HANDLE_FILE_INFORMATION id{};
-    FILE_BASIC_INFO basic{};
-    if (!information(handle, id, basic) || id.dwVolumeSerialNumber != volume) {
+bool information(HANDLE handle, BY_HANDLE_FILE_INFORMATION &id, FILE_BASIC_INFO &basic,
+                 WindowsRoot::Diagnostic diagnostic = nullptr, std::wstring_view name = {}) {
+    const DWORD type = GetFileType(handle);
+    if (type != FILE_TYPE_DISK) {
+        const DWORD error = type == FILE_TYPE_UNKNOWN ? GetLastError() : 0;
+        trace(diagnostic, "GetFileType type", name, type);
+        if (error) trace(diagnostic, "GetFileType Win32", name, error);
         return false;
     }
-    const bool directory = (basic.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-    return directory || (!require_directory && id.nNumberOfLinks == 1);
+    FILE_ATTRIBUTE_TAG_INFO tag{};
+    if (!GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &tag, sizeof(tag))) {
+        trace(diagnostic, "GetFileInformationByHandleEx(FileAttributeTagInfo) Win32", name, GetLastError());
+        return false;
+    }
+    trace(diagnostic, "FileAttributeTagInfo attributes", name, tag.FileAttributes);
+    trace(diagnostic, "FileAttributeTagInfo reparse tag", name, tag.ReparseTag);
+    constexpr DWORD denied = FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DEVICE;
+    if ((tag.FileAttributes & denied) || tag.ReparseTag) return false;
+    if (!GetFileInformationByHandle(handle, &id)) {
+        trace(diagnostic, "GetFileInformationByHandle Win32", name, GetLastError());
+        return false;
+    }
+    if (!GetFileInformationByHandleEx(handle, FileBasicInfo, &basic, sizeof(basic))) {
+        trace(diagnostic, "GetFileInformationByHandleEx(FileBasicInfo) Win32", name, GetLastError());
+        return false;
+    }
+    if (basic.FileAttributes & denied) {
+        trace(diagnostic, "FileBasicInfo denied attributes", name, basic.FileAttributes);
+        return false;
+    }
+    return true;
+}
+
+bool eligible(HANDLE handle, std::uint64_t volume, bool require_directory,
+              WindowsRoot::Diagnostic diagnostic = nullptr, std::wstring_view name = {}) {
+    BY_HANDLE_FILE_INFORMATION id{};
+    FILE_BASIC_INFO basic{};
+    if (!information(handle, id, basic, diagnostic, name)) return false;
+    if (id.dwVolumeSerialNumber != volume) {
+        trace(diagnostic, "unexpected volume serial", name, id.dwVolumeSerialNumber);
+        return false;
+    }
+    if (basic.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) return true;
+    if (require_directory) trace(diagnostic, "directory required", name, basic.FileAttributes);
+    else if (id.nNumberOfLinks != 1) trace(diagnostic, "ineligible link count", name, id.nNumberOfLinks);
+    return !require_directory && id.nNumberOfLinks == 1;
 }
 
 } // namespace
@@ -132,10 +176,10 @@ bool WindowsRoot::Handle::close_checked() noexcept {
     return handle_ == invalid || CloseHandle(std::exchange(handle_, invalid));
 }
 
-bool WindowsRoot::Handle::metadata(HostMetadata &out) const {
+bool WindowsRoot::Handle::metadata(HostMetadata &out, Diagnostic diagnostic) const {
     BY_HANDLE_FILE_INFORMATION id{};
     FILE_BASIC_INFO basic{};
-    if (!information(handle_, id, basic)) {
+    if (!information(handle_, id, basic, diagnostic)) {
         return false;
     }
     const auto time = basic.LastWriteTime.QuadPart / 10000000 - 11644473600LL;
@@ -149,42 +193,63 @@ bool WindowsRoot::Handle::metadata(HostMetadata &out) const {
     return out.id != 0;
 }
 
-bool WindowsRoot::Handle::same_object(const Handle &other) const {
+bool WindowsRoot::Handle::same_object(const Handle &other, Diagnostic diagnostic) const {
     HostMetadata a{}, b{};
-    return metadata(a) && other.metadata(b) && a.id == b.id && a.volume == b.volume && a.directory == b.directory;
+    return metadata(a, diagnostic) && other.metadata(b, diagnostic) &&
+        a.id == b.id && a.volume == b.volume && a.directory == b.directory;
 }
 
 WindowsRoot::WindowsRoot(Handle root, std::wstring path, std::uint64_t volume)
     : root_(std::move(root)), volume_path_(std::move(path)), volume_(volume) {}
 
-std::optional<WindowsRoot> WindowsRoot::select(const std::string &path) {
+std::optional<WindowsRoot> WindowsRoot::select(const std::string &path, Diagnostic diagnostic) {
+    if (!native_open()) {
+        trace(diagnostic, "NtCreateFile unavailable", {});
+        return {};
+    }
     auto text = wide(path);
-    if (!native_open() || text.size() < 3 || text[1] != L':' ||
-        !((text[0] >= L'A' && text[0] <= L'Z') || (text[0] >= L'a' && text[0] <= L'z'))) {
+    if (text.empty() && !path.empty()) {
+        trace(diagnostic, "invalid or oversized UTF-8 selection", {});
         return {};
     }
     std::replace(text.begin(), text.end(), L'\\', L'/');
-    if (text[2] != L'/') {
+    if (text.size() < 3 || text[1] != L':' || text[2] != L'/' ||
+        !((text[0] >= L'A' && text[0] <= L'Z') || (text[0] >= L'a' && text[0] <= L'z'))) {
+        trace(diagnostic, "absolute drive-letter path required", text);
         return {};
     }
     const std::wstring drive = text.substr(0, 2) + L"\\";
-    if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED) {
-        return {};
-    }
+    const auto drive_type = GetDriveTypeW(drive.c_str());
+    trace(diagnostic, "GetDriveTypeW type", drive, drive_type);
+    if (drive_type != DRIVE_FIXED) return {};
     Handle anchor(CreateFileW((L"\\\\?\\" + drive).c_str(), FILE_READ_ATTRIBUTES, share_all,
                              nullptr, OPEN_EXISTING, reopen_flags, nullptr));
-    wchar_t filesystem[16], guid[64];
-    DWORD serial = 0;
-    if (anchor.handle_ == invalid ||
-        !GetVolumeInformationByHandleW(anchor.handle_, nullptr, 0, &serial, nullptr, nullptr,
-                                       filesystem, DWORD(std::size(filesystem))) ||
-        std::wstring_view(filesystem) != L"NTFS" || !eligible(anchor.handle_, serial, true)) {
+    if (anchor.handle_ == invalid) {
+        trace(diagnostic, "CreateFileW(volume root) Win32", drive, GetLastError());
+        return {};
+    }
+    wchar_t filesystem[16]{}, guid[64]{};
+    DWORD serial = 0, flags = 0;
+    if (!GetVolumeInformationByHandleW(anchor.handle_, nullptr, 0, &serial, nullptr, &flags,
+                                       filesystem, DWORD(std::size(filesystem)))) {
+        trace(diagnostic, "GetVolumeInformationByHandleW Win32", drive, GetLastError());
+        return {};
+    }
+    trace(diagnostic, "GetVolumeInformationByHandleW filesystem and flags", filesystem, flags);
+    trace(diagnostic, "GetVolumeInformationByHandleW serial", drive, serial);
+    if (std::wstring_view(filesystem) != L"NTFS" || !eligible(anchor.handle_, serial, true, diagnostic, drive)) {
         return {};
     }
     // GUID volume naming is unavailable on remote providers. Require the
     // actual volume root, not SUBST or a redirected drive-letter subtree.
     const DWORD length = GetFinalPathNameByHandleW(anchor.handle_, guid, DWORD(std::size(guid)), VOLUME_NAME_GUID);
+    if (!length) {
+        trace(diagnostic, "GetFinalPathNameByHandleW(VOLUME_NAME_GUID) Win32", drive, GetLastError());
+        return {};
+    }
     if (length != 49 || std::wstring_view(guid, 11) != L"\\\\?\\Volume{" || guid[47] != L'}' || guid[48] != L'\\') {
+        trace(diagnostic, "GetFinalPathNameByHandleW not a GUID volume root (length)",
+              length < std::size(guid) ? std::wstring_view(guid, length) : std::wstring_view{}, length);
         return {};
     }
     WindowsRoot result(std::move(anchor), std::wstring(guid, length), serial);
@@ -192,14 +257,14 @@ std::optional<WindowsRoot> WindowsRoot::select(const std::string &path) {
         text.pop_back();
     }
     if (text.size() > 3) {
-        auto selected = result.lookup(std::wstring_view(text).substr(3), nullptr, false, nullptr);
-        if (!selected || !eligible(selected->leaf.handle_, serial, true)) {
+        auto selected = result.lookup(std::wstring_view(text).substr(3), nullptr, false, nullptr, true, diagnostic);
+        if (!selected) {
             return {};
         }
         result.root_ = std::move(selected->leaf);
     }
     // Reject a mount that cannot obtain a directory handle with suppression.
-    const auto probe = result.upgrade(result.root_, true);
+    const auto probe = result.upgrade(result.root_, true, diagnostic);
     if (!probe) {
         return {};
     }
@@ -207,7 +272,8 @@ std::optional<WindowsRoot> WindowsRoot::select(const std::string &path) {
 }
 
 std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, const Handle *parent,
-                                                      bool lock_leaf, int *error) const {
+                                                      bool lock_leaf, int *error, bool selecting,
+                                                      Diagnostic diagnostic) const {
     int ignored;
     if (!error) {
         error = &ignored;
@@ -226,12 +292,14 @@ std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, co
     const Handle *base = &root_;
     for (;;) {
         if (result.ancestors.size() >= 256) {
+            trace(diagnostic, "too many path components", {});
             return {};
         }
         const auto slash = raw.find(L'/');
         const bool leaf = slash == raw.npos;
         const auto name = raw.substr(0, slash);
         if (!component(name)) {
+            trace(diagnostic, "invalid path component", name);
             *error = EPERM;
             return {};
         }
@@ -242,7 +310,8 @@ std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, co
         string.Buffer = const_cast<PWSTR>(name.data());
         string.Length = string.MaximumLength = USHORT(name.size() * sizeof(wchar_t));
         OBJECT_ATTRIBUTES attrs{};
-        InitializeObjectAttributes(&attrs, &string, dont_reparse, base->handle_, nullptr);
+        InitializeObjectAttributes(&attrs, &string, dont_reparse | (selecting ? OBJ_CASE_INSENSITIVE : 0),
+                                   base->handle_, nullptr);
         IO_STATUS_BLOCK io{};
         HANDLE handle = nullptr;
         // NTFS share checking ignores attribute-only opens. FILE_TRAVERSE
@@ -256,11 +325,14 @@ std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, co
         if (status < 0) {
             if (ULONG(status) == 0xc000050bu) { // STATUS_REPARSE_POINT_ENCOUNTERED
                 *error = ELOOP;
+                trace(diagnostic, "NtCreateFile reparse point encountered (NTSTATUS)", name, ULONG(status));
+            } else {
+                trace(diagnostic, "NtCreateFile NTSTATUS", name, ULONG(status));
             }
             return {};
         }
         Handle pin(handle);
-        if (!eligible(handle, volume_, !leaf)) {
+        if (!eligible(handle, volume_, !leaf || selecting, diagnostic, name)) {
             // Distinguish ineligible objects from metadata inspection errors.
             FILE_ATTRIBUTE_TAG_INFO tag{};
             BY_HANDLE_FILE_INFORMATION info{};
@@ -273,7 +345,7 @@ std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, co
             }
             return {};
         }
-        if (!exact_name(handle, name)) {
+        if (!match_name(handle, name, selecting, diagnostic)) {
             return {};
         }
         if (leaf) {
@@ -307,10 +379,12 @@ std::optional<WindowsRoot::Handle> WindowsRoot::resolve_entry(std::string_view r
     return result ? std::optional<Handle>(std::move(result->leaf)) : std::nullopt;
 }
 
-std::optional<WindowsRoot::Handle> WindowsRoot::upgrade(const Handle &metadata, bool directory) const {
+std::optional<WindowsRoot::Handle> WindowsRoot::upgrade(const Handle &metadata, bool directory,
+                                                       Diagnostic diagnostic) const {
     HostMetadata before{};
-    if (!metadata.metadata(before) || before.directory != directory ||
-        !eligible(metadata.handle_, volume_, directory)) {
+    if (!eligible(metadata.handle_, volume_, directory, diagnostic, L"before reopen")) return {};
+    if (!metadata.metadata(before, diagnostic) || before.directory != directory) {
+        trace(diagnostic, "metadata identity or type check before reopen failed", {});
         return {};
     }
     Handle data(ReOpenFile(metadata.handle_, FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
@@ -318,8 +392,17 @@ std::optional<WindowsRoot::Handle> WindowsRoot::upgrade(const Handle &metadata, 
     // -1 changes per-handle NTFS update behavior, not an on-disk timestamp.
     // Only the reopened handle can perform data operations; fail on refusal.
     const FILETIME suppress{0xffffffffu, 0xffffffffu};
-    if (data.handle_ == invalid || !SetFileTime(data.handle_, nullptr, &suppress, nullptr) ||
-        !metadata.same_object(data) || !eligible(data.handle_, volume_, directory)) {
+    if (data.handle_ == invalid) {
+        trace(diagnostic, "ReOpenFile Win32", {}, GetLastError());
+        return {};
+    }
+    if (!SetFileTime(data.handle_, nullptr, &suppress, nullptr)) {
+        trace(diagnostic, "SetFileTime(suppress last access) Win32", {}, GetLastError());
+        return {};
+    }
+    if (!eligible(data.handle_, volume_, directory, diagnostic, L"after reopen")) return {};
+    if (!metadata.same_object(data, diagnostic)) {
+        trace(diagnostic, "reopened object identity or type mismatch", {});
         return {};
     }
     return data;
