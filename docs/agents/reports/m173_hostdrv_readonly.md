@@ -135,12 +135,29 @@ passed. Encoding, EOL and case checks passed.
 - The 11 HOSTDRV CTest entries passed. The assembly fixture CTests are
   build checks only. Case, encoding and EOL validators passed.
 
+## Resident entry and CDS dependency checkpoint
+
+- `hdresident.inc` preserves the caller register image and interrupt frame
+  for chained requests and switches owned work to a guarded private stack.
+  The worker can return through IRET or chain an untouched broadcast. The
+  wrapper checks busy and the saved TF before dispatch; the eventual CLOSE
+  worker must honor the no-port-I/O flag while still retiring a reference.
+  No product classifier or worker is wired yet.
+- `hdprofile.inc` excludes a free CDS slot referenced by a SUBST/JOIN CDS
+  and refuses ambiguous drive prefixes. The transient fixture includes a
+  passing synthetic table and isolated SUBST, JOIN and malformed-prefix
+  mutations. Actual utility interoperability remains a separate gate.
+- The Linux release-preset target built and all 12 HOSTDRV CTest entries
+  passed. The new `HDRES.COM` CTest is a NASM build check only. The
+  fixture constructs synthetic interrupt frames; it neither installs a
+  hook nor touches the ports.
+
 ## Next steps and remaining gates
 
-1. Implement `HOSTDRV.COM`, using `hdprofile.inc`, `hdpacket.inc` and the
-   transient ABI fixture. Next implement the private multiplex, CDS
-   dependency checks, guarded stack handoff and resident install/teardown,
-   transaction failure latching, owned DOS verb dispatch, reference and
+1. Implement `HOSTDRV.COM`, using `hdprofile.inc`, `hdpacket.inc`,
+   `hdresident.inc` and the transient ABI fixture. Next implement the private
+   multiplex, resident install/teardown, and production classifier and worker.
+   Wire transaction failure latching, owned DOS verb dispatch, reference and
    search lifetimes, and the minimal FCB paths. Exercise all task cases,
    including busy and TF refusal with a no-port-I/O assertion, the FCB
    probe and distinct FCB caller traces. The product checklist is not yet
