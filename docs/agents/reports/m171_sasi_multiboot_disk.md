@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M171 — SASI multiboot candidate
 
-- Candidate: [`fd651502`](https://github.com/nakatamaho/vaeg/commit/fd6515020307134f7e0d049f6f09dd02b5eefa7b).
+- Candidate: [`b518ef1c`](https://github.com/nakatamaho/vaeg/commit/b518ef1ceb948479620d95d81d5cd7cffabcbae8).
 - [Task and gate](../tasks/M171_sasi_multiboot_disk.md)
 - [English and Japanese instructions](../../modernization/pc88va-sasi-multiboot.md)
 
@@ -31,18 +31,24 @@ The builder constructs an empty NEC FAT12 volume. The guest's `SYS`
 installs and captures both PC-Engine systems. The host checks FAT chains,
 validates the captures against the installed files and stored IPLs, and
 publishes only after checks finish. Existing utility disk builders and
-`pcengine_disk.py` are unchanged. This change has no effect on emulator code
-or the archived reference tier.
+`pcengine_disk.py` are unchanged. A frame-boundary TVRAM checkpoint in the
+SDL2 debug harness lets the builder check the menu and default boot in one
+no-input run. Startup insertion preserves the FAT root end marker, and
+final validation reparses the bytes that will be published. The archived
+reference tier is unaffected.
 
 ## Source and ROM-free checks
 
-- `python3 -B tools/pc88va/test_sasi_multiboot_disk.py -v`: 7 passed.
-  Single-mutation negatives check `D5_FILE_MISSING`, `D5_STATE_CRC`, and
-  `FAT_COPIES` against passing fixtures. The tests also cover four FAT12
-  geometries, startup names, the CRC vector and no-clobber output.
+- `python3 -B tools/pc88va/test_sasi_multiboot_disk.py -v`: 9 passed.
+  Single-mutation negatives check `D5_FILE_MISSING`, `D5_STATE_CRC`,
+  `FAT_COPIES`, and `GUEST_TIMEOUT_MENU` against passing fixtures. The tests
+  also cover all four FAT12 geometries, startup names, stale root entries,
+  the CRC vector and no-clobber output.
 - `git diff --check`, `check_case.py`, `check_encoding.py --expect utf8`,
   `check_eol.py`, `check_md_comments.py`: passed.
-- CMake/CTest: not applicable to this standalone Python change.
+- CMake Release build and focused CTest (`vaeg_m74_debug_harness`,
+  `vaeg_m152_debug_script_parser`, `vaeg_romless_tests`): passed.
+- Canonical clang-format check: blocked; `clang-format-mp-22` unavailable.
 
 ## Guest-check contract
 
