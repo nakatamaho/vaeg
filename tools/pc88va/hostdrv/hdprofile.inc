@@ -214,8 +214,8 @@ hd_sft_chain:
     ret
 
 ; AL=zero-based requested drive or FFh for highest available. Return
-; AL=drive and ES:DI=CDS if free. Does not write DOS state or touch ports.
-; Caller must additionally check mapping dependencies before attachment.
+; AL=drive and ES:DI=CDS if free and no mapping refers to that drive.
+; Does not write DOS state or touch ports.
 hd_pick_cds:
     mov bl, al
     cmp al, 0ffh
@@ -234,18 +234,65 @@ hd_pick_cds:
     mul cl
     add di, ax
     cmp word [es:di+43h], 0
-    je .found
+    jne .used
+    div cl
+    call hd_check_dependencies
+    jnc .found
+    jmp .skip
+.used:
+    div cl
+.skip:
     cmp bl, 0ffh
     jne .bad
-    div cl
     dec al
     jmp .candidate
 .found:
-    div cl
-    clc
     ret
 .bad:
     stc
+    ret
+
+; AL=target drive in the already validated CDS table. CF=1 if a local
+; substitution or splice names that drive, or a mapping cannot be parsed.
+; Both utilities store the backing drive as the first byte of CDS.text.
+; Call with freshly checked table/default-drive state before teardown too.
+; Preserves all registers. Checks dependency only, not ownership of target.
+hd_check_dependencies:
+    push ax
+    push bx
+    push cx
+    push di
+    push es
+    mov bl, al
+    xor cx, cx
+    mov cl, [hd_cds_count]
+    jcxz .unsafe
+    les di, [hd_cds_base]
+.next:
+    test word [es:di+43h], 3000h    ; splice or local/SUBST
+    jz .advance
+    cmp word [es:di+1], 5c3ah      ; ':\' canonical absolute prefix
+    jne .unsafe
+    mov al, [es:di]
+    and al, 0dfh                    ; fold possible lowercase drive
+    sub al, 'A'
+    cmp al, [hd_cds_count]
+    jae .unsafe
+    cmp al, bl
+    je .unsafe
+.advance:
+    add di, HD_CDS_SIZE
+    loop .next
+    clc
+    jmp .done
+.unsafe:
+    stc
+.done:
+    pop es
+    pop di
+    pop cx
+    pop bx
+    pop ax
     ret
 
 hd_dpl times 11 dw 0
