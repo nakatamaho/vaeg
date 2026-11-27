@@ -242,6 +242,15 @@ close/abort recovery separately from 6C00h and ordinary handle operations.
   limit. An unbound I/O port returning `FFh` is not evidence of selector
   zero. Without affirmative proof, reject the span. The wire bounce
   window is unchanged.
+- The M173 host-internal amendment permits the memory decoder to answer a
+  read-only physical span query from the active RAM limit and BMS selector,
+  without reading guest I/O. Bank zero is still required when the port is
+  unbound: a normal disabled-BMS reset sets the selector to zero, and the
+  decoder follows the selector, not the port binding. This does not change
+  v1. It cannot by itself qualify a guest-side store: `hostdrv!1` only
+  supplies the bounce address, and `hd_output_span` validates DOS pointers
+  locally before `REP MOVSB` or register-frame stores. Do not widen that
+  check until an approved mechanism connects the proof to the guest store.
 
 ## Proposed wire protocol v1
 

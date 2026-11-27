@@ -212,14 +212,25 @@ disabled. A read of `FFh` cannot distinguish unbound from selected `FFh`
 on the active BMS port, and the selector readback does not provide the
 active RAM ceiling. The existing v1 protocol provides neither piece of
 state. The conservative ceiling remains `80000h`, and the bounce window is
-unchanged. Resolving this for the default configuration requires an
-approved way to expose authoritative mapping state to the guest.
+unchanged. The host-internal `memoryva_native_mainram_span` query now
+checks active RAM and the decoder's selector. The Linux release-preset
+build and all 14 HOSTDRV CTests passed, including synthetic BMS-unbound,
+bound bank-zero, nonzero selector and short-RAM cases.
+
+This does not unblock guest stores. `hostdrv!1` receives only the bounce
+address; it does not receive the DOS destination or return mapping proof.
+The guest validates the destination itself (sometimes before any packet,
+as in the size-only XA query). Reinterpreting an existing reply or moving
+the DOS write into the host would change the approved transport contract.
+No such change was made; the guest check still fails closed at `80000h`.
 
 ## Next steps and remaining gates
 
-1. Approve a read-only guest-visible mapping check for the upper output
-   span, then qualify that bound and verify TYPE/COPY and a nonzero BMS
-   selector negative. Add the minimal FCB paths only with distinct
+1. Decide whether to approve a separate guarded, read-only span query
+   outside v1 packets, with validation and the guest store in the same
+   interrupt-masked interval. This would leave v1 packet bytes and the
+   bounce window unchanged, but add a guest-visible interface. Then verify
+   TYPE/COPY and a nonzero BMS selector negative. Add the minimal FCB paths only with distinct
    traces for allocation, positioned transfer, eviction and abort. Check
    NLS changes while resident, copied-DTA replay, remaining task cases, and
    busy and TF refusal with a no-port-I/O assertion.

@@ -37,8 +37,9 @@ resident-stack entry and CDS dependency scan are wired into a development
 chdir/attribute queries, ordinary file handles, enumeration and capacity.
 Extended open now publishes the action in saved user CX under the approved
 DOS IFS contract. The approved empty-list `112Dh` query is implemented.
-COMMAND TYPE/COPY remain blocked on a guest-visible proof of the active
-mapping for upper DOS output RAM; unqualified spans still fail closed.
+The host-internal native RAM span query is implemented and tested.
+COMMAND TYPE/COPY remain blocked: v1 does not convey the DOS destination
+or mapping proof to the guest, which still rejects unqualified spans.
 FCBs, the remaining functional and lifecycle checklist, the Windows backend
 and static handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.

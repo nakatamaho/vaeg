@@ -919,6 +919,47 @@ static int test_va_tvram_window(void) {
 	return (result);
 }
 
+static int test_hostdrv_native_ram_span(void) {
+	const UINT16 saved_preference = np2cfg.main_ram;
+	const UINT16 saved_active = (UINT16)(pccore_mainram_limit() / 1024);
+	const _BMSIO saved_bmsio = bmsio;
+	BYTE saved_backup[sizeof(backupmem)];
+	const char *problem = NULL;
+
+	CopyMemory(saved_backup, backupmem, sizeof(saved_backup));
+	np2cfg.main_ram = 640;
+	pccore_mainram_reset();
+	bmsio.cfg.enabled = FALSE;
+	bmsio.bank = 0;
+	if (!memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_UNBOUND_BANK_ZERO";
+		goto done;
+	}
+	bmsio.cfg.enabled = TRUE;
+	if (!memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_BOUND_BANK_ZERO";
+		goto done;
+	}
+	bmsio.bank = 1;
+	if (memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_NONZERO_BANK";
+		goto done;
+	}
+	bmsio.bank = 0;
+	np2cfg.main_ram = 512;
+	pccore_mainram_reset();
+	if (memoryva_native_mainram_span(0x80000, 0x20000))
+		problem = "HD_RAM_NOT_INSTALLED";
+
+done:
+	bmsio = saved_bmsio;
+	np2cfg.main_ram = saved_active;
+	pccore_mainram_reset();
+	np2cfg.main_ram = saved_preference;
+	CopyMemory(backupmem, saved_backup, sizeof(saved_backup));
+	return problem ? fail("HOSTDRV native RAM span", problem) : SUCCESS;
+}
+
 static int test_va_bms_window(void) {
 	_BMSIOCFG saved_bmsiocfg;
 	_BMSIO saved_bmsio;
@@ -12746,7 +12787,7 @@ int vaeg_selftest_run(void) {
 		if (test_hostfat_transport() != SUCCESS) {
 			return FAILURE;
 		}
-		if (test_hostdrv_transport() != SUCCESS)
+		if (test_hostdrv_transport() != SUCCESS || test_hostdrv_native_ram_span() != SUCCESS)
 			return FAILURE;
 		return test_hostdrv_lifecycle();
 	}
