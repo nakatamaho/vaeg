@@ -319,6 +319,7 @@ hd_device:
 
 hd_packet times 4160 db 0
 hd_resident_end:
+HD_RESIDENT_PARAGRAPHS equ (hd_resident_end-$$+100h+15)/16
 
 ; Exact opt-in (also required for uninstall). Optional single drive or /U.
 transient:
@@ -379,6 +380,20 @@ skip_spaces:
     ret
 
 options_done:
+    cmp byte [remove], 0
+    jne .profile
+    ; Include the PSP and all paragraphs kept by INT 21h/31h. The
+    ; exclusive end may touch 8000h, but no retained byte may enter BMS.
+    mov ax, cs
+    cmp ax, 0a000h
+    jae .profile
+    add ax, HD_RESIDENT_PARAGRAPHS
+    cmp ax, 8000h
+    jbe .profile
+    mov dx, refused_bms
+    mov al, 1
+    jmp emit
+.profile:
     call hd_profile
     jc refuse_near
     push ds
@@ -474,7 +489,7 @@ options_done:
     mov [es:HD_VECTOR+2], cs
     popf
     mov ax, 3100h
-    mov dx, (hd_resident_end-$$+100h+15)/16
+    mov dx, HD_RESIDENT_PARAGRAPHS
     int 21h                       ; this DOS profile does not return
     ; Unexpected return: do not leave the hook pointing into this block
     ; when DOS frees it. Leave the host guard in place for a full reset.
@@ -700,6 +715,7 @@ tsr_segment dw 0
 nls_reply times 5 db 0
 removed db 'HOSTDRV removed',13,10,'$'
 refused db 'HOSTDRV refused; use /VAEG [X:] or /VAEG /U',13,10,'$'
+refused_bms db 'HOSTDRV refused: resident image overlaps BMS; free low memory or load HOSTDRV earlier',13,10,'$'
 reset_required db 'HOSTDRV transaction or cleanup not confirmed; full reset required',13,10,'$'
 
 %if hd_resident_end-$$+100h > 12288

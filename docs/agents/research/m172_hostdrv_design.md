@@ -639,7 +639,11 @@ and default drive; accept explicit override only for a free entry, no CDS
 expansion. Save the exact original CDS and old vector. Allocate the resident
 block, free the transient environment, and attach just before publishing the CDS
 and hook. Failure rolls back both and releases the session before DOS
-resumes. Retain only required paragraphs.
+resumes. Retain only required paragraphs. **M173 BMS amendment:** Refuse
+installation before probing DOS or the channel if any retained paragraph
+(including the private stack and bounce window) overlaps `80000h–9FFFFh`.
+A later bank switch must not invalidate DOS's INT 2Fh chain. Tell the user
+to free low memory or load HOSTDRV earlier; leave the CDS and vector intact.
 Target ≤12 KiB including 4160-byte bounce buffer, stack and tables. DOS
 serializes normal calls, but INT 2Fh can be nested; use a private stack for
 owned work after a guarded handoff, not a large stack allocation inside DOS.
