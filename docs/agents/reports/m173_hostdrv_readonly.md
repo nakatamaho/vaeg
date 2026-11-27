@@ -295,8 +295,18 @@ shared with Linux.
 Linux HOSTDRV CTests: 15 passed. The standalone Windows fixture cross-compiles
 statically with system DLL imports only. The clean static MinGW application
 build of the adapter checkpoint passed the encoder archive and PE import
-checks. NTFS fixture and Windows guest execution: **NOT RUN**.
-It checks ancestor locking and replacement, fresh path identity, special and
+checks. The maintainer's initial NTFS fixture run failed at the combined
+selection/empty-directory preflight; none of the NTFS behavior checks ran.
+Windows guest execution: **NOT RUN**.
+
+[`e0819fd4`](https://github.com/nakatamaho/vaeg/commit/e0819fd47a42a560d9eb6f05941d95cb31658528)
+splits preflight selection from the emptiness check and reports API failures
+with Win32 or NTSTATUS codes, filesystem flags, and attributes and reparse
+tags for each opened path component. It also corrects a strict-casing issue
+in explicit mount selection, without relaxing guest lookup; its connection
+to the first run's failure is unconfirmed. The diagnostic rerun is pending.
+
+The fixture checks ancestor locking and replacement, fresh path identity, special and
 reparse rejection, timestamp preservation, and CP932 names. A timestamp pass
 with updates disabled is evidence for that system mode only; record the
 reported setting and do not infer enabled-mode coverage. The fixture does

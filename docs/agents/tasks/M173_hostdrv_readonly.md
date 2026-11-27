@@ -45,8 +45,8 @@ implemented. The installer refuses to retain any paragraph in the BMS
 window. The debug harness can invoke the frontend full-reset path;
 a normal VA guest warm reboot and the remaining functional checks are
 separate gate items. The Windows backend is implemented for explicit local
-NTFS sessions. The standalone NTFS fixture and the Windows guest check are
-pending execution. See the [progress report](../reports/m173_hostdrv_readonly.md).
+NTFS sessions. The initial NTFS fixture failed preflight; a diagnostic rerun
+and the Windows guest check are pending. See the [progress report](../reports/m173_hostdrv_readonly.md).
 Not ready for G173: cross-compilation does not establish the Windows
 runtime containment and no-access-time guarantees.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

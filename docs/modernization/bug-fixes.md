@@ -35,6 +35,20 @@ land.
 
 ## Maintenance Rules
 
+### M173 — Explicit Windows HOSTDRV paths required exact component case
+
+- **Symptom/scope:** A drive-absolute selection could be rejected when its
+  component spelling differed from the NTFS spelling only by case.
+- **Cause/correction:** Mount selection used the same exact-spelling walk
+  as the guest namespace. Explicit selection now accepts Windows case
+  equivalence in the handle-relative walk and file-name check. Guest name
+  lookup and metadata containment checks are unchanged.
+- **Verification:** Added a mixed-case selection and same-object check to
+  the standalone MinGW fixture; native execution pending. This is not an
+  attribution of the initial NTFS preflight failure.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [e0819fd4](https://github.com/nakatamaho/vaeg/commit/e0819fd47a42a560d9eb6f05941d95cb31658528).
+
 ### M173 — HOSTDRV must not keep code in the BMS window
 
 - **Symptom/scope and cause:** A redirector retained in the VA BMS window
@@ -5336,6 +5350,14 @@ separate parity correction or move it to Open Defects.
   bits and reset latch; see the [default-behavior audit](printer-serial-files.md#pr-notes-default-behavior-audit).
 
 ## Open Defects
+
+### M173 — Initial NTFS fixture preflight rejected a normal test directory
+
+The standalone test combined backend selection and empty-directory probing
+in one result, so the failed step and root cause have not been established.
+The [diagnostic follow-up](../agents/reports/m173_hostdrv_readonly.md#windows-adapter-checkpoint)
+separates the checks and reports the failure site and platform code on the
+next run.
 
 ### M144a — independent N80 CRTC geometry remains unresolved
 
