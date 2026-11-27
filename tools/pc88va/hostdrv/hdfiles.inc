@@ -86,6 +86,8 @@ hd_find_file:
 hd_file_dispatch:
     cmp ax, 1116h
     je hd_open_file
+    cmp ax, 112eh
+    je hd_extopen
     cmp ax, 1106h
     jb hd_path_dispatch
     cmp ax, 110ah
@@ -118,11 +120,76 @@ hd_file_dispatch:
     mov ax, 6
     jmp hd_return_error
 
+; DOS clears EXTOPEN_ON after our return, bypassing its own USER_CX
+; update. Validate the saved INT 21h frame before allocating a handle.
+hd_extopen:
+    cmp byte [hd_latched], 0
+    jne hd_file_fault
+    call hd_verify_tables
+    jc hd_file_fault
+    push es
+    les di, [hd_sda]
+    cmp word [es:di+1ah], 6c00h  ; USER_IN_AX
+    jne .bad_frame
+    test byte [es:di+2d6h], 1    ; EXTOPEN_ON
+    jz .bad_frame
+    mov ax, [es:di+2d4h]
+    mov [hd_ext_action], ax
+    les di, [es:di+264h]         ; user_SP:user_SS, as in get_user_stack
+    mov cx, 24                  ; user_environ
+    call hd_dos_span
+    jc .bad_frame
+    cmp word [es:di], 6c00h      ; user_AX
+    jne .bad_frame
+    mov [hd_ext_frame], di
+    mov [hd_ext_frame+2], es
+    pop es
+    mov ax, [hd_ext_action]
+    cmp ax, 1
+    je hd_open_file.checked
+    cmp ax, 11h
+    je hd_open_file.checked
+    cmp ax, 2
+    je .probe
+    cmp ax, 10h
+    je .probe
+    cmp ax, 12h
+    jne .invalid
+.probe:
+    mov al, 1                   ; STAT, never allocate for a mutation
+    call hd_session_prepare
+    call hd_copy_path
+    jc hd_return_error
+    call hd_submit
+    jc hd_return_error
+    cmp ax, 2
+    je .missing
+    test ax, ax
+    jnz hd_return_error
+    mov ax, 5                   ; replace requested
+    cmp word [hd_ext_action], 10h
+    jne hd_return_error
+    mov ax, 80                  ; existing file with fail-if-exists
+    jmp hd_return_error
+.missing:
+    cmp word [hd_ext_action], 2
+    je hd_return_error
+    mov ax, 5                   ; create requested
+    jmp hd_return_error
+.invalid:
+    mov ax, 1
+    jmp hd_return_error
+.bad_frame:
+    pop es
+    jmp hd_file_fault
+
 hd_open_file:
+    mov word [hd_ext_action], 0
     cmp byte [hd_latched], 0
     jne .fault
     call hd_verify_tables
     jc .fault
+.checked:
     push es
     les di, [hd_sda]
     les di, [es:di+27eh]          ; THISSFT
@@ -162,6 +229,12 @@ hd_open_file:
     mov [hd_packet+30], ax
     call hd_submit
     jc hd_file_ambiguous
+    cmp ax, 2
+    jne .status
+    cmp word [hd_ext_action], 11h
+    jne .status
+    mov ax, 5                   ; missing file would require creation
+.status:
     test ax, ax
     jnz hd_return_error
     push es
@@ -217,6 +290,11 @@ hd_open_file:
     mov si, hd_open_name
     mov cx, 11
     rep movsb
+    cmp word [hd_ext_action], 0
+    je .published
+    les di, [hd_ext_frame]
+    mov word [es:di+4], 1       ; USER_CX in the INT 21h frame
+.published:
     pop es
     jmp hd_dispatch.done
 .bad_sft:
@@ -556,6 +634,8 @@ hd_file_count db 0
 hd_file_row dw 0
 hd_open_sft dd 0
 hd_open_mode dw 0
+hd_ext_action dw 0
+hd_ext_frame dd 0
 hd_open_name times 11 db 0
 hd_read_left dw 0
 hd_read_dma dd 0

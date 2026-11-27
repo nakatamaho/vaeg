@@ -86,6 +86,7 @@ fields and end marker. This is the relevant subset, not a memory-copy spec.
 | `09E,11E,19E` | `OPENBUF`, `RenBuf` (128 bytes each), `SEARCHBUF` (53 bytes) |
 | `22B,237` | `NAME1`, `NAME2` (12/13 bytes; overlap the temporary device directory entry, not the canonical path) |
 | `24C,24D,24E` | extended FCB flag, search attributes, open access |
+| `264,266` | `user_SP`, `user_SS` (saved INT 21h register frame, see M173 amendment) |
 | `27E,282,286` | `THISSFT`, `THISCDS`, `THISFCB` (far pointers) |
 | `292,294,296` | `WFP_START`, `REN_WFP`, `CURR_DIR_END` (DOSGroup offsets; the last can be FFFFh) |
 | `2D4,2D6,2D7,2DF,2E1` | extended-open action/flags word, active byte, I/O mode word, saved CX/BX |
@@ -198,10 +199,19 @@ never propagate it to the host.
 
 DOS 4 additions versus a 3.x redirector profile: `AX=6C00h` saves the
 extended-open mode and action, passes creation attributes on the stack and
-uses `EXTOPEN_FLAG` for the action returned in user CX (1 opened, 2 created,
-3 replaced; `DOS/FILE.ASM:668–755,785–831`). Snapshot input before overwriting
-it; read-only permits only an existing-file open with read access, returning
-1. If the request would create/replace, deny it without side effects; when
+uses `EXTOPEN_FLAG` for the local action returned in user CX (1 opened,
+2 created, 3 replaced; `DOS/FILE.ASM:668–755,785–831`). Snapshot input;
+read-only permits only an existing-file open with read access, returning 1.
+
+**M173 amendment (approved by Opus 5.5 under the G172 design, as the DOS 4.0
+IFS contract from source):** `DOS/OPEN.ASM:130–139` clears `EXTOPEN_ON`
+after `112Eh`, so DOS skips `setXAttr` (`DOS/FILE.ASM:753–806`, “IFS does
+it”). On successful owned `112Eh`, HOSTDRV writes action 1 into saved
+`USER_CX` at frame offset `+04h` (`INC/DOSSYM.INC`) via SDA `user_SP` /
+`user_SS` at `+264h` / `+266h` (`INC/MS_DATA.ASM`,
+`DOS/DISP.ASM:543–548`). Check the frame before allocation; on failure do
+not update saved CX. Neither the DOS profile nor the kernel changes.
+ If the request would create/replace, deny it without side effects; when
 no operation is requested for a missing/existing file, return the normal
 file-not-found/file-exists result. Extended IFS query/EA/control paths do not
 imply permission to forward arbitrary host IOCTLs. The DOS 4 long BPB fields

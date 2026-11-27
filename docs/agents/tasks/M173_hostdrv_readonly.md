@@ -35,9 +35,9 @@ DOS profile and CDS selection probes are implemented. The guarded
 resident-stack entry and CDS dependency scan are wired into a development
 `HOSTDRV.COM` with opt-in install/remove, a CP932 profile check and owned
 chdir/attribute queries, ordinary file handles, enumeration and capacity.
-Extended open needs an ABI correction: the DOS remote-open path skips
-publishing the action in user CX. FCBs, the remaining functional and
-lifecycle checklist, the Windows backend and static handoff remain open. See the
+Extended open now publishes the action in saved user CX under the approved
+DOS IFS contract. COMMAND TYPE/COPY diagnosis, FCBs, the remaining functional
+and lifecycle checklist, the Windows backend and static handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

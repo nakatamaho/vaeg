@@ -102,6 +102,39 @@ org 100h
     jnc bad
     cmp ax,5
     jne bad
+    inc byte [step]
+    mov si,path
+    mov bx,40h
+    mov cx,0                    ; sentinel, not the expected action
+    mov dx,11h                  ; open existing, create missing
+    mov ax,6c00h
+    int 21h
+    jc bad
+    cmp cx,1
+    jne bad
+    mov bx,ax
+    mov ah,3eh
+    int 21h
+    jc bad
+    inc byte [step]
+    mov si,missing
+    mov bx,40h
+    xor cx,cx
+    mov dx,1
+    mov ax,6c00h
+    int 21h
+    jnc bad
+    cmp ax,2
+    jne bad
+    mov si,missing
+    mov bx,40h
+    xor cx,cx
+    mov dx,11h
+    mov ax,6c00h
+    int 21h
+    jnc bad
+    cmp ax,5
+    jne bad
     mov dx,pass
     jmp emit
 bad:
@@ -112,6 +145,7 @@ emit:
     mov ax,4c00h
     int 21h
 path db 'E:\DATA.BIN',0
+missing db 'E:\NOFILE.BIN',0
 dup dw 0
 pass db 'HDFILE PASS',13,10,'$'
 fail db 'HDFILE FAIL '

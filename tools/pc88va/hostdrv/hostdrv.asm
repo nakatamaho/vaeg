@@ -63,6 +63,8 @@ hd_classify:
     je .cds
     cmp ax, 1116h
     je .cds
+    cmp ax, 112eh
+    je .cds
     cmp ax, 111bh
     je .cds
     cmp ax, 111ch

@@ -40,7 +40,7 @@ unaffected.
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
-| Full redirector verb and FCB traces | NOT RUN by public checks | Ordinary handle and search dispatch are implemented; extended open and FCB dispatch remain open. |
+| Full redirector verb and FCB traces | NOT RUN by public checks | Ordinary and extended opens and search dispatch are implemented; FCB dispatch remains open. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
 | `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
 | Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
@@ -52,7 +52,7 @@ unaffected.
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
-| Full installed guest lifecycle and operation checklist | OPEN | Extended open, FCBs and the full lifecycle checklist remain open. |
+| Full installed guest lifecycle and operation checklist | OPEN | COMMAND TYPE/COPY, FCBs and the full lifecycle checklist remain open. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
@@ -183,23 +183,17 @@ passed. Encoding, EOL and case checks passed.
   bounded eviction, process-exit release, and explicit uninstall draining.
   Capacity reports 512-byte sectors and zero free units for the read-only
   mapping. All 14 HOSTDRV CTests passed; COM checks assemble only.
-- **Extended-open ABI blocker:** the design specifies that the redirector
-  writes `EXTOPEN_FLAG` and DOS returns that action in the application's CX.
-  The named DOS source does not follow that path for a remote open:
-  `DOS/OPEN.ASM` clears `EXTOPEN_ON` unconditionally after INT 2Fh/112Eh;
-  then `DOS/FILE.ASM` (`ext_ok`) takes `ok_return` instead of `setXAttr`,
-  bypassing the write of `EXTOPEN_FLAG` to `USER_CX`. Writing the SDA action
-  field alone cannot satisfy the contract. Setting CX in the INT 2Fh frame
-  is not a write to the saved INT 21h user frame. No workaround outside
-  the approved ABI has been enabled.
+- Extended open follows the approved design amendment: after a read-only
+  open succeeds, `112Eh` writes action 1 to the validated saved INT 21h
+  register frame, not to the INT 2Fh frame. `HDFILE.COM` checks 6C00h with a
+  sentinel CX, then distinguishes missing-file failure from denied creation.
+  The Linux build and all 14 HOSTDRV CTests passed; the fixture CTest is
+  assembly-only.
 
 ## Next steps and remaining gates
 
-1. Agree on the extended-open ABI correction: either a kernel-side fix
-   and a newly bound DOS profile, or a separately specified and validated
-   redirector-side mechanism for returning the action to the saved INT 21h
-   frame. Verify COMMAND TYPE and COPY after that correction; do not infer
-   their operation from 3Dh. Add the minimal FCB paths only with distinct
+1. Diagnose COMMAND TYPE and COPY independently of 3Dh and 6C00h.
+   Add the minimal FCB paths only with distinct
    traces for allocation, positioned transfer, eviction and abort. Check
    NLS changes while resident, copied-DTA replay, remaining task cases, and
    busy and TF refusal with a no-port-I/O assertion.
