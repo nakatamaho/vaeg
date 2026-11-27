@@ -35,6 +35,19 @@ land.
 
 ## Maintenance Rules
 
+### M173 — HOSTDRV must not keep code in the BMS window
+
+- **Symptom/scope and cause:** A redirector retained in the VA BMS window
+  would leave INT 2Fh pointing at bank-dependent memory. The installer
+  checked the bounce span, not the whole retained block before probing DOS.
+- **Correction:** Reject an install when the paragraph-rounded resident
+  image intersects `80000h–9FFFFh`, before any DOS profile or channel probe.
+- **Verification:** The [HDBMS fixture](../../tools/pc88va/hostdrv/hdbms.asm)
+  forces the high load and checks the vector and full CDS table for changes;
+  its public CTest assembles the fixture only.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [d3d5e12e](https://github.com/nakatamaho/vaeg/commit/d3d5e12ed06f9fec927679fed1e0adeb9e3027c2).
+
 ### M173 — HOSTDRV rejected DOS output in upper conventional memory
 
 - **Symptom/scope:** During M173 development, COMMAND `TYPE` and `COPY`

@@ -1159,6 +1159,12 @@ if(VAEG_ENABLE_TESTS)
                 -o "${CMAKE_CURRENT_BINARY_DIR}/hdfile.com"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdfile.asm")
         set_tests_properties(vaeg_hostdrv_file_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_bms_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdbms.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdbms.asm")
+        set_tests_properties(vaeg_hostdrv_bms_fixture_build PROPERTIES LABELS "romless;hostdrv")
         add_test(NAME vaeg_hostdrv_com_build
             COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
                 -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
