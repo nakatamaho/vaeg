@@ -78,6 +78,8 @@ hd_interrupt:
     cld
     call hd_classify
     mov bp, sp
+    push cs
+    pop ds
     push ss
     pop es
     jc .chain

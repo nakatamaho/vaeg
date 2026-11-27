@@ -45,6 +45,10 @@ start:
     stc
     invoke
     jnc failure
+    mov dx, ds
+    mov si, cs
+    cmp dx, si
+    jne failure
     pushf
     pop dx
     test dx, 0400h
@@ -133,9 +137,15 @@ hd_classify:
     cmp ax, 111dh
     je .owned
     stc
-    ret
+    jmp .scratch
 .owned:
     clc
+.scratch:
+    ; Classifiers can load unrelated DOS segments and use BP as scratch.
+    mov dx, 0
+    mov ds, dx
+    mov es, dx
+    mov bp, dx
     ret
 
 hd_dispatch:
