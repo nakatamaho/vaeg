@@ -306,8 +306,7 @@ hd_reap_searches:
     add bx, HD_SEARCH_ROW
     jmp .next
 .chain:
-    stc                            ; untouched broadcast frame
-    ret
+    jmp hd_reap_fcbs               ; also chains the untouched broadcast frame
 
 ; Transient uninstall calls this code with the resident data segment.
 hd_drain_searches:

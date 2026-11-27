@@ -27,7 +27,8 @@ org 0x100
 
 ; Synthetic fixture for DOS 4.0 VA, FCBS=4,0. Run from the local drive
 ; with its FCB cache otherwise unused. Pass the HOSTDRV drive letter.
-; Root: ERR.DAT plus FCB1.DAT through FCB5.DAT, 128 bytes of 5Ah each.
+; Root: ERR.DAT plus FCB1.DAT through FCB5.DAT, starting with 128
+; bytes of 5Ah each. FCB5.DAT also holds 128 bytes of 59h at offset 10000h.
 ; Inject DOS 31 once for READ of ERR.DAT at position zero. Do not inject
 ; a transport error: the live session is needed for the recovery checks.
 
@@ -53,6 +54,7 @@ start:
     mov [si], al
     add si, FCB_SIZE
     loop .set_drives
+    mov [find_fcb], al
 
     mov ax, 0x3000
     int 0x21
@@ -140,6 +142,19 @@ start:
     jne failed
     inc si
     loop .check_byte
+    mov word [last_fcb+33], 512    ; 512 * 128 = 10000h byte offset
+    mov dx, last_fcb
+    mov ah, 21h                   ; random read
+    int 21h
+    test al, al
+    jnz failed
+    mov si, transfer
+    mov cx, 128
+.check_random_byte:
+    cmp byte [si], 59h
+    jne failed
+    inc si
+    loop .check_random_byte
 
     inc byte [failure]
     mov word [next_fcb], working_fcbs
@@ -149,6 +164,24 @@ start:
     add word [next_fcb], FCB_SIZE
     cmp word [next_fcb], fcbs_end
     jb .close_next
+    inc byte [failure]
+    mov dx, find_fcb
+    mov ah, 11h
+    int 21h
+    test al, al
+    jnz failed
+    cmp byte [transfer+4], '1'
+    jne failed
+    mov dx, find_fcb
+    mov ah, 12h
+    int 21h
+    test al, al
+    jnz failed
+    cmp byte [transfer+4], '2'
+    jne failed
+    inc byte [failure]
+    mov dx, last_fcb
+    call open_fcb                 ; leave one open for DOS process exit
     mov dx, msg_pass
     mov ah, 9
     int 0x21
@@ -194,6 +227,7 @@ working_fcbs: fcb 'FCB1    DAT'
     fcb 'FCB4    DAT'
 last_fcb: fcb 'FCB5    DAT'
 fcbs_end:
+find_fcb: fcb 'FCB?    DAT'
 next_fcb dw 0
 failure db 0
 msg_pass db 'HDFCBTST PASS',13,10,'$'

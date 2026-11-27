@@ -59,6 +59,16 @@ hd_find_file:
     jmp .bad
 .verify:
     mov es, dx
+    call hd_file_identity
+    pop es
+    ret
+.bad:
+    pop es
+    stc
+    ret
+
+; ES:DI points to the SFT recorded in occupied registry row BX.
+hd_file_identity:
     mov ax, [bx+8]
     cmp [es:di+0bh], ax
     jne .bad
@@ -75,11 +85,9 @@ hd_find_file:
     mov ax, cs
     cmp [es:di+39h], ax
     jne .bad
-    pop es
     clc
     ret
 .bad:
-    pop es
     stc
     ret
 
@@ -245,14 +253,31 @@ hd_open_file:
     les di, [es:di+27eh]          ; THISSFT
     mov [hd_open_sft], di
     mov [hd_open_sft+2], es
+    mov ax, [hd_sft_head]
+    mov dx, [hd_sft_head+2]
+    call hd_validate_open_slot
+    jnc .ordinary
+    mov ax, [hd_fcb_head]
+    mov dx, [hd_fcb_head+2]
     call hd_validate_open_slot
     jc .bad_sft
     les di, [hd_open_sft]
+    cmp word [es:di], 0           ; LRUFCB blasted this slot before DOS_Open
+    jne .bad_sft
+    cmp word [es:di+2], 8002h     ; FCB compatibility open-for-both
+    jne .bad_sft
+    cmp word [hd_ext_action], 0
+    jne .bad_sft
+    xor ax, ax                   ; effective read-only compatibility mode
+    jmp .mode
+.ordinary:
+    les di, [hd_open_sft]
     mov ax, [es:di+2]
-    test ah, 80h                 ; FCB dispatch is not enabled yet
-    jnz .denied_sft
+    test ah, 80h
+    jnz .bad_sft
     cmp word [es:di], -1          ; DOS's reserved ordinary SFT
     jne .bad_sft
+.mode:
     pop es
     and ax, 77h
     test al, 7
@@ -260,15 +285,29 @@ hd_open_file:
     mov [hd_open_mode], ax
     mov bx, hd_files
     mov cx, HD_FILE_MAX
-.free:
+    mov word [hd_file_row], 0
+.scan_rows:
     cmp word [bx+8], 0
-    je .found
+    je .free
+    mov ax, [hd_open_sft]
+    cmp [bx], ax
+    jne .next_row
+    mov ax, [hd_open_sft+2]
+    cmp [bx+2], ax
+    je .fault
+    jmp .next_row
+.free:
+    cmp word [hd_file_row], 0
+    jne .next_row
+    mov [hd_file_row], bx
+.next_row:
     add bx, HD_FILE_ROW
-    loop .free
+    loop .scan_rows
+    cmp word [hd_file_row], 0
+    jne .found
     mov ax, 4
     jmp hd_return_error
 .found:
-    mov [hd_file_row], bx
     mov al, 3
     call hd_session_prepare
     call hd_copy_path
@@ -304,6 +343,10 @@ hd_open_file:
     mov word [es:di+1dh], HD_TAG
     mov byte [es:di+1fh], 0
     inc byte [hd_file_count]
+    test byte [es:di+3], 80h
+    jz .access_set
+    mov byte [es:di+2], 0         ; preserve sf_IsFCB, deny writes in DOS
+.access_set:
     mov al, [hd_packet+44]
     mov [es:di+4], al
     xor ax, ax
@@ -352,16 +395,15 @@ hd_open_file:
 .fault:
     mov ax, 31
     jmp hd_return_error
-.denied_sft:
-    pop es
 .denied:
     mov ax, 5
     jmp hd_return_error
 
-; Validate THISSFT against the ordinary table, not just a RAM span. A
+; Validate THISSFT against the table at DX:AX, not just a RAM span. A
 ; malformed chain cannot authorize a pointer into a header or entry body.
 hd_validate_open_slot:
-    les di, [hd_sft_head]
+    mov di, ax
+    mov es, dx
     mov si, 256
 .block:
     cmp di, -1
@@ -498,24 +540,24 @@ hd_close_file:
     je .invalid
     dec word [es:di]
     jnz .nonfinal
-    mov word [bx+8], 0
-    dec byte [hd_file_count]
-    xor ax, ax
-    mov [es:di+19h], ax
-    mov [es:di+1bh], ax
-    mov [es:di+1dh], ax
+    mov al, [es:di+3]
+    call hd_retire_slot
     pop es
+    push ax
     test si, si                  ; caller TF: do not touch the ports
-    jnz hd_file_ambiguous
-    cmp byte [hd_latched], 0
-    jne hd_file_ambiguous
-    mov al, 5
-    call hd_prepare_file
-    call hd_submit
-    jc hd_file_ambiguous
+    jz .send
+    call hd_close_ambiguous
+    jmp .status
+.send:
+    call hd_send_close
+.status:
+    pop dx
     test ax, ax
-    jnz hd_return_error
-    jmp hd_dispatch.done
+    jz hd_dispatch.done
+    test dl, 80h                 ; FCB eviction tolerates invalid handle
+    jz hd_return_error
+    mov ax, 6
+    jmp hd_return_error
 .nonfinal:
     pop es
     jmp hd_dispatch.done
@@ -523,6 +565,62 @@ hd_close_file:
     pop es
     mov ax, 6
     jmp hd_return_error
+
+; ES:DI is the SFT, BX is its row. Leave the consumed host token in the
+; now-free row until the one CLOSE attempt completes.
+hd_retire_slot:
+    mov word [bx+8], 0
+    dec byte [hd_file_count]
+    mov word [es:di+19h], 0
+    mov word [es:di+1bh], 0
+    mov word [es:di+1dh], 0
+    ret
+
+hd_send_close:
+    cmp byte [hd_latched], 0
+    jne hd_close_ambiguous
+    mov al, 5
+    call hd_prepare_file
+    call hd_submit
+    jc hd_close_ambiguous
+    ret
+hd_close_ambiguous:
+    mov byte [hd_latched], 1
+    mov ax, 31
+    ret
+
+; DOS announces exit before clearing FCB SFT counts. Reconcile only our
+; FCBs for PROC_ID, never a JFN whose reference may outlive this process.
+; Caller verified non-reentrancy and TF clear; the abort frame is untouched.
+hd_reap_fcbs:
+    push es
+    les di, [hd_sda]
+    mov ax, [es:di+1ch]
+    mov [hd_exit_pid], ax
+    mov bx, hd_files
+.next:
+    cmp word [bx+8], 0
+    je .skip
+    les di, [bx]
+    test byte [es:di+3], 80h
+    jz .skip
+    mov ax, [hd_exit_pid]
+    cmp [es:di+31h], ax
+    jne .skip
+    call hd_file_identity
+    jc .skip
+    call hd_retire_slot          ; DOS clears sf_ref_count after broadcast
+    mov [hd_file_row], bx
+    push bx
+    call hd_send_close
+    pop bx
+.skip:
+    add bx, HD_FILE_ROW
+    cmp bx, hd_files+HD_FILE_MAX*HD_FILE_ROW
+    jb .next
+    pop es
+    stc                          ; chain the broadcast
+    ret
 
 hd_file_ambiguous:
     mov byte [hd_latched], 1
@@ -684,6 +782,7 @@ hd_prepare_file:
 hd_files times HD_FILE_MAX*HD_FILE_ROW db 0
 hd_file_count db 0
 hd_file_row dw 0
+hd_exit_pid dw 0
 hd_open_sft dd 0
 hd_open_mode dw 0
 hd_ext_action dw 0
