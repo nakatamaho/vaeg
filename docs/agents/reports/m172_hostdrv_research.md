@@ -54,6 +54,26 @@ server interface sense. Run at a foreground DOS prompt, not in a server
 session. The version guard prevents the private calls on non-4.00 DOS but
 is not a general compatibility check for other kernels claiming 4.00.
 
-The design deliberately leaves FCB cache semantics, precise CDS install
-shape and platform containment APIs as implementation acceptance items.
-G172 is review of the proposal, not acceptance of a file-serving product.
+## G172 review revision
+
+The revised design requires opt-in emulator-only discovery, exclusive port
+transactions, and a response-only marker with an echoed sequence. It
+specifies exact v1 packet lengths and fields, copied-DTA retention, SFT
+identity and close cleanup, and a save/load guard that survives host detach
+and CPU-only reset. The host design now separates root-relative authorization
+from already-open object lifetime, rejects special files before data open,
+and defines VA code page 932 folding, wildcard and alias identity rules.
+Read-only service never writes host timestamps; `5701h` can still change
+the DOS SFT locally.
+
+The [G172 decision list](../research/m172_hostdrv_design.md#maintainer-decisions-for-g172)
+recommends minimal FCB support, Linux and Windows first with conditional
+macOS support, synthetic CDS/SFT and transport proof before UI, and gate
+coverage for LASTDRIVE exhaustion and actual SUBST/JOIN utilities. These
+are recommendations, not accepted gate decisions. Real-hardware discovery
+safety is unproven, and the precise CDS install shape, platform guarantees,
+and DOS lifecycle traces still need implementation evidence.
+
+Revision checks: repository case, encoding, EOL and Markdown-comment
+validators, diff whitespace check, and the unchanged NASM probe build.
+No emulator or HOSTDRV implementation was built for this design revision.
