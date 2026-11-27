@@ -23,6 +23,8 @@
 #include "fdd_mtr.h"
 #include "sxsi.h"
 #include "hostfat.h"
+#include "io/hostdrv_lifecycle.h"
+#include "io/hostdrv_wire.h"
 #include "machine/calendar.h"
 #include "machine/keystat.h"
 
@@ -87,6 +89,7 @@ enum {
 	STATFLAG_BMS,
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
+	STATFLAG_HOSTDRV,
 	STATFLAG_UPD8087,
 	STATFLAG_MAIN_CPU,
 	STATFLAG_PCG_PHASE,
@@ -106,6 +109,8 @@ typedef struct {
 #define PROCID(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
 #define PROC2NUM(a, b) proc2num(&(a), (b), sizeof(b) / sizeof(PROCTBL))
 #define NUM2PROC(a, b) num2proc(&(a), (b), sizeof(b) / sizeof(PROCTBL))
+
+enum { HOSTDRV_STATE_SIZE = 8 };
 
 #include "machine/statsave.tbl"
 
@@ -1482,6 +1487,40 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	return (ret);
 }
 
+// ---- HOSTDRV uninstalled policy (no mapping authority)
+
+static BOOL statsave_hostdrv_allowed(char *error, int size) {
+	if (!hostdrv_state_guarded())
+		return TRUE;
+	if (error && size > 0)
+		milstr_ncpy(error, "M173_HOSTDRV_RESIDENT", size);
+	return FALSE;
+}
+
+static int flagsave_hostdrv(STFLAGH sfh) {
+	BYTE payload[HOSTDRV_STATE_SIZE] = {0};
+	HD_MARKS marks = hostdrv_get_marks();
+
+	/* Policy and reserved bytes 0–1 must be zero. */
+	hostdrv_put16(payload + 2, marks.serial);
+	hostdrv_put32(payload + 4, marks.generation);
+	return statflag_write(sfh, payload, sizeof(payload));
+}
+
+static int flagcheck_hostdrv(STFLAGH sfh, const SFENTRY *tbl, HD_MARKS *marks) {
+	BYTE payload[HOSTDRV_STATE_SIZE];
+
+	if (sfh->hdr.ver != tbl->ver || sfh->hdr.size != sizeof(payload) ||
+	    statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS || payload[0] ||
+	    payload[1]) {
+		statflag_seterr(sfh, "M173_HOSTDRV_STATE");
+		return STATFLAG_FAILURE;
+	}
+	marks->serial = hostdrv_get16(payload + 2);
+	marks->generation = hostdrv_get32(payload + 4);
+	return STATFLAG_SUCCESS;
+}
+
 // ---- HOSTFAT immutable snapshot identity
 
 enum {
@@ -1622,6 +1661,8 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 	const SFENTRY *tblterm;
 	if (error && error_size > 0)
 		error[0] = 0;
+	if (!statsave_hostdrv_allowed(error, error_size))
+		return STATFLAG_FAILURE;
 	if (filename && filename[0]) {
 		for (attempt = 0; attempt < 64; attempt++) {
 			int length = snprintf(temporary, sizeof(temporary), "%s.tmp-%lu-%u", filename,
@@ -1748,6 +1789,10 @@ int statsave_save_checked(const char *filename, char *error, int error_size) {
 		case STATFLAG_HOSTFAT:
 			ret |= flagsave_hostfat(&sffh->sfh, tbl);
 			break;
+
+		case STATFLAG_HOSTDRV:
+			ret |= flagsave_hostdrv(&sffh->sfh);
+			break;
 		}
 		tbl++;
 	}
@@ -1769,9 +1814,7 @@ int statsave_save(const char *filename) {
 	return statsave_save_checked(filename, NULL, 0);
 }
 
-static int statsave_check_internal(const char *filename, char *buf, int size,
-                                   BOOL allow_hostfat_mismatch) {
-	SFFILEH sffh;
+static int statsave_check_open(SFFILEH sffh, BOOL allow_hostfat_mismatch, HD_MARKS *marks) {
 	int ret;
 	BOOL done;
 	BOOL hostfat_seen;
@@ -1784,11 +1827,6 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	BOOL seen[sizeof(np2tbl) / sizeof(np2tbl[0])] = {0};
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
-
-	sffh = statflag_open(filename, buf, size);
-	if (sffh == NULL) {
-		return (STATFLAG_FAILURE);
-	}
 
 	done = FALSE;
 	hostfat_seen = FALSE;
@@ -1893,6 +1931,10 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 				ret |= flagcheck_hostfat(&sffh->sfh, tbl, allow_hostfat_mismatch);
 				break;
 
+			case STATFLAG_HOSTDRV:
+				ret |= flagcheck_hostdrv(&sffh->sfh, tbl, marks);
+				break;
+
 			case STATFLAG_TERM:
 				if (sffh->sfh.hdr.ver != tbl->ver || sffh->sfh.hdr.size ||
 				    (UINT64)sffh->secpos + sizeof(sffh->sfh.hdr) != file_getsize64(sffh->fh)) {
@@ -1982,8 +2024,32 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 		statflag_seterr(&sffh->sfh, "M142_STATE_UNSUPPORTED_SECTION");
 		ret = STATFLAG_FAILURE;
 	}
+	return ret;
+}
+
+static SFFILEH statsave_open_checked(const char *filename, char *buf, int size,
+                                     BOOL allow_hostfat_mismatch, HD_MARKS *marks) {
+	SFFILEH sffh;
+
+	if (!statsave_hostdrv_allowed(buf, size))
+		return NULL;
+	sffh = statflag_open(filename, buf, size);
+	if (sffh && statsave_check_open(sffh, allow_hostfat_mismatch, marks) != STATFLAG_SUCCESS) {
+		statflag_close(sffh);
+		return NULL;
+	}
+	return sffh;
+}
+
+static int statsave_check_internal(const char *filename, char *buf, int size,
+                                   BOOL allow_hostfat_mismatch) {
+	HD_MARKS marks = {0};
+	SFFILEH sffh = statsave_open_checked(filename, buf, size, allow_hostfat_mismatch, &marks);
+
+	if (!sffh)
+		return STATFLAG_FAILURE;
 	statflag_close(sffh);
-	return (ret);
+	return STATFLAG_SUCCESS;
 }
 
 int statsave_check(const char *filename, char *buf, int size) {
@@ -2003,15 +2069,19 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	const SFENTRY *tbl;
 	const SFENTRY *tblterm;
 
-	ret = statsave_check_internal(filename, error, error_size, allow_hostfat_mismatch);
-	if (ret != STATFLAG_SUCCESS)
+	HD_MARKS marks = {0};
+
+	sffh = statsave_open_checked(filename, error, error_size, allow_hostfat_mismatch, &marks);
+	if (!sffh)
 		return STATFLAG_FAILURE;
 
-	sffh = statflag_open(filename, error, error_size);
-	if (sffh == NULL) {
-		return (STATFLAG_FAILURE);
+	// Reuse the validated file handle, not a second lookup of the path.
+	sffh->secpos = sizeof(NP2FHDR);
+	sffh->stat &= ~SFFILEH_BLOCK;
+	if (file_seek(sffh->fh, sffh->secpos, FSEEK_SET) != (long)sffh->secpos) {
+		statflag_close(sffh);
+		return STATFLAG_FAILURE;
 	}
-
 	// PCCORE read!
 	ret = statflag_readsection(sffh);
 	if ((ret != STATFLAG_SUCCESS) || (memcmp(sffh->sfh.hdr.index, np2tbl[0].index, 10))) {
@@ -2019,6 +2089,7 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 		return (STATFLAG_FAILURE);
 	}
 
+	hostdrv_load_uninstalled(marks);
 	soundmng_stop();
 	vaeg_recording_native_session_epoch_change();
 	rs232c_midipanic();
@@ -2184,6 +2255,10 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 
 			case STATFLAG_HOSTFAT:
 				ret |= flagload_hostfat(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_HOSTDRV:
+				/* Already checked and applied before guest state mutation. */
 				break;
 
 			default:

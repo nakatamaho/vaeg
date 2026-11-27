@@ -335,6 +335,8 @@ set(VAEG_CORE_SOURCES
     io/vab.c
     io/fdc.c
     io/hostfat.c
+    io/hostdrv_lifecycle.c
+    io/hostdrv_wire.c
     io/mouseif.c
     io/np2sysp.c
     io/pic.c
@@ -840,6 +842,20 @@ if(WIN32 AND NOT VAEG_WINDOWS_CONSOLE)
     list(APPEND VAEG_SDL2_EXE_OPTIONS WIN32)
 endif()
 add_executable(vaeg_sdl2 ${VAEG_SDL2_EXE_OPTIONS} ${VAEG_SDL2_SOURCES})
+if(WIN32)
+    target_sources(vaeg_sdl2 PRIVATE sdl2/hostdrv_windows.cpp)
+    target_link_libraries(vaeg_sdl2 PRIVATE shell32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(vaeg_sdl2 PRIVATE sdl2/hostdrv_linux.cpp)
+endif()
+if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(vaeg_sdl2 PRIVATE
+        sdl2/hostdrv_namespace.cpp
+        sdl2/hostdrv_service.cpp
+        sdl2/hostdrv_names.cpp
+        sdl2/hostdrv_session.cpp)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_HOSTDRV_SESSION=1)
+endif()
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")
@@ -1078,6 +1094,98 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    add_executable(vaeg_hostdrv_wire_test tests/pc88va/hostdrv_wire.c io/hostdrv_wire.c)
+    target_include_directories(vaeg_hostdrv_wire_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME vaeg_hostdrv_wire COMMAND vaeg_hostdrv_wire_test)
+    set_tests_properties(vaeg_hostdrv_wire PROPERTIES LABELS "romless;hostdrv")
+    add_executable(vaeg_hostdrv_names_test tests/pc88va/hostdrv_names.cpp sdl2/hostdrv_names.cpp)
+    target_include_directories(vaeg_hostdrv_names_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME vaeg_hostdrv_names COMMAND vaeg_hostdrv_names_test)
+    set_tests_properties(vaeg_hostdrv_names PROPERTIES LABELS "romless;hostdrv")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_executable(vaeg_hostdrv_linux_test tests/pc88va/hostdrv_linux.cpp sdl2/hostdrv_linux.cpp)
+        target_include_directories(vaeg_hostdrv_linux_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_test(NAME vaeg_hostdrv_linux COMMAND vaeg_hostdrv_linux_test)
+        set_tests_properties(vaeg_hostdrv_linux PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+        add_executable(vaeg_hostdrv_linux_namespace_test tests/pc88va/hostdrv_linux_namespace.cpp
+            sdl2/hostdrv_linux.cpp sdl2/hostdrv_namespace.cpp sdl2/hostdrv_names.cpp)
+        target_include_directories(vaeg_hostdrv_linux_namespace_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_test(NAME vaeg_hostdrv_linux_namespace COMMAND vaeg_hostdrv_linux_namespace_test)
+        set_tests_properties(vaeg_hostdrv_linux_namespace PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+        add_executable(vaeg_hostdrv_linux_service_test tests/pc88va/hostdrv_linux_service.cpp
+            io/hostdrv_wire.c io/hostdrv_lifecycle.c
+            sdl2/hostdrv_linux.cpp sdl2/hostdrv_namespace.cpp
+            sdl2/hostdrv_service.cpp sdl2/hostdrv_names.cpp)
+        target_include_directories(vaeg_hostdrv_linux_service_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_test(NAME vaeg_hostdrv_linux_service COMMAND vaeg_hostdrv_linux_service_test)
+        set_tests_properties(vaeg_hostdrv_linux_service PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+    endif()
+    if(MINGW)
+        # Invoked explicitly on local NTFS with one empty fixture directory;
+        # never register it as an unattended cross-build CTest.
+        add_executable(hostdrv_wintest tests/pc88va/hostdrv_windows.cpp
+            sdl2/hostdrv_windows.cpp sdl2/hostdrv_namespace.cpp sdl2/hostdrv_names.cpp)
+        target_include_directories(hostdrv_wintest PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_link_options(hostdrv_wintest PRIVATE -static -municode)
+        target_link_libraries(hostdrv_wintest PRIVATE advapi32)
+    endif()
+    add_test(NAME vaeg_hostdrv_transport COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_hostdrv_transport PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY=1"
+        LABELS "romless;hostdrv;hostfat" TIMEOUT 30)
+    if(VAEG_NASM_EXECUTABLE)
+        add_test(NAME vaeg_hostdrv_fcb_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin -Werror
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdfcbtst.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdfcbtest.asm")
+        set_tests_properties(vaeg_hostdrv_fcb_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_abi_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -Ox -w+error -f bin
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdabi.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdabi.asm")
+        set_tests_properties(vaeg_hostdrv_abi_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_query_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -Ox -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdquery.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdquery.asm")
+        set_tests_properties(vaeg_hostdrv_query_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_reply_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdreply.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdreply.asm")
+        set_tests_properties(vaeg_hostdrv_reply_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_profile_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdprof.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdprofile.asm")
+        set_tests_properties(vaeg_hostdrv_profile_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_resident_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdres.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdresident.asm")
+        set_tests_properties(vaeg_hostdrv_resident_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_file_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdfile.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdfile.asm")
+        set_tests_properties(vaeg_hostdrv_file_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_bms_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdbms.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdbms.asm")
+        set_tests_properties(vaeg_hostdrv_bms_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_com_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hostdrv.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hostdrv.asm")
+        set_tests_properties(vaeg_hostdrv_com_build PROPERTIES LABELS "romless;hostdrv")
+    endif()
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
     # Independent LSI command core; not wired into the VA/TSP device path.
     add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)

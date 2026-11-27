@@ -56,6 +56,8 @@
 #include "fdd_xdf.h"
 #include "framedisp.h"
 #include "hostfat.h"
+#include "hostdrv_wire.h"
+#include "io/hostdrv_lifecycle.h"
 #include "hostfat_snapshot.h"
 #include "hostfat_manager.h"
 #include "ini.h"
@@ -263,6 +265,8 @@ static int test_cli_options(void) {
 	                 "disk6.hdi",
 	                 "--hostfat-dir",
 	                 "host-root",
+	                 "--hostdrv-dir",
+	                 "live-root",
 	                 "--roms",
 	                 "rom-root",
 	                 "--cpumult",
@@ -356,7 +360,8 @@ static int test_cli_options(void) {
 	    (options.scsi_mode[5] != VAEG_CLI_MEDIA_NONE) ||
 	    (options.scsi_mode[6] != VAEG_CLI_MEDIA_PATH) ||
 	    strcmp(options.scsi_path[6], "disk6.hdi") || (options.hostfat_path == NULL) ||
-	    strcmp(options.hostfat_path, "host-root") || (options.roms_path == NULL) ||
+	    strcmp(options.hostfat_path, "host-root") || !options.hostdrv_path ||
+	    strcmp(options.hostdrv_path, "live-root") || (options.roms_path == NULL) ||
 	    strcmp(options.roms_path, "rom-root") || (options.cpu_multiplier != 32) ||
 	    (options.sgp_mode != VAEG_CLI_SGP_CUSTOM) || (options.sgp_multiplier != 16) ||
 	    !options.nowait || (options.frame_skip != VAEG_CLI_FRAMESKIP_QUARTER) ||
@@ -387,8 +392,8 @@ static int test_cli_options(void) {
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(hostfat_disabled), hostfat_disabled, &options, error,
 	                    sizeof(error)) != SUCCESS) ||
-	    (options.hostfat_path != NULL) || options.scsitrace_cmdreq_windows) {
-		return (fail("CLI options", "HOSTFAT was not disabled by default"));
+	    options.hostfat_path || options.hostdrv_path || options.scsitrace_cmdreq_windows) {
+		return (fail("CLI options", "host-folder option was not disabled by default"));
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(disabled_persistence), disabled_persistence, &options, error,
 	                    sizeof(error)) != SUCCESS) ||
@@ -533,6 +538,142 @@ static void hostfat_send_far_pointer(UINT32 value) {
 		iocore_out8(0x07ed, (REG8)value);
 		value >>= 8;
 	}
+}
+
+static void hostdrv_test_command(const char *text) {
+	iocore_out8(0x07ef, 0);
+	hostfat_send_string(text);
+}
+
+static uint32_t hostdrv_test_reply(void) {
+	uint32_t word = 0;
+	unsigned i;
+	for (i = 0; i < 4; ++i) {
+		word |= (uint32_t)iocore_inp8(0x07ed) << (8 * i);
+	}
+	return word;
+}
+
+static BOOL hostdrv_test_string(const char *text) {
+	do {
+		if (iocore_inp8(0x07ef) != (UINT8)*text) {
+			return FALSE;
+		}
+	} while (*text++);
+	return TRUE;
+}
+
+static unsigned hostdrv_test_dispatch(void *context, const uint8_t request[HD_PACKET],
+                                      uint8_t reply[HD_PACKET]) {
+	unsigned *calls = context;
+	++*calls;
+	if (request[HD_OPCODE] != HD_QUERY) {
+		return HD_BAD_PACKET;
+	}
+	hostdrv_response_init(reply, request, 0);
+	hostdrv_put32(reply + HD_GENERATION, 1);
+	hostdrv_put16(reply + HD_CAPS, 1);
+	return HD_COMPLETED;
+}
+
+static int test_hostdrv_transport(void) {
+	const uint32_t address = 0x10000;
+	const uint32_t pointer = 0x10000000;
+	const UINT8 saved_88 = memoryva_88_mode;
+	const UINT8 saved_compat = CPU_COMPAT_MODE;
+	const SINT32 saved_clock = CPU_REMCLOCK;
+	uint8_t saved[HD_PACKET];
+	uint8_t request[HD_PACKET] = {0};
+	unsigned calls = 0;
+	uint32_t reply;
+	const char *error = "HD_PORT_SETUP";
+
+	memcpy(saved, mem + address, HD_PACKET);
+	memcpy(request, "HDR1", 4);
+	request[HD_VERSION] = 1;
+	hostdrv_put16(request + HD_SEQUENCE, 0xab12);
+	memcpy(mem + address, request, HD_PACKET);
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		goto cleanup;
+	}
+	np2sysp_reset();
+	np2sysp_bind();
+	iocore_bind();
+	memoryva_88_mode = 0;
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+
+	error = "HD_PORT_DEFAULT_ENABLED";
+	hostdrv_test_command("NP2");
+	if (!hostdrv_test_string("NP2")) {
+		goto cleanup;
+	}
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("")) {
+		goto cleanup;
+	}
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_DISABLED) ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+
+	/* No guest CPU or other writer is running in this synthetic fixture. */
+	hostdrv_bind_exclusive_transport(hostdrv_test_dispatch, &calls);
+	error = "HD_PORT_DISCOVERY";
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("HDR1")) {
+		goto cleanup;
+	}
+	error = "HD_PORT_QUERY";
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	reply = hostdrv_test_reply();
+	if (!hostdrv_response_valid(reply, request, mem + address) || calls != 1) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_STALE_SUCCESS";
+	memcpy(mem + address, request, HD_PACKET);
+	hostdrv_test_command("hostdrv!2");
+	reply = hostdrv_test_reply();
+	if (reply != (HD_REPLY_BASE | HD_COMPLETED) ||
+	    hostdrv_response_valid(reply, request, mem + address) || calls != 1) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_A20_ALIAS";
+	hostfat_send_far_pointer(UINT32_C(0xffff0010));
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_BAD_RANGE) || calls != 1 ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+
+	error = "HD_PORT_COMPAT_ENABLED";
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
+	hostdrv_test_command("hostdrv?1");
+	if (!hostdrv_test_string("")) {
+		goto cleanup;
+	}
+	hostfat_send_far_pointer(pointer);
+	hostdrv_test_command("hostdrv!1");
+	if (hostdrv_test_reply() != (HD_REPLY_BASE | HD_DISABLED) || calls != 1 ||
+	    memcmp(mem + address, request, HD_PACKET)) {
+		goto cleanup;
+	}
+	error = NULL;
+
+cleanup:
+	hostdrv_bind_exclusive_transport(NULL, NULL);
+	iocore_destroy();
+	np2sysp_reset();
+	CPU_REMCLOCK = saved_clock;
+	CPU_COMPAT_MODE = saved_compat;
+	memoryva_88_mode = saved_88;
+	memcpy(mem + address, saved, HD_PACKET);
+	return error ? fail("HOSTDRV transport", error) : SUCCESS;
 }
 
 static int test_hostfat_transport(void) {
@@ -776,6 +917,47 @@ static int test_va_tvram_window(void) {
 		fprintf(stderr, "selftest: model-specific TVRAM window ok\n");
 	}
 	return (result);
+}
+
+static int test_hostdrv_native_ram_span(void) {
+	const UINT16 saved_preference = np2cfg.main_ram;
+	const UINT16 saved_active = (UINT16)(pccore_mainram_limit() / 1024);
+	const _BMSIO saved_bmsio = bmsio;
+	BYTE saved_backup[sizeof(backupmem)];
+	const char *problem = NULL;
+
+	CopyMemory(saved_backup, backupmem, sizeof(saved_backup));
+	np2cfg.main_ram = 640;
+	pccore_mainram_reset();
+	bmsio.cfg.enabled = FALSE;
+	bmsio.bank = 0;
+	if (!memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_UNBOUND_BANK_ZERO";
+		goto done;
+	}
+	bmsio.cfg.enabled = TRUE;
+	if (!memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_BOUND_BANK_ZERO";
+		goto done;
+	}
+	bmsio.bank = 1;
+	if (memoryva_native_mainram_span(0x80000, 0x20000)) {
+		problem = "HD_RAM_NONZERO_BANK";
+		goto done;
+	}
+	bmsio.bank = 0;
+	np2cfg.main_ram = 512;
+	pccore_mainram_reset();
+	if (memoryva_native_mainram_span(0x80000, 0x20000))
+		problem = "HD_RAM_NOT_INSTALLED";
+
+done:
+	bmsio = saved_bmsio;
+	np2cfg.main_ram = saved_active;
+	pccore_mainram_reset();
+	np2cfg.main_ram = saved_preference;
+	CopyMemory(backupmem, saved_backup, sizeof(saved_backup));
+	return problem ? fail("HOSTDRV native RAM span", problem) : SUCCESS;
 }
 
 static int test_va_bms_window(void) {
@@ -5366,6 +5548,212 @@ static int test_main_cpu_state(void) {
 	fprintf(
 	    stderr,
 	    "selftest: main CPU state files, role negatives, legacy restore and FDC isolation ok\n");
+	return SUCCESS;
+}
+
+typedef struct {
+	int resident;
+	int grant;
+	int cleared_while_live;
+	int saw_cpu_shutdown;
+	HD_MARKS marks;
+} HOSTDRV_TEST_SESSION;
+
+static int hostdrv_test_guarded(void *context) {
+	return ((HOSTDRV_TEST_SESSION *)context)->resident;
+}
+
+static void hostdrv_test_reset(void *context, int discarded) {
+	HOSTDRV_TEST_SESSION *session = context;
+
+	if (!discarded && session->resident && session->grant && CPU_IP == 0x1234)
+		session->saw_cpu_shutdown = 1;
+	if (discarded) {
+		session->cleared_while_live |= session->grant || mem[0x20000] != 0;
+		session->resident = 0;
+	}
+	session->grant = 0;
+}
+
+static HD_MARKS hostdrv_test_marks(void *context) {
+	return ((HOSTDRV_TEST_SESSION *)context)->marks;
+}
+
+static void hostdrv_test_load(void *context, HD_MARKS marks) {
+	HOSTDRV_TEST_SESSION *session = context;
+
+	session->grant = 0;
+	session->marks = marks;
+}
+
+static const char *hostdrv_test_bootstrap(HOSTDRV_TEST_SESSION *session) {
+	static const struct {
+		UINT8 model;
+		UINT16 cs;
+		UINT16 ip;
+		BOOL revoke;
+	} cases[] = {{PCMODEL_VA2, 0xf000, 0x1f90, TRUE},
+	             {PCMODEL_VA2, 0xf000, 0x1f91, FALSE},
+	             {PCMODEL_VA1, 0xf000, 0x1f90, FALSE},
+	             {PCMODEL_VA1, 0xf000, 0x16a0, TRUE},
+	             {PCMODEL_VA1, 0xf000, 0xfff0, TRUE},
+	             {PCMODEL_VA2, 0xffff, 0, TRUE}};
+	UINT i;
+	for (i = 0; i < 2 * NELEMENTS(cases); ++i) {
+		const UINT target = i % NELEMENTS(cases);
+		const int resident = i >= NELEMENTS(cases);
+		pccore_reset();
+		upd9002_debug_reset();
+		pccore.model_va = cases[target].model;
+		CPU_CS = 0x2000;
+		CS_BASE = 0x20000;
+		CPU_IP = 0;
+		CPU_FLAG &= ~(I_FLAG | T_FLAG);
+		CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+		mem[0x20000] = 0xea; // JMP ptr16:16; also a live-RAM sentinel.
+		hostdrv_put16(mem + 0x20001, cases[target].ip);
+		hostdrv_put16(mem + 0x20003, cases[target].cs);
+		upd9002_core_queue_reset();
+		session->grant = 1;
+		session->resident = resident;
+		if (upd9002_debug_wait_arm(cases[target].cs, cases[target].ip, 1) != SUCCESS)
+			return "M173_HOSTDRV_BOOTSTRAP_FIXTURE";
+		pccore_exec(FALSE);
+		if (!upd9002_debug_event_pending() || CPU_CS != cases[target].cs || CPU_IP != cases[target].ip)
+			return "M173_HOSTDRV_BOOTSTRAP_TARGET";
+		if (session->grant == cases[target].revoke)
+			return "M173_HOSTDRV_BOOTSTRAP_REVOCATION";
+		if (session->resident != resident || mem[0x20000] != 0xea)
+			return "M173_HOSTDRV_BOOTSTRAP_RESIDENCY";
+	}
+	upd9002_debug_reset();
+	pccore_reset();
+	return NULL;
+}
+
+static BOOL hostdrv_test_error(char *error, const char *code) {
+	error[strcspn(error, "\r\n")] = 0;
+	return !strcmp(error, code);
+}
+
+#if defined(VAEG_UPD9002_M42_TESTING)
+void upd9002_m42_process_cpu_reset_request(void);
+#endif
+
+static int test_hostdrv_lifecycle(void) {
+	static const HD_LIFECYCLE ops = {hostdrv_test_guarded, hostdrv_test_reset,
+	                                 hostdrv_test_marks, hostdrv_test_load};
+	static const char resident_code[] = "M173_HOSTDRV_RESIDENT";
+	static const char state_code[] = "M173_HOSTDRV_STATE";
+	static const unsigned mutations[] = {10, 16, 17}; // version, policy, reserved
+	HOSTDRV_TEST_SESSION session = {0};
+	char path[MAX_PATH], bad[MAX_PATH], error[256];
+	BYTE *data = NULL;
+	UINT size, pos, i;
+	const char *problem = "could not prepare HOSTDRV state fixture";
+
+	SPRINTF(path, "vaeg-hostdrv-%lu.sts", (unsigned long)getpid());
+	SPRINTF(bad, "vaeg-hostdrv-%lu-bad.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(bad);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	if (!hostdrv_bind_lifecycle(&ops, &session))
+		goto done;
+	session.marks.generation = 42;
+	session.marks.serial = 9;
+	if (statsave_save(path) != STATFLAG_SUCCESS || read_whole_file(path, &data, &size) != SUCCESS ||
+	    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+		goto done;
+	for (pos = 0x30; pos + 16 <= size;
+	     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+		if (!memcmp(data + pos, "HOSTDRV\0\0\0", 10))
+			break;
+	if (pos + 24 > size || LOADINTELDWORD(data + pos + 12) != 8 ||
+	    hostdrv_get16(data + pos + 18) != 9 || hostdrv_get32(data + pos + 20) != 42)
+		goto done;
+
+	problem = "HOSTDRV busy reset or resident save/load guard failed";
+	session.grant = session.resident = 1;
+	CPU_IP = 0x1234;
+	mem[0x20000] = 0x5a;
+	for (i = 0; i < 2; ++i) {
+		UINT16 ip = CPU_IP;
+		if (statsave_save_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) || file_attr(bad) != -1 ||
+		    statsave_check(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_check_hostfat_override(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_load_checked(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_load_hostfat_override_checked(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) || CPU_IP != ip || mem[0x20000] != 0x5a ||
+		    hostdrv_bind_lifecycle(NULL, NULL))
+			goto done;
+		if (!i) {
+#if defined(VAEG_UPD9002_M42_TESTING)
+			CPU_RESETREQ = 1;
+			upd9002_m42_process_cpu_reset_request();
+			if (!session.saw_cpu_shutdown || CPU_RESETREQ)
+				goto done;
+#else
+			hostdrv_reset(0);
+#endif
+			if (!session.resident || session.grant)
+				goto done;
+		}
+	}
+	pccore_reset();
+	if (session.resident || session.cleared_while_live || mem[0x20000] != 0)
+		goto done;
+
+	problem = hostdrv_test_bootstrap(&session);
+	if (problem)
+		goto done;
+
+	problem = "invalid HOSTDRV state was not rejected before mutation";
+	CPU_IP = 0x4321;
+	mem[0x20000] = 0xa5;
+	session.grant = 1;
+	for (i = 0; i < NELEMENTS(mutations); ++i) {
+		unsigned offset = pos + mutations[i];
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			goto done;
+		data[offset] ^= 1;
+		if (write_state_fixture(bad, data, size) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, state_code) ||
+		    statsave_load_hostfat_override_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, state_code) || !session.grant || CPU_IP != 0x4321 ||
+		    mem[0x20000] != 0xa5)
+			goto done;
+		data[offset] ^= 1;
+	}
+	problem = "uninstalled HOSTDRV state failed to merge marks or revoke the pending grant";
+	session.marks.generation = 50;
+	session.marks.serial = 3;
+	if (statsave_load(path) != STATFLAG_SUCCESS || session.grant || session.resident ||
+	    session.marks.generation != 50 || session.marks.serial != 9 || mem[0x20000] != 0 ||
+	    !hostdrv_bind_lifecycle(NULL, NULL))
+		goto done;
+	problem = NULL;
+
+done:
+	upd9002_debug_reset();
+	pccore_reset();
+	hostdrv_bind_lifecycle(NULL, NULL);
+	pccore_term();
+	soundmng_deinitialize();
+	if (data)
+		_MFREE(data);
+	file_delete(path);
+	file_delete(bad);
+	if (problem)
+		return fail("HOSTDRV lifecycle", problem);
+	fprintf(stderr, "selftest: HOSTDRV reset, bootstrap entry, resident guards and uninstalled state policy ok\n");
 	return SUCCESS;
 }
 
@@ -12396,6 +12784,14 @@ int vaeg_selftest_run(void) {
 		if (kbdmap_selftest() != SUCCESS || test_japanese_keys() != SUCCESS)
 			return FAILURE;
 		return SUCCESS;
+	}
+	if (SDL_getenv("VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY") != NULL) {
+		if (test_hostfat_transport() != SUCCESS) {
+			return FAILURE;
+		}
+		if (test_hostdrv_transport() != SUCCESS || test_hostdrv_native_ram_span() != SUCCESS)
+			return FAILURE;
+		return test_hostdrv_lifecycle();
 	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
 		return test_screenshot_rotation();

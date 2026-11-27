@@ -86,6 +86,7 @@ fields and end marker. This is the relevant subset, not a memory-copy spec.
 | `09E,11E,19E` | `OPENBUF`, `RenBuf` (128 bytes each), `SEARCHBUF` (53 bytes) |
 | `22B,237` | `NAME1`, `NAME2` (12/13 bytes; overlap the temporary device directory entry, not the canonical path) |
 | `24C,24D,24E` | extended FCB flag, search attributes, open access |
+| `264,266` | `user_SP`, `user_SS` (saved INT 21h register frame, see M173 amendment) |
 | `27E,282,286` | `THISSFT`, `THISCDS`, `THISFCB` (far pointers) |
 | `292,294,296` | `WFP_START`, `REN_WFP`, `CURR_DIR_END` (DOSGroup offsets; the last can be FFFFh) |
 | `2D4,2D6,2D7,2DF,2E1` | extended-open action/flags word, active byte, I/O mode word, saved CX/BX |
@@ -181,7 +182,7 @@ to owned calls.
 | 1122 | `CTRLC.ASM:633–652` process reset | Global redirector environment cleanup, despite legacy comment. No HOSTDRV global state to reset here; chain. |
 | 1123, 1124, 1125, 1126 | `MACRO2.ASM:357–367`, `CTRLC.ASM:226–229`, `SRVCALL.ASM:272–277` | Spool name check **before** canonicalization (original DS:SI name, ES:DI output buffer; `MACRO2.ASM:313–327,357–408`), spool close, spool control (AX/BX saved by caller, DOS server spool call context), echo check. Chain, never mark HOSTDRV an SFT spool device. |
 | 112B | `IOCTL.ASM:306–313,395–443` IFS IOCTL (including device control-string path) | SI:DX becomes DS:DX on dispatch; not a DS:SI device pointer. Preserve caller context when chaining; if explicitly owned, return invalid function. |
-| 112D | `HANDLE.ASM:580–623` extended attributes by handle | ES:DI SFT, BL=XA type, original DOS call context. Return invalid function; no host extended attributes. Ordinary time query uses SFT fields (not this verb). |
+| 112D | `HANDLE.ASM:580–623` extended attributes by handle | ES:DI SFT, BL=XA type. For owned BL=2 (`5702h`), return an empty XA list from the original DOS call context (M173 amendment below). Deny BL=4 (set XA); other forms remain unsupported. No host XA access. Ordinary time query uses SFT fields (not this verb). |
 | 112E | `OPEN.ASM:129–139,163–175`, `CREATE.ASM:115–124,151–152` extended open | Pushed create attrs, THISSFT/mode, WFP, EXTOPEN_FLAG (action input and result). See below. |
 | 112F | `IFS.ASM:490–516` IFS control | Pushed public AX and pass-through request registers. No HOSTDRV IFS-control provider, chain unless explicitly addressed, then invalid function. |
 
@@ -198,10 +199,20 @@ never propagate it to the host.
 
 DOS 4 additions versus a 3.x redirector profile: `AX=6C00h` saves the
 extended-open mode and action, passes creation attributes on the stack and
-uses `EXTOPEN_FLAG` for the action returned in user CX (1 opened, 2 created,
-3 replaced; `DOS/FILE.ASM:668–755,785–831`). Snapshot input before overwriting
-it; read-only permits only an existing-file open with read access, returning
-1. If the request would create/replace, deny it without side effects; when
+uses `EXTOPEN_FLAG` for the local action returned in user CX (1 opened,
+2 created, 3 replaced; `DOS/FILE.ASM:668–755,785–831`). Snapshot input;
+read-only permits only an existing-file open with read access, returning 1.
+
+**M173 amendment (approved by Opus 5.5 under the G172 design, as the DOS 4.0
+IFS contract from source):** `DOS/OPEN.ASM:130–139` clears `EXTOPEN_ON`
+after `112Eh`, so DOS skips `setXAttr` (`DOS/FILE.ASM:753–806`, “IFS does
+it”). On successful owned `112Eh`, HOSTDRV writes action 1 into saved
+`USER_CX` at frame offset `+04h` (`INC/DOSSYM.INC`) via SDA `user_SP` /
+`user_SS` at `+264h` / `+266h` (`INC/MS_DATA.ASM`,
+`DOS/DISP.ASM:543–548`). Check the frame before allocation; on failure do
+not update saved CX. Neither the DOS profile nor the kernel changes.
+
+If the request would create/replace, deny it without side effects; when
 no operation is requested for a missing/existing file, return the normal
 file-not-found/file-exists result. Extended IFS query/EA/control paths do not
 imply permission to forward arbitrary host IOCTLs. The DOS 4 long BPB fields
@@ -210,6 +221,30 @@ and widened sector bookkeeping support local volumes over 32 MiB
 still uses 16-bit counts and SFT size/position are still 32-bit. Do not
 wrap oversized files or invent FAT sector addresses. Validate FCB reads and
 close/abort recovery separately from 6C00h and ordinary handle operations.
+
+### M173 amendments: empty XA and upper DOS output RAM
+
+- `DOS/HANDLE.ASM:580–625` saves the input registers and dispatches remote
+  `5702h` to `112Dh` with BL=2 and ES:DI pointing to the SFT, not the result
+  buffer. Match the empty-list representation in `DOS/EXTATTR.ASM:104–124,
+  157–160`: return CX=2 for a size-only request and, when capacity is at
+  least two bytes, also store a zero entry-count word at the original
+  ES:DI. Return an error for a one-byte buffer, which cannot hold the
+  count. `INC/DOSSYM.INC:58–71` defines the saved `user_environ` layout.
+  Set-XA stays denied; no host attribute query or mutation is involved.
+- The M173 guest-write decision supersedes the earlier requirement for a
+  host RAM proof for DOS-supplied destinations. TSR CPU stores into the saved
+  INT 21h frame, DTA, FCBs and DOS output buffers follow the active CPU
+  mapping, just like DOS's own stores. The guest checks the conventional
+  address range, segment wrap, operation-specific lengths and overlap with
+  the resident image (including the stack and bounce buffer). No guest I/O
+  query or new guest-visible interface is needed. DOS profile/table checks
+  retain their separate, more conservative range.
+- Direct host transfers are different: the validated v1 bounce window is
+  the only host copy target and stays strictly below `80000h`. The host-only
+  decoder query does not widen it. Any future widening would require explicit
+  proof of installed RAM and a zero active BMS selector for the upper span,
+  even when the BMS port is unbound.
 
 ## Proposed wire protocol v1
 
@@ -377,7 +412,22 @@ Handle SFTs own logical position; host uses positioned I/O. FCB transfers
 use DOS's per-operation position, not a persistent byte offset in the FCB
 cache entry: if DOS temporarily overlays position during record I/O, use
 and advance that transfer value only, preserving DOS's save/restore of the
-cache age words. Prove both FCB paths with caller traces before enabling. For DOS requests
+cache age words. Prove both FCB paths with caller traces before enabling.
+
+**Known MS-DOS 4.0 limitation:** in `DOS/FCBIO2.ASM:297–360`, the
+kernel saves `sf_OpenAge` and overlays it with the high word of the byte
+position. Its carry-error branch bypasses the restore, so an FCB read
+error or write denial (including a DOS-local denial) can leave the cache
+age incorrect. HOSTDRV must still return carry and the DOS error code at
+the redirector boundary, never zero-byte success in place of an error.
+DOS reports the FCB status through AL and the extended error separately.
+See [FreeDOS-88VA MS-DOS milestone B4](https://github.com/FreeDOS-88VA/MS-DOS/blob/847a33c51265be9bb7fce38bd08bbc5738a83e6f/docs/ROADMAP.md#follow-ups)
+for the separate kernel correction; it is not a HOSTDRV version binding
+or prerequisite. Test the error and extended error followed by explicit
+FCB opens, closes and eviction; do not assert correct age restoration on
+a kernel without the fix.
+
+For DOS requests
 larger than 4096, chunk, validate each count, and advance only by actual
 bytes; stop at EOF or first error. A read with progress returns short success;
 report a persistent error on the next operation, not a fabricated EOF.
@@ -511,6 +561,14 @@ INT 24 dialog or retry on a malformed packet.
   pin and tombstone storage; fail explicitly on exhaustion, not by reusing
   a spelling or relaxing identity checks. Fresh mounts of the same contents
   have the same initial mapping, not a promise of continuity across mounts.
+  **M173 amendment (maintainer approved, 2026-11-27):** Instead of the
+  ASCII-only sanitization above, form the alias prefix and extension from
+  leading folded Shift-JIS characters, dropping unmappable and DOS-illegal
+  characters. Do not split a character at the 8-byte base (including `~n`)
+  or 3-byte extension limit, including when `~n` grows. Use the VA lead-byte
+  ranges in `DOS/DOSMES.ASM:250–257` and
+  `DEV/COUNTRY/MKCNTRY.ASM:2320–2325`. Retain the stable ASCII fallback
+  if no usable prefix fits. All other alias and matching rules still apply.
   DOS-created names must be legal, round-trip and not shadow existing
   entries. Write phase must test case-only renames and alias races again.
 * Use host mtime in local civil time, DOS 1980–2107 range clamped with
@@ -581,7 +639,11 @@ and default drive; accept explicit override only for a free entry, no CDS
 expansion. Save the exact original CDS and old vector. Allocate the resident
 block, free the transient environment, and attach just before publishing the CDS
 and hook. Failure rolls back both and releases the session before DOS
-resumes. Retain only required paragraphs.
+resumes. Retain only required paragraphs. **M173 BMS amendment:** Refuse
+installation before probing DOS or the channel if any retained paragraph
+(including the private stack and bounce window) overlaps `80000h–9FFFFh`.
+A later bank switch must not invalidate DOS's INT 2Fh chain. Tell the user
+to free low memory or load HOSTDRV earlier; leave the CDS and vector intact.
 Target ≤12 KiB including 4160-byte bounce buffer, stack and tables. DOS
 serializes normal calls, but INT 2Fh can be nested; use a private stack for
 owned work after a guarded handoff, not a large stack allocation inside DOS.

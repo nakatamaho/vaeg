@@ -6,6 +6,7 @@
 #include "timemng.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
+#include "io/hostdrv_lifecycle.h"
 #include "iocore.h"
 #include "cmt.h"
 #include "pcg88.h"
@@ -389,6 +390,7 @@ void pccore_init(void) {
 }
 
 void pccore_term(void) {
+	hostdrv_reset(0);
 	sound_term();
 
 	fdd_eject(0);
@@ -463,9 +465,14 @@ static BOOL pccore_fixed_disk_attached(void) {
 	return (FALSE);
 }
 
+/* Only the initial firmware path from a full RAM-clearing reset can carry
+ * a newly selected startup grant. No guest instruction can rearm it. */
+static enum { HD_BOOT_NONE, HD_BOOT_RESET_VECTOR, HD_BOOT_IPL } hostdrv_cold_boot;
+
 void pccore_reset(void) {
 	int i;
 
+	hostdrv_reset(0);
 	vaeg_recording_native_session_before_reset();
 	pccore_debug_resume = FALSE;
 	pccore_guest_clock_high = 0;
@@ -481,6 +488,7 @@ void pccore_reset(void) {
 		sound_init();
 	}
 	ZeroMemory(mem, 0x110000);
+	hostdrv_reset(1);
 	ZeroMemory(mem + FONT_ADRS, 0x08000);
 
 	// Copy configured memory-switch bytes into the VA work area.
@@ -551,6 +559,7 @@ void pccore_reset(void) {
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;
 	CPU_IP = 0xfff0;
+	hostdrv_cold_boot = HD_BOOT_RESET_VECTOR;
 
 	CPU_CLEARPREFETCH();
 	sysmng_cpureset();
@@ -944,8 +953,31 @@ void pccore_postevent(UINT32 event) { // yet!
 static void pccore_process_cpu_reset_request(void) {
 	if (CPU_RESETREQ) {
 		CPU_RESETREQ = 0;
+		hostdrv_cold_boot = HD_BOOT_NONE;
+		hostdrv_reset(0);
 		CPU_SHUT();
 	}
+}
+
+static void pccore_hostdrv_bootstrap_entry(UINT32 address) {
+	/* Reaching a firmware reset or boot entry is enough to revoke authority,
+	 * not enough to prove that DOS and its resident references are gone. */
+	const UINT32 ipl = pccore.model_va == PCMODEL_VA1 ? 0xf16a0 : 0xf1f90;
+	if (address != 0xffff0 && address != ipl)
+		return;
+	if (pccore_main_cpu_is_upd780() || memoryva_88_mode ||
+	    CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) {
+		hostdrv_cold_boot = HD_BOOT_NONE;
+		return;
+	}
+	if (address == 0xffff0 && hostdrv_cold_boot == HD_BOOT_RESET_VECTOR) {
+		hostdrv_cold_boot = HD_BOOT_IPL;
+		return;
+	}
+	const BOOL initial_ipl = address == ipl && hostdrv_cold_boot == HD_BOOT_IPL;
+	hostdrv_cold_boot = HD_BOOT_NONE;
+	if (!initial_ipl)
+		hostdrv_reset(0);
 }
 
 static SINT32 slice_remclock;
@@ -957,6 +989,9 @@ void upd9002_m42_process_cpu_reset_request(void) {
 #endif
 
 void pccore_exec(BOOL draw) {
+	UINT32 fetch_address;
+	BOOL resumed = pccore_debug_resume;
+
 	if (upd9002_diagnostic_pending() || upd9002_debug_event_pending()) {
 		return;
 	}
@@ -985,11 +1020,18 @@ void pccore_exec(BOOL draw) {
 		slice_remclock = CPU_REMCLOCK;
 		while (CPU_REMCLOCK > 0) {
 		debug_resume_cpu:
+			if (!resumed) {
+				fetch_address = (CS_BASE + CPU_IP) & CPU_ADRSMASK;
+				if (fetch_address >= 0xf0000 && fetch_address <= 0xfffff)
+					pccore_hostdrv_bootstrap_entry(fetch_address);
+				else if (fetch_address < 0xe0000 || fetch_address > 0xfffff)
+					hostdrv_cold_boot = HD_BOOT_NONE;
+			}
+			resumed = FALSE;
 			if (upd9002_debug_step_begin()) {
 				pccore_debug_resume = TRUE;
 				return;
 			}
-			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			const BOOL was_inhibited = CPU_INTERRUPT_SHADOW != UPD9002_SHADOW_NONE;
 			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {

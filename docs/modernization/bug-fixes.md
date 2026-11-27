@@ -35,6 +35,98 @@ land.
 
 ## Maintenance Rules
 
+### M173 — An unused HOSTDRV grant could survive a native reboot
+
+- **Symptom/scope:** A new VA DOS boot could inherit the previous boot's
+  unattached folder grant.
+- **Cause/correction:** The bootstrap hook revoked authority only when the
+  resident guard was set. It now revokes both unattached and attached grants
+  on re-entry, without clearing the resident guard. The initial cold firmware
+  path can consume the host's explicit startup grant.
+- **Verification:** The ROM-free lifecycle fixture checks recognized and
+  unrelated entry addresses with and without a resident guard.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [02193476](https://github.com/nakatamaho/vaeg/commit/021934761d0467a2ab252a24e505740bd69e8878).
+
+### M173 — Refused HOSTDRV close and abort skipped local cleanup
+
+- **Symptom/scope:** A busy owned close could leave an SFT reference live
+  after DOS released its JFN. A busy or single-step abort could leave FCB
+  registry slots behind.
+- **Cause/correction:** The refusal path bypassed retirement. It now performs
+  bounded caller-stack cleanup without using the packet or channel. When an
+  unreported final close leaves the host and guest lifetimes out of sync,
+  the redirector blocks further service until revocation or reset.
+- **Verification:** The resident fixture checks that busy close and abort use
+  the local cleanup path without entering the private-stack worker.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [6116eccf](https://github.com/nakatamaho/vaeg/commit/6116eccff685d709e746dcdb2cf9f66edf6e4730).
+
+### M173 — Windows HOSTDRV scans counted only accepted names
+
+- **Symptom/scope:** A Windows scan could exceed the raw record budget, and
+  one file beyond DOS's signed size limit could fail the whole listing.
+- **Cause/correction:** Count each raw NTFS record before filtering and
+  exclude oversized files at metadata authorization and before publication.
+- **Verification:** The standalone NTFS fixture covers the cap and a normal
+  file listed alongside a sparse oversized file; Windows execution pending.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [e4993fd9](https://github.com/nakatamaho/vaeg/commit/e4993fd9ccb9dc783bd103125676560bd5000f08).
+
+### M173 — Read-only HOSTDRV commit queried file metadata
+
+- **Symptom/scope:** DOS commit on a live read-only handle could fail on a
+  metadata error even though it had no data or timestamp to flush.
+- **Cause/correction:** The redirector used FSTAT for commit. It now checks
+  only the live generation with QUERY, preserving the detached error.
+- **Verification:** The `hostdrv.com` NASM build checks the updated dispatch.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [287ecadb](https://github.com/nakatamaho/vaeg/commit/287ecadb3f54c07affb5165c9d56461abe2fc059).
+
+### M173 — Explicit Windows HOSTDRV paths required exact component case
+
+- **Symptom/scope:** A drive-absolute selection could be rejected when its
+  component spelling differed from the NTFS spelling only by case.
+- **Cause/correction:** Mount selection used the same exact-spelling walk
+  as the guest namespace. Explicit selection now accepts Windows case
+  equivalence in the handle-relative walk and file-name check. Guest name
+  lookup and metadata containment checks are unchanged.
+- **Verification:** Added a mixed-case selection and same-object check to
+  the standalone MinGW fixture; native execution pending. This is not an
+  attribution of the initial NTFS preflight failure.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [e0819fd4](https://github.com/nakatamaho/vaeg/commit/e0819fd47a42a560d9eb6f05941d95cb31658528).
+
+### M173 — HOSTDRV must not keep code in the BMS window
+
+- **Symptom/scope and cause:** A redirector retained in the VA BMS window
+  would leave INT 2Fh pointing at bank-dependent memory. The installer
+  checked the bounce span, not the whole retained block before probing DOS.
+- **Correction:** Reject an install when the paragraph-rounded resident
+  image intersects `80000h–9FFFFh`, before any DOS profile or channel probe.
+- **Verification:** The [HDBMS fixture](../../tools/pc88va/hostdrv/hdbms.asm)
+  forces the high load and checks the vector and full CDS table for changes;
+  its public CTest assembles the fixture only.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [d3d5e12e](https://github.com/nakatamaho/vaeg/commit/d3d5e12ed06f9fec927679fed1e0adeb9e3027c2).
+
+### M173 — HOSTDRV rejected DOS output in upper conventional memory
+
+- **Symptom/scope:** During M173 development, COMMAND `TYPE` and `COPY`
+  could fail before reading an owned file. DOS can put the saved INT 21h
+  register frame above `80000h`.
+- **Demonstrated cause:** The TSR applied the host direct-copy ceiling to
+  DOS-supplied CPU store destinations and refused the extended-open action
+  or XA result before any file transfer.
+- **Correction:** Validate CPU output spans for conventional addresses,
+  segment wrap and resident-image overlap. Keep the v1 host bounce-window
+  ceiling unchanged.
+- **Verification:** The Linux build and HOSTDRV CTest suite pass. The
+  `HDFILE.COM` fixture includes a negative at the conventional-memory ceiling;
+  its public CTest checks assembly only. See the [M173 report](../agents/reports/m173_hostdrv_readonly.md#command-typecopy-and-upper-ram-qualification).
+- **Milestone/task/commit:** [M173 task](../agents/tasks/M173_hostdrv_readonly.md),
+  [a25921ab](https://github.com/nakatamaho/vaeg/commit/a25921abe9e8fce21f1f01d82aa7ef2834cf2af4).
+
 ### M170 — US preset lacked a dedicated guest FULLWIDTH key
 
 - **Symptom/scope:** The US keyboard preset could not send a dedicated
@@ -5306,6 +5398,17 @@ separate parity correction or move it to Open Defects.
   bits and reset latch; see the [default-behavior audit](printer-serial-files.md#pr-notes-default-behavior-audit).
 
 ## Open Defects
+
+### M173 — Initial NTFS fixture preflight rejected a normal test directory
+
+The maintainer's diagnostic rerun isolated the failure to `ReOpenFile`
+returning `ERROR_ACCESS_DENIED` during the mount probe, after component
+validation passed. The underlying reason for the denial is not established.
+[M173](../agents/tasks/M173_hostdrv_readonly.md) replaces that upgrade with
+`OpenFileById` using the held metadata handle and checked NTFS file ID
+([implementation](https://github.com/nakatamaho/vaeg/commit/0b62173f760cc5d58180481e00530f6c64d5d885)).
+The fixture cross-compiles; NTFS runtime confirmation is pending. See the
+[Windows adapter checkpoint](../agents/reports/m173_hostdrv_readonly.md#windows-adapter-checkpoint).
 
 ### M144a — independent N80 CRTC geometry remains unresolved
 

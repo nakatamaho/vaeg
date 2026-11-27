@@ -122,6 +122,10 @@ extern _MEMORYVA88DIC memoryva_88_dic;
 extern UINT8 memoryva_88_window; /* 70h: high byte of the 1KiB RAM-window origin. */
 extern BOOL textmem_dirty;
 
+/* Host-only physical span check under the native VA decoder. Callers must
+ * establish native mode separately and validate guest ownership and aliases. */
+BOOL memoryva_native_mainram_span(UINT32 address, UINT32 length);
+
 void MEMCALL upd9002_memorymap_va(void);
 void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value);
 void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value);

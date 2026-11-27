@@ -640,6 +640,12 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				return (set_error(error, error_size, "HOSTFAT directory path is too long", value));
 			}
 			options->hostfat_path = value;
+		} else if (!strcmp(argument, "--hostdrv-dir")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return set_error(error, error_size, "--hostdrv-dir requires a non-empty path", value);
+			}
+			options->hostdrv_path = value;
 		} else if (!strcmp(argument, "--extra-machine")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0') || (strlen(value) >= 64)) {

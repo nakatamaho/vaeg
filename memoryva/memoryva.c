@@ -362,6 +362,15 @@ static REG16 rom1invalidw_rd(UINT32 address) {
 	return (ret);
 }
 
+BOOL memoryva_native_mainram_span(UINT32 address, UINT32 length) {
+	const UINT32 limit = pccore_mainram_limit();
+
+	if (!length || address >= limit || length > limit - address)
+		return FALSE;
+	/* The native decoder uses the active selector even if the port is unbound. */
+	return bmsio.bank == 0 || (address < CPUADDR_BMS && length <= CPUADDR_BMS - address);
+}
+
 static void MEMCALL mainram_wt(UINT32 address, REG8 value) {
 	upd9002_mainram_write(address, value);
 }

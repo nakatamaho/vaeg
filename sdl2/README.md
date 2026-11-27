@@ -297,6 +297,10 @@ number.
 
 #### State and capture commands
 
+`reset` runs the same full machine reset as the frontend Reset menu at the
+next frame boundary, releasing scripted keys first. It is not a guest warm
+bootstrap, and does not reset the script's frame count.
+
 `save-state ID` writes `ID.state` under the debug output directory using the
 same audio boundary and serializer as the GUI. IDs use the capture-ID grammar;
 paths and existing destinations are rejected (`M142_DEBUG_STATE_ID`,
