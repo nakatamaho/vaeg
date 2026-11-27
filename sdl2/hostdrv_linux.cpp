@@ -116,6 +116,11 @@ LinuxRoot::Handle &LinuxRoot::Handle::operator=(Handle &&other) noexcept {
     return *this;
 }
 
+bool LinuxRoot::Handle::close_checked() noexcept {
+    // Linux releases the descriptor even on close errors; do not retry.
+    return close(std::exchange(fd_, -1)) == 0;
+}
+
 bool LinuxRoot::Handle::metadata(struct stat &st) const {
     return fstat(fd_, &st) == 0;
 }
@@ -264,7 +269,12 @@ bool LinuxRoot::read(const Handle &file, std::uint32_t offset, void *buffer, std
             if (errno == EINTR) {
                 continue;
             }
-            return false;
+            if (done == 0) {
+                return false;
+            }
+            // Report bytes already read. The next operation starts at the
+            // advanced offset and can report any persistent failure there.
+            break;
         }
         if (n == 0) {
             break;

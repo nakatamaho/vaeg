@@ -48,6 +48,7 @@ public:
         Handle &operator=(Handle &&other) noexcept;
         Handle(const Handle &) = delete;
         Handle &operator=(const Handle &) = delete;
+        bool close_checked() noexcept;
         bool metadata(struct stat &st) const;
         bool same_object(const Handle &other) const;
     };

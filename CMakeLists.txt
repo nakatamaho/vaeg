@@ -845,6 +845,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(vaeg_sdl2 PRIVATE
         sdl2/hostdrv_linux.cpp
         sdl2/hostdrv_linux_namespace.cpp
+        sdl2/hostdrv_linux_service.cpp
         sdl2/hostdrv_names.cpp)
 endif()
 set_target_properties(vaeg_sdl2 PROPERTIES
@@ -1103,6 +1104,12 @@ if(VAEG_ENABLE_TESTS)
         target_include_directories(vaeg_hostdrv_linux_namespace_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
         add_test(NAME vaeg_hostdrv_linux_namespace COMMAND vaeg_hostdrv_linux_namespace_test)
         set_tests_properties(vaeg_hostdrv_linux_namespace PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+        add_executable(vaeg_hostdrv_linux_service_test tests/pc88va/hostdrv_linux_service.cpp
+            io/hostdrv_wire.c sdl2/hostdrv_linux.cpp sdl2/hostdrv_linux_namespace.cpp
+            sdl2/hostdrv_linux_service.cpp sdl2/hostdrv_names.cpp)
+        target_include_directories(vaeg_hostdrv_linux_service_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_test(NAME vaeg_hostdrv_linux_service COMMAND vaeg_hostdrv_linux_service_test)
+        set_tests_properties(vaeg_hostdrv_linux_service PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
     endif()
     add_test(NAME vaeg_hostdrv_transport COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_hostdrv_transport PROPERTIES
