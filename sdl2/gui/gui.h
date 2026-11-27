@@ -40,6 +40,7 @@ BOOL gui_save_screenshot(void);
  * of the newest; ignored within one second of the previous one */
 void gui_quick_save(void);
 void gui_quick_load(void);
+void gui_reset_guest(void);
 BOOL gui_quick_rotate_selftest(const char *root, char *problem, size_t size);
 BOOL gui_state_load_result_selftest(void);
 void gui_new_frame(void);

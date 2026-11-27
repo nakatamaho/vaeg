@@ -28,6 +28,7 @@
 #include "cpu/upd9002/upd9002_trace.h"
 #include "fdd/diskdrv.h"
 #include "g75_screen.h"
+#include "gui/gui.h"
 #include "dosio.h"
 #include "soundmng.h"
 #include "gvramva.h"
@@ -82,6 +83,7 @@ typedef enum {
 	DEBUG_ACTION_WAIT_PC,
 	DEBUG_ACTION_TRACE,
 	DEBUG_ACTION_CAPTURE,
+	DEBUG_ACTION_RESET,
 	DEBUG_ACTION_EXIT
 } DEBUG_ACTION_TYPE;
 
@@ -590,6 +592,14 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 			goto invalid;
 		}
 		strcpy(action->id, first);
+		return SUCCESS;
+	}
+	if (!strcmp(command, "reset")) {
+		if ((debug_next_token(&cursor) != NULL) ||
+		    (debug_add_action(DEBUG_ACTION_RESET, &action) != SUCCESS)) {
+			goto invalid;
+		}
+		*event_context = FALSE;
 		return SUCCESS;
 	}
 	if (!strcmp(command, "exit")) {
@@ -1113,6 +1123,15 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 		case DEBUG_ACTION_CAPTURE:
 			fprintf(stderr, "Error: debug event action has no pending PC event\n");
 			return FAILURE;
+		case DEBUG_ACTION_RESET:
+			if (!frame_boundary) {
+				return SUCCESS;
+			}
+			debug_release_keys(frames);
+			gui_reset_guest();
+			harness.action_index++;
+			debug_log("reset", frames, NULL, 0);
+			return SUCCESS;
 		case DEBUG_ACTION_EXIT:
 			if (!frame_boundary && (harness.held_count != 0)) {
 				return SUCCESS;

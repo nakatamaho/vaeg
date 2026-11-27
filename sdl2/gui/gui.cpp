@@ -7257,6 +7257,10 @@ static ImFont *load_gui_font(ImGuiIO &io) {
 	                                      &font_config, font_ranges.Data);
 }
 
+void gui_reset_guest(void) {
+	reset_guest();
+}
+
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	(void)argv0;
 	if ((window == nullptr) || ((renderer == nullptr) && !scrnmng_native_active())) {
