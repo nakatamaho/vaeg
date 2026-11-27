@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M172 — HOSTDRV design: host-folder drive for MS-DOS 4.0 VA through the DOS redirector
 
-**Status:** G172 human gate passed on 2026-11-27 (maintainer: design approved; decisions (a)–(d) as recommended) at `f99f066a`. Branch `milestone/m172-hostdrv-design` from `main` (`b3be1b9e`).
+**Status:** G172 human gate passed on 2026-11-27 (maintainer: design approved; decisions (a)–(d) as recommended) at `f99f066a`. Merged to `main` with `--no-ff` at [`954dac8b`](https://github.com/nakatamaho/vaeg/commit/954dac8b9aef55e21232a3490f6f0ad09241c92e). Branch `milestone/m172-hostdrv-design` from `main` (`b3be1b9e`).
 **Maintainer-approved exception (2026-11-27):** M172 began while G171 was pending; this did not accept G171.
 
 - [Design](../research/m172_hostdrv_design.md)
