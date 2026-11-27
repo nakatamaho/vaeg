@@ -106,5 +106,20 @@ int main() {
     CHECK(put(root / ".hidden", "hidden") && put(root / "\xff", "invalid"), "HIDDEN_SETUP");
     CHECK(names.list("", list) == LinuxNamespace::ok && list.size() == 5 && list.back().hidden,
           "LIVE_HIDDEN_AND_INVALID_UTF8");
+
+    CHECK(fs::create_directory(root / "bound") && put(root / "bound" / "KEPT.TXT", "x"), "BOUND_SETUP");
+    const auto bound = root / "bound";
+    for (unsigned i = 0; i < 4095; ++i) {
+        CHECK(put(bound / ("F" + std::to_string(i)), ""), "BOUND_FILL");
+    }
+    CHECK(names.list("BOUND", list) == LinuxNamespace::ok && list.size() == 4096 &&
+              list.back().name == "KEPT    TXT", "BOUND_BASELINE");
+    // Make the same raw scan exceed its cap by one entry. A failed
+    // refresh must leave both the published list and old spellings intact.
+    CHECK(put(bound / "ZZZ", ""), "BOUND_MUTATION");
+    CHECK(names.list("BOUND", list) == LinuxNamespace::io && list.size() == 4096 &&
+              list.back().name == "KEPT    TXT", "BOUND_REJECTED_ATOMICALLY");
+    CHECK(fs::remove(bound / "ZZZ") && names.stat("BOUND\\KEPT.TXT", item) == LinuxNamespace::ok &&
+              item.info.st_size == 1, "BOUND_LEDGER_PRESERVED");
     return 0;
 }

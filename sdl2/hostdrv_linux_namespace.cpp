@@ -70,8 +70,9 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
         Entry entry;
         DosName issued;
     };
+    struct stat before {};
     std::vector<LinuxRoot::Entry> scan;
-    if (!root_.enumerate(raw, dir.pin, scan)) {
+    if (!dir.pin.metadata(before) || !root_.enumerate(raw, dir.pin, scan)) {
         return io;
     }
     std::sort(scan.begin(), scan.end(), [](const auto &a, const auto &b) { return a.raw_name < b.raw_name; });
@@ -89,7 +90,7 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
         int reason;
         auto pin = root_.resolve_entry(append(raw, entry.raw_name), dir.pin, &reason);
         if (!pin) {
-            if (reason == ENOENT || reason == EPERM || reason == EXDEV || reason == ELOOP) {
+            if (reason == EPERM || reason == EXDEV || reason == ELOOP) {
                 continue;
             }
             return io;
@@ -102,7 +103,12 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
         staged.push_back({std::move(*name), {entry.raw_name, {}, std::move(*pin), info}, {}});
     }
     const auto current = root_.resolve(raw);
-    if (!current || !current->same_object(dir.pin)) {
+    struct stat after {};
+    // Detect visible mutations during enumeration. This is not an atomic
+    // snapshot or an authorization check; each child was resolved separately.
+    if (!current || !current->same_object(dir.pin) || !current->metadata(after) ||
+        before.st_mtim.tv_sec != after.st_mtim.tv_sec || before.st_mtim.tv_nsec != after.st_mtim.tv_nsec ||
+        before.st_ctim.tv_sec != after.st_ctim.tv_sec || before.st_ctim.tv_nsec != after.st_ctim.tv_nsec) {
         return io;
     }
 
