@@ -35,6 +35,54 @@ land.
 
 ## Maintenance Rules
 
+### M173 — An unused HOSTDRV grant could survive a native reboot
+
+- **Symptom/scope:** A new VA DOS boot could inherit the previous boot's
+  unattached folder grant.
+- **Cause/correction:** The bootstrap hook revoked authority only when the
+  resident guard was set. It now revokes both unattached and attached grants
+  on re-entry, without clearing the resident guard. The initial cold firmware
+  path can consume the host's explicit startup grant.
+- **Verification:** The ROM-free lifecycle fixture checks recognized and
+  unrelated entry addresses with and without a resident guard.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [02193476](https://github.com/nakatamaho/vaeg/commit/021934761d0467a2ab252a24e505740bd69e8878).
+
+### M173 — Refused HOSTDRV close and abort skipped local cleanup
+
+- **Symptom/scope:** A busy owned close could leave an SFT reference live
+  after DOS released its JFN. A busy or single-step abort could leave FCB
+  registry slots behind.
+- **Cause/correction:** The refusal path bypassed retirement. It now performs
+  bounded caller-stack cleanup without using the packet or channel. When an
+  unreported final close leaves the host and guest lifetimes out of sync,
+  the redirector blocks further service until revocation or reset.
+- **Verification:** The resident fixture checks that busy close and abort use
+  the local cleanup path without entering the private-stack worker.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [6116eccf](https://github.com/nakatamaho/vaeg/commit/6116eccff685d709e746dcdb2cf9f66edf6e4730).
+
+### M173 — Windows HOSTDRV scans counted only accepted names
+
+- **Symptom/scope:** A Windows scan could exceed the raw record budget, and
+  one file beyond DOS's signed size limit could fail the whole listing.
+- **Cause/correction:** Count each raw NTFS record before filtering and
+  exclude oversized files at metadata authorization and before publication.
+- **Verification:** The standalone NTFS fixture covers the cap and a normal
+  file listed alongside a sparse oversized file; Windows execution pending.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [e4993fd9](https://github.com/nakatamaho/vaeg/commit/e4993fd9ccb9dc783bd103125676560bd5000f08).
+
+### M173 — Read-only HOSTDRV commit queried file metadata
+
+- **Symptom/scope:** DOS commit on a live read-only handle could fail on a
+  metadata error even though it had no data or timestamp to flush.
+- **Cause/correction:** The redirector used FSTAT for commit. It now checks
+  only the live generation with QUERY, preserving the detached error.
+- **Verification:** The `hostdrv.com` NASM build checks the updated dispatch.
+- **Milestone/task/commit:** [M173](../agents/tasks/M173_hostdrv_readonly.md),
+  [287ecadb](https://github.com/nakatamaho/vaeg/commit/287ecadb3f54c07affb5165c9d56461abe2fc059).
+
 ### M173 — Explicit Windows HOSTDRV paths required exact component case
 
 - **Symptom/scope:** A drive-absolute selection could be rejected when its
