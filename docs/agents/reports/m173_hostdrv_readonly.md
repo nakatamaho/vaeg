@@ -236,6 +236,19 @@ allows DOS eviction to continue. `111Dh` reconciles only matching owned FCB
 entries by `PROC_ID`, does not retire ordinary handles by PSP, and chains
 the broadcast.
 
+## Final local verification scope
+
+- Linux release-preset build and 17 focused CTests passed, including the
+  HOSTDRV contracts, NASM fixture builds, debug harness and state storage.
+  Repository case, encoding and EOL checks passed.
+- `HDBMS.COM` is a forced high-load fixture: it checks the refusal exit
+  status and exact preservation of INT 2Fh and the CDS table. Its CTest
+  assembles it; it does not cover execution.
+- Debug script `reset` invokes the frontend Reset menu's full-reset path
+  at a frame boundary. It is not a normal VA guest warm-reboot shortcut.
+  The latter remains a distinct gate item; a scripted frontend reset
+  does not substitute for it.
+
 ## Next steps and remaining gates
 
 1. Complete the task's installed behavior checklist: JFP/FEP, SUBST/JOIN,
@@ -258,3 +271,14 @@ the broadcast.
    Verify both guarantees on an eligible local volume before enabling the
    backend. macOS stays disabled. The source milestone is `M173-dev`; the
    static G173 handoff still requires the Windows backend.
+
+## G173 Windows checklist — blocked by the disabled backend
+
+Once the backend is enabled on an eligible volume, start
+`vaeg.exe --hostdrv-dir <folder>`, start MS-DOS 4.0 VA, and run
+`HOSTDRV /VAEG`. Check `DIR`, `CD`, `TYPE` and `COPY` to a DOS-local
+volume, including Japanese names. Add a file on the host and check that
+it appears on a fresh guest directory search without reinstalling.
+Windows execution and this checklist are NOT RUN. Run the remaining
+normal VA guest warm-reboot route separately. Neither a static build
+nor a successful refusal is a G173 acceptance result.

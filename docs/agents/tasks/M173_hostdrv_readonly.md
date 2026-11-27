@@ -41,8 +41,10 @@ The host-internal native RAM span query is implemented and tested. The
 approved CPU-store amendment removes the upper conventional RAM blocker
 for the saved DOS frame and output buffers, without widening host copies.
 Minimal read-only FCB allocation, transfers, search and cleanup are
-implemented. The remaining functional and lifecycle checks, Windows
-backend and static G173 handoff remain open. See the
+implemented. The installer refuses to retain any paragraph in the BMS
+window. The debug harness can invoke the frontend full-reset path;
+a normal VA guest warm reboot and the remaining functional checks are
+separate gate items. The Windows backend and G173 handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173. Windows rejects `--hostdrv-dir` before granting any
 folder authority; the runtime containment and no-access-time guarantees
