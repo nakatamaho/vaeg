@@ -842,9 +842,14 @@ if(WIN32 AND NOT VAEG_WINDOWS_CONSOLE)
     list(APPEND VAEG_SDL2_EXE_OPTIONS WIN32)
 endif()
 add_executable(vaeg_sdl2 ${VAEG_SDL2_EXE_OPTIONS} ${VAEG_SDL2_SOURCES})
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(WIN32)
+    target_sources(vaeg_sdl2 PRIVATE sdl2/hostdrv_windows.cpp)
+    target_link_libraries(vaeg_sdl2 PRIVATE shell32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(vaeg_sdl2 PRIVATE sdl2/hostdrv_linux.cpp)
+endif()
+if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(vaeg_sdl2 PRIVATE
-        sdl2/hostdrv_linux.cpp
         sdl2/hostdrv_namespace.cpp
         sdl2/hostdrv_service.cpp
         sdl2/hostdrv_names.cpp
@@ -1114,6 +1119,15 @@ if(VAEG_ENABLE_TESTS)
         target_include_directories(vaeg_hostdrv_linux_service_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
         add_test(NAME vaeg_hostdrv_linux_service COMMAND vaeg_hostdrv_linux_service_test)
         set_tests_properties(vaeg_hostdrv_linux_service PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+    endif()
+    if(MINGW)
+        # Invoked explicitly on local NTFS with one empty fixture directory;
+        # never register it as an unattended cross-build CTest.
+        add_executable(hostdrv_wintest tests/pc88va/hostdrv_windows.cpp
+            sdl2/hostdrv_windows.cpp sdl2/hostdrv_namespace.cpp sdl2/hostdrv_names.cpp)
+        target_include_directories(hostdrv_wintest PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_link_options(hostdrv_wintest PRIVATE -static -municode)
+        target_link_libraries(hostdrv_wintest PRIVATE advapi32)
     endif()
     add_test(NAME vaeg_hostdrv_transport COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_hostdrv_transport PROPERTIES

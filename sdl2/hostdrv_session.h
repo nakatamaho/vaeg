@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 /* Emulator thread only: after startup reset, and after final core shutdown. */
-int vaeg_hostdrv_session_start(const char *path);
+int vaeg_hostdrv_session_start(const char *path, int argc, char **argv);
 void vaeg_hostdrv_session_stop(void);
 
 #ifdef __cplusplus

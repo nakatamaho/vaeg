@@ -29,18 +29,48 @@
 
 #include <new>
 
+#ifdef _WIN32
+#include <shellapi.h>
+#include <cwchar>
+#include <memory>
+#endif
+
 namespace {
 hostdrv::Service session;
 bool bound;
 }
 
-int vaeg_hostdrv_session_start(const char *path) {
+int vaeg_hostdrv_session_start(const char *path, int argc, char **argv) {
     if (bound || !path || !session.bind_lifecycle()) {
         return 0;
     }
     bound = true;
     try {
-        if (session.enable(path)) {
+#ifdef _WIN32
+        // MinGW main() may have lost characters in the active ANSI code page.
+        // Recover only the argument that the normal CLI parser selected.
+        int count = 0;
+        const std::unique_ptr<wchar_t *, decltype(&LocalFree)> wide(
+            CommandLineToArgvW(GetCommandLineW(), &count), LocalFree);
+        int index = 2;
+        while (index < argc && argv[index] != path) ++index;
+        if (!wide || count != argc || index == argc ||
+            std::wcscmp(wide.get()[index - 1], L"--hostdrv-dir")) {
+            vaeg_hostdrv_session_stop();
+            return 0;
+        }
+        const auto *value = wide.get()[index];
+        const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, nullptr, 0, nullptr, nullptr);
+        std::string native(length, '\0');
+        const bool enabled = length > 1 &&
+            WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value, -1, native.data(), length, nullptr, nullptr) == length &&
+            (native.pop_back(), session.enable(native));
+#else
+        (void)argc;
+        (void)argv;
+        const bool enabled = session.enable(path);
+#endif
+        if (enabled) {
             hostdrv_bind_exclusive_transport(hostdrv::Service::dispatch, &session);
             return 1;
         }
