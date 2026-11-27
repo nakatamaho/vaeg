@@ -77,6 +77,26 @@ reads `SDEVATT` through `curdir_devptr` even on remote drives. DOS 3Fh maps
 redirector status 21 to immediate status 5 while preserving 21 for 5900h
 (`DOS/MS_CODE.ASM:395–437`, `DOS/MS_TABLE.ASM:64–80`).
 
+## Shared-port activation profile
+
+The VA DOS machine-I/O source (`VAIO.ASM`, `VAHDD.INC`, `VAHDINIT.INC`,
+`VASPEED.ASM`) has no identified 07EDh/07EFh client. The source audit of
+VAEG guest tools identifies the HOSTFAT driver; the emulated option BIOS
+sources (`idebios.asm`, `sasibios.asm`, `scsibios.asm`) also use the command
+port. These are not independent masters. Native instruction execution owns
+the channel, and the FDC subsystem has a separate I/O bus. The frontend
+and frame/PC diagnostic script have no runtime operation that injects a
+channel read or write; direct selftest I/O is a separate run. No native
+NMI source was identified. The activation decision is for this execution
+profile, not a claim that all guest programs or firmware avoid the ports.
+
+The driver must refuse a busy transaction or an entry with TF set before
+port access, and hold its guard with IF masked through reply validation.
+It must not call DOS, firmware or a guest callback in that window. Keep
+busy refusal for unknown clients; the audit is not authority to override
+it. Re-audit before enabling any independent port master, port-injection
+interface or native NMI source.
+
 ## Next steps
 
 1. Finish Stage 2 bootstrap proof after the [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf).
@@ -92,12 +112,9 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
    from a later bootstrap before install (which must revoke an unconsumed
    grant). If the supported transitions cannot be identified reliably,
    keep discovery disabled and seek an approved profile clarification.
-2. Prove the port exclusivity profile (IRQ masking, no NMI, other port
-   masters or injected port access). Include the native trace-flag path:
-   IF masking alone does not exclude a guest INT 1 trap. Exercise the guest
-   no-port-access refusal separately. Keep discovery disabled until the
-   profile and lifecycle hooks are verified; then bind `--hostdrv-dir` on
-   the emulator thread. The session option must grant only after startup
+2. Bind `--hostdrv-dir` on the emulator thread under the audited profile.
+   Verify guest IRQ masking and the no-port-access busy/TF refusal when
+   testing the redirector. The session option must grant only after startup
    reset and never regrant on reset/load. Retain full-path `openat2`
    authorization on every Linux lookup: parent identity and timestamps
    detect changes, not an atomic snapshot, and do not provide containment.
