@@ -953,6 +953,17 @@ static void pccore_process_cpu_reset_request(void) {
 	}
 }
 
+static void pccore_hostdrv_bootstrap_entry(UINT32 address) {
+	/* Reaching a firmware reset or boot entry is enough to revoke authority,
+	 * not enough to prove that DOS and its resident references are gone. */
+	if (address != 0xffff0 &&
+	    address != (pccore.model_va == PCMODEL_VA1 ? 0xf16a0 : 0xf1f90))
+		return;
+	if (!pccore_main_cpu_is_upd780() && !memoryva_88_mode &&
+	    CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE && hostdrv_state_guarded())
+		hostdrv_reset(0);
+}
+
 static SINT32 slice_remclock;
 
 #if defined(VAEG_UPD9002_M42_TESTING)
@@ -962,6 +973,8 @@ void upd9002_m42_process_cpu_reset_request(void) {
 #endif
 
 void pccore_exec(BOOL draw) {
+	UINT32 fetch_address;
+
 	if (upd9002_diagnostic_pending() || upd9002_debug_event_pending()) {
 		return;
 	}
@@ -990,11 +1003,13 @@ void pccore_exec(BOOL draw) {
 		slice_remclock = CPU_REMCLOCK;
 		while (CPU_REMCLOCK > 0) {
 		debug_resume_cpu:
+			fetch_address = (CS_BASE + CPU_IP) & CPU_ADRSMASK;
+			if (fetch_address >= 0xf0000 && fetch_address <= 0xffff0)
+				pccore_hostdrv_bootstrap_entry(fetch_address);
 			if (upd9002_debug_step_begin()) {
 				pccore_debug_resume = TRUE;
 				return;
 			}
-			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			const BOOL was_inhibited = CPU_INTERRUPT_SHADOW != UPD9002_SHADOW_NONE;
 			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {

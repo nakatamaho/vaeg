@@ -5542,6 +5542,49 @@ static void hostdrv_test_load(void *context, HD_MARKS marks) {
 	session->marks = marks;
 }
 
+static const char *hostdrv_test_bootstrap(HOSTDRV_TEST_SESSION *session) {
+	static const struct {
+		UINT8 model;
+		UINT16 cs;
+		UINT16 ip;
+		BOOL revoke;
+	} cases[] = {{PCMODEL_VA2, 0xf000, 0x1f90, TRUE},
+	             {PCMODEL_VA2, 0xf000, 0x1f91, FALSE},
+	             {PCMODEL_VA1, 0xf000, 0x1f90, FALSE},
+	             {PCMODEL_VA1, 0xf000, 0x16a0, TRUE},
+	             {PCMODEL_VA1, 0xf000, 0xfff0, TRUE},
+	             {PCMODEL_VA2, 0xffff, 0, TRUE}};
+	UINT i;
+
+	for (i = 0; i < NELEMENTS(cases); ++i) {
+		pccore_reset();
+		upd9002_debug_reset();
+		pccore.model_va = cases[i].model;
+		CPU_CS = 0x2000;
+		CS_BASE = 0x20000;
+		CPU_IP = 0;
+		CPU_FLAG &= ~(I_FLAG | T_FLAG);
+		CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+		mem[0x20000] = 0xea; // JMP ptr16:16; also a live-RAM sentinel.
+		hostdrv_put16(mem + 0x20001, cases[i].ip);
+		hostdrv_put16(mem + 0x20003, cases[i].cs);
+		upd9002_core_queue_reset();
+		session->grant = session->resident = 1;
+		if (upd9002_debug_wait_arm(cases[i].cs, cases[i].ip, 1) != SUCCESS)
+			return "M173_HOSTDRV_BOOTSTRAP_FIXTURE";
+		pccore_exec(FALSE);
+		if (!upd9002_debug_event_pending() || CPU_CS != cases[i].cs || CPU_IP != cases[i].ip)
+			return "M173_HOSTDRV_BOOTSTRAP_TARGET";
+		if (session->grant == cases[i].revoke)
+			return "M173_HOSTDRV_BOOTSTRAP_REVOCATION";
+		if (!session->resident || mem[0x20000] != 0xea)
+			return "M173_HOSTDRV_BOOTSTRAP_RESIDENCY";
+	}
+	upd9002_debug_reset();
+	pccore_reset();
+	return NULL;
+}
+
 static BOOL hostdrv_test_error(char *error, const char *code) {
 	error[strcspn(error, "\r\n")] = 0;
 	return !strcmp(error, code);
@@ -5621,6 +5664,10 @@ static int test_hostdrv_lifecycle(void) {
 	if (session.resident || session.cleared_while_live || mem[0x20000] != 0)
 		goto done;
 
+	problem = hostdrv_test_bootstrap(&session);
+	if (problem)
+		goto done;
+
 	problem = "invalid HOSTDRV state was not rejected before mutation";
 	CPU_IP = 0x4321;
 	mem[0x20000] = 0xa5;
@@ -5649,6 +5696,7 @@ static int test_hostdrv_lifecycle(void) {
 	problem = NULL;
 
 done:
+	upd9002_debug_reset();
 	pccore_reset();
 	hostdrv_bind_lifecycle(NULL, NULL);
 	pccore_term();
@@ -5659,7 +5707,7 @@ done:
 	file_delete(bad);
 	if (problem)
 		return fail("HOSTDRV lifecycle", problem);
-	fprintf(stderr, "selftest: HOSTDRV reset, resident guards and uninstalled state policy ok\n");
+	fprintf(stderr, "selftest: HOSTDRV reset, bootstrap entry, resident guards and uninstalled state policy ok\n");
 	return SUCCESS;
 }
 
