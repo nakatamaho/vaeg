@@ -35,6 +35,23 @@ land.
 
 ## Maintenance Rules
 
+### M173 — HOSTDRV rejected DOS output in upper conventional memory
+
+- **Symptom/scope:** During M173 development, COMMAND `TYPE` and `COPY`
+  could fail before reading an owned file. DOS can put the saved INT 21h
+  register frame above `80000h`.
+- **Demonstrated cause:** The TSR applied the host direct-copy ceiling to
+  DOS-supplied CPU store destinations and refused the extended-open action
+  or XA result before any file transfer.
+- **Correction:** Validate CPU output spans for conventional addresses,
+  segment wrap and resident-image overlap. Keep the v1 host bounce-window
+  ceiling unchanged.
+- **Verification:** The Linux build and HOSTDRV CTest suite pass. The
+  `HDFILE.COM` fixture includes a negative at the conventional-memory ceiling;
+  its public CTest checks assembly only. See the [M173 report](../agents/reports/m173_hostdrv_readonly.md#command-typecopy-and-upper-ram-qualification).
+- **Milestone/task/commit:** [M173 task](../agents/tasks/M173_hostdrv_readonly.md),
+  [a25921ab](https://github.com/nakatamaho/vaeg/commit/a25921abe9e8fce21f1f01d82aa7ef2834cf2af4).
+
 ### M170 — US preset lacked a dedicated guest FULLWIDTH key
 
 - **Symptom/scope:** The US keyboard preset could not send a dedicated
