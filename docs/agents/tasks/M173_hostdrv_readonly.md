@@ -26,8 +26,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 **Status:** assigned 2026-11-27 by the maintainer; branch
 `milestone/m173-hostdrv-readonly` from `main` (`ed5899a9`).
-Stage 1 is in progress: the v1 packet and shared-port fixtures are
-implemented; DOS CDS/SFT verification is outstanding. Not ready for G173.
+The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
+implemented. The host backends and product redirector are outstanding.
+Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.

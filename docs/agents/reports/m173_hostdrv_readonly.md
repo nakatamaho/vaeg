@@ -23,8 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M173 — HOSTDRV read-only progress
 
-**Not ready for G173.** Stage 1 has the wire and shared-port components;
-it does not yet have a complete DOS ABI fixture or an enabled emulator service. The archived
+**Not ready for G173.** Stage 1 has the wire, shared-port and transient
+DOS CDS/SFT fixtures. There is no enabled emulator service. The archived
 reference tier and its provenance are unaffected.
 
 | Check | Result | Scope |
@@ -35,7 +35,8 @@ reference tier and its provenance are unaffected.
 | `vaeg_hostdrv_fcb_fixture_build` (CTest) | PASS | NASM-only build of `HDFCBTST.COM`; no FCB behavior exercised by this check. |
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
-| DOS CDS/SFT fixture and caller traces | NOT RUN | No redirector fixture wired to the DOS ABI yet. |
+| `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
+| Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; there is no product TSR. |
 | Linux/Windows backend policy and functional checks | NOT RUN | Backends not implemented. |
 | `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
@@ -50,3 +51,34 @@ with a fresh serial, closes the stale FCB and checks that the replacement
 still reads before closing the remaining FCBs. It does not assert that
 uncorrected DOS preserved the age. Execution requires the synthetic
 redirector endpoint with the one-shot fault described in the fixture.
+
+## Transient DOS ABI fixture
+
+[`HDABI.COM`](../../../tools/pc88va/hostdrv/hdabi.asm) requires a free CDS
+above the physical drives and the default drive, and no prior redirector.
+It installs and restores an in-process CDS and INT 2Fh hook without issuing
+port I/O, and emits `HDABI PASS` only after its checks. It covers the
+DOS-maintained CDS working directory, ordinary open and missing-file error,
+CDS/SFT remote classification, duplicated reference counts, positioned
+synthetic read, nonfinal close and final error close after simulated detach,
+slot reuse with a fresh serial, and replay from a copied public DTA after
+EOF. Its CDS has a synthetic device descriptor because the DOS 4409h path
+reads `SDEVATT` through `curdir_devptr` even on remote drives. DOS 3Fh maps
+redirector status 21 to immediate status 5 while preserving 21 for 5900h
+(`DOS/MS_CODE.ASM:395–437`, `DOS/MS_TABLE.ASM:64–80`).
+
+## Next steps
+
+1. Implement the read-only service and platform adapters: start with anchored
+   metadata resolution and no-atime identity-verified same-object opens; then
+   add strict names/aliases, immutable searches, bounded handles and sharing.
+   Bind the opt-in only on profiles with proven transport exclusivity. Add
+   reset/revocation and save/load guards before exposing the mount option.
+2. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
+   point for CDS/SFT handling, not as install/ownership policy. Verify all
+   verb and lifecycle cases, including the separate FCB probe and caller
+   traces, under the approved design. Add guest-side packet validation and
+   exercise the no-port-access busy/refusal path separately from the host
+   dispatch guard.
+3. Complete the task's checklist and clean static MinGW candidate handoff.
+   Windows execution remains G173; no acceptance is recorded here.
