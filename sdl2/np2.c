@@ -2121,7 +2121,10 @@ int main(int argc, char **argv) {
 		return (SUCCESS);
 	}
 	if (options.hostdrv_path != NULL) {
-#if !defined(VAEG_HOSTDRV_SESSION)
+#if defined(_WIN32) && !defined(VAEG_HOSTDRV_SESSION)
+		fprintf(stderr, "Error: HOSTDRV is disabled on Windows: directory containment and no-access-time updates are not verified\n");
+		return (FAILURE);
+#elif !defined(VAEG_HOSTDRV_SESSION)
 		fprintf(stderr, "Error: HOSTDRV directory sessions are unavailable on this platform\n");
 		return (FAILURE);
 #else

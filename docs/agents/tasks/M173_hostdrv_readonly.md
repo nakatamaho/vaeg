@@ -44,7 +44,10 @@ Minimal read-only FCB allocation, transfers, search and cleanup are
 implemented. The remaining functional and lifecycle checks, Windows
 backend and static G173 handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
-Not ready for G173.
+Not ready for G173. Windows rejects `--hostdrv-dir` before granting any
+folder authority; the runtime containment and no-access-time guarantees
+are not established. A compile-only handoff cannot pass the Windows
+HOSTDRV checklist.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.

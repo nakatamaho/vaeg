@@ -106,7 +106,15 @@ interface or native NMI source.
 
 ## Linux activation checkpoint
 
-`--hostdrv-dir PATH` is explicit, session-only and Linux-only. The frontend
+`--hostdrv-dir PATH` is explicit, session-only and Linux-only.
+Windows rejects the option before opening a folder. The approved Windows
+path requires handle-relative, non-reparse authorization with ancestor
+rename/replacement protection, followed by a verified same-object data
+or listing handle with no access-time updates. Microsoft documents
+[per-handle suppression with `LastAccessTime = -1`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information);
+that alone does not establish containment or provider behavior. No
+Windows backend is enabled, and a MinGW compile/import audit cannot
+establish either guarantee. The frontend
 binds the Linux service on the emulator thread after the startup machine
 reset. Reset and load revoke authority and do not replay the option.
 Unsupported platforms fail explicitly. Keep full-path `openat2`
