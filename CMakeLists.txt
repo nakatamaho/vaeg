@@ -841,6 +841,9 @@ if(WIN32 AND NOT VAEG_WINDOWS_CONSOLE)
     list(APPEND VAEG_SDL2_EXE_OPTIONS WIN32)
 endif()
 add_executable(vaeg_sdl2 ${VAEG_SDL2_EXE_OPTIONS} ${VAEG_SDL2_SOURCES})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(vaeg_sdl2 PRIVATE sdl2/hostdrv_linux.cpp)
+endif()
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")
@@ -1083,6 +1086,12 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_hostdrv_wire_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     add_test(NAME vaeg_hostdrv_wire COMMAND vaeg_hostdrv_wire_test)
     set_tests_properties(vaeg_hostdrv_wire PROPERTIES LABELS "romless;hostdrv")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        add_executable(vaeg_hostdrv_linux_test tests/pc88va/hostdrv_linux.cpp sdl2/hostdrv_linux.cpp)
+        target_include_directories(vaeg_hostdrv_linux_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        add_test(NAME vaeg_hostdrv_linux COMMAND vaeg_hostdrv_linux_test)
+        set_tests_properties(vaeg_hostdrv_linux PROPERTIES LABELS "romless;hostdrv" TIMEOUT 30)
+    endif()
     add_test(NAME vaeg_hostdrv_transport COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_hostdrv_transport PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY=1"
