@@ -25,7 +25,7 @@ org 100h
 
 %define HD_MUX 0d7a0h
 %define HD_TAG 4448h
-%define HD_ABI 1
+%define HD_ABI 2
 %define HD_VECTOR (2fh * 4)
 
     jmp transient
@@ -58,7 +58,10 @@ hd_classify:
     cmp ax, 1113h
     je .cds
     cmp ax, 1117h
-    jne .chain
+    je .cds
+    cmp ax, 1116h
+    je .cds
+    jmp hd_classify_file
 .cds:
     les di, [hd_sda]
     mov bx, [hd_cds]
@@ -81,7 +84,7 @@ hd_dispatch:
     jmp .done
 .other:
     cmp ax, HD_MUX
-    jne hd_path_dispatch
+    jne hd_file_dispatch
 .identify:
     mov word [es:bp+HD_R_AX], HD_MUX+1
     mov word [es:bp+HD_R_CX], HD_ABI
@@ -225,6 +228,7 @@ hd_verify_tables:
 %include "hdwire.inc"
 %include "hdpacket.inc"
 %include "hdprofile.inc"
+%include "hdfiles.inc"
 
 hd_identity db "HOSTDRV", HD_ABI
 hd_generation dd 0
@@ -481,6 +485,8 @@ uninstall:
     cmp byte [hd_busy], 0
     jne .restore_ds
     cmp byte [hd_latched], 0
+    jne .restore_ds
+    cmp byte [hd_file_count], 0
     jne .restore_ds
     les di, [hd_cds]
     mov al, [hd_cds_image]
