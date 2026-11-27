@@ -23,6 +23,8 @@
  */
 #include "hostdrv_linux_service.h"
 
+#include "io/hostdrv_lifecycle.h"
+
 extern "C" {
 #include "io/hostdrv_wire.h"
 }
@@ -73,6 +75,27 @@ bool dos_metadata(std::uint8_t *out, const struct stat &st, bool hidden) {
 }
 
 } // namespace
+
+bool LinuxService::bind_lifecycle() {
+    static const HD_LIFECYCLE ops{
+        [](void *ctx) { return int(static_cast<LinuxService *>(ctx)->guarded()); },
+        [](void *ctx, int discarded) {
+            auto &service = *static_cast<LinuxService *>(ctx);
+            if (discarded)
+                service.discard_dos_image();
+            else
+                service.revoke();
+        },
+        [](void *ctx) {
+            const auto marks = static_cast<LinuxService *>(ctx)->marks();
+            return HD_MARKS{marks.generation, marks.serial};
+        },
+        [](void *ctx, HD_MARKS marks) {
+            static_cast<LinuxService *>(ctx)->load_uninstalled({marks.generation, marks.serial});
+        },
+    };
+    return !guarded() && !names_ && hostdrv_bind_lifecycle(&ops, this);
+}
 
 bool LinuxService::enable(const std::string &path) {
     if (guarded() || names_ || marks_.generation == token_max) {

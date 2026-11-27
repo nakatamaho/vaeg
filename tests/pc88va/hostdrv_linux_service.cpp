@@ -23,6 +23,8 @@
  */
 #include "sdl2/hostdrv_linux_service.h"
 
+#include "io/hostdrv_lifecycle.h"
+
 extern "C" {
 #include "io/hostdrv_wire.h"
 }
@@ -120,6 +122,7 @@ int main() {
     check(utimensat(AT_FDCWD, (root / "A.TXT").c_str(), timestamp, 0) == 0, "TIME_SETUP");
 
     Exchange x;
+    check(x.service.bind_lifecycle(), "BIND_LIFECYCLE");
     check(x.call(HD_QUERY) == 21 && x.service.enable(root.string()) && x.call(HD_QUERY) == 0, "QUERY");
     x.generation = x.dword(HD_GENERATION);
     check(x.call(HD_STAT, "A.TXT") == 21 && x.call(HD_ATTACH) == 0 && x.service.guarded(), "ATTACH");
@@ -154,8 +157,8 @@ int main() {
     check(x.call(HD_FIND_NEXT, {}, 0, search, 1) == 18, "OLDEST_EVICTION");
     check(x.call(HD_DETACH) == 0x100 + HD_BUSY, "DETACH_BUSY");
     check(x.call(HD_CLOSE, {}, 0, file) == 0 && x.call(HD_CLOSE, {}, 0, file) == 6, "RETIRE_FILE");
-    x.service.revoke();
-    check(x.service.guarded() && x.call(HD_QUERY) == 21 && x.call(HD_FSTAT, {}, 0, file) == 21 &&
+    hostdrv_reset(0);
+    check(hostdrv_state_guarded() && x.service.guarded() && x.call(HD_QUERY) == 21 && x.call(HD_FSTAT, {}, 0, file) == 21 &&
               x.call(HD_ATTACH) == 0x100 + HD_BUSY && x.call(HD_UNREGISTER) == 0, "REVOKE_AND_UNREGISTER");
     check(x.service.enable(root.string()) && x.call(HD_QUERY) == 0 && x.dword(HD_GENERATION) > x.generation,
           "FRESH_GENERATION");
@@ -186,8 +189,15 @@ int main() {
           "FINAL_NONZERO_SERIAL");
     check(x.call(HD_CLOSE, {}, 0, x.dword(HD_TOKEN)) == 0 && x.call(HD_OPEN, "B.TXT") == 4,
           "SERIAL_EXHAUSTION");
-    x.service.discard_dos_image();
-    check(!x.service.guarded() && x.call(HD_QUERY) == 21, "DISCARD_IMAGE");
+    hostdrv_reset(1);
+    check(!hostdrv_state_guarded() && !x.service.guarded() && x.call(HD_QUERY) == 21,
+          "DISCARD_IMAGE");
+    check(x.service.enable(root.string()), "PENDING_GRANT");
+    hostdrv_load_uninstalled({x.generation + 2, 0});
+    auto marks = hostdrv_get_marks();
+    check(x.call(HD_QUERY) == 21 && marks.generation == x.generation + 2 && marks.serial == 65535,
+          "LOAD_REVOKES_AND_MERGES");
     check(x.service.load_uninstalled({std::numeric_limits<std::uint32_t>::max(), 65535}) &&
               !x.service.enable(root.string()), "GENERATION_EXHAUSTION");
+    check(hostdrv_bind_lifecycle(nullptr, nullptr), "UNBIND_LIFECYCLE");
 }

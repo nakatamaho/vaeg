@@ -38,6 +38,8 @@ public:
         std::uint16_t serial = 0;
     };
 
+    // Bind before enable; caller must unbind before destroying this service.
+    bool bind_lifecycle();
     bool enable(const std::string &path);
     void revoke();
     // Caller must prove the prior DOS image and its references were discarded.
