@@ -272,6 +272,16 @@ the broadcast.
    backend. macOS stays disabled. The source milestone is `M173-dev`; the
    static G173 handoff still requires the Windows backend.
 
+## Windows NTFS preflight
+
+A minimal MinGW executable returned status 0 through WSL2 interop. The
+checkout and task scratch are on ext4, so this only verifies that Windows
+executables can launch; it does not exercise local NTFS. The proposed NTFS
+scratch is outside the repository's filesystem access boundary and was not
+created or accessed. Ancestor rename/replacement exclusion, reparse and
+leaf-type rejection, and timestamp preservation across reads and listings
+remain NOT RUN. Windows folder authorization stays disabled.
+
 ## G173 Windows checklist — blocked by the disabled backend
 
 Once the backend is enabled on an eligible volume, start
