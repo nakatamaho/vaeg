@@ -114,7 +114,7 @@ hd_file_dispatch:
     cmp ax, 1108h
     je hd_read_file
     cmp ax, 1107h
-    je hd_file_stat
+    je hd_file_commit
     cmp ax, 1121h
     je hd_seek_end
     cmp ax, 112dh
@@ -652,10 +652,28 @@ hd_file_fault:
     mov ax, 31
     jmp hd_return_error
 
-hd_file_stat:
-    call hd_submit_fstat
+; Read-only commit flushes nothing. Check generation via QUERY so a force
+; detach still returns not ready, without touching the opened host object.
+hd_file_commit:
+    cmp byte [hd_latched], 0
+    jne hd_file_fault
+    xor ax, ax                   ; QUERY
+    xor cx, cx
+    xor dx, dx
+    call hd_prepare
+    call hd_submit
     jc hd_return_error
-    jmp hd_dispatch.done
+    test ax, ax
+    jnz hd_return_error
+    mov ax, [hd_packet+8]
+    cmp ax, [hd_generation]
+    jne .detached
+    mov ax, [hd_packet+10]
+    cmp ax, [hd_generation+2]
+    je hd_dispatch.done
+.detached:
+    mov ax, 21
+    jmp hd_return_error
 
 hd_submit_fstat:
     cmp byte [hd_latched], 0
