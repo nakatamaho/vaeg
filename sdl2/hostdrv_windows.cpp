@@ -146,6 +146,10 @@ bool information(HANDLE handle, BY_HANDLE_FILE_INFORMATION &id, FILE_BASIC_INFO 
     return true;
 }
 
+bool eligible_file(const BY_HANDLE_FILE_INFORMATION &id) {
+    return id.nNumberOfLinks == 1 && id.nFileSizeHigh == 0 && id.nFileSizeLow <= 0x7fffffffu;
+}
+
 bool eligible(HANDLE handle, std::uint64_t volume, bool require_directory,
               WindowsRoot::Diagnostic diagnostic = nullptr, std::wstring_view name = {}) {
     BY_HANDLE_FILE_INFORMATION id{};
@@ -158,7 +162,8 @@ bool eligible(HANDLE handle, std::uint64_t volume, bool require_directory,
     if (basic.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) return true;
     if (require_directory) trace(diagnostic, "directory required", name, basic.FileAttributes);
     else if (id.nNumberOfLinks != 1) trace(diagnostic, "ineligible link count", name, id.nNumberOfLinks);
-    return !require_directory && id.nNumberOfLinks == 1;
+    else if (!eligible_file(id)) trace(diagnostic, "file exceeds DOS size limit", name);
+    return !require_directory && eligible_file(id);
 }
 
 } // namespace
@@ -340,7 +345,7 @@ std::optional<WindowsRoot::Lookup> WindowsRoot::lookup(std::wstring_view raw, co
                 ((tag.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DEVICE)) || tag.ReparseTag)) {
                 *error = ELOOP;
             } else if (GetFileType(handle) == FILE_TYPE_DISK && GetFileInformationByHandle(handle, &info) &&
-                       !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && info.nNumberOfLinks != 1) {
+                       !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && !eligible_file(info)) {
                 *error = EPERM;
             }
             return {};
@@ -470,6 +475,7 @@ bool WindowsRoot::enumerate(std::string_view raw, const Handle &expected, std::v
     }
     locked.reset();
     std::vector<Entry> staged;
+    std::size_t scanned = 0;
     auto mode = FileIdBothDirectoryRestartInfo;
     alignas(FILE_ID_BOTH_DIR_INFO) std::array<unsigned char, 16384> buffer;
     while (GetFileInformationByHandleEx(listing->handle_, mode, buffer.data(), DWORD(buffer.size()))) {
@@ -477,7 +483,7 @@ bool WindowsRoot::enumerate(std::string_view raw, const Handle &expected, std::v
         std::size_t offset = 0;
         for (;;) {
             constexpr auto fixed = offsetof(FILE_ID_BOTH_DIR_INFO, FileName);
-            if (buffer.size() - offset < fixed) {
+            if (++scanned > max_scan || buffer.size() - offset < fixed) {
                 return false;
             }
             const auto *info = reinterpret_cast<const FILE_ID_BOTH_DIR_INFO *>(buffer.data() + offset);
@@ -491,9 +497,6 @@ bool WindowsRoot::enumerate(std::string_view raw, const Handle &expected, std::v
             if (component(name)) {
                 auto spelling = utf8(name);
                 if (!spelling.empty()) {
-                    if (staged.size() == max_scan) {
-                        return false;
-                    }
                     staged.push_back({std::move(spelling), std::uint64_t(info->FileId.QuadPart)});
                 }
             }

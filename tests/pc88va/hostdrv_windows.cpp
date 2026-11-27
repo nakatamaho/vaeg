@@ -384,7 +384,34 @@ void run(Fixtures &fixtures, const std::wstring &base) {
 
     const auto long_jp = path + L"\\\u8868\u8868\u8868\u8868\u8868.txt";
     const bool long_created = fixtures.file(long_jp, 'A');
+    const auto many = path + L"\\MANY";
+    bool seeded_scan = fixtures.dir(many);
+    auto many_pin = seeded_scan ? root->resolve("MANY") : std::nullopt;
+    std::vector<WindowsRoot::Entry> bounded;
+    check("RAW_SCAN_CONTROL", many_pin && root->enumerate("MANY", *many_pin, bounded) && bounded.empty());
+    for (unsigned i = 0; seeded_scan && i < 4097; ++i) {
+        seeded_scan = fixtures.file(many + L"\\" + std::to_wstring(i), 'S');
+    }
+    check("RAW_SCAN_CAP", seeded_scan && many_pin && !root->enumerate("MANY", *many_pin, bounded) && bounded.empty());
+
+    const auto big = parent + L"\\BIG.BIN";
+    bool oversized = fixtures.file(big, 'B');
+    if (oversized) {
+        const HANDLE h = CreateFileW(big.c_str(), GENERIC_WRITE, sharing, nullptr, OPEN_EXISTING, 0, nullptr);
+        oversized = h != INVALID_HANDLE_VALUE;
+        if (oversized) {
+            LARGE_INTEGER length{};
+            length.QuadPart = 0x80000000LL;
+            DWORD unused = 0;
+            oversized = DeviceIoControl(h, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &unused, nullptr) &&
+                        SetFilePointerEx(h, length, nullptr, FILE_BEGIN) && SetEndOfFile(h);
+            oversized = CloseHandle(h) && oversized;
+        }
+    }
     hostdrv::Namespace names(std::move(*root));
+    std::vector<hostdrv::Namespace::Item> found;
+    check("OVERSIZED_FILE_HIDDEN_FROM_LIST", oversized && names.list("PARENT", found) == hostdrv::Namespace::ok &&
+          found.size() == 1 && found.front().info.size == 1);
     hostdrv::Namespace::Item item{};
     std::optional<WindowsRoot::Handle> opened;
     check("JAPANESE_CP932_AND_ALIAS", long_created &&

@@ -99,6 +99,10 @@ Namespace::Error Namespace::refresh(Directory &dir, std::string_view raw) {
         if (!pin->metadata(info) || info.id != entry.inode) {
             return io;
         }
+        // The file can grow between authorization and the metadata sample.
+        if (!info.directory && info.size > 0x7fffffffu) {
+            continue;
+        }
         by_inode[info.id].push_back(staged.size());
         staged.push_back({std::move(*name), {entry.raw_name, {}, std::move(*pin), info}, {}});
     }
