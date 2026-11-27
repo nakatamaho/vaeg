@@ -24,9 +24,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M171 — SASI multiboot disk: PC-Engine 1.05 / PC-Engine 1.1 / MS-DOS 4.0 VA
 
-**Status:** assigned 2026-11-27 by the maintainer from the FreeDOS-88VA
-MS-DOS work; branch `milestone/m171-sasi-multiboot` from `main`
-(`b3be1b9e`). Delivered as a pull request; merge only after G171.
+**Status:** candidate ready for G171; human gate pending. See the
+[M171 candidate report](../reports/m171_sasi_multiboot_disk.md). Branch
+`milestone/m171-sasi-multiboot` from `main` (`b3be1b9e`); merge only after G171.
 
 ## Why
 

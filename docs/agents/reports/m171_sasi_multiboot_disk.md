@@ -1,0 +1,59 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+
+# M171 — SASI multiboot candidate
+
+- Candidate: [`fd651502`](https://github.com/nakatamaho/vaeg/commit/fd6515020307134f7e0d049f6f09dd02b5eefa7b).
+- [Task and gate](../tasks/M171_sasi_multiboot_disk.md)
+- [English and Japanese instructions](../../modernization/pc88va-sasi-multiboot.md)
+
+The builder constructs an empty NEC FAT12 volume. The guest's `SYS`
+installs and captures both PC-Engine systems. The host checks FAT chains,
+validates the captures against the installed files and stored IPLs, and
+publishes only after checks finish. Existing utility disk builders and
+`pcengine_disk.py` are unchanged. This change has no effect on emulator code
+or the archived reference tier.
+
+## Source and ROM-free checks
+
+- `python3 -B tools/pc88va/test_sasi_multiboot_disk.py -v`: 7 passed.
+  Single-mutation negatives check `D5_FILE_MISSING`, `D5_STATE_CRC`, and
+  `FAT_COPIES` against passing fixtures. The tests also cover four FAT12
+  geometries, startup names, the CRC vector and no-clobber output.
+- `git diff --check`, `check_case.py`, `check_encoding.py --expect utf8`,
+  `check_eol.py`, `check_md_comments.py`: passed.
+- CMake/CTest: not applicable to this standalone Python change.
+
+## Guest-check contract
+
+| Model | SASI sizes for G171 | Checkpoints |
+|---|---|---|
+| VA | 5 and 40 MB | VA banner, keys 1/2 to `Ready`, 3 to `C>`, timeout retains selection, `SYS C: /L` lists both captures, clean `CHKDSK C:` |
+| VA2 | 5 and 40 MB | VA2/VA3/VA-91 banner, keys 1/2 to `Ready`, 3 to `C>`, timeout retains selection, `SYS C: /L` lists both captures, clean `CHKDSK C:` |
+
+Guest outcomes and input/output identities are not published here. Automated
+guest checks use headless text VRAM, not the actual SDL presenter.
+
+**NOT RUN:** G171 human acceptance, physical hardware, separate VA3 and VA-91
+coverage, non-Linux host coverage, full media/demo regression, and actual
+presenter/screen automation. No merge or release acceptance is implied.
