@@ -71,4 +71,16 @@ int main() {
     check(long_name && !long_name->folded && !long_name->native &&
               alias_name(*long_name, 9) == "LONGNA~9TXT" &&
               alias_name(*long_name, 10) == "LONGN~10TXT", "HD_NAMES_ALIAS");
+    const auto kana = host_name(u8"プロジェクト計画書.txt");
+    check(kana && alias_name(*kana, 1) == dos_name("\x83\x76\x83\x8d\x83\x57~1.TXT") &&
+              alias_name(*kana, 10) == dos_name("\x83\x76\x83\x8d~10.TXT"), "HD_NAMES_KANA_GROWTH");
+    const auto mixed = host_name(u8"abcde表日本.表語");
+    check(mixed && alias_name(*mixed, 1) == dos_name("ABCDE~1." + trail) &&
+              alias_name(*mixed, 10) == dos_name("ABCDE~10." + trail), "HD_NAMES_SPLIT_LEAD");
+    const auto eighth = host_name(u8"abcdefg表.txt");
+    check(eighth && alias_name(*eighth, 1) == "ABCDEF~1TXT", "HD_NAMES_EIGHTH_BYTE_LEAD");
+    const auto half = host_name(u8"🌱aｦ表.txt🌱");
+    check(half && alias_name(*half, 1) == dos_name("A\xa6" + trail + "~1.TXT"), "HD_NAMES_HALFWIDTH");
+    const auto fallback = host_name(u8"🌱+.🌱");
+    check(fallback && alias_name(*fallback, 1) == "FILE~1     ", "HD_NAMES_ASCII_FALLBACK");
 }

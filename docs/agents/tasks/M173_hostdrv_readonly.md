@@ -56,6 +56,10 @@ only; GUI and persistence follow later). No write verbs.
   POSIX path shares every guarantee, otherwise disabled with a clear
   message. A session option (e.g. `--hostdrv-dir PATH`). Never write the
   host (including times).
+  M173 naming amendment (maintainer approved, 2026-11-27): use folded
+  Shift-JIS alias prefixes and extensions per the design amendment; test
+  Japanese and mixed names, truncation at a lead byte, `~10` growth,
+  unmappable characters and single-byte half-width katakana.
 - **Guest:** `HOSTDRV.COM` for MS-DOS 4.0 VA (NASM, 8086-level like
   HOSTFAT): install on a free drive (or one given), refuse cleanly when
   LASTDRIVE is exhausted or discovery fails, service the read-only

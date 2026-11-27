@@ -146,10 +146,16 @@ std::string sanitized(std::string_view text, std::size_t length) {
         if (!utf8_next(text, i, scalar)) {
             break;
         }
-        if (scalar == ' ' || scalar == '.') {
-            continue;
+        const auto key = encode932(scalar);
+        if (key > 0xff) {
+            if (length - result.size() < 2) {
+                break;
+            }
+            result += static_cast<char>(key >> 8);
+            result += static_cast<char>(key);
+        } else if (legal_single(key)) {
+            result += upper(static_cast<char>(key));
         }
-        result += scalar < 0x80 && legal_single(scalar) ? upper(static_cast<char>(scalar)) : '_';
     }
     return result;
 }
@@ -252,7 +258,17 @@ std::optional<DosName> alias_name(const HostName &name, unsigned number) {
         return std::nullopt;
     }
     const auto digits = std::to_string(number);
-    return padded(name.prefix.substr(0, 7 - digits.size()) + '~' + digits, name.extension);
+    const auto limit = 7 - digits.size();
+    std::size_t length = 0;
+    while (length < name.prefix.size()) {
+        const std::size_t width = lead(static_cast<unsigned char>(name.prefix[length])) ? 2 : 1;
+        if (length + width > limit) {
+            break;
+        }
+        length += width;
+    }
+    const auto prefix = length ? name.prefix.substr(0, length) : std::string("FILE").substr(0, limit);
+    return padded(prefix + '~' + digits, name.extension);
 }
 
 bool valid_template(std::string_view pattern) {

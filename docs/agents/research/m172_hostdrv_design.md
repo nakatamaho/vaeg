@@ -526,6 +526,14 @@ INT 24 dialog or retry on a malformed packet.
   pin and tombstone storage; fail explicitly on exhaustion, not by reusing
   a spelling or relaxing identity checks. Fresh mounts of the same contents
   have the same initial mapping, not a promise of continuity across mounts.
+  **M173 amendment (maintainer approved, 2026-11-27):** Instead of the
+  ASCII-only sanitization above, form the alias prefix and extension from
+  leading folded Shift-JIS characters, dropping unmappable and DOS-illegal
+  characters. Do not split a character at the 8-byte base (including `~n`)
+  or 3-byte extension limit, including when `~n` grows. Use the VA lead-byte
+  ranges in `DOS/DOSMES.ASM:250–257` and
+  `DEV/COUNTRY/MKCNTRY.ASM:2320–2325`. Retain the stable ASCII fallback
+  if no usable prefix fits. All other alias and matching rules still apply.
   DOS-created names must be legal, round-trip and not shadow existing
   entries. Write phase must test case-only renames and alias races again.
 * Use host mtime in local civil time, DOS 1980–2107 range clamped with
