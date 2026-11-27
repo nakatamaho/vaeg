@@ -25,7 +25,7 @@ org 100h
 
 %define HD_MUX 0d7a0h
 %define HD_TAG 4448h
-%define HD_ABI 2
+%define HD_ABI 3
 %define HD_VECTOR (2fh * 4)
 
     jmp transient
@@ -47,6 +47,8 @@ hd_classify:
     je .cds
     cmp ax, 110fh
     je .cds
+    cmp ax, 110ch
+    je .cds
     cmp ax, 1101h
     je .cds
     cmp ax, 1103h
@@ -61,6 +63,12 @@ hd_classify:
     je .cds
     cmp ax, 1116h
     je .cds
+    cmp ax, 111bh
+    je .cds
+    cmp ax, 111ch
+    je hd_classify_search
+    cmp ax, 111dh
+    je .owned
     jmp hd_classify_file
 .cds:
     les di, [hd_sda]
@@ -84,7 +92,7 @@ hd_dispatch:
     jmp .done
 .other:
     cmp ax, HD_MUX
-    jne hd_file_dispatch
+    jne hd_search_dispatch
 .identify:
     mov word [es:bp+HD_R_AX], HD_MUX+1
     mov word [es:bp+HD_R_CX], HD_ABI
@@ -97,6 +105,8 @@ hd_dispatch:
 
 ; AX is the owned verb, ES:BP the immutable caller frame except for outputs.
 hd_path_dispatch:
+    cmp ax, 110ch
+    je hd_disk_space
     cmp ax, 1105h
     je .stat
     cmp ax, 110fh
@@ -148,6 +158,52 @@ hd_return_error:
     mov [es:bp+HD_R_AX], ax
     or word [es:bp+HD_R_FLAGS], 1
     clc                           ; consume the interrupt, not the DOS CF
+    ret
+
+; Convert validated LE u64 capacity to 512-byte sectors, then to the
+; smallest legal allocation unit that permits a 16-bit total.
+hd_disk_space:
+    cmp byte [hd_latched], 0
+    jne hd_file_fault
+    mov al, 2
+    call hd_session_prepare
+    mov word [hd_packet+28], 16
+    call hd_submit
+    jc hd_return_error
+    test ax, ax
+    jnz hd_return_error
+    mov cx, 9
+.to_sectors:
+    call .halve
+    loop .to_sectors
+    mov bx, 1
+.units:
+    mov ax, [hd_packet+66]
+    or ax, [hd_packet+68]
+    or ax, [hd_packet+70]
+    jz .fits
+    cmp bx, 64
+    je .capped
+    shl bx, 1
+    call .halve
+    jmp .units
+.fits:
+    mov dx, [hd_packet+64]
+    jmp .return
+.capped:
+    mov dx, 0ffffh
+.return:
+    mov bh, 0f8h
+    mov [es:bp+HD_R_AX], bx
+    mov [es:bp+HD_R_BX], dx
+    mov word [es:bp+HD_R_CX], 512
+    mov word [es:bp+HD_R_DX], 0
+    jmp hd_dispatch.done
+.halve:
+    shr word [hd_packet+70], 1
+    rcr word [hd_packet+68], 1
+    rcr word [hd_packet+66], 1
+    rcr word [hd_packet+64], 1
     ret
 
 ; Copy at most 127 canonical relative bytes from DOSGroup. Check each
@@ -229,6 +285,7 @@ hd_verify_tables:
 %include "hdpacket.inc"
 %include "hdprofile.inc"
 %include "hdfiles.inc"
+%include "hdsearch.inc"
 
 hd_identity db "HOSTDRV", HD_ABI
 hd_generation dd 0
@@ -499,6 +556,8 @@ uninstall:
     mov cx, HD_CDS_SIZE-43h
     repe cmpsb
     jne .restore_ds
+    call hd_drain_searches
+    jc .restore_ds
     mov cx, [hd_generation]
     mov dx, [hd_generation+2]
     pop ds

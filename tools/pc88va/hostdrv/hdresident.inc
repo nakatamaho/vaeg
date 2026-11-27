@@ -107,6 +107,8 @@ hd_interrupt:
     jc .chain
     jmp .handled
 .refuse:
+    cmp word [es:bp+HD_R_AX], 111dh
+    je .chain                      ; never consume an abort broadcast
     cmp word [es:bp+HD_R_AX], 1108h
     jne .status
     mov word [es:bp+HD_R_CX], 0

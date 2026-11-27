@@ -448,29 +448,9 @@ hd_read_file:
     cmp byte [hd_latched], 0
     jne hd_file_fault
     push es
-    les di, [hd_sda]
-    les di, [es:di+0ch]           ; DMAADD
     mov cx, [hd_read_left]
-    call hd_dos_span
+    call hd_dma_span
     jc .bad_range
-    ; Do not copy into the resident image (including its private stack).
-    mov bx, es
-    mov dx, cs
-    mov ax, di
-    add ax, cx
-    dec ax
-    mov cl, 4
-    shr ax, cl
-    add ax, bx
-    cmp ax, dx
-    jb .buffer_ok
-    mov ax, di
-    shr ax, cl
-    add ax, bx
-    add dx, (hd_resident_end-$$+100h+15)/16
-    cmp ax, dx
-    jb .bad_range
-.buffer_ok:
     mov [hd_read_dma], di
     mov [hd_read_dma+2], es
     pop es
@@ -525,6 +505,36 @@ hd_read_file:
     cmp word [es:bp+HD_R_CX], 0
     jne .success
     jmp hd_return_error
+
+; CX = transfer size, return ES:DI = DMAADD on success. Never accept
+; writes into the resident image (including its private stack).
+hd_dma_span:
+    les di, [hd_sda]
+    les di, [es:di+0ch]
+    call hd_dos_span
+    jc .bad
+    mov bx, es
+    mov dx, cs
+    mov ax, di
+    add ax, cx
+    dec ax
+    mov cl, 4
+    shr ax, cl
+    add ax, bx
+    cmp ax, dx
+    jb .ok
+    mov ax, di
+    shr ax, cl
+    add ax, bx
+    add dx, (hd_resident_end-$$+100h+15)/16
+    cmp ax, dx
+    jb .bad
+.ok:
+    clc
+    ret
+.bad:
+    stc
+    ret
 
 hd_session_prepare:
     mov cx, [hd_generation]
