@@ -169,27 +169,23 @@ bool junction(Fixtures &fixtures, const std::wstring &path, const std::wstring &
     return CloseHandle(h) && ok;
 }
 
-bool posix_replace(const std::wstring &source, const std::wstring &target, DWORD &error) {
+DWORD rename_directory(const std::wstring &source, const std::wstring &target) {
     HANDLE h = CreateFileW(source.c_str(), DELETE, sharing, nullptr, OPEN_EXISTING,
                            FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     if (h == INVALID_HANDLE_VALUE) {
-        error = GetLastError();
-        return false;
+        return GetLastError();
     }
-    // The Ex form uses a DWORD flag field in the original BOOL slot.
     alignas(FILE_RENAME_INFO) unsigned char bytes[32768]{};
     auto *info = reinterpret_cast<FILE_RENAME_INFO *>(bytes);
-    info->ReplaceIfExists = TRUE | 2; // REPLACE_IF_EXISTS | POSIX_SEMANTICS
     const auto size = target.size() * sizeof(wchar_t);
-    bool ok = false;
+    DWORD error = ERROR_FILENAME_EXCED_RANGE;
     if (size <= sizeof(bytes) - offsetof(FILE_RENAME_INFO, FileName)) {
         info->FileNameLength = DWORD(size);
         std::memcpy(info->FileName, target.data(), size);
-        ok = SetFileInformationByHandle(h, static_cast<FILE_INFO_BY_HANDLE_CLASS>(22), info, sizeof(bytes));
-        error = ok ? 0 : GetLastError();
+        error = SetFileInformationByHandle(h, FileRenameInfo, info, sizeof(bytes)) ? ERROR_SUCCESS : GetLastError();
     }
     CloseHandle(h);
-    return ok;
+    return error;
 }
 
 bool read_byte(const WindowsRoot::Handle &file, char expected) {
@@ -200,10 +196,10 @@ bool read_byte(const WindowsRoot::Handle &file, char expected) {
 
 void run(Fixtures &fixtures, const std::wstring &base) {
     const auto path = base + L"\\root", parent = path + L"\\PARENT", renamed = base + L"\\moved";
-    const auto outside = base + L"\\outside", replacement = base + L"\\replacement";
+    const auto outside = base + L"\\outside";
     const auto data = parent + L"\\DATA.TXT", jp = path + L"\\" + japanese;
     const bool seeded = fixtures.dir(path) && fixtures.dir(parent) && fixtures.dir(outside) &&
-                        fixtures.dir(replacement) && fixtures.file(data, 'I') &&
+                        fixtures.file(data, 'I') &&
                         fixtures.file(outside + L"\\DATA.TXT", 'O') && fixtures.file(jp, 'J');
     check("FIXTURES", seeded);
     if (!seeded) return;
@@ -270,22 +266,29 @@ void run(Fixtures &fixtures, const std::wstring &base) {
     check("CAPACITY", root->capacity(total) && total > 0);
 
     {
-        auto held = hostdrv::WindowsRootTest::hold(*root, L"PARENT/DATA.TXT");
-        const bool moved = MoveFileExW(parent.c_str(), renamed.c_str(), 0);
-        const auto error = GetLastError();
-        if (moved && !MoveFileExW(renamed.c_str(), parent.c_str(), 0)) {
-            fixtures.paths.push_back({renamed, true});
-            fixtures.paths.push_back({renamed + L"\\DATA.TXT", false});
+        const auto target = path + L"\\LOCKED", away = base + L"\\locked-away";
+        const auto replacement = base + L"\\replacement";
+        if (fixtures.dir(target) && fixtures.file(target + L"\\LEAF.TXT", 'L') && fixtures.dir(replacement)) {
+            fixtures.paths.push_back({away, true});
+            fixtures.paths.push_back({away + L"\\LEAF.TXT", false});
+            const auto replace = [&]() {
+                const DWORD error = rename_directory(target, away);
+                return error == ERROR_SUCCESS ? rename_directory(replacement, target) : error;
+            };
+            const DWORD unlocked = replace();
+            const bool restored = unlocked == ERROR_SUCCESS &&
+                                  rename_directory(target, replacement) == ERROR_SUCCESS &&
+                                  rename_directory(away, target) == ERROR_SUCCESS;
+            check("UNLOCKED_ANCESTOR_REPLACE_CONTROL", restored);
+            if (restored) {
+                auto held = hostdrv::WindowsRootTest::hold(*root, L"LOCKED/LEAF.TXT");
+                const DWORD blocked = held ? replace() : ERROR_INVALID_HANDLE;
+                if (blocked != ERROR_SHARING_VIOLATION) diagnostic("held replacement Win32", target, blocked);
+                check("HELD_ANCESTOR_REPLACE", blocked == ERROR_SHARING_VIOLATION);
+            }
+        } else {
+            check("ANCESTOR_REPLACE_FIXTURES", false);
         }
-        check("HELD_ANCESTOR_RENAME", held && !moved &&
-              (error == ERROR_SHARING_VIOLATION || error == ERROR_ACCESS_DENIED));
-        DWORD posix_error = 0;
-        const bool replaced = posix_replace(replacement, parent, posix_error);
-        const auto current = root->resolve("PARENT/DATA.TXT");
-        check("HELD_ANCESTOR_REPLACE", held && !replaced &&
-              (posix_error == ERROR_SHARING_VIOLATION || posix_error == ERROR_ACCESS_DENIED ||
-               posix_error == ERROR_DIR_NOT_EMPTY || posix_error == ERROR_ALREADY_EXISTS) &&
-              current && file_pin && current->same_object(*file_pin));
     }
     HANDLE deleter = CreateFileW(parent.c_str(), DELETE, sharing, nullptr, OPEN_EXISTING,
                                  FILE_FLAG_BACKUP_SEMANTICS, nullptr);
