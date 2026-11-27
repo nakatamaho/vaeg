@@ -5599,29 +5599,31 @@ static const char *hostdrv_test_bootstrap(HOSTDRV_TEST_SESSION *session) {
 	             {PCMODEL_VA1, 0xf000, 0xfff0, TRUE},
 	             {PCMODEL_VA2, 0xffff, 0, TRUE}};
 	UINT i;
-
-	for (i = 0; i < NELEMENTS(cases); ++i) {
+	for (i = 0; i < 2 * NELEMENTS(cases); ++i) {
+		const UINT target = i % NELEMENTS(cases);
+		const int resident = i >= NELEMENTS(cases);
 		pccore_reset();
 		upd9002_debug_reset();
-		pccore.model_va = cases[i].model;
+		pccore.model_va = cases[target].model;
 		CPU_CS = 0x2000;
 		CS_BASE = 0x20000;
 		CPU_IP = 0;
 		CPU_FLAG &= ~(I_FLAG | T_FLAG);
 		CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 		mem[0x20000] = 0xea; // JMP ptr16:16; also a live-RAM sentinel.
-		hostdrv_put16(mem + 0x20001, cases[i].ip);
-		hostdrv_put16(mem + 0x20003, cases[i].cs);
+		hostdrv_put16(mem + 0x20001, cases[target].ip);
+		hostdrv_put16(mem + 0x20003, cases[target].cs);
 		upd9002_core_queue_reset();
-		session->grant = session->resident = 1;
-		if (upd9002_debug_wait_arm(cases[i].cs, cases[i].ip, 1) != SUCCESS)
+		session->grant = 1;
+		session->resident = resident;
+		if (upd9002_debug_wait_arm(cases[target].cs, cases[target].ip, 1) != SUCCESS)
 			return "M173_HOSTDRV_BOOTSTRAP_FIXTURE";
 		pccore_exec(FALSE);
-		if (!upd9002_debug_event_pending() || CPU_CS != cases[i].cs || CPU_IP != cases[i].ip)
+		if (!upd9002_debug_event_pending() || CPU_CS != cases[target].cs || CPU_IP != cases[target].ip)
 			return "M173_HOSTDRV_BOOTSTRAP_TARGET";
-		if (session->grant == cases[i].revoke)
+		if (session->grant == cases[target].revoke)
 			return "M173_HOSTDRV_BOOTSTRAP_REVOCATION";
-		if (!session->resident || mem[0x20000] != 0xea)
+		if (session->resident != resident || mem[0x20000] != 0xea)
 			return "M173_HOSTDRV_BOOTSTRAP_RESIDENCY";
 	}
 	upd9002_debug_reset();
