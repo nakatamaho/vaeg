@@ -24,8 +24,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M173 — HOSTDRV read-only progress
 
 **Not ready for G173.** Stage 1 has the wire, shared-port and transient
-DOS CDS/SFT fixtures. Stage 2 has the Linux file authorization primitives;
-there is no enabled emulator service. The archived reference tier and its
+DOS CDS/SFT fixtures. Stage 2 has pinned CP932 name handling and the Linux
+identity-based namespace and file authorization primitives; there is no
+enabled emulator service. The archived reference tier and its
 provenance are unaffected.
 
 | Check | Result | Scope |
@@ -39,7 +40,9 @@ provenance are unaffected.
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
 | Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; there is no product TSR. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
-| Linux service integration and Windows backend policy and functional checks | NOT RUN | No DOS namespace, service binding, or Windows adapter. |
+| `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
+| Linux release emulator target and HOSTDRV CTest label | PASS | Application compile/link and 7/7 focused tests. This is not a handoff build. |
+| Linux service integration and Windows backend policy and functional checks | NOT RUN | No service binding or Windows adapter. |
 | `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
@@ -71,23 +74,27 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
 
 ## Next steps
 
-1. Continue Stage 2 from `6b64f99c378a70087014899f2237bf90cec3a798`:
-   `sdl2/hostdrv_linux.*` implements root-relative `openat2`, metadata-only
-   eligibility checks, verified procfs reopen with mandatory `O_NOATIME`,
-   positioned reads, capacity, and bounded raw directory scans. `enumerate`
-   returns names and inode hints, not authorized DOS entries. For each
-   published entry, revalidate the directory and entry from the root,
-   compare the enumeration identity, and only then retain identity pins.
-   The before/after parent checks are not an atomic directory snapshot;
-   review concurrent rename and replacement behavior before enabling service.
-2. Add the pinned CP932 mapping and DOS namespace (including byte-aware
-   wildcard matching, stable aliases, tombstones and bounded identity storage).
-   Implement immutable searches, bounded file handles/sharing, timestamps,
-   DOS error mapping and the generation/serial lifecycle. Bind the opt-in
-   only on profiles with proven transport exclusivity; add reset/revocation
-   and save/load guards before exposing the session option. Then complete the
-   Windows anchored metadata/reopen adapter and static MinGW build; keep
-   macOS disabled unless the full policy can be established.
+1. Continue Stage 2 after `f42313e662567e1b9a1aa1c0cbd7593228d111c5`.
+   `sdl2/hostdrv_names.*` implements pinned CP932, padded 8+3 keys, templates
+   and alias spellings; `sdl2/hostdrv_linux_namespace.*` implements root-relative
+   `stat`, `list`, and `open` by DOS key. The ledger caps issued spellings
+   (including tombstones) at 8192 and pinned directories at 4096 per session;
+   a raw scan stages at most 4096 entries. The Linux before/after parent
+   checks are not an atomic directory snapshot: review concurrent rename
+   and replacement behavior before enabling the service, including changes
+   between raw enumeration and entry authorization. Add a quota/failure test
+   that proves a failed refresh cannot retire otherwise valid names.
+2. Implement the Linux wire dispatcher above the namespace: DOS attributes
+   and local civil timestamps; immutable search snapshots and ordinal replay;
+   bounded identity-keyed file sharing, token retirement, and boot-lifetime
+   serial and generation high-water marks. Test it with synthetic packets
+   before production binding. Add reset/revocation (including CPU shutdown
+   and guest warm/bootstrap paths), save/load guards and mark persistence;
+   prove the exclusive transport profile before wiring `--hostdrv-dir` or
+   enabling discovery. Then complete the Windows anchored metadata/reopen
+   adapter and static MinGW build; keep macOS disabled unless it meets the
+   entire policy. The current release-preset build still reports the prior
+   declared source milestone; update it for the actual M173 candidate.
 3. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
    point for CDS/SFT handling, not as install/ownership policy. Verify all
    verb and lifecycle cases, including the separate FCB probe and caller
