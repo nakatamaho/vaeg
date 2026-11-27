@@ -71,6 +71,8 @@ hd_generation dd 0
 hd_cds dd 0
 hd_drive db 0
 hd_latched db 0
+hd_file_case dd 0
+hd_dbcs dd 0
 hd_saved_cds times 58h db 0
 hd_cds_image:
     db "X:", 5ch, 0
@@ -175,6 +177,8 @@ options_done:
     int 2fh
     test al, al
     jnz refuse_near
+    call check_install_nls
+    jc refuse_near
     mov al, [requested]
     call hd_pick_cds
     jc refuse_near
@@ -380,6 +384,79 @@ uninstall:
     popf
     jmp refuse
 
+; Use DOS's public profile queries only in transient context. The installed
+; tables must live in the profile's DOSGroup, not an external provider.
+check_install_nls:
+    mov ax, 6601h
+    int 21h
+    jc .bad
+    cmp bx, 932
+    jne .bad
+    cmp dx, 932
+    jne .bad
+    mov ax, 6504h
+    call .query
+    jc .bad
+    mov cx, 130
+    call hd_dos_span
+    jc .bad
+    cmp word [es:di], 128
+    jne .bad
+    mov [hd_file_case], di
+    mov [hd_file_case+2], es
+    add di, 2
+    mov al, 80h
+    cld
+.case_byte:
+    scasb
+    jne .bad
+    inc al
+    jnz .case_byte
+    mov ax, 6507h
+    call .query
+    jc .bad
+    mov cx, 8
+    call hd_dos_span
+    jc .bad
+    cmp word [es:di], 6
+    jne .bad
+    cmp word [es:di+2], 9f81h
+    jne .bad
+    cmp word [es:di+4], 0fce0h
+    jne .bad
+    cmp word [es:di+6], 0
+    jne .bad
+    mov [hd_dbcs], di
+    mov [hd_dbcs+2], es
+    clc
+    ret
+.query:
+    push ds
+    pop es
+    mov di, nls_reply
+    mov [di], byte 0
+    mov bl, al
+    push bx
+    mov bx, 0ffffh
+    mov dx, bx
+    mov cx, 5
+    int 21h
+    pop bx
+    jc .bad
+    cmp cx, 5
+    jne .bad
+    cmp [nls_reply], bl
+    jne .bad
+    les di, [nls_reply+1]
+    mov ax, es
+    cmp ax, [hd_sda+2]
+    jne .bad
+    clc
+    ret
+.bad:
+    stc
+    ret
+
 ; DS=resident segment, IF masked. Restore the saved image and old vector.
 restore_publication:
     les di, [hd_cds]
@@ -413,6 +490,7 @@ optin db '/VAEG'
 requested db 0
 remove db 0
 tsr_segment dw 0
+nls_reply times 5 db 0
 removed db 'HOSTDRV removed',13,10,'$'
 refused db 'HOSTDRV refused; use /VAEG [X:] or /VAEG /U',13,10,'$'
 reset_required db 'HOSTDRV transaction or cleanup not confirmed; full reset required',13,10,'$'
