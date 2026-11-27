@@ -21,10 +21,11 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M173 — HOSTDRV read-only progress
+# M173 — HOSTDRV read-only candidate report
 
-**G173 candidate prepared; NTFS fixture rerun pending.** Stage 1 has the wire, shared-port and transient
-DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
+**Candidate ready for G173; human acceptance pending.** Stage 1 has the
+wire, shared-port and transient DOS CDS/SFT fixtures. Stage 2 has pinned
+CP932 names, a Linux identity-based
 namespace and a Linux dispatcher with a tested lifecycle adapter enabled
 explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
 read-only DOS profile probe and a development TSR with install/removal,
@@ -52,10 +53,11 @@ unaffected.
 | Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap | NOT RUN by public checks | Remaining lifecycle gate. |
-| Windows NTFS fixture, run 3 | FAIL | Opus reported 19 pass, 2 fail; see below for scope and the pending rerun. |
+| Windows NTFS fixture, run 4 | 21 PASS, 0 FAIL, 1 NOT RUN | Local NTFS with last-access updates enabled; symlink fixture could not be created on this account. |
+| Windows headless guest, run 4 | 6 PASS, 0 FAIL | Install, DOS handle check, TYPE, COPY, DIR and uninstall; not an interactive Windows check. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
 | Full installed guest lifecycle and operation checklist | OPEN | See remaining gates below. |
-| G173 static MinGW handoff | Required | Use the clean candidate build and its out-of-tree build report; compilation/import audit is not Windows runtime evidence. |
+| G173 static MinGW handoff | PASS (build and audits only) | Clean static candidate build; see artifact identity below. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
 HOSTDRV's carry/error result from the separate MS-DOS 4.0 `sf_OpenAge`
@@ -105,7 +107,7 @@ busy refusal for unknown clients; the audit is not authority to override
 it. Re-audit before enabling any independent port master, port-injection
 interface or native NMI source.
 
-## Linux activation checkpoint
+## Linux activation checkpoint (before the Windows backend)
 
 `--hostdrv-dir PATH` is explicit, session-only and Linux-only.
 Windows rejects the option before opening a folder. The approved Windows
@@ -250,7 +252,7 @@ the broadcast.
   The latter remains a distinct gate item; a scripted frontend reset
   does not substitute for it.
 
-## Next steps and remaining gates
+## Remaining guest coverage
 
 1. Complete the task's installed behavior checklist: JFP/FEP, SUBST/JOIN,
    NLS changes while resident, copied-DTA replay, and no-port-I/O assertions
@@ -264,18 +266,14 @@ the broadcast.
    not currently distinguished from the initial cold boot and remains a
    gate item. Verify both normal reset paths and the DOS warm-bootstrap
    paths, including old tokens/cookies and the retained guard.
-3. Run the Windows NTFS fixture and Windows guest check against the Windows
-   adapter checkpoint below. A compile does not establish effective access-time
-   suppression or ancestor rename/replacement exclusion. macOS stays disabled.
-   The source milestone is `M173-dev`.
 
 ## Windows NTFS preflight
 
 A minimal MinGW executable returned status 0 through WSL2 interop. The
 checkout and task scratch are on ext4, so this only verifies that Windows
 executables can launch; it does not exercise local NTFS. The proposed NTFS
-scratch is outside the repository's filesystem access boundary and was not
-created or accessed. Ancestor rename/replacement exclusion, reparse and
+scratch was outside the repository's filesystem access boundary and was
+not created or accessed during preflight. Ancestor rename/replacement exclusion, reparse and
 leaf-type rejection, and timestamp preservation across reads and listings
 were NOT RUN at preflight.
 
@@ -298,7 +296,7 @@ statically with system DLL imports only. The clean static MinGW application
 build of the adapter checkpoint passed the encoder archive and PE import
 checks. The maintainer's initial NTFS fixture run failed at the combined
 selection/empty-directory preflight; none of the NTFS behavior checks ran.
-Windows guest execution: **NOT RUN**.
+Windows guest execution at that checkpoint: **NOT RUN**.
 
 [`e0819fd4`](https://github.com/nakatamaho/vaeg/commit/e0819fd47a42a560d9eb6f05941d95cb31658528)
 splits preflight selection from the emptiness check and reports API failures
@@ -324,7 +322,7 @@ with updates disabled is evidence for that system mode only; record the
 reported setting and do not infer enabled-mode coverage. The fixture does
 not change the system policy and removes only its own entries.
 
-## NTFS run 3 and fixture rerun
+## NTFS run 3 and replacement fixture correction
 
 Opus reported **19 PASS, 2 FAIL** on the run 3 NTFS fixture. Access-time
 preservation passed with setting `0x80000002` (updates enabled), as did
@@ -348,16 +346,50 @@ the production NTFS backend is unchanged.
 error 1314 (missing privilege); this is the only skipped condition. Other
 creation errors and successful resolution of a symlink remain failures.
 Junction rejection independently exercises reparse refusal. No system
-setting changes are required. The revised fixture must pass on NTFS, with
-at most the documented symlink skip, before the candidate is ready for G173.
+setting changes are required.
 
-## G173 Windows checklist — pending acceptance checks
+## Candidate verification and handoff
 
-On an eligible volume, start
-`vaeg.exe --hostdrv-dir <folder>`, start MS-DOS 4.0 VA, and run
-`HOSTDRV /VAEG`. Check `DIR`, `CD`, `TYPE` and `COPY` to a DOS-local
-volume, including Japanese names. Add a file on the host and check that
-it appears on a fresh guest directory search without reinstalling.
-This full interactive checklist is NOT RUN. Run the remaining
-normal VA guest warm-reboot route separately. Neither a static build
-nor a successful refusal is a G173 acceptance result.
+Opus ran `hostdrv_wintest-run4.exe` via WSL interop on local NTFS with
+last-access updates enabled: **21 PASS, 0 FAIL, 1 NOT RUN**, exit 0.
+The access timestamp stayed unchanged; the held-ancestor, leaf replacement,
+fresh ancestor identity and junction rejection checks all passed. The only
+skip was `SYMLINK_REJECTED`: Windows denied fixture creation with error
+1314 on this account. Junction coverage does not count as symlink coverage.
+
+Opus also ran `run-headless-run4.sh` with the clean static Windows candidate
+and an NTFS HOSTDRV root: **6 PASS, 0 FAIL**, exit 0. The guest checks were
+`INSTALL`, `DOS_HANDLE_CHECK`, `TYPE`, `COPY`, `DIR`, and `UNINSTALL`.
+This does not establish interactive Windows, presenter or warm-reboot coverage.
+
+- Source: `438df099a16a615a43aaf13dc5150f6ff8db7282` (`M173-dev`).
+- Local handoff: `mingw-438df099/output/vaeg.exe`; build report alongside it
+  at `mingw-438df099/output/BUILD-REPORT.md`.
+- SHA-256: `2472324618ac17a50bbb38139c04ce385a71f19a586a60060be709f3470b4f16`.
+- Clean Linux-host static MinGW build; encoder archive and Windows system-DLL
+  import audits passed. The record update does not change the executable.
+
+**Still NOT RUN for this handoff:** symlink rejection on this Windows
+account, normal VA guest warm reboot, VA3 and real hardware. macOS remains
+disabled; the write phase is out of scope and deferred. See the remaining
+guest coverage above for checks not established by the headless run.
+
+## G173 Windows checklist — pending human acceptance
+
+1. Verify the executable hash and run the standard V3 smoke check (bundled
+   VA demo and basic OS operations).
+2. On Windows, select a folder on an eligible local NTFS volume. Launch
+   `vaeg.exe --hostdrv-dir <folder>` and run `HOSTDRV /VAEG` under MS-DOS
+   4.0 VA. Verify the assigned drive with `DIR`, `CD`, `TYPE` and `COPY`
+   to a DOS-local volume, including Japanese names.
+3. Add and remove a file in the host folder and check that a fresh `DIR`
+   reflects both changes without reinstalling. Verify a guest write to
+   the HOSTDRV drive is denied and leaves the host file unchanged. Switch
+   back to a local drive, run `HOSTDRV /VAEG /U` and confirm removal.
+4. With a fresh attachment, exercise the normal VA guest warm reboot
+   separately from the frontend full reset. Check revocation of the old
+   authority and the retained save/load guard on the guest warm path;
+   verify that full reset clears residency without regranting the folder.
+
+The interactive checklist is NOT RUN. G173 remains pending maintainer
+acceptance; this record is not merge or release approval.
