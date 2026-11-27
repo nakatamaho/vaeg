@@ -481,6 +481,9 @@ tools/pc88va/build-sasi-utility-disks.sh \
   --output-dir /path/to/pc88va-sasi
 ```
 
+For one SASI disk with a PC-Engine 1.05 / 1.1 / MS-DOS 4.0 VA boot menu,
+see the separate [SASI multiboot builder](docs/modernization/pc88va-sasi-multiboot.md).
+
 ## How to Read and Write Files on FDD and SASI HDD Images
 
 The Python image tools read the supplied disk images and write new images;
