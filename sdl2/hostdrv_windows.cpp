@@ -387,22 +387,31 @@ std::optional<WindowsRoot::Handle> WindowsRoot::upgrade(const Handle &metadata, 
         trace(diagnostic, "metadata identity or type check before reopen failed", {});
         return {};
     }
-    Handle data(ReOpenFile(metadata.handle_, FILE_READ_DATA | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
-                           share_all, reopen_flags));
-    // -1 changes per-handle NTFS update behavior, not an on-disk timestamp.
-    // Only the reopened handle can perform data operations; fail on refusal.
-    const FILETIME suppress{0xffffffffu, 0xffffffffu};
+    // Open the checked NTFS object by ID, not by name. The metadata handle
+    // stays live so the ID cannot be recycled and supplies the volume hint.
+    // This also works for an exported root whose original name has moved.
+    FILE_ID_DESCRIPTOR descriptor{};
+    descriptor.dwSize = sizeof(descriptor);
+    descriptor.Type = FileIdType;
+    descriptor.FileId.QuadPart = static_cast<LONGLONG>(before.id);
+    Handle data(OpenFileById(metadata.handle_, &descriptor,
+                             (directory ? FILE_LIST_DIRECTORY : FILE_READ_DATA) |
+                                 FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+                             share_all, nullptr, reopen_flags));
     if (data.handle_ == invalid) {
-        trace(diagnostic, "ReOpenFile Win32", {}, GetLastError());
-        return {};
-    }
-    if (!SetFileTime(data.handle_, nullptr, &suppress, nullptr)) {
-        trace(diagnostic, "SetFileTime(suppress last access) Win32", {}, GetLastError());
+        trace(diagnostic, "OpenFileById Win32", {}, GetLastError());
         return {};
     }
     if (!eligible(data.handle_, volume_, directory, diagnostic, L"after reopen")) return {};
     if (!metadata.same_object(data, diagnostic)) {
         trace(diagnostic, "reopened object identity or type mismatch", {});
+        return {};
+    }
+    // -1 changes per-handle NTFS update behavior, not an on-disk timestamp.
+    // Only the reopened handle can perform data operations; fail on refusal.
+    const FILETIME suppress{0xffffffffu, 0xffffffffu};
+    if (!SetFileTime(data.handle_, nullptr, &suppress, nullptr)) {
+        trace(diagnostic, "SetFileTime(suppress last access) Win32", {}, GetLastError());
         return {};
     }
     return data;

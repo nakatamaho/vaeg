@@ -204,6 +204,22 @@ void run(Fixtures &fixtures, const std::wstring &base) {
     check("LOCAL_NTFS", bool(root));
     if (!root) return;
     {
+        const auto original = base + L"\\selected", moved_root = base + L"\\selected-moved";
+        const auto selection = fixtures.dir(original) ? WindowsRoot::select(utf8(original), diagnostic)
+                                                       : std::nullopt;
+        const auto expected = selection ? selection->resolve("") : std::nullopt;
+        const bool renamed_root = expected && MoveFileExW(original.c_str(), moved_root.c_str(), 0);
+        bool anchored = false;
+        if (renamed_root) {
+            fixtures.paths.back().name = moved_root;
+            std::vector<WindowsRoot::Entry> listing;
+            anchored = fixtures.dir(original) && fixtures.file(original + L"\\OTHER.TXT", 'O') &&
+                fixtures.file(moved_root + L"\\KEPT.TXT", 'K') && selection->enumerate("", *expected, listing) &&
+                listing.size() == 1 && listing.front().raw_name == "KEPT.TXT";
+        }
+        check("RENAMED_ROOT_LISTS_ORIGINAL_OBJECT", anchored);
+    }
+    {
         const auto mixed = WindowsRoot::select(utf8(base + L"\\ROOT"), diagnostic);
         const auto exact = root->resolve("");
         const auto folded = mixed ? mixed->resolve("") : std::nullopt;
