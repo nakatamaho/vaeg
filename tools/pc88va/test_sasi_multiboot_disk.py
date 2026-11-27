@@ -27,6 +27,8 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location(
     'multiboot', Path(__file__).with_name('build-sasi-multiboot-disk.py'))
@@ -79,6 +81,22 @@ class MultibootTest(unittest.TestCase):
                 self.assertEqual(v.read('EMPTY.TXT'), b'')
                 v.check_fat()
 
+    def test_startup_insertion_preserves_root_end_marker(self):
+        v, captures = fixture()
+        m.validate(m.Volume(5, v.image), captures, 0, 0)
+        end = v.slots[0]
+        stale = v.entries[m.short_name('BOOTMENU.SYS')]
+        # A stale duplicate beyond the end marker is invisible to FAT readers.
+        v.image[end + 32:end + 64] = v.image[stale:stale + 32]
+        v = m.Volume(5, v.image)
+        m.validate(v, captures, 0, 0)
+
+        v.put('AUTOEXEC.BAT', b'@ECHO OFF\r\n')
+        reopened = m.Volume(5, bytes(v.image))
+        m.validate(reopened, captures, 0, 0)
+        self.assertEqual(reopened.read('AUTOEXEC.BAT'), b'@ECHO OFF\r\n')
+        self.assertEqual(reopened.image[end + 32], 0)
+
     def test_dropped_parked_file(self):
         v, captures = fixture()
         m.validate(v, captures, 0, 0)
@@ -104,6 +122,32 @@ class MultibootTest(unittest.TestCase):
         with self.assertRaises(m.BuildError) as raised:
             m.Volume(5, v.image)
         self.assertEqual(raised.exception.code, 'FAT_COPIES')
+
+    def test_timeout_rejects_dos_fallback_without_menu(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            work = Path(scratch)
+            guest = SimpleNamespace(work=work, disk=work / 'disk.hdi',
+                                    args=SimpleNamespace(model='va2'), run=Mock())
+            guest.disk.write_bytes(b'synthetic HDI')
+            boot = 'Enter new date'
+            menu = '\n'.join((m.MODELS['va2'], '1: PC-Engine 1.05', '2: PC-Engine 1.1',
+                              '3: MS-DOS', 'Enter = 3'))
+            early_screen = menu
+
+            def run(*args, **kwargs):
+                (work / 'timeout-checkpoint.tvram.bin').write_bytes(early_screen.encode())
+                return boot
+
+            guest.run.side_effect = run
+            with patch.object(m, 'screen_text', bytes.decode):
+                m.check_timeout(guest, 0)
+                guest.run.assert_called_once_with('timeout', frames=1900, checkpoint=900)
+                guest.run.reset_mock()
+                early_screen = boot  # The final screen and HDI remain unchanged.
+                with self.assertRaises(m.BuildError) as raised:
+                    m.check_timeout(guest, 0)
+                self.assertEqual(raised.exception.code, 'GUEST_TIMEOUT_MENU')
+                guest.run.assert_called_once_with('timeout', frames=1900, checkpoint=900)
 
     def test_publish_does_not_clobber(self):
         with tempfile.TemporaryDirectory() as scratch:

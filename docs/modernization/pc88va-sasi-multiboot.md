@@ -28,8 +28,8 @@ from the [utility disk builders](pc88va-utility-media.md).
 
 ## English
 
-You need Python 3.10+, an SDL2 VAEG executable with `--debug-script` and
-`--screen-tvram-dump` support (m153 or a compatible newer build), and ROMs
+You need Python 3.10+, an SDL2 VAEG executable with `--debug-script`
+(including `capture-tvram <id>`) and `--screen-tvram-dump` support, and ROMs
 for the selected machine. Supply 2HD D88s for PC-Engine 1.05, PC-Engine 1.1,
 and the [FreeDOS-88VA MS-DOS 4.0 VA distribution with D5](https://github.com/FreeDOS-88VA/MS-DOS/blob/release/msdos-va/docs/D5-dual-boot.md)
 (`release/msdos-va` at `7a11162` or a compatible later revision). The tool
@@ -55,8 +55,10 @@ The host creates an empty NEC FAT12 volume. VAEG runs both PC-Engine
 `SYS C:` installs, both D5 `SYS C:` captures, and D5 `SYS C: /P` in the
 guest; the host does not generate D5 state, IPLs or parked system entries.
 Before publication the builder checks the FAT and capture state, boots
-all three entries, and runs `SYS C: /L` and `CHKDSK C:`. It then installs
-any caller-supplied startup scripts without executing them. The six options
+all three entries, and runs `SYS C: /L` and `CHKDSK C:`. It also checks that
+one uninterrupted, no-input run shows the menu and then boots the default.
+It then installs any caller-supplied startup scripts without executing them
+and checks the final FAT and capture state again. The six options
 are `--msdos-config`, `--msdos-autoexec`, `--pce105-config`,
 `--pce105-autoexec`, `--pce11-config`, and `--pce11-autoexec`. Provide files
 in the intended guest encoding and DOS CRLF line endings; bytes are copied
@@ -70,10 +72,13 @@ The PC-Engine banner can reflect the built-in version on the other machine;
 use the menu entry to identify the disk version. Back up the HDI before
 maintenance. Do not reorder the root or rename the parked system files.
 
+If the first VA2 launch with fresh backup memory and `Main_RAM_Auto=false`
+does not reach the menu, restart VAEG or keep the default `Main_RAM_Auto=true`.
+
 ## 日本語
 
-Python 3.10 以降、`--debug-script` と `--screen-tvram-dump` に対応した
-SDL2 版 VAEG (m153 または互換性のある新しいビルド)、選択した機種の ROM が
+Python 3.10 以降、`--debug-script` (`capture-tvram <id>` を含む) と
+`--screen-tvram-dump` に対応した SDL2 版 VAEG、選択した機種の ROM が
 必要です。PC-Engine 1.05、PC-Engine 1.1、D5 対応の FreeDOS-88VA 版
 MS-DOS 4.0 VA (`release/msdos-va` の `7a11162` または互換性のある後続版) の
 2HD D88 を用意してください。ディスクや ROM の同梱・自動取得はありません。
@@ -88,7 +93,9 @@ MS-DOS 4.0 VA (`release/msdos-va` の `7a11162` または互換性のある後�
 初期選択は `--default msdos` (既定)、`pce105`、`pce11` で指定します。
 ホストが空の NEC FAT12 ボリュームを作り、ゲスト内で各 `SYS C:` と D5 の
 `SYS C: /P` を実行します。公開前に FAT、各項目の起動、`SYS C: /L`、
-`CHKDSK C:` を確認します。
+`CHKDSK C:` を確認します。さらに、キー入力なしの同じ実行中にメニューが表示され、
+続いて既定の項目が起動することを確認します。起動ファイルの格納後に、最終イメージの
+FAT と登録状態を再確認します。
 
 各 OS の起動ファイルは `--msdos-config` / `--msdos-autoexec`、
 `--pce105-config` / `--pce105-autoexec`、`--pce11-config` / `--pce11-autoexec`
@@ -102,3 +109,7 @@ Enter またはゲスト内の約 10 秒の経過で前回の選択を起動し�
 PC-Engine の起動表示が内蔵版になることがあるため、メニューの項目名で区別します。
 保守作業の前に HDI をバックアップし、ルートの並び替えや退避したシステム
 ファイルの名前変更はしないでください。
+
+新しいバックアップメモリを使い、`Main_RAM_Auto=false` にした状態で VA2 を
+初回起動すると、メニューが表示されないことがあります。VAEG を再起動するか、
+既定の `Main_RAM_Auto=true` のまま使用してください。

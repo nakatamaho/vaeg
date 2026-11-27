@@ -125,6 +125,9 @@ class Volume:
             chunk = payload[index * self.cluster_size:(index + 1) * self.cluster_size]
             self.image[pos:pos + len(chunk)] = chunk
         offset = self.slots.pop(0)
+        if self.image[offset] == 0 and offset + 32 < self.data:
+            # Slots after the end marker may contain stale entries.
+            self.image[offset + 32:offset + 64] = bytes(32)
         self.image[offset:offset + 32] = (raw + bytes([attr]) + bytes(14)
                                          + struct.pack('<HI', chain[0] if chain else 0, len(payload)))
         self.entries[raw] = offset
@@ -210,8 +213,10 @@ class Guest:
         (work / 'vaeg.ini').write_text('[NekoProjectII]\nMain_RAM=640\nMain_RAM_Auto=false\n'
                                        'Boot_FixedDisk=true\ncalendar=false\n', encoding='ascii')
 
-    def run(self, stage, floppy='none', steps=(), frames=2000):
-        script = [f'debug-script 1', f'limit-frame {frames + 100}']
+    def run(self, stage, floppy='none', steps=(), frames=2000, *, checkpoint=None):
+        script = ['debug-script 1', f'limit-frame {frames + 100}']
+        if checkpoint is not None:
+            script.extend((f'wait-frame {checkpoint}', f'capture-tvram {stage}-checkpoint'))
         for frame, line in steps:
             script.extend((f'wait-frame {frame}', 'enter' if line is None else f'input-line {line}'))
         script.extend((f'wait-frame {frames}', 'exit', ''))
@@ -254,6 +259,23 @@ def copy_floppy(work, source, name, required, system):
 
 def expect(text, code, *markers):
     require(all(marker in text for marker in markers), code, f'expected {markers!r}\n{text}')
+
+
+def expect_menu(text, model, default_key, code):
+    expect(text, code, MODELS[model], '1: PC-Engine 1.05',
+           '2: PC-Engine 1.1', '3: MS-DOS', f'Enter = {default_key}')
+
+
+def check_timeout(guest, owner):
+    before = guest.disk.read_bytes()
+    checkpoint = guest.work / 'timeout-checkpoint.tvram.bin'
+    checkpoint.unlink(missing_ok=True)
+    text = guest.run('timeout', frames=1900, checkpoint=900)
+    require(checkpoint.is_file(), 'GUEST_TIMEOUT_MENU', 'missing menu checkpoint')
+    expect_menu(screen_text(checkpoint.read_bytes()), guest.args.model, owner or 3,
+                'GUEST_TIMEOUT_MENU')
+    expect(text, 'GUEST_TIMEOUT', 'Ready' if owner else 'Enter new date')
+    require(guest.disk.read_bytes() == before, 'GUEST_TIMEOUT', 'unprompted boot changed the HDI')
 
 
 def startup_names(entry_id, owner):
@@ -304,8 +326,7 @@ def build(args, work):
         volume.put(name, payload)
     guest.disk.write_bytes(volume.image)
     text = guest.run('menu', frames=900)
-    expect(text, 'GUEST_MENU', MODELS[args.model], '1: PC-Engine 1.05',
-           '2: PC-Engine 1.1', '3: MS-DOS', 'Enter = 2')
+    expect_menu(text, args.model, 2, 'GUEST_MENU')
     # A fresh DOS installation asks for date and time without AUTOEXEC.BAT.
     dos_boot = ((920, '3'), (1460, None), (1630, None))
     for key in (1, 2, 3):
@@ -324,10 +345,7 @@ def build(args, work):
     if owner:
         text = guest.run('select-default', steps=((920, str(owner)),), frames=1750)
         expect(text, 'GUEST_BOOT', 'Ready')
-    before = guest.disk.read_bytes()
-    text = guest.run('timeout', frames=1900)
-    expect(text, 'GUEST_TIMEOUT', 'Ready' if owner else 'Enter new date')
-    require(guest.disk.read_bytes() == before, 'GUEST_TIMEOUT', 'unprompted boot changed the HDI')
+    check_timeout(guest, owner)
     volume = guest.volume()
     validate(volume, captures, owner, owner)
     for entry_id, system in enumerate(('msdos', 'pce105', 'pce11')):
@@ -340,8 +358,9 @@ def build(args, work):
             else:
                 continue
             volume.put(name, payload, 0x20 if entry_id == owner else 0x22)
-    validate(volume, captures, owner, owner)
-    publish(volume.image, args.output, work)
+    image = bytes(volume.image)
+    validate(Volume(args.size, image), captures, owner, owner)
+    publish(image, args.output, work)
 
 
 def main():
