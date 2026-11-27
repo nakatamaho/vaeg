@@ -82,7 +82,7 @@ start:
     cmp al, 26
     ja unsupported
     cmp al, [minimum]
-    jbe unsupported
+    jbe no_free_cds
     les di, [es:bx+16h]
     mov dl, al
     mov cl, CDS_SIZE
@@ -97,7 +97,7 @@ start:
 .pick:
     dec al
     cmp al, [minimum]
-    jb unsupported
+    jb no_free_cds
     cmp word [es:di+43h], 0
     je .found
     sub di, CDS_SIZE
@@ -390,6 +390,10 @@ finish:
     mov al, [step]
     mov [failure], al
     mov dx, failed
+    jmp emit
+no_free_cds:
+    mov dx, exhausted
+    mov byte [step], 254
     jmp emit
 unsupported:
     mov dx, skipped
@@ -714,6 +718,7 @@ passed db 'HDABI PASS',13,10,'$'
 failed db 'HDABI FAIL '
 failure db '0',13,10,'$'
 skipped db 'HDABI UNSUPPORTED',13,10,'$'
+exhausted db 'HDABI NO FREE CDS',13,10,'$'
 saved_cds times CDS_SIZE db 0
 dpl times 11 dw 0
 data dd 0
