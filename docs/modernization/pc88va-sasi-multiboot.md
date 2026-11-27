@@ -29,7 +29,8 @@ from the [utility disk builders](pc88va-utility-media.md).
 ## English
 
 You need Python 3.10+, an SDL2 VAEG executable with `--debug-script`
-(including `capture-tvram <id>`) and `--screen-tvram-dump` support, and ROMs
+(including `capture-tvram <id>`, added in M171, so build VAEG from M171 or
+later) and `--screen-tvram-dump` support, and ROMs
 for the selected machine. Supply 2HD D88s for PC-Engine 1.05, PC-Engine 1.1,
 and the [FreeDOS-88VA MS-DOS 4.0 VA distribution with D5](https://github.com/FreeDOS-88VA/MS-DOS/blob/release/msdos-va/docs/D5-dual-boot.md)
 (`release/msdos-va` at `7a11162` or a compatible later revision). The tool
@@ -77,7 +78,7 @@ does not reach the menu, restart VAEG or keep the default `Main_RAM_Auto=true`.
 
 ## 日本語
 
-Python 3.10 以降、`--debug-script` (`capture-tvram <id>` を含む) と
+Python 3.10 以降、`--debug-script` (M171 で追加した `capture-tvram <id>` を含むため、M171 以降の VAEG が必要) と
 `--screen-tvram-dump` に対応した SDL2 版 VAEG、選択した機種の ROM が
 必要です。PC-Engine 1.05、PC-Engine 1.1、D5 対応の FreeDOS-88VA 版
 MS-DOS 4.0 VA (`release/msdos-va` の `7a11162` または互換性のある後続版) の
