@@ -55,9 +55,12 @@ public:
     static std::optional<LinuxRoot> select(const std::string &path);
     // Empty path is the selected root. Every other path is resolved in one
     // openat2 call from that root, not from any previously discovered child.
-    std::optional<Handle> resolve(std::string_view raw_path) const;
-    // Resolve an entry while revalidating its containing directory.
-    std::optional<Handle> resolve_entry(std::string_view raw_path, const Handle &parent) const;
+    std::optional<Handle> resolve(std::string_view raw_path, int *error = nullptr) const;
+    // Resolve an entry while revalidating its containing directory. The
+    // optional errno output separates ineligible/absent entries from failures
+    // that must abort namespace reconciliation (e.g. descriptor exhaustion).
+    std::optional<Handle> resolve_entry(std::string_view raw_path, const Handle &parent,
+                                        int *error = nullptr) const;
     // Authorize by fresh raw-path resolution and match both namespace pins.
     std::optional<Handle> open_file(std::string_view raw_path, const Handle &parent,
                                     const Handle &expected) const;

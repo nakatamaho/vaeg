@@ -155,17 +155,32 @@ std::optional<LinuxRoot> LinuxRoot::select(const std::string &path) {
     return result;
 }
 
-std::optional<LinuxRoot::Handle> LinuxRoot::resolve(std::string_view raw_path) const {
-    if (!valid_relative(raw_path)) {
+std::optional<LinuxRoot::Handle> LinuxRoot::resolve(std::string_view raw_path, int *error) const {
+    const auto reject = [error](int reason) -> std::optional<Handle> {
+        if (error) {
+            *error = reason;
+        }
         return std::nullopt;
+    };
+    if (!valid_relative(raw_path)) {
+        return reject(EINVAL);
     }
     const std::string path(raw_path.empty() ? "." : raw_path);
     Handle pin(anchored_open(root_.fd_, path.c_str(), O_PATH | O_NOFOLLOW | O_CLOEXEC, true, true));
+    if (pin.fd_ < 0) {
+        return reject(errno);
+    }
     struct stat info {};
-    if (!pin.metadata(info) || info.st_dev != device_ ||
+    if (!pin.metadata(info)) {
+        return reject(errno);
+    }
+    if (info.st_dev != device_ ||
         !(S_ISDIR(info.st_mode) || (S_ISREG(info.st_mode) && info.st_nlink == 1 &&
                                    info.st_size >= 0 && info.st_size <= 0x7fffffff))) {
-        return std::nullopt;
+        return reject(EPERM);
+    }
+    if (error) {
+        *error = 0;
     }
     return pin;
 }
@@ -190,8 +205,12 @@ std::optional<LinuxRoot::Handle> LinuxRoot::upgrade(const Handle &pin, bool dire
     return data;
 }
 
-std::optional<LinuxRoot::Handle> LinuxRoot::resolve_entry(std::string_view raw_path, const Handle &parent) const {
+std::optional<LinuxRoot::Handle> LinuxRoot::resolve_entry(std::string_view raw_path, const Handle &parent,
+                                                         int *error) const {
     if (raw_path.empty() || !valid_relative(raw_path)) {
+        if (error) {
+            *error = EINVAL;
+        }
         return std::nullopt;
     }
     const auto separator = raw_path.rfind('/');
@@ -202,10 +221,16 @@ std::optional<LinuxRoot::Handle> LinuxRoot::resolve_entry(std::string_view raw_p
         return current && current->metadata(info) && S_ISDIR(info.st_mode) && current->same_object(parent);
     };
     if (!parent_matches()) {
+        if (error) {
+            *error = EAGAIN;
+        }
         return std::nullopt;
     }
-    auto pin = resolve(raw_path);
-    if (!pin || !parent_matches()) {
+    auto pin = resolve(raw_path, error);
+    if (!parent_matches()) {
+        if (error) {
+            *error = EAGAIN;
+        }
         return std::nullopt;
     }
     return pin;
