@@ -21,7 +21,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "sdl2/hostdrv_linux_namespace.h"
+#include "sdl2/hostdrv_namespace.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -31,7 +31,7 @@
 
 namespace {
 namespace fs = std::filesystem;
-using hostdrv::LinuxNamespace;
+using hostdrv::Namespace;
 using hostdrv::LinuxRoot;
 
 struct Scratch {
@@ -67,44 +67,44 @@ int main() {
               put(root / "dir" / u8"表.txt", "japanese"), "FIXTURE");
     auto selected = LinuxRoot::select(root.string());
     CHECK(selected, "SELECT");
-    LinuxNamespace names(std::move(*selected));
-    LinuxNamespace::Item item;
-    std::vector<LinuxNamespace::Item> list;
+    Namespace names(std::move(*selected));
+    Namespace::Item item;
+    std::vector<Namespace::Item> list;
     std::optional<LinuxRoot::Handle> file;
-    CHECK(names.list("", list) == LinuxNamespace::ok && list.size() == 4 && list[0].name == "ABC     TXT" &&
+    CHECK(names.list("", list) == Namespace::ok && list.size() == 4 && list[0].name == "ABC     TXT" &&
               list[1].name == "ABC~1   TXT" && list[2].name == "ABC~2   TXT" && list[3].name == "DIR        ",
           "INITIAL_RESERVATION");
-    CHECK(names.stat("ABC.TXT", item) == LinuxNamespace::ok && item.info.st_size == 5 &&
-              names.stat("ABC~1.TXT", item) == LinuxNamespace::ok && item.info.st_size == 8 &&
-              names.open("ABC~2.TXT", file, item) == LinuxNamespace::ok && item.info.st_size == 9,
+    CHECK(names.stat("ABC.TXT", item) == Namespace::ok && item.info.size == 5 &&
+              names.stat("ABC~1.TXT", item) == Namespace::ok && item.info.size == 8 &&
+              names.open("ABC~2.TXT", file, item) == Namespace::ok && item.info.size == 9,
           "NATIVE_COLLISION");
-    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == LinuxNamespace::ok && item.info.st_size == 8,
+    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == Namespace::ok && item.info.size == 8,
           "DBCS_LOOKUP");
     fs::rename(root / "abc.txt", root / "abc.TXT");
-    CHECK(names.stat("ABC~2.TXT", item) == LinuxNamespace::ok && item.info.st_size == 9, "CASE_ONLY");
+    CHECK(names.stat("ABC~2.TXT", item) == Namespace::ok && item.info.size == 9, "CASE_ONLY");
     CHECK(fs::remove(root / "abc.TXT") && put(root / "abc.TXT", "new"), "REPLACEMENT_SETUP");
-    CHECK(names.stat("ABC~2.TXT", item) == LinuxNamespace::missing &&
-              names.stat("ABC~3.TXT", item) == LinuxNamespace::ok && item.info.st_size == 3,
+    CHECK(names.stat("ABC~2.TXT", item) == Namespace::missing &&
+              names.stat("ABC~3.TXT", item) == Namespace::ok && item.info.size == 3,
           "REPLACEMENT_TOMBSTONE");
     std::uint16_t count;
     char data[16];
     CHECK(LinuxRoot::read(*file, 0, data, sizeof(data), count) && std::string_view(data, count) == "lowercase",
           "PINNED_READ");
-    CHECK(fs::remove(root / "ABC.TXT") && names.stat("ABC.TXT", item) == LinuxNamespace::missing,
+    CHECK(fs::remove(root / "ABC.TXT") && names.stat("ABC.TXT", item) == Namespace::missing,
           "OBSERVED_REMOVAL");
     CHECK(put(root / "ABC.TXT", "fresh"), "REINSERT_SETUP");
-    CHECK(names.stat("ABC.TXT", item) == LinuxNamespace::missing &&
-              names.stat("ABC~4.TXT", item) == LinuxNamespace::ok && item.info.st_size == 5,
+    CHECK(names.stat("ABC.TXT", item) == Namespace::missing &&
+              names.stat("ABC~4.TXT", item) == Namespace::ok && item.info.size == 5,
           "NO_RESURRECTION");
     fs::rename(root / "dir", scratch.path / "moved");
-    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == LinuxNamespace::bad_path, "PARENT_MOVED");
+    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == Namespace::bad_path, "PARENT_MOVED");
     CHECK(fs::create_directory(root / "dir") && put(root / "dir" / u8"表.txt", "replacement"),
           "PARENT_REPLACEMENT_SETUP");
-    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == LinuxNamespace::bad_path &&
-              names.stat("DIR~1\\\x95\x5c.TXT", item) == LinuxNamespace::ok && item.info.st_size == 11,
+    CHECK(names.stat("DIR\\\x95\x5c.TXT", item) == Namespace::bad_path &&
+              names.stat("DIR~1\\\x95\x5c.TXT", item) == Namespace::ok && item.info.size == 11,
           "PARENT_REPLACEMENT");
     CHECK(put(root / ".hidden", "hidden") && put(root / "\xff", "invalid"), "HIDDEN_SETUP");
-    CHECK(names.list("", list) == LinuxNamespace::ok && list.size() == 5 && list.back().hidden,
+    CHECK(names.list("", list) == Namespace::ok && list.size() == 5 && list.back().hidden,
           "LIVE_HIDDEN_AND_INVALID_UTF8");
 
     CHECK(fs::create_directory(root / "bound") && put(root / "bound" / "KEPT.TXT", "x"), "BOUND_SETUP");
@@ -112,14 +112,14 @@ int main() {
     for (unsigned i = 0; i < 4095; ++i) {
         CHECK(put(bound / ("F" + std::to_string(i)), ""), "BOUND_FILL");
     }
-    CHECK(names.list("BOUND", list) == LinuxNamespace::ok && list.size() == 4096 &&
+    CHECK(names.list("BOUND", list) == Namespace::ok && list.size() == 4096 &&
               list.back().name == "KEPT    TXT", "BOUND_BASELINE");
     // Make the same raw scan exceed its cap by one entry. A failed
     // refresh must leave both the published list and old spellings intact.
     CHECK(put(bound / "ZZZ", ""), "BOUND_MUTATION");
-    CHECK(names.list("BOUND", list) == LinuxNamespace::io && list.size() == 4096 &&
+    CHECK(names.list("BOUND", list) == Namespace::io && list.size() == 4096 &&
               list.back().name == "KEPT    TXT", "BOUND_REJECTED_ATOMICALLY");
-    CHECK(fs::remove(bound / "ZZZ") && names.stat("BOUND\\KEPT.TXT", item) == LinuxNamespace::ok &&
-              item.info.st_size == 1, "BOUND_LEDGER_PRESERVED");
+    CHECK(fs::remove(bound / "ZZZ") && names.stat("BOUND\\KEPT.TXT", item) == Namespace::ok &&
+              item.info.size == 1, "BOUND_LEDGER_PRESERVED");
     return 0;
 }

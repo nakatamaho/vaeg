@@ -24,6 +24,8 @@
 #ifndef VAEG_HOSTDRV_LINUX_H
 #define VAEG_HOSTDRV_LINUX_H
 
+#include "hostdrv_metadata.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -50,6 +52,7 @@ public:
         Handle &operator=(const Handle &) = delete;
         bool close_checked() noexcept;
         bool metadata(struct stat &st) const;
+        bool metadata(HostMetadata &info) const;
         bool same_object(const Handle &other) const;
     };
 
@@ -68,6 +71,9 @@ public:
     static bool read(const Handle &file, std::uint32_t offset, void *buffer,
                      std::uint16_t count, std::uint16_t &actual);
     bool capacity(std::uint64_t &total) const;
+    static bool hidden(const HostMetadata &, std::string_view basename) {
+        return !basename.empty() && basename.front() == '.';
+    }
 
     struct Entry {
         std::string raw_name;

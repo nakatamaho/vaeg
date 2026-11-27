@@ -125,6 +125,20 @@ bool LinuxRoot::Handle::metadata(struct stat &st) const {
     return fstat(fd_, &st) == 0;
 }
 
+bool LinuxRoot::Handle::metadata(HostMetadata &info) const {
+    struct stat st {};
+    if (!metadata(st) || (!S_ISDIR(st.st_mode) && (!S_ISREG(st.st_mode) || st.st_size < 0))) {
+        return false;
+    }
+    const auto stamp = [](const auto &t) {
+        return std::uint64_t(t.tv_sec) * 1000000000u + t.tv_nsec;
+    };
+    const bool directory = S_ISDIR(st.st_mode);
+    info = {st.st_dev, st.st_ino, std::uint64_t(st.st_size), stamp(st.st_mtim), stamp(st.st_ctim),
+            st.st_mtim.tv_sec, directory, directory ? 0x10u : 0x20u};
+    return true;
+}
+
 bool LinuxRoot::Handle::same_object(const Handle &other) const {
     struct stat a {}, b {};
     return metadata(a) && other.metadata(b) && hostdrv::same_object(a, b);

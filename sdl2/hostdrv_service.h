@@ -21,17 +21,17 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_HOSTDRV_LINUX_SERVICE_H
-#define VAEG_HOSTDRV_LINUX_SERVICE_H
+#ifndef VAEG_HOSTDRV_SERVICE_H
+#define VAEG_HOSTDRV_SERVICE_H
 
-#include "hostdrv_linux_namespace.h"
+#include "hostdrv_namespace.h"
 
 #include <array>
 
 namespace hostdrv {
 
 // Emulator-thread service. Does not install the transport or observe guest RAM.
-class LinuxService {
+class Service {
 public:
     struct Marks {
         std::uint32_t generation = 0;
@@ -51,7 +51,7 @@ public:
 
 private:
     struct File {
-        LinuxRoot::Handle handle;
+        PlatformRoot::Handle handle;
         bool hidden;
         bool denies_read;
     };
@@ -61,7 +61,7 @@ private:
     unsigned execute(const std::uint8_t *request, std::uint8_t *reply);
     unsigned operate(const std::uint8_t *request, std::uint8_t *reply);
     static void find_result(const Result &result, std::uint8_t *reply);
-    std::optional<LinuxNamespace> names_;
+    std::optional<Namespace> names_;
     std::map<std::uint32_t, File> files_;
     std::map<std::uint32_t, Snapshot> searches_;
     Marks marks_;

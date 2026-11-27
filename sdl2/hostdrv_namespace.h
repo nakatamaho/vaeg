@@ -21,10 +21,14 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_HOSTDRV_LINUX_NAMESPACE_H
-#define VAEG_HOSTDRV_LINUX_NAMESPACE_H
+#ifndef VAEG_HOSTDRV_NAMESPACE_H
+#define VAEG_HOSTDRV_NAMESPACE_H
 
+#ifdef _WIN32
+#include "hostdrv_windows.h"
+#else
 #include "hostdrv_linux.h"
+#endif
 #include "hostdrv_names.h"
 
 #include <list>
@@ -32,32 +36,38 @@
 
 namespace hostdrv {
 
+#ifdef _WIN32
+using PlatformRoot = WindowsRoot;
+#else
+using PlatformRoot = LinuxRoot;
+#endif
+
 // A session-local DOS namespace over the selected root. No method accepts
 // a guest-supplied raw host pathname. Returned Handles are anchored pins.
-class LinuxNamespace {
+class Namespace {
 public:
-    explicit LinuxNamespace(LinuxRoot root);
+    explicit Namespace(PlatformRoot root);
 
     enum Error : unsigned { ok = 0, missing = 2, bad_path = 3, denied = 5, io = 31 };
     struct Item {
         DosName name;
-        struct stat info;
+        HostMetadata info;
         bool hidden;
     };
     Error stat(std::string_view path, Item &item);
     Error list(std::string_view path, std::vector<Item> &items);
-    Error open(std::string_view path, std::optional<LinuxRoot::Handle> &file, Item &item);
+    Error open(std::string_view path, std::optional<PlatformRoot::Handle> &file, Item &item);
     bool capacity(std::uint64_t &total) const { return root_.capacity(total); }
 
 private:
     struct Entry {
         std::string raw;
         std::optional<std::string> folded;
-        LinuxRoot::Handle pin;
-        struct stat info;
+        PlatformRoot::Handle pin;
+        HostMetadata info;
     };
     struct Directory {
-        LinuxRoot::Handle pin;
+        PlatformRoot::Handle pin;
         // nullopt is a permanently reserved spelling in this directory.
         std::map<DosName, std::optional<Entry>> entries;
     };
@@ -65,15 +75,15 @@ private:
         Directory *parent = nullptr;
         std::string raw;
         DosName name;
-        const LinuxRoot::Handle *expected = nullptr;
-        std::optional<LinuxRoot::Handle> pin;
+        const PlatformRoot::Handle *expected = nullptr;
+        std::optional<PlatformRoot::Handle> pin;
     };
 
     Error locate(std::string_view path, Location &location);
-    Directory *directory(const LinuxRoot::Handle &pin, std::string_view raw);
+    Directory *directory(const PlatformRoot::Handle &pin, std::string_view raw);
     Error refresh(Directory &directory, std::string_view raw);
     Error describe(const Location &location, Item &item) const;
-    LinuxRoot root_;
+    PlatformRoot root_;
     std::list<Directory> directories_;
     std::size_t issued_ = 0;
 };

@@ -21,7 +21,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "hostdrv_linux_namespace.h"
+#include "hostdrv_namespace.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -45,9 +45,9 @@ std::string append(std::string_view directory, std::string_view basename) {
 
 } // namespace
 
-LinuxNamespace::LinuxNamespace(LinuxRoot root) : root_(std::move(root)) {}
+Namespace::Namespace(PlatformRoot root) : root_(std::move(root)) {}
 
-LinuxNamespace::Directory *LinuxNamespace::directory(const LinuxRoot::Handle &pin, std::string_view raw) {
+Namespace::Directory *Namespace::directory(const PlatformRoot::Handle &pin, std::string_view raw) {
     for (auto &dir : directories_) {
         if (pin.same_object(dir.pin)) {
             return &dir;
@@ -64,20 +64,20 @@ LinuxNamespace::Directory *LinuxNamespace::directory(const LinuxRoot::Handle &pi
     return &directories_.back();
 }
 
-LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view raw) {
+Namespace::Error Namespace::refresh(Directory &dir, std::string_view raw) {
     struct Candidate {
         HostName name;
         Entry entry;
         DosName issued;
     };
-    struct stat before {};
-    std::vector<LinuxRoot::Entry> scan;
+    HostMetadata before {};
+    std::vector<PlatformRoot::Entry> scan;
     if (!dir.pin.metadata(before) || !root_.enumerate(raw, dir.pin, scan)) {
         return io;
     }
     std::sort(scan.begin(), scan.end(), [](const auto &a, const auto &b) { return a.raw_name < b.raw_name; });
     std::vector<Candidate> staged;
-    std::map<ino_t, std::vector<std::size_t>> by_inode;
+    std::map<std::uint64_t, std::vector<std::size_t>> by_inode;
     for (std::size_t i = 0; i < scan.size(); ++i) {
         auto &entry = scan[i];
         if (i && entry.raw_name == scan[i - 1].raw_name) {
@@ -95,29 +95,28 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
             }
             return io;
         }
-        struct stat info {};
-        if (!pin->metadata(info) || info.st_ino != entry.inode) {
+        HostMetadata info {};
+        if (!pin->metadata(info) || info.id != entry.inode) {
             return io;
         }
-        by_inode[info.st_ino].push_back(staged.size());
+        by_inode[info.id].push_back(staged.size());
         staged.push_back({std::move(*name), {entry.raw_name, {}, std::move(*pin), info}, {}});
     }
     const auto current = root_.resolve(raw);
-    struct stat after {};
+    HostMetadata after {};
     // Detect visible mutations during enumeration. This is not an atomic
     // snapshot or an authorization check; each child was resolved separately.
     if (!current || !current->same_object(dir.pin) || !current->metadata(after) ||
-        before.st_mtim.tv_sec != after.st_mtim.tv_sec || before.st_mtim.tv_nsec != after.st_mtim.tv_nsec ||
-        before.st_ctim.tv_sec != after.st_ctim.tv_sec || before.st_ctim.tv_nsec != after.st_ctim.tv_nsec) {
+        before.modified != after.modified || before.changed != after.changed) {
         return io;
     }
 
     // Exact raw identity first, otherwise a unique case-only association.
     // Directory entries with ambiguous inode associations get no rename carry-over.
-    std::map<ino_t, unsigned> prior_count;
+    std::map<std::uint64_t, unsigned> prior_count;
     for (const auto &item : dir.entries) {
         if (item.second) {
-            ++prior_count[item.second->info.st_ino];
+            ++prior_count[item.second->info.id];
         }
     }
     for (const auto &item : dir.entries) {
@@ -125,7 +124,7 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
         if (!old) {
             continue;
         }
-        const auto found = by_inode.find(old->info.st_ino);
+        const auto found = by_inode.find(old->info.id);
         if (found == by_inode.end()) {
             continue;
         }
@@ -184,7 +183,7 @@ LinuxNamespace::Error LinuxNamespace::refresh(Directory &dir, std::string_view r
     return ok;
 }
 
-LinuxNamespace::Error LinuxNamespace::locate(std::string_view path, Location &result) {
+Namespace::Error Namespace::locate(std::string_view path, Location &result) {
     const auto parts = dos_path(path);
     if (!parts) {
         return bad_path;
@@ -196,11 +195,11 @@ LinuxNamespace::Error LinuxNamespace::locate(std::string_view path, Location &re
     }
     for (std::size_t i = 0; i < parts->size(); ++i) {
         const auto &name = (*parts)[i];
-        struct stat info {};
+        HostMetadata info {};
         if (!loc.pin->metadata(info)) {
             return io;
         }
-        if (!S_ISDIR(info.st_mode)) {
+        if (!info.directory) {
             return bad_path;
         }
         auto *dir = directory(*loc.pin, loc.raw);
@@ -230,36 +229,36 @@ LinuxNamespace::Error LinuxNamespace::locate(std::string_view path, Location &re
     return ok;
 }
 
-LinuxNamespace::Error LinuxNamespace::describe(const Location &location, Item &item) const {
+Namespace::Error Namespace::describe(const Location &location, Item &item) const {
     // Earlier namespace scans never authorize a later pathname access.
     const auto current = location.parent ? root_.resolve_entry(location.raw, location.parent->pin) : root_.resolve("");
-    struct stat info {};
+    HostMetadata info {};
     if (!current || !current->same_object(*location.pin) || !current->metadata(info)) {
         return io;
     }
     const auto sep = location.raw.rfind('/');
     const auto basename = std::string_view(location.raw).substr(sep == std::string::npos ? 0 : sep + 1);
-    item = {location.name, info, !basename.empty() && basename.front() == '.'};
+    item = {location.name, info, PlatformRoot::hidden(info, basename)};
     return ok;
 }
 
-LinuxNamespace::Error LinuxNamespace::stat(std::string_view path, Item &item) {
+Namespace::Error Namespace::stat(std::string_view path, Item &item) {
     Location loc;
     const auto status = locate(path, loc);
     return status == ok ? describe(loc, item) : status;
 }
 
-LinuxNamespace::Error LinuxNamespace::list(std::string_view path, std::vector<Item> &items) {
+Namespace::Error Namespace::list(std::string_view path, std::vector<Item> &items) {
     Location loc;
     const auto status = locate(path, loc);
     if (status != ok) {
         return status == missing ? bad_path : status;
     }
-    struct stat info {};
+    HostMetadata info {};
     if (!loc.pin->metadata(info)) {
         return io;
     }
-    if (!S_ISDIR(info.st_mode)) {
+    if (!info.directory) {
         return bad_path;
     }
     auto *dir = directory(*loc.pin, loc.raw);
@@ -273,14 +272,14 @@ LinuxNamespace::Error LinuxNamespace::list(std::string_view path, std::vector<It
     std::vector<Item> result;
     for (const auto &item : dir->entries) {
         if (item.second) {
-            result.push_back({item.first, item.second->info, item.second->raw.front() == '.'});
+            result.push_back({item.first, item.second->info, PlatformRoot::hidden(item.second->info, item.second->raw)});
         }
     }
     items.swap(result);
     return ok;
 }
 
-LinuxNamespace::Error LinuxNamespace::open(std::string_view path, std::optional<LinuxRoot::Handle> &file, Item &item) {
+Namespace::Error Namespace::open(std::string_view path, std::optional<PlatformRoot::Handle> &file, Item &item) {
     Location loc;
     const auto status = locate(path, loc);
     if (status != ok) {
@@ -290,13 +289,13 @@ LinuxNamespace::Error LinuxNamespace::open(std::string_view path, std::optional<
         return denied;
     }
     auto opened = root_.open_file(loc.raw, loc.parent->pin, *loc.expected);
-    struct stat info {};
+    HostMetadata info {};
     if (!opened || !opened->metadata(info)) {
         return denied;
     }
     const auto sep = loc.raw.rfind('/');
     const auto basename = std::string_view(loc.raw).substr(sep == std::string::npos ? 0 : sep + 1);
-    item = {std::move(loc.name), info, basename.front() == '.'};
+    item = {std::move(loc.name), info, PlatformRoot::hidden(info, basename)};
     file = std::move(opened);
     return ok;
 }

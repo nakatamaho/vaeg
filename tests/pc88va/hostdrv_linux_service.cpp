@@ -21,7 +21,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "sdl2/hostdrv_linux_service.h"
+#include "sdl2/hostdrv_service.h"
 
 #include "io/hostdrv_lifecycle.h"
 
@@ -55,7 +55,7 @@ void check(bool pass, const char *code) {
 }
 
 struct Exchange {
-    hostdrv::LinuxService service;
+    hostdrv::Service service;
     std::array<std::uint8_t, HD_PACKET> packet{};
     std::uint32_t generation = 0;
     std::uint16_t seq = 0;

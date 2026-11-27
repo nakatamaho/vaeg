@@ -21,7 +21,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include "hostdrv_linux_service.h"
+#include "hostdrv_service.h"
 
 #include "io/hostdrv_lifecycle.h"
 
@@ -43,17 +43,21 @@ constexpr auto token_max = std::numeric_limits<std::uint32_t>::max();
 constexpr auto serial_max = std::numeric_limits<std::uint16_t>::max();
 constexpr std::size_t max_files = 64, max_searches = 32;
 
-unsigned attributes(const struct stat &st, bool hidden) {
-    return 1u | (hidden ? 2u : 0u) | (S_ISDIR(st.st_mode) ? 0x10u : 0x20u);
+unsigned attributes(const HostMetadata &st, bool hidden) {
+    return 1u | (hidden ? 2u : 0u) | st.attributes;
 }
 
-bool dos_metadata(std::uint8_t *out, const struct stat &st, bool hidden) {
-    const bool directory = S_ISDIR(st.st_mode);
-    if (!directory && (!S_ISREG(st.st_mode) || st.st_size < 0 || st.st_size > 0x7fffffff)) {
+bool dos_metadata(std::uint8_t *out, const HostMetadata &st, bool hidden) {
+    const bool directory = st.directory;
+    if (!directory && (st.size > 0x7fffffff)) {
         return false;
     }
     std::tm time {};
-    if (!localtime_r(&st.st_mtim.tv_sec, &time)) {
+#ifdef _WIN32
+    if (localtime_s(&time, &st.mtime) != 0) {
+#else
+    if (!localtime_r(&st.mtime, &time)) {
+#endif
         return false;
     }
     unsigned date, clock;
@@ -67,7 +71,7 @@ bool dos_metadata(std::uint8_t *out, const struct stat &st, bool hidden) {
         date = ((time.tm_year - 80) << 9) | ((time.tm_mon + 1) << 5) | time.tm_mday;
         clock = (time.tm_hour << 11) | (time.tm_min << 5) | (std::min(time.tm_sec, 59) / 2);
     }
-    hostdrv_put32(out, directory ? 0 : static_cast<std::uint32_t>(st.st_size));
+    hostdrv_put32(out, directory ? 0 : static_cast<std::uint32_t>(st.size));
     hostdrv_put16(out + 4, attributes(st, hidden));
     hostdrv_put16(out + 6, clock);
     hostdrv_put16(out + 8, date);
@@ -76,32 +80,32 @@ bool dos_metadata(std::uint8_t *out, const struct stat &st, bool hidden) {
 
 } // namespace
 
-bool LinuxService::bind_lifecycle() {
+bool Service::bind_lifecycle() {
     static const HD_LIFECYCLE ops{
-        [](void *ctx) { return int(static_cast<LinuxService *>(ctx)->guarded()); },
+        [](void *ctx) { return int(static_cast<Service *>(ctx)->guarded()); },
         [](void *ctx, int discarded) {
-            auto &service = *static_cast<LinuxService *>(ctx);
+            auto &service = *static_cast<Service *>(ctx);
             if (discarded)
                 service.discard_dos_image();
             else
                 service.revoke();
         },
         [](void *ctx) {
-            const auto marks = static_cast<LinuxService *>(ctx)->marks();
+            const auto marks = static_cast<Service *>(ctx)->marks();
             return HD_MARKS{marks.generation, marks.serial};
         },
         [](void *ctx, HD_MARKS marks) {
-            static_cast<LinuxService *>(ctx)->load_uninstalled({marks.generation, marks.serial});
+            static_cast<Service *>(ctx)->load_uninstalled({marks.generation, marks.serial});
         },
     };
     return !guarded() && !names_ && hostdrv_bind_lifecycle(&ops, this);
 }
 
-bool LinuxService::enable(const std::string &path) {
+bool Service::enable(const std::string &path) {
     if (guarded() || names_ || marks_.generation == token_max) {
         return false;
     }
-    auto root = LinuxRoot::select(path);
+    auto root = PlatformRoot::select(path);
     if (!root) {
         return false;
     }
@@ -110,7 +114,7 @@ bool LinuxService::enable(const std::string &path) {
     return true;
 }
 
-void LinuxService::revoke() {
+void Service::revoke() {
     files_.clear();
     searches_.clear();
     names_.reset();
@@ -119,12 +123,12 @@ void LinuxService::revoke() {
     // No enabled generation survives. The next enable must advance the mark.
 }
 
-void LinuxService::discard_dos_image() {
+void Service::discard_dos_image() {
     revoke();
     installation_ = 0;
 }
 
-bool LinuxService::load_uninstalled(Marks saved) {
+bool Service::load_uninstalled(Marks saved) {
     if (guarded()) {
         return false;
     }
@@ -134,8 +138,8 @@ bool LinuxService::load_uninstalled(Marks saved) {
     return true;
 }
 
-unsigned LinuxService::dispatch(void *context, const std::uint8_t *req, std::uint8_t *reply) {
-    auto &service = *static_cast<LinuxService *>(context);
+unsigned Service::dispatch(void *context, const std::uint8_t *req, std::uint8_t *reply) {
+    auto &service = *static_cast<Service *>(context);
     if (!hostdrv_request_valid(req)) {
         return HD_BAD_PACKET;
     }
@@ -148,7 +152,7 @@ unsigned LinuxService::dispatch(void *context, const std::uint8_t *req, std::uin
     }
 }
 
-unsigned LinuxService::execute(const std::uint8_t *req, std::uint8_t *reply) {
+unsigned Service::execute(const std::uint8_t *req, std::uint8_t *reply) {
     const auto generation = hostdrv_get32(req + HD_GENERATION);
     unsigned status = 21;
     switch (req[HD_OPCODE]) {
@@ -196,19 +200,19 @@ unsigned LinuxService::execute(const std::uint8_t *req, std::uint8_t *reply) {
     return HD_COMPLETED;
 }
 
-void LinuxService::find_result(const Result &result, std::uint8_t *reply) {
+void Service::find_result(const Result &result, std::uint8_t *reply) {
     std::memcpy(reply + HD_SIZE, result.data(), 10);
     std::memcpy(reply + HD_HEADER, result.data() + 10, 11);
     hostdrv_put16(reply + HD_OUTPUT, 11);
 }
 
-unsigned LinuxService::operate(const std::uint8_t *req, std::uint8_t *reply) {
+unsigned Service::operate(const std::uint8_t *req, std::uint8_t *reply) {
     const auto token = hostdrv_get32(req + HD_TOKEN);
     const auto offset = hostdrv_get32(req + HD_OFFSET);
     const auto options = hostdrv_get16(req + HD_OPTIONS);
     const auto *payload = reinterpret_cast<const char *>(req + HD_HEADER);
     const std::string_view path(payload, hostdrv_get16(req + HD_PATH));
-    LinuxNamespace::Item item;
+    Namespace::Item item;
 
     switch (req[HD_OPCODE]) {
     case HD_STAT: {
@@ -235,7 +239,7 @@ unsigned LinuxService::operate(const std::uint8_t *req, std::uint8_t *reply) {
         if (files_.size() >= max_files || marks_.serial == serial_max || next_token_ == token_max) {
             return 4;
         }
-        std::optional<LinuxRoot::Handle> handle;
+        std::optional<PlatformRoot::Handle> handle;
         const auto status = names_->open(path, handle, item);
         if (status) {
             return status;
@@ -248,11 +252,11 @@ unsigned LinuxService::operate(const std::uint8_t *req, std::uint8_t *reply) {
             if (!denies_read && !active.second.denies_read) {
                 continue;
             }
-            struct stat st {};
+            HostMetadata st {};
             if (!active.second.handle.metadata(st)) {
                 return 31;
             }
-            if (st.st_dev == item.info.st_dev && st.st_ino == item.info.st_ino) {
+            if (st.volume == item.info.volume && st.id == item.info.id) {
                 return 32;
             }
         }
@@ -277,12 +281,12 @@ unsigned LinuxService::operate(const std::uint8_t *req, std::uint8_t *reply) {
             return closed ? 0 : 31;
         }
         if (req[HD_OPCODE] == HD_FSTAT) {
-            struct stat st {};
+            HostMetadata st {};
             return file->second.handle.metadata(st) && dos_metadata(reply + HD_SIZE, st, file->second.hidden)
                        ? 0 : 31;
         }
         std::uint16_t actual;
-        if (!LinuxRoot::read(file->second.handle, offset, reply + HD_HEADER,
+        if (!PlatformRoot::read(file->second.handle, offset, reply + HD_HEADER,
                              hostdrv_get16(req + HD_COUNT), actual)) {
             return 31;
         }
@@ -295,7 +299,7 @@ unsigned LinuxService::operate(const std::uint8_t *req, std::uint8_t *reply) {
         if (!valid_template(pattern)) {
             return 31;
         }
-        std::vector<LinuxNamespace::Item> items;
+        std::vector<Namespace::Item> items;
         const auto status = names_->list(path, items);
         if (status) {
             return status;

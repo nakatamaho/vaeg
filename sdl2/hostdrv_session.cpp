@@ -23,14 +23,14 @@
  */
 #include "hostdrv_session.h"
 
-#include "hostdrv_linux_service.h"
+#include "hostdrv_service.h"
 #include "io/hostdrv_lifecycle.h"
 #include "io/hostdrv_wire.h"
 
 #include <new>
 
 namespace {
-hostdrv::LinuxService session;
+hostdrv::Service session;
 bool bound;
 }
 
@@ -41,7 +41,7 @@ int vaeg_hostdrv_session_start(const char *path) {
     bound = true;
     try {
         if (session.enable(path)) {
-            hostdrv_bind_exclusive_transport(hostdrv::LinuxService::dispatch, &session);
+            hostdrv_bind_exclusive_transport(hostdrv::Service::dispatch, &session);
             return 1;
         }
     } catch (const std::bad_alloc &) {
