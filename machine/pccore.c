@@ -6,6 +6,7 @@
 #include "timemng.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
+#include "io/hostdrv_lifecycle.h"
 #include "iocore.h"
 #include "cmt.h"
 #include "pcg88.h"
@@ -389,6 +390,7 @@ void pccore_init(void) {
 }
 
 void pccore_term(void) {
+	hostdrv_reset(0);
 	sound_term();
 
 	fdd_eject(0);
@@ -466,6 +468,7 @@ static BOOL pccore_fixed_disk_attached(void) {
 void pccore_reset(void) {
 	int i;
 
+	hostdrv_reset(0);
 	vaeg_recording_native_session_before_reset();
 	pccore_debug_resume = FALSE;
 	pccore_guest_clock_high = 0;
@@ -481,6 +484,7 @@ void pccore_reset(void) {
 		sound_init();
 	}
 	ZeroMemory(mem, 0x110000);
+	hostdrv_reset(1);
 	ZeroMemory(mem + FONT_ADRS, 0x08000);
 
 	// Copy configured memory-switch bytes into the VA work area.
@@ -944,6 +948,7 @@ void pccore_postevent(UINT32 event) { // yet!
 static void pccore_process_cpu_reset_request(void) {
 	if (CPU_RESETREQ) {
 		CPU_RESETREQ = 0;
+		hostdrv_reset(0);
 		CPU_SHUT();
 	}
 }

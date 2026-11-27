@@ -57,6 +57,7 @@
 #include "framedisp.h"
 #include "hostfat.h"
 #include "hostdrv_wire.h"
+#include "io/hostdrv_lifecycle.h"
 #include "hostfat_snapshot.h"
 #include "hostfat_manager.h"
 #include "ini.h"
@@ -5503,6 +5504,162 @@ static int test_main_cpu_state(void) {
 	fprintf(
 	    stderr,
 	    "selftest: main CPU state files, role negatives, legacy restore and FDC isolation ok\n");
+	return SUCCESS;
+}
+
+typedef struct {
+	int resident;
+	int grant;
+	int cleared_while_live;
+	int saw_cpu_shutdown;
+	HD_MARKS marks;
+} HOSTDRV_TEST_SESSION;
+
+static int hostdrv_test_guarded(void *context) {
+	return ((HOSTDRV_TEST_SESSION *)context)->resident;
+}
+
+static void hostdrv_test_reset(void *context, int discarded) {
+	HOSTDRV_TEST_SESSION *session = context;
+
+	if (!discarded && session->resident && session->grant && CPU_IP == 0x1234)
+		session->saw_cpu_shutdown = 1;
+	if (discarded) {
+		session->cleared_while_live |= session->grant || mem[0x20000] != 0;
+		session->resident = 0;
+	}
+	session->grant = 0;
+}
+
+static HD_MARKS hostdrv_test_marks(void *context) {
+	return ((HOSTDRV_TEST_SESSION *)context)->marks;
+}
+
+static void hostdrv_test_load(void *context, HD_MARKS marks) {
+	HOSTDRV_TEST_SESSION *session = context;
+
+	session->grant = 0;
+	session->marks = marks;
+}
+
+static BOOL hostdrv_test_error(char *error, const char *code) {
+	error[strcspn(error, "\r\n")] = 0;
+	return !strcmp(error, code);
+}
+
+#if defined(VAEG_UPD9002_M42_TESTING)
+void upd9002_m42_process_cpu_reset_request(void);
+#endif
+
+static int test_hostdrv_lifecycle(void) {
+	static const HD_LIFECYCLE ops = {hostdrv_test_guarded, hostdrv_test_reset,
+	                                 hostdrv_test_marks, hostdrv_test_load};
+	static const char resident_code[] = "M173_HOSTDRV_RESIDENT";
+	static const char state_code[] = "M173_HOSTDRV_STATE";
+	static const unsigned mutations[] = {10, 16, 17}; // version, policy, reserved
+	HOSTDRV_TEST_SESSION session = {0};
+	char path[MAX_PATH], bad[MAX_PATH], error[256];
+	BYTE *data = NULL;
+	UINT size, pos, i;
+	const char *problem = "could not prepare HOSTDRV state fixture";
+
+	SPRINTF(path, "vaeg-hostdrv-%lu.sts", (unsigned long)getpid());
+	SPRINTF(bad, "vaeg-hostdrv-%lu-bad.sts", (unsigned long)getpid());
+	file_delete(path);
+	file_delete(bad);
+	soundmng_initialize();
+	commng_initialize();
+	pccore_init();
+	pccore_reset();
+	if (!hostdrv_bind_lifecycle(&ops, &session))
+		goto done;
+	session.marks.generation = 42;
+	session.marks.serial = 9;
+	if (statsave_save(path) != STATFLAG_SUCCESS || read_whole_file(path, &data, &size) != SUCCESS ||
+	    statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+		goto done;
+	for (pos = 0x30; pos + 16 <= size;
+	     pos += 16 + ((LOADINTELDWORD(data + pos + 12) + 15) & ~15U))
+		if (!memcmp(data + pos, "HOSTDRV\0\0\0", 10))
+			break;
+	if (pos + 24 > size || LOADINTELDWORD(data + pos + 12) != 8 ||
+	    hostdrv_get16(data + pos + 18) != 9 || hostdrv_get32(data + pos + 20) != 42)
+		goto done;
+
+	problem = "HOSTDRV busy reset or resident save/load guard failed";
+	session.grant = session.resident = 1;
+	CPU_IP = 0x1234;
+	mem[0x20000] = 0x5a;
+	for (i = 0; i < 2; ++i) {
+		UINT16 ip = CPU_IP;
+		if (statsave_save_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) || file_attr(bad) != -1 ||
+		    statsave_check(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_check_hostfat_override(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_load_checked(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) ||
+		    statsave_load_hostfat_override_checked(path, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, resident_code) || CPU_IP != ip || mem[0x20000] != 0x5a ||
+		    hostdrv_bind_lifecycle(NULL, NULL))
+			goto done;
+		if (!i) {
+#if defined(VAEG_UPD9002_M42_TESTING)
+			CPU_RESETREQ = 1;
+			upd9002_m42_process_cpu_reset_request();
+			if (!session.saw_cpu_shutdown || CPU_RESETREQ)
+				goto done;
+#else
+			hostdrv_reset(0);
+#endif
+			if (!session.resident || session.grant)
+				goto done;
+		}
+	}
+	pccore_reset();
+	if (session.resident || session.cleared_while_live || mem[0x20000] != 0)
+		goto done;
+
+	problem = "invalid HOSTDRV state was not rejected before mutation";
+	CPU_IP = 0x4321;
+	mem[0x20000] = 0xa5;
+	session.grant = 1;
+	for (i = 0; i < NELEMENTS(mutations); ++i) {
+		unsigned offset = pos + mutations[i];
+		if (statsave_check(path, error, sizeof(error)) != STATFLAG_SUCCESS)
+			goto done;
+		data[offset] ^= 1;
+		if (write_state_fixture(bad, data, size) != SUCCESS ||
+		    statsave_check(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, state_code) ||
+		    statsave_load_hostfat_override_checked(bad, error, sizeof(error)) != STATFLAG_FAILURE ||
+		    !hostdrv_test_error(error, state_code) || !session.grant || CPU_IP != 0x4321 ||
+		    mem[0x20000] != 0xa5)
+			goto done;
+		data[offset] ^= 1;
+	}
+	problem = "uninstalled HOSTDRV state failed to merge marks or revoke the pending grant";
+	session.marks.generation = 50;
+	session.marks.serial = 3;
+	if (statsave_load(path) != STATFLAG_SUCCESS || session.grant || session.resident ||
+	    session.marks.generation != 50 || session.marks.serial != 9 || mem[0x20000] != 0 ||
+	    !hostdrv_bind_lifecycle(NULL, NULL))
+		goto done;
+	problem = NULL;
+
+done:
+	pccore_reset();
+	hostdrv_bind_lifecycle(NULL, NULL);
+	pccore_term();
+	soundmng_deinitialize();
+	if (data)
+		_MFREE(data);
+	file_delete(path);
+	file_delete(bad);
+	if (problem)
+		return fail("HOSTDRV lifecycle", problem);
+	fprintf(stderr, "selftest: HOSTDRV reset, resident guards and uninstalled state policy ok\n");
 	return SUCCESS;
 }
 
@@ -12538,7 +12695,9 @@ int vaeg_selftest_run(void) {
 		if (test_hostfat_transport() != SUCCESS) {
 			return FAILURE;
 		}
-		return test_hostdrv_transport();
+		if (test_hostdrv_transport() != SUCCESS)
+			return FAILURE;
+		return test_hostdrv_lifecycle();
 	}
 	if (SDL_getenv("VAEG_SELFTEST_SCREENSHOT_ROTATION_ONLY") != NULL)
 		return test_screenshot_rotation();

@@ -147,4 +147,5 @@ static const SFENTRY np2tbl[] = {
     {"UPD9TRAP", 0, STATFLAG_BIN, &upd9002_iotrap, sizeof(upd9002_iotrap)},
     {"UPD9WCU", 0, STATFLAG_BIN, &upd9002_wcu, sizeof(upd9002_wcu)},
     {"HOSTFAT", 1, STATFLAG_HOSTFAT, NULL, 36},
+    {"HOSTDRV", 1, STATFLAG_HOSTDRV, NULL, HOSTDRV_STATE_SIZE},
     {"TERMINATE", 0, STATFLAG_TERM, NULL, 0}};

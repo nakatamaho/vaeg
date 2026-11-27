@@ -335,6 +335,7 @@ set(VAEG_CORE_SOURCES
     io/vab.c
     io/fdc.c
     io/hostfat.c
+    io/hostdrv_lifecycle.c
     io/hostdrv_wire.c
     io/mouseif.c
     io/np2sysp.c
