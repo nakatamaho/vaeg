@@ -30,9 +30,10 @@ The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
 implemented. Linux file authorization, pinned CP932 naming and the Linux
 DOS namespace are implemented, including the Shift-JIS alias amendment.
 The isolated Linux wire service and its lifecycle adapter pass synthetic
-packet, reset and state-storage tests. Warm-bootstrap revocation and the
-exclusive transaction profile are not yet proven. Production session
-integration, Windows backend and product redirector are outstanding.
+packet, reset and state-storage tests. Resident firmware-entry revocation
+passes a synthetic machine-loop check, but end-to-end warm-bootstrap and
+exclusive transaction proofs are still outstanding, as are production
+session integration, the Windows backend and the product redirector.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or

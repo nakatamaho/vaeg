@@ -46,7 +46,8 @@ provenance are unaffected.
 | Linux release emulator target and HOSTDRV CTest label | PASS | Application compile/link and 8/8 focused tests at the dispatcher checkpoint. This is not a handoff build. |
 | Synthetic lifecycle and `vaeg_state_storage` (CTest) | PASS | Real CPU shutdown-request and full machine reset hooks with synthetic residency; pre-output/pre-mutation save/load refusal including HOSTFAT override, exact errors for malformed policy/reserved/version, pending grant revocation, and independent maximum of both marks. Existing state-storage regression passed. |
 | Linux lifecycle adapter (CTest) | PASS | The actual Linux wire dispatcher revokes on the lifecycle seam, keeps residency on shutdown, clears it on proven disposal and revokes an uninstalled grant on load. This does not enable the transport. |
-| Production Linux session option, supported warm-bootstrap revocation, Windows backend | NOT RUN | No production binding; bootstrap transition and guest transaction profile not yet proven. |
+| Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
+| End-to-end warm bootstrap with an attached service, Linux session option, Windows backend | NOT RUN | No production binding; firmware-entry coverage and the guest transaction profile are not yet proven for activation. |
 | `HOSTDRV.COM` and installed guest lifecycle/operations | NOT RUN | No product redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
@@ -78,13 +79,19 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
 
 ## Next steps
 
-1. Continue Stage 2 after the [lifecycle seam](https://github.com/nakatamaho/vaeg/commit/55faceb4f7aae512e4a31bb65eed18b0698a52b5)
-   and Linux adapter. Identify a supported VA DOS warm-bootstrap transition
-   that bypasses `pccore_reset()`, locate its first reliable emulator-visible
-   event and test revocation at that event with an attached service and
-   stale references. Do not assume PC-compatible INT 19h means VA bootstrap
-   or treat a jump to the reset vector as proof that DOS restarted. Revoke
-   without clearing residency unless the DOS image was demonstrably discarded.
+1. Finish Stage 2 bootstrap proof after the [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf).
+   The machine loop revokes a resident session on a native fetch at physical
+   `FFFF0h`, or at the model's firmware disk-bootstrap entry (`F16A0h` on
+   VA, `F1F90h` on VA2). The hook intentionally retains residency and is
+   not a general warm-reboot detector. Prove the supported VA and VA2 DOS
+   warm-bootstrap paths end to end with an attached service and a stale
+   file token/search cookie; verify the new boot cannot consume the
+   previous authority and state storage remains guarded. Neither INT 19h
+   nor reaching the reset vector is sufficient proof of a new DOS boot.
+   Also distinguish initial startup (which must allow the explicit grant)
+   from a later bootstrap before install (which must revoke an unconsumed
+   grant). If the supported transitions cannot be identified reliably,
+   keep discovery disabled and seek an approved profile clarification.
 2. Prove the port exclusivity profile (IRQ masking, no NMI, other port
    masters or injected port access). Include the native trace-flag path:
    IF masking alone does not exclude a guest INT 1 trap. Exercise the guest
