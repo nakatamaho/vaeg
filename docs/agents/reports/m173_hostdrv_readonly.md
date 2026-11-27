@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M173 — HOSTDRV read-only progress
 
-**Not ready for G173.** Stage 1 has the wire, shared-port and transient
+**G173 candidate prepared; NTFS fixture rerun pending.** Stage 1 has the wire, shared-port and transient
 DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
 namespace and a Linux dispatcher with a tested lifecycle adapter enabled
 explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
@@ -51,10 +51,11 @@ unaffected.
 | Linux lifecycle adapter (CTest) | PASS | The actual Linux wire dispatcher revokes on the lifecycle seam, keeps residency on shutdown, clears it on proven disposal and revokes an uninstalled grant on load. This does not enable the transport. |
 | Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
-| Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
+| Product warm bootstrap | NOT RUN by public checks | Remaining lifecycle gate. |
+| Windows NTFS fixture, run 3 | FAIL | Opus reported 19 pass, 2 fail; see below for scope and the pending rerun. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
 | Full installed guest lifecycle and operation checklist | OPEN | See remaining gates below. |
-| G173 static MinGW handoff | NOT RUN | No candidate. |
+| G173 static MinGW handoff | Required | Use the clean candidate build and its out-of-tree build report; compilation/import audit is not Windows runtime evidence. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
 HOSTDRV's carry/error result from the separate MS-DOS 4.0 `sf_OpenAge`
@@ -315,7 +316,7 @@ prevent file ID reuse. No pathname is retried. The data handle must pass
 identity and eligibility checks and accept per-handle access-time suppression
 before use. The fixture adds a renamed-root listing check to verify that
 replacing the original path does not retarget the selected object. The
-updated fixture cross-compiles; NTFS confirmation is pending.
+updated fixture cross-compiles; the subsequent NTFS results are below.
 
 The fixture checks ancestor locking and replacement, fresh path identity, special and
 reparse rejection, timestamp preservation, and CP932 names. A timestamp pass
@@ -323,13 +324,40 @@ with updates disabled is evidence for that system mode only; record the
 reported setting and do not infer enabled-mode coverage. The fixture does
 not change the system policy and removes only its own entries.
 
-## G173 Windows checklist — pending runtime checks
+## NTFS run 3 and fixture rerun
+
+Opus reported **19 PASS, 2 FAIL** on the run 3 NTFS fixture. Access-time
+preservation passed with setting `0x80000002` (updates enabled), as did
+held-ancestor rename and replacement checks, junction rejection, and the
+Japanese-name check. On `0b62173f`, Opus separately reported all six headless
+checks passing: `INSTALL`, `DOS_HANDLE_CHECK`, `TYPE`, `COPY`, `DIR`, and
+`UNINSTALL`.
+
+`UNLOCKED_REPLACEMENT_IS_NEW_OBJECT` failed without a step diagnostic.
+The original test attempted to rename a directory with a file still open
+beneath it; NTFS can refuse that operation independently of the backend's
+ancestor locks. The updated fixture tests retained reads across a leaf
+rename/replacement, then releases descendant handles and separately tests
+ancestor replacement with the old directory identity still pinned. Both
+checks require the stale identity to be rejected and the fresh object to
+return its distinct contents. Diagnostics identify a failed rename,
+fixture creation, identity check, or read. This is a fixture change only;
+the production NTFS backend is unchanged.
+
+`SYMLINK_REJECTED` is **NOT RUN** when fixture creation fails with Win32
+error 1314 (missing privilege); this is the only skipped condition. Other
+creation errors and successful resolution of a symlink remain failures.
+Junction rejection independently exercises reparse refusal. No system
+setting changes are required. The revised fixture must pass on NTFS, with
+at most the documented symlink skip, before the candidate is ready for G173.
+
+## G173 Windows checklist — pending acceptance checks
 
 On an eligible volume, start
 `vaeg.exe --hostdrv-dir <folder>`, start MS-DOS 4.0 VA, and run
 `HOSTDRV /VAEG`. Check `DIR`, `CD`, `TYPE` and `COPY` to a DOS-local
 volume, including Japanese names. Add a file on the host and check that
 it appears on a fresh guest directory search without reinstalling.
-Windows execution and this checklist are NOT RUN. Run the remaining
+This full interactive checklist is NOT RUN. Run the remaining
 normal VA guest warm-reboot route separately. Neither a static build
 nor a successful refusal is a G173 acceptance result.

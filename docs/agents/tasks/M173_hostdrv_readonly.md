@@ -46,11 +46,12 @@ window. The debug harness can invoke the frontend full-reset path;
 a normal VA guest warm reboot and the remaining functional checks are
 separate gate items. The Windows backend is implemented for explicit local
 NTFS sessions. The diagnostic rerun isolated preflight failure to
-`ReOpenFile`. The backend now opens by pinned NTFS file ID; the updated NTFS
-fixture and Windows guest check await execution. See the
-[progress report](../reports/m173_hostdrv_readonly.md).
-Not ready for G173: cross-compilation does not establish the Windows
-runtime containment and no-access-time guarantees.
+`ReOpenFile`. The backend now opens by pinned NTFS file ID. Run 3
+confirmed access-time preservation with updates enabled and passed the
+six headless functional checks. The candidate handoff is prepared for
+G173; readiness is pending the updated NTFS fixture rerun. The symlink
+check is NOT RUN if Windows denies fixture creation with error 1314.
+See the [progress report](../reports/m173_hostdrv_readonly.md).
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.

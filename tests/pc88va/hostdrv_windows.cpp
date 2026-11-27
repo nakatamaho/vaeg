@@ -43,7 +43,7 @@ using hostdrv::WindowsRoot;
 constexpr DWORD sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
 constexpr FILETIME old_time{0x3f000000, 0x01c0abcd};
 const wchar_t japanese[] = L"\u8868.txt";
-unsigned failures = 0, checks = 0;
+unsigned failures = 0, checks = 0, skipped = 0;
 
 void check(const char *name, bool pass) {
     ++checks;
@@ -52,7 +52,7 @@ void check(const char *name, bool pass) {
 }
 
 int summary() {
-    std::printf("SUMMARY %u passed, %u failed\n", checks - failures, failures);
+    std::printf("SUMMARY %u passed, %u failed, %u skipped\n", checks - failures, failures, skipped);
     return failures ? 1 : 0;
 }
 
@@ -102,17 +102,24 @@ struct Fixtures {
     struct Path { std::wstring name; bool directory; };
     std::vector<Path> paths;
     bool dir(const std::wstring &path) {
-        if (!CreateDirectoryW(path.c_str(), nullptr)) return false;
+        if (!CreateDirectoryW(path.c_str(), nullptr)) {
+            diagnostic("CreateDirectoryW Win32", path, GetLastError());
+            return false;
+        }
         paths.push_back({path, true});
         return true;
     }
     bool file(const std::wstring &path, char byte) {
         const HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, sharing, nullptr,
                                     CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (h == INVALID_HANDLE_VALUE) return false;
+        if (h == INVALID_HANDLE_VALUE) {
+            diagnostic("CreateFileW fixture Win32", path, GetLastError());
+            return false;
+        }
         paths.push_back({path, false});
         DWORD n = 0;
         const bool ok = WriteFile(h, &byte, 1, &n, nullptr) && n == 1;
+        if (!ok) diagnostic("WriteFile fixture (one byte expected)", path, n);
         return CloseHandle(h) && ok;
     }
     bool cleanup() {
@@ -284,15 +291,54 @@ void run(Fixtures &fixtures, const std::wstring &base) {
                                  FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     check("LOCK_CONFLICT_FAILS_CLOSED", deleter != INVALID_HANDLE_VALUE && !root->resolve("PARENT/DATA.TXT"));
     if (deleter != INVALID_HANDLE_VALUE) CloseHandle(deleter);
-    auto retained = parent_pin && file_pin ? root->open_file("PARENT/DATA.TXT", *parent_pin, *file_pin) : std::nullopt;
+    constexpr auto guest_path = "PARENT/DATA.TXT";
+    handle.reset();
+    {
+        auto retained = parent_pin && file_pin ? root->open_file(guest_path, *parent_pin, *file_pin) : std::nullopt;
+        const auto displaced = outside + L"\\DISPLACED.TXT";
+        const bool moved = MoveFileExW(data.c_str(), displaced.c_str(), 0);
+        if (moved) fixtures.paths.push_back({displaced, false});
+        else diagnostic("MoveFileExW leaf Win32", data, GetLastError());
+        const bool seeded_leaf = moved && fixtures.file(data, 'N');
+        if (moved && !seeded_leaf) std::puts("INFO could not seed replacement leaf");
+        const auto fresh = seeded_leaf ? root->resolve(guest_path) : std::nullopt;
+        const bool old_read = retained && read_byte(*retained, 'I');
+        const bool stale_denied = parent_pin && file_pin && !root->open_file(guest_path, *parent_pin, *file_pin);
+        const auto opened = parent_pin && fresh ? root->open_file(guest_path, *parent_pin, *fresh) : std::nullopt;
+        const bool fresh_read = opened && read_byte(*opened, 'N');
+        const bool distinct = fresh && file_pin && !fresh->same_object(*file_pin);
+        if (!old_read || !stale_denied || !fresh_read || !distinct) {
+            std::printf("INFO leaf replacement: retained=%d old_read=%d stale_denied=%d fresh_read=%d distinct=%d\n",
+                        bool(retained), old_read, stale_denied, fresh_read, distinct);
+        }
+        check("LEAF_REPLACEMENT_PRESERVES_OPEN_HANDLE", distinct && old_read && stale_denied && fresh_read);
+    }
+    // NTFS can refuse an ancestor directory rename while a descendant file
+    // is open even with delete sharing. Test ancestor identity separately,
+    // without live descendant handles, and keep the old directory pin.
+    file_pin.reset();
+    entries.clear();
     const bool moved = MoveFileExW(parent.c_str(), renamed.c_str(), 0);
     if (moved) {
         fixtures.paths.push_back({renamed, true});
         fixtures.paths.push_back({renamed + L"\\DATA.TXT", false});
+    } else {
+        diagnostic("MoveFileExW ancestor Win32", parent, GetLastError());
     }
-    const bool new_parent = moved && fixtures.dir(parent) && fixtures.file(data, 'N');
-    check("UNLOCKED_REPLACEMENT_IS_NEW_OBJECT", new_parent && parent_pin && file_pin && retained &&
-          read_byte(*retained, 'I') && !root->open_file("PARENT/DATA.TXT", *parent_pin, *file_pin));
+    const bool seeded_parent = moved && fixtures.dir(parent) && fixtures.file(data, 'R');
+    if (moved && !seeded_parent) std::puts("INFO could not seed replacement ancestor and leaf");
+    const auto fresh_parent = seeded_parent ? root->resolve("PARENT") : std::nullopt;
+    const auto fresh_leaf = seeded_parent ? root->resolve(guest_path) : std::nullopt;
+    const auto replacement_file = fresh_parent && fresh_leaf ? root->open_file(guest_path, *fresh_parent, *fresh_leaf)
+                                                             : std::nullopt;
+    const bool distinct = parent_pin && fresh_parent && !fresh_parent->same_object(*parent_pin);
+    const bool stale_denied = parent_pin && fresh_leaf && !root->open_file(guest_path, *parent_pin, *fresh_leaf);
+    const bool fresh_read = replacement_file && read_byte(*replacement_file, 'R');
+    if (!distinct || !stale_denied || !fresh_read) {
+        std::printf("INFO ancestor replacement: distinct=%d stale_denied=%d fresh_read=%d\n",
+                    distinct, stale_denied, fresh_read);
+    }
+    check("UNLOCKED_REPLACEMENT_IS_NEW_OBJECT", distinct && stale_denied && fresh_read);
 
     const auto mountpoint = path + L"\\JUNCTION";
     check("JUNCTION_REJECTED", junction(fixtures, mountpoint, outside) &&
@@ -300,11 +346,24 @@ void run(Fixtures &fixtures, const std::wstring &base) {
           !WindowsRoot::select(utf8(mountpoint)));
     const auto link = path + L"\\SYMLINK";
     // 2 permits non-elevated symlink creation when Developer Mode is on.
-    const bool linked = CreateSymbolicLinkW(link.c_str(), (outside + L"\\DATA.TXT").c_str(), 2) ||
-                        CreateSymbolicLinkW(link.c_str(), (outside + L"\\DATA.TXT").c_str(), 0);
-    if (linked) fixtures.paths.push_back({link, false});
-    else std::printf("INFO symlink fixture error: %lu (enable Developer Mode or elevate)\n", GetLastError());
-    check("SYMLINK_REJECTED", linked && !root->resolve("SYMLINK"));
+    const auto target = outside + L"\\DATA.TXT";
+    bool linked = CreateSymbolicLinkW(link.c_str(), target.c_str(), 2);
+    if (!linked && GetLastError() == ERROR_INVALID_PARAMETER) {
+        linked = CreateSymbolicLinkW(link.c_str(), target.c_str(), 0);
+    }
+    if (linked) {
+        fixtures.paths.push_back({link, false});
+        check("SYMLINK_REJECTED", !root->resolve("SYMLINK"));
+    } else {
+        const DWORD error = GetLastError();
+        if (error == ERROR_PRIVILEGE_NOT_HELD) {
+            ++skipped;
+            std::puts("SKIP SYMLINK_REJECTED (fixture not creatable: 1314)");
+        } else {
+            diagnostic("CreateSymbolicLinkW Win32", link, error);
+            check("SYMLINK_REJECTED", false);
+        }
+    }
 
     const auto alias = path + L"\\HARDLINK";
     const bool hardlink = CreateHardLinkW(alias.c_str(), (outside + L"\\DATA.TXT").c_str(), nullptr);
