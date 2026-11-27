@@ -47,13 +47,13 @@ window. The debug harness can invoke the frontend full-reset path;
 a normal VA guest warm reboot and the remaining functional checks are
 separate gate items. The Windows backend is implemented for explicit local
 NTFS sessions. The backend opens by pinned NTFS file ID. NTFS fixture
-run 4 recorded 21 PASS, 0 FAIL and 1 NOT RUN (symlink fixture creation
+(review fix) recorded 24 PASS, 0 FAIL and 1 NOT RUN (symlink fixture creation
 was denied with error 1314); all six headless guest checks passed.
 
 **Handoff:** clean static MinGW build of
-`438df099a16a615a43aaf13dc5150f6ff8db7282`,
-`mingw-438df099/output/vaeg.exe` in the local handoff directory.
-SHA-256: `2472324618ac17a50bbb38139c04ce385a71f19a586a60060be709f3470b4f16`.
+`0d12f41aa2dedb2a794c7375eddc192c44cb23fa`,
+`mingw-0d12f41a/output/vaeg.exe` in the local handoff directory.
+SHA-256: `5dfedf2070fa65ec732a0eb8b38dca359213803433ba5ec415fd479600141168`.
 See the [candidate report and G173 checklist](../reports/m173_hostdrv_readonly.md#g173-windows-checklist--pending-human-acceptance).
 
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

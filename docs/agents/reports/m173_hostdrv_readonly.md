@@ -53,8 +53,8 @@ unaffected.
 | Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap | NOT RUN by public checks | Remaining lifecycle gate. |
-| Windows NTFS fixture, run 4 | 21 PASS, 0 FAIL, 1 NOT RUN | Local NTFS with last-access updates enabled; symlink fixture could not be created on this account. |
-| Windows headless guest, run 4 | 6 PASS, 0 FAIL | Install, DOS handle check, TYPE, COPY, DIR and uninstall; not an interactive Windows check. |
+| Windows NTFS fixture, review fix | 24 PASS, 0 FAIL, 1 NOT RUN | Local NTFS with last-access updates enabled; symlink fixture could not be created on this account. |
+| Windows headless guest, review fix | 6 PASS, 0 FAIL | Install, DOS handle check, TYPE, COPY, DIR and uninstall; not an interactive Windows check. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
 | Full installed guest lifecycle and operation checklist | OPEN | See remaining gates below. |
 | G173 static MinGW handoff | PASS (build and audits only) | Clean static candidate build; see artifact identity below. |
@@ -350,22 +350,25 @@ setting changes are required.
 
 ## Candidate verification and handoff
 
-Opus ran `hostdrv_wintest-run4.exe` via WSL interop on local NTFS with
-last-access updates enabled: **21 PASS, 0 FAIL, 1 NOT RUN**, exit 0.
+Opus ran the review-fix `hostdrv_wintest.exe` via WSL interop on local NTFS
+with last-access updates enabled: **24 PASS, 0 FAIL, 1 NOT RUN**, exit 0
+(including the unlocked ancestor-replacement control, raw scan cap and
+oversized-file filtering).
 The access timestamp stayed unchanged; the held-ancestor, leaf replacement,
 fresh ancestor identity and junction rejection checks all passed. The only
 skip was `SYMLINK_REJECTED`: Windows denied fixture creation with error
 1314 on this account. Junction coverage does not count as symlink coverage.
 
-Opus also ran `run-headless-run4.sh` with the clean static Windows candidate
-and an NTFS HOSTDRV root: **6 PASS, 0 FAIL**, exit 0. The guest checks were
+Opus also ran the headless check with the clean static Windows candidate
+and an NTFS HOSTDRV root: **6 PASS, 0 FAIL**, exit 0 (statement approved by
+the maintainer on 2026-11-28). The guest checks were
 `INSTALL`, `DOS_HANDLE_CHECK`, `TYPE`, `COPY`, `DIR`, and `UNINSTALL`.
 This does not establish interactive Windows, presenter or warm-reboot coverage.
 
-- Source: `438df099a16a615a43aaf13dc5150f6ff8db7282` (`M173-dev`).
-- Local handoff: `mingw-438df099/output/vaeg.exe`; build report alongside it
-  at `mingw-438df099/output/BUILD-REPORT.md`.
-- SHA-256: `2472324618ac17a50bbb38139c04ce385a71f19a586a60060be709f3470b4f16`.
+- Source: `0d12f41aa2dedb2a794c7375eddc192c44cb23fa` (`M173-dev`).
+- Local handoff: `mingw-0d12f41a/output/vaeg.exe`; build report alongside it
+  at `mingw-0d12f41a/output/BUILD-REPORT.md`.
+- SHA-256: `5dfedf2070fa65ec732a0eb8b38dca359213803433ba5ec415fd479600141168`.
 - Clean Linux-host static MinGW build; encoder archive and Windows system-DLL
   import audits passed. The record update does not change the executable.
 
