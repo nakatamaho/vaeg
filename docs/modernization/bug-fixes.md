@@ -35,6 +35,24 @@ land.
 
 ## Maintenance Rules
 
+### M171 — SASI multiboot validation could miss a skipped menu or stale root slot
+
+- **Symptom/scope:** The SASI multiboot builder could accept a DOS fallback
+  as a successful menu timeout. Adding a startup file could also expose a
+  stale root entry that was hidden behind the FAT end marker.
+- **Demonstrated cause:** The timeout check inspected only the final screen
+  and whether the HDI changed. Root insertion overwrote the end marker
+  without replacing it, and validation reused the cached root entries.
+- **Correction:** Require the menu and expected boot in the same no-input
+  run. Move the end marker when inserting and reparse the final image bytes
+  before publishing.
+- **Verification:** Synthetic tests reject a DOS prompt without an earlier
+  menu with `GUEST_TIMEOUT_MENU` and check that insertion followed by a
+  fresh parse keeps a stale duplicate entry hidden.
+- **Milestone/task/commit:** [M171 task](../agents/tasks/M171_sasi_multiboot_disk.md),
+  [candidate report](../agents/reports/m171_sasi_multiboot_disk.md),
+  [b518ef1c](https://github.com/nakatamaho/vaeg/commit/b518ef1ceb948479620d95d81d5cd7cffabcbae8).
+
 ### M170 — US preset lacked a dedicated guest FULLWIDTH key
 
 - **Symptom/scope:** The US keyboard preset could not send a dedicated
