@@ -36,8 +36,10 @@ resident-stack entry and CDS dependency scan are wired into a development
 `HOSTDRV.COM` with opt-in install/remove, a CP932 profile check and owned
 chdir/attribute queries, ordinary file handles, enumeration and capacity.
 Extended open now publishes the action in saved user CX under the approved
-DOS IFS contract. COMMAND TYPE/COPY diagnosis, FCBs, the remaining functional
-and lifecycle checklist, the Windows backend and static handoff remain open. See the
+DOS IFS contract. COMMAND TYPE/COPY require a decision on the design's
+`112Dh` invalid-function disposition and safe access to upper guest RAM.
+FCBs, the remaining functional and lifecycle checklist, the Windows backend
+and static handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

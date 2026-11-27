@@ -211,7 +211,8 @@ it”). On successful owned `112Eh`, HOSTDRV writes action 1 into saved
 `user_SS` at `+264h` / `+266h` (`INC/MS_DATA.ASM`,
 `DOS/DISP.ASM:543–548`). Check the frame before allocation; on failure do
 not update saved CX. Neither the DOS profile nor the kernel changes.
- If the request would create/replace, deny it without side effects; when
+
+If the request would create/replace, deny it without side effects; when
 no operation is requested for a missing/existing file, return the normal
 file-not-found/file-exists result. Extended IFS query/EA/control paths do not
 imply permission to forward arbitrary host IOCTLs. The DOS 4 long BPB fields

@@ -190,10 +190,28 @@ passed. Encoding, EOL and case checks passed.
   The Linux build and all 14 HOSTDRV CTests passed; the fixture CTest is
   assembly-only.
 
+## COMMAND TYPE/COPY design decision needed
+
+The COMMAND source calls `5702h` for its code-page XA query before
+transferring file data (`CMD/COMMAND/TCMD1B.ASM`, `COPY.ASM`). For a remote
+SFT, `DOS/HANDLE.ASM` dispatches that call to `112Dh` with BL=2 and routes
+carry-set returns to `SYS_RET_ERR`. The approved design explicitly assigns
+invalid function to that verb. The local `DOS/EXTATTR.ASM:GetSet_XA` instead
+has an empty-list contract: return saved CX=2 for the size query; with at
+least two bytes of capacity, also store a zero entry count in the caller's
+buffer. Supporting that empty-list query on owned handles would need a design
+amendment. It would not need host extended attributes or host writes.
+
+The saved-frame bound is a separate issue: the DOS guest frame can sit in
+`80000h–9FFFFh`, which the VA decoder maps to ordinary RAM only when BMS
+bank zero is active. Do not simply raise the generic DOS span ceiling, and
+do not change the wire bounce window. Specify a bank-zero-aware bound for
+saved user frames and any XA result buffer, before using either for outputs.
+
 ## Next steps and remaining gates
 
-1. Diagnose COMMAND TYPE and COPY independently of 3Dh and 6C00h.
-   Add the minimal FCB paths only with distinct
+1. Resolve the `112Dh` contract and upper guest-RAM safety before continuing
+   TYPE/COPY. Add the minimal FCB paths only with distinct
    traces for allocation, positioned transfer, eviction and abort. Check
    NLS changes while resident, copied-DTA replay, remaining task cases, and
    busy and TF refusal with a no-port-I/O assertion.
