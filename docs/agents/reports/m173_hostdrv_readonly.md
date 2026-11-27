@@ -25,8 +25,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **Not ready for G173.** Stage 1 has the wire, shared-port and transient
 DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
-namespace and an isolated Linux dispatcher; there is no enabled emulator
-service. The archived reference tier and its
+namespace and an isolated Linux dispatcher with a tested lifecycle adapter;
+there is no enabled emulator service. The archived reference tier and its
 provenance are unaffected.
 
 | Check | Result | Scope |
@@ -44,8 +44,10 @@ provenance are unaffected.
 | Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
 | `vaeg_hostdrv_linux_service` (CTest) | PASS | Synthetic packets through `hostdrv_exchange`: generation and residency, DOS metadata and capacity, positioned reads, typed tokens, read sharing, exhaustion, immutable ordinal replay, eviction and high-water mark merging. No production port binding. |
 | Linux release emulator target and HOSTDRV CTest label | PASS | Application compile/link and 8/8 focused tests at the dispatcher checkpoint. This is not a handoff build. |
-| Linux service integration and Windows backend policy and functional checks | NOT RUN | No service binding or Windows adapter. |
-| `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
+| Synthetic lifecycle and `vaeg_state_storage` (CTest) | PASS | Real CPU shutdown-request and full machine reset hooks with synthetic residency; pre-output/pre-mutation save/load refusal including HOSTFAT override, exact errors for malformed policy/reserved/version, pending grant revocation, and independent maximum of both marks. Existing state-storage regression passed. |
+| Linux lifecycle adapter (CTest) | PASS | The actual Linux wire dispatcher revokes on the lifecycle seam, keeps residency on shutdown, clears it on proven disposal and revokes an uninstalled grant on load. This does not enable the transport. |
+| Production Linux session option, supported warm-bootstrap revocation, Windows backend | NOT RUN | No production binding; bootstrap transition and guest transaction profile not yet proven. |
+| `HOSTDRV.COM` and installed guest lifecycle/operations | NOT RUN | No product redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
@@ -76,27 +78,25 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
 
 ## Next steps
 
-1. Continue Stage 2 after [`f2df42cf`](https://github.com/nakatamaho/vaeg/commit/f2df42cff35fb285f470f48920cdfa5184d4abfe).
-   `sdl2/hostdrv_linux_service.*` implements all read-only wire verbs but has
-   no production caller. Wire a lifecycle seam to `machine/pccore.c`: revoke
-   before `CPU_SHUT()` while retaining the guard, and clear the guard only
-   after full reset discards DOS RAM. Identify and test the VA DOS warm/bootstrap
-   revocation hook independently; do not assume every reboot clears the guard.
-   Add a checked non-authority state section for the uninstalled policy and
-   marks. Guard `statsave_save_checked` and the common check/load paths in
-   `machine/statsave.c` before output or mutation, including the HOSTFAT
-   override path, and revoke a pending grant on load. Add synthetic negative
-   cases before enabling any CLI option.
-2. Prove the port exclusivity profile (including IRQ masking, no NMI,
-   other port masters or injected port access) and exercise the lifecycle
-   hooks before binding `--hostdrv-dir` or enabling production discovery.
-   Retain the full-path `openat2` authorization on every Linux lookup:
-   before/after parent identity and directory timestamps detect visible
-   changes, not an atomic filesystem snapshot; do not rely on timestamps
-   for containment. Then implement the Windows anchored metadata/reopen
-   adapter and static MinGW build; keep macOS disabled unless it meets the
-   entire policy. The release preset still reports the prior declared
-   source milestone; update it for the actual M173 candidate.
+1. Continue Stage 2 after the [lifecycle seam](https://github.com/nakatamaho/vaeg/commit/55faceb4f7aae512e4a31bb65eed18b0698a52b5)
+   and Linux adapter. Identify a supported VA DOS warm-bootstrap transition
+   that bypasses `pccore_reset()`, locate its first reliable emulator-visible
+   event and test revocation at that event with an attached service and
+   stale references. Do not assume PC-compatible INT 19h means VA bootstrap
+   or treat a jump to the reset vector as proof that DOS restarted. Revoke
+   without clearing residency unless the DOS image was demonstrably discarded.
+2. Prove the port exclusivity profile (IRQ masking, no NMI, other port
+   masters or injected port access). Include the native trace-flag path:
+   IF masking alone does not exclude a guest INT 1 trap. Exercise the guest
+   no-port-access refusal separately. Keep discovery disabled until the
+   profile and lifecycle hooks are verified; then bind `--hostdrv-dir` on
+   the emulator thread. The session option must grant only after startup
+   reset and never regrant on reset/load. Retain full-path `openat2`
+   authorization on every Linux lookup: parent identity and timestamps
+   detect changes, not an atomic snapshot, and do not provide containment.
+   Then implement the Windows anchored metadata/reopen adapter and static
+   MinGW build; keep macOS disabled unless it meets the entire policy.
+   Update the declared source milestone for the actual M173 candidate.
 3. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
    point for CDS/SFT handling, not as install/ownership policy. Verify all
    verb and lifecycle cases, including the separate FCB probe and caller

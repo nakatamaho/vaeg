@@ -29,7 +29,9 @@ POSSIBILITY OF SUCH DAMAGE.
 The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
 implemented. Linux file authorization, pinned CP932 naming and the Linux
 DOS namespace are implemented, including the Shift-JIS alias amendment.
-The isolated Linux wire service passes synthetic packet tests. Session
+The isolated Linux wire service and its lifecycle adapter pass synthetic
+packet, reset and state-storage tests. Warm-bootstrap revocation and the
+exclusive transaction profile are not yet proven. Production session
 integration, Windows backend and product redirector are outstanding.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
