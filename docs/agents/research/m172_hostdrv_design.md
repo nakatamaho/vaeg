@@ -644,7 +644,7 @@ not inferred from handle tests.
 
 ## Maintainer decisions for G172
 
-These recommendations are not approvals. Record each decision at the gate.
+Maintainer decision (2026-11-27): (a)–(d) approved as recommended below.
 
 | Decision | Recommendation |
 |---|---|
