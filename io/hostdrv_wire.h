@@ -27,6 +27,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Serialized offsets; this packet never contains native pointers. */
 enum {
 	HD_VERSION = 4, HD_OPCODE = 5, HD_SEQUENCE = 6, HD_GENERATION = 8,
@@ -78,5 +82,9 @@ uint32_t hostdrv_exchange(int *busy, uint8_t *ram, hostdrv_dispatch dispatch, vo
  * Changing the adapter does not implement mount or DOS residency policy.
  */
 void hostdrv_bind_exclusive_transport(hostdrv_dispatch dispatch, void *context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

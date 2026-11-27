@@ -265,6 +265,8 @@ static int test_cli_options(void) {
 	                 "disk6.hdi",
 	                 "--hostfat-dir",
 	                 "host-root",
+	                 "--hostdrv-dir",
+	                 "live-root",
 	                 "--roms",
 	                 "rom-root",
 	                 "--cpumult",
@@ -358,7 +360,8 @@ static int test_cli_options(void) {
 	    (options.scsi_mode[5] != VAEG_CLI_MEDIA_NONE) ||
 	    (options.scsi_mode[6] != VAEG_CLI_MEDIA_PATH) ||
 	    strcmp(options.scsi_path[6], "disk6.hdi") || (options.hostfat_path == NULL) ||
-	    strcmp(options.hostfat_path, "host-root") || (options.roms_path == NULL) ||
+	    strcmp(options.hostfat_path, "host-root") || !options.hostdrv_path ||
+	    strcmp(options.hostdrv_path, "live-root") || (options.roms_path == NULL) ||
 	    strcmp(options.roms_path, "rom-root") || (options.cpu_multiplier != 32) ||
 	    (options.sgp_mode != VAEG_CLI_SGP_CUSTOM) || (options.sgp_multiplier != 16) ||
 	    !options.nowait || (options.frame_skip != VAEG_CLI_FRAMESKIP_QUARTER) ||
@@ -389,8 +392,8 @@ static int test_cli_options(void) {
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(hostfat_disabled), hostfat_disabled, &options, error,
 	                    sizeof(error)) != SUCCESS) ||
-	    (options.hostfat_path != NULL) || options.scsitrace_cmdreq_windows) {
-		return (fail("CLI options", "HOSTFAT was not disabled by default"));
+	    options.hostfat_path || options.hostdrv_path || options.scsitrace_cmdreq_windows) {
+		return (fail("CLI options", "host-folder option was not disabled by default"));
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(disabled_persistence), disabled_persistence, &options, error,
 	                    sizeof(error)) != SUCCESS) ||

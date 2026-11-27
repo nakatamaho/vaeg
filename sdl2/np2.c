@@ -62,6 +62,7 @@
 #include "upd9002_diagnostic.h"
 #include "diagnostics/upd9002_debug.h"
 #include "dropmedia.h"
+#include "hostdrv_session.h"
 #include "hostfat_manager.h"
 #include "splash.h"
 #include "np2ver.h"
@@ -346,6 +347,7 @@ static void usage(const char *progname) {
 	printf("\t--scsi2 path|none   --scsi3 path|none\n");
 	printf("\t--scsi4 path|none   --scsi5 path|none   --scsi6 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
+	printf("\t--hostdrv-dir path  session-only read-only DOS HOSTDRV (Linux)\n");
 	printf("\t--roms path         ROM directory override\n");
 	printf("\t--list-extra-roms   list the ROMs under extra/ in the ROM directory\n");
 	printf("\t--extra-machine NAME  start the PC-8801 model in extra/NAME (session only)\n");
@@ -2118,6 +2120,17 @@ int main(int argc, char **argv) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_DISPLAY);
 		return (SUCCESS);
 	}
+	if (options.hostdrv_path != NULL) {
+#if !defined(VAEG_HOSTDRV_SESSION)
+		fprintf(stderr, "Error: HOSTDRV directory sessions are unavailable on this platform\n");
+		return (FAILURE);
+#else
+		if (options.selftest) {
+			fprintf(stderr, "Error: --hostdrv-dir cannot be combined with --selftest\n");
+			return (FAILURE);
+		}
+#endif
+	}
 	{
 		const char *path = getenv("VAEG_RECORDING_NATIVE_PATH");
 		recording_batch_mode = options.record || ((path != NULL) && (path[0] != '\0'));
@@ -2423,13 +2436,22 @@ int main(int argc, char **argv) {
 
 	if (taskmng_isavail()) {
 		pccore_reset();
-		if (options.record && options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
+#if defined(VAEG_HOSTDRV_SESSION)
+		if (options.hostdrv_path != NULL &&
+		    (pccore_main_cpu_is_upd780() || !vaeg_hostdrv_session_start(options.hostdrv_path))) {
+			fprintf(stderr, "Error: HOSTDRV requires native VA and an authorized local directory\n");
+			run_ok = FAILURE;
+			taskmng_exit();
+		}
+#endif
+		if (run_ok == SUCCESS && options.record &&
+		    options.record_source == VAEG_RECORDING_SOURCE_DISPLAYED) {
 			/* The first GUI layout may resize the client for its menu/font metrics.
 			 * Present that actual startup layout before fixing the archive descriptor. */
 			render_host_ui_only();
 			SDL_PumpEvents();
 		}
-		if (options.record) {
+		if (run_ok == SUCCESS && options.record) {
 			if (!vaeg_recording_session_start(options.record_path, options.record_source,
 			                                  options.record_frame_limit)) {
 				fprintf(stderr, "Error: recording start failed: %s\n",
@@ -2437,7 +2459,7 @@ int main(int argc, char **argv) {
 				run_ok = FAILURE;
 				taskmng_exit();
 			}
-		} else if (!vaeg_recording_native_session_start_from_environment()) {
+		} else if (run_ok == SUCCESS && !vaeg_recording_native_session_start_from_environment()) {
 			fprintf(stderr, "Error: native recording start failed: %s\n",
 			        vaeg_recording_native_session_last_error());
 			run_ok = FAILURE;
@@ -2498,6 +2520,9 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
+#if defined(VAEG_HOSTDRV_SESSION)
+	vaeg_hostdrv_session_stop();
+#endif
 	if (commng_files_close() != SUCCESS) {
 		fprintf(stderr, "Error: device file I/O failed\n");
 		run_ok = FAILURE;

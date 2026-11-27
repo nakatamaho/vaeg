@@ -847,7 +847,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         sdl2/hostdrv_linux.cpp
         sdl2/hostdrv_linux_namespace.cpp
         sdl2/hostdrv_linux_service.cpp
-        sdl2/hostdrv_names.cpp)
+        sdl2/hostdrv_names.cpp
+        sdl2/hostdrv_session.cpp)
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_HOSTDRV_SESSION=1)
 endif()
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
