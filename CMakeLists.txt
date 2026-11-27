@@ -1078,6 +1078,10 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/openwatcom/test_dos_build.py")
     add_test(NAME vaeg_utility_default_config
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/pc88va/test_utility_default_config.py")
+    add_executable(vaeg_hostdrv_wire_test tests/pc88va/hostdrv_wire.c io/hostdrv_wire.c)
+    target_include_directories(vaeg_hostdrv_wire_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME vaeg_hostdrv_wire COMMAND vaeg_hostdrv_wire_test)
+    set_tests_properties(vaeg_hostdrv_wire PROPERTIES LABELS "romless;hostdrv")
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
     # Independent LSI command core; not wired into the VA/TSP device path.
     add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)
