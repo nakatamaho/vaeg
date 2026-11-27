@@ -20,11 +20,14 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+-->
 
 # M173 — HOSTDRV read-only: transport, guest redirector and host backends
 
 **Status:** assigned 2026-11-27 by the maintainer; branch
 `milestone/m173-hostdrv-readonly` from `main` (`ed5899a9`).
+Stage 1 is in progress: the isolated v1 packet fixture is implemented;
+shared-port and DOS CDS/SFT verification are outstanding. Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.

@@ -377,7 +377,22 @@ Handle SFTs own logical position; host uses positioned I/O. FCB transfers
 use DOS's per-operation position, not a persistent byte offset in the FCB
 cache entry: if DOS temporarily overlays position during record I/O, use
 and advance that transfer value only, preserving DOS's save/restore of the
-cache age words. Prove both FCB paths with caller traces before enabling. For DOS requests
+cache age words. Prove both FCB paths with caller traces before enabling.
+
+**Known MS-DOS 4.0 limitation:** in `DOS/FCBIO2.ASM:297–360`, the
+kernel saves `sf_OpenAge` and overlays it with the high word of the byte
+position. Its carry-error branch bypasses the restore, so an FCB read
+error or write denial (including a DOS-local denial) can leave the cache
+age incorrect. HOSTDRV must still return carry and the DOS error code at
+the redirector boundary, never zero-byte success in place of an error.
+DOS reports the FCB status through AL and the extended error separately.
+See [FreeDOS-88VA MS-DOS milestone B4](https://github.com/FreeDOS-88VA/MS-DOS/blob/847a33c51265be9bb7fce38bd08bbc5738a83e6f/docs/ROADMAP.md#follow-ups)
+for the separate kernel correction; it is not a HOSTDRV version binding
+or prerequisite. Test the error and extended error followed by explicit
+FCB opens, closes and eviction; do not assert correct age restoration on
+a kernel without the fix.
+
+For DOS requests
 larger than 4096, chunk, validate each count, and advance only by actual
 bytes; stop at EOF or first error. A read with progress returns short success;
 report a persistent error on the next operation, not a fabricated EOF.
