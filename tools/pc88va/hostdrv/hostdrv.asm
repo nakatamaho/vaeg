@@ -38,8 +38,34 @@ hd_classify:
     cmp ax, 1100h
     je .owned
     cmp ax, HD_MUX
-    jne .chain
+    jne .path_verb
     cmp word [es:bp+HD_R_BX], HD_TAG
+    jne .chain
+    jmp .owned
+.path_verb:
+    cmp ax, 1105h
+    je .cds
+    cmp ax, 110fh
+    je .cds
+    cmp ax, 1101h
+    je .cds
+    cmp ax, 1103h
+    je .cds
+    cmp ax, 110eh
+    je .cds
+    cmp ax, 1111h
+    je .cds
+    cmp ax, 1113h
+    je .cds
+    cmp ax, 1117h
+    jne .chain
+.cds:
+    les di, [hd_sda]
+    mov bx, [hd_cds]
+    cmp [es:di+282h], bx          ; THISCDS, never direct/UNC
+    jne .chain
+    mov bx, [hd_cds+2]
+    cmp [es:di+284h], bx
     jne .chain
 .owned:
     clc
@@ -50,9 +76,12 @@ hd_classify:
 
 hd_dispatch:
     cmp ax, 1100h
-    jne .identify
+    jne .other
     mov byte [es:bp+HD_R_AX], 0ffh
     jmp .done
+.other:
+    cmp ax, HD_MUX
+    jne hd_path_dispatch
 .identify:
     mov word [es:bp+HD_R_AX], HD_MUX+1
     mov word [es:bp+HD_R_CX], HD_ABI
@@ -63,8 +92,139 @@ hd_dispatch:
     clc
     ret
 
+; AX is the owned verb, ES:BP the immutable caller frame except for outputs.
+hd_path_dispatch:
+    cmp ax, 1105h
+    je .stat
+    cmp ax, 110fh
+    je .stat
+    mov ax, 5                     ; mutation: no port access
+    jmp hd_return_error
+.stat:
+    cmp byte [hd_latched], 0
+    jne .latched
+    call hd_verify_tables
+    jc .latched
+    mov al, 1                     ; STAT
+    mov cx, [hd_generation]
+    mov dx, [hd_generation+2]
+    call hd_prepare
+    call hd_copy_path
+    jc hd_return_error
+    call hd_submit
+    jc hd_return_error
+    cmp word [es:bp+HD_R_AX], 1105h
+    jne .attrs
+    cmp ax, 2                     ; absent final component is a missing dir
+    je .not_dir
+    test ax, ax
+    jnz hd_return_error
+    test byte [hd_packet+44], 10h
+    jz .not_dir
+    jmp hd_dispatch.done
+.attrs:
+    test ax, ax
+    jnz hd_return_error
+    mov ax, [hd_packet+44]
+    mov [es:bp+HD_R_AX], ax
+    mov ax, [hd_packet+46]
+    mov [es:bp+HD_R_CX], ax
+    mov ax, [hd_packet+48]
+    mov [es:bp+HD_R_DX], ax
+    mov ax, [hd_packet+42]
+    mov [es:bp+HD_R_BX], ax
+    mov ax, [hd_packet+40]
+    mov [es:bp+HD_R_DI], ax
+    jmp hd_dispatch.done
+.not_dir:
+    mov ax, 3
+    jmp hd_return_error
+.latched:
+    mov ax, 31
+hd_return_error:
+    mov [es:bp+HD_R_AX], ax
+    or word [es:bp+HD_R_FLAGS], 1
+    clc                           ; consume the interrupt, not the DOS CF
+    ret
+
+; Copy at most 127 canonical relative bytes from DOSGroup. Check each
+; byte's span before consulting it; a path may end at a RAM boundary.
+; Split only the fixed drive prefix here: the host parses CP932 components.
+hd_copy_path:
+    push es
+    les di, [hd_sda]
+    mov di, [es:di+292h]           ; WFP_START
+    mov cx, 3
+    call hd_dos_span
+    jc .bad
+    mov al, [hd_cds_image]
+    cmp [es:di], al
+    jne .bad
+    cmp word [es:di+1], 5c3ah
+    jne .bad
+    add di, 3
+    jz .bad
+    mov bx, hd_packet+64
+    mov cx, 1
+.next:
+    call hd_dos_span
+    jc .bad
+    mov al, [es:di]
+    test al, al
+    jz .complete
+    cmp bx, hd_packet+64+127
+    jae .bad
+    mov [bx], al
+    inc bx
+    inc di
+    jnz .next
+.bad:
+    pop es
+    mov ax, 3
+    stc
+    ret
+.complete:
+    sub bx, hd_packet+64
+    mov [hd_packet+22], bx
+    mov [hd_packet+26], bx
+    pop es
+    clc
+    ret
+
+; Cached DOSGroup addresses were established with the public 65xx calls.
+; Recheck the bytes before any path use; do not call DOS recursively.
+hd_verify_tables:
+    push es
+    les di, [hd_file_case]
+    cmp word [es:di], 128
+    jne .bad
+    add di, 2
+    mov al, 80h
+.case_byte:
+    scasb
+    jne .bad
+    inc al
+    jnz .case_byte
+    les di, [hd_dbcs]
+    cmp word [es:di], 6
+    jne .bad
+    cmp word [es:di+2], 9f81h
+    jne .bad
+    cmp word [es:di+4], 0fce0h
+    jne .bad
+    cmp word [es:di+6], 0
+    jne .bad
+    pop es
+    clc
+    ret
+.bad:
+    pop es
+    stc
+    ret
+
 %include "hdwire.inc"
 %include "hdpacket.inc"
+%include "hdprofile.inc"
 
 hd_identity db "HOSTDRV", HD_ABI
 hd_generation dd 0
@@ -96,8 +256,6 @@ hd_device:
 
 hd_packet times 4160 db 0
 hd_resident_end:
-
-%include "hdprofile.inc"
 
 ; Exact opt-in (also required for uninstall). Optional single drive or /U.
 transient:
@@ -400,36 +558,18 @@ check_install_nls:
     mov cx, 130
     call hd_dos_span
     jc .bad
-    cmp word [es:di], 128
-    jne .bad
     mov [hd_file_case], di
     mov [hd_file_case+2], es
-    add di, 2
-    mov al, 80h
-    cld
-.case_byte:
-    scasb
-    jne .bad
-    inc al
-    jnz .case_byte
     mov ax, 6507h
     call .query
     jc .bad
     mov cx, 8
     call hd_dos_span
     jc .bad
-    cmp word [es:di], 6
-    jne .bad
-    cmp word [es:di+2], 9f81h
-    jne .bad
-    cmp word [es:di+4], 0fce0h
-    jne .bad
-    cmp word [es:di+6], 0
-    jne .bad
     mov [hd_dbcs], di
     mov [hd_dbcs+2], es
-    clc
-    ret
+    cld
+    jmp hd_verify_tables
 .query:
     push ds
     pop es
