@@ -57,7 +57,7 @@ reference tier is unaffected.
 | VA | 5 and 40 MB | VA banner, keys 1/2 to `Ready`, 3 to `C>`, timeout retains selection, `SYS C: /L` lists both captures, clean `CHKDSK C:` |
 | VA2 | 5 and 40 MB | VA2/VA3/VA-91 banner, keys 1/2 to `Ready`, 3 to `C>`, timeout retains selection, `SYS C: /L` lists both captures, clean `CHKDSK C:` |
 
-Guest outcomes and input/output identities are not published here. Automated
+Headless guest checks passed on VA and VA2 at 5 and 40 MB, and both standard SASI utility HDIs matched the baseline byte-for-byte. Input and output identities are not published here (statement approved by the maintainer on 2026-11-27). Automated
 guest checks use headless text VRAM, not the actual SDL presenter.
 
 **NOT RUN:** G171 human acceptance, physical hardware, separate VA3 and VA-91
