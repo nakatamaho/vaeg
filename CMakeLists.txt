@@ -1148,6 +1148,12 @@ if(VAEG_ENABLE_TESTS)
                 -o "${CMAKE_CURRENT_BINARY_DIR}/hdprof.com"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdprofile.asm")
         set_tests_properties(vaeg_hostdrv_profile_fixture_build PROPERTIES LABELS "romless;hostdrv")
+        add_test(NAME vaeg_hostdrv_resident_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -w+error -f bin
+                -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/"
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdres.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdresident.asm")
+        set_tests_properties(vaeg_hostdrv_resident_fixture_build PROPERTIES LABELS "romless;hostdrv")
     endif()
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
     # Independent LSI command core; not wired into the VA/TSP device path.
