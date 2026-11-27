@@ -82,6 +82,7 @@ typedef enum {
 	DEBUG_ACTION_WAIT_PC,
 	DEBUG_ACTION_TRACE,
 	DEBUG_ACTION_CAPTURE,
+	DEBUG_ACTION_CAPTURE_TVRAM,
 	DEBUG_ACTION_EXIT
 } DEBUG_ACTION_TYPE;
 
@@ -580,6 +581,17 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		}
 		strcpy(action->id, first);
 		action->value = number;
+		return SUCCESS;
+	}
+	if (!strcmp(command, "capture-tvram")) {
+		first = debug_next_token(&cursor);
+		if (!debug_id_valid(first) || (debug_next_token(&cursor) != NULL) ||
+		    (debug_add_action(DEBUG_ACTION_CAPTURE_TVRAM, &action) != SUCCESS)) {
+			goto invalid;
+		}
+		strcpy(action->id, first);
+		action->argument = DEBUG_CAPTURE_TVRAM;
+		*event_context = FALSE;
 		return SUCCESS;
 	}
 	if (!strcmp(command, "capture")) {
@@ -1109,6 +1121,16 @@ static BOOL debug_execute_ready(UINT32 frames, BOOL frame_boundary) {
 				debug_log("wait-pc", frames, NULL, action->value);
 			}
 			return SUCCESS;
+		case DEBUG_ACTION_CAPTURE_TVRAM:
+			if (!frame_boundary) {
+				return SUCCESS;
+			}
+			if (debug_capture(action, NULL) != SUCCESS) {
+				return FAILURE;
+			}
+			debug_log("capture", frames, action->id, action->argument);
+			harness.action_index++;
+			break;
 		case DEBUG_ACTION_TRACE:
 		case DEBUG_ACTION_CAPTURE:
 			fprintf(stderr, "Error: debug event action has no pending PC event\n");
@@ -1200,6 +1222,8 @@ BOOL debug_harness_selftest(void) {
 	                            "wait-pc e000:0180 2\n"
 	                            "trace service 16\n"
 	                            "capture service registers tvram screen gvram\n"
+	                            "wait-frame 500\n"
+	                            "capture-tvram checkpoint\n"
 	                            "exit\n";
 	static const char invalid[] = "debug-script 1\n"
 	                              "capture bad registers\n";
@@ -1231,11 +1255,14 @@ BOOL debug_harness_selftest(void) {
 	}
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
 	         (harness.resource_count == 2) && (harness.counter_count == 1) &&
-	         (harness.action_count == 9) && (harness.actions[2].type == DEBUG_ACTION_SAVE_STATE) &&
+	         (harness.action_count == 11) && (harness.actions[2].type == DEBUG_ACTION_SAVE_STATE) &&
 	         !strcmp(harness.actions[2].id, "initial") &&
 	         (harness.actions[3].type == DEBUG_ACTION_LOAD_STATE) &&
 	         (harness.actions[5].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[6].type == DEBUG_ACTION_TRACE) && (harness.actions[7].argument == 15);
+	         (harness.actions[6].type == DEBUG_ACTION_TRACE) && (harness.actions[7].argument == 15) &&
+	         (harness.actions[9].type == DEBUG_ACTION_CAPTURE_TVRAM) &&
+	         (harness.actions[9].argument == DEBUG_CAPTURE_TVRAM) &&
+	         !strcmp(harness.actions[9].id, "checkpoint");
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);

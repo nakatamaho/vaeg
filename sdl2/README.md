@@ -317,7 +317,10 @@ this runner must not upload private assets or their identities to hosted CI.
 Capture IDs become deterministic filenames under the output directory:
 `.registers.tsv`, `.tvram.bin`, `.screen.bmp`, `.gvram.bin`, `.video.tsv`, and
 `.trace.log` (for `trace`). `capture ID ITEM...` follows `wait-pc` as before;
-items may be `registers`, `tvram`, `screen`, `gvram`, and `video`. `events.tsv`
+items may be `registers`, `tvram`, `screen`, `gvram`, and `video`.
+For a frame-based text checkpoint, use `wait-frame N` followed by
+`capture-tvram ID`. It writes `ID.tvram.bin` at the frame boundary and
+continues the script without waiting for a PC event. `events.tsv`
 contains event and final counter rows. Its capture bitmask assigns `video`
 value 16 (bit 4; other bits are unchanged). `key-down`, `key-up` and automatic
 `key-release` rows record the canonical key ID and decimal guest make code.
