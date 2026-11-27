@@ -51,7 +51,7 @@ org 100h
     cmp word [xa+2],05aa5h
     jne bad
     push es
-    mov ax,8000h
+    mov ax,0a000h                ; outside conventional DOS output memory
     mov es,ax
     xor di,di
     mov ax,5702h

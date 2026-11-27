@@ -640,35 +640,26 @@ hd_dma_span:
     les di, [es:di+0ch]
     ; Fall through.
 
-; ES:DI and CX describe a DOS output. Exclude the resident image (including
-; the private stack). Preserves all registers except AX/DX and flags.
+; ES:DI and CX describe a DOS-supplied output. CPU stores follow the same
+; active mapping as DOS. This is not a direct host-memory authorization.
+; Exclude the resident image (including bounce buffer and private stack).
+; Preserves all registers except AX/DX and flags.
 hd_output_span:
-    call hd_dos_span
+    call hd_span_paragraphs
     jc .bad
-    mov ax, di
-    add ax, cx
-    dec ax
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    mov dx, es
-    add ax, dx
-    mov dx, cs
-    cmp ax, dx
-    jb .ok
-    mov ax, di
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    mov dx, es
-    add ax, dx
-    mov dx, cs
-    add dx, (hd_resident_end-$$+100h+15)/16
-    cmp ax, dx
-    jb .bad
-.ok:
+    cmp dx, 0a000h
+    jae .bad
+    push bx
+    mov bx, cs
+    cmp dx, bx
+    jb .outside
+    add bx, (hd_resident_end-$$+100h+15)/16
+    cmp ax, bx
+    jae .outside
+    pop bx
+    jmp .bad
+.outside:
+    pop bx
     clc
     ret
 .bad:

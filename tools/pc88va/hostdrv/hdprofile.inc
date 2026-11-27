@@ -154,6 +154,19 @@ hd_profile:
 ; ES:DI, CX=length. Check no segment wrap and [10000h,80000h)
 ; native ordinary RAM. Preserves ES:DI and CX; clobbers AX/DX only.
 hd_dos_span:
+    call hd_span_paragraphs
+    jc .bad
+    cmp dx, 8000h
+    jae .bad
+    clc
+    ret
+.bad:
+    stc
+    ret
+
+; Return inclusive first/last paragraphs in AX/DX. Reject empty spans,
+; segment wrap, and addresses outside the 20-bit linear address space.
+hd_span_paragraphs:
     jcxz .bad
     mov ax, di
     add ax, cx
@@ -167,14 +180,15 @@ hd_dos_span:
     shr ax, 1
     add ax, dx
     jc .bad
-    cmp ax, 8000h
-    jae .bad
-    mov ax, di
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    shr ax, 1
-    add ax, dx
+    xchg ax, dx                    ; DX = last, AX = segment
+    push cx
+    mov cx, di
+    shr cx, 1
+    shr cx, 1
+    shr cx, 1
+    shr cx, 1
+    add ax, cx                     ; first <= last, cannot overflow
+    pop cx
     cmp ax, 1000h
     jb .bad
     clc
