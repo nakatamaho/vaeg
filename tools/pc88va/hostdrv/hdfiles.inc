@@ -532,6 +532,8 @@ hd_is_lead:
 
 ; Final reference retirement is local, even with no usable transport.
 hd_close_file:
+    xor si, si
+hd_close_reference:
     push es
     les di, [bx]
     cmp word [es:di], 0
@@ -544,7 +546,7 @@ hd_close_file:
     call hd_retire_slot
     pop es
     push ax
-    test si, si                  ; caller TF: do not touch the ports
+    test si, si                  ; refused entry: do not touch the ports
     jz .send
     call hd_close_ambiguous
     jmp .status
@@ -560,6 +562,8 @@ hd_close_file:
     jmp hd_return_error
 .nonfinal:
     pop es
+    test si, si
+    jnz hd_file_fault
     jmp hd_dispatch.done
 .invalid:
     pop es
@@ -589,14 +593,27 @@ hd_close_ambiguous:
     mov ax, 31
     ret
 
+; Busy or single-step entry: use only local registry/SFT state and caller
+; stack, never the shared row scratch, private stack, packet or ports.
+hd_local_cleanup:
+    mov si, 1
+    cmp word [es:bp+HD_R_AX], 111dh
+    je hd_reap_fcb_rows
+    call hd_find_file
+    jc .unowned
+    jmp hd_close_reference
+.unowned:
+    ret
+
 ; DOS announces exit before clearing FCB SFT counts. Reconcile only our
 ; FCBs for PROC_ID, never a JFN whose reference may outlive this process.
-; Caller verified non-reentrancy and TF clear; the abort frame is untouched.
+; SI is nonzero if transport is forbidden. The abort frame is untouched.
 hd_reap_fcbs:
+    xor si, si
+hd_reap_fcb_rows:
     push es
     les di, [hd_sda]
-    mov ax, [es:di+1ch]
-    mov [hd_exit_pid], ax
+    mov cx, [es:di+1ch]
     mov bx, hd_files
 .next:
     cmp word [bx+8], 0
@@ -604,16 +621,23 @@ hd_reap_fcbs:
     les di, [bx]
     test byte [es:di+3], 80h
     jz .skip
-    mov ax, [hd_exit_pid]
-    cmp [es:di+31h], ax
+    cmp [es:di+31h], cx
     jne .skip
     call hd_file_identity
     jc .skip
     call hd_retire_slot          ; DOS clears sf_ref_count after broadcast
+    test si, si
+    jnz .ambiguous
     mov [hd_file_row], bx
     push bx
+    push cx
     call hd_send_close
+    xor si, si                   ; continuations still permit transport
+    pop cx
     pop bx
+    jmp .skip
+.ambiguous:
+    mov byte [hd_latched], 1
 .skip:
     add bx, HD_FILE_ROW
     cmp bx, hd_files+HD_FILE_MAX*HD_FILE_ROW
@@ -782,7 +806,6 @@ hd_prepare_file:
 hd_files times HD_FILE_MAX*HD_FILE_ROW db 0
 hd_file_count db 0
 hd_file_row dw 0
-hd_exit_pid dw 0
 hd_open_sft dd 0
 hd_open_mode dw 0
 hd_ext_action dw 0

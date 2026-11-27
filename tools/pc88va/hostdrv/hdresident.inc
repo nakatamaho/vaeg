@@ -56,8 +56,8 @@
 ; hd_dispatch runs on the private stack, also with DS=CS and ES:BP=frame.
 ; CF clear consumes the call; CF set chains a broadcast with frame intact.
 ; Neither helper may enable IRQs or invoke a DOS, firmware or guest callback.
-; SI on dispatch is the saved TF mask: nonzero is permitted only for CLOSE,
-; which must retire the reference locally without issuing any port I/O.
+; hd_local_cleanup is the bounded caller-stack fallback for refused CLOSE
+; and abort. It must not use the private stack, packet, or ports.
 hd_interrupt:
     pushf
     cli
@@ -88,8 +88,7 @@ hd_interrupt:
     mov si, [es:bp+HD_R_FLAGS]
     and si, 0100h
     jz .dispatch
-    cmp word [es:bp+HD_R_AX], 1106h
-    jne .refuse
+    jmp .refuse
 .dispatch:
     mov byte [hd_resident_busy], 1
     mov dx, ss
@@ -108,13 +107,19 @@ hd_interrupt:
     jmp .handled
 .refuse:
     cmp word [es:bp+HD_R_AX], 111dh
-    je .chain                      ; never consume an abort broadcast
+    je .cleanup
+    cmp word [es:bp+HD_R_AX], 1106h
+    je .cleanup
     cmp word [es:bp+HD_R_AX], 1108h
     jne .status
     mov word [es:bp+HD_R_CX], 0
 .status:
     mov word [es:bp+HD_R_AX], 31
     or word [es:bp+HD_R_FLAGS], 1
+    jmp .handled
+.cleanup:
+    call hd_local_cleanup
+    jc .chain
 .handled:
     hd_restore_registers 0
     iret

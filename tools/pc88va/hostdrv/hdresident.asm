@@ -126,13 +126,56 @@ start:
     jne failure
     cmp sp, [caller_sp]
     jne failure
+    mov byte [stage], '5'
+    mov byte [hd_resident_busy], 1
+    mov ax, 1106h
+    invoke
+    jnc failure
+    cmp ax, 31
+    jne failure
+    mov ax, 111dh
+    std
+    stc
+    invoke
+    cld
+    jnc failure
+    cmp ax, 111dh
+    jne failure
+    cmp byte [chains], 3
+    jne failure
+    cmp byte [workers], 2
+    jne failure
+    cmp byte [cleanups], 2
+    jne failure
+    cmp byte [hd_resident_busy], 1
+    jne failure
+    cmp sp, [caller_sp]
+    jne failure
     mov dx, passed
     xor bx, bx
     jmp emit
 
+hd_local_cleanup:
+    cmp sp, [caller_sp]
+    jae failure
+    inc byte [cleanups]
+    cmp word [es:bp+HD_R_AX], 111dh
+    je .chain
+    cmp word [es:bp+HD_R_AX], 1106h
+    jne failure
+    mov word [es:bp+HD_R_AX], 31
+    or word [es:bp+HD_R_FLAGS], 1
+    clc
+    ret
+.chain:
+    stc
+    ret
+
 hd_classify:
     mov ax, [es:bp+HD_R_AX]
     cmp ax, 1108h
+    je .owned
+    cmp ax, 1106h
     je .owned
     cmp ax, 111dh
     je .owned
@@ -206,6 +249,7 @@ emit:
 
 caller_sp dw 0
 workers db 0
+cleanups db 0
 chains db 0
 passed db 'HDRES PASS',13,10,'$'
 failed db 'HDRES FAIL '
