@@ -263,14 +263,10 @@ the broadcast.
    not currently distinguished from the initial cold boot and remains a
    gate item. Verify both normal reset paths and the DOS warm-bootstrap
    paths, including old tokens/cookies and the retained guard.
-3. Implement the Windows anchored metadata/reopen adapter. Windows remains
-   disabled: a compile does not establish an effective no-atime policy for
-   file reads and directory listings, or the required ancestor rename and
-   replacement exclusion. A registry value alone does not demonstrate the
-   effective policy, and compensating timestamp writes are not allowed.
-   Verify both guarantees on an eligible local volume before enabling the
-   backend. macOS stays disabled. The source milestone is `M173-dev`; the
-   static G173 handoff still requires the Windows backend.
+3. Run the Windows NTFS fixture and Windows guest check against the Windows
+   adapter checkpoint below. A compile does not establish effective access-time
+   suppression or ancestor rename/replacement exclusion. macOS stays disabled.
+   The source milestone is `M173-dev`.
 
 ## Windows NTFS preflight
 
@@ -280,11 +276,35 @@ executables can launch; it does not exercise local NTFS. The proposed NTFS
 scratch is outside the repository's filesystem access boundary and was not
 created or accessed. Ancestor rename/replacement exclusion, reparse and
 leaf-type rejection, and timestamp preservation across reads and listings
-remain NOT RUN. Windows folder authorization stays disabled.
+were NOT RUN at preflight.
 
-## G173 Windows checklist — blocked by the disabled backend
+## Windows adapter checkpoint
 
-Once the backend is enabled on an eligible volume, start
+[`b13c9785`](https://github.com/nakatamaho/vaeg/commit/b13c978503de146982834533e6d2fd5eb4bd57bb)
+limits the Windows session option to fixed local NTFS volumes. The backend
+checks each component using a root-relative native metadata open and holds
+ancestors without delete sharing. Ancestor handles request directory traverse
+access because attribute-only opens do not enforce sharing. The backend
+rejects reparses and ineligible file types before same-object reopen, then
+verifies identity and suppresses access-time updates on the I/O handle before
+any read or listing. If Windows denies the `FILE_WRITE_ATTRIBUTES` right
+required by its suppression API, the upgrade fails closed; the adapter does
+not set a persistent timestamp. The DOS namespace and wire service are
+shared with Linux.
+
+Linux HOSTDRV CTests: 15 passed. The standalone Windows fixture cross-compiles
+statically with system DLL imports only. The clean static MinGW application
+build of the adapter checkpoint passed the encoder archive and PE import
+checks. NTFS fixture and Windows guest execution: **NOT RUN**.
+It checks ancestor locking and replacement, fresh path identity, special and
+reparse rejection, timestamp preservation, and CP932 names. A timestamp pass
+with updates disabled is evidence for that system mode only; record the
+reported setting and do not infer enabled-mode coverage. The fixture does
+not change the system policy and removes only its own entries.
+
+## G173 Windows checklist — pending runtime checks
+
+On an eligible volume, start
 `vaeg.exe --hostdrv-dir <folder>`, start MS-DOS 4.0 VA, and run
 `HOSTDRV /VAEG`. Check `DIR`, `CD`, `TYPE` and `COPY` to a DOS-local
 volume, including Japanese names. Add a file on the host and check that

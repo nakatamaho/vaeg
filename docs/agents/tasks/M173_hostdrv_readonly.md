@@ -44,12 +44,11 @@ Minimal read-only FCB allocation, transfers, search and cleanup are
 implemented. The installer refuses to retain any paragraph in the BMS
 window. The debug harness can invoke the frontend full-reset path;
 a normal VA guest warm reboot and the remaining functional checks are
-separate gate items. The Windows backend and G173 handoff remain open. See the
-[progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
-Not ready for G173. Windows rejects `--hostdrv-dir` before granting any
-folder authority; the runtime containment and no-access-time guarantees
-are not established. A compile-only handoff cannot pass the Windows
-HOSTDRV checklist.
+separate gate items. The Windows backend is implemented for explicit local
+NTFS sessions. The standalone NTFS fixture and the Windows guest check are
+pending execution. See the [progress report](../reports/m173_hostdrv_readonly.md).
+Not ready for G173: cross-compilation does not establish the Windows
+runtime containment and no-access-time guarantees.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.
