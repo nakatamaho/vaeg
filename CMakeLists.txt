@@ -1087,6 +1087,13 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_hostdrv_transport PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;VAEG_SELFTEST_HOSTDRV_TRANSPORT_ONLY=1"
         LABELS "romless;hostdrv;hostfat" TIMEOUT 30)
+    if(VAEG_NASM_EXECUTABLE)
+        add_test(NAME vaeg_hostdrv_fcb_fixture_build
+            COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin -Werror
+                -o "${CMAKE_CURRENT_BINARY_DIR}/hdfcbtst.com"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostdrv/hdfcbtest.asm")
+        set_tests_properties(vaeg_hostdrv_fcb_fixture_build PROPERTIES LABELS "romless;hostdrv")
+    endif()
     # M144a: independently test the N80 bank/pixel rules before machine wiring.
     # Independent LSI command core; not wired into the VA/TSP device path.
     add_executable(vaeg_upd3301_test tests/upd3301/controller.c io/upd3301.c)

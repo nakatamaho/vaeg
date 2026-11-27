@@ -24,14 +24,15 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M173 — HOSTDRV read-only progress
 
 **Not ready for G173.** Stage 1 has the wire and shared-port components;
-it does not yet have a DOS ABI fixture or an enabled emulator service. The archived
+it does not yet have a complete DOS ABI fixture or an enabled emulator service. The archived
 reference tier and its provenance are unaffected.
 
 | Check | Result | Scope |
 |---|---|---|
 | `vaeg_hostdrv_wire` (CTest) | PASS | Exact request header lengths and masks; unassigned opcodes; reply marker, sequence and generation; stale success dword with unchanged request; staged publication; nested dispatch refusal; VA address arithmetic. |
 | Strict C99 build and UBSan run | PASS | Same wire fixture. |
-| MinGW compilation | PASS | Wire fixture only, no Windows execution or clean emulator handoff. |
+| MinGW compilation and PE import audit | PASS | Wire fixture and static cross-build of the transport checkpoint; not a G173 handoff and no Windows execution. |
+| `vaeg_hostdrv_fcb_fixture_build` (CTest) | PASS | NASM-only build of `HDFCBTST.COM`; no FCB behavior exercised by this check. |
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | DOS CDS/SFT fixture and caller traces | NOT RUN | No redirector fixture wired to the DOS ABI yet. |
@@ -42,7 +43,10 @@ reference tier and its provenance are unaffected.
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
 HOSTDRV's carry/error result from the separate MS-DOS 4.0 `sf_OpenAge`
 restore bug ([FreeDOS-88VA MS-DOS B4](https://github.com/FreeDOS-88VA/MS-DOS/blob/847a33c51265be9bb7fce38bd08bbc5738a83e6f/docs/ROADMAP.md#follow-ups)).
-The profile is unchanged. The pending FCB case must check an injected read
-error and a write denial, including the program-visible FCB status and
-extended error, then check fresh FCB opens, closes and cache eviction without
-assuming that the uncorrected DOS kernel preserved the age.
+The profile is unchanged. The [FCB fixture](../../../tools/pc88va/hostdrv/hdfcbtest.asm)
+checks AL status and extended errors 31 (one injected read fault) and 5
+(write denial), then opens five FCBs in a four-entry cache, checks reuse
+with a fresh serial, closes the stale FCB and checks that the replacement
+still reads before closing the remaining FCBs. It does not assert that
+uncorrected DOS preserved the age. Execution requires the synthetic
+redirector endpoint with the one-shot fault described in the fixture.
