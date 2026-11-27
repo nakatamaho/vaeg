@@ -51,13 +51,14 @@ opted_in:
     mov byte [hd_busy], 0
     call hd_discover
     jc fail
-    mov ax, [hd_packet+4]
-    mov [hd_expected_verb], ax
-    mov ax, [hd_packet+6]
-    mov [hd_expected_seq], ax
-    mov bx, validate_query
-    call hd_exchange
+    xor ax, ax                      ; QUERY, no installation generation
+    xor cx, cx
+    xor dx, dx
+    call hd_prepare
+    call hd_submit
     jc fail
+    test ax, ax
+    jnz fail
     mov dx, pass_text
     mov ah, 9
     int 21h
@@ -70,32 +71,9 @@ fail:
     mov ax, 4c01h
     int 21h
 
-validate_query:
-    mov ax, [hd_packet+8]
-    or ax, [hd_packet+10]
-    jz .bad
-    cmp word [hd_packet+38], 1
-    jne .bad
-    mov si, 12
-.zero:
-    cmp si, 38
-    je .skip_caps
-    cmp word [hd_packet+si], 0
-    jne .bad
-.skip_caps:
-    add si, 2
-    cmp si, 64
-    jb .zero
-    clc
-    ret
-.bad:
-    stc
-    ret
-
 pass_text db 'HDQUERY PASS',13,10,'$'
 fail_text db 'HDQUERY refused or failed',13,10,'$'
 %include 'hdwire.inc'
+%include 'hdpacket.inc'
 
-hd_packet db 'HDR1', 1, 0
-          dw 1
-          times 4160-8 db 0
+hd_packet times 4160 db 0
