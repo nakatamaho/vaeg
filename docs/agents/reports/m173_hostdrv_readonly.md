@@ -27,8 +27,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
 namespace and a Linux dispatcher with a tested lifecycle adapter enabled
 explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
-read-only DOS profile probe and a development TSR with install/removal and
-owned path checks. The archived reference tier and its provenance are
+read-only DOS profile probe and a development TSR with install/removal,
+owned path checks, ordinary DOS handles, enumeration and capacity. The archived reference tier and its provenance are
 unaffected.
 
 | Check | Result | Scope |
@@ -40,7 +40,7 @@ unaffected.
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
-| Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; production handle and search dispatch are outstanding. |
+| Full redirector verb and FCB traces | NOT RUN by public checks | Ordinary handle and search dispatch are implemented; extended open and FCB dispatch remain open. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
 | `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
 | Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
@@ -52,7 +52,7 @@ unaffected.
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
-| Full installed guest lifecycle and operation checklist | OPEN | Development TSR does not yet offer handle or search verbs. |
+| Full installed guest lifecycle and operation checklist | OPEN | Extended open, FCBs and the full lifecycle checklist remain open. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
@@ -172,16 +172,37 @@ passed. Encoding, EOL and case checks passed.
   state-storage check passed. `vaeg_hostdrv_com_build` assembles the COM
   but does not run it.
 
+## Ordinary handles and directory checkpoints
+
+- `hdfiles.inc` allocates ordinary network SFTs from the DOS table, tracks
+  ownership and host tokens, and implements chunked reads, EOF seek, commit
+  without writes and close with local reference retirement. Uninstall
+  refuses while any owned handle remains. `HDFILE.COM` exercises a
+  reproducible 5120-byte input, handle duplication, EOF and write denial.
+- `hdsearch.inc` implements immutable ordinal replay with PSP ownership,
+  bounded eviction, process-exit release, and explicit uninstall draining.
+  Capacity reports 512-byte sectors and zero free units for the read-only
+  mapping. All 14 HOSTDRV CTests passed; COM checks assemble only.
+- **Extended-open ABI blocker:** the design specifies that the redirector
+  writes `EXTOPEN_FLAG` and DOS returns that action in the application's CX.
+  The named DOS source does not follow that path for a remote open:
+  `DOS/OPEN.ASM` clears `EXTOPEN_ON` unconditionally after INT 2Fh/112Eh;
+  then `DOS/FILE.ASM` (`ext_ok`) takes `ok_return` instead of `setXAttr`,
+  bypassing the write of `EXTOPEN_FLAG` to `USER_CX`. Writing the SDA action
+  field alone cannot satisfy the contract. Setting CX in the INT 2Fh frame
+  is not a write to the saved INT 21h user frame. No workaround outside
+  the approved ABI has been enabled.
+
 ## Next steps and remaining gates
 
-1. Extend the resident classifier and worker with owned SFT allocation,
-   positioned reads, seek, reference retirement, capacity and extended open.
-   Then add search lifetimes, teardown draining, and the minimal FCB paths.
-   Check NLS changes while resident, and extend failure latching to new
-   resource-creating or resource-consuming transactions. Exercise all task cases,
-   including busy and TF refusal with a no-port-I/O assertion, the FCB
-   probe and distinct FCB caller traces. The product checklist is not yet
-   complete; fixture status cannot substitute for it.
+1. Agree on the extended-open ABI correction: either a kernel-side fix
+   and a newly bound DOS profile, or a separately specified and validated
+   redirector-side mechanism for returning the action to the saved INT 21h
+   frame. Verify COMMAND TYPE and COPY after that correction; do not infer
+   their operation from 3Dh. Add the minimal FCB paths only with distinct
+   traces for allocation, positioned transfer, eviction and abort. Check
+   NLS changes while resident, copied-DTA replay, remaining task cases, and
+   busy and TF refusal with a no-port-I/O assertion.
 2. Complete the guest lifecycle gate. The [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf)
    revokes resident authority at a native fetch of `FFFF0h` or the
    model-specific bootstrap entry (`F16A0h` on VA, `F1F90h` on VA2).
