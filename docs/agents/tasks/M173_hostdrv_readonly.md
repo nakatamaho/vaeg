@@ -37,11 +37,12 @@ resident-stack entry and CDS dependency scan are wired into a development
 chdir/attribute queries, ordinary file handles, enumeration and capacity.
 Extended open now publishes the action in saved user CX under the approved
 DOS IFS contract. The approved empty-list `112Dh` query is implemented.
-The host-internal native RAM span query is implemented and tested.
-COMMAND TYPE/COPY remain blocked: v1 does not convey the DOS destination
-or mapping proof to the guest, which still rejects unqualified spans.
-FCBs, the remaining functional and lifecycle checklist, the Windows backend
-and static handoff remain open. See the
+The host-internal native RAM span query is implemented and tested. The
+approved CPU-store amendment removes the upper conventional RAM blocker
+for the saved DOS frame and output buffers, without widening host copies.
+Minimal read-only FCB allocation, transfers, search and cleanup are
+implemented. The remaining functional and lifecycle checks, Windows
+backend and static G173 handoff remain open. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171

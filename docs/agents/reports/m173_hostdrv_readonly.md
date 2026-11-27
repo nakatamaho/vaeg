@@ -28,19 +28,20 @@ DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
 namespace and a Linux dispatcher with a tested lifecycle adapter enabled
 explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
 read-only DOS profile probe and a development TSR with install/removal,
-owned path checks, ordinary DOS handles, enumeration and capacity. The archived reference tier and its provenance are
+owned path checks, ordinary DOS handles, enumeration, capacity and minimal
+read-only FCB dispatch. The archived reference tier and its provenance are
 unaffected.
 
 | Check | Result | Scope |
 |---|---|---|
 | `vaeg_hostdrv_wire` (CTest) | PASS | Exact request header lengths and masks; unassigned opcodes; reply marker, sequence and generation; stale success dword with unchanged request; staged publication; nested dispatch refusal; VA address arithmetic. |
 | Strict C99 build and UBSan run | PASS | Same wire fixture. |
-| MinGW compilation and PE import audit | PASS | Wire fixture and static cross-build of the transport checkpoint; not a G173 handoff and no Windows execution. |
+| MinGW compilation and PE import audit | PASS | Clean static Linux-host build of `4329ff209de1a9e6763a63cf45f63e24301ccf21`. Windows HOSTDRV is disabled in that revision. Not a G173 handoff and no Windows execution. |
 | `vaeg_hostdrv_fcb_fixture_build` (CTest) | PASS | NASM-only build of `HDFCBTST.COM`; no FCB behavior exercised by this check. |
 | Linux release-preset build and `vaeg_hostdrv_transport` (CTest) | PASS | Synthetic dispatcher through the actual shared ports: exact discovery, default disabled, completed query, stale dword after an unmatched command, A20-alias rejection, compatibility-mode refusal, and existing HOSTFAT transport regression. |
 | Guest transaction exclusivity and installed-profile proof | NOT RUN | The port fixture runs with no guest executing; it does not exercise a TSR guard or prove guest IRQ, NMI, or debugger exclusion. |
 | `vaeg_hostdrv_abi_fixture_build` (CTest) | PASS | NASM-only build of `HDABI.COM`. |
-| Full redirector verb and FCB traces | NOT RUN by public checks | Ordinary and extended opens and search dispatch are implemented; FCB dispatch remains open. |
+| Full redirector verb and FCB traces | NOT RUN by public checks | The TSR implements ordinary and extended opens, FCB open/read/close, shared search dispatch and FCB exit reconciliation; NASM checks do not prove the DOS call paths. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
 | `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
 | Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
@@ -52,7 +53,7 @@ unaffected.
 | Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
 | Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
 | `vaeg_hostdrv_com_build` (CTest) | PASS | 8086 NASM build of the development `HOSTDRV.COM`; not a runtime check. |
-| Full installed guest lifecycle and operation checklist | OPEN | COMMAND TYPE/COPY, FCBs and the full lifecycle checklist remain open. |
+| Full installed guest lifecycle and operation checklist | OPEN | See remaining gates below. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
 The [design's FCB note](../research/m172_hostdrv_design.md) now distinguishes
@@ -62,9 +63,11 @@ The profile is unchanged. The [FCB fixture](../../../tools/pc88va/hostdrv/hdfcbt
 checks AL status and extended errors 31 (one injected read fault) and 5
 (write denial), then opens five FCBs in a four-entry cache, checks reuse
 with a fresh serial, closes the stale FCB and checks that the replacement
-still reads before closing the remaining FCBs. It does not assert that
-uncorrected DOS preserved the age. Execution requires the synthetic
-redirector endpoint with the one-shot fault described in the fixture.
+still reads at byte offsets 0 and 65536 before closing the remaining FCBs.
+It also checks FCB find-first/next and intentionally leaves a final FCB
+open for DOS exit cleanup. It does not assert that uncorrected DOS preserved
+its age. The read-error case requires the synthetic fault described in the
+fixture.
 
 ## Transient DOS ABI fixture
 
@@ -199,41 +202,38 @@ carry-set returns to `SYS_RET_ERR`. The approved amendment now implements
 an empty list for owned `5702h`: return saved CX=2 for the size query; with
 at least two bytes of capacity, also store a zero entry count in the caller's
 buffer. Set-XA remains denied. No host XA access is involved. `HDFILE.COM`
-checks the size and list forms, adjacent sentinels, an unqualified aperture
-address, and set-XA denial. The 14 HOSTDRV CTests passed; the fixture CTest
-checks assembly only.
+checks the size and list forms, adjacent sentinels, a destination outside
+conventional memory, and set-XA denial. All 14 HOSTDRV CTests passed; the
+fixture CTest checks assembly only.
 
-The saved-frame bound is a separate issue: the DOS guest frame can sit in
-`80000h–9FFFFh`, which the VA decoder maps to ordinary RAM only when BMS
-bank zero is active and installed main RAM covers the address. The
-[design amendment](../research/m172_hostdrv_design.md#m173-amendments-empty-xa-and-upper-dos-output-ram)
-requires affirmative proof. The BMS selector port is unbound when BMS is
-disabled. A read of `FFh` cannot distinguish unbound from selected `FFh`
-on the active BMS port, and the selector readback does not provide the
-active RAM ceiling. The existing v1 protocol provides neither piece of
-state. The conservative ceiling remains `80000h`, and the bounce window is
-unchanged. The host-internal `memoryva_native_mainram_span` query now
-checks active RAM and the decoder's selector. The Linux release-preset
-build and all 14 HOSTDRV CTests passed, including synthetic BMS-unbound,
-bound bank-zero, nonzero selector and short-RAM cases.
+The saved DOS INT 21h frame can reside above `80000h`, which caused the
+redirector's saved-frame validation to reject otherwise valid extended
+opens and XA queries before any file transfer. The approved
+[guest-write amendment](../research/m172_hostdrv_design.md#m173-amendments-empty-xa-and-upper-dos-output-ram)
+separates CPU writes from host direct memory access: CPU stores now follow
+DOS's mapping with span and resident-overlap checks; host copies stay in the
+validated bounce window below `80000h`. There is no new guest interface.
+The host-internal decoder query retains its synthetic BMS-unbound, bound
+bank-zero, nonzero selector and short-RAM checks.
 
-This does not unblock guest stores. `hostdrv!1` receives only the bounce
-address; it does not receive the DOS destination or return mapping proof.
-The guest validates the destination itself (sometimes before any packet,
-as in the size-only XA query). Reinterpreting an existing reply or moving
-the DOS write into the host would change the approved transport contract.
-No such change was made; the guest check still fails closed at `80000h`.
+## FCB dispatch
+
+`1116h` distinguishes a zero-refcount compatibility FCB entry in the FCB
+SFT chain from a reserved entry in the ordinary chain. A successful FCB
+open preserves the DOS FCB mode bit and process field, installs read-only
+access and uses the service's nonzero allocation serial. The READ offset
+comes from the DOS-supplied per-operation position. Final close retires the
+local reference even if the host close fails; the FCB error 6 disposition
+allows DOS eviction to continue. `111Dh` reconciles only matching owned FCB
+entries by `PROC_ID`, does not retire ordinary handles by PSP, and chains
+the broadcast.
 
 ## Next steps and remaining gates
 
-1. Decide whether to approve a separate guarded, read-only span query
-   outside v1 packets, with validation and the guest store in the same
-   interrupt-masked interval. This would leave v1 packet bytes and the
-   bounce window unchanged, but add a guest-visible interface. Then verify
-   TYPE/COPY and a nonzero BMS selector negative. Add the minimal FCB paths only with distinct
-   traces for allocation, positioned transfer, eviction and abort. Check
-   NLS changes while resident, copied-DTA replay, remaining task cases, and
-   busy and TF refusal with a no-port-I/O assertion.
+1. Complete the task's installed behavior checklist: JFP/FEP, SUBST/JOIN,
+   NLS changes while resident, copied-DTA replay, and no-port-I/O assertions
+   for busy and TF refusal. A busy or TF-set abort chains without performing
+   FCB reconciliation; this exceptional lifecycle path still needs coverage.
 2. Complete the guest lifecycle gate. The [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf)
    revokes resident authority at a native fetch of `FFFF0h` or the
    model-specific bootstrap entry (`F16A0h` on VA, `F1F90h` on VA2).
@@ -242,9 +242,11 @@ No such change was made; the guest check still fails closed at `80000h`.
    not currently distinguished from the initial cold boot and remains a
    gate item. Verify both normal reset paths and the DOS warm-bootstrap
    paths, including old tokens/cookies and the retained guard.
-3. Implement the Windows anchored metadata/reopen adapter and prove the
-   local filesystem and no-atime requirements. Keep macOS disabled unless
-   it meets the entire policy. Update the declared source milestone for
-   the actual M173 candidate, complete the task checklist and produce the
-   clean static MinGW handoff. Windows execution remains G173; no
-   acceptance is recorded here.
+3. Implement the Windows anchored metadata/reopen adapter. Windows remains
+   disabled: a compile does not establish an effective no-atime policy for
+   file reads and directory listings, or the required ancestor rename and
+   replacement exclusion. A registry value alone does not demonstrate the
+   effective policy, and compensating timestamp writes are not allowed.
+   Verify both guarantees on an eligible local volume before enabling the
+   backend. macOS stays disabled. The source milestone is `M173-dev`; the
+   static G173 handoff still requires the Windows backend.
