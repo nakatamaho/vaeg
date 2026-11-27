@@ -25,9 +25,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 **Not ready for G173.** Stage 1 has the wire, shared-port and transient
 DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
-namespace and an isolated Linux dispatcher with a tested lifecycle adapter;
-there is no enabled emulator service. The archived reference tier and its
-provenance are unaffected.
+namespace and a Linux dispatcher with a tested lifecycle adapter enabled
+explicitly by `--hostdrv-dir`. Stage 3 has guest packet validation and the
+read-only DOS profile probe, but no product TSR. The archived reference
+tier and its provenance are unaffected.
 
 | Check | Result | Scope |
 |---|---|---|
@@ -47,7 +48,8 @@ provenance are unaffected.
 | Synthetic lifecycle and `vaeg_state_storage` (CTest) | PASS | Real CPU shutdown-request and full machine reset hooks with synthetic residency; pre-output/pre-mutation save/load refusal including HOSTFAT override, exact errors for malformed policy/reserved/version, pending grant revocation, and independent maximum of both marks. Existing state-storage regression passed. |
 | Linux lifecycle adapter (CTest) | PASS | The actual Linux wire dispatcher revokes on the lifecycle seam, keeps residency on shutdown, clears it on proven disposal and revokes an uninstalled grant on load. This does not enable the transport. |
 | Native firmware-entry revocation (CTest) | PASS | Synthetic native far jumps exercise the actual machine loop, both reset-vector spellings, model-specific entry selection, and neighboring/wrong-model negative targets. Revocation precedes target execution; residency and live RAM are retained. No firmware or guest bootstrap is executed by this check. |
-| End-to-end warm bootstrap with an attached service, Linux session option, Windows backend | NOT RUN | No production binding; firmware-entry coverage and the guest transaction profile are not yet proven for activation. |
+| Linux session option | Implemented | See the activation checkpoint below; not a redirector acceptance result. |
+| Product warm bootstrap and Windows backend | NOT RUN by public checks | Remaining lifecycle and platform gates. |
 | `HOSTDRV.COM` and installed guest lifecycle/operations | NOT RUN | No product redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
 
@@ -114,11 +116,30 @@ not install a drive. The Linux release-preset build, nine ROM-free HOSTDRV
 CTest entries (including three NASM build checks), and state-storage CTest
 passed. Encoding, EOL and case checks passed.
 
+## Guest reply and DOS profile checkpoint
+
+- `hdpacket.inc` prepares zeroed request headers and validates successful
+  and failed DOS replies against a captured request inside `hd_exchange`.
+  Validation covers generation, token and serial, lengths and metadata.
+  The caller still owns transaction serialization, search name handling,
+  and latching after ambiguous replies.
+- `HDREPLY.COM` compares passing synthetic replies with single-bit
+  mutations, without port access. `HDQUERY.COM` uses the same packet layer.
+- `hdprofile.inc` implements structural eligibility for the named
+  [MS-DOS 4.0 VA `msdos4-va.2` profile](https://github.com/FreeDOS-88VA/MS-DOS/tree/f8cd7e812a2408f8dd1fe4f83687920017affb1e):
+  SDA extent, swap-table agreement, InDOS pointer,
+  CDS bounds and ordinary/FCB SFT chains. `HDPROF.COM` probes eligibility
+  and checks default and explicit CDS selection without publishing a CDS,
+  attaching, or hooking INT 2Fh. This is not binary authentication or
+  SUBST/JOIN dependency verification.
+- The 11 HOSTDRV CTest entries passed. The assembly fixture CTests are
+  build checks only. Case, encoding and EOL validators passed.
+
 ## Next steps and remaining gates
 
-1. Implement `HOSTDRV.COM`, starting with the transient ABI fixture for
-   CDS/SFT layout and the new packet primitives for the wire contract.
-   Bind a named DOS profile, implement resident installation and teardown,
+1. Implement `HOSTDRV.COM`, using `hdprofile.inc`, `hdpacket.inc` and the
+   transient ABI fixture. Next implement the private multiplex, CDS
+   dependency checks, guarded stack handoff and resident install/teardown,
    transaction failure latching, owned DOS verb dispatch, reference and
    search lifetimes, and the minimal FCB paths. Exercise all task cases,
    including busy and TF refusal with a no-port-I/O assertion, the FCB

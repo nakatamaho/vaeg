@@ -30,8 +30,9 @@ The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
 implemented. Linux file authorization, pinned CP932 naming and the Linux
 DOS namespace are implemented, including the Shift-JIS alias amendment.
 The Linux wire service and lifecycle adapter are wired to `--hostdrv-dir`.
-The guarded 8086 wire helper and nonresident `HDQUERY.COM` fixture are
-implemented. The product redirector, its functional and lifecycle checklist,
+The guarded 8086 wire helper, opcode-specific reply validator and transient
+DOS profile and CDS selection probes are implemented. The product
+redirector, its functional and lifecycle checklist,
 and the Windows backend and static handoff remain outstanding. See the
 [progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
