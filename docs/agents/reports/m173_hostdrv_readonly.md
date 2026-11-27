@@ -24,9 +24,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # M173 — HOSTDRV read-only progress
 
 **Not ready for G173.** Stage 1 has the wire, shared-port and transient
-DOS CDS/SFT fixtures. Stage 2 has pinned CP932 name handling and the Linux
-identity-based namespace and file authorization primitives; there is no
-enabled emulator service. The archived reference tier and its
+DOS CDS/SFT fixtures. Stage 2 has pinned CP932 names, a Linux identity-based
+namespace and an isolated Linux dispatcher; there is no enabled emulator
+service. The archived reference tier and its
 provenance are unaffected.
 
 | Check | Result | Scope |
@@ -41,7 +41,9 @@ provenance are unaffected.
 | Full redirector verb and FCB traces | NOT RUN by public checks | The transient fixture exercises only a bounded subset of the ABI; there is no product TSR. |
 | `vaeg_hostdrv_linux` (CTest) and strict C++17/UBSan build and run | PASS | Synthetic filesystem: selected-root rename, moved parent and replacement identities, symlink/hardlink/FIFO rejection, signed file-size bound, listing quota, positioned read/EOF, and unchanged file and directory timestamps. |
 | `vaeg_hostdrv_names`, `vaeg_hostdrv_linux_namespace` (CTest), strict C++17/UBSan | PASS | Pinned encoding, DBCS separators and wildcard width, invalid encodings and names, native reservation and collisions, case-only carry-over, tombstones, live changes and pinned reads across replacement. |
-| Linux release emulator target and HOSTDRV CTest label | PASS | Application compile/link and 7/7 focused tests. This is not a handoff build. |
+| Shift-JIS alias amendment and namespace scan-cap regression (CTest) | PASS | Kana/kanji and mixed aliases, half-width characters, unmappable input, boundary truncation and suffix growth; one added entry forces a previously valid scan to fail without retiring its name ledger. |
+| `vaeg_hostdrv_linux_service` (CTest) | PASS | Synthetic packets through `hostdrv_exchange`: generation and residency, DOS metadata and capacity, positioned reads, typed tokens, read sharing, exhaustion, immutable ordinal replay, eviction and high-water mark merging. No production port binding. |
+| Linux release emulator target and HOSTDRV CTest label | PASS | Application compile/link and 8/8 focused tests at the dispatcher checkpoint. This is not a handoff build. |
 | Linux service integration and Windows backend policy and functional checks | NOT RUN | No service binding or Windows adapter. |
 | `HOSTDRV.COM`, guest operations, reset, state and lifecycle checks | NOT RUN | No installed redirector. |
 | G173 static MinGW handoff | NOT RUN | No candidate. |
@@ -74,27 +76,27 @@ redirector status 21 to immediate status 5 while preserving 21 for 5900h
 
 ## Next steps
 
-1. Continue Stage 2 after `f42313e662567e1b9a1aa1c0cbd7593228d111c5`.
-   `sdl2/hostdrv_names.*` implements pinned CP932, padded 8+3 keys, templates
-   and alias spellings; `sdl2/hostdrv_linux_namespace.*` implements root-relative
-   `stat`, `list`, and `open` by DOS key. The ledger caps issued spellings
-   (including tombstones) at 8192 and pinned directories at 4096 per session;
-   a raw scan stages at most 4096 entries. The Linux before/after parent
-   checks are not an atomic directory snapshot: review concurrent rename
-   and replacement behavior before enabling the service, including changes
-   between raw enumeration and entry authorization. Add a quota/failure test
-   that proves a failed refresh cannot retire otherwise valid names.
-2. Implement the Linux wire dispatcher above the namespace: DOS attributes
-   and local civil timestamps; immutable search snapshots and ordinal replay;
-   bounded identity-keyed file sharing, token retirement, and boot-lifetime
-   serial and generation high-water marks. Test it with synthetic packets
-   before production binding. Add reset/revocation (including CPU shutdown
-   and guest warm/bootstrap paths), save/load guards and mark persistence;
-   prove the exclusive transport profile before wiring `--hostdrv-dir` or
-   enabling discovery. Then complete the Windows anchored metadata/reopen
+1. Continue Stage 2 after [`f2df42cf`](https://github.com/nakatamaho/vaeg/commit/f2df42cff35fb285f470f48920cdfa5184d4abfe).
+   `sdl2/hostdrv_linux_service.*` implements all read-only wire verbs but has
+   no production caller. Wire a lifecycle seam to `machine/pccore.c`: revoke
+   before `CPU_SHUT()` while retaining the guard, and clear the guard only
+   after full reset discards DOS RAM. Identify and test the VA DOS warm/bootstrap
+   revocation hook independently; do not assume every reboot clears the guard.
+   Add a checked non-authority state section for the uninstalled policy and
+   marks. Guard `statsave_save_checked` and the common check/load paths in
+   `machine/statsave.c` before output or mutation, including the HOSTFAT
+   override path, and revoke a pending grant on load. Add synthetic negative
+   cases before enabling any CLI option.
+2. Prove the port exclusivity profile (including IRQ masking, no NMI,
+   other port masters or injected port access) and exercise the lifecycle
+   hooks before binding `--hostdrv-dir` or enabling production discovery.
+   Retain the full-path `openat2` authorization on every Linux lookup:
+   before/after parent identity and directory timestamps detect visible
+   changes, not an atomic filesystem snapshot; do not rely on timestamps
+   for containment. Then implement the Windows anchored metadata/reopen
    adapter and static MinGW build; keep macOS disabled unless it meets the
-   entire policy. The current release-preset build still reports the prior
-   declared source milestone; update it for the actual M173 candidate.
+   entire policy. The release preset still reports the prior declared
+   source milestone; update it for the actual M173 candidate.
 3. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
    point for CDS/SFT handling, not as install/ownership policy. Verify all
    verb and lifecycle cases, including the separate FCB probe and caller

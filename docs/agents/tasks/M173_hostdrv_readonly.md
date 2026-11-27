@@ -28,8 +28,10 @@ POSSIBILITY OF SUCH DAMAGE.
 `milestone/m173-hostdrv-readonly` from `main` (`ed5899a9`).
 The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
 implemented. Linux file authorization, pinned CP932 naming and the Linux
-DOS namespace are implemented. The service, session integration, Windows
-backend and product redirector are outstanding. Not ready for G173.
+DOS namespace are implemented, including the Shift-JIS alias amendment.
+The isolated Linux wire service passes synthetic packet tests. Session
+integration, Windows backend and product redirector are outstanding.
+Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or
 release approval. The one-task-per-session rule still applies.
