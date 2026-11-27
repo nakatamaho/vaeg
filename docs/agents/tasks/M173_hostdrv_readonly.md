@@ -29,11 +29,11 @@ POSSIBILITY OF SUCH DAMAGE.
 The v1 packet, shared-port and transient DOS CDS/SFT fixtures are
 implemented. Linux file authorization, pinned CP932 naming and the Linux
 DOS namespace are implemented, including the Shift-JIS alias amendment.
-The isolated Linux wire service and its lifecycle adapter pass synthetic
-packet, reset and state-storage tests. Resident firmware-entry revocation
-passes a synthetic machine-loop check, but end-to-end warm-bootstrap and
-exclusive transaction proofs are still outstanding, as are production
-session integration, the Windows backend and the product redirector.
+The Linux wire service and lifecycle adapter are wired to `--hostdrv-dir`.
+The guarded 8086 wire helper and nonresident `HDQUERY.COM` fixture are
+implemented. The product redirector, its functional and lifecycle checklist,
+and the Windows backend and static handoff remain outstanding. See the
+[progress report](../reports/m173_hostdrv_readonly.md) for remaining gates.
 Not ready for G173.
 **Maintainer-approved exception (2026-11-27):** M173 may begin while G171
 is pending. This neither accepts G171 nor waives G173 or any merge or

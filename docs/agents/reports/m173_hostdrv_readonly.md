@@ -97,35 +97,44 @@ busy refusal for unknown clients; the audit is not authority to override
 it. Re-audit before enabling any independent port master, port-injection
 interface or native NMI source.
 
-## Next steps
+## Linux activation checkpoint
 
-1. Finish Stage 2 bootstrap proof after the [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf).
-   The machine loop revokes a resident session on a native fetch at physical
-   `FFFF0h`, or at the model's firmware disk-bootstrap entry (`F16A0h` on
-   VA, `F1F90h` on VA2). The hook intentionally retains residency and is
-   not a general warm-reboot detector. Prove the supported VA and VA2 DOS
-   warm-bootstrap paths end to end with an attached service and a stale
-   file token/search cookie; verify the new boot cannot consume the
-   previous authority and state storage remains guarded. Neither INT 19h
-   nor reaching the reset vector is sufficient proof of a new DOS boot.
-   Also distinguish initial startup (which must allow the explicit grant)
-   from a later bootstrap before install (which must revoke an unconsumed
-   grant). If the supported transitions cannot be identified reliably,
-   keep discovery disabled and seek an approved profile clarification.
-2. Bind `--hostdrv-dir` on the emulator thread under the audited profile.
-   Verify guest IRQ masking and the no-port-access busy/TF refusal when
-   testing the redirector. The session option must grant only after startup
-   reset and never regrant on reset/load. Retain full-path `openat2`
-   authorization on every Linux lookup: parent identity and timestamps
-   detect changes, not an atomic snapshot, and do not provide containment.
-   Then implement the Windows anchored metadata/reopen adapter and static
-   MinGW build; keep macOS disabled unless it meets the entire policy.
-   Update the declared source milestone for the actual M173 candidate.
-3. Implement `HOSTDRV.COM`, using the transient ABI fixture as a starting
-   point for CDS/SFT handling, not as install/ownership policy. Verify all
-   verb and lifecycle cases, including the separate FCB probe and caller
-   traces, under the approved design. Add guest-side packet validation and
-   exercise the no-port-access busy/refusal path separately from the host
-   dispatch guard.
-4. Complete the task's checklist and clean static MinGW candidate handoff.
-   Windows execution remains G173; no acceptance is recorded here.
+`--hostdrv-dir PATH` is explicit, session-only and Linux-only. The frontend
+binds the Linux service on the emulator thread after the startup machine
+reset. Reset and load revoke authority and do not replay the option.
+Unsupported platforms fail explicitly. Keep full-path `openat2`
+authorization on every Linux lookup: parent identity and timestamps detect
+changes, not an atomic snapshot, and do not provide containment.
+
+`hdwire.inc` adds the guarded 8086 discovery and transaction primitives.
+The caller owns the bounce buffer and supplies an opcode-specific validator
+that runs before interrupt restoration. The nonresident `HDQUERY.COM`
+fixture exercises the busy branch and validates a QUERY response; it does
+not install a drive. The Linux release-preset build, nine ROM-free HOSTDRV
+CTest entries (including three NASM build checks), and state-storage CTest
+passed. Encoding, EOL and case checks passed.
+
+## Next steps and remaining gates
+
+1. Implement `HOSTDRV.COM`, starting with the transient ABI fixture for
+   CDS/SFT layout and the new packet primitives for the wire contract.
+   Bind a named DOS profile, implement resident installation and teardown,
+   transaction failure latching, owned DOS verb dispatch, reference and
+   search lifetimes, and the minimal FCB paths. Exercise all task cases,
+   including busy and TF refusal with a no-port-I/O assertion, the FCB
+   probe and distinct FCB caller traces. The product checklist is not yet
+   complete; fixture status cannot substitute for it.
+2. Complete the guest lifecycle gate. The [native entry hook](https://github.com/nakatamaho/vaeg/commit/f013cd0f0dccf8d28d69facf6ddc2352593c8ddf)
+   revokes resident authority at a native fetch of `FFFF0h` or the
+   model-specific bootstrap entry (`F16A0h` on VA, `F1F90h` on VA2).
+   It preserves the save/load guard. This is not a general reboot
+   detector. In particular, a software bootstrap before attachment is
+   not currently distinguished from the initial cold boot and remains a
+   gate item. Verify both normal reset paths and the DOS warm-bootstrap
+   paths, including old tokens/cookies and the retained guard.
+3. Implement the Windows anchored metadata/reopen adapter and prove the
+   local filesystem and no-atime requirements. Keep macOS disabled unless
+   it meets the entire policy. Update the declared source milestone for
+   the actual M173 candidate, complete the task checklist and produce the
+   clean static MinGW handoff. Windows execution remains G173; no
+   acceptance is recorded here.
