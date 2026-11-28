@@ -36,3 +36,11 @@ V1 handoff branch: `topic/m153-mov-ss-shadow`, from `main` (`5f3c71e9`).
   are not part of this implementation task; ask before any later merge.
 
 See [implementation and test report](../reports/m153_mov_ss_shadow.md).
+
+## Status
+
+**COMPLETE; G153 human gate PASSED** (maintainer, recorded 2026-11-28).
+The rebased branch merged to `main` through PR #82 at
+[8392ddf6](https://github.com/nakatamaho/vaeg/commit/8392ddf6034bae065bcea25835602c15d3dbfa35)
+on 2026-11-23. Full media/demo and presenter campaigns: NOT_RUN (no request
+recorded). No release authorized.
