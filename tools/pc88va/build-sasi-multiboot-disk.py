@@ -192,14 +192,14 @@ class Volume:
         return bytes(self.image[HEADER:HEADER + SECTOR])
 
 
-def validate(volume, captures, owner, default, *, host_stamps=None):
+def validate(volume, captures, owner, default, *, prepared=False, host_stamps=None):
     state = volume.read('BOOTMENU.DAT')
     require(len(state) == 4096 and state[:4] == b'VBM1'
             and crc16(state[:254]) == int.from_bytes(state[254:256], 'little'),
             'D5_STATE_CRC', 'invalid BOOTMENU.DAT size, signature or checksum')
     require(state[118] == STATE_VERSION, 'D5_LABEL_FORMAT',
             f'unsupported menu state version {state[118]}; requires {DOS_REQUIREMENT}')
-    require(state[4:8] == bytes((owner, default, 0, 0)),
+    require(state[4:8] == bytes((owner, default, 2 if prepared else 0, 0)),
             'D5_STATE', 'unexpected owner, default or phase')
     require(volume.ipl[255] == 1 and volume.read('BOOTMENU.SYS'),
             'D5_STAGE', 'menu is not enabled or has no stage')
@@ -221,6 +221,13 @@ def validate(volume, captures, owner, default, *, host_stamps=None):
             require(offset == volume.root + slot * 32
                     and checksum == crc16(volume.image[offset + 12:offset + 32])
                     and volume.read(name) == payload, 'D5_FILE_CHANGED', name)
+    if prepared:
+        slots = struct.unpack_from('<4H', state, 8)
+        for name, slot, attr in zip(ENGINE, slots, (0x27, 0x27, 0x27, 0x21)):
+            offset = volume.entries.get(short_name(name))
+            require(offset == volume.root + slot * 32 and volume.image[offset + 11] == attr
+                    and volume.image[offset + 26:offset + 32] == bytes(6),
+                    'D5_PREPARE_SLOT', f'invalid reserved placeholder: {name}')
     volume.check_fat()
     for name, expected in (host_stamps or {}).items():
         offset = volume.entries.get(short_name(name))
@@ -376,8 +383,9 @@ def build(args, work):
     captures = []
     for entry, floppy in enumerate(('pce105.d88', 'pce11.d88'), 1):
         if entry == 2:
-            text = guest.run('prepare', 'msdos.d88', ((1100, 'SYS C: /P'),))
-            expect(text, 'GUEST_PREPARE', 'Prepared for another PC-Engine SYS')
+            guest.run('prepare', 'msdos.d88', ((1100, 'SYS C: /P'),))
+            # Check what SYS committed, independent of its message language.
+            validate(guest.volume(), captures, 0, 1, prepared=True)
         before = guest.volume().ipl
         # Probe the target from PC-Engine before SYS (also used by the D5 harness).
         guest.run(f'install-{entry}', floppy, ((1400, 'DIR C:'), (2100, 'SYS C:')), 3600)

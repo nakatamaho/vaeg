@@ -152,6 +152,25 @@ class MultibootTest(unittest.TestCase):
             m.validate(m.Volume(5, bytes(v.image)), captures, 0, 0, host_stamps=stamps)
         self.assertEqual(raised.exception.code, 'FAT_TIMESTAMP')
 
+    def test_prepare_requires_empty_reserved_placeholders(self):
+        v, captures = fixture()
+        at = v.entries[m.short_name('BOOTMENU.DAT')]
+        cluster, = struct.unpack_from('<H', v.image, at + 26)
+        at = v.data + (cluster - 2) * v.cluster_size
+        v.image[at + 5:at + 7] = bytes((1, 2))  # Last choice 1, prepared phase.
+        for index, (name, attr) in enumerate(zip(m.ENGINE, (0x27, 0x27, 0x27, 0x21))):
+            v.put(name, b'', attr, stamp=STAMP)
+            offset = v.entries[m.short_name(name)]
+            struct.pack_into('<H', v.image, at + 8 + index * 2, (offset - v.root) // 32)
+        struct.pack_into('<H', v.image, at + 254, m.crc16(v.image[at:at + 254]))
+        m.validate(v, captures[:1], 0, 1, prepared=True)
+
+        offset = v.entries[m.short_name(m.ENGINE[-1])]
+        v.image[offset + 28] = 1  # The placeholder is no longer empty.
+        with self.assertRaises(m.BuildError) as raised:
+            m.validate(v, captures[:1], 0, 1, prepared=True)
+        self.assertEqual(raised.exception.code, 'D5_PREPARE_SLOT')
+
     def test_dropped_parked_file(self):
         v, captures = fixture()
         m.validate(v, captures, 0, 0)
