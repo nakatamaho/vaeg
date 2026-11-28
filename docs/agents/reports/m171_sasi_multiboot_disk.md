@@ -70,8 +70,11 @@ reference tier is unaffected.
   passed. The utility disk builders are unchanged.
 - The `SYS C: /P` check now verifies the committed prepared phase, parked
   files, and reserved empty directory entries rather than matching an
-  English confirmation. A synthetic single-mutation test rejects a
-  nonempty placeholder; 16 synthetic checks pass.
+  English confirmation. `CHKDSK C:` is checked against the FAT allocation
+  totals rather than an English caption, and a keyless DOS boot is checked
+  for the DOS banner rather than an English date prompt. All 17 synthetic
+  checks pass; the new negatives change one placeholder or one reported
+  allocation count.
 - D5.1 follow-up checklist (VA 5 MB and VA2 40 MB): confirm the three
   full labels in the boot menu and `SYS C: /L`, select each entry and
   check its prompt, and compare the dates shown by `DIR C:` for

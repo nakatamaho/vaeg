@@ -35,19 +35,23 @@ land.
 
 ## Maintenance Rules
 
-### M171 — Multiboot preparation depended on an English DOS message
+### M171 — Multiboot checks depended on English DOS messages
 
 - **Symptom/scope:** The builder could abort after a successful `SYS C: /P`
-  when DOS printed the preparation confirmation in Japanese.
-- **Demonstrated cause:** The builder required an English sentence instead
-  of checking the prepared state and reserved root slots.
+  when DOS printed the preparation confirmation in Japanese. Its `CHKDSK`
+  and default DOS boot checks also depended on English captions.
+- **Demonstrated cause:** The builder matched localized messages instead of
+  checking the prepared state, allocation totals, or DOS boot banner.
 - **Correction:** Verify the D5 state, parked capture, and four empty
-  placeholders before running the second PC-Engine install.
-- **Verification:** A synthetic prepared volume passes; a single nonempty
-  placeholder fails with `D5_PREPARE_SLOT`.
+  placeholders before running the second PC-Engine install. Compare
+  `CHKDSK` totals with the FAT and check the DOS banner after timeout.
+- **Verification:** A synthetic prepared volume and caption-free summary
+  pass. A single nonempty placeholder or incorrect free allocation count
+  fails with `D5_PREPARE_SLOT` or `GUEST_CHKDSK`, respectively.
 - **Milestone/task/commit:** [M171 task](../agents/tasks/M171_sasi_multiboot_disk.md),
   [candidate report](../agents/reports/m171_sasi_multiboot_disk.md),
-  [644cb202](https://github.com/nakatamaho/vaeg/commit/644cb202f9c27a5003c245244de1adf66ed610de).
+  [644cb202](https://github.com/nakatamaho/vaeg/commit/644cb202f9c27a5003c245244de1adf66ed610de),
+  [5e938728](https://github.com/nakatamaho/vaeg/commit/5e93872864b067e7a93f1947710f31f3c296609f).
 
 ### M171 — Host-inserted SASI multiboot files had blank dates
 
