@@ -229,13 +229,24 @@ class MultibootTest(unittest.TestCase):
             m.Volume(5, v.image)
         self.assertEqual(raised.exception.code, 'FAT_COPIES')
 
+    def test_chkdsk_checks_counts_without_localized_captions(self):
+        v = m.Volume(5)
+        v.put('HIDDEN.SYS', b'h', 0x22, stamp=STAMP)
+        v.put('USER.TXT', b'u', stamp=STAMP)
+        text = ('C>CHKDSK C:\n\n5046272\n8192 (1)\n8192 (1)\n5029888\n\n'
+                '8192\n616\n614\n\n655360\n522656\n\nC>')
+        m.check_chkdsk(text, v)
+        with self.assertRaises(m.BuildError) as raised:
+            m.check_chkdsk(text.replace('\n614\n', '\n613\n'), v)
+        self.assertEqual(raised.exception.code, 'GUEST_CHKDSK')
+
     def test_timeout_rejects_dos_fallback_without_menu(self):
         with tempfile.TemporaryDirectory() as scratch:
             work = Path(scratch)
             guest = SimpleNamespace(work=work, disk=work / 'disk.hdi',
                                     args=SimpleNamespace(model='va2'), run=Mock())
             guest.disk.write_bytes(b'synthetic HDI')
-            boot = 'Enter new date'
+            boot = 'MS-DOS version 4.00'
             menu = '\n'.join((m.MODELS['va2'], '1: PC-Engine 1.05 (VA)', '2: PC-Engine 1.1 (VA2/3)',
                               '3: MS-DOS 4.00', 'Enter = 3'))
             early_screen = menu

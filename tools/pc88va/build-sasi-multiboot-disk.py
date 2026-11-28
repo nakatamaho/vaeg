@@ -333,8 +333,31 @@ def check_timeout(guest, owner):
     require(checkpoint.is_file(), 'GUEST_TIMEOUT_MENU', 'missing menu checkpoint')
     expect_menu(screen_text(checkpoint.read_bytes()), guest.args.model, owner or 3,
                 'GUEST_TIMEOUT_MENU')
-    expect(text, 'GUEST_TIMEOUT', 'Ready' if owner else 'Enter new date')
+    expect(text, 'GUEST_TIMEOUT', 'Ready' if owner else 'MS-DOS version 4.00')
     require(guest.disk.read_bytes() == before, 'GUEST_TIMEOUT', 'unprompted boot changed the HDI')
+
+
+def check_chkdsk(text, volume):
+    # DOS localizes the captions; compare the reported byte and cluster
+    # totals with the FAT rather than requiring an English caption.
+    _, command, summary = text.partition('C>CHKDSK C:')
+    lines = [line.strip() for line in summary.splitlines() if line.strip()]
+    numbers = [int(line.split()[0]) for line in lines if re.match(r'^[0-9]+(?:\s|$)', line)]
+    unit = volume.cluster_size
+    total = volume.end_cluster - 2
+    free = sum(volume.fat_entry(cluster) == 0 for cluster in range(2, volume.end_cluster))
+    hidden, user = 0, 0
+    for offset in volume.entries.values():
+        size, = struct.unpack_from('<I', volume.image, offset + 28)
+        allocated = (size + unit - 1) // unit * unit
+        if volume.image[offset + 11] & 2:
+            hidden += allocated
+        else:
+            user += allocated
+    require(command and lines and lines[-1] == 'C>' and len(numbers) == 9
+            and numbers[:7] == [total * unit, hidden, user, free * unit, unit, total, free]
+            and not re.search(r'lost|invalid|cross.link|error|correct', summary, re.I),
+            'GUEST_CHKDSK', text)
 
 
 def startup_names(entry_id, owner):
@@ -418,11 +441,9 @@ def build(args, work):
         expect(text, 'GUEST_BOOT', 'C>' if key == 3 else 'Ready')
         validate(guest.volume(), captures, key % 3, key % 3)
     text = guest.run('list', steps=(*dos_boot, (1900, 'SYS C: /L')), frames=2300)
-    expect(text, 'GUEST_LIST', *LABELS[1:], 'VACFG1.SYS', 'VACFG2.SYS')
+    expect(text, 'GUEST_LIST', *LABELS, 'VACFG1.SYS', 'VACFG2.SYS')
     text = guest.run('chkdsk', steps=(*dos_boot, (1900, 'CHKDSK C:')), frames=2600)
-    expect(text, 'GUEST_CHKDSK', 'C>CHKDSK C:', 'available allocation units')
-    require(not re.search(r'lost|invalid|cross.link|error|correct', text, re.I),
-            'GUEST_CHKDSK', text)
+    check_chkdsk(text, guest.volume())
 
     owner = {'msdos': 0, 'pce105': 1, 'pce11': 2}[args.default]
     if owner:
