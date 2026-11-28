@@ -47,14 +47,15 @@ def fixture():
     captures = []
     state = bytearray(4096)
     state[:8] = b'VBM1\0\0\0\0'
-    state[118] = 2
+    state[118] = 3
     for entry in (1, 2):
         ipl = bytes([entry]) * 1024
         files = [f'entry {entry}, file {index}'.encode() for index in range(4)]
         captures.append((ipl, files))
         state[1024 * entry:1024 * (entry + 1)] = ipl
         base = 16 + (entry - 1) * 34
-        struct.pack_into('<16sH', state, base, m.LABELS[entry].encode(), m.crc16(ipl))
+        struct.pack_into('<H', state, base + 16, m.crc16(ipl))
+        struct.pack_into('<24s', state, 138 + (entry - 1) * 24, m.LABELS[entry].encode())
         for index, payload in enumerate(files):
             name = f'VA{entry}{index}0000.SYS'
             v.put(name, payload, 0x27, stamp=STAMP)
@@ -169,6 +170,38 @@ class MultibootTest(unittest.TestCase):
             m.validate(m.Volume(5, v.image), captures, 0, 0)
         self.assertEqual(raised.exception.code, 'D5_STATE_CRC')
 
+    def test_pre_d51_state_version_rejected(self):
+        v, captures = fixture()
+        m.validate(v, captures, 0, 0)
+        offset = v.entries[m.short_name('BOOTMENU.DAT')]
+        cluster, = struct.unpack_from('<H', v.image, offset + 26)
+        base = v.data + (cluster - 2) * v.cluster_size
+        v.image[base + 118] = 2
+        struct.pack_into('<H', v.image, base + 254, m.crc16(v.image[base:base + 254]))
+        with self.assertRaises(m.BuildError) as raised:
+            m.validate(v, captures, 0, 0)
+        self.assertEqual(raised.exception.code, 'D5_LABEL_FORMAT')
+        self.assertIn(m.DOS_REQUIREMENT, str(raised.exception))
+
+    def test_truncated_label_rejected(self):
+        v, captures = fixture()
+        m.validate(v, captures, 0, 0)
+        offset = v.entries[m.short_name('BOOTMENU.DAT')]
+        cluster, = struct.unpack_from('<H', v.image, offset + 26)
+        base = v.data + (cluster - 2) * v.cluster_size
+        v.image[base + 138 + 15] = 0
+        struct.pack_into('<H', v.image, base + 254, m.crc16(v.image[base:base + 254]))
+        with self.assertRaises(m.BuildError) as raised:
+            m.validate(v, captures, 0, 0)
+        self.assertEqual(raised.exception.code, 'D5_LABEL_REJECTED')
+
+    def test_old_sys_label_prompt_rejected(self):
+        text = 'Label (up to 23 ASCII characters, Enter for PC-Engine n):\nSystem transferred'
+        m.expect_capture(text, m.LABELS[1])
+        with self.assertRaises(m.BuildError) as raised:
+            m.expect_capture(text.replace('23', '15'), m.LABELS[1])
+        self.assertEqual(raised.exception.code, 'D5_LABEL_REJECTED')
+
     def test_fat_mirror(self):
         v, captures = fixture()
         m.validate(v, captures, 0, 0)
@@ -184,8 +217,8 @@ class MultibootTest(unittest.TestCase):
                                     args=SimpleNamespace(model='va2'), run=Mock())
             guest.disk.write_bytes(b'synthetic HDI')
             boot = 'Enter new date'
-            menu = '\n'.join((m.MODELS['va2'], '1: PC-Engine 1.05', '2: PC-Engine 1.1',
-                              '3: MS-DOS', 'Enter = 3'))
+            menu = '\n'.join((m.MODELS['va2'], '1: PC-Engine 1.05 (VA)', '2: PC-Engine 1.1 (VA2/3)',
+                              '3: MS-DOS 4.00', 'Enter = 3'))
             early_screen = menu
 
             def run(*args, **kwargs):

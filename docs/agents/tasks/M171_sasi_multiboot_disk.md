@@ -45,11 +45,12 @@ steps across three systems. The maintainer wants VAEG to build it.
   and their outputs stay unchanged.
 - Inputs supplied by the user (never committed, never downloaded by the
   tool): PC-Engine 1.05 and 1.1 system D88s, an MS-DOS 4.0 VA distribution
-  D88 built from `release/msdos-va` at or after `7a11162` (D5).
+  D88 with D5.1 or later, compatible with D5.1's long-label menu format.
 - Output: an HDI with the D5 layout and all three entries registered,
-  labels `PC-Engine 1.05` and `PC-Engine 1.1`, default size 40 MB (5, 10,
-  20 selectable), MS-DOS as the first default unless an option says
-  otherwise. Optional per-system CONFIG.SYS/AUTOEXEC.BAT inputs.
+  labels `PC-Engine 1.05 (VA)` and `PC-Engine 1.1 (VA2/3)`, default size
+  40 MB (5, 10, 20 selectable), MS-DOS as the first default unless an
+  option says otherwise. Optional per-system CONFIG.SYS/AUTOEXEC.BAT
+  inputs. Preserve or assign FAT write timestamps for host-inserted files.
 - The D5 on-disk state (BOOTMENU.DAT, BOOTMENU.SYS, IPL, parked names)
   must be what MS-DOS 4.0 VA's own `SYS` would produce. Prefer producing
   it with the product itself (drive the documented D5 procedure headless

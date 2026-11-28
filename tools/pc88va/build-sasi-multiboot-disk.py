@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Build a new PC-88VA SASI multiboot HDI using the D5 guest installer."""
+"""Build a PC-88VA SASI multiboot HDI (requires MS-DOS 4.0 VA with D5.1 or later)."""
 
 import argparse
 import os
@@ -42,7 +42,11 @@ GEOMETRY = {5: (153, 4, 4950, 608, 8, 1), 10: (310, 4, 9900, 992, 8, 2),
 ENGINE = ('ENGINEIO.SYS', 'PCENGINE.SYS', 'ADVGBIOS.SYS', 'PCENGINE.COM')
 ENGINE_SIZES = ((4096, 52090, 30956, 5), (4096, 62347, 16364, 5))
 DOS = ('IO.SYS', 'MSDOS.SYS', 'COMMAND.COM', 'SYS.COM', 'CHKDSK.COM')
-LABELS = ('MS-DOS', 'PC-Engine 1.05', 'PC-Engine 1.1')
+LABELS = ('MS-DOS 4.00', 'PC-Engine 1.05 (VA)', 'PC-Engine 1.1 (VA2/3)')
+DOS_REQUIREMENT = 'MS-DOS 4.0 VA with D5.1 or later'
+STATE_VERSION = 3
+LABEL_OFFSET = 138
+LABEL_SIZE = 24  # Includes the terminating NUL.
 MODELS = {'va': '[PC-88VA]', 'va2': '[PC-88VA2/VA3/VA-91]'}
 
 
@@ -193,16 +197,21 @@ def validate(volume, captures, owner, default, *, host_stamps=None):
     require(len(state) == 4096 and state[:4] == b'VBM1'
             and crc16(state[:254]) == int.from_bytes(state[254:256], 'little'),
             'D5_STATE_CRC', 'invalid BOOTMENU.DAT size, signature or checksum')
-    require(state[4:8] == bytes((owner, default, 0, 0)) and state[118] == 2,
-            'D5_STATE', 'unexpected owner, default, phase or version')
+    require(state[118] == STATE_VERSION, 'D5_LABEL_FORMAT',
+            f'unsupported menu state version {state[118]}; requires {DOS_REQUIREMENT}')
+    require(state[4:8] == bytes((owner, default, 0, 0)),
+            'D5_STATE', 'unexpected owner, default or phase')
     require(volume.ipl[255] == 1 and volume.read('BOOTMENU.SYS'),
             'D5_STAGE', 'menu is not enabled or has no stage')
     for entry_id, (ipl, files) in enumerate(captures, 1):
         saved_ipl = state[entry_id * 1024:(entry_id + 1) * 1024]
         base = 16 + (entry_id - 1) * 34
-        label, checksum = struct.unpack_from('<16sH', state, base)
-        require(label.rstrip(b'\0') == LABELS[entry_id].encode()
-                and saved_ipl == ipl and checksum == crc16(ipl), 'D5_ENTRY', LABELS[entry_id])
+        label_start = LABEL_OFFSET + (entry_id - 1) * LABEL_SIZE
+        label = state[label_start:label_start + LABEL_SIZE].split(b'\0', 1)[0]
+        require(label == LABELS[entry_id].encode(), 'D5_LABEL_REJECTED',
+                f'SYS did not save {LABELS[entry_id]!r}; requires {DOS_REQUIREMENT}')
+        checksum, = struct.unpack_from('<H', state, base + 16)
+        require(saved_ipl == ipl and checksum == crc16(ipl), 'D5_ENTRY', LABELS[entry_id])
         for index, (name, payload) in enumerate(zip(ENGINE, files)):
             if owner != entry_id:
                 name = f'VA{entry_id}{index}0000.SYS'
@@ -295,9 +304,18 @@ def expect(text, code, *markers):
     require(all(marker in text for marker in markers), code, f'expected {markers!r}\n{text}')
 
 
+def expect_capture(text, label):
+    require('up to 15 ASCII characters' not in text and 'Label must be printable ASCII' not in text,
+            'D5_LABEL_REJECTED', f'SYS did not accept {label!r}; requires {DOS_REQUIREMENT}')
+    expect(text, 'GUEST_CAPTURE', 'System transferred')
+
+
 def expect_menu(text, model, default_key, code):
-    expect(text, code, MODELS[model], '1: PC-Engine 1.05',
-           '2: PC-Engine 1.1', '3: MS-DOS', f'Enter = {default_key}')
+    expect(text, code, MODELS[model], f'Enter = {default_key}')
+    lines = set(line.strip() for line in text.splitlines())
+    for key in (1, 2, 3):
+        marker = f'{key}: {LABELS[key % 3]}'
+        require(marker in lines, code, f'expected menu line {marker!r}\n{text}')
 
 
 def check_timeout(guest, owner):
@@ -370,7 +388,7 @@ def build(args, work):
         captures.append((volume.ipl, files))
         text = guest.run(f'capture-{entry}', 'msdos.d88',
                          ((1100, 'SYS C:'), (1800, 'Y'), (2200, LABELS[entry])), 3500)
-        expect(text, 'GUEST_CAPTURE', 'System transferred')
+        expect_capture(text, LABELS[entry])
         validate(guest.volume(), captures, 0, entry)
 
     volume = guest.volume()

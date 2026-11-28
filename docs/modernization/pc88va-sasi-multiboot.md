@@ -32,9 +32,10 @@ You need Python 3.10+, an SDL2 VAEG executable with `--debug-script`
 (including `capture-tvram <id>`, added in M171, so build VAEG from M171 or
 later) and `--screen-tvram-dump` support, and ROMs
 for the selected machine. Supply 2HD D88s for PC-Engine 1.05, PC-Engine 1.1,
-and the [FreeDOS-88VA MS-DOS 4.0 VA distribution with D5](https://github.com/FreeDOS-88VA/MS-DOS/blob/release/msdos-va/docs/D5-dual-boot.md)
-(`release/msdos-va` at `7a11162` or a compatible later revision). The tool
-supplies and downloads no disks or ROMs.
+and the [FreeDOS-88VA MS-DOS 4.0 VA distribution](https://github.com/FreeDOS-88VA/MS-DOS/blob/release/msdos-va/docs/D5-dual-boot.md).
+The builder requires **MS-DOS 4.0 VA with D5.1 or later**, compatible with
+D5.1's 23-character labels and version 3 menu format. Older D5 installers
+cannot store the default labels. The tool supplies and downloads no disks or ROMs.
 
 Create a private scratch directory outside the checkout. It and the new
 output path must be on the same filesystem, with hard-link support. The
@@ -71,8 +72,9 @@ the generated `AUTOEXEC.BAT` uses the build's local start time. FAT times
 have two-second resolution. The guest's `SYS` writes the system files.
 
 Attach the HDI as the first SASI disk, enable fixed-disk boot and eject
-both floppies. Press `1` for PC-Engine 1.05, `2` for PC-Engine 1.1, or `3`
-for MS-DOS. Enter or about ten seconds of guest time boots the last choice.
+both floppies. Press `1` for `PC-Engine 1.05 (VA)`, `2` for
+`PC-Engine 1.1 (VA2/3)`, or `3` for `MS-DOS 4.00`. Enter or about ten
+seconds of guest time boots the last choice.
 The PC-Engine banner can reflect the built-in version on the other machine;
 use the menu entry to identify the disk version. Back up the HDI before
 maintenance. Do not reorder the root or rename the parked system files.
@@ -84,9 +86,11 @@ does not reach the menu, restart VAEG or keep the default `Main_RAM_Auto=true`.
 
 Python 3.10 以降、`--debug-script` (M171 で追加した `capture-tvram <id>` を含むため、M171 以降の VAEG が必要) と
 `--screen-tvram-dump` に対応した SDL2 版 VAEG、選択した機種の ROM が
-必要です。PC-Engine 1.05、PC-Engine 1.1、D5 対応の FreeDOS-88VA 版
-MS-DOS 4.0 VA (`release/msdos-va` の `7a11162` または互換性のある後続版) の
-2HD D88 を用意してください。ディスクや ROM の同梱・自動取得はありません。
+必要です。PC-Engine 1.05、PC-Engine 1.1、FreeDOS-88VA 版の
+**D5.1 以降の MS-DOS 4.0 VA** の 2HD D88 を用意してください。
+D5.1 の 23 文字ラベルとバージョン 3 のメニュー形式への互換性が必要です。
+旧 D5 のインストーラーは既定のラベルを保存できません。
+ディスクや ROM の同梱・自動取得はありません。
 
 上記のコマンド例を使います。`--work-dir` にはチェックアウト外の作業用
 ディレクトリを指定してください。ハードリンクが可能な同一ファイルシステム上に
@@ -113,7 +117,8 @@ FAT と登録状態を再確認します。
 FAT の時刻の分解能は 2 秒です。システムファイルはゲストの `SYS` が書き込みます。
 
 HDI を先頭の SASI に接続し、固定ディスク起動を有効にしてフロッピーを両方とも
-取り出します。`1` は PC-Engine 1.05、`2` は PC-Engine 1.1、`3` は MS-DOS です。
+取り出します。`1` は `PC-Engine 1.05 (VA)`、`2` は `PC-Engine 1.1 (VA2/3)`、
+`3` は `MS-DOS 4.00` です。
 Enter またはゲスト内の約 10 秒の経過で前回の選択を起動します。異なる機種では
 PC-Engine の起動表示が内蔵版になることがあるため、メニューの項目名で区別します。
 保守作業の前に HDI をバックアップし、ルートの並び替えや退避したシステム
