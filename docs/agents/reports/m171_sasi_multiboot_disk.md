@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M171 — SASI multiboot candidate
 
-- Candidate: [`b518ef1c`](https://github.com/nakatamaho/vaeg/commit/b518ef1ceb948479620d95d81d5cd7cffabcbae8).
+- Earlier candidate: [`b518ef1c`](https://github.com/nakatamaho/vaeg/commit/b518ef1ceb948479620d95d81d5cd7cffabcbae8).
 - [Task and gate](../tasks/M171_sasi_multiboot_disk.md)
 - [English and Japanese instructions](../../modernization/pc88va-sasi-multiboot.md)
 
@@ -50,7 +50,28 @@ reference tier is unaffected.
   `vaeg_m152_debug_script_parser`, `vaeg_romless_tests`): passed.
 - Canonical clang-format check: blocked; `clang-format-mp-22` unavailable.
 
-## Guest-check contract
+## G171 follow-up: FAT timestamps and menu labels
+
+- Fixing commits: [`c48d4004`](https://github.com/nakatamaho/vaeg/commit/c48d400432863e600b9297ac8ed2c8238b84f55e)
+  (timestamps) and [`ee1037e4`](https://github.com/nakatamaho/vaeg/commit/ee1037e442d487d7762d4d9b90f08423c3395508)
+  (labels).
+- Host FAT insertion now requires a valid write timestamp. It preserves
+  the source directory fields for DOS utilities, uses local modification
+  times for supplied startup files and timestamps generated startup files
+  at build start. The final check reparses the HDI and compares the
+  builder-written entries with their expected timestamps. Guest `SYS`
+  still owns system-file installation and capture metadata.
+- The defaults are `PC-Engine 1.05 (VA)` and `PC-Engine 1.1 (VA2/3)`.
+  The builder requires MS-DOS 4.0 VA with D5.1 or later, checks the
+  version 3 label table and requires the full labels in the menu.
+- All 15 synthetic checks passed, including exact timestamp round trips,
+  zero-date rejection, an older menu format, an older label prompt and a
+  truncated label. Repository validators and the three focused CTests
+  passed. The utility disk builders are unchanged.
+- D5.1 guest verification is deferred until the D5.1 distribution is ready.
+  G171 remains pending.
+
+## Guest-check contract for the earlier candidate
 
 | Model | SASI sizes for G171 | Checkpoints |
 |---|---|---|

@@ -35,6 +35,21 @@ land.
 
 ## Maintenance Rules
 
+### M171 — Host-inserted SASI multiboot files had blank dates
+
+- **Symptom/scope:** DOS directory listings could show blank dates for the
+  multiboot builder's host-inserted utilities and startup files.
+- **Demonstrated cause:** The root entry writer zero-filled the FAT write
+  date/time fields and the final validator did not check them.
+- **Correction:** Copy the source directory timestamps for DOS utilities;
+  use caller-file modification time or build-local start time for startup
+  files. Reject invalid or changed timestamps in the final HDI.
+- **Verification:** Synthetic tests check source timestamp preservation,
+  startup timestamps, and rejection of a single zero-date mutation.
+- **Milestone/task/commit:** [M171 task](../agents/tasks/M171_sasi_multiboot_disk.md),
+  [candidate report](../agents/reports/m171_sasi_multiboot_disk.md),
+  [c48d4004](https://github.com/nakatamaho/vaeg/commit/c48d400432863e600b9297ac8ed2c8238b84f55e).
+
 ### M171 — SASI multiboot validation could miss a skipped menu or stale root slot
 
 - **Symptom/scope:** The SASI multiboot builder could accept a DOS fallback
