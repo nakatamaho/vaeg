@@ -68,6 +68,10 @@ reference tier is unaffected.
   zero-date rejection, an older menu format, an older label prompt and a
   truncated label. Repository validators and the three focused CTests
   passed. The utility disk builders are unchanged.
+- The `SYS C: /P` check now verifies the committed prepared phase, parked
+  files, and reserved empty directory entries rather than matching an
+  English confirmation. A synthetic single-mutation test rejects a
+  nonempty placeholder; 16 synthetic checks pass.
 - D5.1 follow-up checklist (VA 5 MB and VA2 40 MB): confirm the three
   full labels in the boot menu and `SYS C: /L`, select each entry and
   check its prompt, and compare the dates shown by `DIR C:` for
