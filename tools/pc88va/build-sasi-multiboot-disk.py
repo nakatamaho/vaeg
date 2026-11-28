@@ -28,7 +28,9 @@ import re
 import struct
 import subprocess
 import tempfile
+from datetime import date, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 from pcengine_disk import DiskError, PcEngineDisk, find_entry, short_name
 
@@ -62,6 +64,29 @@ def crc16(data):
         for _ in range(8):
             crc = (crc >> 1) ^ (0xa001 if crc & 1 else 0)
     return crc
+
+
+class FloppyFile(NamedTuple):
+    payload: bytes
+    stamp: tuple[int, int]  # FAT write time, write date
+
+
+def fat_stamp(local):
+    require(1980 <= local.year <= 2107, 'FAT_TIMESTAMP', 'year outside FAT range')
+    return ((local.hour << 11) | (local.minute << 5) | (local.second // 2),
+            ((local.year - 1980) << 9) | (local.month << 5) | local.day)
+
+
+def check_stamp(stamp, name):
+    clock, day = stamp
+    try:
+        require(0 <= day <= 0xffff, 'FAT_TIMESTAMP', f'{name}: invalid FAT date')
+        date(1980 + (day >> 9), (day >> 5) & 15, day & 31)
+    except ValueError as exc:
+        raise BuildError('FAT_TIMESTAMP', f'{name}: invalid FAT date') from exc
+    require(0 <= clock <= 0xffff and clock >> 11 < 24
+            and (clock >> 5) & 63 < 60 and clock & 31 < 30,
+            'FAT_TIMESTAMP', f'{name}: invalid FAT time')
 
 
 class Volume:
@@ -107,7 +132,8 @@ class Volume:
         return (struct.unpack_from('<H', self.image, self.fat + cluster * 3 // 2)[0]
                 >> (4 * (cluster % 2))) & 0xfff
 
-    def put(self, name, payload, attr=0x20):
+    def put(self, name, payload, attr=0x20, *, stamp):
+        check_stamp(stamp, name)
         raw = short_name(name)
         require(raw not in self.entries and self.slots, 'FAT_ROOT', f'cannot add {name}')
         count = (len(payload) + self.cluster_size - 1) // self.cluster_size
@@ -128,8 +154,9 @@ class Volume:
         if self.image[offset] == 0 and offset + 32 < self.data:
             # Slots after the end marker may contain stale entries.
             self.image[offset + 32:offset + 64] = bytes(32)
-        self.image[offset:offset + 32] = (raw + bytes([attr]) + bytes(14)
-                                         + struct.pack('<HI', chain[0] if chain else 0, len(payload)))
+        self.image[offset:offset + 32] = (raw + bytes([attr]) + bytes(10)
+                                         + struct.pack('<HHHI', *stamp, chain[0] if chain else 0,
+                                                       len(payload)))
         self.entries[raw] = offset
 
     def read(self, name, used=None):
@@ -161,7 +188,7 @@ class Volume:
         return bytes(self.image[HEADER:HEADER + SECTOR])
 
 
-def validate(volume, captures, owner, default):
+def validate(volume, captures, owner, default, *, host_stamps=None):
     state = volume.read('BOOTMENU.DAT')
     require(len(state) == 4096 and state[:4] == b'VBM1'
             and crc16(state[:254]) == int.from_bytes(state[254:256], 'little'),
@@ -186,6 +213,12 @@ def validate(volume, captures, owner, default):
                     and checksum == crc16(volume.image[offset + 12:offset + 32])
                     and volume.read(name) == payload, 'D5_FILE_CHANGED', name)
     volume.check_fat()
+    for name, expected in (host_stamps or {}).items():
+        offset = volume.entries.get(short_name(name))
+        require(offset is not None, 'ROOT_FILE_MISSING', name)
+        actual = struct.unpack_from('<HH', volume.image, offset + 22)
+        check_stamp(actual, name)
+        require(actual == expected, 'FAT_TIMESTAMP_CHANGED', name)
 
 
 def screen_text(dump):
@@ -252,7 +285,8 @@ def copy_floppy(work, source, name, required, system):
         cluster, length = struct.unpack_from('<HI', disk.root, where + 26)
         content = b''.join(disk.read_cluster(c) for c in disk.cluster_chain(cluster))
         require(0 < length <= len(content), 'D88_FILE', filename)
-        files.append(content[:length])
+        stamp = struct.unpack_from('<HH', disk.root, where + 22)
+        files.append(FloppyFile(content[:length], stamp))
     (work / name).write_bytes(data)
     return tuple(files)
 
@@ -284,6 +318,25 @@ def startup_names(entry_id, owner):
     return f'VACFG{entry_id}.SYS', f'VAEXEC{entry_id}.BAT'
 
 
+def install_startup(volume, args, owner, build_stamp):
+    stamps = {}
+    for entry_id, system in enumerate(('msdos', 'pce105', 'pce11')):
+        for kind, name in zip(('config', 'autoexec'), startup_names(entry_id, owner)):
+            path = getattr(args, f'{system}_{kind}')
+            if path is not None:
+                with path.open('rb') as source:
+                    payload = source.read()
+                    stamp = fat_stamp(datetime.fromtimestamp(os.fstat(source.fileno()).st_mtime))
+            elif entry_id == 0 and kind == 'autoexec':
+                payload = b'@ECHO OFF\r\n'  # Suppress DOS DATE/TIME setup prompts.
+                stamp = build_stamp
+            else:
+                continue
+            volume.put(name, payload, 0x20 if entry_id == owner else 0x22, stamp=stamp)
+            stamps[name] = stamp
+    return stamps
+
+
 def publish(image, output, work):
     # Finish writing before a no-clobber publication. Keep the published HDI
     # independent of the guest's working disk and never mount the final path.
@@ -294,11 +347,13 @@ def publish(image, output, work):
 
 
 def build(args, work):
+    build_stamp = fat_stamp(datetime.now())
     guest = Guest(args, work)
     engines = [copy_floppy(work, args.pce105, 'pce105.d88', ENGINE, LABELS[1]),
                copy_floppy(work, args.pce11, 'pce11.d88', ENGINE, LABELS[2])]
     for label, files, sizes in zip(LABELS[1:], engines, ENGINE_SIZES):
-        require(tuple(map(len, files)) == sizes, 'D88_SYSTEM', f'expected {label} system-file sizes')
+        require(tuple(len(f.payload) for f in files) == sizes,
+                'D88_SYSTEM', f'expected {label} system-file sizes')
     dos = copy_floppy(work, args.msdos, 'msdos.d88', DOS, LABELS[0])
     captures = []
     for entry, floppy in enumerate(('pce105.d88', 'pce11.d88'), 1):
@@ -310,7 +365,7 @@ def build(args, work):
         guest.run(f'install-{entry}', floppy, ((1400, 'DIR C:'), (2100, 'SYS C:')), 3600)
         volume = guest.volume()
         files = tuple(volume.read(name) for name in ENGINE)
-        require(volume.ipl != before and files == engines[entry - 1],
+        require(volume.ipl != before and files == tuple(f.payload for f in engines[entry - 1]),
                 'GUEST_ENGINE_INSTALL', LABELS[entry])
         captures.append((volume.ipl, files))
         text = guest.run(f'capture-{entry}', 'msdos.d88',
@@ -320,10 +375,12 @@ def build(args, work):
 
     volume = guest.volume()
     # Copy just the maintenance utilities; SYS installs the DOS kernel and shell.
-    require(tuple(volume.read(name) for name in DOS[:3]) == dos[:3],
+    require(tuple(volume.read(name) for name in DOS[:3]) == tuple(f.payload for f in dos[:3]),
             'GUEST_DOS_INSTALL', 'kernel or command interpreter differs from distribution')
-    for name, payload in zip(DOS[3:], dos[3:]):
-        volume.put(name, payload)
+    host_stamps = {}
+    for name, (payload, stamp) in zip(DOS[3:], dos[3:]):
+        volume.put(name, payload, stamp=stamp)
+        host_stamps[name] = stamp
     guest.disk.write_bytes(volume.image)
     text = guest.run('menu', frames=900)
     expect_menu(text, args.model, 2, 'GUEST_MENU')
@@ -348,18 +405,9 @@ def build(args, work):
     check_timeout(guest, owner)
     volume = guest.volume()
     validate(volume, captures, owner, owner)
-    for entry_id, system in enumerate(('msdos', 'pce105', 'pce11')):
-        for kind, name in zip(('config', 'autoexec'), startup_names(entry_id, owner)):
-            path = getattr(args, f'{system}_{kind}')
-            if path is not None:
-                payload = path.read_bytes()
-            elif entry_id == 0 and kind == 'autoexec':
-                payload = b'@ECHO OFF\r\n'  # Suppress DOS DATE/TIME setup prompts.
-            else:
-                continue
-            volume.put(name, payload, 0x20 if entry_id == owner else 0x22)
+    host_stamps.update(install_startup(volume, args, owner, build_stamp))
     image = bytes(volume.image)
-    validate(Volume(args.size, image), captures, owner, owner)
+    validate(Volume(args.size, image), captures, owner, owner, host_stamps=host_stamps)
     publish(image, args.output, work)
 
 

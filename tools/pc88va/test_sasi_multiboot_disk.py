@@ -23,9 +23,11 @@
 """Synthetic FAT12 and D5 validation contracts; no emulator needed."""
 
 import importlib.util
+import os
 import struct
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -34,6 +36,9 @@ spec = importlib.util.spec_from_file_location(
     'multiboot', Path(__file__).with_name('build-sasi-multiboot-disk.py'))
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
+
+
+STAMP = (0, 0x10d1)  # 1988-06-17, midnight
 
 
 def fixture():
@@ -52,13 +57,13 @@ def fixture():
         struct.pack_into('<16sH', state, base, m.LABELS[entry].encode(), m.crc16(ipl))
         for index, payload in enumerate(files):
             name = f'VA{entry}{index}0000.SYS'
-            v.put(name, payload, 0x27)
+            v.put(name, payload, 0x27, stamp=STAMP)
             pos = v.entries[m.short_name(name)]
             struct.pack_into('<HH', state, base + 18 + 4 * index,
                              (pos - v.root) // 32, m.crc16(v.image[pos + 12:pos + 32]))
     struct.pack_into('<H', state, 254, m.crc16(state[:254]))
-    v.put('BOOTMENU.DAT', state, 0x27)
-    v.put('BOOTMENU.SYS', b'Synthetic stage', 0x27)
+    v.put('BOOTMENU.DAT', state, 0x27, stamp=STAMP)
+    v.put('BOOTMENU.SYS', b'Synthetic stage', 0x27, stamp=STAMP)
     return v, captures
 
 
@@ -74,8 +79,8 @@ class MultibootTest(unittest.TestCase):
                 self.assertEqual(v.data, m.HEADER + sectors * 1024)
                 self.assertEqual(v.end_cluster - 2, clusters)
                 payload = bytes(range(256)) * (v.cluster_size // 256 + 1)
-                v.put('FILE.BIN', payload)
-                v.put('EMPTY.TXT', b'')
+                v.put('FILE.BIN', payload, stamp=STAMP)
+                v.put('EMPTY.TXT', b'', stamp=STAMP)
                 v = m.Volume(mb, v.image)
                 self.assertEqual(v.read('FILE.BIN'), payload)
                 self.assertEqual(v.read('EMPTY.TXT'), b'')
@@ -91,11 +96,60 @@ class MultibootTest(unittest.TestCase):
         v = m.Volume(5, v.image)
         m.validate(v, captures, 0, 0)
 
-        v.put('AUTOEXEC.BAT', b'@ECHO OFF\r\n')
+        v.put('AUTOEXEC.BAT', b'@ECHO OFF\r\n', stamp=STAMP)
         reopened = m.Volume(5, bytes(v.image))
         m.validate(reopened, captures, 0, 0)
         self.assertEqual(reopened.read('AUTOEXEC.BAT'), b'@ECHO OFF\r\n')
         self.assertEqual(reopened.image[end + 32], 0)
+
+    def test_floppy_directory_timestamp(self):
+        root = bytearray(64)
+        root[:11] = m.short_name('SYS.COM')
+        stamp = (0x645a, STAMP[1])
+        struct.pack_into('<HHHI', root, 22, *stamp, 2, 3)
+        disk = Mock(root=root)
+        disk.is_msdos.return_value = True
+        disk.cluster_chain.return_value = [2]
+        disk.read_cluster.return_value = b'abc\0'
+        with tempfile.TemporaryDirectory() as scratch, patch.object(m, 'PcEngineDisk', return_value=disk):
+            work = Path(scratch)
+            source = work / 'source.d88'
+            source.write_bytes(bytes(0x2b0))
+            (file,) = m.copy_floppy(work, source, 'scratch.d88', ('SYS.COM',), m.LABELS[0])
+        self.assertEqual(file, (b'abc', stamp))
+        v, captures = fixture()
+        v.put('SYS.COM', file.payload, stamp=file.stamp)
+        m.validate(m.Volume(5, bytes(v.image)), captures, 0, 0, host_stamps={'SYS.COM': stamp})
+
+    def test_startup_timestamps(self):
+        v, captures = fixture()
+        supplied_time = datetime(2000, 2, 29, 23, 58, 59)
+        supplied_stamp = (0xbf5d, 0x285d)
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / 'startup.txt'
+            path.write_bytes(b'REM caller supplied\r\n')
+            epoch = supplied_time.timestamp()
+            os.utime(path, (epoch, epoch))
+            args = SimpleNamespace(msdos_config=None, msdos_autoexec=None,
+                                   pce105_config=path, pce105_autoexec=None,
+                                   pce11_config=None, pce11_autoexec=None)
+            stamps = m.install_startup(v, args, 0, STAMP)
+        self.assertEqual(stamps, {'AUTOEXEC.BAT': STAMP, 'VACFG1.SYS': supplied_stamp})
+        for name, stamp in stamps.items():
+            offset = v.entries[m.short_name(name)]
+            self.assertEqual(struct.unpack_from('<HH', v.image, offset + 22), stamp)
+        m.validate(m.Volume(5, bytes(v.image)), captures, 0, 0, host_stamps=stamps)
+
+    def test_zero_builder_date(self):
+        v, captures = fixture()
+        v.put('AUTOEXEC.BAT', b'@ECHO OFF\r\n', stamp=STAMP)
+        stamps = {'AUTOEXEC.BAT': STAMP}
+        m.validate(v, captures, 0, 0, host_stamps=stamps)
+        offset = v.entries[m.short_name('AUTOEXEC.BAT')]
+        struct.pack_into('<H', v.image, offset + 24, 0)
+        with self.assertRaises(m.BuildError) as raised:
+            m.validate(m.Volume(5, bytes(v.image)), captures, 0, 0, host_stamps=stamps)
+        self.assertEqual(raised.exception.code, 'FAT_TIMESTAMP')
 
     def test_dropped_parked_file(self):
         v, captures = fixture()

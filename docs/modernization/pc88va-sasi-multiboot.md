@@ -65,6 +65,10 @@ are `--msdos-config`, `--msdos-autoexec`, `--pce105-config`,
 in the intended guest encoding and DOS CRLF line endings; bytes are copied
 as-is. If absent, MS-DOS gets a minimal `AUTOEXEC.BAT` to suppress date and
 time prompts. Other startup files are optional and default to absent.
+The host preserves the source D88 directory timestamps for `SYS.COM` and
+`CHKDSK.COM`. Supplied startup files use their local modification time;
+the generated `AUTOEXEC.BAT` uses the build's local start time. FAT times
+have two-second resolution. The guest's `SYS` writes the system files.
 
 Attach the HDI as the first SASI disk, enable fixed-disk boot and eject
 both floppies. Press `1` for PC-Engine 1.05, `2` for PC-Engine 1.1, or `3`
@@ -103,6 +107,10 @@ FAT と登録状態を再確認します。
 で指定できます。ゲスト用の文字コードと CRLF 改行を使ってください。内容は
 変換・実行せずに格納します。MS-DOS の `AUTOEXEC.BAT` を省略した場合は日時を
 尋ねないための最小ファイルを入れます。他の起動ファイルは既定では作りません。
+ホストがコピーする `SYS.COM` と `CHKDSK.COM` は、元の D88 のディレクトリにある
+日時を保持します。指定した起動ファイルには元のファイルの更新日時、生成する
+`AUTOEXEC.BAT` にはビルド開始日時を、いずれもローカル時刻で記録します。
+FAT の時刻の分解能は 2 秒です。システムファイルはゲストの `SYS` が書き込みます。
 
 HDI を先頭の SASI に接続し、固定ディスク起動を有効にしてフロッピーを両方とも
 取り出します。`1` は PC-Engine 1.05、`2` は PC-Engine 1.1、`3` は MS-DOS です。
