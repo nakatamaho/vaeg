@@ -68,8 +68,11 @@ reference tier is unaffected.
   zero-date rejection, an older menu format, an older label prompt and a
   truncated label. Repository validators and the three focused CTests
   passed. The utility disk builders are unchanged.
-- D5.1 guest verification is deferred until the D5.1 distribution is ready.
-  G171 remains pending.
+- D5.1 follow-up checklist (VA 5 MB and VA2 40 MB): confirm the three
+  full labels in the boot menu and `SYS C: /L`, select each entry and
+  check its prompt, and compare the dates shown by `DIR C:` for
+  `SYS.COM`, `CHKDSK.COM` and `AUTOEXEC.BAT` with their FAT directory
+  timestamps. G171 human acceptance remains pending.
 
 ## Guest-check contract for the earlier candidate
 
